@@ -1,0 +1,71 @@
+# docker-compose.dev.yml —— 本地开发用，docker compose up 一条命令。
+#
+# 共 3 服务（M1）：
+#   backend  - Go binary，从 backend/Dockerfile build
+#   db       - PostgreSQL + pgvector
+#   redis    - 用于 session / 队列 / rate limit
+#
+# M1 不挂 host volume 同步源码 / 不开 dev hot reload —— 那是 Stage 5+ Caddy
+# 配齐之后再做。M1 目标只是闭环 toolchain：build 出来、起来、healthz 200。
+
+name: standmeet-dev
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: production           # build stage 已经跑了 lint；M1 dev 走完整链
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DATABASE_URL=postgres://standmeet:standmeet_dev@db:5432/standmeet?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - SESSION_KEY=dev-not-secret-rotate-in-prod
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=standmeet
+      - POSTGRES_USER=standmeet
+      - POSTGRES_PASSWORD=standmeet_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata: {}
+  redisdata: {}

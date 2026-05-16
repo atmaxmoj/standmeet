@@ -24,7 +24,21 @@ extract_keys() {
 }
 
 # Find all .env.example files, skipping common heavy/vendored dirs.
-mapfile -t examples < <(find "$ROOT" \
+# 用 while read 而不是 mapfile 以兼容 macOS 默认 bash 3.2（无 mapfile）。
+# LINT_ENV_EXCLUDE 是空格分隔的子目录基名列表，匹配到的整路径跳过。
+# 用法：LINT_ENV_EXCLUDE='standmeet-client standmeet-server' lint-env .
+examples=()
+while IFS= read -r f; do
+  skip=false
+  for excl in ${LINT_ENV_EXCLUDE:-}; do
+    case "$f" in
+      */"$excl"/*|*"/$excl") skip=true; break ;;
+    esac
+  done
+  if [ "$skip" = false ]; then
+    examples+=("$f")
+  fi
+done < <(find "$ROOT" \
   \( -type d \( -name node_modules -o -name .git -o -name .next -o -name dist -o -name build -o -name .venv -o -name venv -o -name __pycache__ \) -prune \) -o \
   \( -type f -name '.env.example' -print \))
 

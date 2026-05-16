@@ -1,139 +1,52 @@
 version: 3
 workdir: .
 allow:
-  depOnAnyVendor: true   # 第三方库（chi、pgx、mcp-go、anthropic-sdk-go 等）任何 component 可用；
-                         # 这里只约束 internal 的依赖图。
-  deepScan: false        # deep-scan 走方法调用 + DI 签名。cmd/server/main.go 是 composition root，
-                         # 设计上跨所有 layer，所以关闭 deepScan 避免误报。
+  depOnAnyVendor: true   # 第三方库（chi、pgx、mcp-go、anthropic-sdk-go 等）
+                         # 任何 component 可用；这里只约束 internal 的依赖图。
+  deepScan: false        # cmd/server/main.go 是 composition root，
+                         # 跨所有 layer 是预期；关闭 deepScan 避免误报。
 
-# Components 命名对齐 Otium auth（owner 已有习惯），按外部系统切 infra
-# 而不是塞一个扁平的 infra/ 包。
+# Components 命名对齐 Otium auth。M1 时只声明实际存在的；后续 milestone 引入
+# 新 component 时再 append（M2 加 session, M5 加 domain/usecases/storage, M6
+# 加 routes/admin & routes/public, M10 加 sandbox/inference/mcp/middleware）。
 components:
-  domain:
-    in: internal/domain/**
-  usecases:
-    in: internal/usecases/**
-  postgres:
-    in: internal/postgres/**
-  storage:
-    in: internal/storage/**
-  sandbox:
-    in: internal/sandbox/**
-  inference:
-    in: internal/inference/**
-  session:
-    in: internal/session/**
-  middleware:
-    in: internal/middleware/**
-  routes:
-    in: internal/routes/**            # 含 admin / public / internal 三个子包
-  mcp:
-    in: internal/mcp/**
   config:
     in: internal/config/**
+  postgres:
+    in: internal/postgres/**
+  sysroutes:
+    in: internal/routes/sys/**
   server:
     in: internal/server/**
   cmd:
     in: cmd/**
 
-# `deps:` 声明合法的箭头。DDD layering:
-#   domain 在内核，usecases 包它，infra adapters（postgres / storage / sandbox /
-#   inference / session）平行在 usecases 旁边；middleware + routes + mcp 是 transport
-#   边缘；server 是 wiring，cmd 是 composition root。
 deps:
-  # Domain —— 纯实体 + 值对象。不依赖任何 internal。
-  domain:
-    mayDependOn: []
-    anyVendorDeps: true
-
-  # Usecases 编排 domain + infra adapters。和 Otium 一样不抽接口层（小项目
-  # 加一层接口是 ceremony；seam 已经够窄）。
-  usecases:
-    mayDependOn:
-      - domain
-      - postgres
-      - storage
-      - sandbox
-      - inference
-      - session
-    anyVendorDeps: true
-
-  # Infra adapters —— 每个适配单一外部系统。
-  postgres:
-    mayDependOn:
-      - domain
-    anyVendorDeps: true
-  storage:
-    mayDependOn:
-      - domain
-    anyVendorDeps: true
-  sandbox:
-    # Sandbox 通过 docker socket 拉 builder 容器，不需要 domain 类型。
-    mayDependOn: []
-    anyVendorDeps: true
-  inference:
-    mayDependOn:
-      - domain
-    anyVendorDeps: true
-  session:
-    # Session 管理依 postgres 持久化 owner / token / vsession，依 domain 类型。
-    mayDependOn:
-      - postgres
-      - domain
-    anyVendorDeps: true
-
-  # Middleware 在 transport 和业务之间，做 auth.WithOwner 注入 ownerID。
-  middleware:
-    mayDependOn:
-      - session
-      - domain
-    anyVendorDeps: true
-
-  # Routes 是 presentation layer：反序列化 → 调 usecases → 渲染响应。
-  # 可读 session / 设 cookie。不直接访问 postgres / storage 等 infra。
-  routes:
-    mayDependOn:
-      - domain
-      - usecases
-      - middleware
-      - session
-    anyVendorDeps: true
-
-  # MCP server —— 给 owner 的 AI 客户端用，鉴权走 API token（在 session/ 里实现）。
-  # 调 usecases，不绕过去直接打 infra。
-  mcp:
-    mayDependOn:
-      - domain
-      - usecases
-      - session
-    anyVendorDeps: true
-
-  # Server 装配 chi 路由 + middleware，不做业务。
-  server:
-    mayDependOn:
-      - middleware
-      - routes
-      - mcp
-    anyVendorDeps: true
-
-  # Config 不依赖 internal。
   config:
     mayDependOn: []
+    anyVendorDeps: true
+
+  postgres:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # sys routes (/internal/healthz, tls-ask, log) 需要 ping db / redis
+  # 所以可以 import postgres。redis 客户端是 vendor，已被 anyVendorDeps 允许。
+  sysroutes:
+    mayDependOn:
+      - postgres
+    anyVendorDeps: true
+
+  # server 装配，把各 routes sub-router 挂到 chi。
+  server:
+    mayDependOn:
+      - sysroutes
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
       - config
-      - domain
-      - usecases
       - postgres
-      - storage
-      - sandbox
-      - inference
-      - session
-      - middleware
-      - routes
-      - mcp
       - server
     anyVendorDeps: true
