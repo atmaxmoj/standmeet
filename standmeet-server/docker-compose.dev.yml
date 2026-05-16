@@ -1,0 +1,134 @@
+# Dev environment — run with: make dev
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: standmeet
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=standmeet
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=true
+      - CORS_ALLOW_ALL_ORIGINS=true
+      - STANDMEET_GENERATE_TOKEN=true
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET_NAME=standmeet-assets
+      - S3_PUBLIC_URL=http://localhost:9000
+      - PAGE_BUILDER_URL=http://page-builder:5174
+      - PAGE_DEV_SOURCE_DIR=/data/page-dev-source
+    volumes:
+      - global-packages:/data/global-packages
+      - page-dev-source:/data/page-dev-source
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import socket; s=socket.create_connection((\"localhost\", 8000), timeout=2); s.close()'"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "8001:8001"
+    environment:
+      - DJANGO_URL=http://server:8000
+      - OWNER_TOKEN=${OWNER_TOKEN:-}
+      - GATEWAY_PORT=8001
+      - MAX_CONCURRENT_QUERIES=3
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
+      - SANDBOX_ENABLED=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      server:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      target: dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_GATEWAY_URL=ws://localhost:8001
+      - INTERNAL_API_URL=http://server:8000
+      - OWNER_TOKEN=${OWNER_TOKEN:-}
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_BUCKET_NAME=standmeet-assets
+    depends_on:
+      - gateway
+
+  im-bridge:
+    build: ./im-bridge
+    environment:
+      - DJANGO_URL=http://server:8000
+      - GATEWAY_URL=ws://gateway:8001
+      - OWNER_TOKEN=${OWNER_TOKEN:-}
+      - WEB_URL=http://localhost:3000
+    depends_on:
+      server:
+        condition: service_healthy
+      gateway:
+        condition: service_started
+
+  page-builder:
+    build: ./page-builder
+    command: ["./start.sh"]
+    ports:
+      - "5173:5173"
+      - "5174:5174"
+    volumes:
+      - page-dev-source:/app/source
+      - global-packages:/data/global-packages
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  miniodata:
+  global-packages:
+  page-dev-source:

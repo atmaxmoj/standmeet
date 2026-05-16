@@ -1,0 +1,60 @@
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+!.env.example
+*.pem
+*.key
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Build outputs
+dist/
+dist-electron/
+dist-renderer/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Test outputs
+test-results/
+playwright-report/
+coverage/
+logs/
+
+# Local DBs and data
+*.sqlite
+*.sqlite3
+*.db
+
+# IDE
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.iml
+
+# Tool caches
+.turbo/
+.cache/
