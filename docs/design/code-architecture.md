@@ -303,17 +303,23 @@ raw_entries
   created_at      timestamptz
 
 wiki_entries
-  id              uuid pk
-  owner_id        uuid fk
-  title           text
-  body            text
-  tags            text[]
-  visibility      text                            -- 'public' | 'on_request' | 'private'
-  source_raw_ids  uuid[]
-  embedding       vector(1536) null
-  embedded_at     timestamptz null
-  created_at      timestamptz
-  updated_at      timestamptz
+  id                   uuid pk
+  owner_id             uuid fk
+  title                text
+  body                 text
+  tags                 text[]
+  visibility           text                       -- 'public' | 'on_request' | 'private'
+  source_raw_ids       uuid[]
+  embedding            vector(1536) null
+  embedded_at          timestamptz null
+  -- SEO landing 页（默认关，逐条 owner 决定开；详见 J）
+  seo_landing_enabled  bool default false
+  seo_slug             citext null                -- URL slug；为空时从 title slugify
+  seo_title            text null                  -- override <title>；为空 = 用 title
+  seo_description      text null                  -- override meta description
+  seo_og_image_id      uuid null fk -> media_assets
+  created_at           timestamptz
+  updated_at           timestamptz
 
 media_assets
   id              uuid pk
@@ -390,6 +396,27 @@ page_content                                       -- 每个 owner 一行；支�
   projects            jsonb
   status_block        jsonb
   contact_block       text
+  -- per-page SEO override（为空时走 seo_settings 兜底；详见 J）
+  seo_title           text null
+  seo_description     text null
+  seo_og_image_id     uuid null fk -> media_assets
+  seo_canonical       text null
+  seo_extra_head_html text null                    -- 仅这页要加的 head 注入
+  updated_at          timestamptz
+
+seo_settings                                       -- 每个 owner 一行；全 instance SEO 默认值
+  owner_id            uuid pk fk
+  default_og_image_id uuid null fk -> media_assets -- 没有特定页 og_image 时的兜底
+  -- 结构化字段（admin 表单填，server 拼标准 snippet）
+  analytics           jsonb                        -- { ga_id?, plausible_domain?, umami_id?, ... }
+  verifications       jsonb                        -- { google_search_console?, bing?, ahrefs?, ... }
+  -- 万能注入（owner 想塞任何东西）
+  extra_head_html     text null
+  -- robots / sitemap
+  robots_override     text null                    -- 完整 robots.txt override；为空 = server 生成默认
+  sitemap_exclude     text[]                       -- 路径白名单内的排除（如 ["/work"]）
+  -- Person schema 默认自动生成，owner 可以 override
+  person_schema_override jsonb null
   updated_at          timestamptz
 ```
 
@@ -407,6 +434,13 @@ custom_pages
   staging_url_token   text null                   -- 不可猜 token；staging URL = host/_stage/{token}/...
   staged_at           timestamptz null
   live_at             timestamptz null
+  -- per-page SEO override（同 page_content）
+  seo_title           text null
+  seo_description     text null
+  seo_og_image_id     uuid null fk -> media_assets
+  seo_canonical       text null
+  seo_extra_head_html text null
+  seo_sitemap_include bool default true            -- 是否进 sitemap.xml
   created_at          timestamptz
   unique(owner_id, slug)
 
@@ -467,6 +501,7 @@ connectors
 - `api_tokens(token_hash)` unique
 - `custom_pages(owner_id, slug)` unique
 - `custom_page_builds(page_id, started_at desc)`
+- `wiki_entries(owner_id, seo_slug) where seo_landing_enabled` unique partial — SEO landing 路由
 
 ### 决策点
 
@@ -544,6 +579,15 @@ POST   /api/admin/custom-pages/:id/publish  {build_id}  -- 把某个 built 提�
 POST   /api/admin/custom-pages/:id/rollback              -- 上一个 live_build_id
 POST   /api/admin/custom-pages/:id/unpublish             -- live_build_id := null
 DELETE /api/admin/custom-pages/:id
+
+# SEO（详见 J）
+GET    /api/admin/seo                       -- owner-level 默认值（seo_settings 表）
+PUT    /api/admin/seo                       -- 改 owner-level
+# per-page SEO 通过下面这些 endpoint 一起改：
+#   PUT  /api/admin/page          { ..., seo: {...} }      默认页 override
+#   PATCH /api/admin/custom-pages/:id { seo: {...} }       custom page override
+#   PATCH /api/admin/wiki/:id     { seo_landing_enabled, seo: {...} }   wiki landing
+GET    /api/admin/seo/preview               ?path=/   -- 预览最终 <head>（owner-level + per-page 合并）
 ```
 
 源文件创作完全走 MCP，不在这里（见 D.3）。
@@ -574,9 +618,17 @@ POST   /api/v1/sessions/:id/messages
   response: text/event-stream
   events: token delta、tool_call_start、tool_call_end、citation、done、error
 
-GET    /api/v1/page/:handle                -- 默认页内容（只读）
+GET    /api/v1/page/:handle                -- 默认页内容（只读，含 seo meta）
 GET    /api/v1/page/:handle/byoai-config   -- {enabled, providers, public_blurb}
 GET    /api/v1/sdk/v1/manifest             -- SDK build 元信息（给 instance 自带的 <script> 用）
+
+# SEO 公开 endpoint（爬虫直接访问；详见 J）
+GET    /robots.txt                         -- backend 动态生成；owner 可 override
+GET    /sitemap.xml                        -- 列默认页 + 所有 live custom_pages + 所有 seo_landing_enabled 的 wiki
+GET    /api/v1/wiki/:handle/:seo_slug      -- public wiki entry 的可索引内容（仅 seo_landing_enabled 的可访问）
+GET    /api/v1/og/page/:handle             -- 自动渲染默认页 OG image (PNG)
+GET    /api/v1/og/custom/:page_id          -- 自动渲染 custom page OG image
+GET    /api/v1/og/wiki/:wiki_id            -- 自动渲染 wiki landing OG image
 ```
 
 ### D.3 MCP server — `/mcp/`
@@ -640,6 +692,30 @@ custom_page.promote_to_live(page_id, build_id?)
 custom_page.rollback(page_id)
   -- live_build_id := 上一个 live build
 ```
+
+**工具 —— SEO（详见 J）：**
+
+```
+# owner-level（全 instance）
+seo.get_owner()
+  -> {analytics, verifications, extra_head_html, robots_override, default_og_image_id, person_schema_override}
+seo.set_owner(patch)                                -- 部分更新
+
+# per-page override
+seo.set_default_page(patch)                         -- 默认页 SEO override
+seo.set_custom_page(page_id, patch)                 -- custom page SEO override
+seo.set_wiki(wiki_id, {
+  landing_enabled?: bool,
+  slug?: string,
+  title?, description?, og_image_id?
+})
+
+# 预览
+seo.preview(path)
+  -> {final_head_html, computed_title, computed_description, og_image_url}
+```
+
+AI 可以在写 custom page 时一并调 `seo.set_custom_page(page_id, {title: ..., description: ...})`，不需要 owner 跳出去手动配。
 
 Owner 的典型流程：
 
@@ -989,6 +1065,124 @@ Backend entrypoint 启动 HTTP server 之前先跑 `goose up`。破坏性 migrat
 
 ---
 
+## J. SEO（owner 完全可控）
+
+StandMeet 的页是对外门面，SEO 必须由 owner 完全控制。这章把 C/D 里散落的 SEO 字段集中讨论，并定 og image、sitemap、robots 这几样动态产物的实现策略。
+
+### 两层模型
+
+```
+owner-level（seo_settings 表）          ← 默认值（GA、Search Console、Person schema、默认 og）
+        │
+        ▼
+per-page override                     ← 默认页 / 每个 custom page / 每条 seo_landing_enabled wiki
+        │
+        ▼
+最终 <head>                            ← server 合并、SSR 渲染
+```
+
+- **owner-level（`seo_settings`）** 一次配，全 instance 共用：GA tracking ID、Search Console 验证、Person schema override、默认 OG 图、`extra_head_html`（万能注入）、`robots_override`、`sitemap_exclude`。
+- **per-page override** 在 `page_content` / `custom_pages` / `wiki_entries` 里：`seo_title` / `seo_description` / `seo_og_image_id` / `seo_canonical` / `seo_extra_head_html`，空则继承 owner-level。
+- **合并规则** 简单优先级：per-page 非空 → 用 per-page；否则用 owner-level；都空用 server 派生默认。
+
+### Wiki SEO landing 页
+
+- 默认 `seo_landing_enabled=false`，wiki 只作 RAG 材料，访客看不到独立 URL。
+- Owner 觉得某条 wiki 值得独立暴露（长文、有 SEO 价值），点亮开关或叫 AI 调 `seo.set_wiki(id, {landing_enabled: true})`。
+- 启用后：`GET /api/v1/wiki/:handle/:seo_slug` 返回完整 wiki body 的渲染页 + "Ask sijie about this" 按钮（跳进 chat 上下文已经预填该 wiki）。
+- 自动进 `sitemap.xml`。
+- `seo_slug` 必须 owner-internal unique（索引已加）；空时从 title slugify。
+
+### `<head>` 内容的两种填法
+
+按用户答复，两条路都给：
+
+1. **结构化字段**（admin 表单 + MCP `seo.set_owner`）：`analytics: {ga_id, plausible_domain, umami_id}` / `verifications: {google_search_console_token, bing_token}` / `default_og_image_id` / `person_schema_override`。Server 拼出标准 snippet（GA snippet、search-console meta tag 等）。最安全、零代码。
+2. **万能注入** `extra_head_html`：owner / AI 直接贴任何 HTML（GA gtag、第三方 SEO tool、Hotjar、…）。是 owner 自己的 instance，不做 sanitization，自担风险。
+
+二者**叠加**输出：先 server 拼的结构化 snippet，再 owner 注入的 `extra_head_html`。owner-level 和 per-page 都各有自己的 `extra_head_html`，按上下文合并。
+
+### sitemap.xml
+
+backend 动态生成，缓存 5 分钟。包含：
+
+- 默认页 `/{handle}` （或 v1 的 `/`）
+- 所有 `live` 状态的 `custom_pages.slug`，除非该 page 的 `seo_sitemap_include=false`
+- 所有 `seo_landing_enabled=true` 的 wiki entries
+- `seo_settings.sitemap_exclude` 里的路径剔除
+
+每条带 `<lastmod>` 用 `updated_at`、`<changefreq>` 默认 `monthly`、`<priority>` 默认 0.5（custom_pages 0.8）。
+
+### robots.txt
+
+backend 动态生成。默认：
+
+```
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login
+Disallow: /setup
+Disallow: /gate
+Disallow: /_stage/
+Disallow: /internal/
+Sitemap: https://{instance_host}/sitemap.xml
+```
+
+`seo_settings.robots_override` 非空就用 override（owner 完全替换默认）。
+
+### OG image 自动生成
+
+每个公开页都需要一张 1200×630 的社交分享卡片。三种策略：
+
+1. **next/og（Vercel 的 SVG → PNG 渲染器）** 在 `app/` 下 `/api/og/*` route 渲染。React JSX 写卡片设计，satori 转 SVG，resvg 转 PNG，sharp 输出。代码和设计 stack 一致。
+2. **Go 渲染**：backend 用 `golang.org/x/image/font` 或 `fogleman/gg` 画。性能好但 layout 写起来痛苦。
+3. **owner 上传**：上传一个 PNG 当默认；不要自动渲染。
+
+**推荐：1 + 3 并存**：`og_image_id` 为空时走 next/og 自动渲染（含 owner.full + handle + 一行 tagline + 配色取自当前 token），owner 想精控就上传图。app 的 og endpoint 走 `/api/v1/og/*`，背后是 app 服务，缓存 30 天。
+
+### Person schema (JSON-LD)
+
+server 自动从 owner profile 拼一份：
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Sijie Wang",
+  "url": "https://sijie.example",
+  "address": { "@type": "PostalAddress", "addressLocality": "Markham, Ontario" },
+  "knowsAbout": [...来自 wiki tags 频次 top 5...],
+  "sameAs": [...future: 链接到 GitHub / LinkedIn / Twitter 等 connector...]
+}
+```
+
+`seo_settings.person_schema_override` 非空就用 owner 提供的 JSON 完全替换。
+
+### admin SEO 面板（设计稿里没画，但要补）
+
+设计里 admin 有 `page` section 编辑默认页内容。SEO 面板独立一块（在 admin 左 nav 加 "seo"，或塞进 page section 的折叠区）：
+
+- **Global SEO** —— GA / Plausible / Search Console 表单 + 默认 OG image 上传 + Person schema override（高级折叠）+ robots.txt override（高级折叠）+ extra_head_html
+- **Per-page tabs** —— 默认页 / custom pages 列表 / wiki SEO 列表，各自简表单（title / description / og_image / canonical / extra_head）
+- **预览** —— 输入一个 path，admin 显示最终拼出来的 `<head>` 是什么样（调 `seo.preview` endpoint）
+
+### 决策点
+
+**J.1** OG image 渲染：next/og（Node 在 app 容器渲染）vs Go（在 backend 渲染）。**推荐：** next/og。和设计 stack 一致，layout 用 JSX 写。
+
+**J.2** Sitemap 缓存：每次请求重算 vs 5 分钟内存缓存 vs Redis 缓存。**推荐：** 5 分钟内存（owner update 之后下次爬虫请求最多 5 分钟看到旧版，可接受）。
+
+**J.3** Wiki landing 页的"Ask sijie about this" CTA：进 chat 时 pre-fill 一个问题（"tell me more about: {wiki.title}"），还是把 wiki body 直接当上下文塞进 conversation？**推荐：** pre-fill 问题（保持 chat surface 一致；不污染对话上下文）。
+
+**J.4** `extra_head_html` 是否做 sanitization。Owner 自己的 instance、自担风险 → 不做。但 v2 多租户时 owner A 不能让 owner B 的页执行自己的 JS。**推荐：** v1 不 sanitize；v2 多租户开启时切到允许列表（只放 `<meta>` `<link>` `<script>` 含特定 src host 等）。
+
+**J.5** Wiki landing 是否影响 chat 的 retrieval scope。如果 wiki `seo_landing_enabled=true` 但 `visibility='private'`，会出现一个对外可索引但 chat 时拒绝引用的怪情况。**推荐：** 强制 `seo_landing_enabled=true` 要求 `visibility='public'`，server 端校验。
+
+**J.6** Canonical URL 默认值。custom domain 设置后，canonical 应该指 custom domain 还是 instance domain？影响主搜索引擎对哪个 URL 当主版本。**推荐：** custom domain 一旦 verified，所有 canonical 自动指 custom domain；owner 可 per-page override。
+
+---
+
 ## 横切原则
 
 1. **owner_id 不可妥协。** 每张领域表、每个 query、每个存储 path 都要带。Repository 从 `ctx` 取；vet check 兜底。
@@ -997,6 +1191,7 @@ Backend entrypoint 启动 HTTP server 之前先跑 `goose up`。破坏性 migrat
 4. **MCP 是 owner 的创作通道，不只是 ingest 通道。** 任何 owner-side 工作流，只要 AI 介入有价值（raw → wiki、写自定义页、打 tag、未来的 ghostwriting、replying），都做成工具集，不要做成 admin UI feature。admin UI 只负责监控和安全的明确控制（publish、rollback、revoke）。
 5. **自部署友好 > 功能多。** 任何需要外部 SaaS 账户的东西都是 v2 的事。
 6. **错误就是 UI 文案。** Backend code 稳定；前端字符串本地化；永远不要泄漏内部细节。
+7. **SEO 是 owner 的写作面，不是 server 的默认行为。** owner 必须能控 `<title>` / meta description / og / `<head>` 注入 / robots / sitemap / 结构化数据。server 提供合理默认，但全部可被 owner 在 admin 表单或通过 MCP 工具 override。
 
 ---
 
