@@ -1,0 +1,30 @@
+# Files irrelevant (or harmful) to the Docker build context.  Smaller
+# context = faster `COPY .` + faster cache invalidation analysis.
+#
+# Notable: `.git/` is excluded so the lint stage's gitleaks step
+# auto-falls into `detect --source=. --no-git` mode (scan tree)
+# instead of `protect --staged` mode (scan diff); shipping git
+# history inside the production image is also a leak risk on its own.
+
+.git/
+.github/
+.idea/
+.vscode/
+.DS_Store
+
+# Local-only artefacts.
+bin/
+out/
+
+# Editor / OS noise.
+*.swp
+*~
+
+# Local environment overrides — must never go into the image.
+.env
+.env.*
+!.env.example
+
+# Tests and CI config don't run in production.
+**/*_test.go
+**/testdata/

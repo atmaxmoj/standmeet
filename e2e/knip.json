@@ -1,0 +1,9 @@
+{
+  "entry": [
+    "test/**/*.spec.ts",
+    "test/global-setup.ts",
+    "test/global-teardown.ts"
+  ],
+  "project": ["test/**/*.ts", "helper/**/*.ts"],
+  "ignore": ["playwright.config.ts"]
+}

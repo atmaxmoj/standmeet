@@ -1,0 +1,11 @@
+{
+  "entry": [
+    "src/app/**/page.tsx",
+    "src/app/**/layout.tsx",
+    "src/app/**/error.tsx",
+    "unit/**/*.test.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "unit/**/*.test.ts"],
+  "ignoreDependencies": ["tailwindcss-animate"],
+  "ignoreBinaries": []
+}

@@ -1,0 +1,14 @@
+# lefthook 是这个 monorepo 的 git hook 管理（参考 Otium auth 的同款配置）。
+# clone 之后跑一次 `lefthook install` 把钩子连进 .git/hooks/。
+#
+# 单一 pre-commit 入口：跑 root `make lint`（聚合 backend / app / sdk / e2e
+# 各自的 lint），加 .env / .env.example 一致性检查。
+# 同样的链 CI / Coolify 也会跑 —— 本地绿，pipeline 绿。
+
+pre-commit:
+  parallel: false   # 子项目 lint 之间有先后；fmt 错先死最快，避免烧 CPU
+  commands:
+    lint-env:
+      run: infra/scripts/lint-env "$(git rev-parse --show-toplevel)"
+    lint:
+      run: make lint

@@ -171,31 +171,37 @@ standmeet/
 ├─ .env.example
 ├─ install.sh                  ← 一行自部署安装脚本
 │
-├─ backend/                    ← 新 Go server（chi + sqlc + mcp-go）
+├─ backend/                    ← 新 Go server（chi + sqlc + mcp-go），命名对齐 Otium auth
 │  ├─ go.mod / go.sum
+│  ├─ .golangci.yml            ← 从 Otium auth 抄（v2，default-all + 精挑细选 disable）
+│  ├─ .go-arch-lint.yml        ← 强制下面的依赖箭头
+│  ├─ Makefile                 ← lint 链：fmt-check / max-lines / routes-cyclo / arch / golangci / escape-lint / secrets
 │  ├─ Dockerfile               ← 多 stage build → distroless 静态产物
-│  ├─ entrypoint.sh            ← 跑 migration 后启动 server
+│  ├─ entrypoint.sh            ← goose up 跑 migration 后启动 server
 │  ├─ sqlc.yaml
 │  ├─ cmd/
-│  │  └─ server/main.go        ← 组装所有依赖、启 HTTP
-│  ├─ internal/
-│  │  ├─ domain/               ← 实体、值对象、repository 接口（纯 Go，不 import infra）
-│  │  ├─ app/                  ← use case（PromoteRawToWiki、IssueCodeSession 等）
-│  │  ├─ infra/
-│  │  │  ├─ db/                ← sqlc 生成 + Repository 实现
-│  │  │  ├─ storage/           ← media driver（本地 / s3）
-│  │  │  ├─ sandbox/           ← 按构建拉起 builder 的 helper（包装 docker run）
-│  │  │  └─ inference/         ← anthropic + openai client
-│  │  ├─ interfaces/
-│  │  │  ├─ admin_api/         ← /api/admin/* 的 chi 路由（session auth）
-│  │  │  ├─ public_api/        ← /api/v1/* 的 chi 路由（visitor session-token auth，CORS open）
-│  │  │  ├─ mcp_server/        ← mcp-go：tools、prompts、resources
-│  │  │  └─ internal_api/      ← /internal/healthz、tls-ask、log
-│  │  └─ auth/                 ← session 管理、API token 校验、claim 流程
+│  │  └─ server/main.go        ← composition root：组装所有依赖、启 HTTP
+│  ├─ internal/                ← 按外部系统切 infra（对齐 Otium），不用扁平 infra/
+│  │  ├─ domain/               ← 实体、值对象、repository 接口（纯 Go，不 import 任何 internal）
+│  │  ├─ usecases/             ← use case（PromoteRawToWiki、IssueCodeSession 等）
+│  │  ├─ postgres/             ← sqlc 生成 + Repository 实现（owner_id 由 ctx 强制）
+│  │  ├─ storage/              ← media driver（本地 / s3）
+│  │  ├─ sandbox/              ← 按构建拉起 builder 的 helper（包装 docker run）
+│  │  ├─ inference/            ← anthropic + openai client
+│  │  ├─ session/              ← owner session / visitor session / API token / claim
+│  │  ├─ middleware/           ← chi middleware（auth.WithOwner 在这里）
+│  │  ├─ routes/               ← presentation layer
+│  │  │  ├─ admin/             ← /api/admin/* 的 chi 路由（session auth）
+│  │  │  ├─ public/            ← /api/v1/* 的 chi 路由（visitor session-token auth，CORS open）
+│  │  │  └─ internal/          ← /internal/healthz、tls-ask、log
+│  │  ├─ mcp/                  ← mcp-go：tools、prompts、resources
+│  │  ├─ config/               ← env loader
+│  │  └─ server/               ← chi 路由组装（不做业务）
 │  ├─ db/
 │  │  ├─ migrations/           ← goose 的 *.sql
 │  │  ├─ schema.sql            ← canonical schema（sqlc 输入）
 │  │  └─ queries/              ← *.sql，按 aggregate 分文件（raw.sql、wiki.sql、codes.sql、…）
+│  ├─ scripts/                 ← check-max-lines.sh / check-routes-cyclo.sh（从 Otium 抄）
 │  └─ tests/                   ← 集成测试（testcontainers 起 PG + Redis）
 │
 ├─ app/                        ← 新 Next.js
@@ -255,7 +261,7 @@ standmeet/
 
 **I.3** `builder/` 放根目录，不放 `backend/` 下。**推荐：** 根 —— 它是独立 runtime 镜像，有自己的依赖树；放 backend 下会模糊边界。
 
-**I.4** `backend/internal/` 里采用 DDD 分层（`domain/app/infra/interfaces`）vs Go 习惯的按功能分包（`internal/corpus`、`internal/codes`、…）。**推荐：** DDD —— 分层匹配我们已经在 legacy 代码里建立的领域思考方式；横切关注点（auth、owner_id）有明确的位置。
+**I.4** `backend/internal/` 命名形态。三档：(a) 我最初的纯 DDD 命名（`domain/app/infra/interfaces`，infra 子包扁平塞进去）；(b) Go 习惯按 feature 切（`internal/corpus`、`internal/codes`）；(c) **DDD 但按外部系统切 infra**（`domain/usecases/postgres/storage/sandbox/inference/session/middleware/routes/mcp/config/server`，对齐 [[youteacher]] 同 host 的 Otium auth 服务）。**已选：** (c) —— owner 已有的肌肉记忆 + go-idiomatic（每个 infra 子包是单一职责 leaf，名字直接说明它适配哪个外部系统）；`.go-arch-lint.yml` 按这套 component 强制依赖箭头。
 
 ---
 

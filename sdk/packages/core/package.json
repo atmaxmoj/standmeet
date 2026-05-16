@@ -1,0 +1,41 @@
+{
+  "name": "@standmeet/sdk-core",
+  "version": "0.0.0",
+  "description": "StandMeet SDK core — API client + types + state machine. No UI; consumed by @standmeet/sdk (React) and @standmeet/embed (Web Components).",
+  "type": "module",
+  "license": "MIT",
+  "private": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src/ && tsc --noEmit",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "devDependencies": {
+    "eslint": "^9.39.3",
+    "prettier": "^3.3.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.56.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

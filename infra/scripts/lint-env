@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Lint .env.example files.
+#
+# Rules:
+#   1. Every KEY line in .env.example must have an empty value (KEY= only)
+#   2. If a sibling .env exists, its key set must match the .env.example key set
+#
+# Usage: lint-env [ROOT]
+#   ROOT defaults to the parent of this script (i.e. Lucerna/).
+
+set -euo pipefail
+
+ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+
+RED=$'\e[31m'
+GREEN=$'\e[32m'
+YELLOW=$'\e[33m'
+RESET=$'\e[0m'
+
+fail=0
+
+extract_keys() {
+  grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$1" | sed 's/=.*$//' | sort -u
+}
+
+# Find all .env.example files, skipping common heavy/vendored dirs.
+mapfile -t examples < <(find "$ROOT" \
+  \( -type d \( -name node_modules -o -name .git -o -name .next -o -name dist -o -name build -o -name .venv -o -name venv -o -name __pycache__ \) -prune \) -o \
+  \( -type f -name '.env.example' -print \))
+
+if [ ${#examples[@]} -eq 0 ]; then
+  echo "${YELLOW}no .env.example files found under $ROOT${RESET}"
+  exit 0
+fi
+
+for ex in "${examples[@]}"; do
+  rel="${ex#"$ROOT"/}"
+
+  # Rule 1: no values allowed. A value is anything after `=`.
+  bad=$(grep -nE '^[A-Za-z_][A-Za-z0-9_]*=.+' "$ex" || true)
+  if [ -n "$bad" ]; then
+    echo "${RED}✗${RESET} $rel: has values (should be KEY= only)"
+    echo "$bad" | sed 's/^/    /'
+    fail=1
+  fi
+
+  # Rule 2: sibling env key-set consistency.
+  # `.env.example` pairs with `.env.local` if present, otherwise `.env`.
+  dir="$(dirname "$ex")"
+  if [ -f "$dir/.env.local" ]; then
+    env_file="$dir/.env.local"
+  else
+    env_file="$dir/.env"
+  fi
+  if [ -f "$env_file" ]; then
+    ex_keys=$(extract_keys "$ex")
+    env_keys=$(extract_keys "$env_file")
+
+    missing_in_example=$(comm -23 <(printf '%s\n' "$env_keys") <(printf '%s\n' "$ex_keys") || true)
+    extra_in_example=$(comm -13 <(printf '%s\n' "$env_keys") <(printf '%s\n' "$ex_keys") || true)
+
+    if [ -n "$missing_in_example" ]; then
+      echo "${RED}✗${RESET} $rel: missing keys present in .env"
+      echo "$missing_in_example" | sed 's/^/    + /'
+      fail=1
+    fi
+    if [ -n "$extra_in_example" ]; then
+      echo "${RED}✗${RESET} $rel: extra keys not in .env"
+      echo "$extra_in_example" | sed 's/^/    - /'
+      fail=1
+    fi
+  fi
+done
+
+if [ $fail -eq 0 ]; then
+  echo "${GREEN}✓${RESET} all .env.example files are value-free and key-consistent (${#examples[@]} checked)"
+fi
+exit $fail

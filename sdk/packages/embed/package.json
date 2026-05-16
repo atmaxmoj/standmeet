@@ -1,0 +1,32 @@
+{
+  "name": "@standmeet/embed",
+  "version": "0.0.0",
+  "description": "StandMeet Web Components embed — single <script> drop-in for any site. Wraps @standmeet/sdk (React internally).",
+  "type": "module",
+  "license": "MIT",
+  "private": false,
+  "main": "./dist/embed.js",
+  "module": "./dist/embed.js",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src/ && tsc --noEmit"
+  },
+  "dependencies": {
+    "@standmeet/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.3",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.56.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

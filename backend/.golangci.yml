@@ -1,0 +1,209 @@
+version: "2"
+
+run:
+  go: "1.26"
+  timeout: 5m
+
+linters:
+  # `all` enables every linter golangci-lint ships with.  Anything the
+  # community thinks is worth checking, we check.  Disables below are
+  # the *minimum* needed to avoid double-coverage / style-only noise —
+  # each one has a one-line justification (no "this fires too often"
+  # without a real reason).
+  default: all
+
+  disable:
+    # ── style preferences that conflict with our chosen idiom ──
+    - wsl             # Whitespace style is opinionated; gofmt already normalises blanks.
+    - wsl_v5          # Newer revision of wsl, same reason.
+    - nlreturn        # "blank line before return" is a wsl-family rule, same reason.
+    - varnamelen      # Short names (i, r, w, ctx) are idiomatic Go; lll already caps abuse.
+    - lll             # Line length isn't a useful budget when gofmt picks the breaks.
+    # NOTE: funlen is intentionally kept on — mirrors MainApp / Auth's
+    # `max-lines-per-function: 70` ESLint rule.  Configured in
+    # `linters.settings.funlen` below.
+    - godox           # Bans TODO/FIXME — we want to be able to land them.
+    - tagliatelle     # JSON tag casing is determined by the wire contract, not by style.
+
+    # ── coverage already done by another enabled linter ──
+    - gocyclo         # cyclop replaces it (same metric, configurable).
+    - goconst         # Flags repeated string literals as "should be a const".
+                      # Fires for JSON wire-shape keys like "error" / "status"
+                      # which are by-convention inlined next to their value —
+                      # a named const adds noise without adding meaning.  Real
+                      # business constants get named regardless.
+
+    # ── conflict with stdlib / community Go idioms ──
+    - exhaustruct     # Forces every struct literal to set every field; Go's
+                      # zero-value-as-default is the whole point of literals.
+                      # Project-locally we lean on the zero value (e.g. http.Server
+                      # with only ReadHeaderTimeout set) and the linter would
+                      # demand we name 13 nil fields for every server we boot.
+    - err113          # Bans `fmt.Errorf(...)` in favour of sentinel errors;
+                      # contradicts Go's "errors are values, build context with %w"
+                      # idiom.  We use sentinel errors only when callers really
+                      # need to match on them.
+    - mnd             # Treats every numeric literal as a magic number.  Things
+                      # like `10 * time.Second` (read header timeout) are
+                      # locally obvious and don't deserve a named const.
+    - noinlineerr     # Forbids `if err := f(); err != nil` — the idiomatic
+                      # Go error-check form.  We use it everywhere.
+    - gomodguard      # Deprecated in golangci v2.12 in favour of gomodguard_v2;
+                      # we don't use either (depguard is enough for import
+                      # policy if we ever want to add one).
+    - depguard        # We don't maintain an import allow-list yet (the deps
+                      # are tiny: chi, pgx, goose, slog).  Re-enable with a
+                      # populated allow-list once we want to enforce one.
+    - gochecknoglobals # Flags ALL package-level `var` declarations.  Go's
+                       # error-sentinel idiom (var ErrFoo = errors.New(...))
+                       # and immutable lookup-table maps
+                       # (var fooSQL = map[Enum]string{...}) both rely on
+                       # package-level vars — the rule has no flag to
+                       # distinguish "actually mutable global" from these.
+                       # We catch real mutable-global bugs via review.
+
+  # ── per-linter configuration ───────────────────────────────────
+  # NB: golangci-lint v2 nests linter settings under `linters.settings`.
+  # A top-level `linters-settings:` block is silently ignored by the
+  # config loader (and rejected by `golangci-lint config verify`), so
+  # any custom thresholds you put there would be no-ops while the
+  # surrounding `default: all` quietly ran every linter with its
+  # built-in default values.  We were bitten by exactly that — see
+  # commit history for the v1 → v2 fix.
+  settings:
+    cyclop:
+      # Project policy splits the cyclo budget by layer:
+      #   routes (presentation)   → ≤ 3
+      #   everything else (biz)   → ≤ 5
+      #
+      # The ≤3 cap on routes is enforced by scripts/check-routes-
+      # cyclo.sh (narrow gocyclo run over internal/routes/ only).
+      # cyclop here covers the rest of the tree — application,
+      # domain, infrastructure — at the looser business budget.
+      # The routes layer is excluded below so the two checks don't
+      # double-report.
+      max-complexity: 5
+      package-average: 0.0   # don't gate on average, only on the max
+    gocognit:
+      # Slightly looser than cyclop (linear flows + early returns that
+      # cyclop counts as branches don't really hurt cognition).  Still
+      # well below the 20 default.
+      min-complexity: 10
+    nestif:
+      min-complexity: 3
+    funlen:
+      # Mirrors MainApp / Auth's `max-lines-per-function: 70`.
+      # `statements` is golangci-lint's analogue of ESLint's
+      # `max-statements`; 40 keeps the average density honest.
+      lines: 70
+      statements: 40
+      ignore-comments: true
+    gocritic:
+      enabled-tags: [diagnostic, performance, style, opinionated]
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    govet:
+      enable-all: true
+      settings:
+        shadow:
+          strict: true
+    revive:
+      enable-all-rules: true
+      rules:
+        # Cap function inputs at 5.  Anything richer should
+        # consolidate into a struct so the call sites stop counting
+        # commas — same rationale as ESLint `max-params: 5` in the
+        # TS services.
+        - name: argument-limit
+          arguments: [5]
+        # Cap function outputs at 2 — anything beyond `(value, error)`
+        # belongs in a result struct (named fields self-document) or
+        # uses a sentinel error to encode the "not found" case in the
+        # error channel (stdlib convention: sql.ErrNoRows, io.EOF).
+        # The few legitimate exceptions — wire's `(value, cleanup,
+        # error)` cleanup-func contract — carry a per-line `//nolint`
+        # naming the reason.
+        - name: function-result-limit
+          arguments: [2]
+        # line-length-limit at the default 80 fires for any
+        # post-gofmt line one comma past the column.  Go's stdlib
+        # itself runs to ~100, and our wrapped error messages /
+        # SQL fragments routinely sit in the 80-95 range.  100 is
+        # the smallest cap that doesn't punish gofmt's natural
+        # break choices.
+        - name: line-length-limit
+          arguments: [100]
+        # add-constant flags repeated literals as candidates for
+        # named constants.  Defaults treat *every* 0/1/2 as a magic
+        # number — too noisy for Go where `len(x) == 0` and
+        # `[]T{...}` are written naked.  Whitelist the bookkeeping
+        # ints; bump the string repetition threshold from 3 to 5 so
+        # genuinely repeated wire-shape keys still get caught.
+        - name: add-constant
+          arguments:
+            - max-lit-count: "5"
+              allow-strs: '""'
+              allow-ints: "0,1,2,3,24,100"
+              allow-floats: "0.0,1.0"
+    gosec:
+      excludes:
+        # G115 fires on every numeric type conversion; pgx already
+        # returns int64s we knowingly cast to int.  Re-enable per-file
+        # if we ever accept untrusted numeric input from the wire.
+        - G115
+    forbidigo:
+      # analyze-types: true makes forbidigo match TYPE references too,
+      # not just call expressions.  Required for the `any` ban below.
+      analyze-types: true
+      # Mirror of the TS services' `no-console` ESLint rule (project
+      # memory `feedback_no_console_log`): server logging must funnel
+      # through `log/slog`.  `fmt.Print*` writes straight to stdout
+      # without a level, without structure, and without the request-
+      # scope fields slog carries — banned in src.  Tests and main.go
+      # are exempt (test tables print failures; main's *boot* log is
+      # fine via slog and the `panic` path can stay).
+      #
+      # `any` is banned in business code (domain / application /
+      # presentation / middleware).  The pgx driver contract forces
+      # variadic `args ...any` and `Scan(dest ...any)` at the
+      # postgres-repo layer — that layer is exempt via the path
+      # exclusion below.  Anywhere else, `any` is an unpacking
+      # anti-pattern that hides what's flowing through the seam.
+      forbid:
+        - pattern: ^fmt\.Print(|f|ln)$
+          msg: "use log/slog (server) instead of fmt.Print* — see feedback_no_console_log"
+        - pattern: ^any$
+          msg: "type `any` is banned in business code; use a typed parameter (pgx-boundary repos in internal/infrastructure/postgres/ are exempt)"
+
+  exclusions:
+    # Echo's handler contract is `func(c echo.Context) error` — the
+    # idiomatic return is `return c.JSON(status, body)`.  wrapcheck
+    # demands we wrap the error from any interface call, but echo
+    # owns that error (response write + its error handler), so
+    # wrapping would break the framework's contract.
+    rules:
+      - path: internal/routes/
+        linters: [wrapcheck]
+      # Same echo-handler reasoning for middleware as for routes:
+      # `func(c echo.Context) error` requires `return c.JSON(...)`.
+      - path: internal/middleware/
+        linters: [wrapcheck]
+      # cyclop runs at the looser business budget (≤5) — the routes
+      # layer's stricter ≤3 cap is enforced by scripts/check-routes-
+      # cyclo.sh, which uses gocyclo against this folder only.
+      # Excluding routes here avoids double-reporting (one error
+      # per violation rather than two with subtly different
+      # framings).
+      - path: internal/routes/
+        linters: [cyclop]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - gofumpt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
