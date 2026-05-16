@@ -1,204 +1,204 @@
-# StandMeet Code Architecture
+# StandMeet 代码架构
 
-> **Status:** Draft for owner review (revised 2026-05-16; backend switched to Go, builder turned into an MCP-driven workflow).
-> **Audience:** People who will build this. Assumes you've read `CLAUDE.md` for product context and `docs/design/chats/chat1.md` for visual intent.
-> **How to give feedback:** Every block ends with a numbered list of decision points (`A.1`, `A.2`, …). Reply with `Aₙ: accept` or `Aₙ: change — <reason / new direction>`. Anything not mentioned is taken as accepted.
+> **状态：** 草稿，待 owner 评审（2026-05-16 修订；后端切换为 Go，builder 改为 MCP 驱动工作流）。
+> **读者：** 实际要把这套东西写出来的人。默认你已经读过 `CLAUDE.md` 了解产品语境，读过 `docs/design/chats/chat1.md` 了解视觉意图。
+> **怎么反馈：** 每块结尾有编号的决策点（`A.1`、`A.2`、…）。回 `Aₙ: accept` 或 `Aₙ: change — <理由 / 新方向>`。没提到的视作 accept。
 
 ---
 
-## TL;DR — Single shape of the system
+## TL;DR — 整套系统的形状
 
 ```
                 ┌─── 80 / 443 ───┐
-                │     Caddy      │  ← auto Let's Encrypt + on-demand TLS for custom domains
+                │     Caddy      │  ← 自动 Let's Encrypt + 自定义域名 on-demand TLS
                 └────┬───────────┘
         ┌────────────┼─────────────────────┐
         │            │                     │
    ┌────▼────┐  ┌────▼─────┐         ┌─────▼──────┐
    │   app   │  │ backend  │         │  /custom   │
-   │ Next.js │  │   Go     │         │ static     │
-   │ :3000   │  │  +chi    │         │ (volume)   │
+   │ Next.js │  │   Go     │         │  静态产物   │
+   │ :3000   │  │  +chi    │         │ （volume） │
    └─────────┘  │ +mcp-go  │         └────────────┘
                 │  :8000   │
                 └────┬─────┘
             ┌────────┼─────────┐
        ┌────▼──┐ ┌───▼────┐ ┌──▼──────────┐
        │  PG   │ │ Redis  │ │  Builder    │
-       │ pgvec │ │        │ │  sandbox    │
-       └───────┘ └────────┘ │ (per build) │
+       │ pgvec │ │        │ │  沙箱       │
+       └───────┘ └────────┘ │ （按构建启） │
                             └─────────────┘
 ```
 
-5 long-running containers (caddy / app / backend / pg / redis) + 1 on-demand container (builder), spawned by backend in response to MCP tool calls from the owner's AI client. Single docker compose. Self-hosted, single command to start.
+5 个常驻容器（caddy / app / backend / pg / redis）+ 1 个按需容器（builder），由 backend 在 owner AI 客户端调 MCP 工具时拉起。单一 docker compose。自部署，一条命令起服务。
 
-### One paragraph on the builder
+### 关于 builder 的一段话
 
-`custom_pages` (multi-slug per owner) are authored **entirely via MCP tools called from the owner's own AI client** (Claude Desktop, Cursor, etc.). Admin's "Custom pages" section is a **monitoring panel** — list, status, staging URL, publish/rollback — it does not host an editor, a chat, or a preview. Inference cost stays on the owner's existing AI subscription; StandMeet's backend pays only for sandbox builds.
-
----
-
-## A. System topology
-
-### Constraints
-
-- One command brings up the whole stack (`docker compose up -d`).
-- Automatic SSL for the instance's own domain and for owner custom domains.
-- Single owner v1; multi-tenant in the data layer.
-- SDK runs in third-party browsers — API must be CORS-safe.
-- MCP server reachable by owner's AI clients over HTTPS.
-- Page-builder sandbox executes owner-supplied code; isolation required.
-
-### Recommended shape
-
-Five long-running services:
-
-1. **`caddy`** — reverse proxy, TLS terminator, on-demand TLS for custom domains.
-2. **`app`** — Next.js 15. Renders 4 surfaces (`index` / `gate` / `admin` / `login`). Talks to backend over HTTP.
-3. **`backend`** — Go binary serving 3 logical API namespaces (admin / public-v1 / mcp) on the same port. DDD layering (`domain` / `app` / `infra` / `interfaces`).
-4. **`db`** — PostgreSQL 16 with pgvector.
-5. **`redis`** — sessions, queues, rate limits.
-
-One on-demand service:
-
-6. **`builder`** — sandboxed container spawned per `custom_page.build()` MCP call, writes static output to a shared volume, exits.
-
-Optional / later:
-
-- **`worker`** — separate process for async work (embedding computation, email sending). Until proven needed, runs as in-process goroutines fed by an async queue.
-
-### Why this shape
-
-- Three responsibilities (proxy / web / API) are independently scaled and reasoned about. More containers = more compose lines, but the boundaries match how we'll debug and rebuild.
-- Backend as a single Go binary consolidates REST + MCP + RAG behind one auth surface. We don't want MCP and REST diverging on what an "access code" is.
-- Builder isolated from backend because owner-supplied code is untrusted.
-
-### Decision points
-
-**A.1** SSR strategy. Public pages (`/[handle]`, `/[handle]/gate`) are SEO-sensitive → SSR. Admin is auth-gated → CSR (simpler, smaller bundle). **Recommend:** mixed, public SSR, admin CSR.
-
-**A.2** MCP server placement. In-process with backend (same Go binary) or separate container. **Recommend:** in-process — shares auth (API tokens), shares the data layer (sqlc-generated queries), and `mcp-go` plugs cleanly into a chi router.
-
-**A.3** Builder lifecycle. Long-running build server (legacy pattern) vs spawn-per-build. **Recommend:** spawn-per-build via `docker run` (or k8s job equivalent), triggered by an MCP tool call (`custom_page.build`). Most owners rebuild rarely; idle build server wastes RAM and is an attack surface.
-
-**A.4** Async work. In-process goroutines fed by a Redis-backed queue (`asynq` or `river`) vs a separate worker container. **Recommend:** in-process v1; promote to separate container if/when embedding queues bloat.
+`custom_pages`（每个 owner 可有多个 slug）**完全通过 owner 自己 AI 客户端里调的 MCP 工具来创作**（Claude Desktop、Cursor 之类）。admin 里的 "Custom pages" 区只是一个**监控面板**——列表、状态、staging URL、publish/rollback——它**不**承载编辑器、聊天框或预览框。AI 推理的钱走 owner 已有的 AI 订阅，StandMeet 后端只为沙箱 build 付钱。
 
 ---
 
-## B. Tech choices
+## A. 系统拓扑
 
-### Keep from legacy
+### 约束
 
-- **PostgreSQL.** Add pgvector extension. Stays.
-- **Next.js 15 + React 19 + Tailwind 4.** Design prototype is already Tailwind; trivial port.
-- **TypeScript** everywhere on the frontend / SDK.
+- 一条命令起整套（`docker compose up -d`）。
+- instance 自己的域名 + owner 自定义域名都自动 SSL。
+- v1 单 owner；数据层为多租户预留。
+- SDK 跑在第三方浏览器里 —— API 必须 CORS 友好。
+- MCP server 要让 owner 的 AI 客户端通过 HTTPS 能调到。
+- Page builder 沙箱要跑 owner 提供的代码，必须隔离。
 
-### Drop from legacy
+### 推荐形态
 
-- **Django + DRF + FastMCP + uv** — replaced by the Go stack below. Existing Django code under `standmeet-server/backend/` becomes reference only.
+5 个常驻服务：
 
-### New introductions
+1. **`caddy`** — 反向代理、TLS 终端、自定义域名 on-demand TLS。
+2. **`app`** — Next.js 15。渲染 4 个 surface（`index` / `gate` / `admin` / `login`）。通过 HTTP 跟 backend 说话。
+3. **`backend`** — 单个 Go 二进制，同端口暴露 3 个逻辑 API 命名空间（admin / public-v1 / mcp）。DDD 分层（`domain` / `app` / `infra` / `interfaces`）。
+4. **`db`** — PostgreSQL 16 + pgvector。
+5. **`redis`** — session、队列、限流。
 
-#### Backend (Go)
+1 个按需服务：
 
-- **Go 1.22+** with the standard `net/http` and **`chi`** router (light, no magic, conventional middleware).
-- **`sqlc`** for the data layer. We write `schema.sql` and `queries.sql` once; sqlc generates typed Go functions. No runtime ORM magic; query mistakes are compile errors.
-- **`pgx/v5`** as the underlying driver (sqlc's preferred backend, supports pgvector via `pgx-pgvector`).
-- **`mark3labs/mcp-go`** for the MCP server (community-standard Go MCP SDK with streamable HTTP transport).
-- **`goose`** for SQL migrations — plain `*.sql` files with `up`/`down`, run on startup.
-- **`golang.org/x/crypto/argon2`** for password hashing (Argon2id).
-- **`redis/go-redis/v9`** for sessions / queues / rate limiting.
-- **`anthropic-sdk-go`** + **OpenAI Go SDK** for code-tier inference (BYOAI inference never reaches us; see D.2).
+6. **`builder`** — 每次 `custom_page.build()` MCP 调用时拉起的沙箱容器，把静态产物写到共享 volume 后退出。
 
-#### Edge / infra
+可选 / 后续：
 
-- **Caddy 2** for reverse proxy + automatic Let's Encrypt + on-demand TLS for custom domains.
-- **pgvector** for embedding storage and ANN search. Avoids an external vector DB.
+- **`worker`** —— 异步任务（embedding 计算、邮件发送等）独立进程。在用量证明需要之前，先用 backend 内 goroutine + 异步队列搞定。
 
-#### Frontend
+### 为什么是这个形状
 
-- **shadcn/ui** (heavily themed) as the primitive layer for admin (Dialog, Combobox, Tooltip, Tabs, Toggle). Public surfaces (`index`, `gate`) hand-built — they're the brand.
-- **tsup** for SDK packaging.
+- 三个职责（代理 / web / API）独立伸缩、独立调试。容器多一些，compose 行数多一些，但边界跟我们 debug 和重启的思路对齐。
+- backend 作为一个 Go 二进制把 REST + MCP + RAG 统一在一个鉴权面后面。我们不希望 MCP 和 REST 对"什么是 access code"出现分歧。
+- builder 跟 backend 隔开，因为 owner 提供的代码不可信。
 
-### SDK shape
+### 决策点
 
-Three packages in a small monorepo (`sdk/`, pnpm workspace):
+**A.1** SSR 策略。公开页（`/[handle]`、`/[handle]/gate`）SEO 敏感 → SSR。admin 鉴权后台 → CSR（更简单，bundle 更小）。**推荐：** 混合，公开 SSR，admin CSR。
+
+**A.2** MCP server 放哪。和 backend 同进程（同一个 Go 二进制）vs 独立容器。**推荐：** 同进程 —— 共享鉴权（API token），共享数据层（sqlc 生成的 query），`mcp-go` 能干净地挂到 chi router 上。
+
+**A.3** Builder 生命周期。常驻 build server（旧形态）vs 按构建拉起。**推荐：** 按构建拉起，通过 `docker run`（或 k8s job 等价物），由 MCP 工具调用（`custom_page.build`）触发。多数 owner 不常 rebuild；常驻 build server 浪费 RAM 而且多一个攻击面。
+
+**A.4** 异步任务。in-process goroutine + Redis 队列（`asynq` 或 `river`）vs 独立 worker 容器。**推荐：** v1 in-process；embedding 队列堆起来再拆。
+
+---
+
+## B. 技术选型
+
+### 从遗留代码沿用
+
+- **PostgreSQL。** 装 pgvector 扩展。继续用。
+- **Next.js 15 + React 19 + Tailwind 4。** 设计稿本身就是 Tailwind，迁移成本极低。
+- **TypeScript** 前端 + SDK 全覆盖。
+
+### 从遗留代码丢弃
+
+- **Django + DRF + FastMCP + uv** —— 被下面的 Go 栈替代。`standmeet-server/backend/` 里的 Django 代码只作参考。
+
+### 新引入
+
+#### 后端（Go）
+
+- **Go 1.22+**，标准库 `net/http` + **`chi`** router（轻量、无 magic、中间件约定明确）。
+- **`sqlc`** 做数据层。我们写一份 `schema.sql` 和 `queries.sql`，sqlc 生成类型化的 Go 函数。没有运行时 ORM magic；写错 query 是编译错误。
+- **`pgx/v5`** 作为底层驱动（sqlc 推荐的 backend，支持 pgvector，配合 `pgx-pgvector`）。
+- **`mark3labs/mcp-go`** 做 MCP server（社区主流 Go MCP SDK，支持 streamable HTTP transport）。
+- **`goose`** 做 SQL migration —— 朴素的 `*.sql` 文件带 `up`/`down`，启动时跑。
+- **`golang.org/x/crypto/argon2`** 做密码 hash（Argon2id）。
+- **`redis/go-redis/v9`** 做 session / 队列 / 限流。
+- **`anthropic-sdk-go`** + **OpenAI Go SDK** 给 code-tier 推理用（BYOAI 推理永远不经过我们，见 D.2）。
+
+#### 边缘 / 基础设施
+
+- **Caddy 2** 反向代理 + Let's Encrypt 自动签 + 自定义域名 on-demand TLS。
+- **pgvector** 存 embedding + ANN 检索。省掉一个外置 vector DB。
+
+#### 前端
+
+- **shadcn/ui**（重度主题化）做 admin 的底层 primitive（Dialog / Combobox / Tooltip / Tabs / Toggle）。公开 surface（`index`、`gate`）手撸 —— 那是品牌脸面。
+- **tsup** 打包 SDK。
+
+### SDK 形态
+
+`sdk/` 一个小 monorepo（pnpm workspace），3 个 package：
 
 ```
 sdk/
 ├─ packages/
-│  ├─ core/    @standmeet/sdk-core   -- API client + types + state machine (no UI)
-│  ├─ react/   @standmeet/sdk         -- React components + hooks, depends on core
-│  └─ embed/   @standmeet/embed       -- Web Components wrapper, depends on react
+│  ├─ core/    @standmeet/sdk-core   -- API client + types + 状态机（无 UI）
+│  ├─ react/   @standmeet/sdk         -- React 组件 + hooks，依赖 core
+│  └─ embed/   @standmeet/embed       -- Web Components 包装层，依赖 react
 ```
 
-Built artifacts ship from npm AND served from each instance under `/sdk/v1/...` so a self-hoster can drop a `<script>` pointing at their own instance.
+产物既发 npm 也由每个 instance 在 `/sdk/v1/...` 下 serve，自部署用户可以让 `<script>` 直接指向自己 instance。
 
-### Why this shape
+### 为什么是这个形状
 
-- Go binary deploys as a single static file in a `FROM scratch` container (~20 MB image); compared to a Python image (~150 MB + uvicorn workers), self-host footprint shrinks ~7×.
-- sqlc + DDD reads cleanly: SQL queries live in `db/queries/*.sql`, generated code in `internal/infra/db/`, business logic in `internal/app/`. No ORM-shaped surprises.
-- Core split lets future framework adapters (Vue, Svelte) reuse the protocol layer.
-- Embed re-rendering React under a Web Component adds ~40 kB gzip, avoiding two completely separate UI codebases.
+- Go 二进制以 `FROM scratch` 镜像（约 20 MB）部署；和 Python 镜像（约 150 MB + uvicorn worker）比，自部署 footprint 缩小 ~7 倍。
+- sqlc + DDD 读起来清爽：SQL query 在 `db/queries/*.sql`，生成代码在 `internal/infra/db/`，业务逻辑在 `internal/app/`。没有 ORM 形态的意外。
+- Core 拆出来意味着将来要加 Vue / Svelte adapter 时协议层能复用。
+- Embed 通过在 Web Component 里渲染 React，多约 40 KB gzip，换得不用维护两套完全独立的 UI 代码。
 
-### Decision points
+### 决策点
 
-**B.1** shadcn/ui adoption. Saves time on a11y primitives but adds a dependency. **Recommend:** yes for admin only.
+**B.1** 引入 shadcn/ui。省 a11y primitive 时间，但多一份依赖。**推荐：** 只 admin 用。
 
-**B.2** pgvector over external (Pinecone/Qdrant). Better for self-host, sufficient up to ~1M entries. **Recommend:** pgvector.
+**B.2** pgvector vs 外置（Pinecone / Qdrant）。pgvector 对自部署更友好，~1M entry 之内够用。**推荐：** pgvector。
 
-**B.3** SDK packaging. React-first with embed as React renderer wrapped in Web Component, vs two separate code paths. **Recommend:** React-first + embed wraps it.
+**B.3** SDK 打包：React 优先，embed 通过包装 React 来发 Web Component vs 两套独立代码。**推荐：** React 优先 + embed 包装。
 
-**B.4** Whether `@standmeet/sdk` ships from npm AND from instance. **Recommend:** both — npm for cross-instance usage, instance-served as the default `<script>` source in admin's MCP setup snippets.
+**B.4** `@standmeet/sdk` 同时发 npm 还是只 instance 自带。**推荐：** 都发 —— npm 给跨 instance 引用方便；instance 自带是 admin 的 MCP setup snippet 里 `<script>` 默认源。
 
-**B.5** Migrations: `goose` (plain `*.sql`, light) vs `atlas` (HCL/SQL declarative, paired with linting). **Recommend:** goose — owner-deploy simplicity outweighs atlas's schema-drift detection at this scale.
+**B.5** Migration 工具：`goose`（纯 `*.sql`，轻量） vs `atlas`（HCL/SQL 声明式 + linting）。**推荐：** goose —— owner 部署的简单性比 atlas 那点 schema drift 检测更重要。
 
-**B.6** Async queue: `asynq` (Redis, simple) vs `river` (Postgres-backed, single dependency). **Recommend:** start without one — pure goroutines with a Redis list — and pick `asynq` if/when we outgrow that.
+**B.6** 异步队列：`asynq`（Redis、简单） vs `river`（Postgres 后端、依赖更少）。**推荐：** 一开始不引队列库 —— 直接 goroutine + Redis list；用量上来再上 `asynq`。
 
 ---
 
-## I. Repository structure
+## I. 代码目录结构
 
-(Listed before C/D/E because it informs where the schemas / endpoints live.)
+（放在 C/D/E 之前，因为它决定了 schema / endpoint 落在哪里。）
 
 ```
 standmeet/
 ├─ CLAUDE.md
 ├─ README.md
 ├─ Makefile
-├─ docker-compose.yml          ← prod-ish, used by install.sh
-├─ docker-compose.dev.yml      ← dev with hot reload, volumes mounted from host
+├─ docker-compose.yml          ← prod-ish，install.sh 用
+├─ docker-compose.dev.yml      ← dev 用，热更，host 挂载
 ├─ Caddyfile
 ├─ .env.example
-├─ install.sh                  ← one-line self-host installer
+├─ install.sh                  ← 一行自部署安装脚本
 │
-├─ backend/                    ← new Go server (chi + sqlc + mcp-go)
+├─ backend/                    ← 新 Go server（chi + sqlc + mcp-go）
 │  ├─ go.mod / go.sum
-│  ├─ Dockerfile               ← multi-stage: build → distroless scratch-ish final
-│  ├─ entrypoint.sh            ← runs migrations, then server
+│  ├─ Dockerfile               ← 多 stage build → distroless 静态产物
+│  ├─ entrypoint.sh            ← 跑 migration 后启动 server
 │  ├─ sqlc.yaml
 │  ├─ cmd/
-│  │  └─ server/main.go        ← composes everything, starts HTTP
+│  │  └─ server/main.go        ← 组装所有依赖、启 HTTP
 │  ├─ internal/
-│  │  ├─ domain/               ← entities, value objects, repository interfaces (pure Go, no infra import)
-│  │  ├─ app/                  ← use cases (e.g. PromoteRawToWiki, IssueCodeSession)
+│  │  ├─ domain/               ← 实体、值对象、repository 接口（纯 Go，不 import infra）
+│  │  ├─ app/                  ← use case（PromoteRawToWiki、IssueCodeSession 等）
 │  │  ├─ infra/
-│  │  │  ├─ db/                ← sqlc generated + Repository implementations
-│  │  │  ├─ storage/           ← media driver (local fs / s3)
-│  │  │  ├─ sandbox/           ← spawn-per-build helper (docker run wrapper)
-│  │  │  └─ inference/         ← anthropic + openai clients
+│  │  │  ├─ db/                ← sqlc 生成 + Repository 实现
+│  │  │  ├─ storage/           ← media driver（本地 / s3）
+│  │  │  ├─ sandbox/           ← 按构建拉起 builder 的 helper（包装 docker run）
+│  │  │  └─ inference/         ← anthropic + openai client
 │  │  ├─ interfaces/
-│  │  │  ├─ admin_api/         ← chi routes for /api/admin/* (session auth)
-│  │  │  ├─ public_api/        ← chi routes for /api/v1/* (visitor session-token auth, CORS-open)
-│  │  │  ├─ mcp_server/        ← mcp-go: tools, prompts, resources
-│  │  │  └─ internal_api/      ← /internal/healthz, /internal/tls-ask, /internal/log
-│  │  └─ auth/                 ← session manager, api-token verifier, claim flow
+│  │  │  ├─ admin_api/         ← /api/admin/* 的 chi 路由（session auth）
+│  │  │  ├─ public_api/        ← /api/v1/* 的 chi 路由（visitor session-token auth，CORS open）
+│  │  │  ├─ mcp_server/        ← mcp-go：tools、prompts、resources
+│  │  │  └─ internal_api/      ← /internal/healthz、tls-ask、log
+│  │  └─ auth/                 ← session 管理、API token 校验、claim 流程
 │  ├─ db/
-│  │  ├─ migrations/           ← *.sql for goose
-│  │  ├─ schema.sql            ← canonical schema (sqlc input)
-│  │  └─ queries/              ← *.sql, one file per aggregate (raw.sql, wiki.sql, codes.sql, …)
-│  └─ tests/                   ← integration tests (testcontainers PG + Redis)
+│  │  ├─ migrations/           ← goose 的 *.sql
+│  │  ├─ schema.sql            ← canonical schema（sqlc 输入）
+│  │  └─ queries/              ← *.sql，按 aggregate 分文件（raw.sql、wiki.sql、codes.sql、…）
+│  └─ tests/                   ← 集成测试（testcontainers 起 PG + Redis）
 │
-├─ app/                        ← new Next.js
+├─ app/                        ← 新 Next.js
 │  ├─ package.json
 │  ├─ Dockerfile
 │  ├─ next.config.ts
@@ -208,62 +208,62 @@ standmeet/
 │     │  ├─ (public)/[handle]/page.tsx           ← surface: index
 │     │  ├─ (public)/[handle]/gate/page.tsx      ← surface: gate
 │     │  ├─ (auth)/login/page.tsx                ← surface: login
-│     │  ├─ (auth)/setup/page.tsx                ← first-run claim
-│     │  └─ (admin)/admin/[[...slug]]/page.tsx   ← surface: admin (SPA-ish)
-│     ├─ components/                              ← shared, themed
+│     │  ├─ (auth)/setup/page.tsx                ← 首次 claim
+│     │  └─ (admin)/admin/[[...slug]]/page.tsx   ← surface: admin（SPA 风格）
+│     ├─ components/                              ← 共享、主题化
 │     ├─ lib/
-│     │  ├─ api/                                  ← typed admin + public clients
-│     │  ├─ auth/                                 ← session helpers
-│     │  └─ design/                               ← Newsreader/Mono setup, color tokens, motion
+│     │  ├─ api/                                  ← 类型化的 admin + public client
+│     │  ├─ auth/                                 ← session helper
+│     │  └─ design/                               ← Newsreader/Mono 配置、色彩 token、动效
 │     └─ styles/globals.css
 │
-├─ sdk/                        ← npm packages
+├─ sdk/                        ← npm 包
 │  ├─ pnpm-workspace.yaml
 │  └─ packages/
 │     ├─ core/                 ← @standmeet/sdk-core
 │     ├─ react/                ← @standmeet/sdk
 │     └─ embed/                ← @standmeet/embed
 │
-├─ builder/                    ← per-build sandbox image
-│  ├─ Dockerfile               ← node + vite + a thin runner
-│  ├─ runner.mjs               ← reads source files from stdin/volume, writes dist/
-│  └─ template/                ← starter App.tsx using @standmeet/sdk
+├─ builder/                    ← 按构建拉起的沙箱镜像
+│  ├─ Dockerfile               ← node + vite + 一个薄 runner
+│  ├─ runner.mjs               ← 从 stdin/volume 读源码、写 dist/
+│  └─ template/                ← 用 @standmeet/sdk 的起步 App.tsx
 │
 ├─ infra/
-│  ├─ caddy/                   ← Caddyfile fragments, ask endpoint helper
-│  └─ scripts/                 ← install.sh, backup.sh, restore.sh
+│  ├─ caddy/                   ← Caddyfile 片段、tls-ask helper
+│  └─ scripts/                 ← install.sh、backup.sh、restore.sh
 │
-├─ e2e/                        ← Playwright covering full stack
+├─ e2e/                        ← Playwright，整 stack 覆盖
 │  ├─ package.json
 │  ├─ playwright.config.ts
 │  └─ tests/
 │
 ├─ docs/
-│  ├─ design/                  ← prototype handoff (canonical visuals) + this file
-│  └─ <legacy *.md>            ← old vision/distillation, kept as reference
+│  ├─ design/                  ← prototype handoff（视觉权威源）+ 本文件
+│  └─ <legacy *.md>            ← 旧愿景/蒸馏，保留作参考
 │
-├─ standmeet-client/           ← legacy reference (Electron)
-├─ standmeet-e2e/              ← legacy reference (Playwright)
-└─ standmeet-server/           ← legacy reference (old Django monorepo server)
+├─ standmeet-client/           ← legacy 参考（Electron）
+├─ standmeet-e2e/              ← legacy 参考（Playwright）
+└─ standmeet-server/           ← legacy 参考（旧 Django monorepo）
 ```
 
-### Decision points
+### 决策点
 
-**I.1** Top-level `pnpm-workspace.yaml` covering `app/`, `sdk/`, and `e2e/` so types and a single lockfile are shared. Backend stays Go-module-managed and out of pnpm. **Recommend:** yes.
+**I.1** 根层是否放 `pnpm-workspace.yaml` 覆盖 `app/` / `sdk/` / `e2e/`，让类型和 lockfile 共享。backend 仍由 Go module 管理，不进 pnpm。**推荐：** 放。
 
-**I.2** `admin` route group (`/admin/*` on same host) vs separate hostname. **Recommend:** route group — owner CNAMEs one domain, admin lives at `/admin` on it. Less DNS/SSL surface.
+**I.2** `admin` 放路由组（`/admin/*` 同 host）vs 独立 hostname。**推荐：** 路由组 —— owner 只 CNAME 一个域名，admin 就在它的 `/admin` 下。DNS/SSL 面更小。
 
-**I.3** `builder/` at root, not under `backend/`. **Recommend:** root — it's a distinct runtime image with its own dependency tree; co-locating it under backend would confuse the boundary.
+**I.3** `builder/` 放根目录，不放 `backend/` 下。**推荐：** 根 —— 它是独立 runtime 镜像，有自己的依赖树；放 backend 下会模糊边界。
 
-**I.4** Inside `backend/internal/`, DDD layering (`domain/app/infra/interfaces`) vs Go-idiomatic feature packages (`internal/corpus`, `internal/codes`, …). **Recommend:** DDD — the layering matches how we already reason about the domain in legacy code; cross-cutting concerns (auth, owner_id) live in clear places.
+**I.4** `backend/internal/` 里采用 DDD 分层（`domain/app/infra/interfaces`）vs Go 习惯的按功能分包（`internal/corpus`、`internal/codes`、…）。**推荐：** DDD —— 分层匹配我们已经在 legacy 代码里建立的领域思考方式；横切关注点（auth、owner_id）有明确的位置。
 
 ---
 
-## C. Data model
+## C. 数据模型
 
-All tables include `owner_id uuid not null`, indexed. Single-owner v1 always uses the same value; multi-tenant flips on later with no migration.
+所有表都有 `owner_id uuid not null` 并带索引。v1 单 owner 时所有行都是同一个值；将来切多租户不需要 migration。
 
-### Tenancy / auth
+### 租户 / 鉴权
 
 ```
 owners
@@ -280,9 +280,9 @@ owners
   byoai_public_blurb   text
   created_at           timestamptz
 
-instance_settings                                  -- singleton (id=1)
+instance_settings                                  -- 单行（id=1）
   is_claimed           bool default false
-  setup_token_hash     text null                  -- one-shot, sha256(plaintext); printed plaintext to stdout
+  setup_token_hash     text null                  -- 一次性 token，sha256(plaintext)；plaintext 打印到 stdout
   multi_tenant         bool default false
   deployed_at          timestamptz
 ```
@@ -328,7 +328,7 @@ media_assets
   created_at      timestamptz
 ```
 
-### Access control
+### 访问控制
 
 ```
 access_codes
@@ -336,7 +336,7 @@ access_codes
   owner_id            uuid fk
   code                citext unique               -- 'LABEL-XXX'
   label               text                        -- 'OAEN'
-  purpose             text                        -- free text, owner-only
+  purpose             text                        -- 自由文本，仅 owner 可见
   included_tags       text[]
   excluded_tags       text[]
   suggested_questions jsonb                       -- string[]
@@ -349,11 +349,11 @@ code_members
   code_id             uuid fk -> access_codes
   display_name        text                        -- 'Alice (HR)'
   email               citext null
-  is_anonymous        bool                        -- joined as 'someone new'
+  is_anonymous        bool                        -- 以 'someone new' 进入
   last_seen_at        timestamptz null
 ```
 
-### Visitor sessions
+### 访客会话
 
 ```
 conversations
@@ -379,10 +379,10 @@ messages
   created_at          timestamptz
 ```
 
-### Default page content
+### 默认页内容
 
 ```
-page_content                                       -- one row per owner; backs the default index surface
+page_content                                       -- 每个 owner 一行；支撑默认 index surface
   owner_id            uuid pk fk
   hero_prose          text
   hero_examples       jsonb
@@ -393,54 +393,54 @@ page_content                                       -- one row per owner; backs t
   updated_at          timestamptz
 ```
 
-### Custom pages (MCP-authored, 3-stage publish)
+### 自定义页（MCP 创作，三档发布）
 
 ```
 custom_pages
   id                  uuid pk
   owner_id            uuid fk
-  slug                text                        -- '' = root (overrides default index); '/blog', '/work', …
-  packages            jsonb                       -- allow-listed npm deps (server validates against allowlist)
-  draft_files         jsonb                       -- {path: contents}; live state being written via MCP
+  slug                text                        -- '' = 根（覆盖默认 index）；'/blog'、'/work'、…
+  packages            jsonb                       -- 允许列表内的 npm deps（服务端按 allowlist 校验）
+  draft_files         jsonb                       -- {path: contents}；通过 MCP 实时写入的当前状态
   staging_build_id    uuid null fk -> custom_page_builds
   live_build_id       uuid null fk -> custom_page_builds
-  staging_url_token   text null                   -- unguessable token; staging URL = host/_stage/{token}/...
+  staging_url_token   text null                   -- 不可猜 token；staging URL = host/_stage/{token}/...
   staged_at           timestamptz null
   live_at             timestamptz null
   created_at          timestamptz
   unique(owner_id, slug)
 
-custom_page_builds                                 -- immutable artifact records
+custom_page_builds                                 -- 不可变 artifact 记录
   id                  uuid pk
   page_id             uuid fk -> custom_pages
   status              text                        -- 'building' | 'built' | 'failed'
-  build_log           text                        -- truncated to 64 KB
+  build_log           text                        -- 截断到 64 KB
   output_path         text null                   -- 'custom/{owner_id}/{build_id}/'
-  source_snapshot     jsonb                       -- files as built (for rollback / audit)
+  source_snapshot     jsonb                       -- build 时的 files（rollback / 审计用）
   packages_snapshot   jsonb
   started_at          timestamptz
   finished_at         timestamptz null
   error               text null
 ```
 
-The three publish states (`draft` / `staging` / `live`) are derived columns:
+三档发布状态（`draft` / `staging` / `live`）是派生列：
 
-- **draft** — `draft_files` non-empty since last build.
-- **staging** — `staging_build_id` non-null, points at a `built` build, served at `/_stage/{staging_url_token}/`.
-- **live** — `live_build_id` non-null, served at the owner's public path (`/{slug}`).
+- **draft** —— 上次 build 之后 `draft_files` 有变动。
+- **staging** —— `staging_build_id` 非空，指向状态为 `built` 的 build，在 `/_stage/{staging_url_token}/` 提供服务。
+- **live** —— `live_build_id` 非空，在 owner 的公开路径（`/{slug}`）提供服务。
 
-Promotion = "copy the chosen build_id into the target field." Rollback = "set `live_build_id` to a previous build." History never gets deleted — it's an audit trail and a safety net.
+promote = "把选中的 build_id 拷到目标字段"。rollback = "把 `live_build_id` 改回某个之前的 build"。历史永远不删 —— 既是审计也是兜底。
 
-### API tokens / connectors
+### API token / connector
 
 ```
 api_tokens
   id              uuid pk
   owner_id        uuid fk
   name            text
-  token_hash      text unique                     -- sha256(plaintext); plaintext shown once
-  token_prefix    text                            -- 'smk_abc…' (first 8 chars for UI)
-  scopes          text[]                          -- 'mcp:write', 'mcp:read', 'mcp:pages'
+  token_hash      text unique                     -- sha256(plaintext)；plaintext 只显示一次
+  token_prefix    text                            -- 'smk_abc…'（前 8 个字符给 UI 显示）
+  scopes          text[]                          -- 'mcp:write'、'mcp:read'、'mcp:pages'
   last_used_at    timestamptz null
   usage_count     integer default 0
   revoked_at      timestamptz null
@@ -452,56 +452,56 @@ connectors
   kind            text                            -- 'email' | 'calendar'
   provider        text                            -- 'google' | 'outlook'
   enabled         bool
-  oauth_token     bytea null                      -- encrypted at rest (AES-GCM with key from env)
+  oauth_token     bytea null                      -- 落盘加密（AES-GCM，key 从 env 读）
   oauth_refresh   bytea null
   meta            jsonb
 ```
 
-### Indexes (non-PK)
+### 索引（非主键）
 
-- `owners(email)` unique, `owners(handle)` unique, `owners(custom_domain)` unique partial where not null
-- `raw_entries(owner_id, created_at desc)`, `raw_entries(owner_id, archived) where archived=false`
-- `wiki_entries(owner_id, visibility)`, `wiki_entries USING ivfflat (embedding vector_cosine_ops)`
-- `access_codes(code)` unique, `access_codes(owner_id, status)`
+- `owners(email)` unique、`owners(handle)` unique、`owners(custom_domain)` unique partial where not null
+- `raw_entries(owner_id, created_at desc)`、`raw_entries(owner_id, archived) where archived=false`
+- `wiki_entries(owner_id, visibility)`、`wiki_entries USING ivfflat (embedding vector_cosine_ops)`
+- `access_codes(code)` unique、`access_codes(owner_id, status)`
 - `messages(conversation_id, created_at)`
 - `api_tokens(token_hash)` unique
 - `custom_pages(owner_id, slug)` unique
 - `custom_page_builds(page_id, started_at desc)`
 
-### Decision points
+### 决策点
 
-**C.1** Embedding sync timing. Synchronous on write vs async via queue. **Recommend:** async — `promote_to_wiki` returns immediately; retrieval falls back to lexical search until `embedded_at` is set.
+**C.1** Embedding 何时算。写入时同步算 vs 异步队列。**推荐：** 异步 —— `promote_to_wiki` 立即返回；embedding 还没算出来之前 retrieval 走 lexical search 兜底。
 
-**C.2** `page_content` as JSONB vs relational. JSONB matches the way admin edits whole blocks. **Recommend:** JSONB; one row per owner; if a field becomes search-critical later, denormalize a column.
+**C.2** `page_content` 用 JSONB blob vs 拆关系表。JSONB 跟 admin 整块编辑的语义一致。**推荐：** JSONB；每个 owner 一行；若将来某字段成为检索热点，再单独拆列出来。
 
-**C.3** Media storage. Local filesystem (volume mounted) vs S3-compatible. **Recommend:** local default with pluggable backend driver — `storage_key` works for both; install.sh sets `STORAGE_DRIVER=local`.
+**C.3** 媒体存储。本地文件系统（挂 volume） vs S3 兼容。**推荐：** 默认本地 + 可插拔 driver —— `storage_key` 两种都适用；install.sh 设 `STORAGE_DRIVER=local`。
 
-**C.4** Tag taxonomy. Free text `text[]` vs a `tags` table with FK relations. **Recommend:** free text; if owner tags get messy, add `tag_aliases` later.
+**C.4** 标签体系。自由 `text[]` vs 单独 `tags` 表带 FK。**推荐：** 自由文本；将来 owner 的 tag 散乱了再加 `tag_aliases`。
 
-**C.5** Owner-id enforcement layer. In Go we don't have a Manager pattern; the equivalent is wrapping sqlc's generated queries inside a **Repository** that takes `ownerID` as the first arg and never exposes raw queries. A linter (custom go-analysis vet check) flags any call to a sqlc function that doesn't go through the Repository. **Recommend:** Repository pattern + vet check. Postgres RLS as a v2 hardening if multi-tenant becomes real.
+**C.5** Owner-id 强制层。Go 里没有 Manager 模式；等价做法是把 sqlc 生成的 query 包在 **Repository** 里，每个 method 首个参数是 `ownerID`，永远不暴露裸 query。再加一个自定义 vet 检查（`cmd/lint/owneridvet`）报错任何在 Repository 之外调 sqlc 函数的代码。**推荐：** Repository 模式 + vet check。多租户真做起来时再上 Postgres RLS 做兜底。
 
-**C.6** Custom-page allowlisted packages. The build sandbox must not let an owner's AI npm-install arbitrary code. Maintain an allowlist (`react`, `framer-motion`, `lucide-react`, `clsx`, `@standmeet/sdk`, …) checked server-side before invoking the builder. **Recommend:** start with ~15 well-known packages; expand on request.
+**C.6** 自定义页 npm 包 allowlist。沙箱不能让 owner 的 AI 随意 npm install 任意代码。维护一份 allowlist（`react`、`framer-motion`、`lucide-react`、`clsx`、`@standmeet/sdk`、…），server 端在调 builder 前校验。**推荐：** v1 列 ~15 个常用包，按需扩展。
 
-**C.7** Build retention. Old `custom_page_builds` accumulate. **Recommend:** keep last 20 per page + last `live_build_id` forever + 30-day prune of others.
+**C.7** Build 留存策略。`custom_page_builds` 会越堆越多。**推荐：** 每个 page 保留最近 20 个 + 当前 `live_build_id` 永久保留 + 30 天清理其它。
 
 ---
 
-## D. API design
+## D. API 设计
 
-Three separate API surfaces. Each has its own auth, schema, and audience. Same Go binary, different chi sub-routers.
+3 个独立 API 面。各自鉴权、各自 schema、各自受众。同一个 Go 二进制，不同的 chi sub-router。
 
 ### D.1 Admin REST API — `/api/admin/*`
 
-- **Audience:** owner's browser (admin Next.js surface).
-- **Auth:** session cookie + CSRF for state-changing requests.
-- **CORS:** same-origin only (admin is on instance domain).
+- **受众：** owner 的浏览器（admin Next.js surface）。
+- **鉴权：** session cookie + 状态变更请求带 CSRF。
+- **CORS：** 同源（admin 跟 public 在同一个 instance 域名上）。
 
 ```
 GET    /api/admin/me
 POST   /api/admin/me/logout
 
 GET    /api/admin/raw                       ?source=&tag=&q=
-POST   /api/admin/raw                       -- manual dump (admin's quick-dump box)
+POST   /api/admin/raw                       -- 手动 dump（admin 的 quick-dump 框）
 PATCH  /api/admin/raw/:id
 DELETE /api/admin/raw/:id
 POST   /api/admin/raw/:id/promote           {title, visibility, tags}
@@ -514,7 +514,7 @@ DELETE /api/admin/wiki/:id
 GET    /api/admin/codes
 POST   /api/admin/codes
 PATCH  /api/admin/codes/:id
-DELETE /api/admin/codes/:id                 -- revoke (soft)
+DELETE /api/admin/codes/:id                 -- 撤销（软删）
 POST   /api/admin/codes/:id/members
 DELETE /api/admin/codes/:id/members/:mid
 
@@ -522,37 +522,37 @@ GET    /api/admin/conversations             ?code_id=&tier=
 GET    /api/admin/conversations/:id
 
 GET    /api/admin/page
-PUT    /api/admin/page                      -- replace default-page blocks atomically
+PUT    /api/admin/page                      -- 原子替换默认页 block
 
-POST   /api/admin/media                     -- multipart upload (admin manual)
+POST   /api/admin/media                     -- multipart upload（admin 手传）
 GET    /api/admin/media                     ?attached_to=
 DELETE /api/admin/media/:id
 
 GET    /api/admin/tokens
-POST   /api/admin/tokens                    -- response includes plaintext ONCE
+POST   /api/admin/tokens                    -- response 只包含明文一次
 DELETE /api/admin/tokens/:id
 
 GET    /api/admin/connectors
 POST   /api/admin/connectors/:kind/oauth/start    -> {redirect_url}
 GET    /api/admin/connectors/:kind/oauth/callback
 
-# Custom pages — monitoring & lifecycle only. NO source-file CRUD here.
-GET    /api/admin/custom-pages              -- list with derived state (draft/staging/live)
+# Custom pages —— 只做监控 / lifecycle。**不**做源文件 CRUD。
+GET    /api/admin/custom-pages              -- 列表 + 派生状态（draft/staging/live）
 GET    /api/admin/custom-pages/:id
-GET    /api/admin/custom-pages/:id/builds   -- recent build history
-POST   /api/admin/custom-pages/:id/publish  {build_id} -- promote a built build to live
-POST   /api/admin/custom-pages/:id/rollback              -- previous live_build_id
+GET    /api/admin/custom-pages/:id/builds   -- 最近 build 历史
+POST   /api/admin/custom-pages/:id/publish  {build_id}  -- 把某个 built 提升到 live
+POST   /api/admin/custom-pages/:id/rollback              -- 上一个 live_build_id
 POST   /api/admin/custom-pages/:id/unpublish             -- live_build_id := null
 DELETE /api/admin/custom-pages/:id
 ```
 
-Source-file authoring lives in MCP, not here (see D.3).
+源文件创作完全走 MCP，不在这里（见 D.3）。
 
 ### D.2 Public API — `/api/v1/*`
 
-- **Audience:** SDK clients (instance's own Next.js public pages + any third-party site embedding the SDK).
-- **Auth:** Bearer session token issued by `POST /api/v1/sessions`. Opaque, Redis-backed, 60-min TTL with sliding refresh up to 8 h.
-- **CORS:** open on read; restricted on write (only sessions endpoints).
+- **受众：** SDK 客户端（instance 自己的 Next.js 公开页 + 任何第三方站点 embed SDK）。
+- **鉴权：** `POST /api/v1/sessions` 颁发的 Bearer session token。不透明、Redis-backed，TTL 60 分钟，滑动续期最多 8 小时。
+- **CORS：** 读 endpoint 完全开放；写 endpoint 受限（目前只有 sessions）。
 
 ```
 POST   /api/v1/sessions
@@ -572,20 +572,20 @@ POST   /api/v1/sessions
 POST   /api/v1/sessions/:id/messages
   body: { content }
   response: text/event-stream
-  events: token deltas, tool_call_start, tool_call_end, citation, done, error
+  events: token delta、tool_call_start、tool_call_end、citation、done、error
 
-GET    /api/v1/page/:handle                -- default page content (read-only)
+GET    /api/v1/page/:handle                -- 默认页内容（只读）
 GET    /api/v1/page/:handle/byoai-config   -- {enabled, providers, public_blurb}
-GET    /api/v1/sdk/v1/manifest             -- SDK build metadata (for instance-served <script>)
+GET    /api/v1/sdk/v1/manifest             -- SDK build 元信息（给 instance 自带的 <script> 用）
 ```
 
 ### D.3 MCP server — `/mcp/`
 
-- **Audience:** owner's AI client (Claude Desktop, Cursor, …).
-- **Auth:** `Authorization: Bearer smk_…`.
-- **Protocol:** `mcp-go` streamable HTTP transport.
+- **受众：** owner 的 AI 客户端（Claude Desktop、Cursor、…）。
+- **鉴权：** `Authorization: Bearer smk_…`。
+- **协议：** `mcp-go` 的 streamable HTTP transport。
 
-**Tools — corpus (ingest):**
+**工具 —— corpus（ingest）：**
 
 ```
 raw_dump(body, tags?, source_label?, attach_media_id?)
@@ -608,17 +608,17 @@ get_wiki(wiki_id)
 archive(entry_kind, entry_id)
 ```
 
-**Tools — custom pages (the entire authoring surface):**
+**工具 —— custom pages（整套创作面就这套工具）：**
 
 ```
-# Lifecycle
+# 生命周期
 custom_page.list()
   -> [{id, slug, has_draft, staging_url?, live_url?, last_build}]
 custom_page.create(slug, template?='blank')
   -> {page_id}
 custom_page.delete(page_id)
 
-# File editing — AI calls these to write the React source
+# 文件编辑 —— AI 通过这几个工具写 React 源码
 custom_page.list_files(page_id)
   -> [{path, size}]
 custom_page.read_file(page_id, path)
@@ -626,162 +626,162 @@ custom_page.read_file(page_id, path)
 custom_page.write_file(page_id, path, contents)
 custom_page.delete_file(page_id, path)
 custom_page.set_packages(page_id, deps)
-  -- deps validated against server allowlist (see C.6)
+  -- deps 走 server 端 allowlist 校验（见 C.6）
 
-# Build & promote
+# Build 与发布
 custom_page.build(page_id)
-  -> {build_id}                                     -- async; spawns builder container
+  -> {build_id}                                     -- 异步；拉起 builder 容器
 custom_page.get_build(page_id, build_id?)
-  -> {status, log, finished_at, error?}             -- omit build_id = latest
+  -> {status, log, finished_at, error?}             -- build_id 省略 = 最新
 custom_page.promote_to_staging(page_id, build_id?)
-  -> {staging_url}                                  -- unguessable token URL
+  -> {staging_url}                                  -- 不可猜 token 的 URL
 custom_page.promote_to_live(page_id, build_id?)
   -> {live_url}
 custom_page.rollback(page_id)
-  -- live_build_id := previous live build
+  -- live_build_id := 上一个 live build
 ```
 
-Owner's typical flow:
+Owner 的典型流程：
 
-> Owner (in Claude Desktop): "Add a `/blog` page that pulls my 5 most recent public wiki entries into the hero."
-> AI: calls `custom_page.create('/blog')` → `search_wiki(visibility='public', limit=5)` → several `write_file()` → `build()` → polls `get_build()` until built → `promote_to_staging()` → reads back the staging URL.
-> Owner: opens URL, "the hero text is too small, double it."
-> AI: `write_file()` + `build()` + new staging URL.
-> Owner: "Ship it."
-> AI: `promote_to_live('/blog')`.
+> Owner（在 Claude Desktop）："给我加个 `/blog` 页，从我 wiki 里 visibility=public 的最近 5 篇拉内容做 hero。"
+> AI：调 `custom_page.create('/blog')` → `search_wiki(visibility='public', limit=5)` → 几次 `write_file()` → `build()` → 轮询 `get_build()` 直到 built → `promote_to_staging()` → 把 staging URL 念回来。
+> Owner：浏览器打开看，"hero 字太小，再大一倍。"
+> AI：`write_file()` + `build()` + 新 staging URL。
+> Owner："上线。"
+> AI：`promote_to_live('/blog')`。
 
-The admin's "Custom pages" section is the monitoring panel for everything above — list of pages, derived state, staging/live URLs, manual `publish` / `rollback` / `unpublish` / `delete` buttons. No editor, no chat, no preview iframe.
+admin 的 "Custom pages" 区是上面所有动作的监控面板 —— 页列表、派生状态、staging/live URL、`publish` / `rollback` / `unpublish` / `delete` 手动按钮。**不**做编辑器、不嵌聊天、不放预览 iframe。
 
-### D.4 Internal endpoints — `/internal/*`
+### D.4 内部 endpoint — `/internal/*`
 
-- `/internal/healthz` — for Caddy probe + uptime.
-- `/internal/tls-ask?domain=…` — Caddy on-demand TLS gatekeeper. Returns 200 iff the domain matches an owner's `custom_domain_status='verified'`.
-- `/internal/log` — frontend error report sink (rate-limited).
+- `/internal/healthz` —— Caddy 探活 + uptime。
+- `/internal/tls-ask?domain=…` —— Caddy on-demand TLS 的把关接口。当且仅当 domain 匹配某个 owner 的 `custom_domain_status='verified'` 时返回 200。
+- `/internal/log` —— 前端错误上报（限流）。
 
-### Decision points
+### 决策点
 
-**D.1** SSE vs WebSocket for the chat stream. SSE is HTTP, plays nice with CORS / proxies / browsers; we lose bi-directional, which we don't need. **Recommend:** SSE.
+**D.1** chat 流走 SSE vs WebSocket。SSE 是 HTTP，CORS / proxy / 浏览器全友好；丢的是双向通讯，我们不需要。**推荐：** SSE。
 
-**D.2** BYOAI key path. Visitor's API key should never reach our server. Flow: server returns RAG context + filtered scope; SDK runs the inference call directly against `api.anthropic.com` / `api.openai.com` using visitor's key. Server proxy alternative is simpler but stores liability. **Recommend:** client-side direct, two-step (RAG → infer).
+**D.2** BYOAI 的 key 路径。访客的 API key 永远不应到我们 server。流程：server 返回 RAG context + 过滤后的 scope；SDK 用访客的 key 直接调 `api.anthropic.com` / `api.openai.com`。server proxy 方案更简单，但承担访客 key 的存储责任。**推荐：** 客户端直连，两步（RAG → infer）。
 
-**D.3** MCP auth — API token now, OAuth flow later. Owner builds a token in admin, pastes the JSON snippet into Claude Desktop. Friction, but bulletproof v0. **Recommend:** API tokens for v1, add OAuth provider in v2.
+**D.3** MCP 鉴权 —— 现在 API token，后面 OAuth。owner 在 admin 建 token，把 JSON snippet 粘到 Claude Desktop。有点摩擦但 v0 稳。**推荐：** v1 API token；v2 等 MCP OAuth 公约稳定再加。
 
-**D.4** Session token storage. Server-side opaque (Redis lookup, revocable) vs JWT. Owners revoking codes need instant effect. **Recommend:** opaque + Redis.
+**D.4** session token 存储。server 端不透明 Redis（可即时撤销） vs JWT（无状态，撤销要 deny-list）。owner 撤 code 时要立刻生效。**推荐：** 不透明 + Redis。
 
-**D.5** Idempotency on `raw_dump`. AI may retry on transient failures and double-write. **Recommend:** require `request_id` (uuid) header on MCP writes, server dedupes within a 1-hour window.
+**D.5** `raw_dump` 的幂等。AI 在临时失败时可能重试导致重复写。**推荐：** MCP 写工具要求带 `request_id`（uuid）header，server 在 1 小时窗口内去重。
 
-**D.6** Custom-page write idempotency. `write_file` is naturally idempotent (file content replaces). `build` is more subtle — concurrent builds for the same page should be coalesced (return the in-flight `build_id`) rather than queued. **Recommend:** coalesce; one in-flight build per page.
+**D.6** 自定义页写入幂等。`write_file` 天然幂等（内容覆盖）。`build` 有点微妙 —— 同一 page 并发的 build 应该 coalesce（直接返回正在跑的 `build_id`）而不是排队。**推荐：** coalesce；同一 page 最多一个 in-flight build。
 
 ---
 
-## E. Auth
+## E. 鉴权
 
-Five auth scenarios:
+5 种鉴权场景：
 
-| Scenario | Surface | Mechanism |
+| 场景 | 入口 | 机制 |
 |---|---|---|
-| First-run instance claim | `/setup?t=<token>` | one-shot `setup_token` printed to console |
-| Owner login | `/login` | email + password → session cookie |
-| MCP client | `/mcp/*` | `Authorization: Bearer smk_…` (API token) |
-| Visitor code access | `/api/v1/sessions` | code → opaque session token |
-| Visitor BYOAI access | `/api/v1/sessions` | `byoai: true` → opaque session token (public-scope) |
+| 首次 claim instance | `/setup?t=<token>` | 一次性 `setup_token`，打印到 console |
+| Owner 登录 | `/login` | 邮箱 + 密码 → session cookie |
+| MCP 客户端 | `/mcp/*` | `Authorization: Bearer smk_…`（API token） |
+| 访客 code 访问 | `/api/v1/sessions` | code → 不透明 session token |
+| 访客 BYOAI 访问 | `/api/v1/sessions` | `byoai: true` → 不透明 session token（仅 public scope） |
 
-### First-run claim flow
+### 首次 claim 流程
 
-1. Container starts. `instance_settings.is_claimed=false`. Backend generates a one-shot `setup_token`, stores `sha256(token)` in `instance_settings.setup_token_hash`, and prints plaintext to stdout:
+1. 容器启动。`instance_settings.is_claimed=false`。Backend 生成一次性 `setup_token`，把 `sha256(token)` 存进 `instance_settings.setup_token_hash`，把明文打印到 stdout：
    ```
    ┌─────────────────────────────────────────────────────────────┐
-   │ STANDMEET is ready. Claim this instance:                    │
+   │ STANDMEET 已就绪。点这个链接 claim：                            │
    │   https://your-domain.example/setup?t=eyJh…                 │
    └─────────────────────────────────────────────────────────────┘
    ```
-   Also writes the URL to `/srv/first-run.txt` (deleted after claim) for users not watching logs.
-2. Owner opens link → setup page → fills email/password/handle/full_name → `POST /api/admin/claim {token, …}`.
-3. Backend verifies token, creates owner, marks `is_claimed=true`, clears `setup_token_hash`, deletes the file. Endpoint refuses subsequent calls.
-4. Owner is auto-logged-in.
+   同时把 URL 写到 `/srv/first-run.txt`（claim 后自动删），照顾不盯 log 的用户。
+2. Owner 打开链接 → setup 页 → 填邮箱/密码/handle/姓名 → `POST /api/admin/claim {token, …}`。
+3. Backend 校验 token，创建 owner，标记 `is_claimed=true`，清掉 `setup_token_hash` 和文件。这个 endpoint 之后拒绝调用。
+4. Owner 自动登录。
 
-### Owner-id propagation
+### Owner-id 的传播
 
-- A chi middleware (`auth.WithOwner`) runs early on every authenticated route. Reads session cookie / bearer token / visitor session token (whichever applies) → resolves `owner_id` → puts it on `context.Context` via a typed key.
-- Repository methods take `ctx context.Context` first; they pull `owner_id` from context and refuse to run if absent.
-- Custom vet check (`cmd/lint/owneridvet`) flags any sqlc-generated call made outside a Repository method, so we can't accidentally bypass the filter.
+- chi 中间件 `auth.WithOwner` 在每个鉴权路由上早早跑一遍。读 session cookie / bearer token / visitor session token（看走哪条），解出 `owner_id`，用类型化 key 放到 `context.Context`。
+- Repository 的 method 首参 `ctx context.Context`；method 内部从 context 拿 `owner_id`，没有就 panic（dev 模式下）/ 拒绝执行。
+- 自定义 vet 检查（`cmd/lint/owneridvet`）报错任何在 Repository method 之外调 sqlc 函数的代码，防止我们绕开过滤。
 
-### Sessions in detail
+### Session 细节
 
-- Owner cookie name `smt_session`, HttpOnly, Secure, SameSite=Lax, Path=/api/admin.
-- Backed by Redis: `session:{token}` → `{owner_id, expires_at, csrf_token}`.
-- CSRF: double-submit cookie pattern; frontend bootstraps via `GET /api/admin/csrf`.
+- Owner cookie 名 `smt_session`，HttpOnly、Secure、SameSite=Lax、Path=/api/admin。
+- Redis-backed：`session:{token}` → `{owner_id, expires_at, csrf_token}`。
+- CSRF：double-submit cookie 模式；前端在 bootstrap 时通过 `GET /api/admin/csrf` 拿。
 
-### Visitor session token
+### 访客 session token
 
-- Opaque random 32 bytes, base64url, prefixed `smv_`.
-- Redis: `vsession:{token}` → `{owner_id, code_id?, member_id?, scope, byoai?, expires_at}`.
-- TTL 60 min, slides on each request up to 8 h max.
+- 32 字节随机 + base64url，前缀 `smv_`。
+- Redis：`vsession:{token}` → `{owner_id, code_id?, member_id?, scope, byoai?, expires_at}`。
+- TTL 60 分钟，每次请求滑动续期，最多 8 小时。
 
-### API tokens
+### API token
 
-- Plaintext format `smk_<24-char-base32>`. Backend stores `sha256(plaintext)` only.
-- Created via admin; the only place plaintext is ever shown.
-- Revocation: `revoked_at` set → middleware rejects.
-- Scopes: `mcp:read`, `mcp:write` (raw / wiki / media / tags), `mcp:pages` (custom page tools).
+- 明文格式 `smk_<24-char-base32>`。Backend 只存 `sha256(plaintext)`。
+- 在 admin 里创建；只有创建那一刻看到明文。
+- 撤销：`revoked_at` 一设，中间件立即拒绝。
+- Scopes：`mcp:read`、`mcp:write`（raw / wiki / media / tag）、`mcp:pages`（custom page 工具）。
 
-### Decision points
+### 决策点
 
-**E.1** Setup token delivery. Console print + host file. **Recommend:** both.
+**E.1** Setup token 怎么交付。console print + host file。**推荐：** 都做。
 
-**E.2** Password hashing. Argon2id via `golang.org/x/crypto/argon2`. **Recommend:** Argon2id with `time=3, memory=64 MB, threads=4` defaults.
+**E.2** 密码 hash。`golang.org/x/crypto/argon2` 的 Argon2id。**推荐：** Argon2id，默认参数 `time=3, memory=64 MB, threads=4`。
 
-**E.3** CSRF model. Double-submit cookie + `X-CSRFToken` header on mutating admin calls. **Recommend:** standard, served via `/api/admin/csrf` on bootstrap.
+**E.3** CSRF 模式。double-submit cookie + admin 状态变更请求带 `X-CSRFToken` header。**推荐：** 标准做法，bootstrap 时走 `/api/admin/csrf`。
 
-**E.4** API token scopes. Coarse v1 (`mcp:read`, `mcp:write`, `mcp:pages`) with field reserved for granular later. **Recommend:** coarse — owner doesn't want to manage 8 scopes for their own AI.
+**E.4** API token scope 粒度。粗粒度 v1（`mcp:read`、`mcp:write`、`mcp:pages`），字段为后续细粒度预留。**推荐：** 粗粒度 —— owner 不想给自己的 AI 管 8 个 scope。
 
-**E.5** Cross-origin admin. **Recommend:** disallow in v1; admin lives at `/admin` on the same host as public.
+**E.5** Admin 跨 origin。**推荐：** v1 不允许；admin 在 public 同 host 的 `/admin`。
 
 ---
 
-## F. Multi-tenant readiness
+## F. 多租户预留
 
-The shape: v1 wires single-owner everywhere but the *data* and *URL surface* are tenancy-shaped already.
+形状：v1 各处都按单 owner 接线，但**数据**和 **URL** 已经是多租户形状。
 
-### Data layer
+### 数据层
 
-- Every domain table has `owner_id`.
-- Repository methods require `ownerID` from `context.Context`; no method exposes an "all owners" view.
-- Storage paths prefixed `{owner_id}/…`.
-- Page-builder output paths prefixed `custom/{owner_id}/{build_id}/…`.
+- 每个 domain 表都有 `owner_id`。
+- Repository method 从 `context.Context` 取 `ownerID`；没有任何 method 暴露"所有 owner"视图。
+- 存储 path 前缀 `{owner_id}/…`。
+- Builder 输出 path 前缀 `custom/{owner_id}/{build_id}/…`。
 
-### URL layer (v1 vs v2)
+### URL 层（v1 vs v2）
 
-| Surface | v1 (single-owner) | v2 (multi-tenant) |
+| Surface | v1（单 owner） | v2（多租户） |
 |---|---|---|
-| Public chat | `/` → rewritten to `/{owner_handle}` by middleware | `/{handle}` |
+| 公开 chat | `/` → 中间件改写到 `/{owner_handle}` | `/{handle}` |
 | Gate | `/gate` → `/{handle}/gate` | `/{handle}/gate` |
-| Admin | `/admin` (owner login required) | `/admin` (owner login required, scoped) |
+| Admin | `/admin`（要求 owner 登录） | `/admin`（owner 登录 + 自动 scope） |
 | Login | `/login` | `/login` |
-| Setup | `/setup?t=` | replaced by `/signup` |
-| Custom page | `/{slug}` → `/{owner_handle}/{slug}` | `/{handle}/{slug}` |
-| Staging custom page | `/_stage/{token}/...` (token contains owner_id) | unchanged |
+| Setup | `/setup?t=` | 换成 `/signup` |
+| 自定义页 | `/{slug}` → `/{owner_handle}/{slug}` | `/{handle}/{slug}` |
+| Staging 自定义页 | `/_stage/{token}/...`（token 内含 owner_id） | 不变 |
 
-v1 middleware folds `/` → `/{owner_handle}` for the only owner; v2 unmounts the middleware and serves `/[handle]` directly. Less code churn at the flip.
+v1 中间件把 `/` 折叠到唯一 owner 的 `/{owner_handle}`；v2 卸掉这个中间件、直接 serve `/[handle]`。切换时改动量极小。
 
-### Flag
+### 开关
 
-`instance_settings.multi_tenant: bool`. Controls:
-- whether `/setup` is reachable after first claim
-- whether `/signup` is reachable
-- whether `POST /api/admin/claim` is reachable for additional owners
+`instance_settings.multi_tenant: bool`。控制：
+- 首次 claim 之后 `/setup` 是否还能访问
+- `/signup` 是否启用
+- `POST /api/admin/claim` 是否接受新 owner
 
-### Decision points
+### 决策点
 
-**F.1** Hostname strategy at v2: `/{handle}` paths vs `{handle}.domain` subdomains. Subdomain feels more "personal page" but adds wildcard SSL + DNS. **Recommend:** plan for both; v1 path-based; v2 toggleable with `multi_tenant_url_style ∈ {path, subdomain}`.
+**F.1** v2 域名策略：`/{handle}` 路径 vs `{handle}.domain` 子域。子域更"个人页"，但要 wildcard SSL + DNS。**推荐：** 两种都规划；v1 走 path；v2 用 `multi_tenant_url_style ∈ {path, subdomain}` 控制。
 
-**F.2** Custom domain ownership. In multi-tenant, the same instance hosts many custom domains. Caddy on-demand TLS asks `/internal/tls-ask?domain=…`. **Recommend:** already covered by the data model.
+**F.2** 自定义域名归属。多租户时同一个 instance 服务多个自定义域名。Caddy on-demand TLS 调 `/internal/tls-ask?domain=…`。**推荐：** 数据模型已覆盖。
 
-**F.3** Storage isolation. Local filesystem with `{owner_id}/...` paths is a soft barrier for v1. **Recommend:** accept the soft barrier; document hardening (per-owner UID, quota) as a v2 task.
+**F.3** 存储隔离。本地文件系统按 `{owner_id}/…` 路径是软隔离。**推荐：** v1 接受软隔离；记一笔 v2 任务：按 owner UID + quota 硬化。
 
 ---
 
-## G. Deployment / runtime
+## G. 部署 / 运行时
 
 ### docker compose
 
@@ -816,11 +816,11 @@ services:
     environment:
       - DATABASE_URL=postgres://standmeet:${DB_PASSWORD}@db:5432/standmeet
       - REDIS_URL=redis://redis:6379/0
-      - SESSION_KEY                              # for cookie signing
+      - SESSION_KEY                              # cookie 签名
       - STORAGE_DRIVER=local
       - STORAGE_ROOT=/srv/media
       - BUILDER_IMAGE=standmeet/builder:latest
-      - DOCKER_HOST=unix:///var/run/docker.sock  # to spawn builder containers
+      - DOCKER_HOST=unix:///var/run/docker.sock  # 让 backend 拉 builder
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - media:/srv/media
@@ -853,9 +853,9 @@ volumes:
   custom_pages: {}
 ```
 
-The `builder` service is NOT in compose — backend spawns it with the Docker socket per `custom_page.build()`.
+`builder` 服务**不**在 compose 里 —— backend 通过 Docker socket 在每次 `custom_page.build()` 时拉起。
 
-### Backend Dockerfile (multi-stage)
+### Backend Dockerfile（多 stage）
 
 ```dockerfile
 FROM golang:1.22 AS build
@@ -872,9 +872,9 @@ USER nonroot:nonroot
 ENTRYPOINT ["/standmeet"]
 ```
 
-Migrations run on startup (`goose up`) from `/migrations`. Final image ~25 MB, no shell, no package manager. Runs as nonroot.
+启动时跑 `goose up`，从 `/migrations` 读。最终镜像 ~25 MB，无 shell、无 package manager、以 nonroot 跑。
 
-### Caddyfile (sketch)
+### Caddyfile（草稿）
 
 ```
 {
@@ -889,7 +889,7 @@ Migrations run on startup (`goose up`) from `/migrations`. Final image ~25 MB, n
   handle_path /mcp/*       { reverse_proxy backend:8000 }
   handle_path /internal/*  { reverse_proxy backend:8000 }
   handle_path /custom/*    { root * /srv/custom; file_server }
-  handle_path /_stage/*    { reverse_proxy backend:8000 }   # backend serves staging by token
+  handle_path /_stage/*    { reverse_proxy backend:8000 }   # staging 由 backend 按 token serve
   reverse_proxy app:3000
 }
 
@@ -900,116 +900,116 @@ Migrations run on startup (`goose up`) from `/migrations`. Final image ~25 MB, n
 }
 ```
 
-### Install script (`install.sh`)
+### 安装脚本 `install.sh`
 
 ```sh
 #!/bin/sh
-# 1. Check docker & docker compose available
-# 2. Clone repo OR download release tarball
-# 3. Prompt for STANDMEET_DOMAIN, STANDMEET_EMAIL
-# 4. Generate .env with random SESSION_KEY + DB_PASSWORD
+# 1. 检查 docker 和 docker compose
+# 2. clone repo 或下载 release tarball
+# 3. 询问 STANDMEET_DOMAIN、STANDMEET_EMAIL
+# 4. 生成带随机 SESSION_KEY + DB_PASSWORD 的 .env
 # 5. docker compose pull && docker compose up -d
-# 6. Tail backend logs until "STANDMEET is ready" banner, print setup URL
+# 6. tail backend 日志直到 "STANDMEET 已就绪" 横幅，打印 setup URL
 ```
 
-### Migrations
+### Migration
 
-Backend entrypoint runs `goose up` against the connection string before starting the HTTP server. Breaking migrations flagged in release notes; major version bumps documented in `MIGRATION.md`.
+Backend entrypoint 启动 HTTP server 之前先跑 `goose up`。破坏性 migration 在 release notes 里标红；大版本号变化写到 `MIGRATION.md`。
 
-### Backup / restore
+### 备份 / 恢复
 
-- `make backup` → `pg_dump` + `tar` of `media/` + `custom_pages/` → single dated tarball.
-- `make restore TARBALL=…` → restores into fresh volumes.
-- v1: no automatic schedule; document a cron one-liner.
+- `make backup` → `pg_dump` + tar `media/` + `custom_pages/` → 一个带日期的 tarball。
+- `make restore TARBALL=…` → 倒进干净的 volume。
+- v1：没有自动调度；文档里给 cron one-liner。
 
-### Decision points
+### 决策点
 
-**G.1** On-demand TLS rate limiting via the ask endpoint. **Recommend:** ask endpoint checks `custom_domain_status='verified'`.
+**G.1** on-demand TLS 限流（通过 ask endpoint）。**推荐：** ask endpoint 检查 `custom_domain_status='verified'`。
 
-**G.2** Zero-downtime upgrades. **Recommend:** not in v1; accept 5–10s downtime on `docker compose up`.
+**G.2** 零宕机升级。**推荐：** v1 不做；接受 `docker compose up` 时 5–10 秒宕机。
 
-**G.3** Migration runner. Auto-`goose up` on startup vs explicit `make migrate`. **Recommend:** auto with a `MIGRATE_ON_START=false` escape hatch.
+**G.3** Migration 跑法。启动自动 `goose up` vs 显式 `make migrate`。**推荐：** 自动 + 一个 `MIGRATE_ON_START=false` 的逃生口。
 
-**G.4** Builder isolation level. `docker run --rm` with `--network=none` + drop-capabilities + read-only root + tmpfs `/tmp` + seccomp profile + memory/cpu limits + 60s timeout. Tighter would be gVisor/Firecracker. **Recommend:** docker run with the listed hardening for v1; document a path to gVisor.
+**G.4** Builder 隔离强度。`docker run --rm` + `--network=none` + drop-capabilities + 只读 root + tmpfs `/tmp` + seccomp profile + 内存/CPU 限制 + 60s timeout。再硬就是 gVisor / Firecracker。**推荐：** v1 docker run + 上述硬化；文档里写好升级到 gVisor 的路径。
 
-**G.5** Backend container needs Docker socket access to spawn builders. That's a privilege escalation if the backend is compromised. Alternatives: rootless Podman, or run a thin `builder-broker` daemon. **Recommend:** socket access for v1 (acceptable given backend is the trust boundary anyway); v2 evaluate `builder-broker`.
+**G.5** Backend 容器需要 Docker socket 才能拉 builder。这是个权限升级风险（backend 被打穿就完了）。备选方案：rootless Podman，或跑一个 thin `builder-broker` daemon。**推荐：** v1 socket 直接给（反正 backend 本来就是信任边界）；v2 评估 `builder-broker`。
 
 ---
 
-## H. Observability and error handling
+## H. 可观测性 / 错误处理
 
-### Logging
+### 日志
 
-- **Backend:** structured JSON to stdout via `slog`. Fields: `ts, level, owner_id?, request_id, route, msg`.
-- **Frontend:** errors posted to `/internal/log` (rate-limited).
-- **Caddy:** JSON access log.
-- **Builder:** stdout captured into `custom_page_builds.build_log`; owner reads via `custom_page.get_build()` MCP tool or admin list view.
+- **Backend：** `slog` 输出 JSON 结构化日志到 stdout。字段：`ts, level, owner_id?, request_id, route, msg`。
+- **Frontend：** 错误上报 `/internal/log`（限流）。
+- **Caddy：** JSON access log。
+- **Builder：** stdout 抓到 `custom_page_builds.build_log`；owner 通过 `custom_page.get_build()` MCP 工具或 admin 列表查看。
 
-### Health checks
+### 健康检查
 
-- `GET /internal/healthz` → 200 if PG + Redis reachable.
-- Caddy waits on this before routing.
+- `GET /internal/healthz` —— PG + Redis 可达就返回 200。
+- Caddy 路由前先等这个。
 
-### User-facing errors (preserved from CLAUDE.md)
+### 用户能看到的错误（沿用 CLAUDE.md 的原则）
 
-Standard envelope:
+标准 envelope：
 
 ```json
 { "error": { "code": "tier_insufficient", "message": "...", "hint": "..." } }
 ```
 
-Frontend has a single `friendlyError(code)` helper that maps codes to displayable copy. Default fallback `"Something went wrong"` — never a stack trace, never an exit code, never a Go panic string.
+前端有个统一的 `friendlyError(code)` helper，把 code 映射到能展示的文案。兜底 `"Something went wrong"` —— 绝不暴露 stack trace、退出码、Go panic 字符串。
 
-| code | meaning | UI shows |
+| code | 含义 | UI 展示 |
 |---|---|---|
-| `code_invalid` | access code unknown / revoked | "That code didn't work. Double-check it or request access." |
-| `code_expired` | access code past expiry | "This code has expired. Request a new one." |
-| `tier_insufficient` | private content in public/byoai tier | inline "public scope only · need a code" block |
-| `byoai_disabled` | owner toggled off | "BYOAI isn't enabled on this page. Use an access code instead." |
-| `ratelimited` | too many requests | "Slow down — try again in a minute." |
-| `not_found` | bad handle / 404 | standard 404 page |
-| `build_failed` | sandbox build error (custom page) | admin shows truncated log inline |
-| `package_not_allowed` | custom page tried a non-allowlisted npm dep | admin shows which package + how to request |
-| `server_error` | catch-all | "Something went wrong." (+ request_id) |
+| `code_invalid` | access code 错误或已撤销 | "这个 code 不对。再检查一下，或者请求 access。" |
+| `code_expired` | access code 过期 | "code 过期了。请 owner 再发一个。" |
+| `tier_insufficient` | public/byoai tier 触碰到 private | inline "只能看 public，要进一步聊得拿 code" 块 |
+| `byoai_disabled` | owner 关了 BYOAI | "owner 没开 BYOAI。用 access code 进吧。" |
+| `ratelimited` | 请求太频繁 | "慢一点 —— 一分钟后再试。" |
+| `not_found` | handle 不存在 / 404 | 标准 404 页 |
+| `build_failed` | 沙箱 build 失败（自定义页） | admin 里展示截断后的 log |
+| `package_not_allowed` | 自定义页用了 allowlist 之外的 npm 包 | admin 里展示哪个包 + 怎么申请 |
+| `server_error` | 兜底 | "出问题了。"（带 request_id 给排查） |
 
 ### Metrics
 
-- v1: structured logs, ad-hoc query.
-- v2: Prometheus exporter behind `/internal/metrics`, basic-auth.
+- v1：结构化日志，临时查。
+- v2：`/internal/metrics` 暴露 Prometheus exporter，basic-auth。
 
-### Decision points
+### 决策点
 
-**H.1** Telemetry. **Recommend:** no for v1; self-host crowd values privacy.
+**H.1** 匿名 telemetry。**推荐：** v1 不做；自部署用户敏感。
 
-**H.2** Frontend error reporter. **Recommend:** self-hosted; v2 makes Sentry DSN configurable.
+**H.2** 前端 error reporter。**推荐：** 自托管；v2 让 Sentry DSN 可配置。
 
-**H.3** Request ID propagation. Caddy generates → forwarded as `X-Request-ID` to backend → echoed on error envelopes. **Recommend:** yes.
+**H.3** Request ID 传播。Caddy 生成 → `X-Request-ID` 转给 backend → 错误 envelope 里回带。**推荐：** 做。
 
-**H.4** Build log size cap. **Recommend:** truncate at 64 KB with `(truncated)` marker.
-
----
-
-## Cross-cutting principles
-
-1. **owner_id is non-negotiable.** Every domain table, every query, every storage path. Repository methods take it from `ctx`; vet check enforces.
-2. **Three API surfaces, three auth mechanisms, one process.** Don't merge admin and public API endpoints "for convenience."
-3. **The SDK is a first-class consumer of the public API.** If something is hard to expose to the SDK, the API is wrong.
-4. **MCP is the owner's authoring channel, not just an ingest channel.** Any owner-side workflow that benefits from being AI-driven (raw → wiki, building custom pages, tagging, future: ghostwriting, replying) is shaped as a tool set, not an admin UI feature. Admin UI is for monitoring and explicit safety controls (publish, rollback, revoke).
-5. **Self-host friendliness > feature richness.** Anything that needs an external SaaS account is a v2 concern.
-6. **Errors are UI copy.** Backend codes are stable; frontend strings are localized; never leak.
+**H.4** Build log 大小上限。**推荐：** 64 KB 截断 + `(truncated)` 标记。
 
 ---
 
-## Open questions outside this doc's scope
+## 横切原则
 
-These are surfaced as known unknowns. Decide in a follow-up:
-
-- **Inference cost for code-tier conversations** — owner pays via configured API key (Anthropic/OpenAI) stored as `connector` or env var? Schema accommodates either; UX in admin not designed yet.
-- **IM bridge (Telegram/Discord/Slack)** — out of scope for first slice. Data model is already accommodating (`raw_entries.source='telegram-bot'`; access-code session via bot DM).
-- **Electron client** — same. Ingest channel already supported; UX out of scope.
-- **Connectors (Email / Calendar)** — schema present; tool-call rendering in chat (`tool_calls jsonb`) supports calendar slot proposals; OAuth flow design deferred.
-- **Allowlist governance for custom-page packages** — who decides what's on it, how owners request additions, whether the allowlist itself is a versioned config file.
+1. **owner_id 不可妥协。** 每张领域表、每个 query、每个存储 path 都要带。Repository 从 `ctx` 取；vet check 兜底。
+2. **三个 API 面、三套鉴权、一个进程。** 不要"为了方便"把 admin 和 public endpoint 合到一起。
+3. **SDK 是 public API 的一等消费者。** 如果某件事 SDK 难以表达，那是 API 设计错了。
+4. **MCP 是 owner 的创作通道，不只是 ingest 通道。** 任何 owner-side 工作流，只要 AI 介入有价值（raw → wiki、写自定义页、打 tag、未来的 ghostwriting、replying），都做成工具集，不要做成 admin UI feature。admin UI 只负责监控和安全的明确控制（publish、rollback、revoke）。
+5. **自部署友好 > 功能多。** 任何需要外部 SaaS 账户的东西都是 v2 的事。
+6. **错误就是 UI 文案。** Backend code 稳定；前端字符串本地化；永远不要泄漏内部细节。
 
 ---
 
-*End of code architecture draft. Reply with decision-point acceptances or changes (e.g. "A.1: accept; B.1: change — no shadcn, hand-build everything").*
+## 本文档不解决的开放问题
+
+这些是已知的未知，留给后续单独决定：
+
+- **Code-tier 对话的推理成本谁出** —— owner 配自己的 Anthropic/OpenAI key？存 `connector` 还是 env var？schema 两种都能容；admin 那块 UX 还没设计。
+- **IM bridge（Telegram/Discord/Slack）** —— 第一刀不切。数据模型已经容纳（`raw_entries.source='telegram-bot'`；通过 bot DM 走 access code 的访客 session）。
+- **Electron 客户端** —— 同上。Ingest channel 已支持；UX 不在本文范围。
+- **Connectors（Email / Calendar）** —— schema 在；chat 里 tool call 渲染（`tool_calls jsonb`）支持日历 slot 提议；完整 OAuth 流程待设计。
+- **自定义页 allowlist 治理** —— 谁来决定 allowlist、owner 怎么申请加新包、allowlist 本身是不是一个版本化的配置文件。
+
+---
+
+*代码架构草稿到此结束。决策点反馈格式：`A.1: accept` 或 `B.1: change — 不用 shadcn，手撸所有 primitive`。*
