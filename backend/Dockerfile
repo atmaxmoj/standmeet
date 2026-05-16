@@ -47,6 +47,16 @@ RUN go build \
     -o /out/standmeet \
     ./cmd/server
 
+# 装 goose binary（migration runner）。
+# 用 prebuilt release 避免 go install 拉一堆 DB 驱动（pgsql / mysql / mssql /
+# clickhouse / sqlite / ydb / vertica / libsql …），那需要 ~1 分钟下载 + compile。
+# prebuilt 直接是 ~10MB 静态 amd64/arm64 binary。
+ARG TARGETARCH
+ARG GOOSE_VERSION=v3.27.1
+RUN apk add --no-cache wget \
+ && wget -qO /out/goose "https://github.com/pressly/goose/releases/download/${GOOSE_VERSION}/goose_linux_${TARGETARCH}" \
+ && chmod +x /out/goose
+
 # Stage 3: Production
 FROM alpine:3.21 AS production
 WORKDIR /app
@@ -59,8 +69,13 @@ RUN addgroup --system --gid 1001 standmeet && \
     adduser --system --uid 1001 --ingroup standmeet standmeet
 
 COPY --from=builder --chown=standmeet:standmeet /out/standmeet /app/standmeet
-# Migrations 跟着镜像走，启动时 goose up（详见 backend/entrypoint.sh）。
+COPY --from=builder --chown=standmeet:standmeet /out/goose /app/goose
+# Migrations + entrypoint 跟着镜像走，启动时 goose up（见 entrypoint.sh）。
 COPY --from=builder --chown=standmeet:standmeet /app/db/migrations /app/db/migrations
+COPY --from=builder --chown=standmeet:standmeet /app/entrypoint.sh /app/entrypoint.sh
+# /srv/first-run.txt 是 setup token 落地点；声明为 volume 不必要，确保
+# /srv 目录存在且 standmeet user 可写。
+RUN mkdir -p /srv && chown standmeet:standmeet /srv
 
 USER standmeet
 
@@ -68,4 +83,4 @@ EXPOSE 8000
 ENV PORT=8000
 ENV HOST=0.0.0.0
 
-CMD ["/app/standmeet"]
+ENTRYPOINT ["/app/entrypoint.sh"]

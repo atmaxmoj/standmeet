@@ -14,6 +14,7 @@ import (
 type Config struct {
 	Host        string
 	Port        string
+	PublicURL   string
 	DatabaseURL string
 	RedisURL    string
 	SessionKey  string
@@ -30,6 +31,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Host:        envOr("HOST", "0.0.0.0"),
 		Port:        envOr("PORT", "8000"),
+		PublicURL:   envOr("PUBLIC_URL", "http://localhost:8000"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		RedisURL:    os.Getenv("REDIS_URL"),
 		SessionKey:  os.Getenv("SESSION_KEY"),

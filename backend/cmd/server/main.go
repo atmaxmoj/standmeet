@@ -22,6 +22,8 @@ import (
 	"github.com/wangsijie/standmeet/internal/config"
 	"github.com/wangsijie/standmeet/internal/postgres"
 	"github.com/wangsijie/standmeet/internal/server"
+	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
 const (
@@ -65,15 +67,45 @@ func run(log *slog.Logger) error {
 	}
 	defer closeRedis(log, rdb)
 
+	instanceRepo := postgres.NewInstanceRepo(db)
+	if terr := ensureSetupToken(ctx, log, instanceRepo, cfg.PublicURL); terr != nil {
+		return terr
+	}
+
 	addr := net.JoinHostPort(cfg.Host, cfg.Port)
-	return serve(ctx, runtimeDeps{log: log, db: db, rdb: rdb}, addr, stop)
+	deps := runtimeDeps{log: log, db: db, rdb: rdb, instanceRepo: instanceRepo}
+	return serve(ctx, deps, addr, stop)
+}
+
+// ensureSetupToken 在 server 启动前调一次：未 claimed 的 instance 生成
+// 新 setup token + 打印到 stdout + 写 /srv/first-run.txt。已 claimed
+// 直接 skip。
+func ensureSetupToken(
+	ctx context.Context,
+	log *slog.Logger,
+	repo *postgres.InstanceRepo,
+	publicURL string,
+) error {
+	inst, err := repo.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("get instance settings: %w", err)
+	}
+	if inst.IsClaimed {
+		log.Info("instance already claimed; setup token skipped")
+		return nil
+	}
+	if terr := session.IssueSetupToken(ctx, log, repo, publicURL); terr != nil {
+		return fmt.Errorf("issue setup token: %w", terr)
+	}
+	return nil
 }
 
 // runtimeDeps 把 serve 的依赖打包，避免函数参数列表超过 revive argument-limit。
 type runtimeDeps struct {
-	log *slog.Logger
-	db  *pgxpool.Pool
-	rdb *redis.Client
+	log          *slog.Logger
+	db           *pgxpool.Pool
+	rdb          *redis.Client
+	instanceRepo *postgres.InstanceRepo
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
@@ -99,8 +131,15 @@ func closeRedis(log *slog.Logger, rdb *redis.Client) {
 
 func serve(ctx context.Context, deps runtimeDeps, addr string, stop context.CancelFunc) error {
 	srv := &http.Server{
-		Addr:              addr,
-		Handler:           server.New(server.Deps{DB: deps.db, Redis: deps.rdb, Log: deps.log}),
+		Addr: addr,
+		Handler: server.New(server.Deps{
+			DB:    deps.db,
+			Redis: deps.rdb,
+			Log:   deps.log,
+			Admin: server.AdminDeps{
+				Claim: usecases.ClaimDeps{Instance: deps.instanceRepo},
+			},
+		}),
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 		ReadTimeout:       httpReadTimeout,
 		WriteTimeout:      httpWriteTimeout,

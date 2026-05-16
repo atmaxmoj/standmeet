@@ -6,47 +6,111 @@ allow:
   deepScan: false        # cmd/server/main.go 是 composition root，
                          # 跨所有 layer 是预期；关闭 deepScan 避免误报。
 
-# Components 命名对齐 Otium auth。M1 时只声明实际存在的；后续 milestone 引入
-# 新 component 时再 append（M2 加 session, M5 加 domain/usecases/storage, M6
-# 加 routes/admin & routes/public, M10 加 sandbox/inference/mcp/middleware）。
+# Components 命名对齐 Otium auth。按外部系统切 infra（postgres / inference /
+# storage / sandbox 各自独立）而不是扁平 infra/。
+# M2 加：domain / usecases / session / adminroutes / apierr。
 components:
-  config:
-    in: internal/config/**
+  domain:
+    in: internal/domain
+  usecases:
+    in: internal/usecases
   postgres:
-    in: internal/postgres/**
+    in: internal/postgres                 # 含 sqlc 生成的 dbq 子包
+  dbq:
+    in: internal/postgres/dbq
+  session:
+    in: internal/session
+  config:
+    in: internal/config
+  apierr:
+    in: internal/apierr                   # HTTP error envelope 翻译 helper
   sysroutes:
-    in: internal/routes/sys/**
+    in: internal/routes/sys
+  adminroutes:
+    in: internal/routes/admin
   server:
-    in: internal/server/**
+    in: internal/server
   cmd:
-    in: cmd/**
+    in: cmd/server
 
 deps:
+  # Domain 纯内核，无 internal 依赖。
+  domain:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # Usecases 编排 domain + infra（postgres / session）。
+  usecases:
+    mayDependOn:
+      - domain
+      - postgres
+      - session
+    anyVendorDeps: true
+
+  # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
+  postgres:
+    mayDependOn:
+      - domain
+      - dbq
+    anyVendorDeps: true
+
+  # sqlc 生成的查询代码；其他业务不该直接 import，必须经 postgres Repository。
+  dbq:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # Session 管理 setup token、(M3+) login session、API token。
+  # 不 import 任何 internal 包（用 narrow interface 注入 DB writer）。
+  session:
+    mayDependOn: []
+    anyVendorDeps: true
+
   config:
     mayDependOn: []
     anyVendorDeps: true
 
-  postgres:
+  # apierr 是无依赖的 envelope 翻译 util；任何 routes 包可 import 来做
+  # error → HTTP envelope 映射。
+  apierr:
     mayDependOn: []
     anyVendorDeps: true
 
   # sys routes (/internal/healthz, tls-ask, log) 需要 ping db / redis
-  # 所以可以 import postgres。redis 客户端是 vendor，已被 anyVendorDeps 允许。
+  # 所以可以 import postgres。redis 客户端是 vendor。
   sysroutes:
     mayDependOn:
       - postgres
     anyVendorDeps: true
 
-  # server 装配，把各 routes sub-router 挂到 chi。
+  # admin routes (/api/admin/*) 派发到 usecases；handler 自己 cyclo ≤3。
+  # 需要 domain（sentinel errors 翻译）+ session（first-run.txt 清理）
+  # + usecases + apierr（error envelope）。
+  adminroutes:
+    mayDependOn:
+      - domain
+      - usecases
+      - session
+      - apierr
+    anyVendorDeps: true
+
+  # server 装配 chi 路由 + middleware；挂 admin / sysroutes sub-router。
+  # 需要 usecases types（AdminDeps 内 ClaimDeps 是 usecases 包暴露的）。
   server:
     mayDependOn:
       - sysroutes
+      - adminroutes
+      - usecases
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
       - config
+      - domain
       - postgres
+      - session
+      - usecases
+      - sysroutes
+      - adminroutes
       - server
     anyVendorDeps: true

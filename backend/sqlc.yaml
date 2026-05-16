@@ -1,0 +1,22 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema: db/schema.sql
+    queries: db/queries
+    gen:
+      go:
+        package: dbq
+        out: internal/postgres/dbq
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+        # citext 在 Go 里走 string；pgx 自己处理 wire-level encoding。
+        overrides:
+          - db_type: "citext"
+            go_type: "string"
+          - db_type: "citext"
+            go_type:
+              type: "string"
+              pointer: true
+            nullable: true
