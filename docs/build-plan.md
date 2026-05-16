@@ -16,8 +16,8 @@
 
 | # | Milestone | 状态 |
 |---|-----------|------|
-| M1 | Backend 健康端点跑通 + dev compose 起得来 | pending |
-| M2 | First-run instance claim | pending |
+| M1 | Backend 健康端点跑通 + dev compose 起得来 | ✓ done (7930a3f) |
+| M2 | First-run instance claim | in progress |
 | M3 | Owner login + session + admin /me | pending |
 | M4 | API token + MCP server hello | pending |
 | M5 | Corpus ingest (MCP write tools + admin list) | pending |
