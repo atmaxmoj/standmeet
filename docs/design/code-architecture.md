@@ -468,17 +468,15 @@ promote = "把选中的 build_id 拷到目标字段"。rollback = "把 `live_bui
 ### API token / connector
 
 ```
-api_tokens
+api_tokens                                         -- 对齐 youteacher 的简化做法：无 scope、无 prefix、撤销即硬删
   id              uuid pk
   owner_id        uuid fk
-  name            text
-  token_hash      text unique                     -- sha256(plaintext)；plaintext 只显示一次
-  token_prefix    text                            -- 'smk_abc…'（前 8 个字符给 UI 显示）
-  scopes          text[]                          -- 'mcp:write'、'mcp:read'、'mcp:pages'
+  name            text                             -- 按机器设备命名（"mojat-mbp"、"galaxy-tab"）
+  token_hash      text unique                      -- sha256(plaintext)；plaintext 只显示一次
+  scopes          text[] default '{*}'             -- v1 全权限；schema 为未来粗/细粒度预留
   last_used_at    timestamptz null
-  usage_count     integer default 0
-  revoked_at      timestamptz null
   created_at      timestamptz
+  -- 撤销 = DELETE FROM api_tokens WHERE id=...（硬删，不保留 revoked_at）
 
 connectors
   id              uuid pk
@@ -796,10 +794,14 @@ admin 的 "Custom pages" 区是上面所有动作的监控面板 —— 页列�
 
 ### API token
 
+设计原则参考 [[youteacher]]：极简，owner 信任自己给自己 AI 配的 token。
+
 - 明文格式 `smk_<24-char-base32>`。Backend 只存 `sha256(plaintext)`。
 - 在 admin 里创建；只有创建那一刻看到明文。
-- 撤销：`revoked_at` 一设，中间件立即拒绝。
-- Scopes：`mcp:read`、`mcp:write`（raw / wiki / media / tag）、`mcp:pages`（custom page 工具）。
+- `name` 按机器设备命名（"mojat-mbp"、"galaxy-tab"），admin 表单的 placeholder 提示这样填。
+- 撤销 = `DELETE FROM api_tokens WHERE id=...`（硬删），中间件下次校验失败立即 401。
+- v1 不做 scope —— 任何持有 token 的 AI 客户端能调所有 MCP 工具。`scopes` 列为 `'{*}'` 占位，方便未来需要分级（IM bridge / 公共中介 token）时再启用。
+- 列表 endpoint 只返回元数据（`id` / `name` / `created_at` / `last_used_at`），永远不返回 hash 或明文。
 
 ### 决策点
 
@@ -809,7 +811,7 @@ admin 的 "Custom pages" 区是上面所有动作的监控面板 —— 页列�
 
 **E.3** CSRF 模式。double-submit cookie + admin 状态变更请求带 `X-CSRFToken` header。**推荐：** 标准做法，bootstrap 时走 `/api/admin/csrf`。
 
-**E.4** API token scope 粒度。粗粒度 v1（`mcp:read`、`mcp:write`、`mcp:pages`），字段为后续细粒度预留。**推荐：** 粗粒度 —— owner 不想给自己的 AI 管 8 个 scope。
+**E.4** API token scope 粒度。v1 不做（`scopes='{*}'` 占位，任何 token 全权限）；schema 保留列，未来引入不可信 client（IM bridge 公共 bot、第三方中介）时启用粗粒度三段（`mcp:read` / `mcp:write` / `mcp:pages`）。**已选：** v1 不做（对齐 [[youteacher]] 同类设计）。
 
 **E.5** Admin 跨 origin。**推荐：** v1 不允许；admin 在 public 同 host 的 `/admin`。
 
