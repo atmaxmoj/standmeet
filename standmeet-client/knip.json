@@ -1,4 +1,0 @@
-{
-  "entry": ["electron/main.ts", "electron/preload.ts", "ui/env.d.ts"],
-  "project": ["src/**/*.ts", "electron/**/*.ts", "ui/**/*.tsx", "ui/**/*.ts"]
-}

@@ -1,5 +1,0 @@
-{
-  "entry": ["tests/**/*.ts", "fixtures/**/*.ts"],
-  "project": ["tests/**/*.ts", "fixtures/**/*.ts", "*.ts"],
-  "ignoreDependencies": ["electron"]
-}

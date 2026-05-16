@@ -1,5 +1,0 @@
-node_modules/
-logs/
-test-results/
-playwright-report/
-.env
