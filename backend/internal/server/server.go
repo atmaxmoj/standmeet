@@ -8,12 +8,14 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	authmw "github.com/wangsijie/standmeet/internal/middleware"
 	adminroutes "github.com/wangsijie/standmeet/internal/routes/admin"
 	sysroutes "github.com/wangsijie/standmeet/internal/routes/sys"
+	"github.com/wangsijie/standmeet/internal/session"
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
@@ -25,18 +27,20 @@ type Deps struct {
 	Admin AdminDeps
 }
 
-// AdminDeps 把 admin sub-router 需要的业务依赖单独打包，避免 Deps 顶层超长。
+// AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
-	Claim usecases.ClaimDeps
+	Claim    usecases.ClaimDeps
+	Login    usecases.LoginDeps
+	Sessions *session.OwnerSessionStore
 }
 
 // New 返回一个挂好路由的 chi router，可直接传给 http.Server。
 func New(deps Deps) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
+	r.Use(chimw.RequestID)
+	r.Use(chimw.RealIP)
+	r.Use(chimw.Recoverer)
 	r.Use(requestLogger(deps.Log))
 
 	r.Route("/internal", func(r chi.Router) {
@@ -48,9 +52,18 @@ func New(deps Deps) http.Handler {
 	})
 
 	r.Route("/api/admin", func(r chi.Router) {
-		adminroutes.Mount(r, adminroutes.Deps{
+		adminDeps := adminroutes.Deps{
 			Claim: deps.Admin.Claim,
+			Auth:  adminroutes.AuthDeps{Login: deps.Admin.Login, Sessions: deps.Admin.Sessions},
 			Log:   deps.Log,
+		}
+		// Unauthed: claim + login（CSRF 也不要，login 自己就要建 session）。
+		adminroutes.MountUnauthed(r, adminDeps)
+		// Authed: 需要 owner session。CSRF gate 用 RequireCSRF 包写操作。
+		r.Group(func(r chi.Router) {
+			r.Use(authmw.WithOwner(deps.Admin.Sessions))
+			r.Use(authmw.RequireCSRF)
+			adminroutes.MountAuthed(r, adminDeps)
 		})
 	})
 

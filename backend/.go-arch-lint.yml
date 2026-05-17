@@ -24,6 +24,8 @@ components:
     in: internal/config
   apierr:
     in: internal/apierr                   # HTTP error envelope 翻译 helper
+  middleware:
+    in: internal/middleware               # chi middleware: WithOwner, RequireCSRF
   sysroutes:
     in: internal/routes/sys
   adminroutes:
@@ -75,6 +77,13 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # middleware 包含 owner auth gate（WithOwner）+ CSRF gate；
+  # 依赖 session 包做 token lookup。
+  middleware:
+    mayDependOn:
+      - session
+    anyVendorDeps: true
+
   # sys routes (/internal/healthz, tls-ask, log) 需要 ping db / redis
   # 所以可以 import postgres。redis 客户端是 vendor。
   sysroutes:
@@ -83,23 +92,27 @@ deps:
     anyVendorDeps: true
 
   # admin routes (/api/admin/*) 派发到 usecases；handler 自己 cyclo ≤3。
-  # 需要 domain（sentinel errors 翻译）+ session（first-run.txt 清理）
-  # + usecases + apierr（error envelope）。
+  # 需要 domain（sentinel errors 翻译）+ session（first-run.txt 清理 / cookie 名）
+  # + usecases + apierr（error envelope）+ middleware（ctx key + cookie 名）。
   adminroutes:
     mayDependOn:
       - domain
       - usecases
       - session
       - apierr
+      - middleware
     anyVendorDeps: true
 
   # server 装配 chi 路由 + middleware；挂 admin / sysroutes sub-router。
-  # 需要 usecases types（AdminDeps 内 ClaimDeps 是 usecases 包暴露的）。
+  # 需要 usecases types（AdminDeps 内 ClaimDeps 是 usecases 包暴露的）+
+  # session（OwnerSessionStore 注入到 server.AdminDeps）+ middleware（WithOwner / RequireCSRF）。
   server:
     mayDependOn:
       - sysroutes
       - adminroutes
       - usecases
+      - session
+      - middleware
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。

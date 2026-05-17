@@ -21,12 +21,22 @@ import (
 // Deps 是 admin handlers 需要的依赖。
 type Deps struct {
 	Claim usecases.ClaimDeps
+	Auth  AuthDeps
 	Log   *slog.Logger
 }
 
-// Mount 把 /api/admin/* 子路由挂上（前缀由 parent router 加）。
-func Mount(r chi.Router, deps Deps) {
+// MountUnauthed 挂不需要 owner session 的 endpoint：claim / login。
+func MountUnauthed(r chi.Router, deps Deps) {
 	r.Post("/claim", claim(deps))
+	r.Post("/login", login(deps))
+}
+
+// MountAuthed 挂需要 owner session 的 endpoint。caller 负责先用
+// middleware.WithOwner 包这个 router。
+func MountAuthed(r chi.Router, deps Deps) {
+	r.Get("/me", me(deps))
+	r.Post("/me/logout", logout(deps))
+	r.Get("/csrf", csrfEndpoint(deps))
 }
 
 type claimRequest struct {

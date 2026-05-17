@@ -44,4 +44,8 @@ var (
 	ErrEmailTaken = errors.New("email already taken")
 	// ErrHandleTaken —— claim 时 handle 已被占用。
 	ErrHandleTaken = errors.New("handle already taken")
+	// ErrOwnerNotFound —— 按 id / email 查 owner 未命中（login 时不暴露"用户存在与否"）。
+	ErrOwnerNotFound = errors.New("owner not found")
+	// ErrUnauthorized —— 鉴权失败（密码错、session 失效、token 错等的统一外部码）。
+	ErrUnauthorized = errors.New("unauthorized")
 )

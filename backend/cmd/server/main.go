@@ -68,12 +68,17 @@ func run(log *slog.Logger) error {
 	defer closeRedis(log, rdb)
 
 	instanceRepo := postgres.NewInstanceRepo(db)
+	ownerRepo := postgres.NewOwnerRepo(db)
+	sessionStore := session.NewOwnerSessionStore(rdb)
 	if terr := ensureSetupToken(ctx, log, instanceRepo, cfg.PublicURL); terr != nil {
 		return terr
 	}
 
 	addr := net.JoinHostPort(cfg.Host, cfg.Port)
-	deps := runtimeDeps{log: log, db: db, rdb: rdb, instanceRepo: instanceRepo}
+	deps := runtimeDeps{
+		log: log, db: db, rdb: rdb,
+		instanceRepo: instanceRepo, ownerRepo: ownerRepo, sessionStore: sessionStore,
+	}
 	return serve(ctx, deps, addr, stop)
 }
 
@@ -106,6 +111,8 @@ type runtimeDeps struct {
 	db           *pgxpool.Pool
 	rdb          *redis.Client
 	instanceRepo *postgres.InstanceRepo
+	ownerRepo    *postgres.OwnerRepo
+	sessionStore *session.OwnerSessionStore
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
@@ -138,6 +145,11 @@ func serve(ctx context.Context, deps runtimeDeps, addr string, stop context.Canc
 			Log:   deps.log,
 			Admin: server.AdminDeps{
 				Claim: usecases.ClaimDeps{Instance: deps.instanceRepo},
+				Login: usecases.LoginDeps{
+					Owners:   deps.ownerRepo,
+					Sessions: deps.sessionStore,
+				},
+				Sessions: deps.sessionStore,
 			},
 		}),
 		ReadHeaderTimeout: httpReadHeaderTimeout,

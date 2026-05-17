@@ -5,6 +5,7 @@ package postgres
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,8 +19,17 @@ const (
 	uuidDash4     = 23
 )
 
+// parseUUID 把 RFC 4122 字符串转 pgtype.UUID。无效输入返回 error；
+// session 解码出的 owner_id 字符串走这条路再去 query。
+func parseUUID(s string) (pgtype.UUID, error) {
+	var u pgtype.UUID
+	if err := u.Scan(s); err != nil {
+		return pgtype.UUID{}, fmt.Errorf("scan uuid: %w", err)
+	}
+	return u, nil
+}
+
 // formatUUID 把 pgtype.UUID 转成 RFC 4122 字符串（"xxxxxxxx-xxxx-..."）。
-// 未来 milestone 需要从 string 转 pgtype.UUID 时再加 parseUUID。
 func formatUUID(u pgtype.UUID) string {
 	if !u.Valid {
 		return ""
