@@ -110,7 +110,7 @@ func wireAndServe(
 		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
 		codeRepo: codeRepo, convRepo: convRepo, pageRepo: pageRepo,
 		sessionStore: sessionStore, visitorStore: visitorStore,
-		provider: provider,
+		provider: provider, secureCookie: cfg.SecureCookie,
 	}
 	return serve(ctx, &deps, addr, stop)
 }
@@ -154,6 +154,7 @@ type runtimeDeps struct {
 	sessionStore *session.OwnerSessionStore
 	visitorStore *session.VisitorSessionStore
 	provider     inference.Provider
+	secureCookie bool
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
@@ -185,12 +186,16 @@ func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.Can
 			Redis: deps.rdb,
 			Log:   deps.log,
 			Admin: server.AdminDeps{
-				Claim:     usecases.ClaimDeps{Instance: deps.instanceRepo},
-				Login:     usecases.LoginDeps{Owners: deps.ownerRepo, Sessions: deps.sessionStore},
-				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},
-				Corpus:    usecases.CorpusDeps{Raw: deps.rawRepo, Wiki: deps.wikiRepo},
-				Codes:     deps.codeRepo,
-				Sessions:  deps.sessionStore,
+				Claim: usecases.ClaimDeps{Instance: deps.instanceRepo},
+				Login: usecases.LoginDeps{
+					Owners: deps.ownerRepo, Sessions: deps.sessionStore,
+				},
+				APITokens:    usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},
+				Corpus:       usecases.CorpusDeps{Raw: deps.rawRepo, Wiki: deps.wikiRepo},
+				Codes:        deps.codeRepo,
+				Pages:        deps.pageRepo,
+				Sessions:     deps.sessionStore,
+				SecureCookie: deps.secureCookie,
 			},
 			Public: publicroutes.Handlers{
 				Visitor: usecases.VisitorDeps{

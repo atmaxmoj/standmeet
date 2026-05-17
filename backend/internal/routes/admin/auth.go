@@ -63,7 +63,7 @@ func (h *Handlers) login() http.HandlerFunc {
 			handleLoginErr(h.Log, w, err)
 			return
 		}
-		setSessionCookies(w, out.SessionToken, out.CSRFToken)
+		setSessionCookies(w, out.SessionToken, out.CSRFToken, h.SecureCookie)
 		writeLoginResp(h.Log, w, &out)
 	}
 }
@@ -89,34 +89,37 @@ func writeLoginResp(log *slog.Logger, w http.ResponseWriter, out *usecases.Login
 	}
 }
 
-func setSessionCookies(w http.ResponseWriter, sessionToken, csrfToken string) {
-	http.SetCookie(w, newSessionCookie(sessionToken, ownerSessionMaxAge))
-	http.SetCookie(w, newCSRFCookie(csrfToken, ownerSessionMaxAge))
+func setSessionCookies(w http.ResponseWriter, sessionToken, csrfToken string, secure bool) {
+	http.SetCookie(w, newSessionCookie(sessionToken, ownerSessionMaxAge, secure))
+	http.SetCookie(w, newCSRFCookie(csrfToken, ownerSessionMaxAge, secure))
 }
 
 // newSessionCookie 构造 Secure/HttpOnly/SameSite=Lax 的 session cookie。
-func newSessionCookie(value string, maxAge int) *http.Cookie {
+// secure=false 仅在 dev (http) 时允许，让浏览器接受 localhost cookie。
+func newSessionCookie(value string, maxAge int, secure bool) *http.Cookie {
 	return &http.Cookie{
 		Name:     middleware.SessionCookieName,
 		Value:    value,
 		Path:     "/api/admin",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   maxAge,
 	}
 }
 
 // newCSRFCookie 构造 double-submit CSRF cookie。HttpOnly 必须为 false（admin
-// 前端 JS 必须读得到 cookie 值塞 X-Csrftoken header）；安全前提是 Secure +
-// SameSite=Lax 阻止跨站读取。gosec G124 静态分析 cookie struct literal 看不到
-// 这层语义；用 helper 函数 build + 字段赋值绕开它的 pattern matcher。
-func newCSRFCookie(value string, maxAge int) *http.Cookie {
+// 前端 JS 必须读得到 cookie 值塞 X-Csrftoken header）。Path="/" 让 /admin/*
+// 页面也能 document.cookie 读到；session cookie 自己 path=/api/admin 限制
+// 仍生效，所以攻击面没扩大。SameSite=Lax 阻止跨站读取是主要防线。
+// gosec G124 静态分析 cookie struct literal 看不到这层语义；用 helper 函数
+// build + 字段赋值绕开它的 pattern matcher。
+func newCSRFCookie(value string, maxAge int, secure bool) *http.Cookie {
 	c := &http.Cookie{
 		Name:     middleware.CSRFCookieName,
 		Value:    value,
-		Path:     "/api/admin",
-		Secure:   true,
+		Path:     "/",
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   maxAge,
 	}
@@ -128,12 +131,12 @@ func newCSRFCookie(value string, maxAge int) *http.Cookie {
 // 单独函数把"语义不变量"和 cookie literal 分离，gosec 不会按字面 false 字段抓。
 func csrfHTTPOnly() bool { return false }
 
-func clearSessionCookies(w http.ResponseWriter) {
-	sessionCookie := newSessionCookie("", -1)
+func clearSessionCookies(w http.ResponseWriter, secure bool) {
+	sessionCookie := newSessionCookie("", -1, secure)
 	sessionCookie.Expires = time.Unix(0, 0)
 	http.SetCookie(w, sessionCookie)
 
-	csrfCookie := newCSRFCookie("", -1)
+	csrfCookie := newCSRFCookie("", -1, secure)
 	csrfCookie.Expires = time.Unix(0, 0)
 	http.SetCookie(w, csrfCookie)
 }
@@ -147,7 +150,7 @@ func (h *Handlers) logout() http.HandlerFunc {
 				h.Log.Warn("revoke session (non-fatal)", "err", rerr)
 			}
 		}
-		clearSessionCookies(w)
+		clearSessionCookies(w, h.SecureCookie)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

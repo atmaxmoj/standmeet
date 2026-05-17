@@ -43,6 +43,7 @@ services:
       - DATABASE_URL=postgres://standmeet:standmeet_dev@db:5432/standmeet?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       - SESSION_KEY=dev-not-secret-rotate-in-prod
+      - SECURE_COOKIE=false
       - INFERENCE_PROVIDER=mock
       - INFERENCE_MOCK_REPLY=Hello visitor, sijie says hi from the mock provider.
     depends_on:

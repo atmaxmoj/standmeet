@@ -12,12 +12,13 @@ import (
 
 // Config 持有进程启动时一次性读完的运行时配置。
 type Config struct {
-	Host        string
-	Port        string
-	PublicURL   string
-	DatabaseURL string
-	RedisURL    string
-	SessionKey  string
+	Host         string
+	Port         string
+	PublicURL    string
+	DatabaseURL  string
+	RedisURL     string
+	SessionKey   string
+	SecureCookie bool // dev (http) 走 false；prod 必须 true
 }
 
 // 缺关键 env 时返回的 sentinel error。
@@ -29,12 +30,13 @@ var (
 // Load 读 env，返回 Config 或 error。任何 required env 缺失即返回 error。
 func Load() (*Config, error) {
 	cfg := &Config{
-		Host:        envOr("HOST", "0.0.0.0"),
-		Port:        envOr("PORT", "8000"),
-		PublicURL:   envOr("PUBLIC_URL", "http://localhost:8000"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		RedisURL:    os.Getenv("REDIS_URL"),
-		SessionKey:  os.Getenv("SESSION_KEY"),
+		Host:         envOr("HOST", "0.0.0.0"),
+		Port:         envOr("PORT", "8000"),
+		PublicURL:    envOr("PUBLIC_URL", "http://localhost:8000"),
+		DatabaseURL:  os.Getenv("DATABASE_URL"),
+		RedisURL:     os.Getenv("REDIS_URL"),
+		SessionKey:   os.Getenv("SESSION_KEY"),
+		SecureCookie: envOr("SECURE_COOKIE", "true") == "true",
 	}
 
 	if cfg.DatabaseURL == "" {

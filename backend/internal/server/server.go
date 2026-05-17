@@ -23,24 +23,27 @@ import (
 )
 
 // Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。
+// AdminDeps 放最后让里面的 bool 字段在尾部 padding 上不浪费。
 type Deps struct {
 	DB         *pgxpool.Pool
 	Redis      *redis.Client
 	Log        *slog.Logger
-	Admin      AdminDeps
 	Public     publicroutes.Handlers
 	PublicPage publicroutes.PageHandlers
 	MCP        mcp.Deps
+	Admin      AdminDeps
 }
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
-	Claim     usecases.ClaimDeps
-	Login     usecases.LoginDeps
-	APITokens usecases.APITokenDeps
-	Corpus    usecases.CorpusDeps
-	Codes     *postgres.CodeRepo
-	Sessions  *session.OwnerSessionStore
+	Claim        usecases.ClaimDeps
+	Login        usecases.LoginDeps
+	APITokens    usecases.APITokenDeps
+	Corpus       usecases.CorpusDeps
+	Codes        *postgres.CodeRepo
+	Pages        *postgres.PageRepo
+	Sessions     *session.OwnerSessionStore
+	SecureCookie bool
 }
 
 // New 返回一个挂好路由的 chi router，可直接传给 http.Server。
@@ -68,10 +71,12 @@ func New(deps *Deps) http.Handler {
 				Login:    deps.Admin.Login,
 				Sessions: deps.Admin.Sessions,
 			},
-			APITokens:  deps.Admin.APITokens,
-			Corpus:     adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
-			CodesAdmin: adminroutes.CodesDeps{Codes: deps.Admin.Codes},
-			Log:        deps.Log,
+			APITokens:    deps.Admin.APITokens,
+			Corpus:       adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+			CodesAdmin:   adminroutes.CodesDeps{Codes: deps.Admin.Codes},
+			PageAdmin:    adminroutes.PageAdminDeps{Pages: deps.Admin.Pages},
+			Log:          deps.Log,
+			SecureCookie: deps.Admin.SecureCookie,
 		}
 		adminH.MountUnauthed(r)
 		r.Group(func(r chi.Router) {

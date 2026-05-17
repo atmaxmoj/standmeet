@@ -16,7 +16,7 @@ export function LoginForm() {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await form.submit();
-    result && router.push(`/${result.owner_handle}`);
+    result && router.push('/admin');
   }, [form, router]);
 
   return (

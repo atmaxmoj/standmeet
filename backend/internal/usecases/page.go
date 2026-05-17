@@ -79,7 +79,7 @@ func loadPageContentOrDefault(
 ) (domain.PageContent, error) {
 	content, err := deps.Pages.GetByOwner(ctx, ownerID)
 	if errors.Is(err, domain.ErrPageNotFound) {
-		return defaultPageContent(ownerID), nil
+		return buildDefaultPage(ownerID), nil
 	}
 	if err != nil {
 		return domain.PageContent{}, fmt.Errorf("get page content: %w", err)
@@ -87,10 +87,14 @@ func loadPageContentOrDefault(
 	return content, nil
 }
 
-// defaultPageContent —— page-content.js 里的默认 hero / insights / projects /
+// DefaultPageContent —— page-content.js 里的默认 hero / insights / projects /
 // where / contact。新 instance 第一次被访问时返这个；admin 第一次保存就
 // 覆盖。
-func defaultPageContent(ownerID string) domain.PageContent {
+func DefaultPageContent(ownerID string) domain.PageContent {
+	return buildDefaultPage(ownerID)
+}
+
+func buildDefaultPage(ownerID string) domain.PageContent {
 	return domain.PageContent{
 		OwnerID:      ownerID,
 		HeroProse:    defaultHeroProse,

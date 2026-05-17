@@ -31,13 +31,13 @@ test.describe.serial('owner logs back in', () => {
     await request.dispose();
   });
 
-  test('right credentials land owner on their page', async ({ page }) => {
+  test('right credentials land owner in admin', async ({ page }) => {
     await goto(page, '/login');
     await page.getByTestId('email').fill(OWNER.email);
     await page.getByTestId('password').fill(OWNER.password);
     await page.getByTestId('submit').click();
-    await page.waitForURL(`**/${OWNER.handle}`, { timeout: 10_000 });
-    await expect(page.getByRole('heading', { name: OWNER.fullName })).toBeVisible();
+    await page.waitForURL('**/admin/page', { timeout: 10_000 });
+    await expect(page.getByTestId('nav-page')).toBeVisible();
   });
 
   test('wrong password shows inline error, stays on /login', async ({ page }) => {
