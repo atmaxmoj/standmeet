@@ -34,6 +34,15 @@ type InstanceSettings struct {
 	MultiTenant bool
 }
 
+// APIToken 是 owner 的 MCP 鉴权 token（metadata 字段；明文/hash 在 session 包）。
+// 对齐 youteacher 简化：无 prefix，无 scope 字段（schema 占位 *）。
+type APIToken struct {
+	CreatedAt  time.Time
+	LastUsedAt *time.Time
+	ID         string
+	Name       string
+}
+
 // Sentinel errors 让 usecase / routes 层能 errors.Is 上做精确分支。
 var (
 	// ErrInstanceAlreadyClaimed —— 重复 claim 同一个 instance（已经过初次 setup）。

@@ -20,6 +20,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/wangsijie/standmeet/internal/config"
+	"github.com/wangsijie/standmeet/internal/mcp"
 	"github.com/wangsijie/standmeet/internal/postgres"
 	"github.com/wangsijie/standmeet/internal/server"
 	"github.com/wangsijie/standmeet/internal/session"
@@ -69,6 +70,7 @@ func run(log *slog.Logger) error {
 
 	instanceRepo := postgres.NewInstanceRepo(db)
 	ownerRepo := postgres.NewOwnerRepo(db)
+	tokenRepo := postgres.NewAPITokenRepo(db)
 	sessionStore := session.NewOwnerSessionStore(rdb)
 	if terr := ensureSetupToken(ctx, log, instanceRepo, cfg.PublicURL); terr != nil {
 		return terr
@@ -77,7 +79,8 @@ func run(log *slog.Logger) error {
 	addr := net.JoinHostPort(cfg.Host, cfg.Port)
 	deps := runtimeDeps{
 		log: log, db: db, rdb: rdb,
-		instanceRepo: instanceRepo, ownerRepo: ownerRepo, sessionStore: sessionStore,
+		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
+		tokenRepo: tokenRepo, sessionStore: sessionStore,
 	}
 	return serve(ctx, deps, addr, stop)
 }
@@ -112,6 +115,7 @@ type runtimeDeps struct {
 	rdb          *redis.Client
 	instanceRepo *postgres.InstanceRepo
 	ownerRepo    *postgres.OwnerRepo
+	tokenRepo    *postgres.APITokenRepo
 	sessionStore *session.OwnerSessionStore
 }
 
@@ -139,17 +143,20 @@ func closeRedis(log *slog.Logger, rdb *redis.Client) {
 func serve(ctx context.Context, deps runtimeDeps, addr string, stop context.CancelFunc) error {
 	srv := &http.Server{
 		Addr: addr,
-		Handler: server.New(server.Deps{
+		Handler: server.New(&server.Deps{
 			DB:    deps.db,
 			Redis: deps.rdb,
 			Log:   deps.log,
 			Admin: server.AdminDeps{
-				Claim: usecases.ClaimDeps{Instance: deps.instanceRepo},
-				Login: usecases.LoginDeps{
-					Owners:   deps.ownerRepo,
-					Sessions: deps.sessionStore,
-				},
-				Sessions: deps.sessionStore,
+				Claim:     usecases.ClaimDeps{Instance: deps.instanceRepo},
+				Login:     usecases.LoginDeps{Owners: deps.ownerRepo, Sessions: deps.sessionStore},
+				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo},
+				Sessions:  deps.sessionStore,
+			},
+			MCP: mcp.Deps{
+				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo},
+				Owners:    deps.ownerRepo,
+				Log:       deps.log,
 			},
 		}),
 		ReadHeaderTimeout: httpReadHeaderTimeout,

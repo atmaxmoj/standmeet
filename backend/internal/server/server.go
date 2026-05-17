@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/wangsijie/standmeet/internal/mcp"
 	authmw "github.com/wangsijie/standmeet/internal/middleware"
 	adminroutes "github.com/wangsijie/standmeet/internal/routes/admin"
 	sysroutes "github.com/wangsijie/standmeet/internal/routes/sys"
@@ -25,17 +26,20 @@ type Deps struct {
 	Redis *redis.Client
 	Log   *slog.Logger
 	Admin AdminDeps
+	MCP   mcp.Deps
 }
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
-	Claim    usecases.ClaimDeps
-	Login    usecases.LoginDeps
-	Sessions *session.OwnerSessionStore
+	Claim     usecases.ClaimDeps
+	Login     usecases.LoginDeps
+	APITokens usecases.APITokenDeps
+	Sessions  *session.OwnerSessionStore
 }
 
 // New 返回一个挂好路由的 chi router，可直接传给 http.Server。
-func New(deps Deps) http.Handler {
+// pointer 接收避免 gocritic hugeParam。
+func New(deps *Deps) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.RequestID)
@@ -53,19 +57,21 @@ func New(deps Deps) http.Handler {
 
 	r.Route("/api/admin", func(r chi.Router) {
 		adminDeps := adminroutes.Deps{
-			Claim: deps.Admin.Claim,
-			Auth:  adminroutes.AuthDeps{Login: deps.Admin.Login, Sessions: deps.Admin.Sessions},
-			Log:   deps.Log,
+			Claim:     deps.Admin.Claim,
+			Auth:      adminroutes.AuthDeps{Login: deps.Admin.Login, Sessions: deps.Admin.Sessions},
+			APITokens: deps.Admin.APITokens,
+			Log:       deps.Log,
 		}
-		// Unauthed: claim + login（CSRF 也不要，login 自己就要建 session）。
 		adminroutes.MountUnauthed(r, adminDeps)
-		// Authed: 需要 owner session。CSRF gate 用 RequireCSRF 包写操作。
 		r.Group(func(r chi.Router) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
 			adminroutes.MountAuthed(r, adminDeps)
 		})
 	})
+
+	// /mcp/* —— Bearer API token auth + mcp-go streamable HTTP.
+	r.Mount("/mcp", mcp.New(deps.MCP))
 
 	return r
 }

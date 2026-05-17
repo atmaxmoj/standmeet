@@ -20,9 +20,10 @@ import (
 
 // Deps 是 admin handlers 需要的依赖。
 type Deps struct {
-	Claim usecases.ClaimDeps
-	Auth  AuthDeps
-	Log   *slog.Logger
+	Claim     usecases.ClaimDeps
+	Auth      AuthDeps
+	APITokens usecases.APITokenDeps
+	Log       *slog.Logger
 }
 
 // MountUnauthed 挂不需要 owner session 的 endpoint：claim / login。
@@ -37,6 +38,7 @@ func MountAuthed(r chi.Router, deps Deps) {
 	r.Get("/me", me(deps))
 	r.Post("/me/logout", logout(deps))
 	r.Get("/csrf", csrfEndpoint(deps))
+	r.Route("/tokens", func(r chi.Router) { MountTokens(r, deps) })
 }
 
 type claimRequest struct {

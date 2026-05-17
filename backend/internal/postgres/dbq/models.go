@@ -8,6 +8,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ApiToken struct {
+	ID         pgtype.UUID
+	OwnerID    pgtype.UUID
+	Name       string
+	TokenHash  string
+	Scopes     []string
+	LastUsedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
 type InstanceSetting struct {
 	ID             int32
 	IsClaimed      bool

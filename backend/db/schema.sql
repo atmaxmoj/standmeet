@@ -35,3 +35,15 @@ CREATE TABLE instance_settings (
     multi_tenant      boolean      NOT NULL DEFAULT false,
     deployed_at       timestamptz  NOT NULL DEFAULT now()
 );
+
+-- API tokens —— 对齐 youteacher 简化：无 scope 细粒度（占位 ARRAY['*']）、
+-- 无 prefix 字段（name 就是 owner 看的标识）、撤销 = DELETE。
+CREATE TABLE api_tokens (
+    id            uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id      uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    name          text          NOT NULL,
+    token_hash    text          UNIQUE NOT NULL,
+    scopes        text[]        NOT NULL DEFAULT ARRAY['*'],
+    last_used_at  timestamptz,
+    created_at    timestamptz   NOT NULL DEFAULT now()
+);

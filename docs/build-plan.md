@@ -19,7 +19,7 @@
 | M1 | Backend 健康端点跑通 + dev compose 起得来 | ✓ done (7930a3f) |
 | M2 | First-run instance claim | ✓ done |
 | M3 | Owner login + session + admin /me | ✓ done |
-| M4 | API token + MCP server hello | pending |
+| M4 | API token + MCP server hello | ✓ done |
 | M5 | Corpus ingest (MCP write tools + admin list) | pending |
 | M6 | Access codes + visitor session + chat (SSE + RAG) | pending |
 | M7 | Public web surface (index + chat embed) | pending |
