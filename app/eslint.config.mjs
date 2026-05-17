@@ -31,6 +31,13 @@ export default tseslint.config(
       '**/coverage/**',
       '**/playwright-report/**',
       '**/*.test.ts',
+      // 根目录 config 文件没在 tsconfig 里；typescript-eslint typed-rules
+      // 跑不动它们，单独忽略避免 'not found by project service' 报错。
+      '*.mjs',
+      '*.config.ts',
+      // next-env.d.ts 是 next 自动维护的（每次 build 重写），里面有 triple-slash
+      // reference —— 我们不去碰它，忽略对应的 lint 规则报错。
+      'next-env.d.ts',
     ],
   },
   ...tseslint.configs.recommendedTypeChecked,
@@ -63,10 +70,9 @@ export default tseslint.config(
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
 
-      // React Hooks
+      // React Hooks —— set-state-in-effect / preserve-manual-memoization
+      // 在 react-hooks v7 才有；v5（当前版本）只跑 recommended。升 v7 后再开。
       ...reactHooksPlugin.configs.recommended.rules,
-      'react-hooks/set-state-in-effect': 'error',
-      'react-hooks/preserve-manual-memoization': 'error',
 
       // TypeScript strict —— 每条 promote 到 error 后不能 regress。
       '@typescript-eslint/no-unused-expressions': ['error', {

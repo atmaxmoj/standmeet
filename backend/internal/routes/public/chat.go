@@ -32,20 +32,6 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions/{id}/messages", h.postMessage())
 }
 
-type createSessionRequest struct {
-	Handle      string `json:"handle"`
-	Code        string `json:"code"`
-	VisitorName string `json:"visitor_name"`
-}
-
-type createSessionResponse struct {
-	SessionToken   string   `json:"session_token"`
-	ConversationID string   `json:"conversation_id"`
-	OwnerHandle    string   `json:"owner_handle"`
-	IncludedTags   []string `json:"included_tags"`
-	ExcludedTags   []string `json:"excluded_tags"`
-}
-
 type parsedPostMessage struct {
 	Content string
 	Data    session.VisitorSessionData
@@ -63,41 +49,11 @@ var visitorErrCases = []apierr.Case{
 	{Match: domain.ErrCodeExpired, Envelope: apierr.Envelope{
 		Status: http.StatusUnauthorized, Code: "code_expired", Message: "access code expired",
 	}},
-}
-
-func (h *Handlers) createSession() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req createSessionRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(h.Log, w, envBadReq("invalid JSON body"))
-			return
-		}
-		res, err := usecases.IssueCodeSession(r.Context(), h.Visitor,
-			&usecases.IssueCodeSessionInput{Code: req.Code, VisitorName: req.VisitorName})
-		if err != nil {
-			handleVisitorErr(h.Log, w, err)
-			return
-		}
-		writeCreateSession(h.Log, w, &res.Session, &res.Conversation, req.Handle)
-	}
-}
-
-func writeCreateSession(
-	log *slog.Logger, w http.ResponseWriter,
-	issued *session.IssuedVisitor, conv *domain.Conversation, handle string,
-) {
-	resp := createSessionResponse{
-		SessionToken:   issued.Token,
-		ConversationID: conv.ID,
-		OwnerHandle:    handle,
-		IncludedTags:   issued.Data.IncludedTags,
-		ExcludedTags:   issued.Data.ExcludedTags,
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		log.Error("encode session resp", "err", err)
-	}
+	{Match: domain.ErrOwnerNotFound, Envelope: apierr.Envelope{
+		Status:  http.StatusNotFound,
+		Code:    "owner_not_found",
+		Message: "owner handle not registered",
+	}},
 }
 
 type postMessageRequest struct {

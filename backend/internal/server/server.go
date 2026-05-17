@@ -24,12 +24,13 @@ import (
 
 // Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。
 type Deps struct {
-	DB     *pgxpool.Pool
-	Redis  *redis.Client
-	Log    *slog.Logger
-	Admin  AdminDeps
-	Public publicroutes.Handlers
-	MCP    mcp.Deps
+	DB         *pgxpool.Pool
+	Redis      *redis.Client
+	Log        *slog.Logger
+	Admin      AdminDeps
+	Public     publicroutes.Handlers
+	PublicPage publicroutes.PageHandlers
+	MCP        mcp.Deps
 }
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
@@ -87,6 +88,11 @@ func New(deps *Deps) http.Handler {
 			Log:      deps.Log,
 		}
 		publicH.Mount(r)
+		pageH := &publicroutes.PageHandlers{
+			Page: deps.PublicPage.Page,
+			Log:  deps.Log,
+		}
+		pageH.Mount(r)
 	})
 
 	// /mcp/* —— Bearer API token auth + mcp-go streamable HTTP.

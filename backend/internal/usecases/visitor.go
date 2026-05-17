@@ -42,6 +42,66 @@ type IssueCodeSessionResult struct {
 	Conversation domain.Conversation
 }
 
+// IssuePublicSessionInput —— public-tier 访客（无 code）发起 session 的入参。
+type IssuePublicSessionInput struct {
+	Handle      string // owner 的 URL handle，定位 owner_id
+	VisitorName string // 可空；空时 conversation visitor_name 留空
+}
+
+// IssuePublicSession —— public-tier session 颁发：handle → owner → 创
+// conversation + visitor session。visibility 强制 public、tags 不限。
+// M7 用：访客直接进 /<handle> 就能聊 public 切片；M9 BYOAI 在 gate 页
+// 走同一路径但带 visitor 自己的 API key。
+func IssuePublicSession(
+	ctx context.Context, deps VisitorDeps, in *IssuePublicSessionInput,
+) (IssueCodeSessionResult, error) {
+	if in.Handle == "" {
+		return IssueCodeSessionResult{}, ErrEmptyField
+	}
+	owner, err := lookupOwnerByHandle(ctx, deps, in.Handle)
+	if err != nil {
+		return IssueCodeSessionResult{}, err
+	}
+	return finalizePublicSession(ctx, deps, in, &owner)
+}
+
+func lookupOwnerByHandle(
+	ctx context.Context, deps VisitorDeps, handle string,
+) (domain.Owner, error) {
+	owner, err := deps.Owners.GetByHandle(ctx, handle)
+	if err != nil {
+		if errors.Is(err, domain.ErrOwnerNotFound) {
+			return domain.Owner{}, domain.ErrOwnerNotFound
+		}
+		return domain.Owner{}, fmt.Errorf("get owner by handle: %w", err)
+	}
+	return owner, nil
+}
+
+func finalizePublicSession(
+	ctx context.Context, deps VisitorDeps,
+	in *IssuePublicSessionInput, owner *domain.Owner,
+) (IssueCodeSessionResult, error) {
+	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
+		OwnerID:     owner.ID,
+		Tier:        "public",
+		VisitorName: in.VisitorName,
+	})
+	if err != nil {
+		return IssueCodeSessionResult{}, fmt.Errorf("create conversation: %w", err)
+	}
+	issued, err := deps.Sessions.Issue(ctx, &session.VisitorSessionData{
+		OwnerID:       owner.ID,
+		Tier:          "public",
+		VisitorName:   in.VisitorName,
+		VisibilityMax: "public",
+	})
+	if err != nil {
+		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
+	}
+	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
+}
+
 // IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
 // + visitor session。
 func IssueCodeSession(

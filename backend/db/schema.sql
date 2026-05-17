@@ -135,3 +135,17 @@ CREATE TABLE messages (
     cited_wiki_ids   uuid[]        NOT NULL DEFAULT '{}',
     created_at       timestamptz   NOT NULL DEFAULT now()
 );
+
+-- page_content —— owner public page 内容（hero / insights / projects /
+-- where / contact）。Singleton-per-owner（PK = owner_id）。各 section 用
+-- jsonb 存 schemaless 结构。设计稿 J / page-content.js 是字段语义来源。
+CREATE TABLE page_content (
+    owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
+    hero_prose      text          NOT NULL DEFAULT '',
+    hero_examples   jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    insights        jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    projects        jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    where_section   jsonb         NOT NULL DEFAULT '{}'::jsonb,
+    contact         jsonb         NOT NULL DEFAULT '{}'::jsonb,
+    updated_at      timestamptz   NOT NULL DEFAULT now()
+);

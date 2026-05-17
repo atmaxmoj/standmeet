@@ -1,0 +1,13 @@
+.git/
+.github/
+.idea/
+.vscode/
+.DS_Store
+# 注意：node_modules 排除（runtime image 不需要 dev deps），但 .next/ 不排除
+# —— Dockerfile 把 standalone build 产物 COPY 进来组镜像。
+node_modules/
+src/
+*.log
+.env
+.env.*
+!.env.example

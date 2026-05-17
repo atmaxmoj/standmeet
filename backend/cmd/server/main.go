@@ -92,6 +92,7 @@ func wireAndServe(
 	wikiRepo := postgres.NewWikiRepo(c.db)
 	codeRepo := postgres.NewCodeRepo(c.db)
 	convRepo := postgres.NewConversationRepo(c.db)
+	pageRepo := postgres.NewPageRepo(c.db)
 	sessionStore := session.NewOwnerSessionStore(c.rdb)
 	visitorStore := session.NewVisitorSessionStore(c.rdb)
 	provider, perr := inference.NewFromEnv()
@@ -107,7 +108,7 @@ func wireAndServe(
 		log: log, db: c.db, rdb: c.rdb,
 		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
 		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
-		codeRepo: codeRepo, convRepo: convRepo,
+		codeRepo: codeRepo, convRepo: convRepo, pageRepo: pageRepo,
 		sessionStore: sessionStore, visitorStore: visitorStore,
 		provider: provider,
 	}
@@ -149,6 +150,7 @@ type runtimeDeps struct {
 	wikiRepo     *postgres.WikiRepo
 	codeRepo     *postgres.CodeRepo
 	convRepo     *postgres.ConversationRepo
+	pageRepo     *postgres.PageRepo
 	sessionStore *session.OwnerSessionStore
 	visitorStore *session.VisitorSessionStore
 	provider     inference.Provider
@@ -197,6 +199,10 @@ func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.Can
 				},
 				Sessions: deps.visitorStore,
 				Log:      deps.log,
+			},
+			PublicPage: publicroutes.PageHandlers{
+				Page: usecases.PageDeps{Owners: deps.ownerRepo, Pages: deps.pageRepo},
+				Log:  deps.log,
 			},
 			MCP: mcp.Deps{
 				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},

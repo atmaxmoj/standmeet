@@ -9,11 +9,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres/dbq"
 )
+
+// pgxErrNoRows —— helper：避免直接在多处 import pgx.ErrNoRows，让 grep 起点一致。
+func pgxErrNoRows() error { return pgx.ErrNoRows }
 
 // pgUniqueViolationSQLState 是 unique constraint 冲突的 SQLSTATE，让
 // pgUniqueViolation 翻译 DB 错误到 domain sentinel 时 hardcode 不出现。
@@ -37,6 +41,20 @@ func (r *OwnerRepo) Count(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("count owners: %w", err)
 	}
 	return n, nil
+}
+
+// FirstHandle 返最早 owner 的 handle；表为空返 ""（不报错，app 根路径
+// 据此判断是否引导用户去 /setup）。
+func (r *OwnerRepo) FirstHandle(ctx context.Context) (string, error) {
+	q := dbq.New(r.pool)
+	handle, err := q.GetFirstOwnerHandle(ctx)
+	if err != nil {
+		if errors.Is(err, pgxErrNoRows()) {
+			return "", nil
+		}
+		return "", fmt.Errorf("get first owner handle: %w", err)
+	}
+	return handle, nil
 }
 
 // pgUniqueViolation 检测 pgx unique constraint 冲突，返回 constraint 名 +

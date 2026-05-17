@@ -11,6 +11,27 @@
 name: standmeet-dev
 
 services:
+  app:
+    build:
+      context: ./app
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - NODE_ENV=production
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # 用偏门端口避开和 macOS 上其它项目（lucerna / youteacher）冲突；
+      # 普通访问走 nginx/Caddy 时再映回 80/443，dev 直连 38127 即可。
+      - "38127:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/v1/instance"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
   backend:
     build:
       context: ./backend

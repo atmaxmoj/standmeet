@@ -4,7 +4,7 @@
   "private": true,
   "description": "StandMeet end-to-end tests — full-stack Playwright covering app + backend + sdk.",
   "scripts": {
-    "lint": "eslint test/ helper/ && knip",
+    "lint": "eslint test/ && knip",
     "typecheck": "tsc --noEmit",
     "test": "bash script/run-e2e.sh",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
@@ -17,7 +17,6 @@
     "eslint": "^9.39.3",
     "knip": "^6.0.5",
     "prettier": "^3.3.0",
-    "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.56.1"
   },

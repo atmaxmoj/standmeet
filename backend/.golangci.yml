@@ -212,6 +212,11 @@ linters:
       # framings).
       - path: internal/routes/
         linters: [cyclop]
+      # postgres-boundary 层与 pgx/sqlc 接口打交道，`any` 在驱动
+      # 契约里是不可避免的（pgx Scan(dest ...any)、json.Marshal(v any) 等）。
+      # 业务层 ban `any` 让信息流可读；这里反过来豁免。
+      - path: internal/postgres/
+        linters: [forbidigo]
 
 formatters:
   enable:

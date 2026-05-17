@@ -9,6 +9,13 @@
 > 2. `make lint` 绿（含本 M 新增的代码）
 > 3. 涉及的容器 `docker compose -f docker-compose.dev.yml up -d` 能起来
 > 4. 当本 M 引入新设计稿决策点时，`docs/design/code-architecture.md` 同步
+>
+> **测试纪律（M7 立的，倒回去补 M2-M6）:**
+> - **所有 e2e 必须 UI-driven**。Playwright 真起浏览器，模拟用户点击/输入，看 DOM。
+> - **API-only 测试不算 e2e**。绕过 UI 直接 POST 的 spec 不是"集成测试更省事"，是"漏掉了真正的用户路径"。
+> - **测试按 business 命名，不按 milestone 命名**。`public-page.spec.ts` 不是 `m7.spec.ts`。一年后看 spec 列表要能直接读懂在测什么用户场景。
+> - **Setup 通过 helper 走 API**（claim instance、seed corpus 这种）是允许的；只要被测路径本身走浏览器即可。MCP 协议本身就是 owner 的 user surface（owner 用 Claude Desktop 等 MCP client）—— 仿真 MCP client 算 UI-driven。
+> - **M2-M6 的 e2e specs 都已删除**。M2-M4 的 admin 流程要等 M8 admin UI 落地后用 UI 重写；M5 在 M8 同时补回（owner 在 admin 看 corpus list 是 UI 流程）；M6 的功能被 M7 的 public-page.spec.ts 完全覆盖。
 
 ---
 
@@ -22,7 +29,7 @@
 | M4 | API token + MCP server hello | ✓ done |
 | M5 | Corpus ingest (MCP write tools + admin list) | ✓ done |
 | M6 | Access codes + visitor session + chat (SSE + RAG) | ✓ done |
-| M7 | Public web surface (index + chat embed) | pending |
+| M7 | Public web surface (index + chat embed) | ✓ done |
 | M8 | Admin web surface (login UI + 6 sections) | pending |
 | M9 | BYOAI + gate + SEO (sitemap/robots/og/wiki landing) | pending |
 | M10 | Custom pages（MCP + 沙箱 builder + middleware rewrite） | pending |

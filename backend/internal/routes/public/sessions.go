@@ -1,0 +1,94 @@
+// sessions.go —— POST /api/v1/sessions —— visitor session 颁发。
+// 按 tier 分发：'code' 走 IssueCodeSession（访问码）、'public' 走
+// IssuePublicSession（无码，public visibility 切片）。
+// 鉴权：颁发不需要 token；后续 /messages 用返回的 session_token bearer。
+
+package public
+
+import (
+	"context"
+	"encoding/json"
+	"log/slog"
+	"net/http"
+
+	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/wangsijie/standmeet/internal/usecases"
+)
+
+type createSessionRequest struct {
+	Handle      string `json:"handle"`
+	Tier        string `json:"tier"` // 'code' | 'public'；省略时按 Code 是否非空推断
+	Code        string `json:"code,omitempty"`
+	VisitorName string `json:"visitor_name,omitempty"`
+}
+
+type createSessionResponse struct {
+	SessionToken   string   `json:"session_token"`
+	ConversationID string   `json:"conversation_id"`
+	OwnerHandle    string   `json:"owner_handle"`
+	IncludedTags   []string `json:"included_tags"`
+	ExcludedTags   []string `json:"excluded_tags"`
+}
+
+func (h *Handlers) createSession() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req createSessionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		res, err := dispatchIssueSession(r.Context(), h.Visitor, &req)
+		if err != nil {
+			handleVisitorErr(h.Log, w, err)
+			return
+		}
+		writeCreateSession(h.Log, w, &res.Session, &res.Conversation, req.Handle)
+	}
+}
+
+// dispatchIssueSession 按 tier 派发到对应 usecase；tier 缺省时 Code 非空走 code、
+// 空走 public（让 M7 前端直接 POST {handle} 就能拿 public-tier session）。
+func dispatchIssueSession(
+	ctx context.Context, deps usecases.VisitorDeps, req *createSessionRequest,
+) (usecases.IssueCodeSessionResult, error) {
+	tier := pickTier(req)
+	if tier == "public" {
+		return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
+			Handle:      req.Handle,
+			VisitorName: req.VisitorName,
+		})
+	}
+	return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
+		Code:        req.Code,
+		VisitorName: req.VisitorName,
+	})
+}
+
+func pickTier(req *createSessionRequest) string {
+	if req.Tier != "" {
+		return req.Tier
+	}
+	if req.Code == "" {
+		return "public"
+	}
+	return "code"
+}
+
+func writeCreateSession(
+	log *slog.Logger, w http.ResponseWriter,
+	issued *session.IssuedVisitor, conv *domain.Conversation, handle string,
+) {
+	resp := createSessionResponse{
+		SessionToken:   issued.Token,
+		ConversationID: conv.ID,
+		OwnerHandle:    handle,
+		IncludedTags:   issued.Data.IncludedTags,
+		ExcludedTags:   issued.Data.ExcludedTags,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Error("encode session resp", "err", err)
+	}
+}

@@ -46,9 +46,15 @@ e2e-lint:
 dev:
 	@docker compose -f docker-compose.dev.yml up
 
-dev-up:
-	@docker compose -f docker-compose.dev.yml up -d
-	@echo "[dev] backend=http://localhost:8000 db=:5432 redis=:6379"
+# app-build —— host 上 pnpm build，生成 .next/standalone 让 docker 镜像 COPY。
+# 选择 host build 而非 docker build：node:22-alpine 里 pnpm install 走 npm
+# registry 经常 < 50 KiB/s（macOS docker desktop 网络栈瓶颈），host 上 14s 完事。
+app-build:
+	@cd app && pnpm install --frozen-lockfile && pnpm run build
+
+dev-up: app-build
+	@docker compose -f docker-compose.dev.yml up -d --build
+	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
 
 dev-down:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans

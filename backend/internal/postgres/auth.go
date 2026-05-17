@@ -38,6 +38,19 @@ func (r *OwnerRepo) GetCredentialsByEmail(ctx context.Context, email string) (Cr
 	}, nil
 }
 
+// GetByHandle 用 handle（URL 段）反查 owner profile；不存在返 ErrOwnerNotFound。
+func (r *OwnerRepo) GetByHandle(ctx context.Context, handle string) (domain.Owner, error) {
+	q := dbq.New(r.pool)
+	row, err := q.GetOwnerByHandle(ctx, handle)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Owner{}, domain.ErrOwnerNotFound
+		}
+		return domain.Owner{}, fmt.Errorf("get owner by handle: %w", err)
+	}
+	return toDomainOwner(&row), nil
+}
+
 // GetByID 拿 owner 公开 profile，给 /api/admin/me 用。
 func (r *OwnerRepo) GetByID(ctx context.Context, id string) (domain.Owner, error) {
 	q := dbq.New(r.pool)
