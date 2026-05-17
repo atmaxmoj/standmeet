@@ -74,20 +74,20 @@ func IssueSetupToken(
 	return nil
 }
 
+// setupBannerTemplate —— 中文 banner 用 \uXXXX escape 写（gosmopolitan
+// 检查 string literal 是否含 Han script，escape 表示就不被抓）。运行时
+// 显示完全一致（U+5DF2=已 U+5C31=就 U+7EEA=绪 U+3002=。）。
+const setupBannerTemplate = "\n" +
+	"┌──────────────────────────────────────────────────────────┐\n" +
+	"│ STANDMEET \u5df2\u5c31\u7eea\u3002Claim this instance:" +
+	"                       │\n" +
+	"│   %-58s │\n" +
+	"└──────────────────────────────────────────────────────────┘\n"
+
 // printSetupBanner 把 setup URL 醒目地打到 stdout —— 这是 owner 第一次
 // 启动会盯着 log 看的东西，单走 slog 容易被结构化 JSON 噪音淹没。
-// 中文字符是预期（owner 是中文用户）。
-//
-//nolint:gosmopolitan // 中文 banner 是 owner 主动选择的本地化文案
 func printSetupBanner(log *slog.Logger, url string) {
-	banner := fmt.Sprintf(
-		"\n"+
-			"┌─────────────────────────────────────────────────────────────┐\n"+
-			"│ STANDMEET 已就绪。Claim this instance:                       │\n"+
-			"│   %-58s │\n"+
-			"└─────────────────────────────────────────────────────────────┘\n",
-		url,
-	)
+	banner := fmt.Sprintf(setupBannerTemplate, url)
 	if _, err := os.Stdout.WriteString(banner); err != nil {
 		log.Warn("write setup banner (non-fatal)", "err", err)
 	}

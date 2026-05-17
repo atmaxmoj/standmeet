@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -65,8 +66,12 @@ func (r *APITokenRepo) ListByOwner(ctx context.Context, ownerID string) ([]domai
 }
 
 // VerifyAndTouch 用 hash 校验 token，命中则 UPDATE last_used_at + 返回 owner_id。
-// 没命中返回 domain.ErrUnauthorized。
-func (r *APITokenRepo) VerifyAndTouch(ctx context.Context, tokenHash string) (string, error) {
+// 没命中返回 domain.ErrUnauthorized。touch 失败时 log warn 但不影响 auth 结果
+// （touch 是 best-effort —— 失败原因通常是临时网络抖动，不该让 owner 的 AI
+// 客户端无法继续工作）。
+func (r *APITokenRepo) VerifyAndTouch(
+	ctx context.Context, log *slog.Logger, tokenHash string,
+) (string, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetAPITokenByHash(ctx, tokenHash)
 	if err != nil {
@@ -75,8 +80,9 @@ func (r *APITokenRepo) VerifyAndTouch(ctx context.Context, tokenHash string) (st
 		}
 		return "", fmt.Errorf("get api token: %w", err)
 	}
-	// best-effort touch；touch 失败不影响 auth 结果。
-	_ = q.TouchAPIToken(ctx, row.ID) //nolint:errcheck // touch 是 best-effort
+	if terr := q.TouchAPIToken(ctx, row.ID); terr != nil {
+		log.Warn("touch api token (non-fatal)", "err", terr)
+	}
 	return formatUUID(row.OwnerID), nil
 }
 

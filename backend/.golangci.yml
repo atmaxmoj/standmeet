@@ -111,6 +111,11 @@ linters:
     revive:
       enable-all-rules: true
       rules:
+        # domain 包按 aggregate 集中所有实体（Owner / InstanceSettings /
+        # APIToken / RawEntry / WikiEntry / CreateOwnerInput / …），DDD
+        # 风格内核包就该这么多 public 类型。Default 5 太严。
+        - name: max-public-structs
+          arguments: [20]
         # Cap function inputs at 5.  Anything richer should
         # consolidate into a struct so the call sites stop counting
         # commas — same rationale as ESLint `max-params: 5` in the
@@ -152,6 +157,11 @@ linters:
         # returns int64s we knowingly cast to int.  Re-enable per-file
         # if we ever accept untrusted numeric input from the wire.
         - G115
+        # G124 抓 http.Cookie literal 缺 Secure/HttpOnly/SameSite。我们
+        # 的 CSRF cookie 走 double-submit pattern，HttpOnly 必须 false
+        # （前端 JS 要读 cookie 值塞 X-Csrftoken header）。lint 不知道
+        # 这层语义，永远误报。Secure + SameSite=Lax 仍守住攻击面。
+        - G124
     forbidigo:
       # analyze-types: true makes forbidigo match TYPE references too,
       # not just call expressions.  Required for the `any` ban below.

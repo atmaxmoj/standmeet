@@ -1,0 +1,139 @@
+// corpus.go —— admin /raw + /wiki list endpoints。
+// M5 只做 list（验证 MCP 写入是否真到 DB）；CRUD 写后续 milestone 用到再加。
+
+package admin
+
+import (
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/middleware"
+	"github.com/wangsijie/standmeet/internal/usecases"
+)
+
+// CorpusDeps —— admin corpus handlers 的依赖。
+type CorpusDeps struct {
+	Corpus usecases.CorpusDeps
+}
+
+const (
+	defaultCorpusLimit = 50
+	maxCorpusLimit     = 200
+)
+
+// MountCorpus 挂 /raw + /wiki list。
+func MountCorpus(r chi.Router, deps Deps) {
+	r.Get("/raw", listRaw(deps))
+	r.Get("/wiki", listWiki(deps))
+}
+
+type rawListItem struct {
+	CreatedAt string   `json:"created_at"`
+	ID        string   `json:"id"`
+	Body      string   `json:"body"`
+	Source    string   `json:"source"`
+	Tags      []string `json:"tags"`
+}
+
+type wikiListItem struct {
+	ParentID   *string  `json:"parent_id"`
+	ID         string   `json:"id"`
+	Title      string   `json:"title"`
+	Visibility string   `json:"visibility"`
+	CreatedAt  string   `json:"created_at"`
+	Tags       []string `json:"tags"`
+}
+
+func listRaw(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		limit := parseLimit(r.URL.Query().Get("limit"))
+		rows, err := deps.Corpus.Corpus.Raw.ListByOwner(r.Context(), ownerID, limit)
+		if err != nil {
+			deps.Log.Error("list raw", "err", err)
+			writeError(deps.Log, w, serverErr())
+			return
+		}
+		writeRawList(deps.Log, w, rows)
+	}
+}
+
+func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []domain.RawEntry) {
+	items := make([]rawListItem, 0, len(rows))
+	for i := range rows {
+		items = append(items, rawListItem{
+			ID:        rows[i].ID,
+			Body:      rows[i].Body,
+			Source:    rows[i].Source,
+			Tags:      rows[i].Tags,
+			CreatedAt: rows[i].CreatedAt.Format(time.RFC3339),
+		})
+	}
+	writeRawListJSON(log, w, items)
+}
+
+func listWiki(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		limit := parseLimit(r.URL.Query().Get("limit"))
+		rows, err := deps.Corpus.Corpus.Wiki.ListByOwner(r.Context(), ownerID, limit)
+		if err != nil {
+			deps.Log.Error("list wiki", "err", err)
+			writeError(deps.Log, w, serverErr())
+			return
+		}
+		writeWikiList(deps.Log, w, rows)
+	}
+}
+
+func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []domain.WikiEntry) {
+	items := make([]wikiListItem, 0, len(rows))
+	for i := range rows {
+		items = append(items, wikiListItem{
+			ID:         rows[i].ID,
+			Title:      rows[i].Title,
+			Visibility: rows[i].Visibility,
+			Tags:       rows[i].Tags,
+			ParentID:   rows[i].ParentID,
+			CreatedAt:  rows[i].CreatedAt.Format(time.RFC3339),
+		})
+	}
+	writeWikiListJSON(log, w, items)
+}
+
+func writeRawListJSON(log *slog.Logger, w http.ResponseWriter, items []rawListItem) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(items); err != nil {
+		log.Error("encode raw list", "err", err)
+	}
+}
+
+func writeWikiListJSON(log *slog.Logger, w http.ResponseWriter, items []wikiListItem) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(items); err != nil {
+		log.Error("encode wiki list", "err", err)
+	}
+}
+
+func parseLimit(s string) int32 {
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return defaultCorpusLimit
+	}
+	return clampLimit(n)
+}
+
+func clampLimit(n int) int32 {
+	if n > maxCorpusLimit {
+		return maxCorpusLimit
+	}
+	return int32(n)
+}

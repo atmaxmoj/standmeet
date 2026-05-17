@@ -26,6 +26,19 @@ type InstanceSetting struct {
 	DeployedAt     pgtype.Timestamptz
 }
 
+type MediaAsset struct {
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	Kind        string
+	Filename    string
+	MimeType    string
+	SizeBytes   int64
+	StorageKey  string
+	RawEntryID  pgtype.UUID
+	WikiEntryID pgtype.UUID
+	CreatedAt   pgtype.Timestamptz
+}
+
 type Owner struct {
 	ID                 pgtype.UUID
 	Email              string
@@ -39,4 +52,30 @@ type Owner struct {
 	ByoaiProviders     []byte
 	ByoaiPublicBlurb   string
 	CreatedAt          pgtype.Timestamptz
+}
+
+type RawEntry struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	Body           string
+	Source         string
+	SourceMeta     []byte
+	Tags           []string
+	FlaggedPrivate bool
+	PromotedTo     pgtype.UUID
+	Archived       bool
+	CreatedAt      pgtype.Timestamptz
+}
+
+type WikiEntry struct {
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	ParentID     pgtype.UUID
+	Title        string
+	Body         string
+	Tags         []string
+	Visibility   string
+	SourceRawIds []pgtype.UUID
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
 }

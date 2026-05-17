@@ -43,6 +43,40 @@ type APIToken struct {
 	Name       string
 }
 
+// RawEntry —— owner 通过 MCP push 进 corpus 的"半成品"，未整理。
+type RawEntry struct {
+	CreatedAt      time.Time
+	PromotedTo     *string
+	ID             string
+	OwnerID        string
+	Body           string
+	Source         string
+	Tags           []string
+	FlaggedPrivate bool
+	Archived       bool
+}
+
+// WikiEntry —— curated 内容，树状组织（parent_id 形成森林，root = ParentID==nil）。
+// Path 是 induced —— 从 ParentID 链 walk 出来，repo 提供 ComputePath() 算。
+type WikiEntry struct {
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	ParentID     *string
+	ID           string
+	OwnerID      string
+	Title        string
+	Body         string
+	Visibility   string // 'public' | 'on_request' | 'private'
+	Tags         []string
+	SourceRawIDs []string
+}
+
+// ErrWikiNotFound —— 按 id 查 wiki 未命中。
+var ErrWikiNotFound = errors.New("wiki entry not found")
+
+// ErrRawNotFound —— 按 id 查 raw 未命中。
+var ErrRawNotFound = errors.New("raw entry not found")
+
 // Sentinel errors 让 usecase / routes 层能 errors.Is 上做精确分支。
 var (
 	// ErrInstanceAlreadyClaimed —— 重复 claim 同一个 instance（已经过初次 setup）。

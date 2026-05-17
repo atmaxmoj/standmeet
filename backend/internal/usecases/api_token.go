@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres"
@@ -15,6 +16,7 @@ import (
 // APITokenDeps 把 token CRUD 需要的依赖打包。
 type APITokenDeps struct {
 	Tokens *postgres.APITokenRepo
+	Log    *slog.Logger
 }
 
 // CreatedAPIToken 是 CreateAPIToken 的返回结构（含 plaintext，**只在创建时返回一次**）。
@@ -52,7 +54,7 @@ func VerifyAPIToken(
 		return "", domain.ErrUnauthorized
 	}
 	tokenHash := session.HashAPIToken(plaintext)
-	ownerID, err := deps.Tokens.VerifyAndTouch(ctx, tokenHash)
+	ownerID, err := deps.Tokens.VerifyAndTouch(ctx, deps.Log, tokenHash)
 	if err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) {
 			return "", domain.ErrUnauthorized

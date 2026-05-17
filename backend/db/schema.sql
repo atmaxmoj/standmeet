@@ -47,3 +47,43 @@ CREATE TABLE api_tokens (
     last_used_at  timestamptz,
     created_at    timestamptz   NOT NULL DEFAULT now()
 );
+
+-- Corpus —— raw 草稿 + wiki curated；M6 加 embedding + SEO landing 列。
+CREATE TABLE raw_entries (
+    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    body            text          NOT NULL,
+    source          text          NOT NULL DEFAULT 'mcp',
+    source_meta     jsonb         NOT NULL DEFAULT '{}'::jsonb,
+    tags            text[]        NOT NULL DEFAULT '{}',
+    flagged_private boolean       NOT NULL DEFAULT false,
+    promoted_to     uuid,
+    archived        boolean       NOT NULL DEFAULT false,
+    created_at      timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE TABLE wiki_entries (
+    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    parent_id       uuid          REFERENCES wiki_entries(id) ON DELETE SET NULL,
+    title           text          NOT NULL,
+    body            text          NOT NULL,
+    tags            text[]        NOT NULL DEFAULT '{}',
+    visibility      text          NOT NULL DEFAULT 'public',
+    source_raw_ids  uuid[]        NOT NULL DEFAULT '{}',
+    created_at      timestamptz   NOT NULL DEFAULT now(),
+    updated_at      timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE TABLE media_assets (
+    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    kind            text          NOT NULL,
+    filename        text          NOT NULL,
+    mime_type       text          NOT NULL,
+    size_bytes      bigint        NOT NULL DEFAULT 0,
+    storage_key     text          NOT NULL,
+    raw_entry_id    uuid          REFERENCES raw_entries(id) ON DELETE SET NULL,
+    wiki_entry_id   uuid          REFERENCES wiki_entries(id) ON DELETE SET NULL,
+    created_at      timestamptz   NOT NULL DEFAULT now()
+);

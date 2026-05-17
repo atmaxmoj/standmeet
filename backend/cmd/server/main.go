@@ -71,6 +71,8 @@ func run(log *slog.Logger) error {
 	instanceRepo := postgres.NewInstanceRepo(db)
 	ownerRepo := postgres.NewOwnerRepo(db)
 	tokenRepo := postgres.NewAPITokenRepo(db)
+	rawRepo := postgres.NewRawRepo(db)
+	wikiRepo := postgres.NewWikiRepo(db)
 	sessionStore := session.NewOwnerSessionStore(rdb)
 	if terr := ensureSetupToken(ctx, log, instanceRepo, cfg.PublicURL); terr != nil {
 		return terr
@@ -80,7 +82,8 @@ func run(log *slog.Logger) error {
 	deps := runtimeDeps{
 		log: log, db: db, rdb: rdb,
 		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
-		tokenRepo: tokenRepo, sessionStore: sessionStore,
+		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
+		sessionStore: sessionStore,
 	}
 	return serve(ctx, deps, addr, stop)
 }
@@ -116,6 +119,8 @@ type runtimeDeps struct {
 	instanceRepo *postgres.InstanceRepo
 	ownerRepo    *postgres.OwnerRepo
 	tokenRepo    *postgres.APITokenRepo
+	rawRepo      *postgres.RawRepo
+	wikiRepo     *postgres.WikiRepo
 	sessionStore *session.OwnerSessionStore
 }
 
@@ -150,12 +155,14 @@ func serve(ctx context.Context, deps runtimeDeps, addr string, stop context.Canc
 			Admin: server.AdminDeps{
 				Claim:     usecases.ClaimDeps{Instance: deps.instanceRepo},
 				Login:     usecases.LoginDeps{Owners: deps.ownerRepo, Sessions: deps.sessionStore},
-				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo},
+				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},
+				Corpus:    usecases.CorpusDeps{Raw: deps.rawRepo, Wiki: deps.wikiRepo},
 				Sessions:  deps.sessionStore,
 			},
 			MCP: mcp.Deps{
-				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo},
+				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},
 				Owners:    deps.ownerRepo,
+				Corpus:    usecases.CorpusDeps{Raw: deps.rawRepo, Wiki: deps.wikiRepo},
 				Log:       deps.log,
 			},
 		}),

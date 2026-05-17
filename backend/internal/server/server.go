@@ -34,6 +34,7 @@ type AdminDeps struct {
 	Claim     usecases.ClaimDeps
 	Login     usecases.LoginDeps
 	APITokens usecases.APITokenDeps
+	Corpus    usecases.CorpusDeps
 	Sessions  *session.OwnerSessionStore
 }
 
@@ -60,6 +61,7 @@ func New(deps *Deps) http.Handler {
 			Claim:     deps.Admin.Claim,
 			Auth:      adminroutes.AuthDeps{Login: deps.Admin.Login, Sessions: deps.Admin.Sessions},
 			APITokens: deps.Admin.APITokens,
+			Corpus:    adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
 			Log:       deps.Log,
 		}
 		adminroutes.MountUnauthed(r, adminDeps)

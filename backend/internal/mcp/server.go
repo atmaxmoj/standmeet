@@ -30,6 +30,7 @@ var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 type Deps struct {
 	APITokens usecases.APITokenDeps
 	Owners    OwnerLookup
+	Corpus    usecases.CorpusDeps
 	Log       *slog.Logger
 }
 
@@ -87,9 +88,10 @@ func OwnerIDFrom(ctx context.Context) string {
 	return v
 }
 
-// registerTools 把所有 tool 注册到 mcpSrv。M4 只有 me；M5+ 加 raw_dump 等。
+// registerTools 把所有 tool 注册到 mcpSrv。
 func registerTools(mcpSrv *server.MCPServer, deps Deps) {
-	mcpSrv.AddTool(meTool(), meHandler(deps))
+	mcpSrv.AddTool(meTool(), wrapTool(invokeMe(deps)))
+	corpusTools(mcpSrv, deps)
 }
 
 func meTool() mcpgo.Tool {
@@ -99,21 +101,21 @@ func meTool() mcpgo.Tool {
 	)
 }
 
-func meHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, _ mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
+func invokeMe(deps Deps) invokeFn {
+	return func(ctx context.Context, _ *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
 		ownerID := OwnerIDFrom(ctx)
 		if ownerID == "" {
-			return mcpgo.NewToolResultError("unauthorized: invalid or missing api token"), nil
+			return mcpgo.NewToolResultError("unauthorized: invalid or missing api token")
 		}
 		owner, err := deps.Owners.GetByID(ctx, ownerID)
 		if err != nil {
 			if errors.Is(err, domain.ErrOwnerNotFound) {
-				return mcpgo.NewToolResultError("owner not found"), nil
+				return mcpgo.NewToolResultError("owner not found")
 			}
 			deps.Log.Error("mcp me failed", "err", err)
-			return mcpgo.NewToolResultError("internal error"), nil
+			return mcpgo.NewToolResultError("internal error")
 		}
-		return mcpgo.NewToolResultText(formatOwner(&owner)), nil
+		return mcpgo.NewToolResultText(formatOwner(&owner))
 	}
 }
 

@@ -23,6 +23,7 @@ type Deps struct {
 	Claim     usecases.ClaimDeps
 	Auth      AuthDeps
 	APITokens usecases.APITokenDeps
+	Corpus    CorpusDeps
 	Log       *slog.Logger
 }
 
@@ -39,6 +40,7 @@ func MountAuthed(r chi.Router, deps Deps) {
 	r.Post("/me/logout", logout(deps))
 	r.Get("/csrf", csrfEndpoint(deps))
 	r.Route("/tokens", func(r chi.Router) { MountTokens(r, deps) })
+	MountCorpus(r, deps)
 }
 
 type claimRequest struct {

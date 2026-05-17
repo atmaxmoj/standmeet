@@ -68,17 +68,13 @@ func (r *InstanceRepo) ClaimAndCreateOwner(
 	if err != nil {
 		return domain.Owner{}, fmt.Errorf("begin tx: %w", err)
 	}
-	// Rollback 在 commit 之后是 no-op；忽略 ErrTxClosed 之外的也无害（事务
-	// 结果已经由 commit 决定）。
-	//
-	//nolint:errcheck // best-effort cleanup; commit 成功后 Rollback 必返 ErrTxClosed
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	owner, err := claimTx(ctx, tx, tokenHash, input)
-	if err != nil {
-		return domain.Owner{}, err
+	owner, txErr := claimTx(ctx, tx, tokenHash, input)
+	if txErr != nil {
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			return domain.Owner{}, errors.Join(txErr, fmt.Errorf("rollback: %w", rerr))
+		}
+		return domain.Owner{}, txErr
 	}
-
 	if cerr := tx.Commit(ctx); cerr != nil {
 		return domain.Owner{}, fmt.Errorf("commit claim: %w", cerr)
 	}
