@@ -25,10 +25,12 @@ type LoginInput struct {
 }
 
 // LoginOutput 返回 plaintext session token + csrf token，handler 用它写 cookie。
+// OwnerHandle 给前端拿到立刻能 redirect /<handle>，省一次 /me 调用。
 type LoginOutput struct {
 	SessionToken string
 	CSRFToken    string
 	OwnerID      string
+	OwnerHandle  string
 }
 
 // Login 校验密码，颁发 session。错密码 / 不存在用户都返回 domain.ErrUnauthorized
@@ -49,6 +51,7 @@ func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, er
 		SessionToken: issued.Token,
 		CSRFToken:    issued.Data.CSRFToken,
 		OwnerID:      creds.OwnerID,
+		OwnerHandle:  creds.Handle,
 	}, nil
 }
 

@@ -16,9 +16,11 @@ import (
 )
 
 // Credentials 是 login 所需的最小信息：用 ID 颁发 session，用 hash 比对密码。
+// Handle 也带上让 LoginOutput 不用再额外查一次（前端 redirect 用）。
 type Credentials struct {
 	OwnerID      string
 	PasswordHash string
+	Handle       string
 }
 
 // GetCredentialsByEmail 拿 owner_id + password_hash；email 不存在返回
@@ -35,6 +37,7 @@ func (r *OwnerRepo) GetCredentialsByEmail(ctx context.Context, email string) (Cr
 	return Credentials{
 		OwnerID:      formatUUID(row.ID),
 		PasswordHash: row.PasswordHash,
+		Handle:       row.Handle,
 	}, nil
 }
 

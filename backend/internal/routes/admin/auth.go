@@ -30,8 +30,9 @@ type loginRequest struct {
 }
 
 type loginResponse struct {
-	OwnerID   string `json:"owner_id"`
-	CSRFToken string `json:"csrf_token"`
+	OwnerID     string `json:"owner_id"`
+	OwnerHandle string `json:"owner_handle"`
+	CSRFToken   string `json:"csrf_token"`
 }
 
 var loginErrCases = []apierr.Case{
@@ -78,7 +79,11 @@ func handleLoginErr(log *slog.Logger, w http.ResponseWriter, err error) {
 func writeLoginResp(log *slog.Logger, w http.ResponseWriter, out *usecases.LoginOutput) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	resp := loginResponse{OwnerID: out.OwnerID, CSRFToken: out.CSRFToken}
+	resp := loginResponse{
+		OwnerID:     out.OwnerID,
+		OwnerHandle: out.OwnerHandle,
+		CSRFToken:   out.CSRFToken,
+	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode login response", "err", err)
 	}
