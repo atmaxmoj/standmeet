@@ -48,22 +48,22 @@ var loginErrCases = []apierr.Case{
 }
 
 // login: POST /api/admin/login —— 验密码 + 写 session cookie + csrf cookie。
-func login(deps Deps) http.HandlerFunc {
+func (h *Handlers) login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(deps.Log, w, envBadReq("invalid JSON body"))
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		out, err := usecases.Login(r.Context(), deps.Auth.Login, &usecases.LoginInput{
+		out, err := usecases.Login(r.Context(), h.Auth.Login, &usecases.LoginInput{
 			Email: req.Email, Password: req.Password,
 		})
 		if err != nil {
-			handleLoginErr(deps.Log, w, err)
+			handleLoginErr(h.Log, w, err)
 			return
 		}
 		setSessionCookies(w, out.SessionToken, out.CSRFToken)
-		writeLoginResp(deps.Log, w, &out)
+		writeLoginResp(h.Log, w, &out)
 	}
 }
 
@@ -134,12 +134,12 @@ func clearSessionCookies(w http.ResponseWriter) {
 }
 
 // logout: POST /api/admin/me/logout —— 删 Redis session + 清 cookie。
-func logout(deps Deps) http.HandlerFunc {
+func (h *Handlers) logout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(middleware.SessionCookieName)
 		if err == nil {
-			if rerr := deps.Auth.Sessions.Revoke(r.Context(), cookie.Value); rerr != nil {
-				deps.Log.Warn("revoke session (non-fatal)", "err", rerr)
+			if rerr := h.Auth.Sessions.Revoke(r.Context(), cookie.Value); rerr != nil {
+				h.Log.Warn("revoke session (non-fatal)", "err", rerr)
 			}
 		}
 		clearSessionCookies(w)
@@ -149,11 +149,11 @@ func logout(deps Deps) http.HandlerFunc {
 
 // csrfEndpoint: GET /api/admin/csrf —— admin 前端 bootstrap 时调，拿 token 注 header。
 // 没 session 也能调；返回的 csrf cookie 在登录前是临时的，登录后会被覆盖。
-func csrfEndpoint(deps Deps) http.HandlerFunc {
+func (h *Handlers) csrfEndpoint() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, ok := middleware.SessionFrom(r.Context())
 		if !ok {
-			writeError(deps.Log, w, apierr.Envelope{
+			writeError(h.Log, w, apierr.Envelope{
 				Status: http.StatusUnauthorized, Code: "unauthorized", Message: "no session",
 			})
 			return
@@ -162,7 +162,7 @@ func csrfEndpoint(deps Deps) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		payload := map[string]string{"csrf_token": data.CSRFToken}
 		if err := json.NewEncoder(w).Encode(payload); err != nil {
-			deps.Log.Error("encode csrf response", "err", err)
+			h.Log.Error("encode csrf response", "err", err)
 		}
 	}
 }

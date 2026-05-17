@@ -20,8 +20,10 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/wangsijie/standmeet/internal/config"
+	"github.com/wangsijie/standmeet/internal/inference"
 	"github.com/wangsijie/standmeet/internal/mcp"
 	"github.com/wangsijie/standmeet/internal/postgres"
+	publicroutes "github.com/wangsijie/standmeet/internal/routes/public"
 	"github.com/wangsijie/standmeet/internal/server"
 	"github.com/wangsijie/standmeet/internal/session"
 	"github.com/wangsijie/standmeet/internal/usecases"
@@ -52,40 +54,64 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	return runWithCfg(ctx, log, cfg, stop)
+}
 
+func runWithCfg(
+	ctx context.Context, log *slog.Logger, cfg *config.Config, stop context.CancelFunc,
+) error {
 	db, err := postgres.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("connect pg: %w", err)
 	}
 	defer db.Close()
-
 	rdb, err := connectRedis(ctx, cfg.RedisURL, log)
 	if err != nil {
 		return err
 	}
 	defer closeRedis(log, rdb)
+	return wireAndServe(ctx, log, cfg, &conns{db: db, rdb: rdb}, stop)
+}
 
-	instanceRepo := postgres.NewInstanceRepo(db)
-	ownerRepo := postgres.NewOwnerRepo(db)
-	tokenRepo := postgres.NewAPITokenRepo(db)
-	rawRepo := postgres.NewRawRepo(db)
-	wikiRepo := postgres.NewWikiRepo(db)
-	sessionStore := session.NewOwnerSessionStore(rdb)
+// conns 把基础设施连接打包，让 wireAndServe 满足 argument-limit ≤ 5。
+type conns struct {
+	db  *pgxpool.Pool
+	rdb *redis.Client
+}
+
+func wireAndServe(
+	ctx context.Context, log *slog.Logger, cfg *config.Config,
+	c *conns, stop context.CancelFunc,
+) error {
+	instanceRepo := postgres.NewInstanceRepo(c.db)
+	ownerRepo := postgres.NewOwnerRepo(c.db)
+	tokenRepo := postgres.NewAPITokenRepo(c.db)
+	rawRepo := postgres.NewRawRepo(c.db)
+	wikiRepo := postgres.NewWikiRepo(c.db)
+	codeRepo := postgres.NewCodeRepo(c.db)
+	convRepo := postgres.NewConversationRepo(c.db)
+	sessionStore := session.NewOwnerSessionStore(c.rdb)
+	visitorStore := session.NewVisitorSessionStore(c.rdb)
+	provider, perr := inference.NewFromEnv()
+	if perr != nil {
+		return fmt.Errorf("init provider: %w", perr)
+	}
 	if terr := ensureSetupToken(ctx, log, instanceRepo, cfg.PublicURL); terr != nil {
 		return terr
 	}
 
 	addr := net.JoinHostPort(cfg.Host, cfg.Port)
 	deps := runtimeDeps{
-		log: log, db: db, rdb: rdb,
+		log: log, db: c.db, rdb: c.rdb,
 		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
 		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
-		sessionStore: sessionStore,
+		codeRepo: codeRepo, convRepo: convRepo,
+		sessionStore: sessionStore, visitorStore: visitorStore,
+		provider: provider,
 	}
-	return serve(ctx, deps, addr, stop)
+	return serve(ctx, &deps, addr, stop)
 }
 
 // ensureSetupToken 在 server 启动前调一次：未 claimed 的 instance 生成
@@ -121,7 +147,11 @@ type runtimeDeps struct {
 	tokenRepo    *postgres.APITokenRepo
 	rawRepo      *postgres.RawRepo
 	wikiRepo     *postgres.WikiRepo
+	codeRepo     *postgres.CodeRepo
+	convRepo     *postgres.ConversationRepo
 	sessionStore *session.OwnerSessionStore
+	visitorStore *session.VisitorSessionStore
+	provider     inference.Provider
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
@@ -145,7 +175,7 @@ func closeRedis(log *slog.Logger, rdb *redis.Client) {
 	}
 }
 
-func serve(ctx context.Context, deps runtimeDeps, addr string, stop context.CancelFunc) error {
+func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.CancelFunc) error {
 	srv := &http.Server{
 		Addr: addr,
 		Handler: server.New(&server.Deps{
@@ -157,7 +187,16 @@ func serve(ctx context.Context, deps runtimeDeps, addr string, stop context.Canc
 				Login:     usecases.LoginDeps{Owners: deps.ownerRepo, Sessions: deps.sessionStore},
 				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},
 				Corpus:    usecases.CorpusDeps{Raw: deps.rawRepo, Wiki: deps.wikiRepo},
+				Codes:     deps.codeRepo,
 				Sessions:  deps.sessionStore,
+			},
+			Public: publicroutes.Handlers{
+				Visitor: usecases.VisitorDeps{
+					Codes: deps.codeRepo, Conv: deps.convRepo, Wiki: deps.wikiRepo,
+					Owners: deps.ownerRepo, Sessions: deps.visitorStore, Provider: deps.provider,
+				},
+				Sessions: deps.visitorStore,
+				Log:      deps.log,
 			},
 			MCP: mcp.Deps{
 				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},

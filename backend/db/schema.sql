@@ -87,3 +87,51 @@ CREATE TABLE media_assets (
     wiki_entry_id   uuid          REFERENCES wiki_entries(id) ON DELETE SET NULL,
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
+
+-- Access codes + visitor chat (M6)
+CREATE TABLE access_codes (
+    id                  uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id            uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    code                citext        UNIQUE NOT NULL,
+    label               text          NOT NULL,
+    purpose             text          NOT NULL DEFAULT '',
+    included_tags       text[]        NOT NULL DEFAULT '{}',
+    excluded_tags       text[]        NOT NULL DEFAULT '{}',
+    suggested_questions jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    expires_at          timestamptz,
+    status              text          NOT NULL DEFAULT 'active',
+    created_at          timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE TABLE code_members (
+    id            uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    code_id       uuid          NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    display_name  text          NOT NULL,
+    email         citext,
+    is_anonymous  boolean       NOT NULL DEFAULT false,
+    last_seen_at  timestamptz
+);
+
+CREATE TABLE conversations (
+    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    tier            text          NOT NULL,
+    code_id         uuid          REFERENCES access_codes(id) ON DELETE SET NULL,
+    member_id       uuid          REFERENCES code_members(id) ON DELETE SET NULL,
+    visitor_name    text          NOT NULL DEFAULT '',
+    byoai_provider  text,
+    started_at      timestamptz   NOT NULL DEFAULT now(),
+    last_at         timestamptz   NOT NULL DEFAULT now(),
+    message_count   integer       NOT NULL DEFAULT 0,
+    hit_private     boolean       NOT NULL DEFAULT false
+);
+
+CREATE TABLE messages (
+    id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id  uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role             text          NOT NULL,
+    body             text          NOT NULL,
+    tool_calls       jsonb,
+    cited_wiki_ids   uuid[]        NOT NULL DEFAULT '{}',
+    created_at       timestamptz   NOT NULL DEFAULT now()
+);

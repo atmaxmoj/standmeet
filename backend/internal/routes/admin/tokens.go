@@ -36,22 +36,22 @@ type listTokenItem struct {
 }
 
 // MountTokens 挂 /api/admin/tokens 子路由。
-func MountTokens(r chi.Router, deps Deps) {
-	r.Get("/", listTokens(deps))
-	r.Post("/", createToken(deps))
-	r.Delete("/{id}", deleteToken(deps))
+func (h *Handlers) MountTokens(r chi.Router) {
+	r.Get("/", h.listTokens())
+	r.Post("/", h.createToken())
+	r.Delete("/{id}", h.deleteToken())
 }
 
-func listTokens(deps Deps) http.HandlerFunc {
+func (h *Handlers) listTokens() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		tokens, err := deps.APITokens.Tokens.ListByOwner(r.Context(), ownerID)
+		tokens, err := h.APITokens.Tokens.ListByOwner(r.Context(), ownerID)
 		if err != nil {
-			deps.Log.Error("list tokens", "err", err)
-			writeError(deps.Log, w, serverErr())
+			h.Log.Error("list tokens", "err", err)
+			writeError(h.Log, w, serverErr())
 			return
 		}
-		writeTokensList(deps.Log, w, tokens)
+		writeTokensList(h.Log, w, tokens)
 	}
 }
 
@@ -80,20 +80,20 @@ func toListItem(t *domain.APIToken) listTokenItem {
 	return item
 }
 
-func createToken(deps Deps) http.HandlerFunc {
+func (h *Handlers) createToken() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createTokenRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(deps.Log, w, envBadReq("invalid JSON body"))
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		out, err := usecases.CreateAPIToken(r.Context(), deps.APITokens, ownerID, req.Name)
+		out, err := usecases.CreateAPIToken(r.Context(), h.APITokens, ownerID, req.Name)
 		if err != nil {
-			handleCreateTokenErr(deps.Log, w, err)
+			handleCreateTokenErr(h.Log, w, err)
 			return
 		}
-		writeCreateTokenResp(deps.Log, w, &out)
+		writeCreateTokenResp(h.Log, w, &out)
 	}
 }
 
@@ -121,13 +121,13 @@ func writeCreateTokenResp(log *slog.Logger, w http.ResponseWriter, out *usecases
 	}
 }
 
-func deleteToken(deps Deps) http.HandlerFunc {
+func (h *Handlers) deleteToken() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		tokenID := chi.URLParam(r, "id")
-		if derr := deps.APITokens.Tokens.Delete(r.Context(), ownerID, tokenID); derr != nil {
-			deps.Log.Error("delete token", "err", derr)
-			writeError(deps.Log, w, serverErr())
+		if derr := h.APITokens.Tokens.Delete(r.Context(), ownerID, tokenID); derr != nil {
+			h.Log.Error("delete token", "err", derr)
+			writeError(h.Log, w, serverErr())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

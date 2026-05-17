@@ -18,29 +18,31 @@ import (
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
-// Deps 是 admin handlers 需要的依赖。
-type Deps struct {
-	Claim     usecases.ClaimDeps
-	Auth      AuthDeps
-	APITokens usecases.APITokenDeps
-	Corpus    CorpusDeps
-	Log       *slog.Logger
+// Handlers 是 admin handlers 需要的依赖。
+type Handlers struct {
+	Claim      usecases.ClaimDeps
+	Auth       AuthDeps
+	APITokens  usecases.APITokenDeps
+	Corpus     CorpusDeps
+	CodesAdmin CodesDeps
+	Log        *slog.Logger
 }
 
 // MountUnauthed 挂不需要 owner session 的 endpoint：claim / login。
-func MountUnauthed(r chi.Router, deps Deps) {
-	r.Post("/claim", claim(deps))
-	r.Post("/login", login(deps))
+func (h *Handlers) MountUnauthed(r chi.Router) {
+	r.Post("/claim", h.claim())
+	r.Post("/login", h.login())
 }
 
 // MountAuthed 挂需要 owner session 的 endpoint。caller 负责先用
 // middleware.WithOwner 包这个 router。
-func MountAuthed(r chi.Router, deps Deps) {
-	r.Get("/me", me(deps))
-	r.Post("/me/logout", logout(deps))
-	r.Get("/csrf", csrfEndpoint(deps))
-	r.Route("/tokens", func(r chi.Router) { MountTokens(r, deps) })
-	MountCorpus(r, deps)
+func (h *Handlers) MountAuthed(r chi.Router) {
+	r.Get("/me", h.me())
+	r.Post("/me/logout", h.logout())
+	r.Get("/csrf", h.csrfEndpoint())
+	r.Route("/tokens", func(r chi.Router) { h.MountTokens(r) })
+	r.Route("/codes", func(r chi.Router) { h.MountCodes(r) })
+	h.MountCorpus(r)
 }
 
 type claimRequest struct {
@@ -93,25 +95,25 @@ var claimErrCases = []apierr.Case{
 }
 
 // claim 是 first-run claim 的 thin handler：解 body、调 usecase、翻译错误。
-func claim(deps Deps) http.HandlerFunc {
+func (h *Handlers) claim() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req claimRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(deps.Log, w, envBadReq("invalid JSON body"))
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
 
-		owner, err := usecases.ClaimInstance(r.Context(), deps.Claim, &usecases.ClaimInput{
+		owner, err := usecases.ClaimInstance(r.Context(), h.Claim, &usecases.ClaimInput{
 			Token: req.Token, Email: req.Email, Password: req.Password,
 			Handle: req.Handle, FullName: req.FullName,
 		})
 		if err != nil {
-			handleClaimErr(deps.Log, w, err)
+			handleClaimErr(h.Log, w, err)
 			return
 		}
 
-		session.RemoveFirstRunFile(deps.Log)
-		writeJSONClaim(deps.Log, w, &owner)
+		session.RemoveFirstRunFile(h.Log)
+		writeJSONClaim(h.Log, w, &owner)
 	}
 }
 

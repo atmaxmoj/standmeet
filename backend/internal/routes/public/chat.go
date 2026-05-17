@@ -1,0 +1,328 @@
+// Package public 提供 /api/v1/* 路由：visitor session 颁发 + chat SSE。
+// 鉴权走 visitor session token（Bearer header）。CORS 开放（设计稿 D.2）。
+package public
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/wangsijie/standmeet/internal/apierr"
+	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/inference"
+	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/wangsijie/standmeet/internal/usecases"
+)
+
+// Handlers —— public routes 需要的依赖。
+type Handlers struct {
+	Visitor  usecases.VisitorDeps
+	Sessions *session.VisitorSessionStore
+	Log      *slog.Logger
+}
+
+// Mount 挂 /api/v1/* 路由。caller 负责前缀。
+func (h *Handlers) Mount(r chi.Router) {
+	r.Post("/sessions", h.createSession())
+	r.Post("/sessions/{id}/messages", h.postMessage())
+}
+
+type createSessionRequest struct {
+	Handle      string `json:"handle"`
+	Code        string `json:"code"`
+	VisitorName string `json:"visitor_name"`
+}
+
+type createSessionResponse struct {
+	SessionToken   string   `json:"session_token"`
+	ConversationID string   `json:"conversation_id"`
+	OwnerHandle    string   `json:"owner_handle"`
+	IncludedTags   []string `json:"included_tags"`
+	ExcludedTags   []string `json:"excluded_tags"`
+}
+
+type parsedPostMessage struct {
+	Content string
+	Data    session.VisitorSessionData
+}
+
+var visitorErrCases = []apierr.Case{
+	{Match: usecases.ErrEmptyField, Envelope: apierr.Envelope{
+		Status: http.StatusBadRequest, Code: "bad_request", Message: "missing required field",
+	}},
+	{Match: domain.ErrCodeInvalid, Envelope: apierr.Envelope{
+		Status:  http.StatusUnauthorized,
+		Code:    "code_invalid",
+		Message: "access code invalid or revoked",
+	}},
+	{Match: domain.ErrCodeExpired, Envelope: apierr.Envelope{
+		Status: http.StatusUnauthorized, Code: "code_expired", Message: "access code expired",
+	}},
+}
+
+func (h *Handlers) createSession() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req createSessionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		res, err := usecases.IssueCodeSession(r.Context(), h.Visitor,
+			&usecases.IssueCodeSessionInput{Code: req.Code, VisitorName: req.VisitorName})
+		if err != nil {
+			handleVisitorErr(h.Log, w, err)
+			return
+		}
+		writeCreateSession(h.Log, w, &res.Session, &res.Conversation, req.Handle)
+	}
+}
+
+func writeCreateSession(
+	log *slog.Logger, w http.ResponseWriter,
+	issued *session.IssuedVisitor, conv *domain.Conversation, handle string,
+) {
+	resp := createSessionResponse{
+		SessionToken:   issued.Token,
+		ConversationID: conv.ID,
+		OwnerHandle:    handle,
+		IncludedTags:   issued.Data.IncludedTags,
+		ExcludedTags:   issued.Data.ExcludedTags,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Error("encode session resp", "err", err)
+	}
+}
+
+type postMessageRequest struct {
+	Content string `json:"content"`
+}
+
+func (h *Handlers) postMessage() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		parsed, ok := preparePostMessage(h, w, r)
+		if !ok {
+			return
+		}
+		streamChatSSE(r, w, h, parsed, chi.URLParam(r, "id"))
+	}
+}
+
+// preparePostMessage 校验 bearer + 解 body；失败时已写响应 + 返 ok=false。
+func preparePostMessage(
+	h *Handlers, w http.ResponseWriter, r *http.Request,
+) (*parsedPostMessage, bool) {
+	data, ok := authVisitor(h, w, r)
+	if !ok {
+		return nil, false
+	}
+	return parseMessageBody(h, w, r, data)
+}
+
+func authVisitor(
+	h *Handlers, w http.ResponseWriter, r *http.Request,
+) (*session.VisitorSessionData, bool) {
+	token, hasBearer := bearerToken(r)
+	if !hasBearer {
+		writeError(h.Log, w, unauthorizedEnv("missing bearer token"))
+		return nil, false
+	}
+	data, err := h.Sessions.Get(r.Context(), token)
+	if err != nil {
+		writeError(h.Log, w, unauthorizedEnv("invalid session"))
+		return nil, false
+	}
+	return &data, true
+}
+
+func parseMessageBody(
+	h *Handlers, w http.ResponseWriter, r *http.Request, data *session.VisitorSessionData,
+) (*parsedPostMessage, bool) {
+	var req postMessageRequest
+	if derr := json.NewDecoder(r.Body).Decode(&req); derr != nil {
+		writeError(h.Log, w, envBadReq("invalid JSON body"))
+		return nil, false
+	}
+	return &parsedPostMessage{Content: req.Content, Data: *data}, true
+}
+
+func unauthorizedEnv(msg string) apierr.Envelope {
+	return apierr.Envelope{Status: http.StatusUnauthorized, Code: "unauthorized", Message: msg}
+}
+
+func streamChatSSE(
+	r *http.Request, w http.ResponseWriter, h *Handlers,
+	parsed *parsedPostMessage, convID string,
+) {
+	events, err := usecases.SendMessage(r.Context(), h.Visitor, &usecases.SendMessageInput{
+		OwnerID:        parsed.Data.OwnerID,
+		ConversationID: convID,
+		Body:           parsed.Content,
+		Scope: domain.VisitorSessionScope{
+			IncludedTags:  parsed.Data.IncludedTags,
+			ExcludedTags:  parsed.Data.ExcludedTags,
+			VisibilityMax: parsed.Data.VisibilityMax,
+		},
+	})
+	if err != nil {
+		handleVisitorErr(h.Log, w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.WriteHeader(http.StatusOK)
+	flusher, hasFlusher := w.(http.Flusher)
+	if !hasFlusher {
+		flusher = nil
+	}
+	pumpEvents(h.Log, w, flusher, events)
+}
+
+func pumpEvents(
+	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
+	events <-chan usecases.MessageEvent,
+) {
+	for ev := range events {
+		if !writeOneEvent(log, w, flusher, &ev) {
+			return
+		}
+	}
+}
+
+// writeOneEvent 处理单个 event；返回 false 表示流终止。
+// error 走 separate branch 让 cyclo ≤ 3；其它两种用 writeNormalEvent。
+func writeOneEvent(
+	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
+	ev *usecases.MessageEvent,
+) bool {
+	if ev.Kind == "error" {
+		writeSSE(log, w, flusher, "error",
+			marshalJSON(log, inferenceErrToPayloadStruct(ev.Err)))
+		return false
+	}
+	writeNormalEvent(log, w, flusher, ev)
+	return true
+}
+
+func writeNormalEvent(
+	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
+	ev *usecases.MessageEvent,
+) {
+	switch ev.Kind {
+	case "token":
+		writeSSE(log, w, flusher, "token", marshalJSON(log, tokenPayload{Text: ev.Text}))
+	case "done":
+		writeSSE(log, w, flusher, "done",
+			marshalJSON(log, donePayload{CitedWikiIDs: ev.CitedWikiIDs}))
+	default:
+		// error 已经被 writeOneEvent 上游分支处理；其它 kind 暂时忽略
+	}
+}
+
+// ssePayload —— marker interface 让 marshalJSON 不接 `any`（forbidigo 禁
+// `any`，modernize 又抓 `interface{}`，互斥；marker 是 both-clean 的方案）。
+type ssePayload interface{ sseMarker() }
+
+type tokenPayload struct {
+	Text string `json:"text"`
+}
+
+func (tokenPayload) sseMarker() {}
+
+type donePayload struct {
+	CitedWikiIDs []string `json:"cited_wiki_ids"`
+}
+
+func (donePayload) sseMarker() {}
+
+type errorPayload struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (errorPayload) sseMarker() {}
+
+func marshalJSON(log *slog.Logger, v ssePayload) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		log.Error("sse marshal", "err", err)
+		return []byte(`{}`)
+	}
+	return b
+}
+
+func inferenceErrToPayloadStruct(err error) errorPayload {
+	return errorPayload{Code: inferenceErrCode(err), Message: err.Error()}
+}
+
+func inferenceErrCode(err error) string {
+	codes := map[error]string{
+		inference.ErrRateLimited:     "rate_limited",
+		inference.ErrContextTooLong:  "context_too_long",
+		inference.ErrInvalidAPIKey:   "byoai_key_invalid",
+		inference.ErrPaymentRequired: "byoai_quota_exhausted",
+		inference.ErrOverloaded:      "provider_overloaded",
+		inference.ErrContentPolicy:   "content_policy",
+		inference.ErrModelNotFound:   "model_not_found",
+		inference.ErrServerSide:      "provider_error",
+		inference.ErrTimeout:         "provider_timeout",
+		inference.ErrNetwork:         "provider_unreachable",
+	}
+	for sentinel, code := range codes {
+		if errors.Is(err, sentinel) {
+			return code
+		}
+	}
+	return "inference_error"
+}
+
+func writeSSE(
+	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
+	event string, data []byte,
+) {
+	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data); err != nil {
+		log.Error("sse write", "err", err)
+		return
+	}
+	if flusher != nil {
+		flusher.Flush()
+	}
+}
+
+func bearerToken(r *http.Request) (string, bool) {
+	const pfx = "Bearer "
+	h := r.Header.Get("Authorization")
+	if !strings.HasPrefix(h, pfx) {
+		return "", false
+	}
+	return strings.TrimSpace(strings.TrimPrefix(h, pfx)), true
+}
+
+func handleVisitorErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	env := apierr.Classify(err, visitorErrCases)
+	if env.Status >= http.StatusInternalServerError {
+		log.Error("visitor flow", "err", err)
+	}
+	writeError(log, w, env)
+}
+
+func envBadReq(msg string) apierr.Envelope {
+	return apierr.Envelope{Status: http.StatusBadRequest, Code: "bad_request", Message: msg}
+}
+
+func writeError(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(env.Status)
+	payload := map[string]map[string]string{
+		"error": {"code": env.Code, "message": env.Message},
+	}
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Error("encode error envelope", "err", err)
+	}
+}

@@ -28,10 +28,14 @@ components:
     in: internal/middleware               # chi middleware: WithOwner, RequireCSRF
   mcp:
     in: internal/mcp                      # mcp-go server + tool handlers
+  inference:
+    in: internal/inference                # LLM provider abstraction
   sysroutes:
     in: internal/routes/sys
   adminroutes:
     in: internal/routes/admin
+  publicroutes:
+    in: internal/routes/public            # /api/v1/* — SDK / visitor entry
   server:
     in: internal/server
   cmd:
@@ -43,12 +47,13 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # Usecases 编排 domain + infra（postgres / session）。
+  # Usecases 编排 domain + infra（postgres / session / inference）。
   usecases:
     mayDependOn:
       - domain
       - postgres
       - session
+      - inference
     anyVendorDeps: true
 
   # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
@@ -94,6 +99,12 @@ deps:
       - usecases
     anyVendorDeps: true
 
+  # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
+  # 不依赖任何 internal（纯接口 + 实现 + sentinel errors）。
+  inference:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # sys routes (/internal/healthz, tls-ask, log) 需要 ping db / redis
   # 所以可以 import postgres。redis 客户端是 vendor。
   sysroutes:
@@ -109,19 +120,33 @@ deps:
       - domain
       - usecases
       - session
+      - postgres
       - apierr
       - middleware
     anyVendorDeps: true
 
-  # server 装配 chi 路由 + middleware；挂 admin / sysroutes / mcp sub-router。
+  # public routes (/api/v1/*) —— SDK + visitor 落地点；走 visitor session
+  # token bearer auth；SSE 流式 chat。
+  publicroutes:
+    mayDependOn:
+      - domain
+      - usecases
+      - session
+      - inference
+      - apierr
+    anyVendorDeps: true
+
+  # server 装配 chi 路由 + middleware；挂 admin / sysroutes / mcp / public sub-router。
   server:
     mayDependOn:
       - sysroutes
       - adminroutes
+      - publicroutes
       - usecases
       - session
       - middleware
       - mcp
+      - postgres
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
@@ -134,6 +159,8 @@ deps:
       - usecases
       - sysroutes
       - adminroutes
+      - publicroutes
       - mcp
+      - inference
       - server
     anyVendorDeps: true

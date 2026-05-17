@@ -157,6 +157,11 @@ linters:
         # returns int64s we knowingly cast to int.  Re-enable per-file
         # if we ever accept untrusted numeric input from the wire.
         - G115
+        # G117 抓 marshal struct 里 "token" / "key" / "secret" 等敏感
+        # 命名模式。visitor session token / API token plaintext 通过
+        # JSON response 返客户端是设计预期（颁发凭证，不是 leak）。
+        # 改字段名绕开会降低 API 可读性。
+        - G117
         # G124 抓 http.Cookie literal 缺 Secure/HttpOnly/SameSite。我们
         # 的 CSRF cookie 走 double-submit pattern，HttpOnly 必须 false
         # （前端 JS 要读 cookie 值塞 X-Csrftoken header）。lint 不知道

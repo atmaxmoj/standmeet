@@ -28,9 +28,9 @@ const (
 )
 
 // MountCorpus 挂 /raw + /wiki list。
-func MountCorpus(r chi.Router, deps Deps) {
-	r.Get("/raw", listRaw(deps))
-	r.Get("/wiki", listWiki(deps))
+func (h *Handlers) MountCorpus(r chi.Router) {
+	r.Get("/raw", h.listRaw())
+	r.Get("/wiki", h.listWiki())
 }
 
 type rawListItem struct {
@@ -50,17 +50,17 @@ type wikiListItem struct {
 	Tags       []string `json:"tags"`
 }
 
-func listRaw(deps Deps) http.HandlerFunc {
+func (h *Handlers) listRaw() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		limit := parseLimit(r.URL.Query().Get("limit"))
-		rows, err := deps.Corpus.Corpus.Raw.ListByOwner(r.Context(), ownerID, limit)
+		rows, err := h.Corpus.Corpus.Raw.ListByOwner(r.Context(), ownerID, limit)
 		if err != nil {
-			deps.Log.Error("list raw", "err", err)
-			writeError(deps.Log, w, serverErr())
+			h.Log.Error("list raw", "err", err)
+			writeError(h.Log, w, serverErr())
 			return
 		}
-		writeRawList(deps.Log, w, rows)
+		writeRawList(h.Log, w, rows)
 	}
 }
 
@@ -78,17 +78,17 @@ func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []domain.RawEntr
 	writeRawListJSON(log, w, items)
 }
 
-func listWiki(deps Deps) http.HandlerFunc {
+func (h *Handlers) listWiki() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		limit := parseLimit(r.URL.Query().Get("limit"))
-		rows, err := deps.Corpus.Corpus.Wiki.ListByOwner(r.Context(), ownerID, limit)
+		rows, err := h.Corpus.Corpus.Wiki.ListByOwner(r.Context(), ownerID, limit)
 		if err != nil {
-			deps.Log.Error("list wiki", "err", err)
-			writeError(deps.Log, w, serverErr())
+			h.Log.Error("list wiki", "err", err)
+			writeError(h.Log, w, serverErr())
 			return
 		}
-		writeWikiList(deps.Log, w, rows)
+		writeWikiList(h.Log, w, rows)
 	}
 }
 

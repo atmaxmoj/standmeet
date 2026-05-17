@@ -21,7 +21,7 @@
 | M3 | Owner login + session + admin /me | ✓ done |
 | M4 | API token + MCP server hello | ✓ done |
 | M5 | Corpus ingest (MCP write tools + admin list) | ✓ done |
-| M6 | Access codes + visitor session + chat (SSE + RAG) | pending |
+| M6 | Access codes + visitor session + chat (SSE + RAG) | ✓ done |
 | M7 | Public web surface (index + chat embed) | pending |
 | M8 | Admin web surface (login UI + 6 sections) | pending |
 | M9 | BYOAI + gate + SEO (sitemap/robots/og/wiki landing) | pending |

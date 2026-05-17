@@ -77,6 +77,62 @@ var ErrWikiNotFound = errors.New("wiki entry not found")
 // ErrRawNotFound —— 按 id 查 raw 未命中。
 var ErrRawNotFound = errors.New("raw entry not found")
 
+// ErrCodeInvalid —— access code 不存在或已撤销。
+var ErrCodeInvalid = errors.New("access code invalid")
+
+// ErrCodeExpired —— access code 过期。
+var ErrCodeExpired = errors.New("access code expired")
+
+// ErrConversationNotFound —— conversation 不存在。
+var ErrConversationNotFound = errors.New("conversation not found")
+
+// AccessCode —— 访客访问码（M6）。
+type AccessCode struct {
+	CreatedAt          time.Time
+	ExpiresAt          *time.Time
+	ID                 string
+	OwnerID            string
+	Code               string
+	Label              string
+	Purpose            string
+	Status             string
+	IncludedTags       []string
+	ExcludedTags       []string
+	SuggestedQuestions []string
+}
+
+// VisitorSessionScope —— 访客 session 可见 corpus 范围。
+type VisitorSessionScope struct {
+	VisibilityMax string // 'public' | 'on_request' | 'private'
+	IncludedTags  []string
+	ExcludedTags  []string
+}
+
+// Conversation —— 一次 visitor chat 会话。
+type Conversation struct {
+	StartedAt     time.Time
+	LastAt        time.Time
+	CodeID        *string
+	MemberID      *string
+	BYOAIProvider *string
+	ID            string
+	OwnerID       string
+	Tier          string // 'code' | 'byoai'
+	VisitorName   string
+	MessageCount  int32
+	HitPrivate    bool
+}
+
+// Message —— conversation 内一条消息。
+type Message struct {
+	CreatedAt      time.Time
+	ID             string
+	ConversationID string
+	Role           string // 'visitor' | 'assistant'
+	Body           string
+	CitedWikiIDs   []string
+}
+
 // Sentinel errors 让 usecase / routes 层能 errors.Is 上做精确分支。
 var (
 	// ErrInstanceAlreadyClaimed —— 重复 claim 同一个 instance（已经过初次 setup）。

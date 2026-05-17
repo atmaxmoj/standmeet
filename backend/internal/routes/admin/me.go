@@ -21,12 +21,12 @@ type meResponse struct {
 	FullName string `json:"full_name"`
 }
 
-func me(deps Deps) http.HandlerFunc {
+func (h *Handlers) me() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		owner, err := deps.Auth.Login.Owners.GetByID(r.Context(), ownerID)
+		owner, err := h.Auth.Login.Owners.GetByID(r.Context(), ownerID)
 		if err != nil {
-			handleMeErr(deps.Log, w, err)
+			handleMeErr(h.Log, w, err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -36,7 +36,7 @@ func me(deps Deps) http.HandlerFunc {
 			Handle: owner.Handle, FullName: owner.FullName,
 		}
 		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
-			deps.Log.Error("encode me response", "err", encErr)
+			h.Log.Error("encode me response", "err", encErr)
 		}
 	}
 }

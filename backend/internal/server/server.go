@@ -14,7 +14,9 @@ import (
 
 	"github.com/wangsijie/standmeet/internal/mcp"
 	authmw "github.com/wangsijie/standmeet/internal/middleware"
+	"github.com/wangsijie/standmeet/internal/postgres"
 	adminroutes "github.com/wangsijie/standmeet/internal/routes/admin"
+	publicroutes "github.com/wangsijie/standmeet/internal/routes/public"
 	sysroutes "github.com/wangsijie/standmeet/internal/routes/sys"
 	"github.com/wangsijie/standmeet/internal/session"
 	"github.com/wangsijie/standmeet/internal/usecases"
@@ -22,11 +24,12 @@ import (
 
 // Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。
 type Deps struct {
-	DB    *pgxpool.Pool
-	Redis *redis.Client
-	Log   *slog.Logger
-	Admin AdminDeps
-	MCP   mcp.Deps
+	DB     *pgxpool.Pool
+	Redis  *redis.Client
+	Log    *slog.Logger
+	Admin  AdminDeps
+	Public publicroutes.Handlers
+	MCP    mcp.Deps
 }
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
@@ -35,6 +38,7 @@ type AdminDeps struct {
 	Login     usecases.LoginDeps
 	APITokens usecases.APITokenDeps
 	Corpus    usecases.CorpusDeps
+	Codes     *postgres.CodeRepo
 	Sessions  *session.OwnerSessionStore
 }
 
@@ -57,19 +61,32 @@ func New(deps *Deps) http.Handler {
 	})
 
 	r.Route("/api/admin", func(r chi.Router) {
-		adminDeps := adminroutes.Deps{
-			Claim:     deps.Admin.Claim,
-			Auth:      adminroutes.AuthDeps{Login: deps.Admin.Login, Sessions: deps.Admin.Sessions},
-			APITokens: deps.Admin.APITokens,
-			Corpus:    adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
-			Log:       deps.Log,
+		adminH := &adminroutes.Handlers{
+			Claim: deps.Admin.Claim,
+			Auth: adminroutes.AuthDeps{
+				Login:    deps.Admin.Login,
+				Sessions: deps.Admin.Sessions,
+			},
+			APITokens:  deps.Admin.APITokens,
+			Corpus:     adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+			CodesAdmin: adminroutes.CodesDeps{Codes: deps.Admin.Codes},
+			Log:        deps.Log,
 		}
-		adminroutes.MountUnauthed(r, adminDeps)
+		adminH.MountUnauthed(r)
 		r.Group(func(r chi.Router) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
-			adminroutes.MountAuthed(r, adminDeps)
+			adminH.MountAuthed(r)
 		})
+	})
+
+	r.Route("/api/v1", func(r chi.Router) {
+		publicH := &publicroutes.Handlers{
+			Visitor:  deps.Public.Visitor,
+			Sessions: deps.Public.Sessions,
+			Log:      deps.Log,
+		}
+		publicH.Mount(r)
 	})
 
 	// /mcp/* —— Bearer API token auth + mcp-go streamable HTTP.

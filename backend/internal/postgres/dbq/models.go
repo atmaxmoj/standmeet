@@ -8,6 +8,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AccessCode struct {
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	Code               string
+	Label              string
+	Purpose            string
+	IncludedTags       []string
+	ExcludedTags       []string
+	SuggestedQuestions []byte
+	ExpiresAt          pgtype.Timestamptz
+	Status             string
+	CreatedAt          pgtype.Timestamptz
+}
+
 type ApiToken struct {
 	ID         pgtype.UUID
 	OwnerID    pgtype.UUID
@@ -16,6 +30,29 @@ type ApiToken struct {
 	Scopes     []string
 	LastUsedAt pgtype.Timestamptz
 	CreatedAt  pgtype.Timestamptz
+}
+
+type CodeMember struct {
+	ID          pgtype.UUID
+	CodeID      pgtype.UUID
+	DisplayName string
+	Email       *string
+	IsAnonymous bool
+	LastSeenAt  pgtype.Timestamptz
+}
+
+type Conversation struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	Tier          string
+	CodeID        pgtype.UUID
+	MemberID      pgtype.UUID
+	VisitorName   string
+	ByoaiProvider *string
+	StartedAt     pgtype.Timestamptz
+	LastAt        pgtype.Timestamptz
+	MessageCount  int32
+	HitPrivate    bool
 }
 
 type InstanceSetting struct {
@@ -37,6 +74,16 @@ type MediaAsset struct {
 	RawEntryID  pgtype.UUID
 	WikiEntryID pgtype.UUID
 	CreatedAt   pgtype.Timestamptz
+}
+
+type Message struct {
+	ID             pgtype.UUID
+	ConversationID pgtype.UUID
+	Role           string
+	Body           string
+	ToolCalls      []byte
+	CitedWikiIds   []pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
 }
 
 type Owner struct {
