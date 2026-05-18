@@ -7,14 +7,18 @@
   "private": false,
   "main": "./dist/embed.js",
   "module": "./dist/embed.js",
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint src/ && tsc --noEmit"
   },
   "dependencies": {
-    "@standmeet/sdk": "workspace:*"
+    "@standmeet/sdk": "workspace:*",
+    "@standmeet/sdk-core": "workspace:*"
   },
   "devDependencies": {
     "eslint": "^9.39.3",

@@ -23,7 +23,7 @@ import { loadStoredSession } from '@/lib/gate/use-gate';
 
 export type ChatMsg =
   | { role: 'visitor'; content: string }
-  | { role: 'assistant'; content: string; cited: string[]; streaming: boolean };
+  | { role: 'assistant'; content: string; cited: readonly string[]; streaming: boolean };
 
 export type ChatDockState = {
   messages: ChatMsg[];
@@ -166,7 +166,7 @@ function applyStreamEvent(
 }
 
 function replaceLastAssistant(
-  prev: ChatMsg[], content: string, cited: string[], streaming: boolean,
+  prev: ChatMsg[], content: string, cited: readonly string[], streaming: boolean,
 ): ChatMsg[] {
   const last = prev[prev.length - 1];
   const head = prev.slice(0, -1);

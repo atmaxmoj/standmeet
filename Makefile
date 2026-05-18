@@ -6,7 +6,7 @@
 # milestone 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-down build clean test
+.PHONY: dev dev-up dev-down build clean test sdk-build app-build
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -46,11 +46,19 @@ e2e-lint:
 dev:
 	@docker compose -f docker-compose.dev.yml up
 
+# sdk-build —— 让 sdk-core/sdk/embed 三包都 tsup 出 dist/ 给 app dogfood。
+# app-build 之前先跑 sdk-build，让 Next 编译时能找到 @standmeet/sdk-core/dist。
+sdk-build:
+	@pnpm -F @standmeet/sdk-core build
+	@pnpm -F @standmeet/sdk build
+	@pnpm -F @standmeet/embed build
+
 # app-build —— host 上 pnpm build，生成 .next/standalone 让 docker 镜像 COPY。
 # 选择 host build 而非 docker build：node:22-alpine 里 pnpm install 走 npm
 # registry 经常 < 50 KiB/s（macOS docker desktop 网络栈瓶颈），host 上 14s 完事。
-app-build:
-	@cd app && pnpm install --frozen-lockfile && pnpm run build
+app-build: sdk-build
+	@pnpm install --frozen-lockfile
+	@pnpm -F standmeet-app build
 
 dev-up: app-build
 	@docker compose -f docker-compose.dev.yml up -d --build

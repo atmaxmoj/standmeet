@@ -33,7 +33,8 @@ CREATE TABLE instance_settings (
     is_claimed        boolean      NOT NULL DEFAULT false,
     setup_token_hash  text,
     multi_tenant      boolean      NOT NULL DEFAULT false,
-    deployed_at       timestamptz  NOT NULL DEFAULT now()
+    deployed_at       timestamptz  NOT NULL DEFAULT now(),
+    allowed_domains   jsonb        NOT NULL DEFAULT '[]'::jsonb
 );
 
 -- API tokens —— 对齐 youteacher 简化：无 scope 细粒度（占位 ARRAY['*']）、

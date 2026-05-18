@@ -33,6 +33,7 @@ type Deps struct {
 	PublicSEO         publicroutes.SEOHandlers
 	PublicCustomPages publicroutes.CustomPageHandlers
 	Builds            sysroutes.BuilderDeps
+	TLSAsk            sysroutes.TLSAskDeps
 	MCP               mcp.Deps
 	Admin             AdminDeps
 }
@@ -70,6 +71,7 @@ func mountInternal(r chi.Router, deps *Deps) {
 	r.Route("/internal", func(r chi.Router) {
 		sysroutes.Mount(r, sysroutes.Deps{DB: deps.DB, Redis: deps.Redis, Log: deps.Log})
 		sysroutes.MountBuilds(r, deps.Builds)
+		sysroutes.MountTLSAsk(r, deps.TLSAsk)
 	})
 }
 

@@ -255,4 +255,7 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 	// ErrPageNotFound —— 查 page_content 行不存在；usecase 层返默认值。
 	ErrPageNotFound = errors.New("page content not found")
+	// ErrInstanceSettingsNotFound —— instance_settings 单行查不到（v1 不该
+	// 发生因为 migration 引导插入；保留 sentinel 给后续 multi-tenant 用）。
+	ErrInstanceSettingsNotFound = errors.New("instance settings not found")
 )

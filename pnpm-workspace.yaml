@@ -1,0 +1,8 @@
+# Top-level pnpm workspace covers every TS/JS subproject so SDK packages can
+# be `link:` consumed from app/ (dogfood) and e2e/ (smoke). builder/ stays
+# out of the workspace because it ships as a docker image and doesn't share
+# deps with the rest.
+packages:
+  - 'app'
+  - 'e2e'
+  - 'sdk/packages/*'

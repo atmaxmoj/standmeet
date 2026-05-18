@@ -2,7 +2,7 @@
 
 import type { PageProject } from '@/lib/api/public';
 
-export function Projects({ projects }: { projects: PageProject[] }) {
+export function Projects({ projects }: { projects: readonly PageProject[] }) {
   return (
     <section className="mx-auto max-w-2xl px-6 py-16 space-y-10">
       <SectionLabel text="projects" />

@@ -237,6 +237,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		PublicSEO:         buildPublicSEODeps(d),
 		PublicCustomPages: buildPublicCustomPageDeps(d),
 		Builds:            sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
+		TLSAsk:            sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
 		MCP:               buildMCPDeps(d),
 	}
 }

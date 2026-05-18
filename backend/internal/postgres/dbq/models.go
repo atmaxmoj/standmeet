@@ -85,6 +85,7 @@ type InstanceSetting struct {
 	SetupTokenHash *string
 	MultiTenant    bool
 	DeployedAt     pgtype.Timestamptz
+	AllowedDomains []byte
 }
 
 type MediaAsset struct {

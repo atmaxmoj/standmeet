@@ -84,7 +84,7 @@ function AssistantLabel({ streaming }: { streaming: boolean }) {
   return <span className="smallcaps mb-1 block">{streaming ? 'thinking' : 'reply'}</span>;
 }
 
-function AssistantCited({ streaming, cited }: { streaming: boolean; cited: string[] }) {
+function AssistantCited({ streaming, cited }: { streaming: boolean; cited: readonly string[] }) {
   const show = !streaming && cited.length > 0;
   return show ? <CitedFootnote count={cited.length} /> : null;
 }

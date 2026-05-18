@@ -4,7 +4,10 @@
     "src/app/**/layout.tsx"
   ],
   "project": ["src/**/*.{ts,tsx}"],
-  "ignoreDependencies": ["tailwindcss"],
+  "ignoreDependencies": [
+    "tailwindcss",
+    "@standmeet/sdk-core"
+  ],
   "ignoreExportsUsedInFile": true,
   "ignoreBinaries": []
 }

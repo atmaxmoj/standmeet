@@ -2,7 +2,7 @@
 
 import type { PageInsight } from '@/lib/api/public';
 
-export function Insights({ insights }: { insights: PageInsight[] }) {
+export function Insights({ insights }: { insights: readonly PageInsight[] }) {
   return (
     <section className="mx-auto max-w-2xl px-6 py-16 space-y-12">
       <SectionLabel text="insights" />

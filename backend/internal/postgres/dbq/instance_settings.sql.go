@@ -10,7 +10,7 @@ import (
 )
 
 const getInstanceSettings = `-- name: GetInstanceSettings :one
-SELECT id, is_claimed, setup_token_hash, multi_tenant, deployed_at FROM instance_settings WHERE id = 1
+SELECT id, is_claimed, setup_token_hash, multi_tenant, deployed_at, allowed_domains FROM instance_settings WHERE id = 1
 `
 
 func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, error) {
@@ -22,6 +22,7 @@ func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, err
 		&i.SetupTokenHash,
 		&i.MultiTenant,
 		&i.DeployedAt,
+		&i.AllowedDomains,
 	)
 	return i, err
 }
@@ -46,7 +47,7 @@ SET is_claimed = true,
 WHERE id = 1
   AND is_claimed = false
   AND setup_token_hash = $1
-RETURNING id, is_claimed, setup_token_hash, multi_tenant, deployed_at
+RETURNING id, is_claimed, setup_token_hash, multi_tenant, deployed_at, allowed_domains
 `
 
 // 原子 claim：当且仅当 is_claimed=false 且 setup_token_hash 匹配时 mark
@@ -61,6 +62,7 @@ func (q *Queries) TryClaimInstance(ctx context.Context, setupTokenHash *string) 
 		&i.SetupTokenHash,
 		&i.MultiTenant,
 		&i.DeployedAt,
+		&i.AllowedDomains,
 	)
 	return i, err
 }

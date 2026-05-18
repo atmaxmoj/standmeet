@@ -1,0 +1,121 @@
+# docker-compose.prod.yml —— self-host owner 一键起服务用。跟 dev compose
+# 的区别：
+#   1) 暴露 Caddy 在 80/443；其他服务只在内网；
+#   2) backend / app / builder 镜像走 release tag（registry）而不是 host build；
+#   3) sessions / pgdata / redisdata / custom_pages_data / caddy_data 都用
+#      named volume，方便 backup.sh 一键备份。
+#
+# install.sh 把这文件拷到 owner 服务器，docker compose -f standmeet.yml up -d
+# 就完事。M11 这里先内置 dev 用的 host build；M11+ 出 release 镜像后切。
+
+name: standmeet
+
+services:
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
+  app:
+    build:
+      context: ./app
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - NODE_ENV=production
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/v1/instance"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DATABASE_URL=postgres://standmeet:${POSTGRES_PASSWORD}@db:5432/standmeet?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - SESSION_KEY=${SESSION_KEY}
+      - SECURE_COOKIE=true
+      - INFERENCE_PROVIDER=${INFERENCE_PROVIDER:-anthropic}
+      - INFERENCE_ANTHROPIC_KEY=${INFERENCE_ANTHROPIC_KEY:-}
+      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - PUBLIC_URL=${PUBLIC_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - custom_pages_data:/srv/custom-pages
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  builder:
+    build:
+      context: ./builder
+    restart: unless-stopped
+    environment:
+      - BACKEND_INTERNAL_URL=http://backend:8000
+      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - custom_pages_data:/srv/custom-pages
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=standmeet
+      - POSTGRES_USER=standmeet
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  custom_pages_data: {}
+  caddy_data: {}
+  caddy_config: {}

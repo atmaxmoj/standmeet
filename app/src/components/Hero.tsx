@@ -24,7 +24,7 @@ export function Hero({ owner, content, onAsk }: Props) {
   );
 }
 
-function ExamplesList({ examples, onAsk }: { examples: string[]; onAsk: (q: string) => void }) {
+function ExamplesList({ examples, onAsk }: { examples: readonly string[]; onAsk: (q: string) => void }) {
   return (
     <ul className="mt-8 space-y-2">
       {examples.map((q) => (

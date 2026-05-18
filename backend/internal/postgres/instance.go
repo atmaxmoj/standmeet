@@ -9,8 +9,10 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 
@@ -40,6 +42,28 @@ func (r *InstanceRepo) Get(ctx context.Context) (domain.InstanceSettings, error)
 		MultiTenant: row.MultiTenant,
 		DeployedAt:  row.DeployedAt.Time,
 	}, nil
+}
+
+// IsDomainAllowed —— 给 /internal/tls-ask 用：domain 是否在 allowed_domains
+// 白名单里。Caddy on-demand TLS 据此决定是否替它签证书。
+func (r *InstanceRepo) IsDomainAllowed(ctx context.Context, dom string) (bool, error) {
+	list, err := r.loadAllowedDomains(ctx)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(list, dom), nil
+}
+
+// AddAllowedDomain —— 把 domain 加进白名单（去重）。admin / setup 调。
+func (r *InstanceRepo) AddAllowedDomain(ctx context.Context, dom string) error {
+	list, err := r.loadAllowedDomains(ctx)
+	if err != nil {
+		return err
+	}
+	if slices.Contains(list, dom) {
+		return nil
+	}
+	return r.writeAllowedDomains(ctx, append(list, dom))
 }
 
 // SetSetupTokenHash 把启动时生成的 setup token 的 sha256(hash) 存到
@@ -122,4 +146,36 @@ func translateCreateOwnerErr(err error) error {
 	default:
 		return fmt.Errorf("create owner unique violation %s: %w", constraint, err)
 	}
+}
+
+// loadAllowedDomains / writeAllowedDomains —— allowed_domains 的 jsonb
+// 编解码 helper。放文件尾部满足 funcorder（unexported 在 exported 之后）。
+
+func (r *InstanceRepo) loadAllowedDomains(ctx context.Context) ([]string, error) {
+	row, err := dbq.New(r.pool).GetInstanceSettings(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get instance settings: %w", err)
+	}
+	if len(row.AllowedDomains) == 0 {
+		return nil, nil
+	}
+	var list []string
+	if uerr := json.Unmarshal(row.AllowedDomains, &list); uerr != nil {
+		return nil, fmt.Errorf("unmarshal allowed domains: %w", uerr)
+	}
+	return list, nil
+}
+
+func (r *InstanceRepo) writeAllowedDomains(ctx context.Context, list []string) error {
+	encoded, merr := json.Marshal(list)
+	if merr != nil {
+		return fmt.Errorf("marshal allowed domains: %w", merr)
+	}
+	if _, eerr := r.pool.Exec(ctx,
+		`UPDATE instance_settings SET allowed_domains = $1::jsonb WHERE id = 1`,
+		string(encoded),
+	); eerr != nil {
+		return fmt.Errorf("update allowed domains: %w", eerr)
+	}
+	return nil
 }

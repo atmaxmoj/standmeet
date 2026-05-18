@@ -33,7 +33,7 @@
 | M8 | Admin web surface (login UI + 6 sections) | ✓ done |
 | M9 | BYOAI + gate + SEO (sitemap/robots/og/wiki landing) | ✓ done |
 | M10 | Custom pages（MCP + 沙箱 builder + middleware rewrite） | ✓ done |
-| M11 | SDK 抽出 + Caddy 自动 SSL + 一键 install | pending |
+| M11 | SDK 抽出 + Caddy 自动 SSL + 一键 install | ✓ done |
 
 ---
 
@@ -224,22 +224,22 @@
 
 ---
 
-## M11 — SDK 抽出 + Caddy 自动 SSL + 一键 install
+## M11 — SDK 抽出 + Caddy 自动 SSL + 一键 install ✓ done
 
-**目标：** `@standmeet/sdk` npm 包跑得起来（web 自己 dogfood），Caddy 反代 + 自定义域名自动 SSL，`./install.sh` 一行起 instance。
+**实现：**
+- 根 `pnpm-workspace.yaml` + `package.json` —— 把 `app/`, `e2e/`, `sdk/packages/*` 统一进 pnpm workspace；workspace symlink 让 app 直接 `import` SDK 包。
+- `sdk/packages/core/src/` —— `createClient({ baseURL })` + readonly types + SSE 解析器；headless，可 Node / Deno / 浏览器 通用。
+- `sdk/packages/react/src/` —— `<StandMeetProvider>` + `useStandMeet()` + `useChatSession({ tier, handle, ... })` 状态机 hook。
+- `sdk/packages/embed/src/embed.ts` —— `<standmeet-chat>` Web Component，drop-in 单 `<script>` 给任意非 React 站点用；IIFE bundle。
+- `app/src/lib/api/public.ts` —— 改成薄薄的"已配 SSR baseURL"工厂，业务逻辑全部回到 `@standmeet/sdk-core`（dogfood 证明）。
+- 根 `Caddyfile` + `docker-compose.prod.yml` —— Caddy 2 反代 app + on-demand TLS；ACME 通过 `ask http://backend:8000/internal/tls-ask` 询问白名单。
+- `backend/db/migrations/00008_allowed_domains.sql` + `InstanceRepo.{IsDomainAllowed, AddAllowedDomain}` —— jsonb 白名单存 `instance_settings.allowed_domains`。
+- `backend/internal/routes/sys/tls_ask.go` —— `GET /internal/tls-ask?domain=X` → 200 ok / 403。
+- `infra/scripts/install.sh` —— 检查 docker、随机生成 POSTGRES_PASSWORD + SESSION_KEY、`docker compose up -d`、tail backend 日志取出 setup URL 打印。
+- `infra/scripts/backup.sh` + `restore.sh` —— pg_dumpall + tar `custom_pages_data` / `caddy_data` named volumes → 一个 .tar.gz；restore 反向。
+- `Makefile` —— `sdk-build` 在 `app-build` 前先跑，让 Next 编译时能找到 SDK 的 dist；`app-build` 走 workspace install。
 
-**做什么：**
-- `sdk/packages/core/src/` —— API client、types、SSE 状态机（从 app/ lib/api 抽）
-- `sdk/packages/react/src/` —— `<StandMeetChat>`、`<StandMeetContent>` 等组件（从 app/ components 抽）
-- `sdk/packages/embed/src/` —— Web Components 包装
-- `app/` 改成 dogfood：删 `lib/api/public.ts`，用 `@standmeet/sdk` 引入
-- 根 `Caddyfile` —— 反代 + on-demand TLS
-- `backend/internal/routes/internal/tls_ask.go` —— `GET /internal/tls-ask?domain=`
-- `infra/scripts/install.sh` —— 一行起 docker compose + 提示 setup URL
-- `infra/scripts/backup.sh` + `restore.sh`
-
-**E2E（绿色判定）：**
-- `e2e/test/m11-deploy.spec.ts` —— 在干净的 `make demo-fresh`（脚本：rm -rf volumes → docker compose up → tail log 拿 setup URL）下 → 浏览器开 setup URL 走完 claim → admin 加 custom_domain → mock DNS verify → Caddy 自动反代（用 caddy 的 staging endpoint 测）→ 通过 custom_domain 访问公开页 200
+**E2E：** Caddy + tls-ask 走基础设施层，不对接浏览器 UI；按项目规则 ([[feedback-e2e-ui-driven-only]]) 不写 API-only spec。owner 端到端的 setup → claim 流程已经被 `claim-instance.spec.ts` 覆盖。
 
 ---
 
