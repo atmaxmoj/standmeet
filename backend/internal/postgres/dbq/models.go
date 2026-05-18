@@ -125,15 +125,26 @@ type RawEntry struct {
 	CreatedAt      pgtype.Timestamptz
 }
 
+type SeoSetting struct {
+	OwnerID       pgtype.UUID
+	IndexRobots   bool
+	SitemapExtras []byte
+	OgTemplate    string
+	UpdatedAt     pgtype.Timestamptz
+}
+
 type WikiEntry struct {
-	ID           pgtype.UUID
-	OwnerID      pgtype.UUID
-	ParentID     pgtype.UUID
-	Title        string
-	Body         string
-	Tags         []string
-	Visibility   string
-	SourceRawIds []pgtype.UUID
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	ParentID       pgtype.UUID
+	Title          string
+	Body           string
+	Tags           []string
+	Visibility     string
+	SourceRawIds   []pgtype.UUID
+	SeoSlug        *string
+	SeoDescription string
+	SeoIndexed     bool
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
 }

@@ -31,7 +31,7 @@
 | M6 | Access codes + visitor session + chat (SSE + RAG) | ✓ done |
 | M7 | Public web surface (index + chat embed) | ✓ done |
 | M8 | Admin web surface (login UI + 6 sections) | ✓ done |
-| M9 | BYOAI + gate + SEO (sitemap/robots/og/wiki landing) | pending |
+| M9 | BYOAI + gate + SEO (sitemap/robots/og/wiki landing) | ✓ done |
 | M10 | Custom pages（MCP + 沙箱 builder + middleware rewrite） | pending |
 | M11 | SDK 抽出 + Caddy 自动 SSL + 一键 install | pending |
 

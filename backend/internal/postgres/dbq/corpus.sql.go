@@ -68,7 +68,7 @@ func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) 
 const createWikiEntry = `-- name: CreateWikiEntry :one
 INSERT INTO wiki_entries (owner_id, parent_id, title, body, tags, visibility, source_raw_ids)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at
 `
 
 type CreateWikiEntryParams struct {
@@ -101,6 +101,9 @@ func (q *Queries) CreateWikiEntry(ctx context.Context, arg CreateWikiEntryParams
 		&i.Tags,
 		&i.Visibility,
 		&i.SourceRawIds,
+		&i.SeoSlug,
+		&i.SeoDescription,
+		&i.SeoIndexed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -149,7 +152,7 @@ func (q *Queries) GetRawByID(ctx context.Context, arg GetRawByIDParams) (RawEntr
 }
 
 const getWikiByID = `-- name: GetWikiByID :one
-SELECT id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, created_at, updated_at FROM wiki_entries WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries WHERE id = $1 AND owner_id = $2
 `
 
 type GetWikiByIDParams struct {
@@ -169,6 +172,9 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 		&i.Tags,
 		&i.Visibility,
 		&i.SourceRawIds,
+		&i.SeoSlug,
+		&i.SeoDescription,
+		&i.SeoIndexed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -219,7 +225,7 @@ func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) 
 }
 
 const listWikiByOwner = `-- name: ListWikiByOwner :many
-SELECT id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, created_at, updated_at FROM wiki_entries
+SELECT id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -248,6 +254,9 @@ func (q *Queries) ListWikiByOwner(ctx context.Context, arg ListWikiByOwnerParams
 			&i.Tags,
 			&i.Visibility,
 			&i.SourceRawIds,
+			&i.SeoSlug,
+			&i.SeoDescription,
+			&i.SeoIndexed,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

@@ -5,7 +5,8 @@
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import type { PageContent, PublicOwnerView } from '@/lib/api/public';
 
@@ -22,11 +23,28 @@ type Props = {
 };
 
 export function PageShell({ owner, content }: Props) {
+  return (
+    <Suspense fallback={null}>
+      <PageShellWithParams owner={owner} content={content} />
+    </Suspense>
+  );
+}
+
+function PageShellWithParams({ owner, content }: Props) {
+  const params = useSearchParams();
+  const byoai = params.get('byoai') === '1';
+  return <PageShellBody owner={owner} content={content} byoai={byoai} />;
+}
+
+function PageShellBody({
+  owner, content, byoai,
+}: { owner: PublicOwnerView; content: PageContent; byoai: boolean }) {
   const [pending, setPending] = useState<string | null>(null);
   const onAsk = useCallback((q: string) => setPending(q), []);
   const onConsumePending = useCallback(() => setPending(null), []);
   return (
     <main>
+      <BYOAIBanner show={byoai} />
       <Hero owner={owner} content={content} onAsk={onAsk} />
       <Insights insights={content.insights} />
       <Projects projects={content.projects} />
@@ -35,4 +53,17 @@ export function PageShell({ owner, content }: Props) {
       <ChatDock handle={owner.handle} pendingQuestion={pending} onConsumePending={onConsumePending} />
     </main>
   );
+}
+
+function BYOAIBanner({ show }: { show: boolean }) {
+  return show ? (
+    <div
+      className="border-b border-(--color-rule) bg-(--color-surface) px-6 py-2"
+      data-testid="byoai-banner"
+    >
+      <p className="mono text-[10.5px] tracking-[0.12em] text-(--color-muted) text-center">
+        chatting with your own API key · public slice of corpus only
+      </p>
+    </div>
+  ) : null;
 }

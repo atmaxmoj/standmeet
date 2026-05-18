@@ -90,11 +90,55 @@ export async function fetchPublicPage(handle: string): Promise<PublicPageView> {
   return res.json() as Promise<PublicPageView>;
 }
 
+export interface WikiLandingView {
+  owner_handle: string;
+  slug: string;
+  title: string;
+  body: string;
+  seo_description: string;
+  updated_at: string;
+}
+
+export async function fetchWikiLanding(
+  handle: string, slug: string,
+): Promise<WikiLandingView | null> {
+  const res = await fetch(`${backendBaseURL()}/api/v1/wiki/${handle}/${slug}`, {
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`fetch wiki ${handle}/${slug}: ${res.status}`);
+  return await res.json() as WikiLandingView;
+}
+
 export async function issuePublicSession(handle: string): Promise<PublicSessionResponse> {
+  return await postSession({ handle, tier: 'public' });
+}
+
+export interface IssueCodeSessionInput {
+  handle: string;
+  code: string;
+  visitor_name?: string;
+}
+
+export async function issueCodeSession(input: IssueCodeSessionInput): Promise<PublicSessionResponse> {
+  return await postSession({ ...input, tier: 'code' });
+}
+
+export interface IssueBYOAISessionInput {
+  handle: string;
+  byoai_provider: 'anthropic' | 'openai';
+  byoai_key: string;
+}
+
+export async function issueBYOAISession(input: IssueBYOAISessionInput): Promise<PublicSessionResponse> {
+  return await postSession({ ...input, tier: 'byoai' });
+}
+
+async function postSession(body: Record<string, unknown>): Promise<PublicSessionResponse> {
   const res = await fetch(`/api/v1/sessions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ handle, tier: 'public' }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     throw new Error(`issue session: ${res.status}`);

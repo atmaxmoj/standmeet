@@ -26,6 +26,7 @@ type Handlers struct {
 	Corpus       CorpusDeps
 	CodesAdmin   CodesDeps
 	PageAdmin    PageAdminDeps
+	SEOAdmin     SEOAdminDeps
 	Log          *slog.Logger
 	SecureCookie bool // false 仅限 dev (http)；prod 必须 true。
 }
@@ -46,6 +47,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	r.Route("/codes", func(r chi.Router) { h.MountCodes(r) })
 	h.MountCorpus(r)
 	h.MountPage(r)
+	h.MountSEO(r)
 }
 
 type claimRequest struct {

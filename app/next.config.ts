@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
   rewrites: () => Promise.resolve([
     { source: '/api/:path*', destination: `${BACKEND_URL}/api/:path*` },
     { source: '/internal/:path*', destination: `${BACKEND_URL}/internal/:path*` },
+    { source: '/robots.txt', destination: `${BACKEND_URL}/robots.txt` },
+    { source: '/sitemap.xml', destination: `${BACKEND_URL}/sitemap.xml` },
   ]),
 };
 

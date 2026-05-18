@@ -217,6 +217,11 @@ linters:
       # 业务层 ban `any` 让信息流可读；这里反过来豁免。
       - path: internal/postgres/
         linters: [forbidigo]
+      # MCP layer 接 schemaless JSON args（mcp-go 把 tool args 解到
+      # map[string]any，array 类型转换成 []any）。这是协议契约不是
+      # 业务态，同 postgres 豁免。
+      - path: internal/mcp/
+        linters: [forbidigo]
 
 formatters:
   enable:

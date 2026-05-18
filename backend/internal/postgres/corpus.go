@@ -279,19 +279,24 @@ func toDomainRaw(r *dbq.RawEntry) domain.RawEntry {
 
 func toDomainWiki(w *dbq.WikiEntry) domain.WikiEntry {
 	e := domain.WikiEntry{
-		ID:           formatUUID(w.ID),
-		OwnerID:      formatUUID(w.OwnerID),
-		Title:        w.Title,
-		Body:         w.Body,
-		Tags:         w.Tags,
-		Visibility:   w.Visibility,
-		SourceRawIDs: formatUUIDList(w.SourceRawIds),
-		CreatedAt:    w.CreatedAt.Time,
-		UpdatedAt:    w.UpdatedAt.Time,
+		ID:             formatUUID(w.ID),
+		OwnerID:        formatUUID(w.OwnerID),
+		Title:          w.Title,
+		Body:           w.Body,
+		Tags:           w.Tags,
+		Visibility:     w.Visibility,
+		SourceRawIDs:   formatUUIDList(w.SourceRawIds),
+		SEODescription: w.SeoDescription,
+		SEOIndexed:     w.SeoIndexed,
+		CreatedAt:      w.CreatedAt.Time,
+		UpdatedAt:      w.UpdatedAt.Time,
 	}
 	if w.ParentID.Valid {
 		s := formatUUID(w.ParentID)
 		e.ParentID = &s
+	}
+	if w.SeoSlug != nil {
+		e.SEOSlug = w.SeoSlug
 	}
 	return e
 }

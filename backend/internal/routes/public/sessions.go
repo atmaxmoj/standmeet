@@ -17,10 +17,12 @@ import (
 )
 
 type createSessionRequest struct {
-	Handle      string `json:"handle"`
-	Tier        string `json:"tier"` // 'code' | 'public'；省略时按 Code 是否非空推断
-	Code        string `json:"code,omitempty"`
-	VisitorName string `json:"visitor_name,omitempty"`
+	Handle        string `json:"handle"`
+	Tier          string `json:"tier"` // 'code' | 'public' | 'byoai'
+	Code          string `json:"code,omitempty"`
+	VisitorName   string `json:"visitor_name,omitempty"`
+	BYOAIProvider string `json:"byoai_provider,omitempty"`
+	BYOAIKey      string `json:"byoai_key,omitempty"`
 }
 
 type createSessionResponse struct {
@@ -47,21 +49,23 @@ func (h *Handlers) createSession() http.HandlerFunc {
 	}
 }
 
-// dispatchIssueSession 按 tier 派发到对应 usecase；tier 缺省时 Code 非空走 code、
-// 空走 public（让 M7 前端直接 POST {handle} 就能拿 public-tier session）。
+// dispatchIssueSession 按 tier 派发到对应 usecase。
+// tier=='code' → IssueCodeSession（带 access code）。
+// tier=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。
 func dispatchIssueSession(
 	ctx context.Context, deps usecases.VisitorDeps, req *createSessionRequest,
 ) (usecases.IssueCodeSessionResult, error) {
-	tier := pickTier(req)
-	if tier == "public" {
-		return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
-			Handle:      req.Handle,
+	if pickTier(req) == "code" {
+		return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
+			Code:        req.Code,
 			VisitorName: req.VisitorName,
 		})
 	}
-	return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
-		Code:        req.Code,
-		VisitorName: req.VisitorName,
+	return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
+		Handle:        req.Handle,
+		VisitorName:   req.VisitorName,
+		BYOAIProvider: req.BYOAIProvider,
+		BYOAIKey:      req.BYOAIKey,
 	})
 }
 
@@ -69,10 +73,10 @@ func pickTier(req *createSessionRequest) string {
 	if req.Tier != "" {
 		return req.Tier
 	}
-	if req.Code == "" {
-		return "public"
+	if req.Code != "" {
+		return "code"
 	}
-	return "code"
+	return "public"
 }
 
 func writeCreateSession(

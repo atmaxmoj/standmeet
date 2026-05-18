@@ -31,7 +31,18 @@ type Deps struct {
 	APITokens usecases.APITokenDeps
 	Owners    OwnerLookup
 	Corpus    usecases.CorpusDeps
+	SEO       SEOWriter
 	Log       *slog.Logger
+}
+
+// SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
+type SEOWriter interface {
+	UpdateWikiSEO(
+		ctx context.Context, wikiID string,
+		slug *string, description string, indexed bool,
+	) (domain.WikiEntry, error)
+	GetSettings(ctx context.Context, ownerID string) (domain.SEOSettings, error)
+	UpsertSettings(ctx context.Context, in *domain.SEOSettings) (domain.SEOSettings, error)
 }
 
 // OwnerLookup 是 MCP 工具调用时按 ownerID 取 owner profile 的最小接口
@@ -92,6 +103,7 @@ func OwnerIDFrom(ctx context.Context) string {
 func registerTools(mcpSrv *server.MCPServer, deps Deps) {
 	mcpSrv.AddTool(meTool(), wrapTool(invokeMe(deps)))
 	corpusTools(mcpSrv, deps)
+	seoTools(mcpSrv, deps)
 }
 
 func meTool() mcpgo.Tool {

@@ -93,6 +93,7 @@ func wireAndServe(
 	codeRepo := postgres.NewCodeRepo(c.db)
 	convRepo := postgres.NewConversationRepo(c.db)
 	pageRepo := postgres.NewPageRepo(c.db)
+	seoRepo := postgres.NewSEORepo(c.db)
 	sessionStore := session.NewOwnerSessionStore(c.rdb)
 	visitorStore := session.NewVisitorSessionStore(c.rdb)
 	provider, perr := inference.NewFromEnv()
@@ -109,8 +110,10 @@ func wireAndServe(
 		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
 		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
 		codeRepo: codeRepo, convRepo: convRepo, pageRepo: pageRepo,
+		seoRepo:      seoRepo,
 		sessionStore: sessionStore, visitorStore: visitorStore,
 		provider: provider, secureCookie: cfg.SecureCookie,
+		publicURL: cfg.PublicURL,
 	}
 	return serve(ctx, &deps, addr, stop)
 }
@@ -151,9 +154,11 @@ type runtimeDeps struct {
 	codeRepo     *postgres.CodeRepo
 	convRepo     *postgres.ConversationRepo
 	pageRepo     *postgres.PageRepo
+	seoRepo      *postgres.SEORepo
 	sessionStore *session.OwnerSessionStore
 	visitorStore *session.VisitorSessionStore
 	provider     inference.Provider
+	publicURL    string
 	secureCookie bool
 }
 
@@ -209,10 +214,16 @@ func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.Can
 				Page: usecases.PageDeps{Owners: deps.ownerRepo, Pages: deps.pageRepo},
 				Log:  deps.log,
 			},
+			PublicSEO: publicroutes.SEOHandlers{
+				Deps:      usecases.SEODeps{Owners: deps.ownerRepo, SEO: deps.seoRepo},
+				Log:       deps.log,
+				PublicURL: deps.publicURL,
+			},
 			MCP: mcp.Deps{
 				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},
 				Owners:    deps.ownerRepo,
 				Corpus:    usecases.CorpusDeps{Raw: deps.rawRepo, Wiki: deps.wikiRepo},
+				SEO:       deps.seoRepo,
 				Log:       deps.log,
 			},
 		}),

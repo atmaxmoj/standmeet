@@ -63,17 +63,24 @@ CREATE TABLE raw_entries (
 );
 
 CREATE TABLE wiki_entries (
-    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    parent_id       uuid          REFERENCES wiki_entries(id) ON DELETE SET NULL,
-    title           text          NOT NULL,
-    body            text          NOT NULL,
-    tags            text[]        NOT NULL DEFAULT '{}',
-    visibility      text          NOT NULL DEFAULT 'public',
-    source_raw_ids  uuid[]        NOT NULL DEFAULT '{}',
-    created_at      timestamptz   NOT NULL DEFAULT now(),
-    updated_at      timestamptz   NOT NULL DEFAULT now()
+    id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    parent_id        uuid          REFERENCES wiki_entries(id) ON DELETE SET NULL,
+    title            text          NOT NULL,
+    body             text          NOT NULL,
+    tags             text[]        NOT NULL DEFAULT '{}',
+    visibility       text          NOT NULL DEFAULT 'public',
+    source_raw_ids   uuid[]        NOT NULL DEFAULT '{}',
+    seo_slug         citext,
+    seo_description  text          NOT NULL DEFAULT '',
+    seo_indexed      bool          NOT NULL DEFAULT false,
+    created_at       timestamptz   NOT NULL DEFAULT now(),
+    updated_at       timestamptz   NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX wiki_entries_owner_slug_idx
+    ON wiki_entries(owner_id, seo_slug)
+    WHERE seo_slug IS NOT NULL;
 
 CREATE TABLE media_assets (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -134,6 +141,15 @@ CREATE TABLE messages (
     tool_calls       jsonb,
     cited_wiki_ids   uuid[]        NOT NULL DEFAULT '{}',
     created_at       timestamptz   NOT NULL DEFAULT now()
+);
+
+-- seo_settings —— owner 维度的 SEO 全局开关。Singleton-per-owner。
+CREATE TABLE seo_settings (
+    owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
+    index_robots    bool          NOT NULL DEFAULT true,
+    sitemap_extras  jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    og_template     text          NOT NULL DEFAULT '',
+    updated_at      timestamptz   NOT NULL DEFAULT now()
 );
 
 -- page_content —— owner public page 内容（hero / insights / projects /

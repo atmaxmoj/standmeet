@@ -19,6 +19,7 @@ import {
   type PublicSessionResponse,
   type SSEEvent,
 } from '@/lib/api/public';
+import { loadStoredSession } from '@/lib/gate/use-gate';
 
 export type ChatMsg =
   | { role: 'visitor'; content: string }
@@ -114,7 +115,24 @@ async function ensureSession(
   ref: React.MutableRefObject<PublicSessionResponse | null>,
   handle: string,
 ): Promise<PublicSessionResponse> {
-  return ref.current ?? (ref.current = await issuePublicSession(handle));
+  return ref.current ?? (ref.current = await loadOrIssueSession(handle));
+}
+
+// loadOrIssueSession —— gate page 可能已经写过 session 进 localStorage（M9
+// BYOAI / code-tier 流程）。如果有就直接用，不再 POST 新 session；否则
+// 默认 public-tier 颁发（M7 visitor 路径）。
+async function loadOrIssueSession(handle: string): Promise<PublicSessionResponse> {
+  const stored = loadStoredSession();
+  if (stored && stored.owner_handle === handle) {
+    return {
+      session_token: stored.session_token,
+      conversation_id: stored.conversation_id,
+      owner_handle: stored.owner_handle,
+      included_tags: [],
+      excluded_tags: [],
+    };
+  }
+  return await issuePublicSession(handle);
 }
 
 async function drainStream(

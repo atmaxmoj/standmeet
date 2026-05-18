@@ -30,6 +30,7 @@ type Deps struct {
 	Log        *slog.Logger
 	Public     publicroutes.Handlers
 	PublicPage publicroutes.PageHandlers
+	PublicSEO  publicroutes.SEOHandlers
 	MCP        mcp.Deps
 	Admin      AdminDeps
 }
@@ -98,7 +99,21 @@ func New(deps *Deps) http.Handler {
 			Log:  deps.Log,
 		}
 		pageH.Mount(r)
+		seoH := &publicroutes.SEOHandlers{
+			Deps:      deps.PublicSEO.Deps,
+			Log:       deps.Log,
+			PublicURL: deps.PublicSEO.PublicURL,
+		}
+		seoH.Mount(r)
 	})
+
+	// /robots.txt + /sitemap.xml —— SEO 标准约定路径，挂 root 不挂 /api/v1。
+	rootSEO := &publicroutes.SEOHandlers{
+		Deps:      deps.PublicSEO.Deps,
+		Log:       deps.Log,
+		PublicURL: deps.PublicSEO.PublicURL,
+	}
+	rootSEO.MountRoot(r)
 
 	// /mcp/* —— Bearer API token auth + mcp-go streamable HTTP.
 	r.Mount("/mcp", mcp.New(deps.MCP))
