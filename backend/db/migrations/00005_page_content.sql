@@ -1,6 +1,6 @@
 -- +goose Up
 
--- 扩展 conversations.tier 接收 'public'，让 M7 BYOAI-public 访客
+-- 扩展 conversations.tier 接收 'public'，让 BYOAI-public 访客
 -- （无 code，公开 visibility 切片）也能落 conversation。
 ALTER TABLE conversations DROP CONSTRAINT conversations_tier_check;
 ALTER TABLE conversations

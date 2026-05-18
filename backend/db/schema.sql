@@ -27,7 +27,7 @@ CREATE TABLE owners (
 );
 
 -- Instance settings —— singleton（id=1，CHECK 强制）。
--- 模式参考 [[legacy-gems]] B1（singleton pk=1 + LoadOrCreate）。
+-- 模式：singleton pk=1 + LoadOrCreate。
 CREATE TABLE instance_settings (
     id                integer      PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     is_claimed        boolean      NOT NULL DEFAULT false,
@@ -49,7 +49,7 @@ CREATE TABLE api_tokens (
     created_at    timestamptz   NOT NULL DEFAULT now()
 );
 
--- Corpus —— raw 草稿 + wiki curated；M6 加 embedding + SEO landing 列。
+-- Corpus —— raw 草稿 + wiki curated；embedding + SEO landing 列后续加。
 CREATE TABLE raw_entries (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -96,7 +96,7 @@ CREATE TABLE media_assets (
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
--- Access codes + visitor chat (M6)
+-- Access codes + visitor chat
 CREATE TABLE access_codes (
     id                  uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id            uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -144,7 +144,7 @@ CREATE TABLE messages (
     created_at       timestamptz   NOT NULL DEFAULT now()
 );
 
--- custom_pages —— owner 自定义 React 页面（M10）。
+-- custom_pages —— owner 自定义 React 页面。
 CREATE TABLE custom_pages (
     id                     uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id               uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,

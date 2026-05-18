@@ -2,8 +2,7 @@
 // 把 hero / insights / projects / where / contact 五段渲染成长滚屏，底部
 // sticky ChatDock 让访客可发问。
 //
-// owner 不存在时 fetch throw，Next 默认 fallback 渲染 not-found（M9 接入
-// /[handle]/not-found.tsx 自己定制；M7 用默认）。
+// owner 不存在时 fetch throw，Next 默认 fallback 渲染 not-found。
 
 import { fetchPublicPage } from '@/lib/api/public';
 

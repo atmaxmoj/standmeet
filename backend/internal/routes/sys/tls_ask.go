@@ -8,7 +8,7 @@
 // instance 申请证书，会被 Let's Encrypt rate limit。
 //
 // 实现：直接查 instance_settings.allowed_domains（jsonb 数组），命中
-// 就 200，否则 403。allow list 在 admin（M11+）维护；setup 期默认把
+// 就 200，否则 403。allow list 在 admin 维护；setup 期默认把
 // PUBLIC_URL 的 host 加进去。
 
 package sys

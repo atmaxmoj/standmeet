@@ -23,7 +23,7 @@ func pgxErrNoRows() error { return pgx.ErrNoRows }
 // pgUniqueViolation 翻译 DB 错误到 domain sentinel 时 hardcode 不出现。
 const pgUniqueViolationSQLState = "23505"
 
-// OwnerRepo 提供 owner CRUD（M2 只用 Create 和 Count；后续 milestone 加）。
+// OwnerRepo 提供 owner CRUD（当前只用 Create 和 Count；后续扩展）。
 type OwnerRepo struct {
 	pool *Pool
 }

@@ -1,5 +1,5 @@
 // corpus.go —— raw / wiki use cases。
-// M5 实现 RawDump + PromoteToWiki + List。其余 (UploadMedia / SetTags 等)
+// 当前实现 RawDump + PromoteToWiki + List。其余 (UploadMedia / SetTags 等)
 // 等真用到再加。
 
 package usecases

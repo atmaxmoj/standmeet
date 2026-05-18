@@ -8,7 +8,6 @@ allow:
 
 # Components 命名对齐 Otium auth。按外部系统切 infra（postgres / inference /
 # storage / sandbox 各自独立）而不是扁平 infra/。
-# M2 加：domain / usecases / session / adminroutes / apierr。
 components:
   domain:
     in: internal/domain
@@ -68,7 +67,7 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # Session 管理 setup token、(M3+) login session、API token。
+  # Session 管理 setup token、login session、API token。
   # 不 import 任何 internal 包（用 narrow interface 注入 DB writer）。
   session:
     mayDependOn: []
@@ -106,7 +105,7 @@ deps:
     anyVendorDeps: true
 
   # sys routes (/internal/healthz, tls-ask, log, builds) 需要 ping db / redis
-  # 所以可以 import postgres。redis 客户端是 vendor。M10 加 domain：
+  # 所以可以 import postgres。redis 客户端是 vendor。domain 也用得到：
   # /internal/builds/claim 在 no-pending 时返 ErrCustomPageBuildNotFound。
   sysroutes:
     mayDependOn:

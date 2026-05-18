@@ -58,7 +58,7 @@ type RawEntry struct {
 
 // WikiEntry —— curated 内容，树状组织（parent_id 形成森林，root = ParentID==nil）。
 // Path 是 induced —— 从 ParentID 链 walk 出来，repo 提供 ComputePath() 算。
-// SEO 字段在 M9 加入：seo_slug 启用 /<handle>/wiki/<slug> landing；
+// SEO 字段：seo_slug 启用 /<handle>/wiki/<slug> landing；
 // seo_indexed=true 才会进 sitemap.xml。
 type WikiEntry struct {
 	CreatedAt      time.Time
@@ -76,7 +76,7 @@ type WikiEntry struct {
 	SEOIndexed     bool
 }
 
-// SEOSettings —— owner 维度全局 SEO 设置（M9）。
+// SEOSettings —— owner 维度全局 SEO 设置。
 // 字段顺序按 govet fieldalignment：time.Time 在前（内部 ptr at 16），strings
 // 中间（ptr at 0），slice 在尾（ptr at 0），bool 末尾占 tail padding。
 type SEOSettings struct {
@@ -90,7 +90,7 @@ type SEOSettings struct {
 // ErrSlugTaken —— wiki 的 seo_slug 已被同 owner 别的 entry 占用。
 var ErrSlugTaken = errors.New("seo slug already taken in this owner")
 
-// CustomPage —— owner 自定义 React 页面（M10）。
+// CustomPage —— owner 自定义 React 页面。
 type CustomPage struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -142,7 +142,7 @@ var ErrCodeExpired = errors.New("access code expired")
 // ErrConversationNotFound —— conversation 不存在。
 var ErrConversationNotFound = errors.New("conversation not found")
 
-// AccessCode —— 访客访问码（M6）。
+// AccessCode —— 访客访问码。
 type AccessCode struct {
 	CreatedAt          time.Time
 	ExpiresAt          *time.Time

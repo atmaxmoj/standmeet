@@ -1,5 +1,5 @@
-// PageEditor —— /admin/page section 内容。最小 M8 版：只能编 hero_prose。
-// 后续 milestone 会扩出 insights / projects / where / contact 的可视编辑。
+// PageEditor —— /admin/page section 内容。最小版：只能编 hero_prose。
+// 后续会扩出 insights / projects / where / contact 的可视编辑。
 
 'use client';
 

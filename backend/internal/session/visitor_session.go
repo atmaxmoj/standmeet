@@ -2,7 +2,7 @@
 //
 // Token：32 字节随机 base64url，前缀 `smv_`。
 // Redis key：`vsession:{token}`，value 是 JSON-encoded visitorSessionData。
-// TTL：60min 滑动，max 8h（M6 简化版只滑 60min，max 后续 milestone 加）。
+// TTL：60min 滑动，max 8h（简化版只滑 60min，max 后续再加）。
 // 撤销：DEL key。
 
 package session

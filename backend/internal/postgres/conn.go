@@ -1,5 +1,5 @@
-// Package postgres 包装 pgx pool 连接管理。Repository 实现也在这个包里
-// （M2 起开始写），但本文件只暴露连接 + 探活。
+// Package postgres 包装 pgx pool 连接管理。Repository 实现也在这个包里，
+// 但本文件只暴露连接 + 探活。
 package postgres
 
 import (

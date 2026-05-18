@@ -6,7 +6,7 @@
 #      named volume，方便 backup.sh 一键备份。
 #
 # install.sh 把这文件拷到 owner 服务器，docker compose -f standmeet.yml up -d
-# 就完事。M11 这里先内置 dev 用的 host build；M11+ 出 release 镜像后切。
+# 就完事。当前先内置 dev 用的 host build；出 release 镜像后再切。
 
 name: standmeet
 

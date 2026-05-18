@@ -7,7 +7,7 @@ export default function AdminConnectorsPage() {
       <PlaceholderSection
         title="connectors"
         subtitle="external sources (Gmail / Calendar / …)"
-        note="Connector tiles land in M13 when OAuth flows are wired."
+        note="Connector tiles land later when OAuth flows are wired."
       />
     </AdminShell>
   );

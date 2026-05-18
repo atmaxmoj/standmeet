@@ -5,7 +5,7 @@
 //     redirect /<handle>（chat 实例 mount 时复用 cookie/session）
 //   - byoai: POST /api/v1/sessions {tier:'byoai', byoai_provider, byoai_key}
 //     → localStorage 存 token + key → redirect /<handle>?byoai=1
-//   - request: POST /api/v1/access-requests (stub for M9, body 落日志)
+//   - request: POST /api/v1/access-requests (stub, body 落日志)
 //
 // 都是 client-side hook；业务逻辑都在这里。Components 只渲染。
 

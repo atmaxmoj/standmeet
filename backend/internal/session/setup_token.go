@@ -1,7 +1,7 @@
 // Package session 管理 first-run instance claim 的 setup token、
-// owner login session（M3）、API token（M4）、visitor session（M6）。
+// owner login session、API token、visitor session。
 //
-// M2 部分：setup_token —— 启动时生成、打印 stdout、写 hash 到 DB；
+// setup_token —— 启动时生成、打印 stdout、写 hash 到 DB；
 // claim 时 hash 一次再到 DB atomic compare。明文只在 stdout / log file
 // 露脸一次，DB 只存 sha256(plaintext)。
 package session

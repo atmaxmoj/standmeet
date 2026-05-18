@@ -1,4 +1,4 @@
-// CodeList —— /admin/codes section 内容。最小 M8 版：create + list。
+// CodeList —— /admin/codes section 内容。最小版：create + list。
 
 'use client';
 

@@ -5,7 +5,7 @@
 //   - sticky input dock 在底部，上方淡出让对话从下面读上去
 //   - streaming 时光标 ▍ + thinking dots 等待
 //   - assistant message 走 Markdown 渲染（rehypeRaw 允许 inline html）
-//   - done 后展示 cited_wiki_ids 数量（M9 接 wiki landing 后变可点链接）
+//   - done 后展示 cited_wiki_ids 数量（接 wiki landing 后变可点链接）
 //
 // 业务逻辑（session lazy 创建、stream 累加、错误兜底）都在
 // @/lib/chat/use-chat-dock；本文件只组装 JSX。

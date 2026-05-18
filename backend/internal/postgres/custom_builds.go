@@ -84,7 +84,7 @@ func (r *CustomBuildRepo) GetByID(ctx context.Context, id string) (domain.Custom
 // 时返 ErrCustomPageBuildNotFound 让 caller 翻译 204。
 func (r *CustomBuildRepo) ClaimPending(ctx context.Context) (domain.CustomPageBuild, error) {
 	// 用 SELECT ... FOR UPDATE SKIP LOCKED + UPDATE 简化版：先 SELECT 一条
-	// pending，再 SetBuilding。两次往返但 SKIP LOCKED 让并发安全；M10 builder
+	// pending，再 SetBuilding。两次往返但 SKIP LOCKED 让并发安全；builder
 	// 只一实例，先这样。
 	q := dbq.New(r.pool)
 	pending, err := q.ClaimPendingBuild(ctx)

@@ -1,5 +1,5 @@
 // RequestPanel —— /<handle>/gate 第三栏：access 申请表单。
-// M9 stub：POST /api/v1/access-requests（后端落 audit log）。
+// stub：POST /api/v1/access-requests（后端落 audit log）。
 
 'use client';
 

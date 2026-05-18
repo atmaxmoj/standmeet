@@ -1,6 +1,6 @@
 // Hero —— owner 名字 + 一段 serif prose + 推荐问题列表。
 //
-// "askable" 是点击就发问的 token；M7 这里只渲染样式，把 onClick 暴露给 caller
+// "askable" 是点击就发问的 token；这里只渲染样式，把 onClick 暴露给 caller
 // 让 ChatDock 把它接到 send 上。
 
 import type { PageContent, PublicOwnerView } from '@/lib/api/public';

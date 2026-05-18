@@ -1,9 +1,9 @@
 // visitor.go —— visitor session 颁发 + chat 用例。
 //
-// M6 简化：
+// 简化版：
 //  - RAG：取 owner 全部 visibility=public 且 tag 命中 scope 的 wiki entries
-//    作 system context；不走 embedding（M5 schema 没建 embedding 列）。
-//  - 推理：走 inference.Provider（M6 跑 mock）。
+//    作 system context；不走 embedding（schema 暂未建 embedding 列）。
+//  - 推理：走 inference.Provider（当前跑 mock）。
 //  - 流式：直接 yield chunks 给 caller，caller 写 SSE。
 
 package usecases
@@ -132,7 +132,7 @@ func SendMessage(
 	}); werr != nil {
 		return nil, fmt.Errorf("append visitor message: %w", werr)
 	}
-	// 2. RAG（M6 简化版：拿 owner 全部 wiki，scope 过滤）
+	// 2. RAG（简化版：拿 owner 全部 wiki，scope 过滤）
 	wikis, err := loadScopedWikis(ctx, deps, in.OwnerID, &in.Scope)
 	if err != nil {
 		return nil, err

@@ -37,7 +37,7 @@ services:
   backend:
     build:
       context: ./backend
-      target: production           # build stage 已经跑了 lint；M1 dev 走完整链
+      target: production           # build stage 已经跑了 lint；dev 走完整链
     restart: unless-stopped
     environment:
       - HOST=0.0.0.0

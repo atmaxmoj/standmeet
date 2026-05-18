@@ -1,6 +1,6 @@
-// custom_page.go —— custom_pages 全套 usecase（M10）。
+// custom_page.go —— custom_pages 全套 usecase。
 //
-// 流程对应 docs/build-plan.md M10：
+// 流程：
 //   1. CreatePage(slug)
 //   2. WriteFile(page, path, content) 累计 source_files
 //   3. Build(page) 落一条 pending build，builder 服务消费

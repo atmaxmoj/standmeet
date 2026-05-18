@@ -1,7 +1,7 @@
 // visitor.ts —— public API (/api/v1/*) helper：颁发 session、发消息。
 //
-// /gate + /admin/codes UI 已经在 M8/M9 接管真用户路径。这里给 spec 仿真
-// visitor 侧（直到 M9 gate UI 落地之后 access-codes spec 的 visitor 部分
+// /gate + /admin/codes UI 已经接管真用户路径。这里给 spec 仿真
+// visitor 侧（gate UI 落地之后 access-codes spec 的 visitor 部分
 // 改成浏览器驱动）。
 
 import type { APIRequestContext, APIResponse } from '@playwright/test';

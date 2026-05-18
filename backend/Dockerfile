@@ -38,7 +38,7 @@ FROM lint AS builder
 
 # CGO_ENABLED=0 + linux 目标 = 静态二进制，alpine 阶段直接 cp。GOARCH 不
 # 写死，让 buildx 按目标平台决定（Coolify amd64 / Apple Silicon arm64），
-# 写死 amd64 会让 M1/M2 走 emulation。
+# 写死 amd64 会让 Apple Silicon 走 emulation。
 # -trimpath 抹路径前缀；-s -w 去 debug info；镜像更小、信息泄漏少。
 ENV CGO_ENABLED=0 GOOS=linux
 RUN go build \

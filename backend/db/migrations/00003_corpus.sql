@@ -21,7 +21,7 @@ CREATE INDEX raw_entries_owner_created_idx
 
 -- wiki_entries —— curated 内容，树状组织。parent_id 形成森林（owner 多个根）；
 -- path 是 induced（从 parent 链 walk 出来），不冗余存。
--- M5 不开 SEO landing 字段（留 M9 加 ALTER TABLE）；embedding 字段也留 M6 加。
+-- 不开 SEO landing / embedding 字段；后续按需 ALTER TABLE 加上。
 CREATE TABLE wiki_entries (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,

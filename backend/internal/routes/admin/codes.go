@@ -1,4 +1,4 @@
-// codes.go —— admin /codes endpoint (M6 minimal: POST 创建 + GET list).
+// codes.go —— admin /codes endpoint (minimal: POST 创建 + GET list).
 
 package admin
 

@@ -3,7 +3,7 @@
 #
 # 子项目的具体 lint 链在各自的 Makefile / package.json 里定义。
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
-# milestone 增量开发时 lefthook 不被未启用的子项目卡住。
+# 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint app-lint sdk-lint e2e-lint env-lint
 .PHONY: dev dev-up dev-down build clean test sdk-build app-build
@@ -20,19 +20,19 @@ env-lint:
 backend-lint:
 	@$(MAKE) -C backend lint
 
-# 前端子项目：node_modules 没装就 skip（M7/M11 真启用时再 pnpm install）。
+# 前端子项目：node_modules 没装就 skip（启用时再 pnpm install）。
 app-lint:
 	@if [ -d app/node_modules ] && [ -f app/package.json ]; then \
 	  cd app && pnpm lint; \
 	else \
-	  echo "[skip] app/ has no node_modules or package.json — skipping (will activate at M7)"; \
+	  echo "[skip] app/ has no node_modules or package.json — skipping"; \
 	fi
 
 sdk-lint:
 	@if [ -d sdk/packages/core/node_modules ]; then \
 	  cd sdk && pnpm -r lint; \
 	else \
-	  echo "[skip] sdk/ has no node_modules — skipping (will activate at M11)"; \
+	  echo "[skip] sdk/ has no node_modules — skipping"; \
 	fi
 
 e2e-lint:

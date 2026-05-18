@@ -1,4 +1,4 @@
-// corpus.go —— Raw + Wiki repository。Media 在 M9（admin upload）才用，先不建。
+// corpus.go —— Raw + Wiki repository。Media（admin upload）后续再加。
 
 package postgres
 

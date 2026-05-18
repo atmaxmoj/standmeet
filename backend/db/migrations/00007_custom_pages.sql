@@ -1,6 +1,6 @@
 -- +goose Up
 
--- custom_pages —— owner 自定义页面（M10）。一个 page 对应一个 slug，挂载到
+-- custom_pages —— owner 自定义页面。一个 page 对应一个 slug，挂载到
 -- /<handle>/p/<slug>/*。 live_build_id 指向当前对访客可见的 build；
 -- staging_build_id 指向 owner 自测的 build。删 page = status='deleted'，软
 -- 删保留 build artifact 给 audit。

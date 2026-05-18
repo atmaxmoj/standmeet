@@ -2,8 +2,8 @@
 //
 // 用户故事：
 //   owner 想让 HR 单独看 work-tagged 那部分 corpus。Admin /codes 页里
-//   填 INTRO-001 / "Intro for HR" / tag=work → create。HR 用这个码（M9
-//   会有 /gate UI；M8 这里仿真：visitor 拿着码直接 POST /api/v1/sessions
+//   填 INTRO-001 / "Intro for HR" / tag=work → create。HR 用这个码
+//   （/gate UI 落地前，这里仿真 visitor：拿着码直接 POST /api/v1/sessions
 //   = code-tier session → chat 流走通）。
 
 import { test, expect } from '@playwright/test';
@@ -78,7 +78,7 @@ async function expectCodeRowVisible(page: Page, code: string): Promise<void> {
   await expect(page.getByTestId(`code-row-${code}`)).toBeVisible({ timeout: 5_000 });
 }
 
-// visitor 拿码聊 —— 还没 /gate UI，所以 visitor 这一侧仿真：M9 gate UI 落地
+// visitor 拿码聊 —— 还没 /gate UI，所以 visitor 这一侧仿真；gate UI 落地
 // 后改成 UI-driven。
 async function visitorChatsWithCode(request: APIRequestContext): Promise<void> {
   const sess = await issueSession(request, {

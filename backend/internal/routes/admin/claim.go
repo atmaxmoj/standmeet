@@ -1,5 +1,5 @@
-// Package admin 提供 /api/admin/* 路由。M2 只有 first-run claim；M3 起
-// 加 login / me / logout / tokens 等。
+// Package admin 提供 /api/admin/* 路由。当前覆盖 first-run claim、
+// login / me / logout / tokens 等。
 //
 // handler cyclo ≤ 3（routes 层强制）；业务逻辑放 usecase，error 翻译
 // 走 internal/apierr/ 的 table-driven Classify。

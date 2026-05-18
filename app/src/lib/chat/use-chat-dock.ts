@@ -7,7 +7,7 @@
 // 设计：
 //   - sessionRef lazy 持有（用户第一次问才发 POST /sessions）
 //   - streamingTextRef 累加 token，setMessages 用 ref 当前值写最后一条
-//     （参考 [[legacy-gems]] A1 ref-batched 模式，避开 React closure stale）
+//     （ref-batched 模式，避开 React closure stale）
 //   - send 单飞行：sending=true 时再次调用立即 return
 //   - 错误时把占位 assistant msg 撤掉 + setError
 
@@ -118,9 +118,9 @@ async function ensureSession(
   return ref.current ?? (ref.current = await loadOrIssueSession(handle));
 }
 
-// loadOrIssueSession —— gate page 可能已经写过 session 进 localStorage（M9
-// BYOAI / code-tier 流程）。如果有就直接用，不再 POST 新 session；否则
-// 默认 public-tier 颁发（M7 visitor 路径）。
+// loadOrIssueSession —— gate page 可能已经写过 session 进 localStorage
+// （BYOAI / code-tier 流程）。如果有就直接用，不再 POST 新 session；否则
+// 默认 public-tier 颁发（visitor 路径）。
 async function loadOrIssueSession(handle: string): Promise<PublicSessionResponse> {
   const stored = loadStoredSession();
   if (stored && stored.owner_handle === handle) {

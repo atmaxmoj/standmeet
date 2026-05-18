@@ -1,6 +1,6 @@
-// public.ts —— 仍是 app 对 backend public 协议的入口；M11 之后这里只
-// 复用 @standmeet/sdk-core 的客户端，把 Next 特有的 baseURL 判断（SSR vs
-// 浏览器）放在工厂里。dogfood：app 自己跑 SDK，证明 SDK 真好用。
+// public.ts —— app 对 backend public 协议的入口；复用 @standmeet/sdk-core
+// 的客户端，把 Next 特有的 baseURL 判断（SSR vs 浏览器）放在工厂里。
+// dogfood：app 自己跑 SDK，证明 SDK 真好用。
 //
 // 重要：这层只暴露薄薄的"已配 baseURL 的 client + 兼容 re-export"。组件
 // 不直接 import @standmeet/sdk-core，统一从这里走以便日后再调整。

@@ -1,7 +1,7 @@
 // use-codes —— /admin/codes 状态机：list + create access codes。
 //
 // owner 给某个访客（reviewer / hiring manager / etc）发一个 LABEL-XXX 码，
-// 设 tag scope。访客拿码进 /gate (M9) 颁发 session。M8 这里只做最小：
+// 设 tag scope。访客拿码进 /gate 颁发 session。这里只做最小：
 // 列表 + 简单 create（code、label、tag 都用 plain text input）。
 
 import { useCallback, useEffect, useState } from 'react';

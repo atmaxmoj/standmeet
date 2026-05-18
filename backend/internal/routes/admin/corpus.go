@@ -1,5 +1,5 @@
 // corpus.go —— admin /raw + /wiki list endpoints。
-// M5 只做 list（验证 MCP 写入是否真到 DB）；CRUD 写后续 milestone 用到再加。
+// 当前只做 list（验证 MCP 写入是否真到 DB）；CRUD 写到时再加。
 
 package admin
 

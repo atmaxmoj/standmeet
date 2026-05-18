@@ -5,7 +5,7 @@
 //   owner 在 Cursor 跟 AI 聊天，让 AI 把一条 insight 用 raw_dump 推进
 //   corpus。然后 owner 打开 /admin/raw 想确认到没到 —— 应当看到那条
 //   原文。这是 owner curation loop 的第一步（"我让 AI 写了什么"），
-//   后续 milestone 会在同一页加 promote-to-wiki UI 让 owner 决定要不要
+//   后续会在同一页加 promote-to-wiki UI 让 owner 决定要不要
 //   保留它。
 //
 // AI client 这一侧仿真：spec 调 MCP raw_dump，等同于 Cursor / Claude

@@ -47,7 +47,7 @@ func Load() (*Config, error) {
 	if cfg.RedisURL == "" {
 		return nil, ErrRedisURLRequired
 	}
-	// SESSION_KEY 是 M3 才用，M1 允许空。
+	// SESSION_KEY 只在登录后续阶段才用，启动时允许空。
 
 	return cfg, nil
 }

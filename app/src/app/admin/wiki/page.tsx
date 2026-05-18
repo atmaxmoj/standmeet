@@ -7,7 +7,7 @@ export default function AdminWikiPage() {
       <PlaceholderSection
         title="wiki"
         subtitle="curated entries promoted from raw"
-        note="Wiki list + edit lands in a follow-up milestone."
+        note="Wiki list + edit lands later."
       />
     </AdminShell>
   );

@@ -42,7 +42,7 @@ func (r *PageRepo) GetByOwner(ctx context.Context, ownerID string) (domain.PageC
 	return rowToPageContent(&row)
 }
 
-// Upsert 写入 / 更新 page_content（admin PUT 用；M7 还不开 admin 写）。
+// Upsert 写入 / 更新 page_content（admin PUT 用）。
 func (r *PageRepo) Upsert(
 	ctx context.Context, ownerID string, in *domain.PageContent,
 ) (domain.PageContent, error) {

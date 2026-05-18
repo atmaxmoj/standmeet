@@ -58,7 +58,7 @@ async function seedAndIssueCode(request: APIRequestContext): Promise<void> {
   await createCode(request, csrf, {
     code: CODE,
     label: 'Intro for HR',
-    purpose: 'M9 gate spec',
+    purpose: 'gate spec',
     included_tags: ['work'],
   });
 }

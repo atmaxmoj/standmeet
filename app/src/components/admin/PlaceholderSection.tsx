@@ -1,5 +1,4 @@
-// PlaceholderSection —— M8 minimum 没填充的 section 暂用此占位。
-// 后续 milestone 把每个 section 替换成真实组件。
+// PlaceholderSection —— 还没填充的 section 暂用此占位，后续替换成真实组件。
 
 import { SectionHeader } from './SectionHeader';
 

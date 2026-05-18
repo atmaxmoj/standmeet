@@ -1,8 +1,8 @@
 // BYOAIPanel —— /<handle>/gate 第二栏：visitor 自带 API key，public-scope only。
 //
-// M9：UI 完整 + 后端 byoai-tier session（visibility=public 强制）。Provider
+// UI 完整 + 后端 byoai-tier session（visibility=public 强制）。Provider
 // 当前用 server-side mock 兜底，key 收下不调（visitor "pays nothing"）；
-// 真正"visitor pays / browser direct call Anthropic" 留作 M10+。
+// 真正"visitor pays / browser direct call Anthropic" 留作后续。
 
 'use client';
 
