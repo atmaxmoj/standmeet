@@ -26,7 +26,7 @@ const (
 	mcpTimeFmt       = "2006-01-02T15:04:05Z"
 )
 
-func corpusTools(srv *server.MCPServer, deps Deps) {
+func corpusTools(srv *server.MCPServer, deps *Deps) {
 	srv.AddTool(rawDumpTool(), wrapTool(invokeRawDump(deps)))
 	srv.AddTool(promoteToWikiTool(), wrapTool(invokePromoteToWiki(deps)))
 	srv.AddTool(listRawTool(), wrapTool(invokeListRaw(deps)))
@@ -61,7 +61,7 @@ func rawDumpTool() mcpgo.Tool {
 	)
 }
 
-func invokeRawDump(deps Deps) invokeFn {
+func invokeRawDump(deps *Deps) invokeFn {
 	return func(ctx context.Context, req *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
 		ownerID := OwnerIDFrom(ctx)
 		if ownerID == "" {
@@ -102,7 +102,7 @@ func promoteToWikiTool() mcpgo.Tool {
 	)
 }
 
-func invokePromoteToWiki(deps Deps) invokeFn {
+func invokePromoteToWiki(deps *Deps) invokeFn {
 	return func(ctx context.Context, req *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
 		ownerID := OwnerIDFrom(ctx)
 		if ownerID == "" {
@@ -130,7 +130,7 @@ func parsePromoteParams(
 	return buildPromoteInput(req, ownerID, rawID, title), nil
 }
 
-func runPromote(ctx context.Context, deps Deps, in *usecases.PromoteInput) *mcpgo.CallToolResult {
+func runPromote(ctx context.Context, deps *Deps, in *usecases.PromoteInput) *mcpgo.CallToolResult {
 	wiki, err := usecases.PromoteToWiki(ctx, deps.Corpus, in)
 	if err != nil {
 		if errors.Is(err, domain.ErrRawNotFound) {
@@ -168,7 +168,7 @@ func listRawTool() mcpgo.Tool {
 	)
 }
 
-func invokeListRaw(deps Deps) invokeFn {
+func invokeListRaw(deps *Deps) invokeFn {
 	return func(ctx context.Context, req *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
 		ownerID := OwnerIDFrom(ctx)
 		if ownerID == "" {
@@ -192,7 +192,7 @@ func listWikiTool() mcpgo.Tool {
 	)
 }
 
-func invokeListWiki(deps Deps) invokeFn {
+func invokeListWiki(deps *Deps) invokeFn {
 	return func(ctx context.Context, req *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
 		ownerID := OwnerIDFrom(ctx)
 		if ownerID == "" {
@@ -309,7 +309,7 @@ type payload interface {
 }
 
 // marshalResult 序列化 payload 成 *CallToolResult；marshal 失败时返 error result。
-func marshalResult(deps Deps, p payload) *mcpgo.CallToolResult {
+func marshalResult(deps *Deps, p payload) *mcpgo.CallToolResult {
 	b, err := p.marshalJSON()
 	if err != nil {
 		deps.Log.Error("mcp marshal payload", "err", err)

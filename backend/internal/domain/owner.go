@@ -90,6 +90,43 @@ type SEOSettings struct {
 // ErrSlugTaken —— wiki 的 seo_slug 已被同 owner 别的 entry 占用。
 var ErrSlugTaken = errors.New("seo slug already taken in this owner")
 
+// CustomPage —— owner 自定义 React 页面（M10）。
+type CustomPage struct {
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	LiveBuildID         *string
+	StagingBuildID      *string
+	PreviousLiveBuildID *string
+	ID                  string
+	OwnerID             string
+	Slug                string
+	Title               string
+	Status              string // 'active' | 'archived' | 'deleted'
+}
+
+// CustomPageBuild —— 一次 sandbox vite build 的状态 + 产物路径。
+// 字段顺序按 govet fieldalignment：time.Time 在前（内部 ptr）、pointer、
+// strings、map 最后。
+type CustomPageBuild struct {
+	CreatedAt    time.Time
+	BuiltAt      *time.Time
+	SourceFiles  map[string]string
+	ID           string
+	PageID       string
+	Status       string // 'pending' | 'building' | 'built' | 'failed'
+	OutputPath   string
+	ErrorMessage string
+}
+
+// ErrCustomPageNotFound —— slug / id 反查不到 custom_page。
+var ErrCustomPageNotFound = errors.New("custom page not found")
+
+// ErrCustomPageBuildNotFound —— build_id 反查不到 build。
+var ErrCustomPageBuildNotFound = errors.New("custom page build not found")
+
+// ErrCustomPageSlugTaken —— 同 owner 下 slug 已存在 active page。
+var ErrCustomPageSlugTaken = errors.New("custom page slug already taken")
+
 // ErrWikiNotFound —— 按 id 查 wiki 未命中。
 var ErrWikiNotFound = errors.New("wiki entry not found")
 

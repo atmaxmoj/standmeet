@@ -55,6 +55,30 @@ type Conversation struct {
 	HitPrivate    bool
 }
 
+type CustomPage struct {
+	ID                  pgtype.UUID
+	OwnerID             pgtype.UUID
+	Slug                string
+	Title               string
+	Status              string
+	LiveBuildID         pgtype.UUID
+	StagingBuildID      pgtype.UUID
+	PreviousLiveBuildID pgtype.UUID
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+}
+
+type CustomPageBuild struct {
+	ID           pgtype.UUID
+	PageID       pgtype.UUID
+	Status       string
+	SourceFiles  []byte
+	OutputPath   string
+	ErrorMessage string
+	CreatedAt    pgtype.Timestamptz
+	BuiltAt      pgtype.Timestamptz
+}
+
 type InstanceSetting struct {
 	ID             int32
 	IsClaimed      bool

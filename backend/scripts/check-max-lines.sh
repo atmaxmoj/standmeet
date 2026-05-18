@@ -9,7 +9,8 @@
 # "comment out everything to dodge the limit" loophole.
 #
 # Generated files are exempt — wire_gen.go grows with the dep graph
-# and isn't human-edited.
+# and isn't human-edited. Same goes for sqlc output (*.sql.go), which
+# is regenerated from queries/*.sql.
 
 set -euo pipefail
 
@@ -28,7 +29,7 @@ while IFS= read -r -d '' f; do
     echo "check-max-lines: ${f#$ROOT/} has $lines lines (max $MAX_LINES) — split it."
     violations=$((violations + 1))
   fi
-done < <(find "$ROOT/cmd" "$ROOT/internal" -name '*.go' -not -name 'wire_gen.go' -print0 2>/dev/null)
+done < <(find "$ROOT/cmd" "$ROOT/internal" -name '*.go' -not -name 'wire_gen.go' -not -name '*.sql.go' -print0 2>/dev/null)
 
 if [ "$violations" -gt 0 ]; then
   echo ""

@@ -1,12 +1,14 @@
 # docker-compose.dev.yml —— 本地开发用，docker compose up 一条命令。
 #
-# 共 3 服务（M1）：
+# 共 5 服务：
+#   app      - Next.js host build → docker COPY .next/standalone
 #   backend  - Go binary，从 backend/Dockerfile build
+#   builder  - 长轮询 /internal/builds/claim 跑 vite build 输出到共享 volume
 #   db       - PostgreSQL + pgvector
 #   redis    - 用于 session / 队列 / rate limit
 #
-# M1 不挂 host volume 同步源码 / 不开 dev hot reload —— 那是 Stage 5+ Caddy
-# 配齐之后再做。M1 目标只是闭环 toolchain：build 出来、起来、healthz 200。
+# custom_pages_data —— builder + backend 共享 /srv/custom-pages：builder 写
+# dist；backend 读 → 走 GET /api/v1/custom-pages/<handle>/<slug>/* 服务。
 
 name: standmeet-dev
 
@@ -46,6 +48,7 @@ services:
       - SECURE_COOKIE=false
       - INFERENCE_PROVIDER=mock
       - INFERENCE_MOCK_REPLY=Hello visitor, sijie says hi from the mock provider.
+      - CUSTOM_PAGES_ROOT=/srv/custom-pages
     depends_on:
       db:
         condition: service_healthy
@@ -53,12 +56,27 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - custom_pages_data:/srv/custom-pages
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
       interval: 5s
       timeout: 3s
       retries: 12
       start_period: 5s
+
+  builder:
+    build:
+      context: ./builder
+    restart: unless-stopped
+    environment:
+      - BACKEND_INTERNAL_URL=http://backend:8000
+      - CUSTOM_PAGES_ROOT=/srv/custom-pages
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - custom_pages_data:/srv/custom-pages
 
   db:
     image: pgvector/pgvector:pg16
@@ -93,3 +111,4 @@ services:
 volumes:
   pgdata: {}
   redisdata: {}
+  custom_pages_data: {}

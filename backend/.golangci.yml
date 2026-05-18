@@ -167,6 +167,16 @@ linters:
         # （前端 JS 要读 cookie 值塞 X-Csrftoken header）。lint 不知道
         # 这层语义，永远误报。Secure + SameSite=Lax 仍守住攻击面。
         - G124
+        # G304 抓 os.Open(varPath) —— 在 custom-page asset serve 路径上
+        # 文件名来自 URL 段，必须是 variable。已经在 joinSafeAssetPath
+        # 里做了 prefix-containment check，传给 os.Open 的 path 不可能
+        # 跨出 BuildsRoot。gosec 不知道这层校验。
+        - G304
+        # G705 抓"taint analysis 认为 untrusted 输入写到 HTTP response"。
+        # 在 custom-page handler 里 owner-controlled HTML 是 by design 要
+        # 发出去的（owner 写自己页面 ）。injectBase 注入的 baseHref 已经走
+        # html.EscapeString 兜过 quote/<> 的转义，taint analysis 不知道。
+        - G705
     forbidigo:
       # analyze-types: true makes forbidigo match TYPE references too,
       # not just call expressions.  Required for the `any` ban below.

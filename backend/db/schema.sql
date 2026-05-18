@@ -143,6 +143,33 @@ CREATE TABLE messages (
     created_at       timestamptz   NOT NULL DEFAULT now()
 );
 
+-- custom_pages —— owner 自定义 React 页面（M10）。
+CREATE TABLE custom_pages (
+    id                     uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id               uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    slug                   citext        NOT NULL,
+    title                  text          NOT NULL DEFAULT '',
+    status                 text          NOT NULL DEFAULT 'active',
+    live_build_id          uuid,
+    staging_build_id       uuid,
+    previous_live_build_id uuid,
+    created_at             timestamptz   NOT NULL DEFAULT now(),
+    updated_at             timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX custom_pages_owner_slug_idx ON custom_pages(owner_id, slug);
+
+CREATE TABLE custom_page_builds (
+    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    page_id         uuid          NOT NULL REFERENCES custom_pages(id) ON DELETE CASCADE,
+    status          text          NOT NULL DEFAULT 'pending',
+    source_files    jsonb         NOT NULL DEFAULT '{}'::jsonb,
+    output_path     text          NOT NULL DEFAULT '',
+    error_message   text          NOT NULL DEFAULT '',
+    created_at      timestamptz   NOT NULL DEFAULT now(),
+    built_at        timestamptz
+);
+
 -- seo_settings —— owner 维度的 SEO 全局开关。Singleton-per-owner。
 CREATE TABLE seo_settings (
     owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,

@@ -105,10 +105,12 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # sys routes (/internal/healthz, tls-ask, log) 需要 ping db / redis
-  # 所以可以 import postgres。redis 客户端是 vendor。
+  # sys routes (/internal/healthz, tls-ask, log, builds) 需要 ping db / redis
+  # 所以可以 import postgres。redis 客户端是 vendor。M10 加 domain：
+  # /internal/builds/claim 在 no-pending 时返 ErrCustomPageBuildNotFound。
   sysroutes:
     mayDependOn:
+      - domain
       - postgres
     anyVendorDeps: true
 

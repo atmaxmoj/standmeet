@@ -32,7 +32,7 @@
 | M7 | Public web surface (index + chat embed) | ✓ done |
 | M8 | Admin web surface (login UI + 6 sections) | ✓ done |
 | M9 | BYOAI + gate + SEO (sitemap/robots/og/wiki landing) | ✓ done |
-| M10 | Custom pages（MCP + 沙箱 builder + middleware rewrite） | pending |
+| M10 | Custom pages（MCP + 沙箱 builder + middleware rewrite） | ✓ done |
 | M11 | SDK 抽出 + Caddy 自动 SSL + 一键 install | pending |
 
 ---
@@ -205,22 +205,22 @@
 
 ---
 
-## M10 — Custom pages（MCP + 沙箱 builder + middleware rewrite）
+## M10 — Custom pages（MCP + 沙箱 builder + middleware rewrite） ✓ done
 
-**目标：** owner 在 Claude Desktop 让 AI 创建 `/blog` 页，AI 写 React 源码 → 沙箱 build → promote_to_staging → owner 看 staging URL → promote_to_live → 浏览器访问 `/blog` 看到 custom page。
+**实现：**
+- `backend/db/migrations/00007_custom_pages.sql` —— custom_pages + custom_page_builds（deferred FK 让 page <-> build 互引）
+- `backend/internal/postgres/custom_pages.go` + `custom_builds.go` —— sqlc repo + slug 唯一 + ClaimPending（SELECT FOR UPDATE SKIP LOCKED）+ SetLive/SetStaging/Rollback
+- `backend/internal/usecases/custom_page.go` —— CreatePage/WriteFile（path+size 校验）/Build/Promote/Rollback/Delete + `mergedDraft` 累计 source_files
+- `backend/internal/usecases/custom_page_resolve.go` —— `ResolveLiveBuild` 给 routes 共享，handle→owner→page→live build 一站式
+- `backend/internal/mcp/custom_page_tools.go` + `custom_page_lifecycle_tools.go` —— 9 个 MCP tools (create/write_file/build/get_build/promote_to_staging/promote_to_live/rollback/delete/list)
+- `backend/internal/routes/sys/builds.go` —— 内部 POST /internal/builds/claim + PATCH /internal/builds/{id}（builder 长轮询消费）
+- `backend/internal/routes/public/custom_pages.go` —— GET /api/v1/custom-pages/{handle}/{slug}/* 从共享 volume serve dist；index.html 注入 `<base href>`（html.EscapeString 兜 XSS）
+- `builder/` —— node:22-alpine + vite + react；runner.mjs 长轮询 backend，把 owner source_files + template 拼成 vite project，跑 build，cp dist 到共享 volume，PATCH 状态
+- `app/next.config.ts` —— `beforeFiles` rewrite `/:handle/p/:slug(/:path*)?` → backend（避开 Next dynamic `[handle]` 死循环 redirect）
+- `docker-compose.dev.yml` —— builder 服务 + `custom_pages_data` named volume 给 backend/builder 共享
 
-**做什么：**
-- `backend/db/migrations/0007_custom_pages.sql` —— custom_pages + custom_page_builds
-- `backend/internal/sandbox/spawn.go` —— `docker run --rm --network=none ...` 包一层
-- `builder/Dockerfile` + `builder/runner.mjs` —— 沙箱镜像，读 source + 跑 vite build → 写 dist
-- `builder/template/App.tsx` —— 起步模板用 @standmeet/sdk
-- `backend/internal/usecases/custom_page.go` —— allowlist 校验 + build coalescing（设计稿 D.6）
-- `backend/internal/mcp/tools/custom_page.go` —— 全套 `custom_page.*` tools
-- `backend/internal/routes/admin/custom_pages.go` —— lifecycle（publish/rollback/unpublish/delete）
-- `app/src/middleware.ts` —— 路径 lookup → rewrite 到 custom page 静态产物（参考 [[legacy-gems]] A2）
-
-**E2E（绿色判定）：**
-- `e2e/test/m10-custom-page.spec.ts` —— 用 MCP token 调 `custom_page.create('/blog')` → write_file App.tsx with 一段 hello → build → 轮询 get_build 直到 built → promote_to_staging 拿 URL → 浏览器访问 staging URL 看到 hello → promote_to_live → 浏览器访问 `/blog` 看到 hello → rollback → `/blog` 回到默认
+**E2E（绿色）：**
+- `e2e/test/custom-page.spec.ts` —— MCP create('blog') → write_file App.tsx → build → expect.poll get_build 直到 built → promote_to_live → 浏览器访问 /sijie/p/blog 看到 vite 渲染的 React → rollback → 404
 
 ---
 

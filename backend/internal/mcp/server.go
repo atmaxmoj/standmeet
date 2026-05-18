@@ -28,11 +28,12 @@ var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 
 // Deps —— MCP server 需要的业务依赖。
 type Deps struct {
-	APITokens usecases.APITokenDeps
-	Owners    OwnerLookup
-	Corpus    usecases.CorpusDeps
-	SEO       SEOWriter
-	Log       *slog.Logger
+	APITokens   usecases.APITokenDeps
+	Owners      OwnerLookup
+	Corpus      usecases.CorpusDeps
+	SEO         SEOWriter
+	CustomPages usecases.CustomPageDeps
+	Log         *slog.Logger
 }
 
 // SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
@@ -52,7 +53,7 @@ type OwnerLookup interface {
 }
 
 // New 构造一个挂好工具的 http.Handler，调用方挂到 /mcp/* 路由。
-func New(deps Deps) http.Handler {
+func New(deps *Deps) http.Handler {
 	mcpSrv := server.NewMCPServer(
 		"standmeet",
 		"0.1.0",
@@ -71,7 +72,7 @@ func New(deps Deps) http.Handler {
 // authContextFunc 在 mcp-go HTTP layer 拦每个请求，验 Bearer token，把 owner_id
 // 注 ctx。失败时把 sentinel 错误也注 ctx，tool handler 看到就返回 error 给 MCP
 // client（mcp-go 没提供"在 HTTP 层直接返 401"的钩子，只能在 tool 层 short-circuit）。
-func authContextFunc(deps Deps) server.HTTPContextFunc {
+func authContextFunc(deps *Deps) server.HTTPContextFunc {
 	return func(ctx context.Context, r *http.Request) context.Context {
 		token := bearerFromHeader(r.Header.Get("Authorization"))
 		ownerID, err := usecases.VerifyAPIToken(ctx, deps.APITokens, token)
@@ -100,10 +101,11 @@ func OwnerIDFrom(ctx context.Context) string {
 }
 
 // registerTools 把所有 tool 注册到 mcpSrv。
-func registerTools(mcpSrv *server.MCPServer, deps Deps) {
+func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	mcpSrv.AddTool(meTool(), wrapTool(invokeMe(deps)))
 	corpusTools(mcpSrv, deps)
 	seoTools(mcpSrv, deps)
+	customPageTools(mcpSrv, deps)
 }
 
 func meTool() mcpgo.Tool {
@@ -113,7 +115,7 @@ func meTool() mcpgo.Tool {
 	)
 }
 
-func invokeMe(deps Deps) invokeFn {
+func invokeMe(deps *Deps) invokeFn {
 	return func(ctx context.Context, _ *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
 		ownerID := OwnerIDFrom(ctx)
 		if ownerID == "" {

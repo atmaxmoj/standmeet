@@ -24,6 +24,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/mcp"
 	"github.com/wangsijie/standmeet/internal/postgres"
 	publicroutes "github.com/wangsijie/standmeet/internal/routes/public"
+	sysroutes "github.com/wangsijie/standmeet/internal/routes/sys"
 	"github.com/wangsijie/standmeet/internal/server"
 	"github.com/wangsijie/standmeet/internal/session"
 	"github.com/wangsijie/standmeet/internal/usecases"
@@ -94,6 +95,8 @@ func wireAndServe(
 	convRepo := postgres.NewConversationRepo(c.db)
 	pageRepo := postgres.NewPageRepo(c.db)
 	seoRepo := postgres.NewSEORepo(c.db)
+	customPageRepo := postgres.NewCustomPageRepo(c.db)
+	customBuildRepo := postgres.NewCustomBuildRepo(c.db)
 	sessionStore := session.NewOwnerSessionStore(c.rdb)
 	visitorStore := session.NewVisitorSessionStore(c.rdb)
 	provider, perr := inference.NewFromEnv()
@@ -110,10 +113,13 @@ func wireAndServe(
 		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
 		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
 		codeRepo: codeRepo, convRepo: convRepo, pageRepo: pageRepo,
-		seoRepo:      seoRepo,
-		sessionStore: sessionStore, visitorStore: visitorStore,
+		seoRepo:         seoRepo,
+		customPageRepo:  customPageRepo,
+		customBuildRepo: customBuildRepo,
+		sessionStore:    sessionStore, visitorStore: visitorStore,
 		provider: provider, secureCookie: cfg.SecureCookie,
-		publicURL: cfg.PublicURL,
+		publicURL:  cfg.PublicURL,
+		buildsRoot: cfg.CustomPagesRoot,
 	}
 	return serve(ctx, &deps, addr, stop)
 }
@@ -143,23 +149,26 @@ func ensureSetupToken(
 
 // runtimeDeps 把 serve 的依赖打包，避免函数参数列表超过 revive argument-limit。
 type runtimeDeps struct {
-	log          *slog.Logger
-	db           *pgxpool.Pool
-	rdb          *redis.Client
-	instanceRepo *postgres.InstanceRepo
-	ownerRepo    *postgres.OwnerRepo
-	tokenRepo    *postgres.APITokenRepo
-	rawRepo      *postgres.RawRepo
-	wikiRepo     *postgres.WikiRepo
-	codeRepo     *postgres.CodeRepo
-	convRepo     *postgres.ConversationRepo
-	pageRepo     *postgres.PageRepo
-	seoRepo      *postgres.SEORepo
-	sessionStore *session.OwnerSessionStore
-	visitorStore *session.VisitorSessionStore
-	provider     inference.Provider
-	publicURL    string
-	secureCookie bool
+	log             *slog.Logger
+	db              *pgxpool.Pool
+	rdb             *redis.Client
+	instanceRepo    *postgres.InstanceRepo
+	ownerRepo       *postgres.OwnerRepo
+	tokenRepo       *postgres.APITokenRepo
+	rawRepo         *postgres.RawRepo
+	wikiRepo        *postgres.WikiRepo
+	codeRepo        *postgres.CodeRepo
+	convRepo        *postgres.ConversationRepo
+	pageRepo        *postgres.PageRepo
+	seoRepo         *postgres.SEORepo
+	customPageRepo  *postgres.CustomPageRepo
+	customBuildRepo *postgres.CustomBuildRepo
+	sessionStore    *session.OwnerSessionStore
+	visitorStore    *session.VisitorSessionStore
+	provider        inference.Provider
+	publicURL       string
+	buildsRoot      string
+	secureCookie    bool
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
@@ -185,48 +194,8 @@ func closeRedis(log *slog.Logger, rdb *redis.Client) {
 
 func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.CancelFunc) error {
 	srv := &http.Server{
-		Addr: addr,
-		Handler: server.New(&server.Deps{
-			DB:    deps.db,
-			Redis: deps.rdb,
-			Log:   deps.log,
-			Admin: server.AdminDeps{
-				Claim: usecases.ClaimDeps{Instance: deps.instanceRepo},
-				Login: usecases.LoginDeps{
-					Owners: deps.ownerRepo, Sessions: deps.sessionStore,
-				},
-				APITokens:    usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},
-				Corpus:       usecases.CorpusDeps{Raw: deps.rawRepo, Wiki: deps.wikiRepo},
-				Codes:        deps.codeRepo,
-				Pages:        deps.pageRepo,
-				Sessions:     deps.sessionStore,
-				SecureCookie: deps.secureCookie,
-			},
-			Public: publicroutes.Handlers{
-				Visitor: usecases.VisitorDeps{
-					Codes: deps.codeRepo, Conv: deps.convRepo, Wiki: deps.wikiRepo,
-					Owners: deps.ownerRepo, Sessions: deps.visitorStore, Provider: deps.provider,
-				},
-				Sessions: deps.visitorStore,
-				Log:      deps.log,
-			},
-			PublicPage: publicroutes.PageHandlers{
-				Page: usecases.PageDeps{Owners: deps.ownerRepo, Pages: deps.pageRepo},
-				Log:  deps.log,
-			},
-			PublicSEO: publicroutes.SEOHandlers{
-				Deps:      usecases.SEODeps{Owners: deps.ownerRepo, SEO: deps.seoRepo},
-				Log:       deps.log,
-				PublicURL: deps.publicURL,
-			},
-			MCP: mcp.Deps{
-				APITokens: usecases.APITokenDeps{Tokens: deps.tokenRepo, Log: deps.log},
-				Owners:    deps.ownerRepo,
-				Corpus:    usecases.CorpusDeps{Raw: deps.rawRepo, Wiki: deps.wikiRepo},
-				SEO:       deps.seoRepo,
-				Log:       deps.log,
-			},
-		}),
+		Addr:              addr,
+		Handler:           server.New(buildServerDeps(deps)),
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 		ReadTimeout:       httpReadTimeout,
 		WriteTimeout:      httpWriteTimeout,
@@ -253,4 +222,80 @@ func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.Can
 	}
 
 	return nil
+}
+
+// buildServerDeps —— 把每个 sub-router 的 Deps 块组装出来。serve() 不再
+// 直接铺开 50+ 行 struct literal，function-length lint 友好。
+func buildServerDeps(d *runtimeDeps) *server.Deps {
+	return &server.Deps{
+		DB:                d.db,
+		Redis:             d.rdb,
+		Log:               d.log,
+		Admin:             buildAdminDeps(d),
+		Public:            buildPublicDeps(d),
+		PublicPage:        buildPublicPageDeps(d),
+		PublicSEO:         buildPublicSEODeps(d),
+		PublicCustomPages: buildPublicCustomPageDeps(d),
+		Builds:            sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
+		MCP:               buildMCPDeps(d),
+	}
+}
+
+func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
+	return server.AdminDeps{
+		Claim:        usecases.ClaimDeps{Instance: d.instanceRepo},
+		Login:        usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
+		APITokens:    usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
+		Corpus:       usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
+		Codes:        d.codeRepo,
+		Pages:        d.pageRepo,
+		Sessions:     d.sessionStore,
+		SecureCookie: d.secureCookie,
+	}
+}
+
+func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
+	return publicroutes.Handlers{
+		Visitor: usecases.VisitorDeps{
+			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
+			Owners: d.ownerRepo, Sessions: d.visitorStore, Provider: d.provider,
+		},
+		Sessions: d.visitorStore,
+		Log:      d.log,
+	}
+}
+
+func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
+	return publicroutes.PageHandlers{
+		Page: usecases.PageDeps{Owners: d.ownerRepo, Pages: d.pageRepo},
+		Log:  d.log,
+	}
+}
+
+func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
+	return publicroutes.SEOHandlers{
+		Deps:      usecases.SEODeps{Owners: d.ownerRepo, SEO: d.seoRepo},
+		Log:       d.log,
+		PublicURL: d.publicURL,
+	}
+}
+
+func buildPublicCustomPageDeps(d *runtimeDeps) publicroutes.CustomPageHandlers {
+	return publicroutes.CustomPageHandlers{
+		Deps:       usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
+		Owners:     d.ownerRepo,
+		Log:        d.log,
+		BuildsRoot: d.buildsRoot,
+	}
+}
+
+func buildMCPDeps(d *runtimeDeps) mcp.Deps {
+	return mcp.Deps{
+		APITokens:   usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
+		Owners:      d.ownerRepo,
+		Corpus:      usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
+		SEO:         d.seoRepo,
+		CustomPages: usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
+		Log:         d.log,
+	}
 }

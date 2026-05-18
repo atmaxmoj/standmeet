@@ -15,7 +15,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 )
 
-func seoTools(srv *server.MCPServer, deps Deps) {
+func seoTools(srv *server.MCPServer, deps *Deps) {
 	srv.AddTool(setWikiSlugTool(), wrapTool(invokeSetWikiSlug(deps)))
 	srv.AddTool(updateSEOSettingsTool(), wrapTool(invokeUpdateSEOSettings(deps)))
 }
@@ -60,7 +60,7 @@ type setWikiSlugArgs struct {
 	indexed     bool
 }
 
-func invokeSetWikiSlug(deps Deps) invokeFn {
+func invokeSetWikiSlug(deps *Deps) invokeFn {
 	return func(ctx context.Context, req *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
 		ownerID := OwnerIDFrom(ctx)
 		if ownerID == "" {
@@ -87,7 +87,7 @@ func optionalSlug(s string) *string {
 }
 
 func runSetWikiSlug(
-	ctx context.Context, deps Deps, args *setWikiSlugArgs,
+	ctx context.Context, deps *Deps, args *setWikiSlugArgs,
 ) *mcpgo.CallToolResult {
 	updated, err := deps.SEO.UpdateWikiSEO(
 		ctx, args.wikiID, args.slug, args.description, args.indexed,
@@ -135,7 +135,7 @@ func (p updateSEOSettingsPayload) marshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func invokeUpdateSEOSettings(deps Deps) invokeFn {
+func invokeUpdateSEOSettings(deps *Deps) invokeFn {
 	return func(ctx context.Context, req *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
 		ownerID := OwnerIDFrom(ctx)
 		if ownerID == "" {
@@ -180,7 +180,7 @@ func stringSliceArg(req *mcpgo.CallToolRequest, key string) []string {
 	return out
 }
 
-func seoErrorResult(deps Deps, err error, name string) *mcpgo.CallToolResult {
+func seoErrorResult(deps *Deps, err error, name string) *mcpgo.CallToolResult {
 	if errors.Is(err, domain.ErrSlugTaken) {
 		return mcpgo.NewToolResultError("slug already taken")
 	}
