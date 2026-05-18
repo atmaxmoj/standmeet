@@ -1,26 +1,57 @@
-// Contact section —— email + chat line + recruiter / casual prose。
+// Contact —— "how to talk to me"。chat_line + "jump to chat ↑"（让 visitor
+// 跳回 Hero AskInput），email mailto，recruiter / casual prose 各一段。
+
+'use client';
 
 import type { PageContact } from '@/lib/api/public';
 
-export function Contact({ contact }: { contact: PageContact }) {
+import { DeckHeader } from './page/DeckHeader';
+
+type Props = {
+  contact: PageContact;
+  onFocusChat: () => void;
+};
+
+export function Contact({ contact, onFocusChat }: Props) {
   return (
-    <section className="mx-auto max-w-2xl px-6 py-16 pb-48 space-y-6">
-      <SectionLabel text="how to talk to me" />
-      <p className="reading">
-        <a className="link" href={`mailto:${contact.email}`}>{contact.email}</a>
-      </p>
-      <p className="reading">{contact.chat_line}</p>
-      <p className="reading">{contact.recruiter_prose}</p>
-      <p className="reading">{contact.casual_prose}</p>
+    <section className="mt-24">
+      <DeckHeader kicker="how to talk to me" />
+      <div className="reading text-(--color-ink) space-y-5" style={{ fontSize: '18px' }}>
+        <ChatLine line={contact.chat_line} onFocusChat={onFocusChat} />
+        <DirectLine email={contact.email} />
+        <p className="text-(--color-muted)">{contact.recruiter_prose}</p>
+        <p className="text-(--color-muted)">{contact.casual_prose}</p>
+      </div>
     </section>
   );
 }
 
-function SectionLabel({ text }: { text: string }) {
+function ChatLine({ line, onFocusChat }: { line: string; onFocusChat: () => void }) {
   return (
-    <header className="flex items-center gap-4">
-      <span className="smallcaps">{text}</span>
-      <hr className="rule rule-soft flex-1" />
-    </header>
+    <p>
+      {line}{' '}
+      <button
+        type="button"
+        onClick={onFocusChat}
+        className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-accent) border-b border-(--color-accent)/40 hover:border-(--color-accent) transition-colors ml-1"
+      >
+        jump to chat ↑
+      </button>
+    </p>
+  );
+}
+
+function DirectLine({ email }: { email: string }) {
+  return (
+    <p>
+      Or directly:{' '}
+      <a
+        href={`mailto:${email}`}
+        className="mono text-(--color-accent) border-b border-(--color-accent)/40 hover:border-(--color-accent) transition-colors"
+        style={{ fontSize: '15.5px' }}
+      >
+        {email}
+      </a>
+    </p>
   );
 }

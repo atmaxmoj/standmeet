@@ -7,14 +7,16 @@ import type { NextConfig } from 'next';
 // 同样的 rewrite 让 SSR 和客户端 fetch 用同一个相对路径）。
 const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://backend:8000';
 
-// import.meta.url 在 ESM ts 里走得通；用它解出 app/ 绝对路径锁 trace root，
-// 不然 next 会把上层 monorepo 目录当 root，standalone bundle 路径变怪
-// (.next/standalone/Develop/projects/.../server.js 而不是 .next/standalone/server.js)。
+// outputFileTracingRoot 指 workspace 根（app/ 的父）。pnpm 把 next 等放在
+// 仓库根的 .pnpm 虚拟 store，trace root 必须覆盖到那里，否则 standalone
+// bundle 里的 node_modules/next 只剩 dist/ 没 package.json，运行时
+// require('next') 直接 MODULE_NOT_FOUND。
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
+const WORKSPACE_ROOT = path.resolve(APP_DIR, '..');
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  outputFileTracingRoot: APP_DIR,
+  outputFileTracingRoot: WORKSPACE_ROOT,
   // rewrites 用 object 形式：custom-page 必须放 beforeFiles，否则 Next 会
   // 先匹配 dynamic route `/[handle]/page.tsx`，规范化路径时加了尾杠又拿
   // 不到 page，于是来回 308（之前观察到 ERR_TOO_MANY_REDIRECTS）。

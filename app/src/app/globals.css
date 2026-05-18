@@ -15,16 +15,17 @@
   --font-mono:  'JetBrains Mono', ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme inline {
-    --color-paper:   #14110D;
-    --color-surface: #1C1812;
-    --color-ink:     #E8E2D5;
-    --color-muted:   #837C6F;
-    --color-faint:   #4D473D;
-    --color-rule:    #2A251D;
-    --color-accent:  #D14E2E;
-  }
+/* dark mode via .dark class on <html> (TopBar 切换写 localStorage)。系统
+   级 prefers-color-scheme 不再走 @media —— useTheme hook 首次访问读
+   一次 prefers，之后由 user 在 TopBar 切换控制。 */
+html.dark {
+  --color-paper:   #14110D;
+  --color-surface: #1C1812;
+  --color-ink:     #E8E2D5;
+  --color-muted:   #837C6F;
+  --color-faint:   #4D473D;
+  --color-rule:    #2A251D;
+  --color-accent:  #D14E2E;
 }
 
 html, body {
@@ -129,3 +130,29 @@ body {
 }
 
 input[type="text"]:focus, textarea:focus { outline: none; }
+
+/* live-dot —— TopBar / banner 里指示"live"系统状态的脉冲。 */
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent) 55%, transparent); }
+  100% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-accent) 0%, transparent); }
+}
+.live-dot { animation: live-pulse 1.6s ease-out infinite; }
+
+/* insight expand fade-in —— [read more] 展开 body 时柔和上浮。 */
+@keyframes fadein-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fadein { animation: fadein-rise .35s cubic-bezier(.2,.7,.2,1) forwards; }
+
+/* tech-vitality corner crosshairs banner —— BYOAI / coded session banner 用。 */
+.crosshair-banner::before,
+.crosshair-banner::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid color-mix(in oklab, var(--color-accent) 60%, transparent);
+}
+.crosshair-banner::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.crosshair-banner::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }

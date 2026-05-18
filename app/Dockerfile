@@ -14,10 +14,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+# outputFileTracingRoot 改成 workspace 根之后，.next/standalone 内部布局
+# 是 `<workspace>/app/server.js` + `<workspace>/node_modules/.pnpm/...`。
+# 整个 standalone 整体当 /app 用，server.js 在子目录 app/。
 COPY --chown=nextjs:nodejs .next/standalone ./
-COPY --chown=nextjs:nodejs .next/static ./.next/static
-COPY --chown=nextjs:nodejs public ./public
+COPY --chown=nextjs:nodejs .next/static ./app/.next/static
+COPY --chown=nextjs:nodejs public ./app/public
 USER nextjs
+WORKDIR /app/app
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0

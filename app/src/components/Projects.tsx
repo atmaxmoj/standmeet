@@ -1,45 +1,73 @@
-// Projects section —— typography-only：name + tagline + 多行 prose + 可选 URL。
+// Projects —— typography-only：name + "──" mono + italic tagline 一行，
+// 下方 lines list 用左侧 1px rule 引导阅读。url 摆 mono accent。
 
 import type { PageProject } from '@/lib/api/public';
 
+import { DeckHeader } from './page/DeckHeader';
+
 export function Projects({ projects }: { projects: readonly PageProject[] }) {
   return (
-    <section className="mx-auto max-w-2xl px-6 py-16 space-y-10">
-      <SectionLabel text="projects" />
-      {projects.map((p) => <ProjectItem key={p.id} project={p} />)}
+    <section className="mt-24">
+      <DeckHeader kicker="what I'm building" count={projects.length} />
+      <ul className="space-y-9">
+        {projects.map((p) => <ProjectRow key={p.id} project={p} />)}
+      </ul>
     </section>
   );
 }
 
-function ProjectItem({ project }: { project: PageProject }) {
+function ProjectRow({ project }: { project: PageProject }) {
   return (
-    <article className="space-y-2">
-      <ProjectHeader name={project.name} tagline={project.tagline} url={project.url} />
-      <ul className="reading text-base space-y-1">
-        {project.lines.map((line) => <li key={line}>{line}</li>)}
-      </ul>
-    </article>
+    <li>
+      <ProjectHead name={project.name} tagline={project.tagline} />
+      <ProjectBody lines={project.lines} url={project.url} />
+    </li>
   );
 }
 
-function ProjectHeader({
-  name, tagline, url,
-}: { name: string; tagline: string; url?: string | null }) {
+function ProjectHead({ name, tagline }: { name: string; tagline: string }) {
   return (
-    <h3 className="reading reading-tight text-xl font-medium">
-      {url ? (
-        <a className="link" href={`https://${url}`} target="_blank" rel="noreferrer">{name}</a>
-      ) : name}
-      <span className="mono text-sm text-(--color-muted) ml-3 align-baseline">{tagline}</span>
-    </h3>
+    <div className="flex items-baseline gap-3 flex-wrap mb-3">
+      <h3
+        className="font-serif text-(--color-ink)"
+        style={{ fontSize: '24px', fontWeight: 500, letterSpacing: '-0.012em', lineHeight: 1.1 }}
+      >
+        {name}
+      </h3>
+      <span className="mono text-(--color-faint)">──</span>
+      <span
+        className="font-serif italic text-(--color-muted)"
+        style={{ fontSize: '17px', lineHeight: 1.3 }}
+      >
+        {tagline}
+      </span>
+    </div>
   );
 }
 
-function SectionLabel({ text }: { text: string }) {
+function ProjectBody({ lines, url }: { lines: readonly string[]; url?: string | null }) {
   return (
-    <header className="flex items-center gap-4">
-      <span className="smallcaps">{text}</span>
-      <hr className="rule rule-soft flex-1" />
-    </header>
+    <div
+      className="reading text-(--color-ink) space-y-1.5 pl-5 border-l border-(--color-rule)"
+      style={{ fontSize: '16px' }}
+    >
+      {lines.map((line) => <p key={line}>{line}</p>)}
+      {url && <ProjectURL url={url} />}
+    </div>
+  );
+}
+
+function ProjectURL({ url }: { url: string }) {
+  return (
+    <p className="mono text-[12.5px] tracking-[0.04em] pt-1">
+      <a
+        href={`https://${url}`}
+        target="_blank"
+        rel="noreferrer"
+        className="text-(--color-accent) border-b border-(--color-accent)/40 hover:border-(--color-accent) transition-colors"
+      >
+        {url} ↗
+      </a>
+    </p>
   );
 }

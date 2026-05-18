@@ -53,9 +53,11 @@ async function seedOwnerWithPublicCorpus(request: APIRequestContext): Promise<vo
 }
 
 async function expectOwnerPageRendered(page: Page): Promise<void> {
-  await expect(page.getByRole('heading', { name: 'Sijie Wang' })).toBeVisible();
-  await expect(page.getByText('insights', { exact: true })).toBeVisible();
-  await expect(page.getByText('projects', { exact: true })).toBeVisible();
+  // 设计稿里 owner 全名摆 identity strip 里（mono caps span 不是 heading），
+  // 所以走 getByText 而不是 getByRole('heading')。
+  await expect(page.getByText('Sijie Wang')).toBeVisible();
+  await expect(page.getByText("things I've been thinking about")).toBeVisible();
+  await expect(page.getByText("what I'm building")).toBeVisible();
   await expect(page.getByText('where I am', { exact: true })).toBeVisible();
   await expect(page.getByText('how to talk to me', { exact: true })).toBeVisible();
   await expect(page.getByText('What do you think about AI replacing engineers?'))
@@ -66,13 +68,16 @@ async function expectOwnerPageRendered(page: Page): Promise<void> {
 }
 
 async function visitorAsksAQuestion(page: Page, question: string): Promise<void> {
-  const input = page.locator('[data-testid="chat-input"] textarea');
+  // 新 AskInput 是 input[type=text]，不是 textarea；form submit on Enter。
+  const input = page.locator('[data-testid="chat-input"] input');
   await input.fill(question);
   await input.press('Enter');
 }
 
 async function expectAssistantStreamsReply(page: Page): Promise<void> {
-  await expect(page.getByText('reply', { exact: true }))
+  // ConversationDeck 把回复挂在 data-testid="answer-body" 里；mock 文本会
+  // 流到那里。
+  await expect(page.locator('[data-testid="answer-body"]'))
     .toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(MOCK_REPLY, { exact: false }))
     .toBeVisible({ timeout: 15_000 });
