@@ -5,6 +5,7 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -27,10 +28,65 @@ const (
 	maxCorpusLimit     = 200
 )
 
-// MountCorpus 挂 /raw + /wiki list。
+// MountCorpus 挂 /raw + /wiki list + POST /raw（owner 直接 dump）。
 func (h *Handlers) MountCorpus(r chi.Router) {
 	r.Get("/raw", h.listRaw())
+	r.Post("/raw", h.createRaw())
 	r.Get("/wiki", h.listWiki())
+}
+
+type createRawRequest struct {
+	Source string   `json:"source"`
+	Body   string   `json:"body"`
+	Tags   []string `json:"tags"`
+}
+
+func (h *Handlers) createRaw() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		var req createRawRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		raw, err := usecases.RawDump(r.Context(), h.Corpus.Corpus, &usecases.RawDumpInput{
+			OwnerID: ownerID, Body: req.Body, Source: defaultSource(req.Source), Tags: req.Tags,
+		})
+		if err != nil {
+			handleCreateRawErr(h.Log, w, err)
+			return
+		}
+		writeCreatedRaw(h.Log, w, &raw)
+	}
+}
+
+func defaultSource(s string) string {
+	if s == "" {
+		return "admin"
+	}
+	return s
+}
+
+func handleCreateRawErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	if errors.Is(err, usecases.ErrEmptyField) {
+		writeError(log, w, envBadReq("body is required"))
+		return
+	}
+	log.Error("create raw", "err", err)
+	writeError(log, w, serverErr())
+}
+
+func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *domain.RawEntry) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	item := rawListItem{
+		ID:        raw.ID,
+		Body:      raw.Body,
+		Source:    raw.Source,
+		Tags:      raw.Tags,
+		CreatedAt: raw.CreatedAt.Format(time.RFC3339),
+	}
+	logEncodeErr(log, "encode created raw", json.NewEncoder(w).Encode(item))
 }
 
 type rawListItem struct {
@@ -110,16 +166,20 @@ func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []domain.WikiEn
 func writeRawListJSON(log *slog.Logger, w http.ResponseWriter, items []rawListItem) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		log.Error("encode raw list", "err", err)
-	}
+	logEncodeErr(log, "encode raw list", json.NewEncoder(w).Encode(items))
 }
 
 func writeWikiListJSON(log *slog.Logger, w http.ResponseWriter, items []wikiListItem) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		log.Error("encode wiki list", "err", err)
+	logEncodeErr(log, "encode wiki list", json.NewEncoder(w).Encode(items))
+}
+
+// logEncodeErr 收口 json encode error 的 slog 调用，避免 add-constant 把
+// "err" 字面量统计到上限。每个 helper 自带 msg，调用点 cyclo 不变。
+func logEncodeErr(log *slog.Logger, msg string, err error) {
+	if err != nil {
+		log.Error(msg, "err", err)
 	}
 }
 

@@ -143,3 +143,44 @@ func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, erro
 	)
 	return i, err
 }
+
+const updateOwnerBYOAI = `-- name: UpdateOwnerBYOAI :one
+UPDATE owners
+SET byoai_enabled = $2,
+    byoai_providers = $3,
+    byoai_public_blurb = $4
+WHERE id = $1
+RETURNING id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, created_at
+`
+
+type UpdateOwnerBYOAIParams struct {
+	ID               pgtype.UUID
+	ByoaiEnabled     bool
+	ByoaiProviders   []byte
+	ByoaiPublicBlurb string
+}
+
+func (q *Queries) UpdateOwnerBYOAI(ctx context.Context, arg UpdateOwnerBYOAIParams) (Owner, error) {
+	row := q.db.QueryRow(ctx, updateOwnerBYOAI,
+		arg.ID,
+		arg.ByoaiEnabled,
+		arg.ByoaiProviders,
+		arg.ByoaiPublicBlurb,
+	)
+	var i Owner
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Handle,
+		&i.FullName,
+		&i.Location,
+		&i.CustomDomain,
+		&i.CustomDomainStatus,
+		&i.ByoaiEnabled,
+		&i.ByoaiProviders,
+		&i.ByoaiPublicBlurb,
+		&i.CreatedAt,
+	)
+	return i, err
+}

@@ -19,3 +19,8 @@ WHERE id = 1
   AND is_claimed = false
   AND setup_token_hash = $1
 RETURNING *;
+
+-- name: SetAllowedDomains :exec
+UPDATE instance_settings
+SET allowed_domains = $1::jsonb
+WHERE id = 1;

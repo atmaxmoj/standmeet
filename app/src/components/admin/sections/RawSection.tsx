@@ -42,7 +42,11 @@ function Ready({ hook }: { hook: RawHook }) {
   return (
     <div className="space-y-6">
       <RawFilterBar counts={hook.counts} filter={hook.filter} setFilter={hook.setFilter} />
-      <RawDumpBox />
+      <RawDumpBox
+        submitting={hook.submitting}
+        submitError={hook.submitError}
+        onAdd={hook.addRaw}
+      />
       <RawRowList rows={hook.filteredRows} />
     </div>
   );

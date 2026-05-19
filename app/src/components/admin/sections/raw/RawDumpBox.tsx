@@ -1,26 +1,36 @@
-// RawDumpBox —— "quick dump" 入口。design 的设想是 owner 可以在 admin 直接
-// 粘贴一条想法。但 backend 暂未暴露 POST /api/admin/raw（MCP-only）—— UI
-// 给出来，但 submit 触发 tooltip 提示走 MCP。
+// RawDumpBox —— "quick dump" 入口。owner 可以在 admin 直接粘贴一条想法。
+// POST /api/admin/raw 通了：onAdd 走 useRaw().addRaw，成功后 textarea 清空。
 
 'use client';
 
 import { useCallback, useState } from 'react';
 
 import { Btn } from '../../atoms/Btn';
+import type { CreateRawInput } from '@/lib/api/admin';
 
-export function RawDumpBox() {
+type Props = {
+  submitting: boolean;
+  submitError: string | null;
+  onAdd: (input: CreateRawInput) => Promise<boolean>;
+};
+
+export function RawDumpBox({ submitting, submitError, onAdd }: Props) {
   const [text, setText] = useState('');
-  const onAdd = useCallback(() => {
-    // backend 没暴露 admin raw_dump 入口 —— 永远走 MCP。
-    typeof window !== 'undefined' && window.alert(
-      'Direct dumps from the admin UI are coming. For now, push from your AI client (MCP tool: raw_dump).',
-    );
-  }, []);
+  const handleAdd = useCallback(async () => {
+    const trimmed = text.trim();
+    const ok = trimmed !== '' && await onAdd({ body: trimmed, source: 'admin' });
+    ok && setText('');
+  }, [text, onAdd]);
   return (
     <div className="border border-dashed border-(--color-rule) bg-(--color-surface)/40 rounded-sm p-4 relative">
       <RawDumpHead />
       <RawDumpTextarea value={text} onChange={setText} />
-      <RawDumpFooter disabled={text.trim() === ''} onAdd={onAdd} />
+      <RawDumpFooter
+        disabled={text.trim() === '' || submitting}
+        submitting={submitting}
+        error={submitError}
+        onAdd={() => { void handleAdd(); }}
+      />
     </div>
   );
 }
@@ -34,7 +44,7 @@ function RawDumpHead() {
         <span className="text-(--color-faint)">paste a thought · then promote</span>
       </div>
       <span className="mono text-[9.5px] tracking-[0.16em] uppercase text-(--color-faint)">
-        mcp only · for now
+        admin · or mcp
       </span>
     </div>
   );
@@ -45,20 +55,35 @@ function RawDumpTextarea({ value, onChange }: { value: string; onChange: (v: str
     <textarea
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      placeholder="Paste a thought, a passage from a chat, a half-formed take. Push from MCP for now — admin write endpoint coming."
+      placeholder="Paste a thought, a passage from a chat, a half-formed take."
       rows={3}
       className="w-full bg-transparent text-(--color-ink) placeholder:text-(--color-faint) reading-tight text-[15.5px]"
     />
   );
 }
 
-function RawDumpFooter({ disabled, onAdd }: { disabled: boolean; onAdd: () => void }) {
+type FooterProps = {
+  disabled: boolean;
+  submitting: boolean;
+  error: string | null;
+  onAdd: () => void;
+};
+
+function RawDumpFooter({ disabled, submitting, error, onAdd }: FooterProps) {
   return (
-    <div className="flex items-center justify-between mt-3">
-      <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
-        mcp endpoint stays unindexed until promoted
-      </span>
-      <Btn kind="primary" onClick={onAdd} disabled={disabled}>dump ↵</Btn>
+    <div className="flex items-center justify-between mt-3 gap-3">
+      <FooterHint error={error} />
+      <Btn kind="primary" onClick={onAdd} disabled={disabled}>
+        {submitting ? 'dumping…' : 'dump ↵'}
+      </Btn>
     </div>
   );
+}
+
+function FooterHint({ error }: { error: string | null }) {
+  return error
+    ? <span className="mono text-[10px] text-(--color-accent) tracking-[0.06em]">{error}</span>
+    : <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
+        raw stays unindexed until promoted
+      </span>;
 }

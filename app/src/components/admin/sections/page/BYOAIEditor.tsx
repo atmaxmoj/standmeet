@@ -20,8 +20,55 @@ export function BYOAIEditor() {
       <MasterToggle hook={hook} />
       <ProviderPicker hook={hook} />
       <BlurbField hook={hook} />
+      <SaveRow hook={hook} />
     </div>
   );
+}
+
+function SaveRow({ hook }: { hook: BYOAIHook }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 pt-2">
+      <SaveHint loading={hook.loading} saving={hook.saving} error={hook.error} />
+      <button
+        type="button"
+        onClick={() => { void hook.save(); }}
+        disabled={hook.saving || hook.loading}
+        className="mono text-[11px] tracking-[0.16em] uppercase px-3.5 py-2 bg-(--color-ink) text-(--color-paper) hover:bg-(--color-accent) transition-colors disabled:opacity-50"
+      >
+        {hook.saving ? 'saving…' : 'save byoai'}
+      </button>
+    </div>
+  );
+}
+
+function SaveHint({
+  loading, saving, error,
+}: { loading: boolean; saving: boolean; error: string | null }) {
+  const cfg = pickHint({ loading, saving, error });
+  return <Hint cls={cfg.cls} text={cfg.text} />;
+}
+
+interface HintInput { loading: boolean; saving: boolean; error: string | null }
+interface HintCfg { cls: string; text: string }
+
+const HINT_LOADING: HintCfg = { cls: 'text-(--color-faint)', text: 'loading…' };
+const HINT_SAVING: HintCfg = { cls: 'text-(--color-muted)', text: 'saving…' };
+const HINT_DEFAULT: HintCfg = {
+  cls: 'text-(--color-faint)', text: "save when you're done editing",
+};
+
+function pickHint(input: HintInput): HintCfg {
+  return input.loading ? HINT_LOADING : pickHintActive(input);
+}
+
+function pickHintActive(input: HintInput): HintCfg {
+  return input.error ? { cls: 'text-(--color-accent)', text: input.error }
+    : input.saving ? HINT_SAVING
+    : HINT_DEFAULT;
+}
+
+function Hint({ cls, text }: { cls: string; text: string }) {
+  return <span className={`mono text-[10px] tracking-[0.12em] ${cls}`}>{text}</span>;
 }
 
 function MasterToggle({ hook }: { hook: BYOAIHook }) {

@@ -8,14 +8,18 @@ import (
 )
 
 // Owner 是单 owner instance 的 owner profile。
-// 字段顺序按 pointer/int/string 对齐 fieldalignment。
+// 字段顺序按 govet fieldalignment：CreatedAt（time.Time，内部 ptr at 16）
+// 在前；string 中段；slice ptr-start-at-0 紧贴；bool 末尾占 tail padding。
 type Owner struct {
-	CreatedAt time.Time
-	ID        string
-	Email     string
-	Handle    string
-	FullName  string
-	Location  string
+	CreatedAt        time.Time
+	ID               string
+	Email            string
+	Handle           string
+	FullName         string
+	Location         string
+	BYOAIPublicBlurb string
+	BYOAIProviders   []string
+	BYOAIEnabled     bool
 }
 
 // CreateOwnerInput 是 usecase 层传入 Repository 的创建参数。

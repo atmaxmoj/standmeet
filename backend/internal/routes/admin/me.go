@@ -15,10 +15,13 @@ import (
 )
 
 type meResponse struct {
-	OwnerID  string `json:"owner_id"`
-	Email    string `json:"email"`
-	Handle   string `json:"handle"`
-	FullName string `json:"full_name"`
+	OwnerID          string   `json:"owner_id"`
+	Email            string   `json:"email"`
+	Handle           string   `json:"handle"`
+	FullName         string   `json:"full_name"`
+	BYOAIPublicBlurb string   `json:"byoai_public_blurb"`
+	BYOAIProviders   []string `json:"byoai_providers"`
+	BYOAIEnabled     bool     `json:"byoai_enabled"`
 }
 
 func (h *Handlers) me() http.HandlerFunc {
@@ -29,15 +32,26 @@ func (h *Handlers) me() http.HandlerFunc {
 			handleMeErr(h.Log, w, err)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		resp := meResponse{
-			OwnerID: owner.ID, Email: owner.Email,
-			Handle: owner.Handle, FullName: owner.FullName,
-		}
-		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
-			h.Log.Error("encode me response", "err", encErr)
-		}
+		writeMe(h.Log, w, &owner)
+	}
+}
+
+func writeMe(log *slog.Logger, w http.ResponseWriter, owner *domain.Owner) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	providers := owner.BYOAIProviders
+	if providers == nil {
+		providers = []string{}
+	}
+	resp := meResponse{
+		OwnerID: owner.ID, Email: owner.Email,
+		Handle: owner.Handle, FullName: owner.FullName,
+		BYOAIEnabled:     owner.BYOAIEnabled,
+		BYOAIProviders:   providers,
+		BYOAIPublicBlurb: owner.BYOAIPublicBlurb,
+	}
+	if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+		log.Error("encode me response", "err", encErr)
 	}
 }
 

@@ -133,6 +133,66 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 	return i, err
 }
 
+const listConversationsByOwner = `-- name: ListConversationsByOwner :many
+SELECT c.id, c.tier, c.code_id, c.visitor_name, c.started_at,
+       c.last_at, c.message_count, c.hit_private,
+       ac.label AS code_label, ac.code AS code_value
+FROM conversations c
+LEFT JOIN access_codes ac ON ac.id = c.code_id
+WHERE c.owner_id = $1
+ORDER BY c.last_at DESC
+LIMIT $2
+`
+
+type ListConversationsByOwnerParams struct {
+	OwnerID pgtype.UUID
+	Limit   int32
+}
+
+type ListConversationsByOwnerRow struct {
+	ID           pgtype.UUID
+	Tier         string
+	CodeID       pgtype.UUID
+	VisitorName  string
+	StartedAt    pgtype.Timestamptz
+	LastAt       pgtype.Timestamptz
+	MessageCount int32
+	HitPrivate   bool
+	CodeLabel    *string
+	CodeValue    *string
+}
+
+func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversationsByOwnerParams) ([]ListConversationsByOwnerRow, error) {
+	rows, err := q.db.Query(ctx, listConversationsByOwner, arg.OwnerID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListConversationsByOwnerRow
+	for rows.Next() {
+		var i ListConversationsByOwnerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Tier,
+			&i.CodeID,
+			&i.VisitorName,
+			&i.StartedAt,
+			&i.LastAt,
+			&i.MessageCount,
+			&i.HitPrivate,
+			&i.CodeLabel,
+			&i.CodeValue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMessages = `-- name: ListMessages :many
 SELECT id, conversation_id, role, body, tool_calls, cited_wiki_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
 `

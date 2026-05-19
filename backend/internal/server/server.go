@@ -40,14 +40,17 @@ type Deps struct {
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
-	Claim        usecases.ClaimDeps
-	Login        usecases.LoginDeps
-	APITokens    usecases.APITokenDeps
-	Corpus       usecases.CorpusDeps
-	Codes        *postgres.CodeRepo
-	Pages        *postgres.PageRepo
-	Sessions     *session.OwnerSessionStore
-	SecureCookie bool
+	Claim         usecases.ClaimDeps
+	Login         usecases.LoginDeps
+	APITokens     usecases.APITokenDeps
+	Corpus        usecases.CorpusDeps
+	Conversations usecases.ConversationsDeps
+	BYOAI         usecases.BYOAIDeps
+	Domains       usecases.AllowedDomainsDeps
+	Codes         *postgres.CodeRepo
+	Pages         *postgres.PageRepo
+	Sessions      *session.OwnerSessionStore
+	SecureCookie  bool
 }
 
 // New 返回一个挂好路由的 chi router，可直接传给 http.Server。
@@ -89,14 +92,17 @@ func mountAdmin(r chi.Router, deps *Deps) {
 
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 	return &adminroutes.Handlers{
-		Claim:        deps.Admin.Claim,
-		Auth:         adminroutes.AuthDeps{Login: deps.Admin.Login, Sessions: deps.Admin.Sessions},
-		APITokens:    deps.Admin.APITokens,
-		Corpus:       adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
-		CodesAdmin:   adminroutes.CodesDeps{Codes: deps.Admin.Codes},
-		PageAdmin:    adminroutes.PageAdminDeps{Pages: deps.Admin.Pages},
-		Log:          deps.Log,
-		SecureCookie: deps.Admin.SecureCookie,
+		Claim:         deps.Admin.Claim,
+		Auth:          adminroutes.AuthDeps{Login: deps.Admin.Login, Sessions: deps.Admin.Sessions},
+		APITokens:     deps.Admin.APITokens,
+		Corpus:        adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+		CodesAdmin:    adminroutes.CodesDeps{Codes: deps.Admin.Codes},
+		PageAdmin:     adminroutes.PageAdminDeps{Pages: deps.Admin.Pages},
+		Conversations: adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
+		BYOAI:         adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
+		Domains:       adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
+		Log:           deps.Log,
+		SecureCookie:  deps.Admin.SecureCookie,
 	}
 }
 

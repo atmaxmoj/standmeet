@@ -244,14 +244,17 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 
 func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	return server.AdminDeps{
-		Claim:        usecases.ClaimDeps{Instance: d.instanceRepo},
-		Login:        usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
-		APITokens:    usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
-		Corpus:       usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
-		Codes:        d.codeRepo,
-		Pages:        d.pageRepo,
-		Sessions:     d.sessionStore,
-		SecureCookie: d.secureCookie,
+		Claim:         usecases.ClaimDeps{Instance: d.instanceRepo},
+		Login:         usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
+		APITokens:     usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
+		Corpus:        usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
+		Conversations: usecases.ConversationsDeps{Conv: d.convRepo},
+		BYOAI:         usecases.BYOAIDeps{Owners: d.ownerRepo},
+		Domains:       usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
+		Codes:         d.codeRepo,
+		Pages:         d.pageRepo,
+		Sessions:      d.sessionStore,
+		SecureCookie:  d.secureCookie,
 	}
 }
 

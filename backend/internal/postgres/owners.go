@@ -6,6 +6,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -71,11 +72,78 @@ func pgUniqueViolation(err error) (string, bool) {
 // 映射到 domain.Owner（纯 Go 类型）。pointer 接收避免 gocritic hugeParam。
 func toDomainOwner(o *dbq.Owner) domain.Owner {
 	return domain.Owner{
-		ID:        formatUUID(o.ID),
-		Email:     o.Email,
-		Handle:    o.Handle,
-		FullName:  o.FullName,
-		Location:  o.Location,
-		CreatedAt: o.CreatedAt.Time,
+		ID:               formatUUID(o.ID),
+		Email:            o.Email,
+		Handle:           o.Handle,
+		FullName:         o.FullName,
+		Location:         o.Location,
+		CreatedAt:        o.CreatedAt.Time,
+		BYOAIEnabled:     o.ByoaiEnabled,
+		BYOAIProviders:   decodeProviders(o.ByoaiProviders),
+		BYOAIPublicBlurb: o.ByoaiPublicBlurb,
 	}
+}
+
+// decodeProviders 把 byoai_providers jsonb 解到 []string。空 / 解失败返 nil；
+// usecase 视 nil 为 "default providers"，handler 编码时按 [] 输出。
+func decodeProviders(raw []byte) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+// UpdateBYOAIInput —— Update 入参。字段顺序按 govet fieldalignment：
+// strings 先（ptr at 0），slice 紧跟（ptr at 0 也连续），bool 末尾。
+type UpdateBYOAIInput struct {
+	OwnerID   string
+	Blurb     string
+	Providers []string
+	Enabled   bool
+}
+
+// UpdateBYOAI 更新 owner 行的 byoai_enabled / providers / blurb，返回新行。
+func (r *OwnerRepo) UpdateBYOAI(
+	ctx context.Context, in *UpdateBYOAIInput,
+) (domain.Owner, error) {
+	params, perr := buildBYOAIParams(in)
+	if perr != nil {
+		return domain.Owner{}, perr
+	}
+	q := dbq.New(r.pool)
+	row, uerr := q.UpdateOwnerBYOAI(ctx, params)
+	if uerr != nil {
+		if errors.Is(uerr, pgxErrNoRows()) {
+			return domain.Owner{}, domain.ErrOwnerNotFound
+		}
+		return domain.Owner{}, fmt.Errorf("update byoai: %w", uerr)
+	}
+	return toDomainOwner(&row), nil
+}
+
+// buildBYOAIParams 把入参 normalize + marshal 一气呵成，让 UpdateBYOAI
+// 自己 cyclo ≤ 5。
+func buildBYOAIParams(in *UpdateBYOAIInput) (dbq.UpdateOwnerBYOAIParams, error) {
+	ownerUUID, err := parseUUID(in.OwnerID)
+	if err != nil {
+		return dbq.UpdateOwnerBYOAIParams{}, fmt.Errorf("parse owner id: %w", err)
+	}
+	providers := in.Providers
+	if providers == nil {
+		providers = []string{}
+	}
+	encoded, merr := json.Marshal(providers)
+	if merr != nil {
+		return dbq.UpdateOwnerBYOAIParams{}, fmt.Errorf("marshal providers: %w", merr)
+	}
+	return dbq.UpdateOwnerBYOAIParams{
+		ID:               ownerUUID,
+		ByoaiEnabled:     in.Enabled,
+		ByoaiProviders:   encoded,
+		ByoaiPublicBlurb: in.Blurb,
+	}, nil
 }

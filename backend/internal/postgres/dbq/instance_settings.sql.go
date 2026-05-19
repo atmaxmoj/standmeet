@@ -40,6 +40,17 @@ func (q *Queries) SetSetupTokenHash(ctx context.Context, setupTokenHash *string)
 	return err
 }
 
+const setAllowedDomains = `-- name: SetAllowedDomains :exec
+UPDATE instance_settings
+SET allowed_domains = $1::jsonb
+WHERE id = 1
+`
+
+func (q *Queries) SetAllowedDomains(ctx context.Context, allowedDomains []byte) error {
+	_, err := q.db.Exec(ctx, setAllowedDomains, allowedDomains)
+	return err
+}
+
 const tryClaimInstance = `-- name: TryClaimInstance :one
 UPDATE instance_settings
 SET is_claimed = true,

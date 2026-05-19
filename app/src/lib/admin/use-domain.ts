@@ -1,9 +1,12 @@
-// use-domain —— "custom domain" 输入 + DNS verify 状态机。
-// backend instance_settings.allowed_domains 尚未暴露给 admin 路由 ——
-// 这里完全 client-side stub：domain 改后状态变 'pending'，1.1s 后变 'verified'
-// （模拟 DNS check）。后端接口接通后只换 verify() 内部即可。
+// use-domain —— allowed_domains 白名单管理。
+// GET /allowed-domains 加载；POST 加；DELETE /allowed-domains/{domain} 删。
+// 真正的 DNS 验证由 Caddy on-demand TLS (/internal/tls-ask) 兜，前端只
+// 显示 "in allow-list" / "verified" 状态（命中白名单 + Caddy 已签证书 =
+// verified；这里简化只看 allow-list 命中与否）。
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { adminAPI, type AllowedDomainsResp } from '@/lib/api/admin';
 
 export type DomainStatus = 'unset' | 'pending' | 'verified';
 
@@ -11,41 +14,117 @@ export interface DomainHook {
   domain: string;
   status: DomainStatus;
   valid: boolean;
+  loading: boolean;
+  saving: boolean;
+  error: string | null;
+  allowed: readonly string[];
   setDomain: (v: string) => void;
   verify: () => void;
   reset: () => void;
+  remove: (dom: string) => Promise<void>;
 }
 
 const DNS_PATTERN = /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/;
 
 export function useDomain(initial: string = ''): DomainHook {
   const [domain, setDomainRaw] = useState(initial);
-  const [status, setStatus] = useState<DomainStatus>(initial ? 'unset' : 'unset');
+  const [allowed, setAllowed] = useState<string[]>([]);
+  const [status, setStatus] = useState<DomainStatus>('unset');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void initialLoad(cancelled, setAllowed, setLoading, setError);
+    return () => { cancelled = true; };
+  }, []);
 
   const sanitized = sanitize(domain);
   const valid = isValid(sanitized);
+  const effectiveStatus = computeStatus(sanitized, allowed, status);
 
   const setDomain = useCallback((v: string) => {
     setDomainRaw(v);
-    // typing invalidates a prior verification
-    setStatus((cur) => cur === 'verified' ? 'unset' : cur);
-  }, []);
-
-  const verify = useCallback(() => {
-    isValid(sanitize(domain)) && fakeVerify(setStatus);
-  }, [domain]);
-
-  const reset = useCallback(() => {
-    setDomainRaw('');
     setStatus('unset');
   }, []);
+  const verify = useCallback(
+    () => void runVerify(sanitize(domain), setStatus, setSaving, setError, setAllowed),
+    [domain],
+  );
+  const reset = useCallback(() => { setDomainRaw(''); setStatus('unset'); }, []);
+  const remove = useCallback(
+    (dom: string) => runRemove(dom, setSaving, setError, setAllowed),
+    [],
+  );
 
-  return { domain, status, valid, setDomain, verify, reset };
+  return {
+    domain, status: effectiveStatus, valid, loading, saving, error, allowed,
+    setDomain, verify, reset, remove,
+  };
 }
 
-function fakeVerify(setStatus: (s: DomainStatus) => void): void {
+function computeStatus(
+  sanitized: string, allowed: readonly string[], local: DomainStatus,
+): DomainStatus {
+  return sanitized && allowed.includes(sanitized) ? 'verified' : local;
+}
+
+async function initialLoad(
+  cancelled: boolean,
+  setAllowed: (xs: string[]) => void,
+  setLoading: (b: boolean) => void,
+  setErr: (m: string | null) => void,
+): Promise<void> {
+  try {
+    const resp = await adminAPI.get<AllowedDomainsResp>('/allowed-domains');
+    cancelled || setAllowed(resp.domains);
+  } catch (e) {
+    cancelled || setErr(e instanceof Error ? e.message : 'load failed');
+  } finally {
+    cancelled || setLoading(false);
+  }
+}
+
+async function runVerify(
+  sanitized: string,
+  setStatus: (s: DomainStatus) => void,
+  setSaving: (b: boolean) => void,
+  setErr: (m: string | null) => void,
+  setAllowed: (fn: (cur: string[]) => string[]) => void,
+): Promise<void> {
+  if (!isValid(sanitized)) return;
   setStatus('pending');
-  setTimeout(() => setStatus('verified'), 1100);
+  setSaving(true);
+  setErr(null);
+  try {
+    await adminAPI.post('/allowed-domains', { domain: sanitized });
+    setAllowed((cur) => cur.includes(sanitized) ? cur : [...cur, sanitized]);
+    setStatus('verified');
+  } catch (e) {
+    setErr(e instanceof Error ? e.message : 'verify failed');
+    setStatus('unset');
+  } finally {
+    setSaving(false);
+  }
+}
+
+async function runRemove(
+  dom: string,
+  setSaving: (b: boolean) => void,
+  setErr: (m: string | null) => void,
+  setAllowed: (fn: (cur: string[]) => string[]) => void,
+): Promise<void> {
+  setSaving(true);
+  setErr(null);
+  try {
+    await adminAPI.delete(`/allowed-domains/${encodeURIComponent(dom)}`);
+    setAllowed((cur) => cur.filter((d) => d !== dom));
+  } catch (e) {
+    setErr(e instanceof Error ? e.message : 'remove failed');
+  } finally {
+    setSaving(false);
+  }
 }
 
 function sanitize(v: string): string {
@@ -61,12 +140,12 @@ export interface DomainBadge { cls: string; text: string }
 export function domainBadge(status: DomainStatus, hasDomain: boolean): DomainBadge {
   return !hasDomain ? { cls: 'text-(--color-faint)', text: '○ unset · using default' }
     : status === 'verified' ? { cls: 'text-(--color-accent)', text: '● verified · live' }
-    : status === 'pending'  ? { cls: 'text-(--color-muted)',  text: '◐ checking dns…' }
-    : { cls: 'text-(--color-faint)', text: '○ not verified' };
+    : status === 'pending'  ? { cls: 'text-(--color-muted)',  text: '◐ adding to allow-list…' }
+    : { cls: 'text-(--color-faint)', text: '○ not in allow-list' };
 }
 
 export function domainHint(valid: boolean, sanitized: string): string {
-  return valid ? 'looks like a valid host · verify dns to go live'
+  return valid ? 'looks like a valid host · click verify to add to allow-list'
     : sanitized ? 'not a valid host yet'
     : 'e.g. sijiewang.com, talk.sijiewang.com';
 }

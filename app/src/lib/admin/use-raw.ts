@@ -1,10 +1,9 @@
-// use-raw —— /admin/raw 状态机：list raw entries（MCP push 写入的）。
-// backend 暂未暴露 POST /api/admin/raw —— RawDumpBox 的 onAdd 是 no-op；
-// 这里只负责 fetch + filter（all / unprocessed / promoted / archived / private）。
+// use-raw —— /admin/raw 状态机：list raw entries + 直接 dump 一条。
+// POST /api/admin/raw 已经接通；RawDumpBox 的 onAdd 直接走 hook。
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, type RawAdminView } from '@/lib/api/admin';
+import { adminAPI, type CreateRawInput, type RawAdminView } from '@/lib/api/admin';
 
 export type RawFilter = 'all' | 'unprocessed' | 'promoted' | 'archived' | 'flagged-private';
 
@@ -23,11 +22,16 @@ export interface RawHook {
   setFilter: (f: RawFilter) => void;
   counts: Record<RawFilter, number>;
   filteredRows: readonly RawAdminView[];
+  submitting: boolean;
+  submitError: string | null;
+  addRaw: (input: CreateRawInput) => Promise<boolean>;
 }
 
 export function useRaw(): RawHook {
   const [state, setState] = useState<RawState>({ kind: 'loading' });
   const [filter, setFilter] = useState<RawFilter>('all');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +42,14 @@ export function useRaw(): RawHook {
   const counts = useMemoCounts(state);
   const filteredRows = useFilteredRows(state, filter);
   const setF = useCallback((f: RawFilter) => setFilter(f), []);
-  return { state, filter, setFilter: setF, counts, filteredRows };
+  const addRaw = useCallback(
+    (input: CreateRawInput) => doAddRaw(input, setState, setSubmitting, setSubmitError),
+    [],
+  );
+  return {
+    state, filter, setFilter: setF, counts, filteredRows,
+    submitting, submitError, addRaw,
+  };
 }
 
 // useMemoCounts —— ESLint forbids useMemo in components only; this is a hook
@@ -85,4 +96,30 @@ async function fetchRaw(): Promise<RawState> {
   } catch (e) {
     return { kind: 'error', message: e instanceof Error ? e.message : 'load failed' };
   }
+}
+
+async function doAddRaw(
+  input: CreateRawInput,
+  setState: (s: RawState | ((prev: RawState) => RawState)) => void,
+  setSubmitting: (b: boolean) => void,
+  setErr: (m: string | null) => void,
+): Promise<boolean> {
+  setSubmitting(true);
+  setErr(null);
+  try {
+    const created = await adminAPI.post<RawAdminView>('/raw', input);
+    setState((prev) => prependRow(prev, created));
+    return true;
+  } catch (e) {
+    setErr(e instanceof Error ? e.message : 'dump failed');
+    return false;
+  } finally {
+    setSubmitting(false);
+  }
+}
+
+function prependRow(prev: RawState, created: RawAdminView): RawState {
+  return prev.kind === 'ready'
+    ? { kind: 'ready', rows: [created, ...prev.rows] }
+    : { kind: 'ready', rows: [created] };
 }

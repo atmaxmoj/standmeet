@@ -66,6 +66,36 @@ func (r *InstanceRepo) AddAllowedDomain(ctx context.Context, dom string) error {
 	return r.writeAllowedDomains(ctx, append(list, dom))
 }
 
+// RemoveAllowedDomain —— 从白名单删 domain；不存在也不报错（idempotent）。
+func (r *InstanceRepo) RemoveAllowedDomain(ctx context.Context, dom string) error {
+	list, err := r.loadAllowedDomains(ctx)
+	if err != nil {
+		return err
+	}
+	filtered := make([]string, 0, len(list))
+	for _, d := range list {
+		if d != dom {
+			filtered = append(filtered, d)
+		}
+	}
+	if len(filtered) == len(list) {
+		return nil
+	}
+	return r.writeAllowedDomains(ctx, filtered)
+}
+
+// ListAllowedDomains —— 返当前白名单（empty slice on empty jsonb）。
+func (r *InstanceRepo) ListAllowedDomains(ctx context.Context) ([]string, error) {
+	list, err := r.loadAllowedDomains(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if list == nil {
+		return []string{}, nil
+	}
+	return list, nil
+}
+
 // SetSetupTokenHash 把启动时生成的 setup token 的 sha256(hash) 存到
 // instance_settings.setup_token_hash。已 claimed 的 instance 不应再调
 // 这个（调了也只是 update，没语义意义）。
@@ -171,10 +201,8 @@ func (r *InstanceRepo) writeAllowedDomains(ctx context.Context, list []string) e
 	if merr != nil {
 		return fmt.Errorf("marshal allowed domains: %w", merr)
 	}
-	if _, eerr := r.pool.Exec(ctx,
-		`UPDATE instance_settings SET allowed_domains = $1::jsonb WHERE id = 1`,
-		string(encoded),
-	); eerr != nil {
+	q := dbq.New(r.pool)
+	if eerr := q.SetAllowedDomains(ctx, encoded); eerr != nil {
 		return fmt.Errorf("update allowed domains: %w", eerr)
 	}
 	return nil

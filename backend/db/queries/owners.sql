@@ -18,3 +18,11 @@ SELECT COUNT(*) FROM owners;
 -- name: GetFirstOwnerHandle :one
 -- v1 单 owner instance：返回最早创建那位的 handle；app 根路径用来跳转。
 SELECT handle FROM owners ORDER BY created_at ASC LIMIT 1;
+
+-- name: UpdateOwnerBYOAI :one
+UPDATE owners
+SET byoai_enabled = $2,
+    byoai_providers = $3,
+    byoai_public_blurb = $4
+WHERE id = $1
+RETURNING *;

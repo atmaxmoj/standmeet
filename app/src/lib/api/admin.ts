@@ -57,4 +57,43 @@ export interface RawAdminView {
   archived: boolean;
 }
 
+export interface CreateRawInput {
+  body: string;
+  tags?: string[];
+  source?: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  tier: string;
+  visitor_name: string;
+  started_at: string;
+  last_at: string;
+  message_count: number;
+  hit_private: boolean;
+  code_id?: string;
+  code_label?: string;
+  code_value?: string;
+}
+
+export interface MeView {
+  owner_id: string;
+  email: string;
+  handle: string;
+  full_name: string;
+  byoai_enabled: boolean;
+  byoai_providers: string[];
+  byoai_public_blurb: string;
+}
+
+export interface BYOAIUpdateInput {
+  enabled: boolean;
+  providers: string[];
+  blurb: string;
+}
+
+export interface AllowedDomainsResp {
+  domains: string[];
+}
+
 export type { PageContent, PageInsight, PageProject, PageWhere, PageContact } from './public';
