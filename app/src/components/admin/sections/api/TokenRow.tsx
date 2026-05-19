@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-import { Chip } from '../../atoms/Chip';
+import { Chip } from '@/components/admin/atoms/Chip';
 import { maskSecret, type TokenItem } from '@/lib/admin/use-tokens';
 
 type Props = {

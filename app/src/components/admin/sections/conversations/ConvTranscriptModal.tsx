@@ -3,7 +3,7 @@
 
 'use client';
 
-import { ModalShell } from '../../modals/ModalShell';
+import { ModalShell } from '@/components/admin/modals/ModalShell';
 import {
   pickTranscriptState,
   type ConvTranscript,

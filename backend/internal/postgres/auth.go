@@ -41,17 +41,47 @@ func (r *OwnerRepo) GetCredentialsByEmail(ctx context.Context, email string) (Cr
 	}, nil
 }
 
-// GetByHandle 用 handle（URL 段）反查 owner profile；不存在返 ErrOwnerNotFound。
+// GetByHandle 用 handle（URL 段）反查 owner profile。先查 owners.handle；
+// 未命中再走 handle_aliases —— owner 改 handle 后旧 handle 也能 resolve。
+// 不存在返 ErrOwnerNotFound。
 func (r *OwnerRepo) GetByHandle(ctx context.Context, handle string) (domain.Owner, error) {
 	q := dbq.New(r.pool)
 	row, err := q.GetOwnerByHandle(ctx, handle)
+	if err == nil {
+		return toDomainOwner(&row), nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return domain.Owner{}, fmt.Errorf("get owner by handle: %w", err)
+	}
+	return r.getByAlias(ctx, handle)
+}
+
+func (r *OwnerRepo) getByAlias(ctx context.Context, handle string) (domain.Owner, error) {
+	q := dbq.New(r.pool)
+	row, err := q.GetOwnerByHandleAlias(ctx, handle)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Owner{}, domain.ErrOwnerNotFound
 		}
-		return domain.Owner{}, fmt.Errorf("get owner by handle: %w", err)
+		return domain.Owner{}, fmt.Errorf("get owner by alias: %w", err)
 	}
-	return toDomainOwner(&row), nil
+	return aliasRowToDomainOwner(&row), nil
+}
+
+// aliasRowToDomainOwner —— alias JOIN 用的 owner 子集（无 password_hash /
+// custom_domain），映射到 domain.Owner。剩余字段保持 zero value 即可。
+func aliasRowToDomainOwner(o *dbq.SelectOwnerForAlias) domain.Owner {
+	return domain.Owner{
+		ID:               formatUUID(o.ID),
+		Email:            o.Email,
+		Handle:           o.Handle,
+		FullName:         o.FullName,
+		Location:         o.Location,
+		CreatedAt:        o.CreatedAt.Time,
+		BYOAIEnabled:     o.ByoaiEnabled,
+		BYOAIProviders:   decodeProviders(o.ByoaiProviders),
+		BYOAIPublicBlurb: o.ByoaiPublicBlurb,
+	}
 }
 
 // GetByID 拿 owner 公开 profile，给 /api/admin/me 用。

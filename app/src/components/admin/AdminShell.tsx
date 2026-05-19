@@ -5,8 +5,8 @@
 
 import type { ReactNode } from 'react';
 
-import { AdminSidebar, type AdminSlug } from './AdminSidebar';
-import { TopBar } from './chrome/TopBar';
+import { AdminSidebar, type AdminSlug } from '@/components/admin/AdminSidebar';
+import { TopBar } from '@/components/admin/chrome/TopBar';
 
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 

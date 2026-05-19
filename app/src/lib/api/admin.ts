@@ -107,4 +107,4 @@ export interface AllowedDomainsResp {
   domains: string[];
 }
 
-export type { PageContent, PageInsight, PageProject, PageWhere, PageContact } from './public';
+export type { PageContent, PageInsight, PageProject, PageWhere, PageContact } from '@/lib/api/public';

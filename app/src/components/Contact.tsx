@@ -5,7 +5,7 @@
 
 import type { PageContact } from '@/lib/api/public';
 
-import { DeckHeader } from './page/DeckHeader';
+import { DeckHeader } from '@/components/page/DeckHeader';
 
 type Props = {
   contact: PageContact;

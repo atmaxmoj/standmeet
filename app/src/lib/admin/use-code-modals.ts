@@ -3,7 +3,7 @@
 
 import { useCallback, useState } from 'react';
 
-import type { CodeView } from './use-codes';
+import type { CodeView } from '@/lib/admin/use-codes';
 
 export interface CodeModalsState {
   creating: boolean;

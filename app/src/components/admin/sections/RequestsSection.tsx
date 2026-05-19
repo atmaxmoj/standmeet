@@ -3,9 +3,9 @@
 
 'use client';
 
-import { SectionHeader } from '../SectionHeader';
-import { Btn } from '../atoms/Btn';
-import { Chip } from '../atoms/Chip';
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { Btn } from '@/components/admin/atoms/Btn';
+import { Chip } from '@/components/admin/atoms/Chip';
 import type { AccessRequestView } from '@/lib/api/admin';
 import {
   pickBodyState,

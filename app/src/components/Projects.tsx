@@ -3,7 +3,7 @@
 
 import type { PageProject } from '@/lib/api/public';
 
-import { DeckHeader } from './page/DeckHeader';
+import { DeckHeader } from '@/components/page/DeckHeader';
 
 export function Projects({ projects }: { projects: readonly PageProject[] }) {
   return (

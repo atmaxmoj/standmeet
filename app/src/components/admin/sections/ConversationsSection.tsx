@@ -3,9 +3,9 @@
 
 'use client';
 
-import { SectionHeader } from '../SectionHeader';
-import { ConvRow } from './conversations/ConvRow';
-import { ConvTranscriptModal } from './conversations/ConvTranscriptModal';
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { ConvRow } from '@/components/admin/sections/conversations/ConvRow';
+import { ConvTranscriptModal } from '@/components/admin/sections/conversations/ConvTranscriptModal';
 import { useConversations, type ConversationsHook } from '@/lib/admin/use-conversations';
 
 export function ConversationsSection() {

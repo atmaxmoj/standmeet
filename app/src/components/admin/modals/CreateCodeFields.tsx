@@ -1,6 +1,6 @@
 // CreateCodeFields —— CodeCreateModal 的字段块。拆出来才不踩 70-line 上限。
 
-import { Chip } from '../atoms/Chip';
+import { Chip } from '@/components/admin/atoms/Chip';
 
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
@@ -12,6 +12,7 @@ export function CreateCodeFields({ form }: Props) {
   return (
     <div className="space-y-7">
       <CoreFields form={form} />
+      <QuotasField form={form} />
       <TagsField form={form} />
       <ScopeField form={form} />
       <QuestionsField form={form} />
@@ -71,6 +72,53 @@ function CodeInput({ form }: Props) {
         onChange={(e) => form.setCode(e.target.value)}
         placeholder="OPENAI-001"
         className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[15px] uppercase"
+      />
+    </label>
+  );
+}
+
+function QuotasField({ form }: Props) {
+  return (
+    <div className="grid grid-cols-2 gap-5">
+      <QuotaInput
+        label="sessions per visitor · blank = unlimited"
+        testid="code-max-sessions"
+        placeholder="e.g. 5 (interview rounds)"
+        value={form.values.maxSessions}
+        onChange={form.setMaxSessions}
+      />
+      <QuotaInput
+        label="turns per session · blank = unlimited"
+        testid="code-max-turns"
+        placeholder="e.g. 10"
+        value={form.values.maxTurns}
+        onChange={form.setMaxTurns}
+      />
+    </div>
+  );
+}
+
+function QuotaInput({
+  label, testid, placeholder, value, onChange,
+}: {
+  label: string;
+  testid: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="block">
+      <FieldKicker text={label} />
+      <input
+        type="number"
+        min={1}
+        inputMode="numeric"
+        data-testid={testid}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[15px]"
       />
     </label>
   );

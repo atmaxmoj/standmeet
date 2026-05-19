@@ -3,7 +3,7 @@
 
 import { useCallback, useState } from 'react';
 
-import type { CodeView, CreateCodeInput } from './use-codes';
+import type { CodeView, CreateCodeInput } from '@/lib/admin/use-codes';
 
 export interface CodeFormState {
   code: string;
@@ -12,11 +12,14 @@ export interface CodeFormState {
   scope: string[];
   excluded: string[];
   suggested: string[];
+  maxSessions: string; // raw input — '5'，空字符串等于 unlimited
+  maxTurns: string;
 }
 
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
   scope: [], excluded: [], suggested: ['', ''],
+  maxSessions: '', maxTurns: '',
 };
 
 export interface CodeFormHook {
@@ -24,6 +27,8 @@ export interface CodeFormHook {
   setCode: (v: string) => void;
   setLabel: (v: string) => void;
   setPurpose: (v: string) => void;
+  setMaxSessions: (v: string) => void;
+  setMaxTurns: (v: string) => void;
   toggleInclude: (t: string) => void;
   toggleExclude: (t: string) => void;
   updateQ: (i: number, v: string) => void;
@@ -39,6 +44,12 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const setCode    = useCallback((code: string) => setValues((v) => ({ ...v, code })), []);
   const setLabel   = useCallback((label: string) => setValues((v) => ({ ...v, label })), []);
   const setPurpose = useCallback((purpose: string) => setValues((v) => ({ ...v, purpose })), []);
+  const setMaxSessions = useCallback(
+    (maxSessions: string) => setValues((v) => ({ ...v, maxSessions })), [],
+  );
+  const setMaxTurns = useCallback(
+    (maxTurns: string) => setValues((v) => ({ ...v, maxTurns })), [],
+  );
 
   const toggleInclude = useCallback((t: string) => {
     setValues((v) => moveToScope(v, t));
@@ -60,7 +71,10 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const reset = useCallback(() => setValues(EMPTY), []);
   const toInput = useCallback(() => buildInput(values), [values]);
 
-  return { values, setCode, setLabel, setPurpose, toggleInclude, toggleExclude, updateQ, addQ, removeQ, reset, toInput };
+  return {
+    values, setCode, setLabel, setPurpose, setMaxSessions, setMaxTurns,
+    toggleInclude, toggleExclude, updateQ, addQ, removeQ, reset, toInput,
+  };
 }
 
 function seed(initial?: Partial<CodeView>): CodeFormState {
@@ -73,7 +87,13 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     suggested: initial?.suggested_questions?.length
       ? [...initial.suggested_questions]
       : ['', ''],
+    maxSessions: numOrEmpty(initial?.max_sessions_per_member),
+    maxTurns:    numOrEmpty(initial?.max_turns_per_session),
   };
+}
+
+function numOrEmpty(n: number | null | undefined): string {
+  return typeof n === 'number' && n > 0 ? String(n) : '';
 }
 
 function moveToScope(v: CodeFormState, t: string): CodeFormState {
@@ -102,5 +122,12 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     included_tags: v.scope.filter(Boolean),
     excluded_tags: v.excluded.filter(Boolean),
     suggested_questions: v.suggested.map((q) => q.trim()).filter(Boolean),
+    max_sessions_per_member: parseQuota(v.maxSessions),
+    max_turns_per_session: parseQuota(v.maxTurns),
   };
+}
+
+function parseQuota(raw: string): number | null {
+  const n = parseInt(raw.trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }

@@ -127,6 +127,15 @@ export default tseslint.config(
         'error',
         { checksVoidReturn: { attributes: false } },
       ],
+
+      // 禁所有 relative import，强制走 @/ alias（tsconfig.paths 配过）。
+      // 让搬文件不需要追 ../../ 链；grep 跳到任意符号一致从 @/ 起。
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['../*', './*'],
+          message: 'Use the @/ alias instead of relative imports.',
+        }],
+      }],
     },
   },
 

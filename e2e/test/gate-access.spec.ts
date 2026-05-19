@@ -40,6 +40,7 @@ test.describe.serial('visitor uses a gate code to enter a private page', () => {
       await goto(page, `/${OWNER.handle}/gate`);
       await expect(page.getByTestId('code-panel')).toBeVisible();
       await page.getByTestId('gate-code').fill(CODE);
+      await page.getByTestId('gate-visitor-name').fill('Sarah (HR)');
       await page.getByTestId('gate-code-submit').click();
       await page.waitForURL(`**/${OWNER.handle}`, { timeout: 10_000 });
       // owner full name 在 identity strip span 里，不是 heading。

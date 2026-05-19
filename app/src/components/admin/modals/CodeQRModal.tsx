@@ -2,9 +2,9 @@
 
 'use client';
 
-import { Btn } from '../atoms/Btn';
-import { QRCode } from '../atoms/QRCode';
-import { ModalShell } from './ModalShell';
+import { Btn } from '@/components/admin/atoms/Btn';
+import { QRCode } from '@/components/admin/atoms/QRCode';
+import { ModalShell } from '@/components/admin/modals/ModalShell';
 import { buildShareLink } from '@/lib/admin/code-share';
 
 import type { CodeView } from '@/lib/admin/use-codes';

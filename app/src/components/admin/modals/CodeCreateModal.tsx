@@ -7,9 +7,9 @@
 
 import { useCallback } from 'react';
 
-import { Btn } from '../atoms/Btn';
-import { ModalShell } from './ModalShell';
-import { CreateCodeFields } from './CreateCodeFields';
+import { Btn } from '@/components/admin/atoms/Btn';
+import { ModalShell } from '@/components/admin/modals/ModalShell';
+import { CreateCodeFields } from '@/components/admin/modals/CreateCodeFields';
 import { useCodeForm } from '@/lib/admin/use-code-form';
 
 import type { CreateCodeInput } from '@/lib/admin/use-codes';

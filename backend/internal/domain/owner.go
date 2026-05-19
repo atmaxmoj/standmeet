@@ -146,19 +146,46 @@ var ErrCodeExpired = errors.New("access code expired")
 // ErrConversationNotFound —— conversation 不存在。
 var ErrConversationNotFound = errors.New("conversation not found")
 
+// ErrMemberRevoked —— 访客名字命中一个已 revoked 的 code_member。
+var ErrMemberRevoked = errors.New("access code member revoked")
+
+// ErrSessionQuotaReached —— 这个 member 已用满 max_sessions_per_member。
+var ErrSessionQuotaReached = errors.New("session quota reached for member")
+
+// ErrTurnQuotaReached —— 这个 session 已用满 max_turns_per_session。
+var ErrTurnQuotaReached = errors.New("turn quota reached for session")
+
+// CodeMember —— 一个 access code 下的一个具名访客。同一个 code 同一个
+// display_name 是唯一 row。`revoked = true` 后所有路径都拒绝该 member。
+type CodeMember struct {
+	LastSeenAt  time.Time
+	ID          string
+	CodeID      string
+	DisplayName string
+	Email       string
+	Revoked     bool
+	IsAnonymous bool
+}
+
 // AccessCode —— 访客访问码。
+//
+//   - MaxSessionsPerMember nil → 不限；几个 session 数（"5 轮面试" 就 5）。
+//   - MaxTurnsPerSession   nil → 不限；单 session 内 visitor turn 上限。
+//   - Status 'active' / 'revoked'（过期由 ExpiresAt 计算，不写状态字段）。
 type AccessCode struct {
-	CreatedAt          time.Time
-	ExpiresAt          *time.Time
-	ID                 string
-	OwnerID            string
-	Code               string
-	Label              string
-	Purpose            string
-	Status             string
-	IncludedTags       []string
-	ExcludedTags       []string
-	SuggestedQuestions []string
+	CreatedAt            time.Time
+	ExpiresAt            *time.Time
+	MaxSessionsPerMember *int32
+	MaxTurnsPerSession   *int32
+	ID                   string
+	OwnerID              string
+	Code                 string
+	Label                string
+	Purpose              string
+	Status               string
+	IncludedTags         []string
+	ExcludedTags         []string
+	SuggestedQuestions   []string
 }
 
 // VisitorSessionScope —— 访客 session 可见 corpus 范围。

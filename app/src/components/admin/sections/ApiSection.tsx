@@ -6,12 +6,12 @@
 
 'use client';
 
-import { SectionHeader } from '../SectionHeader';
-import { NewlyCreatedBanner } from './api/NewlyCreatedBanner';
-import { NewTokenInline } from './api/NewTokenInline';
-import { TokenRow } from './api/TokenRow';
-import { MCPClientPanel } from './api/MCPClientPanel';
-import { MCPDownloadPanel } from './api/MCPDownloadPanel';
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { NewlyCreatedBanner } from '@/components/admin/sections/api/NewlyCreatedBanner';
+import { NewTokenInline } from '@/components/admin/sections/api/NewTokenInline';
+import { TokenRow } from '@/components/admin/sections/api/TokenRow';
+import { MCPClientPanel } from '@/components/admin/sections/api/MCPClientPanel';
+import { MCPDownloadPanel } from '@/components/admin/sections/api/MCPDownloadPanel';
 import { useTokens, type TokenItem, type TokensHook } from '@/lib/admin/use-tokens';
 
 export function ApiSection() {

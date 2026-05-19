@@ -4,10 +4,10 @@
 
 'use client';
 
-import { SectionHeader } from '../SectionHeader';
-import { RawDumpBox } from './raw/RawDumpBox';
-import { RawFilterBar } from './raw/RawFilterBar';
-import { RawRowList } from './raw/RawRowList';
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { RawDumpBox } from '@/components/admin/sections/raw/RawDumpBox';
+import { RawFilterBar } from '@/components/admin/sections/raw/RawFilterBar';
+import { RawRowList } from '@/components/admin/sections/raw/RawRowList';
 import { useRaw, type RawHook } from '@/lib/admin/use-raw';
 
 export function RawSection() {

@@ -98,17 +98,20 @@ CREATE TABLE media_assets (
 
 -- Access codes + visitor chat
 CREATE TABLE access_codes (
-    id                  uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id            uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    code                citext        UNIQUE NOT NULL,
-    label               text          NOT NULL,
-    purpose             text          NOT NULL DEFAULT '',
-    included_tags       text[]        NOT NULL DEFAULT '{}',
-    excluded_tags       text[]        NOT NULL DEFAULT '{}',
-    suggested_questions jsonb         NOT NULL DEFAULT '[]'::jsonb,
-    expires_at          timestamptz,
-    status              text          NOT NULL DEFAULT 'active',
-    created_at          timestamptz   NOT NULL DEFAULT now()
+    id                        uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id                  uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    code                      citext        UNIQUE NOT NULL,
+    label                     text          NOT NULL,
+    purpose                   text          NOT NULL DEFAULT '',
+    included_tags             text[]        NOT NULL DEFAULT '{}',
+    excluded_tags             text[]        NOT NULL DEFAULT '{}',
+    suggested_questions       jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    expires_at                timestamptz,
+    status                    text          NOT NULL DEFAULT 'active'
+                                            CHECK (status IN ('active', 'revoked')),
+    max_sessions_per_member   integer,
+    max_turns_per_session     integer,
+    created_at                timestamptz   NOT NULL DEFAULT now()
 );
 
 CREATE TABLE code_members (
@@ -117,8 +120,19 @@ CREATE TABLE code_members (
     display_name  text          NOT NULL,
     email         citext,
     is_anonymous  boolean       NOT NULL DEFAULT false,
+    revoked       boolean       NOT NULL DEFAULT false,
     last_seen_at  timestamptz
 );
+CREATE UNIQUE INDEX code_members_code_name_uniq ON code_members(code_id, display_name);
+
+-- handle_aliases —— owner 改 handle 后旧 handle 入这里，旧 URL 仍能 resolve
+-- 到同一个 owner。GetByHandle 走 owners.handle 优先，未命中走 alias。
+CREATE TABLE handle_aliases (
+    handle      citext        PRIMARY KEY,
+    owner_id    uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    created_at  timestamptz   NOT NULL DEFAULT now()
+);
+CREATE INDEX handle_aliases_owner_idx ON handle_aliases(owner_id);
 
 CREATE TABLE conversations (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),

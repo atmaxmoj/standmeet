@@ -4,8 +4,8 @@
 
 'use client';
 
-import { SectionHeader } from '../SectionHeader';
-import { Pill } from '../atoms/Pill';
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { Pill } from '@/components/admin/atoms/Pill';
 import {
   pickWikiBodyState,
   useWiki,

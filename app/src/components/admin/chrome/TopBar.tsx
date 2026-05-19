@@ -5,8 +5,8 @@
 
 import { useCallback } from 'react';
 
-import { ActivityTicker } from './ActivityTicker';
-import { Pill } from '../atoms/Pill';
+import { ActivityTicker } from '@/components/admin/chrome/ActivityTicker';
+import { Pill } from '@/components/admin/atoms/Pill';
 import { ACTIVITY_PLACEHOLDER } from '@/lib/admin/chrome-data';
 import { signOut } from '@/lib/admin/sign-out';
 

@@ -14,7 +14,7 @@
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 
-import { DeckHeader } from './DeckHeader';
+import { DeckHeader } from '@/components/page/DeckHeader';
 import type { Citation, Turn, TurnAnswer } from '@/lib/page/use-conversation';
 
 type Props = {

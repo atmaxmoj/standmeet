@@ -5,7 +5,7 @@
 
 import { useCallback, useState } from 'react';
 
-import { Btn } from '../../atoms/Btn';
+import { Btn } from '@/components/admin/atoms/Btn';
 import type { CreateRawInput } from '@/lib/api/admin';
 
 type Props = {

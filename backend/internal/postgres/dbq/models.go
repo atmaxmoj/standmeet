@@ -20,17 +20,19 @@ type AccessRequest struct {
 }
 
 type AccessCode struct {
-	ID                 pgtype.UUID
-	OwnerID            pgtype.UUID
-	Code               string
-	Label              string
-	Purpose            string
-	IncludedTags       []string
-	ExcludedTags       []string
-	SuggestedQuestions []byte
-	ExpiresAt          pgtype.Timestamptz
-	Status             string
-	CreatedAt          pgtype.Timestamptz
+	ID                   pgtype.UUID
+	OwnerID              pgtype.UUID
+	Code                 string
+	Label                string
+	Purpose              string
+	IncludedTags         []string
+	ExcludedTags         []string
+	SuggestedQuestions   []byte
+	ExpiresAt            pgtype.Timestamptz
+	Status               string
+	MaxSessionsPerMember *int32
+	MaxTurnsPerSession   *int32
+	CreatedAt            pgtype.Timestamptz
 }
 
 type ApiToken struct {
@@ -49,7 +51,14 @@ type CodeMember struct {
 	DisplayName string
 	Email       *string
 	IsAnonymous bool
+	Revoked     bool
 	LastSeenAt  pgtype.Timestamptz
+}
+
+type HandleAlias struct {
+	Handle    string
+	OwnerID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
 }
 
 type Conversation struct {

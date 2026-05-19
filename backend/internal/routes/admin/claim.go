@@ -31,6 +31,7 @@ type Handlers struct {
 	BYOAI          BYOAIDeps
 	Domains        DomainsDeps
 	AccessRequests AccessRequestsDeps
+	HandleAdmin    HandleDeps
 	Log            *slog.Logger
 	SecureCookie   bool // false 仅限 dev (http)；prod 必须 true。
 }
@@ -56,6 +57,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountPage(r)
 	h.MountSEO(r)
 	h.MountAccessRequests(r)
+	h.MountHandle(r)
 }
 
 type claimRequest struct {

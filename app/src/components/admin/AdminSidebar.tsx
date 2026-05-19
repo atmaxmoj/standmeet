@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 
-import { SystemPulse } from './chrome/SystemPulse';
+import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'conversations' | 'codes' | 'requests'

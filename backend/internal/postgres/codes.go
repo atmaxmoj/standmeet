@@ -26,14 +26,16 @@ func NewCodeRepo(pool *Pool) *CodeRepo { return &CodeRepo{pool: pool} }
 
 // CreateCodeInput —— 创建 access code 入参。
 type CreateCodeInput struct {
-	ExpiresAt          *time.Time
-	OwnerID            string
-	Code               string
-	Label              string
-	Purpose            string
-	IncludedTags       []string
-	ExcludedTags       []string
-	SuggestedQuestions []string
+	ExpiresAt            *time.Time
+	MaxSessionsPerMember *int32
+	MaxTurnsPerSession   *int32
+	OwnerID              string
+	Code                 string
+	Label                string
+	Purpose              string
+	IncludedTags         []string
+	ExcludedTags         []string
+	SuggestedQuestions   []string
 }
 
 // Create 写一条 access_code。
@@ -48,17 +50,157 @@ func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.Acce
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateAccessCode(ctx, dbq.CreateAccessCodeParams{
-		OwnerID:            ownerUUID,
-		Code:               in.Code,
-		Label:              in.Label,
-		Purpose:            in.Purpose,
-		IncludedTags:       in.IncludedTags,
-		ExcludedTags:       in.ExcludedTags,
-		SuggestedQuestions: qs,
-		ExpiresAt:          ptrToTimestamptz(in.ExpiresAt),
+		OwnerID:              ownerUUID,
+		Code:                 in.Code,
+		Label:                in.Label,
+		Purpose:              in.Purpose,
+		IncludedTags:         in.IncludedTags,
+		ExcludedTags:         in.ExcludedTags,
+		SuggestedQuestions:   qs,
+		ExpiresAt:            ptrToTimestamptz(in.ExpiresAt),
+		MaxSessionsPerMember: in.MaxSessionsPerMember,
+		MaxTurnsPerSession:   in.MaxTurnsPerSession,
 	})
 	if err != nil {
 		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)
+	}
+	return toDomainCode(&row), nil
+}
+
+// Revoke 把 code.status 改成 'revoked'；GetAccessCode（只查 active）从此跳过它。
+func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	codeUUID, err := parseUUID(codeID)
+	if err != nil {
+		return fmt.Errorf("parse code id: %w", err)
+	}
+	q := dbq.New(r.pool)
+	if rerr := q.RevokeAccessCode(ctx, dbq.RevokeAccessCodeParams{
+		ID: codeUUID, OwnerID: ownerUUID,
+	}); rerr != nil {
+		return fmt.Errorf("revoke access code: %w", rerr)
+	}
+	return nil
+}
+
+// GetOrCreateMember —— 按 (code_id, display_name) upsert code_member。
+// IdentityPicker 用：访客在 gate 输入名字 → 这里拿/建一个 member row →
+// session 携带 member_id 让后续 quota check 命中正确的人。
+func (r *CodeRepo) GetOrCreateMember(
+	ctx context.Context, codeID, displayName string,
+) (domain.CodeMember, error) {
+	codeUUID, err := parseUUID(codeID)
+	if err != nil {
+		return domain.CodeMember{}, fmt.Errorf("parse code id: %w", err)
+	}
+	q := dbq.New(r.pool)
+	row, qerr := q.GetOrCreateCodeMember(ctx, dbq.GetOrCreateCodeMemberParams{
+		CodeID: codeUUID, DisplayName: displayName, IsAnonymous: displayName == "",
+	})
+	if qerr != nil {
+		return domain.CodeMember{}, fmt.Errorf("upsert code member: %w", qerr)
+	}
+	return toDomainMember(&row), nil
+}
+
+// ListMembers —— admin 看 code 下所有 member（含 revoked，UI 自己分组）。
+func (r *CodeRepo) ListMembers(ctx context.Context, codeID string) ([]domain.CodeMember, error) {
+	codeUUID, err := parseUUID(codeID)
+	if err != nil {
+		return nil, fmt.Errorf("parse code id: %w", err)
+	}
+	q := dbq.New(r.pool)
+	rows, qerr := q.ListCodeMembers(ctx, codeUUID)
+	if qerr != nil {
+		return nil, fmt.Errorf("list code members: %w", qerr)
+	}
+	out := make([]domain.CodeMember, 0, len(rows))
+	for i := range rows {
+		out = append(out, toDomainMember(&rows[i]))
+	}
+	return out, nil
+}
+
+// RevokeMember —— admin 关掉单个 member 而不动整 code。owner_id 在 SQL 里做
+// 边界检查，防止跨 owner 误改。
+func (r *CodeRepo) RevokeMember(ctx context.Context, ownerID, memberID string) error {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	memberUUID, err := parseUUID(memberID)
+	if err != nil {
+		return fmt.Errorf("parse member id: %w", err)
+	}
+	q := dbq.New(r.pool)
+	if rerr := q.RevokeCodeMember(ctx, dbq.RevokeCodeMemberParams{
+		ID: memberUUID, OwnerID: ownerUUID,
+	}); rerr != nil {
+		return fmt.Errorf("revoke code member: %w", rerr)
+	}
+	return nil
+}
+
+func toDomainMember(m *dbq.CodeMember) domain.CodeMember {
+	out := domain.CodeMember{
+		ID:          formatUUID(m.ID),
+		CodeID:      formatUUID(m.CodeID),
+		DisplayName: m.DisplayName,
+		IsAnonymous: m.IsAnonymous,
+		Revoked:     m.Revoked,
+	}
+	if m.Email != nil {
+		out.Email = *m.Email
+	}
+	if m.LastSeenAt.Valid {
+		out.LastSeenAt = m.LastSeenAt.Time
+	}
+	return out
+}
+
+// UpdateQuotas 改某 code 的配额；返回新行（让 admin UI 直接刷）。
+func (r *CodeRepo) UpdateQuotas(
+	ctx context.Context, ownerID, codeID string, maxSessions, maxTurns *int32,
+) (domain.AccessCode, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return domain.AccessCode{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	codeUUID, err := parseUUID(codeID)
+	if err != nil {
+		return domain.AccessCode{}, fmt.Errorf("parse code id: %w", err)
+	}
+	q := dbq.New(r.pool)
+	row, qerr := q.UpdateAccessCodeQuotas(ctx, dbq.UpdateAccessCodeQuotasParams{
+		ID: codeUUID, OwnerID: ownerUUID,
+		MaxSessionsPerMember: maxSessions, MaxTurnsPerSession: maxTurns,
+	})
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return domain.AccessCode{}, domain.ErrCodeInvalid
+		}
+		return domain.AccessCode{}, fmt.Errorf("update access code quotas: %w", qerr)
+	}
+	return toDomainCode(&row), nil
+}
+
+// GetByID 拿 code（按 UUID，含 revoked）；不命中返 ErrCodeInvalid。turn quota
+// check 用：旧 conversation 还要查到背后 code 的 max_turns。
+func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (domain.AccessCode, error) {
+	codeUUID, perr := parseUUID(codeID)
+	if perr != nil {
+		return domain.AccessCode{}, fmt.Errorf("parse code id: %w", perr)
+	}
+	q := dbq.New(r.pool)
+	row, err := q.GetAccessCodeByID(ctx, codeUUID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.AccessCode{}, domain.ErrCodeInvalid
+		}
+		return domain.AccessCode{}, fmt.Errorf("get access code by id: %w", err)
 	}
 	return toDomainCode(&row), nil
 }
@@ -96,15 +238,17 @@ func (r *CodeRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.Ac
 
 func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 	out := domain.AccessCode{
-		ID:           formatUUID(c.ID),
-		OwnerID:      formatUUID(c.OwnerID),
-		Code:         c.Code,
-		Label:        c.Label,
-		Purpose:      c.Purpose,
-		IncludedTags: c.IncludedTags,
-		ExcludedTags: c.ExcludedTags,
-		Status:       c.Status,
-		CreatedAt:    c.CreatedAt.Time,
+		ID:                   formatUUID(c.ID),
+		OwnerID:              formatUUID(c.OwnerID),
+		Code:                 c.Code,
+		Label:                c.Label,
+		Purpose:              c.Purpose,
+		IncludedTags:         c.IncludedTags,
+		ExcludedTags:         c.ExcludedTags,
+		Status:               c.Status,
+		CreatedAt:            c.CreatedAt.Time,
+		MaxSessionsPerMember: c.MaxSessionsPerMember,
+		MaxTurnsPerSession:   c.MaxTurnsPerSession,
 	}
 	if c.ExpiresAt.Valid {
 		t := c.ExpiresAt.Time
@@ -123,150 +267,4 @@ func ptrToTimestamptz(t *time.Time) pgtype.Timestamptz {
 		return pgtype.Timestamptz{Valid: false}
 	}
 	return pgtype.Timestamptz{Time: *t, Valid: true}
-}
-
-// ConversationRepo —— conversations + messages。
-type ConversationRepo struct {
-	pool *Pool
-}
-
-// NewConversationRepo 构造 ConversationRepo。
-func NewConversationRepo(pool *Pool) *ConversationRepo { return &ConversationRepo{pool: pool} }
-
-// CreateConvInput —— 创建 conversation 入参。
-type CreateConvInput struct {
-	CodeID        *string
-	MemberID      *string
-	BYOAIProvider *string
-	OwnerID       string
-	Tier          string
-	VisitorName   string
-}
-
-// CreateConversation 写一行 conversation。
-func (r *ConversationRepo) CreateConversation(
-	ctx context.Context, in *CreateConvInput,
-) (domain.Conversation, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
-	if err != nil {
-		return domain.Conversation{}, fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	codeUUID, err := parseOptionalUUID(in.CodeID)
-	if err != nil {
-		return domain.Conversation{}, fmt.Errorf("parse code id: %w", err)
-	}
-	memberUUID, err := parseOptionalUUID(in.MemberID)
-	if err != nil {
-		return domain.Conversation{}, fmt.Errorf("parse member id: %w", err)
-	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateConversation(ctx, dbq.CreateConversationParams{
-		OwnerID:       ownerUUID,
-		Tier:          in.Tier,
-		CodeID:        codeUUID,
-		MemberID:      memberUUID,
-		VisitorName:   in.VisitorName,
-		ByoaiProvider: in.BYOAIProvider,
-	})
-	if err != nil {
-		return domain.Conversation{}, fmt.Errorf("create conversation: %w", err)
-	}
-	return toDomainConv(&row), nil
-}
-
-// GetConversation —— 拿 conversation。
-func (r *ConversationRepo) GetConversation(
-	ctx context.Context, ownerID, convID string,
-) (domain.Conversation, error) {
-	ownerUUID, err := parseUUID(ownerID)
-	if err != nil {
-		return domain.Conversation{}, fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	convUUID, err := parseUUID(convID)
-	if err != nil {
-		return domain.Conversation{}, fmt.Errorf("parse conv id: %w", err)
-	}
-	q := dbq.New(r.pool)
-	row, err := q.GetConversation(ctx, dbq.GetConversationParams{ID: convUUID, OwnerID: ownerUUID})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Conversation{}, domain.ErrConversationNotFound
-		}
-		return domain.Conversation{}, fmt.Errorf("get conversation: %w", err)
-	}
-	return toDomainConv(&row), nil
-}
-
-// AppendMessageInput —— 写一条 message 入参。
-type AppendMessageInput struct {
-	ConversationID string
-	Role           string
-	Body           string
-	CitedWikiIDs   []string
-}
-
-// AppendMessage 写 message + bump conversation。
-func (r *ConversationRepo) AppendMessage(
-	ctx context.Context, in *AppendMessageInput,
-) (domain.Message, error) {
-	convUUID, err := parseUUID(in.ConversationID)
-	if err != nil {
-		return domain.Message{}, fmt.Errorf("parse conv id: %w", err)
-	}
-	citedUUIDs, err := parseUUIDArray(in.CitedWikiIDs)
-	if err != nil {
-		return domain.Message{}, fmt.Errorf("parse cited wiki ids: %w", err)
-	}
-	q := dbq.New(r.pool)
-	row, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
-		ConversationID: convUUID,
-		Role:           in.Role,
-		Body:           in.Body,
-		CitedWikiIds:   citedUUIDs,
-	})
-	if err != nil {
-		return domain.Message{}, fmt.Errorf("append message: %w", err)
-	}
-	if berr := q.BumpConversation(ctx, dbq.BumpConversationParams{
-		ID: convUUID, HitPrivate: false,
-	}); berr != nil {
-		return domain.Message{}, fmt.Errorf("bump conversation: %w", berr)
-	}
-	return toDomainMessage(&row), nil
-}
-
-func toDomainConv(c *dbq.Conversation) domain.Conversation {
-	out := domain.Conversation{
-		ID:           formatUUID(c.ID),
-		OwnerID:      formatUUID(c.OwnerID),
-		Tier:         c.Tier,
-		VisitorName:  c.VisitorName,
-		StartedAt:    c.StartedAt.Time,
-		LastAt:       c.LastAt.Time,
-		MessageCount: c.MessageCount,
-		HitPrivate:   c.HitPrivate,
-	}
-	if c.CodeID.Valid {
-		s := formatUUID(c.CodeID)
-		out.CodeID = &s
-	}
-	if c.MemberID.Valid {
-		s := formatUUID(c.MemberID)
-		out.MemberID = &s
-	}
-	if c.ByoaiProvider != nil {
-		out.BYOAIProvider = c.ByoaiProvider
-	}
-	return out
-}
-
-func toDomainMessage(m *dbq.Message) domain.Message {
-	return domain.Message{
-		ID:             formatUUID(m.ID),
-		ConversationID: formatUUID(m.ConversationID),
-		Role:           m.Role,
-		Body:           m.Body,
-		CitedWikiIDs:   formatUUIDList(m.CitedWikiIds),
-		CreatedAt:      m.CreatedAt.Time,
-	}
 }

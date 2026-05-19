@@ -6,7 +6,7 @@
 
 import { fetchPublicPage } from '@/lib/api/public';
 
-import { PageShell } from './page-shell';
+import { PageShell } from '@/app/[handle]/page-shell';
 
 type Params = { handle: string };
 

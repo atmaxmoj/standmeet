@@ -31,6 +31,15 @@ export async function issueSession(
   return await res.json() as VisitorSession;
 }
 
+// issueSessionStatus —— spec 想看错误（403 / 410 等）时用的"只问 status"版本。
+// 失败用例不该 throw —— caller 自己 assert status。
+export async function issueSessionStatus(
+  request: APIRequestContext, input: IssueSessionInput,
+): Promise<number> {
+  const res = await request.post(`${BACKEND}/api/v1/sessions`, { data: input });
+  return res.status();
+}
+
 export async function sendMessage(
   request: APIRequestContext, sess: VisitorSession, content: string,
 ): Promise<APIResponse> {

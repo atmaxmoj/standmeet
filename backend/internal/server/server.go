@@ -49,6 +49,7 @@ type AdminDeps struct {
 	BYOAI          usecases.BYOAIDeps
 	Domains        usecases.AllowedDomainsDeps
 	AccessRequests usecases.AccessRequestsDeps
+	HandleAdmin    usecases.HandleDeps
 	Codes          *postgres.CodeRepo
 	Pages          *postgres.PageRepo
 	Sessions       *session.OwnerSessionStore
@@ -106,6 +107,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		BYOAI:          adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
 		Domains:        adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
 		AccessRequests: adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
+		HandleAdmin:    adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
 		Log:            deps.Log,
 		SecureCookie:   deps.Admin.SecureCookie,
 	}

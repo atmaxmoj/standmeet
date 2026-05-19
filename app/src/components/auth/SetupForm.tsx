@@ -6,8 +6,8 @@
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
-import { Field } from './Field';
-import { TerminalBox } from './TerminalBox';
+import { Field } from '@/components/auth/Field';
+import { TerminalBox } from '@/components/auth/TerminalBox';
 
 import { useSetupForm, type SetupFormHook } from '@/lib/auth/use-setup-form';
 

@@ -147,7 +147,7 @@ export function domainBadge(status: DomainStatus, hasDomain: boolean): DomainBad
 export function domainHint(valid: boolean, sanitized: string): string {
   return valid ? 'looks like a valid host · click verify to add to allow-list'
     : sanitized ? 'not a valid host yet'
-    : 'e.g. sijiewang.com, talk.sijiewang.com';
+    : 'e.g. yourdomain.com, talk.yourdomain.com';
 }
 
 export function domainEffectiveHost(handle: string, domain: string, status: DomainStatus): string {

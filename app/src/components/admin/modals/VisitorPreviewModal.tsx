@@ -3,7 +3,7 @@
 
 'use client';
 
-import { ModalShell } from './ModalShell';
+import { ModalShell } from '@/components/admin/modals/ModalShell';
 
 import type { CodeView } from '@/lib/admin/use-codes';
 

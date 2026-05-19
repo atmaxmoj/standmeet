@@ -3,8 +3,8 @@
 
 'use client';
 
-import { SectionHeader } from '../SectionHeader';
-import { ConnectorTile } from './connectors/ConnectorTile';
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { ConnectorTile } from '@/components/admin/sections/connectors/ConnectorTile';
 import { useConnectors, type ConnectorsHook } from '@/lib/admin/use-connectors';
 
 export function ConnectorsSection() {

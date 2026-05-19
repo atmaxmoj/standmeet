@@ -1,10 +1,11 @@
 // CodeCard —— Codes section 列表卡。
 // 顶部：label + status pill；下面 scope chips + suggested questions + QR tile。
 
-import { Btn } from '../../atoms/Btn';
-import { Chip } from '../../atoms/Chip';
-import { MetaPair } from '../../atoms/MetaPair';
-import { QRCode } from '../../atoms/QRCode';
+import { Btn } from '@/components/admin/atoms/Btn';
+import { Chip } from '@/components/admin/atoms/Chip';
+import { MetaPair } from '@/components/admin/atoms/MetaPair';
+import { QRCode } from '@/components/admin/atoms/QRCode';
+import { MembersBlock } from '@/components/admin/sections/codes/MembersBlock';
 import { buildShareLink } from '@/lib/admin/code-share';
 
 import type { CodeView } from '@/lib/admin/use-codes';
@@ -14,14 +15,15 @@ type Props = {
   onEdit: (c: CodeView) => void;
   onPreview: (c: CodeView) => void;
   onShowQR: (c: CodeView) => void;
+  onRevoke: (c: CodeView) => void;
 };
 
-export function CodeCard({ code, onEdit, onPreview, onShowQR }: Props) {
+export function CodeCard({ code, onEdit, onPreview, onShowQR, onRevoke }: Props) {
   const link = buildShareLink(code.code);
   return (
-    <article className="crosshair border border-(--color-rule) bg-(--color-surface)/30 p-5 rounded-sm">
+    <article className="crosshair border border-(--color-rule) bg-(--color-surface)/30 p-5 rounded-sm" data-testid={`code-card-${code.code}`}>
       <span className="ch-tl" /><span className="ch-br" />
-      <CodeCardHeader code={code} onEdit={onEdit} onPreview={onPreview} />
+      <CodeCardHeader code={code} onEdit={onEdit} onPreview={onPreview} onRevoke={onRevoke} />
       <div className="flex gap-5 mt-5 flex-wrap lg:flex-nowrap">
         <CodeCardBody code={code} />
         <CodeCardQR code={code} link={link} onShowQR={onShowQR} />
@@ -31,18 +33,43 @@ export function CodeCard({ code, onEdit, onPreview, onShowQR }: Props) {
   );
 }
 
-function CodeCardHeader({
-  code, onEdit, onPreview,
-}: { code: CodeView; onEdit: (c: CodeView) => void; onPreview: (c: CodeView) => void }) {
+type HeaderProps = {
+  code: CodeView;
+  onEdit: (c: CodeView) => void;
+  onPreview: (c: CodeView) => void;
+  onRevoke: (c: CodeView) => void;
+};
+
+function CodeCardHeader({ code, onEdit, onPreview, onRevoke }: HeaderProps) {
   return (
     <div className="flex items-baseline justify-between mb-2 gap-3">
       <CodeCardTitle code={code} />
-      <div className="flex items-center gap-2 shrink-0">
-        <Btn size="sm" kind="ghost" onClick={() => onPreview(code)}>preview ↗</Btn>
-        <Btn size="sm" kind="outline" onClick={() => onEdit(code)}>edit</Btn>
-      </div>
+      <CodeCardActions code={code} onEdit={onEdit} onPreview={onPreview} onRevoke={onRevoke} />
     </div>
   );
+}
+
+function CodeCardActions({ code, onEdit, onPreview, onRevoke }: HeaderProps) {
+  return (
+    <div className="flex items-center gap-2 shrink-0">
+      <Btn size="sm" kind="ghost" onClick={() => onPreview(code)}>preview ↗</Btn>
+      <Btn size="sm" kind="outline" onClick={() => onEdit(code)}>edit</Btn>
+      <RevokeBtn code={code} onRevoke={onRevoke} />
+    </div>
+  );
+}
+
+function RevokeBtn({ code, onRevoke }: { code: CodeView; onRevoke: (c: CodeView) => void }) {
+  return code.status === 'active' ? (
+    <button
+      type="button"
+      data-testid={`code-revoke-${code.code}`}
+      onClick={() => onRevoke(code)}
+      className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent)"
+    >
+      revoke
+    </button>
+  ) : null;
 }
 
 function CodeCardTitle({ code }: { code: CodeView }) {
@@ -86,8 +113,24 @@ function CodeCardBody({ code }: { code: CodeView }) {
     <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-5">
       <ScopeBlock included={code.included_tags} excluded={code.excluded_tags} />
       <SuggestedBlock suggested={code.suggested_questions ?? []} />
+      <QuotaLine code={code} />
     </div>
   );
+}
+
+function QuotaLine({ code }: { code: CodeView }) {
+  const hasQuota = code.max_sessions_per_member || code.max_turns_per_session;
+  return hasQuota ? (
+    <div className="col-span-full mono text-[10.5px] tracking-[0.04em] text-(--color-muted)" data-testid={`code-quotas-${code.code}`}>
+      quota · {quotaSummary(code.max_sessions_per_member, 'sessions/visitor')}
+      <span className="mx-2 text-(--color-faint)">·</span>
+      {quotaSummary(code.max_turns_per_session, 'turns/session')}
+    </div>
+  ) : null;
+}
+
+function quotaSummary(n: number | null | undefined, label: string): string {
+  return n && n > 0 ? `${n} ${label}` : `unlimited ${label}`;
 }
 
 function ScopeBlock({
@@ -149,8 +192,17 @@ function CodeCardQR({
 
 function CodeCardFooter({ code, link }: { code: CodeView; link: string }) {
   return (
-    <div className="mt-5 pt-3 border-t border-(--color-rule)/60 mono text-[10px] tracking-[0.12em] text-(--color-faint) flex items-baseline justify-between gap-3 flex-wrap">
-      <span>status · {code.status}</span>
+    <div className="mt-5 pt-3 border-t border-(--color-rule)/60">
+      <FooterTop status={code.status} link={link} />
+      <MembersBlock codeID={code.id} code={code.code} />
+    </div>
+  );
+}
+
+function FooterTop({ status, link }: { status: string; link: string }) {
+  return (
+    <div className="mono text-[10px] tracking-[0.12em] text-(--color-faint) flex items-baseline justify-between gap-3 flex-wrap">
+      <span>status · {status}</span>
       <span className="truncate min-w-0">{link}</span>
     </div>
   );

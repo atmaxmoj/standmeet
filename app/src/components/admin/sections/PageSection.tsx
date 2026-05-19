@@ -4,17 +4,19 @@
 
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
-import { SectionHeader } from '../SectionHeader';
-import { Block } from './page/Block';
-import { EditField } from './page/EditField';
-import { StringListEditor } from './page/StringListEditor';
-import { ListEditor } from './page/ListEditor';
-import { SaveBar } from './page/SaveBar';
-import { BYOAIEditor } from './page/BYOAIEditor';
-import { DomainEditor } from './page/DomainEditor';
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { Block } from '@/components/admin/sections/page/Block';
+import { EditField } from '@/components/admin/sections/page/EditField';
+import { StringListEditor } from '@/components/admin/sections/page/StringListEditor';
+import { ListEditor } from '@/components/admin/sections/page/ListEditor';
+import { SaveBar } from '@/components/admin/sections/page/SaveBar';
+import { BYOAIEditor } from '@/components/admin/sections/page/BYOAIEditor';
+import { DomainEditor } from '@/components/admin/sections/page/DomainEditor';
+import { HandleEditor } from '@/components/admin/sections/page/HandleEditor';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
+import { pickHandle } from '@/lib/admin/use-handle';
 import { usePageEditor, type MutablePage, type PageEditorHook, type PageEditorState } from '@/lib/admin/use-page-editor';
 import { insightRender, projectRender } from '@/lib/admin/page-renderers';
 
@@ -110,9 +112,12 @@ function Blocks({
 
 function SiteBlock() {
   const session = useAdminSession();
-  const handle = session.kind === 'ready' ? session.session.handle : 'me';
+  const sessionHandle = session.kind === 'ready' ? session.session.handle : '';
+  const [override, setOverride] = useState<string | null>(null);
+  const handle = pickHandle(override, sessionHandle);
   return (
     <Block title="site" blurb="Where this lives on the web. Use a custom domain or the default standmeet.com path.">
+      <HandleEditor current={handle} onChanged={setOverride} />
       <DomainEditor handle={handle} />
     </Block>
   );

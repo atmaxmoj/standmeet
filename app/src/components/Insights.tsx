@@ -8,7 +8,7 @@ import { useCallback, useState } from 'react';
 
 import type { PageInsight } from '@/lib/api/public';
 
-import { DeckHeader } from './page/DeckHeader';
+import { DeckHeader } from '@/components/page/DeckHeader';
 
 export function Insights({ insights }: { insights: readonly PageInsight[] }) {
   const { expanded, toggle } = useExpanded();

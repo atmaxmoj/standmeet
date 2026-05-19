@@ -1,8 +1,8 @@
 // RawRowList —— Raw section 列表。空时显示 "no raw entries yet" 提示。
 // row 自带 promote / archive 占位按钮（backend 暂未暴露 mutation 端点）。
 
-import { Btn } from '../../atoms/Btn';
-import { Chip } from '../../atoms/Chip';
+import { Btn } from '@/components/admin/atoms/Btn';
+import { Chip } from '@/components/admin/atoms/Chip';
 
 import type { RawAdminView } from '@/lib/api/admin';
 

@@ -5,7 +5,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
-import { Field } from './Field';
+import { Field } from '@/components/auth/Field';
 
 import { useLoginForm } from '@/lib/auth/use-login-form';
 

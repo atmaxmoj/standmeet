@@ -49,7 +49,7 @@ type SubmitState = { busy: boolean; error: string | null };
 
 export interface GateHook {
   state: SubmitState;
-  submitCode: (handle: string, code: string) => Promise<boolean>;
+  submitCode: (handle: string, code: string, visitorName: string) => Promise<boolean>;
   submitBYOAI: (handle: string, provider: Provider, key: string) => Promise<boolean>;
   submitRequest: (input: AccessRequestInput) => Promise<boolean>;
 }
@@ -65,9 +65,13 @@ export interface AccessRequestInput {
 export function useGate(): GateHook {
   const [state, setState] = useState<SubmitState>({ busy: false, error: null });
 
-  const submitCode = useCallback(async (handle: string, code: string): Promise<boolean> => {
+  const submitCode = useCallback(async (
+    handle: string, code: string, visitorName: string,
+  ): Promise<boolean> => {
     return await runSubmit(setState, async () => {
-      const sess = await issueCodeSession({ handle, code: code.trim() });
+      const sess = await issueCodeSession({
+        handle, code: code.trim(), visitor_name: visitorName.trim(),
+      });
       persistSession(sess, false);
       return true;
     });

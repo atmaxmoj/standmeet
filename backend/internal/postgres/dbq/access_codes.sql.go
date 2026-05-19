@@ -12,20 +12,25 @@ import (
 )
 
 const createAccessCode = `-- name: CreateAccessCode :one
-INSERT INTO access_codes (owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at, status, created_at
+INSERT INTO access_codes (
+    owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions,
+    expires_at, max_sessions_per_member, max_turns_per_session
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at
 `
 
 type CreateAccessCodeParams struct {
-	OwnerID            pgtype.UUID
-	Code               string
-	Label              string
-	Purpose            string
-	IncludedTags       []string
-	ExcludedTags       []string
-	SuggestedQuestions []byte
-	ExpiresAt          pgtype.Timestamptz
+	OwnerID              pgtype.UUID
+	Code                 string
+	Label                string
+	Purpose              string
+	IncludedTags         []string
+	ExcludedTags         []string
+	SuggestedQuestions   []byte
+	ExpiresAt            pgtype.Timestamptz
+	MaxSessionsPerMember *int32
+	MaxTurnsPerSession   *int32
 }
 
 func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodeParams) (AccessCode, error) {
@@ -38,6 +43,8 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		arg.ExcludedTags,
 		arg.SuggestedQuestions,
 		arg.ExpiresAt,
+		arg.MaxSessionsPerMember,
+		arg.MaxTurnsPerSession,
 	)
 	var i AccessCode
 	err := row.Scan(
@@ -51,6 +58,47 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		&i.SuggestedQuestions,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.MaxSessionsPerMember,
+		&i.MaxTurnsPerSession,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateAccessCodeQuotas = `-- name: UpdateAccessCodeQuotas :one
+UPDATE access_codes
+SET max_sessions_per_member = $3, max_turns_per_session = $4
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at
+`
+
+type UpdateAccessCodeQuotasParams struct {
+	ID                   pgtype.UUID
+	OwnerID              pgtype.UUID
+	MaxSessionsPerMember *int32
+	MaxTurnsPerSession   *int32
+}
+
+func (q *Queries) UpdateAccessCodeQuotas(
+	ctx context.Context, arg UpdateAccessCodeQuotasParams,
+) (AccessCode, error) {
+	row := q.db.QueryRow(ctx, updateAccessCodeQuotas,
+		arg.ID, arg.OwnerID, arg.MaxSessionsPerMember, arg.MaxTurnsPerSession,
+	)
+	var i AccessCode
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Code,
+		&i.Label,
+		&i.Purpose,
+		&i.IncludedTags,
+		&i.ExcludedTags,
+		&i.SuggestedQuestions,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.MaxSessionsPerMember,
+		&i.MaxTurnsPerSession,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -59,7 +107,7 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 const createCodeMember = `-- name: CreateCodeMember :one
 INSERT INTO code_members (code_id, display_name, email, is_anonymous)
 VALUES ($1, $2, $3, $4)
-RETURNING id, code_id, display_name, email, is_anonymous, last_seen_at
+RETURNING id, code_id, display_name, email, is_anonymous, revoked, last_seen_at
 `
 
 type CreateCodeMemberParams struct {
@@ -83,13 +131,78 @@ func (q *Queries) CreateCodeMember(ctx context.Context, arg CreateCodeMemberPara
 		&i.DisplayName,
 		&i.Email,
 		&i.IsAnonymous,
+		&i.Revoked,
+		&i.LastSeenAt,
+	)
+	return i, err
+}
+
+const getOrCreateCodeMember = `-- name: GetOrCreateCodeMember :one
+INSERT INTO code_members (code_id, display_name, email, is_anonymous)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (code_id, display_name) DO UPDATE SET last_seen_at = now()
+RETURNING id, code_id, display_name, email, is_anonymous, revoked, last_seen_at
+`
+
+type GetOrCreateCodeMemberParams struct {
+	CodeID      pgtype.UUID
+	DisplayName string
+	Email       *string
+	IsAnonymous bool
+}
+
+func (q *Queries) GetOrCreateCodeMember(
+	ctx context.Context, arg GetOrCreateCodeMemberParams,
+) (CodeMember, error) {
+	row := q.db.QueryRow(ctx, getOrCreateCodeMember,
+		arg.CodeID,
+		arg.DisplayName,
+		arg.Email,
+		arg.IsAnonymous,
+	)
+	var i CodeMember
+	err := row.Scan(
+		&i.ID,
+		&i.CodeID,
+		&i.DisplayName,
+		&i.Email,
+		&i.IsAnonymous,
+		&i.Revoked,
+		&i.LastSeenAt,
+	)
+	return i, err
+}
+
+const getCodeMemberByName = `-- name: GetCodeMemberByName :one
+SELECT id, code_id, display_name, email, is_anonymous, revoked, last_seen_at
+FROM code_members
+WHERE code_id = $1 AND display_name = $2
+`
+
+type GetCodeMemberByNameParams struct {
+	CodeID      pgtype.UUID
+	DisplayName string
+}
+
+func (q *Queries) GetCodeMemberByName(
+	ctx context.Context, arg GetCodeMemberByNameParams,
+) (CodeMember, error) {
+	row := q.db.QueryRow(ctx, getCodeMemberByName, arg.CodeID, arg.DisplayName)
+	var i CodeMember
+	err := row.Scan(
+		&i.ID,
+		&i.CodeID,
+		&i.DisplayName,
+		&i.Email,
+		&i.IsAnonymous,
+		&i.Revoked,
 		&i.LastSeenAt,
 	)
 	return i, err
 }
 
 const getAccessCode = `-- name: GetAccessCode :one
-SELECT id, owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at, status, created_at FROM access_codes WHERE code = $1 AND status = 'active'
+SELECT id, owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at FROM access_codes WHERE code = $1 AND status = 'active'
 `
 
 func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, error) {
@@ -106,13 +219,40 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 		&i.SuggestedQuestions,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.MaxSessionsPerMember,
+		&i.MaxTurnsPerSession,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getAccessCodeByID = `-- name: GetAccessCodeByID :one
+SELECT id, owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at FROM access_codes WHERE id = $1
+`
+
+func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (AccessCode, error) {
+	row := q.db.QueryRow(ctx, getAccessCodeByID, id)
+	var i AccessCode
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Code,
+		&i.Label,
+		&i.Purpose,
+		&i.IncludedTags,
+		&i.ExcludedTags,
+		&i.SuggestedQuestions,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.MaxSessionsPerMember,
+		&i.MaxTurnsPerSession,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listAccessCodesByOwner = `-- name: ListAccessCodesByOwner :many
-SELECT id, owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at, status, created_at FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
+SELECT id, owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]AccessCode, error) {
@@ -135,6 +275,8 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 			&i.SuggestedQuestions,
 			&i.ExpiresAt,
 			&i.Status,
+			&i.MaxSessionsPerMember,
+			&i.MaxTurnsPerSession,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -148,7 +290,9 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 }
 
 const listCodeMembers = `-- name: ListCodeMembers :many
-SELECT id, code_id, display_name, email, is_anonymous, last_seen_at FROM code_members WHERE code_id = $1
+SELECT id, code_id, display_name, email, is_anonymous, revoked, last_seen_at
+FROM code_members WHERE code_id = $1
+ORDER BY last_seen_at DESC NULLS LAST
 `
 
 func (q *Queries) ListCodeMembers(ctx context.Context, codeID pgtype.UUID) ([]CodeMember, error) {
@@ -166,6 +310,7 @@ func (q *Queries) ListCodeMembers(ctx context.Context, codeID pgtype.UUID) ([]Co
 			&i.DisplayName,
 			&i.Email,
 			&i.IsAnonymous,
+			&i.Revoked,
 			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
@@ -192,6 +337,23 @@ func (q *Queries) RevokeAccessCode(ctx context.Context, arg RevokeAccessCodePara
 	return err
 }
 
+const revokeCodeMember = `-- name: RevokeCodeMember :exec
+UPDATE code_members AS m
+SET revoked = true
+FROM access_codes AS c
+WHERE m.id = $1 AND m.code_id = c.id AND c.owner_id = $2
+`
+
+type RevokeCodeMemberParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+func (q *Queries) RevokeCodeMember(ctx context.Context, arg RevokeCodeMemberParams) error {
+	_, err := q.db.Exec(ctx, revokeCodeMember, arg.ID, arg.OwnerID)
+	return err
+}
+
 const touchCodeMember = `-- name: TouchCodeMember :exec
 UPDATE code_members SET last_seen_at = now() WHERE id = $1
 `
@@ -199,4 +361,28 @@ UPDATE code_members SET last_seen_at = now() WHERE id = $1
 func (q *Queries) TouchCodeMember(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, touchCodeMember, id)
 	return err
+}
+
+const countSessionsForMember = `-- name: CountSessionsForMember :one
+SELECT COUNT(*)::int FROM conversations WHERE member_id = $1
+`
+
+func (q *Queries) CountSessionsForMember(ctx context.Context, memberID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countSessionsForMember, memberID)
+	var n int32
+	err := row.Scan(&n)
+	return n, err
+}
+
+const countVisitorTurnsInConversation = `-- name: CountVisitorTurnsInConversation :one
+SELECT COUNT(*)::int FROM messages WHERE conversation_id = $1 AND role = 'visitor'
+`
+
+func (q *Queries) CountVisitorTurnsInConversation(
+	ctx context.Context, conversationID pgtype.UUID,
+) (int32, error) {
+	row := q.db.QueryRow(ctx, countVisitorTurnsInConversation, conversationID)
+	var n int32
+	err := row.Scan(&n)
+	return n, err
 }

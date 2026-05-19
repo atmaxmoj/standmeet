@@ -11,6 +11,8 @@ export interface CreateCodeInput {
   included_tags?: string[];
   excluded_tags?: string[];
   suggested_questions?: string[];
+  max_sessions_per_member?: number | null;
+  max_turns_per_session?: number | null;
 }
 
 export interface CodeView {
@@ -34,6 +36,8 @@ export async function createCode(
       included_tags: input.included_tags ?? [],
       excluded_tags: input.excluded_tags ?? [],
       suggested_questions: input.suggested_questions ?? [],
+      max_sessions_per_member: input.max_sessions_per_member ?? null,
+      max_turns_per_session: input.max_turns_per_session ?? null,
     },
   });
   if (res.status() !== 201) throw new Error(`create code failed: ${res.status()}`);

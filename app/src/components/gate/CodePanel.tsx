@@ -1,9 +1,9 @@
-// CodePanel —— gate Hero 里的 code 输入栏。
+// CodePanel —— gate Hero 里的 code + 名字输入栏。
 //
-// 设计稿那种 7 字 cell 分格 + 自动 fan-out + shake on error 是更高品质，但
-// backend code 格式是 LABEL-NNN（可变长），所以这里实现一个折中版：单个
-// 输入框，mono 大字 + accent caret + 上下 ink 双横线，submit 后边上挂"checking…"。
-// 满足"have a code? drop it in"那行字下方的视觉重量。
+// 同一个 code 可以发给多人，所以 owner 区分访客靠"输入名字"。一个 (code,
+// display_name) 唯一定位 member；后端 GetOrCreateCodeMember upsert。访客填
+// 完两个字段才提交，name 留空走 "anonymous" 路径（实际后端会创一个
+// is_anonymous=true 的 row）。
 
 'use client';
 
@@ -20,40 +20,77 @@ type Props = {
 export function CodePanel({ handle, hook }: Props) {
   const router = useRouter();
   const [code, setCode] = useState('');
+  const [name, setName] = useState('');
 
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = code.trim();
-    trimmed !== '' && (await runCodeSubmit(handle, trimmed, hook, router));
-  }, [code, handle, hook, router]);
+    const trimmedCode = code.trim();
+    trimmedCode !== '' && (await runCodeSubmit(handle, trimmedCode, name, hook, router));
+  }, [code, name, handle, hook, router]);
 
   return (
     <section data-testid="code-panel">
-      <form onSubmit={onSubmit}>
-        <div className="flex items-baseline gap-4 py-3 border-t-[1.5px] border-b-[1.5px] border-(--color-ink) relative">
-          <span
-            className="text-(--color-accent) font-serif shrink-0"
-            style={{ fontSize: '28px', lineHeight: 1 }}
-          >›</span>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="LABEL–NNN"
-            data-testid="gate-code"
-            spellCheck={false}
-            autoComplete="off"
-            className="flex-1 bg-transparent mono text-(--color-ink) placeholder:text-(--color-faint) min-w-0"
-            style={{ fontSize: '24px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
-          />
-          <CodeSubmit busy={hook.state.busy} />
-        </div>
+      <form onSubmit={onSubmit} className="space-y-3">
+        <CodeRow code={code} setCode={setCode} busy={hook.state.busy} />
+        <NameRow name={name} setName={setName} />
       </form>
-      <p className="mono text-[10.5px] tracking-[0.12em] text-(--color-faint) mt-4 leading-[1.7]" style={{ maxWidth: '40em' }}>
-        codes look like <span className="text-(--color-muted)">INTRO–001</span>. they arrive by
-        email from the owner directly · case doesn&rsquo;t matter · paste the whole thing.
-      </p>
+      <Hint />
     </section>
+  );
+}
+
+function CodeRow({
+  code, setCode, busy,
+}: { code: string; setCode: (v: string) => void; busy: boolean }) {
+  return (
+    <div className="flex items-baseline gap-4 py-3 border-t-[1.5px] border-b-[1.5px] border-(--color-ink) relative">
+      <span
+        className="text-(--color-accent) font-serif shrink-0"
+        style={{ fontSize: '28px', lineHeight: 1 }}
+      >›</span>
+      <input
+        type="text"
+        value={code}
+        onChange={(e) => setCode(e.target.value.toUpperCase())}
+        placeholder="LABEL–NNN"
+        data-testid="gate-code"
+        spellCheck={false}
+        autoComplete="off"
+        className="flex-1 bg-transparent mono text-(--color-ink) placeholder:text-(--color-faint) min-w-0"
+        style={{ fontSize: '24px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+      />
+      <CodeSubmit busy={busy} />
+    </div>
+  );
+}
+
+function NameRow({ name, setName }: { name: string; setName: (v: string) => void }) {
+  return (
+    <div className="flex items-baseline gap-3 py-2 border-b border-(--color-rule)">
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) shrink-0">
+        your name
+      </span>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g. Sarah (Acme HR)"
+        data-testid="gate-visitor-name"
+        spellCheck={false}
+        autoComplete="off"
+        className="flex-1 bg-transparent reading-tight text-[15px] text-(--color-ink) placeholder:text-(--color-faint) min-w-0"
+      />
+    </div>
+  );
+}
+
+function Hint() {
+  return (
+    <p className="mono text-[10.5px] tracking-[0.12em] text-(--color-faint) mt-4 leading-[1.7]" style={{ maxWidth: '40em' }}>
+      codes look like <span className="text-(--color-muted)">INTRO–001</span>. they arrive by
+      email from the owner directly · case doesn&rsquo;t matter · paste the whole thing.
+      <span className="block mt-1">your name lets the owner separate visitors who share a code.</span>
+    </p>
   );
 }
 
@@ -73,9 +110,10 @@ function CodeSubmit({ busy }: { busy: boolean }) {
 async function runCodeSubmit(
   handle: string,
   code: string,
+  name: string,
   hook: GateHook,
   router: ReturnType<typeof useRouter>,
 ): Promise<void> {
-  const ok = await hook.submitCode(handle, code);
+  const ok = await hook.submitCode(handle, code, name);
   ok && router.push(`/${handle}`);
 }

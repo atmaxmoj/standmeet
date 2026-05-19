@@ -1,7 +1,7 @@
 // SystemPulse —— sidebar 上方的"语料库脉搏"。14 天每日新增条目数。
 // 数据是占位（chrome-data），UI 把当前 7 日 vs 上 7 日的 delta 画出来。
 
-import { Sparkline } from '../atoms/Sparkline';
+import { Sparkline } from '@/components/admin/atoms/Sparkline';
 import { GROWTH_14D } from '@/lib/admin/chrome-data';
 import { computePulse } from '@/lib/admin/pulse';
 

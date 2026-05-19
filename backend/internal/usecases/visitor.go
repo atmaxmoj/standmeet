@@ -1,10 +1,5 @@
-// visitor.go —— visitor session 颁发 + chat 用例。
-//
-// 简化版：
-//  - RAG：取 owner 全部 visibility=public 且 tag 命中 scope 的 wiki entries
-//    作 system context；不走 embedding（schema 暂未建 embedding 列）。
-//  - 推理：走 inference.Provider（当前跑 mock）。
-//  - 流式：直接 yield chunks 给 caller，caller 写 SSE。
+// visitor.go —— visitor session 颁发（code tier）。chat / RAG / 流式那一半在
+// visitor_chat.go；公开 (no-code) tier 颁发在 visitor_public.go。
 
 package usecases
 
@@ -12,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
@@ -74,217 +68,83 @@ func finalizeCodeSession(
 	ctx context.Context, deps VisitorDeps,
 	in *IssueCodeSessionInput, code *domain.AccessCode,
 ) (IssueCodeSessionResult, error) {
-	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
-		OwnerID:     code.OwnerID,
-		Tier:        "code",
-		CodeID:      &code.ID,
-		VisitorName: in.VisitorName,
-	})
-	if err != nil {
-		return IssueCodeSessionResult{}, fmt.Errorf("create conversation: %w", err)
+	member, qerr := resolveMemberWithQuota(ctx, deps, code, in.VisitorName)
+	if qerr != nil {
+		return IssueCodeSessionResult{}, qerr
 	}
-	issued, err := deps.Sessions.Issue(ctx, &session.VisitorSessionData{
-		OwnerID:       code.OwnerID,
-		Tier:          "code",
-		CodeID:        code.ID,
-		VisitorName:   in.VisitorName,
-		IncludedTags:  code.IncludedTags,
-		ExcludedTags:  code.ExcludedTags,
-		VisibilityMax: "private", // code-tier 可读 private wiki（owner 通过 code scope 控制）
-	})
+	conv, err := createCodeConversation(ctx, deps, code, &member, in.VisitorName)
+	if err != nil {
+		return IssueCodeSessionResult{}, err
+	}
+	issued, err := deps.Sessions.Issue(ctx, buildCodeSessionData(code, in.VisitorName))
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
 	}
 	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
 }
 
-// SendMessageInput —— 一次 chat 提问。
-type SendMessageInput struct {
-	OwnerID        string
-	ConversationID string
-	Body           string
-	Scope          domain.VisitorSessionScope
+// resolveMemberWithQuota —— upsert member by name；revoke / 配额超额都在这里
+// 翻译成 domain sentinel error。
+func resolveMemberWithQuota(
+	ctx context.Context, deps VisitorDeps, code *domain.AccessCode, name string,
+) (domain.CodeMember, error) {
+	member, merr := deps.Codes.GetOrCreateMember(ctx, code.ID, name)
+	if merr != nil {
+		return domain.CodeMember{}, fmt.Errorf("get/create member: %w", merr)
+	}
+	if member.Revoked {
+		return domain.CodeMember{}, domain.ErrMemberRevoked
+	}
+	if quotaErr := checkSessionQuota(ctx, deps, code, member.ID); quotaErr != nil {
+		return domain.CodeMember{}, quotaErr
+	}
+	return member, nil
 }
 
-// MessageEvent —— chat 流式事件（token / done / error）。
-// 字段顺序按 govet fieldalignment 优化：error 在前（双 ptr），slice 在尾
-// （ptr at offset 0 of slice），减小 GC pointer scan range。
-type MessageEvent struct {
-	Err          error // 'error' kind 携带 err，其余空
-	Kind         string
-	Text         string
-	CitedWikiIDs []string
-}
-
-// SendMessage —— 写访客 visitor message → RAG → 调 provider 流式 → 收尾写
-// assistant message + citations 到 DB。返回 event channel；caller 写 SSE。
-func SendMessage(
-	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
-) (<-chan MessageEvent, error) {
-	if in.Body == "" {
-		return nil, ErrEmptyField
+func checkSessionQuota(
+	ctx context.Context, deps VisitorDeps, code *domain.AccessCode, memberID string,
+) error {
+	if code.MaxSessionsPerMember == nil || *code.MaxSessionsPerMember <= 0 {
+		return nil
 	}
-	// 1. 写访客 message
-	if _, werr := deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
-		ConversationID: in.ConversationID,
-		Role:           "visitor",
-		Body:           in.Body,
-	}); werr != nil {
-		return nil, fmt.Errorf("append visitor message: %w", werr)
-	}
-	// 2. RAG（简化版：拿 owner 全部 wiki，scope 过滤）
-	wikis, err := loadScopedWikis(ctx, deps, in.OwnerID, &in.Scope)
+	count, err := deps.Conv.CountSessionsForMember(ctx, memberID)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("count member sessions: %w", err)
 	}
-	// 3. 调 provider
-	out := make(chan MessageEvent, messageEventBufSize)
-	go streamReply(ctx, deps, in, wikis, out)
-	return out, nil
+	if count >= *code.MaxSessionsPerMember {
+		return domain.ErrSessionQuotaReached
+	}
+	return nil
 }
 
-const (
-	maxRAGWikis         = 50
-	messageEventBufSize = 64
-)
-
-func loadScopedWikis(
-	ctx context.Context, deps VisitorDeps, ownerID string, scope *domain.VisitorSessionScope,
-) ([]domain.WikiEntry, error) {
-	all, err := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis)
+func createCodeConversation(
+	ctx context.Context, deps VisitorDeps,
+	code *domain.AccessCode, member *domain.CodeMember, visitorName string,
+) (domain.Conversation, error) {
+	memberID := member.ID
+	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
+		OwnerID:     code.OwnerID,
+		Tier:        "code",
+		CodeID:      &code.ID,
+		MemberID:    &memberID,
+		VisitorName: visitorName,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("list wiki for rag: %w", err)
+		return domain.Conversation{}, fmt.Errorf("create conversation: %w", err)
 	}
-	filtered := make([]domain.WikiEntry, 0, len(all))
-	for i := range all {
-		if !wikiMatchesScope(&all[i], scope) {
-			continue
-		}
-		filtered = append(filtered, all[i])
-	}
-	return filtered, nil
+	return conv, nil
 }
 
-func wikiMatchesScope(w *domain.WikiEntry, scope *domain.VisitorSessionScope) bool {
-	if !visibilityAllowed(w.Visibility, scope.VisibilityMax) {
-		return false
+func buildCodeSessionData(
+	code *domain.AccessCode, visitorName string,
+) *session.VisitorSessionData {
+	return &session.VisitorSessionData{
+		OwnerID:       code.OwnerID,
+		Tier:          "code",
+		CodeID:        code.ID,
+		VisitorName:   visitorName,
+		IncludedTags:  code.IncludedTags,
+		ExcludedTags:  code.ExcludedTags,
+		VisibilityMax: "private", // code-tier 可读 private wiki（owner 通过 code scope 控制）
 	}
-	if intersect(w.Tags, scope.ExcludedTags) {
-		return false
-	}
-	if len(scope.IncludedTags) == 0 {
-		return true
-	}
-	return intersect(w.Tags, scope.IncludedTags)
-}
-
-func visibilityAllowed(actual, maxAllowed string) bool {
-	order := map[string]int{"public": 1, "on_request": 2, "private": 3}
-	return order[actual] <= order[maxAllowed]
-}
-
-func intersect(a, b []string) bool {
-	return anyMember(a, indexSet(b))
-}
-
-func indexSet(s []string) map[string]struct{} {
-	out := make(map[string]struct{}, len(s))
-	for _, x := range s {
-		out[x] = struct{}{}
-	}
-	return out
-}
-
-func anyMember(s []string, set map[string]struct{}) bool {
-	for _, x := range s {
-		if _, ok := set[x]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-func streamReply(
-	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
-	wikis []domain.WikiEntry, out chan<- MessageEvent,
-) {
-	defer close(out)
-	chunks, ierr := deps.Provider.Stream(ctx, buildChatRequest(deps, in, wikis))
-	if ierr != nil {
-		out <- MessageEvent{Kind: "error", Err: ierr}
-		return
-	}
-	full, ok := pumpChunks(chunks, out)
-	if !ok {
-		return
-	}
-	out <- emitDoneEvent(ctx, deps, in, full, wikis)
-}
-
-func buildChatRequest(
-	deps VisitorDeps, in *SendMessageInput, wikis []domain.WikiEntry,
-) *inference.ChatRequest {
-	return &inference.ChatRequest{
-		System: buildSystemPrompt(deps, wikis),
-		Messages: []inference.Message{
-			{Role: "user", Content: in.Body},
-		},
-	}
-}
-
-// pumpChunks 推送 token events；done 信号到达返 (full, true)；
-// error chunk 已 emit error event 后返 ("", false)。
-func pumpChunks(
-	chunks <-chan inference.Chunk, out chan<- MessageEvent,
-) (string, bool) {
-	var parts []string
-	for ch := range chunks {
-		if ch.Error != nil {
-			out <- MessageEvent{Kind: "error", Err: ch.Error}
-			return "", false
-		}
-		if ch.Text != "" {
-			parts = append(parts, ch.Text)
-			out <- MessageEvent{Kind: "token", Text: ch.Text}
-		}
-		if ch.Done {
-			return strings.Join(parts, ""), true
-		}
-	}
-	return strings.Join(parts, ""), true
-}
-
-func emitDoneEvent(
-	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
-	full string, wikis []domain.WikiEntry,
-) MessageEvent {
-	cited := make([]string, 0, len(wikis))
-	for i := range wikis {
-		cited = append(cited, wikis[i].ID)
-	}
-	if _, werr := deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
-		ConversationID: in.ConversationID,
-		Role:           "assistant",
-		Body:           full,
-		CitedWikiIDs:   cited,
-	}); werr != nil {
-		return MessageEvent{Kind: "error", Err: fmt.Errorf("append assistant: %w", werr)}
-	}
-	return MessageEvent{Kind: "done", Text: full, CitedWikiIDs: cited}
-}
-
-func buildSystemPrompt(deps VisitorDeps, wikis []domain.WikiEntry) string {
-	_ = deps
-	if len(wikis) == 0 {
-		return "You are an assistant answering visitor questions."
-	}
-	parts := make([]string, 0, 2+len(wikis))
-	parts = append(parts,
-		"You are an assistant answering visitor questions. ",
-		"Use the following knowledge entries as ground truth:\n\n",
-	)
-	for i := range wikis {
-		parts = append(parts, fmt.Sprintf("### %s\n%s\n\n", wikis[i].Title, wikis[i].Body))
-	}
-	return strings.Join(parts, "")
 }

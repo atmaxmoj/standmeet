@@ -1,6 +1,6 @@
 // ConnectorTile —— 单个 connector 卡。connect / manage 按钮只动 local state。
 
-import { Btn } from '../../atoms/Btn';
+import { Btn } from '@/components/admin/atoms/Btn';
 
 import type { ConnectorView } from '@/lib/admin/use-connectors';
 

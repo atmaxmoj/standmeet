@@ -6,12 +6,12 @@
 
 import { useCallback } from 'react';
 
-import { Btn } from '../atoms/Btn';
-import { SectionHeader } from '../SectionHeader';
-import { CodeCard } from './codes/CodeCard';
-import { CodeCreateModal } from '../modals/CodeCreateModal';
-import { CodeQRModal } from '../modals/CodeQRModal';
-import { VisitorPreviewModal } from '../modals/VisitorPreviewModal';
+import { Btn } from '@/components/admin/atoms/Btn';
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { CodeCard } from '@/components/admin/sections/codes/CodeCard';
+import { CodeCreateModal } from '@/components/admin/modals/CodeCreateModal';
+import { CodeQRModal } from '@/components/admin/modals/CodeQRModal';
+import { VisitorPreviewModal } from '@/components/admin/modals/VisitorPreviewModal';
 import { useCodeModalState } from '@/lib/admin/use-code-modals';
 import { useCodes, type CodeView, type CodesHook } from '@/lib/admin/use-codes';
 
@@ -27,7 +27,13 @@ export function CodesSection() {
         action={<NewCodeBtn open={modals.openCreate} />}
       />
       <Intro />
-      <CodeListBody hook={hook} openCreate={modals.openCreate} openQR={modals.openQR} openPreview={modals.openPreview} />
+      <CodeListBody
+        hook={hook}
+        openCreate={modals.openCreate}
+        openQR={modals.openQR}
+        openPreview={modals.openPreview}
+        revokeCode={hook.revokeCode}
+      />
       <CodeCreateModalSlot
         open={modals.creating}
         onClose={modals.closeAll}
@@ -58,16 +64,25 @@ function Intro() {
 }
 
 function CodeListBody({
-  hook, openCreate, openQR, openPreview,
+  hook, openCreate, openQR, openPreview, revokeCode,
 }: {
   hook: CodesHook;
   openCreate: (existing?: CodeView) => void;
   openQR: (c: CodeView) => void;
   openPreview: (c: CodeView) => void;
+  revokeCode: (id: string) => Promise<void>;
 }) {
   return hook.state.kind === 'loading' ? <Loading />
     : hook.state.kind === 'error' ? <ErrorMsg message={hook.state.message} />
-    : <CodeGrid codes={hook.state.codes} openEdit={openCreate} openQR={openQR} openPreview={openPreview} />;
+    : (
+      <CodeGrid
+        codes={hook.state.codes}
+        openEdit={openCreate}
+        openQR={openQR}
+        openPreview={openPreview}
+        revokeCode={revokeCode}
+      />
+    );
 }
 
 function Loading() {
@@ -79,12 +94,13 @@ function ErrorMsg({ message }: { message: string }) {
 }
 
 function CodeGrid({
-  codes, openEdit, openQR, openPreview,
+  codes, openEdit, openQR, openPreview, revokeCode,
 }: {
   codes: readonly CodeView[];
   openEdit: (existing?: CodeView) => void;
   openQR: (c: CodeView) => void;
   openPreview: (c: CodeView) => void;
+  revokeCode: (id: string) => Promise<void>;
 }) {
   return codes.length === 0
     ? <EmptyState />
@@ -92,7 +108,13 @@ function CodeGrid({
       <ul className="grid grid-cols-1 xl:grid-cols-2 gap-5" data-testid="code-list">
         {codes.map((c) => (
           <li key={c.id} data-testid={`code-row-${c.code}`}>
-            <CodeCard code={c} onEdit={openEdit} onPreview={openPreview} onShowQR={openQR} />
+            <CodeCard
+              code={c}
+              onEdit={openEdit}
+              onPreview={openPreview}
+              onShowQR={openQR}
+              onRevoke={(x) => void revokeCode(x.id)}
+            />
           </li>
         ))}
       </ul>

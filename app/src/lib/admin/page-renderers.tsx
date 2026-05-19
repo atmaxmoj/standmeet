@@ -6,7 +6,7 @@ import { EditField } from '@/components/admin/sections/page/EditField';
 import { StringListEditor } from '@/components/admin/sections/page/StringListEditor';
 
 // Reuse the page editor's mutable types directly.
-import type { MutableInsight, MutableProject } from './use-page-editor';
+import type { MutableInsight, MutableProject } from '@/lib/admin/use-page-editor';
 
 export type InsightDraft = MutableInsight;
 export type ProjectDraft = MutableProject;

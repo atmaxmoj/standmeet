@@ -3,8 +3,8 @@
 
 'use client';
 
-import { Chip } from '../../atoms/Chip';
-import { EditField } from './EditField';
+import { Chip } from '@/components/admin/atoms/Chip';
+import { EditField } from '@/components/admin/sections/page/EditField';
 import { useBYOAI, type BYOAIProvider, type BYOAIHook } from '@/lib/admin/use-byoai';
 
 const ALL_PROVIDERS: readonly { id: BYOAIProvider; label: string }[] = [

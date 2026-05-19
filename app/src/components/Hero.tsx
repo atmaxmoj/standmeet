@@ -8,7 +8,7 @@ import type { RefObject } from 'react';
 
 import type { PageContent, PublicOwnerView } from '@/lib/api/public';
 
-import { AskInput } from './page/AskInput';
+import { AskInput } from '@/components/page/AskInput';
 
 type Props = {
   owner: PublicOwnerView;
