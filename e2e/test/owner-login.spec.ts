@@ -14,10 +14,10 @@ import { resetInstance, findSetupToken } from '../helper/docker';
 import { goto } from '../helper/navigate';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 test.describe.serial('owner logs back in', () => {

@@ -15,10 +15,10 @@ import { callTool, initMCP } from '../helper/mcp';
 import { goto } from '../helper/navigate';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 test.describe.serial('owner mints an API token in admin and an MCP client uses it', () => {

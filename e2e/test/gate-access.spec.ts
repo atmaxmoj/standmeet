@@ -2,7 +2,7 @@
 //
 // 用户故事：
 //   HR 收到 owner 邮件里的 access code，没直接知道公开页 URL。她访问
-//   /sijie/gate，输入 INTRO-001，跳到 /sijie，能聊 work-tagged 切片。
+//   /alice/gate，输入 INTRO-001，跳到 /alice，能聊 work-tagged 切片。
 
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext } from "@playwright/test";
@@ -15,10 +15,10 @@ import { initMCP } from '../helper/mcp';
 import { goto } from '../helper/navigate';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 const CODE = 'INTRO-001';

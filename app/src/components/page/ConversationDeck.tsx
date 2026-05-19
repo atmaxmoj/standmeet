@@ -1,7 +1,7 @@
 // ConversationDeck —— inline 累加的 Q/A 流，每个 Turn 一张卡：
 //   you · HH:MM
 //   <serif italic question>
-//   sijie's ai
+//   alice's ai
 //   <answer body  OR  retrieving · · ·>
 //   <citations 列表>
 //

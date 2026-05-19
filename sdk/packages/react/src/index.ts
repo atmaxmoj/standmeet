@@ -2,7 +2,7 @@
 //
 // 用法：
 //   <StandMeetProvider baseURL="">
-//     <App />  // 内部 useStandMeet().fetchPage('sijie') 等
+//     <App />  // 内部 useStandMeet().fetchPage('alice') 等
 //   </StandMeetProvider>
 //
 // React 这层不内置 UI 组件 —— UI 形态由 caller 自己定，hook 只暴露 API

@@ -2,8 +2,8 @@
 //
 // 用户故事：
 //   一个陌生访客没 invite code，但有自己 Anthropic key 想试聊 owner 的
-//   public corpus。在 /sijie/gate BYOAI panel 选 Anthropic + 填 key（test
-//   用 fake key；后端 mock provider 兜底）→ 跳 /sijie?byoai=1 → 看到
+//   public corpus。在 /alice/gate BYOAI panel 选 Anthropic + 填 key（test
+//   用 fake key；后端 mock provider 兜底）→ 跳 /alice?byoai=1 → 看到
 //   BYOAI banner → chat 流式回复正常。
 
 import { test, expect } from '@playwright/test';
@@ -16,14 +16,14 @@ import { initMCP } from '../helper/mcp';
 import { goto } from '../helper/navigate';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 const FAKE_KEY = 'sk-ant-fake-test-key-for-byoai-flow';
-const MOCK_REPLY = 'Hello visitor, sijie says hi from the mock provider.';
+const MOCK_REPLY = 'Hello visitor, alice says hi from the mock provider.';
 
 test.describe.serial('visitor brings own API key (BYOAI) via gate page', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -51,8 +51,8 @@ async function seedPublic(request: APIRequestContext): Promise<void> {
   const apiToken = await createAPIToken(request, csrf, 'byoai-seed');
   const sid = await initMCP(request, apiToken);
   await seedPublicWiki(request, apiToken, sid, {
-    body: 'sijie loves ASCII sparklines.',
-    title: 'Sijie intro',
+    body: 'alice loves ASCII sparklines.',
+    title: 'Alice intro',
     tags: ['intro'],
   });
 }
@@ -65,7 +65,7 @@ async function submitBYOAI(page: Page): Promise<void> {
 }
 
 async function expectLandedWithBanner(page: Page): Promise<void> {
-  await page.waitForURL(/.*\/sijie\?byoai=1$/, { timeout: 10_000 });
+  await page.waitForURL(/.*\/alice\?byoai=1$/, { timeout: 10_000 });
   await expect(page.getByTestId('byoai-banner')).toBeVisible();
 }
 

@@ -19,7 +19,7 @@ export function ByoaiBanner({ provider }: { provider: string }) {
         <span className="text-(--color-faint) normal-case tracking-[0.06em]">
           private topics return &ldquo;need a code&rdquo;
         </span>
-        <Link href="/sijie/gate#request" className="text-(--color-muted) hover:text-(--color-accent) transition-colors">
+        <Link href="/alice/gate#request" className="text-(--color-muted) hover:text-(--color-accent) transition-colors">
           request a code ↗
         </Link>
       </BannerRight>
@@ -43,7 +43,7 @@ export function CodedBanner({ code, visitor }: { code: string; visitor: string |
       </BannerLeft>
       <BannerRight>
         <span className="text-(--color-faint) normal-case tracking-[0.06em]">
-          sijie reviews transcripts
+          alice reviews transcripts
         </span>
       </BannerRight>
     </BannerShell>

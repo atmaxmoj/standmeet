@@ -107,7 +107,7 @@ func buildDefaultPage(ownerID string) domain.PageContent {
 }
 
 const defaultHeroProse = "" +
-	"I'm Sijie. I build indie products, write code with AI but fight " +
+	"I'm Alice. I build indie products, write code with AI but fight " +
 	"its defaults, learn German through Kafka, and think software " +
 	"architecture is about to follow organizations into a new shape."
 

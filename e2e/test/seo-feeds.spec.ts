@@ -17,10 +17,10 @@ import { callTool, initMCP } from '../helper/mcp';
 const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 const INDEXED_SLUG = 'why-this-exists';

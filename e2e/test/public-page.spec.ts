@@ -17,8 +17,8 @@ import { resetInstance, findSetupToken } from '../helper/docker';
 import { initMCP } from '../helper/mcp';
 import { navigateToHandle } from '../helper/navigate';
 
-const OWNER_HANDLE = 'sijie';
-const MOCK_REPLY = 'Hello visitor, sijie says hi from the mock provider.';
+const OWNER_HANDLE = 'alice';
+const MOCK_REPLY = 'Hello visitor, alice says hi from the mock provider.';
 
 test.describe.serial("visitor reads owner's public page and chats with the persona", () => {
   test.beforeAll(() => {
@@ -31,7 +31,7 @@ test.describe.serial("visitor reads owner's public page and chats with the perso
       await navigateToHandle(page, OWNER_HANDLE);
 
       await expectOwnerPageRendered(page);
-      await visitorAsksAQuestion(page, 'tell me about sijie');
+      await visitorAsksAQuestion(page, 'tell me about alice');
       await expectAssistantStreamsReply(page);
       await expectCitationFootnote(page);
     });
@@ -46,8 +46,8 @@ async function seedOwnerWithPublicCorpus(request: APIRequestContext): Promise<vo
   const apiToken = await createAPIToken(request, csrf);
   const sid = await initMCP(request, apiToken);
   await seedPublicWiki(request, apiToken, sid, {
-    body: 'sijie loves ASCII sparklines.',
-    title: 'Sijie intro',
+    body: 'alice loves ASCII sparklines.',
+    title: 'Alice intro',
     tags: ['intro'],
   });
 }
@@ -55,7 +55,7 @@ async function seedOwnerWithPublicCorpus(request: APIRequestContext): Promise<vo
 async function expectOwnerPageRendered(page: Page): Promise<void> {
   // 设计稿里 owner 全名摆 identity strip 里（mono caps span 不是 heading），
   // 所以走 getByText 而不是 getByRole('heading')。
-  await expect(page.getByText('Sijie Wang')).toBeVisible();
+  await expect(page.getByText('Alice Anderson')).toBeVisible();
   await expect(page.getByText("things I've been thinking about")).toBeVisible();
   await expect(page.getByText("what I'm building")).toBeVisible();
   await expect(page.getByText('where I am', { exact: true })).toBeVisible();

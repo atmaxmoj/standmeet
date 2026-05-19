@@ -2,9 +2,9 @@
 // /<handle>/p/<slug> 看到 vite build 出的页面。
 //
 // 用户故事：
-//   sijie 跟自己 AI 客户端聊"给我建一个 /blog 页面"。AI 走 MCP 调
+//   alice 跟自己 AI 客户端聊"给我建一个 /blog 页面"。AI 走 MCP 调
 //   custom_page.create('blog') → write_file('App.tsx', ...) → build →
-//   poll get_build → promote_to_live。一个访客打开 /sijie/p/blog 就看到
+//   poll get_build → promote_to_live。一个访客打开 /alice/p/blog 就看到
 //   vite build 出来的 React 页面里的内容；rollback 走默认（404 no live）。
 
 import { test, expect } from '@playwright/test';
@@ -16,14 +16,14 @@ import { initMCP, callTool } from '../helper/mcp';
 import { goto, gotoExpectStatus } from '../helper/navigate';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 const SLUG = 'blog';
-const PAGE_TITLE = 'Sijie thinks out loud';
+const PAGE_TITLE = 'Alice thinks out loud';
 const HELLO_MARKER = 'STANDMEET_CUSTOM_PAGE_HELLO';
 const OWNER_APP = `
 import React from 'react';

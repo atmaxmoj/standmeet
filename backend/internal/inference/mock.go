@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	defaultMockReply  = "Hello, this is sijie's AI. I'm running in mock mode for tests."
+	defaultMockReply  = "Hello, this is alice's AI. I'm running in mock mode for tests."
 	mockChunkInterval = 5 * time.Millisecond
 )
 

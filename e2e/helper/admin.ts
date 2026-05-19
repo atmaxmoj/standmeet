@@ -19,10 +19,10 @@ export async function claim(
   setupToken: string,
   opts: ClaimOptions = {},
 ): Promise<void> {
-  const email = opts.email ?? 'sijie@example.com';
+  const email = opts.email ?? 'alice@example.com';
   const password = opts.password ?? DEFAULT_PASSWORD;
-  const handle = opts.handle ?? 'sijie';
-  const fullName = opts.fullName ?? 'Sijie Wang';
+  const handle = opts.handle ?? 'alice';
+  const fullName = opts.fullName ?? 'Alice Anderson';
   const res = await request.post(`${BACKEND}/api/admin/claim`, {
     data: { token: setupToken, email, password, handle, full_name: fullName },
   });
@@ -35,7 +35,7 @@ export interface AdminLogin {
 
 export async function login(
   request: APIRequestContext,
-  email = 'sijie@example.com',
+  email = 'alice@example.com',
   password = DEFAULT_PASSWORD,
 ): Promise<AdminLogin> {
   const res = await request.post(`${BACKEND}/api/admin/login`, { data: { email, password } });

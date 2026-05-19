@@ -17,10 +17,10 @@ import { goto } from '../helper/navigate';
 import { issueSession, sendMessage } from '../helper/visitor';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 test.describe.serial('owner issues an access code in admin; visitor uses it', () => {

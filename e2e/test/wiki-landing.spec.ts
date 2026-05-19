@@ -2,7 +2,7 @@
 // 爬虫 / 深度链接能稳定打开 /<handle>/wiki/<slug> 看到内容。
 //
 // 用户故事：
-//   sijie 写了一条"为什么我离开香港"的 wiki，想让搜索能 index 这条。在
+//   alice 写了一条"为什么我离开香港"的 wiki，想让搜索能 index 这条。在
 //   AI client 里调 MCP seo.set_wiki_slug(wiki_id, slug='leaving-hk', indexed=true)。
 //   稍后访客 google 搜到这条 → 点链接 → 看到标题 + 全文 + 引导回主页。
 
@@ -16,10 +16,10 @@ import { callTool, initMCP } from '../helper/mcp';
 import { goto } from '../helper/navigate';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 const WIKI = {

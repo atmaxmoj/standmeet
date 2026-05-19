@@ -12,14 +12,14 @@ import { resetInstance, findSetupToken } from '../helper/docker';
 import { goto } from '../helper/navigate';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 const NEW_HERO_PROSE =
-  "I'm Sijie. Newly edited hero prose to prove the page editor round-trip.";
+  "I'm Alice. Newly edited hero prose to prove the page editor round-trip.";
 
 test.describe.serial('owner edits public page, visitor sees the change', () => {
   test.beforeAll(async ({ playwright }) => {

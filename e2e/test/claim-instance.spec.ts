@@ -13,9 +13,9 @@ import { resetInstance, findSetupToken } from '../helper/docker';
 import { goto } from '../helper/navigate';
 
 const OWNER = {
-  full: 'Sijie Wang',
-  handle: 'sijie',
-  email: 'sijie@example.com',
+  full: 'Alice Anderson',
+  handle: 'alice',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
 };
 

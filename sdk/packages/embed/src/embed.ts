@@ -7,7 +7,7 @@
 //
 // 用法：
 //   <script src="https://standmeet.example.com/embed/embed.iife.js"></script>
-//   <standmeet-chat handle="sijie" base-url="https://standmeet.example.com">
+//   <standmeet-chat handle="alice" base-url="https://standmeet.example.com">
 //   </standmeet-chat>
 
 import { createClient } from '@standmeet/sdk-core';

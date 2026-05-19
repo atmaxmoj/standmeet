@@ -47,7 +47,7 @@ services:
       - SESSION_KEY=dev-not-secret-rotate-in-prod
       - SECURE_COOKIE=false
       - INFERENCE_PROVIDER=mock
-      - INFERENCE_MOCK_REPLY=Hello visitor, sijie says hi from the mock provider.
+      - INFERENCE_MOCK_REPLY=Hello visitor, alice says hi from the mock provider.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
     depends_on:
       db:

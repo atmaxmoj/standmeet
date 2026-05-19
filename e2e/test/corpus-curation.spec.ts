@@ -20,10 +20,10 @@ import { callTool, initMCP } from '../helper/mcp';
 import { goto } from '../helper/navigate';
 
 const OWNER = {
-  email: 'sijie@example.com',
+  email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'sijie',
-  fullName: 'Sijie Wang',
+  handle: 'alice',
+  fullName: 'Alice Anderson',
 };
 
 const RAW_BODY = 'I think microservices were Amazon org chart in YAML.';
