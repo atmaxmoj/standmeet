@@ -1,6 +1,6 @@
 import { AdminShell } from '@/components/admin/AdminShell';
-import { CodeList } from '@/components/admin/CodeList';
+import { CodesSection } from '@/components/admin/sections/CodesSection';
 
 export default function AdminCodesPage() {
-  return <AdminShell active="codes"><CodeList /></AdminShell>;
+  return <AdminShell active="codes"><CodesSection /></AdminShell>;
 }

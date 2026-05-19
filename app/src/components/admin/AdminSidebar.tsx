@@ -1,6 +1,9 @@
-// AdminSidebar —— 左侧 6-section nav。当前 active slug 高亮。
+// AdminSidebar —— 7-entry section nav。每项 serif label + mono hint。
+// 顶部挂 SystemPulse（语料库脉搏占位 sparkline）。
 
 import Link from 'next/link';
+
+import { SystemPulse } from './chrome/SystemPulse';
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'conversations' | 'codes'
@@ -12,54 +15,70 @@ interface SectionDef {
   hint: string;
 }
 
-const SECTIONS: SectionDef[] = [
-  { slug: 'raw',           label: 'raw',           hint: 'AI-pushed dumps' },
-  { slug: 'wiki',          label: 'wiki',          hint: 'curated entries' },
-  { slug: 'conversations', label: 'conversations', hint: 'visitor sessions' },
-  { slug: 'codes',         label: 'codes',         hint: 'access codes' },
-  { slug: 'connectors',    label: 'connectors',    hint: 'external sources' },
-  { slug: 'page',          label: 'page',          hint: 'edit public page' },
-  { slug: 'api-mcp',       label: 'api · mcp',     hint: 'tokens + MCP url' },
+const SECTIONS: readonly SectionDef[] = [
+  { slug: 'page',          label: 'page',          hint: 'public content' },
+  { slug: 'raw',           label: 'raw',           hint: 'inbox' },
+  { slug: 'wiki',          label: 'wiki',          hint: 'curated' },
+  { slug: 'conversations', label: 'conversations', hint: 'sessions' },
+  { slug: 'codes',         label: 'codes',         hint: 'access' },
+  { slug: 'connectors',    label: 'connectors',    hint: 'integrations' },
+  { slug: 'api-mcp',       label: 'api · mcp',     hint: 'tokens' },
 ];
 
-type Props = {
-  active: AdminSlug;
-  handle: string;
-};
+type Props = { active: AdminSlug };
 
-export function AdminSidebar({ active, handle }: Props) {
+export function AdminSidebar({ active }: Props) {
   return (
-    <nav className="border-r border-(--color-rule) px-6 py-10 sticky top-0 h-screen overflow-y-auto">
-      <SidebarHeader handle={handle} />
-      <ul className="space-y-3">
-        {SECTIONS.map((s) => <SidebarItem key={s.slug} section={s} active={s.slug === active} />)}
+    <nav className="border-r border-(--color-rule) px-5 lg:px-6 py-7 flex flex-col">
+      <SystemPulse />
+      <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
+        manage
+      </div>
+      <ul className="flex flex-col">
+        {SECTIONS.map((s) => (
+          <SidebarItem key={s.slug} section={s} active={s.slug === active} />
+        ))}
       </ul>
+      <SidebarFooter />
     </nav>
   );
 }
 
-function SidebarHeader({ handle }: { handle: string }) {
-  return (
-    <header className="mb-8">
-      <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted)">
-        standmeet · admin
-      </div>
-      <div className="mono text-sm mt-2">{handle}</div>
-    </header>
-  );
-}
-
 function SidebarItem({ section, active }: { section: SectionDef; active: boolean }) {
+  const tone = active ? 'text-(--color-ink)' : 'text-(--color-muted) hover:text-(--color-ink)';
   return (
     <li>
       <Link
         href={`/admin/${section.slug}`}
         data-testid={`nav-${section.slug}`}
-        className={`block ${active ? 'text-(--color-accent)' : 'text-(--color-ink) hover:text-(--color-accent)'}`}
+        className={`group w-full text-left flex items-baseline gap-3 py-2 transition-colors ${tone}`}
       >
-        <div className="reading text-base">{section.label}</div>
-        <div className="mono text-[10px] tracking-[0.04em] text-(--color-muted)">{section.hint}</div>
+        <SidebarItemMarker active={active} />
+        <span className={`font-serif flex-1 text-[17px] tracking-[-0.005em] ${active ? 'font-medium' : ''}`}>
+          {section.label}
+        </span>
+        <span className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint)">
+          {section.hint}
+        </span>
       </Link>
     </li>
+  );
+}
+
+function SidebarItemMarker({ active }: { active: boolean }) {
+  const cls = active ? 'text-(--color-accent)' : 'text-(--color-faint)';
+  return (
+    <span className={`mono text-[11px] tracking-[0.06em] tabular-nums shrink-0 w-3 ${cls}`}>
+      {active ? '›' : ' '}
+    </span>
+  );
+}
+
+function SidebarFooter() {
+  return (
+    <div className="mt-auto pt-6 border-t border-(--color-rule) mono text-[10px] tracking-[0.12em] text-(--color-faint) leading-[1.7]">
+      <div><span className="text-(--color-muted)">last ingest</span> 12 min ago</div>
+      <div className="mt-1"><span className="text-(--color-muted)">help</span> · <span>/docs</span></div>
+    </div>
   );
 }

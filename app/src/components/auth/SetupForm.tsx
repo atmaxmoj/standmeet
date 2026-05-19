@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
 import { Field } from './Field';
+import { TerminalBox } from './TerminalBox';
 
 import { useSetupForm, type SetupFormHook } from '@/lib/auth/use-setup-form';
 
@@ -25,9 +26,10 @@ export function SetupForm({ setupToken }: Props) {
   }, [form, router]);
 
   return (
-    <section className="rise max-w-[520px]">
+    <section className="rise max-w-[640px]">
       <SetupHeader step={form.step} />
-      <form onSubmit={onSubmit} className="mt-10 space-y-5">
+      <TerminalBox />
+      <form onSubmit={onSubmit} className="mt-10 space-y-5 max-w-[520px]">
         <SetupStepBody form={form} />
         <FormError message={form.error} />
         <SetupNav form={form} />
@@ -44,7 +46,10 @@ function SetupHeader({ step }: { step: 1 | 2 }) {
         <span className="text-(--color-faint)">·</span>
         <span className="text-(--color-faint)">step {step} of 2</span>
       </div>
-      <h1 className="reading-tight text-(--color-ink) text-5xl font-normal tracking-tight leading-none">
+      <h1
+        className="font-serif text-(--color-ink)"
+        style={{ fontSize: 'clamp(38px, 5vw, 56px)', fontWeight: 400, letterSpacing: '-0.02em', lineHeight: 1 }}
+      >
         Claim this<br />instance<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="reading italic text-(--color-muted) mt-4 text-lg leading-relaxed">

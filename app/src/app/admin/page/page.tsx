@@ -1,6 +1,6 @@
 import { AdminShell } from '@/components/admin/AdminShell';
-import { PageEditor } from '@/components/admin/PageEditor';
+import { PageSection } from '@/components/admin/sections/PageSection';
 
 export default function AdminPageEditPage() {
-  return <AdminShell active="page"><PageEditor /></AdminShell>;
+  return <AdminShell active="page"><PageSection /></AdminShell>;
 }

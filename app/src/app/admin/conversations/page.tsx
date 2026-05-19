@@ -1,14 +1,10 @@
 import { AdminShell } from '@/components/admin/AdminShell';
-import { PlaceholderSection } from '@/components/admin/PlaceholderSection';
+import { ConversationsSection } from '@/components/admin/sections/ConversationsSection';
 
 export default function AdminConversationsPage() {
   return (
     <AdminShell active="conversations">
-      <PlaceholderSection
-        title="conversations"
-        subtitle="visitor chat sessions"
-        note="Conversation review lands when backend listing endpoint exists."
-      />
+      <ConversationsSection />
     </AdminShell>
   );
 }

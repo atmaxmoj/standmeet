@@ -1,4 +1,9 @@
-// CodePanel —— /<handle>/gate 第一栏：输 LABEL-XXX 进 owner 的 corpus。
+// CodePanel —— gate Hero 里的 code 输入栏。
+//
+// 设计稿那种 7 字 cell 分格 + 自动 fan-out + shake on error 是更高品质，但
+// backend code 格式是 LABEL-NNN（可变长），所以这里实现一个折中版：单个
+// 输入框，mono 大字 + accent caret + 上下 ink 双横线，submit 后边上挂"checking…"。
+// 满足"have a code? drop it in"那行字下方的视觉重量。
 
 'use client';
 
@@ -23,20 +28,45 @@ export function CodePanel({ handle, hook }: Props) {
   }, [code, handle, hook, router]);
 
   return (
-    <section className="rise" data-testid="code-panel">
-      <PanelHeader title="have a code?" subtitle={`Enter a LABEL-XXX code ${handle} gave you.`} />
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        <input
-          type="text"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="INTRO-001"
-          data-testid="gate-code"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-lg tracking-wider"
-        />
-        <SubmitButton busy={hook.state.busy} label="enter ↵" testid="gate-code-submit" />
+    <section data-testid="code-panel">
+      <form onSubmit={onSubmit}>
+        <div className="flex items-baseline gap-4 py-3 border-t-[1.5px] border-b-[1.5px] border-(--color-ink) relative">
+          <span
+            className="text-(--color-accent) font-serif shrink-0"
+            style={{ fontSize: '28px', lineHeight: 1 }}
+          >›</span>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="LABEL–NNN"
+            data-testid="gate-code"
+            spellCheck={false}
+            autoComplete="off"
+            className="flex-1 bg-transparent mono text-(--color-ink) placeholder:text-(--color-faint) min-w-0"
+            style={{ fontSize: '24px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+          />
+          <CodeSubmit busy={hook.state.busy} />
+        </div>
       </form>
+      <p className="mono text-[10.5px] tracking-[0.12em] text-(--color-faint) mt-4 leading-[1.7]" style={{ maxWidth: '40em' }}>
+        codes look like <span className="text-(--color-muted)">INTRO–001</span>. they arrive by
+        email from the owner directly · case doesn&rsquo;t matter · paste the whole thing.
+      </p>
     </section>
+  );
+}
+
+function CodeSubmit({ busy }: { busy: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={busy}
+      data-testid="gate-code-submit"
+      className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 pt-1"
+    >
+      {busy ? 'checking…' : <>enter <span className="text-[14px]">↵</span></>}
+    </button>
   );
 }
 
@@ -48,28 +78,4 @@ async function runCodeSubmit(
 ): Promise<void> {
   const ok = await hook.submitCode(handle, code);
   ok && router.push(`/${handle}`);
-}
-
-function PanelHeader({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <header>
-      <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted)">{title}</div>
-      <p className="reading italic text-(--color-muted) mt-2 text-base">{subtitle}</p>
-    </header>
-  );
-}
-
-function SubmitButton({
-  busy, label, testid,
-}: { busy: boolean; label: string; testid: string }) {
-  return (
-    <button
-      type="submit"
-      disabled={busy}
-      data-testid={testid}
-      className="mono text-xs tracking-widest uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 disabled:opacity-40"
-    >
-      {busy ? 'working…' : label}
-    </button>
-  );
 }

@@ -68,6 +68,8 @@ async function signInAndOpenCodes(page: Page): Promise<void> {
 async function createCodeInUI(
   page: Page, code: string, label: string, tags: string,
 ): Promise<void> {
+  // /admin/codes UI 现在用 modal 打开创建表单；先点 "+ new code"。
+  await page.getByTestId('code-new').click();
   await page.getByTestId('code-input').fill(code);
   await page.getByTestId('code-label').fill(label);
   await page.getByTestId('code-tags').fill(tags);

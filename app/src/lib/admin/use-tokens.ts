@@ -1,5 +1,4 @@
 // use-tokens —— /admin/api-mcp 的状态机：list / create / delete API tokens。
-//
 // 创建返回 plaintext 一次性；UI 把它 highlight 出来让 owner 复制（关掉这条
 // 之后就再也看不到）。delete 是硬删，不可恢复。
 
@@ -107,4 +106,60 @@ function removeFromList(s: State, id: string): State {
   return s.kind === 'ready'
     ? { ...s, tokens: s.tokens.filter((t) => t.id !== id) }
     : s;
+}
+
+// MCP client snippet helpers for the design's MCPClientPanel.
+export interface MCPClient {
+  id: 'claude-desktop' | 'cursor' | 'http';
+  label: string;
+  path: string;
+  snippet: (key: string, host: string) => string;
+}
+
+export const MCP_CLIENTS: readonly MCPClient[] = [
+  {
+    id: 'claude-desktop',
+    label: 'Claude Desktop',
+    path: '~/Library/Application Support/Claude/claude_desktop_config.json',
+    snippet: (key, host) => `{
+  "mcpServers": {
+    "standmeet": {
+      "command": "npx",
+      "args": ["-y", "@standmeet/mcp-client@latest"],
+      "env": {
+        "STANDMEET_HOST": "${host}",
+        "STANDMEET_API_KEY": "${key}"
+      }
+    }
+  }
+}`,
+  },
+  {
+    id: 'cursor',
+    label: 'Cursor',
+    path: '~/.cursor/mcp.json',
+    snippet: (key, host) => `{
+  "standmeet": {
+    "command": "npx",
+    "args": ["-y", "@standmeet/mcp-client@latest"],
+    "env": {
+      "STANDMEET_HOST": "${host}",
+      "STANDMEET_API_KEY": "${key}"
+    }
+  }
+}`,
+  },
+  {
+    id: 'http',
+    label: 'Raw HTTP',
+    path: 'POST {host}/mcp',
+    snippet: (key, host) => `curl -X POST ${host}/mcp \\
+  -H "authorization: Bearer ${key}" \\
+  -H "content-type: application/json" \\
+  -d '{"method":"tools/list"}'`,
+  },
+];
+
+export function maskSecret(s: string): string {
+  return s.length <= 12 ? s : `${s.slice(0, 8)}…${s.slice(-4)}`;
 }

@@ -1,8 +1,8 @@
-// /admin/raw —— owner 通过 MCP push 进来的"原始倾倒"列表（纯展示）。
+// /admin/raw —— owner 通过 MCP push 进来的"原始倾倒"列表。
 
 import { AdminShell } from '@/components/admin/AdminShell';
-import { RawList } from '@/components/admin/RawList';
+import { RawSection } from '@/components/admin/sections/RawSection';
 
 export default function AdminRawPage() {
-  return <AdminShell active="raw"><RawList /></AdminShell>;
+  return <AdminShell active="raw"><RawSection /></AdminShell>;
 }

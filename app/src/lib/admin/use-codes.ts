@@ -1,8 +1,5 @@
 // use-codes —— /admin/codes 状态机：list + create access codes。
-//
-// owner 给某个访客（reviewer / hiring manager / etc）发一个 LABEL-XXX 码，
-// 设 tag scope。访客拿码进 /gate 颁发 session。这里只做最小：
-// 列表 + 简单 create（code、label、tag 都用 plain text input）。
+// 简单版只支持 code/label/included_tags；create 用 modal 时支持更多字段。
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -15,6 +12,8 @@ export interface CodeView {
   status: string;
   included_tags: string[];
   excluded_tags: string[];
+  purpose?: string;
+  suggested_questions?: string[];
 }
 
 type State =
@@ -26,6 +25,9 @@ export interface CreateCodeInput {
   code: string;
   label: string;
   included_tags: string[];
+  excluded_tags?: string[];
+  purpose?: string;
+  suggested_questions?: string[];
 }
 
 export interface CodesHook {
@@ -73,10 +75,10 @@ async function runCreate(
     const created = await adminAPI.post<CodeView>('/codes/', {
       code: input.code,
       label: input.label,
-      purpose: '',
+      purpose: input.purpose ?? '',
       included_tags: input.included_tags,
-      excluded_tags: [],
-      suggested_questions: [],
+      excluded_tags: input.excluded_tags ?? [],
+      suggested_questions: input.suggested_questions ?? [],
     });
     setState((s) => prependCode(s, created));
   } catch (e) {
