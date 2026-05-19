@@ -97,6 +97,7 @@ func wireAndServe(
 	seoRepo := postgres.NewSEORepo(c.db)
 	customPageRepo := postgres.NewCustomPageRepo(c.db)
 	customBuildRepo := postgres.NewCustomBuildRepo(c.db)
+	accessRequestRepo := postgres.NewAccessRequestRepo(c.db)
 	sessionStore := session.NewOwnerSessionStore(c.rdb)
 	visitorStore := session.NewVisitorSessionStore(c.rdb)
 	provider, perr := inference.NewFromEnv()
@@ -113,10 +114,11 @@ func wireAndServe(
 		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
 		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
 		codeRepo: codeRepo, convRepo: convRepo, pageRepo: pageRepo,
-		seoRepo:         seoRepo,
-		customPageRepo:  customPageRepo,
-		customBuildRepo: customBuildRepo,
-		sessionStore:    sessionStore, visitorStore: visitorStore,
+		seoRepo:           seoRepo,
+		customPageRepo:    customPageRepo,
+		customBuildRepo:   customBuildRepo,
+		accessRequestRepo: accessRequestRepo,
+		sessionStore:      sessionStore, visitorStore: visitorStore,
 		provider: provider, secureCookie: cfg.SecureCookie,
 		publicURL:  cfg.PublicURL,
 		buildsRoot: cfg.CustomPagesRoot,
@@ -149,26 +151,27 @@ func ensureSetupToken(
 
 // runtimeDeps 把 serve 的依赖打包，避免函数参数列表超过 revive argument-limit。
 type runtimeDeps struct {
-	log             *slog.Logger
-	db              *pgxpool.Pool
-	rdb             *redis.Client
-	instanceRepo    *postgres.InstanceRepo
-	ownerRepo       *postgres.OwnerRepo
-	tokenRepo       *postgres.APITokenRepo
-	rawRepo         *postgres.RawRepo
-	wikiRepo        *postgres.WikiRepo
-	codeRepo        *postgres.CodeRepo
-	convRepo        *postgres.ConversationRepo
-	pageRepo        *postgres.PageRepo
-	seoRepo         *postgres.SEORepo
-	customPageRepo  *postgres.CustomPageRepo
-	customBuildRepo *postgres.CustomBuildRepo
-	sessionStore    *session.OwnerSessionStore
-	visitorStore    *session.VisitorSessionStore
-	provider        inference.Provider
-	publicURL       string
-	buildsRoot      string
-	secureCookie    bool
+	log               *slog.Logger
+	db                *pgxpool.Pool
+	rdb               *redis.Client
+	instanceRepo      *postgres.InstanceRepo
+	ownerRepo         *postgres.OwnerRepo
+	tokenRepo         *postgres.APITokenRepo
+	rawRepo           *postgres.RawRepo
+	wikiRepo          *postgres.WikiRepo
+	codeRepo          *postgres.CodeRepo
+	convRepo          *postgres.ConversationRepo
+	pageRepo          *postgres.PageRepo
+	seoRepo           *postgres.SEORepo
+	customPageRepo    *postgres.CustomPageRepo
+	customBuildRepo   *postgres.CustomBuildRepo
+	accessRequestRepo *postgres.AccessRequestRepo
+	sessionStore      *session.OwnerSessionStore
+	visitorStore      *session.VisitorSessionStore
+	provider          inference.Provider
+	publicURL         string
+	buildsRoot        string
+	secureCookie      bool
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
@@ -228,33 +231,35 @@ func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.Can
 // 直接铺开 50+ 行 struct literal，function-length lint 友好。
 func buildServerDeps(d *runtimeDeps) *server.Deps {
 	return &server.Deps{
-		DB:                d.db,
-		Redis:             d.rdb,
-		Log:               d.log,
-		Admin:             buildAdminDeps(d),
-		Public:            buildPublicDeps(d),
-		PublicPage:        buildPublicPageDeps(d),
-		PublicSEO:         buildPublicSEODeps(d),
-		PublicCustomPages: buildPublicCustomPageDeps(d),
-		Builds:            sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
-		TLSAsk:            sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
-		MCP:               buildMCPDeps(d),
+		DB:                   d.db,
+		Redis:                d.rdb,
+		Log:                  d.log,
+		Admin:                buildAdminDeps(d),
+		Public:               buildPublicDeps(d),
+		PublicPage:           buildPublicPageDeps(d),
+		PublicSEO:            buildPublicSEODeps(d),
+		PublicCustomPages:    buildPublicCustomPageDeps(d),
+		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
+		Builds:               sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
+		TLSAsk:               sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
+		MCP:                  buildMCPDeps(d),
 	}
 }
 
 func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	return server.AdminDeps{
-		Claim:         usecases.ClaimDeps{Instance: d.instanceRepo},
-		Login:         usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
-		APITokens:     usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
-		Corpus:        usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
-		Conversations: usecases.ConversationsDeps{Conv: d.convRepo},
-		BYOAI:         usecases.BYOAIDeps{Owners: d.ownerRepo},
-		Domains:       usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
-		Codes:         d.codeRepo,
-		Pages:         d.pageRepo,
-		Sessions:      d.sessionStore,
-		SecureCookie:  d.secureCookie,
+		Claim:          usecases.ClaimDeps{Instance: d.instanceRepo},
+		Login:          usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
+		APITokens:      usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
+		Corpus:         usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
+		Conversations:  usecases.ConversationsDeps{Conv: d.convRepo},
+		BYOAI:          usecases.BYOAIDeps{Owners: d.ownerRepo},
+		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
+		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
+		Codes:          d.codeRepo,
+		Pages:          d.pageRepo,
+		Sessions:       d.sessionStore,
+		SecureCookie:   d.secureCookie,
 	}
 }
 
@@ -290,6 +295,13 @@ func buildPublicCustomPageDeps(d *runtimeDeps) publicroutes.CustomPageHandlers {
 		Owners:     d.ownerRepo,
 		Log:        d.log,
 		BuildsRoot: d.buildsRoot,
+	}
+}
+
+func buildPublicAccessRequestsDeps(d *runtimeDeps) publicroutes.AccessRequestsHandlers {
+	return publicroutes.AccessRequestsHandlers{
+		Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
+		Log:  d.log,
 	}
 }
 

@@ -10,7 +10,7 @@ import type { APIRequestContext } from '@playwright/test';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 interface MCPContentText { type: string; text: string }
-interface MCPResult { content: MCPContentText[] }
+interface MCPResult { content: MCPContentText[]; isError?: boolean }
 interface MCPResponse {
   jsonrpc: string;
   id?: number | string;
@@ -88,7 +88,21 @@ export async function callTool<T>(
   }
   const content = res.body.result?.content?.[0];
   if (!content) throw new Error(`tool ${name} returned no content`);
-  return JSON.parse(content.text) as T;
+  // mcp-go 的 NewToolResultError 把 plaintext 包成 content.text；正常返成功
+  // 时我们在 backend 里 marshal 一个 JSON 字符串进去。所以先看 isError 兜底，
+  // 然后试 JSON.parse；parse 失败就当 plaintext 错误信息抛。
+  if (res.body.result?.isError) {
+    throw new Error(`tool ${name} error: ${content.text}`);
+  }
+  return parseOrThrow<T>(name, content.text);
+}
+
+function parseOrThrow<T>(name: string, text: string): T {
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`tool ${name} non-JSON content: ${text}`);
+  }
 }
 
 let _toolCallID = 100;

@@ -43,8 +43,19 @@ export const adminAPI = {
   get: <T>(path: string) => adminFetch<T>('GET', path),
   put: <T>(path: string, body: unknown) => adminFetch<T>('PUT', path, body),
   post: <T>(path: string, body: unknown) => adminFetch<T>('POST', path, body),
+  patch: <T>(path: string, body: unknown) => adminFetch<T>('PATCH', path, body),
   delete: <T>(path: string) => adminFetch<T>('DELETE', path),
 };
+
+export interface AccessRequestView {
+  id: string;
+  name: string;
+  org: string;
+  email: string;
+  message: string;
+  status: 'open' | 'replied' | 'closed';
+  created_at: string;
+}
 
 // Typed views (re-export from public types where shapes match).
 export interface RawAdminView {

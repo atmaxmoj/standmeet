@@ -8,6 +8,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AccessRequest struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Name      string
+	Org       string
+	Email     string
+	Message   string
+	Status    string
+	CreatedAt pgtype.Timestamptz
+}
+
 type AccessCode struct {
 	ID                 pgtype.UUID
 	OwnerID            pgtype.UUID

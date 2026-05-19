@@ -171,6 +171,23 @@ CREATE TABLE custom_page_builds (
     built_at        timestamptz
 );
 
+-- access_requests —— visitor 在 /<handle>/gate 留言（无 code 时）。
+-- owner 在 /admin/requests 看；open → replied (回邮件后) / closed (无视)。
+CREATE TABLE access_requests (
+    id          uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id    uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    name        text          NOT NULL DEFAULT '',
+    org         text          NOT NULL DEFAULT '',
+    email       citext        NOT NULL,
+    message     text          NOT NULL DEFAULT '',
+    status      text          NOT NULL DEFAULT 'open'
+                              CHECK (status IN ('open', 'replied', 'closed')),
+    created_at  timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX access_requests_owner_status_idx
+    ON access_requests(owner_id, status, created_at DESC);
+
 -- seo_settings —— owner 维度的 SEO 全局开关。Singleton-per-owner。
 CREATE TABLE seo_settings (
     owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,

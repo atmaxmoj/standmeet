@@ -25,32 +25,34 @@ import (
 // Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。
 // AdminDeps 放最后让里面的 bool 字段在尾部 padding 上不浪费。
 type Deps struct {
-	DB                *pgxpool.Pool
-	Redis             *redis.Client
-	Log               *slog.Logger
-	Public            publicroutes.Handlers
-	PublicPage        publicroutes.PageHandlers
-	PublicSEO         publicroutes.SEOHandlers
-	PublicCustomPages publicroutes.CustomPageHandlers
-	Builds            sysroutes.BuilderDeps
-	TLSAsk            sysroutes.TLSAskDeps
-	MCP               mcp.Deps
-	Admin             AdminDeps
+	DB                   *pgxpool.Pool
+	Redis                *redis.Client
+	Log                  *slog.Logger
+	Public               publicroutes.Handlers
+	PublicPage           publicroutes.PageHandlers
+	PublicSEO            publicroutes.SEOHandlers
+	PublicCustomPages    publicroutes.CustomPageHandlers
+	PublicAccessRequests publicroutes.AccessRequestsHandlers
+	Builds               sysroutes.BuilderDeps
+	TLSAsk               sysroutes.TLSAskDeps
+	MCP                  mcp.Deps
+	Admin                AdminDeps
 }
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
-	Claim         usecases.ClaimDeps
-	Login         usecases.LoginDeps
-	APITokens     usecases.APITokenDeps
-	Corpus        usecases.CorpusDeps
-	Conversations usecases.ConversationsDeps
-	BYOAI         usecases.BYOAIDeps
-	Domains       usecases.AllowedDomainsDeps
-	Codes         *postgres.CodeRepo
-	Pages         *postgres.PageRepo
-	Sessions      *session.OwnerSessionStore
-	SecureCookie  bool
+	Claim          usecases.ClaimDeps
+	Login          usecases.LoginDeps
+	APITokens      usecases.APITokenDeps
+	Corpus         usecases.CorpusDeps
+	Conversations  usecases.ConversationsDeps
+	BYOAI          usecases.BYOAIDeps
+	Domains        usecases.AllowedDomainsDeps
+	AccessRequests usecases.AccessRequestsDeps
+	Codes          *postgres.CodeRepo
+	Pages          *postgres.PageRepo
+	Sessions       *session.OwnerSessionStore
+	SecureCookie   bool
 }
 
 // New 返回一个挂好路由的 chi router，可直接传给 http.Server。
@@ -92,17 +94,20 @@ func mountAdmin(r chi.Router, deps *Deps) {
 
 func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 	return &adminroutes.Handlers{
-		Claim:         deps.Admin.Claim,
-		Auth:          adminroutes.AuthDeps{Login: deps.Admin.Login, Sessions: deps.Admin.Sessions},
-		APITokens:     deps.Admin.APITokens,
-		Corpus:        adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
-		CodesAdmin:    adminroutes.CodesDeps{Codes: deps.Admin.Codes},
-		PageAdmin:     adminroutes.PageAdminDeps{Pages: deps.Admin.Pages},
-		Conversations: adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
-		BYOAI:         adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
-		Domains:       adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
-		Log:           deps.Log,
-		SecureCookie:  deps.Admin.SecureCookie,
+		Claim: deps.Admin.Claim,
+		Auth: adminroutes.AuthDeps{
+			Login: deps.Admin.Login, Sessions: deps.Admin.Sessions,
+		},
+		APITokens:      deps.Admin.APITokens,
+		Corpus:         adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+		CodesAdmin:     adminroutes.CodesDeps{Codes: deps.Admin.Codes},
+		PageAdmin:      adminroutes.PageAdminDeps{Pages: deps.Admin.Pages},
+		Conversations:  adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
+		BYOAI:          adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
+		Domains:        adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
+		AccessRequests: adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
+		Log:            deps.Log,
+		SecureCookie:   deps.Admin.SecureCookie,
 	}
 }
 
@@ -122,6 +127,9 @@ func mountPublic(r chi.Router, deps *Deps) {
 			Owners:     deps.PublicCustomPages.Owners,
 			Log:        deps.Log,
 			BuildsRoot: deps.PublicCustomPages.BuildsRoot,
+		}).Mount(r)
+		(&publicroutes.AccessRequestsHandlers{
+			Reqs: deps.PublicAccessRequests.Reqs, Log: deps.Log,
 		}).Mount(r)
 	})
 }

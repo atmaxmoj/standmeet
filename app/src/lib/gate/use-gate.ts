@@ -58,6 +58,7 @@ export interface AccessRequestInput {
   handle: string;
   email: string;
   name: string;
+  org: string;
   message: string;
 }
 
@@ -87,11 +88,12 @@ export function useGate(): GateHook {
 
   const submitRequest = useCallback(async (input: AccessRequestInput): Promise<boolean> => {
     return await runSubmit(setState, async () => {
-      await fetch('/api/v1/access-requests', {
+      const res = await fetch('/api/v1/access-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
+      if (!res.ok) throw new Error(`submit access request: ${res.status}`);
       return true;
     });
   }, []);

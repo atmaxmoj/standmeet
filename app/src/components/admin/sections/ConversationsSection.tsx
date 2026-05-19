@@ -5,6 +5,7 @@
 
 import { SectionHeader } from '../SectionHeader';
 import { ConvRow } from './conversations/ConvRow';
+import { ConvTranscriptModal } from './conversations/ConvTranscriptModal';
 import { useConversations, type ConversationsHook } from '@/lib/admin/use-conversations';
 
 export function ConversationsSection() {
@@ -18,6 +19,12 @@ export function ConversationsSection() {
       />
       <ConvHeader />
       <ConvList hook={hook} />
+      {hook.transcript && (
+        <ConvTranscriptModal
+          transcript={hook.transcript}
+          onClose={hook.closeTranscript}
+        />
+      )}
     </>
   );
 }
@@ -40,7 +47,7 @@ function ConvList({ hook }: { hook: ConversationsHook }) {
             key={c.id}
             conversation={c}
             open={hook.openId === c.id}
-            onToggle={() => hook.toggleOpen(c.id)}
+            onToggle={() => hook.openConversation(c.id)}
           />
         ))}
       </ul>

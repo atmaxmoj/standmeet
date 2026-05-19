@@ -32,8 +32,10 @@ export function RequestPanel({ handle, hook }: Props) {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const input: AccessRequestInput = {
-      handle, email: form.email,
-      name: composeName(form),
+      handle,
+      name: form.name,
+      org: form.org,
+      email: form.email,
       message: form.why,
     };
     const ok = await hook.submitRequest(input);
@@ -51,11 +53,6 @@ export function RequestPanel({ handle, hook }: Props) {
       </div>
     </section>
   );
-}
-
-function composeName(form: FormState): string {
-  const parts = [form.name.trim(), form.org.trim()].filter((s) => s !== '');
-  return parts.join(' @ ');
 }
 
 function RequestHeadline({
