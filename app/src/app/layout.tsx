@@ -8,6 +8,7 @@ import type { Metadata } from 'next';
 import { Newsreader, JetBrains_Mono } from 'next/font/google';
 
 import '@/app/globals.css';
+import { ToastProvider, Toaster } from '@/lib/ui/toast';
 
 const newsreader = Newsreader({
   subsets: ['latin'],
@@ -31,7 +32,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${newsreader.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ToastProvider>
+          {children}
+          <Toaster />
+        </ToastProvider>
+      </body>
     </html>
   );
 }

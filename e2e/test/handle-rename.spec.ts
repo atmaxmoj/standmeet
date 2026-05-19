@@ -8,9 +8,9 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { claim } from '../helper/admin';
-import { resetInstance, findSetupToken } from '../helper/docker';
-import { goto } from '../helper/navigate';
+import { claim } from '@/fixtures/admin';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',

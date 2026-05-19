@@ -7,10 +7,10 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim } from '../helper/admin';
-import { resetInstance, findSetupToken } from '../helper/docker';
-import { goto } from '../helper/navigate';
-import { issueSessionStatus } from '../helper/visitor';
+import { claim } from '@/fixtures/admin';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { goto } from '@/fixtures/navigate';
+import { issueSessionStatus } from '@/fixtures/visitor';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -32,16 +32,31 @@ test.describe.serial('owner sets quotas on access code and revokes it', () => {
     await request.dispose();
   });
 
-  test('owner creates code with quotas, sees them, then revokes',
+  test('owner creates code with quotas, edits them, then revokes',
     async ({ page, request }) => {
       await signInAndOpenCodes(page);
       await createCodeWithQuotas(page, CODE, 'Interview round A', '5', '10');
-      await expectQuotaLineVisible(page, CODE);
+      await expectQuotaLineVisible(page, CODE, '5', '10');
+      await editQuotas(page, CODE, '7', '20');
+      await expectQuotaLineVisible(page, CODE, '7', '20');
       await revokeCode(page, CODE);
       await expectRevokedRow(page, CODE);
       await expectRevokedSessionRejected(request);
     });
 });
+
+async function editQuotas(
+  page: Page, code: string, sessions: string, turns: string,
+): Promise<void> {
+  // click the card's "edit" Btn (unique kind=outline / text=edit on this card).
+  const card = page.getByTestId(`code-card-${code}`);
+  await card.getByRole('button', { name: 'edit', exact: true }).click();
+  await page.getByTestId('code-max-sessions').fill(sessions);
+  await page.getByTestId('code-max-turns').fill(turns);
+  await page.getByTestId('code-save').click();
+  await expect(page.getByTestId('toast-success').filter({ hasText: 'Quotas updated' }))
+    .toBeVisible();
+}
 
 async function signInAndOpenCodes(page: Page): Promise<void> {
   await goto(page, '/login');
@@ -65,16 +80,21 @@ async function createCodeWithQuotas(
   await expect(page.getByTestId(`code-row-${code}`)).toBeVisible({ timeout: 5_000 });
 }
 
-async function expectQuotaLineVisible(page: Page, code: string): Promise<void> {
+async function expectQuotaLineVisible(
+  page: Page, code: string, sessions: string, turns: string,
+): Promise<void> {
   const line = page.getByTestId(`code-quotas-${code}`);
   await expect(line).toBeVisible();
-  await expect(line).toContainText('5 sessions/visitor');
-  await expect(line).toContainText('10 turns/session');
+  await expect(line).toContainText(`${sessions} sessions/visitor`);
+  await expect(line).toContainText(`${turns} turns/session`);
 }
 
 async function revokeCode(page: Page, code: string): Promise<void> {
   await page.getByTestId(`code-revoke-${code}`).click();
   await expect(page.getByTestId(`code-revoke-${code}`)).toHaveCount(0, { timeout: 5_000 });
+  // create 的 toast 可能没消失，按文本筛具体那条 success toast。
+  await expect(page.getByTestId('toast-success').filter({ hasText: 'Code revoked' }))
+    .toBeVisible();
 }
 
 async function expectRevokedRow(page: Page, code: string): Promise<void> {

@@ -74,14 +74,17 @@ export function pickHandle(override: string | null, fromSession: string): string
 }
 
 // commitHandle —— PATCH 调用 + 成功 callback；HandleEditor 直接调。
+// onSuccess 让组件挂 toast（lib 不直接依赖 toast，避免循环 import）。
 export async function commitHandle(
   sanitized: string,
   hook: HandleHook,
   onChanged: (h: string) => void,
   onClose: () => void,
+  onSuccess: (h: string) => void,
 ): Promise<void> {
   const next = await hook.update(sanitized);
   if (next === null) return;
   onChanged(next);
   onClose();
+  onSuccess(next);
 }

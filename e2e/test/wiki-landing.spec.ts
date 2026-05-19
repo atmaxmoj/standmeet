@@ -9,11 +9,11 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext } from "@playwright/test";
 
-import { claim, createAPIToken, login as loginAPI } from '../helper/admin';
-import { seedPublicWiki } from '../helper/corpus';
-import { resetInstance, findSetupToken } from '../helper/docker';
-import { callTool, initMCP } from '../helper/mcp';
-import { goto } from '../helper/navigate';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { seedPublicWiki } from '@/fixtures/corpus';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { callTool, initMCP } from '@/fixtures/mcp';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',

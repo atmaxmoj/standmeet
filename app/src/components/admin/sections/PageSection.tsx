@@ -183,6 +183,7 @@ function WhereBlock({ editor, content }: { editor: PageEditorHook; content: Cont
   return (
     <Block title="where I am" blurb="Location, employment posture, and the filter for what you're open to.">
       <EditField label="location line" value={content.where.location_line}
+        testid="where-location"
         onChange={(v) => editor.patch({ where: { ...content.where, location_line: v } })} />
       <EditField label="status prose" multiline={3} value={content.where.status_prose}
         onChange={(v) => editor.patch({ where: { ...content.where, status_prose: v } })} />
@@ -200,6 +201,7 @@ function ContactBlock({ editor, content }: { editor: PageEditorHook; content: Co
   return (
     <Block title="how to talk to me" blurb="The screening rules, said honestly.">
       <EditField label="email" value={content.contact.email}
+        testid="contact-email"
         onChange={(v) => editor.patch({ contact: { ...content.contact, email: v } })} />
       <EditField label="chat line" multiline={2} value={content.contact.chat_line}
         onChange={(v) => editor.patch({ contact: { ...content.contact, chat_line: v } })} />

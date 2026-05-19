@@ -7,16 +7,29 @@ import type { CodeFormHook } from '@/lib/admin/use-code-form';
 const SUGGESTED_TAGS = ['thinking', 'work', 'lucerna', 'private', 'fundraising', 'side-projects'];
 
 type Props = { form: CodeFormHook };
+type EditingProps = { form: CodeFormHook; editing: boolean };
 
-export function CreateCodeFields({ form }: Props) {
+export function CreateCodeFields({ form, editing }: EditingProps) {
   return (
     <div className="space-y-7">
-      <CoreFields form={form} />
+      <CoreFieldsSlot form={form} editing={editing} />
       <QuotasField form={form} />
+      <NonQuotaSlot form={form} editing={editing} />
+    </div>
+  );
+}
+
+function CoreFieldsSlot({ form, editing }: EditingProps) {
+  return editing ? null : <CoreFields form={form} />;
+}
+
+function NonQuotaSlot({ form, editing }: EditingProps) {
+  return editing ? null : (
+    <>
       <TagsField form={form} />
       <ScopeField form={form} />
       <QuestionsField form={form} />
-    </div>
+    </>
   );
 }
 

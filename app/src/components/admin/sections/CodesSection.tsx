@@ -14,10 +14,21 @@ import { CodeQRModal } from '@/components/admin/modals/CodeQRModal';
 import { VisitorPreviewModal } from '@/components/admin/modals/VisitorPreviewModal';
 import { useCodeModalState } from '@/lib/admin/use-code-modals';
 import { useCodes, type CodeView, type CodesHook } from '@/lib/admin/use-codes';
+import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
+
+function readyError(hook: CodesHook): string | null {
+  return hook.state.kind === 'ready' ? hook.state.error : null;
+}
 
 export function CodesSection() {
   const hook = useCodes();
   const modals = useCodeModalState();
+  const toast = useToast();
+  useEffectErrorToast(readyError(hook));
+  const revokeWithToast = useCallback(async (id: string) => {
+    const ok = await hook.revokeCode(id);
+    ok && toast.success('Code revoked');
+  }, [hook, toast]);
   return (
     <>
       <SectionHeader
@@ -32,12 +43,14 @@ export function CodesSection() {
         openCreate={modals.openCreate}
         openQR={modals.openQR}
         openPreview={modals.openPreview}
-        revokeCode={hook.revokeCode}
+        revokeCode={revokeWithToast}
       />
       <CodeCreateModalSlot
         open={modals.creating}
+        editing={modals.editing}
         onClose={modals.closeAll}
         createCode={hook.createCode}
+        updateQuotas={hook.updateQuotas}
       />
       <ModalSlot code={modals.qrCode} kind="qr" onClose={modals.closeAll} />
       <ModalSlot code={modals.previewCode} kind="preview" onClose={modals.closeAll} />
@@ -46,7 +59,9 @@ export function CodesSection() {
 }
 
 function NewCodeBtn({ open }: { open: () => void }) {
-  return <Btn kind="primary" onClick={open} testid="code-new">＋ new code</Btn>;
+  // Btn 把 onClick 调时会传 MouseEvent；openCreate(existing?) 不能把
+  // 事件当成 existing 传进去（会让 modal 以为是 edit）。包一层裸调用。
+  return <Btn kind="primary" onClick={() => open()} testid="code-new">＋ new code</Btn>;
 }
 
 function titleCount(hook: CodesHook): string {
@@ -130,17 +145,34 @@ function EmptyState() {
 }
 
 function CodeCreateModalSlot({
-  open, onClose, createCode,
+  open, editing, onClose, createCode, updateQuotas,
 }: {
   open: boolean;
+  editing: CodeView | null;
   onClose: () => void;
   createCode: CodesHook['createCode'];
+  updateQuotas: CodesHook['updateQuotas'];
 }) {
-  const onSave = useCallback(async (input: Parameters<CodesHook['createCode']>[0]) => {
-    await createCode(input);
+  const toast = useToast();
+  const onCreate = useCallback(async (input: Parameters<CodesHook['createCode']>[0]) => {
+    const ok = await createCode(input);
+    ok && toast.success(`Code ${input.code} created`);
     onClose();
-  }, [createCode, onClose]);
-  return open ? <CodeCreateModal onClose={onClose} onSave={onSave} /> : null;
+  }, [createCode, onClose, toast]);
+  const onUpdateQuotas = useCallback(
+    async (id: string, input: Parameters<CodesHook['updateQuotas']>[1]) => {
+      const ok = await updateQuotas(id, input);
+      ok && toast.success('Quotas updated');
+      onClose();
+    }, [updateQuotas, onClose, toast]);
+  return open ? (
+    <CodeCreateModal
+      existing={editing}
+      onClose={onClose}
+      onCreate={onCreate}
+      onUpdateQuotas={onUpdateQuotas}
+    />
+  ) : null;
 }
 
 function ModalSlot({

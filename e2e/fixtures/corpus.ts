@@ -3,7 +3,7 @@
 
 import type { APIRequestContext } from '@playwright/test';
 
-import { callTool } from './mcp';
+import { callTool } from '@/fixtures/mcp';
 
 interface RawDumpResult { raw_id: string }
 interface PromoteWikiResult { wiki_id: string }

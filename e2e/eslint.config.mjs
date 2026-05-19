@@ -47,10 +47,18 @@ export default tseslint.config(
         'error',
         { max: 70, skipBlankLines: true, skipComments: true, IIFEs: true },
       ],
+
+      // 禁所有 relative import；走 @/ alias（tsconfig.paths 配过）。
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['../*', './*'],
+          message: 'Use the @/ alias instead of relative imports.',
+        }],
+      }],
     },
   },
   // Spec-file rules — same as MainApp.  Setup primitives (page.goto,
-  // login flows) live in helper/ and are exempt; everything else must
+  // login flows) live in fixtures/ and are exempt; everything else must
   // drive the UI through real user actions.
   {
     files: ['test/**/*.spec.ts'],
@@ -130,7 +138,7 @@ export default tseslint.config(
           // realistic state instead of teleporting to a deep URL.
           selector: 'CallExpression[callee.property.name="goto"]',
           message:
-            'E2E spec: no page.goto. Call a setup helper from helper/ in beforeEach/beforeAll, or click your way there from a known entry point.',
+            'E2E spec: no page.goto. Call a setup helper from fixtures/ in beforeEach/beforeAll, or click your way there from a known entry point.',
         },
       ],
     },

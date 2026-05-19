@@ -9,8 +9,8 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { resetInstance, findSetupToken } from '../helper/docker';
-import { goto } from '../helper/navigate';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   full: 'Alice Anderson',

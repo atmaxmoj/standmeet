@@ -1,7 +1,11 @@
 // ConversationsSection —— /admin/conversations。
-// backend 还没暴露 listing —— 渲染空态："0 sessions"。
+// URL ?code=LABEL-NNN 时只显示该 code 的 conversation；admin code 卡里的
+// "view conversations" 链接就走这条 query。
 
 'use client';
+
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConvRow } from '@/components/admin/sections/conversations/ConvRow';
@@ -9,7 +13,9 @@ import { ConvTranscriptModal } from '@/components/admin/sections/conversations/C
 import { useConversations, type ConversationsHook } from '@/lib/admin/use-conversations';
 
 export function ConversationsSection() {
-  const hook = useConversations();
+  const params = useSearchParams();
+  const filterCode = params.get('code') ?? undefined;
+  const hook = useConversations(filterCode);
   return (
     <>
       <SectionHeader
@@ -17,6 +23,7 @@ export function ConversationsSection() {
         title="conversations"
         count={`${hook.rows.length} sessions`}
       />
+      <FilterChip code={filterCode} />
       <ConvHeader />
       <ConvList hook={hook} />
       {hook.transcript && (
@@ -27,6 +34,24 @@ export function ConversationsSection() {
       )}
     </>
   );
+}
+
+function FilterChip({ code }: { code: string | undefined }) {
+  return code ? (
+    <div
+      data-testid="conv-filter-chip"
+      className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) mb-3 flex items-baseline gap-3"
+    >
+      <span>filter · code · {code}</span>
+      <Link
+        href="/admin/conversations"
+        className="text-(--color-faint) hover:text-(--color-accent)"
+        data-testid="conv-filter-clear"
+      >
+        clear ×
+      </Link>
+    </div>
+  ) : null;
 }
 
 function ConvHeader() {

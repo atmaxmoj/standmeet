@@ -1,6 +1,8 @@
 // CodeCard —— Codes section 列表卡。
 // 顶部：label + status pill；下面 scope chips + suggested questions + QR tile。
 
+import Link from 'next/link';
+
 import { Btn } from '@/components/admin/atoms/Btn';
 import { Chip } from '@/components/admin/atoms/Chip';
 import { MetaPair } from '@/components/admin/atoms/MetaPair';
@@ -194,6 +196,7 @@ function CodeCardFooter({ code, link }: { code: CodeView; link: string }) {
   return (
     <div className="mt-5 pt-3 border-t border-(--color-rule)/60">
       <FooterTop status={code.status} link={link} />
+      <ConversationsLink code={code.code} />
       <MembersBlock codeID={code.id} code={code.code} />
     </div>
   );
@@ -205,5 +208,17 @@ function FooterTop({ status, link }: { status: string; link: string }) {
       <span>status · {status}</span>
       <span className="truncate min-w-0">{link}</span>
     </div>
+  );
+}
+
+function ConversationsLink({ code }: { code: string }) {
+  return (
+    <Link
+      href={`/admin/conversations?code=${encodeURIComponent(code)}`}
+      data-testid={`code-view-conversations-${code}`}
+      className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent) mt-3 inline-block"
+    >
+      view conversations →
+    </Link>
   );
 }

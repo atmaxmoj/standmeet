@@ -40,8 +40,8 @@ export async function login(
 ): Promise<AdminLogin> {
   const res = await request.post(`${BACKEND}/api/admin/login`, { data: { email, password } });
   if (res.status() !== 200) throw new Error(`login failed: ${res.status()}`);
-  const body = await res.json();
-  return { csrf: body.csrf_token };
+  const body = await res.json() as { csrf_token?: string };
+  return { csrf: body.csrf_token ?? '' };
 }
 
 export async function createAPIToken(
@@ -56,6 +56,6 @@ export async function createAPIToken(
   if (res.status() !== 201 && res.status() !== 200) {
     throw new Error(`create token failed: ${res.status()}`);
   }
-  const body = await res.json();
-  return body.plaintext;
+  const body = await res.json() as { plaintext?: string };
+  return body.plaintext ?? '';
 }

@@ -1,11 +1,8 @@
-// member-quotas.spec.ts —— 同一个 code 给两个人，配额按 member 独立计数。
+// quota-accumulation.spec.ts —— 配额 N 时累积 N 次 OK，第 N+1 次 403。
 //
 // 用户故事：
-//   owner 给 HR 团队发 INTERVIEW-A1（max_sessions_per_member=1）。Sarah
-//   开了一个 session，再开第二个被拒。Bob 用同一个码、不同名字，第一个
-//   session 仍然能开。
-//
-// 全部走 API （visitor 侧 helper），UI 在 gate-access.spec.ts 已经验证。
+//   "5 轮面试" 字面意思：max_sessions_per_member=5。Sarah 真的能用满 5 次，
+//   第 6 次才被拒。不是 quota=1 那种 binary。
 
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -22,9 +19,10 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-const CODE = 'INTERVIEW-A1';
+const CODE = 'INTERVIEW-A3';
+const MAX_SESSIONS = 3;
 
-test.describe.serial('per-member quota counts independently for each visitor name', () => {
+test.describe.serial('per-member quota accumulates up to N, blocks at N+1', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -36,33 +34,28 @@ test.describe.serial('per-member quota counts independently for each visitor nam
     await request.dispose();
   });
 
-  test('Sarah blocked on 2nd session, Bob still allowed', async ({ request }) => {
-    const first = await issueSession(request, {
+  test('Sarah issues N sessions OK, (N+1)th blocked', async ({ request }) => {
+    for (let i = 0; i < MAX_SESSIONS; i++) {
+      const s = await issueSession(request, {
+        handle: OWNER.handle, code: CODE, visitor_name: 'Sarah',
+      });
+      expect(s.session_token).not.toBe('');
+    }
+    const overStatus = await issueSessionStatus(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Sarah',
     });
-    expect(first.session_token).not.toBe('');
-
-    const secondStatus = await issueSessionStatus(request, {
-      handle: OWNER.handle, code: CODE, visitor_name: 'Sarah',
-    });
-    expect(secondStatus).toBe(403);
-
-    const bob = await issueSessionStatus(request, {
-      handle: OWNER.handle, code: CODE, visitor_name: 'Bob',
-    });
-    expect(bob).toBe(200);
+    expect(overStatus).toBe(403);
   });
 });
 
 async function issueCodeWithQuota(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // helper 不需要 token，但保留 createAPIToken 一致性
   await createAPIToken(request, csrf, 'noop-token');
   await createCode(request, csrf, {
     code: CODE,
-    label: 'Interview round A',
-    purpose: 'member-quota spec',
+    label: 'Interview round A — 3 sessions',
+    purpose: 'quota-accumulation spec',
     included_tags: [],
-    max_sessions_per_member: 1,
+    max_sessions_per_member: MAX_SESSIONS,
   });
 }

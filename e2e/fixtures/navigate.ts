@@ -12,7 +12,6 @@ const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 // caller 给"/setup?t=xxx"、"/login"、"/alice" 这种。
 export async function goto(page: Page, path: string): Promise<void> {
   const url = path.startsWith('/') ? `${APP_BASE}${path}` : `${APP_BASE}/${path}`;
-  // eslint-disable-next-line no-restricted-syntax -- helper-only allowed goto
   await page.goto(url);
 }
 
@@ -20,7 +19,6 @@ export async function goto(page: Page, path: string): Promise<void> {
 // 返 response.status()；不存在响应时返 0（caller assert 容易）。
 export async function gotoExpectStatus(page: Page, path: string): Promise<number> {
   const url = path.startsWith('/') ? `${APP_BASE}${path}` : `${APP_BASE}/${path}`;
-  // eslint-disable-next-line no-restricted-syntax -- helper-only allowed goto
   const res = await page.goto(url);
   return res?.status() ?? 0;
 }

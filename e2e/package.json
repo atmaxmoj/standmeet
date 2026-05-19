@@ -4,7 +4,7 @@
   "private": true,
   "description": "StandMeet end-to-end tests — full-stack Playwright covering app + backend + sdk.",
   "scripts": {
-    "lint": "eslint test/ && knip",
+    "lint": "eslint test/ fixtures/ && knip",
     "typecheck": "tsc --noEmit",
     "test": "bash script/run-e2e.sh",
     "format": "prettier --write \"**/*.{ts,json,md}\"",

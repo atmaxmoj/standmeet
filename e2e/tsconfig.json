@@ -14,11 +14,15 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "incremental": true
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": [
     "test/**/*.ts",
-    "helper/**/*.ts",
+    "fixtures/**/*.ts",
     "bench/**/*.ts",
     "playwright.config.ts"
   ],

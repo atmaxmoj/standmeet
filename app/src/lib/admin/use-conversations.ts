@@ -69,7 +69,10 @@ export interface ConversationsHook {
   closeTranscript: () => void;
 }
 
-export function useConversations(): ConversationsHook {
+// useConversations —— 可选 filterCode 让 ConversationsSection 通过 URL 参数
+// `?code=INTRO-001` 只显示该 code 的 conversation；客户端 filter，后端 list
+// 全拉（v1 量级 ≤ defaultLimit 200，影响不大）。
+export function useConversations(filterCode?: string): ConversationsHook {
   const [rows, setRows] = useState<ConvView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +96,16 @@ export function useConversations(): ConversationsHook {
     setTranscript(null);
   }, []);
 
-  return { rows, loading, error, openId, transcript, openConversation, closeTranscript };
+  const filtered = filterByCode(rows, filterCode);
+  return {
+    rows: filtered, loading, error, openId, transcript,
+    openConversation, closeTranscript,
+  };
+}
+
+function filterByCode(rows: readonly ConvView[], code: string | undefined): ConvView[] {
+  if (!code) return rows.slice();
+  return rows.filter((r) => r.code.toLowerCase() === code.toLowerCase());
 }
 
 async function initialLoad(

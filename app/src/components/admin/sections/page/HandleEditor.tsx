@@ -11,6 +11,7 @@ import {
   useHandle, sanitizeHandle, handleHint, canSaveHandle, commitHandle,
   type HandleHook,
 } from '@/lib/admin/use-handle';
+import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 type Props = { current: string; onChanged: (h: string) => void };
 
@@ -54,6 +55,7 @@ function EditingRow({
   const [raw, setRaw] = useState(current);
   const handle = useHandle();
   const sanitized = sanitizeHandle(raw);
+  useEffectErrorToast(handle.error);
   return (
     <div className="space-y-2" data-testid="handle-editor">
       <div className="flex items-baseline gap-2 border-b border-(--color-rule) pb-1">
@@ -130,10 +132,12 @@ function SaveBtn({
   onClose: () => void;
 }) {
   const ready = canSaveHandle(sanitized, current, hook.pending);
+  const toast = useToast();
+  const onSuccess = (h: string) => toast.success(`Handle updated to /${h}`);
   return (
     <button
       type="button"
-      onClick={() => void commitHandle(sanitized, hook, onChanged, onClose)}
+      onClick={() => void commitHandle(sanitized, hook, onChanged, onClose, onSuccess)}
       disabled={!ready}
       data-testid="handle-save-btn"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"

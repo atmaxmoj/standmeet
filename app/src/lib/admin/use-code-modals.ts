@@ -7,6 +7,7 @@ import type { CodeView } from '@/lib/admin/use-codes';
 
 export interface CodeModalsState {
   creating: boolean;
+  editing: CodeView | null;
   qrCode: CodeView | null;
   previewCode: CodeView | null;
   openCreate: (existing?: CodeView) => void;
@@ -17,21 +18,27 @@ export interface CodeModalsState {
 
 export function useCodeModalState(): CodeModalsState {
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<CodeView | null>(null);
   const [qrCode, setQrCode] = useState<CodeView | null>(null);
   const [previewCode, setPreviewCode] = useState<CodeView | null>(null);
 
-  const openCreate = useCallback((_existing?: CodeView) => {
-    setQrCode(null); setPreviewCode(null); setCreating(true);
+  const openCreate = useCallback((existing?: CodeView) => {
+    setQrCode(null); setPreviewCode(null);
+    setEditing(existing ?? null);
+    setCreating(true);
   }, []);
   const openQR = useCallback((c: CodeView) => {
-    setCreating(false); setPreviewCode(null); setQrCode(c);
+    setCreating(false); setEditing(null); setPreviewCode(null); setQrCode(c);
   }, []);
   const openPreview = useCallback((c: CodeView) => {
-    setCreating(false); setQrCode(null); setPreviewCode(c);
+    setCreating(false); setEditing(null); setQrCode(null); setPreviewCode(c);
   }, []);
   const closeAll = useCallback(() => {
-    setCreating(false); setQrCode(null); setPreviewCode(null);
+    setCreating(false); setEditing(null); setQrCode(null); setPreviewCode(null);
   }, []);
 
-  return { creating, qrCode, previewCode, openCreate, openQR, openPreview, closeAll };
+  return {
+    creating, editing, qrCode, previewCode,
+    openCreate, openQR, openPreview, closeAll,
+  };
 }

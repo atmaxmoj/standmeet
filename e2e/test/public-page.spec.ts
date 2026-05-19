@@ -11,11 +11,11 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login } from '../helper/admin';
-import { seedPublicWiki } from '../helper/corpus';
-import { resetInstance, findSetupToken } from '../helper/docker';
-import { initMCP } from '../helper/mcp';
-import { navigateToHandle } from '../helper/navigate';
+import { claim, createAPIToken, login } from '@/fixtures/admin';
+import { seedPublicWiki } from '@/fixtures/corpus';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { initMCP } from '@/fixtures/mcp';
+import { navigateToHandle } from '@/fixtures/navigate';
 
 const OWNER_HANDLE = 'alice';
 const MOCK_REPLY = 'Hello visitor, alice says hi from the mock provider.';
