@@ -42,7 +42,8 @@ test.describe.serial('visitor uses a gate code to enter a private page', () => {
       await page.getByTestId('gate-code').fill(CODE);
       await page.getByTestId('gate-code-submit').click();
       await page.waitForURL(`**/${OWNER.handle}`, { timeout: 10_000 });
-      await expect(page.getByRole('heading', { name: OWNER.fullName })).toBeVisible();
+      // owner full name 在 identity strip span 里，不是 heading。
+      await expect(page.getByText(OWNER.fullName)).toBeVisible();
     });
 });
 

@@ -70,9 +70,13 @@ async function expectLandedWithBanner(page: Page): Promise<void> {
 }
 
 async function visitorChats(page: Page): Promise<void> {
-  const input = page.locator('[data-testid="chat-input"] textarea');
+  // 新 AskInput 是 <input>，不是 <textarea>；按 Enter 提交 form。
+  const input = page.locator('[data-testid="chat-input"] input');
   await input.fill('tell me about you');
   await input.press('Enter');
-  await expect(page.getByText('reply', { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(MOCK_REPLY, { exact: false })).toBeVisible({ timeout: 15_000 });
+  // ConversationDeck 把回复挂在 data-testid="answer-body" 里。
+  await expect(page.locator('[data-testid="answer-body"]'))
+    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(MOCK_REPLY, { exact: false }))
+    .toBeVisible({ timeout: 15_000 });
 }

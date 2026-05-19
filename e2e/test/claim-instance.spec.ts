@@ -47,5 +47,6 @@ async function fillCredentialsStep(page: Page): Promise<void> {
 
 async function expectLandedOnOwnerPage(page: Page): Promise<void> {
   await page.waitForURL(`**/${OWNER.handle}`, { timeout: 10_000 });
-  await expect(page.getByRole('heading', { name: OWNER.full })).toBeVisible();
+  // 设计稿里 owner full_name 摆 identity strip span，不是 heading。
+  await expect(page.getByText(OWNER.full)).toBeVisible();
 }
