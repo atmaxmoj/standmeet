@@ -173,5 +173,6 @@ deps:
       - publicroutes
       - mcp
       - inference
+      - cryptobox
       - server
     anyVendorDeps: true

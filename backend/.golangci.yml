@@ -108,6 +108,16 @@ linters:
       settings:
         shadow:
           strict: true
+    # ireturn 默认拦"返抽象 interface"。我们的 inference.Resolver 接口本质就
+    # 是返 inference.Provider（多态切换 anthropic / openai / mock），明确允
+    # 许这条；其他接口照常被抓。
+    ireturn:
+      allow:
+        - error
+        - empty
+        - anon
+        - stdlib
+        - github.com/wangsijie/standmeet/internal/inference.Provider
     revive:
       enable-all-rules: true
       rules:

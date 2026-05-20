@@ -34,32 +34,65 @@ type MessageEvent struct {
 
 // SendMessage —— 写访客 visitor message → RAG → 调 provider 流式 → 收尾写
 // assistant message + citations 到 DB。返回 event channel；caller 写 SSE。
+//
+// provider 在 goroutine 启动之前就解算 —— ErrOwnerProviderUnconfigured 之类
+// 的 setup error 走 HTTP 错误 envelope，不进 SSE error event（前端 toast
+// 更友好）。
 func SendMessage(
 	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
 ) (<-chan MessageEvent, error) {
+	prep, err := prepareSend(ctx, deps, in)
+	if err != nil {
+		return nil, err
+	}
+	out := make(chan MessageEvent, messageEventBufSize)
+	go streamReply(ctx, &streamArgs{
+		deps: deps, provider: prep.provider, in: in, wikis: prep.wikis, out: out,
+	})
+	return out, nil
+}
+
+type sendPrep struct {
+	provider inference.Provider
+	wikis    []domain.WikiEntry
+}
+
+// prepareSend —— SendMessage 前的全部 setup。拆 preflight 让 cyclop ≤5。
+func prepareSend(
+	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
+) (sendPrep, error) {
+	provider, err := preflightSend(ctx, deps, in)
+	if err != nil {
+		return sendPrep{}, err
+	}
+	if _, werr := deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
+		ConversationID: in.ConversationID, Role: "visitor", Body: in.Body,
+	}); werr != nil {
+		return sendPrep{}, fmt.Errorf("append visitor message: %w", werr)
+	}
+	wikis, werr := loadScopedWikis(ctx, deps, in.OwnerID, &in.Scope)
+	if werr != nil {
+		return sendPrep{}, werr
+	}
+	return sendPrep{provider: provider, wikis: wikis}, nil
+}
+
+// preflightSend —— body 非空 + turn quota + resolver。失败上一层把错误传到
+// HTTP envelope；succeed 后才允许写 visitor message。
+func preflightSend(
+	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
+) (inference.Provider, error) {
 	if in.Body == "" {
 		return nil, ErrEmptyField
 	}
 	if qerr := enforceTurnQuota(ctx, deps, in); qerr != nil {
 		return nil, qerr
 	}
-	// 1. 写访客 message
-	if _, werr := deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
-		ConversationID: in.ConversationID,
-		Role:           "visitor",
-		Body:           in.Body,
-	}); werr != nil {
-		return nil, fmt.Errorf("append visitor message: %w", werr)
+	provider, perr := deps.Resolver.Resolve(ctx, in.OwnerID)
+	if perr != nil {
+		return nil, fmt.Errorf("resolve owner provider: %w", perr)
 	}
-	// 2. RAG（简化版：拿 owner 全部 wiki，scope 过滤）
-	wikis, err := loadScopedWikis(ctx, deps, in.OwnerID, &in.Scope)
-	if err != nil {
-		return nil, err
-	}
-	// 3. 调 provider
-	out := make(chan MessageEvent, messageEventBufSize)
-	go streamReply(ctx, deps, in, wikis, out)
-	return out, nil
+	return provider, nil
 }
 
 // enforceTurnQuota —— 在写访客 message 之前检查 turns/session。byoai / public
@@ -163,21 +196,27 @@ func anyMember(s []string, set map[string]struct{}) bool {
 	return false
 }
 
-func streamReply(
-	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
-	wikis []domain.WikiEntry, out chan<- MessageEvent,
-) {
-	defer close(out)
-	chunks, ierr := deps.Provider.Stream(ctx, buildChatRequest(deps, in, wikis))
+// streamArgs —— streamReply 的入参打包；revive 限制函数最多 5 个参数。
+type streamArgs struct {
+	deps     VisitorDeps
+	provider inference.Provider
+	in       *SendMessageInput
+	out      chan<- MessageEvent
+	wikis    []domain.WikiEntry
+}
+
+func streamReply(ctx context.Context, args *streamArgs) {
+	defer close(args.out)
+	chunks, ierr := args.provider.Stream(ctx, buildChatRequest(args.deps, args.in, args.wikis))
 	if ierr != nil {
-		out <- MessageEvent{Kind: "error", Err: ierr}
+		args.out <- MessageEvent{Kind: "error", Err: ierr}
 		return
 	}
-	full, ok := pumpChunks(chunks, out)
+	full, ok := pumpChunks(chunks, args.out)
 	if !ok {
 		return
 	}
-	out <- emitDoneEvent(ctx, deps, in, full, wikis)
+	args.out <- emitDoneEvent(ctx, args.deps, args.in, full, args.wikis)
 }
 
 func buildChatRequest(

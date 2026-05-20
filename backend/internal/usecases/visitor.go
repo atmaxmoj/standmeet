@@ -15,13 +15,17 @@ import (
 )
 
 // VisitorDeps —— visitor 用例所需。
+//
+// Resolver 替代之前的单例 Provider —— visitor chat 每次根据 owner_id 解算
+// 该 owner 的真 provider（带自己的 key）；env=mock 时统一 fallback 到 mock
+// 给 e2e/dev 用。
 type VisitorDeps struct {
 	Codes    *postgres.CodeRepo
 	Conv     *postgres.ConversationRepo
 	Wiki     *postgres.WikiRepo
 	Owners   *postgres.OwnerRepo
 	Sessions *session.VisitorSessionStore
-	Provider inference.Provider
+	Resolver inference.Resolver
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。

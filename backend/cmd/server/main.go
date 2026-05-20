@@ -20,6 +20,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/wangsijie/standmeet/internal/config"
+	"github.com/wangsijie/standmeet/internal/cryptobox"
 	"github.com/wangsijie/standmeet/internal/inference"
 	"github.com/wangsijie/standmeet/internal/mcp"
 	"github.com/wangsijie/standmeet/internal/postgres"
@@ -100,10 +101,17 @@ func wireAndServe(
 	accessRequestRepo := postgres.NewAccessRequestRepo(c.db)
 	sessionStore := session.NewOwnerSessionStore(c.rdb)
 	visitorStore := session.NewVisitorSessionStore(c.rdb)
-	provider, perr := inference.NewFromEnv()
+	mockProvider, perr := inference.NewFromEnv()
 	if perr != nil {
 		return fmt.Errorf("init provider: %w", perr)
 	}
+	// resolver 把 mock 和真 owner-key path 串起来；env=mock 时 e2e 走 mock，
+	// 否则按 owner row 的 ai_provider 解密自己的 key 实例化 Anthropic / OpenAI。
+	ownerKeyResolver := &inference.OwnerKeyResolver{
+		Lookup:    &ownerLookupAdapter{repo: ownerRepo},
+		Decrypter: cryptobox.Decrypt,
+	}
+	providerResolver := inference.NewEnvOrOwnerResolver(ownerKeyResolver, mockProvider)
 	if terr := ensureSetupToken(ctx, log, instanceRepo, cfg.PublicURL); terr != nil {
 		return terr
 	}
@@ -119,7 +127,7 @@ func wireAndServe(
 		customBuildRepo:   customBuildRepo,
 		accessRequestRepo: accessRequestRepo,
 		sessionStore:      sessionStore, visitorStore: visitorStore,
-		provider: provider, secureCookie: cfg.SecureCookie,
+		providerResolver: providerResolver, secureCookie: cfg.SecureCookie,
 		publicURL:  cfg.PublicURL,
 		buildsRoot: cfg.CustomPagesRoot,
 	}
@@ -168,10 +176,26 @@ type runtimeDeps struct {
 	accessRequestRepo *postgres.AccessRequestRepo
 	sessionStore      *session.OwnerSessionStore
 	visitorStore      *session.VisitorSessionStore
-	provider          inference.Provider
+	providerResolver  inference.Resolver
 	publicURL         string
 	buildsRoot        string
 	secureCookie      bool
+}
+
+// ownerLookupAdapter —— 把 postgres.OwnerRepo 包成 inference.OwnerLookup。
+// resolver 不该直接 import postgres（arch-lint 禁），所以胶水放在 cmd 层。
+type ownerLookupAdapter struct {
+	repo *postgres.OwnerRepo
+}
+
+func (a *ownerLookupAdapter) LookupForResolver(
+	ctx context.Context, ownerID string,
+) (inference.OwnerKeyView, error) {
+	view, err := a.repo.GetAIProviderView(ctx, ownerID)
+	if err != nil {
+		return inference.OwnerKeyView{}, fmt.Errorf("owner lookup adapter: %w", err)
+	}
+	return inference.OwnerKeyView{Provider: view.Provider, KeyEnc: view.KeyEnc}, nil
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {
@@ -269,7 +293,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 	return publicroutes.Handlers{
 		Visitor: usecases.VisitorDeps{
 			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
-			Owners: d.ownerRepo, Sessions: d.visitorStore, Provider: d.provider,
+			Owners: d.ownerRepo, Sessions: d.visitorStore, Resolver: d.providerResolver,
 		},
 		Sessions: d.visitorStore,
 		Log:      d.log,

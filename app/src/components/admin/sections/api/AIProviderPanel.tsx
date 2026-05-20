@@ -14,7 +14,7 @@ import {
 } from '@/lib/admin/use-ai-provider';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
-const PROVIDERS: readonly AIProviderName[] = ['mock', 'anthropic', 'openai'];
+const PROVIDERS: readonly AIProviderName[] = ['anthropic', 'openai'];
 
 export function AIProviderPanel() {
   const hook = useAIProvider();
@@ -33,8 +33,8 @@ export function AIProviderPanel() {
 function Intro() {
   return (
     <p className="reading-tight text-(--color-muted) text-[14.5px] max-w-[54em] mb-4">
-      The provider visitors talk to. Mock streams a fixed canned reply (good for tests). Anthropic
-      / OpenAI need your own key — it&apos;s encrypted at rest, never read back to this page.
+      The provider visitors talk to. Anthropic or OpenAI — bring your own key. It&apos;s encrypted
+      at rest with INSTANCE_SECRET and never read back to this page.
     </p>
   );
 }

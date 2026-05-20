@@ -69,6 +69,11 @@ var visitorErrCases = []apierr.Case{
 		Code:    "owner_not_found",
 		Message: "owner handle not registered",
 	}},
+	{Match: inference.ErrOwnerProviderUnconfigured, Envelope: apierr.Envelope{
+		Status:  http.StatusServiceUnavailable,
+		Code:    "owner_ai_not_configured",
+		Message: "owner has not connected an AI provider yet",
+	}},
 }
 
 type postMessageRequest struct {

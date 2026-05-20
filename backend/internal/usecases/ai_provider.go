@@ -39,8 +39,9 @@ const (
 	KeyClear
 )
 
+// validProviders —— owner-facing 选项；mock 是 e2e fixture，不在这。
 var validProviders = map[string]struct{}{
-	"mock": {}, "anthropic": {}, "openai": {},
+	"anthropic": {}, "openai": {},
 }
 
 // UpdateOwnerAIProvider —— 调 repo 落库。返回新 owner profile（不含明文 key）。
@@ -49,7 +50,7 @@ func UpdateOwnerAIProvider(
 ) (domain.Owner, error) {
 	if _, ok := validProviders[in.Provider]; !ok {
 		return domain.Owner{}, fmt.Errorf(
-			"%w: provider must be mock | anthropic | openai", ErrEmptyField,
+			"%w: provider must be anthropic | openai", ErrEmptyField,
 		)
 	}
 	owner, err := deps.Owners.UpdateAIProvider(ctx, &postgres.UpdateAIProviderInput{

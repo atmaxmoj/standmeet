@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
 
-export type AIProviderName = 'mock' | 'anthropic' | 'openai';
+export type AIProviderName = 'anthropic' | 'openai';
 
 export interface AIProviderState {
   provider: AIProviderName;
@@ -50,7 +50,7 @@ interface PatchResp {
 }
 
 const INITIAL: AIProviderState = {
-  provider: 'mock', keyConfigured: false,
+  provider: 'anthropic', keyConfigured: false,
   loading: true, saving: false, error: null,
 };
 
@@ -70,9 +70,12 @@ export function useAIProvider(): AIProviderHook {
     );
   }, []);
 
+  // clearKey —— 把 owner 的 key 清掉，provider 保持 default (anthropic)。
+  // 这之后 visitor chat 会报"未配置 AI provider"（除非 INFERENCE_PROVIDER
+  // =mock 在 env 设了，那种情况是 e2e/dev fixture）。
   const clearKey = useCallback(async (): Promise<boolean> => {
     return await runPatch(
-      { provider: 'mock', key_change: 'clear' },
+      { provider: 'anthropic', key_change: 'clear' },
       setState,
     );
   }, []);
@@ -92,7 +95,7 @@ async function initialLoad(
     });
   } catch (e) {
     cancelled || setState({
-      provider: 'mock', keyConfigured: false,
+      provider: 'anthropic', keyConfigured: false,
       loading: false, saving: false,
       error: e instanceof Error ? e.message : 'load failed',
     });

@@ -160,6 +160,34 @@ type UpdateAIProviderInput struct {
 	Provider     string
 }
 
+// AIProviderView —— inference resolver 需要的最小信息：provider id +
+// encrypted key bytes。明文 key 由 caller 走 cryptobox.Decrypt 解。
+type AIProviderView struct {
+	Provider string
+	KeyEnc   []byte
+}
+
+// GetAIProviderView —— 拉 owner 的 AI provider 配置（不返其它字段）。
+// resolver 不该 import postgres，所以这个方法返一个独立的 view 类型；
+// cmd/server 用 adapter 把它包成 inference.OwnerKeyView。
+func (r *OwnerRepo) GetAIProviderView(
+	ctx context.Context, ownerID string,
+) (AIProviderView, error) {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return AIProviderView{}, fmt.Errorf("parse owner id: %w", perr)
+	}
+	q := dbq.New(r.pool)
+	row, err := q.GetOwnerByID(ctx, pgID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AIProviderView{}, domain.ErrOwnerNotFound
+		}
+		return AIProviderView{}, fmt.Errorf("get owner for provider view: %w", err)
+	}
+	return AIProviderView{Provider: row.AIProvider, KeyEnc: row.AIProviderKeyEnc}, nil
+}
+
 // UpdateAIProvider —— commit owner 的 AI provider 选择。当 KeyPlaintext 非
 // nil 时同步换 ai_provider_key_enc；为 nil 时保留原 key（仅切 provider）。
 func (r *OwnerRepo) UpdateAIProvider(
