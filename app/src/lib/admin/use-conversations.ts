@@ -1,12 +1,18 @@
 // use-conversations —— /admin/conversations 状态。
 // GET /api/admin/conversations 列表；点行 → GET /{id} 拿 transcript，写到
 // transcript state 让 ConvTranscriptModal 显示。
+//
+// zustand 重构：list 通过 conversationsStore；transcript 是临时 UI state，
+// 单独一个小 store。
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { create } from 'zustand';
 
 import { adminAPI, type ConversationSummary } from '@/lib/api/admin';
+import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import type { ResourceStatus } from '@/lib/state/status';
 
 export interface ConvTurn {
   who: 'visitor' | 'ai';
@@ -60,8 +66,8 @@ export function pickTranscriptState(t: ConvTranscript): TranscriptBodyState {
 }
 
 export interface ConversationsHook {
+  status: ResourceStatus;
   rows: readonly ConvView[];
-  loading: boolean;
   error: string | null;
   openId: string | null;
   transcript: ConvTranscript | null;
@@ -69,65 +75,63 @@ export interface ConversationsHook {
   closeTranscript: () => void;
 }
 
+export const conversationsStore = createResourceStore<ConvView[]>({
+  name: 'conversations',
+  fetcher: async () => {
+    const data = await adminAPI.get<ConversationSummary[]>('/conversations');
+    return data.map(toView);
+  },
+});
+
+interface TranscriptState {
+  openId: string | null;
+  transcript: ConvTranscript | null;
+  open: (id: string) => void;
+  close: () => void;
+  set: (t: ConvTranscript) => void;
+}
+
+const transcriptStore = create<TranscriptState>((set) => ({
+  openId: null,
+  transcript: null,
+  open: (id) => {
+    set({
+      openId: id,
+      transcript: { conversationID: id, loading: true, error: null, messages: [] },
+    });
+    void loadTranscript(id, (t) => set({ transcript: t }));
+  },
+  close: () => set({ openId: null, transcript: null }),
+  set: (t) => set({ transcript: t }),
+}));
+
 // useConversations —— 可选 filterCode 让 ConversationsSection 通过 URL 参数
 // `?code=INTRO-001` 只显示该 code 的 conversation；客户端 filter，后端 list
 // 全拉（v1 量级 ≤ defaultLimit 200，影响不大）。
 export function useConversations(filterCode?: string): ConversationsHook {
-  const [rows, setRows] = useState<ConvView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState<ConvTranscript | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void initialLoad(cancelled, setRows, setLoading, setError);
-    return () => { cancelled = true; };
-  }, []);
-
-  const openConversation = useCallback((id: string): void => {
-    setOpenId(id);
-    setTranscript({ conversationID: id, loading: true, error: null, messages: [] });
-    void loadTranscript(id, setTranscript);
-  }, []);
-
-  const closeTranscript = useCallback((): void => {
-    setOpenId(null);
-    setTranscript(null);
-  }, []);
-
-  const filtered = filterByCode(rows, filterCode);
+  const r = readResource(conversationsStore);
+  const openId = transcriptStore((s) => s.openId);
+  const transcript = transcriptStore((s) => s.transcript);
+  const ensureLoaded = r.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  const all = r.data ?? [];
   return {
-    rows: filtered, loading, error, openId, transcript,
-    openConversation, closeTranscript,
+    status: r.status,
+    rows: filterByCode(all, filterCode),
+    error: r.error,
+    openId,
+    transcript,
+    openConversation: transcriptStore.getState().open,
+    closeTranscript: transcriptStore.getState().close,
   };
 }
 
-function filterByCode(rows: readonly ConvView[], code: string | undefined): ConvView[] {
-  if (!code) return rows.slice();
+function filterByCode(rows: readonly ConvView[], code: string | undefined): readonly ConvView[] {
+  if (!code) return rows;
   return rows.filter((r) => r.code.toLowerCase() === code.toLowerCase());
 }
 
-async function initialLoad(
-  cancelled: boolean,
-  setRows: (rs: ConvView[]) => void,
-  setLoading: (b: boolean) => void,
-  setErr: (m: string | null) => void,
-): Promise<void> {
-  try {
-    const data = await adminAPI.get<ConversationSummary[]>('/conversations');
-    if (cancelled) return;
-    setRows(data.map(toView));
-  } catch (e) {
-    cancelled || setErr(e instanceof Error ? e.message : 'load failed');
-  } finally {
-    cancelled || setLoading(false);
-  }
-}
-
-async function loadTranscript(
-  id: string, setTranscript: (t: ConvTranscript) => void,
-): Promise<void> {
+async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => void): Promise<void> {
   try {
     const data = await adminAPI.get<ConvTranscriptResp>(`/conversations/${id}`);
     setTranscript({

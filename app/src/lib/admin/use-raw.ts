@@ -1,23 +1,21 @@
 // use-raw —— /admin/raw 状态机：list raw entries + 直接 dump 一条。
 // POST /api/admin/raw 已经接通；RawDumpBox 的 onAdd 直接走 hook。
+//
+// zustand 重构：rawStore 管 list；filter / submitting / submitError 留 local
+// state（per-section instance，不需要全局）。
 
 import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI, type CreateRawInput, type RawAdminView } from '@/lib/api/admin';
+import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import type { ResourceStatus } from '@/lib/state/status';
 
 export type RawFilter = 'all' | 'unprocessed' | 'promoted' | 'archived' | 'flagged-private';
 
-interface ReadyState {
-  kind: 'ready';
-  rows: RawAdminView[];
-}
-export type RawState =
-  | { kind: 'loading' }
-  | ReadyState
-  | { kind: 'error'; message: string };
-
 export interface RawHook {
-  state: RawState;
+  status: ResourceStatus;
+  rows: readonly RawAdminView[];
+  error: string | null;
   filter: RawFilter;
   setFilter: (f: RawFilter) => void;
   counts: Record<RawFilter, number>;
@@ -27,50 +25,46 @@ export interface RawHook {
   addRaw: (input: CreateRawInput) => Promise<boolean>;
 }
 
+export const rawStore = createResourceStore<RawAdminView[]>({
+  name: 'raw',
+  fetcher: () => adminAPI.get<RawAdminView[]>('/raw'),
+});
+
 export function useRaw(): RawHook {
-  const [state, setState] = useState<RawState>({ kind: 'loading' });
+  const r = readResource(rawStore);
+  const ensureLoaded = r.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   const [filter, setFilter] = useState<RawFilter>('all');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void initialLoad(cancelled, setState);
-    return () => { cancelled = true; };
-  }, []);
-
-  const counts = useMemoCounts(state);
-  const filteredRows = useFilteredRows(state, filter);
-  const setF = useCallback((f: RawFilter) => setFilter(f), []);
+  const rows = r.data ?? [];
   const addRaw = useCallback(
-    (input: CreateRawInput) => doAddRaw(input, setState, setSubmitting, setSubmitError),
+    (input: CreateRawInput) => doAddRaw(input, setSubmitting, setSubmitError),
     [],
   );
   return {
-    state, filter, setFilter: setF, counts, filteredRows,
-    submitting, submitError, addRaw,
+    status: r.status,
+    rows,
+    error: r.error,
+    filter,
+    setFilter,
+    counts: computeCounts(rows),
+    filteredRows: applyFilter(rows, filter),
+    submitting,
+    submitError,
+    addRaw,
   };
-}
-
-// useMemoCounts —— ESLint forbids useMemo in components only; this is a hook
-// in lib/ but to stay simple we just recompute each render (lists are small).
-function useMemoCounts(state: RawState): Record<RawFilter, number> {
-  return computeCounts(state.kind === 'ready' ? state.rows : []);
-}
-
-function useFilteredRows(state: RawState, filter: RawFilter): readonly RawAdminView[] {
-  const rows = state.kind === 'ready' ? state.rows : [];
-  return applyFilter(rows, filter);
-}
-
-function applyFilter(rows: readonly RawAdminView[], filter: RawFilter): readonly RawAdminView[] {
-  return filter === 'all' ? rows : rows.filter((r) => statusOf(r) === filter);
 }
 
 export function statusOf(row: RawAdminView): RawFilter {
   return row.flagged_private ? 'flagged-private'
     : row.archived ? 'archived'
     : 'unprocessed';
+}
+
+function applyFilter(rows: readonly RawAdminView[], filter: RawFilter): readonly RawAdminView[] {
+  return filter === 'all' ? rows : rows.filter((r) => statusOf(r) === filter);
 }
 
 function computeCounts(rows: readonly RawAdminView[]): Record<RawFilter, number> {
@@ -82,25 +76,8 @@ function computeCounts(rows: readonly RawAdminView[]): Record<RawFilter, number>
   return c;
 }
 
-async function initialLoad(
-  cancelled: boolean, setState: (s: RawState) => void,
-): Promise<void> {
-  const next = await fetchRaw();
-  cancelled || setState(next);
-}
-
-async function fetchRaw(): Promise<RawState> {
-  try {
-    const rows = await adminAPI.get<RawAdminView[]>('/raw');
-    return { kind: 'ready', rows };
-  } catch (e) {
-    return { kind: 'error', message: e instanceof Error ? e.message : 'load failed' };
-  }
-}
-
 async function doAddRaw(
   input: CreateRawInput,
-  setState: (s: RawState | ((prev: RawState) => RawState)) => void,
   setSubmitting: (b: boolean) => void,
   setErr: (m: string | null) => void,
 ): Promise<boolean> {
@@ -108,7 +85,7 @@ async function doAddRaw(
   setErr(null);
   try {
     const created = await adminAPI.post<RawAdminView>('/raw', input);
-    setState((prev) => prependRow(prev, created));
+    rawStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
     return true;
   } catch (e) {
     setErr(e instanceof Error ? e.message : 'dump failed');
@@ -116,10 +93,4 @@ async function doAddRaw(
   } finally {
     setSubmitting(false);
   }
-}
-
-function prependRow(prev: RawState, created: RawAdminView): RawState {
-  return prev.kind === 'ready'
-    ? { kind: 'ready', rows: [created, ...prev.rows] }
-    : { kind: 'ready', rows: [created] };
 }

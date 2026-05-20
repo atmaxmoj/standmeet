@@ -6,6 +6,7 @@
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { Chip } from '@/components/admin/atoms/Chip';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import type { AccessRequestView } from '@/lib/api/admin';
 import {
   pickBodyState,
@@ -23,7 +24,7 @@ export function RequestsSection() {
       <SectionHeader
         kicker="surface · gate"
         title="access requests"
-        count={hook.loading ? 'loading…' : `${hook.rows.length} requests`}
+        count={requestCount(hook)}
       />
       <FilterRow hook={hook} />
       <RequestBody hook={hook} />
@@ -45,7 +46,7 @@ function FilterRow({ hook }: { hook: RequestsHook }) {
 
 function RequestBody({ hook }: { hook: RequestsHook }) {
   const map = {
-    loading: <Loading />,
+    loading: <ListSkeleton count={4} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState filter={hook.filter} />,
     list: <RequestList hook={hook} />,
@@ -53,8 +54,8 @@ function RequestBody({ hook }: { hook: RequestsHook }) {
   return map[pickBodyState(hook)];
 }
 
-function Loading() {
-  return <p className="reading-tight italic text-(--color-muted) mt-8">loading…</p>;
+function requestCount(hook: RequestsHook): string {
+  return hook.status === 'ready' ? `${hook.rows.length} requests` : '';
 }
 
 function ErrorBlock({ message }: { message: string }) {

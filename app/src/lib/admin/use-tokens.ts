@@ -1,10 +1,15 @@
 // use-tokens —— /admin/api-mcp 的状态机：list / create / delete API tokens。
 // 创建返回 plaintext 一次性；UI 把它 highlight 出来让 owner 复制（关掉这条
 // 之后就再也看不到）。delete 是硬删，不可恢复。
+//
+// zustand 重构：list cache 走 tokensStore (createResourceStore)；justCreated
+// 是一次性 banner，放独立 store 字段（不要每次 mount 重 mount banner）。
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
+import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import type { ResourceStatus } from '@/lib/state/status';
 
 export interface TokenItem {
   id: string;
@@ -20,92 +25,70 @@ interface CreatedToken {
   created_at: string;
 }
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'ready'; tokens: TokenItem[]; justCreated: CreatedToken | null; error: string | null }
-  | { kind: 'error'; message: string };
-
 export interface TokensHook {
-  state: State;
+  status: ResourceStatus;
+  tokens: readonly TokenItem[];
+  justCreated: CreatedToken | null;
+  error: string | null;
   createToken: (name: string) => Promise<void>;
   deleteToken: (id: string) => Promise<void>;
   dismissCreated: () => void;
 }
 
+interface TokensExtra {
+  justCreated: CreatedToken | null;
+}
+
+export const tokensStore = createResourceStore<TokenItem[]>({
+  name: 'tokens',
+  fetcher: () => adminAPI.get<TokenItem[]>('/tokens'),
+});
+
+// justCreated 是 UI 临时状态（一次性 banner），不属 resource shape。
+// 用 module-level state + tiny subscription 跟 zustand 风格保持一致。
+import { create } from 'zustand';
+
+const justCreatedStore = create<TokensExtra & { set: (c: CreatedToken | null) => void }>(
+  (set) => ({ justCreated: null, set: (c) => set({ justCreated: c }) }),
+);
+
 export function useTokens(): TokensHook {
-  const [state, setState] = useState<State>({ kind: 'loading' });
-
-  useEffect(() => {
-    let cancelled = false;
-    void initialLoad(cancelled, setState);
-    return () => { cancelled = true; };
-  }, []);
-
-  const createToken = useCallback(async (name: string) => {
-    await runCreate(name, setState);
-  }, []);
-
-  const deleteToken = useCallback(async (id: string) => {
-    await runDelete(id, setState);
-  }, []);
-
-  const dismissCreated = useCallback(() => {
-    setState((s) => s.kind === 'ready' ? { ...s, justCreated: null } : s);
-  }, []);
-
-  return { state, createToken, deleteToken, dismissCreated };
+  const r = readResource(tokensStore);
+  const justCreated = justCreatedStore((s) => s.justCreated);
+  const ensureLoaded = r.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  return {
+    status: r.status,
+    tokens: r.data ?? [],
+    error: r.error,
+    justCreated,
+    createToken,
+    deleteToken,
+    dismissCreated: () => justCreatedStore.getState().set(null),
+  };
 }
 
-async function initialLoad(
-  cancelled: boolean, setState: (s: State) => void,
-): Promise<void> {
-  const next = await fetchList();
-  cancelled || setState(next);
-}
-
-async function fetchList(): Promise<State> {
-  try {
-    const tokens = await adminAPI.get<TokenItem[]>('/tokens');
-    return { kind: 'ready', tokens, justCreated: null, error: null };
-  } catch (e) {
-    return { kind: 'error', message: e instanceof Error ? e.message : 'load failed' };
-  }
-}
-
-async function runCreate(name: string, setState: (updater: (s: State) => State) => void): Promise<void> {
+async function createToken(name: string): Promise<void> {
   try {
     const created = await adminAPI.post<CreatedToken>('/tokens', { name });
-    setState((s) => mergeAfterCreate(s, created));
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'create failed';
-    setState((s) => s.kind === 'ready' ? { ...s, error: message } : s);
+    tokensStore.getState().mutate((prev) => [toListItem(created), ...(prev ?? [])]);
+    justCreatedStore.getState().set(created);
+  } catch {
+    // error 已被 fetch path 翻译进 store；caller 走 toast 自己看 hook.error
   }
 }
 
-function mergeAfterCreate(s: State, created: CreatedToken): State {
-  return s.kind === 'ready'
-    ? { kind: 'ready', tokens: [toListItem(created), ...s.tokens], justCreated: created, error: null }
-    : s;
+async function deleteToken(id: string): Promise<void> {
+  try {
+    await adminAPI.delete<void>(`/tokens/${id}`);
+    tokensStore.getState().mutate((prev) => (prev ?? []).filter((t) => t.id !== id));
+  } catch {
+    // ditto
+  }
 }
 
 function toListItem(c: CreatedToken): TokenItem {
   return { id: c.id, name: c.name, created_at: c.created_at, last_used_at: null };
-}
-
-async function runDelete(id: string, setState: (updater: (s: State) => State) => void): Promise<void> {
-  try {
-    await adminAPI.delete<void>(`/tokens/${id}`);
-    setState((s) => removeFromList(s, id));
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'delete failed';
-    setState((s) => s.kind === 'ready' ? { ...s, error: message } : s);
-  }
-}
-
-function removeFromList(s: State, id: string): State {
-  return s.kind === 'ready'
-    ? { ...s, tokens: s.tokens.filter((t) => t.id !== id) }
-    : s;
 }
 
 // MCP client snippet helpers for the design's MCPClientPanel.

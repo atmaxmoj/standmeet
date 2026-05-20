@@ -145,6 +145,22 @@ input[type="text"]:focus, textarea:focus { outline: none; }
 }
 .fadein { animation: fadein-rise .35s cubic-bezier(.2,.7,.2,1) forwards; }
 
+/* skeleton placeholder —— subtle 呼吸感的灰块，loading 期间撑 layout 而不
+   是一行字。color-mix 出 surface 跟 rule 之间一档；prefers-reduced-motion
+   关掉 animation 但保留色块。 */
+@keyframes skel-pulse {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: .9; }
+}
+.skel {
+  background: color-mix(in oklab, var(--color-rule) 60%, var(--color-surface));
+  border-radius: 2px;
+  animation: skel-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; opacity: .7; }
+}
+
 /* tech-vitality corner crosshairs banner —— BYOAI / coded session banner 用。 */
 .crosshair-banner::before,
 .crosshair-banner::after {

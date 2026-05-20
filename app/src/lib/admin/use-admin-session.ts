@@ -1,10 +1,15 @@
 // use-admin-session —— 探测当前是不是登录状态。GET /api/admin/me；
 // 401 就跳 /login。Loading 期间显示 placeholder。
+//
+// zustand 重构：sessionStore 共享 owner profile，多个 section 不再各拉一次。
 
-import { useEffect, useState } from 'react';
+'use client';
+
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { adminAPI } from '@/lib/api/admin';
+import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 
 export interface AdminSession {
   owner_id: string;
@@ -18,27 +23,26 @@ export type AdminSessionState =
   | { kind: 'unauthed' }
   | { kind: 'ready'; session: AdminSession };
 
+export const sessionStore = createResourceStore<AdminSession>({
+  name: 'admin-session',
+  fetcher: () => adminAPI.get<AdminSession>('/me'),
+});
+
 export function useAdminSession(): AdminSessionState {
   const router = useRouter();
-  const [state, setState] = useState<AdminSessionState>({ kind: 'loading' });
+  const r = readResource(sessionStore);
+  const ensureLoaded = r.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   useEffect(() => {
-    let cancelled = false;
-    void probeSession(cancelled, setState, router);
-    return () => { cancelled = true; };
-  }, [router]);
-  return state;
+    if (r.status === 'error') router.push('/login');
+  }, [r.status, router]);
+  return adminSessionFromResource(r.status, r.data);
 }
 
-async function probeSession(
-  cancelled: boolean,
-  setState: (s: AdminSessionState) => void,
-  router: ReturnType<typeof useRouter>,
-): Promise<void> {
-  try {
-    const session = await adminAPI.get<AdminSession>('/me');
-    cancelled || setState({ kind: 'ready', session });
-  } catch {
-    cancelled || setState({ kind: 'unauthed' });
-    router.push('/login');
-  }
+function adminSessionFromResource(
+  status: string, data: AdminSession | undefined,
+): AdminSessionState {
+  if (status === 'ready' && data) return { kind: 'ready', session: data };
+  if (status === 'error') return { kind: 'unauthed' };
+  return { kind: 'loading' };
 }

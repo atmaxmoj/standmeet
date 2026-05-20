@@ -2,9 +2,11 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
+import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import type { ResourceStatus } from '@/lib/state/status';
 
 export interface WikiSummary {
   id: string;
@@ -18,45 +20,25 @@ export interface WikiSummary {
 export type WikiBodyState = 'loading' | 'error' | 'empty' | 'list';
 
 export interface WikiHook {
+  status: ResourceStatus;
   rows: readonly WikiSummary[];
-  loading: boolean;
   error: string | null;
 }
 
+export const wikiStore = createResourceStore<WikiSummary[]>({
+  name: 'wiki',
+  fetcher: () => adminAPI.get<WikiSummary[]>('/wiki'),
+});
+
 export function useWiki(): WikiHook {
-  const [rows, setRows] = useState<WikiSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void load(setRows, setLoading, setError, () => cancelled);
-    return () => { cancelled = true; };
-  }, []);
-
-  return { rows, loading, error };
-}
-
-async function load(
-  setRows: (rs: WikiSummary[]) => void,
-  setLoading: (b: boolean) => void,
-  setError: (m: string | null) => void,
-  isCancelled: () => boolean,
-): Promise<void> {
-  try {
-    const data = await adminAPI.get<WikiSummary[]>('/wiki');
-    if (isCancelled()) return;
-    setRows(data);
-  } catch (e) {
-    if (isCancelled()) return;
-    setError(e instanceof Error ? e.message : 'load failed');
-  } finally {
-    if (!isCancelled()) setLoading(false);
-  }
+  const r = readResource(wikiStore);
+  const ensureLoaded = r.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  return { status: r.status, rows: r.data ?? [], error: r.error };
 }
 
 export function pickWikiBodyState(hook: WikiHook): WikiBodyState {
-  if (hook.loading) return 'loading';
-  if (hook.error !== null) return 'error';
+  if (hook.status === 'idle' || hook.status === 'loading') return 'loading';
+  if (hook.status === 'error') return 'error';
   return hook.rows.length === 0 ? 'empty' : 'list';
 }

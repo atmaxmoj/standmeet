@@ -1,6 +1,6 @@
 // ApiSection —— /admin/api-mcp 的设计稿版本。
 // 顶部 SectionHeader + intro + new-token 表单（NewTokenInline）。
-// 下方：TokenRow 列表 + MCPClientPanel + MCPDownloadPanel。
+// 下方：TokenRow 列表 + AI provider panel + MCPClientPanel + MCPDownloadPanel。
 // e2e testid 保留：new-token / token-name / token-create / token-plaintext / token-list /
 //   token-delete-{name}。
 
@@ -13,6 +13,7 @@ import { TokenRow } from '@/components/admin/sections/api/TokenRow';
 import { MCPClientPanel } from '@/components/admin/sections/api/MCPClientPanel';
 import { MCPDownloadPanel } from '@/components/admin/sections/api/MCPDownloadPanel';
 import { AIProviderPanel } from '@/components/admin/sections/api/AIProviderPanel';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useTokens, type TokenItem, type TokensHook } from '@/lib/admin/use-tokens';
 
 export function ApiSection() {
@@ -30,32 +31,31 @@ export function ApiSection() {
 }
 
 function titleCount(hook: TokensHook): string {
-  return hook.state.kind === 'ready' ? `${hook.state.tokens.length} tokens` : '';
+  return hook.status === 'ready' ? `${hook.tokens.length} tokens` : '';
 }
 
 function ApiBody({ hook }: { hook: TokensHook }) {
-  return hook.state.kind === 'loading' ? <Loading />
-    : hook.state.kind === 'error' ? <ErrorMsg message={hook.state.message} />
-    : <Ready hook={hook} state={hook.state} />;
+  return hook.status === 'idle' || hook.status === 'loading'
+    ? <LoadingState />
+    : <Ready hook={hook} />;
 }
 
-function Loading() {
-  return <p className="mono text-(--color-muted)">loading…</p>;
-}
-
-function ErrorMsg({ message }: { message: string }) {
-  return <p className="mono text-(--color-accent)">{message}</p>;
-}
-
-function Ready({
-  hook, state,
-}: { hook: TokensHook; state: Extract<TokensHook['state'], { kind: 'ready' }> }) {
+function LoadingState() {
   return (
     <div className="space-y-10">
       <Intro />
-      <TokensBlock hook={hook} state={state} />
+      <ListSkeleton count={3} />
+    </div>
+  );
+}
+
+function Ready({ hook }: { hook: TokensHook }) {
+  return (
+    <div className="space-y-10">
+      <Intro />
+      <TokensBlock hook={hook} />
       <AIProviderPanel />
-      <MCPClientPanel tokens={state.tokens} />
+      <MCPClientPanel tokens={hook.tokens} />
       <MCPDownloadPanel />
     </div>
   );
@@ -71,24 +71,22 @@ function Intro() {
   );
 }
 
-function TokensBlock({
-  hook, state,
-}: { hook: TokensHook; state: Extract<TokensHook['state'], { kind: 'ready' }> }) {
+function TokensBlock({ hook }: { hook: TokensHook }) {
   return (
     <div>
       <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) mb-3 pb-2 border-b border-(--color-rule)">
         api tokens
       </h3>
-      <NewlyCreatedBanner created={state.justCreated} dismiss={hook.dismissCreated} />
-      <NewTokenInline createToken={hook.createToken} error={state.error} />
-      <TokenList tokens={state.tokens} deleteToken={hook.deleteToken} />
+      <NewlyCreatedBanner created={hook.justCreated} dismiss={hook.dismissCreated} />
+      <NewTokenInline createToken={hook.createToken} error={hook.error} />
+      <TokenList tokens={hook.tokens} deleteToken={hook.deleteToken} />
     </div>
   );
 }
 
 function TokenList({
   tokens, deleteToken,
-}: { tokens: TokenItem[]; deleteToken: (id: string) => Promise<void> }) {
+}: { tokens: readonly TokenItem[]; deleteToken: (id: string) => Promise<void> }) {
   return tokens.length === 0
     ? <EmptyTokens />
     : (

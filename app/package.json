@@ -12,19 +12,20 @@
     "lint:knip": "knip"
   },
   "dependencies": {
+    "@standmeet/sdk-core": "workspace:*",
     "next": "^15.5.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
-    "@standmeet/sdk-core": "workspace:*"
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.5.0",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
     "eslint": "^9.18.0",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^5.1.0",

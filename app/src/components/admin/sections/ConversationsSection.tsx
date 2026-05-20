@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConvRow } from '@/components/admin/sections/conversations/ConvRow';
 import { ConvTranscriptModal } from '@/components/admin/sections/conversations/ConvTranscriptModal';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useConversations, type ConversationsHook } from '@/lib/admin/use-conversations';
 
 export function ConversationsSection() {
@@ -62,6 +63,12 @@ function ConvHeader() {
 }
 
 function ConvList({ hook }: { hook: ConversationsHook }) {
+  return hook.status === 'idle' || hook.status === 'loading'
+    ? <ListSkeleton count={6} />
+    : <ReadyList hook={hook} />;
+}
+
+function ReadyList({ hook }: { hook: ConversationsHook }) {
   return hook.rows.length === 0
     ? <EmptyState />
     : (

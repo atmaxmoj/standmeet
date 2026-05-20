@@ -8,6 +8,7 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { RawDumpBox } from '@/components/admin/sections/raw/RawDumpBox';
 import { RawFilterBar } from '@/components/admin/sections/raw/RawFilterBar';
 import { RawRowList } from '@/components/admin/sections/raw/RawRowList';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useRaw, type RawHook } from '@/lib/admin/use-raw';
 
 export function RawSection() {
@@ -25,17 +26,9 @@ export function RawSection() {
 }
 
 function RawBody({ hook }: { hook: RawHook }) {
-  return hook.state.kind === 'loading' ? <Loading />
-    : hook.state.kind === 'error' ? <ErrorMsg message={hook.state.message} />
+  return hook.status === 'idle' || hook.status === 'loading'
+    ? <ListSkeleton count={4} />
     : <Ready hook={hook} />;
-}
-
-function Loading() {
-  return <p className="mono text-(--color-muted)">loading…</p>;
-}
-
-function ErrorMsg({ message }: { message: string }) {
-  return <p className="mono text-(--color-accent)">{message}</p>;
 }
 
 function Ready({ hook }: { hook: RawHook }) {

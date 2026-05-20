@@ -12,19 +12,16 @@ import { CodeCard } from '@/components/admin/sections/codes/CodeCard';
 import { CodeCreateModal } from '@/components/admin/modals/CodeCreateModal';
 import { CodeQRModal } from '@/components/admin/modals/CodeQRModal';
 import { VisitorPreviewModal } from '@/components/admin/modals/VisitorPreviewModal';
+import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { useCodeModalState } from '@/lib/admin/use-code-modals';
 import { useCodes, type CodeView, type CodesHook } from '@/lib/admin/use-codes';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
-
-function readyError(hook: CodesHook): string | null {
-  return hook.state.kind === 'ready' ? hook.state.error : null;
-}
 
 export function CodesSection() {
   const hook = useCodes();
   const modals = useCodeModalState();
   const toast = useToast();
-  useEffectErrorToast(readyError(hook));
+  useEffectErrorToast(hook.error);
   const revokeWithToast = useCallback(async (id: string) => {
     const ok = await hook.revokeCode(id);
     ok && toast.success('Code revoked');
@@ -65,7 +62,7 @@ function NewCodeBtn({ open }: { open: () => void }) {
 }
 
 function titleCount(hook: CodesHook): string {
-  return hook.state.kind === 'ready' ? `${hook.state.codes.length} codes` : '';
+  return hook.status === 'ready' ? `${hook.codes.length} codes` : '';
 }
 
 function Intro() {
@@ -87,25 +84,17 @@ function CodeListBody({
   openPreview: (c: CodeView) => void;
   revokeCode: (id: string) => Promise<void>;
 }) {
-  return hook.state.kind === 'loading' ? <Loading />
-    : hook.state.kind === 'error' ? <ErrorMsg message={hook.state.message} />
+  return hook.status === 'idle' || hook.status === 'loading'
+    ? <CardGridSkeleton />
     : (
       <CodeGrid
-        codes={hook.state.codes}
+        codes={hook.codes}
         openEdit={openCreate}
         openQR={openQR}
         openPreview={openPreview}
         revokeCode={revokeCode}
       />
     );
-}
-
-function Loading() {
-  return <p className="mono text-(--color-muted)">loading…</p>;
-}
-
-function ErrorMsg({ message }: { message: string }) {
-  return <p className="mono text-(--color-accent)">{message}</p>;
 }
 
 function CodeGrid({
@@ -190,4 +179,3 @@ function ModalForKind({
     ? <CodeQRModal code={code} onClose={onClose} />
     : <VisitorPreviewModal code={code} onClose={onClose} />;
 }
-

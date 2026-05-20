@@ -6,6 +6,7 @@
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Pill } from '@/components/admin/atoms/Pill';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   pickWikiBodyState,
   useWiki,
@@ -20,7 +21,7 @@ export function WikiSection() {
       <SectionHeader
         kicker="surface · curated"
         title="wiki"
-        count={hook.loading ? 'loading…' : `${hook.rows.length} entries`}
+        count={hook.status === 'ready' ? `${hook.rows.length} entries` : ''}
       />
       <WikiBody hook={hook} />
     </>
@@ -29,16 +30,12 @@ export function WikiSection() {
 
 function WikiBody({ hook }: { hook: WikiHook }) {
   const map = {
-    loading: <Loading />,
+    loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
     list: <WikiList rows={hook.rows} />,
   } as const;
   return map[pickWikiBodyState(hook)];
-}
-
-function Loading() {
-  return <p className="reading-tight italic text-(--color-muted) mt-8">loading…</p>;
 }
 
 function ErrorBlock({ message }: { message: string }) {

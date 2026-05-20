@@ -1,9 +1,14 @@
-// use-codes —— /admin/codes 状态机：list + create access codes。
-// 简单版只支持 code/label/included_tags；create 用 modal 时支持更多字段。
+// use-codes —— /admin/codes 的状态。zustand store 管 list cache + status；
+// action 函数（create / revoke / updateQuotas / dispatchSave）跟 store
+// 平级，调完直接 mutate / refresh。
+//
+// 这是 zustand 重构的样板：其他 hook 跟随同一 pattern。
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
+import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import type { ResourceStatus } from '@/lib/state/status';
 
 export interface CodeView {
   id: string;
@@ -18,11 +23,6 @@ export interface CodeView {
   max_turns_per_session?: number | null;
 }
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'ready'; codes: CodeView[]; error: string | null }
-  | { kind: 'error'; message: string };
-
 export interface CreateCodeInput {
   code: string;
   label: string;
@@ -34,17 +34,91 @@ export interface CreateCodeInput {
   max_turns_per_session?: number | null;
 }
 
+export interface QuotasInput {
+  max_sessions_per_member: number | null;
+  max_turns_per_session: number | null;
+}
+
 export interface CodesHook {
-  state: State;
-  // 返 boolean 让组件层 `await fn() && toast.success(...)` 串成功 toast。
+  status: ResourceStatus;
+  codes: readonly CodeView[];
+  error: string | null;
+  refresh: () => Promise<void>;
   createCode: (input: CreateCodeInput) => Promise<boolean>;
   revokeCode: (id: string) => Promise<boolean>;
   updateQuotas: (id: string, input: QuotasInput) => Promise<boolean>;
 }
 
-export interface QuotasInput {
-  max_sessions_per_member: number | null;
-  max_turns_per_session: number | null;
+// codesStore —— module-singleton；一次 fetch、所有 component 共享。
+export const codesStore = createResourceStore<CodeView[]>({
+  name: 'codes',
+  fetcher: () => adminAPI.get<CodeView[]>('/codes/'),
+});
+
+// useCodes —— component-facing hook。读 store + mount 时 ensureLoaded。
+export function useCodes(): CodesHook {
+  const r = readResource(codesStore);
+  const ensureLoaded = r.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  return {
+    status: r.status,
+    codes: r.data ?? [],
+    error: r.error,
+    refresh: codesStore.getState().refresh,
+    createCode,
+    revokeCode,
+    updateQuotas,
+  };
+}
+
+async function createCode(input: CreateCodeInput): Promise<boolean> {
+  try {
+    const created = await adminAPI.post<CodeView>('/codes/', toCreateBody(input));
+    codesStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+    return true;
+  } catch (e) {
+    return swallow(e, 'create');
+  }
+}
+
+async function revokeCode(id: string): Promise<boolean> {
+  try {
+    await adminAPI.post<unknown>(`/codes/${id}/revoke`, {});
+    codesStore.getState().mutate((prev) =>
+      (prev ?? []).map((c) => c.id === id ? { ...c, status: 'revoked' } : c));
+    return true;
+  } catch (e) {
+    return swallow(e, 'revoke');
+  }
+}
+
+async function updateQuotas(id: string, input: QuotasInput): Promise<boolean> {
+  try {
+    const updated = await adminAPI.patch<CodeView>(`/codes/${id}/quotas`, input);
+    codesStore.getState().mutate((prev) =>
+      (prev ?? []).map((c) => c.id === updated.id ? updated : c));
+    return true;
+  } catch (e) {
+    return swallow(e, 'update quotas');
+  }
+}
+
+function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
+  return {
+    code: input.code,
+    label: input.label,
+    purpose: input.purpose ?? '',
+    included_tags: input.included_tags,
+    excluded_tags: input.excluded_tags ?? [],
+    suggested_questions: input.suggested_questions ?? [],
+    max_sessions_per_member: input.max_sessions_per_member ?? null,
+    max_turns_per_session: input.max_turns_per_session ?? null,
+  };
+}
+
+function swallow(_e: unknown, _op: string): boolean {
+  // 错误已经在 fetch 路径里 set 到 store.error；action 失败让 caller toast。
+  return false;
 }
 
 // codeModalLabels —— modal 头部文案 / kicker / 是否 edit。switch-by-existing
@@ -76,33 +150,8 @@ export async function dispatchSave(
   });
 }
 
-export function useCodes(): CodesHook {
-  const [state, setState] = useState<State>({ kind: 'loading' });
-
-  useEffect(() => {
-    let cancelled = false;
-    void initialLoad(cancelled, setState);
-    return () => { cancelled = true; };
-  }, []);
-
-  const createCode = useCallback(
-    async (input: CreateCodeInput) => await runCreate(input, setState),
-    [],
-  );
-
-  const revokeCode = useCallback(
-    async (id: string) => await runRevoke(id, setState),
-    [],
-  );
-
-  const updateQuotas = useCallback(
-    async (id: string, input: QuotasInput) => await runUpdateQuotas(id, input, setState),
-    [],
-  );
-
-  return { state, createCode, revokeCode, updateQuotas };
-}
-
+// MemberView / listCodeMembers / revokeMember —— 跟 codes 同一 admin module；
+// 暂时留在这个文件，后面拆 owner aggregate 时一起搬。
 export interface MemberView {
   id: string;
   display_name: string;
@@ -118,101 +167,4 @@ export async function listCodeMembers(codeID: string): Promise<MemberView[]> {
 
 export async function revokeMember(memberID: string): Promise<void> {
   await adminAPI.post<unknown>(`/codes/members/${memberID}/revoke`, {});
-}
-
-async function initialLoad(
-  cancelled: boolean, setState: (s: State) => void,
-): Promise<void> {
-  const next = await fetchList();
-  cancelled || setState(next);
-}
-
-async function fetchList(): Promise<State> {
-  try {
-    const codes = await adminAPI.get<CodeView[]>('/codes/');
-    return { kind: 'ready', codes, error: null };
-  } catch (e) {
-    return { kind: 'error', message: e instanceof Error ? e.message : 'load failed' };
-  }
-}
-
-async function runCreate(
-  input: CreateCodeInput,
-  setState: (updater: (s: State) => State) => void,
-): Promise<boolean> {
-  try {
-    const created = await adminAPI.post<CodeView>('/codes/', toCreateBody(input));
-    setState((s) => prependCode(s, created));
-    return true;
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'create failed';
-    setState((s) => s.kind === 'ready' ? { ...s, error: message } : s);
-    return false;
-  }
-}
-
-function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
-  return {
-    code: input.code,
-    label: input.label,
-    purpose: input.purpose ?? '',
-    included_tags: input.included_tags,
-    excluded_tags: input.excluded_tags ?? [],
-    suggested_questions: input.suggested_questions ?? [],
-    max_sessions_per_member: input.max_sessions_per_member ?? null,
-    max_turns_per_session: input.max_turns_per_session ?? null,
-  };
-}
-
-async function runRevoke(
-  id: string,
-  setState: (updater: (s: State) => State) => void,
-): Promise<boolean> {
-  try {
-    await adminAPI.post<unknown>(`/codes/${id}/revoke`, {});
-    setState((s) => markRevoked(s, id));
-    return true;
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'revoke failed';
-    setState((s) => s.kind === 'ready' ? { ...s, error: message } : s);
-    return false;
-  }
-}
-
-function prependCode(s: State, code: CodeView): State {
-  return s.kind === 'ready'
-    ? { kind: 'ready', codes: [code, ...s.codes], error: null }
-    : s;
-}
-
-function markRevoked(s: State, id: string): State {
-  if (s.kind !== 'ready') return s;
-  return {
-    kind: 'ready',
-    error: null,
-    codes: s.codes.map((c) => c.id === id ? { ...c, status: 'revoked' } : c),
-  };
-}
-
-async function runUpdateQuotas(
-  id: string, input: QuotasInput,
-  setState: (updater: (s: State) => State) => void,
-): Promise<boolean> {
-  try {
-    const updated = await adminAPI.patch<CodeView>(`/codes/${id}/quotas`, input);
-    setState((s) => replaceCode(s, updated));
-    return true;
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'update quotas failed';
-    setState((s) => s.kind === 'ready' ? { ...s, error: message } : s);
-    return false;
-  }
-}
-
-function replaceCode(s: State, code: CodeView): State {
-  if (s.kind !== 'ready') return s;
-  return {
-    kind: 'ready', error: null,
-    codes: s.codes.map((c) => c.id === code.id ? code : c),
-  };
 }
