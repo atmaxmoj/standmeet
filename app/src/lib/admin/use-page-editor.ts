@@ -1,16 +1,22 @@
 // use-page-editor —— /admin/page 的状态机。
 //
-// 流程：mount → GET /api/admin/page → loaded → 用户改 hero_prose 等字段 →
-// dirty=true → 点 save → PUT → loaded with dirty=false + savedAt 时间戳。
+// zustand 重构：server baseline（GET /api/admin/page）走全应用共享的
+// pageContentStore（[[create-resource-store]] factory，跟 sessionStore /
+// codesStore 同形状）。form 状态（mutable copy + dirty + savedAt）仍是
+// per-component local useState —— 跟 use-byoai 的 pattern 对齐：编辑流是
+// per-form 的，不该上 global store。
 //
-// 多 block 支持：除 hero_prose 之外的字段（insights / projects / where /
-// contact / hero_examples）只在 client side 改，save 路径仍调 PUT /page，
-// 后端如果保留其他字段就完整持久；如果只接 hero_prose，其它字段在重 fetch
-// 时会丢——目前 PUT /api/admin/page payload 就是整个 content。
+// 保留对外 PageEditorState 离散联合 (loading|loaded|saving|error)，让
+// PageSection 不用改。
+//
+// save 路径仍调 PUT /page，整段 content 上传；成功后把新 baseline
+// `mutate` 进 store cache，避免再 GET 一次。
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI, type PageContent } from '@/lib/api/admin';
+import { pageContentStore } from '@/lib/admin/page-content-store';
+import { readResource } from '@/lib/state/create-resource-store';
 
 // 把 readonly 字段转成可写副本，状态机内部需要 patch。深度脱 readonly。
 export interface MutableInsight { id: string; thesis: string; context: string; body: string }
@@ -43,80 +49,106 @@ export interface PageEditorHook {
   revert: () => void;
 }
 
-export function usePageEditor(): PageEditorHook {
-  const [state, setState] = useState<PageEditorState>({ kind: 'loading' });
-  const originalRef = useRef<PageContent | null>(null);
-  const contentRef = useRef<MutablePage | null>(null);
+interface FormState {
+  content: MutablePage;
+  baselineUpdatedAt: string;
+  dirty: boolean;
+  savedAt: number | null;
+}
 
+export function usePageEditor(): PageEditorHook {
+  const resource = readResource(pageContentStore);
+  const ensureLoaded = resource.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+
+  const [form, setForm] = useState<FormState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // 当 store 第一次 ready，或 server baseline 换了（mutate 之后 updated_at
+  // 变），seed/reseed 本地 form。已经在编辑的 form 不被打断 —— 用
+  // baselineUpdatedAt 当 "我已经基于这版做了哪些改" 的指纹。
   useEffect(() => {
-    let cancelled = false;
-    void loadInitial(cancelled, setState, originalRef, contentRef);
-    return () => { cancelled = true; };
-  }, []);
+    if (resource.status === 'ready' && resource.data) {
+      const incoming = resource.data;
+      setForm((cur) => cur && cur.baselineUpdatedAt === incoming.updated_at
+        ? cur
+        : { content: toMutable(incoming), baselineUpdatedAt: incoming.updated_at, dirty: false, savedAt: cur?.savedAt ?? null });
+    }
+  }, [resource.status, resource.data]);
 
   const setHeroProse = useCallback((v: string) => {
-    contentRef.current && (contentRef.current = { ...contentRef.current, hero_prose: v });
-    setState((s) => applyDirty(s, { hero_prose: v }));
+    setForm((f) => f ? { ...f, content: { ...f.content, hero_prose: v }, dirty: true } : f);
   }, []);
 
   const patch = useCallback((p: Partial<MutablePage>) => {
-    contentRef.current && (contentRef.current = { ...contentRef.current, ...p });
-    setState((s) => applyDirty(s, p));
+    setForm((f) => f ? { ...f, content: { ...f.content, ...p }, dirty: true } : f);
   }, []);
 
-  const save = useCallback(async () => {
-    const payload = contentRef.current;
-    payload && (await runSave(payload, setState, originalRef, contentRef));
+  const save = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      setForm((f) => {
+        if (!f) { resolve(); return f; }
+        void runSave(f.content, setForm, setSaving, setSaveError).then(resolve);
+        return f;
+      });
+    });
   }, []);
 
   const revert = useCallback(() => {
-    const orig = originalRef.current;
-    orig && (contentRef.current = toMutable(orig));
-    setState((s) => orig ? { kind: 'loaded', content: toMutable(orig), dirty: false, savedAt: s.kind === 'loaded' ? s.savedAt : null } : s);
+    const baseline = pageContentStore.getState().data;
+    if (!baseline) return;
+    setForm({
+      content: toMutable(baseline),
+      baselineUpdatedAt: baseline.updated_at,
+      dirty: false,
+      savedAt: null,
+    });
   }, []);
 
-  return { state, setHeroProse, patch, save, revert };
+  return {
+    state: deriveState(resource.status, resource.error, form, saving, saveError),
+    setHeroProse, patch, save, revert,
+  };
 }
 
-async function loadInitial(
-  cancelled: boolean,
-  setState: (s: PageEditorState) => void,
-  originalRef: React.MutableRefObject<PageContent | null>,
-  contentRef: React.MutableRefObject<MutablePage | null>,
-): Promise<void> {
-  try {
-    const content = await adminAPI.get<PageContent>('/page');
-    if (cancelled) return;
-    originalRef.current = content;
-    contentRef.current = toMutable(content);
-    setState({ kind: 'loaded', content: contentRef.current, dirty: false, savedAt: null });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'load failed';
-    cancelled || setState({ kind: 'error', message });
+function deriveState(
+  status: 'idle' | 'loading' | 'ready' | 'error',
+  resourceErr: string | null,
+  form: FormState | null,
+  saving: boolean,
+  saveError: string | null,
+): PageEditorState {
+  if (saving) return { kind: 'saving' };
+  if (saveError) return { kind: 'error', message: saveError };
+  if (status === 'error' || resourceErr) {
+    return { kind: 'error', message: resourceErr ?? 'load failed' };
   }
-}
-
-function applyDirty(s: PageEditorState, p: Partial<MutablePage>): PageEditorState {
-  return s.kind === 'loaded'
-    ? { kind: 'loaded', content: { ...s.content, ...p }, dirty: true, savedAt: s.savedAt }
-    : s;
+  if (!form) return { kind: 'loading' };
+  return { kind: 'loaded', content: form.content, dirty: form.dirty, savedAt: form.savedAt };
 }
 
 async function runSave(
   payload: MutablePage,
-  setState: (s: PageEditorState) => void,
-  originalRef: React.MutableRefObject<PageContent | null>,
-  contentRef: React.MutableRefObject<MutablePage | null>,
+  setForm: (next: FormState | ((cur: FormState | null) => FormState | null)) => void,
+  setSaving: (b: boolean) => void,
+  setErr: (m: string | null) => void,
 ): Promise<void> {
-  setState({ kind: 'saving' });
+  setSaving(true);
+  setErr(null);
   try {
     const saved = await adminAPI.put<PageContent>('/page', payload);
-    originalRef.current = saved;
-    contentRef.current = toMutable(saved);
-    setState({ kind: 'loaded', content: contentRef.current, dirty: false, savedAt: Date.now() });
+    pageContentStore.getState().mutate(saved);
+    setForm({
+      content: toMutable(saved),
+      baselineUpdatedAt: saved.updated_at,
+      dirty: false,
+      savedAt: Date.now(),
+    });
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'save failed';
-    setState({ kind: 'error', message });
+    setErr(e instanceof Error ? e.message : 'save failed');
+  } finally {
+    setSaving(false);
   }
 }
 

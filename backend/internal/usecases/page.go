@@ -15,10 +15,11 @@ import (
 	"github.com/wangsijie/standmeet/internal/postgres"
 )
 
-// PageDeps —— page usecase 所需。
+// PageDeps —— page usecase 所需。PageContent 是 Owner aggregate 的内容
+// 切面，所以 GetPageContent / UpsertPageContent 都是 OwnerRepo 方法；
+// usecase 这里不再持有独立 PageRepo。
 type PageDeps struct {
 	Owners *postgres.OwnerRepo
-	Pages  *postgres.PageRepo
 }
 
 // PublicPageView —— GET /api/v1/page/:handle 返回的形状。
@@ -77,7 +78,7 @@ func GetPublicPage(
 func loadPageContentOrDefault(
 	ctx context.Context, deps PageDeps, ownerID string,
 ) (domain.PageContent, error) {
-	content, err := deps.Pages.GetByOwner(ctx, ownerID)
+	content, err := deps.Owners.GetPageContent(ctx, ownerID)
 	if errors.Is(err, domain.ErrPageNotFound) {
 		return buildDefaultPage(ownerID), nil
 	}

@@ -52,7 +52,7 @@ type AdminDeps struct {
 	HandleAdmin    usecases.HandleDeps
 	AIProvider     usecases.AIProviderDeps
 	Codes          *postgres.CodeRepo
-	Pages          *postgres.PageRepo
+	Owners         *postgres.OwnerRepo
 	Sessions       *session.OwnerSessionStore
 	SecureCookie   bool
 }
@@ -103,7 +103,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		APITokens:       deps.Admin.APITokens,
 		Corpus:          adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
 		CodesAdmin:      adminroutes.CodesDeps{Codes: deps.Admin.Codes},
-		PageAdmin:       adminroutes.PageAdminDeps{Pages: deps.Admin.Pages},
+		PageAdmin:       adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
 		Conversations:   adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
 		BYOAI:           adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
 		Domains:         adminroutes.DomainsDeps{Domains: deps.Admin.Domains},

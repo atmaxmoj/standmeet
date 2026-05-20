@@ -7,6 +7,7 @@
 import { useCallback, useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { FormSkeleton } from '@/components/skeletons/FormSkeleton';
 import { Block } from '@/components/admin/sections/page/Block';
 import { EditField } from '@/components/admin/sections/page/EditField';
 import { StringListEditor } from '@/components/admin/sections/page/StringListEditor';
@@ -36,7 +37,7 @@ function PageBody({ editor }: { editor: PageEditorHook }) {
     : <Ready editor={editor} state={editor.state} />;
 }
 
-function Loading() { return <p className="mono text-(--color-muted)">loading…</p>; }
+function Loading() { return <FormSkeleton rows={6} />; }
 function ErrorMsg({ message }: { message: string }) {
   return <p className="mono text-(--color-accent)">{message}</p>;
 }

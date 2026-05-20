@@ -1,6 +1,8 @@
-// page.go —— page_content（owner public page 内容）Repository。
-// jsonb 字段在 Repo 层 marshal/unmarshal，让 usecase / routes 拿到 typed
-// domain.PageContent。GetByOwner 不存在返 ErrPageNotFound。
+// owner_page_content.go —— Owner aggregate 的 "公开页内容" 切面（与
+// identity / settings 平行）。物理上 page_content 是独立表（FK 到
+// owners.id），但聚合边界上跟 Owner 走同一事务边界，所以这里是
+// OwnerRepo 的方法而非独立 PageRepo。jsonb 列在 Repo 层 marshal /
+// unmarshal，让 usecase / routes 拿到 typed domain.PageContent。
 
 package postgres
 
@@ -10,23 +12,17 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres/dbq"
 )
 
-// PageRepo —— page_content CRUD。
-type PageRepo struct {
-	pool *Pool
-}
-
-// NewPageRepo 构造 PageRepo。
-func NewPageRepo(pool *Pool) *PageRepo { return &PageRepo{pool: pool} }
-
-// GetByOwner 拿 owner 的 page_content；不存在返 ErrPageNotFound（usecase 层用默认值兜底）。
-func (r *PageRepo) GetByOwner(ctx context.Context, ownerID string) (domain.PageContent, error) {
+// GetPageContent 拿 owner 的 page_content；不存在返 ErrPageNotFound
+// （usecase 层用默认值兜底）。
+func (r *OwnerRepo) GetPageContent(
+	ctx context.Context, ownerID string,
+) (domain.PageContent, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
@@ -34,7 +30,7 @@ func (r *PageRepo) GetByOwner(ctx context.Context, ownerID string) (domain.PageC
 	}
 	row, err := q.GetPageContent(ctx, pgID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, pgxErrNoRows()) {
 			return domain.PageContent{}, domain.ErrPageNotFound
 		}
 		return domain.PageContent{}, fmt.Errorf("get page content: %w", err)
@@ -42,8 +38,8 @@ func (r *PageRepo) GetByOwner(ctx context.Context, ownerID string) (domain.PageC
 	return rowToPageContent(&row)
 }
 
-// Upsert 写入 / 更新 page_content（admin PUT 用）。
-func (r *PageRepo) Upsert(
+// UpsertPageContent 写入 / 更新 owner 的 page_content（admin PUT 用）。
+func (r *OwnerRepo) UpsertPageContent(
 	ctx context.Context, ownerID string, in *domain.PageContent,
 ) (domain.PageContent, error) {
 	q := dbq.New(r.pool)

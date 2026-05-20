@@ -19,9 +19,10 @@ import (
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
-// PageAdminDeps —— admin page handlers 依赖。
+// PageAdminDeps —— admin page handlers 依赖。PageContent 走 OwnerRepo
+// 的 GetPageContent / UpsertPageContent 方法（Owner aggregate 内容切面）。
 type PageAdminDeps struct {
-	Pages *postgres.PageRepo
+	Owners *postgres.OwnerRepo
 }
 
 // MountPage 挂 /page。caller 负责 /api/admin/ 前缀 + auth middleware。
@@ -33,7 +34,7 @@ func (h *Handlers) MountPage(r chi.Router) {
 func (h *Handlers) getPage() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		content, err := loadOwnerPage(r.Context(), h.PageAdmin.Pages, ownerID)
+		content, err := loadOwnerPage(r.Context(), h.PageAdmin.Owners, ownerID)
 		if err != nil {
 			h.Log.Error("admin get page", "err", err)
 			writeError(h.Log, w, serverErr())
@@ -44,9 +45,9 @@ func (h *Handlers) getPage() http.HandlerFunc {
 }
 
 func loadOwnerPage(
-	ctx context.Context, repo *postgres.PageRepo, ownerID string,
+	ctx context.Context, repo *postgres.OwnerRepo, ownerID string,
 ) (domain.PageContent, error) {
-	content, err := repo.GetByOwner(ctx, ownerID)
+	content, err := repo.GetPageContent(ctx, ownerID)
 	if err == nil {
 		return content, nil
 	}
@@ -72,7 +73,7 @@ func (h *Handlers) putPage() http.HandlerFunc {
 			return
 		}
 		body.OwnerID = ownerID
-		saved, err := h.PageAdmin.Pages.Upsert(r.Context(), ownerID, &body)
+		saved, err := h.PageAdmin.Owners.UpsertPageContent(r.Context(), ownerID, &body)
 		if err != nil {
 			h.Log.Error("admin put page", "err", err)
 			writeError(h.Log, w, serverErr())

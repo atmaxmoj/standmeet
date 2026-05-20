@@ -39,12 +39,13 @@ export interface CreateResourceStoreOpts<T> {
 }
 
 type Setter<T> = StoreApi<ResourceStore<T>>['setState'];
+
 type Getter<T> = StoreApi<ResourceStore<T>>['getState'];
 
 export function createResourceStore<T>(
   opts: CreateResourceStoreOpts<T>,
 ): UseBoundStore<StoreApi<ResourceStore<T>>> {
-  return create<ResourceStore<T>>((set, get) => ({
+  return create<ResourceStore<T>>((set, get: Getter<T>) => ({
     status: 'idle' satisfies ResourceStatus,
     data: undefined,
     error: null,
@@ -103,6 +104,3 @@ export function readResource<T>(
   return { status, data, error, lastFetched, ensureLoaded };
 }
 
-// Unused helper kept off the export surface to avoid knip false positive.
-// Re-export Getter so feature-store files can type their own actions.
-export type StoreGetter<T> = Getter<T>;

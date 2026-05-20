@@ -94,7 +94,6 @@ func wireAndServe(
 	wikiRepo := postgres.NewWikiRepo(c.db)
 	codeRepo := postgres.NewCodeRepo(c.db)
 	convRepo := postgres.NewConversationRepo(c.db)
-	pageRepo := postgres.NewPageRepo(c.db)
 	seoRepo := postgres.NewSEORepo(c.db)
 	customPageRepo := postgres.NewCustomPageRepo(c.db)
 	customBuildRepo := postgres.NewCustomBuildRepo(c.db)
@@ -121,7 +120,7 @@ func wireAndServe(
 		log: log, db: c.db, rdb: c.rdb,
 		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
 		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
-		codeRepo: codeRepo, convRepo: convRepo, pageRepo: pageRepo,
+		codeRepo: codeRepo, convRepo: convRepo,
 		seoRepo:           seoRepo,
 		customPageRepo:    customPageRepo,
 		customBuildRepo:   customBuildRepo,
@@ -169,7 +168,6 @@ type runtimeDeps struct {
 	wikiRepo          *postgres.WikiRepo
 	codeRepo          *postgres.CodeRepo
 	convRepo          *postgres.ConversationRepo
-	pageRepo          *postgres.PageRepo
 	seoRepo           *postgres.SEORepo
 	customPageRepo    *postgres.CustomPageRepo
 	customBuildRepo   *postgres.CustomBuildRepo
@@ -283,7 +281,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		HandleAdmin:    usecases.HandleDeps{Owners: d.ownerRepo},
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
 		Codes:          d.codeRepo,
-		Pages:          d.pageRepo,
+		Owners:         d.ownerRepo,
 		Sessions:       d.sessionStore,
 		SecureCookie:   d.secureCookie,
 	}
@@ -302,7 +300,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 
 func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 	return publicroutes.PageHandlers{
-		Page: usecases.PageDeps{Owners: d.ownerRepo, Pages: d.pageRepo},
+		Page: usecases.PageDeps{Owners: d.ownerRepo},
 		Log:  d.log,
 	}
 }

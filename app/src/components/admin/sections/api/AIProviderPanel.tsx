@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 
+import { InlineSkeleton } from '@/components/skeletons/InlineSkeleton';
 import {
   useAIProvider, applySaveSuccess,
   type AIProviderHook, type AIProviderName,
@@ -46,7 +47,7 @@ function PanelBody({ hook }: { hook: AIProviderHook }) {
 }
 
 function Loading() {
-  return <p className="mono text-[11px] text-(--color-faint)">loading…</p>;
+  return <InlineSkeleton width="w-48" />;
 }
 
 function PanelForm({ hook }: { hook: AIProviderHook }) {
