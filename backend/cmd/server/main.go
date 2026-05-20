@@ -22,13 +22,11 @@ import (
 	"github.com/wangsijie/standmeet/internal/config"
 	"github.com/wangsijie/standmeet/internal/cryptobox"
 	"github.com/wangsijie/standmeet/internal/inference"
-	"github.com/wangsijie/standmeet/internal/mcp"
+	"github.com/wangsijie/standmeet/internal/jobcache"
+	"github.com/wangsijie/standmeet/internal/jobfetch"
 	"github.com/wangsijie/standmeet/internal/postgres"
-	publicroutes "github.com/wangsijie/standmeet/internal/routes/public"
-	sysroutes "github.com/wangsijie/standmeet/internal/routes/sys"
 	"github.com/wangsijie/standmeet/internal/server"
 	"github.com/wangsijie/standmeet/internal/session"
-	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
 const (
@@ -98,6 +96,18 @@ func wireAndServe(
 	customPageRepo := postgres.NewCustomPageRepo(c.db)
 	customBuildRepo := postgres.NewCustomBuildRepo(c.db)
 	accessRequestRepo := postgres.NewAccessRequestRepo(c.db)
+	jobSourceRepo := postgres.NewJobSourceRepo(c.db)
+	jobCachePool := jobcache.New(c.rdb, 0) // default 24h TTL
+	jobFetchRegistry := jobfetch.New(jobfetch.BaseURLs{
+		Greenhouse:      cfg.JobFetchGreenhouseBaseURL,
+		Lever:           cfg.JobFetchLeverBaseURL,
+		Ashby:           cfg.JobFetchAshbyBaseURL,
+		RemoteOK:        cfg.JobFetchRemoteOKBaseURL,
+		WWR:             cfg.JobFetchWWRBaseURL,
+		HN:              cfg.JobFetchHNBaseURL,
+		SmartRecruiters: cfg.JobFetchSmartRecruitersBaseURL,
+		Workable:        cfg.JobFetchWorkableBaseURL,
+	})
 	sessionStore := session.NewOwnerSessionStore(c.rdb)
 	visitorStore := session.NewVisitorSessionStore(c.rdb)
 	mockProvider, perr := inference.NewFromEnv()
@@ -125,6 +135,9 @@ func wireAndServe(
 		customPageRepo:    customPageRepo,
 		customBuildRepo:   customBuildRepo,
 		accessRequestRepo: accessRequestRepo,
+		jobSourceRepo:     jobSourceRepo,
+		jobCachePool:      jobCachePool,
+		jobFetchRegistry:  jobFetchRegistry,
 		sessionStore:      sessionStore, visitorStore: visitorStore,
 		providerResolver: providerResolver, secureCookie: cfg.SecureCookie,
 		publicURL:  cfg.PublicURL,
@@ -172,6 +185,9 @@ type runtimeDeps struct {
 	customPageRepo    *postgres.CustomPageRepo
 	customBuildRepo   *postgres.CustomBuildRepo
 	accessRequestRepo *postgres.AccessRequestRepo
+	jobSourceRepo     *postgres.JobSourceRepo
+	jobCachePool      *jobcache.Pool
+	jobFetchRegistry  *jobfetch.Registry
 	sessionStore      *session.OwnerSessionStore
 	visitorStore      *session.VisitorSessionStore
 	providerResolver  inference.Resolver
@@ -247,95 +263,4 @@ func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.Can
 	}
 
 	return nil
-}
-
-// buildServerDeps —— 把每个 sub-router 的 Deps 块组装出来。serve() 不再
-// 直接铺开 50+ 行 struct literal，function-length lint 友好。
-func buildServerDeps(d *runtimeDeps) *server.Deps {
-	return &server.Deps{
-		DB:                   d.db,
-		Redis:                d.rdb,
-		Log:                  d.log,
-		Admin:                buildAdminDeps(d),
-		Public:               buildPublicDeps(d),
-		PublicPage:           buildPublicPageDeps(d),
-		PublicSEO:            buildPublicSEODeps(d),
-		PublicCustomPages:    buildPublicCustomPageDeps(d),
-		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
-		Builds:               sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
-		TLSAsk:               sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
-		MCP:                  buildMCPDeps(d),
-	}
-}
-
-func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
-	return server.AdminDeps{
-		Claim:          usecases.ClaimDeps{Instance: d.instanceRepo},
-		Login:          usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
-		APITokens:      usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
-		Corpus:         usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
-		Conversations:  usecases.ConversationsDeps{Conv: d.convRepo},
-		BYOAI:          usecases.BYOAIDeps{Owners: d.ownerRepo},
-		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
-		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
-		HandleAdmin:    usecases.HandleDeps{Owners: d.ownerRepo},
-		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
-		Codes:          d.codeRepo,
-		Owners:         d.ownerRepo,
-		Sessions:       d.sessionStore,
-		SecureCookie:   d.secureCookie,
-	}
-}
-
-func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
-	return publicroutes.Handlers{
-		Visitor: usecases.VisitorDeps{
-			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
-			Owners: d.ownerRepo, Sessions: d.visitorStore, Resolver: d.providerResolver,
-		},
-		Sessions: d.visitorStore,
-		Log:      d.log,
-	}
-}
-
-func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
-	return publicroutes.PageHandlers{
-		Page: usecases.PageDeps{Owners: d.ownerRepo},
-		Log:  d.log,
-	}
-}
-
-func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
-	return publicroutes.SEOHandlers{
-		Deps:      usecases.SEODeps{Owners: d.ownerRepo, SEO: d.seoRepo},
-		Log:       d.log,
-		PublicURL: d.publicURL,
-	}
-}
-
-func buildPublicCustomPageDeps(d *runtimeDeps) publicroutes.CustomPageHandlers {
-	return publicroutes.CustomPageHandlers{
-		Deps:       usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
-		Owners:     d.ownerRepo,
-		Log:        d.log,
-		BuildsRoot: d.buildsRoot,
-	}
-}
-
-func buildPublicAccessRequestsDeps(d *runtimeDeps) publicroutes.AccessRequestsHandlers {
-	return publicroutes.AccessRequestsHandlers{
-		Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
-		Log:  d.log,
-	}
-}
-
-func buildMCPDeps(d *runtimeDeps) mcp.Deps {
-	return mcp.Deps{
-		APITokens:   usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
-		Owners:      d.ownerRepo,
-		Corpus:      usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
-		SEO:         d.seoRepo,
-		CustomPages: usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
-		Log:         d.log,
-	}
 }

@@ -1,0 +1,461 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://app.careerpuck.com/job-board/lyft/job/8545540002?gh_jid=8545540002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "employment": "employment_required",
+      "internal_job_id": 6413310002,
+      "location": {
+        "name": "San Francisco, CA"
+      },
+      "metadata": [
+        {
+          "id": 4345907002,
+          "name": "Career Site Category",
+          "value": "Accounting & Finance",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8545540002,
+      "updated_at": "2026-05-12T14:22:21-04:00",
+      "requisition_id": "110817",
+      "title": "Accountant, Insurance and Investments",
+      "company_name": "Lyft",
+      "first_published": "2026-05-12T14:22:21-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;At Lyft, our purpose is to serve and connect. We aim to achieve this by cultivating a work environment where all team members belong and have the opportunity to thrive.&lt;/p&gt;\n&lt;p&gt;Lyft is looking for a motivated Accountant to join the Insurance and Investments team. This role will be critical in building a world class accounting organization to support our growth. This is an amazing opportunity to join a quickly developing team and make an immediate impact to the business. The ideal candidate must thrive in a fast-paced environment and be adaptable to changing responsibilities and priorities.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Assist with the monthly close process for Lyft insurance and investments (including but not limited to monthly investment activity, prepaid amortization and accruals)&lt;/li&gt;\n&lt;li&gt;Prepare journal entries, balance sheet reconciliations and flux analyses in accordance with close calendar timelines&lt;/li&gt;\n&lt;li&gt;Assist in support of external audit, including preparation of audit requests and ongoing support&lt;/li&gt;\n&lt;li&gt;Assist team in coordination with cross-functional partners to facilitate streamlined processes&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Assist in documentation/implementation of internal controls and ensure SOX compliance in areas of responsibility&lt;/li&gt;\n&lt;li&gt;Proactively identify process inefficiencies and offer suggestions for improvements&lt;/li&gt;\n&lt;li&gt;Perform special, ad-hoc projects in Accounting/Finance as requested&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Experience:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;BS in Accounting/Finance, CPA license preferred&lt;/li&gt;\n&lt;li&gt;2+ years of accounting experience&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Strong organizational, verbal, and written communication skills&lt;/li&gt;\n&lt;li&gt;Strong accounting research and problem-solving skills&lt;/li&gt;\n&lt;li&gt;Experience in Microsoft with a strong emphasis on Excel is a must; Oracle Cloud/ERP experience is preferred&lt;/li&gt;\n&lt;li&gt;A proactive, self-directed approach with the ability to multi-task, think creatively, and learn quickly in a fast-paced environment&lt;/li&gt;\n&lt;li&gt;Insurance and Investments experience is a plus but not required&lt;/li&gt;\n&lt;li&gt;Ability to operate independently and as part of a larger functional team&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;strong&gt;&lt;br&gt;&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Great medical, dental, and vision insurance options with additional programs available when enrolled&lt;/li&gt;\n&lt;li&gt;Mental health benefits&lt;/li&gt;\n&lt;li&gt;Family building benefits&lt;/li&gt;\n&lt;li&gt;Child care and pet benefits&lt;/li&gt;\n&lt;li&gt;401(k) plan with company match to help save for your future&lt;/li&gt;\n&lt;li&gt;In addition to 12 observed holidays, salaried team members have discretionary paid time off, hourly team members have 15 days paid time off&lt;/li&gt;\n&lt;li&gt;18 weeks of paid parental leave. Biological, adoptive, and foster parents are all eligible&lt;/li&gt;\n&lt;li&gt;Subsidized commuter benefits&lt;/li&gt;\n&lt;li&gt;Monthly Lyft credits and complimentary Lyft Pink membership&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Lyft is an equal opportunity employer committed to an inclusive workplace that fosters belonging. All qualified applicants will receive consideration for employment without regards to race, color, religion, sex, sexual orientation, gender identity, national origin, disability status, protected veteran status, age, genetic information, or any other basis prohibited by law. We also consider qualified applicants with criminal histories consistent with applicable federal, state and local law.&lt;/p&gt;\n&lt;p&gt;Lyft highly values having employees working in-office to foster a collaborative work environment and company culture. This role will be in-office on a hybrid schedule — Team Members will be expected to work in the office 3 days per week on Mondays, Wednesdays, and Thursdays. Lyft considers working in the office at least 3 days per week to be an essential function of this hybrid role. Your recruiter can share more information about the various in-office perks Lyft offers. Additionally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid&lt;/p&gt;\n&lt;p&gt;The expected base pay range for this position in the San Francisco area is $72,000 - $90,000, not inclusive of potential equity offering, bonus or benefits. Salary ranges are dependent on a variety of factors, including qualifications, experience and geographic location. Your recruiter can share more information about the salary range specific to your working location and other factors during the hiring process.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4082052002,
+          "name": "Accounting, Tax, & Finance Transformation",
+          "child_ids": [],
+          "parent_id": 4002291002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4000997002,
+          "name": "New York Office",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": 4032338002
+        },
+        {
+          "id": 4000998002,
+          "name": "San Francisco Office",
+          "location": "San Francisco, California, United States",
+          "child_ids": [],
+          "parent_id": 4031979002
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://app.careerpuck.com/job-board/lyft/job/8532137002?gh_jid=8532137002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "employment": "employment_required",
+      "internal_job_id": 6407403002,
+      "location": {
+        "name": "Toronto, Canada"
+      },
+      "metadata": [
+        {
+          "id": 4345907002,
+          "name": "Career Site Category",
+          "value": "Information Technology",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8532137002,
+      "updated_at": "2026-05-05T18:14:54-04:00",
+      "requisition_id": "110784",
+      "title": "AI Business Solution Architect",
+      "company_name": "Lyft",
+      "first_published": "2026-05-01T15:47:39-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;At Lyft, our purpose is to serve and connect. We aim to achieve this by cultivating a work environment where all team members belong and have the opportunity to thrive.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;The divide between business needs and technical delivery is one of the most persistent challenges in enterprise technology, where finance teams struggle to articulate requirements and engineering teams lack the business context to build truly impactful solutions. As a Senior Business Solution Architect for Finance at Lyft, you&#39;ll eliminate this gap by serving as the critical connection point between our Finance teams and our Corporate Engineering and IT (CEIT) organization. This role uniquely combines deep functional business expertise with strong technical acumen, enabling you to translate complex business needs into systemized, scalable solutions while driving AI-enabled transformation across the Finance function.&lt;/p&gt;\n&lt;p&gt;We&#39;re seeking a strategic thinker who thrives at the intersection of business and technology, possesses exceptional communication skills across both technical and non-technical audiences, and is dedicated to architecting the future state of how Finance operates. You&#39;ll be the trusted advisor to both business leaders and engineering teams, ensuring our Finance organization has systems and processes that scale with our business while our engineering teams build solutions that truly move the needle. With AI fundamentally reshaping how Finance work gets done, your expertise will be critical in helping us responsibly harness these technologies to drive operational excellence. In this role, you&#39;ll reimagine Finance workflows through an AI-first lens, design business processes that balance operational excellence with technical feasibility, and champion automation that elevates teams from tactical execution to strategic impact.&lt;/p&gt;\n&lt;p&gt;If you are a candidate who has the vision of what could be, who has the ability to cultivate relationships, and has a belief in driving impact, then you may be the ideal person for this position. We are committed to building a diverse and inclusive team and encourage applications from candidates of all backgrounds.&amp;nbsp;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Architect Finance Solutions and Bridge Business-Technology Collaboration&lt;/strong&gt;\n&lt;ul&gt;\n&lt;li&gt;Serve as the primary liaison between Finance stakeholders and engineering teams, translating business needs into clear technical requirements and validating that delivered solutions meet business objectives&lt;/li&gt;\n&lt;li&gt;Maintain deep expertise in both Finance domain knowledge (Accounting, FP&amp;amp;A, Treasury, Procurement, Compliance) and the technical systems that support it (Oracle Financials, Anaplan, GTreasury, and various boundary applications), enabling effective communication across both audiences&lt;/li&gt;\n&lt;li&gt;Define the strategic roadmap for Finance systems, platforms, and data architecture in alignment&lt;strong&gt; &lt;/strong&gt;with business strategy and technology capabilities&lt;/li&gt;\n&lt;li&gt;Design and document business processes that streamline workflows, eliminate redundancies, and improve operational efficiency while ensuring technical feasibility&lt;/li&gt;\n&lt;li&gt;Develop comprehensive business requirements documentation, user stories, and acceptance criteria that enable engineering teams to deliver high-quality solutions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Drive AI-Enabled Transformation Across Finance&lt;/strong&gt;\n&lt;ul&gt;\n&lt;li&gt;Partner with Finance leaders to reimagine processes through an AI-first lens, prototyping solutions that demonstrate art-of-the-possible and building conviction for change&lt;/li&gt;\n&lt;li&gt;Identify high-impact opportunities to apply AI and automation across Finance workflows, from invoice processing and reconciliation to forecasting and anomaly detection, pushing teams up the value chain by eliminating mundane, repetitive work&lt;/li&gt;\n&lt;li&gt;Establish frameworks for responsible AI adoption within Finance, ensuring solutions align with compliance, data privacy, security guidelines, and ethical considerations&lt;/li&gt;\n&lt;li&gt;Stay current on emerging AI capabilities and tools, continuously researching how new models and platforms can be applied to Finance use cases&lt;/li&gt;\n&lt;/ul&gt;\n&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Enable Strategic Decision-Making and Platform Optimization&lt;/strong&gt;\n&lt;ul&gt;\n&lt;li&gt;Develop business cases that quantify ROI for technology investments, translating technical capabilities into tangible business value metrics&lt;/li&gt;\n&lt;li&gt;Lead Finance systems architecture discussions, providing guidance on integrations, data flows, technical dependencies, and impact of proposed changes&lt;/li&gt;\n&lt;li&gt;Partner with Security, Legal, and Compliance teams to ensure Finance solutions adhere to SOX ITGC requirements, audit standards, and regulatory obligations&lt;/li&gt;\n&lt;li&gt;Support M&amp;amp;A integration efforts by assessing acquired companies&#39; Finance systems and architecting integration roadmaps that minimize business disruption&lt;/li&gt;\n&lt;/ul&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Experience:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;8+ years of experience in business solution architecture, business process design, Finance systems implementation, or related roles, with deep expertise in Finance operations and systems&lt;/li&gt;\n&lt;li&gt;Proven track record translating complex business requirements into technical solutions, working at the intersection of Finance teams and engineering&lt;/li&gt;\n&lt;li&gt;Strong technical foundation including understanding of system architecture, APIs, data modeling, integration patterns, and modern SaaS platforms&lt;/li&gt;\n&lt;li&gt;Demonstrated success leading business process transformation initiatives in Finance that delivered measurable improvements in efficiency, accuracy, or user experience&lt;/li&gt;\n&lt;li&gt;Exceptional communication skills with ability to influence stakeholders at all levels, from explaining technical concepts to CFO and Finance executives to providing detailed specifications to engineers&lt;/li&gt;\n&lt;li&gt;Experience with AI/automation in business contexts, including familiarity with LLMs, intelligent automation tools, or AI-powered workflow solutions&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Preferred Qualifications&lt;/strong&gt;\n&lt;ul&gt;\n&lt;li&gt;Hands-on experience with core Finance enterprise systems such as Oracle Financials, NetSuite, Anaplan, Workday Financials, Concur, GTreasury, Sage, or similar platforms&lt;/li&gt;\n&lt;li&gt;Hands-on experience with AI tools and platforms (e.g., Claude, GPT-4, automation platforms like UiPath or Power Automate)&lt;/li&gt;\n&lt;li&gt;Experience with change management and driving adoption of new systems or processes across large Finance organizations&lt;/li&gt;\n&lt;li&gt;Background in product management, solution architecture, or technical program management&lt;/li&gt;\n&lt;li&gt;Experience in high-growth tech companies or organizations undergoing significant digital transformation&lt;/li&gt;\n&lt;li&gt;M&amp;amp;A integration experience, particularly Finance systems consolidation and harmonization&lt;/li&gt;\n&lt;/ul&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Extended health and dental coverage options, along with life insurance and disability benefits&lt;/li&gt;\n&lt;li&gt;Mental health benefits&lt;/li&gt;\n&lt;li&gt;Family building benefits&lt;/li&gt;\n&lt;li&gt;Child care and pet benefits&lt;/li&gt;\n&lt;li&gt;Access to a Lyft funded Health Care Savings Account&lt;/li&gt;\n&lt;li&gt;RRSP plan with company match to help save for your future&lt;/li&gt;\n&lt;li&gt;In addition to provincial observed holidays, salaried team members are covered under Lyft&#39;s flexible paid time off policy. The policy allows team members to take off as much time as they need (with manager approval). Hourly team members get 15 days paid time off, with an additional day for each year of service&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Lyft is proud to support new parents with 18 weeks of paid time off, designed as a top-up plan to complement provincial programs. Biological, adoptive, and foster parents are all eligible.&lt;/li&gt;\n&lt;li&gt;Subsidized commuter benefits and Lyft ride credits&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Lyft is committed to creating an inclusive workforce that fosters belonging. Lyft believes that every person has a right to equal employment opportunities without discrimination because of race, ancestry, place of origin, colour, ethnic origin, citizenship, creed, sex, sexual orientation, gender identity, gender expression, age, marital status, family status, disability, pardoned record of offences, or any other basis protected by applicable law or by Company policy. Lyft also strives for a healthy and safe workplace and strictly prohibits harassment of any kind.&amp;nbsp; Accommodation for persons with disabilities will be provided upon request in accordance with applicable law during the application and hiring process. Please contact your recruiter if you wish to make such a request.&lt;/p&gt;\n&lt;p&gt;Lyft highly values having employees working in-office to foster a collaborative work environment and company culture. This role will be in-office on a hybrid schedule — Team Members will be expected to work in the office at least 3 days per week, including on Mondays, Wednesdays, and Thursdays. Lyft considers working in the office at least 3 days per week to be an essential function of this hybrid role. Your recruiter can share more information about the various in-office perks Lyft offers. Additionally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid&lt;/p&gt;\n&lt;p&gt;The expected base pay range for this position in the Toronto area is CAD $163,000 - CAD $203,750, not inclusive of potential equity offering, bonus or benefits. Salary ranges are dependent on a variety of factors, including qualifications, experience and geographic location. Your recruiter can share more information about the salary range specific to your working location and other factors during the hiring process.&lt;/p&gt;\n&lt;p&gt;Lyft may use artificial intelligence to screen applicants, however, Lyft employees make the ultimate selection and hiring decisions.&lt;/p&gt;\n&lt;p&gt;This job fills an existing vacancy.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4002287002,
+          "name": "Corporate Engineering & IT",
+          "child_ids": [],
+          "parent_id": 4135509002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4080790002,
+          "name": "Toronto Coworking",
+          "location": "Toronto, Ontario, Canada",
+          "child_ids": [],
+          "parent_id": 4038336002
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://app.careerpuck.com/job-board/lyft/job/8477563002?gh_jid=8477563002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "employment": "employment_required",
+      "internal_job_id": 6386242002,
+      "location": {
+        "name": "Toronto, Canada"
+      },
+      "metadata": [
+        {
+          "id": 4345907002,
+          "name": "Career Site Category",
+          "value": "Data Analytics & Business Intelligence",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8477563002,
+      "updated_at": "2026-05-05T18:14:54-04:00",
+      "requisition_id": "110694",
+      "title": "Analytics Lead, Events & Venues",
+      "company_name": "Lyft",
+      "first_published": "2026-03-24T19:42:24-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;At Lyft, our purpose is to serve and connect. We aim to achieve this by cultivating a work environment where all team members belong and have the opportunity to thrive.&lt;/p&gt;\n&lt;p&gt;Data is at the heart of Lyft’s products and decision-making. You will leverage data and rigorous, analytical thinking to shape our products and make business decisions. This will involve performing rigorous product deep dives, identifying opportunities for product enhancements, and measuring the impact of product changes.&lt;/p&gt;\n&lt;p&gt;The Events &amp;amp; Venues team covers all situations related to events, such as sports games being held at a stadium, concerts being held at a local venue, or a running race held in an area of a city. Events are one of the most important, impactful, and complex parts of Lyft’s Rideshare business, as they are a key part of both the rider and driver Lyft experience and have unique dynamics. As an Analytics Lead on the Events &amp;amp; Venues team, you will collaborate with our team of engineers, product managers, operations, and designers to conduct thorough data deep dives on event performance, challenge our current strategy, and recommend enhancements to facilitate market growth.&lt;/p&gt;\n&lt;p&gt;The ideal candidate can apply strong business acumen to propose product and marketplace changes, and is comfortable working with a highly cross functional team. In this role, you will help us tackle problems such as:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;What gaps exist in our performance at events &amp;amp; venues today? What areas of the rider and driver experience should we focus on to improve this marketplace?&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Which types of events are underperforming and which key metrics can we use to identify and classify event performance? What targets should we set for these key metrics and how do we efficiently monitor these metrics?&lt;/li&gt;\n&lt;li&gt;How should we be pricing event rides? Who are our current event riders and what segment is most likely to grow our rider base?&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;What is the impact of Lyft advertising and should we continue to invest?&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Leverage data and analytic frameworks to identify opportunities for growth and efficiency, recommending solutions to drive business impact&lt;/li&gt;\n&lt;li&gt;Establish metrics that measure the health of our products, the business, and the rider and driver experiences&lt;/li&gt;\n&lt;li&gt;Manage, build, and automate reporting to provide regional and national teams with actionable insights on volume, efficiency, and rider and driver experiences&lt;/li&gt;\n&lt;li&gt;Partner with product managers, engineers, marketers, designers, and operations to translate data insights into decisions and action&lt;/li&gt;\n&lt;li&gt;Present findings, recommendations, and results to senior leadership and cross-functional stakeholders&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Experience:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;4-7+ years experience in strategic data science/analytics roles in a technology company, or an equivalent analytical role in a high growth startup&lt;/li&gt;\n&lt;li&gt;End-to-end experience with data, including querying, aggregation, analysis, and visualization, to provide actionable insights and reusable frameworks&lt;/li&gt;\n&lt;li&gt;Extremely proficient in SQL and quantitative analysis - you can deep dive into large amounts of data, draw meaningful insights, dissect business issues and draw actionable conclusions&lt;/li&gt;\n&lt;li&gt;Experience in leading high visibility projects and influencing others in a cross-functional team environment&lt;/li&gt;\n&lt;li&gt;Exceptional communication skills with the ability to craft a compelling story and concisely present recommendations across teams and levels including both technical and non-technical audiences&lt;/li&gt;\n&lt;li&gt;Ability to manage, influence, negotiate, and inspire others in a fast-moving environment&lt;/li&gt;\n&lt;li&gt;Strong business and product sense, meaning the ability to understand business issues, think strategically about complex and unstructured business problems, and build decision making frameworks&lt;/li&gt;\n&lt;li&gt;Entrepreneurial self-starter - you naturally take ownership, look for opportunities, and do whatever it takes to drive results&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Extended health and dental coverage options, along with life insurance and disability benefits&lt;/li&gt;\n&lt;li&gt;Mental health benefits&lt;/li&gt;\n&lt;li&gt;Family building benefits&lt;/li&gt;\n&lt;li&gt;Child care and pet benefits&lt;/li&gt;\n&lt;li&gt;Access to a Lyft funded Health Care Savings Account&lt;/li&gt;\n&lt;li&gt;RRSP plan with company match to help save for your future&lt;/li&gt;\n&lt;li&gt;In addition to provincial observed holidays, salaried team members are covered under Lyft&#39;s flexible paid time off policy. The policy allows team members to take off as much time as they need (with manager approval). Hourly team members get 15 days paid time off, with an additional day for each year of service&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Lyft is proud to support new parents with 18 weeks of paid time off, designed as a top-up plan to complement provincial programs. Biological, adoptive, and foster parents are all eligible.&lt;/li&gt;\n&lt;li&gt;Subsidized commuter benefits and Lyft ride credits&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Lyft is committed to creating an inclusive workforce that fosters belonging. Lyft believes that every person has a right to equal employment opportunities without discrimination because of race, ancestry, place of origin, colour, ethnic origin, citizenship, creed, sex, sexual orientation, gender identity, gender expression, age, marital status, family status, disability, pardoned record of offences, or any other basis protected by applicable law or by Company policy. Lyft also strives for a healthy and safe workplace and strictly prohibits harassment of any kind.&amp;nbsp; Accommodation for persons with disabilities will be provided upon request in accordance with applicable law during the application and hiring process. Please contact your recruiter if you wish to make such a request.&lt;/p&gt;\n&lt;p&gt;Lyft highly values having employees working in-office to foster a collaborative work environment and company culture. This role will be in-office on a hybrid schedule — Team Members will be expected to work in the office at least 3 days per week, including on Mondays, Wednesdays, and Thursdays. Lyft considers working in the office at least 3 days per week to be an essential function of this hybrid role. Your recruiter can share more information about the various in-office perks Lyft offers. Additionally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid&lt;/p&gt;\n&lt;p&gt;The expected base pay range for this position in the Toronto area is CAD $108,000 - CAD $135,000, not inclusive of potential equity offering, bonus or benefits. Salary ranges are dependent on a variety of factors, including qualifications, experience and geographic location. Your recruiter can share more information about the salary range specific to your working location and other factors during the hiring process.&lt;/p&gt;\n&lt;p&gt;Lyft may use artificial intelligence to screen applicants, however, Lyft employees make the ultimate selection and hiring decisions.&lt;/p&gt;\n&lt;p&gt;This job fills an existing vacancy.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4135507002,
+          "name": "Verticals",
+          "child_ids": [],
+          "parent_id": 4082088002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4080790002,
+          "name": "Toronto Coworking",
+          "location": "Toronto, Ontario, Canada",
+          "child_ids": [],
+          "parent_id": 4038336002
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://app.careerpuck.com/job-board/lyft/job/8367674002?gh_jid=8367674002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "employment": "employment_required",
+      "internal_job_id": 6340548002,
+      "location": {
+        "name": "Toronto, Canada"
+      },
+      "metadata": [
+        {
+          "id": 4345907002,
+          "name": "Career Site Category",
+          "value": "Data Analytics & Business Intelligence",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8367674002,
+      "updated_at": "2026-05-05T18:14:54-04:00",
+      "requisition_id": "110499",
+      "title": "Analytics Lead, LUS",
+      "company_name": "Lyft",
+      "first_published": "2026-01-09T12:51:38-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;At Lyft, our purpose is to serve and connect. We aim to achieve this by cultivating a work environment where all team members belong and have the opportunity to thrive.&lt;/p&gt;\n&lt;p&gt;Data and analytics are at the heart of Lyft&#39;s products and decision-making. As a member of the Lyft Urban Solutions team, you will play a key role in shaping the future of bikeshare by leveraging data to improve the performance of our bikeshare and scooter markets across America. A successful candidate thrives in a dynamic and collaborative environment, has a natural curiosity, and isn’t afraid to dive deep.&lt;/p&gt;\n&lt;p&gt;In this role, you will collaborate closely with Operations, Policy, Engineering, Product and Finance teams to drive data-informed strategies that align our operations and products with city transportation goals and user needs. You will work in a fast-paced environment where analytical insights directly impact decisions ranging from fleet management and operations performance to pricing and product features to long-term investments in bikesharing infrastructure.&lt;/p&gt;\n&lt;p&gt;We’re looking for a passionate and driven Data Analyst to tackle some of the most complex and impactful challenges in micromobility. If you’re excited about shaping the future of urban mobility through data, we’d love to hear from you.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Partner with Product, Engineering, Policy, Operations, Finance and other cross-functional stakeholders on initiatives to conduct deep-dive analyses to root cause issues and propose solutions&lt;/li&gt;\n&lt;li&gt;Develop frameworks, business logic and scalable processes to streamline reporting and drive decision-making&lt;/li&gt;\n&lt;li&gt;Forecast operational requirements needed to maintain high service levels and meet contractual and financial targets&lt;/li&gt;\n&lt;li&gt;Work closely with cross-functional partners to deliver data quickly, reliably and accurately to our city partners&lt;/li&gt;\n&lt;li&gt;Monitor and diagnose KPI performance and present findings to senior leadership&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Experience:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;3-5+ years experience in data analytics in a high-growth environment, preferably a consulting, operations or transportation / logistics space&lt;/li&gt;\n&lt;li&gt;Bachelor&#39;s Degree or equivalent relevant professional experience&lt;/li&gt;\n&lt;li&gt;Highly skilled in SQL and quantitative analysis, you can deep dive into large amounts of data, draw meaningful insights, dissect business issues and draw actionable conclusions&lt;/li&gt;\n&lt;li&gt;Ability to develop scalable approaches and produce data visualizations to drive business insights and provide tangible solutions; experience building dashboards for performance analysis is a plus&lt;/li&gt;\n&lt;li&gt;Extreme comfort working with ambiguity. Ability to translate unclear issues or unstructured problems into clearly defined requirements with minimal oversight&lt;/li&gt;\n&lt;li&gt;Strong interpersonal skills, with the ability to build relationships, trust and influence with cross-functional partners&lt;/li&gt;\n&lt;li&gt;Great communication (listening, written, and oral) skills with the ability to present findings &amp;amp; recommendations targeted to the audience in question&lt;/li&gt;\n&lt;li&gt;Strong attention to detail, structured thinking and experiences developing processes to reduce human error&lt;/li&gt;\n&lt;li&gt;Adept at contextualizing real world operations into analytical problem solving&lt;/li&gt;\n&lt;li&gt;A strong sense of product ownership - you’re constantly looking for ways to improve the customer’s experience and aren’t afraid to get your hands dirty to do so&lt;/li&gt;\n&lt;li&gt;Passionate about sustainable mobility and active transportation&lt;/li&gt;\n&lt;li&gt;Bonus: Proficiency in Python and associated data science libraries&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Extended health and dental coverage options, along with life insurance and disability benefits&lt;/li&gt;\n&lt;li&gt;Mental health benefits&lt;/li&gt;\n&lt;li&gt;Family building benefits&lt;/li&gt;\n&lt;li&gt;Child care and pet benefits&lt;/li&gt;\n&lt;li&gt;Access to a Lyft funded Health Care Savings Account&lt;/li&gt;\n&lt;li&gt;RRSP plan to help save for your future&lt;/li&gt;\n&lt;li&gt;In addition to provincial observed holidays, salaried team members are covered under Lyft&#39;s flexible paid time off policy. The policy allows team members to take off as much time as they need (with manager approval). Hourly team members get 15 days paid time off, with an additional day for each year of service&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Lyft is proud to support new parents with 18 weeks of paid time off, designed as a top-up plan to complement provincial programs. Biological, adoptive, and foster parents are all eligible.&lt;/li&gt;\n&lt;li&gt;Subsidized commuter benefits&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Lyft is committed to creating an inclusive workforce that fosters belonging. Lyft believes that every person has a right to equal employment opportunities without discrimination because of race, ancestry, place of origin, colour, ethnic origin, citizenship, creed, sex, sexual orientation, gender identity, gender expression, age, marital status, family status, disability, pardoned record of offences, or any other basis protected by applicable law or by Company policy. Lyft also strives for a healthy and safe workplace and strictly prohibits harassment of any kind.&amp;nbsp; Accommodation for persons with disabilities will be provided upon request in accordance with applicable law during the application and hiring process. Please contact your recruiter if you wish to make such a request.&lt;/p&gt;\n&lt;p&gt;Lyft highly values having employees working in-office to foster a collaborative work environment and company culture. This role will be in-office on a hybrid schedule — Team Members will be expected to work in the office at least 3 days per week, including on Mondays, Wednesdays, and Thursdays. Lyft considers working in the office at least 3 days per week to be an essential function of this hybrid role. Your recruiter can share more information about the various in-office perks Lyft offers. Additionally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid&lt;/p&gt;\n&lt;p&gt;The expected base pay range for this position in the Toronto area is CAD $96,000 - CAD $120,000, not inclusive of potential equity offering, bonus or benefits. Salary ranges are dependent on a variety of factors, including qualifications, experience and geographic location. Your recruiter can share more information about the salary range specific to your working location and other factors during the hiring process.&lt;/p&gt;\n&lt;p&gt;Lyft may use artificial intelligence to screen applicants, however, Lyft employees make the ultimate selection and hiring decisions.&lt;/p&gt;\n&lt;p&gt;This job fills an existing vacancy.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4008519002,
+          "name": "LUS",
+          "child_ids": [
+            4135517002,
+            4012782002,
+            4082081002,
+            4092659002,
+            4082083002,
+            4073023002,
+            4092660002,
+            4069021002,
+            4092658002,
+            4012781002,
+            4094260002,
+            4056716002,
+            4071073002,
+            4094259002,
+            4070475002
+          ],
+          "parent_id": 4042810002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4080790002,
+          "name": "Toronto Coworking",
+          "location": "Toronto, Ontario, Canada",
+          "child_ids": [],
+          "parent_id": 4038336002
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://app.careerpuck.com/job-board/lyft/job/8503985002?gh_jid=8503985002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "employment": "employment_required",
+      "internal_job_id": 6396743002,
+      "location": {
+        "name": "San Francisco, CA"
+      },
+      "metadata": [
+        {
+          "id": 4345907002,
+          "name": "Career Site Category",
+          "value": "Data Analytics & Business Intelligence",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8503985002,
+      "updated_at": "2026-05-05T18:14:54-04:00",
+      "requisition_id": "110719",
+      "title": "Analytics Lead, Market Insights",
+      "company_name": "Lyft",
+      "first_published": "2026-04-14T12:53:57-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;At Lyft, our purpose is to serve and connect. We aim to achieve this by cultivating a work environment where all team members belong and have the opportunity to thrive.&lt;/p&gt;\n&lt;p&gt;The Marketplace organization drives Lyft’s business growth and ensures our marketplace performs reliably and efficiently. Within Marketplace, the Market Insights team is responsible for the health and growth of Lyft’s top regions.&lt;/p&gt;\n&lt;p&gt;We are looking for an analyst to join the Market Insights team to identify key opportunities in these regions and influence strategy across the company. From long-term strategic decisions to weekly agile operations, you will own a range of business-critical work. You will identify our marketplace’s most critical gaps, create business and product strategies to address them, and partner with cross-functional teams to deliver impact.&lt;/p&gt;\n&lt;p&gt;The ideal candidate is proactive, has strong analytical capabilities, and can collaborate effectively across teams.&amp;nbsp;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Become an expert in rideshare marketplace behaviors/trends and support leadership in data-informed business strategies and decisions&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Leverage data and analytics to identify problems and opportunities in Lyft’s top regions, synthesize the trends and insights, and recommend action plans&lt;/li&gt;\n&lt;li&gt;Operate within rideshare decision-making frameworks with a critical lens, evaluating areas of improvement and business growth opportunities&lt;/li&gt;\n&lt;li&gt;Partner with Data Science, Product, Engineering, and other teams to deliver business, product, and strategy improvements&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Be proactive in pursuing opportunities and have a true ownership mindset to get things done&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Experience:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor’s degree with a focus in analytics, statistics, economics, finance, marketing, or other quantitative fields&lt;/li&gt;\n&lt;li&gt;3+ years experience in management consulting, strategic data science/analytics roles in a technology company, or an equivalent analytical role in a high growth startup&lt;/li&gt;\n&lt;li&gt;Experience analyzing data, extracting key insights and trends, and producing actionable recommendations from the data&lt;/li&gt;\n&lt;li&gt;Ability to think strategically and tackle open-ended problems, leading to analysis, recommendations, and next steps&lt;/li&gt;\n&lt;li&gt;Experience building relationships and influence with cross-functional teams&lt;/li&gt;\n&lt;li&gt;Strong written and verbal communication skills with the ability to present findings and recommendations to different types of stakeholders, including senior leadership&lt;/li&gt;\n&lt;li&gt;Proficient in SQL and Excel/Google Sheets with strong quantitative analysis and data visualization skills&lt;/li&gt;\n&lt;li&gt;You are a self-starter, take ownership, and are proactive; you have an eagerness to identify opportunities and a drive for impact&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Great medical, dental, and vision insurance options with additional programs available when enrolled&lt;/li&gt;\n&lt;li&gt;Mental health benefits&lt;/li&gt;\n&lt;li&gt;Family building benefits&lt;/li&gt;\n&lt;li&gt;Child care and pet benefits&lt;/li&gt;\n&lt;li&gt;401(k) plan with company match to help save for your future&lt;/li&gt;\n&lt;li&gt;In addition to 12 observed holidays, salaried team members have discretionary paid time off, hourly team members have 15 days paid time off&lt;/li&gt;\n&lt;li&gt;18 weeks of paid parental leave. Biological, adoptive, and foster parents are all eligible&lt;/li&gt;\n&lt;li&gt;Subsidized commuter benefits&lt;/li&gt;\n&lt;li&gt;Monthly Lyft credits and complimentary Lyft Pink membership&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Lyft is an equal opportunity employer committed to an inclusive workplace that fosters belonging. All qualified applicants will receive consideration for employment without regards to race, color, religion, sex, sexual orientation, gender identity, national origin, disability status, protected veteran status, age, genetic information, or any other basis prohibited by law. We also consider qualified applicants with criminal histories consistent with applicable federal, state and local law.&lt;/p&gt;\n&lt;p&gt;Lyft highly values having employees working in-office to foster a collaborative work environment and company culture. This role will be in-office on a hybrid schedule — Team Members will be expected to work in the office 3 days per week on Mondays, Wednesdays, and Thursdays. Lyft considers working in the office at least 3 days per week to be an essential function of this hybrid role. Your recruiter can share more information about the various in-office perks Lyft offers. Additionally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid&lt;/p&gt;\n&lt;p&gt;The expected base pay range for this position in the San Francisco area is $118,000 - $147,500, not inclusive of potential equity offering, bonus or benefits. Salary ranges are dependent on a variety of factors, including qualifications, experience and geographic location. Your recruiter can share more information about the salary range specific to your working location and other factors during the hiring process.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4094252002,
+          "name": "Central Market Management & AI",
+          "child_ids": [],
+          "parent_id": 4082093002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4000998002,
+          "name": "San Francisco Office",
+          "location": "San Francisco, California, United States",
+          "child_ids": [],
+          "parent_id": 4031979002
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://app.careerpuck.com/job-board/lyft/job/8550717002?gh_jid=8550717002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "employment": "employment_required",
+      "internal_job_id": 6415281002,
+      "location": {
+        "name": "Toronto, Canada"
+      },
+      "metadata": [
+        {
+          "id": 4345907002,
+          "name": "Career Site Category",
+          "value": "Data Analytics & Business Intelligence",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8550717002,
+      "updated_at": "2026-05-19T15:24:24-04:00",
+      "requisition_id": "110830",
+      "title": "Analytics Lead, Market Insights",
+      "company_name": "Lyft",
+      "first_published": "2026-05-19T15:24:24-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;At Lyft, our purpose is to serve and connect. We aim to achieve this by cultivating a work environment where all team members belong and have the opportunity to thrive.&lt;/p&gt;\n&lt;p&gt;The Marketplace organization drives Lyft’s business growth and ensures our marketplace performs reliably and efficiently. Within Marketplace, the Market Insights team is responsible for the health and growth of Lyft’s top regions.&lt;/p&gt;\n&lt;p&gt;We are looking for an analyst to join the Market Insights team to identify key opportunities in these regions and influence strategy across the company. From long-term strategic decisions to weekly agile operations, you will own a range of business-critical work. You will identify our marketplace’s most critical gaps, create business and product strategies to address them, and partner with cross-functional teams to deliver impact.&lt;/p&gt;\n&lt;p&gt;The ideal candidate is proactive, has strong analytical capabilities, and can collaborate effectively across teams.&amp;nbsp;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Become an expert in rideshare marketplace behaviors/trends and support leadership in data-informed business strategies and decisions&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Leverage data and analytics to identify problems and opportunities in Lyft’s top regions, synthesize the trends and insights, and recommend action plans&lt;/li&gt;\n&lt;li&gt;Operate within rideshare decision-making frameworks with a critical lens, evaluating areas of improvement and business growth opportunities&lt;/li&gt;\n&lt;li&gt;Partner with Data Science, Product, Engineering, and other teams to deliver business, product, and strategy improvements&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Be proactive in pursuing opportunities and have a true ownership mindset to get things done&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Experience:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor’s degree with a focus in analytics, statistics, economics, finance, marketing, or other quantitative fields&lt;/li&gt;\n&lt;li&gt;3+ years experience in management consulting, strategic data science/analytics roles in a technology company, or an equivalent analytical role in a high growth startup&lt;/li&gt;\n&lt;li&gt;Experience analyzing data, extracting key insights and trends, and producing actionable recommendations from the data&lt;/li&gt;\n&lt;li&gt;Ability to think strategically and tackle open-ended problems, leading to analysis, recommendations, and next steps&lt;/li&gt;\n&lt;li&gt;Experience building relationships and influence with cross-functional teams&lt;/li&gt;\n&lt;li&gt;Strong written and verbal communication skills with the ability to present findings and recommendations to different types of stakeholders, including senior leadership&lt;/li&gt;\n&lt;li&gt;Proficient in SQL and Excel/Google Sheets with strong quantitative analysis and data visualization skills&lt;/li&gt;\n&lt;li&gt;You are a self-starter, take ownership, and are proactive; you have an eagerness to identify opportunities and a drive for impact&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Extended health and dental coverage options, along with life insurance and disability benefits&lt;/li&gt;\n&lt;li&gt;Mental health benefits&lt;/li&gt;\n&lt;li&gt;Family building benefits&lt;/li&gt;\n&lt;li&gt;Child care and pet benefits&lt;/li&gt;\n&lt;li&gt;Access to a Lyft funded Health Care Savings Account&lt;/li&gt;\n&lt;li&gt;RRSP plan to help save for your future&lt;/li&gt;\n&lt;li&gt;In addition to provincial observed holidays, salaried team members are covered under Lyft&#39;s flexible paid time off policy. The policy allows team members to take off as much time as they need (with manager approval). Hourly team members get 15 days paid time off, with an additional day for each year of service&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Lyft is proud to support new parents with 18 weeks of paid time off, designed as a top-up plan to complement provincial programs. Biological, adoptive, and foster parents are all eligible.&lt;/li&gt;\n&lt;li&gt;Subsidized commuter benefits&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Lyft is committed to creating an inclusive workforce that fosters belonging. Lyft believes that every person has a right to equal employment opportunities without discrimination because of race, ancestry, place of origin, colour, ethnic origin, citizenship, creed, sex, sexual orientation, gender identity, gender expression, age, marital status, family status, disability, pardoned record of offences, or any other basis protected by applicable law or by Company policy. Lyft also strives for a healthy and safe workplace and strictly prohibits harassment of any kind.&amp;nbsp; Accommodation for persons with disabilities will be provided upon request in accordance with applicable law during the application and hiring process. Please contact your recruiter if you wish to make such a request.&lt;/p&gt;\n&lt;p&gt;Lyft highly values having employees working in-office to foster a collaborative work environment and company culture. This role will be in-office on a hybrid schedule — Team Members will be expected to work in the office at least 3 days per week, including on Mondays, Wednesdays, and Thursdays. Lyft considers working in the office at least 3 days per week to be an essential function of this hybrid role. Your recruiter can share more information about the various in-office perks Lyft offers. Additionally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid&lt;/p&gt;\n&lt;p&gt;The expected base pay range for this position in the Toronto area is CAD $102,000 - CAD $127,500, not inclusive of potential equity offering, bonus or benefits. Salary ranges are dependent on a variety of factors, including qualifications, experience and geographic location. Your recruiter can share more information about the salary range specific to your working location and other factors during the hiring process.&lt;/p&gt;\n&lt;p&gt;Lyft may use artificial intelligence to screen applicants, however, Lyft employees make the ultimate selection and hiring decisions.&lt;/p&gt;\n&lt;p&gt;This job fills an existing vacancy.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4094252002,
+          "name": "Central Market Management & AI",
+          "child_ids": [],
+          "parent_id": 4082093002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4080790002,
+          "name": "Toronto Coworking",
+          "location": "Toronto, Ontario, Canada",
+          "child_ids": [],
+          "parent_id": 4038336002
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://app.careerpuck.com/job-board/lyft/job/8427742002?gh_jid=8427742002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "employment": "employment_required",
+      "internal_job_id": 6308052002,
+      "location": {
+        "name": "San Francisco, CA"
+      },
+      "metadata": [
+        {
+          "id": 4345907002,
+          "name": "Career Site Category",
+          "value": "Data Analytics & Business Intelligence",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8427742002,
+      "updated_at": "2026-05-05T18:14:54-04:00",
+      "requisition_id": "110393",
+      "title": "Analytics Lead, Marketplace Strategy",
+      "company_name": "Lyft",
+      "first_published": "2026-02-20T14:11:58-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;At Lyft, our purpose is to serve and connect. We aim to achieve this by cultivating a work environment where all team members belong and have the opportunity to thrive.&lt;/p&gt;\n&lt;p&gt;The Marketplace team at Lyft is responsible for accelerating the growth of the business and for delivering our top business/company goals related to marketplace and business performance.&lt;/p&gt;\n&lt;p&gt;Within Marketplace, the Decisions &amp;amp; Insights team identifies and develops an understanding of our marketplace’s most critical problems &amp;amp; opportunities and creates business &amp;amp; product strategies to address them.&amp;nbsp; We’re looking for an Analytics Lead to drive deep dive business &amp;amp; product analyses and communicate key trends in our data to senior leadership.&lt;/p&gt;\n&lt;p&gt;The ideal candidate has strong analytical problem solving skills, effective communication skills, and proactively takes ownership of their workstreams.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Develop hypotheses and analytical frameworks for understanding market dynamics and provide recommendations to senior leadership.&lt;/li&gt;\n&lt;li&gt;Influence business strategy and product roadmaps through insightful analytics and business modeling. Be an analytical thought leader.&lt;/li&gt;\n&lt;li&gt;Analyze marketplace product &amp;amp; marketplace trends and provide cross-functional teams with actionable insights on improvements and problem areas.&lt;/li&gt;\n&lt;li&gt;Evaluating areas of improvement and business growth opportunities within our business.&lt;/li&gt;\n&lt;li&gt;Work in a fast-paced environment and effectively manage time to deliver business impact in a time-efficient manner&lt;/li&gt;\n&lt;li&gt;Become an expert in marketplace trends and support weekly reporting for the senior leadership.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Experience:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;4+ years experience in management consulting, strategic data science/analytics roles in a technology company, or an equivalent analytical role in a high growth startup&lt;/li&gt;\n&lt;li&gt;Experience in leading high visibility projects and influencing others in a cross-functional team environment&lt;/li&gt;\n&lt;li&gt;Experience in communicating with and presenting to senior leaders and data storytelling&lt;/li&gt;\n&lt;li&gt;Strong ability in building decision making frameworks and data analysis, able to understand business issues, analyze large amounts of data, and draw actionable conclusions&lt;/li&gt;\n&lt;li&gt;Entrepreneurial self-starter - you naturally take ownership, look for opportunities, and do whatever it takes to drive results&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Skills:&lt;/strong&gt;\n&lt;ul&gt;\n&lt;li&gt;Ability to independently break down large datasets and synthesize inputs from multiple sources&lt;/li&gt;\n&lt;li&gt;Ability to think strategically about complex and unstructured business problems, leading to recommendations and action plans&lt;/li&gt;\n&lt;li&gt;Ability to craft a compelling story and concisely present recommendations across teams and levels including both technical and non-technical audiences&lt;/li&gt;\n&lt;li&gt;Ability to manage, influence, negotiate, and inspire others in a fast-moving environment&lt;/li&gt;\n&lt;li&gt;Ability to use data visualization tools to provide actionable insights and reusable frameworks&lt;/li&gt;\n&lt;li&gt;Strong written and verbal communication skills for internal stakeholders, including senior leadership&lt;/li&gt;\n&lt;li&gt;Strong product and user experience sense&lt;/li&gt;\n&lt;li&gt;Excellent organization, planning skills, and attention to detail&lt;/li&gt;\n&lt;li&gt;Advanced analytical and problem solving skills&lt;/li&gt;\n&lt;li&gt;Proficiency in SQL&lt;/li&gt;\n&lt;/ul&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Great medical, dental, and vision insurance options with additional programs available when enrolled&lt;/li&gt;\n&lt;li&gt;Mental health benefits&lt;/li&gt;\n&lt;li&gt;Family building benefits&lt;/li&gt;\n&lt;li&gt;Child care and pet benefits&lt;/li&gt;\n&lt;li&gt;401(k) plan to help save for your future&lt;/li&gt;\n&lt;li&gt;In addition to 12 observed holidays, salaried team members have discretionary paid time off, hourly team members have 15 days paid time off&lt;/li&gt;\n&lt;li&gt;18 weeks of paid parental leave. Biological, adoptive, and foster parents are all eligible&lt;/li&gt;\n&lt;li&gt;Subsidized commuter benefits&lt;/li&gt;\n&lt;li&gt;Lyft Pink - Lyft team members get an exclusive opportunity to test new benefits of our Ridership Program&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Lyft is an equal opportunity employer committed to an inclusive workplace that fosters belonging. All qualified applicants will receive consideration for employment without regards to race, color, religion, sex, sexual orientation, gender identity, national origin, disability status, protected veteran status, age, genetic information, or any other basis prohibited by law. We also consider qualified applicants with criminal histories consistent with applicable federal, state and local law.&lt;/p&gt;\n&lt;p&gt;Lyft highly values having employees working in-office to foster a collaborative work environment and company culture. This role will be in-office on a hybrid schedule — Team Members will be expected to work in the office 3 days per week on Mondays, Wednesdays, and Thursdays. Lyft considers working in the office at least 3 days per week to be an essential function of this hybrid role. Your recruiter can share more information about the various in-office perks Lyft offers. Additionally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid&lt;br&gt;&lt;br&gt;The expected base pay range for this position in the San Francisco area is $118,000 - $147,500 not inclusive of potential equity offering, bonus or benefits. Salary ranges are dependent on a variety of factors, including qualifications, experience and geographic location. Your recruiter can share more information about the salary range specific to your working location and other factors during the hiring process.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4135521002,
+          "name": "North America Rideshare Marketing",
+          "child_ids": [],
+          "parent_id": 4082079002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4000998002,
+          "name": "San Francisco Office",
+          "location": "San Francisco, California, United States",
+          "child_ids": [],
+          "parent_id": 4031979002
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://app.careerpuck.com/job-board/lyft/job/8474709002?gh_jid=8474709002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "employment": "employment_required",
+      "internal_job_id": 6385139002,
+      "location": {
+        "name": "New York, NY"
+      },
+      "metadata": [
+        {
+          "id": 4345907002,
+          "name": "Career Site Category",
+          "value": "Data Analytics & Business Intelligence",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8474709002,
+      "updated_at": "2026-05-05T18:14:54-04:00",
+      "requisition_id": "110687",
+      "title": "Analytics Lead, Safety & Customer Care",
+      "company_name": "Lyft",
+      "first_published": "2026-03-24T14:54:14-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;At Lyft, our purpose is to serve and connect. We aim to achieve this by cultivating a work environment where all team members belong and have the opportunity to thrive.&lt;/p&gt;\n&lt;p&gt;The vision of the Safety &amp;amp; Customer Care (SCC) team is to foster long-term loyalty to Lyft with every support interaction.&amp;nbsp; If we are successful, a Lyft customer will rarely interact with Lyft Support. But when that interaction occurs, their issue is resolved quickly, effectively, and with true care. For a Lyft customer, their experience of Support should be that “Lyft cares about me and made the experience easy.”&lt;/p&gt;\n&lt;p&gt;As a Data Analytics Lead, you’ll partner directly with cross-functional stakeholders to identify opportunities and design solutions for improving our customers’ support experience. You’ll leverage your analytical expertise to deliver actionable insights and recommendations to drive quality business decisions with customer-facing impact. The ideal candidate is a critical thinker and exceptional problem solver who can build strong relationships with different teams, and who is eager to serve as a leader within the broader Support organization to drive our business forward.&lt;/p&gt;\n&lt;h2&gt;Responsibilities&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Partner with Product, Engineering, Data Science &amp;amp; Analytics, Business Operations and other cross-functional stakeholders to achieve business goals&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Develop frameworks and scalable processes to drive decision-making and prioritization&lt;/li&gt;\n&lt;li&gt;Define the metrics used to measure the success of strategic initiatives and health of our support platform; build dashboards to track metrics over time&lt;/li&gt;\n&lt;li&gt;Design A/B tests and execute analyses to evaluate the impact of new product features and operational improvements&lt;/li&gt;\n&lt;li&gt;Work closely with cross-functional partners to deliver data-driven insights and actionable recommendations for continuously improving the customer support experience&lt;/li&gt;\n&lt;li&gt;Monitor and diagnose KPI performance and present findings to senior leadership&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;Experience&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Degree in a quantitative field like statistics, economics, applied math, operations research or engineering. Advanced degrees are preferred&lt;/li&gt;\n&lt;li&gt;5+ years of hands-on technical experience in a data science role or equivalent analytical role in a high growth startup&lt;/li&gt;\n&lt;li&gt;Ability to translate unstructured business problems into clearly defined requirements with minimal oversight&lt;/li&gt;\n&lt;li&gt;Strong problem-solving and analytical skills with the ability to transition between detailed data and high-level business problems&lt;/li&gt;\n&lt;li&gt;Exceptional communication (listening, written, and oral) skills with the ability to present findings &amp;amp; recommendations targeted to the audience in question&lt;/li&gt;\n&lt;li&gt;Strong interpersonal skills, with the ability to build relationships and trust across functions and work collaboratively&lt;/li&gt;\n&lt;li&gt;Proficiency in SQL and Python with ability to independently break down large datasets and synthesize inputs from multiple sources&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Great medical, dental, and vision insurance options with additional programs available when enrolled&lt;/li&gt;\n&lt;li&gt;Mental health benefits&lt;/li&gt;\n&lt;li&gt;Family building benefits&lt;/li&gt;\n&lt;li&gt;Child care and pet benefits&lt;/li&gt;\n&lt;li&gt;401(k) plan with company match to help save for your future&lt;/li&gt;\n&lt;li&gt;In addition to 12 observed holidays, salaried team members have discretionary paid time off, hourly team members have 15 days paid time off&lt;/li&gt;\n&lt;li&gt;18 weeks of paid parental leave. Biological, adoptive, and foster parents are all eligible&lt;/li&gt;\n&lt;li&gt;Subsidized commuter benefits&lt;/li&gt;\n&lt;li&gt;Monthly Lyft credits and complimentary Lyft Pink membership&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Lyft is an equal opportunity employer committed to an inclusive workplace that fosters belonging. All qualified applicants will receive consideration for employment without regards to race, color, religion, sex, sexual orientation, gender identity, national origin, disability status, protected veteran status, age, genetic information, or any other basis prohibited by law. We also consider qualified applicants with criminal histories consistent with applicable federal, state and local law.&lt;/p&gt;\n&lt;p&gt;Lyft highly values having employees working in-office to foster a collaborative work environment and company culture. This role will be in-office on a hybrid schedule — Team Members will be expected to work in the office 3 days per week on Mondays, Wednesdays, and Thursdays. Lyft considers working in the office at least 3 days per week to be an essential function of this hybrid role. Your recruiter can share more information about the various in-office perks Lyft offers. Additionally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid&lt;/p&gt;\n&lt;p&gt;The expected base pay range for this position in the New York City area is $118,000 - $147,500, not inclusive of potential equity offering, bonus or benefits. Salary ranges are dependent on a variety of factors, including qualifications, experience and geographic location. Your recruiter can share more information about the salary range specific to your working location and other factors during the hiring process.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4135536002,
+          "name": "SCC Analytics",
+          "child_ids": [],
+          "parent_id": 4094102002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4000997002,
+          "name": "New York Office",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": 4032338002
+        },
+        {
+          "id": 4000998002,
+          "name": "San Francisco Office",
+          "location": "San Francisco, California, United States",
+          "child_ids": [],
+          "parent_id": 4031979002
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 124
+  }
+}

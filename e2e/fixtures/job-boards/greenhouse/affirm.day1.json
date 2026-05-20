@@ -1,0 +1,463 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/7726627003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5761191003,
+      "location": {
+        "name": "Remote US"
+      },
+      "metadata": [
+        {
+          "id": 4128552003,
+          "name": "External Department",
+          "value": "Risk & Analytics",
+          "value_type": "single_select"
+        },
+        {
+          "id": 28890347003,
+          "name": "PERM Job?",
+          "value": false,
+          "value_type": "yes_no"
+        }
+      ],
+      "id": 7726627003,
+      "updated_at": "2026-05-18T20:16:37-04:00",
+      "requisition_id": "JR103916",
+      "title": "Analyst I, Full Stack (Core Analytics)",
+      "company_name": "Affirm",
+      "first_published": "2026-05-13T18:50:57-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;We’re looking for a driven, analytically-minded professional to join the Core Analytics team within the Risk &amp;amp; Analytics organization! Our team improves the developer experience across Affirm by building scalable data infrastructure, streamlining workflows, and fostering a culture of learning and documentation. This role sits at the intersection of data and engineering, while staying focused on turning developer workflows and system reliability into clear, actionable signals that accelerate delivery.&lt;/p&gt;\n&lt;p&gt;The Risk &amp;amp; Analytics team makes crucial decisions that direct Affirm’s business strategy. We analyze performance not just to report on it, but to determine where to invest resources for maximum impact through building tools and analytical frameworks. We take ownership of the entire analytical lifecycle, from initial question to final business decision, ensuring Affirm grows efficiently and intelligently.&lt;/p&gt;\n&lt;p&gt;The ideal candidate will have strong technical and problem-solving skills, an eagerness to collaborate with different teams, curiosity to learn more every day, and patience to work through difficult problems.&lt;/p&gt;\n&lt;h3&gt;What you will do&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Own end-to-end analytics workflows: define success metrics, generate insights and hypotheses, and build scalable data models&lt;/li&gt;\n&lt;li&gt;Identify and drive improvements across the developer and analytics lifecycle: uncover bottlenecks, quantify their impact, then partner with teams to drive alignment and deliver measurable impact.&lt;/li&gt;\n&lt;li&gt;Build and maintain high-quality analytics foundations: establish best practices for testing, alerting, documentation, and code review to ensure data is accurate, reliable, and trusted.&lt;/li&gt;\n&lt;li&gt;Support efforts to identify and organize key business metrics, helping improve discoverability, alignment, and clarity across teams.&lt;/li&gt;\n&lt;li&gt;Continuously seek out implementing improved operational workflows and more effective analytics solutions.&lt;/li&gt;\n&lt;li&gt;Elevate the analytics community at Affirm: contribute to shared tooling, reviewing colleagues pull requests, drive knowledge sharing, and increase cross-team collaboration.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;What we look for&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Passion to redefine the lending and financial industry for the better&lt;/li&gt;\n&lt;li&gt;1-3 years of experience in an analytically-driven role (analytics, consulting, finance, etc.); Preferably previous experience as an Analytics Engineer, Business Intelligence, or Data Analyst roles&lt;/li&gt;\n&lt;li&gt;Strong working knowledge of SQL (preferably Snowflake)&lt;/li&gt;\n&lt;li&gt;Knowledge of analytics development tools such as Git, Sigma, DBT, Snowflake, Claude Code and Cursor&lt;/li&gt;\n&lt;li&gt;Practical and theoretical knowledge of A/B testing is a plus&lt;/li&gt;\n&lt;li&gt;Strong interpersonal skills and ability to work cross-functionally and influence both technical and non-technical audiences&lt;/li&gt;\n&lt;li&gt;Ability to think creatively and critically and thrive in a fast-paced, dynamic, and often ambiguous work environment&lt;/li&gt;\n&lt;li&gt;Bachelor&#39;s or Master&#39;s degree in a quantitatively rigorous subject area like statistics, math, finance, economics desired&lt;/li&gt;\n&lt;li&gt;Enough laziness to find a faster way to do your least favorite tasks&lt;/li&gt;\n&lt;li&gt;Humility and team player - you go out of your way to help teammates&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Pay Grade&lt;/strong&gt;&amp;nbsp;- I&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Equity Grade&lt;/strong&gt; - 5&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Employees new to Affirm&amp;nbsp;&lt;em&gt;typically come in at the start of the pay range&lt;/em&gt;.&lt;/strong&gt; Affirm focuses on providing a simple and transparent pay structure which is based on a variety of factors, including location, experience and job-related skills.&lt;/p&gt;\n&lt;p&gt;Base pay is part of a total compensation package that may include equity rewards, monthly stipends for health, wellness and tech spending, and benefits (including 100% subsidized medical coverage, dental and vision for you and your dependents.)&lt;/p&gt;\n&lt;div&gt;\n&lt;div&gt;\n&lt;div&gt;\n&lt;p&gt;USA base pay range (CA, WA, NY, NJ, CT) per year: $115,000 - $155,000&lt;br&gt;USA base pay range (all other U.S. states) per year: $102,000 - $142,000&lt;/p&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;div&gt;&lt;strong&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;#LI-Remote&lt;/span&gt;&lt;/strong&gt;&lt;/div&gt;\n&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;div&gt;\n&lt;p&gt;Affirm is proud to be a remote-first company! The majority of our roles are remote and you can work almost anywhere within the country of employment. Affirmers in proximal roles have the flexibility to work remotely, but will occasionally be required to work out of their assigned Affirm office. A limited number of roles remain office-based due to the nature of their job responsibilities.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We’re extremely proud to offer competitive benefits that are anchored to our core value of people come first. Some key highlights of our benefits package include:&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Health care coverage - Affirm covers all premiums for all levels of coverage for you and your dependents&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Flexible Spending Wallets - generous stipends for spending on Technology, Food, various Lifestyle needs, and family forming expenses&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Time off - competitive vacation and holiday schedules allowing you to take time off to rest and recharge&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;ESPP - An employee stock purchase plan enabling you to buy shares of Affirm at a discount&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We believe It’s On Us to provide an inclusive interview experience for all, including people with disabilities. We are happy to provide reasonable accommodations to candidates in need of individualized support during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;[For U.S. positions that could be performed in Los Angeles or San Francisco] Pursuant to the San Francisco Fair Chance Ordinance and Los Angeles Fair Chance Initiative for Hiring Ordinance, Affirm will consider for employment qualified applicants with arrest and conviction records.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;By clicking &quot;Submit Application,&quot; you acknowledge that you have read Affirm&#39;s&amp;nbsp;&lt;a href=&quot;https://www.affirm.com/global-candidate-privacy-notice&quot; target=&quot;_blank&quot;&gt;Global Candidate Privacy Notice&lt;/a&gt;&amp;nbsp;and hereby freely and unambiguously give informed consent to the collection, processing, use, and storage of your personal information as described therein.&lt;/p&gt;\n&lt;/div&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4080026003,
+          "name": "Core Analytics",
+          "child_ids": [],
+          "parent_id": 4005052003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4013021003,
+          "name": "Remote US",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 4025301003
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/7726632003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5761192003,
+      "location": {
+        "name": "Remote US"
+      },
+      "metadata": [
+        {
+          "id": 4128552003,
+          "name": "External Department",
+          "value": "Risk & Analytics",
+          "value_type": "single_select"
+        },
+        {
+          "id": 28890347003,
+          "name": "PERM Job?",
+          "value": false,
+          "value_type": "yes_no"
+        }
+      ],
+      "id": 7726632003,
+      "updated_at": "2026-05-15T17:27:38-04:00",
+      "requisition_id": "JR103950",
+      "title": "Analyst II, Full Stack (Customer Servicing Analytics)",
+      "company_name": "Affirm",
+      "first_published": "2026-05-13T21:27:44-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;We&#39;re looking for intelligent, driven professionals to join our team. The Operations Analytics team uses data to shape servicing strategy across contact channels, customer segmentation, capacity planning, forecasting, and repayment operations. The ideal candidate brings strong analytical depth, systems thinking, and the ability to partner cross-functionally to drive meaningful business impact.&lt;/p&gt;\n&lt;p&gt;AI is integral to the analytics workflow on this team. The analyst applies AI from data exploration through model validation to stakeholder communication, and helps shape how the team uses it. The role requires architectural decisions, strong stakeholder alignment, and embedding AI/ML in core decisions. Operating independently in ambiguous environments is essential.&lt;/p&gt;\n&lt;h2&gt;What You&#39;ll Do&lt;/h2&gt;\n&lt;h3&gt;Scope&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Planning: Own planning and staffing for UK and new-geography launches and special teams. Develop and maintain the guardrail metrics.&lt;/li&gt;\n&lt;li&gt;Foundations: Build working familiarity with the underlying data, including demand signals, agent rosters (team, title, country), and agent activity (delivered hours, status), and license demand.&lt;/li&gt;\n&lt;li&gt;Infrastructure forecasts: Own demand forecasts for checkouts and app opens in CA and UK and new geographies.&lt;/li&gt;\n&lt;li&gt;Insights:&lt;/li&gt;\n&lt;ul&gt;\n&lt;li&gt;Report on forecast health for UK, CA, and other geos (accuracy and outlook).&lt;/li&gt;\n&lt;li&gt;Advise Customer Operations real-time management (UK) on agent productivity.&lt;/li&gt;\n&lt;li&gt;Curate AI knowledge for Customer Operations (UK) and UK Infrastructure forecasting.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Responsibilities&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;Build and maintain forecasting models, using time series, regression, and machine learning, to support contact forecasting, headcount and license planning, and budgeting.&lt;/li&gt;\n&lt;li&gt;Partner with stakeholders to frame planning and forecasting problems, develop supporting metrics and diagnostics, and support high-quality decisions.&lt;/li&gt;\n&lt;li&gt;Surface productivity and efficiency improvements using budget and financial performance data.&lt;/li&gt;\n&lt;li&gt;Present recommendations to leadership, drive timely decisions, and communicate clearly with cross-functional partners.&lt;/li&gt;\n&lt;li&gt;Partner with operational planning and other analytics teams to understand the business context for headcount and workforce scheduling, and get the data needed for accurate forecasts.&lt;/li&gt;\n&lt;li&gt;Stay current on the business and our changing technical environment.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;What We Look For&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor&#39;s, Master&#39;s, or PhD in a quantitative field (e.g., statistics, industrial engineering, operations research) and 5+ years solving forecasting, planning, or related quantitative problems.&lt;/li&gt;\n&lt;li&gt;Strong proficiency in SQL and Python or R, and hands-on experience with a modern cloud-native data platform (e.g., Databricks, Snowflake, BigQuery, or equivalent).&lt;/li&gt;\n&lt;li&gt;Hands-on experience using AI/LLM tooling across the analytics workflow: writing, validating, and iterating on AI-generated SQL and Python, and integrating AI outputs into analyses that stakeholders trust.&lt;/li&gt;\n&lt;li&gt;Experience building optimization models using linear programming techniques (e.g., CPLEX, Gurobi) is a plus.&lt;/li&gt;\n&lt;li&gt;Strong experience developing and validating statistical forecasting models, with disciplined approaches to performance measurement, backtesting, and robust error tracking.&lt;/li&gt;\n&lt;li&gt;Proven ability to independently structure ambiguous problems and select the appropriate analytical approach without predefined direction.&lt;/li&gt;\n&lt;li&gt;Clear, persuasive communicator with strong stakeholder management skills and the ability to influence senior leaders across technical and non-technical audiences.&lt;/li&gt;\n&lt;li&gt;Strong bias toward automation: treat repetitive manual work as avoidable drudgery and build durable, automated systems, delegating to machines what they can do more reliably and efficiently than humans.&lt;/li&gt;\n&lt;li&gt;High standards of humility, honesty, and ownership: you take responsibility for outcomes, invest in your own growth, and actively develop others.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;br&gt;&lt;br&gt;Pay Grade - K&lt;br&gt;Equity Grade - 6&lt;br&gt;&lt;br&gt;&lt;strong&gt;Employees new to Affirm typically come in at the start of the pay range.&lt;/strong&gt; Affirm focuses on providing a simple and transparent pay structure which is based on a variety of factors, including location, experience and job-related skills.&lt;br&gt;&lt;br&gt;Base pay is part of a total compensation package that may include equity rewards, monthly stipends for health, wellness and tech spending, and benefits (including 100% subsidized medical coverage, dental and vision for you and your dependents.)&lt;br&gt;&lt;br&gt;USA base pay range (CA, WA, NY, NJ, CT) per year: $140,000 - $190,000&lt;br&gt;USA base pay range (all other U.S. states) per year: $124,000 - 174,000&lt;br&gt;&lt;br&gt;#LI-Remote&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;div&gt;\n&lt;p&gt;Affirm is proud to be a remote-first company! The majority of our roles are remote and you can work almost anywhere within the country of employment. Affirmers in proximal roles have the flexibility to work remotely, but will occasionally be required to work out of their assigned Affirm office. A limited number of roles remain office-based due to the nature of their job responsibilities.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We’re extremely proud to offer competitive benefits that are anchored to our core value of people come first. Some key highlights of our benefits package include:&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Health care coverage - Affirm covers all premiums for all levels of coverage for you and your dependents&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Flexible Spending Wallets - generous stipends for spending on Technology, Food, various Lifestyle needs, and family forming expenses&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Time off - competitive vacation and holiday schedules allowing you to take time off to rest and recharge&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;ESPP - An employee stock purchase plan enabling you to buy shares of Affirm at a discount&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We believe It’s On Us to provide an inclusive interview experience for all, including people with disabilities. We are happy to provide reasonable accommodations to candidates in need of individualized support during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;[For U.S. positions that could be performed in Los Angeles or San Francisco] Pursuant to the San Francisco Fair Chance Ordinance and Los Angeles Fair Chance Initiative for Hiring Ordinance, Affirm will consider for employment qualified applicants with arrest and conviction records.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;By clicking &quot;Submit Application,&quot; you acknowledge that you have read Affirm&#39;s&amp;nbsp;&lt;a href=&quot;https://www.affirm.com/global-candidate-privacy-notice&quot; target=&quot;_blank&quot;&gt;Global Candidate Privacy Notice&lt;/a&gt;&amp;nbsp;and hereby freely and unambiguously give informed consent to the collection, processing, use, and storage of your personal information as described therein.&lt;/p&gt;\n&lt;/div&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4080023003,
+          "name": "Consumer Analytics",
+          "child_ids": [],
+          "parent_id": 4005052003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4013021003,
+          "name": "Remote US",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 4025301003
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/7533759003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5680888003,
+      "location": {
+        "name": "Remote US"
+      },
+      "metadata": [
+        {
+          "id": 4128552003,
+          "name": "External Department",
+          "value": "Risk & Analytics",
+          "value_type": "single_select"
+        },
+        {
+          "id": 28890347003,
+          "name": "PERM Job?",
+          "value": false,
+          "value_type": "yes_no"
+        }
+      ],
+      "id": 7533759003,
+      "updated_at": "2026-05-15T20:29:54-04:00",
+      "requisition_id": "JR103540",
+      "title": "Analyst II, Full Stack (Fraud Analytics)",
+      "company_name": "Affirm",
+      "first_published": "2025-11-28T05:48:47-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;The Fraud Strategy and Analytics team is responsible for analyzing, developing and optimizing Affirm&#39;s online fraud decisioning strategy. The team works cross-functionally with Product, Engineering, Operations, and Finance teams to define and ensure accurate execution of the fraud strategy to effectively prevent fraud losses.&lt;/p&gt;\n&lt;p&gt;This role requires extensive use of data analytics to derive insights and develop/update fraud strategies, collaborating with cross-functional partners. Full stack analyst works with the Product teams to develop new fraud features, with the engineering team to launch online experiment to test out the performance of the new features, with the Operation team to execute risk and resolution strategies, with the Finance team to help facilitate discussions on portfolio performance and loss forecasting.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Come join us in our mission to change consumer finance through better data and technology, lower costs, and increased transparency while providing the best customer experience.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT YOU’LL DO&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;\n&lt;p&gt;Proactively explore data and identify opportunities to help accelerate product development or improve existing products in Trust and Safety, and drive the analytical work of online experiment to optimise the existing strategies to achieve better conversion rate.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Translate analysis and trends into recommendations for business logic to improve identity and fraud conversion rates or fraud rates&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Develop scalable frameworks to manage tiered cutoffs for proprietary fraud machine learning models&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Evaluate innovative data sources to solve fraud risk, and partner with the data engineering team to develop and maintain the data pipelines for our core datasets for analytical purposes.&amp;nbsp;&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Own end-to-end analytics workflow, including defining success and performance metrics, socialising them across the organisation, and creating actionable dashboards and reports&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Partner with Machine Learning on building fraud and identity verification strategies for new product, market, and user segments&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Partner closely with Product and Engineering to identify highest impact points in the funnel to drive user acquisition and retention&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT WE LOOK FOR&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;\n&lt;p&gt;2-4 years work experience in customer risk management at a payments or financial company.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Fluent in SQL and Python&amp;nbsp;&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;A team player with ability to collaborate and influence across different teams in the organisation&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Ability to clearly communicate findings and recommendations to both technical and non-technical audiences&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Passion to understand how the product works and how to change to make it more effective&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Strong time management skills and the ability to manage multiple projects and priorities&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Able to thrive in a fast-paced environment and be responsive and available during high intensity moments&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Bachelor’s or Master’s degree degree in a quantitatively rigorous discipline like engineering, statistics, math, or economics desired&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Knowledge of the fundamentals of payment processing and an understanding of industry risk trends, including familiarity with risk strategy development.&amp;nbsp;&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Pay Grade - K&lt;br&gt;Equity Grade - 6&lt;br&gt;&lt;br&gt;&lt;strong&gt;Employees new to Affirm typically come in at the start of the pay range&lt;/strong&gt;. Affirm focuses on providing a simple and transparent pay structure which is based on a variety of factors, including location, experience and job-related skills.&amp;nbsp;&lt;br&gt;&lt;br&gt;Base pay is part of a total compensation package that may include monthly stipends for health, wellness and tech spending, and benefits (including 100% subsidized medical coverage, dental and vision for you and your dependents). In addition, the employees may be eligible for equity rewards offered by Affirm Holdings, Inc. (parent company).&lt;br&gt;&lt;br&gt;USA base pay range (CA, WA, NY, NJ, CT) per year: $140,000 - $190,000&lt;br&gt;USA base pay range (all other U.S. states) per year: $124,000 - $174,000&lt;/p&gt;\n&lt;p&gt;#LI-Remote&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;div&gt;\n&lt;p&gt;Affirm is proud to be a remote-first company! The majority of our roles are remote and you can work almost anywhere within the country of employment. Affirmers in proximal roles have the flexibility to work remotely, but will occasionally be required to work out of their assigned Affirm office. A limited number of roles remain office-based due to the nature of their job responsibilities.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We’re extremely proud to offer competitive benefits that are anchored to our core value of people come first. Some key highlights of our benefits package include:&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Health care coverage - Affirm covers all premiums for all levels of coverage for you and your dependents&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Flexible Spending Wallets - generous stipends for spending on Technology, Food, various Lifestyle needs, and family forming expenses&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Time off - competitive vacation and holiday schedules allowing you to take time off to rest and recharge&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;ESPP - An employee stock purchase plan enabling you to buy shares of Affirm at a discount&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We believe It’s On Us to provide an inclusive interview experience for all, including people with disabilities. We are happy to provide reasonable accommodations to candidates in need of individualized support during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;[For U.S. positions that could be performed in Los Angeles or San Francisco] Pursuant to the San Francisco Fair Chance Ordinance and Los Angeles Fair Chance Initiative for Hiring Ordinance, Affirm will consider for employment qualified applicants with arrest and conviction records.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;By clicking &quot;Submit Application,&quot; you acknowledge that you have read Affirm&#39;s&amp;nbsp;&lt;a href=&quot;https://www.affirm.com/global-candidate-privacy-notice&quot; target=&quot;_blank&quot;&gt;Global Candidate Privacy Notice&lt;/a&gt;&amp;nbsp;and hereby freely and unambiguously give informed consent to the collection, processing, use, and storage of your personal information as described therein.&lt;/p&gt;\n&lt;/div&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4080026003,
+          "name": "Core Analytics",
+          "child_ids": [],
+          "parent_id": 4005052003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4013021003,
+          "name": "Remote US",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 4025301003
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/7732706003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5765428003,
+      "location": {
+        "name": "Remote US"
+      },
+      "metadata": [
+        {
+          "id": 4128552003,
+          "name": "External Department",
+          "value": "Risk & Analytics",
+          "value_type": "single_select"
+        },
+        {
+          "id": 28890347003,
+          "name": "PERM Job?",
+          "value": false,
+          "value_type": "yes_no"
+        }
+      ],
+      "id": 7732706003,
+      "updated_at": "2026-05-18T16:23:23-04:00",
+      "requisition_id": "JR103962",
+      "title": "Analytics Lead, Full Stack",
+      "company_name": "Affirm",
+      "first_published": "2026-05-18T16:23:23-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;The Risk &amp;amp; Analytics team makes crucial decisions that direct Affirm’s business strategy. Our team designs and runs experiments to decide which product features to launch and which marketing campaigns to fund. We analyze performance not just to report on it, but to determine where to invest resources for maximum impact through building tools and analytical frameworks. We take ownership of the entire analytical lifecycle, from initial question to final business decision, ensuring Affirm grows efficiently and intelligently.&lt;/p&gt;\n&lt;p&gt;After building a market-leading BNPL network, we’re entering our next ambitious chapter: transforming DTC shopping. At the center of this vision is the Affirm Marketplace, a rapidly scaling, high-leverage platform that connects consumers with merchants in a dynamic, two-sided ecosystem.&lt;/p&gt;\n&lt;p&gt;We’re looking for a Marketplace Analytics Lead to help architect and optimize the economic engine of our marketplace, balancing supply, demand, pricing, and user experience to drive sustainable growth. This is a high-impact IC role at the intersection of product, growth, and marketplace strategy.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Do&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;\n&lt;p&gt;Own marketplace monetization and economics, balancing merchant supply, consumer demand, and pricing to drive engagement, conversion, and profitability&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Monitor marketplace performance and adjust strategies based on engagement, relevance, merchant outcomes, LTV, and overall health&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Build and maintain dashboards and reporting to track key Marketplace KPIs and enable data-driven decisions&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Partner with Sales, Client Success, and Marketing to grow marketplace partners and increase merchant value&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Collaborate with Product and Engineering to improve the effectiveness, competitiveness, and relevance of Marketplace inventory and offers&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Analyze supply-side dynamics, including incentives, pricing, and placement, to understand elasticity and drive incremental GMV&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Lead analyses and experiments to test and refine new placements and optimize marketplace performance&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Conduct loan-level profitability analyses to ensure offers align with credit and financial goals while balancing consumer and merchant value&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Evaluate affiliate portfolio performance by integrating network data, identifying trends, and assessing the incremental impact of merchant-funded incentives&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What We’re Looking For&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;\n&lt;p&gt;7+ years in analytics, with experience in marketplaces, ads/affiliate ecosystems, or two-sided platforms&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Strong intuition for supply-demand dynamics, pricing, and marketplace tradeoffs&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Experience with data tools such as SQL, Python, DBT, Sigma; comfortable managing ETLs and working with engineering teams to optimize data pipelines&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Strong curiosity and bias toward leveraging AI tools to accelerate analysis, automate workflows, and increase personal and team productivity&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;Experience working cross-functionally with Product, GTM, and Engineering&lt;/p&gt;\n&lt;/li&gt;\n&lt;li&gt;\n&lt;p&gt;High ownership, strong judgment, and a bias toward action&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;br&gt;Pay Grade - M&lt;br&gt;Equity Grade - 8&lt;br&gt;&lt;br&gt;&lt;strong&gt;Employees new to Affirm typically come in at the start of the pay range&lt;/strong&gt;. Affirm focuses on providing a simple and transparent pay structure which is based on a variety of factors, including location, experience and job-related skills.&lt;br&gt;&lt;br&gt;Base pay is part of a total compensation package that may include equity rewards, monthly stipends for health, wellness and tech spending, and benefits (including 100% subsidized medical coverage, dental and vision for you and your dependents.)&lt;br&gt;&lt;br&gt;USA base pay range (CA, WA, NY, NJ, CT) per year: $180000 - $230000&lt;br&gt;USA base pay range (all other U.S. states) per year: $160000 - $180000&lt;br&gt;&lt;br&gt;#LI-Remote&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;div&gt;\n&lt;p&gt;Affirm is proud to be a remote-first company! The majority of our roles are remote and you can work almost anywhere within the country of employment. Affirmers in proximal roles have the flexibility to work remotely, but will occasionally be required to work out of their assigned Affirm office. A limited number of roles remain office-based due to the nature of their job responsibilities.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We’re extremely proud to offer competitive benefits that are anchored to our core value of people come first. Some key highlights of our benefits package include:&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Health care coverage - Affirm covers all premiums for all levels of coverage for you and your dependents&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Flexible Spending Wallets - generous stipends for spending on Technology, Food, various Lifestyle needs, and family forming expenses&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Time off - competitive vacation and holiday schedules allowing you to take time off to rest and recharge&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;ESPP - An employee stock purchase plan enabling you to buy shares of Affirm at a discount&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We believe It’s On Us to provide an inclusive interview experience for all, including people with disabilities. We are happy to provide reasonable accommodations to candidates in need of individualized support during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;[For U.S. positions that could be performed in Los Angeles or San Francisco] Pursuant to the San Francisco Fair Chance Ordinance and Los Angeles Fair Chance Initiative for Hiring Ordinance, Affirm will consider for employment qualified applicants with arrest and conviction records.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;By clicking &quot;Submit Application,&quot; you acknowledge that you have read Affirm&#39;s&amp;nbsp;&lt;a href=&quot;https://www.affirm.com/global-candidate-privacy-notice&quot; target=&quot;_blank&quot;&gt;Global Candidate Privacy Notice&lt;/a&gt;&amp;nbsp;and hereby freely and unambiguously give informed consent to the collection, processing, use, and storage of your personal information as described therein.&lt;/p&gt;\n&lt;/div&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4080023003,
+          "name": "Consumer Analytics",
+          "child_ids": [],
+          "parent_id": 4005052003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4013021003,
+          "name": "Remote US",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 4025301003
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/7713579003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5755702003,
+      "location": {
+        "name": "Remote US"
+      },
+      "metadata": [
+        {
+          "id": 4128552003,
+          "name": "External Department",
+          "value": "Risk & Analytics",
+          "value_type": "single_select"
+        },
+        {
+          "id": 28890347003,
+          "name": "PERM Job?",
+          "value": false,
+          "value_type": "yes_no"
+        }
+      ],
+      "id": 7713579003,
+      "updated_at": "2026-04-29T18:21:15-04:00",
+      "requisition_id": "JR103920",
+      "title": "Analytics Manager, Consumer Analytics ",
+      "company_name": "Affirm",
+      "first_published": "2026-04-27T11:16:31-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;The Risk &amp;amp; Analytics team makes crucial decisions that direct Affirm’s business strategy. Our team designs and runs experiments to decide which product features to launch and which marketing campaigns to fund. We analyze performance not just to report on it, but to determine where to invest resources for maximum impact through building tools and analytical frameworks. We take ownership of the entire analytical lifecycle, from initial question to final business decision, ensuring Affirm grows efficiently and intelligently.&lt;/p&gt;\n&lt;p&gt;We’re looking for intelligent, driven professionals to join our new team. The Operations Planning &amp;amp; Analytics team is responsible for leveraging data driven insights to drive overall loan portfolio risk mitigation and servicing strategies across contact channels, customer segmentation, headcount planning, forecasting, and driving strategy for collections and repayment operations. The ideal candidate will have strong analytical and problem solving skills, as well as interpersonal skills to work across the organization and with external partners to drive forward recommendations.&lt;/p&gt;\n&lt;p&gt;What you&#39;ll do&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Empower the organization with strong hypotheses, insights, and recommendations to build and prioritize Servicing product &amp;amp; Operations roadmaps&lt;/li&gt;\n&lt;li&gt;Develop and execute end-to-end analytics roadmap by partnering closely with product, operations, commercial, engineering and other teams to grow the Affirm network&lt;/li&gt;\n&lt;li&gt;Collaborate with cross-functional partners to understand their business priorities, formulate and execute end-to-end analytics workflow that includes defining critical metrics, data instrumentation and gathering, experimentation, analysis, and building meaningful dashboards and forecasts&lt;/li&gt;\n&lt;li&gt;Translate analytical outcomes and results into compelling narratives/presentations for multiple levels of leadership&lt;/li&gt;\n&lt;li&gt;Improve the overall efficiency of the team through automation and implementation of best practices&lt;/li&gt;\n&lt;li&gt;Actively contribute to a high-performing team culture, managing other analysts&amp;nbsp; to be effective in delivering high-impact and business-driving work&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;What we look for&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;7+ years of proven ability in an analytical role with 3+ years of directly managing small teams of analysts&lt;/li&gt;\n&lt;li&gt;Strong social skills and experience managing and collaborating on cross-functionally projects&lt;/li&gt;\n&lt;li&gt;Experience with simultaneously balancing multiple workstreams and prioritizing team&#39;s roadmap&lt;/li&gt;\n&lt;li&gt;Experience pulling and joining large data sets with SQL and performing analysis using tools such as Python, Notebooks, R, or Excel&lt;/li&gt;\n&lt;li&gt;Ability to start with an ambiguous problem, deconstruct it into tangible steps, and work towards an impactful solution&lt;/li&gt;\n&lt;li&gt;Proficiency in communicating research and analysis to technical and non-technical audiences&lt;/li&gt;\n&lt;li&gt;An appreciation for qualitative and quantitative analysis and an admiration for good design with a working understanding of proper measurement and experimentation&lt;/li&gt;\n&lt;li&gt;Willingness to go out of you way to help teammates&lt;/li&gt;\n&lt;li&gt;Enough laziness to find a faster way to do your least favorite tasks&lt;/li&gt;\n&lt;li&gt;Previous experience in guiding junior analysts&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Pay Grade - O&lt;br&gt;Equity Grade - 12&lt;br&gt;&lt;br&gt;&lt;strong&gt;Employees new to Affirm typically come in at the start of the pay range.&lt;/strong&gt;&amp;nbsp;Affirm focuses on providing a simple and transparent pay structure which is based on a variety of factors, including location, experience and job-related skills.&lt;br&gt;&lt;br&gt;Base pay is part of a total compensation package that may include equity rewards, monthly stipends for health, wellness and tech spending, and benefits (including 100% subsidized medical coverage, dental and vision for you and your dependents.)&lt;br&gt;&lt;br&gt;USA base pay range (CA, WA, NY, NJ, CT) per year: $215,000-265,000&lt;br&gt;USA base pay range (all other U.S. states) per year: $&lt;span data-formula-id=&quot;_c_f_MHnVmr16dh_2&quot; data-error=&quot;false&quot; data-placeholder=&quot;false&quot; data-loading=&quot;false&quot; data-inactive=&quot;false&quot;&gt;191,000&lt;/span&gt;&amp;nbsp;-&amp;nbsp;&lt;span data-formula-id=&quot;_c_f_MHnVmr16dh_3&quot; data-error=&quot;false&quot; data-placeholder=&quot;false&quot; data-loading=&quot;false&quot; data-inactive=&quot;false&quot;&gt;241,000&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;#LI-Remote&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;div&gt;\n&lt;p&gt;Affirm is proud to be a remote-first company! The majority of our roles are remote and you can work almost anywhere within the country of employment. Affirmers in proximal roles have the flexibility to work remotely, but will occasionally be required to work out of their assigned Affirm office. A limited number of roles remain office-based due to the nature of their job responsibilities.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We’re extremely proud to offer competitive benefits that are anchored to our core value of people come first. Some key highlights of our benefits package include:&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Health care coverage - Affirm covers all premiums for all levels of coverage for you and your dependents&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Flexible Spending Wallets - generous stipends for spending on Technology, Food, various Lifestyle needs, and family forming expenses&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Time off - competitive vacation and holiday schedules allowing you to take time off to rest and recharge&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;ESPP - An employee stock purchase plan enabling you to buy shares of Affirm at a discount&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We believe It’s On Us to provide an inclusive interview experience for all, including people with disabilities. We are happy to provide reasonable accommodations to candidates in need of individualized support during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;[For U.S. positions that could be performed in Los Angeles or San Francisco] Pursuant to the San Francisco Fair Chance Ordinance and Los Angeles Fair Chance Initiative for Hiring Ordinance, Affirm will consider for employment qualified applicants with arrest and conviction records.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;By clicking &quot;Submit Application,&quot; you acknowledge that you have read Affirm&#39;s&amp;nbsp;&lt;a href=&quot;https://www.affirm.com/global-candidate-privacy-notice&quot; target=&quot;_blank&quot;&gt;Global Candidate Privacy Notice&lt;/a&gt;&amp;nbsp;and hereby freely and unambiguously give informed consent to the collection, processing, use, and storage of your personal information as described therein.&lt;/p&gt;\n&lt;/div&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4080023003,
+          "name": "Consumer Analytics",
+          "child_ids": [],
+          "parent_id": 4005052003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4013021003,
+          "name": "Remote US",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 4025301003
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/7704631003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5752147003,
+      "location": {
+        "name": "Remote US"
+      },
+      "metadata": [
+        {
+          "id": 4128552003,
+          "name": "External Department",
+          "value": "Risk & Analytics",
+          "value_type": "single_select"
+        },
+        {
+          "id": 28890347003,
+          "name": "PERM Job?",
+          "value": false,
+          "value_type": "yes_no"
+        }
+      ],
+      "id": 7704631003,
+      "updated_at": "2026-05-11T17:25:27-04:00",
+      "requisition_id": "JR103879",
+      "title": "Analytics Manager, Credit Risk ",
+      "company_name": "Affirm",
+      "first_published": "2026-04-21T14:11:02-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;The Risk &amp;amp; Analytics team makes crucial decisions that direct Affirm’s business strategy. Our team designs and runs experiments to decide which product features to launch and which marketing campaigns to fund. We analyze performance not just to report on it, but to determine where to invest resources for maximum impact through building tools and analytical frameworks. We take ownership of the entire analytical lifecycle, from initial question to final business decision, ensuring Affirm grows efficiently and intelligently.&lt;/p&gt;\n&lt;p&gt;The Credit team works cross-functionally with Machine Learning, Fraud, Product, Engineering, Capital Markets, and Commercial teams to responsibly manage the risk profile of the business. We’re looking for an intelligent, driven individual who wants to learn, grow, and solve hard problems.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;The team’s mandate is to enable sustainable growth while closely managing the profitability and resilience of our portfolio. As Affirm continues on an exciting growth trajectory, designing credit strategies for new initiatives and products, partnering with the Machine Learning team to continuously enhance our underwriting framework, and being ready to navigate through any exogenous changes will be important problems to tackle.&lt;/p&gt;\n&lt;p&gt;This role requires a lot of cross-functional partnership, with extensive use of data analytics to derive insights and develop credit strategies. Come join us in our mission to change consumer finance through better data and technology, lower costs, and increased transparency while providing the best customer experience!&lt;/p&gt;\n&lt;p&gt;What you&#39;ll do&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Partner with cross-functional teams and be the Credit POC that manages the end-to-end credit strategy for the Shopify portfolio&lt;/li&gt;\n&lt;li&gt;Leverage alternative data and further optimize our credit strategy in limit assignment and purchasing power&lt;/li&gt;\n&lt;li&gt;Partner with Machine Learning team and enhance our underwriting framework for low AOV&lt;/li&gt;\n&lt;li&gt;Support new product formation and new vertical exploration&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;What we look for&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience - 7+ years work experience in the credit risk field&lt;/li&gt;\n&lt;li&gt;Vision - A visionary leader who can challenge the status-quo and identify opportunities, as well as develop the roadmap and strategy plan&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Risk Knowledge - Working knowledge of the fundamentals of the lending industry and credit risk management&lt;/li&gt;\n&lt;li&gt;Technical Skills - Fluent in SQL and Python&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Multi-tasking - Strong time management skills and the ability to manage multiple projects and priorities, and able to thrive in a fast-paced environment&lt;/li&gt;\n&lt;li&gt;Collaboration - Ability to collaborate and influence across different teams&lt;/li&gt;\n&lt;li&gt;Communication - Ability to communicate findings and recommendations clearly to both technical and non-technical audiences&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Pay Grade - O&lt;br&gt;Equity Grade - 12&lt;br&gt;&lt;br&gt;&lt;strong&gt;Employees new to Affirm typically come in at the start of the pay range.&lt;/strong&gt; Affirm focuses on providing a simple and transparent pay structure which is based on a variety of factors, including location, experience and job-related skills.&lt;br&gt;&lt;br&gt;Base pay is part of a total compensation package that may include equity rewards, monthly stipends for health, wellness and tech spending, and benefits (including 100% subsidized medical coverage, dental and vision for you and your dependents.)&lt;br&gt;&lt;br&gt;USA base pay range (CA, WA, NY, NJ, CT) per year: $215,000-265,000&lt;br&gt;USA base pay range (all other U.S. states) per year: $&lt;span data-formula-id=&quot;_c_f_MHnVmr16dh_2&quot; data-error=&quot;false&quot; data-placeholder=&quot;false&quot; data-loading=&quot;false&quot; data-inactive=&quot;false&quot;&gt;191,000&lt;/span&gt;&amp;nbsp;-&amp;nbsp;&lt;span data-formula-id=&quot;_c_f_MHnVmr16dh_3&quot; data-error=&quot;false&quot; data-placeholder=&quot;false&quot; data-loading=&quot;false&quot; data-inactive=&quot;false&quot;&gt;241,000&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;#LI-Remote&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;div&gt;\n&lt;p&gt;Affirm is proud to be a remote-first company! The majority of our roles are remote and you can work almost anywhere within the country of employment. Affirmers in proximal roles have the flexibility to work remotely, but will occasionally be required to work out of their assigned Affirm office. A limited number of roles remain office-based due to the nature of their job responsibilities.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We’re extremely proud to offer competitive benefits that are anchored to our core value of people come first. Some key highlights of our benefits package include:&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Health care coverage - Affirm covers all premiums for all levels of coverage for you and your dependents&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Flexible Spending Wallets - generous stipends for spending on Technology, Food, various Lifestyle needs, and family forming expenses&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Time off - competitive vacation and holiday schedules allowing you to take time off to rest and recharge&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;ESPP - An employee stock purchase plan enabling you to buy shares of Affirm at a discount&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We believe It’s On Us to provide an inclusive interview experience for all, including people with disabilities. We are happy to provide reasonable accommodations to candidates in need of individualized support during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;[For U.S. positions that could be performed in Los Angeles or San Francisco] Pursuant to the San Francisco Fair Chance Ordinance and Los Angeles Fair Chance Initiative for Hiring Ordinance, Affirm will consider for employment qualified applicants with arrest and conviction records.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;By clicking &quot;Submit Application,&quot; you acknowledge that you have read Affirm&#39;s&amp;nbsp;&lt;a href=&quot;https://www.affirm.com/global-candidate-privacy-notice&quot; target=&quot;_blank&quot;&gt;Global Candidate Privacy Notice&lt;/a&gt;&amp;nbsp;and hereby freely and unambiguously give informed consent to the collection, processing, use, and storage of your personal information as described therein.&lt;/p&gt;\n&lt;/div&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4015171003,
+          "name": "Point of Sale Analytics",
+          "child_ids": [],
+          "parent_id": 4005052003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4013021003,
+          "name": "Remote US",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 4025301003
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/7532268003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5680234003,
+      "location": {
+        "name": "Remote UK"
+      },
+      "metadata": [
+        {
+          "id": 4128552003,
+          "name": "External Department",
+          "value": "Risk & Analytics",
+          "value_type": "single_select"
+        },
+        {
+          "id": 28890347003,
+          "name": "PERM Job?",
+          "value": false,
+          "value_type": "yes_no"
+        }
+      ],
+      "id": 7532268003,
+      "updated_at": "2026-02-24T17:18:24-05:00",
+      "requisition_id": "JR103509",
+      "title": "Analytics Manager, Full Stack (Fraud Analytics)",
+      "company_name": "Affirm",
+      "first_published": "2025-11-26T08:08:48-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;The Fraud Strategy &amp;amp; Analytics team works cross-functionally with Machine Learning, Product, Engineering, and Operations to combat fraudulent activities and to foster a safe platform.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;We&#39;re looking for a new team member to help lead our team’s fraud monitoring and detection efforts and own fraud escalations as we scale internationally. Additionally, this role will work closely with our cross functional partners to help develop our fraud detection and decisioning systems.&amp;nbsp;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What you&#39;ll do&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Develop strategies for monitoring and preventing fraud across our network, advising on best&amp;nbsp; practices and ensuring the strategies align with risk management goals.&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Leverage advanced data analytics to identify loss drivers, derive insights and optimize fraud management strategies&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Report on fraud trends and loss drivers to cross functional partners and senior management&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Quickly respond to fraud rings and ensure issues raised by other teams are addressed in a timely manner&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Work together with our operations team to help limit losses and ensure optimal review volumes&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Assist with evaluation and development of new external or internal features/signals to improve our fraud detection capabilities&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Assist with team planning and goal setting as well as coaching and mentorship of more junior team members&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2 style=&quot;line-height: 2;&quot;&gt;&lt;strong&gt;What we look for&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;&lt;strong&gt;7+ years of experience&lt;/strong&gt; in &lt;strong&gt;Fraud Management&lt;/strong&gt; or a related field preferred with a prior emphasis on analytics.&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;&lt;strong&gt;Product knowledge&amp;nbsp;&lt;/strong&gt;- Passion to understand how the product works and how to change it to make it more effective&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Able to thrive in a fast-paced environment and be responsive and available during times of peak fraud activity&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Ability to work later starts several days a week so as to allow for increased overlap with US based colleagues.&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;&lt;strong&gt;Technical skills&lt;/strong&gt; - Extensive experience writing and analyzing SQL queries; comfort using python or other scripting languages for data analysis&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;&lt;strong&gt;Communication&lt;/strong&gt; - Ability to build strong cross functional partnerships and work with a diverse range of teams across the organization. Ability to communicate analyses and recommendations clearly to both technical and non-technical audiences&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;&lt;strong&gt;Multi-tasking&lt;/strong&gt; - Strong time management skills and the ability to shift focus on a moment&#39;s notice to respond to changes in fraud pressure and tactics&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;&lt;strong&gt;Industry knowledge&lt;/strong&gt; - Working knowledge of the fundamentals of payment processing and an understanding of industry risk trends, including familiarity with risk strategy development.&lt;/li&gt;\n&lt;li style=&quot;line-height: 2;&quot;&gt;Bachelor’s degree, or local equivalent, in a quantitatively rigorous field like engineering, statistics, math, finance, economics desired&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;Compensation &amp;amp; Benefits&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Pay Grade - O&lt;br&gt;Equity Grade - 6&lt;br&gt;&lt;br&gt;Employees new to Affirm typically come in at &lt;strong&gt;the start of the pay range&lt;/strong&gt;. Affirm focuses on providing a simple and transparent pay structure which is based on a variety of factors, including location, experience and job-related skills. &lt;br&gt;&lt;br&gt;Base pay is part of a total compensation package that may include monthly stipends for health, wellness and tech spending, and benefits (including 100% subsidized medical coverage, dental and vision for you and your dependents). In addition, the employees may be eligible for equity rewards offered by Affirm Holdings, Inc. (parent company).&lt;br&gt;&lt;br&gt;GBR base pay range per year:&lt;strong&gt; £133,000 - £173,000 &lt;/strong&gt;&lt;br&gt;&lt;br&gt;Location - Remote UK&lt;br&gt;&lt;br&gt;#LI-Remote&lt;br&gt;&lt;br&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;div&gt;\n&lt;p&gt;Affirm is proud to be a remote-first company! The majority of our roles are remote and you can work almost anywhere within the country of employment. Affirmers in proximal roles have the flexibility to work remotely, but will occasionally be required to work out of their assigned Affirm office. A limited number of roles remain office-based due to the nature of their job responsibilities.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We’re extremely proud to offer competitive benefits that are anchored to our core value of people come first. Some key highlights of our benefits package include:&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Health care coverage - Affirm covers all premiums for all levels of coverage for you and your dependents&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Flexible Spending Wallets - generous stipends for spending on Technology, Food, various Lifestyle needs, and family forming expenses&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Time off - competitive vacation and holiday schedules allowing you to take time off to rest and recharge&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;ESPP - An employee stock purchase plan enabling you to buy shares of Affirm at a discount&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We believe It’s On Us to provide an inclusive interview experience for all, including people with disabilities. We are happy to provide reasonable accommodations to candidates in need of individualized support during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;[For U.S. positions that could be performed in Los Angeles or San Francisco] Pursuant to the San Francisco Fair Chance Ordinance and Los Angeles Fair Chance Initiative for Hiring Ordinance, Affirm will consider for employment qualified applicants with arrest and conviction records.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;By clicking &quot;Submit Application,&quot; you acknowledge that you have read Affirm&#39;s&amp;nbsp;&lt;a href=&quot;https://www.affirm.com/global-candidate-privacy-notice&quot; target=&quot;_blank&quot;&gt;Global Candidate Privacy Notice&lt;/a&gt;&amp;nbsp;and hereby freely and unambiguously give informed consent to the collection, processing, use, and storage of your personal information as described therein.&lt;/p&gt;\n&lt;/div&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4080026003,
+          "name": "Core Analytics",
+          "child_ids": [],
+          "parent_id": 4005052003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4031888003,
+          "name": "Remote UK",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 4025301003
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/affirm/jobs/7712707003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5755370003,
+      "location": {
+        "name": "Remote US"
+      },
+      "metadata": [
+        {
+          "id": 4128552003,
+          "name": "External Department",
+          "value": "Revenue",
+          "value_type": "single_select"
+        },
+        {
+          "id": 28890347003,
+          "name": "PERM Job?",
+          "value": false,
+          "value_type": "yes_no"
+        }
+      ],
+      "id": 7712707003,
+      "updated_at": "2026-05-18T17:03:08-04:00",
+      "requisition_id": "JR103918",
+      "title": "Business Development Associate",
+      "company_name": "Affirm",
+      "first_published": "2026-05-18T10:22:09-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;&lt;/div&gt;&lt;div&gt;\n&lt;p&gt;Affirm is reinventing credit to make it more honest and friendly, giving consumers the flexibility to buy now and pay later without any hidden fees or compounding interest.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;The Business Development team works in lockstep with our Key and Enterprise Sales team to identify top-of-funnel opportunities within target industries through creative and effective outbound strategies. This is a fast-paced, high-impact team that works cross-functionally with Sales, Marketing, Legal, Merchant Risk. This role has a direct impact on high-priority organizational goals, and will provide a pathway to a successful sales career. We are looking for a driven, thoughtful and tenacious individual to join our world-class team and help change consumer finance for the better.&amp;nbsp;&lt;/p&gt;\n&lt;div class=&quot;qMYqUG_convSearchResultHighlightRoot&quot;&gt;\n&lt;div class=&quot;relative w-full overflow-visible&quot;&gt;\n&lt;section class=&quot;text-token-text-primary w-full focus:outline-none [--shadow-height:45px] has-data-writing-block:pointer-events-none has-data-writing-block:-mt-(--shadow-height) has-data-writing-block:pt-(--shadow-height) [&amp;amp;:has([data-writing-block])&gt;*]:pointer-events-auto [content-visibility:auto] supports-[content-visibility:auto]:[contain-intrinsic-size:auto_100lvh] R6Vx5W_threadScrollVars scroll-mb-[calc(var(--scroll-root-safe-area-inset-bottom,0px)+var(--thread-response-height))] scroll-mt-[calc(var(--header-height)+min(200px,max(70px,20svh)))]&quot; data-turn-id=&quot;request-WEB:5f1b73d3-8121-475a-b0e0-aee68aa26f9a-1&quot; data-turn-id-container=&quot;request-WEB:5f1b73d3-8121-475a-b0e0-aee68aa26f9a-1&quot; data-testid=&quot;conversation-turn-4&quot; data-scroll-anchor=&quot;false&quot; data-turn=&quot;assistant&quot;&gt;\n&lt;div class=&quot;text-base my-auto mx-auto pb-10 [--thread-content-margin:var(--thread-content-margin-xs,calc(var(--spacing)*4))] @w-sm/main:[--thread-content-margin:var(--thread-content-margin-sm,calc(var(--spacing)*6))] @w-lg/main:[--thread-content-margin:var(--thread-content-margin-lg,calc(var(--spacing)*16))] px-(--thread-content-margin)&quot;&gt;\n&lt;div class=&quot;[--thread-content-max-width:40rem] @w-lg/main:[--thread-content-max-width:48rem] mx-auto max-w-(--thread-content-max-width) flex-1 group/turn-messages focus-visible:outline-hidden relative flex w-full min-w-0 flex-col agent-turn&quot;&gt;\n&lt;div class=&quot;flex max-w-full flex-col gap-4 grow&quot;&gt;\n&lt;div class=&quot;min-h-8 text-message relative flex w-full flex-col items-end gap-2 text-start break-words whitespace-normal outline-none keyboard-focused:focus-ring [.text-message+&amp;amp;]:mt-1&quot; data-message-author-role=&quot;assistant&quot; data-message-id=&quot;4188a7a2-6ce9-474e-b6e9-a16ba869f94a&quot; data-message-model-slug=&quot;gpt-5-5&quot; data-turn-start-message=&quot;true&quot;&gt;\n&lt;div class=&quot;flex w-full flex-col gap-1 empty:hidden&quot;&gt;\n&lt;div class=&quot;markdown prose dark:prose-invert wrap-break-word w-full dark markdown-new-styling&quot;&gt;\n&lt;p data-start=&quot;376&quot; data-end=&quot;764&quot; data-is-last-node=&quot;&quot; data-is-only-node=&quot;&quot;&gt;&lt;strong&gt;What You&#39;ll Do&lt;/strong&gt;&lt;/p&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/section&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul&gt;\n&lt;li&gt;Drive new business by identifying, qualifying, and developing new partnership opportunities for Affirm&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Collaborate closely with Account Executives and the rest of the Sales &amp;amp; BD team to strategize creative outreach campaigns and determine priority of outreach based on potential impact&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Manage the first stages of the Sales &amp;amp; Business Development pipeline by performing initial cold outreach and nurturing leads through various inbound channels, including phone, email and social&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Engage potential partners about their goals and challenges, and educate them on the value of Affirm&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Contribute significantly to Affirm’s growth as we scale our core business and product&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;What We Look For&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor&#39;s Degree or equivalent experience&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;At least 1 year of prior BDA experience&lt;em&gt;&amp;nbsp;&lt;/em&gt;in an outbound sales role prospecting cold leads&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Grit. Lots of grit. You need to embrace challenges and be willing to work hard to achieve audacious goals&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Demonstrated ability to succeed in a quota-carrying role&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;The desire to pursue a&lt;em&gt;&amp;nbsp;career&amp;nbsp;&lt;/em&gt;in sales, and the drive to be successful&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Strong passion for E-commerce&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Ability to work closely with multiple non-sales teams internally; legal, merchant risk, marketing, etc.&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Excellent ability to communicate, manage time efficiently, and be extremely detail-oriented&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;A growth mindset and self-motivation&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Ability to think creatively and critically and thrive in a fast-paced, dynamic, and often ambiguous work environment&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Willingness to step up to greater responsibility, strong desire to contribute to overall goals&lt;br&gt;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Passion and drive to change consumer banking for the better&lt;/li&gt;\n&lt;/ul&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;Pay Grade - B&lt;/p&gt;\n&lt;p&gt;Equity Grade - 1&lt;/p&gt;\n&lt;p&gt;Employees new to Affirm typically come in at the start of the pay range. Affirm focuses on providing a simple and transparent pay structure which is based on a variety of factors, including location, experience and job-related skills. For sales roles, the range provided is the role’s On Target Earnings (&quot;OTE&quot;) range, which includes the annual base pay and the sales incentive target.&lt;/p&gt;\n&lt;div&gt;\n&lt;p&gt;Base pay is part of a total compensation package that may include equity rewards, monthly stipends for health, wellness and tech spending, and benefits (including 100% subsidized medical coverage, dental and vision for you and your dependents.)&lt;/p&gt;\n&lt;p&gt;USA On Target Earnings (CA, WA, NY, NJ, CT) per year: $&lt;span data-formula-id=&quot;VZQQmaymUK&quot; data-error=&quot;false&quot; data-placeholder=&quot;false&quot; data-loading=&quot;false&quot; data-recalculating=&quot;false&quot; data-inactive=&quot;false&quot; data-pm-slice=&quot;0 0 []&quot;&gt;75,000 - $105,000&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;USA On Target Earnings (all other U.S. states) per year:&amp;nbsp;&lt;span data-formula-id=&quot;VZQQmaymUK&quot; data-error=&quot;false&quot; data-placeholder=&quot;false&quot; data-loading=&quot;false&quot; data-recalculating=&quot;false&quot; data-inactive=&quot;false&quot;&gt;$66,000 - $96,000&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please note that visa sponsorship is not available for this position.&lt;/p&gt;\n&lt;p&gt;#LI-Remote&lt;/p&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;div&gt;\n&lt;p&gt;Affirm is proud to be a remote-first company! The majority of our roles are remote and you can work almost anywhere within the country of employment. Affirmers in proximal roles have the flexibility to work remotely, but will occasionally be required to work out of their assigned Affirm office. A limited number of roles remain office-based due to the nature of their job responsibilities.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We’re extremely proud to offer competitive benefits that are anchored to our core value of people come first. Some key highlights of our benefits package include:&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Health care coverage - Affirm covers all premiums for all levels of coverage for you and your dependents&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Flexible Spending Wallets - generous stipends for spending on Technology, Food, various Lifestyle needs, and family forming expenses&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Time off - competitive vacation and holiday schedules allowing you to take time off to rest and recharge&lt;/span&gt;&lt;/li&gt;\n&lt;li style=&quot;font-weight: 400;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;ESPP - An employee stock purchase plan enabling you to buy shares of Affirm at a discount&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;We believe It’s On Us to provide an inclusive interview experience for all, including people with disabilities. We are happy to provide reasonable accommodations to candidates in need of individualized support during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p class=&quot;p1&quot;&gt;[For U.S. positions that could be performed in Los Angeles or San Francisco] Pursuant to the San Francisco Fair Chance Ordinance and Los Angeles Fair Chance Initiative for Hiring Ordinance, Affirm will consider for employment qualified applicants with arrest and conviction records.&lt;/p&gt;\n&lt;/div&gt;\n&lt;div&gt;\n&lt;p&gt;By clicking &quot;Submit Application,&quot; you acknowledge that you have read Affirm&#39;s&amp;nbsp;&lt;a href=&quot;https://www.affirm.com/global-candidate-privacy-notice&quot; target=&quot;_blank&quot;&gt;Global Candidate Privacy Notice&lt;/a&gt;&amp;nbsp;and hereby freely and unambiguously give informed consent to the collection, processing, use, and storage of your personal information as described therein.&lt;/p&gt;\n&lt;/div&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4005053003,
+          "name": "US Sales",
+          "child_ids": [],
+          "parent_id": 4052104003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4013021003,
+          "name": "Remote US",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 4025301003
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 166
+  }
+}

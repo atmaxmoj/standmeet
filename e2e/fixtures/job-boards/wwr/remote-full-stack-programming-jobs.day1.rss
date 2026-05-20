@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss">
+  <channel>
+    <title>We Work Remotely: Full-Stack Programming Jobs</title>
+    <link>https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss</link>
+    <description>We Work Remotely: Full-Stack Programming Jobs</description>
+    <language>en-US</language>
+    <ttl>60</ttl>
+    <item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/5210/logo.gif" type="image/png"/>
+      <title>ShiftForce LLC: Full-Stack Developer — .NET + React + Azure — Remote (US)</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>Missouri</state>
+      <skills></skills>
+      <category>Full-Stack Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/5210/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Kansas City
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://www.shiftforce.com"&gt;https://www.shiftforce.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;**About us**&lt;/p&gt;
+&lt;p&gt;ShiftForce is scheduling and operations software for restaurants. We've been around a while, we're profitable, and we ship real features to real users every week. Small team — there are no layers of management between you and the work, which means real ownership and real impact, but also means everyone pitches in on whatever needs doing.&lt;/p&gt;
+&lt;p&gt;**The role**&lt;/p&gt;
+&lt;p&gt;We need a full-stack developer who works like an owner. You'll pick up problems from the backlog, ask the questions you need answered, then build and ship the solution. We're not looking for someone who needs every decision made for them — but we're also not looking for someone who treats every ticket as an excuse to rewrite a subsystem.&lt;/p&gt;
+&lt;p&gt;A typical week might be shipping a couple of features, fixing a few bugs, debugging a weird Azure Function timeout, reviewing a teammate's PR, and pushing back on a product idea that doesn't make sense. Some weeks lean more toward infra and ops — a broken pipeline, a slow query. Because we're small, you'll wear many hats. You should be comfortable solving technical problems that aren't strictly "writing code," and you shouldn't expect a dedicated DevOps or DBA team to hand you a clean environment.&lt;/p&gt;
+&lt;p&gt;**Stack**&lt;/p&gt;
+&lt;p&gt;- Backend: C# / .NET Core 10, some legacy .NET Framework (being migrated)&lt;br&gt;- Frontend: React, Next.js, TypeScript, CSS&lt;br&gt;- Mobile: React Native / Expo&lt;br&gt;- Data: SQL Server, PostgreSQL — real queries, real indexes, real execution plans&lt;br&gt;- Infra: Azure Functions, App Service, DevOps pipelines, Key Vault&lt;/p&gt;
+&lt;p&gt;**You're a fit if you**&lt;/p&gt;
+&lt;p&gt;- Have 3+ years shipping production code on a similar stack&lt;br&gt;- Solve problems instead of escalating them — you read the logs, write a repro, check the docs&lt;br&gt;- Build what was asked for, not what you wish was asked for&lt;br&gt;- Are comfortable wearing many hats: code, infra, debugging, customer issues, whatever the week needs&lt;br&gt;- Use AI coding tools (Cursor, Claude, Copilot) as part of your daily workflow — not as a novelty&lt;br&gt;- Communicate clearly in writing (most of our communication is async)&lt;/p&gt;
+&lt;p&gt;**Logistics**&lt;/p&gt;
+&lt;p&gt;- 100% remote, US-based&lt;br&gt;- Full-time&lt;br&gt;- Slight preference for candidates in Las Vegas or Kansas City — not a requirement&lt;/p&gt;
+&lt;p&gt;**How to apply**&lt;/p&gt;
+&lt;p&gt;Email justinb@shiftforce.com with a short note describing a hard bug you debugged recently — what was broken, how you found it, how you fixed it. That's the application. Resume optional.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/shiftforce-llc-full-stack-developer-net-react-azure-remote-us"&gt;https://weworkremotely.com/remote-jobs/shiftforce-llc-full-stack-developer-net-react-azure-remote-us&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Wed, 20 May 2026 14:08:40 +0000</pubDate>
+      <expires_at>Fri, 19 Jun 2026 14:08:40 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/shiftforce-llc-full-stack-developer-net-react-azure-remote-us</guid>
+      <link>https://weworkremotely.com/remote-jobs/shiftforce-llc-full-stack-developer-net-react-azure-remote-us</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/5199/logo.gif" type="image/png"/>
+      <title>Nomad: Senior Software Engineer II</title>
+      <region>Anywhere in the World</region>
+      <country>🇺🇲 United States Minor Outlying Islands and 🇺🇸 United States of America</country>
+      <state>Colorado</state>
+      <skills></skills>
+      <category>Full-Stack Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/5199/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Denver CO
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://nomadlease.com"&gt;https://nomadlease.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;About Nomad&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Nomad is unlocking economic opportunity for everyone in the long-term rental community. We offer property owners guaranteed rent and peace of mind, while delivering a better rental experience for residents. Backed by leading investors, we're transforming a massive, fragmented market with technology that makes renting better for everyone involved.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;About the Team&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Nomad's Engineering team builds the platform that powers guaranteed rent, owner dashboards, resident experiences, and the operational tools that make our business run. We're a small, senior team that ships fast and owns our outcomes. You'll work alongside product, design, and ops to solve real problems in a massive, underserved market. We're entering a new phase of growth. This is a high-leverage moment to join.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;About the Role&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;We're hiring a Senior Software Engineer to take on meaningful ownership of our platform and deliver features that directly impact the business. You'll work across the stack, make real technical decisions, and ship end-to-end. This is a role for someone who's moved past needing close direction. You see what needs to be done, you build it well, and you make the people around you better in the process.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;In this role, you will:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Build and ship features across our Rails backend and Typescript+React frontend&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Play a crucial role in bringing solid engineering principles into multiple legacy codebases&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Own your work end-to-end; from technical design through implementation, testing, and deployment&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Collaborate directly with product and design to refine requirements and deliver solutions that move business metrics&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Write clean, well-tested code and contribute to improving our engineering standards&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Participate in code reviews and provide constructive feedback that raises the quality bar&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Identify and address technical debt, bugs, and performance issues proactively&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Contribute to architectural discussions and help the team make sound technical decisions&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Who you are&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;An experienced product engineer with strong systems thinking abilities; you should be comfortable asking questions and improving the ideas that shape product iteration as well as executing on product vision&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Significant professional software engineering experience, with strong experience in Typescript+React, Ruby+Rails, and RDBMS (we use Postgre)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You have experience with modern testing philosophies and can actively improve test suites that are slow, nondeterministic, or need updated practices&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Bonus: You have experience automating workflows, using Playwright, Slack bots, and other tooling&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You've shipped meaningful features or systems and can point to work you owned and delivered&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Solid technical fundamentals; you write clean code, think about edge cases, and care about quality&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You introduce and discuss modern tooling and libraries that solve recurring problems in the codebase&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You are relentless in pushing for simplified patterns in the code and you have examples of systems you've simplified.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You have built out tooling (CI/Editor) to enforce improved coding practices across a codebase and improve developer experience.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You have experience with writing component and e2e-level visual browser tests and know when to use each.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Comfortable working across the stack; you're not precious about frontend vs. backend&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Strong collaborator who communicates clearly with both technical and non-technical teammates&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Self-directed: You take initiative, manage your own work, and don't wait to be told what's next&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Experience in a startup or high-growth environment preferred&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You’re comfortable using AI coding tools when they speed up implementation, debugging, or test writing, but you don’t rely on them to replace engineering judgment.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Interview process&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Quick meeting with recruiter to discuss role and company&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Hiring manager interview&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;(up to) 3 hour technical assessment where you'll work on a real problem that a Nomad engineer would own, building a feature.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Discuss technical assessment with engineering and product&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Founder interview&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Where you'll be&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Remote within the continental United States. Denver-based candidates are preferred and are encouraged to work hybrid from our downtown office.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;At Nomad, we are committed to offering competitive compensation that reflects the value each team member brings to our mission. Salary ranges for this role are determined based on factors such as experience, skills, location, and role expectations. Final offers may vary from the posted range, ensuring fair and equitable consideration for every candidate.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Our Values&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt; Nomads Build Community: We foster genuine relationships and act as dependable stewards of our community.&lt;/p&gt;
+&lt;p&gt; One Percent Better Every Day: We are always learning, taking small, deliberate actions to continuously improve.&lt;/p&gt;
+&lt;p&gt; Mission Before Ourselves: We're a championship team driven to make our customers' lives better.&lt;/p&gt;
+&lt;p&gt; Act From Ownership: We roll up our sleeves, solve problems proactively, and take responsibility for our work.&lt;/p&gt;
+&lt;p&gt; Dream Without Boundaries: We challenge the status quo and strive to achieve the extraordinary.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Benefits at Nomad&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;We believe in supporting our team with benefits that enhance your life, both inside and outside of work.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt; Medical, Dental &amp;amp; Vision Insurance Plans: Comprehensive coverage to keep you and your family healthy.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt; Team Bonding Outings and Volunteer Days: Opportunities to connect and give back to the community.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt; Dog-Friendly Office: Because we know pets are family too!&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;️ 11 Paid Company Holidays: Including a dedicated Mental Health Day.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt; Company Equity: Become a part owner of Nomad and share in our success.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;☂️ Short-Term &amp;amp; Long-Term Disability: Supporting you when life throws curveballs.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt; MacBook: Plus, an equipment budget to set you up for success.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;⏰ Sick, Parental, and Generous Paid Time Off: Work-life balance matters to us.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt; Nomadic Anniversary Rewards: Celebrate milestones with rewards ranging from paid yearly events to a 4-week sabbatical.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt; Discounted Employee Brokerage Rates: Helping you buy or sell a home with ease.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;Equal Opportunity Employer&lt;/p&gt;
+&lt;p&gt;Nomad Labs Inc. provides equal employment opportunities to all employees and applicants for employment and prohibits discrimination and harassment of any type without regard to race, color, religion, age, sex, national origin, disability status, genetics, protected veteran status, sexual orientation, gender identity or expression, or any other characteristic protected by federal, state or local laws. This policy applies to all terms and conditions of employment, including recruiting, hiring, placement, promotion, termination, layoff, recall, transfer, leaves of absence, compensation and training.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/nomad-senior-software-engineer-ii"&gt;https://weworkremotely.com/remote-jobs/nomad-senior-software-engineer-ii&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Tue, 19 May 2026 15:45:54 +0000</pubDate>
+      <expires_at>Thu, 18 Jun 2026 15:45:54 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/nomad-senior-software-engineer-ii</guid>
+      <link>https://weworkremotely.com/remote-jobs/nomad-senior-software-engineer-ii</link>
+    </item>
+<item>
+      <title>Lucid Software: Regulatory &amp; Product Counsel</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Full-Stack Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Remote, US
+&lt;/p&gt;
+
+&lt;div class="job__description body"&gt;&lt;div&gt;&lt;p&gt;&lt;span&gt;Lucid Software is the leader in visual collaboration and work acceleration, helping teams see and build the future by turning ideas into reality. Our products, business, and workplace culture have received numerous awards, such as being named to the Forbes Cloud 100 and a Fortune Best Workplace in Technology. Lucid is a hybrid workplace, allowing employees to work remotely, from one of our offices, or a combination of the two depending on the needs of the role and team. At Lucid, we hold true to our core values of teamwork over ego, innovation in everything we do, individual empowerment, initiative, and ownership, and passion and excellence in every area. We value diverse perspectives and are dedicated to creating an environment that is respectful and inclusive for everyone.&lt;/span&gt;&lt;/p&gt;&lt;br&gt;&lt;p&gt;&lt;span&gt;Protecting Lucid and our users is core to our business. We’re looking for a Regulatory &amp;amp; Product Counsel to join our close-knit legal department working on our Compliance team. This role will work directly with our cross-functional teams as the legal point of contact to advise on the implementation of privacy and other compliance requirements across the business (including engineering, marketing, growth and product), and will be responsible for ongoing compliance with applicable laws and regulations. The ideal candidate will be an analytical thinker who asks lots of questions, is able to efficiently interpret emerging and existing legal requirements, and is adept at providing actionable and practical compliance advice to Lucid’s cross-functional teams.&lt;/span&gt;&lt;/p&gt;&lt;br&gt;&lt;p&gt;&lt;span&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/span&gt;&lt;/p&gt;&lt;br&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Manage, develop and improve&amp;nbsp; Lucid’s compliance programs.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Ensure ongoing compliance with Lucid’s compliance programs by monitoring emerging laws, regulations and changes in business operations and product development.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Serve as Lucid’s subject matter expert on global laws and regulations relevant to SaaS operations,, with an emphasis on&amp;nbsp; data privacy laws (e.g., GDPR, CCPA), in addition to AI compliance, marketing and sales outreach, and other key compliance areas.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Responsible for tasks such as risk-based privacy compliance assessments, organization-wide controls to track compliance with relevant laws and contractual commitments, and assisting with creating and maintaining compliance resources and policies.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Continuously engage with and advise teams across Lucid to help them navigate compliance requirements and relevant privacy controls related to product development, vendors and business operations.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Promote the principle of least privilege and privacy best practices across Lucid.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Exercise a high degree of independent judgment and discretion in supporting our business teams.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Develop deep expertise in our products and technology stack, and how they use and process information.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;br&gt;&lt;p&gt;&lt;span&gt;&lt;strong&gt;Requirements:&lt;/strong&gt;&lt;/span&gt;&lt;/p&gt;&lt;br&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;J.D. from an ABA-accredited law school with excellent academic credentials; admission to a State Bar and an active license to practice law in that State.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;3-5 years of relevant legal experience dealing with global regulatory regimes relevant to the SaaS technology industry, with an emphasis on data privacy laws and advising cross-functional teams to ensure legal requirements are honored and implemented. .&amp;nbsp;&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Experience formulating advice that balances legal risk and business impact with an ability to distill and effectively communicate risks and impact to non-legal business partners (e.g. engineering, product, and marketing).&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Ability to research, interpret and provide actionable analysis about complex regulations and legal requirements to Lucid management.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Experience working with product, technology, and other internal teams to operationalize compliance requirements, with the ability to influence across functions and track and manage the project through completion.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Demonstrated ability to learn quickly, prioritize multiple urgent tasks, take action, and provide clear direction in the face of ambiguity.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Willingness to take initiative, be accountable and interface with Lucid’s cross-functional teams as a key point of contact on the Compliance team.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Highly responsive and service-driven, with a strong focus on timely follow-up and proactive communication with internal clients and cross-functional teams.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;br&gt;&lt;p&gt;&lt;span&gt;&lt;strong&gt;Preferred Qualifications:&lt;/strong&gt;&lt;/span&gt;&lt;/p&gt;&lt;br&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;&lt;span&gt;Technical background in software product development and privacy controls.&lt;/span&gt;&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;br&gt;&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;br&gt;&lt;p&gt;&lt;span&gt;#LI-MK1&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/lucid-software-regulatory-product-counsel"&gt;https://weworkremotely.com/remote-jobs/lucid-software-regulatory-product-counsel&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 20:31:39 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 20:31:39 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/lucid-software-regulatory-product-counsel</guid>
+      <link>https://weworkremotely.com/remote-jobs/lucid-software-regulatory-product-counsel</link>
+    </item>
+<item>
+      <title>Wealth.com: Senior UX Product Designer</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Full-Stack Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Remote, United States
+&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Title&lt;/strong&gt;: Senior UX Product Designer&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Location&lt;/strong&gt;: Remote&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;About Us&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="http://Wealth.com"&gt;Wealth.com&lt;/a&gt; is the industry’s leading estate planning platform, empowering more than 1,000 wealth management firms to modernize how they talk about estate planning with their clients. As the only tech-led, end-to-end platform built specifically for financial institutions, &lt;a href="http://Wealth.com"&gt;Wealth.com&lt;/a&gt; enables firms to drive scale, efficiency, and measurable client impact. Trusted by some of the largest names in finance, &lt;a href="http://Wealth.com"&gt;Wealth.com&lt;/a&gt; combines proprietary AI, robust security, and deep technological and legal expertise to serve the full range of client needs, from foundational plans to the most sophisticated estate strategies. The company has been widely recognized for innovation and leadership, winning Top Estate Planning Technology and Top Estate Planning Implementation at the 2025 &lt;a href="http://WealthManagement.com"&gt;WealthManagement.com&lt;/a&gt; Industry Awards, being named the 2024 Best Technology Provider in the Trust category, and earning #1 in estate planning market share in the 2025 Kitces AdvisorTech Study.&lt;/p&gt;&lt;p&gt;Our team is fundamental to our standing as the leading estate planning platform. We cultivate a collaborative and supportive environment, fostering innovation and making &lt;a href="http://Wealth.com"&gt;Wealth.com&lt;/a&gt; a truly enjoyable workplace. &lt;a href="http://Wealth.com"&gt;Wealth.com&lt;/a&gt; is proud to be certified as a Great Place to Work for 2025.&lt;/p&gt;&lt;p&gt;We are looking for a &lt;strong&gt;Senior UX Product Designer&lt;/strong&gt; who brings exceptional craft, strong systems thinking, and the creative instinct to turn complexity into clarity. You’re a master at your craft.  You design with intention, prototype with speed, and know how to create real moments of delight in even the most functional flows. You see the world in design tokens, and you bring joy through motion, gamification, and thoughtful interaction. If you thrive in ambiguity and build for clarity, we want to meet you.&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;What You'll Do&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;Design thoughtful, inclusive experiences across responsive web, mobile apps&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Own and evolve our design system to support consistency, creativity, and scalability&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Use AI tools and rapid prototyping to explore, test, and refine concepts quickly&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Collaborate with Product, Engineering, Research, and Legal to simplify complex workflows and elevate user confidence&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Introduce delight through gamification, emotion, and interaction details that turn utility into memorable moments&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Champion accessibility and raise the bar for usability and visual quality&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Mentor teammates and contribute to a high performance, high curiosity design culture&lt;br&gt;&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;strong&gt;What We're Looking For&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;6 or more years of product design experience with a portfolio that demonstrates depth in systems thinking, interaction, and visual design&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Mastery of Figma, including components, variants, and prototyping&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Strong understanding of accessibility standards and inclusive design principles&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;You think in design systems and see the world in tokens, patterns, and reusable foundations&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Experience designing across multiple touchpoints including web, mobile, voice, and emerging interfaces&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;A thoughtful approach to using motion and microinteractions to guide and engage users&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Familiarity with gamification principles and a strong sense for where they add real value&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Comfort using AI tools to move faster from concept to prototype and bring new ideas to life&lt;br&gt;&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;strong&gt;What Sets Us Apart&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;Culture is our advantage. At &lt;a href="http://Wealth.com"&gt;Wealth.com&lt;/a&gt;, design is a shared language. We work in the open, share early, and iterate often.&lt;/p&gt;&lt;p&gt;We encourage smart risks, move quickly, and support one another through the unknown.&lt;/p&gt;&lt;p&gt;Everyone is part of the design process. We're looking for someone who thrives in that environment — someone who enjoys designing alongside others, giving thoughtful feedback, and coaching teammates to do their best work. You believe great ideas can come from anywhere and love helping others discover and build them.&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;strong&gt;Bonus Points If You Have&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;Experience in fintech, legal tech, or regulated platforms&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Familiarity with AI, AR, or VR design&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;A background in scaling design systems across large teams or products&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Confidence working closely with engineers to ship highly polished experiences&lt;br&gt;&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;strong&gt;Benefits &amp;amp; Perks&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;Competitive salary.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Hybrid work arrangement if located in the Phoenix or New York area; otherwise, fully remote. We also meet together in person several times a year.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Excellent medical, dental, and vision insurance options, with low-cost premium structures that demonstrate our commitment to offering great value to our employees.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;100% company-paid basic life insurance, short-term and long-term disability insurance.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;100% paid parental leave upon eligibility.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Company equity managed through Carta.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;401k with match and 100% vesting upon hire.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Flexible PTO in an environment where taking time off to relax or recharge is supported and encouraged.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Take time off for holidays—and yes, your birthday counts too. Celebrate, relax, and recharge without thinking twice.&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Wealth is an equal opportunity employer and encourages people from all backgrounds to apply. Should you have a disability or special need that requires accommodation, please let us know.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/wealth-com-senior-ux-product-designer"&gt;https://weworkremotely.com/remote-jobs/wealth-com-senior-ux-product-designer&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 20:31:30 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 20:31:30 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/wealth-com-senior-ux-product-designer</guid>
+      <link>https://weworkremotely.com/remote-jobs/wealth-com-senior-ux-product-designer</link>
+    </item>
+<item>
+      <title>createIT s.c. Borkowski Bartosz, Fredrych Aleksander: DevOps Engineer</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Full-Stack Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Warsaw, 14, Poland
+&lt;/p&gt;
+
+&lt;div class="sc-1gch2qa-0 fhKCjg"&gt;&lt;div&gt;&lt;div class="sc-gfrfnr-2 deOrHQ"&gt;&lt;/div&gt;&lt;div class="sc-18h7are-0 ebVyJP"&gt;&lt;div class="sc-1tu9fip-2 ezRMeN"&gt;&lt;div class="sc-1tu9fip-1 kdUgoN"&gt;&lt;div class="sc-1tu9fip-3 iFQjUO"&gt;&lt;div class="sc-ji5wy4-0 jIYAZB"&gt;&lt;div&gt;&lt;div&gt;&lt;div&gt;&lt;div&gt;&lt;div class="sc-1uwf3m5-2 ipgOZn"&gt;&lt;div class="sc-1v95195-0 jscoSJ"&gt;&lt;div&gt;&lt;div&gt;&lt;h2 class="sc-1npqnwg-4 sc-1npqnwg-5 sc-1uwf3m5-0 bTeJGh custom-css-style-job-description"&gt;Job description&lt;/h2&gt;&lt;div class="sc-1fwbcuw-0 hKfmGz"&gt;&lt;div&gt;&lt;p&gt;DevOps Engineer for one of our long-term clients&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;h2 class="sc-1npqnwg-4 sc-1npqnwg-5 sc-1uwf3m5-0 sc-1uwf3m5-1 hfBgvY custom-css-style-job-requirements"&gt;Job requirements&lt;/h2&gt;&lt;div class="sc-1fwbcuw-0 hKfmGz"&gt;&lt;div&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;AWS Stack (SQS/SQS/Api Gateway/RDS/Mongo/DynamoDb etc.)&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Kubernetes&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a href="http://Node.js/React"&gt;Node.js/React&lt;/a&gt; deployments&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;CI/CD&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;English min. B2&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="sc-1uwf3m5-4 fKDjfR"&gt;&lt;div class="sc-e5uvhz-0 kHqIkC"&gt;&lt;div class="sc-e5uvhz-8 ekemGm"&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div&gt;&lt;/div&gt;&lt;div&gt;&lt;div&gt;&lt;div class="sc-1f8x0pm-0 ibrjJt"&gt;&lt;div&gt;&lt;h3 class="sc-1npqnwg-4 sc-1npqnwg-5 sc-1f8x0pm-1 hmVXnl"&gt;All done!&lt;/h3&gt;&lt;p class="sc-1npqnwg-9 sc-1npqnwg-10 dDZsCG"&gt;Your application has been successfully submitted!&lt;/p&gt;&lt;/div&gt;&lt;div class="sc-1f8x0pm-2 dvyFlr"&gt;&lt;a class="sc-s03za1-0 gHxIfV custom-css-style-application-success-button" href="/"&gt;Other jobs&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/createit-s-c-borkowski-bartosz-fredrych-aleksander-devops-engineer"&gt;https://weworkremotely.com/remote-jobs/createit-s-c-borkowski-bartosz-fredrych-aleksander-devops-engineer&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 20:31:17 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 20:31:17 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/createit-s-c-borkowski-bartosz-fredrych-aleksander-devops-engineer</guid>
+      <link>https://weworkremotely.com/remote-jobs/createit-s-c-borkowski-bartosz-fredrych-aleksander-devops-engineer</link>
+    </item>
+<item>
+      <title>Bazaarvoice: Product Marketing Manager</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Full-Stack Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Remote, United States
+&lt;/p&gt;
+
+&lt;div class="content"&gt;&lt;div class="section-wrapper page-full-width"&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&amp;nbsp;&lt;b&gt;About Bazaarvoice&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;At Bazaarvoice, we create smart shopping experiences. Through our expansive global network, product-passionate community &amp;amp; enterprise technology, we connect thousands of brands and retailers with billions of consumers. Our solutions enable brands to connect with consumers and collect valuable user-generated content, at an unprecedented scale. This content achieves global reach by leveraging our extensive and ever-expanding retail, social &amp;amp; search syndication network. And we make it easy for brands &amp;amp; retailers to gain valuable business insights from real-time consumer feedback with intuitive tools and dashboards. The result is smarter shopping: loyal customers, increased sales, and improved products.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;The problem we are trying to solve : Brands and retailers struggle to make real connections with consumers. It's a challenge to deliver trustworthy and inspiring content in the moments that matter most during the discovery and purchase cycle. The result? Time and money spent on content that doesn't attract new consumers, convert them, or earn their long-term loyalty.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Our brand promise : closing the gap between brands and consumers.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Founded in 2005, Bazaarvoice is headquartered in Austin, Texas with offices in North America, Europe, Asia and Australia. &lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;It’s official: Bazaarvoice is a &lt;/span&gt;&lt;a class="postings-link" href="https://www.bazaarvoice.com/?page_id=32344&amp;amp;preview=true/#great-place-to-work"&gt;Great Place to Work&lt;/a&gt;&lt;span&gt; in the &lt;/span&gt;&lt;a class="postings-link" href="https://www.bazaarvoice.com/blog/great-place-to-work-bazaarvoice/"&gt;US&lt;/a&gt;&lt;span&gt; , &lt;/span&gt;&lt;a class="postings-link" href="https://www.bazaarvoice.com/blog/bazaarvoice-great-place-to-work-australia/?utm_campaign=voicestorm&amp;amp;utm_medium=social&amp;amp;utm_source=None&amp;amp;utm_content=fb87ed16-b1c4-44cf-b3d2-375d64f884a7"&gt;Australia&lt;/a&gt;&lt;span&gt;, &lt;/span&gt;&lt;a class="postings-link" href="https://www.bazaarvoice.com/blog/bazaarvoice-india-is-officially-a-great-place-to-work/"&gt;India&lt;/a&gt;&lt;span&gt;, Lithuania, France, Germany and the &lt;/span&gt;&lt;a class="postings-link" href="https://www.bazaarvoice.com/blog/great-place-to-work-uk/"&gt;UK&lt;/a&gt;&lt;span&gt;!&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We’re seeking a strategic, results-driven Product Marketing Manager to join the team driving the evolution of Bazaarvoice’s flagship product: Ratings &amp;amp; Reviews. As AI transforms how consumers shop, trust is the ultimate currency. You will help define the next era of shopping, where ratings and reviews are powering AI-driven shopping experiences.&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;You’ll play a central role in shaping product messaging and positioning, influencing roadmap strategy, enabling Sales and Client Success, and driving adoption and growth for the market leading solution. You’ll thrive in this role if you’re a builder—someone who loves translating complex capabilities into clear business value, aligning cross-functional teams, and turning market insights into powerful GTM strategies.&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;What You'll Do:&lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;Define and execute GTM strategy for Bazaarvoice Ratings &amp;amp; Reviews releases, including launch positioning, messaging, internal and external enablement/comms, and ongoing adoption motions across different business sizes, personas, industries and geographies.&amp;nbsp;&lt;/li&gt;&lt;li&gt;Build compelling narratives that clearly differentiate Bazaarvoice as the premium offering in the ratings and reviews space.&lt;/li&gt;&lt;li&gt;Lead product launches and feature releases with cross-functional partners across Product, Sales, CS, and Enablement, delivering key assets, messaging, and training.&lt;/li&gt;&lt;li&gt;Create competitive positioning and de-positioning with research-backed insights and strategic clarity; guide internal teams on how to win.&lt;/li&gt;&lt;li&gt;Collaborate with Sales, Client Success, and Enablement teams to equip the field with the tools they need to confidently sell, support, and upsell our Ratings &amp;amp; Reviews offering.&amp;nbsp;&lt;/li&gt;&lt;li&gt;Gather market intelligence and voice of the customer to inform roadmap prioritization and guide product-market fit.&lt;/li&gt;&lt;li&gt;Create clear, compelling sales and marketing collateral, from one-sheets and web copy to playbooks and pitch decks.&amp;nbsp;&lt;/li&gt;&lt;li&gt;Serve as a strategic partner to Product Management, influencing roadmap decisions with market context and go-to-market requirements.&amp;nbsp;&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;What You'll Need:&lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;3-5 years of product marketing or relevant experience in B2B SaaS, ideally in e-commerce, martech or adtech.&amp;nbsp;&lt;/li&gt;&lt;li&gt;Proven experience owning GTM strategy, leading successful product launches, and working cross-functionally.&amp;nbsp;&amp;nbsp;&lt;/li&gt;&lt;li&gt;Exceptional messaging and positioning skills; you are able to turn features into compelling stories that resonate with marketing and e-commerce leaders.&amp;nbsp;&lt;/li&gt;&lt;li&gt;Understanding of modern consumer behavior, especially in the e-commerce industry.&lt;/li&gt;&lt;li&gt;Strategic thinker with a bias for action. You know how to prioritize for highest impact, and are not afraid of experimenting and making mistakes.&amp;nbsp;&lt;/li&gt;&lt;li&gt;Excellent written and verbal communication.&amp;nbsp;&lt;/li&gt;&lt;li&gt;Familiarity with our tools is ideal, but not required: Google Suite, Asana, Gemini, Confluence, Crayon, Pendo.&amp;nbsp;&lt;/li&gt;&lt;li&gt;Understanding of and/or experience with our top industries is desired: Retail, Apparel &amp;amp; Fashion, Consumer Electronics, Health &amp;amp; Beauty, Food &amp;amp; Bev, Home &amp;amp; Garden.&amp;nbsp;&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;$108,347.27 - $162,520.90 a year&lt;/div&gt;&lt;small&gt;&lt;div&gt;At Bazaarvoice, we carefully consider multiple factors when determining compensation. Since we believe the transparency and integrity builds trust, we want to share that we expect the base salary for this position to be in the range listed above and is based on Bazaarvoice's good faith belief at the time of posting. Actual compensation may vary based on factors such as geographic location, work experience, market conditions, education/training, and skill level. While this is a good faith estimate of the expected base pay range, Bazaarvoice reserves the right to pay outside this range if these assumptions and understandings are modified as we progress through the interview process. Your recruiter can share more about the salary range and total compensation package during the hiring process. If this compensation is somewhere close to your desired range, we encourage you to apply!&lt;/div&gt;&lt;/small&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;b&gt;Why join Bazaarvoice?&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Customer is key&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We see our own success through our customers’ outcomes.&amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We approach every situation with a customer first mindset.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Transparency &amp;amp; Integrity&amp;nbsp;Builds Trust&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We believe in the power of authentic feedback because it’s in our DNA.&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We do the right thing when faced with hard choices.&amp;nbsp;Transparency and trust accelerate our collective performance.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Passionate Pursuit of Performance&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Our energy is contagious, because we hire for passion, drive &amp;amp; curiosity.&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We love what we do, and because we’re laser focused on our mission.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Innovation over Imitation&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We seek to innovate as we are not content with the status quo.&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We embrace agility and experimentation as an advantage.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Stronger Together&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We bring our whole selves to the mission and find value in diverse perspectives.&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We champion what’s best for Bazaarvoice before individuals or teams.&amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;As a stronger company we build a stronger community.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Commitment to diversity and inclusion&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Bazaarvoice provides equal employment opportunities (EEO) to all team members and applicants according to their experience, talent, and qualifications for the job without regard to race, color, national origin, religion, age, disability, sex (including pregnancy, gender stereotyping, and marital status), sexual orientation, gender identity, genetic information, military/veteran status, or any other category protected by federal, state, or local law in every location in which the company has facilities. Bazaarvoice believes that diversity and an inclusive company culture are key drivers of creativity, innovation and performance. Furthermore, a diverse workforce and the maintenance of an atmosphere that welcomes versatile perspectives will enhance our ability to fulfill our vision of creating the world’s smartest network of consumers, brands, and retailers.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;The successful candidate will be required to complete a background check. We will provide additional information and obtain your written consent before proceeding.&lt;/b&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div class="text-small italic text-gray-700"&gt;We may use artificial intelligence (AI) tools to support parts of the hiring process, such as reviewing applications, analyzing resumes, or assessing responses. These tools assist our recruitment team but do not replace human judgment. Final hiring decisions are ultimately made by humans. If you would like more information about how your data is processed, please contact us.&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/bazaarvoice-product-marketing-manager"&gt;https://weworkremotely.com/remote-jobs/bazaarvoice-product-marketing-manager&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 20:31:11 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 20:31:11 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/bazaarvoice-product-marketing-manager</guid>
+      <link>https://weworkremotely.com/remote-jobs/bazaarvoice-product-marketing-manager</link>
+    </item>
+<item>
+      <title>Mitek Systems: Product Owner - Machine Learning</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Full-Stack Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; United States
+&lt;/p&gt;
+
+&lt;div class="content"&gt;&lt;div class="section-wrapper page-full-width"&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;b&gt;&lt;span&gt;Mitek&lt;/span&gt;&lt;/b&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;b&gt;&lt;span&gt;(NASDAQ: MITK)&lt;/span&gt;&lt;/b&gt;&lt;span&gt; is a global leader in digital &amp;amp; biometric identity authentication, fraud prevention, and mobile deposit solutions.  Our verified identity platform and advanced image capture solutions are built on the latest advancements in biometric recognition, artificial intelligence, computer vision and machine learning, and trusted by  over 7,500 organizations worldwide.  We are headquartered in San Diego, California, with operations in the United Kingdom, Spain, France, Mexico, and the Netherlands. Visit us at &lt;/span&gt;&lt;a class="postings-link" href="https://cts.businesswire.com/ct/CT?id=smartlink&amp;amp;url=http%3A%2F%2Fwww.miteksystems.com%2F&amp;amp;esheet=52795111&amp;amp;newsitemid=20220728006004&amp;amp;lan=en-US&amp;amp;anchor=www.miteksystems.com&amp;amp;index=3&amp;amp;md5=cc5b49681712596c06a27df1e1029ba4"&gt;&lt;span&gt;www.miteksystems.com&lt;/span&gt;&lt;/a&gt;&lt;span&gt;.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;At Mitek, we believe that teams are more resilient, effective, and innovative when they benefit from a wide range of ideas, lived experiences, and perspectives. The strength of our organization is deeply rooted in the people who power it.​&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;​&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We know that a workforce reflecting the richness of our communities and customers helps us better serve their needs. These lived experiences influence our decisions, shape our products, services, and help us grow with intention. When it comes to talent, our goal is clear: to discover exceptional individuals and to ensure they discover us. We prioritize drive, skill, experience, and ambition in everything we do for our clients.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;&lt;span&gt;We are Virtual 1st!&lt;/span&gt;&lt;/b&gt;&lt;span&gt;  Whether you choose to work remotely from your home office or in-person from one of Mitek’s offices, our practices, processes and tools are designed to enable your success.  At Mitek, the Future of Work is about flexibility and preference wherever and whenever we are working.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;We are seeking a Product Owner to drive execution of machine learning based capabilities across biometric authentication and document verification. This role is deeply embedded with machine learning, engineering, and fraud teams, ensuring initiatives are clearly defined, well scoped, and delivered into production with measurable impact. &lt;b&gt;This is a hands-on delivery role, not a strategy ownership position.&lt;/b&gt;&amp;nbsp;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;The ideal candidate has direct experience building and operating ML driven products in biometric and document environments, understands how these systems behave in production, and is comfortable challenging assumptions, proposing alternatives, and pushing back when needed to ensure outcomes align with fraud risk, customer needs, and operational realities.&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;What You Will Do (Essential Responsibilities): &lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;&lt;b&gt;ML Feature and Capability Ownership&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Own and manage the backlog for ML-driven biometric and document verification capabilities.&lt;/li&gt;&lt;li&gt;Translate fraud, identity, and customer requirements into clear and actionable ML work items.&lt;/li&gt;&lt;li&gt;Partner closely with ML engineers and data scientists to refine problem statements into feasible deliverables.&lt;/li&gt;&lt;li&gt;Define acceptance criteria that reflect real world performance, not just offline model metrics.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;li&gt;&lt;b&gt;Embedded ML Team Collaboration&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Serve as the primary product owner for ML and data science teams.&lt;/li&gt;&lt;li&gt;Participate actively in model design discussions, prioritization, and tradeoff analysis.&lt;/li&gt;&lt;li&gt;Challenge scope, timelines, and modeling approaches when misaligned with business or risk objectives.&lt;/li&gt;&lt;li&gt;Propose alternate ideas across data strategy, modeling approaches, workflow design, or deployment patterns.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;li&gt;&lt;b&gt;Production Readiness and Lifecycle Support&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Support model lifecycle activities including training, evaluation, deployment, and retraining.&lt;/li&gt;&lt;li&gt;Ensure monitoring, drift detection, and feedback loops are incorporated into delivery plans.&lt;/li&gt;&lt;li&gt;Help define rollout, experimentation, and rollback guardrails.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;li&gt;&lt;b&gt;Data and Labeling Execution&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Partner with agent operations and data teams on labeling strategy and data  quality.&lt;/li&gt;&lt;li&gt;Help define labeling schemas and workflows to support effective model training.&lt;/li&gt;&lt;li&gt;Identify risks related to label noise, bias, or insufficient coverage across geographies and document types.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;li&gt;&lt;b&gt;Fraud and Adversarial Awareness&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Incorporate fraud patterns and adversarial thinking into backlog prioritization.&lt;/li&gt;&lt;li&gt;Ensure  features and models are resilient to evolving attack vectors such as spoofs, deepfakes, and injection attacks.&lt;/li&gt;&lt;li&gt;Support layered and defense in depth approaches rather than single model dependency.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;li&gt;&lt;b&gt;Cross Functional Coordination&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Work closely with engineering, fraud, compliance, legal, and customer teams.&lt;/li&gt;&lt;li&gt;Support internal and external conversations where ML behavior or performance needs explanation.&lt;/li&gt;&lt;li&gt;Translate technical constraints into clear delivery expectations for non technical stakeholders.&lt;/li&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;What You Will Need (Required Knowledege, Skills &amp;amp; Abilities): &lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;&lt;b&gt;Experience&lt;/b&gt;&lt;/li&gt;&lt;li&gt;3-5 years of experience in product ownership, product management, or equivalent delivery focused roles.&lt;/li&gt;&lt;li&gt;Demonstrated experience supporting ML based products in production.&lt;/li&gt;&lt;li&gt;Direct experience working with data science and ML engineering teams.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;li&gt;&lt;b&gt;Domain and Technical Fluency&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Strong working knowledge of computer vision and ML fundamentals.&lt;/li&gt;&lt;li&gt;Experience with biometric technologies such as face matching, liveness detection, and spoof prevention.&lt;/li&gt;&lt;li&gt;Experience with document verification, document classification, or document fraud detection.&lt;/li&gt;&lt;li&gt;Hands-on experience building ML based products in the biometric and document identity space is highly valuable.&lt;/li&gt;&lt;li&gt;Ability to evaluate tradeoffs between different modeling and data approaches without being a data scientist.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;li&gt;&lt;b&gt;Execution and Judgment&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Comfortable pushing back on ML teams when solutions are over engineered, misaligned, or not production ready.&lt;/li&gt;&lt;li&gt;Able to propose alternate approaches grounded in data availability, fraud realities, and delivery constraints.&lt;/li&gt;&lt;li&gt;Strong attention to detail and a bias toward shipping reliable and measurable capabilities.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;li&gt;&lt;b&gt;Communication Skills&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Able to clearly articulate ML concepts, risks, and tradeoffs to non technical stakeholders.&lt;/li&gt;&lt;li&gt;Comfortable supporting customer facing or internal discussions around model behavior and limitations.&lt;/li&gt;&lt;li&gt;Able to document requirements and acceptance criteria with precision.&lt;/li&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;What Would Be Nice (Preferred Experience):&lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;Hands on experience shipping biometric or document based ML solutions into production.&lt;/li&gt;&lt;li&gt;Experience in fraud, identity, or regulated environments such as financial services or fintech.&lt;/li&gt;&lt;li&gt;Familiarity with model monitoring, drift management, and feedback loops.&lt;/li&gt;&lt;li&gt;Experience working with global document types and jurisdictional variation.&lt;/li&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;What We Offer:&lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;Work with a global leader in Digital Identity and Fraud prevention.&lt;/li&gt;&lt;li&gt;Build products that power secure, seamless digital experiences.&lt;/li&gt;&lt;li&gt;High-impact role in a fast-growing market.&lt;/li&gt;&lt;li&gt;Excellent working atmosphere and great culture.&lt;/li&gt;&lt;li&gt;100% remote-friendly (with optional work from our San Diego, CA office).&lt;/li&gt;&lt;li&gt;Work with a diverse global team passionate about technology and impact.&lt;/li&gt;&lt;li&gt;Continuous learning and growth opportunities.&lt;/li&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;$115,000 - $140,000 a year&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;b&gt;&lt;span&gt;We take pride in enabling career growth in an environment of innovation and teamwork.&lt;/span&gt;&lt;/b&gt;&lt;span&gt;&amp;nbsp; Our commitment to all Mitekians is to do meaningful work that matters.&amp;nbsp; Our culture is defined by delivering our best to our customers by providing high value solutions and impactful outcomes, by continuously challenging convention, and by caring for each other through collaboration and celebrating our successes.&amp;nbsp; We are committed to creating competitive, equitable compensation &amp;amp; benefits programs and career development opportunities.&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;&lt;span&gt;Benefit offerings &lt;/span&gt;&lt;/b&gt;&lt;b&gt;–&lt;/b&gt;&lt;b&gt;&lt;i&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/i&gt;&lt;/b&gt;&lt;i&gt;&lt;span&gt;may vary based on geographic location&lt;/span&gt;&lt;/i&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Wellness&lt;/b&gt;&lt;span&gt;: Universal, supplemental, and private healthcare plan choices based on country specifics&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Financial future&lt;/b&gt;&lt;span&gt;: retirement/pension plan contributions, MTK stock plan participation &amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Income protection: &lt;/b&gt;&lt;span&gt;life event&amp;nbsp;&amp;amp; disability coverage&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Paid time off&lt;/b&gt;&lt;span&gt;: generous annual leave, company holidays, volunteer time off&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Learning&lt;/b&gt;&lt;span&gt;: e-learning license, tuition reimbursement, hackathons&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Home office setup allowance&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;&lt;span&gt;Additional/optional benefits&lt;/span&gt;&lt;/b&gt;&lt;span&gt;: pet insurance, identity theft protection, legal assistance&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;We sincerely appreciate your interest in Mitek. We know your time is valuable and look forward to the potential of speaking with you further!&amp;nbsp;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div class="text-small italic text-gray-700"&gt;We may use artificial intelligence (AI) tools to support parts of the hiring process, such as reviewing applications, analyzing resumes, or assessing responses. These tools assist our recruitment team but do not replace human judgment. Final hiring decisions are ultimately made by humans. If you would like more information about how your data is processed, please contact us.&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/mitek-systems-product-owner-machine-learning"&gt;https://weworkremotely.com/remote-jobs/mitek-systems-product-owner-machine-learning&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 20:31:00 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 20:31:00 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/mitek-systems-product-owner-machine-learning</guid>
+      <link>https://weworkremotely.com/remote-jobs/mitek-systems-product-owner-machine-learning</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/5194/logo.gif" type="image/png"/>
+      <title>Chief Rebel: Full Stack Engineer (AI-Forward)</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>Texas</state>
+      <skills></skills>
+      <category>Full-Stack Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/5194/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Austin,TX
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://thechiefrebel.com/"&gt;https://thechiefrebel.com/&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;&lt;strong&gt;Why This Role Matters&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;The small business market is massive and almost entirely untouched by modern technology. We're building the platform that changes that. You won't be joining a team that's figured it all out. You'll be one of the people who figures it out, and your fingerprints will be on the architecture.&lt;/p&gt;
+&lt;hr class="border-border-200 border-t-0.5 my-3 mx-1.5"&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;&lt;strong&gt;About the Role&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;You'll work directly with our Head of Engineering and Head of Operations, embedded in the core product team from day one. This is not a siloed role. You'll have visibility into how decisions get made and direct input into what gets built next.&lt;/p&gt;
+&lt;hr class="border-border-200 border-t-0.5 my-3 mx-1.5"&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;&lt;strong&gt;What You'll Do&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;Own problems end to end. Discovery, design, build, deploy, and debug with minimal hand-holding.&lt;/p&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;On the technical side:&lt;/p&gt;
+&lt;ul class="[li_&amp;amp;]:mb-0 [li_&amp;amp;]:mt-1 [li_&amp;amp;]:gap-1 [&amp;amp;:not(:last-child)_ul]:pb-1 [&amp;amp;:not(:last-child)_ol]:pb-1 list-disc flex flex-col gap-1 pl-8 mb-3"&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Build and extend a production-grade platform running Next.js, Go, Supabase, and an async job pipeline built for scale&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Work across the full stack, React and TypeScript on the frontend, Go on the backend, with cloud infrastructure on Fly.io and Vercel&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Integrate and manage AI workflows using large language models, document intelligence, and structured data extraction, and know when not to use AI at all&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Build and improve async processing pipelines with signed delivery, auto-retry, and idempotency built in&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Help design and build out our go-to-market funnel infrastructure, including tooling that supports outbound prospecting, lead enrichment, and off-market deal sourcing&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Write clean, well-tested code and contribute to engineering standards as the team grows&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;On the team side:&lt;/p&gt;
+&lt;ul class="[li_&amp;amp;]:mb-0 [li_&amp;amp;]:mt-1 [li_&amp;amp;]:gap-1 [&amp;amp;:not(:last-child)_ul]:pb-1 [&amp;amp;:not(:last-child)_ol]:pb-1 list-disc flex flex-col gap-1 pl-8 mb-3"&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Work closely with the Head of Engineering on architecture, code quality, and technical direction&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Partner with the Head of Operations to build tooling that supports go-to-market execution and off-market deal sourcing&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Translate vague requirements into working systems, and push back when the scope doesn't make sense&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Help establish engineering culture and practices as the team grows&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr class="border-border-200 border-t-0.5 my-3 mx-1.5"&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;&lt;strong&gt;What We're Looking For&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;Skills matter. Mindset matters more.&lt;/p&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;We want someone who:&lt;/p&gt;
+&lt;ul class="[li_&amp;amp;]:mb-0 [li_&amp;amp;]:mt-1 [li_&amp;amp;]:gap-1 [&amp;amp;:not(:last-child)_ul]:pb-1 [&amp;amp;:not(:last-child)_ol]:pb-1 list-disc flex flex-col gap-1 pl-8 mb-3"&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Has 5+ years of professional engineering experience, with real production systems to point to&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Has built AI-integrated systems end to end, not just connected an interface, but thought through orchestration, output quality, and what happens when things go wrong&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Is comfortable with Go or Python on the backend and React with TypeScript on the frontend&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Has worked with PostgreSQL, async job queues, cloud infrastructure, and multi-tenant data design&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Understands how to scope and ship under uncertainty without needing perfect requirements&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Can talk through technical decisions with a non-technical founder and a developer in the same conversation&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Has opinions about the current AI tooling landscape, including contrarian ones&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;Bonus if you have:&lt;/p&gt;
+&lt;ul class="[li_&amp;amp;]:mb-0 [li_&amp;amp;]:mt-1 [li_&amp;amp;]:gap-1 [&amp;amp;:not(:last-child)_ul]:pb-1 [&amp;amp;:not(:last-child)_ol]:pb-1 list-disc flex flex-col gap-1 pl-8 mb-3"&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Experience building go-to-market or sales funnel tooling, outbound automation, or data enrichment pipelines&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Familiarity with document parsing, financial data normalization, or working with messy real-world inputs&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Background in tools built for small business, financial services, or professional services markets&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Interest in how private companies are valued and what makes them attractive to buyers&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr class="border-border-200 border-t-0.5 my-3 mx-1.5"&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;&lt;strong&gt;What You Won't Find Here&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;A slow approval process. A 12-step standup ritual. A roadmap locked in six quarters ago.&lt;/p&gt;
+&lt;hr class="border-border-200 border-t-0.5 my-3 mx-1.5"&gt;
+&lt;p class="font-claude-response-body break-words whitespace-normal leading-[1.7]"&gt;&lt;strong&gt;What You Will Find&lt;/strong&gt;&lt;/p&gt;
+&lt;ul class="[li_&amp;amp;]:mb-0 [li_&amp;amp;]:mt-1 [li_&amp;amp;]:gap-1 [&amp;amp;:not(:last-child)_ul]:pb-1 [&amp;amp;:not(:last-child)_ol]:pb-1 list-disc flex flex-col gap-1 pl-8 mb-3"&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Direct access to leadership and real influence over product and technical direction&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Flexible, remote-first work&lt;/li&gt;
+&lt;li class="font-claude-response-body whitespace-normal break-words pl-2"&gt;Work with tangible impact on business owners who have spent years building something&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/chief-rebel-full-stack-engineer-ai-forward"&gt;https://weworkremotely.com/remote-jobs/chief-rebel-full-stack-engineer-ai-forward&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 10:01:10 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 10:01:10 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/chief-rebel-full-stack-engineer-ai-forward</guid>
+      <link>https://weworkremotely.com/remote-jobs/chief-rebel-full-stack-engineer-ai-forward</link>
+    </item>
+  </channel>
+</rss>

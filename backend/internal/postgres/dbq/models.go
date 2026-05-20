@@ -194,3 +194,19 @@ type WikiEntry struct {
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 }
+
+type JobSource struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	Kind          string
+	Config        []byte
+	Label         string
+	LastFetchedAt pgtype.Timestamptz
+	CreatedAt     pgtype.Timestamptz
+}
+
+type JobFingerprint struct {
+	SourceID    pgtype.UUID
+	ExternalID  string
+	FirstSeenAt pgtype.Timestamptz
+}

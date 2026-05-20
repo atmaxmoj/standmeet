@@ -1,0 +1,694 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://jobs.elastic.co/jobs?gh_jid=7505982&gh_jid=7505982",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 3325720,
+      "location": {
+        "name": "United Kingdom"
+      },
+      "metadata": [
+        {
+          "id": 32131013,
+          "name": "Requisition open date",
+          "value": "2025-12-26",
+          "value_type": "date"
+        },
+        {
+          "id": 168141,
+          "name": "Target Remote Countries / States Locations [For Job Wrapping]",
+          "value": [
+            "United Kingdom"
+          ],
+          "value_type": "multi_select"
+        },
+        {
+          "id": 33574685,
+          "name": "Types of Hiring",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164553,
+          "name": "FADV_Account",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164588,
+          "name": "FADV_Package",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 30595384,
+          "name": "Seniority",
+          "value": "Mid-Senior Level",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7505982,
+      "updated_at": "2026-05-18T22:51:24-04:00",
+      "requisition_id": "R10877",
+      "title": "Account Executive ",
+      "company_name": "Elastic",
+      "first_published": "2025-12-30T08:20:48-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Elastic, the Search AI Company, enables everyone to find the answers they need in real time, using all their data, at scale — unleashing the potential of businesses and people. The Elastic Search AI Platform, used by more than 50% of the Fortune 500, brings together the precision of search and the intelligence of AI to enable everyone to accelerate the results that matter. By taking advantage of all structured and unstructured data — securing and protecting private information more effectively — Elastic’s complete, cloud-based solutions for search, security, and observability help organizations deliver on the promise of AI.&lt;/p&gt;&lt;/div&gt;&lt;p data-start=&quot;0&quot; data-end=&quot;543&quot;&gt;&lt;strong data-start=&quot;0&quot; data-end=&quot;20&quot;&gt;What Is The Role&lt;/strong&gt;&lt;br data-start=&quot;20&quot; data-end=&quot;23&quot;&gt;Elastic, the Search AI company, is looking for a high-energy Enterprise Account Executive to drive net-new revenue and expansion within strategic Enterprise accounts. You’ll be the owner of a defined territory where you’ll build your own pipeline, tell the Elastic Search AI story, and close complex, multi-stakeholder deals in a consumption-based model. This role sits at the intersection of sales execution, technical fluency, and cross-functional collaboration—and is critical to our growth in the Enterprise segment.&lt;/p&gt;\n&lt;p data-start=&quot;550&quot; data-end=&quot;578&quot;&gt;&lt;strong data-start=&quot;550&quot; data-end=&quot;576&quot;&gt;What You Will Be Doing&lt;/strong&gt;&lt;/p&gt;\n&lt;ul data-start=&quot;579&quot; data-end=&quot;1845&quot;&gt;\n&lt;li data-start=&quot;579&quot; data-end=&quot;745&quot;&gt;\n&lt;p data-start=&quot;581&quot; data-end=&quot;745&quot;&gt;Own your territory &amp;amp; build pipeline: Develop and execute a proactive outbound cadence (email, call, social) that generates ≥50 % of your booked opportunities.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;579&quot; data-end=&quot;745&quot;&gt;\n&lt;p data-start=&quot;581&quot; data-end=&quot;745&quot;&gt;Deep discovery &amp;amp; qualification: Uncover pain, business impact, budget, and decision criteria using frameworks like MEDDPICC so you chase only the highest-confidence deals.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;926&quot; data-end=&quot;1115&quot;&gt;\n&lt;p data-start=&quot;928&quot; data-end=&quot;1115&quot;&gt;Value storytelling &amp;amp; demos: Craft and deliver tailored narratives and live demos that map Elastic’s Search, Observability, and Security capabilities to measurable business outcomes.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;1116&quot; data-end=&quot;1300&quot;&gt;\n&lt;p data-start=&quot;1118&quot; data-end=&quot;1300&quot;&gt;Mutual deal strategy &amp;amp; forecast accuracy: Collaborate with customers to build formal close plans and keep your CRM up-to-date, maintaining ≥90 % forecast accuracy within ±10 %.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;1301&quot; data-end=&quot;1482&quot;&gt;\n&lt;p data-start=&quot;1303&quot; data-end=&quot;1482&quot;&gt;Executive negotiation &amp;amp; closing: Lead high-stakes contract and pricing discussions—defend your value, structure give/get trades, and land multi-year consumption commitments.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;1483&quot; data-end=&quot;1662&quot;&gt;\n&lt;p data-start=&quot;1485&quot; data-end=&quot;1662&quot;&gt;Domain &amp;amp; cloud acumen: Position Elastic as the Search AI platform of choice by speaking fluently about cloud economics, usage-based pricing, and modern data architectures.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;1663&quot; data-end=&quot;1845&quot;&gt;\n&lt;p data-start=&quot;1665&quot; data-end=&quot;1845&quot;&gt;Cross-functional partnership: Work hand-in-glove with Solutions Architects, Customer Success, Marketing, and RevOps to accelerate deals and drive exceptional customer outcomes.&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;1852&quot; data-end=&quot;1872&quot;&gt;&lt;strong data-start=&quot;1852&quot; data-end=&quot;1870&quot;&gt;What You Bring&lt;/strong&gt;&lt;/p&gt;\n&lt;ul data-start=&quot;1873&quot; data-end=&quot;3080&quot;&gt;\n&lt;li data-start=&quot;1873&quot; data-end=&quot;2045&quot;&gt;\n&lt;p data-start=&quot;1875&quot; data-end=&quot;2045&quot;&gt;Proven SaaS quota‐carrying success: 5+ years closing complex Enterprise deals within large telcos, consistently overachieving targets in a consumption-based or usage-model environment.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2046&quot; data-end=&quot;2225&quot;&gt;\n&lt;p data-start=&quot;2048&quot; data-end=&quot;2225&quot;&gt;Expert discovery &amp;amp; qualification skills: Demonstrated ability to apply MEDDPICC or equivalent frameworks to drive disciplined pipeline and eliminate low-probability deals.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2226&quot; data-end=&quot;2419&quot;&gt;\n&lt;p data-start=&quot;2228&quot; data-end=&quot;2419&quot;&gt;Compelling value storytellers: Track record of delivering executive-level presentations and demos that tie product capabilities to real dollars saved, revenue gained, or risk mitigated.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2420&quot; data-end=&quot;2570&quot;&gt;\n&lt;p data-start=&quot;2422&quot; data-end=&quot;2570&quot;&gt;Strong negotiation chops: History of landing multi-year, high-ACV contracts while protecting margin and securing executive stakeholder buy-in.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2571&quot; data-end=&quot;2731&quot;&gt;\n&lt;p data-start=&quot;2573&quot; data-end=&quot;2731&quot;&gt;Technical &amp;amp; cloud fluency: Comfortable discussing a broad range of technical topics including observability, security, vector/traditional search, and cloud cost optimization.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2732&quot; data-end=&quot;2913&quot;&gt;\n&lt;p data-start=&quot;2734&quot; data-end=&quot;2913&quot;&gt;Collaborative mindset &amp;amp; coachability: A learner who partners effectively with internal teams, incorporates feedback, and embodies Elastic’s values of community and openness.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2914&quot; data-end=&quot;3080&quot;&gt;\n&lt;p data-start=&quot;2916&quot; data-end=&quot;3080&quot;&gt;Open Source enthusiasm: Genuine appreciation for open-source communities and the Elastic model—bonus if you’ve sold or advocated in an OSS context.&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;3087&quot; data-end=&quot;3098&quot;&gt;&lt;strong data-start=&quot;3087&quot; data-end=&quot;3096&quot;&gt;Bonus Points&lt;/strong&gt;&lt;/p&gt;\n&lt;ul data-start=&quot;3099&quot; data-end=&quot;3283&quot;&gt;\n&lt;li data-start=&quot;3099&quot; data-end=&quot;3182&quot;&gt;\n&lt;p data-start=&quot;3101&quot; data-end=&quot;3182&quot;&gt;Prior experience at an open-source or developer‐centric infrastructure company.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;3183&quot; data-end=&quot;3283&quot;&gt;\n&lt;p data-start=&quot;3185&quot; data-end=&quot;3283&quot;&gt;Familiarity with observability (logs, metrics, traces) or security analytics (SIEM/XDR) use cases.&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;3285&quot; data-end=&quot;3439&quot; data-is-last-node=&quot;&quot; data-is-only-node=&quot;&quot;&gt;If you’re driven to build your own pipeline, master complex deal cycles, and help customers unlock the power of Search AI, we’d love to talk. Apply today!&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Additional Information - We Take Care of Our People&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;As a distributed company, diversity drives our identity. Whether you’re looking to launch a new career or grow an existing one, Elastic is the type of company where you can balance great work with great life. Your age is only a number. It doesn’t matter if you’re just out of college or your children are; we need you for what you can do.&lt;/p&gt;\n&lt;p&gt;We strive to have parity of benefits across regions and while regulations differ from place to place, we believe taking care of our people is the right thing to do.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive pay based on the work you do here and not your previous salary&lt;/li&gt;\n&lt;li&gt;Health coverage for you and your family in many locations&lt;/li&gt;\n&lt;li&gt;Ability to craft your calendar with flexible locations and schedules for many roles&lt;/li&gt;\n&lt;li&gt;Generous number of vacation days each year&lt;/li&gt;\n&lt;li&gt;Increase your impact - We match up to $2000 (or local currency equivalent) for financial donations and service&lt;/li&gt;\n&lt;li&gt;Up to 40 hours each year to use toward volunteer projects you love&lt;/li&gt;\n&lt;li&gt;Embracing parenthood with minimum of 16 weeks of parental leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Different people approach problems differently. We need that. Elastic is an equal opportunity employer and is committed to creating an inclusive culture that celebrates different perspectives, experiences, and backgrounds. Qualified applicants will receive consideration for employment without regard to race, ethnicity, color, religion, sex, pregnancy, sexual orientation, gender perception or identity, national origin, age, marital status, protected veteran status, disability status, or any other basis protected by federal, state or local law, ordinance or regulation.&lt;/p&gt;\n&lt;p&gt;We welcome individuals with disabilities and strive to create an accessible and inclusive experience for all individuals. To request an accommodation during the application or the recruiting process, please email &lt;a href=&quot;mailto:candidate_accessibility@elastic.co&quot; target=&quot;_blank&quot;&gt;candidate_accessibility@elastic.co&lt;/a&gt;&lt;span class=&quot;gmail_default&quot;&gt;.&lt;/span&gt;&amp;nbsp;We will reply to your request within 24 business hours of submission.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Applicants have rights under Federal Employment Laws, view posters linked below:&lt;/span&gt; &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf&quot; target=&quot;_blank&quot;&gt;Family and Medical Leave Act (FMLA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster;&lt;/span&gt;&lt;span style=&quot;color: #000000;&quot;&gt;&amp;nbsp;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/ofccp/pdf/pay-transp_%20English_formattedESQA508c.pdf&quot; target=&quot;_blank&quot;&gt;Pay Transparency Nondiscrimination Provision&lt;/a&gt; Poster; &lt;/span&gt;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/eppabw.pdf&quot; target=&quot;_blank&quot;&gt;Employee Polygraph Protection Act (EPPA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster and &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/OFCCP/regs/compliance/posters/pdf/22-088_EEOC_KnowYourRights.pdf&quot; target=&quot;_blank&quot;&gt;Know Your Rights&lt;/a&gt; (Poster)&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Elasticsearch develops and distributes technology and information that is subject to U.S. and other countries’ export controls and licensing requirements for individuals who are located in or are nationals of the following sanctioned countries and regions: Belarus, Cuba, Iran, North Korea, Syria, or Russia, including the Ukrainian territories annexed by Russia (The Crimea region of Ukraine, The Donetsk People&#39;s Republic (DNR), The Luhansk People&#39;s Republic (LNR), Kherson or Zaporizhzhia). If you are located in or are a national of one of the listed countries or regions, an export license may be required as a condition of your employment in this role. Please note that national origin and/or nationality do not affect eligibility for employment with Elastic.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please see&amp;nbsp;&lt;a href=&quot;https://www.elastic.co/legal/applicant-privacy-statement&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://www.elastic.co/legal/applicant-privacy-statement&amp;amp;source=gmail&amp;amp;ust=1611068262479000&amp;amp;usg=AFQjCNG3orAPk5sJIr9WVm0ZDxYw82c5DA&quot;&gt;here&lt;/a&gt;&amp;nbsp;for our Privacy Statement.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 220461,
+          "name": "Sales - EMEA - UKI",
+          "child_ids": [],
+          "parent_id": 220397
+        }
+      ],
+      "offices": [
+        {
+          "id": 80195,
+          "name": "United Kingdom",
+          "location": null,
+          "child_ids": [
+            20739
+          ],
+          "parent_id": 80176
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://jobs.elastic.co/jobs?gh_jid=7525643&gh_jid=7525643",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 3333799,
+      "location": {
+        "name": "United Kingdom"
+      },
+      "metadata": [
+        {
+          "id": 32131013,
+          "name": "Requisition open date",
+          "value": "2026-01-09",
+          "value_type": "date"
+        },
+        {
+          "id": 168141,
+          "name": "Target Remote Countries / States Locations [For Job Wrapping]",
+          "value": [
+            "United Kingdom"
+          ],
+          "value_type": "multi_select"
+        },
+        {
+          "id": 33574685,
+          "name": "Types of Hiring",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164553,
+          "name": "FADV_Account",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164588,
+          "name": "FADV_Package",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 30595384,
+          "name": "Seniority",
+          "value": "Mid-Senior Level",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7525643,
+      "updated_at": "2026-05-18T22:51:46-04:00",
+      "requisition_id": "R10910",
+      "title": "Account Executive - MSSP",
+      "company_name": "Elastic",
+      "first_published": "2026-01-09T07:07:01-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Elastic, the Search AI Company, enables everyone to find the answers they need in real time, using all their data, at scale — unleashing the potential of businesses and people. The Elastic Search AI Platform, used by more than 50% of the Fortune 500, brings together the precision of search and the intelligence of AI to enable everyone to accelerate the results that matter. By taking advantage of all structured and unstructured data — securing and protecting private information more effectively — Elastic’s complete, cloud-based solutions for search, security, and observability help organizations deliver on the promise of AI.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What Is The Role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Elastic, the Search AI company, is looking for a high-energy, hunter-minded Senior Account Executive to own and grow our Managed Security Service Provider (MSSP) ecosystem across the UK and Ireland. This is a dual-motion role: recruit net-new MSSP partners into the Elastic programme and expand the commercial footprint of existing MSSP relationships—driving revenue both ‘to’ and ‘through’ partners.&lt;/p&gt;\n&lt;p&gt;The UK managed security services market is growing at nearly 12% per year. Forward-looking MSSPs are moving away from legacy SIEM platforms toward Elastic Security: an agentic platform with resource-based pricing that scales with partner economics. You will help MSSPs unlock the value of Elastic’s AI-driven threat detection, native automation, and open architecture—enabling them to serve more customers with better margins and a genuinely differentiated service.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What You Will Be Doing&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Recruit &amp;amp; develop new MSSP partners: Identify and engage target MSSPs and security-focused MSPs across UKI, leading the conversation from prospecting through programme enrolment and first revenue.&lt;/li&gt;\n&lt;li&gt;Grow existing MSSP relationships: Own a portfolio of established partners; build joint business plans, define security service roadmaps, and expand Elastic’s footprint across their customer base.&lt;/li&gt;\n&lt;li&gt;Build &amp;amp; forecast an accurate pipeline: Manage a healthy pipeline of ‘to’ and ‘through’ partner opportunities, maintaining ≥90% forecast accuracy and CRM hygiene throughout.&lt;/li&gt;\n&lt;li&gt;Tell the Elastic value story: Deliver tailored narratives connecting Elastic Security’s platform—Attack Discovery, AI Assistant, Workflows, Agent Builder, resource-based pricing—to the commercial outcomes MSSPs care about: margin, scalability, and differentiation.&lt;/li&gt;\n&lt;li&gt;Shape the partner’s security roadmap: Collaborate with partner product and operations teams to build a capability roadmap on Elastic, enabling scalable managed security service delivery across cloud, on-premise, or hybrid.&lt;/li&gt;\n&lt;li&gt;Enable partner sales &amp;amp; technical teams: Train MSSP teams on Elastic’s proposition and co-create joint go-to-market plans aligned to the Elastic Partner Programme.&lt;/li&gt;\n&lt;li&gt;Convert MSPs to recurring security revenue:&lt;strong&gt; &lt;/strong&gt;Guide traditional MSPs and VAR partners from transactional resale into profitable, recurring managed security services built on Elastic.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;3285&quot; data-end=&quot;3439&quot; data-is-last-node=&quot;&quot; data-is-only-node=&quot;&quot;&gt;&lt;strong data-start=&quot;0&quot; data-end=&quot;20&quot;&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What You Bring&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Proven MSSP/MSP sales track record: 5+ years of quota-carrying experience with managed service or managed security providers, consistently overachieving in a consumption or recurring revenue model.&lt;/li&gt;\n&lt;li&gt;Hunter mentality: Demonstrated ability to identify and land net-new partner relationships from a target list—you generate your own pipeline and thrive in a high-growth environment.&lt;/li&gt;\n&lt;li&gt;Expert discovery &amp;amp; qualification: Applies MEDDPICC or equivalent frameworks to drive disciplined pipeline management and eliminate low-probability deals early.&lt;/li&gt;\n&lt;li&gt;Security domain fluency: Working knowledge of the MSSP landscape, SIEM/XDR market dynamics, and the business model pressures facing Tier 2/3 security providers in UKI.&lt;/li&gt;\n&lt;li&gt;Technical &amp;amp; commercial literacy: Comfortable discussing cloud economics, resource-based pricing, multitenancy architectures, and how AI-driven triage translates to MSSP margin improvement.&lt;/li&gt;\n&lt;li&gt;Negotiation &amp;amp; closing capability: History of landing multi-year, high-ACV partner agreements while protecting margin and securing CxO buy-in.&lt;/li&gt;\n&lt;li&gt;Collaborative &amp;amp; coachable: Partners effectively with internal teams and embodies Elastic’s values of community, openness, and distributed innovation.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;3285&quot; data-end=&quot;3439&quot; data-is-last-node=&quot;&quot; data-is-only-node=&quot;&quot;&gt;&lt;strong data-start=&quot;0&quot; data-end=&quot;20&quot;&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Bonus Points&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience at an open-source, developer-centric, or Search AI infrastructure company.&lt;/li&gt;\n&lt;li&gt;Familiarity with SIEM/XDR/EDR use cases in an MSSP delivery context, or experience displacing legacy SIEM vendors (Splunk, QRadar, Sentinel).&lt;/li&gt;\n&lt;li&gt;An existing network of MSSP or SOC-as-a-service relationships across UKI.&lt;/li&gt;\n&lt;li&gt;Genuine appreciation for open-source communities and the Elastic model.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;3285&quot; data-end=&quot;3439&quot; data-is-last-node=&quot;&quot; data-is-only-node=&quot;&quot;&gt;#LI-PM1&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Additional Information - We Take Care of Our People&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;As a distributed company, diversity drives our identity. Whether you’re looking to launch a new career or grow an existing one, Elastic is the type of company where you can balance great work with great life. Your age is only a number. It doesn’t matter if you’re just out of college or your children are; we need you for what you can do.&lt;/p&gt;\n&lt;p&gt;We strive to have parity of benefits across regions and while regulations differ from place to place, we believe taking care of our people is the right thing to do.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive pay based on the work you do here and not your previous salary&lt;/li&gt;\n&lt;li&gt;Health coverage for you and your family in many locations&lt;/li&gt;\n&lt;li&gt;Ability to craft your calendar with flexible locations and schedules for many roles&lt;/li&gt;\n&lt;li&gt;Generous number of vacation days each year&lt;/li&gt;\n&lt;li&gt;Increase your impact - We match up to $2000 (or local currency equivalent) for financial donations and service&lt;/li&gt;\n&lt;li&gt;Up to 40 hours each year to use toward volunteer projects you love&lt;/li&gt;\n&lt;li&gt;Embracing parenthood with minimum of 16 weeks of parental leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Different people approach problems differently. We need that. Elastic is an equal opportunity employer and is committed to creating an inclusive culture that celebrates different perspectives, experiences, and backgrounds. Qualified applicants will receive consideration for employment without regard to race, ethnicity, color, religion, sex, pregnancy, sexual orientation, gender perception or identity, national origin, age, marital status, protected veteran status, disability status, or any other basis protected by federal, state or local law, ordinance or regulation.&lt;/p&gt;\n&lt;p&gt;We welcome individuals with disabilities and strive to create an accessible and inclusive experience for all individuals. To request an accommodation during the application or the recruiting process, please email &lt;a href=&quot;mailto:candidate_accessibility@elastic.co&quot; target=&quot;_blank&quot;&gt;candidate_accessibility@elastic.co&lt;/a&gt;&lt;span class=&quot;gmail_default&quot;&gt;.&lt;/span&gt;&amp;nbsp;We will reply to your request within 24 business hours of submission.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Applicants have rights under Federal Employment Laws, view posters linked below:&lt;/span&gt; &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf&quot; target=&quot;_blank&quot;&gt;Family and Medical Leave Act (FMLA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster;&lt;/span&gt;&lt;span style=&quot;color: #000000;&quot;&gt;&amp;nbsp;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/ofccp/pdf/pay-transp_%20English_formattedESQA508c.pdf&quot; target=&quot;_blank&quot;&gt;Pay Transparency Nondiscrimination Provision&lt;/a&gt; Poster; &lt;/span&gt;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/eppabw.pdf&quot; target=&quot;_blank&quot;&gt;Employee Polygraph Protection Act (EPPA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster and &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/OFCCP/regs/compliance/posters/pdf/22-088_EEOC_KnowYourRights.pdf&quot; target=&quot;_blank&quot;&gt;Know Your Rights&lt;/a&gt; (Poster)&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Elasticsearch develops and distributes technology and information that is subject to U.S. and other countries’ export controls and licensing requirements for individuals who are located in or are nationals of the following sanctioned countries and regions: Belarus, Cuba, Iran, North Korea, Syria, or Russia, including the Ukrainian territories annexed by Russia (The Crimea region of Ukraine, The Donetsk People&#39;s Republic (DNR), The Luhansk People&#39;s Republic (LNR), Kherson or Zaporizhzhia). If you are located in or are a national of one of the listed countries or regions, an export license may be required as a condition of your employment in this role. Please note that national origin and/or nationality do not affect eligibility for employment with Elastic.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please see&amp;nbsp;&lt;a href=&quot;https://www.elastic.co/legal/applicant-privacy-statement&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://www.elastic.co/legal/applicant-privacy-statement&amp;amp;source=gmail&amp;amp;ust=1611068262479000&amp;amp;usg=AFQjCNG3orAPk5sJIr9WVm0ZDxYw82c5DA&quot;&gt;here&lt;/a&gt;&amp;nbsp;for our Privacy Statement.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 220461,
+          "name": "Sales - EMEA - UKI",
+          "child_ids": [],
+          "parent_id": 220397
+        }
+      ],
+      "offices": [
+        {
+          "id": 80195,
+          "name": "United Kingdom",
+          "location": null,
+          "child_ids": [
+            20739
+          ],
+          "parent_id": 80176
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://jobs.elastic.co/jobs?gh_jid=7831596&gh_jid=7831596",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 3416941,
+      "location": {
+        "name": "Delhi, India"
+      },
+      "metadata": [
+        {
+          "id": 32131013,
+          "name": "Requisition open date",
+          "value": "2026-04-20",
+          "value_type": "date"
+        },
+        {
+          "id": 168141,
+          "name": "Target Remote Countries / States Locations [For Job Wrapping]",
+          "value": [],
+          "value_type": "multi_select"
+        },
+        {
+          "id": 33574685,
+          "name": "Types of Hiring",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164553,
+          "name": "FADV_Account",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164588,
+          "name": "FADV_Package",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 30595384,
+          "name": "Seniority",
+          "value": "Mid-Senior Level",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7831596,
+      "updated_at": "2026-05-19T06:22:40-04:00",
+      "requisition_id": "R11529",
+      "title": "Account Executive - Public Sector",
+      "company_name": "Elastic",
+      "first_published": "2026-04-28T00:56:37-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Elastic, the Search AI Company, enables everyone to find the answers they need in real time, using all their data, at scale — unleashing the potential of businesses and people. The Elastic Search AI Platform, used by more than 50% of the Fortune 500, brings together the precision of search and the intelligence of AI to enable everyone to accelerate the results that matter. By taking advantage of all structured and unstructured data — securing and protecting private information more effectively — Elastic’s complete, cloud-based solutions for search, security, and observability help organizations deliver on the promise of AI.&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;What is The Role&lt;/h2&gt;\n&lt;p&gt;Elastic is searching for an Enterprise Account Executive (SLEDH) to expand our business in States (primarily focused on northern and eastern part of India) along with Education &amp;amp; Healthcare accounts. Our Enterprise Account Executives are individual contributors, passionate about building new business and growing the Elastic footprint within their set of accounts. Are you ready to help users tackle their hardest data problems through the power of search? If so, we’d love to hear from you!&lt;/p&gt;\n&lt;h2&gt;What You Will Be Doing&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Building awareness and driving demand for Elastic solutions within States &amp;amp; EDU &amp;amp; Healthcare accounts by helping users and customers derive value from their data sets.&lt;/li&gt;\n&lt;li&gt;Serving as an evangelist for our Open-Source offerings while communicating and demonstrating the capabilities of our commercial features&lt;/li&gt;\n&lt;li&gt;Uncovering new and diverse use cases to enable our users to work smarter, not harder&lt;/li&gt;\n&lt;li&gt;Collaborating across Elastic business functions to ensure a seamless customer experience&lt;/li&gt;\n&lt;li&gt;Working thoughtfully with customers to identify new business opportunities, managing through the sales cycle and closing complex transactions&lt;/li&gt;\n&lt;li&gt;Building a robust business plan through community, customer and partner ecosystems to achieve significant Elastic growth within your accounts&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;What You Bring&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;A track-record of success in selling Software/Security Solutions/SaaS subscriptions into net new complex accounts, demonstrated by overachievement of quota and strong customer references&lt;/li&gt;\n&lt;li&gt;A deep understanding and preferably experience selling into the ecosystem we live in, including Enterprise Search, Logging, Security, APM and Cloud&lt;/li&gt;\n&lt;li&gt;The ability to build relationships and credibility with both Developers and Executives&lt;/li&gt;\n&lt;li&gt;Predictability and accurate forecasting capabilities using SFDC&lt;/li&gt;\n&lt;li&gt;An appreciation for the Open Source go-to-market model and the community of users who rely on our solutions every single day&lt;/li&gt;\n&lt;li&gt;Previous experience selling into the Enterprise accounts included in this territory&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;Bonus Points&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Previous experience selling in an Open Source model&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;#LI-AS3&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Additional Information - We Take Care of Our People&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;As a distributed company, diversity drives our identity. Whether you’re looking to launch a new career or grow an existing one, Elastic is the type of company where you can balance great work with great life. Your age is only a number. It doesn’t matter if you’re just out of college or your children are; we need you for what you can do.&lt;/p&gt;\n&lt;p&gt;We strive to have parity of benefits across regions and while regulations differ from place to place, we believe taking care of our people is the right thing to do.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive pay based on the work you do here and not your previous salary&lt;/li&gt;\n&lt;li&gt;Health coverage for you and your family in many locations&lt;/li&gt;\n&lt;li&gt;Ability to craft your calendar with flexible locations and schedules for many roles&lt;/li&gt;\n&lt;li&gt;Generous number of vacation days each year&lt;/li&gt;\n&lt;li&gt;Increase your impact - We match up to $2000 (or local currency equivalent) for financial donations and service&lt;/li&gt;\n&lt;li&gt;Up to 40 hours each year to use toward volunteer projects you love&lt;/li&gt;\n&lt;li&gt;Embracing parenthood with minimum of 16 weeks of parental leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Different people approach problems differently. We need that. Elastic is an equal opportunity employer and is committed to creating an inclusive culture that celebrates different perspectives, experiences, and backgrounds. Qualified applicants will receive consideration for employment without regard to race, ethnicity, color, religion, sex, pregnancy, sexual orientation, gender perception or identity, national origin, age, marital status, protected veteran status, disability status, or any other basis protected by federal, state or local law, ordinance or regulation.&lt;/p&gt;\n&lt;p&gt;We welcome individuals with disabilities and strive to create an accessible and inclusive experience for all individuals. To request an accommodation during the application or the recruiting process, please email &lt;a href=&quot;mailto:candidate_accessibility@elastic.co&quot; target=&quot;_blank&quot;&gt;candidate_accessibility@elastic.co&lt;/a&gt;&lt;span class=&quot;gmail_default&quot;&gt;.&lt;/span&gt;&amp;nbsp;We will reply to your request within 24 business hours of submission.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Applicants have rights under Federal Employment Laws, view posters linked below:&lt;/span&gt; &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf&quot; target=&quot;_blank&quot;&gt;Family and Medical Leave Act (FMLA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster;&lt;/span&gt;&lt;span style=&quot;color: #000000;&quot;&gt;&amp;nbsp;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/ofccp/pdf/pay-transp_%20English_formattedESQA508c.pdf&quot; target=&quot;_blank&quot;&gt;Pay Transparency Nondiscrimination Provision&lt;/a&gt; Poster; &lt;/span&gt;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/eppabw.pdf&quot; target=&quot;_blank&quot;&gt;Employee Polygraph Protection Act (EPPA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster and &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/OFCCP/regs/compliance/posters/pdf/22-088_EEOC_KnowYourRights.pdf&quot; target=&quot;_blank&quot;&gt;Know Your Rights&lt;/a&gt; (Poster)&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Elasticsearch develops and distributes technology and information that is subject to U.S. and other countries’ export controls and licensing requirements for individuals who are located in or are nationals of the following sanctioned countries and regions: Belarus, Cuba, Iran, North Korea, Syria, or Russia, including the Ukrainian territories annexed by Russia (The Crimea region of Ukraine, The Donetsk People&#39;s Republic (DNR), The Luhansk People&#39;s Republic (LNR), Kherson or Zaporizhzhia). If you are located in or are a national of one of the listed countries or regions, an export license may be required as a condition of your employment in this role. Please note that national origin and/or nationality do not affect eligibility for employment with Elastic.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please see&amp;nbsp;&lt;a href=&quot;https://www.elastic.co/legal/applicant-privacy-statement&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://www.elastic.co/legal/applicant-privacy-statement&amp;amp;source=gmail&amp;amp;ust=1611068262479000&amp;amp;usg=AFQjCNG3orAPk5sJIr9WVm0ZDxYw82c5DA&quot;&gt;here&lt;/a&gt;&amp;nbsp;for our Privacy Statement.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 220454,
+          "name": "Sales - APJ - India",
+          "child_ids": [],
+          "parent_id": 220398
+        }
+      ],
+      "offices": [
+        {
+          "id": 80198,
+          "name": "India",
+          "location": null,
+          "child_ids": [
+            84275
+          ],
+          "parent_id": 80177
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://jobs.elastic.co/jobs?gh_jid=7938831&gh_jid=7938831",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 3449220,
+      "location": {
+        "name": "France"
+      },
+      "metadata": [
+        {
+          "id": 32131013,
+          "name": "Requisition open date",
+          "value": "2026-05-18",
+          "value_type": "date"
+        },
+        {
+          "id": 168141,
+          "name": "Target Remote Countries / States Locations [For Job Wrapping]",
+          "value": [],
+          "value_type": "multi_select"
+        },
+        {
+          "id": 33574685,
+          "name": "Types of Hiring",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164553,
+          "name": "FADV_Account",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164588,
+          "name": "FADV_Package",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 30595384,
+          "name": "Seniority",
+          "value": "Mid-Senior Level",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7938831,
+      "updated_at": "2026-05-19T06:45:38-04:00",
+      "requisition_id": "R11659",
+      "title": "Account Executive Public Sector",
+      "company_name": "Elastic",
+      "first_published": "2026-05-19T06:45:38-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Elastic, the Search AI Company, enables everyone to find the answers they need in real time, using all their data, at scale — unleashing the potential of businesses and people. The Elastic Search AI Platform, used by more than 50% of the Fortune 500, brings together the precision of search and the intelligence of AI to enable everyone to accelerate the results that matter. By taking advantage of all structured and unstructured data — securing and protecting private information more effectively — Elastic’s complete, cloud-based solutions for search, security, and observability help organizations deliver on the promise of AI.&lt;/p&gt;&lt;/div&gt;&lt;p data-start=&quot;0&quot; data-end=&quot;543&quot;&gt;&lt;strong data-start=&quot;0&quot; data-end=&quot;20&quot;&gt;What Is The Role&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Elastic, the Search Analytics company, is seeking a dynamic Public Sector Account Executive to focus on Police/Interior clients. To excel as an Account Executive at Elastic, you need a blend of high-level technical curiosity and the gravitas of a value-based seller. Because Elastic isn&#39;t just a &quot;product&quot; but a versatile search, observability, and security platform, the role requires moving beyond simple transactions to solving complex data problems.&lt;/p&gt;\n&lt;p&gt;As a Public Sector Enterprise Account Executive, you will be an integral part of our growth strategy. You will drive net-new revenue and expansion within Public Sector Accounts in an assigned territory. This is an opportunity for those passionate about empowering companies through cutting-edge search technology and analytics, enabling them to unlock the full potential of their data.&lt;/p&gt;\n&lt;p data-start=&quot;550&quot; data-end=&quot;578&quot;&gt;&lt;strong data-start=&quot;550&quot; data-end=&quot;576&quot;&gt;What You Will Be Doing&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Drive Adoption:&lt;/strong&gt; Fuel the adoption of Elastic’s AI-powered search solutions, Observability and Security solutions within (new) Public Sector accounts while deepening engagement with existing ones.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Be a Trusted Advisor:&lt;/strong&gt; Assist users and customers in harnessing the full power of search analytics to transform data into actionable insights.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Domain &amp;amp; cloud acumen:&lt;/strong&gt; Position Elastic as the Search AI platform of choice by speaking fluently about cloud economics, usage-based pricing, and modern data architectures.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Solve Complex Problems:&lt;/strong&gt; Move beyond simple transactions to address the intricate data challenges our customers face.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Champion Open Source:&lt;/strong&gt; Articulate the value of our advanced commercial features while advocating for our Open-Source offerings.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Identify New Use Cases:&lt;/strong&gt; Showcase how Elastic’s solutions enable users to work more efficiently and intelligently.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Strategic Planning:&lt;/strong&gt; Develop comprehensive business plans leveraging community, customer, and partner ecosystems to drive significant territory growth.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Navigate Sales Cycles:&lt;/strong&gt; Proactively identify new opportunities and successfully manage complex sales cycles.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Deep discovery &amp;amp; qualification:&lt;/strong&gt; Uncover pain, business impact, budget, and decision criteria using frameworks like &lt;em&gt;MEDDPICC &lt;/em&gt;so you chase only the highest-confidence deals&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Cross-functional partnership: &lt;/strong&gt;Work hand-in-glove with Solutions Architects, Customer Success, Marketing, and RevOps to accelerate deals and drive exceptional customer outcomes.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;What You Bring&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;The Right Blend:&lt;/strong&gt; A combination of high-level technical curiosity and the gravitas of a value-based seller.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Proven Track Record:&lt;/strong&gt; Success in SaaS subscription sales in Public Sector/Police/Interior accounts, evidenced by overachievement.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Value Storytelling:&lt;/strong&gt; The ability to craft tailored narratives that link Elastic’s technical capabilities (Search, Observability, Security) to measurable business outcomes like revenue gain or risk mitigation is critical.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Executive negotiation &amp;amp; closing:&lt;/strong&gt; Lead high-stakes contract and pricing discussions&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Technical &amp;amp; cloud fluency:&lt;/strong&gt; Comfortable discussing a broad range of technical topics including security, observability, vector/traditional search, and cloud cost optimization.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Relationship Building:&lt;/strong&gt; Adept at establishing credibility with both technical developers and executive leadership.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Mutual deal strategy &amp;amp; forecast accuracy:&lt;/strong&gt; Consistent, predictable and accurate sales forecasting skills. Collaborate with customers to build formal close plans and keep your CRM up to date.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Ability to create&lt;/strong&gt; alignment across teams to accelerate deals&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;AI Mindset: Use new technologies for performance advantage and deal structuring&lt;/strong&gt;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Open-Source Appreciation:&lt;/strong&gt; Enthusiasm for the Open-Source model and the community relying on our solutions.&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Additional Information - We Take Care of Our People&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;As a distributed company, diversity drives our identity. Whether you’re looking to launch a new career or grow an existing one, Elastic is the type of company where you can balance great work with great life. Your age is only a number. It doesn’t matter if you’re just out of college or your children are; we need you for what you can do.&lt;/p&gt;\n&lt;p&gt;We strive to have parity of benefits across regions and while regulations differ from place to place, we believe taking care of our people is the right thing to do.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive pay based on the work you do here and not your previous salary&lt;/li&gt;\n&lt;li&gt;Health coverage for you and your family in many locations&lt;/li&gt;\n&lt;li&gt;Ability to craft your calendar with flexible locations and schedules for many roles&lt;/li&gt;\n&lt;li&gt;Generous number of vacation days each year&lt;/li&gt;\n&lt;li&gt;Increase your impact - We match up to $2000 (or local currency equivalent) for financial donations and service&lt;/li&gt;\n&lt;li&gt;Up to 40 hours each year to use toward volunteer projects you love&lt;/li&gt;\n&lt;li&gt;Embracing parenthood with minimum of 16 weeks of parental leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Different people approach problems differently. We need that. Elastic is an equal opportunity employer and is committed to creating an inclusive culture that celebrates different perspectives, experiences, and backgrounds. Qualified applicants will receive consideration for employment without regard to race, ethnicity, color, religion, sex, pregnancy, sexual orientation, gender perception or identity, national origin, age, marital status, protected veteran status, disability status, or any other basis protected by federal, state or local law, ordinance or regulation.&lt;/p&gt;\n&lt;p&gt;We welcome individuals with disabilities and strive to create an accessible and inclusive experience for all individuals. To request an accommodation during the application or the recruiting process, please email &lt;a href=&quot;mailto:candidate_accessibility@elastic.co&quot; target=&quot;_blank&quot;&gt;candidate_accessibility@elastic.co&lt;/a&gt;&lt;span class=&quot;gmail_default&quot;&gt;.&lt;/span&gt;&amp;nbsp;We will reply to your request within 24 business hours of submission.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Applicants have rights under Federal Employment Laws, view posters linked below:&lt;/span&gt; &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf&quot; target=&quot;_blank&quot;&gt;Family and Medical Leave Act (FMLA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster;&lt;/span&gt;&lt;span style=&quot;color: #000000;&quot;&gt;&amp;nbsp;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/ofccp/pdf/pay-transp_%20English_formattedESQA508c.pdf&quot; target=&quot;_blank&quot;&gt;Pay Transparency Nondiscrimination Provision&lt;/a&gt; Poster; &lt;/span&gt;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/eppabw.pdf&quot; target=&quot;_blank&quot;&gt;Employee Polygraph Protection Act (EPPA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster and &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/OFCCP/regs/compliance/posters/pdf/22-088_EEOC_KnowYourRights.pdf&quot; target=&quot;_blank&quot;&gt;Know Your Rights&lt;/a&gt; (Poster)&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Elasticsearch develops and distributes technology and information that is subject to U.S. and other countries’ export controls and licensing requirements for individuals who are located in or are nationals of the following sanctioned countries and regions: Belarus, Cuba, Iran, North Korea, Syria, or Russia, including the Ukrainian territories annexed by Russia (The Crimea region of Ukraine, The Donetsk People&#39;s Republic (DNR), The Luhansk People&#39;s Republic (LNR), Kherson or Zaporizhzhia). If you are located in or are a national of one of the listed countries or regions, an export license may be required as a condition of your employment in this role. Please note that national origin and/or nationality do not affect eligibility for employment with Elastic.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please see&amp;nbsp;&lt;a href=&quot;https://www.elastic.co/legal/applicant-privacy-statement&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://www.elastic.co/legal/applicant-privacy-statement&amp;amp;source=gmail&amp;amp;ust=1611068262479000&amp;amp;usg=AFQjCNG3orAPk5sJIr9WVm0ZDxYw82c5DA&quot;&gt;here&lt;/a&gt;&amp;nbsp;for our Privacy Statement.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 220459,
+          "name": "Sales - EMEA - North",
+          "child_ids": [],
+          "parent_id": 220397
+        }
+      ],
+      "offices": [
+        {
+          "id": 80193,
+          "name": "France",
+          "location": null,
+          "child_ids": [
+            54597
+          ],
+          "parent_id": 80176
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://jobs.elastic.co/jobs?gh_jid=7921460&gh_jid=7921460",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 3443390,
+      "location": {
+        "name": "France"
+      },
+      "metadata": [
+        {
+          "id": 32131013,
+          "name": "Requisition open date",
+          "value": "2026-05-13",
+          "value_type": "date"
+        },
+        {
+          "id": 168141,
+          "name": "Target Remote Countries / States Locations [For Job Wrapping]",
+          "value": [],
+          "value_type": "multi_select"
+        },
+        {
+          "id": 33574685,
+          "name": "Types of Hiring",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164553,
+          "name": "FADV_Account",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164588,
+          "name": "FADV_Package",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 30595384,
+          "name": "Seniority",
+          "value": "Mid-Senior Level",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7921460,
+      "updated_at": "2026-05-18T23:07:36-04:00",
+      "requisition_id": "R11618",
+      "title": "Account Executive Public Sector",
+      "company_name": "Elastic",
+      "first_published": "2026-05-15T07:13:02-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Elastic, the Search AI Company, enables everyone to find the answers they need in real time, using all their data, at scale — unleashing the potential of businesses and people. The Elastic Search AI Platform, used by more than 50% of the Fortune 500, brings together the precision of search and the intelligence of AI to enable everyone to accelerate the results that matter. By taking advantage of all structured and unstructured data — securing and protecting private information more effectively — Elastic’s complete, cloud-based solutions for search, security, and observability help organizations deliver on the promise of AI.&lt;/p&gt;&lt;/div&gt;&lt;p data-start=&quot;0&quot; data-end=&quot;543&quot;&gt;&lt;strong data-start=&quot;0&quot; data-end=&quot;20&quot;&gt;What Is The Role&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Elastic, the Search Analytics company, is seeking a dynamic Public Sector Account Executive. To excel as an Account Executive at Elastic, you need a blend of high-level technical curiosity and the gravitas of a value-based seller. Because Elastic isn&#39;t just a &quot;product&quot; but a versatile search, observability, and security platform, the role requires moving beyond simple transactions to solving complex data problems.&lt;/p&gt;\n&lt;p&gt;As a Public Sector Enterprise Account Executive, you will be an integral part of our growth strategy. You will drive net-new revenue and expansion within Public Sector Accounts in an assigned territory. This is an opportunity for those passionate about empowering companies through cutting-edge search technology and analytics, enabling them to unlock the full potential of their data.&lt;/p&gt;\n&lt;p data-start=&quot;550&quot; data-end=&quot;578&quot;&gt;&lt;strong data-start=&quot;550&quot; data-end=&quot;576&quot;&gt;What You Will Be Doing&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Drive Adoption:&lt;/strong&gt; Fuel the adoption of Elastic’s AI-powered search solutions, Observability and Security solutions within (new) Public Sector accounts while deepening engagement with existing ones.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Be a Trusted Advisor:&lt;/strong&gt; Assist users and customers in harnessing the full power of search analytics to transform data into actionable insights.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Domain &amp;amp; cloud acumen:&lt;/strong&gt; Position Elastic as the Search AI platform of choice by speaking fluently about cloud economics, usage-based pricing, and modern data architectures.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Solve Complex Problems:&lt;/strong&gt; Move beyond simple transactions to address the intricate data challenges our customers face.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Champion Open Source:&lt;/strong&gt; Articulate the value of our advanced commercial features while advocating for our Open-Source offerings.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Identify New Use Cases:&lt;/strong&gt; Showcase how Elastic’s solutions enable users to work more efficiently and intelligently.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Strategic Planning:&lt;/strong&gt; Develop comprehensive business plans leveraging community, customer, and partner ecosystems to drive significant territory growth.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Navigate Sales Cycles:&lt;/strong&gt; Proactively identify new opportunities and successfully manage complex sales cycles.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Deep discovery &amp;amp; qualification:&lt;/strong&gt; Uncover pain, business impact, budget, and decision criteria using frameworks like &lt;em&gt;MEDDPICC &lt;/em&gt;so you chase only the highest-confidence deals&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Cross-functional partnership: &lt;/strong&gt;Work hand-in-glove with Solutions Architects, Customer Success, Marketing, and RevOps to accelerate deals and drive exceptional customer outcomes.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;What You Bring&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;The Right Blend:&lt;/strong&gt; A combination of high-level technical curiosity and the gravitas of a value-based seller.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Proven Track Record:&lt;/strong&gt; Success in SaaS subscription sales in Public Sector accounts, evidenced by overachievement.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Value Storytelling:&lt;/strong&gt; The ability to craft tailored narratives that link Elastic’s technical capabilities (Search, Observability, Security) to measurable business outcomes like revenue gain or risk mitigation is critical.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Executive negotiation &amp;amp; closing:&lt;/strong&gt; Lead high-stakes contract and pricing discussions&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Technical &amp;amp; cloud fluency:&lt;/strong&gt; Comfortable discussing a broad range of technical topics including security, observability, vector/traditional search, and cloud cost optimization.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Relationship Building:&lt;/strong&gt; Adept at establishing credibility with both technical developers and executive leadership.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Mutual deal strategy &amp;amp; forecast accuracy:&lt;/strong&gt; Consistent, predictable and accurate sales forecasting skills. Collaborate with customers to build formal close plans and keep your CRM up to date.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Ability to create&lt;/strong&gt; alignment across teams to accelerate deals&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;AI Mindset: Use new technologies for performance advantage and deal structuring&lt;/strong&gt;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Open-Source Appreciation:&lt;/strong&gt; Enthusiasm for the Open-Source model and the community relying on our solutions.&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Additional Information - We Take Care of Our People&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;As a distributed company, diversity drives our identity. Whether you’re looking to launch a new career or grow an existing one, Elastic is the type of company where you can balance great work with great life. Your age is only a number. It doesn’t matter if you’re just out of college or your children are; we need you for what you can do.&lt;/p&gt;\n&lt;p&gt;We strive to have parity of benefits across regions and while regulations differ from place to place, we believe taking care of our people is the right thing to do.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive pay based on the work you do here and not your previous salary&lt;/li&gt;\n&lt;li&gt;Health coverage for you and your family in many locations&lt;/li&gt;\n&lt;li&gt;Ability to craft your calendar with flexible locations and schedules for many roles&lt;/li&gt;\n&lt;li&gt;Generous number of vacation days each year&lt;/li&gt;\n&lt;li&gt;Increase your impact - We match up to $2000 (or local currency equivalent) for financial donations and service&lt;/li&gt;\n&lt;li&gt;Up to 40 hours each year to use toward volunteer projects you love&lt;/li&gt;\n&lt;li&gt;Embracing parenthood with minimum of 16 weeks of parental leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Different people approach problems differently. We need that. Elastic is an equal opportunity employer and is committed to creating an inclusive culture that celebrates different perspectives, experiences, and backgrounds. Qualified applicants will receive consideration for employment without regard to race, ethnicity, color, religion, sex, pregnancy, sexual orientation, gender perception or identity, national origin, age, marital status, protected veteran status, disability status, or any other basis protected by federal, state or local law, ordinance or regulation.&lt;/p&gt;\n&lt;p&gt;We welcome individuals with disabilities and strive to create an accessible and inclusive experience for all individuals. To request an accommodation during the application or the recruiting process, please email &lt;a href=&quot;mailto:candidate_accessibility@elastic.co&quot; target=&quot;_blank&quot;&gt;candidate_accessibility@elastic.co&lt;/a&gt;&lt;span class=&quot;gmail_default&quot;&gt;.&lt;/span&gt;&amp;nbsp;We will reply to your request within 24 business hours of submission.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Applicants have rights under Federal Employment Laws, view posters linked below:&lt;/span&gt; &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf&quot; target=&quot;_blank&quot;&gt;Family and Medical Leave Act (FMLA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster;&lt;/span&gt;&lt;span style=&quot;color: #000000;&quot;&gt;&amp;nbsp;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/ofccp/pdf/pay-transp_%20English_formattedESQA508c.pdf&quot; target=&quot;_blank&quot;&gt;Pay Transparency Nondiscrimination Provision&lt;/a&gt; Poster; &lt;/span&gt;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/eppabw.pdf&quot; target=&quot;_blank&quot;&gt;Employee Polygraph Protection Act (EPPA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster and &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/OFCCP/regs/compliance/posters/pdf/22-088_EEOC_KnowYourRights.pdf&quot; target=&quot;_blank&quot;&gt;Know Your Rights&lt;/a&gt; (Poster)&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Elasticsearch develops and distributes technology and information that is subject to U.S. and other countries’ export controls and licensing requirements for individuals who are located in or are nationals of the following sanctioned countries and regions: Belarus, Cuba, Iran, North Korea, Syria, or Russia, including the Ukrainian territories annexed by Russia (The Crimea region of Ukraine, The Donetsk People&#39;s Republic (DNR), The Luhansk People&#39;s Republic (LNR), Kherson or Zaporizhzhia). If you are located in or are a national of one of the listed countries or regions, an export license may be required as a condition of your employment in this role. Please note that national origin and/or nationality do not affect eligibility for employment with Elastic.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please see&amp;nbsp;&lt;a href=&quot;https://www.elastic.co/legal/applicant-privacy-statement&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://www.elastic.co/legal/applicant-privacy-statement&amp;amp;source=gmail&amp;amp;ust=1611068262479000&amp;amp;usg=AFQjCNG3orAPk5sJIr9WVm0ZDxYw82c5DA&quot;&gt;here&lt;/a&gt;&amp;nbsp;for our Privacy Statement.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 220459,
+          "name": "Sales - EMEA - North",
+          "child_ids": [],
+          "parent_id": 220397
+        }
+      ],
+      "offices": [
+        {
+          "id": 80193,
+          "name": "France",
+          "location": null,
+          "child_ids": [
+            54597
+          ],
+          "parent_id": 80176
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://jobs.elastic.co/jobs?gh_jid=7768040&gh_jid=7768040",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 3402195,
+      "location": {
+        "name": "Belgium"
+      },
+      "metadata": [
+        {
+          "id": 32131013,
+          "name": "Requisition open date",
+          "value": "2026-03-31",
+          "value_type": "date"
+        },
+        {
+          "id": 168141,
+          "name": "Target Remote Countries / States Locations [For Job Wrapping]",
+          "value": [],
+          "value_type": "multi_select"
+        },
+        {
+          "id": 33574685,
+          "name": "Types of Hiring",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164553,
+          "name": "FADV_Account",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164588,
+          "name": "FADV_Package",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 30595384,
+          "name": "Seniority",
+          "value": "Mid-Senior Level",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7768040,
+      "updated_at": "2026-05-18T22:59:20-04:00",
+      "requisition_id": "R11427",
+      "title": "Account Executive Public Sector",
+      "company_name": "Elastic",
+      "first_published": "2026-05-18T07:14:45-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Elastic, the Search AI Company, enables everyone to find the answers they need in real time, using all their data, at scale — unleashing the potential of businesses and people. The Elastic Search AI Platform, used by more than 50% of the Fortune 500, brings together the precision of search and the intelligence of AI to enable everyone to accelerate the results that matter. By taking advantage of all structured and unstructured data — securing and protecting private information more effectively — Elastic’s complete, cloud-based solutions for search, security, and observability help organizations deliver on the promise of AI.&lt;/p&gt;&lt;/div&gt;&lt;p data-start=&quot;0&quot; data-end=&quot;543&quot;&gt;&lt;strong data-start=&quot;0&quot; data-end=&quot;20&quot;&gt;What Is The Role&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Elastic, the Search Analytics company, is seeking a dynamic Public Sector Account Executive. To excel as an Account Executive at &lt;strong&gt;Elastic&lt;/strong&gt;, you need a blend of high-level technical curiosity and the gravitas of a value-based seller. Because Elastic isn&#39;t just a &quot;product&quot; but a versatile search, observability, and security platform, the role requires moving beyond simple transactions to solving complex data problems.&lt;/p&gt;\n&lt;p&gt;As a Public Sector Enterprise Account Executive, you will be an integral part of our growth strategy. You will drive net-new revenue and expansion within Public Sector Accounts in Belgium. This is an opportunity for those passionate about empowering companies through cutting-edge search technology and analytics, enabling them to unlock the full potential of their data.&lt;/p&gt;\n&lt;p data-start=&quot;550&quot; data-end=&quot;578&quot;&gt;&lt;strong data-start=&quot;550&quot; data-end=&quot;576&quot;&gt;What You Will Be Doing&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Drive Adoption:&lt;/strong&gt; Fuel the adoption of Elastic’s AI-powered search solutions, Observability and Security solutions within (new) Public Sector accounts while deepening engagement with existing ones.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Be a Trusted Advisor:&lt;/strong&gt; Assist users and customers in harnessing the full power of search analytics to transform data into actionable insights.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Domain &amp;amp; cloud acumen:&lt;/strong&gt; Position Elastic as the Search AI platform of choice by speaking fluently about cloud economics, usage-based pricing, and modern data architectures.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Solve Complex Problems:&lt;/strong&gt; Move beyond simple transactions to address the intricate data challenges our customers face.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Champion Open Source:&lt;/strong&gt; Articulate the value of our advanced commercial features while advocating for our Open-Source offerings.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Identify New Use Cases:&lt;/strong&gt; Showcase how Elastic’s solutions enable users to work more efficiently and intelligently.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Strategic Planning:&lt;/strong&gt; Develop comprehensive business plans leveraging community, customer, and partner ecosystems to drive significant territory growth.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Navigate Sales Cycles:&lt;/strong&gt; Proactively identify new opportunities and successfully manage complex sales cycles.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Deep discovery &amp;amp; qualification:&lt;/strong&gt; Uncover pain, business impact, budget, and decision criteria using frameworks like &lt;em&gt;MEDDPICC &lt;/em&gt;so you chase only the highest-confidence deals.&lt;/li&gt;\n&lt;li&gt;&lt;strong data-start=&quot;550&quot; data-end=&quot;576&quot;&gt;&lt;strong&gt;Cross-functional partnership:&lt;/strong&gt; &lt;/strong&gt;Work hand-in-glove with Solutions Architects, Customer Success, Marketing, and RevOps to accelerate deals and drive exceptional customer outcomes.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;What You Bring&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;The Right Blend:&lt;/strong&gt; A combination of high-level technical curiosity and the gravitas of a value-based seller&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Proven Track Record:&lt;/strong&gt; Success in SaaS subscription sales in Public Sector accounts, evidenced by overachievement&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Value Storytelling:&lt;/strong&gt; The ability to craft tailored narratives that link Elastic’s technical capabilities (Search, Observability, Security) to measurable business outcomes like revenue gain or risk mitigation is critical&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Executive negotiation &amp;amp; closing:&lt;/strong&gt; Lead high-stakes contract and pricing discussions&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Technical &amp;amp; cloud fluency:&lt;/strong&gt; Comfortable discussing a broad range of technical topics including security, observability, vector/traditional search, and cloud cost optimization&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Relationship Building:&lt;/strong&gt; Adept at establishing credibility with both technical developers and executive leadership&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Mutual deal strategy &amp;amp; forecast accuracy:&lt;/strong&gt; Consistent, predictable and accurate sales forecasting skills. Collaborate with customers to build formal close plans and keep your CRM up to date&lt;/li&gt;\n&lt;li&gt;Ability to create alignment across teams to accelerate deals&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;AI Mindset: &lt;/strong&gt;Use new technologies for performance advantage and deal structuring&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Open-Source Appreciation: &lt;/strong&gt;Enthusiasm for the Open-Source model and the community relying on our solutions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;3087&quot; data-end=&quot;3098&quot;&gt;&lt;strong data-start=&quot;3087&quot; data-end=&quot;3096&quot;&gt;Bonus Points&lt;/strong&gt;&lt;/p&gt;\n&lt;ul data-start=&quot;3099&quot; data-end=&quot;3283&quot;&gt;\n&lt;li data-start=&quot;3099&quot; data-end=&quot;3182&quot;&gt;\n&lt;p data-start=&quot;3101&quot; data-end=&quot;3182&quot;&gt;Prior experience at an open-source or developer‐centric infrastructure company.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;3183&quot; data-end=&quot;3283&quot;&gt;\n&lt;p data-start=&quot;3185&quot; data-end=&quot;3283&quot;&gt;Familiarity with observability (logs, metrics, traces) or security analytics (SIEM/XDR) use cases.&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Additional Information - We Take Care of Our People&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;As a distributed company, diversity drives our identity. Whether you’re looking to launch a new career or grow an existing one, Elastic is the type of company where you can balance great work with great life. Your age is only a number. It doesn’t matter if you’re just out of college or your children are; we need you for what you can do.&lt;/p&gt;\n&lt;p&gt;We strive to have parity of benefits across regions and while regulations differ from place to place, we believe taking care of our people is the right thing to do.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive pay based on the work you do here and not your previous salary&lt;/li&gt;\n&lt;li&gt;Health coverage for you and your family in many locations&lt;/li&gt;\n&lt;li&gt;Ability to craft your calendar with flexible locations and schedules for many roles&lt;/li&gt;\n&lt;li&gt;Generous number of vacation days each year&lt;/li&gt;\n&lt;li&gt;Increase your impact - We match up to $2000 (or local currency equivalent) for financial donations and service&lt;/li&gt;\n&lt;li&gt;Up to 40 hours each year to use toward volunteer projects you love&lt;/li&gt;\n&lt;li&gt;Embracing parenthood with minimum of 16 weeks of parental leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Different people approach problems differently. We need that. Elastic is an equal opportunity employer and is committed to creating an inclusive culture that celebrates different perspectives, experiences, and backgrounds. Qualified applicants will receive consideration for employment without regard to race, ethnicity, color, religion, sex, pregnancy, sexual orientation, gender perception or identity, national origin, age, marital status, protected veteran status, disability status, or any other basis protected by federal, state or local law, ordinance or regulation.&lt;/p&gt;\n&lt;p&gt;We welcome individuals with disabilities and strive to create an accessible and inclusive experience for all individuals. To request an accommodation during the application or the recruiting process, please email &lt;a href=&quot;mailto:candidate_accessibility@elastic.co&quot; target=&quot;_blank&quot;&gt;candidate_accessibility@elastic.co&lt;/a&gt;&lt;span class=&quot;gmail_default&quot;&gt;.&lt;/span&gt;&amp;nbsp;We will reply to your request within 24 business hours of submission.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Applicants have rights under Federal Employment Laws, view posters linked below:&lt;/span&gt; &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf&quot; target=&quot;_blank&quot;&gt;Family and Medical Leave Act (FMLA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster;&lt;/span&gt;&lt;span style=&quot;color: #000000;&quot;&gt;&amp;nbsp;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/ofccp/pdf/pay-transp_%20English_formattedESQA508c.pdf&quot; target=&quot;_blank&quot;&gt;Pay Transparency Nondiscrimination Provision&lt;/a&gt; Poster; &lt;/span&gt;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/eppabw.pdf&quot; target=&quot;_blank&quot;&gt;Employee Polygraph Protection Act (EPPA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster and &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/OFCCP/regs/compliance/posters/pdf/22-088_EEOC_KnowYourRights.pdf&quot; target=&quot;_blank&quot;&gt;Know Your Rights&lt;/a&gt; (Poster)&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Elasticsearch develops and distributes technology and information that is subject to U.S. and other countries’ export controls and licensing requirements for individuals who are located in or are nationals of the following sanctioned countries and regions: Belarus, Cuba, Iran, North Korea, Syria, or Russia, including the Ukrainian territories annexed by Russia (The Crimea region of Ukraine, The Donetsk People&#39;s Republic (DNR), The Luhansk People&#39;s Republic (LNR), Kherson or Zaporizhzhia). If you are located in or are a national of one of the listed countries or regions, an export license may be required as a condition of your employment in this role. Please note that national origin and/or nationality do not affect eligibility for employment with Elastic.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please see&amp;nbsp;&lt;a href=&quot;https://www.elastic.co/legal/applicant-privacy-statement&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://www.elastic.co/legal/applicant-privacy-statement&amp;amp;source=gmail&amp;amp;ust=1611068262479000&amp;amp;usg=AFQjCNG3orAPk5sJIr9WVm0ZDxYw82c5DA&quot;&gt;here&lt;/a&gt;&amp;nbsp;for our Privacy Statement.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 220459,
+          "name": "Sales - EMEA - North",
+          "child_ids": [],
+          "parent_id": 220397
+        }
+      ],
+      "offices": [
+        {
+          "id": 80196,
+          "name": "Netherlands",
+          "location": null,
+          "child_ids": [
+            20732
+          ],
+          "parent_id": 80176
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://jobs.elastic.co/jobs?gh_jid=7764800&gh_jid=7764800",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 3401135,
+      "location": {
+        "name": "Germany"
+      },
+      "metadata": [
+        {
+          "id": 32131013,
+          "name": "Requisition open date",
+          "value": "2026-03-29",
+          "value_type": "date"
+        },
+        {
+          "id": 168141,
+          "name": "Target Remote Countries / States Locations [For Job Wrapping]",
+          "value": [],
+          "value_type": "multi_select"
+        },
+        {
+          "id": 33574685,
+          "name": "Types of Hiring",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164553,
+          "name": "FADV_Account",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164588,
+          "name": "FADV_Package",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 30595384,
+          "name": "Seniority",
+          "value": "Mid-Senior Level",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7764800,
+      "updated_at": "2026-05-18T22:59:10-04:00",
+      "requisition_id": "R11375",
+      "title": "Account Executive Public Sector",
+      "company_name": "Elastic",
+      "first_published": "2026-04-13T06:09:36-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Elastic, the Search AI Company, enables everyone to find the answers they need in real time, using all their data, at scale — unleashing the potential of businesses and people. The Elastic Search AI Platform, used by more than 50% of the Fortune 500, brings together the precision of search and the intelligence of AI to enable everyone to accelerate the results that matter. By taking advantage of all structured and unstructured data — securing and protecting private information more effectively — Elastic’s complete, cloud-based solutions for search, security, and observability help organizations deliver on the promise of AI.&lt;/p&gt;&lt;/div&gt;&lt;p data-start=&quot;0&quot; data-end=&quot;543&quot;&gt;&lt;strong data-start=&quot;0&quot; data-end=&quot;20&quot;&gt;What Is The Role&lt;/strong&gt;&lt;br data-start=&quot;20&quot; data-end=&quot;23&quot;&gt;Elastic, the Search AI company, is looking for a high-energy Enterprise Account Executive to drive net-new revenue and expansion within strategic Enterprise accounts in Public Sector/Education and Research. You’ll be the owner of a defined territory where you’ll build your own pipeline, tell the Elastic Search AI story, and close complex, multi-stakeholder deals in a consumption-based model. This role sits at the intersection of sales execution, technical fluency, and cross-functional collaboration—and is critical to our growth in the Enterprise segment.&lt;/p&gt;\n&lt;p data-start=&quot;550&quot; data-end=&quot;578&quot;&gt;&lt;strong data-start=&quot;550&quot; data-end=&quot;576&quot;&gt;What You Will Be Doing&lt;/strong&gt;&lt;/p&gt;\n&lt;ul data-start=&quot;579&quot; data-end=&quot;1845&quot;&gt;\n&lt;li data-start=&quot;579&quot; data-end=&quot;745&quot;&gt;\n&lt;p data-start=&quot;581&quot; data-end=&quot;745&quot;&gt;Own your territory &amp;amp; build pipeline: Develop and execute a proactive outbound cadence (email, call, social) that generates ≥50 % of your booked opportunities.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;579&quot; data-end=&quot;745&quot;&gt;\n&lt;p data-start=&quot;581&quot; data-end=&quot;745&quot;&gt;Deep discovery &amp;amp; qualification: Uncover pain, business impact, budget, and decision criteria using frameworks like MEDDPICC so you chase only the highest-confidence deals.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;926&quot; data-end=&quot;1115&quot;&gt;\n&lt;p data-start=&quot;928&quot; data-end=&quot;1115&quot;&gt;Value storytelling &amp;amp; demos: Craft and deliver tailored narratives and live demos that map Elastic’s Search, Observability, and Security capabilities to measurable business outcomes.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;1116&quot; data-end=&quot;1300&quot;&gt;\n&lt;p data-start=&quot;1118&quot; data-end=&quot;1300&quot;&gt;Mutual deal strategy &amp;amp; forecast accuracy: Collaborate with customers to build formal close plans and keep your CRM up-to-date, maintaining ≥90 % forecast accuracy within ±10 %.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;1301&quot; data-end=&quot;1482&quot;&gt;\n&lt;p data-start=&quot;1303&quot; data-end=&quot;1482&quot;&gt;Executive negotiation &amp;amp; closing: Lead high-stakes contract and pricing discussions—defend your value, structure give/get trades, and land multi-year consumption commitments.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;1483&quot; data-end=&quot;1662&quot;&gt;\n&lt;p data-start=&quot;1485&quot; data-end=&quot;1662&quot;&gt;Domain &amp;amp; cloud acumen: Position Elastic as the Search AI platform of choice by speaking fluently about cloud economics, usage-based pricing, and modern data architectures.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;1663&quot; data-end=&quot;1845&quot;&gt;\n&lt;p data-start=&quot;1665&quot; data-end=&quot;1845&quot;&gt;Cross-functional partnership: Work hand-in-glove with Solutions Architects, Customer Success, Marketing, and RevOps to accelerate deals and drive exceptional customer outcomes.&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;1852&quot; data-end=&quot;1872&quot;&gt;&lt;strong data-start=&quot;1852&quot; data-end=&quot;1870&quot;&gt;What You Bring&lt;/strong&gt;&lt;/p&gt;\n&lt;ul data-start=&quot;1873&quot; data-end=&quot;3080&quot;&gt;\n&lt;li data-start=&quot;1873&quot; data-end=&quot;2045&quot;&gt;\n&lt;p data-start=&quot;1875&quot; data-end=&quot;2045&quot;&gt;Proven SaaS quota‐carrying success: 5+ years closing complex Enterprise deals in Public Sector clients, consistently overachieving targets in a consumption-based or usage-model environment.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2046&quot; data-end=&quot;2225&quot;&gt;\n&lt;p data-start=&quot;2048&quot; data-end=&quot;2225&quot;&gt;Expert discovery &amp;amp; qualification skills: Demonstrated ability to apply MEDDPICC or equivalent frameworks to drive disciplined pipeline and eliminate low-probability deals.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2226&quot; data-end=&quot;2419&quot;&gt;\n&lt;p data-start=&quot;2228&quot; data-end=&quot;2419&quot;&gt;Compelling value storytellers: Track record of delivering executive-level presentations and demos that tie product capabilities to real dollars saved, revenue gained, or risk mitigated.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2420&quot; data-end=&quot;2570&quot;&gt;\n&lt;p data-start=&quot;2422&quot; data-end=&quot;2570&quot;&gt;Strong negotiation chops: History of landing multi-year, high-ACV contracts while protecting margin and securing executive stakeholder buy-in.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2571&quot; data-end=&quot;2731&quot;&gt;\n&lt;p data-start=&quot;2573&quot; data-end=&quot;2731&quot;&gt;Technical &amp;amp; cloud fluency: Comfortable discussing a broad range of technical topics including observability, security, vector/traditional search, and cloud cost optimization.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2732&quot; data-end=&quot;2913&quot;&gt;\n&lt;p data-start=&quot;2734&quot; data-end=&quot;2913&quot;&gt;Collaborative mindset &amp;amp; coachability: A learner who partners effectively with internal teams, incorporates feedback, and embodies Elastic’s values of community and openness.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;2914&quot; data-end=&quot;3080&quot;&gt;\n&lt;p data-start=&quot;2916&quot; data-end=&quot;3080&quot;&gt;Open Source enthusiasm: Genuine appreciation for open-source communities and the Elastic model—bonus if you’ve sold or advocated in an OSS context.&lt;/p&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;3087&quot; data-end=&quot;3098&quot;&gt;&lt;strong data-start=&quot;3087&quot; data-end=&quot;3096&quot;&gt;Bonus Points&lt;/strong&gt;&lt;/p&gt;\n&lt;ul data-start=&quot;3099&quot; data-end=&quot;3283&quot;&gt;\n&lt;li data-start=&quot;3099&quot; data-end=&quot;3182&quot;&gt;\n&lt;p data-start=&quot;3101&quot; data-end=&quot;3182&quot;&gt;Prior experience at an open-source or developer‐centric infrastructure company.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;3183&quot; data-end=&quot;3283&quot;&gt;\n&lt;p data-start=&quot;3185&quot; data-end=&quot;3283&quot;&gt;Familiarity with observability (logs, metrics, traces) or security analytics (SIEM/XDR) use cases.&lt;/p&gt;\n&lt;/li&gt;\n&lt;li data-start=&quot;3183&quot; data-end=&quot;3283&quot;&gt;Education &amp;amp; Research client experience&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;3285&quot; data-end=&quot;3439&quot; data-is-last-node=&quot;&quot; data-is-only-node=&quot;&quot;&gt;If you’re driven to build your own pipeline, master complex deal cycles, and help customers unlock the power of Search AI, we’d love to talk. Apply today!&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Additional Information - We Take Care of Our People&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;As a distributed company, diversity drives our identity. Whether you’re looking to launch a new career or grow an existing one, Elastic is the type of company where you can balance great work with great life. Your age is only a number. It doesn’t matter if you’re just out of college or your children are; we need you for what you can do.&lt;/p&gt;\n&lt;p&gt;We strive to have parity of benefits across regions and while regulations differ from place to place, we believe taking care of our people is the right thing to do.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive pay based on the work you do here and not your previous salary&lt;/li&gt;\n&lt;li&gt;Health coverage for you and your family in many locations&lt;/li&gt;\n&lt;li&gt;Ability to craft your calendar with flexible locations and schedules for many roles&lt;/li&gt;\n&lt;li&gt;Generous number of vacation days each year&lt;/li&gt;\n&lt;li&gt;Increase your impact - We match up to $2000 (or local currency equivalent) for financial donations and service&lt;/li&gt;\n&lt;li&gt;Up to 40 hours each year to use toward volunteer projects you love&lt;/li&gt;\n&lt;li&gt;Embracing parenthood with minimum of 16 weeks of parental leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Different people approach problems differently. We need that. Elastic is an equal opportunity employer and is committed to creating an inclusive culture that celebrates different perspectives, experiences, and backgrounds. Qualified applicants will receive consideration for employment without regard to race, ethnicity, color, religion, sex, pregnancy, sexual orientation, gender perception or identity, national origin, age, marital status, protected veteran status, disability status, or any other basis protected by federal, state or local law, ordinance or regulation.&lt;/p&gt;\n&lt;p&gt;We welcome individuals with disabilities and strive to create an accessible and inclusive experience for all individuals. To request an accommodation during the application or the recruiting process, please email &lt;a href=&quot;mailto:candidate_accessibility@elastic.co&quot; target=&quot;_blank&quot;&gt;candidate_accessibility@elastic.co&lt;/a&gt;&lt;span class=&quot;gmail_default&quot;&gt;.&lt;/span&gt;&amp;nbsp;We will reply to your request within 24 business hours of submission.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Applicants have rights under Federal Employment Laws, view posters linked below:&lt;/span&gt; &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf&quot; target=&quot;_blank&quot;&gt;Family and Medical Leave Act (FMLA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster;&lt;/span&gt;&lt;span style=&quot;color: #000000;&quot;&gt;&amp;nbsp;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/ofccp/pdf/pay-transp_%20English_formattedESQA508c.pdf&quot; target=&quot;_blank&quot;&gt;Pay Transparency Nondiscrimination Provision&lt;/a&gt; Poster; &lt;/span&gt;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/eppabw.pdf&quot; target=&quot;_blank&quot;&gt;Employee Polygraph Protection Act (EPPA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster and &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/OFCCP/regs/compliance/posters/pdf/22-088_EEOC_KnowYourRights.pdf&quot; target=&quot;_blank&quot;&gt;Know Your Rights&lt;/a&gt; (Poster)&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Elasticsearch develops and distributes technology and information that is subject to U.S. and other countries’ export controls and licensing requirements for individuals who are located in or are nationals of the following sanctioned countries and regions: Belarus, Cuba, Iran, North Korea, Syria, or Russia, including the Ukrainian territories annexed by Russia (The Crimea region of Ukraine, The Donetsk People&#39;s Republic (DNR), The Luhansk People&#39;s Republic (LNR), Kherson or Zaporizhzhia). If you are located in or are a national of one of the listed countries or regions, an export license may be required as a condition of your employment in this role. Please note that national origin and/or nationality do not affect eligibility for employment with Elastic.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please see&amp;nbsp;&lt;a href=&quot;https://www.elastic.co/legal/applicant-privacy-statement&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://www.elastic.co/legal/applicant-privacy-statement&amp;amp;source=gmail&amp;amp;ust=1611068262479000&amp;amp;usg=AFQjCNG3orAPk5sJIr9WVm0ZDxYw82c5DA&quot;&gt;here&lt;/a&gt;&amp;nbsp;for our Privacy Statement.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 220457,
+          "name": "Sales - EMEA - Central",
+          "child_ids": [],
+          "parent_id": 220397
+        }
+      ],
+      "offices": [
+        {
+          "id": 80194,
+          "name": "Germany",
+          "location": null,
+          "child_ids": [
+            44932,
+            22400
+          ],
+          "parent_id": 80176
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://jobs.elastic.co/jobs?gh_jid=7727801&gh_jid=7727801",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 3391877,
+      "location": {
+        "name": "Austin, TX"
+      },
+      "metadata": [
+        {
+          "id": 32131013,
+          "name": "Requisition open date",
+          "value": "2026-03-17",
+          "value_type": "date"
+        },
+        {
+          "id": 168141,
+          "name": "Target Remote Countries / States Locations [For Job Wrapping]",
+          "value": [],
+          "value_type": "multi_select"
+        },
+        {
+          "id": 33574685,
+          "name": "Types of Hiring",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164553,
+          "name": "FADV_Account",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 20164588,
+          "name": "FADV_Package",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 30595384,
+          "name": "Seniority",
+          "value": "Mid-Senior Level",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7727801,
+      "updated_at": "2026-05-18T22:57:09-04:00",
+      "requisition_id": "R11296",
+      "title": "Account Executive - Pursuit",
+      "company_name": "Elastic",
+      "first_published": "2026-03-17T14:01:32-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Elastic, the Search AI Company, enables everyone to find the answers they need in real time, using all their data, at scale — unleashing the potential of businesses and people. The Elastic Search AI Platform, used by more than 50% of the Fortune 500, brings together the precision of search and the intelligence of AI to enable everyone to accelerate the results that matter. By taking advantage of all structured and unstructured data — securing and protecting private information more effectively — Elastic’s complete, cloud-based solutions for search, security, and observability help organizations deliver on the promise of AI.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;What is The Role:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Elastic is searching for an Enterprise Account Executive to expand our Enterprise Pursuit customer accounts. Our Enterprise Account Executives are individual contributors, focused on building new business and growing the Elastic footprint and ensuring our customers are successfully leveraging Elastic cloud solutions across their organization. Are you ready to help users tackle their hardest problems through the power of search? If so, we’d love to hear from you!&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You Will Be Doing:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Breaking in, building relationships and awareness, to create the demand and new business revenue for Elastic solutions within new Enterprise accounts.&lt;/li&gt;\n&lt;li&gt;Uncovering new and diverse use cases for Search, Security, and Observability to solve key business initiatives in their organizations.&lt;/li&gt;\n&lt;li&gt;Working thoughtfully with customers to identify new business opportunities, managing through the sales cycle and closing complex transactions.&lt;/li&gt;\n&lt;li&gt;Building a robust pipeline and a long term business plan through community, customer and partner ecosystems to achieve significant Elastic growth within your accounts.&lt;/li&gt;\n&lt;li&gt;Delivering against monthly, quarterly annual revenue targets for New Business SaaS subscriptions and Professional Services contracts while maintaining the existing customer base.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Collaborating across Elastic business functions to ensure a seamless customer experience&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;What You Bring:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;A track-record of success hunting to sell SaaS subscriptions and professional services into net-new complex accounts, demonstrated by overachievement of quota and strong customer references&lt;/li&gt;\n&lt;li&gt;A deep understanding and preferably experience selling into the ecosystem we live in, including Enterprise Search, Logging, Security, APM and Cloud&lt;/li&gt;\n&lt;li&gt;The ability to build relationships and credibility with both IT and LOB executives.&lt;/li&gt;\n&lt;li&gt;Predictability and accurate forecasting capabilities using SFDC&lt;/li&gt;\n&lt;li&gt;An appreciation for the Open Source go-to-market model and the community of users who rely on our solutions every single day&lt;/li&gt;\n&lt;li&gt;Previous experience selling into the Enterprise accounts included in this territory&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Bonus Points:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Previous experience selling in an Open Source model&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-start=&quot;0&quot; data-end=&quot;543&quot;&gt;#LI-AM2&lt;br&gt;&lt;br&gt;&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Compensation for this role is in the form of base salary plus a variable component, that together comprise the On-Target Earnings (OTE).&amp;nbsp; On-Target Earnings (OTE) are based on a 50/50 pay mix (base salary / target variable).&amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;The typical starting OTE range for new hires in this role is listed below.&amp;nbsp; This range represents &lt;/span&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;the lowest to highest OTE we reasonably and in good faith believe we would pay for this role at the time of this posting.&amp;nbsp; We may ultimately pay more or less than the posted range, and the range may be modified in the future.&amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;An employee&#39;s position within the OTE range will be based on several factors including, but not limited to, relevant education, qualifications, certifications, experience, skills, geographic location, performance, and business or organizational needs.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Elastic believes that employees should have the opportunity to share in the value that we create together for our shareholders. Therefore, in addition to cash compensation, this role is currently eligible to participate in Elastic&#39;s stock program.&amp;nbsp; Our total rewards package also includes a company-matched 401k with dollar-for-dollar matching up to 6% of eligible earnings, along with a range of other benefits offered with a holistic emphasis on employee well-being.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The typical starting salary range for this role is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$78,700&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$124,500 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;title&quot;&gt;The typical starting Target Variable range for this role is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$78,600&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$124,400 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;title&quot;&gt;The typical starting On-Target Earnings (OTE) range for this role is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$157,300&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$248,900 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;h2&gt;&lt;strong&gt;Additional Information - We Take Care of Our People&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;As a distributed company, diversity drives our identity. Whether you’re looking to launch a new career or grow an existing one, Elastic is the type of company where you can balance great work with great life. Your age is only a number. It doesn’t matter if you’re just out of college or your children are; we need you for what you can do.&lt;/p&gt;\n&lt;p&gt;We strive to have parity of benefits across regions and while regulations differ from place to place, we believe taking care of our people is the right thing to do.&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive pay based on the work you do here and not your previous salary&lt;/li&gt;\n&lt;li&gt;Health coverage for you and your family in many locations&lt;/li&gt;\n&lt;li&gt;Ability to craft your calendar with flexible locations and schedules for many roles&lt;/li&gt;\n&lt;li&gt;Generous number of vacation days each year&lt;/li&gt;\n&lt;li&gt;Increase your impact - We match up to $2000 (or local currency equivalent) for financial donations and service&lt;/li&gt;\n&lt;li&gt;Up to 40 hours each year to use toward volunteer projects you love&lt;/li&gt;\n&lt;li&gt;Embracing parenthood with minimum of 16 weeks of parental leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Different people approach problems differently. We need that. Elastic is an equal opportunity employer and is committed to creating an inclusive culture that celebrates different perspectives, experiences, and backgrounds. Qualified applicants will receive consideration for employment without regard to race, ethnicity, color, religion, sex, pregnancy, sexual orientation, gender perception or identity, national origin, age, marital status, protected veteran status, disability status, or any other basis protected by federal, state or local law, ordinance or regulation.&lt;/p&gt;\n&lt;p&gt;We welcome individuals with disabilities and strive to create an accessible and inclusive experience for all individuals. To request an accommodation during the application or the recruiting process, please email &lt;a href=&quot;mailto:candidate_accessibility@elastic.co&quot; target=&quot;_blank&quot;&gt;candidate_accessibility@elastic.co&lt;/a&gt;&lt;span class=&quot;gmail_default&quot;&gt;.&lt;/span&gt;&amp;nbsp;We will reply to your request within 24 business hours of submission.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Applicants have rights under Federal Employment Laws, view posters linked below:&lt;/span&gt; &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf&quot; target=&quot;_blank&quot;&gt;Family and Medical Leave Act (FMLA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster;&lt;/span&gt;&lt;span style=&quot;color: #000000;&quot;&gt;&amp;nbsp;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/ofccp/pdf/pay-transp_%20English_formattedESQA508c.pdf&quot; target=&quot;_blank&quot;&gt;Pay Transparency Nondiscrimination Provision&lt;/a&gt; Poster; &lt;/span&gt;&lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/eppabw.pdf&quot; target=&quot;_blank&quot;&gt;Employee Polygraph Protection Act (EPPA)&lt;/a&gt; &lt;span style=&quot;color: #000000;&quot;&gt;Poster and &lt;a href=&quot;https://www.dol.gov/sites/dolgov/files/OFCCP/regs/compliance/posters/pdf/22-088_EEOC_KnowYourRights.pdf&quot; target=&quot;_blank&quot;&gt;Know Your Rights&lt;/a&gt; (Poster)&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;color: #000000;&quot;&gt;Elasticsearch develops and distributes technology and information that is subject to U.S. and other countries’ export controls and licensing requirements for individuals who are located in or are nationals of the following sanctioned countries and regions: Belarus, Cuba, Iran, North Korea, Syria, or Russia, including the Ukrainian territories annexed by Russia (The Crimea region of Ukraine, The Donetsk People&#39;s Republic (DNR), The Luhansk People&#39;s Republic (LNR), Kherson or Zaporizhzhia). If you are located in or are a national of one of the listed countries or regions, an export license may be required as a condition of your employment in this role. Please note that national origin and/or nationality do not affect eligibility for employment with Elastic.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Please see&amp;nbsp;&lt;a href=&quot;https://www.elastic.co/legal/applicant-privacy-statement&quot; target=&quot;_blank&quot; data-saferedirecturl=&quot;https://www.google.com/url?q=https://www.elastic.co/legal/applicant-privacy-statement&amp;amp;source=gmail&amp;amp;ust=1611068262479000&amp;amp;usg=AFQjCNG3orAPk5sJIr9WVm0ZDxYw82c5DA&quot;&gt;here&lt;/a&gt;&amp;nbsp;for our Privacy Statement.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 60574,
+          "name": "Sales - AMER - Management and Support",
+          "child_ids": [],
+          "parent_id": 220395
+        }
+      ],
+      "offices": [
+        {
+          "id": 73204,
+          "name": "United States",
+          "location": null,
+          "child_ids": [
+            51927,
+            69277,
+            85933,
+            87403,
+            20729,
+            20746,
+            20743,
+            44935,
+            44931,
+            44937,
+            44936
+          ],
+          "parent_id": 79984
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 151
+  }
+}

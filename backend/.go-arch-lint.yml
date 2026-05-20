@@ -29,6 +29,10 @@ components:
     in: internal/mcp                      # mcp-go server + tool handlers
   inference:
     in: internal/inference                # LLM provider abstraction
+  jobcache:
+    in: internal/jobcache                 # Redis-backed 1d TTL pool for fetched jobs
+  jobfetch:
+    in: internal/jobfetch                 # job source fetcher adapters (Greenhouse / Lever / Ashby / ...)
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
@@ -48,13 +52,15 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # Usecases 编排 domain + infra（postgres / session / inference）。
+  # Usecases 编排 domain + infra（postgres / session / inference / jobcache / jobfetch）。
   usecases:
     mayDependOn:
       - domain
       - postgres
       - session
       - inference
+      - jobcache
+      - jobfetch
     anyVendorDeps: true
 
   # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
@@ -106,6 +112,21 @@ deps:
   # 不依赖任何 internal（纯接口 + 实现 + sentinel errors）。
   inference:
     mayDependOn: []
+    anyVendorDeps: true
+
+  # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
+  # 依赖 domain 是因为它要 marshal 真实 domain 结构（不糊弄成 []byte）。
+  jobcache:
+    mayDependOn:
+      - domain
+    anyVendorDeps: true
+
+  # jobfetch —— 6+ 个 source adapter（Greenhouse / Lever / Ashby / RemoteOK
+  # / WWR / HN / SmartRecruiters / Workable）。纯外部 HTTP，依赖 domain 是
+  # 为了返回 FetchedJob。各 adapter 的 base URL 可被 env 覆写（e2e mock）。
+  jobfetch:
+    mayDependOn:
+      - domain
     anyVendorDeps: true
 
   # cryptobox 是无依赖的 AES-GCM helper；任何 internal 包可以 import 来落盘
@@ -173,6 +194,8 @@ deps:
       - publicroutes
       - mcp
       - inference
+      - jobcache
+      - jobfetch
       - cryptobox
       - server
     anyVendorDeps: true

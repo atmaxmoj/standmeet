@@ -1,0 +1,442 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/5624231004",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 4969209004,
+      "location": {
+        "name": "Hybrid - San Francisco, New York City, Austin"
+      },
+      "metadata": [
+        {
+          "id": 18783104004,
+          "name": "Function",
+          "value": "Sales",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 5624231004,
+      "updated_at": "2026-05-14T13:27:30-04:00",
+      "requisition_id": "935",
+      "title": "Account Executive- Startups, Greenfield",
+      "company_name": "Vercel",
+      "first_published": "2025-08-19T16:38:26-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company. We free people and agents to ship what’s next.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;For more than a decade, Vercel has shaped how the web is built. As the team behind Next.js, v0, and AI SDK, we create products that help builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now, software is entering a new era, and the next generation of products will not just be used by people. They will be built, extended, and operated by agents.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;We are building the platform for that future, trusted by companies like&amp;nbsp;&lt;strong&gt;OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide&lt;/strong&gt;. Whether you’re building our products, supporting our customers, growing our community, or shaping our story, you’ll help define what comes next.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About Startups @ Vercel&lt;/h2&gt;\n&lt;p&gt;The Vercel Startups org exists to help founders navigate the shift to AI-native development with confidence. Startups move faster than ever—what used to take years now happens in days—and the decisions founders make early can either unlock scale or become long-term constraints. We partner with startups at the critical moments where technical, commercial, and strategic support starts to matter most.&lt;/p&gt;\n&lt;p&gt;We’re a talent-dense team made up of former founders, engineers, and experienced go-to-market operators who bring firsthand experience building, scaling, and supporting modern software companies. Many of us have sat on the other side of the table, making architectural decisions, navigating tradeoffs, and scaling under real constraints, and we bring that perspective into every customer interaction.&lt;/p&gt;\n&lt;p&gt;We operate with a growth mindset and strong shared ownership. We dig deep to understand our customers, work closely across functions as one team, and find ways to win even when the path forward isn’t obvious. Resilience, curiosity, and a willingness to push through hard problems are table stakes here.&lt;/p&gt;\n&lt;p&gt;This is a team for people who want to operate with high trust, high agency, and high impact — alongside peers who care deeply about helping startups succeed.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;About The Role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;You are an expert in Vercel, you have incredible pattern recognition, and are at the bleeding edge of the tech and tools defining how we live and work. In this role, you&#39;ll help startups unlock Vercel&#39;s full value from adoption through scaling—building relationships with founders and technical leaders who are making critical architectural decisions. You&#39;ll analyze usage patterns to identify expansion opportunities, coordinate cross-functional teams to drive outcomes, and guide teams as they adopt AI-native architectures. By leveraging automation and AI to maximize your impact, you&#39;ll help refine early plays into repeatable playbooks that scale across our startup portfolio.&lt;br&gt;&lt;br&gt;If you’re based within commuting distance of our London office, the role includes in-office anchor days.&amp;nbsp;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What You Will Do&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Build trusted relationships with founders, developers, and technical leaders by quickly developing deep understanding of their architecture, use cases, and technical constraints&lt;/li&gt;\n&lt;li&gt;Landing new logos, driving early activation, and making Vercel the default choice before competitors get in&lt;/li&gt;\n&lt;li&gt;Driving first activation, earning trust fast, and positioning Vercel as the obvious default stack&lt;/li&gt;\n&lt;li&gt;Focus on pipeline generation, outbound, identifying high-potential startups early&lt;/li&gt;\n&lt;li&gt;Partner with founders and developers as they adopt AI-native features and architectures, helping them understand how Vercel’s Frontend Cloud fits into a rapidly evolving developer ecosystem and supports new workloads, performance requirements, and scaling patterns&lt;/li&gt;\n&lt;li&gt;Use automation, agents, and self-built workflows to operate at high leverage and focus time and energy on the most impactful customer work&lt;/li&gt;\n&lt;li&gt;Operate comfortably in an evolving environment, helping refine early motions and turn what works into repeatable playbooks&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;About You&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;We’re looking for someone who sits at the intersection of technical curiosity, commercial excellence, and startup mindset. You identify pattern recognition, have founder empathy, and have the ability to speak credibly to pre-seed through Series D companies and beyond who are making fast decisions.&lt;/p&gt;\n&lt;p&gt;You might be a great fit if you’ve developed this skill set through a range of paths—whether as a builder, founder, engineer, or in a technical go-to-market role—and you bring strong judgment, ownership, and curiosity to how you work.&lt;/p&gt;\n&lt;p&gt;In practice, this looks like someone who:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Learns complex technical products quickly and enjoys reasoning about how modern web and AI-native applications are built and scaled&lt;/li&gt;\n&lt;li&gt;Can speak comfortably with developers and founders, using their language and earning credibility through insight rather than titles&lt;/li&gt;\n&lt;li&gt;Has strong sales acumen and experience owning revenue outcomes across a range of deal sizes and complexities&lt;/li&gt;\n&lt;li&gt;Believes that the best revenue outcomes come from deeply successful customers, not transactional selling&lt;/li&gt;\n&lt;li&gt;Brings a thoughtful, opinionated point of view on modern web infrastructure, frontend performance, and scaling tradeoffs&lt;/li&gt;\n&lt;li&gt;Thrives in ambiguity and enjoys shaping how a team and motion evolves from early to more structured&lt;/li&gt;\n&lt;li&gt;Is energized by ownership, accountability, and helping customers make smart decisions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;What This Role Is Not&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Not a pure Customer Success role focused on reactive support&lt;/li&gt;\n&lt;li&gt;Not a transactional sales role detached from customer outcomes&lt;/li&gt;\n&lt;li&gt;Not a highly scripted role with narrow ownership or predefined motions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;This role requires judgment, curiosity, and comfort operating across technical, strategic, and commercial dimensions.&lt;/p&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive compensation package, including equity.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Inclusive Healthcare Package.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Learn and Grow - we provide mentorship and send you to events that help you build your network and skills.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Time Off.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;We will provide you the gear you need to do your role, and a WFH budget for you to outfit your space as needed.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;The San Francisco, CA OTE range for this role is $170,000-$209,000. Actual salary will be based on job-related skills, experience, and location. Compensation outside of San Francisco may be adjusted based on employee location. The total compensation package may include benefits, equity-based compensation, and eligibility for a company bonus or variable pay program depending on the role. Your recruiter can share more details during the hiring process.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Vercel is committed to fostering and empowering an inclusive community within our organization. We do not discriminate on the basis of race, religion, color, gender expression or identity, sexual orientation, national origin, citizenship, age, marital status, veteran status, disability status, or any other characteristic protected by law. Vercel encourages everyone to apply for our available positions, even if they don&#39;t necessarily check every box on the job description.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;div id=&quot;te-floating-button-container&quot;&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4085775004,
+          "name": "Account Executive",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4035428004,
+          "name": "Remote - United States",
+          "location": "San Francisco, California, United States",
+          "child_ids": [],
+          "parent_id": 4014159004
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/5752956004",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 5027647004,
+      "location": {
+        "name": "Hybrid - London"
+      },
+      "metadata": [
+        {
+          "id": 18783104004,
+          "name": "Function",
+          "value": "Sales",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 5752956004,
+      "updated_at": "2026-05-14T13:27:30-04:00",
+      "requisition_id": "1088",
+      "title": "Account Executive-Startups, Greenfield (EMEA)",
+      "company_name": "Vercel",
+      "first_published": "2026-01-08T11:54:22-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company. We free people and agents to ship what’s next.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;For more than a decade, Vercel has shaped how the web is built. As the team behind Next.js, v0, and AI SDK, we create products that help builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now, software is entering a new era, and the next generation of products will not just be used by people. They will be built, extended, and operated by agents.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;We are building the platform for that future, trusted by companies like&amp;nbsp;&lt;strong&gt;OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide&lt;/strong&gt;. Whether you’re building our products, supporting our customers, growing our community, or shaping our story, you’ll help define what comes next.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About Startups @ Vercel&lt;/h2&gt;\n&lt;p&gt;The Vercel Startups org exists to help founders navigate the shift to AI-native development with confidence. Startups move faster than ever—what used to take years now happens in days—and the decisions founders make early can either unlock scale or become long-term constraints. We partner with startups at the critical moments where technical, commercial, and strategic support starts to matter most.&lt;/p&gt;\n&lt;p&gt;We’re a talent-dense team made up of former founders, engineers, and experienced go-to-market operators who bring firsthand experience building, scaling, and supporting modern software companies. Many of us have sat on the other side of the table, making architectural decisions, navigating tradeoffs, and scaling under real constraints, and we bring that perspective into every customer interaction.&lt;/p&gt;\n&lt;p&gt;We operate with a growth mindset and strong shared ownership. We dig deep to understand our customers, work closely across functions as one team, and find ways to win even when the path forward isn’t obvious. Resilience, curiosity, and a willingness to push through hard problems are table stakes here.&lt;/p&gt;\n&lt;p&gt;This is a team for people who want to operate with high trust, high agency, and high impact — alongside peers who care deeply about helping startups succeed.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;About The Role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;You are an expert in Vercel, you have incredible pattern recognition, and are at the bleeding edge of the tech and tools defining how we live and work. In this role, you&#39;ll help startups unlock Vercel&#39;s full value from adoption through scaling—building relationships with founders and technical leaders who are making critical architectural decisions. You&#39;ll analyze usage patterns to identify expansion opportunities, coordinate cross-functional teams to drive outcomes, and guide teams as they adopt AI-native architectures. By leveraging automation and AI to maximize your impact, you&#39;ll help refine early plays into repeatable playbooks that scale across our startup portfolio.&lt;br&gt;&lt;br&gt;If you’re based within commuting distance of our London office, the role includes in-office anchor days.&amp;nbsp;&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What You Will Do&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Build trusted relationships with founders, developers, and technical leaders by quickly developing deep understanding of their architecture, use cases, and technical constraints&lt;/li&gt;\n&lt;li&gt;Landing new logos, driving early activation, and making Vercel the default choice before competitors get in&lt;/li&gt;\n&lt;li&gt;Driving first activation, earning trust fast, and positioning Vercel as the obvious default stack&lt;/li&gt;\n&lt;li&gt;Focus on pipeline generation, outbound, identifying high-potential startups early&lt;/li&gt;\n&lt;li&gt;Partner with founders and developers as they adopt AI-native features and architectures, helping them understand how Vercel’s Frontend Cloud fits into a rapidly evolving developer ecosystem and supports new workloads, performance requirements, and scaling patterns&lt;/li&gt;\n&lt;li&gt;Use automation, agents, and self-built workflows to operate at high leverage and focus time and energy on the most impactful customer work&lt;/li&gt;\n&lt;li&gt;Operate comfortably in an evolving environment, helping refine early motions and turn what works into repeatable playbooks&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;About You&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;We’re looking for someone who sits at the intersection of technical curiosity, commercial excellence, and startup mindset. You identify pattern recognition, have founder empathy, and have the ability to speak credibly to pre-seed through Series D companies and beyond who are making fast decisions.&lt;/p&gt;\n&lt;p&gt;You might be a great fit if you’ve developed this skill set through a range of paths—whether as a builder, founder, engineer, or in a technical go-to-market role—and you bring strong judgment, ownership, and curiosity to how you work.&lt;/p&gt;\n&lt;p&gt;In practice, this looks like someone who:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Learns complex technical products quickly and enjoys reasoning about how modern web and AI-native applications are built and scaled&lt;/li&gt;\n&lt;li&gt;Can speak comfortably with developers and founders, using their language and earning credibility through insight rather than titles&lt;/li&gt;\n&lt;li&gt;Has strong sales acumen and experience owning revenue outcomes across a range of deal sizes and complexities&lt;/li&gt;\n&lt;li&gt;Believes that the best revenue outcomes come from deeply successful customers, not transactional selling&lt;/li&gt;\n&lt;li&gt;Brings a thoughtful, opinionated point of view on modern web infrastructure, frontend performance, and scaling tradeoffs&lt;/li&gt;\n&lt;li&gt;Thrives in ambiguity and enjoys shaping how a team and motion evolves from early to more structured&lt;/li&gt;\n&lt;li&gt;Is energized by ownership, accountability, and helping customers make smart decisions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;What This Role Is Not&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Not a pure Customer Success role focused on reactive support&lt;/li&gt;\n&lt;li&gt;Not a transactional sales role detached from customer outcomes&lt;/li&gt;\n&lt;li&gt;Not a highly scripted role with narrow ownership or predefined motions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;This role requires judgment, curiosity, and comfort operating across technical, strategic, and commercial dimensions.&lt;/p&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive compensation package, including equity.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Inclusive Healthcare Package.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Learn and Grow - we provide mentorship and send you to events that help you build your network and skills.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Time Off.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;We will provide you the gear you need to do your role, and a WFH budget for you to outfit your space as needed.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Vercel is committed to fostering and empowering an inclusive community within our organization. We do not discriminate on the basis of race, religion, color, gender expression or identity, sexual orientation, national origin, citizenship, age, marital status, veteran status, disability status, or any other characteristic protected by law. Vercel encourages everyone to apply for our available positions, even if they don&#39;t necessarily check every box on the job description.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;div id=&quot;te-floating-button-container&quot;&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4085775004,
+          "name": "Account Executive",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4035416004,
+          "name": "Remote - United Kingdom",
+          "location": "London, England, United Kingdom",
+          "child_ids": [],
+          "parent_id": 4014161004
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/5789770004",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5045188004,
+      "location": {
+        "name": "Hybrid - San Francisco, New York City, Austin"
+      },
+      "metadata": [
+        {
+          "id": 18783104004,
+          "name": "Function",
+          "value": "Sales",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 5789770004,
+      "updated_at": "2026-05-14T13:27:30-04:00",
+      "requisition_id": "1111",
+      "title": "Account Executive- Startups, Install Base",
+      "company_name": "Vercel",
+      "first_published": "2026-02-02T19:05:31-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company. We free people and agents to ship what’s next.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;For more than a decade, Vercel has shaped how the web is built. As the team behind Next.js, v0, and AI SDK, we create products that help builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now, software is entering a new era, and the next generation of products will not just be used by people. They will be built, extended, and operated by agents.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;We are building the platform for that future, trusted by companies like&amp;nbsp;&lt;strong&gt;OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide&lt;/strong&gt;. Whether you’re building our products, supporting our customers, growing our community, or shaping our story, you’ll help define what comes next.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About Startups @Vercel&lt;/h2&gt;\n&lt;p&gt;The Vercel Startups org exists to help founders navigate the shift to AI-native development with confidence. Startups move faster than ever—what used to take years now happens in days—and the decisions founders make early can either unlock scale or become long-term constraints. We partner with startups at the critical moments where technical, commercial, and strategic support starts to matter most.&lt;/p&gt;\n&lt;p&gt;We’re a talent-dense team made up of former founders, engineers, and experienced go-to-market operators who bring firsthand experience building, scaling, and supporting modern software companies. Many of us have sat on the other side of the table, making architectural decisions, navigating tradeoffs, and scaling under real constraints, and we bring that perspective into every customer interaction.&lt;/p&gt;\n&lt;p&gt;We operate with a growth mindset and strong shared ownership. We dig deep to understand our customers, work closely across functions as one team, and find ways to win even when the path forward isn’t obvious. Resilience, curiosity, and a willingness to push through hard problems are table stakes here.&lt;/p&gt;\n&lt;p&gt;This is a team for people who want to operate with high trust, high agency, and high impact — alongside peers who care deeply about helping startups succeed.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;About The Role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;You are an expert in Vercel, you have incredible pattern recognition, and are at the bleeding edge of the tech and tools defining how we live and work. In this role, you&#39;ll help startups unlock Vercel&#39;s full value from adoption through scaling—building relationships with founders and technical leaders who are making critical architectural decisions. You&#39;ll analyze usage patterns to identify expansion opportunities, coordinate cross-functional teams to drive outcomes, and guide teams as they adopt AI-native architectures. By leveraging automation and AI to maximize your impact, you&#39;ll help refine early plays into repeatable playbooks that scale across our startup portfolio.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What You Will Do&amp;nbsp;&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Build trusted relationships with founders, developers, and technical leaders by quickly developing deep understanding of their architecture, use cases, and technical constraints&lt;/li&gt;\n&lt;li&gt;Use customer signals and usage patterns to determine the right next play and focus time on the highest-leverage opportunities for adoption, expansion, or re-engagement&lt;/li&gt;\n&lt;li&gt;Quarterback customers end-to-end, strategically deploying Sales Engineers, Developer Support Engineers, Product, and Support at the right moments to drive outcomes&lt;/li&gt;\n&lt;li&gt;Own and grow a portfolio of startup customers by partnering with them as they move from early adoption to scale&lt;/li&gt;\n&lt;li&gt;Partner with founders and developers as they adopt AI-native features and architectures, helping them understand how Vercel’s Frontend Cloud fits into a rapidly evolving developer ecosystem and supports new workloads, performance requirements, and scaling patterns&lt;/li&gt;\n&lt;li&gt;Use automation, agents, and self-built workflows to operate at high leverage and focus time and energy on the most impactful customer work&lt;/li&gt;\n&lt;li&gt;Operate comfortably in an evolving environment, helping refine early motions and turn what works into repeatable playbooks&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;About You&amp;nbsp;&lt;/h2&gt;\n&lt;p&gt;We’re looking for someone who sits at the intersection of &lt;strong&gt;technical curiosity, commercial excellence, and startup mindset&lt;/strong&gt;.&lt;/p&gt;\n&lt;p&gt;You might be a great fit if you’ve developed this skill set through a range of paths—whether as a builder, founder, engineer, or in a technical go-to-market role—and you bring strong judgment, ownership, and curiosity to how you work.&lt;/p&gt;\n&lt;p&gt;In practice, this looks like someone who:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Learns complex technical products quickly and enjoys reasoning about how modern web and AI-native applications are built and scaled&lt;/li&gt;\n&lt;li&gt;Can speak comfortably with developers and founders, using their language and earning credibility through insight rather than titles&lt;/li&gt;\n&lt;li&gt;Has strong sales acumen and experience owning revenue outcomes across a range of deal sizes and complexities&lt;/li&gt;\n&lt;li&gt;Believes that the best revenue outcomes come from deeply successful customers, not transactional selling&lt;/li&gt;\n&lt;li&gt;Brings a thoughtful, opinionated point of view on modern web infrastructure, frontend performance, and scaling tradeoffs&lt;/li&gt;\n&lt;li&gt;Thrives in ambiguity and enjoys shaping how a team and motion evolves from early to more structured&lt;/li&gt;\n&lt;li&gt;Is energized by ownership, accountability, and helping customers make smart decisions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;What This Role Is Not&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Not a pure Customer Success role focused on reactive support&lt;/li&gt;\n&lt;li&gt;Not a transactional sales role detached from customer outcomes&lt;/li&gt;\n&lt;li&gt;Not a highly scripted role with narrow ownership or predefined motions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;This role requires judgment, curiosity, and comfort operating across technical, strategic, and commercial dimensions.&lt;/p&gt;\n&lt;p&gt;If you’re based within a pre-determined commuting distance of one of our offices (SF, Austin or NY), the role includes in-office anchor days on Monday, Tuesday, and Friday. If you&#39;re located beyond that distance, the role is fully remote. For location-specific details, please connect with our recruiting team.&lt;/p&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive compensation package, including equity.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Inclusive Healthcare Package.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Learn and Grow - we provide mentorship and send you to events that help you build your network and skills.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Time Off.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;We will provide you the gear you need to do your role, and a WFH budget for you to outfit your space as needed.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;The San Francisco, CA OTE range for this role is $170,000-$209,000. Actual salary will be based on job-related skills, experience, and location. Compensation outside of San Francisco may be adjusted based on employee location. The total compensation package may include benefits, equity-based compensation, and eligibility for a company bonus or variable pay program depending on the role. Your recruiter can share more details during the hiring process.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Vercel is committed to fostering and empowering an inclusive community within our organization. We do not discriminate on the basis of race, religion, color, gender expression or identity, sexual orientation, national origin, citizenship, age, marital status, veteran status, disability status, or any other characteristic protected by law. Vercel encourages everyone to apply for our available positions, even if they don&#39;t necessarily check every box on the job description.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;div id=&quot;te-floating-button-container&quot;&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4085775004,
+          "name": "Account Executive",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4035428004,
+          "name": "Remote - United States",
+          "location": "San Francisco, California, United States",
+          "child_ids": [],
+          "parent_id": 4014159004
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/5846178004",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 5072542004,
+      "location": {
+        "name": "Hybrid - London"
+      },
+      "metadata": [
+        {
+          "id": 18783104004,
+          "name": "Function",
+          "value": "Finance",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 5846178004,
+      "updated_at": "2026-05-14T13:27:30-04:00",
+      "requisition_id": "1189",
+      "title": "Commercial Counsel, EMEA",
+      "company_name": "Vercel",
+      "first_published": "2026-04-03T12:27:03-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company. We free people and agents to ship what’s next.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;For more than a decade, Vercel has shaped how the web is built. As the team behind Next.js, v0, and AI SDK, we create products that help builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now, software is entering a new era, and the next generation of products will not just be used by people. They will be built, extended, and operated by agents.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;We are building the platform for that future, trusted by companies like&amp;nbsp;&lt;strong&gt;OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide&lt;/strong&gt;. Whether you’re building our products, supporting our customers, growing our community, or shaping our story, you’ll help define what comes next.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;&lt;strong&gt;About the Role:&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;We are looking for a keen and enthusiastic attorney based in London to join our small but mighty Legal team.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;You will partner closely with Sales, Partnerships, Procurement, and other cross‑functional teams to negotiate commercial contracts with customers, vendors, and partners. In addition to managing a busy deal pipeline, you will use AI tools to help design and improve processes, playbooks, and programs that increase efficiency and deal velocity so the team can scale with company growth.&amp;nbsp; Depending on need and interest, you may work on product development projects and other areas outside of Commercial Legal.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;This position reports to the Senior Director, Commercial Legal and will be based in London with a 3 day/week in-office requirement.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;What You Will Do:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Serve as a primary Legal point of contact for go‑to‑market and procurement deals across EMEA, providing clear, practical advice to relevant teams&lt;/li&gt;\n&lt;li&gt;Independently manage and negotiate a variety of commercial agreements, including customer, vendor, partnership, and reseller agreements&lt;/li&gt;\n&lt;li&gt;Partner with cross‑functional teams to design and improve scalable contracting processes, playbooks, and tools that increase deal velocity&lt;/li&gt;\n&lt;li&gt;Draft, maintain, and iterate on agreement templates, playbooks, and fallback positions&lt;/li&gt;\n&lt;li&gt;Participate in and advise on Vercel regional expansion strategies in EMEA and beyond&lt;/li&gt;\n&lt;li&gt;Use AI tools to build and refine workflows and processes that help the team work more efficiently and consistently&lt;/li&gt;\n&lt;li&gt;Contribute to other Legal work as needed, which may include supporting commercial deals in APAC and AMER, or product, privacy, or security initiatives&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;strong&gt;About You:&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Qualified and in good standing in England and Wales&lt;/li&gt;\n&lt;li&gt;10+ years of legal experience, including 5+ years of in‑house commercial experience at a technology company (ideally AI, SaaS, PaaS, or IaaS)&lt;/li&gt;\n&lt;li&gt;Deeply familiar with GDPR and related privacy regulations and able to confidently discuss privacy issues with customers&lt;/li&gt;\n&lt;li&gt;Strong understanding of AI and cloud‑based services and the associated global regulatory landscape, with a willingness to dig deep into Vercel’s evolving product offerings&lt;/li&gt;\n&lt;li&gt;Demonstrated skill and experience with using AI to build tools, workflows, and processes&lt;/li&gt;\n&lt;li&gt;Excellent judgment, with strong risk‑assessment and mitigation skills and the ability to make pragmatic recommendations with imperfect information&lt;/li&gt;\n&lt;li&gt;Clear and concise communicator, able to explain complex issues in plain language to a wide range of stakeholders&lt;/li&gt;\n&lt;li&gt;Proven ability to confidently and independently negotiate technology agreements with enterprise customers and technology vendors&lt;/li&gt;\n&lt;li&gt;Strong prioritization and organization skills, with the ability to manage a high volume of fast‑moving workstreams and diverse stakeholders&lt;/li&gt;\n&lt;li&gt;Track record of building new or meaningfully improving existing programs or processes in a fast‑paced, high‑growth environment.&lt;/li&gt;\n&lt;li&gt;Collaborative and low‑ego team member, willing to roll up your sleeves and take on work of varying scope and visibility&lt;/li&gt;\n&lt;li&gt;Ability to thrive in a fast-paced environment with a proven track record of building new or improving existing programs or processes at other high-growth companies&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;Bonus if you have:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Used Vercel’s products and services&lt;/li&gt;\n&lt;li&gt;Experience supporting channel and reseller partnerships&lt;/li&gt;\n&lt;li&gt;Fluency in other languages&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;p&gt;Benefits will be confirmed in your offer, but will include:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive compensation package, including equity.&lt;/li&gt;\n&lt;li&gt;Inclusive Healthcare Package.&lt;/li&gt;\n&lt;li&gt;Learn and Grow - we provide mentorship and send you to events that help you build your network and skills.&lt;/li&gt;\n&lt;li&gt;Flexible Time Off.&lt;/li&gt;\n&lt;li&gt;We will provide you the gear you need to do your role, and a WFH budget for you to outfit your space as needed.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;If you’re excited about this role but do not meet every requirement, we encourage you to apply. We are always interested in speaking with talented people who can grow with the team.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;The London, England base pay range for this role is 120,000 - 135,000 GBP. Actual salary will be based on job-related skills, experience, and location. The total compensation package may include benefits, equity-based compensation, and eligibility for a company bonus or variable pay program depending on the role. Your recruiter can share more details during the hiring process.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Vercel is committed to fostering and empowering an inclusive community within our organization. We do not discriminate on the basis of race, religion, color, gender expression or identity, sexual orientation, national origin, citizenship, age, marital status, veteran status, disability status, or any other characteristic protected by law. Vercel encourages everyone to apply for our available positions, even if they don&#39;t necessarily check every box on the job description.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;div id=&quot;te-floating-button-container&quot;&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4075598004,
+          "name": "Finance",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4091069004,
+          "name": "Office - London",
+          "location": "London, England, United Kingdom",
+          "child_ids": [],
+          "parent_id": 4014161004
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/5980496004",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5146539004,
+      "location": {
+        "name": "Hybrid - San Francisco, New York City"
+      },
+      "metadata": [
+        {
+          "id": 18783104004,
+          "name": "Function",
+          "value": "Marketing",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 5980496004,
+      "updated_at": "2026-05-14T13:27:30-04:00",
+      "requisition_id": "1217",
+      "title": "Corporate Events Manager ",
+      "company_name": "Vercel",
+      "first_published": "2026-04-23T17:40:38-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company. We free people and agents to ship what’s next.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;For more than a decade, Vercel has shaped how the web is built. As the team behind Next.js, v0, and AI SDK, we create products that help builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now, software is entering a new era, and the next generation of products will not just be used by people. They will be built, extended, and operated by agents.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;We are building the platform for that future, trusted by companies like&amp;nbsp;&lt;strong&gt;OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide&lt;/strong&gt;. Whether you’re building our products, supporting our customers, growing our community, or shaping our story, you’ll help define what comes next.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;&lt;strong&gt;About the Role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;We&#39;re hiring a &lt;strong&gt;Corporate Events Manager&lt;/strong&gt; to own the planning, execution, and continuous improvement of these tentpoles, delivering experiences that &lt;strong&gt;inspire developers, excite enterprise buyers, and capture the attention of the global tech press&lt;/strong&gt;. Reporting to the Head of Demand Generation and partnering closely with marketing, product, and sales, you will be a key force in how Vercel shows up to the world.&lt;/p&gt;\n&lt;h2&gt;&amp;nbsp;&lt;/h2&gt;\n&lt;h2&gt;&lt;strong&gt;What You&#39;ll Do&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Execute Vercel&#39;s flagship events&lt;/strong&gt;: Support the editorial calendar and creative direction for Ship, Next.js Conf, and more coordinating across launches, narrative arcs, and the partner ecosystem.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Deliver world-class execution&lt;/strong&gt;: Lead end-to-end planning and stagecraft (budgeting, vendors, programming, production, branding, on-site ops) with clear targets for attendance, NPS, influenced pipeline, and content reach.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Help shape the story&lt;/strong&gt;: Collaborate with PMM and leadership to develop keynotes, demos, and narrative arcs; and help curate a speaker bench of customers, OSS leaders, and partners.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Drive high-impact sponsored presence&lt;/strong&gt;: Execute activations for AWS re:Invent and other key industry events—ensuring Vercel&#39;s presence is unmissable.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Connect events to company goals&lt;/strong&gt;: Work closely with product, developer relations, sales, and marketing to ensure each event drives measurable awareness, demand, and community growth.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Manage budgets and logistics&lt;/strong&gt;: Track event spend, reconcile invoices, and support forecasting and ROI modeling; contribute to the event tech stack to attribute impact end to end.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Coordinate cross-functional teams&lt;/strong&gt;: Provide day-to-day coordination with design, video, and PMM, and manage agencies and contractors to deliver at scale.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Support global programming&lt;/strong&gt;: Assist with multi-region timing, localization, and &lt;strong&gt;follow-the-sun&lt;/strong&gt; programming as Vercel expands tier-1 events internationally in 2026.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Track and report on outcomes&lt;/strong&gt;: Maintain KPIs for reach, engagement, pipeline impact, and brand lift—and surface data-driven insights to optimize future events.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Experiment with format and experience&lt;/strong&gt;: Contribute ideas and execution for in-person, hybrid, and virtual formats that meet our audiences where they are while staying true to Vercel&#39;s developer-first DNA.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&amp;nbsp;&lt;/h2&gt;\n&lt;h2&gt;&lt;strong&gt;What You Bring&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Solid event management experience&lt;/strong&gt;: 4–6 years in event planning and execution, including hands-on experience running conferences or product launches with 1000+ attendees.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Familiarity with global industry stages&lt;/strong&gt;: Working knowledge of events like AWS re:Invent, with the operational skill to execute effectively in competitive environments.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Detail-oriented and organized&lt;/strong&gt;: You thrive in the weeds—run-of-show documents, speaker prep, A/V coordination, and vendor management are where you shine.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Commercial awareness&lt;/strong&gt;: You understand how events connect to pipeline impact, sponsorship value, and ROI, and can report on those metrics clearly.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Strong cross-functional collaborator&lt;/strong&gt;: Skilled at working across teams and managing external partners to a high standard.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Developer empathy&lt;/strong&gt;: You understand how to speak to and design for technical audiences—engineers, CTOs, and product leaders.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Operational rigor&lt;/strong&gt;: Proven ability to deliver complex events on time and on budget, with solid contingency planning and attention to compliance.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&amp;nbsp;&lt;/h2&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive compensation package, including equity.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Inclusive Healthcare Package.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Learn and Grow - we provide mentorship and send you to events that help you build your network and skills.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Time Off.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;We will provide you the gear you need to do your role, and a WFH budget for you to outfit your space as needed.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;The San Francisco, CA base pay range for this role is $146,000 - $183,000. Actual salary will be based on job-related skills, experience, and location. Compensation outside of San Francisco may be adjusted based on employee location. The total compensation package may include benefits, equity-based compensation, and eligibility for a company bonus or variable pay program depending on the role. Your recruiter can share more details during the hiring process.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Vercel is committed to fostering and empowering an inclusive community within our organization. We do not discriminate on the basis of race, religion, color, gender expression or identity, sexual orientation, national origin, citizenship, age, marital status, veteran status, disability status, or any other characteristic protected by law. Vercel encourages everyone to apply for our available positions, even if they don&#39;t necessarily check every box on the job description.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;div id=&quot;te-floating-button-container&quot;&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4028449004,
+          "name": "Marketing",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4091066004,
+          "name": "Office - New York City",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": 4014159004
+        },
+        {
+          "id": 4091065004,
+          "name": "Office - San Francisco",
+          "location": "San Francisco, California, United States",
+          "child_ids": [],
+          "parent_id": 4014159004
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/5968713004",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5141541004,
+      "location": {
+        "name": "Hybrid - San Francisco, New York City, Austin"
+      },
+      "metadata": [
+        {
+          "id": 18783104004,
+          "name": "Function",
+          "value": "Sales",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 5968713004,
+      "updated_at": "2026-05-14T13:27:30-04:00",
+      "requisition_id": "1202",
+      "title": "Customer Success Manager",
+      "company_name": "Vercel",
+      "first_published": "2026-04-14T19:23:56-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company. We free people and agents to ship what’s next.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;For more than a decade, Vercel has shaped how the web is built. As the team behind Next.js, v0, and AI SDK, we create products that help builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now, software is entering a new era, and the next generation of products will not just be used by people. They will be built, extended, and operated by agents.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;We are building the platform for that future, trusted by companies like&amp;nbsp;&lt;strong&gt;OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide&lt;/strong&gt;. Whether you’re building our products, supporting our customers, growing our community, or shaping our story, you’ll help define what comes next.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About the Role&lt;/h2&gt;\n&lt;p&gt;Enterprise CSMs at Vercel are a critical part of the revenue engine. You own consumption growth across a portfolio of large enterprise accounts — ensuring the infrastructure customers have purchased is deeply adopted across their organisations, and that new workloads, teams, and use cases are continuously brought onto the platform.&lt;/p&gt;\n&lt;p&gt;This is not a support role. It&#39;s not account management, and it&#39;s not a renewal motion. It&#39;s a role for someone who thinks commercially, earns trust at the CTO and VP Engineering level, and understands that driving adoption across a large engineering organisation is one of the highest-leverage things Vercel can do. CSMs and AEs operate in clear swim lanes: AEs hunt net-new pipeline; CSMs own consumption.&lt;/p&gt;\n&lt;p&gt;This is a hybrid, 3 days per week in-office position based in our San Francisco, Austin or New York offices.&amp;nbsp;&lt;/p&gt;\n&lt;h2&gt;What You Will Do&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Own consumption targets&lt;/strong&gt; across a portfolio of Enterprise accounts — tracking platform usage across all products and driving consumption into new teams, workloads, and use cases&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Build and maintain deep executive relationships&lt;/strong&gt; with CTOs, VPs of Engineering, and Heads of Platform — becoming a trusted advisor on long-term frontend and AI infrastructure strategy&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Lead Executive Business Reviews&lt;/strong&gt; as the primary lever for consumption growth — using EBRs to surface new contacts, uncover untapped workloads, and create multi-team alignment around Vercel&#39;s platform&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Design and deliver internal hackathons and discovery sessions&lt;/strong&gt; that create first-hand understanding of what&#39;s possible — translating executive curiosity into engineering adoption at scale&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Drive org transformation programmes&lt;/strong&gt; with customers, helping engineering leadership redesign developer workflows, platform ownership, and tooling strategy around Vercel&#39;s capabilities&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Develop multi-year account strategies&lt;/strong&gt; that align Vercel&#39;s roadmap to customer outcomes — identifying expansion opportunities from a position of genuine insight rather than commercial pressure&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Orchestrate cross-functional resources&lt;/strong&gt; — Solutions Engineering, Forward-Deployed Engineers, Product, and Support — at the right moments to accelerate adoption and remove blockers&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Maintain a structured engagement discipline&lt;/strong&gt; across your portfolio, with clear entry and exit criteria for adoption stages and consistent tracking of executive contacts, active workloads, and consumption signals&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;About You&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Commercially minded&lt;/strong&gt; — you understand that CSM exists to produce revenue, not just protect it, and you&#39;re comfortable owning consumption targets and being measured on them&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Technically confident&lt;/strong&gt; — you understand modern frontend architecture, CI/CD pipelines, and AI-native development well enough to earn credibility with senior engineers and connect platform capability to real engineering problems&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;A long-game thinker&lt;/strong&gt; who builds relationships over months and years, not quarters — comfortable navigating complex, multi-stakeholder enterprise environments with patience and precision&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;An EBR practitioner&lt;/strong&gt; — you know how to run executive engagement programmes that go beyond slide decks, building the kind of senior relationships that surface new workloads and drive genuine consumption growth&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Energised by organisational complexity&lt;/strong&gt; — you understand how change happens inside large engineering organisations and know how to build the internal coalition that makes platform adoption stick&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Disciplined and structured&lt;/strong&gt; — you bring rigour to how you manage your portfolio, with a proactive engagement cadence and clear visibility into what&#39;s happening across every account&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Curious, direct, and opinionated&lt;/strong&gt; — you push customers toward better architectural and strategic decisions, and you bring genuine enthusiasm for what Vercel&#39;s platform makes possible&lt;/li&gt;\n&lt;/ul&gt;\n&lt;hr&gt;\n&lt;h2&gt;What This Role Is Not&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Not reactive support or ticket escalation management&lt;/li&gt;\n&lt;li&gt;Not a transactional renewal motion focused on QBR checklists&lt;/li&gt;\n&lt;li&gt;Not a role with narrow ownership or a pre-defined playbook to follow&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;This role requires judgment, technical curiosity, and the ability to operate across strategic, commercial, and hands-on dimensions simultaneously.&lt;/p&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive compensation package, including equity.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Inclusive Healthcare Package.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Learn and Grow - we provide mentorship and send you to events that help you build your network and skills.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Time Off.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;We will provide you the gear you need to do your role, and a WFH budget for you to outfit your space as needed.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;The San Francisco, CA OTE pay range for this role is $170,000 - $212,500. Actual salary will be based on job-related skills, experience, and location. Compensation outside of San Francisco may be adjusted based on employee location. The total compensation package may include benefits, equity-based compensation, and eligibility for a company bonus or variable pay program depending on the role. Your recruiter can share more details during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Vercel is committed to fostering and empowering an inclusive community within our organization. We do not discriminate on the basis of race, religion, color, gender expression or identity, sexual orientation, national origin, citizenship, age, marital status, veteran status, disability status, or any other characteristic protected by law. Vercel encourages everyone to apply for our available positions, even if they don&#39;t necessarily check every box on the job description.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;div id=&quot;te-floating-button-container&quot;&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4069399004,
+          "name": "Customer Success Managers",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4091067004,
+          "name": "Office - Austin",
+          "location": "Austin, Texas, United States",
+          "child_ids": [],
+          "parent_id": 4014159004
+        },
+        {
+          "id": 4091066004,
+          "name": "Office - New York City",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": 4014159004
+        },
+        {
+          "id": 4091065004,
+          "name": "Office - San Francisco",
+          "location": "San Francisco, California, United States",
+          "child_ids": [],
+          "parent_id": 4014159004
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/5968725004",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 5141548004,
+      "location": {
+        "name": "Hybrid - London"
+      },
+      "metadata": [
+        {
+          "id": 18783104004,
+          "name": "Function",
+          "value": "Sales",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 5968725004,
+      "updated_at": "2026-05-14T13:27:30-04:00",
+      "requisition_id": "1204",
+      "title": "Customer Success Manager, EMEA",
+      "company_name": "Vercel",
+      "first_published": "2026-04-14T19:23:59-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company. We free people and agents to ship what’s next.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;For more than a decade, Vercel has shaped how the web is built. As the team behind Next.js, v0, and AI SDK, we create products that help builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now, software is entering a new era, and the next generation of products will not just be used by people. They will be built, extended, and operated by agents.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;We are building the platform for that future, trusted by companies like&amp;nbsp;&lt;strong&gt;OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide&lt;/strong&gt;. Whether you’re building our products, supporting our customers, growing our community, or shaping our story, you’ll help define what comes next.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About the Role&lt;/h2&gt;\n&lt;p&gt;Enterprise CSMs at Vercel are a critical part of the revenue engine. You own consumption growth across a portfolio of large enterprise accounts — ensuring the infrastructure customers have purchased is deeply adopted across their organisations, and that new workloads, teams, and use cases are continuously brought onto the platform.&lt;/p&gt;\n&lt;p&gt;This is not a support role. It&#39;s not account management, and it&#39;s not a renewal motion. It&#39;s a role for someone who thinks commercially, earns trust at the CTO and VP Engineering level, and understands that driving adoption across a large engineering organisation is one of the highest-leverage things Vercel can do. CSMs and AEs operate in clear swim lanes: AEs hunt net-new pipeline; CSMs own consumption.&lt;/p&gt;\n&lt;h2&gt;What You Will Do&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Own consumption targets&lt;/strong&gt; across a portfolio of Enterprise accounts — tracking platform usage across all products and driving consumption into new teams, workloads, and use cases&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Build and maintain deep executive relationships&lt;/strong&gt; with CTOs, VPs of Engineering, and Heads of Platform — becoming a trusted advisor on long-term frontend and AI infrastructure strategy&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Lead Executive Business Reviews&lt;/strong&gt; as the primary lever for consumption growth — using EBRs to surface new contacts, uncover untapped workloads, and create multi-team alignment around Vercel&#39;s platform&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Design and deliver internal hackathons and discovery sessions&lt;/strong&gt; that create first-hand understanding of what&#39;s possible — translating executive curiosity into engineering adoption at scale&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Drive org transformation programmes&lt;/strong&gt; with customers, helping engineering leadership redesign developer workflows, platform ownership, and tooling strategy around Vercel&#39;s capabilities&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Develop multi-year account strategies&lt;/strong&gt; that align Vercel&#39;s roadmap to customer outcomes — identifying expansion opportunities from a position of genuine insight rather than commercial pressure&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Orchestrate cross-functional resources&lt;/strong&gt; — Solutions Engineering, Forward-Deployed Engineers, Product, and Support — at the right moments to accelerate adoption and remove blockers&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Maintain a structured engagement discipline&lt;/strong&gt; across your portfolio, with clear entry and exit criteria for adoption stages and consistent tracking of executive contacts, active workloads, and consumption signals&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;About You&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Commercially minded&lt;/strong&gt; — you understand that CSM exists to produce revenue, not just protect it, and you&#39;re comfortable owning consumption targets and being measured on them&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Technically confident&lt;/strong&gt; — you understand modern frontend architecture, CI/CD pipelines, and AI-native development well enough to earn credibility with senior engineers and connect platform capability to real engineering problems&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;A long-game thinker&lt;/strong&gt; who builds relationships over months and years, not quarters — comfortable navigating complex, multi-stakeholder enterprise environments with patience and precision&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;An EBR practitioner&lt;/strong&gt; — you know how to run executive engagement programmes that go beyond slide decks, building the kind of senior relationships that surface new workloads and drive genuine consumption growth&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Energised by organisational complexity&lt;/strong&gt; — you understand how change happens inside large engineering organisations and know how to build the internal coalition that makes platform adoption stick&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Disciplined and structured&lt;/strong&gt; — you bring rigour to how you manage your portfolio, with a proactive engagement cadence and clear visibility into what&#39;s happening across every account&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Curious, direct, and opinionated&lt;/strong&gt; — you push customers toward better architectural and strategic decisions, and you bring genuine enthusiasm for what Vercel&#39;s platform makes possible&lt;/li&gt;\n&lt;/ul&gt;\n&lt;hr&gt;\n&lt;h2&gt;What This Role Is Not&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Not reactive support or ticket escalation management&lt;/li&gt;\n&lt;li&gt;Not a transactional renewal motion focused on QBR checklists&lt;/li&gt;\n&lt;li&gt;Not a role with narrow ownership or a pre-defined playbook to follow&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;This role requires judgment, technical curiosity, and the ability to operate across strategic, commercial, and hands-on dimensions simultaneously.&lt;/p&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive compensation package, including equity.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Inclusive Healthcare Package.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Learn and Grow - we provide mentorship and send you to events that help you build your network and skills.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Time Off.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;We will provide you the gear you need to do your role, and a WFH budget for you to outfit your space as needed.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;The OTE pay range for this role is £102,500 - £127,500. Actual salary will be based on job-related skills, experience, and location. The total compensation package may include benefits, equity-based compensation, and eligibility for a company bonus or variable pay program depending on the role. Your recruiter can share more details during the hiring process.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Vercel is committed to fostering and empowering an inclusive community within our organization. We do not discriminate on the basis of race, religion, color, gender expression or identity, sexual orientation, national origin, citizenship, age, marital status, veteran status, disability status, or any other characteristic protected by law. Vercel encourages everyone to apply for our available positions, even if they don&#39;t necessarily check every box on the job description.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;div id=&quot;te-floating-button-container&quot;&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4069399004,
+          "name": "Customer Success Managers",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4091069004,
+          "name": "Office - London",
+          "location": "London, England, United Kingdom",
+          "child_ids": [],
+          "parent_id": 4014161004
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/5709080004",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5006685004,
+      "location": {
+        "name": "Remote - United States"
+      },
+      "metadata": [
+        {
+          "id": 18783104004,
+          "name": "Function",
+          "value": "Design",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 5709080004,
+      "updated_at": "2026-05-14T13:27:30-04:00",
+      "requisition_id": "1029",
+      "title": "Design Engineer",
+      "company_name": "Vercel",
+      "first_published": "2025-12-09T17:58:13-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company. We free people and agents to ship what’s next.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;For more than a decade, Vercel has shaped how the web is built. As the team behind Next.js, v0, and AI SDK, we create products that help builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now, software is entering a new era, and the next generation of products will not just be used by people. They will be built, extended, and operated by agents.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;We are building the platform for that future, trusted by companies like&amp;nbsp;&lt;strong&gt;OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide&lt;/strong&gt;. Whether you’re building our products, supporting our customers, growing our community, or shaping our story, you’ll help define what comes next.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About the Role:&lt;/h2&gt;\n&lt;p&gt;The design team at Vercel is comprised of capable and considerate humans working to solve challenges that are unique, complex, and nuanced—just like the web. Vercel is looking for an experienced individual to join the Design Engineering team at Senior or Staff level. The Design Engineering team is responsible for the highest level of polish, creativity and interaction on Vercel.&lt;/p&gt;\n&lt;p&gt;You will work across the logged out experience of Vercel,shaping the future of &lt;a href=&quot;http://Vercel.com&quot;&gt;Vercel.com&lt;/a&gt;, events, and marketing surfaces that introduce the world to Vercel. You&#39;ll work on design initiatives and create thoughtful, innovative, systems-based solutions for top-of-funnel experiences, working closely with design, marketing, sales, GTM, Analytics, product design, and engineering.&lt;/p&gt;\n&lt;p&gt;Designers at Vercel have broad creative license, and the freedom to create and lead new, design-driven projects. If you are someone who gets excited about the possibility of creative development, uncovering insights to drive conversion,&amp;nbsp;improving user experience, experimenting, and personalizing, then this&amp;nbsp;might be the right role for you.&lt;/p&gt;\n&lt;p&gt;&lt;/p&gt;\n&lt;p&gt;If you’re based within a pre-determined commuting distance of one of our offices (SF, NY, London, or Berlin), the role includes in-office anchor days on Monday, Tuesday, and Friday. If you&#39;re located beyond that distance, the role is fully remote. For location-specific details, please connect with our recruiting team.&lt;/p&gt;\n&lt;h2&gt;What You Will Do:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Report to our Director of Design Engineering and help Vercel strengthen its acquisition surfaces by driving design leadership and engineering excellence on &lt;a href=&quot;http://vercel.com&quot;&gt;vercel.com&lt;/a&gt;, events, and related experiences.&lt;/li&gt;\n&lt;li&gt;Contribute to the design process by gathering requirements, planning and ideating from the start of a project, and shaping modular systems for repeatable marketing and growth use cases.&lt;/li&gt;\n&lt;li&gt;Demonstrate an understanding of the development workflow, CMS and analytics integrations (Payload, Rudderstack, Clearbit, &lt;a href=&quot;http://Sequel.io&quot;&gt;Sequel.io&lt;/a&gt;, etc.), and how to streamline processes with cross-functional partners.&lt;/li&gt;\n&lt;li&gt;Work with designers, marketers, and engineers to collaborate on ideation and ensure high-quality, performant implementations across campaigns and pages.&lt;/li&gt;\n&lt;li&gt;Help lead the technical roadmap for acquisition surfaces, championing iterative improvements to browser performance, accessibility, Core Web Vitals, and SEO.&lt;/li&gt;\n&lt;li&gt;Provide design systems feedback and iteration to help empower the entire company with a first-class, consistent web experience.&lt;/li&gt;\n&lt;li&gt;Advocate for and mentor other design engineers, sharing best practices in frontend craft, animation, experimentation, and performance.&lt;/li&gt;\n&lt;li&gt;Help grow the team and elevate design and engineering within the company.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;/h2&gt;\n&lt;h2&gt;About You:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Depth and quality of your experience is more important than years. That said, successful candidates typically have at least 5+ years of development experience.&lt;/li&gt;\n&lt;li&gt;Strong programming skills, experience with application development, and excellent troubleshooting skills.&lt;/li&gt;\n&lt;li&gt;Excellent written and verbal communication skills with a keen eye for detail.&lt;/li&gt;\n&lt;li&gt;Excellent understanding of Next.js and Vercel, CMS platforms like Payload (or Contentful), analytics platforms like Amplitude or Heap, and design tools like Figma.&lt;/li&gt;\n&lt;li&gt;Familiarity with growth experimentation, SEO principles, and marketing/brand campaigns.&lt;/li&gt;\n&lt;li&gt;Skills and understanding on graphic design (layout, typography, color, illustration).&lt;/li&gt;\n&lt;li&gt;Perfectionism with the experience (polish, readability, accessibility, performance).&lt;/li&gt;\n&lt;li&gt;Experience working in or with Software as a Service (SaaS) companies.&lt;/li&gt;\n&lt;li&gt;You have closely collaborated with folks from marketing and design in previous roles.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h2&gt;&lt;/h2&gt;\n&lt;h2&gt;Benefits:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive compensation package, including equity.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Inclusive Healthcare Package.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Learn and Grow - we provide mentorship and send you to events that help you build your network and skills.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Time Off.&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;We will provide you the gear you need to do your role, and a WFH budget for you to outfit your space as needed.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;The San Francisco, CA base pay range for this role is $196,000-$294,000. Actual salary will be based on job-related skills, experience, and location. Compensation outside of San Francisco may be adjusted based on employee location. The total compensation package may include benefits, equity-based compensation, and eligibility for a company bonus or variable pay program depending on the role. Your recruiter can share more details during the hiring process.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Vercel is committed to fostering and empowering an inclusive community within our organization. We do not discriminate on the basis of race, religion, color, gender expression or identity, sexual orientation, national origin, citizenship, age, marital status, veteran status, disability status, or any other characteristic protected by law. Vercel encourages everyone to apply for our available positions, even if they don&#39;t necessarily check every box on the job description.&lt;/p&gt;\n&lt;div id=&quot;te-floating-button-container&quot;&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4063261004,
+          "name": "Design",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4014159004,
+          "name": "AMER",
+          "location": "Remote - AMER",
+          "child_ids": [
+            4035429004,
+            4035428004,
+            4091066004,
+            4091067004,
+            4091065004
+          ],
+          "parent_id": null
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 78
+  }
+}

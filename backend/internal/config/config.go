@@ -19,7 +19,18 @@ type Config struct {
 	RedisURL        string
 	SessionKey      string
 	CustomPagesRoot string // builder 写、backend 读 custom page build artifact 的根
-	SecureCookie    bool   // dev (http) 走 false；prod 必须 true
+	// JobFetch*BaseURL —— 各 job-board adapter 的 base URL 覆写。production
+	// 留空走真 URL；e2e/dev 指 docker-compose 起的 job-board-mock。见
+	// docs/design/job-loop-tests.md T.2。
+	JobFetchGreenhouseBaseURL      string
+	JobFetchLeverBaseURL           string
+	JobFetchAshbyBaseURL           string
+	JobFetchRemoteOKBaseURL        string
+	JobFetchWWRBaseURL             string
+	JobFetchHNBaseURL              string
+	JobFetchSmartRecruitersBaseURL string
+	JobFetchWorkableBaseURL        string
+	SecureCookie                   bool // dev (http) 走 false；prod 必须 true
 }
 
 // 缺关键 env 时返回的 sentinel error。
@@ -31,14 +42,22 @@ var (
 // Load 读 env，返回 Config 或 error。任何 required env 缺失即返回 error。
 func Load() (*Config, error) {
 	cfg := &Config{
-		Host:            envOr("HOST", "0.0.0.0"),
-		Port:            envOr("PORT", "8000"),
-		PublicURL:       envOr("PUBLIC_URL", "http://localhost:8000"),
-		DatabaseURL:     os.Getenv("DATABASE_URL"),
-		RedisURL:        os.Getenv("REDIS_URL"),
-		SessionKey:      os.Getenv("SESSION_KEY"),
-		CustomPagesRoot: envOr("CUSTOM_PAGES_ROOT", "/srv/custom-pages"),
-		SecureCookie:    envOr("SECURE_COOKIE", "true") == "true",
+		Host:                           envOr("HOST", "0.0.0.0"),
+		Port:                           envOr("PORT", "8000"),
+		PublicURL:                      envOr("PUBLIC_URL", "http://localhost:8000"),
+		DatabaseURL:                    os.Getenv("DATABASE_URL"),
+		RedisURL:                       os.Getenv("REDIS_URL"),
+		SessionKey:                     os.Getenv("SESSION_KEY"),
+		CustomPagesRoot:                envOr("CUSTOM_PAGES_ROOT", "/srv/custom-pages"),
+		JobFetchGreenhouseBaseURL:      os.Getenv("GREENHOUSE_BASE_URL"),
+		JobFetchLeverBaseURL:           os.Getenv("LEVER_BASE_URL"),
+		JobFetchAshbyBaseURL:           os.Getenv("ASHBY_BASE_URL"),
+		JobFetchRemoteOKBaseURL:        os.Getenv("REMOTEOK_BASE_URL"),
+		JobFetchWWRBaseURL:             os.Getenv("WWR_BASE_URL"),
+		JobFetchHNBaseURL:              os.Getenv("HN_BASE_URL"),
+		JobFetchSmartRecruitersBaseURL: os.Getenv("SMARTRECRUITERS_BASE_URL"),
+		JobFetchWorkableBaseURL:        os.Getenv("WORKABLE_BASE_URL"),
+		SecureCookie:                   envOr("SECURE_COOKIE", "true") == "true",
 	}
 
 	if cfg.DatabaseURL == "" {

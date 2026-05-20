@@ -231,3 +231,35 @@ CREATE TABLE page_content (
     contact         jsonb         NOT NULL DEFAULT '{}'::jsonb,
     updated_at      timestamptz   NOT NULL DEFAULT now()
 );
+
+-- job_sources —— owner 注册的 job source（greenhouse / lever / ashby /
+-- remoteok / wwr / hn_hiring 等）。MCP `jobs.register_source` 写一行，
+-- `jobs.fetch_new` 按这条 row 找 fetcher adapter + 抓真 API。
+CREATE TABLE job_sources (
+    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    kind            text          NOT NULL
+                                  CHECK (kind IN (
+                                    'greenhouse','lever','ashby',
+                                    'remoteok','wwr','hn_hiring',
+                                    'smartrecruiters','workable')),
+    -- config 形状跟 kind 走: greenhouse / lever / ashby / smartrecruiters /
+    -- workable 需 {"company": "..."}; wwr 需 {"categories": ["..."]};
+    -- remoteok / hn_hiring 不需要 (空 object)。
+    config          jsonb         NOT NULL DEFAULT '{}'::jsonb,
+    label           text          NOT NULL,
+    last_fetched_at timestamptz,
+    created_at      timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX job_sources_owner_idx ON job_sources(owner_id, created_at DESC);
+
+-- job_fingerprints —— 跨日 dedup 用; (source_id, external_id) 见过的就
+-- 不再返回。永不过期 (TTL 用 source 级别 GC); external_id 是各 source
+-- 自带的稳定 ID (greenhouse.id / lever.id / hn.comment_id / wwr.guid 等)。
+CREATE TABLE job_fingerprints (
+    source_id     uuid          NOT NULL REFERENCES job_sources(id) ON DELETE CASCADE,
+    external_id   text          NOT NULL,
+    first_seen_at timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (source_id, external_id)
+);

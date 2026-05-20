@@ -1,0 +1,807 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss">
+  <channel>
+    <title>We Work Remotely: Back-End Programming Jobs</title>
+    <link>https://weworkremotely.com/categories/remote-back-end-programming-jobs.rss</link>
+    <description>We Work Remotely: Back-End Programming Jobs</description>
+    <language>en-US</language>
+    <ttl>60</ttl>
+    <item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/2344/logo.gif" type="image/png"/>
+      <title>OnTheGoSystems: Senior Ruby on Rails Developer </title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>Nevada</state>
+      <skills>Ruby on Rails and Artificial Intelligence (AI)</skills>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/2344/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Remote
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="http://onthegosystems.com"&gt;http://onthegosystems.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;We’re looking for a &lt;strong&gt;Senior Ruby on Rails developer&lt;/strong&gt; with a curious, hands-on mindset who enjoys building reliable systems, owning meaningful features, solving complex problems, and &lt;strong&gt;using AI tools&lt;/strong&gt; to improve development workflows, product quality, and user experience.&lt;/p&gt;
+&lt;h3&gt;What you’ll be working on:&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Building and maintaining Ruby on Rails systems used at scaleOwning features from implementation to production&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Writing and maintaining automated tests (unit, integration, E2E)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Investigating production issues, debugging complex problems, and helping design practical solutions&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Improving performance, reliability, and maintainability&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;What we’re looking for:&lt;/h3&gt;
+&lt;p&gt;To succeed in this role, you’ll have:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;4+ years of professional experience with Ruby on Rails&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Experience building and running production systems&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Strong backend skills, including databases, performance, and API design&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Solid experience writing and maintaining automated tests (including E2E)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Curiousity about AI technologies and use AI-powered tools to improve productivity, debugging, testing, research, or development workflows.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Nice to have:&amp;nbsp;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Experience with React&amp;nbsp;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;CI/CD, background jobs, or AWS experience&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Why Join &lt;a href="https://onthegosystems.com/"&gt;OTGS&lt;/a&gt;?&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Stable &amp;amp; self-funded: Founded in 2007, profitable, and independent.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Industry leaders: Creators of &lt;a href="https://wpml.org/"&gt;WPML&lt;/a&gt;, the #1 multilingual plugin for WordPress, used on 1.5M+ sites&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Fully remote, async-friendly: Work from anywhere within EMEA hours&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Engineering-driven culture: Ownership, autonomy, testing, and thoughtful problem-solving&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Fair compensation and great benefits: Designed to support your well-being both inside and outside of work.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;You’ll enjoy this role if you:&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Take pride in ownership and accountability&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Care about testing and long-term code quality&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Are motivated by solving problems in complex systems&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Enjoy collaborative environments where kind and experienced people learn, investigate issues, and solve problems.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Want to make a lasting impact on a product used by thousands of real customers? We would love to hear from you.&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/onthegosystems-senior-ruby-on-rails-developer-2"&gt;https://weworkremotely.com/remote-jobs/onthegosystems-senior-ruby-on-rails-developer-2&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Tue, 19 May 2026 06:26:21 +0000</pubDate>
+      <expires_at>Thu, 18 Jun 2026 06:26:21 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/onthegosystems-senior-ruby-on-rails-developer-2</guid>
+      <link>https://weworkremotely.com/remote-jobs/onthegosystems-senior-ruby-on-rails-developer-2</link>
+    </item>
+<item>
+      <title>FairGambling: Blockchain Engineer &amp; Researcher</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; 
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://fairgambling.com"&gt;https://fairgambling.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;h1&gt;&lt;strong&gt;Blockchain Engineer / Analyst (Remote, Full-time or Contract)&lt;/strong&gt;&lt;/h1&gt;&lt;p&gt;&lt;strong&gt;About us – FairGambling&lt;/strong&gt; We're a fast-growing platform in the online gaming space. Not a casino ourselves, but the layer on top of it: we review, compare, and analyze operators across the industry, with transparency as the whole point. A lot of what we cover happens onchain, so we don't take operator numbers at face value – we verify them. Player reviews are checked against real on-platform activity, not just star ratings. The goal is simple: give players the honest picture the industry usually doesn't.&lt;/p&gt;&lt;p&gt;&lt;strong&gt;The role&lt;/strong&gt; A lot of what we verify lives onchain. We're hiring someone who's comfortable there – building tooling, tracking transactions across chains, and following contracts to surface what operators don't say themselves.&lt;/p&gt;&lt;p&gt;&lt;strong&gt;What you'll do:&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;Build and maintain trackers, dashboards, and scripts&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Monitor multiple chains, track transactions, and follow contracts onchain&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Investigate transaction flows and surface insights for the research and content team&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Follow trails through data – the work is genuinely investigative&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;strong&gt;What we're looking for:&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;Experience with trackers, dashboards, and scripts; smart contracts and transaction flows a strong plus&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Multi-chain experience ideally (EVM, Solana, BSC, TRON, etc.)&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Hands-on with blockchain explorers and analytics tools&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Background in a crypto product (exchange, DeFi) is a big plus&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Investigative mindset – you enjoy digging through data and following trails&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;strong&gt;To apply, please include:&lt;/strong&gt;&lt;/p&gt;&lt;ol&gt;&lt;li&gt;&lt;p&gt;Onchain tools, trackers, or investigations you've worked on (links / addresses welcome)&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Your favorite analytics tool and something you've built or found with it&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Your availability and preferred setup (full-time or contract)&lt;/p&gt;&lt;/li&gt;&lt;/ol&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/fairgambling-blockchain-engineer-researcher"&gt;https://weworkremotely.com/remote-jobs/fairgambling-blockchain-engineer-researcher&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 12:15:53 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 12:15:53 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/fairgambling-blockchain-engineer-researcher</guid>
+      <link>https://weworkremotely.com/remote-jobs/fairgambling-blockchain-engineer-researcher</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/5141/logo.gif" type="image/png"/>
+      <title>bunny.net: Staff Software Engineer (Magic Containers)</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>Ljubljana</state>
+      <skills>Containers, Linux, Network Protocols, C#, Kubernetes, and Large-scale Distributed Systems</skills>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/5141/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Slovenia
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="http://bunny.net"&gt;http://bunny.net&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Staff&amp;nbsp;Software Engineer (Magic Containers)&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Magic Containers is bunny.net’s edge-native platform for running containerized applications. It’s fast, flexible, and free from traditional cloud complexity. No Kubernetes. No YAML jungles. Just a simple, powerful way to deploy and scale apps globally with minimal setup.&lt;/p&gt;
+&lt;p&gt;It’s already running in production, powering real workloads, and we’re ready to take it further.&lt;/p&gt;
+&lt;p&gt;As a&amp;nbsp;&lt;strong&gt;Staff Software Engineer&lt;/strong&gt;, you’ll help evolve a platform that’s built for developers, with great DX, simple operations, and rock-solid reliability. You’ll work fast, ship often, and have a real voice in shaping the future of how containers run at the edge.&lt;/p&gt;
+&lt;p&gt;You’re a technical leader who shapes how we build at scale. You solve problems that cross teams, connect technical and business strategy, and make others better through influence, clarity, and mentorship. You set direction, not just follow it. And you leave every system and team stronger than you found them.&lt;/p&gt;
+&lt;p&gt;You won’t do it alone. You’ll work with people who challenge what’s possible and take pride in doing things well.&lt;/p&gt;
+&lt;p&gt;If this sounds like the kind of infrastructure you’d want to help others build with, we’d love to hear from you.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;What will you do?&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;Build and evolve the core of our edge-native container platform -&amp;nbsp;&lt;a href="https://bunny.net/magic-containers/"&gt;Magic Containers&lt;/a&gt;&amp;nbsp;and shape how developers build at the edge&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Multiply your impact by setting standards, mentoring engineers, and improving both code quality and team-wide knowledge&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Proactively spot opportunities to improve the platform, processes, or developer experience and drive those improvements end-to-end&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Lead cross-team efforts, whether it’s scaling orchestration systems, improving global observability, or driving company-wide migrations and technology shifts&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Align technical direction across teams by collaborating on specs, guiding architecture, and connecting engineering decisions to business goals&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Debug and resolve complex production issues, including those reported by customers&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Own outcomes end to end: not just shipping features, but delivering systems that solve real customer problems at scale&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Set a high bar for what great looks like in code quality, system design, and how we support what we build in production&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;What will you bring?&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;5+ years of experience with C# or a strong willingness to switch to it&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Deep understanding of containers (cgroups, namespaces, runtimes) and how they work under the hood&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Proven experience building and operating distributed systems across global infrastructure, especially those designed for global scale, low latency, or edge environments&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Strong Linux systems knowledge and comfort working close to the OS&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Solid grasp of networking fundamentals, including routing protocols, load balancing strategies, and distributed traffic patterns&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Familiarity with time-series or analytical databases like ClickHouse or InfluxDB&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Sharp debugging skills and the ability to diagnose complex production issues&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Experience leading cross-team or company-wide technical initiatives, guiding architecture, and mentoring engineers&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Understanding of observability best practices: including logging, metrics, and health monitoring for distributed systems&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Clear, thoughtful communication: you write great docs, explain trade-offs, and build alignment&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;A customer-first mindset focused on outcomes, long-term reliability, and continuous improvement&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;A desire to help others grow and a habit of leading by example in how you write and review code&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;What will make us extra happy?&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;High-level understanding of Anycast: how it works, and how it impacts global routing, performance, and failover&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You’ve worked on sandboxing or container security (e.g. gVisor, Kata Containers)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You’ve improved developer experience or infrastructure usability at scale&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Familiarity with message brokers like RabbitMQ or Kafka&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Hands-on with Redis, etcd, or other distributed key-value stores&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You've used bunny.net products or have experience with edge compute/CDN platforms&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You contribute to open source or share knowledge publicly (talks, posts, docs)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You care deeply about developer experience and are thoughtful about the systems you design&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;You bring curiosity, care, and energy to your work, and to the people around you&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Not sure if you check every box?&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;That’s okay. We care more about how you think and what you’ve built than perfect credentials. If this work sounds exciting and you're ready to grow, we want to hear from you.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Where should you be located?&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;This job is fully remote from Europe (ideally CET or close time zone) with a flexible schedule, to make our collaboration easier. You’re still free to hop around the world and switch up your scenery whenever you want.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;What's in it for you?&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Life at bunny.net comes with benefits that make work (and life) better.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;100% flexible hours -&lt;/strong&gt;&amp;nbsp;Your work, your rhythm. Whether you thrive at 3 am or on a beach at noon, we've got you.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Remote-first by design&lt;/strong&gt;&amp;nbsp;- No offices, no commute, just the freedom to work anywhere. Miss the office? We’ll give you a 3-night voucher for visiting our&amp;nbsp;&lt;a href="https://bunnynet.teamtailor.com/locations/bunny-net-headquarters"&gt;headquarters&lt;/a&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Performance-based bonuses&lt;/strong&gt;&amp;nbsp;- Great work pays off, and we reward impact annually.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Medical, dental, and vision insurance -&lt;/strong&gt;&amp;nbsp;Coverage worldwide.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Paid time off -&lt;/strong&gt;&amp;nbsp;Love the slopes or the sea? Enjoy them with 25 vacation days, plus an extra loyalty day each year, capped at 5 years (30 days total), on top of your local public holidays.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Meeting-free Thursdays&lt;/strong&gt;&amp;nbsp;- We keep Thursdays meeting free internally so you can focus on deep work without interruptions.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Home office budget -&lt;/strong&gt;&amp;nbsp;We believe everyone is more efficient working in a comfortable office, and we're happy to help you set it up with an annual budget of €500.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Paid sick leave -&lt;/strong&gt;&amp;nbsp;Feeling ill? Take time off to fully recover without having to worry about your finances.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Parental leave -&lt;/strong&gt;&amp;nbsp;Paid 16 weeks for birthing parents, 8 weeks for non-birthing parents. If your country gives more, that’s your baseline. If it gives less, we top it up. Take your leave all at once or split it across the first year for maximum flexibility. After paid leave, your local statutory rules apply.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Annual fluffle-building&amp;nbsp;&lt;/strong&gt;- We're remote, but not distant! Once a year, we meet in a sunny location where virtual high-fives turn into real ones.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Employee Stock Option Plan (ESOP)&lt;/strong&gt;&amp;nbsp;- Everyone at bunny.net gets a piece of the pie, starting with 0.01% equity.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Mental health support -&lt;/strong&gt;&amp;nbsp;Feeling down? We've got your back. bunny.net provides mental health resources and help via&amp;nbsp;&lt;a href="http://betterhelp.com/"&gt;&lt;strong&gt;BetterHelp.com&lt;/strong&gt;&lt;/a&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Wellness budget -&lt;/strong&gt;&amp;nbsp;An annual well-being budget of €480 is here to help you stay fresh and focused.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Educational budget -&lt;/strong&gt;&amp;nbsp;€500 yearly for books, seminars, or online courses to keep your learning on track, work-related or not.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Music on us&lt;/strong&gt;&amp;nbsp;&lt;strong&gt;-&lt;/strong&gt; Work is better with music. Enjoy a yearly Apple, Spotify, or YouTube Premium subscription on us.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/bunny-net-staff-software-engineer-magic-containers"&gt;https://weworkremotely.com/remote-jobs/bunny-net-staff-software-engineer-magic-containers&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Tue, 12 May 2026 12:34:46 +0000</pubDate>
+      <expires_at>Thu, 11 Jun 2026 12:34:46 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/bunny-net-staff-software-engineer-magic-containers</guid>
+      <link>https://weworkremotely.com/remote-jobs/bunny-net-staff-software-engineer-magic-containers</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/5082/logo.gif" type="image/png"/>
+      <title>Praia Health Inc.: Staff Software Engineer - Data Infrastructure</title>
+      <region>Anywhere in the World</region>
+      <country>🇨🇦 Canada and 🇺🇸 United States of America</country>
+      <state>Washington</state>
+      <skills>Java and Spark</skills>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/5082/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Chicago, IL
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://praiahealth.com"&gt;https://praiahealth.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;div class="ATS_htmlPreview"&gt;
+&lt;p&gt;Praia is seeking a Staff Software Engineer to serve as a technical anchor and architect for our core consumer experience platform. In this role, you will establish deep, end-to-end architectural ownership of our platform, spanning high-performance Java services, Databricks ETL pipelines, and enterprise grade healthcare integrations.&lt;/p&gt;
+&lt;p&gt;This is a staff level scope where you will partner closely with engineering leadership to advocate for industry best practices, mentor engineering teams, and ensure the delivery of secure, well-documented APIs used by internal teams and external health system partners. If you thrive on bridging complex data engineering workloads with secure, scalable interoperability, in a dynamic environment, we want to hear from you.&lt;/p&gt;
+&lt;h2&gt;Key Responsibilities&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Architecture &amp;amp; System Design:&lt;/strong&gt; Build and scale foundational platform services powering Praia’s consumer experience products. Lead code and design reviews, establishing technical direction and mentoring other engineers.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Healthcare Interoperability:&lt;/strong&gt; Build and operate enterprise integration services for EMRs (Epic/MyChart and others) using HL7 FHIR APIs and related modern integration patterns.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Data Engineering Workloads:&lt;/strong&gt; Utilize Databricks and Apache Spark for complex data engineering workloads (pipelines, workflows, notebooks) to support product and integration use cases.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Security &amp;amp; API Excellence:&lt;/strong&gt; Develop and own secure APIs with strong authentication/authorization, auditing, and least privilege principles. Produce and maintain high quality developer documentation (integration guides, runbooks).&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;DevOps &amp;amp; Operational Readiness:&lt;/strong&gt; Build with a modern DevOps mindset, owning CI/CD pipelines, automated testing (unit/integration), infrastructure-as-code, monitoring/logging, and data-driven incident response.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Cross-Functional Collaboration:&lt;/strong&gt; Partner directly with Product, Design, and Customer-facing teams to translate complex business requirements into highly reliable technical solutions.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Qualifications&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Experience:&lt;/strong&gt; 8+ years of experience building and operating production software, with demonstrated staff- or senior-level scope and clear ownership of complex, distributed systems.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Core Tech Stack:&lt;/strong&gt; Strong programming skills in &lt;strong&gt;Java&lt;/strong&gt;, &lt;strong&gt;Python&lt;/strong&gt;, and &lt;strong&gt;Spark&lt;/strong&gt;. Hands-on experience with &lt;strong&gt;Databricks&lt;/strong&gt; (jobs, Delta Lake) and comfort partnering closely with data teams.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Healthcare Domain:&lt;/strong&gt; Direct experience integrating with EMR/EHR systems and healthcare interoperability standards; &lt;strong&gt;practical experience with FHIR APIs is required&lt;/strong&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Cloud &amp;amp; Infrastructure:&lt;/strong&gt; Experience designing and delivering cloud-native services (AWS/Azure/GCP), including &lt;strong&gt;Kubernetes&lt;/strong&gt; and &lt;strong&gt;Terraform&lt;/strong&gt;-based deployments. Comfortable owning release and operational processes via CI/CD.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Security First:&lt;/strong&gt; Deep knowledge of OAuth2/OIDC and API security patterns (mTLS, JWT, secrets management, least privilege) alongside secure SDLC practices.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Observability:&lt;/strong&gt; Experience with modern observability tools (logging, metrics, tracing, APM) and a disciplined approach to incident response.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Communication:&lt;/strong&gt; Exceptional written and verbal communication skills; proven ability to write clear technical design documents and present architecture to senior stakeholders.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Education:&lt;/strong&gt; Bachelor’s degree in CS/Engineering, or equivalent practical experience.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2&gt;Location &amp;amp; Work Authorization Requirements&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Geographic Restriction:&lt;/strong&gt; Candidates must permanently reside in either the United States or Canada; no other locations will be considered at this time.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Work Authorization:&lt;/strong&gt; Applicants must be currently authorized to work in the United States on a full-time basis. The company does not sponsor applicants for work visas (e.g., H-1B, TN, etc.) at this time.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Benefits&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Competitive salary and performance-based bonuses.&lt;/li&gt;
+&lt;li&gt;Full medical, dental, and vision benefits.&lt;/li&gt;
+&lt;li&gt;Company paid life insurance, company paid short-term &amp;amp; long-term disability.&lt;/li&gt;
+&lt;li&gt;401K savings plans with company matching.&lt;/li&gt;
+&lt;li&gt;A supportive and inclusive work environment.&lt;/li&gt;
+&lt;li&gt;Employee wellness programs and resources.&lt;/li&gt;
+&lt;li&gt;Flexible PTO.&amp;nbsp;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="css-enzntz"&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/praia-health-inc-staff-software-engineer-data-infrastructure"&gt;https://weworkremotely.com/remote-jobs/praia-health-inc-staff-software-engineer-data-infrastructure&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Wed, 06 May 2026 23:09:10 +0000</pubDate>
+      <expires_at>Fri, 05 Jun 2026 23:09:10 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/praia-health-inc-staff-software-engineer-data-infrastructure</guid>
+      <link>https://weworkremotely.com/remote-jobs/praia-health-inc-staff-software-engineer-data-infrastructure</link>
+    </item>
+<item>
+      <title>comparis.ch: Backend Engineer, 80-100% (f/m/x) </title>
+      <region>Anywhere in the World</region>
+      <country>🇦🇱 Albania, 🇧🇦 Bosnia and Herzegovina, 🇨🇿 Czechia, 🇬🇷 Greece, 🇭🇷 Croatia, 🇭🇺 Hungary, 🇱🇹 Lithuania, 🇱🇻 Latvia, 🇲🇰 North Macedonia, 🇲🇹 Malta, 🇵🇱 Poland, 🇵🇹 Portugal, 🇷🇴 Romania, 🇷🇸 Serbia, 🇸🇮 Slovenia, 🇸🇰 Slovakia, 🇹🇷 Türkiye, and 🇺🇦 Ukraine</country>
+      <state>Zürich</state>
+      <skills></skills>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Zuerich
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://en.comparis.ch/"&gt;https://en.comparis.ch/&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;div class="SCXW152853260 BCX8"&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;What you will do&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;We are looking for a Backend Developer to join our Marketplaces department and become part of the cross-functional Homefinder development team. Together, you will&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;maintain&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;and further develop one of Switzerland’s largest real estate platforms used daily by thousands of users.&lt;/span&gt;&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;In this role, you will design and develop scalable backend services, build APIs, and help evolve our architecture towards a modern cloud-native platform running on Azure and Kubernetes. You will also contribute to the migration of existing applications from our legacy&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;.NET&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Fr&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;amework&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;stack to a modern container-based environment.&lt;/span&gt;&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Your responsibilities&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Design, develop, and&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;maintain&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;scalable backend services using .NET Core / ASP.NET&lt;/span&gt;&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Build and&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;maintain&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;REST APIs and microservices&lt;/span&gt;&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Work with SQL Server and Azure Cosmos DB to manage application data&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Improve search functionality using Elasticsearch&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Deploy and&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;operate&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;applications using Docker and Kubernetes&lt;/span&gt;&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Ensure&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;high standards&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;for performance, scalability, security, and reliability&lt;/span&gt;&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Monitor, troubleshoot, and resolve production issues&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Collaborate with product managers, designers, and developers to deliver high-quality solutions&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Contribute to the modernization of our platform architecture&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;and rewrite our legacy .NET Framework based backend apps using modern .NET 10&lt;/span&gt;&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;What you bring&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Degree in Computer Science, Engineering, or comparable practical experience&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;3+ years of professional backend development experience&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="SCXW152853260 BCX8"&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Strong experience with C#, .NET Core / ASP.NET&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Experience building RESTful APIs and microservices&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Experience with SQL and NoSQL databases&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Familiarity with cloud platforms (ideally Azure)&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Experience with Docker and Kubernetes is a plus&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Experience working in agile teams&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Fluent English&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Nice to have&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Experience with vector databases&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Knowledge of Elasticsearch ranking and search optimization&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Experience with event-driven architectures&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="ListContainerWrapper SCXW152853260 BCX8"&gt;
+&lt;ul class="BulletListStyle1 SCXW152853260 BCX8"&gt;
+&lt;li class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Experience building data ingestion pipelines&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="LineBreakBlob BlobObject DragDrop SCXW152853260 BCX8"&gt;&lt;span class="SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;br class="SCXW152853260 BCX8"&gt;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;In return, here is what you can expect from us&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;At&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SpellingErrorV2Themed SCXW152853260 BCX8"&gt;Comparis&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;, we believe that empowered employees deliver the best results. We cultivate a culture of transparency, mutual&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun ContextualSpellingAndGrammarErrorV2Themed SCXW152853260 BCX8"&gt;respect&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;and trust. Firm believers in lifelong learning, we are always trying out new things and continuously developing – both as individuals and as a team. We also offer flat hierarchies, considerable&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;autonomy&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;and creative freedom, as well as a skilled and motivated team that will advise and support you in your work and make it easy for you to push your own boundaries. Finally, we offer flexible working hours to work from wherever you are and live.&lt;/span&gt;&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="LineBreakBlob BlobObject DragDrop SCXW152853260 BCX8"&gt;&lt;span class="SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;br class="SCXW152853260 BCX8"&gt;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Have we triggered your interest?&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="OutlineElement Ltr SCXW152853260 BCX8"&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Then&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;don't&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;hesitate&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun ContextualSpellingAndGrammarErrorV2Themed SCXW152853260 BCX8"&gt;and apply&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;for our position today. If you have any questions, Daphne, our People Management Lead, will be happy to help. We look forward to receiving your application!&amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;/span&gt;&lt;span class="LineBreakBlob BlobObject DragDrop SCXW152853260 BCX8"&gt;&lt;span class="SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;br class="SCXW152853260 BCX8"&gt;&lt;/span&gt;&lt;span class="LineBreakBlob BlobObject DragDrop SCXW152853260 BCX8"&gt;&lt;span class="SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;br class="SCXW152853260 BCX8"&gt;&lt;/span&gt;&lt;span class="TextRun SCXW152853260 BCX8" lang="EN-US" xml:lang="EN-US"&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;Note: If you are currently&amp;nbsp;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;residing&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;&amp;nbsp;abroad and are interested in a fully remote setup, please note that the employment would be arranged through our Employer of Record partner, remote.com, and therefore follow the labor laws and employment conditions of your country of residence.&amp;nbsp;&lt;/span&gt;&lt;/span&gt;&lt;span class="LineBreakBlob BlobObject DragDrop SCXW152853260 BCX8"&gt;&lt;span class="SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="Paragraph SCXW152853260 BCX8"&gt;&lt;span class="LineBreakBlob BlobObject DragDrop SCXW152853260 BCX8"&gt;&lt;br class="SCXW152853260 BCX8"&gt;&lt;/span&gt;&lt;span class="NormalTextRun SCXW152853260 BCX8"&gt;We also only consider direct applicants with a maximum time-zone difference of +/- 2 hours from Switzerland (GMT+2).&lt;/span&gt;&lt;span class="EOP SCXW152853260 BCX8"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/comparis-ch-backend-engineer-80-100-f-m-x"&gt;https://weworkremotely.com/remote-jobs/comparis-ch-backend-engineer-80-100-f-m-x&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 27 Apr 2026 13:45:28 +0000</pubDate>
+      <expires_at>Wed, 27 May 2026 13:45:28 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/comparis-ch-backend-engineer-80-100-f-m-x</guid>
+      <link>https://weworkremotely.com/remote-jobs/comparis-ch-backend-engineer-80-100-f-m-x</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0081/7221/logo.gif" type="image/png"/>
+      <title>Urban Legend: BACKEND ENGINEER (MID–SENIOR)</title>
+      <region>Anywhere in the World</region>
+      <country>🇺🇸 United States of America</country>
+      <state>Texas</state>
+      <skills>Django, Heroku, JavaScript, PostgreSQL, Python, Redis, Ruby, and Ruby on Rails</skills>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0081/7221/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Washington, DC
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://urbanlegend.co/"&gt;https://urbanlegend.co/&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;LOCATION REQUIREMENTS (NO EXCEPTIONS)&lt;/p&gt;
+&lt;p&gt;Remote: Must reside in Texas, USA&lt;/p&gt;
+&lt;p&gt;We are unable to consider candidates outside of Texas for this remote role.&lt;/p&gt;
+&lt;p&gt;&lt;br&gt;&lt;br&gt;ROLE DESCRIPTION&lt;/p&gt;
+&lt;p&gt;This is a full-time Backend Engineer role reporting directly to the CTO, open to either a late mid-level engineer ready to level up or a solidly senior engineer looking for ownership and impact. Title and comp will be calibrated to experience. You'll have direct access to senior technical leadership and a real voice in shaping our architecture and roadmap with no layers in between.&lt;/p&gt;
+&lt;p&gt;You will design, develop, and maintain the scalable backend services that power Urban Legend's campaigns, creator tools, and conversion tracking. You'll work across a polyglot stack, primarily Python/Django and Ruby/Rails, and contribute to an active migration of our infrastructure from Heroku to Render. You'll partner closely with product, design, and front-end engineers to ship customer-facing features end-to-end.&lt;/p&gt;
+&lt;p&gt;We move fast, ship often, and use modern AI tooling (Cursor in particular) as a core part of our day-to-day workflow. Above all, we are looking for someone with a strong bias toward action. You'd rather ship something today, learn from it, and iterate than spend a week debating the perfect approach.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;WHAT YOU'LL WORK ON&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;Our backend ecosystem includes:&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;• A Django/DRF monolith (Postgres, Redis, RQ workers, Docker)&lt;/p&gt;
+&lt;p&gt;• Two Ruby on Rails services (Rails 7/8, Postgres, Puma)&lt;/p&gt;
+&lt;p&gt;• A Flask service for high-throughput conversion tracking&lt;/p&gt;
+&lt;p&gt;• A Node.js/TypeScript service (Express, Drizzle, Playwright/Puppeteer)&lt;/p&gt;
+&lt;p&gt;• Shared infrastructure across Docker, Postgres, Redis, and AWS — currently in the middle of a Heroku → Render migration&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;REQUIRED QUALIFICATIONS&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;• A strong bias toward action. You ship, you measure, you iterate. You don't get stuck in analysis paralysis, and you're comfortable making good-enough decisions with incomplete information.&lt;/p&gt;
+&lt;p&gt;• Strong, production-level expertise in either Python/Django or Ruby on Rails. You don't need both on day one, but you should be excellent in one and excited to ramp quickly on the other.&lt;/p&gt;
+&lt;p&gt;• Demonstrated ability to learn unfamiliar frameworks and languages quickly. We'll occasionally need you in Flask, Node/TypeScript, or wherever the work lives.&lt;/p&gt;
+&lt;p&gt;• Solid fundamentals in OOP, relational databases (Postgres), REST API design, background job processing, and caching (Redis).&lt;/p&gt;
+&lt;p&gt;• Comfortable working in Docker-based local and production environments.&lt;/p&gt;
+&lt;p&gt;• Experience building scalable, high-performance, secure backend systems.&lt;/p&gt;
+&lt;p&gt;• Strong collaboration skills in a remote/hybrid environment, with exceptional problem-solving ability and attention to detail.&lt;/p&gt;
+&lt;p&gt;• Active, hands-on experience with AI coding tools, particularly Cursor, and a point of view on how to use them effectively.&lt;/p&gt;
+&lt;p&gt;• Bachelor's degree in CS, Engineering, or a related technical field, or equivalent professional experience.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;STRONGLY PREFERRED&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;• Infrastructure / platform experience — you're a product engineer first, but you've spent time on a platform team or otherwise have meaningful DevOps chops. We are looking for someone who can add real value to our Heroku → Render migration, not a pure DevOps hire who can't ship product work.&lt;/p&gt;
+&lt;p&gt;• Hands-on experience with Render, Heroku, or similar PaaS platforms.&lt;/p&gt;
+&lt;p&gt;• Experience with CI/CD pipelines, container orchestration, observability (Sentry, logging, metrics), and zero-downtime deploys.&lt;/p&gt;
+&lt;p&gt;• Familiarity with AWS (S3, Lambda, etc.).&lt;/p&gt;
+&lt;p&gt;• Front-end literacy sufficient to integrate cleanly with our React/TypeScript clients.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;NICE TO HAVE&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;• Experience with creator / marketing / ad-tech platforms.&lt;/p&gt;
+&lt;p&gt;• Experience with payments (PayPal, Stripe, Brex, etc.).&lt;/p&gt;
+&lt;p&gt;• Experience with web scraping, headless browsers (Playwright/Puppeteer).&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;BENEFITS:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Industry competitive compensation with significant opportunities for growth&lt;/li&gt;
+&lt;li&gt;Health benefits package&lt;/li&gt;
+&lt;li&gt;Unlimited PTO&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/urban-legend-backend-engineer-mid-senior"&gt;https://weworkremotely.com/remote-jobs/urban-legend-backend-engineer-mid-senior&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Wed, 22 Apr 2026 18:04:38 +0000</pubDate>
+      <expires_at>Fri, 22 May 2026 18:04:38 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/urban-legend-backend-engineer-mid-senior</guid>
+      <link>https://weworkremotely.com/remote-jobs/urban-legend-backend-engineer-mid-senior</link>
+    </item>
+<item>
+      <title>Stripe: Senior Backend Engineer</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Back-End Programming</category>
+      <type/>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Remote
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://stripe.com"&gt;https://stripe.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;Stripe is looking for a senior backend engineer to help build the financial infrastructure of the internet. You'll work on scalable systems that handle millions of transactions per day.&lt;/p&gt;&lt;ul&gt;&lt;li&gt;5+ years of backend engineering experience&lt;/li&gt;&lt;li&gt;Strong proficiency in Ruby, Go, or Java&lt;/li&gt;&lt;li&gt;Experience with distributed systems and microservices&lt;/li&gt;&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/stripe-senior-backend-engineer"&gt;https://weworkremotely.com/remote-jobs/stripe-senior-backend-engineer&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Wed, 22 Apr 2026 02:29:48 +0000</pubDate>
+      <expires_at>Fri, 22 May 2026 02:29:48 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/stripe-senior-backend-engineer</guid>
+      <link>https://weworkremotely.com/remote-jobs/stripe-senior-backend-engineer</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/4689/logo.gif" type="image/png"/>
+      <title>Reveleer: Full Stack AI Engineer</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>California</state>
+      <skills></skills>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/4689/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; United States
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://www.reveleer.com/"&gt;https://www.reveleer.com/&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Full Stack AI Engineer&lt;br&gt;Remote Opportunity&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;As the industry’s pioneering value-based care (VBC) technology platform, Reveleer is purpose-built to solve the most pressing real-world challenges faced by providers and health-plan organizations today. By unifying retrieval, clinical intelligence, risk adjustment, quality improvement, and member management solutions into one intelligent, AI-powered system, Reveleer streamlines fragmented workflows to supercharge productivity, enhance care quality, and optimize performance on high-priority value-based initiatives.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;About the Team:&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;You will be joining a small team within Reveleer AI division, in charge of developing the next generation agentic model for clinical prospective suspecting. As a full stack software developer in our team, you will be working in the unique environment of a small team with large scale impact to enable the expansion of our product and fast growth of our users.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Obsess over the details and applying first principle mindset to address challenges.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Understand business needs and build end-to-end product experiences.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Solve product problems and build delightful user experiences for our users.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Contribute to building and scaling infrastructure.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Develop and continually improve observability of activity and infra at scale.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Continually challenge status quo and existing solutions to improve scalability &amp;amp; efficiency&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Partner closely with other engineers and scientists to build highly scalable, ML driven system(s), help run experiments, and surface insights across all points of customer interactions&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Resolve problems and provide daily troubleshooting, analysis, and problem definition for production issues.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Required Skills:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;5+ years of experience building high quality code and infrastructure.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;3+ years of experience working with large-scale systems.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;2+ Experience with AWS and Google Cloud&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;A passion for building delightful Customer-centric user experiences, from the backend to the frontend.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Proven curiosity with the latest Generative AI advances.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Hands-on experience in client-side development using ReactJS, CSS, JavaScript, Typescript.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Hands-on experience in NodeJS and MongoDB.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Familiarity with common best practices, design and architectural patterns.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Great problem-solving skills, eager to learn and face new challenges.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Highly motivated, self-learner with great attention to detail.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Thrive in a collaborative environment involving different functions, stakeholders, and subject matter experts.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Attention to detail, especially around performance, accessibility, reliability, and security.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;WHAT YOU’LL RECEIVE:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Competitive salary &lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Medical, Dental and Vision benefits &lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;401k match&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ul&gt;
+&lt;li&gt;Generous PTO plan &lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt; Our compensation reflects the cost of labor across several US geographic markets. Pay is based on several factors including market location and may vary depending on job-related knowledge, skills, and experience.&lt;/p&gt;
+&lt;p&gt;Reveleer E-Verifies all new hires.&lt;/p&gt;
+&lt;p&gt;Reveleer is an equal opportunity employer. We do not discriminate on the basis of race, religion, color, national origin, gender, gender identity, sexual orientation, age, marital status, veteran status, disability status or genetic information, in compliance with applicable federal, state and local law.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/reveleer-full-stack-ai-engineer"&gt;https://weworkremotely.com/remote-jobs/reveleer-full-stack-ai-engineer&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Thu, 02 Apr 2026 20:46:00 +0000</pubDate>
+      <expires_at>Mon, 01 Jun 2026 20:46:00 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/reveleer-full-stack-ai-engineer</guid>
+      <link>https://weworkremotely.com/remote-jobs/reveleer-full-stack-ai-engineer</link>
+    </item>
+  </channel>
+</rss>

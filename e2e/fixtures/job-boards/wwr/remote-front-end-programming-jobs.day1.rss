@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss">
+  <channel>
+    <title>We Work Remotely: Front-End Programming Jobs</title>
+    <link>https://weworkremotely.com/categories/remote-front-end-programming-jobs.rss</link>
+    <description>We Work Remotely: Front-End Programming Jobs</description>
+    <language>en-US</language>
+    <ttl>60</ttl>
+    <item>
+      <title>Socket: Product Design Lead</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Front-End Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; United States
+&lt;/p&gt;
+
+&lt;h1&gt;&lt;strong&gt;Who we are&lt;/strong&gt;&lt;/h1&gt;&lt;p&gt;Socket helps devs and security teams ship faster by cutting out security busywork. Thousands of orgs use Socket to safely find, audit, and manage open source code. Our customers — from Anthropic to xAI, and Figma to Vercel — love Socket (just &lt;a href="https://socket.dev/love"&gt;check out their tweets&lt;/a&gt; to see for yourself!)&lt;/p&gt;&lt;p&gt;&lt;br&gt;Founded by &lt;a class="chakra-link css-pmuo56" href="https://www.linkedin.com/in/feross/"&gt;&lt;strong&gt;Feross Aboukhadijeh&lt;/strong&gt;&lt;/a&gt;, a long-time open source maintainer with software downloaded over a billion times a month, Socket has raised &lt;a class="chakra-link css-pmuo56" href="https://socket.dev/blog/series-b"&gt;&lt;strong&gt;$65M in funding&lt;/strong&gt;&lt;/a&gt; from top angels, operators, and security leaders.&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;A Letter From our Founder &amp;amp; CEO:  &lt;/strong&gt;The world now runs on open source. Every company, every product, every device you touch depends on code written by strangers on the internet. This is one of humanity’s greatest achievements, but it’s also one of its greatest vulnerabilities. When the software supply chain breaks, the world breaks with it.&lt;br&gt;&lt;/p&gt;&lt;p&gt;Our job at Socket is simple to describe and incredibly hard to execute: protect the software that powers everything.&lt;br&gt;&lt;/p&gt;&lt;p&gt;That requires world-class engineering, but it also requires world-class design.&lt;/p&gt;&lt;p&gt;Security tools are infamous for blinking lights, noisy dashboards, and walls of alerts that no human can keep up with. Developers don't need more noise. They need clarity. They need tools that help them see the truth instantly so they can act with confidence.&lt;/p&gt;&lt;p&gt;This is where design becomes a strategic weapon.&lt;/p&gt;&lt;p&gt;Great design in security isn't ornamental. It's leverage. It's how we reduce cognitive load, cut through chaos, and make the complex feel intuitive. It's how we give millions of developers a sense of control in an environment that often feels unknowable. It's how we move the entire industry forward.&lt;/p&gt;&lt;p&gt;Socket now has five products that all share the same purpose but solve different layers of the supply chain problem: Socket Open Source, Socket Firewall, Socket Certified Patches, Socket Basics, and Extension Guard.&lt;/p&gt;&lt;p&gt;Your role is to bring coherence, clarity, and vision to the platform as a whole.&lt;/p&gt;&lt;p&gt;You'll work directly with the CEO (Feross), with our engineering team, with our sales and marketing teams, and with our customers who rely on Socket to secure mission-critical systems. Your fingerprints will be on everything we ship. This isn't a supportive design function. It's a core leadership role shaping how developers experience the future of supply chain security.&lt;/p&gt;&lt;p&gt;Some of the most design-driven teams in the world use Socket — Vercel, OpenAI, Figma, Replit, and others. These teams care about clarity, craft, and speed, and they expect tools that meet their standards. Your work will be in front of people who notice the details, which pushes all of us to raise the bar. It's one of the most energizing parts of this role.&lt;/p&gt;&lt;p&gt;We're looking for someone who sweats the details, thinks in systems, obsesses about clarity, and understands that design is as much about how things work as how they look. Someone who can help us define the primitives, patterns, and interactions that let developers move fast without compromising safety. Someone who wants to build a standard the rest of the industry follows.&lt;/p&gt;&lt;p&gt;This is a rare opportunity to design a product that protects the global software ecosystem. The work you do here will directly influence how the world builds and ships code. If you care about craft, if you care about impact, and if you want your design work to matter on a massive scale, then you'll thrive here.&lt;/p&gt;&lt;h2&gt;&lt;/h2&gt;&lt;div&gt;&lt;/div&gt;&lt;h2&gt;&lt;/h2&gt;&lt;div&gt;&lt;/div&gt;&lt;p&gt;&lt;/p&gt;&lt;div&gt;&lt;/div&gt;&lt;p&gt;&lt;/p&gt;&lt;p&gt;Let's build the future of secure software together.&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;h2&gt;What You'll Do:&lt;/h2&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;Shape the entire platform, your work will create the coherent vision that ties everything together, ensuring that whether a developer is using Socket Open Source, the Firewall, Certified Patches, or any of our other products, they experience clarity and craft.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Lead design as strategy, your design decisions will directly influence how developers understand and interact with supply chain security. You'll think in systems, define design primitives that scale across our platform, and obsess over the details that separate good products from great ones.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Partner with leadership, your voice will be essential in shaping what we build, how we prioritize, and how we communicate the value of Socket to the world.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Design end-to-end experiences across Socket's product portfolio that make complex security concepts feel approachable and actionable for developers.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Work with the engineering team to develop interfaces that abstract away complexity while preserving the rigor and precision security demands.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Establish and evolve Socket's design system, creating patterns and components that let us move fast without compromising on craft or consistency.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Shape the visual and interaction language that developers associate with Socket, establishing a standard others follow.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Participate in customer conversations to understand how developers actually use our products and where clarity breaks down.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Help define the roadmap and prioritize design opportunities that will have the most impact on adoption and user success.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Be part of hiring and building a world-class design team as we grow.&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;h2&gt;What You'll Bring:&lt;/h2&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;You've shipped products at a high bar and understand the difference between surface-level polish and systems-level clarity.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Deep experience designing for developers or technical audiences, you understand the contexts where clarity really matters.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Portfolio that demonstrates systems thinking: how you've defined design languages, built component systems, and maintained consistency across complex products.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Comfort working directly with engineering and product leadership, able to move fast and make decisions without excessive process.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;Experience designing security or infrastructure tools is a plus, but not required, what matters is your ability to take complexity and make it clear.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;You care about craft. The details matter to you, not because they're decorative but because they're functional. You understand that every pixel, every interaction, every word choice shapes how someone experiences a product.&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;As we know how important clarity is when looking for a new role, we've put together a read-me about the &lt;a href="https://docs.google.com/document/d/1Nn4jGlO_yTo4mwidE0wn8DNWoBjQbRkkpMj1Ry75WoM/edit?usp=sharing"&gt;Interview Process at Socket,&lt;/a&gt; should you be invited for an interview.&lt;/p&gt;&lt;p&gt;&lt;/p&gt;&lt;h2&gt;&lt;strong&gt;At Socket, we&lt;/strong&gt;&lt;/h2&gt;&lt;ol&gt;&lt;li&gt;&lt;p&gt;&lt;strong&gt;Pursue Excellence:&lt;/strong&gt; We set ourselves apart by consistently delivering work of exceptional quality and distinction.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;strong&gt;Move with urgency and focus:&lt;/strong&gt; We prioritize swift, decisive action.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;strong&gt;Think rigorously:&lt;/strong&gt; We care about being right and it often takes reasoning from first principles to get there. We value alternative perspectives and have constructive discussions.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;strong&gt;Trust and amplify:&lt;/strong&gt; We overtrust, always assume good intent, and give specific feedback to help each other improve.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;strong&gt;Feel a strong sense of ownership:&lt;/strong&gt; We wear many hats and feel a strong sense of overall ownership of the company and we're non-territorial regarding our nominal domains.&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;strong&gt;Are customer obsessed:&lt;/strong&gt; We relentlessly prioritize the needs of our customers, striving to exceed their expectations and delight them at every interaction.&lt;/p&gt;&lt;/li&gt;&lt;/ol&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/socket-product-design-lead"&gt;https://weworkremotely.com/remote-jobs/socket-product-design-lead&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Thu, 30 Apr 2026 17:36:58 +0000</pubDate>
+      <expires_at>Sat, 30 May 2026 17:36:58 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/socket-product-design-lead</guid>
+      <link>https://weworkremotely.com/remote-jobs/socket-product-design-lead</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/3386/logo.gif" type="image/png"/>
+      <title>Sanctuary Computer: Senior Frontend Developer</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>New York</state>
+      <skills></skills>
+      <category>Front-End Programming</category>
+      <type>Contract</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/3386/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; New York City
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://sanctuary.computer"&gt;https://sanctuary.computer&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;&lt;span class="notion-enable-hover"&gt;We are hiring a &lt;/span&gt;&lt;span class="notion-enable-hover"&gt;contract-based&lt;/span&gt;&lt;span class="notion-enable-hover"&gt; &lt;strong&gt;Senior Frontend Developer&lt;/strong&gt; for the garden3d creative collective with a &lt;strong&gt;focus on West Coast candidates.&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&lt;/strong&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p&gt;&lt;span class="notion-enable-hover"&gt;&lt;strong&gt;&lt;a href="https://garden3d.notion.site/Senior-Frontend-Developer-West-Coast-330131fea2c780c0b713ec7cb882386c?pvs=74"&gt;Original job posting link&lt;/a&gt;&lt;/strong&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;h2&gt;&lt;strong&gt;About garden3d&lt;/strong&gt;&lt;/h2&gt;
+&lt;p&gt;We are worker owned creative collective, innovating on everything from brands and IRL communities to IoT devices and cross platform apps. We share profit, open source everything, spin out new businesses, and invest in exciting ideas through financial and/or in-kind contributions.&lt;/p&gt;
+&lt;p&gt;Our client roster includes &lt;a href="https://www.google.com/"&gt;Google&lt;/a&gt;, &lt;a href="https://stripe.com/"&gt;Stripe&lt;/a&gt;, &lt;a href="https://www.figma.com/"&gt;Figma&lt;/a&gt;, &lt;a href="https://hinge.co/"&gt;Hinge&lt;/a&gt;, &lt;a href="https://blacksocialists.us/"&gt;Black Socialists in America&lt;/a&gt;, &lt;a href="https://www.aclu.org/"&gt;ACLU&lt;/a&gt;, &lt;a href="https://www.pratt.edu/"&gt;Pratt&lt;/a&gt;, &lt;a href="https://www.newschool.edu/parsons/"&gt;Parsons&lt;/a&gt;, &lt;a href="https://www.mozilla.org/en-US/"&gt;Mozilla&lt;/a&gt;, &lt;a href="https://www.nobelprize.org/"&gt;The Nobel Prize&lt;/a&gt;, &lt;a href="https://www.mit.edu/"&gt;MIT&lt;/a&gt;, &lt;a href="https://www.gnosis.io/"&gt;Gnosis&lt;/a&gt;, &lt;a href="https://www.etsy.com/"&gt;Etsy&lt;/a&gt; &amp;amp; &lt;a href="https://gagosian.com/"&gt;Gagosian&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;We’re the software team behind innovative products like &lt;a href="https://www.thelightphone.com/"&gt;The Light Phone&lt;/a&gt; &amp;amp; &lt;a href="https://www.mill.com/"&gt;Mill&lt;/a&gt;, and we operate a global, decentralized community space collective called &lt;a href="https://www.index-space.org/"&gt;Index Space&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;We think of our garden3d as collective for creative people, prioritizing a happy, talented, and diverse studio culture. We work on projects that bring value to our world, and we balance deep care for the work we do with a genuine curiosity about life outside of our jobs.&lt;/p&gt;
+&lt;h2&gt;&lt;strong&gt;Who we’re looking for:&lt;/strong&gt;&lt;/h2&gt;
+&lt;p&gt;We're looking for a &lt;strong&gt;Senior Frontend Developer&lt;/strong&gt; who excels at building pixel-perfect websites using modern frontend frameworks. You'll collaborate with our team to build elegant, performant, and visually stunning web experiences. Your work will span a diverse range of client projects, from immersive brand websites to complex web applications, all requiring a keen eye for detail and technical excellence.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;&lt;span class="notion-enable-hover"&gt;This hiring effort will focus on Front-End Developers based in the U.S. West Coast. Candidates in the Pacific Time zone are preferred (LA/SF proximity is a plus). We are also open to candidates located in the Mountain Time zone.&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;In this role, you’ll work on a variety of client projects to find cost-effective, high-quality, pragmatic solutions to complex problems. Responsibilities will include:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Collaborating with Technical Lead to meet clients' development needs&lt;/li&gt;
+&lt;li&gt;Building and maintaining high-performance web applications with modern frontend frameworks and tools&lt;/li&gt;
+&lt;li&gt;Implementing responsive, accessible, and pixel-perfect user interfaces based on design specifications&lt;/li&gt;
+&lt;li&gt;Integrating frontend applications with headless CMS platforms, APIs, and third-party services&lt;/li&gt;
+&lt;li&gt;Optimizing application performance, including bundle size, load times, and runtime efficiency&lt;/li&gt;
+&lt;li&gt;Architecting scalable component libraries and design systems for consistency across projects&lt;/li&gt;
+&lt;li&gt;Writing clear documentation for code maintenance and usage&lt;/li&gt;
+&lt;li&gt;Participating in project team meetings, including Sprint Planning, daily standups, and retrospectives&lt;/li&gt;
+&lt;li&gt;Participating in code reviews, providing constructive feedback to teammates and ensuring adherence to best practices&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;The person we’re looking for is happy, relaxed and easy to get along with. They’re flexible on anything except conceits that will lower their usually outstanding work quality. They work “smart”, by carefully managing their workflow and staggering features that have dependencies intelligently — they prefer deep work but are OK coming up to the surface now and then for top level / strategic conversations.&lt;/p&gt;
+&lt;p&gt;We believe people with backgrounds or interests in design, art, music, food or fashion tend to have a well rounded sense of design &amp;amp; quality — so a variety of hobbies or side projects is a big nice to have!&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Must Have Competencies:&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;We’re always pitching for new and exciting technology niches. Some of the areas below are relevant to us!&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;8+ years writing highly performant frontend code, an obsession for 95+ Lighthouse scores&lt;/li&gt;
+&lt;li&gt;Expert level experience with Typescript, and one of Next.js, Nuxt, Svelte, Vue&lt;/li&gt;
+&lt;li&gt;Extensive experience with headless CMS like Sanity, Contentful, Prismic or more&lt;/li&gt;
+&lt;li&gt;Fluency in industry standard PaaS like Vercel, Netlify, Firebase, etc&lt;/li&gt;
+&lt;li&gt;Fluency in eCommerce technologies like Shopify (headless &amp;amp; liquid), Stripe, Swell and others&lt;/li&gt;
+&lt;li&gt;Experience building accessible, responsive interfaces with attention to performance optimization and SEO best practices&lt;/li&gt;
+&lt;li&gt;Strong understanding of modern CSS methodologies (Tailwind, CSS Modules, etc) and animation libraries&lt;/li&gt;
+&lt;li&gt;Experience with state management solutions (Redux, Zustand, Pinia) and API integration patterns&lt;/li&gt;
+&lt;li&gt;Proficiency with testing frameworks (Jest, Playwright, Cypress) and commitment to writing maintainable, well-documented code&lt;/li&gt;
+&lt;li&gt;Experience with design systems and component libraries, working closely with designers to ensure pixel-perfect implementations&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Real-time &amp;amp; performance optimization&lt;/strong&gt;: experience with WebSockets for live data updates, caching strategies (Redis, CDN-level caching), CDN configuration and optimization (Cloudflare, Fastly), and image optimization techniques including proxies and delivery networks&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Nice to Have Competencies:&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;We’re always pitching for new and exciting technology niches. Some of the areas below are relevant to us!&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;WebGL &amp;amp; Canvas expertise&lt;/strong&gt;: experience building interactive graphics, animations, and visualizations using WebGL, Three.js, or native Canvas API&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Data visualization&lt;/strong&gt;: creating compelling, interactive data visualizations with libraries like Mapbox, D3.js, Chart.js, or similar tools&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Full-stack development experience&lt;/strong&gt;: comfortable working across the entire stack, from frontend to backend and database layers&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;PostgreSQL expertise&lt;/strong&gt;: strong experience with database design, query optimization, and managing complex relational data structures&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;GraphQL &amp;amp; API design&lt;/strong&gt;: building and maintaining GraphQL or REST APIs with a focus on performance and developer experience&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Real-time technologies&lt;/strong&gt;: experience with WebSockets, Server-Sent Events, or similar technologies for building live, interactive features&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Authentication &amp;amp; security&lt;/strong&gt;: implementing secure authentication flows (OAuth, JWT) and following security best practices&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Client-facing experience&lt;/strong&gt;: working directly with customers to gather requirements and provide technical solutions&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Product management experience&lt;/strong&gt;: defining product roadmaps and collaborating closely with stakeholders&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Engineering management experience&lt;/strong&gt;: leading teams, setting technical direction, and mentoring developers&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;&lt;strong&gt;Compensation&lt;/strong&gt;&lt;/h2&gt;
+&lt;p&gt;Our pay scale ranges from &lt;code&gt;$100/hr&lt;/code&gt; to &lt;code&gt;$130/hr&lt;/code&gt; pending seniority (&amp;amp; team leadership experience), and our projects are rarely less than 8 full time weeks at 40 hours per week.&lt;/p&gt;
+&lt;p&gt;We prefer long standing relationships with highly accountable and communicative team members, so we encourage candidates to expect longer term engagements.&lt;/p&gt;
+&lt;h2&gt;&lt;strong&gt;How we interview:&lt;/strong&gt;&lt;/h2&gt;
+&lt;p&gt;Our interview process starts with a call where you get to meet a few members of our team. From there we’ll ask appropriate candidates to take part in a technical exercise which helps illustrate skill level and comfort.&lt;/p&gt;
+&lt;h2&gt;‍ &lt;strong&gt;How we work:&lt;/strong&gt;&lt;/h2&gt;
+&lt;p&gt;We believe that there’s a better balance between the poles of freelancing &amp;amp; full time, and for that reason Sanctuary works differently to most shops:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://sanctucompu.substack.com/p/our-open-source-2020-profit-and-loss"&gt;&lt;strong&gt;Transparency &amp;amp; Ownership:&lt;/strong&gt;&lt;/a&gt;&amp;nbsp;We release out Profit &amp;amp; Loss statements to the community each year, open source our best ideas, and talk business &amp;amp; money with everyone in the company. We’re proud to run our business with integrity, and for that reason we share everything with our team &amp;amp; community.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://negative.sanctuary.computer/"&gt;**150% Carbon Negative:&lt;/a&gt;** Our studio offsets 150% of the carbon we use to do business each year, dated back to our founding in 2015. We turn down work that is not in-line with our morals, and we encourage our peers to do the same. &lt;a href="https://twitter.com/sanctucompu/status/1385282161197060100"&gt;We have been certified climate neutral since 2021&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://sanctucompu.substack.com/p/our-moral-compass"&gt;**Strong Morals:&lt;/a&gt;** Since our founding, we've turned down somewhere between $1mm - $2mm of work that didn't meet our moral standards. (Most of that was DTC brands that can't show a valid sustainability initiative).&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Async &amp;amp; Decentralized:&lt;/strong&gt; We use tools optimized for calm, thoughtful communication, and opt for async whenever possible. We fight hard to maintain our focus time.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Remote Friendly:&lt;/strong&gt;&amp;nbsp;Our company is fluent in remote work, making our workplace more decentralized, and democratized in the process.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Ideas &amp;amp; Products:&lt;/strong&gt;&amp;nbsp;In our spare studio time, we work to build our own open source or internal products to diversify &amp;amp; bolster our income. We create amazing technology products for our clients, so why not for the studio?&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Important Reminders&lt;/strong&gt;&lt;br&gt;&lt;br&gt;&lt;strong&gt;Kindly submit a complete and thoughtful application, including relevant links that help verify your work experience and identity. Applications with missing or insufficient information will not move forward in the review process.&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Our team carefully reviews every complete submission, and we truly appreciate the time and effort you put into applying.&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/sanctuary-computer-senior-frontend-developer-2"&gt;https://weworkremotely.com/remote-jobs/sanctuary-computer-senior-frontend-developer-2&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Thu, 30 Apr 2026 14:09:26 +0000</pubDate>
+      <expires_at>Sat, 30 May 2026 14:09:26 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/sanctuary-computer-senior-frontend-developer-2</guid>
+      <link>https://weworkremotely.com/remote-jobs/sanctuary-computer-senior-frontend-developer-2</link>
+    </item>
+<item>
+      <title>Speechify: Software Engineer, iOS Core Product</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Front-End Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Remote
+&lt;/p&gt;
+
+&lt;p&gt;The mission of Speechify is to make sure that reading is never a barrier to learning.&lt;/p&gt;&lt;br&gt;&lt;p&gt;Over 30 million people use Speechify’s text-to-speech products to turn whatever they’re reading – PDFs, books, Google Docs, news articles, websites – into audio, so they can read faster, read more, and remember more. Speechify’s text-to-speech reading products include its iOS app, Android App, Mac App, Chrome Extension, and Web App. Google recently named Speechify the Chrome Extension of the Year and Apple named Speechify its App of the Day.&lt;/p&gt;&lt;br&gt;&lt;p&gt;Today, nearly 200 people around the globe work on Speechify in a 100% distributed setting – Speechify has no office. These include frontend and backend engineers, AI research scientists, and others from Amazon, Microsoft, and Google, leading PhD programs like Stanford, high growth startups like Stripe, Vercel, Bolt, and many founders of their own companies.&lt;/p&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;Overview&lt;/strong&gt;&lt;/p&gt;&lt;br&gt;&lt;p&gt;With the growth of our iOS app, being the #18 productivity app in the App Store category, we find the need for a Senior iOS Engineer to help us support the new user base as well as work on new and exciting projects to push our missing forward. &amp;nbsp;&amp;nbsp;&lt;/p&gt;&lt;br&gt;&lt;p&gt;This is a key role and ideal for someone who thinks strategically, enjoys fast-paced environments, passionate about making product decisions, and has experience building great user experiences that delight users.&lt;/p&gt;&lt;br&gt;&lt;p&gt;We are a flat organization that allows anyone to become a leader by showing excellent technical skills and delivering results consistently and fast. Work ethic, solid communication skills, and obsession with winning are paramount.&amp;nbsp;&lt;/p&gt;&lt;br&gt;&lt;p&gt;Our interview process involves several technical interviews and we aim to complete them within 1 week.&amp;nbsp;&lt;/p&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;What Yo&lt;/strong&gt;&lt;strong&gt;u’&lt;/strong&gt;&lt;strong&gt;ll Do&lt;/strong&gt;&lt;/p&gt;&lt;br&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;Opportunity to lead key engineering and product decisions&lt;/li&gt;&lt;br&gt;&lt;li&gt;Actively shipping production code for the Speechify iOS app&lt;/li&gt;&lt;br&gt;&lt;li&gt;Work within a dedicated product team&lt;/li&gt;&lt;br&gt;&lt;li&gt;Participate in product discussions to shape the product roadmap&lt;/li&gt;&lt;br&gt;&lt;li&gt;Maintain and enhance the existing complex app architecture&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;An Ideal Candidate Should Have&lt;/strong&gt;&lt;/p&gt;&lt;br&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;Experience. You've worked on products that scaled to a large user base&lt;/li&gt;&lt;br&gt;&lt;li&gt;Track record. You have worked on various products from inception to decent traction. You have been responsible for engineering the product&lt;/li&gt;&lt;br&gt;&lt;li&gt;Customer obsession. We expect every team member whose responsibilities directly impact customers to be constantly obsessed about providing the best possible experience&lt;/li&gt;&lt;br&gt;&lt;li&gt;Product thinking. You make thoughtful decisions about the evolution of your product and support internal teams and designers into taking the right direction&lt;/li&gt;&lt;br&gt;&lt;li&gt;Speed. You work quickly to generate ideas and know how to decide which things can ship now and what things need time&lt;/li&gt;&lt;br&gt;&lt;li&gt;Focus. We’re a high-growth startup with a busy, remote team. You know how and when to engage or be heads down&lt;/li&gt;&lt;br&gt;&lt;li&gt;Technical skills. Swift, SwiftUI&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;Technical Requirements:&lt;/strong&gt;&lt;/p&gt;&lt;br&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;Swift Programming Language&lt;/li&gt;&lt;br&gt;&lt;li&gt;SwiftUI experience&lt;/li&gt;&lt;br&gt;&lt;li&gt;Experience in Multithreading Programming&lt;/li&gt;&lt;br&gt;&lt;li&gt;Working with CI/CD infrastructure&lt;/li&gt;&lt;br&gt;&lt;li&gt;Experience with Fastlane&lt;/li&gt;&lt;br&gt;&lt;li&gt;SOLID principles, the ability to write every single class according to SOLID&lt;/li&gt;&lt;br&gt;&lt;li&gt;Experience with Git and understanding of different Git strategies&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;What We offer:&lt;/strong&gt;&lt;/p&gt;&lt;br&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;A fast-growing environment where you can help shape the company and product&lt;/li&gt;&lt;br&gt;&lt;li&gt;An entrepreneurial crew that supports risk, intuition, and hustle&lt;/li&gt;&lt;br&gt;&lt;li&gt;The opportunity to make a big impact in a transformative industry&lt;/li&gt;&lt;br&gt;&lt;li&gt;A competitive salary, a collegiate atmosphere, and a commitment to building a great asynchronous culture&lt;/li&gt;&lt;br&gt;&lt;li&gt;Work on a product that millions of people use and where daily feedback includes users sharing that they cried when they first found the product because it was so impactful on their lives&lt;/li&gt;&lt;br&gt;&lt;li&gt;Support people with learning differences like Dyslexia, ADD, Low Vision, Concussions, Autism, and Second Language Learners, and give reading superpowers to professionals all over the world&lt;/li&gt;&lt;br&gt;&lt;li&gt;Work in one of the fastest growing sectors of tech: Intersection of Artificial Intelligence and Audio&amp;nbsp;&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;Compensation&lt;/strong&gt;: The US base salary range for this full-time position is $140,000-$200,000 + bonus + equity depending on experience&lt;br&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&lt;/p&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;Think you’re a good fit for this job?&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;&lt;br&gt;&lt;p&gt;Tell us more about yourself and why you're interested in the role when you apply. &lt;br&gt;And don’t forget to include links to your portfolio and LinkedIn.&lt;/p&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;Not looking but know someone who would make a great fit?&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;&lt;br&gt;&lt;p&gt;Refer them!&amp;nbsp;&lt;/p&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;Speechify is committed to a diverse and inclusive workplace.&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;&lt;br&gt;&lt;p&gt;Speechify does not discriminate on the basis of race, national origin, gender, gender identity, sexual orientation, protected veteran status, disability, age, or other legally protected status.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/speechify-software-engineer-ios-core-product"&gt;https://weworkremotely.com/remote-jobs/speechify-software-engineer-ios-core-product&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Wed, 29 Apr 2026 08:32:17 +0000</pubDate>
+      <expires_at>Fri, 29 May 2026 08:32:17 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/speechify-software-engineer-ios-core-product</guid>
+      <link>https://weworkremotely.com/remote-jobs/speechify-software-engineer-ios-core-product</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/4987/logo.gif" type="image/png"/>
+      <title>Horizon Assset Investments: Front-End Developer (Full-Time, Remote)</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>London</state>
+      <skills>React, Tailwind CSS, and TypeScript</skills>
+      <category>Front-End Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/4987/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Remote
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://www.horizonassetinvestments.com/"&gt;https://www.horizonassetinvestments.com/&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Front-End Developer (Full-Time, Remote)&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;We are seeking a Front-End Developer to design and build the user-facing components of our high-performance trading platform. You will play a key role in creating intuitive, data-rich interfaces that enable traders and analysts to work efficiently and effectively.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;You will collaborate closely with the Back-End Development Team and the Project Manager to deliver seamless, integrated systems. A key factor is the front end developer’s ability to deeply discuss approaches, trade-offs, limitations, and pros/cons with the development team, rather than reliance on any specific pattern or library.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Key Responsibilities&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Develop and maintain the front-end applications of our trading platform.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Collaborate with back-end developers and the project manager to ensure smooth integration across systems.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Design and implement multi-page layouts, menus, and workflows that balance usability with efficiency.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Contribute to the design and user experience of the trading platform, performance &amp;amp; risk manager, and backtesting engine.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Implement and optimize charting and data visualization features, leveraging libraries such as TradingView or D3.js to support a wide variety of chart types (tables, multi-line chart packs, etc.).&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Continuously refine the UI/UX to ensure clarity, speed, and intuitive navigation for end users.&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Qualifications&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Strong communication skills and the ability to collaborate effectively with developers, project managers, and business stakeholders.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;A keen eye for design, simplicity, and efficiency, with the ability to translate complex requirements into clean, user-friendly interfaces.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Knowledge of financial systems or trading concepts is preferred.&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Core stack (mandatory)&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;React 18 + Next.js (App Router), TypeScript, TailwindCSS.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Strong command of state management for high-frequency data (e.g., Zustand, Redux Toolkit, useSyncExternalStore).&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Real-time data &amp;amp; performance&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Hands-on with WebSockets / SSE and reconnection/backoff strategies; handling authenticated socket connections and topic resubscriptions.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Experience implementing backpressure, buffering, coalescing, and windowing to prevent UI thrash under thousands of updates/minute.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Data virtualization (react-virtualized, react-window) for large tables (orders, positions, trades).&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Familiar with Web Workers / OffscreenCanvas and message passing to keep the main thread responsive.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Awareness of latency budgets and frame-time profiling using React DevTools and browser performance tools.&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Charting &amp;amp; visualization&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Practical experience with professional charting libs (e.g., TradingView Charting Library, Lightweight Charts, Highcharts, D3).&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Real-time overlays: best bid/ask, order book depth, last OHLCV, order/position annotations.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Multi-pane layouts (price, volume, indicators) with synchronized crosshairs and time scales.&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Architecture &amp;amp; data access&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Client-side caching and invalidation (e.g., TanStack Query / React Query).&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Schema-driven UI for instruments and venues.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Use of Error Boundaries, Suspense, and progressive hydration/streaming for large Next.js pages.&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Auth, security, and roles&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Strong understanding of OIDC/JWT flows, token refresh/rotation, and WebSocket authentication.&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Role-based feature gating (read-only vs trading permissions).&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Testing, quality, and reliability&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Unit tests for critical transforms/parsers (e.g., Playwright/Vitest for E2E/interaction flows)&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Experience with feature flags, staged rollouts, and monitoring with Sentry/OpenTelemetry.&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span lang="EN-US"&gt;Nice-to-haves&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Experience with desktop-class layouts (drag-to-dock panels, resizable grids).&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Exposure to WASM for heavy computations (e.g., indicator calculations).&lt;/span&gt;&lt;/li&gt;
+&lt;li class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Familiarity with FIX/crypto venue nuances (tick sizes, lot sizes, trading sessions).&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Screening Questions&lt;br&gt;Keep answers **4–8 sentences** each. Bullet points allowed if clear.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;1) **UI migration (hrzk → Next.js):**&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Pick ONE area from the provided `hrzk.html` (e.g., Orders+Trades, Positions table, Equity/Drawdown).&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Explain how you’d migrate it to **React 18 + Next.js (App Router) + TypeScript + Tailwind**.&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Include folder structure and what you’d make **client vs server components**.&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;(We care about your trade-offs, not “the one true way”.)&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;2) **Real-time data ingestion:**&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Describe how you’d handle **WebSockets/SSE** for high-frequency updates:&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;reconnect/backoff, authenticated sockets, and topic resubscriptions.&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;What failures do you expect in production?&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;3) **Backpressure + UI thrash prevention:**&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Assume **thousands of updates/minute** for orders/positions/trades.&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Explain how you’d implement buffering/coalescing/windowing so the UI stays responsive.&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Mention how you’d combine this with **state management** (e.g., Zustand/RTK/useSyncExternalStore) and **virtualization** (react-window / react-virtualized).&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;What would you measure to prove it works?&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;4) **Charting approach:**&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;We need fast, readable, data-rich charts (equity/drawdown, doughnut/bars, etc.).&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Pick a chart type from `hrzk.html` and explain:&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;- which charting library you’d choose (TradingView Lightweight Charts / Highcharts / D3 / etc.)&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;- update frequency strategy&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;- performance risks + mitigations&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;5) **Auth + role gating:**&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Explain how you’d handle JWT/OIDC token refresh and **WebSocket authentication**, then implement role-based gating (read-only vs trading).&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Use an example like “Cancel All Orders” or “Stop/Start Execution”: when do you hide vs disable vs show a warning?&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;6) **Remote ownership + teamwork:**&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Give one example where you took ownership remotely on an ambiguous task.&lt;span&gt;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;Then describe how you’d work with a small dev team: how you ask clarifying questions, communicate risk early, and avoid shipping “local optimum” code that breaks other parts of the system.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span lang="EN-US"&gt;What to expect (our interview process):&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span&gt;Our hiring process is mostly async and focused on real work.&lt;br&gt;You’ll start with a CV submission and a short, structured application.&lt;br&gt;Shortlisted candidates complete an async technical screen.&lt;br&gt;Finalists complete a paid, time‑boxed work sample aligned to the role.&lt;br&gt;End‑to‑end, the process typically runs 4–6 weeks.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;span&gt;FAQs&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoListParagraphCxSpFirst"&gt;&lt;span&gt;&lt;span&gt;·&lt;span&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;Do I need to respond to the questions?&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoListParagraphCxSpMiddle"&gt;&lt;span&gt;Yes, please respond to the questions ideally in an open format via a cover letter. This is mandatory for vetting.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoListParagraphCxSpMiddle"&gt;&lt;span&gt;&lt;span&gt;·&lt;span&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;Do I need to attend live interviews?&lt;br&gt;Most stages are async to reduce scheduling friction. Live calls are minimal.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoListParagraphCxSpMiddle"&gt;&lt;span&gt;&lt;span&gt;·&lt;span&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;Do I need to be on camera for the sample work?&lt;br&gt;No — screen + voice is sufficient.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoListParagraphCxSpMiddle"&gt;&lt;span&gt;&lt;span&gt;·&lt;span&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;What tools can I use to submit recordings?&lt;br&gt;Any common screen‑recording or file‑sharing tool is fine, as long as the video is easy to view.&lt;/span&gt;&lt;/p&gt;
+&lt;p class="MsoListParagraphCxSpLast"&gt;&lt;span&gt;&lt;span&gt;·&lt;span&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;Is the final task paid?&lt;br&gt;Yes. Final shortlisted candidates complete a paid, time‑boxed work sample.&lt;/span&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/horizon-assset-investments-front-end-developer-full-time-remote"&gt;https://weworkremotely.com/remote-jobs/horizon-assset-investments-front-end-developer-full-time-remote&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Tue, 28 Apr 2026 11:00:27 +0000</pubDate>
+      <expires_at>Thu, 28 May 2026 11:00:27 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/horizon-assset-investments-front-end-developer-full-time-remote</guid>
+      <link>https://weworkremotely.com/remote-jobs/horizon-assset-investments-front-end-developer-full-time-remote</link>
+    </item>
+<item>
+      <title>Notion: Staff Frontend Engineer</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>Front-End Programming</category>
+      <type/>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Remote
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://notion.so"&gt;https://notion.so&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;Join Notion's engineering team to shape the future of collaborative productivity tools. You'll own large areas of our frontend architecture and mentor junior engineers.&lt;/p&gt;&lt;ul&gt;&lt;li&gt;7+ years of frontend engineering experience&lt;/li&gt;&lt;li&gt;Deep expertise in React and TypeScript&lt;/li&gt;&lt;li&gt;Track record of leading complex technical initiatives&lt;/li&gt;&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/notion-staff-frontend-engineer"&gt;https://weworkremotely.com/remote-jobs/notion-staff-frontend-engineer&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Wed, 22 Apr 2026 02:29:48 +0000</pubDate>
+      <expires_at>Fri, 22 May 2026 02:29:48 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/notion-staff-frontend-engineer</guid>
+      <link>https://weworkremotely.com/remote-jobs/notion-staff-frontend-engineer</link>
+    </item>
+<item>
+      <title>Speechify Inc: Software Engineer, iOS Core Product</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>Florida</state>
+      <skills></skills>
+      <category>Front-End Programming</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Florida
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="http://www.speechify.com"&gt;http://www.speechify.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Overview&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;With the growth of our iOS app, being the #18 productivity app in the App Store category and also our recent recognition as Apple's 2025 Design Award for inclusivity, we find the need for a Senior iOS Engineer to help us support the new user base as well as work on new and exciting projects to push our missing forward. &amp;nbsp;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;This is a key role and ideal for someone who thinks strategically, enjoys fast-paced environments, passionate about making product decisions, and has experience building great user experiences that delight users.&lt;/p&gt;
+&lt;p&gt;We are a flat organization that allows anyone to become a leader by showing excellent technical skills and delivering results consistently and fast. Work ethic, solid communication skills, and obsession with winning are paramount.&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;Our interview process involves several technical interviews and we aim to complete them within 1 week.&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;What Yo&lt;/strong&gt;&lt;strong&gt;u’&lt;/strong&gt;&lt;strong&gt;ll Do&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Opportunity to lead key engineering and product decisions&lt;/li&gt;
+&lt;li&gt;Actively shipping production code for the Speechify iOS app&lt;/li&gt;
+&lt;li&gt;Work within a dedicated product team&lt;/li&gt;
+&lt;li&gt;Participate in product discussions to shape the product roadmap&lt;/li&gt;
+&lt;li&gt;Maintain and enhance the existing complex app architecture&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;An Ideal Candidate Should Have&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Experience. You've worked on products that scaled to a large user base&lt;/li&gt;
+&lt;li&gt;Track record. You have worked on various products from inception to decent traction. You have been responsible for engineering the product&lt;/li&gt;
+&lt;li&gt;Customer obsession. We expect every team member whose responsibilities directly impact customers to be constantly obsessed about providing the best possible experience&lt;/li&gt;
+&lt;li&gt;Product thinking. You make thoughtful decisions about the evolution of your product and support internal teams and designers into taking the right direction&lt;/li&gt;
+&lt;li&gt;Speed. You work quickly to generate ideas and know how to decide which things can ship now and what things need time&lt;/li&gt;
+&lt;li&gt;Focus. We’re a high-growth startup with a busy, remote team. You know how and when to engage or be heads down&lt;/li&gt;
+&lt;li&gt;Technical skills. Swift, SwiftUI&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Technical Requirements:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Swift Programming Language&lt;/li&gt;
+&lt;li&gt;SwiftUI experience&lt;/li&gt;
+&lt;li&gt;Experience in Multithreading Programming&lt;/li&gt;
+&lt;li&gt;Working with CI/CD infrastructure&lt;/li&gt;
+&lt;li&gt;Experience with Fastlane&lt;/li&gt;
+&lt;li&gt;SOLID principles, the ability to write every single class according to SOLID&lt;/li&gt;
+&lt;li&gt;Experience with Git and understanding of different Git strategies&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;What We offer:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;A fast-growing environment where you can help shape the company and product&lt;/li&gt;
+&lt;li&gt;An entrepreneurial crew that supports risk, intuition, and hustle&lt;/li&gt;
+&lt;li&gt;The opportunity to make a big impact in a transformative industry&lt;/li&gt;
+&lt;li&gt;A competitive salary, a collegiate atmosphere, and a commitment to building a great asynchronous culture&lt;/li&gt;
+&lt;li&gt;Work on a product that millions of people use and where daily feedback includes users sharing that they cried when they first found the product because it was so impactful on their lives&lt;/li&gt;
+&lt;li&gt;Support people with learning differences like Dyslexia, ADD, Low Vision, Concussions, Autism, and Second Language Learners, and give reading superpowers to professionals all over the world&lt;/li&gt;
+&lt;li&gt;Work in one of the fastest growing sectors of tech: Intersection of Artificial Intelligence and Audio&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Think you’re a good fit for this job?&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Tell us more about yourself and why you're interested in the role when you apply.&lt;br&gt;And don’t forget to include links to your portfolio and LinkedIn.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Not looking but know someone who would make a great fit?&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Refer them!&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Speechify is committed to a diverse and inclusive workplace.&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Speechify does not discriminate on the basis of race, national origin, gender, gender identity, sexual orientation, protected veteran status, disability, age, or other legally protected status.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/speechify-inc-software-engineer-ios-core-product"&gt;https://weworkremotely.com/remote-jobs/speechify-inc-software-engineer-ios-core-product&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Wed, 09 Jul 2025 15:35:11 +0000</pubDate>
+      <expires_at>Thu, 04 Jun 2026 15:35:11 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/speechify-inc-software-engineer-ios-core-product</guid>
+      <link>https://weworkremotely.com/remote-jobs/speechify-inc-software-engineer-ios-core-product</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0170/9402/logo.gif" type="image/png"/>
+      <title>Mobena: Frontend Engineer</title>
+      <region>Anywhere in the World</region>
+      <country>🇺🇸 United States of America</country>
+      <state>Maryland</state>
+      <skills>Figma, HTML/CSS, JavaScript, and UI/UX</skills>
+      <category>Front-End Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0170/9402/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; New York, NY
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://mobena.co/"&gt;https://mobena.co/&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p class="MsoNormal"&gt;Mobena is a three-person, remote-first startup building the “evolution” of multi-generational tax/estate planning software, targeting the advisors of America’s 2 million wealthiest families. We’re currently hiring our first dedicated UI Engineer to “own” the frontend of our flagship product, Mobena Evolution, for which we have little to no frontend code. You’ll work directly with our backend/algorithm-focused CTO, as well as our designer-founder, to turn evolving Figma concepts into fast, maintainable, and scalable user interfaces.&lt;/p&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;What You’ll Do&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoListParagraph"&gt;Choose and justify the frameworks and tools that best fit our needs.&lt;/li&gt;
+&lt;ul&gt;
+&lt;li class="MsoListParagraph"&gt;We have some holdover prototype code in Vite JS, but you can take it or leave it; all of our Figma concepts are new.&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;The backend is a standard HTTP API. We are open to everything from established web stacks (React, Angular, Svelte, Vite) to cross-platform or native solutions (Qt, WASM, .NET MAUI, Tauri, Electron, Tk)—literally anything, if you can convince us it’s the right choice.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;li class="MsoListParagraph"&gt;Build our UI from the ground up, establishing clear, maintainable patterns for components, state management, styling, testing, performance, and accessibility.&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;Collaborate to refine and sometimes re-frame existing screen designs in Figma.&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;Connect the frontend to our APIs (REST, GraphQL, or similar).&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;Lay groundwork for future mobile clients; however, experience in this regard is a plus rather than a requirement.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p class="MsoNormal"&gt;&lt;strong&gt;About You&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li class="MsoListParagraph"&gt;You’ve shipped an interactive application—web, desktop, or mobile—via coursework, open source, side project or professional work.&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;You care about usability and design quality. (That is, you care about the user.)&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;You learn by &lt;em&gt;doing:&lt;/em&gt; building things rather than sitting in committee.&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;You are happy to say &lt;em&gt;I don’t know.&lt;/em&gt; We try to cultivate &lt;a title="https://en.wikipedia.org/wiki/Shoshin" href="https://en.wikipedia.org/wiki/Shoshin"&gt;“beginner’s mind”&lt;/a&gt; at Mobena—it helps us avoid conventional traps and groupthink. The first step of thinking like a beginner is acknowledging your own ignorance! 😊&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;You can defend your technical choices in clear English, and can take credit for your successes as well your mistakes.&lt;/li&gt;
+&lt;li class="MsoListParagraph"&gt;You are comfortable in an early-stage, collaborative environment.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/mobena-frontend-engineer"&gt;https://weworkremotely.com/remote-jobs/mobena-frontend-engineer&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Fri, 16 May 2025 20:03:34 +0000</pubDate>
+      <expires_at>Wed, 10 Jun 2026 20:03:34 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/mobena-frontend-engineer</guid>
+      <link>https://weworkremotely.com/remote-jobs/mobena-frontend-engineer</link>
+    </item>
+  </channel>
+</rss>

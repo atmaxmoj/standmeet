@@ -33,6 +33,7 @@ type Deps struct {
 	Corpus      usecases.CorpusDeps
 	SEO         SEOWriter
 	CustomPages usecases.CustomPageDeps
+	Jobs        usecases.JobsDeps
 	Log         *slog.Logger
 }
 
@@ -106,6 +107,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	corpusTools(mcpSrv, deps)
 	seoTools(mcpSrv, deps)
 	customPageTools(mcpSrv, deps)
+	jobsTools(mcpSrv, deps)
 }
 
 func meTool() mcpgo.Tool {

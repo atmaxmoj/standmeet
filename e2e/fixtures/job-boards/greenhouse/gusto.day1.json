@@ -1,0 +1,678 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/gusto/jobs/7864440",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3424418,
+      "location": {
+        "name": "Denver, CO;San Francisco, CA;New York, NY;Las Vegas, NV;Chicago, IL;Phoenix, AZ"
+      },
+      "metadata": [
+        {
+          "id": 58381966,
+          "name": "Comp Range Min",
+          "value": "145305",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396540,
+          "name": "Comp Range Mid",
+          "value": "178000",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396622,
+          "name": "Comp Range Max",
+          "value": "210692",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58381985,
+          "name": "Variable Cash Bonus - Level 6/7",
+          "value": null,
+          "value_type": "short_text"
+        }
+      ],
+      "id": 7864440,
+      "updated_at": "2026-05-18T17:54:26-04:00",
+      "requisition_id": "J-017175",
+      "title": "AI Solutions Architect",
+      "company_name": "Gusto, Inc.",
+      "first_published": "2026-05-07T13:15:01-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;line-height: 1.2;&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Gusto&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, we&#39;re on a mission to grow the small business economy. We handle the hard stuff — payroll, health insurance, 401(k)s, and HR — so owners can focus on their craft and their customers. With teams in Denver, San Francisco, and New York, we support more than 500,000 small businesses nationwide and are building a workplace that reflects the people we serve.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;All full-time employees receive competitive base pay, benefits, and equity (RSUs) — because everyone who helps build Gusto should share in its success. Offer amounts are determined by role, level, and location. Learn more about our&lt;a href=&quot;https://gusto.com/about/careers/total-rewards&quot; target=&quot;_blank&quot;&gt; &lt;u&gt;Total Rewards philosophy&lt;/u&gt;&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;AI is a fundamental part of how work gets done at Gusto. We expect all team members to actively engage with AI tools relevant to their role and grow their fluency as the technology evolves. AI experience requirements vary by role and will be assessed during the interview process.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Role:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are building AI-powered, agentic workflows to transform how service operations scale, resolve customer needs, and maintain quality in high-stakes environments. At Gusto, that means designing systems that can earn the trust of small business owners — where a wrong answer or a missed escalation has real consequences.&lt;/p&gt;\n&lt;p&gt;As an AI Solutions Architect, you will own the end-to-end design and performance of these workflows in production — where models, tools, data, and human judgment come together to deliver outcomes. This is not a traditional architecture role. You will design, prototype, deploy, and continuously improve AI-driven systems that directly impact customer experience and operational efficiency. You will also play a key role in shaping the evolution of our AI platform by identifying capability gaps, prototyping solutions, and informing the primitives required to scale agentic systems effectively.&lt;/p&gt;\n&lt;p&gt;You will report into the Service Transformation org and work at the intersection of AI governance, service quality, and operational transformation — operating as the connective tissue between Engineering, CX, Legal, and Compliance as Gus, Gusto&#39;s AI assistant, scales.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About the Team:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The mission of our Service Transformation (CXT) team is to quickly evolve and scale how Gusto delivers outstanding service experiences and leverages AI to do so. Our team designs the systems, governance frameworks, and feedback loops that allow Gusto&#39;s service model to improve continuously, operate reliably, and earn the trust of the customers and employees who depend on it.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what you’ll do day-to-day:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Architect, prototype, and own end-to-end agentic service workflow frameworks, from scoping through production deployment and iteration — including solve and assist targets, HITL protocols, override logic, and downstream quality safeguards&lt;/li&gt;\n&lt;li&gt;Analyze SOPs, operational metrics and interaction data to identify and prioritize high-impact automation opportunities based on volume, risk, and customer impact&lt;/li&gt;\n&lt;li&gt;Design and implement multi-agent orchestration patterns across tools, data sources, and decision steps within a single end-to-end workflow&lt;/li&gt;\n&lt;li&gt;Apply and influence AI platform capabilities in partnership with CoreX (Gusto&#39;s AI Platform team) — including orchestration, retrieval, and evaluation — helping define what needs to be built to support production workflows at scale&lt;/li&gt;\n&lt;li&gt;Identify platform gaps, prototype workflow-level solutions, and partner with engineering to shape the primitives required for reliable, scalable AI systems&lt;/li&gt;\n&lt;li&gt;Serve as the primary CX voice in Legal, Security, Compliance, and CoreX forums — translating CX quality stakes and workflow risk into terms each audience acts on, and ensuring governance requirements are embedded in design, not retrofitted after launch&lt;/li&gt;\n&lt;li&gt;Strengthen evaluation frameworks and feedback loops to ensure quality, compliance, and continuous improvement; contribute to Gusto&#39;s human evaluation programs and AI governance practices through deep partnership with our internal CX Labs team&lt;/li&gt;\n&lt;li&gt;Partner with Data teams to define and track workflow performance — including solve and assist rate, AHT, rework rate, and customer effort score — clearly distinguishing between model-level, workflow-level, and operational drivers&lt;/li&gt;\n&lt;li&gt;Build ROI models to quantify workflow impact across efficiency, quality, and cost before and after deployment&lt;/li&gt;\n&lt;li&gt;Represent workflow performance and risk to senior stakeholders with appropriate precision and brevity; communicate in a way that drives action, not overwhelm&lt;/li&gt;\n&lt;li&gt;Lead through ambiguity and rapid change: the function is still being defined, and you will help define it&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what we&#39;re looking for:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;8+ years in operations, product, or AI roles — with at least 2 years designing and deploying AI-assisted or agentic workflows&lt;/li&gt;\n&lt;li&gt;Strong fluency with LLM systems, including prompt design, evaluation, and production behavior at scale&lt;/li&gt;\n&lt;li&gt;Hands-on experience with agentic tooling, orchestration frameworks, or MCP-style integrations — conceptual familiarity is not sufficient at this level&lt;/li&gt;\n&lt;li&gt;Experience designing human-in-the-loop (HITL) systems with clear escalation logic, override controls, and compliance-aware checkpoints&lt;/li&gt;\n&lt;li&gt;Working knowledge of multi-agent systems and tool coordination&lt;/li&gt;\n&lt;li&gt;Strong operational judgment: able to define and diagnose workflow metrics&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Proven track record influencing cross-functional stakeholders — including Product, Engineering, Legal, Security, and Compliance — in writing, in design reviews, and in high-stakes forums&lt;/li&gt;\n&lt;li&gt;Familiarity with Responsible AI practices, governance, and risk management in production environments&lt;/li&gt;\n&lt;li&gt;Proven ability to operate in high ambiguity, create clarity, and drive alignment across technical and non-technical audiences&lt;/li&gt;\n&lt;li&gt;Strong systems thinking with a bias toward execution and measurable outcomes&lt;/li&gt;\n&lt;li&gt;Deep empathy for small business customers and the employees who serve them&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our cash compensation amount for this role is $133,470/yr to $173,511/yr in Denver &amp;amp; most major metro locations, and $157,145/yr to $204,289/yr for San Francisco &amp;amp; New York. Final offer amounts are determined by multiple factors including candidate location, experience and expertise and may vary from the amounts listed above.&lt;/span&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto has physical office spaces in Denver, San Francisco, and New York City. Employees who are based in those locations will be expected to work from the office on designated days approximately &lt;strong&gt;2-3 days &lt;/strong&gt;per week (or more depending on role). The same office expectations apply to all Symmetry roles, Gusto&#39;s subsidiary, whose physical office is in Scottsdale.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Note: The San Francisco office expectations encompass both the San Francisco and San Jose metro areas.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;When approved to work from a location other than a Gusto office, a secure, reliable, and consistent internet connection is required. This includes non-office days for hybrid employees.&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our customers come from all walks of life and so do we. We hire great people from a wide variety of backgrounds, not just because it&#39;s the right thing to do, but because it makes our company stronger. If you share our values and our enthusiasm for small businesses, you will find a home at Gusto.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto is proud to be an equal opportunity employer. We do not discriminate in hiring or any employment decision based on race, color, religion, national origin, age, sex (including pregnancy, childbirth, or related medical conditions), marital status, ancestry, physical or mental disability, genetic information, veteran status, gender identity or expression, sexual orientation, or other applicable legally protected characteristic. Gusto considers qualified applicants with criminal histories, consistent with applicable federal, state and local law. Gusto is also committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. We want to see our candidates perform to the best of their ability. If you require a medical or religious accommodation at any time throughout your candidate journey, please fill out &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSdEfl7Bp-Twz7LLlhGlha46CrxZ9Kacgakmarf3K2TbnaEgKQ/viewform&quot;&gt;this form&lt;/a&gt; and a member of our team will get in touch with you.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Gusto takes security and protection of your personal information very seriously. Please review our &lt;a href=&quot;https://gusto.com/about/careers/fraudulent-activity-disclaimer&quot;&gt;Fraudulent Activity Disclaimer&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Personal information collected and processed as part of your Gusto application will be subject to&amp;nbsp;&lt;a href=&quot;https://gusto.com/about/careers/applicant-privacy-notice&quot; target=&quot;_blank&quot;&gt;Gusto&#39;s Applicant Privacy Notice&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 62008,
+          "name": "Customer Experience",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 103883,
+          "name": "United States - Chicago, IL - Remote",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 59937
+        },
+        {
+          "id": 4645,
+          "name": "United States - Denver, CO",
+          "location": "Denver, CO, United States",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 94489,
+          "name": "United States - Las Vegas, NV - Remote",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 59937
+        },
+        {
+          "id": 63926,
+          "name": "United States - New York, NY",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 103896,
+          "name": "United States - Phoenix, AZ - Remote",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 59937
+        },
+        {
+          "id": 523,
+          "name": "United States - San Francisco, CA",
+          "location": "San Francisco, CA, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/gusto/jobs/7858835",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3422867,
+      "location": {
+        "name": "Denver, CO; Phoenix, AZ"
+      },
+      "metadata": [
+        {
+          "id": 58381966,
+          "name": "Comp Range Min",
+          "value": null,
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396540,
+          "name": "Comp Range Mid",
+          "value": null,
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396622,
+          "name": "Comp Range Max",
+          "value": null,
+          "value_type": "short_text"
+        },
+        {
+          "id": 58381985,
+          "name": "Variable Cash Bonus - Level 6/7",
+          "value": null,
+          "value_type": "short_text"
+        }
+      ],
+      "id": 7858835,
+      "updated_at": "2026-05-15T18:18:03-04:00",
+      "requisition_id": "E-0000128",
+      "title": "Benefits Advisor",
+      "company_name": "Gusto, Inc.",
+      "first_published": "2026-04-27T16:06:12-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;line-height: 1.2;&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Gusto&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, we&#39;re on a mission to grow the small business economy. We handle the hard stuff — payroll, health insurance, 401(k)s, and HR — so owners can focus on their craft and their customers. With teams in Denver, San Francisco, and New York, we support more than 500,000 small businesses nationwide and are building a workplace that reflects the people we serve.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;All full-time employees receive competitive base pay, benefits, and equity (RSUs) — because everyone who helps build Gusto should share in its success. Offer amounts are determined by role, level, and location. Learn more about our&lt;a href=&quot;https://gusto.com/about/careers/total-rewards&quot; target=&quot;_blank&quot;&gt; &lt;u&gt;Total Rewards philosophy&lt;/u&gt;&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;AI is a fundamental part of how work gets done at Gusto. We expect all team members to actively engage with AI tools relevant to their role and grow their fluency as the technology evolves. AI experience requirements vary by role and will be assessed during the interview process.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Role:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Gusto&#39;s Advising team helps small businesses navigate health benefits with confidence. As a Licensed Dedicated Advisor (L3), you&#39;ll manage a portfolio of employer clients — guiding them through the benefits renewal process, helping them evaluate their plan options, and ensuring they have a benefits package that supports their team. You&#39;ll own the renewal process end-to-end, drive client retention, and identify opportunities to expand coverage across health, dental, vision, life, disability, and supplemental benefits.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Location &amp;amp; Training Requirements:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This role is hiring in&amp;nbsp;&lt;strong&gt;Denver, CO&lt;/strong&gt; and &lt;strong&gt;Phoenix, AZ&lt;/strong&gt; only. Candidates must be located in or able to commute within the Denver or Phoenix metro areas. All new hires will complete an onsite training program at their local office during their first 4–6 weeks of employment. Training is fully in-person, 5 days a week, so you&#39;ll need to be available and able to commute onsite for the duration of that period.&lt;/p&gt;\n&lt;p&gt;Following the training, candidates will be expected to adhere to Gusto&#39;s hybrid policy where Gusto has physical office spaces.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About the Team:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, our Advising team plays a crucial role in helping small businesses navigate the often complex world of health benefits. We&#39;re a group of licensed benefits experts who serve as trusted partners to employers, helping them understand their options and make informed decisions for their teams. As a Licensed Dedicated Advisor, you&#39;ll work closely with employers throughout their benefits journey — from renewals to plan selection to mid-year changes — ensuring they have the right coverage in place. Beyond advising, our team manages customer pipelines, identifies opportunities to expand client benefits packages, and partners with internal teams to continuously improve the employer experience. Together, we&#39;re not just simplifying benefits — we&#39;re helping small businesses offer competitive, people-first benefits that support happier, healthier teams.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what you’ll do day-to-day:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Own Your Book of Business&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Manage a portfolio of small group employer clients, serving as their primary point of contact for all benefits-related needs&lt;/li&gt;\n&lt;li&gt;Drive retention by delivering strong renewal experiences that keep clients on Gusto year over year&lt;/li&gt;\n&lt;li&gt;Track and manage your book&#39;s performance metrics including retention rate and renewal revenue&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Lead the Renewal Process End-to-End&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Guide employers through the annual renewal cycle — from pre-renewal outreach through plan selection and enrollment&lt;/li&gt;\n&lt;li&gt;Evaluate plan options and provide recommendations that meet each client&#39;s needs, leveraging established benchmarking resources and internal guidance&lt;/li&gt;\n&lt;li&gt;Translate the complicated language of health insurance into clear, simple concepts that empower employers to make confident decisions&lt;/li&gt;\n&lt;li&gt;Partner with carriers and internal teams to resolve issues and ensure seamless renewals&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Identify Revenue Growth Opportunities&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Surface opportunities to expand client benefits packages with ancillary lines of coverage (dental, vision, life, disability, HSA/FSA, and other Tax Advantaged accounts)&lt;/li&gt;\n&lt;li&gt;Understand each employer&#39;s goals and recommend benefits solutions that help them attract and retain talent&lt;/li&gt;\n&lt;li&gt;Support the expansion process by engaging key stakeholders and navigating the customer buying process with guidance from senior advisors or leadership as needed&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Deliver Exceptional Service&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Manage phone and email communications with professionalism and urgency&lt;/li&gt;\n&lt;li&gt;Effectively juggle multiple client priorities and deadlines to meet both customer and carrier timelines&lt;/li&gt;\n&lt;li&gt;Maintain up-to-date knowledge of industry trends, benchmarking data, and regulatory changes to provide accurate guidance&lt;/li&gt;\n&lt;li&gt;Consistently meet established service-level agreements (SLAs) and performance standards&lt;/li&gt;\n&lt;li&gt;Leverage AI and other tools where applicable to drive workflow efficiencies and to provide exceptional service&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what we&#39;re looking for:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Experience&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;4–6 years of experience in a customer-facing role; health insurance or benefits experience preferred&lt;/li&gt;\n&lt;li&gt;Experience managing a customer pipeline, book of business, or portfolio-based workstreams&lt;/li&gt;\n&lt;li&gt;Track record of retaining customer relationships and delivering strong service outcomes&lt;/li&gt;\n&lt;li&gt;Familiarity with small group health insurance products is a plus; willingness to develop deep expertise quickly is essential&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Licensing&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Active Life and Health Producer License required (or ability to obtain prior to start date)&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Skills &amp;amp; Attributes&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Customer-first mindset: Does what&#39;s in the best interest of the customer while balancing business outcomes; delivers difficult news confidently and with solutions&lt;/li&gt;\n&lt;li&gt;Clear communicator: Excellent written and verbal skills; can distill complex benefits concepts into clear, approachable guidance via phone and email&lt;/li&gt;\n&lt;li&gt;Time management pro: Can manage competing customer deadlines and deliverables effectively; regularly prioritizes work to meet SLAs&lt;/li&gt;\n&lt;li&gt;Self-reliant problem solver: Uses available resources to troubleshoot before escalating; takes initiative to find solutions even without a clear roadmap&lt;/li&gt;\n&lt;li&gt;Comfort with ambiguity: Thrives in a fast-paced environment; adapts quickly when business needs shift&lt;/li&gt;\n&lt;li&gt;Growth mindset: Passionate about improving the customer experience and continuously developing your craft through learning and AI-fluency&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;At Gusto, we strive to provide rewards that empower employees to achieve their financial and personal goals. We offer competitive compensation packages with a strong emphasis on equity based compensation (ownership in Gusto). To learn more about Gusto’s compensation philosophy and benefits offerings please view our Total Rewards Approach page.&lt;/p&gt;\n&lt;p&gt;Our target on-target earnings (OTE) compensation for this role is $80,835/year to $99,025/year in Denver and $75,633/year to $92,650/year in Phoenix. &lt;strong&gt;This OTE is structured with a target 80% base pay and 20% commission structure. &lt;/strong&gt;Final offer amounts and the exact base/commission split are determined by multiple factors including candidate location, experience, and expertise and may vary from the amounts listed above.&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto has physical office spaces in Denver, San Francisco, and New York City. Employees who are based in those locations will be expected to work from the office on designated days approximately &lt;strong&gt;2-3 days &lt;/strong&gt;per week (or more depending on role). The same office expectations apply to all Symmetry roles, Gusto&#39;s subsidiary, whose physical office is in Scottsdale.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Note: The San Francisco office expectations encompass both the San Francisco and San Jose metro areas.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;When approved to work from a location other than a Gusto office, a secure, reliable, and consistent internet connection is required. This includes non-office days for hybrid employees.&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our customers come from all walks of life and so do we. We hire great people from a wide variety of backgrounds, not just because it&#39;s the right thing to do, but because it makes our company stronger. If you share our values and our enthusiasm for small businesses, you will find a home at Gusto.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto is proud to be an equal opportunity employer. We do not discriminate in hiring or any employment decision based on race, color, religion, national origin, age, sex (including pregnancy, childbirth, or related medical conditions), marital status, ancestry, physical or mental disability, genetic information, veteran status, gender identity or expression, sexual orientation, or other applicable legally protected characteristic. Gusto considers qualified applicants with criminal histories, consistent with applicable federal, state and local law. Gusto is also committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. We want to see our candidates perform to the best of their ability. If you require a medical or religious accommodation at any time throughout your candidate journey, please fill out &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSdEfl7Bp-Twz7LLlhGlha46CrxZ9Kacgakmarf3K2TbnaEgKQ/viewform&quot;&gt;this form&lt;/a&gt; and a member of our team will get in touch with you.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Gusto takes security and protection of your personal information very seriously. Please review our &lt;a href=&quot;https://gusto.com/about/careers/fraudulent-activity-disclaimer&quot;&gt;Fraudulent Activity Disclaimer&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Personal information collected and processed as part of your Gusto application will be subject to&amp;nbsp;&lt;a href=&quot;https://gusto.com/about/careers/applicant-privacy-notice&quot; target=&quot;_blank&quot;&gt;Gusto&#39;s Applicant Privacy Notice&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 62008,
+          "name": "Customer Experience",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4645,
+          "name": "United States - Denver, CO",
+          "location": "Denver, CO, United States",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 103896,
+          "name": "United States - Phoenix, AZ - Remote",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 59937
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/gusto/jobs/7379034",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3289693,
+      "location": {
+        "name": "Denver, CO"
+      },
+      "metadata": [
+        {
+          "id": 58381966,
+          "name": "Comp Range Min",
+          "value": "$23.50",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396540,
+          "name": "Comp Range Mid",
+          "value": null,
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396622,
+          "name": "Comp Range Max",
+          "value": "$27.42 per",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58381985,
+          "name": "Variable Cash Bonus - Level 6/7",
+          "value": null,
+          "value_type": "short_text"
+        }
+      ],
+      "id": 7379034,
+      "updated_at": "2026-05-11T16:42:27-04:00",
+      "requisition_id": "E-00001038",
+      "title": "Benefits Onboarding Advocate",
+      "company_name": "Gusto, Inc.",
+      "first_published": "2025-12-10T17:00:50-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;line-height: 1.2;&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Gusto&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, we&#39;re on a mission to grow the small business economy. We handle the hard stuff — payroll, health insurance, 401(k)s, and HR — so owners can focus on their craft and their customers. With teams in Denver, San Francisco, and New York, we support more than 500,000 small businesses nationwide and are building a workplace that reflects the people we serve.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;All full-time employees receive competitive base pay, benefits, and equity (RSUs) — because everyone who helps build Gusto should share in its success. Offer amounts are determined by role, level, and location. Learn more about our&lt;a href=&quot;https://gusto.com/about/careers/total-rewards&quot; target=&quot;_blank&quot;&gt; &lt;u&gt;Total Rewards philosophy&lt;/u&gt;&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;AI is a fundamental part of how work gets done at Gusto. We expect all team members to actively engage with AI tools relevant to their role and grow their fluency as the technology evolves. AI experience requirements vary by role and will be assessed during the interview process.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;As a core member of the Benefits Onboarding team, you’ll be responsible for setting up customers with their health benefits while providing a delightful experience. You’ll put their minds at ease by guiding them through a complex process, providing timely information, and keeping all the moving parts running smoothly. You’ll help employers get group benefits for the very first time, and then help those employers continue to make important benefits decisions on an annual basis.&lt;/p&gt;\n&lt;p&gt;The Benefit Onboarding team is passionate about using innovative technology and service to elevate the health benefits experience of small business owners and their employees. Each team member is a true owner and makes a tremendous impact every day. You will use your project-management skills to streamline benefit administration with insurance carriers, drive operations and communications with third-party partners, and build the health insurance engine that will make benefits with Gusto great.&lt;/p&gt;\n&lt;p&gt;Here’s what you’ll do day-to-day:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Oversee the entire benefits onboarding process from start to finish, collaborating with cross-functional teams to ensure timely delivery of benefits&lt;/li&gt;\n&lt;li&gt;Provide expertise in healthcare and benefits enrollment via written and verbal communication with Gusto Customers&lt;/li&gt;\n&lt;li&gt;Work directly with customers to implement employee benefit packages specific to our customers’ needs.&lt;/li&gt;\n&lt;li&gt;Provide guidance, support, and manage escalations with customers at key moments in their relationship with Gusto during their benefits journey&lt;/li&gt;\n&lt;li&gt;Manage multiple priorities using Salesforce and other technology platforms in your digital workspace&lt;/li&gt;\n&lt;li&gt;Be available for our customers via phone and email to answer questions about the onboarding process&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Here’s what we’re looking for:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Minimum 2+ years of client-facing experience - bonus points for exposure to healthcare, payroll, or a start-up environment&lt;/li&gt;\n&lt;li&gt;Empathetic and customer-centric: You care deeply about the customers you serve&lt;/li&gt;\n&lt;li&gt;Excellent written and oral communication skills&lt;/li&gt;\n&lt;li&gt;Strong attention to detail&lt;/li&gt;\n&lt;li&gt;Skilled in problem solving, dealing with ambiguity, and cross-team communication&lt;/li&gt;\n&lt;li&gt;Self-motivated and comfortable working collaboratively and autonomously - excited about striving toward team and individual metrics&lt;/li&gt;\n&lt;li&gt;Ability to work throughout seasonal peaks&lt;/li&gt;\n&lt;li&gt;Adaptability to flex to other internal roles if needed&lt;/li&gt;\n&lt;li&gt;Embraces an ownership mentality&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Bonus points:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Healthcare, health insurance, or employee benefits experience&lt;/li&gt;\n&lt;li&gt;Experience with workforce tools such as Salesforce&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;At Gusto, we strive to provide rewards that empower employees to achieve their financial and personal goals. We offer competitive compensation packages with a strong emphasis on equity based compensation (ownership in Gusto). To learn more about Gusto’s compensation philosophy and benefits offerings please view our Total Rewards Approach page.&lt;br&gt;Our cash compensation range for this role is is $23.50–$27.42 per hour in Denver. Final offer amounts are determined by multiple factors, including candidate experience and expertise, and may vary from the amounts listed above.&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto has physical office spaces in Denver, San Francisco, and New York City. Employees who are based in those locations will be expected to work from the office on designated days approximately &lt;strong&gt;2-3 days &lt;/strong&gt;per week (or more depending on role). The same office expectations apply to all Symmetry roles, Gusto&#39;s subsidiary, whose physical office is in Scottsdale.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Note: The San Francisco office expectations encompass both the San Francisco and San Jose metro areas.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;When approved to work from a location other than a Gusto office, a secure, reliable, and consistent internet connection is required. This includes non-office days for hybrid employees.&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our customers come from all walks of life and so do we. We hire great people from a wide variety of backgrounds, not just because it&#39;s the right thing to do, but because it makes our company stronger. If you share our values and our enthusiasm for small businesses, you will find a home at Gusto.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto is proud to be an equal opportunity employer. We do not discriminate in hiring or any employment decision based on race, color, religion, national origin, age, sex (including pregnancy, childbirth, or related medical conditions), marital status, ancestry, physical or mental disability, genetic information, veteran status, gender identity or expression, sexual orientation, or other applicable legally protected characteristic. Gusto considers qualified applicants with criminal histories, consistent with applicable federal, state and local law. Gusto is also committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. We want to see our candidates perform to the best of their ability. If you require a medical or religious accommodation at any time throughout your candidate journey, please fill out &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSdEfl7Bp-Twz7LLlhGlha46CrxZ9Kacgakmarf3K2TbnaEgKQ/viewform&quot;&gt;this form&lt;/a&gt; and a member of our team will get in touch with you.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Gusto takes security and protection of your personal information very seriously. Please review our &lt;a href=&quot;https://gusto.com/about/careers/fraudulent-activity-disclaimer&quot;&gt;Fraudulent Activity Disclaimer&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Personal information collected and processed as part of your Gusto application will be subject to&amp;nbsp;&lt;a href=&quot;https://gusto.com/about/careers/applicant-privacy-notice&quot; target=&quot;_blank&quot;&gt;Gusto&#39;s Applicant Privacy Notice&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 62008,
+          "name": "Customer Experience",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4645,
+          "name": "United States - Denver, CO",
+          "location": "Denver, CO, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/gusto/jobs/7778664",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3405240,
+      "location": {
+        "name": "Las Vegas, NV;Atlanta, GA;Chicago, IL;Phoenix, AZ;United States - Remote"
+      },
+      "metadata": [
+        {
+          "id": 58381966,
+          "name": "Comp Range Min",
+          "value": "71511",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396540,
+          "name": "Comp Range Mid",
+          "value": "87600",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396622,
+          "name": "Comp Range Max",
+          "value": "103691",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58381985,
+          "name": "Variable Cash Bonus - Level 6/7",
+          "value": null,
+          "value_type": "short_text"
+        }
+      ],
+      "id": 7778664,
+      "updated_at": "2026-05-20T11:15:09-04:00",
+      "requisition_id": "J-017128",
+      "title": "Business Insurance Account Executive",
+      "company_name": "Gusto, Inc.",
+      "first_published": "2026-04-06T16:40:13-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;line-height: 1.2;&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Gusto&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, we&#39;re on a mission to grow the small business economy. We handle the hard stuff — payroll, health insurance, 401(k)s, and HR — so owners can focus on their craft and their customers. With teams in Denver, San Francisco, and New York, we support more than 500,000 small businesses nationwide and are building a workplace that reflects the people we serve.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;All full-time employees receive competitive base pay, benefits, and equity (RSUs) — because everyone who helps build Gusto should share in its success. Offer amounts are determined by role, level, and location. Learn more about our&lt;a href=&quot;https://gusto.com/about/careers/total-rewards&quot; target=&quot;_blank&quot;&gt; &lt;u&gt;Total Rewards philosophy&lt;/u&gt;&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;AI is a fundamental part of how work gets done at Gusto. We expect all team members to actively engage with AI tools relevant to their role and grow their fluency as the technology evolves. AI experience requirements vary by role and will be assessed during the interview process.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Role:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are seeking a highly motivated and licensed Property &amp;amp; Casualty (P&amp;amp;C) Insurance Broker to join our team as part of a critical pilot to launch a P&amp;amp;C broker model at Gusto. You will be essential in evolving Gusto&#39;s business insurance channel by acting as a licensed agent to quote and issue business insurance policies with our NEXT Insurance carrier partner. You will use your expertise to provide direct support and an improved experience for small business customers with complex insurance needs, helping to capture meaningfully higher revenue and accelerating the development of our AI Insurance Advisor.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About the Team:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This team is crucial to solving customer experience gaps and optimizing our offline insurance channels. You will be a SME who is part of the &quot;human-in-the-loop&quot; workflows required to train and optimize Gus as an AI insurance advisor. Our collective vision is to be an expert advisor that supports small businesses through every stage of growth, with this pilot being key to establishing our digital insurance agency and licensed agent integration.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what you’ll do day-to-day:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Make outbound dials to prospective and existing small business clients to assess their complex P&amp;amp;C insurance needs and recommend suitable coverage options.&lt;/li&gt;\n&lt;li&gt;Quote and issue Property &amp;amp; Casualty policies, primarily with the NEXT Insurance carrier, in our offline sales channel.&lt;/li&gt;\n&lt;li&gt;Achieve required daily, weekly, and monthly sales activity expectations.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Provide human-in-the-loop support to optimize the AI Insurance Advisor, Gus, and assist customers with more complex needs.&lt;/li&gt;\n&lt;li&gt;Maintain client relationships, manage policy renewals, and facilitate changes or endorsements to existing policies.&lt;/li&gt;\n&lt;li&gt;Act as a trusted liaison between clients and carriers, including assisting clients with reports of losses and claims settlement when necessary.&lt;/li&gt;\n&lt;li&gt;Actively work to cross-sell and up-sell additional P&amp;amp;C lines of coverage and strive to achieve monthly production goals for units and/or revenue.&lt;/li&gt;\n&lt;li&gt;Maintain accurate and up-to-date client records and policy documentation within CRM systems (SFDC workflow).&lt;/li&gt;\n&lt;li&gt;Use AI-powered workflows as a core part of how you sell: running assigned tools daily, surfacing friction and inefficiencies as you find them, and collaborating with your team to influence what gets built or improved next.&lt;/li&gt;\n&lt;li&gt;Stay current on industry trends, products, regulations, and underwriting guidelines to provide accurate advice and ensure compliance.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what we&#39;re looking for:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Experience in the field:&lt;/strong&gt; Proven experience in insurance sales or brokerage, with coverage level knowledge of commercial P&amp;amp;C products (e.g., Workers&#39; Compensation, BOP, Commercial Auto, E&amp;amp;O). &lt;strong&gt;[4+ years]&lt;/strong&gt;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Licensing:&lt;/strong&gt; An active &lt;strong&gt;Property &amp;amp; Casualty insurance producer’s license&lt;/strong&gt;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Communication &amp;amp; Interpersonal Skills:&lt;/strong&gt; Excellent verbal and written communication, active listening, and strong interpersonal skills to build rapport and explain complex concepts clearly.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Sales &amp;amp; Negotiation:&lt;/strong&gt; Strong sales and negotiation abilities with a proven ability to meet sales targets.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Technical Proficiency:&lt;/strong&gt; Working knowledge of carrier quoting systems, proficiency in insurance software, and familiarity with CRM systems like Salesforce (SFDC).&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;&lt;span data-offset-key=&quot;f9bg0-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Comfortable using AI tools and automation to enhance productivity, decision-making, and problem-solving.&lt;/span&gt;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Mindset:&lt;/strong&gt; A demonstrated passion for delivering an incredible customer experience and genuine empathy for small business owners.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Attributes:&lt;/strong&gt; Highly self-motivated, goal-oriented, and an entrepreneurial ownership mentality to thrive in a fast-paced, high-energy environment.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;AI Fluency&lt;/strong&gt;: Proven, day-to-day experience integrating AI into how you work - across writing, research, prep, and summarization as a core part of your workflow, with a track record of giving clear, useful feedback that helps improve your tools and processes.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Our cash compensation amount for this role is $109,390 to $134,000 OTE for Denver, Atlanta, Chicago &amp;amp; Las Vegas. $102,855 to $126,000 OTE for Phoenix. Final offer amounts are determined by multiple factors including candidate location, experience and expertise and may vary from the amounts listed above.&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto has physical office spaces in Denver, San Francisco, and New York City. Employees who are based in those locations will be expected to work from the office on designated days approximately &lt;strong&gt;2-3 days &lt;/strong&gt;per week (or more depending on role). The same office expectations apply to all Symmetry roles, Gusto&#39;s subsidiary, whose physical office is in Scottsdale.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Note: The San Francisco office expectations encompass both the San Francisco and San Jose metro areas.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;When approved to work from a location other than a Gusto office, a secure, reliable, and consistent internet connection is required. This includes non-office days for hybrid employees.&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our customers come from all walks of life and so do we. We hire great people from a wide variety of backgrounds, not just because it&#39;s the right thing to do, but because it makes our company stronger. If you share our values and our enthusiasm for small businesses, you will find a home at Gusto.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto is proud to be an equal opportunity employer. We do not discriminate in hiring or any employment decision based on race, color, religion, national origin, age, sex (including pregnancy, childbirth, or related medical conditions), marital status, ancestry, physical or mental disability, genetic information, veteran status, gender identity or expression, sexual orientation, or other applicable legally protected characteristic. Gusto considers qualified applicants with criminal histories, consistent with applicable federal, state and local law. Gusto is also committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. We want to see our candidates perform to the best of their ability. If you require a medical or religious accommodation at any time throughout your candidate journey, please fill out &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSdEfl7Bp-Twz7LLlhGlha46CrxZ9Kacgakmarf3K2TbnaEgKQ/viewform&quot;&gt;this form&lt;/a&gt; and a member of our team will get in touch with you.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Gusto takes security and protection of your personal information very seriously. Please review our &lt;a href=&quot;https://gusto.com/about/careers/fraudulent-activity-disclaimer&quot;&gt;Fraudulent Activity Disclaimer&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Personal information collected and processed as part of your Gusto application will be subject to&amp;nbsp;&lt;a href=&quot;https://gusto.com/about/careers/applicant-privacy-notice&quot; target=&quot;_blank&quot;&gt;Gusto&#39;s Applicant Privacy Notice&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 1144,
+          "name": "Sales",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 103880,
+          "name": "United States - Atlanta, GA - Remote",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 59937
+        },
+        {
+          "id": 103883,
+          "name": "United States - Chicago, IL - Remote",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 59937
+        },
+        {
+          "id": 94489,
+          "name": "United States - Las Vegas, NV - Remote",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 59937
+        },
+        {
+          "id": 103896,
+          "name": "United States - Phoenix, AZ - Remote",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 59937
+        },
+        {
+          "id": 59937,
+          "name": "United States - Remote",
+          "location": null,
+          "child_ids": [
+            103880,
+            103881,
+            103882,
+            103883,
+            103884,
+            103893,
+            103894,
+            103895,
+            103896,
+            103897,
+            103898,
+            103899,
+            103900,
+            103901,
+            103902,
+            106032,
+            106033,
+            94489,
+            94490,
+            94491
+          ],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/gusto/jobs/7858770",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3422841,
+      "location": {
+        "name": "Denver, CO;San Francisco, CA;New York, NY"
+      },
+      "metadata": [
+        {
+          "id": 58381966,
+          "name": "Comp Range Min",
+          "value": "149785",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396540,
+          "name": "Comp Range Mid",
+          "value": "176000",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396622,
+          "name": "Comp Range Max",
+          "value": "202210",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58381985,
+          "name": "Variable Cash Bonus - Level 6/7",
+          "value": null,
+          "value_type": "short_text"
+        }
+      ],
+      "id": 7858770,
+      "updated_at": "2026-05-06T13:25:27-04:00",
+      "requisition_id": "J-017204",
+      "title": "Compliance Lead, Broker-Dealer & Investment Adviser",
+      "company_name": "Gusto, Inc.",
+      "first_published": "2026-05-01T14:25:15-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;line-height: 1.2;&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Gusto&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, we&#39;re on a mission to grow the small business economy. We handle the hard stuff — payroll, health insurance, 401(k)s, and HR — so owners can focus on their craft and their customers. With teams in Denver, San Francisco, and New York, we support more than 500,000 small businesses nationwide and are building a workplace that reflects the people we serve.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;All full-time employees receive competitive base pay, benefits, and equity (RSUs) — because everyone who helps build Gusto should share in its success. Offer amounts are determined by role, level, and location. Learn more about our&lt;a href=&quot;https://gusto.com/about/careers/total-rewards&quot; target=&quot;_blank&quot;&gt; &lt;u&gt;Total Rewards philosophy&lt;/u&gt;&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;AI is a fundamental part of how work gets done at Gusto. We expect all team members to actively engage with AI tools relevant to their role and grow their fluency as the technology evolves. AI experience requirements vary by role and will be assessed during the interview process.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Role:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The Compliance Lead, Broker-Dealer &amp;amp; Investment Adviser is a senior member of the Gusto Retirement Compliance Team, reporting directly to the Head of Compliance. This role is the operational backbone of the compliance program, owning the compliance programs of the Registered Investment Advisor (RIA) and Broker-Dealer (BD) entities, including their AI governance frameworks, and serving as a trusted senior member of the RIA/BD Compliance team.&lt;/p&gt;\n&lt;p&gt;In this role, you would own the supervisory architecture (including the governance of AI tools used across the compliance program), drive exam readiness, and ensure the program is running effectively, documented thoroughly, and defensible under SEC and FINRA scrutiny. This is not a policy-only role, and it is not a passive-user-of-technology role. It requires someone who can move fluidly between strategic oversight and hands-on execution, who understands what it means to carry a compliance program in a regulated financial services environment, and who can serve as a supervisory principal over AI, ensuring tools are deployed lawfully, outputs are validated, and the program evolves alongside regulatory expectations.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About the Team:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Gusto operates RIA and BD affiliated entities, serving customers across the retirement savings landscape. Our Compliance Team is a lean, high-impact function responsible for maintaining robust, defensible compliance programs across both regulatory regimes, built to scale alongside the business. That includes staying ahead of how AI is reshaping compliance operations: the team actively governs and oversees AI tools used across the program, identifies where AI can responsibly expand team capacity, and ensures that any AI use meets the supervisory standards required by SEC and FINRA. We are building a compliance program that is both modern and defensible.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what you’ll do day-to-day:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Own and mature the end-to-end compliance program across both the BD and RIA, ensuring the frameworks, controls, and infrastructure, including AI governance, keep pace with Gusto&#39;s growth&lt;/li&gt;\n&lt;li&gt;Serve as the primary compliance lead on all FINRA and SEC regulatory matters, including filings, examinations, supervisory control testing, and evolving regulatory guidance on AI use in compliance programs&lt;/li&gt;\n&lt;li&gt;Lead and develop the relationship with compliance consulting firm(s), directing their work across both entities and ensuring coverage is aligned with Gusto&#39;s risk posture&lt;/li&gt;\n&lt;li&gt;Build and maintain policies and procedures across both entities, covering advertising, Reg SP, complaints, books and records, BCP, Code of Ethics/Conduct, trade errors and more&lt;/li&gt;\n&lt;li&gt;Own incident management and escalation, including compliance violations, whistleblowing, and heightened supervision, and report trends to the Head of Compliance&lt;/li&gt;\n&lt;li&gt;Partner cross-functionally with Legal, Product, Finance, Marketing, Sales, and FinCrime to embed compliance into how Gusto builds and sells&lt;/li&gt;\n&lt;li&gt;Supervise AI tools used across the compliance program, including ongoing review and testing, ensuring outputs are validated by qualified licensed humans, identifying opportunities to expand team capacity, and flagging functions where AI use is not permitted&lt;/li&gt;\n&lt;li&gt;Lead training programs and annual compliance meetings for both BD and RIA, and own the advertising and communications review process&lt;/li&gt;\n&lt;li&gt;Assess whether resources, controls, and coverage are sufficient as Gusto scales into new markets and upmarket customer segments&lt;/li&gt;\n&lt;li&gt;Oversee all firm filings, employee registrations and licensing across the BD and RIA, including U4/U5, fingerprints, background checks, CRD, Form CRS, Form BD, ADV, and more&lt;/li&gt;\n&lt;li&gt;Lead suitability, rebalancing, and custody review and testing for the RIA, including coordination of the annual Surprise Custody Exam&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what we&#39;re looking for:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;7+ years of compliance experience at a FINRA-registered broker-dealer and SEC-registered investment adviser, with deep working knowledge of FINRA Rules , the SEC Rules (including the Marketing Rule, Reg S-P and Reg S-ID), GLBA, and Bank Secrecy Act&lt;/li&gt;\n&lt;li&gt;Proven track record owning regulatory filings (Form BD, ADV, U4/U5, CRS), leading exam preparation and response, and running supervisory control testing and advertising review across both RIA and BD entities&lt;/li&gt;\n&lt;li&gt;Familiarity with compliance technology (e.g., ComplySci, Global Relay), books and records obligations under Rules 17a-4 and 204-2, and AI governance frameworks in a regulated environment&lt;/li&gt;\n&lt;li&gt;Strong written communication skills with the ability to draft, own, and defend compliance documentation under regulatory scrutiny and comfortable managing multiple programs in a lean, high-accountability team&lt;/li&gt;\n&lt;li&gt;Active SIE, Series 7, and Series 24 licenses&lt;/li&gt;\n&lt;li&gt;Experience at a fintech-integrated RIA/BD, comfortable working at the intersection of technology, product, compliance, and AI governance&lt;/li&gt;\n&lt;li&gt;Experience with outsourced compliance models (e.g., third-party consulting firms)&lt;/li&gt;\n&lt;li&gt;Prior experience managing compliance staff&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Our cash compensation amount for this role is $156,170/yr to $192,610/yr in Denver &amp;amp; most major metro locations, and $183,830/yr to $226,724/yr for San Francisco &amp;amp; New York. Final offer amounts are determined by multiple factors including candidate location, experience and expertise and may vary from the amounts listed above.&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto has physical office spaces in Denver, San Francisco, and New York City. Employees who are based in those locations will be expected to work from the office on designated days approximately &lt;strong&gt;2-3 days &lt;/strong&gt;per week (or more depending on role). The same office expectations apply to all Symmetry roles, Gusto&#39;s subsidiary, whose physical office is in Scottsdale.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Note: The San Francisco office expectations encompass both the San Francisco and San Jose metro areas.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;When approved to work from a location other than a Gusto office, a secure, reliable, and consistent internet connection is required. This includes non-office days for hybrid employees.&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our customers come from all walks of life and so do we. We hire great people from a wide variety of backgrounds, not just because it&#39;s the right thing to do, but because it makes our company stronger. If you share our values and our enthusiasm for small businesses, you will find a home at Gusto.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto is proud to be an equal opportunity employer. We do not discriminate in hiring or any employment decision based on race, color, religion, national origin, age, sex (including pregnancy, childbirth, or related medical conditions), marital status, ancestry, physical or mental disability, genetic information, veteran status, gender identity or expression, sexual orientation, or other applicable legally protected characteristic. Gusto considers qualified applicants with criminal histories, consistent with applicable federal, state and local law. Gusto is also committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. We want to see our candidates perform to the best of their ability. If you require a medical or religious accommodation at any time throughout your candidate journey, please fill out &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSdEfl7Bp-Twz7LLlhGlha46CrxZ9Kacgakmarf3K2TbnaEgKQ/viewform&quot;&gt;this form&lt;/a&gt; and a member of our team will get in touch with you.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Gusto takes security and protection of your personal information very seriously. Please review our &lt;a href=&quot;https://gusto.com/about/careers/fraudulent-activity-disclaimer&quot;&gt;Fraudulent Activity Disclaimer&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Personal information collected and processed as part of your Gusto application will be subject to&amp;nbsp;&lt;a href=&quot;https://gusto.com/about/careers/applicant-privacy-notice&quot; target=&quot;_blank&quot;&gt;Gusto&#39;s Applicant Privacy Notice&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 73747,
+          "name": "Legal & Compliance",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4645,
+          "name": "United States - Denver, CO",
+          "location": "Denver, CO, United States",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 63926,
+          "name": "United States - New York, NY",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 523,
+          "name": "United States - San Francisco, CA",
+          "location": "San Francisco, CA, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/gusto/jobs/7789040",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3406975,
+      "location": {
+        "name": "Scottsdale, AZ"
+      },
+      "metadata": [
+        {
+          "id": 58381966,
+          "name": "Comp Range Min",
+          "value": "147660",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396540,
+          "name": "Comp Range Mid",
+          "value": "173500",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396622,
+          "name": "Comp Range Max",
+          "value": "199341",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58381985,
+          "name": "Variable Cash Bonus - Level 6/7",
+          "value": null,
+          "value_type": "short_text"
+        }
+      ],
+      "id": 7789040,
+      "updated_at": "2026-05-06T15:40:33-04:00",
+      "requisition_id": "J-017154",
+      "title": "Controller, Symmetry",
+      "company_name": "Gusto, Inc.",
+      "first_published": "2026-04-20T11:20:45-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;line-height: 1.2;&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Gusto&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, we&#39;re on a mission to grow the small business economy. We handle the hard stuff — payroll, health insurance, 401(k)s, and HR — so owners can focus on their craft and their customers. With teams in Denver, San Francisco, and New York, we support more than 500,000 small businesses nationwide and are building a workplace that reflects the people we serve.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;All full-time employees receive competitive base pay, benefits, and equity (RSUs) — because everyone who helps build Gusto should share in its success. Offer amounts are determined by role, level, and location. Learn more about our&lt;a href=&quot;https://gusto.com/about/careers/total-rewards&quot; target=&quot;_blank&quot;&gt; &lt;u&gt;Total Rewards philosophy&lt;/u&gt;&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;AI is a fundamental part of how work gets done at Gusto. We expect all team members to actively engage with AI tools relevant to their role and grow their fluency as the technology evolves. AI experience requirements vary by role and will be assessed during the interview process.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;/p&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;637gr-0-0&quot;&gt;&lt;strong&gt;&lt;span data-offset-key=&quot;637gr-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Symmetry Software is part of Gusto. Symmetry is the payroll infrastructure for software &amp;amp; payroll platforms powering the paychecks of over 64 million workers each year. Our fully integrated suite of payroll tax APIs and software tools allows companies to solve tax compliance issues and build applications across the entirety of the payroll process.&lt;/span&gt;&amp;nbsp;&lt;/span&gt;&lt;/span&gt;&lt;/strong&gt;&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;637gr-0-0&quot;&gt;&amp;nbsp;&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;637gr-0-0&quot;&gt;&lt;strong&gt;&lt;span data-offset-key=&quot;637gr-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;About the Role:&lt;/span&gt;&lt;/span&gt;&lt;/strong&gt;&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;637gr-0-0&quot;&gt;&amp;nbsp;&lt;/div&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;da2gr-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;da2gr-0-0&quot;&gt;&lt;span data-offset-key=&quot;da2gr-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;We are seeking a Controller for Symmetry. Our systems and processes are well established, and we are looking for a professional ready for a new adventure. Experience in the software industry and with NetSuite is a plus. A&amp;nbsp;&lt;/span&gt;&lt;/span&gt;&lt;span id=&quot;popover-trigger-:r8k:&quot; class=&quot;chakra-text css-1j6t0d7&quot;&gt;&lt;span data-offset-key=&quot;da2gr-1-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;strong&lt;/span&gt;&lt;/span&gt;&lt;/span&gt; &lt;span id=&quot;popover-trigger-:r8m:&quot; class=&quot;chakra-text css-8zk7oi&quot;&gt;&lt;span data-offset-key=&quot;da2gr-3-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;understanding&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span data-offset-key=&quot;da2gr-4-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt; of the payroll industry and revenue recognition is also beneficial.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;da2gr-0-0&quot;&gt;&amp;nbsp;&lt;/div&gt;\n&lt;/div&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;7nf9s-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;7nf9s-0-0&quot;&gt;&lt;span data-offset-key=&quot;7nf9s-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Symmetry Software has been in business since 1984, earning a reputation for innovative solutions and high-level service in the payroll industry. We believe a great team is the key to a great company. If you are a hardworking individual who values trust, you may be a great fit for our organization.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;7nf9s-0-0&quot;&gt;&amp;nbsp;&lt;/div&gt;\n&lt;/div&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;27mp0-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;27mp0-0-0&quot;&gt;&lt;span data-offset-key=&quot;27mp0-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;This role sits at the intersection of SaaS accounting, AI-enabled operations, and compliance. You will partner closely with our parent organization, Gusto, and their Finance &amp;amp; Business Operations (FBOS) team. Additionally, you will work alongside our NetSuite Administrator, Sales, and Service teams, serving as a strategic finance partner to the CFO.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;27mp0-0-0&quot;&gt;&amp;nbsp;&lt;/div&gt;\n&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;6ba0-0-0&quot;&gt;&lt;strong&gt;&lt;span data-offset-key=&quot;6ba0-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Here’s what you’ll do day-to-day:&lt;/span&gt;&lt;/span&gt;&lt;/strong&gt;&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;6ba0-0-0&quot;&gt;&amp;nbsp;&lt;/div&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;6mcs8-0-0&quot;&gt;&lt;span data-offset-key=&quot;6mcs8-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Financial Close &amp;amp; Reporting&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;27hok-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;27hok-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;27hok-0-0&quot;&gt;&lt;span data-offset-key=&quot;27hok-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Own the monthly, quarterly, and annual financial close process, producing GAAP financials and management reports for &lt;/span&gt;&lt;/span&gt;&lt;span id=&quot;popover-trigger-:r8o:&quot; class=&quot;chakra-text css-1j6t0d7&quot;&gt;&lt;span data-offset-key=&quot;27hok-1-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;leadership&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span data-offset-key=&quot;27hok-2-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt; and Gusto FBOS.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;9esbh-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;9esbh-0-0&quot;&gt;&lt;span id=&quot;popover-trigger-:r8q:&quot; class=&quot;chakra-text css-bcri66&quot;&gt;&lt;span data-offset-key=&quot;9esbh-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Prepare monthly flux analyses, including budget-to-actual and period-over-period variance commentary.&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;7a776-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;7a776-0-0&quot;&gt;&lt;span data-offset-key=&quot;7a776-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Coordinate with external auditors and Gusto&#39;s corporate accounting team for audits and compliance filings.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;1tjpg-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;1tjpg-0-0&quot;&gt;&lt;span data-offset-key=&quot;1tjpg-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Develop and maintain accounting policies, controls, and procedures for financial reporting and corporate activities.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;56fiq-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;56fiq-0-0&quot;&gt;&lt;span data-offset-key=&quot;56fiq-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Internally Developed Software (IUS) &amp;amp; CCA Accounting&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;dvuis-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;dvuis-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;dvuis-0-0&quot;&gt;&lt;span data-offset-key=&quot;dvuis-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Manage accounting for the Internal Use Software (IUS) and Cloud Computing Arrangement (CCA) under ASC 350-40.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;4d3ut-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;4d3ut-0-0&quot;&gt;&lt;span data-offset-key=&quot;4d3ut-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Partner with Engineering and Product on cost classification and track capitalized assets.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;46f41-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;46f41-0-0&quot;&gt;&lt;span data-offset-key=&quot;46f41-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Coordinate amortization in NetSuite and maintain IUS/CCA policies in alignment with Gusto standards.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;1qfhh-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;1qfhh-0-0&quot;&gt;&lt;span data-offset-key=&quot;1qfhh-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;NetSuite Partnership &amp;amp; System Utilization&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;10ql5-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;10ql5-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;10ql5-0-0&quot;&gt;&lt;span data-offset-key=&quot;10ql5-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Serve as the primary Finance stakeholder for NetSuite, ensuring the system is optimized for accounting needs.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;8pem6-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;8pem6-0-0&quot;&gt;&lt;span data-offset-key=&quot;8pem6-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Collaborate with the NetSuite Administrator to evaluate and maintain integrations, such as commission tracking and AP scanning.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;46i4c-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;46i4c-0-0&quot;&gt;&lt;span data-offset-key=&quot;46i4c-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Build NetSuite saved searches, reports, and dashboards to support financial analysis.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;631j5-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;631j5-0-0&quot;&gt;&lt;span data-offset-key=&quot;631j5-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;SaaS Revenue &amp;amp; Contract Accounting&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;8ea5h-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;8ea5h-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;8ea5h-0-0&quot;&gt;&lt;span data-offset-key=&quot;8ea5h-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Apply expertise in SaaS revenue recognition to ensure treatment of ARR, usage-based revenue, contract renewals, multi-year deals, and deferred revenue&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;5ksg9-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;5ksg9-0-0&quot;&gt;&lt;span data-offset-key=&quot;5ksg9-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Partner with Sales and Finance to support complex contract negotiations, multi-year pricing structures, and usage reporting and special arrangements.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;eqao4-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;eqao4-0-0&quot;&gt;&lt;span data-offset-key=&quot;eqao4-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Support ARR reporting, quota tracking, and commissions accounting including the buildout of commissions automation through NetSuite or add-on application.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;bgf23-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;bgf23-0-0&quot;&gt;&lt;span data-offset-key=&quot;bgf23-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;AI &amp;amp; Process Automation&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;34ag6-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;34ag6-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;34ag6-0-0&quot;&gt;&lt;span data-offset-key=&quot;34ag6-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Champion the use of AI and automation tools to modernize finance workflows including close processes, reconciliations, reporting, and vendor management.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;4m5cc-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;4m5cc-0-0&quot;&gt;&lt;span data-offset-key=&quot;4m5cc-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Identify and pilot AI tools that reduce manual work, improve accuracy, and increase the pace of financial reporting cycles.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;fscpc-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;fscpc-0-0&quot;&gt;&lt;span data-offset-key=&quot;fscpc-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Compliance, Controls &amp;amp; Tax&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;25oqd-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;25oqd-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;25oqd-0-0&quot;&gt;&lt;span data-offset-key=&quot;25oqd-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Own the financial components of annual vendor risk assessments.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;cktpe-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;cktpe-0-0&quot;&gt;&lt;span data-offset-key=&quot;cktpe-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Drive compliance with state and local tax jurisdictions using integrated tax software (Avalara).&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;d68lt-0-0&quot;&gt;&lt;span data-offset-key=&quot;d68lt-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Team&amp;nbsp;&lt;/span&gt;&lt;/span&gt;&lt;span id=&quot;popover-trigger-:r8s:&quot; class=&quot;chakra-text css-1j6t0d7&quot;&gt;&lt;span data-offset-key=&quot;d68lt-1-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Leadership&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;ai4g4-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;ai4g4-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;ai4g4-0-0&quot;&gt;&lt;span data-offset-key=&quot;ai4g4-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Lead, mentor, and develop the Accounting Specialist, fostering a culture of accountability, precision, and continuous growth.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;3a4l-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;3a4l-0-0&quot;&gt;&lt;span data-offset-key=&quot;3a4l-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Serve as a strategic partner to the CFO and department leaders, bringing financial clarity to cross-functional business decisions.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;bmg4p-0-0&quot;&gt;&lt;strong&gt;&lt;span data-offset-key=&quot;bmg4p-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Here’s what we&#39;re looking for:&lt;/span&gt;&lt;/span&gt;&lt;/strong&gt;&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;a981n-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;a981n-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;a981n-0-0&quot;&gt;&lt;span data-offset-key=&quot;a981n-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;3+ years as a Controller or Senior Accounting Manager.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;erv8p-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;erv8p-0-0&quot;&gt;&lt;span data-offset-key=&quot;erv8p-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Proficiency in corporate accounting and GAAP.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;1c5dd-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;1c5dd-0-0&quot;&gt;&lt;span id=&quot;popover-trigger-:r8u:&quot; class=&quot;chakra-text css-1h4n5cs&quot;&gt;&lt;span data-offset-key=&quot;1c5dd-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Familiarity&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span data-offset-key=&quot;1c5dd-1-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt; with AI tools (Claude, ChatGPT, Copilot, etc.) in finance workflows.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;9g1i3-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;9g1i3-0-0&quot;&gt;&lt;span data-offset-key=&quot;9g1i3-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Experience with parent-company reporting and consolidations.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;c20h7-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;c20h7-0-0&quot;&gt;&lt;span data-offset-key=&quot;c20h7-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Core Skills &amp;amp; Attributes:&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;eobi5-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;eobi5-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;eobi5-0-0&quot;&gt;&lt;span data-offset-key=&quot;eobi5-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Positive attitude and a desire to learn.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;19luc-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;19luc-0-0&quot;&gt;&lt;span id=&quot;popover-trigger-:r90:&quot; class=&quot;chakra-text css-1j6t0d7&quot;&gt;&lt;span data-offset-key=&quot;19luc-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Strong&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span data-offset-key=&quot;19luc-1-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt; communication skills; ability to present financial data to non-finance audiences.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;dhi6g-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;dhi6g-0-0&quot;&gt;&lt;span data-offset-key=&quot;dhi6g-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Effective organization and prioritization abilities.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;15am0-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;15am0-0-0&quot;&gt;&lt;span data-offset-key=&quot;15am0-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Collaborative mindset with the ability to lead or partner as needed.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;eecjb-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;eecjb-0-0&quot;&gt;&lt;span data-offset-key=&quot;eecjb-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Nice to Have:&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;5c91r-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;5c91r-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;5c91r-0-0&quot;&gt;&lt;span data-offset-key=&quot;5c91r-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;NetSuite experience is a plus.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;bkvog-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;bkvog-0-0&quot;&gt;&lt;span data-offset-key=&quot;bkvog-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Experience at a SaaS company, knowledge of SaaS revenue recognition (ASC 606).&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;67h3o-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;67h3o-0-0&quot;&gt;&lt;span data-offset-key=&quot;67h3o-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Experience with IUS and CCA accounting (ASC 350-40) including capitalization policy, lifecycle tracking, and amortization.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;559ae-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;559ae-0-0&quot;&gt;&lt;span data-offset-key=&quot;559ae-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;CPA or master’s degree.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;bhm6o-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;bhm6o-0-0&quot;&gt;&lt;span data-offset-key=&quot;bhm6o-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Education:&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/div&gt;\n&lt;ul class=&quot;public-DraftStyleDefault-ul&quot; data-offset-key=&quot;7469s-0-0&quot;&gt;\n&lt;li class=&quot;public-DraftStyleDefault-unorderedListItem public-DraftStyleDefault-reset public-DraftStyleDefault-depth0 public-DraftStyleDefault-listLTR&quot; data-block=&quot;true&quot; data-editor=&quot;8671f&quot; data-offset-key=&quot;7469s-0-0&quot;&gt;\n&lt;div class=&quot;public-DraftStyleDefault-block public-DraftStyleDefault-ltr&quot; data-offset-key=&quot;7469s-0-0&quot;&gt;&lt;span data-offset-key=&quot;7469s-0-0&quot;&gt;&lt;span data-text=&quot;true&quot;&gt;Bachelor&#39;s Degree required.&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;\n&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Our cash compensation amount for this role is targeted at $158,000/yr to $195,000/yr in Scottsdale &amp;amp; most major metro locations. Final offer amounts are determined by multiple factors including candidate experience and expertise and may vary from the amounts listed above.&lt;/p&gt;\n&lt;p&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto has physical office spaces in Denver, San Francisco, and New York City. Employees who are based in those locations will be expected to work from the office on designated days approximately &lt;strong&gt;2-3 days &lt;/strong&gt;per week (or more depending on role). The same office expectations apply to all Symmetry roles, Gusto&#39;s subsidiary, whose physical office is in Scottsdale.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Note: The San Francisco office expectations encompass both the San Francisco and San Jose metro areas.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;When approved to work from a location other than a Gusto office, a secure, reliable, and consistent internet connection is required. This includes non-office days for hybrid employees.&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our customers come from all walks of life and so do we. We hire great people from a wide variety of backgrounds, not just because it&#39;s the right thing to do, but because it makes our company stronger. If you share our values and our enthusiasm for small businesses, you will find a home at Gusto.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto is proud to be an equal opportunity employer. We do not discriminate in hiring or any employment decision based on race, color, religion, national origin, age, sex (including pregnancy, childbirth, or related medical conditions), marital status, ancestry, physical or mental disability, genetic information, veteran status, gender identity or expression, sexual orientation, or other applicable legally protected characteristic. Gusto considers qualified applicants with criminal histories, consistent with applicable federal, state and local law. Gusto is also committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. We want to see our candidates perform to the best of their ability. If you require a medical or religious accommodation at any time throughout your candidate journey, please fill out &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSdEfl7Bp-Twz7LLlhGlha46CrxZ9Kacgakmarf3K2TbnaEgKQ/viewform&quot;&gt;this form&lt;/a&gt; and a member of our team will get in touch with you.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Gusto takes security and protection of your personal information very seriously. Please review our &lt;a href=&quot;https://gusto.com/about/careers/fraudulent-activity-disclaimer&quot;&gt;Fraudulent Activity Disclaimer&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Personal information collected and processed as part of your Gusto application will be subject to&amp;nbsp;&lt;a href=&quot;https://gusto.com/about/careers/applicant-privacy-notice&quot; target=&quot;_blank&quot;&gt;Gusto&#39;s Applicant Privacy Notice&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 1643,
+          "name": "Finance & BizOps",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 81641,
+          "name": "United States - Scottsdale, AZ",
+          "location": "Scottsdale, Arizona, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/gusto/jobs/6348898",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 2990991,
+      "location": {
+        "name": "San Francisco, CA"
+      },
+      "metadata": [
+        {
+          "id": 58381966,
+          "name": "Comp Range Min",
+          "value": "0",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396540,
+          "name": "Comp Range Mid",
+          "value": "0",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396622,
+          "name": "Comp Range Max",
+          "value": "0",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58381985,
+          "name": "Variable Cash Bonus - Level 6/7",
+          "value": null,
+          "value_type": "short_text"
+        }
+      ],
+      "id": 6348898,
+      "updated_at": "2026-04-13T14:36:13-04:00",
+      "requisition_id": "J-014544",
+      "title": "Corporate Development & Partnerships Deal Lead",
+      "company_name": "Gusto, Inc.",
+      "first_published": "2025-03-28T18:58:50-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;line-height: 1.2;&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Gusto&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, we&#39;re on a mission to grow the small business economy. We handle the hard stuff — payroll, health insurance, 401(k)s, and HR — so owners can focus on their craft and their customers. With teams in Denver, San Francisco, and New York, we support more than 500,000 small businesses nationwide and are building a workplace that reflects the people we serve.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;All full-time employees receive competitive base pay, benefits, and equity (RSUs) — because everyone who helps build Gusto should share in its success. Offer amounts are determined by role, level, and location. Learn more about our&lt;a href=&quot;https://gusto.com/about/careers/total-rewards&quot; target=&quot;_blank&quot;&gt; &lt;u&gt;Total Rewards philosophy&lt;/u&gt;&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;AI is a fundamental part of how work gets done at Gusto. We expect all team members to actively engage with AI tools relevant to their role and grow their fluency as the technology evolves. AI experience requirements vary by role and will be assessed during the interview process.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Role:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are looking for a full stack Deal Lead to join Gusto’s Corporate Development and Partnerships team. The ideal candidate brings experience driving growth for software and financial technology companies through M&amp;amp;A and strategic partnerships, along with curiosity around using AI to accelerate that work. In this role, you will shape Gusto’s Build, Buy, Partner strategy and lead end to end transactions, leveraging AI tools to enhance market analysis, deal sourcing, and execution. Your contributions will play a key role in accelerating Gusto’s growth as we empower more than 400,000 small and mid sized businesses to take care of their people.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About the Team:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The Corporate Development and Partnerships team is a high impact group responsible for defining Gusto’s Build, Buy, Partner strategy and driving growth through M&amp;amp;A and strategic partnerships. As a small but mighty team, we use technology, data, and AI to uncover opportunities faster, strengthen decision making, and deliver results that expand Gusto’s impact.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what you’ll do day-to-day:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;M&amp;amp;A and Partnership Strategy:&lt;/strong&gt; Collaborate with product and executive leaders to refine strategy and roadmaps, using AI tools to assess markets, identify whitespace, and evaluate Build, Buy, Partner options.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Deal Sourcing:&lt;/strong&gt; Apply AI driven market mapping and data synthesis to identify and prioritize high potential targets and partners across industries.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Deal Execution:&lt;/strong&gt; Lead the end to end transaction process, leveraging AI for due diligence analysis, financial modeling, and scenario planning to support negotiations and decision making.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Market and Competitive Intelligence:&lt;/strong&gt; Use AI to monitor strategic trends, startup activity, and competitive shifts in real time to inform Gusto’s growth strategy.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Business Case Development:&lt;/strong&gt; Utilize AI assisted drafting and analysis tools to create clear, data informed deal memos, financial models, and executive presentations.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Stakeholder Alignment: &lt;/strong&gt;Generate concise, AI enabled updates that keep cross functional partners informed and aligned throughout each deal phase.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what we&#39;re looking for:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Experience:&lt;/strong&gt; 10+ years of relevant experience in corporate development, partnerships, investment banking, venture capital, or private equity, including at least 3 years at a high growth software or fintech company.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Deal Leadership:&lt;/strong&gt; Proven ability to manage M&amp;amp;A and partnership deals end to end, now leveraging AI tools to increase speed, accuracy, and insight.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Product Minded:&lt;/strong&gt; Strong product intuition and ability to collaborate with product and engineering teams on strategy.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Analytical Strength:&lt;/strong&gt; Exceptional modeling and analytical skills, with interest in integrating AI to enhance data analysis and forecasting.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Strategic Communicator: &lt;/strong&gt;Skilled at distilling complex information into actionable insights and communicating across all levels of the organization.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Our cash compensation range for this role is $190,215 to $234,599 in San Francisco, CA. Final offer amounts are determined by multiple factors, including candidate location, experience and expertise, and may vary from the amounts listed above.&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto has physical office spaces in Denver, San Francisco, and New York City. Employees who are based in those locations will be expected to work from the office on designated days approximately &lt;strong&gt;2-3 days &lt;/strong&gt;per week (or more depending on role). The same office expectations apply to all Symmetry roles, Gusto&#39;s subsidiary, whose physical office is in Scottsdale.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Note: The San Francisco office expectations encompass both the San Francisco and San Jose metro areas.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;When approved to work from a location other than a Gusto office, a secure, reliable, and consistent internet connection is required. This includes non-office days for hybrid employees.&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our customers come from all walks of life and so do we. We hire great people from a wide variety of backgrounds, not just because it&#39;s the right thing to do, but because it makes our company stronger. If you share our values and our enthusiasm for small businesses, you will find a home at Gusto.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto is proud to be an equal opportunity employer. We do not discriminate in hiring or any employment decision based on race, color, religion, national origin, age, sex (including pregnancy, childbirth, or related medical conditions), marital status, ancestry, physical or mental disability, genetic information, veteran status, gender identity or expression, sexual orientation, or other applicable legally protected characteristic. Gusto considers qualified applicants with criminal histories, consistent with applicable federal, state and local law. Gusto is also committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. We want to see our candidates perform to the best of their ability. If you require a medical or religious accommodation at any time throughout your candidate journey, please fill out &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSdEfl7Bp-Twz7LLlhGlha46CrxZ9Kacgakmarf3K2TbnaEgKQ/viewform&quot;&gt;this form&lt;/a&gt; and a member of our team will get in touch with you.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Gusto takes security and protection of your personal information very seriously. Please review our &lt;a href=&quot;https://gusto.com/about/careers/fraudulent-activity-disclaimer&quot;&gt;Fraudulent Activity Disclaimer&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Personal information collected and processed as part of your Gusto application will be subject to&amp;nbsp;&lt;a href=&quot;https://gusto.com/about/careers/applicant-privacy-notice&quot; target=&quot;_blank&quot;&gt;Gusto&#39;s Applicant Privacy Notice&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 1643,
+          "name": "Finance & BizOps",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 523,
+          "name": "United States - San Francisco, CA",
+          "location": "San Francisco, CA, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/gusto/jobs/7228256",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3238577,
+      "location": {
+        "name": "Denver, CO;San Francisco, CA;New York, NY"
+      },
+      "metadata": [
+        {
+          "id": 58381966,
+          "name": "Comp Range Min",
+          "value": "0",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396540,
+          "name": "Comp Range Mid",
+          "value": "0",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58396622,
+          "name": "Comp Range Max",
+          "value": "0",
+          "value_type": "short_text"
+        },
+        {
+          "id": 58381985,
+          "name": "Variable Cash Bonus - Level 6/7",
+          "value": null,
+          "value_type": "short_text"
+        }
+      ],
+      "id": 7228256,
+      "updated_at": "2026-05-06T15:05:29-04:00",
+      "requisition_id": "J-016147",
+      "title": "Corporate Tax Manager",
+      "company_name": "Gusto, Inc.",
+      "first_published": "2025-09-17T18:21:25-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p style=&quot;line-height: 1.2;&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Gusto&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;At Gusto, we&#39;re on a mission to grow the small business economy. We handle the hard stuff — payroll, health insurance, 401(k)s, and HR — so owners can focus on their craft and their customers. With teams in Denver, San Francisco, and New York, we support more than 500,000 small businesses nationwide and are building a workplace that reflects the people we serve.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;All full-time employees receive competitive base pay, benefits, and equity (RSUs) — because everyone who helps build Gusto should share in its success. Offer amounts are determined by role, level, and location. Learn more about our&lt;a href=&quot;https://gusto.com/about/careers/total-rewards&quot; target=&quot;_blank&quot;&gt; &lt;u&gt;Total Rewards philosophy&lt;/u&gt;&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;br&gt;AI is a fundamental part of how work gets done at Gusto. We expect all team members to actively engage with AI tools relevant to their role and grow their fluency as the technology evolves. AI experience requirements vary by role and will be assessed during the interview process.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Role:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The Corporate Tax Manager will be responsible for managing all aspects of the Company&#39;s tax compliance and planning. This role involves managing tax provisions, preparing and reviewing tax returns, and ensuring adherence to all relevant tax laws and regulations. The ideal candidate will be a highly motivated and detail-oriented individual with a strong understanding of tax principles and a commitment to accuracy.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what you’ll do day-to-day:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Manage the preparation and review of federal, state, and local income tax returns, sales tax returns, and other tax filings.&lt;/li&gt;\n&lt;li&gt;Manage the quarterly and annual tax provision process in accordance with ASC 740.&lt;/li&gt;\n&lt;li&gt;Conduct tax research and analysis to ensure compliance with current tax laws and identify potential tax planning opportunities.&lt;/li&gt;\n&lt;li&gt;Liaise with external auditors and tax advisors.&lt;/li&gt;\n&lt;li&gt;Develop and implement domestic and international tax strategies to minimize tax liabilities.&lt;/li&gt;\n&lt;li&gt;Manage tax audits and inquiries from tax authorities.&lt;/li&gt;\n&lt;li&gt;Stay informed of changes in tax legislation and regulations and assess their impact on the Company.&lt;/li&gt;\n&lt;li&gt;Prepare executive summaries of tax reports and presentations for senior management.&lt;/li&gt;\n&lt;li&gt;Ensure accurate and timely payment of all tax obligations.&lt;/li&gt;\n&lt;li&gt;Explore and leverage AI tax solutions.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Here’s what we&#39;re looking for:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor&#39;s degree in Accounting, Finance, or a related field.&lt;/li&gt;\n&lt;li&gt;Master&#39;s degree in Taxation or Accounting preferred.&lt;/li&gt;\n&lt;li style=&quot;font-weight: bold;&quot;&gt;&lt;strong&gt;CPA certification required.&lt;/strong&gt;&lt;/li&gt;\n&lt;li&gt;Minimum of 5-7 years of progressive experience in corporate tax, with at least 2 years in a managerial role.&lt;/li&gt;\n&lt;li&gt;Public accounting experience is a plus.&lt;/li&gt;\n&lt;li&gt;Excellent knowledge of federal, state, and local tax laws and regulations.&lt;/li&gt;\n&lt;li&gt;Strong analytical and problem-solving skills.&lt;/li&gt;\n&lt;li&gt;Exceptional attention to detail and accuracy.&lt;/li&gt;\n&lt;li&gt;Ability to communicate complex tax concepts clearly and concisely to non-tax professionals.&lt;/li&gt;\n&lt;li&gt;Proven ability to manage multiple projects and meet deadlines.&lt;/li&gt;\n&lt;li&gt;Strong leadership and team management skills.&lt;/li&gt;\n&lt;li&gt;Strong proficiency with tax software and ERP systems.&lt;/li&gt;\n&lt;li&gt;Proficiency in Microsoft Office Suite, especially Excel.&lt;/li&gt;\n&lt;li&gt;Comfortable working in a fast-paced environment and collaborating with cross-functional and diversified teams.&lt;/li&gt;\n&lt;li&gt;Agility with technology and automation / AI.&lt;/li&gt;\n&lt;li&gt;Experience with Alteryx and PowerBI preferred&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Our cash compensation amount for this role is between $113,190 - $139,601/year in Denver, between $137,020 - $168,991/year for New York and San Francisco. Final offer amounts are determined by multiple factors including candidate location, experience and expertise and may vary from the amounts listed above.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto has physical office spaces in Denver, San Francisco, and New York City. Employees who are based in those locations will be expected to work from the office on designated days approximately &lt;strong&gt;2-3 days &lt;/strong&gt;per week (or more depending on role). The same office expectations apply to all Symmetry roles, Gusto&#39;s subsidiary, whose physical office is in Scottsdale.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Note: The San Francisco office expectations encompass both the San Francisco and San Jose metro areas.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;When approved to work from a location other than a Gusto office, a secure, reliable, and consistent internet connection is required. This includes non-office days for hybrid employees.&lt;/p&gt;\n&lt;hr&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Our customers come from all walks of life and so do we. We hire great people from a wide variety of backgrounds, not just because it&#39;s the right thing to do, but because it makes our company stronger. If you share our values and our enthusiasm for small businesses, you will find a home at Gusto.&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Gusto is proud to be an equal opportunity employer. We do not discriminate in hiring or any employment decision based on race, color, religion, national origin, age, sex (including pregnancy, childbirth, or related medical conditions), marital status, ancestry, physical or mental disability, genetic information, veteran status, gender identity or expression, sexual orientation, or other applicable legally protected characteristic. Gusto considers qualified applicants with criminal histories, consistent with applicable federal, state and local law. Gusto is also committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. We want to see our candidates perform to the best of their ability. If you require a medical or religious accommodation at any time throughout your candidate journey, please fill out &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSdEfl7Bp-Twz7LLlhGlha46CrxZ9Kacgakmarf3K2TbnaEgKQ/viewform&quot;&gt;this form&lt;/a&gt; and a member of our team will get in touch with you.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;Gusto takes security and protection of your personal information very seriously. Please review our &lt;a href=&quot;https://gusto.com/about/careers/fraudulent-activity-disclaimer&quot;&gt;Fraudulent Activity Disclaimer&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Personal information collected and processed as part of your Gusto application will be subject to&amp;nbsp;&lt;a href=&quot;https://gusto.com/about/careers/applicant-privacy-notice&quot; target=&quot;_blank&quot;&gt;Gusto&#39;s Applicant Privacy Notice&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 1643,
+          "name": "Finance & BizOps",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4645,
+          "name": "United States - Denver, CO",
+          "location": "Denver, CO, United States",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 63926,
+          "name": "United States - New York, NY",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 523,
+          "name": "United States - San Francisco, CA",
+          "location": "San Francisco, CA, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 74
+  }
+}

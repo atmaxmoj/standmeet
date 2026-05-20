@@ -1,0 +1,1087 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/7617155",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 3362714,
+      "location": {
+        "name": "New York City, NY"
+      },
+      "metadata": [
+        {
+          "id": 944668,
+          "name": "Position ID",
+          "value": "P-107306",
+          "value_type": "short_text"
+        },
+        {
+          "id": 956352,
+          "name": "Recruiting Start Date",
+          "value": "2026-05-04",
+          "value_type": "date"
+        },
+        {
+          "id": 944671,
+          "name": "Target Hire Date",
+          "value": "2026-07-21",
+          "value_type": "date"
+        },
+        {
+          "id": 944672,
+          "name": "Target Hire End Date",
+          "value": "",
+          "value_type": "date"
+        },
+        {
+          "id": 944673,
+          "name": "Job Profile",
+          "value": "Partner Manager 5",
+          "value_type": "single_select"
+        },
+        {
+          "id": 956351,
+          "name": "Management Level",
+          "value": "IC5",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944675,
+          "name": "Job Family",
+          "value": "Partner Manager",
+          "value_type": "single_select"
+        },
+        {
+          "id": 53341,
+          "name": "Worker Sub-Type",
+          "value": "Regular",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944676,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944682,
+          "name": "Pay Rate Type",
+          "value": "Salary",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944681,
+          "name": "Scheduled Weekly Hours",
+          "value": "40.0",
+          "value_type": "number"
+        },
+        {
+          "id": 944667,
+          "name": "Company",
+          "value": "Reddit, Inc.",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944677,
+          "name": "Cost Center",
+          "value": "Support-Agency Dev",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944669,
+          "name": "Worker Type",
+          "value": "Employee",
+          "value_type": "single_select"
+        },
+        {
+          "id": 957961,
+          "name": "Department",
+          "value": null,
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7617155,
+      "updated_at": "2026-05-14T13:36:33-04:00",
+      "requisition_id": "R-105104",
+      "title": "3rd Party Partnerships Manager - Commerce",
+      "company_name": "Reddit",
+      "first_published": "2026-02-27T14:39:21-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 126 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;Reddit is seeking a Commerce Partner Manager to own and scale strategic commerce platform partnerships across the global commerce ecosystem.&lt;/p&gt;\n&lt;p&gt;This role will own the strategies and relationships with the most dynamic commerce platforms globally, achieving best-in-class product and go-to-market partnerships to enable growth on Reddit. Reporting to the Director of 3rd Party Partnerships, this role will work closely across product, sales, and marketing to define how commerce platforms and ecosystem partners contribute to Reddit’s advertiser acquisition and lower-funnel strategy.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Location: &lt;/strong&gt;New York Preferred, Remote&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Own Commerce Platforms &amp;amp; Ecosystem Partners: &lt;/strong&gt;Manage commerce platform relationships and key ecosystem partners that support customer activation, feeds, onboarding, and performance workflows.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Drive Product Adoption &amp;amp; MAA Growth:&lt;/strong&gt; Increase activation of Reddit Ads and Dynamic Product Ads through partner integrations; improve time-to-first-ad, catalog coverage, and conversion signal quality.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Operationalize Commerce GTM: &lt;/strong&gt;Build repeatable GTM motions across platforms and ecosystem partners - enablement, incentives, co-marketing, and activation programs that scale advertiser growth.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Influence Integration &amp;amp; Product Roadmap: &lt;/strong&gt;Partner with Product and Engineering to improve APIs and workflows across catalog ingestion, pixel/CAPI, feeds, onboarding, and reporting surfaces.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Partner with Sales &amp;amp; Product Adoption Teams: &lt;/strong&gt;Identify priority customers, support activation strategies, and create scalable playbooks that enable mid-market and long-tail customer growth.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Define and Run Commerce KPIs: &lt;/strong&gt;Track performance across active customers, MAA contribution, catalog health, signal coverage, activation speed, and revenue impact.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Represent the Commerce Partner Voice: &lt;/strong&gt;Manage escalations, ensure privacy and compliance alignment, and surface ecosystem insights to inform Reddit’s commerce strategy.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Qualifications:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;6–8 years in commerce partnerships, platform ecosystems, or e-commerce&lt;/li&gt;\n&lt;li&gt;Experience working with commerce platforms and supporting ecosystem vendors (feeds, onboarding, attribution, agencies, tooling)&lt;/li&gt;\n&lt;li&gt;Strong understanding of catalog feeds, conversion APIs, pixel/CAPI, and DPA workflows&lt;/li&gt;\n&lt;li&gt;Proven ability to drive revenue and product adoption through integrations&lt;/li&gt;\n&lt;li&gt;Cross-functional execution across Product, Engineering, Sales, and Marketing Science&lt;/li&gt;\n&lt;li&gt;Structured, metrics-driven operator with strong stakeholder management&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Bonus Qualifications&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Commerce ecosystem experience (apps, partner programs, merchant onboarding)&lt;/li&gt;\n&lt;li&gt;Familiarity with large platforms and broader commerce tooling landscape&lt;/li&gt;\n&lt;li&gt;Experience working with feed management platforms or commerce enablement partners&lt;/li&gt;\n&lt;li&gt;Understanding of lower-funnel performance advertising&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Experience designing activation incentives or partner programs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Comprehensive Health Benefits&lt;/li&gt;\n&lt;li&gt;401k Matching&lt;/li&gt;\n&lt;li&gt;Workspace benefits for your home office&lt;/li&gt;\n&lt;li&gt;Personal &amp;amp; Professional development funds&lt;/li&gt;\n&lt;li&gt;Family Planning Support&lt;/li&gt;\n&lt;li&gt;Flexible Vacation (please use them!) &amp;amp; Reddit Global Days Off&lt;/li&gt;\n&lt;li&gt;4+ months paid Parental Leave&lt;/li&gt;\n&lt;li&gt;Paid Volunteer time off&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;strong&gt;Pay Transparency:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This job posting may span more than one career level.&lt;/p&gt;\n&lt;p&gt;In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and will also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit &lt;a href=&quot;https://www.redditinc.com/careers/&quot; target=&quot;_blank&quot;&gt;https://www.redditinc.com/careers/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The base salary range for this position is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$189,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$264,600 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 70551,
+          "name": "Global Ads Partnerships",
+          "child_ids": [],
+          "parent_id": 15691
+        }
+      ],
+      "offices": [
+        {
+          "id": 10168,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/7011741",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3179357,
+      "location": {
+        "name": "Amsterdam, Netherlands"
+      },
+      "metadata": [
+        {
+          "id": 944668,
+          "name": "Position ID",
+          "value": "P-106495",
+          "value_type": "short_text"
+        },
+        {
+          "id": 956352,
+          "name": "Recruiting Start Date",
+          "value": "2026-01-29",
+          "value_type": "date"
+        },
+        {
+          "id": 944671,
+          "name": "Target Hire Date",
+          "value": "2026-01-29",
+          "value_type": "date"
+        },
+        {
+          "id": 944672,
+          "name": "Target Hire End Date",
+          "value": "2026-05-01",
+          "value_type": "date"
+        },
+        {
+          "id": 944673,
+          "name": "Job Profile",
+          "value": "Client Partner 3",
+          "value_type": "single_select"
+        },
+        {
+          "id": 956351,
+          "name": "Management Level",
+          "value": "IC3",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944675,
+          "name": "Job Family",
+          "value": "Client Partner",
+          "value_type": "single_select"
+        },
+        {
+          "id": 53341,
+          "name": "Worker Sub-Type",
+          "value": "Fixed Term",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944676,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944682,
+          "name": "Pay Rate Type",
+          "value": "Salary",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944681,
+          "name": "Scheduled Weekly Hours",
+          "value": "40.0",
+          "value_type": "number"
+        },
+        {
+          "id": 944667,
+          "name": "Company",
+          "value": "Reddit Netherlands B.V.",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944677,
+          "name": "Cost Center",
+          "value": "Scaled-EMEA RoR",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944669,
+          "name": "Worker Type",
+          "value": "Employee",
+          "value_type": "single_select"
+        },
+        {
+          "id": 957961,
+          "name": "Department",
+          "value": null,
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7011741,
+      "updated_at": "2026-05-14T12:51:34-04:00",
+      "requisition_id": "R-104521",
+      "title": "Acquisition Client Partner, Mid-Market (Southern Europe)",
+      "company_name": "Reddit",
+      "first_published": "2025-11-11T07:51:56-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 126 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;We&#39;re looking for a positive, and motivated self-starter to join our Mid Market Acquisitions team in Amsterdam! In addition to laying the foundation of the team, the Client Partner will be responsible for prospecting and establishing net new partnerships with key brands across France, Italy, and Spain, and ensuring they meet their business objectives using Reddit&#39;s advertising suite.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Please note that this role is required to work in-person from our Amsterdam office.&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Core Responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Prospect into and collaborate with prospective customers to deliver Reddit solutions that help achieve those customers’ marketing and business goals&lt;/li&gt;\n&lt;li&gt;Establish new relationships, acquire new clients (both direct and agency-driven), and bring them onto the platform in a way that sets them up for long-term success&lt;/li&gt;\n&lt;li&gt;Identify areas of additional opportunity within existing client relationships, including new lines of business, and move them through to close&lt;/li&gt;\n&lt;li&gt;Collaborate with Account Managers to create long-term, mutually beneficial partnerships between your customer base and Reddit&lt;/li&gt;\n&lt;li&gt;Act as the CEO of your book of business, and take full ownership of strategic bets, revenue forecasting, and ensuring operational rigor&lt;/li&gt;\n&lt;li&gt;Communicate feedback on our sales processes, narratives, and products to advocate for customers and improve the team&#39;s effectiveness and efficiency&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Qualifications:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;4-7 years of experience in digital media with at least 1-3 years of experience in sales&lt;/li&gt;\n&lt;li&gt;French (Required): Native-level fluency (written and verbal).&lt;/li&gt;\n&lt;li&gt;Spanish &amp;amp; Italian (Preferred): While not required, being able to communicate in Spanish or Italian is considered a strong asset for this role.&lt;/li&gt;\n&lt;li&gt;High familiarity with sales tools for research, prospecting, prioritization, and client outreach at scale&lt;/li&gt;\n&lt;li&gt;Established and proven network within the French local market (media agencies, brands, and key decision-makers) is a significant advantage&lt;/li&gt;\n&lt;li&gt;A hunger for identifying, prospecting, and closing new business&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Ability to manage a book of business greater than 30 accounts&lt;/li&gt;\n&lt;li&gt;Subject matter expertise in the social media landscape and native advertising&lt;/li&gt;\n&lt;li&gt;Positive outlook, team player&lt;/li&gt;\n&lt;li&gt;Demonstrated high achievement against sales targets&lt;/li&gt;\n&lt;li&gt;Motivated self-starter who thrives in unstructured environments&lt;/li&gt;\n&lt;li&gt;BA / BS degree or equivalent work experience&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li data-renderer-start-pos=&quot;3091&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;Global Benefit programs that fit your lifestyle, from workspace to professional development to caregiving support&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;3208&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;Family Planning Support&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;3236&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;Gender-Affirming Care&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;3261&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;Mental Health &amp;amp; Coaching Benefits&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;3298&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;Private Pension plan with Employer-matching&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;3345&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;100% employer-sponsored group medical plan&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;3393&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;Income Replacement Programs&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;3424&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;Flexible Vacation &amp;amp; Paid Volunteer Time Off&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;3471&quot; data-local-id=&quot;8c5ff10a-7296-4539-815b-c31a42a4d2d0&quot;&gt;Generous Paid Parental Leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;color: rgb(255, 255, 255);&quot; data-sheets-root=&quot;1&quot;&gt;#LI-ES1 #LI-onsite&lt;/span&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 70572,
+          "name": "Mid Market & SMB",
+          "child_ids": [],
+          "parent_id": 15691
+        }
+      ],
+      "offices": [
+        {
+          "id": 80517,
+          "name": "Amsterdam",
+          "location": "Amsterdam, North Holland, Netherlands",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/7792848",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 3407630,
+      "location": {
+        "name": "Remote - United States"
+      },
+      "metadata": [
+        {
+          "id": 944668,
+          "name": "Position ID",
+          "value": "P-103105",
+          "value_type": "short_text"
+        },
+        {
+          "id": 956352,
+          "name": "Recruiting Start Date",
+          "value": "2026-04-08",
+          "value_type": "date"
+        },
+        {
+          "id": 944671,
+          "name": "Target Hire Date",
+          "value": "2026-04-08",
+          "value_type": "date"
+        },
+        {
+          "id": 944672,
+          "name": "Target Hire End Date",
+          "value": "",
+          "value_type": "date"
+        },
+        {
+          "id": 944673,
+          "name": "Job Profile",
+          "value": "Machine Learning Mgmt 2",
+          "value_type": "single_select"
+        },
+        {
+          "id": 956351,
+          "name": "Management Level",
+          "value": "M2",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944675,
+          "name": "Job Family",
+          "value": "Machine Learning",
+          "value_type": "single_select"
+        },
+        {
+          "id": 53341,
+          "name": "Worker Sub-Type",
+          "value": "Regular",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944676,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944682,
+          "name": "Pay Rate Type",
+          "value": "Salary",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944681,
+          "name": "Scheduled Weekly Hours",
+          "value": "40.0",
+          "value_type": "number"
+        },
+        {
+          "id": 944667,
+          "name": "Company",
+          "value": "Reddit, Inc.",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944677,
+          "name": "Cost Center",
+          "value": "Tech-Ads Engineering",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944669,
+          "name": "Worker Type",
+          "value": "Employee",
+          "value_type": "single_select"
+        },
+        {
+          "id": 957961,
+          "name": "Department",
+          "value": null,
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7792848,
+      "updated_at": "2026-05-14T14:49:54-04:00",
+      "requisition_id": "R-105321",
+      "title": "Ads Conversion Modeling, Machine Learning Engineering Manager",
+      "company_name": "Reddit",
+      "first_published": "2026-04-14T14:08:53-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 126 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;Reddit’s lower funnel business is rapidly growing and pushing the heavy ranking web conversion models towards state-of-the-art is critical for continued growth. The Conversion modeling Team plays a pivotal role in developing and maintaining machine learning models that drive user conversions from Reddit Ads, with a special focus on predictive modeling around interactions like purchase, signup, add to cart, and other lower funnel user actions.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;As we expand our machine learning infrastructure and incorporate new engagement signals, we are looking for a skilled Engineering Manager who can lead this critical team. This role is well-suited for a leader with deep machine learning expertise, strategic vision, and a collaborative mindset to engage with both technical and cross-functional stakeholders.&lt;/p&gt;\n&lt;p&gt;We’re a remote-friendly company, and this position is open to candidates anywhere in the U.S.&lt;/p&gt;\n&lt;h4&gt;&lt;strong&gt;Target Skills and Expertise&lt;/strong&gt;&lt;/h4&gt;\n&lt;p&gt;The Engineering Manager (EM) will be responsible for defining the team’s vision, setting strategic direction, and executing a technical roadmap for conversion modeling at Reddit. This involves:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Model Architectures:&lt;/strong&gt; Expertise in architecting and implementing deep learning models, with experience in ranking, recommendation, or conversion modeling.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;ML Frameworks:&lt;/strong&gt; Proficiency with mainstream ML libraries (TensorFlow, PyTorch).&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;End-to-End ML Lifecycle:&lt;/strong&gt; Experience in training, testing, and deploying production-grade machine learning models.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Data Pipelines:&lt;/strong&gt; Experience orchestrating large-scale data generation and processing pipelines.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Ads domain Experience: &lt;/strong&gt;Experience in interaction of ranking model with rest of Ads systems like bidding, auction, retrieval etc&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Ads Modeling (Preferred):&lt;/strong&gt; Background in ads modeling or familiarity with engagement prediction models in the ads domain is beneficial.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Role responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The EM will lead a diverse, high-impact team and will need to navigate and foster collaboration with various teams such as PM, DS, and engineering functions within Ads. Ideal candidates will have:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;People Management Experience:&lt;/strong&gt; Prior experience managing engineering teams with a strong emphasis on technical mentorship and team growth.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Set Technical Vision and Strategy:&lt;/strong&gt; Ability to plan and execute a long-term technical strategy aligned with business objectives. Define and execute a roadmap for conversion modeling, balancing innovative modeling approaches with business objectives.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Drive Technical Execution:&lt;/strong&gt; Oversee the model development lifecycle from ideation to deployment, ensuring high standards of ML performance and robustness.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Lead and Mentor a High-Performing Team:&lt;/strong&gt; Recruit, mentor, and retain top ML talent, fostering a culture of growth, collaboration, and technical excellence.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Collaborate Cross-Functionally:&lt;/strong&gt; Partner with PMs, data scientists, and other engineering teams to align on engagement strategies, data requirements, and model KPIs.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Innovate in ML Architecture:&lt;/strong&gt; Implement and optimize model architectures tailored to conversion prediction, leveraging deep learning and advanced ML techniques.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required qualifications:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;At least 2+ of experience building and managing high-performing machine learning teams, ideally in the Ads domain. Will consider tech lead experience as well&lt;/li&gt;\n&lt;li&gt;Deep ML Expertise: Deep hands-on experience working with machine learning models and deploying them in large-scale production systems.&amp;nbsp; Proven ability in training, evaluating, and deploying large-scale models.&lt;/li&gt;\n&lt;li&gt;Technical Domain Knowledge:&amp;nbsp; Experience with Ads conversion modeling, ranking (heavy ranker experience) &amp;amp; recommendations experience is required.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Strategic Thinking: Ability to develop and communicate a clear, compelling technical strategy that supports broader company objectives and addresses the needs of internal customers.&lt;/li&gt;\n&lt;li&gt;Impact-Driven Mindset: Passion for developing scalable, well-designed, and responsible AI solutions that drive business value.&lt;/li&gt;\n&lt;li&gt;Exceptional Communication &amp;amp; Collaboration: Strong interpersonal skills and a collaborative mindset, with the ability to effectively communicate complex technical topics to diverse audiences and build strong relationships with cross-functional partners&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Experience with Ads conversion modeling&lt;/strong&gt; is a plus&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Perks and Benefits:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;100% remote opportunity (we have 4 office locations for hybrid/onsite work preference in NY, SF, LA and Chicago)&lt;/li&gt;\n&lt;li&gt;Competitive salary and equity options&lt;/li&gt;\n&lt;li&gt;Comprehensive health benefits (medical, dental, vision) &amp;amp; workplace perks (home office set up stipend etc)&lt;/li&gt;\n&lt;li&gt;Generous 401k matching&lt;/li&gt;\n&lt;li&gt;Flexible vacation policy&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Paid parental leave (4+ months)&lt;/li&gt;\n&lt;li&gt;Family planning support&lt;/li&gt;\n&lt;li&gt;Paid volunteer time off&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;#LI-AS1&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;strong&gt;Pay Transparency:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This job posting may span more than one career level.&lt;/p&gt;\n&lt;p&gt;In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and depending on the position offered, it may also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit &lt;a href=&quot;https://www.redditinc.com/careers/&quot; target=&quot;_blank&quot;&gt;https://www.redditinc.com/careers/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The base salary range for this position is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$230,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$322,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 70548,
+          "name": "Ads Engineering",
+          "child_ids": [],
+          "parent_id": 16253
+        }
+      ],
+      "offices": [
+        {
+          "id": 88237,
+          "name": "Remote - United States",
+          "location": null,
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/7616791",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 3362582,
+      "location": {
+        "name": "New York City, NY"
+      },
+      "metadata": [
+        {
+          "id": 944668,
+          "name": "Position ID",
+          "value": "P-107305",
+          "value_type": "short_text"
+        },
+        {
+          "id": 956352,
+          "name": "Recruiting Start Date",
+          "value": "2026-05-05",
+          "value_type": "date"
+        },
+        {
+          "id": 944671,
+          "name": "Target Hire Date",
+          "value": "2026-06-09",
+          "value_type": "date"
+        },
+        {
+          "id": 944672,
+          "name": "Target Hire End Date",
+          "value": "",
+          "value_type": "date"
+        },
+        {
+          "id": 944673,
+          "name": "Job Profile",
+          "value": "Agency Development 4",
+          "value_type": "single_select"
+        },
+        {
+          "id": 956351,
+          "name": "Management Level",
+          "value": "IC4",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944675,
+          "name": "Job Family",
+          "value": "Agency Development",
+          "value_type": "single_select"
+        },
+        {
+          "id": 53341,
+          "name": "Worker Sub-Type",
+          "value": "Regular",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944676,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944682,
+          "name": "Pay Rate Type",
+          "value": "Salary",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944681,
+          "name": "Scheduled Weekly Hours",
+          "value": "40.0",
+          "value_type": "number"
+        },
+        {
+          "id": 944667,
+          "name": "Company",
+          "value": "Reddit, Inc.",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944677,
+          "name": "Cost Center",
+          "value": "Support-Agency Dev",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944669,
+          "name": "Worker Type",
+          "value": "Employee",
+          "value_type": "single_select"
+        },
+        {
+          "id": 957961,
+          "name": "Department",
+          "value": null,
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7616791,
+      "updated_at": "2026-05-20T15:14:19-04:00",
+      "requisition_id": "R-105101",
+      "title": "Agency Development Partnerships Lead I",
+      "company_name": "Reddit",
+      "first_published": "2026-05-08T15:42:13-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 126 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;As an Agency Development Partnerships Lead I at Reddit, you will support and execute partnership initiatives for HoldCos and Independent Agencies. As the day-to-day owner of the relationship across assigned teams, you will focus on operational excellence, execution of partnership plans, and driving measurable outcomes.&lt;/p&gt;\n&lt;p&gt;You will translate broader agency strategy into actionable quarterly plans, manage execution across internal and external stakeholders, and ensure initiatives are delivered on time and aligned to revenue goals. This role is ideal for a detail-oriented, collaborative operator who thrives in managing complex work streams and strengthening working- and mid-level agency relationships.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Location: &lt;/strong&gt;NYC office.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Serve as Reddit’s primary day-to-day liaison for assigned HoldCo/Indy teams, supporting the development and execution of partnership programs&lt;/li&gt;\n&lt;li&gt;Draft and execute quarterly work plans aligned to broader annual agency strategy&lt;/li&gt;\n&lt;li&gt;Support the build and implementation of Agency Development annual and quarterly plans for assigned agencies&lt;/li&gt;\n&lt;li&gt;Own project management of partnership initiatives, including tracking milestones, monitoring progress, and reporting on performance against annual goals&lt;/li&gt;\n&lt;li&gt;Partner with Activations and Enablement teams to support the execution of educational programs and training initiatives using internal and external insights&lt;/li&gt;\n&lt;li&gt;Collaborate cross-functionally with Sales, Product, Measurement, Marketing, and Insights teams to ensure seamless delivery of programs&lt;/li&gt;\n&lt;li&gt;Help structure media and creative best practices to support improved client outcomes&lt;/li&gt;\n&lt;li&gt;Maintain strong working relationships with mid-level agency stakeholders to drive adoption of Reddit solutions&lt;/li&gt;\n&lt;li&gt;Provide ongoing feedback from agency partners to internal teams to inform product, measurement, and go-to-market improvements&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Qualifications:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;6–8 years of experience in digital media, agency partnerships, sales support, or account management&lt;/li&gt;\n&lt;li&gt;Experience working with agency holding companies, preferably within the Omnicom ecosystem&lt;/li&gt;\n&lt;li&gt;Proven ability to manage projects, track performance, and execute against defined objectives&lt;/li&gt;\n&lt;li&gt;Strong relationship management skills with experience engaging mid-level agency stakeholders&lt;/li&gt;\n&lt;li&gt;Highly organized with the ability to manage multiple initiatives simultaneously&lt;/li&gt;\n&lt;li&gt;Collaborative and solutions-oriented mindset&lt;/li&gt;\n&lt;li&gt;Strong written and verbal communication skills&lt;/li&gt;\n&lt;li&gt;Adaptable and comfortable operating in a fast-paced, cross-functional environment&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Comprehensive Healthcare Benefits and Income Replacement Programs&lt;/li&gt;\n&lt;li&gt;401k with Employer Match&lt;/li&gt;\n&lt;li&gt;Global Benefit programs that fit your lifestyle, from workspace to professional development to caregiving support&lt;/li&gt;\n&lt;li&gt;Family Planning Support&lt;/li&gt;\n&lt;li&gt;Gender-Affirming Care&lt;/li&gt;\n&lt;li&gt;Mental Health &amp;amp; Coaching Benefits&lt;/li&gt;\n&lt;li&gt;Flexible Vacation &amp;amp; Paid Volunteer Time Off&lt;/li&gt;\n&lt;li&gt;Generous Paid Parental Leave&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;strong&gt;Pay Transparency:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This job posting may span more than one career level.&lt;/p&gt;\n&lt;p&gt;In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and will also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit &lt;a href=&quot;https://www.redditinc.com/careers/&quot; target=&quot;_blank&quot;&gt;https://www.redditinc.com/careers/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The base salary range for this position is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$210,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$294,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 70551,
+          "name": "Global Ads Partnerships",
+          "child_ids": [],
+          "parent_id": 15691
+        }
+      ],
+      "offices": [
+        {
+          "id": 10168,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/7460262",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3315197,
+      "location": {
+        "name": "New York City, NY"
+      },
+      "metadata": [
+        {
+          "id": 944668,
+          "name": "Position ID",
+          "value": "P-107332",
+          "value_type": "short_text"
+        },
+        {
+          "id": 956352,
+          "name": "Recruiting Start Date",
+          "value": "2026-05-19",
+          "value_type": "date"
+        },
+        {
+          "id": 944671,
+          "name": "Target Hire Date",
+          "value": "2026-07-19",
+          "value_type": "date"
+        },
+        {
+          "id": 944672,
+          "name": "Target Hire End Date",
+          "value": "",
+          "value_type": "date"
+        },
+        {
+          "id": 944673,
+          "name": "Job Profile",
+          "value": "Agency Development 5",
+          "value_type": "single_select"
+        },
+        {
+          "id": 956351,
+          "name": "Management Level",
+          "value": "IC5",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944675,
+          "name": "Job Family",
+          "value": "Agency Development",
+          "value_type": "single_select"
+        },
+        {
+          "id": 53341,
+          "name": "Worker Sub-Type",
+          "value": "Regular",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944676,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944682,
+          "name": "Pay Rate Type",
+          "value": "Salary",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944681,
+          "name": "Scheduled Weekly Hours",
+          "value": "40.0",
+          "value_type": "number"
+        },
+        {
+          "id": 944667,
+          "name": "Company",
+          "value": "Reddit, Inc.",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944677,
+          "name": "Cost Center",
+          "value": "Support-Agency Dev",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944669,
+          "name": "Worker Type",
+          "value": "Employee",
+          "value_type": "single_select"
+        },
+        {
+          "id": 957961,
+          "name": "Department",
+          "value": null,
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7460262,
+      "updated_at": "2026-05-20T15:16:43-04:00",
+      "requisition_id": "R-104978",
+      "title": "Agency Development Partnerships Lead - Independent Agencies",
+      "company_name": "Reddit",
+      "first_published": "2026-05-19T22:44:00-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 126 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;As an Agency Development Partnerships Lead at Reddit, you will play a key role in expanding our business by leading our partnerships with Independent Agencies. You&#39;ll manage and support strategic relationships with our network of Independent Agencies, bringing internal and external stakeholders together to drive shared revenue outcomes. You will identify growth opportunities through education programs, decision-maker engagements, and next-generation business solutions for our customers that drive satisfaction and revenue. You&#39;ll develop these relationships with a business-building mindset, spearheading partnerships initiatives that benefit our agency partners, their clients, and ultimately generate opportunities for our Indy Sales team.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Location: &lt;/strong&gt;New York office&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Act and serve as a liaison between Independent Agencies and Reddit to help develop first-class strategic programs and partnerships&lt;/li&gt;\n&lt;li&gt;Formulate and execute quarterly/annual Indy Agency go-to-market strategy, ensuring alignment with overall global corporate/sales objectives&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Collaborate with all key internal stakeholders, including cross-functional leads, to ensure the successful delivery of the go-to-market strategy&lt;/li&gt;\n&lt;li&gt;Develop and contribute to tentpole events in collaboration with business marketing&lt;/li&gt;\n&lt;li&gt;Be a senior thought leader in the industry, acting as an ambassador and spokesperson for Reddit&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Formulate and negotiate agency partnership agreements and lead the execution of these agreements&lt;/li&gt;\n&lt;li&gt;Lead and facilitate educational training to inform best practices for using Reddit&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Work with agencies to uplevel their creative strategy and execution to deliver positive business outcomes for their clients&lt;/li&gt;\n&lt;li&gt;Provide input to Product Marketing and Product teams about advertiser insights and needs related to new products, features, and solutions&lt;/li&gt;\n&lt;li&gt;Partner with sales to develop and create account-level planning initiatives to accelerate acquisition (net new) and same-store (existing) advertiser growth&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Qualifications:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;8+ years of experience in advertising sales and agency relationship management&lt;/li&gt;\n&lt;li&gt;Deep familiarity with the Independent Agency ecosystem and strong relationships across key agencies&lt;/li&gt;\n&lt;li&gt;Demonstrated expertise in building and cultivating relationships with senior agency decision-makers at the C-Suite and VP Level&lt;/li&gt;\n&lt;li&gt;Tenacious and entrepreneurial approach to working through product, process, and client challenges&lt;/li&gt;\n&lt;li&gt;Exceptional interpersonal skills with a demonstrated ability to cultivate strong relationships with internal and external partners&lt;/li&gt;\n&lt;li&gt;Adaptable and thrives in a fast-paced environment, managing change effectively&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Exhibits a high level of competency in oral and written communication skills&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Comprehensive Healthcare Benefits and Income Replacement Programs&lt;/li&gt;\n&lt;li&gt;401k with Employer Match&lt;/li&gt;\n&lt;li&gt;Global Benefit programs that fit your lifestyle, from workspace to professional development to caregiving support&lt;/li&gt;\n&lt;li&gt;Family Planning Support&lt;/li&gt;\n&lt;li&gt;Gender-Affirming Care&lt;/li&gt;\n&lt;li&gt;Mental Health &amp;amp; Coaching Benefits&lt;/li&gt;\n&lt;li&gt;Flexible Vacation &amp;amp; Paid Volunteer Time Off&lt;/li&gt;\n&lt;li&gt;Generous Paid Parental Leave&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;strong&gt;Pay Transparency:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This job posting may span more than one career level.&lt;/p&gt;\n&lt;p&gt;In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and will also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit &lt;a href=&quot;https://www.redditinc.com/careers/&quot; target=&quot;_blank&quot;&gt;https://www.redditinc.com/careers/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The base salary range for this position is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$227,500&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$318,600 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 311130,
+          "name": "Agency Development",
+          "child_ids": [],
+          "parent_id": 15691
+        }
+      ],
+      "offices": [
+        {
+          "id": 88237,
+          "name": "Remote - United States",
+          "location": null,
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/7649830",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 3369812,
+      "location": {
+        "name": "San Francisco, CA"
+      },
+      "metadata": [
+        {
+          "id": 944668,
+          "name": "Position ID",
+          "value": "P-400093",
+          "value_type": "short_text"
+        },
+        {
+          "id": 956352,
+          "name": "Recruiting Start Date",
+          "value": "2026-02-24",
+          "value_type": "date"
+        },
+        {
+          "id": 944671,
+          "name": "Target Hire Date",
+          "value": "2026-05-31",
+          "value_type": "date"
+        },
+        {
+          "id": 944672,
+          "name": "Target Hire End Date",
+          "value": "",
+          "value_type": "date"
+        },
+        {
+          "id": 944673,
+          "name": "Job Profile",
+          "value": "Account Executive 4",
+          "value_type": "single_select"
+        },
+        {
+          "id": 956351,
+          "name": "Management Level",
+          "value": "IC4",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944675,
+          "name": "Job Family",
+          "value": "Account Executive",
+          "value_type": "single_select"
+        },
+        {
+          "id": 53341,
+          "name": "Worker Sub-Type",
+          "value": "Regular",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944676,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944682,
+          "name": "Pay Rate Type",
+          "value": "Salary",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944681,
+          "name": "Scheduled Weekly Hours",
+          "value": "40.0",
+          "value_type": "number"
+        },
+        {
+          "id": 944667,
+          "name": "Company",
+          "value": "Reddit, Inc.",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944677,
+          "name": "Cost Center",
+          "value": "Scaled-Goods & Pub & Indy",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944669,
+          "name": "Worker Type",
+          "value": "Employee",
+          "value_type": "single_select"
+        },
+        {
+          "id": 957961,
+          "name": "Department",
+          "value": null,
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7649830,
+      "updated_at": "2026-05-14T13:36:32-04:00",
+      "requisition_id": "R-105120",
+      "title": "Client Account Executive, Mid-Market Sales (Signature Goods)",
+      "company_name": "Reddit",
+      "first_published": "2026-03-16T13:51:44-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 126 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;We’re building Reddit’s Mid-Market team in North America to support a rapidly expanding book of advertisers who are looking to grow their businesses through Reddit’s unique, intent-rich communities. This is an opportunity to join a high-impact team that is reshaping how advertisers think about discovery, performance, and brand-building at scale.&lt;/p&gt;\n&lt;p&gt;As a Client Account Executive, you will have end-to-end ownership to grow and retain your book of business across the Signature Goods segment. You will drive strategic conversations, guide campaign execution, and partner cross-functionally to help advertisers succeed on Reddit. You&#39;ll work closely with a team of Account Strategists to scale your impact across a dedicated book of business. The ideal candidate thrives in a fast-paced, consultative environment and enjoys taking ownership, building deep client relationships, and turning insights into action.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;text-decoration: underline;&quot;&gt;&lt;strong&gt;Please note that this role is required to work in person from our&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;San Francisco&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;office 1–2 days per week.&lt;/strong&gt;&lt;/span&gt;&lt;/p&gt;\n&lt;h4&gt;&lt;strong&gt;Core Responsibilities&lt;/strong&gt;&lt;/h4&gt;\n&lt;ul&gt;\n&lt;li&gt;Own and grow a book of mid-market advertisers, acting as the main point of contact for both clients and agencies.&lt;/li&gt;\n&lt;li&gt;Drive advertiser activation, retention, and revenue growth through thoughtful client consultation, performance analysis, and solution-oriented storytelling.&lt;/li&gt;\n&lt;li&gt;Initiate and lead strategic sales conversations using market trends, performance data, and industry context to advise clients on how to scale on Reddit.&lt;/li&gt;\n&lt;li&gt;Work with Account Strategists to implement and optimize campaigns to achieve your clients’ advertising objectives across performance and brand campaigns.&lt;/li&gt;\n&lt;li&gt;Monitor and report on key campaign metrics, providing actionable recommendations for continuous improvement.&lt;/li&gt;\n&lt;li&gt;Identify and communicate product feedback and market insights to cross-functional teams to influence Reddit’s go-to-market strategy.&lt;/li&gt;\n&lt;li&gt;Develop and execute sales strategies to hit and exceed quarterly revenue targets.&lt;br&gt;Cultivate strong client relationships with a customer-first mindset, balancing client priorities with Reddit best practices and long-term success planning.&lt;/li&gt;\n&lt;li&gt;Serve as a foundational hire shaping scaled sales methodologies and best practices for the Client Account Executive role.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h4&gt;&lt;strong&gt;Qualifications&lt;/strong&gt;&lt;/h4&gt;\n&lt;ul&gt;\n&lt;li&gt;5+ years of experience in digital media sales, account management, or paid social strategy.&lt;/li&gt;\n&lt;li&gt;Proven track record of meeting or exceeding revenue targets.&lt;/li&gt;\n&lt;li&gt;Strong understanding of the customer marketing funnel, auction dynamics, and digital advertising landscape.&lt;/li&gt;\n&lt;li&gt;Excellent communication skills - written, verbal, and visual - with a strong ability to craft and present narratives that drive action.&lt;/li&gt;\n&lt;li&gt;Highly analytical; comfortable translating data into client-facing insights.&lt;/li&gt;\n&lt;li&gt;Motivated self-starter who thrives in ambiguity and fast-paced environments.&lt;/li&gt;\n&lt;li&gt;Proficiency in Excel/Google Sheets and strong understanding of performance measurement and attribution.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li data-renderer-start-pos=&quot;5039&quot; data-local-id=&quot;7a8141b5-f7ba-4353-bdee-caf575fee079&quot;&gt;Comprehensive Healthcare Benefits and Income Replacement Programs&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;5108&quot; data-local-id=&quot;7a8141b5-f7ba-4353-bdee-caf575fee079&quot;&gt;401k with Employer Match&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;5136&quot; data-local-id=&quot;7a8141b5-f7ba-4353-bdee-caf575fee079&quot;&gt;Global Benefit programs that fit your lifestyle, from workspace to professional development to caregiving support&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;5253&quot; data-local-id=&quot;7a8141b5-f7ba-4353-bdee-caf575fee079&quot;&gt;Family Planning Support&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;5280&quot; data-local-id=&quot;7a8141b5-f7ba-4353-bdee-caf575fee079&quot;&gt;Gender-Affirming Care&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;5305&quot; data-local-id=&quot;7a8141b5-f7ba-4353-bdee-caf575fee079&quot;&gt;Mental Health &amp;amp; Coaching Benefits&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;5342&quot; data-local-id=&quot;7a8141b5-f7ba-4353-bdee-caf575fee079&quot;&gt;Flexible Vacation &amp;amp; Paid Volunteer Time Off&lt;/li&gt;\n&lt;li data-renderer-start-pos=&quot;5389&quot; data-local-id=&quot;7a8141b5-f7ba-4353-bdee-caf575fee079&quot;&gt;Generous Paid Parental Leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;strong&gt;Pay Transparency:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This job posting may span more than one career level.&lt;/p&gt;\n&lt;p&gt;In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and will also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit &lt;a href=&quot;https://www.redditinc.com/careers/&quot; target=&quot;_blank&quot;&gt;https://www.redditinc.com/careers/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The base salary range for this position is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$114,700&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$160,500 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 70572,
+          "name": "Mid Market & SMB",
+          "child_ids": [],
+          "parent_id": 15691
+        }
+      ],
+      "offices": [
+        {
+          "id": 10167,
+          "name": "San Francisco",
+          "location": "San Francisco, CA, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/7702201",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 3385089,
+      "location": {
+        "name": "New York City, NY"
+      },
+      "metadata": [
+        {
+          "id": 944668,
+          "name": "Position ID",
+          "value": "P-107993",
+          "value_type": "short_text"
+        },
+        {
+          "id": 956352,
+          "name": "Recruiting Start Date",
+          "value": "2026-03-10",
+          "value_type": "date"
+        },
+        {
+          "id": 944671,
+          "name": "Target Hire Date",
+          "value": "2026-06-30",
+          "value_type": "date"
+        },
+        {
+          "id": 944672,
+          "name": "Target Hire End Date",
+          "value": "",
+          "value_type": "date"
+        },
+        {
+          "id": 944673,
+          "name": "Job Profile",
+          "value": "Client Account Manager 5",
+          "value_type": "single_select"
+        },
+        {
+          "id": 956351,
+          "name": "Management Level",
+          "value": "IC5",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944675,
+          "name": "Job Family",
+          "value": "Client Account Manager",
+          "value_type": "single_select"
+        },
+        {
+          "id": 53341,
+          "name": "Worker Sub-Type",
+          "value": "Regular",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944676,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944682,
+          "name": "Pay Rate Type",
+          "value": "Salary",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944681,
+          "name": "Scheduled Weekly Hours",
+          "value": "40.0",
+          "value_type": "number"
+        },
+        {
+          "id": 944667,
+          "name": "Company",
+          "value": "Reddit, Inc.",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944677,
+          "name": "Cost Center",
+          "value": "Scaled-App Dev",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944669,
+          "name": "Worker Type",
+          "value": "Employee",
+          "value_type": "single_select"
+        },
+        {
+          "id": 957961,
+          "name": "Department",
+          "value": null,
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7702201,
+      "updated_at": "2026-05-14T13:36:33-04:00",
+      "requisition_id": "R-105182",
+      "title": "Client Account Manager, App Dev Enterprise",
+      "company_name": "Reddit",
+      "first_published": "2026-03-12T15:32:29-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 126 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;We&#39;re looking for a Client Account Manager to join our App Dev Enterprise team in New York. Our App Dev team partners with Mobile App Developers globally, consulting clients on how to successfully grow their businesses by leveraging the best of Reddit’s platform capabilities. This team also partners with our XFN product and tech teams to represent their clients’ interests, influencing the future of Reddit ads.&lt;/p&gt;\n&lt;p&gt;In this role, the Client Account Manager will nurture client partnerships by leading campaign strategy, execution, optimizations, and, reporting to drive measurable business outcomes. Our Client Account Managers also play a key role in proactively identifying and pitching upsell opportunities to help advertisers derive the most value from their marketing on Reddit and grow their overall book of business.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;text-decoration: underline;&quot;&gt;Please note that this role is required to work in person from our New York City office 1-2 days per week.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Client Partnership Growth&lt;/li&gt;\n&lt;ul&gt;\n&lt;li&gt;Collaborate with Client Partners to meet or exceed your clients’ marketing goals&lt;/li&gt;\n&lt;li&gt;Proactively manage and deepen relationships with existing advertising partners and their agency counterparts to drive year-over-year revenue growth&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Be a trusted partner by advising clients on their full funnel objectives, especially with mobile app marketing, and crafting thoughtful and creative media plans&lt;/li&gt;\n&lt;li&gt;Ownership of brand and media agency education, office hours, and performance check in’s, effectively communicating Reddit’s value proposition, solutions, and best practices for advertising on the platform&lt;/li&gt;\n&lt;/ul&gt;\n&lt;li&gt;End-to-End Campaign Ownership&lt;/li&gt;\n&lt;ul&gt;\n&lt;li&gt;Lead end-to-end campaign launch execution, supporting clients with setup and delivering insightful optimization recommendations to agency and client partners&lt;/li&gt;\n&lt;li&gt;Act as the primary point of contact for internal account operations, including revenue delivery, troubleshooting issues, and escalations when necessary&lt;/li&gt;\n&lt;li&gt;Collaborate with Ad Ops, Product to ensure effective campaign delivery and resolve any technical hurdles&lt;/li&gt;\n&lt;/ul&gt;\n&lt;li&gt;Insights, Reporting &amp;amp; Upselling&lt;/li&gt;\n&lt;ul&gt;\n&lt;li&gt;Dive deep into campaign performance data, audience and competitor insights, seasonality, and market and performance trends to develop KPI-driven campaign recommendations&lt;/li&gt;\n&lt;li&gt;Strategically identify and pitch upsell opportunities to clients to contribute to account growth&lt;/li&gt;\n&lt;/ul&gt;\n&lt;li&gt;Leadership &amp;amp; Cross Functional Collaboration&lt;/li&gt;\n&lt;ul&gt;\n&lt;li&gt;Mentor and train other team members&lt;/li&gt;\n&lt;li&gt;Proactively seek and represent client needs and asks to cross-functional stakeholders&lt;/li&gt;\n&lt;li&gt;Shape Reddit’s native ads product roadmap by aggregating and sharing client feedback and campaign metrics with cross-functional stakeholders&lt;/li&gt;\n&lt;li&gt;Proactively identify areas of improvement and drive the execution of solutions&lt;/li&gt;\n&lt;/ul&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Qualifications:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;4-7 years of experience in advertising sales and account management&lt;/li&gt;\n&lt;li&gt;Deep industry expertise in mobile apps, mobile User Acquisition funnels, and MMPs&lt;/li&gt;\n&lt;li&gt;Strong understanding of customer marketing funnel and traditional marketing ecosystem&lt;/li&gt;\n&lt;li&gt;Comfortable with problems of diverse scope where analysis of data requires evaluation of identifiable factors.&lt;/li&gt;\n&lt;li&gt;Proficient at upselling with a proven track record of growing client spend&lt;/li&gt;\n&lt;li&gt;Understanding of Digital measurement, tracking fundamentals and mobile measurement partners&lt;/li&gt;\n&lt;li&gt;Tenacious and entrepreneurial approach to working through product, process, and client challenges&lt;/li&gt;\n&lt;li&gt;Experience cultivating strong relationships with external partners&lt;/li&gt;\n&lt;li&gt;Exceptional communication and interpersonal skills&lt;/li&gt;\n&lt;li&gt;Ability to work in a fast-paced and unstructured work environment&lt;/li&gt;\n&lt;li&gt;High attention to detail&lt;/li&gt;\n&lt;li&gt;Proficiency in Excel preferred&lt;/li&gt;\n&lt;li&gt;BA / BS degree or equivalent work experience&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Comprehensive Healthcare Benefits and Income Replacement Programs&lt;/li&gt;\n&lt;li&gt;401k with Employer Match&lt;/li&gt;\n&lt;li&gt;Global Benefit programs that fit your lifestyle, from workspace to professional development to caregiving support&lt;/li&gt;\n&lt;li&gt;Family Planning Support&lt;/li&gt;\n&lt;li&gt;Gender-Affirming Care&lt;/li&gt;\n&lt;li&gt;Mental Health &amp;amp; Coaching Benefits&lt;/li&gt;\n&lt;li&gt;Flexible Vacation &amp;amp; Paid Volunteer Time Off&lt;/li&gt;\n&lt;li&gt;Generous Paid Parental Leave&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;color: rgb(255, 255, 255);&quot; data-sheets-root=&quot;1&quot;&gt;#LI-ES1 #LI-onsite&lt;/span&gt;&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;&lt;strong&gt;Pay Transparency:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;This job posting may span more than one career level.&lt;/p&gt;\n&lt;p&gt;In addition to base salary, this job is eligible to receive equity in the form of restricted stock units, and will also be eligible to receive a commission. Additionally, Reddit offers a wide range of benefits to U.S.-based employees, including medical, dental, and vision insurance, 401(k) program with employer match, generous time off for vacation, and parental leave. To learn more, please visit &lt;a href=&quot;https://www.redditinc.com/careers/&quot; target=&quot;_blank&quot;&gt;https://www.redditinc.com/careers/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;To provide greater transparency to candidates, we share base salary ranges for all US-based job postings regardless of state. We set standard base pay ranges for all roles based on function, level, and country location, benchmarked against similar stage growth companies. Final offer amounts are determined by multiple factors including, skills, depth of work experience and relevant licenses/credentials, and may vary from the amounts listed below.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The base salary range for this position is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$105,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$147,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 70572,
+          "name": "Mid Market & SMB",
+          "child_ids": [],
+          "parent_id": 15691
+        }
+      ],
+      "offices": [
+        {
+          "id": 10168,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    },
+    {
+      "absolute_url": "https://job-boards.greenhouse.io/reddit/jobs/7793253",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3407777,
+      "location": {
+        "name": "Remote - Singapore"
+      },
+      "metadata": [
+        {
+          "id": 944668,
+          "name": "Position ID",
+          "value": "P-107959",
+          "value_type": "short_text"
+        },
+        {
+          "id": 956352,
+          "name": "Recruiting Start Date",
+          "value": "2026-05-07",
+          "value_type": "date"
+        },
+        {
+          "id": 944671,
+          "name": "Target Hire Date",
+          "value": "2026-07-20",
+          "value_type": "date"
+        },
+        {
+          "id": 944672,
+          "name": "Target Hire End Date",
+          "value": "",
+          "value_type": "date"
+        },
+        {
+          "id": 944673,
+          "name": "Job Profile",
+          "value": "Client Account Manager 4",
+          "value_type": "single_select"
+        },
+        {
+          "id": 956351,
+          "name": "Management Level",
+          "value": "IC4",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944675,
+          "name": "Job Family",
+          "value": "Client Account Manager",
+          "value_type": "single_select"
+        },
+        {
+          "id": 53341,
+          "name": "Worker Sub-Type",
+          "value": "Regular",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944676,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944682,
+          "name": "Pay Rate Type",
+          "value": "Salary",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944681,
+          "name": "Scheduled Weekly Hours",
+          "value": "40.0",
+          "value_type": "number"
+        },
+        {
+          "id": 944667,
+          "name": "Company",
+          "value": "Reddit SG PTE. LTD.",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944677,
+          "name": "Cost Center",
+          "value": "LCS-EMEA-Shared",
+          "value_type": "single_select"
+        },
+        {
+          "id": 944669,
+          "name": "Worker Type",
+          "value": "Employee",
+          "value_type": "single_select"
+        },
+        {
+          "id": 957961,
+          "name": "Department",
+          "value": null,
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7793253,
+      "updated_at": "2026-05-19T11:27:58-04:00",
+      "requisition_id": "R-105323",
+      "title": "Client Account Manager, Large Customer Sales",
+      "company_name": "Reddit",
+      "first_published": "2026-05-11T12:04:47-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;div class=&quot;c-message_kit__blocks c-message_kit__blocks--rich_text&quot;&gt;\n&lt;div class=&quot;c-message__message_blocks c-message__message_blocks--rich_text&quot; data-qa=&quot;message-text&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer&quot; data-qa=&quot;block-kit-renderer&quot;&gt;\n&lt;div class=&quot;p-block_kit_renderer__block_wrapper p-block_kit_renderer__block_wrapper--first&quot;&gt;\n&lt;div class=&quot;p-rich_text_block&quot;&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;Reddit is a community of communities. It’s built on shared interests, passion, and trust, and is home to the most open and authentic conversations on the internet. Every day, Reddit users submit, vote, and comment on the topics they care most about. With 100,000+ active communities and approximately 126 million daily active unique visitors, Reddit is one of the internet’s largest sources of information. For more information, visit &lt;a class=&quot;c-link&quot; href=&quot;http://www.redditinc.com/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;http://redditinc.com&quot; data-sk=&quot;tooltip_parent&quot;&gt;www.redditinc.com&lt;/a&gt;.&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;\n&lt;/div&gt;&lt;/div&gt;&lt;p&gt;We’re seeking a Senior Client Account Manager for the Singapore Enterprise team. This person will closely collaborate with Client Partners on campaign execution and optimizations to help agencies and advertisers achieve their marketing objectives on the fast-growing Reddit platform.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Please note that this role is required to be based out of &lt;strong&gt;Singapore.&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Collaborate closely with Client Partners to meet and exceed clients’ marketing goals.&lt;/li&gt;\n&lt;li&gt;Proactively manage and deepen relationships with existing advertising partners, both with agencies and directly with the largest and most complex clients of Reddit to drive year-on-year revenue growth.&lt;/li&gt;\n&lt;li&gt;Lead and execute campaign launches from start to finish and deliver insightful optimizations to agency and client partners&lt;/li&gt;\n&lt;li&gt;Identify, strategize, and win incremental revenue opportunities of existing advertiser base to grow in-quarter revenue growth.&lt;/li&gt;\n&lt;li&gt;Ongoing management of internal account operations (revenue delivery and troubleshooting issues)&lt;/li&gt;\n&lt;li&gt;Educate brands and media agencies, effectively communicate value proposition and best practices&lt;/li&gt;\n&lt;li&gt;Consult clients on their awareness and direct response objectives, and partner closely with Client Partners to craft thoughtful and creative media plans&lt;/li&gt;\n&lt;li&gt;Collaborate with Ad Ops to ensure effective campaign delivery and resolve any technical hurdles&lt;/li&gt;\n&lt;li&gt;Proactively seek and represent client needs and asks to cross-functional stakeholders&lt;/li&gt;\n&lt;li&gt;Shape Reddit’s native ads product roadmap, for mobile and in general, by aggregating and sharing client feedback and campaign metrics with cross-functional stakeholders&lt;/li&gt;\n&lt;li&gt;Proactively and continually identify areas of improvement&lt;/li&gt;\n&lt;li&gt;Mentor and train other team members.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Qualifications:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;8+ years of experience in advertising sales and account management&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Strong understanding of customer marketing funnel and traditional marketing ecosystem&lt;/li&gt;\n&lt;li&gt;Understanding of Digital measurement, tracking fundamentals and mobile measurement partners&lt;/li&gt;\n&lt;li&gt;Tenacious and entrepreneurial approach to working through product, process, and client challenges&lt;/li&gt;\n&lt;li&gt;Experience cultivating strong relationships with external partners&lt;/li&gt;\n&lt;li&gt;Exceptional communication and interpersonal skills&lt;/li&gt;\n&lt;li&gt;Ability to work in a fast-paced and unstructured work environment&lt;/li&gt;\n&lt;li&gt;High attention to detail&lt;/li&gt;\n&lt;li&gt;Strong work ethic and growth mindset&lt;/li&gt;\n&lt;li&gt;Proficiency in Excel preferred&lt;/li&gt;\n&lt;li&gt;BA / BS degree or equivalent work experience&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Global Benefit programs that fit your lifestyle, from workspace to professional development to caregiving support&lt;/li&gt;\n&lt;li&gt;Family Planning Support&lt;/li&gt;\n&lt;li&gt;Gender-Affirming Care&lt;/li&gt;\n&lt;li&gt;Mental Health &amp;amp; Coaching Benefits&lt;/li&gt;\n&lt;li&gt;Health Insurance Stipend&lt;/li&gt;\n&lt;li&gt;Retirement Benefits (CPF Fund)&lt;/li&gt;\n&lt;li&gt;Flexible Vacation &amp;amp; Paid Volunteer Time Off&lt;/li&gt;\n&lt;li&gt;Generous Paid Parental Leave&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;span style=&quot;color: rgb(255, 255, 255);&quot;&gt;#LI-NT1&lt;/span&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;In select roles and locations, the interviews will be recorded, transcribed and summarized by artificial intelligence (AI). You will have the opportunity to opt out of recording, transcription and summarization prior to any scheduled interviews.&lt;/p&gt;\n&lt;p&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;During the interview, we will collect the following categories of personal information: Identifiers, Professional and Employment-Related Information, Sensory Information (audio/video recording), and any other categories of personal information you choose to share with us. We will use this information to evaluate your application for employment or an independent contractor role, as applicable.&amp;nbsp; We will not sell your personal information or disclose it to any third party for their marketing purposes.&amp;nbsp; We will delete any recording of your interview promptly after making a hiring decision.&amp;nbsp; For more information about how we will handle your personal information, including our retention of it, please refer to our &lt;a href=&quot;https://redditinc.com/policies/candidate-privacy-policy&quot;&gt;Candidate Privacy Policy for Potential Employees and Contractors&lt;/a&gt;.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;Reddit is proud to be an equal opportunity employer, and is committed to building a workforce representative of the diverse communities we serve.&amp;nbsp; Reddit is committed to providing reasonable accommodations for qualified individuals with disabilities and disabled veterans in our job application procedures. If, due to a disability, you need an accommodation during the interview process, please let your recruiter know.&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 70573,
+          "name": "Large Customer Sales",
+          "child_ids": [],
+          "parent_id": 15691
+        }
+      ],
+      "offices": [
+        {
+          "id": 87878,
+          "name": "Remote - Singapore",
+          "location": null,
+          "child_ids": [],
+          "parent_id": null
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 150
+  }
+}

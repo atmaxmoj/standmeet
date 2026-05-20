@@ -241,6 +241,16 @@ linters:
       # 业务态，同 postgres 豁免。
       - path: internal/mcp/
         linters: [forbidigo]
+      # jobfetch adapter 接 schemaless per-kind config（{"company":"..."}
+      # vs {"categories":[...]} vs {}），每个 adapter 内部 unmarshal 到
+      # 自己的 typed struct 但 Fetcher contract 必须接 map[string]any。
+      # 同 postgres / mcp 豁免。
+      - path: internal/jobfetch/
+        linters: [forbidigo]
+      # domain.JobSource.Config 是 jsonb pass-through，per-kind shape 在
+      # 各 fetcher 文件里解。这里允许 any 是为保留 fetcher 抽象简洁。
+      - path: internal/domain/job_source.go
+        linters: [forbidigo]
 
 formatters:
   enable:

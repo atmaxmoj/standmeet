@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss">
+  <channel>
+    <title>We Work Remotely: All Other Remote Jobs</title>
+    <link>https://weworkremotely.com/categories/all-other-remote-jobs.rss</link>
+    <description>We Work Remotely: All Other Remote Jobs</description>
+    <language>en-US</language>
+    <ttl>60</ttl>
+    <item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/5213/logo.gif" type="image/png"/>
+      <title>LawnStarter: Senior Webflow Designer</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>All Other Remote</category>
+      <type>Full-Time</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/5213/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; United States
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="http://lawnstarter.com"&gt;http://lawnstarter.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;About LawnStarter&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;LawnStarter is the nation's leading on-demand marketplace for lawn care and related services, with over $100M in annual bookings. We're expanding beyond lawn care to become the one-stop shop for all home services.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;About Growth at LawnStarter&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Our Growth team drives customer acquisition and conversion across four brands — LawnStarter, Lawn Love, Home Gnome, and ProBase. The marketing sites are central to that work: thousands of organic SEO pages, landing pages, and core site experiences that need to move as fast as the team iterating on them. Today, making changes to our marketing sites requires engineering support. That bottleneck slows down testing, kills momentum, and means conversion opportunities sit on the table. We're moving to Webflow as the source of truth for our marketing sites, and we need someone to own that transition and everything that follows.&lt;/p&gt;
+&lt;p&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;The Role&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;You'll report to the Director of Design but sit on the Growth team day-to-day, working alongside the entire Growth team including the Technical Growth Manager, the CRO Specialist, data analysts, SEO, Paid, and content. Your job is to make our marketing sites fast to change, beautiful, on-brand, and optimized for conversion — without needing an engineer every time something needs to move.&lt;/p&gt;
+&lt;p&gt;You'll start with Home Gnome, building it right from the ground up in Webflow. From there, you'll bring LawnStarter, Lawn Love, and ProBase into a componentized Webflow design system. This is a chance to define how all four brands show up on the web.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;The three Growth team roles you'll work with most closely&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;The Designer, Technical Growth Manager, and CRO Specialist are three peers on the Growth team — one tight unit, not three separate orgs. The work runs as a constant collaboration, with the design loop iterating on every test result:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;strong&gt;You (Senior Webflow Designer)&lt;/strong&gt;&amp;nbsp;— design the foundation: page templates, page architecture, the component library and design system, interactions and animations, and the UX/UI standards (usability, accessibility, conversion best practices) every page is held to. The system you build needs to be robust and flexible enough that the Technical Growth Manager and CRO Specialist can spin up new pages from it without coming back to design every time. You step in when there's a new template, a new pattern, a major test-driven iteration, or a brand-new flow.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Technical Growth Manager&lt;/strong&gt;&amp;nbsp;— takes your templates, page architecture, and components and makes them production-ready: CMS architecture, programmatic page infrastructure, production page builds, structured data, analytics implementation, and the same-day test rollout SLA. Once the foundation is in place, they spin up new pages directly from the system — that's how the team moves fast.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;CRO Specialist&lt;/strong&gt;&amp;nbsp;— owns the conversion testing roadmap, test design, hypotheses, and reads results. They can also spin up test pages from your templates and components when speed matters. You and the CRO Specialist work tightly together: they bring the conversion lens, you bring the design and UX lens, and you iterate on templates, page architecture, and components based on what the data shows.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;The whole model only works through close collaboration. The system isn't handed off and forgotten — it evolves as the three of you ship, test, and learn together.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;What makes this role different:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;strong&gt;You design AND build in Webflow&lt;/strong&gt;: This isn't a Figma-to-handoff role. You design the page templates, page architecture, components, and UX/UI standards that define the marketing sites, and you build them directly in Webflow. Design happens in Webflow, not Figma.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Embedded with Growth, not siloed in Design&lt;/strong&gt;: You sit with the people running experiments, analyzing conversion data, and optimizing funnels. Design decisions here are measured in conversion rates, not likes.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Multi-brand site ownership&lt;/strong&gt;: You design the marketing site experience across four brands — each with its own identity, sharing a foundation you build and maintain.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;AI-native by default&lt;/strong&gt;: Claude Code and Claude are core to how you work, not novelty add-ons.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;What You'll Own&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;strong&gt;The marketing site design and foundation across four brands&lt;/strong&gt;: Page templates, page architecture (section flow, hierarchy, layout patterns), navigation, key flows, hero patterns, conversion patterns. The system you design needs to be flexible and robust enough that the Technical Growth Manager and CRO Specialist can spin up new pages directly from it — without coming back to design for every page.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Visual design and brand execution at a high bar&lt;/strong&gt;: This is core to the role. The marketing sites need to look modern, polished, and unmistakably on-brand for each of the four brands — and they need to hold up against the best marketing sites on the web. You're the quality bar for typography, spacing, hierarchy, color, imagery, composition, and all the details that separate good from great. Strong visual design and disciplined brand execution are non-negotiable.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Webflow design system and component library&lt;/strong&gt;: Build and maintain the system across all four brands — components, design tokens, page templates, shared interaction patterns. The system is the source of truth for how every brand looks, behaves, and is built, and the foundation the Technical Growth Manager and CRO Specialist build new pages from.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;UX/UI, usability, and accessibility&lt;/strong&gt;: You bring the discipline. Every component, template, and page reflects current best practices for usability, conversion, and WCAG accessibility. This isn't a checklist run at the end — it's how you design from the start.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Interactions and motion&lt;/strong&gt;: A core part of the role, not a finishing touch. You design and build purposeful interactions and animations — micro-interactions, scroll behavior, loading states, motion-driven storytelling — that elevate the brands and make pages feel premium. You use Webflow's native tools where they fit and write custom CSS or JS when they don't.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Test-ready designs and variants&lt;/strong&gt;: Partner closely with the CRO Specialist. You design the templates, components, and variants that power tests so they can be spun up and iterated quickly. The CRO Specialist defines hypotheses and reads results; together you iterate on the templates and components based on what wins. The Technical Growth Manager rolls winners out.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Production handoff and QA&lt;/strong&gt;: Hand off completed templates and built components to the Technical Growth Manager, who wires them into the CMS, builds production pages, and ships at scale. You stay involved through QA so production matches design intent — and you iterate on the system based on what the team learns shipping it.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Problems to Solve&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Our marketing sites depend on engineering for every change&lt;/strong&gt;&amp;nbsp;Today, even simple updates require a developer. That means the Growth team can't iterate at the speed they need to. New pages wait in a queue. You're the design half of the unblock: a Webflow design system the Technical Growth Manager can build with, so marketing site changes happen fast without engineering involvement.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Our marketing sites aren't designed at the level we need&lt;/strong&gt;&amp;nbsp;Functional, but not designed. There are no shared page templates, no Webflow component library, no design tokens, no consistent UX/UI patterns, no interaction language. You build the foundation: a designed site, page templates, a component library, and the UX/UI standards (usability, accessibility, conversion best practices) that everything is held to. The Technical Growth Manager makes it production-ready; you make it worth shipping.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Thousands of SEO pages need to look modern, feel premium, and convert&lt;/strong&gt;&amp;nbsp;We have over a thousand organic SEO pages across our brands. These pages drive significant traffic and revenue, but they need to look modern, feel polished, be accessible, and maintain brand and UX consistency at scale. You design the page templates, the components, and the UX patterns; the Technical Growth Manager wires them into the CMS and ships them at scale. Together you make the SEO portfolio look like a real brand, not a content farm.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Four brands need to look distinct but share a foundation&lt;/strong&gt;&amp;nbsp;Home Gnome, LawnStarter, Lawn Love, and ProBase each have their own visual identity. But the underlying design system — components, tokens, interaction patterns — should be shared where it makes sense.&lt;/p&gt;
+&lt;p&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;What Success Looks Like (Year 1)&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;strong&gt;Home Gnome fully designed and live in Webflow&lt;/strong&gt;&amp;nbsp;— page templates, components, interactions, and UX/UI standards that meet a high bar for visual design, brand execution, usability, and accessibility, with the Technical Growth Manager scaling it across pages without engineering&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;A complete Webflow design system the team can self-serve from&lt;/strong&gt;&amp;nbsp;— components, design tokens, page templates, and UX/UI standards solid enough that the Technical Growth Manager and CRO Specialist can spin up new pages directly from the system without coming back to design every time&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Test-ready designs and variants ready to iterate fast&lt;/strong&gt;&amp;nbsp;— when the CRO Specialist needs a hero variant, a new template, or a CTA test, the components are ready to test or you ship the new design quickly and iterate based on results&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;SEO templates designed for scale&lt;/strong&gt;&amp;nbsp;— page templates that set the visual, UX, and accessibility bar across thousands of programmatic pages the Technical Growth Manager wires into the CMS&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Interactions and motion that make the brands feel premium&lt;/strong&gt;&amp;nbsp;— purposeful animation across the design system, not bolted-on after launch&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;WCAG-compliant by default&lt;/strong&gt;&amp;nbsp;— accessibility is a baseline, not a project&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;A working iteration loop with the CRO Specialist&lt;/strong&gt;&amp;nbsp;— test results consistently flow back into your templates and components&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Site design migration underway&lt;/strong&gt;&amp;nbsp;for LawnStarter and Lawn Love&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;The Technical Growth Manager and CRO Specialist consider you essential&lt;/strong&gt;&amp;nbsp;— they can't imagine shipping or testing without you&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Requirements&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Who You Are&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;A top-tier visual and brand designer.&lt;/strong&gt;&amp;nbsp;Strong visual design and disciplined brand execution are at the core of this role, not a side requirement. Your work is modern, polished, and unmistakably on-brand. You hold up against the best marketing sites on the web. You care deeply about typography, spacing, hierarchy, color, imagery, composition, and the details that separate good from great. You can execute within established brand guidelines while pushing the visual quality forward, and you can hold the line across four distinct brands without letting any of them drift. This is unlikely to be a good fit if visual design or brand discipline is secondary to your other skills, or if you rely heavily on templates without elevating them.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;A Webflow expert.&lt;/strong&gt;&amp;nbsp;You've built and maintained complex, multi-page Webflow sites with real architectural rigor — not just pretty one-pagers. You understand component architecture, design systems, dynamic content, advanced interactions, and how to keep a large site clean and performant. You can structure a page so it works at scale, not just for one hero shot. This is unlikely to be a good fit if you've only used Webflow for small projects or treat it as a visual tool rather than a design and build platform.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;UX/UI disciplined.&lt;/strong&gt;&amp;nbsp;You bring real expertise in usability, accessibility (WCAG), and conversion best practices — and you apply it to every component, template, and page. You can articulate why a layout works (or doesn't) for the user, not just how it looks. You design for clarity, scannability, and performance, and you treat accessibility as a baseline, not a finishing touch. This is unlikely to be a good fit if you can't speak to UX principles beyond aesthetics or treat usability and accessibility as someone else's job.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Collaborative by default.&lt;/strong&gt;&amp;nbsp;This role only works through tight collaboration with the Technical Growth Manager (on production handoff and feasibility) and the CRO Specialist (on test design and iteration). You give and take feedback well, you're comfortable handing off work and staying involved through QA, and you treat test results as input rather than judgment. This is unlikely to be a good fit if you prefer to work alone or get defensive when data contradicts your design choices.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Growth-team fluent.&lt;/strong&gt;&amp;nbsp;You've worked alongside CMOs, SEO teams, paid teams, content teams, CRO specialists, data analysts, and engineers before. You understand conversion funnels, A/B testing, and how to support experiments and iterate quickly. You make decisions based on data, not just aesthetics. This is unlikely to be a good fit if you've only worked in brand or product design teams and aren't familiar with the pace and priorities of growth.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Self-directed and fast.&lt;/strong&gt;&amp;nbsp;You take a brief, run with it, and ship. You don't need someone managing your queue or reviewing every decision. When there's a new template to design, a new pattern to add to the system, or a test result that points to an iteration, you turn it around quickly without sacrificing quality. This is unlikely to be a good fit if you need detailed direction for each project or prefer a slower, more deliberate pace.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;AI-native.&lt;/strong&gt;&amp;nbsp;You use Claude Code and Claude as core parts of your workflow — generating component code, exploring design directions, drafting interaction logic, and accelerating everything from naming to layout iteration. You treat AI as a design and build partner, not a novelty. This is unlikely to be a good fit if you're skeptical of AI tools or insist on building everything from scratch.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Technically capable beyond Webflow native.&lt;/strong&gt;&amp;nbsp;Webflow's native tools won't cover everything — especially the interactions, animations, and complex components you'll build. You can write custom CSS and JavaScript when Webflow falls short, and you can read enough code to debug a third-party embed or extend an existing component. The Technical Growth Manager owns tracking and integrations; you own the code that makes the design system feel alive. This is unlikely to be a good fit if you strictly avoid code or rely on others to handle anything beyond drag-and-drop.&lt;/p&gt;
+&lt;p&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;This Role Is NOT&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;strong&gt;A Figma-to-Webflow production role&lt;/strong&gt;: The design system for growth and marketing lives in Webflow. You're not translating someone else's mockups — you're designing and building directly.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;The production builder for SEO and CMS pages&lt;/strong&gt;: The Technical Growth Manager owns CMS architecture, programmatic page infrastructure, and the production builds for thousands of SEO URLs. You design the templates and components; the Technical Growth Manager wires them into production.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;The owner of test rollouts&lt;/strong&gt;: The Technical Growth Manager owns running tests live and the same-day rollout SLA. Your job is upstream — shipping the variants and components that make tests possible.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;A brand design role&lt;/strong&gt;: You'll maintain brand consistency, but you're not creating brand identities.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;A role with a clean starting point&lt;/strong&gt;: The current marketing sites need significant work. You're inheriting complexity and building toward simplicity — not maintaining something that already works well.&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;A solo design role&lt;/strong&gt;: You'll collaborate regularly with the Director of Design and the brand/product design team on component development and brand standards. Day-to-day, your closest partners are the Technical Growth Manager and CRO Specialist on the Growth team.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Benefits&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;strong&gt;Base salary&lt;/strong&gt;: $110K - $140K.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;401k&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Healthcare&lt;/strong&gt;: Medical, dental, and vision&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Fully remote&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;
+&lt;strong&gt;Unlimited PTO&lt;/strong&gt;: We focus on results. Take what you need.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;LawnStarter provides equal employment opportunities (EEO) to all employees and applicants for employment without regard to race, color, religion, sex, national origin, age, disability, or genetics. We comply with applicable state and local laws governing nondiscrimination in employment.&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/lawnstarter-senior-webflow-designer"&gt;https://weworkremotely.com/remote-jobs/lawnstarter-senior-webflow-designer&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Wed, 20 May 2026 18:10:26 +0000</pubDate>
+      <expires_at>Fri, 19 Jun 2026 18:10:26 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/lawnstarter-senior-webflow-designer</guid>
+      <link>https://weworkremotely.com/remote-jobs/lawnstarter-senior-webflow-designer</link>
+    </item>
+<item>
+      <title>Kapres Technology: WMS Product Developer (BlueYonder) con Inglés Alto - 100% remoto</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>All Other Remote</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Spain, 28040 Spain
+&lt;/p&gt;
+
+&lt;br&gt;&lt;div class="mx-auto max-w-750 prose font-company-body overflow-hidden break-words [&amp;amp;_ol_li_li]:list-[lower-alpha]"&gt;&lt;br&gt;&lt;p&gt;&lt;strong&gt;&lt;br&gt;&lt;/strong&gt;&lt;strong&gt;WMS Product Developer (BlueYonder)&lt;/strong&gt; con Inglés Alto - 100% remoto&lt;em&gt;&lt;/em&gt;&lt;/p&gt;&lt;p&gt;Desde &lt;strong&gt;Kapres Technology&lt;/strong&gt; estamos en búsqueda de un &lt;strong&gt;WMS Product Developer&lt;/strong&gt; con nivel alto de &lt;strong&gt;inglés&lt;/strong&gt;, para incorporarse a un proyecto &lt;strong&gt;estable y de larga duración&lt;/strong&gt; con un &lt;strong&gt;contrato indefinido desde el primer día&lt;/strong&gt;.&lt;/p&gt;&lt;p&gt;Trabajarás con un &lt;strong&gt;cliente líder en el sector logístico a nivel internacional&lt;/strong&gt;, colaborando en soluciones tecnológicas punteras. &lt;strong&gt;La posición es 100% remota.&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt; ¿Qué buscamos?&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;Experiencia      previa en entornos &lt;strong&gt;3PL&lt;/strong&gt;, tanto a nivel operativo como de      sistemas.&lt;/li&gt;&lt;br&gt;&lt;li&gt;Sólida      experiencia con &lt;strong&gt;Blue Yonder Dispatcher WMS&lt;/strong&gt;. (DLx      BlueYonder app)&lt;/li&gt;&lt;br&gt;&lt;li&gt;Experiencia      demostrable en la &lt;strong&gt;implementación técnica de soluciones WMS      complejas e integradas&lt;/strong&gt;.&lt;/li&gt;&lt;br&gt;&lt;li&gt;Nivel      de inglés alto (entorno de trabajo internacional).&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;p&gt;&lt;strong&gt; ¿Qué ofrecemos?&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;br&gt;&lt;li&gt;Contrato &lt;strong&gt;indefinido&lt;/strong&gt; desde      el inicio.&lt;/li&gt;&lt;br&gt;&lt;li&gt;&lt;strong&gt;Trabajo      100% remoto&lt;/strong&gt;.&lt;/li&gt;&lt;br&gt;&lt;li&gt;Colaboración      con un equipo multidisciplinar e internacional.&lt;/li&gt;&lt;br&gt;&lt;/ul&gt;&lt;br&gt;&lt;/div&gt;&lt;br&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/kapres-technology-wms-product-developer-blueyonder-con-ingles-alto-100-remoto"&gt;https://weworkremotely.com/remote-jobs/kapres-technology-wms-product-developer-blueyonder-con-ingles-alto-100-remoto&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 20:31:29 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 20:31:29 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/kapres-technology-wms-product-developer-blueyonder-con-ingles-alto-100-remoto</guid>
+      <link>https://weworkremotely.com/remote-jobs/kapres-technology-wms-product-developer-blueyonder-con-ingles-alto-100-remoto</link>
+    </item>
+<item>
+      <title>Legacy People: Narrative design and world-building</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>All Other Remote</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Spain
+&lt;/p&gt;
+
+&lt;p&gt;At Legacy People, we believe that compelling stories and immersive worlds are at the heart of engaging experiences. We are currently looking for a skilled &lt;strong&gt;Narrative Designer&lt;/strong&gt; to join our team, focusing on narrative design and world-building. In this role, you will play a crucial part in creating rich narratives and intricate worlds that captivate and inspire players.&lt;/p&gt;&lt;p&gt;Your strong storytelling skills will help shape the tone of our projects, guiding characters, plotlines, and lore. You will collaborate with artists, developers, and other team members to ensure that the narrative elements complement the gameplay experience and resonate with our audience.&lt;/p&gt;&lt;p&gt;If you have a passion for storytelling and a talent for establishing compelling worlds, we invite you to lend your voice to our creative endeavors!&lt;/p&gt; &lt;p&gt;&lt;strong&gt;Key Responsibilities:&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Develop original narratives and lore for games and other projects.&lt;/li&gt;&lt;li&gt;Create character arcs, dialogue, and immersive storylines that align with gameplay mechanics.&lt;/li&gt;&lt;li&gt;Collaborate with the creative team to ensure cohesive and engaging narrative integration.&lt;/li&gt;&lt;li&gt;Write and edit narrative content while adapting based on feedback and project goals.&lt;/li&gt;&lt;li&gt;Engage in research and world-building to create believable and rich settings.&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;strong&gt;Qualifications:&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Proven experience in narrative design, writing, or related fields, with a strong portfolio.&lt;/li&gt;&lt;li&gt;Excellent writing, editing, and storytelling skills with a keen understanding of character development.&lt;/li&gt;&lt;li&gt;Strong analytical skills to ensure narrative consistency and coherence across the project.&lt;/li&gt;&lt;li&gt;Familiarity with game development processes and understanding of how narratives integrate with gameplay.&lt;/li&gt;&lt;li&gt;Enthusiasm for games, literature, and storytelling is a must!&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Join us at Legacy People and help us create engaging narratives and worlds that will leave a lasting impact!&lt;/p&gt; &lt;h3&gt;What We Offer&lt;/h3&gt;&lt;p&gt;·&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; Full-time contract (not freelance/commission-based).&lt;/p&gt;&lt;p&gt;·&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; Dedicated painting studio and professional equipment.&lt;/p&gt;&lt;p&gt;·&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; Competitive salary based on experience and skill level.&lt;/p&gt;&lt;p&gt;·&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; Opportunity to help shape workflows, standards, and future hires.&lt;/p&gt;&lt;p&gt;·&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; A creative environment centered around craftsmanship and quality.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/legacy-people-narrative-design-and-world-building"&gt;https://weworkremotely.com/remote-jobs/legacy-people-narrative-design-and-world-building&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 20:31:11 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 20:31:11 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/legacy-people-narrative-design-and-world-building</guid>
+      <link>https://weworkremotely.com/remote-jobs/legacy-people-narrative-design-and-world-building</link>
+    </item>
+<item>
+      <title>Farfetch: Freelance Translator- Product Information (LATAM Spanish)</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>All Other Remote</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Porto
+&lt;/p&gt;
+
+&lt;div class="content"&gt;&lt;div class="section-wrapper page-full-width"&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;Farfetch is a leading global marketplace for the luxury fashion industry, connecting customers in over 190 countries with items from more than 50 countries and over 1,400 of the world’s best brands and charming boutiques from around the world. Farfetch opens a world of luxury for endless expressions of style, delivering a truly unique shopping experience and access to the most extensive selection of luxury on a global marketplace.&amp;nbsp;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;CREATIVE OPERATIONS&lt;/b&gt;&lt;/div&gt;&lt;div&gt;We're a creative team, building copy, data and visual assets for all our channels. We are dedicated to providing gold standard imagery, content and production services for our partners and creating an engaging on-site experience for our customers.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;THE ROLE&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;As a Translator (Product Information) for LATAM Spanish you will play a pivotal role in ensuring FARFETCH’s product catalogue and all related materials resonate with local audiences. Reporting directly to the LangOps &amp;amp; Development team, your primary responsibility will be localising diverse content types with a strong focus on &lt;/span&gt;&lt;b&gt;Product Information&lt;/b&gt;&lt;span&gt;, including materials, compositions, and size &amp;amp; fit details.&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;WHAT YOU’LL DO&lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;&lt;b&gt;Translate and localise product information&lt;/b&gt;, including detailed descriptions of materials, fabric compositions, and size &amp;amp; fit elements, ensuring clarity and accuracy for local audiences.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Localise and adapt &lt;/b&gt;FARFETCH’s product catalogue and associated content, tailoring the language to meet the cultural nuances and preferences of the target audience.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Ensure&lt;/b&gt; projects are delivered on time and meet the highest quality standards.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Maintain&lt;/b&gt; translation memories and terminology databases, ensuring consistency across all translated materials and optimising reuse of existing translations.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Ensure&lt;/b&gt; consistency in language and tone of voice across product descriptions.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Utilise &lt;/b&gt;and &lt;b&gt;contribute &lt;/b&gt;to the development of cutting-edge localisation tools and technology to streamline processes and improve accuracy.&lt;/li&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;WHO YOU ARE&lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;&lt;b&gt;Language Expert:&lt;/b&gt; Native-level fluency in LATAM Spanish with exceptional written and verbal skills.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Luxury E-commerce Experience:&lt;/b&gt; Proven experience in writing, translating, and localising content for luxury or high-end e-commerce brands. &lt;/li&gt;&lt;li&gt;&lt;b&gt;Experience in translating technical product details&lt;/b&gt; such as fabric compositions, material properties, and size &amp;amp; fit elements is highly desired.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Cultural Sensitivity:&lt;/b&gt; Ability to craft compelling, customer-centric content that engages and appeals to the tastes and preferences of local audiences.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Process-Oriented:&lt;/b&gt; Experience in managing &lt;b&gt;translation workflows&lt;/b&gt;, using &lt;b&gt;translation memories&lt;/b&gt;, and maintaining &lt;b&gt;terminology databases&lt;/b&gt; to ensure content consistency and quality.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Technical Proficiency:&lt;/b&gt; Familiarity with localisation and translation tools (e.g. TMS, Machine Translation, etc.) is required. Experience working with SEO optimisation and e-commerce platforms like Shopify, Magento, or similar is a plus.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Collaborative Mindset:&lt;/b&gt; A strong team player who enjoys working in a fast-paced, multicultural environment.&lt;/li&gt;&lt;li&gt;&lt;b&gt;Attention to Detail:&lt;/b&gt; High level of accuracy, especially when translating specific product details like materials and size &amp;amp; fit, with a strong ability to manage multiple projects and maintain quality under tight deadlines.&lt;/li&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;EQUAL OPPORTUNITIES STATEMENT&lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;FARFETCH is an equal opportunities employer ensuring that all applicants are treated equally and fairly throughout our recruitment process. We are determined that no applicant experiences discrimination on the basis of sex, race, ethnicity, religion or belief, disability, age, gender identity, ancestry, sexual orientation, veteran status, marriage and civil partnership, pregnancy, and maternity, or any other basis prohibited by applicable law. We continue to build our consciously inclusive culture as part of our Positively FARFETCH strategy throughout our business, partnerships, and communities.&lt;/li&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div&gt;&lt;h3&gt;SCAM DISCLAIMER&lt;/h3&gt;&lt;ul class="posting-requirements plain-list"&gt;&lt;ul&gt;&lt;li&gt;It has come to our attention that there may be fraudulent activities involving individuals or organizations falsely claiming to represent Farfetch in order to attract candidates to a SCAM. Please be aware that Farfetch does not conduct recruitment processes through messaging apps or any unofficial communication channels, other than our official careers website. Additionally, Farfetch will never ask candidates for any form of payment during the recruitment process.&lt;/li&gt;&lt;/ul&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="section page-centered"&gt;&lt;div class="text-small italic text-gray-700"&gt;We may use artificial intelligence (AI) tools to support parts of the hiring process, such as reviewing applications, analyzing resumes, or assessing responses. These tools assist our recruitment team but do not replace human judgment. Final hiring decisions are ultimately made by humans. If you would like more information about how your data is processed, please contact us.&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/farfetch-freelance-translator-product-information-latam-spanish"&gt;https://weworkremotely.com/remote-jobs/farfetch-freelance-translator-product-information-latam-spanish&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Mon, 18 May 2026 20:31:11 +0000</pubDate>
+      <expires_at>Wed, 17 Jun 2026 20:31:11 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/farfetch-freelance-translator-product-information-latam-spanish</guid>
+      <link>https://weworkremotely.com/remote-jobs/farfetch-freelance-translator-product-information-latam-spanish</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/2702/logo.gif" type="image/png"/>
+      <title>TELUS Digital: Content Reviewer - US</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>Nevada</state>
+      <skills>Search Engine Optimization (SEO), AI Research, and Social Media Content</skills>
+      <category>All Other Remote</category>
+      <type>Contract</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/2702/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Las Vegas, Nevada
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://jobs.telusdigital.com/search/jobs?cfm5=Artificial+Intelligence&amp;amp;ns_category=artificial-intelligence"&gt;https://jobs.telusdigital.com/search/jobs?cfm5=Artificial+Intelligence&amp;amp;ns_category=artificial-intelligence&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;div class="figma-padding-bottom-32 tw-border-b tw-border-[#E3E6E8]"&gt;
+&lt;p&gt;Looking for a freelance opportunity where you can make an impact on technology from the comfort of your home? If you are dynamic, tech-savvy, and always online to learn more, this part-time flexible project is the perfect fit for you!&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;A Day in the Life of a Content Reviewer - US:&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;In this role, you’ll be analyzing and providing feedback on texts, pages, images, and other types of information for top search engines, using an online tool&lt;/li&gt;
+&lt;li&gt;Through reviewing and rating search results for relevance and quality, you’ll be helping to improve the overall user experience for millions of search engine users, including yourself.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;Join our team today and start putting your skills to work for one of the world's leading search engines.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;The estimated hourly earnings for this role are&amp;nbsp;14 USD per hour.&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;Please note only one member per household can work on this program. If at a later stage it is identified that more than one person in your household is working on the TELUS Digital Rating Program, it will result in removal from the program.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;TELUS Digital AI Community&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Our global AI Community is a vibrant network of 1 million+ contributors from diverse backgrounds who help our customers collect, enhance, train, translate, and localize content to build better AI models. Become part of our growing community and make an impact supporting the machine learning models of some of the world’s largest brands.&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="pt-7 figma-padding-bottom-32 tw-border-b tw-border-[#E3E6E8]"&gt;
+&lt;h4 class="sui-font-heading sui-text-h2 tw-font-bold sui-text-darkGray-darker tw-mb-1"&gt;Qualification path&lt;/h4&gt;
+&lt;p class="sui-text-b3 sui-text-darkGray-darker ql-editor"&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;No previous professional experience is required to apply to this role, however, working on this project will require you to pass the basic requirements and go through a standard assessment process. This is a part-time long-term project and your work will be subject to our standard quality assurance checks during the term of this agreement.&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Basic Requirements&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Working as a freelancer with excellent communication skills in English&lt;/li&gt;
+&lt;li&gt;Being a resident in the United States for the last 3 consecutive years and having familiarity with current and historical business, media, sport, news, social media, and cultural affairs in the US.&lt;/li&gt;
+&lt;li&gt;Active use of Gmail and other forms of social media and experience in the use of web browsers to navigate and interact with a variety of content&lt;/li&gt;
+&lt;li&gt;Daily access to a broadband internet connection, a smartphone (Android 5.0, iOS 14 or higher), and a personal computer to work on.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Assessment&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;In order to be hired into the program, you’ll take a language assessment and an&amp;nbsp;open book qualification exam that will determine your suitability for the position and complete ID verification. Don’t worry, our team will provide you with guidelines and learning materials before your exam. You will be required to complete the exam in a specific timeframe but at your convenience!&lt;/p&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Equal Opportunity&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;All qualified applicants will receive consideration for a contractual relationship without regard to race, color, religion, sex, sexual orientation, gender identity, national origin, disability, or protected veteran status. At TELUS Digital AI, we are proud to offer equal opportunities and are committed to creating a diverse and inclusive community. All aspects of selection are based on applicants’ qualifications, merits, competence, and performance without regard to any characteristic related to diversity.&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/telus-digital-content-reviewer-us-4"&gt;https://weworkremotely.com/remote-jobs/telus-digital-content-reviewer-us-4&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Fri, 15 May 2026 14:32:09 +0000</pubDate>
+      <expires_at>Sun, 14 Jun 2026 14:32:09 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/telus-digital-content-reviewer-us-4</guid>
+      <link>https://weworkremotely.com/remote-jobs/telus-digital-content-reviewer-us-4</link>
+    </item>
+<item>
+      <title>UX Woman: Entry Level UX Research Apprenticeship</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>Florida</state>
+      <skills></skills>
+      <category>All Other Remote</category>
+      <type>Full-Time</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Narberth, PA
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="http://www.uxwoman.com"&gt;http://www.uxwoman.com&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;h4&gt;&lt;strong&gt;About the Program:&lt;/strong&gt;&lt;/h4&gt;
+&lt;p&gt;Every year, we sponsor 2 remote UX apprentices from anywhere in the world to join us for 7 months, either in the fall or spring seasons or online. Our UX apprentices work through the end-to-end UX design and UX research process for a startup idea of their choice that will help them attract hiring managers in that topic space or industry.&lt;/p&gt;
+&lt;p&gt;Apprentices take our program for free and receive 1:1 mentorship throughout the 7-month program. Alumni UX apprentices go on to make between $85,000 -$130,000 in UX design, product design, UX research, or service design roles after they complete the program.&lt;/p&gt;
+&lt;p&gt;We are committed to helping women, immigrants, POC, and LGBTQ folks break into tech and land 6-figure UX jobs. We help you land 6-figure UX jobs or coach you till you get it.&lt;/p&gt;
+&lt;h4&gt;&lt;strong&gt;Apprenticeship Requirements:&lt;/strong&gt;&lt;/h4&gt;
+&lt;p&gt;This apprenticeship program is open to new grads and UX career changers alike! Here are some apprenticeship requirements to keep in mind before applying:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Interested in creative career paths in UX research, UX design, product design or service design&lt;/li&gt;
+&lt;li&gt;Willing to commit 5-10 hours of work per week to complete program deliverables&lt;/li&gt;
+&lt;li&gt;Willing to attend 2-3 hour weekend lectures to learn the end-to-end design process OR willing to complete online video course modules&lt;/li&gt;
+&lt;li&gt;Open to feedback from UX mentors and demonstrates a willingness to revise design work&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4&gt;&lt;strong&gt;Apprenticeship Program Learnings:&lt;/strong&gt;&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;Build digital products and services 0-1&lt;/li&gt;
+&lt;li&gt;Lead end-to-end design process for a startup idea or topic of your choice&lt;/li&gt;
+&lt;li&gt;Lead product scoping and feature scoping, as well as entire project management&lt;/li&gt;
+&lt;li&gt;Identify target market for product and position product for launch success&lt;/li&gt;
+&lt;li&gt;Incorporate AI tools into your UX design process&lt;/li&gt;
+&lt;li&gt;Design AI features and products by considering AI specific design parameters and heuristics&lt;/li&gt;
+&lt;li&gt;Understand how AI works and advocate for ethical AI design that builds trust without over-reliance with users&lt;/li&gt;
+&lt;li&gt;Develop a business model for the product or service and demonstrate how the product/service will scale as the business model scales&lt;/li&gt;
+&lt;li&gt;Lead discovery research by managing user recruitment, creating research plans, writing interview guides, leading 8-16 discovery interviews, and synthesizing interview insights&lt;/li&gt;
+&lt;li&gt;Deliver a compelling UX design and business pitch for your startup idea, showcasing both qualitative and quantitative data to justify the problem space and the solution&lt;/li&gt;
+&lt;li&gt;Tell a compelling story about users by showcasing user types, personas, stakeholder maps, journey maps, process maps, service blueprints, ideation matrixes, sketches, wireframes, UX workflows, prototypes and other visual deliverables&lt;/li&gt;
+&lt;li&gt;Lead user testing of wireframes and prototypes to improve product/service usability and constantly iterate on your startup idea&lt;/li&gt;
+&lt;li&gt;Design a unique design system for your solution from scratch, creating components, a style guide, and branding for your solution&lt;/li&gt;
+&lt;li&gt;Analyze direct and indirect competitors to clearly articulate your solution’s differentiators and why your solution is innovative and more likely to succeed over competing options&lt;/li&gt;
+&lt;li&gt;Consult with startups to create a scope of work and fulfill UX research, UX design, product design and service design work based on your scope of work.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&amp;nbsp;&lt;/p&gt;
+&lt;h4&gt;&lt;strong&gt;How to Apply:&lt;/strong&gt;&lt;/h4&gt;
+&lt;p&gt;&lt;strong&gt;Please fill out our application form to apply for UX Woman&lt;/strong&gt;&amp;nbsp;sponsoring your participation in the program. The application takes 5 minutes to complete and will ask you to send in your LinkedIn profile and resume, as well as ask you about why you are interested in this program.&amp;nbsp;&lt;strong&gt;You do NOT need to have a UX resume or portfolio to apply&lt;/strong&gt;-&amp;nbsp;&lt;strong&gt;we consider folks who are at the very beginning of their career change, who are still exploring multiple career options.&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;You will receive UX tips and challenges via email to help you with your transition into UX and will be contacted by us if you are being considered for the apprentice program. Once contacted, you will go through a brief interview process before joining the cohort.&amp;nbsp;&lt;em&gt;Due to the large volume of applicants, we cannot contact all applicants about their application status.&lt;/em&gt;&amp;nbsp;&lt;em&gt;If you don’t hear from us about an interview within 2 months of applying, please consider your application closed. We consider applicants on a rolling basis.&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/ux-woman-entry-level-ux-research-apprenticeship-1"&gt;https://weworkremotely.com/remote-jobs/ux-woman-entry-level-ux-research-apprenticeship-1&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Thu, 14 May 2026 21:39:13 +0000</pubDate>
+      <expires_at>Sat, 13 Jun 2026 21:39:13 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/ux-woman-entry-level-ux-research-apprenticeship-1</guid>
+      <link>https://weworkremotely.com/remote-jobs/ux-woman-entry-level-ux-research-apprenticeship-1</link>
+    </item>
+<item>
+      <title>Seen: Link Building &amp; Outreach Manager (SaaS Listicles + Brand Mentions)</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
+      <skills></skills>
+      <category>All Other Remote</category>
+      <type>Contract</type>
+      <description>
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; Spain Barcelona
+&lt;/p&gt;
+
+&lt;p&gt;Seen is an AI SEO and GEO agency helping SaaS companies grow visibility on Google and AI search platforms.&lt;/p&gt;
+&lt;p&gt;We work with ambitious SaaS brands that care about pipeline and revenue, not vanity metrics. Our clients include Aura, Artisan, Hunter, Riverside, Sphere, Nextiva, just to name a few.&lt;/p&gt;
+&lt;p&gt;Our mission is simple: help SaaS companies get found, build authority, and turn search visibility into revenue.&lt;/p&gt;
+&lt;p&gt;We’re a lean, fast-moving remote team focused on real results.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;The role&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;We’re hiring an Outreach Manager to own and scale our link building + brand mentions engine.&lt;/p&gt;
+&lt;p&gt;This is not a basic VA outreach role.&lt;/p&gt;
+&lt;p&gt;We’re looking for someone proactive, commercial, organized, and sharp — someone who understands that every quality placement, relationship, backlink, and mention can directly impact rankings, traffic, pipeline, and AI visibility.&lt;/p&gt;
+&lt;p&gt;You’ll work closely with our founder Irina and SEO/GEO Manager Cindy to help grow authority for our clients.&lt;/p&gt;
+&lt;h2&gt;Tasks&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Run cold outreach campaigns to secure backlinks, guest posts, brand mentions, listicle placements, and strategic partnerships&lt;/li&gt;
+&lt;li&gt;Build and manage long-term relationships with editors, publishers, and website owners in the SaaS space&lt;/li&gt;
+&lt;li&gt;Execute link building campaigns for clients based on monthly priorities and KPIs&lt;/li&gt;
+&lt;li&gt;Manage the full guest post process from prospecting to publication&lt;/li&gt;
+&lt;li&gt;Keep outreach pipelines, trackers, and reporting organized and up to date&lt;/li&gt;
+&lt;li&gt;Improve and automate workflows to increase efficiency and results&lt;/li&gt;
+&lt;li&gt;Take ownership of the process and consistently push campaigns forward&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Requirements&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Experience in cold outreach, link building, or partnerships&lt;/li&gt;
+&lt;li&gt;SaaS or B2B experience preferred&lt;/li&gt;
+&lt;li&gt;Strong written English and communication skills&lt;/li&gt;
+&lt;li&gt;Organized, proactive, and reliable with follow-ups&lt;/li&gt;
+&lt;li&gt;Able to work independently and own results&lt;/li&gt;
+&lt;li&gt;3+ hours overlap with European time zones&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Benefits&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Fully remote role&lt;/li&gt;
+&lt;li&gt;Flexible schedule, results matter more than hours&lt;/li&gt;
+&lt;li&gt;Unlimited time off&lt;/li&gt;
+&lt;li&gt;Small but very productive team where your work truly matters&lt;/li&gt;
+&lt;li&gt;Learn advanced SEO, GEO, AI search, growth systems, and automations&lt;/li&gt;
+&lt;li&gt;Opportunity to grow into a bigger role&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;This role can become much more than outreach if you’re ambitious.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Hiring process&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Short application + answers to a few questions&lt;/li&gt;
+&lt;li&gt;Intro chat&lt;/li&gt;
+&lt;li&gt;Test task + feedback&lt;/li&gt;
+&lt;li&gt;Final interview&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/seen-link-building-outreach-manager-saas-listicles-brand-mentions"&gt;https://weworkremotely.com/remote-jobs/seen-link-building-outreach-manager-saas-listicles-brand-mentions&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Tue, 12 May 2026 16:16:19 +0000</pubDate>
+      <expires_at>Thu, 11 Jun 2026 16:16:19 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/seen-link-building-outreach-manager-saas-listicles-brand-mentions</guid>
+      <link>https://weworkremotely.com/remote-jobs/seen-link-building-outreach-manager-saas-listicles-brand-mentions</link>
+    </item>
+<item>
+      <media:content url="https://wwr-pro.s3.amazonaws.com/logos/0171/5135/logo.gif" type="image/png"/>
+      <title>adnovara: Senior Google Ads Manager – Scaling Campaigns</title>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state>Alabama</state>
+      <skills>Facebook Paid Ads, Social Media Marketing, and Google Ads</skills>
+      <category>All Other Remote</category>
+      <type>Contract</type>
+      <description>&lt;img src="https://we-work-remotely.imgix.net/logos/0171/5135/logo.gif?ixlib=rails-4.0.0&amp;w=50&amp;h=50&amp;dpr=2&amp;fit=fill&amp;auto=compress" /&gt;
+
+&lt;p&gt;
+  &lt;strong&gt;Headquarters:&lt;/strong&gt; New York
+    &lt;br /&gt;&lt;strong&gt;URL:&lt;/strong&gt; &lt;a href="https://www.adnovara.com/"&gt;https://www.adnovara.com/&lt;/a&gt;
+&lt;/p&gt;
+
+&lt;p&gt;Adnovara is hiring an experienced Google Ads Specialist to manage and scale performance campaigns for lead generation and eCommerce brands. Responsibilities Manage and optimize Google Ads campaigns (Search, Shopping, Performance Max) Improve ROAS, lower CPA, and scale profitable campaigns Set up and manage GA4, GTM, and conversion tracking Analyze campaign data, search terms, audiences, and performance trends Requirements Proven Google Ads experience managing real ad budgets Strong understanding of ROAS, CPA, attribution, and tracking Experience with GA4 and GTM Ability to work independently and communicate clearly Bonus Skills Meta Ads experience Funnel or landing page optimization Agency experience What We Offer Fully remote position Long-term opportunity Flexible structure (hourly or fixed) Performance-based growth opportunities Compensation Flexible hourly or monthly compensation depending on experience, skill level, and campaign performance. Hourly rate range: $45–$70/hour Open to long-term collaboration and performance-based increases for strong results. To Apply Please send: CV or portfolio Highest monthly budget managed Campaign results or case studies Experience with GA4/GTM Shortlisted candidates will be invited to the next hiring stage.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;To apply:&lt;/strong&gt; &lt;a href="https://weworkremotely.com/remote-jobs/adnovara-senior-google-ads-manager-scaling-campaigns"&gt;https://weworkremotely.com/remote-jobs/adnovara-senior-google-ads-manager-scaling-campaigns&lt;/a&gt;&lt;/p&gt;
+</description>
+      <pubDate>Tue, 12 May 2026 04:09:38 +0000</pubDate>
+      <expires_at>Thu, 11 Jun 2026 04:09:38 +0000</expires_at>
+      <guid>https://weworkremotely.com/remote-jobs/adnovara-senior-google-ads-manager-scaling-campaigns</guid>
+      <link>https://weworkremotely.com/remote-jobs/adnovara-senior-google-ads-manager-scaling-campaigns</link>
+    </item>
+  </channel>
+</rss>

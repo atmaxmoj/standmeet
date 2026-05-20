@@ -1,0 +1,667 @@
+{
+  "offset": 0,
+  "limit": 8,
+  "totalFound": 8,
+  "content": [
+    {
+      "id": "744000122509268",
+      "name": "Sr. SW Engineer",
+      "uuid": "ded6c65f-7598-4801-981d-13a51716e73b",
+      "jobAdId": "7db0e131-9a2c-4ef6-931b-3c33f8dc12a4",
+      "defaultJobAd": true,
+      "refNumber": "REF97308A",
+      "company": {
+        "identifier": "Visa",
+        "name": "Visa"
+      },
+      "releasedDate": "2026-04-23T16:54:54.835Z",
+      "location": {
+        "city": "Austin",
+        "region": "TX",
+        "country": "us",
+        "remote": false,
+        "hybrid": true,
+        "hybridDescription": "Austin, TX office and may allow for partial telecommuting.",
+        "latitude": "30.267153",
+        "longitude": "-97.7430608",
+        "fullLocation": "Austin, TX, United States"
+      },
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "department": {
+        "id": "868537",
+        "label": "Technology and Operations"
+      },
+      "function": {
+        "id": "information_technology",
+        "label": "Information Technology"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "customField": [
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "868537",
+          "valueLabel": "Technology and Operations"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "TEC",
+          "valueLabel": "Engineering and Technology"
+        }
+      ],
+      "visibility": "PUBLIC",
+      "ref": "https://api.smartrecruiters.com/v1/companies/visa/postings/744000122509268",
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000122273376",
+      "name": "Staff SW Engineer",
+      "uuid": "479036e6-2f29-48d0-bdf7-4fd94fc75c4b",
+      "jobAdId": "cdaabdbc-7175-4106-a46e-1edfde6209f8",
+      "defaultJobAd": true,
+      "refNumber": "REF97322D",
+      "company": {
+        "identifier": "Visa",
+        "name": "Visa"
+      },
+      "releasedDate": "2026-04-22T14:20:21.874Z",
+      "location": {
+        "city": "Bellevue",
+        "region": "WA",
+        "country": "us",
+        "remote": false,
+        "hybrid": false,
+        "latitude": "47.6101497",
+        "longitude": "-122.2015159",
+        "fullLocation": "Bellevue, WA, United States"
+      },
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "department": {
+        "id": "868639",
+        "label": "Software Development/Engineering"
+      },
+      "function": {
+        "id": "engineering",
+        "label": "Engineering"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "experienceLevel": {
+        "id": "not_applicable",
+        "label": "Not Applicable"
+      },
+      "customField": [
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "868639",
+          "valueLabel": "Software Development/Engineering"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "TEC",
+          "valueLabel": "Engineering and Technology"
+        }
+      ],
+      "visibility": "PUBLIC",
+      "ref": "https://api.smartrecruiters.com/v1/companies/visa/postings/744000122273376",
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000121881816",
+      "name": "Sr. Data Scientist",
+      "uuid": "c827b78e-6821-4d6d-b48b-e8b3aa732a56",
+      "jobAdId": "9e1e7212-4808-410f-b0ab-38ed56f78620",
+      "defaultJobAd": true,
+      "refNumber": "REF97309E",
+      "company": {
+        "identifier": "Visa",
+        "name": "Visa"
+      },
+      "releasedDate": "2026-04-20T20:54:06.157Z",
+      "location": {
+        "city": "Washington",
+        "region": "DC",
+        "country": "us",
+        "remote": false,
+        "hybrid": true,
+        "hybridDescription": "Washington, DC and may allow for partial telecommuting.",
+        "latitude": "38.9072873",
+        "longitude": "-77.0369274",
+        "fullLocation": "Washington, DC, United States"
+      },
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "department": {
+        "id": "2641535",
+        "label": "Data Science/Data Engineering"
+      },
+      "function": {
+        "id": "information_technology",
+        "label": "Information Technology"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "customField": [
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "2641535",
+          "valueLabel": "Data Science/Data Engineering"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "JOB_FAMILY-3-343",
+          "valueLabel": "Data Science and Analytics"
+        }
+      ],
+      "visibility": "PUBLIC",
+      "ref": "https://api.smartrecruiters.com/v1/companies/visa/postings/744000121881816",
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000120066996",
+      "name": "Sr. SW Engineer",
+      "uuid": "914ab5fb-7124-4177-83ac-bdbc69a64e30",
+      "jobAdId": "a98552c2-66ae-46e5-8ca2-9ff14e5c982b",
+      "defaultJobAd": true,
+      "refNumber": "REF97124T",
+      "company": {
+        "identifier": "Visa",
+        "name": "Visa"
+      },
+      "releasedDate": "2026-04-10T23:00:22.251Z",
+      "location": {
+        "city": "Bellevue",
+        "region": "WA",
+        "country": "us",
+        "remote": false,
+        "hybrid": true,
+        "hybridDescription": "Bellevue, WA office & may allow for partial telecommuting.",
+        "latitude": "47.6101497",
+        "longitude": "-122.2015159",
+        "fullLocation": "Bellevue, WA, United States"
+      },
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "department": {
+        "id": "868537",
+        "label": "Technology and Operations"
+      },
+      "function": {
+        "id": "information_technology",
+        "label": "Information Technology"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "customField": [
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "868537",
+          "valueLabel": "Technology and Operations"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "TEC",
+          "valueLabel": "Engineering and Technology"
+        }
+      ],
+      "visibility": "PUBLIC",
+      "ref": "https://api.smartrecruiters.com/v1/companies/visa/postings/744000120066996",
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000118933226",
+      "name": "Technical Program Manager",
+      "uuid": "1c46278f-4cb5-4414-8f2b-9093c87bf946",
+      "jobAdId": "a476b384-6ef6-44ea-8ff2-db077fdb634c",
+      "defaultJobAd": true,
+      "refNumber": "REF97284R",
+      "company": {
+        "identifier": "Visa",
+        "name": "Visa"
+      },
+      "releasedDate": "2026-04-06T18:53:08.442Z",
+      "location": {
+        "city": "Foster City",
+        "region": "CA",
+        "country": "us",
+        "remote": false,
+        "hybrid": false,
+        "latitude": "37.5585465",
+        "longitude": "-122.2710788",
+        "fullLocation": "Foster City, CA, United States"
+      },
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "department": {
+        "id": "1146759",
+        "label": "Program and Project Management (Technical)"
+      },
+      "function": {
+        "id": "information_technology",
+        "label": "Information Technology"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "customField": [
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "1146759",
+          "valueLabel": "Program and Project Management (Technical)"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "TEC",
+          "valueLabel": "Engineering and Technology"
+        }
+      ],
+      "visibility": "PUBLIC",
+      "ref": "https://api.smartrecruiters.com/v1/companies/visa/postings/744000118933226",
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000118615196",
+      "name": "Software Engineer - Sr. Consultant level",
+      "uuid": "aec1c1bd-ed25-455c-9550-f36c9bfd3709",
+      "jobAdId": "0a73530e-ced1-49c0-b368-7e3570bdd42a",
+      "defaultJobAd": true,
+      "refNumber": "REF97291X",
+      "company": {
+        "identifier": "Visa",
+        "name": "Visa"
+      },
+      "releasedDate": "2026-04-03T14:56:36.025Z",
+      "location": {
+        "city": "Bellevue",
+        "region": "WA",
+        "country": "us",
+        "remote": false,
+        "hybrid": false,
+        "latitude": "47.6101497",
+        "longitude": "-122.2015159",
+        "fullLocation": "Bellevue, WA, United States"
+      },
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "department": {
+        "id": "868639",
+        "label": "Software Development/Engineering"
+      },
+      "function": {
+        "id": "information_technology",
+        "label": "Information Technology"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "customField": [
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "868639",
+          "valueLabel": "Software Development/Engineering"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "TEC",
+          "valueLabel": "Engineering and Technology"
+        }
+      ],
+      "visibility": "PUBLIC",
+      "ref": "https://api.smartrecruiters.com/v1/companies/visa/postings/744000118615196",
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000118493516",
+      "name": "Software Engineer - Sr. Consultant level",
+      "uuid": "3e5c9d54-9cdf-4b05-bcf6-56c9f096f028",
+      "jobAdId": "9130d9b6-cb97-4292-98ff-e3422ff4961d",
+      "defaultJobAd": true,
+      "refNumber": "REF97285T",
+      "company": {
+        "identifier": "Visa",
+        "name": "Visa"
+      },
+      "releasedDate": "2026-04-02T20:26:26.477Z",
+      "location": {
+        "city": "Foster City",
+        "region": "CA",
+        "country": "us",
+        "address": "900 Metro Center Blvd.",
+        "postalCode": "94404",
+        "remote": false,
+        "hybrid": false,
+        "fullLocation": "Foster City, CA, United States"
+      },
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "department": {
+        "id": "868639",
+        "label": "Software Development/Engineering"
+      },
+      "function": {
+        "id": "information_technology",
+        "label": "Information Technology"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "customField": [
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "868639",
+          "valueLabel": "Software Development/Engineering"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "TEC",
+          "valueLabel": "Engineering and Technology"
+        }
+      ],
+      "visibility": "PUBLIC",
+      "ref": "https://api.smartrecruiters.com/v1/companies/visa/postings/744000118493516",
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000118404157",
+      "name": "Data Scientist",
+      "uuid": "595bc3fe-ee0d-43e5-a6f5-dde162cc5fc3",
+      "jobAdId": "63742fbf-626b-49ae-ad7a-d361c98be4a1",
+      "defaultJobAd": true,
+      "refNumber": "REF97250W",
+      "company": {
+        "identifier": "Visa",
+        "name": "Visa"
+      },
+      "releasedDate": "2026-04-02T12:42:11.030Z",
+      "location": {
+        "city": "Washington",
+        "region": "DC",
+        "country": "us",
+        "remote": false,
+        "hybrid": true,
+        "hybridDescription": "Washington, DC and may allow for partial telecommuting.",
+        "latitude": "38.9072873",
+        "longitude": "-77.0369274",
+        "fullLocation": "Washington, DC, United States"
+      },
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "department": {
+        "id": "934140",
+        "label": "Product Development & Management"
+      },
+      "function": {
+        "id": "information_technology",
+        "label": "Information Technology"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "customField": [
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "934140",
+          "valueLabel": "Product Development & Management"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "PRD",
+          "valueLabel": "Product and Design"
+        }
+      ],
+      "visibility": "PUBLIC",
+      "ref": "https://api.smartrecruiters.com/v1/companies/visa/postings/744000118404157",
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    }
+  ]
+}

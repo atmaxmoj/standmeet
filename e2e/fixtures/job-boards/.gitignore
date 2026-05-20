@@ -1,0 +1,4 @@
+# raw captures from real APIs — kept locally for re-trim / diff against
+# trimmed fixtures, not for CI/e2e use. regenerate via:
+#   make capture-job-fixtures
+.raw/

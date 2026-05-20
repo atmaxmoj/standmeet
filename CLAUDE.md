@@ -33,6 +33,18 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 
 **Custom page hosting.** Owners can write their own React page using the SDK; a sandboxed builder (the pattern in `standmeet-server/page-builder/` is the seed) builds it and hosts the static output on the instance. Owner doesn't manage deploy infra.
 
+**Outbound side: job loop (in progress 2026-05).** StandMeet 不止 inbound visitor chat —— 也是 outbound 求职平台。完整闭环：
+
+1. owner 在 Claude Code 问"今天 [filter] 有什么新工作" → MCP `jobs.fetch_new()` 从注册的源（Greenhouse / Lever / Ashby / RemoteOK / WWR / HN Who-is-Hiring）拉数据 → 进 **Redis 1d TTL 池子**
+2. Claude 用 owner corpus + `page.where.looking_for` 排序、推荐；owner 选中的，Claude 调 `resume.draft(job_cache_id, resume_content)` curate raw+wiki+JD 写一份**草稿** PDF
+3. owner 在 staging 预览看，**点头才发**；Claude `applications.commit(draft_id)` 同时 (a) 写 application 行 (b) **自动 issue AccessCode**（180d / 10 sessions / 50 turns，复用现有 access_codes 表，**AccessCode === invitation**）(c) 渲染**正式 PDF** —— layout 简单固定 ATS-friendly，**QR 印右上角**，URL = `/<handle>?code=ABC`
+4. Playwright MCP（owner 本地装，跟 standmeet MCP 同挂在 Claude）填表投出去
+5. recruiter 扫 PDF 右上角 QR → `/<handle>?code=ABC` → 不经 /gate → 直接进 visitor chat → AI 用 owner voice 答 → **闭环**
+
+关键设计：**StandMeet = deterministic state holder**（fetch / dedup / 持久化 / PDF 渲染 / QR 编码 / 邀请码 issue），**Claude = reasoning + I/O**（匹配 / 排序 / 写文案 / 填表）。job 永远 ephemeral（1d TTL），application 永远持久（snapshot job_snapshot + resume_content 进表）。**LinkedIn / Wellfound / Indeed 不做 server 端 scrape**，留给未来 owner-side browser extension。
+
+完整设计落在 `docs/design/job-loop.md` + 测试设计落在 `docs/design/job-loop-tests.md`。
+
 **Additional surfaces (out of scope for first slice, but planned):**
 - Electron client — extra owner ingest channel (clipboard, local notifications, drag-drop files, local MCP server). Shares the same backend API as web admin.
 - IM bridge (Telegram / Discord / Slack) — extra ingest *and* extra visitor chat surface (visitors with an access code can chat from inside an IM).
