@@ -1,9 +1,10 @@
 // use-members —— /admin/codes 卡里"members"展开块的状态机：
-// 拉一个 code 的 member 列表，可单独 revoke。
+// 拉一个 code 的 member 列表（只读）。revoke 不在 member 级别——AccessCode
+// 卡顶 revoke 一动整 code，跟产品语义对齐。
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { listCodeMembers, revokeMember, type MemberView } from '@/lib/admin/use-codes';
+import { listCodeMembers, type MemberView } from '@/lib/admin/use-codes';
 
 export type MembersState =
   | { kind: 'idle' }
@@ -13,8 +14,6 @@ export type MembersState =
 
 export interface MembersHook {
   state: MembersState;
-  reload: () => void;
-  revoke: (memberID: string) => Promise<void>;
 }
 
 export function useMembers(codeID: string, open: boolean): MembersHook {
@@ -27,16 +26,7 @@ export function useMembers(codeID: string, open: boolean): MembersHook {
     return () => { cancelled = true; };
   }, [codeID, open]);
 
-  const reload = useCallback(() => {
-    void runLoad(codeID, false, setState);
-  }, [codeID]);
-
-  const revoke = useCallback(async (memberID: string) => {
-    await revokeMember(memberID);
-    setState((s) => markMemberRevoked(s, memberID));
-  }, []);
-
-  return { state, reload, revoke };
+  return { state };
 }
 
 async function runLoad(
@@ -53,13 +43,4 @@ async function runLoad(
       kind: 'error', message: e instanceof Error ? e.message : 'load failed',
     });
   }
-}
-
-function markMemberRevoked(s: MembersState, memberID: string): MembersState {
-  if (s.kind !== 'ready') return s;
-  return {
-    kind: 'ready',
-    error: null,
-    members: s.members.map((m) => m.id === memberID ? { ...m, revoked: true } : m),
-  };
 }

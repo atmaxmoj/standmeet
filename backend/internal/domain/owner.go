@@ -152,24 +152,21 @@ var ErrCodeExpired = errors.New("access code expired")
 // ErrConversationNotFound —— conversation 不存在。
 var ErrConversationNotFound = errors.New("conversation not found")
 
-// ErrMemberRevoked —— 访客名字命中一个已 revoked 的 code_member。
-var ErrMemberRevoked = errors.New("access code member revoked")
-
 // ErrSessionQuotaReached —— 这个 member 已用满 max_sessions_per_member。
 var ErrSessionQuotaReached = errors.New("session quota reached for member")
 
 // ErrTurnQuotaReached —— 这个 session 已用满 max_turns_per_session。
 var ErrTurnQuotaReached = errors.New("turn quota reached for session")
 
-// CodeMember —— 一个 access code 下的一个具名访客。同一个 code 同一个
-// display_name 是唯一 row。`revoked = true` 后所有路径都拒绝该 member。
+// CodeMember —— 一个 access code 下的一个具名访客（AccessCode 聚合子实体）。
+// 同一个 code 同一个 display_name 是唯一 row。revoke 只在 AccessCode 级别
+// 做（code.status='revoked'），不针对单个 member——后者复杂度不值。
 type CodeMember struct {
 	LastSeenAt  time.Time
 	ID          string
 	CodeID      string
 	DisplayName string
 	Email       string
-	Revoked     bool
 	IsAnonymous bool
 }
 

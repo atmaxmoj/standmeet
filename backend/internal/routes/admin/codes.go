@@ -58,7 +58,6 @@ func (h *Handlers) MountCodes(r chi.Router) {
 	r.Post("/{id}/revoke", h.revokeCode())
 	r.Patch("/{id}/quotas", h.updateCodeQuotas())
 	r.Get("/{id}/members", h.listCodeMembers())
-	r.Post("/members/{memberId}/revoke", h.revokeCodeMember())
 }
 
 func (h *Handlers) listCodes() http.HandlerFunc {
@@ -198,7 +197,6 @@ type memberView struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"display_name"`
 	Email       string `json:"email,omitempty"`
-	Revoked     bool   `json:"revoked"`
 	IsAnonymous bool   `json:"is_anonymous"`
 }
 
@@ -232,7 +230,6 @@ func toMemberView(m *domain.CodeMember) memberView {
 		ID:          m.ID,
 		DisplayName: m.DisplayName,
 		Email:       m.Email,
-		Revoked:     m.Revoked,
 		IsAnonymous: m.IsAnonymous,
 		LastSeenAt:  formatOptionalTime(m.LastSeenAt),
 	}
@@ -243,17 +240,4 @@ func formatOptionalTime(t time.Time) string {
 		return ""
 	}
 	return t.Format(time.RFC3339)
-}
-
-func (h *Handlers) revokeCodeMember() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		memberID := chi.URLParam(r, "memberId")
-		if err := h.CodesAdmin.Codes.RevokeMember(r.Context(), ownerID, memberID); err != nil {
-			logEncodeErr(h.Log, "revoke member", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
 }

@@ -150,21 +150,16 @@ export async function dispatchSave(
   });
 }
 
-// MemberView / listCodeMembers / revokeMember —— 跟 codes 同一 admin module；
-// 暂时留在这个文件，后面拆 owner aggregate 时一起搬。
+// MemberView / listCodeMembers —— member 是 AccessCode 聚合的子实体，只读。
+// revoke 在 code 级别（revokeCode）—— member 不该单独管。
 export interface MemberView {
   id: string;
   display_name: string;
   email?: string;
-  revoked: boolean;
   is_anonymous: boolean;
   last_seen_at?: string;
 }
 
 export async function listCodeMembers(codeID: string): Promise<MemberView[]> {
   return await adminAPI.get<MemberView[]>(`/codes/${codeID}/members`);
-}
-
-export async function revokeMember(memberID: string): Promise<void> {
-  await adminAPI.post<unknown>(`/codes/members/${memberID}/revoke`, {});
 }

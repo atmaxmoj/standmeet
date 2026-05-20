@@ -44,12 +44,6 @@ SELECT * FROM code_members WHERE code_id = $1 ORDER BY last_seen_at DESC NULLS L
 -- name: TouchCodeMember :exec
 UPDATE code_members SET last_seen_at = now() WHERE id = $1;
 
--- name: RevokeCodeMember :exec
-UPDATE code_members AS m
-SET revoked = true
-FROM access_codes AS c
-WHERE m.id = $1 AND m.code_id = c.id AND c.owner_id = $2;
-
 -- name: CountSessionsForMember :one
 SELECT COUNT(*)::int FROM conversations WHERE member_id = $1;
 

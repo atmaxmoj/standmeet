@@ -1,8 +1,8 @@
 // MembersBlock —— CodeCard 底部的"members"展开块。
 //
-// owner 点 "members ↓" 拉出当前 code 下所有访客（按 last_seen 排）。每行
-// 一个 "revoke" 按钮，按下立刻把 member.revoked 标为 true。被 revoke 的
-// 行加灰 + "revoked" 标记，按钮消失。
+// owner 点 "members ↓" 拉出当前 code 下所有访客（按 last_seen 排），只读。
+// revoke 是 AccessCode 级别的（卡顶 revoke 按钮），不针对单个 member——member
+// 只是 (code, name) 落地痕迹，不是单独可管的实体。
 
 'use client';
 
@@ -48,7 +48,7 @@ function MembersBody({
 function MembersList({ hook, code }: { hook: MembersHook; code: string }) {
   const s = hook.state;
   return s.kind === 'ready'
-    ? <Rows members={s.members} hook={hook} code={code} />
+    ? <Rows members={s.members} code={code} />
     : <NonReadyState state={s} />;
 }
 
@@ -67,8 +67,8 @@ function ErrorMsg({ msg }: { msg: string }) {
 }
 
 function Rows({
-  members, hook, code,
-}: { members: readonly MemberView[]; hook: MembersHook; code: string }) {
+  members, code,
+}: { members: readonly MemberView[]; code: string }) {
   return members.length === 0
     ? (
       <p className="mono text-[10.5px] text-(--color-faint) mt-2">
@@ -77,49 +77,20 @@ function Rows({
     )
     : (
       <ul className="mt-2 space-y-1" data-testid={`members-list-${code}`}>
-        {members.map((m) => <MemberRow key={m.id} m={m} hook={hook} />)}
+        {members.map((m) => <MemberRow key={m.id} m={m} />)}
       </ul>
     );
 }
 
-function MemberRow({ m, hook }: { m: MemberView; hook: MembersHook }) {
+function MemberRow({ m }: { m: MemberView }) {
   return (
     <li
       data-testid={`member-row-${m.id}`}
-      className={`flex items-baseline justify-between gap-3 reading-tight text-[13px] py-1 border-b border-(--color-rule)/40 ${m.revoked ? 'opacity-60' : ''}`}
+      className="reading-tight text-[13px] py-1 border-b border-(--color-rule)/40"
     >
-      <MemberLabel m={m} />
-      <MemberRevokeBtn m={m} hook={hook} />
+      <span className="min-w-0 truncate">
+        {m.display_name || <i>anonymous</i>}
+      </span>
     </li>
-  );
-}
-
-function MemberLabel({ m }: { m: MemberView }) {
-  return (
-    <span className="min-w-0 truncate">
-      {m.display_name || <i>anonymous</i>}
-      <RevokedTag revoked={m.revoked} />
-    </span>
-  );
-}
-
-function RevokedTag({ revoked }: { revoked: boolean }) {
-  return revoked ? (
-    <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint) ml-2">
-      ● revoked
-    </span>
-  ) : null;
-}
-
-function MemberRevokeBtn({ m, hook }: { m: MemberView; hook: MembersHook }) {
-  return m.revoked ? null : (
-    <button
-      type="button"
-      data-testid={`member-revoke-${m.id}`}
-      onClick={() => void hook.revoke(m.id)}
-      className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent) shrink-0"
-    >
-      revoke
-    </button>
   );
 }

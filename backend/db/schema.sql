@@ -128,7 +128,6 @@ CREATE TABLE code_members (
     display_name  text          NOT NULL,
     email         citext,
     is_anonymous  boolean       NOT NULL DEFAULT false,
-    revoked       boolean       NOT NULL DEFAULT false,
     last_seen_at  timestamptz
 );
 CREATE UNIQUE INDEX code_members_code_name_uniq ON code_members(code_id, display_name);

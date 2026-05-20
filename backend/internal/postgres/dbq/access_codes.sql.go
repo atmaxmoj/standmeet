@@ -107,7 +107,7 @@ func (q *Queries) UpdateAccessCodeQuotas(
 const createCodeMember = `-- name: CreateCodeMember :one
 INSERT INTO code_members (code_id, display_name, email, is_anonymous)
 VALUES ($1, $2, $3, $4)
-RETURNING id, code_id, display_name, email, is_anonymous, revoked, last_seen_at
+RETURNING id, code_id, display_name, email, is_anonymous, last_seen_at
 `
 
 type CreateCodeMemberParams struct {
@@ -131,7 +131,6 @@ func (q *Queries) CreateCodeMember(ctx context.Context, arg CreateCodeMemberPara
 		&i.DisplayName,
 		&i.Email,
 		&i.IsAnonymous,
-		&i.Revoked,
 		&i.LastSeenAt,
 	)
 	return i, err
@@ -141,7 +140,7 @@ const getOrCreateCodeMember = `-- name: GetOrCreateCodeMember :one
 INSERT INTO code_members (code_id, display_name, email, is_anonymous)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (code_id, display_name) DO UPDATE SET last_seen_at = now()
-RETURNING id, code_id, display_name, email, is_anonymous, revoked, last_seen_at
+RETURNING id, code_id, display_name, email, is_anonymous, last_seen_at
 `
 
 type GetOrCreateCodeMemberParams struct {
@@ -167,14 +166,13 @@ func (q *Queries) GetOrCreateCodeMember(
 		&i.DisplayName,
 		&i.Email,
 		&i.IsAnonymous,
-		&i.Revoked,
 		&i.LastSeenAt,
 	)
 	return i, err
 }
 
 const getCodeMemberByName = `-- name: GetCodeMemberByName :one
-SELECT id, code_id, display_name, email, is_anonymous, revoked, last_seen_at
+SELECT id, code_id, display_name, email, is_anonymous, last_seen_at
 FROM code_members
 WHERE code_id = $1 AND display_name = $2
 `
@@ -195,7 +193,6 @@ func (q *Queries) GetCodeMemberByName(
 		&i.DisplayName,
 		&i.Email,
 		&i.IsAnonymous,
-		&i.Revoked,
 		&i.LastSeenAt,
 	)
 	return i, err
@@ -290,7 +287,7 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 }
 
 const listCodeMembers = `-- name: ListCodeMembers :many
-SELECT id, code_id, display_name, email, is_anonymous, revoked, last_seen_at
+SELECT id, code_id, display_name, email, is_anonymous, last_seen_at
 FROM code_members WHERE code_id = $1
 ORDER BY last_seen_at DESC NULLS LAST
 `
@@ -310,7 +307,6 @@ func (q *Queries) ListCodeMembers(ctx context.Context, codeID pgtype.UUID) ([]Co
 			&i.DisplayName,
 			&i.Email,
 			&i.IsAnonymous,
-			&i.Revoked,
 			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
@@ -334,23 +330,6 @@ type RevokeAccessCodeParams struct {
 
 func (q *Queries) RevokeAccessCode(ctx context.Context, arg RevokeAccessCodeParams) error {
 	_, err := q.db.Exec(ctx, revokeAccessCode, arg.ID, arg.OwnerID)
-	return err
-}
-
-const revokeCodeMember = `-- name: RevokeCodeMember :exec
-UPDATE code_members AS m
-SET revoked = true
-FROM access_codes AS c
-WHERE m.id = $1 AND m.code_id = c.id AND c.owner_id = $2
-`
-
-type RevokeCodeMemberParams struct {
-	ID      pgtype.UUID
-	OwnerID pgtype.UUID
-}
-
-func (q *Queries) RevokeCodeMember(ctx context.Context, arg RevokeCodeMemberParams) error {
-	_, err := q.db.Exec(ctx, revokeCodeMember, arg.ID, arg.OwnerID)
 	return err
 }
 

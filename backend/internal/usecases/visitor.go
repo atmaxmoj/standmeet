@@ -87,17 +87,15 @@ func finalizeCodeSession(
 	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
 }
 
-// resolveMemberWithQuota —— upsert member by name；revoke / 配额超额都在这里
-// 翻译成 domain sentinel error。
+// resolveMemberWithQuota —— upsert member by name；配额超额翻译成 domain
+// sentinel error。CodeMember 没有自己的 revoked 状态，revoke 在 AccessCode
+// 级别（code.status='revoked' → GetByCode 已经过滤掉 → 走不到这里）。
 func resolveMemberWithQuota(
 	ctx context.Context, deps VisitorDeps, code *domain.AccessCode, name string,
 ) (domain.CodeMember, error) {
 	member, merr := deps.Codes.GetOrCreateMember(ctx, code.ID, name)
 	if merr != nil {
 		return domain.CodeMember{}, fmt.Errorf("get/create member: %w", merr)
-	}
-	if member.Revoked {
-		return domain.CodeMember{}, domain.ErrMemberRevoked
 	}
 	if quotaErr := checkSessionQuota(ctx, deps, code, member.ID); quotaErr != nil {
 		return domain.CodeMember{}, quotaErr

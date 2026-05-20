@@ -51,7 +51,6 @@ type CodeMember struct {
 	DisplayName string
 	Email       *string
 	IsAnonymous bool
-	Revoked     bool
 	LastSeenAt  pgtype.Timestamptz
 }
 

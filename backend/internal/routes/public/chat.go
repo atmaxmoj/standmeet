@@ -49,11 +49,6 @@ var visitorErrCases = []apierr.Case{
 	{Match: domain.ErrCodeExpired, Envelope: apierr.Envelope{
 		Status: http.StatusUnauthorized, Code: "code_expired", Message: "access code expired",
 	}},
-	{Match: domain.ErrMemberRevoked, Envelope: apierr.Envelope{
-		Status:  http.StatusForbidden,
-		Code:    "member_revoked",
-		Message: "this name has been revoked on the code",
-	}},
 	{Match: domain.ErrSessionQuotaReached, Envelope: apierr.Envelope{
 		Status:  http.StatusForbidden,
 		Code:    "session_quota_reached",

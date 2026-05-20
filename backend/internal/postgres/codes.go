@@ -124,33 +124,12 @@ func (r *CodeRepo) ListMembers(ctx context.Context, codeID string) ([]domain.Cod
 	return out, nil
 }
 
-// RevokeMember —— admin 关掉单个 member 而不动整 code。owner_id 在 SQL 里做
-// 边界检查，防止跨 owner 误改。
-func (r *CodeRepo) RevokeMember(ctx context.Context, ownerID, memberID string) error {
-	ownerUUID, err := parseUUID(ownerID)
-	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	memberUUID, err := parseUUID(memberID)
-	if err != nil {
-		return fmt.Errorf("parse member id: %w", err)
-	}
-	q := dbq.New(r.pool)
-	if rerr := q.RevokeCodeMember(ctx, dbq.RevokeCodeMemberParams{
-		ID: memberUUID, OwnerID: ownerUUID,
-	}); rerr != nil {
-		return fmt.Errorf("revoke code member: %w", rerr)
-	}
-	return nil
-}
-
 func toDomainMember(m *dbq.CodeMember) domain.CodeMember {
 	out := domain.CodeMember{
 		ID:          formatUUID(m.ID),
 		CodeID:      formatUUID(m.CodeID),
 		DisplayName: m.DisplayName,
 		IsAnonymous: m.IsAnonymous,
-		Revoked:     m.Revoked,
 	}
 	if m.Email != nil {
 		out.Email = *m.Email
