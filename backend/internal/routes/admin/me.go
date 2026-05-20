@@ -1,5 +1,9 @@
-// me.go —— GET /api/admin/me 返回当前 owner profile。
+// me.go —— GET /api/admin/me 返回当前 owner profile + settings。
 // 需要 WithOwner middleware（路由组挂的）。
+//
+// Response shape:
+//   { owner: { ... identity }, settings: { ai: ..., byoai: ... } }
+// 跟 domain.Owner / domain.OwnerSettings 1:1 对齐。
 
 package admin
 
@@ -14,16 +18,32 @@ import (
 	"github.com/wangsijie/standmeet/internal/middleware"
 )
 
+type ownerView struct {
+	OwnerID  string `json:"owner_id"`
+	Email    string `json:"email"`
+	Handle   string `json:"handle"`
+	FullName string `json:"full_name"`
+}
+
+type aiSettingsView struct {
+	Provider      string `json:"provider"`
+	KeyConfigured bool   `json:"key_configured"`
+}
+
+type byoaiSettingsView struct {
+	PublicBlurb string   `json:"public_blurb"`
+	Providers   []string `json:"providers"`
+	Enabled     bool     `json:"enabled"`
+}
+
+type settingsView struct {
+	AI    aiSettingsView    `json:"ai"`
+	BYOAI byoaiSettingsView `json:"byoai"`
+}
+
 type meResponse struct {
-	OwnerID                 string   `json:"owner_id"`
-	Email                   string   `json:"email"`
-	Handle                  string   `json:"handle"`
-	FullName                string   `json:"full_name"`
-	BYOAIPublicBlurb        string   `json:"byoai_public_blurb"`
-	AIProvider              string   `json:"ai_provider"`
-	BYOAIProviders          []string `json:"byoai_providers"`
-	BYOAIEnabled            bool     `json:"byoai_enabled"`
-	AIProviderKeyConfigured bool     `json:"ai_provider_key_configured"`
+	Owner    ownerView    `json:"owner"`
+	Settings settingsView `json:"settings"`
 }
 
 func (h *Handlers) me() http.HandlerFunc {
@@ -34,28 +54,47 @@ func (h *Handlers) me() http.HandlerFunc {
 			handleMeErr(h.Log, w, err)
 			return
 		}
-		writeMe(h.Log, w, &owner)
+		settings, serr := h.Auth.Login.Owners.GetSettings(r.Context(), ownerID)
+		if serr != nil {
+			handleMeErr(h.Log, w, serr)
+			return
+		}
+		writeMe(h.Log, w, &owner, &settings)
 	}
 }
 
-func writeMe(log *slog.Logger, w http.ResponseWriter, owner *domain.Owner) {
+func writeMe(
+	log *slog.Logger, w http.ResponseWriter,
+	owner *domain.Owner, settings *domain.OwnerSettings,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	providers := owner.BYOAIProviders
+	if encErr := json.NewEncoder(w).Encode(toMeResponse(owner, settings)); encErr != nil {
+		log.Error("encode me response", "err", encErr)
+	}
+}
+
+func toMeResponse(owner *domain.Owner, settings *domain.OwnerSettings) meResponse {
+	providers := settings.BYOAI.Providers
 	if providers == nil {
 		providers = []string{}
 	}
-	resp := meResponse{
-		OwnerID: owner.ID, Email: owner.Email,
-		Handle: owner.Handle, FullName: owner.FullName,
-		BYOAIEnabled:            owner.BYOAIEnabled,
-		BYOAIProviders:          providers,
-		BYOAIPublicBlurb:        owner.BYOAIPublicBlurb,
-		AIProvider:              owner.AIProvider,
-		AIProviderKeyConfigured: owner.AIProviderKeyConfigured,
-	}
-	if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
-		log.Error("encode me response", "err", encErr)
+	return meResponse{
+		Owner: ownerView{
+			OwnerID: owner.ID, Email: owner.Email,
+			Handle: owner.Handle, FullName: owner.FullName,
+		},
+		Settings: settingsView{
+			AI: aiSettingsView{
+				Provider:      settings.AI.Provider,
+				KeyConfigured: settings.AI.KeyConfigured,
+			},
+			BYOAI: byoaiSettingsView{
+				Enabled:     settings.BYOAI.Enabled,
+				Providers:   providers,
+				PublicBlurb: settings.BYOAI.PublicBlurb,
+			},
+		},
 	}
 }
 

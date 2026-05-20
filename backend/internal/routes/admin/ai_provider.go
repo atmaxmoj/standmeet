@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/middleware"
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
@@ -28,11 +27,6 @@ type aiProviderRequest struct {
 	Key       string `json:"key,omitempty"`
 }
 
-type aiProviderResp struct {
-	Provider      string `json:"provider"`
-	KeyConfigured bool   `json:"key_configured"`
-}
-
 // MountAIProvider 挂 PATCH /ai-provider（caller 前缀 /api/admin）。
 func (h *Handlers) MountAIProvider(r chi.Router) {
 	r.Patch("/ai-provider", h.updateAIProvider())
@@ -46,7 +40,7 @@ func (h *Handlers) updateAIProvider() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		owner, err := usecases.UpdateOwnerAIProvider(r.Context(), h.AIProviderAdmin.AI,
+		settings, err := usecases.UpdateOwnerAIProvider(r.Context(), h.AIProviderAdmin.AI,
 			&usecases.UpdateOwnerAIProviderInput{
 				OwnerID: ownerID, Provider: body.Provider,
 				KeyChange: parseKeyChange(body.KeyChange), Key: body.Key,
@@ -55,7 +49,7 @@ func (h *Handlers) updateAIProvider() http.HandlerFunc {
 			handleAIProviderErr(h.Log, w, err)
 			return
 		}
-		writeAIProviderResp(h.Log, w, &owner)
+		writeSettings(h.Log, w, &settings)
 	}
 }
 
@@ -77,14 +71,4 @@ func handleAIProviderErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	}
 	logEncodeErr(log, "update ai provider", err)
 	writeError(log, w, serverErr())
-}
-
-func writeAIProviderResp(log *slog.Logger, w http.ResponseWriter, o *domain.Owner) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(aiProviderResp{
-		Provider: o.AIProvider, KeyConfigured: o.AIProviderKeyConfigured,
-	}); err != nil {
-		logEncodeErr(log, "encode ai provider resp", err)
-	}
 }

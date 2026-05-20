@@ -41,15 +41,40 @@ func (h *Handlers) putBYOAI() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		owner, err := usecases.UpdateBYOAI(r.Context(), h.BYOAI.BYOAI, &usecases.UpdateBYOAIInput{
-			OwnerID: ownerID, Enabled: req.Enabled,
-			Providers: req.Providers, Blurb: req.Blurb,
-		})
+		settings, err := usecases.UpdateBYOAI(
+			r.Context(), h.BYOAI.BYOAI, &usecases.UpdateBYOAIInput{
+				OwnerID: ownerID, Enabled: req.Enabled,
+				Providers: req.Providers, Blurb: req.Blurb,
+			})
 		if err != nil {
 			handleBYOAIErr(h.Log, w, err)
 			return
 		}
-		writeMe(h.Log, w, &owner)
+		writeSettings(h.Log, w, &settings)
+	}
+}
+
+// writeSettings —— byoai / ai-provider 更新成功后回 settings 一片，前端
+// sessionStore.refresh 之外可以更直接地把新值 swap 进缓存。
+func writeSettings(
+	log *slog.Logger, w http.ResponseWriter, settings *domain.OwnerSettings,
+) {
+	providers := settings.BYOAI.Providers
+	if providers == nil {
+		providers = []string{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if encErr := json.NewEncoder(w).Encode(settingsView{
+		AI: aiSettingsView{
+			Provider: settings.AI.Provider, KeyConfigured: settings.AI.KeyConfigured,
+		},
+		BYOAI: byoaiSettingsView{
+			Enabled: settings.BYOAI.Enabled, Providers: providers,
+			PublicBlurb: settings.BYOAI.PublicBlurb,
+		},
+	}); encErr != nil {
+		log.Error("encode settings", "err", encErr)
 	}
 }
 

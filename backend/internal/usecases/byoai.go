@@ -25,22 +25,23 @@ type UpdateBYOAIInput struct {
 	Enabled   bool
 }
 
-// UpdateBYOAI 把 byoai_enabled / providers / blurb 三字段一起写。返回新 owner。
+// UpdateBYOAI 把 byoai_enabled / providers / blurb 三字段一起写，返回新
+// OwnerSettings（aggregate 的 setting 切面，不含 identity）。
 // owner_id 不存在返 domain.ErrOwnerNotFound（handler 翻 401）。
 func UpdateBYOAI(
 	ctx context.Context, deps BYOAIDeps, in *UpdateBYOAIInput,
-) (domain.Owner, error) {
+) (domain.OwnerSettings, error) {
 	if in.OwnerID == "" {
-		return domain.Owner{}, ErrEmptyField
+		return domain.OwnerSettings{}, ErrEmptyField
 	}
-	owner, err := deps.Owners.UpdateBYOAI(ctx, &postgres.UpdateBYOAIInput{
+	s, err := deps.Owners.UpdateBYOAI(ctx, &postgres.UpdateBYOAIInput{
 		OwnerID:   in.OwnerID,
 		Enabled:   in.Enabled,
 		Providers: in.Providers,
 		Blurb:     in.Blurb,
 	})
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("update byoai: %w", err)
+		return domain.OwnerSettings{}, fmt.Errorf("update byoai: %w", err)
 	}
-	return owner, nil
+	return s, nil
 }

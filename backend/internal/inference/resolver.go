@@ -22,21 +22,6 @@ import (
 // 在这种情况要走 friendly fallback（前端 toast "owner hasn't connected AI yet"）。
 var ErrOwnerProviderUnconfigured = errors.New("owner AI provider not configured")
 
-// OwnerKeyView —— resolver 需要从 owner repo 拿到的最小信息。
-type OwnerKeyView struct {
-	Provider string // 'anthropic' | 'openai'
-	KeyEnc   []byte // AES-GCM 加密；空 byte slice = 未设
-}
-
-// OwnerLookup —— resolver 注入的窄接口，避免 import postgres。
-type OwnerLookup interface {
-	LookupForResolver(ctx context.Context, ownerID string) (OwnerKeyView, error)
-}
-
-// KeyDecrypter —— 抽掉 cryptobox 依赖，让测试可以注 stub。dev/prod 默认就是
-// cryptobox.Decrypt。
-type KeyDecrypter func(enc []byte) ([]byte, error)
-
 // Resolver —— 业务调用点：传 ownerID，拿 Provider。
 type Resolver interface {
 	Resolve(ctx context.Context, ownerID string) (Provider, error)

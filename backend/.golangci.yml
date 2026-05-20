@@ -121,11 +121,10 @@ linters:
     revive:
       enable-all-rules: true
       rules:
-        # domain 包按 aggregate 集中所有实体（Owner / InstanceSettings /
-        # APIToken / RawEntry / WikiEntry / CreateOwnerInput / …），DDD
-        # 风格内核包就该这么多 public 类型。Default 5 太严。
-        - name: max-public-structs
-          arguments: [20]
+        # 保留 revive 默认 ≤5 —— 单个文件 5 个 public 类型是健康的"一个
+        # aggregate 一个文件"信号。domain 按 aggregate 拆文件 (owner /
+        # access_code / conversation / wiki / raw / custom_page /
+        # page_content / instance / api_token / access_request) 自然达标。
         # Cap function inputs at 5.  Anything richer should
         # consolidate into a struct so the call sites stop counting
         # commas — same rationale as ESLint `max-params: 5` in the

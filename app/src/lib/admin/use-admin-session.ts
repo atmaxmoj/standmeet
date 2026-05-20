@@ -49,8 +49,8 @@ function adminSessionFromResource(
     return {
       kind: 'ready',
       session: {
-        owner_id: data.owner_id, email: data.email,
-        handle: data.handle, full_name: data.full_name,
+        owner_id: data.owner.owner_id, email: data.owner.email,
+        handle: data.owner.handle, full_name: data.owner.full_name,
       },
     };
   }

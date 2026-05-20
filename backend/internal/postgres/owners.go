@@ -71,20 +71,32 @@ func pgUniqueViolation(err error) (string, bool) {
 }
 
 // toDomainOwner 把 sqlc 生成的 dbq.Owner（带 pgtype.UUID / Timestamptz）
-// 映射到 domain.Owner（纯 Go 类型）。pointer 接收避免 gocritic hugeParam。
+// 映射到 domain.Owner（纯 Go 类型，identity only）。
+// settings 字段通过 toOwnerSettings 单独解（同一行 owners 表 row 拆两面）。
 func toDomainOwner(o *dbq.Owner) domain.Owner {
 	return domain.Owner{
-		ID:                      formatUUID(o.ID),
-		Email:                   o.Email,
-		Handle:                  o.Handle,
-		FullName:                o.FullName,
-		Location:                o.Location,
-		CreatedAt:               o.CreatedAt.Time,
-		BYOAIEnabled:            o.ByoaiEnabled,
-		BYOAIProviders:          decodeProviders(o.ByoaiProviders),
-		BYOAIPublicBlurb:        o.ByoaiPublicBlurb,
-		AIProvider:              o.AIProvider,
-		AIProviderKeyConfigured: len(o.AIProviderKeyEnc) > 0,
+		ID:        formatUUID(o.ID),
+		Email:     o.Email,
+		Handle:    o.Handle,
+		FullName:  o.FullName,
+		Location:  o.Location,
+		CreatedAt: o.CreatedAt.Time,
+	}
+}
+
+// toOwnerSettings —— 把 owners 行的 setting 字段（byoai_* + ai_*）拼成
+// domain.OwnerSettings 值对象。明文 key 不出 repo，外层只看 KeyConfigured。
+func toOwnerSettings(o *dbq.Owner) domain.OwnerSettings {
+	return domain.OwnerSettings{
+		AI: domain.OwnerAISettings{
+			Provider:      o.AIProvider,
+			KeyConfigured: len(o.AIProviderKeyEnc) > 0,
+		},
+		BYOAI: domain.OwnerBYOAISettings{
+			Enabled:     o.ByoaiEnabled,
+			Providers:   decodeProviders(o.ByoaiProviders),
+			PublicBlurb: o.ByoaiPublicBlurb,
+		},
 	}
 }
 
@@ -110,23 +122,44 @@ type UpdateBYOAIInput struct {
 	Enabled   bool
 }
 
-// UpdateBYOAI 更新 owner 行的 byoai_enabled / providers / blurb，返回新行。
+// UpdateBYOAI 更新 owner 行的 byoai_enabled / providers / blurb；返回新
+// OwnerSettings（不是整个 Owner，settings 是聚合的独立切面）。
 func (r *OwnerRepo) UpdateBYOAI(
 	ctx context.Context, in *UpdateBYOAIInput,
-) (domain.Owner, error) {
+) (domain.OwnerSettings, error) {
 	params, perr := buildBYOAIParams(in)
 	if perr != nil {
-		return domain.Owner{}, perr
+		return domain.OwnerSettings{}, perr
 	}
 	q := dbq.New(r.pool)
 	row, uerr := q.UpdateOwnerBYOAI(ctx, params)
 	if uerr != nil {
 		if errors.Is(uerr, pgxErrNoRows()) {
-			return domain.Owner{}, domain.ErrOwnerNotFound
+			return domain.OwnerSettings{}, domain.ErrOwnerNotFound
 		}
-		return domain.Owner{}, fmt.Errorf("update byoai: %w", uerr)
+		return domain.OwnerSettings{}, fmt.Errorf("update byoai: %w", uerr)
 	}
-	return toDomainOwner(&row), nil
+	return toOwnerSettings(&row), nil
+}
+
+// GetSettings —— 拉 owner 行的 settings 切面（不含 identity）。
+// /me 端要 owner + settings 拼起来时调它，跟 GetByID 各自只取自己那半。
+func (r *OwnerRepo) GetSettings(
+	ctx context.Context, ownerID string,
+) (domain.OwnerSettings, error) {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return domain.OwnerSettings{}, fmt.Errorf("parse owner id: %w", perr)
+	}
+	q := dbq.New(r.pool)
+	row, err := q.GetOwnerByID(ctx, pgID)
+	if err != nil {
+		if errors.Is(err, pgxErrNoRows()) {
+			return domain.OwnerSettings{}, domain.ErrOwnerNotFound
+		}
+		return domain.OwnerSettings{}, fmt.Errorf("get owner settings: %w", err)
+	}
+	return toOwnerSettings(&row), nil
 }
 
 // buildBYOAIParams 把入参 normalize + marshal 一气呵成，让 UpdateBYOAI
@@ -190,25 +223,26 @@ func (r *OwnerRepo) GetAIProviderView(
 
 // UpdateAIProvider —— commit owner 的 AI provider 选择。当 KeyPlaintext 非
 // nil 时同步换 ai_provider_key_enc；为 nil 时保留原 key（仅切 provider）。
+// 返回新 OwnerSettings（聚合的独立切面）。
 func (r *OwnerRepo) UpdateAIProvider(
 	ctx context.Context, in *UpdateAIProviderInput,
-) (domain.Owner, error) {
+) (domain.OwnerSettings, error) {
 	pgID, perr := parseUUID(in.OwnerID)
 	if perr != nil {
-		return domain.Owner{}, fmt.Errorf("parse owner id: %w", perr)
+		return domain.OwnerSettings{}, fmt.Errorf("parse owner id: %w", perr)
 	}
 	encBytes, eerr := r.resolveKeyBytes(ctx, pgID, in.KeyPlaintext)
 	if eerr != nil {
-		return domain.Owner{}, eerr
+		return domain.OwnerSettings{}, eerr
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerAIProvider(ctx, dbq.UpdateOwnerAIProviderParams{
 		ID: pgID, AIProvider: in.Provider, AIProviderKeyEnc: encBytes,
 	})
 	if qerr != nil {
-		return domain.Owner{}, fmt.Errorf("update ai provider: %w", qerr)
+		return domain.OwnerSettings{}, fmt.Errorf("update ai provider: %w", qerr)
 	}
-	return toDomainOwner(&row), nil
+	return toOwnerSettings(&row), nil
 }
 
 // UpdateHandle —— owner 改 handle 一组 atomic：先读旧 handle、UPDATE owners

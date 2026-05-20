@@ -87,16 +87,35 @@ export interface ConversationSummary {
   code_value?: string;
 }
 
+// MeView —— GET /api/admin/me 响应。owner identity + settings 拆两块。
+// settings 通过 PATCH /ai-provider / PUT /byoai 单独写时，后端直接回
+// SettingsView 一片让前端 sessionStore mutate。
 export interface MeView {
+  owner: OwnerProfileView;
+  settings: SettingsView;
+}
+
+export interface OwnerProfileView {
   owner_id: string;
   email: string;
   handle: string;
   full_name: string;
-  byoai_enabled: boolean;
-  byoai_providers: string[];
-  byoai_public_blurb: string;
-  ai_provider: 'anthropic' | 'openai';
-  ai_provider_key_configured: boolean;
+}
+
+export interface SettingsView {
+  ai: AISettingsView;
+  byoai: BYOAISettingsView;
+}
+
+export interface AISettingsView {
+  provider: 'anthropic' | 'openai';
+  key_configured: boolean;
+}
+
+export interface BYOAISettingsView {
+  enabled: boolean;
+  providers: string[];
+  public_blurb: string;
 }
 
 export interface BYOAIUpdateInput {

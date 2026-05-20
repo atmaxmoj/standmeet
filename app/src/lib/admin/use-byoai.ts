@@ -97,13 +97,13 @@ async function doSave(
 
 function byoaiFromMe(me: MeView): BYOAIState {
   const known: readonly BYOAIProvider[] = ['claude', 'openai', 'gemini'];
-  const filtered = me.byoai_providers.filter(
+  const filtered = me.settings.byoai.providers.filter(
     (p): p is BYOAIProvider => (known as readonly string[]).includes(p),
   );
   return {
-    enabled: me.byoai_enabled,
+    enabled: me.settings.byoai.enabled,
     providers: filtered.length === 0 ? ['claude'] : filtered,
-    blurb: me.byoai_public_blurb,
+    blurb: me.settings.byoai.public_blurb,
   };
 }
 

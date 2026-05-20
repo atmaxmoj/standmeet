@@ -44,24 +44,24 @@ var validProviders = map[string]struct{}{
 	"anthropic": {}, "openai": {},
 }
 
-// UpdateOwnerAIProvider —— 调 repo 落库。返回新 owner profile（不含明文 key）。
+// UpdateOwnerAIProvider —— 调 repo 落库。返回新 OwnerSettings（不含明文 key）。
 func UpdateOwnerAIProvider(
 	ctx context.Context, deps AIProviderDeps, in *UpdateOwnerAIProviderInput,
-) (domain.Owner, error) {
+) (domain.OwnerSettings, error) {
 	if _, ok := validProviders[in.Provider]; !ok {
-		return domain.Owner{}, fmt.Errorf(
+		return domain.OwnerSettings{}, fmt.Errorf(
 			"%w: provider must be anthropic | openai", ErrEmptyField,
 		)
 	}
-	owner, err := deps.Owners.UpdateAIProvider(ctx, &postgres.UpdateAIProviderInput{
+	s, err := deps.Owners.UpdateAIProvider(ctx, &postgres.UpdateAIProviderInput{
 		OwnerID:      in.OwnerID,
 		Provider:     in.Provider,
 		KeyPlaintext: resolveKeyArg(in.KeyChange, in.Key),
 	})
 	if err != nil {
-		return domain.Owner{}, fmt.Errorf("update ai provider: %w", err)
+		return domain.OwnerSettings{}, fmt.Errorf("update ai provider: %w", err)
 	}
-	return owner, nil
+	return s, nil
 }
 
 func resolveKeyArg(kc KeyChange, key string) *string {

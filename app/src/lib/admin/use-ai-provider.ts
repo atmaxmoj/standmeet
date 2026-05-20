@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, type MeView } from '@/lib/api/admin';
+import { adminAPI, type MeView, type SettingsView } from '@/lib/api/admin';
 import { sessionStore } from '@/lib/admin/use-admin-session';
 import { readResource } from '@/lib/state/create-resource-store';
 
@@ -41,10 +41,8 @@ export interface SaveInput {
   key: string; // empty string → 不改 key（只切 provider）
 }
 
-interface PatchResp {
-  provider: AIProviderName;
-  key_configured: boolean;
-}
+// PatchResp —— PATCH /ai-provider 现在直接回新 SettingsView 一片。
+type PatchResp = SettingsView;
 
 export function useAIProvider(): AIProviderHook {
   const session = readResource(sessionStore);
@@ -84,8 +82,8 @@ function deriveState(
   error: string | null,
 ): AIProviderState {
   return {
-    provider: session.data?.ai_provider ?? 'anthropic',
-    keyConfigured: session.data?.ai_provider_key_configured ?? false,
+    provider: session.data?.settings.ai.provider ?? 'anthropic',
+    keyConfigured: session.data?.settings.ai.key_configured ?? false,
     loading: session.status === 'idle' || session.status === 'loading',
     saving,
     error: error ?? session.error,

@@ -69,18 +69,16 @@ func (r *OwnerRepo) getByAlias(ctx context.Context, handle string) (domain.Owner
 }
 
 // aliasRowToDomainOwner —— alias JOIN 用的 owner 子集（无 password_hash /
-// custom_domain），映射到 domain.Owner。剩余字段保持 zero value 即可。
+// custom_domain），映射到 domain.Owner identity。settings 不在这条路径上
+// 提取——/<handle> 公开页用不到 BYOAI / AI settings。
 func aliasRowToDomainOwner(o *dbq.SelectOwnerForAlias) domain.Owner {
 	return domain.Owner{
-		ID:               formatUUID(o.ID),
-		Email:            o.Email,
-		Handle:           o.Handle,
-		FullName:         o.FullName,
-		Location:         o.Location,
-		CreatedAt:        o.CreatedAt.Time,
-		BYOAIEnabled:     o.ByoaiEnabled,
-		BYOAIProviders:   decodeProviders(o.ByoaiProviders),
-		BYOAIPublicBlurb: o.ByoaiPublicBlurb,
+		ID:        formatUUID(o.ID),
+		Email:     o.Email,
+		Handle:    o.Handle,
+		FullName:  o.FullName,
+		Location:  o.Location,
+		CreatedAt: o.CreatedAt.Time,
 	}
 }
 
