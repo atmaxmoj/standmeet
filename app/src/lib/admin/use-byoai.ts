@@ -1,9 +1,14 @@
 // use-byoai —— BYOAIEditor 的 state hook。
-// 初始 GET /me 加载；PUT /byoai 持久化（debounced auto-save 简化为显式 save）。
+// 初始值从 sessionStore（/me）读；save → PUT /byoai → 让 sessionStore 重拉。
+//
+// zustand 重构：BYOAI form state 是 per-form 的（每次 mount 重置 baseline
+// 到 /me），不上 global store；但 baseline 走全应用共享的 sessionStore。
 
 import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI, type BYOAIUpdateInput, type MeView } from '@/lib/api/admin';
+import { sessionStore } from '@/lib/admin/use-admin-session';
+import { readResource } from '@/lib/state/create-resource-store';
 
 export type BYOAIProvider = 'claude' | 'openai' | 'gemini';
 
@@ -31,16 +36,20 @@ const DEFAULT: BYOAIState = {
 };
 
 export function useBYOAI(): BYOAIHook {
+  const session = readResource(sessionStore);
+  const ensureLoaded = session.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+
   const [state, setState] = useState<BYOAIState>(DEFAULT);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 当 sessionStore 第一次 ready 时把 BYOAI baseline seed 进 local form state。
   useEffect(() => {
-    let cancelled = false;
-    void initialLoad(cancelled, setState, setLoading, setError);
-    return () => { cancelled = true; };
-  }, []);
+    if (session.status === 'ready' && session.data) {
+      setState(byoaiFromMe(session.data));
+    }
+  }, [session.status, session.data]);
 
   const toggleEnabled = useCallback(() => {
     setState((s) => ({ ...s, enabled: !s.enabled }));
@@ -49,28 +58,17 @@ export function useBYOAI(): BYOAIHook {
     setState((s) => ({ ...s, providers: nextProviders(s.providers, p) }));
   }, []);
   const setBlurb = useCallback((blurb: string) => setState((s) => ({ ...s, blurb })), []);
-  const save = useCallback(
-    () => doSave(state, setSaving, setError),
-    [state],
-  );
-  return { state, loading, saving, error, toggleEnabled, toggleProvider, setBlurb, save };
-}
-
-async function initialLoad(
-  cancelled: boolean,
-  setState: (s: BYOAIState) => void,
-  setLoading: (b: boolean) => void,
-  setErr: (m: string | null) => void,
-): Promise<void> {
-  try {
-    const me = await adminAPI.get<MeView>('/me');
-    if (cancelled) return;
-    setState(toState(me));
-  } catch (e) {
-    cancelled || setErr(e instanceof Error ? e.message : 'load failed');
-  } finally {
-    cancelled || setLoading(false);
-  }
+  const save = useCallback(() => doSave(state, setSaving, setError), [state]);
+  return {
+    state,
+    loading: session.status === 'idle' || session.status === 'loading',
+    saving,
+    error: error ?? session.error,
+    toggleEnabled,
+    toggleProvider,
+    setBlurb,
+    save,
+  };
 }
 
 async function doSave(
@@ -87,6 +85,7 @@ async function doSave(
       blurb: state.blurb,
     };
     await adminAPI.put<MeView>('/byoai', body);
+    await sessionStore.getState().refresh();
     return true;
   } catch (e) {
     setErr(e instanceof Error ? e.message : 'save failed');
@@ -96,7 +95,7 @@ async function doSave(
   }
 }
 
-function toState(me: MeView): BYOAIState {
+function byoaiFromMe(me: MeView): BYOAIState {
   const known: readonly BYOAIProvider[] = ['claude', 'openai', 'gemini'];
   const filtered = me.byoai_providers.filter(
     (p): p is BYOAIProvider => (known as readonly string[]).includes(p),

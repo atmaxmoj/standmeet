@@ -1,11 +1,13 @@
 // use-ai-provider —— /admin/api-mcp "AI provider" 块的状态。
-// 读 owner profile（/me）拿当前 provider + 是否设过 key；commit 通过
+// 读 sessionStore 拿当前 provider + 是否设过 key；commit 通过
 // PATCH /admin/ai-provider 落库。明文 key 永远不在前端 state 里停留——
 // submit 一过立刻丢。
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI } from '@/lib/api/admin';
+import { adminAPI, type MeView } from '@/lib/api/admin';
+import { sessionStore } from '@/lib/admin/use-admin-session';
+import { readResource } from '@/lib/state/create-resource-store';
 
 export type AIProviderName = 'anthropic' | 'openai';
 
@@ -39,34 +41,23 @@ export interface SaveInput {
   key: string; // empty string → 不改 key（只切 provider）
 }
 
-interface MeAIProfile {
-  ai_provider: AIProviderName;
-  ai_provider_key_configured: boolean;
-}
-
 interface PatchResp {
   provider: AIProviderName;
   key_configured: boolean;
 }
 
-const INITIAL: AIProviderState = {
-  provider: 'anthropic', keyConfigured: false,
-  loading: true, saving: false, error: null,
-};
-
 export function useAIProvider(): AIProviderHook {
-  const [state, setState] = useState<AIProviderState>(INITIAL);
+  const session = readResource(sessionStore);
+  const ensureLoaded = session.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void initialLoad(cancelled, setState);
-    return () => { cancelled = true; };
-  }, []);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const save = useCallback(async (input: SaveInput): Promise<boolean> => {
     return await runPatch(
       { provider: input.provider, key_change: input.key === '' ? 'keep' : 'set', key: input.key },
-      setState,
+      setSaving, setError,
     );
   }, []);
 
@@ -76,48 +67,46 @@ export function useAIProvider(): AIProviderHook {
   const clearKey = useCallback(async (): Promise<boolean> => {
     return await runPatch(
       { provider: 'anthropic', key_change: 'clear' },
-      setState,
+      setSaving, setError,
     );
   }, []);
 
-  return { state, save, clearKey };
+  return {
+    state: deriveState(session, saving, error),
+    save,
+    clearKey,
+  };
 }
 
-async function initialLoad(
-  cancelled: boolean,
-  setState: (s: AIProviderState) => void,
-): Promise<void> {
-  try {
-    const me = await adminAPI.get<MeAIProfile>('/me');
-    cancelled || setState({
-      provider: me.ai_provider, keyConfigured: me.ai_provider_key_configured,
-      loading: false, saving: false, error: null,
-    });
-  } catch (e) {
-    cancelled || setState({
-      provider: 'anthropic', keyConfigured: false,
-      loading: false, saving: false,
-      error: e instanceof Error ? e.message : 'load failed',
-    });
-  }
+function deriveState(
+  session: ReturnType<typeof readResource<MeView>>,
+  saving: boolean,
+  error: string | null,
+): AIProviderState {
+  return {
+    provider: session.data?.ai_provider ?? 'anthropic',
+    keyConfigured: session.data?.ai_provider_key_configured ?? false,
+    loading: session.status === 'idle' || session.status === 'loading',
+    saving,
+    error: error ?? session.error,
+  };
 }
 
 async function runPatch(
   body: { provider: AIProviderName; key_change: 'keep' | 'set' | 'clear'; key?: string },
-  setState: React.Dispatch<React.SetStateAction<AIProviderState>>,
+  setSaving: (b: boolean) => void,
+  setErr: (m: string | null) => void,
 ): Promise<boolean> {
-  setState((s) => ({ ...s, saving: true, error: null }));
+  setSaving(true);
+  setErr(null);
   try {
-    const resp = await adminAPI.patch<PatchResp>('/ai-provider', body);
-    setState((s) => ({
-      ...s, provider: resp.provider, keyConfigured: resp.key_configured,
-      saving: false, error: null,
-    }));
+    await adminAPI.patch<PatchResp>('/ai-provider', body);
+    await sessionStore.getState().refresh();
     return true;
   } catch (e) {
-    setState((s) => ({
-      ...s, saving: false, error: e instanceof Error ? e.message : 'save failed',
-    }));
+    setErr(e instanceof Error ? e.message : 'save failed');
     return false;
+  } finally {
+    setSaving(false);
   }
 }

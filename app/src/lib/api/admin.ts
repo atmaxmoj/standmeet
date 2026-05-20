@@ -95,6 +95,8 @@ export interface MeView {
   byoai_enabled: boolean;
   byoai_providers: string[];
   byoai_public_blurb: string;
+  ai_provider: 'anthropic' | 'openai';
+  ai_provider_key_configured: boolean;
 }
 
 export interface BYOAIUpdateInput {

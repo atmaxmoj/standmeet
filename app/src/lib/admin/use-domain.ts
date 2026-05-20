@@ -3,10 +3,14 @@
 // 真正的 DNS 验证由 Caddy on-demand TLS (/internal/tls-ask) 兜，前端只
 // 显示 "in allow-list" / "verified" 状态（命中白名单 + Caddy 已签证书 =
 // verified；这里简化只看 allow-list 命中与否）。
+//
+// zustand 重构：domainsStore 共享 allow-list（全 app 一份）；input + 临时
+// status 留 local（form-state 本质）。
 
 import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI, type AllowedDomainsResp } from '@/lib/api/admin';
+import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 
 export type DomainStatus = 'unset' | 'pending' | 'verified';
 
@@ -26,20 +30,25 @@ export interface DomainHook {
 
 const DNS_PATTERN = /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/;
 
+export const domainsStore = createResourceStore<string[]>({
+  name: 'allowed-domains',
+  fetcher: async () => {
+    const resp = await adminAPI.get<AllowedDomainsResp>('/allowed-domains');
+    return resp.domains;
+  },
+});
+
 export function useDomain(initial: string = ''): DomainHook {
+  const r = readResource(domainsStore);
+  const ensureLoaded = r.ensureLoaded;
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+
   const [domain, setDomainRaw] = useState(initial);
-  const [allowed, setAllowed] = useState<string[]>([]);
   const [status, setStatus] = useState<DomainStatus>('unset');
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void initialLoad(cancelled, setAllowed, setLoading, setError);
-    return () => { cancelled = true; };
-  }, []);
-
+  const allowed = r.data ?? [];
   const sanitized = sanitize(domain);
   const valid = isValid(sanitized);
   const effectiveStatus = computeStatus(sanitized, allowed, status);
@@ -49,17 +58,20 @@ export function useDomain(initial: string = ''): DomainHook {
     setStatus('unset');
   }, []);
   const verify = useCallback(
-    () => void runVerify(sanitize(domain), setStatus, setSaving, setError, setAllowed),
+    () => void runVerify(sanitize(domain), setStatus, setSaving, setError),
     [domain],
   );
   const reset = useCallback(() => { setDomainRaw(''); setStatus('unset'); }, []);
-  const remove = useCallback(
-    (dom: string) => runRemove(dom, setSaving, setError, setAllowed),
-    [],
-  );
+  const remove = useCallback((dom: string) => runRemove(dom, setSaving, setError), []);
 
   return {
-    domain, status: effectiveStatus, valid, loading, saving, error, allowed,
+    domain,
+    status: effectiveStatus,
+    valid,
+    loading: r.status === 'idle' || r.status === 'loading',
+    saving,
+    error: error ?? r.error,
+    allowed,
     setDomain, verify, reset, remove,
   };
 }
@@ -70,28 +82,11 @@ function computeStatus(
   return sanitized && allowed.includes(sanitized) ? 'verified' : local;
 }
 
-async function initialLoad(
-  cancelled: boolean,
-  setAllowed: (xs: string[]) => void,
-  setLoading: (b: boolean) => void,
-  setErr: (m: string | null) => void,
-): Promise<void> {
-  try {
-    const resp = await adminAPI.get<AllowedDomainsResp>('/allowed-domains');
-    cancelled || setAllowed(resp.domains);
-  } catch (e) {
-    cancelled || setErr(e instanceof Error ? e.message : 'load failed');
-  } finally {
-    cancelled || setLoading(false);
-  }
-}
-
 async function runVerify(
   sanitized: string,
   setStatus: (s: DomainStatus) => void,
   setSaving: (b: boolean) => void,
   setErr: (m: string | null) => void,
-  setAllowed: (fn: (cur: string[]) => string[]) => void,
 ): Promise<void> {
   if (!isValid(sanitized)) return;
   setStatus('pending');
@@ -99,7 +94,8 @@ async function runVerify(
   setErr(null);
   try {
     await adminAPI.post('/allowed-domains', { domain: sanitized });
-    setAllowed((cur) => cur.includes(sanitized) ? cur : [...cur, sanitized]);
+    domainsStore.getState().mutate((prev) =>
+      (prev ?? []).includes(sanitized) ? (prev ?? []) : [...(prev ?? []), sanitized]);
     setStatus('verified');
   } catch (e) {
     setErr(e instanceof Error ? e.message : 'verify failed');
@@ -113,13 +109,12 @@ async function runRemove(
   dom: string,
   setSaving: (b: boolean) => void,
   setErr: (m: string | null) => void,
-  setAllowed: (fn: (cur: string[]) => string[]) => void,
 ): Promise<void> {
   setSaving(true);
   setErr(null);
   try {
     await adminAPI.delete(`/allowed-domains/${encodeURIComponent(dom)}`);
-    setAllowed((cur) => cur.filter((d) => d !== dom));
+    domainsStore.getState().mutate((prev) => (prev ?? []).filter((d) => d !== dom));
   } catch (e) {
     setErr(e instanceof Error ? e.message : 'remove failed');
   } finally {
