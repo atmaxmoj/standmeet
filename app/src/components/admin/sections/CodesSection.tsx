@@ -61,7 +61,7 @@ export function CodesSection() {
 function NewCodeBtn({ open }: { open: () => void }) {
   // Btn 把 onClick 调时会传 MouseEvent；openCreate(existing?) 不能把
   // 事件当成 existing 传进去（会让 modal 以为是 edit）。包一层裸调用。
-  return <Btn kind="primary" onClick={() => open()} testid="code-new">＋ new code</Btn>;
+  return <Btn kind="primary" onClick={() => open()}>＋ new code</Btn>;
 }
 
 function titleCount(hook: CodesHook): string {

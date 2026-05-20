@@ -128,10 +128,10 @@ function RequestActions({
 }: { req: AccessRequestView; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
   return req.status === 'open' ? (
     <div className="flex items-baseline gap-2 mt-4">
-      <Btn kind="ghost" size="sm" onClick={() => { void onMark(req.id, 'replied'); }} testid={`request-mark-replied-${req.id}`}>
+      <Btn kind="ghost" size="sm" onClick={() => { void onMark(req.id, 'replied'); }}>
         mark replied
       </Btn>
-      <Btn kind="ghost" size="sm" onClick={() => { void onMark(req.id, 'closed'); }} testid={`request-mark-closed-${req.id}`}>
+      <Btn kind="ghost" size="sm" onClick={() => { void onMark(req.id, 'closed'); }}>
         close
       </Btn>
     </div>

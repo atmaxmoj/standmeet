@@ -136,6 +136,16 @@ export default tseslint.config(
           message: 'Use the @/ alias instead of relative imports.',
         }],
       }],
+
+      // 禁 React 组件 prop API 渗 data-testid —— 测试 hook 只允许挂在原生
+      // DOM 元素（<button>/<div>/<input> 等小写 JSX）上，再由 Next compiler
+      // 在 prod build 里 strip 掉。组件 (大写 JSX) 不该把 testid 当 prop 暴露。
+      'react/forbid-component-props': ['error', {
+        forbid: [{
+          propName: 'data-testid',
+          message: 'data-testid is a test concern. Put it on a raw DOM element (e.g. <button data-testid="...">), not on a component. Tests should otherwise locate components via getByRole / getByLabel.',
+        }],
+      }],
     },
   },
 

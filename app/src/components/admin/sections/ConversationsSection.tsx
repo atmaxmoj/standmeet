@@ -46,7 +46,6 @@ function FilterChip({ code }: { code: string | undefined }) {
       <Link
         href="/admin/conversations"
         className="text-(--color-faint) hover:text-(--color-accent)"
-        data-testid="conv-filter-clear"
       >
         clear ×
       </Link>

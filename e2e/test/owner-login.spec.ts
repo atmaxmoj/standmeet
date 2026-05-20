@@ -37,7 +37,7 @@ test.describe.serial('owner logs back in', () => {
     await page.getByTestId('password').fill(OWNER.password);
     await page.getByTestId('submit').click();
     await page.waitForURL('**/admin/page', { timeout: 10_000 });
-    await expect(page.getByTestId('nav-page')).toBeVisible();
+    await expect(page.getByRole('link', { name: /\bpage\b/ })).toBeVisible();
   });
 
   test('wrong password shows inline error, stays on /login', async ({ page }) => {

@@ -17,6 +17,13 @@ const WORKSPACE_ROOT = path.resolve(APP_DIR, '..');
 const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: WORKSPACE_ROOT,
+  // 把 data-testid="..." attribute 在 production release build 里全删 ——
+  // dev 容器跑的也是 next build，但 e2e 依赖 testid 定位，所以默认不剥；
+  // 真正发布给访客的 build 设 STRIP_TEST_HOOKS=1 触发 SWC compile-time strip。
+  // 这是 dual-build：dev/CI 留 hook、prod release 干净 HTML。
+  compiler: process.env['STRIP_TEST_HOOKS'] === '1' ? {
+    reactRemoveProperties: { properties: ['^data-testid$'] },
+  } : undefined,
   // rewrites 用 object 形式：custom-page 必须放 beforeFiles，否则 Next 会
   // 先匹配 dynamic route `/[handle]/page.tsx`，规范化路径时加了尾杠又拿
   // 不到 page，于是来回 308（之前观察到 ERR_TOO_MANY_REDIRECTS）。

@@ -12,7 +12,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { goto, gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -48,7 +48,7 @@ async function signInAndOpenAPIMCP(page: Page): Promise<void> {
   await page.getByTestId('password').fill(OWNER.password);
   await page.getByTestId('submit').click();
   await page.waitForURL('**/admin/page', { timeout: 10_000 });
-  await page.getByTestId('nav-api-mcp').click();
+  await gotoAdminSection(page, 'api · mcp');
   await page.waitForURL('**/admin/api-mcp', { timeout: 5_000 });
 }
 

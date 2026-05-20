@@ -3,6 +3,7 @@
 // 没 token / 错 token / claim 之前的实例 → tool call 必须失败。
 
 import { test, expect } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -45,7 +46,7 @@ test.describe.serial('MCP rejects bad Bearer tokens', () => {
 });
 
 async function mcpInitNoAuth(
-  ctx: import('@playwright/test').APIRequestContext,
+  ctx: APIRequestContext,
 ): Promise<string> {
   const res = await ctx.post(`${BACKEND}/mcp`, {
     headers: { Accept: 'application/json, text/event-stream', 'Content-Type': 'application/json' },
@@ -61,7 +62,7 @@ async function mcpInitNoAuth(
 }
 
 async function mcpCallTool(
-  ctx: import('@playwright/test').APIRequestContext,
+  ctx: APIRequestContext,
   session: string,
   name: string,
   args: Record<string, unknown>,

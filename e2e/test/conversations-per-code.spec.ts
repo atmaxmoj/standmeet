@@ -12,7 +12,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { goto, gotoAdminSection } from '@/fixtures/navigate';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -40,9 +40,11 @@ test.describe.serial('admin filters conversations by code via UI link', () => {
   test('view conversations link from HR code shows only that code\'s session',
     async ({ page }) => {
       await signIn(page);
-      await page.getByTestId('nav-codes').click();
+      await gotoAdminSection(page, 'codes');
       await page.waitForURL('**/admin/codes', { timeout: 5_000 });
-      await page.getByTestId(`code-view-conversations-${HR_CODE}`).click();
+      // 两个 code 卡片各有一条 "view conversations" 链接；选 HR 那张卡的。
+      await page.getByTestId(`code-card-${HR_CODE}`)
+        .getByRole('link', { name: 'view conversations →' }).click();
       await page.waitForURL(`**/admin/conversations?code=${HR_CODE}`, { timeout: 5_000 });
 
       await expect(page.getByTestId('conv-filter-chip')).toContainText(HR_CODE);
@@ -52,7 +54,7 @@ test.describe.serial('admin filters conversations by code via UI link', () => {
       await expect(page.getByText('Investor', { exact: true })).toHaveCount(0);
 
       // 点 "clear ×" → 回到不带 code 的列表，两条都看到。
-      await page.getByTestId('conv-filter-clear').click();
+      await page.getByRole('link', { name: 'clear ×' }).click();
       await page.waitForURL('**/admin/conversations', { timeout: 5_000 });
       await expect(page.getByText('Recruiter', { exact: true })).toBeVisible();
       await expect(page.getByText('Investor', { exact: true })).toBeVisible();

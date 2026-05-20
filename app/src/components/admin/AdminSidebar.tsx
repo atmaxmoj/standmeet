@@ -51,7 +51,6 @@ function SidebarItem({ section, active }: { section: SectionDef; active: boolean
     <li>
       <Link
         href={`/admin/${section.slug}`}
-        data-testid={`nav-${section.slug}`}
         className={`group w-full text-left flex items-baseline gap-3 py-2 transition-colors ${tone}`}
       >
         <SidebarItemMarker active={active} />

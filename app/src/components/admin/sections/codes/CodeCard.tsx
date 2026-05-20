@@ -215,7 +215,6 @@ function ConversationsLink({ code }: { code: string }) {
   return (
     <Link
       href={`/admin/conversations?code=${encodeURIComponent(code)}`}
-      data-testid={`code-view-conversations-${code}`}
       className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent) mt-3 inline-block"
     >
       view conversations →

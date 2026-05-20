@@ -4,7 +4,7 @@
 // teleport。这里集中所有 goto 调用，spec 用语义化函数 like
 // `navigateToHandle(page, 'alice')`。
 
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 
@@ -25,4 +25,24 @@ export async function gotoExpectStatus(page: Page, path: string): Promise<number
 
 export async function navigateToHandle(page: Page, handle: string): Promise<void> {
   await goto(page, `/${handle}`);
+}
+
+// gotoAdminSection —— admin sidebar 上点一个 section 链接。
+// AdminSidebar 的 <Link> 把 active marker / label / hint 三段拼成 accessible
+// name（"› codes access" 或 " codes access" 等），所以匹配按 \blabel\b
+// word boundary 命中 label 本身，宽容 marker 前缀 + hint 后缀。
+export async function gotoAdminSection(page: Page, section: string): Promise<void> {
+  await page.getByRole('link', { name: sectionPattern(section) }).click();
+}
+
+// expectAdminSidebarVisible —— 检查 sidebar 6 个 section + api·mcp 都渲染。
+export async function expectAdminSidebarVisible(page: Page): Promise<void> {
+  for (const label of ['raw', 'wiki', 'conversations', 'codes', 'connectors', 'page']) {
+    await expect(page.getByRole('link', { name: sectionPattern(label) })).toBeVisible();
+  }
+}
+
+function sectionPattern(section: string): RegExp {
+  const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`);
 }

@@ -13,7 +13,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { goto, gotoAdminSection } from '@/fixtures/navigate';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -61,7 +61,7 @@ async function signInAndOpenCodes(page: Page): Promise<void> {
   await page.getByTestId('password').fill(OWNER.password);
   await page.getByTestId('submit').click();
   await page.waitForURL('**/admin/page', { timeout: 10_000 });
-  await page.getByTestId('nav-codes').click();
+  await gotoAdminSection(page, 'codes');
   await page.waitForURL('**/admin/codes', { timeout: 5_000 });
 }
 
@@ -69,7 +69,7 @@ async function createCodeInUI(
   page: Page, code: string, label: string, tags: string,
 ): Promise<void> {
   // /admin/codes UI 现在用 modal 打开创建表单；先点 "+ new code"。
-  await page.getByTestId('code-new').click();
+  await page.getByRole('button', { name: /new code/i }).click();
   await page.getByTestId('code-input').fill(code);
   await page.getByTestId('code-label').fill(label);
   await page.getByTestId('code-tags').fill(tags);

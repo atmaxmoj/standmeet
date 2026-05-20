@@ -9,7 +9,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { goto, gotoAdminSection } from '@/fixtures/navigate';
 import { issueSessionStatus } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -64,14 +64,14 @@ async function signInAndOpenCodes(page: Page): Promise<void> {
   await page.getByTestId('password').fill(OWNER.password);
   await page.getByTestId('submit').click();
   await page.waitForURL('**/admin/page', { timeout: 10_000 });
-  await page.getByTestId('nav-codes').click();
+  await gotoAdminSection(page, 'codes');
   await page.waitForURL('**/admin/codes', { timeout: 5_000 });
 }
 
 async function createCodeWithQuotas(
   page: Page, code: string, label: string, sessions: string, turns: string,
 ): Promise<void> {
-  await page.getByTestId('code-new').click();
+  await page.getByRole('button', { name: /new code/i }).click();
   await page.getByTestId('code-input').fill(code);
   await page.getByTestId('code-label').fill(label);
   await page.getByTestId('code-max-sessions').fill(sessions);

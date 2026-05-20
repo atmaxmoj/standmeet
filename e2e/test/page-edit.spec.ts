@@ -9,7 +9,7 @@ import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { expectAdminSidebarVisible, goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -50,14 +50,9 @@ async function signInToAdmin(page: Page): Promise<void> {
 }
 
 async function navigateToPageEditor(page: Page): Promise<void> {
-  // Already at /admin/page after login redirect. Sidebar should show 6 sections.
-  await expect(page.getByTestId('nav-raw')).toBeVisible();
-  await expect(page.getByTestId('nav-wiki')).toBeVisible();
-  await expect(page.getByTestId('nav-conversations')).toBeVisible();
-  await expect(page.getByTestId('nav-codes')).toBeVisible();
-  await expect(page.getByTestId('nav-connectors')).toBeVisible();
-  await expect(page.getByTestId('nav-page')).toBeVisible();
-  await expect(page.getByTestId('nav-api-mcp')).toBeVisible();
+  // Already at /admin/page after login redirect.
+  await expectAdminSidebarVisible(page);
+  await expect(page.getByRole('link', { name: /\bapi · mcp\b/ })).toBeVisible();
 }
 
 async function editHeroProse(page: Page, prose: string): Promise<void> {

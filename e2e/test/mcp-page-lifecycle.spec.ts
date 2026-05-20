@@ -93,14 +93,17 @@ async function prepareBuiltPage(
 async function pollUntilBuilt(
   request: APIRequestContext, token: string, sid: string, buildID: string,
 ): Promise<BuildPayload> {
-  for (let i = 0; i < 60; i++) {
-    const status = await callTool<BuildPayload>(
-      request, token, sid, 'custom_page.get_build', { build_id: buildID });
-    if (status.status === 'built') return status;
-    if (status.status === 'failed') throw new Error('build failed');
-    await new Promise((r) => setTimeout(r, 1_000));
-  }
-  throw new Error('build never succeeded');
+  let last: BuildPayload = { build_id: buildID, status: 'pending' };
+  await expect.poll(
+    async () => {
+      last = await callTool<BuildPayload>(
+        request, token, sid, 'custom_page.get_build', { build_id: buildID });
+      if (last.status === 'failed') throw new Error('build failed');
+      return last.status;
+    },
+    { timeout: 60_000, intervals: [1_000] },
+  ).toBe('built');
+  return last;
 }
 
 async function expectVisitorPage(page: Page, status: number): Promise<void> {
