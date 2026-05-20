@@ -31,15 +31,21 @@ export async function navigateToHandle(page: Page, handle: string): Promise<void
 // AdminSidebar 的 <Link> 把 active marker / label / hint 三段拼成 accessible
 // name（"› codes access" 或 " codes access" 等），所以匹配按 \blabel\b
 // word boundary 命中 label 本身，宽容 marker 前缀 + hint 后缀。
+// 限制在 <nav> 内避免跟卡片里的 "view conversations" 链接撞。
 export async function gotoAdminSection(page: Page, section: string): Promise<void> {
-  await page.getByRole('link', { name: sectionPattern(section) }).click();
+  await adminNav(page).getByRole('link', { name: sectionPattern(section) }).click();
 }
 
 // expectAdminSidebarVisible —— 检查 sidebar 6 个 section + api·mcp 都渲染。
 export async function expectAdminSidebarVisible(page: Page): Promise<void> {
+  const nav = adminNav(page);
   for (const label of ['raw', 'wiki', 'conversations', 'codes', 'connectors', 'page']) {
-    await expect(page.getByRole('link', { name: sectionPattern(label) })).toBeVisible();
+    await expect(nav.getByRole('link', { name: sectionPattern(label) })).toBeVisible();
   }
+}
+
+function adminNav(page: Page) {
+  return page.getByRole('navigation').first();
 }
 
 function sectionPattern(section: string): RegExp {

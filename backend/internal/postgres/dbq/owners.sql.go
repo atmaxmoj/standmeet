@@ -25,7 +25,7 @@ func (q *Queries) CountOwners(ctx context.Context) (int64, error) {
 const createOwner = `-- name: CreateOwner :one
 INSERT INTO owners (email, password_hash, handle, full_name)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, created_at
+RETURNING id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, created_at
 `
 
 type CreateOwnerParams struct {
@@ -55,6 +55,8 @@ func (q *Queries) CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
+		&i.AIProvider,
+		&i.AIProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -73,7 +75,7 @@ func (q *Queries) GetFirstOwnerHandle(ctx context.Context) (string, error) {
 }
 
 const getOwnerByEmail = `-- name: GetOwnerByEmail :one
-SELECT id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, created_at FROM owners WHERE email = $1
+SELECT id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, created_at FROM owners WHERE email = $1
 `
 
 func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, error) {
@@ -91,13 +93,15 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
+		&i.AIProvider,
+		&i.AIProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getOwnerByHandle = `-- name: GetOwnerByHandle :one
-SELECT id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, created_at FROM owners WHERE handle = $1
+SELECT id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, created_at FROM owners WHERE handle = $1
 `
 
 func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, error) {
@@ -115,13 +119,15 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
+		&i.AIProvider,
+		&i.AIProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getOwnerByID = `-- name: GetOwnerByID :one
-SELECT id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, created_at FROM owners WHERE id = $1
+SELECT id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, created_at FROM owners WHERE id = $1
 `
 
 func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, error) {
@@ -139,6 +145,8 @@ func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, erro
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
+		&i.AIProvider,
+		&i.AIProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -150,7 +158,7 @@ SET byoai_enabled = $2,
     byoai_providers = $3,
     byoai_public_blurb = $4
 WHERE id = $1
-RETURNING id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, created_at
+RETURNING id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, created_at
 `
 
 type UpdateOwnerBYOAIParams struct {
@@ -180,6 +188,46 @@ func (q *Queries) UpdateOwnerBYOAI(ctx context.Context, arg UpdateOwnerBYOAIPara
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
+		&i.AIProvider,
+		&i.AIProviderKeyEnc,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateOwnerAIProvider = `-- name: UpdateOwnerAIProvider :one
+UPDATE owners
+SET ai_provider = $2,
+    ai_provider_key_enc = $3
+WHERE id = $1
+RETURNING id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, created_at
+`
+
+type UpdateOwnerAIProviderParams struct {
+	ID               pgtype.UUID
+	AIProvider       string
+	AIProviderKeyEnc []byte
+}
+
+func (q *Queries) UpdateOwnerAIProvider(
+	ctx context.Context, arg UpdateOwnerAIProviderParams,
+) (Owner, error) {
+	row := q.db.QueryRow(ctx, updateOwnerAIProvider, arg.ID, arg.AIProvider, arg.AIProviderKeyEnc)
+	var i Owner
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Handle,
+		&i.FullName,
+		&i.Location,
+		&i.CustomDomain,
+		&i.CustomDomainStatus,
+		&i.ByoaiEnabled,
+		&i.ByoaiProviders,
+		&i.ByoaiPublicBlurb,
+		&i.AIProvider,
+		&i.AIProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err

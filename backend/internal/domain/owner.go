@@ -18,8 +18,14 @@ type Owner struct {
 	FullName         string
 	Location         string
 	BYOAIPublicBlurb string
-	BYOAIProviders   []string
-	BYOAIEnabled     bool
+	// AIProvider —— owner 自己的 inference provider id（"mock" / "anthropic" /
+	// "openai"）。给真访客 chat 用，跟 byoai_* 那条"访客自带 key"路径完全独立。
+	AIProvider     string
+	BYOAIProviders []string
+	BYOAIEnabled   bool
+	// AIProviderKeyConfigured —— 仅暴露"是否设置"，不暴露明文 key（admin
+	// UI 显示 "● key set / ○ not set" 这种）。明文/密文 storage 都在 repo 层。
+	AIProviderKeyConfigured bool
 }
 
 // CreateOwnerInput 是 usecase 层传入 Repository 的创建参数。

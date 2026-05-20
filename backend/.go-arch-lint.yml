@@ -29,6 +29,8 @@ components:
     in: internal/mcp                      # mcp-go server + tool handlers
   inference:
     in: internal/inference                # LLM provider abstraction
+  cryptobox:
+    in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
     in: internal/routes/sys
   adminroutes:
@@ -56,10 +58,12 @@ deps:
     anyVendorDeps: true
 
   # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
+  # cryptobox 给 owner-supplied key 落盘前加密（AI provider key 等）。
   postgres:
     mayDependOn:
       - domain
       - dbq
+      - cryptobox
     anyVendorDeps: true
 
   # sqlc 生成的查询代码；其他业务不该直接 import，必须经 postgres Repository。
@@ -101,6 +105,12 @@ deps:
   # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
   # 不依赖任何 internal（纯接口 + 实现 + sentinel errors）。
   inference:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # cryptobox 是无依赖的 AES-GCM helper；任何 internal 包可以 import 来落盘
+  # 加密。本身只读 INSTANCE_SECRET env，不绕回任何 internal 模块。
+  cryptobox:
     mayDependOn: []
     anyVendorDeps: true
 

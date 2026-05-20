@@ -12,6 +12,7 @@ import { NewTokenInline } from '@/components/admin/sections/api/NewTokenInline';
 import { TokenRow } from '@/components/admin/sections/api/TokenRow';
 import { MCPClientPanel } from '@/components/admin/sections/api/MCPClientPanel';
 import { MCPDownloadPanel } from '@/components/admin/sections/api/MCPDownloadPanel';
+import { AIProviderPanel } from '@/components/admin/sections/api/AIProviderPanel';
 import { useTokens, type TokenItem, type TokensHook } from '@/lib/admin/use-tokens';
 
 export function ApiSection() {
@@ -53,6 +54,7 @@ function Ready({
     <div className="space-y-10">
       <Intro />
       <TokensBlock hook={hook} state={state} />
+      <AIProviderPanel />
       <MCPClientPanel tokens={state.tokens} />
       <MCPDownloadPanel />
     </div>

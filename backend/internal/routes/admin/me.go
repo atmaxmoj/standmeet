@@ -15,13 +15,15 @@ import (
 )
 
 type meResponse struct {
-	OwnerID          string   `json:"owner_id"`
-	Email            string   `json:"email"`
-	Handle           string   `json:"handle"`
-	FullName         string   `json:"full_name"`
-	BYOAIPublicBlurb string   `json:"byoai_public_blurb"`
-	BYOAIProviders   []string `json:"byoai_providers"`
-	BYOAIEnabled     bool     `json:"byoai_enabled"`
+	OwnerID                 string   `json:"owner_id"`
+	Email                   string   `json:"email"`
+	Handle                  string   `json:"handle"`
+	FullName                string   `json:"full_name"`
+	BYOAIPublicBlurb        string   `json:"byoai_public_blurb"`
+	AIProvider              string   `json:"ai_provider"`
+	BYOAIProviders          []string `json:"byoai_providers"`
+	BYOAIEnabled            bool     `json:"byoai_enabled"`
+	AIProviderKeyConfigured bool     `json:"ai_provider_key_configured"`
 }
 
 func (h *Handlers) me() http.HandlerFunc {
@@ -46,9 +48,11 @@ func writeMe(log *slog.Logger, w http.ResponseWriter, owner *domain.Owner) {
 	resp := meResponse{
 		OwnerID: owner.ID, Email: owner.Email,
 		Handle: owner.Handle, FullName: owner.FullName,
-		BYOAIEnabled:     owner.BYOAIEnabled,
-		BYOAIProviders:   providers,
-		BYOAIPublicBlurb: owner.BYOAIPublicBlurb,
+		BYOAIEnabled:            owner.BYOAIEnabled,
+		BYOAIProviders:          providers,
+		BYOAIPublicBlurb:        owner.BYOAIPublicBlurb,
+		AIProvider:              owner.AIProvider,
+		AIProviderKeyConfigured: owner.AIProviderKeyConfigured,
 	}
 	if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
 		log.Error("encode me response", "err", encErr)

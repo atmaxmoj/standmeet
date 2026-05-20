@@ -26,3 +26,10 @@ SET byoai_enabled = $2,
     byoai_public_blurb = $4
 WHERE id = $1
 RETURNING *;
+
+-- name: UpdateOwnerAIProvider :one
+UPDATE owners
+SET ai_provider = $2,
+    ai_provider_key_enc = $3
+WHERE id = $1
+RETURNING *;

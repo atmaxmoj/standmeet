@@ -20,20 +20,21 @@ import (
 
 // Handlers 是 admin handlers 需要的依赖。
 type Handlers struct {
-	Claim          usecases.ClaimDeps
-	Auth           AuthDeps
-	APITokens      usecases.APITokenDeps
-	Corpus         CorpusDeps
-	CodesAdmin     CodesDeps
-	PageAdmin      PageAdminDeps
-	SEOAdmin       SEOAdminDeps
-	Conversations  ConversationsDeps
-	BYOAI          BYOAIDeps
-	Domains        DomainsDeps
-	AccessRequests AccessRequestsDeps
-	HandleAdmin    HandleDeps
-	Log            *slog.Logger
-	SecureCookie   bool // false 仅限 dev (http)；prod 必须 true。
+	Claim           usecases.ClaimDeps
+	Auth            AuthDeps
+	APITokens       usecases.APITokenDeps
+	Corpus          CorpusDeps
+	CodesAdmin      CodesDeps
+	PageAdmin       PageAdminDeps
+	SEOAdmin        SEOAdminDeps
+	Conversations   ConversationsDeps
+	BYOAI           BYOAIDeps
+	Domains         DomainsDeps
+	AccessRequests  AccessRequestsDeps
+	HandleAdmin     HandleDeps
+	AIProviderAdmin AIProviderDeps
+	Log             *slog.Logger
+	SecureCookie    bool // false 仅限 dev (http)；prod 必须 true。
 }
 
 // MountUnauthed 挂不需要 owner session 的 endpoint：claim / login。
@@ -58,6 +59,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountSEO(r)
 	h.MountAccessRequests(r)
 	h.MountHandle(r)
+	h.MountAIProvider(r)
 }
 
 type claimRequest struct {

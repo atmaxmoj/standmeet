@@ -50,6 +50,7 @@ type AdminDeps struct {
 	Domains        usecases.AllowedDomainsDeps
 	AccessRequests usecases.AccessRequestsDeps
 	HandleAdmin    usecases.HandleDeps
+	AIProvider     usecases.AIProviderDeps
 	Codes          *postgres.CodeRepo
 	Pages          *postgres.PageRepo
 	Sessions       *session.OwnerSessionStore
@@ -99,17 +100,18 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Auth: adminroutes.AuthDeps{
 			Login: deps.Admin.Login, Sessions: deps.Admin.Sessions,
 		},
-		APITokens:      deps.Admin.APITokens,
-		Corpus:         adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
-		CodesAdmin:     adminroutes.CodesDeps{Codes: deps.Admin.Codes},
-		PageAdmin:      adminroutes.PageAdminDeps{Pages: deps.Admin.Pages},
-		Conversations:  adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
-		BYOAI:          adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
-		Domains:        adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
-		AccessRequests: adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
-		HandleAdmin:    adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
-		Log:            deps.Log,
-		SecureCookie:   deps.Admin.SecureCookie,
+		APITokens:       deps.Admin.APITokens,
+		Corpus:          adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+		CodesAdmin:      adminroutes.CodesDeps{Codes: deps.Admin.Codes},
+		PageAdmin:       adminroutes.PageAdminDeps{Pages: deps.Admin.Pages},
+		Conversations:   adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
+		BYOAI:           adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
+		Domains:         adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
+		AccessRequests:  adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
+		HandleAdmin:     adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
+		AIProviderAdmin: adminroutes.AIProviderDeps{AI: deps.Admin.AIProvider},
+		Log:             deps.Log,
+		SecureCookie:    deps.Admin.SecureCookie,
 	}
 }
 

@@ -257,6 +257,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
 		HandleAdmin:    usecases.HandleDeps{Owners: d.ownerRepo},
+		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
 		Codes:          d.codeRepo,
 		Pages:          d.pageRepo,
 		Sessions:       d.sessionStore,

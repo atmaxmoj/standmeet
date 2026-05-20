@@ -23,6 +23,12 @@ CREATE TABLE owners (
     byoai_enabled        boolean       NOT NULL DEFAULT true,
     byoai_providers      jsonb         NOT NULL DEFAULT '["claude","openai"]'::jsonb,
     byoai_public_blurb   text          NOT NULL DEFAULT '',
+    -- owner 自己的 AI provider（"owner's AI"，给真访客 chat 用，跟上面
+    -- byoai_* "访客自带 key" 路径完全独立）。
+    -- key 走 AES-256-GCM 加密落盘，明文 INSTANCE_SECRET 在 env。
+    ai_provider          text          NOT NULL DEFAULT 'mock'
+                                        CHECK (ai_provider IN ('mock', 'anthropic', 'openai')),
+    ai_provider_key_enc  bytea         NOT NULL DEFAULT ''::bytea,
     created_at           timestamptz   NOT NULL DEFAULT now()
 );
 

@@ -1,9 +1,16 @@
-// VisitorPreviewModal —— 让 owner 看到 visitor 拿这个 code 落地时的样子。
-// 纯展示，不操作 session（owner 只是 preview）。
+// VisitorPreviewModal —— owner 看 visitor 拿这个 code 落地时的样子 + 可
+// 以"试一聊"。点 "test this code" 按真访客身份起 session（visitor_name
+// = "(owner test)"），发一条 message，看 streamed reply。
+//
+// owner 之前只能开隐身浏览器假装访客 —— 现在卡里就能跑一遍。
 
 'use client';
 
+import { useState } from 'react';
+
 import { ModalShell } from '@/components/admin/modals/ModalShell';
+import { useAdminSession } from '@/lib/admin/use-admin-session';
+import { useCodeTest, type CodeTestHook } from '@/lib/admin/use-code-test';
 
 import type { CodeView } from '@/lib/admin/use-codes';
 
@@ -17,7 +24,7 @@ export function VisitorPreviewModal({ code, onClose }: Props) {
       title={code.label}
       maxWidth={680}
     >
-      <div className="px-7 py-8 space-y-6">
+      <div className="px-7 py-8 space-y-6 max-h-[75vh] overflow-y-auto">
         <Greeting label={code.label} />
         <SuggestedList items={code.suggested_questions ?? []} />
         <ScopeNote
@@ -25,6 +32,7 @@ export function VisitorPreviewModal({ code, onClose }: Props) {
           excluded={code.excluded_tags}
           code={code.code}
         />
+        <SelfTest code={code} />
       </div>
     </ModalShell>
   );
@@ -86,4 +94,112 @@ function ScopeLine({
   return tags.length > 0
     ? <div>{label}: <span className={cls}>{tags.join(' · ')}</span></div>
     : null;
+}
+
+function SelfTest({ code }: { code: CodeView }) {
+  const session = useAdminSession();
+  const handle = session.kind === 'ready' ? session.session.handle : '';
+  const hook = useCodeTest();
+  return (
+    <div className="pt-4 border-t border-(--color-rule)/70 space-y-3">
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
+        test this code
+      </div>
+      <SelfTestBody handle={handle} code={code.code} hook={hook} />
+    </div>
+  );
+}
+
+function SelfTestBody({
+  handle, code, hook,
+}: { handle: string; code: string; hook: CodeTestHook }) {
+  return hook.state.phase === 'idle' || hook.state.phase === 'opening'
+    ? <StartRow handle={handle} code={code} hook={hook} />
+    : <ChatRow hook={hook} />;
+}
+
+function StartRow({
+  handle, code, hook,
+}: { handle: string; code: string; hook: CodeTestHook }) {
+  const busy = hook.state.phase === 'opening' || handle === '';
+  return (
+    <button
+      type="button"
+      onClick={() => void hook.start(handle, code)}
+      disabled={busy}
+      data-testid="code-self-test-start"
+      className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-3 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
+    >
+      {busy ? 'opening…' : 'open test session ↗'}
+    </button>
+  );
+}
+
+function ChatRow({ hook }: { hook: CodeTestHook }) {
+  const [text, setText] = useState('');
+  return (
+    <div className="space-y-3">
+      <ChatInputRow text={text} setText={setText} hook={hook} />
+      <ReplyArea hook={hook} />
+    </div>
+  );
+}
+
+function ChatInputRow({
+  text, setText, hook,
+}: { text: string; setText: (v: string) => void; hook: CodeTestHook }) {
+  const busy = hook.state.phase === 'streaming';
+  return (
+    <div className="flex items-baseline gap-2 border-b border-(--color-rule)">
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="ask your AI a question…"
+        spellCheck={false}
+        data-testid="code-self-test-input"
+        className="flex-1 min-w-0 bg-transparent py-2 reading-tight text-[15px]"
+      />
+      <SendBtn busy={busy} onClick={() => void hook.send(text)} />
+    </div>
+  );
+}
+
+function SendBtn({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      data-testid="code-self-test-send"
+      className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:opacity-40 shrink-0"
+    >
+      {busy ? 'streaming…' : 'send ↵'}
+    </button>
+  );
+}
+
+function ReplyArea({ hook }: { hook: CodeTestHook }) {
+  return hook.state.error !== null
+    ? <ReplyError msg={hook.state.error} />
+    : <ReplyText reply={hook.state.reply} />;
+}
+
+function ReplyText({ reply }: { reply: string }) {
+  return reply === '' ? null : (
+    <div
+      data-testid="code-self-test-reply"
+      className="reading-tight text-(--color-ink) text-[14.5px] whitespace-pre-wrap border-l border-(--color-accent) pl-3 py-1"
+    >
+      {reply}
+    </div>
+  );
+}
+
+function ReplyError({ msg }: { msg: string }) {
+  return (
+    <p className="mono text-[10.5px] text-(--color-accent)">
+      {msg}
+    </p>
+  );
 }

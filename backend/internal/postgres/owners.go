@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/wangsijie/standmeet/internal/cryptobox"
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres/dbq"
 )
@@ -73,15 +74,17 @@ func pgUniqueViolation(err error) (string, bool) {
 // 映射到 domain.Owner（纯 Go 类型）。pointer 接收避免 gocritic hugeParam。
 func toDomainOwner(o *dbq.Owner) domain.Owner {
 	return domain.Owner{
-		ID:               formatUUID(o.ID),
-		Email:            o.Email,
-		Handle:           o.Handle,
-		FullName:         o.FullName,
-		Location:         o.Location,
-		CreatedAt:        o.CreatedAt.Time,
-		BYOAIEnabled:     o.ByoaiEnabled,
-		BYOAIProviders:   decodeProviders(o.ByoaiProviders),
-		BYOAIPublicBlurb: o.ByoaiPublicBlurb,
+		ID:                      formatUUID(o.ID),
+		Email:                   o.Email,
+		Handle:                  o.Handle,
+		FullName:                o.FullName,
+		Location:                o.Location,
+		CreatedAt:               o.CreatedAt.Time,
+		BYOAIEnabled:            o.ByoaiEnabled,
+		BYOAIProviders:          decodeProviders(o.ByoaiProviders),
+		BYOAIPublicBlurb:        o.ByoaiPublicBlurb,
+		AIProvider:              o.AIProvider,
+		AIProviderKeyConfigured: len(o.AIProviderKeyEnc) > 0,
 	}
 }
 
@@ -147,6 +150,37 @@ func buildBYOAIParams(in *UpdateBYOAIInput) (dbq.UpdateOwnerBYOAIParams, error) 
 		ByoaiProviders:   encoded,
 		ByoaiPublicBlurb: in.Blurb,
 	}, nil
+}
+
+// UpdateAIProviderInput —— admin "AI provider" 表单的 commit 入参。
+// KeyPlaintext == nil 表示不动 key（只改 provider）；空 string 显式清掉 key。
+type UpdateAIProviderInput struct {
+	KeyPlaintext *string
+	OwnerID      string
+	Provider     string
+}
+
+// UpdateAIProvider —— commit owner 的 AI provider 选择。当 KeyPlaintext 非
+// nil 时同步换 ai_provider_key_enc；为 nil 时保留原 key（仅切 provider）。
+func (r *OwnerRepo) UpdateAIProvider(
+	ctx context.Context, in *UpdateAIProviderInput,
+) (domain.Owner, error) {
+	pgID, perr := parseUUID(in.OwnerID)
+	if perr != nil {
+		return domain.Owner{}, fmt.Errorf("parse owner id: %w", perr)
+	}
+	encBytes, eerr := r.resolveKeyBytes(ctx, pgID, in.KeyPlaintext)
+	if eerr != nil {
+		return domain.Owner{}, eerr
+	}
+	q := dbq.New(r.pool)
+	row, qerr := q.UpdateOwnerAIProvider(ctx, dbq.UpdateOwnerAIProviderParams{
+		ID: pgID, AIProvider: in.Provider, AIProviderKeyEnc: encBytes,
+	})
+	if qerr != nil {
+		return domain.Owner{}, fmt.Errorf("update ai provider: %w", qerr)
+	}
+	return toDomainOwner(&row), nil
 }
 
 // UpdateHandle —— owner 改 handle 一组 atomic：先读旧 handle、UPDATE owners
@@ -218,4 +252,26 @@ func doUpdateHandle(
 		return domain.ErrHandleTaken
 	}
 	return fmt.Errorf("update handle: %w", err)
+}
+
+// resolveKeyBytes —— KeyPlaintext nil 时复用原 enc bytes；非 nil 时空字符串
+// 清空（[]byte{}），非空字符串用 cryptobox 加密。给 UpdateAIProvider 用。
+func (r *OwnerRepo) resolveKeyBytes(
+	ctx context.Context, pgID pgtype.UUID, key *string,
+) ([]byte, error) {
+	if key == nil {
+		row, err := dbq.New(r.pool).GetOwnerByID(ctx, pgID)
+		if err != nil {
+			return nil, fmt.Errorf("get owner for key carryover: %w", err)
+		}
+		return row.AIProviderKeyEnc, nil
+	}
+	if *key == "" {
+		return []byte{}, nil
+	}
+	encBytes, err := cryptobox.Encrypt([]byte(*key))
+	if err != nil {
+		return nil, fmt.Errorf("encrypt ai key: %w", err)
+	}
+	return encBytes, nil
 }

@@ -143,6 +143,8 @@ type Owner struct {
 	ByoaiEnabled       bool
 	ByoaiProviders     []byte
 	ByoaiPublicBlurb   string
+	AIProvider         string
+	AIProviderKeyEnc   []byte
 	CreatedAt          pgtype.Timestamptz
 }
 
