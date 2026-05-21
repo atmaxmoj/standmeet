@@ -1,6 +1,6 @@
 // lever.go —— Lever public postings API。
 //
-//   GET {base}/v0/postings/{company}?mode=json
+//	GET {base}/v0/postings/{company}?mode=json
 //
 // 返回数组（不是 envelope）。每条 { id (uuid), text (title), categories
 // { commitment, department, location, team }, createdAt (epoch ms),
@@ -34,7 +34,7 @@ func newLeverFetcher(client *http.Client, envBase string) *leverFetcher {
 func (f *leverFetcher) Fetch(
 	ctx context.Context, cfg map[string]any,
 ) ([]domain.FetchedJob, error) {
-	company, _ := cfg["company"].(string)
+	company := companyField(cfg)
 	if company == "" {
 		return nil, fmt.Errorf("lever missing company: %w", domain.ErrJobSourceConfigInvalid)
 	}
@@ -53,12 +53,12 @@ func (f *leverFetcher) Fetch(
 type leverPosting struct {
 	ID          string        `json:"id"`
 	Text        string        `json:"text"`
-	Categories  leverCategory `json:"categories"`
-	CreatedAt   int64         `json:"createdAt"` // epoch ms
 	HostedURL   string        `json:"hostedUrl"`
 	ApplyURL    string        `json:"applyUrl"`
 	Description string        `json:"description"`
+	Categories  leverCategory `json:"categories"`
 	Tags        []string      `json:"tags"`
+	CreatedAt   int64         `json:"createdAt"`
 }
 
 type leverCategory struct {

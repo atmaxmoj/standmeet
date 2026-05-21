@@ -1,6 +1,6 @@
 // greenhouse.go —— Greenhouse Job Board public API。
 //
-//   GET {base}/v1/boards/{company}/jobs?content=true
+//	GET {base}/v1/boards/{company}/jobs?content=true
 //
 // 返回 {"jobs": [...]}。每条 job 有 id (int) / title / company_name /
 // location.name / departments[] / offices[] / first_published (ISO) /
@@ -38,7 +38,7 @@ func newGreenhouseFetcher(client *http.Client, envBase string) *greenhouseFetche
 func (f *greenhouseFetcher) Fetch(
 	ctx context.Context, cfg map[string]any,
 ) ([]domain.FetchedJob, error) {
-	company, _ := cfg["company"].(string)
+	company := companyField(cfg)
 	if company == "" {
 		return nil, fmt.Errorf("greenhouse missing company: %w", domain.ErrJobSourceConfigInvalid)
 	}
@@ -59,16 +59,16 @@ type greenhouseResp struct {
 }
 
 type greenhouseJob struct {
-	ID             int64              `json:"id"`
 	Title          string             `json:"title"`
 	CompanyName    string             `json:"company_name"`
 	Location       greenhouseLocation `json:"location"`
-	Departments    []greenhouseTagged `json:"departments"`
-	Offices        []greenhouseTagged `json:"offices"`
 	FirstPublished string             `json:"first_published"`
 	UpdatedAt      string             `json:"updated_at"`
 	AbsoluteURL    string             `json:"absolute_url"`
 	Content        string             `json:"content"`
+	Departments    []greenhouseTagged `json:"departments"`
+	Offices        []greenhouseTagged `json:"offices"`
+	ID             int64              `json:"id"`
 }
 
 type greenhouseLocation struct {

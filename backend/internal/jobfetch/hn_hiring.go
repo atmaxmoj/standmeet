@@ -1,8 +1,9 @@
 // hn_hiring.go —— HackerNews "Ask HN: Who is hiring?" 月度大帖。
 //
 // 数据源是 HN firebase REST：
-//   GET {base}/v0/user/whoishiring.json    → {submitted: [int, ...]}
-//   GET {base}/v0/item/{id}.json           → 单 item (item.kids 是 comment ids)
+//
+//	GET {base}/v0/user/whoishiring.json    → {submitted: [int, ...]}
+//	GET {base}/v0/item/{id}.json           → 单 item (item.kids 是 comment ids)
 //
 // 找最新月度帖：whoishiring.submitted 里第一条 title 以
 // "Ask HN: Who is hiring" 开头的 story；再 walk kids 拿 top-level
@@ -54,15 +55,12 @@ func (f *hnHiringFetcher) Fetch(
 	if err != nil {
 		return nil, err
 	}
-	limit := len(thread.Kids)
-	if limit > hnMaxComments {
-		limit = hnMaxComments
-	}
+	limit := min(len(thread.Kids), hnMaxComments)
 	out := make([]domain.FetchedJob, 0, limit)
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		comment, ferr := f.fetchItem(ctx, thread.Kids[i])
 		if ferr != nil {
-			continue // single bad comment 不 fail 整批
+			continue // single bad comment doesn't fail the batch
 		}
 		if comment.Deleted || comment.Dead || comment.Text == "" {
 			continue
@@ -78,11 +76,8 @@ func (f *hnHiringFetcher) findLatestHiringThread(ctx context.Context) (int64, er
 	if err := getJSON(ctx, f.client, url, &user); err != nil {
 		return 0, err
 	}
-	limit := len(user.Submitted)
-	if limit > hnSubmittedDepth {
-		limit = hnSubmittedDepth
-	}
-	for i := 0; i < limit; i++ {
+	limit := min(len(user.Submitted), hnSubmittedDepth)
+	for i := range limit {
 		item, err := f.fetchItem(ctx, user.Submitted[i])
 		if err != nil {
 			continue
@@ -108,12 +103,12 @@ type hnUser struct {
 }
 
 type hnItem struct {
-	ID      int64   `json:"id"`
 	Title   string  `json:"title"`
 	By      string  `json:"by"`
-	Time    int64   `json:"time"` // epoch seconds
 	Text    string  `json:"text"`
 	Kids    []int64 `json:"kids"`
+	ID      int64   `json:"id"`
+	Time    int64   `json:"time"`
 	Parent  int64   `json:"parent"`
 	Deleted bool    `json:"deleted"`
 	Dead    bool    `json:"dead"`

@@ -7,7 +7,6 @@
 //
 // 见 docs/design/job-loop.md "状态分工" 决策 L.1：StandMeet 不 reason job /
 // 不打分 / 不排序——adapter 只把"今天这个源现在有哪些 job"原样输出。
-
 package jobfetch
 
 import (
@@ -20,8 +19,8 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 )
 
+// Source kind strings —— 跟 schema CHECK 约束 + register_source 入参对齐。
 const (
-	// 源 kind 字符串（跟 schema CHECK 约束对齐）。
 	KindGreenhouse      = "greenhouse"
 	KindLever           = "lever"
 	KindAshby           = "ashby"
@@ -30,7 +29,9 @@ const (
 	KindHNHiring        = "hn_hiring"
 	KindSmartRecruiters = "smartrecruiters"
 	KindWorkable        = "workable"
+)
 
+const (
 	defaultHTTPTimeout = 20 * time.Second
 	defaultUserAgent   = "StandMeet/0.1 (+https://github.com/wangsijie/standmeet)"
 )
@@ -48,18 +49,21 @@ type Registry struct {
 
 // New 构造 Registry。BaseURLs 可单独设（e2e mock 时塞 fake server 地址），
 // 任何 zero string 走 const 真 URL。
-func New(baseURLs BaseURLs) *Registry {
+func New(b *BaseURLs) *Registry {
+	if b == nil {
+		b = &BaseURLs{}
+	}
 	client := &http.Client{Timeout: defaultHTTPTimeout}
 	return &Registry{
 		fetchers: map[string]Fetcher{
-			KindGreenhouse:      newGreenhouseFetcher(client, baseURLs.Greenhouse),
-			KindLever:           newLeverFetcher(client, baseURLs.Lever),
-			KindAshby:           newAshbyFetcher(client, baseURLs.Ashby),
-			KindRemoteOK:        newRemoteOKFetcher(client, baseURLs.RemoteOK),
-			KindWWR:             newWWRFetcher(client, baseURLs.WWR),
-			KindHNHiring:        newHNHiringFetcher(client, baseURLs.HN),
-			KindSmartRecruiters: newSmartRecruitersFetcher(client, baseURLs.SmartRecruiters),
-			KindWorkable:        newWorkableFetcher(client, baseURLs.Workable),
+			KindGreenhouse:      newGreenhouseFetcher(client, b.Greenhouse),
+			KindLever:           newLeverFetcher(client, b.Lever),
+			KindAshby:           newAshbyFetcher(client, b.Ashby),
+			KindRemoteOK:        newRemoteOKFetcher(client, b.RemoteOK),
+			KindWWR:             newWWRFetcher(client, b.WWR),
+			KindHNHiring:        newHNHiringFetcher(client, b.HN),
+			KindSmartRecruiters: newSmartRecruitersFetcher(client, b.SmartRecruiters),
+			KindWorkable:        newWorkableFetcher(client, b.Workable),
 		},
 	}
 }
@@ -95,8 +99,6 @@ func (r *Registry) Fetch(
 
 // ValidateKindConfig —— 在 register_source 路径上校验 (kind, config) 形状。
 // 拿不动 fetcher 实例就走基础规则（kind 在 enum、config 含必填 key）。
-//
-//nolint:cyclop // dispatch by kind 天然多分支，拆 helper 会更难读
 func ValidateKindConfig(kind string, cfg map[string]any) error {
 	switch kind {
 	case KindGreenhouse, KindLever, KindAshby, KindSmartRecruiters, KindWorkable:

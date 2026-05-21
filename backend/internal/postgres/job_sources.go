@@ -140,28 +140,11 @@ func (r *JobSourceRepo) FilterUnseenExternalIDs(
 	if len(candidates) == 0 {
 		return nil, nil
 	}
-	sourceUUID, err := parseUUID(sourceID)
+	seen, err := r.lookupSeen(ctx, sourceID, candidates)
 	if err != nil {
-		return nil, fmt.Errorf("parse source id: %w", err)
+		return nil, err
 	}
-	q := dbq.New(r.pool)
-	seen, err := q.GetExistingFingerprints(ctx, dbq.GetExistingFingerprintsParams{
-		SourceID: sourceUUID, Column2: candidates,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("get existing fingerprints: %w", err)
-	}
-	seenSet := make(map[string]struct{}, len(seen))
-	for _, e := range seen {
-		seenSet[e] = struct{}{}
-	}
-	unseen := make([]string, 0, len(candidates)-len(seen))
-	for _, c := range candidates {
-		if _, ok := seenSet[c]; !ok {
-			unseen = append(unseen, c)
-		}
-	}
-	return unseen, nil
+	return diffUnseen(candidates, seen), nil
 }
 
 // RecordSeenExternalIDs —— 把刚返给 owner 的新 job 的 external_id 写进
@@ -185,6 +168,37 @@ func (r *JobSourceRepo) RecordSeenExternalIDs(
 		}
 	}
 	return nil
+}
+
+func (r *JobSourceRepo) lookupSeen(
+	ctx context.Context, sourceID string, candidates []string,
+) ([]string, error) {
+	sourceUUID, err := parseUUID(sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("parse source id: %w", err)
+	}
+	q := dbq.New(r.pool)
+	seen, err := q.GetExistingFingerprints(ctx, dbq.GetExistingFingerprintsParams{
+		SourceID: sourceUUID, Column2: candidates,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get existing fingerprints: %w", err)
+	}
+	return seen, nil
+}
+
+func diffUnseen(candidates, seen []string) []string {
+	seenSet := make(map[string]struct{}, len(seen))
+	for _, e := range seen {
+		seenSet[e] = struct{}{}
+	}
+	unseen := make([]string, 0, len(candidates)-len(seen))
+	for _, c := range candidates {
+		if _, ok := seenSet[c]; !ok {
+			unseen = append(unseen, c)
+		}
+	}
+	return unseen
 }
 
 // toDomainJobSource —— sqlc Row → domain.JobSource。Config jsonb 反序列化。

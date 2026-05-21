@@ -50,31 +50,74 @@ func jobsRegisterSourceTool() mcpgo.Tool {
 
 func invokeJobsRegisterSource(deps *Deps) invokeFn {
 	return func(ctx context.Context, req *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
-		ownerID := OwnerIDFrom(ctx)
-		if ownerID == "" {
-			return mcpgo.NewToolResultError(errUnauthorized)
+		in, errResult := parseRegisterSourceArgs(ctx, req)
+		if errResult != nil {
+			return errResult
 		}
-		kind, rerr := req.RequireString("kind")
-		if rerr != nil {
-			return mcpgo.NewToolResultError("kind is required")
-		}
-		label, rerr := req.RequireString("label")
-		if rerr != nil {
-			return mcpgo.NewToolResultError("label is required")
-		}
-		cfgRaw := req.GetArguments()["config"]
-		cfg, _ := cfgRaw.(map[string]any)
-		if cfg == nil {
-			cfg = map[string]any{}
-		}
-		src, err := usecases.RegisterJobSource(ctx, deps.Jobs, &domain.CreateJobSourceInput{
-			OwnerID: ownerID, Kind: kind, Config: cfg, Label: label,
-		})
+		src, err := usecases.RegisterJobSource(ctx, deps.Jobs, in)
 		if err != nil {
 			return jobsErrToResult(err, deps, "register_source")
 		}
-		return marshalResult(deps, jobSourceView(src))
+		v := jobSourceView(&src)
+		return marshalResult(deps, &v)
 	}
+}
+
+// optionalSourceID lifts the "source_id" string arg into a *string,
+// nil when absent (fetch_new defaults to "all sources" in that case).
+func optionalSourceID(req *mcpgo.CallToolRequest) *string {
+	sid := req.GetString("source_id", "")
+	if sid == "" {
+		return nil
+	}
+	return &sid
+}
+
+// parseRegisterSourceArgs validates the inbound MCP args and returns either
+// the typed input or an error CallToolResult ready to send back.
+func parseRegisterSourceArgs(
+	ctx context.Context, req *mcpgo.CallToolRequest,
+) (*domain.CreateJobSourceInput, *mcpgo.CallToolResult) {
+	ownerID := OwnerIDFrom(ctx)
+	if ownerID == "" {
+		return nil, mcpgo.NewToolResultError(errUnauthorized)
+	}
+	pair, errResult := readRegisterSourceStrings(req)
+	if errResult != nil {
+		return nil, errResult
+	}
+	return &domain.CreateJobSourceInput{
+		OwnerID: ownerID, Kind: pair.kind, Config: readConfigMap(req), Label: pair.label,
+	}, nil
+}
+
+// registerSourceStrings is the {kind, label} pair pulled from the MCP args;
+// helper returns it as one value to stay within function-result-limit=2.
+type registerSourceStrings struct {
+	kind  string
+	label string
+}
+
+func readRegisterSourceStrings(
+	req *mcpgo.CallToolRequest,
+) (*registerSourceStrings, *mcpgo.CallToolResult) {
+	k, kerr := req.RequireString("kind")
+	if kerr != nil {
+		return nil, mcpgo.NewToolResultError("kind is required")
+	}
+	l, lerr := req.RequireString("label")
+	if lerr != nil {
+		return nil, mcpgo.NewToolResultError("label is required")
+	}
+	return &registerSourceStrings{kind: k, label: l}, nil
+}
+
+func readConfigMap(req *mcpgo.CallToolRequest) map[string]any {
+	cfg, ok := req.GetArguments()["config"].(map[string]any)
+	if !ok || cfg == nil {
+		return map[string]any{}
+	}
+	return cfg
 }
 
 // ---- jobs.list_sources ----------------------------------------------------
@@ -97,10 +140,10 @@ func invokeJobsListSources(deps *Deps) invokeFn {
 			return jobsErrToResult(err, deps, "list_sources")
 		}
 		out := make([]jobSourceViewT, 0, len(list))
-		for _, s := range list {
-			out = append(out, jobSourceView(s))
+		for i := range list {
+			out = append(out, jobSourceView(&list[i]))
 		}
-		return marshalResult(deps, jobsListResp{Sources: out})
+		return marshalResult(deps, &jobsListResp{Sources: out})
 	}
 }
 
@@ -128,7 +171,7 @@ func invokeJobsUnregisterSource(deps *Deps) invokeFn {
 		if err := usecases.UnregisterJobSource(ctx, deps.Jobs, ownerID, sid); err != nil {
 			return jobsErrToResult(err, deps, "unregister_source")
 		}
-		return marshalResult(deps, okResp{OK: true})
+		return marshalResult(deps, &okResp{OK: true})
 	}
 }
 
@@ -152,19 +195,12 @@ func invokeJobsFetchNew(deps *Deps) invokeFn {
 		if ownerID == "" {
 			return mcpgo.NewToolResultError(errUnauthorized)
 		}
-		var sidPtr *string
-		if sid := req.GetString("source_id", ""); sid != "" {
-			sidPtr = &sid
-		}
+		sidPtr := optionalSourceID(req)
 		jobs, err := usecases.FetchNewJobs(ctx, deps.Jobs, ownerID, sidPtr)
 		if err != nil {
 			return jobsErrToResult(err, deps, "fetch_new")
 		}
-		out := make([]fetchedJobView, 0, len(jobs))
-		for _, j := range jobs {
-			out = append(out, fetchedJobToView(j))
-		}
-		return marshalResult(deps, jobsFetchResp{Jobs: out})
+		return marshalResult(deps, &jobsFetchResp{Jobs: fetchedJobViews(jobs)})
 	}
 }
 
@@ -193,7 +229,8 @@ func invokeJobsShow(deps *Deps) invokeFn {
 		if err != nil {
 			return jobsErrToResult(err, deps, "show")
 		}
-		return marshalResult(deps, fetchedJobToView(job))
+		v := fetchedJobToView(&job)
+		return marshalResult(deps, &v)
 	}
 }
 
@@ -220,24 +257,32 @@ func invokeJobsDiscard(deps *Deps) invokeFn {
 		if err := usecases.DiscardJob(ctx, deps.Jobs, ownerID, cid); err != nil {
 			return jobsErrToResult(err, deps, "discard")
 		}
-		return marshalResult(deps, okResp{OK: true})
+		return marshalResult(deps, &okResp{OK: true})
 	}
 }
 
 // ---- view helpers / error mapping -----------------------------------------
 
 func jobsErrToResult(err error, deps *Deps, op string) *mcpgo.CallToolResult {
+	if msg, ok := jobsClientErr(err); ok {
+		return mcpgo.NewToolResultError(msg)
+	}
+	deps.Log.Error("mcp jobs."+op, "err", err)
+	return mcpgo.NewToolResultError(fmt.Sprintf("jobs.%s failed", op))
+}
+
+// jobsClientErr maps known domain sentinels to user-facing messages.
+// Returns (msg, true) when the error is one of the recognized sentinels.
+func jobsClientErr(err error) (string, bool) {
 	switch {
 	case errors.Is(err, domain.ErrJobSourceKindInvalid):
-		return mcpgo.NewToolResultError("kind invalid")
+		return "kind invalid", true
 	case errors.Is(err, domain.ErrJobSourceConfigInvalid):
-		return mcpgo.NewToolResultError("config invalid: " + err.Error())
+		return "config invalid: " + err.Error(), true
 	case errors.Is(err, domain.ErrJobSourceNotFound):
-		return mcpgo.NewToolResultError("source not found")
+		return "source not found", true
 	case errors.Is(err, domain.ErrJobCacheMiss):
-		return mcpgo.NewToolResultError("job cache miss (expired or never existed)")
-	default:
-		deps.Log.Error("mcp jobs."+op, "err", err)
-		return mcpgo.NewToolResultError(fmt.Sprintf("jobs.%s failed", op))
+		return "job cache miss (expired or never existed)", true
 	}
+	return "", false
 }

@@ -31,10 +31,7 @@ type JobsDeps struct {
 func RegisterJobSource(
 	ctx context.Context, deps JobsDeps, in *domain.CreateJobSourceInput,
 ) (domain.JobSource, error) {
-	if in.OwnerID == "" || in.Kind == "" || in.Label == "" {
-		return domain.JobSource{}, ErrEmptyField
-	}
-	if err := jobfetch.ValidateKindConfig(in.Kind, in.Config); err != nil {
+	if err := validateRegisterInput(in); err != nil {
 		return domain.JobSource{}, err
 	}
 	src, err := deps.Sources.Create(ctx, in)
@@ -42,6 +39,16 @@ func RegisterJobSource(
 		return domain.JobSource{}, fmt.Errorf("create source: %w", err)
 	}
 	return src, nil
+}
+
+func validateRegisterInput(in *domain.CreateJobSourceInput) error {
+	if in.OwnerID == "" || in.Kind == "" || in.Label == "" {
+		return ErrEmptyField
+	}
+	if err := jobfetch.ValidateKindConfig(in.Kind, in.Config); err != nil {
+		return fmt.Errorf("validate kind/config: %w", err)
+	}
+	return nil
 }
 
 // ListJobSources —— owner 的全部 source。
@@ -101,67 +108,110 @@ func selectSourcesToFetch(
 	if sourceID != nil && *sourceID != "" {
 		src, err := deps.Sources.GetByID(ctx, ownerID, *sourceID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get source by id: %w", err)
 		}
 		return []domain.JobSource{src}, nil
 	}
-	return deps.Sources.ListByOwner(ctx, ownerID)
+	list, err := deps.Sources.ListByOwner(ctx, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("list sources: %w", err)
+	}
+	return list, nil
 }
 
 func fetchOneSourceAndDedup(
+	ctx context.Context, deps JobsDeps, src *domain.JobSource,
+) ([]domain.FetchedJob, error) {
+	raw, err := fetchAndStampSourceID(ctx, deps, src)
+	if err != nil {
+		return nil, err
+	}
+	newJobs, err := keepUnseen(ctx, deps, src.ID, raw)
+	if err != nil {
+		return nil, err
+	}
+	return persistNewJobs(ctx, deps, src, newJobs)
+}
+
+func persistNewJobs(
+	ctx context.Context, deps JobsDeps, src *domain.JobSource, newJobs []domain.FetchedJob,
+) ([]domain.FetchedJob, error) {
+	if len(newJobs) == 0 {
+		return nil, touchSource(ctx, deps, src.ID)
+	}
+	withCache, err := deps.Cache.Put(ctx, src.OwnerID, newJobs)
+	if err != nil {
+		return nil, fmt.Errorf("cache put: %w", err)
+	}
+	if rerr := recordSeenAndTouch(ctx, deps, src.ID, withCache); rerr != nil {
+		return nil, rerr
+	}
+	return withCache, nil
+}
+
+func fetchAndStampSourceID(
 	ctx context.Context, deps JobsDeps, src *domain.JobSource,
 ) ([]domain.FetchedJob, error) {
 	raw, err := deps.Registry.Fetch(ctx, src.Kind, src.Config)
 	if err != nil {
 		return nil, fmt.Errorf("fetch source %s: %w", src.ID, err)
 	}
-	// fill source_id (fetcher 自己不知道)
 	for i := range raw {
 		raw[i].SourceID = src.ID
 	}
-	// dedup against fingerprints
-	candidates := make([]string, 0, len(raw))
-	for i := range raw {
-		candidates = append(candidates, raw[i].ExternalID)
-	}
-	unseen, err := deps.Sources.FilterUnseenExternalIDs(ctx, src.ID, candidates)
+	return raw, nil
+}
+
+func keepUnseen(
+	ctx context.Context, deps JobsDeps, sourceID string, raw []domain.FetchedJob,
+) ([]domain.FetchedJob, error) {
+	unseen, err := deps.Sources.FilterUnseenExternalIDs(ctx, sourceID, externalIDsOf(raw))
 	if err != nil {
 		return nil, fmt.Errorf("filter unseen: %w", err)
 	}
-	unseenSet := make(map[string]struct{}, len(unseen))
-	for _, e := range unseen {
-		unseenSet[e] = struct{}{}
-	}
-	newJobs := raw[:0]
+	return pickByIDSet(raw, unseen), nil
+}
+
+func externalIDsOf(raw []domain.FetchedJob) []string {
+	out := make([]string, 0, len(raw))
 	for i := range raw {
-		if _, ok := unseenSet[raw[i].ExternalID]; ok {
-			newJobs = append(newJobs, raw[i])
+		out = append(out, raw[i].ExternalID)
+	}
+	return out
+}
+
+func pickByIDSet(raw []domain.FetchedJob, allowed []string) []domain.FetchedJob {
+	set := make(map[string]struct{}, len(allowed))
+	for _, e := range allowed {
+		set[e] = struct{}{}
+	}
+	out := raw[:0]
+	for i := range raw {
+		if _, ok := set[raw[i].ExternalID]; ok {
+			out = append(out, raw[i])
 		}
 	}
-	if len(newJobs) == 0 {
-		// 仍然 touch fetched timestamp + record empty fingerprint 没意义
-		if terr := deps.Sources.TouchFetched(ctx, src.ID); terr != nil {
-			return nil, fmt.Errorf("touch: %w", terr)
-		}
-		return nil, nil
+	return out
+}
+
+func recordSeenAndTouch(
+	ctx context.Context, deps JobsDeps, sourceID string, jobs []domain.FetchedJob,
+) error {
+	newIDs := make([]string, 0, len(jobs))
+	for i := range jobs {
+		newIDs = append(newIDs, jobs[i].ExternalID)
 	}
-	// 进 Redis 池子（分配 cache_id）
-	withCache, err := deps.Cache.Put(ctx, src.OwnerID, newJobs)
-	if err != nil {
-		return nil, fmt.Errorf("cache put: %w", err)
+	if err := deps.Sources.RecordSeenExternalIDs(ctx, sourceID, newIDs); err != nil {
+		return fmt.Errorf("record fingerprints: %w", err)
 	}
-	// 落 fingerprint（下次 dedup 命中）
-	newIDs := make([]string, 0, len(withCache))
-	for _, j := range withCache {
-		newIDs = append(newIDs, j.ExternalID)
+	return touchSource(ctx, deps, sourceID)
+}
+
+func touchSource(ctx context.Context, deps JobsDeps, sourceID string) error {
+	if err := deps.Sources.TouchFetched(ctx, sourceID); err != nil {
+		return fmt.Errorf("touch: %w", err)
 	}
-	if rerr := deps.Sources.RecordSeenExternalIDs(ctx, src.ID, newIDs); rerr != nil {
-		return nil, fmt.Errorf("record fingerprints: %w", rerr)
-	}
-	if terr := deps.Sources.TouchFetched(ctx, src.ID); terr != nil {
-		return nil, fmt.Errorf("touch: %w", terr)
-	}
-	return withCache, nil
+	return nil
 }
 
 // ShowJob —— 池子里反查；过期 / discard 后返 ErrJobCacheMiss。

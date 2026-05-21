@@ -25,7 +25,6 @@ type jobsListResp struct {
 
 type fetchedJobView struct {
 	PublishedAt string   `json:"published_at,omitempty"`
-	Tags        []string `json:"tags"`
 	CacheID     string   `json:"cache_id"`
 	SourceID    string   `json:"source_id"`
 	SourceKind  string   `json:"source_kind"`
@@ -35,6 +34,7 @@ type fetchedJobView struct {
 	Location    string   `json:"location"`
 	URL         string   `json:"url"`
 	BodyText    string   `json:"body_text,omitempty"`
+	Tags        []string `json:"tags"`
 }
 
 type jobsFetchResp struct {
@@ -45,7 +45,7 @@ type okResp struct {
 	OK bool `json:"ok"`
 }
 
-func jobSourceView(s domain.JobSource) jobSourceViewT {
+func jobSourceView(s *domain.JobSource) jobSourceViewT {
 	v := jobSourceViewT{
 		ID:        s.ID,
 		Kind:      s.Kind,
@@ -60,7 +60,7 @@ func jobSourceView(s domain.JobSource) jobSourceViewT {
 	return v
 }
 
-func (p jobSourceViewT) marshalJSON() ([]byte, error) {
+func (p *jobSourceViewT) marshalJSON() ([]byte, error) {
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal job source view: %w", err)
@@ -68,7 +68,7 @@ func (p jobSourceViewT) marshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func (p jobsListResp) marshalJSON() ([]byte, error) {
+func (p *jobsListResp) marshalJSON() ([]byte, error) {
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal jobs list: %w", err)
@@ -76,7 +76,7 @@ func (p jobsListResp) marshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func (p fetchedJobView) marshalJSON() ([]byte, error) {
+func (p *fetchedJobView) marshalJSON() ([]byte, error) {
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal fetched job view: %w", err)
@@ -84,7 +84,7 @@ func (p fetchedJobView) marshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func (p jobsFetchResp) marshalJSON() ([]byte, error) {
+func (p *jobsFetchResp) marshalJSON() ([]byte, error) {
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal jobs fetch resp: %w", err)
@@ -100,7 +100,15 @@ func (p okResp) marshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func fetchedJobToView(j domain.FetchedJob) fetchedJobView {
+func fetchedJobViews(jobs []domain.FetchedJob) []fetchedJobView {
+	out := make([]fetchedJobView, 0, len(jobs))
+	for i := range jobs {
+		out = append(out, fetchedJobToView(&jobs[i]))
+	}
+	return out
+}
+
+func fetchedJobToView(j *domain.FetchedJob) fetchedJobView {
 	v := fetchedJobView{
 		CacheID:    j.CacheID,
 		SourceID:   j.SourceID,

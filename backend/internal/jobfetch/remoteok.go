@@ -1,13 +1,14 @@
-// remoteok.go —— RemoteOK aggregate JSON。
+// remoteok.go — RemoteOK aggregate JSON.
 //
-//   GET {base}/api
+//	GET {base}/api
 //
-// 返回数组，**index 0 是 legal/attribution 通知**（不是 job！），从 [1:]
-// 才是 jobs。每条 { id, slug, position (title), company, location, epoch
-// (Unix sec), date (ISO), tags [], apply_url, url, description (HTML) }。
+// Returns a heterogeneous array: index 0 is the legal/attribution
+// notice (no id), the rest are jobs. We unmarshal into a tagged struct
+// and skip entries that fail the "has id + position" sanity check.
 //
-// ToS 要求 attribution to RemoteOK on rendered output；我们的用法不再发
-// 给 visitor 看（owner private use），attribution 写文档里即可。
+// ToS asks for attribution to RemoteOK on rendered output. Our usage
+// keeps results private to the owner (not shown to visitors), so the
+// attribution constraint lives in the source-registration UI copy.
 
 package jobfetch
 
@@ -37,66 +38,51 @@ func (f *remoteOKFetcher) Fetch(
 	ctx context.Context, _ map[string]any,
 ) ([]domain.FetchedJob, error) {
 	url := f.base + "/api"
-	// API 返个 heterogeneous array：[0] 是 legal notice object（无 id），
-	// 后续都是 jobs。最稳的解法是先 unmarshal 成 []map[string]any 再过滤。
-	var raw []map[string]any
+	var raw []remoteOKEntry
 	if err := getJSON(ctx, f.client, url, &raw); err != nil {
 		return nil, err
 	}
 	out := make([]domain.FetchedJob, 0, len(raw))
 	for i := range raw {
-		// 跳过 legal notice 元素：没有 "position" 或 "id" 字段的视同非 job
-		entry := raw[i]
-		idStr, ok := entry["id"].(string)
-		if !ok || idStr == "" {
-			continue
+		if raw[i].ID == "" || raw[i].Position == "" {
+			continue // legal-notice element / malformed entry
 		}
-		position, _ := entry["position"].(string)
-		if position == "" {
-			continue
-		}
-		out = append(out, remoteOKToDomain(entry))
+		out = append(out, remoteOKToDomain(&raw[i]))
 	}
 	return out, nil
 }
 
-func remoteOKToDomain(e map[string]any) domain.FetchedJob {
-	tags := []string{}
-	if rawTags, ok := e["tags"].([]any); ok {
-		for _, t := range rawTags {
-			if s, ok := t.(string); ok && s != "" {
-				tags = append(tags, s)
-			}
-		}
-	}
-	id, _ := e["id"].(string)
-	title, _ := e["position"].(string)
-	company, _ := e["company"].(string)
-	location, _ := e["location"].(string)
-	applyURL, _ := e["apply_url"].(string)
-	urlStr, _ := e["url"].(string)
-	if applyURL == "" {
-		applyURL = urlStr
-	}
-	body, _ := e["description"].(string)
+// remoteOKEntry — RemoteOK /api array element. Decoders ignore the legal-
+// notice object cleanly because its keys (legal/disclaimer) don't match.
+type remoteOKEntry struct {
+	ID          string   `json:"id"`
+	Position    string   `json:"position"`
+	Company     string   `json:"company"`
+	Location    string   `json:"location"`
+	ApplyURL    string   `json:"apply_url"`
+	URL         string   `json:"url"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
+	Epoch       int64    `json:"epoch"`
+}
 
+func remoteOKToDomain(e *remoteOKEntry) domain.FetchedJob {
+	applyURL := e.ApplyURL
+	if applyURL == "" {
+		applyURL = e.URL
+	}
 	var published time.Time
-	switch v := e["epoch"].(type) {
-	case float64:
-		published = time.Unix(int64(v), 0)
-	case int:
-		published = time.Unix(int64(v), 0)
-	case int64:
-		published = time.Unix(v, 0)
+	if e.Epoch > 0 {
+		published = time.Unix(e.Epoch, 0)
 	}
 	return domain.FetchedJob{
-		ExternalID:  id,
-		Title:       title,
-		Company:     company,
-		Location:    location,
+		ExternalID:  e.ID,
+		Title:       e.Position,
+		Company:     e.Company,
+		Location:    e.Location,
 		URL:         applyURL,
-		BodyText:    body,
-		Tags:        tags,
+		BodyText:    e.Description,
+		Tags:        append([]string{}, e.Tags...),
 		PublishedAt: published,
 		SourceKind:  KindRemoteOK,
 	}

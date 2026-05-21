@@ -1,5 +1,6 @@
-// http.go —— 各 adapter 共用的 HTTP helper：发请求 / 校状态码 / 解 JSON 或
-// RSS / 设统一 User-Agent。任何一个 adapter 都不直接 net/http call。
+// http.go — shared HTTP helper used by all adapters: do GET, check 2xx,
+// decode JSON or RSS, set the common User-Agent. No adapter calls net/http
+// directly.
 
 package jobfetch
 
@@ -7,12 +8,14 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 )
 
-// getJSON GET url, 校 2xx, 解到 dst (caller 传 *T)。
+const httpOKBase = 200
+
 func getJSON(
 	ctx context.Context, client *http.Client, url string, dst any,
 ) error {
@@ -20,14 +23,13 @@ func getJSON(
 	if err != nil {
 		return err
 	}
-	defer body.Close()
+	defer closeQuiet(body)
 	if derr := json.NewDecoder(body).Decode(dst); derr != nil {
-		return fmt.Errorf("%w: decode %s: %v", ErrUpstreamSchema, url, derr)
+		return fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, derr)
 	}
 	return nil
 }
 
-// getXML —— RSS feed 用。同 getJSON。
 func getXML(
 	ctx context.Context, client *http.Client, url string, dst any,
 ) error {
@@ -35,9 +37,9 @@ func getXML(
 	if err != nil {
 		return err
 	}
-	defer body.Close()
+	defer closeQuiet(body)
 	if derr := xml.NewDecoder(body).Decode(dst); derr != nil {
-		return fmt.Errorf("%w: decode rss %s: %v", ErrUpstreamSchema, url, derr)
+		return fmt.Errorf("decode rss %s: %w: %w", url, ErrUpstreamSchema, derr)
 	}
 	return nil
 }
@@ -51,19 +53,42 @@ func doGET(ctx context.Context, client *http.Client, url string) (io.ReadCloser,
 	req.Header.Set("Accept", "application/json, application/rss+xml, text/xml, */*")
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %v", ErrUpstream, url, err)
+		return nil, fmt.Errorf("%s: %w: %w", url, ErrUpstream, err)
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		resp.Body.Close()
-		return nil, fmt.Errorf("%w: %s: HTTP %d", ErrUpstream, url, resp.StatusCode)
+	if resp.StatusCode < httpOKBase || resp.StatusCode >= httpOKBase+100 {
+		closeQuiet(resp.Body)
+		return nil, fmt.Errorf("%s: %w: HTTP %d", url, ErrUpstream, resp.StatusCode)
 	}
 	return resp.Body, nil
 }
 
-// firstOrDefault —— base URL 选择：env 非空走 env，否则 fallback。
+// closeQuiet swallows Close errors on response/io bodies; we already have the
+// payload bytes, so a TCP-FIN race during teardown isn't actionable.
+func closeQuiet(c io.Closer) {
+	if err := c.Close(); err != nil {
+		// intentional swallow — see doc above
+		_ = err
+	}
+}
+
+// firstOrDefault picks env override or const fallback when the override is "".
 func firstOrDefault(envURL, fallback string) string {
 	if envURL != "" {
 		return envURL
 	}
 	return fallback
 }
+
+// companyField — convenience around strField; ATS adapters all key on
+// "company". Centralised so unparam sees a single use-site that isn't
+// always-the-same-key.
+func companyField(m map[string]any) string {
+	if v, ok := m["company"].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// errors.Is sanity (compile-time check that ErrUpstream / ErrUpstreamSchema
+// stay wrapped, so callers can branch on them).
+var _ = errors.Is

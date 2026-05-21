@@ -1,20 +1,21 @@
 // wwr.go —— WeWorkRemotely category RSS。
 //
-//   GET {base}/categories/{slug}.rss
+//	GET {base}/categories/{slug}.rss
 //
 // 多 category 时一个 source 配 ["cat1", "cat2"]，fetcher 串行 GET 多个 RSS
 // 合并去重（按 guid）。
 //
 // item shape (custom RSS extensions)：
-//   title              "Acme: Senior Engineer"
-//   region             "Anywhere in the World"
-//   country / state
-//   skills             逗号 free-text
-//   category           "Back-End Programming"
-//   type               "Full-Time"
-//   description        HTML (already entity-encoded once)
-//   pubDate            RFC-822
-//   guid / link        per-job URL (相同)
+//
+//	title              "Acme: Senior Engineer"
+//	region             "Anywhere in the World"
+//	country / state
+//	skills             逗号 free-text
+//	category           "Back-End Programming"
+//	type               "Full-Time"
+//	description        HTML (already entity-encoded once)
+//	pubDate            RFC-822
+//	guid / link        per-job URL (相同)
 
 package jobfetch
 
@@ -57,12 +58,12 @@ func (f *wwrFetcher) Fetch(
 		if ferr != nil {
 			return nil, ferr
 		}
-		for _, j := range jobs {
-			if _, dup := seen[j.ExternalID]; dup {
+		for i := range jobs {
+			if _, dup := seen[jobs[i].ExternalID]; dup {
 				continue
 			}
-			seen[j.ExternalID] = struct{}{}
-			all = append(all, j)
+			seen[jobs[i].ExternalID] = struct{}{}
+			all = append(all, jobs[i])
 		}
 	}
 	return all, nil
@@ -79,8 +80,8 @@ func extractWWRCategories(cfg map[string]any) ([]string, error) {
 	}
 	out := make([]string, 0, len(arr))
 	for _, v := range arr {
-		s, ok := v.(string)
-		if !ok || s == "" {
+		s, sok := v.(string)
+		if !sok || s == "" {
 			continue
 		}
 		out = append(out, s)
@@ -130,7 +131,8 @@ type wwrItem struct {
 }
 
 func wwrToDomain(it *wwrItem) domain.FetchedJob {
-	title, company := splitWWRTitle(it.Title)
+	tc := splitWWRTitle(it.Title)
+	title, company := tc.title, tc.company
 	tags := make([]string, 0, 4)
 	if it.Category != "" {
 		tags = append(tags, it.Category)
@@ -139,7 +141,7 @@ func wwrToDomain(it *wwrItem) domain.FetchedJob {
 		tags = append(tags, it.Type)
 	}
 	if it.Skills != "" {
-		for _, s := range strings.Split(it.Skills, ",") {
+		for s := range strings.SplitSeq(it.Skills, ",") {
 			s = strings.TrimSpace(s)
 			if s != "" {
 				tags = append(tags, s)
@@ -163,14 +165,25 @@ func wwrToDomain(it *wwrItem) domain.FetchedJob {
 	}
 }
 
+// titleCompany pairs the two parts split from a WWR <title> string.
+// Named struct fields avoid confusing-results / nonamedreturns conflict.
+type titleCompany struct {
+	title   string
+	company string
+}
+
 // splitWWRTitle —— WWR 习惯把 "Company: Job Title" 塞 <title> 里。
 // 没冒号就把整 string 当 title，company 空。
-func splitWWRTitle(t string) (title, company string) {
+func splitWWRTitle(t string) titleCompany {
 	parts := strings.SplitN(t, ":", 2)
-	if len(parts) == 2 {
-		return strings.TrimSpace(parts[1]), strings.TrimSpace(parts[0])
+	const wwrTitleParts = 2
+	if len(parts) == wwrTitleParts {
+		return titleCompany{
+			title:   strings.TrimSpace(parts[1]),
+			company: strings.TrimSpace(parts[0]),
+		}
 	}
-	return strings.TrimSpace(t), ""
+	return titleCompany{title: strings.TrimSpace(t)}
 }
 
 func firstNonEmpty(ss ...string) string {

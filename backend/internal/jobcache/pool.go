@@ -7,7 +7,6 @@
 //
 // Key shape: job:{owner_id}:{cache_id} → FetchedJob JSON, TTL 24h fixed
 // (不 slide —— 池子是 ephemeral，超时就让 owner 重 fetch)。
-
 package jobcache
 
 import (

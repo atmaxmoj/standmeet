@@ -1,7 +1,7 @@
 // smartrecruiters.go —— SmartRecruiters posting API (v1.1，先实现 GET shape，
 // 真测覆盖等 v1.1 PR)。
 //
-//   GET {base}/v1/companies/{company}/postings?limit=200
+//	GET {base}/v1/companies/{company}/postings?limit=200
 //
 // 响应 {offset, limit, totalFound, content: [...]}。每条 posting 有
 // id / name / refNumber / company.name / location.{country,region,city,remote}
@@ -37,7 +37,7 @@ func newSmartRecruitersFetcher(client *http.Client, envBase string) *smartRecrui
 func (f *smartRecruitersFetcher) Fetch(
 	ctx context.Context, cfg map[string]any,
 ) ([]domain.FetchedJob, error) {
-	company, _ := cfg["company"].(string)
+	company := companyField(cfg)
 	if company == "" {
 		return nil, fmt.Errorf("smartrecruiters missing company: %w", domain.ErrJobSourceConfigInvalid)
 	}
@@ -60,13 +60,13 @@ type srResp struct {
 type srPosting struct {
 	ID               string     `json:"id"`
 	Name             string     `json:"name"`
-	Location         srLocation `json:"location"`
 	Department       srLabel    `json:"department"`
 	ReleasedDate     string     `json:"releasedDate"`
 	Industry         srLabel    `json:"industry"`
 	TypeOfEmployment srLabel    `json:"typeOfEmployment"`
 	ExperienceLevel  srLabel    `json:"experienceLevel"`
 	RefNumber        string     `json:"refNumber"`
+	Location         srLocation `json:"location"`
 }
 
 type srLocation struct {

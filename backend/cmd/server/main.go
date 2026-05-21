@@ -98,7 +98,7 @@ func wireAndServe(
 	accessRequestRepo := postgres.NewAccessRequestRepo(c.db)
 	jobSourceRepo := postgres.NewJobSourceRepo(c.db)
 	jobCachePool := jobcache.New(c.rdb, 0) // default 24h TTL
-	jobFetchRegistry := jobfetch.New(jobfetch.BaseURLs{
+	jobFetchRegistry := jobfetch.New(&jobfetch.BaseURLs{
 		Greenhouse:      cfg.JobFetchGreenhouseBaseURL,
 		Lever:           cfg.JobFetchLeverBaseURL,
 		Ashby:           cfg.JobFetchAshbyBaseURL,

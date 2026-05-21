@@ -1,6 +1,6 @@
 // ashby.go —— Ashby public posting API。
 //
-//   GET {base}/posting-api/job-board/{slug}
+//	GET {base}/posting-api/job-board/{slug}
 //
 // 返回 {"jobs": [...]}。每条 { id, title, department, team, location,
 // isRemote, employmentType, publishedAt (ISO), jobUrl, applyUrl,
@@ -36,7 +36,7 @@ func newAshbyFetcher(client *http.Client, envBase string) *ashbyFetcher {
 func (f *ashbyFetcher) Fetch(
 	ctx context.Context, cfg map[string]any,
 ) ([]domain.FetchedJob, error) {
-	company, _ := cfg["company"].(string)
+	company := companyField(cfg)
 	if company == "" {
 		return nil, fmt.Errorf("ashby missing company: %w", domain.ErrJobSourceConfigInvalid)
 	}
@@ -57,17 +57,17 @@ type ashbyResp struct {
 }
 
 type ashbyJob struct {
-	ID               string  `json:"id"`
-	Title            string  `json:"title"`
 	Department       *string `json:"department"`
 	Team             *string `json:"team"`
 	Location         *string `json:"location"`
-	IsRemote         bool    `json:"isRemote"`
+	ApplyURL         *string `json:"applyUrl"`
+	ID               string  `json:"id"`
+	Title            string  `json:"title"`
 	EmploymentType   string  `json:"employmentType"`
 	PublishedAt      string  `json:"publishedAt"`
 	JobURL           string  `json:"jobUrl"`
-	ApplyURL         *string `json:"applyUrl"`
 	DescriptionPlain string  `json:"descriptionPlain"`
+	IsRemote         bool    `json:"isRemote"`
 }
 
 func ashbyToDomain(j *ashbyJob, company string) domain.FetchedJob {

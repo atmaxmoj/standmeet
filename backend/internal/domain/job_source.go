@@ -41,17 +41,17 @@ type JobFingerprint struct {
 // 字段顺序按 govet fieldalignment：time.Time（含 nested ptr）在前，slice
 // （ptr len cap）紧跟，strings 在尾。
 type FetchedJob struct {
-	PublishedAt time.Time
-	Tags        []string
-	CacheID     string // 短随机串，MCP 工具引用 job 用这个
-	SourceID    string
-	SourceKind  string
-	ExternalID  string
-	Title       string
-	Company     string
-	Location    string
-	URL         string // apply_url，Playwright 去填那个
-	BodyText    string // JD 全文 (raw)，agent 自己 reason
+	PublishedAt time.Time `json:"published_at"`
+	CacheID     string    `json:"cache_id"`
+	SourceID    string    `json:"source_id"`
+	SourceKind  string    `json:"source_kind"`
+	ExternalID  string    `json:"external_id"`
+	Title       string    `json:"title"`
+	Company     string    `json:"company"`
+	Location    string    `json:"location"`
+	URL         string    `json:"url"`
+	BodyText    string    `json:"body_text"`
+	Tags        []string  `json:"tags"`
 }
 
 // CreateJobSourceInput —— usecase 层 register_source 的入参。
