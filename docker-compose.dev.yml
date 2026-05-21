@@ -50,10 +50,23 @@ services:
       - INFERENCE_PROVIDER=mock
       - INFERENCE_MOCK_REPLY=Hello visitor, alice says hi from the mock provider.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      # job-board fetcher base URLs point at the test mock so e2e doesn't
+      # hit real Greenhouse / Lever / Ashby / RemoteOK / WWR / HN. Prod
+      # leaves these unset → adapters use baked-in real URLs.
+      - GREENHOUSE_BASE_URL=http://job-board-mock:9000/greenhouse
+      - LEVER_BASE_URL=http://job-board-mock:9000/lever
+      - ASHBY_BASE_URL=http://job-board-mock:9000/ashby
+      - REMOTEOK_BASE_URL=http://job-board-mock:9000/remoteok
+      - WWR_BASE_URL=http://job-board-mock:9000/wwr
+      - HN_BASE_URL=http://job-board-mock:9000/hn
+      - SMARTRECRUITERS_BASE_URL=http://job-board-mock:9000/smartrecruiters
+      - WORKABLE_BASE_URL=http://job-board-mock:9000/workable
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      job-board-mock:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -65,6 +78,30 @@ services:
       timeout: 3s
       retries: 12
       start_period: 5s
+
+  # job-board-mock —— test-only HTTP server serving captured fixtures from
+  # e2e/fixtures/job-boards/. Backend points its 8 *_BASE_URL env vars at
+  # this service so the fetcher chain never reaches the real internet.
+  # See backend/cmd/job-board-mock/main.go for routes + day2 derivation.
+  job-board-mock:
+    build:
+      context: ./backend
+      target: mock                 # smaller image with only the mock binary
+    restart: unless-stopped
+    environment:
+      - PORT=9000
+      - FIXTURES_DIR=/fixtures
+    ports:
+      # Exposed to host so e2e specs can hit /__mock/{set_day,reset} directly
+      # via curl. Backend talks via the internal docker network.
+      - "9000:9000"
+    volumes:
+      - ./e2e/fixtures/job-boards:/fixtures:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/__mock/state"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   builder:
     build:

@@ -84,3 +84,29 @@ ENV PORT=8000
 ENV HOST=0.0.0.0
 
 ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Stage 4: Mock (test-only HTTP server for e2e)
+#
+# job-board-mock serves captured Greenhouse / Lever / Ashby / RemoteOK /
+# WWR / HN fixtures so e2e doesn't hit the real internet. Built from the
+# same source tree as the production binary; alpine-final image is tiny
+# (~10 MiB) since it's just one Go static binary + ca-certificates.
+FROM golang:1.26-alpine AS mock-builder
+WORKDIR /app
+ENV CGO_ENABLED=0 GOOS=linux
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -trimpath -ldflags='-s -w' -o /out/job-board-mock ./cmd/job-board-mock
+
+FROM alpine:3.21 AS mock
+WORKDIR /app
+RUN apk add --no-cache wget                                                   \
+ && addgroup --system --gid 1001 mock                                         \
+ && adduser --system --uid 1001 --ingroup mock mock
+COPY --from=mock-builder --chown=mock:mock /out/job-board-mock /app/job-board-mock
+USER mock
+EXPOSE 9000
+ENV PORT=9000
+ENV FIXTURES_DIR=/fixtures
+ENTRYPOINT ["/app/job-board-mock"]

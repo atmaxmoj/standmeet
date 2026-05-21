@@ -45,6 +45,8 @@ components:
     in: internal/server
   cmd:
     in: cmd/server
+  mockcmd:
+    in: cmd/job-board-mock                # test-only fixture server
 
 deps:
   # Domain 纯内核，无 internal 依赖。
@@ -179,6 +181,12 @@ deps:
       - middleware
       - mcp
       - postgres
+    anyVendorDeps: true
+
+  # mockcmd —— test-only fixture HTTP server。纯 stdlib + 读 fixture
+  # 文件，无 internal 依赖。e2e 通过 docker compose 起。
+  mockcmd:
+    mayDependOn: []
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。

@@ -35,7 +35,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	return server.AdminDeps{
 		Claim:          usecases.ClaimDeps{Instance: d.instanceRepo},
 		Login:          usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
-		APITokens:      usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
+		APITokens:      usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
 		Corpus:         usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
 		Conversations:  usecases.ConversationsDeps{Conv: d.convRepo},
 		BYOAI:          usecases.BYOAIDeps{Owners: d.ownerRepo},
@@ -94,7 +94,7 @@ func buildPublicAccessRequestsDeps(d *runtimeDeps) publicroutes.AccessRequestsHa
 
 func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 	return mcp.Deps{
-		APITokens:   usecases.APITokenDeps{Tokens: d.tokenRepo, Log: d.log},
+		APITokens:   usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
 		Owners:      d.ownerRepo,
 		Corpus:      usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo},
 		SEO:         d.seoRepo,

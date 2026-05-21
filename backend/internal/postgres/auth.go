@@ -82,6 +82,21 @@ func aliasRowToDomainOwner(o *dbq.GetOwnerByHandleAliasRow) domain.Owner {
 	}
 }
 
+// OwnerExists —— 轻量"这个 ownerID 现在在表里吗"诊断（FK 错误 / 鉴权
+// debug 用）。不抛 ErrOwnerNotFound，返 bool 让 caller 自己 log。
+func (r *OwnerRepo) OwnerExists(ctx context.Context, id string) (bool, error) {
+	pgID, perr := parseUUID(id)
+	if perr != nil {
+		return false, fmt.Errorf("parse owner id: %w", perr)
+	}
+	var exists bool
+	row := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM owners WHERE id = $1)`, pgID)
+	if serr := row.Scan(&exists); serr != nil {
+		return false, fmt.Errorf("scan owner exists: %w", serr)
+	}
+	return exists, nil
+}
+
 // GetByID 拿 owner 公开 profile，给 /api/admin/me 用。
 func (r *OwnerRepo) GetByID(ctx context.Context, id string) (domain.Owner, error) {
 	q := dbq.New(r.pool)

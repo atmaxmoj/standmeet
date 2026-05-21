@@ -14,8 +14,11 @@ import (
 )
 
 // APITokenDeps 把 token CRUD 需要的依赖打包。
+// Owners 仅给 FK 诊断用 —— Create 时如果 FK 报错就查一次 OwnerExists，
+// 让日志能区分"ownerID 从 session 来就错了"vs"创建期间被并发删了"。
 type APITokenDeps struct {
 	Tokens *postgres.APITokenRepo
+	Owners *postgres.OwnerRepo
 	Log    *slog.Logger
 }
 
@@ -40,9 +43,30 @@ func CreateAPIToken(
 	tokenHash := session.HashAPIToken(plaintext)
 	token, err := deps.Tokens.Create(ctx, ownerID, name, tokenHash)
 	if err != nil {
+		logCreateTokenFailure(ctx, deps, ownerID, err)
 		return CreatedAPIToken{}, fmt.Errorf("create api token: %w", err)
 	}
 	return CreatedAPIToken{Token: token, Plaintext: plaintext}, nil
+}
+
+// logCreateTokenFailure —— diagnostic helper. On any Create failure (FK
+// violation in particular), check whether the ownerID actually maps to a
+// row in owners right now, so the log distinguishes "ownerID from session
+// was bad" vs "owner was concurrently wiped between login and tokens".
+func logCreateTokenFailure(
+	ctx context.Context, deps APITokenDeps, ownerID string, origErr error,
+) {
+	if deps.Log == nil || deps.Owners == nil {
+		return
+	}
+	exists, qerr := deps.Owners.OwnerExists(ctx, ownerID)
+	if qerr != nil {
+		deps.Log.Error("create token fk diag: owner-exists query failed",
+			"owner_id", ownerID, "scan_err", qerr, "orig", origErr)
+		return
+	}
+	deps.Log.Error("create token fk diag",
+		"owner_id", ownerID, "owner_exists", exists, "orig", origErr)
 }
 
 // VerifyAPIToken 用明文 token 反查 owner_id；不命中或 hash 错返回 ErrUnauthorized。

@@ -22,6 +22,7 @@ const REDIS_CONTAINER = 'standmeet-dev-redis-1';
 const TABLES = [
   'messages', 'conversations', 'code_members', 'access_codes',
   'wiki_entries', 'raw_entries', 'media_assets', 'page_content',
+  'job_fingerprints', 'job_sources',
   'api_tokens', 'owners',
 ];
 
@@ -29,11 +30,43 @@ const TABLES = [
 let currentSetupToken = '';
 
 // resetInstance —— spec beforeAll 调；把 instance 拉回干净状态。秒内完成。
+//
+// Each phase is logged with a high-res timestamp so backend logs (which use
+// nanosecond ISO timestamps too) can be cross-referenced against
+// "TRUNCATE happened at T1; backend's FK violation happened at T2" — if
+// T1 lands between login (creates session) and tokens (writes api_tokens),
+// then resetInstance is racing the previous test's still-in-flight calls.
 export function resetInstance(): void {
+  const t = (label: string) =>
+    process.stderr.write(`[reset ${new Date().toISOString()}] ${label}\n`);
+  t('ensureStackUp start');
   ensureStackUp();
+  t('truncate start');
   truncateTables();
+  t('flushRedis start');
   flushRedis();
+  t('resetJobBoardMock start');
+  resetJobBoardMock();
+  t('rotateSetupToken start');
   rotateSetupToken();
+  t('done');
+}
+
+// resetJobBoardMock —— ping the job-board-mock /__mock/reset endpoint so
+// any previous spec's set_day=2 mutations don't bleed across runs.
+// Best-effort: 5s timeout; failure logs to stderr but doesn't abort
+// (e.g., when mock is intentionally not running, specs that don't touch
+// jobs/* still want a clean instance).
+function resetJobBoardMock(): void {
+  try {
+    execSync(
+      `curl -sS -m 5 -X POST http://localhost:9000/__mock/reset`,
+      { stdio: 'pipe' },
+    );
+  } catch {
+    // mock unavailable → ignore. spec that does need it will fail loudly
+    // when it tries to fetch_new.
+  }
 }
 
 function ensureStackUp(): void {

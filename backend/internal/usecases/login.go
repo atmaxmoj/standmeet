@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres"
@@ -47,6 +48,10 @@ func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, er
 	if err != nil {
 		return LoginOutput{}, fmt.Errorf("issue session: %w", err)
 	}
+	// Pair with claim's "owner_id" log so the test-time timeline reads:
+	// claim → owner_id X → login → same owner_id X → create token → ...
+	slog.Default().Info("login succeeded",
+		"owner_id", creds.OwnerID, "email", in.Email, "handle", creds.Handle)
 	return LoginOutput{
 		SessionToken: issued.Token,
 		CSRFToken:    issued.Data.CSRFToken,

@@ -1,0 +1,283 @@
+// job-board-mock —— test-only HTTP server serving captured job-board fixtures.
+//
+// Started by docker-compose.dev.yml alongside the backend; backend env vars
+// (GREENHOUSE_BASE_URL, LEVER_BASE_URL, ...) point at this server so e2e
+// runs don't hit real Greenhouse/Lever/Ashby/etc. Fixtures live in
+// e2e/fixtures/job-boards/{kind}/*.day1.{json|rss}, mounted as /fixtures
+// inside the container.
+//
+// Routes (mirror real upstream URL shape so adapter URL-building works):
+//
+//	GET  /greenhouse/v1/boards/{company}/jobs?content=true
+//	GET  /lever/v0/postings/{company}?mode=json
+//	GET  /ashby/posting-api/job-board/{slug}
+//	GET  /remoteok/api
+//	GET  /wwr/categories/{slug}.rss
+//	GET  /hn/v0/user/whoishiring.json
+//	GET  /hn/v0/item/{id}.json
+//
+// Admin / test-control routes:
+//
+//	POST /__mock/set_day?kind=greenhouse&day=2
+//	  → switch a kind's served day; tests use day=2 to simulate "next day"
+//	    where day1 ids drop off + new ids appear (per day2 derivation rule)
+//	GET  /__mock/state
+//	  → JSON dump of current day per kind (debug)
+//	POST /__mock/reset
+//	  → reset all days back to 1
+//
+// day2 isn't a separate fixture on disk in v1 —— it's *derived* from day1
+// at serve time by skipping the first 2 entries and appending 2 synthetic
+// ones (with predictable ids `mockday2-1`, `mockday2-2`). Specs assert on
+// these synthetic ids. Keeping derivation in code means fixtures stay
+// single-source-of-truth (just day1 from `make capture-job-fixtures`).
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"log/slog"
+	"maps"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+)
+
+const (
+	defaultPort    = "9000"
+	defaultRoot    = "/fixtures"
+	readHeaderTime = 5 * time.Second
+	dayTwo         = 2
+	syntheticDay2A = "mockday2-1"
+	syntheticDay2B = "mockday2-2"
+	dropFromFront  = 2
+	jsonExt        = "json"
+	rssExt         = "rss"
+	jsonMIME       = "application/json"
+)
+
+func main() {
+	port := flag.String("port", envOr("PORT", defaultPort), "listen port")
+	root := flag.String("fixtures", envOr("FIXTURES_DIR", defaultRoot), "fixtures dir")
+	flag.Parse()
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	srv := newServer(*root, log)
+	if err := srv.run(*port); err != nil {
+		log.Error("server exit", "err", err)
+		os.Exit(1)
+	}
+}
+
+// state holds per-kind current day (mutable, guarded by mu).
+type state struct {
+	day map[string]int
+	mu  sync.RWMutex
+}
+
+func (s *state) get(kind string) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if d, ok := s.day[kind]; ok {
+		return d
+	}
+	return 1
+}
+
+func (s *state) setDay(kind string, d int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.day[kind] = d
+}
+
+func (s *state) reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.day = map[string]int{}
+}
+
+func (s *state) snapshot() map[string]int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]int, len(s.day))
+	maps.Copy(out, s.day)
+	return out
+}
+
+type server struct {
+	st   *state
+	log  *slog.Logger
+	root string
+}
+
+func newServer(root string, log *slog.Logger) *server {
+	return &server{
+		st:   &state{day: map[string]int{}},
+		log:  log,
+		root: root,
+	}
+}
+
+func (s *server) run(port string) error {
+	mux := http.NewServeMux()
+	s.routes(mux)
+	addr := ":" + port
+	s.log.Info("job-board-mock listening", "addr", addr, "root", s.root)
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: readHeaderTime,
+	}
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("listen: %w", err)
+	}
+	return nil
+}
+
+func (s *server) routes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /greenhouse/v1/boards/{company}/jobs", s.serveGreenhouse)
+	mux.HandleFunc("GET /lever/v0/postings/{company}", s.serveLever)
+	mux.HandleFunc("GET /ashby/posting-api/job-board/{slug}", s.serveAshby)
+	mux.HandleFunc("GET /remoteok/api", s.serveRemoteOK)
+	// Go 1.22+ ServeMux wildcards must terminate at end-of-segment, so we
+	// can't use `{slug}.rss`. Match the whole filename and strip .rss in
+	// the handler.
+	mux.HandleFunc("GET /wwr/categories/{filename}", s.serveWWR)
+	mux.HandleFunc("GET /hn/v0/user/whoishiring.json", s.serveHNUser)
+	// Same wildcard-suffix issue as WWR — match full filename, strip in handler.
+	mux.HandleFunc("GET /hn/v0/item/{filename}", s.serveHNItem)
+
+	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
+	mux.HandleFunc("GET /__mock/state", s.adminState)
+	mux.HandleFunc("POST /__mock/reset", s.adminReset)
+}
+
+func (s *server) serveGreenhouse(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "greenhouse", r.PathValue("company"), greenhouseDay2)
+}
+
+func (s *server) serveLever(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "lever", r.PathValue("company"), leverDay2)
+}
+
+func (s *server) serveAshby(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "ashby", r.PathValue("slug"), ashbyDay2)
+}
+
+func (s *server) serveRemoteOK(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "remoteok", "api", remoteOKDay2)
+}
+
+func (s *server) serveWWR(w http.ResponseWriter, r *http.Request) {
+	filename := r.PathValue("filename")
+	const rssSuffix = ".rss"
+	if !strings.HasSuffix(filename, rssSuffix) {
+		s.notFound(w, r, fmt.Errorf("wwr expects .rss suffix: %s", filename))
+		return
+	}
+	slug := strings.TrimSuffix(filename, rssSuffix)
+	body, err := s.readFixture("wwr", slug, rssExt)
+	if err != nil {
+		s.notFound(w, r, err)
+		return
+	}
+	if s.st.get("wwr") == dayTwo {
+		body = wwrDay2(body)
+	}
+	w.Header().Set("Content-Type", "application/rss+xml")
+	writeBody(s.log, w, body)
+}
+
+func (s *server) serveHNUser(w http.ResponseWriter, r *http.Request) {
+	s.serveJSONKind(w, r, "hn", "whoishiring", hnUserDay2)
+}
+
+func (s *server) serveHNItem(w http.ResponseWriter, r *http.Request) {
+	filename := r.PathValue("filename")
+	const jsonSuffix = ".json"
+	if !strings.HasSuffix(filename, jsonSuffix) {
+		s.notFound(w, r, fmt.Errorf("hn item expects .json suffix: %s", filename))
+		return
+	}
+	id := strings.TrimSuffix(filename, jsonSuffix)
+	s.serveJSONKind(w, r, "hn", "item-"+id, hnItemDay2)
+}
+
+// serveJSONKind is the JSON-flavour helper: read {kind}/{slug}.day1.json,
+// optionally apply day2 transform, write back. ext is implicit (json).
+func (s *server) serveJSONKind(
+	w http.ResponseWriter, r *http.Request,
+	kind, slug string, day2 func([]byte) []byte,
+) {
+	body, err := s.readFixture(kind, slug, jsonExt)
+	if err != nil {
+		s.notFound(w, r, err)
+		return
+	}
+	if s.st.get(kind) == dayTwo && day2 != nil {
+		body = day2(body)
+	}
+	w.Header().Set("Content-Type", jsonMIME)
+	writeBody(s.log, w, body)
+}
+
+func (s *server) readFixture(kind, slug, ext string) ([]byte, error) {
+	path := filepath.Clean(filepath.Join(s.root, kind, slug+".day1."+ext))
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read fixture %s: %w", path, err)
+	}
+	return body, nil
+}
+
+func writeBody(log *slog.Logger, w http.ResponseWriter, body []byte) {
+	if _, err := w.Write(body); err != nil {
+		log.Warn("write body", "err", err)
+	}
+}
+
+func (s *server) notFound(w http.ResponseWriter, r *http.Request, err error) {
+	s.log.Warn("fixture miss", "url", r.URL.String(), "err", err)
+	http.Error(w, "fixture not found", http.StatusNotFound)
+}
+
+// adminSetDay POST /__mock/set_day?kind=greenhouse&day=2.
+func (s *server) adminSetDay(w http.ResponseWriter, r *http.Request) {
+	kind := r.URL.Query().Get("kind")
+	day := r.URL.Query().Get("day")
+	if kind == "" || day == "" {
+		http.Error(w, "kind and day required", http.StatusBadRequest)
+		return
+	}
+	d := 1
+	if day == "2" {
+		d = dayTwo
+	}
+	s.st.setDay(kind, d)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// adminState GET /__mock/state.
+func (s *server) adminState(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", jsonMIME)
+	if err := json.NewEncoder(w).Encode(s.st.snapshot()); err != nil {
+		s.log.Warn("encode state", "err", err)
+	}
+}
+
+// adminReset POST /__mock/reset.
+func (s *server) adminReset(w http.ResponseWriter, _ *http.Request) {
+	s.st.reset()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}

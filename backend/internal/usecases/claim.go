@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/wangsijie/standmeet/internal/domain"
@@ -56,6 +57,11 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (domain.
 	if err != nil {
 		return domain.Owner{}, fmt.Errorf("claim and create owner: %w", err)
 	}
+	// FK-violation debugging: log the owner ID created + the email/handle
+	// it's bound to. Cross-reference with create-token-fk-diag logs to see
+	// if subsequent token creates use the same owner_id.
+	slog.Default().Info("claim succeeded",
+		"owner_id", owner.ID, "email", in.Email, "handle", in.Handle)
 	return owner, nil
 }
 
