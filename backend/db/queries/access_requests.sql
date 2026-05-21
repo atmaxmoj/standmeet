@@ -6,7 +6,7 @@ RETURNING id, owner_id, name, org, email, message, status, created_at;
 -- name: ListAccessRequestsByOwner :many
 SELECT id, owner_id, name, org, email, message, status, created_at FROM access_requests
 WHERE owner_id = $1
-  AND ($2::text IS NULL OR status = $2)
+  AND (sqlc.narg('status_filter')::text IS NULL OR status = sqlc.narg('status_filter'))
 ORDER BY created_at DESC
 LIMIT 100;
 

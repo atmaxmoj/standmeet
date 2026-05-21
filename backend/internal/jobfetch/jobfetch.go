@@ -7,6 +7,10 @@
 //
 // 见 docs/design/job-loop.md "状态分工" 决策 L.1：StandMeet 不 reason job /
 // 不打分 / 不排序——adapter 只把"今天这个源现在有哪些 job"原样输出。
+//
+// **Config 形状**：register_source 传上来是 schemaless object；写 DB 时
+// marshal 成 JSON bytes；fetcher 收到 []byte，第一行就 Unmarshal 到自己的
+// typed struct。这样 domain / jobfetch 边界都不沾 `any`。
 package jobfetch
 
 import (
@@ -34,17 +38,36 @@ const (
 const (
 	defaultHTTPTimeout = 20 * time.Second
 	defaultUserAgent   = "StandMeet/0.1 (+https://github.com/wangsijie/standmeet)"
+	// defaultTagCap —— common starting capacity for per-job tag slices
+	// (most adapters emit 3-4 tags; pre-sizing keeps append() amortised).
+	defaultTagCap = 4
+	// decimalRadix —— strconv.FormatInt base 10. Named so revive add-constant
+	// stops complaining and the call sites read with intent.
+	decimalRadix = 10
 )
 
-// Fetcher —— 单个 source kind 的契约。caller 拿 config（per-kind shape）
-// 调一次，得到一批 jobs。adapter 内部负责 URL 拼装 / HTTP / parse。
+// Fetcher —— 单个 source kind 的契约。caller 传 raw config bytes（per-kind
+// schema），adapter 内部 Unmarshal 到 typed struct + 拼 URL + GET + parse。
 type Fetcher interface {
-	Fetch(ctx context.Context, cfg map[string]any) ([]domain.FetchedJob, error)
+	Fetch(ctx context.Context, cfgRaw []byte) ([]domain.FetchedJob, error)
 }
 
 // Registry —— kind → Fetcher 的注册中心。usecases 拿这个 dispatch。
 type Registry struct {
 	fetchers map[string]Fetcher
+}
+
+// BaseURLs —— 每个 adapter 的 base URL 覆写。任何空字符串走 const 真 URL。
+// e2e 启动 backend 时通过 env 解到这里。
+type BaseURLs struct {
+	Greenhouse      string
+	Lever           string
+	Ashby           string
+	RemoteOK        string
+	WWR             string
+	HN              string
+	SmartRecruiters string
+	Workable        string
 }
 
 // New 构造 Registry。BaseURLs 可单独设（e2e mock 时塞 fake server 地址），
@@ -68,65 +91,50 @@ func New(b *BaseURLs) *Registry {
 	}
 }
 
-// BaseURLs —— 每个 adapter 的 base URL 覆写。任何空字符串走 const 真 URL。
-// e2e 启动 backend 时通过 env 解到这里。
-type BaseURLs struct {
-	Greenhouse      string
-	Lever           string
-	Ashby           string
-	RemoteOK        string
-	WWR             string
-	HN              string
-	SmartRecruiters string
-	Workable        string
-}
-
 // Fetch 按 kind 路由到对应 adapter。返 domain.ErrJobSourceKindInvalid 如果
 // kind 不认识。
 func (r *Registry) Fetch(
-	ctx context.Context, kind string, cfg map[string]any,
+	ctx context.Context, kind string, cfgRaw []byte,
 ) ([]domain.FetchedJob, error) {
 	f, ok := r.fetchers[kind]
 	if !ok {
 		return nil, fmt.Errorf("fetch kind %q: %w", kind, domain.ErrJobSourceKindInvalid)
 	}
-	jobs, err := f.Fetch(ctx, cfg)
+	jobs, err := f.Fetch(ctx, cfgRaw)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", kind, err)
 	}
 	return jobs, nil
 }
 
-// ValidateKindConfig —— 在 register_source 路径上校验 (kind, config) 形状。
-// 拿不动 fetcher 实例就走基础规则（kind 在 enum、config 含必填 key）。
-func ValidateKindConfig(kind string, cfg map[string]any) error {
-	switch kind {
-	case KindGreenhouse, KindLever, KindAshby, KindSmartRecruiters, KindWorkable:
-		if _, ok := cfg["company"].(string); !ok {
-			return fmt.Errorf(
-				"%s needs config.company (string): %w",
-				kind, domain.ErrJobSourceConfigInvalid,
-			)
-		}
-		return nil
-	case KindWWR:
-		raw, ok := cfg["categories"]
-		if !ok {
-			return fmt.Errorf("wwr needs config.categories: %w", domain.ErrJobSourceConfigInvalid)
-		}
-		// JSON unmarshal gives []any; check non-empty
-		arr, ok := raw.([]any)
-		if !ok || len(arr) == 0 {
-			return fmt.Errorf("wwr config.categories must be non-empty array: %w", domain.ErrJobSourceConfigInvalid)
-		}
-		return nil
-	case KindRemoteOK, KindHNHiring:
-		// 这俩 aggregate 源不需要 config
-		return nil
-	default:
+// ValidateKindConfig —— 在 register_source 路径上校验 (kind, config) 形状：
+// kind 是否在 enum + config JSON 解到 per-kind 类型 + 必填字段非空。
+func ValidateKindConfig(kind string, cfgRaw []byte) error {
+	v, ok := configValidators[kind]
+	if !ok {
 		return fmt.Errorf("kind %q: %w", kind, domain.ErrJobSourceKindInvalid)
 	}
+	if err := v(cfgRaw); err != nil {
+		return fmt.Errorf("%s config: %w", kind, err)
+	}
+	return nil
 }
+
+// configValidators 是 kind → cfg-shape-check 的 dispatch 表。每个 entry
+// 复用 adapter 自己的 typed config struct，保持唯一真理源。
+var configValidators = map[string]func([]byte) error{
+	KindGreenhouse:      validateGreenhouseCfg,
+	KindLever:           validateLeverCfg,
+	KindAshby:           validateAshbyCfg,
+	KindSmartRecruiters: validateSmartRecruitersCfg,
+	KindWorkable:        validateWorkableCfg,
+	KindWWR:             validateWWRCfg,
+	KindRemoteOK:        validateEmptyCfg,
+	KindHNHiring:        validateEmptyCfg,
+}
+
+// validateEmptyCfg —— remoteok / hn_hiring 不需要任何 config，传啥都接受。
+func validateEmptyCfg(_ []byte) error { return nil }
 
 // ErrUpstream —— adapter 收到非 2xx HTTP（含 404 / 5xx）。caller 可 errors.Is
 // 区分"源死了"vs"配置错"。

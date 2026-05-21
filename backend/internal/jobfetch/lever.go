@@ -10,6 +10,7 @@ package jobfetch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -18,6 +19,10 @@ import (
 )
 
 const leverDefaultBase = "https://api.lever.co"
+
+type leverConfig struct {
+	Company string `json:"company"`
+}
 
 type leverFetcher struct {
 	client *http.Client
@@ -32,31 +37,54 @@ func newLeverFetcher(client *http.Client, envBase string) *leverFetcher {
 }
 
 func (f *leverFetcher) Fetch(
-	ctx context.Context, cfg map[string]any,
+	ctx context.Context, cfgRaw []byte,
 ) ([]domain.FetchedJob, error) {
-	company := companyField(cfg)
-	if company == "" {
-		return nil, fmt.Errorf("lever missing company: %w", domain.ErrJobSourceConfigInvalid)
-	}
-	url := fmt.Sprintf("%s/v0/postings/%s?mode=json", f.base, company)
-	var arr []leverPosting
-	if err := getJSON(ctx, f.client, url, &arr); err != nil {
+	cfg, err := parseLeverConfig(cfgRaw)
+	if err != nil {
 		return nil, err
+	}
+	url := fmt.Sprintf("%s/v0/postings/%s?mode=json", f.base, cfg.Company)
+	body, err := getBody(ctx, f.client, url)
+	if err != nil {
+		return nil, err
+	}
+	var arr []leverPosting
+	if uerr := json.Unmarshal(body, &arr); uerr != nil {
+		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
 	out := make([]domain.FetchedJob, 0, len(arr))
 	for i := range arr {
-		out = append(out, leverToDomain(&arr[i], company))
+		out = append(out, leverToDomain(&arr[i], cfg.Company))
 	}
 	return out, nil
 }
 
+func parseLeverConfig(raw []byte) (leverConfig, error) {
+	var cfg leverConfig
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return cfg, fmt.Errorf("lever config decode: %w: %w",
+				domain.ErrJobSourceConfigInvalid, err)
+		}
+	}
+	if cfg.Company == "" {
+		return cfg, fmt.Errorf("lever missing company: %w", domain.ErrJobSourceConfigInvalid)
+	}
+	return cfg, nil
+}
+
+func validateLeverCfg(raw []byte) error {
+	_, err := parseLeverConfig(raw)
+	return err
+}
+
 type leverPosting struct {
+	Categories  leverCategory `json:"categories"`
 	ID          string        `json:"id"`
 	Text        string        `json:"text"`
 	HostedURL   string        `json:"hostedUrl"`
 	ApplyURL    string        `json:"applyUrl"`
 	Description string        `json:"description"`
-	Categories  leverCategory `json:"categories"`
 	Tags        []string      `json:"tags"`
 	CreatedAt   int64         `json:"createdAt"`
 }
@@ -70,18 +98,6 @@ type leverCategory struct {
 }
 
 func leverToDomain(p *leverPosting, company string) domain.FetchedJob {
-	tags := make([]string, 0, 3+len(p.Tags))
-	if p.Categories.Department != "" {
-		tags = append(tags, p.Categories.Department)
-	}
-	if p.Categories.Team != "" {
-		tags = append(tags, p.Categories.Team)
-	}
-	if p.Categories.Commitment != "" {
-		tags = append(tags, p.Categories.Commitment)
-	}
-	tags = append(tags, p.Tags...)
-
 	url := p.ApplyURL
 	if url == "" {
 		url = p.HostedURL
@@ -93,10 +109,19 @@ func leverToDomain(p *leverPosting, company string) domain.FetchedJob {
 		Location:    p.Categories.Location,
 		URL:         url,
 		BodyText:    p.Description,
-		Tags:        tags,
+		Tags:        leverTags(p),
 		PublishedAt: epochMillisToTime(p.CreatedAt),
 		SourceKind:  KindLever,
 	}
+}
+
+func leverTags(p *leverPosting) []string {
+	tags := make([]string, 0, 3+len(p.Tags))
+	tags = appendIfNonEmpty(tags, p.Categories.Department)
+	tags = appendIfNonEmpty(tags, p.Categories.Team)
+	tags = appendIfNonEmpty(tags, p.Categories.Commitment)
+	tags = append(tags, p.Tags...)
+	return tags
 }
 
 func epochMillisToTime(ms int64) time.Time {

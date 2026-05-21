@@ -6,14 +6,15 @@
 // notice (no id), the rest are jobs. We unmarshal into a tagged struct
 // and skip entries that fail the "has id + position" sanity check.
 //
-// ToS asks for attribution to RemoteOK on rendered output. Our usage
-// keeps results private to the owner (not shown to visitors), so the
-// attribution constraint lives in the source-registration UI copy.
+// Config is empty (no per-source parameters); register_source just needs
+// kind=remoteok + a label.
 
 package jobfetch
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -35,13 +36,29 @@ func newRemoteOKFetcher(client *http.Client, envBase string) *remoteOKFetcher {
 }
 
 func (f *remoteOKFetcher) Fetch(
-	ctx context.Context, _ map[string]any,
+	ctx context.Context, _ []byte,
 ) ([]domain.FetchedJob, error) {
-	url := f.base + "/api"
-	var raw []remoteOKEntry
-	if err := getJSON(ctx, f.client, url, &raw); err != nil {
+	raw, err := f.fetchEntries(ctx)
+	if err != nil {
 		return nil, err
 	}
+	return filterRemoteOKEntries(raw), nil
+}
+
+func (f *remoteOKFetcher) fetchEntries(ctx context.Context) ([]remoteOKEntry, error) {
+	url := f.base + "/api"
+	body, err := getBody(ctx, f.client, url)
+	if err != nil {
+		return nil, err
+	}
+	var raw []remoteOKEntry
+	if uerr := json.Unmarshal(body, &raw); uerr != nil {
+		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
+	}
+	return raw, nil
+}
+
+func filterRemoteOKEntries(raw []remoteOKEntry) []domain.FetchedJob {
 	out := make([]domain.FetchedJob, 0, len(raw))
 	for i := range raw {
 		if raw[i].ID == "" || raw[i].Position == "" {
@@ -49,7 +66,7 @@ func (f *remoteOKFetcher) Fetch(
 		}
 		out = append(out, remoteOKToDomain(&raw[i]))
 	}
-	return out, nil
+	return out
 }
 
 // remoteOKEntry — RemoteOK /api array element. Decoders ignore the legal-

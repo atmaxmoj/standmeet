@@ -8,6 +8,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -86,8 +87,12 @@ func parseRegisterSourceArgs(
 	if errResult != nil {
 		return nil, errResult
 	}
+	cfgBytes, marshalErr := marshalConfig(req)
+	if marshalErr != nil {
+		return nil, marshalErr
+	}
 	return &domain.CreateJobSourceInput{
-		OwnerID: ownerID, Kind: pair.kind, Config: readConfigMap(req), Label: pair.label,
+		OwnerID: ownerID, Kind: pair.kind, Config: cfgBytes, Label: pair.label,
 	}, nil
 }
 
@@ -112,12 +117,19 @@ func readRegisterSourceStrings(
 	return &registerSourceStrings{kind: k, label: l}, nil
 }
 
-func readConfigMap(req *mcpgo.CallToolRequest) map[string]any {
-	cfg, ok := req.GetArguments()["config"].(map[string]any)
-	if !ok || cfg == nil {
-		return map[string]any{}
+// marshalConfig pulls the schemaless "config" object out of the MCP args and
+// re-marshals to JSON bytes for the typed domain.CreateJobSourceInput.
+// `{}`  when missing or wrong-typed.
+func marshalConfig(req *mcpgo.CallToolRequest) ([]byte, *mcpgo.CallToolResult) {
+	raw, ok := req.GetArguments()["config"].(map[string]any)
+	if !ok || raw == nil {
+		return []byte(`{}`), nil
 	}
-	return cfg
+	out, err := json.Marshal(raw)
+	if err != nil {
+		return nil, mcpgo.NewToolResultError("config not serializable")
+	}
+	return out, nil
 }
 
 // ---- jobs.list_sources ----------------------------------------------------

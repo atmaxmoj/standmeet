@@ -55,8 +55,8 @@ func (q *Queries) CreateOwner(ctx context.Context, arg CreateOwnerParams) (Owner
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AIProvider,
-		&i.AIProviderKeyEnc,
+		&i.AiProvider,
+		&i.AiProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -93,8 +93,8 @@ func (q *Queries) GetOwnerByEmail(ctx context.Context, email string) (Owner, err
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AIProvider,
-		&i.AIProviderKeyEnc,
+		&i.AiProvider,
+		&i.AiProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -119,8 +119,8 @@ func (q *Queries) GetOwnerByHandle(ctx context.Context, handle string) (Owner, e
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AIProvider,
-		&i.AIProviderKeyEnc,
+		&i.AiProvider,
+		&i.AiProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -145,8 +145,44 @@ func (q *Queries) GetOwnerByID(ctx context.Context, id pgtype.UUID) (Owner, erro
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AIProvider,
-		&i.AIProviderKeyEnc,
+		&i.AiProvider,
+		&i.AiProviderKeyEnc,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateOwnerAIProvider = `-- name: UpdateOwnerAIProvider :one
+UPDATE owners
+SET ai_provider = $2,
+    ai_provider_key_enc = $3
+WHERE id = $1
+RETURNING id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, created_at
+`
+
+type UpdateOwnerAIProviderParams struct {
+	ID               pgtype.UUID
+	AiProvider       string
+	AiProviderKeyEnc []byte
+}
+
+func (q *Queries) UpdateOwnerAIProvider(ctx context.Context, arg UpdateOwnerAIProviderParams) (Owner, error) {
+	row := q.db.QueryRow(ctx, updateOwnerAIProvider, arg.ID, arg.AiProvider, arg.AiProviderKeyEnc)
+	var i Owner
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Handle,
+		&i.FullName,
+		&i.Location,
+		&i.CustomDomain,
+		&i.CustomDomainStatus,
+		&i.ByoaiEnabled,
+		&i.ByoaiProviders,
+		&i.ByoaiPublicBlurb,
+		&i.AiProvider,
+		&i.AiProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -188,46 +224,8 @@ func (q *Queries) UpdateOwnerBYOAI(ctx context.Context, arg UpdateOwnerBYOAIPara
 		&i.ByoaiEnabled,
 		&i.ByoaiProviders,
 		&i.ByoaiPublicBlurb,
-		&i.AIProvider,
-		&i.AIProviderKeyEnc,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const updateOwnerAIProvider = `-- name: UpdateOwnerAIProvider :one
-UPDATE owners
-SET ai_provider = $2,
-    ai_provider_key_enc = $3
-WHERE id = $1
-RETURNING id, email, password_hash, handle, full_name, location, custom_domain, custom_domain_status, byoai_enabled, byoai_providers, byoai_public_blurb, ai_provider, ai_provider_key_enc, created_at
-`
-
-type UpdateOwnerAIProviderParams struct {
-	ID               pgtype.UUID
-	AIProvider       string
-	AIProviderKeyEnc []byte
-}
-
-func (q *Queries) UpdateOwnerAIProvider(
-	ctx context.Context, arg UpdateOwnerAIProviderParams,
-) (Owner, error) {
-	row := q.db.QueryRow(ctx, updateOwnerAIProvider, arg.ID, arg.AIProvider, arg.AIProviderKeyEnc)
-	var i Owner
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.Handle,
-		&i.FullName,
-		&i.Location,
-		&i.CustomDomain,
-		&i.CustomDomainStatus,
-		&i.ByoaiEnabled,
-		&i.ByoaiProviders,
-		&i.ByoaiPublicBlurb,
-		&i.AIProvider,
-		&i.AIProviderKeyEnc,
+		&i.AiProvider,
+		&i.AiProviderKeyEnc,
 		&i.CreatedAt,
 	)
 	return i, err

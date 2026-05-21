@@ -57,8 +57,8 @@ func (r *AccessRequestRepo) ListByOwner(
 	}
 	q := dbq.New(r.pool)
 	rows, err := q.ListAccessRequestsByOwner(ctx, dbq.ListAccessRequestsByOwnerParams{
-		OwnerID: ownerUUID,
-		Status:  statusFilter(status),
+		OwnerID:      ownerUUID,
+		StatusFilter: statusFilter(status),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list access requests: %w", err)

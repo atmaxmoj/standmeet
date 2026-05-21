@@ -8,17 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type AccessRequest struct {
-	ID        pgtype.UUID
-	OwnerID   pgtype.UUID
-	Name      string
-	Org       string
-	Email     string
-	Message   string
-	Status    string
-	CreatedAt pgtype.Timestamptz
-}
-
 type AccessCode struct {
 	ID                   pgtype.UUID
 	OwnerID              pgtype.UUID
@@ -33,6 +22,17 @@ type AccessCode struct {
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
 	CreatedAt            pgtype.Timestamptz
+}
+
+type AccessRequest struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Name      string
+	Org       string
+	Email     string
+	Message   string
+	Status    string
+	CreatedAt pgtype.Timestamptz
 }
 
 type ApiToken struct {
@@ -52,12 +52,6 @@ type CodeMember struct {
 	Email       *string
 	IsAnonymous bool
 	LastSeenAt  pgtype.Timestamptz
-}
-
-type HandleAlias struct {
-	Handle    string
-	OwnerID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
 }
 
 type Conversation struct {
@@ -98,6 +92,12 @@ type CustomPageBuild struct {
 	BuiltAt      pgtype.Timestamptz
 }
 
+type HandleAlias struct {
+	Handle    string
+	OwnerID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
 type InstanceSetting struct {
 	ID             int32
 	IsClaimed      bool
@@ -105,6 +105,22 @@ type InstanceSetting struct {
 	MultiTenant    bool
 	DeployedAt     pgtype.Timestamptz
 	AllowedDomains []byte
+}
+
+type JobFingerprint struct {
+	SourceID    pgtype.UUID
+	ExternalID  string
+	FirstSeenAt pgtype.Timestamptz
+}
+
+type JobSource struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	Kind          string
+	Config        []byte
+	Label         string
+	LastFetchedAt pgtype.Timestamptz
+	CreatedAt     pgtype.Timestamptz
 }
 
 type MediaAsset struct {
@@ -142,8 +158,8 @@ type Owner struct {
 	ByoaiEnabled       bool
 	ByoaiProviders     []byte
 	ByoaiPublicBlurb   string
-	AIProvider         string
-	AIProviderKeyEnc   []byte
+	AiProvider         string
+	AiProviderKeyEnc   []byte
 	CreatedAt          pgtype.Timestamptz
 }
 
@@ -193,20 +209,4 @@ type WikiEntry struct {
 	SeoIndexed     bool
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
-}
-
-type JobSource struct {
-	ID            pgtype.UUID
-	OwnerID       pgtype.UUID
-	Kind          string
-	Config        []byte
-	Label         string
-	LastFetchedAt pgtype.Timestamptz
-	CreatedAt     pgtype.Timestamptz
-}
-
-type JobFingerprint struct {
-	SourceID    pgtype.UUID
-	ExternalID  string
-	FirstSeenAt pgtype.Timestamptz
 }

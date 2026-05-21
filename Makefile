@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-down build clean test sdk-build app-build
+.PHONY: dev dev-up dev-down build clean test sdk-build app-build sqlc-gen
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -69,6 +69,21 @@ dev-down:
 
 build:
 	@echo "[build] not implemented yet."
+
+# sqlc-gen —— regenerate Go query bindings from db/queries/*.sql + db/schema.sql.
+# Pinned to v1.20.0 inside the official sqlc docker image. Newer sqlc (1.31+)
+# changed initialism handling (AIProvider → AiProvider), which is a non-trivial
+# rename across owners.sql.go / page_content.sql.go etc — upgrade is a
+# separate PR. Until then this target is the only sanctioned way to regen
+# dbq locally (host installs may pull a newer version).
+#
+# After running, diff backend/internal/postgres/dbq/ and commit the new files.
+sqlc-gen:
+	@docker run --rm \
+		-v $(PWD)/backend:/src \
+		-w /src \
+		sqlc/sqlc:1.20.0 generate
+	@echo "[sqlc] regenerated. diff & commit backend/internal/postgres/dbq/"
 
 # test 跑 e2e；预期 dev stack 已通过 dev-up 起来。
 test:

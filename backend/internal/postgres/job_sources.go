@@ -5,7 +5,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -26,7 +25,8 @@ func NewJobSourceRepo(pool *Pool) *JobSourceRepo {
 	return &JobSourceRepo{pool: pool}
 }
 
-// Create —— 注册一条新 job source。
+// Create —— 注册一条新 job source。in.Config 是已 marshal 好的 JSON bytes
+// （usecase 层负责 marshal，让 postgres 层不感知 jsonb 的 Go shape）。
 func (r *JobSourceRepo) Create(
 	ctx context.Context, in *domain.CreateJobSourceInput,
 ) (domain.JobSource, error) {
@@ -34,21 +34,21 @@ func (r *JobSourceRepo) Create(
 	if err != nil {
 		return domain.JobSource{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	cfgBytes, merr := json.Marshal(in.Config)
-	if merr != nil {
-		return domain.JobSource{}, fmt.Errorf("marshal config: %w", merr)
+	cfg := in.Config
+	if len(cfg) == 0 {
+		cfg = []byte(`{}`)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateJobSource(ctx, dbq.CreateJobSourceParams{
 		OwnerID: ownerUUID,
 		Kind:    in.Kind,
-		Config:  cfgBytes,
+		Config:  cfg,
 		Label:   in.Label,
 	})
 	if err != nil {
 		return domain.JobSource{}, fmt.Errorf("create job source: %w", err)
 	}
-	return toDomainJobSource(&row)
+	return toDomainJobSource(&row), nil
 }
 
 // GetByID —— 按 (id, owner_id) 查一条；未命中 / owner 不匹配返 ErrJobSourceNotFound。
@@ -73,7 +73,7 @@ func (r *JobSourceRepo) GetByID(
 		}
 		return domain.JobSource{}, fmt.Errorf("get job source: %w", err)
 	}
-	return toDomainJobSource(&row)
+	return toDomainJobSource(&row), nil
 }
 
 // ListByOwner —— admin / MCP list_sources 走这条。
@@ -91,11 +91,7 @@ func (r *JobSourceRepo) ListByOwner(
 	}
 	out := make([]domain.JobSource, 0, len(rows))
 	for i := range rows {
-		src, derr := toDomainJobSource(&rows[i])
-		if derr != nil {
-			return nil, derr
-		}
-		out = append(out, src)
+		out = append(out, toDomainJobSource(&rows[i]))
 	}
 	return out, nil
 }
@@ -201,27 +197,22 @@ func diffUnseen(candidates, seen []string) []string {
 	return unseen
 }
 
-// toDomainJobSource —— sqlc Row → domain.JobSource。Config jsonb 反序列化。
-func toDomainJobSource(o *dbq.JobSource) (domain.JobSource, error) {
-	cfg := map[string]any{}
-	if len(o.Config) > 0 {
-		if err := json.Unmarshal(o.Config, &cfg); err != nil {
-			return domain.JobSource{}, fmt.Errorf("unmarshal config: %w", err)
-		}
-	}
+// toDomainJobSource —— sqlc Row → domain.JobSource。Config jsonb 直接 pass
+// through 成 []byte，由 fetcher adapter 各自 unmarshal 到 typed struct。
+func toDomainJobSource(o *dbq.JobSource) domain.JobSource {
 	out := domain.JobSource{
 		ID:        formatUUID(o.ID),
 		OwnerID:   formatUUID(o.OwnerID),
 		Kind:      o.Kind,
 		Label:     o.Label,
-		Config:    cfg,
+		Config:    o.Config,
 		CreatedAt: o.CreatedAt.Time,
 	}
 	if o.LastFetchedAt.Valid {
 		t := o.LastFetchedAt.Time
 		out.LastFetchedAt = &t
 	}
-	return out, nil
+	return out
 }
 
 // Compile-time check that pgtype.UUID / pgtype.Timestamptz still exported the

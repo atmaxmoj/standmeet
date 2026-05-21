@@ -11,11 +11,14 @@
 //
 // 不解析 comment 内容结构（"Company | Title | Location | ..."）—— 当
 // raw text 传给 agent 让 Claude 自己读，符合"adapter 不 reason"原则。
+//
+// No per-source config (HN aggregate is global).
 
 package jobfetch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -26,10 +29,12 @@ import (
 )
 
 const (
-	hnDefaultBase    = "https://hacker-news.firebaseio.com"
-	hnMaxComments    = 100 // 一个月度帖通常 200-500 评论，先 cap 在 100；MVP 够
-	hnTitlePrefix    = "Ask HN: Who is hiring"
-	hnSubmittedDepth = 12 // 看 submitted 前 N 条找最新月度帖（每月一发，看 6-12 条够）
+	hnDefaultBase       = "https://hacker-news.firebaseio.com"
+	hnMaxComments       = 100
+	hnTitlePrefix       = "Ask HN: Who is hiring"
+	hnSubmittedDepth    = 12
+	hnTitleMaxLen       = 120
+	hnTitleEllipsisRune = "…"
 )
 
 type hnHiringFetcher struct {
@@ -45,7 +50,7 @@ func newHNHiringFetcher(client *http.Client, envBase string) *hnHiringFetcher {
 }
 
 func (f *hnHiringFetcher) Fetch(
-	ctx context.Context, _ map[string]any,
+	ctx context.Context, _ []byte,
 ) ([]domain.FetchedJob, error) {
 	threadID, err := f.findLatestHiringThread(ctx)
 	if err != nil {
@@ -55,45 +60,73 @@ func (f *hnHiringFetcher) Fetch(
 	if err != nil {
 		return nil, err
 	}
+	return f.collectComments(ctx, thread, threadID), nil
+}
+
+func (f *hnHiringFetcher) collectComments(
+	ctx context.Context, thread *hnItem, threadID int64,
+) []domain.FetchedJob {
 	limit := min(len(thread.Kids), hnMaxComments)
 	out := make([]domain.FetchedJob, 0, limit)
 	for i := range limit {
 		comment, ferr := f.fetchItem(ctx, thread.Kids[i])
-		if ferr != nil {
-			continue // single bad comment doesn't fail the batch
-		}
-		if comment.Deleted || comment.Dead || comment.Text == "" {
+		if ferr != nil || !isPostingComment(comment) {
 			continue
 		}
 		out = append(out, hnCommentToDomain(comment, threadID))
 	}
-	return out, nil
+	return out
+}
+
+func isPostingComment(c *hnItem) bool {
+	return c != nil && !c.Deleted && !c.Dead && c.Text != ""
 }
 
 func (f *hnHiringFetcher) findLatestHiringThread(ctx context.Context) (int64, error) {
-	url := f.base + "/v0/user/whoishiring.json"
-	var user hnUser
-	if err := getJSON(ctx, f.client, url, &user); err != nil {
+	ids, err := f.fetchSubmittedIDs(ctx)
+	if err != nil {
 		return 0, err
 	}
-	limit := min(len(user.Submitted), hnSubmittedDepth)
+	id := f.firstHiringThreadID(ctx, ids)
+	if id == 0 {
+		return 0, fmt.Errorf("%w: no hiring thread in latest submissions", ErrUpstreamSchema)
+	}
+	return id, nil
+}
+
+func (f *hnHiringFetcher) fetchSubmittedIDs(ctx context.Context) ([]int64, error) {
+	url := f.base + "/v0/user/whoishiring.json"
+	body, err := getBody(ctx, f.client, url)
+	if err != nil {
+		return nil, err
+	}
+	var user hnUser
+	if uerr := json.Unmarshal(body, &user); uerr != nil {
+		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
+	}
+	return user.Submitted, nil
+}
+
+func (f *hnHiringFetcher) firstHiringThreadID(ctx context.Context, ids []int64) int64 {
+	limit := min(len(ids), hnSubmittedDepth)
 	for i := range limit {
-		item, err := f.fetchItem(ctx, user.Submitted[i])
-		if err != nil {
-			continue
-		}
-		if strings.HasPrefix(item.Title, hnTitlePrefix) {
-			return item.ID, nil
+		item, ferr := f.fetchItem(ctx, ids[i])
+		if ferr == nil && strings.HasPrefix(item.Title, hnTitlePrefix) {
+			return item.ID
 		}
 	}
-	return 0, fmt.Errorf("%w: no hiring thread in latest submissions", ErrUpstreamSchema)
+	return 0
 }
 
 func (f *hnHiringFetcher) fetchItem(ctx context.Context, id int64) (*hnItem, error) {
 	url := fmt.Sprintf("%s/v0/item/%d.json", f.base, id)
-	var item hnItem
-	if err := getJSON(ctx, f.client, url, &item); err != nil {
+	body, err := getBody(ctx, f.client, url)
+	if err != nil {
 		return nil, err
+	}
+	var item hnItem
+	if uerr := json.Unmarshal(body, &item); uerr != nil {
+		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
 	return &item, nil
 }
@@ -115,20 +148,9 @@ type hnItem struct {
 }
 
 func hnCommentToDomain(c *hnItem, _ int64) domain.FetchedJob {
-	// HN 月度帖 comment 习惯第一行是
-	// "Company | Title | Location | Remote? | Full-time? | apply_url"
-	// adapter 不强 parse；取第一行作 Title 帮 agent 快速判定。
-	firstLine := c.Text
-	if i := strings.Index(c.Text, "\n"); i > 0 {
-		firstLine = c.Text[:i]
-	}
-	// title 截 120 char 避免污染列表 UI
-	if len(firstLine) > 120 {
-		firstLine = firstLine[:120] + "…"
-	}
 	return domain.FetchedJob{
-		ExternalID:  strconv.FormatInt(c.ID, 10),
-		Title:       firstLine,
+		ExternalID:  strconv.FormatInt(c.ID, decimalRadix),
+		Title:       hnFirstLine(c.Text),
 		Company:     "(see body — HN free-form)",
 		Location:    "",
 		URL:         fmt.Sprintf("https://news.ycombinator.com/item?id=%d", c.ID),
@@ -137,4 +159,18 @@ func hnCommentToDomain(c *hnItem, _ int64) domain.FetchedJob {
 		PublishedAt: time.Unix(c.Time, 0),
 		SourceKind:  KindHNHiring,
 	}
+}
+
+// hnFirstLine returns the first text line truncated to hnTitleMaxLen runes,
+// used as the comment's display title in the job list (Claude reads the full
+// BodyText to extract structured fields).
+func hnFirstLine(text string) string {
+	first := text
+	if i := strings.Index(text, "\n"); i > 0 {
+		first = text[:i]
+	}
+	if len(first) > hnTitleMaxLen {
+		first = first[:hnTitleMaxLen] + hnTitleEllipsisRune
+	}
+	return first
 }

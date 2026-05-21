@@ -11,12 +11,12 @@ import (
 )
 
 type jobSourceViewT struct {
-	LastFetchedAt *string        `json:"last_fetched_at,omitempty"`
-	Config        map[string]any `json:"config"`
-	ID            string         `json:"id"`
-	Kind          string         `json:"kind"`
-	Label         string         `json:"label"`
-	CreatedAt     string         `json:"created_at"`
+	LastFetchedAt *string         `json:"last_fetched_at,omitempty"`
+	ID            string          `json:"id"`
+	Kind          string          `json:"kind"`
+	Label         string          `json:"label"`
+	CreatedAt     string          `json:"created_at"`
+	Config        json.RawMessage `json:"config"`
 }
 
 type jobsListResp struct {
@@ -46,11 +46,15 @@ type okResp struct {
 }
 
 func jobSourceView(s *domain.JobSource) jobSourceViewT {
+	cfg := json.RawMessage(s.Config)
+	if len(cfg) == 0 {
+		cfg = json.RawMessage(`{}`)
+	}
 	v := jobSourceViewT{
 		ID:        s.ID,
 		Kind:      s.Kind,
 		Label:     s.Label,
-		Config:    s.Config,
+		Config:    cfg,
 		CreatedAt: s.CreatedAt.Format(mcpTimeFmt),
 	}
 	if s.LastFetchedAt != nil {

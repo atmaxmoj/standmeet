@@ -1,13 +1,16 @@
-// http.go — shared HTTP helper used by all adapters: do GET, check 2xx,
-// decode JSON or RSS, set the common User-Agent. No adapter calls net/http
-// directly.
+// http.go — shared HTTP helpers used by all adapters. No adapter calls
+// net/http directly. Adapters read the body via getBody, then do their
+// own typed json.Unmarshal / xml.Unmarshal so this file never touches
+// `any` (the stdlib decoder boundary stays inside each adapter).
+//
+// Tag-building helpers (appendIfNonEmpty etc) keep per-adapter toDomain
+// functions short, satisfying cognitive-complexity without per-package
+// lint exemption.
 
 package jobfetch
 
 import (
 	"context"
-	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -16,35 +19,21 @@ import (
 
 const httpOKBase = 200
 
-func getJSON(
-	ctx context.Context, client *http.Client, url string, dst any,
-) error {
-	body, err := doGET(ctx, client, url)
+// getBody GETs url, checks 2xx, returns the response body as bytes.
+// Adapters then call json.Unmarshal / xml.Unmarshal into their typed
+// struct. Keeping the `any`-shaped decoder API out of this file lets
+// the package satisfy the project-wide "no any in business code" rule
+// without a path-based forbidigo exemption.
+func getBody(ctx context.Context, client *http.Client, url string) ([]byte, error) {
+	resp, err := sendGET(ctx, client, url)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer closeQuiet(body)
-	if derr := json.NewDecoder(body).Decode(dst); derr != nil {
-		return fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, derr)
-	}
-	return nil
+	defer closeQuiet(resp.Body)
+	return readOK(resp, url)
 }
 
-func getXML(
-	ctx context.Context, client *http.Client, url string, dst any,
-) error {
-	body, err := doGET(ctx, client, url)
-	if err != nil {
-		return err
-	}
-	defer closeQuiet(body)
-	if derr := xml.NewDecoder(body).Decode(dst); derr != nil {
-		return fmt.Errorf("decode rss %s: %w: %w", url, ErrUpstreamSchema, derr)
-	}
-	return nil
-}
-
-func doGET(ctx context.Context, client *http.Client, url string) (io.ReadCloser, error) {
+func sendGET(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request: %w", err)
@@ -55,11 +44,18 @@ func doGET(ctx context.Context, client *http.Client, url string) (io.ReadCloser,
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w: %w", url, ErrUpstream, err)
 	}
+	return resp, nil
+}
+
+func readOK(resp *http.Response, url string) ([]byte, error) {
 	if resp.StatusCode < httpOKBase || resp.StatusCode >= httpOKBase+100 {
-		closeQuiet(resp.Body)
 		return nil, fmt.Errorf("%s: %w: HTTP %d", url, ErrUpstream, resp.StatusCode)
 	}
-	return resp.Body, nil
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("%s: read body: %w: %w", url, ErrUpstream, err)
+	}
+	return body, nil
 }
 
 // closeQuiet swallows Close errors on response/io bodies; we already have the
@@ -79,14 +75,42 @@ func firstOrDefault(envURL, fallback string) string {
 	return fallback
 }
 
-// companyField — convenience around strField; ATS adapters all key on
-// "company". Centralised so unparam sees a single use-site that isn't
-// always-the-same-key.
-func companyField(m map[string]any) string {
-	if v, ok := m["company"].(string); ok {
-		return v
+// firstNonEmpty returns the first non-empty string from the input list, or "".
+func firstNonEmpty(ss ...string) string {
+	for _, s := range ss {
+		if s != "" {
+			return s
+		}
 	}
 	return ""
+}
+
+// appendIfNonEmpty grows the tag list only when s is non-empty.
+// Used by per-adapter toDomain functions to keep cognitive complexity low —
+// the alternative (inline `if s != "" { ... }` per field) compounds quickly.
+func appendIfNonEmpty(out []string, s string) []string {
+	if s != "" {
+		out = append(out, s)
+	}
+	return out
+}
+
+// appendIfNonNil dereferences a *string and appends only when non-nil and
+// non-empty. Ashby's department/team/location fields are nullable JSON, so
+// the optional-string idiom is common there.
+func appendIfNonNil(out []string, p *string) []string {
+	if p != nil && *p != "" {
+		out = append(out, *p)
+	}
+	return out
+}
+
+// preferNonNil dereferences a *string; returns fallback when nil or empty.
+func preferNonNil(p *string, fallback string) string {
+	if p != nil && *p != "" {
+		return *p
+	}
+	return fallback
 }
 
 // errors.Is sanity (compile-time check that ErrUpstream / ErrUpstreamSchema

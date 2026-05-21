@@ -12,6 +12,7 @@ package jobfetch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -21,6 +22,10 @@ import (
 )
 
 const greenhouseDefaultBase = "https://boards-api.greenhouse.io"
+
+type greenhouseConfig struct {
+	Company string `json:"company"`
+}
 
 type greenhouseFetcher struct {
 	client *http.Client
@@ -34,24 +39,49 @@ func newGreenhouseFetcher(client *http.Client, envBase string) *greenhouseFetche
 	}
 }
 
-// Fetch reads {base}/v1/boards/{company}/jobs?content=true。
+// Fetch reads {base}/v1/boards/{company}/jobs?content=true.
 func (f *greenhouseFetcher) Fetch(
-	ctx context.Context, cfg map[string]any,
+	ctx context.Context, cfgRaw []byte,
 ) ([]domain.FetchedJob, error) {
-	company := companyField(cfg)
-	if company == "" {
-		return nil, fmt.Errorf("greenhouse missing company: %w", domain.ErrJobSourceConfigInvalid)
-	}
-	url := fmt.Sprintf("%s/v1/boards/%s/jobs?content=true", f.base, company)
-	var payload greenhouseResp
-	if err := getJSON(ctx, f.client, url, &payload); err != nil {
+	cfg, err := parseGreenhouseConfig(cfgRaw)
+	if err != nil {
 		return nil, err
+	}
+	url := fmt.Sprintf("%s/v1/boards/%s/jobs?content=true", f.base, cfg.Company)
+	body, err := getBody(ctx, f.client, url)
+	if err != nil {
+		return nil, err
+	}
+	var payload greenhouseResp
+	if uerr := json.Unmarshal(body, &payload); uerr != nil {
+		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
 	out := make([]domain.FetchedJob, 0, len(payload.Jobs))
 	for i := range payload.Jobs {
 		out = append(out, greenhouseToDomain(&payload.Jobs[i]))
 	}
 	return out, nil
+}
+
+// parseGreenhouseConfig unmarshals + validates the per-source config.
+func parseGreenhouseConfig(raw []byte) (greenhouseConfig, error) {
+	var cfg greenhouseConfig
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return cfg, fmt.Errorf("greenhouse config decode: %w: %w",
+				domain.ErrJobSourceConfigInvalid, err)
+		}
+	}
+	if cfg.Company == "" {
+		return cfg, fmt.Errorf("greenhouse missing company: %w", domain.ErrJobSourceConfigInvalid)
+	}
+	return cfg, nil
+}
+
+// validateGreenhouseCfg —— used by configValidators dispatch in jobfetch.go.
+func validateGreenhouseCfg(raw []byte) error {
+	_, err := parseGreenhouseConfig(raw)
+	return err
 }
 
 type greenhouseResp struct {
@@ -61,11 +91,11 @@ type greenhouseResp struct {
 type greenhouseJob struct {
 	Title          string             `json:"title"`
 	CompanyName    string             `json:"company_name"`
-	Location       greenhouseLocation `json:"location"`
 	FirstPublished string             `json:"first_published"`
 	UpdatedAt      string             `json:"updated_at"`
 	AbsoluteURL    string             `json:"absolute_url"`
 	Content        string             `json:"content"`
+	Location       greenhouseLocation `json:"location"`
 	Departments    []greenhouseTagged `json:"departments"`
 	Offices        []greenhouseTagged `json:"offices"`
 	ID             int64              `json:"id"`
@@ -80,29 +110,28 @@ type greenhouseTagged struct {
 }
 
 func greenhouseToDomain(j *greenhouseJob) domain.FetchedJob {
-	tags := make([]string, 0, len(j.Departments)+len(j.Offices))
-	for _, d := range j.Departments {
-		if d.Name != "" {
-			tags = append(tags, d.Name)
-		}
-	}
-	for _, o := range j.Offices {
-		if o.Name != "" {
-			tags = append(tags, o.Name)
-		}
-	}
-	published := parseISOTime(j.FirstPublished)
 	return domain.FetchedJob{
-		ExternalID:  strconv.FormatInt(j.ID, 10),
+		ExternalID:  strconv.FormatInt(j.ID, decimalRadix),
 		Title:       j.Title,
 		Company:     j.CompanyName,
 		Location:    j.Location.Name,
 		URL:         j.AbsoluteURL,
 		BodyText:    j.Content,
-		Tags:        tags,
-		PublishedAt: published,
+		Tags:        greenhouseTags(j),
+		PublishedAt: parseISOTime(j.FirstPublished),
 		SourceKind:  KindGreenhouse,
 	}
+}
+
+func greenhouseTags(j *greenhouseJob) []string {
+	tags := make([]string, 0, len(j.Departments)+len(j.Offices))
+	for _, d := range j.Departments {
+		tags = appendIfNonEmpty(tags, d.Name)
+	}
+	for _, o := range j.Offices {
+		tags = appendIfNonEmpty(tags, o.Name)
+	}
+	return tags
 }
 
 // parseISOTime —— Greenhouse / Ashby 返 RFC3339；Lever 用 epoch 毫秒。

@@ -89,8 +89,8 @@ func toDomainOwner(o *dbq.Owner) domain.Owner {
 func toOwnerSettings(o *dbq.Owner) domain.OwnerSettings {
 	return domain.OwnerSettings{
 		AI: domain.OwnerAISettings{
-			Provider:      o.AIProvider,
-			KeyConfigured: len(o.AIProviderKeyEnc) > 0,
+			Provider:      o.AiProvider,
+			KeyConfigured: len(o.AiProviderKeyEnc) > 0,
 		},
 		BYOAI: domain.OwnerBYOAISettings{
 			Enabled:     o.ByoaiEnabled,
@@ -218,7 +218,7 @@ func (r *OwnerRepo) GetAIProviderView(
 		}
 		return AIProviderView{}, fmt.Errorf("get owner for provider view: %w", err)
 	}
-	return AIProviderView{Provider: row.AIProvider, KeyEnc: row.AIProviderKeyEnc}, nil
+	return AIProviderView{Provider: row.AiProvider, KeyEnc: row.AiProviderKeyEnc}, nil
 }
 
 // UpdateAIProvider —— commit owner 的 AI provider 选择。当 KeyPlaintext 非
@@ -237,7 +237,7 @@ func (r *OwnerRepo) UpdateAIProvider(
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerAIProvider(ctx, dbq.UpdateOwnerAIProviderParams{
-		ID: pgID, AIProvider: in.Provider, AIProviderKeyEnc: encBytes,
+		ID: pgID, AiProvider: in.Provider, AiProviderKeyEnc: encBytes,
 	})
 	if qerr != nil {
 		return domain.OwnerSettings{}, fmt.Errorf("update ai provider: %w", qerr)
@@ -326,7 +326,7 @@ func (r *OwnerRepo) resolveKeyBytes(
 		if err != nil {
 			return nil, fmt.Errorf("get owner for key carryover: %w", err)
 		}
-		return row.AIProviderKeyEnc, nil
+		return row.AiProviderKeyEnc, nil
 	}
 	if *key == "" {
 		return []byte{}, nil

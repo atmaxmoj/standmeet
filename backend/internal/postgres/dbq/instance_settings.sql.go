@@ -27,6 +27,17 @@ func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, err
 	return i, err
 }
 
+const setAllowedDomains = `-- name: SetAllowedDomains :exec
+UPDATE instance_settings
+SET allowed_domains = $1::jsonb
+WHERE id = 1
+`
+
+func (q *Queries) SetAllowedDomains(ctx context.Context, dollar_1 []byte) error {
+	_, err := q.db.Exec(ctx, setAllowedDomains, dollar_1)
+	return err
+}
+
 const setSetupTokenHash = `-- name: SetSetupTokenHash :exec
 UPDATE instance_settings
 SET setup_token_hash = $1
@@ -37,17 +48,6 @@ WHERE id = 1
 // token 真生效。
 func (q *Queries) SetSetupTokenHash(ctx context.Context, setupTokenHash *string) error {
 	_, err := q.db.Exec(ctx, setSetupTokenHash, setupTokenHash)
-	return err
-}
-
-const setAllowedDomains = `-- name: SetAllowedDomains :exec
-UPDATE instance_settings
-SET allowed_domains = $1::jsonb
-WHERE id = 1
-`
-
-func (q *Queries) SetAllowedDomains(ctx context.Context, allowedDomains []byte) error {
-	_, err := q.db.Exec(ctx, setAllowedDomains, allowedDomains)
 	return err
 }
 

@@ -1,9 +1,11 @@
-// job_source.go —— outbound 求职链的 fetch 端：owner 注册的 job source
-// + fingerprint dedup + 抓出来的 FetchedJob value。
+// job_source.go —— JobSource aggregate: owner 注册的 job source（root）+
+// JobFingerprint（child entity，dedup 用）+ 创建入参 DTO + source-scoped
+// sentinels。
 //
-// 配合 docs/design/job-loop.md 读。job 永远 ephemeral（Redis 1d TTL），
-// 只有 fingerprint 进 DB 永久去重；commit application 时才 snapshot 进
-// applications 表（那块在 Phase 3）。
+// FetchedJob 是 fetcher 跑出来的 value object（Redis 1d TTL，不持久），
+// 见 fetched_job.go。它 references JobSource by ID 但不在这个 aggregate。
+//
+// 配合 docs/design/job-loop.md 读。
 
 package domain
 
@@ -12,54 +14,35 @@ import (
 	"time"
 )
 
-// JobSource —— owner 注册的一条 job source（一家公司在 Greenhouse / 一个
-// WWR category / HN 月度帖等）。Kind 决定走哪个 fetcher adapter；Config
-// 是 per-kind 形状（{"company":"vercel"} / {"categories":[...]} / 空）。
+// JobSource —— aggregate root。Kind 决定 fetcher adapter；Config 是
+// per-kind 形状的 raw JSON bytes（{"company":"vercel"} / {"categories":
+// [...]} / 空对象），各 adapter 自己 unmarshal 到 typed struct，让 domain
+// 不沾 schemaless `any`。
 type JobSource struct {
 	CreatedAt     time.Time
 	LastFetchedAt *time.Time
-	Config        map[string]any
 	ID            string
 	OwnerID       string
 	Kind          string
 	Label         string
+	Config        []byte
 }
 
-// JobFingerprint —— (source_id, external_id) 见过的就不再返回。external_id
-// 是各 source 自带的稳定 ID（greenhouse.id / lever.id / hn.comment_id /
-// wwr.guid / remoteok.id 等）。
+// JobFingerprint —— JobSource aggregate 内的 child entity。
+// (source_id, external_id) 见过就不再返回；CASCADE 跟 source 一起删。
 type JobFingerprint struct {
 	FirstSeenAt time.Time
 	SourceID    string
 	ExternalID  string
 }
 
-// FetchedJob —— 从源抓出来的一条 job。**不进 DB**，只放 Redis 1d TTL 池
-// （key 由 CacheID 携带）。owner 在 Claude 里"今天有什么新工作"看的就是
-// 这个 shape；commit application 时它的 snapshot 才进 applications.job_snapshot。
-//
-// 字段顺序按 govet fieldalignment：time.Time（含 nested ptr）在前，slice
-// （ptr len cap）紧跟，strings 在尾。
-type FetchedJob struct {
-	PublishedAt time.Time `json:"published_at"`
-	CacheID     string    `json:"cache_id"`
-	SourceID    string    `json:"source_id"`
-	SourceKind  string    `json:"source_kind"`
-	ExternalID  string    `json:"external_id"`
-	Title       string    `json:"title"`
-	Company     string    `json:"company"`
-	Location    string    `json:"location"`
-	URL         string    `json:"url"`
-	BodyText    string    `json:"body_text"`
-	Tags        []string  `json:"tags"`
-}
-
 // CreateJobSourceInput —— usecase 层 register_source 的入参。
+// Config 是 raw JSON bytes（同 JobSource.Config 形状）。
 type CreateJobSourceInput struct {
-	Config  map[string]any
 	OwnerID string
 	Kind    string
 	Label   string
+	Config  []byte
 }
 
 // JobSource-scoped sentinels.
@@ -68,8 +51,7 @@ var (
 	ErrJobSourceNotFound = errors.New("job source not found")
 	// ErrJobSourceKindInvalid —— register_source 传了非法 kind。
 	ErrJobSourceKindInvalid = errors.New("job source kind invalid")
-	// ErrJobSourceConfigInvalid —— config 形状跟 kind 不匹配（缺 company 等）。
+	// ErrJobSourceConfigInvalid —— config JSON shape 跟 kind 不匹配
+	// （缺 company / categories 等必填字段）。
 	ErrJobSourceConfigInvalid = errors.New("job source config invalid")
-	// ErrJobCacheMiss —— 池子里 cache_id 反查不到（过期或从未存在）。
-	ErrJobCacheMiss = errors.New("job cache miss")
 )

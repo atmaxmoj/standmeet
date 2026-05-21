@@ -13,6 +13,7 @@ package jobfetch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -20,6 +21,10 @@ import (
 )
 
 const ashbyDefaultBase = "https://api.ashbyhq.com"
+
+type ashbyConfig struct {
+	Company string `json:"company"`
+}
 
 type ashbyFetcher struct {
 	client *http.Client
@@ -34,22 +39,45 @@ func newAshbyFetcher(client *http.Client, envBase string) *ashbyFetcher {
 }
 
 func (f *ashbyFetcher) Fetch(
-	ctx context.Context, cfg map[string]any,
+	ctx context.Context, cfgRaw []byte,
 ) ([]domain.FetchedJob, error) {
-	company := companyField(cfg)
-	if company == "" {
-		return nil, fmt.Errorf("ashby missing company: %w", domain.ErrJobSourceConfigInvalid)
-	}
-	url := fmt.Sprintf("%s/posting-api/job-board/%s", f.base, company)
-	var payload ashbyResp
-	if err := getJSON(ctx, f.client, url, &payload); err != nil {
+	cfg, err := parseAshbyConfig(cfgRaw)
+	if err != nil {
 		return nil, err
+	}
+	url := fmt.Sprintf("%s/posting-api/job-board/%s", f.base, cfg.Company)
+	body, err := getBody(ctx, f.client, url)
+	if err != nil {
+		return nil, err
+	}
+	var payload ashbyResp
+	if uerr := json.Unmarshal(body, &payload); uerr != nil {
+		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
 	out := make([]domain.FetchedJob, 0, len(payload.Jobs))
 	for i := range payload.Jobs {
-		out = append(out, ashbyToDomain(&payload.Jobs[i], company))
+		out = append(out, ashbyToDomain(&payload.Jobs[i], cfg.Company))
 	}
 	return out, nil
+}
+
+func parseAshbyConfig(raw []byte) (ashbyConfig, error) {
+	var cfg ashbyConfig
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return cfg, fmt.Errorf("ashby config decode: %w: %w",
+				domain.ErrJobSourceConfigInvalid, err)
+		}
+	}
+	if cfg.Company == "" {
+		return cfg, fmt.Errorf("ashby missing company: %w", domain.ErrJobSourceConfigInvalid)
+	}
+	return cfg, nil
+}
+
+func validateAshbyCfg(raw []byte) error {
+	_, err := parseAshbyConfig(raw)
+	return err
 }
 
 type ashbyResp struct {
@@ -71,36 +99,26 @@ type ashbyJob struct {
 }
 
 func ashbyToDomain(j *ashbyJob, company string) domain.FetchedJob {
-	tags := make([]string, 0, 4)
-	if j.Department != nil && *j.Department != "" {
-		tags = append(tags, *j.Department)
-	}
-	if j.Team != nil && *j.Team != "" {
-		tags = append(tags, *j.Team)
-	}
-	if j.EmploymentType != "" {
-		tags = append(tags, j.EmploymentType)
-	}
-	if j.IsRemote {
-		tags = append(tags, "remote")
-	}
-	location := ""
-	if j.Location != nil {
-		location = *j.Location
-	}
-	url := j.JobURL
-	if j.ApplyURL != nil && *j.ApplyURL != "" {
-		url = *j.ApplyURL
-	}
 	return domain.FetchedJob{
 		ExternalID:  j.ID,
 		Title:       j.Title,
 		Company:     company,
-		Location:    location,
-		URL:         url,
+		Location:    preferNonNil(j.Location, ""),
+		URL:         preferNonNil(j.ApplyURL, j.JobURL),
 		BodyText:    j.DescriptionPlain,
-		Tags:        tags,
+		Tags:        ashbyTags(j),
 		PublishedAt: parseISOTime(j.PublishedAt),
 		SourceKind:  KindAshby,
 	}
+}
+
+func ashbyTags(j *ashbyJob) []string {
+	tags := make([]string, 0, defaultTagCap)
+	tags = appendIfNonNil(tags, j.Department)
+	tags = appendIfNonNil(tags, j.Team)
+	tags = appendIfNonEmpty(tags, j.EmploymentType)
+	if j.IsRemote {
+		tags = append(tags, "remote")
+	}
+	return tags
 }

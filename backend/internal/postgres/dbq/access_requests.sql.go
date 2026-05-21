@@ -25,9 +25,7 @@ type CreateAccessRequestParams struct {
 	Message string
 }
 
-func (q *Queries) CreateAccessRequest(
-	ctx context.Context, arg CreateAccessRequestParams,
-) (AccessRequest, error) {
+func (q *Queries) CreateAccessRequest(ctx context.Context, arg CreateAccessRequestParams) (AccessRequest, error) {
 	row := q.db.QueryRow(ctx, createAccessRequest,
 		arg.OwnerID,
 		arg.Name,
@@ -58,14 +56,12 @@ LIMIT 100
 `
 
 type ListAccessRequestsByOwnerParams struct {
-	OwnerID pgtype.UUID
-	Status  *string
+	OwnerID      pgtype.UUID
+	StatusFilter *string
 }
 
-func (q *Queries) ListAccessRequestsByOwner(
-	ctx context.Context, arg ListAccessRequestsByOwnerParams,
-) ([]AccessRequest, error) {
-	rows, err := q.db.Query(ctx, listAccessRequestsByOwner, arg.OwnerID, arg.Status)
+func (q *Queries) ListAccessRequestsByOwner(ctx context.Context, arg ListAccessRequestsByOwnerParams) ([]AccessRequest, error) {
+	rows, err := q.db.Query(ctx, listAccessRequestsByOwner, arg.OwnerID, arg.StatusFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -106,9 +102,7 @@ type UpdateAccessRequestStatusParams struct {
 	Status  string
 }
 
-func (q *Queries) UpdateAccessRequestStatus(
-	ctx context.Context, arg UpdateAccessRequestStatusParams,
-) (AccessRequest, error) {
+func (q *Queries) UpdateAccessRequestStatus(ctx context.Context, arg UpdateAccessRequestStatusParams) (AccessRequest, error) {
 	row := q.db.QueryRow(ctx, updateAccessRequestStatus, arg.ID, arg.OwnerID, arg.Status)
 	var i AccessRequest
 	err := row.Scan(

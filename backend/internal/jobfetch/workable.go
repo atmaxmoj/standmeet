@@ -14,13 +14,19 @@ package jobfetch
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 )
 
 const workableDefaultBase = "https://apply.workable.com"
+
+type workableConfig struct {
+	Company string `json:"company"`
+}
 
 type workableFetcher struct {
 	client *http.Client
@@ -34,10 +40,9 @@ func newWorkableFetcher(client *http.Client, envBase string) *workableFetcher {
 	}
 }
 
-// Fetch — v1 stub. Returns ErrUpstreamSchema until v1.1 wires the real
-// jobs endpoint. Receiver kept (not blanked) for future use.
+// Fetch — v1 stub. Returns an error until v1.1 wires the real jobs endpoint.
 func (f *workableFetcher) Fetch(
-	_ context.Context, _ map[string]any,
+	_ context.Context, _ []byte,
 ) ([]domain.FetchedJob, error) {
 	_ = f.base
 	_ = f.client
@@ -45,4 +50,18 @@ func (f *workableFetcher) Fetch(
 		"workable adapter is a v1.1 stub: widget endpoint returns metadata only, " +
 			"jobs endpoint pending",
 	)
+}
+
+func validateWorkableCfg(raw []byte) error {
+	var cfg workableConfig
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return fmt.Errorf("workable config decode: %w: %w",
+				domain.ErrJobSourceConfigInvalid, err)
+		}
+	}
+	if cfg.Company == "" {
+		return fmt.Errorf("workable missing company: %w", domain.ErrJobSourceConfigInvalid)
+	}
+	return nil
 }

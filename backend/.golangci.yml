@@ -241,28 +241,6 @@ linters:
       # 业务态，同 postgres 豁免。
       - path: internal/mcp/
         linters: [forbidigo]
-      # jobfetch adapter 接 schemaless per-kind config（{"company":"..."}
-      # vs {"categories":[...]} vs {}），每个 adapter 内部 unmarshal 到
-      # 自己的 typed struct 但 Fetcher contract 必须接 map[string]any。
-      # 同 postgres / mcp 豁免。
-      - path: internal/jobfetch/
-        linters: [forbidigo]
-      # jobfetch adapter 是 dispatcher 模式（按 source response 变体路由 +
-      # nil-pointer 校验 + 多字段映射），cyclop / cognitive 天然高。同
-      # internal/routes/ 豁免 precedent。每个 adapter 文件本身就是单一职责
-      # （一家 ATS），不该被惩罚 dispatcher 的"分支多"。
-      - path: internal/jobfetch/
-        linters: [cyclop, gocognit]
-      # revive 的 cognitive-complexity / add-constant / line-length-limit /
-      # exported-doc 同样不适合 dispatcher 模式（每个 nil 字段、每个 type
-      # 转换都计一笔）。同 path 豁免 revive；其他 lint 规则保留。
-      - path: internal/jobfetch/
-        text: "(cognitive-complexity|add-constant|line-length-limit|exported|package-comments)"
-        linters: [revive]
-      # domain.JobSource.Config 是 jsonb pass-through，per-kind shape 在
-      # 各 fetcher 文件里解。这里允许 any 是为保留 fetcher 抽象简洁。
-      - path: internal/domain/job_source.go
-        linters: [forbidigo]
 
 formatters:
   enable:

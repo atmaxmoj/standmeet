@@ -254,8 +254,8 @@ RETURNING id, owner_id, slug, title, status,
           created_at, updated_at
 `
 
-// previous_live_build_id 提回 live；previous 清空。previous 本来 NULL 时
-// live 也被设 NULL（页面下线，下次访客 404）。
+// previous_live_build_id 提回 live，previous 清空。previous 本来就是 NULL
+// 时 → live 也被设 NULL（页面下线，下次访客访问 404）。
 func (q *Queries) RollbackCustomPageLive(ctx context.Context, id pgtype.UUID) (CustomPage, error) {
 	row := q.db.QueryRow(ctx, rollbackCustomPageLive, id)
 	var i CustomPage

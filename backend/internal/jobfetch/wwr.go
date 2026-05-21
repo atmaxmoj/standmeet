@@ -21,6 +21,7 @@ package jobfetch
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -31,6 +32,10 @@ import (
 )
 
 const wwrDefaultBase = "https://weworkremotely.com"
+
+type wwrConfig struct {
+	Categories []string `json:"categories"`
+}
 
 type wwrFetcher struct {
 	client *http.Client
@@ -45,60 +50,84 @@ func newWWRFetcher(client *http.Client, envBase string) *wwrFetcher {
 }
 
 func (f *wwrFetcher) Fetch(
-	ctx context.Context, cfg map[string]any,
+	ctx context.Context, cfgRaw []byte,
 ) ([]domain.FetchedJob, error) {
-	cats, err := extractWWRCategories(cfg)
+	cfg, err := parseWWRConfig(cfgRaw)
 	if err != nil {
 		return nil, err
 	}
-	seen := make(map[string]struct{}, 32)
-	all := make([]domain.FetchedJob, 0, 32)
+	return f.fetchAllCategories(ctx, nonEmptyCategories(cfg.Categories))
+}
+
+func parseWWRConfig(raw []byte) (wwrConfig, error) {
+	var cfg wwrConfig
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			return cfg, fmt.Errorf("wwr config decode: %w: %w",
+				domain.ErrJobSourceConfigInvalid, err)
+		}
+	}
+	if len(nonEmptyCategories(cfg.Categories)) == 0 {
+		return cfg, fmt.Errorf("wwr requires non-empty categories: %w",
+			domain.ErrJobSourceConfigInvalid)
+	}
+	return cfg, nil
+}
+
+func (f *wwrFetcher) fetchAllCategories(
+	ctx context.Context, cats []string,
+) ([]domain.FetchedJob, error) {
+	seen := make(map[string]struct{}, len(cats)*16)
+	all := make([]domain.FetchedJob, 0, len(cats)*16)
 	for _, cat := range cats {
 		jobs, ferr := f.fetchCategory(ctx, cat)
 		if ferr != nil {
 			return nil, ferr
 		}
-		for i := range jobs {
-			if _, dup := seen[jobs[i].ExternalID]; dup {
-				continue
-			}
-			seen[jobs[i].ExternalID] = struct{}{}
-			all = append(all, jobs[i])
-		}
+		all = mergeDedupedByExternalID(all, jobs, seen)
 	}
 	return all, nil
 }
 
-func extractWWRCategories(cfg map[string]any) ([]string, error) {
-	raw, ok := cfg["categories"]
-	if !ok {
-		return nil, fmt.Errorf("wwr missing categories: %w", domain.ErrJobSourceConfigInvalid)
-	}
-	arr, ok := raw.([]any)
-	if !ok {
-		return nil, fmt.Errorf("wwr categories not array: %w", domain.ErrJobSourceConfigInvalid)
-	}
-	out := make([]string, 0, len(arr))
-	for _, v := range arr {
-		s, sok := v.(string)
-		if !sok || s == "" {
+func mergeDedupedByExternalID(
+	all, incoming []domain.FetchedJob, seen map[string]struct{},
+) []domain.FetchedJob {
+	for i := range incoming {
+		if _, dup := seen[incoming[i].ExternalID]; dup {
 			continue
 		}
-		out = append(out, s)
+		seen[incoming[i].ExternalID] = struct{}{}
+		all = append(all, incoming[i])
 	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("wwr categories empty: %w", domain.ErrJobSourceConfigInvalid)
+	return all
+}
+
+func validateWWRCfg(raw []byte) error {
+	_, err := parseWWRConfig(raw)
+	return err
+}
+
+func nonEmptyCategories(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, c := range in {
+		if c != "" {
+			out = append(out, c)
+		}
 	}
-	return out, nil
+	return out
 }
 
 func (f *wwrFetcher) fetchCategory(
 	ctx context.Context, slug string,
 ) ([]domain.FetchedJob, error) {
 	url := fmt.Sprintf("%s/categories/%s.rss", f.base, slug)
-	var feed wwrFeed
-	if err := getXML(ctx, f.client, url, &feed); err != nil {
+	body, err := getBody(ctx, f.client, url)
+	if err != nil {
 		return nil, err
+	}
+	var feed wwrFeed
+	if uerr := xml.Unmarshal(body, &feed); uerr != nil {
+		return nil, fmt.Errorf("decode rss %s: %w: %w", url, ErrUpstreamSchema, uerr)
 	}
 	out := make([]domain.FetchedJob, 0, len(feed.Channel.Items))
 	for i := range feed.Channel.Items {
@@ -132,41 +161,36 @@ type wwrItem struct {
 
 func wwrToDomain(it *wwrItem) domain.FetchedJob {
 	tc := splitWWRTitle(it.Title)
-	title, company := tc.title, tc.company
-	tags := make([]string, 0, 4)
-	if it.Category != "" {
-		tags = append(tags, it.Category)
-	}
-	if it.Type != "" {
-		tags = append(tags, it.Type)
-	}
-	if it.Skills != "" {
-		for s := range strings.SplitSeq(it.Skills, ",") {
-			s = strings.TrimSpace(s)
-			if s != "" {
-				tags = append(tags, s)
-			}
-		}
-	}
 	url := it.Link
 	if url == "" {
 		url = it.GUID
 	}
 	return domain.FetchedJob{
 		ExternalID:  it.GUID,
-		Title:       title,
-		Company:     company,
+		Title:       tc.title,
+		Company:     tc.company,
 		Location:    firstNonEmpty(it.Region, it.Country, it.State),
 		URL:         url,
 		BodyText:    it.Description,
-		Tags:        tags,
+		Tags:        wwrTags(it),
 		PublishedAt: parseRFC822Time(it.PubDate),
 		SourceKind:  KindWWR,
 	}
 }
 
+func wwrTags(it *wwrItem) []string {
+	tags := make([]string, 0, defaultTagCap)
+	tags = appendIfNonEmpty(tags, it.Category)
+	tags = appendIfNonEmpty(tags, it.Type)
+	if it.Skills != "" {
+		for s := range strings.SplitSeq(it.Skills, ",") {
+			tags = appendIfNonEmpty(tags, strings.TrimSpace(s))
+		}
+	}
+	return tags
+}
+
 // titleCompany pairs the two parts split from a WWR <title> string.
-// Named struct fields avoid confusing-results / nonamedreturns conflict.
 type titleCompany struct {
 	title   string
 	company string
@@ -184,15 +208,6 @@ func splitWWRTitle(t string) titleCompany {
 		}
 	}
 	return titleCompany{title: strings.TrimSpace(t)}
-}
-
-func firstNonEmpty(ss ...string) string {
-	for _, s := range ss {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 func parseRFC822Time(s string) time.Time {
