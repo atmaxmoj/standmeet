@@ -263,3 +263,46 @@ CREATE TABLE job_fingerprints (
     first_seen_at timestamptz   NOT NULL DEFAULT now(),
     PRIMARY KEY (source_id, external_id)
 );
+
+-- resume_drafts —— Phase 2 中间态：Claude 给出 resume_content 后 owner
+-- 还在 preview 看，没点头 commit。draft 1d TTL（跟 Redis job 池子同周期），
+-- 过期归 expires_at < now() 的 background sweeper 清。
+--
+-- 关键设计：PDF 永远 ephemeral —— server 端不落任何文件，每次 MCP 调用
+-- 用 gopdf 现场渲染 bytes 塞响应，Claude 拿 bytes 经本地 Playwright MCP
+-- 投递（recruiter 拿到的也只是最终投出去那一份）。表里只存结构化数据。
+CREATE TABLE resume_drafts (
+    id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    -- job_cache_id 是 Redis key 后半段（job:{owner_id}:{job_cache_id}）。
+    -- L.13 决策：draft 创建时已经把 job snapshot 复制到 job_snapshot 列了，
+    -- commit 时不必再回查 Redis；保留 job_cache_id 给 admin "未发草稿"
+    -- 视图显示 "这个草稿是给哪条 job 的"。
+    job_cache_id     text          NOT NULL,
+    job_snapshot     jsonb         NOT NULL,
+    resume_content   jsonb         NOT NULL,
+    expires_at       timestamptz   NOT NULL DEFAULT now() + interval '1 day',
+    created_at       timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX resume_drafts_owner_idx ON resume_drafts(owner_id);
+CREATE INDEX resume_drafts_expires_idx ON resume_drafts(expires_at);
+
+-- applications —— Phase 3 持久化求职申请。一条 application 必须有一个
+-- 同步 issue 的 access_code（recruiter 扫 QR 接回 visitor chat）。
+-- access_code_id 是 NOT NULL FK + ON DELETE RESTRICT（删 code 前必须先删 application）。
+-- 删 application 不级联删 code —— recruiter 即使在 application 删除后仍可用 QR
+-- 访问（直到 code 自然过期或 owner 手动 revoke）。
+CREATE TABLE applications (
+    id             uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id       uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    access_code_id uuid          NOT NULL REFERENCES access_codes(id) ON DELETE RESTRICT,
+    job_snapshot   jsonb         NOT NULL,
+    resume_content jsonb         NOT NULL,
+    status         text          NOT NULL DEFAULT 'pending',
+    submitted_at   timestamptz,
+    created_at     timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX applications_owner_idx ON applications(owner_id);
+CREATE INDEX applications_access_code_idx ON applications(access_code_id);

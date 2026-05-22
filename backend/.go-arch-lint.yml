@@ -33,6 +33,8 @@ components:
     in: internal/jobcache                 # Redis-backed 1d TTL pool for fetched jobs
   jobfetch:
     in: internal/jobfetch                 # job source fetcher adapters (Greenhouse / Lever / Ashby / ...)
+  resumerender:
+    in: internal/resumerender             # ResumeContent → PDF bytes (gopdf + go-qrcode)
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
@@ -63,6 +65,7 @@ deps:
       - inference
       - jobcache
       - jobfetch
+      - resumerender
     anyVendorDeps: true
 
   # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
@@ -127,6 +130,14 @@ deps:
   # / WWR / HN / SmartRecruiters / Workable）。纯外部 HTTP，依赖 domain 是
   # 为了返回 FetchedJob。各 adapter 的 base URL 可被 env 覆写（e2e mock）。
   jobfetch:
+    mayDependOn:
+      - domain
+    anyVendorDeps: true
+
+  # resumerender —— ResumeContent → PDF bytes (vector, ATS-friendly)。
+  # 纯 domain 输入 + vendor libs (gopdf / go-qrcode / x/image fonts)。
+  # 不碰 DB / Redis / config —— layout 常量内联，调用方决定 QR URL。
+  resumerender:
     mayDependOn:
       - domain
     anyVendorDeps: true
@@ -204,6 +215,7 @@ deps:
       - inference
       - jobcache
       - jobfetch
+      - resumerender
       - cryptobox
       - server
     anyVendorDeps: true

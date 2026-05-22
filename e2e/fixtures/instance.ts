@@ -20,9 +20,10 @@ const REDIS_CONTAINER = 'standmeet-dev-redis-1';
 // instance_settings 是 singleton（CHECK id=1），不能 TRUNCATE 否则 backend
 // 之后某些 query 会失败——单独 UPDATE 回未 claim 态 + 写新 hash 即可。
 const TABLES = [
-  'messages', 'conversations', 'code_members', 'access_codes',
+  'messages', 'conversations', 'code_members',
+  'applications', 'access_codes',
   'wiki_entries', 'raw_entries', 'media_assets', 'page_content',
-  'job_fingerprints', 'job_sources',
+  'resume_drafts', 'job_fingerprints', 'job_sources',
   'api_tokens', 'owners',
 ];
 

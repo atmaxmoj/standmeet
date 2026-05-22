@@ -9,8 +9,19 @@ import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-interface MCPContentText { type: string; text: string }
-interface MCPResult { content: MCPContentText[]; isError?: boolean }
+interface MCPContentText { type: 'text'; text: string }
+interface MCPBlobResource {
+  uri: string;
+  mimeType?: string;
+  blob: string;
+}
+interface MCPContentResource {
+  type: 'resource';
+  resource: MCPBlobResource;
+}
+// Discriminated union; resume.* tools return [text, resource].
+export type MCPContent = MCPContentText | MCPContentResource;
+interface MCPResult { content: MCPContent[]; isError?: boolean }
 interface MCPResponse {
   jsonrpc: string;
   id?: number | string;
@@ -88,6 +99,9 @@ export async function callTool<T>(
   }
   const content = res.body.result?.content?.[0];
   if (!content) throw new Error(`tool ${name} returned no content`);
+  if (content.type !== 'text') {
+    throw new Error(`tool ${name} returned non-text content (use callToolMulti)`);
+  }
   // mcp-go 的 NewToolResultError 把 plaintext 包成 content.text；正常返成功
   // 时我们在 backend 里 marshal 一个 JSON 字符串进去。所以先看 isError 兜底，
   // 然后试 JSON.parse；parse 失败就当 plaintext 错误信息抛。
@@ -103,6 +117,38 @@ function parseOrThrow<T>(name: string, text: string): T {
   } catch {
     throw new Error(`tool ${name} non-JSON content: ${text}`);
   }
+}
+
+// callToolMulti —— like callTool but returns the full content array. Use this
+// for tools that emit a text part + embedded binary (resume.draft / update_draft
+// return [TextContent(JSON), EmbeddedResource(PDF blob base64)]).
+export async function callToolMulti(
+  request: APIRequestContext,
+  bearer: string,
+  sessionId: string,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<MCPContent[]> {
+  const res = await mcpCall(request, {
+    jsonrpc: '2.0', id: nextID(), method: 'tools/call',
+    params: { name, arguments: args },
+  }, bearer, sessionId);
+  if (res.status !== 200 || !res.body) {
+    throw new Error(`tool ${name} status=${res.status}`);
+  }
+  if (res.body.error) {
+    throw new Error(`tool ${name} error: ${res.body.error.message}`);
+  }
+  const content = res.body.result?.content;
+  if (!content || content.length === 0) {
+    throw new Error(`tool ${name} returned no content`);
+  }
+  if (res.body.result?.isError) {
+    const first = content[0];
+    const msg = first && first.type === 'text' ? first.text : '(no message)';
+    throw new Error(`tool ${name} error: ${msg}`);
+  }
+  return content;
 }
 
 let _toolCallID = 100;

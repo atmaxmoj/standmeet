@@ -45,6 +45,17 @@ type ApiToken struct {
 	CreatedAt  pgtype.Timestamptz
 }
 
+type Application struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	AccessCodeID  pgtype.UUID
+	JobSnapshot   []byte
+	ResumeContent []byte
+	Status        string
+	SubmittedAt   pgtype.Timestamptz
+	CreatedAt     pgtype.Timestamptz
+}
+
 type CodeMember struct {
 	ID          pgtype.UUID
 	CodeID      pgtype.UUID
@@ -185,6 +196,16 @@ type RawEntry struct {
 	PromotedTo     pgtype.UUID
 	Archived       bool
 	CreatedAt      pgtype.Timestamptz
+}
+
+type ResumeDraft struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	JobCacheID    string
+	JobSnapshot   []byte
+	ResumeContent []byte
+	ExpiresAt     pgtype.Timestamptz
+	CreatedAt     pgtype.Timestamptz
 }
 
 type SeoSetting struct {

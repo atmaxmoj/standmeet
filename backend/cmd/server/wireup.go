@@ -102,6 +102,10 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Jobs: usecases.JobsDeps{
 			Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
 		},
+		Resume: usecases.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool},
+		Applications: usecases.ApplicationsDeps{
+			Apps: d.applicationRepo, Owners: d.ownerRepo, PublicURL: d.publicURL,
+		},
 		Log: d.log,
 	}
 }

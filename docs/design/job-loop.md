@@ -250,10 +250,17 @@ Claude 每次按 JD 重写 `summary` + 调整 `works.bullets` 顺序 + 选哪几
 
 ## PDF 渲染
 
-- **库**：`react-pdf`（vector PDF，文字可选可搜，ATS 能解析）
-- **不用**：`html2canvas` + `jspdf`（interviewme 那条路 —— 产 image-PDF，ATS 看不见文字）
-- **layout**：固定一个版本，**简单**。单栏，serif 正文（Source Serif 或 Newsreader），mono 标签，**无图标无 sidebar 无 photo**。
-- **QR**：右上角，~24mm × 24mm，`go-qrcode` 服务端生成 PNG 嵌入 PDF。
+- **库**：`github.com/signintech/gopdf`（pure-Go，vector PDF，文字可选可搜，
+  ATS 能解析；同时支持 unicode + TrueType embedding）。最初 doc 草案写的
+  `react-pdf` 是 JS 库，跟 Go backend 不搭，改用 gopdf 保持单一语言栈。
+- **QR**：`github.com/skip2/go-qrcode` 服务端生成 PNG byte slice → 直接
+  embed 进 gopdf 页面。
+- **layout**：固定一个版本，**简单**。单栏，serif 正文（Source Serif），
+  mono 标签，**无图标无 sidebar 无 photo**。
+- **不用**：`html2canvas` + `jspdf`（interviewme 那条路 —— 产 image-PDF，
+  ATS 看不见文字）；headless chromium / wkhtmltopdf（额外依赖）；React PDF
+  sidecar (Node service 加部署复杂度，没有真实收益)。
+- **QR 位置**：右上角，~24mm × 24mm。
 - **URL 编码**：`https://{owner-public-url}/{handle}?code={access_code}`
 
 **决策点 L.9：不做模板选择，不做 LayoutConfig。一个 layout 一套字体，永远。**

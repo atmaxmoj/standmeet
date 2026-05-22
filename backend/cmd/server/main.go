@@ -97,6 +97,8 @@ func wireAndServe(
 	customBuildRepo := postgres.NewCustomBuildRepo(c.db)
 	accessRequestRepo := postgres.NewAccessRequestRepo(c.db)
 	jobSourceRepo := postgres.NewJobSourceRepo(c.db)
+	resumeDraftRepo := postgres.NewResumeDraftRepo(c.db)
+	applicationRepo := postgres.NewApplicationRepo(c.db)
 	jobCachePool := jobcache.New(c.rdb, 0) // default 24h TTL
 	jobFetchRegistry := jobfetch.New(&jobfetch.BaseURLs{
 		Greenhouse:      cfg.JobFetchGreenhouseBaseURL,
@@ -136,6 +138,8 @@ func wireAndServe(
 		customBuildRepo:   customBuildRepo,
 		accessRequestRepo: accessRequestRepo,
 		jobSourceRepo:     jobSourceRepo,
+		resumeDraftRepo:   resumeDraftRepo,
+		applicationRepo:   applicationRepo,
 		jobCachePool:      jobCachePool,
 		jobFetchRegistry:  jobFetchRegistry,
 		sessionStore:      sessionStore, visitorStore: visitorStore,
@@ -186,6 +190,8 @@ type runtimeDeps struct {
 	customBuildRepo   *postgres.CustomBuildRepo
 	accessRequestRepo *postgres.AccessRequestRepo
 	jobSourceRepo     *postgres.JobSourceRepo
+	resumeDraftRepo   *postgres.ResumeDraftRepo
+	applicationRepo   *postgres.ApplicationRepo
 	jobCachePool      *jobcache.Pool
 	jobFetchRegistry  *jobfetch.Registry
 	sessionStore      *session.OwnerSessionStore

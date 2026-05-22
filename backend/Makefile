@@ -10,6 +10,9 @@
 
 .PHONY: lint build arch fmt-check max-lines routes-cyclo build-check secrets golangci-config escape-lint
 
+# sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
+# the same way for app/sdk/backend devs. Don't duplicate it here.
+
 # `make lint` is the gate everything else runs.  Each step is
 # independent + fast; the order is "fastest to fail" so a syntax
 # typo dies before the slow arch scan.  Everything that gates a
