@@ -4,12 +4,12 @@
 //   owner 已经 claim 完，登录 admin，从默认 hero prose 改成一句自己的话，
 //   保存。打开自己的公开页（/<handle>），看到那句话就是访客现在看到的。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { expectAdminSidebarVisible, goto } from '@/fixtures/navigate';
+import { expectAdminSidebarVisible } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -42,11 +42,7 @@ test.describe.serial('owner edits public page, visitor sees the change', () => {
 });
 
 async function signInToAdmin(page: Page): Promise<void> {
-  await goto(page, '/login');
-  await page.getByTestId('email').fill(OWNER.email);
-  await page.getByTestId('password').fill(OWNER.password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await loginAsOwnerUI(page);
 }
 
 async function navigateToPageEditor(page: Page): Promise<void> {
@@ -64,6 +60,7 @@ async function editHeroProse(page: Page, prose: string): Promise<void> {
 }
 
 async function expectPublicPageShows(page: Page, prose: string): Promise<void> {
-  await goto(page, `/${OWNER.handle}`);
+  await page.getByRole('link', { name: 'view public ↗' }).click();
+  await page.waitForURL('**/', { timeout: 10_000 });
   await expect(page.getByText(prose, { exact: false })).toBeVisible({ timeout: 5_000 });
 }

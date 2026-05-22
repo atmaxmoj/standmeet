@@ -4,12 +4,12 @@
 //   owner 给招聘官发 INTERVIEW-A1，每人 5 轮面试 × 每轮 10 个回合。
 //   面试结束后想关闭整个码，点 revoke。访客再用旧链接就被拒。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 import { issueSessionStatus } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -59,11 +59,7 @@ async function editQuotas(
 }
 
 async function signInAndOpenCodes(page: Page): Promise<void> {
-  await goto(page, '/login');
-  await page.getByTestId('email').fill(OWNER.email);
-  await page.getByTestId('password').fill(OWNER.password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await loginAsOwnerUI(page);
   await gotoAdminSection(page, 'codes');
   await page.waitForURL('**/admin/codes', { timeout: 5_000 });
 }

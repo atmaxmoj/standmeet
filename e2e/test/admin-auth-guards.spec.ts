@@ -7,7 +7,7 @@
 //
 // 全 API 驱动 —— 这条不需要 UI 介入，但属于 e2e（真实 server, 真实 db）。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

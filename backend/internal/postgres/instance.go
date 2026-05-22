@@ -38,9 +38,10 @@ func (r *InstanceRepo) Get(ctx context.Context) (domain.InstanceSettings, error)
 		return domain.InstanceSettings{}, fmt.Errorf("get instance settings: %w", err)
 	}
 	return domain.InstanceSettings{
-		IsClaimed:   row.IsClaimed,
-		MultiTenant: row.MultiTenant,
-		DeployedAt:  row.DeployedAt.Time,
+		IsClaimed:         row.IsClaimed,
+		MultiTenant:       row.MultiTenant,
+		DeployedAt:        row.DeployedAt.Time,
+		HasSetupTokenHash: row.SetupTokenHash != nil && *row.SetupTokenHash != "",
 	}, nil
 }
 
@@ -116,7 +117,7 @@ func (r *InstanceRepo) SetSetupTokenHash(ctx context.Context, hash string) error
 func (r *InstanceRepo) ClaimAndCreateOwner(
 	ctx context.Context,
 	tokenHash string,
-	input domain.CreateOwnerInput,
+	input *domain.CreateOwnerInput,
 ) (domain.Owner, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -140,7 +141,7 @@ func claimTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	tokenHash string,
-	input domain.CreateOwnerInput,
+	input *domain.CreateOwnerInput,
 ) (domain.Owner, error) {
 	q := dbq.New(tx)
 
@@ -156,6 +157,7 @@ func claimTx(
 		PasswordHash: input.PasswordHash,
 		Handle:       input.Handle,
 		FullName:     input.FullName,
+		PublicUrl:    input.PublicURL,
 	})
 	if err != nil {
 		return domain.Owner{}, translateCreateOwnerErr(err)

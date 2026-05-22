@@ -4,12 +4,12 @@
 // Phase 1 只验"key 能存能清，UI 状态切换正确"。Phase 2 跑 visitor 真聊
 // 走 Anthropic 路径在后续 spec 里。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -52,9 +52,5 @@ test.describe.serial('owner configures AI provider + key from /admin/api-mcp', (
 });
 
 async function signIn(page: Page): Promise<void> {
-  await goto(page, '/login');
-  await page.getByTestId('email').fill(OWNER.email);
-  await page.getByTestId('password').fill(OWNER.password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await loginAsOwnerUI(page);
 }

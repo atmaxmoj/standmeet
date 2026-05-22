@@ -45,21 +45,8 @@ export type Turn = {
 
 export type SessionTier = 'public' | 'code' | 'byoai';
 
-// pickTier —— 三档 visitor session：byoai > code > public。query string
-// 决定，page-shell 一次解算后传给 useConversation。
-export function pickTier(byoai: boolean, code: string | null): SessionTier {
-  if (byoai) return 'byoai';
-  return code !== null && code !== '' ? 'code' : 'public';
-}
-
-export type BannerKind = 'byoai' | 'coded' | 'none';
-
-// pickBanner —— 跟 pickTier 同源但单独返渲染 hint（byoai banner / coded
-// banner / 无），避免 page-shell 里嵌套三元 cyclo 超标。
-export function pickBanner(byoai: boolean, code: string | null): BannerKind {
-  if (byoai) return 'byoai';
-  return code !== null && code !== '' ? 'coded' : 'none';
-}
+// pickTier / pickBanner 已删 —— tier 现在 page-shell 通过 loadStoredSession()
+// 直接从 localStorage 拿，不再从 URL 查询字符串派生。
 
 export type ConversationState = {
   turns: Turn[];
@@ -70,7 +57,6 @@ export type ConversationState = {
 };
 
 type Deps = {
-  handle: string;
   tier: SessionTier;
 };
 
@@ -147,8 +133,7 @@ async function ensureSession(
 
 async function issueSessionFor(deps: Deps): Promise<PublicSessionResponse> {
   const stored = loadStoredSession();
-  const reusable = stored && stored.owner_handle === deps.handle;
-  return reusable
+  return stored
     ? reuseStored(stored)
     : await issueFresh(deps);
 }
@@ -157,7 +142,6 @@ function reuseStored(stored: NonNullable<ReturnType<typeof loadStoredSession>>):
   return {
     session_token: stored.session_token,
     conversation_id: stored.conversation_id,
-    owner_handle: stored.owner_handle,
     included_tags: [],
     excluded_tags: [],
   };
@@ -166,16 +150,14 @@ function reuseStored(stored: NonNullable<ReturnType<typeof loadStoredSession>>):
 async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
   switch (deps.tier) {
     case 'public':
-      return issuePublicSession(deps.handle);
+      return issuePublicSession();
     case 'code': {
       // code-tier without a stored session is a flow error; fall back to public
       // so a deep-linked code URL still produces a usable session.
-      return issueCodeSession({ handle: deps.handle, code: '' });
+      return issueCodeSession({ code: '' });
     }
     case 'byoai':
-      return issueBYOAISession({
-        handle: deps.handle, byoai_provider: 'anthropic', byoai_key: '',
-      });
+      return issueBYOAISession({ byoai_provider: 'anthropic', byoai_key: '' });
   }
 }
 

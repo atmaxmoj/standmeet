@@ -4,7 +4,7 @@
 //   "5 轮面试" 字面意思：max_sessions_per_member=5。Sarah 真的能用满 5 次，
 //   第 6 次才被拒。不是 quota=1 那种 binary。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';

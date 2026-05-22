@@ -35,24 +35,21 @@ function client(): StandMeetClient {
   return createClient({ baseURL: baseURL() });
 }
 
+// v1 单 owner instance —— session 入参不带 handle。
 export interface IssueCodeSessionInput {
-  handle: string;
   code: string;
   visitor_name?: string;
 }
 
 export interface IssueBYOAISessionInput {
-  handle: string;
   byoai_provider: 'anthropic' | 'openai';
   byoai_key: string;
 }
 
-export const fetchPublicPage = (handle: string) => client().fetchPage(handle);
-export const fetchWikiLanding = (handle: string, slug: string) =>
-  client().fetchWikiLanding(handle, slug);
+export const fetchPublicPage = () => client().fetchPage();
+export const fetchWikiLanding = (slug: string) => client().fetchWikiLanding(slug);
 
-export const issuePublicSession = (handle: string) =>
-  client().issueSession({ handle, tier: 'public' });
+export const issuePublicSession = () => client().issueSession({ tier: 'public' });
 export const issueCodeSession = (input: IssueCodeSessionInput) =>
   client().issueSession({ ...input, tier: 'code' });
 export const issueBYOAISession = (input: IssueBYOAISessionInput) =>

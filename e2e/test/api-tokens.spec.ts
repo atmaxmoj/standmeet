@@ -6,13 +6,13 @@
 //   "create"，拿到一次性 plaintext token，复制到 client 配置。client
 //   就能调 me() 拿到自己 owner 信息。delete 之后旧 token 失效。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -43,11 +43,7 @@ test.describe.serial('owner mints an API token in admin and an MCP client uses i
 });
 
 async function signInAndOpenAPIMCP(page: Page): Promise<void> {
-  await goto(page, '/login');
-  await page.getByTestId('email').fill(OWNER.email);
-  await page.getByTestId('password').fill(OWNER.password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await loginAsOwnerUI(page);
   await gotoAdminSection(page, 'api · mcp');
   await page.waitForURL('**/admin/api-mcp', { timeout: 5_000 });
 }

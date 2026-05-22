@@ -2,11 +2,13 @@
 
 'use client';
 
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
 import { Field } from '@/components/auth/Field';
 
+import { sessionStore } from '@/lib/admin/use-admin-session';
 import { useLoginForm } from '@/lib/auth/use-login-form';
 
 export function LoginForm() {
@@ -16,7 +18,7 @@ export function LoginForm() {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await form.submit();
-    result && router.push('/admin');
+    result && enterAdmin(router);
   }, [form, router]);
 
   return (
@@ -73,6 +75,14 @@ export function LoginForm() {
       </form>
     </section>
   );
+}
+
+// enterAdmin —— login 成功后跳进 admin 前必须 reset sessionStore。前一次
+// /admin 探测可能把它缓存成 'error'（未授权），不 reset 的话 AdminShell
+// 挂载时立刻判定 unauthed → 重新跳 /login，登录死循环。
+function enterAdmin(router: AppRouterInstance): void {
+  sessionStore.getState().reset();
+  router.push('/admin');
 }
 
 function FormError({ message }: { message: string | null }) {

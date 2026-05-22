@@ -1,7 +1,7 @@
 // job-discard.spec.ts —— owner can drop a single job from the cache pool
 // via jobs.discard. Subsequent jobs.show on that cache_id returns cache-miss.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

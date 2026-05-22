@@ -5,9 +5,11 @@ import * as dotenv from 'dotenv';
 // 本地 .env.local 可覆盖 BASE_URL；CI / docker compose 通过 env 直接传。
 dotenv.config({ path: path.join(__dirname, '.env.local') });
 
-// BASE_URL 默认指向 backend 的 API root；启用 app/ 之后可改指 Next.js
-// dev server，让 API 走 baseURL/api。
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:8000';
+// BASE_URL 是 Next.js app 的入口（v1 单 owner instance：访客打开域名 /
+// 就是公开页，pre-claim 时 server-side redirect 到 /setup?t=...）。
+// fixtures/test.ts 的自定义 page fixture 在每个 spec 开始前 goto('/')；
+// spec body 之后只点 UI，**整套 e2e 里 goto 只出现在那一处**。
+const BASE_URL = process.env['BASE_URL'] ?? 'http://localhost:38127';
 
 const outputDir = path.join(process.cwd(), 'test-results', 'playwright');
 

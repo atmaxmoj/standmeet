@@ -1,11 +1,11 @@
-// custom_pages.go —— 访客访问 /<handle>/p/<slug> 时由 app middleware 反代
-// 到 GET /api/v1/custom-pages/{handle}/{slug}/{*path}。本文件负责从共享
+// custom_pages.go —— 访客访问 /p/<slug> 时由 app middleware 反代到
+// GET /api/v1/custom-pages/{slug}/{*path}。本文件负责从共享
 // /srv/custom-pages/<page_id>/<build_id>/dist/* 读文件返回。
 //
 // 安全：assetPath 必须不含 ..；path 拼装用 filepath.Clean 后强校验仍在
 // BuildsRoot 子树下；只 serve build 已 built + 是 live。
 //
-// 这一层保持 cyclo ≤ 3：handle→owner→build 的链路集中在 usecases，文件
+// 这一层保持 cyclo ≤ 3：sole-owner→build 链路集中在 usecases，文件
 // resolve 用 helper 拆开，content-type 用 map 查。
 
 package public
@@ -36,15 +36,15 @@ const logErr = "err"
 // CustomPageHandlers —— 访客 custom page asset 路由依赖。
 type CustomPageHandlers struct {
 	Deps       usecases.CustomPageDeps
-	Owners     usecases.OwnerByHandleLookup
+	Owners     usecases.SoleOwnerLookup
 	Log        *slog.Logger
 	BuildsRoot string
 }
 
-// Mount 挂 /custom-pages/{handle}/{slug}/* 到 /api/v1。
+// Mount 挂 /custom-pages/{slug}/* 到 /api/v1。owner 是 sole owner，URL 不带 handle。
 func (h *CustomPageHandlers) Mount(r chi.Router) {
-	r.Get("/custom-pages/{handle}/{slug}", h.serveAsset())
-	r.Get("/custom-pages/{handle}/{slug}/*", h.serveAsset())
+	r.Get("/custom-pages/{slug}", h.serveAsset())
+	r.Get("/custom-pages/{slug}/*", h.serveAsset())
 }
 
 func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
@@ -59,22 +59,20 @@ func (h *CustomPageHandlers) serveAsset() http.HandlerFunc {
 }
 
 // baseHrefFor —— 给 index.html 注入 <base href> 用。空 assetPath 即根入口，
-// 浏览器 URL 是 /<handle>/p/<slug>(/)?，所以 base 必须是
-// /<handle>/p/<slug>/，让 vite emit 的 `./assets/...` 永远解析对路径。
+// 浏览器 URL 是 /p/<slug>(/)?，所以 base 必须是 /p/<slug>/，让 vite emit
+// 的 `./assets/...` 永远解析对路径。
 func baseHrefFor(r *http.Request) string {
 	asset := chi.URLParam(r, "*")
 	if asset != "" {
 		return ""
 	}
-	return fmt.Sprintf("/%s/p/%s/", chi.URLParam(r, "handle"), chi.URLParam(r, "slug"))
+	return fmt.Sprintf("/p/%s/", chi.URLParam(r, "slug"))
 }
 
 func resolveAssetPath(
 	ctx context.Context, h *CustomPageHandlers, r *http.Request,
 ) (string, error) {
-	build, err := usecases.ResolveLiveBuild(ctx,
-		h.Deps, h.Owners,
-		chi.URLParam(r, "handle"), chi.URLParam(r, "slug"))
+	build, err := usecases.ResolveLiveBuild(ctx, h.Deps, h.Owners, chi.URLParam(r, "slug"))
 	if err != nil {
 		return "", err
 	}

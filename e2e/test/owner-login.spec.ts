@@ -7,9 +7,9 @@
 //
 // Claim 走 helper（不是被测路径）；login 全程浏览器。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { goto } from '@/fixtures/navigate';
 
@@ -32,11 +32,7 @@ test.describe.serial('owner logs back in', () => {
   });
 
   test('right credentials land owner in admin', async ({ page }) => {
-    await goto(page, '/login');
-    await page.getByTestId('email').fill(OWNER.email);
-    await page.getByTestId('password').fill(OWNER.password);
-    await page.getByTestId('submit').click();
-    await page.waitForURL('**/admin/page', { timeout: 10_000 });
+    await loginAsOwnerUI(page);
     await expect(page.getByRole('link', { name: /\bpage\b/ })).toBeVisible();
   });
 

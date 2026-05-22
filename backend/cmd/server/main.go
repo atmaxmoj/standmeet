@@ -123,7 +123,8 @@ func wireAndServe(
 		Decrypter: cryptobox.Decrypt,
 	}
 	providerResolver := inference.NewEnvOrOwnerResolver(ownerKeyResolver, mockProvider)
-	if terr := ensureSetupToken(ctx, log, instanceRepo, cfg.PublicURL); terr != nil {
+	setupTokenHolder := session.NewSetupTokenHolder()
+	if terr := ensureSetupToken(ctx, log, instanceRepo, setupTokenHolder); terr != nil {
 		return terr
 	}
 
@@ -143,9 +144,10 @@ func wireAndServe(
 		jobCachePool:      jobCachePool,
 		jobFetchRegistry:  jobFetchRegistry,
 		sessionStore:      sessionStore, visitorStore: visitorStore,
-		providerResolver: providerResolver, secureCookie: cfg.SecureCookie,
-		publicURL:  cfg.PublicURL,
-		buildsRoot: cfg.CustomPagesRoot,
+		providerResolver: providerResolver,
+		setupTokenHolder: setupTokenHolder,
+		secureCookie:     cfg.SecureCookie,
+		buildsRoot:       cfg.CustomPagesRoot,
 	}
 	return serve(ctx, &deps, addr, stop)
 }
@@ -157,7 +159,7 @@ func ensureSetupToken(
 	ctx context.Context,
 	log *slog.Logger,
 	repo *postgres.InstanceRepo,
-	publicURL string,
+	holder *session.SetupTokenHolder,
 ) error {
 	inst, err := repo.Get(ctx)
 	if err != nil {
@@ -167,7 +169,7 @@ func ensureSetupToken(
 		log.Info("instance already claimed; setup token skipped")
 		return nil
 	}
-	if terr := session.IssueSetupToken(ctx, log, repo, publicURL); terr != nil {
+	if terr := session.IssueSetupToken(ctx, log, repo, holder); terr != nil {
 		return fmt.Errorf("issue setup token: %w", terr)
 	}
 	return nil
@@ -197,9 +199,37 @@ type runtimeDeps struct {
 	sessionStore      *session.OwnerSessionStore
 	visitorStore      *session.VisitorSessionStore
 	providerResolver  inference.Resolver
-	publicURL         string
+	setupTokenHolder  *session.SetupTokenHolder
 	buildsRoot        string
 	secureCookie      bool
+}
+
+// setupTokenIssuerAdapter —— 把 *postgres.InstanceRepo + *session.SetupTokenHolder
+// 包成 usecases.SetupTokenIssuer。让 /api/v1/instance handler 通过 usecase 拿
+// self-healing 的 unclaimed setup token，而 usecase 层不直接 import session 包。
+type setupTokenIssuerAdapter struct {
+	log    *slog.Logger
+	repo   *postgres.InstanceRepo
+	holder *session.SetupTokenHolder
+}
+
+func (a *setupTokenIssuerAdapter) HasLiveTokenHash(ctx context.Context) (bool, error) {
+	inst, err := a.repo.Get(ctx)
+	if err != nil {
+		return false, fmt.Errorf("get instance settings: %w", err)
+	}
+	return inst.HasSetupTokenHash, nil
+}
+
+func (a *setupTokenIssuerAdapter) IssueAndStore(ctx context.Context) error {
+	if err := session.IssueSetupToken(ctx, a.log, a.repo, a.holder); err != nil {
+		return fmt.Errorf("issue setup token: %w", err)
+	}
+	return nil
+}
+
+func (a *setupTokenIssuerAdapter) HolderPlaintext() string {
+	return a.holder.Plaintext()
 }
 
 // ownerLookupAdapter —— 把 postgres.OwnerRepo 包成 inference.OwnerLookup。

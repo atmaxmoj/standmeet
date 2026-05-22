@@ -6,7 +6,7 @@
 // to wait on Redis async expiry — the next jobs.show is immediately a miss.
 
 import { execSync } from 'node:child_process';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

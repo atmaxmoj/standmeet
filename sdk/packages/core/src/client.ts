@@ -7,6 +7,9 @@
 //
 // baseURL 为空串时所有请求走相对路径（让 Next rewrites / app proxy
 // 透传）；非空时走绝对路径（SSR、Web Component 在第三方域名下）。
+//
+// v1 单 owner instance —— page / wiki landing / session 等 API 都不带
+// handle 参数：sole owner 直接在 server 端 resolve。
 
 import { readSSE } from './sse.js';
 import type {
@@ -24,11 +27,10 @@ export interface ClientOptions {
 }
 
 // IssueSessionInput —— 三档访问 tier 统一入参。tier 决定哪些字段是必需的：
-//   public —— 仅 handle
-//   code   —— handle + code (+ visitor_name optional)
-//   byoai  —— handle + byoai_provider + byoai_key
+//   public —— 无字段
+//   code   —— code (+ visitor_name optional)
+//   byoai  —— byoai_provider + byoai_key
 export interface IssueSessionInput {
-  handle: string;
   tier: SessionTier;
   code?: string;
   visitor_name?: string;
@@ -39,8 +41,8 @@ export interface IssueSessionInput {
 // StandMeetClient —— 业务接口。consumer 通过 createClient 拿到的实例
 // 满足这个 shape；不直接暴露内部字段。
 export interface StandMeetClient {
-  fetchPage(handle: string): Promise<PublicPageView>;
-  fetchWikiLanding(handle: string, slug: string): Promise<WikiLandingView | null>;
+  fetchPage(): Promise<PublicPageView>;
+  fetchWikiLanding(slug: string): Promise<WikiLandingView | null>;
   issueSession(input: IssueSessionInput): Promise<PublicSessionResponse>;
   streamMessage(
     conversationID: string,
@@ -53,27 +55,25 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
   const baseURL = opts.baseURL ?? '';
   const f = opts.fetchImpl ?? fetch;
   return {
-    fetchPage: (handle) => fetchPage(f, baseURL, handle),
-    fetchWikiLanding: (handle, slug) => fetchWikiLanding(f, baseURL, handle, slug),
+    fetchPage: () => fetchPage(f, baseURL),
+    fetchWikiLanding: (slug) => fetchWikiLanding(f, baseURL, slug),
     issueSession: (input) => issueSession(f, baseURL, input),
     streamMessage: (id, token, content) => streamMessage(f, baseURL, id, token, content),
   };
 }
 
-async function fetchPage(
-  f: typeof fetch, baseURL: string, handle: string,
-): Promise<PublicPageView> {
-  const res = await f(`${baseURL}/api/v1/page/${handle}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`fetch page ${handle}: ${res.status}`);
+async function fetchPage(f: typeof fetch, baseURL: string): Promise<PublicPageView> {
+  const res = await f(`${baseURL}/api/v1/page`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`fetch page: ${res.status}`);
   return (await res.json()) as PublicPageView;
 }
 
 async function fetchWikiLanding(
-  f: typeof fetch, baseURL: string, handle: string, slug: string,
+  f: typeof fetch, baseURL: string, slug: string,
 ): Promise<WikiLandingView | null> {
-  const res = await f(`${baseURL}/api/v1/wiki/${handle}/${slug}`, { cache: 'no-store' });
+  const res = await f(`${baseURL}/api/v1/wiki/${slug}`, { cache: 'no-store' });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`fetch wiki ${handle}/${slug}: ${res.status}`);
+  if (!res.ok) throw new Error(`fetch wiki ${slug}: ${res.status}`);
   return (await res.json()) as WikiLandingView;
 }
 

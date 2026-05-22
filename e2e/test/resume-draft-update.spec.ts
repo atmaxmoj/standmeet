@@ -6,7 +6,7 @@
 //
 // job_snapshot stays the same because drafts snapshot at creation (L.13).
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

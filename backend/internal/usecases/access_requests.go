@@ -1,7 +1,7 @@
-// access_requests.go —— /<handle>/gate 留言的创建 + admin 审阅。
+// access_requests.go —— /gate 留言的创建 + admin 审阅。
 //
-// 业务逻辑薄：handle → owner_id lookup + 必填字段校验。状态机由 domain
-// 层和 DB CHECK 共同把守，usecase 只做"白名单"判断。
+// 业务逻辑薄：sole owner lookup + 必填字段校验。状态机由 domain 层和
+// DB CHECK 共同把守，usecase 只做"白名单"判断。
 
 package usecases
 
@@ -14,31 +14,30 @@ import (
 	"github.com/wangsijie/standmeet/internal/postgres"
 )
 
-// AccessRequestsDeps —— SubmitForHandle / ListForOwner / UpdateStatus 共享依赖。
+// AccessRequestsDeps —— SubmitForOwner / ListForOwner / UpdateStatus 共享依赖。
 type AccessRequestsDeps struct {
 	Repo   *postgres.AccessRequestRepo
 	Owners *postgres.OwnerRepo
 }
 
 // SubmitAccessRequestInput —— 公共 POST /api/v1/access-requests 入参。
-// handle 用来反查 owner_id；其它字段直接落 DB。
+// v1 单 owner instance：留言自动绑到 sole owner，无 handle 字段。
 type SubmitAccessRequestInput struct {
-	Handle  string
 	Name    string
 	Org     string
 	Email   string
 	Message string
 }
 
-// SubmitForHandle —— 公共接口：visitor 留言。
-// 必填 handle + email + message；其它放空字段。
-func SubmitForHandle(
+// SubmitForOwner —— 公共接口：visitor 留言。
+// 必填 email + message；instance 必须已 claim（否则 ErrOwnerNotFound）。
+func SubmitForOwner(
 	ctx context.Context, deps AccessRequestsDeps, in *SubmitAccessRequestInput,
 ) (domain.AccessRequest, error) {
 	if !validSubmitInput(in) {
 		return domain.AccessRequest{}, ErrEmptyField
 	}
-	owner, err := lookupOwnerForRequest(ctx, deps, in.Handle)
+	owner, err := loadSoleOwnerForRequest(ctx, deps)
 	if err != nil {
 		return domain.AccessRequest{}, err
 	}
@@ -53,18 +52,25 @@ func SubmitForHandle(
 }
 
 func validSubmitInput(in *SubmitAccessRequestInput) bool {
-	return in.Handle != "" && in.Email != "" && in.Message != ""
+	return in.Email != "" && in.Message != ""
 }
 
-func lookupOwnerForRequest(
-	ctx context.Context, deps AccessRequestsDeps, handle string,
+func loadSoleOwnerForRequest(
+	ctx context.Context, deps AccessRequestsDeps,
 ) (domain.Owner, error) {
-	owner, err := deps.Owners.GetByHandle(ctx, handle)
+	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		if errors.Is(err, domain.ErrOwnerNotFound) {
+		return domain.Owner{}, fmt.Errorf("first owner handle: %w", err)
+	}
+	if handle == "" {
+		return domain.Owner{}, domain.ErrOwnerNotFound
+	}
+	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
+	if oerr != nil {
+		if errors.Is(oerr, domain.ErrOwnerNotFound) {
 			return domain.Owner{}, domain.ErrOwnerNotFound
 		}
-		return domain.Owner{}, fmt.Errorf("get owner by handle: %w", err)
+		return domain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
 	return owner, nil
 }

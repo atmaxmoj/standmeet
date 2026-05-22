@@ -9,7 +9,6 @@
 import { useState } from 'react';
 
 import { ModalShell } from '@/components/admin/modals/ModalShell';
-import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useCodeTest, type CodeTestHook } from '@/lib/admin/use-code-test';
 
 import type { CodeView } from '@/lib/admin/use-codes';
@@ -97,35 +96,33 @@ function ScopeLine({
 }
 
 function SelfTest({ code }: { code: CodeView }) {
-  const session = useAdminSession();
-  const handle = session.kind === 'ready' ? session.session.handle : '';
   const hook = useCodeTest();
   return (
     <div className="pt-4 border-t border-(--color-rule)/70 space-y-3">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
         test this code
       </div>
-      <SelfTestBody handle={handle} code={code.code} hook={hook} />
+      <SelfTestBody code={code.code} hook={hook} />
     </div>
   );
 }
 
 function SelfTestBody({
-  handle, code, hook,
-}: { handle: string; code: string; hook: CodeTestHook }) {
+  code, hook,
+}: { code: string; hook: CodeTestHook }) {
   return hook.state.phase === 'idle' || hook.state.phase === 'opening'
-    ? <StartRow handle={handle} code={code} hook={hook} />
+    ? <StartRow code={code} hook={hook} />
     : <ChatRow hook={hook} />;
 }
 
 function StartRow({
-  handle, code, hook,
-}: { handle: string; code: string; hook: CodeTestHook }) {
-  const busy = hook.state.phase === 'opening' || handle === '';
+  code, hook,
+}: { code: string; hook: CodeTestHook }) {
+  const busy = hook.state.phase === 'opening';
   return (
     <button
       type="button"
-      onClick={() => void hook.start(handle, code)}
+      onClick={() => void hook.start(code)}
       disabled={busy}
       data-testid="code-self-test-start"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-3 py-2 hover:bg-(--color-accent) transition-colors disabled:opacity-40"

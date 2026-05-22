@@ -11,10 +11,13 @@ import (
 )
 
 // Config 持有进程启动时一次性读完的运行时配置。
+//
+// 故意没有 PublicURL/PUBLIC_URL：删 env-as-config 的"对外 URL"指针。每条
+// owner 的 public_url 在 claim 表单里填、写进 owners 行；SEO / QR 全
+// 从 DB 读，无 env、无 default、无 fallback。
 type Config struct {
 	Host            string
 	Port            string
-	PublicURL       string
 	DatabaseURL     string
 	RedisURL        string
 	SessionKey      string
@@ -44,7 +47,6 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Host:                           envOr("HOST", "0.0.0.0"),
 		Port:                           envOr("PORT", "8000"),
-		PublicURL:                      envOr("PUBLIC_URL", "http://localhost:8000"),
 		DatabaseURL:                    os.Getenv("DATABASE_URL"),
 		RedisURL:                       os.Getenv("REDIS_URL"),
 		SessionKey:                     os.Getenv("SESSION_KEY"),

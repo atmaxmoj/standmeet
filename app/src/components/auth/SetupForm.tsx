@@ -22,7 +22,8 @@ export function SetupForm({ setupToken }: Props) {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await form.submit();
-    result && router.push(`/${result.handle}`);
+    // 单 owner instance：claim 完直接落根 /，公开页 SSR fetch /api/v1/page。
+    result && router.push('/');
   }, [form, router]);
 
   return (
@@ -75,17 +76,27 @@ function SetupStepIdentity({ form }: { form: SetupFormHook }) {
           className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
         />
       </Field>
-      <Field label="public handle" hint="visitors see this in the URL · standmeet.com/<handle>">
-        <div className="flex items-baseline gap-2 border-b border-(--color-rule)">
-          <span className="mono text-(--color-faint)">standmeet.com/</span>
-          <input
-            type="text"
-            value={form.form.handle}
-            onChange={(e) => form.setField('handle', e.target.value)}
-            data-testid="handle"
-            className="flex-1 bg-transparent py-2 reading text-base"
-          />
-        </div>
+      <Field label="handle" hint="internal owner identifier · used by admin URLs and login response">
+        <input
+          type="text"
+          value={form.form.handle}
+          onChange={(e) => form.setField('handle', e.target.value)}
+          data-testid="handle"
+          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+        />
+      </Field>
+      <Field
+        label="public URL"
+        hint="full URL recruiters land on via QR · e.g. https://alice.dev or http://localhost:38127"
+      >
+        <input
+          type="url"
+          value={form.form.publicUrl}
+          onChange={(e) => form.setField('publicUrl', e.target.value)}
+          placeholder="https://alice.dev"
+          data-testid="public-url"
+          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
+        />
       </Field>
     </div>
   );
@@ -133,8 +144,12 @@ function SetupStepCredentials({ form }: { form: SetupFormHook }) {
 
 function SetupNav({ form }: { form: SetupFormHook }) {
   return form.step === 1
-    ? <NavStep1 next={form.next} canNext={form.form.full.trim() !== '' && form.form.handle !== ''} />
+    ? <NavStep1 next={form.next} canNext={canAdvance(form.form)} />
     : <NavStep2 back={form.back} busy={form.busy} />;
+}
+
+function canAdvance(f: SetupFormHook['form']): boolean {
+  return f.full.trim() !== '' && f.handle !== '' && f.publicUrl.trim() !== '';
 }
 
 function NavStep1({ next, canNext }: { next: () => void; canNext: boolean }) {

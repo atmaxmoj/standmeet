@@ -17,9 +17,15 @@ export function Footer({ corpusSize, lastUpdated }: Props) {
     <footer className="border-t border-(--color-rule) mt-28">
       <div className="max-w-[760px] mx-auto px-6 md:px-0 py-9 mono text-[11px] leading-[1.7] text-(--color-muted) flex flex-col md:flex-row md:items-baseline md:justify-between gap-2">
         <FooterStats corpusSize={corpusSize} lastUpdated={lastUpdated} />
-        <div>
-          <span className="text-(--color-faint)">standmeet · </span>
-          <Link className="hover:text-(--color-ink) transition-colors" href="/admin">admin ↗</Link>
+        <div className="flex items-baseline gap-3">
+          <span className="text-(--color-faint)">standmeet</span>
+          <Link className="hover:text-(--color-ink) transition-colors" href="/gate">
+            request access ↗
+          </Link>
+          <span className="text-(--color-faint)">·</span>
+          <Link className="hover:text-(--color-ink) transition-colors" href="/admin">
+            admin ↗
+          </Link>
         </div>
       </div>
     </footer>

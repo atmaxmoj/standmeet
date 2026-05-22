@@ -7,7 +7,7 @@
 //
 // 全部走 API （visitor 侧 helper），UI 在 gate-access.spec.ts 已经验证。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';

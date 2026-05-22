@@ -13,11 +13,10 @@ import { useRouter } from 'next/navigation';
 import type { GateHook } from '@/lib/gate/use-gate';
 
 type Props = {
-  handle: string;
   hook: GateHook;
 };
 
-export function CodePanel({ handle, hook }: Props) {
+export function CodePanel({ hook }: Props) {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -25,8 +24,8 @@ export function CodePanel({ handle, hook }: Props) {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedCode = code.trim();
-    trimmedCode !== '' && (await runCodeSubmit(handle, trimmedCode, name, hook, router));
-  }, [code, name, handle, hook, router]);
+    trimmedCode !== '' && (await runCodeSubmit(trimmedCode, name, hook, router));
+  }, [code, name, hook, router]);
 
   return (
     <section data-testid="code-panel">
@@ -108,12 +107,11 @@ function CodeSubmit({ busy }: { busy: boolean }) {
 }
 
 async function runCodeSubmit(
-  handle: string,
   code: string,
   name: string,
   hook: GateHook,
   router: ReturnType<typeof useRouter>,
 ): Promise<void> {
-  const ok = await hook.submitCode(handle, code, name);
-  ok && router.push(`/${handle}`);
+  const ok = await hook.submitCode(code, name);
+  ok && router.push('/');
 }

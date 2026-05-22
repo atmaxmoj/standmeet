@@ -25,15 +25,18 @@ import (
 )
 
 // SEOHandlers —— SEO 路由依赖。
+//
+// 没有 PublicURL 字段：robots.txt / sitemap.xml 里所有"对外 URL" 都从
+// owners.public_url 读（首位 owner，v1 单 owner instance）。pre-claim 阶段
+// FirstOwner 返 ok=false → robots Disallow / sitemap 空。
 type SEOHandlers struct {
-	Deps      usecases.SEODeps
-	Log       *slog.Logger
-	PublicURL string
+	Deps usecases.SEODeps
+	Log  *slog.Logger
 }
 
-// Mount 挂 /wiki/{handle}/{slug}（在 /api/v1/ 下）。
+// Mount 挂 /wiki/{slug}（在 /api/v1/ 下）。owner 是 sole owner，URL 不带 handle。
 func (h *SEOHandlers) Mount(r chi.Router) {
-	r.Get("/wiki/{handle}/{slug}", h.getWikiLanding())
+	r.Get("/wiki/{slug}", h.getWikiLanding())
 }
 
 // MountRoot —— /robots.txt + /sitemap.xml 是 SEO 标准约定路径，挂 root。
@@ -44,7 +47,7 @@ func (h *SEOHandlers) MountRoot(r chi.Router) {
 
 func (h *SEOHandlers) robotsTxt() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body := robotsBody(r.Context(), h.Deps, h.PublicURL)
+		body := robotsBody(r.Context(), h.Deps)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte(body)); err != nil {
@@ -53,18 +56,19 @@ func (h *SEOHandlers) robotsTxt() http.HandlerFunc {
 	}
 }
 
-func robotsBody(ctx context.Context, deps usecases.SEODeps, publicURL string) string {
-	settings, ok := usecases.FirstOwnerSettings(ctx, deps)
-	if !ok || !settings.IndexRobots {
+// robotsBody —— pre-claim / index-disabled / public_url 未填 → Disallow all。
+// readiness check 集中在 usecases.PublicReady 里。
+func robotsBody(ctx context.Context, deps usecases.SEODeps) string {
+	owner, ready := usecases.PublicReady(ctx, deps)
+	if !ready {
 		return "User-agent: *\nDisallow: /\n"
 	}
-	base := strings.TrimRight(publicURL, "/")
-	return fmt.Sprintf("User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n", base)
+	return fmt.Sprintf("User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n", owner.PublicURL)
 }
 
 func (h *SEOHandlers) sitemapXML() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		urls := sitemapURLs(r.Context(), h.Deps, h.PublicURL)
+		urls := sitemapURLs(r.Context(), h.Deps)
 		body := renderSitemap(urls)
 		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
@@ -79,26 +83,23 @@ type sitemapURL struct {
 	LastMod string
 }
 
-func sitemapURLs(
-	ctx context.Context, deps usecases.SEODeps, publicURL string,
-) []sitemapURL {
-	base := strings.TrimRight(publicURL, "/")
+func sitemapURLs(ctx context.Context, deps usecases.SEODeps) []sitemapURL {
 	owner, ok := usecases.FirstOwner(ctx, deps)
-	if !ok {
+	if !ok || owner.PublicURL == "" {
 		return []sitemapURL{}
 	}
-	out := []sitemapURL{{Loc: fmt.Sprintf("%s/%s", base, owner.Handle)}}
-	return appendWikiLandings(ctx, deps, owner.Handle, base, out)
+	out := []sitemapURL{{Loc: owner.PublicURL}}
+	return appendWikiLandings(ctx, deps, owner.PublicURL, out)
 }
 
 func appendWikiLandings(
 	ctx context.Context, deps usecases.SEODeps,
-	handle, base string, urls []sitemapURL,
+	base string, urls []sitemapURL,
 ) []sitemapURL {
-	landings := usecases.IndexedWikiLandings(ctx, deps, handle)
+	landings := usecases.IndexedWikiLandings(ctx, deps)
 	for i := range landings {
 		urls = append(urls, sitemapURL{
-			Loc:     fmt.Sprintf("%s/%s/wiki/%s", base, handle, landings[i].Slug),
+			Loc:     fmt.Sprintf("%s/wiki/%s", base, landings[i].Slug),
 			LastMod: time.Unix(landings[i].UpdatedAt, 0).UTC().Format(time.RFC3339),
 		})
 	}
@@ -126,9 +127,8 @@ func renderSitemapEntry(b *strings.Builder, u *sitemapURL) {
 
 func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		handle := chi.URLParam(r, "handle")
 		slug := chi.URLParam(r, "slug")
-		view, err := loadWikiLandingView(r.Context(), h.Deps, handle, slug)
+		view, err := loadWikiLandingView(r.Context(), h.Deps, slug)
 		if err != nil {
 			handleLandingErr(h.Log, w, err)
 			return
@@ -138,7 +138,6 @@ func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 }
 
 type wikiLandingView struct {
-	OwnerHandle    string `json:"owner_handle"`
 	Slug           string `json:"slug"`
 	Title          string `json:"title"`
 	Body           string `json:"body"`
@@ -147,16 +146,13 @@ type wikiLandingView struct {
 }
 
 func loadWikiLandingView(
-	ctx context.Context, deps usecases.SEODeps, handle, slug string,
+	ctx context.Context, deps usecases.SEODeps, slug string,
 ) (wikiLandingView, error) {
-	wiki, err := usecases.GetWikiLanding(ctx, deps, &usecases.WikiLandingInput{
-		Handle: handle, Slug: slug,
-	})
+	wiki, err := usecases.GetWikiLanding(ctx, deps, slug)
 	if err != nil {
 		return wikiLandingView{}, err
 	}
 	return wikiLandingView{
-		OwnerHandle:    handle,
 		Slug:           slug,
 		Title:          wiki.Title,
 		Body:           wiki.Body,

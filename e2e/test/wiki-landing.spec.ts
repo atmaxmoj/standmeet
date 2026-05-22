@@ -6,7 +6,7 @@
 //   AI client 里调 MCP seo.set_wiki_slug(wiki_id, slug='leaving-hk', indexed=true)。
 //   稍后访客 google 搜到这条 → 点链接 → 看到标题 + 全文 + 引导回主页。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from "@playwright/test";
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
@@ -42,7 +42,7 @@ test.describe.serial('SEO wiki landing renders for crawlers and deep links', () 
   });
 
   test('open /<handle>/wiki/<slug> → title + body visible', async ({ page }) => {
-    await goto(page, `/${OWNER.handle}/wiki/${WIKI.slug}`);
+    await goto(page, `/wiki/${WIKI.slug}`);
     await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('heading', { name: WIKI.title })).toBeVisible();
     await expect(page.getByText(WIKI.body, { exact: false })).toBeVisible();

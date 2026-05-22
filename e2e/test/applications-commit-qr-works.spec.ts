@@ -4,7 +4,7 @@
 // exactly that path with the freshly issued plaintext and assert it returns a
 // valid visitor session — proving the QR-encoded code actually opens chat.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -52,7 +52,6 @@ test.describe.serial('applications.commit issues an access code recruiters can u
         headers: { 'Content-Type': 'application/json' },
         data: {
           tier: 'code',
-          handle: OWNER.handle,
           code: committed.view.access_code,
           visitor_name: 'Recruiter Bob',
         },
@@ -61,6 +60,8 @@ test.describe.serial('applications.commit issues an access code recruiters can u
       const body = await res.json();
       expect(typeof body.session_token).toBe('string');
       expect(body.session_token.length).toBeGreaterThan(20);
-      expect(body.owner_handle).toBe(OWNER.handle);
+      // owner_handle dropped from session response: v1 单 owner instance，
+      // URL 不带 handle，session 不必再回吐 handle。
+      expect(typeof body.conversation_id).toBe('string');
     });
 });

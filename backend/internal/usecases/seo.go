@@ -44,24 +44,34 @@ func FirstOwnerSettings(ctx context.Context, deps SEODeps) (domain.SEOSettings, 
 	return settings, true
 }
 
-// WikiLandingInput —— GetWikiLanding 入参；含 handle / slug。
-type WikiLandingInput struct {
-	Handle string
-	Slug   string
+// PublicReady —— 集中 robots/sitemap readiness check：owner 存在 +
+// public_url 已填 + SEO 设置允许 indexing。任一不满足返 (Owner{}, false)，
+// caller (robots / sitemap) 按"还没准备好对外"渲染。
+func PublicReady(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
+	owner, ok := FirstOwner(ctx, deps)
+	if !ok || owner.PublicURL == "" {
+		return domain.Owner{}, false
+	}
+	settings, ok := FirstOwnerSettings(ctx, deps)
+	if !ok || !settings.IndexRobots {
+		return domain.Owner{}, false
+	}
+	return owner, true
 }
 
-// GetWikiLanding —— 公开 landing 查询：handle + slug → wiki entry（必须 public）。
+// GetWikiLanding —— 公开 landing 查询：slug → wiki entry（必须 public）。
+// owner 是 sole owner（v1 单 owner），不需要按 handle 反查。
 func GetWikiLanding(
-	ctx context.Context, deps SEODeps, in *WikiLandingInput,
+	ctx context.Context, deps SEODeps, slug string,
 ) (domain.WikiEntry, error) {
-	if in.Handle == "" || in.Slug == "" {
+	if slug == "" {
 		return domain.WikiEntry{}, domain.ErrWikiNotFound
 	}
-	owner, err := deps.Owners.GetByHandle(ctx, in.Handle)
-	if err != nil {
-		return domain.WikiEntry{}, fmt.Errorf("get owner by handle: %w", err)
+	owner, ok := FirstOwner(ctx, deps)
+	if !ok {
+		return domain.WikiEntry{}, domain.ErrOwnerNotFound
 	}
-	wiki, err := deps.SEO.GetWikiBySlug(ctx, owner.ID, in.Slug)
+	wiki, err := deps.SEO.GetWikiBySlug(ctx, owner.ID, slug)
 	if err != nil {
 		return domain.WikiEntry{}, fmt.Errorf("get wiki by slug: %w", err)
 	}
@@ -74,12 +84,10 @@ type WikiLandingURL struct {
 	UpdatedAt int64
 }
 
-// IndexedWikiLandings —— 给 sitemap.xml 列 owner 所有 indexed slug。
-func IndexedWikiLandings(
-	ctx context.Context, deps SEODeps, handle string,
-) []WikiLandingURL {
-	owner, err := deps.Owners.GetByHandle(ctx, handle)
-	if err != nil {
+// IndexedWikiLandings —— 给 sitemap.xml 列 sole owner 所有 indexed slug。
+func IndexedWikiLandings(ctx context.Context, deps SEODeps) []WikiLandingURL {
+	owner, ok := FirstOwner(ctx, deps)
+	if !ok {
 		return nil
 	}
 	rows, err := deps.SEO.ListIndexedSlugs(ctx, owner.ID)

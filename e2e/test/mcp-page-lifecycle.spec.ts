@@ -2,13 +2,13 @@
 // 没碰的几个 tool：promote_to_staging（单独一步，不直接走 live）、list（列入）、
 // delete（移除）。访客视角同步校验：live 后能访问、delete 后 404。
 
-import { test, expect } from '@playwright/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { gotoExpectStatus } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -67,15 +67,31 @@ test.describe.serial('custom_page lifecycle: staging → live → list → delet
         request, apiToken, sid, 'custom_page.list', {});
       expect(inList.pages.find((p) => p.slug === SLUG)).toBeTruthy();
 
-      await expectVisitorPage(page, 200);
+      // UI 视角：admin custom-pages section → 点 view live ↗ → /p/<slug> 渲染。
+      await loginAsOwnerUI(page);
+      await gotoAdminSection(page, 'custom pages');
+      await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+      await page.locator(`[data-testid="custom-page-row-${SLUG}"]`)
+        .getByRole('link', { name: 'view live ↗' })
+        .click();
+      await page.waitForURL(`**/p/${SLUG}`, { timeout: 10_000 });
+      await expect(page.getByTestId('about-page')).toBeVisible({ timeout: 15_000 });
 
+      // delete → admin row 整个消失（has_live 链接也跟着没了）。
       await callTool<unknown>(
         request, apiToken, sid, 'custom_page.delete', { slug: SLUG });
 
       const afterDelete = await callTool<ListPayload>(
         request, apiToken, sid, 'custom_page.list', {});
       expect(afterDelete.pages.find((p) => p.slug === SLUG)).toBeUndefined();
-      await expectVisitorPage(page, 404);
+
+      // 当前在 /p/<slug> standalone React 页面，没 admin nav；page.goBack()
+      // 回到 /admin/custom-pages（等价"用户看完 live 版本后浏览器后退"）。
+      await page.goBack();
+      await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+      await page.reload();
+      await expect(page.locator(`[data-testid="custom-page-row-${SLUG}"]`))
+        .toHaveCount(0, { timeout: 5_000 });
     });
 });
 
@@ -106,7 +122,3 @@ async function pollUntilBuilt(
   return last;
 }
 
-async function expectVisitorPage(page: Page, status: number): Promise<void> {
-  const actual = await gotoExpectStatus(page, `/${OWNER.handle}/p/${SLUG}`);
-  expect(actual).toBe(status);
-}

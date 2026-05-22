@@ -32,7 +32,6 @@ export function RequestPanel({ handle, hook }: Props) {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const input: AccessRequestInput = {
-      handle,
       name: form.name,
       org: form.org,
       email: form.email,
@@ -40,7 +39,7 @@ export function RequestPanel({ handle, hook }: Props) {
     };
     const ok = await hook.submitRequest(input);
     setSent(ok);
-  }, [form, handle, hook]);
+  }, [form, hook]);
 
   return (
     <section id="request" className="mt-20 pt-14 border-t border-(--color-rule)" data-testid="request-panel">

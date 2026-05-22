@@ -6,7 +6,7 @@
 // echoes the cached job snapshot — same fetch_new shape so the AI client
 // can carry the snapshot forward without a second fetch.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

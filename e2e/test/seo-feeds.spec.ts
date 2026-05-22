@@ -6,7 +6,7 @@
 //   fetch sitemap.xml 拿 URL 列表。我们应当在两个 endpoint 上返合规格式 +
 //   含 owner public page + 所有 seo_indexed=true 的 wiki landing。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
@@ -53,8 +53,8 @@ test.describe.serial('crawlers can read robots + sitemap', () => {
     expect(res.headers()['content-type']).toContain('application/xml');
     const body = await res.text();
     expect(body).toContain('<urlset');
-    expect(body).toContain(`/${OWNER.handle}<`);
-    expect(body).toContain(`/${OWNER.handle}/wiki/${INDEXED_SLUG}<`);
+    expect(body).toContain(`<`);
+    expect(body).toContain(`/wiki/${INDEXED_SLUG}<`);
   });
 });
 

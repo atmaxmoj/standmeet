@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres"
@@ -22,11 +23,12 @@ type ClaimDeps struct {
 
 // ClaimInput 是 ClaimInstance 的入参。
 type ClaimInput struct {
-	Token    string
-	Email    string
-	Password string
-	Handle   string
-	FullName string
+	Token     string
+	Email     string
+	Password  string
+	Handle    string
+	FullName  string
+	PublicURL string // 完整 URL，含 scheme + host (+ port)。SEO canonical / QR 全用这个。
 }
 
 // ClaimInstance 跑首次 claim 流程：
@@ -48,11 +50,12 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (domain.
 
 	tokenHash := session.HashSetupToken(in.Token)
 
-	owner, err := deps.Instance.ClaimAndCreateOwner(ctx, tokenHash, domain.CreateOwnerInput{
+	owner, err := deps.Instance.ClaimAndCreateOwner(ctx, tokenHash, &domain.CreateOwnerInput{
 		Email:        in.Email,
 		PasswordHash: passwordHash,
 		Handle:       in.Handle,
 		FullName:     in.FullName,
+		PublicURL:    normalizePublicURL(in.PublicURL),
 	})
 	if err != nil {
 		return domain.Owner{}, fmt.Errorf("claim and create owner: %w", err)
@@ -68,11 +71,38 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (domain.
 // ErrEmptyField —— 必填字段为空。Handler 翻译成 400。
 var ErrEmptyField = errors.New("required field is empty")
 
-// validateClaimInput 用 slice + slices.Contains 让 cyclo = 2。
+// validateClaimInput 用 slice + slices.Contains 让 cyclo ≤ 2。
 func validateClaimInput(in *ClaimInput) error {
-	fields := []string{in.Token, in.Email, in.Password, in.Handle, in.FullName}
+	fields := []string{in.Token, in.Email, in.Password, in.Handle, in.FullName, in.PublicURL}
 	if slices.Contains(fields, "") {
 		return ErrEmptyField
 	}
+	if !validPublicURL(in.PublicURL) {
+		return ErrPublicURLInvalid
+	}
 	return nil
+}
+
+// ErrPublicURLInvalid —— public_url 不是 http(s):// 开头的 URL。
+var ErrPublicURLInvalid = errors.New("public_url must be a full URL with scheme")
+
+const (
+	httpPrefix  = "http://"
+	httpsPrefix = "https://"
+)
+
+// validPublicURL —— 必须 http:// 或 https:// 开头、host 非空。详细 URL 解析
+// 在 normalizePublicURL；这里只挡明显错的（空 scheme / 写了纯 host）。
+func validPublicURL(s string) bool {
+	return len(s) > len(httpsPrefix) &&
+		(strings.HasPrefix(s, httpPrefix) || strings.HasPrefix(s, httpsPrefix))
+}
+
+// normalizePublicURL —— 去末尾斜杠。dev "http://localhost:38127/" 跟
+// "http://localhost:38127" 写进 DB 后保持一致；QR builder 直接拼 "/?code=" 即可。
+func normalizePublicURL(s string) string {
+	for s != "" && s[len(s)-1] == '/' {
+		s = s[:len(s)-1]
+	}
+	return s
 }

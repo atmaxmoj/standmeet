@@ -10,9 +10,10 @@ import (
 
 // InstanceSettings 是 singleton 行的快照。
 type InstanceSettings struct {
-	DeployedAt  time.Time
-	IsClaimed   bool
-	MultiTenant bool
+	DeployedAt        time.Time
+	IsClaimed         bool
+	MultiTenant       bool
+	HasSetupTokenHash bool // DB 里 setup_token_hash 是否非 NULL（claim 后清成 NULL）
 }
 
 // ErrInstanceAlreadyClaimed —— 重复 claim 同一个 instance（已经过初次 setup）。

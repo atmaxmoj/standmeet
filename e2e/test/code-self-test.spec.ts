@@ -6,13 +6,13 @@
 //   → 发一条 message → 看 streamed reply。
 //   /admin/conversations 里也能看到这条 "(owner test)" 对话作证。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -57,11 +57,7 @@ async function issueCodeForTesting(request: APIRequestContext): Promise<void> {
 }
 
 async function signIn(page: Page): Promise<void> {
-  await goto(page, '/login');
-  await page.getByTestId('email').fill(OWNER.email);
-  await page.getByTestId('password').fill(OWNER.password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await loginAsOwnerUI(page);
 }
 
 async function openPreviewModal(page: Page): Promise<void> {

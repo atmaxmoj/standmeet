@@ -2,7 +2,7 @@
 //
 // 没 token / 错 token / claim 之前的实例 → tool call 必须失败。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';

@@ -10,11 +10,10 @@ import { useRouter } from 'next/navigation';
 import type { GateHook, Provider } from '@/lib/gate/use-gate';
 
 type Props = {
-  handle: string;
   hook: GateHook;
 };
 
-export function BYOAIPanel({ handle, hook }: Props) {
+export function BYOAIPanel({ hook }: Props) {
   const router = useRouter();
   const [provider, setProvider] = useState<Provider>('anthropic');
   const [apiKey, setApiKey] = useState('');
@@ -23,8 +22,8 @@ export function BYOAIPanel({ handle, hook }: Props) {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = apiKey.trim();
-    trimmed !== '' && (await runBYOAISubmit(handle, provider, trimmed, hook, router));
-  }, [apiKey, provider, handle, hook, router]);
+    trimmed !== '' && (await runBYOAISubmit(provider, trimmed, hook, router));
+  }, [apiKey, provider, hook, router]);
 
   return (
     <section id="byoai" data-testid="byoai-panel">
@@ -186,12 +185,13 @@ function SubmitButton({ disabled, busy }: { disabled: boolean; busy: boolean }) 
 }
 
 async function runBYOAISubmit(
-  handle: string,
   provider: Provider,
   key: string,
   hook: GateHook,
   router: ReturnType<typeof useRouter>,
 ): Promise<void> {
-  const ok = await hook.submitBYOAI(handle, provider, key);
-  ok && router.push(`/${handle}?byoai=1`);
+  const ok = await hook.submitBYOAI(provider, key);
+  // 落根 / —— byoai 状态在 localStorage（use-gate.persistSession），
+  // page-shell mount 时读 store，URL 不挂 flag。
+  ok && router.push('/');
 }

@@ -3,7 +3,7 @@
 // day=2 (drops first 2 ids + appends 2 synthetic) and fetch_new returns
 // the 2 synthetic ids only.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

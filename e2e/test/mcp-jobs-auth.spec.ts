@@ -1,7 +1,7 @@
 // mcp-jobs-auth.spec.ts —— jobs.* tools require a valid API token.
 // Mirrors mcp-auth.spec.ts pattern for the new jobs surface.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

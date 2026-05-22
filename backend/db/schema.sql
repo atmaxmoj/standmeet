@@ -18,8 +18,11 @@ CREATE TABLE owners (
     handle               citext        UNIQUE NOT NULL,
     full_name            text          NOT NULL,
     location             text          NOT NULL DEFAULT '',
-    custom_domain        citext        UNIQUE,
-    custom_domain_status text          NOT NULL DEFAULT 'unset',
+    -- public_url —— owner 对外的完整 URL (scheme + host + port，如
+    -- "https://alice.dev" 或 "http://localhost:38127")。claim 时必填、
+    -- admin 可改。SEO canonical / QR 全读这一列。空串视为"未填" —— claim
+    -- usecase 强制非空，但 ALTER 加列时为兼容老行设 DEFAULT ''。
+    public_url           text          NOT NULL DEFAULT '',
     byoai_enabled        boolean       NOT NULL DEFAULT true,
     byoai_providers      jsonb         NOT NULL DEFAULT '["claude","openai"]'::jsonb,
     byoai_public_blurb   text          NOT NULL DEFAULT '',

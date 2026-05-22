@@ -7,7 +7,7 @@
 // pointing back at the PDF embedded in the same response, identity fields
 // pre-extracted from resume_content for form-fill, and prose instructions.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

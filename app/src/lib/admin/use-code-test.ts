@@ -26,7 +26,7 @@ export interface CodeTestState {
 
 export interface CodeTestHook {
   state: CodeTestState;
-  start: (handle: string, code: string) => Promise<void>;
+  start: (code: string) => Promise<void>;
   send: (text: string) => Promise<void>;
 }
 
@@ -36,11 +36,11 @@ export function useCodeTest(): CodeTestHook {
   const [state, setState] = useState<CodeTestState>(INITIAL);
   const sessionRef = useRef<PublicSessionResponse | null>(null);
 
-  const start = useCallback(async (handle: string, code: string) => {
+  const start = useCallback(async (code: string) => {
     setState({ phase: 'opening', hasSession: false, reply: '', error: null });
     try {
       const sess = await issueCodeSession({
-        handle, code, visitor_name: OWNER_TEST_VISITOR_NAME,
+        code, visitor_name: OWNER_TEST_VISITOR_NAME,
       });
       sessionRef.current = sess;
       setState({ phase: 'ready', hasSession: true, reply: '', error: null });

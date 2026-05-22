@@ -7,13 +7,13 @@
 //   poll get_build → promote_to_live。一个访客打开 /alice/p/blog 就看到
 //   vite build 出来的 React 页面里的内容；rollback 走默认（404 no live）。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
-import { goto, gotoExpectStatus } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -123,8 +123,17 @@ async function waitForBuild(
   return last;
 }
 
+// visitorSeesPublishedContent —— UI-driven 访问 live page：owner 在 admin
+// custom-pages list 看到 "view live ↗" 链接（promote_to_live 之后才出现），
+// 点击直接跳 /p/<slug>，访客（也就是 admin owner 自己）看到 React 渲染产物。
 async function visitorSeesPublishedContent(page: Page): Promise<void> {
-  await goto(page, `/${OWNER.handle}/p/${SLUG}`);
+  await loginAsOwnerUI(page);
+  await gotoAdminSection(page, 'custom pages');
+  await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+  await page.locator(`[data-testid="custom-page-row-${SLUG}"]`)
+    .getByRole('link', { name: 'view live ↗' })
+    .click();
+  await page.waitForURL(`**/p/${SLUG}`, { timeout: 10_000 });
   await expect(page.getByTestId('custom-page')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(HELLO_MARKER, { exact: false })).toBeVisible();
   await expect(page.getByText(PAGE_TITLE, { exact: false })).toBeVisible();
@@ -137,8 +146,18 @@ async function ownerRollsBackToDefault(
   await callTool<PagePayload>(request, token, sid, 'custom_page.rollback', { slug: SLUG });
 }
 
+// visitorSeesNotFoundAfterRollback —— rollback 后 admin custom-pages 那条
+// row 的 "view live ↗" 链接应该消失（has_live=false）→ 换成 "no live build"
+// 文字。UI 表面验证 + 不再用 goto 直接 hit URL。
+// custom page (/p/<slug>) 是 standalone React app，没 admin nav。要从这里
+// 回 admin 用 `page.goBack()` —— 等价真用户 "看完 live 版本浏览器后退回去"。
 async function visitorSeesNotFoundAfterRollback(page: Page): Promise<void> {
-  // rollback 把 live 清掉了，backend 返 404，next 反代 404。
-  const status = await gotoExpectStatus(page, `/${OWNER.handle}/p/${SLUG}`);
-  expect(status).toBe(404);
+  await page.goBack();
+  await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+  // rollback 走 MCP，admin store 不知道；reload 让 resource store 重 fetch。
+  await page.reload();
+  const row = page.locator(`[data-testid="custom-page-row-${SLUG}"]`);
+  await expect(row).toBeVisible({ timeout: 10_000 });
+  await expect(row.getByText('no live build')).toBeVisible();
+  await expect(row.getByRole('link', { name: 'view live ↗' })).toHaveCount(0);
 }

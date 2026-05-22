@@ -47,11 +47,8 @@ services:
       - SESSION_KEY=dev-not-secret-rotate-in-prod
       - INSTANCE_SECRET=dev-not-secret-rotate-in-prod-32-chars-min!
       - SECURE_COOKIE=false
-      # PUBLIC_URL is the visitor-facing host (where recruiters land via QR /
-      # access codes). In dev that's the Next.js app on :3000; in prod it's the
-      # single Caddy/Traefik domain. Default in config.go is :8000 which is fine
-      # only when backend is also the public host.
-      - PUBLIC_URL=http://localhost:3000
+      # 不再有 PUBLIC_URL env —— "对外是啥地址" 全部由 owner 在 claim 表单
+      # 里填，写进 owners.public_url。SEO / QR / 任何对外链接都从 DB 读。
       - INFERENCE_PROVIDER=mock
       - INFERENCE_MOCK_REPLY=Hello visitor, alice says hi from the mock provider.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages

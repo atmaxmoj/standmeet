@@ -5,52 +5,45 @@
 //   prose、看到 insights / projects / where / contact 全部 section，
 //   然后能在 chat dock 输入问题、按 Enter，收到 AI 流式回复（mock
 //   provider 注入的固定文本），最后看到回复底部标注引用了多少条 corpus
-//   entry。整套流程都通过浏览器 + 真实 stack 验证；setup（owner 建账号、
-//   seed 一条公开 wiki）通过 helper 走 admin/MCP，但访客本身的体验只走 UI。
+//   entry。
+//
+// e2e 零 goto：claim + seed wiki 在 beforeAll 走 API；page fixture 自动
+// goto('/') 之后 instance 已 claimed → 渲染公开页（不会 redirect 到 /setup）。
 
-import { test, expect } from '@playwright/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
+import type { Page } from '@playwright/test';
 
 import { claim, createAPIToken, login } from '@/fixtures/admin';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { navigateToHandle } from '@/fixtures/navigate';
 
-const OWNER_HANDLE = 'alice';
 const MOCK_REPLY = 'Hello visitor, alice says hi from the mock provider.';
 
 test.describe.serial("visitor reads owner's public page and chats with the persona", () => {
-  test.beforeAll(() => {
+  test.beforeAll(async ({ playwright }) => {
     resetInstance();
+    const request = await playwright.request.newContext();
+    await claim(request, findSetupToken());
+    const { csrf } = await login(request);
+    const apiToken = await createAPIToken(request, csrf);
+    const sid = await initMCP(request, apiToken);
+    await seedPublicWiki(request, apiToken, sid, {
+      body: 'alice loves ASCII sparklines.',
+      title: 'Alice intro',
+      tags: ['intro'],
+    });
+    await request.dispose();
   });
 
   test('visitor sees full page, asks a question, gets a streamed grounded reply',
-    async ({ page, request }) => {
-      await seedOwnerWithPublicCorpus(request);
-      await navigateToHandle(page, OWNER_HANDLE);
-
+    async ({ page }) => {
       await expectOwnerPageRendered(page);
       await visitorAsksAQuestion(page, 'tell me about alice');
       await expectAssistantStreamsReply(page);
       await expectCitationFootnote(page);
     });
 });
-
-// seedOwnerWithPublicCorpus —— 真实站点的前置条件：instance 被 claim、
-// owner 通过 MCP 写过一条 public wiki。访客的 chat 才有"corpus 可引用"。
-// 整段都不属于"访客 UI 流程"，所以走 helper 不走浏览器。
-async function seedOwnerWithPublicCorpus(request: APIRequestContext): Promise<void> {
-  await claim(request, findSetupToken());
-  const { csrf } = await login(request);
-  const apiToken = await createAPIToken(request, csrf);
-  const sid = await initMCP(request, apiToken);
-  await seedPublicWiki(request, apiToken, sid, {
-    body: 'alice loves ASCII sparklines.',
-    title: 'Alice intro',
-    tags: ['intro'],
-  });
-}
 
 async function expectOwnerPageRendered(page: Page): Promise<void> {
   // 设计稿里 owner 全名摆 identity strip 里（mono caps span 不是 heading），

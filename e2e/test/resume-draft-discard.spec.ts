@@ -2,7 +2,7 @@
 // on the same draft_id returns "draft not found". Also asserts discard is
 // idempotent (second discard returns ok:true, never throws).
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

@@ -6,13 +6,13 @@
 //   owner 发了两个 code，一个给招聘官，一个给投资人。想看招聘官那个 code
 //   下的对话，从卡里直接跳过去即可，不用在大列表里肉眼挑。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -85,9 +85,5 @@ async function chatViaCode(
 }
 
 async function signIn(page: Page): Promise<void> {
-  await goto(page, '/login');
-  await page.getByTestId('email').fill(OWNER.email);
-  await page.getByTestId('password').fill(OWNER.password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await loginAsOwnerUI(page);
 }

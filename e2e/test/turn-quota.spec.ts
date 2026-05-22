@@ -6,7 +6,7 @@
 //   POST /messages 就拿不到回复 —— 不应该静默 stream 错误，得是清晰 403
 //   配合 error code，前端可以触发 toast。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';

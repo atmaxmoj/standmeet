@@ -1,17 +1,7 @@
-// /<handle>/gate —— 访客没有 code 或想 BYOAI 的入口。
-//
-// 视觉对齐 docs/design/project/gate.html：
-//   - TopBar 带 "private" indicator + dark toggle
-//   - Hero: Seal 左 + "This isn't open." 大号 serif headline + code 输入
-//   - WhatsBehind: 3 行 01/02/03 解释这页背后是什么
-//   - BYOAIPanel: 设计稿那种 provider chip + reveal/hide key
-//   - RequestPanel: 折叠的"write a note ↘"，展开后写表单
-//
-// 业务逻辑（POST /api/v1/sessions / access-requests）走 useGate；这里只装配。
+// gate-client —— gate 页的 client 部分（拆出来让 page.tsx 可 SSR fetch handle）。
+// owner handle 仅用于显示文案（"you've reached <handle>'s corpus"），不再决定路由。
 
 'use client';
-
-import { use } from 'react';
 
 import { TopBar } from '@/components/page/TopBar';
 import { BYOAIPanel } from '@/components/gate/BYOAIPanel';
@@ -22,8 +12,9 @@ import { WhatsBehind } from '@/components/gate/WhatsBehind';
 import { useTheme } from '@/lib/page/use-theme';
 import { useGate } from '@/lib/gate/use-gate';
 
-export default function GatePage({ params }: { params: Promise<{ handle: string }> }) {
-  const { handle } = use(params);
+type Props = { handle: string };
+
+export function GateClient({ handle }: Props) {
   const { dark, toggle } = useTheme();
   const hook = useGate();
   return (
@@ -33,7 +24,7 @@ export default function GatePage({ params }: { params: Promise<{ handle: string 
         <div className="max-w-[920px] mx-auto px-6 lg:px-10 py-14 lg:py-20">
           <Hero handle={handle} hook={hook} />
           <Sep />
-          <BYOAIPanel handle={handle} hook={hook} />
+          <BYOAIPanel hook={hook} />
           <WhatsBehind />
           <RequestPanel handle={handle} hook={hook} />
           <Footnote handle={handle} />
@@ -80,7 +71,7 @@ function HeroBody({ handle, hook }: { handle: string; hook: ReturnType<typeof us
         <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
           have a code?
         </div>
-        <CodePanel handle={handle} hook={hook} />
+        <CodePanel hook={hook} />
       </div>
     </div>
   );

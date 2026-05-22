@@ -28,7 +28,6 @@ func (h *AccessRequestsHandlers) Mount(r chi.Router) {
 }
 
 type submitRequestBody struct {
-	Handle  string `json:"handle"`
 	Name    string `json:"name"`
 	Org     string `json:"org"`
 	Email   string `json:"email"`
@@ -47,9 +46,9 @@ func (h *AccessRequestsHandlers) submit() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		out, err := usecases.SubmitForHandle(
+		out, err := usecases.SubmitForOwner(
 			r.Context(), h.Reqs, &usecases.SubmitAccessRequestInput{
-				Handle: req.Handle, Name: req.Name, Org: req.Org,
+				Name: req.Name, Org: req.Org,
 				Email: req.Email, Message: req.Message,
 			},
 		)
@@ -88,7 +87,7 @@ func classifyAccessRequestErr(err error) apierr.Envelope {
 		return apierr.Envelope{
 			Status:  http.StatusNotFound,
 			Code:    "owner_not_found",
-			Message: "owner handle not registered",
+			Message: "instance not yet claimed",
 		}
 	}
 	return apierr.Envelope{

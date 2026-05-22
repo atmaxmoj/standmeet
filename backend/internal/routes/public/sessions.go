@@ -17,7 +17,6 @@ import (
 )
 
 type createSessionRequest struct {
-	Handle        string `json:"handle"`
 	Tier          string `json:"tier"` // 'code' | 'public' | 'byoai'
 	Code          string `json:"code,omitempty"`
 	VisitorName   string `json:"visitor_name,omitempty"`
@@ -28,7 +27,6 @@ type createSessionRequest struct {
 type createSessionResponse struct {
 	SessionToken   string   `json:"session_token"`
 	ConversationID string   `json:"conversation_id"`
-	OwnerHandle    string   `json:"owner_handle"`
 	IncludedTags   []string `json:"included_tags"`
 	ExcludedTags   []string `json:"excluded_tags"`
 }
@@ -45,7 +43,7 @@ func (h *Handlers) createSession() http.HandlerFunc {
 			handleVisitorErr(h.Log, w, err)
 			return
 		}
-		writeCreateSession(h.Log, w, &res.Session, &res.Conversation, req.Handle)
+		writeCreateSession(h.Log, w, &res.Session, &res.Conversation)
 	}
 }
 
@@ -62,7 +60,6 @@ func dispatchIssueSession(
 		})
 	}
 	return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
-		Handle:        req.Handle,
 		VisitorName:   req.VisitorName,
 		BYOAIProvider: req.BYOAIProvider,
 		BYOAIKey:      req.BYOAIKey,
@@ -81,12 +78,11 @@ func pickTier(req *createSessionRequest) string {
 
 func writeCreateSession(
 	log *slog.Logger, w http.ResponseWriter,
-	issued *session.IssuedVisitor, conv *domain.Conversation, handle string,
+	issued *session.IssuedVisitor, conv *domain.Conversation,
 ) {
 	resp := createSessionResponse{
 		SessionToken:   issued.Token,
 		ConversationID: conv.ID,
-		OwnerHandle:    handle,
 		IncludedTags:   issued.Data.IncludedTags,
 		ExcludedTags:   issued.Data.ExcludedTags,
 	}

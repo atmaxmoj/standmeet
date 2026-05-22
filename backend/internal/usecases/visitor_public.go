@@ -17,8 +17,9 @@ import (
 // IssuePublicSessionInput —— public-tier 访客（无 code）发起 session 的入参。
 // BYOAI 走同一 usecase：tier=public（带 key 则记 byoai），visibility 强制
 // public，BYOAIProvider/Key 透传到 session data。
+//
+// 没有 Handle 字段：v1 单 owner instance，访客落到根 / 就是这位 owner。
 type IssuePublicSessionInput struct {
-	Handle        string
 	VisitorName   string
 	BYOAIProvider string // 'anthropic' | 'openai' | '' (无 BYOAI)
 	BYOAIKey      string // visitor 自带 key；空 → 走 server-side provider
@@ -28,25 +29,32 @@ type IssuePublicSessionInput struct {
 func IssuePublicSession(
 	ctx context.Context, deps VisitorDeps, in *IssuePublicSessionInput,
 ) (IssueCodeSessionResult, error) {
-	if in.Handle == "" {
-		return IssueCodeSessionResult{}, ErrEmptyField
-	}
-	owner, err := lookupOwnerByHandle(ctx, deps, in.Handle)
+	owner, err := loadSoleOwnerForVisitor(ctx, deps)
 	if err != nil {
 		return IssueCodeSessionResult{}, err
 	}
 	return finalizePublicSession(ctx, deps, in, &owner)
 }
 
-func lookupOwnerByHandle(
-	ctx context.Context, deps VisitorDeps, handle string,
+// loadSoleOwnerForVisitor —— visitor.public 路径上的 sole-owner 解析。usecases/page.go
+// 的 LoadSoleOwner 需要 PageDeps；visitor 这边只有 VisitorDeps，所以重复一次小
+// helper 避免 deps 互相依赖。pre-claim → ErrOwnerNotFound 由 handler 翻译成 404。
+func loadSoleOwnerForVisitor(
+	ctx context.Context, deps VisitorDeps,
 ) (domain.Owner, error) {
-	owner, err := deps.Owners.GetByHandle(ctx, handle)
+	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
-		if errors.Is(err, domain.ErrOwnerNotFound) {
+		return domain.Owner{}, fmt.Errorf("first owner handle: %w", err)
+	}
+	if handle == "" {
+		return domain.Owner{}, domain.ErrOwnerNotFound
+	}
+	owner, oerr := deps.Owners.GetByHandle(ctx, handle)
+	if oerr != nil {
+		if errors.Is(oerr, domain.ErrOwnerNotFound) {
 			return domain.Owner{}, domain.ErrOwnerNotFound
 		}
-		return domain.Owner{}, fmt.Errorf("get owner by handle: %w", err)
+		return domain.Owner{}, fmt.Errorf("get sole owner: %w", oerr)
 	}
 	return owner, nil
 }

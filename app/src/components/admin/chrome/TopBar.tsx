@@ -3,6 +3,7 @@
 
 'use client';
 
+import Link from 'next/link';
 import { useCallback } from 'react';
 
 import { ActivityTicker } from '@/components/admin/chrome/ActivityTicker';
@@ -57,6 +58,12 @@ function TopBarMeta({
   return (
     <div className="flex items-baseline gap-4 shrink-0">
       <Pill tone="muted">{buildTag}</Pill>
+      <Link
+        href="/"
+        className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent) transition-colors"
+      >
+        view public ↗
+      </Link>
       <span className="mono text-[10.5px] text-(--color-muted) hidden md:inline">{email}</span>
       <button
         type="button"

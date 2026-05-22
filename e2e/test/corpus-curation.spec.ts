@@ -11,13 +11,13 @@
 // AI client 这一侧仿真：spec 调 MCP raw_dump，等同于 Cursor / Claude
 // Desktop 自动调它。MCP 协议本身就是 owner ingest 的 user surface。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -58,11 +58,7 @@ async function aiPushesRaw(request: APIRequestContext, body: string): Promise<vo
 }
 
 async function signInAndOpenRaw(page: Page): Promise<void> {
-  await goto(page, '/login');
-  await page.getByTestId('email').fill(OWNER.email);
-  await page.getByTestId('password').fill(OWNER.password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await loginAsOwnerUI(page);
   await gotoAdminSection(page, 'raw');
   await page.waitForURL('**/admin/raw', { timeout: 5_000 });
 }

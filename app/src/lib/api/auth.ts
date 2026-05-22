@@ -12,6 +12,7 @@ export interface ClaimInput {
   password: string;
   handle: string;
   full_name: string;
+  public_url: string;
 }
 
 export interface ClaimResult {
@@ -19,6 +20,7 @@ export interface ClaimResult {
   email: string;
   handle: string;
   full_name: string;
+  public_url: string;
 }
 
 export async function claim(input: ClaimInput): Promise<ClaimResult> {

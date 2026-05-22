@@ -25,6 +25,9 @@ type Owner struct {
 	Handle    string
 	FullName  string
 	Location  string
+	// PublicURL —— 完整对外 URL (scheme+host+port)。claim 必填，admin 可改。
+	// SEO canonical / QR URL 都从这一列读，无 env / no fallback / no default。
+	PublicURL string
 }
 
 // OwnerSettings —— owner 聚合的"配置切面"，跟 identity 分开。
@@ -55,11 +58,14 @@ type OwnerBYOAISettings struct {
 
 // CreateOwnerInput 是 usecase 层传入 Repository 的创建参数。
 // PasswordHash 已经 hash 好（usecase 负责调 hasher），Repository 不碰明文。
+// PublicURL 是完整的对外 URL（scheme + host + 可选 port），claim 必填，
+// SEO canonical / QR URL 都从 owner.PublicURL 读，没有 env fallback。
 type CreateOwnerInput struct {
 	Email        string
 	PasswordHash string
 	Handle       string
 	FullName     string
+	PublicURL    string
 }
 
 // Owner-scoped sentinel errors. 其它 aggregate 的 sentinel 在各自文件。
@@ -72,4 +78,8 @@ var (
 	ErrOwnerNotFound = errors.New("owner not found")
 	// ErrUnauthorized —— 鉴权失败（密码错、session 失效、token 错等的统一外部码）。
 	ErrUnauthorized = errors.New("unauthorized")
+	// ErrPublicURLNotSet —— owners.public_url 为空。claim 时已要求必填，
+	// 这里防御漏网（admin 改成空字符串、老数据等）；调用方应引导 owner 去
+	// /admin 填好再重试。
+	ErrPublicURLNotSet = errors.New("public_url not set for owner")
 )

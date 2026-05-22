@@ -1,40 +1,45 @@
 // claim-instance.spec.ts —— first-run claim 流程的真用户路径。
 //
 // 用户故事：
-//   一个全新部署的 StandMeet 实例还没人 claim。owner 看到 backend 启动日志
-//   里打印的 setup URL，打开它 → 在 wizard 里填名字 / handle → 下一步填
-//   邮箱密码 → submit → 跳到自己的 owner 页 /<handle>。再次回到 /setup
-//   不应该能 claim 第二次（一次性 token + is_claimed flag）。
+//   一个全新部署的 StandMeet 实例还没人 claim。owner 打开域名 / —— server
+//   端发现 unclaimed → 自动 redirect 到 /setup?t=<token>，token 由 backend
+//   把启动时生成的 plaintext 顺着 /api/v1/instance 回吐。owner 填名字 /
+//   handle / public_url → 下一步填邮箱密码 → submit → 自动跳到自己的公开页 /。
 
-import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
+import { resetInstance } from '@/fixtures/instance';
+import { test, expect } from '@/fixtures/test';
 
 const OWNER = {
   full: 'Alice Anderson',
   handle: 'alice',
+  publicUrl: 'http://localhost:38127',
   email: 'alice@example.com',
   password: 'correct-horse-battery-staple',
 };
 
 test.describe.serial('owner claims a fresh instance via /setup', () => {
-  test('first-run flow lands the owner on their own page', async ({ page }) => {
+  test.beforeAll(() => {
     resetInstance();
-    const token = findSetupToken();
-
-    await goto(page, `/setup?t=${token}`);
-    await fillIdentityStep(page);
-    await fillCredentialsStep(page);
-    await expectLandedOnOwnerPage(page);
   });
+
+  test('opening / on a fresh instance lands the owner in the claim wizard and back home',
+    async ({ page }) => {
+      // 入口 fixture goto('/') 之后：unclaimed → server redirect 到 /setup?t=...
+      await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
+
+      await fillIdentityStep(page);
+      await fillCredentialsStep(page);
+      await expectLandedOnOwnerPage(page);
+    });
 });
 
 async function fillIdentityStep(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: /Claim this/ })).toBeVisible();
   await page.getByTestId('full').fill(OWNER.full);
   await page.getByTestId('handle').fill(OWNER.handle);
+  await page.getByTestId('public-url').fill(OWNER.publicUrl);
   await page.getByTestId('next').click();
 }
 
@@ -46,7 +51,7 @@ async function fillCredentialsStep(page: Page): Promise<void> {
 }
 
 async function expectLandedOnOwnerPage(page: Page): Promise<void> {
-  await page.waitForURL(`**/${OWNER.handle}`, { timeout: 10_000 });
+  await page.waitForURL('**/', { timeout: 10_000 });
   // 设计稿里 owner full_name 摆 identity strip span，不是 heading。
   await expect(page.getByText(OWNER.full)).toBeVisible();
 }

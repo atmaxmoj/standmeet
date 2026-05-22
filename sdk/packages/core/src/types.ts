@@ -54,7 +54,6 @@ export interface PublicPageView {
 }
 
 export interface WikiLandingView {
-  readonly owner_handle: string;
   readonly slug: string;
   readonly title: string;
   readonly body: string;
@@ -65,7 +64,6 @@ export interface WikiLandingView {
 export interface PublicSessionResponse {
   readonly session_token: string;
   readonly conversation_id: string;
-  readonly owner_handle: string;
   readonly included_tags: readonly string[];
   readonly excluded_tags: readonly string[];
 }

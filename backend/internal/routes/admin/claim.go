@@ -33,6 +33,7 @@ type Handlers struct {
 	AccessRequests  AccessRequestsDeps
 	HandleAdmin     HandleDeps
 	AIProviderAdmin AIProviderDeps
+	CustomPages     usecases.CustomPageDeps
 	Log             *slog.Logger
 	SecureCookie    bool // false 仅限 dev (http)；prod 必须 true。
 }
@@ -60,21 +61,24 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountAccessRequests(r)
 	h.MountHandle(r)
 	h.MountAIProvider(r)
+	h.MountCustomPages(r)
 }
 
 type claimRequest struct {
-	Token    string `json:"token"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Handle   string `json:"handle"`
-	FullName string `json:"full_name"`
+	Token     string `json:"token"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	Handle    string `json:"handle"`
+	FullName  string `json:"full_name"`
+	PublicURL string `json:"public_url"`
 }
 
 type claimResponse struct {
-	OwnerID  string `json:"owner_id"`
-	Email    string `json:"email"`
-	Handle   string `json:"handle"`
-	FullName string `json:"full_name"`
+	OwnerID   string `json:"owner_id"`
+	Email     string `json:"email"`
+	Handle    string `json:"handle"`
+	FullName  string `json:"full_name"`
+	PublicURL string `json:"public_url"`
 }
 
 // envelope helpers 让 line-length 不超 100。
@@ -109,6 +113,14 @@ var claimErrCases = []apierr.Case{
 			Status: http.StatusConflict, Code: "handle_taken", Message: "handle already in use",
 		},
 	},
+	{
+		Match: usecases.ErrPublicURLInvalid,
+		Envelope: apierr.Envelope{
+			Status:  http.StatusBadRequest,
+			Code:    "public_url_invalid",
+			Message: "public_url must be a full URL with http(s):// scheme",
+		},
+	},
 }
 
 // claim 是 first-run claim 的 thin handler：解 body、调 usecase、翻译错误。
@@ -122,7 +134,7 @@ func (h *Handlers) claim() http.HandlerFunc {
 
 		owner, err := usecases.ClaimInstance(r.Context(), h.Claim, &usecases.ClaimInput{
 			Token: req.Token, Email: req.Email, Password: req.Password,
-			Handle: req.Handle, FullName: req.FullName,
+			Handle: req.Handle, FullName: req.FullName, PublicURL: req.PublicURL,
 		})
 		if err != nil {
 			handleClaimErr(h.Log, w, err)
@@ -146,10 +158,11 @@ func writeJSONClaim(log *slog.Logger, w http.ResponseWriter, owner *domain.Owner
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := claimResponse{
-		OwnerID:  owner.ID,
-		Email:    owner.Email,
-		Handle:   owner.Handle,
-		FullName: owner.FullName,
+		OwnerID:   owner.ID,
+		Email:     owner.Email,
+		Handle:    owner.Handle,
+		FullName:  owner.FullName,
+		PublicURL: owner.PublicURL,
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode claim response", "err", err)

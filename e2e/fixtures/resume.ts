@@ -11,7 +11,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { callTool, callToolMulti, type MCPContent } from '@/fixtures/mcp';
 
-export interface FetchedJobSnapshotView {
+interface FetchedJobSnapshotView {
   cache_id: string;
   source_id: string;
   source_kind: string;
@@ -25,7 +25,7 @@ export interface FetchedJobSnapshotView {
   published_at?: string;
 }
 
-export interface ResumeDraftView {
+interface ResumeDraftView {
   draft_id: string;
   job_cache_id: string;
   expires_at: string;
@@ -104,7 +104,7 @@ function extractDrafted(parts: MCPContent[]): DraftedResume {
   return { view, pdf };
 }
 
-export interface SubmissionHint {
+interface SubmissionHint {
   type: string;
   target_url: string;
   attachment_uri: string;
@@ -112,7 +112,7 @@ export interface SubmissionHint {
   instructions: string;
 }
 
-export interface CommittedApplicationView {
+interface CommittedApplicationView {
   application_id: string;
   access_code_id: string;
   access_code: string;

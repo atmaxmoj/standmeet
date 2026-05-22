@@ -6,14 +6,13 @@
 //   用 fake key；后端 mock provider 兜底）→ 跳 /alice?byoai=1 → 看到
 //   BYOAI banner → chat 流式回复正常。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -39,7 +38,8 @@ test.describe.serial('visitor brings own API key (BYOAI) via gate page', () => {
 
   test('byoai submission lands visitor on /<handle>?byoai=1 with banner + working chat',
     async ({ page }) => {
-      await goto(page, `/${OWNER.handle}/gate`);
+      await page.getByRole('link', { name: 'request access ↗' }).click();
+      await page.waitForURL('**/gate', { timeout: 10_000 });
       await submitBYOAI(page);
       await expectLandedWithBanner(page);
       await visitorChats(page);
@@ -65,7 +65,9 @@ async function submitBYOAI(page: Page): Promise<void> {
 }
 
 async function expectLandedWithBanner(page: Page): Promise<void> {
-  await page.waitForURL(/.*\/alice\?byoai=1$/, { timeout: 10_000 });
+  // BYOAI 状态走 localStorage（use-gate persistSession），URL 上不挂 flag。
+  // page-shell mount 时读 store → 渲染 byoai banner。
+  await page.waitForURL('**/', { timeout: 10_000 });
   await expect(page.getByTestId('byoai-banner')).toBeVisible();
 }
 

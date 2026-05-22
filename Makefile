@@ -85,9 +85,18 @@ sqlc-gen:
 		sqlc/sqlc:1.20.0 generate
 	@echo "[sqlc] regenerated. diff & commit backend/internal/postgres/dbq/"
 
-# test 跑 e2e；预期 dev stack 已通过 dev-up 起来。
-test:
+# test —— 一键跑 e2e：先 dev-up（含 SDK build → app build → docker compose
+# --build --wait 增量 rebuild 改了的 service），再 playwright。conversation
+# 里跑 e2e 就一条 `make test`，不要分步。
+test: dev-up
 	@cd e2e && pnpm exec playwright test
+
+# setup-token —— demo 时 owner 打开 / 自动 redirect 到 /setup?t=...；这个
+# target 直接打印 path 让 operator 复制（boot banner 已经打过一次但可能
+# 被后续日志冲掉）。e2e 不需要 —— fixtures/instance.findSetupToken 已经走
+# 同样的 /api/v1/instance fetch。
+setup-token:
+	@curl -sS http://localhost:8000/api/v1/instance | jq -r '"setup path: /setup?t=" + .setup_token'
 
 clean:
 	@docker compose -f docker-compose.dev.yml down -v --remove-orphans 2>/dev/null || true

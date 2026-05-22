@@ -51,6 +51,7 @@ type AdminDeps struct {
 	AccessRequests usecases.AccessRequestsDeps
 	HandleAdmin    usecases.HandleDeps
 	AIProvider     usecases.AIProviderDeps
+	CustomPages    usecases.CustomPageDeps
 	Codes          *postgres.CodeRepo
 	Owners         *postgres.OwnerRepo
 	Sessions       *session.OwnerSessionStore
@@ -110,6 +111,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AccessRequests:  adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
 		HandleAdmin:     adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
 		AIProviderAdmin: adminroutes.AIProviderDeps{AI: deps.Admin.AIProvider},
+		CustomPages:     deps.Admin.CustomPages,
 		Log:             deps.Log,
 		SecureCookie:    deps.Admin.SecureCookie,
 	}
@@ -122,10 +124,12 @@ func mountPublic(r chi.Router, deps *Deps) {
 			Sessions: deps.Public.Sessions,
 			Log:      deps.Log,
 		}).Mount(r)
-		(&publicroutes.PageHandlers{Page: deps.PublicPage.Page, Log: deps.Log}).Mount(r)
-		(&publicroutes.SEOHandlers{
-			Deps: deps.PublicSEO.Deps, Log: deps.Log, PublicURL: deps.PublicSEO.PublicURL,
+		(&publicroutes.PageHandlers{
+			Page:        deps.PublicPage.Page,
+			Log:         deps.Log,
+			TokenIssuer: deps.PublicPage.TokenIssuer,
 		}).Mount(r)
+		(&publicroutes.SEOHandlers{Deps: deps.PublicSEO.Deps, Log: deps.Log}).Mount(r)
 		(&publicroutes.CustomPageHandlers{
 			Deps:       deps.PublicCustomPages.Deps,
 			Owners:     deps.PublicCustomPages.Owners,
@@ -140,7 +144,5 @@ func mountPublic(r chi.Router, deps *Deps) {
 
 func mountRootSEO(r chi.Router, deps *Deps) {
 	// /robots.txt + /sitemap.xml 是 SEO 标准约定路径，不走 /api/v1。
-	(&publicroutes.SEOHandlers{
-		Deps: deps.PublicSEO.Deps, Log: deps.Log, PublicURL: deps.PublicSEO.PublicURL,
-	}).MountRoot(r)
+	(&publicroutes.SEOHandlers{Deps: deps.PublicSEO.Deps, Log: deps.Log}).MountRoot(r)
 }

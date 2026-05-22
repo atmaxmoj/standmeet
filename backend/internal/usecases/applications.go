@@ -2,7 +2,8 @@
 // draft 升成持久化 application：
 //   1. 同事务里 issue AccessCode (180d / 10 sessions / 50 turns) + 落 application
 //      行 + 删 draft（postgres.ApplicationRepo.Commit 包了事务）
-//   2. 拼最终 QR URL = `<public_url>/<handle>?code=<plaintext>`
+//   2. 拼最终 QR URL = `<owner.public_url>?code=<plaintext>` —— v1 单 owner
+//      instance，访客落到根域名就是这位 owner，URL 不带 handle。
 //   3. 用 resumerender.Render 渲染 final PDF（同一渲染器，QR 现在装真的 access code）
 //   4. 返回 application + access_code + qr_url + PDF bytes 给 Claude
 //
@@ -39,10 +40,12 @@ const (
 )
 
 // ApplicationsDeps —— applications.* usecase 依赖。
+//
+// 没有 PublicURL 字段：每条 application 的公开 URL 从 owner.PublicURL 读
+// （claim 时写进 owners 行，admin 可改）。单一来源、no env / no fallback。
 type ApplicationsDeps struct {
-	Apps      *postgres.ApplicationRepo
-	Owners    OwnerLookup
-	PublicURL string
+	Apps   *postgres.ApplicationRepo
+	Owners OwnerLookup
 }
 
 // OwnerLookup —— 取 owner handle 用于拼 QR URL；用接口避开 usecases → postgres
@@ -63,7 +66,7 @@ func CommitApplication(
 	if err != nil {
 		return domain.CommittedApplication{}, err
 	}
-	qrURL := buildQRURL(deps.PublicURL, prep.handle, prep.out.AccessCode.Code)
+	qrURL := buildQRURL(prep.publicURL, prep.out.AccessCode.Code)
 	pdf, err := resumerender.Render(&prep.out.Application.ResumeContent, qrURL)
 	if err != nil {
 		return domain.CommittedApplication{}, fmt.Errorf("render final pdf: %w", err)
@@ -79,8 +82,8 @@ func CommitApplication(
 // commitPrep —— prepareCommit 把 owner lookup + code gen + DB tx 三步打包，
 // 让 CommitApplication 的 cyclomatic complexity 控在 ≤5。
 type commitPrep struct {
-	handle string
-	out    postgres.CommitOutput
+	publicURL string
+	out       postgres.CommitOutput
 }
 
 func prepareCommit(
@@ -90,6 +93,9 @@ func prepareCommit(
 	if err != nil {
 		return commitPrep{}, fmt.Errorf("get owner: %w", err)
 	}
+	if owner.PublicURL == "" {
+		return commitPrep{}, domain.ErrPublicURLNotSet
+	}
 	code, err := generateApplicationCode()
 	if err != nil {
 		return commitPrep{}, err
@@ -98,7 +104,7 @@ func prepareCommit(
 	if err != nil {
 		return commitPrep{}, err
 	}
-	return commitPrep{out: out, handle: owner.Handle}, nil
+	return commitPrep{out: out, publicURL: owner.PublicURL}, nil
 }
 
 func runCommitTx(
@@ -140,9 +146,9 @@ func generateApplicationCode() (string, error) {
 	return applicationCodePrefix + "-" + strings.ToLower(enc)[:applicationCodeRandLen], nil
 }
 
-func buildQRURL(publicURL, handle, code string) string {
+func buildQRURL(publicURL, code string) string {
 	base := strings.TrimRight(publicURL, "/")
-	return fmt.Sprintf("%s/%s?code=%s", base, url.PathEscape(handle), url.QueryEscape(code))
+	return fmt.Sprintf("%s/?code=%s", base, url.QueryEscape(code))
 }
 
 func timestamptzFromTime(t time.Time) pgtype.Timestamptz {

@@ -10,7 +10,7 @@
 //   5. the issued access code is usable: another visitor session can enter via
 //      /api/v1/codes/check (or the equivalent visitor path) — proves QR works
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -28,7 +28,9 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-const PUBLIC_URL = process.env['PUBLIC_URL'] ?? 'http://localhost:3000';
+// Spec default matches docker-compose.dev.yml PUBLIC_URL (app on :38127).
+// CI / other host setups can override with the same env var.
+const PUBLIC_URL = process.env['PUBLIC_URL'] ?? 'http://localhost:38127';
 
 test.describe.serial('applications.commit promotes a draft into an application', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -64,8 +66,9 @@ test.describe.serial('applications.commit promotes a draft into an application',
       expect(committed.view.code_expires_at).toBeDefined();
       expect(committed.view.job_snapshot.external_id).toBe(job.external_id);
 
-      // 2. QR URL shape: <base>/<handle>?code=<access_code>
-      const expected = `${PUBLIC_URL.replace(/\/$/, '')}/${OWNER.handle}?code=${committed.view.access_code}`;
+      // 2. QR URL shape: <owner.public_url>/?code=<access_code>
+      //    v1 单 owner instance：URL 不带 handle，recruiter 扫码直接落根域名。
+      const expected = `${PUBLIC_URL.replace(/\/$/, '')}/?code=${committed.view.access_code}`;
       expect(committed.view.qr_url).toBe(expected);
 
       // 3. final PDF

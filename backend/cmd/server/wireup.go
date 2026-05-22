@@ -43,6 +43,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
 		HandleAdmin:    usecases.HandleDeps{Owners: d.ownerRepo},
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
+		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Codes:          d.codeRepo,
 		Owners:         d.ownerRepo,
 		Sessions:       d.sessionStore,
@@ -65,14 +66,16 @@ func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 	return publicroutes.PageHandlers{
 		Page: usecases.PageDeps{Owners: d.ownerRepo},
 		Log:  d.log,
+		TokenIssuer: &setupTokenIssuerAdapter{
+			log: d.log, repo: d.instanceRepo, holder: d.setupTokenHolder,
+		},
 	}
 }
 
 func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
 	return publicroutes.SEOHandlers{
-		Deps:      usecases.SEODeps{Owners: d.ownerRepo, SEO: d.seoRepo},
-		Log:       d.log,
-		PublicURL: d.publicURL,
+		Deps: usecases.SEODeps{Owners: d.ownerRepo, SEO: d.seoRepo},
+		Log:  d.log,
 	}
 }
 
@@ -104,7 +107,7 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		},
 		Resume: usecases.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool},
 		Applications: usecases.ApplicationsDeps{
-			Apps: d.applicationRepo, Owners: d.ownerRepo, PublicURL: d.publicURL,
+			Apps: d.applicationRepo, Owners: d.ownerRepo,
 		},
 		Log: d.log,
 	}

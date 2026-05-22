@@ -1,11 +1,11 @@
-// use-gate —— /[handle]/gate 的状态机。
+// use-gate —— /gate 的状态机。
 //
 // 三条 submit 路径：
 //   - code: POST /api/v1/sessions {tier:'code', code} → 拿 session_token →
-//     redirect /<handle>（chat 实例 mount 时复用 cookie/session）
+//     redirect / (chat 实例 mount 时复用 cookie/session)
 //   - byoai: POST /api/v1/sessions {tier:'byoai', byoai_provider, byoai_key}
-//     → localStorage 存 token + key → redirect /<handle>?byoai=1
-//   - request: POST /api/v1/access-requests (stub, body 落日志)
+//     → localStorage 存 token + key → redirect /?byoai=1
+//   - request: POST /api/v1/access-requests (无 handle field —— v1 单 owner)
 //
 // 都是 client-side hook；业务逻辑都在这里。Components 只渲染。
 
@@ -22,7 +22,6 @@ const BYOAI_STORAGE_KEY = 'standmeet:visitor-session';
 interface StoredVisitorSession {
   session_token: string;
   conversation_id: string;
-  owner_handle: string;
   byoai: boolean;
 }
 
@@ -31,7 +30,6 @@ function persistSession(sess: PublicSessionResponse, byoai: boolean): void {
   const data: StoredVisitorSession = {
     session_token: sess.session_token,
     conversation_id: sess.conversation_id,
-    owner_handle: sess.owner_handle,
     byoai,
   };
   window.localStorage.setItem(BYOAI_STORAGE_KEY, JSON.stringify(data));
@@ -49,13 +47,12 @@ type SubmitState = { busy: boolean; error: string | null };
 
 export interface GateHook {
   state: SubmitState;
-  submitCode: (handle: string, code: string, visitorName: string) => Promise<boolean>;
-  submitBYOAI: (handle: string, provider: Provider, key: string) => Promise<boolean>;
+  submitCode: (code: string, visitorName: string) => Promise<boolean>;
+  submitBYOAI: (provider: Provider, key: string) => Promise<boolean>;
   submitRequest: (input: AccessRequestInput) => Promise<boolean>;
 }
 
 export interface AccessRequestInput {
-  handle: string;
   email: string;
   name: string;
   org: string;
@@ -66,11 +63,11 @@ export function useGate(): GateHook {
   const [state, setState] = useState<SubmitState>({ busy: false, error: null });
 
   const submitCode = useCallback(async (
-    handle: string, code: string, visitorName: string,
+    code: string, visitorName: string,
   ): Promise<boolean> => {
     return await runSubmit(setState, async () => {
       const sess = await issueCodeSession({
-        handle, code: code.trim(), visitor_name: visitorName.trim(),
+        code: code.trim(), visitor_name: visitorName.trim(),
       });
       persistSession(sess, false);
       return true;
@@ -78,10 +75,10 @@ export function useGate(): GateHook {
   }, []);
 
   const submitBYOAI = useCallback(
-    async (handle: string, provider: Provider, key: string): Promise<boolean> => {
+    async (provider: Provider, key: string): Promise<boolean> => {
       return await runSubmit(setState, async () => {
         const sess = await issueBYOAISession({
-          handle, byoai_provider: provider, byoai_key: key.trim(),
+          byoai_provider: provider, byoai_key: key.trim(),
         });
         persistSession(sess, true);
         return true;

@@ -80,6 +80,7 @@ func toDomainOwner(o *dbq.Owner) domain.Owner {
 		Handle:    o.Handle,
 		FullName:  o.FullName,
 		Location:  o.Location,
+		PublicURL: o.PublicUrl,
 		CreatedAt: o.CreatedAt.Time,
 	}
 }

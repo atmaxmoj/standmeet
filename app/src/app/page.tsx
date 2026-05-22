@@ -1,22 +1,23 @@
-// Root path 的 v1 行为：单 owner instance 时直接跳到 owner 的 handle 页。
-// owner handle 在 instance 维度是稳定的（一次 claim 之后不可改），所以
-// SSR fetch backend 拿一次足够。
+// page.tsx —— 根公开页：SSR fetch `/api/v1/page`（sole owner，v1 单 owner
+// instance）。把 hero / insights / projects / where / contact 五段渲染成
+// 长滚屏，底部 sticky ChatDock 让访客可发问。
+//
+// pre-claim 时（instance 还没人 claim）/api/v1/instance 返 setup_token，
+// 这里直接 server-side redirect 到 /setup?t=<token>，让首次部署的 operator
+// 不用复制 stdout banner —— 打开域名 / 就自动到 setup 表单。
 
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { loadDefaultHandle } from '@/lib/api/instance';
+import { fetchInstance } from '@/lib/api/instance';
+import { fetchPublicPage } from '@/lib/api/public';
+
+import { PageShell } from '@/app/page-shell';
 
 export default async function Root() {
-  const handle = await loadDefaultHandle();
-  handle && redirect(`/${handle}`);
-  return (
-    <main className="mx-auto max-w-md px-6 py-24">
-      <h1 className="reading text-2xl mb-4">StandMeet</h1>
-      <p className="reading">
-        This instance is not yet claimed. Visit{' '}
-        <Link className="link" href="/setup">/setup</Link> to claim it.
-      </p>
-    </main>
-  );
+  const instance = await fetchInstance();
+  // unclaimed → server redirect to /setup?t=TOKEN (token from /api/v1/instance).
+  // redirect() throws so subsequent fetchPublicPage / render never runs.
+  instance.claimed || redirect(`/setup?t=${instance.setup_token ?? ''}`);
+  const data = await fetchPublicPage();
+  return <PageShell owner={data.owner} content={data.content} />;
 }

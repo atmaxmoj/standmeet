@@ -18,6 +18,7 @@ export type SetupStep = 1 | 2;
 export interface SetupFormState {
   full: string;
   handle: string;
+  publicUrl: string;
   email: string;
   password: string;
   passwordConfirm: string;
@@ -40,7 +41,8 @@ const MIN_PASSWORD = 8;
 export function useSetupForm(setupToken: string): SetupFormHook {
   const [step, setStep] = useState<SetupStep>(1);
   const [form, setForm] = useState<SetupFormState>({
-    full: '', handle: '', email: '', password: '', passwordConfirm: '',
+    full: '', handle: '', publicUrl: '',
+    email: '', password: '', passwordConfirm: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,6 +66,7 @@ export function useSetupForm(setupToken: string): SetupFormHook {
         password: form.password,
         handle: form.handle,
         full_name: form.full,
+        public_url: normalizePublicURL(form.publicUrl),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'claim failed');
@@ -86,5 +89,17 @@ function validateForm(f: SetupFormState): string | null {
   if (blank) return 'email + password required';
   if (f.password.length < MIN_PASSWORD) return `password must be at least ${MIN_PASSWORD} characters`;
   if (f.password !== f.passwordConfirm) return 'passwords don’t match';
+  if (!isHTTPURL(f.publicUrl)) return 'public URL must start with http:// or https://';
   return null;
+}
+
+function isHTTPURL(s: string): boolean {
+  const t = s.trim();
+  return t.startsWith('http://') || t.startsWith('https://');
+}
+
+function normalizePublicURL(s: string): string {
+  let t = s.trim();
+  while (t.endsWith('/')) t = t.slice(0, -1);
+  return t;
 }

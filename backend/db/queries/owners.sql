@@ -1,6 +1,6 @@
 -- name: CreateOwner :one
-INSERT INTO owners (email, password_hash, handle, full_name)
-VALUES ($1, $2, $3, $4)
+INSERT INTO owners (email, password_hash, handle, full_name, public_url)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetOwnerByEmail :one
@@ -31,5 +31,11 @@ RETURNING *;
 UPDATE owners
 SET ai_provider = $2,
     ai_provider_key_enc = $3
+WHERE id = $1
+RETURNING *;
+
+-- name: UpdateOwnerPublicURL :one
+UPDATE owners
+SET public_url = $2
 WHERE id = $1
 RETURNING *;

@@ -1,14 +1,16 @@
-// embed.ts —— <standmeet-chat handle="..." base-url="..." tier="public"
-// code="..."> Web Component。drop-in 单 <script> 给任意站点用。
+// embed.ts —— <standmeet-chat base-url="..." tier="public" code="...">
+// Web Component。drop-in 单 <script> 给任意站点用。
 //
 // 内部不依赖 React；直接调 sdk-core 的 createClient + streamMessage，
 // 手写 DOM 渲染一个最简 transcript（问题 mono small-heading，回答 serif
 // body，跟设计稿一致）。
 //
+// v1 单 owner instance —— base-url 直接指向 owner 自己的 standmeet 部署，
+// 不再有 handle attribute。
+//
 // 用法：
-//   <script src="https://standmeet.example.com/embed/embed.iife.js"></script>
-//   <standmeet-chat handle="alice" base-url="https://standmeet.example.com">
-//   </standmeet-chat>
+//   <script src="https://alice.dev/embed/embed.iife.js"></script>
+//   <standmeet-chat base-url="https://alice.dev"></standmeet-chat>
 
 import { createClient } from '@standmeet/sdk-core';
 import type { StandMeetClient, SessionTier, SSEEvent } from '@standmeet/sdk-core';
@@ -73,9 +75,8 @@ class StandMeetChatElement extends HTMLElement {
   private async ensureSession(): Promise<void> {
     if (this.session || !this.client) return;
     const tier = (this.getAttribute('tier') ?? 'public') as SessionTier;
-    const handle = this.getAttribute('handle') ?? '';
     const code = this.getAttribute('code') ?? undefined;
-    const s = await this.client.issueSession({ handle, tier, code });
+    const s = await this.client.issueSession({ tier, code });
     this.session = { id: s.conversation_id, token: s.session_token };
   }
 

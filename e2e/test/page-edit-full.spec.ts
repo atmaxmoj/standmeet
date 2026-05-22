@@ -4,12 +4,11 @@
 // page-edit.spec.ts 只测 hero_prose 一字段；其他 6 个 section 都没测过，
 // 这条补足"改了就生效"的整体保证。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, loginAsOwnerUI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -45,11 +44,7 @@ test.describe.serial('PageSection — non-hero fields round-trip', () => {
 });
 
 async function signIn(page: Page): Promise<void> {
-  await goto(page, '/login');
-  await page.getByTestId('email').fill(OWNER.email);
-  await page.getByTestId('password').fill(OWNER.password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await loginAsOwnerUI(page);
 }
 
 async function fillEditField(page: Page, testid: string, value: string): Promise<void> {
@@ -64,5 +59,6 @@ async function save(page: Page): Promise<void> {
 }
 
 async function visitPublicPage(page: Page): Promise<void> {
-  await goto(page, `/${OWNER.handle}`);
+  await page.getByRole('link', { name: 'view public ↗' }).click();
+  await page.waitForURL('**/', { timeout: 10_000 });
 }

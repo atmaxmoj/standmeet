@@ -24,18 +24,18 @@ const nextConfig: NextConfig = {
   compiler: process.env['STRIP_TEST_HOOKS'] === '1' ? {
     reactRemoveProperties: { properties: ['^data-testid$'] },
   } : undefined,
-  // rewrites 用 object 形式：custom-page 必须放 beforeFiles，否则 Next 会
-  // 先匹配 dynamic route `/[handle]/page.tsx`，规范化路径时加了尾杠又拿
-  // 不到 page，于是来回 308（之前观察到 ERR_TOO_MANY_REDIRECTS）。
+  // rewrites: /p/:slug 反代到 backend custom-page asset handler。
+  // v1 单 owner instance —— URL 不带 handle。放 beforeFiles 让 Next dynamic
+  // route 不抢匹配，避免 trailingSlash redirect 死循环。
   rewrites: () => Promise.resolve({
     beforeFiles: [
       {
-        source: '/:handle/p/:slug',
-        destination: `${BACKEND_URL}/api/v1/custom-pages/:handle/:slug`,
+        source: '/p/:slug',
+        destination: `${BACKEND_URL}/api/v1/custom-pages/:slug`,
       },
       {
-        source: '/:handle/p/:slug/:path*',
-        destination: `${BACKEND_URL}/api/v1/custom-pages/:handle/:slug/:path*`,
+        source: '/p/:slug/:path*',
+        destination: `${BACKEND_URL}/api/v1/custom-pages/:slug/:path*`,
       },
     ],
     afterFiles: [
@@ -47,10 +47,10 @@ const nextConfig: NextConfig = {
     fallback: [],
   }),
 
-  // 相对 asset 路径在 /<handle>/p/<slug> 无尾杠时会断（resolve 到
-  // /<handle>/p/assets/...）。backend serveAsset 在返回 index.html 时
-  // 注入 <base href="/<handle>/p/<slug>/">，避免 Next 端做 redirect 死循环
-  // （default trailingSlash=false 跟我们的加杠 redirect 会撞）。
+  // 相对 asset 路径在 /p/<slug> 无尾杠时会断（resolve 到 /p/assets/...）。
+  // backend serveAsset 在返回 index.html 时注入 <base href="/p/<slug>/">，
+  // 避免 Next 端做 redirect 死循环（default trailingSlash=false 跟我们的
+  // 加杠 redirect 会撞）。
 };
 
 export default nextConfig;

@@ -4,7 +4,7 @@
 //   HR 收到 owner 邮件里的 access code，没直接知道公开页 URL。她访问
 //   /alice/gate，输入 INTRO-001，跳到 /alice，能聊 work-tagged 切片。
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from "@playwright/test";
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
@@ -12,7 +12,6 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -37,12 +36,13 @@ test.describe.serial('visitor uses a gate code to enter a private page', () => {
 
   test('typing code on /<handle>/gate lands visitor on /<handle>',
     async ({ page }) => {
-      await goto(page, `/${OWNER.handle}/gate`);
+      await page.getByRole('link', { name: 'request access ↗' }).click();
+      await page.waitForURL('**/gate', { timeout: 10_000 });
       await expect(page.getByTestId('code-panel')).toBeVisible();
       await page.getByTestId('gate-code').fill(CODE);
       await page.getByTestId('gate-visitor-name').fill('Sarah (HR)');
       await page.getByTestId('gate-code-submit').click();
-      await page.waitForURL(`**/${OWNER.handle}`, { timeout: 10_000 });
+      await page.waitForURL('**/', { timeout: 10_000 });
       // owner full name 在 identity strip span 里，不是 heading。
       await expect(page.getByText(OWNER.fullName)).toBeVisible();
     });
