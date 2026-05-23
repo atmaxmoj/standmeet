@@ -28,15 +28,16 @@ var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 
 // Deps —— MCP server 需要的业务依赖。
 type Deps struct {
-	APITokens    usecases.APITokenDeps
-	Jobs         usecases.JobsDeps
-	Owners       OwnerLookup
-	Corpus       usecases.CorpusDeps
-	SEO          SEOWriter
-	CustomPages  usecases.CustomPageDeps
-	Resume       usecases.ResumeDeps
-	Log          *slog.Logger
-	Applications usecases.ApplicationsDeps
+	APITokens     usecases.APITokenDeps
+	Jobs          usecases.JobsDeps
+	Owners        OwnerLookup
+	Corpus        usecases.CorpusDeps
+	SEO           SEOWriter
+	CustomPages   usecases.CustomPageDeps
+	Resume        usecases.ResumeDeps
+	Log           *slog.Logger
+	Applications  usecases.ApplicationsDeps
+	Conversations usecases.ConversationsDeps
 }
 
 // SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
@@ -113,6 +114,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	jobsTools(mcpSrv, deps)
 	resumeTools(mcpSrv, deps)
 	applicationsTools(mcpSrv, deps)
+	chatTools(mcpSrv, deps)
 }
 
 func meTool() mcpgo.Tool {

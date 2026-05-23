@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres/dbq"
@@ -144,6 +145,39 @@ func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 	return nil
 }
 
+// TitledRef —— 批量解 cited id → title 的最小映射 view。conversations
+// transcript hydration 用。
+type TitledRef struct {
+	ID    string
+	Title string
+}
+
+// GetTitlesByIDs —— transcript hydration：批量解 wiki id → title。空 ids
+// 返空 slice，不走 DB。
+func (r *WikiRepo) GetTitlesByIDs(
+	ctx context.Context, ownerID string, ids []string,
+) ([]TitledRef, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args, perr := parseTitleLookupArgs(ownerID, ids)
+	if perr != nil {
+		return nil, perr
+	}
+	q := dbq.New(r.pool)
+	rows, err := q.GetWikiTitlesByIDs(ctx, dbq.GetWikiTitlesByIDsParams{
+		OwnerID: args.ownerUUID, Column2: args.idUUIDs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get wiki titles: %w", err)
+	}
+	out := make([]TitledRef, 0, len(rows))
+	for i := range rows {
+		out = append(out, TitledRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+	}
+	return out, nil
+}
+
 // ─── output ─────────────────────────────────────────────────
 
 // UpdateOutputInput —— admin "edit output" 入参。
@@ -194,6 +228,49 @@ func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateOutputBodyParams,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		Visibility: in.Visibility, ParentID: parent,
 	}, nil
+}
+
+// GetTitlesByIDs —— transcript hydration：批量解 output id → title。
+func (r *OutputRepo) GetTitlesByIDs(
+	ctx context.Context, ownerID string, ids []string,
+) ([]TitledRef, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args, perr := parseTitleLookupArgs(ownerID, ids)
+	if perr != nil {
+		return nil, perr
+	}
+	q := dbq.New(r.pool)
+	rows, err := q.GetOutputTitlesByIDs(ctx, dbq.GetOutputTitlesByIDsParams{
+		OwnerID: args.ownerUUID, Column2: args.idUUIDs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get output titles: %w", err)
+	}
+	out := make([]TitledRef, 0, len(rows))
+	for i := range rows {
+		out = append(out, TitledRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+	}
+	return out, nil
+}
+
+// titleLookupArgs —— GetTitlesByIDs (wiki / output) 共享的 uuid parse 结果。
+type titleLookupArgs struct {
+	idUUIDs   []pgtype.UUID
+	ownerUUID pgtype.UUID
+}
+
+func parseTitleLookupArgs(ownerID string, ids []string) (titleLookupArgs, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return titleLookupArgs{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	idUUIDs, err := parseUUIDArray(ids)
+	if err != nil {
+		return titleLookupArgs{}, fmt.Errorf("parse ids: %w", err)
+	}
+	return titleLookupArgs{ownerUUID: ownerUUID, idUUIDs: idUUIDs}, nil
 }
 
 // Delete 硬删一条 output。

@@ -140,6 +140,78 @@ func (q *Queries) GetOutputBySlug(ctx context.Context, arg GetOutputBySlugParams
 	return i, err
 }
 
+const getOutputTitlesByIDs = `-- name: GetOutputTitlesByIDs :many
+SELECT id, title FROM output_entries
+WHERE owner_id = $1 AND id = ANY($2::uuid[])
+`
+
+type GetOutputTitlesByIDsParams struct {
+	OwnerID pgtype.UUID
+	Column2 []pgtype.UUID
+}
+
+type GetOutputTitlesByIDsRow struct {
+	ID    pgtype.UUID
+	Title string
+}
+
+// transcript hydration 用：把 cited_output_ids 批量解到 id+title。
+func (q *Queries) GetOutputTitlesByIDs(ctx context.Context, arg GetOutputTitlesByIDsParams) ([]GetOutputTitlesByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getOutputTitlesByIDs, arg.OwnerID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetOutputTitlesByIDsRow
+	for rows.Next() {
+		var i GetOutputTitlesByIDsRow
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIndexedOutputSlugs = `-- name: ListIndexedOutputSlugs :many
+SELECT seo_slug, updated_at
+FROM output_entries
+WHERE owner_id = $1
+  AND seo_slug IS NOT NULL
+  AND seo_indexed = true
+  AND visibility = 'public'
+ORDER BY updated_at DESC
+`
+
+type ListIndexedOutputSlugsRow struct {
+	SeoSlug   *string
+	UpdatedAt pgtype.Timestamptz
+}
+
+// sitemap.xml 用：取该 owner 所有 indexed + public 的 output landing slug。
+func (q *Queries) ListIndexedOutputSlugs(ctx context.Context, ownerID pgtype.UUID) ([]ListIndexedOutputSlugsRow, error) {
+	rows, err := q.db.Query(ctx, listIndexedOutputSlugs, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIndexedOutputSlugsRow
+	for rows.Next() {
+		var i ListIndexedOutputSlugsRow
+		if err := rows.Scan(&i.SeoSlug, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOutputByOwner = `-- name: ListOutputByOwner :many
 SELECT id, owner_id, parent_id, title, body, tags, visibility, source_wiki_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at FROM output_entries
 WHERE owner_id = $1

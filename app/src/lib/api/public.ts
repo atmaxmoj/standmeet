@@ -17,6 +17,7 @@ export type {
   PublicOwnerView,
   PublicPageView,
   WikiLandingView,
+  OutputLandingView,
   PublicSessionResponse,
   SSEEvent,
   SessionTier,
@@ -48,6 +49,7 @@ export interface IssueBYOAISessionInput {
 
 export const fetchPublicPage = () => client().fetchPage();
 export const fetchWikiLanding = (slug: string) => client().fetchWikiLanding(slug);
+export const fetchOutputLanding = (slug: string) => client().fetchOutputLanding(slug);
 
 export const issuePublicSession = () => client().issueSession({ tier: 'public' });
 export const issueCodeSession = (input: IssueCodeSessionInput) =>

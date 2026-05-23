@@ -14,6 +14,7 @@ export type {
   PublicOwnerView,
   PublicPageView,
   WikiLandingView,
+  OutputLandingView,
   PublicSessionResponse,
   SSEEvent,
   SSETokenEvent,

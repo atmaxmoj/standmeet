@@ -34,9 +34,10 @@ type SEOHandlers struct {
 	Log  *slog.Logger
 }
 
-// Mount 挂 /wiki/{slug}（在 /api/v1/ 下）。owner 是 sole owner，URL 不带 handle。
+// Mount 挂 /wiki/{slug} + /output/{slug}。owner 是 sole owner，URL 不带 handle。
 func (h *SEOHandlers) Mount(r chi.Router) {
 	r.Get("/wiki/{slug}", h.getWikiLanding())
+	r.Get("/output/{slug}", h.getOutputLanding())
 }
 
 // MountRoot —— /robots.txt + /sitemap.xml 是 SEO 标准约定路径，挂 root。
@@ -89,17 +90,17 @@ func sitemapURLs(ctx context.Context, deps usecases.SEODeps) []sitemapURL {
 		return []sitemapURL{}
 	}
 	out := []sitemapURL{{Loc: owner.PublicURL}}
-	return appendWikiLandings(ctx, deps, owner.PublicURL, out)
+	out = appendLandings(out, owner.PublicURL, "wiki", usecases.IndexedWikiLandings(ctx, deps))
+	out = appendLandings(out, owner.PublicURL, "output", usecases.IndexedOutputLandings(ctx, deps))
+	return out
 }
 
-func appendWikiLandings(
-	ctx context.Context, deps usecases.SEODeps,
-	base string, urls []sitemapURL,
+func appendLandings(
+	urls []sitemapURL, base, segment string, landings []usecases.WikiLandingURL,
 ) []sitemapURL {
-	landings := usecases.IndexedWikiLandings(ctx, deps)
 	for i := range landings {
 		urls = append(urls, sitemapURL{
-			Loc:     fmt.Sprintf("%s/wiki/%s", base, landings[i].Slug),
+			Loc:     fmt.Sprintf("%s/%s/%s", base, segment, landings[i].Slug),
 			LastMod: time.Unix(landings[i].UpdatedAt, 0).UTC().Format(time.RFC3339),
 		})
 	}
@@ -177,13 +178,77 @@ func handleLandingErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, env)
 }
 
-func classifyLandingErr(err error) apierr.Envelope {
-	if errors.Is(err, domain.ErrWikiNotFound) || errors.Is(err, domain.ErrOwnerNotFound) {
-		return apierr.Envelope{
-			Status: http.StatusNotFound, Code: "not_found", Message: "page not found",
+// landingNotFound —— wiki / output 公共 not-found envelope。
+var landingNotFound = apierr.Envelope{
+	Status: http.StatusNotFound, Code: "not_found", Message: "page not found",
+}
+
+// landingNotFoundSentinels —— landing 路径上视作 404 的 sentinel error 集合。
+var landingNotFoundSentinels = []error{
+	domain.ErrWikiNotFound,
+	domain.ErrOutputNotFound,
+	domain.ErrOwnerNotFound,
+}
+
+func isLandingNotFound(err error) bool {
+	for _, sentinel := range landingNotFoundSentinels {
+		if errors.Is(err, sentinel) {
+			return true
 		}
+	}
+	return false
+}
+
+func classifyLandingErr(err error) apierr.Envelope {
+	if isLandingNotFound(err) {
+		return landingNotFound
 	}
 	return apierr.Envelope{
 		Status: http.StatusInternalServerError, Code: "server_error", Message: "internal error",
+	}
+}
+
+func (h *SEOHandlers) getOutputLanding() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := chi.URLParam(r, "slug")
+		view, err := loadOutputLandingView(r.Context(), h.Deps, slug)
+		if err != nil {
+			handleLandingErr(h.Log, w, err)
+			return
+		}
+		writeJSONOutputLanding(h.Log, w, &view)
+	}
+}
+
+// outputLandingView —— 跟 wikiLandingView 字段对齐，前端 SDK 可复用渲染。
+type outputLandingView struct {
+	Slug           string `json:"slug"`
+	Title          string `json:"title"`
+	Body           string `json:"body"`
+	SEODescription string `json:"seo_description"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+func loadOutputLandingView(
+	ctx context.Context, deps usecases.SEODeps, slug string,
+) (outputLandingView, error) {
+	out, err := usecases.GetOutputLanding(ctx, deps, slug)
+	if err != nil {
+		return outputLandingView{}, err
+	}
+	return outputLandingView{
+		Slug:           slug,
+		Title:          out.Title,
+		Body:           out.Body,
+		SEODescription: out.SEODescription,
+		UpdatedAt:      out.UpdatedAt.UTC().Format(time.RFC3339),
+	}, nil
+}
+
+func writeJSONOutputLanding(log *slog.Logger, w http.ResponseWriter, view *outputLandingView) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(view); err != nil {
+		log.Error("encode output landing", "err", err)
 	}
 }

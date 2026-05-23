@@ -49,6 +49,11 @@ DELETE FROM wiki_entries WHERE id = $1 AND owner_id = $2;
 -- name: SetWikiTags :exec
 UPDATE wiki_entries SET tags = $3, updated_at = now() WHERE id = $1 AND owner_id = $2;
 
+-- name: GetWikiTitlesByIDs :many
+-- transcript hydration 用：把 cited_wiki_ids 批量解到 id+title。
+SELECT id, title FROM wiki_entries
+WHERE owner_id = $1 AND id = ANY($2::uuid[]);
+
 -- name: UpdateWikiBody :one
 -- admin "edit wiki" 入口：改 title/body/tags/visibility/parent_id。SEO 字段
 -- 由 UpdateWikiSEO 单独负责（前端 admin 拆 SEO 模块）。

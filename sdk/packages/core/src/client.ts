@@ -15,6 +15,7 @@ import { readSSE } from './sse.js';
 import type {
   PublicPageView,
   WikiLandingView,
+  OutputLandingView,
   PublicSessionResponse,
   SessionTier,
   SSEEvent,
@@ -43,6 +44,7 @@ export interface IssueSessionInput {
 export interface StandMeetClient {
   fetchPage(): Promise<PublicPageView>;
   fetchWikiLanding(slug: string): Promise<WikiLandingView | null>;
+  fetchOutputLanding(slug: string): Promise<OutputLandingView | null>;
   issueSession(input: IssueSessionInput): Promise<PublicSessionResponse>;
   streamMessage(
     conversationID: string,
@@ -57,6 +59,7 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
   return {
     fetchPage: () => fetchPage(f, baseURL),
     fetchWikiLanding: (slug) => fetchWikiLanding(f, baseURL, slug),
+    fetchOutputLanding: (slug) => fetchOutputLanding(f, baseURL, slug),
     issueSession: (input) => issueSession(f, baseURL, input),
     streamMessage: (id, token, content) => streamMessage(f, baseURL, id, token, content),
   };
@@ -75,6 +78,15 @@ async function fetchWikiLanding(
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`fetch wiki ${slug}: ${res.status}`);
   return (await res.json()) as WikiLandingView;
+}
+
+async function fetchOutputLanding(
+  f: typeof fetch, baseURL: string, slug: string,
+): Promise<OutputLandingView | null> {
+  const res = await f(`${baseURL}/api/v1/output/${slug}`, { cache: 'no-store' });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`fetch output ${slug}: ${res.status}`);
+  return (await res.json()) as OutputLandingView;
 }
 
 async function issueSession(

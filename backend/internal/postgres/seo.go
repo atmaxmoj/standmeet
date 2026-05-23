@@ -35,7 +35,7 @@ func (r *SEORepo) GetWikiBySlug(
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.WikiEntry{}, fmt.Errorf("parse owner id: %w", perr)
+		return domain.WikiEntry{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
 	row, err := q.GetWikiBySlug(ctx, dbq.GetWikiBySlugParams{
 		OwnerID: pgID, SeoSlug: &slug,
@@ -60,11 +60,56 @@ func (r *SEORepo) ListIndexedSlugs(ctx context.Context, ownerID string) ([]Index
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return nil, fmt.Errorf("parse owner id: %w", perr)
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
 	rows, err := q.ListIndexedWikiSlugs(ctx, pgID)
 	if err != nil {
 		return nil, fmt.Errorf("list indexed slugs: %w", err)
+	}
+	out := make([]IndexedSlug, 0, len(rows))
+	for i := range rows {
+		row := rows[i]
+		if row.SeoSlug == nil {
+			continue
+		}
+		out = append(out, IndexedSlug{Slug: *row.SeoSlug, UpdatedAt: row.UpdatedAt.Time.Unix()})
+	}
+	return out, nil
+}
+
+// GetOutputBySlug —— 公开 output landing 反查；同 wiki 的 ErrOutputNotFound 翻译。
+func (r *SEORepo) GetOutputBySlug(
+	ctx context.Context, ownerID, slug string,
+) (domain.OutputEntry, error) {
+	q := dbq.New(r.pool)
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return domain.OutputEntry{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
+	}
+	row, err := q.GetOutputBySlug(ctx, dbq.GetOutputBySlugParams{
+		OwnerID: pgID, SeoSlug: &slug,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.OutputEntry{}, domain.ErrOutputNotFound
+		}
+		return domain.OutputEntry{}, fmt.Errorf("get output by slug: %w", err)
+	}
+	return toDomainOutput(&row), nil
+}
+
+// ListIndexedOutputSlugs —— sitemap.xml 列 indexed + public output landing。
+func (r *SEORepo) ListIndexedOutputSlugs(
+	ctx context.Context, ownerID string,
+) ([]IndexedSlug, error) {
+	q := dbq.New(r.pool)
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, perr)
+	}
+	rows, err := q.ListIndexedOutputSlugs(ctx, pgID)
+	if err != nil {
+		return nil, fmt.Errorf("list indexed output slugs: %w", err)
 	}
 	out := make([]IndexedSlug, 0, len(rows))
 	for i := range rows {
@@ -82,7 +127,7 @@ func (r *SEORepo) GetSettings(ctx context.Context, ownerID string) (domain.SEOSe
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.SEOSettings{}, fmt.Errorf("parse owner id: %w", perr)
+		return domain.SEOSettings{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
 	row, err := q.GetSEOSettings(ctx, pgID)
 	if err != nil {
@@ -101,7 +146,7 @@ func (r *SEORepo) UpsertSettings(
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(in.OwnerID)
 	if perr != nil {
-		return domain.SEOSettings{}, fmt.Errorf("parse owner id: %w", perr)
+		return domain.SEOSettings{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
 	extras, merr := json.Marshal(in.SitemapExtras)
 	if merr != nil {

@@ -35,11 +35,13 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 
 func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	return server.AdminDeps{
-		Claim:          usecases.ClaimDeps{Instance: d.instanceRepo},
-		Login:          usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
-		APITokens:      usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
-		Corpus:         usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
-		Conversations:  usecases.ConversationsDeps{Conv: d.convRepo},
+		Claim:     usecases.ClaimDeps{Instance: d.instanceRepo},
+		Login:     usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
+		APITokens: usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
+		Corpus:    usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
+		Conversations: usecases.ConversationsDeps{
+			Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
+		},
 		BYOAI:          usecases.BYOAIDeps{Owners: d.ownerRepo},
 		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
@@ -121,6 +123,9 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Resume: usecases.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool},
 		Applications: usecases.ApplicationsDeps{
 			Apps: d.applicationRepo, Owners: d.ownerRepo,
+		},
+		Conversations: usecases.ConversationsDeps{
+			Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
 		Log: d.log,
 	}

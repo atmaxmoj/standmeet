@@ -23,6 +23,11 @@ DELETE FROM output_entries WHERE id = $1 AND owner_id = $2;
 -- name: SetOutputTags :exec
 UPDATE output_entries SET tags = $3, updated_at = now() WHERE id = $1 AND owner_id = $2;
 
+-- name: GetOutputTitlesByIDs :many
+-- transcript hydration 用：把 cited_output_ids 批量解到 id+title。
+SELECT id, title FROM output_entries
+WHERE owner_id = $1 AND id = ANY($2::uuid[]);
+
 -- name: UpdateOutputBody :one
 -- admin "edit output" 入口；跟 UpdateWikiBody 同构。
 UPDATE output_entries
@@ -37,6 +42,16 @@ SELECT id, owner_id, parent_id, title, body, tags, visibility,
        created_at, updated_at
 FROM output_entries
 WHERE owner_id = $1 AND seo_slug = $2 AND visibility = 'public';
+
+-- name: ListIndexedOutputSlugs :many
+-- sitemap.xml 用：取该 owner 所有 indexed + public 的 output landing slug。
+SELECT seo_slug, updated_at
+FROM output_entries
+WHERE owner_id = $1
+  AND seo_slug IS NOT NULL
+  AND seo_indexed = true
+  AND visibility = 'public'
+ORDER BY updated_at DESC;
 
 -- name: UpdateOutputSEO :one
 UPDATE output_entries

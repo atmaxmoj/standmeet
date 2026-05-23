@@ -94,6 +94,42 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []WikiLandingURL {
 	if err != nil {
 		return nil
 	}
+	return toLandingURLs(rows)
+}
+
+// GetOutputLanding —— 公开 output landing 查询，跟 GetWikiLanding 同套路。
+func GetOutputLanding(
+	ctx context.Context, deps SEODeps, slug string,
+) (domain.OutputEntry, error) {
+	if slug == "" {
+		return domain.OutputEntry{}, domain.ErrOutputNotFound
+	}
+	owner, ok := FirstOwner(ctx, deps)
+	if !ok {
+		return domain.OutputEntry{}, domain.ErrOwnerNotFound
+	}
+	out, err := deps.SEO.GetOutputBySlug(ctx, owner.ID, slug)
+	if err != nil {
+		return domain.OutputEntry{}, fmt.Errorf("get output by slug: %w", err)
+	}
+	return out, nil
+}
+
+// IndexedOutputLandings —— sitemap.xml 列 indexed + public output landing。
+// 复用 WikiLandingURL 形状 ((slug, updated_at) tuple，不绑 wiki 语义)。
+func IndexedOutputLandings(ctx context.Context, deps SEODeps) []WikiLandingURL {
+	owner, ok := FirstOwner(ctx, deps)
+	if !ok {
+		return nil
+	}
+	rows, err := deps.SEO.ListIndexedOutputSlugs(ctx, owner.ID)
+	if err != nil {
+		return nil
+	}
+	return toLandingURLs(rows)
+}
+
+func toLandingURLs(rows []postgres.IndexedSlug) []WikiLandingURL {
 	out := make([]WikiLandingURL, 0, len(rows))
 	for i := range rows {
 		out = append(out, WikiLandingURL{Slug: rows[i].Slug, UpdatedAt: rows[i].UpdatedAt})

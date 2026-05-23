@@ -181,6 +181,42 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 	return i, err
 }
 
+const getWikiTitlesByIDs = `-- name: GetWikiTitlesByIDs :many
+SELECT id, title FROM wiki_entries
+WHERE owner_id = $1 AND id = ANY($2::uuid[])
+`
+
+type GetWikiTitlesByIDsParams struct {
+	OwnerID pgtype.UUID
+	Column2 []pgtype.UUID
+}
+
+type GetWikiTitlesByIDsRow struct {
+	ID    pgtype.UUID
+	Title string
+}
+
+// transcript hydration 用：把 cited_wiki_ids 批量解到 id+title。
+func (q *Queries) GetWikiTitlesByIDs(ctx context.Context, arg GetWikiTitlesByIDsParams) ([]GetWikiTitlesByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getWikiTitlesByIDs, arg.OwnerID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetWikiTitlesByIDsRow
+	for rows.Next() {
+		var i GetWikiTitlesByIDsRow
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRawByOwner = `-- name: ListRawByOwner :many
 SELECT id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at FROM raw_entries
 WHERE owner_id = $1 AND archived = false

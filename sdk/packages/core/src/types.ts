@@ -61,6 +61,16 @@ export interface WikiLandingView {
   readonly updated_at: string;
 }
 
+// OutputLandingView —— /output/<slug> SEO landing。结构跟 WikiLandingView
+// 一致；output 是 raw → wiki → output 三层中最精炼那层。
+export interface OutputLandingView {
+  readonly slug: string;
+  readonly title: string;
+  readonly body: string;
+  readonly seo_description: string;
+  readonly updated_at: string;
+}
+
 export interface PublicSessionResponse {
   readonly session_token: string;
   readonly conversation_id: string;

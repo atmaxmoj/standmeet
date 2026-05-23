@@ -48,9 +48,16 @@ type convMessageView struct {
 	CitedOutputIDs []string `json:"cited_output_ids"`
 }
 
+type titledRefView struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
 type convTranscriptResp struct {
 	Conversation convSummaryView   `json:"conversation"`
 	Messages     []convMessageView `json:"messages"`
+	WikiRefs     []titledRefView   `json:"wiki_refs"`
+	OutputRefs   []titledRefView   `json:"output_refs"`
 }
 
 // MountConversations 挂 /conversations 子路由。
@@ -112,20 +119,31 @@ func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []postgres.Conv
 }
 
 func writeTranscript(
-	log *slog.Logger, w http.ResponseWriter, bundle *postgres.ConversationWithMessages,
+	log *slog.Logger, w http.ResponseWriter, t *usecases.TranscriptBundle,
 ) {
-	conv := bundleSummary(bundle)
-	msgs := make([]convMessageView, 0, len(bundle.Messages))
-	for i := range bundle.Messages {
-		msgs = append(msgs, toConvMessageView(&bundle.Messages[i]))
+	conv := bundleSummary(&t.ConvBundle)
+	msgs := make([]convMessageView, 0, len(t.ConvBundle.Messages))
+	for i := range t.ConvBundle.Messages {
+		msgs = append(msgs, toConvMessageView(&t.ConvBundle.Messages[i]))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(convTranscriptResp{
-		Conversation: conv, Messages: msgs,
+		Conversation: conv,
+		Messages:     msgs,
+		WikiRefs:     toRefViews(t.WikiRefs),
+		OutputRefs:   toRefViews(t.OutputRefs),
 	}); err != nil {
 		log.Error("encode conv transcript", "err", err)
 	}
+}
+
+func toRefViews(refs []usecases.TitledRef) []titledRefView {
+	out := make([]titledRefView, 0, len(refs))
+	for i := range refs {
+		out = append(out, titledRefView{ID: refs[i].ID, Title: refs[i].Title})
+	}
+	return out
 }
 
 func bundleSummary(bundle *postgres.ConversationWithMessages) convSummaryView {
