@@ -7,7 +7,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
-import { claim, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 
 const OWNER = {
@@ -32,8 +32,7 @@ test.describe.serial('PageSection — non-hero fields round-trip', () => {
   });
 
   test('owner edits where.location_line + contact.email → public page reflects both',
-    async ({ page }) => {
-      await signIn(page);
+    async ({ adminPage: page }) => {
       await fillEditField(page, 'where-location', NEW_LOCATION);
       await fillEditField(page, 'contact-email', NEW_EMAIL);
       await save(page);
@@ -42,10 +41,6 @@ test.describe.serial('PageSection — non-hero fields round-trip', () => {
       await expect(page.getByText(NEW_EMAIL)).toBeVisible();
     });
 });
-
-async function signIn(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
-}
 
 async function fillEditField(page: Page, testid: string, value: string): Promise<void> {
   const field = page.getByTestId(testid);

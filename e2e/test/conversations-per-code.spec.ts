@@ -7,9 +7,9 @@
 //   下的对话，从卡里直接跳过去即可，不用在大列表里肉眼挑。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -38,8 +38,7 @@ test.describe.serial('admin filters conversations by code via UI link', () => {
   });
 
   test('view conversations link from HR code shows only that code\'s session',
-    async ({ page }) => {
-      await signIn(page);
+    async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'codes');
       await page.waitForURL('**/admin/codes', { timeout: 5_000 });
       // 两个 code 卡片各有一条 "view conversations" 链接；选 HR 那张卡的。
@@ -84,6 +83,3 @@ async function chatViaCode(
   await res.body();
 }
 
-async function signIn(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
-}

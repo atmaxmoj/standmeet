@@ -1,17 +1,17 @@
 // owner-login.spec.ts —— owner 已经 claim 过实例之后的 sign-in 流程。
 //
 // 用户故事：
-//   owner 之前已经 claim 完，关浏览器后第二次回来。访问 /login 输入邮箱密码，
-//   后端写 session cookie，跳回自己的页面 /<handle>。错密码会显示 inline
-//   错误，不离开 /login。
+//   owner 之前已经 claim 完，关浏览器后第二次回来。地址栏输 /admin → server
+//   见无 session redirect 到 /login → 填邮箱密码 → submit → 落 /admin/page。
+//   错密码会显示 inline 错误，不离开 /login。
 //
-// Claim 走 helper（不是被测路径）；login 全程浏览器。
+// Claim 走 API helper（不是被测路径）；login 全程浏览器。两个 case 共享
+// "navigateToOwnerLogin"（fixture-level goto /admin → 自动 redirect /login）。
 
 import { test, expect } from '@/fixtures/test';
 
-import { claim, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim, navigateToOwnerLogin } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -31,13 +31,14 @@ test.describe.serial('owner logs back in', () => {
     await request.dispose();
   });
 
-  test('right credentials land owner in admin', async ({ page }) => {
-    await loginAsOwnerUI(page);
+  test('right credentials land owner in admin', async ({ adminPage: page }) => {
+    // adminPage fixture 自己跑完 owner-typed /admin → /login → 填表单 → /admin/page。
+    // 这里只断言落点正确（admin sidebar 渲染了）。
     await expect(page.getByRole('link', { name: /\bpage\b/ })).toBeVisible();
   });
 
   test('wrong password shows inline error, stays on /login', async ({ page }) => {
-    await goto(page, '/login');
+    await navigateToOwnerLogin(page);
     await page.getByTestId('email').fill(OWNER.email);
     await page.getByTestId('password').fill('not-the-password');
     await page.getByTestId('submit').click();

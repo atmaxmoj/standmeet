@@ -10,7 +10,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -64,7 +64,7 @@ test.describe.serial('owner publishes custom React page; visitor lands on it', (
   });
 
   test('MCP create + write_file + build + promote_to_live → visitor sees React content',
-    async ({ playwright, page }) => {
+    async ({ playwright, adminPage: page }) => {
       const request = await playwright.request.newContext();
       const { token, sid } = await mcpSetup(request);
       await ownerPublishesCustomPage(request, token, sid);
@@ -127,7 +127,6 @@ async function waitForBuild(
 // custom-pages list 看到 "view live ↗" 链接（promote_to_live 之后才出现），
 // 点击直接跳 /p/<slug>，访客（也就是 admin owner 自己）看到 React 渲染产物。
 async function visitorSeesPublishedContent(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
   await gotoAdminSection(page, 'custom pages');
   await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
   await page.locator(`[data-testid="custom-page-row-${SLUG}"]`)

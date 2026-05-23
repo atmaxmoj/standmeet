@@ -123,7 +123,9 @@ var claimErrCases = []apierr.Case{
 	},
 }
 
-// claim 是 first-run claim 的 thin handler：解 body、调 usecase、翻译错误。
+// claim 是 first-run claim 的 thin handler：解 body、调 usecase、翻译错误 +
+// 顺便登录（claim 成功 = owner 凭 setup token 证明了对 instance 的所有权，
+// 让 owner 再次输同一份 email/password 是 UX 浪费）。
 func (h *Handlers) claim() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req claimRequest
@@ -131,19 +133,33 @@ func (h *Handlers) claim() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-
-		owner, err := usecases.ClaimInstance(r.Context(), h.Claim, &usecases.ClaimInput{
-			Token: req.Token, Email: req.Email, Password: req.Password,
-			Handle: req.Handle, FullName: req.FullName, PublicURL: req.PublicURL,
-		})
-		if err != nil {
-			handleClaimErr(h.Log, w, err)
-			return
-		}
-
-		session.RemoveFirstRunFile(h.Log)
-		writeJSONClaim(h.Log, w, &owner)
+		h.runClaimAndAutoLogin(w, r, &req)
 	}
+}
+
+// runClaimAndAutoLogin —— 把 cyclo 控在 ≤3：handler 只做 decode + 派发。
+func (h *Handlers) runClaimAndAutoLogin(
+	w http.ResponseWriter, r *http.Request, req *claimRequest,
+) {
+	owner, err := usecases.ClaimInstance(r.Context(), h.Claim, &usecases.ClaimInput{
+		Token: req.Token, Email: req.Email, Password: req.Password,
+		Handle: req.Handle, FullName: req.FullName, PublicURL: req.PublicURL,
+	})
+	if err != nil {
+		handleClaimErr(h.Log, w, err)
+		return
+	}
+	loggedIn, lerr := usecases.Login(r.Context(), h.Auth.Login, &usecases.LoginInput{
+		Email: req.Email, Password: req.Password,
+	})
+	if lerr != nil {
+		h.Log.Error("auto-login after claim failed", "err", lerr)
+		writeError(h.Log, w, serverErr())
+		return
+	}
+	setSessionCookies(w, loggedIn.SessionToken, loggedIn.CSRFToken, h.SecureCookie)
+	session.RemoveFirstRunFile(h.Log)
+	writeJSONClaim(h.Log, w, &owner)
 }
 
 func handleClaimErr(log *slog.Logger, w http.ResponseWriter, err error) {

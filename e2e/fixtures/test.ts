@@ -1,21 +1,55 @@
-// test.ts —— 自定义 Playwright test fixture：每个 spec 拿到的 `page` 已经
-// 在 `/` 上。这是唯一允许 page.goto 的地方（藏在 fixture 里，spec body
-// 看不见 goto，被迫走 UI clicks）。
+// test.ts —— 自定义 Playwright test fixture：包两种入口 page。
 //
-// owner 部署完打开域名 / 就是入口；spec 复刻这个动作。后续所有跳页都
-// 走点链接 / 按表单。
+//   `page`       —— 落根 /。模拟"访客（或 owner 自己）打开域名"。pre-claim
+//                  时 server 自动 redirect 到 /setup?t=...；claimed 时渲染
+//                  公开页。
+//   `adminPage`  —— 落 /admin/page（已登录）。模拟"owner 直接输 /admin /
+//                  从书签点进"。spec 假设：beforeAll 已经走 API claim。
+//                  fixture 自身处理 redirect-to-login → 填表单 → /admin/page。
 //
-// 用法：`import { test, expect } from '@/fixtures/test'`。
+// 这两个是 e2e 里**仅有的两处 page.goto**。spec body 一律走 UI clicks
+// (footer 链接 / sidebar / 表单按钮)，不允许出现 goto。
+//
+// 用法：
+//   import { test, expect } from '@/fixtures/test';
+//   test('...', async ({ page }) => { ... });        // 访客视角
+//   test('...', async ({ adminPage }) => { ... });   // 已登录 admin 视角
 
 import { test as base, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-export const test = base.extend({
+const OWNER_EMAIL = 'alice@example.com';
+const OWNER_PASSWORD = 'correct-horse-battery-staple';
+
+type Fixtures = {
+  adminPage: Page;
+};
+
+export const test = base.extend<Fixtures>({
   page: async ({ page }, use) => {
-    // Real visitor types the domain in the address bar; Playwright simulates
-    // that with one initial navigation. Spec body never touches `goto` —— it
-    // walks UI from here on (the app self-redirects to /setup?t=... when
-    // unclaimed, or renders the public page when claimed).
     await page.goto('/');
+    await use(page);
+  },
+  // adminPage 不通过 footer link 进 admin —— footer 的 admin link 已经从
+  // 公开页删了（admin 入口对访客不可见）。fixture 模拟"owner 输 /admin
+  // 直接进"，未授权时被 AdminShell 弹 /login，填表单后回 /admin/page。
+  //
+  // 等待用 race：等 login form 或 admin sidebar 任一可见，避免 URL 转场
+  // (/admin → /admin/page → /login) 中间态被 waitForURL 提前匹配。
+  adminPage: async ({ page }, use) => {
+    await page.goto('/admin');
+    const loginEmail = page.getByTestId('email');
+    const adminSidebar = page.getByRole('link', { name: /\bpage\b/ });
+    await Promise.race([
+      loginEmail.waitFor({ state: 'visible', timeout: 10_000 }),
+      adminSidebar.waitFor({ state: 'visible', timeout: 10_000 }),
+    ]);
+    if (await loginEmail.isVisible()) {
+      await loginEmail.fill(OWNER_EMAIL);
+      await page.getByTestId('password').fill(OWNER_PASSWORD);
+      await page.getByTestId('submit').click();
+      await adminSidebar.waitFor({ state: 'visible', timeout: 10_000 });
+    }
     await use(page);
   },
 });

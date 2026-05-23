@@ -5,7 +5,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -52,7 +52,7 @@ test.describe.serial('custom_page lifecycle: staging → live → list → delet
   });
 
   test('staging then live shows in list + visitor URL; delete removes both',
-    async ({ request, page }) => {
+    async ({ request, adminPage: page }) => {
       const sid = await initMCP(request, apiToken);
       const build = await prepareBuiltPage(request, apiToken, sid);
 
@@ -68,7 +68,6 @@ test.describe.serial('custom_page lifecycle: staging → live → list → delet
       expect(inList.pages.find((p) => p.slug === SLUG)).toBeTruthy();
 
       // UI 视角：admin custom-pages section → 点 view live ↗ → /p/<slug> 渲染。
-      await loginAsOwnerUI(page);
       await gotoAdminSection(page, 'custom pages');
       await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
       await page.locator(`[data-testid="custom-page-row-${SLUG}"]`)

@@ -7,7 +7,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
-import { claim, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { expectAdminSidebarVisible } from '@/fixtures/navigate';
 
@@ -33,17 +33,12 @@ test.describe.serial('owner edits public page, visitor sees the change', () => {
   });
 
   test('admin signs in, edits hero prose, save propagates to public page',
-    async ({ page }) => {
-      await signInToAdmin(page);
+    async ({ adminPage: page }) => {
       await navigateToPageEditor(page);
       await editHeroProse(page, NEW_HERO_PROSE);
       await expectPublicPageShows(page, NEW_HERO_PROSE);
     });
 });
-
-async function signInToAdmin(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
-}
 
 async function navigateToPageEditor(page: Page): Promise<void> {
   // Already at /admin/page after login redirect.

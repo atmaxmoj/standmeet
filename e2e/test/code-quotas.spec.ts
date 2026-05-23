@@ -7,7 +7,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { issueSessionStatus } from '@/fixtures/visitor';
@@ -33,8 +33,8 @@ test.describe.serial('owner sets quotas on access code and revokes it', () => {
   });
 
   test('owner creates code with quotas, edits them, then revokes',
-    async ({ page, request }) => {
-      await signInAndOpenCodes(page);
+    async ({ adminPage: page, request }) => {
+      await openCodes(page);
       await createCodeWithQuotas(page, CODE, 'Interview round A', '5', '10');
       await expectQuotaLineVisible(page, CODE, '5', '10');
       await editQuotas(page, CODE, '7', '20');
@@ -58,8 +58,7 @@ async function editQuotas(
     .toBeVisible();
 }
 
-async function signInAndOpenCodes(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
+async function openCodes(page: Page): Promise<void> {
   await gotoAdminSection(page, 'codes');
   await page.waitForURL('**/admin/codes', { timeout: 5_000 });
 }

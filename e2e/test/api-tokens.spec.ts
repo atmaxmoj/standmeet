@@ -9,7 +9,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -33,8 +33,8 @@ test.describe.serial('owner mints an API token in admin and an MCP client uses i
   });
 
   test('admin creates token → mcp client calls me() → owner profile returned',
-    async ({ page, request }) => {
-      await signInAndOpenAPIMCP(page);
+    async ({ adminPage: page, request }) => {
+      await openAPIMCP(page);
       const plaintext = await createTokenInUI(page, 'cursor-mbp');
       const me = await callMeAsMCPClient(request, plaintext);
       expect(me.email).toBe(OWNER.email);
@@ -42,8 +42,7 @@ test.describe.serial('owner mints an API token in admin and an MCP client uses i
     });
 });
 
-async function signInAndOpenAPIMCP(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
+async function openAPIMCP(page: Page): Promise<void> {
   await gotoAdminSection(page, 'api · mcp');
   await page.waitForURL('**/admin/api-mcp', { timeout: 5_000 });
 }

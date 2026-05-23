@@ -22,8 +22,9 @@ export function SetupForm({ setupToken }: Props) {
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await form.submit();
-    // 单 owner instance：claim 完直接落根 /，公开页 SSR fetch /api/v1/page。
-    result && router.push('/');
+    // claim 成功 → /admin。owner 部署完第一件事就是进 admin 配置内容，
+    // 不必先弹回访客视角的公开页。书签 /admin 之后就稳定了。
+    result && router.push('/admin');
   }, [form, router]);
 
   return (

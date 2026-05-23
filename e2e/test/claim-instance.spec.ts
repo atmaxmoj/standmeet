@@ -24,14 +24,14 @@ test.describe.serial('owner claims a fresh instance via /setup', () => {
     resetInstance();
   });
 
-  test('opening / on a fresh instance lands the owner in the claim wizard and back home',
+  test('opening / on a fresh instance lands the owner in the claim wizard and admin',
     async ({ page }) => {
       // 入口 fixture goto('/') 之后：unclaimed → server redirect 到 /setup?t=...
       await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
 
       await fillIdentityStep(page);
       await fillCredentialsStep(page);
-      await expectLandedOnOwnerPage(page);
+      await expectLandedOnAdmin(page);
     });
 });
 
@@ -50,8 +50,10 @@ async function fillCredentialsStep(page: Page): Promise<void> {
   await page.getByTestId('submit').click();
 }
 
-async function expectLandedOnOwnerPage(page: Page): Promise<void> {
-  await page.waitForURL('**/', { timeout: 10_000 });
-  // 设计稿里 owner full_name 摆 identity strip span，不是 heading。
-  await expect(page.getByText(OWNER.full)).toBeVisible();
+// SetupForm 提交成功后 router.push('/admin') —— owner 部署完直接进 admin
+// 开始管理。/admin server 端 redirect 到 /admin/page；AdminShell 见到刚才
+// claim 流程写的 session cookie 即 ready，渲染 sidebar (含 "page" 链接)。
+async function expectLandedOnAdmin(page: Page): Promise<void> {
+  await page.waitForURL('**/admin/page', { timeout: 10_000 });
+  await expect(page.getByRole('link', { name: /\bpage\b/ })).toBeVisible();
 }

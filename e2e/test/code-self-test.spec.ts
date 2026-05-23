@@ -9,7 +9,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -36,8 +36,7 @@ test.describe.serial('owner self-tests a code from /admin/codes preview', () => 
   });
 
   test('preview modal opens, "test this code" runs a streaming reply',
-    async ({ page }) => {
-      await signIn(page);
+    async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'codes');
       await openPreviewModal(page);
       await runSelfTest(page, 'tell me about your work');
@@ -54,10 +53,6 @@ async function issueCodeForTesting(request: APIRequestContext): Promise<void> {
     purpose: 'code-self-test spec',
     included_tags: [],
   });
-}
-
-async function signIn(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
 }
 
 async function openPreviewModal(page: Page): Promise<void> {

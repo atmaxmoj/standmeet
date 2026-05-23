@@ -19,12 +19,10 @@ export function Footer({ corpusSize, lastUpdated }: Props) {
         <FooterStats corpusSize={corpusSize} lastUpdated={lastUpdated} />
         <div className="flex items-baseline gap-3">
           <span className="text-(--color-faint)">standmeet</span>
+          {/* 没有 admin 链接：访客 / recruiter 不该看到 admin 入口；owner
+              自己输 /admin（书签）。e2e fixture 用 adminPage 模拟同一行为。 */}
           <Link className="hover:text-(--color-ink) transition-colors" href="/gate">
             request access ↗
-          </Link>
-          <span className="text-(--color-faint)">·</span>
-          <Link className="hover:text-(--color-ink) transition-colors" href="/admin">
-            admin ↗
           </Link>
         </div>
       </div>

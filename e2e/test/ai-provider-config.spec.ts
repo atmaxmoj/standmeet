@@ -5,9 +5,8 @@
 // 走 Anthropic 路径在后续 spec 里。
 
 import { test, expect } from '@/fixtures/test';
-import type { Page } from '@playwright/test';
 
-import { claim, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
@@ -30,8 +29,7 @@ test.describe.serial('owner configures AI provider + key from /admin/api-mcp', (
   });
 
   test('pick anthropic + paste key → key set; clear → mock + key gone',
-    async ({ page }) => {
-      await signIn(page);
+    async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'api · mcp');
 
       await page.getByTestId('ai-provider-anthropic').click();
@@ -51,6 +49,3 @@ test.describe.serial('owner configures AI provider + key from /admin/api-mcp', (
     });
 });
 
-async function signIn(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
-}

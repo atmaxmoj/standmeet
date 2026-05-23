@@ -14,7 +14,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -41,8 +41,8 @@ test.describe.serial('AI pushes raw insight via MCP; owner sees it in admin', ()
   });
 
   test('owner opens /admin/raw and sees the AI-pushed entry',
-    async ({ page }) => {
-      await signInAndOpenRaw(page);
+    async ({ adminPage: page }) => {
+      await openRaw(page);
       await expect(page.getByTestId('raw-list')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByText(RAW_BODY, { exact: false })).toBeVisible();
     });
@@ -57,8 +57,7 @@ async function aiPushesRaw(request: APIRequestContext, body: string): Promise<vo
   });
 }
 
-async function signInAndOpenRaw(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
+async function openRaw(page: Page): Promise<void> {
   await gotoAdminSection(page, 'raw');
   await page.waitForURL('**/admin/raw', { timeout: 5_000 });
 }

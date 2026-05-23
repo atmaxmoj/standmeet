@@ -9,7 +9,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI, loginAsOwnerUI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
@@ -36,8 +36,8 @@ test.describe.serial('owner issues an access code in admin; visitor uses it', ()
   });
 
   test('owner creates INTRO-001 in /admin/codes → visitor chats with that code',
-    async ({ page, request }) => {
-      await signInAndOpenCodes(page);
+    async ({ adminPage: page, request }) => {
+      await openCodes(page);
       await createCodeInUI(page, 'INTRO-001', 'Intro for HR', 'work');
       await expectCodeRowVisible(page, 'INTRO-001');
       await visitorChatsWithCode(request);
@@ -55,8 +55,7 @@ async function seedTaggedWiki(request: APIRequestContext): Promise<void> {
   });
 }
 
-async function signInAndOpenCodes(page: Page): Promise<void> {
-  await loginAsOwnerUI(page);
+async function openCodes(page: Page): Promise<void> {
   await gotoAdminSection(page, 'codes');
   await page.waitForURL('**/admin/codes', { timeout: 5_000 });
 }
