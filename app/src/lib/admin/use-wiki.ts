@@ -16,6 +16,8 @@ export interface WikiSummary {
   source_raw_ids: string[];
   created_at: string;
   parent_id?: string | null;
+  seo_slug?: string | null;
+  seo_indexed: boolean;
 }
 
 export type WikiBodyState = 'loading' | 'error' | 'empty' | 'list';

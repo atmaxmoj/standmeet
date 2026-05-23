@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/middleware"
@@ -16,12 +15,14 @@ import (
 
 type outputListItem struct {
 	ParentID      *string  `json:"parent_id"`
+	SEOSlug       *string  `json:"seo_slug"`
 	ID            string   `json:"id"`
 	Title         string   `json:"title"`
 	Visibility    string   `json:"visibility"`
 	CreatedAt     string   `json:"created_at"`
 	Tags          []string `json:"tags"`
 	SourceWikiIDs []string `json:"source_wiki_ids"`
+	SEOIndexed    bool     `json:"seo_indexed"`
 }
 
 func (h *Handlers) listOutput() http.HandlerFunc {
@@ -41,15 +42,7 @@ func (h *Handlers) listOutput() http.HandlerFunc {
 func writeOutputList(log *slog.Logger, w http.ResponseWriter, rows []domain.OutputEntry) {
 	items := make([]outputListItem, 0, len(rows))
 	for i := range rows {
-		items = append(items, outputListItem{
-			ID:            rows[i].ID,
-			Title:         rows[i].Title,
-			Visibility:    rows[i].Visibility,
-			Tags:          rows[i].Tags,
-			SourceWikiIDs: rows[i].SourceWikiIDs,
-			ParentID:      rows[i].ParentID,
-			CreatedAt:     rows[i].CreatedAt.Format(time.RFC3339),
-		})
+		items = append(items, outputItemFromDomain(&rows[i]))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

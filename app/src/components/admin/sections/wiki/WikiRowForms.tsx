@@ -4,11 +4,13 @@
 'use client';
 
 import { CorpusEntryForm, PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
 import { useWikiDetail } from '@/lib/admin/use-corpus-detail';
 import {
   type CorpusActionsHook,
   type CorpusEntryInput,
   type PromoteInput,
+  type SEOUpdateInput,
 } from '@/lib/admin/use-corpus-actions';
 import { runWith } from '@/lib/admin/use-corpus-form';
 import { useToast } from '@/lib/ui/toast';
@@ -26,23 +28,47 @@ export function WikiEditForm({
   return (
     <div className="mt-4" data-testid={`wiki-edit-loaded-${entry.id}`}>
       {detail ? (
-        <CorpusEntryForm
-          initial={{
-            title: detail.title,
-            body: detail.body,
-            visibility: detail.visibility,
-            tags: detail.tags,
-          }}
-          busy={actions.pending}
-          submitLabel="save"
-          testidPrefix={`wiki-edit-form-${entry.id}`}
-          onSubmit={onSubmit}
-          onCancel={onDone}
-        />
+        <>
+          <CorpusEntryForm
+            initial={{
+              title: detail.title,
+              body: detail.body,
+              visibility: detail.visibility,
+              tags: detail.tags,
+            }}
+            busy={actions.pending}
+            submitLabel="save"
+            testidPrefix={`wiki-edit-form-${entry.id}`}
+            onSubmit={onSubmit}
+            onCancel={onDone}
+          />
+          <SEOEditor
+            testidPrefix={`wiki-${entry.id}`}
+            initial={{
+              seo_slug: detail.seo_slug,
+              seo_description: detail.seo_description,
+              seo_indexed: detail.seo_indexed,
+            }}
+            busy={actions.pending}
+            onSave={(input: SEOUpdateInput) => void saveWikiSEO(entry.id, actions, toast, input)}
+          />
+        </>
       ) : (
         <p className="mono text-[10.5px] text-(--color-muted)">loading…</p>
       )}
     </div>
+  );
+}
+
+async function saveWikiSEO(
+  id: string,
+  actions: CorpusActionsHook,
+  toast: { success: (m: string) => void },
+  input: SEOUpdateInput,
+): Promise<void> {
+  await runWith(
+    () => actions.updateWikiSEO(id, input),
+    () => toast.success('Wiki SEO saved'),
   );
 }
 

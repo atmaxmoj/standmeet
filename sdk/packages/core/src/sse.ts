@@ -7,6 +7,7 @@ import type {
   SSETokenEvent,
   SSEDoneEvent,
   SSEErrorEvent,
+  CitedRef,
 } from './types.js';
 
 // readSSE —— 把一段 ReadableStream<Uint8Array> 转成 SSEEvent 生成器。
@@ -64,11 +65,33 @@ function buildToken(data: Record<string, unknown>): SSETokenEvent {
 }
 
 function buildDone(data: Record<string, unknown>): SSEDoneEvent {
-  const raw = data['cited_wiki_ids'];
-  const cited = Array.isArray(raw)
+  return {
+    kind: 'done',
+    cited_wiki_ids: stringArrayField(data, 'cited_wiki_ids'),
+    cited_output_ids: stringArrayField(data, 'cited_output_ids'),
+    cited_wiki_refs: citedRefField(data, 'cited_wiki_refs'),
+    cited_output_refs: citedRefField(data, 'cited_output_refs'),
+  };
+}
+
+function stringArrayField(data: Record<string, unknown>, key: string): string[] {
+  const raw = data[key];
+  return Array.isArray(raw)
     ? raw.filter((x): x is string => typeof x === 'string')
     : [];
-  return { kind: 'done', cited_wiki_ids: cited };
+}
+
+function citedRefField(data: Record<string, unknown>, key: string): CitedRef[] {
+  const raw = data[key];
+  return Array.isArray(raw)
+    ? raw.filter(isCitedRef).map((r) => ({ id: r.id, title: r.title }))
+    : [];
+}
+
+function isCitedRef(x: unknown): x is { id: string; title: string } {
+  if (typeof x !== 'object' || x === null) return false;
+  const r = x as Record<string, unknown>;
+  return typeof r['id'] === 'string' && typeof r['title'] === 'string';
 }
 
 function buildError(data: Record<string, unknown>): SSEErrorEvent {

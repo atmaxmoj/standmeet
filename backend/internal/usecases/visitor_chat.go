@@ -26,11 +26,13 @@ type SendMessageInput struct {
 // 字段顺序按 govet fieldalignment 优化：error 在前（双 ptr），slice 在尾
 // （ptr at offset 0 of slice），减小 GC pointer scan range。
 type MessageEvent struct {
-	Err            error // 'error' kind 携带 err，其余空
-	Kind           string
-	Text           string
-	CitedWikiIDs   []string
-	CitedOutputIDs []string
+	Err             error // 'error' kind 携带 err，其余空
+	Kind            string
+	Text            string
+	CitedWikiIDs    []string
+	CitedOutputIDs  []string
+	CitedWikiRefs   []CitedRef
+	CitedOutputRefs []CitedRef
 }
 
 // SendMessage —— 写访客 visitor message → RAG → 调 provider 流式 → 收尾写
@@ -322,5 +324,7 @@ func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
 	return MessageEvent{
 		Kind: "done", Text: d.full,
 		CitedWikiIDs: citedWiki, CitedOutputIDs: citedOutput,
+		CitedWikiRefs:   wikiRefsOf(d.wikis),
+		CitedOutputRefs: outputRefsOf(d.outputs),
 	}
 }

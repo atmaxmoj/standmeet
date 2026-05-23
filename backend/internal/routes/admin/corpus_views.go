@@ -28,6 +28,8 @@ func wikiItemFromDomain(w *domain.WikiEntry) wikiListItem {
 		Tags:         ensureSlice(w.Tags),
 		SourceRawIDs: ensureSlice(w.SourceRawIDs),
 		ParentID:     w.ParentID,
+		SEOSlug:      w.SEOSlug,
+		SEOIndexed:   w.SEOIndexed,
 		CreatedAt:    w.CreatedAt.UTC().Format(timeRFC3339),
 	}
 }
@@ -40,6 +42,8 @@ func outputItemFromDomain(o *domain.OutputEntry) outputListItem {
 		Tags:          ensureSlice(o.Tags),
 		SourceWikiIDs: ensureSlice(o.SourceWikiIDs),
 		ParentID:      o.ParentID,
+		SEOSlug:       o.SEOSlug,
+		SEOIndexed:    o.SEOIndexed,
 		CreatedAt:     o.CreatedAt.UTC().Format(timeRFC3339),
 	}
 }

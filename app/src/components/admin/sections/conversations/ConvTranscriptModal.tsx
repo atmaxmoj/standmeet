@@ -1,5 +1,6 @@
 // ConvTranscriptModal —— 弹层显示一个 conversation 完整 transcript。
-// transcript = { conversationID, loading, error, messages[] }。
+// 每条 assistant message 下面挂 "cited · output/wiki · <title>" 列表，
+// title 通过 wikiRefs/outputRefs 索引按 message.cited_*_ids 查到。
 
 'use client';
 
@@ -35,7 +36,13 @@ function TranscriptBody({ transcript }: { transcript: ConvTranscript }) {
     loading: <Loading />,
     error: <ErrorBlock message={transcript.error ?? ''} />,
     empty: <EmptyState />,
-    list: <MessageList messages={transcript.messages} />,
+    list: (
+      <MessageList
+        messages={transcript.messages}
+        wikiRefs={transcript.wikiRefs}
+        outputRefs={transcript.outputRefs}
+      />
+    ),
   } as const;
   return map[pickTranscriptState(transcript)];
 }
@@ -56,20 +63,39 @@ function EmptyState() {
   );
 }
 
-function MessageList({ messages }: { messages: readonly ConvTranscriptMessage[] }) {
+function MessageList({
+  messages, wikiRefs, outputRefs,
+}: {
+  messages: readonly ConvTranscriptMessage[];
+  wikiRefs: Record<string, string>;
+  outputRefs: Record<string, string>;
+}) {
   return (
     <ul className="space-y-6">
-      {messages.map((m) => <MessageItem key={m.id} message={m} />)}
+      {messages.map((m) => (
+        <MessageItem key={m.id} message={m} wikiRefs={wikiRefs} outputRefs={outputRefs} />
+      ))}
     </ul>
   );
 }
 
-function MessageItem({ message }: { message: ConvTranscriptMessage }) {
+function MessageItem({
+  message, wikiRefs, outputRefs,
+}: {
+  message: ConvTranscriptMessage;
+  wikiRefs: Record<string, string>;
+  outputRefs: Record<string, string>;
+}) {
   return (
     <li>
       <MessageLabel role={message.role} at={message.created_at} />
       <MessageBody role={message.role} body={message.body} />
-      <CitedTail ids={message.cited_wiki_ids} />
+      <CitedTail
+        wikiIds={message.cited_wiki_ids}
+        outputIds={message.cited_output_ids}
+        wikiRefs={wikiRefs}
+        outputRefs={outputRefs}
+      />
     </li>
   );
 }
@@ -104,11 +130,37 @@ function MessageLabel({ role, at }: { role: 'visitor' | 'assistant'; at: string 
   );
 }
 
-function CitedTail({ ids }: { ids: readonly string[] }) {
-  return ids.length === 0 ? null : (
-    <p className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) mt-2">
-      grounded in {ids.length} corpus {ids.length === 1 ? 'entry' : 'entries'}
-    </p>
+// CitedTail —— output 排前面（"polished, quote verbatim"，跟 visitor chat
+// 优先级一致）。如果某个 id 在 refs 索引里找不到 title（数据脏 / 已删除）
+// 就跳过那条 —— 显示 "<missing>" 比让 UI 整块崩好，但实际上很难触发。
+function CitedTail({
+  wikiIds, outputIds, wikiRefs, outputRefs,
+}: {
+  wikiIds: readonly string[];
+  outputIds: readonly string[];
+  wikiRefs: Record<string, string>;
+  outputRefs: Record<string, string>;
+}) {
+  const items = [
+    ...outputIds.map((id) => ({ kind: 'output' as const, id, title: outputRefs[id] })),
+    ...wikiIds.map((id) => ({ kind: 'wiki' as const, id, title: wikiRefs[id] })),
+  ].filter((c) => c.title);
+  return items.length === 0 ? null : (
+    <ul
+      className="mt-2 space-y-0.5 mono text-[10px] tracking-[0.12em] uppercase"
+      data-testid="transcript-cited"
+    >
+      {items.map((c) => (
+        <li key={`${c.kind}:${c.id}`} className="flex items-baseline gap-2">
+          <span className={c.kind === 'output' ? 'text-(--color-accent)' : 'text-(--color-faint)'}>
+            cited · {c.kind}
+          </span>
+          <span className="reading-tight italic text-(--color-muted) normal-case tracking-[0.04em]">
+            {c.title}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

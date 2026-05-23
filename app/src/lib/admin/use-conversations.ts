@@ -31,12 +31,18 @@ export interface ConvView {
   transcript?: ConvTurn[];
 }
 
+export interface TitledRef {
+  id: string;
+  title: string;
+}
+
 export interface ConvTranscriptMessage {
   id: string;
   role: 'visitor' | 'assistant';
   body: string;
   created_at: string;
   cited_wiki_ids: string[];
+  cited_output_ids: string[];
 }
 
 export interface ConvTranscript {
@@ -44,6 +50,9 @@ export interface ConvTranscript {
   loading: boolean;
   error: string | null;
   messages: ConvTranscriptMessage[];
+  // id → title 索引，前端按 cited_*_ids[i] 找 title 渲染 "cited: <title>"。
+  wikiRefs: Record<string, string>;
+  outputRefs: Record<string, string>;
 }
 
 interface ConvTranscriptResp {
@@ -54,7 +63,10 @@ interface ConvTranscriptResp {
     body: string;
     created_at: string;
     cited_wiki_ids: string[];
+    cited_output_ids: string[];
   }>;
+  wiki_refs: TitledRef[];
+  output_refs: TitledRef[];
 }
 
 export type TranscriptBodyState = 'loading' | 'error' | 'empty' | 'list';
@@ -97,7 +109,10 @@ const transcriptStore = create<TranscriptState>((set) => ({
   open: (id) => {
     set({
       openId: id,
-      transcript: { conversationID: id, loading: true, error: null, messages: [] },
+      transcript: {
+        conversationID: id, loading: true, error: null,
+        messages: [], wikiRefs: {}, outputRefs: {},
+      },
     });
     void loadTranscript(id, (t) => set({ transcript: t }));
   },
@@ -144,7 +159,10 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
         body: m.body,
         created_at: m.created_at,
         cited_wiki_ids: m.cited_wiki_ids,
+        cited_output_ids: m.cited_output_ids,
       })),
+      wikiRefs: indexRefs(data.wiki_refs),
+      outputRefs: indexRefs(data.output_refs),
     });
   } catch (e) {
     setTranscript({
@@ -152,8 +170,16 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
       loading: false,
       error: e instanceof Error ? e.message : 'load failed',
       messages: [],
+      wikiRefs: {},
+      outputRefs: {},
     });
   }
+}
+
+function indexRefs(refs: TitledRef[] | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  (refs ?? []).forEach((r) => { out[r.id] = r.title; });
+  return out;
 }
 
 function toView(s: ConversationSummary): ConvView {

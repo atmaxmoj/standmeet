@@ -18,6 +18,7 @@ import (
 
 type wikiDetailItem struct {
 	ParentID       *string  `json:"parent_id"`
+	SEOSlug        *string  `json:"seo_slug"`
 	ID             string   `json:"id"`
 	Title          string   `json:"title"`
 	Body           string   `json:"body"`
@@ -27,10 +28,12 @@ type wikiDetailItem struct {
 	UpdatedAt      string   `json:"updated_at"`
 	Tags           []string `json:"tags"`
 	SourceRawIDs   []string `json:"source_raw_ids"`
+	SEOIndexed     bool     `json:"seo_indexed"`
 }
 
 type outputDetailItem struct {
 	ParentID       *string  `json:"parent_id"`
+	SEOSlug        *string  `json:"seo_slug"`
 	ID             string   `json:"id"`
 	Title          string   `json:"title"`
 	Body           string   `json:"body"`
@@ -40,6 +43,7 @@ type outputDetailItem struct {
 	UpdatedAt      string   `json:"updated_at"`
 	Tags           []string `json:"tags"`
 	SourceWikiIDs  []string `json:"source_wiki_ids"`
+	SEOIndexed     bool     `json:"seo_indexed"`
 }
 
 func wikiDetailFromDomain(w *domain.WikiEntry) wikiDetailItem {
@@ -47,6 +51,7 @@ func wikiDetailFromDomain(w *domain.WikiEntry) wikiDetailItem {
 		ID: w.ID, Title: w.Title, Body: w.Body, Visibility: w.Visibility,
 		Tags: ensureSlice(w.Tags), SourceRawIDs: ensureSlice(w.SourceRawIDs),
 		ParentID: w.ParentID, SEODescription: w.SEODescription,
+		SEOSlug: w.SEOSlug, SEOIndexed: w.SEOIndexed,
 		CreatedAt: w.CreatedAt.UTC().Format(timeRFC3339),
 		UpdatedAt: w.UpdatedAt.UTC().Format(timeRFC3339),
 	}
@@ -57,6 +62,7 @@ func outputDetailFromDomain(o *domain.OutputEntry) outputDetailItem {
 		ID: o.ID, Title: o.Title, Body: o.Body, Visibility: o.Visibility,
 		Tags: ensureSlice(o.Tags), SourceWikiIDs: ensureSlice(o.SourceWikiIDs),
 		ParentID: o.ParentID, SEODescription: o.SEODescription,
+		SEOSlug: o.SEOSlug, SEOIndexed: o.SEOIndexed,
 		CreatedAt: o.CreatedAt.UTC().Format(timeRFC3339),
 		UpdatedAt: o.UpdatedAt.UTC().Format(timeRFC3339),
 	}

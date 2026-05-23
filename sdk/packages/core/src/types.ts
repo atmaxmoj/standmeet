@@ -79,9 +79,20 @@ export interface PublicSessionResponse {
 }
 
 export type SSETokenEvent = { readonly kind: 'token'; readonly text: string };
+
+// CitedRef —— SSE done event 给前端的引用信息：id + title。让 visitor chat
+// 渲染 "↑ from: <title>" footer 时不用再去 fetch 单条 wiki/output。
+export interface CitedRef {
+  readonly id: string;
+  readonly title: string;
+}
+
 export type SSEDoneEvent = {
   readonly kind: 'done';
   readonly cited_wiki_ids: readonly string[];
+  readonly cited_output_ids: readonly string[];
+  readonly cited_wiki_refs: readonly CitedRef[];
+  readonly cited_output_refs: readonly CitedRef[];
 };
 export type SSEErrorEvent = {
   readonly kind: 'error';

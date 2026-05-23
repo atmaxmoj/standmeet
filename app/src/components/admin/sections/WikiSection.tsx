@@ -252,12 +252,29 @@ function WikiHead({ entry }: { entry: WikiSummary }) {
       </h3>
       <div className="flex items-baseline gap-3">
         <Pill tone={entry.visibility === 'public' ? 'accent' : 'muted'}>{entry.visibility}</Pill>
+        <ViewLiveLink slug={entry.seo_slug} indexed={entry.seo_indexed} segment="wiki" />
         <span className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)">
           {formatDate(entry.created_at)}
         </span>
       </div>
     </div>
   );
+}
+
+function ViewLiveLink({
+  slug, indexed, segment,
+}: { slug?: string | null; indexed: boolean; segment: 'wiki' | 'output' }) {
+  return indexed && slug ? (
+    <a
+      href={`/${segment}/${slug}`}
+      target="_blank"
+      rel="noreferrer"
+      data-testid={`${segment}-view-live`}
+      className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-accent) hover:underline"
+    >
+      view live ↗
+    </a>
+  ) : null;
 }
 
 function WikiTags({ tags }: { tags: readonly string[] }) {

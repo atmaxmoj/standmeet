@@ -100,12 +100,14 @@ type rawListItem struct {
 
 type wikiListItem struct {
 	ParentID     *string  `json:"parent_id"`
+	SEOSlug      *string  `json:"seo_slug"`
 	ID           string   `json:"id"`
 	Title        string   `json:"title"`
 	Visibility   string   `json:"visibility"`
 	CreatedAt    string   `json:"created_at"`
 	Tags         []string `json:"tags"`
 	SourceRawIDs []string `json:"source_raw_ids"`
+	SEOIndexed   bool     `json:"seo_indexed"`
 }
 
 func (h *Handlers) listRaw() http.HandlerFunc {

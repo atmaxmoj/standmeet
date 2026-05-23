@@ -108,7 +108,6 @@ function Answer({ answer }: { answer: TurnAnswer }) {
       <AnswerScopeLabel answer={answer} />
       <AnswerParas answer={answer} />
       <Citations citations={answer.citations} />
-      <CitedCount answer={answer} />
     </div>
   );
 }
@@ -148,12 +147,19 @@ function AnswerParas({ answer }: { answer: TurnAnswer }) {
 
 function Citations({ citations }: { citations: readonly Citation[] }) {
   return citations.length === 0 ? null : (
-    <div className="mt-6">
+    <div className="mt-6" data-testid="citations">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">drawn from</div>
       <ul className="space-y-1">
-        {citations.map((c, i) => (
-          <li key={i} className="flex items-baseline gap-3">
-            <span className="mono text-[11.5px] text-(--color-muted) tabular-nums shrink-0">{c.date}</span>
+        {citations.map((c) => (
+          <li key={c.id} className="flex items-baseline gap-3">
+            <span
+              className={`mono text-[10px] tracking-[0.14em] uppercase tabular-nums shrink-0 ${
+                c.kind === 'output' ? 'text-(--color-accent)' : 'text-(--color-muted)'
+              }`}
+              data-testid={`citation-kind-${c.kind}`}
+            >
+              {c.kind}
+            </span>
             <span className="font-serif italic text-(--color-muted)" style={{ fontSize: '14.5px' }}>{c.title}</span>
           </li>
         ))}
@@ -162,15 +168,3 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
   );
 }
 
-function CitedCount({ answer }: { answer: TurnAnswer }) {
-  const count = countCited(answer);
-  return count === 0 ? null : (
-    <p className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-muted) mt-4" data-testid="cited">
-      grounded in {count} corpus {count === 1 ? 'entry' : 'entries'}
-    </p>
-  );
-}
-
-function countCited(answer: TurnAnswer): number {
-  return answer.citations.length > 0 ? 0 : answer.cited.length;
-}

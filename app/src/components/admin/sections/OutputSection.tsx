@@ -9,9 +9,13 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Pill } from '@/components/admin/atoms/Pill';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { ListFilterBar } from '@/components/admin/sections/corpus/ListFilterBar';
+import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
-  useCorpusActions, type CorpusActionsHook, type CorpusEntryInput,
+  useCorpusActions,
+  type CorpusActionsHook,
+  type CorpusEntryInput,
+  type SEOUpdateInput,
 } from '@/lib/admin/use-corpus-actions';
 import {
   pickOutputBodyState, useOutput,
@@ -231,12 +235,29 @@ function OutputHead({ entry }: { entry: OutputSummary }) {
       </h3>
       <div className="flex items-baseline gap-3">
         <Pill tone={entry.visibility === 'public' ? 'accent' : 'muted'}>{entry.visibility}</Pill>
+        <ViewLiveLink slug={entry.seo_slug} indexed={entry.seo_indexed} />
         <span className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)">
           {formatDate(entry.created_at)}
         </span>
       </div>
     </div>
   );
+}
+
+function ViewLiveLink({
+  slug, indexed,
+}: { slug?: string | null; indexed: boolean }) {
+  return indexed && slug ? (
+    <a
+      href={`/output/${slug}`}
+      target="_blank"
+      rel="noreferrer"
+      data-testid="output-view-live"
+      className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-accent) hover:underline"
+    >
+      view live ↗
+    </a>
+  ) : null;
 }
 
 function OutputTags({ tags }: { tags: readonly string[] }) {
@@ -301,23 +322,47 @@ function EditForm({
   return (
     <div className="mt-4" data-testid={`output-edit-loaded-${entry.id}`}>
       {detail ? (
-        <CorpusEntryForm
-          initial={{
-            title: detail.title,
-            body: detail.body,
-            visibility: detail.visibility,
-            tags: detail.tags,
-          }}
-          busy={actions.pending}
-          submitLabel="save"
-          testidPrefix={`output-edit-form-${entry.id}`}
-          onSubmit={onSubmit}
-          onCancel={onDone}
-        />
+        <>
+          <CorpusEntryForm
+            initial={{
+              title: detail.title,
+              body: detail.body,
+              visibility: detail.visibility,
+              tags: detail.tags,
+            }}
+            busy={actions.pending}
+            submitLabel="save"
+            testidPrefix={`output-edit-form-${entry.id}`}
+            onSubmit={onSubmit}
+            onCancel={onDone}
+          />
+          <SEOEditor
+            testidPrefix={`output-${entry.id}`}
+            initial={{
+              seo_slug: detail.seo_slug,
+              seo_description: detail.seo_description,
+              seo_indexed: detail.seo_indexed,
+            }}
+            busy={actions.pending}
+            onSave={(input: SEOUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input)}
+          />
+        </>
       ) : (
         <p className="mono text-[10.5px] text-(--color-muted)">loading…</p>
       )}
     </div>
+  );
+}
+
+async function saveOutputSEO(
+  id: string,
+  actions: CorpusActionsHook,
+  toast: { success: (m: string) => void },
+  input: SEOUpdateInput,
+): Promise<void> {
+  await runWith(
+    () => actions.updateOutputSEO(id, input),
+    () => toast.success('Output SEO saved'),
   );
 }
 

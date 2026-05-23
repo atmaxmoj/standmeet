@@ -192,6 +192,34 @@ func translateUpdateWikiSEOErr(err error) error {
 	return fmt.Errorf("update wiki seo: %w", err)
 }
 
+// UpdateOutputSEO —— 跟 UpdateWikiSEO 同套路。
+func (r *SEORepo) UpdateOutputSEO(
+	ctx context.Context, outputID string,
+	slug *string, description string, indexed bool,
+) (domain.OutputEntry, error) {
+	pgID, perr := parseUUID(outputID)
+	if perr != nil {
+		return domain.OutputEntry{}, fmt.Errorf("parse output id: %w", perr)
+	}
+	row, err := dbq.New(r.pool).UpdateOutputSEO(ctx, dbq.UpdateOutputSEOParams{
+		ID: pgID, SeoSlug: slug, SeoDescription: description, SeoIndexed: indexed,
+	})
+	if err != nil {
+		return domain.OutputEntry{}, translateUpdateOutputSEOErr(err)
+	}
+	return toDomainOutput(&row), nil
+}
+
+func translateUpdateOutputSEOErr(err error) error {
+	if name, hit := pgUniqueViolation(err); hit && name == "output_entries_owner_slug_idx" {
+		return domain.ErrSlugTaken
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrOutputNotFound
+	}
+	return fmt.Errorf("update output seo: %w", err)
+}
+
 func defaultSEOSettings(ownerID string) domain.SEOSettings {
 	return domain.SEOSettings{
 		OwnerID:       ownerID,

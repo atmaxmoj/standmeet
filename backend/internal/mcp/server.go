@@ -46,6 +46,10 @@ type SEOWriter interface {
 		ctx context.Context, wikiID string,
 		slug *string, description string, indexed bool,
 	) (domain.WikiEntry, error)
+	UpdateOutputSEO(
+		ctx context.Context, outputID string,
+		slug *string, description string, indexed bool,
+	) (domain.OutputEntry, error)
 	GetSettings(ctx context.Context, ownerID string) (domain.SEOSettings, error)
 	UpsertSettings(ctx context.Context, in *domain.SEOSettings) (domain.SEOSettings, error)
 }

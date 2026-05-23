@@ -35,7 +35,7 @@ export interface PromoteInput {
   parent_id?: string;
 }
 
-// 详情 view（GET single 返）—— 比 list summary 多 body + source_*_ids，
+// 详情 view（GET single 返）—— 比 list summary 多 body + source_*_ids + SEO，
 // EditForm 展开时 fetch 它回填 body 字段。
 export interface WikiDetail {
   id: string;
@@ -45,6 +45,9 @@ export interface WikiDetail {
   tags: string[];
   source_raw_ids: string[];
   parent_id?: string | null;
+  seo_slug?: string | null;
+  seo_description: string;
+  seo_indexed: boolean;
 }
 
 export interface OutputDetail {
@@ -55,6 +58,15 @@ export interface OutputDetail {
   tags: string[];
   source_wiki_ids: string[];
   parent_id?: string | null;
+  seo_slug?: string | null;
+  seo_description: string;
+  seo_indexed: boolean;
+}
+
+export interface SEOUpdateInput {
+  seo_slug: string | null;
+  seo_description: string;
+  seo_indexed: boolean;
 }
 
 export interface CorpusActionsHook {
@@ -70,11 +82,13 @@ export interface CorpusActionsHook {
   deleteWiki: (id: string) => Promise<boolean>;
   promoteWiki: (id: string, input: PromoteInput) => Promise<boolean>;
   fetchWikiDetail: (id: string) => Promise<WikiDetail | null>;
+  updateWikiSEO: (id: string, input: SEOUpdateInput) => Promise<boolean>;
   // output
   createOutput: (input: CorpusEntryInput) => Promise<boolean>;
   updateOutput: (id: string, input: CorpusEntryInput) => Promise<boolean>;
   deleteOutput: (id: string) => Promise<boolean>;
   fetchOutputDetail: (id: string) => Promise<OutputDetail | null>;
+  updateOutputSEO: (id: string, input: SEOUpdateInput) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -100,6 +114,8 @@ export function useCorpusActions(): CorpusActionsHook {
       (id, input) => run(() => doPromoteWiki(id, input)), [run]),
     fetchWikiDetail: useCallback(
       (id: string) => fetchDetail<WikiDetail>(`/wiki/${id}`, setError, setPending), []),
+    updateWikiSEO: useCallback(
+      (id, input) => run(() => doUpdateWikiSEO(id, input)), [run]),
     createOutput: useCallback(
       (input) => run(() => doCreateOutput(input)), [run]),
     updateOutput: useCallback(
@@ -108,6 +124,8 @@ export function useCorpusActions(): CorpusActionsHook {
       (id) => run(() => doDeleteOutput(id)), [run]),
     fetchOutputDetail: useCallback(
       (id: string) => fetchDetail<OutputDetail>(`/output/${id}`, setError, setPending), []),
+    updateOutputSEO: useCallback(
+      (id, input) => run(() => doUpdateOutputSEO(id, input)), [run]),
     clearError: useCallback(() => setError(null), []),
   };
 }
@@ -199,6 +217,11 @@ async function doPromoteWiki(id: string, input: PromoteInput): Promise<void> {
   outputStore.getState().reset();
 }
 
+async function doUpdateWikiSEO(id: string, input: SEOUpdateInput): Promise<void> {
+  await adminAPI.patch(`/wiki/${id}/seo`, input);
+  wikiStore.getState().reset();
+}
+
 // ─── output ─────────────────────────────────────────────────
 
 async function doCreateOutput(input: CorpusEntryInput): Promise<void> {
@@ -216,4 +239,9 @@ async function doUpdateOutput(id: string, input: CorpusEntryInput): Promise<void
 async function doDeleteOutput(id: string): Promise<void> {
   await adminAPI.delete(`/output/${id}`);
   outputStore.getState().mutate((prev) => (prev ?? []).filter((o) => o.id !== id));
+}
+
+async function doUpdateOutputSEO(id: string, input: SEOUpdateInput): Promise<void> {
+  await adminAPI.patch(`/output/${id}/seo`, input);
+  outputStore.getState().reset();
 }

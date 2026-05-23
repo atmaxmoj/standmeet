@@ -1,5 +1,5 @@
 // use-conversation —— Turn[] 状态机：visitor 一问对应一个 Turn，pending
-// 阶段渲染 retrieving 点点，SSE token 累加，done 时收 cited_wiki_ids。
+// 阶段渲染 retrieving 点点，SSE token 累加，done 时收 cited refs (id+title)。
 //
 // 跟旧 use-chat-dock 的差别：
 //   - Turn 是页面 inline 流（顺序展开），不是底部浮动 transcript
@@ -23,13 +23,15 @@ import {
 import { loadStoredSession } from '@/lib/gate/use-gate';
 
 export type Citation = {
-  date: string;
+  // kind 决定渲染链接前缀：wiki → /wiki/<slug>，output → /output/<slug>。
+  // (后端目前只返 id+title；slug 留到后续 hydrate，先用 title 显示。)
+  kind: 'wiki' | 'output';
+  id: string;
   title: string;
 };
 
 export type TurnAnswer = {
   paras: string[];
-  cited: readonly string[];
   citations: readonly Citation[];
   private: boolean;
   byoaiBlocked: boolean;
@@ -161,51 +163,64 @@ async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
   }
 }
 
+// StreamState —— streamInto 累积的状态：当前 body + 引用 refs。
+interface StreamState {
+  body: string;
+  citations: readonly Citation[];
+}
+
 async function streamInto(
   sess: PublicSessionResponse,
   q: string,
   turnID: string,
   setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
 ): Promise<void> {
-  let body = '';
-  let cited: readonly string[] = [];
+  let state: StreamState = { body: '', citations: [] };
   for await (const ev of streamChatMessage(sess.conversation_id, sess.session_token, q)) {
-    const next = applyEvent(ev, body, cited);
-    body = next.body;
-    cited = next.cited;
-    setTurns((prev) => updateTurn(prev, turnID, body, cited, ev.kind !== 'done'));
+    state = applyEvent(ev, state);
+    setTurns((prev) => updateTurn(prev, turnID, state, ev.kind !== 'done'));
   }
-  setTurns((prev) => updateTurn(prev, turnID, body, cited, false));
+  setTurns((prev) => updateTurn(prev, turnID, state, false));
 }
 
-function applyEvent(
-  ev: SSEEvent, body: string, cited: readonly string[],
-): { body: string; cited: readonly string[] } {
+function applyEvent(ev: SSEEvent, s: StreamState): StreamState {
   switch (ev.kind) {
     case 'token':
-      return { body: body + ev.text, cited };
+      return { ...s, body: s.body + ev.text };
     case 'done':
-      return { body, cited: ev.cited_wiki_ids };
+      return {
+        body: s.body,
+        citations: refsToCitations(ev.cited_wiki_refs, ev.cited_output_refs),
+      };
     case 'error':
-      return { body: body || `error: ${ev.message}`, cited };
+      return { ...s, body: s.body || `error: ${ev.message}` };
   }
+}
+
+function refsToCitations(
+  wikiRefs: readonly { id: string; title: string }[],
+  outputRefs: readonly { id: string; title: string }[],
+): Citation[] {
+  // output 排前面 ——"polished, quote verbatim"，跟 system prompt 优先级一致。
+  return [
+    ...outputRefs.map((r) => ({ kind: 'output' as const, id: r.id, title: r.title })),
+    ...wikiRefs.map((r) => ({ kind: 'wiki' as const, id: r.id, title: r.title })),
+  ];
 }
 
 function updateTurn(
-  prev: Turn[], id: string,
-  body: string, cited: readonly string[], stillPending: boolean,
+  prev: Turn[], id: string, state: StreamState, stillPending: boolean,
 ): Turn[] {
-  return prev.map((t) => t.id === id ? withAnswer(t, body, cited, stillPending) : t);
+  return prev.map((t) => t.id === id ? withAnswer(t, state, stillPending) : t);
 }
 
-function withAnswer(t: Turn, body: string, cited: readonly string[], stillPending: boolean): Turn {
+function withAnswer(t: Turn, state: StreamState, stillPending: boolean): Turn {
   return {
     ...t,
-    pending: stillPending && body === '',
+    pending: stillPending && state.body === '',
     answer: {
-      paras: splitParas(body),
-      cited,
-      citations: [],
+      paras: splitParas(state.body),
+      citations: state.citations,
       private: false,
       byoaiBlocked: false,
     },
@@ -222,6 +237,6 @@ function markFailed(prev: Turn[], id: string, msg: string): Turn[] {
 }
 
 function errorAnswer(msg: string): TurnAnswer {
-  return { paras: [`error: ${msg}`], cited: [], citations: [], private: false, byoaiBlocked: false };
+  return { paras: [`error: ${msg}`], citations: [], private: false, byoaiBlocked: false };
 }
 

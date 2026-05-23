@@ -62,3 +62,26 @@ func outputIDsOf(items []domain.OutputEntry) []string {
 	}
 	return out
 }
+
+// CitedRef —— 推给 visitor 的引用最小信息：id + title。前端不用再 fetch
+// 单条 wiki/output 就能渲染 "from: <title>" footer。
+type CitedRef struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+func wikiRefsOf(items []domain.WikiEntry) []CitedRef {
+	out := make([]CitedRef, 0, len(items))
+	for i := range items {
+		out = append(out, CitedRef{ID: items[i].ID, Title: items[i].Title})
+	}
+	return out
+}
+
+func outputRefsOf(items []domain.OutputEntry) []CitedRef {
+	out := make([]CitedRef, 0, len(items))
+	for i := range items {
+		out = append(out, CitedRef{ID: items[i].ID, Title: items[i].Title})
+	}
+	return out
+}

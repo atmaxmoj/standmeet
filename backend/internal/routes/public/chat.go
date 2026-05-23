@@ -190,7 +190,12 @@ func writeNormalEvent(
 		writeSSE(log, w, flusher, "token", marshalJSON(log, tokenPayload{Text: ev.Text}))
 	case "done":
 		writeSSE(log, w, flusher, "done",
-			marshalJSON(log, donePayload{CitedWikiIDs: ev.CitedWikiIDs}))
+			marshalJSON(log, donePayload{
+				CitedWikiIDs:    ev.CitedWikiIDs,
+				CitedOutputIDs:  ev.CitedOutputIDs,
+				CitedWikiRefs:   ev.CitedWikiRefs,
+				CitedOutputRefs: ev.CitedOutputRefs,
+			}))
 	default:
 		// error 已经被 writeOneEvent 上游分支处理；其它 kind 暂时忽略
 	}
@@ -207,7 +212,10 @@ type tokenPayload struct {
 func (tokenPayload) sseMarker() {}
 
 type donePayload struct {
-	CitedWikiIDs []string `json:"cited_wiki_ids"`
+	CitedWikiIDs    []string            `json:"cited_wiki_ids"`
+	CitedOutputIDs  []string            `json:"cited_output_ids"`
+	CitedWikiRefs   []usecases.CitedRef `json:"cited_wiki_refs"`
+	CitedOutputRefs []usecases.CitedRef `json:"cited_output_refs"`
 }
 
 func (donePayload) sseMarker() {}

@@ -77,7 +77,9 @@ async function expectAssistantStreamsReply(page: Page): Promise<void> {
 }
 
 async function expectCitationFootnote(page: Page): Promise<void> {
-  const cited = page.locator('[data-testid="cited"]');
+  // 引用块从 "grounded in N entries" 升级成 list with titles —— assistant
+  // 回复下方的 "drawn from" + 每条 cited corpus 的 kind 标签 + 标题。
+  const cited = page.locator('[data-testid="citations"]');
   await expect(cited).toBeVisible({ timeout: 5_000 });
-  await expect(cited).toContainText('grounded in');
+  await expect(cited).toContainText('drawn from');
 }

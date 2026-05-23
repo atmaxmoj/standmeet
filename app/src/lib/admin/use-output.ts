@@ -17,6 +17,8 @@ export interface OutputSummary {
   source_wiki_ids: string[];
   created_at: string;
   parent_id?: string | null;
+  seo_slug?: string | null;
+  seo_indexed: boolean;
 }
 
 export type OutputBodyState = 'loading' | 'error' | 'empty' | 'list';

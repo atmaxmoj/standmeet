@@ -20,5 +20,6 @@ export type {
   SSETokenEvent,
   SSEDoneEvent,
   SSEErrorEvent,
+  CitedRef,
   SessionTier,
 } from './types.js';

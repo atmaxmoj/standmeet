@@ -22,11 +22,12 @@ type SEOAdminDeps struct {
 	SEO *postgres.SEORepo
 }
 
-// MountSEO 挂 /seo + /wiki/{id}/seo（caller 已经在 /api/admin 下 + auth 包过）。
+// MountSEO 挂 /seo + /wiki/{id}/seo + /output/{id}/seo。
 func (h *Handlers) MountSEO(r chi.Router) {
 	r.Get("/seo", h.getSEOSettings())
 	r.Put("/seo", h.putSEOSettings())
 	r.Patch("/wiki/{id}/seo", h.patchWikiSEO())
+	r.Patch("/output/{id}/seo", h.patchOutputSEO())
 }
 
 // 字段顺序按 govet fieldalignment：string + slice 在前，bool 末尾。
@@ -154,5 +155,60 @@ func writeWikiSEOResp(log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode wiki seo resp", "err", err)
+	}
+}
+
+// patchOutputSEO —— 同 patchWikiSEO 同 shape，给 output_entries 用。
+func (h *Handlers) patchOutputSEO() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		outputID := chi.URLParam(r, "id")
+		var req patchWikiSEORequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		updated, err := h.SEOAdmin.SEO.UpdateOutputSEO(
+			r.Context(), outputID, normalizeSlug(req.SEOSlug), req.SEODescription, req.SEOIndexed,
+		)
+		if err != nil {
+			handleOutputSEOErr(h.Log, w, err)
+			return
+		}
+		writeOutputSEOResp(h.Log, w, &updated)
+	}
+}
+
+func handleOutputSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, domain.ErrSlugTaken):
+		writeError(log, w, apierr.Envelope{
+			Status: http.StatusConflict, Code: "slug_taken", Message: "slug already in use",
+		})
+	case errors.Is(err, domain.ErrOutputNotFound):
+		writeError(log, w, apierr.Envelope{
+			Status:  http.StatusNotFound,
+			Code:    "output_not_found",
+			Message: "output entry not found",
+		})
+	default:
+		log.Error("patch output seo", logKeyErr, err)
+		writeError(log, w, serverErr())
+	}
+}
+
+// logKeyErr —— slog "err" 字面在 seo.go 多处出现，提常量。
+const logKeyErr = "err"
+
+func writeOutputSEOResp(log *slog.Logger, w http.ResponseWriter, out *domain.OutputEntry) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	resp := wikiSEOResp{
+		ID:             out.ID,
+		SEOSlug:        out.SEOSlug,
+		SEODescription: out.SEODescription,
+		SEOIndexed:     out.SEOIndexed,
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Error("encode output seo resp", logKeyErr, err)
 	}
 }
