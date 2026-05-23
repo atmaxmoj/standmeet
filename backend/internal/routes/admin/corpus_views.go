@@ -22,12 +22,13 @@ func rawItemFromDomain(r *domain.RawEntry) rawListItem {
 
 func wikiItemFromDomain(w *domain.WikiEntry) wikiListItem {
 	return wikiListItem{
-		ID:         w.ID,
-		Title:      w.Title,
-		Visibility: w.Visibility,
-		Tags:       ensureSlice(w.Tags),
-		ParentID:   w.ParentID,
-		CreatedAt:  w.CreatedAt.UTC().Format(timeRFC3339),
+		ID:           w.ID,
+		Title:        w.Title,
+		Visibility:   w.Visibility,
+		Tags:         ensureSlice(w.Tags),
+		SourceRawIDs: ensureSlice(w.SourceRawIDs),
+		ParentID:     w.ParentID,
+		CreatedAt:    w.CreatedAt.UTC().Format(timeRFC3339),
 	}
 }
 

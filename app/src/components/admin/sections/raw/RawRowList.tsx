@@ -41,8 +41,10 @@ function EmptyState() {
   );
 }
 
+type RawMode = 'view' | 'edit' | 'promote';
+
 function RawRow({ row, actions }: { row: RawAdminView; actions: CorpusActionsHook }) {
-  const [promoting, setPromoting] = useState(false);
+  const [mode, setMode] = useState<RawMode>('view');
   return (
     <li
       className="border-b border-(--color-rule)/70 py-5"
@@ -51,12 +53,13 @@ function RawRow({ row, actions }: { row: RawAdminView; actions: CorpusActionsHoo
       <div className="grid grid-cols-[80px_1fr_auto] gap-6">
         <RawRowMeta source={row.source} createdAt={row.created_at} />
         <RawRowBody body={row.body} tags={row.tags} privateFlag={row.flagged_private} />
-        <RawRowActions
-          row={row} actions={actions} promoting={promoting} setPromoting={setPromoting}
-        />
+        <RawRowActions row={row} actions={actions} mode={mode} setMode={setMode} />
       </div>
-      {promoting ? (
-        <PromoteRow row={row} actions={actions} onDone={() => setPromoting(false)} />
+      {mode === 'promote' ? (
+        <PromoteRow row={row} actions={actions} onDone={() => setMode('view')} />
+      ) : null}
+      {mode === 'edit' ? (
+        <EditRow row={row} actions={actions} onDone={() => setMode('view')} />
       ) : null}
     </li>
   );
@@ -94,8 +97,8 @@ function PrivateBadge({ on }: { on: boolean }) {
 interface RowActionsProps {
   row: RawAdminView;
   actions: CorpusActionsHook;
-  promoting: boolean;
-  setPromoting: (b: boolean) => void;
+  mode: RawMode;
+  setMode: (m: RawMode) => void;
 }
 
 function RawRowActions(props: RowActionsProps) {
@@ -110,12 +113,21 @@ function RawRowActions(props: RowActionsProps) {
     <div className="flex flex-col items-end gap-1.5 shrink-0">
       <button
         type="button"
-        onClick={() => props.setPromoting(!props.promoting)}
+        onClick={() => props.setMode(props.mode === 'promote' ? 'view' : 'promote')}
         disabled={props.row.archived}
         data-testid={`raw-promote-${props.row.id}`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) disabled:opacity-40"
       >
         promote → wiki ↗
+      </button>
+      <button
+        type="button"
+        onClick={() => props.setMode(props.mode === 'edit' ? 'view' : 'edit')}
+        disabled={props.row.archived}
+        data-testid={`raw-edit-${props.row.id}`}
+        className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:opacity-40"
+      >
+        edit
       </button>
       <button
         type="button"
@@ -150,6 +162,118 @@ function PromoteRow(props: PromoteRowProps) {
         onSubmit={onSubmit}
         onCancel={props.onDone}
       />
+    </div>
+  );
+}
+
+interface EditRowProps {
+  row: RawAdminView;
+  actions: CorpusActionsHook;
+  onDone: () => void;
+}
+
+function EditRow(props: EditRowProps) {
+  const [body, setBody] = useState(props.row.body);
+  const [tagsRaw, setTagsRaw] = useState(props.row.tags.join(', '));
+  const [flagged, setFlagged] = useState(props.row.flagged_private);
+  const toast = useToast();
+  const onSave = () => void runWith(
+    () => props.actions.updateRaw(props.row.id, {
+      body,
+      tags: tagsRaw.split(',').map((t) => t.trim()).filter((t) => t !== ''),
+      flagged_private: flagged,
+    }),
+    () => { toast.success('Raw updated'); props.onDone(); },
+  );
+  return (
+    <div
+      className="mt-4 space-y-3 border border-(--color-rule) p-4 bg-(--color-surface)/60 rounded-sm max-w-[640px]"
+      data-testid={`raw-edit-form-${props.row.id}`}
+    >
+      <EditBodyField value={body} onChange={setBody} testid={`raw-edit-body-${props.row.id}`} />
+      <EditTagsField value={tagsRaw} onChange={setTagsRaw} testid={`raw-edit-tags-${props.row.id}`} />
+      <EditPrivateField on={flagged} onChange={setFlagged} testid={`raw-edit-private-${props.row.id}`} />
+      <EditActions
+        busy={props.actions.pending} canSave={body.trim() !== ''}
+        onSave={onSave} onCancel={props.onDone}
+        testidPrefix={`raw-edit-form-${props.row.id}`}
+      />
+    </div>
+  );
+}
+
+function EditBodyField({
+  value, onChange, testid,
+}: { value: string; onChange: (v: string) => void; testid: string }) {
+  return (
+    <label className="block">
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
+        body
+      </span>
+      <textarea
+        rows={4} value={value} onChange={(e) => onChange(e.target.value)}
+        data-testid={testid} spellCheck={false}
+        className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[15px]"
+      />
+    </label>
+  );
+}
+
+function EditTagsField({
+  value, onChange, testid,
+}: { value: string; onChange: (v: string) => void; testid: string }) {
+  return (
+    <label className="block">
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
+        tags (comma-separated)
+      </span>
+      <input
+        type="text" value={value} onChange={(e) => onChange(e.target.value)}
+        data-testid={testid} spellCheck={false}
+        className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
+      />
+    </label>
+  );
+}
+
+function EditPrivateField({
+  on, onChange, testid,
+}: { on: boolean; onChange: (b: boolean) => void; testid: string }) {
+  return (
+    <label className="flex items-baseline gap-2 mono text-[10.5px] tracking-[0.06em]">
+      <input
+        type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)}
+        data-testid={testid}
+      />
+      <span>flagged private (excluded from public chat)</span>
+    </label>
+  );
+}
+
+interface EditActionsProps {
+  busy: boolean;
+  canSave: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+  testidPrefix: string;
+}
+
+function EditActions(props: EditActionsProps) {
+  return (
+    <div className="flex items-baseline gap-3 justify-end pt-2">
+      <button
+        type="button" onClick={props.onCancel} disabled={props.busy}
+        className="mono text-[10px] tracking-[0.12em] text-(--color-faint) hover:text-(--color-accent) disabled:opacity-50"
+      >
+        cancel
+      </button>
+      <button
+        type="button" onClick={props.onSave} disabled={props.busy || !props.canSave}
+        data-testid={`${props.testidPrefix}-submit`}
+        className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) disabled:opacity-40"
+      >
+        {props.busy ? 'saving…' : 'save'}
+      </button>
     </div>
   );
 }

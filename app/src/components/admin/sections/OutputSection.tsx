@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Pill } from '@/components/admin/atoms/Pill';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import { ListFilterBar } from '@/components/admin/sections/corpus/ListFilterBar';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   useCorpusActions, type CorpusActionsHook, type CorpusEntryInput,
@@ -16,7 +17,9 @@ import {
   pickOutputBodyState, useOutput,
   type OutputHook, type OutputSummary,
 } from '@/lib/admin/use-output';
+import { useOutputDetail } from '@/lib/admin/use-corpus-detail';
 import { runWith } from '@/lib/admin/use-corpus-form';
+import { useListFilter, type ListFilterHook } from '@/lib/admin/use-list-filter';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function OutputSection() {
@@ -84,13 +87,58 @@ function CreateForm({
 }
 
 function OutputBody({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHook }) {
+  const filter = useListFilter<OutputSummary>({
+    rows: hook.rows,
+    searchText: (o) => `${o.title} ${o.tags.join(' ')}`,
+  });
   const map = {
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <OutputList rows={hook.rows} actions={actions} />,
+    list: <ListWithFilter filter={filter} actions={actions} />,
   } as const;
   return map[pickOutputBodyState(hook)];
+}
+
+function ListWithFilter({
+  filter, actions,
+}: { filter: ListFilterHook<OutputSummary>; actions: CorpusActionsHook }) {
+  const toast = useToast();
+  const onBatch = () => batchDeleteOutput(filter, actions, toast);
+  return (
+    <>
+      <ListFilterBar
+        testidPrefix="output"
+        query={filter.query} setQuery={filter.setQuery}
+        sort={filter.sort} setSort={filter.setSort}
+        selectedCount={filter.selected.size}
+        batchLabel={`delete ${filter.selected.size}`}
+        onBatch={onBatch}
+        onClearSelected={filter.clearSelected}
+      />
+      <OutputList rows={filter.view} actions={actions} filter={filter} />
+    </>
+  );
+}
+
+async function batchDeleteOutput(
+  filter: ListFilterHook<OutputSummary>,
+  actions: CorpusActionsHook,
+  toast: { success: (m: string) => void },
+): Promise<void> {
+  const ok = confirm(`Delete ${filter.selected.size} output entries?`);
+  ok && await runBatchDeleteOutput(filter, actions, toast);
+}
+
+async function runBatchDeleteOutput(
+  filter: ListFilterHook<OutputSummary>,
+  actions: CorpusActionsHook,
+  toast: { success: (m: string) => void },
+): Promise<void> {
+  const ids = Array.from(filter.selected);
+  await Promise.all(ids.map((id) => actions.deleteOutput(id)));
+  filter.clearSelected();
+  toast.success(`${ids.length} output entries deleted`);
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -111,34 +159,67 @@ function EmptyState() {
 }
 
 function OutputList({
-  rows, actions,
-}: { rows: readonly OutputSummary[]; actions: CorpusActionsHook }) {
+  rows, actions, filter,
+}: {
+  rows: readonly OutputSummary[];
+  actions: CorpusActionsHook;
+  filter: ListFilterHook<OutputSummary>;
+}) {
   return (
     <ul className="space-y-4" data-testid="output-list">
       {rows.map((o) => (
         <li key={o.id} data-testid={`output-row-${o.id}`}>
-          <OutputCard entry={o} actions={actions} />
+          <OutputCard
+            entry={o} actions={actions}
+            selected={filter.selected.has(o.id)}
+            onToggleSelect={() => filter.toggleSelected(o.id)}
+          />
         </li>
       ))}
     </ul>
   );
 }
 
-function OutputCard({
-  entry, actions,
-}: { entry: OutputSummary; actions: CorpusActionsHook }) {
+interface OutputCardProps {
+  entry: OutputSummary;
+  actions: CorpusActionsHook;
+  selected: boolean;
+  onToggleSelect: () => void;
+}
+
+function OutputCard({ entry, actions, selected, onToggleSelect }: OutputCardProps) {
   const [editing, setEditing] = useState(false);
   return (
     <article className="border border-(--color-rule) p-5 rounded-sm bg-(--color-surface)/30">
-      <OutputHead entry={entry} />
-      <OutputTags tags={entry.tags} />
-      {editing ? null : (
-        <RowActions entry={entry} actions={actions} onEdit={() => setEditing(true)} />
-      )}
+      <div className="flex items-baseline gap-3">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          data-testid={`output-select-${entry.id}`}
+          className="mt-1 shrink-0"
+        />
+        <div className="flex-1 min-w-0">
+          <OutputHead entry={entry} />
+          <OutputTags tags={entry.tags} />
+          <Provenance count={entry.source_wiki_ids.length} />
+          {editing ? null : (
+            <RowActions entry={entry} actions={actions} onEdit={() => setEditing(true)} />
+          )}
+        </div>
+      </div>
       {editing ? (
         <EditForm entry={entry} actions={actions} onDone={() => setEditing(false)} />
       ) : null}
     </article>
+  );
+}
+
+function Provenance({ count }: { count: number }) {
+  return count === 0 ? null : (
+    <p className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) mt-2">
+      ↑ promoted from {count} wiki {count === 1 ? 'entry' : 'entries'}
+    </p>
   );
 }
 
@@ -212,25 +293,30 @@ function EditForm({
   entry, actions, onDone,
 }: { entry: OutputSummary; actions: CorpusActionsHook; onDone: () => void }) {
   const toast = useToast();
+  const detail = useOutputDetail(entry.id, actions);
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.updateOutput(entry.id, input),
     () => { toast.success('Output updated'); onDone(); },
   );
   return (
-    <div className="mt-4">
-      <CorpusEntryForm
-        initial={{
-          title: entry.title,
-          body: '',
-          visibility: entry.visibility as CorpusEntryInput['visibility'],
-          tags: entry.tags,
-        }}
-        busy={actions.pending}
-        submitLabel="save"
-        testidPrefix={`output-edit-form-${entry.id}`}
-        onSubmit={onSubmit}
-        onCancel={onDone}
-      />
+    <div className="mt-4" data-testid={`output-edit-loaded-${entry.id}`}>
+      {detail ? (
+        <CorpusEntryForm
+          initial={{
+            title: detail.title,
+            body: detail.body,
+            visibility: detail.visibility,
+            tags: detail.tags,
+          }}
+          busy={actions.pending}
+          submitLabel="save"
+          testidPrefix={`output-edit-form-${entry.id}`}
+          onSubmit={onSubmit}
+          onCancel={onDone}
+        />
+      ) : (
+        <p className="mono text-[10.5px] text-(--color-muted)">loading…</p>
+      )}
     </div>
   );
 }

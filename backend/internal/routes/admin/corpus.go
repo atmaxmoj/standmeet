@@ -99,12 +99,13 @@ type rawListItem struct {
 }
 
 type wikiListItem struct {
-	ParentID   *string  `json:"parent_id"`
-	ID         string   `json:"id"`
-	Title      string   `json:"title"`
-	Visibility string   `json:"visibility"`
-	CreatedAt  string   `json:"created_at"`
-	Tags       []string `json:"tags"`
+	ParentID     *string  `json:"parent_id"`
+	ID           string   `json:"id"`
+	Title        string   `json:"title"`
+	Visibility   string   `json:"visibility"`
+	CreatedAt    string   `json:"created_at"`
+	Tags         []string `json:"tags"`
+	SourceRawIDs []string `json:"source_raw_ids"`
 }
 
 func (h *Handlers) listRaw() http.HandlerFunc {
@@ -152,14 +153,7 @@ func (h *Handlers) listWiki() http.HandlerFunc {
 func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []domain.WikiEntry) {
 	items := make([]wikiListItem, 0, len(rows))
 	for i := range rows {
-		items = append(items, wikiListItem{
-			ID:         rows[i].ID,
-			Title:      rows[i].Title,
-			Visibility: rows[i].Visibility,
-			Tags:       rows[i].Tags,
-			ParentID:   rows[i].ParentID,
-			CreatedAt:  rows[i].CreatedAt.Format(time.RFC3339),
-		})
+		items = append(items, wikiItemFromDomain(&rows[i]))
 	}
 	writeWikiListJSON(log, w, items)
 }

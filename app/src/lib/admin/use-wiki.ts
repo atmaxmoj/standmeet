@@ -13,6 +13,7 @@ export interface WikiSummary {
   title: string;
   visibility: string;
   tags: string[];
+  source_raw_ids: string[];
   created_at: string;
   parent_id?: string | null;
 }

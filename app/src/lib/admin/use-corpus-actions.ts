@@ -35,6 +35,28 @@ export interface PromoteInput {
   parent_id?: string;
 }
 
+// 详情 view（GET single 返）—— 比 list summary 多 body + source_*_ids，
+// EditForm 展开时 fetch 它回填 body 字段。
+export interface WikiDetail {
+  id: string;
+  title: string;
+  body: string;
+  visibility: 'public' | 'on_request' | 'private';
+  tags: string[];
+  source_raw_ids: string[];
+  parent_id?: string | null;
+}
+
+export interface OutputDetail {
+  id: string;
+  title: string;
+  body: string;
+  visibility: 'public' | 'on_request' | 'private';
+  tags: string[];
+  source_wiki_ids: string[];
+  parent_id?: string | null;
+}
+
 export interface CorpusActionsHook {
   pending: boolean;
   error: string | null;
@@ -47,10 +69,12 @@ export interface CorpusActionsHook {
   updateWiki: (id: string, input: CorpusEntryInput) => Promise<boolean>;
   deleteWiki: (id: string) => Promise<boolean>;
   promoteWiki: (id: string, input: PromoteInput) => Promise<boolean>;
+  fetchWikiDetail: (id: string) => Promise<WikiDetail | null>;
   // output
   createOutput: (input: CorpusEntryInput) => Promise<boolean>;
   updateOutput: (id: string, input: CorpusEntryInput) => Promise<boolean>;
   deleteOutput: (id: string) => Promise<boolean>;
+  fetchOutputDetail: (id: string) => Promise<OutputDetail | null>;
   clearError: () => void;
 }
 
@@ -74,14 +98,35 @@ export function useCorpusActions(): CorpusActionsHook {
       (id) => run(() => doDeleteWiki(id)), [run]),
     promoteWiki: useCallback(
       (id, input) => run(() => doPromoteWiki(id, input)), [run]),
+    fetchWikiDetail: useCallback(
+      (id: string) => fetchDetail<WikiDetail>(`/wiki/${id}`, setError, setPending), []),
     createOutput: useCallback(
       (input) => run(() => doCreateOutput(input)), [run]),
     updateOutput: useCallback(
       (id, input) => run(() => doUpdateOutput(id, input)), [run]),
     deleteOutput: useCallback(
       (id) => run(() => doDeleteOutput(id)), [run]),
+    fetchOutputDetail: useCallback(
+      (id: string) => fetchDetail<OutputDetail>(`/output/${id}`, setError, setPending), []),
     clearError: useCallback(() => setError(null), []),
   };
+}
+
+async function fetchDetail<T>(
+  path: string,
+  setError: (m: string | null) => void,
+  setPending: (b: boolean) => void,
+): Promise<T | null> {
+  setPending(true);
+  setError(null);
+  try {
+    return await adminAPI.get<T>(path);
+  } catch (e) {
+    setError(e instanceof Error ? e.message : 'fetch failed');
+    return null;
+  } finally {
+    setPending(false);
+  }
 }
 
 type Runner = (fn: () => Promise<void>) => Promise<boolean>;

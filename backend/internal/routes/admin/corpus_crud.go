@@ -39,16 +39,19 @@ const timeRFC3339 = "2006-01-02T15:04:05Z07:00"
 
 // MountCorpusCRUD 挂三层 CRUD 路由（caller 已包 /api/admin）。
 func (h *Handlers) MountCorpusCRUD(r chi.Router) {
+	r.Get("/raw/{id}", h.getRaw())
 	r.Patch("/raw/{id}", h.updateRaw())
 	r.Delete("/raw/{id}", h.archiveRaw())
 	r.Post("/raw/{id}/promote", h.promoteRaw())
 
 	r.Post("/wiki", h.createWiki())
+	r.Get("/wiki/{id}", h.getWiki())
 	r.Patch("/wiki/{id}", h.updateWiki())
 	r.Delete("/wiki/{id}", h.deleteWiki())
 	r.Post("/wiki/{id}/promote", h.promoteWiki())
 
 	r.Post("/output", h.createOutput())
+	r.Get("/output/{id}", h.getOutput())
 	r.Patch("/output/{id}", h.updateOutput())
 	r.Delete("/output/{id}", h.deleteOutput())
 }
