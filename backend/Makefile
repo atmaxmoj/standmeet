@@ -3,10 +3,9 @@
 # order failures surface fastest.
 #
 # Same shape as the API service's Makefile, minus the bits that don't
-# apply to a leaf service: no goose migrations to scan (no `schema`
-# target), no wire-generated file to keep in sync (no `wire-check`
-# / `wire` targets).  Everything else is identical so the muscle
-# memory transfers between repos.
+# apply to a leaf service: no wire-generated file to keep in sync
+# (no `wire-check` / `wire` targets). schema lives in db/schema.sql
+# applied at db volume init—no goose migration runner.
 
 .PHONY: lint build arch fmt-check max-lines routes-cyclo build-check secrets golangci-config escape-lint
 

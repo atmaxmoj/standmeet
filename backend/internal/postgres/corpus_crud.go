@@ -78,13 +78,13 @@ func (r *RawRepo) Archive(ctx context.Context, ownerID, rawID string) error {
 
 // UpdateWikiInput —— admin "edit wiki" 入参。
 type UpdateWikiInput struct {
-	OwnerID    string
-	ID         string
-	ParentID   *string
-	Title      string
-	Body       string
-	Visibility string
-	Tags       []string
+	OwnerID      string
+	ID           string
+	ParentID     *string
+	Title        string
+	Body         string
+	Tags         []string
+	ShowAsSource bool
 }
 
 // Update 改 wiki_entries 主字段；SEO 走 SetSEO 单独写。
@@ -122,7 +122,7 @@ func buildWikiUpdateParams(in *UpdateWikiInput) (dbq.UpdateWikiBodyParams, error
 	return dbq.UpdateWikiBodyParams{
 		ID: wikiUUID, OwnerID: ownerUUID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		Visibility: in.Visibility, ParentID: parent,
+		ParentID: parent, ShowAsSource: in.ShowAsSource,
 	}, nil
 }
 
@@ -145,11 +145,12 @@ func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 	return nil
 }
 
-// TitledRef —— 批量解 cited id → title 的最小映射 view。conversations
-// transcript hydration 用。
+// TitledRef —— 批量解 cited id → title+path 的最小映射 view。
+// conversations transcript hydration / visitor chat done event 复用。
 type TitledRef struct {
 	ID    string
 	Title string
+	Path  string
 }
 
 // GetTitlesByIDs —— transcript hydration：批量解 wiki id → title。空 ids
@@ -164,31 +165,38 @@ func (r *WikiRepo) GetTitlesByIDs(
 	if perr != nil {
 		return nil, perr
 	}
-	q := dbq.New(r.pool)
-	rows, err := q.GetWikiTitlesByIDs(ctx, dbq.GetWikiTitlesByIDsParams{
+	rows, err := dbq.New(r.pool).GetWikiTitlesByIDs(ctx, dbq.GetWikiTitlesByIDsParams{
 		OwnerID: args.ownerUUID, Column2: args.idUUIDs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get wiki titles: %w", err)
 	}
+	return wikiRowsToRefs(rows), nil
+}
+
+func wikiRowsToRefs(rows []dbq.GetWikiTitlesByIDsRow) []TitledRef {
 	out := make([]TitledRef, 0, len(rows))
 	for i := range rows {
-		out = append(out, TitledRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+		ref := TitledRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title}
+		if rows[i].Path != nil {
+			ref.Path = *rows[i].Path
+		}
+		out = append(out, ref)
 	}
-	return out, nil
+	return out
 }
 
 // ─── output ─────────────────────────────────────────────────
 
 // UpdateOutputInput —— admin "edit output" 入参。
 type UpdateOutputInput struct {
-	OwnerID    string
-	ID         string
-	ParentID   *string
-	Title      string
-	Body       string
-	Visibility string
-	Tags       []string
+	OwnerID      string
+	ID           string
+	ParentID     *string
+	Title        string
+	Body         string
+	Tags         []string
+	ShowAsSource bool
 }
 
 // Update 改 output_entries 主字段。
@@ -226,7 +234,7 @@ func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateOutputBodyParams,
 	return dbq.UpdateOutputBodyParams{
 		ID: outputUUID, OwnerID: ownerUUID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		Visibility: in.Visibility, ParentID: parent,
+		ParentID: parent, ShowAsSource: in.ShowAsSource,
 	}, nil
 }
 
@@ -241,18 +249,25 @@ func (r *OutputRepo) GetTitlesByIDs(
 	if perr != nil {
 		return nil, perr
 	}
-	q := dbq.New(r.pool)
-	rows, err := q.GetOutputTitlesByIDs(ctx, dbq.GetOutputTitlesByIDsParams{
+	rows, err := dbq.New(r.pool).GetOutputTitlesByIDs(ctx, dbq.GetOutputTitlesByIDsParams{
 		OwnerID: args.ownerUUID, Column2: args.idUUIDs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get output titles: %w", err)
 	}
+	return outputRowsToRefs(rows), nil
+}
+
+func outputRowsToRefs(rows []dbq.GetOutputTitlesByIDsRow) []TitledRef {
 	out := make([]TitledRef, 0, len(rows))
 	for i := range rows {
-		out = append(out, TitledRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+		ref := TitledRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title}
+		if rows[i].Path != nil {
+			ref.Path = *rows[i].Path
+		}
+		out = append(out, ref)
 	}
-	return out, nil
+	return out
 }
 
 // titleLookupArgs —— GetTitlesByIDs (wiki / output) 共享的 uuid parse 结果。

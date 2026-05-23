@@ -36,7 +36,6 @@ type convSummaryView struct {
 	Tier         string  `json:"tier"`
 	VisitorName  string  `json:"visitor_name"`
 	MessageCount int32   `json:"message_count"`
-	HitPrivate   bool    `json:"hit_private"`
 }
 
 type convMessageView struct {
@@ -153,7 +152,6 @@ func bundleSummary(bundle *postgres.ConversationWithMessages) convSummaryView {
 		Tier:         c.Tier,
 		VisitorName:  c.VisitorName,
 		MessageCount: c.MessageCount,
-		HitPrivate:   c.HitPrivate,
 		CodeID:       c.CodeID,
 		StartedAt:    c.StartedAt.Format(time.RFC3339),
 		LastAt:       c.LastAt.Format(time.RFC3339),
@@ -166,7 +164,6 @@ func toConvSummaryView(s *postgres.ConvSummary) convSummaryView {
 		Tier:         s.Tier,
 		VisitorName:  s.VisitorName,
 		MessageCount: s.MessageCount,
-		HitPrivate:   s.HitPrivate,
 		CodeID:       s.CodeID,
 		CodeLabel:    s.CodeLabel,
 		CodeValue:    s.CodeValue,

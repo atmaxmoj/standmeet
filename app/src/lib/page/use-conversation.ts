@@ -144,8 +144,6 @@ function reuseStored(stored: NonNullable<ReturnType<typeof loadStoredSession>>):
   return {
     session_token: stored.session_token,
     conversation_id: stored.conversation_id,
-    included_tags: [],
-    excluded_tags: [],
   };
 }
 

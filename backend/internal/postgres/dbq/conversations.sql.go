@@ -54,25 +54,19 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 const bumpConversation = `-- name: BumpConversation :exec
 UPDATE conversations
 SET last_at = now(),
-    message_count = message_count + 1,
-    hit_private = hit_private OR $2
+    message_count = message_count + 1
 WHERE id = $1
 `
 
-type BumpConversationParams struct {
-	ID         pgtype.UUID
-	HitPrivate bool
-}
-
-func (q *Queries) BumpConversation(ctx context.Context, arg BumpConversationParams) error {
-	_, err := q.db.Exec(ctx, bumpConversation, arg.ID, arg.HitPrivate)
+func (q *Queries) BumpConversation(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, bumpConversation, id)
 	return err
 }
 
 const createConversation = `-- name: CreateConversation :one
 INSERT INTO conversations (owner_id, tier, code_id, member_id, visitor_name, byoai_provider)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, hit_private
+RETURNING id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count
 `
 
 type CreateConversationParams struct {
@@ -105,13 +99,12 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.StartedAt,
 		&i.LastAt,
 		&i.MessageCount,
-		&i.HitPrivate,
 	)
 	return i, err
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, hit_private FROM conversations WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count FROM conversations WHERE id = $1 AND owner_id = $2
 `
 
 type GetConversationParams struct {
@@ -133,14 +126,13 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 		&i.StartedAt,
 		&i.LastAt,
 		&i.MessageCount,
-		&i.HitPrivate,
 	)
 	return i, err
 }
 
 const listConversationsByOwner = `-- name: ListConversationsByOwner :many
 SELECT c.id, c.tier, c.code_id, c.visitor_name, c.started_at,
-       c.last_at, c.message_count, c.hit_private,
+       c.last_at, c.message_count,
        ac.label AS code_label, ac.code AS code_value
 FROM conversations c
 LEFT JOIN access_codes ac ON ac.id = c.code_id
@@ -162,7 +154,6 @@ type ListConversationsByOwnerRow struct {
 	StartedAt    pgtype.Timestamptz
 	LastAt       pgtype.Timestamptz
 	MessageCount int32
-	HitPrivate   bool
 	CodeLabel    *string
 	CodeValue    *string
 }
@@ -184,7 +175,6 @@ func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversa
 			&i.StartedAt,
 			&i.LastAt,
 			&i.MessageCount,
-			&i.HitPrivate,
 			&i.CodeLabel,
 			&i.CodeValue,
 		); err != nil {

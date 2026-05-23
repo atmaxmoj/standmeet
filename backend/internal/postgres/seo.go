@@ -1,9 +1,11 @@
-// seo.go —— wiki landing 反查 + seo_settings 读写 + wiki SEO 字段 patch。
+// seo.go —— wiki/output landing 反查 + seo_settings 读写 + path 字段 patch。
 //
-// GetWikiBySlug: 给访客 (/wiki/<slug>) 解析；只放 visibility=public 的。
-// ListIndexedSlugs: 给 /sitemap.xml 用。
+// GetWikiByPath / GetOutputByPath: 给访客 (/<handle>/wiki/<path>) 解析；
+//   只放 seo_indexed=true 的（公开 landing 是 crawler 友好可见面，准入靠
+//   retrieval ACL 走另一条路）。
+// ListIndexedPaths: 给 /sitemap.xml 用。
 // SEOSettings.Get/Upsert: owner 自己的全局开关。
-// UpdateWikiSEO: 给 admin / MCP 用。
+// UpdateWikiPath / UpdateOutputPath: 给 admin / MCP 改 path + SEO 描述 + indexed。
 
 package postgres
 
@@ -20,7 +22,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/postgres/dbq"
 )
 
-// SEORepo —— seo_settings + wiki landing 查询。
+// SEORepo —— seo_settings + wiki/output landing 查询。
 type SEORepo struct {
 	pool *Pool
 }
@@ -28,96 +30,96 @@ type SEORepo struct {
 // NewSEORepo 构造。
 func NewSEORepo(pool *Pool) *SEORepo { return &SEORepo{pool: pool} }
 
-// GetWikiBySlug —— 公开 landing 反查。slug 不存在或非 public 都返 ErrWikiNotFound。
-func (r *SEORepo) GetWikiBySlug(
-	ctx context.Context, ownerID, slug string,
+// GetWikiByPath —— 公开 landing 反查；path 不存在或非 indexed 返 ErrWikiNotFound。
+func (r *SEORepo) GetWikiByPath(
+	ctx context.Context, ownerID, path string,
 ) (domain.WikiEntry, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
 		return domain.WikiEntry{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
-	row, err := q.GetWikiBySlug(ctx, dbq.GetWikiBySlugParams{
-		OwnerID: pgID, SeoSlug: &slug,
+	row, err := q.GetWikiByPath(ctx, dbq.GetWikiByPathParams{
+		OwnerID: pgID, Path: &path,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.WikiEntry{}, domain.ErrWikiNotFound
 		}
-		return domain.WikiEntry{}, fmt.Errorf("get wiki by slug: %w", err)
+		return domain.WikiEntry{}, fmt.Errorf("get wiki by path: %w", err)
 	}
 	return toDomainWiki(&row), nil
 }
 
-// IndexedSlug —— sitemap 用的最小行；slug + updated_at 拼 URL/lastmod。
-type IndexedSlug struct {
-	Slug      string
+// IndexedPath —— sitemap 用的最小行；path + updated_at 拼 URL/lastmod。
+type IndexedPath struct {
+	Path      string
 	UpdatedAt int64 // unix sec
 }
 
-// ListIndexedSlugs —— sitemap.xml 列 indexed + public wiki landing。
-func (r *SEORepo) ListIndexedSlugs(ctx context.Context, ownerID string) ([]IndexedSlug, error) {
+// ListIndexedPaths —— sitemap.xml 列 indexed wiki landing。
+func (r *SEORepo) ListIndexedPaths(ctx context.Context, ownerID string) ([]IndexedPath, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
-	rows, err := q.ListIndexedWikiSlugs(ctx, pgID)
+	rows, err := q.ListIndexedWikiPaths(ctx, pgID)
 	if err != nil {
-		return nil, fmt.Errorf("list indexed slugs: %w", err)
+		return nil, fmt.Errorf("list indexed paths: %w", err)
 	}
-	out := make([]IndexedSlug, 0, len(rows))
+	out := make([]IndexedPath, 0, len(rows))
 	for i := range rows {
 		row := rows[i]
-		if row.SeoSlug == nil {
+		if row.Path == nil {
 			continue
 		}
-		out = append(out, IndexedSlug{Slug: *row.SeoSlug, UpdatedAt: row.UpdatedAt.Time.Unix()})
+		out = append(out, IndexedPath{Path: *row.Path, UpdatedAt: row.UpdatedAt.Time.Unix()})
 	}
 	return out, nil
 }
 
-// GetOutputBySlug —— 公开 output landing 反查；同 wiki 的 ErrOutputNotFound 翻译。
-func (r *SEORepo) GetOutputBySlug(
-	ctx context.Context, ownerID, slug string,
+// GetOutputByPath —— 公开 output landing 反查；同 wiki 的 ErrOutputNotFound 翻译。
+func (r *SEORepo) GetOutputByPath(
+	ctx context.Context, ownerID, path string,
 ) (domain.OutputEntry, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
 		return domain.OutputEntry{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
-	row, err := q.GetOutputBySlug(ctx, dbq.GetOutputBySlugParams{
-		OwnerID: pgID, SeoSlug: &slug,
+	row, err := q.GetOutputByPath(ctx, dbq.GetOutputByPathParams{
+		OwnerID: pgID, Path: &path,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.OutputEntry{}, domain.ErrOutputNotFound
 		}
-		return domain.OutputEntry{}, fmt.Errorf("get output by slug: %w", err)
+		return domain.OutputEntry{}, fmt.Errorf("get output by path: %w", err)
 	}
 	return toDomainOutput(&row), nil
 }
 
-// ListIndexedOutputSlugs —— sitemap.xml 列 indexed + public output landing。
-func (r *SEORepo) ListIndexedOutputSlugs(
+// ListIndexedOutputPaths —— sitemap.xml 列 indexed output landing。
+func (r *SEORepo) ListIndexedOutputPaths(
 	ctx context.Context, ownerID string,
-) ([]IndexedSlug, error) {
+) ([]IndexedPath, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
-	rows, err := q.ListIndexedOutputSlugs(ctx, pgID)
+	rows, err := q.ListIndexedOutputPaths(ctx, pgID)
 	if err != nil {
-		return nil, fmt.Errorf("list indexed output slugs: %w", err)
+		return nil, fmt.Errorf("list indexed output paths: %w", err)
 	}
-	out := make([]IndexedSlug, 0, len(rows))
+	out := make([]IndexedPath, 0, len(rows))
 	for i := range rows {
 		row := rows[i]
-		if row.SeoSlug == nil {
+		if row.Path == nil {
 			continue
 		}
-		out = append(out, IndexedSlug{Slug: *row.SeoSlug, UpdatedAt: row.UpdatedAt.Time.Unix()})
+		out = append(out, IndexedPath{Path: *row.Path, UpdatedAt: row.UpdatedAt.Time.Unix()})
 	}
 	return out, nil
 }
@@ -164,60 +166,61 @@ func (r *SEORepo) UpsertSettings(
 	return toDomainSEOSettings(&row)
 }
 
-// UpdateWikiSEO —— 给 admin / MCP 用。slug 冲突翻译成 domain.ErrSlugTaken。
-func (r *SEORepo) UpdateWikiSEO(
+// UpdateWikiPath —— 给 admin / MCP 改 path + SEO 描述 + indexed 开关。
+// path 冲突翻译成 domain.ErrPathTaken。
+func (r *SEORepo) UpdateWikiPath(
 	ctx context.Context, wikiID string,
-	slug *string, description string, indexed bool,
+	path *string, description string, indexed bool,
 ) (domain.WikiEntry, error) {
 	pgID, perr := parseUUID(wikiID)
 	if perr != nil {
 		return domain.WikiEntry{}, fmt.Errorf("parse wiki id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).UpdateWikiSEO(ctx, dbq.UpdateWikiSEOParams{
-		ID: pgID, SeoSlug: slug, SeoDescription: description, SeoIndexed: indexed,
+	row, err := dbq.New(r.pool).UpdateWikiPath(ctx, dbq.UpdateWikiPathParams{
+		ID: pgID, Path: path, SeoDescription: description, SeoIndexed: indexed,
 	})
 	if err != nil {
-		return domain.WikiEntry{}, translateUpdateWikiSEOErr(err)
+		return domain.WikiEntry{}, translateUpdateWikiPathErr(err)
 	}
 	return toDomainWiki(&row), nil
 }
 
-func translateUpdateWikiSEOErr(err error) error {
-	if name, hit := pgUniqueViolation(err); hit && name == "wiki_entries_owner_slug_idx" {
-		return domain.ErrSlugTaken
+func translateUpdateWikiPathErr(err error) error {
+	if name, hit := pgUniqueViolation(err); hit && name == "wiki_entries_owner_path_idx" {
+		return domain.ErrPathTaken
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrWikiNotFound
 	}
-	return fmt.Errorf("update wiki seo: %w", err)
+	return fmt.Errorf("update wiki path: %w", err)
 }
 
-// UpdateOutputSEO —— 跟 UpdateWikiSEO 同套路。
-func (r *SEORepo) UpdateOutputSEO(
+// UpdateOutputPath —— 跟 UpdateWikiPath 同套路。
+func (r *SEORepo) UpdateOutputPath(
 	ctx context.Context, outputID string,
-	slug *string, description string, indexed bool,
+	path *string, description string, indexed bool,
 ) (domain.OutputEntry, error) {
 	pgID, perr := parseUUID(outputID)
 	if perr != nil {
 		return domain.OutputEntry{}, fmt.Errorf("parse output id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).UpdateOutputSEO(ctx, dbq.UpdateOutputSEOParams{
-		ID: pgID, SeoSlug: slug, SeoDescription: description, SeoIndexed: indexed,
+	row, err := dbq.New(r.pool).UpdateOutputPath(ctx, dbq.UpdateOutputPathParams{
+		ID: pgID, Path: path, SeoDescription: description, SeoIndexed: indexed,
 	})
 	if err != nil {
-		return domain.OutputEntry{}, translateUpdateOutputSEOErr(err)
+		return domain.OutputEntry{}, translateUpdateOutputPathErr(err)
 	}
 	return toDomainOutput(&row), nil
 }
 
-func translateUpdateOutputSEOErr(err error) error {
-	if name, hit := pgUniqueViolation(err); hit && name == "output_entries_owner_slug_idx" {
-		return domain.ErrSlugTaken
+func translateUpdateOutputPathErr(err error) error {
+	if name, hit := pgUniqueViolation(err); hit && name == "output_entries_owner_path_idx" {
+		return domain.ErrPathTaken
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrOutputNotFound
 	}
-	return fmt.Errorf("update output seo: %w", err)
+	return fmt.Errorf("update output path: %w", err)
 }
 
 func defaultSEOSettings(ownerID string) domain.SEOSettings {

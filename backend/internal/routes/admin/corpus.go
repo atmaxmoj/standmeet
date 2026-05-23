@@ -100,13 +100,13 @@ type rawListItem struct {
 
 type wikiListItem struct {
 	ParentID     *string  `json:"parent_id"`
-	SEOSlug      *string  `json:"seo_slug"`
+	Path         *string  `json:"path"`
 	ID           string   `json:"id"`
 	Title        string   `json:"title"`
-	Visibility   string   `json:"visibility"`
 	CreatedAt    string   `json:"created_at"`
 	Tags         []string `json:"tags"`
 	SourceRawIDs []string `json:"source_raw_ids"`
+	ShowAsSource bool     `json:"show_as_source"`
 	SEOIndexed   bool     `json:"seo_indexed"`
 }
 

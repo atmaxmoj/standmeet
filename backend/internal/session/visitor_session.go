@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/wangsijie/standmeet/internal/domain"
 )
 
 const (
@@ -28,20 +30,23 @@ const (
 var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 
 // VisitorSessionData —— Redis 里存的 visitor session payload。
-// 字段顺序按 govet fieldalignment 优化：time.Time 在前（内部 ptr at offset 16），
-// strings 中间，slices 在尾（slice ptr at offset 0 of slice）—— 让 GC 最后扫描的
-// pointer word 位置尽量靠后但 trailing 后无需 padding 的 ptr-free 区域可以省扫。
+//
+// retrieval-redesign 后准入字段：
+//   - CorpusPermissions: 从 access code（或 byoai default）继承的 path-glob ACL
+//   - BYOAIKey: visitor 自带的 API key —— 仅 byoai tier 有值；inference resolver
+//     按这把 key 实例化 provider。Redis TTL = visitor session TTL (60min)；
+//     v1 不做额外 KEK 加密 (Redis 已 dev-only auth + 容器隔离；prod 部署 hardened
+//     Redis 配置后由 Coolify 镜像层处理)。
 type VisitorSessionData struct {
-	ExpiresAt     time.Time `json:"expires_at"`
-	OwnerID       string    `json:"owner_id"`
-	Tier          string    `json:"tier"`
-	CodeID        string    `json:"code_id"`
-	MemberID      string    `json:"member_id"`
-	VisitorName   string    `json:"visitor_name"`
-	BYOAIProvider string    `json:"byoai_provider"`
-	VisibilityMax string    `json:"visibility_max"`
-	IncludedTags  []string  `json:"included_tags"`
-	ExcludedTags  []string  `json:"excluded_tags"`
+	ExpiresAt         time.Time               `json:"expires_at"`
+	OwnerID           string                  `json:"owner_id"`
+	Tier              string                  `json:"tier"`
+	CodeID            string                  `json:"code_id"`
+	MemberID          string                  `json:"member_id"`
+	VisitorName       string                  `json:"visitor_name"`
+	BYOAIProvider     string                  `json:"byoai_provider"`
+	BYOAIKey          string                  `json:"byoai_key,omitempty"`
+	CorpusPermissions []domain.PathPermission `json:"corpus_permissions"`
 }
 
 // VisitorSessionStore wrap Redis 提供 visitor session CRUD。

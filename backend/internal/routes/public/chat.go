@@ -135,11 +135,7 @@ func streamChatSSE(
 		OwnerID:        parsed.Data.OwnerID,
 		ConversationID: convID,
 		Body:           parsed.Content,
-		Scope: domain.VisitorSessionScope{
-			IncludedTags:  parsed.Data.IncludedTags,
-			ExcludedTags:  parsed.Data.ExcludedTags,
-			VisibilityMax: parsed.Data.VisibilityMax,
-		},
+		Permissions:    parsed.Data.CorpusPermissions,
 	})
 	if err != nil {
 		handleVisitorErr(h.Log, w, err)

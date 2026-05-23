@@ -23,14 +23,13 @@ type CodesDeps struct {
 }
 
 type createCodeRequest struct {
-	MaxSessionsPerMember *int32   `json:"max_sessions_per_member,omitempty"`
-	MaxTurnsPerSession   *int32   `json:"max_turns_per_session,omitempty"`
-	Code                 string   `json:"code"`
-	Label                string   `json:"label"`
-	Purpose              string   `json:"purpose"`
-	IncludedTags         []string `json:"included_tags"`
-	ExcludedTags         []string `json:"excluded_tags"`
-	SuggestedQuestions   []string `json:"suggested_questions"`
+	MaxSessionsPerMember *int32                  `json:"max_sessions_per_member,omitempty"`
+	MaxTurnsPerSession   *int32                  `json:"max_turns_per_session,omitempty"`
+	Code                 string                  `json:"code"`
+	Label                string                  `json:"label"`
+	Purpose              string                  `json:"purpose"`
+	CorpusPermissions    []domain.PathPermission `json:"corpus_permissions"`
+	SuggestedQuestions   []string                `json:"suggested_questions"`
 }
 
 type updateQuotasRequest struct {
@@ -39,16 +38,15 @@ type updateQuotasRequest struct {
 }
 
 type codeView struct {
-	CreatedAt            string   `json:"created_at"`
-	MaxSessionsPerMember *int32   `json:"max_sessions_per_member,omitempty"`
-	MaxTurnsPerSession   *int32   `json:"max_turns_per_session,omitempty"`
-	ID                   string   `json:"id"`
-	Code                 string   `json:"code"`
-	Label                string   `json:"label"`
-	Status               string   `json:"status"`
-	IncludedTags         []string `json:"included_tags"`
-	ExcludedTags         []string `json:"excluded_tags"`
-	SuggestedQuestions   []string `json:"suggested_questions"`
+	CreatedAt            string                  `json:"created_at"`
+	MaxSessionsPerMember *int32                  `json:"max_sessions_per_member,omitempty"`
+	MaxTurnsPerSession   *int32                  `json:"max_turns_per_session,omitempty"`
+	ID                   string                  `json:"id"`
+	Code                 string                  `json:"code"`
+	Label                string                  `json:"label"`
+	Status               string                  `json:"status"`
+	CorpusPermissions    []domain.PathPermission `json:"corpus_permissions"`
+	SuggestedQuestions   []string                `json:"suggested_questions"`
 }
 
 // MountCodes 挂 /codes 子路由。
@@ -91,8 +89,7 @@ func toCodeView(c *domain.AccessCode) codeView {
 		Code:                 c.Code,
 		Label:                c.Label,
 		Status:               c.Status,
-		IncludedTags:         c.IncludedTags,
-		ExcludedTags:         c.ExcludedTags,
+		CorpusPermissions:    c.CorpusPermissions,
 		SuggestedQuestions:   c.SuggestedQuestions,
 		CreatedAt:            c.CreatedAt.Format(time.RFC3339),
 		MaxSessionsPerMember: c.MaxSessionsPerMember,
@@ -124,8 +121,7 @@ func buildCreateInput(ownerID string, req *createCodeRequest) *postgres.CreateCo
 		Code:                 req.Code,
 		Label:                req.Label,
 		Purpose:              req.Purpose,
-		IncludedTags:         req.IncludedTags,
-		ExcludedTags:         req.ExcludedTags,
+		CorpusPermissions:    req.CorpusPermissions,
 		SuggestedQuestions:   req.SuggestedQuestions,
 		MaxSessionsPerMember: req.MaxSessionsPerMember,
 		MaxTurnsPerSession:   req.MaxTurnsPerSession,

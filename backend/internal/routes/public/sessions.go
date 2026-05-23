@@ -25,10 +25,8 @@ type createSessionRequest struct {
 }
 
 type createSessionResponse struct {
-	SessionToken   string   `json:"session_token"`
-	ConversationID string   `json:"conversation_id"`
-	IncludedTags   []string `json:"included_tags"`
-	ExcludedTags   []string `json:"excluded_tags"`
+	SessionToken   string `json:"session_token"`
+	ConversationID string `json:"conversation_id"`
 }
 
 func (h *Handlers) createSession() http.HandlerFunc {
@@ -83,8 +81,6 @@ func writeCreateSession(
 	resp := createSessionResponse{
 		SessionToken:   issued.Token,
 		ConversationID: conv.ID,
-		IncludedTags:   issued.Data.IncludedTags,
-		ExcludedTags:   issued.Data.ExcludedTags,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

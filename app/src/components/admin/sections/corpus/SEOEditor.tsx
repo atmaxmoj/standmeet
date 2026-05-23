@@ -1,15 +1,17 @@
-// SEOEditor —— wiki / output 共用的 SEO sub-section。
-// 字段：seo_slug（kebab-case，可空=不公开）/ seo_description / seo_indexed。
-// owner 改完保存，indexed=true 才会进 sitemap + 渲染 /wiki/<slug> 或 /output/<slug>。
+// SEOEditor —— wiki / output 共用的 path + SEO sub-section。
+// 字段：path（可空=不公开 + 不算 retrieval ACL）/ seo_description / seo_indexed。
+// owner 改完保存，indexed=true 才会进 sitemap + 渲染 /wiki/<path> 或 /output/<path>。
+// path 现在允许包含 `/`（例：projects/lucerna）—— retrieval ACL 走 path-glob，
+// landing route 用 catch-all [...path]。
 
 'use client';
 
 import { useState } from 'react';
 
-import type { SEOUpdateInput } from '@/lib/admin/use-corpus-actions';
+import type { PathUpdateInput } from '@/lib/admin/use-corpus-actions';
 
 export interface SEOEditorInitial {
-  seo_slug?: string | null;
+  path?: string | null;
   seo_description: string;
   seo_indexed: boolean;
 }
@@ -18,13 +20,13 @@ export interface SEOEditorProps {
   testidPrefix: string;
   initial: SEOEditorInitial;
   busy: boolean;
-  onSave: (input: SEOUpdateInput) => void;
+  onSave: (input: PathUpdateInput) => void;
 }
 
 export function SEOEditor(props: SEOEditorProps) {
   const state = useSEOState(props.initial);
   const onSave = () => props.onSave({
-    seo_slug: normalizeSlug(state.slug),
+    path: normalizePath(state.path),
     seo_description: state.description,
     seo_indexed: state.indexed,
   });
@@ -32,7 +34,7 @@ export function SEOEditor(props: SEOEditorProps) {
     <div className="space-y-3 border border-(--color-rule) p-4 bg-(--color-surface)/40 rounded-sm mt-3"
       data-testid={`${props.testidPrefix}-seo-form`}>
       <Heading />
-      <SlugField state={state} testid={props.testidPrefix} />
+      <PathField state={state} testid={props.testidPrefix} />
       <DescriptionField state={state} testid={props.testidPrefix} />
       <IndexedField state={state} testid={props.testidPrefix} />
       <Actions busy={props.busy} onSave={onSave} testid={props.testidPrefix} />
@@ -41,22 +43,22 @@ export function SEOEditor(props: SEOEditorProps) {
 }
 
 interface SEOState {
-  slug: string;
+  path: string;
   description: string;
   indexed: boolean;
-  setSlug: (v: string) => void;
+  setPath: (v: string) => void;
   setDescription: (v: string) => void;
   setIndexed: (b: boolean) => void;
 }
 
 function useSEOState(initial: SEOEditorInitial): SEOState {
-  const [slug, setSlug] = useState(initial.seo_slug ?? '');
+  const [path, setPath] = useState(initial.path ?? '');
   const [description, setDescription] = useState(initial.seo_description);
   const [indexed, setIndexed] = useState(initial.seo_indexed);
-  return { slug, description, indexed, setSlug, setDescription, setIndexed };
+  return { path, description, indexed, setPath, setDescription, setIndexed };
 }
 
-function normalizeSlug(s: string): string | null {
+function normalizePath(s: string): string | null {
   const trimmed = s.trim().toLowerCase();
   return trimmed === '' ? null : trimmed;
 }
@@ -64,24 +66,24 @@ function normalizeSlug(s: string): string | null {
 function Heading() {
   return (
     <h4 className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-      SEO &amp; public landing
+      path &amp; public landing
     </h4>
   );
 }
 
-function SlugField({ state, testid }: { state: SEOState; testid: string }) {
+function PathField({ state, testid }: { state: SEOState; testid: string }) {
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        slug (empty = not public)
+        path (empty = not public; `/` allowed for grouping)
       </span>
       <input
         type="text"
-        value={state.slug}
-        onChange={(e) => state.setSlug(e.target.value)}
+        value={state.path}
+        onChange={(e) => state.setPath(e.target.value)}
         spellCheck={false}
-        placeholder="local-first-essay"
-        data-testid={`${testid}-seo-slug`}
+        placeholder="projects/lucerna"
+        data-testid={`${testid}-path`}
         className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
       />
     </label>
@@ -137,7 +139,7 @@ function Actions(props: ActionsProps) {
         data-testid={`${props.testid}-seo-save`}
         className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
       >
-        {props.busy ? 'saving…' : 'save SEO'}
+        {props.busy ? 'saving…' : 'save'}
       </button>
     </div>
   );

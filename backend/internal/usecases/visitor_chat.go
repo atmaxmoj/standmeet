@@ -15,11 +15,14 @@ import (
 )
 
 // SendMessageInput —— 一次 chat 提问。
+//
+// Permissions 是从 session 继承的 path-glob ACL；retrieval 阶段会按它过滤。
+// 当前 pass-through 实现还没接 path-glob 评估（占位 TODO）。
 type SendMessageInput struct {
 	OwnerID        string
 	ConversationID string
 	Body           string
-	Scope          domain.VisitorSessionScope
+	Permissions    []domain.PathPermission
 }
 
 // MessageEvent —— chat 流式事件（token / done / error）。
@@ -75,7 +78,7 @@ func prepareSend(
 	}); werr != nil {
 		return sendPrep{}, fmt.Errorf("append visitor message: %w", werr)
 	}
-	corpus, lerr := loadScopedCorpus(ctx, deps, in.OwnerID, &in.Scope)
+	corpus, lerr := loadCorpusForACL(ctx, deps, in.OwnerID, in.Permissions)
 	if lerr != nil {
 		return sendPrep{}, lerr
 	}
@@ -153,93 +156,53 @@ type ScopedCorpus struct {
 	Outputs []domain.OutputEntry
 }
 
-// loadScopedCorpus —— 加载 wiki + output 两层，做 visibility + tag scope
-// 过滤。output 会在 prompt 里优先呈现（更精炼），wiki 当 supporting context。
-func loadScopedCorpus(
-	ctx context.Context, deps VisitorDeps, ownerID string, scope *domain.VisitorSessionScope,
+// loadCorpusForACL —— 加载 wiki + output 两层，按 path-glob ACL 过滤。
+// 空 permissions = 允许全部（无 ACL）；非空时 PathACL.Allows 评估每条 entry
+// 的 Path。Entry.Path 为 nil 时跳过 ACL 评估（path 没设的 entry 仅当
+// permissions 为空时进入 corpus，符合"默认 deny"的安全语义）。
+func loadCorpusForACL(
+	ctx context.Context, deps VisitorDeps, ownerID string, perms []domain.PathPermission,
 ) (ScopedCorpus, error) {
-	wikis, werr := loadScopedWikis(ctx, deps, ownerID, scope)
+	wikis, werr := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis)
 	if werr != nil {
-		return ScopedCorpus{}, werr
+		return ScopedCorpus{}, fmt.Errorf("list wiki for rag: %w", werr)
 	}
-	outputs, oerr := loadScopedOutputs(ctx, deps, ownerID, scope)
+	outputs, oerr := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs)
 	if oerr != nil {
-		return ScopedCorpus{}, oerr
+		return ScopedCorpus{}, fmt.Errorf("list output for rag: %w", oerr)
 	}
-	return ScopedCorpus{Wikis: wikis, Outputs: outputs}, nil
+	acl := domain.NewPathACL(perms)
+	return ScopedCorpus{
+		Wikis:   filterWikiByACL(wikis, acl),
+		Outputs: filterOutputByACL(outputs, acl),
+	}, nil
 }
 
-func loadScopedWikis(
-	ctx context.Context, deps VisitorDeps, ownerID string, scope *domain.VisitorSessionScope,
-) ([]domain.WikiEntry, error) {
-	all, err := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis)
-	if err != nil {
-		return nil, fmt.Errorf("list wiki for rag: %w", err)
-	}
-	filtered := make([]domain.WikiEntry, 0, len(all))
-	for i := range all {
-		if entryMatchesScope(all[i].Visibility, all[i].Tags, scope) {
-			filtered = append(filtered, all[i])
+func filterWikiByACL(entries []domain.WikiEntry, acl domain.PathACL) []domain.WikiEntry {
+	out := make([]domain.WikiEntry, 0, len(entries))
+	for i := range entries {
+		if acl.AllowsEntry(pathOrNil(entries[i].Path)) {
+			out = append(out, entries[i])
 		}
-	}
-	return filtered, nil
-}
-
-func loadScopedOutputs(
-	ctx context.Context, deps VisitorDeps, ownerID string, scope *domain.VisitorSessionScope,
-) ([]domain.OutputEntry, error) {
-	all, err := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs)
-	if err != nil {
-		return nil, fmt.Errorf("list output for rag: %w", err)
-	}
-	filtered := make([]domain.OutputEntry, 0, len(all))
-	for i := range all {
-		if entryMatchesScope(all[i].Visibility, all[i].Tags, scope) {
-			filtered = append(filtered, all[i])
-		}
-	}
-	return filtered, nil
-}
-
-// entryMatchesScope —— wiki / output 共用的 scope 匹配：visibility ≤ max
-// + tag include/exclude。Tags 语义两层一致。
-func entryMatchesScope(visibility string, tags []string, scope *domain.VisitorSessionScope) bool {
-	if !visibilityAllowed(visibility, scope.VisibilityMax) {
-		return false
-	}
-	if intersect(tags, scope.ExcludedTags) {
-		return false
-	}
-	if len(scope.IncludedTags) == 0 {
-		return true
-	}
-	return intersect(tags, scope.IncludedTags)
-}
-
-func visibilityAllowed(actual, maxAllowed string) bool {
-	order := map[string]int{"public": 1, "on_request": 2, "private": 3}
-	return order[actual] <= order[maxAllowed]
-}
-
-func intersect(a, b []string) bool {
-	return anyMember(a, indexSet(b))
-}
-
-func indexSet(s []string) map[string]struct{} {
-	out := make(map[string]struct{}, len(s))
-	for _, x := range s {
-		out[x] = struct{}{}
 	}
 	return out
 }
 
-func anyMember(s []string, set map[string]struct{}) bool {
-	for _, x := range s {
-		if _, ok := set[x]; ok {
-			return true
+func filterOutputByACL(entries []domain.OutputEntry, acl domain.PathACL) []domain.OutputEntry {
+	out := make([]domain.OutputEntry, 0, len(entries))
+	for i := range entries {
+		if acl.AllowsEntry(pathOrNil(entries[i].Path)) {
+			out = append(out, entries[i])
 		}
 	}
-	return false
+	return out
+}
+
+func pathOrNil(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 // streamArgs —— streamReply 的入参打包；revive 限制函数最多 5 个参数。

@@ -14,10 +14,10 @@ import (
 const createOutputEntry = `-- name: CreateOutputEntry :one
 
 INSERT INTO output_entries (
-    owner_id, parent_id, title, body, tags, visibility, source_wiki_ids
+    owner_id, parent_id, title, body, tags, source_wiki_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, owner_id, parent_id, title, body, tags, visibility, source_wiki_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
 `
 
 type CreateOutputEntryParams struct {
@@ -26,7 +26,6 @@ type CreateOutputEntryParams struct {
 	Title         string
 	Body          string
 	Tags          []string
-	Visibility    string
 	SourceWikiIds []pgtype.UUID
 }
 
@@ -39,7 +38,6 @@ func (q *Queries) CreateOutputEntry(ctx context.Context, arg CreateOutputEntryPa
 		arg.Title,
 		arg.Body,
 		arg.Tags,
-		arg.Visibility,
 		arg.SourceWikiIds,
 	)
 	var i OutputEntry
@@ -50,9 +48,9 @@ func (q *Queries) CreateOutputEntry(ctx context.Context, arg CreateOutputEntryPa
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceWikiIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,
@@ -76,7 +74,7 @@ func (q *Queries) DeleteOutput(ctx context.Context, arg DeleteOutputParams) erro
 }
 
 const getOutputByID = `-- name: GetOutputByID :one
-SELECT id, owner_id, parent_id, title, body, tags, visibility, source_wiki_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at FROM output_entries WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM output_entries WHERE id = $1 AND owner_id = $2
 `
 
 type GetOutputByIDParams struct {
@@ -94,9 +92,9 @@ func (q *Queries) GetOutputByID(ctx context.Context, arg GetOutputByIDParams) (O
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceWikiIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,
@@ -105,22 +103,24 @@ func (q *Queries) GetOutputByID(ctx context.Context, arg GetOutputByIDParams) (O
 	return i, err
 }
 
-const getOutputBySlug = `-- name: GetOutputBySlug :one
-SELECT id, owner_id, parent_id, title, body, tags, visibility,
-       source_wiki_ids, seo_slug, seo_description, seo_indexed,
+const getOutputByPath = `-- name: GetOutputByPath :one
+SELECT id, owner_id, parent_id, title, body, tags,
+       source_wiki_ids, path, show_as_source, seo_description, seo_indexed,
        created_at, updated_at
 FROM output_entries
-WHERE owner_id = $1 AND seo_slug = $2 AND visibility = 'public'
+WHERE owner_id = $1 AND path = $2 AND seo_indexed = true
 `
 
-type GetOutputBySlugParams struct {
+type GetOutputByPathParams struct {
 	OwnerID pgtype.UUID
-	SeoSlug *string
+	Path    *string
 }
 
-// 用 owner_id + seo_slug 反查 output entry（public-facing output landing 复用 wiki 同套路）。
-func (q *Queries) GetOutputBySlug(ctx context.Context, arg GetOutputBySlugParams) (OutputEntry, error) {
-	row := q.db.QueryRow(ctx, getOutputBySlug, arg.OwnerID, arg.SeoSlug)
+// 用 owner_id + path 反查 output entry（公开 landing /<handle>/output/<path>）。
+// 不再 filter visibility ——准入靠 access_codes.corpus_permissions，公开 landing
+// 只能拿 seo_indexed=true 的（crawler/SEO 友好可见）。
+func (q *Queries) GetOutputByPath(ctx context.Context, arg GetOutputByPathParams) (OutputEntry, error) {
+	row := q.db.QueryRow(ctx, getOutputByPath, arg.OwnerID, arg.Path)
 	var i OutputEntry
 	err := row.Scan(
 		&i.ID,
@@ -129,9 +129,9 @@ func (q *Queries) GetOutputBySlug(ctx context.Context, arg GetOutputBySlugParams
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceWikiIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,
@@ -141,7 +141,7 @@ func (q *Queries) GetOutputBySlug(ctx context.Context, arg GetOutputBySlugParams
 }
 
 const getOutputTitlesByIDs = `-- name: GetOutputTitlesByIDs :many
-SELECT id, title FROM output_entries
+SELECT id, title, path FROM output_entries
 WHERE owner_id = $1 AND id = ANY($2::uuid[])
 `
 
@@ -153,9 +153,10 @@ type GetOutputTitlesByIDsParams struct {
 type GetOutputTitlesByIDsRow struct {
 	ID    pgtype.UUID
 	Title string
+	Path  *string
 }
 
-// transcript hydration 用：把 cited_output_ids 批量解到 id+title。
+// transcript hydration 用：把 cited_output_ids 批量解到 id+title+path。
 func (q *Queries) GetOutputTitlesByIDs(ctx context.Context, arg GetOutputTitlesByIDsParams) ([]GetOutputTitlesByIDsRow, error) {
 	rows, err := q.db.Query(ctx, getOutputTitlesByIDs, arg.OwnerID, arg.Column2)
 	if err != nil {
@@ -165,7 +166,7 @@ func (q *Queries) GetOutputTitlesByIDs(ctx context.Context, arg GetOutputTitlesB
 	var items []GetOutputTitlesByIDsRow
 	for rows.Next() {
 		var i GetOutputTitlesByIDsRow
-		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+		if err := rows.Scan(&i.ID, &i.Title, &i.Path); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -176,32 +177,31 @@ func (q *Queries) GetOutputTitlesByIDs(ctx context.Context, arg GetOutputTitlesB
 	return items, nil
 }
 
-const listIndexedOutputSlugs = `-- name: ListIndexedOutputSlugs :many
-SELECT seo_slug, updated_at
+const listIndexedOutputPaths = `-- name: ListIndexedOutputPaths :many
+SELECT path, updated_at
 FROM output_entries
 WHERE owner_id = $1
-  AND seo_slug IS NOT NULL
+  AND path IS NOT NULL
   AND seo_indexed = true
-  AND visibility = 'public'
 ORDER BY updated_at DESC
 `
 
-type ListIndexedOutputSlugsRow struct {
-	SeoSlug   *string
+type ListIndexedOutputPathsRow struct {
+	Path      *string
 	UpdatedAt pgtype.Timestamptz
 }
 
-// sitemap.xml 用：取该 owner 所有 indexed + public 的 output landing slug。
-func (q *Queries) ListIndexedOutputSlugs(ctx context.Context, ownerID pgtype.UUID) ([]ListIndexedOutputSlugsRow, error) {
-	rows, err := q.db.Query(ctx, listIndexedOutputSlugs, ownerID)
+// sitemap.xml 用：取该 owner 所有 indexed output landing path。
+func (q *Queries) ListIndexedOutputPaths(ctx context.Context, ownerID pgtype.UUID) ([]ListIndexedOutputPathsRow, error) {
+	rows, err := q.db.Query(ctx, listIndexedOutputPaths, ownerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListIndexedOutputSlugsRow
+	var items []ListIndexedOutputPathsRow
 	for rows.Next() {
-		var i ListIndexedOutputSlugsRow
-		if err := rows.Scan(&i.SeoSlug, &i.UpdatedAt); err != nil {
+		var i ListIndexedOutputPathsRow
+		if err := rows.Scan(&i.Path, &i.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -213,7 +213,7 @@ func (q *Queries) ListIndexedOutputSlugs(ctx context.Context, ownerID pgtype.UUI
 }
 
 const listOutputByOwner = `-- name: ListOutputByOwner :many
-SELECT id, owner_id, parent_id, title, body, tags, visibility, source_wiki_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at FROM output_entries
+SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM output_entries
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -240,9 +240,9 @@ func (q *Queries) ListOutputByOwner(ctx context.Context, arg ListOutputByOwnerPa
 			&i.Title,
 			&i.Body,
 			&i.Tags,
-			&i.Visibility,
 			&i.SourceWikiIds,
-			&i.SeoSlug,
+			&i.Path,
+			&i.ShowAsSource,
 			&i.SeoDescription,
 			&i.SeoIndexed,
 			&i.CreatedAt,
@@ -275,19 +275,20 @@ func (q *Queries) SetOutputTags(ctx context.Context, arg SetOutputTagsParams) er
 
 const updateOutputBody = `-- name: UpdateOutputBody :one
 UPDATE output_entries
-SET title = $3, body = $4, tags = $5, visibility = $6, parent_id = $7, updated_at = now()
+SET title = $3, body = $4, tags = $5, parent_id = $6, show_as_source = $7,
+    updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, parent_id, title, body, tags, visibility, source_wiki_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
 `
 
 type UpdateOutputBodyParams struct {
-	ID         pgtype.UUID
-	OwnerID    pgtype.UUID
-	Title      string
-	Body       string
-	Tags       []string
-	Visibility string
-	ParentID   pgtype.UUID
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	Title        string
+	Body         string
+	Tags         []string
+	ParentID     pgtype.UUID
+	ShowAsSource bool
 }
 
 // admin "edit output" 入口；跟 UpdateWikiBody 同构。
@@ -298,8 +299,8 @@ func (q *Queries) UpdateOutputBody(ctx context.Context, arg UpdateOutputBodyPara
 		arg.Title,
 		arg.Body,
 		arg.Tags,
-		arg.Visibility,
 		arg.ParentID,
+		arg.ShowAsSource,
 	)
 	var i OutputEntry
 	err := row.Scan(
@@ -309,9 +310,9 @@ func (q *Queries) UpdateOutputBody(ctx context.Context, arg UpdateOutputBodyPara
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceWikiIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,
@@ -320,29 +321,28 @@ func (q *Queries) UpdateOutputBody(ctx context.Context, arg UpdateOutputBodyPara
 	return i, err
 }
 
-const updateOutputSEO = `-- name: UpdateOutputSEO :one
+const updateOutputPath = `-- name: UpdateOutputPath :one
 UPDATE output_entries
-SET seo_slug        = $2,
+SET path            = $2,
     seo_description = $3,
     seo_indexed     = $4,
     updated_at      = now()
 WHERE id = $1
-RETURNING id, owner_id, parent_id, title, body, tags, visibility,
-          source_wiki_ids, seo_slug, seo_description, seo_indexed,
-          created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
 `
 
-type UpdateOutputSEOParams struct {
+type UpdateOutputPathParams struct {
 	ID             pgtype.UUID
-	SeoSlug        *string
+	Path           *string
 	SeoDescription string
 	SeoIndexed     bool
 }
 
-func (q *Queries) UpdateOutputSEO(ctx context.Context, arg UpdateOutputSEOParams) (OutputEntry, error) {
-	row := q.db.QueryRow(ctx, updateOutputSEO,
+// admin / MCP 编辑 path + SEO 描述 + indexed 开关。
+func (q *Queries) UpdateOutputPath(ctx context.Context, arg UpdateOutputPathParams) (OutputEntry, error) {
+	row := q.db.QueryRow(ctx, updateOutputPath,
 		arg.ID,
-		arg.SeoSlug,
+		arg.Path,
 		arg.SeoDescription,
 		arg.SeoIndexed,
 	)
@@ -354,9 +354,9 @@ func (q *Queries) UpdateOutputSEO(ctx context.Context, arg UpdateOutputSEOParams
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceWikiIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,

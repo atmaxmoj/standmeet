@@ -145,7 +145,6 @@ type CreateWikiInput struct {
 	ParentID     *string
 	Title        string
 	Body         string
-	Visibility   string
 	Tags         []string
 	SourceRawIDs []string
 }
@@ -171,7 +170,6 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (domain.Wiki
 		Title:        in.Title,
 		Body:         in.Body,
 		Tags:         nilSafeTags(in.Tags),
-		Visibility:   in.Visibility,
 		SourceRawIds: sourceRaws,
 	})
 	if err != nil {
@@ -293,8 +291,8 @@ func toDomainWiki(w *dbq.WikiEntry) domain.WikiEntry {
 		Title:          w.Title,
 		Body:           w.Body,
 		Tags:           w.Tags,
-		Visibility:     w.Visibility,
 		SourceRawIDs:   formatUUIDList(w.SourceRawIds),
+		ShowAsSource:   w.ShowAsSource,
 		SEODescription: w.SeoDescription,
 		SEOIndexed:     w.SeoIndexed,
 		CreatedAt:      w.CreatedAt.Time,
@@ -304,8 +302,8 @@ func toDomainWiki(w *dbq.WikiEntry) domain.WikiEntry {
 		s := formatUUID(w.ParentID)
 		e.ParentID = &s
 	}
-	if w.SeoSlug != nil {
-		e.SEOSlug = w.SeoSlug
+	if w.Path != nil {
+		e.Path = w.Path
 	}
 	return e
 }

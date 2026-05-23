@@ -13,32 +13,29 @@ ON CONFLICT (owner_id) DO UPDATE SET
     updated_at     = now()
 RETURNING owner_id, index_robots, sitemap_extras, og_template, updated_at;
 
--- name: GetWikiBySlug :one
--- 用 owner_id + seo_slug 反查 wiki entry（public-facing wiki landing）。
-SELECT id, owner_id, parent_id, title, body, tags, visibility,
-       source_raw_ids, seo_slug, seo_description, seo_indexed,
-       created_at, updated_at
+-- name: GetWikiByPath :one
+-- 用 owner_id + path 反查 wiki entry（公开 landing /<handle>/wiki/<path>）。
+-- 公开 landing 只暴露 seo_indexed=true 的 entry（crawler 友好可见）；
+-- 准入靠 retrieval ACL，跟公开 landing 是两个面。
+SELECT *
 FROM wiki_entries
-WHERE owner_id = $1 AND seo_slug = $2 AND visibility = 'public';
+WHERE owner_id = $1 AND path = $2 AND seo_indexed = true;
 
--- name: ListIndexedWikiSlugs :many
--- sitemap.xml 用：取该 owner 所有 indexed + public 的 wiki landing slug。
-SELECT seo_slug, updated_at
+-- name: ListIndexedWikiPaths :many
+-- sitemap.xml 用：取该 owner 所有 indexed wiki landing path。
+SELECT path, updated_at
 FROM wiki_entries
 WHERE owner_id = $1
-  AND seo_slug IS NOT NULL
+  AND path IS NOT NULL
   AND seo_indexed = true
-  AND visibility = 'public'
 ORDER BY updated_at DESC;
 
--- name: UpdateWikiSEO :one
--- admin / MCP 设 wiki 的 seo_slug / seo_description / seo_indexed。
+-- name: UpdateWikiPath :one
+-- admin / MCP 编辑 path + SEO 描述 + indexed 开关。
 UPDATE wiki_entries
-SET seo_slug        = $2,
+SET path            = $2,
     seo_description = $3,
     seo_indexed     = $4,
     updated_at      = now()
 WHERE id = $1
-RETURNING id, owner_id, parent_id, title, body, tags, visibility,
-          source_raw_ids, seo_slug, seo_description, seo_indexed,
-          created_at, updated_at;
+RETURNING *;

@@ -30,7 +30,6 @@ type CreateOutputInput struct {
 	ParentID      *string
 	Title         string
 	Body          string
-	Visibility    string
 	Tags          []string
 	SourceWikiIDs []string
 }
@@ -70,7 +69,6 @@ func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateOutputEntryParams
 		Title:         in.Title,
 		Body:          in.Body,
 		Tags:          nilSafeTags(in.Tags),
-		Visibility:    in.Visibility,
 		SourceWikiIds: sourceWikis,
 	}, nil
 }
@@ -158,8 +156,8 @@ func toDomainOutput(o *dbq.OutputEntry) domain.OutputEntry {
 		Title:          o.Title,
 		Body:           o.Body,
 		Tags:           o.Tags,
-		Visibility:     o.Visibility,
 		SourceWikiIDs:  formatUUIDList(o.SourceWikiIds),
+		ShowAsSource:   o.ShowAsSource,
 		SEODescription: o.SeoDescription,
 		SEOIndexed:     o.SeoIndexed,
 		CreatedAt:      o.CreatedAt.Time,
@@ -169,8 +167,8 @@ func toDomainOutput(o *dbq.OutputEntry) domain.OutputEntry {
 		s := formatUUID(o.ParentID)
 		e.ParentID = &s
 	}
-	if o.SeoSlug != nil {
-		e.SEOSlug = o.SeoSlug
+	if o.Path != nil {
+		e.Path = o.Path
 	}
 	return e
 }

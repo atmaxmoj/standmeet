@@ -96,11 +96,11 @@ func sitemapURLs(ctx context.Context, deps usecases.SEODeps) []sitemapURL {
 }
 
 func appendLandings(
-	urls []sitemapURL, base, segment string, landings []usecases.WikiLandingURL,
+	urls []sitemapURL, base, segment string, landings []usecases.LandingURL,
 ) []sitemapURL {
 	for i := range landings {
 		urls = append(urls, sitemapURL{
-			Loc:     fmt.Sprintf("%s/%s/%s", base, segment, landings[i].Slug),
+			Loc:     fmt.Sprintf("%s/%s/%s", base, segment, landings[i].Path),
 			LastMod: time.Unix(landings[i].UpdatedAt, 0).UTC().Format(time.RFC3339),
 		})
 	}

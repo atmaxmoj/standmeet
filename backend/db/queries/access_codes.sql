@@ -1,9 +1,15 @@
 -- name: CreateAccessCode :one
 INSERT INTO access_codes (
-    owner_id, code, label, purpose, included_tags, excluded_tags, suggested_questions,
+    owner_id, code, label, purpose, corpus_permissions, suggested_questions,
     expires_at, max_sessions_per_member, max_turns_per_session
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: UpdateAccessCodePermissions :one
+UPDATE access_codes
+SET corpus_permissions = $3
+WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
 -- name: GetAccessCode :one

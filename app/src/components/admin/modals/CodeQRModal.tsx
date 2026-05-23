@@ -21,7 +21,7 @@ export function CodeQRModal({ code, onClose }: Props) {
         </div>
         <QRMeta code={code.code} link={link} />
         <QRActions link={link} />
-        <QRScope included={code.included_tags} excluded={code.excluded_tags} status={code.status} />
+        <QRPermissions perms={code.corpus_permissions} status={code.status} />
       </div>
     </ModalShell>
   );
@@ -48,23 +48,29 @@ function QRActions({ link }: { link: string }) {
   );
 }
 
-function QRScope({
-  included, excluded, status,
-}: { included: readonly string[]; excluded: readonly string[]; status: string }) {
+interface PathPerm { action: 'allow' | 'deny'; path_pattern: string }
+
+function QRPermissions({
+  perms, status,
+}: { perms: readonly PathPerm[]; status: string }) {
   return (
     <div className="mt-7 pt-5 border-t border-(--color-rule) w-full mono text-[10px] tracking-[0.12em] text-(--color-faint) leading-[1.7] text-center">
-      <ScopeLine label="scoped to" tags={included} tone="muted" />
-      <ScopeLine label="excluded" tags={excluded} tone="accent" />
+      <PermsLines perms={perms} />
       <div className="text-(--color-faint)">status · {status}</div>
     </div>
   );
 }
 
-function ScopeLine({
-  label, tags, tone,
-}: { label: string; tags: readonly string[]; tone: 'muted' | 'accent' }) {
-  const cls = tone === 'accent' ? 'text-(--color-accent)' : 'text-(--color-muted)';
-  return tags.length > 0
-    ? <div>{label}: <span className={cls}>{tags.join(' · ')}</span></div>
-    : null;
+function PermsLines({ perms }: { perms: readonly PathPerm[] }) {
+  return perms.length === 0
+    ? <div>scope: <span className="text-(--color-muted)">unrestricted</span></div>
+    : (
+      <div>
+        {perms.map((p, i) => (
+          <div key={i}>
+            {p.action}: <span className={p.action === 'allow' ? 'text-(--color-muted)' : 'text-(--color-accent)'}>{p.path_pattern}</span>
+          </div>
+        ))}
+      </div>
+    );
 }

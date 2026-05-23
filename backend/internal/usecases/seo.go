@@ -1,6 +1,6 @@
 // seo.go —— SEO 业务薄包装，让 routes/public/seo.go 不直接 import postgres。
-// 当前每个方法就是 forward 到 SEORepo；将来加规则（slug 同义、redirect
-// chain、og-cache）时这里是落点。
+// path-based (替代旧 slug)：landing URL 形如 /<handle>/wiki/<path>，path
+// 可含 `/`（前端路由用 catch-all），同 retrieval ACL 复用同一列。
 
 package usecases
 
@@ -44,9 +44,7 @@ func FirstOwnerSettings(ctx context.Context, deps SEODeps) (domain.SEOSettings, 
 	return settings, true
 }
 
-// PublicReady —— 集中 robots/sitemap readiness check：owner 存在 +
-// public_url 已填 + SEO 设置允许 indexing。任一不满足返 (Owner{}, false)，
-// caller (robots / sitemap) 按"还没准备好对外"渲染。
+// PublicReady —— 集中 robots/sitemap readiness check。
 func PublicReady(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok || owner.PublicURL == "" {
@@ -59,80 +57,78 @@ func PublicReady(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
 	return owner, true
 }
 
-// GetWikiLanding —— 公开 landing 查询：slug → wiki entry（必须 public）。
-// owner 是 sole owner（v1 单 owner），不需要按 handle 反查。
+// GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 seo_indexed=true）。
 func GetWikiLanding(
-	ctx context.Context, deps SEODeps, slug string,
+	ctx context.Context, deps SEODeps, path string,
 ) (domain.WikiEntry, error) {
-	if slug == "" {
+	if path == "" {
 		return domain.WikiEntry{}, domain.ErrWikiNotFound
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return domain.WikiEntry{}, domain.ErrOwnerNotFound
 	}
-	wiki, err := deps.SEO.GetWikiBySlug(ctx, owner.ID, slug)
+	wiki, err := deps.SEO.GetWikiByPath(ctx, owner.ID, path)
 	if err != nil {
-		return domain.WikiEntry{}, fmt.Errorf("get wiki by slug: %w", err)
+		return domain.WikiEntry{}, fmt.Errorf("get wiki by path: %w", err)
 	}
 	return wiki, nil
 }
 
-// WikiLandingURL —— 一条 indexed wiki landing 的 sitemap URL。
-type WikiLandingURL struct {
-	Slug      string
+// LandingURL —— 一条 indexed landing 的 sitemap URL (wiki 或 output 通用)。
+type LandingURL struct {
+	Path      string
 	UpdatedAt int64
 }
 
-// IndexedWikiLandings —— 给 sitemap.xml 列 sole owner 所有 indexed slug。
-func IndexedWikiLandings(ctx context.Context, deps SEODeps) []WikiLandingURL {
+// IndexedWikiLandings —— 给 sitemap.xml 列 sole owner 所有 indexed path。
+func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return nil
 	}
-	rows, err := deps.SEO.ListIndexedSlugs(ctx, owner.ID)
+	rows, err := deps.SEO.ListIndexedPaths(ctx, owner.ID)
 	if err != nil {
 		return nil
 	}
 	return toLandingURLs(rows)
 }
 
-// GetOutputLanding —— 公开 output landing 查询，跟 GetWikiLanding 同套路。
+// GetOutputLanding —— 公开 output landing 查询。
 func GetOutputLanding(
-	ctx context.Context, deps SEODeps, slug string,
+	ctx context.Context, deps SEODeps, path string,
 ) (domain.OutputEntry, error) {
-	if slug == "" {
+	if path == "" {
 		return domain.OutputEntry{}, domain.ErrOutputNotFound
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return domain.OutputEntry{}, domain.ErrOwnerNotFound
 	}
-	out, err := deps.SEO.GetOutputBySlug(ctx, owner.ID, slug)
+	out, err := deps.SEO.GetOutputByPath(ctx, owner.ID, path)
 	if err != nil {
-		return domain.OutputEntry{}, fmt.Errorf("get output by slug: %w", err)
+		return domain.OutputEntry{}, fmt.Errorf("get output by path: %w", err)
 	}
 	return out, nil
 }
 
-// IndexedOutputLandings —— sitemap.xml 列 indexed + public output landing。
-// 复用 WikiLandingURL 形状 ((slug, updated_at) tuple，不绑 wiki 语义)。
-func IndexedOutputLandings(ctx context.Context, deps SEODeps) []WikiLandingURL {
+// IndexedOutputLandings —— sitemap.xml 列 indexed output landing。
+func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return nil
 	}
-	rows, err := deps.SEO.ListIndexedOutputSlugs(ctx, owner.ID)
+	rows, err := deps.SEO.ListIndexedOutputPaths(ctx, owner.ID)
 	if err != nil {
 		return nil
 	}
 	return toLandingURLs(rows)
 }
 
-func toLandingURLs(rows []postgres.IndexedSlug) []WikiLandingURL {
-	out := make([]WikiLandingURL, 0, len(rows))
+func toLandingURLs(rows []postgres.IndexedPath) []LandingURL {
+	out := make([]LandingURL, 0, len(rows))
 	for i := range rows {
-		out = append(out, WikiLandingURL{Slug: rows[i].Slug, UpdatedAt: rows[i].UpdatedAt})
+		out = append(out, LandingURL{Path: rows[i].Path, UpdatedAt: rows[i].UpdatedAt})
 	}
 	return out
 }

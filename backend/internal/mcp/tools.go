@@ -146,11 +146,10 @@ func buildPromoteInput(
 	req *mcpgo.CallToolRequest, ownerID, rawID, title string,
 ) *usecases.PromoteInput {
 	in := &usecases.PromoteInput{
-		OwnerID:    ownerID,
-		RawID:      rawID,
-		Title:      title,
-		Visibility: req.GetString("visibility", "public"),
-		Tags:       req.GetStringSlice("tags", nil),
+		OwnerID: ownerID,
+		RawID:   rawID,
+		Title:   title,
+		Tags:    req.GetStringSlice("tags", nil),
 	}
 	if parent := req.GetString("parent_id", ""); parent != "" {
 		in.ParentID = &parent
@@ -269,24 +268,24 @@ func (p rawListPayload) marshalJSON() ([]byte, error) {
 }
 
 type wikiView struct {
-	CreatedAt  string   `json:"created_at"`
-	ParentID   *string  `json:"parent_id"`
-	ID         string   `json:"id"`
-	Title      string   `json:"title"`
-	Visibility string   `json:"visibility"`
-	Tags       []string `json:"tags"`
+	CreatedAt string   `json:"created_at"`
+	ParentID  *string  `json:"parent_id"`
+	Path      *string  `json:"path"`
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	Tags      []string `json:"tags"`
 }
 
 func wikiListView(rows []domain.WikiEntry) wikiListPayload {
 	out := make(wikiListPayload, 0, len(rows))
 	for i := range rows {
 		out = append(out, wikiView{
-			ID:         rows[i].ID,
-			Title:      rows[i].Title,
-			Visibility: rows[i].Visibility,
-			Tags:       rows[i].Tags,
-			ParentID:   rows[i].ParentID,
-			CreatedAt:  rows[i].CreatedAt.Format(mcpTimeFmt),
+			ID:        rows[i].ID,
+			Title:     rows[i].Title,
+			Tags:      rows[i].Tags,
+			ParentID:  rows[i].ParentID,
+			Path:      rows[i].Path,
+			CreatedAt: rows[i].CreatedAt.Format(mcpTimeFmt),
 		})
 	}
 	return out

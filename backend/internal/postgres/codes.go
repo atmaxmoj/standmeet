@@ -16,6 +16,9 @@ import (
 	"github.com/wangsijie/standmeet/internal/postgres/dbq"
 )
 
+// errParseCodeIDPrefix —— "parse code id: %w" 字面在本文件 6+ 处出现，提常量。
+const errParseCodeIDPrefix = "parse code id: %w"
+
 // CodeRepo —— access_codes CRUD。
 type CodeRepo struct {
 	pool *Pool
@@ -33,8 +36,7 @@ type CreateCodeInput struct {
 	Code                 string
 	Label                string
 	Purpose              string
-	IncludedTags         []string
-	ExcludedTags         []string
+	CorpusPermissions    []domain.PathPermission
 	SuggestedQuestions   []string
 }
 
@@ -48,14 +50,17 @@ func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.Acce
 	if jerr != nil {
 		return domain.AccessCode{}, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
+	perms, perr := json.Marshal(in.CorpusPermissions)
+	if perr != nil {
+		return domain.AccessCode{}, fmt.Errorf("marshal corpus permissions: %w", perr)
+	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateAccessCode(ctx, dbq.CreateAccessCodeParams{
 		OwnerID:              ownerUUID,
 		Code:                 in.Code,
 		Label:                in.Label,
 		Purpose:              in.Purpose,
-		IncludedTags:         in.IncludedTags,
-		ExcludedTags:         in.ExcludedTags,
+		CorpusPermissions:    perms,
 		SuggestedQuestions:   qs,
 		ExpiresAt:            ptrToTimestamptz(in.ExpiresAt),
 		MaxSessionsPerMember: in.MaxSessionsPerMember,
@@ -67,6 +72,44 @@ func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.Acce
 	return toDomainCode(&row), nil
 }
 
+// UpdatePermissions —— 改某 code 的 corpus_permissions。
+func (r *CodeRepo) UpdatePermissions(
+	ctx context.Context, ownerID, codeID string, perms []domain.PathPermission,
+) (domain.AccessCode, error) {
+	params, err := buildUpdatePermissionsParams(ownerID, codeID, perms)
+	if err != nil {
+		return domain.AccessCode{}, err
+	}
+	row, qerr := dbq.New(r.pool).UpdateAccessCodePermissions(ctx, *params)
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return domain.AccessCode{}, domain.ErrCodeInvalid
+		}
+		return domain.AccessCode{}, fmt.Errorf("update access code permissions: %w", qerr)
+	}
+	return toDomainCode(&row), nil
+}
+
+func buildUpdatePermissionsParams(
+	ownerID, codeID string, perms []domain.PathPermission,
+) (*dbq.UpdateAccessCodePermissionsParams, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	codeUUID, err := parseUUID(codeID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
+	}
+	encoded, jerr := json.Marshal(perms)
+	if jerr != nil {
+		return nil, fmt.Errorf("marshal corpus permissions: %w", jerr)
+	}
+	return &dbq.UpdateAccessCodePermissionsParams{
+		ID: codeUUID, OwnerID: ownerUUID, CorpusPermissions: encoded,
+	}, nil
+}
+
 // Revoke 把 code.status 改成 'revoked'；GetAccessCode（只查 active）从此跳过它。
 func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 	ownerUUID, err := parseUUID(ownerID)
@@ -75,7 +118,7 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 	}
 	codeUUID, err := parseUUID(codeID)
 	if err != nil {
-		return fmt.Errorf("parse code id: %w", err)
+		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	if rerr := q.RevokeAccessCode(ctx, dbq.RevokeAccessCodeParams{
@@ -94,7 +137,7 @@ func (r *CodeRepo) GetOrCreateMember(
 ) (domain.CodeMember, error) {
 	codeUUID, err := parseUUID(codeID)
 	if err != nil {
-		return domain.CodeMember{}, fmt.Errorf("parse code id: %w", err)
+		return domain.CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.GetOrCreateCodeMember(ctx, dbq.GetOrCreateCodeMemberParams{
@@ -110,7 +153,7 @@ func (r *CodeRepo) GetOrCreateMember(
 func (r *CodeRepo) ListMembers(ctx context.Context, codeID string) ([]domain.CodeMember, error) {
 	codeUUID, err := parseUUID(codeID)
 	if err != nil {
-		return nil, fmt.Errorf("parse code id: %w", err)
+		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	rows, qerr := q.ListCodeMembers(ctx, codeUUID)
@@ -150,7 +193,7 @@ func (r *CodeRepo) UpdateQuotas(
 	}
 	codeUUID, err := parseUUID(codeID)
 	if err != nil {
-		return domain.AccessCode{}, fmt.Errorf("parse code id: %w", err)
+		return domain.AccessCode{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateAccessCodeQuotas(ctx, dbq.UpdateAccessCodeQuotasParams{
@@ -171,7 +214,7 @@ func (r *CodeRepo) UpdateQuotas(
 func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (domain.AccessCode, error) {
 	codeUUID, perr := parseUUID(codeID)
 	if perr != nil {
-		return domain.AccessCode{}, fmt.Errorf("parse code id: %w", perr)
+		return domain.AccessCode{}, fmt.Errorf(errParseCodeIDPrefix, perr)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetAccessCodeByID(ctx, codeUUID)
@@ -222,21 +265,38 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 		Code:                 c.Code,
 		Label:                c.Label,
 		Purpose:              c.Purpose,
-		IncludedTags:         c.IncludedTags,
-		ExcludedTags:         c.ExcludedTags,
 		Status:               c.Status,
 		CreatedAt:            c.CreatedAt.Time,
 		MaxSessionsPerMember: c.MaxSessionsPerMember,
 		MaxTurnsPerSession:   c.MaxTurnsPerSession,
+		SuggestedQuestions:   decodeStringJSON(c.SuggestedQuestions),
+		CorpusPermissions:    decodePermissionsJSON(c.CorpusPermissions),
 	}
 	if c.ExpiresAt.Valid {
 		t := c.ExpiresAt.Time
 		out.ExpiresAt = &t
 	}
-	if len(c.SuggestedQuestions) > 0 {
-		if err := json.Unmarshal(c.SuggestedQuestions, &out.SuggestedQuestions); err != nil {
-			_ = err
-		}
+	return out
+}
+
+func decodeStringJSON(raw []byte) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+func decodePermissionsJSON(raw []byte) []domain.PathPermission {
+	if len(raw) == 0 {
+		return nil
+	}
+	var out []domain.PathPermission
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
 	}
 	return out
 }

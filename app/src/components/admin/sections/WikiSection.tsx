@@ -7,7 +7,6 @@
 import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { Pill } from '@/components/admin/atoms/Pill';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { ListFilterBar } from '@/components/admin/sections/corpus/ListFilterBar';
 import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/WikiRowForms';
@@ -251,8 +250,15 @@ function WikiHead({ entry }: { entry: WikiSummary }) {
         {entry.title}
       </h3>
       <div className="flex items-baseline gap-3">
-        <Pill tone={entry.visibility === 'public' ? 'accent' : 'muted'}>{entry.visibility}</Pill>
-        <ViewLiveLink slug={entry.seo_slug} indexed={entry.seo_indexed} segment="wiki" />
+        {entry.show_as_source ? null : (
+          <span
+            data-testid={`wiki-hidden-source-${entry.id}`}
+            className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)"
+          >
+            hidden source
+          </span>
+        )}
+        <ViewLiveLink path={entry.path} indexed={entry.seo_indexed} segment="wiki" />
         <span className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)">
           {formatDate(entry.created_at)}
         </span>
@@ -262,11 +268,11 @@ function WikiHead({ entry }: { entry: WikiSummary }) {
 }
 
 function ViewLiveLink({
-  slug, indexed, segment,
-}: { slug?: string | null; indexed: boolean; segment: 'wiki' | 'output' }) {
-  return indexed && slug ? (
+  path, indexed, segment,
+}: { path?: string | null; indexed: boolean; segment: 'wiki' | 'output' }) {
+  return indexed && path ? (
     <a
-      href={`/${segment}/${slug}`}
+      href={`/${segment}/${path}`}
       target="_blank"
       rel="noreferrer"
       data-testid={`${segment}-view-live`}

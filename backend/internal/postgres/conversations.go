@@ -109,9 +109,7 @@ func (r *ConversationRepo) AppendMessage(
 	if err != nil {
 		return domain.Message{}, fmt.Errorf("append message: %w", err)
 	}
-	if berr := q.BumpConversation(ctx, dbq.BumpConversationParams{
-		ID: params.ConversationID, HitPrivate: false,
-	}); berr != nil {
+	if berr := q.BumpConversation(ctx, params.ConversationID); berr != nil {
 		return domain.Message{}, fmt.Errorf("bump conversation: %w", berr)
 	}
 	return toDomainMessage(&row), nil
@@ -181,7 +179,6 @@ func toDomainConv(c *dbq.Conversation) domain.Conversation {
 		StartedAt:    c.StartedAt.Time,
 		LastAt:       c.LastAt.Time,
 		MessageCount: c.MessageCount,
-		HitPrivate:   c.HitPrivate,
 	}
 	if c.CodeID.Valid {
 		s := formatUUID(c.CodeID)
@@ -221,7 +218,6 @@ type ConvSummary struct {
 	Tier         string
 	VisitorName  string
 	MessageCount int32
-	HitPrivate   bool
 }
 
 // ConversationWithMessages —— GetWithMessages 返回的 transcript bundle。
@@ -296,7 +292,6 @@ func toConvSummary(row *dbq.ListConversationsByOwnerRow) ConvSummary {
 		StartedAt:    row.StartedAt.Time,
 		LastAt:       row.LastAt.Time,
 		MessageCount: row.MessageCount,
-		HitPrivate:   row.HitPrivate,
 		CodeLabel:    row.CodeLabel,
 		CodeValue:    row.CodeValue,
 	}

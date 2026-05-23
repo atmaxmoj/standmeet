@@ -30,22 +30,22 @@ func (q *Queries) GetSEOSettings(ctx context.Context, ownerID pgtype.UUID) (SeoS
 	return i, err
 }
 
-const getWikiBySlug = `-- name: GetWikiBySlug :one
-SELECT id, owner_id, parent_id, title, body, tags, visibility,
-       source_raw_ids, seo_slug, seo_description, seo_indexed,
-       created_at, updated_at
+const getWikiByPath = `-- name: GetWikiByPath :one
+SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
 FROM wiki_entries
-WHERE owner_id = $1 AND seo_slug = $2 AND visibility = 'public'
+WHERE owner_id = $1 AND path = $2 AND seo_indexed = true
 `
 
-type GetWikiBySlugParams struct {
+type GetWikiByPathParams struct {
 	OwnerID pgtype.UUID
-	SeoSlug *string
+	Path    *string
 }
 
-// 用 owner_id + seo_slug 反查 wiki entry（public-facing wiki landing）。
-func (q *Queries) GetWikiBySlug(ctx context.Context, arg GetWikiBySlugParams) (WikiEntry, error) {
-	row := q.db.QueryRow(ctx, getWikiBySlug, arg.OwnerID, arg.SeoSlug)
+// 用 owner_id + path 反查 wiki entry（公开 landing /<handle>/wiki/<path>）。
+// 公开 landing 只暴露 seo_indexed=true 的 entry（crawler 友好可见）；
+// 准入靠 retrieval ACL，跟公开 landing 是两个面。
+func (q *Queries) GetWikiByPath(ctx context.Context, arg GetWikiByPathParams) (WikiEntry, error) {
+	row := q.db.QueryRow(ctx, getWikiByPath, arg.OwnerID, arg.Path)
 	var i WikiEntry
 	err := row.Scan(
 		&i.ID,
@@ -54,9 +54,9 @@ func (q *Queries) GetWikiBySlug(ctx context.Context, arg GetWikiBySlugParams) (W
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceRawIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,
@@ -65,32 +65,31 @@ func (q *Queries) GetWikiBySlug(ctx context.Context, arg GetWikiBySlugParams) (W
 	return i, err
 }
 
-const listIndexedWikiSlugs = `-- name: ListIndexedWikiSlugs :many
-SELECT seo_slug, updated_at
+const listIndexedWikiPaths = `-- name: ListIndexedWikiPaths :many
+SELECT path, updated_at
 FROM wiki_entries
 WHERE owner_id = $1
-  AND seo_slug IS NOT NULL
+  AND path IS NOT NULL
   AND seo_indexed = true
-  AND visibility = 'public'
 ORDER BY updated_at DESC
 `
 
-type ListIndexedWikiSlugsRow struct {
-	SeoSlug   *string
+type ListIndexedWikiPathsRow struct {
+	Path      *string
 	UpdatedAt pgtype.Timestamptz
 }
 
-// sitemap.xml 用：取该 owner 所有 indexed + public 的 wiki landing slug。
-func (q *Queries) ListIndexedWikiSlugs(ctx context.Context, ownerID pgtype.UUID) ([]ListIndexedWikiSlugsRow, error) {
-	rows, err := q.db.Query(ctx, listIndexedWikiSlugs, ownerID)
+// sitemap.xml 用：取该 owner 所有 indexed wiki landing path。
+func (q *Queries) ListIndexedWikiPaths(ctx context.Context, ownerID pgtype.UUID) ([]ListIndexedWikiPathsRow, error) {
+	rows, err := q.db.Query(ctx, listIndexedWikiPaths, ownerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListIndexedWikiSlugsRow
+	var items []ListIndexedWikiPathsRow
 	for rows.Next() {
-		var i ListIndexedWikiSlugsRow
-		if err := rows.Scan(&i.SeoSlug, &i.UpdatedAt); err != nil {
+		var i ListIndexedWikiPathsRow
+		if err := rows.Scan(&i.Path, &i.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -101,30 +100,28 @@ func (q *Queries) ListIndexedWikiSlugs(ctx context.Context, ownerID pgtype.UUID)
 	return items, nil
 }
 
-const updateWikiSEO = `-- name: UpdateWikiSEO :one
+const updateWikiPath = `-- name: UpdateWikiPath :one
 UPDATE wiki_entries
-SET seo_slug        = $2,
+SET path            = $2,
     seo_description = $3,
     seo_indexed     = $4,
     updated_at      = now()
 WHERE id = $1
-RETURNING id, owner_id, parent_id, title, body, tags, visibility,
-          source_raw_ids, seo_slug, seo_description, seo_indexed,
-          created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
 `
 
-type UpdateWikiSEOParams struct {
+type UpdateWikiPathParams struct {
 	ID             pgtype.UUID
-	SeoSlug        *string
+	Path           *string
 	SeoDescription string
 	SeoIndexed     bool
 }
 
-// admin / MCP 设 wiki 的 seo_slug / seo_description / seo_indexed。
-func (q *Queries) UpdateWikiSEO(ctx context.Context, arg UpdateWikiSEOParams) (WikiEntry, error) {
-	row := q.db.QueryRow(ctx, updateWikiSEO,
+// admin / MCP 编辑 path + SEO 描述 + indexed 开关。
+func (q *Queries) UpdateWikiPath(ctx context.Context, arg UpdateWikiPathParams) (WikiEntry, error) {
+	row := q.db.QueryRow(ctx, updateWikiPath,
 		arg.ID,
-		arg.SeoSlug,
+		arg.Path,
 		arg.SeoDescription,
 		arg.SeoIndexed,
 	)
@@ -136,9 +133,9 @@ func (q *Queries) UpdateWikiSEO(ctx context.Context, arg UpdateWikiSEOParams) (W
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceRawIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,

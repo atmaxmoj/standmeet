@@ -19,12 +19,11 @@ import (
 // wiki 那次 owner 可能想换 title，这里直接复用原 wiki title 也行；owner 的
 // AI 客户端往往会重写一遍）。
 type PromoteToOutputInput struct {
-	OwnerID    string
-	WikiID     string
-	ParentID   *string
-	Title      string
-	Visibility string
-	Tags       []string
+	OwnerID  string
+	WikiID   string
+	ParentID *string
+	Title    string
+	Tags     []string
 }
 
 // PromoteWikiToOutput 把指定 wiki 提炼为新 output entry：读 wiki → create
@@ -44,7 +43,6 @@ func PromoteWikiToOutput(
 		ParentID:      in.ParentID,
 		Title:         in.Title,
 		Body:          wiki.Body,
-		Visibility:    normalizeVisibility(in.Visibility),
 		Tags:          mergeTags(wiki.Tags, in.Tags),
 		SourceWikiIDs: []string{wiki.ID},
 	})

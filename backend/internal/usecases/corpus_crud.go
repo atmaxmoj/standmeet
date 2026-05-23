@@ -1,7 +1,9 @@
 // corpus_crud.go —— admin UI 调的 corpus 三层 Update / Delete / Create wiki+output
 // 入口。raw 的 Update 走"改 body + tags + private"；wiki / output 的 Update
-// 改 title/body/tags/visibility/parent。Create wiki / output 是给 owner 在 admin
-// UI 起一条新条目（不从 raw promote）；source 字段为空。
+// 改 title/body/tags/parent/show_as_source。Create wiki / output 是给 owner 在
+// admin UI 起一条新条目（不从 raw promote）；source 字段为空。
+// retrieval-redesign：visibility 字段全部砍掉；path / show_as_source 落地
+// 在 SEORepo.UpdateWikiPath / UpdateOutputPath 和这里的 ShowAsSource 字段。
 
 package usecases
 
@@ -57,12 +59,11 @@ func ArchiveRaw(ctx context.Context, deps CorpusDeps, ownerID, rawID string) err
 
 // CreateWikiInput —— admin 直接起一条 wiki（不 promote）。SourceRawIDs 空。
 type CreateWikiInput struct {
-	OwnerID    string
-	ParentID   *string
-	Title      string
-	Body       string
-	Visibility string
-	Tags       []string
+	OwnerID  string
+	ParentID *string
+	Title    string
+	Body     string
+	Tags     []string
 }
 
 // CreateWiki 起一条新 wiki（admin UI"+new wiki"按钮的入口）。
@@ -73,12 +74,11 @@ func CreateWiki(
 		return domain.WikiEntry{}, ErrEmptyField
 	}
 	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
-		OwnerID:    in.OwnerID,
-		ParentID:   in.ParentID,
-		Title:      in.Title,
-		Body:       in.Body,
-		Visibility: normalizeVisibility(in.Visibility),
-		Tags:       in.Tags,
+		OwnerID:  in.OwnerID,
+		ParentID: in.ParentID,
+		Title:    in.Title,
+		Body:     in.Body,
+		Tags:     in.Tags,
 	})
 	if err != nil {
 		return domain.WikiEntry{}, fmt.Errorf("create wiki: %w", err)
@@ -88,13 +88,13 @@ func CreateWiki(
 
 // UpdateWikiInput —— admin 改 wiki 入参。
 type UpdateWikiInput struct {
-	OwnerID    string
-	ID         string
-	ParentID   *string
-	Title      string
-	Body       string
-	Visibility string
-	Tags       []string
+	OwnerID      string
+	ID           string
+	ParentID     *string
+	Title        string
+	Body         string
+	Tags         []string
+	ShowAsSource bool
 }
 
 // UpdateWiki 改 wiki 主字段。
@@ -107,7 +107,7 @@ func UpdateWiki(
 	wiki, err := deps.Wiki.Update(ctx, &postgres.UpdateWikiInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		Visibility: normalizeVisibility(in.Visibility),
+		ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
 		return domain.WikiEntry{}, fmt.Errorf("update wiki: %w", err)
@@ -116,7 +116,6 @@ func UpdateWiki(
 }
 
 // hasBlankCorpusField —— UpdateWiki / UpdateOutput 共用的"必填字段空"检查。
-// 提到 helper 让 caller cyclop ≤ 5（一个 || 4-项 = 复杂度 5）。
 func hasBlankCorpusField(vals ...string) bool {
 	return slices.Contains(vals, "")
 }
@@ -136,12 +135,11 @@ func DeleteWiki(ctx context.Context, deps CorpusDeps, ownerID, wikiID string) er
 
 // CreateOutputInput —— admin 直接起一条 output（不 promote）。SourceWikiIDs 空。
 type CreateOutputInput struct {
-	OwnerID    string
-	ParentID   *string
-	Title      string
-	Body       string
-	Visibility string
-	Tags       []string
+	OwnerID  string
+	ParentID *string
+	Title    string
+	Body     string
+	Tags     []string
 }
 
 // CreateOutput 起一条新 output（admin UI"+new output"按钮的入口）。
@@ -152,12 +150,11 @@ func CreateOutput(
 		return domain.OutputEntry{}, ErrEmptyField
 	}
 	out, err := deps.Output.Create(ctx, &postgres.CreateOutputInput{
-		OwnerID:    in.OwnerID,
-		ParentID:   in.ParentID,
-		Title:      in.Title,
-		Body:       in.Body,
-		Visibility: normalizeVisibility(in.Visibility),
-		Tags:       in.Tags,
+		OwnerID:  in.OwnerID,
+		ParentID: in.ParentID,
+		Title:    in.Title,
+		Body:     in.Body,
+		Tags:     in.Tags,
 	})
 	if err != nil {
 		return domain.OutputEntry{}, fmt.Errorf("create output: %w", err)
@@ -167,13 +164,13 @@ func CreateOutput(
 
 // UpdateOutputInput —— admin 改 output 入参。
 type UpdateOutputInput struct {
-	OwnerID    string
-	ID         string
-	ParentID   *string
-	Title      string
-	Body       string
-	Visibility string
-	Tags       []string
+	OwnerID      string
+	ID           string
+	ParentID     *string
+	Title        string
+	Body         string
+	Tags         []string
+	ShowAsSource bool
 }
 
 // UpdateOutput 改 output 主字段。
@@ -186,7 +183,7 @@ func UpdateOutput(
 	out, err := deps.Output.Update(ctx, &postgres.UpdateOutputInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		Visibility: normalizeVisibility(in.Visibility),
+		ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
 		return domain.OutputEntry{}, fmt.Errorf("update output: %w", err)

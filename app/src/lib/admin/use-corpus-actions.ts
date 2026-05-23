@@ -24,14 +24,13 @@ export interface CorpusEntryInput {
   title: string;
   body: string;
   tags?: string[];
-  visibility?: 'public' | 'on_request' | 'private';
   parent_id?: string;
+  show_as_source?: boolean;
 }
 
 export interface PromoteInput {
   title: string;
   tags?: string[];
-  visibility?: 'public' | 'on_request' | 'private';
   parent_id?: string;
 }
 
@@ -41,11 +40,11 @@ export interface WikiDetail {
   id: string;
   title: string;
   body: string;
-  visibility: 'public' | 'on_request' | 'private';
   tags: string[];
   source_raw_ids: string[];
   parent_id?: string | null;
-  seo_slug?: string | null;
+  path?: string | null;
+  show_as_source: boolean;
   seo_description: string;
   seo_indexed: boolean;
 }
@@ -54,17 +53,19 @@ export interface OutputDetail {
   id: string;
   title: string;
   body: string;
-  visibility: 'public' | 'on_request' | 'private';
   tags: string[];
   source_wiki_ids: string[];
   parent_id?: string | null;
-  seo_slug?: string | null;
+  path?: string | null;
+  show_as_source: boolean;
   seo_description: string;
   seo_indexed: boolean;
 }
 
-export interface SEOUpdateInput {
-  seo_slug: string | null;
+// PathUpdateInput —— PATCH /wiki/{id}/seo + /output/{id}/seo 入参。
+// 字段名重设：seo_slug → path。SEO description/indexed 继续在同一 endpoint。
+export interface PathUpdateInput {
+  path: string | null;
   seo_description: string;
   seo_indexed: boolean;
 }
@@ -82,13 +83,13 @@ export interface CorpusActionsHook {
   deleteWiki: (id: string) => Promise<boolean>;
   promoteWiki: (id: string, input: PromoteInput) => Promise<boolean>;
   fetchWikiDetail: (id: string) => Promise<WikiDetail | null>;
-  updateWikiSEO: (id: string, input: SEOUpdateInput) => Promise<boolean>;
+  updateWikiSEO: (id: string, input: PathUpdateInput) => Promise<boolean>;
   // output
   createOutput: (input: CorpusEntryInput) => Promise<boolean>;
   updateOutput: (id: string, input: CorpusEntryInput) => Promise<boolean>;
   deleteOutput: (id: string) => Promise<boolean>;
   fetchOutputDetail: (id: string) => Promise<OutputDetail | null>;
-  updateOutputSEO: (id: string, input: SEOUpdateInput) => Promise<boolean>;
+  updateOutputSEO: (id: string, input: PathUpdateInput) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -217,7 +218,7 @@ async function doPromoteWiki(id: string, input: PromoteInput): Promise<void> {
   outputStore.getState().reset();
 }
 
-async function doUpdateWikiSEO(id: string, input: SEOUpdateInput): Promise<void> {
+async function doUpdateWikiSEO(id: string, input: PathUpdateInput): Promise<void> {
   await adminAPI.patch(`/wiki/${id}/seo`, input);
   wikiStore.getState().reset();
 }
@@ -241,7 +242,7 @@ async function doDeleteOutput(id: string): Promise<void> {
   outputStore.getState().mutate((prev) => (prev ?? []).filter((o) => o.id !== id));
 }
 
-async function doUpdateOutputSEO(id: string, input: SEOUpdateInput): Promise<void> {
+async function doUpdateOutputSEO(id: string, input: PathUpdateInput): Promise<void> {
   await adminAPI.patch(`/output/${id}/seo`, input);
   outputStore.getState().reset();
 }

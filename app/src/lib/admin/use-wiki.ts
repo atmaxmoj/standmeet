@@ -11,12 +11,12 @@ import type { ResourceStatus } from '@/lib/state/status';
 export interface WikiSummary {
   id: string;
   title: string;
-  visibility: string;
   tags: string[];
   source_raw_ids: string[];
   created_at: string;
   parent_id?: string | null;
-  seo_slug?: string | null;
+  path?: string | null;
+  show_as_source: boolean;
   seo_indexed: boolean;
 }
 

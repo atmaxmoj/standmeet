@@ -142,12 +142,10 @@ func buildCodeSessionData(
 	code *domain.AccessCode, visitorName string,
 ) *session.VisitorSessionData {
 	return &session.VisitorSessionData{
-		OwnerID:       code.OwnerID,
-		Tier:          "code",
-		CodeID:        code.ID,
-		VisitorName:   visitorName,
-		IncludedTags:  code.IncludedTags,
-		ExcludedTags:  code.ExcludedTags,
-		VisibilityMax: "private", // code-tier 可读 private wiki（owner 通过 code scope 控制）
+		OwnerID:           code.OwnerID,
+		Tier:              "code",
+		CodeID:            code.ID,
+		VisitorName:       visitorName,
+		CorpusPermissions: code.CorpusPermissions,
 	}
 }

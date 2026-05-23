@@ -17,17 +17,9 @@ type Conversation struct {
 	BYOAIProvider *string
 	ID            string
 	OwnerID       string
-	Tier          string // 'code' | 'byoai'
+	Tier          string // 'code' | 'byoai' | 'public'
 	VisitorName   string
 	MessageCount  int32
-	HitPrivate    bool
-}
-
-// VisitorSessionScope —— 访客 session 可见 corpus 范围。
-type VisitorSessionScope struct {
-	VisibilityMax string // 'public' | 'on_request' | 'private'
-	IncludedTags  []string
-	ExcludedTags  []string
 }
 
 // Message —— conversation 内一条消息。

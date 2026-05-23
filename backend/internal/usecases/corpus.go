@@ -52,13 +52,15 @@ func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (domain.Raw
 }
 
 // PromoteInput 是 promote_to_wiki 入参。
+//
+// path / show_as_source 不在这层 —— MCP 工具层接 path 后调 PromoteToWiki
+// 再单独调 SEORepo.UpdateWikiPath / WikiRepo.Update 设置（多步写各自原子）。
 type PromoteInput struct {
-	OwnerID    string
-	RawID      string
-	ParentID   *string
-	Title      string
-	Visibility string
-	Tags       []string
+	OwnerID  string
+	RawID    string
+	ParentID *string
+	Title    string
+	Tags     []string
 }
 
 // PromoteToWiki 把指定 raw 提升为新 wiki entry：读原 raw → create wiki
@@ -78,7 +80,6 @@ func PromoteToWiki(
 		ParentID:     in.ParentID,
 		Title:        in.Title,
 		Body:         raw.Body,
-		Visibility:   normalizeVisibility(in.Visibility),
 		Tags:         mergeTags(raw.Tags, in.Tags),
 		SourceRawIDs: []string{raw.ID},
 	})
@@ -109,15 +110,6 @@ func loadRawForPromote(
 		return domain.RawEntry{}, fmt.Errorf("get raw: %w", err)
 	}
 	return raw, nil
-}
-
-func normalizeVisibility(v string) string {
-	switch v {
-	case "public", "on_request", "private":
-		return v
-	default:
-		return "public"
-	}
 }
 
 // mergeTags 把 raw.tags 和 promote 时指定的 extra tags 合并去重（顺序保留）。

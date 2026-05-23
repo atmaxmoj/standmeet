@@ -66,9 +66,9 @@ func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) 
 }
 
 const createWikiEntry = `-- name: CreateWikiEntry :one
-INSERT INTO wiki_entries (owner_id, parent_id, title, body, tags, visibility, source_raw_ids)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at
+INSERT INTO wiki_entries (owner_id, parent_id, title, body, tags, source_raw_ids)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
 `
 
 type CreateWikiEntryParams struct {
@@ -77,7 +77,6 @@ type CreateWikiEntryParams struct {
 	Title        string
 	Body         string
 	Tags         []string
-	Visibility   string
 	SourceRawIds []pgtype.UUID
 }
 
@@ -88,7 +87,6 @@ func (q *Queries) CreateWikiEntry(ctx context.Context, arg CreateWikiEntryParams
 		arg.Title,
 		arg.Body,
 		arg.Tags,
-		arg.Visibility,
 		arg.SourceRawIds,
 	)
 	var i WikiEntry
@@ -99,9 +97,9 @@ func (q *Queries) CreateWikiEntry(ctx context.Context, arg CreateWikiEntryParams
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceRawIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,
@@ -152,7 +150,7 @@ func (q *Queries) GetRawByID(ctx context.Context, arg GetRawByIDParams) (RawEntr
 }
 
 const getWikiByID = `-- name: GetWikiByID :one
-SELECT id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries WHERE id = $1 AND owner_id = $2
 `
 
 type GetWikiByIDParams struct {
@@ -170,9 +168,9 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceRawIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,
@@ -182,7 +180,7 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 }
 
 const getWikiTitlesByIDs = `-- name: GetWikiTitlesByIDs :many
-SELECT id, title FROM wiki_entries
+SELECT id, title, path FROM wiki_entries
 WHERE owner_id = $1 AND id = ANY($2::uuid[])
 `
 
@@ -194,9 +192,11 @@ type GetWikiTitlesByIDsParams struct {
 type GetWikiTitlesByIDsRow struct {
 	ID    pgtype.UUID
 	Title string
+	Path  *string
 }
 
-// transcript hydration 用：把 cited_wiki_ids 批量解到 id+title。
+// transcript hydration 用：把 cited_wiki_ids 批量解到 id+title+path。
+// path 让前端在 cited footer 直接渲染 "from: <path>" 不必二次 fetch。
 func (q *Queries) GetWikiTitlesByIDs(ctx context.Context, arg GetWikiTitlesByIDsParams) ([]GetWikiTitlesByIDsRow, error) {
 	rows, err := q.db.Query(ctx, getWikiTitlesByIDs, arg.OwnerID, arg.Column2)
 	if err != nil {
@@ -206,7 +206,7 @@ func (q *Queries) GetWikiTitlesByIDs(ctx context.Context, arg GetWikiTitlesByIDs
 	var items []GetWikiTitlesByIDsRow
 	for rows.Next() {
 		var i GetWikiTitlesByIDsRow
-		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+		if err := rows.Scan(&i.ID, &i.Title, &i.Path); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -261,7 +261,7 @@ func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) 
 }
 
 const listWikiByOwner = `-- name: ListWikiByOwner :many
-SELECT id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries
+SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -288,9 +288,9 @@ func (q *Queries) ListWikiByOwner(ctx context.Context, arg ListWikiByOwnerParams
 			&i.Title,
 			&i.Body,
 			&i.Tags,
-			&i.Visibility,
 			&i.SourceRawIds,
-			&i.SeoSlug,
+			&i.Path,
+			&i.ShowAsSource,
 			&i.SeoDescription,
 			&i.SeoIndexed,
 			&i.CreatedAt,
@@ -394,23 +394,24 @@ func (q *Queries) UpdateRawBody(ctx context.Context, arg UpdateRawBodyParams) (R
 
 const updateWikiBody = `-- name: UpdateWikiBody :one
 UPDATE wiki_entries
-SET title = $3, body = $4, tags = $5, visibility = $6, parent_id = $7, updated_at = now()
+SET title = $3, body = $4, tags = $5, parent_id = $6, show_as_source = $7,
+    updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
 `
 
 type UpdateWikiBodyParams struct {
-	ID         pgtype.UUID
-	OwnerID    pgtype.UUID
-	Title      string
-	Body       string
-	Tags       []string
-	Visibility string
-	ParentID   pgtype.UUID
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	Title        string
+	Body         string
+	Tags         []string
+	ParentID     pgtype.UUID
+	ShowAsSource bool
 }
 
-// admin "edit wiki" 入口：改 title/body/tags/visibility/parent_id。SEO 字段
-// 由 UpdateWikiSEO 单独负责（前端 admin 拆 SEO 模块）。
+// admin "edit wiki" 入口：改 title/body/tags/parent_id/show_as_source。
+// path / seo_description / seo_indexed 由 UpdateWikiSEO 单独负责。
 func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) (WikiEntry, error) {
 	row := q.db.QueryRow(ctx, updateWikiBody,
 		arg.ID,
@@ -418,8 +419,8 @@ func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) 
 		arg.Title,
 		arg.Body,
 		arg.Tags,
-		arg.Visibility,
 		arg.ParentID,
+		arg.ShowAsSource,
 	)
 	var i WikiEntry
 	err := row.Scan(
@@ -429,9 +430,9 @@ func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) 
 		&i.Title,
 		&i.Body,
 		&i.Tags,
-		&i.Visibility,
 		&i.SourceRawIds,
-		&i.SeoSlug,
+		&i.Path,
+		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
 		&i.CreatedAt,

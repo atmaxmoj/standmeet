@@ -26,11 +26,7 @@ export function VisitorPreviewModal({ code, onClose }: Props) {
       <div className="px-7 py-8 space-y-6 max-h-[75vh] overflow-y-auto">
         <Greeting label={code.label} />
         <SuggestedList items={code.suggested_questions ?? []} />
-        <ScopeNote
-          included={code.included_tags}
-          excluded={code.excluded_tags}
-          code={code.code}
-        />
+        <ScopeNote perms={code.corpus_permissions} code={code.code} />
         <SelfTest code={code} />
       </div>
     </ModalShell>
@@ -74,25 +70,31 @@ function EmptySuggested() {
   );
 }
 
+interface PathPerm { action: 'allow' | 'deny'; path_pattern: string }
+
 function ScopeNote({
-  included, excluded, code,
-}: { included: readonly string[]; excluded: readonly string[]; code: string }) {
+  perms, code,
+}: { perms: readonly PathPerm[]; code: string }) {
   return (
     <div className="pt-4 border-t border-(--color-rule)/70 mono text-[10px] tracking-[0.12em] text-(--color-faint) leading-[1.7]">
-      <ScopeLine label="this code gives access to" tags={included} tone="muted" />
-      <ScopeLine label="excluded" tags={excluded} tone="accent" />
+      <PermsLine perms={perms} />
       <div>code · {code}</div>
     </div>
   );
 }
 
-function ScopeLine({
-  label, tags, tone,
-}: { label: string; tags: readonly string[]; tone: 'muted' | 'accent' }) {
-  const cls = tone === 'accent' ? 'text-(--color-accent)' : 'text-(--color-muted)';
-  return tags.length > 0
-    ? <div>{label}: <span className={cls}>{tags.join(' · ')}</span></div>
-    : null;
+function PermsLine({ perms }: { perms: readonly PathPerm[] }) {
+  return perms.length === 0
+    ? <div>this code gives access to <span className="text-(--color-muted)">all paths</span></div>
+    : (
+      <div>
+        {perms.map((p, i) => (
+          <div key={i}>
+            {p.action} <span className={p.action === 'allow' ? 'text-(--color-muted)' : 'text-(--color-accent)'}>{p.path_pattern}</span>
+          </div>
+        ))}
+      </div>
+    );
 }
 
 function SelfTest({ code }: { code: CodeView }) {

@@ -1,5 +1,9 @@
 // use-corpus-form —— CorpusEntryForm 的状态机。把 useState / useEffect /
 // 字段计算从 .tsx 抽到 lib 让 presentation 层守 cyclo ≤ 3 + no-if 规则。
+//
+// retrieval-redesign 后 visibility 字段砍掉，准入靠 access_codes.corpus_permissions
+// (path-glob ACL)。show_as_source 通过 admin SEO/path edit 路径独立设置，不在
+// 主 form 里。
 
 'use client';
 
@@ -9,16 +13,12 @@ import type {
   CorpusEntryInput, PromoteInput,
 } from '@/lib/admin/use-corpus-actions';
 
-export type Visibility = 'public' | 'on_request' | 'private';
-
 export interface CorpusFormHook {
   title: string;
   body: string;
-  visibility: Visibility;
   tagsRaw: string;
   setTitle: (v: string) => void;
   setBody: (v: string) => void;
-  setVisibility: (v: Visibility) => void;
   setTagsRaw: (v: string) => void;
   // 派生：当前不能 submit 的原因 ('' = 可以)
   submitDisabledReason: (busy: boolean, bodyVisible: boolean) => boolean;
@@ -30,20 +30,18 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
   const seed = seedFromInitial(initial);
   const [title, setTitle] = useState(seed.title);
   const [body, setBody] = useState(seed.body);
-  const [visibility, setVisibility] = useState<Visibility>(seed.visibility);
   const [tagsRaw, setTagsRaw] = useState(seed.tagsRaw);
   const key = JSON.stringify(initial ?? {});
   useEffect(() => {
     const next = seedFromInitial(initial);
     setTitle(next.title);
     setBody(next.body);
-    setVisibility(next.visibility);
     setTagsRaw(next.tagsRaw);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   return {
-    title, body, visibility, tagsRaw,
-    setTitle, setBody, setVisibility, setTagsRaw,
+    title, body, tagsRaw,
+    setTitle, setBody, setTagsRaw,
     submitDisabledReason: useCallback(
       (busy: boolean, bodyVisible: boolean) =>
         submitDisabled(busy, bodyVisible, title, body),
@@ -53,14 +51,13 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
       (bodyVisible: boolean) => ({
         title: title.trim(),
         body: bodyVisible ? body : '',
-        visibility,
         tags: parseTags(tagsRaw),
       }),
-      [title, body, visibility, tagsRaw],
+      [title, body, tagsRaw],
     ),
     toPromoteInput: useCallback(
-      () => ({ title: title.trim(), visibility, tags: parseTags(tagsRaw) }),
-      [title, visibility, tagsRaw],
+      () => ({ title: title.trim(), tags: parseTags(tagsRaw) }),
+      [title, tagsRaw],
     ),
   };
 }
@@ -68,7 +65,6 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
 interface Seed {
   title: string;
   body: string;
-  visibility: Visibility;
   tagsRaw: string;
 }
 
@@ -76,7 +72,6 @@ function seedFromInitial(initial?: Partial<CorpusEntryInput>): Seed {
   return {
     title: initial?.title ?? '',
     body: initial?.body ?? '',
-    visibility: initial?.visibility ?? 'public',
     tagsRaw: (initial?.tags ?? []).join(', '),
   };
 }

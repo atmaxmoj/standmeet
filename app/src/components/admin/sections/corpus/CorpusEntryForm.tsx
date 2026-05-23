@@ -1,10 +1,11 @@
 // CorpusEntryForm —— wiki / output 通用的 create / edit 表单。
-// 字段：title / body / visibility / tags（逗号分隔）。状态机全部在
+// 字段：title / body / tags（逗号分隔）。状态机全部在
 // lib/admin/use-corpus-form.ts，本文件只做 presentation。
+// retrieval-redesign 后 visibility 字段砍掉，access ACL 走 access_codes.corpus_permissions。
 
 'use client';
 
-import { useCorpusForm, type CorpusFormHook, type Visibility } from '@/lib/admin/use-corpus-form';
+import { useCorpusForm, type CorpusFormHook } from '@/lib/admin/use-corpus-form';
 import type { CorpusEntryInput, PromoteInput } from '@/lib/admin/use-corpus-actions';
 
 export interface CorpusEntryFormProps {
@@ -27,7 +28,6 @@ export function CorpusEntryForm(props: CorpusEntryFormProps) {
     >
       <TitleField form={form} testid={props.testidPrefix} />
       {bodyVisible ? <BodyField form={form} testid={props.testidPrefix} /> : null}
-      <VisibilityField form={form} testid={props.testidPrefix} />
       <TagsField form={form} testid={props.testidPrefix} />
       <FormActions
         form={form} busy={props.busy} bodyVisible={bodyVisible}
@@ -56,7 +56,7 @@ export function PromoteForm(props: PromoteFormProps) {
       testidPrefix={props.testidPrefix}
       bodyVisible={false}
       onSubmit={(input) => props.onSubmit({
-        title: input.title, visibility: input.visibility, tags: input.tags,
+        title: input.title, tags: input.tags,
       })}
       onCancel={props.onCancel}
     />
@@ -97,26 +97,6 @@ function BodyField({ form, testid }: { form: CorpusFormHook; testid: string }) {
         data-testid={`${testid}-body`}
         className="w-full bg-transparent border border-(--color-rule) p-2 reading-tight text-[15px]"
       />
-    </label>
-  );
-}
-
-function VisibilityField({ form, testid }: { form: CorpusFormHook; testid: string }) {
-  return (
-    <label className="block">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        visibility
-      </span>
-      <select
-        value={form.visibility}
-        onChange={(e) => form.setVisibility(e.target.value as Visibility)}
-        data-testid={`${testid}-visibility`}
-        className="bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
-      >
-        <option value="public">public</option>
-        <option value="on_request">on_request</option>
-        <option value="private">private</option>
-      </select>
     </label>
   );
 }

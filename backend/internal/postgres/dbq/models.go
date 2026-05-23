@@ -14,8 +14,7 @@ type AccessCode struct {
 	Code                 string
 	Label                string
 	Purpose              string
-	IncludedTags         []string
-	ExcludedTags         []string
+	CorpusPermissions    []byte
 	SuggestedQuestions   []byte
 	ExpiresAt            pgtype.Timestamptz
 	Status               string
@@ -76,7 +75,6 @@ type Conversation struct {
 	StartedAt     pgtype.Timestamptz
 	LastAt        pgtype.Timestamptz
 	MessageCount  int32
-	HitPrivate    bool
 }
 
 type CustomPage struct {
@@ -166,9 +164,9 @@ type OutputEntry struct {
 	Title          string
 	Body           string
 	Tags           []string
-	Visibility     string
 	SourceWikiIds  []pgtype.UUID
-	SeoSlug        *string
+	Path           *string
+	ShowAsSource   bool
 	SeoDescription string
 	SeoIndexed     bool
 	CreatedAt      pgtype.Timestamptz
@@ -242,9 +240,9 @@ type WikiEntry struct {
 	Title          string
 	Body           string
 	Tags           []string
-	Visibility     string
 	SourceRawIds   []pgtype.UUID
-	SeoSlug        *string
+	Path           *string
+	ShowAsSource   bool
 	SeoDescription string
 	SeoIndexed     bool
 	CreatedAt      pgtype.Timestamptz

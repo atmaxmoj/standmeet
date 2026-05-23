@@ -127,6 +127,10 @@ services:
       - POSTGRES_PASSWORD=standmeet_dev
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # schema.sql 是唯一权威：fresh volume 首次启动时 postgres 自动应用。
+      # schema 变化的姿势是 `make clean && make dev` 重建 volume —— 这是
+      # 全新软件，没有任何 production 数据需要 migrate 的负担。
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
       - "5432:5432"
     healthcheck:

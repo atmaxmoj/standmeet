@@ -90,10 +90,9 @@ func (h *Handlers) archiveRaw() http.HandlerFunc {
 }
 
 type promoteRawBody struct {
-	ParentID   string   `json:"parent_id"`
-	Title      string   `json:"title"`
-	Visibility string   `json:"visibility"`
-	Tags       []string `json:"tags"`
+	ParentID string   `json:"parent_id"`
+	Title    string   `json:"title"`
+	Tags     []string `json:"tags"`
 }
 
 func (h *Handlers) promoteRaw() http.HandlerFunc {
@@ -104,12 +103,11 @@ func (h *Handlers) promoteRaw() http.HandlerFunc {
 			return
 		}
 		wiki, err := usecases.PromoteToWiki(r.Context(), h.Corpus.Corpus, &usecases.PromoteInput{
-			OwnerID:    middleware.OwnerIDFrom(r.Context()),
-			RawID:      chi.URLParam(r, "id"),
-			ParentID:   optionalString(body.ParentID),
-			Title:      body.Title,
-			Visibility: body.Visibility,
-			Tags:       body.Tags,
+			OwnerID:  middleware.OwnerIDFrom(r.Context()),
+			RawID:    chi.URLParam(r, "id"),
+			ParentID: optionalString(body.ParentID),
+			Title:    body.Title,
+			Tags:     body.Tags,
 		})
 		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki), err, "promote raw")
 	}
@@ -118,11 +116,11 @@ func (h *Handlers) promoteRaw() http.HandlerFunc {
 // ─── wiki ───────────────────────────────────────────────────
 
 type wikiWriteBody struct {
-	ParentID   string   `json:"parent_id"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Visibility string   `json:"visibility"`
-	Tags       []string `json:"tags"`
+	ParentID     string   `json:"parent_id"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body"`
+	Tags         []string `json:"tags"`
+	ShowAsSource bool     `json:"show_as_source"`
 }
 
 func (h *Handlers) createWiki() http.HandlerFunc {
@@ -136,7 +134,7 @@ func (h *Handlers) createWiki() http.HandlerFunc {
 			OwnerID:  middleware.OwnerIDFrom(r.Context()),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
-			Visibility: body.Visibility, Tags: body.Tags,
+			Tags: body.Tags,
 		})
 		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki), err, "create wiki")
 	}
@@ -153,7 +151,7 @@ func (h *Handlers) updateWiki() http.HandlerFunc {
 			OwnerID: middleware.OwnerIDFrom(r.Context()), ID: chi.URLParam(r, "id"),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
-			Visibility: body.Visibility, Tags: body.Tags,
+			Tags: body.Tags, ShowAsSource: body.ShowAsSource,
 		})
 		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki), err, "update wiki")
 	}
@@ -170,10 +168,9 @@ func (h *Handlers) deleteWiki() http.HandlerFunc {
 }
 
 type promoteWikiBody struct {
-	ParentID   string   `json:"parent_id"`
-	Title      string   `json:"title"`
-	Visibility string   `json:"visibility"`
-	Tags       []string `json:"tags"`
+	ParentID string   `json:"parent_id"`
+	Title    string   `json:"title"`
+	Tags     []string `json:"tags"`
 }
 
 func (h *Handlers) promoteWiki() http.HandlerFunc {
@@ -185,12 +182,11 @@ func (h *Handlers) promoteWiki() http.HandlerFunc {
 		}
 		out, err := usecases.PromoteWikiToOutput(
 			r.Context(), h.Corpus.Corpus, &usecases.PromoteToOutputInput{
-				OwnerID:    middleware.OwnerIDFrom(r.Context()),
-				WikiID:     chi.URLParam(r, "id"),
-				ParentID:   optionalString(body.ParentID),
-				Title:      body.Title,
-				Visibility: body.Visibility,
-				Tags:       body.Tags,
+				OwnerID:  middleware.OwnerIDFrom(r.Context()),
+				WikiID:   chi.URLParam(r, "id"),
+				ParentID: optionalString(body.ParentID),
+				Title:    body.Title,
+				Tags:     body.Tags,
 			})
 		writeCorpusResult(h.Log, w, outputItemFromDomain(&out), err, "promote wiki")
 	}
@@ -199,11 +195,11 @@ func (h *Handlers) promoteWiki() http.HandlerFunc {
 // ─── output ─────────────────────────────────────────────────
 
 type outputWriteBody struct {
-	ParentID   string   `json:"parent_id"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Visibility string   `json:"visibility"`
-	Tags       []string `json:"tags"`
+	ParentID     string   `json:"parent_id"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body"`
+	Tags         []string `json:"tags"`
+	ShowAsSource bool     `json:"show_as_source"`
 }
 
 func (h *Handlers) createOutput() http.HandlerFunc {
@@ -217,7 +213,7 @@ func (h *Handlers) createOutput() http.HandlerFunc {
 			OwnerID:  middleware.OwnerIDFrom(r.Context()),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
-			Visibility: body.Visibility, Tags: body.Tags,
+			Tags: body.Tags,
 		})
 		writeCorpusResult(h.Log, w, outputItemFromDomain(&out), err, "create output")
 	}
@@ -234,7 +230,7 @@ func (h *Handlers) updateOutput() http.HandlerFunc {
 			OwnerID: middleware.OwnerIDFrom(r.Context()), ID: chi.URLParam(r, "id"),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
-			Visibility: body.Visibility, Tags: body.Tags,
+			Tags: body.Tags, ShowAsSource: body.ShowAsSource,
 		})
 		writeCorpusResult(h.Log, w, outputItemFromDomain(&out), err, "update output")
 	}

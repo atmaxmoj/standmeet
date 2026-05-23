@@ -14,6 +14,8 @@ import (
 //   - MaxSessionsPerMember nil → 不限；几个 session 数（"5 轮面试" 就 5）。
 //   - MaxTurnsPerSession   nil → 不限；单 session 内 visitor turn 上限。
 //   - Status 'active' / 'revoked'（过期由 ExpiresAt 计算，不写状态字段）。
+//   - CorpusPermissions path-glob ACL；空列表 = 允许全部 (无 ACL)；非空时
+//     first-match-wins by order ascending，默认 deny。
 type AccessCode struct {
 	CreatedAt            time.Time
 	ExpiresAt            *time.Time
@@ -25,9 +27,17 @@ type AccessCode struct {
 	Label                string
 	Purpose              string
 	Status               string
-	IncludedTags         []string
-	ExcludedTags         []string
+	CorpusPermissions    []PathPermission
 	SuggestedQuestions   []string
+}
+
+// PathPermission —— retrieval ACL 单元。
+// Action: "allow" | "deny"；Pattern: glob (`*` 不跨 `/`，`**` 跨)；Order
+// 升序匹配。规则源自 legacy iam/path_matcher.py + gateway/runtime/mcp-tools.ts。
+type PathPermission struct {
+	Action      string `json:"action"`
+	PathPattern string `json:"path_pattern"`
+	Order       int    `json:"order,omitempty"`
 }
 
 // CodeMember —— 一个 access code 下的一个具名访客（AccessCode 聚合子实体）。

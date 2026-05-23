@@ -125,10 +125,9 @@ func loadDraftForCommit(
 func insertAccessCode(
 	ctx context.Context, q *dbq.Queries, in *CommitInput, ownerUUID pgtype.UUID,
 ) (domain.AccessCode, error) {
-	emptyTags := []string{}
-	emptyQs, jerr := json.Marshal([]string{})
+	emptyJSON, jerr := json.Marshal([]any{})
 	if jerr != nil {
-		return domain.AccessCode{}, fmt.Errorf("marshal empty suggested questions: %w", jerr)
+		return domain.AccessCode{}, fmt.Errorf("marshal empty jsonb: %w", jerr)
 	}
 	expires := pgtype.Timestamptz{}
 	if in.CodeExpiresAt != nil {
@@ -139,9 +138,8 @@ func insertAccessCode(
 		Code:                 in.CodePlaintext,
 		Label:                in.CodeLabel,
 		Purpose:              in.CodePurpose,
-		IncludedTags:         emptyTags,
-		ExcludedTags:         emptyTags,
-		SuggestedQuestions:   emptyQs,
+		CorpusPermissions:    emptyJSON,
+		SuggestedQuestions:   emptyJSON,
 		ExpiresAt:            expires,
 		MaxSessionsPerMember: in.MaxSessionsPerMember,
 		MaxTurnsPerSession:   in.MaxTurnsPerSession,

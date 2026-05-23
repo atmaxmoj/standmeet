@@ -1,10 +1,8 @@
 // CreateCodeFields —— CodeCreateModal 的字段块。拆出来才不踩 70-line 上限。
-
-import { Chip } from '@/components/admin/atoms/Chip';
+// retrieval-redesign 后：tags scope 字段砍掉，corpus_permissions 走 JSON
+// textarea (简单 follow-up 升级成可视化编辑器)。
 
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
-
-const SUGGESTED_TAGS = ['thinking', 'work', 'lucerna', 'private', 'fundraising', 'side-projects'];
 
 type Props = { form: CodeFormHook };
 type EditingProps = { form: CodeFormHook; editing: boolean };
@@ -26,8 +24,7 @@ function CoreFieldsSlot({ form, editing }: EditingProps) {
 function NonQuotaSlot({ form, editing }: EditingProps) {
   return editing ? null : (
     <>
-      <TagsField form={form} />
-      <ScopeField form={form} />
+      <PermissionsField form={form} />
       <QuestionsField form={form} />
     </>
   );
@@ -137,59 +134,25 @@ function QuotaInput({
   );
 }
 
-// `code-tags` 字段保留以兼容 e2e。值经过 push-comma 触发 toggleInclude。
-function TagsField({ form }: Props) {
+// PermissionsField —— path-glob ACL (corpus_permissions) JSON 编辑器。
+// 空 = 允许全部 (legacy 兼容)。owner 写 `[{action:"deny",path_pattern:"personal/**",order:10}]`
+// 那种 array 直接落库。可视化编辑器 follow-up。
+function PermissionsField({ form }: Props) {
   return (
     <label className="block">
-      <FieldKicker text="included_tags · comma-separated" />
-      <input
-        type="text"
-        data-testid="code-tags"
-        value={form.values.scope.join(', ')}
-        onChange={(e) => syncScope(e.target.value, form)}
-        placeholder="intro, work"
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[14px]"
+      <FieldKicker text="corpus_permissions · JSON array (empty = unrestricted)" />
+      <textarea
+        rows={6}
+        data-testid="code-permissions"
+        value={form.values.permissionsRaw}
+        onChange={(e) => form.setPermissionsRaw(e.target.value)}
+        spellCheck={false}
+        placeholder='[{"action":"deny","path_pattern":"personal/**","order":10},
+ {"action":"allow","path_pattern":"**","order":100}]'
+        className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) p-2 mono text-[13px]"
       />
     </label>
   );
-}
-
-function syncScope(raw: string, form: CodeFormHook): void {
-  const tokens = raw.split(',').map((t) => t.trim()).filter(Boolean);
-  const current = new Set(form.values.scope);
-  const next = new Set(tokens);
-  current.forEach((t) => next.has(t) || form.toggleInclude(t));
-  next.forEach((t) => current.has(t) || form.toggleInclude(t));
-}
-
-function ScopeField({ form }: Props) {
-  return (
-    <div>
-      <FieldKicker text="suggested scope · click to include / exclude" />
-      <div className="flex flex-wrap gap-1.5">
-        {SUGGESTED_TAGS.map((t) => (
-          <TagToggle key={t} tag={t} form={form} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TagToggle({ tag, form }: { tag: string; form: CodeFormHook }) {
-  const inc = form.values.scope.includes(tag);
-  const exc = form.values.excluded.includes(tag);
-  const tone = exc ? 'private' : 'neutral';
-  const onClick = () => (inc ? form.toggleExclude(tag) : form.toggleInclude(tag));
-  return (
-    <Chip tone={tone} active={inc} onClick={onClick}>
-      <TagToggleLabel inc={inc} exc={exc} tag={tag} />
-    </Chip>
-  );
-}
-
-function TagToggleLabel({ inc, exc, tag }: { inc: boolean; exc: boolean; tag: string }) {
-  const prefix = inc ? '✓ ' : exc ? '× ' : '';
-  return <>{prefix}{tag}</>;
 }
 
 function QuestionsField({ form }: Props) {

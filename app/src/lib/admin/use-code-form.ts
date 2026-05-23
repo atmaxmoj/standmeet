@@ -1,24 +1,26 @@
 // use-code-form —— CodeCreateForm / CodeCreateModal 共用的状态。
-// scope / excluded 是互斥的 tag 集合。suggested questions 是 string[]。
+//
+// retrieval-redesign 后：tag-based scope/excluded 改成 corpus_permissions
+// (path-glob ACL)。permissionsRaw 是一行一条 JSON-shape 文本，owner 直接编辑
+// (admin UI 简单可视化 follow-up)。
 
 import { useCallback, useState } from 'react';
 
-import type { CodeView, CreateCodeInput } from '@/lib/admin/use-codes';
+import type { CodeView, CreateCodeInput, PathPermission } from '@/lib/admin/use-codes';
 
 export interface CodeFormState {
   code: string;
   label: string;
   purpose: string;
-  scope: string[];
-  excluded: string[];
+  permissionsRaw: string; // JSON array of PathPermission, 一行一条人类可读
   suggested: string[];
-  maxSessions: string; // raw input — '5'，空字符串等于 unlimited
+  maxSessions: string;
   maxTurns: string;
 }
 
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
-  scope: [], excluded: [], suggested: ['', ''],
+  permissionsRaw: '', suggested: ['', ''],
   maxSessions: '', maxTurns: '',
 };
 
@@ -29,8 +31,7 @@ export interface CodeFormHook {
   setPurpose: (v: string) => void;
   setMaxSessions: (v: string) => void;
   setMaxTurns: (v: string) => void;
-  toggleInclude: (t: string) => void;
-  toggleExclude: (t: string) => void;
+  setPermissionsRaw: (v: string) => void;
   updateQ: (i: number, v: string) => void;
   addQ: () => void;
   removeQ: (i: number) => void;
@@ -50,14 +51,9 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const setMaxTurns = useCallback(
     (maxTurns: string) => setValues((v) => ({ ...v, maxTurns })), [],
   );
-
-  const toggleInclude = useCallback((t: string) => {
-    setValues((v) => moveToScope(v, t));
-  }, []);
-
-  const toggleExclude = useCallback((t: string) => {
-    setValues((v) => moveToExcluded(v, t));
-  }, []);
+  const setPermissionsRaw = useCallback(
+    (permissionsRaw: string) => setValues((v) => ({ ...v, permissionsRaw })), [],
+  );
 
   const updateQ = useCallback((i: number, txt: string) => {
     setValues((v) => ({ ...v, suggested: v.suggested.map((q, j) => j === i ? txt : q) }));
@@ -73,7 +69,7 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
 
   return {
     values, setCode, setLabel, setPurpose, setMaxSessions, setMaxTurns,
-    toggleInclude, toggleExclude, updateQ, addQ, removeQ, reset, toInput,
+    setPermissionsRaw, updateQ, addQ, removeQ, reset, toInput,
   };
 }
 
@@ -82,8 +78,7 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     code:    initial?.code ?? '',
     label:   initial?.label ?? '',
     purpose: initial?.purpose ?? '',
-    scope:    [...(initial?.included_tags ?? [])],
-    excluded: [...(initial?.excluded_tags ?? [])],
+    permissionsRaw: stringifyPermissions(initial?.corpus_permissions ?? []),
     suggested: initial?.suggested_questions?.length
       ? [...initial.suggested_questions]
       : ['', ''],
@@ -92,26 +87,24 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
   };
 }
 
+function stringifyPermissions(perms: PathPermission[]): string {
+  if (perms.length === 0) return '';
+  return JSON.stringify(perms, null, 2);
+}
+
+function parsePermissions(raw: string): PathPermission[] {
+  const trimmed = raw.trim();
+  if (trimmed === '') return [];
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return Array.isArray(parsed) ? parsed as PathPermission[] : [];
+  } catch {
+    return [];
+  }
+}
+
 function numOrEmpty(n: number | null | undefined): string {
   return typeof n === 'number' && n > 0 ? String(n) : '';
-}
-
-function moveToScope(v: CodeFormState, t: string): CodeFormState {
-  const inScope = v.scope.includes(t);
-  return {
-    ...v,
-    scope: inScope ? v.scope.filter((x) => x !== t) : [...v.scope, t],
-    excluded: v.excluded.filter((x) => x !== t),
-  };
-}
-
-function moveToExcluded(v: CodeFormState, t: string): CodeFormState {
-  const inExc = v.excluded.includes(t);
-  return {
-    ...v,
-    excluded: inExc ? v.excluded.filter((x) => x !== t) : [...v.excluded, t],
-    scope: v.scope.filter((x) => x !== t),
-  };
 }
 
 function buildInput(v: CodeFormState): CreateCodeInput {
@@ -119,8 +112,7 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     code: v.code.trim(),
     label: v.label.trim(),
     purpose: v.purpose.trim(),
-    included_tags: v.scope.filter(Boolean),
-    excluded_tags: v.excluded.filter(Boolean),
+    corpus_permissions: parsePermissions(v.permissionsRaw),
     suggested_questions: v.suggested.map((q) => q.trim()).filter(Boolean),
     max_sessions_per_member: parseQuota(v.maxSessions),
     max_turns_per_session: parseQuota(v.maxTurns),

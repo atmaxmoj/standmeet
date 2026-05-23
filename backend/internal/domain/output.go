@@ -12,20 +12,21 @@ import (
 )
 
 // OutputEntry —— output_entries 行的领域值对象。结构跟 WikiEntry 严格对齐，
-// 差别只在 SourceWikiIDs vs SourceRawIDs（语义清晰）。
+// 差别只在 SourceWikiIDs vs SourceRawIDs（语义清晰）。retrieval ACL + landing
+// 复用 Path / ShowAsSource 同一组字段——同 wiki。
 type OutputEntry struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	ParentID       *string
-	SEOSlug        *string
+	Path           *string
 	ID             string
 	OwnerID        string
 	Title          string
 	Body           string
-	Visibility     string // 'public' | 'on_request' | 'private'
 	SEODescription string
 	Tags           []string
 	SourceWikiIDs  []string
+	ShowAsSource   bool
 	SEOIndexed     bool
 }
 

@@ -74,8 +74,6 @@ export interface OutputLandingView {
 export interface PublicSessionResponse {
   readonly session_token: string;
   readonly conversation_id: string;
-  readonly included_tags: readonly string[];
-  readonly excluded_tags: readonly string[];
 }
 
 export type SSETokenEvent = { readonly kind: 'token'; readonly text: string };

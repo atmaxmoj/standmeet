@@ -85,9 +85,10 @@ deps:
     anyVendorDeps: true
 
   # Session 管理 setup token、login session、API token。
-  # 不 import 任何 internal 包（用 narrow interface 注入 DB writer）。
+  # domain 是单向值对象（PathPermission 等）—— session 内置入参/出参字段，
+  # 不耦合业务逻辑。其他 internal 包仍走 narrow interface 注入。
   session:
-    mayDependOn: []
+    mayDependOn: [domain]
     anyVendorDeps: true
 
   config:

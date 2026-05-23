@@ -72,11 +72,10 @@ func buildPromoteToOutputInput(
 	req *mcpgo.CallToolRequest, ownerID, wikiID, title string,
 ) *usecases.PromoteToOutputInput {
 	in := &usecases.PromoteToOutputInput{
-		OwnerID:    ownerID,
-		WikiID:     wikiID,
-		Title:      title,
-		Visibility: req.GetString("visibility", "public"),
-		Tags:       req.GetStringSlice("tags", nil),
+		OwnerID: ownerID,
+		WikiID:  wikiID,
+		Title:   title,
+		Tags:    req.GetStringSlice("tags", nil),
 	}
 	if parent := req.GetString("parent_id", ""); parent != "" {
 		in.ParentID = &parent
@@ -140,10 +139,10 @@ func (p outputIDPayload) marshalJSON() ([]byte, error) {
 
 type outputView struct {
 	CreatedAt     string   `json:"created_at"`
+	Path          *string  `json:"path"`
 	ID            string   `json:"id"`
 	Title         string   `json:"title"`
 	Body          string   `json:"body"`
-	Visibility    string   `json:"visibility"`
 	Tags          []string `json:"tags"`
 	SourceWikiIDs []string `json:"source_wiki_ids"`
 }
@@ -155,7 +154,7 @@ func outputListView(rows []domain.OutputEntry) outputListPayload {
 			ID:            rows[i].ID,
 			Title:         rows[i].Title,
 			Body:          rows[i].Body,
-			Visibility:    rows[i].Visibility,
+			Path:          rows[i].Path,
 			Tags:          rows[i].Tags,
 			SourceWikiIDs: rows[i].SourceWikiIDs,
 			CreatedAt:     rows[i].CreatedAt.Format(mcpTimeFmt),

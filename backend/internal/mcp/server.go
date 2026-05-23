@@ -42,13 +42,13 @@ type Deps struct {
 
 // SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
 type SEOWriter interface {
-	UpdateWikiSEO(
+	UpdateWikiPath(
 		ctx context.Context, wikiID string,
-		slug *string, description string, indexed bool,
+		path *string, description string, indexed bool,
 	) (domain.WikiEntry, error)
-	UpdateOutputSEO(
+	UpdateOutputPath(
 		ctx context.Context, outputID string,
-		slug *string, description string, indexed bool,
+		path *string, description string, indexed bool,
 	) (domain.OutputEntry, error)
 	GetSettings(ctx context.Context, ownerID string) (domain.SEOSettings, error)
 	UpsertSettings(ctx context.Context, in *domain.SEOSettings) (domain.SEOSettings, error)

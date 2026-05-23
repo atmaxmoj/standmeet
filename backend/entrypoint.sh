@@ -1,15 +1,10 @@
 #!/bin/sh
-# Backend 容器启动 entrypoint：
-#   1. 跑 DB migrations（goose up）
-#   2. exec server
+# Backend 容器启动 entrypoint：直接 exec server。
 #
-# MIGRATE_ON_START=false 给 ops 一个逃生口（设计稿 G.3）。
+# Schema 在 db service fresh volume 启动时由 postgres image 应用
+# (/docker-entrypoint-initdb.d/01-schema.sql 挂载 backend/db/schema.sql)。
+# 全新软件、未发布、没有 migration 演进——schema 变化的姿势是重建 db
+# volume (`make clean && make dev`)。
 
 set -e
-
-if [ "${MIGRATE_ON_START:-true}" = "true" ] && [ -d /app/db/migrations ]; then
-  echo "[entrypoint] running goose up..."
-  /app/goose -dir /app/db/migrations postgres "$DATABASE_URL" up
-fi
-
 exec /app/standmeet

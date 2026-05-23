@@ -1,8 +1,11 @@
--- StandMeet canonical schema. 这份文件是 sqlc 的输入（生成 typed Go
--- query 函数时读这个看类型），同时也是给人看 "表结构现在是啥样" 的权威。
+-- StandMeet canonical schema —— 唯一权威。
 --
--- Schema 变化通过 db/migrations/*.sql（goose）演进；改了 schema.sql
--- 必须同步加 migration，否则 sqlc 生成的 Go 代码和 DB 实际状态会脱节。
+-- v1 全新软件、未发布、没有任何 production 数据需要 migrate。所以本仓库
+-- 不维护增量 migrations 文件。schema 变化的方式：
+--   1. 改本文件
+--   2. `make clean && make dev` 重建 db volume —— postgres docker image
+--      自动从 /docker-entrypoint-initdb.d/01-schema.sql apply 这份文件
+--   3. sqlc 在 codegen 时读本文件生成 Go 代码（sqlc.yaml schema 字段指它）
 --
 -- 设计稿 C 章节是字段说明的权威；这里写 DDL 简洁不重复 doc。
 
@@ -79,6 +82,13 @@ CREATE TABLE raw_entries (
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
+-- wiki_entries —— curated 中层。
+-- path：唯一标识 (取代 seo_slug)。retrieval ACL 按 path-glob 评估；同时
+--       是 /<handle>/wiki/<path> 公开页 URL 的最后一段（catch-all）。
+-- show_as_source：false 时 AI 可以 read_corpus_entry 拿 body，但 readCollector
+--       不收录这条 path —— 用于 meta/persona 这种"用得到但不该曝光"的 entry。
+-- 准入靠 access_codes.corpus_permissions（path-glob first-match-wins）。
+-- 没有 visibility 字段——legacy 那套 public/on_request/private 三档被 ACL 替代。
 CREATE TABLE wiki_entries (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -86,22 +96,23 @@ CREATE TABLE wiki_entries (
     title            text          NOT NULL,
     body             text          NOT NULL,
     tags             text[]        NOT NULL DEFAULT '{}',
-    visibility       text          NOT NULL DEFAULT 'public',
     source_raw_ids   uuid[]        NOT NULL DEFAULT '{}',
-    seo_slug         citext,
+    path             citext,
+    show_as_source   bool          NOT NULL DEFAULT true,
     seo_description  text          NOT NULL DEFAULT '',
     seo_indexed      bool          NOT NULL DEFAULT false,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX wiki_entries_owner_slug_idx
-    ON wiki_entries(owner_id, seo_slug)
-    WHERE seo_slug IS NOT NULL;
+CREATE UNIQUE INDEX wiki_entries_owner_path_idx
+    ON wiki_entries(owner_id, path)
+    WHERE path IS NOT NULL;
 
 -- output_entries —— raw → wiki → output 三层中的最精炼层。结构同 wiki，
 -- 语义差别：output 是 "可以在对话里完整原样引用" 的成品；通过 MCP
--- `promote_wiki_to_output` 从 wiki 提炼上来。
+-- `promote_wiki_to_output` 从 wiki 提炼上来。path / show_as_source 含义
+-- 与 wiki_entries 完全一致；retrieval ACL 同套规则评估。
 CREATE TABLE output_entries (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -109,18 +120,18 @@ CREATE TABLE output_entries (
     title            text          NOT NULL,
     body             text          NOT NULL,
     tags             text[]        NOT NULL DEFAULT '{}',
-    visibility       text          NOT NULL DEFAULT 'public',
     source_wiki_ids  uuid[]        NOT NULL DEFAULT '{}',
-    seo_slug         citext,
+    path             citext,
+    show_as_source   bool          NOT NULL DEFAULT true,
     seo_description  text          NOT NULL DEFAULT '',
     seo_indexed      bool          NOT NULL DEFAULT false,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX output_entries_owner_slug_idx
-    ON output_entries(owner_id, seo_slug)
-    WHERE seo_slug IS NOT NULL;
+CREATE UNIQUE INDEX output_entries_owner_path_idx
+    ON output_entries(owner_id, path)
+    WHERE path IS NOT NULL;
 
 CREATE TABLE media_assets (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -136,15 +147,17 @@ CREATE TABLE media_assets (
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
--- Access codes + visitor chat
+-- Access codes —— owner 发给访客的访问码 (LABEL-XXX 格式)；一码多人共用。
+-- corpus_permissions：path-glob ACL，first-match-wins by order ascending，
+--                     default deny。空列表 → 全允许 (无 ACL = 允许全部)。
+--                     形状：[{"action": "allow"|"deny", "path_pattern": "...", "order": n}]。
 CREATE TABLE access_codes (
     id                        uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id                  uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     code                      citext        UNIQUE NOT NULL,
     label                     text          NOT NULL,
     purpose                   text          NOT NULL DEFAULT '',
-    included_tags             text[]        NOT NULL DEFAULT '{}',
-    excluded_tags             text[]        NOT NULL DEFAULT '{}',
+    corpus_permissions        jsonb         NOT NULL DEFAULT '[]'::jsonb,
     suggested_questions       jsonb         NOT NULL DEFAULT '[]'::jsonb,
     expires_at                timestamptz,
     status                    text          NOT NULL DEFAULT 'active'
@@ -183,8 +196,7 @@ CREATE TABLE conversations (
     byoai_provider  text,
     started_at      timestamptz   NOT NULL DEFAULT now(),
     last_at         timestamptz   NOT NULL DEFAULT now(),
-    message_count   integer       NOT NULL DEFAULT 0,
-    hit_private     boolean       NOT NULL DEFAULT false
+    message_count   integer       NOT NULL DEFAULT 0
 );
 
 CREATE TABLE messages (

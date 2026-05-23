@@ -89,7 +89,7 @@ func optionalSlug(s string) *string {
 func runSetWikiSlug(
 	ctx context.Context, deps *Deps, args *setWikiSlugArgs,
 ) *mcpgo.CallToolResult {
-	updated, err := deps.SEO.UpdateWikiSEO(
+	updated, err := deps.SEO.UpdateWikiPath(
 		ctx, args.wikiID, args.slug, args.description, args.indexed,
 	)
 	if err != nil {
@@ -97,7 +97,7 @@ func runSetWikiSlug(
 	}
 	return marshalResult(deps, setWikiSlugPayload{
 		WikiID:         updated.ID,
-		SEOSlug:        updated.SEOSlug,
+		SEOSlug:        updated.Path,
 		SEODescription: updated.SEODescription,
 		SEOIndexed:     updated.SEOIndexed,
 	})
@@ -181,8 +181,8 @@ func stringSliceArg(req *mcpgo.CallToolRequest, key string) []string {
 }
 
 func seoErrorResult(deps *Deps, err error, name string) *mcpgo.CallToolResult {
-	if errors.Is(err, domain.ErrSlugTaken) {
-		return mcpgo.NewToolResultError("slug already taken")
+	if errors.Is(err, domain.ErrPathTaken) {
+		return mcpgo.NewToolResultError("path already taken")
 	}
 	if errors.Is(err, domain.ErrWikiNotFound) {
 		return mcpgo.NewToolResultError("wiki entry not found")

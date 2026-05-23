@@ -113,7 +113,7 @@ function PurposeText({ purpose }: { purpose?: string }) {
 function CodeCardBody({ code }: { code: CodeView }) {
   return (
     <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <ScopeBlock included={code.included_tags} excluded={code.excluded_tags} />
+      <ScopeBlock perms={code.corpus_permissions} />
       <SuggestedBlock suggested={code.suggested_questions ?? []} />
       <QuotaLine code={code} />
     </div>
@@ -135,15 +135,18 @@ function quotaSummary(n: number | null | undefined, label: string): string {
   return n && n > 0 ? `${n} ${label}` : `unlimited ${label}`;
 }
 
-function ScopeBlock({
-  included, excluded,
-}: { included: readonly string[]; excluded: readonly string[] }) {
+interface PathPerm { action: 'allow' | 'deny'; path_pattern: string }
+
+function ScopeBlock({ perms }: { perms: readonly PathPerm[] }) {
   return (
     <MetaPair label="access scope">
       <div className="flex flex-wrap gap-1.5">
-        {included.map((t) => <Chip key={`i-${t}`}>{t}</Chip>)}
-        {excluded.map((t) => <Chip key={`x-${t}`} tone="private" title="excluded">× {t}</Chip>)}
-        <UnrestrictedHint shown={included.length === 0 && excluded.length === 0} />
+        {perms.map((p, i) => (
+          <Chip key={`p-${i}`} tone={p.action === 'allow' ? undefined : 'private'}>
+            {p.action === 'allow' ? '+' : '−'} {p.path_pattern}
+          </Chip>
+        ))}
+        <UnrestrictedHint shown={perms.length === 0} />
       </div>
     </MetaPair>
   );
