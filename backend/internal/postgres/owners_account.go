@@ -1,0 +1,187 @@
+// owners_account.go —— owner 自助管理账号字段（full_name / email / password）
+// 的 repo 方法。从 owners.go 拆出避免本体超过 350 行 max-lines。
+//
+// 三个 update 都返完整 Owner row（前端 sessionStore mutate 用），跟
+// UpdatePublicURL / UpdateHandle 风格一致。
+
+package postgres
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/postgres/dbq"
+)
+
+// UpdateFullName —— owner 改自己的 full_name；空字符串 / 全 whitespace 由
+// usecase 层拦下，repo 只信纯字符串。
+func (r *OwnerRepo) UpdateFullName(
+	ctx context.Context, ownerID, newFullName string,
+) (domain.Owner, error) {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return domain.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	q := dbq.New(r.pool)
+	row, qerr := q.UpdateOwnerFullName(ctx, dbq.UpdateOwnerFullNameParams{
+		ID: pgID, FullName: newFullName,
+	})
+	if qerr != nil {
+		return domain.Owner{}, fmt.Errorf("update full_name: %w", qerr)
+	}
+	return toDomainOwner(&row), nil
+}
+
+// UpdateEmail —— owner 改自己的 email。唯一冲突翻 domain.ErrEmailTaken
+// 让 routes 翻 409。usecase 必须先验当前密码。
+func (r *OwnerRepo) UpdateEmail(
+	ctx context.Context, ownerID, newEmail string,
+) (domain.Owner, error) {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return domain.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	q := dbq.New(r.pool)
+	row, qerr := q.UpdateOwnerEmail(ctx, dbq.UpdateOwnerEmailParams{
+		ID: pgID, Email: newEmail,
+	})
+	if qerr != nil {
+		return domain.Owner{}, translateEmailUpdateErr(qerr)
+	}
+	return toDomainOwner(&row), nil
+}
+
+func translateEmailUpdateErr(err error) error {
+	constraint, isUnique := pgUniqueViolation(err)
+	if isUnique && constraint == "owners_email_key" {
+		return domain.ErrEmailTaken
+	}
+	return fmt.Errorf("update email: %w", err)
+}
+
+// UpdatePasswordHash —— 写 owner password_hash；usecase 必须先验旧密码 +
+// 在外面 HashPassword(newPlaintext) 拿到 PHC 字符串。
+func (r *OwnerRepo) UpdatePasswordHash(
+	ctx context.Context, ownerID, newHash string,
+) error {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	q := dbq.New(r.pool)
+	if _, qerr := q.UpdateOwnerPasswordHash(ctx, dbq.UpdateOwnerPasswordHashParams{
+		ID: pgID, PasswordHash: newHash,
+	}); qerr != nil {
+		return fmt.Errorf("update password_hash: %w", qerr)
+	}
+	return nil
+}
+
+// GetPasswordHash —— 拿 owner 当前 password_hash，给 usecase 验旧密码用。
+// 不存在返 domain.ErrOwnerNotFound。
+func (r *OwnerRepo) GetPasswordHash(ctx context.Context, ownerID string) (string, error) {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return "", fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	q := dbq.New(r.pool)
+	hash, err := q.GetOwnerPasswordHash(ctx, pgID)
+	if err != nil {
+		if errors.Is(err, pgxErrNoRows()) {
+			return "", domain.ErrOwnerNotFound
+		}
+		return "", fmt.Errorf("get owner password_hash: %w", err)
+	}
+	return hash, nil
+}
+
+// ActiveResetToken —— sole owner 当前活跃的 password reset 信息。Hash 空
+// + IssuedAt zero 表示没活跃 token；usecase 据此判 ErrUnauthorized。
+type ActiveResetToken struct {
+	IssuedAt time.Time
+	OwnerID  string
+	Hash     []byte
+}
+
+// GetActiveResetToken —— 单 owner self-host：表里第一行 owner 的 reset
+// token 信息。表为空返 domain.ErrOwnerNotFound（caller 通常翻 401）。
+func (r *OwnerRepo) GetActiveResetToken(ctx context.Context) (ActiveResetToken, error) {
+	q := dbq.New(r.pool)
+	row, err := q.GetFirstOwnerResetToken(ctx)
+	if err != nil {
+		if errors.Is(err, pgxErrNoRows()) {
+			return ActiveResetToken{}, domain.ErrOwnerNotFound
+		}
+		return ActiveResetToken{}, fmt.Errorf("get reset token row: %w", err)
+	}
+	out := ActiveResetToken{
+		OwnerID: formatUUID(row.ID),
+		Hash:    row.PasswordResetHash,
+	}
+	if row.PasswordResetAt.Valid {
+		out.IssuedAt = row.PasswordResetAt.Time
+	}
+	return out, nil
+}
+
+// ClearPasswordResetToken —— reset 成功后清掉 hash + at，让 token 一次性。
+func (r *OwnerRepo) ClearPasswordResetToken(ctx context.Context, ownerID string) error {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	q := dbq.New(r.pool)
+	if cerr := q.ClearPasswordResetToken(ctx, pgID); cerr != nil {
+		return fmt.Errorf("clear reset token: %w", cerr)
+	}
+	return nil
+}
+
+// SoleOwnerHandle —— `standmeet password-reset` CLI 用：sole owner 的
+// id + public_url（拼 reset URL）。表为空返 domain.ErrOwnerNotFound。
+type SoleOwnerHandle struct {
+	OwnerID   string
+	PublicURL string
+}
+
+// GetSoleOwnerHandle —— CLI password-reset 子命令 + 任何只看 "sole owner
+// 是谁" 的 helper。GetFirstOwnerResetToken + GetOwnerByID 拼一下。
+func (r *OwnerRepo) GetSoleOwnerHandle(ctx context.Context) (SoleOwnerHandle, error) {
+	q := dbq.New(r.pool)
+	tok, err := q.GetFirstOwnerResetToken(ctx)
+	if err != nil {
+		if errors.Is(err, pgxErrNoRows()) {
+			return SoleOwnerHandle{}, domain.ErrOwnerNotFound
+		}
+		return SoleOwnerHandle{}, fmt.Errorf("get sole owner row: %w", err)
+	}
+	owner, gerr := q.GetOwnerByID(ctx, tok.ID)
+	if gerr != nil {
+		return SoleOwnerHandle{}, fmt.Errorf("get owner by id: %w", gerr)
+	}
+	return SoleOwnerHandle{
+		OwnerID:   formatUUID(tok.ID),
+		PublicURL: owner.PublicUrl,
+	}, nil
+}
+
+// SetPasswordResetHash —— CLI 颁发 reset token 时调；写 hash + 当前时间戳。
+// 重复调会覆盖旧 token，跟 SQL 语义一致（重新跑命令是合法 UX）。
+func (r *OwnerRepo) SetPasswordResetHash(
+	ctx context.Context, ownerID string, hash []byte,
+) error {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	q := dbq.New(r.pool)
+	if serr := q.SetPasswordResetToken(ctx, dbq.SetPasswordResetTokenParams{
+		ID: pgID, PasswordResetHash: hash,
+	}); serr != nil {
+		return fmt.Errorf("set reset token: %w", serr)
+	}
+	return nil
+}

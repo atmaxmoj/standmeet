@@ -7,7 +7,7 @@ import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'conversations' | 'codes' | 'requests'
-  | 'connectors' | 'page' | 'custom-pages' | 'api-mcp';
+  | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account';
 
 interface SectionDef {
   slug: AdminSlug;
@@ -25,6 +25,7 @@ const SECTIONS: readonly SectionDef[] = [
   { slug: 'connectors',    label: 'connectors',    hint: 'integrations' },
   { slug: 'custom-pages',  label: 'custom pages',  hint: 'react sub-pages' },
   { slug: 'api-mcp',       label: 'api · mcp',     hint: 'tokens' },
+  { slug: 'account',       label: 'account',       hint: 'identity' },
 ];
 
 type Props = { active: AdminSlug };

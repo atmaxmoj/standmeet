@@ -59,6 +59,22 @@ export async function login(input: LoginInput): Promise<LoginResult> {
   return await res.json() as LoginResult;
 }
 
+export interface ResetPasswordInput {
+  token: string;
+  new_password: string;
+}
+
+// resetPassword —— /account/reset?t=... 表单调；走 public 路径不需要 session
+// cookie。token 本身就是凭据。
+export async function resetPassword(input: ResetPasswordInput): Promise<void> {
+  const res = await fetch('/api/v1/account/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await readError(res, 'password reset'));
+}
+
 async function readError(res: Response, op: string): Promise<string> {
   try {
     const body = await res.json() as { error?: { message?: string } };

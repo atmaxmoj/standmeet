@@ -37,6 +37,7 @@ type Deps struct {
 	PublicSEO            publicroutes.SEOHandlers
 	PublicCustomPages    publicroutes.CustomPageHandlers
 	PublicAccessRequests publicroutes.AccessRequestsHandlers
+	PublicPasswordReset  publicroutes.PasswordResetHandlers
 	Builds               sysroutes.BuilderDeps
 	TLSAsk               sysroutes.TLSAskDeps
 	MCP                  mcp.Deps
@@ -55,6 +56,7 @@ type AdminDeps struct {
 	AccessRequests usecases.AccessRequestsDeps
 	HandleAdmin    usecases.HandleDeps
 	PublicURLAdmin usecases.PublicURLDeps
+	AccountAdmin   usecases.AccountDeps
 	AIProvider     usecases.AIProviderDeps
 	CustomPages    usecases.CustomPageDeps
 	Codes          *postgres.CodeRepo
@@ -116,6 +118,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AccessRequests:  adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
 		HandleAdmin:     adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
 		PublicURLAdmin:  adminroutes.PublicURLDeps{PublicURL: deps.Admin.PublicURLAdmin},
+		AccountAdmin:    adminroutes.AccountDeps{Account: deps.Admin.AccountAdmin},
 		AIProviderAdmin: adminroutes.AIProviderDeps{AI: deps.Admin.AIProvider},
 		CustomPages:     deps.Admin.CustomPages,
 		Log:             deps.Log,
@@ -144,6 +147,9 @@ func mountPublic(r chi.Router, deps *Deps) {
 		}).Mount(r)
 		(&publicroutes.AccessRequestsHandlers{
 			Reqs: deps.PublicAccessRequests.Reqs, Log: deps.Log,
+		}).Mount(r)
+		(&publicroutes.PasswordResetHandlers{
+			Deps: deps.PublicPasswordReset.Deps, Log: deps.Log,
 		}).Mount(r)
 	})
 }

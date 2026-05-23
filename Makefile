@@ -98,5 +98,11 @@ test: dev-up
 setup-token:
 	@curl -sS http://localhost:8000/api/v1/instance | jq -r '"setup path: /setup?t=" + .setup_token'
 
+# password-reset —— 紧急 owner 忘记密码兜底。docker exec 跑 standmeet 二进制
+# 的 password-reset 子命令：连 DB → 颁发一次性 reset token → stdout 打印
+# plaintext + URL。30min TTL，一次性。owner 拷 URL 进浏览器改密码。
+password-reset:
+	@docker compose -f docker-compose.dev.yml exec backend /app/standmeet password-reset
+
 clean:
 	@docker compose -f docker-compose.dev.yml down -v --remove-orphans 2>/dev/null || true

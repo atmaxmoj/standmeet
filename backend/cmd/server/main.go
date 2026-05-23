@@ -44,6 +44,10 @@ func main() {
 	}))
 	slog.SetDefault(log)
 
+	if code := passwordResetSubcommand(log); code >= 0 {
+		os.Exit(code)
+	}
+
 	if err := run(log); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)

@@ -34,6 +34,11 @@ CREATE TABLE owners (
     ai_provider          text          NOT NULL DEFAULT 'anthropic'
                                         CHECK (ai_provider IN ('anthropic', 'openai')),
     ai_provider_key_enc  bytea         NOT NULL DEFAULT ''::bytea,
+    -- password_reset_hash —— 紧急 reset 兜底：CLI 颁发的一次性 token 的
+    -- bcrypt-style hash。配合 password_reset_at 做 30min TTL。空 bytea =
+    -- 没活跃 reset token；reset 成功后由 ClearPasswordResetToken 清回去。
+    password_reset_hash  bytea         NOT NULL DEFAULT ''::bytea,
+    password_reset_at    timestamptz,
     created_at           timestamptz   NOT NULL DEFAULT now()
 );
 

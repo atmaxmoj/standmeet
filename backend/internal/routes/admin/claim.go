@@ -33,6 +33,7 @@ type Handlers struct {
 	AccessRequests  AccessRequestsDeps
 	HandleAdmin     HandleDeps
 	PublicURLAdmin  PublicURLDeps
+	AccountAdmin    AccountDeps
 	AIProviderAdmin AIProviderDeps
 	CustomPages     usecases.CustomPageDeps
 	Log             *slog.Logger
@@ -69,6 +70,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountAccessRequests(r)
 	h.MountHandle(r)
 	h.MountPublicURL(r)
+	h.MountAccount(r)
 	h.MountAIProvider(r)
 	h.MountCustomPages(r)
 }

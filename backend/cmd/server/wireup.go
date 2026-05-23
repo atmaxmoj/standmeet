@@ -25,6 +25,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		PublicSEO:            buildPublicSEODeps(d),
 		PublicCustomPages:    buildPublicCustomPageDeps(d),
 		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
+		PublicPasswordReset:  buildPublicPasswordResetDeps(d),
 		Builds:               sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
 		TLSAsk:               sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
 		MCP:                  buildMCPDeps(d),
@@ -44,6 +45,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
 		HandleAdmin:    usecases.HandleDeps{Owners: d.ownerRepo},
 		PublicURLAdmin: usecases.PublicURLDeps{Owners: d.ownerRepo},
+		AccountAdmin:   usecases.AccountDeps{Owners: d.ownerRepo},
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
 		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Codes:          d.codeRepo,
@@ -94,6 +96,13 @@ func buildPublicCustomPageDeps(d *runtimeDeps) publicroutes.CustomPageHandlers {
 func buildPublicAccessRequestsDeps(d *runtimeDeps) publicroutes.AccessRequestsHandlers {
 	return publicroutes.AccessRequestsHandlers{
 		Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
+		Log:  d.log,
+	}
+}
+
+func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHandlers {
+	return publicroutes.PasswordResetHandlers{
+		Deps: usecases.PasswordResetDeps{Owners: d.ownerRepo},
 		Log:  d.log,
 	}
 }

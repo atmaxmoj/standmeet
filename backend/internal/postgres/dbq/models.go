@@ -158,19 +158,21 @@ type Message struct {
 }
 
 type Owner struct {
-	ID               pgtype.UUID
-	Email            string
-	PasswordHash     string
-	Handle           string
-	FullName         string
-	Location         string
-	PublicUrl        string
-	ByoaiEnabled     bool
-	ByoaiProviders   []byte
-	ByoaiPublicBlurb string
-	AiProvider       string
-	AiProviderKeyEnc []byte
-	CreatedAt        pgtype.Timestamptz
+	ID                pgtype.UUID
+	Email             string
+	PasswordHash      string
+	Handle            string
+	FullName          string
+	Location          string
+	PublicUrl         string
+	ByoaiEnabled      bool
+	ByoaiProviders    []byte
+	ByoaiPublicBlurb  string
+	AiProvider        string
+	AiProviderKeyEnc  []byte
+	PasswordResetHash []byte
+	PasswordResetAt   pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
 }
 
 type PageContent struct {

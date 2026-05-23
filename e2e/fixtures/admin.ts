@@ -70,24 +70,6 @@ export async function createAPIToken(
   return body.plaintext ?? '';
 }
 
-// loginAsOwnerUI —— UI-driven login。owner 输 /admin（书签）→ AdminShell 见
-// 无 session 跳 /login → 填表单 → 提交 → 落 /admin/page。
-//
-// 大多数 admin spec 直接用 `adminPage` fixture 就行（同样 flow，fixture 包好）。
-// 这个 helper 留给真的"先在别处做点啥再登录"的场景。Footer 不再有 admin
-// 链接（admin 入口对访客不可见）。
-export async function loginAsOwnerUI(
-  page: Page,
-  email = 'alice@example.com',
-  password = DEFAULT_PASSWORD,
-): Promise<void> {
-  await navigateToOwnerLogin(page);
-  await page.getByTestId('email').fill(email);
-  await page.getByTestId('password').fill(password);
-  await page.getByTestId('submit').click();
-  await page.waitForURL('**/admin/page', { timeout: 10_000 });
-}
-
 // navigateToOwnerLogin —— 把 page 带到 /login（owner 输 /admin → 自动 redirect）。
 // 给 owner-login spec 测错密码停留在 /login 用。
 export async function navigateToOwnerLogin(page: Page): Promise<void> {

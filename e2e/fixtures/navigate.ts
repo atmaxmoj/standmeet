@@ -16,14 +16,6 @@ export async function goto(page: Page, path: string): Promise<void> {
   await page.goto(url);
 }
 
-// gotoExpectStatus —— 给 spec 校验 404 / 410 一类 status code 用。
-// 返 response.status()；不存在响应时返 0（caller assert 容易）。
-export async function gotoExpectStatus(page: Page, path: string): Promise<number> {
-  const url = path.startsWith('/') ? `${APP_BASE}${path}` : `${APP_BASE}/${path}`;
-  const res = await page.goto(url);
-  return res?.status() ?? 0;
-}
-
 // gotoAdminSection —— admin sidebar 上点一个 section 链接。
 // AdminSidebar 的 <Link> 把 active marker / label / hint 三段拼成 accessible
 // name（"› codes access" 或 " codes access" 等），所以匹配按 \blabel\b
