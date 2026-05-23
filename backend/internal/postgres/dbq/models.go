@@ -135,16 +135,17 @@ type JobSource struct {
 }
 
 type MediaAsset struct {
-	ID          pgtype.UUID
-	OwnerID     pgtype.UUID
-	Kind        string
-	Filename    string
-	MimeType    string
-	SizeBytes   int64
-	StorageKey  string
-	RawEntryID  pgtype.UUID
-	WikiEntryID pgtype.UUID
-	CreatedAt   pgtype.Timestamptz
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	Kind          string
+	Filename      string
+	MimeType      string
+	SizeBytes     int64
+	StorageKey    string
+	RawEntryID    pgtype.UUID
+	WikiEntryID   pgtype.UUID
+	OutputEntryID pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
 }
 
 type Message struct {
@@ -155,6 +156,22 @@ type Message struct {
 	ToolCalls      []byte
 	CitedWikiIds   []pgtype.UUID
 	CreatedAt      pgtype.Timestamptz
+}
+
+type OutputEntry struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	ParentID       pgtype.UUID
+	Title          string
+	Body           string
+	Tags           []string
+	Visibility     string
+	SourceWikiIds  []pgtype.UUID
+	SeoSlug        *string
+	SeoDescription string
+	SeoIndexed     bool
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
 }
 
 type Owner struct {

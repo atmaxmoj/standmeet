@@ -90,33 +90,7 @@ func wireAndServe(
 	ctx context.Context, log *slog.Logger, cfg *config.Config,
 	c *conns, stop context.CancelFunc,
 ) error {
-	instanceRepo := postgres.NewInstanceRepo(c.db)
-	ownerRepo := postgres.NewOwnerRepo(c.db)
-	tokenRepo := postgres.NewAPITokenRepo(c.db)
-	rawRepo := postgres.NewRawRepo(c.db)
-	wikiRepo := postgres.NewWikiRepo(c.db)
-	codeRepo := postgres.NewCodeRepo(c.db)
-	convRepo := postgres.NewConversationRepo(c.db)
-	seoRepo := postgres.NewSEORepo(c.db)
-	customPageRepo := postgres.NewCustomPageRepo(c.db)
-	customBuildRepo := postgres.NewCustomBuildRepo(c.db)
-	accessRequestRepo := postgres.NewAccessRequestRepo(c.db)
-	jobSourceRepo := postgres.NewJobSourceRepo(c.db)
-	resumeDraftRepo := postgres.NewResumeDraftRepo(c.db)
-	applicationRepo := postgres.NewApplicationRepo(c.db)
-	jobCachePool := jobcache.New(c.rdb, 0) // default 24h TTL
-	jobFetchRegistry := jobfetch.New(&jobfetch.BaseURLs{
-		Greenhouse:      cfg.JobFetchGreenhouseBaseURL,
-		Lever:           cfg.JobFetchLeverBaseURL,
-		Ashby:           cfg.JobFetchAshbyBaseURL,
-		RemoteOK:        cfg.JobFetchRemoteOKBaseURL,
-		WWR:             cfg.JobFetchWWRBaseURL,
-		HN:              cfg.JobFetchHNBaseURL,
-		SmartRecruiters: cfg.JobFetchSmartRecruitersBaseURL,
-		Workable:        cfg.JobFetchWorkableBaseURL,
-	})
-	sessionStore := session.NewOwnerSessionStore(c.rdb)
-	visitorStore := session.NewVisitorSessionStore(c.rdb)
+	repos := newRepos(c.db)
 	mockProvider, perr := inference.NewFromEnv()
 	if perr != nil {
 		return fmt.Errorf("init provider: %w", perr)
@@ -124,42 +98,19 @@ func wireAndServe(
 	// resolver 把 mock 和真 owner-key path 串起来；env=mock 时 e2e 走 mock，
 	// 否则按 owner row 的 ai_provider 解密自己的 key 实例化 Anthropic / OpenAI。
 	ownerKeyResolver := &inference.OwnerKeyResolver{
-		Lookup:    &ownerLookupAdapter{repo: ownerRepo},
+		Lookup:    &ownerLookupAdapter{repo: repos.owner},
 		Decrypter: cryptobox.Decrypt,
 	}
 	providerResolver := inference.NewEnvOrOwnerResolver(ownerKeyResolver, mockProvider)
 	setupTokenHolder := session.NewSetupTokenHolder()
-	if terr := ensureSetupToken(ctx, log, instanceRepo, setupTokenHolder); terr != nil {
+	if terr := ensureSetupToken(ctx, log, repos.instance, setupTokenHolder); terr != nil {
 		return terr
 	}
-	captchaVerifier := captcha.NewFromConfig(
-		captcha.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
-	)
-
-	addr := net.JoinHostPort(cfg.Host, cfg.Port)
-	deps := runtimeDeps{
-		log: log, db: c.db, rdb: c.rdb,
-		instanceRepo: instanceRepo, ownerRepo: ownerRepo,
-		tokenRepo: tokenRepo, rawRepo: rawRepo, wikiRepo: wikiRepo,
-		codeRepo: codeRepo, convRepo: convRepo,
-		seoRepo:           seoRepo,
-		customPageRepo:    customPageRepo,
-		customBuildRepo:   customBuildRepo,
-		accessRequestRepo: accessRequestRepo,
-		jobSourceRepo:     jobSourceRepo,
-		resumeDraftRepo:   resumeDraftRepo,
-		applicationRepo:   applicationRepo,
-		jobCachePool:      jobCachePool,
-		jobFetchRegistry:  jobFetchRegistry,
-		sessionStore:      sessionStore, visitorStore: visitorStore,
+	deps := assembleRuntimeDeps(log, cfg, c, repos, &deferredWiring{
 		providerResolver: providerResolver,
 		setupTokenHolder: setupTokenHolder,
-		captchaVerifier:  captchaVerifier,
-		captchaSiteKey:   captchaSiteKeyFor(cfg),
-		secureCookie:     cfg.SecureCookie,
-		buildsRoot:       cfg.CustomPagesRoot,
-	}
-	return serve(ctx, &deps, addr, stop)
+	})
+	return serve(ctx, &deps, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }
 
 // ensureSetupToken 在 server 启动前调一次：未 claimed 的 instance 生成
@@ -195,6 +146,7 @@ type runtimeDeps struct {
 	tokenRepo         *postgres.APITokenRepo
 	rawRepo           *postgres.RawRepo
 	wikiRepo          *postgres.WikiRepo
+	outputRepo        *postgres.OutputRepo
 	codeRepo          *postgres.CodeRepo
 	convRepo          *postgres.ConversationRepo
 	seoRepo           *postgres.SEORepo

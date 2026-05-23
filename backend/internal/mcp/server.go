@@ -107,6 +107,7 @@ func OwnerIDFrom(ctx context.Context) string {
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	mcpSrv.AddTool(meTool(), wrapTool(invokeMe(deps)))
 	corpusTools(mcpSrv, deps)
+	outputTools(mcpSrv, deps)
 	seoTools(mcpSrv, deps)
 	customPageTools(mcpSrv, deps)
 	jobsTools(mcpSrv, deps)

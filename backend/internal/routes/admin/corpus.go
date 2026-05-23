@@ -28,11 +28,12 @@ const (
 	maxCorpusLimit     = 200
 )
 
-// MountCorpus 挂 /raw + /wiki list + POST /raw（owner 直接 dump）。
+// MountCorpus 挂 /raw + /wiki + /output list + POST /raw（owner 直接 dump）。
 func (h *Handlers) MountCorpus(r chi.Router) {
 	r.Get("/raw", h.listRaw())
 	r.Post("/raw", h.createRaw())
 	r.Get("/wiki", h.listWiki())
+	r.Get("/output", h.listOutput())
 }
 
 type createRawRequest struct {

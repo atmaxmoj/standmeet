@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
 
 export type AdminSlug =
-  | 'raw' | 'wiki' | 'conversations' | 'codes' | 'requests'
+  | 'raw' | 'wiki' | 'output' | 'conversations' | 'codes' | 'requests'
   | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account';
 
 interface SectionDef {
@@ -19,6 +19,7 @@ const SECTIONS: readonly SectionDef[] = [
   { slug: 'page',          label: 'page',          hint: 'public content' },
   { slug: 'raw',           label: 'raw',           hint: 'inbox' },
   { slug: 'wiki',          label: 'wiki',          hint: 'curated' },
+  { slug: 'output',        label: 'output',        hint: 'polished' },
   { slug: 'conversations', label: 'conversations', hint: 'sessions' },
   { slug: 'codes',         label: 'codes',         hint: 'access' },
   { slug: 'requests',      label: 'requests',      hint: 'visitor notes' },

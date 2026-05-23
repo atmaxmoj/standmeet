@@ -99,6 +99,29 @@ CREATE UNIQUE INDEX wiki_entries_owner_slug_idx
     ON wiki_entries(owner_id, seo_slug)
     WHERE seo_slug IS NOT NULL;
 
+-- output_entries —— raw → wiki → output 三层中的最精炼层。结构同 wiki，
+-- 语义差别：output 是 "可以在对话里完整原样引用" 的成品；通过 MCP
+-- `promote_wiki_to_output` 从 wiki 提炼上来。
+CREATE TABLE output_entries (
+    id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    parent_id        uuid          REFERENCES output_entries(id) ON DELETE SET NULL,
+    title            text          NOT NULL,
+    body             text          NOT NULL,
+    tags             text[]        NOT NULL DEFAULT '{}',
+    visibility       text          NOT NULL DEFAULT 'public',
+    source_wiki_ids  uuid[]        NOT NULL DEFAULT '{}',
+    seo_slug         citext,
+    seo_description  text          NOT NULL DEFAULT '',
+    seo_indexed      bool          NOT NULL DEFAULT false,
+    created_at       timestamptz   NOT NULL DEFAULT now(),
+    updated_at       timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX output_entries_owner_slug_idx
+    ON output_entries(owner_id, seo_slug)
+    WHERE seo_slug IS NOT NULL;
+
 CREATE TABLE media_assets (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -109,6 +132,7 @@ CREATE TABLE media_assets (
     storage_key     text          NOT NULL,
     raw_entry_id    uuid          REFERENCES raw_entries(id) ON DELETE SET NULL,
     wiki_entry_id   uuid          REFERENCES wiki_entries(id) ON DELETE SET NULL,
+    output_entry_id uuid          REFERENCES output_entries(id) ON DELETE SET NULL,
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
