@@ -1,19 +1,32 @@
 // RawRowList —— Raw section 列表。空时显示 "no raw entries yet" 提示。
-// row 自带 promote / archive 占位按钮（backend 暂未暴露 mutation 端点）。
+// row actions: promote → wiki / archive，都已接 backend PATCH/DELETE/POST 端点。
 
-import { Btn } from '@/components/admin/atoms/Btn';
+'use client';
+
+import { useState } from 'react';
+
 import { Chip } from '@/components/admin/atoms/Chip';
+import { PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import {
+  useCorpusActions,
+  type CorpusActionsHook,
+  type PromoteInput,
+} from '@/lib/admin/use-corpus-actions';
+import { runWith } from '@/lib/admin/use-corpus-form';
+import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 import type { RawAdminView } from '@/lib/api/admin';
 
 type Props = { rows: readonly RawAdminView[] };
 
 export function RawRowList({ rows }: Props) {
+  const actions = useCorpusActions();
+  useEffectErrorToast(actions.error);
   return rows.length === 0
     ? <EmptyState />
     : (
       <ul data-testid="raw-list" className="border-t border-(--color-rule)/70">
-        {rows.map((r) => <RawRow key={r.id} row={r} />)}
+        {rows.map((r) => <RawRow key={r.id} row={r} actions={actions} />)}
       </ul>
     );
 }
@@ -28,12 +41,23 @@ function EmptyState() {
   );
 }
 
-function RawRow({ row }: { row: RawAdminView }) {
+function RawRow({ row, actions }: { row: RawAdminView; actions: CorpusActionsHook }) {
+  const [promoting, setPromoting] = useState(false);
   return (
-    <li className="grid grid-cols-[80px_1fr_auto] gap-6 py-5 border-b border-(--color-rule)/70">
-      <RawRowMeta source={row.source} createdAt={row.created_at} />
-      <RawRowBody body={row.body} tags={row.tags} privateFlag={row.flagged_private} />
-      <RawRowActions />
+    <li
+      className="border-b border-(--color-rule)/70 py-5"
+      data-testid={`raw-row-${row.id}`}
+    >
+      <div className="grid grid-cols-[80px_1fr_auto] gap-6">
+        <RawRowMeta source={row.source} createdAt={row.created_at} />
+        <RawRowBody body={row.body} tags={row.tags} privateFlag={row.flagged_private} />
+        <RawRowActions
+          row={row} actions={actions} promoting={promoting} setPromoting={setPromoting}
+        />
+      </div>
+      {promoting ? (
+        <PromoteRow row={row} actions={actions} onDone={() => setPromoting(false)} />
+      ) : null}
     </li>
   );
 }
@@ -67,11 +91,66 @@ function PrivateBadge({ on }: { on: boolean }) {
     : null;
 }
 
-function RawRowActions() {
+interface RowActionsProps {
+  row: RawAdminView;
+  actions: CorpusActionsHook;
+  promoting: boolean;
+  setPromoting: (b: boolean) => void;
+}
+
+function RawRowActions(props: RowActionsProps) {
+  const toast = useToast();
+  const onArchive = () => confirm('Archive this raw entry?')
+    ? void runWith(
+      () => props.actions.archiveRaw(props.row.id),
+      () => toast.success('Raw archived'),
+    )
+    : null;
   return (
     <div className="flex flex-col items-end gap-1.5 shrink-0">
-      <Btn size="sm" kind="outline">promote ↗</Btn>
-      <Btn size="sm" kind="ghost">archive</Btn>
+      <button
+        type="button"
+        onClick={() => props.setPromoting(!props.promoting)}
+        disabled={props.row.archived}
+        data-testid={`raw-promote-${props.row.id}`}
+        className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) disabled:opacity-40"
+      >
+        promote → wiki ↗
+      </button>
+      <button
+        type="button"
+        onClick={onArchive}
+        disabled={props.row.archived}
+        data-testid={`raw-archive-${props.row.id}`}
+        className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent) disabled:opacity-40"
+      >
+        {props.row.archived ? 'archived' : 'archive'}
+      </button>
     </div>
   );
 }
+
+interface PromoteRowProps {
+  row: RawAdminView;
+  actions: CorpusActionsHook;
+  onDone: () => void;
+}
+
+function PromoteRow(props: PromoteRowProps) {
+  const toast = useToast();
+  const onSubmit = (input: PromoteInput) => void runWith(
+    () => props.actions.promoteRaw(props.row.id, input),
+    () => { toast.success('Promoted to wiki'); props.onDone(); },
+  );
+  return (
+    <div className="mt-4 max-w-[560px]">
+      <PromoteForm
+        busy={props.actions.pending}
+        testidPrefix={`raw-promote-form-${props.row.id}`}
+        onSubmit={onSubmit}
+        onCancel={props.onDone}
+      />
+    </div>
+  );
+}
+

@@ -23,6 +23,13 @@ DELETE FROM output_entries WHERE id = $1 AND owner_id = $2;
 -- name: SetOutputTags :exec
 UPDATE output_entries SET tags = $3, updated_at = now() WHERE id = $1 AND owner_id = $2;
 
+-- name: UpdateOutputBody :one
+-- admin "edit output" 入口；跟 UpdateWikiBody 同构。
+UPDATE output_entries
+SET title = $3, body = $4, tags = $5, visibility = $6, parent_id = $7, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
+
 -- name: GetOutputBySlug :one
 -- 用 owner_id + seo_slug 反查 output entry（public-facing output landing 复用 wiki 同套路）。
 SELECT id, owner_id, parent_id, title, body, tags, visibility,

@@ -314,3 +314,92 @@ func (q *Queries) SetWikiTags(ctx context.Context, arg SetWikiTagsParams) error 
 	_, err := q.db.Exec(ctx, setWikiTags, arg.ID, arg.OwnerID, arg.Tags)
 	return err
 }
+
+const updateRawBody = `-- name: UpdateRawBody :one
+UPDATE raw_entries
+SET body = $3, tags = $4, flagged_private = $5
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at
+`
+
+type UpdateRawBodyParams struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	Body           string
+	Tags           []string
+	FlaggedPrivate bool
+}
+
+// admin "edit raw" 入口：改 body + tags + flagged_private。source 不动
+// （source 是 ingest 来源标签，编辑不该改）。
+func (q *Queries) UpdateRawBody(ctx context.Context, arg UpdateRawBodyParams) (RawEntry, error) {
+	row := q.db.QueryRow(ctx, updateRawBody,
+		arg.ID,
+		arg.OwnerID,
+		arg.Body,
+		arg.Tags,
+		arg.FlaggedPrivate,
+	)
+	var i RawEntry
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Body,
+		&i.Source,
+		&i.SourceMeta,
+		&i.Tags,
+		&i.FlaggedPrivate,
+		&i.PromotedTo,
+		&i.Archived,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateWikiBody = `-- name: UpdateWikiBody :one
+UPDATE wiki_entries
+SET title = $3, body = $4, tags = $5, visibility = $6, parent_id = $7, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, parent_id, title, body, tags, visibility, source_raw_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at
+`
+
+type UpdateWikiBodyParams struct {
+	ID         pgtype.UUID
+	OwnerID    pgtype.UUID
+	Title      string
+	Body       string
+	Tags       []string
+	Visibility string
+	ParentID   pgtype.UUID
+}
+
+// admin "edit wiki" 入口：改 title/body/tags/visibility/parent_id。SEO 字段
+// 由 UpdateWikiSEO 单独负责（前端 admin 拆 SEO 模块）。
+func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) (WikiEntry, error) {
+	row := q.db.QueryRow(ctx, updateWikiBody,
+		arg.ID,
+		arg.OwnerID,
+		arg.Title,
+		arg.Body,
+		arg.Tags,
+		arg.Visibility,
+		arg.ParentID,
+	)
+	var i WikiEntry
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.ParentID,
+		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.Visibility,
+		&i.SourceRawIds,
+		&i.SeoSlug,
+		&i.SeoDescription,
+		&i.SeoIndexed,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

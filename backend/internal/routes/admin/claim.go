@@ -62,6 +62,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	r.Route("/tokens", func(r chi.Router) { h.MountTokens(r) })
 	r.Route("/codes", func(r chi.Router) { h.MountCodes(r) })
 	h.MountCorpus(r)
+	h.MountCorpusCRUD(r)
 	h.MountConversations(r)
 	h.MountBYOAI(r)
 	h.MountDomains(r)

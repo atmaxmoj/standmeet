@@ -1,0 +1,206 @@
+// corpus_crud.go —— admin UI 调的 corpus 三层 Update / Delete / Create wiki+output
+// 入口。raw 的 Update 走"改 body + tags + private"；wiki / output 的 Update
+// 改 title/body/tags/visibility/parent。Create wiki / output 是给 owner 在 admin
+// UI 起一条新条目（不从 raw promote）；source 字段为空。
+
+package usecases
+
+import (
+	"context"
+	"fmt"
+	"slices"
+
+	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/postgres"
+)
+
+// ─── raw ────────────────────────────────────────────────────
+
+// UpdateRawInput —— admin 改 raw 入参。
+type UpdateRawInput struct {
+	OwnerID        string
+	ID             string
+	Body           string
+	Tags           []string
+	FlaggedPrivate bool
+}
+
+// UpdateRaw 改 raw_entries 的 body + tags + flagged_private。
+func UpdateRaw(
+	ctx context.Context, deps CorpusDeps, in *UpdateRawInput,
+) (domain.RawEntry, error) {
+	if in.OwnerID == "" || in.ID == "" || in.Body == "" {
+		return domain.RawEntry{}, ErrEmptyField
+	}
+	raw, err := deps.Raw.UpdateBody(ctx, &postgres.UpdateRawInput{
+		OwnerID: in.OwnerID, ID: in.ID,
+		Body: in.Body, Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
+	})
+	if err != nil {
+		return domain.RawEntry{}, fmt.Errorf("update raw: %w", err)
+	}
+	return raw, nil
+}
+
+// ArchiveRaw 软删一条 raw。
+func ArchiveRaw(ctx context.Context, deps CorpusDeps, ownerID, rawID string) error {
+	if ownerID == "" || rawID == "" {
+		return ErrEmptyField
+	}
+	if err := deps.Raw.Archive(ctx, ownerID, rawID); err != nil {
+		return fmt.Errorf("archive raw: %w", err)
+	}
+	return nil
+}
+
+// ─── wiki ───────────────────────────────────────────────────
+
+// CreateWikiInput —— admin 直接起一条 wiki（不 promote）。SourceRawIDs 空。
+type CreateWikiInput struct {
+	OwnerID    string
+	ParentID   *string
+	Title      string
+	Body       string
+	Visibility string
+	Tags       []string
+}
+
+// CreateWiki 起一条新 wiki（admin UI"+new wiki"按钮的入口）。
+func CreateWiki(
+	ctx context.Context, deps CorpusDeps, in *CreateWikiInput,
+) (domain.WikiEntry, error) {
+	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
+		return domain.WikiEntry{}, ErrEmptyField
+	}
+	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
+		OwnerID:    in.OwnerID,
+		ParentID:   in.ParentID,
+		Title:      in.Title,
+		Body:       in.Body,
+		Visibility: normalizeVisibility(in.Visibility),
+		Tags:       in.Tags,
+	})
+	if err != nil {
+		return domain.WikiEntry{}, fmt.Errorf("create wiki: %w", err)
+	}
+	return wiki, nil
+}
+
+// UpdateWikiInput —— admin 改 wiki 入参。
+type UpdateWikiInput struct {
+	OwnerID    string
+	ID         string
+	ParentID   *string
+	Title      string
+	Body       string
+	Visibility string
+	Tags       []string
+}
+
+// UpdateWiki 改 wiki 主字段。
+func UpdateWiki(
+	ctx context.Context, deps CorpusDeps, in *UpdateWikiInput,
+) (domain.WikiEntry, error) {
+	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
+		return domain.WikiEntry{}, ErrEmptyField
+	}
+	wiki, err := deps.Wiki.Update(ctx, &postgres.UpdateWikiInput{
+		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
+		Title: in.Title, Body: in.Body, Tags: in.Tags,
+		Visibility: normalizeVisibility(in.Visibility),
+	})
+	if err != nil {
+		return domain.WikiEntry{}, fmt.Errorf("update wiki: %w", err)
+	}
+	return wiki, nil
+}
+
+// hasBlankCorpusField —— UpdateWiki / UpdateOutput 共用的"必填字段空"检查。
+// 提到 helper 让 caller cyclop ≤ 5（一个 || 4-项 = 复杂度 5）。
+func hasBlankCorpusField(vals ...string) bool {
+	return slices.Contains(vals, "")
+}
+
+// DeleteWiki 硬删一条 wiki。
+func DeleteWiki(ctx context.Context, deps CorpusDeps, ownerID, wikiID string) error {
+	if ownerID == "" || wikiID == "" {
+		return ErrEmptyField
+	}
+	if err := deps.Wiki.Delete(ctx, ownerID, wikiID); err != nil {
+		return fmt.Errorf("delete wiki: %w", err)
+	}
+	return nil
+}
+
+// ─── output ─────────────────────────────────────────────────
+
+// CreateOutputInput —— admin 直接起一条 output（不 promote）。SourceWikiIDs 空。
+type CreateOutputInput struct {
+	OwnerID    string
+	ParentID   *string
+	Title      string
+	Body       string
+	Visibility string
+	Tags       []string
+}
+
+// CreateOutput 起一条新 output（admin UI"+new output"按钮的入口）。
+func CreateOutput(
+	ctx context.Context, deps CorpusDeps, in *CreateOutputInput,
+) (domain.OutputEntry, error) {
+	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
+		return domain.OutputEntry{}, ErrEmptyField
+	}
+	out, err := deps.Output.Create(ctx, &postgres.CreateOutputInput{
+		OwnerID:    in.OwnerID,
+		ParentID:   in.ParentID,
+		Title:      in.Title,
+		Body:       in.Body,
+		Visibility: normalizeVisibility(in.Visibility),
+		Tags:       in.Tags,
+	})
+	if err != nil {
+		return domain.OutputEntry{}, fmt.Errorf("create output: %w", err)
+	}
+	return out, nil
+}
+
+// UpdateOutputInput —— admin 改 output 入参。
+type UpdateOutputInput struct {
+	OwnerID    string
+	ID         string
+	ParentID   *string
+	Title      string
+	Body       string
+	Visibility string
+	Tags       []string
+}
+
+// UpdateOutput 改 output 主字段。
+func UpdateOutput(
+	ctx context.Context, deps CorpusDeps, in *UpdateOutputInput,
+) (domain.OutputEntry, error) {
+	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
+		return domain.OutputEntry{}, ErrEmptyField
+	}
+	out, err := deps.Output.Update(ctx, &postgres.UpdateOutputInput{
+		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
+		Title: in.Title, Body: in.Body, Tags: in.Tags,
+		Visibility: normalizeVisibility(in.Visibility),
+	})
+	if err != nil {
+		return domain.OutputEntry{}, fmt.Errorf("update output: %w", err)
+	}
+	return out, nil
+}
+
+// DeleteOutput 硬删一条 output。
+func DeleteOutput(ctx context.Context, deps CorpusDeps, ownerID, outputID string) error {
+	if ownerID == "" || outputID == "" {
+		return ErrEmptyField
+	}
+	if err := deps.Output.Delete(ctx, ownerID, outputID); err != nil {
+		return fmt.Errorf("delete output: %w", err)
+	}
+	return nil
+}

@@ -201,6 +201,53 @@ func (q *Queries) SetOutputTags(ctx context.Context, arg SetOutputTagsParams) er
 	return err
 }
 
+const updateOutputBody = `-- name: UpdateOutputBody :one
+UPDATE output_entries
+SET title = $3, body = $4, tags = $5, visibility = $6, parent_id = $7, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, parent_id, title, body, tags, visibility, source_wiki_ids, seo_slug, seo_description, seo_indexed, created_at, updated_at
+`
+
+type UpdateOutputBodyParams struct {
+	ID         pgtype.UUID
+	OwnerID    pgtype.UUID
+	Title      string
+	Body       string
+	Tags       []string
+	Visibility string
+	ParentID   pgtype.UUID
+}
+
+// admin "edit output" 入口；跟 UpdateWikiBody 同构。
+func (q *Queries) UpdateOutputBody(ctx context.Context, arg UpdateOutputBodyParams) (OutputEntry, error) {
+	row := q.db.QueryRow(ctx, updateOutputBody,
+		arg.ID,
+		arg.OwnerID,
+		arg.Title,
+		arg.Body,
+		arg.Tags,
+		arg.Visibility,
+		arg.ParentID,
+	)
+	var i OutputEntry
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.ParentID,
+		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.Visibility,
+		&i.SourceWikiIds,
+		&i.SeoSlug,
+		&i.SeoDescription,
+		&i.SeoIndexed,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateOutputSEO = `-- name: UpdateOutputSEO :one
 UPDATE output_entries
 SET seo_slug        = $2,
