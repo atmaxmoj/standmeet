@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/wangsijie/standmeet/internal/captcha"
 	"github.com/wangsijie/standmeet/internal/mcp"
 	authmw "github.com/wangsijie/standmeet/internal/middleware"
 	"github.com/wangsijie/standmeet/internal/postgres"
@@ -25,9 +26,12 @@ import (
 // Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。
 // AdminDeps 放最后让里面的 bool 字段在尾部 padding 上不浪费。
 type Deps struct {
-	DB                   *pgxpool.Pool
-	Redis                *redis.Client
-	Log                  *slog.Logger
+	DB    *pgxpool.Pool
+	Redis *redis.Client
+	Log   *slog.Logger
+	// CaptchaVerifier —— login captcha 校验器；composition root 按 env
+	// 装配（turnstile / noop）。
+	CaptchaVerifier      captcha.Verifier
 	Public               publicroutes.Handlers
 	PublicPage           publicroutes.PageHandlers
 	PublicSEO            publicroutes.SEOHandlers
@@ -50,6 +54,7 @@ type AdminDeps struct {
 	Domains        usecases.AllowedDomainsDeps
 	AccessRequests usecases.AccessRequestsDeps
 	HandleAdmin    usecases.HandleDeps
+	PublicURLAdmin usecases.PublicURLDeps
 	AIProvider     usecases.AIProviderDeps
 	CustomPages    usecases.CustomPageDeps
 	Codes          *postgres.CodeRepo
@@ -86,7 +91,7 @@ func mountInternal(r chi.Router, deps *Deps) {
 func mountAdmin(r chi.Router, deps *Deps) {
 	r.Route("/api/admin", func(r chi.Router) {
 		adminH := buildAdminHandlers(deps)
-		adminH.MountUnauthed(r)
+		adminH.MountUnauthed(r, authmw.LoginGuard(deps.Redis, deps.CaptchaVerifier))
 		r.Group(func(r chi.Router) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
@@ -110,6 +115,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Domains:         adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
 		AccessRequests:  adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
 		HandleAdmin:     adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
+		PublicURLAdmin:  adminroutes.PublicURLDeps{PublicURL: deps.Admin.PublicURLAdmin},
 		AIProviderAdmin: adminroutes.AIProviderDeps{AI: deps.Admin.AIProvider},
 		CustomPages:     deps.Admin.CustomPages,
 		Log:             deps.Log,

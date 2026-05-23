@@ -16,6 +16,7 @@ import { SaveBar } from '@/components/admin/sections/page/SaveBar';
 import { BYOAIEditor } from '@/components/admin/sections/page/BYOAIEditor';
 import { DomainEditor } from '@/components/admin/sections/page/DomainEditor';
 import { HandleEditor } from '@/components/admin/sections/page/HandleEditor';
+import { PublicURLEditor } from '@/components/admin/sections/page/PublicURLEditor';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { pickHandle } from '@/lib/admin/use-handle';
 import { usePageEditor, type MutablePage, type PageEditorHook, type PageEditorState } from '@/lib/admin/use-page-editor';
@@ -112,16 +113,42 @@ function Blocks({
 }
 
 function SiteBlock() {
-  const session = useAdminSession();
-  const sessionHandle = session.kind === 'ready' ? session.session.handle : '';
-  const [override, setOverride] = useState<string | null>(null);
-  const handle = pickHandle(override, sessionHandle);
+  const view = useSiteBlockView();
   return (
-    <Block title="site" blurb="Where this lives on the web. Use a custom domain or the default standmeet.com path.">
-      <HandleEditor current={handle} onChanged={setOverride} />
-      <DomainEditor handle={handle} />
+    <Block title="site" blurb="Where this instance lives on the web. The public URL is what QR codes + canonical tags use; the allow-list lets Caddy issue a cert for it.">
+      <PublicURLEditor current={view.publicURL} onChanged={view.setPublicURL} />
+      <HandleEditor current={view.handle} onChanged={view.setHandle} />
+      <DomainEditor handle={view.handle} />
     </Block>
   );
+}
+
+interface SiteBlockView {
+  handle: string;
+  publicURL: string;
+  setHandle: (h: string) => void;
+  setPublicURL: (u: string) => void;
+}
+
+function useSiteBlockView(): SiteBlockView {
+  const session = useAdminSession();
+  const [handleOverride, setHandleOverride] = useState<string | null>(null);
+  const [publicURLOverride, setPublicURLOverride] = useState<string | null>(null);
+  const seed = readyOwnerSeed(session);
+  return {
+    handle: pickHandle(handleOverride, seed.handle),
+    publicURL: publicURLOverride ?? seed.publicURL,
+    setHandle: setHandleOverride,
+    setPublicURL: setPublicURLOverride,
+  };
+}
+
+function readyOwnerSeed(
+  s: ReturnType<typeof useAdminSession>,
+): { handle: string; publicURL: string } {
+  return s.kind === 'ready'
+    ? { handle: s.session.handle, publicURL: s.session.public_url }
+    : { handle: '', publicURL: '' };
 }
 
 function BYOAIBlock() {

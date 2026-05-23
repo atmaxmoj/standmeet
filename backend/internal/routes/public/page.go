@@ -25,6 +25,10 @@ type PageHandlers struct {
 	Page        usecases.PageDeps
 	Log         *slog.Logger
 	TokenIssuer usecases.SetupTokenIssuer // 仅 unclaimed 时调；handler 通过它取 / self-heal plaintext
+	// CaptchaSiteKey —— /api/v1/instance 把这个 echo 给前端；前端非空就渲染
+	// Turnstile widget。composition root 已经从 env 决定了"开/关"，这里
+	// 只读结果。空字符串表示 captcha 关闭。
+	CaptchaSiteKey string
 }
 
 // Mount 挂 /page + /instance。caller 负责前缀（/api/v1）。
@@ -54,7 +58,11 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 			})
 			return
 		}
-		writeInstanceInfo(h.Log, w, &owner, h.unclaimedSetupToken(r.Context(), &owner))
+		writeInstanceInfo(h.Log, w, &instanceWriteInput{
+			owner:          &owner,
+			setupToken:     h.unclaimedSetupToken(r.Context(), &owner),
+			captchaSiteKey: h.CaptchaSiteKey,
+		})
 	}
 }
 
@@ -77,13 +85,21 @@ func (h *PageHandlers) ensureUnclaimedTokenOrLog(ctx context.Context) string {
 	return plaintext
 }
 
-func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, owner *domain.Owner, token string) {
+// instanceWriteInput —— writeInstanceInfo 的入参打包，参数数量 ≤ 3。
+type instanceWriteInput struct {
+	owner          *domain.Owner
+	setupToken     string
+	captchaSiteKey string
+}
+
+func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWriteInput) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	view := instanceInfoView{
-		Claimed:    owner.ID != "",
-		Handle:     owner.Handle,
-		SetupToken: token,
+		Claimed:        in.owner.ID != "",
+		Handle:         in.owner.Handle,
+		SetupToken:     in.setupToken,
+		CaptchaSiteKey: in.captchaSiteKey,
 	}
 	if err := json.NewEncoder(w).Encode(view); err != nil {
 		log.Error("encode instance info", "err", err)
@@ -91,9 +107,10 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, owner *domain.Ow
 }
 
 type instanceInfoView struct {
-	Handle     string `json:"handle"`
-	SetupToken string `json:"setup_token,omitempty"`
-	Claimed    bool   `json:"claimed"`
+	Handle         string `json:"handle"`
+	SetupToken     string `json:"setup_token,omitempty"`
+	CaptchaSiteKey string `json:"captcha_site_key,omitempty"`
+	Claimed        bool   `json:"claimed"`
 }
 
 func (h *PageHandlers) getPage() http.HandlerFunc {

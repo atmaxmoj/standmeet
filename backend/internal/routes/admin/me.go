@@ -19,10 +19,11 @@ import (
 )
 
 type ownerView struct {
-	OwnerID  string `json:"owner_id"`
-	Email    string `json:"email"`
-	Handle   string `json:"handle"`
-	FullName string `json:"full_name"`
+	OwnerID   string `json:"owner_id"`
+	Email     string `json:"email"`
+	Handle    string `json:"handle"`
+	FullName  string `json:"full_name"`
+	PublicURL string `json:"public_url"`
 }
 
 type aiSettingsView struct {
@@ -83,6 +84,7 @@ func toMeResponse(owner *domain.Owner, settings *domain.OwnerSettings) meRespons
 		Owner: ownerView{
 			OwnerID: owner.ID, Email: owner.Email,
 			Handle: owner.Handle, FullName: owner.FullName,
+			PublicURL: owner.PublicURL,
 		},
 		Settings: settingsView{
 			AI: aiSettingsView{

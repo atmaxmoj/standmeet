@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/wangsijie/standmeet/internal/captcha"
 	"github.com/wangsijie/standmeet/internal/config"
 	"github.com/wangsijie/standmeet/internal/cryptobox"
 	"github.com/wangsijie/standmeet/internal/inference"
@@ -127,6 +128,9 @@ func wireAndServe(
 	if terr := ensureSetupToken(ctx, log, instanceRepo, setupTokenHolder); terr != nil {
 		return terr
 	}
+	captchaVerifier := captcha.NewFromConfig(
+		captcha.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
+	)
 
 	addr := net.JoinHostPort(cfg.Host, cfg.Port)
 	deps := runtimeDeps{
@@ -146,6 +150,8 @@ func wireAndServe(
 		sessionStore:      sessionStore, visitorStore: visitorStore,
 		providerResolver: providerResolver,
 		setupTokenHolder: setupTokenHolder,
+		captchaVerifier:  captchaVerifier,
+		captchaSiteKey:   captchaSiteKeyFor(cfg),
 		secureCookie:     cfg.SecureCookie,
 		buildsRoot:       cfg.CustomPagesRoot,
 	}
@@ -200,8 +206,19 @@ type runtimeDeps struct {
 	visitorStore      *session.VisitorSessionStore
 	providerResolver  inference.Resolver
 	setupTokenHolder  *session.SetupTokenHolder
+	captchaVerifier   captcha.Verifier
+	captchaSiteKey    string
 	buildsRoot        string
 	secureCookie      bool
+}
+
+// captchaSiteKeyFor —— site_key 只有 TURNSTILE_SECRET 也设了才往前端吐；
+// 任一空都返空串（feature off），跟 NewFromConfig 的 noop 一致。
+func captchaSiteKeyFor(cfg *config.Config) string {
+	if cfg.TurnstileSiteKey == "" || cfg.TurnstileSecret == "" {
+		return ""
+	}
+	return cfg.TurnstileSiteKey
 }
 
 // setupTokenIssuerAdapter —— 把 *postgres.InstanceRepo + *session.SetupTokenHolder

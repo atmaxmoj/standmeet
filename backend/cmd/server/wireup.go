@@ -28,6 +28,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		Builds:               sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
 		TLSAsk:               sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
 		MCP:                  buildMCPDeps(d),
+		CaptchaVerifier:      d.captchaVerifier,
 	}
 }
 
@@ -42,6 +43,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
 		HandleAdmin:    usecases.HandleDeps{Owners: d.ownerRepo},
+		PublicURLAdmin: usecases.PublicURLDeps{Owners: d.ownerRepo},
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
 		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Codes:          d.codeRepo,
@@ -69,6 +71,7 @@ func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 		TokenIssuer: &setupTokenIssuerAdapter{
 			log: d.log, repo: d.instanceRepo, holder: d.setupTokenHolder,
 		},
+		CaptchaSiteKey: d.captchaSiteKey,
 	}
 }
 

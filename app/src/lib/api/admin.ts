@@ -100,6 +100,7 @@ export interface OwnerProfileView {
   email: string;
   handle: string;
   full_name: string;
+  public_url: string;
 }
 
 export interface SettingsView {

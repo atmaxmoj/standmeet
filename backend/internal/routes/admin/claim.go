@@ -32,6 +32,7 @@ type Handlers struct {
 	Domains         DomainsDeps
 	AccessRequests  AccessRequestsDeps
 	HandleAdmin     HandleDeps
+	PublicURLAdmin  PublicURLDeps
 	AIProviderAdmin AIProviderDeps
 	CustomPages     usecases.CustomPageDeps
 	Log             *slog.Logger
@@ -39,9 +40,16 @@ type Handlers struct {
 }
 
 // MountUnauthed 挂不需要 owner session 的 endpoint：claim / login。
-func (h *Handlers) MountUnauthed(r chi.Router) {
+// loginGuard 是 brute-force 防御（per-IP rate-limit + equal-time response），
+// 只裹 /login —— claim 用一次性 setup token，brute-force 不实际。
+func (h *Handlers) MountUnauthed(
+	r chi.Router, loginGuard func(http.Handler) http.Handler,
+) {
 	r.Post("/claim", h.claim())
-	r.Post("/login", h.login())
+	r.Group(func(r chi.Router) {
+		r.Use(loginGuard)
+		r.Post("/login", h.login())
+	})
 }
 
 // MountAuthed 挂需要 owner session 的 endpoint。caller 负责先用
@@ -60,6 +68,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountSEO(r)
 	h.MountAccessRequests(r)
 	h.MountHandle(r)
+	h.MountPublicURL(r)
 	h.MountAIProvider(r)
 	h.MountCustomPages(r)
 }

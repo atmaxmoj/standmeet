@@ -13,16 +13,19 @@ import { login, type LoginResult } from '@/lib/api/auth';
 export interface LoginFormHook {
   email: string;
   password: string;
+  captchaToken: string;
   error: string | null;
   busy: boolean;
   setEmail: (v: string) => void;
   setPassword: (v: string) => void;
+  setCaptchaToken: (v: string) => void;
   submit: () => Promise<LoginResult | null>;
 }
 
 export function useLoginForm(): LoginFormHook {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -32,14 +35,17 @@ export function useLoginForm(): LoginFormHook {
     setError(null);
     setBusy(true);
     try {
-      return await login({ email: email.trim(), password });
+      return await login({ email: email.trim(), password, captcha_token: captchaToken });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'login failed');
       return null;
     } finally {
       setBusy(false);
     }
-  }, [email, password]);
+  }, [email, password, captchaToken]);
 
-  return { email, password, error, busy, setEmail, setPassword, submit };
+  return {
+    email, password, captchaToken, error, busy,
+    setEmail, setPassword, setCaptchaToken, submit,
+  };
 }

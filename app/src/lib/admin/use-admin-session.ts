@@ -19,6 +19,7 @@ export interface AdminSession {
   email: string;
   handle: string;
   full_name: string;
+  public_url: string;
 }
 
 export type AdminSessionState =
@@ -51,6 +52,7 @@ function adminSessionFromResource(
       session: {
         owner_id: data.owner.owner_id, email: data.owner.email,
         handle: data.owner.handle, full_name: data.owner.full_name,
+        public_url: data.owner.public_url,
       },
     };
   }

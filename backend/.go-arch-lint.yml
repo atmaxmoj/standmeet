@@ -35,6 +35,8 @@ components:
     in: internal/jobfetch                 # job source fetcher adapters (Greenhouse / Lever / Ashby / ...)
   resumerender:
     in: internal/resumerender             # ResumeContent → PDF bytes (gopdf + go-qrcode)
+  captcha:
+    in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
@@ -98,11 +100,13 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # middleware 包含 owner auth gate（WithOwner）+ CSRF gate；
-  # 依赖 session 包做 token lookup。
+  # middleware 包含 owner auth gate（WithOwner）+ CSRF gate + LoginGuard
+  # (rate-limit + captcha + equal-time)。session 给 token lookup；captcha
+  # 给 LoginGuard 的 Verifier 接口。
   middleware:
     mayDependOn:
       - session
+      - captcha
     anyVendorDeps: true
 
   # mcp 是 owner AI 客户端用的 MCP server；通过 OwnerLookup 接口注入 owner
@@ -140,6 +144,13 @@ deps:
   resumerender:
     mayDependOn:
       - domain
+    anyVendorDeps: true
+
+  # captcha —— Cloudflare Turnstile + noop verifier。Verifier 接口注入到
+  # middleware (LoginGuard) 做请求级校验。无 internal 依赖（接收 secret /
+  # token / IP 全是 string，输出 sentinel error）。
+  captcha:
+    mayDependOn: []
     anyVendorDeps: true
 
   # cryptobox 是无依赖的 AES-GCM helper；任何 internal 包可以 import 来落盘
@@ -192,6 +203,7 @@ deps:
       - middleware
       - mcp
       - postgres
+      - captcha
     anyVendorDeps: true
 
   # mockcmd —— test-only fixture HTTP server。纯 stdlib + 读 fixture
@@ -216,6 +228,7 @@ deps:
       - jobcache
       - jobfetch
       - resumerender
+      - captcha
       - cryptobox
       - server
     anyVendorDeps: true

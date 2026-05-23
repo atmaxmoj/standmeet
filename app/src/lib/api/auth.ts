@@ -36,6 +36,9 @@ export async function claim(input: ClaimInput): Promise<ClaimResult> {
 export interface LoginInput {
   email: string;
   password: string;
+  // captcha_token 仅在 instance 装了 Turnstile 时由 LoginForm 提供；空 string
+  // 让 backend LoginGuard 走 noop 路径（feature off 时不验）。
+  captcha_token?: string;
 }
 
 export interface LoginResult {
@@ -45,10 +48,12 @@ export interface LoginResult {
 }
 
 export async function login(input: LoginInput): Promise<LoginResult> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (input.captcha_token) headers['X-Captcha-Token'] = input.captcha_token;
   const res = await fetch('/api/admin/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+    headers,
+    body: JSON.stringify({ email: input.email, password: input.password }),
   });
   if (!res.ok) throw new Error(await readError(res, 'login'));
   return await res.json() as LoginResult;

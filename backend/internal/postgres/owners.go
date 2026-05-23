@@ -26,6 +26,9 @@ func pgxErrNoRows() error { return pgx.ErrNoRows }
 // pgUniqueViolation 翻译 DB 错误到 domain sentinel 时 hardcode 不出现。
 const pgUniqueViolationSQLState = "23505"
 
+// parseOwnerIDErrFmt —— "parse owner id" 字面在本文件多次出现，提取常量。
+const parseOwnerIDErrFmt = "parse owner id: %w"
+
 // OwnerRepo 提供 owner CRUD（当前只用 Create 和 Count；后续扩展）。
 type OwnerRepo struct {
 	pool *Pool
@@ -150,7 +153,7 @@ func (r *OwnerRepo) GetSettings(
 ) (domain.OwnerSettings, error) {
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.OwnerSettings{}, fmt.Errorf("parse owner id: %w", perr)
+		return domain.OwnerSettings{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetOwnerByID(ctx, pgID)
@@ -168,7 +171,7 @@ func (r *OwnerRepo) GetSettings(
 func buildBYOAIParams(in *UpdateBYOAIInput) (dbq.UpdateOwnerBYOAIParams, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.UpdateOwnerBYOAIParams{}, fmt.Errorf("parse owner id: %w", err)
+		return dbq.UpdateOwnerBYOAIParams{}, fmt.Errorf(parseOwnerIDErrFmt, err)
 	}
 	providers := in.Providers
 	if providers == nil {
@@ -209,7 +212,7 @@ func (r *OwnerRepo) GetAIProviderView(
 ) (AIProviderView, error) {
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return AIProviderView{}, fmt.Errorf("parse owner id: %w", perr)
+		return AIProviderView{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetOwnerByID(ctx, pgID)
@@ -230,7 +233,7 @@ func (r *OwnerRepo) UpdateAIProvider(
 ) (domain.OwnerSettings, error) {
 	pgID, perr := parseUUID(in.OwnerID)
 	if perr != nil {
-		return domain.OwnerSettings{}, fmt.Errorf("parse owner id: %w", perr)
+		return domain.OwnerSettings{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	encBytes, eerr := r.resolveKeyBytes(ctx, pgID, in.KeyPlaintext)
 	if eerr != nil {
@@ -246,75 +249,24 @@ func (r *OwnerRepo) UpdateAIProvider(
 	return toOwnerSettings(&row), nil
 }
 
-// UpdateHandle —— owner 改 handle 一组 atomic：先读旧 handle、UPDATE owners
-// 设新 handle、把旧 handle 写进 handle_aliases。一个事务里完成；唯一约束
-// 冲突（handle 被别人占）翻译成 domain.ErrHandleTaken。
-func (r *OwnerRepo) UpdateHandle(
-	ctx context.Context, ownerID, newHandle string,
+// UpdatePublicURL —— owner 改部署的 canonical public URL（claim 后改域名时调）。
+// 没有 alias 表（public_url 不参与 routing；只用作 QR / SEO canonical），
+// 单条 UPDATE 即可。
+func (r *OwnerRepo) UpdatePublicURL(
+	ctx context.Context, ownerID, normalized string,
 ) (domain.Owner, error) {
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.Owner{}, fmt.Errorf("parse owner id: %w", perr)
+		return domain.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	tx, terr := r.pool.Begin(ctx)
-	if terr != nil {
-		return domain.Owner{}, fmt.Errorf("begin tx: %w", terr)
+	q := dbq.New(r.pool)
+	row, qerr := q.UpdateOwnerPublicURL(ctx, dbq.UpdateOwnerPublicURLParams{
+		ID: pgID, PublicUrl: normalized,
+	})
+	if qerr != nil {
+		return domain.Owner{}, fmt.Errorf("update public_url: %w", qerr)
 	}
-	owner, txErr := updateHandleTx(ctx, tx, pgID, newHandle)
-	return commitOrRollback(ctx, tx, &owner, txErr, "commit update handle")
-}
-
-// commitOrRollback —— tx 收尾通用 helper：txErr 非 nil 就 rollback；nil 就
-// commit。让 UpdateHandle 自己 cyclo 友好。owner 用 pointer 避免 hugeParam。
-func commitOrRollback(
-	ctx context.Context, tx pgx.Tx, owner *domain.Owner, txErr error, commitTag string,
-) (domain.Owner, error) {
-	if txErr != nil {
-		if rerr := tx.Rollback(ctx); rerr != nil {
-			return domain.Owner{}, errors.Join(txErr, fmt.Errorf("rollback: %w", rerr))
-		}
-		return domain.Owner{}, txErr
-	}
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return domain.Owner{}, fmt.Errorf("%s: %w", commitTag, cerr)
-	}
-	return *owner, nil
-}
-
-func updateHandleTx(
-	ctx context.Context, tx pgx.Tx, ownerID pgtype.UUID, newHandle string,
-) (domain.Owner, error) {
-	q := dbq.New(tx)
-	old, gerr := q.GetOwnerByID(ctx, ownerID)
-	if gerr != nil {
-		return domain.Owner{}, fmt.Errorf("get owner: %w", gerr)
-	}
-	if old.Handle == newHandle {
-		return toDomainOwner(&old), nil
-	}
-	if uerr := doUpdateHandle(ctx, q, ownerID, newHandle); uerr != nil {
-		return domain.Owner{}, uerr
-	}
-	aliasParams := dbq.AddHandleAliasParams{Handle: old.Handle, OwnerID: ownerID}
-	if aerr := q.AddHandleAlias(ctx, aliasParams); aerr != nil {
-		return domain.Owner{}, fmt.Errorf("add alias: %w", aerr)
-	}
-	old.Handle = newHandle
-	return toDomainOwner(&old), nil
-}
-
-func doUpdateHandle(
-	ctx context.Context, q *dbq.Queries, ownerID pgtype.UUID, newHandle string,
-) error {
-	_, err := q.UpdateOwnerHandle(ctx, dbq.UpdateOwnerHandleParams{ID: ownerID, Handle: newHandle})
-	if err == nil {
-		return nil
-	}
-	constraint, isUnique := pgUniqueViolation(err)
-	if isUnique && constraint == "owners_handle_key" {
-		return domain.ErrHandleTaken
-	}
-	return fmt.Errorf("update handle: %w", err)
+	return toDomainOwner(&row), nil
 }
 
 // resolveKeyBytes —— KeyPlaintext nil 时复用原 enc bytes；非 nil 时空字符串
