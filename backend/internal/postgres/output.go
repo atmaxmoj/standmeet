@@ -69,7 +69,7 @@ func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateOutputEntryParams
 		ParentID:      parent,
 		Title:         in.Title,
 		Body:          in.Body,
-		Tags:          in.Tags,
+		Tags:          nilSafeTags(in.Tags),
 		Visibility:    in.Visibility,
 		SourceWikiIds: sourceWikis,
 	}, nil

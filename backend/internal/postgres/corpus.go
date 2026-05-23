@@ -49,13 +49,22 @@ func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (domain.RawEnt
 		Body:           in.Body,
 		Source:         in.Source,
 		SourceMeta:     []byte(`{}`),
-		Tags:           in.Tags,
+		Tags:           nilSafeTags(in.Tags),
 		FlaggedPrivate: in.FlaggedPrivate,
 	})
 	if err != nil {
 		return domain.RawEntry{}, fmt.Errorf("create raw: %w", err)
 	}
 	return toDomainRaw(&row), nil
+}
+
+// nilSafeTags —— postgres text[] NOT NULL 列拒 NULL；这里把 nil slice 转
+// 空 slice（pgx 序列化成 '{}'）。MCP caller 没传 tags 时不该爆。
+func nilSafeTags(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 // ListByOwner 返回 owner 未 archive 的 raw（最新 N 条）。
@@ -161,7 +170,7 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (domain.Wiki
 		ParentID:     parent,
 		Title:        in.Title,
 		Body:         in.Body,
-		Tags:         in.Tags,
+		Tags:         nilSafeTags(in.Tags),
 		Visibility:   in.Visibility,
 		SourceRawIds: sourceRaws,
 	})

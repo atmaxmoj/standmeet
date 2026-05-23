@@ -38,6 +38,7 @@ type Message struct {
 	Role           string // 'visitor' | 'assistant'
 	Body           string
 	CitedWikiIDs   []string
+	CitedOutputIDs []string
 }
 
 // ErrConversationNotFound —— conversation 不存在。

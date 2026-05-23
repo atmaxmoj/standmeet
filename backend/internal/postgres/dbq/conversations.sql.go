@@ -12,9 +12,11 @@ import (
 )
 
 const appendMessage = `-- name: AppendMessage :one
-INSERT INTO messages (conversation_id, role, body, tool_calls, cited_wiki_ids)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, conversation_id, role, body, tool_calls, cited_wiki_ids, created_at
+INSERT INTO messages (
+    conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, created_at
 `
 
 type AppendMessageParams struct {
@@ -23,6 +25,7 @@ type AppendMessageParams struct {
 	Body           string
 	ToolCalls      []byte
 	CitedWikiIds   []pgtype.UUID
+	CitedOutputIds []pgtype.UUID
 }
 
 func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (Message, error) {
@@ -32,6 +35,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 		arg.Body,
 		arg.ToolCalls,
 		arg.CitedWikiIds,
+		arg.CitedOutputIds,
 	)
 	var i Message
 	err := row.Scan(
@@ -41,6 +45,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 		&i.Body,
 		&i.ToolCalls,
 		&i.CitedWikiIds,
+		&i.CitedOutputIds,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -194,7 +199,7 @@ func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversa
 }
 
 const listMessages = `-- name: ListMessages :many
-SELECT id, conversation_id, role, body, tool_calls, cited_wiki_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
+SELECT id, conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) ([]Message, error) {
@@ -213,6 +218,7 @@ func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) 
 			&i.Body,
 			&i.ToolCalls,
 			&i.CitedWikiIds,
+			&i.CitedOutputIds,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

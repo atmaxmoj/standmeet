@@ -93,36 +93,51 @@ type AppendMessageInput struct {
 	Role           string
 	Body           string
 	CitedWikiIDs   []string
+	CitedOutputIDs []string
 }
 
 // AppendMessage 写 message + bump conversation。
 func (r *ConversationRepo) AppendMessage(
 	ctx context.Context, in *AppendMessageInput,
 ) (domain.Message, error) {
-	convUUID, err := parseUUID(in.ConversationID)
+	params, err := buildAppendMessageParams(in)
 	if err != nil {
-		return domain.Message{}, fmt.Errorf("parse conv id: %w", err)
-	}
-	citedUUIDs, err := parseUUIDArray(in.CitedWikiIDs)
-	if err != nil {
-		return domain.Message{}, fmt.Errorf("parse cited wiki ids: %w", err)
+		return domain.Message{}, err
 	}
 	q := dbq.New(r.pool)
-	row, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
-		ConversationID: convUUID,
-		Role:           in.Role,
-		Body:           in.Body,
-		CitedWikiIds:   citedUUIDs,
-	})
+	row, err := q.AppendMessage(ctx, params)
 	if err != nil {
 		return domain.Message{}, fmt.Errorf("append message: %w", err)
 	}
 	if berr := q.BumpConversation(ctx, dbq.BumpConversationParams{
-		ID: convUUID, HitPrivate: false,
+		ID: params.ConversationID, HitPrivate: false,
 	}); berr != nil {
 		return domain.Message{}, fmt.Errorf("bump conversation: %w", berr)
 	}
 	return toDomainMessage(&row), nil
+}
+
+func buildAppendMessageParams(in *AppendMessageInput) (dbq.AppendMessageParams, error) {
+	convUUID, err := parseUUID(in.ConversationID)
+	if err != nil {
+		return dbq.AppendMessageParams{}, fmt.Errorf("parse conv id: %w", err)
+	}
+	citedWiki, err := parseUUIDArray(in.CitedWikiIDs)
+	if err != nil {
+		return dbq.AppendMessageParams{}, fmt.Errorf("parse cited wiki ids: %w", err)
+	}
+	citedOutput, err := parseUUIDArray(in.CitedOutputIDs)
+	if err != nil {
+		return dbq.AppendMessageParams{}, fmt.Errorf("parse cited output ids: %w", err)
+	}
+	// BumpConversation 紧跟 AppendMessage；先把 convUUID 暴露出来给 caller。
+	return dbq.AppendMessageParams{
+		ConversationID: convUUID,
+		Role:           in.Role,
+		Body:           in.Body,
+		CitedWikiIds:   citedWiki,
+		CitedOutputIds: citedOutput,
+	}, nil
 }
 
 // CountSessionsForMember —— quota check 用：member 至今起过多少 session。
@@ -189,6 +204,7 @@ func toDomainMessage(m *dbq.Message) domain.Message {
 		Role:           m.Role,
 		Body:           m.Body,
 		CitedWikiIDs:   formatUUIDList(m.CitedWikiIds),
+		CitedOutputIDs: formatUUIDList(m.CitedOutputIds),
 		CreatedAt:      m.CreatedAt.Time,
 	}
 }

@@ -26,10 +26,11 @@ type SendMessageInput struct {
 // 字段顺序按 govet fieldalignment 优化：error 在前（双 ptr），slice 在尾
 // （ptr at offset 0 of slice），减小 GC pointer scan range。
 type MessageEvent struct {
-	Err          error // 'error' kind 携带 err，其余空
-	Kind         string
-	Text         string
-	CitedWikiIDs []string
+	Err            error // 'error' kind 携带 err，其余空
+	Kind           string
+	Text           string
+	CitedWikiIDs   []string
+	CitedOutputIDs []string
 }
 
 // SendMessage —— 写访客 visitor message → RAG → 调 provider 流式 → 收尾写
@@ -47,7 +48,8 @@ func SendMessage(
 	}
 	out := make(chan MessageEvent, messageEventBufSize)
 	go streamReply(ctx, &streamArgs{
-		deps: deps, provider: prep.provider, in: in, wikis: prep.wikis, out: out,
+		deps: deps, provider: prep.provider, in: in,
+		wikis: prep.wikis, outputs: prep.outputs, out: out,
 	})
 	return out, nil
 }
@@ -55,6 +57,7 @@ func SendMessage(
 type sendPrep struct {
 	provider inference.Provider
 	wikis    []domain.WikiEntry
+	outputs  []domain.OutputEntry
 }
 
 // prepareSend —— SendMessage 前的全部 setup。拆 preflight 让 cyclop ≤5。
@@ -70,11 +73,11 @@ func prepareSend(
 	}); werr != nil {
 		return sendPrep{}, fmt.Errorf("append visitor message: %w", werr)
 	}
-	wikis, werr := loadScopedWikis(ctx, deps, in.OwnerID, &in.Scope)
-	if werr != nil {
-		return sendPrep{}, werr
+	corpus, lerr := loadScopedCorpus(ctx, deps, in.OwnerID, &in.Scope)
+	if lerr != nil {
+		return sendPrep{}, lerr
 	}
-	return sendPrep{provider: provider, wikis: wikis}, nil
+	return sendPrep{provider: provider, wikis: corpus.Wikis, outputs: corpus.Outputs}, nil
 }
 
 // preflightSend —— body 非空 + turn quota + resolver。失败上一层把错误传到
@@ -137,8 +140,32 @@ func turnQuotaCheck(
 
 const (
 	maxRAGWikis         = 50
+	maxRAGOutputs       = 50
 	messageEventBufSize = 64
 )
+
+// ScopedCorpus —— 加载完成后的 wiki + output 集合，wrap 避开 3-return
+// （revive function-result-limit）。
+type ScopedCorpus struct {
+	Wikis   []domain.WikiEntry
+	Outputs []domain.OutputEntry
+}
+
+// loadScopedCorpus —— 加载 wiki + output 两层，做 visibility + tag scope
+// 过滤。output 会在 prompt 里优先呈现（更精炼），wiki 当 supporting context。
+func loadScopedCorpus(
+	ctx context.Context, deps VisitorDeps, ownerID string, scope *domain.VisitorSessionScope,
+) (ScopedCorpus, error) {
+	wikis, werr := loadScopedWikis(ctx, deps, ownerID, scope)
+	if werr != nil {
+		return ScopedCorpus{}, werr
+	}
+	outputs, oerr := loadScopedOutputs(ctx, deps, ownerID, scope)
+	if oerr != nil {
+		return ScopedCorpus{}, oerr
+	}
+	return ScopedCorpus{Wikis: wikis, Outputs: outputs}, nil
+}
 
 func loadScopedWikis(
 	ctx context.Context, deps VisitorDeps, ownerID string, scope *domain.VisitorSessionScope,
@@ -149,25 +176,42 @@ func loadScopedWikis(
 	}
 	filtered := make([]domain.WikiEntry, 0, len(all))
 	for i := range all {
-		if !wikiMatchesScope(&all[i], scope) {
-			continue
+		if entryMatchesScope(all[i].Visibility, all[i].Tags, scope) {
+			filtered = append(filtered, all[i])
 		}
-		filtered = append(filtered, all[i])
 	}
 	return filtered, nil
 }
 
-func wikiMatchesScope(w *domain.WikiEntry, scope *domain.VisitorSessionScope) bool {
-	if !visibilityAllowed(w.Visibility, scope.VisibilityMax) {
+func loadScopedOutputs(
+	ctx context.Context, deps VisitorDeps, ownerID string, scope *domain.VisitorSessionScope,
+) ([]domain.OutputEntry, error) {
+	all, err := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs)
+	if err != nil {
+		return nil, fmt.Errorf("list output for rag: %w", err)
+	}
+	filtered := make([]domain.OutputEntry, 0, len(all))
+	for i := range all {
+		if entryMatchesScope(all[i].Visibility, all[i].Tags, scope) {
+			filtered = append(filtered, all[i])
+		}
+	}
+	return filtered, nil
+}
+
+// entryMatchesScope —— wiki / output 共用的 scope 匹配：visibility ≤ max
+// + tag include/exclude。Tags 语义两层一致。
+func entryMatchesScope(visibility string, tags []string, scope *domain.VisitorSessionScope) bool {
+	if !visibilityAllowed(visibility, scope.VisibilityMax) {
 		return false
 	}
-	if intersect(w.Tags, scope.ExcludedTags) {
+	if intersect(tags, scope.ExcludedTags) {
 		return false
 	}
 	if len(scope.IncludedTags) == 0 {
 		return true
 	}
-	return intersect(w.Tags, scope.IncludedTags)
+	return intersect(tags, scope.IncludedTags)
 }
 
 func visibilityAllowed(actual, maxAllowed string) bool {
@@ -203,11 +247,12 @@ type streamArgs struct {
 	in       *SendMessageInput
 	out      chan<- MessageEvent
 	wikis    []domain.WikiEntry
+	outputs  []domain.OutputEntry
 }
 
 func streamReply(ctx context.Context, args *streamArgs) {
 	defer close(args.out)
-	chunks, ierr := args.provider.Stream(ctx, buildChatRequest(args.deps, args.in, args.wikis))
+	chunks, ierr := args.provider.Stream(ctx, buildChatRequest(args))
 	if ierr != nil {
 		args.out <- MessageEvent{Kind: "error", Err: ierr}
 		return
@@ -216,16 +261,17 @@ func streamReply(ctx context.Context, args *streamArgs) {
 	if !ok {
 		return
 	}
-	args.out <- emitDoneEvent(ctx, args.deps, args.in, full, args.wikis)
+	args.out <- emitDoneEvent(ctx, &doneInput{
+		deps: args.deps, in: args.in, full: full,
+		wikis: args.wikis, outputs: args.outputs,
+	})
 }
 
-func buildChatRequest(
-	deps VisitorDeps, in *SendMessageInput, wikis []domain.WikiEntry,
-) *inference.ChatRequest {
+func buildChatRequest(args *streamArgs) *inference.ChatRequest {
 	return &inference.ChatRequest{
-		System: buildSystemPrompt(deps, wikis),
+		System: buildSystemPrompt(args.wikis, args.outputs),
 		Messages: []inference.Message{
-			{Role: "user", Content: in.Body},
+			{Role: "user", Content: args.in.Body},
 		},
 	}
 }
@@ -252,37 +298,29 @@ func pumpChunks(
 	return strings.Join(parts, ""), true
 }
 
-func emitDoneEvent(
-	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
-	full string, wikis []domain.WikiEntry,
-) MessageEvent {
-	cited := make([]string, 0, len(wikis))
-	for i := range wikis {
-		cited = append(cited, wikis[i].ID)
-	}
-	if _, werr := deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
-		ConversationID: in.ConversationID,
+// doneInput —— emitDoneEvent 入参打包；revive argument-limit ≤ 5。
+type doneInput struct {
+	deps    VisitorDeps
+	in      *SendMessageInput
+	full    string
+	wikis   []domain.WikiEntry
+	outputs []domain.OutputEntry
+}
+
+func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
+	citedWiki := wikiIDsOf(d.wikis)
+	citedOutput := outputIDsOf(d.outputs)
+	if _, werr := d.deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
+		ConversationID: d.in.ConversationID,
 		Role:           "assistant",
-		Body:           full,
-		CitedWikiIDs:   cited,
+		Body:           d.full,
+		CitedWikiIDs:   citedWiki,
+		CitedOutputIDs: citedOutput,
 	}); werr != nil {
 		return MessageEvent{Kind: "error", Err: fmt.Errorf("append assistant: %w", werr)}
 	}
-	return MessageEvent{Kind: "done", Text: full, CitedWikiIDs: cited}
-}
-
-func buildSystemPrompt(deps VisitorDeps, wikis []domain.WikiEntry) string {
-	_ = deps
-	if len(wikis) == 0 {
-		return "You are an assistant answering visitor questions."
+	return MessageEvent{
+		Kind: "done", Text: d.full,
+		CitedWikiIDs: citedWiki, CitedOutputIDs: citedOutput,
 	}
-	parts := make([]string, 0, 2+len(wikis))
-	parts = append(parts,
-		"You are an assistant answering visitor questions. ",
-		"Use the following knowledge entries as ground truth:\n\n",
-	)
-	for i := range wikis {
-		parts = append(parts, fmt.Sprintf("### %s\n%s\n\n", wikis[i].Title, wikis[i].Body))
-	}
-	return strings.Join(parts, "")
 }

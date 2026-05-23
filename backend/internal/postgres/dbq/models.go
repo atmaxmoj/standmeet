@@ -155,6 +155,7 @@ type Message struct {
 	Body           string
 	ToolCalls      []byte
 	CitedWikiIds   []pgtype.UUID
+	CitedOutputIds []pgtype.UUID
 	CreatedAt      pgtype.Timestamptz
 }
 

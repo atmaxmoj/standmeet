@@ -40,11 +40,12 @@ type convSummaryView struct {
 }
 
 type convMessageView struct {
-	CreatedAt    string   `json:"created_at"`
-	ID           string   `json:"id"`
-	Role         string   `json:"role"`
-	Body         string   `json:"body"`
-	CitedWikiIDs []string `json:"cited_wiki_ids"`
+	CreatedAt      string   `json:"created_at"`
+	ID             string   `json:"id"`
+	Role           string   `json:"role"`
+	Body           string   `json:"body"`
+	CitedWikiIDs   []string `json:"cited_wiki_ids"`
+	CitedOutputIDs []string `json:"cited_output_ids"`
 }
 
 type convTranscriptResp struct {
@@ -158,11 +159,12 @@ func toConvSummaryView(s *postgres.ConvSummary) convSummaryView {
 
 func toConvMessageView(m *domain.Message) convMessageView {
 	return convMessageView{
-		ID:           m.ID,
-		Role:         m.Role,
-		Body:         m.Body,
-		CitedWikiIDs: m.CitedWikiIDs,
-		CreatedAt:    m.CreatedAt.Format(time.RFC3339),
+		ID:             m.ID,
+		Role:           m.Role,
+		Body:           m.Body,
+		CitedWikiIDs:   ensureSlice(m.CitedWikiIDs),
+		CitedOutputIDs: ensureSlice(m.CitedOutputIDs),
+		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
 	}
 }
 

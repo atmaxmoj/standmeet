@@ -23,6 +23,7 @@ type VisitorDeps struct {
 	Codes    *postgres.CodeRepo
 	Conv     *postgres.ConversationRepo
 	Wiki     *postgres.WikiRepo
+	Output   *postgres.OutputRepo
 	Owners   *postgres.OwnerRepo
 	Sessions *session.VisitorSessionStore
 	Resolver inference.Resolver

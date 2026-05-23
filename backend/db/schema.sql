@@ -194,6 +194,7 @@ CREATE TABLE messages (
     body             text          NOT NULL,
     tool_calls       jsonb,
     cited_wiki_ids   uuid[]        NOT NULL DEFAULT '{}',
+    cited_output_ids uuid[]        NOT NULL DEFAULT '{}',
     created_at       timestamptz   NOT NULL DEFAULT now()
 );
 
