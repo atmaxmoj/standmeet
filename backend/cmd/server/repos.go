@@ -14,6 +14,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/postgres"
 	"github.com/wangsijie/standmeet/internal/sandbox"
 	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/wangsijie/standmeet/internal/storage"
 )
 
 // repoSet —— 所有 postgres Repository 的 bundle，让 wireAndServe 不必逐行
@@ -36,6 +37,7 @@ type repoSet struct {
 	application   *postgres.ApplicationRepo
 	skill         *postgres.SkillRepo
 	mcpServer     *postgres.MCPServerRepo
+	asset         *postgres.AssetRepo
 }
 
 func newRepos(db *postgres.Pool) *repoSet {
@@ -57,14 +59,17 @@ func newRepos(db *postgres.Pool) *repoSet {
 		application:   postgres.NewApplicationRepo(db),
 		skill:         postgres.NewSkillRepo(db),
 		mcpServer:     postgres.NewMCPServerRepo(db),
+		asset:         postgres.NewAssetRepo(db),
 	}
 }
 
 // deferredWiring —— 在 newRepos 之后才能装的运行期对象（resolver 依赖
-// owner repo；setup token holder 在 ensureSetupToken 后才有 plaintext）。
+// owner repo；setup token holder 在 ensureSetupToken 后才有 plaintext；
+// storage client 启动时 ensure bucket）。
 type deferredWiring struct {
 	providerResolver inference.Resolver
 	setupTokenHolder *session.SetupTokenHolder
+	storageClient    *storage.Client
 }
 
 func assembleRuntimeDeps(
@@ -88,6 +93,8 @@ func assembleRuntimeDeps(
 		applicationRepo:   repos.application,
 		skillRepo:         repos.skill,
 		mcpServerRepo:     repos.mcpServer,
+		assetRepo:         repos.asset,
+		storageClient:     dw.storageClient,
 		jobCachePool:      jobcache.New(c.rdb, 0),
 		jobFetchRegistry:  newJobFetchRegistry(cfg),
 		sessionStore:      session.NewOwnerSessionStore(c.rdb),

@@ -44,17 +44,30 @@ type Config struct {
 	// 不显式开 = disabled，skill 调用脚本时返 sandbox.ErrDisabled。
 	// env: SANDBOX_DRIVER
 	SandboxDriver string
+	// Storage* —— MinIO / S3 客户端配置。Endpoint 空 = 关闭 (assets 上传
+	// 返 storage.ErrDisabled)。PublicURL 是浏览器侧能直连的 host (presign
+	// URL 里 host 替换用；容器内是 minio:9000，浏览器是 localhost:9200)。
+	StorageEndpoint  string
+	StorageAccessKey string
+	StorageSecretKey string
+	StorageBucket    string
+	StoragePublicURL string
 	// QueryQueueMaxConcurrent —— visitor chat agent loop 全局并发上限；
 	// 防一个 owner 的 anthropic 配额被并发访客打爆。≤0 关闭限流（dev 默认）。
 	// env: QUERY_QUEUE_MAX_CONCURRENT
 	QueryQueueMaxConcurrent int
+	StorageUseSSL           bool
 	SecureCookie            bool // dev (http) 走 false；prod 必须 true
 }
 
 // 缺关键 env 时返回的 sentinel error。
 var (
-	ErrDatabaseURLRequired = errors.New("DATABASE_URL is required")
-	ErrRedisURLRequired    = errors.New("REDIS_URL is required")
+	ErrDatabaseURLRequired      = errors.New("DATABASE_URL is required")
+	ErrRedisURLRequired         = errors.New("REDIS_URL is required")
+	ErrStorageEndpointRequired  = errors.New("STORAGE_ENDPOINT is required")
+	ErrStorageAccessKeyRequired = errors.New("STORAGE_ACCESS_KEY is required")
+	ErrStorageSecretKeyRequired = errors.New("STORAGE_SECRET_KEY is required")
+	ErrStorageBucketRequired    = errors.New("STORAGE_BUCKET is required")
 )
 
 // Load 读 env，返回 Config 或 error。任何 required env 缺失即返回 error。
@@ -78,18 +91,46 @@ func Load() (*Config, error) {
 		TurnstileSecret:                os.Getenv("TURNSTILE_SECRET"),
 		QueryQueueMaxConcurrent:        envInt("QUERY_QUEUE_MAX_CONCURRENT", 0),
 		SandboxDriver:                  os.Getenv("SANDBOX_DRIVER"),
+		StorageEndpoint:                os.Getenv("STORAGE_ENDPOINT"),
+		StorageAccessKey:               os.Getenv("STORAGE_ACCESS_KEY"),
+		StorageSecretKey:               os.Getenv("STORAGE_SECRET_KEY"),
+		StorageBucket:                  os.Getenv("STORAGE_BUCKET"),
+		StoragePublicURL:               os.Getenv("STORAGE_PUBLIC_URL"),
+		StorageUseSSL:                  os.Getenv("STORAGE_USE_SSL") == "true",
 		SecureCookie:                   envOr("SECURE_COOKIE", "true") == "true",
 	}
 
-	if cfg.DatabaseURL == "" {
-		return nil, ErrDatabaseURLRequired
-	}
-	if cfg.RedisURL == "" {
-		return nil, ErrRedisURLRequired
+	if verr := validateRequired(cfg); verr != nil {
+		return nil, verr
 	}
 	// SESSION_KEY 只在登录后续阶段才用，启动时允许空。
-
 	return cfg, nil
+}
+
+// requiredEnvCheck —— 单条 required env 校验表项。字段顺序按 govet
+// fieldalignment：error interface (16B) 先，string (16B) 后。
+type requiredEnvCheck struct {
+	err error
+	val string
+}
+
+// validateRequired —— 表驱动 required env 校验，让 Load 保持 cyclo ≤ 5。
+// SESSION_KEY 不在表里（启动时允许空，登录路径才校验）。
+func validateRequired(cfg *Config) error {
+	checks := []requiredEnvCheck{
+		{err: ErrDatabaseURLRequired, val: cfg.DatabaseURL},
+		{err: ErrRedisURLRequired, val: cfg.RedisURL},
+		{err: ErrStorageEndpointRequired, val: cfg.StorageEndpoint},
+		{err: ErrStorageAccessKeyRequired, val: cfg.StorageAccessKey},
+		{err: ErrStorageSecretKeyRequired, val: cfg.StorageSecretKey},
+		{err: ErrStorageBucketRequired, val: cfg.StorageBucket},
+	}
+	for _, c := range checks {
+		if c.val == "" {
+			return c.err
+		}
+	}
+	return nil
 }
 
 func envOr(key, fallback string) string {

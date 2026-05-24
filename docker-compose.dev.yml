@@ -53,6 +53,14 @@ services:
       - INFERENCE_MOCK_REPLY=Hello visitor, alice says hi from the mock provider.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - SANDBOX_DRIVER=docker
+      # MinIO / S3 storage for owner-uploaded images + attachments.
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=standmeet
+      - STORAGE_SECRET_KEY=standmeet_dev_minio_password
+      - STORAGE_BUCKET=standmeet
+      - STORAGE_USE_SSL=false
+      # PublicURL frontend hits to fetch presigned object URLs (host's mapped port).
+      - STORAGE_PUBLIC_URL=http://localhost:9200
       # job-board fetcher base URLs point at the test mock so e2e doesn't
       # hit real Greenhouse / Lever / Ashby / RemoteOK / WWR / HN. Prod
       # leaves these unset → adapters use baked-in real URLs.
@@ -70,6 +78,8 @@ services:
       redis:
         condition: service_healthy
       job-board-mock:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -176,7 +186,30 @@ services:
       timeout: 3s
       retries: 10
 
+  # minio —— S3-compatible object storage for owner-uploaded images +
+  # attachments (post covers, raw entry attachments, custom page assets).
+  # Self-hostable single-node. Console on :9201; S3 API on :9200.
+  # Bucket "standmeet" auto-created on first backend boot via internal/storage.
+  minio:
+    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    restart: unless-stopped
+    command: server /data --console-address ":9201"
+    environment:
+      - MINIO_ROOT_USER=standmeet
+      - MINIO_ROOT_PASSWORD=standmeet_dev_minio_password
+    volumes:
+      - miniodata:/data
+    ports:
+      - "9200:9000"
+      - "9201:9201"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
 volumes:
   pgdata: {}
   redisdata: {}
+  miniodata: {}
   custom_pages_data: {}

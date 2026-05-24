@@ -242,6 +242,24 @@ CREATE TABLE code_mcp_servers (
 
 CREATE INDEX code_mcp_servers_server_idx ON code_mcp_servers(mcp_server_id);
 
+-- assets —— owner-uploaded 二进制 (图片 / 附件) 的元数据。bytes 落 MinIO
+-- 对象存储 (key = '<owner_id>/<asset_id>')；元数据在这里。posts / raw /
+-- wiki / custom_pages 通过 asset_id 引用，URL 走 backend presign。
+-- sha256 让重复上传可在 caller 端 dedup (本表不强制 unique)。
+CREATE TABLE assets (
+    id                 uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id           uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    storage_key        text          NOT NULL,
+    content_type       text          NOT NULL DEFAULT 'application/octet-stream',
+    size_bytes         bigint        NOT NULL DEFAULT 0,
+    sha256             text          NOT NULL DEFAULT '',
+    original_filename  text          NOT NULL DEFAULT '',
+    created_at         timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX assets_owner_created_idx ON assets(owner_id, created_at DESC);
+CREATE INDEX assets_sha256_idx ON assets(owner_id, sha256) WHERE sha256 <> '';
+
 -- handle_aliases —— owner 改 handle 后旧 handle 入这里，旧 URL 仍能 resolve
 -- 到同一个 owner。GetByHandle 走 owners.handle 优先，未命中走 alias。
 CREATE TABLE handle_aliases (

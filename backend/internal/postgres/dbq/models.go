@@ -55,6 +55,17 @@ type Application struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type Asset struct {
+	ID               pgtype.UUID
+	OwnerID          pgtype.UUID
+	StorageKey       string
+	ContentType      string
+	SizeBytes        int64
+	Sha256           string
+	OriginalFilename string
+	CreatedAt        pgtype.Timestamptz
+}
+
 type CodeMcpServer struct {
 	CodeID      pgtype.UUID
 	McpServerID pgtype.UUID

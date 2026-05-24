@@ -41,6 +41,8 @@ components:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
   mcpclient:
     in: internal/mcpclient                # 调外部 MCP server (owner-registered)
+  storage:
+    in: internal/storage                  # MinIO/S3 对象存储 (图片 / 附件)
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
@@ -77,6 +79,7 @@ deps:
       - cryptobox
       - sandbox
       - mcpclient
+      - storage
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
@@ -89,6 +92,11 @@ deps:
   mcpclient:
     mayDependOn:
       - domain
+    anyVendorDeps: true
+
+  # storage 是 S3 / MinIO 客户端，纯 vendor + stdlib。
+  storage:
+    mayDependOn: []
     anyVendorDeps: true
 
   # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
@@ -203,6 +211,7 @@ deps:
       - postgres
       - apierr
       - middleware
+      - storage
     anyVendorDeps: true
 
   # public routes (/api/v1/*) —— SDK + visitor 落地点；走 visitor session
@@ -262,5 +271,6 @@ deps:
       - cryptobox
       - sandbox
       - mcpclient
+      - storage
       - server
     anyVendorDeps: true

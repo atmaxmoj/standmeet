@@ -192,9 +192,8 @@ func (*DisabledRunner) Run(_ context.Context, _ *RunInput) (Result, error) {
 }
 
 // FromEnv —— 按 driver 字符串选 Runner。空 / "disabled" → DisabledRunner；
-// "docker" → DockerRunner。composition root 调。
-//
-//nolint:ireturn // FromEnv 是 driver-selection 工厂，本质要返 interface。
+// "docker" → DockerRunner。composition root 调。Driver-selection 工厂必须
+// 返 interface (allow-listed in .golangci.yml ireturn)。
 func FromEnv(driver string) Runner {
 	if driver == "docker" {
 		return NewDockerRunner()

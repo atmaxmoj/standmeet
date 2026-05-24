@@ -38,6 +38,7 @@ type Handlers struct {
 	CustomPages     usecases.CustomPageDeps
 	SkillsAdmin     SkillsAdminDeps
 	MCPServersAdmin MCPServersAdminDeps
+	AssetsAdmin     AssetsAdminDeps
 	Log             *slog.Logger
 	SecureCookie    bool // false 仅限 dev (http)；prod 必须 true。
 }
@@ -78,6 +79,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountCustomPages(r)
 	h.MountSkills(r)
 	h.MountMCPServers(r)
+	h.MountAssets(r)
 }
 
 type claimRequest struct {

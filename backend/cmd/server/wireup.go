@@ -26,10 +26,14 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		PublicCustomPages:    buildPublicCustomPageDeps(d),
 		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:  buildPublicPasswordResetDeps(d),
-		Builds:               sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
-		TLSAsk:               sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
-		MCP:                  buildMCPDeps(d),
-		CaptchaVerifier:      d.captchaVerifier,
+		PublicAssets: publicroutes.AssetHandlers{
+			Deps: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+			Log:  d.log,
+		},
+		Builds:          sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
+		TLSAsk:          sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
+		MCP:             buildMCPDeps(d),
+		CaptchaVerifier: d.captchaVerifier,
 	}
 }
 
@@ -52,6 +56,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Skills:         usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		MCPServers:     usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
+		Assets:         usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 		Codes:          d.codeRepo,
 		Owners:         d.ownerRepo,
 		Sessions:       d.sessionStore,

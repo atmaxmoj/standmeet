@@ -29,6 +29,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/sandbox"
 	"github.com/wangsijie/standmeet/internal/server"
 	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/wangsijie/standmeet/internal/storage"
 )
 
 const (
@@ -107,11 +108,37 @@ func wireAndServe(
 	if terr := ensureSetupToken(ctx, log, repos.instance, setupTokenHolder); terr != nil {
 		return terr
 	}
+	storageClient, serr := initStorage(ctx, log, cfg)
+	if serr != nil {
+		return serr
+	}
 	deps := assembleRuntimeDeps(log, cfg, c, repos, &deferredWiring{
 		providerResolver: providerResolver,
 		setupTokenHolder: setupTokenHolder,
+		storageClient:    storageClient,
 	})
 	return serve(ctx, &deps, net.JoinHostPort(cfg.Host, cfg.Port), stop)
+}
+
+// initStorage —— 启动时 init MinIO + ensure bucket。STORAGE_ENDPOINT 已经
+// 在 config.Load 里 required，这里不再 nil 兜底。
+func initStorage(
+	ctx context.Context, log *slog.Logger, cfg *config.Config,
+) (*storage.Client, error) {
+	client, err := storage.NewClient(ctx, &storage.Config{
+		Endpoint:  cfg.StorageEndpoint,
+		AccessKey: cfg.StorageAccessKey,
+		SecretKey: cfg.StorageSecretKey,
+		Bucket:    cfg.StorageBucket,
+		PublicURL: cfg.StoragePublicURL,
+		UseSSL:    cfg.StorageUseSSL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init storage: %w", err)
+	}
+	log.Info("storage initialized",
+		"endpoint", cfg.StorageEndpoint, "bucket", cfg.StorageBucket)
+	return client, nil
 }
 
 // ensureSetupToken 在 server 启动前调一次：未 claimed 的 instance 生成
@@ -159,7 +186,9 @@ type runtimeDeps struct {
 	applicationRepo   *postgres.ApplicationRepo
 	skillRepo         *postgres.SkillRepo
 	mcpServerRepo     *postgres.MCPServerRepo
+	assetRepo         *postgres.AssetRepo
 	sandboxRunner     sandbox.Runner
+	storageClient     *storage.Client
 	jobCachePool      *jobcache.Pool
 	jobFetchRegistry  *jobfetch.Registry
 	sessionStore      *session.OwnerSessionStore
