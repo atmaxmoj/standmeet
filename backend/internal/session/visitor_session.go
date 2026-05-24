@@ -31,12 +31,14 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 
 // VisitorSessionData —— Redis 里存的 visitor session payload。
 //
-// retrieval-redesign 后准入字段：
+// 准入字段：
 //   - CorpusPermissions: 从 access code（或 byoai default）继承的 path-glob ACL
-//   - BYOAIKey: visitor 自带的 API key —— 仅 byoai tier 有值；inference resolver
-//     按这把 key 实例化 provider。Redis TTL = visitor session TTL (60min)；
-//     v1 不做额外 KEK 加密 (Redis 已 dev-only auth + 容器隔离；prod 部署 hardened
-//     Redis 配置后由 Coolify 镜像层处理)。
+//   - BYOAIKeyEnc: visitor 自带 API key 的 AES-256-GCM 密文 (cryptobox)；
+//     仅 byoai tier 有值，inference resolver 调 cryptobox.Decrypt 拿明文。
+//     不直接存 plaintext —— Redis dump / 攻击者拿到 dump 也读不出。
+//     usecase 层（visitor_public.IssuePublicSession）负责 encrypt；resolver
+//     层（inference.EnvOrOwnerResolver）负责 decrypt。session 自身不接触
+//     plaintext，只搬密文 bytes 进出 Redis。
 type VisitorSessionData struct {
 	ExpiresAt         time.Time               `json:"expires_at"`
 	OwnerID           string                  `json:"owner_id"`
@@ -45,7 +47,7 @@ type VisitorSessionData struct {
 	MemberID          string                  `json:"member_id"`
 	VisitorName       string                  `json:"visitor_name"`
 	BYOAIProvider     string                  `json:"byoai_provider"`
-	BYOAIKey          string                  `json:"byoai_key,omitempty"`
+	BYOAIKeyEnc       []byte                  `json:"byoai_key_enc,omitempty"`
 	CorpusPermissions []domain.PathPermission `json:"corpus_permissions"`
 }
 

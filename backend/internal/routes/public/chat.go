@@ -136,6 +136,9 @@ func streamChatSSE(
 		ConversationID: convID,
 		Body:           parsed.Content,
 		Permissions:    parsed.Data.CorpusPermissions,
+		Tier:           parsed.Data.Tier,
+		BYOAIProvider:  parsed.Data.BYOAIProvider,
+		BYOAIKeyEnc:    parsed.Data.BYOAIKeyEnc,
 	})
 	if err != nil {
 		handleVisitorErr(h.Log, w, err)

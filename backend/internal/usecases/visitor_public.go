@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/wangsijie/standmeet/internal/cryptobox"
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres"
 	"github.com/wangsijie/standmeet/internal/session"
@@ -64,6 +65,10 @@ func finalizePublicSession(
 	in *IssuePublicSessionInput, owner *domain.Owner,
 ) (IssueCodeSessionResult, error) {
 	tier := publicTierForBYOAI(in.BYOAIKey)
+	keyEnc, kerr := encryptBYOAIKey(in.BYOAIKey)
+	if kerr != nil {
+		return IssueCodeSessionResult{}, fmt.Errorf("encrypt byoai key: %w", kerr)
+	}
 	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
 		OwnerID:     owner.ID,
 		Tier:        tier,
@@ -78,12 +83,25 @@ func finalizePublicSession(
 		VisitorName:       in.VisitorName,
 		CorpusPermissions: defaultPermsForTier(tier),
 		BYOAIProvider:     in.BYOAIProvider,
-		BYOAIKey:          in.BYOAIKey,
+		BYOAIKeyEnc:       keyEnc,
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
 	}
 	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
+}
+
+// encryptBYOAIKey —— visitor 的 BYOAI key 用 INSTANCE_SECRET 派生的 AES-256-GCM
+// key 加密后存 Redis。空 key (非 byoai tier) → nil bytes，session 不带这个字段。
+func encryptBYOAIKey(plaintext string) ([]byte, error) {
+	if plaintext == "" {
+		return nil, nil
+	}
+	out, err := cryptobox.Encrypt([]byte(plaintext))
+	if err != nil {
+		return nil, fmt.Errorf("cryptobox encrypt: %w", err)
+	}
+	return out, nil
 }
 
 // defaultPermsForTier —— 无 access code 时的兜底准入策略。

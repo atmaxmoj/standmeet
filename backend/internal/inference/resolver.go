@@ -1,13 +1,16 @@
-// resolver.go —— per-owner provider 解算。
+// resolver.go —— per-owner / per-byoai-visitor provider 解算。
 //
 // visitor chat 不能直接 import postgres（avoid cycle），所以 resolver 取一个
 // 窄接口 `OwnerLookup`，调用方注入。
 //
 // 策略：
-//   1. ENV INFERENCE_PROVIDER=mock 时（e2e / dev fixture）：所有 owner 都用
-//      MockProvider。owner.ai_provider 列被忽略——mock 不是 owner 选项。
-//   2. 否则：按 owner row 拿 provider + 解 key，实例化对应 provider。
-//   3. owner.ai_provider_key_enc 空（未配置）→ ErrOwnerProviderUnconfigured。
+//   1. ENV INFERENCE_PROVIDER=mock 时（e2e / dev fixture）：所有 tier 都用
+//      MockProvider。owner.ai_provider 列 + byoai key 都被忽略 —— mock 不
+//      区分调用方。
+//   2. 否则：tier='byoai' + 非空 BYOAIKeyEnc → 用 cryptobox 解密，按
+//      BYOAIProvider 名实例化（visitor 自己付推理费）。
+//   3. 其他 → 按 owner row 的 ai_provider + ai_provider_key_enc 实例化。
+//   4. owner.ai_provider_key_enc 空（未配置）→ ErrOwnerProviderUnconfigured。
 
 package inference
 
@@ -16,18 +19,29 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"github.com/wangsijie/standmeet/internal/cryptobox"
 )
 
 // ErrOwnerProviderUnconfigured —— owner 还没配 ai_provider_key。访客 chat
 // 在这种情况要走 friendly fallback（前端 toast "owner hasn't connected AI yet"）。
 var ErrOwnerProviderUnconfigured = errors.New("owner AI provider not configured")
 
-// Resolver —— 业务调用点：传 ownerID，拿 Provider。
-type Resolver interface {
-	Resolve(ctx context.Context, ownerID string) (Provider, error)
+// ResolveInput —— resolver 入参。BYOAI 字段仅 tier='byoai' 时有意义。
+type ResolveInput struct {
+	OwnerID       string
+	Tier          string
+	BYOAIProvider string
+	BYOAIKeyEnc   []byte
 }
 
-// EnvOrOwnerResolver —— ENV=mock 走 mock；否则 delegate 到 owner-key 实现。
+// Resolver —— 业务调用点：传 ownerID + 可选 byoai 信息，拿 Provider。
+type Resolver interface {
+	Resolve(ctx context.Context, in *ResolveInput) (Provider, error)
+}
+
+// EnvOrOwnerResolver —— ENV=mock 走 mock；否则按 tier 分支：byoai 用 visitor
+// 自带 key，其他走 owner key。
 type EnvOrOwnerResolver struct {
 	Mock      *MockProvider
 	Owner     Resolver
@@ -43,15 +57,30 @@ func NewEnvOrOwnerResolver(ownerResolver Resolver, mock *MockProvider) *EnvOrOwn
 }
 
 // Resolve 实现 Resolver 接口。
-func (r *EnvOrOwnerResolver) Resolve(ctx context.Context, ownerID string) (Provider, error) {
+func (r *EnvOrOwnerResolver) Resolve(
+	ctx context.Context, in *ResolveInput,
+) (Provider, error) {
 	if r.EnvIsMock {
 		return r.Mock, nil
 	}
-	p, err := r.Owner.Resolve(ctx, ownerID)
+	if in.Tier == "byoai" && len(in.BYOAIKeyEnc) > 0 {
+		return buildBYOAIProvider(in.BYOAIProvider, in.BYOAIKeyEnc)
+	}
+	p, err := r.Owner.Resolve(ctx, in)
 	if err != nil {
 		return nil, fmt.Errorf("owner resolver: %w", err)
 	}
 	return p, nil
+}
+
+// buildBYOAIProvider —— 解密 visitor 提交的 key，按 provider 名实例化。
+// 不依赖 owner 配置 —— visitor 自带 key 应当能用 owner 没配过的 provider。
+func buildBYOAIProvider(provider string, keyEnc []byte) (Provider, error) {
+	plain, derr := cryptobox.Decrypt(keyEnc)
+	if derr != nil {
+		return nil, fmt.Errorf("decrypt byoai key: %w", derr)
+	}
+	return buildProvider(provider, string(plain))
 }
 
 // OwnerKeyResolver —— 真正按 owner row 解算。
@@ -61,8 +90,8 @@ type OwnerKeyResolver struct {
 }
 
 // Resolve 实现 Resolver 接口。
-func (r *OwnerKeyResolver) Resolve(ctx context.Context, ownerID string) (Provider, error) {
-	view, err := r.Lookup.LookupForResolver(ctx, ownerID)
+func (r *OwnerKeyResolver) Resolve(ctx context.Context, in *ResolveInput) (Provider, error) {
+	view, err := r.Lookup.LookupForResolver(ctx, in.OwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve owner provider: %w", err)
 	}

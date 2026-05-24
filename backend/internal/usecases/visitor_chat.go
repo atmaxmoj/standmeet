@@ -18,11 +18,17 @@ import (
 )
 
 // SendMessageInput —— 一次 chat 提问。
+//
+// BYOAIKeyEnc + BYOAIProvider 仅 tier='byoai' 有值；resolver 解密后实例化
+// visitor 自己的 provider（owner 不为推理付钱）。其他 tier 走 owner key。
 type SendMessageInput struct {
 	OwnerID        string
 	ConversationID string
 	Body           string
 	Permissions    []domain.PathPermission
+	Tier           string
+	BYOAIProvider  string
+	BYOAIKeyEnc    []byte
 }
 
 // MessageEvent —— chat 流式事件（token / done / error）。
@@ -88,9 +94,14 @@ func preflightSend(
 	if qerr := enforceTurnQuota(ctx, deps, in); qerr != nil {
 		return nil, qerr
 	}
-	provider, perr := deps.Resolver.Resolve(ctx, in.OwnerID)
+	provider, perr := deps.Resolver.Resolve(ctx, &inference.ResolveInput{
+		OwnerID:       in.OwnerID,
+		Tier:          in.Tier,
+		BYOAIProvider: in.BYOAIProvider,
+		BYOAIKeyEnc:   in.BYOAIKeyEnc,
+	})
 	if perr != nil {
-		return nil, fmt.Errorf("resolve owner provider: %w", perr)
+		return nil, fmt.Errorf("resolve provider: %w", perr)
 	}
 	return provider, nil
 }

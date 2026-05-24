@@ -68,6 +68,7 @@ deps:
       - jobcache
       - jobfetch
       - resumerender
+      - cryptobox
     anyVendorDeps: true
 
   # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
@@ -120,8 +121,10 @@ deps:
 
   # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
   # 不依赖任何 internal（纯接口 + 实现 + sentinel errors）。
+  # cryptobox: resolver 用来解密 byoai key (Redis 拿到的是密文)；其他业务
+  # 仍走 narrow OwnerLookup 接口，不耦合具体 repo。
   inference:
-    mayDependOn: []
+    mayDependOn: [cryptobox]
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
