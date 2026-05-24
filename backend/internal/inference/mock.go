@@ -89,8 +89,8 @@ func echoSystem(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
 // maybeRunMockToolLoop —— 当 caller 注册了 tools + executor 时模拟一轮 search→read。
 // executor 失败不阻塞：mock 是 e2e fixture，遇到 deny / not-found 让 collector
 // 不收就行；文本回复仍然流出。
-// maybeRunMockToolLoop —— 跑一轮模拟 tool dispatch；返回 skill_* tool 的
-// 输出，let run() echo 到 reply 让 e2e 能 assert。
+// maybeRunMockToolLoop —— 跑一轮模拟 tool dispatch；返回 skill_* / ext_*
+// tool 的输出，let run() echo 到 reply 让 e2e 能 assert。
 func maybeRunMockToolLoop(ctx context.Context, req *ChatRequest) []string {
 	if !canRunMockTools(req) {
 		return nil
@@ -99,8 +99,39 @@ func maybeRunMockToolLoop(ctx context.Context, req *ChatRequest) []string {
 	if path != "" {
 		mockDoRead(ctx, req, path)
 	}
-	return mockRunFirstSkillTool(ctx, req)
+	out := mockRunFirstSkillTool(ctx, req)
+	out = append(out, mockRunFirstExtTool(ctx, req)...)
+	return out
 }
+
+// mockRunFirstExtTool —— mock 顺手调一个外部 MCP server 的 tool，让 e2e
+// 验证 backend 真当 MCP 客户端连上、ListTools、CallTool 一连串走通。
+func mockRunFirstExtTool(ctx context.Context, req *ChatRequest) []string {
+	if req.ExecuteTool == nil {
+		return nil
+	}
+	name := firstExtToolName(req.Tools)
+	if name == "" {
+		return nil
+	}
+	out, err := req.ExecuteTool(ctx, name, []byte("{}"))
+	if err != nil {
+		return nil
+	}
+	return []string{out}
+}
+
+func firstExtToolName(tools []ToolSpec) string {
+	for i := range tools {
+		if len(tools[i].Name) > len(mockExtPrefix) &&
+			tools[i].Name[:len(mockExtPrefix)] == mockExtPrefix {
+			return tools[i].Name
+		}
+	}
+	return ""
+}
+
+const mockExtPrefix = "ext_"
 
 // mockRunFirstSkillTool —— mock provider 顺手调一下第一个 skill_* tool，
 // 让 e2e 能验证 owner-curated 脚本真的跑到了 sandbox。无 skill 工具就跳。

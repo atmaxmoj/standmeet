@@ -158,6 +158,7 @@ type runtimeDeps struct {
 	resumeDraftRepo   *postgres.ResumeDraftRepo
 	applicationRepo   *postgres.ApplicationRepo
 	skillRepo         *postgres.SkillRepo
+	mcpServerRepo     *postgres.MCPServerRepo
 	sandboxRunner     sandbox.Runner
 	jobCachePool      *jobcache.Pool
 	jobFetchRegistry  *jobfetch.Registry

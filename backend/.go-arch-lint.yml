@@ -39,6 +39,8 @@ components:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
+  mcpclient:
+    in: internal/mcpclient                # 调外部 MCP server (owner-registered)
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
@@ -53,6 +55,8 @@ components:
     in: cmd/server
   mockcmd:
     in: cmd/job-board-mock                # test-only fixture server
+  mcpmockcmd:
+    in: cmd/mcp-server-mock               # e2e fixture: minimal external MCP HTTP server
 
 deps:
   # Domain 纯内核，无 internal 依赖。
@@ -72,10 +76,17 @@ deps:
       - resumerender
       - cryptobox
       - sandbox
+      - mcpclient
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
   sandbox:
+    mayDependOn:
+      - domain
+    anyVendorDeps: true
+
+  # mcpclient 调 owner-registered 外部 MCP HTTP server。
+  mcpclient:
     mayDependOn:
       - domain
     anyVendorDeps: true
@@ -225,6 +236,12 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
+  # mcpmockcmd —— e2e fixture: minimal external MCP HTTP server。
+  # 纯 mcp-go vendor + stdlib，无 internal 依赖。
+  mcpmockcmd:
+    mayDependOn: []
+    anyVendorDeps: true
+
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。
   cmd:
     mayDependOn:
@@ -244,5 +261,6 @@ deps:
       - captcha
       - cryptobox
       - sandbox
+      - mcpclient
       - server
     anyVendorDeps: true

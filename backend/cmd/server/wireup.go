@@ -51,6 +51,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
 		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Skills:         usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
+		MCPServers:     usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Codes:          d.codeRepo,
 		Owners:         d.ownerRepo,
 		Sessions:       d.sessionStore,
@@ -63,8 +64,9 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Visitor: usecases.VisitorDeps{
 			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
 			Output: d.outputRepo, Skills: d.skillRepo,
-			Sandbox: d.sandboxRunner,
-			Owners:  d.ownerRepo, Sessions: d.visitorStore,
+			MCPServers: d.mcpServerRepo,
+			Sandbox:    d.sandboxRunner,
+			Owners:     d.ownerRepo, Sessions: d.visitorStore,
 			Queue: d.queryQueue, Resolver: d.providerResolver,
 		},
 		Sessions: d.visitorStore,
@@ -130,7 +132,8 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Conversations: usecases.ConversationsDeps{
 			Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
-		Skills: usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
-		Log:    d.log,
+		Skills:     usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
+		MCPServers: usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
+		Log:        d.log,
 	}
 }

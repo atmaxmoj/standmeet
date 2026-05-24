@@ -60,6 +60,7 @@ type AdminDeps struct {
 	AIProvider     usecases.AIProviderDeps
 	CustomPages    usecases.CustomPageDeps
 	Skills         usecases.SkillsDeps
+	MCPServers     usecases.MCPServersDeps
 	Codes          *postgres.CodeRepo
 	Owners         *postgres.OwnerRepo
 	Sessions       *session.OwnerSessionStore
@@ -113,6 +114,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Corpus:    adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
 		CodesAdmin: adminroutes.CodesDeps{
 			Codes: deps.Admin.Codes, Skills: deps.Admin.Skills.Skills,
+			MCPServers: deps.Admin.MCPServers.Servers,
 		},
 		PageAdmin:       adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
 		Conversations:   adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
@@ -125,6 +127,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AIProviderAdmin: adminroutes.AIProviderDeps{AI: deps.Admin.AIProvider},
 		CustomPages:     deps.Admin.CustomPages,
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Skills: deps.Admin.Skills},
+		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Servers: deps.Admin.MCPServers},
 		Log:             deps.Log,
 		SecureCookie:    deps.Admin.SecureCookie,
 	}

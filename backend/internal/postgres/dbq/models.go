@@ -55,6 +55,11 @@ type Application struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type CodeMcpServer struct {
+	CodeID      pgtype.UUID
+	McpServerID pgtype.UUID
+}
+
 type CodeMember struct {
 	ID          pgtype.UUID
 	CodeID      pgtype.UUID
@@ -137,6 +142,16 @@ type JobSource struct {
 	Label         string
 	LastFetchedAt pgtype.Timestamptz
 	CreatedAt     pgtype.Timestamptz
+}
+
+type McpServer struct {
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	Name               string
+	Url                string
+	AuthHeaderName     string
+	AuthHeaderValueEnc []byte
+	CreatedAt          pgtype.Timestamptz
 }
 
 type MediaAsset struct {

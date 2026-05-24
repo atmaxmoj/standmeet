@@ -217,6 +217,31 @@ CREATE TABLE code_skills (
 
 CREATE INDEX code_skills_skill_idx ON code_skills(skill_id);
 
+-- mcp_servers —— owner-registered external MCP servers (URL + optional
+-- auth header)。InviteCode 绑一组 mcp_server_ids；visitor chat 把这些 server
+-- 的 tool 也加进可用列表 (ext_<server>_<tool>)。auth_header_value 落
+-- cryptobox AES-256-GCM 密文，跟 BYOAI key 同套模式（INSTANCE_SECRET KEK）。
+CREATE TABLE mcp_servers (
+    id                      uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id                uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    name                    text          NOT NULL,
+    url                     text          NOT NULL,
+    auth_header_name        text          NOT NULL DEFAULT '',
+    auth_header_value_enc   bytea         NOT NULL DEFAULT '\x'::bytea,
+    created_at              timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX mcp_servers_owner_name_uniq ON mcp_servers(owner_id, name);
+
+-- code_mcp_servers —— InviteCode ↔ McpServer 多对多。
+CREATE TABLE code_mcp_servers (
+    code_id        uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    mcp_server_id  uuid NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
+    PRIMARY KEY (code_id, mcp_server_id)
+);
+
+CREATE INDEX code_mcp_servers_server_idx ON code_mcp_servers(mcp_server_id);
+
 -- handle_aliases —— owner 改 handle 后旧 handle 入这里，旧 URL 仍能 resolve
 -- 到同一个 owner。GetByHandle 走 owners.handle 优先，未命中走 alias。
 CREATE TABLE handle_aliases (

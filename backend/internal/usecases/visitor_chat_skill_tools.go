@@ -25,6 +25,38 @@ import (
 	"github.com/wangsijie/standmeet/internal/sandbox"
 )
 
+// buildSkillBundle —— 通过 conversation 反查 code，再拉 skill+scripts；
+// 没 code (public/byoai tier) → 返空 bundle (Specs() 空，dispatcher 跳过)。
+func buildSkillBundle(
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
+) (*skillToolBundle, error) {
+	skills, lerr := loadSkillsForConversation(ctx, deps, in)
+	if lerr != nil {
+		return nil, lerr
+	}
+	return newSkillToolBundle(deps.Sandbox, skills), nil
+}
+
+func loadSkillsForConversation(
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
+) ([]domain.Skill, error) {
+	if deps.Skills == nil {
+		return nil, nil
+	}
+	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
+	if err != nil {
+		return nil, fmt.Errorf("load conv for skills: %w", err)
+	}
+	if conv.CodeID == nil {
+		return nil, nil
+	}
+	skills, err := deps.Skills.ListSkillsForCode(ctx, *conv.CodeID)
+	if err != nil {
+		return nil, fmt.Errorf("list skills for code: %w", err)
+	}
+	return skills, nil
+}
+
 // skillToolPrefix —— 所有 skill 派生 tool 用这个前缀，方便 dispatcher
 // 区分 retrieval tool (search/read/list_corpus_entries) 跟 skill tool。
 const skillToolPrefix = "skill_"

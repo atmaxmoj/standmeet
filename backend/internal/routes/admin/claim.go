@@ -37,6 +37,7 @@ type Handlers struct {
 	AIProviderAdmin AIProviderDeps
 	CustomPages     usecases.CustomPageDeps
 	SkillsAdmin     SkillsAdminDeps
+	MCPServersAdmin MCPServersAdminDeps
 	Log             *slog.Logger
 	SecureCookie    bool // false 仅限 dev (http)；prod 必须 true。
 }
@@ -76,6 +77,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountAIProvider(r)
 	h.MountCustomPages(r)
 	h.MountSkills(r)
+	h.MountMCPServers(r)
 }
 
 type claimRequest struct {

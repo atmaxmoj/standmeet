@@ -20,8 +20,9 @@ import (
 
 // CodesDeps —— admin codes handlers 依赖。
 type CodesDeps struct {
-	Codes  *postgres.CodeRepo
-	Skills *postgres.SkillRepo
+	Codes      *postgres.CodeRepo
+	Skills     *postgres.SkillRepo
+	MCPServers *postgres.MCPServerRepo
 }
 
 type createCodeRequest struct {
@@ -33,6 +34,7 @@ type createCodeRequest struct {
 	CorpusPermissions    []domain.PathPermission `json:"corpus_permissions"`
 	SuggestedQuestions   []string                `json:"suggested_questions"`
 	SkillIDs             []string                `json:"skill_ids,omitempty"`
+	MCPServerIDs         []string                `json:"mcp_server_ids,omitempty"`
 }
 
 type updateQuotasRequest struct {
@@ -51,6 +53,7 @@ type codeView struct {
 	CorpusPermissions    []domain.PathPermission `json:"corpus_permissions"`
 	SuggestedQuestions   []string                `json:"suggested_questions"`
 	SkillIDs             []string                `json:"skill_ids,omitempty"`
+	MCPServerIDs         []string                `json:"mcp_server_ids,omitempty"`
 }
 
 // MountCodes 挂 /codes 子路由。
@@ -82,6 +85,7 @@ func writeCodesList(
 	for i := range rows {
 		v := toCodeView(&rows[i])
 		v.SkillIDs = listSkillIDsForCode(r, h, rows[i].ID)
+		v.MCPServerIDs = listMCPServerIDsForCode(r, h, rows[i].ID)
 		items = append(items, v)
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -131,6 +135,8 @@ func (h *Handlers) createCode() http.HandlerFunc {
 }
 
 // runCreateCode —— 拆出 createCode 的 happy/error path 让 handler cyclo≤3。
+// attach 阶段失败时由 attachCreatedCodeAssoc 写 envelope；本函数只把分支
+// 减到 ≤3 路。
 func runCreateCode(
 	r *http.Request, h *Handlers, w http.ResponseWriter, req *createCodeRequest,
 ) {
@@ -141,11 +147,39 @@ func runCreateCode(
 		writeError(h.Log, w, serverErr())
 		return
 	}
-	if aerr := attachCreatedCodeSkills(r, h, ownerID, code.ID, req.SkillIDs); aerr != nil {
-		handleSetCodeSkillsErr(h.Log, w, aerr)
+	if !attachCreatedCodeAssoc(&attachCodeAssocArgs{
+		r: r, h: h, w: w, ownerID: ownerID, codeID: code.ID, req: req,
+	}) {
 		return
 	}
-	writeCreatedCode(h.Log, w, &code, req.SkillIDs)
+	writeCreatedCode(h.Log, w, &code, req.SkillIDs, req.MCPServerIDs)
+}
+
+// attachCodeAssocArgs —— attachCreatedCodeAssoc 入参打包；revive
+// argument-limit ≤ 5。字段按 govet fieldalignment 排：interface 16B
+// 类先 (w), 然后 8B 指针, string headers, etc。
+type attachCodeAssocArgs struct {
+	w       http.ResponseWriter
+	r       *http.Request
+	h       *Handlers
+	req     *createCodeRequest
+	ownerID string
+	codeID  string
+}
+
+// attachCreatedCodeAssoc —— 顺序绑 skill_ids + mcp_server_ids。任一失败
+// 直接写 envelope 返 false；成功返 true。
+func attachCreatedCodeAssoc(a *attachCodeAssocArgs) bool {
+	if aerr := attachCreatedCodeSkills(a.r, a.h, a.ownerID, a.codeID, a.req.SkillIDs); aerr != nil {
+		handleSetCodeSkillsErr(a.h.Log, a.w, aerr)
+		return false
+	}
+	merr := attachCreatedCodeMCPServers(a.r, a.h, a.ownerID, a.codeID, a.req.MCPServerIDs)
+	if merr != nil {
+		handleSetCodeMCPServersErr(a.h.Log, a.w, merr)
+		return false
+	}
+	return true
 }
 
 // attachCreatedCodeSkills —— createCode 时 attach skill_ids 到刚建好的 code。
@@ -176,10 +210,12 @@ func buildCreateInput(ownerID string, req *createCodeRequest) *postgres.CreateCo
 }
 
 func writeCreatedCode(
-	log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode, skillIDs []string,
+	log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode,
+	skillIDs, serverIDs []string,
 ) {
 	v := toCodeView(c)
 	v.SkillIDs = skillIDs
+	v.MCPServerIDs = serverIDs
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(v); err != nil {

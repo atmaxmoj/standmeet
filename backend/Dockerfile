@@ -101,3 +101,26 @@ EXPOSE 9000
 ENV PORT=9000
 ENV FIXTURES_DIR=/fixtures
 ENTRYPOINT ["/app/job-board-mock"]
+
+# Stage 5: MCP-server-mock (e2e fixture)
+#
+# 等价 job-board-mock 但跑 cmd/mcp-server-mock —— e2e 用作"owner 注册的
+# 外部 MCP server" 的对端。
+FROM golang:1.26-alpine AS mcp-mock-builder
+WORKDIR /app
+ENV CGO_ENABLED=0 GOOS=linux
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -trimpath -ldflags='-s -w' -o /out/mcp-server-mock ./cmd/mcp-server-mock
+
+FROM alpine:3.21 AS mcp-mock
+WORKDIR /app
+RUN apk add --no-cache wget                                                   \
+ && addgroup --system --gid 1001 mock                                         \
+ && adduser --system --uid 1001 --ingroup mock mock
+COPY --from=mcp-mock-builder --chown=mock:mock /out/mcp-server-mock /app/mcp-server-mock
+USER mock
+EXPOSE 9100
+ENV PORT=9100
+ENTRYPOINT ["/app/mcp-server-mock"]

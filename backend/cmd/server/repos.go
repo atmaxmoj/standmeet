@@ -35,6 +35,7 @@ type repoSet struct {
 	resumeDraft   *postgres.ResumeDraftRepo
 	application   *postgres.ApplicationRepo
 	skill         *postgres.SkillRepo
+	mcpServer     *postgres.MCPServerRepo
 }
 
 func newRepos(db *postgres.Pool) *repoSet {
@@ -55,6 +56,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		resumeDraft:   postgres.NewResumeDraftRepo(db),
 		application:   postgres.NewApplicationRepo(db),
 		skill:         postgres.NewSkillRepo(db),
+		mcpServer:     postgres.NewMCPServerRepo(db),
 	}
 }
 
@@ -85,6 +87,7 @@ func assembleRuntimeDeps(
 		resumeDraftRepo:   repos.resumeDraft,
 		applicationRepo:   repos.application,
 		skillRepo:         repos.skill,
+		mcpServerRepo:     repos.mcpServer,
 		jobCachePool:      jobcache.New(c.rdb, 0),
 		jobFetchRegistry:  newJobFetchRegistry(cfg),
 		sessionStore:      session.NewOwnerSessionStore(c.rdb),

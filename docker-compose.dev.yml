@@ -87,6 +87,24 @@ services:
       retries: 12
       start_period: 5s
 
+  # mcp-server-mock —— e2e fixture: an external MCP HTTP server (just one
+  # tool `ping_external`) so visitor-chat → MCP-client → external-server
+  # 全链能在 e2e 里被验。owner 注册它当成"自家挂的 calendar/notion MCP"。
+  mcp-server-mock:
+    build:
+      context: ./backend
+      target: mcp-mock
+    restart: unless-stopped
+    environment:
+      - PORT=9100
+    ports:
+      - "9100:9100"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9100/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   # job-board-mock —— test-only HTTP server serving captured fixtures from
   # e2e/fixtures/job-boards/. Backend points its 8 *_BASE_URL env vars at
   # this service so the fetcher chain never reaches the real internet.

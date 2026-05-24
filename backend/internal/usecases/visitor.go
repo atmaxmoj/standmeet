@@ -22,16 +22,17 @@ import (
 // 该 owner 的真 provider（带自己的 key）；env=mock 时统一 fallback 到 mock
 // 给 e2e/dev 用。
 type VisitorDeps struct {
-	Codes    *postgres.CodeRepo
-	Conv     *postgres.ConversationRepo
-	Wiki     *postgres.WikiRepo
-	Output   *postgres.OutputRepo
-	Owners   *postgres.OwnerRepo
-	Skills   *postgres.SkillRepo
-	Sandbox  sandbox.Runner
-	Sessions *session.VisitorSessionStore
-	Queue    *session.QueryQueue
-	Resolver inference.Resolver
+	Codes      *postgres.CodeRepo
+	Conv       *postgres.ConversationRepo
+	Wiki       *postgres.WikiRepo
+	Output     *postgres.OutputRepo
+	Owners     *postgres.OwnerRepo
+	Skills     *postgres.SkillRepo
+	MCPServers *postgres.MCPServerRepo
+	Sandbox    sandbox.Runner
+	Sessions   *session.VisitorSessionStore
+	Queue      *session.QueryQueue
+	Resolver   inference.Resolver
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。

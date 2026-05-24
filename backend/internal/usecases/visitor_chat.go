@@ -66,7 +66,7 @@ func SendMessage(
 	out := make(chan MessageEvent, messageEventBufSize)
 	go streamReply(ctx, &streamArgs{
 		deps: deps, provider: prep.provider, in: in,
-		retr: prep.retr, skills: prep.skills, out: out,
+		retr: prep.retr, skills: prep.skills, extMCP: prep.extMCP, out: out,
 	})
 	return out, nil
 }
@@ -94,6 +94,7 @@ type sendPrep struct {
 	provider inference.Provider
 	retr     *retriever
 	skills   *skillToolBundle
+	extMCP   *externalMCPBundle
 }
 
 // prepareSend —— SendMessage 前的全部 setup。
@@ -117,39 +118,10 @@ func prepareSend(
 	if serr != nil {
 		return sendPrep{}, serr
 	}
-	return sendPrep{provider: provider, retr: retr, skills: skills}, nil
-}
-
-// buildSkillBundle —— 通过 conversation 反查 code，再拉 skill+scripts；
-// 没 code (public/byoai tier) → 返 nil-skills bundle (still safe, Specs() 空)。
-func buildSkillBundle(
-	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
-) (*skillToolBundle, error) {
-	skills, lerr := loadSkillsForConversation(ctx, deps, in)
-	if lerr != nil {
-		return nil, lerr
-	}
-	return newSkillToolBundle(deps.Sandbox, skills), nil
-}
-
-func loadSkillsForConversation(
-	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
-) ([]domain.Skill, error) {
-	if deps.Skills == nil {
-		return nil, nil
-	}
-	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
-	if err != nil {
-		return nil, fmt.Errorf("load conv for skills: %w", err)
-	}
-	if conv.CodeID == nil {
-		return nil, nil
-	}
-	skills, err := deps.Skills.ListSkillsForCode(ctx, *conv.CodeID)
-	if err != nil {
-		return nil, fmt.Errorf("list skills for code: %w", err)
-	}
-	return skills, nil
+	extMCP := buildExternalMCPBundle(ctx, deps, in)
+	return sendPrep{
+		provider: provider, retr: retr, skills: skills, extMCP: extMCP,
+	}, nil
 }
 
 // preflightSend —— body 非空 + turn quota + resolver。
@@ -249,11 +221,13 @@ type streamArgs struct {
 	out      chan<- MessageEvent
 	retr     *retriever
 	skills   *skillToolBundle
+	extMCP   *externalMCPBundle
 }
 
 func streamReply(ctx context.Context, args *streamArgs) {
 	defer close(args.out)
 	defer releaseQuerySlot(args.deps, args.in.ConversationID)
+	defer args.extMCP.Close()
 	chunks, ierr := args.provider.Stream(ctx, buildChatRequest(args))
 	if ierr != nil {
 		args.out <- MessageEvent{Kind: "error", Err: ierr}
@@ -270,19 +244,28 @@ func streamReply(ctx context.Context, args *streamArgs) {
 
 func buildChatRequest(args *streamArgs) *inference.ChatRequest {
 	tools := append(retrievalToolSpecs(), args.skills.Specs()...)
+	tools = append(tools, args.extMCP.Specs()...)
 	return &inference.ChatRequest{
 		System:      buildSystemPrompt(args.in.SkillPrompts),
 		Messages:    []inference.Message{{Role: "user", Content: args.in.Body}},
 		Tools:       tools,
-		ExecuteTool: makeChatExecutor(args.retr, args.skills),
+		ExecuteTool: makeChatExecutor(args.retr, args.skills, args.extMCP),
 	}
 }
 
-// makeChatExecutor —— 复合 dispatcher：skill_* 走 sandbox，其他走 retrieval。
-func makeChatExecutor(retr *retriever, skills *skillToolBundle) inference.ToolExecutor {
+// makeChatExecutor —— 复合 dispatcher：
+//   - skill_*  → sandbox bundle (owner-curated 脚本)
+//   - ext_*    → external MCP bundle (owner-registered 外部 server)
+//   - 其他     → retrieval bundle (search/read/list_corpus_entries)
+func makeChatExecutor(
+	retr *retriever, skills *skillToolBundle, ext *externalMCPBundle,
+) inference.ToolExecutor {
 	return func(ctx context.Context, name string, input []byte) (string, error) {
 		if skills != nil && skills.Has(name) {
 			return skills.Execute(ctx, name, input)
+		}
+		if ext != nil && ext.Has(name) {
+			return ext.Execute(ctx, name, input)
 		}
 		return retr.Execute(ctx, name, input)
 	}
