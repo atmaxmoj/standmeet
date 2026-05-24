@@ -1,25 +1,24 @@
-// anthropic_tools.go —— Anthropic tool-use agent loop。
+// anthropic_tools.go —— Anthropic tool-use agent loop。SSE 流式版本。
 //
 // Anthropic 协议参考：https://docs.anthropic.com/en/docs/build-with-claude/tool-use
 //
 // 流程：
-//   1. POST /v1/messages with tools + messages（stream=false 简化 input_json_delta 累积）
-//   2. response.content 是 content blocks 数组（text + tool_use 混合）
-//   3. stop_reason == "tool_use"：
-//        a. 把 assistant content (含 tool_use blocks) 整段加进 messages
-//        b. 对每个 tool_use 调 ExecuteTool 拿 result
-//        c. 加一条 user message 装所有 tool_result blocks
-//        d. 回到 1，循环 ≤ maxAgentTurns
-//   4. stop_reason != "tool_use"：取所有 text block 拼成 final answer，
-//      切 chunk 推回 channel（前端"流"——但不是真 server-side stream，
-//      只是把 final text 切片，给 SSE 一个 chunky feel）。
+//   1. POST /v1/messages with tools + stream=true
+//   2. 解析 SSE：text_delta 直接 emit Chunk text；input_json_delta 累积到
+//      对应 tool_use block 的 input 字段。
+//   3. 收到 message_delta + stop_reason；finalize 当前 turn 的 content blocks。
+//   4. stop_reason=="tool_use" → 执行所有 tool_use blocks，append 一条
+//      user message 装 tool_result blocks，回到 1，循环 ≤ maxAgentTurns。
+//   5. 其他 stop_reason → 推 Chunk{Done:true} 结束（text 已经流出去了）。
+//
+// SSE 解析逻辑落在 anthropic_sse.go 里（守 350-line max-lines）。
 
 package inference
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,7 +33,6 @@ type anthropicAgentMsg struct {
 
 // anthropicABlock —— 通用 content block（text / tool_use / tool_result）。
 // 字段全 optional，按 Type 决定哪些有意义；JSON 默认空字段省略。
-// 字段顺序按 fieldalignment：slice/RawMessage 在尾。
 type anthropicABlock struct {
 	Type      string          `json:"type"`
 	Text      string          `json:"text,omitempty"`
@@ -57,11 +55,7 @@ type anthropicAgentReq struct {
 	Messages  []anthropicAgentMsg     `json:"messages"`
 	Tools     []anthropicAgentToolDef `json:"tools"`
 	MaxTokens int                     `json:"max_tokens"`
-}
-
-type anthropicAgentResp struct {
-	StopReason string            `json:"stop_reason"`
-	Content    []anthropicABlock `json:"content"`
+	Stream    bool                    `json:"stream"`
 }
 
 func (a *AnthropicProvider) runToolLoop(
@@ -71,20 +65,20 @@ func (a *AnthropicProvider) runToolLoop(
 	msgs := initialAgentMessages(req)
 	tools := convertToolSpecs(req.Tools)
 	for range maxAgentTurns {
-		resp, err := a.agentTurn(ctx, req, msgs, tools)
+		turn, err := a.agentTurnStream(ctx, req, msgs, tools, out)
 		if err != nil {
 			out <- Chunk{Error: err}
 			return
 		}
-		msgs = append(msgs, anthropicAgentMsg{Role: "assistant", Content: resp.Content})
-		if resp.StopReason != "tool_use" {
-			emitTextChunks(extractText(resp.Content), out)
+		msgs = append(msgs, anthropicAgentMsg{Role: "assistant", Content: turn.Blocks})
+		if turn.StopReason != "tool_use" {
+			out <- Chunk{Done: true}
 			return
 		}
-		toolMsgs := executeToolUses(ctx, req, resp.Content)
+		toolMsgs := executeToolUses(ctx, req, turn.Blocks)
 		msgs = append(msgs, anthropicAgentMsg{Role: "user", Content: toolMsgs})
 	}
-	out <- Chunk{Error: fmt.Errorf("anthropic agent loop: max %d turns exceeded", maxAgentTurns)}
+	out <- Chunk{Error: errors.New("anthropic agent loop: max turns exceeded")}
 }
 
 func initialAgentMessages(req *ChatRequest) []anthropicAgentMsg {
@@ -112,14 +106,30 @@ func convertToolSpecs(in []ToolSpec) []anthropicAgentToolDef {
 	return out
 }
 
-func (a *AnthropicProvider) agentTurn(
+// agentTurnStream —— 一次 streaming 请求 + SSE parse。
+// 返 AgentTurnResult (blocks + stop_reason) 避开 3-return。
+// text deltas 已经在 SSE 期间 emit 给 out channel。
+func (a *AnthropicProvider) agentTurnStream(
 	ctx context.Context, req *ChatRequest,
 	msgs []anthropicAgentMsg, tools []anthropicAgentToolDef,
-) (*anthropicAgentResp, error) {
+	out chan<- Chunk,
+) (*AgentTurnResult, error) {
+	resp, err := a.openAgentStream(ctx, req, msgs, tools)
+	if err != nil {
+		return nil, err
+	}
+	defer closeBody(resp.Body)
+	return parseAnthropicAgentSSE(resp.Body, out)
+}
+
+func (a *AnthropicProvider) openAgentStream(
+	ctx context.Context, req *ChatRequest,
+	msgs []anthropicAgentMsg, tools []anthropicAgentToolDef,
+) (*http.Response, error) {
 	body, merr := json.Marshal(anthropicAgentReq{
 		Model: pickAnthropicModel(req.Model, a.model), System: req.System,
 		Messages: msgs, Tools: tools,
-		MaxTokens: pickAnthropicMaxTokens(req.MaxTokens),
+		MaxTokens: pickAnthropicMaxTokens(req.MaxTokens), Stream: true,
 	})
 	if merr != nil {
 		return nil, fmt.Errorf("anthropic agent marshal: %w", merr)
@@ -128,29 +138,20 @@ func (a *AnthropicProvider) agentTurn(
 	if herr != nil {
 		return nil, herr
 	}
-	httpReq.Header.Del("Accept") // non-stream → application/json
 	resp, derr := a.client.Do(httpReq)
 	if derr != nil {
 		return nil, normalizeNetErr(derr)
 	}
-	defer closeBody(resp.Body)
 	if resp.StatusCode >= http.StatusBadRequest {
 		return nil, translateAnthropicStatusFromBody(resp)
 	}
-	return decodeAgentResp(resp.Body)
-}
-
-func decodeAgentResp(r io.Reader) (*anthropicAgentResp, error) {
-	var out anthropicAgentResp
-	if derr := json.NewDecoder(r).Decode(&out); derr != nil {
-		return nil, fmt.Errorf("anthropic agent decode: %w", derr)
-	}
-	return &out, nil
+	return resp, nil
 }
 
 // translateAnthropicStatusFromBody —— translateAnthropicStatus 已经关 body，
 // agent-loop 这边自己拥有 body 生命周期。
 func translateAnthropicStatusFromBody(resp *http.Response) error {
+	defer closeBody(resp.Body)
 	bodyText, rerr := io.ReadAll(resp.Body)
 	if rerr != nil {
 		bodyText = []byte("(read body err)")
@@ -184,35 +185,4 @@ func executeToolUses(
 		})
 	}
 	return out
-}
-
-func extractText(blocks []anthropicABlock) string {
-	var b bytes.Buffer
-	for i := range blocks {
-		if blocks[i].Type == "text" {
-			_, _ = b.WriteString(blocks[i].Text)
-		}
-	}
-	return b.String()
-}
-
-// emitTextChunks —— final text 不是真 streaming（agent loop 用非流式 endpoint）；
-// 切成单词 chunk 给前端制造流式体感。
-func emitTextChunks(text string, out chan<- Chunk) {
-	if text == "" {
-		out <- Chunk{Done: true}
-		return
-	}
-	// 按 space split 后保留分隔；跟 mock provider 节奏对齐。
-	from := 0
-	for i := range len(text) {
-		if text[i] == ' ' {
-			out <- Chunk{Text: text[from : i+1]}
-			from = i + 1
-		}
-	}
-	if from < len(text) {
-		out <- Chunk{Text: text[from:]}
-	}
-	out <- Chunk{Done: true}
 }
