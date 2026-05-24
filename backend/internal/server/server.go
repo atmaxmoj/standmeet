@@ -59,6 +59,7 @@ type AdminDeps struct {
 	AccountAdmin   usecases.AccountDeps
 	AIProvider     usecases.AIProviderDeps
 	CustomPages    usecases.CustomPageDeps
+	Skills         usecases.SkillsDeps
 	Codes          *postgres.CodeRepo
 	Owners         *postgres.OwnerRepo
 	Sessions       *session.OwnerSessionStore
@@ -108,9 +109,11 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Auth: adminroutes.AuthDeps{
 			Login: deps.Admin.Login, Sessions: deps.Admin.Sessions,
 		},
-		APITokens:       deps.Admin.APITokens,
-		Corpus:          adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
-		CodesAdmin:      adminroutes.CodesDeps{Codes: deps.Admin.Codes},
+		APITokens: deps.Admin.APITokens,
+		Corpus:    adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+		CodesAdmin: adminroutes.CodesDeps{
+			Codes: deps.Admin.Codes, Skills: deps.Admin.Skills.Skills,
+		},
 		PageAdmin:       adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
 		Conversations:   adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
 		BYOAI:           adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
@@ -121,6 +124,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AccountAdmin:    adminroutes.AccountDeps{Account: deps.Admin.AccountAdmin},
 		AIProviderAdmin: adminroutes.AIProviderDeps{AI: deps.Admin.AIProvider},
 		CustomPages:     deps.Admin.CustomPages,
+		SkillsAdmin:     adminroutes.SkillsAdminDeps{Skills: deps.Admin.Skills},
 		Log:             deps.Log,
 		SecureCookie:    deps.Admin.SecureCookie,
 	}

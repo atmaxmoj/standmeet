@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
@@ -25,6 +26,7 @@ type VisitorDeps struct {
 	Wiki     *postgres.WikiRepo
 	Output   *postgres.OutputRepo
 	Owners   *postgres.OwnerRepo
+	Skills   *postgres.SkillRepo
 	Sessions *session.VisitorSessionStore
 	Queue    *session.QueryQueue
 	Resolver inference.Resolver
@@ -45,7 +47,7 @@ type IssueCodeSessionResult struct {
 // IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
 // + visitor session。
 func IssueCodeSession(
-	ctx context.Context, deps VisitorDeps, in *IssueCodeSessionInput,
+	ctx context.Context, deps *VisitorDeps, in *IssueCodeSessionInput,
 ) (IssueCodeSessionResult, error) {
 	if in.Code == "" {
 		return IssueCodeSessionResult{}, ErrEmptyField
@@ -58,7 +60,7 @@ func IssueCodeSession(
 }
 
 func lookupAccessCode(
-	ctx context.Context, deps VisitorDeps, codeStr string,
+	ctx context.Context, deps *VisitorDeps, codeStr string,
 ) (domain.AccessCode, error) {
 	code, err := deps.Codes.GetByCode(ctx, codeStr)
 	if err != nil {
@@ -71,7 +73,7 @@ func lookupAccessCode(
 }
 
 func finalizeCodeSession(
-	ctx context.Context, deps VisitorDeps,
+	ctx context.Context, deps *VisitorDeps,
 	in *IssueCodeSessionInput, code *domain.AccessCode,
 ) (IssueCodeSessionResult, error) {
 	member, qerr := resolveMemberWithQuota(ctx, deps, code, in.VisitorName)
@@ -82,18 +84,44 @@ func finalizeCodeSession(
 	if err != nil {
 		return IssueCodeSessionResult{}, err
 	}
-	issued, err := deps.Sessions.Issue(ctx, buildCodeSessionData(code, in.VisitorName))
+	skillPrompts, serr := loadCodeSkillPrompts(ctx, deps, code.ID)
+	if serr != nil {
+		return IssueCodeSessionResult{}, serr
+	}
+	sd := buildCodeSessionData(code, in.VisitorName, skillPrompts)
+	issued, err := deps.Sessions.Issue(ctx, sd)
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
 	}
 	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
 }
 
+// loadCodeSkillPrompts —— 拉 InviteCode 选中的 skill prompts，固化到 session
+// 避免每次 chat 查 DB。skills 表的 ListSkillsForCode 已按 name asc 排好。
+func loadCodeSkillPrompts(
+	ctx context.Context, deps *VisitorDeps, codeID string,
+) ([]string, error) {
+	if deps.Skills == nil {
+		return nil, nil
+	}
+	skills, err := deps.Skills.ListSkillsForCode(ctx, codeID)
+	if err != nil {
+		return nil, fmt.Errorf("list code skills: %w", err)
+	}
+	out := make([]string, 0, len(skills))
+	for i := range skills {
+		if p := strings.TrimSpace(skills[i].Prompt); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
 // resolveMemberWithQuota —— upsert member by name；配额超额翻译成 domain
 // sentinel error。CodeMember 没有自己的 revoked 状态，revoke 在 AccessCode
 // 级别（code.status='revoked' → GetByCode 已经过滤掉 → 走不到这里）。
 func resolveMemberWithQuota(
-	ctx context.Context, deps VisitorDeps, code *domain.AccessCode, name string,
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, name string,
 ) (domain.CodeMember, error) {
 	member, merr := deps.Codes.GetOrCreateMember(ctx, code.ID, name)
 	if merr != nil {
@@ -106,7 +134,7 @@ func resolveMemberWithQuota(
 }
 
 func checkSessionQuota(
-	ctx context.Context, deps VisitorDeps, code *domain.AccessCode, memberID string,
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, memberID string,
 ) error {
 	if code.MaxSessionsPerMember == nil || *code.MaxSessionsPerMember <= 0 {
 		return nil
@@ -122,7 +150,7 @@ func checkSessionQuota(
 }
 
 func createCodeConversation(
-	ctx context.Context, deps VisitorDeps,
+	ctx context.Context, deps *VisitorDeps,
 	code *domain.AccessCode, member *domain.CodeMember, visitorName string,
 ) (domain.Conversation, error) {
 	memberID := member.ID
@@ -140,7 +168,7 @@ func createCodeConversation(
 }
 
 func buildCodeSessionData(
-	code *domain.AccessCode, visitorName string,
+	code *domain.AccessCode, visitorName string, skillPrompts []string,
 ) *session.VisitorSessionData {
 	return &session.VisitorSessionData{
 		OwnerID:           code.OwnerID,
@@ -148,5 +176,6 @@ func buildCodeSessionData(
 		CodeID:            code.ID,
 		VisitorName:       visitorName,
 		CorpusPermissions: code.CorpusPermissions,
+		SkillPrompts:      skillPrompts,
 	}
 }

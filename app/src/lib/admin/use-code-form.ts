@@ -16,12 +16,13 @@ export interface CodeFormState {
   suggested: string[];
   maxSessions: string;
   maxTurns: string;
+  skillIDs: string[];
 }
 
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
   permissionsRaw: '', suggested: ['', ''],
-  maxSessions: '', maxTurns: '',
+  maxSessions: '', maxTurns: '', skillIDs: [],
 };
 
 export interface CodeFormHook {
@@ -32,6 +33,7 @@ export interface CodeFormHook {
   setMaxSessions: (v: string) => void;
   setMaxTurns: (v: string) => void;
   setPermissionsRaw: (v: string) => void;
+  toggleSkill: (id: string) => void;
   updateQ: (i: number, v: string) => void;
   addQ: () => void;
   removeQ: (i: number) => void;
@@ -64,12 +66,21 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
     setValues((v) => ({ ...v, suggested: v.suggested.filter((_, j) => j !== i) }));
   }, []);
 
+  const toggleSkill = useCallback((id: string) => {
+    setValues((v) => ({
+      ...v,
+      skillIDs: v.skillIDs.includes(id)
+        ? v.skillIDs.filter((s) => s !== id)
+        : [...v.skillIDs, id],
+    }));
+  }, []);
+
   const reset = useCallback(() => setValues(EMPTY), []);
   const toInput = useCallback(() => buildInput(values), [values]);
 
   return {
     values, setCode, setLabel, setPurpose, setMaxSessions, setMaxTurns,
-    setPermissionsRaw, updateQ, addQ, removeQ, reset, toInput,
+    setPermissionsRaw, toggleSkill, updateQ, addQ, removeQ, reset, toInput,
   };
 }
 
@@ -84,6 +95,7 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
       : ['', ''],
     maxSessions: numOrEmpty(initial?.max_sessions_per_member),
     maxTurns:    numOrEmpty(initial?.max_turns_per_session),
+    skillIDs:    initial?.skill_ids ? [...initial.skill_ids] : [],
   };
 }
 
@@ -116,6 +128,7 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     suggested_questions: v.suggested.map((q) => q.trim()).filter(Boolean),
     max_sessions_per_member: parseQuota(v.maxSessions),
     max_turns_per_session: parseQuota(v.maxTurns),
+    skill_ids: [...v.skillIDs],
   };
 }
 

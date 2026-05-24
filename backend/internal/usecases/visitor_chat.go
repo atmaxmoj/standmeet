@@ -30,6 +30,7 @@ type SendMessageInput struct {
 	ConversationID string
 	Body           string
 	Permissions    []domain.PathPermission
+	SkillPrompts   []string
 	Tier           string
 	BYOAIProvider  string
 	BYOAIKeyEnc    []byte
@@ -52,7 +53,7 @@ type MessageEvent struct {
 // Queue 限流：单 session 同时 1 个 in-flight + 全局 maxConcurrent。拿不到位
 // (busy / timeout) 直接返 error，caller 翻 HTTP envelope，不进 SSE。
 func SendMessage(
-	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 ) (<-chan MessageEvent, error) {
 	if qerr := acquireQuerySlot(ctx, deps, in.ConversationID); qerr != nil {
 		return nil, qerr
@@ -70,7 +71,7 @@ func SendMessage(
 	return out, nil
 }
 
-func acquireQuerySlot(ctx context.Context, deps VisitorDeps, sessionID string) error {
+func acquireQuerySlot(ctx context.Context, deps *VisitorDeps, sessionID string) error {
 	if deps.Queue == nil {
 		return nil
 	}
@@ -80,7 +81,7 @@ func acquireQuerySlot(ctx context.Context, deps VisitorDeps, sessionID string) e
 	return nil
 }
 
-func releaseQuerySlot(deps VisitorDeps, sessionID string) {
+func releaseQuerySlot(deps *VisitorDeps, sessionID string) {
 	if deps.Queue != nil {
 		deps.Queue.Release(sessionID)
 	}
@@ -96,7 +97,7 @@ type sendPrep struct {
 
 // prepareSend —— SendMessage 前的全部 setup。
 func prepareSend(
-	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 ) (sendPrep, error) {
 	provider, err := preflightSend(ctx, deps, in)
 	if err != nil {
@@ -116,7 +117,7 @@ func prepareSend(
 
 // preflightSend —— body 非空 + turn quota + resolver。
 func preflightSend(
-	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 ) (inference.Provider, error) {
 	if in.Body == "" {
 		return nil, ErrEmptyField
@@ -138,7 +139,7 @@ func preflightSend(
 
 // enforceTurnQuota —— 在写访客 message 之前检查 conversation 状态 +
 // turns/session。conversation 已 ended (/summary 写过) → 拒。
-func enforceTurnQuota(ctx context.Context, deps VisitorDeps, in *SendMessageInput) error {
+func enforceTurnQuota(ctx context.Context, deps *VisitorDeps, in *SendMessageInput) error {
 	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
 	if err != nil {
 		return fmt.Errorf("load conv for quota: %w", err)
@@ -164,7 +165,7 @@ func turnQuotaCodeErr(err error) error {
 }
 
 func turnQuotaCheck(
-	ctx context.Context, deps VisitorDeps, code *domain.AccessCode, convID string,
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, convID string,
 ) error {
 	if code.MaxTurnsPerSession == nil || *code.MaxTurnsPerSession <= 0 {
 		return nil
@@ -190,7 +191,7 @@ const (
 // read 直接拒）。这样 path-glob ACL 的 deny 也会被 AI "看到"为"找不到"，
 // 而不是"corpus 里没有"。
 func buildRetriever(
-	ctx context.Context, deps VisitorDeps, ownerID string, perms []domain.PathPermission,
+	ctx context.Context, deps *VisitorDeps, ownerID string, perms []domain.PathPermission,
 ) (*retriever, error) {
 	wikis, werr := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis)
 	if werr != nil {
@@ -205,7 +206,7 @@ func buildRetriever(
 
 // streamArgs —— streamReply 的入参打包；revive 限制函数最多 5 个参数。
 type streamArgs struct {
-	deps     VisitorDeps
+	deps     *VisitorDeps
 	provider inference.Provider
 	in       *SendMessageInput
 	out      chan<- MessageEvent
@@ -231,7 +232,7 @@ func streamReply(ctx context.Context, args *streamArgs) {
 
 func buildChatRequest(args *streamArgs) *inference.ChatRequest {
 	return &inference.ChatRequest{
-		System:      buildSystemPrompt(),
+		System:      buildSystemPrompt(args.in.SkillPrompts),
 		Messages:    []inference.Message{{Role: "user", Content: args.in.Body}},
 		Tools:       retrievalToolSpecs(),
 		ExecuteTool: args.retr.Execute,
@@ -262,7 +263,7 @@ func pumpChunks(
 
 // doneInput —— emitDoneEvent 入参打包；revive argument-limit ≤ 5。
 type doneInput struct {
-	deps VisitorDeps
+	deps *VisitorDeps
 	in   *SendMessageInput
 	retr *retriever
 	full string

@@ -64,6 +64,11 @@ type CodeMember struct {
 	LastSeenAt  pgtype.Timestamptz
 }
 
+type CodeSkill struct {
+	CodeID  pgtype.UUID
+	SkillID pgtype.UUID
+}
+
 type Conversation struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID
@@ -233,6 +238,23 @@ type SeoSetting struct {
 	SitemapExtras []byte
 	OgTemplate    string
 	UpdatedAt     pgtype.Timestamptz
+}
+
+type Skill struct {
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	Name         string
+	Description  string
+	Prompt       string
+	Scripts      []byte
+	Metadata     []byte
+	AllowedTools []string
+	IsBuiltin    bool
+	Version      string
+	License      string
+	Source       string
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
 }
 
 type WikiEntry struct {

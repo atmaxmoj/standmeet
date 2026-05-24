@@ -53,7 +53,7 @@ var ErrSummaryEmptyConv = errors.New("conversation has no messages to summarize"
 // GenerateSummary —— 加载 transcript → 拼 user prompt → 调 provider (无 tools
 // 单 turn) → 落 conversations.summary_md + ended_at。返 final summary markdown。
 func GenerateSummary(
-	ctx context.Context, deps VisitorDeps, in *GenerateSummaryInput,
+	ctx context.Context, deps *VisitorDeps, in *GenerateSummaryInput,
 ) (string, error) {
 	summary, err := produceSummary(ctx, deps, in)
 	if err != nil {
@@ -66,7 +66,7 @@ func GenerateSummary(
 }
 
 func produceSummary(
-	ctx context.Context, deps VisitorDeps, in *GenerateSummaryInput,
+	ctx context.Context, deps *VisitorDeps, in *GenerateSummaryInput,
 ) (string, error) {
 	transcript, err := loadTranscriptForSummary(ctx, deps, in)
 	if err != nil {
@@ -83,7 +83,7 @@ func produceSummary(
 }
 
 func loadTranscriptForSummary(
-	ctx context.Context, deps VisitorDeps, in *GenerateSummaryInput,
+	ctx context.Context, deps *VisitorDeps, in *GenerateSummaryInput,
 ) ([]domain.Message, error) {
 	bundle, err := deps.Conv.GetWithMessages(ctx, in.OwnerID, in.ConversationID)
 	if err != nil {
@@ -96,7 +96,7 @@ func loadTranscriptForSummary(
 }
 
 func resolveSummaryProvider(
-	ctx context.Context, deps VisitorDeps, in *GenerateSummaryInput,
+	ctx context.Context, deps *VisitorDeps, in *GenerateSummaryInput,
 ) (inference.Provider, error) {
 	provider, perr := deps.Resolver.Resolve(ctx, &inference.ResolveInput{
 		OwnerID:       in.OwnerID,

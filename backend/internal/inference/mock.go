@@ -57,7 +57,22 @@ func (m *MockProvider) Stream(ctx context.Context, req *ChatRequest) (<-chan Chu
 func (m *MockProvider) run(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
 	defer close(ch)
 	maybeRunMockToolLoop(ctx, req)
+	// mock echoes the system prompt verbatim before the canned reply. visitor
+	// chat e2es 借此 verify owner-curated skill prompts 真的拼进了 system，
+	// 而不是只挂在 DB / session 上。prod 路径不走 mock，影响仅限 env=mock。
+	echoSystem(ctx, req, ch)
 	m.streamReply(ctx, ch)
+}
+
+func echoSystem(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
+	if req.System == "" {
+		return
+	}
+	select {
+	case <-ctx.Done():
+		return
+	case ch <- Chunk{Text: "[system:" + req.System + "]\n"}:
+	}
 }
 
 // maybeRunMockToolLoop —— 当 caller 注册了 tools + executor 时模拟一轮 search→read。

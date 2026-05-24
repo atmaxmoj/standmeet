@@ -156,6 +156,7 @@ type runtimeDeps struct {
 	jobSourceRepo     *postgres.JobSourceRepo
 	resumeDraftRepo   *postgres.ResumeDraftRepo
 	applicationRepo   *postgres.ApplicationRepo
+	skillRepo         *postgres.SkillRepo
 	jobCachePool      *jobcache.Pool
 	jobFetchRegistry  *jobfetch.Registry
 	sessionStore      *session.OwnerSessionStore

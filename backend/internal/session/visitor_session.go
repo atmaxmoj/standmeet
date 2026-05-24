@@ -49,6 +49,10 @@ type VisitorSessionData struct {
 	BYOAIProvider     string                  `json:"byoai_provider"`
 	BYOAIKeyEnc       []byte                  `json:"byoai_key_enc,omitempty"`
 	CorpusPermissions []domain.PathPermission `json:"corpus_permissions"`
+	// SkillPrompts —— InviteCode 选中 skill 的 prompt 列表（按 name asc 排序
+	// 写入）。visitor_chat.buildSystemPrompt 拼 base persona + skill prompts。
+	// session-time 解算固化到 Redis，避免每次 chat 都查 DB。
+	SkillPrompts []string `json:"skill_prompts,omitempty"`
 }
 
 // VisitorSessionStore wrap Redis 提供 visitor session CRUD。

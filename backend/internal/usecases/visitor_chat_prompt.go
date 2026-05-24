@@ -5,11 +5,33 @@
 
 package usecases
 
-import "github.com/wangsijie/standmeet/internal/domain"
+import (
+	"strings"
 
-// buildSystemPrompt —— persona-only。AI 用 search/read 工具按需 fetch corpus，
-// 而不是一次拿全集。
-func buildSystemPrompt() string {
+	"github.com/wangsijie/standmeet/internal/domain"
+)
+
+// buildSystemPrompt —— base persona + 可选 skill prompts。skill prompts 来自
+// visitor session 颁发时固化的 SkillPrompts（按 skill name asc）。AI 通过
+// search/read 工具按需 fetch corpus，prompt 不再 stuff corpus。
+func buildSystemPrompt(skillPrompts []string) string {
+	base := basePersonaPrompt()
+	if len(skillPrompts) == 0 {
+		return base
+	}
+	var b strings.Builder
+	_, _ = b.WriteString(base)
+	for _, p := range skillPrompts {
+		if p = strings.TrimSpace(p); p == "" {
+			continue
+		}
+		_, _ = b.WriteString("\n\n---\n\n")
+		_, _ = b.WriteString(p)
+	}
+	return b.String()
+}
+
+func basePersonaPrompt() string {
 	return "You are answering visitor questions on behalf of the owner.\n\n" +
 		"You have three tools for accessing the owner's curated corpus:\n" +
 		"  • search_corpus_entries(query) — find entries matching a keyword;\n" +

@@ -35,7 +35,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 
 func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	return server.AdminDeps{
-		Claim:     usecases.ClaimDeps{Instance: d.instanceRepo},
+		Claim:     usecases.ClaimDeps{Instance: d.instanceRepo, Skills: d.skillRepo},
 		Login:     usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
 		APITokens: usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
 		Corpus:    usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
@@ -50,6 +50,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		AccountAdmin:   usecases.AccountDeps{Owners: d.ownerRepo},
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
 		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
+		Skills:         usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		Codes:          d.codeRepo,
 		Owners:         d.ownerRepo,
 		Sessions:       d.sessionStore,
@@ -61,7 +62,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 	return publicroutes.Handlers{
 		Visitor: usecases.VisitorDeps{
 			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
-			Output: d.outputRepo,
+			Output: d.outputRepo, Skills: d.skillRepo,
 			Owners: d.ownerRepo, Sessions: d.visitorStore,
 			Queue: d.queryQueue, Resolver: d.providerResolver,
 		},
@@ -128,6 +129,7 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Conversations: usecases.ConversationsDeps{
 			Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
-		Log: d.log,
+		Skills: usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
+		Log:    d.log,
 	}
 }

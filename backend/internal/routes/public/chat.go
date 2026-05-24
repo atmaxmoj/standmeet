@@ -152,11 +152,12 @@ func streamChatSSE(
 	r *http.Request, w http.ResponseWriter, h *Handlers,
 	parsed *parsedPostMessage, convID string,
 ) {
-	events, err := usecases.SendMessage(r.Context(), h.Visitor, &usecases.SendMessageInput{
+	events, err := usecases.SendMessage(r.Context(), &h.Visitor, &usecases.SendMessageInput{
 		OwnerID:        parsed.Data.OwnerID,
 		ConversationID: convID,
 		Body:           parsed.Content,
 		Permissions:    parsed.Data.CorpusPermissions,
+		SkillPrompts:   parsed.Data.SkillPrompts,
 		Tier:           parsed.Data.Tier,
 		BYOAIProvider:  parsed.Data.BYOAIProvider,
 		BYOAIKeyEnc:    parsed.Data.BYOAIKeyEnc,

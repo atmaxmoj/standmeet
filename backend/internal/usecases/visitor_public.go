@@ -28,7 +28,7 @@ type IssuePublicSessionInput struct {
 
 // IssuePublicSession —— public-tier session 颁发。
 func IssuePublicSession(
-	ctx context.Context, deps VisitorDeps, in *IssuePublicSessionInput,
+	ctx context.Context, deps *VisitorDeps, in *IssuePublicSessionInput,
 ) (IssueCodeSessionResult, error) {
 	owner, err := loadSoleOwnerForVisitor(ctx, deps)
 	if err != nil {
@@ -41,7 +41,7 @@ func IssuePublicSession(
 // 的 LoadSoleOwner 需要 PageDeps；visitor 这边只有 VisitorDeps，所以重复一次小
 // helper 避免 deps 互相依赖。pre-claim → ErrOwnerNotFound 由 handler 翻译成 404。
 func loadSoleOwnerForVisitor(
-	ctx context.Context, deps VisitorDeps,
+	ctx context.Context, deps *VisitorDeps,
 ) (domain.Owner, error) {
 	handle, err := deps.Owners.FirstHandle(ctx)
 	if err != nil {
@@ -61,7 +61,7 @@ func loadSoleOwnerForVisitor(
 }
 
 func finalizePublicSession(
-	ctx context.Context, deps VisitorDeps,
+	ctx context.Context, deps *VisitorDeps,
 	in *IssuePublicSessionInput, owner *domain.Owner,
 ) (IssueCodeSessionResult, error) {
 	tier := publicTierForBYOAI(in.BYOAIKey)

@@ -28,6 +28,7 @@ export interface CodeView {
   suggested_questions?: string[];
   max_sessions_per_member?: number | null;
   max_turns_per_session?: number | null;
+  skill_ids?: string[];
 }
 
 export interface CreateCodeInput {
@@ -38,6 +39,7 @@ export interface CreateCodeInput {
   suggested_questions?: string[];
   max_sessions_per_member?: number | null;
   max_turns_per_session?: number | null;
+  skill_ids?: string[];
 }
 
 export interface QuotasInput {
@@ -118,6 +120,7 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     suggested_questions: input.suggested_questions ?? [],
     max_sessions_per_member: input.max_sessions_per_member ?? null,
     max_turns_per_session: input.max_turns_per_session ?? null,
+    skill_ids: input.skill_ids ?? [],
   };
 }
 

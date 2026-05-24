@@ -2,6 +2,7 @@
 // retrieval-redesign 后：tags scope 字段砍掉，corpus_permissions 走 JSON
 // textarea (简单 follow-up 升级成可视化编辑器)。
 
+import { useSkills } from '@/lib/admin/use-skills';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
 type Props = { form: CodeFormHook };
@@ -25,8 +26,74 @@ function NonQuotaSlot({ form, editing }: EditingProps) {
   return editing ? null : (
     <>
       <PermissionsField form={form} />
+      <SkillsPicker form={form} />
       <QuestionsField form={form} />
     </>
+  );
+}
+
+function SkillsPicker({ form }: Props) {
+  const hook = useSkills();
+  return (
+    <div>
+      <FieldKicker text="skills · AI persona fragments (none = base only)" />
+      <SkillsPickerList form={form} hook={hook} />
+    </div>
+  );
+}
+
+function SkillsPickerList({
+  form, hook,
+}: { form: CodeFormHook; hook: ReturnType<typeof useSkills> }) {
+  return hook.skills.length === 0
+    ? <SkillsEmpty />
+    : <SkillsPickerOptions form={form} hook={hook} />;
+}
+
+function SkillsEmpty() {
+  return (
+    <p className="reading-tight italic text-[13px] text-(--color-muted) mt-1">
+      No skills yet — create one under Skills.
+    </p>
+  );
+}
+
+function SkillsPickerOptions({
+  form, hook,
+}: { form: CodeFormHook; hook: ReturnType<typeof useSkills> }) {
+  return (
+    <ul className="flex flex-wrap gap-2 mt-2" data-testid="code-skills-picker">
+      {hook.skills.map((s) => (
+        <li key={s.id}>
+          <SkillToggle
+            id={s.id}
+            name={s.name}
+            selected={form.values.skillIDs.includes(s.id)}
+            onToggle={() => form.toggleSkill(s.id)}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SkillToggle({
+  id, name, selected, onToggle,
+}: { id: string; name: string; selected: boolean; onToggle: () => void }) {
+  const cls = selected
+    ? 'border-(--color-accent) text-(--color-accent)'
+    : 'border-(--color-rule) text-(--color-muted) hover:text-(--color-ink)';
+  return (
+    <button
+      type="button"
+      data-testid={`code-skill-${name}`}
+      data-skill-id={id}
+      onClick={onToggle}
+      aria-pressed={selected}
+      className={`border px-3 py-1.5 mono text-[11px] tracking-[0.08em] uppercase ${cls}`}
+    >
+      {name}
+    </button>
   );
 }
 

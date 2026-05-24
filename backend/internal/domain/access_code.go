@@ -29,6 +29,10 @@ type AccessCode struct {
 	Status               string
 	CorpusPermissions    []PathPermission
 	SuggestedQuestions   []string
+	// SkillIDs —— InviteCode 引用的 skills。visitor session 拼 system
+	// prompt 时合并所有 selected skill.prompt。空列表 = visitor 只看到
+	// owner 默认 persona 没附加 skill。
+	SkillIDs []string
 }
 
 // PathPermission —— retrieval ACL 单元。

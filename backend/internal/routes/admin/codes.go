@@ -15,11 +15,13 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/middleware"
 	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
 // CodesDeps —— admin codes handlers 依赖。
 type CodesDeps struct {
-	Codes *postgres.CodeRepo
+	Codes  *postgres.CodeRepo
+	Skills *postgres.SkillRepo
 }
 
 type createCodeRequest struct {
@@ -30,6 +32,7 @@ type createCodeRequest struct {
 	Purpose              string                  `json:"purpose"`
 	CorpusPermissions    []domain.PathPermission `json:"corpus_permissions"`
 	SuggestedQuestions   []string                `json:"suggested_questions"`
+	SkillIDs             []string                `json:"skill_ids,omitempty"`
 }
 
 type updateQuotasRequest struct {
@@ -47,6 +50,7 @@ type codeView struct {
 	Status               string                  `json:"status"`
 	CorpusPermissions    []domain.PathPermission `json:"corpus_permissions"`
 	SuggestedQuestions   []string                `json:"suggested_questions"`
+	SkillIDs             []string                `json:"skill_ids,omitempty"`
 }
 
 // MountCodes 挂 /codes 子路由。
@@ -67,20 +71,38 @@ func (h *Handlers) listCodes() http.HandlerFunc {
 			writeError(h.Log, w, serverErr())
 			return
 		}
-		writeCodesList(h.Log, w, rows)
+		writeCodesList(r, h, w, rows)
 	}
 }
 
-func writeCodesList(log *slog.Logger, w http.ResponseWriter, rows []domain.AccessCode) {
+func writeCodesList(
+	r *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.AccessCode,
+) {
 	items := make([]codeView, 0, len(rows))
 	for i := range rows {
-		items = append(items, toCodeView(&rows[i]))
+		v := toCodeView(&rows[i])
+		v.SkillIDs = listSkillIDsForCode(r, h, rows[i].ID)
+		items = append(items, v)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(items); err != nil {
-		logEncodeErr(log, "encode codes", err)
+		logEncodeErr(h.Log, "encode codes", err)
 	}
+}
+
+// listSkillIDsForCode —— N+1 拉每个 code 的 skill_ids。V1 owner 数据量小可接受；
+// 真要优化加一个 JOIN 查询返 map[code_id]→[]skill_id。
+func listSkillIDsForCode(r *http.Request, h *Handlers, codeID string) []string {
+	if h.CodesAdmin.Skills == nil {
+		return nil
+	}
+	ids, err := h.CodesAdmin.Skills.ListSkillIDsForCode(r.Context(), codeID)
+	if err != nil {
+		h.Log.Error("list code skill ids", "code_id", codeID, "err", err)
+		return nil
+	}
+	return ids
 }
 
 func toCodeView(c *domain.AccessCode) codeView {
@@ -104,15 +126,40 @@ func (h *Handlers) createCode() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		code, err := h.CodesAdmin.Codes.Create(r.Context(), buildCreateInput(ownerID, &req))
-		if err != nil {
-			logEncodeErr(h.Log, "create code", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		writeCreatedCode(h.Log, w, &code)
+		runCreateCode(r, h, w, &req)
 	}
+}
+
+// runCreateCode —— 拆出 createCode 的 happy/error path 让 handler cyclo≤3。
+func runCreateCode(
+	r *http.Request, h *Handlers, w http.ResponseWriter, req *createCodeRequest,
+) {
+	ownerID := middleware.OwnerIDFrom(r.Context())
+	code, err := h.CodesAdmin.Codes.Create(r.Context(), buildCreateInput(ownerID, req))
+	if err != nil {
+		logEncodeErr(h.Log, "create code", err)
+		writeError(h.Log, w, serverErr())
+		return
+	}
+	if aerr := attachCreatedCodeSkills(r, h, ownerID, code.ID, req.SkillIDs); aerr != nil {
+		handleSetCodeSkillsErr(h.Log, w, aerr)
+		return
+	}
+	writeCreatedCode(h.Log, w, &code, req.SkillIDs)
+}
+
+// attachCreatedCodeSkills —— createCode 时 attach skill_ids 到刚建好的 code。
+// 失败时 caller 翻译 envelope（code 已 create，不回滚 —— PUT
+// /codes/{id}/skills 之后还可以重试）。
+func attachCreatedCodeSkills(
+	r *http.Request, h *Handlers, ownerID, codeID string, skillIDs []string,
+) error {
+	if len(skillIDs) == 0 {
+		return nil
+	}
+	return usecases.SetCodeSkills(r.Context(), h.SkillsAdmin.Skills, &usecases.SetCodeSkillsInput{
+		OwnerID: ownerID, CodeID: codeID, SkillIDs: skillIDs,
+	})
 }
 
 func buildCreateInput(ownerID string, req *createCodeRequest) *postgres.CreateCodeInput {
@@ -128,10 +175,14 @@ func buildCreateInput(ownerID string, req *createCodeRequest) *postgres.CreateCo
 	}
 }
 
-func writeCreatedCode(log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode) {
+func writeCreatedCode(
+	log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode, skillIDs []string,
+) {
+	v := toCodeView(c)
+	v.SkillIDs = skillIDs
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(toCodeView(c)); err != nil {
+	if err := json.NewEncoder(w).Encode(v); err != nil {
 		logEncodeErr(log, "encode code", err)
 	}
 }

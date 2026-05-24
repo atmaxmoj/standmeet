@@ -19,6 +19,7 @@ import (
 // ClaimDeps 把 ClaimInstance 需要的依赖打包，避免参数列表超长。
 type ClaimDeps struct {
 	Instance *postgres.InstanceRepo
+	Skills   *postgres.SkillRepo
 }
 
 // ClaimInput 是 ClaimInstance 的入参。
@@ -65,7 +66,19 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (domain.
 	// if subsequent token creates use the same owner_id.
 	slog.Default().Info("claim succeeded",
 		"owner_id", owner.ID, "email", in.Email, "handle", in.Handle)
+	seedClaimSkills(ctx, deps, owner.ID)
 	return owner, nil
+}
+
+// seedClaimSkills —— claim 成功后 seed 内置 skills；失败 log + continue，不
+// 阻塞 claim（owner 仍能 login）。
+func seedClaimSkills(ctx context.Context, deps ClaimDeps, ownerID string) {
+	if deps.Skills == nil {
+		return
+	}
+	if err := SeedBuiltinSkills(ctx, deps.Skills, ownerID); err != nil {
+		slog.Default().Error("seed builtin skills", "owner_id", ownerID, "err", err)
+	}
 }
 
 // ErrEmptyField —— 必填字段为空。Handler 翻译成 400。

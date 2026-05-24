@@ -38,6 +38,7 @@ type Deps struct {
 	Log           *slog.Logger
 	Applications  usecases.ApplicationsDeps
 	Conversations usecases.ConversationsDeps
+	Skills        usecases.SkillsDeps
 }
 
 // SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
@@ -119,6 +120,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	resumeTools(mcpSrv, deps)
 	applicationsTools(mcpSrv, deps)
 	chatTools(mcpSrv, deps)
+	skillsTools(mcpSrv, deps)
 }
 
 func meTool() mcpgo.Tool {

@@ -27,7 +27,7 @@ func (h *Handlers) postSummary() http.HandlerFunc {
 			BYOAIProvider:  data.BYOAIProvider,
 			BYOAIKeyEnc:    data.BYOAIKeyEnc,
 		}
-		summary, err := usecases.GenerateSummary(r.Context(), h.Visitor, in)
+		summary, err := usecases.GenerateSummary(r.Context(), &h.Visitor, in)
 		if err != nil {
 			handleVisitorErr(h.Log, w, err)
 			return

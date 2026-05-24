@@ -179,6 +179,44 @@ CREATE TABLE code_members (
 );
 CREATE UNIQUE INDEX code_members_code_name_uniq ON code_members(code_id, display_name);
 
+-- skills —— owner-curated AI persona/能力包。每条 skill 是一段附加 system
+-- prompt（"You are an expert code reviewer..."），可选附带 scripts (sandbox
+-- 执行的 owner-uploaded code，未来 B4 接) + metadata + version + license。
+-- owner 在 admin 里 create/edit/install；每个 InviteCode 选一组 skills，
+-- visitor session 拼 base persona + 选中 skill 的 prompt。
+--
+-- is_builtin：seed 出来的 5 个内置 skill (Code Review / Frontend Design /
+--   Resume Portfolio / Technical Interview / Conversation Report) 标 true；
+--   owner 自己加的 = false。删除时 builtin 不允许删，re-seed 也以 name 为键。
+CREATE TABLE skills (
+    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    name            text          NOT NULL,
+    description     text          NOT NULL DEFAULT '',
+    prompt          text          NOT NULL DEFAULT '',
+    scripts         jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    metadata        jsonb         NOT NULL DEFAULT '{}'::jsonb,
+    allowed_tools   text[]        NOT NULL DEFAULT '{}',
+    is_builtin      bool          NOT NULL DEFAULT false,
+    version         text          NOT NULL DEFAULT '',
+    license         text          NOT NULL DEFAULT '',
+    source          text          NOT NULL DEFAULT 'manual',
+    created_at      timestamptz   NOT NULL DEFAULT now(),
+    updated_at      timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX skills_owner_name_uniq ON skills(owner_id, name);
+
+-- code_skills —— InviteCode ↔ Skill 多对多。同 code 选多 skill；同 skill
+-- 多 code 共享。FK ON DELETE CASCADE：删 code 自动清；删 skill 自动清。
+CREATE TABLE code_skills (
+    code_id   uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    skill_id  uuid NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+    PRIMARY KEY (code_id, skill_id)
+);
+
+CREATE INDEX code_skills_skill_idx ON code_skills(skill_id);
+
 -- handle_aliases —— owner 改 handle 后旧 handle 入这里，旧 URL 仍能 resolve
 -- 到同一个 owner。GetByHandle 走 owners.handle 优先，未命中走 alias。
 CREATE TABLE handle_aliases (

@@ -36,7 +36,7 @@ func (h *Handlers) createSession() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		res, err := dispatchIssueSession(r.Context(), h.Visitor, &req)
+		res, err := dispatchIssueSession(r.Context(), &h.Visitor, &req)
 		if err != nil {
 			handleVisitorErr(h.Log, w, err)
 			return
@@ -49,7 +49,7 @@ func (h *Handlers) createSession() http.HandlerFunc {
 // tier=='code' → IssueCodeSession（带 access code）。
 // tier=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。
 func dispatchIssueSession(
-	ctx context.Context, deps usecases.VisitorDeps, req *createSessionRequest,
+	ctx context.Context, deps *usecases.VisitorDeps, req *createSessionRequest,
 ) (usecases.IssueCodeSessionResult, error) {
 	if pickTier(req) == "code" {
 		return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
