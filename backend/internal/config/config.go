@@ -39,6 +39,11 @@ type Config struct {
 	// 入口。后续若改 UI-driven 配置（DB-stored），这里整组删。
 	TurnstileSiteKey string
 	TurnstileSecret  string
+	// SandboxDriver —— skill script 执行后端：'docker' 或 'disabled'。
+	// docker 要求 backend 容器 mount /var/run/docker.sock + docker CLI 可用。
+	// 不显式开 = disabled，skill 调用脚本时返 sandbox.ErrDisabled。
+	// env: SANDBOX_DRIVER
+	SandboxDriver string
 	// QueryQueueMaxConcurrent —— visitor chat agent loop 全局并发上限；
 	// 防一个 owner 的 anthropic 配额被并发访客打爆。≤0 关闭限流（dev 默认）。
 	// env: QUERY_QUEUE_MAX_CONCURRENT
@@ -72,6 +77,7 @@ func Load() (*Config, error) {
 		TurnstileSiteKey:               os.Getenv("TURNSTILE_SITE_KEY"),
 		TurnstileSecret:                os.Getenv("TURNSTILE_SECRET"),
 		QueryQueueMaxConcurrent:        envInt("QUERY_QUEUE_MAX_CONCURRENT", 0),
+		SandboxDriver:                  os.Getenv("SANDBOX_DRIVER"),
 		SecureCookie:                   envOr("SECURE_COOKIE", "true") == "true",
 	}
 

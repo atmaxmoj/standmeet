@@ -66,7 +66,7 @@ func SendMessage(
 	out := make(chan MessageEvent, messageEventBufSize)
 	go streamReply(ctx, &streamArgs{
 		deps: deps, provider: prep.provider, in: in,
-		retr: prep.retr, out: out,
+		retr: prep.retr, skills: prep.skills, out: out,
 	})
 	return out, nil
 }
@@ -93,6 +93,7 @@ var _ = session.ErrQueueTimeout
 type sendPrep struct {
 	provider inference.Provider
 	retr     *retriever
+	skills   *skillToolBundle
 }
 
 // prepareSend —— SendMessage 前的全部 setup。
@@ -112,7 +113,43 @@ func prepareSend(
 	if lerr != nil {
 		return sendPrep{}, lerr
 	}
-	return sendPrep{provider: provider, retr: retr}, nil
+	skills, serr := buildSkillBundle(ctx, deps, in)
+	if serr != nil {
+		return sendPrep{}, serr
+	}
+	return sendPrep{provider: provider, retr: retr, skills: skills}, nil
+}
+
+// buildSkillBundle —— 通过 conversation 反查 code，再拉 skill+scripts；
+// 没 code (public/byoai tier) → 返 nil-skills bundle (still safe, Specs() 空)。
+func buildSkillBundle(
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
+) (*skillToolBundle, error) {
+	skills, lerr := loadSkillsForConversation(ctx, deps, in)
+	if lerr != nil {
+		return nil, lerr
+	}
+	return newSkillToolBundle(deps.Sandbox, skills), nil
+}
+
+func loadSkillsForConversation(
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
+) ([]domain.Skill, error) {
+	if deps.Skills == nil {
+		return nil, nil
+	}
+	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
+	if err != nil {
+		return nil, fmt.Errorf("load conv for skills: %w", err)
+	}
+	if conv.CodeID == nil {
+		return nil, nil
+	}
+	skills, err := deps.Skills.ListSkillsForCode(ctx, *conv.CodeID)
+	if err != nil {
+		return nil, fmt.Errorf("list skills for code: %w", err)
+	}
+	return skills, nil
 }
 
 // preflightSend —— body 非空 + turn quota + resolver。
@@ -211,6 +248,7 @@ type streamArgs struct {
 	in       *SendMessageInput
 	out      chan<- MessageEvent
 	retr     *retriever
+	skills   *skillToolBundle
 }
 
 func streamReply(ctx context.Context, args *streamArgs) {
@@ -231,11 +269,22 @@ func streamReply(ctx context.Context, args *streamArgs) {
 }
 
 func buildChatRequest(args *streamArgs) *inference.ChatRequest {
+	tools := append(retrievalToolSpecs(), args.skills.Specs()...)
 	return &inference.ChatRequest{
 		System:      buildSystemPrompt(args.in.SkillPrompts),
 		Messages:    []inference.Message{{Role: "user", Content: args.in.Body}},
-		Tools:       retrievalToolSpecs(),
-		ExecuteTool: args.retr.Execute,
+		Tools:       tools,
+		ExecuteTool: makeChatExecutor(args.retr, args.skills),
+	}
+}
+
+// makeChatExecutor —— 复合 dispatcher：skill_* 走 sandbox，其他走 retrieval。
+func makeChatExecutor(retr *retriever, skills *skillToolBundle) inference.ToolExecutor {
+	return func(ctx context.Context, name string, input []byte) (string, error) {
+		if skills != nil && skills.Has(name) {
+			return skills.Execute(ctx, name, input)
+		}
+		return retr.Execute(ctx, name, input)
 	}
 }
 

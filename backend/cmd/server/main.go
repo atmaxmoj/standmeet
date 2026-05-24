@@ -26,6 +26,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/jobcache"
 	"github.com/wangsijie/standmeet/internal/jobfetch"
 	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/wangsijie/standmeet/internal/sandbox"
 	"github.com/wangsijie/standmeet/internal/server"
 	"github.com/wangsijie/standmeet/internal/session"
 )
@@ -157,6 +158,7 @@ type runtimeDeps struct {
 	resumeDraftRepo   *postgres.ResumeDraftRepo
 	applicationRepo   *postgres.ApplicationRepo
 	skillRepo         *postgres.SkillRepo
+	sandboxRunner     sandbox.Runner
 	jobCachePool      *jobcache.Pool
 	jobFetchRegistry  *jobfetch.Registry
 	sessionStore      *session.OwnerSessionStore

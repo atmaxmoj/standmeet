@@ -12,6 +12,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
 	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/wangsijie/standmeet/internal/sandbox"
 	"github.com/wangsijie/standmeet/internal/session"
 )
 
@@ -27,6 +28,7 @@ type VisitorDeps struct {
 	Output   *postgres.OutputRepo
 	Owners   *postgres.OwnerRepo
 	Skills   *postgres.SkillRepo
+	Sandbox  sandbox.Runner
 	Sessions *session.VisitorSessionStore
 	Queue    *session.QueryQueue
 	Resolver inference.Resolver

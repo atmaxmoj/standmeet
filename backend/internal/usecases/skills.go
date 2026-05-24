@@ -32,6 +32,7 @@ type CreateSkillInput struct {
 	Description  string
 	Prompt       string
 	AllowedTools []string
+	Scripts      []domain.SkillScript
 }
 
 // CreateSkill 新建 owner-curated skill。
@@ -47,6 +48,7 @@ func CreateSkill(
 		Description:  in.Description,
 		Prompt:       in.Prompt,
 		AllowedTools: in.AllowedTools,
+		Scripts:      in.Scripts,
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrSkillNameTaken) {

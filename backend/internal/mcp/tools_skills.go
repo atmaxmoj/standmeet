@@ -28,14 +28,20 @@ func skillsTools(srv *server.MCPServer, deps *Deps) {
 func skillCreateTool() mcpgo.Tool {
 	return mcpgo.NewTool(
 		"skill_create",
-		mcpgo.WithDescription("Create an owner-curated AI skill (extra system prompt). "+
-			"Attach it to invite codes to compose the visitor-facing AI persona."),
+		mcpgo.WithDescription("Create an owner-curated AI skill (extra system prompt "+
+			"+ optional sandbox-executed scripts). Attach to invite codes to "+
+			"compose the visitor-facing AI persona + capability set."),
 		mcpgo.WithString("name", mcpgo.Required(),
 			mcpgo.Description("Skill name, unique per owner (e.g. 'code-review').")),
 		mcpgo.WithString("prompt", mcpgo.Required(),
 			mcpgo.Description("System prompt fragment appended to base persona.")),
 		mcpgo.WithString("description",
 			mcpgo.Description("Optional one-line description of what the skill does.")),
+		mcpgo.WithArray("scripts",
+			mcpgo.Description("Optional list of sandbox-executed scripts. Each: "+
+				"{filename, language ('python'|'bash'|'javascript'), content, "+
+				"description?, parameters?:[{name, type?, description?, required?}]}. "+
+				"Each script becomes a tool the visitor-facing AI can call.")),
 	)
 }
 
@@ -64,10 +70,35 @@ func parseSkillCreateParams(
 	if err != nil {
 		return nil, errors.New("prompt is required")
 	}
+	scripts, serr := parseSkillScripts(req)
+	if serr != nil {
+		return nil, serr
+	}
 	return &usecases.CreateSkillInput{
 		OwnerID: ownerID, Name: name, Prompt: prompt,
 		Description: req.GetString("description", ""),
+		Scripts:     scripts,
 	}, nil
+}
+
+// parseSkillScripts —— mcp-go GetArguments() 返 map[string]any。"scripts"
+// 来自 owner AI 客户端的 JSON 数组；我们 marshal→unmarshal 进 domain
+// 类型避免在这里手写 reflect。
+func parseSkillScripts(req *mcpgo.CallToolRequest) ([]domain.SkillScript, error) {
+	args := req.GetArguments()
+	raw, ok := args["scripts"]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+	bs, merr := json.Marshal(raw)
+	if merr != nil {
+		return nil, errors.New("scripts: invalid json")
+	}
+	var out []domain.SkillScript
+	if uerr := json.Unmarshal(bs, &out); uerr != nil {
+		return nil, errors.New("scripts: must be array of {filename,language,content,...}")
+	}
+	return out, nil
 }
 
 func runSkillCreate(

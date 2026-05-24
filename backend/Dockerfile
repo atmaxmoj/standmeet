@@ -52,8 +52,10 @@ FROM alpine:3.21 AS production
 WORKDIR /app
 
 # ca-certificates 让 outbound TLS（Anthropic / OpenAI / Caddy ask）能
-# 验证证书。
-RUN apk add --no-cache ca-certificates
+# 验证证书；docker-cli 给 sandbox 用 (mount /var/run/docker.sock 时调
+# `docker run --rm --network=none` 跑 owner-curated skill 脚本)。
+# 不装 docker-cli 时 sandbox 报 ErrDisabled，对应 SANDBOX_DRIVER!=docker。
+RUN apk add --no-cache ca-certificates docker-cli
 
 RUN addgroup --system --gid 1001 standmeet && \
     adduser --system --uid 1001 --ingroup standmeet standmeet

@@ -52,6 +52,7 @@ services:
       - INFERENCE_PROVIDER=mock
       - INFERENCE_MOCK_REPLY=Hello visitor, alice says hi from the mock provider.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - SANDBOX_DRIVER=docker
       # job-board fetcher base URLs point at the test mock so e2e doesn't
       # hit real Greenhouse / Lever / Ashby / RemoteOK / WWR / HN. Prod
       # leaves these unset → adapters use baked-in real URLs.
@@ -72,8 +73,13 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    # sandbox 需要 root + docker socket：dev/e2e 用 owner-curated skill
+    # 脚本（python/bash/node 跑在隔离 docker container 里）。生产同样需要
+    # 这两个，docs 里说明权衡。
+    user: "0:0"
     volumes:
       - custom_pages_data:/srv/custom-pages
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
       interval: 5s

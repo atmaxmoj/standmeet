@@ -37,6 +37,8 @@ components:
     in: internal/resumerender             # ResumeContent → PDF bytes (gopdf + go-qrcode)
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
+  sandbox:
+    in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
@@ -69,6 +71,13 @@ deps:
       - jobfetch
       - resumerender
       - cryptobox
+      - sandbox
+    anyVendorDeps: true
+
+  # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
+  sandbox:
+    mayDependOn:
+      - domain
     anyVendorDeps: true
 
   # Postgres Repository 把 sqlc 生成的 dbq 映射到 domain types。
@@ -234,5 +243,6 @@ deps:
       - resumerender
       - captcha
       - cryptobox
+      - sandbox
       - server
     anyVendorDeps: true

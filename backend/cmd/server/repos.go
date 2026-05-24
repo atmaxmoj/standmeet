@@ -12,6 +12,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/jobcache"
 	"github.com/wangsijie/standmeet/internal/jobfetch"
 	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/wangsijie/standmeet/internal/sandbox"
 	"github.com/wangsijie/standmeet/internal/session"
 )
 
@@ -95,6 +96,7 @@ func assembleRuntimeDeps(
 		captchaSiteKey:    captchaSiteKeyFor(cfg),
 		secureCookie:      cfg.SecureCookie,
 		buildsRoot:        cfg.CustomPagesRoot,
+		sandboxRunner:     sandbox.FromEnv(cfg.SandboxDriver),
 	}
 }
 

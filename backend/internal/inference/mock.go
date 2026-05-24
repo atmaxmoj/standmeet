@@ -56,12 +56,23 @@ func (m *MockProvider) Stream(ctx context.Context, req *ChatRequest) (<-chan Chu
 
 func (m *MockProvider) run(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
 	defer close(ch)
-	maybeRunMockToolLoop(ctx, req)
+	skillResults := maybeRunMockToolLoop(ctx, req)
 	// mock echoes the system prompt verbatim before the canned reply. visitor
 	// chat e2es 借此 verify owner-curated skill prompts 真的拼进了 system，
 	// 而不是只挂在 DB / session 上。prod 路径不走 mock，影响仅限 env=mock。
 	echoSystem(ctx, req, ch)
+	echoSkillResults(ctx, skillResults, ch)
 	m.streamReply(ctx, ch)
+}
+
+func echoSkillResults(ctx context.Context, results []string, ch chan<- Chunk) {
+	for _, r := range results {
+		select {
+		case <-ctx.Done():
+			return
+		case ch <- Chunk{Text: "[skill_result:" + r + "]\n"}:
+		}
+	}
 }
 
 func echoSystem(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
@@ -78,16 +89,48 @@ func echoSystem(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
 // maybeRunMockToolLoop —— 当 caller 注册了 tools + executor 时模拟一轮 search→read。
 // executor 失败不阻塞：mock 是 e2e fixture，遇到 deny / not-found 让 collector
 // 不收就行；文本回复仍然流出。
-func maybeRunMockToolLoop(ctx context.Context, req *ChatRequest) {
+// maybeRunMockToolLoop —— 跑一轮模拟 tool dispatch；返回 skill_* tool 的
+// 输出，let run() echo 到 reply 让 e2e 能 assert。
+func maybeRunMockToolLoop(ctx context.Context, req *ChatRequest) []string {
 	if !canRunMockTools(req) {
-		return
+		return nil
 	}
 	path := mockDoSearch(ctx, req)
-	if path == "" {
-		return
+	if path != "" {
+		mockDoRead(ctx, req, path)
 	}
-	mockDoRead(ctx, req, path)
+	return mockRunFirstSkillTool(ctx, req)
 }
+
+// mockRunFirstSkillTool —— mock provider 顺手调一下第一个 skill_* tool，
+// 让 e2e 能验证 owner-curated 脚本真的跑到了 sandbox。无 skill 工具就跳。
+// 返 tool 输出 string (caller echo)。失败不阻塞 reply。
+func mockRunFirstSkillTool(ctx context.Context, req *ChatRequest) []string {
+	if req.ExecuteTool == nil {
+		return nil
+	}
+	name := firstSkillToolName(req.Tools)
+	if name == "" {
+		return nil
+	}
+	out, err := req.ExecuteTool(ctx, name, []byte("{}"))
+	if err != nil {
+		return nil
+	}
+	return []string{out}
+}
+
+func firstSkillToolName(tools []ToolSpec) string {
+	for i := range tools {
+		if len(tools[i].Name) > len(mockSkillPrefix) &&
+			tools[i].Name[:len(mockSkillPrefix)] == mockSkillPrefix {
+			return tools[i].Name
+		}
+	}
+	return ""
+}
+
+const mockSkillPrefix = "skill_"
 
 func canRunMockTools(req *ChatRequest) bool {
 	return len(req.Tools) > 0 && req.ExecuteTool != nil &&
