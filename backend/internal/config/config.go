@@ -8,6 +8,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strconv"
 )
 
 // Config 持有进程启动时一次性读完的运行时配置。
@@ -38,7 +39,11 @@ type Config struct {
 	// 入口。后续若改 UI-driven 配置（DB-stored），这里整组删。
 	TurnstileSiteKey string
 	TurnstileSecret  string
-	SecureCookie     bool // dev (http) 走 false；prod 必须 true
+	// QueryQueueMaxConcurrent —— visitor chat agent loop 全局并发上限；
+	// 防一个 owner 的 anthropic 配额被并发访客打爆。≤0 关闭限流（dev 默认）。
+	// env: QUERY_QUEUE_MAX_CONCURRENT
+	QueryQueueMaxConcurrent int
+	SecureCookie            bool // dev (http) 走 false；prod 必须 true
 }
 
 // 缺关键 env 时返回的 sentinel error。
@@ -66,6 +71,7 @@ func Load() (*Config, error) {
 		JobFetchWorkableBaseURL:        os.Getenv("WORKABLE_BASE_URL"),
 		TurnstileSiteKey:               os.Getenv("TURNSTILE_SITE_KEY"),
 		TurnstileSecret:                os.Getenv("TURNSTILE_SECRET"),
+		QueryQueueMaxConcurrent:        envInt("QUERY_QUEUE_MAX_CONCURRENT", 0),
 		SecureCookie:                   envOr("SECURE_COOKIE", "true") == "true",
 	}
 
@@ -85,4 +91,18 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// envInt —— env 整数 + 默认值；非整数视为 0 (不取 fallback)，让 ops 看见
+// 解析失败而不是静默回 default。
+func envInt(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0
+	}
+	return n
 }

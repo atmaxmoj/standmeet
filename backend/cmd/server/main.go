@@ -160,6 +160,7 @@ type runtimeDeps struct {
 	jobFetchRegistry  *jobfetch.Registry
 	sessionStore      *session.OwnerSessionStore
 	visitorStore      *session.VisitorSessionStore
+	queryQueue        *session.QueryQueue
 	providerResolver  inference.Resolver
 	setupTokenHolder  *session.SetupTokenHolder
 	captchaVerifier   captcha.Verifier

@@ -69,6 +69,16 @@ var visitorErrCases = []apierr.Case{
 		Code:    "owner_ai_not_configured",
 		Message: "owner has not connected an AI provider yet",
 	}},
+	{Match: session.ErrQueueTimeout, Envelope: apierr.Envelope{
+		Status:  http.StatusServiceUnavailable,
+		Code:    "server_busy",
+		Message: "server busy; try again shortly",
+	}},
+	{Match: session.ErrSessionBusy, Envelope: apierr.Envelope{
+		Status:  http.StatusTooManyRequests,
+		Code:    "session_busy",
+		Message: "previous message still streaming; wait for it to finish",
+	}},
 }
 
 type postMessageRequest struct {

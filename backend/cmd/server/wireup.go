@@ -62,7 +62,8 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Visitor: usecases.VisitorDeps{
 			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
 			Output: d.outputRepo,
-			Owners: d.ownerRepo, Sessions: d.visitorStore, Resolver: d.providerResolver,
+			Owners: d.ownerRepo, Sessions: d.visitorStore,
+			Queue: d.queryQueue, Resolver: d.providerResolver,
 		},
 		Sessions: d.visitorStore,
 		Log:      d.log,

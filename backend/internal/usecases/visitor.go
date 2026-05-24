@@ -26,6 +26,7 @@ type VisitorDeps struct {
 	Output   *postgres.OutputRepo
 	Owners   *postgres.OwnerRepo
 	Sessions *session.VisitorSessionStore
+	Queue    *session.QueryQueue
 	Resolver inference.Resolver
 }
 

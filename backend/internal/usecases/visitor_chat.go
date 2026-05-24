@@ -11,11 +11,15 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
 	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/wangsijie/standmeet/internal/session"
 )
+
+const queryQueueTimeout = 15 * time.Second
 
 // SendMessageInput —— 一次 chat 提问。
 //
@@ -44,11 +48,18 @@ type MessageEvent struct {
 
 // SendMessage —— 写访客 visitor message → agent loop (search/read tools) →
 // 流式回复 → 写 assistant message + cited (= AI 真读过的 entry) 到 DB。
+//
+// Queue 限流：单 session 同时 1 个 in-flight + 全局 maxConcurrent。拿不到位
+// (busy / timeout) 直接返 error，caller 翻 HTTP envelope，不进 SSE。
 func SendMessage(
 	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
 ) (<-chan MessageEvent, error) {
+	if qerr := acquireQuerySlot(ctx, deps, in.ConversationID); qerr != nil {
+		return nil, qerr
+	}
 	prep, err := prepareSend(ctx, deps, in)
 	if err != nil {
+		releaseQuerySlot(deps, in.ConversationID)
 		return nil, err
 	}
 	out := make(chan MessageEvent, messageEventBufSize)
@@ -58,6 +69,25 @@ func SendMessage(
 	})
 	return out, nil
 }
+
+func acquireQuerySlot(ctx context.Context, deps VisitorDeps, sessionID string) error {
+	if deps.Queue == nil {
+		return nil
+	}
+	if err := deps.Queue.Acquire(ctx, sessionID, queryQueueTimeout); err != nil {
+		return fmt.Errorf("acquire query slot: %w", err)
+	}
+	return nil
+}
+
+func releaseQuerySlot(deps VisitorDeps, sessionID string) {
+	if deps.Queue != nil {
+		deps.Queue.Release(sessionID)
+	}
+}
+
+// 让 session import 保持 in-use（streamReply defer 里也释放）。
+var _ = session.ErrQueueTimeout
 
 type sendPrep struct {
 	provider inference.Provider
@@ -180,6 +210,7 @@ type streamArgs struct {
 
 func streamReply(ctx context.Context, args *streamArgs) {
 	defer close(args.out)
+	defer releaseQuerySlot(args.deps, args.in.ConversationID)
 	chunks, ierr := args.provider.Stream(ctx, buildChatRequest(args))
 	if ierr != nil {
 		args.out <- MessageEvent{Kind: "error", Err: ierr}
