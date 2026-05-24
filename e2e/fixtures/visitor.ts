@@ -12,8 +12,6 @@ export interface VisitorSession {
   session_token: string;
   conversation_id: string;
   owner_handle: string;
-  included_tags: string[];
-  excluded_tags: string[];
 }
 
 export interface IssueSessionInput {

@@ -56,11 +56,11 @@ async function aiBuildsThroughThreeTiers(request: APIRequestContext): Promise<st
   );
   const wiki = await callTool<{ wiki_id: string }>(
     request, apiToken, sid, 'promote_to_wiki',
-    { raw_id: raw.raw_id, title: WIKI_TITLE, visibility: 'public' },
+    { raw_id: raw.raw_id, title: WIKI_TITLE },
   );
   await callTool<{ output_id: string }>(
     request, apiToken, sid, 'promote_wiki_to_output',
-    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, visibility: 'public' },
+    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE },
   );
   return OUTPUT_TITLE;
 }

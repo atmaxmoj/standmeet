@@ -46,7 +46,7 @@ CREATE TABLE owners (
 );
 
 -- Instance settings —— singleton（id=1，CHECK 强制）。
--- 模式：singleton pk=1 + LoadOrCreate。
+-- fresh volume 初始化时种一行；setup token 跟 claim 状态由 boot 写。
 CREATE TABLE instance_settings (
     id                integer      PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     is_claimed        boolean      NOT NULL DEFAULT false,
@@ -55,6 +55,8 @@ CREATE TABLE instance_settings (
     deployed_at       timestamptz  NOT NULL DEFAULT now(),
     allowed_domains   jsonb        NOT NULL DEFAULT '[]'::jsonb
 );
+
+INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 
 -- API tokens —— 对齐 youteacher 简化：无 scope 细粒度（占位 ARRAY['*']）、
 -- 无 prefix 字段（name 就是 owner 看的标识）、撤销 = DELETE。

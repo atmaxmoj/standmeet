@@ -11,13 +11,15 @@ import Link from 'next/link';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiLanding } from '@/lib/api/public';
 
-type Params = { slug: string };
+// catch-all [...path]：path 可含 `/` (projects/lucerna 这种分组)；Next 把
+// 路径段交给我们组合成 backend lookup key。
+type Params = { path: string[] };
 
 export async function generateMetadata(
   { params }: { params: Promise<Params> },
 ): Promise<Metadata> {
-  const { slug } = await params;
-  const wiki = await fetchWikiLanding(slug);
+  const { path } = await params;
+  const wiki = await fetchWikiLanding(path.join('/'));
   return wiki ? {
     title: wiki.title,
     description: wiki.seo_description || wiki.body.slice(0, 160),
@@ -30,8 +32,8 @@ export async function generateMetadata(
 }
 
 export default async function WikiLandingPage({ params }: { params: Promise<Params> }) {
-  const { slug } = await params;
-  const wiki = (await fetchWikiLanding(slug)) ?? notFound();
+  const { path } = await params;
+  const wiki = (await fetchWikiLanding(path.join('/'))) ?? notFound();
   const instance = await fetchInstance();
   const handle = instance.handle;
   return (

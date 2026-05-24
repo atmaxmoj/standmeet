@@ -55,7 +55,7 @@ async function issueCodeWithQuota(request: APIRequestContext): Promise<void> {
     code: CODE,
     label: 'Interview round A — 3 sessions',
     purpose: 'quota-accumulation spec',
-    included_tags: [],
+
     max_sessions_per_member: MAX_SESSIONS,
   });
 }

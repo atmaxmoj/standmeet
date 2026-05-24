@@ -34,10 +34,12 @@ type SEOHandlers struct {
 	Log  *slog.Logger
 }
 
-// Mount 挂 /wiki/{slug} + /output/{slug}。owner 是 sole owner，URL 不带 handle。
+// Mount 挂 /wiki/* + /output/*。owner 是 sole owner，URL 不带 handle。
+// 用 chi wildcard 让 path 可含 `/` (projects/lucerna 这种分组分段)，
+// 跟 entry.path 字段对齐。chi 把整段 path 暴露成 URL param "*"。
 func (h *SEOHandlers) Mount(r chi.Router) {
-	r.Get("/wiki/{slug}", h.getWikiLanding())
-	r.Get("/output/{slug}", h.getOutputLanding())
+	r.Get("/wiki/*", h.getWikiLanding())
+	r.Get("/output/*", h.getOutputLanding())
 }
 
 // MountRoot —— /robots.txt + /sitemap.xml 是 SEO 标准约定路径，挂 root。
@@ -128,7 +130,7 @@ func renderSitemapEntry(b *strings.Builder, u *sitemapURL) {
 
 func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		slug := chi.URLParam(r, "slug")
+		slug := chi.URLParam(r, "*")
 		view, err := loadWikiLandingView(r.Context(), h.Deps, slug)
 		if err != nil {
 			handleLandingErr(h.Log, w, err)
@@ -139,7 +141,7 @@ func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 }
 
 type wikiLandingView struct {
-	Slug           string `json:"slug"`
+	Path           string `json:"path"`
 	Title          string `json:"title"`
 	Body           string `json:"body"`
 	SEODescription string `json:"seo_description"`
@@ -154,7 +156,7 @@ func loadWikiLandingView(
 		return wikiLandingView{}, err
 	}
 	return wikiLandingView{
-		Slug:           slug,
+		Path:           slug,
 		Title:          wiki.Title,
 		Body:           wiki.Body,
 		SEODescription: wiki.SEODescription,
@@ -210,7 +212,7 @@ func classifyLandingErr(err error) apierr.Envelope {
 
 func (h *SEOHandlers) getOutputLanding() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		slug := chi.URLParam(r, "slug")
+		slug := chi.URLParam(r, "*")
 		view, err := loadOutputLandingView(r.Context(), h.Deps, slug)
 		if err != nil {
 			handleLandingErr(h.Log, w, err)
@@ -222,7 +224,7 @@ func (h *SEOHandlers) getOutputLanding() http.HandlerFunc {
 
 // outputLandingView —— 跟 wikiLandingView 字段对齐，前端 SDK 可复用渲染。
 type outputLandingView struct {
-	Slug           string `json:"slug"`
+	Path           string `json:"path"`
 	Title          string `json:"title"`
 	Body           string `json:"body"`
 	SEODescription string `json:"seo_description"`
@@ -237,7 +239,7 @@ func loadOutputLandingView(
 		return outputLandingView{}, err
 	}
 	return outputLandingView{
-		Slug:           slug,
+		Path:           slug,
 		Title:          out.Title,
 		Body:           out.Body,
 		SEODescription: out.SEODescription,

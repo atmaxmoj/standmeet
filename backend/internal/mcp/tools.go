@@ -95,10 +95,12 @@ func promoteToWikiTool() mcpgo.Tool {
 		mcpgo.WithDescription("Promote a raw entry to a curated wiki entry."),
 		mcpgo.WithString("raw_id", mcpgo.Required(), mcpgo.Description("raw_entries.id")),
 		mcpgo.WithString("title", mcpgo.Required(), mcpgo.Description("Wiki title")),
-		mcpgo.WithString("visibility",
-			mcpgo.Description("public | on_request | private (default public)")),
+		mcpgo.WithString("path",
+			mcpgo.Description("Retrieval/landing path (e.g. projects/lucerna). Empty = no path.")),
 		mcpgo.WithString("parent_id", mcpgo.Description("Parent wiki id (root if empty)")),
 		mcpgo.WithArray("tags", mcpgo.Description("Extra tags on top of inherited raw tags")),
+		mcpgo.WithBoolean("show_as_source",
+			mcpgo.Description("false = AI can read but excluded from cited footer (default true)")),
 	)
 }
 
@@ -112,7 +114,7 @@ func invokePromoteToWiki(deps *Deps) invokeFn {
 		if perr != nil {
 			return mcpgo.NewToolResultError(perr.Error())
 		}
-		return runPromote(ctx, deps, in)
+		return runPromote(ctx, deps, in, readPromoteOpts(req))
 	}
 }
 
@@ -128,18 +130,6 @@ func parsePromoteParams(
 		return nil, errors.New("title is required")
 	}
 	return buildPromoteInput(req, ownerID, rawID, title), nil
-}
-
-func runPromote(ctx context.Context, deps *Deps, in *usecases.PromoteInput) *mcpgo.CallToolResult {
-	wiki, err := usecases.PromoteToWiki(ctx, deps.Corpus, in)
-	if err != nil {
-		if errors.Is(err, domain.ErrRawNotFound) {
-			return mcpgo.NewToolResultError("raw entry not found")
-		}
-		deps.Log.Error("mcp promote_to_wiki", "err", err)
-		return mcpgo.NewToolResultError("promote_to_wiki failed")
-	}
-	return marshalResult(deps, wikiIDPayload{WikiID: wiki.ID})
 }
 
 func buildPromoteInput(

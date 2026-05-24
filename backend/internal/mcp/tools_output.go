@@ -33,10 +33,12 @@ func promoteWikiToOutputTool() mcpgo.Tool {
 		),
 		mcpgo.WithString("wiki_id", mcpgo.Required(), mcpgo.Description("wiki_entries.id")),
 		mcpgo.WithString("title", mcpgo.Required(), mcpgo.Description("Output title")),
-		mcpgo.WithString("visibility",
-			mcpgo.Description("public | on_request | private (default public)")),
+		mcpgo.WithString("path",
+			mcpgo.Description("Retrieval/landing path (e.g. projects/lucerna). Empty = no path.")),
 		mcpgo.WithString("parent_id", mcpgo.Description("Parent output id (root if empty)")),
 		mcpgo.WithArray("tags", mcpgo.Description("Extra tags on top of inherited wiki tags")),
+		mcpgo.WithBoolean("show_as_source",
+			mcpgo.Description("false = AI can read but excluded from cited footer (default true)")),
 	)
 }
 
@@ -50,7 +52,7 @@ func invokePromoteWikiToOutput(deps *Deps) invokeFn {
 		if perr != nil {
 			return mcpgo.NewToolResultError(perr.Error())
 		}
-		return runPromoteToOutput(ctx, deps, in)
+		return runPromoteToOutput(ctx, deps, in, readPromoteOpts(req))
 	}
 }
 
@@ -84,7 +86,7 @@ func buildPromoteToOutputInput(
 }
 
 func runPromoteToOutput(
-	ctx context.Context, deps *Deps, in *usecases.PromoteToOutputInput,
+	ctx context.Context, deps *Deps, in *usecases.PromoteToOutputInput, opts promoteOpts,
 ) *mcpgo.CallToolResult {
 	out, err := usecases.PromoteWikiToOutput(ctx, deps.Corpus, in)
 	if err != nil {
@@ -94,7 +96,45 @@ func runPromoteToOutput(
 		deps.Log.Error("mcp promote_wiki_to_output", "err", err)
 		return mcpgo.NewToolResultError("promote_wiki_to_output failed")
 	}
+	if presult := applyOutputPromotePostProcess(ctx, deps, &out, opts); presult != nil {
+		return presult
+	}
 	return marshalResult(deps, outputIDPayload{OutputID: out.ID})
+}
+
+func applyOutputPromotePostProcess(
+	ctx context.Context, deps *Deps, out *domain.OutputEntry, opts promoteOpts,
+) *mcpgo.CallToolResult {
+	if r := setOutputPathOpt(ctx, deps, out.ID, opts.path); r != nil {
+		return r
+	}
+	if opts.hideAsSource {
+		hideOutputAsSource(ctx, deps, out)
+	}
+	return nil
+}
+
+func setOutputPathOpt(
+	ctx context.Context, deps *Deps, outputID string, path *string,
+) *mcpgo.CallToolResult {
+	if path == nil || *path == "" {
+		return nil
+	}
+	if _, perr := deps.SEO.UpdateOutputPath(ctx, outputID, path, "", false); perr != nil {
+		return seoErrorResult(deps, perr, "promote_wiki_to_output set path")
+	}
+	return nil
+}
+
+func hideOutputAsSource(ctx context.Context, deps *Deps, out *domain.OutputEntry) {
+	_, uerr := usecases.UpdateOutput(ctx, deps.Corpus, &usecases.UpdateOutputInput{
+		OwnerID: out.OwnerID, ID: out.ID,
+		Title: out.Title, Body: out.Body, Tags: out.Tags,
+		ParentID: out.ParentID, ShowAsSource: false,
+	})
+	if uerr != nil {
+		deps.Log.Error("promote_wiki_to_output set show_as_source", "err", uerr)
+	}
 }
 
 // ---- list_recent_output -----------------------------------------------

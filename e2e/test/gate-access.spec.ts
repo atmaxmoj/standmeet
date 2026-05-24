@@ -61,6 +61,5 @@ async function seedAndIssueCode(request: APIRequestContext): Promise<void> {
     code: CODE,
     label: 'Intro for HR',
     purpose: 'gate spec',
-    included_tags: ['work'],
   });
 }

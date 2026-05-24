@@ -62,7 +62,7 @@ async function issueCodeWithQuota(request: APIRequestContext): Promise<void> {
     code: CODE,
     label: 'Interview round A',
     purpose: 'member-quota spec',
-    included_tags: [],
+
     max_sessions_per_member: 1,
   });
 }

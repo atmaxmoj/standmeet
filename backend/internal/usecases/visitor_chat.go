@@ -273,8 +273,12 @@ type doneInput struct {
 }
 
 func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
-	citedWiki := wikiIDsOf(d.wikis)
-	citedOutput := outputIDsOf(d.outputs)
+	// show_as_source=false 的 entry：AI 可读 (已经在 prompt 里) 但不进
+	// cited footer。读 + 引用是两个面，hidden 走"读不挂"。
+	citedWikis := keepCitedWikis(d.wikis)
+	citedOutputs := keepCitedOutputs(d.outputs)
+	citedWiki := wikiIDsOf(citedWikis)
+	citedOutput := outputIDsOf(citedOutputs)
 	if _, werr := d.deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
 		ConversationID: d.in.ConversationID,
 		Role:           "assistant",
@@ -287,7 +291,27 @@ func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
 	return MessageEvent{
 		Kind: "done", Text: d.full,
 		CitedWikiIDs: citedWiki, CitedOutputIDs: citedOutput,
-		CitedWikiRefs:   wikiRefsOf(d.wikis),
-		CitedOutputRefs: outputRefsOf(d.outputs),
+		CitedWikiRefs:   wikiRefsOf(citedWikis),
+		CitedOutputRefs: outputRefsOf(citedOutputs),
 	}
+}
+
+func keepCitedWikis(in []domain.WikiEntry) []domain.WikiEntry {
+	out := make([]domain.WikiEntry, 0, len(in))
+	for i := range in {
+		if in[i].ShowAsSource {
+			out = append(out, in[i])
+		}
+	}
+	return out
+}
+
+func keepCitedOutputs(in []domain.OutputEntry) []domain.OutputEntry {
+	out := make([]domain.OutputEntry, 0, len(in))
+	for i := range in {
+		if in[i].ShowAsSource {
+			out = append(out, in[i])
+		}
+	}
+	return out
 }

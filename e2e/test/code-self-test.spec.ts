@@ -51,7 +51,7 @@ async function issueCodeForTesting(request: APIRequestContext): Promise<void> {
     code: CODE,
     label: 'Self-test code',
     purpose: 'code-self-test spec',
-    included_tags: [],
+
   });
 }
 

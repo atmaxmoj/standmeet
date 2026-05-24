@@ -44,7 +44,7 @@ test.describe.serial('visitor chat retrieval pulls output entries', () => {
     const setup = await seedThreeTierCorpus(request);
     outputID = setup.outputID;
     await createCode(request, setup.csrf, {
-      code: CODE, label: 'intro', purpose: 'visitor-output spec', included_tags: [],
+      code: CODE, label: 'intro', purpose: 'visitor-output spec',
     });
     await request.dispose();
   });
@@ -75,11 +75,11 @@ async function seedThreeTierCorpus(
     body: RAW_BODY, source: 'mcp:spec', tags: [],
   });
   const wiki = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
-    raw_id: raw.raw_id, title: WIKI_TITLE, visibility: 'public', tags: [],
+    raw_id: raw.raw_id, title: WIKI_TITLE, tags: [],
   });
   const out = await callTool<{ output_id: string }>(
     request, token, sid, 'promote_wiki_to_output',
-    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, visibility: 'public', tags: [] },
+    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, tags: [] },
   );
   return { outputID: out.output_id, csrf };
 }

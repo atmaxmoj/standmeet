@@ -64,10 +64,10 @@ async function seedCodesAndChats(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   await createAPIToken(request, csrf, 'noop-token');
   await createCode(request, csrf, {
-    code: HR_CODE, label: 'HR loop', purpose: 'spec', included_tags: [],
+    code: HR_CODE, label: 'HR loop', purpose: 'spec',
   });
   await createCode(request, csrf, {
-    code: INV_CODE, label: 'Investor intro', purpose: 'spec', included_tags: [],
+    code: INV_CODE, label: 'Investor intro', purpose: 'spec',
   });
   await chatViaCode(request, HR_CODE, 'Recruiter');
   await chatViaCode(request, INV_CODE, 'Investor');

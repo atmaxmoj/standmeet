@@ -26,6 +26,7 @@ type ConversationsDeps struct {
 type TitledRef struct {
 	ID    string
 	Title string
+	Path  string
 }
 
 // TranscriptBundle —— GetConversationTranscript 返：conversation + messages
@@ -92,7 +93,9 @@ func hydrateRefs(
 	}
 	out := make([]TitledRef, 0, len(refs))
 	for i := range refs {
-		out = append(out, TitledRef{ID: refs[i].ID, Title: refs[i].Title})
+		out = append(out, TitledRef{
+			ID: refs[i].ID, Title: refs[i].Title, Path: refs[i].Path,
+		})
 	}
 	return out
 }

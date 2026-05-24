@@ -69,14 +69,14 @@ async function seedAndChat(request: APIRequestContext): Promise<string> {
     body: 'rough', source: 'mcp:spec', tags: [],
   });
   const wiki = await callTool<{ wiki_id: string }>(request, apiToken, sid, 'promote_to_wiki', {
-    raw_id: raw.raw_id, title: 'curated', visibility: 'public', tags: [],
+    raw_id: raw.raw_id, title: 'curated', tags: [],
   });
   await callTool<{ output_id: string }>(
     request, apiToken, sid, 'promote_wiki_to_output',
-    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, visibility: 'public', tags: [] },
+    { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, tags: [] },
   );
   await createCode(request, csrf, {
-    code: CODE, label: 'intro', purpose: 'grounding debug', included_tags: [],
+    code: CODE, label: 'intro', purpose: 'grounding debug',
   });
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',

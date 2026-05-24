@@ -60,7 +60,7 @@ async function issueCodeWithTurnLimit(request: APIRequestContext): Promise<void>
     code: CODE,
     label: 'Interview round T — 2 turns max',
     purpose: 'turn-quota spec',
-    included_tags: [],
+
     max_turns_per_session: MAX_TURNS,
   });
 }

@@ -11,13 +11,14 @@ import Link from 'next/link';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchOutputLanding } from '@/lib/api/public';
 
-type Params = { slug: string };
+// catch-all [...path]：path 可含 `/` 分组分段。
+type Params = { path: string[] };
 
 export async function generateMetadata(
   { params }: { params: Promise<Params> },
 ): Promise<Metadata> {
-  const { slug } = await params;
-  const out = await fetchOutputLanding(slug);
+  const { path } = await params;
+  const out = await fetchOutputLanding(path.join('/'));
   return out ? {
     title: out.title,
     description: out.seo_description || out.body.slice(0, 160),
@@ -30,8 +31,8 @@ export async function generateMetadata(
 }
 
 export default async function OutputLandingPage({ params }: { params: Promise<Params> }) {
-  const { slug } = await params;
-  const out = (await fetchOutputLanding(slug)) ?? notFound();
+  const { path } = await params;
+  const out = (await fetchOutputLanding(path.join('/'))) ?? notFound();
   const instance = await fetchInstance();
   const handle = instance.handle;
   return (

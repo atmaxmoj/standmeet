@@ -38,7 +38,7 @@ test.describe.serial('owner issues an access code in admin; visitor uses it', ()
   test('owner creates INTRO-001 in /admin/codes → visitor chats with that code',
     async ({ adminPage: page, request }) => {
       await openCodes(page);
-      await createCodeInUI(page, 'INTRO-001', 'Intro for HR', 'work');
+      await createCodeInUI(page, 'INTRO-001', 'Intro for HR');
       await expectCodeRowVisible(page, 'INTRO-001');
       await visitorChatsWithCode(request);
     });
@@ -61,13 +61,15 @@ async function openCodes(page: Page): Promise<void> {
 }
 
 async function createCodeInUI(
-  page: Page, code: string, label: string, tags: string,
+  page: Page, code: string, label: string,
 ): Promise<void> {
   // /admin/codes UI 现在用 modal 打开创建表单；先点 "+ new code"。
+  // retrieval-redesign 后 access 字段从 tags 改成 corpus_permissions JSON
+  // textarea —— 这条 spec 不验 permissions 内容（专门的 visitor-chat-permissions
+  // -deny spec 验），直接 leave empty (= 全允许)。
   await page.getByRole('button', { name: /new code/i }).click();
   await page.getByTestId('code-input').fill(code);
   await page.getByTestId('code-label').fill(label);
-  await page.getByTestId('code-tags').fill(tags);
   await page.getByTestId('code-create').click();
 }
 
@@ -81,7 +83,6 @@ async function visitorChatsWithCode(request: APIRequestContext): Promise<void> {
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: 'INTRO-001', visitor_name: 'HR',
   });
-  expect(sess.included_tags).toContain('work');
   const res = await sendMessage(request, sess, 'tell me about your work');
   expect(res.status()).toBe(200);
 }

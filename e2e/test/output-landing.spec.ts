@@ -62,12 +62,12 @@ async function seedOutputViaMCP(request: APIRequestContext): Promise<string> {
     body: 'rough draft on local-first software', source: 'mcp:spec', tags: [],
   });
   const wiki = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
-    raw_id: raw.raw_id, title: 'Local-first sketch', visibility: 'public', tags: [],
+    raw_id: raw.raw_id, title: 'Local-first sketch', tags: [],
   });
   const out = await callTool<{ output_id: string }>(
     request, token, sid, 'promote_wiki_to_output',
     {
-      wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, visibility: 'public', tags: [],
+      wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, tags: [],
       // body 在 promote 时复用 source wiki body，我们再写 SQL 覆一份 distinct marker。
     },
   );
@@ -85,7 +85,7 @@ function setOutputBody(outputID: string, body: string): void {
 
 function setOutputSlug(outputID: string, slug: string, description: string): void {
   const sql =
-    `UPDATE output_entries SET seo_slug = '${slug}', seo_description = '${description}',`
+    `UPDATE output_entries SET path = '${slug}', seo_description = '${description}',`
     + ` seo_indexed = true WHERE id = '${outputID}'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`, {
     stdio: 'pipe',

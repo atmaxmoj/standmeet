@@ -50,6 +50,7 @@ type convMessageView struct {
 type titledRefView struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+	Path  string `json:"path"`
 }
 
 type convTranscriptResp struct {
@@ -140,7 +141,9 @@ func writeTranscript(
 func toRefViews(refs []usecases.TitledRef) []titledRefView {
 	out := make([]titledRefView, 0, len(refs))
 	for i := range refs {
-		out = append(out, titledRefView{ID: refs[i].ID, Title: refs[i].Title})
+		out = append(out, titledRefView{
+			ID: refs[i].ID, Title: refs[i].Title, Path: refs[i].Path,
+		})
 	}
 	return out
 }

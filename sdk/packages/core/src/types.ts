@@ -54,17 +54,17 @@ export interface PublicPageView {
 }
 
 export interface WikiLandingView {
-  readonly slug: string;
+  readonly path: string;
   readonly title: string;
   readonly body: string;
   readonly seo_description: string;
   readonly updated_at: string;
 }
 
-// OutputLandingView —— /output/<slug> SEO landing。结构跟 WikiLandingView
+// OutputLandingView —— /output/<path> SEO landing。结构跟 WikiLandingView
 // 一致；output 是 raw → wiki → output 三层中最精炼那层。
 export interface OutputLandingView {
-  readonly slug: string;
+  readonly path: string;
   readonly title: string;
   readonly body: string;
   readonly seo_description: string;

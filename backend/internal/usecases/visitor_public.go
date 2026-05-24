@@ -76,7 +76,7 @@ func finalizePublicSession(
 		OwnerID:           owner.ID,
 		Tier:              tier,
 		VisitorName:       in.VisitorName,
-		CorpusPermissions: byoaiPublicOnlyPermissions(),
+		CorpusPermissions: defaultPermsForTier(tier),
 		BYOAIProvider:     in.BYOAIProvider,
 		BYOAIKey:          in.BYOAIKey,
 	})
@@ -86,14 +86,20 @@ func finalizePublicSession(
 	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
 }
 
-// byoaiPublicOnlyPermissions —— BYOAI / public-tier session 默认 ACL：
-// 只允许 `public/**` path，其他全拒。owner 没办法给"无码访客"开放更多，
-// 想要更多准入就要发 invite code（会带自己的 corpus_permissions）。
-func byoaiPublicOnlyPermissions() []domain.PathPermission {
-	return []domain.PathPermission{
-		{Action: "allow", PathPattern: "public/**", Order: 1},
-		{Action: "deny", PathPattern: "**", Order: 100},
+// defaultPermsForTier —— 无 access code 时的兜底准入策略。
+//   - public：unrestricted（owner 没设 code 时访客就能看完整 corpus；如果
+//     owner 想限缩，就发 code 带 corpus_permissions）。
+//   - byoai：visitor 自带 key，owner 不为推理付钱也不该让 visitor 自由
+//     翻 corpus —— 默认 `public/**` only，owner 把开放内容组织在
+//     `public/...` path 下；想要更细就发 byoai-eligible code (TODO)。
+func defaultPermsForTier(tier string) []domain.PathPermission {
+	if tier == "byoai" {
+		return []domain.PathPermission{
+			{Action: "allow", PathPattern: "public/**", Order: 1},
+			{Action: "deny", PathPattern: "**", Order: 100},
+		}
 	}
+	return nil
 }
 
 func publicTierForBYOAI(key string) string {
