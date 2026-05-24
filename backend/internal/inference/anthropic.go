@@ -77,10 +77,24 @@ func NewAnthropic(cfg AnthropicConfig) *AnthropicProvider {
 func (*AnthropicProvider) Name() string { return "anthropic" }
 
 // Stream 实现 Provider 接口。
+//
+// 有 tools 时走 agent loop（runToolLoop，内部 non-streaming 调用 + 自循环，
+// 最终 text 当一坨 Chunk 推出来）；无 tools 时走 streaming SSE 老路径。
 func (a *AnthropicProvider) Stream(
 	ctx context.Context, req *ChatRequest,
 ) (<-chan Chunk, error) {
-	body, err := buildAnthropicBody(req, a.model)
+	if len(req.Tools) > 0 && req.ExecuteTool != nil {
+		out := make(chan Chunk, anthropicStreamChanBuf)
+		go a.runToolLoop(ctx, req, out)
+		return out, nil
+	}
+	return a.streamSimple(ctx, req)
+}
+
+func (a *AnthropicProvider) streamSimple(
+	ctx context.Context, req *ChatRequest,
+) (<-chan Chunk, error) {
+	body, err := buildAnthropicBody(req, a.model, true)
 	if err != nil {
 		return nil, err
 	}
@@ -128,14 +142,14 @@ type anthropicReq struct {
 	Stream    bool           `json:"stream"`
 }
 
-func buildAnthropicBody(req *ChatRequest, defaultModel string) ([]byte, error) {
+func buildAnthropicBody(req *ChatRequest, defaultModel string, stream bool) ([]byte, error) {
 	msgs := filterUserAssistantMessages(req.Messages)
 	body, err := json.Marshal(anthropicReq{
 		Model:     pickAnthropicModel(req.Model, defaultModel),
 		System:    req.System,
 		Messages:  msgs,
 		MaxTokens: pickAnthropicMaxTokens(req.MaxTokens),
-		Stream:    true,
+		Stream:    stream,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("anthropic: marshal body: %w", err)

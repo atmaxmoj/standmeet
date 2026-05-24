@@ -45,10 +45,17 @@ type Message struct {
 }
 
 // ChatRequest —— 一次推理请求。
+//
+// Tools 非空 → 走 agent loop：provider 在内部循环 (assistant tool_use →
+// caller-provided ExecuteTool → tool_result → 重发) 直到 stop_reason != tool_use
+// 或到 max_turns；只把 text content 推回 Chunk channel。ToolSpec /
+// ToolExecutor 定义在 tools.go 里。
 type ChatRequest struct {
+	ExecuteTool ToolExecutor
 	Model       string
 	System      string
 	Messages    []Message
+	Tools       []ToolSpec
 	MaxTokens   int
 	Temperature float64
 }

@@ -1,5 +1,8 @@
-// visitor_chat.go —— visitor chat 流式 + RAG + 配额校验。
-// 拆自 visitor.go 是 max-lines 限制；session 颁发那一半留在 visitor.go。
+// visitor_chat.go —— visitor chat 流式 + agent-loop retrieval + 配额校验。
+//
+// retrieval-redesign 后：不再 stuff 全集进 prompt。改成给 inference 注册三个
+// retrieval tool (search/read/list_corpus_entries)，让 AI 主动 fetch。
+// readCollector 累计 AI 真读过的 entry，emitDoneEvent 从 collector 取 cited。
 
 package usecases
 
@@ -15,9 +18,6 @@ import (
 )
 
 // SendMessageInput —— 一次 chat 提问。
-//
-// Permissions 是从 session 继承的 path-glob ACL；retrieval 阶段会按它过滤。
-// 当前 pass-through 实现还没接 path-glob 评估（占位 TODO）。
 type SendMessageInput struct {
 	OwnerID        string
 	ConversationID string
@@ -26,10 +26,8 @@ type SendMessageInput struct {
 }
 
 // MessageEvent —— chat 流式事件（token / done / error）。
-// 字段顺序按 govet fieldalignment 优化：error 在前（双 ptr），slice 在尾
-// （ptr at offset 0 of slice），减小 GC pointer scan range。
 type MessageEvent struct {
-	Err             error // 'error' kind 携带 err，其余空
+	Err             error
 	Kind            string
 	Text            string
 	CitedWikiIDs    []string
@@ -38,12 +36,8 @@ type MessageEvent struct {
 	CitedOutputRefs []CitedRef
 }
 
-// SendMessage —— 写访客 visitor message → RAG → 调 provider 流式 → 收尾写
-// assistant message + citations 到 DB。返回 event channel；caller 写 SSE。
-//
-// provider 在 goroutine 启动之前就解算 —— ErrOwnerProviderUnconfigured 之类
-// 的 setup error 走 HTTP 错误 envelope，不进 SSE error event（前端 toast
-// 更友好）。
+// SendMessage —— 写访客 visitor message → agent loop (search/read tools) →
+// 流式回复 → 写 assistant message + cited (= AI 真读过的 entry) 到 DB。
 func SendMessage(
 	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
 ) (<-chan MessageEvent, error) {
@@ -54,18 +48,17 @@ func SendMessage(
 	out := make(chan MessageEvent, messageEventBufSize)
 	go streamReply(ctx, &streamArgs{
 		deps: deps, provider: prep.provider, in: in,
-		wikis: prep.wikis, outputs: prep.outputs, out: out,
+		retr: prep.retr, out: out,
 	})
 	return out, nil
 }
 
 type sendPrep struct {
 	provider inference.Provider
-	wikis    []domain.WikiEntry
-	outputs  []domain.OutputEntry
+	retr     *retriever
 }
 
-// prepareSend —— SendMessage 前的全部 setup。拆 preflight 让 cyclop ≤5。
+// prepareSend —— SendMessage 前的全部 setup。
 func prepareSend(
 	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
 ) (sendPrep, error) {
@@ -78,15 +71,14 @@ func prepareSend(
 	}); werr != nil {
 		return sendPrep{}, fmt.Errorf("append visitor message: %w", werr)
 	}
-	corpus, lerr := loadCorpusForACL(ctx, deps, in.OwnerID, in.Permissions)
+	retr, lerr := buildRetriever(ctx, deps, in.OwnerID, in.Permissions)
 	if lerr != nil {
 		return sendPrep{}, lerr
 	}
-	return sendPrep{provider: provider, wikis: corpus.Wikis, outputs: corpus.Outputs}, nil
+	return sendPrep{provider: provider, retr: retr}, nil
 }
 
-// preflightSend —— body 非空 + turn quota + resolver。失败上一层把错误传到
-// HTTP envelope；succeed 后才允许写 visitor message。
+// preflightSend —— body 非空 + turn quota + resolver。
 func preflightSend(
 	ctx context.Context, deps VisitorDeps, in *SendMessageInput,
 ) (inference.Provider, error) {
@@ -103,8 +95,7 @@ func preflightSend(
 	return provider, nil
 }
 
-// enforceTurnQuota —— 在写访客 message 之前检查 turns/session。byoai / public
-// tier 没有 code，跳过；code tier 有 code.max_turns_per_session 才查。
+// enforceTurnQuota —— 在写访客 message 之前检查 turns/session。
 func enforceTurnQuota(ctx context.Context, deps VisitorDeps, in *SendMessageInput) error {
 	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
 	if err != nil {
@@ -122,7 +113,7 @@ func enforceTurnQuota(ctx context.Context, deps VisitorDeps, in *SendMessageInpu
 
 func turnQuotaCodeErr(err error) error {
 	if errors.Is(err, domain.ErrCodeInvalid) {
-		return nil // 旧 conv 上的 code 被删了，不在此处兜
+		return nil
 	}
 	return fmt.Errorf("load code for quota: %w", err)
 }
@@ -149,60 +140,22 @@ const (
 	messageEventBufSize = 64
 )
 
-// ScopedCorpus —— 加载完成后的 wiki + output 集合，wrap 避开 3-return
-// （revive function-result-limit）。
-type ScopedCorpus struct {
-	Wikis   []domain.WikiEntry
-	Outputs []domain.OutputEntry
-}
-
-// loadCorpusForACL —— 加载 wiki + output 两层，按 path-glob ACL 过滤。
-// 空 permissions = 允许全部（无 ACL）；非空时 PathACL.Allows 评估每条 entry
-// 的 Path。Entry.Path 为 nil 时跳过 ACL 评估（path 没设的 entry 仅当
-// permissions 为空时进入 corpus，符合"默认 deny"的安全语义）。
-func loadCorpusForACL(
+// buildRetriever —— 加载 wiki + output 给 tool executor 用。retrieval 阶段
+// 不再做 ACL 过滤——ACL 由 tool 内部按调用时的 path 评估（search 结果过滤、
+// read 直接拒）。这样 path-glob ACL 的 deny 也会被 AI "看到"为"找不到"，
+// 而不是"corpus 里没有"。
+func buildRetriever(
 	ctx context.Context, deps VisitorDeps, ownerID string, perms []domain.PathPermission,
-) (ScopedCorpus, error) {
+) (*retriever, error) {
 	wikis, werr := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis)
 	if werr != nil {
-		return ScopedCorpus{}, fmt.Errorf("list wiki for rag: %w", werr)
+		return nil, fmt.Errorf("list wiki for retrieval: %w", werr)
 	}
 	outputs, oerr := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs)
 	if oerr != nil {
-		return ScopedCorpus{}, fmt.Errorf("list output for rag: %w", oerr)
+		return nil, fmt.Errorf("list output for retrieval: %w", oerr)
 	}
-	acl := domain.NewPathACL(perms)
-	return ScopedCorpus{
-		Wikis:   filterWikiByACL(wikis, acl),
-		Outputs: filterOutputByACL(outputs, acl),
-	}, nil
-}
-
-func filterWikiByACL(entries []domain.WikiEntry, acl domain.PathACL) []domain.WikiEntry {
-	out := make([]domain.WikiEntry, 0, len(entries))
-	for i := range entries {
-		if acl.AllowsEntry(pathOrNil(entries[i].Path)) {
-			out = append(out, entries[i])
-		}
-	}
-	return out
-}
-
-func filterOutputByACL(entries []domain.OutputEntry, acl domain.PathACL) []domain.OutputEntry {
-	out := make([]domain.OutputEntry, 0, len(entries))
-	for i := range entries {
-		if acl.AllowsEntry(pathOrNil(entries[i].Path)) {
-			out = append(out, entries[i])
-		}
-	}
-	return out
-}
-
-func pathOrNil(p *string) string {
-	if p == nil {
-		return ""
-	}
-	return *p
+	return newRetriever(wikis, outputs, perms), nil
 }
 
 // streamArgs —— streamReply 的入参打包；revive 限制函数最多 5 个参数。
@@ -211,8 +164,7 @@ type streamArgs struct {
 	provider inference.Provider
 	in       *SendMessageInput
 	out      chan<- MessageEvent
-	wikis    []domain.WikiEntry
-	outputs  []domain.OutputEntry
+	retr     *retriever
 }
 
 func streamReply(ctx context.Context, args *streamArgs) {
@@ -227,17 +179,16 @@ func streamReply(ctx context.Context, args *streamArgs) {
 		return
 	}
 	args.out <- emitDoneEvent(ctx, &doneInput{
-		deps: args.deps, in: args.in, full: full,
-		wikis: args.wikis, outputs: args.outputs,
+		deps: args.deps, in: args.in, full: full, retr: args.retr,
 	})
 }
 
 func buildChatRequest(args *streamArgs) *inference.ChatRequest {
 	return &inference.ChatRequest{
-		System: buildSystemPrompt(args.wikis, args.outputs),
-		Messages: []inference.Message{
-			{Role: "user", Content: args.in.Body},
-		},
+		System:      buildSystemPrompt(),
+		Messages:    []inference.Message{{Role: "user", Content: args.in.Body}},
+		Tools:       retrievalToolSpecs(),
+		ExecuteTool: args.retr.Execute,
 	}
 }
 
@@ -265,20 +216,18 @@ func pumpChunks(
 
 // doneInput —— emitDoneEvent 入参打包；revive argument-limit ≤ 5。
 type doneInput struct {
-	deps    VisitorDeps
-	in      *SendMessageInput
-	full    string
-	wikis   []domain.WikiEntry
-	outputs []domain.OutputEntry
+	deps VisitorDeps
+	in   *SendMessageInput
+	retr *retriever
+	full string
 }
 
+// emitDoneEvent —— cited = readCollector 累计的 entry，show_as_source=false
+// 已在 collector.add* 里抑制；这里直接取 snapshot。
 func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
-	// show_as_source=false 的 entry：AI 可读 (已经在 prompt 里) 但不进
-	// cited footer。读 + 引用是两个面，hidden 走"读不挂"。
-	citedWikis := keepCitedWikis(d.wikis)
-	citedOutputs := keepCitedOutputs(d.outputs)
-	citedWiki := wikiIDsOf(citedWikis)
-	citedOutput := outputIDsOf(citedOutputs)
+	wikis, outputs := d.retr.collector.snapshot()
+	citedWiki := wikiIDsOf(wikis)
+	citedOutput := outputIDsOf(outputs)
 	if _, werr := d.deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
 		ConversationID: d.in.ConversationID,
 		Role:           "assistant",
@@ -291,27 +240,7 @@ func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
 	return MessageEvent{
 		Kind: "done", Text: d.full,
 		CitedWikiIDs: citedWiki, CitedOutputIDs: citedOutput,
-		CitedWikiRefs:   wikiRefsOf(citedWikis),
-		CitedOutputRefs: outputRefsOf(citedOutputs),
+		CitedWikiRefs:   wikiRefsOf(wikis),
+		CitedOutputRefs: outputRefsOf(outputs),
 	}
-}
-
-func keepCitedWikis(in []domain.WikiEntry) []domain.WikiEntry {
-	out := make([]domain.WikiEntry, 0, len(in))
-	for i := range in {
-		if in[i].ShowAsSource {
-			out = append(out, in[i])
-		}
-	}
-	return out
-}
-
-func keepCitedOutputs(in []domain.OutputEntry) []domain.OutputEntry {
-	out := make([]domain.OutputEntry, 0, len(in))
-	for i := range in {
-		if in[i].ShowAsSource {
-			out = append(out, in[i])
-		}
-	}
-	return out
 }
