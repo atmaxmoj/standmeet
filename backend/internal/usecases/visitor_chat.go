@@ -136,11 +136,15 @@ func preflightSend(
 	return provider, nil
 }
 
-// enforceTurnQuota —— 在写访客 message 之前检查 turns/session。
+// enforceTurnQuota —— 在写访客 message 之前检查 conversation 状态 +
+// turns/session。conversation 已 ended (/summary 写过) → 拒。
 func enforceTurnQuota(ctx context.Context, deps VisitorDeps, in *SendMessageInput) error {
 	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
 	if err != nil {
 		return fmt.Errorf("load conv for quota: %w", err)
+	}
+	if conv.EndedAt != nil {
+		return domain.ErrConversationEnded
 	}
 	if conv.CodeID == nil {
 		return nil

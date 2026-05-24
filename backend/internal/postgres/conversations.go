@@ -170,6 +170,27 @@ func (r *ConversationRepo) CountVisitorTurns(
 	return n, nil
 }
 
+// MarkEnded —— /summary 路径写：summary + ended_at；已 ended 返
+// ErrConversationEnded 让 caller 翻 409 友好错误。
+func (r *ConversationRepo) MarkEnded(
+	ctx context.Context, convID, summaryMD string,
+) (domain.Conversation, error) {
+	convUUID, perr := parseUUID(convID)
+	if perr != nil {
+		return domain.Conversation{}, fmt.Errorf("parse conv id: %w", perr)
+	}
+	row, err := dbq.New(r.pool).MarkConversationEnded(ctx, dbq.MarkConversationEndedParams{
+		ID: convUUID, SummaryMd: summaryMD,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Conversation{}, domain.ErrConversationEnded
+		}
+		return domain.Conversation{}, fmt.Errorf("mark conversation ended: %w", err)
+	}
+	return toDomainConv(&row), nil
+}
+
 func toDomainConv(c *dbq.Conversation) domain.Conversation {
 	out := domain.Conversation{
 		ID:           formatUUID(c.ID),
@@ -179,6 +200,7 @@ func toDomainConv(c *dbq.Conversation) domain.Conversation {
 		StartedAt:    c.StartedAt.Time,
 		LastAt:       c.LastAt.Time,
 		MessageCount: c.MessageCount,
+		SummaryMD:    c.SummaryMd,
 	}
 	if c.CodeID.Valid {
 		s := formatUUID(c.CodeID)
@@ -190,6 +212,10 @@ func toDomainConv(c *dbq.Conversation) domain.Conversation {
 	}
 	if c.ByoaiProvider != nil {
 		out.BYOAIProvider = c.ByoaiProvider
+	}
+	if c.EndedAt.Valid {
+		t := c.EndedAt.Time
+		out.EndedAt = &t
 	}
 	return out
 }

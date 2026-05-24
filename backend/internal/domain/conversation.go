@@ -9,9 +9,14 @@ import (
 )
 
 // Conversation —— 一次 visitor chat 会话。
+//
+// EndedAt + SummaryMD: A2 /summary 路径写。ended 之后 visitor 不能再发
+// 消息（POST /messages 返 410 ErrConversationEnded）。SummaryMD 是 AI
+// 生成的 markdown，visitor 客户端拿去渲染 PDF / 分享给老板。
 type Conversation struct {
 	StartedAt     time.Time
 	LastAt        time.Time
+	EndedAt       *time.Time
 	CodeID        *string
 	MemberID      *string
 	BYOAIProvider *string
@@ -19,6 +24,7 @@ type Conversation struct {
 	OwnerID       string
 	Tier          string // 'code' | 'byoai' | 'public'
 	VisitorName   string
+	SummaryMD     string
 	MessageCount  int32
 }
 
@@ -35,3 +41,6 @@ type Message struct {
 
 // ErrConversationNotFound —— conversation 不存在。
 var ErrConversationNotFound = errors.New("conversation not found")
+
+// ErrConversationEnded —— visitor 在 /summary 后再发消息触发。
+var ErrConversationEnded = errors.New("conversation has ended")

@@ -75,6 +75,8 @@ type Conversation struct {
 	StartedAt     pgtype.Timestamptz
 	LastAt        pgtype.Timestamptz
 	MessageCount  int32
+	EndedAt       pgtype.Timestamptz
+	SummaryMd     string
 }
 
 type CustomPage struct {

@@ -198,7 +198,12 @@ CREATE TABLE conversations (
     byoai_provider  text,
     started_at      timestamptz   NOT NULL DEFAULT now(),
     last_at         timestamptz   NOT NULL DEFAULT now(),
-    message_count   integer       NOT NULL DEFAULT 0
+    message_count   integer       NOT NULL DEFAULT 0,
+    -- ended_at + summary_md：A2 /summary 路径写。session ended 之后
+    -- visitor 不能再发消息（POST /messages 返 410 conversation_ended）。
+    -- summary_md 是 AI 生成的 markdown 报告，visitor 客户端拿去渲染 PDF。
+    ended_at        timestamptz,
+    summary_md      text          NOT NULL DEFAULT ''
 );
 
 CREATE TABLE messages (

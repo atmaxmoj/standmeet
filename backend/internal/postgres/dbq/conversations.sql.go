@@ -66,7 +66,7 @@ func (q *Queries) BumpConversation(ctx context.Context, id pgtype.UUID) error {
 const createConversation = `-- name: CreateConversation :one
 INSERT INTO conversations (owner_id, tier, code_id, member_id, visitor_name, byoai_provider)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count
+RETURNING id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md
 `
 
 type CreateConversationParams struct {
@@ -99,12 +99,14 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.StartedAt,
 		&i.LastAt,
 		&i.MessageCount,
+		&i.EndedAt,
+		&i.SummaryMd,
 	)
 	return i, err
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count FROM conversations WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md FROM conversations WHERE id = $1 AND owner_id = $2
 `
 
 type GetConversationParams struct {
@@ -126,6 +128,8 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 		&i.StartedAt,
 		&i.LastAt,
 		&i.MessageCount,
+		&i.EndedAt,
+		&i.SummaryMd,
 	)
 	return i, err
 }
@@ -219,4 +223,38 @@ func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const markConversationEnded = `-- name: MarkConversationEnded :one
+UPDATE conversations
+SET ended_at = now(), summary_md = $2
+WHERE id = $1 AND ended_at IS NULL
+RETURNING id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md
+`
+
+type MarkConversationEndedParams struct {
+	ID        pgtype.UUID
+	SummaryMd string
+}
+
+// /summary 落地：写 summary + ended_at。已 ended 重复调返当前快照（caller
+// 翻成"already ended"友好错误）。
+func (q *Queries) MarkConversationEnded(ctx context.Context, arg MarkConversationEndedParams) (Conversation, error) {
+	row := q.db.QueryRow(ctx, markConversationEnded, arg.ID, arg.SummaryMd)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Tier,
+		&i.CodeID,
+		&i.MemberID,
+		&i.VisitorName,
+		&i.ByoaiProvider,
+		&i.StartedAt,
+		&i.LastAt,
+		&i.MessageCount,
+		&i.EndedAt,
+		&i.SummaryMd,
+	)
+	return i, err
 }

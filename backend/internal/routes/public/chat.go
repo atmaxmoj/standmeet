@@ -30,6 +30,7 @@ type Handlers struct {
 func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions", h.createSession())
 	r.Post("/sessions/{id}/messages", h.postMessage())
+	r.Post("/sessions/{id}/summary", h.postSummary())
 }
 
 type parsedPostMessage struct {
@@ -78,6 +79,16 @@ var visitorErrCases = []apierr.Case{
 		Status:  http.StatusTooManyRequests,
 		Code:    "session_busy",
 		Message: "previous message still streaming; wait for it to finish",
+	}},
+	{Match: domain.ErrConversationEnded, Envelope: apierr.Envelope{
+		Status:  http.StatusGone,
+		Code:    "conversation_ended",
+		Message: "conversation has been summarized; start a new session to continue",
+	}},
+	{Match: usecases.ErrSummaryEmptyConv, Envelope: apierr.Envelope{
+		Status:  http.StatusBadRequest,
+		Code:    "summary_empty",
+		Message: "no messages to summarize",
 	}},
 }
 

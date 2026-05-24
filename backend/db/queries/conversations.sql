@@ -31,3 +31,11 @@ LEFT JOIN access_codes ac ON ac.id = c.code_id
 WHERE c.owner_id = $1
 ORDER BY c.last_at DESC
 LIMIT $2;
+
+-- name: MarkConversationEnded :one
+-- /summary 落地：写 summary + ended_at。已 ended 重复调返当前快照（caller
+-- 翻成"already ended"友好错误）。
+UPDATE conversations
+SET ended_at = now(), summary_md = $2
+WHERE id = $1 AND ended_at IS NULL
+RETURNING *;
