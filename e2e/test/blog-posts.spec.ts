@@ -125,8 +125,16 @@ test.describe.serial('blog: editor flow + rich render + XSS', () => {
     });
 });
 
-test.describe.serial('blog: image upload + asset URI + orphan scan', () => {
+test.describe.serial('blog: image upload + asset URI + orphan scan + GC', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
+
+  test('upload unreferenced asset → orphan scan finds it → DELETE /assets/orphans cleans it',
+    async ({ request }) => {
+      const id = await directUploadAsset(request);
+      await assertOrphans(request, [id]);
+      await runGC(request, [id]);
+      await assertOrphans(request, []);
+    });
 
   test('paste image in editor → /blog renders presigned URL; body_md stores URI; orphan=0',
     async ({ adminPage, page, request }) => {
@@ -241,12 +249,45 @@ async function assertAdminBodyHasURI(request: APIRequestContext): Promise<void> 
 }
 
 async function assertNoOrphans(request: APIRequestContext): Promise<void> {
+  await assertOrphans(request, []);
+}
+
+async function assertOrphans(request: APIRequestContext, expected: string[]): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const res = await request.get('/api/admin/assets/orphans', {
     headers: { 'X-Csrftoken': csrf },
   });
   const body = await res.json() as { orphans: string[] };
-  expect(body.orphans).toHaveLength(0);
+  expect(body.orphans.sort()).toEqual([...expected].sort());
+}
+
+async function directUploadAsset(request: APIRequestContext): Promise<string> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  // 1x1 transparent PNG (same bytes as pasteImage)
+  const bytes = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
+    0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x62, 0x00, 0x01, 0x00, 0x00,
+    0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
+    0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+  ]);
+  const res = await request.post('/api/admin/assets/', {
+    headers: { 'X-Csrftoken': csrf },
+    multipart: { file: { name: 'orphan.png', mimeType: 'image/png', buffer: bytes } },
+  });
+  const body = await res.json() as { id: string };
+  return body.id;
+}
+
+async function runGC(request: APIRequestContext, expectedDeleted: string[]): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const res = await request.delete('/api/admin/assets/orphans', {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  const body = await res.json() as { deleted: string[]; failed: string[] };
+  expect(body.deleted.sort()).toEqual([...expectedDeleted].sort());
+  expect(body.failed).toHaveLength(0);
 }
 
 async function mcpCreatePost(

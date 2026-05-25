@@ -122,3 +122,41 @@ func collectReferencedAssetIDs(
 	}
 	return out, nil
 }
+
+// GCResult —— GCOrphanAssets 报告。Deleted 是成功删的 asset ID；
+// FailedDeletes 是 PG 行删失败的（storage 是 best-effort 不会失败）。
+type GCResult struct {
+	Deleted       []string
+	FailedDeletes []string
+}
+
+// GCOrphanAssets —— 主动 GC：扫 orphan → 逐个 DeleteAsset。结果含成功/失败
+// 列表，caller 决定怎么报告。MCP `assets_gc` 工具和 admin DELETE
+// /assets/orphans 都进来。
+func GCOrphanAssets(
+	ctx context.Context, assets AssetsDeps,
+	postsRepo *postgres.PostRepo, ownerID string,
+) (GCResult, error) {
+	orphans, err := FindOrphanAssets(ctx, assets.Repo, postsRepo, ownerID)
+	if err != nil {
+		return GCResult{}, fmt.Errorf("find orphans: %w", err)
+	}
+	return deleteOrphanList(ctx, assets, ownerID, orphans), nil
+}
+
+func deleteOrphanList(
+	ctx context.Context, assets AssetsDeps, ownerID string, ids []string,
+) GCResult {
+	out := GCResult{
+		Deleted:       make([]string, 0, len(ids)),
+		FailedDeletes: make([]string, 0),
+	}
+	for _, id := range ids {
+		if err := DeleteAsset(ctx, assets, ownerID, id); err != nil {
+			out.FailedDeletes = append(out.FailedDeletes, id)
+			continue
+		}
+		out.Deleted = append(out.Deleted, id)
+	}
+	return out
+}

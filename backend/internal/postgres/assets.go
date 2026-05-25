@@ -104,7 +104,7 @@ func (r *AssetRepo) ListByOwner(
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
 	rows, err := dbq.New(r.pool).ListAssetsByOwner(ctx, dbq.ListAssetsByOwnerParams{
-		OwnerID: ownerUUID, Limit: limit,
+		OwnerID: ownerUUID, Column2: limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list assets: %w", err)

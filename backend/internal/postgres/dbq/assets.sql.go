@@ -120,16 +120,19 @@ SELECT id, owner_id, storage_key, content_type, size_bytes, sha256, original_fil
 FROM assets
 WHERE owner_id = $1
 ORDER BY created_at DESC
-LIMIT $2
+LIMIT NULLIF($2::int, 0)
 `
 
 type ListAssetsByOwnerParams struct {
 	OwnerID pgtype.UUID
-	Limit   int32
+	Column2 int32
 }
 
+// $2 = 0 → 无 limit (NULLIF 把 0 转 NULL，LIMIT NULL = 全返)。orphan 扫
+// 必须能拉到所有 owner asset 否则会漏。admin /assets list usecase 默认
+// 传 50；orphan scan 传 0。
 func (q *Queries) ListAssetsByOwner(ctx context.Context, arg ListAssetsByOwnerParams) ([]Asset, error) {
-	rows, err := q.db.Query(ctx, listAssetsByOwner, arg.OwnerID, arg.Limit)
+	rows, err := q.db.Query(ctx, listAssetsByOwner, arg.OwnerID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}

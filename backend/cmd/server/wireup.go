@@ -147,6 +147,7 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Skills:     usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		MCPServers: usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Posts:      usecases.PostsDeps{Posts: d.postRepo},
+		Assets:     usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 		Log:        d.log,
 	}
 }

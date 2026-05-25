@@ -47,8 +47,36 @@ func (h *Handlers) MountAssets(r chi.Router) {
 		r.Get("/", h.listAssets())
 		r.Post("/", h.uploadAsset())
 		r.Get("/orphans", h.listOrphans())
+		r.Delete("/orphans", h.gcOrphans())
 		r.Delete("/{id}", h.deleteAsset())
 	})
+}
+
+// gcOrphans —— DELETE /assets/orphans：扫 + 真删。返成功/失败 ID 列表。
+// dry-run 走 GET /assets/orphans。
+func (h *Handlers) gcOrphans() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		res, err := usecases.GCOrphanAssets(
+			r.Context(), h.AssetsAdmin.Assets, h.PostsAdmin.Posts.Posts, ownerID,
+		)
+		if err != nil {
+			logEncodeErr(h.Log, "gc orphan assets", err)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if encErr := json.NewEncoder(w).Encode(gcResp{
+			Deleted: res.Deleted, Failed: res.FailedDeletes,
+		}); encErr != nil {
+			logEncodeErr(h.Log, "encode gc resp", encErr)
+		}
+	}
+}
+
+type gcResp struct {
+	Deleted []string `json:"deleted"`
+	Failed  []string `json:"failed"`
 }
 
 // listOrphans —— 扫所有 post.body_md 引用的 asset ID，跟 assets 表对差集
