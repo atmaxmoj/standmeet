@@ -24,7 +24,8 @@
     "test/**/*.ts",
     "fixtures/**/*.ts",
     "bench/**/*.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "global-teardown.ts"
   ],
   "exclude": ["node_modules"]
 }

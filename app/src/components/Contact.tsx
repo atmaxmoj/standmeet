@@ -16,7 +16,7 @@ export function Contact({ contact, onFocusChat }: Props) {
   return (
     <section className="mt-24">
       <DeckHeader kicker="how to talk to me" />
-      <div className="reading text-(--color-ink) space-y-5" style={{ fontSize: '18px' }}>
+      <div className="reading text-(--color-ink) space-y-5 text-[18px]">
         <ChatLine line={contact.chat_line} onFocusChat={onFocusChat} />
         <DirectLine email={contact.email} />
         <p className="text-(--color-muted)">{contact.recruiter_prose}</p>
@@ -47,8 +47,7 @@ function DirectLine({ email }: { email: string }) {
       Or directly:{' '}
       <a
         href={`mailto:${email}`}
-        className="mono text-(--color-accent) border-b border-(--color-accent)/40 hover:border-(--color-accent) transition-colors"
-        style={{ fontSize: '15.5px' }}
+        className="mono text-(--color-accent) border-b border-(--color-accent)/40 hover:border-(--color-accent) transition-colors text-[15.5px]"
       >
         {email}
       </a>

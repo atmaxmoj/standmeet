@@ -1,0 +1,109 @@
+/* typographic post 封面：21:9 aspect + hue radial gradient + optional 上层
+   image。runtime image URL 通过 `--cover-img` 单点 inline-style threading
+   （Cover.tsx 配 eslint-disable）；其余维度都走 data-attribute 切换。 */
+
+.cover {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-rule);
+  aspect-ratio: 21 / 9;
+  container-type: inline-size;
+  background-color: var(--color-surface, #ECE6D8);
+  background-image: var(--cover-gradient);
+}
+
+.cover[data-hue="amber"] {
+  --cover-gradient:
+    radial-gradient(ellipse 60% 80% at 80% 20%,
+      color-mix(in oklab, #C7892F 30%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 70% at 10% 100%,
+      color-mix(in oklab, #C7892F 18%, transparent), transparent 70%);
+}
+
+.cover[data-hue="violet"] {
+  --cover-gradient:
+    radial-gradient(ellipse 60% 80% at 80% 20%,
+      color-mix(in oklab, #7A4D9E 22%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 70% at 10% 100%,
+      color-mix(in oklab, #7A4D9E 14%, transparent), transparent 70%);
+}
+
+.cover[data-hue="acid"] {
+  --cover-gradient:
+    radial-gradient(ellipse 60% 80% at 80% 20%,
+      color-mix(in oklab, #6F8A2F 26%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 70% at 10% 100%,
+      color-mix(in oklab, #6F8A2F 14%, transparent), transparent 70%);
+}
+
+.cover[data-img] {
+  background-image: var(--cover-gradient), var(--cover-img);
+  background-size: cover;
+  background-position: center;
+}
+
+.cover[data-locked] {
+  filter: grayscale(0.7) blur(0.5px);
+}
+
+.rule {
+  position: absolute;
+  left: 6%; right: 6%; top: 50%;
+  height: 1px;
+  background: var(--color-rule);
+}
+
+.headline {
+  position: absolute;
+  top: 14%; left: 6%; max-width: 76%;
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 11cqi, 96px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 0.92;
+  color: var(--color-ink);
+}
+
+.sub {
+  position: absolute;
+  bottom: 14%; right: 6%; max-width: 70%;
+  text-align: right;
+  font-family: 'Newsreader', serif;
+  font-style: italic;
+  font-size: clamp(20px, 7.5cqi, 64px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 0.92;
+  color: var(--color-muted);
+}
+
+.tag {
+  font-family: var(--font-mono);
+  position: absolute;
+  top: 14px; left: 14px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-size: clamp(8px, 1.4cqi, 11px);
+  letter-spacing: 0.18em;
+}
+
+.number {
+  font-family: var(--font-mono);
+  position: absolute;
+  bottom: 14px; left: 14px;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  font-size: clamp(8px, 1.4cqi, 11px);
+  letter-spacing: 0.16em;
+}
+
+.lockOverlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    repeating-linear-gradient(
+      45deg, transparent 0 6px,
+      color-mix(in oklab, var(--color-ink) 8%, transparent) 6px 7px
+    ),
+    color-mix(in oklab, var(--color-paper) 80%, transparent);
+}

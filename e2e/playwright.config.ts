@@ -16,6 +16,10 @@ const outputDir = path.join(process.cwd(), 'test-results', 'playwright');
 export default defineConfig({
   testDir: './test',
 
+  // 跑完 dump backend container 日志到 test-results/backend.log。诊断失败
+  // 的 test 不用 ad-hoc tail compose log，直接读这个文件。
+  globalTeardown: path.join(__dirname, 'global-teardown.ts'),
+
   timeout: 30_000,
   expect: { timeout: 5_000 },
 

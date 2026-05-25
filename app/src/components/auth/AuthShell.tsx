@@ -79,7 +79,7 @@ function OfferItem({ row }: { row: OfferRow }) {
       <span className="mono text-[10.5px] tracking-[0.14em] text-(--color-faint) tabular-nums pt-1.5">{row.k}</span>
       <div>
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-ink) mb-1.5">{row.t}</div>
-        <p className="reading text-(--color-muted)" style={{ fontSize: '14.5px' }}>{row.b}</p>
+        <p className="reading text-(--color-muted) text-[14.5px]">{row.b}</p>
       </div>
     </li>
   );

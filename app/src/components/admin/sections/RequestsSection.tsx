@@ -92,7 +92,7 @@ function RequestCard({
   return (
     <article className="border border-(--color-rule) p-5 rounded-sm bg-(--color-surface)/30">
       <RequestHead req={req} />
-      <p className="reading text-(--color-ink) mt-3" style={{ fontSize: '15.5px' }}>
+      <p className="reading text-(--color-ink) mt-3 text-[15.5px]">
         {req.message}
       </p>
       <RequestActions req={req} onMark={onMark} />
@@ -104,7 +104,7 @@ function RequestHead({ req }: { req: AccessRequestView }) {
   return (
     <div className="flex items-baseline justify-between gap-4 flex-wrap">
       <div>
-        <div className="font-serif text-(--color-ink)" style={{ fontSize: '18px', fontWeight: 500 }}>
+        <div className="font-serif text-(--color-ink) text-[18px] font-medium">
           {req.name}
           {req.org !== '' && (
             <span className="mono text-(--color-muted) text-[12px] ml-2">@ {req.org}</span>

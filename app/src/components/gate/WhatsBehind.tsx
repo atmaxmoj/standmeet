@@ -37,7 +37,7 @@ function Row({ row }: { row: (typeof ROWS)[number] }) {
         <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) mb-1.5">
           {row.label}
         </div>
-        <p className="reading text-(--color-muted)" style={{ fontSize: '15.5px' }}>{row.body}</p>
+        <p className="reading text-(--color-muted) text-[15.5px]">{row.body}</p>
       </div>
     </li>
   );

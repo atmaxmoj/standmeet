@@ -106,12 +106,23 @@ export default tseslint.config(
         { max: 70, skipBlankLines: true, skipComments: true, IIFEs: true },
       ],
 
-      // JSX 里禁 inline <style> —— 用 .css 文件 Next 能 hash / cache / scope。
+      // JSX 里禁 inline <style> + 禁 style={{...}} attribute —— 走 .css /
+      // Tailwind class（design tokens 已经在 globals.css @theme，参数化样式
+      // 写 component CSS）。
+      //
+      // 极少数 runtime-dynamic 场景（CSS-variable threading；非 finite-set
+      // 的连续值）单点 `// eslint-disable-next-line no-restricted-syntax` 加
+      // 简要原因注释；不要因为 "暂时方便" 而绕。
       'no-restricted-syntax': [
         'error',
         {
           selector: 'JSXElement[openingElement.name.name="style"]',
           message: 'No inline `<style>` in JSX — put styles in a .css file imported once.',
+        },
+        {
+          selector: 'JSXAttribute[name.name="style"]',
+          message: 'No `style={{...}}` attribute in JSX — use Tailwind classes or a CSS file. ' +
+            'Truly runtime-dynamic values (continuous, props-driven): single-line eslint-disable with a why.',
         },
       ],
 
@@ -162,6 +173,11 @@ export default tseslint.config(
         {
           selector: 'JSXElement[openingElement.name.name="style"]',
           message: 'No inline `<style>` in JSX — put styles in a .css file imported once.',
+        },
+        {
+          selector: 'JSXAttribute[name.name="style"]',
+          message: 'No `style={{...}}` attribute in JSX — use Tailwind classes or a CSS file. ' +
+            'Truly runtime-dynamic values: single-line eslint-disable with a why.',
         },
         {
           selector: 'IfStatement',

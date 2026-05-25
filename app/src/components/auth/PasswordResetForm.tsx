@@ -57,9 +57,7 @@ function ResetUI({ hook, onSubmit }: ResetUIProps) {
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
         password reset
       </div>
-      <h1 className="font-serif text-(--color-ink)"
-        style={{ fontSize: 'clamp(38px, 5vw, 56px)', fontWeight: 400, letterSpacing: '-0.02em', lineHeight: 1 }}
-      >
+      <h1 className="font-serif text-(--color-ink) text-[clamp(38px,5vw,56px)] font-normal tracking-[-0.02em] leading-none">
         Set a new<br />password<span className="text-(--color-accent)">.</span>
       </h1>
       <p className="reading italic text-(--color-muted) mt-4 text-lg leading-relaxed">

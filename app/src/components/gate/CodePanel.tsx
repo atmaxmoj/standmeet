@@ -43,10 +43,7 @@ function CodeRow({
 }: { code: string; setCode: (v: string) => void; busy: boolean }) {
   return (
     <div className="flex items-baseline gap-4 py-3 border-t-[1.5px] border-b-[1.5px] border-(--color-ink) relative">
-      <span
-        className="text-(--color-accent) font-serif shrink-0"
-        style={{ fontSize: '28px', lineHeight: 1 }}
-      >›</span>
+      <span className="text-(--color-accent) font-serif shrink-0 text-[28px] leading-none">›</span>
       <input
         type="text"
         value={code}
@@ -55,8 +52,7 @@ function CodeRow({
         data-testid="gate-code"
         spellCheck={false}
         autoComplete="off"
-        className="flex-1 bg-transparent mono text-(--color-ink) placeholder:text-(--color-faint) min-w-0"
-        style={{ fontSize: '24px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+        className="flex-1 bg-transparent mono text-(--color-ink) placeholder:text-(--color-faint) min-w-0 text-[24px] tracking-[0.08em] uppercase"
       />
       <CodeSubmit busy={busy} />
     </div>
@@ -85,7 +81,7 @@ function NameRow({ name, setName }: { name: string; setName: (v: string) => void
 
 function Hint() {
   return (
-    <p className="mono text-[10.5px] tracking-[0.12em] text-(--color-faint) mt-4 leading-[1.7]" style={{ maxWidth: '40em' }}>
+    <p className="mono text-[10.5px] tracking-[0.12em] text-(--color-faint) mt-4 leading-[1.7] max-w-[40em]">
       codes look like <span className="text-(--color-muted)">INTRO–001</span>. they arrive by
       email from the owner directly · case doesn&rsquo;t matter · paste the whole thing.
       <span className="block mt-1">your name lets the owner separate visitors who share a code.</span>

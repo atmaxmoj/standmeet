@@ -26,10 +26,7 @@ export function AskInput({ value, onChange, onSubmit, disabled, inputRef }: Prop
   return (
     <form onSubmit={handle} data-testid="chat-input">
       <div className="flex items-baseline gap-4 py-4 border-t-[1.5px] border-b-[1.5px] border-(--color-ink) relative">
-        <span
-          className="text-(--color-accent) font-serif shrink-0"
-          style={{ fontSize: '28px', lineHeight: 1 }}
-        >›</span>
+        <span className="text-(--color-accent) font-serif shrink-0 text-[28px] leading-none">›</span>
         <input
           ref={inputRef}
           type="text"
@@ -37,8 +34,7 @@ export function AskInput({ value, onChange, onSubmit, disabled, inputRef }: Prop
           onChange={(e) => onChange(e.target.value)}
           placeholder="Ask anything."
           disabled={disabled}
-          className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0"
-          style={{ fontSize: 'clamp(20px, 2.2vw, 26px)', lineHeight: 1.3, fontWeight: 380 }}
+          className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0 text-[clamp(20px,2.2vw,26px)] leading-[1.3] font-[380]"
           autoComplete="off"
           spellCheck={false}
         />

@@ -2,12 +2,8 @@
 // globals.css `.skel` 类里（pulse animation + color-mix grey）。
 // class 推导挪 lib/state/skel-class.ts，让 component 复杂度 ≤3。
 
-import type { CSSProperties } from 'react';
-
 import { skelClass, type SkelProps } from '@/lib/state/skel-class';
 
-type Props = SkelProps & { style?: CSSProperties };
-
-export function Skel(props: Props) {
-  return <div aria-hidden className={skelClass(props)} style={props.style} />;
+export function Skel(props: SkelProps) {
+  return <div aria-hidden className={skelClass(props)} />;
 }

@@ -106,19 +106,10 @@ function BlogTitleBlock() {
   return (
     <>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-5">essays</div>
-      <h1
-        className="font-serif text-(--color-ink)"
-        style={{
-          fontSize: 'clamp(48px, 7vw, 80px)', fontWeight: 380,
-          letterSpacing: '-0.022em', lineHeight: 0.98,
-        }}
-      >
+      <h1 className="font-serif text-(--color-ink) text-[clamp(48px,7vw,80px)] font-[380] tracking-[-0.022em] leading-[0.98]">
         Writing<span className="text-(--color-accent)">.</span>
       </h1>
-      <p
-        className="italic text-(--color-muted) mt-5 max-w-[34em]"
-        style={{ fontSize: '21px', lineHeight: 1.45, fontWeight: 380 }}
-      >
+      <p className="italic text-(--color-muted) mt-5 max-w-[34em] text-[21px] leading-[1.45] font-[380]">
         The corpus, surfaced. Each essay is the expanded version of something I&apos;ve been
         thinking through — you can ask the AI about any of these directly.
       </p>

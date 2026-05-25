@@ -48,10 +48,7 @@ function TurnCard({ idx, turn, ownerHandle }: { idx: number; turn: Turn; ownerHa
   return (
     <article id={`qa-${idx}`} className="pt-10 pb-10 border-b border-(--color-rule)">
       <VisitorLabel time={turn.time} />
-      <p
-        className="font-serif italic mb-7"
-        style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 380, letterSpacing: '-0.003em', textWrap: 'pretty' }}
-      >
+      <p className="font-serif italic mb-7 text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] [text-wrap:pretty]">
         {turn.q}
       </p>
       <AssistantBody turn={turn} ownerHandle={ownerHandle} />
@@ -137,7 +134,7 @@ function AnswerParas({ answer }: { answer: TurnAnswer }) {
   return (
     <div className={cls} data-testid="answer-body">
       {answer.paras.map((p, i) => (
-        <div key={i} className="reading mb-4 last:mb-0" style={{ fontSize: '18px' }}>
+        <div key={i} className="reading mb-4 last:mb-0 text-[18px]">
           <ReactMarkdown rehypePlugins={[rehypeRaw]}>{p}</ReactMarkdown>
         </div>
       ))}
@@ -160,7 +157,7 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
             >
               {c.kind}
             </span>
-            <span className="font-serif italic text-(--color-muted)" style={{ fontSize: '14.5px' }}>{c.title}</span>
+            <span className="font-serif italic text-(--color-muted) text-[14.5px]">{c.title}</span>
           </li>
         ))}
       </ul>

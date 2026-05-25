@@ -53,16 +53,10 @@ function HeroBody({ handle, hook }: { handle: string; hook: ReturnType<typeof us
       <div className="mono text-[10.5px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
         you&rsquo;ve reached {handle}&rsquo;s corpus
       </div>
-      <h1
-        className="font-serif text-(--color-ink)"
-        style={{ fontSize: 'clamp(42px, 5.8vw, 64px)', fontWeight: 400, letterSpacing: '-0.02em', lineHeight: 1 }}
-      >
+      <h1 className="font-serif text-(--color-ink) text-[clamp(42px,5.8vw,64px)] font-normal tracking-[-0.02em] leading-none">
         This isn&rsquo;t open<span className="text-(--color-accent)">.</span>
       </h1>
-      <p
-        className="font-serif italic text-(--color-muted) mt-4"
-        style={{ fontSize: '18.5px', lineHeight: 1.45, fontWeight: 380, maxWidth: '32em' }}
-      >
+      <p className="font-serif italic text-(--color-muted) mt-4 text-[18.5px] leading-[1.45] font-[380] max-w-[32em]">
         {handle} gives out codes when there&rsquo;s a reason to talk — a hiring loop, an investor call,
         an advisor scoping, a piece of press. If you have a code, drop it in. Otherwise — bring your
         own AI to chat with the public corpus, or leave a note.

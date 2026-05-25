@@ -88,7 +88,7 @@ function CustomPageCard({ page }: { page: CustomPageSummary }) {
 function CustomPageHead({ page }: { page: CustomPageSummary }) {
   return (
     <div className="flex items-baseline justify-between gap-4 flex-wrap">
-      <h3 className="font-serif text-(--color-ink)" style={{ fontSize: '18px', fontWeight: 500 }}>
+      <h3 className="font-serif text-(--color-ink) text-[18px] font-medium">
         {page.title}
       </h3>
       <ViewLiveLink page={page} />

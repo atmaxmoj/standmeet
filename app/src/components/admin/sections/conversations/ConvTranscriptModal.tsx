@@ -101,16 +101,9 @@ function MessageItem({
 }
 
 function MessageBody({ role, body }: { role: 'visitor' | 'assistant'; body: string }) {
-  const isVisitor = role === 'visitor';
+  const cls = role === 'visitor' ? 'text-[20px] italic' : 'text-[16.5px] not-italic';
   return (
-    <p
-      className="reading text-(--color-ink) mt-2"
-      style={{
-        fontSize: isVisitor ? '20px' : '16.5px',
-        fontStyle: isVisitor ? 'italic' : 'normal',
-        fontWeight: 380,
-      }}
-    >
+    <p className={`reading text-(--color-ink) mt-2 font-[380] ${cls}`}>
       {body}
     </p>
   );

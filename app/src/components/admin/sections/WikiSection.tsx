@@ -246,7 +246,7 @@ function Provenance({ count, sourceLabel }: { count: number; sourceLabel: string
 function WikiHead({ entry }: { entry: WikiSummary }) {
   return (
     <div className="flex items-baseline justify-between gap-4 flex-wrap">
-      <h3 className="font-serif text-(--color-ink)" style={{ fontSize: '18px', fontWeight: 500 }}>
+      <h3 className="font-serif text-(--color-ink) text-[18px] font-medium">
         {entry.title}
       </h3>
       <div className="flex items-baseline gap-3">

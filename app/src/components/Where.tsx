@@ -9,7 +9,7 @@ export function Where({ where }: { where: PageWhere }) {
   return (
     <section className="mt-24">
       <DeckHeader kicker="where I am" />
-      <div className="reading text-(--color-ink)" style={{ fontSize: '18px' }}>
+      <div className="reading text-(--color-ink) text-[18px]">
         <p>{where.location_line}</p>
         <p className="mt-4">{where.status_prose}</p>
         <LookingForList items={where.looking_for} />
@@ -25,10 +25,7 @@ function LookingForList({ items }: { items: readonly string[] }) {
       <p className="mt-5 mono text-[10.5px] tracking-[0.2em] uppercase text-(--color-muted)">
         if you&apos;re hiring, it should fit all of these
       </p>
-      <ul
-        className="space-y-1 mt-2 pl-5 border-l-2 border-(--color-accent)/40 font-serif text-(--color-ink)"
-        style={{ fontSize: '16.5px' }}
-      >
+      <ul className="space-y-1 mt-2 pl-5 border-l-2 border-(--color-accent)/40 font-serif text-(--color-ink) text-[16.5px]">
         {items.map((f) => <li key={f}>· {f}</li>)}
       </ul>
     </>

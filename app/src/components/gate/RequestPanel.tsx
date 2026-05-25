@@ -62,13 +62,10 @@ function RequestHeadline({
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
         no code?
       </div>
-      <h2
-        className="font-serif text-(--color-ink)"
-        style={{ fontSize: '28px', fontWeight: 400, letterSpacing: '-0.015em', lineHeight: 1.1 }}
-      >
+      <h2 className="font-serif text-(--color-ink) text-[28px] font-normal tracking-[-0.015em] leading-[1.1]">
         Tell {handle} who you are<span className="text-(--color-accent)">.</span>
       </h2>
-      <p className="reading text-(--color-muted) mt-3" style={{ fontSize: '15.5px' }}>
+      <p className="reading text-(--color-muted) mt-3 text-[15.5px]">
         A short note. If it&rsquo;s useful to talk — through the AI or in person — they&rsquo;ll send
         you back a code in a day or two. Read by hand, not a queue.
       </p>
@@ -161,8 +158,7 @@ function WhyField({ value, onChange }: { value: string; onChange: (v: string) =>
         rows={4}
         data-testid="request-message"
         placeholder="two or three sentences. specific."
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-(--color-ink) placeholder:text-(--color-faint) resize-none"
-        style={{ fontSize: '16px', lineHeight: 1.55 }}
+        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-(--color-ink) placeholder:text-(--color-faint) resize-none text-[16px] leading-[1.55]"
       />
       <CharCount value={value} />
     </RequestField>
@@ -203,13 +199,13 @@ function SentConfirmation({ name, email }: { name: string; email: string }) {
   return (
     <div className="rise" data-testid="request-sent">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-accent) mb-3">sent</div>
-      <p className="reading text-(--color-ink)" style={{ fontSize: '17px' }}>
+      <p className="reading text-(--color-ink) text-[17px]">
         Thanks, {first}. The owner reads this themselves.
         {' '}If they send you a code, it&rsquo;ll arrive at{' '}
         <span className="text-(--color-accent)">{email}</span> with a note about which slice of the
         corpus they&rsquo;re giving you access to.
       </p>
-      <p className="reading text-(--color-muted) mt-4" style={{ fontSize: '15.5px' }}>
+      <p className="reading text-(--color-muted) mt-4 text-[15.5px]">
         Not every note gets a reply. If you don&rsquo;t hear back in a week, that&rsquo;s the reply.
       </p>
     </div>
@@ -246,8 +242,7 @@ function TextInput({ value, onChange, testid, placeholder, type = 'text' }: Text
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       data-testid={testid}
-      className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-(--color-ink) placeholder:text-(--color-faint)"
-      style={{ fontSize: '16px' }}
+      className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-(--color-ink) placeholder:text-(--color-faint) text-[16px]"
     />
   );
 }

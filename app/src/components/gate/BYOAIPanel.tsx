@@ -48,13 +48,10 @@ function BYOAIHeadline() {
         <span className="text-(--color-faint)">·</span>
         <span className="text-(--color-accent)">BYOAI</span>
       </div>
-      <h2
-        className="font-serif text-(--color-ink)"
-        style={{ fontSize: '28px', fontWeight: 400, letterSpacing: '-0.015em', lineHeight: 1.1 }}
-      >
+      <h2 className="font-serif text-(--color-ink) text-[28px] font-normal tracking-[-0.015em] leading-[1.1]">
         Bring your own AI<span className="text-(--color-accent)">.</span>
       </h2>
-      <p className="reading text-(--color-muted) mt-3" style={{ fontSize: '15.5px' }}>
+      <p className="reading text-(--color-muted) mt-3 text-[15.5px]">
         Use your own Anthropic / OpenAI key against the owner&rsquo;s public corpus. Private topics
         return &ldquo;need a code&rdquo;.
       </p>
@@ -130,8 +127,7 @@ function KeyRow({
           data-testid="byoai-key"
           autoComplete="off"
           spellCheck={false}
-          className="flex-1 bg-transparent mono py-2 reading text-(--color-ink) placeholder:text-(--color-faint)"
-          style={{ fontSize: '15.5px', letterSpacing: '0.02em' }}
+          className="flex-1 bg-transparent mono py-2 reading text-(--color-ink) placeholder:text-(--color-faint) text-[15.5px] tracking-[0.02em]"
         />
         <button
           type="button"

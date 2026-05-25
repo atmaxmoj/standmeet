@@ -10,7 +10,7 @@ export function Seal({ handle }: Props) {
         <div className="seal-text">
           <span>
             standmeet · {handle}<br />
-            <span style={{ letterSpacing: '0.32em' }}>private</span>
+            <span className="tracking-[0.32em]">private</span>
           </span>
         </div>
       </div>

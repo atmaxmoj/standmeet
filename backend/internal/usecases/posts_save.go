@@ -75,8 +75,14 @@ func SavePost(ctx context.Context, deps PostsTxDeps, in *SavePostInput) (domain.
 	return finalizeSaveTx(ctx, deps, tx, &res, serr)
 }
 
+// validateSaveInput —— create + update 共用一个 entry，但 slug 只在 create
+// 路径上从 input 取（edit UI slug readonly，client 不再 send）；update 时
+// loadExistingPost 把 slug 从 DB 读出，input.Slug 此时为空是合法的。
 func validateSaveInput(in *SavePostInput) error {
-	if in.OwnerID == "" || in.Slug == "" || in.Title == "" {
+	if in.OwnerID == "" || in.Title == "" {
+		return ErrEmptyField
+	}
+	if in.PostID == "" && in.Slug == "" {
 		return ErrEmptyField
 	}
 	return nil

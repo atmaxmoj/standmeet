@@ -58,7 +58,7 @@ function PreviewImg({ url }: { url: string }) {
       width={80}
       height={48}
       unoptimized
-      style={{ objectFit: 'cover', border: '1px solid var(--color-rule)' }}
+      className="object-cover border border-(--color-rule)"
     />
   );
 }

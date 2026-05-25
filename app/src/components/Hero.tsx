@@ -51,17 +51,7 @@ function IdentityStrip({ owner }: { owner: PublicOwnerView }) {
 
 function HeroProse({ prose }: { prose: string }) {
   return (
-    <p
-      className="font-serif text-(--color-ink)"
-      style={{
-        fontSize: 'clamp(26px, 3.4vw, 38px)',
-        lineHeight: 1.35,
-        fontWeight: 380,
-        letterSpacing: '-0.012em',
-        textWrap: 'pretty',
-        maxWidth: '26em',
-      }}
-    >
+    <p className="font-serif text-(--color-ink) text-[clamp(26px,3.4vw,38px)] leading-[1.35] font-[380] tracking-[-0.012em] [text-wrap:pretty] max-w-[26em]">
       {prose}
     </p>
   );
@@ -80,8 +70,7 @@ function Examples({ items, onPick }: { items: readonly string[]; onPick: (q: str
             <button
               type="button"
               onClick={() => onPick(q)}
-              className="text-left font-serif italic text-(--color-muted) hover:text-(--color-accent) transition-colors"
-              style={{ fontSize: '17px', lineHeight: 1.4 }}
+              className="text-left font-serif italic text-(--color-muted) hover:text-(--color-accent) transition-colors text-[17px] leading-[1.4]"
             >
               &ldquo;{q}&rdquo;
             </button>

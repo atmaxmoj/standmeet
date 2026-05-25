@@ -35,17 +35,11 @@ function PostCardLeadMeta({
     <div className="flex flex-col">
       <PostCardLeadKicker post={post} />
       <Link href={`/blog/${post.slug}`}>
-        <h2
-          className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors"
-          style={{
-            fontSize: 'clamp(34px, 4vw, 46px)', lineHeight: 1.08,
-            letterSpacing: '-0.018em', fontWeight: 400,
-          }}
-        >
+        <h2 className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors text-[clamp(34px,4vw,46px)] leading-[1.08] tracking-[-0.018em] font-normal">
           {post.title}
         </h2>
       </Link>
-      <p className="text-(--color-muted) mt-5" style={{ fontSize: '18px', lineHeight: 1.55 }}>
+      <p className="text-(--color-muted) mt-5 text-[18px] leading-[1.55]">
         {post.excerpt}
       </p>
       <PostCardLeadTagRow post={post} onPickTag={onPickTag} />
@@ -118,19 +112,10 @@ function PostRowBody({ post }: { post: PostView }) {
         <span className="text-(--color-faint)">·</span>
         <span>{post.read_minutes} min</span>
       </div>
-      <h3
-        className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors"
-        style={{
-          fontSize: '24px', lineHeight: 1.2,
-          letterSpacing: '-0.005em', fontWeight: 400,
-        }}
-      >
+      <h3 className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors text-[24px] leading-[1.2] tracking-[-0.005em] font-normal">
         {post.title}
       </h3>
-      <p
-        className="text-(--color-muted) mt-2 max-w-[46em]"
-        style={{ fontSize: '16.5px', lineHeight: 1.5 }}
-      >
+      <p className="text-(--color-muted) mt-2 max-w-[46em] text-[16.5px] leading-[1.5]">
         {post.excerpt}
       </p>
     </div>

@@ -11,7 +11,7 @@ import remarkGfm from 'remark-gfm';
 
 import type { PostView } from '@/lib/api/public';
 import { Cover } from '@/components/blog/Cover';
-import { markdownComponents } from '@/components/blog/BlogArticleMarkdown';
+import { markdownComponents, markdownStyles } from '@/components/blog/BlogArticleMarkdown';
 import { expandURIsToURLs } from '@/lib/blog/asset-transforms';
 
 interface Props {
@@ -77,19 +77,12 @@ function ArticleHeader({ post }: { post: PostView }) {
     <header className="max-w-[760px] mx-auto px-6 lg:px-0 mb-10">
       <ArticleMeta post={post} />
       <h1
-        className="font-serif text-(--color-ink)"
-        style={{
-          fontSize: 'clamp(40px, 5.6vw, 64px)', fontWeight: 380,
-          letterSpacing: '-0.022em', lineHeight: 1.04,
-        }}
+        className="font-serif text-(--color-ink) text-[clamp(40px,5.6vw,64px)] font-[380] tracking-[-0.022em] leading-[1.04]"
         data-testid="blog-article-title"
       >
         {post.title}
       </h1>
-      <p
-        className="italic text-(--color-muted) mt-6 max-w-[34em]"
-        style={{ fontSize: '22px', lineHeight: 1.45, fontWeight: 380 }}
-      >
+      <p className="italic text-(--color-muted) mt-6 max-w-[34em] text-[22px] leading-[1.45] font-[380]">
         {post.excerpt}
       </p>
     </header>
@@ -126,7 +119,7 @@ function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string,
   const rendered = expandURIsToURLs(bodyMD, assetURLs);
   return (
     <article
-      className="max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink) blog-article-body"
+      className={`max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink) ${markdownStyles.body}`}
       data-testid="blog-article-body"
     >
       <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
@@ -143,19 +136,10 @@ function LockedView({ post }: { post: PostView }) {
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
           private essay
         </div>
-        <h1
-          className="font-serif text-(--color-ink)"
-          style={{
-            fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 380,
-            letterSpacing: '-0.018em', lineHeight: 1.05,
-          }}
-        >
+        <h1 className="font-serif text-(--color-ink) text-[clamp(36px,5vw,56px)] font-[380] tracking-[-0.018em] leading-[1.05]">
           {post.title}<span className="text-(--color-accent)">.</span>
         </h1>
-        <p
-          className="text-(--color-muted) mt-6 max-w-[34em] mx-auto"
-          style={{ fontSize: '18px' }}
-        >
+        <p className="text-(--color-muted) mt-6 max-w-[34em] mx-auto text-[18px]">
           {post.locked_body ?? 'This essay is gated; ask for an invite code.'}
         </p>
         <LockedActions />

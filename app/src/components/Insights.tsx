@@ -64,10 +64,7 @@ function InsightRow({ idx, insight, open, onToggle }: RowProps) {
 
 function InsightThesis({ text }: { text: string }) {
   return (
-    <p
-      className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors"
-      style={{ fontSize: '20px', lineHeight: 1.4, fontWeight: 500, letterSpacing: '-0.005em' }}
-    >
+    <p className="font-serif text-(--color-ink) group-hover:text-(--color-accent) transition-colors text-[20px] leading-[1.4] font-medium tracking-[-0.005em]">
       {text}
     </p>
   );
@@ -75,10 +72,7 @@ function InsightThesis({ text }: { text: string }) {
 
 function InsightContext({ context, open }: { context: string; open: boolean }) {
   return (
-    <p
-      className="mono text-(--color-faint) mt-1.5"
-      style={{ fontSize: '11px', letterSpacing: '0.04em' }}
-    >
+    <p className="mono text-(--color-faint) mt-1.5 text-[11px] tracking-[0.04em]">
       ── {context}
       <span
         className={`ml-3 transition-colors ${open ? 'text-(--color-accent)' : 'text-(--color-faint) group-hover:text-(--color-muted)'}`}
@@ -91,10 +85,7 @@ function InsightContext({ context, open }: { context: string; open: boolean }) {
 
 function InsightBody({ body }: { body: string }) {
   return (
-    <p
-      className="reading text-(--color-muted) mt-4 fadein"
-      style={{ fontSize: '16.5px', maxWidth: '38em' }}
-    >
+    <p className="reading text-(--color-muted) mt-4 fadein text-[16.5px] max-w-[38em]">
       {body}
     </p>
   );

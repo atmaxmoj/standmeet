@@ -28,17 +28,11 @@ function ProjectRow({ project }: { project: PageProject }) {
 function ProjectHead({ name, tagline }: { name: string; tagline: string }) {
   return (
     <div className="flex items-baseline gap-3 flex-wrap mb-3">
-      <h3
-        className="font-serif text-(--color-ink)"
-        style={{ fontSize: '24px', fontWeight: 500, letterSpacing: '-0.012em', lineHeight: 1.1 }}
-      >
+      <h3 className="font-serif text-(--color-ink) text-[24px] font-medium tracking-[-0.012em] leading-[1.1]">
         {name}
       </h3>
       <span className="mono text-(--color-faint)">──</span>
-      <span
-        className="font-serif italic text-(--color-muted)"
-        style={{ fontSize: '17px', lineHeight: 1.3 }}
-      >
+      <span className="font-serif italic text-(--color-muted) text-[17px] leading-[1.3]">
         {tagline}
       </span>
     </div>
@@ -47,10 +41,7 @@ function ProjectHead({ name, tagline }: { name: string; tagline: string }) {
 
 function ProjectBody({ lines, url }: { lines: readonly string[]; url?: string | null }) {
   return (
-    <div
-      className="reading text-(--color-ink) space-y-1.5 pl-5 border-l border-(--color-rule)"
-      style={{ fontSize: '16px' }}
-    >
+    <div className="reading text-(--color-ink) space-y-1.5 pl-5 border-l border-(--color-rule) text-[16px]">
       {lines.map((line) => <p key={line}>{line}</p>)}
       {url && <ProjectURL url={url} />}
     </div>
