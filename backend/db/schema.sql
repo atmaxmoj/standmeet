@@ -260,6 +260,49 @@ CREATE TABLE assets (
 CREATE INDEX assets_owner_created_idx ON assets(owner_id, created_at DESC);
 CREATE INDEX assets_sha256_idx ON assets(owner_id, sha256) WHERE sha256 <> '';
 
+-- posts —— blog 文章。设计源自 claude.ai/design 的 posts.js + blog.html
+-- (Stripe-Press 风 essays)。文章本身是 corpus entry 的展开版：visitor chat
+-- retriever 可读 (path='posts/<slug>')；private 文章通过 path-glob ACL 走
+-- 跟 wiki 同一套 corpus_permissions (InviteCode 的 path_pattern 匹 path)。
+--
+-- body_blocks 是 design 用的 [{kind:'p|h|pull', text}] JSON 数组。owner
+-- 在 admin 编辑器手写 markdown → server 入库前 parse 成 blocks (## → h,
+-- > → pull, 其他 → p)。MCP `post_create` 可直接传 blocks，也可传 markdown
+-- 后端帮 parse。
+--
+-- cover 是 typographic (大字 + sub + hue)，不上图也好看；可选 cover_image
+-- _asset_id 后续支持真图 (落 assets 表)。
+--
+-- visibility: 'public' 或 'private'；private 在 path-glob ACL 走 deny
+-- 默认，特定 code 的 allow rule 放行。
+--
+-- published_at NULL = 草稿；NOT NULL = 已发布，前端公开 list 才显示。
+CREATE TABLE posts (
+    id                    uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id              uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    slug                  text          NOT NULL,
+    title                 text          NOT NULL,
+    excerpt               text          NOT NULL DEFAULT '',
+    body_blocks           jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    cover_headline        text          NOT NULL DEFAULT '',
+    cover_sub             text          NOT NULL DEFAULT '',
+    cover_hue             text          NOT NULL DEFAULT 'amber',
+    cover_image_asset_id  uuid          NULL REFERENCES assets(id) ON DELETE SET NULL,
+    tags                  text[]        NOT NULL DEFAULT '{}',
+    visibility            text          NOT NULL DEFAULT 'public',
+    cross_refs            text[]        NOT NULL DEFAULT '{}',
+    path                  text          NOT NULL,
+    read_minutes          int           NOT NULL DEFAULT 0,
+    locked_body           text          NOT NULL DEFAULT '',
+    published_at          timestamptz   NULL,
+    created_at            timestamptz   NOT NULL DEFAULT now(),
+    updated_at            timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX posts_owner_slug_uniq ON posts(owner_id, slug);
+CREATE INDEX posts_owner_published_idx ON posts(owner_id, published_at DESC NULLS LAST);
+CREATE INDEX posts_owner_path_idx ON posts(owner_id, path);
+
 -- handle_aliases —— owner 改 handle 后旧 handle 入这里，旧 URL 仍能 resolve
 -- 到同一个 owner。GetByHandle 走 owners.handle 优先，未命中走 alias。
 CREATE TABLE handle_aliases (

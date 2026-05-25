@@ -68,3 +68,54 @@ export function streamChatMessage(
 // 一些 caller 还是直接需要 IssueSessionInput（custom-page 在 sdk-react
 // useChatSession 里用），re-export 兼容。
 export type { IssueSessionInput };
+
+// ─── posts (blog) ────────────────────────────────────────────────────
+// SDK 还没接 posts；这里直接走 raw fetch。日后扩 SDK 时移过去保持 dogfood。
+
+export interface PostBlock {
+  kind: 'p' | 'h' | 'pull';
+  text: string;
+}
+
+export interface PostView {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  body: PostBlock[];
+  cover_headline: string;
+  cover_sub: string;
+  cover_hue: 'amber' | 'violet' | 'acid';
+  cover_image_asset_id?: string;
+  tags: string[];
+  visibility: 'public' | 'private';
+  cross_refs: string[];
+  path: string;
+  read_minutes: number;
+  locked_body?: string;
+  published_at?: string;
+}
+
+async function fetchJSON<T>(path: string): Promise<T> {
+  const res = await fetch(baseURL() + path, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`${path}: ${res.status}`);
+  return await res.json() as T;
+}
+
+export interface PostsPage {
+  posts: PostView[];
+  next_cursor?: string;
+}
+
+// fetchPostsPage —— /api/v1/posts?cursor=...&limit=...。首次 cursor 空，
+// next_cursor 非空就继续加载。infinite scroll 用。
+export const fetchPostsPage = (cursor?: string, limit?: number) => {
+  const qs = new URLSearchParams();
+  if (cursor) qs.set('cursor', cursor);
+  if (limit) qs.set('limit', String(limit));
+  const suffix = qs.toString() ? '?' + qs.toString() : '';
+  return fetchJSON<PostsPage>('/api/v1/posts' + suffix);
+};
+
+export const fetchPost = (slug: string) =>
+  fetchJSON<PostView>('/api/v1/posts/' + encodeURIComponent(slug));

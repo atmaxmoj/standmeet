@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-down build clean test sdk-build app-build sqlc-gen
+.PHONY: dev dev-up dev-rebuild dev-down build clean test sdk-build app-build sqlc-gen
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -61,8 +61,14 @@ app-build: sdk-build
 	@pnpm -F standmeet-app build
 
 dev-up: app-build
-	@docker compose -f docker-compose.dev.yml up -d --build
+	@docker compose -f docker-compose.dev.yml up -d --build --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
+
+# dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
+# 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app
+dev-rebuild: app-build
+	@test -n "$(SVC)" || (echo "usage: make dev-rebuild SVC=<service>"; exit 2)
+	@docker compose -f docker-compose.dev.yml up -d --build --wait --force-recreate --no-deps $(SVC)
 
 dev-down:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans

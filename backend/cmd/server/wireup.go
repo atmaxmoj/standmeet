@@ -30,6 +30,11 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 			Deps: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 			Log:  d.log,
 		},
+		PublicPosts: publicroutes.PostHandlers{
+			Posts: usecases.PostsDeps{Posts: d.postRepo},
+			Page:  usecases.PageDeps{Owners: d.ownerRepo},
+			Log:   d.log,
+		},
 		Builds:          sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
 		TLSAsk:          sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
 		MCP:             buildMCPDeps(d),
@@ -57,6 +62,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Skills:         usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		MCPServers:     usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Assets:         usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+		Posts:          usecases.PostsDeps{Posts: d.postRepo},
 		Codes:          d.codeRepo,
 		Owners:         d.ownerRepo,
 		Sessions:       d.sessionStore,
@@ -69,6 +75,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Visitor: usecases.VisitorDeps{
 			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
 			Output: d.outputRepo, Skills: d.skillRepo,
+			Posts:      d.postRepo,
 			MCPServers: d.mcpServerRepo,
 			Sandbox:    d.sandboxRunner,
 			Owners:     d.ownerRepo, Sessions: d.visitorStore,
@@ -139,6 +146,7 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		},
 		Skills:     usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		MCPServers: usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
+		Posts:      usecases.PostsDeps{Posts: d.postRepo},
 		Log:        d.log,
 	}
 }

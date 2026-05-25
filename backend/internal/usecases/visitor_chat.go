@@ -195,10 +195,12 @@ const (
 	messageEventBufSize = 64
 )
 
-// buildRetriever —— 加载 wiki + output 给 tool executor 用。retrieval 阶段
-// 不再做 ACL 过滤——ACL 由 tool 内部按调用时的 path 评估（search 结果过滤、
+// buildRetriever —— 加载 wiki + output + posts 给 tool executor 用。retrieval
+// 阶段不做 ACL 过滤——ACL 由 tool 内部按调用时的 path 评估（search 结果过滤、
 // read 直接拒）。这样 path-glob ACL 的 deny 也会被 AI "看到"为"找不到"，
 // 而不是"corpus 里没有"。
+//
+// posts 只拉已 published 的；草稿不进 visitor 视野。
 func buildRetriever(
 	ctx context.Context, deps *VisitorDeps, ownerID string, perms []domain.PathPermission,
 ) (*retriever, error) {
@@ -210,7 +212,23 @@ func buildRetriever(
 	if oerr != nil {
 		return nil, fmt.Errorf("list output for retrieval: %w", oerr)
 	}
-	return newRetriever(wikis, outputs, perms), nil
+	posts := listPostsForRetrieval(ctx, deps, ownerID)
+	return newRetriever(&retrieverInput{
+		wikis: wikis, outputs: outputs, posts: posts, perms: perms,
+	}), nil
+}
+
+func listPostsForRetrieval(
+	ctx context.Context, deps *VisitorDeps, ownerID string,
+) []domain.Post {
+	if deps.Posts == nil {
+		return nil
+	}
+	posts, err := deps.Posts.ListPublishedByOwner(ctx, ownerID)
+	if err != nil {
+		return nil
+	}
+	return posts
 }
 
 // streamArgs —— streamReply 的入参打包；revive 限制函数最多 5 个参数。

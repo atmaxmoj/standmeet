@@ -235,6 +235,28 @@ type PageContent struct {
 	UpdatedAt    pgtype.Timestamptz
 }
 
+type Post struct {
+	ID                pgtype.UUID
+	OwnerID           pgtype.UUID
+	Slug              string
+	Title             string
+	Excerpt           string
+	BodyBlocks        []byte
+	CoverHeadline     string
+	CoverSub          string
+	CoverHue          string
+	CoverImageAssetID pgtype.UUID
+	Tags              []string
+	Visibility        string
+	CrossRefs         []string
+	Path              string
+	ReadMinutes       int32
+	LockedBody        string
+	PublishedAt       pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+}
+
 type RawEntry struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID
