@@ -1,14 +1,14 @@
 // blog-posts.spec.ts —— blog 全链 e2e。
 //
 // 业务故事：
-//   1. owner 在 /admin/posts 手写一个 markdown post → publish → 访客
-//      打开 /blog 看到它 → 点进文章页 → react-markdown + remark-gfm
-//      把 GFM 全套特性渲染到 DOM (h1/h2/h3 / 段落 / bold / italic / strike /
-//      link / code / fence / 列表 / 任务列表 / blockquote / table / hr / image)。
-//   2. owner 在 Claude Desktop 让 AI 调 post_create (publish=true) →
-//      访客 /blog 列表也能看到这条；MCP 路径同样渲染丰富 markdown。
-//   3. infinite scroll：post_create 灌 15 篇 (default limit 12) →
-//      visitor 滚到底 → 第 13~15 条自动 append。
+//   1. owner 在 /admin/posts 用 Tiptap 编辑器写：打字、`/` 唤出 slash menu
+//      插入 heading → publish → 访客 /blog 看到 → 文章页渲染出对应结构。
+//   2. owner 在 Claude Desktop 让 AI 调 post_create (publish=true) → 访客
+//      /blog 列表也能看到 → 文章页渲染丰富 GFM 特性 (h2 / bold / 列表)。
+//      （rich GFM full coverage 落在这里——MCP 路径喂 markdown 是 AI 主要
+//      入口，且不依赖编辑器交互能力。）
+//   3. infinite scroll：post_create 灌 13 篇 (default limit 12) → visitor
+//      滚到底 → 第 13 条自动 append。
 //   4. XSS：markdown 里塞 `<script>` 必须被 escape，不能跑到 DOM 里。
 
 import { test, expect } from '@/fixtures/test';
@@ -26,7 +26,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-// RICH_MD —— 一段塞满 GFM 特性的 markdown。每个 feature 都会被独立断言。
+// RICH_MD —— 一段塞满 GFM 特性的 markdown，喂进 MCP 路径，验 react-markdown
+// + remark-gfm 全 GFM 渲染。
 const RICH_MD = [
   'Opening paragraph with **bold** and _italic_ and ~~strike~~ and `inline code` and a [link](https://example.com/x) inline.',
   '',
@@ -60,45 +61,47 @@ const RICH_MD = [
   '![alt text here](https://example.com/img.png)',
 ].join('\n');
 
-test.describe.serial('blog: rich markdown render (hand-write + MCP + XSS)', () => {
+test.describe.serial('blog: editor flow + rich render + XSS', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('owner hand-writes a rich markdown post → /blog renders every GFM element',
+  test('owner types in Tiptap editor + slash menu → /blog renders the structure',
     async ({ adminPage, page }) => {
       await openAdminPosts(adminPage);
-      await fillNewPost(adminPage, {
-        slug: 'rich-markdown-essay',
-        title: 'Rich markdown essay',
-        excerpt: 'Every GFM feature must round-trip cleanly.',
-        body: RICH_MD,
-        cover: { headline: 'rich markdown.', sub: 'the whole spec.', hue: 'amber' },
-        tags: 'markdown, gfm',
+      await fillPostMeta(adminPage, {
+        slug: 'editor-flow', title: 'Editor flow',
+        excerpt: 'Type prose, slash a heading.',
+        cover: { headline: 'editor.', sub: 'slash menu.', hue: 'amber' },
+        tags: 'editor, slash',
       });
-      await expect(adminPage.getByTestId('post-row-rich-markdown-essay'))
+      await focusEditor(adminPage);
+      await typeText(adminPage, 'First paragraph.');
+      await newLine(adminPage);
+      await pickSlashItem(adminPage, 'h2');
+      await typeText(adminPage, 'A heading');
+      await adminPage.getByTestId('post-create-submit').click();
+      await expect(adminPage.getByTestId('post-row-editor-flow'))
         .toBeVisible({ timeout: 5_000 });
+
       await goto(page, '/blog');
-      await expect(page.locator('[data-blog-card="rich-markdown-essay"]').first()).toBeVisible();
+      await page.locator('a[href="/blog/editor-flow"]').first().click();
+      const body = page.getByTestId('blog-article-body');
+      await expect(body.locator('h2')).toHaveText('A heading');
+      await expect(body.locator('p').first()).toContainText('First paragraph.');
+    });
+
+  test('MCP post_create with full GFM markdown → every feature renders',
+    async ({ request, page }) => {
+      await mcpCreatePost(request, 'blog-mcp-token', {
+        slug: 'rich-markdown-essay', title: 'Rich markdown essay',
+        excerpt: 'Every GFM feature must round-trip cleanly.',
+        body_md: RICH_MD,
+        cover_headline: 'rich markdown.', cover_sub: 'the whole spec.',
+        cover_hue: 'amber', tags: ['markdown', 'gfm'],
+      });
+      await goto(page, '/blog');
       await page.locator('a[href="/blog/rich-markdown-essay"]').first().click();
       await expect(page.getByTestId('blog-article-title')).toHaveText('Rich markdown essay');
       await assertGFMRendering(page);
-    });
-
-  test('owner hands off to AI via MCP post_create → renders markdown features',
-    async ({ request, page }) => {
-      await mcpCreatePost(request, 'blog-mcp-token', {
-        slug: 'mcp-authored-post',
-        title: 'MCP wrote this',
-        excerpt: 'A post the AI authored via the MCP handoff path.',
-        body_md: 'AI-written paragraph with **bold**.\n\n## Section\n\n- list item one\n- list item two',
-        cover_headline: 'mcp wrote this.', cover_sub: 'no human typing.',
-        cover_hue: 'violet', tags: ['mcp', 'meta'],
-      });
-      await goto(page, '/blog');
-      await page.locator('a[href="/blog/mcp-authored-post"]').first().click();
-      const body = page.getByTestId('blog-article-body');
-      await expect(body.locator('h2')).toHaveText('Section');
-      await expect(body.locator('strong')).toHaveText('bold');
-      await expect(body.locator('ul li')).toHaveCount(2);
     });
 
   test('XSS: <script> in markdown body is escaped, not executed',
@@ -210,16 +213,17 @@ async function openAdminPosts(page: Page): Promise<void> {
   await page.waitForURL('**/admin/posts');
 }
 
-interface HandwriteInput {
+interface PostMetaInput {
   slug: string;
   title: string;
   excerpt: string;
-  body: string;
   cover: { headline: string; sub: string; hue: 'amber' | 'violet' | 'acid' };
   tags: string;
 }
 
-async function fillNewPost(page: Page, input: HandwriteInput): Promise<void> {
+// fillPostMeta —— 填表单的非 body 部分。body 单独走 typeInEditor /
+// pickSlashItem，因为 Tiptap 是 contenteditable 不能 .fill()。
+async function fillPostMeta(page: Page, input: PostMetaInput): Promise<void> {
   await page.getByRole('button', { name: /new post/i }).click();
   await page.getByTestId('post-field-slug').fill(input.slug);
   await page.getByTestId('post-field-title').fill(input.title);
@@ -228,8 +232,31 @@ async function fillNewPost(page: Page, input: HandwriteInput): Promise<void> {
   await page.getByTestId('post-field-cover-sub').fill(input.cover.sub);
   await page.getByTestId('post-field-cover-hue').selectOption(input.cover.hue);
   await page.getByTestId('post-field-tags').fill(input.tags);
-  await page.getByTestId('post-field-body').fill(input.body);
-  await page.getByTestId('post-create-submit').click();
+}
+
+// focusEditor —— 一次性 click 进 contenteditable，之后键盘 / 输入靠
+// page.keyboard，不再 click 否则 cursor 会被搬走。
+async function focusEditor(page: Page): Promise<void> {
+  await page.getByTestId('post-field-body').click();
+}
+
+async function typeText(page: Page, text: string): Promise<void> {
+  await page.keyboard.type(text);
+}
+
+async function newLine(page: Page): Promise<void> {
+  await page.keyboard.press('Enter');
+}
+
+// pickSlashItem —— 输 `/` 等 slash menu 出现，点对应 item，等菜单收起。
+// 等收起是必须的：菜单 click → React 触发 insert() 改 ProseMirror 节点 →
+// cursor 进新 block。立刻 type 会有几个字符竞争丢失（菜单还没散）。
+async function pickSlashItem(page: Page, itemId: string): Promise<void> {
+  await page.keyboard.press('/');
+  const menu = page.getByTestId('slash-menu');
+  await expect(menu).toBeVisible({ timeout: 5_000 });
+  await page.getByTestId(`slash-item-${itemId}`).click();
+  await expect(menu).toBeHidden({ timeout: 5_000 });
 }
 
 async function seedExtraPosts(

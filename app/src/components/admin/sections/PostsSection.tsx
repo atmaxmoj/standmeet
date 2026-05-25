@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { BlogEditor } from '@/components/blog/editor';
 import { usePosts, type PostsHook, type AdminPostView, type CreatePostInput } from '@/lib/admin/use-posts';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
@@ -43,9 +44,8 @@ function titleCount(hook: PostsHook): string {
 function Intro() {
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Owner-curated blog posts. Write GitHub-flavored markdown below (headings, lists, tables,
-      code blocks, links, blockquotes) — rendered as-is on the public page. Or hand off to
-      Claude via the `post_create` MCP tool; same canonical markdown either way.
+      Owner-curated blog posts. Use the block editor below — type `/` for a block menu,
+      or hand off to Claude via the `post_create` MCP tool. Saved as canonical markdown either way.
     </p>
   );
 }
@@ -320,15 +320,9 @@ function PostBodyField({ value, onChange }: { value: string; onChange: (v: strin
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        body (markdown)
+        body
       </span>
-      <textarea
-        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[13px] font-mono min-h-[260px]"
-        value={value}
-        placeholder={'# Heading\n\nParagraph with **bold** and [a link](https://...).\n\n- list item\n- list item\n\n```ts\nconst ok = true;\n```\n\n| col | col |\n| --- | --- |\n| a   | b   |'}
-        onChange={(e) => onChange(e.target.value)}
-        data-testid="post-field-body"
-      />
+      <BlogEditor value={value} onChange={onChange} />
     </label>
   );
 }
