@@ -12,6 +12,7 @@ import remarkGfm from 'remark-gfm';
 import type { PostView } from '@/lib/api/public';
 import { Cover } from '@/components/blog/Cover';
 import { markdownComponents } from '@/components/blog/BlogArticleMarkdown';
+import { expandURIsToURLs } from '@/lib/blog/asset-transforms';
 
 interface Props {
   post: PostView;
@@ -35,7 +36,7 @@ function UnlockedView({ post }: { post: PostView }) {
           <Cover cover={post} no={formatDate(post.published_at) + ' · essay'} />
         </div>
         <ArticleHeader post={post} />
-        <Body bodyMD={post.body_md} />
+        <Body bodyMD={post.body_md} assetURLs={post.asset_urls ?? {}} />
       </main>
     </div>
   );
@@ -112,14 +113,19 @@ function TagLink({ tag }: { tag: string }) {
   );
 }
 
-function Body({ bodyMD }: { bodyMD: string }) {
+function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string, string> }) {
+  // expand standmeet-asset:<id> URIs → presigned URLs 之后再 feed react-markdown。
+  // react-markdown 默认 urlTransform 会 strip 非标准 scheme（XSS 保护）；先
+  // 替成 https URL 不踩这条规则。orphan 追踪走 body_md（source-of-truth），
+  // render 是 view-only 变换。
+  const rendered = expandURIsToURLs(bodyMD, assetURLs);
   return (
     <article
       className="max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink) blog-article-body"
       data-testid="blog-article-body"
     >
       <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-        {bodyMD}
+        {rendered}
       </Markdown>
     </article>
   );

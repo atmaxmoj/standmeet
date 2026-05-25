@@ -46,8 +46,36 @@ func (h *Handlers) MountAssets(r chi.Router) {
 	r.Route("/assets", func(r chi.Router) {
 		r.Get("/", h.listAssets())
 		r.Post("/", h.uploadAsset())
+		r.Get("/orphans", h.listOrphans())
 		r.Delete("/{id}", h.deleteAsset())
 	})
+}
+
+// listOrphans —— 扫所有 post.body_md 引用的 asset ID，跟 assets 表对差集
+// 返没人引的 asset list。owner-scoped；后续 wiki/output/custom_page 也扫。
+func (h *Handlers) listOrphans() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		ids, err := usecases.FindOrphanAssets(
+			r.Context(),
+			h.AssetsAdmin.Assets.Repo,
+			h.PostsAdmin.Posts.Posts,
+			ownerID,
+		)
+		if err != nil {
+			logEncodeErr(h.Log, "list orphan assets", err)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if encErr := json.NewEncoder(w).Encode(orphanResp{Orphans: ids}); encErr != nil {
+			logEncodeErr(h.Log, "encode orphans", encErr)
+		}
+	}
+}
+
+type orphanResp struct {
+	Orphans []string `json:"orphans"`
 }
 
 func (h *Handlers) uploadAsset() http.HandlerFunc {

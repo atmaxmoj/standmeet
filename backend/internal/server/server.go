@@ -133,9 +133,11 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Skills: deps.Admin.Skills},
 		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Servers: deps.Admin.MCPServers},
 		AssetsAdmin:     adminroutes.AssetsAdminDeps{Assets: deps.Admin.Assets},
-		PostsAdmin:      adminroutes.PostsAdminDeps{Posts: deps.Admin.Posts},
-		Log:             deps.Log,
-		SecureCookie:    deps.Admin.SecureCookie,
+		PostsAdmin: adminroutes.PostsAdminDeps{
+			Posts: deps.Admin.Posts, Assets: deps.Admin.Assets,
+		},
+		Log:          deps.Log,
+		SecureCookie: deps.Admin.SecureCookie,
 	}
 }
 
@@ -168,9 +170,10 @@ func mountPublic(r chi.Router, deps *Deps) {
 			Deps: deps.PublicAssets.Deps, Log: deps.Log,
 		}).Mount(r)
 		(&publicroutes.PostHandlers{
-			Posts: deps.PublicPosts.Posts,
-			Page:  deps.PublicPosts.Page,
-			Log:   deps.Log,
+			Posts:  deps.PublicPosts.Posts,
+			Page:   deps.PublicPosts.Page,
+			Assets: deps.Admin.Assets,
+			Log:    deps.Log,
 		}).Mount(r)
 	})
 }

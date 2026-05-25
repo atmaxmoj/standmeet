@@ -25,28 +25,30 @@ import (
 
 // PostHandlers —— public posts endpoints。
 type PostHandlers struct {
-	Posts usecases.PostsDeps
-	Page  usecases.PageDeps
-	Log   *slog.Logger
+	Posts  usecases.PostsDeps
+	Page   usecases.PageDeps
+	Assets usecases.AssetsDeps
+	Log    *slog.Logger
 }
 
 type postView struct {
-	PublishedAt       string   `json:"published_at,omitempty"`
-	CoverImageAssetID string   `json:"cover_image_asset_id,omitempty"`
-	ID                string   `json:"id"`
-	Slug              string   `json:"slug"`
-	Title             string   `json:"title"`
-	Excerpt           string   `json:"excerpt"`
-	BodyMD            string   `json:"body_md"`
-	CoverHeadline     string   `json:"cover_headline"`
-	CoverSub          string   `json:"cover_sub"`
-	CoverHue          string   `json:"cover_hue"`
-	Visibility        string   `json:"visibility"`
-	Path              string   `json:"path"`
-	LockedBody        string   `json:"locked_body,omitempty"`
-	Tags              []string `json:"tags"`
-	CrossRefs         []string `json:"cross_refs"`
-	ReadMinutes       int32    `json:"read_minutes"`
+	PublishedAt       string            `json:"published_at,omitempty"`
+	CoverImageAssetID string            `json:"cover_image_asset_id,omitempty"`
+	ID                string            `json:"id"`
+	Slug              string            `json:"slug"`
+	Title             string            `json:"title"`
+	Excerpt           string            `json:"excerpt"`
+	BodyMD            string            `json:"body_md"`
+	CoverHeadline     string            `json:"cover_headline"`
+	CoverSub          string            `json:"cover_sub"`
+	CoverHue          string            `json:"cover_hue"`
+	Visibility        string            `json:"visibility"`
+	Path              string            `json:"path"`
+	LockedBody        string            `json:"locked_body,omitempty"`
+	AssetURLs         map[string]string `json:"asset_urls"`
+	Tags              []string          `json:"tags"`
+	CrossRefs         []string          `json:"cross_refs"`
+	ReadMinutes       int32             `json:"read_minutes"`
 }
 
 type postsPageResp struct {
@@ -78,7 +80,7 @@ func runListPostsPage(r *http.Request, h *PostHandlers, w http.ResponseWriter, o
 		h.handlePostErr(w, "list posts page", err)
 		return
 	}
-	writePostsPage(h.Log, w, &page)
+	writePostsPage(r, h, w, &page)
 }
 
 func parsePostsPageQuery(
@@ -108,20 +110,23 @@ func parseIntOr(s string, fallback int) int {
 }
 
 func writePostsPage(
-	log *slog.Logger, w http.ResponseWriter, page *usecases.ListPublishedPostsPageResult,
+	r *http.Request, h *PostHandlers, w http.ResponseWriter,
+	page *usecases.ListPublishedPostsPageResult,
 ) {
-	resp := buildPostsPageResp(page)
+	resp := buildPostsPageResp(r, h, page)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		log.Error("encode posts page", "err", err)
+		h.Log.Error("encode posts page", "err", err)
 	}
 }
 
-func buildPostsPageResp(page *usecases.ListPublishedPostsPageResult) postsPageResp {
+func buildPostsPageResp(
+	r *http.Request, h *PostHandlers, page *usecases.ListPublishedPostsPageResult,
+) postsPageResp {
 	items := make([]postView, 0, len(page.Posts))
 	for i := range page.Posts {
-		items = append(items, toPostView(&page.Posts[i]))
+		items = append(items, toPostViewResolved(r, h, &page.Posts[i]))
 	}
 	resp := postsPageResp{Posts: items}
 	if page.NextCursor != nil {
@@ -143,16 +148,35 @@ func (h *PostHandlers) get() http.HandlerFunc {
 			h.handlePostErr(w, "get post", perr)
 			return
 		}
-		writePostResp(h.Log, w, &post)
+		writePostResp(r, h, w, &post)
 	}
 }
 
-func writePostResp(log *slog.Logger, w http.ResponseWriter, p *domain.Post) {
+func writePostResp(r *http.Request, h *PostHandlers, w http.ResponseWriter, p *domain.Post) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(toPostView(p)); err != nil {
-		log.Error("encode post", "err", err)
+	if err := json.NewEncoder(w).Encode(toPostViewResolved(r, h, p)); err != nil {
+		h.Log.Error("encode post", "err", err)
 	}
+}
+
+// toPostViewResolved —— build response 时 batch resolve body_md 里所有
+// `standmeet-asset:<id>` 引用 → presigned URL map。前端 renderer 用这个
+// map 把 URI 换成 https URL，浏览器直 hit MinIO（绕 backend redirect）。
+func toPostViewResolved(r *http.Request, h *PostHandlers, p *domain.Post) postView {
+	v := toPostView(p)
+	v.AssetURLs = resolvePostAssetURLs(r, h, p)
+	return v
+}
+
+func resolvePostAssetURLs(r *http.Request, h *PostHandlers, p *domain.Post) map[string]string {
+	ids := usecases.ScanAssetReferences(p.BodyMD)
+	urls, err := usecases.ResolveAssetURLs(r.Context(), h.Assets.Repo, h.Assets.Storage, ids)
+	if err != nil {
+		h.Log.Error("resolve asset urls", "err", err)
+		return map[string]string{}
+	}
+	return urls
 }
 
 func toPostView(p *domain.Post) postView {

@@ -30,6 +30,22 @@ async function adminFetch<T>(method: string, path: string, body?: unknown): Prom
   return await res.json() as T;
 }
 
+// adminFetchForm —— multipart 上传专用。浏览器自动给 FormData 设
+// 正确的 boundary，不能手动指 Content-Type 否则 boundary 丢。
+async function adminFetchForm<T>(path: string, form: FormData): Promise<T> {
+  const headers: Record<string, string> = {};
+  const csrf = readCSRFCookie();
+  csrf && (headers['X-Csrftoken'] = csrf);
+  const res = await fetch(`/api/admin${path}`, {
+    method: 'POST', headers, body: form, credentials: 'include',
+  });
+  if (!res.ok) {
+    const err = await readError(res, `POST ${path}`);
+    throw new Error(err);
+  }
+  return await res.json() as T;
+}
+
 async function readError(res: Response, op: string): Promise<string> {
   try {
     const body = await res.json() as { error?: { message?: string } };
@@ -45,6 +61,7 @@ export const adminAPI = {
   post: <T>(path: string, body: unknown) => adminFetch<T>('POST', path, body),
   patch: <T>(path: string, body: unknown) => adminFetch<T>('PATCH', path, body),
   delete: <T>(path: string) => adminFetch<T>('DELETE', path),
+  postForm: <T>(path: string, form: FormData) => adminFetchForm<T>(path, form),
 };
 
 export interface AccessRequestView {

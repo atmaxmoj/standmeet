@@ -92,6 +92,7 @@ export interface PostView {
   read_minutes: number;
   locked_body?: string;
   published_at?: string;
+  asset_urls?: Record<string, string>;
 }
 
 async function fetchJSON<T>(path: string): Promise<T> {

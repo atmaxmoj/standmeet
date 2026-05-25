@@ -10,6 +10,9 @@
 //   3. infinite scroll：post_create 灌 13 篇 (default limit 12) → visitor
 //      滚到底 → 第 13 条自动 append。
 //   4. XSS：markdown 里塞 `<script>` 必须被 escape，不能跑到 DOM 里。
+//   5. image upload：owner paste 图片到编辑器 → 上传到 MinIO → markdown
+//      存 `standmeet-asset:<id>` URI → /blog 渲染时 backend resolve 成 presigned
+//      URL；orphan 扫此时 = 0（asset 有 post 引用）。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -122,6 +125,42 @@ test.describe.serial('blog: editor flow + rich render + XSS', () => {
     });
 });
 
+test.describe.serial('blog: image upload + asset URI + orphan scan', () => {
+  test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
+
+  test('paste image in editor → /blog renders presigned URL; body_md stores URI; orphan=0',
+    async ({ adminPage, page, request }) => {
+      await openAdminPosts(adminPage);
+      await fillPostMeta(adminPage, {
+        slug: 'image-post', title: 'Post with image',
+        excerpt: 'Owner pastes an image.',
+        cover: { headline: 'image.', sub: 'pasted in.', hue: 'acid' },
+        tags: 'image',
+      });
+      await focusEditor(adminPage);
+      await typeText(adminPage, 'See image below.');
+      await newLine(adminPage);
+      await pasteImage(adminPage, 'pixel.png');
+      // wait for img node to appear (paste → upload → insert is async)
+      await expect(adminPage.locator('.blog-editor-surface img')).toBeVisible({ timeout: 10_000 });
+      await adminPage.getByTestId('post-create-submit').click();
+      await expect(adminPage.getByTestId('post-row-image-post'))
+        .toBeVisible({ timeout: 5_000 });
+
+      // visitor side: img element with presigned URL
+      await goto(page, '/blog/image-post');
+      const img = page.getByTestId('blog-article-body').locator('img').first();
+      await expect(img).toBeVisible();
+      const src = await img.getAttribute('src');
+      expect(src).toMatch(/localhost:9200/); // presigned URL host (minio public)
+
+      // admin GET: body_md contains URI not presigned URL
+      await assertAdminBodyHasURI(request);
+      // orphan scan: 0 because asset is referenced by this post
+      await assertNoOrphans(request);
+    });
+});
+
 test.describe.serial('blog: infinite scroll', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
@@ -163,6 +202,51 @@ interface MCPCreateInput {
   cover_sub: string;
   cover_hue: 'amber' | 'violet' | 'acid';
   tags: string[];
+}
+
+// pasteImage —— 在 contenteditable 上 dispatch ClipboardEvent，files 携带
+// 1x1 透明 PNG。Tiptap 的 ImageUpload extension handlePaste 截获 → 上传 →
+// 插 img 节点。
+async function pasteImage(page: Page, filename: string): Promise<void> {
+  await page.evaluate(({ name }) => {
+    const editor = document.querySelector('[data-testid="post-field-body"]');
+    if (!editor) throw new Error('editor not found');
+    // 1x1 transparent PNG bytes
+    const bytes = new Uint8Array([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
+      0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x62, 0x00, 0x01, 0x00, 0x00,
+      0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
+      0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+    ]);
+    const file = new File([bytes], name, { type: 'image/png' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const event = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+    editor.dispatchEvent(event);
+  }, { name: filename });
+}
+
+async function assertAdminBodyHasURI(request: APIRequestContext): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const res = await request.get('/api/admin/posts/', {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  const posts = await res.json() as Array<{ slug: string; body_md: string; asset_urls: Record<string, string> }>;
+  const post = posts.find((p) => p.slug === 'image-post');
+  if (!post) throw new Error('image-post not in admin list');
+  expect(post.body_md).toMatch(/standmeet-asset:[0-9a-f-]{36}/);
+  expect(Object.keys(post.asset_urls).length).toBeGreaterThan(0);
+}
+
+async function assertNoOrphans(request: APIRequestContext): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const res = await request.get('/api/admin/assets/orphans', {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  const body = await res.json() as { orphans: string[] };
+  expect(body.orphans).toHaveLength(0);
 }
 
 async function mcpCreatePost(

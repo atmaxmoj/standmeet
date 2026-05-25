@@ -19,29 +19,31 @@ import (
 
 // PostsAdminDeps —— admin posts handlers 依赖。
 type PostsAdminDeps struct {
-	Posts usecases.PostsDeps
+	Posts  usecases.PostsDeps
+	Assets usecases.AssetsDeps
 }
 
 type postView struct {
-	PublishedAt       string   `json:"published_at,omitempty"`
-	UpdatedAt         string   `json:"updated_at"`
-	CreatedAt         string   `json:"created_at"`
-	CoverImageAssetID string   `json:"cover_image_asset_id,omitempty"`
-	ID                string   `json:"id"`
-	Slug              string   `json:"slug"`
-	Title             string   `json:"title"`
-	Excerpt           string   `json:"excerpt"`
-	BodyMD            string   `json:"body_md"`
-	CoverHeadline     string   `json:"cover_headline"`
-	CoverSub          string   `json:"cover_sub"`
-	CoverHue          string   `json:"cover_hue"`
-	Visibility        string   `json:"visibility"`
-	Path              string   `json:"path"`
-	LockedBody        string   `json:"locked_body"`
-	Tags              []string `json:"tags"`
-	CrossRefs         []string `json:"cross_refs"`
-	ReadMinutes       int32    `json:"read_minutes"`
-	Published         bool     `json:"published"`
+	PublishedAt       string            `json:"published_at,omitempty"`
+	UpdatedAt         string            `json:"updated_at"`
+	CreatedAt         string            `json:"created_at"`
+	CoverImageAssetID string            `json:"cover_image_asset_id,omitempty"`
+	ID                string            `json:"id"`
+	Slug              string            `json:"slug"`
+	Title             string            `json:"title"`
+	Excerpt           string            `json:"excerpt"`
+	BodyMD            string            `json:"body_md"`
+	CoverHeadline     string            `json:"cover_headline"`
+	CoverSub          string            `json:"cover_sub"`
+	CoverHue          string            `json:"cover_hue"`
+	Visibility        string            `json:"visibility"`
+	Path              string            `json:"path"`
+	LockedBody        string            `json:"locked_body"`
+	AssetURLs         map[string]string `json:"asset_urls"`
+	Tags              []string          `json:"tags"`
+	CrossRefs         []string          `json:"cross_refs"`
+	ReadMinutes       int32             `json:"read_minutes"`
+	Published         bool              `json:"published"`
 }
 
 type createPostRequest struct {
@@ -95,20 +97,42 @@ func (h *Handlers) listAdminPosts() http.HandlerFunc {
 			writeError(h.Log, w, serverErr())
 			return
 		}
-		writePostsList(h.Log, w, rows)
+		writePostsList(r, h, w, rows)
 	}
 }
 
-func writePostsList(log *slog.Logger, w http.ResponseWriter, rows []domain.Post) {
+func writePostsList(
+	r *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.Post,
+) {
 	items := make([]postView, 0, len(rows))
 	for i := range rows {
-		items = append(items, toPostView(&rows[i]))
+		items = append(items, toPostViewResolved(r, h, &rows[i]))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(items); err != nil {
-		logEncodeErr(log, "encode posts", err)
+		logEncodeErr(h.Log, "encode posts", err)
 	}
+}
+
+// toPostViewResolved —— 跟 public 同形：响应时把 body_md 里 standmeet-asset
+// 引用 batch resolve 成 presigned URL，前端编辑器渲染图片用。
+func toPostViewResolved(r *http.Request, h *Handlers, p *domain.Post) postView {
+	v := toPostView(p)
+	v.AssetURLs = resolvePostAssetURLs(r, h, p)
+	return v
+}
+
+func resolvePostAssetURLs(r *http.Request, h *Handlers, p *domain.Post) map[string]string {
+	ids := usecases.ScanAssetReferences(p.BodyMD)
+	urls, err := usecases.ResolveAssetURLs(
+		r.Context(), h.PostsAdmin.Assets.Repo, h.PostsAdmin.Assets.Storage, ids,
+	)
+	if err != nil {
+		h.Log.Error("resolve asset urls", "err", err)
+		return map[string]string{}
+	}
+	return urls
 }
 
 func toPostView(p *domain.Post) postView {
@@ -150,7 +174,7 @@ func runCreateAdminPost(
 		handleCreatePostErr(h.Log, w, err)
 		return
 	}
-	writeCreatedPost(h.Log, w, &post)
+	writeCreatedPost(r, h, w, &post)
 }
 
 func buildCreatePostUsecaseInput(
@@ -186,11 +210,11 @@ func handleCreatePostErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	}
 }
 
-func writeCreatedPost(log *slog.Logger, w http.ResponseWriter, p *domain.Post) {
+func writeCreatedPost(r *http.Request, h *Handlers, w http.ResponseWriter, p *domain.Post) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(toPostView(p)); err != nil {
-		logEncodeErr(log, "encode post", err)
+	if err := json.NewEncoder(w).Encode(toPostViewResolved(r, h, p)); err != nil {
+		logEncodeErr(h.Log, "encode post", err)
 	}
 }
 
@@ -217,7 +241,7 @@ func runUpdateAdminPost(
 		writeError(h.Log, w, serverErr())
 		return
 	}
-	writePostResp(h.Log, w, &post)
+	writePostResp(r, h, w, &post)
 }
 
 func buildUpdatePostUsecaseInput(
@@ -239,11 +263,11 @@ func buildUpdatePostUsecaseInput(
 	}
 }
 
-func writePostResp(log *slog.Logger, w http.ResponseWriter, p *domain.Post) {
+func writePostResp(r *http.Request, h *Handlers, w http.ResponseWriter, p *domain.Post) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(toPostView(p)); err != nil {
-		logEncodeErr(log, "encode post", err)
+	if err := json.NewEncoder(w).Encode(toPostViewResolved(r, h, p)); err != nil {
+		logEncodeErr(h.Log, "encode post", err)
 	}
 }
 
@@ -257,7 +281,7 @@ func (h *Handlers) publishAdminPost() http.HandlerFunc {
 			writeError(h.Log, w, serverErr())
 			return
 		}
-		writePostResp(h.Log, w, &post)
+		writePostResp(r, h, w, &post)
 	}
 }
 
@@ -271,7 +295,7 @@ func (h *Handlers) unpublishAdminPost() http.HandlerFunc {
 			writeError(h.Log, w, serverErr())
 			return
 		}
-		writePostResp(h.Log, w, &post)
+		writePostResp(r, h, w, &post)
 	}
 }
 

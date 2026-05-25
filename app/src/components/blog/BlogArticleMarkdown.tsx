@@ -5,8 +5,10 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 
-// markdownComponents —— 喂给 <Markdown components={...}>。react-markdown 默认
-// escape raw HTML 不渲染 <script>，XSS 默认安全。
+// markdownComponents —— 喂给 <Markdown components={...}>。BlogArticle 在调
+// react-markdown 前已把 `standmeet-asset:<id>` URI expand 成 https presigned
+// URL（react-markdown 默认 urlTransform 会 strip 非标准 scheme）。这里只关
+// 心样式不关心 src 解析。XSS 默认安全（react-markdown 默认 escape raw HTML）。
 export const markdownComponents = {
   h1: H1, h2: H2, h3: H3,
   p: Para,
