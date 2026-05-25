@@ -55,6 +55,12 @@ func postCreateTool() mcpgo.Tool {
 			mcpgo.Description("Teaser shown to visitors without code (for private posts).")),
 		mcpgo.WithBoolean("publish",
 			mcpgo.Description("true = publish immediately; false (default) = draft.")),
+		mcpgo.WithArray("files",
+			mcpgo.Description(
+				"Inline image uploads, each {pending_id, url}. body_md / cover_image_asset_id "+
+					"reference them as 'standmeet-asset:pending-<id>' / 'pending-<id>'. Server "+
+					"fetches each URL (https only, image/* content-type) and atomically saves "+
+					"the bytes alongside the post.")),
 	)
 }
 
@@ -64,7 +70,7 @@ func invokePostCreate(deps *Deps) invokeFn {
 		if ownerID == "" {
 			return mcpgo.NewToolResultError("unauthorized")
 		}
-		in, perr := parsePostCreateParams(req, ownerID)
+		in, perr := parsePostCreateParams(ctx, req, ownerID)
 		if perr != nil {
 			return mcpgo.NewToolResultError(perr.Error())
 		}
@@ -73,8 +79,8 @@ func invokePostCreate(deps *Deps) invokeFn {
 }
 
 func parsePostCreateParams(
-	req *mcpgo.CallToolRequest, ownerID string,
-) (*usecases.CreatePostInput, error) {
+	ctx context.Context, req *mcpgo.CallToolRequest, ownerID string,
+) (*usecases.SavePostInput, error) {
 	slug, err := req.RequireString("slug")
 	if err != nil {
 		return nil, errors.New("slug is required")
@@ -83,37 +89,51 @@ func parsePostCreateParams(
 	if err != nil {
 		return nil, errors.New("title is required")
 	}
-	return buildPostCreateInput(req, ownerID, slug, title), nil
+	in := buildPostCreateInput(req, ownerID, slug, title)
+	files, ferr := parseOptionalFilesArg(ctx, req)
+	if ferr != nil {
+		return nil, ferr
+	}
+	in.Files = files
+	return in, nil
+}
+
+func parseOptionalFilesArg(
+	ctx context.Context, req *mcpgo.CallToolRequest,
+) ([]usecases.FileInput, error) {
+	raw, ok := req.GetArguments()["files"]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+	return resolveMCPFiles(ctx, raw)
 }
 
 func buildPostCreateInput(
 	req *mcpgo.CallToolRequest, ownerID, slug, title string,
-) *usecases.CreatePostInput {
-	coverAsset := req.GetString("cover_image_asset_id", "")
-	var coverAssetPtr *string
-	if coverAsset != "" {
-		coverAssetPtr = &coverAsset
-	}
-	return &usecases.CreatePostInput{
+) *usecases.SavePostInput {
+	return &usecases.SavePostInput{
 		OwnerID: ownerID, Slug: slug, Title: title,
-		Excerpt:           req.GetString("excerpt", ""),
-		BodyMD:            req.GetString("body_md", ""),
-		CoverHeadline:     req.GetString("cover_headline", ""),
-		CoverSub:          req.GetString("cover_sub", ""),
-		CoverHue:          req.GetString("cover_hue", "amber"),
-		CoverImageAssetID: coverAssetPtr,
-		Tags:              req.GetStringSlice("tags", nil),
-		Visibility:        req.GetString("visibility", "public"),
-		CrossRefs:         req.GetStringSlice("cross_refs", nil),
-		LockedBody:        req.GetString("locked_body", ""),
-		Publish:           req.GetBool("publish", false),
+		Excerpt:       req.GetString("excerpt", ""),
+		BodyMD:        req.GetString("body_md", ""),
+		CoverImageRef: req.GetString("cover_image_asset_id", ""),
+		CoverHeadline: req.GetString("cover_headline", ""),
+		CoverSub:      req.GetString("cover_sub", ""),
+		CoverHue:      req.GetString("cover_hue", "amber"),
+		Tags:          req.GetStringSlice("tags", nil),
+		Visibility:    req.GetString("visibility", "public"),
+		CrossRefs:     req.GetStringSlice("cross_refs", nil),
+		LockedBody:    req.GetString("locked_body", ""),
+		Publish:       req.GetBool("publish", false),
+		// Files 空：MCP path 不接 binary upload，AI 写的 body_md 不应含
+		// standmeet-asset:pending- 占位（无地方上传）。已存在 asset 也不能
+		// 跨 post 引用（每张 asset 挂一个 holder）。
 	}
 }
 
 func runPostCreate(
-	ctx context.Context, deps *Deps, in *usecases.CreatePostInput,
+	ctx context.Context, deps *Deps, in *usecases.SavePostInput,
 ) *mcpgo.CallToolResult {
-	post, err := usecases.CreatePost(ctx, deps.Posts, in)
+	post, err := usecases.SavePost(ctx, deps.PostsTx, in)
 	if err != nil {
 		if errors.Is(err, domain.ErrPostSlugTaken) {
 			return mcpgo.NewToolResultError("post slug already taken")
@@ -197,7 +217,7 @@ func invokePostDelete(deps *Deps) invokeFn {
 		if err != nil {
 			return mcpgo.NewToolResultError("post_id is required")
 		}
-		if derr := usecases.DeletePost(ctx, deps.Posts, ownerID, postID); derr != nil {
+		if derr := usecases.DeletePostWithAssets(ctx, deps.PostsTx, ownerID, postID); derr != nil {
 			deps.Log.Error("mcp post_delete", "err", derr)
 			return mcpgo.NewToolResultError("delete post failed")
 		}

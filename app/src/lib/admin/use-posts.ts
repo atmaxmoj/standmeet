@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
+import type { PendingFile } from '@/lib/blog/upload-asset';
 
 export interface AdminPostView {
   id: string;
@@ -30,36 +31,30 @@ export interface AdminPostView {
   asset_urls?: Record<string, string>;
 }
 
-export interface CreatePostInput {
-  slug: string;
+// PostSaveData —— multipart POST/PATCH 的 `data` JSON 字段。create 用
+// publish + slug；edit 时 slug 是 URL，publish 不在这（走单独 endpoint）。
+// cover_image_ref 可以是 pending-<id>（新上传，对应 files 里的一个）或
+// 已存在 asset 的真 UUID（edit 时未改 cover）。
+export interface PostSaveData {
+  slug?: string;
   title: string;
   excerpt: string;
   body_md: string;
+  cover_image_ref: string;
   cover_headline: string;
   cover_sub: string;
   cover_hue: 'amber' | 'violet' | 'acid';
-  cover_image_asset_id?: string;
-  tags: string[];
   visibility: 'public' | 'private';
-  cross_refs: string[];
   locked_body: string;
-  publish: boolean;
+  tags: string[];
+  cross_refs: string[];
+  publish?: boolean;
 }
 
-// UpdatePostInput —— PATCH /posts/{id}：slug + publish 状态保留不动（slug
-// 是 stable URL，publish 走单独 endpoint），其他字段都是覆盖。
-export interface UpdatePostInput {
-  title: string;
-  excerpt: string;
-  body_md: string;
-  cover_headline: string;
-  cover_sub: string;
-  cover_hue: 'amber' | 'violet' | 'acid';
-  cover_image_asset_id?: string;
-  tags: string[];
-  visibility: 'public' | 'private';
-  cross_refs: string[];
-  locked_body: string;
+// PostSaveBundle —— 调 createPost/updatePost 时同时携带的数据 + 待上传 files。
+export interface PostSaveBundle {
+  data: PostSaveData;
+  files: PendingFile[];
 }
 
 export interface PostsHook {
@@ -67,8 +62,8 @@ export interface PostsHook {
   posts: readonly AdminPostView[];
   error: string | null;
   refresh: () => Promise<void>;
-  createPost: (input: CreatePostInput) => Promise<boolean>;
-  updatePost: (id: string, input: UpdatePostInput) => Promise<boolean>;
+  createPost: (bundle: PostSaveBundle) => Promise<boolean>;
+  updatePost: (id: string, bundle: PostSaveBundle) => Promise<boolean>;
   deletePost: (id: string) => Promise<boolean>;
   publishPost: (id: string) => Promise<boolean>;
   unpublishPost: (id: string) => Promise<boolean>;
@@ -96,9 +91,10 @@ export function usePosts(): PostsHook {
   };
 }
 
-async function updatePost(id: string, input: UpdatePostInput): Promise<boolean> {
+async function updatePost(id: string, bundle: PostSaveBundle): Promise<boolean> {
   try {
-    const updated = await adminAPI.patch<AdminPostView>(`/posts/${id}`, input);
+    const fd = buildPostFormData(bundle);
+    const updated = await adminAPI.patchForm<AdminPostView>(`/posts/${id}`, fd);
     postsStore.getState().mutate((prev) =>
       (prev ?? []).map((p) => p.id === updated.id ? updated : p));
     return true;
@@ -107,14 +103,24 @@ async function updatePost(id: string, input: UpdatePostInput): Promise<boolean> 
   }
 }
 
-async function createPost(input: CreatePostInput): Promise<boolean> {
+async function createPost(bundle: PostSaveBundle): Promise<boolean> {
   try {
-    const created = await adminAPI.post<AdminPostView>('/posts/', input);
+    const fd = buildPostFormData(bundle);
+    const created = await adminAPI.postForm<AdminPostView>('/posts/', fd);
     postsStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
     return true;
   } catch {
     return false;
   }
+}
+
+function buildPostFormData(bundle: PostSaveBundle): FormData {
+  const fd = new FormData();
+  fd.append('data', JSON.stringify(bundle.data));
+  for (const f of bundle.files) {
+    fd.append('file:' + f.id, f.file, f.file.name);
+  }
+  return fd;
 }
 
 async function deletePost(id: string): Promise<boolean> {

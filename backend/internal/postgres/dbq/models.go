@@ -57,7 +57,7 @@ type Application struct {
 
 type Asset struct {
 	ID               pgtype.UUID
-	OwnerID          pgtype.UUID
+	HolderID         pgtype.UUID
 	StorageKey       string
 	ContentType      string
 	SizeBytes        int64

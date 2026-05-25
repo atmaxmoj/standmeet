@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
 import { BlogEditor } from '@/components/blog/editor';
+import type { PendingFile } from '@/lib/blog/upload-asset';
 
 export function PostFieldRow({ children }: { children: ReactNode }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>;
@@ -59,18 +60,20 @@ export function CoverHueSelect({
 }
 
 export function PostBodyField({
-  value, onChange, assetURLs,
+  value, onChange, assetURLs, onPending,
 }: {
   value: string;
   onChange: (v: string) => void;
   assetURLs?: Record<string, string>;
+  onPending?: (p: PendingFile) => void;
 }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
         body
       </span>
-      <BlogEditor value={value} onChange={onChange} assetURLs={assetURLs} />
+      <BlogEditor value={value} onChange={onChange}
+        assetURLs={assetURLs} onPending={onPending} />
     </label>
   );
 }

@@ -1,4 +1,7 @@
 // assets.go —— assets 表 CRUD。bytes 不进库 (在 MinIO)；这里只搬元数据。
+// 每行必须挂 holder_id (post.id / wiki.id / ...)；CRUD 永远在 holder 操作
+// 的同事务里完成。所以所有 method 都接 dbq.DBTX（可以是 pool，也可以是
+// 进行中的 tx）。
 
 package postgres
 
@@ -13,7 +16,8 @@ import (
 	"github.com/wangsijie/standmeet/internal/postgres/dbq"
 )
 
-// AssetRepo —— assets 表 CRUD。
+// AssetRepo —— assets 表 CRUD。pool 是 fallback，单独读不需要 tx 时用；
+// 写 path 都接 DBTX 让 caller 传进 tx。
 type AssetRepo struct {
 	pool *Pool
 }
@@ -22,10 +26,11 @@ type AssetRepo struct {
 func NewAssetRepo(pool *Pool) *AssetRepo { return &AssetRepo{pool: pool} }
 
 // CreateAssetInput —— Create 入参。caller 已 generate UUID (要先 storage.Put
-// 拿 key) + 上传 bytes 到 MinIO + 算好 sha256。
+// 拿 key) + 上传 bytes 到 MinIO + 算好 sha256；holder_id 是这张图归属的
+// 实体 (post.id / wiki.id / ...)。
 type CreateAssetInput struct {
 	ID               string
-	OwnerID          string
+	HolderID         string
 	StorageKey       string
 	ContentType      string
 	SHA256           string
@@ -33,29 +38,40 @@ type CreateAssetInput struct {
 	SizeBytes        int64
 }
 
-// Create —— 写一条 assets 行。
-func (r *AssetRepo) Create(ctx context.Context, in *CreateAssetInput) (domain.Asset, error) {
-	ownerUUID, oerr := parseUUID(in.OwnerID)
-	if oerr != nil {
-		return domain.Asset{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
-	}
-	assetUUID, perr := parseUUID(in.ID)
+// CreateTx —— 在 caller 给的 tx 里写一条 assets 行。create / update post
+// 的事务用它，跟 post 行 insert/update 同事务，rollback 也一起。
+func (*AssetRepo) CreateTx(
+	ctx context.Context, tx dbq.DBTX, in *CreateAssetInput,
+) (domain.Asset, error) {
+	params, perr := buildCreateAssetParams(in)
 	if perr != nil {
-		return domain.Asset{}, fmt.Errorf("parse asset id: %w", perr)
+		return domain.Asset{}, perr
 	}
-	row, err := dbq.New(r.pool).CreateAsset(ctx, dbq.CreateAssetParams{
-		ID: assetUUID, OwnerID: ownerUUID, StorageKey: in.StorageKey,
-		ContentType: in.ContentType, SizeBytes: in.SizeBytes,
-		Sha256: in.SHA256, OriginalFilename: in.OriginalFilename,
-	})
+	row, err := dbq.New(tx).CreateAsset(ctx, *params)
 	if err != nil {
 		return domain.Asset{}, fmt.Errorf("create asset: %w", err)
 	}
 	return toDomainAsset(&row), nil
 }
 
-// GetByID —— 公共 GET endpoint 用（不做 owner 校验：assets 通过 storage
-// key 已经携带 owner 隔离；caller 只要能拿到 id 就能读 URL）。
+func buildCreateAssetParams(in *CreateAssetInput) (*dbq.CreateAssetParams, error) {
+	assetUUID, aerr := parseUUID(in.ID)
+	if aerr != nil {
+		return nil, fmt.Errorf("parse asset id: %w", aerr)
+	}
+	holderUUID, herr := parseUUID(in.HolderID)
+	if herr != nil {
+		return nil, fmt.Errorf("parse holder id: %w", herr)
+	}
+	return &dbq.CreateAssetParams{
+		ID: assetUUID, HolderID: holderUUID,
+		StorageKey: in.StorageKey, ContentType: in.ContentType,
+		SizeBytes: in.SizeBytes, Sha256: in.SHA256,
+		OriginalFilename: in.OriginalFilename,
+	}, nil
+}
+
+// GetByID —— 单条读。caller 不需要 tx 时直接走 pool；tx 进行中也能用。
 func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (domain.Asset, error) {
 	assetUUID, perr := parseUUID(assetID)
 	if perr != nil {
@@ -71,43 +87,18 @@ func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (domain.Asset, 
 	return toDomainAsset(&row), nil
 }
 
-// GetByIDForOwner —— admin 路径用，确保只看到自己的。
-func (r *AssetRepo) GetByIDForOwner(
-	ctx context.Context, ownerID, assetID string,
-) (domain.Asset, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
-	if oerr != nil {
-		return domain.Asset{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
-	}
-	assetUUID, perr := parseUUID(assetID)
-	if perr != nil {
-		return domain.Asset{}, fmt.Errorf("parse asset id: %w", perr)
-	}
-	row, err := dbq.New(r.pool).GetAssetByIDForOwner(ctx, dbq.GetAssetByIDForOwnerParams{
-		ID: assetUUID, OwnerID: ownerUUID,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Asset{}, domain.ErrAssetNotFound
-		}
-		return domain.Asset{}, fmt.Errorf("get asset for owner: %w", err)
-	}
-	return toDomainAsset(&row), nil
-}
-
-// ListByOwner —— admin /assets 视图。
-func (r *AssetRepo) ListByOwner(
-	ctx context.Context, ownerID string, limit int32,
+// ListByHolderTx —— 列一个 holder 名下所有 asset 行。delete holder 前用来
+// 收 storage_key 给后置 MinIO 清；update body 后 diff old refs 也用。
+func (*AssetRepo) ListByHolderTx(
+	ctx context.Context, tx dbq.DBTX, holderID string,
 ) ([]domain.Asset, error) {
-	ownerUUID, oerr := parseUUID(ownerID)
-	if oerr != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+	holderUUID, perr := parseUUID(holderID)
+	if perr != nil {
+		return nil, fmt.Errorf("parse holder id: %w", perr)
 	}
-	rows, err := dbq.New(r.pool).ListAssetsByOwner(ctx, dbq.ListAssetsByOwnerParams{
-		OwnerID: ownerUUID, Column2: limit,
-	})
+	rows, err := dbq.New(tx).ListAssetsByHolder(ctx, holderUUID)
 	if err != nil {
-		return nil, fmt.Errorf("list assets: %w", err)
+		return nil, fmt.Errorf("list assets by holder: %w", err)
 	}
 	out := make([]domain.Asset, 0, len(rows))
 	for i := range rows {
@@ -116,28 +107,45 @@ func (r *AssetRepo) ListByOwner(
 	return out, nil
 }
 
-// Delete —— 删 PG 行；调用方应在删 PG 前先删 MinIO 对象 (失败可保留孤儿
-// 对象后续清理；PG 行删了之后无法再 presign URL 暴露，安全可接受)。
-func (r *AssetRepo) Delete(ctx context.Context, ownerID, assetID string) error {
-	ownerUUID, oerr := parseUUID(ownerID)
-	if oerr != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, oerr)
-	}
-	assetUUID, perr := parseUUID(assetID)
+// DeleteByHolderTx —— 在 tx 里删一个 holder 的所有 asset 行；返 storage_keys
+// 让 caller commit 后批删 MinIO blob。
+func (*AssetRepo) DeleteByHolderTx(
+	ctx context.Context, tx dbq.DBTX, holderID string,
+) ([]string, error) {
+	holderUUID, perr := parseUUID(holderID)
 	if perr != nil {
-		return fmt.Errorf("parse asset id: %w", perr)
+		return nil, fmt.Errorf("parse holder id: %w", perr)
 	}
-	if err := dbq.New(r.pool).DeleteAsset(ctx, dbq.DeleteAssetParams{
-		ID: assetUUID, OwnerID: ownerUUID,
-	}); err != nil {
-		return fmt.Errorf("delete asset: %w", err)
+	keys, err := dbq.New(tx).DeleteAssetsByHolder(ctx, holderUUID)
+	if err != nil {
+		return nil, fmt.Errorf("delete assets by holder: %w", err)
 	}
-	return nil
+	return keys, nil
+}
+
+// DeleteByIDsTx —— 在 tx 里删指定 asset id 集合；返 storage_keys。update
+// body 时 diff 出来的 removed refs 用。
+func (*AssetRepo) DeleteByIDsTx(
+	ctx context.Context, tx dbq.DBTX, ids []string,
+) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	uuids, perr := parseUUIDArray(ids)
+	if perr != nil {
+		return nil, fmt.Errorf("parse asset ids: %w", perr)
+	}
+	keys, err := dbq.New(tx).DeleteAssetsByIDs(ctx, uuids)
+	if err != nil {
+		return nil, fmt.Errorf("delete assets by ids: %w", err)
+	}
+	return keys, nil
 }
 
 func toDomainAsset(row *dbq.Asset) domain.Asset {
 	return domain.Asset{
-		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
+		ID:         formatUUID(row.ID),
+		HolderID:   formatUUID(row.HolderID),
 		StorageKey: row.StorageKey, ContentType: row.ContentType,
 		SizeBytes: row.SizeBytes, SHA256: row.Sha256,
 		OriginalFilename: row.OriginalFilename,

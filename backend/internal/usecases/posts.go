@@ -12,7 +12,6 @@ package usecases
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -20,113 +19,17 @@ import (
 	"github.com/wangsijie/standmeet/internal/postgres"
 )
 
-// PostsDeps —— posts 用例依赖。
+// PostsDeps —— 只读 / 简单写 (publish / unpublish) 用。retriever / public
+// list / mcp 用这个。
 type PostsDeps struct {
 	Posts *postgres.PostRepo
 }
 
-// CreatePostInput —— 写入入参。BodyMD 是 markdown 原文 (canonical 形态)。
-type CreatePostInput struct {
-	CoverImageAssetID *string
-	OwnerID           string
-	Slug              string
-	Title             string
-	Excerpt           string
-	CoverHeadline     string
-	CoverSub          string
-	CoverHue          string
-	Visibility        string
-	Path              string
-	LockedBody        string
-	BodyMD            string
-	Tags              []string
-	CrossRefs         []string
-	Publish           bool
-}
-
-// CreatePost —— 新建 post。slug 冲突翻 ErrPostSlugTaken。Publish=true 一并
-// 立刻 publish (绕过手动 PublishPost 两步)。
-func CreatePost(
-	ctx context.Context, deps PostsDeps, in *CreatePostInput,
-) (domain.Post, error) {
-	if verr := validatePostInput(in); verr != nil {
-		return domain.Post{}, verr
-	}
-	repoIn := buildRepoCreateInput(in)
-	post, err := deps.Posts.Create(ctx, repoIn)
-	if err != nil {
-		if errors.Is(err, domain.ErrPostSlugTaken) {
-			return domain.Post{}, domain.ErrPostSlugTaken
-		}
-		return domain.Post{}, fmt.Errorf("create post: %w", err)
-	}
-	return post, nil
-}
-
-func validatePostInput(in *CreatePostInput) error {
-	if in.OwnerID == "" || in.Slug == "" || in.Title == "" {
-		return ErrEmptyField
-	}
-	return nil
-}
-
-func buildRepoCreateInput(in *CreatePostInput) *postgres.CreatePostInput {
-	path := in.Path
-	if path == "" {
-		path = "posts/" + in.Slug
-	}
-	return &postgres.CreatePostInput{
-		OwnerID: in.OwnerID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
-		BodyMD: in.BodyMD, CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
-		CoverHue: in.CoverHue, CoverImageAssetID: in.CoverImageAssetID,
-		Tags: in.Tags, Visibility: in.Visibility, CrossRefs: in.CrossRefs,
-		Path: path, ReadMinutes: estimateReadMinutes(in.BodyMD),
-		LockedBody: in.LockedBody, Publish: in.Publish,
-	}
-}
-
-// UpdatePostInput —— 更新；slug / publish 状态保留。
-type UpdatePostInput struct {
-	CoverImageAssetID *string
-	OwnerID           string
-	PostID            string
-	Title             string
-	Excerpt           string
-	CoverHeadline     string
-	CoverSub          string
-	CoverHue          string
-	Visibility        string
-	Path              string
-	LockedBody        string
-	BodyMD            string
-	Tags              []string
-	CrossRefs         []string
-}
-
-// UpdatePost —— admin 编辑保存。
-func UpdatePost(
-	ctx context.Context, deps PostsDeps, in *UpdatePostInput,
-) (domain.Post, error) {
-	if in.OwnerID == "" || in.PostID == "" || in.Title == "" {
-		return domain.Post{}, ErrEmptyField
-	}
-	repoIn := buildRepoUpdateInput(in)
-	post, err := deps.Posts.Update(ctx, repoIn)
-	if err != nil {
-		return domain.Post{}, fmt.Errorf("update post: %w", err)
-	}
-	return post, nil
-}
-
-func buildRepoUpdateInput(in *UpdatePostInput) *postgres.UpdatePostInput {
-	return &postgres.UpdatePostInput{
-		OwnerID: in.OwnerID, PostID: in.PostID, Title: in.Title,
-		Excerpt: in.Excerpt, BodyMD: in.BodyMD, CoverHeadline: in.CoverHeadline,
-		CoverSub: in.CoverSub, CoverHue: in.CoverHue,
-		CoverImageAssetID: in.CoverImageAssetID,
-		Tags:              in.Tags, Visibility: in.Visibility, CrossRefs: in.CrossRefs,
-		Path: in.Path, ReadMinutes: estimateReadMinutes(in.BodyMD), LockedBody: in.LockedBody,
-	}
+// PostsTxDeps —— transactional post CRUD (create + update + delete) 用。
+// 需要 Assets 让 asset 行 + storage blob 跟 post 同事务维护。
+type PostsTxDeps struct {
+	Posts  *postgres.PostRepo
+	Assets AssetsDeps
 }
 
 // PublishPost —— 草稿 → 已发布。
@@ -155,17 +58,6 @@ func UnpublishPost(
 		return domain.Post{}, fmt.Errorf("unpublish post: %w", err)
 	}
 	return p, nil
-}
-
-// DeletePost —— 物理删。
-func DeletePost(ctx context.Context, deps PostsDeps, ownerID, postID string) error {
-	if ownerID == "" || postID == "" {
-		return ErrEmptyField
-	}
-	if err := deps.Posts.Delete(ctx, ownerID, postID); err != nil {
-		return fmt.Errorf("delete post: %w", err)
-	}
-	return nil
 }
 
 // ListAllPosts —— admin list 含草稿；按 published_at desc nulls last。

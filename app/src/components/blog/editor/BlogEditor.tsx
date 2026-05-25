@@ -1,19 +1,15 @@
 // BlogEditor —— admin /posts 用的 Tiptap 编辑器。
 //
-// 单一数据形态：markdown。value 进 markdown（含 standmeet-asset:<id>
-// URI），onChange 出 markdown（同 URI 形态）。Tiptap 内部 doc 用 presigned
-// URL（浏览器能渲染图片）；URI ↔ URL 通过 expandURIsToURLs / contractURLs
-// ToURIs 在 load + emit 边界互转。
+// 单一数据形态：markdown。value 是 body_md (含 standmeet-asset:<id> URI
+// 引用，<id> 可能是真 UUID（已存）或 pending-<uuid>（本次 session 内新粘
+// 的图）)。onChange 出 markdown 同形态。owner 点 save 时 PostForm 通过
+// onPendingFiles 取出 pending files，跟 body_md + cover 一起 multipart
+// POST/PATCH。
 //
-// 关键 extensions：
-//   StarterKit (paragraph/heading/list/quote/code/marks + markdown shortcut
-//     input rules)
-//   Link / Image / Typography / Placeholder
-//   Markdown (tiptap-markdown，serialize/parse)
-//   SlashCommand (按 / 弹 menu)
-//   ImageUpload (paste/drop → 上传 → 插 img 节点)
-//
-// 注：client component (Tiptap 用 DOM API)。
+// 显示：editor 内 image node 的 src 是 URI 形态，浏览器自己渲染不了。
+// 通过 expandURIsToURLs(body, urlMap) 转 https 给 Tiptap 看（urlMap 含
+// 已存 assets 的 presigned URL + pending uploads 的 blob URL）。
+// onUpdate 时 contractURLsToURIs 再转回 URI 形态送到 onChange。
 
 'use client';
 
@@ -33,36 +29,36 @@ import { BubbleToolbar } from '@/components/blog/editor/ui/BubbleToolbar';
 import {
   expandURIsToURLs, contractURLsToURIs, invertMap,
 } from '@/lib/blog/asset-transforms';
-import type { UploadedAsset } from '@/lib/blog/upload-asset';
+import type { PendingFile } from '@/lib/blog/upload-asset';
 
 interface Props {
   value: string;
   onChange: (md: string) => void;
-  // assetURLs —— body_md 里 `standmeet-asset:<id>` 引用的 presigned 解析
-  // map（backend response 给的）。editor 内 image node 渲染时查这个 map
-  // 拿真 URL；新上传的 image 也合并进来。
+  // assetURLs —— server-provided 已存 asset 的 presigned URL map（edit 时
+  // post.asset_urls）；新粘的 pending image 走 onPending 单独 track。
   assetURLs?: Record<string, string>;
-  onLocalUpload?: (asset: UploadedAsset) => void;
+  onPending?: (pending: PendingFile) => void;
   placeholder?: string;
 }
 
 interface MarkdownStorage { getMarkdown(): string }
 
 export function BlogEditor({
-  value, onChange, placeholder, onLocalUpload, assetURLs,
+  value, onChange, placeholder, onPending, assetURLs,
 }: Props) {
-  // urlMapRef 跨渲染 stable：初始 = server 给的 assetURLs，新上传通过
-  // imageUpload extension 的 onUploaded 喂进来。
+  // urlMapRef 跨渲染 stable：server-provided 真 id → presigned URL +
+  // pending-id → blob URL（新粘的）。display 时 expand 用，emit 时 invert
+  // 后 contract 回 URI。
   const urlMapRef = useRef<Record<string, string>>({ ...assetURLs });
   const initialContent = expandURIsToURLs(value, urlMapRef.current);
 
-  const handleUploaded = (asset: UploadedAsset) => {
-    urlMapRef.current[asset.id] = asset.url;
-    onLocalUpload?.(asset);
+  const handlePending = (pending: PendingFile) => {
+    urlMapRef.current[pending.id] = pending.objectURL;
+    onPending?.(pending);
   };
 
   const editor = useEditor({
-    extensions: buildExtensions(placeholder, handleUploaded),
+    extensions: buildExtensions(placeholder, handlePending),
     content: initialContent,
     immediatelyRender: false,
     onUpdate: ({ editor: ed }) => emitContracted(ed, urlMapRef.current, onChange),
@@ -83,7 +79,7 @@ export function BlogEditor({
 }
 
 function buildExtensions(
-  placeholder?: string, onUploaded?: (asset: UploadedAsset) => void,
+  placeholder?: string, onPending?: (pending: PendingFile) => void,
 ) {
   return [
     StarterKit.configure({}),
@@ -95,7 +91,7 @@ function buildExtensions(
     }),
     Markdown.configure({ html: false, tightLists: true, breaks: false }),
     SlashCommand,
-    ImageUpload.configure({ onUploaded }),
+    ImageUpload.configure({ onPending }),
   ];
 }
 

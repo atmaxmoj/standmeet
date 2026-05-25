@@ -1,13 +1,12 @@
 // asset_refs.go —— body_md 里的 `standmeet-asset:<uuid>` URI scheme 工具。
 //
 // 设计目的：markdown body 不存 presigned URL (会 TTL 失效)，存 stable
-// URI；API response 时 resolve 成 presigned。这样 owner 编辑、AI 写、re-save
-// 都不破。
+// URI；API response 时 resolve 成 presigned。这样 owner 编辑、re-save 都不破。
 //
-// orphan 追踪靠这个 scheme：scan body_md → extract ID 集合 → diff assets
-// 表 → 没人引的 = orphan。
-//
-// AssetURIScheme 应用范围：post body_md（v1）；wiki/output body 后续扩。
+// 引用完整性不靠 scan：每张 asset 行通过 holder_id 挂在某个 holder 上，
+// holder CRUD usecase 同事务维护 assets 行 + storage blob。所以这里**只**
+// 暴露 "解 URI" / "提 ID" 这种纯字符串 helper —— scan/GC/orphan 的概念
+// 已经废弃。
 
 package usecases
 
@@ -20,28 +19,21 @@ import (
 	"github.com/wangsijie/standmeet/internal/storage"
 )
 
-// AssetURIScheme —— markdown body 里的 stable 引用。
+// AssetURIScheme —— markdown body 里的 stable 引用前缀。
 const AssetURIScheme = "standmeet-asset:"
 
-// assetURIPattern —— `standmeet-asset:<uuid>` 的捕获 regex。UUID v4 长度
-// 36 (8-4-4-4-12 hex with dashes)。
+// assetURIPattern —— 命中已落库的 asset (真 UUID v4) 或 pending- 占位
+// (multipart save 时前端用)。
 var assetURIPattern = regexp.MustCompile(
-	`standmeet-asset:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`,
+	`standmeet-asset:(` +
+		`pending-[0-9a-zA-Z_-]+|` +
+		`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}` +
+		`-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}` +
+		`)`,
 )
 
-// PostAssetIDs —— 一个 post 里所有 asset 引用：body_md 里的 standmeet-asset
-// URI + cover_image_asset_id（如果设了）。route layer batch resolve 用，
-// orphan scan 也用，单点定义。
-func PostAssetIDs(bodyMD string, coverImageAssetID *string) []string {
-	ids := ScanAssetReferences(bodyMD)
-	if coverImageAssetID != nil && *coverImageAssetID != "" {
-		ids = append(ids, *coverImageAssetID)
-	}
-	return ids
-}
-
-// ScanAssetReferences —— 从 body_md 抽出所有引用的 asset ID（去重）。
-// 顺序：首次出现先。
+// ScanAssetReferences —— 从 body_md 抽出所有引用的 asset ID / pending-id
+// (去重，首次出现先)。
 func ScanAssetReferences(bodyMD string) []string {
 	matches := assetURIPattern.FindAllStringSubmatch(bodyMD, -1)
 	seen := make(map[string]struct{}, len(matches))
@@ -56,11 +48,18 @@ func ScanAssetReferences(bodyMD string) []string {
 	return out
 }
 
-// ResolveAssetURLs —— 给一组 asset ID 批量颁发 presigned URL。返回 map
-// 缺 ID = storage 那条出问题（log 不阻断）。
-//
-// caller 是 post API：拿到 body_md → ScanAssetReferences → ResolveAssetURLs
-// → 把 map 塞进 response 让前端 renderer 替换 src。
+// PostAssetIDs —— 一个 post 里所有 asset 引用：body_md 里的 standmeet-asset
+// URI + cover_image_asset_id（如果设了）。route layer batch resolve 用。
+func PostAssetIDs(bodyMD string, coverImageAssetID *string) []string {
+	ids := ScanAssetReferences(bodyMD)
+	if coverImageAssetID != nil && *coverImageAssetID != "" {
+		ids = append(ids, *coverImageAssetID)
+	}
+	return ids
+}
+
+// ResolveAssetURLs —— 给一组真 asset ID 批量颁发 presigned URL。pending-*
+// 占位不会出现在这里（caller 已经 rewrite 完）。缺 ID 用 best-effort 跳过。
 func ResolveAssetURLs(
 	ctx context.Context, repo *postgres.AssetRepo, store *storage.Client,
 	ids []string,
@@ -72,7 +71,7 @@ func ResolveAssetURLs(
 	for _, id := range ids {
 		url, err := resolveOne(ctx, repo, store, id)
 		if err != nil {
-			continue // 缺 ID 前端有降级
+			continue
 		}
 		out[id] = url
 	}
@@ -91,83 +90,4 @@ func resolveOne(
 		return "", fmt.Errorf("presign %s: %w", id, perr)
 	}
 	return url, nil
-}
-
-// FindOrphanAssets —— 列出 owner 名下 assets 表里**没被任何 post 引用**的 asset。
-// 当前扫 post.body_md；后续扩 wiki / output / custom_page 时往这里加 source。
-// 设计：只读，不删；删动作走 admin GC endpoint 或 MCP tool 主动触发。
-func FindOrphanAssets(
-	ctx context.Context, assetsRepo *postgres.AssetRepo,
-	postsRepo *postgres.PostRepo, ownerID string,
-) ([]string, error) {
-	referenced, err := collectReferencedAssetIDs(ctx, postsRepo, ownerID)
-	if err != nil {
-		return nil, fmt.Errorf("collect references: %w", err)
-	}
-	// limit=0 → sqlc query 通过 NULLIF 把 0 当 "no limit"，全拉。
-	assets, err := assetsRepo.ListByOwner(ctx, ownerID, 0)
-	if err != nil {
-		return nil, fmt.Errorf("list assets: %w", err)
-	}
-	orphans := make([]string, 0)
-	for i := range assets {
-		if _, used := referenced[assets[i].ID]; !used {
-			orphans = append(orphans, assets[i].ID)
-		}
-	}
-	return orphans, nil
-}
-
-func collectReferencedAssetIDs(
-	ctx context.Context, postsRepo *postgres.PostRepo, ownerID string,
-) (map[string]struct{}, error) {
-	posts, err := postsRepo.ListByOwner(ctx, ownerID)
-	if err != nil {
-		return nil, fmt.Errorf("list posts: %w", err)
-	}
-	out := make(map[string]struct{})
-	for i := range posts {
-		for _, id := range PostAssetIDs(posts[i].BodyMD, posts[i].CoverImageAssetID) {
-			out[id] = struct{}{}
-		}
-	}
-	return out, nil
-}
-
-// GCResult —— GCOrphanAssets 报告。Deleted 是成功删的 asset ID；
-// FailedDeletes 是 PG 行删失败的（storage 是 best-effort 不会失败）。
-type GCResult struct {
-	Deleted       []string
-	FailedDeletes []string
-}
-
-// GCOrphanAssets —— 主动 GC：扫 orphan → 逐个 DeleteAsset。结果含成功/失败
-// 列表，caller 决定怎么报告。MCP `assets_gc` 工具和 admin DELETE
-// /assets/orphans 都进来。
-func GCOrphanAssets(
-	ctx context.Context, assets AssetsDeps,
-	postsRepo *postgres.PostRepo, ownerID string,
-) (GCResult, error) {
-	orphans, err := FindOrphanAssets(ctx, assets.Repo, postsRepo, ownerID)
-	if err != nil {
-		return GCResult{}, fmt.Errorf("find orphans: %w", err)
-	}
-	return deleteOrphanList(ctx, assets, ownerID, orphans), nil
-}
-
-func deleteOrphanList(
-	ctx context.Context, assets AssetsDeps, ownerID string, ids []string,
-) GCResult {
-	out := GCResult{
-		Deleted:       make([]string, 0, len(ids)),
-		FailedDeletes: make([]string, 0),
-	}
-	for _, id := range ids {
-		if err := DeleteAsset(ctx, assets, ownerID, id); err != nil {
-			out.FailedDeletes = append(out.FailedDeletes, id)
-			continue
-		}
-		out.Deleted = append(out.Deleted, id)
-	}
-	return out
 }

@@ -25,6 +25,9 @@ type PostRepo struct {
 // NewPostRepo 构造。
 func NewPostRepo(pool *Pool) *PostRepo { return &PostRepo{pool: pool} }
 
+// Pool —— usecase 开 tx 用。create / update post 跟 assets 写需要同事务。
+func (r *PostRepo) Pool() *Pool { return r.pool }
+
 // CreatePostInput —— Create 入参。BodyMD 是 markdown 原文，本层透传。
 type CreatePostInput struct {
 	CoverImageAssetID *string
@@ -45,14 +48,21 @@ type CreatePostInput struct {
 	Publish           bool
 }
 
-// Create —— 新建 post 行。Publish=true 一并 published_at=now。slug 冲突翻
-// ErrPostSlugTaken。
+// Create —— 新建 post 行 (no tx)。
 func (r *PostRepo) Create(ctx context.Context, in *CreatePostInput) (domain.Post, error) {
+	return r.CreateTx(ctx, r.pool, in)
+}
+
+// CreateTx —— 在 caller 给的 tx 里新建 post，跟 assets 写同事务用。
+// Publish=true 一并 published_at=now。slug 冲突翻 ErrPostSlugTaken。
+func (*PostRepo) CreateTx(
+	ctx context.Context, tx dbq.DBTX, in *CreatePostInput,
+) (domain.Post, error) {
 	params, perr := buildCreatePostParams(in)
 	if perr != nil {
 		return domain.Post{}, perr
 	}
-	row, err := dbq.New(r.pool).CreatePost(ctx, *params)
+	row, err := dbq.New(tx).CreatePost(ctx, *params)
 	if err != nil {
 		if name, hit := pgUniqueViolation(err); hit && name == "posts_owner_slug_uniq" {
 			return domain.Post{}, domain.ErrPostSlugTaken
@@ -122,13 +132,20 @@ type UpdatePostInput struct {
 	ReadMinutes       int32
 }
 
-// Update —— 全字段覆盖 (除 slug / 发布状态)。caller 已校验 owner。
+// Update —— 全字段覆盖 (no tx)。
 func (r *PostRepo) Update(ctx context.Context, in *UpdatePostInput) (domain.Post, error) {
+	return r.UpdateTx(ctx, r.pool, in)
+}
+
+// UpdateTx —— 全字段覆盖 (除 slug / 发布状态)，tx 版。assets 同事务写。
+func (*PostRepo) UpdateTx(
+	ctx context.Context, tx dbq.DBTX, in *UpdatePostInput,
+) (domain.Post, error) {
 	params, perr := buildUpdatePostParams(in)
 	if perr != nil {
 		return domain.Post{}, perr
 	}
-	row, err := dbq.New(r.pool).UpdatePost(ctx, *params)
+	row, err := dbq.New(tx).UpdatePost(ctx, *params)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Post{}, domain.ErrPostNotFound
@@ -192,14 +209,20 @@ func toDomainPostOrErr(row *dbq.Post, err error) (domain.Post, error) {
 	return toDomainPost(row), nil
 }
 
-// Delete —— 物理删；FK ON DELETE SET NULL 让 cover_image_asset_id 在
-// assets 删时自动清空 (反向：删 post 不删 asset，asset 可被其他 post 复用)。
+// Delete —— 物理删 (no tx)。usecase 层会先 list+delete assets 同事务再调
+// 这个，所以这里只删 posts 行本身。
 func (r *PostRepo) Delete(ctx context.Context, ownerID, postID string) error {
+	return r.DeleteTx(ctx, r.pool, ownerID, postID)
+}
+
+// DeleteTx —— 物理删 post 行（tx 版）。caller 必须在同事务先 DELETE assets
+// WHERE holder_id = postID（usecase 层负责）。
+func (*PostRepo) DeleteTx(ctx context.Context, tx dbq.DBTX, ownerID, postID string) error {
 	args, perr := parseOwnerAndPostID(ownerID, postID)
 	if perr != nil {
 		return perr
 	}
-	if err := dbq.New(r.pool).DeletePost(ctx, dbq.DeletePostParams{
+	if err := dbq.New(tx).DeletePost(ctx, dbq.DeletePostParams{
 		ID: args.postUUID, OwnerID: args.ownerUUID,
 	}); err != nil {
 		return fmt.Errorf("delete post: %w", err)

@@ -8,10 +8,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/wangsijie/standmeet/internal/postgres/dbq"
 )
 
 // Pool 是 pgx pool 的别名，便于 mock 替换。
 type Pool = pgxpool.Pool
+
+// DBTX —— sqlc 生成的最小 query 接口（pgxpool.Pool 和 pgx.Tx 都满足）。
+// 在 postgres 包重导避免 usecases 直接依赖 dbq (arch-lint 限制)。
+type DBTX = dbq.DBTX
 
 const (
 	poolMaxConns       = 20

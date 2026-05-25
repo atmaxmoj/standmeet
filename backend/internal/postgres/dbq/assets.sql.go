@@ -12,14 +12,14 @@ import (
 )
 
 const createAsset = `-- name: CreateAsset :one
-INSERT INTO assets (id, owner_id, storage_key, content_type, size_bytes, sha256, original_filename)
+INSERT INTO assets (id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, owner_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
+RETURNING id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
 `
 
 type CreateAssetParams struct {
 	ID               pgtype.UUID
-	OwnerID          pgtype.UUID
+	HolderID         pgtype.UUID
 	StorageKey       string
 	ContentType      string
 	SizeBytes        int64
@@ -30,7 +30,7 @@ type CreateAssetParams struct {
 func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset, error) {
 	row := q.db.QueryRow(ctx, createAsset,
 		arg.ID,
-		arg.OwnerID,
+		arg.HolderID,
 		arg.StorageKey,
 		arg.ContentType,
 		arg.SizeBytes,
@@ -40,7 +40,7 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 	var i Asset
 	err := row.Scan(
 		&i.ID,
-		&i.OwnerID,
+		&i.HolderID,
 		&i.StorageKey,
 		&i.ContentType,
 		&i.SizeBytes,
@@ -51,23 +51,63 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 	return i, err
 }
 
-const deleteAsset = `-- name: DeleteAsset :exec
+const deleteAssetsByHolder = `-- name: DeleteAssetsByHolder :many
 DELETE FROM assets
-WHERE id = $1 AND owner_id = $2
+WHERE holder_id = $1
+RETURNING storage_key
 `
 
-type DeleteAssetParams struct {
-	ID      pgtype.UUID
-	OwnerID pgtype.UUID
+// 删一个 holder 的所有 asset 行；返 storage_key 让 caller 后置批删 MinIO blob。
+func (q *Queries) DeleteAssetsByHolder(ctx context.Context, holderID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteAssetsByHolder, holderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var storage_key string
+		if err := rows.Scan(&storage_key); err != nil {
+			return nil, err
+		}
+		items = append(items, storage_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-func (q *Queries) DeleteAsset(ctx context.Context, arg DeleteAssetParams) error {
-	_, err := q.db.Exec(ctx, deleteAsset, arg.ID, arg.OwnerID)
-	return err
+const deleteAssetsByIDs = `-- name: DeleteAssetsByIDs :many
+DELETE FROM assets
+WHERE id = ANY($1::uuid[])
+RETURNING storage_key
+`
+
+// 按 id 集合删；caller 已经知道这些 id 是同一个 holder 的（update 时算
+// removed = old_refs - new_refs）。返 storage_key 让 caller 删 blob。
+func (q *Queries) DeleteAssetsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteAssetsByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var storage_key string
+		if err := rows.Scan(&storage_key); err != nil {
+			return nil, err
+		}
+		items = append(items, storage_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAssetByID = `-- name: GetAssetByID :one
-SELECT id, owner_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
+SELECT id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
 FROM assets
 WHERE id = $1
 `
@@ -77,7 +117,7 @@ func (q *Queries) GetAssetByID(ctx context.Context, id pgtype.UUID) (Asset, erro
 	var i Asset
 	err := row.Scan(
 		&i.ID,
-		&i.OwnerID,
+		&i.HolderID,
 		&i.StorageKey,
 		&i.ContentType,
 		&i.SizeBytes,
@@ -88,51 +128,14 @@ func (q *Queries) GetAssetByID(ctx context.Context, id pgtype.UUID) (Asset, erro
 	return i, err
 }
 
-const getAssetByIDForOwner = `-- name: GetAssetByIDForOwner :one
-SELECT id, owner_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
+const listAssetsByHolder = `-- name: ListAssetsByHolder :many
+SELECT id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
 FROM assets
-WHERE id = $1 AND owner_id = $2
+WHERE holder_id = $1
 `
 
-type GetAssetByIDForOwnerParams struct {
-	ID      pgtype.UUID
-	OwnerID pgtype.UUID
-}
-
-func (q *Queries) GetAssetByIDForOwner(ctx context.Context, arg GetAssetByIDForOwnerParams) (Asset, error) {
-	row := q.db.QueryRow(ctx, getAssetByIDForOwner, arg.ID, arg.OwnerID)
-	var i Asset
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.StorageKey,
-		&i.ContentType,
-		&i.SizeBytes,
-		&i.Sha256,
-		&i.OriginalFilename,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const listAssetsByOwner = `-- name: ListAssetsByOwner :many
-SELECT id, owner_id, storage_key, content_type, size_bytes, sha256, original_filename, created_at
-FROM assets
-WHERE owner_id = $1
-ORDER BY created_at DESC
-LIMIT NULLIF($2::int, 0)
-`
-
-type ListAssetsByOwnerParams struct {
-	OwnerID pgtype.UUID
-	Column2 int32
-}
-
-// $2 = 0 → 无 limit (NULLIF 把 0 转 NULL，LIMIT NULL = 全返)。orphan 扫
-// 必须能拉到所有 owner asset 否则会漏。admin /assets list usecase 默认
-// 传 50；orphan scan 传 0。
-func (q *Queries) ListAssetsByOwner(ctx context.Context, arg ListAssetsByOwnerParams) ([]Asset, error) {
-	rows, err := q.db.Query(ctx, listAssetsByOwner, arg.OwnerID, arg.Column2)
+func (q *Queries) ListAssetsByHolder(ctx context.Context, holderID pgtype.UUID) ([]Asset, error) {
+	rows, err := q.db.Query(ctx, listAssetsByHolder, holderID)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +145,7 @@ func (q *Queries) ListAssetsByOwner(ctx context.Context, arg ListAssetsByOwnerPa
 		var i Asset
 		if err := rows.Scan(
 			&i.ID,
-			&i.OwnerID,
+			&i.HolderID,
 			&i.StorageKey,
 			&i.ContentType,
 			&i.SizeBytes,

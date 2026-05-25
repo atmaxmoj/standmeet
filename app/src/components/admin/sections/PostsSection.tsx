@@ -9,10 +9,13 @@ import { useCallback, useState } from 'react';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
-import { PostForm, EMPTY_VALUES, type PostFormValues } from '@/components/admin/sections/posts/PostForm';
+import {
+  PostForm, EMPTY_VALUES,
+  type PostFormValues, type PostFormSubmit,
+} from '@/components/admin/sections/posts/PostForm';
 import {
   usePosts, type PostsHook, type AdminPostView,
-  type CreatePostInput, type UpdatePostInput,
+  type PostSaveBundle, type PostSaveData,
 } from '@/lib/admin/use-posts';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
@@ -195,7 +198,7 @@ function PostCreateModal({
   onClose, onCreate,
 }: {
   onClose: () => void;
-  onCreate: (input: CreatePostInput) => Promise<boolean>;
+  onCreate: (bundle: PostSaveBundle) => Promise<boolean>;
 }) {
   return (
     <div
@@ -210,7 +213,7 @@ function PostCreateModal({
         submitLabel="create"
         submitTestId="post-create-submit"
         onClose={onClose}
-        onSubmit={(v) => onCreate(buildCreatePayload(v))}
+        onSubmit={(s) => onCreate(toBundle(s, true))}
       />
     </div>
   );
@@ -221,7 +224,7 @@ function PostEditModal({
 }: {
   post: AdminPostView;
   onClose: () => void;
-  onUpdate: (id: string, input: UpdatePostInput) => Promise<boolean>;
+  onUpdate: (id: string, bundle: PostSaveBundle) => Promise<boolean>;
 }) {
   return (
     <div
@@ -237,7 +240,7 @@ function PostEditModal({
         submitTestId="post-edit-submit"
         assetURLs={post.asset_urls ?? {}}
         onClose={onClose}
-        onSubmit={(v) => onUpdate(post.id, buildUpdatePayload(v))}
+        onSubmit={(s) => onUpdate(post.id, toBundle(s, false))}
       />
     </div>
   );
@@ -263,24 +266,22 @@ function lookupAssetURL(id: string, map: Record<string, string>): string {
   return map[id] ?? '';
 }
 
-function buildCreatePayload(v: PostFormValues): CreatePostInput {
-  return {
-    slug: v.slug, title: v.title, excerpt: v.excerpt, body_md: v.bodyMD,
-    cover_headline: v.coverHeadline, cover_sub: v.coverSub, cover_hue: v.coverHue,
-    cover_image_asset_id: v.coverAsset.id === '' ? undefined : v.coverAsset.id,
-    tags: parseTags(v.tags),
-    visibility: 'public', cross_refs: [], locked_body: '', publish: v.publish,
-  };
+// toBundle —— PostForm 提交回来 (values + pending files) → 转 PostSaveBundle
+// 给 createPost/updatePost。create 时附带 slug + publish 字段，edit 时不带
+// （走单独 publish endpoint，slug 在 URL）。
+function toBundle(s: PostFormSubmit, isCreate: boolean): PostSaveBundle {
+  return { data: toSaveData(s.values, isCreate), files: s.files };
 }
 
-function buildUpdatePayload(v: PostFormValues): UpdatePostInput {
-  return {
+function toSaveData(v: PostFormValues, isCreate: boolean): PostSaveData {
+  const base: PostSaveData = {
     title: v.title, excerpt: v.excerpt, body_md: v.bodyMD,
-    cover_headline: v.coverHeadline, cover_sub: v.coverSub, cover_hue: v.coverHue,
-    cover_image_asset_id: v.coverAsset.id === '' ? undefined : v.coverAsset.id,
-    tags: parseTags(v.tags),
-    visibility: 'public', cross_refs: [], locked_body: '',
+    cover_image_ref: v.coverAsset.id, cover_headline: v.coverHeadline,
+    cover_sub: v.coverSub, cover_hue: v.coverHue,
+    visibility: 'public', locked_body: '',
+    tags: parseTags(v.tags), cross_refs: [],
   };
+  return isCreate ? { ...base, slug: v.slug, publish: v.publish } : base;
 }
 
 function parseTags(raw: string): string[] {

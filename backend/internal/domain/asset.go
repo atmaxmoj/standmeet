@@ -9,11 +9,12 @@ import (
 	"time"
 )
 
-// Asset —— assets 表的值对象。
+// Asset —— assets 表的值对象。HolderID 是这张 asset 所属的实体 id
+// (post.id / wiki.id / ...)。Owner 通过 holder → holder.owner_id 间接查。
 type Asset struct {
 	CreatedAt        time.Time
 	ID               string
-	OwnerID          string
+	HolderID         string
 	StorageKey       string
 	ContentType      string
 	SHA256           string

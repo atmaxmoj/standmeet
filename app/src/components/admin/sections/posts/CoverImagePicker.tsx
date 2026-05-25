@@ -1,39 +1,44 @@
-// CoverImagePicker —— admin posts 表单的 cover image 上传 row：
-// preview thumbnail + file picker + clear 按钮。
+// CoverImagePicker —— admin posts 表单的 cover image 选择 row：
+// preview thumbnail + file picker + clear。
 //
-// 走跟 body 图片同一个 uploadAsset()；返 {id, presigned_url}，id 进
-// cover_image_asset_id 提交到 backend，url 给 preview 用。
+// 不立即上传：file pick → 分配 pending-id + objectURL（本地预览）→
+// 通过 onChange 报 cover_image_ref = 'pending-<id>'，同时 onPending
+// 报 PendingFile 给 PostForm（save 时一起 multipart）。
+// edit 模式：caller 把已存 asset 的 id + presigned URL 传进来 (value 字段)，
+// 不动 onPending。
 
 import Image from 'next/image';
 
 import type { useToast } from '@/lib/ui/toast';
-import { uploadAsset } from '@/lib/blog/upload-asset';
+import { newPendingID, type PendingFile } from '@/lib/blog/upload-asset';
 
 export interface CoverAssetState { id: string; url: string }
 
 interface Props {
   value: CoverAssetState;
   onChange: (v: CoverAssetState) => void;
+  onPending: (p: PendingFile) => void;
   toast: ReturnType<typeof useToast>;
 }
 
-export function CoverImagePicker({ value, onChange, toast }: Props) {
+export function CoverImagePicker({ value, onChange, onPending, toast }: Props) {
   return (
     <label className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
         cover image (optional)
       </span>
-      <Row value={value} onChange={onChange} toast={toast} />
+      <Row value={value} onChange={onChange} onPending={onPending} toast={toast} />
     </label>
   );
 }
 
-function Row({ value, onChange, toast }: Props) {
+function Row({ value, onChange, onPending, toast }: Props) {
   return (
     <div className="flex items-center gap-3">
       <Preview url={value.url} />
       <PickerInput
         onPicked={onChange}
+        onPending={onPending}
         onError={(msg) => toast.error(msg)}
       />
       <ClearMaybe value={value} onChange={onChange} />
@@ -66,44 +71,47 @@ function PreviewEmpty() {
   );
 }
 
-function PickerInput({
-  onPicked, onError,
-}: { onPicked: (v: CoverAssetState) => void; onError: (msg: string) => void }) {
+interface PickerInputProps {
+  onPicked: (v: CoverAssetState) => void;
+  onPending: (p: PendingFile) => void;
+  onError: (msg: string) => void;
+}
+
+function PickerInput({ onPicked, onPending, onError }: PickerInputProps) {
   return (
     <input
       type="file"
       accept="image/*"
       data-testid="post-field-cover-image"
-      onChange={(e) => void handlePick(e.target.files, onPicked, onError)}
+      onChange={(e) => handlePick(e.target.files, onPicked, onPending, onError)}
       className="mono text-[11px]"
     />
   );
 }
 
-async function handlePick(
+function handlePick(
   files: FileList | null,
   onPicked: (v: CoverAssetState) => void,
+  onPending: (p: PendingFile) => void,
   onError: (msg: string) => void,
-): Promise<void> {
+): void {
   const file = firstFile(files);
-  await (file ? doUploadCover(file, onPicked, onError) : Promise.resolve());
+  file ? attachPending(file, onPicked, onPending) : onError('no file selected');
 }
 
 function firstFile(files: FileList | null): File | null {
   return files?.[0] ?? null;
 }
 
-async function doUploadCover(
+function attachPending(
   file: File,
   onPicked: (v: CoverAssetState) => void,
-  onError: (msg: string) => void,
-): Promise<void> {
-  try {
-    const a = await uploadAsset(file);
-    onPicked({ id: a.id, url: a.url });
-  } catch (err) {
-    onError(err instanceof Error ? err.message : 'upload failed');
-  }
+  onPending: (p: PendingFile) => void,
+): void {
+  const id = newPendingID();
+  const objectURL = URL.createObjectURL(file);
+  onPending({ id, file, objectURL });
+  onPicked({ id, url: objectURL });
 }
 
 function ClearMaybe({

@@ -1,26 +1,31 @@
-// upload-asset.ts —— editor 用的 image 上传 helper。
-// 走 admin 的 multipart /assets 端点，返 { id, url } 给调用方。
-// id 用于插 stable `standmeet-asset:<id>` URI；url 用于即时显示。
-
-import { adminAPI } from '@/lib/api/admin';
-
-export interface UploadedAsset {
-  id: string;
-  url: string;
-  contentType: string;
-}
-
-interface AssetResp {
-  id: string;
-  url: string;
-  content_type: string;
-}
-
-export async function uploadAsset(file: File): Promise<UploadedAsset> {
-  const form = new FormData();
-  form.append('file', file);
-  const res = await adminAPI.postForm<AssetResp>('/assets/', form);
-  return { id: res.id, url: res.url, contentType: res.content_type };
-}
+// upload-asset.ts —— editor 内 image 处理 helper（前端内存里挂 File，不
+// 立即上传）。
+//
+// 流程：owner 粘/拖图 → ImageUpload extension 分配 client-side `pending-<id>`
+// → 文件存进内存 Map → editor body_md 写 `standmeet-asset:pending-<id>` →
+// 显示用 URL.createObjectURL(File) 拿本地 blob URL。
+//
+// owner 点 save → PostForm 把 body_md + pending Files 一并 multipart POST/
+// PATCH 到 /api/admin/posts/ → server 同事务上传 + insert + rewrite → 返
+// 新 body_md（含真 asset id）+ asset_urls (presigned)。
 
 export const ASSET_URI_SCHEME = 'standmeet-asset:';
+
+// PendingFile —— 编辑器内存里的待保存 file。
+export interface PendingFile {
+  id: string; // 'pending-' + uuid
+  file: File;
+  objectURL: string; // URL.createObjectURL(file)
+}
+
+// newPendingID —— 给一张新粘进来的 image 分配 client-side id。format
+// 必须跟 backend 的 standmeet-asset regex 一致（pending-[0-9a-zA-Z_-]+）。
+export function newPendingID(): string {
+  const rand = crypto.randomUUID();
+  return 'pending-' + rand;
+}
+
+// assetURI —— 构造 markdown 里写的 URI。
+export function assetURI(id: string): string {
+  return ASSET_URI_SCHEME + id;
+}

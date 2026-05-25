@@ -26,14 +26,11 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		PublicCustomPages:    buildPublicCustomPageDeps(d),
 		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:  buildPublicPasswordResetDeps(d),
-		PublicAssets: publicroutes.AssetHandlers{
-			Deps: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
-			Log:  d.log,
-		},
 		PublicPosts: publicroutes.PostHandlers{
-			Posts: usecases.PostsDeps{Posts: d.postRepo},
-			Page:  usecases.PageDeps{Owners: d.ownerRepo},
-			Log:   d.log,
+			Posts:  usecases.PostsDeps{Posts: d.postRepo},
+			Page:   usecases.PageDeps{Owners: d.ownerRepo},
+			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+			Log:    d.log,
 		},
 		Builds:          sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
 		TLSAsk:          sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
@@ -147,7 +144,10 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Skills:     usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		MCPServers: usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Posts:      usecases.PostsDeps{Posts: d.postRepo},
-		Assets:     usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
-		Log:        d.log,
+		PostsTx: usecases.PostsTxDeps{
+			Posts:  d.postRepo,
+			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+		},
+		Log: d.log,
 	}
 }

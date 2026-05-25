@@ -243,12 +243,32 @@ CREATE TABLE code_mcp_servers (
 CREATE INDEX code_mcp_servers_server_idx ON code_mcp_servers(mcp_server_id);
 
 -- assets —— owner-uploaded 二进制 (图片 / 附件) 的元数据。bytes 落 MinIO
--- 对象存储 (key = '<owner_id>/<asset_id>')；元数据在这里。posts / raw /
--- wiki / custom_pages 通过 asset_id 引用，URL 走 backend presign。
--- sha256 让重复上传可在 caller 端 dedup (本表不强制 unique)。
+-- (key = '<owner_id>/<asset_id>')；元数据在这里。
+--
+-- 引用完整性：asset 行只有在归属一个 holder 实体 (post / 未来 wiki /
+-- output / ...) 时才存在。upload 不能脱离 holder 单独发生——只走 multipart
+-- save (POST /api/admin/posts/ 接 post fields + 内联 image file)。upload
+-- + insert assets 行 + insert/update post 在一个事务里。
+--
+-- holder_id 是对应实体的 UUID（post.id / wiki.id / ...）。PG 不支持
+-- polymorphic FK 所以这列不挂 DB-level 外键；引用完整性靠 app 层在 holder
+-- CRUD 事务里维护：
+--   - create holder + 它的图：同事务 INSERT post + INSERT assets
+--   - delete holder：同事务 DELETE assets WHERE holder_id = post.id；
+--     commit 后批删 MinIO blob (best-effort，失败 log；dead blob 对业务
+--     不可见，不影响 invariant)
+--   - update holder body：diff old / new asset refs 同事务清失效
+--
+-- 没有 "draft" state：editor 内 owner 粘/拖图存浏览器内存，点 save 才一并
+-- multipart 提交。owner 关浏览器 = 图根本没到 server。所以 orphan 不可能
+-- 出现，不需要 scan / sweeper / GC。
+--
+-- 没 owner_id 列：归属链 asset → holder (post / wiki / ...) → 该实体的
+-- owner_id；多一层 indirection 但去掉冗余。storage_key = '<holder_id>/<asset_id>'
+-- 让 storage 也按 holder 分目录，prefix-list / batch-delete 同时方便。
 CREATE TABLE assets (
     id                 uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id           uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    holder_id          uuid          NOT NULL,
     storage_key        text          NOT NULL,
     content_type       text          NOT NULL DEFAULT 'application/octet-stream',
     size_bytes         bigint        NOT NULL DEFAULT 0,
@@ -257,8 +277,7 @@ CREATE TABLE assets (
     created_at         timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE INDEX assets_owner_created_idx ON assets(owner_id, created_at DESC);
-CREATE INDEX assets_sha256_idx ON assets(owner_id, sha256) WHERE sha256 <> '';
+CREATE INDEX assets_holder_idx ON assets(holder_id);
 
 -- posts —— blog 文章。设计源自 claude.ai/design 的 posts.js + blog.html
 -- (Stripe-Press 风 essays)。文章本身是 corpus entry 的展开版：visitor chat

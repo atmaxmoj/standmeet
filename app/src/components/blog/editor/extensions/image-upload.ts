@@ -1,19 +1,16 @@
-// image-upload.ts —— editor 接住 paste/drop image 文件 → 上传 → 插
-// markdown image 节点。
-//
-// markdown 里写 `![filename](standmeet-asset:<id>)`；editor 内部缓存
-// id→presigned URL（onUploadedAsset 回调暴露给 BlogEditor）方便实时显示，
-// 同时 backend response 的 asset_urls 是 source of truth。
+// image-upload.ts —— editor 接住 paste/drop image。不立即上传：分配
+// client-side `pending-<id>`，把 File 存进 editor storage（caller 从
+// BlogEditor 拿出来跟 body_md 一起 multipart 提交）。markdown 里写
+// `standmeet-asset:pending-<id>`；显示用 URL.createObjectURL 拿 blob URL。
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 
-import { uploadAsset, type UploadedAsset } from '@/lib/blog/upload-asset';
+import { newPendingID, assetURI, type PendingFile } from '@/lib/blog/upload-asset';
 
 export interface ImageUploadOptions {
-  onUploaded?: (asset: UploadedAsset) => void;
-  onError?: (err: Error) => void;
+  onPending?: (pending: PendingFile) => void;
 }
 
 export const ImageUpload = Extension.create<ImageUploadOptions>({
@@ -40,12 +37,12 @@ function makeImagePastePlugin(opts: ImageUploadOptions): Plugin {
 
 function handlePaste(view: EditorView, event: ClipboardEvent, opts: ImageUploadOptions): boolean {
   const file = firstImageFile(event.clipboardData?.files);
-  return file ? (event.preventDefault(), uploadAndInsert(view, file, opts), true) : false;
+  return file ? (event.preventDefault(), insertPending(view, file, opts), true) : false;
 }
 
 function handleDrop(view: EditorView, event: DragEvent, opts: ImageUploadOptions): boolean {
   const file = firstImageFile(event.dataTransfer?.files);
-  return file ? (event.preventDefault(), uploadAndInsert(view, file, opts), true) : false;
+  return file ? (event.preventDefault(), insertPending(view, file, opts), true) : false;
 }
 
 function firstImageFile(files: FileList | null | undefined): File | undefined {
@@ -54,32 +51,20 @@ function firstImageFile(files: FileList | null | undefined): File | undefined {
     : undefined;
 }
 
-function uploadAndInsert(view: EditorView, file: File, opts: ImageUploadOptions): void {
-  // fire-and-forget async；错误回 opts.onError。
-  void doUploadAndInsert(view, file, opts);
+// insertPending —— 不上传，分配 pending-id + 存 File，editor doc 插入
+// 一个 src=URI 的 image 节点（blob URL 给当前 session 显示；onPending
+// 回调把 PendingFile 喂回 BlogEditor 让 PostForm 在 save 时收集）。
+function insertPending(view: EditorView, file: File, opts: ImageUploadOptions): void {
+  const id = newPendingID();
+  const objectURL = URL.createObjectURL(file);
+  const pending: PendingFile = { id, file, objectURL };
+  opts.onPending?.(pending);
+  insertImageNode(view, file.name, assetURI(id));
 }
 
-async function doUploadAndInsert(
-  view: EditorView, file: File, opts: ImageUploadOptions,
-): Promise<void> {
-  try {
-    const uploaded = await uploadAsset(file);
-    // 顺序关键：先回调把 (id, url) 进 urlMapRef，再 dispatch insert（dispatch
-    // 会触发 BlogEditor.onUpdate → contractURLsToURIs(url → URI)）。
-    // 反了的话 emit 时 map 还没新条目，body_md 会留 presigned URL。
-    opts.onUploaded?.(uploaded);
-    insertImageDisplay(view, file.name, uploaded.url);
-  } catch (err) {
-    opts.onError?.(err instanceof Error ? err : new Error(String(err)));
-  }
-}
-
-// insertImageDisplay —— editor doc 用 presigned URL（浏览器能渲染）。
-// BlogEditor 的 onUpdate 在 emit body_md 前 contract 回 standmeet-asset:<id>
-// URI（用 onUploaded 喂进去的 id↔url 映射）。
-function insertImageDisplay(view: EditorView, alt: string, url: string): void {
+function insertImageNode(view: EditorView, alt: string, src: string): void {
   const { schema } = view.state;
-  const node = schema.nodes['image']?.create({ src: url, alt });
+  const node = schema.nodes['image']?.create({ src, alt });
   if (!node) return;
   view.dispatch(view.state.tr.replaceSelectionWith(node));
 }

@@ -19,8 +19,7 @@ import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import {
-  uploadCoverImage, pasteImage, directUploadAsset,
-  assertOrphans, runGC, assertAdminBodyHasURI,
+  uploadCoverImage, pasteImage, assertAdminBodyHasURI,
 } from '@/fixtures/blog-assets';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
@@ -129,16 +128,8 @@ test.describe.serial('blog: editor flow + rich render + XSS', () => {
     });
 });
 
-test.describe.serial('blog: image upload + asset URI + orphan scan + GC', () => {
+test.describe.serial('blog: atomic image upload via multipart save', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
-
-  test('upload unreferenced asset → orphan scan finds it → DELETE /assets/orphans cleans it',
-    async ({ request }) => {
-      const id = await directUploadAsset(request, OWNER);
-      await assertOrphans(request, OWNER, [id]);
-      await runGC(request, OWNER, [id]);
-      await assertOrphans(request, OWNER, []);
-    });
 
   test('owner uploads cover image → /blog cover renders with image background',
     async ({ adminPage, page, request }) => {
@@ -177,7 +168,7 @@ test.describe.serial('blog: image upload + asset URI + orphan scan + GC', () => 
       expect(bg).toMatch(/localhost:9200/);
     });
 
-  test('paste image in editor → /blog renders presigned URL; body_md stores URI; orphan=0',
+  test('paste image in editor → save → /blog renders presigned URL; body_md stores URI',
     async ({ adminPage, page, request }) => {
       await openAdminPosts(adminPage);
       await fillPostMeta(adminPage, {
@@ -190,11 +181,12 @@ test.describe.serial('blog: image upload + asset URI + orphan scan + GC', () => 
       await typeText(adminPage, 'See image below.');
       await newLine(adminPage);
       await pasteImage(adminPage, 'pixel.png');
-      // wait for img node to appear (paste → upload → insert is async)
-      await expect(adminPage.locator('.blog-editor-surface img')).toBeVisible({ timeout: 10_000 });
+      // wait for img node to appear in editor (paste inserts immediately
+      // with blob: URL, server upload happens at submit-time).
+      await expect(adminPage.locator('.blog-editor-surface img')).toBeVisible({ timeout: 5_000 });
       await adminPage.getByTestId('post-create-submit').click();
       await expect(adminPage.getByTestId('post-row-image-post'))
-        .toBeVisible({ timeout: 5_000 });
+        .toBeVisible({ timeout: 10_000 });
 
       // visitor side: img element with presigned URL
       await goto(page, '/blog/image-post');
@@ -203,10 +195,8 @@ test.describe.serial('blog: image upload + asset URI + orphan scan + GC', () => 
       const src = await img.getAttribute('src');
       expect(src).toMatch(/localhost:9200/); // presigned URL host (minio public)
 
-      // admin GET: body_md contains URI not presigned URL
+      // admin GET: body_md contains real asset UUID (not pending-) URI
       await assertAdminBodyHasURI(request, OWNER, 'image-post');
-      // orphan scan: 0 because asset is referenced by this post
-      await assertNoOrphans(request);
     });
 });
 
@@ -280,10 +270,6 @@ interface MCPCreateInput {
   cover_sub: string;
   cover_hue: 'amber' | 'violet' | 'acid';
   tags: string[];
-}
-
-async function assertNoOrphans(request: APIRequestContext): Promise<void> {
-  await assertOrphans(request, OWNER, []);
 }
 
 async function mcpCreatePost(

@@ -1,13 +1,18 @@
 // posts.go —— admin /posts endpoint: list / create / update / publish /
-// delete。body 是 markdown 原文，直接透传到 repo。
+// delete。create + update 接 multipart：form field "data" 是 JSON post
+// fields，form fields 'file:<pending-id>' 是内联 image bytes。usecase
+// SavePost 同事务做 upload + insert/update post + insert assets 行。
+// orphan / scan / standalone /assets endpoint 不存在。
 
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -17,10 +22,13 @@ import (
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
-// PostsAdminDeps —— admin posts handlers 依赖。
+const timeFmt = time.RFC3339
+
+// PostsAdminDeps —— admin posts handlers 依赖。Posts (slim) 用于读 / publish；
+// PostsTx (with Assets) 用于 create / update / delete。
 type PostsAdminDeps struct {
-	Posts  usecases.PostsDeps
-	Assets usecases.AssetsDeps
+	Posts   usecases.PostsDeps
+	PostsTx usecases.PostsTxDeps
 }
 
 type postView struct {
@@ -46,34 +54,22 @@ type postView struct {
 	Published         bool              `json:"published"`
 }
 
-type createPostRequest struct {
-	CoverImageAssetID string   `json:"cover_image_asset_id"`
-	Slug              string   `json:"slug"`
-	Title             string   `json:"title"`
-	Excerpt           string   `json:"excerpt"`
-	BodyMD            string   `json:"body_md"`
-	CoverHeadline     string   `json:"cover_headline"`
-	CoverSub          string   `json:"cover_sub"`
-	CoverHue          string   `json:"cover_hue"`
-	Visibility        string   `json:"visibility"`
-	LockedBody        string   `json:"locked_body"`
-	Tags              []string `json:"tags"`
-	CrossRefs         []string `json:"cross_refs"`
-	Publish           bool     `json:"publish"`
-}
-
-type updatePostRequest struct {
-	CoverImageAssetID string   `json:"cover_image_asset_id"`
-	Title             string   `json:"title"`
-	Excerpt           string   `json:"excerpt"`
-	BodyMD            string   `json:"body_md"`
-	CoverHeadline     string   `json:"cover_headline"`
-	CoverSub          string   `json:"cover_sub"`
-	CoverHue          string   `json:"cover_hue"`
-	Visibility        string   `json:"visibility"`
-	LockedBody        string   `json:"locked_body"`
-	Tags              []string `json:"tags"`
-	CrossRefs         []string `json:"cross_refs"`
+// postSaveRequest —— create + update 共用 JSON shape。PostID 来自 URL，
+// 不在 body。CoverImageRef 是 pending-<id> 或已有 asset 真 UUID 或空。
+type postSaveRequest struct {
+	Slug          string   `json:"slug"`
+	Title         string   `json:"title"`
+	Excerpt       string   `json:"excerpt"`
+	BodyMD        string   `json:"body_md"`
+	CoverImageRef string   `json:"cover_image_ref"`
+	CoverHeadline string   `json:"cover_headline"`
+	CoverSub      string   `json:"cover_sub"`
+	CoverHue      string   `json:"cover_hue"`
+	Visibility    string   `json:"visibility"`
+	LockedBody    string   `json:"locked_body"`
+	Tags          []string `json:"tags"`
+	CrossRefs     []string `json:"cross_refs"`
+	Publish       bool     `json:"publish"`
 }
 
 // MountPosts 挂 /posts 子路由。
@@ -115,8 +111,6 @@ func writePostsList(
 	}
 }
 
-// toPostViewResolved —— 跟 public 同形：响应时把 body_md 里 standmeet-asset
-// 引用 batch resolve 成 presigned URL，前端编辑器渲染图片用。
 func toPostViewResolved(r *http.Request, h *Handlers, p *domain.Post) postView {
 	v := toPostView(p)
 	v.AssetURLs = resolvePostAssetURLs(r, h, p)
@@ -126,7 +120,10 @@ func toPostViewResolved(r *http.Request, h *Handlers, p *domain.Post) postView {
 func resolvePostAssetURLs(r *http.Request, h *Handlers, p *domain.Post) map[string]string {
 	ids := usecases.PostAssetIDs(p.BodyMD, p.CoverImageAssetID)
 	urls, err := usecases.ResolveAssetURLs(
-		r.Context(), h.PostsAdmin.Assets.Repo, h.PostsAdmin.Assets.Storage, ids,
+		r.Context(),
+		h.PostsAdmin.PostsTx.Assets.Repo,
+		h.PostsAdmin.PostsTx.Assets.Storage,
+		ids,
 	)
 	if err != nil {
 		h.Log.Error("resolve asset urls", "err", err)
@@ -155,47 +152,68 @@ func toPostView(p *domain.Post) postView {
 
 func (h *Handlers) createAdminPost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req createPostRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(h.Log, w, envBadReq("invalid JSON body"))
-			return
-		}
-		runCreateAdminPost(r, h, w, &req)
+		runMultipartSave(r, h, w, "")
 	}
 }
 
-func runCreateAdminPost(
-	r *http.Request, h *Handlers, w http.ResponseWriter, req *createPostRequest,
+func (h *Handlers) updateAdminPost() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		runMultipartSave(r, h, w, chi.URLParam(r, "id"))
+	}
+}
+
+func runMultipartSave(
+	r *http.Request, h *Handlers, w http.ResponseWriter, postID string,
 ) {
-	ownerID := middleware.OwnerIDFrom(r.Context())
-	in := buildCreatePostUsecaseInput(ownerID, req)
-	post, err := usecases.CreatePost(r.Context(), h.PostsAdmin.Posts, in)
-	if err != nil {
-		handleCreatePostErr(h.Log, w, err)
+	parsed, perr := parsePostMultipart(w, r)
+	if perr != nil {
+		writeError(h.Log, w, envBadReq(perr.Error()))
 		return
 	}
-	writeCreatedPost(r, h, w, &post)
+	runSaveAdminPost(r.Context(),
+		&saveAdminPostCtx{R: r, H: h, W: w, Parsed: &parsed, PostID: postID})
 }
 
-func buildCreatePostUsecaseInput(
-	ownerID string, req *createPostRequest,
-) *usecases.CreatePostInput {
-	var assetID *string
-	if req.CoverImageAssetID != "" {
-		v := req.CoverImageAssetID
-		assetID = &v
+// saveAdminPostCtx —— runSaveAdminPost 参数包，避开 argument-limit 5。
+// fieldalignment: pointer 先，interface 后，string 最后。
+type saveAdminPostCtx struct {
+	R      *http.Request
+	H      *Handlers
+	Parsed *parsedMultipart
+	W      http.ResponseWriter
+	PostID string
+}
+
+func runSaveAdminPost(ctx context.Context, sc *saveAdminPostCtx) {
+	ownerID := middleware.OwnerIDFrom(ctx)
+	in := buildSavePostInput(ownerID, sc.PostID, &sc.Parsed.Req, sc.Parsed.Files)
+	post, err := usecases.SavePost(ctx, sc.H.PostsAdmin.PostsTx, in)
+	if err != nil {
+		handleSavePostErr(sc.H.Log, sc.W, err)
+		return
 	}
-	return &usecases.CreatePostInput{
-		OwnerID: ownerID, Slug: req.Slug, Title: req.Title, Excerpt: req.Excerpt,
-		BodyMD:        req.BodyMD,
-		CoverHeadline: req.CoverHeadline, CoverSub: req.CoverSub,
-		CoverHue: req.CoverHue, CoverImageAssetID: assetID,
-		Tags: req.Tags, Visibility: req.Visibility, CrossRefs: req.CrossRefs,
-		LockedBody: req.LockedBody, Publish: req.Publish,
+	statusCode := http.StatusOK
+	if sc.PostID == "" {
+		statusCode = http.StatusCreated
+	}
+	writeSavedPost(sc.R, sc.H, sc.W, &post, statusCode)
+}
+
+func buildSavePostInput(
+	ownerID, postID string, req *postSaveRequest, files []usecases.FileInput,
+) *usecases.SavePostInput {
+	return &usecases.SavePostInput{
+		OwnerID: ownerID, PostID: postID, Slug: req.Slug, Title: req.Title,
+		Excerpt: req.Excerpt, BodyMD: req.BodyMD,
+		CoverImageRef: req.CoverImageRef, CoverHeadline: req.CoverHeadline,
+		CoverSub: req.CoverSub, CoverHue: req.CoverHue,
+		Visibility: req.Visibility, LockedBody: req.LockedBody,
+		Tags: req.Tags, CrossRefs: req.CrossRefs, Files: files,
+		Publish: req.Publish,
 	}
 }
 
-func handleCreatePostErr(log *slog.Logger, w http.ResponseWriter, err error) {
+func handleSavePostErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, usecases.ErrEmptyField):
 		writeError(log, w, envBadReq("owner_id, slug, title required"))
@@ -205,61 +223,18 @@ func handleCreatePostErr(log *slog.Logger, w http.ResponseWriter, err error) {
 			Message: "post slug already taken",
 		})
 	default:
-		logEncodeErr(log, "create post", err)
+		logEncodeErr(log, "save post", err)
 		writeError(log, w, serverErr())
 	}
 }
 
-func writeCreatedPost(r *http.Request, h *Handlers, w http.ResponseWriter, p *domain.Post) {
+func writeSavedPost(
+	r *http.Request, h *Handlers, w http.ResponseWriter, p *domain.Post, statusCode int,
+) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(toPostViewResolved(r, h, p)); err != nil {
 		logEncodeErr(h.Log, "encode post", err)
-	}
-}
-
-func (h *Handlers) updateAdminPost() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req updatePostRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(h.Log, w, envBadReq("invalid JSON body"))
-			return
-		}
-		runUpdateAdminPost(r, h, w, &req)
-	}
-}
-
-func runUpdateAdminPost(
-	r *http.Request, h *Handlers, w http.ResponseWriter, req *updatePostRequest,
-) {
-	ownerID := middleware.OwnerIDFrom(r.Context())
-	postID := chi.URLParam(r, "id")
-	in := buildUpdatePostUsecaseInput(ownerID, postID, req)
-	post, err := usecases.UpdatePost(r.Context(), h.PostsAdmin.Posts, in)
-	if err != nil {
-		logEncodeErr(h.Log, "update post", err)
-		writeError(h.Log, w, serverErr())
-		return
-	}
-	writePostResp(r, h, w, &post)
-}
-
-func buildUpdatePostUsecaseInput(
-	ownerID, postID string, req *updatePostRequest,
-) *usecases.UpdatePostInput {
-	var assetID *string
-	if req.CoverImageAssetID != "" {
-		v := req.CoverImageAssetID
-		assetID = &v
-	}
-	return &usecases.UpdatePostInput{
-		OwnerID: ownerID, PostID: postID,
-		Title: req.Title, Excerpt: req.Excerpt,
-		BodyMD:        req.BodyMD,
-		CoverHeadline: req.CoverHeadline, CoverSub: req.CoverSub,
-		CoverHue: req.CoverHue, CoverImageAssetID: assetID,
-		Tags: req.Tags, Visibility: req.Visibility, CrossRefs: req.CrossRefs,
-		LockedBody: req.LockedBody,
 	}
 }
 
@@ -303,7 +278,7 @@ func (h *Handlers) deleteAdminPost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		postID := chi.URLParam(r, "id")
-		err := usecases.DeletePost(r.Context(), h.PostsAdmin.Posts, ownerID, postID)
+		err := usecases.DeletePostWithAssets(r.Context(), h.PostsAdmin.PostsTx, ownerID, postID)
 		if err != nil {
 			logEncodeErr(h.Log, "delete post", err)
 			writeError(h.Log, w, serverErr())

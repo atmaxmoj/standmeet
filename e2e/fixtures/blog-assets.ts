@@ -1,9 +1,9 @@
-// blog-assets.ts —— blog-posts spec 共用的 image / orphan / asset 辅助。
+// blog-assets.ts —— blog-posts spec 共用的 image / asset 辅助。
 //
-// 拆出来守 spec 文件 350-line cap，同时把"1x1 PNG 字节"这种重复 fixture
-// 数据集中。
-//
-// 用法都是 spec 路径内部细节，不暴露给其他 spec。
+// 拆出来守 spec 文件 350-line cap。
+// 没有 standalone upload endpoint 了 —— 所有 file 上传都是 multipart save
+// 的一部分。这里只提供 "paste image 到 editor" / "选 cover image file" 的
+// UI driver + admin GET 时 body_md 含 URI 的断言。
 
 import { expect } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -29,8 +29,8 @@ export async function uploadCoverImage(page: Page): Promise<void> {
 }
 
 // pasteImage —— 在 contenteditable 上 dispatch ClipboardEvent，files 携带
-// 1x1 PNG。Tiptap 的 ImageUpload extension handlePaste 截获 → 上传 →
-// 插 img 节点。
+// 1x1 PNG。Tiptap 的 ImageUpload extension handlePaste 截获 → 分配
+// pending-<id> + objectURL → 插 img 节点。真上传发生在 owner 点 submit。
 export async function pasteImage(page: Page, filename: string): Promise<void> {
   await page.evaluate(({ name, bytes }) => {
     const editor = document.querySelector('[data-testid="post-field-body"]');
@@ -45,43 +45,9 @@ export async function pasteImage(page: Page, filename: string): Promise<void> {
   }, { name: filename, bytes: Array.from(PNG_1X1) });
 }
 
-export async function directUploadAsset(
-  request: APIRequestContext, owner: OwnerCreds,
-): Promise<string> {
-  const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.post('/api/admin/assets/', {
-    headers: { 'X-Csrftoken': csrf },
-    multipart: {
-      file: { name: 'orphan.png', mimeType: 'image/png', buffer: Buffer.from(PNG_1X1) },
-    },
-  });
-  const body = await res.json() as { id: string };
-  return body.id;
-}
-
-export async function assertOrphans(
-  request: APIRequestContext, owner: OwnerCreds, expected: string[],
-): Promise<void> {
-  const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.get('/api/admin/assets/orphans', {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  const body = await res.json() as { orphans: string[] };
-  expect(body.orphans.sort()).toEqual([...expected].sort());
-}
-
-export async function runGC(
-  request: APIRequestContext, owner: OwnerCreds, expectedDeleted: string[],
-): Promise<void> {
-  const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.delete('/api/admin/assets/orphans', {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  const body = await res.json() as { deleted: string[]; failed: string[] };
-  expect(body.deleted.sort()).toEqual([...expectedDeleted].sort());
-  expect(body.failed).toHaveLength(0);
-}
-
+// assertAdminBodyHasURI —— 验 admin GET /posts/ response 里那条 post 的
+// body_md 含 standmeet-asset:<uuid> URI (不是 pending-xxx、不是 presigned
+// URL；说明 server-side rewrite + insert assets 行都跑通了)。
 export async function assertAdminBodyHasURI(
   request: APIRequestContext, owner: OwnerCreds, slug: string,
 ): Promise<void> {
@@ -94,6 +60,10 @@ export async function assertAdminBodyHasURI(
   }>;
   const post = posts.find((p) => p.slug === slug);
   if (!post) throw new Error(`${slug} not in admin list`);
-  expect(post.body_md).toMatch(/standmeet-asset:[0-9a-f-]{36}/);
+  // 真 UUID v4 (8-4-4-4-12)；不是 pending- 前缀
+  expect(post.body_md).toMatch(
+    /standmeet-asset:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
+  );
+  expect(post.body_md).not.toMatch(/standmeet-asset:pending-/);
   expect(Object.keys(post.asset_urls).length).toBeGreaterThan(0);
 }
