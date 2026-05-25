@@ -30,26 +30,32 @@ const (
 )
 
 // Post —— posts 表的值对象。
+//
+// ObsidianSourcePath / ObsidianImportedAt：Obsidian sync 元数据。空值 = 不是
+// 从 vault 来的。re-import 时按 source_path 撞行，比 imported_at vs updated_at
+// 决定 skip / overwrite（避免覆盖 owner 在 web 后续改动）。
 type Post struct {
-	PublishedAt       *time.Time
-	CoverImageAssetID *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	ID                string
-	OwnerID           string
-	Slug              string
-	Title             string
-	Excerpt           string
-	BodyMD            string
-	CoverHeadline     string
-	CoverSub          string
-	CoverHue          string
-	Visibility        string
-	Path              string
-	LockedBody        string
-	Tags              []string
-	CrossRefs         []string
-	ReadMinutes       int32
+	PublishedAt        *time.Time
+	CoverImageAssetID  *string
+	ObsidianImportedAt *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	ID                 string
+	OwnerID            string
+	Slug               string
+	Title              string
+	Excerpt            string
+	BodyMD             string
+	CoverHeadline      string
+	CoverSub           string
+	CoverHue           string
+	Visibility         string
+	Path               string
+	LockedBody         string
+	ObsidianSourcePath string
+	Tags               []string
+	CrossRefs          []string
+	ReadMinutes        int32
 }
 
 // IsPublished —— published_at 非空 = 已发，前端公开 list 才显示。

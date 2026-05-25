@@ -236,25 +236,27 @@ type PageContent struct {
 }
 
 type Post struct {
-	ID                pgtype.UUID
-	OwnerID           pgtype.UUID
-	Slug              string
-	Title             string
-	Excerpt           string
-	BodyMd            string
-	CoverHeadline     string
-	CoverSub          string
-	CoverHue          string
-	CoverImageAssetID pgtype.UUID
-	Tags              []string
-	Visibility        string
-	CrossRefs         []string
-	Path              string
-	ReadMinutes       int32
-	LockedBody        string
-	PublishedAt       pgtype.Timestamptz
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	Slug               string
+	Title              string
+	Excerpt            string
+	BodyMd             string
+	CoverHeadline      string
+	CoverSub           string
+	CoverHue           string
+	CoverImageAssetID  pgtype.UUID
+	Tags               []string
+	Visibility         string
+	CrossRefs          []string
+	Path               string
+	ReadMinutes        int32
+	LockedBody         string
+	ObsidianSourcePath string
+	ObsidianImportedAt pgtype.Timestamptz
+	PublishedAt        pgtype.Timestamptz
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 }
 
 type RawEntry struct {

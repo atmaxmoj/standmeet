@@ -137,6 +137,14 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 				Posts: deps.Admin.Posts.Posts, Assets: deps.Admin.Assets,
 			},
 		},
+		Obsidian: adminroutes.ObsidianDeps{
+			Posts:   deps.Admin.Posts.Posts,
+			Assets:  deps.Admin.Assets.Repo,
+			Storage: deps.Admin.Assets.Storage,
+			PostsTx: usecases.PostsTxDeps{
+				Posts: deps.Admin.Posts.Posts, Assets: deps.Admin.Assets,
+			},
+		},
 		Log:          deps.Log,
 		SecureCookie: deps.Admin.SecureCookie,
 	}

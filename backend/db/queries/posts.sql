@@ -13,6 +13,7 @@ INSERT INTO posts (
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
+          obsidian_source_path, obsidian_imported_at,
           published_at, created_at, updated_at;
 
 -- name: UpdatePost :one
@@ -26,6 +27,7 @@ WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
+          obsidian_source_path, obsidian_imported_at,
           published_at, created_at, updated_at;
 
 -- name: PublishPost :one
@@ -34,6 +36,7 @@ WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
+          obsidian_source_path, obsidian_imported_at,
           published_at, created_at, updated_at;
 
 -- name: UnpublishPost :one
@@ -42,6 +45,7 @@ WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
+          obsidian_source_path, obsidian_imported_at,
           published_at, created_at, updated_at;
 
 -- name: DeletePost :exec
@@ -51,6 +55,7 @@ DELETE FROM posts WHERE id = $1 AND owner_id = $2;
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts WHERE id = $1 AND owner_id = $2;
 
@@ -58,6 +63,7 @@ FROM posts WHERE id = $1 AND owner_id = $2;
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts WHERE owner_id = $1 AND slug = $2;
 
@@ -65,6 +71,7 @@ FROM posts WHERE owner_id = $1 AND slug = $2;
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts
 WHERE owner_id = $1
@@ -74,6 +81,7 @@ ORDER BY COALESCE(published_at, created_at) DESC;
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts
 WHERE owner_id = $1 AND published_at IS NOT NULL
@@ -85,6 +93,7 @@ ORDER BY published_at DESC;
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts
 WHERE owner_id = $1
@@ -92,3 +101,21 @@ WHERE owner_id = $1
   AND ($2::timestamptz IS NULL OR published_at < $2::timestamptz)
 ORDER BY published_at DESC
 LIMIT $3;
+
+-- name: SetPostObsidianMeta :exec
+-- Obsidian import 走完 SavePost 之后调用：标记这行 post 是从 vault 来的，
+-- 顺便记 imported_at = now()。re-import 时根据 updated_at vs imported_at 决
+-- 定 skip / overwrite（owner 在 web 改过了 updated_at 会跳过 imported_at）。
+UPDATE posts
+SET obsidian_source_path = $3,
+    obsidian_imported_at = now(),
+    updated_at = now()
+WHERE id = $1 AND owner_id = $2;
+
+-- name: GetPostByObsidianSourcePath :one
+SELECT id, owner_id, slug, title, excerpt, body_md,
+       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
+       published_at, created_at, updated_at
+FROM posts WHERE owner_id = $1 AND obsidian_source_path = $2;

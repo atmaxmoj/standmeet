@@ -39,6 +39,7 @@ type Handlers struct {
 	SkillsAdmin     SkillsAdminDeps
 	MCPServersAdmin MCPServersAdminDeps
 	PostsAdmin      PostsAdminDeps
+	Obsidian        ObsidianDeps
 	Log             *slog.Logger
 	SecureCookie    bool // false 仅限 dev (http)；prod 必须 true。
 }
@@ -80,6 +81,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountSkills(r)
 	h.MountMCPServers(r)
 	h.MountPosts(r)
+	h.MountObsidian(r)
 }
 
 type claimRequest struct {

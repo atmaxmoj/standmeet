@@ -26,6 +26,7 @@ INSERT INTO posts (
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
+          obsidian_source_path, obsidian_imported_at,
           published_at, created_at, updated_at
 `
 
@@ -85,6 +86,8 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 		&i.Path,
 		&i.ReadMinutes,
 		&i.LockedBody,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -110,6 +113,7 @@ const getPostByID = `-- name: GetPostByID :one
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts WHERE id = $1 AND owner_id = $2
 `
@@ -139,6 +143,51 @@ func (q *Queries) GetPostByID(ctx context.Context, arg GetPostByIDParams) (Post,
 		&i.Path,
 		&i.ReadMinutes,
 		&i.LockedBody,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPostByObsidianSourcePath = `-- name: GetPostByObsidianSourcePath :one
+SELECT id, owner_id, slug, title, excerpt, body_md,
+       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
+       published_at, created_at, updated_at
+FROM posts WHERE owner_id = $1 AND obsidian_source_path = $2
+`
+
+type GetPostByObsidianSourcePathParams struct {
+	OwnerID            pgtype.UUID
+	ObsidianSourcePath string
+}
+
+func (q *Queries) GetPostByObsidianSourcePath(ctx context.Context, arg GetPostByObsidianSourcePathParams) (Post, error) {
+	row := q.db.QueryRow(ctx, getPostByObsidianSourcePath, arg.OwnerID, arg.ObsidianSourcePath)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Slug,
+		&i.Title,
+		&i.Excerpt,
+		&i.BodyMd,
+		&i.CoverHeadline,
+		&i.CoverSub,
+		&i.CoverHue,
+		&i.CoverImageAssetID,
+		&i.Tags,
+		&i.Visibility,
+		&i.CrossRefs,
+		&i.Path,
+		&i.ReadMinutes,
+		&i.LockedBody,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -150,6 +199,7 @@ const getPostBySlug = `-- name: GetPostBySlug :one
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts WHERE owner_id = $1 AND slug = $2
 `
@@ -179,6 +229,8 @@ func (q *Queries) GetPostBySlug(ctx context.Context, arg GetPostBySlugParams) (P
 		&i.Path,
 		&i.ReadMinutes,
 		&i.LockedBody,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -190,6 +242,7 @@ const listPostsByOwner = `-- name: ListPostsByOwner :many
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts
 WHERE owner_id = $1
@@ -222,6 +275,8 @@ func (q *Queries) ListPostsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 			&i.Path,
 			&i.ReadMinutes,
 			&i.LockedBody,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
 			&i.PublishedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -240,6 +295,7 @@ const listPublishedPostsByOwner = `-- name: ListPublishedPostsByOwner :many
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts
 WHERE owner_id = $1 AND published_at IS NOT NULL
@@ -272,6 +328,8 @@ func (q *Queries) ListPublishedPostsByOwner(ctx context.Context, ownerID pgtype.
 			&i.Path,
 			&i.ReadMinutes,
 			&i.LockedBody,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
 			&i.PublishedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -290,6 +348,7 @@ const listPublishedPostsByOwnerPage = `-- name: ListPublishedPostsByOwnerPage :m
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts
 WHERE owner_id = $1
@@ -333,6 +392,8 @@ func (q *Queries) ListPublishedPostsByOwnerPage(ctx context.Context, arg ListPub
 			&i.Path,
 			&i.ReadMinutes,
 			&i.LockedBody,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
 			&i.PublishedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -353,6 +414,7 @@ WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
+          obsidian_source_path, obsidian_imported_at,
           published_at, created_at, updated_at
 `
 
@@ -381,11 +443,35 @@ func (q *Queries) PublishPost(ctx context.Context, arg PublishPostParams) (Post,
 		&i.Path,
 		&i.ReadMinutes,
 		&i.LockedBody,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const setPostObsidianMeta = `-- name: SetPostObsidianMeta :exec
+UPDATE posts
+SET obsidian_source_path = $3,
+    obsidian_imported_at = now(),
+    updated_at = now()
+WHERE id = $1 AND owner_id = $2
+`
+
+type SetPostObsidianMetaParams struct {
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	ObsidianSourcePath string
+}
+
+// Obsidian import 走完 SavePost 之后调用：标记这行 post 是从 vault 来的，
+// 顺便记 imported_at = now()。re-import 时根据 updated_at vs imported_at 决
+// 定 skip / overwrite（owner 在 web 改过了 updated_at 会跳过 imported_at）。
+func (q *Queries) SetPostObsidianMeta(ctx context.Context, arg SetPostObsidianMetaParams) error {
+	_, err := q.db.Exec(ctx, setPostObsidianMeta, arg.ID, arg.OwnerID, arg.ObsidianSourcePath)
+	return err
 }
 
 const unpublishPost = `-- name: UnpublishPost :one
@@ -394,6 +480,7 @@ WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
+          obsidian_source_path, obsidian_imported_at,
           published_at, created_at, updated_at
 `
 
@@ -422,6 +509,8 @@ func (q *Queries) UnpublishPost(ctx context.Context, arg UnpublishPostParams) (P
 		&i.Path,
 		&i.ReadMinutes,
 		&i.LockedBody,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -440,6 +529,7 @@ WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
+          obsidian_source_path, obsidian_imported_at,
           published_at, created_at, updated_at
 `
 
@@ -497,6 +587,8 @@ func (q *Queries) UpdatePost(ctx context.Context, arg UpdatePostParams) (Post, e
 		&i.Path,
 		&i.ReadMinutes,
 		&i.LockedBody,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,

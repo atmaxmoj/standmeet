@@ -13,6 +13,8 @@ components:
     in: internal/domain
   usecases:
     in: internal/usecases
+  obsidian:
+    in: internal/usecases/obsidian        # Obsidian vault import/export
   postgres:
     in: internal/postgres                 # 含 sqlc 生成的 dbq 子包
   dbq:
@@ -207,10 +209,22 @@ deps:
     mayDependOn:
       - domain
       - usecases
+      - obsidian
       - session
       - postgres
       - apierr
       - middleware
+      - storage
+    anyVendorDeps: true
+
+  # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image
+  # ref rewriter / zip export / multipart import。靠 usecases.SavePost 走
+  # 那条 atomic asset 路径，所以单向依赖 usecases；不被 usecases 反向 import。
+  obsidian:
+    mayDependOn:
+      - domain
+      - usecases
+      - postgres
       - storage
     anyVendorDeps: true
 

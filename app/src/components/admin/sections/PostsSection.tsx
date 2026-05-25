@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { ObsidianBar } from '@/components/admin/sections/posts/ObsidianBar';
 import {
   PostForm, EMPTY_VALUES,
   type PostFormValues, type PostFormSubmit,
@@ -33,6 +34,7 @@ export function PostsSection() {
         action={<Btn kind="primary" onClick={() => setCreating(true)}>＋ new post</Btn>}
       />
       <Intro />
+      <ObsidianBar onImported={() => hook.refresh()} />
       <PostsListBody hook={hook} onEdit={setEditing} />
       {creating && (
         <PostCreateModal onClose={() => setCreating(false)} onCreate={hook.createPost} />

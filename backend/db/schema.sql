@@ -316,6 +316,13 @@ CREATE TABLE posts (
     path                  text          NOT NULL,
     read_minutes          int           NOT NULL DEFAULT 0,
     locked_body           text          NOT NULL DEFAULT '',
+    -- Obsidian sync 元数据。obsidian_source_path = import 时来自的 vault
+    -- 内相对路径 (notes/x.md)；obsidian_imported_at = 那次 import 的时刻。
+    -- 都是空 = 从未跟 vault 关联过。re-import 时根据 path 撞行决定 upsert
+    -- 还是 skip（owner 在 web 改过的，updated_at > obsidian_imported_at →
+    -- 保留 web 版本，避免覆盖 owner 后续编辑）。
+    obsidian_source_path  text          NOT NULL DEFAULT '',
+    obsidian_imported_at  timestamptz   NULL,
     published_at          timestamptz   NULL,
     created_at            timestamptz   NOT NULL DEFAULT now(),
     updated_at            timestamptz   NOT NULL DEFAULT now()

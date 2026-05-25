@@ -124,6 +124,25 @@ func (m *Client) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+// Get 直接拉 bytes（不签 URL）。Obsidian export 把 blob 写进 zip 用，正常
+// blob 一般 < 10MB，全量读到内存里可接受。
+func (m *Client) Get(ctx context.Context, key string) ([]byte, error) {
+	obj, err := m.internal.GetObject(ctx, m.bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("storage: get %q: %w", key, err)
+	}
+	defer func() {
+		if cerr := obj.Close(); cerr != nil {
+			_ = cerr
+		}
+	}()
+	buf, rerr := io.ReadAll(obj)
+	if rerr != nil {
+		return nil, fmt.Errorf("storage: read %q: %w", key, rerr)
+	}
+	return buf, nil
+}
+
 // PresignedGetURL 颁发签名 URL；用 presign client (host=PublicURL) 直接
 // 签，避免事后改 host 破坏 SigV4 签名。
 func (m *Client) PresignedGetURL(ctx context.Context, key string) (string, error) {
