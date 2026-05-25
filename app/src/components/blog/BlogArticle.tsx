@@ -1,10 +1,17 @@
 // BlogArticle —— 单篇文章；Stripe-Press 风密度 (680px 单栏 / 21px 字号 /
 // 1.65 行高)。private 文章按 visibility 锁。
+//
+// body 来自 body_md (GitHub-flavored markdown)，react-markdown + remark-gfm
+// 渲染，每种 element 通过 components prop 套上 standmeet 字体 / 字号 / 间距
+// (见 BlogArticleMarkdown.tsx)，pixel-for-pixel 跟旧 3-block 版本对齐设计稿。
 
 import Link from 'next/link';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-import type { PostBlock, PostView } from '@/lib/api/public';
+import type { PostView } from '@/lib/api/public';
 import { Cover } from '@/components/blog/Cover';
+import { markdownComponents } from '@/components/blog/BlogArticleMarkdown';
 
 interface Props {
   post: PostView;
@@ -15,11 +22,7 @@ export function BlogArticle({ post }: Props) {
 }
 
 function isLocked(post: PostView): boolean {
-  return post.visibility === 'private' && !hasBody(post);
-}
-
-function hasBody(post: PostView): boolean {
-  return (post.body?.length ?? 0) > 0;
+  return post.visibility === 'private' && post.body_md.trim() === '';
 }
 
 function UnlockedView({ post }: { post: PostView }) {
@@ -32,7 +35,7 @@ function UnlockedView({ post }: { post: PostView }) {
           <Cover cover={post} no={formatDate(post.published_at) + ' · essay'} />
         </div>
         <ArticleHeader post={post} />
-        <Body blocks={post.body} />
+        <Body bodyMD={post.body_md} />
       </main>
     </div>
   );
@@ -109,60 +112,16 @@ function TagLink({ tag }: { tag: string }) {
   );
 }
 
-function Body({ blocks }: { blocks: PostBlock[] }) {
+function Body({ bodyMD }: { bodyMD: string }) {
   return (
     <article
-      className="max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink)"
+      className="max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink) blog-article-body"
       data-testid="blog-article-body"
     >
-      {blocks.map((b, i) => <BlockEl key={i} block={b} />)}
+      <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {bodyMD}
+      </Markdown>
     </article>
-  );
-}
-
-function BlockEl({ block }: { block: PostBlock }) {
-  return block.kind === 'h'
-    ? <HeadingBlock text={block.text} />
-    : block.kind === 'pull'
-      ? <PullBlock text={block.text} />
-      : <ParaBlock text={block.text} />;
-}
-
-function HeadingBlock({ text }: { text: string }) {
-  return (
-    <h2
-      className="font-serif"
-      style={{
-        fontSize: '28px', fontWeight: 500, letterSpacing: '-0.012em',
-        margin: '2.6em 0 0.6em', lineHeight: 1.25,
-      }}
-    >
-      {text}
-    </h2>
-  );
-}
-
-function PullBlock({ text }: { text: string }) {
-  return (
-    <blockquote
-      className="italic"
-      style={{
-        fontSize: '26px', lineHeight: 1.4, letterSpacing: '-0.008em',
-        color: 'var(--color-ink)', margin: '2.4em -28px',
-        padding: '4px 28px',
-        borderLeft: '3px solid var(--color-accent)',
-      }}
-    >
-      {text}
-    </blockquote>
-  );
-}
-
-function ParaBlock({ text }: { text: string }) {
-  return (
-    <p style={{ fontSize: '21px', lineHeight: 1.65, marginBottom: '1.4em' }}>
-      {text}
-    </p>
   );
 }
 

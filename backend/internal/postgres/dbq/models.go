@@ -241,7 +241,7 @@ type Post struct {
 	Slug              string
 	Title             string
 	Excerpt           string
-	BodyBlocks        []byte
+	BodyMd            string
 	CoverHeadline     string
 	CoverSub          string
 	CoverHue          string

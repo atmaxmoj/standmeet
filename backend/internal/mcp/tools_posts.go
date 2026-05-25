@@ -1,8 +1,8 @@
 // tools_posts.go —— blog posts MCP write tools。
 //
 // owner 在 Claude Desktop 让 AI 写一篇 essay → AI 调 post_create 一次落
-// 库；publish=true 直接发布。body 可以传 markdown (body_md) 或直接
-// 结构化 blocks。两个互斥，传 blocks 优先。
+// 库；publish=true 直接发布。body 直接接 markdown，AI 原生吐什么就存什么；
+// 不发明 block JSON 中间形态。
 
 package mcp
 
@@ -29,17 +29,17 @@ func postsTools(srv *server.MCPServer, deps *Deps) {
 func postCreateTool() mcpgo.Tool {
 	return mcpgo.NewTool(
 		"post_create",
-		mcpgo.WithDescription("Write a blog post to the owner's /blog. "+
-			"Body: pass markdown via body_md (server parses ## → h2, > → "+
-			"pull-quote, else paragraph) OR pre-structured blocks. publish=true "+
-			"makes it visible immediately; otherwise it lands as a draft."),
+		mcpgo.WithDescription("Write a blog post to the owner's /blog. body_md is "+
+			"GitHub-flavored markdown (headings, lists, tables, code blocks, links, "+
+			"blockquotes, images, etc.) and is rendered as-is on the public page. "+
+			"publish=true makes it visible immediately; otherwise it lands as a draft."),
 		mcpgo.WithString("slug", mcpgo.Required(),
 			mcpgo.Description("URL slug, unique per owner (e.g. 'evaluation-is-the-product').")),
 		mcpgo.WithString("title", mcpgo.Required(), mcpgo.Description("Post title.")),
 		mcpgo.WithString("excerpt", mcpgo.Description("Short summary shown on index + chat.")),
-		mcpgo.WithString("body_md", mcpgo.Description("Markdown body (alternative to blocks).")),
-		mcpgo.WithArray("blocks",
-			mcpgo.Description("Pre-structured body blocks [{kind:'p|h|pull', text}].")),
+		mcpgo.WithString("body_md",
+			mcpgo.Description("GitHub-flavored markdown body. Stored as-is, rendered "+
+				"via remark-gfm on the public page.")),
 		mcpgo.WithString("cover_headline", mcpgo.Description("Big serif headline on the cover.")),
 		mcpgo.WithString("cover_sub", mcpgo.Description("Italic sub on the cover.")),
 		mcpgo.WithString("cover_hue",
@@ -83,16 +83,11 @@ func parsePostCreateParams(
 	if err != nil {
 		return nil, errors.New("title is required")
 	}
-	blocks, berr := parsePostBlocks(req)
-	if berr != nil {
-		return nil, berr
-	}
-	return buildPostCreateInput(req, ownerID, slug, title, blocks), nil
+	return buildPostCreateInput(req, ownerID, slug, title), nil
 }
 
 func buildPostCreateInput(
 	req *mcpgo.CallToolRequest, ownerID, slug, title string,
-	blocks []domain.PostBlock,
 ) *usecases.CreatePostInput {
 	coverAsset := req.GetString("cover_image_asset_id", "")
 	var coverAssetPtr *string
@@ -103,7 +98,6 @@ func buildPostCreateInput(
 		OwnerID: ownerID, Slug: slug, Title: title,
 		Excerpt:           req.GetString("excerpt", ""),
 		BodyMD:            req.GetString("body_md", ""),
-		Body:              blocks,
 		CoverHeadline:     req.GetString("cover_headline", ""),
 		CoverSub:          req.GetString("cover_sub", ""),
 		CoverHue:          req.GetString("cover_hue", "amber"),
@@ -114,23 +108,6 @@ func buildPostCreateInput(
 		LockedBody:        req.GetString("locked_body", ""),
 		Publish:           req.GetBool("publish", false),
 	}
-}
-
-func parsePostBlocks(req *mcpgo.CallToolRequest) ([]domain.PostBlock, error) {
-	args := req.GetArguments()
-	raw, ok := args["blocks"]
-	if !ok || raw == nil {
-		return nil, nil
-	}
-	bs, merr := json.Marshal(raw)
-	if merr != nil {
-		return nil, errors.New("blocks: invalid json")
-	}
-	var out []domain.PostBlock
-	if uerr := json.Unmarshal(bs, &out); uerr != nil {
-		return nil, errors.New("blocks: must be array of {kind, text}")
-	}
-	return out, nil
 }
 
 func runPostCreate(

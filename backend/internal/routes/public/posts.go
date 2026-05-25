@@ -31,22 +31,22 @@ type PostHandlers struct {
 }
 
 type postView struct {
-	PublishedAt       string             `json:"published_at,omitempty"`
-	CoverImageAssetID string             `json:"cover_image_asset_id,omitempty"`
-	ID                string             `json:"id"`
-	Slug              string             `json:"slug"`
-	Title             string             `json:"title"`
-	Excerpt           string             `json:"excerpt"`
-	CoverHeadline     string             `json:"cover_headline"`
-	CoverSub          string             `json:"cover_sub"`
-	CoverHue          string             `json:"cover_hue"`
-	Visibility        string             `json:"visibility"`
-	Path              string             `json:"path"`
-	LockedBody        string             `json:"locked_body,omitempty"`
-	Body              []domain.PostBlock `json:"body"`
-	Tags              []string           `json:"tags"`
-	CrossRefs         []string           `json:"cross_refs"`
-	ReadMinutes       int32              `json:"read_minutes"`
+	PublishedAt       string   `json:"published_at,omitempty"`
+	CoverImageAssetID string   `json:"cover_image_asset_id,omitempty"`
+	ID                string   `json:"id"`
+	Slug              string   `json:"slug"`
+	Title             string   `json:"title"`
+	Excerpt           string   `json:"excerpt"`
+	BodyMD            string   `json:"body_md"`
+	CoverHeadline     string   `json:"cover_headline"`
+	CoverSub          string   `json:"cover_sub"`
+	CoverHue          string   `json:"cover_hue"`
+	Visibility        string   `json:"visibility"`
+	Path              string   `json:"path"`
+	LockedBody        string   `json:"locked_body,omitempty"`
+	Tags              []string `json:"tags"`
+	CrossRefs         []string `json:"cross_refs"`
+	ReadMinutes       int32    `json:"read_minutes"`
 }
 
 type postsPageResp struct {
@@ -162,7 +162,7 @@ func toPostView(p *domain.Post) postView {
 	}
 	return postView{
 		ID: p.ID, Slug: p.Slug, Title: p.Title, Excerpt: p.Excerpt,
-		Body: p.Body, CoverHeadline: p.CoverHeadline, CoverSub: p.CoverSub,
+		BodyMD: p.BodyMD, CoverHeadline: p.CoverHeadline, CoverSub: p.CoverSub,
 		CoverHue: p.CoverHue, CoverImageAssetID: assetID,
 		Tags: p.Tags, Visibility: p.Visibility, CrossRefs: p.CrossRefs,
 		Path: p.Path, ReadMinutes: p.ReadMinutes, LockedBody: p.LockedBody,

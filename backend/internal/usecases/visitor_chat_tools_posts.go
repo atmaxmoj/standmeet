@@ -16,6 +16,10 @@ func (r *retriever) postMatches(p *domain.Post, q string) bool {
 		textMatchesQuery(q, p.Title, postBodyText(p), p.Tags)
 }
 
+func postBodyText(p *domain.Post) string {
+	return StripMarkdown(p.BodyMD)
+}
+
 func (r *retriever) listPostRow(p *domain.Post, prefix string) (corpusRow, bool) {
 	if !r.acl.AllowsEntry(p.Path) || !strings.HasPrefix(p.Path, prefix) {
 		return corpusRow{}, false
@@ -30,17 +34,6 @@ func (r *retriever) findPostByPath(path string) *domain.Post {
 		}
 	}
 	return nil
-}
-
-func postBodyText(p *domain.Post) string {
-	var b strings.Builder
-	for i := range p.Body {
-		if i > 0 {
-			_, _ = b.WriteString(" ")
-		}
-		_, _ = b.WriteString(p.Body[i].Text)
-	}
-	return b.String()
 }
 
 func postToRow(p *domain.Post) corpusRow {

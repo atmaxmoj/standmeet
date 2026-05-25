@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down build clean test sdk-build app-build sqlc-gen
+.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -96,6 +96,17 @@ sqlc-gen:
 # 里跑 e2e 就一条 `make test`，不要分步。
 test: dev-up
 	@cd e2e && pnpm exec playwright test
+
+# test-fresh —— 跟 test 一样，但先 clean (down -v) 让 db volume 重建从 schema.sql
+# 重新 apply。schema 改过 (db/schema.sql) 必须用这个；纯代码改用 `make test`。
+test-fresh: clean test
+
+# test-only —— 只跑一个 spec / 一个 grep 模式。隔离 reproducer 用。
+# usage:   make test-only SPEC=blog-posts
+#          make test-only SPEC=blog-posts GREP="MCP post_create"
+test-only: dev-up
+	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>]"; exit 2)
+	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)")
 
 # setup-token —— demo 时 owner 打开 / 自动 redirect 到 /setup?t=...；这个
 # target 直接打印 path 让 operator 复制（boot banner 已经打过一次但可能

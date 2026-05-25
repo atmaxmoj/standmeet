@@ -13,7 +13,7 @@ import (
 
 const createPost = `-- name: CreatePost :one
 INSERT INTO posts (
-    owner_id, slug, title, excerpt, body_blocks,
+    owner_id, slug, title, excerpt, body_md,
     cover_headline, cover_sub, cover_hue, cover_image_asset_id,
     tags, visibility, cross_refs, path, read_minutes, locked_body,
     published_at
@@ -23,7 +23,7 @@ INSERT INTO posts (
     $10, $11, $12, $13, $14, $15,
     $16
 )
-RETURNING id, owner_id, slug, title, excerpt, body_blocks,
+RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           published_at, created_at, updated_at
@@ -34,7 +34,7 @@ type CreatePostParams struct {
 	Slug              string
 	Title             string
 	Excerpt           string
-	BodyBlocks        []byte
+	BodyMd            string
 	CoverHeadline     string
 	CoverSub          string
 	CoverHue          string
@@ -54,7 +54,7 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 		arg.Slug,
 		arg.Title,
 		arg.Excerpt,
-		arg.BodyBlocks,
+		arg.BodyMd,
 		arg.CoverHeadline,
 		arg.CoverSub,
 		arg.CoverHue,
@@ -74,7 +74,7 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 		&i.Slug,
 		&i.Title,
 		&i.Excerpt,
-		&i.BodyBlocks,
+		&i.BodyMd,
 		&i.CoverHeadline,
 		&i.CoverSub,
 		&i.CoverHue,
@@ -107,7 +107,7 @@ func (q *Queries) DeletePost(ctx context.Context, arg DeletePostParams) error {
 }
 
 const getPostByID = `-- name: GetPostByID :one
-SELECT id, owner_id, slug, title, excerpt, body_blocks,
+SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        published_at, created_at, updated_at
@@ -128,7 +128,7 @@ func (q *Queries) GetPostByID(ctx context.Context, arg GetPostByIDParams) (Post,
 		&i.Slug,
 		&i.Title,
 		&i.Excerpt,
-		&i.BodyBlocks,
+		&i.BodyMd,
 		&i.CoverHeadline,
 		&i.CoverSub,
 		&i.CoverHue,
@@ -147,7 +147,7 @@ func (q *Queries) GetPostByID(ctx context.Context, arg GetPostByIDParams) (Post,
 }
 
 const getPostBySlug = `-- name: GetPostBySlug :one
-SELECT id, owner_id, slug, title, excerpt, body_blocks,
+SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        published_at, created_at, updated_at
@@ -168,7 +168,7 @@ func (q *Queries) GetPostBySlug(ctx context.Context, arg GetPostBySlugParams) (P
 		&i.Slug,
 		&i.Title,
 		&i.Excerpt,
-		&i.BodyBlocks,
+		&i.BodyMd,
 		&i.CoverHeadline,
 		&i.CoverSub,
 		&i.CoverHue,
@@ -187,7 +187,7 @@ func (q *Queries) GetPostBySlug(ctx context.Context, arg GetPostBySlugParams) (P
 }
 
 const listPostsByOwner = `-- name: ListPostsByOwner :many
-SELECT id, owner_id, slug, title, excerpt, body_blocks,
+SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        published_at, created_at, updated_at
@@ -211,7 +211,7 @@ func (q *Queries) ListPostsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 			&i.Slug,
 			&i.Title,
 			&i.Excerpt,
-			&i.BodyBlocks,
+			&i.BodyMd,
 			&i.CoverHeadline,
 			&i.CoverSub,
 			&i.CoverHue,
@@ -237,7 +237,7 @@ func (q *Queries) ListPostsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 }
 
 const listPublishedPostsByOwner = `-- name: ListPublishedPostsByOwner :many
-SELECT id, owner_id, slug, title, excerpt, body_blocks,
+SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        published_at, created_at, updated_at
@@ -261,7 +261,7 @@ func (q *Queries) ListPublishedPostsByOwner(ctx context.Context, ownerID pgtype.
 			&i.Slug,
 			&i.Title,
 			&i.Excerpt,
-			&i.BodyBlocks,
+			&i.BodyMd,
 			&i.CoverHeadline,
 			&i.CoverSub,
 			&i.CoverHue,
@@ -287,7 +287,7 @@ func (q *Queries) ListPublishedPostsByOwner(ctx context.Context, ownerID pgtype.
 }
 
 const listPublishedPostsByOwnerPage = `-- name: ListPublishedPostsByOwnerPage :many
-SELECT id, owner_id, slug, title, excerpt, body_blocks,
+SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        published_at, created_at, updated_at
@@ -322,7 +322,7 @@ func (q *Queries) ListPublishedPostsByOwnerPage(ctx context.Context, arg ListPub
 			&i.Slug,
 			&i.Title,
 			&i.Excerpt,
-			&i.BodyBlocks,
+			&i.BodyMd,
 			&i.CoverHeadline,
 			&i.CoverSub,
 			&i.CoverHue,
@@ -350,7 +350,7 @@ func (q *Queries) ListPublishedPostsByOwnerPage(ctx context.Context, arg ListPub
 const publishPost = `-- name: PublishPost :one
 UPDATE posts SET published_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, slug, title, excerpt, body_blocks,
+RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           published_at, created_at, updated_at
@@ -370,7 +370,7 @@ func (q *Queries) PublishPost(ctx context.Context, arg PublishPostParams) (Post,
 		&i.Slug,
 		&i.Title,
 		&i.Excerpt,
-		&i.BodyBlocks,
+		&i.BodyMd,
 		&i.CoverHeadline,
 		&i.CoverSub,
 		&i.CoverHue,
@@ -391,7 +391,7 @@ func (q *Queries) PublishPost(ctx context.Context, arg PublishPostParams) (Post,
 const unpublishPost = `-- name: UnpublishPost :one
 UPDATE posts SET published_at = NULL, updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, slug, title, excerpt, body_blocks,
+RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           published_at, created_at, updated_at
@@ -411,7 +411,7 @@ func (q *Queries) UnpublishPost(ctx context.Context, arg UnpublishPostParams) (P
 		&i.Slug,
 		&i.Title,
 		&i.Excerpt,
-		&i.BodyBlocks,
+		&i.BodyMd,
 		&i.CoverHeadline,
 		&i.CoverSub,
 		&i.CoverHue,
@@ -431,13 +431,13 @@ func (q *Queries) UnpublishPost(ctx context.Context, arg UnpublishPostParams) (P
 
 const updatePost = `-- name: UpdatePost :one
 UPDATE posts SET
-    title = $3, excerpt = $4, body_blocks = $5,
+    title = $3, excerpt = $4, body_md = $5,
     cover_headline = $6, cover_sub = $7, cover_hue = $8, cover_image_asset_id = $9,
     tags = $10, visibility = $11, cross_refs = $12, path = $13,
     read_minutes = $14, locked_body = $15,
     updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, slug, title, excerpt, body_blocks,
+RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           published_at, created_at, updated_at
@@ -448,7 +448,7 @@ type UpdatePostParams struct {
 	OwnerID           pgtype.UUID
 	Title             string
 	Excerpt           string
-	BodyBlocks        []byte
+	BodyMd            string
 	CoverHeadline     string
 	CoverSub          string
 	CoverHue          string
@@ -467,7 +467,7 @@ func (q *Queries) UpdatePost(ctx context.Context, arg UpdatePostParams) (Post, e
 		arg.OwnerID,
 		arg.Title,
 		arg.Excerpt,
-		arg.BodyBlocks,
+		arg.BodyMd,
 		arg.CoverHeadline,
 		arg.CoverSub,
 		arg.CoverHue,
@@ -486,7 +486,7 @@ func (q *Queries) UpdatePost(ctx context.Context, arg UpdatePostParams) (Post, e
 		&i.Slug,
 		&i.Title,
 		&i.Excerpt,
-		&i.BodyBlocks,
+		&i.BodyMd,
 		&i.CoverHeadline,
 		&i.CoverSub,
 		&i.CoverHue,

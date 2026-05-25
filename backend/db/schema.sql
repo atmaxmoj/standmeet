@@ -265,16 +265,19 @@ CREATE INDEX assets_sha256_idx ON assets(owner_id, sha256) WHERE sha256 <> '';
 -- retriever 可读 (path='posts/<slug>')；private 文章通过 path-glob ACL 走
 -- 跟 wiki 同一套 corpus_permissions (InviteCode 的 path_pattern 匹 path)。
 --
--- body_blocks 是 design 用的 [{kind:'p|h|pull', text}] JSON 数组。owner
--- 在 admin 编辑器手写 markdown → server 入库前 parse 成 blocks (## → h,
--- > → pull, 其他 → p)。MCP `post_create` 可直接传 blocks，也可传 markdown
--- 后端帮 parse。
+-- body_md —— canonical 唯一存储格式，GitHub-flavored markdown。owner 在
+-- admin Tiptap 编辑器里写（编辑器底层 round-trip markdown），MCP `post_create`
+-- 也只接 markdown，AI 原生吐什么我们就存什么。不发明 "block JSON" 中间态、
+-- 不存 "格式标签"——单一形态，render 端 react-markdown + remark-gfm 直渲。
 --
 -- cover 是 typographic (大字 + sub + hue)，不上图也好看；可选 cover_image
 -- _asset_id 后续支持真图 (落 assets 表)。
 --
 -- visibility: 'public' 或 'private'；private 在 path-glob ACL 走 deny
 -- 默认，特定 code 的 allow rule 放行。
+--
+-- read_minutes：denormalized 字段，Create/Update 时从 body_md 重算。原因是
+-- list endpoint 不希望为每行算一遍 word count（也不想 ship body_md 给 list）。
 --
 -- published_at NULL = 草稿；NOT NULL = 已发布，前端公开 list 才显示。
 CREATE TABLE posts (
@@ -283,7 +286,7 @@ CREATE TABLE posts (
     slug                  text          NOT NULL,
     title                 text          NOT NULL,
     excerpt               text          NOT NULL DEFAULT '',
-    body_blocks           jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    body_md               text          NOT NULL DEFAULT '',
     cover_headline        text          NOT NULL DEFAULT '',
     cover_sub             text          NOT NULL DEFAULT '',
     cover_hue             text          NOT NULL DEFAULT 'amber',

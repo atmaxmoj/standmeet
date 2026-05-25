@@ -1,9 +1,7 @@
 // posts.go —— blog post 写入 + 渲染 use case。
 //
-// MCP handoff vs 手写：admin UI 走 markdown 输入 → ParseMarkdownBlocks
-// 转 PostBlock 数组；MCP `post_create` 可以传 body_md (后端 parse) 或
-// 直接传 blocks (AI 倾向后者，省 markdown round-trip)。两条路最终都进
-// repo.Create。
+// 单一存储形态：markdown。admin Tiptap 编辑器 round-trip markdown，MCP
+// `post_create` 直接接 markdown。两条路都走同一个 BodyMD 字段进 repo.Create。
 //
 // path 默认 "posts/<slug>"，让 visitor chat retriever 通过这个 path 读
 // 文章 (用 wiki/output 同一套 path-glob ACL)。owner 想让 private post 仅
@@ -27,8 +25,7 @@ type PostsDeps struct {
 	Posts *postgres.PostRepo
 }
 
-// CreatePostInput —— 写入入参。Body 二选一：Blocks (优先) 或 BodyMD
-// (后端 parse)。两者都空 → 空 body。
+// CreatePostInput —— 写入入参。BodyMD 是 markdown 原文 (canonical 形态)。
 type CreatePostInput struct {
 	CoverImageAssetID *string
 	OwnerID           string
@@ -42,7 +39,6 @@ type CreatePostInput struct {
 	Path              string
 	LockedBody        string
 	BodyMD            string
-	Body              []domain.PostBlock
 	Tags              []string
 	CrossRefs         []string
 	Publish           bool
@@ -75,20 +71,16 @@ func validatePostInput(in *CreatePostInput) error {
 }
 
 func buildRepoCreateInput(in *CreatePostInput) *postgres.CreatePostInput {
-	body := in.Body
-	if len(body) == 0 && in.BodyMD != "" {
-		body = ParseMarkdownBlocks(in.BodyMD)
-	}
 	path := in.Path
 	if path == "" {
 		path = "posts/" + in.Slug
 	}
 	return &postgres.CreatePostInput{
 		OwnerID: in.OwnerID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
-		Body: body, CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
+		BodyMD: in.BodyMD, CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
 		CoverHue: in.CoverHue, CoverImageAssetID: in.CoverImageAssetID,
 		Tags: in.Tags, Visibility: in.Visibility, CrossRefs: in.CrossRefs,
-		Path: path, ReadMinutes: estimateReadMinutes(body),
+		Path: path, ReadMinutes: estimateReadMinutes(in.BodyMD),
 		LockedBody: in.LockedBody, Publish: in.Publish,
 	}
 }
@@ -107,7 +99,6 @@ type UpdatePostInput struct {
 	Path              string
 	LockedBody        string
 	BodyMD            string
-	Body              []domain.PostBlock
 	Tags              []string
 	CrossRefs         []string
 }
@@ -128,17 +119,13 @@ func UpdatePost(
 }
 
 func buildRepoUpdateInput(in *UpdatePostInput) *postgres.UpdatePostInput {
-	body := in.Body
-	if len(body) == 0 && in.BodyMD != "" {
-		body = ParseMarkdownBlocks(in.BodyMD)
-	}
 	return &postgres.UpdatePostInput{
 		OwnerID: in.OwnerID, PostID: in.PostID, Title: in.Title,
-		Excerpt: in.Excerpt, Body: body, CoverHeadline: in.CoverHeadline,
+		Excerpt: in.Excerpt, BodyMD: in.BodyMD, CoverHeadline: in.CoverHeadline,
 		CoverSub: in.CoverSub, CoverHue: in.CoverHue,
 		CoverImageAssetID: in.CoverImageAssetID,
 		Tags:              in.Tags, Visibility: in.Visibility, CrossRefs: in.CrossRefs,
-		Path: in.Path, ReadMinutes: estimateReadMinutes(body), LockedBody: in.LockedBody,
+		Path: in.Path, ReadMinutes: estimateReadMinutes(in.BodyMD), LockedBody: in.LockedBody,
 	}
 }
 

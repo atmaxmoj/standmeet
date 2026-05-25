@@ -4,8 +4,10 @@
 // "posts/<slug>" 可读；private 文章走跟 wiki 同一套 path-glob ACL (InviteCode
 // 的 corpus_permissions 匹 post.path)。
 //
-// body_blocks 是 design 用的渲染单元数组；owner 手写 markdown，server
-// 入库前 parse。AI 通过 MCP `post_create` 可直接传 blocks。
+// BodyMD 是唯一存储形态：GitHub-flavored markdown 原文。owner 在 Tiptap
+// 编辑器（前端 round-trip markdown）或 MCP `post_create` 写入；前端 render
+// 走 react-markdown + remark-gfm。retriever 索引时通过 StripMarkdown 拿 plain
+// text。
 
 package domain
 
@@ -13,13 +15,6 @@ import (
 	"errors"
 	"time"
 )
-
-// PostBlock —— 渲染单元；kind ∈ {p, h, pull}。
-// p = 段落、h = h2 标题、pull = 大引文 (左 vermillion border)。
-type PostBlock struct {
-	Kind string `json:"kind"`
-	Text string `json:"text"`
-}
 
 // PostVisibility —— public 默认；private 走 path ACL 默认 deny。
 const (
@@ -45,13 +40,13 @@ type Post struct {
 	Slug              string
 	Title             string
 	Excerpt           string
+	BodyMD            string
 	CoverHeadline     string
 	CoverSub          string
 	CoverHue          string
 	Visibility        string
 	Path              string
 	LockedBody        string
-	Body              []PostBlock
 	Tags              []string
 	CrossRefs         []string
 	ReadMinutes       int32

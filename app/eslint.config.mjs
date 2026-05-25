@@ -209,4 +209,15 @@ export default tseslint.config(
       ],
     },
   },
+
+  // Markdown renderer —— body_md 来自 owner 输入 + AI MCP，src 是任意 URL
+  // (CDN / 第三方 / 未来 standmeet-asset:<id> presigned)，无宽高、无固定 domain。
+  // next/image 要求 width+height，与 markdown <img> 语义不兼容，本文件
+  // 单点允许 raw <img>。
+  {
+    files: ['src/components/blog/BlogArticleMarkdown.tsx'],
+    rules: {
+      '@next/next/no-img-element': 'off',
+    },
+  },
 );

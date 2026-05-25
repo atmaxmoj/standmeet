@@ -1,10 +1,9 @@
 // posts_mapping.go —— posts.go 拆出来的纯映射 helpers (sqlc row →
-// domain.Post，UUID/timestamp/jsonb 互转，hue/visibility 白名单兜底)。
+// domain.Post，UUID/timestamp 互转，hue/visibility 白名单兜底)。
 
 package postgres
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -43,7 +42,7 @@ func toDomainPost(row *dbq.Post) domain.Post {
 	return domain.Post{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
 		Slug: row.Slug, Title: row.Title, Excerpt: row.Excerpt,
-		Body:              decodeBlocks(row.BodyBlocks),
+		BodyMD:            row.BodyMd,
 		CoverHeadline:     row.CoverHeadline,
 		CoverSub:          row.CoverSub,
 		CoverHue:          row.CoverHue,
@@ -74,28 +73,6 @@ func optTime(t pgtype.Timestamptz) *time.Time {
 	}
 	tt := t.Time
 	return &tt
-}
-
-func marshalBlocks(blocks []domain.PostBlock) ([]byte, error) {
-	if blocks == nil {
-		blocks = []domain.PostBlock{}
-	}
-	b, err := json.Marshal(blocks)
-	if err != nil {
-		return nil, fmt.Errorf("marshal post blocks: %w", err)
-	}
-	return b, nil
-}
-
-func decodeBlocks(raw []byte) []domain.PostBlock {
-	if len(raw) == 0 {
-		return nil
-	}
-	var out []domain.PostBlock
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
-	}
-	return out
 }
 
 func postCoverHueOr(hue string) string {

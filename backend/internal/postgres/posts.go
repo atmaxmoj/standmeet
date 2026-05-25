@@ -1,4 +1,4 @@
-// posts.go —— posts 表 CRUD。body_blocks JSON in/out 在本层 marshal；
+// posts.go —— posts 表 CRUD。body_md 是 markdown text 直存；
 // cover_image_asset_id 可空 (typographic-only post 不挂图)。slug 冲突翻
 // ErrPostSlugTaken。
 
@@ -25,20 +25,20 @@ type PostRepo struct {
 // NewPostRepo 构造。
 func NewPostRepo(pool *Pool) *PostRepo { return &PostRepo{pool: pool} }
 
-// CreatePostInput —— Create 入参。caller 已 parse 好 body_blocks。
+// CreatePostInput —— Create 入参。BodyMD 是 markdown 原文，本层透传。
 type CreatePostInput struct {
 	CoverImageAssetID *string
 	OwnerID           string
 	Slug              string
 	Title             string
 	Excerpt           string
+	BodyMD            string
 	CoverHeadline     string
 	CoverSub          string
 	CoverHue          string
 	Visibility        string
 	Path              string
 	LockedBody        string
-	Body              []domain.PostBlock
 	Tags              []string
 	CrossRefs         []string
 	ReadMinutes       int32
@@ -67,10 +67,6 @@ func buildCreatePostParams(in *CreatePostInput) (*dbq.CreatePostParams, error) {
 	if oerr != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
-	blocks, berr := marshalBlocks(in.Body)
-	if berr != nil {
-		return nil, berr
-	}
 	var publishedAt pgtype.Timestamptz
 	if in.Publish {
 		publishedAt = nowTimestamptz()
@@ -81,7 +77,7 @@ func buildCreatePostParams(in *CreatePostInput) (*dbq.CreatePostParams, error) {
 	}
 	return &dbq.CreatePostParams{
 		OwnerID: ownerUUID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
-		BodyBlocks: blocks, CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
+		BodyMd: in.BodyMD, CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
 		CoverHue: postCoverHueOr(in.CoverHue), CoverImageAssetID: assetID,
 		Tags: nilSafeTags(in.Tags), Visibility: postVisibilityOr(in.Visibility),
 		CrossRefs: nilSafeTags(in.CrossRefs), Path: in.Path,
@@ -114,13 +110,13 @@ type UpdatePostInput struct {
 	PostID            string
 	Title             string
 	Excerpt           string
+	BodyMD            string
 	CoverHeadline     string
 	CoverSub          string
 	CoverHue          string
 	Visibility        string
 	Path              string
 	LockedBody        string
-	Body              []domain.PostBlock
 	Tags              []string
 	CrossRefs         []string
 	ReadMinutes       int32
@@ -147,17 +143,13 @@ func buildUpdatePostParams(in *UpdatePostInput) (*dbq.UpdatePostParams, error) {
 	if perr != nil {
 		return nil, perr
 	}
-	blocks, berr := marshalBlocks(in.Body)
-	if berr != nil {
-		return nil, berr
-	}
 	assetID, aerr := optAssetUUID(in.CoverImageAssetID)
 	if aerr != nil {
 		return nil, aerr
 	}
 	return &dbq.UpdatePostParams{
 		ID: args.postUUID, OwnerID: args.ownerUUID,
-		Title: in.Title, Excerpt: in.Excerpt, BodyBlocks: blocks,
+		Title: in.Title, Excerpt: in.Excerpt, BodyMd: in.BodyMD,
 		CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
 		CoverHue: postCoverHueOr(in.CoverHue), CoverImageAssetID: assetID,
 		Tags: nilSafeTags(in.Tags), Visibility: postVisibilityOr(in.Visibility),

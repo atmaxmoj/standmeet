@@ -6,14 +6,13 @@ import { useEffect } from 'react';
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
-import type { PostBlock } from '@/lib/api/public';
 
 export interface AdminPostView {
   id: string;
   slug: string;
   title: string;
   excerpt: string;
-  body: PostBlock[];
+  body_md: string;
   cover_headline: string;
   cover_sub: string;
   cover_hue: 'amber' | 'violet' | 'acid';

@@ -43,9 +43,9 @@ function titleCount(hook: PostsHook): string {
 function Intro() {
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Owner-curated blog posts. Hand-write in markdown below — `## h2` becomes a section break, `&gt; quote`
-      becomes a pull-quote, anything else is a paragraph. Or hand off to Claude via the
-      `post_create` MCP tool; both end up in the same place.
+      Owner-curated blog posts. Write GitHub-flavored markdown below (headings, lists, tables,
+      code blocks, links, blockquotes) — rendered as-is on the public page. Or hand off to
+      Claude via the `post_create` MCP tool; same canonical markdown either way.
     </p>
   );
 }
@@ -325,7 +325,7 @@ function PostBodyField({ value, onChange }: { value: string; onChange: (v: strin
       <textarea
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[13px] font-mono min-h-[260px]"
         value={value}
-        placeholder={'Paragraph.\n\n## Heading\n\nAnother paragraph.\n\n> Pull-quote.'}
+        placeholder={'# Heading\n\nParagraph with **bold** and [a link](https://...).\n\n- list item\n- list item\n\n```ts\nconst ok = true;\n```\n\n| col | col |\n| --- | --- |\n| a   | b   |'}
         onChange={(e) => onChange(e.target.value)}
         data-testid="post-field-body"
       />

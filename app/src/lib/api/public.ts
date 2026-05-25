@@ -71,18 +71,16 @@ export type { IssueSessionInput };
 
 // ─── posts (blog) ────────────────────────────────────────────────────
 // SDK 还没接 posts；这里直接走 raw fetch。日后扩 SDK 时移过去保持 dogfood。
-
-export interface PostBlock {
-  kind: 'p' | 'h' | 'pull';
-  text: string;
-}
+//
+// body_md 是 GitHub-flavored markdown 原文，render 端用 react-markdown +
+// remark-gfm 直渲。不存中间块结构。
 
 export interface PostView {
   id: string;
   slug: string;
   title: string;
   excerpt: string;
-  body: PostBlock[];
+  body_md: string;
   cover_headline: string;
   cover_sub: string;
   cover_hue: 'amber' | 'violet' | 'acid';

@@ -1,5 +1,5 @@
 // posts.go —— admin /posts endpoint: list / create / update / publish /
-// delete。手写编辑器走 markdown body，server parse 成 blocks 入库。
+// delete。body 是 markdown 原文，直接透传到 repo。
 
 package admin
 
@@ -23,57 +23,55 @@ type PostsAdminDeps struct {
 }
 
 type postView struct {
-	PublishedAt       string             `json:"published_at,omitempty"`
-	UpdatedAt         string             `json:"updated_at"`
-	CreatedAt         string             `json:"created_at"`
-	CoverImageAssetID string             `json:"cover_image_asset_id,omitempty"`
-	ID                string             `json:"id"`
-	Slug              string             `json:"slug"`
-	Title             string             `json:"title"`
-	Excerpt           string             `json:"excerpt"`
-	CoverHeadline     string             `json:"cover_headline"`
-	CoverSub          string             `json:"cover_sub"`
-	CoverHue          string             `json:"cover_hue"`
-	Visibility        string             `json:"visibility"`
-	Path              string             `json:"path"`
-	LockedBody        string             `json:"locked_body"`
-	Body              []domain.PostBlock `json:"body"`
-	Tags              []string           `json:"tags"`
-	CrossRefs         []string           `json:"cross_refs"`
-	ReadMinutes       int32              `json:"read_minutes"`
-	Published         bool               `json:"published"`
+	PublishedAt       string   `json:"published_at,omitempty"`
+	UpdatedAt         string   `json:"updated_at"`
+	CreatedAt         string   `json:"created_at"`
+	CoverImageAssetID string   `json:"cover_image_asset_id,omitempty"`
+	ID                string   `json:"id"`
+	Slug              string   `json:"slug"`
+	Title             string   `json:"title"`
+	Excerpt           string   `json:"excerpt"`
+	BodyMD            string   `json:"body_md"`
+	CoverHeadline     string   `json:"cover_headline"`
+	CoverSub          string   `json:"cover_sub"`
+	CoverHue          string   `json:"cover_hue"`
+	Visibility        string   `json:"visibility"`
+	Path              string   `json:"path"`
+	LockedBody        string   `json:"locked_body"`
+	Tags              []string `json:"tags"`
+	CrossRefs         []string `json:"cross_refs"`
+	ReadMinutes       int32    `json:"read_minutes"`
+	Published         bool     `json:"published"`
 }
 
 type createPostRequest struct {
-	CoverImageAssetID string             `json:"cover_image_asset_id"`
-	Slug              string             `json:"slug"`
-	Title             string             `json:"title"`
-	Excerpt           string             `json:"excerpt"`
-	BodyMD            string             `json:"body_md"`
-	CoverHeadline     string             `json:"cover_headline"`
-	CoverSub          string             `json:"cover_sub"`
-	CoverHue          string             `json:"cover_hue"`
-	Visibility        string             `json:"visibility"`
-	LockedBody        string             `json:"locked_body"`
-	Body              []domain.PostBlock `json:"body"`
-	Tags              []string           `json:"tags"`
-	CrossRefs         []string           `json:"cross_refs"`
-	Publish           bool               `json:"publish"`
+	CoverImageAssetID string   `json:"cover_image_asset_id"`
+	Slug              string   `json:"slug"`
+	Title             string   `json:"title"`
+	Excerpt           string   `json:"excerpt"`
+	BodyMD            string   `json:"body_md"`
+	CoverHeadline     string   `json:"cover_headline"`
+	CoverSub          string   `json:"cover_sub"`
+	CoverHue          string   `json:"cover_hue"`
+	Visibility        string   `json:"visibility"`
+	LockedBody        string   `json:"locked_body"`
+	Tags              []string `json:"tags"`
+	CrossRefs         []string `json:"cross_refs"`
+	Publish           bool     `json:"publish"`
 }
 
 type updatePostRequest struct {
-	CoverImageAssetID string             `json:"cover_image_asset_id"`
-	Title             string             `json:"title"`
-	Excerpt           string             `json:"excerpt"`
-	BodyMD            string             `json:"body_md"`
-	CoverHeadline     string             `json:"cover_headline"`
-	CoverSub          string             `json:"cover_sub"`
-	CoverHue          string             `json:"cover_hue"`
-	Visibility        string             `json:"visibility"`
-	LockedBody        string             `json:"locked_body"`
-	Body              []domain.PostBlock `json:"body"`
-	Tags              []string           `json:"tags"`
-	CrossRefs         []string           `json:"cross_refs"`
+	CoverImageAssetID string   `json:"cover_image_asset_id"`
+	Title             string   `json:"title"`
+	Excerpt           string   `json:"excerpt"`
+	BodyMD            string   `json:"body_md"`
+	CoverHeadline     string   `json:"cover_headline"`
+	CoverSub          string   `json:"cover_sub"`
+	CoverHue          string   `json:"cover_hue"`
+	Visibility        string   `json:"visibility"`
+	LockedBody        string   `json:"locked_body"`
+	Tags              []string `json:"tags"`
+	CrossRefs         []string `json:"cross_refs"`
 }
 
 // MountPosts 挂 /posts 子路由。
@@ -120,7 +118,7 @@ func toPostView(p *domain.Post) postView {
 	}
 	return postView{
 		ID: p.ID, Slug: p.Slug, Title: p.Title, Excerpt: p.Excerpt,
-		Body: p.Body, CoverHeadline: p.CoverHeadline, CoverSub: p.CoverSub,
+		BodyMD: p.BodyMD, CoverHeadline: p.CoverHeadline, CoverSub: p.CoverSub,
 		CoverHue: p.CoverHue, CoverImageAssetID: assetID,
 		Tags: p.Tags, Visibility: p.Visibility, CrossRefs: p.CrossRefs,
 		Path: p.Path, ReadMinutes: p.ReadMinutes, LockedBody: p.LockedBody,
@@ -165,7 +163,7 @@ func buildCreatePostUsecaseInput(
 	}
 	return &usecases.CreatePostInput{
 		OwnerID: ownerID, Slug: req.Slug, Title: req.Title, Excerpt: req.Excerpt,
-		BodyMD: req.BodyMD, Body: req.Body,
+		BodyMD:        req.BodyMD,
 		CoverHeadline: req.CoverHeadline, CoverSub: req.CoverSub,
 		CoverHue: req.CoverHue, CoverImageAssetID: assetID,
 		Tags: req.Tags, Visibility: req.Visibility, CrossRefs: req.CrossRefs,
@@ -233,7 +231,7 @@ func buildUpdatePostUsecaseInput(
 	return &usecases.UpdatePostInput{
 		OwnerID: ownerID, PostID: postID,
 		Title: req.Title, Excerpt: req.Excerpt,
-		BodyMD: req.BodyMD, Body: req.Body,
+		BodyMD:        req.BodyMD,
 		CoverHeadline: req.CoverHeadline, CoverSub: req.CoverSub,
 		CoverHue: req.CoverHue, CoverImageAssetID: assetID,
 		Tags: req.Tags, Visibility: req.Visibility, CrossRefs: req.CrossRefs,
