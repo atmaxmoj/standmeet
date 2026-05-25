@@ -27,16 +27,21 @@ function isLocked(post: PostView): boolean {
 }
 
 function UnlockedView({ post }: { post: PostView }) {
+  const assetURLs = post.asset_urls ?? {};
   return (
     <div className="min-h-screen bg-(--color-paper) text-(--color-ink) font-serif">
       <ArticleTopBar />
       <main className="pb-24">
         <Breadcrumb />
         <div className="max-w-[920px] mx-auto px-6 lg:px-0 mt-6 mb-12">
-          <Cover cover={post} no={formatDate(post.published_at) + ' · essay'} />
+          <Cover
+            cover={post}
+            assetURLs={assetURLs}
+            no={formatDate(post.published_at) + ' · essay'}
+          />
         </div>
         <ArticleHeader post={post} />
-        <Body bodyMD={post.body_md} assetURLs={post.asset_urls ?? {}} />
+        <Body bodyMD={post.body_md} assetURLs={assetURLs} />
       </main>
     </div>
   );

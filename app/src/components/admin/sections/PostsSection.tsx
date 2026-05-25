@@ -10,6 +10,7 @@ import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { BlogEditor } from '@/components/blog/editor';
+import { CoverImagePicker, type CoverAssetState } from '@/components/admin/sections/posts/CoverImagePicker';
 import { usePosts, type PostsHook, type AdminPostView, type CreatePostInput } from '@/lib/admin/use-posts';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
@@ -198,11 +199,12 @@ function PostCreateForm({
   const [coverHeadline, setCoverHeadline] = useState('');
   const [coverSub, setCoverSub] = useState('');
   const [coverHue, setCoverHue] = useState<'amber' | 'violet' | 'acid'>('amber');
+  const [coverAsset, setCoverAsset] = useState<CoverAssetState>({ id: '', url: '' });
   const [tags, setTags] = useState('');
   const [publish, setPublish] = useState(true);
   const toast = useToast();
   const submit = useSubmitPost(
-    { slug, title, excerpt, bodyMD, coverHeadline, coverSub, coverHue, tags, publish },
+    { slug, title, excerpt, bodyMD, coverHeadline, coverSub, coverHue, coverAsset, tags, publish },
     { onCreate, onClose, toast },
   );
   return (
@@ -221,6 +223,7 @@ function PostCreateForm({
         <CoverHueSelect value={coverHue} onChange={setCoverHue} />
         <PostField label="tags" value={tags} onChange={setTags} placeholder="comma, separated" />
       </PostFieldRow>
+      <CoverImagePicker value={coverAsset} onChange={setCoverAsset} toast={toast} />
       <PostBodyField value={bodyMD} onChange={setBodyMD} />
       <PostCreateFooter publish={publish} onTogglePublish={() => setPublish(!publish)} onClose={onClose} onSubmit={() => void submit()} />
     </div>
@@ -235,6 +238,7 @@ interface PostFormFields {
   coverHeadline: string;
   coverSub: string;
   coverHue: 'amber' | 'violet' | 'acid';
+  coverAsset: CoverAssetState;
   tags: string;
   publish: boolean;
 }
@@ -270,10 +274,12 @@ function buildCreatePayload(f: PostFormFields): CreatePostInput {
   return {
     slug: f.slug, title: f.title, excerpt: f.excerpt, body_md: f.bodyMD,
     cover_headline: f.coverHeadline, cover_sub: f.coverSub, cover_hue: f.coverHue,
+    cover_image_asset_id: f.coverAsset.id === '' ? undefined : f.coverAsset.id,
     tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
     visibility: 'public', cross_refs: [], locked_body: '', publish: f.publish,
   };
 }
+
 
 function PostFieldRow({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>;

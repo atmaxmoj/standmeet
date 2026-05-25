@@ -170,7 +170,7 @@ func toPostViewResolved(r *http.Request, h *PostHandlers, p *domain.Post) postVi
 }
 
 func resolvePostAssetURLs(r *http.Request, h *PostHandlers, p *domain.Post) map[string]string {
-	ids := usecases.ScanAssetReferences(p.BodyMD)
+	ids := usecases.PostAssetIDs(p.BodyMD, p.CoverImageAssetID)
 	urls, err := usecases.ResolveAssetURLs(r.Context(), h.Assets.Repo, h.Assets.Storage, ids)
 	if err != nil {
 		h.Log.Error("resolve asset urls", "err", err)

@@ -29,6 +29,17 @@ var assetURIPattern = regexp.MustCompile(
 	`standmeet-asset:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`,
 )
 
+// PostAssetIDs —— 一个 post 里所有 asset 引用：body_md 里的 standmeet-asset
+// URI + cover_image_asset_id（如果设了）。route layer batch resolve 用，
+// orphan scan 也用，单点定义。
+func PostAssetIDs(bodyMD string, coverImageAssetID *string) []string {
+	ids := ScanAssetReferences(bodyMD)
+	if coverImageAssetID != nil && *coverImageAssetID != "" {
+		ids = append(ids, *coverImageAssetID)
+	}
+	return ids
+}
+
 // ScanAssetReferences —— 从 body_md 抽出所有引用的 asset ID（去重）。
 // 顺序：首次出现先。
 func ScanAssetReferences(bodyMD string) []string {
@@ -116,7 +127,7 @@ func collectReferencedAssetIDs(
 	}
 	out := make(map[string]struct{})
 	for i := range posts {
-		for _, id := range ScanAssetReferences(posts[i].BodyMD) {
+		for _, id := range PostAssetIDs(posts[i].BodyMD, posts[i].CoverImageAssetID) {
 			out[id] = struct{}{}
 		}
 	}

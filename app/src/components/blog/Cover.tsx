@@ -1,35 +1,43 @@
 // Cover —— typographic post 封面。设计源自 blog.html .cover 块：
 // container-query 让同组件在 article hero 宽 + index lead 窄都 render
 // 正常。radial gradient 三色 hue (amber/violet/acid)。
+//
+// owner 上传了 cover image → 用 image 当背景（保留 hue 着色 + headline/sub
+// 叠在上面）；没传 → 纯 typographic + 三色 gradient。
 
 import type { PostView } from '@/lib/api/public';
 
 interface Props {
-  cover: Pick<PostView, 'cover_headline' | 'cover_sub' | 'cover_hue'>;
+  cover: Pick<PostView, 'cover_headline' | 'cover_sub' | 'cover_hue' | 'cover_image_asset_id'>;
+  assetURLs?: Record<string, string>;
   locked?: boolean;
   no?: string;
 }
 
+// HUE_GRADIENT —— 只放 image layers (radial-gradient)；surface color 走
+// backgroundColor 单出。混 url(...) 和 var(color) 在 background shorthand 里
+// 会被 browser reject 成 invalid → "none"。
 const HUE_GRADIENT: Record<PostView['cover_hue'], string> = {
   amber:
     'radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, #C7892F 30%, transparent), transparent 70%),' +
-    'radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, #C7892F 18%, transparent), transparent 70%),' +
-    'var(--color-surface, #ECE6D8)',
+    'radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, #C7892F 18%, transparent), transparent 70%)',
   violet:
     'radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, #7A4D9E 22%, transparent), transparent 70%),' +
-    'radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, #7A4D9E 14%, transparent), transparent 70%),' +
-    'var(--color-surface, #ECE6D8)',
+    'radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, #7A4D9E 14%, transparent), transparent 70%)',
   acid:
     'radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, #6F8A2F 26%, transparent), transparent 70%),' +
-    'radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, #6F8A2F 14%, transparent), transparent 70%),' +
-    'var(--color-surface, #ECE6D8)',
+    'radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, #6F8A2F 14%, transparent), transparent 70%)',
 };
 
-export function Cover({ cover, locked, no }: Props) {
+const COVER_SURFACE = 'var(--color-surface, #ECE6D8)';
+
+export function Cover({ cover, locked, no, assetURLs }: Props) {
+  const imgURL = resolveCoverImageURL(cover.cover_image_asset_id, assetURLs);
   return (
     <div
       className="relative overflow-hidden border border-(--color-rule)"
-      style={coverStyle(cover.cover_hue, locked)}
+      data-blog-cover
+      style={coverStyle(cover.cover_hue, locked, imgURL)}
     >
       <CoverRule />
       <CoverHeadline text={cover.cover_headline} />
@@ -41,13 +49,38 @@ export function Cover({ cover, locked, no }: Props) {
   );
 }
 
-function coverStyle(hue: PostView['cover_hue'], locked?: boolean): React.CSSProperties {
+function resolveCoverImageURL(
+  assetID: string | undefined, assetURLs?: Record<string, string>,
+): string | undefined {
+  return assetID && assetURLs ? assetURLs[assetID] : undefined;
+}
+
+function coverStyle(
+  hue: PostView['cover_hue'], locked?: boolean, imgURL?: string,
+): React.CSSProperties {
   return {
     aspectRatio: '21 / 9',
     containerType: 'inline-size',
-    background: HUE_GRADIENT[hue] ?? HUE_GRADIENT.amber,
+    backgroundImage: backgroundImageFor(hue, imgURL),
+    backgroundColor: COVER_SURFACE,
+    ...imageFitStyle(imgURL),
     filter: locked ? 'grayscale(0.7) blur(0.5px)' : undefined,
   };
+}
+
+function imageFitStyle(imgURL?: string): React.CSSProperties {
+  return imgURL ? { backgroundSize: 'cover', backgroundPosition: 'center' } : {};
+}
+
+// backgroundImageFor —— 有 imgURL 把图片叠在 hue gradient 下层（gradient
+// 半透在上层 → 保留 standmeet 三色色调 + 文字可读性）；无 imgURL 走纯 gradient。
+function backgroundImageFor(hue: PostView['cover_hue'], imgURL?: string): string {
+  const gradient = hueGradient(hue);
+  return imgURL ? `${gradient}, url("${imgURL}")` : gradient;
+}
+
+function hueGradient(hue: PostView['cover_hue']): string {
+  return HUE_GRADIENT[hue] ?? HUE_GRADIENT.amber;
 }
 
 function CoverNumberMaybe({ text }: { text?: string }) {

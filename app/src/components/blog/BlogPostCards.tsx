@@ -17,7 +17,11 @@ export function PostCardLead({
       data-blog-card={post.slug}
     >
       <Link href={`/blog/${post.slug}`} className="block">
-        <Cover cover={post} no={'no. 01 · ' + formatDate(post.published_at)} />
+        <Cover
+          cover={post}
+          assetURLs={post.asset_urls ?? {}}
+          no={'no. 01 · ' + formatDate(post.published_at)}
+        />
       </Link>
       <PostCardLeadMeta post={post} onPickTag={onPickTag} />
     </article>

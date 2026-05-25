@@ -18,6 +18,10 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import {
+  uploadCoverImage, pasteImage, directUploadAsset,
+  assertOrphans, runGC, assertAdminBodyHasURI,
+} from '@/fixtures/blog-assets';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { goto, gotoAdminSection } from '@/fixtures/navigate';
@@ -130,10 +134,47 @@ test.describe.serial('blog: image upload + asset URI + orphan scan + GC', () => 
 
   test('upload unreferenced asset → orphan scan finds it → DELETE /assets/orphans cleans it',
     async ({ request }) => {
-      const id = await directUploadAsset(request);
-      await assertOrphans(request, [id]);
-      await runGC(request, [id]);
-      await assertOrphans(request, []);
+      const id = await directUploadAsset(request, OWNER);
+      await assertOrphans(request, OWNER, [id]);
+      await runGC(request, OWNER, [id]);
+      await assertOrphans(request, OWNER, []);
+    });
+
+  test('owner uploads cover image → /blog cover renders with image background',
+    async ({ adminPage, page, request }) => {
+      await openAdminPosts(adminPage);
+      await fillPostMeta(adminPage, {
+        slug: 'with-cover', title: 'Post with cover',
+        excerpt: 'Cover image attached.',
+        cover: { headline: 'cover.', sub: 'image.', hue: 'amber' },
+        tags: 'cover',
+      });
+      await uploadCoverImage(adminPage);
+      // wait for preview img to appear → upload completed
+      await expect(adminPage.getByAltText('cover preview')).toBeVisible({ timeout: 10_000 });
+      await adminPage.getByTestId('post-create-submit').click();
+      await expect(adminPage.getByTestId('post-row-with-cover'))
+        .toBeVisible({ timeout: 5_000 });
+
+      // 诊断：confirm post stored cover_image_asset_id + asset_urls resolved
+      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+      const adminRes = await request.get('/api/admin/posts/', { headers: { 'X-Csrftoken': csrf } });
+      const adminPosts = await adminRes.json() as Array<{ slug: string; cover_image_asset_id: string; asset_urls: Record<string, string> }>;
+      const stored = adminPosts.find((p) => p.slug === 'with-cover');
+      expect(stored).toBeTruthy();
+      expect(stored?.cover_image_asset_id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(Object.keys(stored?.asset_urls ?? {})).toContain(stored?.cover_image_asset_id);
+
+      // confirm public endpoint also resolves asset_urls
+      const publicRes = await request.get('/api/v1/posts/with-cover');
+      const publicPost = await publicRes.json() as { cover_image_asset_id: string; asset_urls: Record<string, string> };
+      expect(publicPost.cover_image_asset_id).toBe(stored?.cover_image_asset_id);
+      expect(Object.keys(publicPost.asset_urls ?? {})).toContain(publicPost.cover_image_asset_id);
+
+      await goto(page, '/blog/with-cover');
+      const cover = page.locator('[data-blog-cover]').first();
+      const bg = await cover.evaluate((el) => getComputedStyle(el).backgroundImage);
+      expect(bg).toMatch(/localhost:9200/);
     });
 
   test('paste image in editor → /blog renders presigned URL; body_md stores URI; orphan=0',
@@ -163,7 +204,7 @@ test.describe.serial('blog: image upload + asset URI + orphan scan + GC', () => 
       expect(src).toMatch(/localhost:9200/); // presigned URL host (minio public)
 
       // admin GET: body_md contains URI not presigned URL
-      await assertAdminBodyHasURI(request);
+      await assertAdminBodyHasURI(request, OWNER, 'image-post');
       // orphan scan: 0 because asset is referenced by this post
       await assertNoOrphans(request);
     });
@@ -212,82 +253,8 @@ interface MCPCreateInput {
   tags: string[];
 }
 
-// pasteImage —— 在 contenteditable 上 dispatch ClipboardEvent，files 携带
-// 1x1 透明 PNG。Tiptap 的 ImageUpload extension handlePaste 截获 → 上传 →
-// 插 img 节点。
-async function pasteImage(page: Page, filename: string): Promise<void> {
-  await page.evaluate(({ name }) => {
-    const editor = document.querySelector('[data-testid="post-field-body"]');
-    if (!editor) throw new Error('editor not found');
-    // 1x1 transparent PNG bytes
-    const bytes = new Uint8Array([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
-      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
-      0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x62, 0x00, 0x01, 0x00, 0x00,
-      0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
-      0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
-    ]);
-    const file = new File([bytes], name, { type: 'image/png' });
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    const event = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
-    editor.dispatchEvent(event);
-  }, { name: filename });
-}
-
-async function assertAdminBodyHasURI(request: APIRequestContext): Promise<void> {
-  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const res = await request.get('/api/admin/posts/', {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  const posts = await res.json() as Array<{ slug: string; body_md: string; asset_urls: Record<string, string> }>;
-  const post = posts.find((p) => p.slug === 'image-post');
-  if (!post) throw new Error('image-post not in admin list');
-  expect(post.body_md).toMatch(/standmeet-asset:[0-9a-f-]{36}/);
-  expect(Object.keys(post.asset_urls).length).toBeGreaterThan(0);
-}
-
 async function assertNoOrphans(request: APIRequestContext): Promise<void> {
-  await assertOrphans(request, []);
-}
-
-async function assertOrphans(request: APIRequestContext, expected: string[]): Promise<void> {
-  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const res = await request.get('/api/admin/assets/orphans', {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  const body = await res.json() as { orphans: string[] };
-  expect(body.orphans.sort()).toEqual([...expected].sort());
-}
-
-async function directUploadAsset(request: APIRequestContext): Promise<string> {
-  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // 1x1 transparent PNG (same bytes as pasteImage)
-  const bytes = Buffer.from([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
-    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-    0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
-    0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x62, 0x00, 0x01, 0x00, 0x00,
-    0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
-    0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
-  ]);
-  const res = await request.post('/api/admin/assets/', {
-    headers: { 'X-Csrftoken': csrf },
-    multipart: { file: { name: 'orphan.png', mimeType: 'image/png', buffer: bytes } },
-  });
-  const body = await res.json() as { id: string };
-  return body.id;
-}
-
-async function runGC(request: APIRequestContext, expectedDeleted: string[]): Promise<void> {
-  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const res = await request.delete('/api/admin/assets/orphans', {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  const body = await res.json() as { deleted: string[]; failed: string[] };
-  expect(body.deleted.sort()).toEqual([...expectedDeleted].sort());
-  expect(body.failed).toHaveLength(0);
+  await assertOrphans(request, OWNER, []);
 }
 
 async function mcpCreatePost(
