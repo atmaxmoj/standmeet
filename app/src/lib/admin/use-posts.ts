@@ -27,6 +27,7 @@ export interface AdminPostView {
   published_at?: string;
   created_at: string;
   updated_at: string;
+  asset_urls?: Record<string, string>;
 }
 
 export interface CreatePostInput {
@@ -45,12 +46,29 @@ export interface CreatePostInput {
   publish: boolean;
 }
 
+// UpdatePostInput —— PATCH /posts/{id}：slug + publish 状态保留不动（slug
+// 是 stable URL，publish 走单独 endpoint），其他字段都是覆盖。
+export interface UpdatePostInput {
+  title: string;
+  excerpt: string;
+  body_md: string;
+  cover_headline: string;
+  cover_sub: string;
+  cover_hue: 'amber' | 'violet' | 'acid';
+  cover_image_asset_id?: string;
+  tags: string[];
+  visibility: 'public' | 'private';
+  cross_refs: string[];
+  locked_body: string;
+}
+
 export interface PostsHook {
   status: ResourceStatus;
   posts: readonly AdminPostView[];
   error: string | null;
   refresh: () => Promise<void>;
   createPost: (input: CreatePostInput) => Promise<boolean>;
+  updatePost: (id: string, input: UpdatePostInput) => Promise<boolean>;
   deletePost: (id: string) => Promise<boolean>;
   publishPost: (id: string) => Promise<boolean>;
   unpublishPost: (id: string) => Promise<boolean>;
@@ -71,10 +89,22 @@ export function usePosts(): PostsHook {
     error: r.error,
     refresh: postsStore.getState().refresh,
     createPost,
+    updatePost,
     deletePost,
     publishPost,
     unpublishPost,
   };
+}
+
+async function updatePost(id: string, input: UpdatePostInput): Promise<boolean> {
+  try {
+    const updated = await adminAPI.patch<AdminPostView>(`/posts/${id}`, input);
+    postsStore.getState().mutate((prev) =>
+      (prev ?? []).map((p) => p.id === updated.id ? updated : p));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function createPost(input: CreatePostInput): Promise<boolean> {

@@ -1,6 +1,6 @@
-// PostsSection —— /admin/posts。owner 手写 markdown post。MCP handoff
-// 同一套 backend，所以这里只是给 owner 不开 Claude Desktop 时的一条
-// 备用路径。设计简单：list (publish 状态 chip + delete) + 新建 modal。
+// PostsSection —— /admin/posts。owner 手写 markdown post + edit + delete +
+// publish/unpublish + cover image。MCP handoff 同一套 backend，所以这里
+// 是 owner 不开 Claude Desktop 时的 web 备用路径。
 
 'use client';
 
@@ -9,14 +9,17 @@ import { useCallback, useState } from 'react';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
-import { BlogEditor } from '@/components/blog/editor';
-import { CoverImagePicker, type CoverAssetState } from '@/components/admin/sections/posts/CoverImagePicker';
-import { usePosts, type PostsHook, type AdminPostView, type CreatePostInput } from '@/lib/admin/use-posts';
+import { PostForm, EMPTY_VALUES, type PostFormValues } from '@/components/admin/sections/posts/PostForm';
+import {
+  usePosts, type PostsHook, type AdminPostView,
+  type CreatePostInput, type UpdatePostInput,
+} from '@/lib/admin/use-posts';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function PostsSection() {
   const hook = usePosts();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<AdminPostView | null>(null);
   useEffectErrorToast(hook.error);
   return (
     <>
@@ -27,12 +30,13 @@ export function PostsSection() {
         action={<Btn kind="primary" onClick={() => setCreating(true)}>＋ new post</Btn>}
       />
       <Intro />
-      <PostsListBody hook={hook} />
+      <PostsListBody hook={hook} onEdit={setEditing} />
       {creating && (
-        <PostCreateModal
-          onClose={() => setCreating(false)}
-          onCreate={hook.createPost}
-        />
+        <PostCreateModal onClose={() => setCreating(false)} onCreate={hook.createPost} />
+      )}
+      {editing && (
+        <PostEditModal post={editing}
+          onClose={() => setEditing(null)} onUpdate={hook.updatePost} />
       )}
     </>
   );
@@ -51,17 +55,19 @@ function Intro() {
   );
 }
 
-function PostsListBody({ hook }: { hook: PostsHook }) {
+type EditFn = (p: AdminPostView) => void;
+
+function PostsListBody({ hook, onEdit }: { hook: PostsHook; onEdit: EditFn }) {
   const loading = hook.status === 'idle' || hook.status === 'loading';
   return loading
     ? <CardGridSkeleton />
-    : <PostsListReady hook={hook} />;
+    : <PostsListReady hook={hook} onEdit={onEdit} />;
 }
 
-function PostsListReady({ hook }: { hook: PostsHook }) {
+function PostsListReady({ hook, onEdit }: { hook: PostsHook; onEdit: EditFn }) {
   return hook.posts.length === 0
     ? <EmptyState />
-    : <PostList hook={hook} />;
+    : <PostList hook={hook} onEdit={onEdit} />;
 }
 
 function EmptyState() {
@@ -72,26 +78,28 @@ function EmptyState() {
   );
 }
 
-function PostList({ hook }: { hook: PostsHook }) {
+function PostList({ hook, onEdit }: { hook: PostsHook; onEdit: EditFn }) {
   return (
     <ul className="flex flex-col gap-4" data-testid="post-list">
       {hook.posts.map((p) => (
         <li key={p.id} data-testid={`post-row-${p.slug}`}>
-          <PostCard post={p} hook={hook} />
+          <PostCard post={p} hook={hook} onEdit={onEdit} />
         </li>
       ))}
     </ul>
   );
 }
 
-function PostCard({ post, hook }: { post: AdminPostView; hook: PostsHook }) {
+function PostCard({
+  post, hook, onEdit,
+}: { post: AdminPostView; hook: PostsHook; onEdit: EditFn }) {
   return (
     <div className="border border-(--color-rule) px-5 py-4 flex flex-col gap-2">
       <PostCardHead post={post} />
       {post.excerpt && (
         <p className="reading-tight text-[14px] text-(--color-muted)">{post.excerpt}</p>
       )}
-      <PostCardActions post={post} hook={hook} />
+      <PostCardActions post={post} hook={hook} onEdit={onEdit} />
     </div>
   );
 }
@@ -111,30 +119,53 @@ function PostCardHead({ post }: { post: AdminPostView }) {
   );
 }
 
-function PostCardActions({ post, hook }: { post: AdminPostView; hook: PostsHook }) {
+function PostCardActions({
+  post, hook, onEdit,
+}: { post: AdminPostView; hook: PostsHook; onEdit: EditFn }) {
   const toast = useToast();
   const togglePublish = useTogglePublish(post, hook, toast);
   const handleDelete = useHandleDelete(post.id, hook, toast);
   return (
     <div className="flex items-baseline gap-3 mt-1">
-      <button
-        type="button"
-        onClick={() => void togglePublish()}
-        data-testid={`post-toggle-publish-${post.slug}`}
-        className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
-      >
-        {post.published ? 'unpublish' : 'publish'}
-      </button>
-      <span className="text-(--color-faint)">·</span>
-      <button
-        type="button"
-        onClick={() => void handleDelete()}
-        data-testid={`post-delete-${post.slug}`}
-        className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
-      >
-        delete
-      </button>
+      <ActionBtn slug={post.slug} kind="edit" onClick={() => onEdit(post)} />
+      <Sep />
+      <ActionBtn slug={post.slug}
+        kind={post.published ? 'unpublish' : 'publish'}
+        onClick={() => void togglePublish()} />
+      <Sep />
+      <ActionBtn slug={post.slug} kind="delete" onClick={() => void handleDelete()} />
     </div>
+  );
+}
+
+function Sep() {
+  return <span className="text-(--color-faint)">·</span>;
+}
+
+type ActionKind = 'edit' | 'publish' | 'unpublish' | 'delete';
+
+const TESTID_NAME: Record<ActionKind, string> = {
+  edit: 'edit', publish: 'toggle-publish', unpublish: 'toggle-publish', delete: 'delete',
+};
+const HOVER_CLASS: Record<ActionKind, string> = {
+  edit: 'hover:text-(--color-ink)',
+  publish: 'hover:text-(--color-ink)',
+  unpublish: 'hover:text-(--color-ink)',
+  delete: 'hover:text-(--color-accent)',
+};
+
+function ActionBtn({
+  slug, kind, onClick,
+}: { slug: string; kind: ActionKind; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={`post-${TESTID_NAME[kind]}-${slug}`}
+      className={`mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) ${HOVER_CLASS[kind]}`}
+    >
+      {kind}
+    </button>
   );
 }
 
@@ -142,23 +173,13 @@ function useTogglePublish(
   post: AdminPostView, hook: PostsHook, toast: ReturnType<typeof useToast>,
 ) {
   return useCallback(async () => {
-    await runTogglePublish(post, hook, toast);
+    const ok = await flipPublishOp(post, hook);
+    ok && toast.success(post.published ? 'Unpublished' : 'Published');
   }, [post, hook, toast]);
-}
-
-async function runTogglePublish(
-  post: AdminPostView, hook: PostsHook, toast: ReturnType<typeof useToast>,
-): Promise<void> {
-  const ok = await flipPublishOp(post, hook);
-  ok && toast.success(publishedVerb(post.published));
 }
 
 function flipPublishOp(post: AdminPostView, hook: PostsHook): Promise<boolean> {
   return post.published ? hook.unpublishPost(post.id) : hook.publishPost(post.id);
-}
-
-function publishedVerb(currentlyPublished: boolean): string {
-  return currentlyPublished ? 'Unpublished' : 'Published';
 }
 
 function useHandleDelete(
@@ -181,188 +202,87 @@ function PostCreateModal({
       className="fixed inset-0 bg-(--color-ink)/40 flex items-center justify-center z-40 p-6"
       data-testid="post-create-modal"
     >
-      <PostCreateForm onClose={onClose} onCreate={onCreate} />
+      <PostForm
+        heading="new post"
+        initial={EMPTY_VALUES}
+        slugReadOnly={false}
+        showPublishToggle
+        submitLabel="create"
+        submitTestId="post-create-submit"
+        onClose={onClose}
+        onSubmit={(v) => onCreate(buildCreatePayload(v))}
+      />
     </div>
   );
 }
 
-function PostCreateForm({
-  onClose, onCreate,
+function PostEditModal({
+  post, onClose, onUpdate,
 }: {
+  post: AdminPostView;
   onClose: () => void;
-  onCreate: (input: CreatePostInput) => Promise<boolean>;
+  onUpdate: (id: string, input: UpdatePostInput) => Promise<boolean>;
 }) {
-  const [slug, setSlug] = useState('');
-  const [title, setTitle] = useState('');
-  const [excerpt, setExcerpt] = useState('');
-  const [bodyMD, setBodyMD] = useState('');
-  const [coverHeadline, setCoverHeadline] = useState('');
-  const [coverSub, setCoverSub] = useState('');
-  const [coverHue, setCoverHue] = useState<'amber' | 'violet' | 'acid'>('amber');
-  const [coverAsset, setCoverAsset] = useState<CoverAssetState>({ id: '', url: '' });
-  const [tags, setTags] = useState('');
-  const [publish, setPublish] = useState(true);
-  const toast = useToast();
-  const submit = useSubmitPost(
-    { slug, title, excerpt, bodyMD, coverHeadline, coverSub, coverHue, coverAsset, tags, publish },
-    { onCreate, onClose, toast },
-  );
   return (
-    <div className="bg-(--color-paper) border border-(--color-rule) max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-7 flex flex-col gap-4">
-      <h2 className="font-serif text-[22px]">new post</h2>
-      <PostFieldRow>
-        <PostField label="slug" value={slug} onChange={setSlug} placeholder="url-slug" />
-        <PostField label="title" value={title} onChange={setTitle} placeholder="Post title" />
-      </PostFieldRow>
-      <PostField label="excerpt" value={excerpt} onChange={setExcerpt} placeholder="One-line summary" />
-      <PostFieldRow>
-        <PostField label="cover headline" value={coverHeadline} onChange={setCoverHeadline} placeholder="Big headline" />
-        <PostField label="cover sub" value={coverSub} onChange={setCoverSub} placeholder="Italic subline" />
-      </PostFieldRow>
-      <PostFieldRow>
-        <CoverHueSelect value={coverHue} onChange={setCoverHue} />
-        <PostField label="tags" value={tags} onChange={setTags} placeholder="comma, separated" />
-      </PostFieldRow>
-      <CoverImagePicker value={coverAsset} onChange={setCoverAsset} toast={toast} />
-      <PostBodyField value={bodyMD} onChange={setBodyMD} />
-      <PostCreateFooter publish={publish} onTogglePublish={() => setPublish(!publish)} onClose={onClose} onSubmit={() => void submit()} />
+    <div
+      className="fixed inset-0 bg-(--color-ink)/40 flex items-center justify-center z-40 p-6"
+      data-testid="post-edit-modal"
+    >
+      <PostForm
+        heading={`edit / ${post.slug}`}
+        initial={postToValues(post)}
+        slugReadOnly
+        showPublishToggle={false}
+        submitLabel="save"
+        submitTestId="post-edit-submit"
+        assetURLs={post.asset_urls ?? {}}
+        onClose={onClose}
+        onSubmit={(v) => onUpdate(post.id, buildUpdatePayload(v))}
+      />
     </div>
   );
 }
 
-interface PostFormFields {
-  slug: string;
-  title: string;
-  excerpt: string;
-  bodyMD: string;
-  coverHeadline: string;
-  coverSub: string;
-  coverHue: 'amber' | 'violet' | 'acid';
-  coverAsset: CoverAssetState;
-  tags: string;
-  publish: boolean;
-}
-
-interface PostSubmitDeps {
-  onCreate: (input: CreatePostInput) => Promise<boolean>;
-  onClose: () => void;
-  toast: ReturnType<typeof useToast>;
-}
-
-function useSubmitPost(fields: PostFormFields, deps: PostSubmitDeps) {
-  return useCallback(async () => {
-    isValidFormFields(fields) && await runSubmitPost(fields, deps);
-  }, [fields, deps]);
-}
-
-function isValidFormFields(f: PostFormFields): boolean {
-  return f.slug !== '' && f.title !== '';
-}
-
-async function runSubmitPost(fields: PostFormFields, deps: PostSubmitDeps): Promise<void> {
-  const ok = await deps.onCreate(buildCreatePayload(fields));
-  ok && onSubmitSuccess(fields, deps);
-}
-
-function onSubmitSuccess(fields: PostFormFields, deps: PostSubmitDeps): void {
-  const verb = fields.publish ? 'published' : 'saved as draft';
-  deps.toast.success(`Post ${fields.slug} ${verb}`);
-  deps.onClose();
-}
-
-function buildCreatePayload(f: PostFormFields): CreatePostInput {
+function postToValues(p: AdminPostView): PostFormValues {
   return {
-    slug: f.slug, title: f.title, excerpt: f.excerpt, body_md: f.bodyMD,
-    cover_headline: f.coverHeadline, cover_sub: f.coverSub, cover_hue: f.coverHue,
-    cover_image_asset_id: f.coverAsset.id === '' ? undefined : f.coverAsset.id,
-    tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
-    visibility: 'public', cross_refs: [], locked_body: '', publish: f.publish,
+    slug: p.slug, title: p.title, excerpt: p.excerpt, bodyMD: p.body_md,
+    coverHeadline: p.cover_headline, coverSub: p.cover_sub,
+    coverHue: p.cover_hue,
+    coverAsset: coverAssetFor(p),
+    tags: p.tags.join(', '),
+    publish: p.published,
   };
 }
 
-
-function PostFieldRow({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>;
+function coverAssetFor(p: AdminPostView): { id: string; url: string } {
+  const id = p.cover_image_asset_id ?? '';
+  return { id, url: lookupAssetURL(id, p.asset_urls ?? {}) };
 }
 
-function PostField({
-  label, value, onChange, placeholder,
-}: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">{label}</span>
-      <input
-        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        data-testid={`post-field-${label.replace(/ /g, '-')}`}
-      />
-    </label>
-  );
+function lookupAssetURL(id: string, map: Record<string, string>): string {
+  return map[id] ?? '';
 }
 
-function CoverHueSelect({
-  value, onChange,
-}: { value: 'amber' | 'violet' | 'acid'; onChange: (v: 'amber' | 'violet' | 'acid') => void }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">cover hue</span>
-      <select
-        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
-        value={value}
-        onChange={(e) => onChange(e.target.value as 'amber' | 'violet' | 'acid')}
-        data-testid="post-field-cover-hue"
-      >
-        <option value="amber">amber</option>
-        <option value="violet">violet</option>
-        <option value="acid">acid</option>
-      </select>
-    </label>
-  );
+function buildCreatePayload(v: PostFormValues): CreatePostInput {
+  return {
+    slug: v.slug, title: v.title, excerpt: v.excerpt, body_md: v.bodyMD,
+    cover_headline: v.coverHeadline, cover_sub: v.coverSub, cover_hue: v.coverHue,
+    cover_image_asset_id: v.coverAsset.id === '' ? undefined : v.coverAsset.id,
+    tags: parseTags(v.tags),
+    visibility: 'public', cross_refs: [], locked_body: '', publish: v.publish,
+  };
 }
 
-function PostBodyField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        body
-      </span>
-      <BlogEditor value={value} onChange={onChange} />
-    </label>
-  );
+function buildUpdatePayload(v: PostFormValues): UpdatePostInput {
+  return {
+    title: v.title, excerpt: v.excerpt, body_md: v.bodyMD,
+    cover_headline: v.coverHeadline, cover_sub: v.coverSub, cover_hue: v.coverHue,
+    cover_image_asset_id: v.coverAsset.id === '' ? undefined : v.coverAsset.id,
+    tags: parseTags(v.tags),
+    visibility: 'public', cross_refs: [], locked_body: '',
+  };
 }
 
-function PostCreateFooter({
-  publish, onTogglePublish, onClose, onSubmit,
-}: {
-  publish: boolean;
-  onTogglePublish: () => void;
-  onClose: () => void;
-  onSubmit: () => void;
-}) {
-  return (
-    <div className="flex justify-between items-baseline mt-2">
-      <label className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) flex items-baseline gap-2">
-        <input
-          type="checkbox"
-          checked={publish}
-          onChange={onTogglePublish}
-          data-testid="post-field-publish"
-        />
-        publish immediately
-      </label>
-      <div className="flex gap-3">
-        <Btn kind="ghost" onClick={onClose}>cancel</Btn>
-        <button
-          type="button"
-          data-testid="post-create-submit"
-          onClick={onSubmit}
-          className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors"
-        >
-          create
-        </button>
-      </div>
-    </div>
-  );
+function parseTags(raw: string): string[] {
+  return raw.split(',').map((t) => t.trim()).filter(Boolean);
 }

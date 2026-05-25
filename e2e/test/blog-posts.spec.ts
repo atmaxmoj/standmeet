@@ -210,6 +210,35 @@ test.describe.serial('blog: image upload + asset URI + orphan scan + GC', () => 
     });
 });
 
+test.describe.serial('blog: edit existing post', () => {
+  test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
+
+  test('owner clicks edit → changes title → /blog reflects new title',
+    async ({ request, adminPage, page }) => {
+      await mcpCreatePost(request, 'blog-edit-token', {
+        slug: 'editable-post', title: 'Original title',
+        excerpt: 'Will be edited.', body_md: 'Original body.',
+        cover_headline: 'first.', cover_sub: 'pass.', cover_hue: 'amber',
+        tags: ['edit'],
+      });
+      await openAdminPosts(adminPage);
+      await adminPage.getByTestId('post-edit-editable-post').click();
+      await expect(adminPage.getByTestId('post-edit-modal')).toBeVisible();
+      // slug should be prefilled + readonly; title should be prefilled and editable
+      const slugInput = adminPage.getByTestId('post-field-slug');
+      await expect(slugInput).toHaveValue('editable-post');
+      await expect(slugInput).toBeDisabled();
+      const titleInput = adminPage.getByTestId('post-field-title');
+      await expect(titleInput).toHaveValue('Original title');
+      await titleInput.fill('Updated title');
+      await adminPage.getByTestId('post-edit-submit').click();
+      await expect(adminPage.getByTestId('post-edit-modal')).toBeHidden({ timeout: 5_000 });
+
+      await goto(page, '/blog/editable-post');
+      await expect(page.getByTestId('blog-article-title')).toHaveText('Updated title');
+    });
+});
+
 test.describe.serial('blog: infinite scroll', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
