@@ -92,11 +92,25 @@ func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (domain.Asset, 
 func (*AssetRepo) ListByHolderTx(
 	ctx context.Context, tx dbq.DBTX, holderID string,
 ) ([]domain.Asset, error) {
+	return listByHolderUsing(ctx, tx, holderID)
+}
+
+// ListByHolder —— 走 pool（无 tx 上下文时用）。DELETE 路径先列 keys 删
+// MinIO 再开 tx 删 DB，列这步不需要 tx 隔离 —— 用这条。
+func (r *AssetRepo) ListByHolder(
+	ctx context.Context, holderID string,
+) ([]domain.Asset, error) {
+	return listByHolderUsing(ctx, r.pool, holderID)
+}
+
+func listByHolderUsing(
+	ctx context.Context, dbtx dbq.DBTX, holderID string,
+) ([]domain.Asset, error) {
 	holderUUID, perr := parseUUID(holderID)
 	if perr != nil {
 		return nil, fmt.Errorf("parse holder id: %w", perr)
 	}
-	rows, err := dbq.New(tx).ListAssetsByHolder(ctx, holderUUID)
+	rows, err := dbq.New(dbtx).ListAssetsByHolder(ctx, holderUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list assets by holder: %w", err)
 	}
