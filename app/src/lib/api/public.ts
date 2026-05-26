@@ -6,9 +6,15 @@
 // 不直接 import @standmeet/sdk-core，统一从这里走以便日后再调整。
 
 import { createClient } from '@standmeet/sdk-core';
-import type { IssueSessionInput, StandMeetClient, SSEEvent } from '@standmeet/sdk-core';
+import type {
+  BYOAIHeaders,
+  IssueSessionInput,
+  StandMeetClient,
+  SSEEvent,
+} from '@standmeet/sdk-core';
 
 export type {
+  BYOAIHeaders,
   PageProject,
   PageInsight,
   PageWhere,
@@ -42,9 +48,11 @@ export interface IssueCodeSessionInput {
   visitor_name?: string;
 }
 
+// BYOAI key 不再在 server 落任何层；只把 provider 告诉 server 做 conversation
+// audit。明文 key 进 browser vault (lib/gate/byoai-vault.ts)；每次 chat 时用
+// session_token 派生 AES key、AES-GCM 信封塞 X-BYOAI-Key header。
 export interface IssueBYOAISessionInput {
   byoai_provider: 'anthropic' | 'openai';
-  byoai_key: string;
 }
 
 export const fetchPublicPage = () => client().fetchPage();
@@ -61,8 +69,9 @@ export function streamChatMessage(
   conversationID: string,
   sessionToken: string,
   content: string,
+  byoai?: BYOAIHeaders,
 ): AsyncGenerator<SSEEvent, void, unknown> {
-  return client().streamMessage(conversationID, sessionToken, content);
+  return client().streamMessage(conversationID, sessionToken, content, byoai);
 }
 
 // 一些 caller 还是直接需要 IssueSessionInput（custom-page 在 sdk-react

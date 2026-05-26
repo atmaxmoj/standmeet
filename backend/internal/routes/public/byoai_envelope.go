@@ -1,0 +1,122 @@
+// byoai_envelope.go —— X-BYOAI-Provider + X-BYOAI-Key header 的解封逻辑。
+// chat.go 跟 summary.go 共用；拆出来让两个 route 都 ≤ 350 行。
+//
+// 设计要点：
+//   - BYOAI api key 不在 server 任何持久层。browser localStorage 加密 vault
+//     (IndexedDB Web Crypto non-extractable wrap) 自己保管，每次 chat/summary
+//     在 `X-BYOAI-Key` header 信封带过来。
+//   - 信封的对称密钥从 session_token 派生：
+//     HKDF-SHA256(ikm=session_token, info="standmeet-byoai-v1") → 32B AES key。
+//     browser 跟 server 唯一共享密钥 = session_token (browser 创建 session 之后
+//     存，每次请求 Authorization Bearer 都带；server 在 Redis 用它当 key 查 session)。
+//   - cipher = AES-256-GCM；wire format = nonce(12) || ciphertext || tag(16)
+//     的连续 byte slice，整体 base64 URL（兼容 std padding）。
+//
+// 不引入新的 keypair / 不新增 server-side secret。
+
+package public
+
+import (
+	"encoding/base64"
+	"fmt"
+	"net/http"
+
+	"github.com/wangsijie/standmeet/internal/cryptobox"
+	"github.com/wangsijie/standmeet/internal/domain"
+)
+
+const (
+	byoaiProviderHeader = "X-BYOAI-Provider"
+	byoaiKeyHeader      = "X-BYOAI-Key"
+	byoaiHKDFInfo       = "standmeet-byoai-v1"
+)
+
+// unwrapBYOAIKey —— wrappedB64 是 base64 编码的 nonce|ct|tag；HKDF 派生 AES
+// key 解封；返 plaintext API key。
+func unwrapBYOAIKey(sessionToken, wrappedB64 string) (string, error) {
+	blob, derr := decodeEnvelopeB64(wrappedB64)
+	if derr != nil {
+		return "", derr
+	}
+	return deriveAndDecrypt(sessionToken, blob)
+}
+
+func deriveAndDecrypt(sessionToken string, blob []byte) (string, error) {
+	key, kerr := cryptobox.DeriveSessionKey(sessionToken, byoaiHKDFInfo)
+	if kerr != nil {
+		return "", fmt.Errorf("derive byoai key: %w", kerr)
+	}
+	plain, oerr := cryptobox.DecryptWithKey(key, blob)
+	if oerr != nil {
+		return "", fmt.Errorf("decrypt byoai envelope: %w", oerr)
+	}
+	return string(plain), nil
+}
+
+func decodeEnvelopeB64(s string) ([]byte, error) {
+	// URL-safe base64 (no padding) 优先；fallback std padding（兼容浏览器
+	// btoa 默认输出）。
+	if blob, err := base64.RawURLEncoding.DecodeString(s); err == nil {
+		return blob, nil
+	}
+	blob, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return nil, fmt.Errorf("decode byoai envelope b64: %w", err)
+	}
+	return blob, nil
+}
+
+// enrichBYOAICreds —— tier=byoai 时从 request headers 拿 provider + 信封过
+// 的 key，组装成 *domain.AICredential。non-byoai tier parsed.BYOAI 留 nil。
+// 失败 (缺 header / 解封失败) 立刻 401。
+func enrichBYOAICreds(
+	h *Handlers, w http.ResponseWriter, r *http.Request,
+	parsed *parsedPostMessage, sessionToken string,
+) (*parsedPostMessage, bool) {
+	if parsed.Data.Tier != "byoai" {
+		return parsed, true
+	}
+	cred, ok := readBYOAICredFromHeaders(h, w, r, sessionToken)
+	if !ok {
+		return nil, false
+	}
+	parsed.BYOAI = cred
+	return parsed, true
+}
+
+// readBYOAICredFromHeaders —— chat + summary 共用。tier=byoai 才调；缺
+// header / 信封解失败立刻 401。
+func readBYOAICredFromHeaders(
+	h *Handlers, w http.ResponseWriter, r *http.Request, sessionToken string,
+) (*domain.AICredential, bool) {
+	hdrs, hok := requireBYOAIHeaders(h, w, r)
+	if !hok {
+		return nil, false
+	}
+	plain, derr := unwrapBYOAIKey(sessionToken, hdrs.Wrapped)
+	if derr != nil {
+		writeError(h.Log, w, unauthorizedEnv("invalid byoai key envelope"))
+		return nil, false
+	}
+	return &domain.AICredential{Provider: hdrs.Provider, Key: plain}, true
+}
+
+// byoaiHeaders —— requireBYOAIHeaders 多返打包（避开 funcresult-limit 2 +
+// confusing-results：两个 string 不带名字会让 caller 搞不清谁是谁）。
+type byoaiHeaders struct {
+	Provider string
+	Wrapped  string
+}
+
+func requireBYOAIHeaders(
+	h *Handlers, w http.ResponseWriter, r *http.Request,
+) (byoaiHeaders, bool) {
+	provider := r.Header.Get(byoaiProviderHeader)
+	wrapped := r.Header.Get(byoaiKeyHeader)
+	if provider == "" || wrapped == "" {
+		writeError(h.Log, w, unauthorizedEnv(
+			"byoai tier requires X-BYOAI-Provider + X-BYOAI-Key headers"))
+		return byoaiHeaders{}, false
+	}
+	return byoaiHeaders{Provider: provider, Wrapped: wrapped}, true
+}

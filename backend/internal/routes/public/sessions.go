@@ -16,12 +16,15 @@ import (
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
+// createSessionRequest —— POST /api/v1/sessions 入参。BYOAIKey 字段已删 ——
+// browser 自己保管 key（IndexedDB Web Crypto wrap），不上传 server。
+// BYOAIProvider 还在：一次性写到 conversation 表当 audit log，session
+// 不缓存。
 type createSessionRequest struct {
 	Tier          string `json:"tier"` // 'code' | 'public' | 'byoai'
 	Code          string `json:"code,omitempty"`
 	VisitorName   string `json:"visitor_name,omitempty"`
 	BYOAIProvider string `json:"byoai_provider,omitempty"`
-	BYOAIKey      string `json:"byoai_key,omitempty"`
 }
 
 type createSessionResponse struct {
@@ -60,7 +63,6 @@ func dispatchIssueSession(
 	return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
 		VisitorName:   req.VisitorName,
 		BYOAIProvider: req.BYOAIProvider,
-		BYOAIKey:      req.BYOAIKey,
 	})
 }
 

@@ -38,13 +38,14 @@ const summaryPrompt = "Generate a polished conversation report (max 600 words, "
 	"\"The discussion covered...\")\n" +
 	"- Professional tone, suitable for sharing"
 
-// GenerateSummaryInput —— /summary 入参。
+// GenerateSummaryInput —— /summary 入参。BYOAI 仅 tier=byoai 时非 nil；
+// 跟 SendMessageInput 用同一份 *domain.AICredential。
+// fieldalignment: pointer 先，string 后。
 type GenerateSummaryInput struct {
+	BYOAI          *domain.AICredential
 	OwnerID        string
 	ConversationID string
 	Tier           string
-	BYOAIProvider  string
-	BYOAIKeyEnc    []byte
 }
 
 // ErrSummaryEmptyConv —— 没消息可总结。
@@ -99,10 +100,9 @@ func resolveSummaryProvider(
 	ctx context.Context, deps *VisitorDeps, in *GenerateSummaryInput,
 ) (inference.Provider, error) {
 	provider, perr := deps.Resolver.Resolve(ctx, &inference.ResolveInput{
-		OwnerID:       in.OwnerID,
-		Tier:          in.Tier,
-		BYOAIProvider: in.BYOAIProvider,
-		BYOAIKeyEnc:   in.BYOAIKeyEnc,
+		OwnerID: in.OwnerID,
+		Tier:    in.Tier,
+		BYOAI:   in.BYOAI,
 	})
 	if perr != nil {
 		return nil, fmt.Errorf("resolve summary provider: %w", perr)

@@ -17,9 +17,12 @@ import {
   issueCodeSession,
   issuePublicSession,
   streamChatMessage,
+  type BYOAIHeaders,
   type PublicSessionResponse,
   type SSEEvent,
 } from '@/lib/api/public';
+import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
+import { readBYOAIKey, readBYOAIProvider } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 
 export type Citation = {
@@ -103,7 +106,8 @@ async function runAsk(
   setTurns((prev) => [...prev, newPendingTurn(id, q)]);
   try {
     const sess = await ensureSession(sessionRef, deps);
-    await streamInto(sess, q, id, setTurns);
+    const byoai = await wrapBYOAIHeadersFor(deps, sess);
+    await streamInto(sess, q, id, setTurns, byoai);
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);
@@ -157,7 +161,12 @@ async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
       return issueCodeSession({ code: '' });
     }
     case 'byoai':
-      return issueBYOAISession({ byoai_provider: 'anthropic', byoai_key: '' });
+      // browser vault 里没 BYOAI 时这里 provider 暂用 anthropic 占位；后续
+      // chat fetch 会因 wrapBYOAIHeaders 返 null → 不发 X-BYOAI-* → server 401。
+      // 实际 byoai 流程都先经 /gate 把 provider+key 存进 vault。
+      return issueBYOAISession({
+        byoai_provider: readBYOAIProvider() ?? 'anthropic',
+      });
   }
 }
 
@@ -172,13 +181,29 @@ async function streamInto(
   q: string,
   turnID: string,
   setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
+  byoai: BYOAIHeaders | undefined,
 ): Promise<void> {
   let state: StreamState = { body: '', citations: [] };
-  for await (const ev of streamChatMessage(sess.conversation_id, sess.session_token, q)) {
+  const stream = streamChatMessage(sess.conversation_id, sess.session_token, q, byoai);
+  for await (const ev of stream) {
     state = applyEvent(ev, state);
     setTurns((prev) => updateTurn(prev, turnID, state, ev.kind !== 'done'));
   }
   setTurns((prev) => updateTurn(prev, turnID, state, false));
+}
+
+// wrapBYOAIHeadersFor —— tier=byoai 时从 browser vault 拿明文 key，HKDF 派生
+// session-bound AES key 把它信封过 → 返 BYOAIHeaders。其他 tier 返 undefined，
+// streamChatMessage 不发 X-BYOAI-* header，server 自动走 owner key。
+async function wrapBYOAIHeadersFor(
+  deps: Deps, sess: PublicSessionResponse,
+): Promise<BYOAIHeaders | undefined> {
+  if (deps.tier !== 'byoai') return undefined;
+  const provider = readBYOAIProvider();
+  const plain = await readBYOAIKey();
+  if (!provider || !plain) return undefined;
+  const wrappedKey = await wrapBYOAIKey(plain, sess.session_token);
+  return { provider, wrappedKey };
 }
 
 function applyEvent(ev: SSEEvent, s: StreamState): StreamState {

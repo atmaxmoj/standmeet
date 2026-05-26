@@ -56,7 +56,7 @@ function BYOAIHeadline() {
         return &ldquo;need a code&rdquo;.
       </p>
       <ul className="mt-5 mono text-[10.5px] tracking-[0.06em] leading-[1.85] text-(--color-muted)">
-        <li><span className="text-(--color-faint)">·</span> your key stays in your browser</li>
+        <li><span className="text-(--color-faint)">·</span> your key never touches our server &mdash; stored encrypted in your browser only</li>
         <li><span className="text-(--color-faint)">·</span> owner pays for retrieval, you pay for inference</li>
         <li><span className="text-(--color-faint)">·</span> private topics return &ldquo;ask for a code&rdquo;</li>
       </ul>
@@ -115,7 +115,7 @@ function KeyRow({
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2 flex items-baseline justify-between">
         <span>api key</span>
         <span className="text-(--color-faint) lowercase tracking-[0.06em] text-[10px]">
-          keys start with sk-ant-… or sk-…
+          never uploaded &middot; stored encrypted in your browser
         </span>
       </div>
       <div className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1">

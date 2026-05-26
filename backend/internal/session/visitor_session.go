@@ -32,13 +32,14 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 // VisitorSessionData —— Redis 里存的 visitor session payload。
 //
 // 准入字段：
+//   - Tier: 'code' / 'public' / 'byoai'。byoai 走 ACL = `public/**` only。
 //   - CorpusPermissions: 从 access code（或 byoai default）继承的 path-glob ACL
-//   - BYOAIKeyEnc: visitor 自带 API key 的 AES-256-GCM 密文 (cryptobox)；
-//     仅 byoai tier 有值，inference resolver 调 cryptobox.Decrypt 拿明文。
-//     不直接存 plaintext —— Redis dump / 攻击者拿到 dump 也读不出。
-//     usecase 层（visitor_public.IssuePublicSession）负责 encrypt；resolver
-//     层（inference.EnvOrOwnerResolver）负责 decrypt。session 自身不接触
-//     plaintext，只搬密文 bytes 进出 Redis。
+//
+// **不存** BYOAI provider + key —— 这两个都在 browser 一处保管
+// (localStorage 加密 vault)。visitor 每次 chat 在 `X-BYOAI-Provider` +
+// `X-BYOAI-Key` headers 把 provider 名 + 信封过的 key 带过来，server
+// 用 HKDF(session_token) 派生的 AES-GCM 解封即用即丢。
+// 集中存储：browser 一处，session 不分摊。
 type VisitorSessionData struct {
 	ExpiresAt         time.Time               `json:"expires_at"`
 	OwnerID           string                  `json:"owner_id"`
@@ -46,8 +47,6 @@ type VisitorSessionData struct {
 	CodeID            string                  `json:"code_id"`
 	MemberID          string                  `json:"member_id"`
 	VisitorName       string                  `json:"visitor_name"`
-	BYOAIProvider     string                  `json:"byoai_provider"`
-	BYOAIKeyEnc       []byte                  `json:"byoai_key_enc,omitempty"`
 	CorpusPermissions []domain.PathPermission `json:"corpus_permissions"`
 	// SkillPrompts —— InviteCode 选中 skill 的 prompt 列表（按 name asc 排序
 	// 写入）。visitor_chat.buildSystemPrompt 拼 base persona + skill prompts。

@@ -3,8 +3,9 @@
 // 三条 submit 路径：
 //   - code: POST /api/v1/sessions {tier:'code', code} → 拿 session_token →
 //     redirect / (chat 实例 mount 时复用 cookie/session)
-//   - byoai: POST /api/v1/sessions {tier:'byoai', byoai_provider, byoai_key}
-//     → localStorage 存 token + key → redirect /?byoai=1
+//   - byoai: POST /api/v1/sessions {tier:'byoai', byoai_provider}（只 send
+//     provider，key 不上传）→ session 拿到后把 BYOAI key 存进 browser vault
+//     (lib/gate/byoai-vault.ts) → redirect /
 //   - request: POST /api/v1/access-requests (无 handle field —— v1 单 owner)
 //
 // 都是 client-side hook；业务逻辑都在这里。Components 只渲染。
@@ -16,6 +17,7 @@ import {
   issueCodeSession,
   type PublicSessionResponse,
 } from '@/lib/api/public';
+import { storeBYOAI } from '@/lib/gate/byoai-vault';
 
 const BYOAI_STORAGE_KEY = 'standmeet:visitor-session';
 
@@ -77,9 +79,8 @@ export function useGate(): GateHook {
   const submitBYOAI = useCallback(
     async (provider: Provider, key: string): Promise<boolean> => {
       return await runSubmit(setState, async () => {
-        const sess = await issueBYOAISession({
-          byoai_provider: provider, byoai_key: key.trim(),
-        });
+        const sess = await issueBYOAISession({ byoai_provider: provider });
+        await storeBYOAI(provider, key.trim());
         persistSession(sess, true);
         return true;
       });

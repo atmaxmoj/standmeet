@@ -3,7 +3,12 @@
 // 共享；也可直接被 Node / Deno 服务端代码消费。
 
 export { createClient } from './client.js';
-export type { ClientOptions, IssueSessionInput, StandMeetClient } from './client.js';
+export type {
+  BYOAIHeaders,
+  ClientOptions,
+  IssueSessionInput,
+  StandMeetClient,
+} from './client.js';
 export { readSSE } from './sse.js';
 export type {
   PageProject,

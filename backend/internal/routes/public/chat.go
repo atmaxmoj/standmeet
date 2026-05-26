@@ -35,6 +35,7 @@ func (h *Handlers) Mount(r chi.Router) {
 
 type parsedPostMessage struct {
 	Content string
+	BYOAI   *domain.AICredential
 	Data    session.VisitorSessionData
 }
 
@@ -106,31 +107,46 @@ func (h *Handlers) postMessage() http.HandlerFunc {
 	}
 }
 
-// preparePostMessage 校验 bearer + 解 body；失败时已写响应 + 返 ok=false。
+// preparePostMessage 校验 bearer + 解 body + 解 BYOAI 信封。失败时已写响
+// 应 + 返 ok=false。
 func preparePostMessage(
 	h *Handlers, w http.ResponseWriter, r *http.Request,
 ) (*parsedPostMessage, bool) {
-	data, ok := authVisitor(h, w, r)
+	av, ok := authVisitorWithToken(h, w, r)
 	if !ok {
 		return nil, false
 	}
-	return parseMessageBody(h, w, r, data)
+	parsed, bok := parseMessageBody(h, w, r, av.Data)
+	if !bok {
+		return nil, false
+	}
+	return enrichBYOAICreds(h, w, r, parsed, av.Token)
 }
 
-func authVisitor(
+// authedVisitor —— authVisitorWithToken 多返打包（避开 funcresult-limit
+// 2）。空 Data 表示 ok=false（即调用方读 ok 之后再用其他字段）。
+type authedVisitor struct {
+	Data  *session.VisitorSessionData
+	Token string
+}
+
+// authVisitorWithToken —— 跟 Sessions.Get 一致；多回传一个 plain bearer
+// token，chat path 用来做 BYOAI envelope 的 HKDF 派生（browser/server
+// 唯一共享密钥）。
+func authVisitorWithToken(
 	h *Handlers, w http.ResponseWriter, r *http.Request,
-) (*session.VisitorSessionData, bool) {
+) (authedVisitor, bool) {
 	token, hasBearer := bearerToken(r)
 	if !hasBearer {
 		writeError(h.Log, w, unauthorizedEnv("missing bearer token"))
-		return nil, false
+		return authedVisitor{}, false
 	}
 	data, err := h.Sessions.Get(r.Context(), token)
 	if err != nil {
 		writeError(h.Log, w, unauthorizedEnv("invalid session"))
-		return nil, false
+		return authedVisitor{}, false
 	}
-	return &data, true
+	return authedVisitor{Token: token, Data: &data}, true
 }
 
 func parseMessageBody(
@@ -159,8 +175,7 @@ func streamChatSSE(
 		Permissions:    parsed.Data.CorpusPermissions,
 		SkillPrompts:   parsed.Data.SkillPrompts,
 		Tier:           parsed.Data.Tier,
-		BYOAIProvider:  parsed.Data.BYOAIProvider,
-		BYOAIKeyEnc:    parsed.Data.BYOAIKeyEnc,
+		BYOAI:          parsed.BYOAI,
 	})
 	if err != nil {
 		handleVisitorErr(h.Log, w, err)

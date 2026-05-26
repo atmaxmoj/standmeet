@@ -23,17 +23,19 @@ const queryQueueTimeout = 15 * time.Second
 
 // SendMessageInput —— 一次 chat 提问。
 //
-// BYOAIKeyEnc + BYOAIProvider 仅 tier='byoai' 有值；resolver 解密后实例化
-// visitor 自己的 provider（owner 不为推理付钱）。其他 tier 走 owner key。
+// BYOAI 仅 tier='byoai' 时非 nil。形态是 domain.AICredential，同一个 struct
+// 同时覆盖 visitor BYOAI（route layer 从 X-BYOAI-* headers 解封而来）+ owner
+// 自配 provider（OwnerKeyResolver 从 DB 解密而来）。request-scoped，不在
+// server 任何持久层缓存。
+// fieldalignment：BYOAI pointer 跟 strings 交错；govet 推荐顺序见 lint 输出。
 type SendMessageInput struct {
+	BYOAI          *domain.AICredential
 	OwnerID        string
 	ConversationID string
 	Body           string
+	Tier           string
 	Permissions    []domain.PathPermission
 	SkillPrompts   []string
-	Tier           string
-	BYOAIProvider  string
-	BYOAIKeyEnc    []byte
 }
 
 // MessageEvent —— chat 流式事件（token / done / error）。
@@ -135,10 +137,9 @@ func preflightSend(
 		return nil, qerr
 	}
 	provider, perr := deps.Resolver.Resolve(ctx, &inference.ResolveInput{
-		OwnerID:       in.OwnerID,
-		Tier:          in.Tier,
-		BYOAIProvider: in.BYOAIProvider,
-		BYOAIKeyEnc:   in.BYOAIKeyEnc,
+		OwnerID: in.OwnerID,
+		Tier:    in.Tier,
+		BYOAI:   in.BYOAI,
 	})
 	if perr != nil {
 		return nil, fmt.Errorf("resolve provider: %w", perr)

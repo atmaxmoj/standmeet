@@ -30,13 +30,21 @@ export interface ClientOptions {
 // IssueSessionInput —— 三档访问 tier 统一入参。tier 决定哪些字段是必需的：
 //   public —— 无字段
 //   code   —— code (+ visitor_name optional)
-//   byoai  —— byoai_provider + byoai_key
+//   byoai  —— byoai_provider（key 不上传 server；browser 自己 vault 保管）
 export interface IssueSessionInput {
   tier: SessionTier;
   code?: string;
   visitor_name?: string;
   byoai_provider?: 'anthropic' | 'openai';
-  byoai_key?: string;
+}
+
+// BYOAIHeaders —— streamMessage 在 tier=byoai 时透传：provider 走
+// `X-BYOAI-Provider`；wrappedKey 是 caller 用 session_token HKDF 派生
+// AES-256 key、AES-GCM 封装 plaintext 之后的 base64（URL-safe no padding），
+// 走 `X-BYOAI-Key`。SDK 不参与封装；caller 负责。
+export interface BYOAIHeaders {
+  provider: string;
+  wrappedKey: string;
 }
 
 // StandMeetClient —— 业务接口。consumer 通过 createClient 拿到的实例
@@ -50,6 +58,7 @@ export interface StandMeetClient {
     conversationID: string,
     sessionToken: string,
     content: string,
+    byoai?: BYOAIHeaders,
   ): AsyncGenerator<SSEEvent, void, unknown>;
 }
 
@@ -61,7 +70,8 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     fetchWikiLanding: (slug) => fetchWikiLanding(f, baseURL, slug),
     fetchOutputLanding: (slug) => fetchOutputLanding(f, baseURL, slug),
     issueSession: (input) => issueSession(f, baseURL, input),
-    streamMessage: (id, token, content) => streamMessage(f, baseURL, id, token, content),
+    streamMessage: (id, token, content, byoai) =>
+      streamMessage(f, baseURL, id, token, content, byoai),
   };
 }
 
@@ -104,15 +114,25 @@ async function issueSession(
 async function* streamMessage(
   f: typeof fetch, baseURL: string,
   conversationID: string, sessionToken: string, content: string,
+  byoai?: BYOAIHeaders,
 ): AsyncGenerator<SSEEvent, void, unknown> {
   const res = await f(`${baseURL}/api/v1/sessions/${conversationID}/messages`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${sessionToken}`,
-    },
+    headers: buildMessageHeaders(sessionToken, byoai),
     body: JSON.stringify({ content }),
   });
   if (!res.ok || !res.body) throw new Error(`send message: ${res.status}`);
   yield* readSSE(res.body);
+}
+
+function buildMessageHeaders(
+  sessionToken: string, byoai: BYOAIHeaders | undefined,
+): Record<string, string> {
+  const base: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${sessionToken}`,
+  };
+  return byoai
+    ? { ...base, 'X-BYOAI-Provider': byoai.provider, 'X-BYOAI-Key': byoai.wrappedKey }
+    : base;
 }

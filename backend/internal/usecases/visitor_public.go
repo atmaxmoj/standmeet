@@ -9,21 +9,20 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/cryptobox"
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres"
 	"github.com/wangsijie/standmeet/internal/session"
 )
 
 // IssuePublicSessionInput —— public-tier 访客（无 code）发起 session 的入参。
-// BYOAI 走同一 usecase：tier=public（带 key 则记 byoai），visibility 强制
-// public，BYOAIProvider/Key 透传到 session data。
+// BYOAI 走同一 usecase：tier=public（带 BYOAIProvider 则记 byoai），
+// visibility 强制 public。BYOAI key 本身不在这里 —— browser 保管，
+// chat 时 header X-BYOAI-Key 信封带过来。session 只记 provider 用于路由。
 //
 // 没有 Handle 字段：v1 单 owner instance，访客落到根 / 就是这位 owner。
 type IssuePublicSessionInput struct {
 	VisitorName   string
 	BYOAIProvider string // 'anthropic' | 'openai' | '' (无 BYOAI)
-	BYOAIKey      string // visitor 自带 key；空 → 走 server-side provider
 }
 
 // IssuePublicSession —— public-tier session 颁发。
@@ -64,15 +63,13 @@ func finalizePublicSession(
 	ctx context.Context, deps *VisitorDeps,
 	in *IssuePublicSessionInput, owner *domain.Owner,
 ) (IssueCodeSessionResult, error) {
-	tier := publicTierForBYOAI(in.BYOAIKey)
-	keyEnc, kerr := encryptBYOAIKey(in.BYOAIKey)
-	if kerr != nil {
-		return IssueCodeSessionResult{}, fmt.Errorf("encrypt byoai key: %w", kerr)
-	}
+	tier := publicTierForBYOAI(in.BYOAIProvider)
+	// conv 行 audit log：byoai_provider 一次性写到 conv 表，session 不缓存。
 	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
-		OwnerID:     owner.ID,
-		Tier:        tier,
-		VisitorName: in.VisitorName,
+		OwnerID:       owner.ID,
+		Tier:          tier,
+		VisitorName:   in.VisitorName,
+		BYOAIProvider: nullableProvider(in.BYOAIProvider),
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("create conversation: %w", err)
@@ -82,8 +79,6 @@ func finalizePublicSession(
 		Tier:              tier,
 		VisitorName:       in.VisitorName,
 		CorpusPermissions: defaultPermsForTier(tier),
-		BYOAIProvider:     in.BYOAIProvider,
-		BYOAIKeyEnc:       keyEnc,
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
@@ -91,17 +86,11 @@ func finalizePublicSession(
 	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
 }
 
-// encryptBYOAIKey —— visitor 的 BYOAI key 用 INSTANCE_SECRET 派生的 AES-256-GCM
-// key 加密后存 Redis。空 key (非 byoai tier) → nil bytes，session 不带这个字段。
-func encryptBYOAIKey(plaintext string) ([]byte, error) {
-	if plaintext == "" {
-		return nil, nil
+func nullableProvider(p string) *string {
+	if p == "" {
+		return nil
 	}
-	out, err := cryptobox.Encrypt([]byte(plaintext))
-	if err != nil {
-		return nil, fmt.Errorf("cryptobox encrypt: %w", err)
-	}
-	return out, nil
+	return &p
 }
 
 // defaultPermsForTier —— 无 access code 时的兜底准入策略。
@@ -120,8 +109,10 @@ func defaultPermsForTier(tier string) []domain.PathPermission {
 	return nil
 }
 
-func publicTierForBYOAI(key string) string {
-	if key != "" {
+// publicTierForBYOAI —— browser 在 session create 时通过 BYOAIProvider 字段
+// 声明 "我自带 key"。provider 非空 → tier=byoai → ACL 收紧 + conv audit。
+func publicTierForBYOAI(provider string) string {
+	if provider != "" {
 		return "byoai"
 	}
 	return "public"

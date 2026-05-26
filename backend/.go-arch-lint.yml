@@ -154,7 +154,9 @@ deps:
   # cryptobox: resolver 用来解密 byoai key (Redis 拿到的是密文)；其他业务
   # 仍走 narrow OwnerLookup 接口，不耦合具体 repo。
   inference:
-    mayDependOn: [cryptobox]
+    mayDependOn:
+      - cryptobox
+      - domain   # AICredential value object，统一 byoai 跟 owner key 的 shape
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
@@ -237,6 +239,7 @@ deps:
       - session
       - inference
       - apierr
+      - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
     anyVendorDeps: true
 
   # server 装配 chi 路由 + middleware；挂 admin / sysroutes / mcp / public sub-router。
