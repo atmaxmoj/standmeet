@@ -21,7 +21,7 @@ export function ApiSection() {
   return (
     <>
       <SectionHeader
-        kicker="surface · programmatic access"
+        kicker="integrations · programmatic"
         title="api · mcp"
         count={titleCount(hook)}
       />

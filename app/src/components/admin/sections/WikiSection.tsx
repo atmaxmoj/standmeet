@@ -43,7 +43,7 @@ function Header({ hook, actions }: { hook: WikiHook; actions: CorpusActionsHook 
   return (
     <>
       <SectionHeader
-        kicker="surface · curated"
+        kicker="corpus · curated"
         title="wiki"
         count={hook.status === 'ready' ? `${hook.rows.length} entries` : ''}
         action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}

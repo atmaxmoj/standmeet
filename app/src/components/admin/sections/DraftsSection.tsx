@@ -26,7 +26,7 @@ export function DraftsSection() {
   return (
     <>
       <SectionHeader
-        kicker="outbound · resumes"
+        kicker="jobs · resume drafts"
         title="drafts"
         count={titleCount(rows.length, loading)}
       />

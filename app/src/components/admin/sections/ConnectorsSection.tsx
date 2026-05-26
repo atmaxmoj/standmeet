@@ -30,7 +30,7 @@ export function ConnectorsSection() {
   return (
     <>
       <SectionHeader
-        kicker="surface · integrations"
+        kicker="integrations"
         title="connectors"
         count={titleCount(hook)}
         action={<AddBtn onOpen={() => setShowAdd(true)} />}

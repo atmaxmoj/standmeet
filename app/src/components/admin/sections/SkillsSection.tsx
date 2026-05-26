@@ -19,7 +19,7 @@ export function SkillsSection() {
   return (
     <>
       <SectionHeader
-        kicker="surface · persona"
+        kicker="jobs · skill graph"
         title="skills"
         count={titleCount(hook)}
         action={<Btn kind="primary" onClick={() => setCreating(true)}>＋ new skill</Btn>}

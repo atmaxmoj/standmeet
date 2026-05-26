@@ -28,7 +28,7 @@ export function PostsSection() {
   return (
     <>
       <SectionHeader
-        kicker="surface · writing"
+        kicker="corpus · writing"
         title="posts"
         count={titleCount(hook)}
         action={<Btn kind="primary" onClick={() => setCreating(true)}>＋ new post</Btn>}

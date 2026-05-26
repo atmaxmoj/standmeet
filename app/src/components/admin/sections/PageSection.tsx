@@ -26,7 +26,7 @@ export function PageSection() {
   const editor = usePageEditor();
   return (
     <>
-      <SectionHeader kicker="surface · public content" title="page" />
+      <SectionHeader kicker="settings · public face" title="page" />
       <PageBody editor={editor} />
     </>
   );

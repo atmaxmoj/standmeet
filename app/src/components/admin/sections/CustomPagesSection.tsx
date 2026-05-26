@@ -25,9 +25,9 @@ export function CustomPagesSection() {
   return (
     <>
       <SectionHeader
-        kicker="surface · react sub-pages"
-        title="custom pages"
-        count={hook.status === 'ready' ? `${hook.rows.length} pages` : ''}
+        kicker="corpus · public-facing"
+        title="pages"
+        count={hook.status === 'ready' ? String(hook.rows.length) : ''}
       />
       <CustomPagesBody hook={hook} />
     </>

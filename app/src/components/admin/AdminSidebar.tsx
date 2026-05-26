@@ -15,7 +15,8 @@ export type AdminSlug =
   | 'raw' | 'wiki' | 'output' | 'conversations' | 'codes' | 'requests'
   | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account'
   | 'skills' | 'posts' | 'drafts' | 'applications'
-  | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system';
+  | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
+  | 'preview' | 'obsidian';
 
 interface SectionDef {
   slug: AdminSlug;
@@ -48,7 +49,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'conversations', label: 'conversations' },
       { slug: 'codes', label: 'codes' },
       { slug: 'requests', label: 'requests' },
-      { slug: 'page', label: 'preview' },
+      { slug: 'preview', label: 'preview' },
     ],
   },
   {
@@ -66,11 +67,13 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { slug: 'connectors', label: 'connectors' },
       { slug: 'api-mcp', label: 'api · mcp' },
+      { slug: 'obsidian', label: 'obsidian' },
     ],
   },
   {
     label: 'settings',
     items: [
+      { slug: 'page', label: 'public page' },
       { slug: 'seo', label: 'seo' },
       { slug: 'account', label: 'account' },
       { slug: 'system', label: 'system' },

@@ -42,9 +42,9 @@ function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHoo
   return (
     <>
       <SectionHeader
-        kicker="surface · polished"
-        title="output"
-        count={hook.status === 'ready' ? `${hook.rows.length} entries` : ''}
+        kicker="corpus · public-facing"
+        title="outputs"
+        count={hook.status === 'ready' ? `${hook.rows.length} artifacts` : ''}
         action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (

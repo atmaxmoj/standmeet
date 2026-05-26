@@ -23,7 +23,7 @@ export function AccountSection() {
   useEffectErrorToast(account.error);
   return (
     <>
-      <SectionHeader kicker="identity · ownership" title="account" />
+      <SectionHeader kicker="settings · owner" title="account" />
       <Intro />
       <FullNameBlock hook={account} initialValue={pickFullName(session)} />
       <EmailBlock hook={account} initialValue={pickEmail(session)} />

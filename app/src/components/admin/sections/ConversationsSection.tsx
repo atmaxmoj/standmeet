@@ -20,7 +20,7 @@ export function ConversationsSection() {
   return (
     <>
       <SectionHeader
-        kicker="surface · sessions"
+        kicker="access · sessions"
         title="conversations"
         count={`${hook.rows.length} sessions`}
       />
