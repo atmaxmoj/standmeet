@@ -30,7 +30,7 @@ test.describe.serial('owner configures AI provider + key from /admin/api-mcp', (
 
   test('pick anthropic + paste key → key set; clear → mock + key gone',
     async ({ adminPage: page }) => {
-      await gotoAdminSection(page, 'api · mcp');
+      await gotoAdminSection(page, 'api-mcp');
 
       await page.getByTestId('ai-provider-anthropic').click();
       // endpoint 切 provider 时 preset 默认填好；model 必须手输（没有 default）。

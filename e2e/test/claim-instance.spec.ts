@@ -74,5 +74,5 @@ async function fillVerifyStep(page: Page): Promise<void> {
 // claim 流程写的 session cookie 即 ready，渲染 sidebar (含 "page" 链接)。
 async function expectLandedOnAdmin(page: Page): Promise<void> {
   await page.waitForURL('**/admin/page', { timeout: 10_000 });
-  await expect(page.getByRole('link', { name: /\bpage\b/ })).toBeVisible();
+  await expect(page.getByTestId('admin-nav-page')).toBeVisible();
 }

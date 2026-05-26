@@ -34,7 +34,7 @@ test.describe.serial('owner logs back in', () => {
   test('right credentials land owner in admin', async ({ adminPage: page }) => {
     // adminPage fixture 自己跑完 owner-typed /admin → /login → 填表单 → /admin/page。
     // 这里只断言落点正确（admin sidebar 渲染了）。
-    await expect(page.getByRole('link', { name: /\bpage\b/ })).toBeVisible();
+    await expect(page.getByTestId('admin-nav-page')).toBeVisible();
   });
 
   test('wrong password shows inline error, stays on /login', async ({ page }) => {

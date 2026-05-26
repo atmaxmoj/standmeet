@@ -1,5 +1,11 @@
-// AdminSidebar —— 7-entry section nav。每项 serif label + mono hint。
-// 顶部挂 SystemPulse（语料库脉搏占位 sparkline）。
+// AdminSidebar —— admin 左侧 nav，按 NAV_GROUPS 分组（overview / corpus /
+// access / jobs / integrations / settings）。每条 mono uppercase group
+// header + 下面 serif label。设计源 docs/design/project/admin.js NAV_GROUPS
+// (27-62)。
+//
+// 跟 design 差几个：dashboard / sources / listings / seo / system 还没有
+// 对应路由 —— sidebar 先把链接挂出来 (404 入口)，对应 page route 在
+// 后续 commit 单独加。
 
 import Link from 'next/link';
 
@@ -8,30 +14,68 @@ import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
 export type AdminSlug =
   | 'raw' | 'wiki' | 'output' | 'conversations' | 'codes' | 'requests'
   | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account'
-  | 'skills' | 'posts' | 'drafts' | 'applications';
+  | 'skills' | 'posts' | 'drafts' | 'applications'
+  | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system';
 
 interface SectionDef {
   slug: AdminSlug;
   label: string;
-  hint: string;
 }
 
-const SECTIONS: readonly SectionDef[] = [
-  { slug: 'page',          label: 'page',          hint: 'public content' },
-  { slug: 'raw',           label: 'raw',           hint: 'inbox' },
-  { slug: 'wiki',          label: 'wiki',          hint: 'curated' },
-  { slug: 'output',        label: 'output',        hint: 'polished' },
-  { slug: 'posts',         label: 'posts',         hint: 'blog' },
-  { slug: 'conversations', label: 'conversations', hint: 'sessions' },
-  { slug: 'codes',         label: 'codes',         hint: 'access' },
-  { slug: 'skills',        label: 'skills',        hint: 'AI persona' },
-  { slug: 'requests',      label: 'requests',      hint: 'visitor notes' },
-  { slug: 'drafts',        label: 'drafts',        hint: 'resumes' },
-  { slug: 'applications',  label: 'applications',  hint: 'sent' },
-  { slug: 'connectors',    label: 'connectors',    hint: 'integrations' },
-  { slug: 'custom-pages',  label: 'custom pages',  hint: 'react sub-pages' },
-  { slug: 'api-mcp',       label: 'api · mcp',     hint: 'tokens' },
-  { slug: 'account',       label: 'account',       hint: 'identity' },
+interface NavGroup {
+  label: string;
+  items: readonly SectionDef[];
+}
+
+const NAV_GROUPS: readonly NavGroup[] = [
+  {
+    label: 'overview',
+    items: [{ slug: 'dashboard', label: 'dashboard' }],
+  },
+  {
+    label: 'corpus',
+    items: [
+      { slug: 'raw', label: 'raw' },
+      { slug: 'wiki', label: 'wiki' },
+      { slug: 'posts', label: 'writing' },
+      { slug: 'output', label: 'outputs' },
+      { slug: 'custom-pages', label: 'pages' },
+    ],
+  },
+  {
+    label: 'access',
+    items: [
+      { slug: 'conversations', label: 'conversations' },
+      { slug: 'codes', label: 'codes' },
+      { slug: 'requests', label: 'requests' },
+      { slug: 'page', label: 'preview' },
+    ],
+  },
+  {
+    label: 'jobs',
+    items: [
+      { slug: 'sources', label: 'sources' },
+      { slug: 'listings', label: 'listings' },
+      { slug: 'drafts', label: 'drafts' },
+      { slug: 'applications', label: 'applications' },
+      { slug: 'skills', label: 'skills' },
+    ],
+  },
+  {
+    label: 'integrations',
+    items: [
+      { slug: 'connectors', label: 'connectors' },
+      { slug: 'api-mcp', label: 'api · mcp' },
+    ],
+  },
+  {
+    label: 'settings',
+    items: [
+      { slug: 'seo', label: 'seo' },
+      { slug: 'account', label: 'account' },
+      { slug: 'system', label: 'system' },
+    ],
+  },
 ];
 
 type Props = { active: AdminSlug };
@@ -40,16 +84,32 @@ export function AdminSidebar({ active }: Props) {
   return (
     <nav className="border-r border-(--color-rule) px-5 lg:px-6 py-7 flex flex-col">
       <SystemPulse />
-      <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
-        manage
+      <Groups active={active} />
+      <SidebarFooter />
+    </nav>
+  );
+}
+
+function Groups({ active }: { active: AdminSlug }) {
+  return (
+    <div className="flex flex-col gap-5">
+      {NAV_GROUPS.map((g) => <Group key={g.label} group={g} active={active} />)}
+    </div>
+  );
+}
+
+function Group({ group, active }: { group: NavGroup; active: AdminSlug }) {
+  return (
+    <div>
+      <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-(--color-faint) mb-1.5">
+        {group.label}
       </div>
       <ul className="flex flex-col">
-        {SECTIONS.map((s) => (
+        {group.items.map((s) => (
           <SidebarItem key={s.slug} section={s} active={s.slug === active} />
         ))}
       </ul>
-      <SidebarFooter />
-    </nav>
+    </div>
   );
 }
 
@@ -59,14 +119,14 @@ function SidebarItem({ section, active }: { section: SectionDef; active: boolean
     <li>
       <Link
         href={`/admin/${section.slug}`}
-        className={`group w-full text-left flex items-baseline gap-3 py-2 transition-colors ${tone}`}
+        className={`group w-full text-left flex items-baseline gap-3 py-1.5 transition-colors ${tone}`}
       >
         <SidebarItemMarker active={active} />
-        <span className={`font-serif flex-1 text-[17px] tracking-[-0.005em] ${active ? 'font-medium' : ''}`}>
+        <span
+          data-testid={`admin-nav-${section.slug}`}
+          className={`font-serif flex-1 text-[15.5px] tracking-[-0.005em] ${active ? 'font-medium' : ''}`}
+        >
           {section.label}
-        </span>
-        <span className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint)">
-          {section.hint}
         </span>
       </Link>
     </li>

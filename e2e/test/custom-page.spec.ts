@@ -127,7 +127,7 @@ async function waitForBuild(
 // custom-pages list 看到 "view live ↗" 链接（promote_to_live 之后才出现），
 // 点击直接跳 /p/<slug>，访客（也就是 admin owner 自己）看到 React 渲染产物。
 async function visitorSeesPublishedContent(page: Page): Promise<void> {
-  await gotoAdminSection(page, 'custom pages');
+  await gotoAdminSection(page, 'custom-pages');
   await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
   await page.locator(`[data-testid="custom-page-row-${SLUG}"]`)
     .getByRole('link', { name: 'view live ↗' })

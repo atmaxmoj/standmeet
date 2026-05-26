@@ -68,7 +68,7 @@ test.describe.serial('custom_page lifecycle: staging → live → list → delet
       expect(inList.pages.find((p) => p.slug === SLUG)).toBeTruthy();
 
       // UI 视角：admin custom-pages section → 点 view live ↗ → /p/<slug> 渲染。
-      await gotoAdminSection(page, 'custom pages');
+      await gotoAdminSection(page, 'custom-pages');
       await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
       await page.locator(`[data-testid="custom-page-row-${SLUG}"]`)
         .getByRole('link', { name: 'view live ↗' })

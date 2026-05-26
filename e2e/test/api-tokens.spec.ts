@@ -43,7 +43,7 @@ test.describe.serial('owner mints an API token in admin and an MCP client uses i
 });
 
 async function openAPIMCP(page: Page): Promise<void> {
-  await gotoAdminSection(page, 'api · mcp');
+  await gotoAdminSection(page, 'api-mcp');
   await page.waitForURL('**/admin/api-mcp', { timeout: 5_000 });
 }
 

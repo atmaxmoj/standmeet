@@ -39,7 +39,8 @@ export const test = base.extend<Fixtures>({
   adminPage: async ({ page }, use) => {
     await page.goto('/admin');
     const loginEmail = page.getByTestId('email');
-    const adminSidebar = page.getByRole('link', { name: /\bpage\b/ });
+    // sidebar 'page' nav 出现 = 已登录。data-testid 跟 design label 改名解耦。
+    const adminSidebar = page.getByTestId('admin-nav-page');
     await Promise.race([
       loginEmail.waitFor({ state: 'visible', timeout: 10_000 }),
       adminSidebar.waitFor({ state: 'visible', timeout: 10_000 }),
