@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import type { PostView } from '@/lib/api/public';
 import { BlogScrollLoader } from '@/components/blog/BlogScrollLoader';
 import { PostCardLead, PostRow } from '@/components/blog/BlogPostCards';
+import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { useBlogFeed } from '@/lib/blog/use-blog-feed';
 
@@ -44,6 +45,7 @@ export function BlogIndex({ initialPosts, initialCursor }: Props) {
         <BlogScrollLoader done={feed.done} loading={feed.loading} onHit={feed.loadMore} />
         <AskCorpusCTA hasPosts={feed.posts.length > 0} />
       </main>
+      <FloatingChatDock />
     </div>
   );
 }

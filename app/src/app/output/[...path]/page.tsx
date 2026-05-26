@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
+import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchOutputLanding } from '@/lib/api/public';
@@ -53,6 +54,7 @@ export default async function OutputLandingPage({ params }: { params: Promise<Pa
         </article>
         <AskAboutThis title={out.title} kind="output" />
       </main>
+      <FloatingChatDock />
     </>
   );
 }

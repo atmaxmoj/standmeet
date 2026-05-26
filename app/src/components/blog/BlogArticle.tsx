@@ -13,6 +13,7 @@ import type { BacklinkRef, PostView } from '@/lib/api/public';
 import { Cover } from '@/components/blog/Cover';
 import { markdownComponents, markdownStyles } from '@/components/blog/BlogArticleMarkdown';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
+import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { expandURIsToURLs } from '@/lib/blog/asset-transforms';
 
@@ -48,6 +49,7 @@ function UnlockedView({ post }: { post: PostView }) {
         <Backlinks refs={post.backlinks ?? []} />
         <AskAboutThis title={post.title} kind="essay" />
       </main>
+      <FloatingChatDock />
     </div>
   );
 }

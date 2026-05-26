@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
+import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiLanding } from '@/lib/api/public';
@@ -54,6 +55,7 @@ export default async function WikiLandingPage({ params }: { params: Promise<Para
         </article>
         <AskAboutThis title={wiki.title} kind="wiki" />
       </main>
+      <FloatingChatDock />
     </>
   );
 }
