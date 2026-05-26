@@ -75,6 +75,7 @@ export interface SetupFormHook {
   form: SetupFormState;
   error: string | null;
   busy: boolean;
+  canAdvance: boolean;
   captchaQ: CaptchaQuestion;
   provider: AIProviderEntry;
   setField: (key: keyof SetupFormState, value: string) => void;
@@ -138,7 +139,30 @@ export function useSetupForm(setupToken: string): SetupFormHook {
     }
   }, [form, setupToken, captchaQ]);
 
-  return { step, form, error, busy, captchaQ, provider, setField, pickProvider, next, back, submit };
+  const canAdvance = stepCanAdvance(step, form);
+
+  return {
+    step, form, error, busy, canAdvance, captchaQ, provider,
+    setField, pickProvider, next, back, submit,
+  };
+}
+
+// stepCanAdvance —— 实时禁用 PrimaryBtn 的判定。step 1 看 identity 三项
+// 必填 + url 是 http；step 2 看 password/confirm 是否填且一致；step 3
+// 总是允许（key 可空，跳到 verify 现场补）；step 4 看 captcha 是否非空。
+function stepCanAdvance(step: SetupStep, f: SetupFormState): boolean {
+  if (step === 1) return identityComplete(f);
+  if (step === 2) return credentialsComplete(f);
+  if (step === 3) return true;
+  return f.captcha.trim() !== '';
+}
+
+function identityComplete(f: SetupFormState): boolean {
+  return f.full.trim() !== '' && f.handle !== '' && isHTTPURL(f.publicUrl);
+}
+
+function credentialsComplete(f: SetupFormState): boolean {
+  return f.email.trim() !== '' && f.password !== '' && f.passwordConfirm !== '';
 }
 
 function initialState(): SetupFormState {

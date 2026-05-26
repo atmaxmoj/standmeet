@@ -334,7 +334,7 @@ function SetupNav({ form }: { form: SetupFormHook }) {
   return (
     <div className="flex items-center justify-between pt-2">
       <BackBtn step={form.step} onBack={form.back} busy={form.busy} />
-      <PrimaryBtn step={form.step} busy={form.busy} />
+      <PrimaryBtn step={form.step} busy={form.busy} disabled={!form.canAdvance} />
     </div>
   );
 }
@@ -350,11 +350,13 @@ function BackBtn({ step, onBack, busy }: { step: 1 | 2 | 3 | 4; onBack: () => vo
   );
 }
 
-function PrimaryBtn({ step, busy }: { step: 1 | 2 | 3 | 4; busy: boolean }) {
+function PrimaryBtn({
+  step, busy, disabled,
+}: { step: 1 | 2 | 3 | 4; busy: boolean; disabled: boolean }) {
   const final = step === 4;
   return (
     <button
-      type="submit" disabled={busy}
+      type="submit" disabled={busy || disabled}
       data-testid={final ? 'submit' : 'next'}
       className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
     >
