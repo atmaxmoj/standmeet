@@ -45,6 +45,8 @@ test.describe.serial('BYOAI tier locked to public/** path glob', () => {
     const request = await playwright.request.newContext();
     const sess = await issueByoaiSession(request, {
       handle: OWNER.handle, byoai_provider: 'anthropic', byoai_key: FAKE_KEY,
+      byoai_endpoint: 'https://api.anthropic.com',
+      byoai_model: 'claude-haiku-4-5-20251001',
       visitor_name: 'Curious',
     });
     const stream = await sendMessage(request, sess, 'tell me about your secrets');

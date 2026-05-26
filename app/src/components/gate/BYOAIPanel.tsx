@@ -1,39 +1,76 @@
 // BYOAIPanel —— gate "no code? BYOAI"：左侧解释 + 右侧 provider/key 表单。
-// e2e selectOption('byoai-provider') 要求 provider 是 <select>，所以视觉
-// 上当 chip 装但 DOM 还是 <select>。
+//
+// 4 个字段 (provider / endpoint / model / key) 全提交：endpoint 选 preset
+// 时自动预填（custom 必须自填），model 永远手输或点 "Load models" 拉真实
+// 列表。e2e selector：byoai-provider / byoai-endpoint / byoai-model /
+// byoai-key / byoai-load-models / byoai-model-select / byoai-submit。
+//
+// 切 provider 时的"用户改过没"判断在 lib/inference/provider-form.ts 里；
+// load-models 状态机在 lib/inference/use-model-list.ts 里；model 行的三态
+// 渲染在 components/inference/ModelLoaderRow.tsx 里。
 
 'use client';
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import type { GateHook, Provider } from '@/lib/gate/use-gate';
+import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
+import { lookupPreset, PRESETS, type InferencePreset } from '@/lib/inference/presets';
+import {
+  initialProviderForm, setEndpoint, setModel, switchProvider,
+  EMPTY_DEFAULTS, type ProviderFormState,
+} from '@/lib/inference/provider-form';
+import { useModelList, type ModelListHook } from '@/lib/inference/use-model-list';
+import type { GateHook } from '@/lib/gate/use-gate';
+import { useToast } from '@/lib/ui/toast';
 
 type Props = {
   hook: GateHook;
 };
 
+const INITIAL_PROVIDER = 'anthropic';
+
+function defaultsFor(provider: string) {
+  const p = lookupPreset(provider);
+  return p ? { endpoint: p.baseUrl } : EMPTY_DEFAULTS;
+}
+
+function initialForm(): ProviderFormState {
+  return initialProviderForm(INITIAL_PROVIDER, defaultsFor(INITIAL_PROVIDER));
+}
+
 export function BYOAIPanel({ hook }: Props) {
   const router = useRouter();
-  const [provider, setProvider] = useState<Provider>('anthropic');
+  const toast = useToast();
+  const [form, setForm] = useState<ProviderFormState>(initialForm);
   const [apiKey, setApiKey] = useState('');
   const [reveal, setReveal] = useState(false);
+  const onToastError = useCallback((m: string) => toast.error(m), [toast]);
+  const models = useModelList(onToastError);
+
+  const onProvider = useCallback((name: string) => {
+    setForm((prev) => switchProvider(prev, name, defaultsFor(name)));
+    models.reset();
+  }, [models]);
+  const onEndpoint = useCallback((v: string) => setForm((p) => setEndpoint(p, v)), []);
+  const onModel = useCallback((v: string) => setForm((p) => setModel(p, v)), []);
 
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = apiKey.trim();
-    trimmed !== '' && (await runBYOAISubmit(provider, trimmed, hook, router));
-  }, [apiKey, provider, hook, router]);
+    await trySubmit({ form, apiKey, hook, router });
+  }, [apiKey, form, hook, router]);
 
   return (
     <section id="byoai" data-testid="byoai-panel">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-10">
         <BYOAIHeadline />
         <BYOAIForm
-          provider={provider} setProvider={setProvider}
+          form={form} onProvider={onProvider}
+          onEndpoint={onEndpoint} onModel={onModel}
           apiKey={apiKey} setApiKey={setApiKey}
           reveal={reveal} setReveal={setReveal}
           onSubmit={onSubmit} busy={hook.state.busy}
+          models={models}
         />
       </div>
     </section>
@@ -52,8 +89,9 @@ function BYOAIHeadline() {
         Bring your own AI<span className="text-(--color-accent)">.</span>
       </h2>
       <p className="reading text-(--color-muted) mt-3 text-[15.5px]">
-        Use your own Anthropic / OpenAI key against the owner&rsquo;s public corpus. Private topics
-        return &ldquo;need a code&rdquo;.
+        Use your own key against the owner&rsquo;s public corpus. Pick any
+        OpenAI-compatible provider, or point at your own self-hosted endpoint.
+        Private topics return &ldquo;need a code&rdquo;.
       </p>
       <ul className="mt-5 mono text-[10.5px] tracking-[0.06em] leading-[1.85] text-(--color-muted)">
         <li><span className="text-(--color-faint)">·</span> your key never touches our server &mdash; stored encrypted in your browser only</li>
@@ -65,30 +103,71 @@ function BYOAIHeadline() {
 }
 
 type FormProps = {
-  provider: Provider;
-  setProvider: (p: Provider) => void;
+  form: ProviderFormState;
+  onProvider: (p: string) => void;
+  onEndpoint: (v: string) => void;
+  onModel: (v: string) => void;
   apiKey: string;
   setApiKey: (v: string) => void;
   reveal: boolean;
   setReveal: (v: boolean) => void;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   busy: boolean;
+  models: ModelListHook;
 };
 
 function BYOAIForm(p: FormProps) {
+  const ph = placeholdersFor(p.form.provider);
   return (
     <form onSubmit={p.onSubmit} className="rise">
-      <ProviderRow value={p.provider} onChange={p.setProvider} />
+      <ProviderRow value={p.form.provider} onChange={p.onProvider} />
+      <EndpointRow value={p.form.endpoint} onChange={p.onEndpoint} placeholder={ph.endpoint} />
+      <ModelRow
+        value={p.form.model} onChange={p.onModel}
+        models={p.models}
+        onLoad={() => void p.models.load({
+          provider: p.form.provider, endpoint: p.form.endpoint, key: p.apiKey,
+        })}
+      />
       <KeyRow
         value={p.apiKey} onChange={p.setApiKey}
         reveal={p.reveal} onToggleReveal={() => p.setReveal(!p.reveal)}
+        placeholder={ph.key}
       />
-      <ReadyRow apiKey={p.apiKey} busy={p.busy} />
+      <ReadyRow
+        apiKey={p.apiKey} endpoint={p.form.endpoint} model={p.form.model}
+        busy={p.busy}
+      />
     </form>
   );
 }
 
-function ProviderRow({ value, onChange }: { value: Provider; onChange: (p: Provider) => void }) {
+interface Placeholders {
+  endpoint: string;
+  key: string;
+}
+
+const EMPTY_PRESET: InferencePreset = {
+  name: '', label: '', baseUrl: '', keyPrefix: '',
+};
+
+function placeholdersFor(provider: string): Placeholders {
+  const preset = lookupPreset(provider) ?? EMPTY_PRESET;
+  return {
+    endpoint: epPlaceholder(preset.baseUrl),
+    key: keyPlaceholder(preset.keyPrefix),
+  };
+}
+
+function epPlaceholder(baseUrl: string): string {
+  return baseUrl === '' ? 'https://your-endpoint.example.com' : baseUrl;
+}
+
+function keyPlaceholder(keyPrefix: string): string {
+  return keyPrefix === '' ? 'paste your key' : `${keyPrefix}…`;
+}
+
+function ProviderRow({ value, onChange }: { value: string; onChange: (p: string) => void }) {
   return (
     <>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
@@ -96,20 +175,75 @@ function ProviderRow({ value, onChange }: { value: Provider; onChange: (p: Provi
       </div>
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value as Provider)}
+        onChange={(e) => onChange(e.target.value)}
         data-testid="byoai-provider"
         className="provider-pick is-on mb-5 cursor-pointer"
       >
-        <option value="anthropic">claude</option>
-        <option value="openai">openai</option>
+        {PRESETS.map((p) => (
+          <option key={p.name} value={p.name}>{p.label}</option>
+        ))}
       </select>
     </>
   );
 }
 
+function EndpointRow({
+  value, onChange, placeholder,
+}: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <>
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
+        endpoint
+      </div>
+      <div className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1 mb-5">
+        <input
+          type="url"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          data-testid="byoai-endpoint"
+          autoComplete="off"
+          spellCheck={false}
+          className="flex-1 bg-transparent mono py-2 reading text-(--color-ink) placeholder:text-(--color-faint) text-[14.5px] tracking-[0.02em]"
+        />
+      </div>
+    </>
+  );
+}
+
+const MODEL_INPUT_CLASS =
+  'flex-1 bg-transparent mono py-2 reading text-(--color-ink) ' +
+  'placeholder:text-(--color-faint) text-[14.5px] tracking-[0.02em]';
+
+function ModelRow({
+  value, onChange, models, onLoad,
+}: {
+  value: string; onChange: (v: string) => void;
+  models: ModelListHook; onLoad: () => void;
+}) {
+  return (
+    <>
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
+        model
+      </div>
+      <ModelLoaderRow
+        value={value} onChange={onChange}
+        models={models} onLoad={onLoad}
+        testidPrefix="byoai"
+        className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1 mb-5"
+        inputClassName={MODEL_INPUT_CLASS}
+      />
+    </>
+  );
+}
+
 function KeyRow({
-  value, onChange, reveal, onToggleReveal,
-}: { value: string; onChange: (v: string) => void; reveal: boolean; onToggleReveal: () => void }) {
+  value, onChange, reveal, onToggleReveal, placeholder,
+}: {
+  value: string; onChange: (v: string) => void;
+  reveal: boolean; onToggleReveal: () => void;
+  placeholder: string;
+}) {
   return (
     <>
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2 flex items-baseline justify-between">
@@ -123,7 +257,7 @@ function KeyRow({
           type={reveal ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="sk-ant-…"
+          placeholder={placeholder}
           data-testid="byoai-key"
           autoComplete="off"
           spellCheck={false}
@@ -141,20 +275,27 @@ function KeyRow({
   );
 }
 
-function ReadyRow({ apiKey, busy }: { apiKey: string; busy: boolean }) {
-  const valid = apiKey.trim().length > 12;
+function ReadyRow({
+  apiKey, endpoint, model, busy,
+}: { apiKey: string; endpoint: string; model: string; busy: boolean }) {
+  const trimmedKey = apiKey.trim();
+  const valid = isValid(trimmedKey, endpoint, model);
   return (
     <div className="mt-4 mono text-[10px] tracking-[0.06em] text-(--color-muted) flex items-baseline justify-between gap-3 flex-wrap">
-      <ReadyHint valid={valid} apiKey={apiKey} />
+      <ReadyHint valid={valid} apiKey={trimmedKey} />
       <SubmitButton disabled={!valid || busy} busy={busy} />
     </div>
   );
 }
 
+function isValid(key: string, endpoint: string, model: string): boolean {
+  return key.length > 12 && endpoint.trim() !== '' && model.trim() !== '';
+}
+
 function ReadyHint({ valid, apiKey }: { valid: boolean; apiKey: string }) {
   return valid
     ? <span>ready · using <MaskedKey value={apiKey} /></span>
-    : <span className="text-(--color-faint)">paste your key to unlock the public chat.</span>;
+    : <span className="text-(--color-faint)">fill endpoint, model + key to unlock the public chat.</span>;
 }
 
 function MaskedKey({ value }: { value: string }) {
@@ -180,13 +321,31 @@ function SubmitButton({ disabled, busy }: { disabled: boolean; busy: boolean }) 
   );
 }
 
+// trySubmit —— "form 已经填齐才发"的 wrapper；放在文件级让 onSubmit 这个
+// useCallback 复杂度保持 1。invalid 直接 noop，UI 上 submit button 已经
+// disabled，这里是双保险。
+async function trySubmit(args: {
+  form: ProviderFormState;
+  apiKey: string;
+  hook: GateHook;
+  router: ReturnType<typeof useRouter>;
+}): Promise<void> {
+  const key = args.apiKey.trim();
+  const endpoint = args.form.endpoint.trim();
+  const model = args.form.model.trim();
+  const ready = isValid(key, endpoint, model);
+  ready && (await runBYOAISubmit(
+    { provider: args.form.provider, endpoint, model, key },
+    args.hook, args.router,
+  ));
+}
+
 async function runBYOAISubmit(
-  provider: Provider,
-  key: string,
+  input: { provider: string; endpoint: string; model: string; key: string },
   hook: GateHook,
   router: ReturnType<typeof useRouter>,
 ): Promise<void> {
-  const ok = await hook.submitBYOAI(provider, key);
+  const ok = await hook.submitBYOAI(input);
   // 落根 / —— byoai 状态在 localStorage（use-gate.persistSession），
   // page-shell mount 时读 store，URL 不挂 flag。
   ok && router.push('/');

@@ -190,17 +190,24 @@ func buildBYOAIParams(in *UpdateBYOAIInput) (dbq.UpdateOwnerBYOAIParams, error) 
 }
 
 // UpdateAIProviderInput —— admin "AI provider" 表单的 commit 入参。
-// KeyPlaintext == nil 表示不动 key（只改 provider）；空 string 显式清掉 key。
+// KeyPlaintext == nil 表示不动 key（只改 provider / endpoint / model）；
+// 空 string 显式清掉 key。Endpoint 仅 provider='custom' 必填；Model 留空
+// 时 inference resolver 走 preset 默认。
 type UpdateAIProviderInput struct {
 	KeyPlaintext *string
 	OwnerID      string
 	Provider     string
+	Endpoint     string
+	Model        string
 }
 
-// AIProviderView —— inference resolver 需要的最小信息：provider id +
-// encrypted key bytes。明文 key 由 caller 走 cryptobox.Decrypt 解。
+// AIProviderView —— inference resolver 需要的最小信息。明文 key 由 caller
+// 走 cryptobox.Decrypt 解。Endpoint + Model 仅 custom 或 owner 显式覆盖
+// preset 默认时非空。
 type AIProviderView struct {
 	Provider string
+	Endpoint string
+	Model    string
 	KeyEnc   []byte
 }
 
@@ -222,7 +229,10 @@ func (r *OwnerRepo) GetAIProviderView(
 		}
 		return AIProviderView{}, fmt.Errorf("get owner for provider view: %w", err)
 	}
-	return AIProviderView{Provider: row.AiProvider, KeyEnc: row.AiProviderKeyEnc}, nil
+	return AIProviderView{
+		Provider: row.AiProvider, Endpoint: row.AiEndpoint, Model: row.AiModel,
+		KeyEnc: row.AiProviderKeyEnc,
+	}, nil
 }
 
 // UpdateAIProvider —— commit owner 的 AI provider 选择。当 KeyPlaintext 非
@@ -242,6 +252,7 @@ func (r *OwnerRepo) UpdateAIProvider(
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOwnerAIProvider(ctx, dbq.UpdateOwnerAIProviderParams{
 		ID: pgID, AiProvider: in.Provider, AiProviderKeyEnc: encBytes,
+		AiEndpoint: in.Endpoint, AiModel: in.Model,
 	})
 	if qerr != nil {
 		return domain.OwnerSettings{}, fmt.Errorf("update ai provider: %w", qerr)

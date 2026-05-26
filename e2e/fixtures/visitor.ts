@@ -31,16 +31,18 @@ export async function issueSession(
 
 export interface IssueByoaiSessionInput {
   handle: string;
-  byoai_provider: 'anthropic';
+  byoai_provider: string; // 'anthropic' / 'openai' / 'custom' / ...
   // byoai_key 不再上传给 server —— 浏览器自己保管，per-request 信封带过去。
   // node 端 fixture 直接持 plaintext，到 sendMessage 时跟 sessionToken 做 HKDF。
   byoai_key: string;
+  byoai_endpoint: string; // base URL；不带 /v1/...
+  byoai_model: string;    // model id
   visitor_name?: string;
 }
 
 // issueByoaiSession —— BYOAI tier。server 只看 byoai_provider；session 里
-// 不缓存 key。Fixture 把 plaintext key 透传出来塞进返回 session（让 caller
-// 调 sendMessage 时一并 wrap）。
+// 不缓存 key/endpoint/model。Fixture 把 plaintext 字段透传到 returned
+// session 让 sendMessage 一并 wrap + 发 4 个 header。
 export async function issueByoaiSession(
   request: APIRequestContext, input: IssueByoaiSessionInput,
 ): Promise<BYOAIVisitorSession> {
@@ -54,14 +56,20 @@ export async function issueByoaiSession(
   });
   if (res.status() !== 200) throw new Error(`issue byoai session failed: ${res.status()}`);
   const sess = await res.json() as VisitorSession;
-  return { ...sess, byoai_provider: input.byoai_provider, byoai_key: input.byoai_key };
+  return {
+    ...sess,
+    byoai_provider: input.byoai_provider, byoai_key: input.byoai_key,
+    byoai_endpoint: input.byoai_endpoint, byoai_model: input.byoai_model,
+  };
 }
 
 // BYOAIVisitorSession —— issueByoaiSession 返回；多带 plaintext key + provider
-// 让后续 sendMessage / sendByoaiMessage 自带 wrap 上下文。
+// + endpoint + model 让后续 sendMessage 自带 wrap 上下文。
 export interface BYOAIVisitorSession extends VisitorSession {
-  byoai_provider: 'anthropic';
+  byoai_provider: string;
   byoai_key: string;
+  byoai_endpoint: string;
+  byoai_model: string;
 }
 
 // issueSessionStatus —— spec 想看错误（403 / 410 等）时用的"只问 status"版本。
@@ -98,6 +106,8 @@ async function buildMessageHeaders(
     ...base,
     'X-BYOAI-Provider': byoai.byoai_provider,
     'X-BYOAI-Key': wrapped,
+    'X-BYOAI-Endpoint': byoai.byoai_endpoint ?? '',
+    'X-BYOAI-Model': byoai.byoai_model ?? '',
   };
 }
 

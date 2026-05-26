@@ -48,11 +48,12 @@ export interface IssueCodeSessionInput {
   visitor_name?: string;
 }
 
-// BYOAI key 不再在 server 落任何层；只把 provider 告诉 server 做 conversation
-// audit。明文 key 进 browser vault (lib/gate/byoai-vault.ts)；每次 chat 时用
-// session_token 派生 AES key、AES-GCM 信封塞 X-BYOAI-Key header。
+// BYOAI key / endpoint / model 不再在 server 落任何层；session 只 send
+// provider 名做 conversation audit。明文 key + endpoint + model 进 browser
+// vault (lib/gate/byoai-vault.ts)；每次 chat 时用 session_token 派生 AES key、
+// AES-GCM 信封塞 X-BYOAI-Key header，endpoint / model 走另两个 header。
 export interface IssueBYOAISessionInput {
-  byoai_provider: 'anthropic' | 'openai';
+  byoai_provider: string;
 }
 
 export const fetchPublicPage = () => client().fetchPage();

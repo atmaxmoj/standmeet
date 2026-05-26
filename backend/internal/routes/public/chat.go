@@ -31,6 +31,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions", h.createSession())
 	r.Post("/sessions/{id}/messages", h.postMessage())
 	r.Post("/sessions/{id}/summary", h.postSummary())
+	r.Post("/inference/models", h.listInferenceModels())
 }
 
 type parsedPostMessage struct {

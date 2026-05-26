@@ -3,8 +3,9 @@
 // 三条 submit 路径：
 //   - code: POST /api/v1/sessions {tier:'code', code} → 拿 session_token →
 //     redirect / (chat 实例 mount 时复用 cookie/session)
-//   - byoai: POST /api/v1/sessions {tier:'byoai', byoai_provider}（只 send
-//     provider，key 不上传）→ session 拿到后把 BYOAI key 存进 browser vault
+//   - byoai: POST /api/v1/sessions {tier:'byoai', byoai_provider}（server 端
+//     只要 provider，endpoint+model 在 chat header 里走）→ session 拿到后
+//     把 BYOAI {provider,endpoint,model,key} 一坨进 browser vault
 //     (lib/gate/byoai-vault.ts) → redirect /
 //   - request: POST /api/v1/access-requests (无 handle field —— v1 单 owner)
 //
@@ -43,14 +44,28 @@ export function loadStoredSession(): StoredVisitorSession | null {
   return raw ? (JSON.parse(raw) as StoredVisitorSession) : null;
 }
 
-export type Provider = 'anthropic' | 'openai';
+// Provider —— BYOAI 提交时的 provider 名。string 不收窄，因为新 backend
+// 支持 anthropic / openai / deepseek / kimi / groq / siliconflow / openrouter
+// / together / custom 一长串，全枚举不划算；非法值 server 端会 reject。
+export type Provider = string;
+
+// BYOAISubmitInput —— /gate BYOAI panel submit 时一起提交的 4 个字段。
+// endpoint + model 必填（custom 必须 owner 自填；preset 选了之后由 UI 预填
+// 默认值再走这里，所以走到这一步永远非空）。key 由 vault 加密落 localStorage，
+// session 仍只发 provider 给 server。
+export interface BYOAISubmitInput {
+  provider: Provider;
+  endpoint: string;
+  model: string;
+  key: string;
+}
 
 type SubmitState = { busy: boolean; error: string | null };
 
 export interface GateHook {
   state: SubmitState;
   submitCode: (code: string, visitorName: string) => Promise<boolean>;
-  submitBYOAI: (provider: Provider, key: string) => Promise<boolean>;
+  submitBYOAI: (input: BYOAISubmitInput) => Promise<boolean>;
   submitRequest: (input: AccessRequestInput) => Promise<boolean>;
 }
 
@@ -77,10 +92,15 @@ export function useGate(): GateHook {
   }, []);
 
   const submitBYOAI = useCallback(
-    async (provider: Provider, key: string): Promise<boolean> => {
+    async (input: BYOAISubmitInput): Promise<boolean> => {
       return await runSubmit(setState, async () => {
-        const sess = await issueBYOAISession({ byoai_provider: provider });
-        await storeBYOAI(provider, key.trim());
+        const sess = await issueBYOAISession({ byoai_provider: input.provider });
+        await storeBYOAI({
+          provider: input.provider,
+          endpoint: input.endpoint.trim(),
+          model: input.model.trim(),
+          key: input.key.trim(),
+        });
         persistSession(sess, true);
         return true;
       });

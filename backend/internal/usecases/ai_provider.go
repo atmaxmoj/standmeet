@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/inference"
 	"github.com/wangsijie/standmeet/internal/postgres"
 )
 
@@ -19,12 +20,18 @@ type AIProviderDeps struct {
 }
 
 // UpdateOwnerAIProviderInput —— 入参。
-//   - Provider:  "mock" / "anthropic" / "openai"
+//   - Provider:  preset 表里任意 Name（anthropic / openai / deepseek / kimi /
+//     groq / siliconflow / openrouter / together / custom），server 校验。
+//   - Endpoint:  base URL（不带 /v1/...）。frontend 选 provider 时用 preset
+//     默认预填；custom 必须 owner 自填。**必须非空**。
+//   - Model:     model id。frontend 同样 preset 预填；owner 可改。**必须非空**。
 //   - KeyChange: KeyKeep（不动）/ KeySet（设新 key）/ KeyClear（删 key）
 //   - Key:       当 KeyChange=KeySet 时给明文 key；其它情况忽略
 type UpdateOwnerAIProviderInput struct {
 	OwnerID   string
 	Provider  string
+	Endpoint  string
+	Model     string
 	Key       string
 	KeyChange KeyChange
 }
@@ -39,29 +46,36 @@ const (
 	KeyClear
 )
 
-// validProviders —— owner-facing 选项；mock 是 e2e fixture，不在这。
-var validProviders = map[string]struct{}{
-	"anthropic": {}, "openai": {},
-}
-
 // UpdateOwnerAIProvider —— 调 repo 落库。返回新 OwnerSettings（不含明文 key）。
+// 校验：provider 必须在 inference preset 表里；endpoint + model 必须非空
+// （preset 给 UI 默认填值，server 端不做 fallback，避免 DB 落部分 row）。
 func UpdateOwnerAIProvider(
 	ctx context.Context, deps AIProviderDeps, in *UpdateOwnerAIProviderInput,
 ) (domain.OwnerSettings, error) {
-	if _, ok := validProviders[in.Provider]; !ok {
-		return domain.OwnerSettings{}, fmt.Errorf(
-			"%w: provider must be anthropic | openai", ErrEmptyField,
-		)
+	if verr := validateAIProviderInput(in); verr != nil {
+		return domain.OwnerSettings{}, verr
 	}
 	s, err := deps.Owners.UpdateAIProvider(ctx, &postgres.UpdateAIProviderInput{
 		OwnerID:      in.OwnerID,
 		Provider:     in.Provider,
+		Endpoint:     in.Endpoint,
+		Model:        in.Model,
 		KeyPlaintext: resolveKeyArg(in.KeyChange, in.Key),
 	})
 	if err != nil {
 		return domain.OwnerSettings{}, fmt.Errorf("update ai provider: %w", err)
 	}
 	return s, nil
+}
+
+func validateAIProviderInput(in *UpdateOwnerAIProviderInput) error {
+	if _, ok := inference.Lookup(in.Provider); !ok {
+		return fmt.Errorf("%w: unknown provider %q", ErrEmptyField, in.Provider)
+	}
+	if in.Endpoint == "" || in.Model == "" {
+		return fmt.Errorf("%w: endpoint + model required", ErrEmptyField)
+	}
+	return nil
 }
 
 func resolveKeyArg(kc KeyChange, key string) *string {

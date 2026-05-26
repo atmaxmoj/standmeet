@@ -30,7 +30,9 @@ RETURNING *;
 -- name: UpdateOwnerAIProvider :one
 UPDATE owners
 SET ai_provider = $2,
-    ai_provider_key_enc = $3
+    ai_provider_key_enc = $3,
+    ai_endpoint = $4,
+    ai_model = $5
 WHERE id = $1
 RETURNING *;
 

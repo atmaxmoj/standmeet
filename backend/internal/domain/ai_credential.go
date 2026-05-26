@@ -13,11 +13,20 @@
 
 package domain
 
-// AICredential —— 一个 inference provider 实例化所需的最小元组：
-// 名字（'anthropic' / 'openai' / ...）+ plaintext API key。
+// AICredential —— 一个 inference provider 实例化所需的元组。
+//
+//   - Provider 名字（'anthropic' / 'openai' / 'deepseek' / 'kimi' / 'groq' /
+//     'siliconflow' / 'openrouter' / 'together' / 'custom' / ...）
+//   - Key plaintext API key
+//   - Model 可选，空 → 走 provider preset 默认 model
+//   - Endpoint 可选，空 → 走 provider preset 默认 base URL；只对
+//     openai-compat 协议 + provider='custom' 有意义（owner 自托管 ollama /
+//     vllm / lm-studio 等 OpenAI 兼容 server）
 type AICredential struct {
 	Provider string
 	Key      string
+	Model    string
+	Endpoint string
 }
 
 // HasKey —— 非空判断。空 cred 让 resolver 走 fallback（owner 默认 / 报错）。

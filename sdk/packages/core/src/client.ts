@@ -30,20 +30,27 @@ export interface ClientOptions {
 // IssueSessionInput —— 三档访问 tier 统一入参。tier 决定哪些字段是必需的：
 //   public —— 无字段
 //   code   —— code (+ visitor_name optional)
-//   byoai  —— byoai_provider（key 不上传 server；browser 自己 vault 保管）
+//   byoai  —— byoai_provider（key / endpoint / model 不上传 server；browser
+//             自己 vault 保管，chat header 里走）
 export interface IssueSessionInput {
   tier: SessionTier;
   code?: string;
   visitor_name?: string;
-  byoai_provider?: 'anthropic' | 'openai';
+  byoai_provider?: string;
 }
 
-// BYOAIHeaders —— streamMessage 在 tier=byoai 时透传：provider 走
-// `X-BYOAI-Provider`；wrappedKey 是 caller 用 session_token HKDF 派生
-// AES-256 key、AES-GCM 封装 plaintext 之后的 base64（URL-safe no padding），
-// 走 `X-BYOAI-Key`。SDK 不参与封装；caller 负责。
+// BYOAIHeaders —— streamMessage 在 tier=byoai 时透传 4 个 header（**全部必填**，
+// 缺任一 server 401）：
+//   X-BYOAI-Provider —— preset name ('openai' / 'deepseek' / 'custom' / ...)
+//   X-BYOAI-Endpoint —— base URL（不带 /v1/... 后缀）
+//   X-BYOAI-Model    —— model id
+//   X-BYOAI-Key      —— caller 用 session_token HKDF 派生 AES-256 key、AES-GCM
+//                       封装 plaintext 后的 base64 (URL-safe no padding)
+// SDK 不参与 key 封装；caller 负责。
 export interface BYOAIHeaders {
   provider: string;
+  endpoint: string;
+  model: string;
   wrappedKey: string;
 }
 
@@ -133,6 +140,12 @@ function buildMessageHeaders(
     Authorization: `Bearer ${sessionToken}`,
   };
   return byoai
-    ? { ...base, 'X-BYOAI-Provider': byoai.provider, 'X-BYOAI-Key': byoai.wrappedKey }
+    ? {
+      ...base,
+      'X-BYOAI-Provider': byoai.provider,
+      'X-BYOAI-Endpoint': byoai.endpoint,
+      'X-BYOAI-Model': byoai.model,
+      'X-BYOAI-Key': byoai.wrappedKey,
+    }
     : base;
 }

@@ -34,9 +34,18 @@ CREATE TABLE owners (
     -- key 走 AES-256-GCM 加密落盘，明文 INSTANCE_SECRET 在 env。
     -- mock 不在选项里——它是 INFERENCE_PROVIDER=mock env 下的 testing
     -- fixture，跟 owner 行无关。
-    ai_provider          text          NOT NULL DEFAULT 'anthropic'
-                                        CHECK (ai_provider IN ('anthropic', 'openai')),
+    --
+    -- 列 ai_provider 现在接受 inference.presets 里全部 openai-compat
+    -- provider + 'anthropic'，所以没 CHECK 白名单（presets 表是 source
+    -- of truth；DB CHECK 跟代码漂移更糟）。
+    -- ai_endpoint —— 仅 provider='custom' 必填（owner 自托管 ollama / vllm /
+    -- lm-studio 等 OpenAI-compatible server 的 base URL，不带 /v1/...）；
+    -- 其它 provider 留空走 preset 默认 BaseURL。
+    -- ai_model —— 留空走 preset 默认 model；owner 想换模型时填。
+    ai_provider          text          NOT NULL DEFAULT 'anthropic',
     ai_provider_key_enc  bytea         NOT NULL DEFAULT ''::bytea,
+    ai_endpoint          text          NOT NULL DEFAULT '',
+    ai_model             text          NOT NULL DEFAULT '',
     -- password_reset_hash —— 紧急 reset 兜底：CLI 颁发的一次性 token 的
     -- bcrypt-style hash。配合 password_reset_at 做 30min TTL。空 bytea =
     -- 没活跃 reset token；reset 成功后由 ClearPasswordResetToken 清回去。

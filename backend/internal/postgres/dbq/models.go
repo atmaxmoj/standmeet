@@ -219,6 +219,8 @@ type Owner struct {
 	ByoaiPublicBlurb  string
 	AiProvider        string
 	AiProviderKeyEnc  []byte
+	AiEndpoint        string
+	AiModel           string
 	PasswordResetHash []byte
 	PasswordResetAt   pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz

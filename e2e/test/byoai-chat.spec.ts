@@ -60,6 +60,8 @@ async function seedPublic(request: APIRequestContext): Promise<void> {
 async function submitBYOAI(page: Page): Promise<void> {
   await expect(page.getByTestId('byoai-panel')).toBeVisible();
   await page.getByTestId('byoai-provider').selectOption('anthropic');
+  // endpoint 由 preset 默认自动填；model 没默认，必须手输。
+  await page.getByTestId('byoai-model').fill('claude-haiku-4-5-20251001');
   await page.getByTestId('byoai-key').fill(FAKE_KEY);
   await page.getByTestId('byoai-submit').click();
 }

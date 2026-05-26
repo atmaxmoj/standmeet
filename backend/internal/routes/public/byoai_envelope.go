@@ -26,8 +26,10 @@ import (
 )
 
 const (
-	byoaiProviderHeader = "X-BYOAI-Provider"
-	byoaiKeyHeader      = "X-BYOAI-Key"
+	byoaiProviderHeader = "X-Byoai-Provider"
+	byoaiKeyHeader      = "X-Byoai-Key"
+	byoaiEndpointHeader = "X-Byoai-Endpoint"
+	byoaiModelHeader    = "X-Byoai-Model"
 	byoaiHKDFInfo       = "standmeet-byoai-v1"
 )
 
@@ -84,8 +86,10 @@ func enrichBYOAICreds(
 	return parsed, true
 }
 
-// readBYOAICredFromHeaders —— chat + summary 共用。tier=byoai 才调；缺
-// header / 信封解失败立刻 401。
+// readBYOAICredFromHeaders —— chat + summary 共用。tier=byoai 才调。
+// 4 个 header (provider / key / endpoint / model) 都必填 —— browser 端
+// 用 preset 给 UI 自动填默认，但 server 不做 fallback：cred 永远完整。
+// 任一缺失 / 信封解失败立刻 401。
 func readBYOAICredFromHeaders(
 	h *Handlers, w http.ResponseWriter, r *http.Request, sessionToken string,
 ) (*domain.AICredential, bool) {
@@ -98,25 +102,44 @@ func readBYOAICredFromHeaders(
 		writeError(h.Log, w, unauthorizedEnv("invalid byoai key envelope"))
 		return nil, false
 	}
-	return &domain.AICredential{Provider: hdrs.Provider, Key: plain}, true
+	return &domain.AICredential{
+		Provider: hdrs.Provider, Key: plain,
+		Endpoint: hdrs.Endpoint, Model: hdrs.Model,
+	}, true
 }
 
 // byoaiHeaders —— requireBYOAIHeaders 多返打包（避开 funcresult-limit 2 +
-// confusing-results：两个 string 不带名字会让 caller 搞不清谁是谁）。
+// confusing-results）。4 个字段全是必填值。
 type byoaiHeaders struct {
 	Provider string
 	Wrapped  string
+	Endpoint string
+	Model    string
 }
 
 func requireBYOAIHeaders(
 	h *Handlers, w http.ResponseWriter, r *http.Request,
 ) (byoaiHeaders, bool) {
-	provider := r.Header.Get(byoaiProviderHeader)
-	wrapped := r.Header.Get(byoaiKeyHeader)
-	if provider == "" || wrapped == "" {
+	hdrs := byoaiHeaders{
+		Provider: r.Header.Get(byoaiProviderHeader),
+		Wrapped:  r.Header.Get(byoaiKeyHeader),
+		Endpoint: r.Header.Get(byoaiEndpointHeader),
+		Model:    r.Header.Get(byoaiModelHeader),
+	}
+	if !hdrs.complete() {
 		writeError(h.Log, w, unauthorizedEnv(
-			"byoai tier requires X-BYOAI-Provider + X-BYOAI-Key headers"))
+			"byoai tier requires X-Byoai-Provider + X-Byoai-Key + "+
+				"X-Byoai-Endpoint + X-Byoai-Model headers"))
 		return byoaiHeaders{}, false
 	}
-	return byoaiHeaders{Provider: provider, Wrapped: wrapped}, true
+	return hdrs, true
+}
+
+func (h byoaiHeaders) complete() bool {
+	for _, v := range [...]string{h.Provider, h.Wrapped, h.Endpoint, h.Model} {
+		if v == "" {
+			return false
+		}
+	}
+	return true
 }

@@ -22,7 +22,7 @@ import {
   type SSEEvent,
 } from '@/lib/api/public';
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
-import { readBYOAIKey, readBYOAIProvider } from '@/lib/gate/byoai-vault';
+import { readBYOAICredFull, readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 
 export type Citation = {
@@ -160,13 +160,15 @@ async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
       // so a deep-linked code URL still produces a usable session.
       return issueCodeSession({ code: '' });
     }
-    case 'byoai':
+    case 'byoai': {
       // browser vault 里没 BYOAI 时这里 provider 暂用 anthropic 占位；后续
-      // chat fetch 会因 wrapBYOAIHeaders 返 null → 不发 X-BYOAI-* → server 401。
-      // 实际 byoai 流程都先经 /gate 把 provider+key 存进 vault。
+      // chat fetch 会因 wrapBYOAIHeaders 返 undefined → 不发 X-BYOAI-* →
+      // server 401。实际 byoai 流程都先经 /gate 把 provider+key 存进 vault。
+      const meta = readBYOAIVaultMeta();
       return issueBYOAISession({
-        byoai_provider: readBYOAIProvider() ?? 'anthropic',
+        byoai_provider: meta?.provider ?? 'anthropic',
       });
+    }
   }
 }
 
@@ -192,18 +194,23 @@ async function streamInto(
   setTurns((prev) => updateTurn(prev, turnID, state, false));
 }
 
-// wrapBYOAIHeadersFor —— tier=byoai 时从 browser vault 拿明文 key，HKDF 派生
-// session-bound AES key 把它信封过 → 返 BYOAIHeaders。其他 tier 返 undefined，
-// streamChatMessage 不发 X-BYOAI-* header，server 自动走 owner key。
+// wrapBYOAIHeadersFor —— tier=byoai 时从 browser vault 一次拿齐 cred
+// (provider/endpoint/model/key)，HKDF 派生 session-bound AES key 信封 key →
+// 返 4 字段 BYOAIHeaders。其他 tier 返 undefined，streamChatMessage 不发
+// X-BYOAI-* header，server 自动走 owner key。
 async function wrapBYOAIHeadersFor(
   deps: Deps, sess: PublicSessionResponse,
 ): Promise<BYOAIHeaders | undefined> {
   if (deps.tier !== 'byoai') return undefined;
-  const provider = readBYOAIProvider();
-  const plain = await readBYOAIKey();
-  if (!provider || !plain) return undefined;
-  const wrappedKey = await wrapBYOAIKey(plain, sess.session_token);
-  return { provider, wrappedKey };
+  const cred = await readBYOAICredFull();
+  if (!cred) return undefined;
+  const wrappedKey = await wrapBYOAIKey(cred.key, sess.session_token);
+  return {
+    provider: cred.provider,
+    endpoint: cred.endpoint,
+    model: cred.model,
+    wrappedKey,
+  };
 }
 
 function applyEvent(ev: SSEEvent, s: StreamState): StreamState {

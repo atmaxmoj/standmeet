@@ -2,6 +2,10 @@
 // 读 sessionStore 拿当前 provider + 是否设过 key；commit 通过
 // PATCH /admin/ai-provider 落库。明文 key 永远不在前端 state 里停留——
 // submit 一过立刻丢。
+//
+// 现在 PATCH body 加 endpoint + model 两个字段，每次 save 都必须送（server
+// 端必填校验）。UI seed 时如果 sessionStore 里没保存的 endpoint/model（v1
+// 老 /me 不返回这俩），用 preset 默认值兜底，让 owner 至少能 save。
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -9,7 +13,10 @@ import { adminAPI, type MeView, type SettingsView } from '@/lib/api/admin';
 import { sessionStore } from '@/lib/admin/use-admin-session';
 import { readResource } from '@/lib/state/create-resource-store';
 
-export type AIProviderName = 'anthropic' | 'openai';
+// AIProviderName —— provider canonical id；现在 string 不收窄（anthropic /
+// openai / deepseek / kimi / groq / siliconflow / openrouter / together /
+// custom）。server 端校验非法值。
+export type AIProviderName = string;
 
 export interface AIProviderState {
   provider: AIProviderName;
@@ -38,7 +45,9 @@ export function applySaveSuccess(
 
 export interface SaveInput {
   provider: AIProviderName;
-  key: string; // empty string → 不改 key（只切 provider）
+  endpoint: string; // 必填 —— server 端校验非空
+  model: string;    // 必填 —— server 端校验非空
+  key: string;      // empty string → 不改 key（只切 provider / endpoint / model）
 }
 
 // PatchResp —— PATCH /ai-provider 现在直接回新 SettingsView 一片。
@@ -54,26 +63,70 @@ export function useAIProvider(): AIProviderHook {
 
   const save = useCallback(async (input: SaveInput): Promise<boolean> => {
     return await runPatch(
-      { provider: input.provider, key_change: input.key === '' ? 'keep' : 'set', key: input.key },
+      {
+        provider: input.provider,
+        endpoint: input.endpoint,
+        model: input.model,
+        key_change: input.key === '' ? 'keep' : 'set',
+        key: input.key,
+      },
       setSaving, setError,
     );
   }, []);
 
-  // clearKey —— 把 owner 的 key 清掉，provider 保持 default (anthropic)。
-  // 这之后 visitor chat 会报"未配置 AI provider"（除非 INFERENCE_PROVIDER
-  // =mock 在 env 设了，那种情况是 e2e/dev fixture）。
+  // clearKey —— 把 owner 的 key 清掉，provider 保持当前。clear 仍然要送
+  // endpoint+model 满足 server 必填校验；用 sessionStore 当前的 provider
+  // 配 preset 默认 endpoint/model 兜底。
   const clearKey = useCallback(async (): Promise<boolean> => {
+    const current = session.data?.settings.ai.provider ?? 'anthropic';
+    const { endpoint, model } = defaultsFor(current);
     return await runPatch(
-      { provider: 'anthropic', key_change: 'clear' },
+      { provider: current, endpoint, model, key_change: 'clear' },
       setSaving, setError,
     );
-  }, []);
+  }, [session.data]);
 
   return {
     state: deriveState(session, saving, error),
     save,
     clearKey,
   };
+}
+
+// defaultsFor —— 给定 provider 名，从 hardcode preset 表里查默认 endpoint
+// + model。这里特意不 import lib/inference/presets 以保持 admin lib 自包含
+// （preset 在 fetch /presets 后给到组件层；clear 这种边界路径用 preset 中
+// 已知 base 也够，最坏 server 端会报错）。空 string 让 server 走"unknown
+// provider" 报错。这里手抄一份最小映射，新 provider 同步加。
+function defaultsFor(provider: string): { endpoint: string; model: string } {
+  const m: Record<string, { endpoint: string; model: string }> = {
+    anthropic: {
+      endpoint: 'https://api.anthropic.com', model: 'claude-haiku-4-5-20251001',
+    },
+    openai: {
+      endpoint: 'https://api.openai.com', model: 'gpt-4o-mini',
+    },
+    deepseek: {
+      endpoint: 'https://api.deepseek.com', model: 'deepseek-chat',
+    },
+    kimi: {
+      endpoint: 'https://api.moonshot.cn', model: 'moonshot-v1-8k',
+    },
+    groq: {
+      endpoint: 'https://api.groq.com/openai', model: 'llama-3.3-70b-versatile',
+    },
+    siliconflow: {
+      endpoint: 'https://api.siliconflow.cn', model: 'Qwen/Qwen2.5-7B-Instruct',
+    },
+    openrouter: {
+      endpoint: 'https://openrouter.ai/api', model: 'openai/gpt-4o-mini',
+    },
+    together: {
+      endpoint: 'https://api.together.xyz',
+      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    },
+  };
+  return m[provider] ?? { endpoint: '', model: '' };
 }
 
 function deriveState(
@@ -91,7 +144,13 @@ function deriveState(
 }
 
 async function runPatch(
-  body: { provider: AIProviderName; key_change: 'keep' | 'set' | 'clear'; key?: string },
+  body: {
+    provider: AIProviderName;
+    endpoint: string;
+    model: string;
+    key_change: 'keep' | 'set' | 'clear';
+    key?: string;
+  },
   setSaving: (b: boolean) => void,
   setErr: (m: string | null) => void,
 ): Promise<boolean> {

@@ -253,7 +253,10 @@ func (a *ownerLookupAdapter) LookupForResolver(
 	if err != nil {
 		return inference.OwnerKeyView{}, fmt.Errorf("owner lookup adapter: %w", err)
 	}
-	return inference.OwnerKeyView{Provider: view.Provider, KeyEnc: view.KeyEnc}, nil
+	return inference.OwnerKeyView{
+		Provider: view.Provider, Endpoint: view.Endpoint, Model: view.Model,
+		KeyEnc: view.KeyEnc,
+	}, nil
 }
 
 func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redis.Client, error) {

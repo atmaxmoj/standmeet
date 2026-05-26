@@ -105,21 +105,34 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 	if derr != nil {
 		return domain.AICredential{}, fmt.Errorf("decrypt owner ai key: %w", derr)
 	}
-	return domain.AICredential{Provider: view.Provider, Key: string(keyBytes)}, nil
+	return domain.AICredential{
+		Provider: view.Provider, Key: string(keyBytes),
+		Endpoint: view.Endpoint, Model: view.Model,
+	}, nil
 }
 
-// ErrOpenAINotImplemented —— openai provider 占位；点 openai 选项时报这条。
-var ErrOpenAINotImplemented = errors.New("openai provider not implemented yet")
-
 // buildFromCred —— 单一构造点，byoai / owner 两条 path 都通过这里实例化
-// Provider。多 provider 扩展（gemini / mistral / 自托管 LLM）加一行 case 即可。
+// Provider。cred **必须完整**（Provider + Key + Endpoint + Model 都非空）：
+// preset 表只给 UI 填默认值用，server 不做 fallback —— 缺字段直接 error，
+// 强制前端 / admin layer 在写入前补全。
+//
+// Anthropic 单走 Messages API；其它 provider 全部走 OpenAI Chat Completions
+// 兼容 adapter（包括 owner 自托管的 ollama / vllm / lm-studio = provider
+// 'custom'）。
 func buildFromCred(cred *domain.AICredential) (Provider, error) {
-	switch cred.Provider {
-	case "anthropic":
-		return NewAnthropic(AnthropicConfig{APIKey: cred.Key}), nil
-	case "openai":
-		return nil, ErrOpenAINotImplemented
-	default:
+	if cred.Endpoint == "" || cred.Model == "" {
+		return nil, fmt.Errorf("provider %q requires endpoint + model", cred.Provider)
+	}
+	if cred.Provider == "anthropic" {
+		return NewAnthropic(AnthropicConfig{
+			APIKey: cred.Key, BaseURL: cred.Endpoint, Model: cred.Model,
+		}), nil
+	}
+	if _, ok := Lookup(cred.Provider); !ok {
 		return nil, fmt.Errorf("unknown provider %q", cred.Provider)
 	}
+	return NewOpenAICompat(OpenAICompatConfig{
+		Provider: cred.Provider, APIKey: cred.Key,
+		BaseURL: cred.Endpoint, Model: cred.Model,
+	}), nil
 }

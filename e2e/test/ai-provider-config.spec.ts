@@ -33,6 +33,8 @@ test.describe.serial('owner configures AI provider + key from /admin/api-mcp', (
       await gotoAdminSection(page, 'api · mcp');
 
       await page.getByTestId('ai-provider-anthropic').click();
+      // endpoint 切 provider 时 preset 默认填好；model 必须手输（没有 default）。
+      await page.getByTestId('ai-provider-model').fill('claude-haiku-4-5-20251001');
       await page.getByTestId('ai-provider-key').fill('sk-ant-fake-test-key');
       await page.getByTestId('ai-provider-save').click();
       await expect(page.getByTestId('toast-success').filter({ hasText: 'AI provider saved' }))

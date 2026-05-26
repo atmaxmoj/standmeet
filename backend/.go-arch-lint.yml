@@ -217,6 +217,7 @@ deps:
       - apierr
       - middleware
       - storage
+      - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
     anyVendorDeps: true
 
   # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image

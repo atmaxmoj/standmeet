@@ -65,6 +65,13 @@ export const adminAPI = {
   patchForm: <T>(path: string, form: FormData) => adminFetchForm<T>('PATCH', path, form),
 };
 
+// fetchAIProviderPresets —— GET /api/admin/ai-provider/presets。给 admin
+// AIProviderPanel 列下拉 + 选某项填默认值用。preset 表是 server-side source
+// of truth；admin UI 拉一份避免跟后端漂移。
+export function fetchAIProviderPresets(): Promise<AIProviderPresetView[]> {
+  return adminAPI.get<AIProviderPresetView[]>('/ai-provider/presets');
+}
+
 export interface AccessRequestView {
   id: string;
   name: string;
@@ -127,8 +134,22 @@ export interface SettingsView {
 }
 
 export interface AISettingsView {
-  provider: 'anthropic' | 'openai';
+  // canonical provider id (anthropic / openai / deepseek / kimi / groq /
+  // siliconflow / openrouter / together / custom)。string 不收窄，跟 backend
+  // 多 provider 支持对齐。
+  provider: string;
   key_configured: boolean;
+}
+
+// AIProviderPresetView —— GET /api/admin/ai-provider/presets 返。给 admin
+// UI 列下拉 + 选某项时填默认 endpoint。**不含 default_model**：后端
+// preset 表已删该字段，model 由 owner 手输或点 "Load models" 拉真实列表。
+// 新 provider 加只动 backend preset 表 + visitor 侧 lib/inference/presets.ts。
+export interface AIProviderPresetView {
+  name: string;
+  label: string;
+  base_url: string;
+  key_prefix: string;
 }
 
 export interface BYOAISettingsView {
