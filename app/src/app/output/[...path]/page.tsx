@@ -8,6 +8,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
+import { AskAboutThis } from '@/components/visitor/AskAboutThis';
+import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchOutputLanding } from '@/lib/api/public';
 
@@ -36,15 +38,45 @@ export default async function OutputLandingPage({ params }: { params: Promise<Pa
   const instance = await fetchInstance();
   const handle = instance.handle;
   return (
-    <article className="mx-auto max-w-2xl px-6 py-16" data-testid="output-landing">
-      <PageHeader />
-      <h1 className="reading-tight text-4xl font-normal mb-6">{out.title}</h1>
-      <p className="mono text-[10px] tracking-[0.12em] text-(--color-muted) mb-8">
-        from {handle}&apos;s corpus · polished output · updated {out.updated_at.slice(0, 10)}
+    <>
+      <SessionStrip />
+      <main className="pb-24">
+        <article className="mx-auto max-w-2xl px-6 py-16" data-testid="output-landing">
+          <PageHeader />
+          <Breadcrumb slug={path.join('/')} />
+          <h1 className="reading-tight text-4xl font-normal mb-6">{out.title}</h1>
+          <p className="mono text-[10px] tracking-[0.12em] text-(--color-muted) mb-8">
+            from {handle}&apos;s corpus · polished output · updated {out.updated_at.slice(0, 10)}
+          </p>
+          <OutputBody body={out.body} />
+          <TrustBox handle={handle} />
+        </article>
+        <AskAboutThis title={out.title} kind="output" />
+      </main>
+    </>
+  );
+}
+
+function Breadcrumb({ slug }: { slug: string }) {
+  return (
+    <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-6 flex items-baseline gap-2 flex-wrap">
+      <Link href="/blog" className="hover:text-(--color-ink)">writing</Link>
+      <span className="text-(--color-faint)">/</span>
+      <span className="text-(--color-ink)">output · {slug}</span>
+    </div>
+  );
+}
+
+function TrustBox({ handle }: { handle: string }) {
+  return (
+    <div className="mt-12 px-4 py-3 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1.5">about this piece</div>
+      <p className="reading text-(--color-muted) text-[13.5px] m-0">
+        Polished output from {handle}&apos;s corpus — wiki entries promoted to a
+        public-facing draft. The AI uses the same corpus, so follow-ups below
+        will quote this and related entries directly.
       </p>
-      <OutputBody body={out.body} />
-      <PageFooter handle={handle} />
-    </article>
+    </div>
   );
 }
 
@@ -62,12 +94,3 @@ function OutputBody({ body }: { body: string }) {
   return <div className="reading text-base whitespace-pre-wrap">{body}</div>;
 }
 
-function PageFooter({ handle }: { handle: string }) {
-  return (
-    <footer className="mt-16 pt-6 border-t border-(--color-rule)">
-      <Link href="/" className="link mono text-sm">
-        chat with {handle}&apos;s AI about this →
-      </Link>
-    </footer>
-  );
-}

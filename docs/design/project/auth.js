@@ -158,18 +158,41 @@ function Setup({ onClaimed, onSwitchMode, hash }) {
     email: 'hello@sijiewang.com',
     password: '',
     passwordConfirm: '',
+    aiProvider: 'anthropic',
+    aiKey: '',
+    aiModel: 'claude-sonnet-4',
+    captcha: '',
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  // simple captcha: random arithmetic Q stable per mount
+  const captchaQ = React.useMemo(() => {
+    const a = 2 + Math.floor(Math.random() * 8);
+    const b = 1 + Math.floor(Math.random() * 8);
+    return { text: `${a} + ${b}`, answer: String(a + b) };
+  }, []);
+
   const onField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const goNext = () => {
+    setError(null);
+    if (step === 2) {
+      if (!form.email.trim() || !form.password) { setError('email + password required'); return; }
+      if (form.password.length < 8)              { setError('password must be at least 8 characters'); return; }
+      if (form.password !== form.passwordConfirm){ setError('passwords don’t match'); return; }
+    }
+    if (step === 3) {
+      if (form.aiKey && form.aiKey.length < 8) { setError('that key looks too short'); return; }
+      // empty key is allowed — owner can set it later in admin → account
+    }
+    setStep((s) => s + 1);
+  };
 
   const submit = (e) => {
     if (e) e.preventDefault();
     setError(null);
-    if (!form.email.trim() || !form.password) { setError('email + password required'); return; }
-    if (form.password.length < 8)                { setError('password must be at least 8 characters'); return; }
-    if (form.password !== form.passwordConfirm)  { setError('passwords don’t match'); return; }
+    if (form.captcha.trim() !== captchaQ.answer) { setError('captcha is off · try again'); return; }
     setBusy(true);
     setTimeout(() => {
       const instance = {
@@ -178,6 +201,9 @@ function Setup({ onClaimed, onSwitchMode, hash }) {
         owner_email: form.email.trim(),
         owner_name: form.full,
         owner_handle: form.handle || form.email.split('@')[0],
+        ai_provider: form.aiProvider,
+        ai_model: form.aiModel,
+        ai_key_set: !!form.aiKey,
         created_at: new Date().toISOString(),
       };
       saveInstance(instance);
@@ -191,12 +217,20 @@ function Setup({ onClaimed, onSwitchMode, hash }) {
     }, 900);
   };
 
+  const PROVIDERS = [
+    { id: 'anthropic', label: 'Anthropic',  model: 'claude-sonnet-4',   prefix: 'sk-ant-…',     issuer: 'console.anthropic.com' },
+    { id: 'openai',    label: 'OpenAI',     model: 'gpt-5',             prefix: 'sk-…',         issuer: 'platform.openai.com' },
+    { id: 'google',    label: 'Google',     model: 'gemini-2.0-pro',    prefix: 'AIza…',        issuer: 'aistudio.google.com' },
+    { id: 'ollama',    label: 'Ollama · local', model: 'llama3.3',      prefix: 'no key',       issuer: 'ollama.com' },
+  ];
+  const provider = PROVIDERS.find((p) => p.id === form.aiProvider) || PROVIDERS[0];
+
   return (
     <section className="rise">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3 flex items-baseline gap-3">
         <span>first-run setup</span>
         <span className="text-faint">·</span>
-        <span className="text-faint">step {step} of 2</span>
+        <span className="text-faint">step {step} of 4</span>
       </div>
       <h1 className="font-serif text-ink" style={{ fontSize: 'clamp(38px, 5vw, 56px)', fontWeight: 400, letterSpacing: '-0.02em', lineHeight: 1 }}>
         Claim this<br/>instance<span className="text-accent">.</span>
@@ -211,13 +245,35 @@ function Setup({ onClaimed, onSwitchMode, hash }) {
         <span className="ch-tl" /><span className="ch-br" />
         <div><span className="text-accent">$</span> standmeet deploy</div>
         <div><span className="text-faint">├─</span> bundling indexer + retrieval</div>
-        <div><span className="text-faint">├─</span> provisioning sqlite store</div>
-        <div><span className="text-faint">├─</span> exposing mcp endpoint</div>
+        <div><span className="text-faint">├─</span> provisioning sqlite store · <span className="text-ink">ok</span></div>
+        <div><span className="text-faint">├─</span> exposing mcp endpoint · <span className="text-ink">:3001</span></div>
+        <div><span className="text-faint">├─</span> docker-compose · <span className="text-ink">healthy</span> <span className="text-faint">→ admin auto-redirect</span></div>
         <div><span className="text-faint">└─</span> ready at <span className="text-ink">{window.location.host || 'localhost:3000'}</span></div>
         <div className="mt-2"><span className="text-accent">$</span> awaiting first owner<span className="blink text-accent">_</span></div>
       </div>
 
-      <form onSubmit={submit} className="mt-10 max-w-[520px] space-y-5">
+      {/* step progress strip */}
+      <div className="mt-8 flex items-center gap-2 max-w-[520px]">
+        {[1,2,3,4].map((n) => (
+          <React.Fragment key={n}>
+            <div style={{
+              width: 22, height: 22, borderRadius: '50%',
+              border: '1px solid var(--rule)',
+              background: step >= n ? 'var(--ink)' : 'transparent',
+              color: step >= n ? 'var(--paper)' : 'var(--muted)',
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background .2s, color .2s',
+            }}>{step > n ? '✓' : n}</div>
+            {n < 4 && <div style={{ flex: 1, height: 1, background: step > n ? 'var(--ink)' : 'var(--rule)' }} />}
+          </React.Fragment>
+        ))}
+      </div>
+      <div className="mt-2 mono text-[10px] tracking-[0.12em] text-faint max-w-[520px] flex justify-between">
+        <span>identity</span><span>credentials</span><span>ai provider</span><span>verify</span>
+      </div>
+
+      <form onSubmit={(e) => { e.preventDefault(); if (step === 4) submit(e); else goNext(); }} className="mt-10 max-w-[520px] space-y-5">
         {step === 1 && (
           <div className="space-y-5 rise">
             <Field label="your full name">
@@ -242,7 +298,7 @@ function Setup({ onClaimed, onSwitchMode, hash }) {
                 already claimed? sign in
               </button>
               <button
-                type="button" onClick={()=>setStep(2)}
+                type="button" onClick={goNext}
                 disabled={!form.full.trim() || !form.handle.trim()}
                 className="mono text-[11px] tracking-[0.16em] uppercase text-paper bg-ink px-4 py-2.5 hover:bg-accent transition-colors disabled:opacity-40"
               >
@@ -283,18 +339,128 @@ function Setup({ onClaimed, onSwitchMode, hash }) {
               <button type="button" onClick={()=>setStep(1)} className="mono text-[10.5px] tracking-[0.12em] text-muted hover:text-ink">
                 ← back
               </button>
-              <button
-                type="submit"
-                disabled={busy}
-                className="mono text-[11px] tracking-[0.16em] uppercase text-paper bg-ink px-4 py-2.5 hover:bg-accent transition-colors disabled:opacity-40"
-              >
-                {busy ? 'claiming\u2026' : 'claim instance ↵'}
+              <button type="submit" className="mono text-[11px] tracking-[0.16em] uppercase text-paper bg-ink px-4 py-2.5 hover:bg-accent transition-colors">
+                next →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-5 rise">
+            <div>
+              <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted mb-2">ai provider</div>
+              <p className="reading text-muted" style={{ fontSize: '14px', maxWidth: '40em', marginBottom: 12 }}>
+                Used to power your visitor chat. The key stays in your instance only; visitors with BYOAI bring their own.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {PROVIDERS.map((p) => {
+                  const on = form.aiProvider === p.id;
+                  return (
+                    <button key={p.id} type="button" onClick={() => { onField('aiProvider', p.id); onField('aiModel', p.model); }}
+                      className="mono"
+                      style={{
+                        padding: '6px 12px', borderRadius: 2, border: '1px solid var(--rule)',
+                        background: on ? 'var(--ink)' : 'transparent',
+                        color: on ? 'var(--paper)' : 'var(--muted)',
+                        fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
+                        cursor: 'pointer',
+                      }}>
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <Field label={`${provider.label} api key`} hint={form.aiProvider === 'ollama' ? 'no key — runs locally' : `get one at ${provider.issuer}`}>
+              <input
+                type="password" value={form.aiKey} onChange={(e) => onField('aiKey', e.target.value)}
+                placeholder={provider.prefix}
+                disabled={form.aiProvider === 'ollama'}
+                className="w-full bg-transparent border-b border-rule focus:border-ink py-2 text-ink placeholder:text-faint"
+                style={{ fontSize: '15px', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.04em' }}
+                autoComplete="new-password"
+              />
+            </Field>
+            <Field label="model">
+              <input
+                type="text" value={form.aiModel} onChange={(e) => onField('aiModel', e.target.value)}
+                className="w-full bg-transparent border-b border-rule focus:border-ink py-2 text-ink"
+                style={{ fontSize: '15px', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.02em' }}
+              />
+            </Field>
+            <p className="mono text-[10px] text-faint" style={{ letterSpacing: '0.06em' }}>
+              you can skip this for now and configure later under admin → account.
+            </p>
+            {error && <div className="mono text-[11px] tracking-[0.06em] text-accent">{error}</div>}
+            <div className="flex items-center justify-between pt-2">
+              <button type="button" onClick={()=>setStep(2)} className="mono text-[10.5px] tracking-[0.12em] text-muted hover:text-ink">← back</button>
+              <button type="submit" className="mono text-[11px] tracking-[0.16em] uppercase text-paper bg-ink px-4 py-2.5 hover:bg-accent transition-colors">
+                next →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-5 rise">
+            <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted">verify you're human</div>
+            <p className="reading text-muted" style={{ fontSize: '14px', maxWidth: '40em' }}>
+              Self-hosted instances still attract drive-by bots. One quick check before you become the owner.
+            </p>
+            <div className="border border-rule rounded-sm bg-surface/40 p-4 flex items-baseline gap-4 flex-wrap">
+              <div className="mono" style={{ fontSize: 22, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' }}>
+                {captchaQ.text} =
+              </div>
+              <input
+                type="text" inputMode="numeric"
+                value={form.captcha} onChange={(e) => onField('captcha', e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="?"
+                className="flex-1 bg-transparent border-b border-ink py-2 text-ink"
+                style={{ fontSize: '20px', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.04em', minWidth: 60 }}
+                autoFocus
+              />
+            </div>
+            <Crosshairish>
+              <SummaryRow label="name"       value={form.full} />
+              <SummaryRow label="handle"     value={`standmeet.com/${form.handle}`} mono />
+              <SummaryRow label="email"      value={form.email} mono />
+              <SummaryRow label="ai"         value={`${provider.label} · ${form.aiModel}${form.aiKey ? '' : ' (key not set)'}`} mono />
+              <SummaryRow label="instance"   value={hash} mono faint />
+            </Crosshairish>
+            {error && <div className="mono text-[11px] tracking-[0.06em] text-accent">{error}</div>}
+            <div className="flex items-center justify-between pt-2">
+              <button type="button" onClick={()=>setStep(3)} className="mono text-[10.5px] tracking-[0.12em] text-muted hover:text-ink">← back</button>
+              <button type="submit" disabled={busy}
+                className="mono text-[11px] tracking-[0.16em] uppercase text-paper bg-ink px-4 py-2.5 hover:bg-accent transition-colors disabled:opacity-40">
+                {busy ? 'claiming…' : 'claim instance ↵'}
               </button>
             </div>
           </div>
         )}
       </form>
     </section>
+  );
+}
+
+function SummaryRow({ label, value, mono, faint }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0', borderTop: '1px solid color-mix(in oklab, var(--rule) 60%, transparent)' }}>
+      <span className="mono" style={{ fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)' }}>{label}</span>
+      <span className={mono ? 'mono' : ''} style={{ fontSize: 13, color: faint ? 'var(--faint)' : 'var(--ink)', letterSpacing: mono ? '0.02em' : 0, fontFamily: mono ? "'JetBrains Mono',monospace" : "'Newsreader',serif" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function Crosshairish({ children }) {
+  return (
+    <div className="crosshair border border-rule bg-surface/30" style={{ padding: '4px 14px 10px', borderRadius: 3 }}>
+      <span className="ch-tl" /><span className="ch-br" />
+      <div className="smallcaps" style={{ padding: '8px 0 6px' }}>review · before you claim</div>
+      {children}
+    </div>
   );
 }
 

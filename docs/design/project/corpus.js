@@ -173,6 +173,13 @@ const ANSWERS = {
     cites: [
       { date: '2025.04.30', title: 'what I say yes / no to this year' },
     ],
+    tool_calls: [
+      { tool: 'calendar.find_slots', result: { kind: 'calendar', slots: [
+        { day: 'Tue · May 28', time: '10:30–11:00 PT' },
+        { day: 'Wed · May 29', time: '14:00–14:30 PT' },
+        { day: 'Thu · May 30', time: '09:00–09:30 PT' },
+      ]}},
+    ],
   },
   'fund': {
     private: true,
@@ -277,7 +284,7 @@ const ANSWERS = {
 function routeQuery(q) {
   const s = q.toLowerCase();
   if (/leave|left|quit|fired|why.*last|previous job/.test(s))           return 'leave';
-  if (/fundrais|raising|round|seed|series|valuation/.test(s))           return 'fund';
+  if (/fundrais|\braising\b|\bround\b|\bseed\b|\bseries\b|valuation/.test(s))           return 'fund';
   if (/rag|retrieval|vector|embed|search.*better/.test(s))              return 'retrieval-vs-rag';
   if (/best.*ship|proudest|biggest.*win|most proud/.test(s))            return 'best-shipped';
   if (/read|essay|write|blog|writing|publish/.test(s))                  return 'what-read';

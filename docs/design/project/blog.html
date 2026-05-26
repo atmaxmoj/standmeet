@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>writing · sijie wang</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,300;1,6..72,400;1,6..72,500&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          paper:'var(--paper)', surface:'var(--surface)',
+          ink:'var(--ink)', muted:'var(--muted)', faint:'var(--faint)',
+          rule:'var(--rule)', accent:'var(--accent)',
+        },
+        fontFamily: {
+          serif: ['Newsreader','Georgia','serif'],
+          mono:  ['"JetBrains Mono"','ui-monospace','monospace'],
+        },
+      }
+    }
+  };
+</script>
+
+<style>
+  :root {
+    --paper:#F3EFE6; --surface:#ECE6D8; --ink:#1B1814;
+    --muted:#7A7167; --faint:#B0A89A; --rule:#DCD3BF; --accent:#B5391C;
+    --amber:#C7892F; --violet:#7A4D9E; --acid:#6F8A2F;
+  }
+  .dark {
+    --paper:#14110D; --surface:#1C1812; --ink:#E8E2D5;
+    --muted:#837C6F; --faint:#4D473D; --rule:#2A251D; --accent:#D14E2E;
+    --amber:#D9A14B; --violet:#A77CC9; --acid:#9CB85E;
+  }
+  html,body { background:var(--paper); color:var(--ink); }
+  body {
+    font-family:'Newsreader',Georgia,serif;
+    font-feature-settings:'kern','liga','onum';
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  .mono { font-family:'JetBrains Mono',ui-monospace,monospace; }
+  ::selection { background: color-mix(in oklab, var(--accent) 28%, transparent); }
+  input:focus, textarea:focus { outline:none; }
+  a { color: inherit; }
+
+  /* reading rhythm */
+  .reading {
+    font-family:'Newsreader',Georgia,serif;
+    font-weight:380;
+    line-height:1.65;
+    letter-spacing:-0.003em;
+    text-wrap:pretty;
+  }
+  .article-body p { font-size:21px; line-height:1.65; margin-bottom:1.4em; }
+  .article-body h2 {
+    font-size:28px; font-weight:500; letter-spacing:-0.012em;
+    margin: 2.6em 0 0.6em; line-height:1.25;
+  }
+  .article-body blockquote {
+    font-style:italic;
+    font-size:26px;
+    line-height:1.4;
+    letter-spacing:-0.008em;
+    color:var(--ink);
+    margin: 2.4em -28px;
+    padding: 4px 28px;
+    border-left: 3px solid var(--accent);
+  }
+
+  /* article cover — generated CSS-only typographic cover.
+     uses container queries so the same component reads well at both the
+     wide article hero size and the narrow index-lead size. */
+  .cover {
+    width:100%;
+    aspect-ratio: 21 / 9;
+    position:relative;
+    overflow:hidden;
+    border:1px solid var(--rule);
+    container-type: inline-size;
+  }
+  .cover .cv-head, .cover .cv-sub {
+    position:absolute;
+    font-family:'Newsreader',serif;
+    font-weight:400;
+    letter-spacing:-0.025em;
+    line-height:0.92;
+    color:var(--ink);
+    max-width: 76%;
+  }
+  .cover .cv-head { font-size: clamp(28px, 11cqi, 96px); top: 14%; left: 6%; }
+  .cover .cv-sub  { font-size: clamp(20px,  7.5cqi, 64px); bottom: 14%; right: 6%; font-style: italic; color: var(--muted); max-width: 70%; text-align: right; }
+  .cover .cv-rule { position:absolute; left:6%; right:6%; height:1px; background:var(--rule); top:50%; }
+  .cover .cv-tag {
+    position:absolute; top:14px; left:14px;
+    font-family:'JetBrains Mono',monospace;
+    font-size: clamp(8px, 1.4cqi, 11px);
+    letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--muted);
+  }
+  .cover .cv-no {
+    position:absolute; bottom:14px; left:14px;
+    font-family:'JetBrains Mono',monospace;
+    font-size: clamp(8px, 1.4cqi, 11px);
+    letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--faint);
+  }
+  .cover .cv-bg-amber  { background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--amber) 30%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, var(--amber) 18%, transparent), transparent 70%),
+    var(--surface);
+  }
+  .cover .cv-bg-violet { background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--violet) 22%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, var(--violet) 14%, transparent), transparent 70%),
+    var(--surface);
+  }
+  .cover .cv-bg-acid   { background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--acid) 26%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 70% at 10% 100%, color-mix(in oklab, var(--acid) 14%, transparent), transparent 70%),
+    var(--surface);
+  }
+  .cover.cv-locked { filter: grayscale(0.7) blur(0.5px); }
+
+  /* chip */
+  .chip {
+    display:inline-flex; align-items:baseline; gap:4px;
+    padding:2px 8px; border:1px solid var(--rule);
+    font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:10.5px; letter-spacing:0.05em; text-transform:lowercase;
+    color:var(--muted); border-radius:2px; line-height:1.5;
+  }
+  .chip.is-private { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 40%, var(--rule)); }
+
+  /* live dot */
+  @keyframes live-pulse {
+    0%   { box-shadow:0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); }
+    100% { box-shadow:0 0 0 6px color-mix(in oklab, var(--accent) 0%, transparent); }
+  }
+  .live-dot { animation: live-pulse 1.6s ease-out infinite; }
+
+  /* link */
+  .link {
+    color:var(--accent); text-decoration:none;
+    border-bottom:1px solid color-mix(in oklab, var(--accent) 35%, transparent);
+  }
+  .link:hover { border-bottom-color: var(--accent); }
+
+  /* small caps label */
+  .smallcaps {
+    font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:10px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  /* gated cover overlay */
+  .lock-overlay {
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in oklab, var(--ink) 8%, transparent) 6px 7px),
+      color-mix(in oklab, var(--paper) 80%, transparent);
+  }
+
+  /* ask box (sticky at bottom of article) */
+  .ask-bar {
+    position: sticky; bottom: 0; z-index: 30;
+    background: color-mix(in oklab, var(--paper) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--rule);
+  }
+
+  @keyframes fadein { from { opacity:0; } to { opacity:1; } }
+  .fadein { animation: fadein .25s ease both; }
+  @keyframes rise { from { opacity:0; transform:translateY(6px);} to { opacity:1; transform:translateY(0);} }
+  .rise { animation: rise .35s cubic-bezier(.2,.7,.2,1) both; }
+</style>
+<link rel="stylesheet" href="sm-mobile.css" />
+</head>
+<body class="min-h-screen">
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script src="page-content.js"></script>
+  <script src="posts.js"></script>
+  <script src="sm-session.js"></script>
+  <script type="text/babel" data-presets="react" src="blog.js"></script>
+</body>
+</html>

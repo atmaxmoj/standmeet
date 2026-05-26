@@ -83,7 +83,12 @@ func finalizePublicSession(
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
 	}
-	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
+	return IssueCodeSessionResult{
+		Session: issued, Conversation: conv,
+		VisitorName: in.VisitorName,
+		// Code 空 / Quota zero —— public/byoai 没 turn 上限，SessionStrip 看到
+		// max=0 就不渲 gauge，BYOAI 走 visitor-paid · unlimited 文案。
+	}, nil
 }
 
 func nullableProvider(p string) *string {

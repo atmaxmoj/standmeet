@@ -19,6 +19,7 @@ import {
   type PublicSessionResponse,
 } from '@/lib/api/public';
 import { storeBYOAI } from '@/lib/gate/byoai-vault';
+import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 const BYOAI_STORAGE_KEY = 'standmeet:visitor-session';
 
@@ -28,7 +29,7 @@ interface StoredVisitorSession {
   byoai: boolean;
 }
 
-function persistSession(sess: PublicSessionResponse, byoai: boolean): void {
+export function persistSession(sess: PublicSessionResponse, byoai: boolean): void {
   if (typeof window === 'undefined') return;
   const data: StoredVisitorSession = {
     session_token: sess.session_token,
@@ -83,10 +84,22 @@ export function useGate(): GateHook {
     code: string, visitorName: string,
   ): Promise<boolean> => {
     return await runSubmit(setState, async () => {
+      const trimmedCode = code.trim();
+      const trimmedName = visitorName.trim();
       const sess = await issueCodeSession({
-        code: code.trim(), visitor_name: visitorName.trim(),
+        code: trimmedCode, visitor_name: trimmedName,
       });
       persistSession(sess, false);
+      useVisitorSessionStore.getState().setSession({
+        code: sess.code ?? trimmedCode,
+        visitor: sess.visitor_name ?? trimmedName ?? null,
+        byoai: false,
+        byoaiProvider: '',
+        label: null,
+        used: sess.quota?.used_turns ?? 0,
+        max: sess.quota?.max_turns ?? 0,
+        startedAt: Date.now(),
+      });
       return true;
     });
   }, []);
@@ -102,6 +115,16 @@ export function useGate(): GateHook {
           key: input.key.trim(),
         });
         persistSession(sess, true);
+        useVisitorSessionStore.getState().setSession({
+          code: null,
+          visitor: sess.visitor_name ?? null,
+          byoai: true,
+          byoaiProvider: input.provider,
+          label: null,
+          used: 0,
+          max: 0,
+          startedAt: Date.now(),
+        });
         return true;
       });
     },

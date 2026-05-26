@@ -4,13 +4,27 @@
 // display_name) 唯一定位 member；后端 GetOrCreateCodeMember upsert。访客填
 // 完两个字段才提交，name 留空走 "anonymous" 路径（实际后端会创一个
 // is_anonymous=true 的 row）。
+//
+// v5 design polish (docs/design/project/gate.js CodeInput)：
+// - 大写归一化 + 只留 [A-Z0-9-]，长度上限 32
+// - paste 触发自动提交（粘贴看似 code-shaped 时 50ms 后 submit）
+// - 错码 → shake + 清空 + refocus
+// - "checking…" / "unknown code" / hint 三态文案
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import type { GateHook } from '@/lib/gate/use-gate';
+import {
+  codeReady,
+  handlePasteEvent,
+  normalizeCode,
+  scheduleAutoSubmit,
+  submitCodeAndGo,
+} from '@/lib/gate/code-panel-logic';
+import { useShakeOnError } from '@/lib/gate/use-shake-on-error';
 
 type Props = {
   hook: GateHook;
@@ -20,42 +34,114 @@ export function CodePanel({ hook }: Props) {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  // 错码 / 网络挂 → 0.4s shake → 清空 + refocus。
+  const shake = useShakeOnError(hook.state.error, () => {
+    setCode('');
+    inputRef.current?.focus();
+  });
 
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedCode = code.trim();
-    trimmedCode !== '' && (await runCodeSubmit(trimmedCode, name, hook, router));
+    const trimmed = code.trim();
+    trimmed !== ''
+      && (await submitCodeAndGo(trimmed, name, { router, hook }));
   }, [code, name, hook, router]);
+
+  const onPaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
+    handlePasteEvent(e, (normalized) => {
+      setCode(normalized);
+      scheduleAutoSubmit(normalized, name, { router, hook });
+    });
+  }, [name, hook, router]);
 
   return (
     <section data-testid="code-panel">
       <form onSubmit={onSubmit} className="space-y-3">
-        <CodeRow code={code} setCode={setCode} busy={hook.state.busy} />
+        <CodeRow
+          code={code}
+          setCode={(v) => setCode(normalizeCode(v))}
+          onPaste={onPaste}
+          busy={hook.state.busy}
+          shake={shake}
+          error={hook.state.error !== null}
+          inputRef={inputRef}
+        />
         <NameRow name={name} setName={setName} />
       </form>
-      <Hint />
+      <Hint busy={hook.state.busy} error={hook.state.error !== null} />
     </section>
   );
 }
 
-function CodeRow({
-  code, setCode, busy,
-}: { code: string; setCode: (v: string) => void; busy: boolean }) {
+function CodeRow(props: {
+  code: string;
+  setCode: (v: string) => void;
+  onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  busy: boolean;
+  shake: boolean;
+  error: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
   return (
-    <div className="flex items-baseline gap-4 py-3 border-t-[1.5px] border-b-[1.5px] border-(--color-ink) relative">
-      <span className="text-(--color-accent) font-serif shrink-0 text-[28px] leading-none">›</span>
-      <input
-        type="text"
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase())}
-        placeholder="LABEL–NNN"
-        data-testid="gate-code"
-        spellCheck={false}
-        autoComplete="off"
-        className="flex-1 bg-transparent mono text-(--color-ink) placeholder:text-(--color-faint) min-w-0 text-[24px] tracking-[0.08em] uppercase"
-      />
-      <CodeSubmit busy={busy} />
+    <div className={`flex items-baseline gap-3 ${props.shake ? 'shake' : ''}`}>
+      <CodeInput {...props} />
+      <CodeEnterBtn busy={props.busy} enabled={codeReady(props.code)} />
     </div>
+  );
+}
+
+function CodeInput(props: {
+  code: string;
+  setCode: (v: string) => void;
+  onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  busy: boolean;
+  error: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  return (
+    <input
+      ref={props.inputRef}
+      type="text"
+      inputMode="text"
+      value={props.code}
+      onChange={(e) => props.setCode(e.target.value)}
+      onPaste={props.onPaste}
+      placeholder="LABEL-NNN"
+      disabled={props.busy}
+      autoComplete="one-time-code"
+      spellCheck={false}
+      data-testid="gate-code"
+      className={inputCls(props.error)}
+    />
+  );
+}
+
+function inputCls(error: boolean): string {
+  const base = 'flex-1 min-w-0 bg-transparent mono uppercase text-[24px] tracking-[0.08em] py-3 border-b-[1.5px] focus:outline-none transition-colors';
+  return error
+    ? `${base} text-(--color-accent) border-(--color-accent)`
+    : `${base} text-(--color-ink) border-(--color-ink) placeholder:text-(--color-faint)`;
+}
+
+function CodeEnterBtn({ busy, enabled }: { busy: boolean; enabled: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={busy || !enabled}
+      data-testid="gate-code-submit"
+      className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-3.5 py-2.5 hover:bg-(--color-accent) disabled:opacity-40 transition-colors shrink-0"
+    >
+      {busy ? 'checking…' : <CodeEnterLabel />}
+    </button>
+  );
+}
+
+function CodeEnterLabel() {
+  return (
+    <>
+      enter <span className="text-[12px]">↵</span>
+    </>
   );
 }
 
@@ -79,35 +165,26 @@ function NameRow({ name, setName }: { name: string; setName: (v: string) => void
   );
 }
 
-function Hint() {
+function Hint({ busy, error }: { busy: boolean; error: boolean }) {
   return (
-    <p className="mono text-[10.5px] tracking-[0.12em] text-(--color-faint) mt-4 leading-[1.7] max-w-[40em]">
-      codes look like <span className="text-(--color-muted)">INTRO–001</span>. they arrive by
-      email from the owner directly · case doesn&rsquo;t matter · paste the whole thing.
-      <span className="block mt-1">your name lets the owner separate visitors who share a code.</span>
-    </p>
+    <div className="mono text-[10.5px] tracking-[0.12em] mt-4 leading-[1.7] max-w-[44em]">
+      <HintStatus busy={busy} error={error} />
+      <p className="text-(--color-faint)">
+        codes look like <span className="text-(--color-muted)">OAEN-3K2</span> · they arrive by
+        email from the owner directly · case doesn&rsquo;t matter · paste the whole thing (with
+        or without the dash) and press enter.
+      </p>
+      <p className="text-(--color-faint) mt-1">
+        your name lets the owner separate visitors who share the same code.
+      </p>
+    </div>
   );
 }
 
-function CodeSubmit({ busy }: { busy: boolean }) {
-  return (
-    <button
-      type="submit"
-      disabled={busy}
-      data-testid="gate-code-submit"
-      className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 pt-1"
-    >
-      {busy ? 'checking…' : <>enter <span className="text-[14px]">↵</span></>}
-    </button>
-  );
-}
-
-async function runCodeSubmit(
-  code: string,
-  name: string,
-  hook: GateHook,
-  router: ReturnType<typeof useRouter>,
-): Promise<void> {
-  const ok = await hook.submitCode(code, name);
-  ok && router.push('/');
+function HintStatus({ busy, error }: { busy: boolean; error: boolean }) {
+  return error ? (
+    <p className="text-(--color-accent) mb-1 tracking-[0.16em] uppercase">unknown code</p>
+  ) : busy ? (
+    <p className="text-(--color-muted) mb-1 tracking-[0.16em] uppercase">checking…</p>
+  ) : null;
 }

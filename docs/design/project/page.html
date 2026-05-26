@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>page · standmeet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,300;1,6..72,400&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { darkMode:'class', theme: { extend: {
+    colors: { paper:'var(--paper)', surface:'var(--surface)', raised:'var(--raised)', ink:'var(--ink)', muted:'var(--muted)', faint:'var(--faint)', rule:'var(--rule)', accent:'var(--accent)', amber:'var(--amber)', violet:'var(--violet)', acid:'var(--acid)' },
+    fontFamily: { serif: ['Newsreader','Georgia','serif'], mono: ['"JetBrains Mono"','ui-monospace','monospace'] },
+  }}};
+</script>
+<link rel="stylesheet" href="sm-tokens.css" />
+<link rel="stylesheet" href="sm-mobile.css" />
+
+<style>
+  /* press-kit headshot placeholder */
+  .headshot {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    background:
+      radial-gradient(ellipse 70% 90% at 50% 25%, color-mix(in oklab, var(--ink) 25%, transparent), transparent 70%),
+      linear-gradient(135deg, color-mix(in oklab, var(--amber) 18%, var(--surface)), var(--surface));
+    border: 1px solid var(--rule);
+    position: relative;
+    overflow: hidden;
+  }
+  .headshot::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(45deg, transparent 0 4px, color-mix(in oklab, var(--ink) 5%, transparent) 4px 5px);
+  }
+  .headshot::after {
+    content: '——';
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; letter-spacing: 0.4em;
+    color: color-mix(in oklab, var(--ink) 30%, transparent);
+  }
+
+  /* press-kit bio variants */
+  .bio-card {
+    border: 1px solid var(--rule);
+    padding: 18px 20px;
+    background: color-mix(in oklab, var(--surface) 50%, transparent);
+    border-radius: 3px;
+    position: relative;
+  }
+  .bio-card::before {
+    content: attr(data-len);
+    position: absolute;
+    top: 12px; right: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* menu — large numbered rows */
+  .menu-row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 24px;
+    padding: 28px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .menu-row .n {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: var(--faint);
+    padding-top: 8px;
+  }
+  .menu-row h3 {
+    font-family: 'Newsreader', serif;
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    margin: 0 0 10px;
+    line-height: 1.15;
+  }
+  .menu-row p {
+    font-family: 'Newsreader', serif;
+    font-size: 18px;
+    color: var(--muted);
+    line-height: 1.55;
+    margin: 0;
+    max-width: 38em;
+  }
+
+  /* speaking list */
+  .talk-row {
+    display: grid;
+    grid-template-columns: 100px 1fr auto;
+    gap: 20px;
+    padding: 14px 0;
+    border-bottom: 1px solid color-mix(in oklab, var(--rule) 70%, transparent);
+    align-items: baseline;
+  }
+
+  /* gated overlay */
+  .lock-overlay {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:
+      repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in oklab, var(--ink) 8%, transparent) 6px 7px),
+      color-mix(in oklab, var(--paper) 80%, transparent);
+  }
+</style>
+</head>
+<body class="min-h-screen">
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="visitor-data.js"></script>
+<script src="sm-session.js"></script>
+<script type="text/babel" data-presets="react" src="sm-components.js"></script>
+<script type="text/babel" data-presets="react" src="page.js"></script>
+</body>
+</html>

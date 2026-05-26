@@ -39,6 +39,7 @@ type repoSet struct {
 	mcpServer     *postgres.MCPServerRepo
 	asset         *postgres.AssetRepo
 	post          *postgres.PostRepo
+	postLink      *postgres.PostLinkRepo
 }
 
 func newRepos(db *postgres.Pool) *repoSet {
@@ -62,6 +63,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		mcpServer:     postgres.NewMCPServerRepo(db),
 		asset:         postgres.NewAssetRepo(db),
 		post:          postgres.NewPostRepo(db),
+		postLink:      postgres.NewPostLinkRepo(db),
 	}
 }
 
@@ -96,6 +98,7 @@ func assembleRuntimeDeps(
 		skillRepo:         repos.skill,
 		mcpServerRepo:     repos.mcpServer,
 		postRepo:          repos.post,
+		postLinkRepo:      repos.postLink,
 		assetRepo:         repos.asset,
 		storageClient:     dw.storageClient,
 		jobCachePool:      jobcache.New(c.rdb, 0),

@@ -1,0 +1,1023 @@
+/* sm-atoms.css —— 共享 design-system 原子 utility 类。
+ * canonical source: docs/design/project/sm-tokens.css (handoff bundle)。
+ *
+ * 这里只放**跨组件复用**的 atom（chip / pill / btn / banner / gauge /
+ * composer / 等）；组件 specific 的 CSS 仍放 co-located .module.css。
+ * 命名带 `sm-` 前缀，避免跟 Tailwind utility 撞。
+ *
+ * 用法：组件 className="sm-btn sm-btn-accent" / className="sm-chip is-active"。
+ * Tailwind v4 把这个文件视为 normal CSS imported from globals.css。
+ *
+ * 维护规则：design bundle (docs/design/project/sm-tokens.css) 变更时，
+ * 这里 mirror 一份。tokens (color/type/tracking/motion) 在 globals.css。 */
+
+/* ── reading ───────────────────────────────────────────────────────── */
+.sm-reading {
+  font-family: var(--font-serif);
+  font-weight: 380;
+  line-height: 1.55;
+  letter-spacing: var(--tk-body);
+  text-wrap: pretty;
+}
+
+/* ── small caps (mono uppercase label) ─────────────────────────────── */
+.sm-smallcaps {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono-10);
+  letter-spacing: var(--tk-cap);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.sm-smallcaps-x {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: var(--tk-cap-x);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* ── chip ──────────────────────────────────────────────────────────── */
+.sm-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-rule);
+  font-family: var(--font-mono);
+  font-size: var(--t-mono-10);
+  letter-spacing: var(--tk-mono);
+  text-transform: lowercase;
+  color: var(--color-muted);
+  border-radius: 2px;
+  line-height: 1.5;
+  background: transparent;
+  transition:
+    border-color var(--m-snap),
+    color var(--m-snap),
+    background var(--m-snap);
+}
+.sm-chip.is-active {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-color: var(--color-ink);
+}
+.sm-chip.is-private {
+  color: var(--color-accent);
+  border-color: color-mix(in oklab, var(--color-accent) 40%, var(--color-rule));
+}
+.sm-chip.is-private.is-active {
+  background: var(--color-accent);
+  color: var(--color-paper);
+  border-color: var(--color-accent);
+}
+.sm-chip.is-clickable { cursor: pointer; }
+.sm-chip.is-clickable:hover { border-color: var(--color-ink); }
+
+/* ── pill (rounder, used for status) ───────────────────────────────── */
+.sm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--color-rule);
+  font-family: var(--font-mono);
+  font-size: var(--t-mono-10);
+  letter-spacing: var(--tk-cap);
+  text-transform: uppercase;
+  color: var(--color-muted);
+  border-radius: 999px;
+  background: transparent;
+}
+.sm-pill .sm-dot-mark {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-muted);
+}
+.sm-pill.is-accent {
+  color: var(--color-accent);
+  border-color: color-mix(in oklab, var(--color-accent) 35%, var(--color-rule));
+}
+.sm-pill.is-accent .sm-dot-mark {
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
+}
+.sm-pill.is-violet {
+  color: var(--color-violet);
+  border-color: color-mix(in oklab, var(--color-violet) 35%, var(--color-rule));
+}
+.sm-pill.is-violet .sm-dot-mark { background: var(--color-violet); }
+.sm-pill.is-amber {
+  color: var(--color-amber);
+  border-color: color-mix(in oklab, var(--color-amber) 35%, var(--color-rule));
+}
+.sm-pill.is-amber .sm-dot-mark { background: var(--color-amber); }
+
+/* ── live · pulsing accent dot used in topbars ─────────────────────── */
+@keyframes sm-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-accent) 0%, transparent);
+  }
+}
+.sm-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: sm-live-pulse 1.6s ease-out infinite;
+}
+
+/* ── kbd ──────────────────────────────────────────────────────────── */
+.sm-kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border: 1px solid var(--color-rule);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  color: var(--color-muted);
+  background: var(--color-surface);
+}
+
+/* ── button ────────────────────────────────────────────────────────── */
+.sm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--tk-label);
+  font-size: 11px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--m-snap),
+    border-color var(--m-snap),
+    background var(--m-snap);
+}
+.sm-btn-sm { font-size: 10.5px; padding: 6px 10px; }
+.sm-btn-lg { font-size: 12px;   padding: 10px 18px; }
+
+.sm-btn-ghost { color: var(--color-muted); }
+.sm-btn-ghost:hover { color: var(--color-ink); }
+
+.sm-btn-outline {
+  color: var(--color-ink);
+  border-color: var(--color-rule);
+}
+.sm-btn-outline:hover { border-color: var(--color-ink); }
+
+.sm-btn-solid {
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+.sm-btn-solid:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.sm-btn-accent {
+  color: var(--color-paper);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.sm-btn-accent:hover {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-soft);
+}
+
+.sm-btn-danger { color: var(--color-muted); }
+.sm-btn-danger:hover { color: var(--color-accent); }
+
+.sm-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── field (text input shell) ──────────────────────────────────────── */
+.sm-field { display: flex; flex-direction: column; gap: 4px; }
+.sm-field-label {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono-10);
+  letter-spacing: var(--tk-cap);
+  text-transform: uppercase;
+  color: var(--color-muted);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.sm-field-hint {
+  color: var(--color-faint);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  font-size: 9.5px;
+}
+.sm-field-input {
+  width: 100%;
+  padding: 6px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-rule);
+  font-family: var(--font-serif);
+  font-size: var(--t-body);
+  color: var(--color-ink);
+  transition: border-color var(--m-snap);
+}
+.sm-field-input::placeholder { color: var(--color-faint); }
+.sm-field-input:focus { border-bottom-color: var(--color-ink); }
+.sm-field-input.sm-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+/* ── segmented toggle ──────────────────────────────────────────────── */
+.sm-seg {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+}
+.sm-seg button {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: var(--tk-label);
+  text-transform: uppercase;
+  color: var(--color-muted);
+  padding: 4px 10px;
+  border-radius: 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.sm-seg button:hover { color: var(--color-ink); }
+.sm-seg button.is-on {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+/* ── crosshair frame ──────────────────────────────────────────────── */
+.sm-crosshair { position: relative; }
+.sm-crosshair::before,
+.sm-crosshair::after,
+.sm-crosshair > .sm-cx-tl,
+.sm-crosshair > .sm-cx-br {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: var(--color-accent);
+  pointer-events: none;
+}
+.sm-crosshair::before {
+  top: -1px; left: -1px;
+  border-top: 1px solid; border-left: 1px solid;
+}
+.sm-crosshair::after {
+  top: -1px; right: -1px;
+  border-top: 1px solid; border-right: 1px solid;
+}
+.sm-crosshair > .sm-cx-tl {
+  bottom: -1px; left: -1px;
+  border-bottom: 1px solid; border-left: 1px solid;
+}
+.sm-crosshair > .sm-cx-br {
+  bottom: -1px; right: -1px;
+  border-bottom: 1px solid; border-right: 1px solid;
+}
+
+/* ── scanline overlay (terminal vibe) ──────────────────────────────── */
+@keyframes sm-scan {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+.sm-scanline { position: relative; overflow: hidden; }
+.sm-scanline::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-accent) 60%, transparent),
+    transparent
+  );
+  animation: sm-scan 7s linear infinite;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* ── motion utilities ──────────────────────────────────────────────── */
+@keyframes sm-fadein { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sm-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sm-fadein { animation: sm-fadein var(--m-fade) both; }
+.sm-rise   { animation: sm-rise   var(--m-rise) both; }
+
+@keyframes sm-blink { 50% { opacity: 0; } }
+.sm-blink { animation: sm-blink 1s steps(1) infinite; }
+
+@keyframes sm-dot-bounce {
+  0%, 80%, 100% { opacity: .25; transform: translateY(0); }
+  40%           { opacity: 1;   transform: translateY(-2px); }
+}
+.sm-dot {
+  display: inline-block;
+  animation: sm-dot-bounce 1.2s ease-in-out infinite;
+}
+.sm-dot:nth-child(2) { animation-delay: .15s; }
+.sm-dot:nth-child(3) { animation-delay: .3s; }
+
+/* ── secret · masked api key, secret token ─────────────────────────── */
+.sm-secret-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-surface);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--color-ink);
+}
+.sm-secret-mask {
+  color: var(--color-muted);
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
+/* ── citation row ──────────────────────────────────────────────────── */
+.sm-citations-list { display: flex; flex-direction: column; gap: 4px; }
+.sm-citation { display: flex; align-items: baseline; gap: 12px; }
+.sm-citation-date {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.sm-citation-title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14.5px;
+  color: var(--color-muted);
+}
+
+/* ── speaker label ─────────────────────────────────────────────────── */
+.sm-speaker {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: var(--tk-cap);
+  text-transform: uppercase;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.sm-speaker-who    { color: var(--color-ink); }
+.sm-speaker-ai     { color: var(--color-accent); }
+.sm-speaker-system { color: var(--color-violet); }
+.sm-speaker-meta {
+  color: var(--color-faint);
+  text-transform: none;
+  letter-spacing: 0.06em;
+}
+
+/* ── banner ────────────────────────────────────────────────────────── */
+.sm-banner {
+  border: 1px solid color-mix(in oklab, var(--color-accent) 35%, var(--color-rule));
+  background: color-mix(in oklab, var(--color-accent) 4%, transparent);
+  padding: 10px 14px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: var(--tk-label);
+  text-transform: uppercase;
+}
+.sm-banner-violet {
+  border-color: color-mix(in oklab, var(--color-violet) 35%, var(--color-rule));
+  background: color-mix(in oklab, var(--color-violet) 4%, transparent);
+}
+
+/* ── thumb · image placeholder ─────────────────────────────────────── */
+.sm-thumb {
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--color-accent) 14%, transparent) 0%,
+      transparent 50%,
+      color-mix(in oklab, var(--color-ink) 10%, transparent) 100%),
+    repeating-linear-gradient(45deg,
+      transparent 0 6px,
+      color-mix(in oklab, var(--color-ink) 4%, transparent) 6px 7px),
+    var(--color-surface);
+  position: relative;
+  border: 1px solid var(--color-rule);
+}
+.sm-thumb-tag {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--color-paper);
+  background: color-mix(in oklab, var(--color-ink) 80%, transparent);
+  padding: 1px 4px;
+  border-radius: 1px;
+}
+
+/* ── progress · linear ────────────────────────────────────────────── */
+.sm-progress {
+  height: 4px;
+  width: 100%;
+  background: var(--color-rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sm-progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width .3s ease;
+}
+
+/* ── quota gauge (used for code quota / session quota) ─────────────── */
+.sm-gauge {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-muted);
+  letter-spacing: 0.06em;
+}
+.sm-gauge-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+.sm-gauge.is-warn .sm-gauge-value { color: var(--color-accent); }
+
+/* ── session quota strip · used by every visitor surface ──────────────
+ * Sticky 横条钉在 TopBar 底下，左 code/BYOAI 标签 + visitor 名，右 used/max
+ * 进度条 + actions（>80% 红 + "request more"）。BYOAI 紫色 + "visitor-paid ·
+ * unlimited"。组件订阅 zustand visitor session store + cross-tab storage
+ * event 实时同步。 */
+.sm-session-strip {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: color-mix(in oklab, var(--color-paper) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-accent) 35%, var(--color-rule));
+  padding: 6px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: var(--tk-label);
+  text-transform: uppercase;
+}
+.sm-session-strip.is-byoai {
+  border-bottom-color: color-mix(in oklab, var(--color-violet) 35%, var(--color-rule));
+}
+.sm-session-strip.is-warn {
+  border-bottom-color: var(--color-accent);
+  background: color-mix(in oklab, var(--color-accent) 6%, var(--color-paper));
+}
+.sm-session-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.sm-session-strip-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.sm-session-strip-gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.sm-session-strip-gauge-bar {
+  display: inline-block;
+  width: 84px;
+  height: 4px;
+  background: var(--color-rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sm-session-strip-gauge-fill {
+  height: 100%;
+  background: var(--color-ink);
+  transition:
+    width .3s ease,
+    background .3s ease;
+}
+.sm-session-strip.is-warn .sm-session-strip-gauge-fill {
+  background: var(--color-accent);
+}
+.sm-session-strip-gauge-text {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+.sm-session-strip.is-warn .sm-session-strip-gauge-text {
+  color: var(--color-accent);
+}
+.sm-session-strip-label   { color: var(--color-accent); }
+.sm-session-strip-ai-mode { color: var(--color-violet); }
+.sm-session-strip-meta {
+  color: var(--color-muted);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+.sm-session-strip-link {
+  color: var(--color-muted);
+  text-decoration: none;
+  border-bottom: 0;
+  transition: color .15s;
+}
+.sm-session-strip-link:hover { color: var(--color-ink); }
+.sm-session-strip-link.is-exit:hover { color: var(--color-accent); }
+.sm-session-strip-link.is-request { color: var(--color-accent); }
+
+/* gauge sub-elements (no inline styles)。 */
+.sm-session-strip-used { color: var(--color-ink); }
+.sm-session-strip.is-warn .sm-session-strip-used { color: var(--color-accent); }
+.sm-session-strip-turns-suffix {
+  color: var(--color-faint);
+  margin-left: 6px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+.sm-session-strip-byoai-unlimited { color: var(--color-violet); }
+.sm-session-strip-sep { color: var(--color-faint); }
+
+/* ── application detail modal · /admin/applications click → 详情 ──── */
+.sm-app-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in oklab, var(--color-ink) 40%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.sm-app-modal-card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  width: 100%;
+  max-width: 920px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sm-app-modal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.sm-app-modal-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  margin-top: 4px;
+}
+.sm-app-modal-body {
+  padding: 18px 24px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  overflow-y: auto;
+}
+.sm-app-modal-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--color-rule);
+}
+.sm-app-timeline {
+  margin-top: 10px;
+  position: relative;
+  padding-left: 18px;
+}
+.sm-app-timeline-rail {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--color-rule);
+}
+.sm-app-timeline-row {
+  position: relative;
+  padding-bottom: 14px;
+}
+.sm-app-timeline-dot {
+  position: absolute;
+  left: -16px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-rule);
+}
+.sm-app-timeline-dot.is-accent {
+  background: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 20%, transparent);
+}
+.sm-app-timeline-dot.is-muted { background: var(--color-muted); }
+.sm-app-timeline-dot.is-faint { background: var(--color-rule); }
+.sm-app-snapshot {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  padding: 14px;
+  aspect-ratio: 8.5/11;
+  font-family: var(--font-serif);
+  overflow: hidden;
+  position: relative;
+}
+
+@media (max-width: 720px) {
+  .sm-app-modal-body { grid-template-columns: 1fr; }
+}
+
+/* ── crosslink picker · blog editor `[[…]]` autocomplete ──────────── */
+.sm-crosslink-picker {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  width: 360px;
+  padding: 2px 0;
+}
+.sm-crosslink-row {
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--color-ink);
+}
+.sm-crosslink-row.is-active {
+  background: color-mix(in oklab, var(--color-accent) 8%, transparent);
+}
+.sm-crosslink-row:hover { background: color-mix(in oklab, var(--color-accent) 8%, transparent); }
+.sm-crosslink-row-mark {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-violet);
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+.sm-crosslink-row-title {
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sm-crosslink-row-slug {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-faint);
+  flex: 0 0 auto;
+}
+
+/* ── resume composer · /admin/drafts split-pane editor ─────────────── */
+.sm-composer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-paper);
+  display: flex;
+  flex-direction: column;
+}
+.sm-composer-topbar {
+  height: 56px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--color-rule);
+  flex-shrink: 0;
+}
+.sm-composer-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+}
+.sm-composer-editor {
+  border-right: 1px solid var(--color-rule);
+  display: flex;
+  min-height: 0;
+}
+.sm-composer-rail {
+  width: 132px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-rule);
+  padding: 14px 0;
+  display: flex;
+  flex-direction: column;
+}
+.sm-composer-rail-link {
+  display: block;
+  padding: 8px 16px;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  color: var(--color-muted);
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--m-snap), border-color var(--m-snap), background var(--m-snap);
+}
+.sm-composer-rail-link:hover { color: var(--color-ink); }
+.sm-composer-rail-link.is-active {
+  color: var(--color-ink);
+  border-left-color: var(--color-accent);
+  background: color-mix(in oklab, var(--color-accent) 4%, transparent);
+}
+.sm-composer-editor-body {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 22px 28px 60px;
+}
+.sm-composer-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: color-mix(in oklab, var(--color-surface) 40%, transparent);
+}
+.sm-composer-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.sm-composer-preview-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.sm-composer-preview-page {
+  width: 8.5in;
+  min-height: 11in;
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  padding: 0.65in 0.75in;
+  transform-origin: top center;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* ── composer confirm modal ──────────────────────────────────────── */
+.sm-composer-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: color-mix(in oklab, var(--color-ink) 40%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.sm-composer-confirm-card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  width: 100%;
+  max-width: 520px;
+  padding: 22px 26px;
+}
+
+/* mobile: collapse preview pane */
+@media (max-width: 1024px) {
+  .sm-composer-grid { grid-template-columns: 1fr; }
+  .sm-composer-preview { display: none; }
+}
+
+/* ── connector add modal · admin /connectors "+ add" ──────────────── */
+.sm-connector-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in oklab, var(--color-ink) 40%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.sm-connector-modal-card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.sm-connector-modal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.sm-connector-modal-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--color-ink);
+  margin-top: 4px;
+}
+.sm-connector-modal-body {
+  padding: 18px 24px 22px;
+}
+.sm-connector-card {
+  display: block;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color var(--m-snap), background var(--m-snap);
+  font: inherit;
+  color: inherit;
+}
+.sm-connector-card:hover { border-color: var(--color-ink); }
+.sm-connector-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sm-connector-card-icon {
+  display: inline-block;
+  width: 24px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--color-accent);
+}
+.sm-connector-card-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--color-ink);
+}
+
+/* ── visitor name picker · first-chat modal ───────────────────────── */
+.sm-visitor-name-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in oklab, var(--color-ink) 40%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.sm-visitor-name-card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  width: 100%;
+  max-width: 580px;
+}
+.sm-visitor-name-head {
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.sm-visitor-name-h1 {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  margin-top: 4px;
+  color: var(--color-ink);
+}
+.sm-visitor-name-body { padding: 20px 28px; }
+.sm-visitor-name-blurb {
+  font-size: 16px;
+  margin-bottom: 14px;
+  color: var(--color-ink);
+}
+.sm-visitor-name-form {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  padding: 12px 16px;
+}
+.sm-visitor-name-prompt {
+  color: var(--color-accent);
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sm-visitor-name-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 380;
+  color: var(--color-ink);
+}
+.sm-visitor-name-input::placeholder { color: var(--color-faint); }
+.sm-visitor-name-going {
+  margin-top: 14px;
+  color: var(--color-accent);
+}
+
+/* ── sticky chat composer ──────────────────────────────────────────── */
+.sm-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  background: color-mix(in oklab, var(--color-paper) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--color-rule);
+  padding: 14px 0;
+}
+.sm-composer-form {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 14px 4px;
+  border-top: 1.5px solid var(--color-ink);
+  border-bottom: 1.5px solid var(--color-ink);
+}
+.sm-composer-prompt {
+  color: var(--color-accent);
+  font-family: var(--font-serif);
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sm-composer-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 380;
+  line-height: 1.3;
+  color: var(--color-ink);
+}
+.sm-composer-input::placeholder {
+  color: var(--color-faint);
+  font-style: italic;
+}

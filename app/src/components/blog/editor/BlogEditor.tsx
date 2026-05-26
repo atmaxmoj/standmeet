@@ -91,6 +91,8 @@ function buildExtensions(
     }),
     Markdown.configure({ html: false, tightLists: true, breaks: false }),
     SlashCommand,
+    // CrosslinkCommand 暂时移出 — admin/posts 在 prod build 下 client-side
+    // exception，extension 文件保留待下一轮 root-cause + re-enable。
     ImageUpload.configure({ onPending }),
   ];
 }

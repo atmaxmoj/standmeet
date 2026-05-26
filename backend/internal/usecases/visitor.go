@@ -42,10 +42,30 @@ type IssueCodeSessionInput struct {
 	VisitorName string
 }
 
+// SessionQuota —— 当前 conversation 的 turn 配额；visitor UI 用来渲剩余。
+// MaxTurns == 0 表示无上限（owner 没在 code 上设 max_turns_per_session）。
+// UsedTurns 初始 0（新 conv）；后续 sendMessage 之后 frontend 本地 +1，
+// SSE 没必要再 echo（同一 visitor session 单线性增长，client 自己算准）。
+type SessionQuota struct {
+	MaxTurns  int32 `json:"max_turns"`
+	UsedTurns int32 `json:"used_turns"`
+}
+
 // IssueCodeSessionResult —— IssueCodeSession 返回的成对结果，避免 3-return。
+// Code / VisitorName / Quota 让 visitor UI banner 一次拿全自描述信息，免
+// 二次查询；public/byoai tier 时 Code 空、Quota 留 zero value。
 type IssueCodeSessionResult struct {
-	Session      session.IssuedVisitor
+	Code         string
+	VisitorName  string
 	Conversation domain.Conversation
+	Session      session.IssuedVisitor
+	Quota        SessionQuota
+}
+
+// codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
+type codeSessionArtifacts struct {
+	Conv   domain.Conversation
+	Issued session.IssuedVisitor
 }
 
 // IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
@@ -80,24 +100,46 @@ func finalizeCodeSession(
 	ctx context.Context, deps *VisitorDeps,
 	in *IssueCodeSessionInput, code *domain.AccessCode,
 ) (IssueCodeSessionResult, error) {
-	member, qerr := resolveMemberWithQuota(ctx, deps, code, in.VisitorName)
-	if qerr != nil {
-		return IssueCodeSessionResult{}, qerr
-	}
-	conv, err := createCodeConversation(ctx, deps, code, &member, in.VisitorName)
+	a, err := issueCodeSessionArtifacts(ctx, deps, in, code)
 	if err != nil {
 		return IssueCodeSessionResult{}, err
 	}
+	return IssueCodeSessionResult{
+		Session: a.Issued, Conversation: a.Conv,
+		Code: code.Code, VisitorName: in.VisitorName,
+		Quota: codeSessionQuota(code),
+	}, nil
+}
+
+func issueCodeSessionArtifacts(
+	ctx context.Context, deps *VisitorDeps,
+	in *IssueCodeSessionInput, code *domain.AccessCode,
+) (codeSessionArtifacts, error) {
+	member, qerr := resolveMemberWithQuota(ctx, deps, code, in.VisitorName)
+	if qerr != nil {
+		return codeSessionArtifacts{}, qerr
+	}
+	conv, err := createCodeConversation(ctx, deps, code, &member, in.VisitorName)
+	if err != nil {
+		return codeSessionArtifacts{}, err
+	}
 	skillPrompts, serr := loadCodeSkillPrompts(ctx, deps, code.ID)
 	if serr != nil {
-		return IssueCodeSessionResult{}, serr
+		return codeSessionArtifacts{}, serr
 	}
 	sd := buildCodeSessionData(code, in.VisitorName, skillPrompts)
 	issued, err := deps.Sessions.Issue(ctx, sd)
 	if err != nil {
-		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
+		return codeSessionArtifacts{}, fmt.Errorf("issue visitor session: %w", err)
 	}
-	return IssueCodeSessionResult{Session: issued, Conversation: conv}, nil
+	return codeSessionArtifacts{Conv: conv, Issued: issued}, nil
+}
+
+func codeSessionQuota(code *domain.AccessCode) SessionQuota {
+	if code.MaxTurnsPerSession != nil && *code.MaxTurnsPerSession > 0 {
+		return SessionQuota{MaxTurns: *code.MaxTurnsPerSession}
+	}
+	return SessionQuota{}
 }
 
 // loadCodeSkillPrompts —— 拉 InviteCode 选中的 skill prompts，固化到 session

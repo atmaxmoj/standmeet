@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import type { PostView } from '@/lib/api/public';
 import { BlogScrollLoader } from '@/components/blog/BlogScrollLoader';
 import { PostCardLead, PostRow } from '@/components/blog/BlogPostCards';
+import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { useBlogFeed } from '@/lib/blog/use-blog-feed';
 
 interface Props {
@@ -30,6 +31,7 @@ export function BlogIndex({ initialPosts, initialCursor }: Props) {
   const pickTag = (t: string | null) => navigateTag(router, t);
   return (
     <div className="min-h-screen bg-(--color-paper) text-(--color-ink) font-serif">
+      <SessionStrip />
       <BlogTopBar />
       <main className="max-w-[1080px] mx-auto px-6 lg:px-0 pb-24">
         <BlogIndexHeader
@@ -40,9 +42,43 @@ export function BlogIndex({ initialPosts, initialCursor }: Props) {
         />
         <BlogIndexBody activeTag={activeTag} posts={filtered} onPickTag={pickTag} />
         <BlogScrollLoader done={feed.done} loading={feed.loading} onHit={feed.loadMore} />
+        <AskCorpusCTA hasPosts={feed.posts.length > 0} />
       </main>
     </div>
   );
+}
+
+// AskCorpusCTA —— blog index 末尾的"or skip the reading"，引 visitor 回 `/`
+// 直接跟 AI 聊；只有有文章时才显示（空 corpus 不引）。design 源:
+// docs/design/project/blog.js IndexView 末段 (366-388)。
+function AskCorpusCTA({ hasPosts }: { hasPosts: boolean }) {
+  return hasPosts ? (
+    <section className="mt-24 pt-10 border-t border-(--color-rule)">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-10 items-baseline">
+        <div>
+          <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
+            or skip the reading
+          </div>
+          <h3 className="font-serif text-(--color-ink) text-[30px] leading-[1.15] tracking-[-0.012em] font-normal">
+            Ask the AI directly<span className="text-(--color-accent)">.</span>
+          </h3>
+          <p className="reading text-(--color-muted) mt-3 text-[17px]">
+            Everything you&apos;d read here, said back to you in the owner&apos;s voice.
+            The chat covers ground he hasn&apos;t written up yet, and answers from the
+            corpus rather than the archive.
+          </p>
+        </div>
+        <div className="md:pl-10">
+          <Link
+            href="/"
+            className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-ink) border border-(--color-ink) px-4 py-3 inline-block hover:bg-(--color-ink) hover:text-(--color-paper) transition-colors"
+          >
+            <span data-testid="blog-ask-cta">open the chat →</span>
+          </Link>
+        </div>
+      </div>
+    </section>
+  ) : null;
 }
 
 function filterByTag(posts: PostView[], tag: string | null): PostView[] {

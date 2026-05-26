@@ -341,6 +341,28 @@ CREATE UNIQUE INDEX posts_owner_slug_uniq ON posts(owner_id, slug);
 CREATE INDEX posts_owner_published_idx ON posts(owner_id, published_at DESC NULLS LAST);
 CREATE INDEX posts_owner_path_idx ON posts(owner_id, path);
 
+-- post_links —— post 内 `[[slug]]` / `[[Title]]` 双链的边表。
+--
+-- body_md 里 owner 写 `[[X]]`，SavePost 同事务 resolve X 到目标 post.id
+-- (规则：先按 slug case-insensitive，没中再按 title fallback；都没中就
+-- 不入边，render 那侧留原字面 [[X]] 当文字)。每次 save 走 "delete all
+-- where src=this_post → insert new" 重建 src 出度，简单不易漂。
+--
+-- 双向 lookup：(src) 出度跟 SavePost 共事务一起更新；(dst) 入度（=
+-- backlinks）由 public /blog GET 时按 dst 查。
+--
+-- FK cascade ON DELETE：src 或 dst post 删了 → 对应边自动消失。
+-- src_post_id = dst_post_id 不阻止 ("self-link") —— 极少用，但不破坏 invariant。
+CREATE TABLE post_links (
+    src_post_id  uuid          NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    dst_post_id  uuid          NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    created_at   timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (src_post_id, dst_post_id)
+);
+CREATE INDEX post_links_dst_idx ON post_links(dst_post_id);
+CREATE INDEX post_links_owner_dst_idx ON post_links(owner_id, dst_post_id);
+
 -- handle_aliases —— owner 改 handle 后旧 handle 入这里，旧 URL 仍能 resolve
 -- 到同一个 owner。GetByHandle 走 owners.handle 优先，未命中走 alias。
 CREATE TABLE handle_aliases (

@@ -115,7 +115,7 @@ async function buildMessageHeaders(
 // 称的 Node-side 实现：HKDF-SHA256(ikm=session_token, info="standmeet-byoai-v1",
 // salt=空, L=32) → AES-256-GCM seal(nonce(12)||ct||tag(16)) → base64 URL-safe
 // no padding。跟 app 那侧 byoai-envelope.ts 同算法。
-export async function wrapBYOAIKey(plain: string, sessionToken: string): Promise<string> {
+async function wrapBYOAIKey(plain: string, sessionToken: string): Promise<string> {
   const enc = new TextEncoder();
   const ikm = await crypto.subtle.importKey(
     'raw', enc.encode(sessionToken), 'HKDF', false, ['deriveBits'],

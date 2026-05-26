@@ -1,7 +1,7 @@
 // obsidian.ts —— vault import/export 共用 helpers。
 
 import { expect } from '@playwright/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { login as loginAPI } from '@/fixtures/admin';
 
@@ -76,17 +76,6 @@ export async function listAdminPosts(
     cover_headline: string; cover_image_asset_id: string;
     asset_urls: Record<string, string>;
   }>;
-}
-
-// clickExport —— admin UI export button 触发；等下载完成。
-export async function clickExport(page: Page): Promise<Buffer> {
-  const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: /export to obsidian/i }).click();
-  const dl = await downloadPromise;
-  const path = await dl.path();
-  if (!path) throw new Error('download path missing');
-  const fs = await import('node:fs/promises');
-  return fs.readFile(path);
 }
 
 // makeVaultMD —— 生成一个 frontmatter + body 的 .md 文件 string。

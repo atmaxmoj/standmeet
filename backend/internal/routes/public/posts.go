@@ -9,6 +9,7 @@
 package public
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -25,10 +26,17 @@ import (
 
 // PostHandlers —— public posts endpoints。
 type PostHandlers struct {
-	Posts  usecases.PostsDeps
-	Page   usecases.PageDeps
-	Assets usecases.AssetsDeps
-	Log    *slog.Logger
+	Posts     usecases.PostsDeps
+	CrossLink usecases.CrossLinkQueryDeps
+	Page      usecases.PageDeps
+	Assets    usecases.AssetsDeps
+	Log       *slog.Logger
+}
+
+// backlinkView —— /blog/<slug> "linked from" 用。
+type backlinkView struct {
+	Slug  string `json:"slug"`
+	Title string `json:"title"`
 }
 
 type postView struct {
@@ -48,6 +56,7 @@ type postView struct {
 	AssetURLs         map[string]string `json:"asset_urls"`
 	Tags              []string          `json:"tags"`
 	CrossRefs         []string          `json:"cross_refs"`
+	Backlinks         []backlinkView    `json:"backlinks,omitempty"`
 	ReadMinutes       int32             `json:"read_minutes"`
 }
 
@@ -117,22 +126,41 @@ func writePostsPage(
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		h.Log.Error("encode posts page", "err", err)
+		h.Log.Error("encode posts page", logErr, err)
 	}
 }
 
 func buildPostsPageResp(
 	r *http.Request, h *PostHandlers, page *usecases.ListPublishedPostsPageResult,
 ) postsPageResp {
+	index := loadCrossLinkIndex(r.Context(), h, page)
 	items := make([]postView, 0, len(page.Posts))
 	for i := range page.Posts {
-		items = append(items, toPostViewResolved(r, h, &page.Posts[i]))
+		v := toPostViewResolved(r, h, &page.Posts[i])
+		v.BodyMD = usecases.RewriteCrossLinksForRender(v.BodyMD, index)
+		items = append(items, v)
 	}
 	resp := postsPageResp{Posts: items}
 	if page.NextCursor != nil {
 		resp.NextCursor = page.NextCursor.Format(time.RFC3339Nano)
 	}
 	return resp
+}
+
+// loadCrossLinkIndex —— 一次拉 owner published post 的 slug+title 表，给
+// 这页所有 post 的 body_md rewrite 复用，避开 N+1。空 page / index 失败 → nil。
+func loadCrossLinkIndex(
+	ctx context.Context, h *PostHandlers, page *usecases.ListPublishedPostsPageResult,
+) []usecases.SlugTitle {
+	if len(page.Posts) == 0 {
+		return nil
+	}
+	index, err := usecases.LoadCrossLinkIndex(ctx, h.CrossLink, page.Posts[0].OwnerID)
+	if err != nil {
+		h.Log.Error("crosslink slug index (list)", logErr, err)
+		return nil
+	}
+	return index
 }
 
 func (h *PostHandlers) get() http.HandlerFunc {
@@ -148,16 +176,55 @@ func (h *PostHandlers) get() http.HandlerFunc {
 			h.handlePostErr(w, "get post", perr)
 			return
 		}
-		writePostResp(r, h, w, &post)
+		writePostResp(r, h, w, owner.ID, &post)
 	}
 }
 
-func writePostResp(r *http.Request, h *PostHandlers, w http.ResponseWriter, p *domain.Post) {
+func writePostResp(
+	r *http.Request, h *PostHandlers, w http.ResponseWriter,
+	ownerID string, p *domain.Post,
+) {
+	view := toPostViewResolved(r, h, p)
+	view.BodyMD = rewriteBodyWithCrossLinks(r.Context(), h, ownerID, view.BodyMD)
+	view.Backlinks = loadBacklinks(r.Context(), h, ownerID, p.ID)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(toPostViewResolved(r, h, p)); err != nil {
-		h.Log.Error("encode post", "err", err)
+	if err := json.NewEncoder(w).Encode(view); err != nil {
+		h.Log.Error("encode post", logErr, err)
 	}
+}
+
+// rewriteBodyWithCrossLinks —— body_md 里 [[X]] → [Title](/blog/slug)。失败
+// （DB 错）→ 留原文不破坏 render。
+func rewriteBodyWithCrossLinks(
+	ctx context.Context, h *PostHandlers, ownerID, body string,
+) string {
+	if !usecases.HasCrossLinks(body) {
+		return body
+	}
+	index, err := usecases.LoadCrossLinkIndex(ctx, h.CrossLink, ownerID)
+	if err != nil {
+		h.Log.Error("crosslink slug index", logErr, err)
+		return body
+	}
+	return usecases.RewriteCrossLinksForRender(body, index)
+}
+
+// loadBacklinks —— 拉指向当前 post 的所有 (源 published post 的) backlink。
+// 失败 log + 返空（不阻塞主 render）。
+func loadBacklinks(
+	ctx context.Context, h *PostHandlers, ownerID, postID string,
+) []backlinkView {
+	refs, err := usecases.ListBacklinks(ctx, h.CrossLink, ownerID, postID)
+	if err != nil {
+		h.Log.Error("backlinks", logErr, err)
+		return nil
+	}
+	out := make([]backlinkView, 0, len(refs))
+	for i := range refs {
+		out = append(out, backlinkView{Slug: refs[i].Slug, Title: refs[i].Title})
+	}
+	return out
 }
 
 // toPostViewResolved —— build response 时 batch resolve body_md 里所有
@@ -173,7 +240,7 @@ func resolvePostAssetURLs(r *http.Request, h *PostHandlers, p *domain.Post) map[
 	ids := usecases.PostAssetIDs(p.BodyMD, p.CoverImageAssetID)
 	urls, err := usecases.ResolveAssetURLs(r.Context(), h.Assets.Repo, h.Assets.Storage, ids)
 	if err != nil {
-		h.Log.Error("resolve asset urls", "err", err)
+		h.Log.Error("resolve asset urls", logErr, err)
 		return map[string]string{}
 	}
 	return urls
@@ -201,7 +268,7 @@ func (h *PostHandlers) handlePostErr(w http.ResponseWriter, op string, err error
 		})
 		return
 	}
-	h.Log.Error(op, "err", err)
+	h.Log.Error(op, logErr, err)
 	writeError(h.Log, w, apierr.Envelope{
 		Status: http.StatusInternalServerError, Code: "server_error",
 		Message: "internal error",

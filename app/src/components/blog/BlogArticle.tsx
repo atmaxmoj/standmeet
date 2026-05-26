@@ -9,9 +9,11 @@ import Link from 'next/link';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import type { PostView } from '@/lib/api/public';
+import type { BacklinkRef, PostView } from '@/lib/api/public';
 import { Cover } from '@/components/blog/Cover';
 import { markdownComponents, markdownStyles } from '@/components/blog/BlogArticleMarkdown';
+import { AskAboutThis } from '@/components/visitor/AskAboutThis';
+import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { expandURIsToURLs } from '@/lib/blog/asset-transforms';
 
 interface Props {
@@ -30,6 +32,7 @@ function UnlockedView({ post }: { post: PostView }) {
   const assetURLs = post.asset_urls ?? {};
   return (
     <div className="min-h-screen bg-(--color-paper) text-(--color-ink) font-serif">
+      <SessionStrip />
       <ArticleTopBar />
       <main className="pb-24">
         <Breadcrumb />
@@ -42,8 +45,37 @@ function UnlockedView({ post }: { post: PostView }) {
         </div>
         <ArticleHeader post={post} />
         <Body bodyMD={post.body_md} assetURLs={assetURLs} />
+        <Backlinks refs={post.backlinks ?? []} />
+        <AskAboutThis title={post.title} kind="essay" />
       </main>
     </div>
+  );
+}
+
+// Backlinks —— "linked from" section；列举其它 published post 通过 [[X]]
+// 引到本篇的来源。空就不渲染。
+function Backlinks({ refs }: { refs: BacklinkRef[] }) {
+  return refs.length === 0 ? null : (
+    <aside
+      className="max-w-[680px] mx-auto px-6 lg:px-0 mt-16 pt-8 border-t border-(--color-rule)"
+      data-testid="blog-article-backlinks"
+    >
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
+        linked from
+      </div>
+      <ul className="font-serif text-[18px] leading-[1.55] space-y-2">
+        {refs.map((r) => (
+          <li key={r.slug} data-testid={`backlink-${r.slug}`}>
+            <Link
+              href={`/blog/${r.slug}`}
+              className="text-(--color-ink) hover:text-(--color-accent)"
+            >
+              {r.title}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }
 

@@ -1,0 +1,87 @@
+/* sm-mobile.css —— cross-surface mobile adaptations。挂到 globals.css 之后
+ * 加载，让 design 在窄屏上自适应。canonical source:
+ * docs/design/project/sm-mobile.css (handoff bundle)。
+ *
+ * Breakpoints:
+ *   - ≤ 720px : phone portrait
+ *   - ≤ 900px : phone landscape / small tablet
+ *   - ≤ 1024px: tablet / iPad
+ */
+
+/* ── viewport hardening ─────────────────────────────────────────── */
+html, body { overflow-x: hidden; }
+body { padding-bottom: env(safe-area-inset-bottom, 0); }
+
+/* ── session strip · stacks on phones, gauge wraps ──────────────── */
+@media (max-width: 720px) {
+  .sm-session-strip {
+    padding: 6px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    font-size: 9.5px;
+  }
+  .sm-session-strip-left,
+  .sm-session-strip-right { width: 100%; gap: 8px; }
+  .sm-session-strip-right { justify-content: space-between; }
+  .sm-session-strip-gauge-bar { width: 60px; }
+  .sm-session-strip-meta { display: none; }
+}
+
+/* ── topbar · hide ticker, tighten gaps ─────────────────────────── */
+@media (max-width: 900px) {
+  .ticker-host { display: none !important; }
+}
+@media (max-width: 720px) {
+  header { padding-left: 14px !important; padding-right: 14px !important; }
+}
+
+/* ── composer · safer bottom inset, smaller prompt arrow ────────── */
+@media (max-width: 720px) {
+  .sm-composer { padding-bottom: calc(14px + env(safe-area-inset-bottom, 0)); }
+  .sm-composer-prompt { font-size: 22px !important; }
+  .sm-composer-input  { font-size: 17px !important; }
+  .sm-composer-form   { padding: 10px 4px !important; gap: 10px !important; }
+}
+
+/* ── chips · compact, wrap nicely ───────────────────────────────── */
+@media (max-width: 720px) {
+  .sm-chip, .sm-pill { font-size: 9.5px; padding: 2px 6px; }
+}
+
+/* ── headings tighten on mobile ─────────────────────────────────── */
+@media (max-width: 720px) {
+  h1 { line-height: 1.04 !important; }
+}
+
+/* ── article / reading body slightly tighter ─────────────────── */
+@media (max-width: 720px) {
+  .reading,
+  .article-body p,
+  .o-body p { font-size: 17px !important; line-height: 1.55 !important; }
+  .article-body blockquote,
+  .o-body blockquote {
+    font-size: 19px !important;
+    margin-left: 0 !important; margin-right: 0 !important;
+    padding-left: 16px !important; padding-right: 0 !important;
+  }
+}
+
+/* ── gate seal · stacks centered, smaller ───────────────────── */
+@media (max-width: 720px) {
+  .seal { --r: 72px !important; }
+}
+
+/* ── small print padding for footers ────────────────────────── */
+@media (max-width: 720px) {
+  footer > * {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+}
+
+/* ── topbar buttons: hide secondary text on phones, keep icons ── */
+@media (max-width: 540px) {
+  header .mono { font-size: 10px !important; letter-spacing: 0.06em !important; }
+}

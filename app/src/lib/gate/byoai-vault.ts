@@ -16,9 +16,7 @@
 // 用法：
 //   await storeBYOAI({provider, endpoint, model, key});  // 进 vault
 //   readBYOAIVaultMeta() === {provider, endpoint, model} // 同步 UI 元信息
-//   await readBYOAIKey() === 'sk-…'                       // 解密明文 key
 //   await readBYOAICredFull() === {...meta, key}          // chat 一次性拿全
-//   await clearBYOAI()                                    // 登出 / 切 tier 时清
 //
 // 只支持现代浏览器；不做 crypto.subtle 缺失 fallback。
 
@@ -68,18 +66,6 @@ export function readBYOAIVaultMeta(): BYOAIVaultMeta | null {
   return env ? { provider: env.provider, endpoint: env.endpoint, model: env.model } : null;
 }
 
-// hasBYOAI —— sync；vault 里是否已经有有效条目。
-export function hasBYOAI(): boolean {
-  return readEnvelope() !== null;
-}
-
-// readBYOAIKey —— async；解开 envelope 拿明文 api key。vault 空 / IDB 没 wrap
-// key / decrypt 失败统一返 null（caller 视为"没配过 BYOAI"，让 UI 引去 /gate）。
-export async function readBYOAIKey(): Promise<string | null> {
-  const env = readEnvelope();
-  return env ? await decryptEnvelope(env) : null;
-}
-
 // readBYOAICredFull —— async；chat 发请求前一次拿齐 4 个 header 所需字段
 // （provider + endpoint + model + 明文 key）。任一不全返 null，外层走"未配
 // BYOAI" 路径。
@@ -91,14 +77,6 @@ export async function readBYOAICredFull(): Promise<BYOAICredFull | null> {
   return {
     provider: env.provider, endpoint: env.endpoint, model: env.model, key,
   };
-}
-
-// clearBYOAI —— 清掉 localStorage envelope (v1+v2) + IDB wrap key。两层都要
-// 清，否则下次 storeBYOAI 会复用残留的 wrap key，旧 envelope 还能解。
-export async function clearBYOAI(): Promise<void> {
-  window.localStorage.removeItem(LS_KEY);
-  window.localStorage.removeItem(LS_KEY_LEGACY_V1);
-  await idbDelete();
 }
 
 function readEnvelope(): StoredEnvelope | null {
@@ -184,12 +162,6 @@ async function idbGet(): Promise<unknown> {
   const result = await runTx<unknown>(db, 'readonly', (store) => store.get(IDB_KEY));
   db.close();
   return result;
-}
-
-async function idbDelete(): Promise<void> {
-  const db = await openDB();
-  await runTx(db, 'readwrite', (store) => store.delete(IDB_KEY));
-  db.close();
 }
 
 function runTx<T>(

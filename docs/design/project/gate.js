@@ -92,102 +92,80 @@ function Seal() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// code entry — 7-char ascii cells (XXXX-NNN format, dash inserted visually)
-
-const CODE_LEN = 7;
+// code entry — variable-length single field, paste-friendly + dash-tolerant.
+// Real codes are issued by admin and can be any length / shape (e.g. OAEN-3K2,
+// SHORT-2X, MEGA-LONG-EXAMPLE-1) — we just need to accept whatever the owner
+// generated and submit on Enter / paste / blur.
 
 function CodeInput({ onValid, onInvalid }) {
-  const [cells, setCells] = useState(Array(CODE_LEN).fill(''));
+  const [value, setValue] = useState('');
   const [state, setState] = useState('idle'); // idle | checking | error
-  const refs = useRef([]);
+  const ref = useRef(null);
 
-  const focus = (i) => { if (refs.current[i]) refs.current[i].focus(); };
+  // strip everything but A-Z 0-9 and dash; uppercase; cap at 32
+  const normalize = (raw) => (raw || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 32);
 
-  const setCell = (i, v) => {
-    const cleaned = (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (!cleaned) {
-      setCells((c) => c.map((x, j) => j === i ? '' : x));
-      return;
-    }
-    // pasted whole code into a single cell — fan it out
-    if (cleaned.length > 1) {
-      const next = [...cells];
-      let p = i;
-      for (const ch of cleaned) {
-        if (p >= CODE_LEN) break;
-        next[p++] = ch;
+  // VALID_CODES is keyed by the dash-stripped form, so accept either shape
+  const stripped = value.replace(/-/g, '');
+
+  const submit = () => {
+    if (state === 'checking' || stripped.length < 3) return;
+    setState('checking');
+    setTimeout(() => {
+      if (VALID_CODES.includes(stripped)) {
+        setState('idle');
+        onValid(stripped);
+      } else {
+        setState('error');
+        onInvalid && onInvalid(stripped);
+        setTimeout(() => { setState('idle'); setValue(''); ref.current && ref.current.focus(); }, 1100);
       }
-      setCells(next);
-      focus(Math.min(p, CODE_LEN - 1));
-      maybeSubmit(next);
-      return;
-    }
-    setCells((cur) => {
-      const next = cur.map((x, j) => j === i ? cleaned : x);
-      if (i < CODE_LEN - 1) focus(i + 1);
-      maybeSubmit(next);
-      return next;
-    });
+    }, 600);
   };
 
-  const onKey = (i, e) => {
-    if (e.key === 'Backspace' && !cells[i] && i > 0) {
-      focus(i - 1);
-      setCells((cur) => cur.map((x, j) => j === i - 1 ? '' : x));
-      e.preventDefault();
-    } else if (e.key === 'ArrowLeft' && i > 0) {
-      focus(i - 1); e.preventDefault();
-    } else if (e.key === 'ArrowRight' && i < CODE_LEN - 1) {
-      focus(i + 1); e.preventDefault();
-    } else if (e.key === 'Enter') {
-      maybeSubmit(cells);
-    }
-  };
-
-  const maybeSubmit = (next) => {
-    if (next.every((c) => c.length === 1)) {
-      const code = next.join('');
-      setState('checking');
-      setTimeout(() => {
-        if (VALID_CODES.includes(code)) {
-          setState('idle');
-          onValid(code);
-        } else {
-          setState('error');
-          onInvalid && onInvalid(code);
-          setTimeout(() => {
-            setState('idle');
-            setCells(Array(CODE_LEN).fill(''));
-            focus(0);
-          }, 1100);
-        }
-      }, 600);
+  const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+  const onPaste = (e) => {
+    const t = e.clipboardData?.getData('text');
+    if (!t) return;
+    e.preventDefault();
+    const n = normalize(t);
+    setValue(n);
+    // auto-submit on paste if the pasted thing looks code-shaped
+    if (n.replace(/-/g, '').length >= 4) {
+      setTimeout(submit, 50);
     }
   };
 
   return (
-    <div className={`flex items-center gap-1.5 ${state === 'error' ? 'shake' : ''}`}>
-      {Array.from({ length: CODE_LEN }).map((_, i) => (
-        <React.Fragment key={i}>
-          <input
-            ref={(el) => (refs.current[i] = el)}
-            type="text"
-            inputMode="text"
-            maxLength={CODE_LEN}
-            value={cells[i]}
-            onChange={(e) => setCell(i, e.target.value.slice(-CODE_LEN))}
-            onKeyDown={(e) => onKey(i, e)}
-            disabled={state === 'checking'}
-            className={`codecell ${cells[i] ? 'is-filled' : ''} ${state === 'error' ? 'is-error' : ''}`}
-            aria-label={`code character ${i + 1}`}
-          />
-          {i === 3 && <span className="text-faint mono text-[18px] px-0.5 select-none">–</span>}
-        </React.Fragment>
-      ))}
-      <div className="ml-3 mono text-[10.5px] tracking-[0.16em] uppercase">
+    <div className={`flex items-center gap-3 ${state === 'error' ? 'shake' : ''}`}>
+      <input
+        ref={ref}
+        type="text"
+        inputMode="text"
+        autoComplete="one-time-code"
+        spellCheck="false"
+        value={value}
+        onChange={(e) => setValue(normalize(e.target.value))}
+        onKeyDown={onKey}
+        onPaste={onPaste}
+        onBlur={() => { if (stripped.length >= 4) submit(); }}
+        disabled={state === 'checking'}
+        placeholder="OAEN-3K2"
+        aria-label="access code"
+        className={`code-field ${value ? 'is-filled' : ''} ${state === 'error' ? 'is-error' : ''}`}
+      />
+      <button
+        type="button"
+        onClick={submit}
+        disabled={state === 'checking' || stripped.length < 3}
+        className="mono text-[10.5px] tracking-[0.16em] uppercase text-paper bg-ink px-3 py-2.5 disabled:opacity-40 hover:bg-accent transition-colors shrink-0"
+      >
+        enter ↵
+      </button>
+      <div className="mono text-[10.5px] tracking-[0.16em] uppercase">
         {state === 'checking' && <span className="text-muted">checking…</span>}
         {state === 'error'    && <span className="text-accent">unknown code</span>}
-        {state === 'idle'     && <span className="text-faint">7 characters</span>}
+        {state === 'idle'     && <span className="text-faint">any length · dash optional</span>}
       </div>
     </div>
   );
@@ -695,8 +673,8 @@ function App() {
 
                 {!granted && (
                   <p className="mono text-[10.5px] tracking-[0.12em] text-faint mt-4 leading-[1.7]" style={{ maxWidth: '40em' }}>
-                    codes look like <span className="text-muted">OAEN–3K2</span>. they arrive by email
-                    from sijie directly · case doesn't matter · paste the whole thing into the first box.
+                    codes look like <span className="text-muted">OAEN-3K2</span> · they arrive by email from sijie directly
+                    · case doesn't matter · paste the whole thing (with or without the dash) and press enter.
                   </p>
                 )}
               </div>

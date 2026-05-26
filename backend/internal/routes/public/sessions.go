@@ -11,8 +11,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/session"
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
@@ -27,9 +25,17 @@ type createSessionRequest struct {
 	BYOAIProvider string `json:"byoai_provider,omitempty"`
 }
 
+type sessionQuotaResp struct {
+	MaxTurns  int32 `json:"max_turns"`
+	UsedTurns int32 `json:"used_turns"`
+}
+
 type createSessionResponse struct {
-	SessionToken   string `json:"session_token"`
-	ConversationID string `json:"conversation_id"`
+	SessionToken   string           `json:"session_token"`
+	ConversationID string           `json:"conversation_id"`
+	Code           string           `json:"code,omitempty"`
+	VisitorName    string           `json:"visitor_name,omitempty"`
+	Quota          sessionQuotaResp `json:"quota"`
 }
 
 func (h *Handlers) createSession() http.HandlerFunc {
@@ -44,7 +50,7 @@ func (h *Handlers) createSession() http.HandlerFunc {
 			handleVisitorErr(h.Log, w, err)
 			return
 		}
-		writeCreateSession(h.Log, w, &res.Session, &res.Conversation)
+		writeCreateSession(h.Log, w, &res)
 	}
 }
 
@@ -78,11 +84,17 @@ func pickTier(req *createSessionRequest) string {
 
 func writeCreateSession(
 	log *slog.Logger, w http.ResponseWriter,
-	issued *session.IssuedVisitor, conv *domain.Conversation,
+	res *usecases.IssueCodeSessionResult,
 ) {
 	resp := createSessionResponse{
-		SessionToken:   issued.Token,
-		ConversationID: conv.ID,
+		SessionToken:   res.Session.Token,
+		ConversationID: res.Conversation.ID,
+		Code:           res.Code,
+		VisitorName:    res.VisitorName,
+		Quota: sessionQuotaResp{
+			MaxTurns:  res.Quota.MaxTurns,
+			UsedTurns: res.Quota.UsedTurns,
+		},
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

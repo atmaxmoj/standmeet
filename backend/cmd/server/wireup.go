@@ -27,7 +27,10 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:  buildPublicPasswordResetDeps(d),
 		PublicPosts: publicroutes.PostHandlers{
-			Posts:  usecases.PostsDeps{Posts: d.postRepo},
+			Posts: usecases.PostsDeps{Posts: d.postRepo},
+			CrossLink: usecases.CrossLinkQueryDeps{
+				Posts: d.postRepo, PostLinks: d.postLinkRepo,
+			},
 			Page:   usecases.PageDeps{Owners: d.ownerRepo},
 			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 			Log:    d.log,
@@ -60,6 +63,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		MCPServers:     usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Assets:         usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 		Posts:          usecases.PostsDeps{Posts: d.postRepo},
+		PostLinks:      d.postLinkRepo,
 		Codes:          d.codeRepo,
 		Owners:         d.ownerRepo,
 		Sessions:       d.sessionStore,
@@ -145,8 +149,9 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		MCPServers: usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Posts:      usecases.PostsDeps{Posts: d.postRepo},
 		PostsTx: usecases.PostsTxDeps{
-			Posts:  d.postRepo,
-			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+			Posts:     d.postRepo,
+			PostLinks: d.postLinkRepo,
+			Assets:    usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 		},
 		Log: d.log,
 	}

@@ -13,39 +13,78 @@ type Props = {
   onChange: (v: string) => void;
   onSubmit: (q: string) => void;
   disabled: boolean;
+  // lockedReason —— quota 用尽 / 其它 long-term lock。设置后输入框 dim +
+  // 右侧 "ask ↵" 换成 lockedReason 文案 + chat input 整体不可投。
+  // 不设 = null → 走 transient `disabled` (pending 中) 逻辑。
+  lockedReason?: string | null;
   inputRef?: RefObject<HTMLInputElement | null>;
 };
 
-export function AskInput({ value, onChange, onSubmit, disabled, inputRef }: Props) {
-  const handle = (e: FormEvent<HTMLFormElement>): void => {
-    e.preventDefault();
-    const q = value.trim();
-    const ready = q !== '' && !disabled;
-    ready && onSubmit(q);
-  };
+export function AskInput(props: Props) {
+  const locked = isLocked(props);
   return (
-    <form onSubmit={handle} data-testid="chat-input">
+    <form onSubmit={(e) => onAskSubmit(e, props)} data-testid="chat-input">
       <div className="flex items-baseline gap-4 py-4 border-t-[1.5px] border-b-[1.5px] border-(--color-ink) relative">
-        <span className="text-(--color-accent) font-serif shrink-0 text-[28px] leading-none">›</span>
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Ask anything."
-          disabled={disabled}
-          className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0 text-[clamp(20px,2.2vw,26px)] leading-[1.3] font-[380]"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <button
-          type="submit"
-          disabled={disabled || value.trim() === ''}
-          className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 pt-1"
-        >
-          ask <span className="text-[14px]">↵</span>
-        </button>
+        <AskPrompt />
+        <AskField props={props} locked={locked} />
+        <AskAction props={props} locked={locked} />
       </div>
     </form>
   );
+}
+
+function AskPrompt() {
+  return (
+    <span className="text-(--color-accent) font-serif shrink-0 text-[28px] leading-none">›</span>
+  );
+}
+
+function AskField({ props, locked }: { props: Props; locked: boolean }) {
+  return (
+    <input
+      ref={props.inputRef}
+      type="text"
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+      placeholder={locked ? 'session full' : 'Ask anything.'}
+      disabled={props.disabled || locked}
+      className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0 text-[clamp(20px,2.2vw,26px)] leading-[1.3] font-[380] disabled:opacity-60"
+      autoComplete="off"
+      spellCheck={false}
+      data-testid="chat-input-field"
+    />
+  );
+}
+
+function isLocked(props: Props): boolean {
+  return (props.lockedReason ?? null) !== null;
+}
+
+function AskAction({ props, locked }: { props: Props; locked: boolean }) {
+  return locked ? (
+    <span
+      className="mono text-[10.5px] tracking-[0.16em] uppercase text-(--color-accent) shrink-0 pt-1"
+      data-testid="chat-input-locked"
+    >
+      {props.lockedReason}
+    </span>
+  ) : (
+    <button
+      type="submit"
+      disabled={props.disabled || props.value.trim() === ''}
+      className="mono text-[11.5px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) transition-colors shrink-0 pt-1"
+    >
+      ask <span className="text-[14px]">↵</span>
+    </button>
+  );
+}
+
+function onAskSubmit(e: FormEvent<HTMLFormElement>, props: Props): void {
+  e.preventDefault();
+  const q = props.value.trim();
+  isReadyToSubmit(q, props) && props.onSubmit(q);
+}
+
+function isReadyToSubmit(q: string, props: Props): boolean {
+  return q !== '' && !props.disabled && !isLocked(props);
 }

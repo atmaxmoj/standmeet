@@ -104,26 +104,25 @@
     line-height: 1.5;
   }
 
-  /* code input — 8 ascii cells */
-  .codecell {
-    width: 38px; height: 48px;
-    border: 1px solid var(--rule);
+  /* code input — single variable-length field, dash-tolerant */
+  .code-field {
+    flex: 1; min-width: 0;
     background: transparent;
-    text-align: center;
+    border: 0;
+    border-bottom: 2px solid var(--rule);
+    padding: 12px 6px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 20px;
+    font-size: 26px;
+    letter-spacing: 0.16em;
     color: var(--ink);
     text-transform: uppercase;
     caret-color: var(--accent);
-    transition: border-color .15s ease, background .15s ease;
+    transition: border-color .15s ease, color .15s ease;
   }
-  .codecell:focus {
-    border-color: var(--ink);
-    background: var(--surface);
-    outline: none;
-  }
-  .codecell.is-filled { border-color: var(--ink); }
-  .codecell.is-error  { border-color: var(--accent); color: var(--accent); }
+  .code-field::placeholder { color: var(--faint); }
+  .code-field:focus { outline: none; border-bottom-color: var(--ink); }
+  .code-field.is-filled { border-bottom-color: var(--ink); }
+  .code-field.is-error  { border-bottom-color: var(--accent); color: var(--accent); }
 
   /* shake on error */
   @keyframes shake {
@@ -171,6 +170,7 @@
   }
   .link:hover { border-bottom-color: var(--accent); }
 </style>
+<link rel="stylesheet" href="sm-mobile.css" />
 </head>
 <body class="min-h-screen">
   <div id="root"></div>

@@ -71,9 +71,19 @@ export interface OutputLandingView {
   readonly updated_at: string;
 }
 
+// PublicSessionQuota —— session 颁发时 server 给的 turn 配额。max_turns=0
+// 表示无限（owner 在 code 上未设 max_turns_per_session，或非 code tier）。
+export interface PublicSessionQuota {
+  readonly max_turns: number;
+  readonly used_turns: number;
+}
+
 export interface PublicSessionResponse {
   readonly session_token: string;
   readonly conversation_id: string;
+  readonly code?: string;
+  readonly visitor_name?: string;
+  readonly quota?: PublicSessionQuota;
 }
 
 export type SSETokenEvent = { readonly kind: 'token'; readonly text: string };

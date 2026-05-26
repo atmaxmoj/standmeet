@@ -408,6 +408,40 @@ func (q *Queries) ListPublishedPostsByOwnerPage(ctx context.Context, arg ListPub
 	return items, nil
 }
 
+const listPublishedSlugAndTitle = `-- name: ListPublishedSlugAndTitle :many
+SELECT slug, title
+FROM posts
+WHERE owner_id = $1 AND published_at IS NOT NULL
+ORDER BY slug ASC
+`
+
+type ListPublishedSlugAndTitleRow struct {
+	Slug  string
+	Title string
+}
+
+// /blog 渲染 [[wikilink]] 时用：拉 owner 所有 published post 的 slug + title
+// 当 resolution index，不带 body_md（避免 N+1 那种全 body 重传开销）。
+func (q *Queries) ListPublishedSlugAndTitle(ctx context.Context, ownerID pgtype.UUID) ([]ListPublishedSlugAndTitleRow, error) {
+	rows, err := q.db.Query(ctx, listPublishedSlugAndTitle, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublishedSlugAndTitleRow
+	for rows.Next() {
+		var i ListPublishedSlugAndTitleRow
+		if err := rows.Scan(&i.Slug, &i.Title); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const publishPost = `-- name: PublishPost :one
 UPDATE posts SET published_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2

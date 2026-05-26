@@ -261,6 +261,13 @@ type Post struct {
 	UpdatedAt          pgtype.Timestamptz
 }
 
+type PostLink struct {
+	SrcPostID pgtype.UUID
+	DstPostID pgtype.UUID
+	OwnerID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
 type RawEntry struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID

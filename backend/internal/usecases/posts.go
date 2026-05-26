@@ -26,10 +26,12 @@ type PostsDeps struct {
 }
 
 // PostsTxDeps —— transactional post CRUD (create + update + delete) 用。
-// 需要 Assets 让 asset 行 + storage blob 跟 post 同事务维护。
+// 需要 Assets 让 asset 行 + storage blob 跟 post 同事务维护；需要
+// PostLinks 同事务重建 [[crosslink]] 边表。
 type PostsTxDeps struct {
-	Posts  *postgres.PostRepo
-	Assets AssetsDeps
+	Posts     *postgres.PostRepo
+	PostLinks *postgres.PostLinkRepo
+	Assets    AssetsDeps
 }
 
 // PublishPost —— 草稿 → 已发布。

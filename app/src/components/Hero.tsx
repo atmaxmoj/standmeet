@@ -17,6 +17,7 @@ type Props = {
   setInput: (v: string) => void;
   onAsk: (q: string) => void;
   pending: boolean;
+  lockedReason: string | null;
   inputRef: RefObject<HTMLInputElement | null>;
 };
 
@@ -31,6 +32,7 @@ export function Hero(props: Props) {
           onChange={props.setInput}
           onSubmit={props.onAsk}
           disabled={props.pending}
+          lockedReason={props.lockedReason}
           inputRef={props.inputRef}
         />
         <Examples items={props.content.hero_examples} onPick={props.onAsk} />

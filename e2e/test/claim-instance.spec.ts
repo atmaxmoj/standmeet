@@ -29,8 +29,10 @@ test.describe.serial('owner claims a fresh instance via /setup', () => {
       // 入口 fixture goto('/') 之后：unclaimed → server redirect 到 /setup?t=...
       await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
 
-      await fillIdentityStep(page);
-      await fillCredentialsStep(page);
+      await fillIdentityStep(page);       // step 1 → 2
+      await fillCredentialsStep(page);    // step 2 → 3
+      await fillProviderStepSkip(page);   // step 3 → 4 (AI key 可空, admin 后台补)
+      await fillVerifyStep(page);         // step 4 → submit
       await expectLandedOnAdmin(page);
     });
 });
@@ -47,6 +49,23 @@ async function fillCredentialsStep(page: Page): Promise<void> {
   await page.getByTestId('email').fill(OWNER.email);
   await page.getByTestId('password').fill(OWNER.password);
   await page.getByTestId('password-confirm').fill(OWNER.password);
+  await page.getByTestId('next').click();
+}
+
+async function fillProviderStepSkip(page: Page): Promise<void> {
+  // AI provider step 留空（"you can skip this for now and configure later
+  // under admin → account" — 设计明示）。直接 next 进 verify。
+  await expect(page.getByTestId('setup-ai-key')).toBeVisible({ timeout: 5_000 });
+  await page.getByTestId('next').click();
+}
+
+async function fillVerifyStep(page: Page): Promise<void> {
+  // arithmetic captcha: 从页面文字抽 "a + b =" 算出来。
+  const captchaText = await page.locator('text=/^\\s*\\d+\\s*\\+\\s*\\d+\\s*=/').first().textContent();
+  const m = (captchaText ?? '').match(/(\d+)\s*\+\s*(\d+)/);
+  if (!m) throw new Error('captcha question not found');
+  const answer = String(Number(m[1]) + Number(m[2]));
+  await page.getByTestId('setup-captcha').fill(answer);
   await page.getByTestId('submit').click();
 }
 

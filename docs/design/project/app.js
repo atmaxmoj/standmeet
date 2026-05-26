@@ -88,8 +88,9 @@ function Footer({ content }) {
           <span className="mx-2 text-faint">·</span>
           <span>grounded retrieval, no open-web fallback</span>
         </div>
-        <div>
-          <span className="text-faint">standmeet · </span>
+        <div className="flex items-baseline gap-3">
+          <a className="hover:text-ink transition-colors" href="blog.html">writing →</a>
+          <span className="text-faint">·</span>
           <a className="hover:text-ink transition-colors" href="admin.html">admin ↗</a>
         </div>
       </div>
@@ -231,10 +232,73 @@ function Citations({ cites }) {
   );
 }
 
+function ToolCallBlock({ tool, result }) {
+  if (!result) return null;
+  const headerCls = "mono text-[10px] tracking-[0.16em] uppercase";
+  if (result.kind === 'calendar') {
+    return (
+      <div className="border border-rule bg-surface/40 mt-3 mb-1 rounded-sm">
+        <div className="flex items-baseline justify-between px-3 py-1.5 border-b border-rule/70">
+          <span className={headerCls} style={{ color: 'var(--accent)' }}>⌖ tool · {tool}</span>
+          <span className={headerCls} style={{ color: 'var(--faint)', letterSpacing: '0.1em' }}>3 slots offered</span>
+        </div>
+        <div className="px-3 py-2">
+          {result.slots.map((s, i) => (
+            <div key={i} className="grid grid-cols-[140px_1fr_auto] gap-3 items-baseline py-1.5 border-b border-rule/40 last:border-0">
+              <span className="mono text-[11.5px] text-ink">{s.day}</span>
+              <span className="mono text-[11.5px] text-muted">{s.time}</span>
+              <button className="mono text-[10px] tracking-[0.16em] uppercase text-muted hover:text-accent">book →</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (result.kind === 'booking') {
+    return (
+      <div className="border border-accent/50 bg-paper/60 mt-3 mb-1 rounded-sm">
+        <div className="flex items-baseline justify-between px-3 py-2">
+          <span className={headerCls} style={{ color: 'var(--accent)' }}>✓ booked · {tool}</span>
+          <a href="#" className="mono text-[10px] tracking-[0.1em] text-muted hover:text-ink">{result.ics} ↓</a>
+        </div>
+      </div>
+    );
+  }
+  if (result.kind === 'image') {
+    return (
+      <figure className="mt-3 mb-1" style={{ maxWidth: '460px' }}>
+        <div style={{
+          aspectRatio: '4/3',
+          background: 'linear-gradient(135deg, color-mix(in oklab, var(--amber) 18%, transparent) 0%, transparent 50%, color-mix(in oklab, var(--ink) 10%, transparent) 100%), repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in oklab, var(--ink) 4%, transparent) 6px 7px), var(--surface)',
+          border: '1px solid var(--rule)',
+          borderRadius: 3,
+          position: 'relative',
+        }}>
+          <span className="mono" style={{ position: 'absolute', bottom: 6, left: 8, fontSize: 9, letterSpacing: '0.06em', color: 'var(--paper)', background: 'color-mix(in oklab, var(--ink) 80%, transparent)', padding: '1px 5px' }}>
+            IMG · {result.dims || '—'}
+          </span>
+        </div>
+        {result.caption && <figcaption className="mono text-[10px] text-faint mt-2 tracking-[0.06em]">{result.caption}</figcaption>}
+      </figure>
+    );
+  }
+  if (result.kind === 'file') {
+    return (
+      <div className="mt-3 mb-1 inline-flex items-baseline gap-3 px-3 py-2 border border-rule rounded-sm">
+        <span className="mono text-[12px] text-accent">▤</span>
+        <span className="mono text-[11.5px] text-ink">{result.label}</span>
+        <span className="mono text-[10px] text-faint">· {result.size_kb} kb</span>
+        <a href="#" className="mono text-[10px] tracking-[0.16em] uppercase text-muted hover:text-accent ml-2">download ↓</a>
+      </div>
+    );
+  }
+  return null;
+}
+
 function AnswerBody({ answer }) {
   return (
     <div>
-      {answer.private && !answer.byoaiBlocked && (
+      {answer.private && !answer.byoaiBlocked && !answer.byoaiError && (
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-accent mb-3">
           private · layered access
         </div>
@@ -244,11 +308,19 @@ function AnswerBody({ answer }) {
           public scope only · need a code
         </div>
       )}
-      <div className={(answer.private || answer.byoaiBlocked) ? 'pl-5 border-l-2 border-accent/40' : ''}>
+      {answer.byoaiError && (
+        <div className="mono text-[10px] tracking-[0.18em] uppercase text-accent mb-3">
+          ⚠ byoai · {answer.byoaiError}
+        </div>
+      )}
+      <div className={(answer.private || answer.byoaiBlocked || answer.byoaiError) ? 'pl-5 border-l-2 border-accent/40' : ''}>
         {answer.paras.map((p, i) => (
           <p key={i} className="reading mb-4 last:mb-0" style={{ fontSize: '18px' }}>{p}</p>
         ))}
       </div>
+      {answer.tool_calls && answer.tool_calls.map((tc, i) => (
+        <ToolCallBlock key={i} tool={tc.tool} result={tc.result} />
+      ))}
       {answer.cta && (
         <div className="mt-5">
           <a href={answer.cta.href} className="link mono text-[12.5px] tracking-[0.02em]">
@@ -551,7 +623,7 @@ function ByoaiBanner({ provider }) {
   );
 }
 
-function CodedBanner({ code, visitor }) {
+function CodedBanner({ code, visitor, quota }) {
   // small label-table for known codes so the banner can name the slice
   const CODE_LABEL = {
     'OAEN-3K2': 'OpenAI eng loop',
@@ -559,6 +631,7 @@ function CodedBanner({ code, visitor }) {
     'STRA-5T8': 'Stripe advisor chat',
   };
   const label = CODE_LABEL[code] || 'invited';
+  const warn = quota && (quota.used / quota.max) >= 0.8;
   return (
     <div className="mx-6 lg:mx-0 mt-6 max-w-[760px] lg:mx-auto">
       <div className="relative border border-accent/40 bg-paper/60 px-4 py-3 flex items-baseline justify-between gap-4 flex-wrap">
@@ -575,12 +648,267 @@ function CodedBanner({ code, visitor }) {
               <span className="text-muted">you · <span className="text-ink normal-case tracking-[0.04em]">{visitor}</span></span>
             </>
           )}
+          {quota && (
+            <>
+              <span className="text-faint">·</span>
+              <span className={warn ? 'text-accent' : 'text-muted'}>
+                {quota.used}/{quota.max} turns{warn ? ' · running low' : ''}
+              </span>
+            </>
+          )}
         </div>
         <div className="mono text-[10px] tracking-[0.14em] uppercase flex items-baseline gap-4">
           <span className="text-faint normal-case tracking-[0.06em]">sijie reviews transcripts</span>
           <a href="?" className="text-faint hover:text-ink transition-colors">exit session</a>
         </div>
       </div>
+    </div>
+  );
+}
+
+function VisitorNamePicker({ code, expected = [], onPick }) {
+  const [name, setName] = React.useState('');
+  const [going, setGoing] = React.useState(false);
+  const start = (n) => {
+    if (!n.trim()) return;
+    setGoing(true);
+    setTimeout(() => onPick(n.trim()), 500);
+  };
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 60,
+      background: 'color-mix(in oklab, var(--ink) 40%, transparent)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
+      <div className="rise" style={{ background: 'var(--paper)', border: '1px solid var(--rule)', borderRadius: 3, width: '100%', maxWidth: 580 }}>
+        <div style={{ padding: '20px 28px', borderBottom: '1px solid var(--rule)' }}>
+          <div className="mono text-[10px] tracking-[0.2em] uppercase text-muted">access granted · code {code}</div>
+          <div className="font-serif" style={{ fontSize: 22, fontWeight: 400, marginTop: 4 }}>Who's reading?</div>
+        </div>
+        <div style={{ padding: '20px 28px' }}>
+          <p className="reading text-ink" style={{ fontSize: 16, marginBottom: 14 }}>
+            One last thing before the chat starts — is this you, or someone new on the panel? Sijie sees this in the transcript later.
+          </p>
+          {expected.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted mb-2">expected on this code</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {expected.map((m, i) => (
+                  <button key={i} onClick={() => start(m.name)} disabled={going} className="flex items-baseline justify-between px-4 py-3 border border-rule hover:border-ink transition-colors rounded-sm" style={{ background: 'var(--paper)', cursor: 'pointer', textAlign: 'left' }}>
+                    <span style={{ fontFamily: "'Newsreader',serif", fontSize: 16 }}>I'm <span style={{ fontWeight: 500 }}>{m.name}</span></span>
+                    <span className="mono text-[10px] tracking-[0.1em] text-faint">last seen {m.last}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted mb-2">{expected.length > 0 ? 'or — someone new' : 'your name'}</div>
+          <form onSubmit={(e) => { e.preventDefault(); start(name); }} className="flex items-baseline gap-3 border border-rule rounded-sm px-4 py-3">
+            <span className="text-accent font-serif shrink-0" style={{ fontSize: 20, lineHeight: 1 }}>›</span>
+            <input type="text" value={name} onChange={(e)=>setName(e.target.value)} placeholder="your name" autoFocus
+              className="flex-1 bg-transparent reading text-ink placeholder:text-faint min-w-0"
+              style={{ fontSize: 16 }} />
+            <button type="submit" disabled={going || !name.trim()} className="mono text-[10.5px] tracking-[0.14em] uppercase text-muted hover:text-accent disabled:text-faint">
+              start ↵
+            </button>
+          </form>
+          {going && (
+            <div className="mono text-[10.5px] tracking-[0.16em] uppercase text-accent mt-4">
+              starting chat<span className="dot">·</span><span className="dot">·</span><span className="dot">·</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHATROOM — focused chat layout for invited / BYOAI visitors. No marketing scroll.
+// Header (identity + banner) → scrollable transcript → sticky composer at bottom.
+
+function ChatComposer({ input, setInput, onSubmit, pending, suggestedPrompts }) {
+  return (
+    <div className="sticky bottom-0 z-30 bg-paper/95 backdrop-blur border-t border-rule pt-4 pb-5 -mx-6 lg:-mx-0 px-6 lg:px-0">
+      <div className="max-w-[760px] mx-auto">
+        {suggestedPrompts && suggestedPrompts.length > 0 && (
+          <div className="flex flex-wrap gap-x-1 gap-y-2 mb-3 overflow-x-auto scroll-thin">
+            <span className="mono text-[10px] tracking-[0.18em] uppercase text-faint mr-3 shrink-0 pt-0.5">try</span>
+            {suggestedPrompts.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => onSubmit(q)}
+                disabled={pending}
+                className="font-serif italic text-muted hover:text-accent transition-colors text-left disabled:opacity-50 shrink-0"
+                style={{ fontSize: '14.5px', lineHeight: 1.4 }}
+              >
+                "{q}"
+                {i < suggestedPrompts.length - 1 && <span className="text-faint not-italic mx-2">/</span>}
+              </button>
+            ))}
+          </div>
+        )}
+        <form
+          onSubmit={(e) => { e.preventDefault(); if (!pending && input.trim()) onSubmit(input.trim()); }}
+        >
+          <div className="flex items-baseline gap-4 py-3 border-t border-b border-ink relative">
+            <span className="text-accent font-serif shrink-0" style={{ fontSize: '26px', lineHeight: 1 }}>›</span>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="ask sijie's ai…"
+              disabled={pending}
+              className="flex-1 bg-transparent text-ink placeholder:text-faint font-serif min-w-0"
+              style={{ fontSize: '22px', lineHeight: 1.3, fontWeight: 380 }}
+              autoComplete="off"
+              spellCheck="false"
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={pending || !input.trim()}
+              className="mono text-[11.5px] tracking-[0.18em] uppercase text-muted hover:text-accent disabled:text-faint transition-colors shrink-0 pt-1"
+            >
+              ask <span className="text-[14px]">↵</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ChatWelcome({ content, mode, visitor, codeLabel, byoaiProvider }) {
+  return (
+    <article className="pt-10 pb-10 border-b border-rule">
+      <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-accent mb-3">
+        sijie's ai · ready
+      </div>
+      <div className="reading text-ink" style={{ fontSize: '17px', maxWidth: '54ch' }}>
+        {mode === 'coded' && (
+          <>
+            <p>
+              Hi{visitor ? ', ' + visitor.split(' ')[0] : ''}. I'm an AI grounded in {content.owner.full}'s
+              curated corpus. You've come in on the{' '}
+              <span className="text-accent">{codeLabel}</span> slice, which is what sijie scoped for this
+              conversation — work, thinking, fit-related questions, and the bits of his background relevant
+              to this loop.
+            </p>
+            <p className="mt-4">
+              Private topics (fundraising, the inside story of why he left a previous role) are out of scope
+              on this code — I'll say so plainly when you hit one. Everything else is on the record;
+              sijie reads the transcripts afterward.
+            </p>
+            <p className="mt-4">
+              Ask anything. Three starters below if you need a way in.
+            </p>
+          </>
+        )}
+        {mode === 'byoai' && (
+          <>
+            <p>
+              Hi. I'm an AI grounded in {content.owner.full}'s curated corpus. You're running on your own
+              {' '}<span className="text-accent">{byoaiProvider}</span> key — you pay for inference, he
+              pays for retrieval, and I only have access to the public slice of the corpus.
+            </p>
+            <p className="mt-4">
+              Work, projects, public takes — fair game. Private topics return a "need a code" response
+              with a path to request one. Ask away.
+            </p>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function ChatRoom({ content, mode, visitor, codeParam, byoaiProvider, dark, onToggleDark, conv, input, setInput, ask, pending, onReset }) {
+  // suggested starter prompts vary by mode
+  const codedStarters = [
+    'Walk me through your background.',
+    'What did you actually own at your last role?',
+    "What\u2019s a take you hold that most peers disagree with?",
+  ];
+  const byoaiStarters = [
+    'What are you working on right now?',
+    'How do you think about AI replacing engineers?',
+    'What is Lucerna actually solving?',
+  ];
+  const starters = mode === 'byoai' ? byoaiStarters : codedStarters;
+
+  const codeLabel = ({
+    'OAEN-3K2': 'OpenAI eng loop',
+    'A16Z-9V1': 'a16z partner intro',
+    'STRA-5T8': 'Stripe advisor chat',
+  })[codeParam] || 'invited';
+
+  // hide starters once visitor has asked anything
+  const showStarters = conv.length === 0;
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* slim top: brand left, identity + banner full-width right */}
+      <header className="flex items-center justify-between px-6 lg:px-10 py-3 border-b border-rule shrink-0 gap-4 sticky top-0 bg-paper/95 backdrop-blur z-20">
+        <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3 shrink-0">
+          <span className="text-ink">standmeet</span>
+          <span className="text-faint">/</span>
+          <span className="text-muted">{content.owner.handle}</span>
+          <span className="ml-2 inline-flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent live-dot"></span>
+            <span className="text-faint text-[10px] tracking-[0.16em]">live</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-5 shrink-0">
+          {conv.length > 0 && (
+            <button
+              onClick={onReset}
+              className="mono text-[10.5px] tracking-[0.14em] uppercase text-muted hover:text-accent transition-colors"
+            >
+              ↺ reset
+            </button>
+          )}
+          <button
+            onClick={onToggleDark}
+            className="mono text-[10.5px] tracking-[0.14em] uppercase text-muted hover:text-ink transition-colors"
+          >
+            {dark ? 'light' : 'dark'}
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 flex flex-col">
+        <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col">
+          <ChatWelcome
+            content={content}
+            mode={mode}
+            visitor={visitor}
+            codeLabel={codeLabel}
+            byoaiProvider={byoaiProvider}
+          />
+
+          {/* transcript */}
+          <div className="flex-1">
+            {conv.map((it, i) => <Turn key={it.id} idx={i} item={it} />)}
+          </div>
+
+          <ChatComposer
+            input={input}
+            setInput={setInput}
+            onSubmit={(q) => ask(q)}
+            pending={pending}
+            suggestedPrompts={showStarters ? starters : null}
+          />
+
+          <p className="mono text-[10px] leading-[1.7] text-faint mt-3 mb-10">
+            <span className="text-muted">how this works</span> · answers come from {content.owner.full}'s curated corpus.
+            private topics return a redaction with next-steps rather than a guess.
+            {mode === 'coded' && <> sijie reads the transcript afterward.</>}
+            {mode === 'byoai' && <> your api key never leaves the browser.</>}
+          </p>
+        </div>
+      </main>
     </div>
   );
 }
@@ -597,6 +925,27 @@ function App() {
   const byoaiProvider = urlParams.get('p') || 'claude';
   const codeParam   = urlParams.get('c');
   const visitorName = urlParams.get('v');
+
+  // Mock per-code quota lookup — wired up via the same CODE_LABEL pool in CodedBanner.
+  // In production this comes from the backend on session start.
+  const CODE_META = {
+    'OAEN-3K2': { quota: { used: 11, max: 50 }, members: [{ name:'David Chen', last:'12 min ago' }, { name:'Sarah Park', last:'2 hours ago' }] },
+    'A16Z-9V1': { quota: { used: 24, max: 30 }, members: [{ name:'Mira Yoshida', last:'2 days ago' }, { name:'James Liu', last:'3 days ago' }] },
+    'STRA-5T8': { quota: { used: 5,  max: 20 }, members: [{ name:'Erin Bates', last:'6 days ago' }] },
+  };
+  const codeMeta = codeParam ? CODE_META[codeParam] : null;
+  const quota = codeMeta ? codeMeta.quota : null;
+  const expected = codeMeta ? codeMeta.members : [];
+
+  // need-to-pick state: coded but no visitor name in URL → show picker once
+  const [pickedVisitor, setPickedVisitor] = useState(visitorName);
+  const needsPicker = codeParam && !pickedVisitor;
+  const onPickVisitor = (n) => {
+    setPickedVisitor(n);
+    const p = new URLSearchParams(window.location.search);
+    p.set('v', n);
+    window.history.replaceState({}, '', window.location.pathname + '?' + p.toString());
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -615,6 +964,8 @@ function App() {
     setConv((c) => [...c, { id, q, time: nowHM(), viaMenu, key: knownKey || null, pending: true, answer: null }]);
     setInput('');
     setPending(true);
+    // tick the shared session quota so all surfaces stay in sync
+    if (window.SMSession) window.SMSession.consume(1);
     setTimeout(() => {
       const key = knownKey || routeQuery(q);
       let ans = ANSWERS[key] || ANSWERS._unknown;
@@ -663,11 +1014,45 @@ function App() {
 
   const askedKeys = new Set(conv.map((c) => c.key).filter(Boolean));
 
+  // dedicated chat layout for invited / BYOAI visitors; otherwise the long-scroll landing
+  if (codeParam || byoai) {
+    const mode = byoai ? 'byoai' : 'coded';
+    return (
+      <>
+        {needsPicker && <VisitorNamePicker code={codeParam} expected={expected} onPick={onPickVisitor} />}
+        {window.SM && window.SM.SessionStrip && <window.SM.SessionStrip />}
+        <ChatRoom
+          content={content}
+          mode={mode}
+          visitor={visitorName}
+          codeParam={codeParam}
+          byoaiProvider={byoaiProvider}
+          dark={dark}
+          onToggleDark={() => setDark((d) => !d)}
+          conv={conv}
+          input={input}
+          setInput={setInput}
+          ask={ask}
+          pending={pending}
+          onReset={() => setConv([])}
+        />
+        <TweaksPanel title="tweaks">
+          <TweakSection label="appearance" />
+          <TweakColor
+            label="accent"
+            value={t.accent}
+            options={['#B5391C', '#2C4A7C', '#5E6E2F', '#1B1814']}
+            onChange={(v) => setTweak('accent', v)}
+          />
+          <TweakToggle label="dark mode" value={dark} onChange={(v) => setDark(v)} />
+        </TweaksPanel>
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <TopBar dark={dark} onToggleDark={() => setDark((d) => !d)} />
-      {byoai && <ByoaiBanner provider={byoaiProvider} />}
-      {!byoai && codeParam && <CodedBanner code={codeParam} visitor={visitorName} />}
 
       <main className="flex-1">
         <div className="max-w-[760px] mx-auto px-6 lg:px-0">

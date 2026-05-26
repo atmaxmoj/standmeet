@@ -160,7 +160,54 @@ func runSaveInTx(
 	finalPost, werr := writePostBody(ctx, &writeBodyArgs{
 		Deps: deps, Tx: tx, Post: &post, In: in, Rewrite: rewriteFromPrepared(prepared),
 	})
-	return saveCommitted{Post: finalPost, Prepared: prepared}, werr
+	if werr != nil {
+		return saveCommitted{Post: finalPost, Prepared: prepared}, werr
+	}
+	if lerr := refreshCrossLinks(ctx, deps, tx, &finalPost); lerr != nil {
+		return saveCommitted{Post: finalPost, Prepared: prepared}, lerr
+	}
+	return saveCommitted{Post: finalPost, Prepared: prepared}, nil
+}
+
+// refreshCrossLinks —— 用 finalPost.BodyMD（已经把 pending-asset / cover ref
+// rewrite 完）抽 `[[X]]`，按 slug / title resolve 到其它 post.id，重建
+// post_links 表里这个 src 的出度。HasCrossLinks 短路避免没用到的 post 也
+// 跑一遍 owner posts 列查询。
+func refreshCrossLinks(
+	ctx context.Context, deps PostsTxDeps, tx pgx.Tx, post *domain.Post,
+) error {
+	if !HasCrossLinks(post.BodyMD) {
+		// body 没有 [[ ]] —— 仍要清掉之前可能存的边（owner 删了 link 也算）。
+		if err := deps.PostLinks.ReplaceLinksBySrcTx(
+			ctx, tx, post.ID, post.OwnerID, nil,
+		); err != nil {
+			return fmt.Errorf("clear crosslinks: %w", err)
+		}
+		return nil
+	}
+	candidates, lerr := deps.Posts.ListByOwner(ctx, post.OwnerID)
+	if lerr != nil {
+		return fmt.Errorf("list owner posts for crosslink resolve: %w", lerr)
+	}
+	dstIDs := resolveAndDedupForOwner(post.BodyMD, candidates)
+	// 排除 self-link（src == dst）—— 没意义且让 backlink UI 显示自指。
+	dstIDs = excludeSelf(dstIDs, post.ID)
+	if err := deps.PostLinks.ReplaceLinksBySrcTx(
+		ctx, tx, post.ID, post.OwnerID, dstIDs,
+	); err != nil {
+		return fmt.Errorf("rewrite crosslinks: %w", err)
+	}
+	return nil
+}
+
+func excludeSelf(ids []string, selfID string) []string {
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id != selfID {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // rewriteFromPrepared —— 从 PreparedAsset 列表 build pending-id → real-id

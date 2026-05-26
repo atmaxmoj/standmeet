@@ -24,6 +24,7 @@ import {
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull, readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
+import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 export type Citation = {
   // kind 决定渲染链接前缀：wiki → /wiki/<slug>，output → /output/<slug>。
@@ -108,6 +109,9 @@ async function runAsk(
     const sess = await ensureSession(sessionRef, deps);
     const byoai = await wrapBYOAIHeadersFor(deps, sess);
     await streamInto(sess, q, id, setTurns, byoai);
+    // 成功 → quota 客户端 +1。server 不再 echo（同 visitor 单线增长，client
+    // 算得准）。失败不计 —— 模型异常 / 拒码不该扣额。
+    bumpVisitorQuota();
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);
@@ -119,6 +123,12 @@ async function runAsk(
 
 function newPendingTurn(id: string, q: string): Turn {
   return { id, q, time: nowHM(), pending: true, answer: null };
+}
+
+// bumpVisitorQuota —— 一轮 chat 成功后让 SessionStrip 进度条 +1。
+// 跨 tab / 同 tab 全靠 store 自带的 storage event / 自定义事件传播。
+function bumpVisitorQuota(): void {
+  useVisitorSessionStore.getState().consume(1);
 }
 
 function nowHM(): string {

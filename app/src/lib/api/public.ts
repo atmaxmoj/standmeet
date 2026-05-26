@@ -85,6 +85,13 @@ export type { IssueSessionInput };
 // body_md 是 GitHub-flavored markdown 原文，render 端用 react-markdown +
 // remark-gfm 直渲。不存中间块结构。
 
+// BacklinkRef —— /blog/<slug> "linked from" section 的一条 backlink。后端
+// 渲染时收集，源 post 必须 published。
+export interface BacklinkRef {
+  slug: string;
+  title: string;
+}
+
 export interface PostView {
   id: string;
   slug: string;
@@ -103,6 +110,7 @@ export interface PostView {
   locked_body?: string;
   published_at?: string;
   asset_urls?: Record<string, string>;
+  backlinks?: BacklinkRef[];
 }
 
 async function fetchJSON<T>(path: string): Promise<T> {

@@ -188,6 +188,7 @@ type runtimeDeps struct {
 	mcpServerRepo     *postgres.MCPServerRepo
 	assetRepo         *postgres.AssetRepo
 	postRepo          *postgres.PostRepo
+	postLinkRepo      *postgres.PostLinkRepo
 	sandboxRunner     sandbox.Runner
 	storageClient     *storage.Client
 	jobCachePool      *jobcache.Pool

@@ -1,31 +1,74 @@
 @import "tailwindcss";
+@import "./sm-atoms.css";
+@import "./sm-mobile.css";
 
-/* StandMeet design tokens —— 来源：docs/design/project/index.html。
-   warm cream paper + ink + vermillion accent；JetBrains Mono + Newsreader 双字体。 */
+/* StandMeet design tokens —— canonical source: docs/design/project/sm-tokens.css。
+   warm cream paper + ink + vermillion accent + amber/violet/acid 辅助色；
+   Newsreader serif (body) + JetBrains Mono (label/meta) 双字体。 */
 @theme {
-  --color-paper:   #F3EFE6;
-  --color-surface: #ECE6D8;
-  --color-ink:     #1B1814;
-  --color-muted:   #7A7167;
-  --color-faint:   #B0A89A;
-  --color-rule:    #DCD3BF;
-  --color-accent:  #B5391C;
+  --color-paper:        #F3EFE6;
+  --color-surface:      #ECE6D8;
+  --color-raised:       #E5DECC;
+  --color-ink:          #1B1814;
+  --color-muted:        #7A7167;
+  --color-faint:        #B0A89A;
+  --color-rule:         #DCD3BF;
+  --color-accent:       #B5391C;
+  --color-accent-soft:  #D9744C;
+  --color-amber:        #C7892F;
+  --color-violet:       #7A4D9E;
+  --color-acid:         #6F8A2F;
 
   --font-serif: 'Newsreader', Georgia, serif;
   --font-mono:  'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* —— 跟 Tailwind 不挂钩的设计 token：type scale / tracking / motion。
+   组件用 `var(--t-h-l)` / `var(--tk-cap)` 之类直接消费；放 :root 让
+   sm-atoms.css 跟所有 component CSS 都看得见。 */
+:root {
+  --t-mono-9:  9px;
+  --t-mono-10: 10px;
+  --t-mono-11: 11px;
+  --t-mono-12: 12.5px;
+  --t-mono-13: 13px;
+  --t-body:    16px;
+  --t-body-l:  18px;
+  --t-body-xl: 21px;
+  --t-h-s:     22px;
+  --t-h-m:     30px;
+  --t-h-l:     48px;
+  --t-h-xl:    72px;
+
+  --tk-tight:  -0.022em;
+  --tk-snug:   -0.012em;
+  --tk-body:   -0.003em;
+  --tk-mono:    0.04em;
+  --tk-label:   0.14em;
+  --tk-cap:     0.18em;
+  --tk-cap-x:   0.22em;
+
+  --m-rise:   .35s cubic-bezier(.2,.7,.2,1);
+  --m-fade:   .25s ease;
+  --m-snap:   .15s ease;
 }
 
 /* dark mode via .dark class on <html> (TopBar 切换写 localStorage)。系统
    级 prefers-color-scheme 不再走 @media —— useTheme hook 首次访问读
    一次 prefers，之后由 user 在 TopBar 切换控制。 */
 html.dark {
-  --color-paper:   #14110D;
-  --color-surface: #1C1812;
-  --color-ink:     #E8E2D5;
-  --color-muted:   #837C6F;
-  --color-faint:   #4D473D;
-  --color-rule:    #2A251D;
-  --color-accent:  #D14E2E;
+  --color-paper:        #14110D;
+  --color-surface:      #1C1812;
+  --color-raised:       #221C15;
+  --color-ink:          #E8E2D5;
+  --color-muted:        #837C6F;
+  --color-faint:        #4D473D;
+  --color-rule:         #2A251D;
+  --color-accent:       #D14E2E;
+  --color-accent-soft:  #E97A52;
+  --color-amber:        #D9A14B;
+  --color-violet:       #A77CC9;
+  --color-acid:         #9CB85E;
 }
 
 html, body {

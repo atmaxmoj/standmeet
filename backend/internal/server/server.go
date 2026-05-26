@@ -64,6 +64,7 @@ type AdminDeps struct {
 	MCPServers     usecases.MCPServersDeps
 	Assets         usecases.AssetsDeps
 	Posts          usecases.PostsDeps
+	PostLinks      *postgres.PostLinkRepo
 	Codes          *postgres.CodeRepo
 	Owners         *postgres.OwnerRepo
 	Sessions       *session.OwnerSessionStore
@@ -134,7 +135,8 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		PostsAdmin: adminroutes.PostsAdminDeps{
 			Posts: deps.Admin.Posts,
 			PostsTx: usecases.PostsTxDeps{
-				Posts: deps.Admin.Posts.Posts, Assets: deps.Admin.Assets,
+				Posts: deps.Admin.Posts.Posts, PostLinks: deps.Admin.PostLinks,
+				Assets: deps.Admin.Assets,
 			},
 		},
 		Obsidian: adminroutes.ObsidianDeps{
@@ -142,7 +144,8 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Assets:  deps.Admin.Assets.Repo,
 			Storage: deps.Admin.Assets.Storage,
 			PostsTx: usecases.PostsTxDeps{
-				Posts: deps.Admin.Posts.Posts, Assets: deps.Admin.Assets,
+				Posts: deps.Admin.Posts.Posts, PostLinks: deps.Admin.PostLinks,
+				Assets: deps.Admin.Assets,
 			},
 		},
 		Log:          deps.Log,
@@ -176,10 +179,11 @@ func mountPublic(r chi.Router, deps *Deps) {
 			Deps: deps.PublicPasswordReset.Deps, Log: deps.Log,
 		}).Mount(r)
 		(&publicroutes.PostHandlers{
-			Posts:  deps.PublicPosts.Posts,
-			Page:   deps.PublicPosts.Page,
-			Assets: deps.Admin.Assets,
-			Log:    deps.Log,
+			Posts:     deps.PublicPosts.Posts,
+			CrossLink: deps.PublicPosts.CrossLink,
+			Page:      deps.PublicPosts.Page,
+			Assets:    deps.Admin.Assets,
+			Log:       deps.Log,
 		}).Mount(r)
 	})
 }

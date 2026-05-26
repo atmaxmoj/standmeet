@@ -119,3 +119,11 @@ SELECT id, owner_id, slug, title, excerpt, body_md,
        obsidian_source_path, obsidian_imported_at,
        published_at, created_at, updated_at
 FROM posts WHERE owner_id = $1 AND obsidian_source_path = $2;
+
+-- name: ListPublishedSlugAndTitle :many
+-- /blog 渲染 [[crosslink]] 时用：拉 owner 所有 published post 的 slug + title
+-- 当 resolution index，不带 body_md（避免 N+1 那种全 body 重传开销）。
+SELECT slug, title
+FROM posts
+WHERE owner_id = $1 AND published_at IS NOT NULL
+ORDER BY slug ASC;

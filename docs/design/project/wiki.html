@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>wiki · standmeet</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,300;1,6..72,400;1,6..72,500&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: {
+      colors: {
+        paper:'var(--paper)', surface:'var(--surface)', raised:'var(--raised)',
+        ink:'var(--ink)', muted:'var(--muted)', faint:'var(--faint)',
+        rule:'var(--rule)', accent:'var(--accent)',
+        amber:'var(--amber)', violet:'var(--violet)', acid:'var(--acid)',
+      },
+      fontFamily: { serif: ['Newsreader','Georgia','serif'], mono: ['"JetBrains Mono"','ui-monospace','monospace'] },
+    }}
+  };
+</script>
+
+<link rel="stylesheet" href="sm-tokens.css" />
+<link rel="stylesheet" href="sm-mobile.css" />
+
+<style>
+  /* article reading */
+  .article-body p { font-size: 21px; line-height: 1.65; margin-bottom: 1.4em; }
+  .article-body h2 { font-size: 26px; font-weight: 500; letter-spacing: -0.012em; margin: 2.4em 0 0.5em; line-height: 1.25; }
+  .article-body blockquote {
+    font-style: italic; font-size: 24px; line-height: 1.4;
+    letter-spacing: -0.008em;
+    color: var(--ink);
+    margin: 2.2em -24px;
+    padding: 4px 24px;
+    border-left: 3px solid var(--accent);
+  }
+
+  /* OG cover */
+  .og-cover {
+    aspect-ratio: 21 / 9;
+    border: 1px solid var(--rule);
+    position: relative; overflow: hidden;
+    container-type: inline-size;
+  }
+  .og-cover .h { position: absolute; top: 18%; left: 6%; font-family: 'Newsreader',serif; font-weight: 400; font-size: clamp(28px, 9cqi, 80px); line-height: 0.92; letter-spacing: -0.025em; color: var(--ink); max-width: 88%; }
+  .og-cover .s { position: absolute; bottom: 18%; right: 6%; font-family: 'Newsreader',serif; font-style: italic; font-weight: 380; font-size: clamp(20px, 6cqi, 48px); color: var(--muted); max-width: 60%; text-align: right; }
+  .og-cover .tag { position: absolute; top: 14px; left: 14px; font-family: 'JetBrains Mono',monospace; font-size: clamp(8px, 1.2cqi, 11px); letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  .og-cover .no  { position: absolute; bottom: 14px; left: 14px; font-family: 'JetBrains Mono',monospace; font-size: clamp(8px, 1.2cqi, 11px); letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); }
+  .og-cover.hue-amber  { background: radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--amber) 30%, transparent), transparent 70%), var(--surface); }
+  .og-cover.hue-violet { background: radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--violet) 22%, transparent), transparent 70%), var(--surface); }
+  .og-cover.hue-acid   { background: radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--acid) 26%, transparent), transparent 70%), var(--surface); }
+
+  /* gated overlay */
+  .lock-overlay {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:
+      repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in oklab, var(--ink) 8%, transparent) 6px 7px),
+      color-mix(in oklab, var(--paper) 80%, transparent);
+  }
+
+  /* ask sticky composer (uses sm-tokens .sm-composer but a bit tighter) */
+  .ask-strip {
+    position: sticky; bottom: 0; z-index: 30;
+    background: color-mix(in oklab, var(--paper) 94%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--rule);
+  }
+</style>
+</head>
+<body class="min-h-screen">
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="visitor-data.js"></script>
+<script src="sm-session.js"></script>
+<script type="text/babel" data-presets="react" src="sm-components.js"></script>
+<script type="text/babel" data-presets="react" src="wiki.js"></script>
+</body>
+</html>

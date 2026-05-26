@@ -5,7 +5,7 @@
 //  1. ![alt](standmeet-asset:<uuid>)   —— StandMeet 内部 URI（无需 rewrite）
 //  2. ![alt](attachments/foo.png)      —— export 出去的 portable 形态
 //  3. ![alt](path/to/foo.png "title")  —— Obsidian / 标准 markdown
-//  4. ![[foo.png]]                     —— Obsidian wikilink-embed
+//  4. ![[foo.png]]                     —— Obsidian crosslink-embed
 //
 // 1 是已 ingest 的；2/3/4 是 vault 里 owner 编辑过的 raw 引用，import 时
 // 必须找到 vault 里对应的 attachment file → upload MinIO → rewrite 成 1。

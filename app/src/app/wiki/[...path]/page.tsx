@@ -8,6 +8,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
+import { AskAboutThis } from '@/components/visitor/AskAboutThis';
+import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiLanding } from '@/lib/api/public';
 
@@ -37,15 +39,45 @@ export default async function WikiLandingPage({ params }: { params: Promise<Para
   const instance = await fetchInstance();
   const handle = instance.handle;
   return (
-    <article className="mx-auto max-w-2xl px-6 py-16" data-testid="wiki-landing">
-      <PageHeader />
-      <h1 className="reading-tight text-4xl font-normal mb-6">{wiki.title}</h1>
-      <p className="mono text-[10px] tracking-[0.12em] text-(--color-muted) mb-8">
-        from {handle}&apos;s corpus · updated {wiki.updated_at.slice(0, 10)}
+    <>
+      <SessionStrip />
+      <main className="pb-24">
+        <article className="mx-auto max-w-2xl px-6 py-16" data-testid="wiki-landing">
+          <PageHeader />
+          <Breadcrumb slug={path.join('/')} />
+          <h1 className="reading-tight text-4xl font-normal mb-6">{wiki.title}</h1>
+          <p className="mono text-[10px] tracking-[0.12em] text-(--color-muted) mb-8">
+            from {handle}&apos;s corpus · updated {wiki.updated_at.slice(0, 10)}
+          </p>
+          <WikiBody body={wiki.body} />
+          <TrustBox handle={handle} />
+        </article>
+        <AskAboutThis title={wiki.title} kind="wiki" />
+      </main>
+    </>
+  );
+}
+
+function Breadcrumb({ slug }: { slug: string }) {
+  return (
+    <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-6 flex items-baseline gap-2 flex-wrap">
+      <Link href="/blog" className="hover:text-(--color-ink)">writing</Link>
+      <span className="text-(--color-faint)">/</span>
+      <span className="text-(--color-ink)">wiki · {slug}</span>
+    </div>
+  );
+}
+
+function TrustBox({ handle }: { handle: string }) {
+  return (
+    <div className="mt-12 px-4 py-3 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1.5">about this entry</div>
+      <p className="reading text-(--color-muted) text-[13.5px] m-0">
+        One of {handle}&apos;s wiki entries. The AI on this site is grounded in the same
+        corpus, so you can ask follow-ups below and get answers in his voice with
+        citations back to entries like this one.
       </p>
-      <WikiBody body={wiki.body} />
-      <PageFooter handle={handle} />
-    </article>
+    </div>
   );
 }
 
@@ -65,12 +97,3 @@ function WikiBody({ body }: { body: string }) {
   );
 }
 
-function PageFooter({ handle }: { handle: string }) {
-  return (
-    <footer className="mt-16 pt-6 border-t border-(--color-rule)">
-      <Link href="/" className="link mono text-sm">
-        chat with {handle}&apos;s AI about this →
-      </Link>
-    </footer>
-  );
-}

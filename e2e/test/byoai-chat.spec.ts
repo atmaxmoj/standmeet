@@ -68,9 +68,12 @@ async function submitBYOAI(page: Page): Promise<void> {
 
 async function expectLandedWithBanner(page: Page): Promise<void> {
   // BYOAI 状态走 localStorage（use-gate persistSession），URL 上不挂 flag。
-  // page-shell mount 时读 store → 渲染 byoai banner。
+  // page-shell mount 时读 visitor-session store → SessionStrip 渲 is-byoai
+  // 状态（紫色 visitor-paid · unlimited）。
   await page.waitForURL('**/', { timeout: 10_000 });
-  await expect(page.getByTestId('byoai-banner')).toBeVisible();
+  const strip = page.getByTestId('session-strip');
+  await expect(strip).toBeVisible({ timeout: 5_000 });
+  await expect(strip).toContainText(/byoai/i);
 }
 
 async function visitorChats(page: Page): Promise<void> {
