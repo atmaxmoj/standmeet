@@ -3,9 +3,9 @@
 //
 // 设计源 docs/design/project/admin.js DraftsSection + DraftCard (1756-1822)。
 //
-// 注意：drafts 真实数据由 MCP `resume.draft` 起 + Redis 1d TTL 缓存（job
-// loop memory）。当前 admin 还没接 REST list endpoint —— 这一版用 mock
-// fixture，等后端 add `GET /api/admin/drafts` 时切真 fetch。
+// 数据走 GET /api/admin/drafts 真 fetch（后端 listResumeDraftsByOwner SQL
+// 已落）。Composer 打开的 model 仍走 mockDraft 占位 —— 详情 jsonb fetch +
+// patch endpoint 在后续 commit 上。
 
 'use client';
 
@@ -14,42 +14,24 @@ import { useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ResumeComposer } from '@/components/admin/ResumeComposer';
 import { mockDraft } from '@/lib/admin/draft-model';
-
-interface DraftCardData {
-  id: string;
-  company: string;
-  role: string;
-  forJob: string;
-  matchPct: number;
-  updatedAt: string;
-}
-
-const MOCK_DRAFTS: readonly DraftCardData[] = [
-  {
-    id: 'd-1', company: 'Anthropic',
-    role: 'Member of Technical Staff · retrieval',
-    forJob: 'anthropic-mts-retrieval-2026',
-    matchPct: 86, updatedAt: '4 minutes ago',
-  },
-  {
-    id: 'd-2', company: 'OpenAI',
-    role: 'Research Engineer · long-context',
-    forJob: 'openai-re-longctx-2026',
-    matchPct: 72, updatedAt: '2 hours ago',
-  },
-];
+import { listViewKind } from '@/lib/admin/list-view-kind';
+import {
+  useAdminDrafts,
+  type AdminDraftRow,
+} from '@/lib/admin/use-admin-drafts';
 
 export function DraftsSection() {
+  const { rows, loading, error } = useAdminDrafts();
   const [openId, setOpenId] = useState<string | null>(null);
   return (
     <>
       <SectionHeader
         kicker="outbound · resumes"
         title="drafts"
-        count={`${MOCK_DRAFTS.length} pending`}
+        count={titleCount(rows.length, loading)}
       />
       <Intro />
-      <DraftList drafts={MOCK_DRAFTS} onOpen={setOpenId} />
+      <DraftListBody rows={rows} loading={loading} error={error} onOpen={setOpenId} />
       {openId !== null && (
         <ResumeComposer
           initial={mockDraft(openId)}
@@ -59,6 +41,10 @@ export function DraftsSection() {
       )}
     </>
   );
+}
+
+function titleCount(n: number, loading: boolean): string {
+  return loading ? 'loading…' : `${n} pending`;
 }
 
 function Intro() {
@@ -71,24 +57,74 @@ function Intro() {
   );
 }
 
+function DraftListBody(props: {
+  rows: readonly AdminDraftRow[];
+  loading: boolean;
+  error: string | null;
+  onOpen: (id: string) => void;
+}) {
+  const kind = listViewKind(props.loading, props.error, props.rows.length);
+  const map = {
+    loading: <Loading />,
+    error: <LoadError msg={props.error ?? ''} />,
+    empty: <EmptyState />,
+    list: <DraftList rows={props.rows} onOpen={props.onOpen} />,
+  } as const;
+  return map[kind];
+}
+
+function Loading() {
+  return (
+    <p className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted)">
+      loading…
+    </p>
+  );
+}
+
+function LoadError({ msg }: { msg: string }) {
+  return (
+    <p
+      className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-accent)"
+      data-testid="drafts-error"
+    >
+      {msg}
+    </p>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="p-6 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/40 text-center">
+      <p className="font-serif text-(--color-ink) text-[18px]">No drafts pending.</p>
+      <p className="reading text-(--color-muted) text-[14px] mt-1.5 max-w-[36em] mx-auto">
+        Ask Claude to draft a resume from a shortlisted job listing
+        (MCP <code className="mono">resume.draft</code>) — it shows up here.
+      </p>
+    </div>
+  );
+}
+
 function DraftList({
-  drafts, onOpen,
-}: { drafts: readonly DraftCardData[]; onOpen: (id: string) => void }) {
+  rows, onOpen,
+}: {
+  rows: readonly AdminDraftRow[];
+  onOpen: (id: string) => void;
+}) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {drafts.map((d) => <DraftCard key={d.id} draft={d} onOpen={() => onOpen(d.id)} />)}
+      {rows.map((r) => <DraftCard key={r.id} row={r} onOpen={() => onOpen(r.id)} />)}
     </div>
   );
 }
 
 function DraftCard({
-  draft, onOpen,
-}: { draft: DraftCardData; onOpen: () => void }) {
+  row, onOpen,
+}: { row: AdminDraftRow; onOpen: () => void }) {
   return (
     <article className="border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors">
-      <DraftCardHead company={draft.company} role={draft.role} />
-      <DraftCardMeta matchPct={draft.matchPct} updatedAt={draft.updatedAt} />
-      <DraftCardActions onOpen={onOpen} draftId={draft.id} />
+      <DraftCardHead company={row.company} role={row.role} />
+      <DraftCardMeta updatedAt={row.updated_at} forJob={row.for_job} />
+      <DraftCardActions onOpen={onOpen} draftId={row.id} />
     </article>
   );
 }
@@ -106,14 +142,18 @@ function DraftCardHead({ company, role }: { company: string; role: string }) {
   );
 }
 
-function DraftCardMeta({ matchPct, updatedAt }: { matchPct: number; updatedAt: string }) {
+function DraftCardMeta({ updatedAt, forJob }: { updatedAt: string; forJob: string }) {
   return (
     <div className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) flex items-baseline gap-3 flex-wrap mb-4">
-      <span>match · <span className="text-(--color-ink) tabular-nums">{matchPct}%</span></span>
+      <span>updated {formatDate(updatedAt)}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>updated {updatedAt}</span>
+      <span>job · <span className="text-(--color-ink)">{forJob}</span></span>
     </div>
   );
+}
+
+function formatDate(iso: string): string {
+  return iso ? iso.slice(0, 10) : '—';
 }
 
 function DraftCardActions({ onOpen, draftId }: { onOpen: () => void; draftId: string }) {

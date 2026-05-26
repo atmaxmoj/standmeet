@@ -66,6 +66,8 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		PostLinks:      d.postLinkRepo,
 		Codes:          d.codeRepo,
 		Owners:         d.ownerRepo,
+		Drafts:         d.resumeDraftRepo,
+		Applications:   d.applicationRepo,
 		Sessions:       d.sessionStore,
 		SecureCookie:   d.secureCookie,
 	}

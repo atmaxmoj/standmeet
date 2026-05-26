@@ -1,9 +1,8 @@
-// ApplicationsSection —— /admin/applications。owner 看 job-loop 已发的
-// 申请。每条 card 点开 ApplicationDetailModal。
+// ApplicationsSection —— /admin/applications。
 //
-// 设计源 docs/design/project/admin.js ApplicationsSection (1910-1948)。
-//
-// Data: mock fixture（等后端 `GET /api/admin/applications` 落地切真 fetch）。
+// 数据走 GET /api/admin/applications 真 fetch；详情 modal 仍走 mock
+// applications-model（modal 当前 ApplicationDetailModal 期待 timeline /
+// notes / snapshot 等 jsonb 字段，row 上没有，等单条 detail endpoint）。
 
 'use client';
 
@@ -17,23 +16,33 @@ import {
   type Application,
   type ApplicationStatus,
 } from '@/lib/admin/applications-model';
+import { listViewKind } from '@/lib/admin/list-view-kind';
+import {
+  useAdminApplications,
+  type AdminApplicationRow,
+} from '@/lib/admin/use-admin-applications';
 
 export function ApplicationsSection() {
+  const { rows, loading, error } = useAdminApplications();
   const [opened, setOpened] = useState<Application | null>(null);
   return (
     <>
       <SectionHeader
         kicker="jobs · sent"
         title="applications"
-        count={`${MOCK_APPLICATIONS.length} sent`}
+        count={titleCount(rows.length, loading)}
       />
       <Intro />
-      <List apps={MOCK_APPLICATIONS} onOpen={setOpened} />
+      <ListBody rows={rows} loading={loading} error={error} onOpen={setOpened} />
       {opened && (
         <ApplicationDetailModal app={opened} onClose={() => setOpened(null)} />
       )}
     </>
   );
+}
+
+function titleCount(n: number, loading: boolean): string {
+  return loading ? 'loading…' : `${n} sent`;
 }
 
 function Intro() {
@@ -46,15 +55,38 @@ function Intro() {
   );
 }
 
-function List({
-  apps, onOpen,
-}: { apps: readonly Application[]; onOpen: (a: Application) => void }) {
+function ListBody(props: {
+  rows: readonly AdminApplicationRow[];
+  loading: boolean;
+  error: string | null;
+  onOpen: (a: Application) => void;
+}) {
+  const kind = listViewKind(props.loading, props.error, props.rows.length);
+  const map = {
+    loading: <Loading />,
+    error: <LoadError msg={props.error ?? ''} />,
+    empty: <EmptyState />,
+    list: <List rows={props.rows} onOpen={props.onOpen} />,
+  } as const;
+  return map[kind];
+}
+
+function Loading() {
   return (
-    <div className="space-y-3" data-testid="applications-list">
-      {apps.length === 0
-        ? <EmptyState />
-        : apps.map((a) => <Row key={a.id} app={a} onOpen={() => onOpen(a)} />)}
-    </div>
+    <p className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted)">
+      loading…
+    </p>
+  );
+}
+
+function LoadError({ msg }: { msg: string }) {
+  return (
+    <p
+      className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-accent)"
+      data-testid="applications-error"
+    >
+      {msg}
+    </p>
   );
 }
 
@@ -69,45 +101,82 @@ function EmptyState() {
   );
 }
 
-function Row({ app, onOpen }: { app: Application; onOpen: () => void }) {
+function List({
+  rows, onOpen,
+}: {
+  rows: readonly AdminApplicationRow[];
+  onOpen: (a: Application) => void;
+}) {
+  return (
+    <div className="space-y-3" data-testid="applications-list">
+      {rows.map((r) => (
+        <Row key={r.id} row={r} onOpen={() => onOpen(toDetailApp(r))} />
+      ))}
+    </div>
+  );
+}
+
+// toDetailApp —— list row 还没有 detail jsonb（notes / snapshot 等），
+// 暂时用 MOCK_APPLICATIONS 同 id 找匹配；找不到 fallback 一个最小 mock。
+// detail endpoint 落地后这层换 fetch by id。
+function toDetailApp(row: AdminApplicationRow): Application {
+  const mock = MOCK_APPLICATIONS.find((a) => a.id === row.id);
+  return mock ?? {
+    id: row.id,
+    company: row.company,
+    role: row.role,
+    sentAt: row.submitted_at,
+    method: 'autofill',
+    contact: '—',
+    notes: '',
+    status: (row.status as ApplicationStatus | undefined) ?? 'silent',
+    resumeDelta: '',
+  };
+}
+
+function Row({
+  row, onOpen,
+}: { row: AdminApplicationRow; onOpen: () => void }) {
   return (
     <button
       type="button" onClick={onOpen}
-      data-testid={`application-row-${app.id}`}
+      data-testid={`application-row-${row.id}`}
       className="w-full text-left border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors"
     >
-      <RowHead app={app} />
-      <RowMeta app={app} />
+      <RowHead row={row} />
+      <RowMeta row={row} />
     </button>
   );
 }
 
-function RowHead({ app }: { app: Application }) {
+function RowHead({ row }: { row: AdminApplicationRow }) {
   return (
     <div className="flex items-baseline justify-between gap-4 flex-wrap">
       <div>
         <span className="font-serif text-[17px] text-(--color-ink) font-medium">
-          {app.company}
+          {row.company}
         </span>
         <span className="font-serif italic text-[15px] text-(--color-muted) ml-2">
-          · {app.role}
+          · {row.role}
         </span>
       </div>
-      <StatusPill status={app.status} />
+      <StatusPill status={(row.status as ApplicationStatus | undefined) ?? 'silent'} />
     </div>
   );
 }
 
-function RowMeta({ app }: { app: Application }) {
+function RowMeta({ row }: { row: AdminApplicationRow }) {
   return (
     <div className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) flex items-baseline gap-3 flex-wrap mt-2">
-      <span>sent {app.sentAt}</span>
+      <span>sent {formatDate(row.submitted_at)}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>{app.method}</span>
-      <span className="text-(--color-faint)">·</span>
-      <span className="lowercase tracking-[0.04em]">{app.contact}</span>
+      <span>created {formatDate(row.created_at)}</span>
     </div>
   );
+}
+
+function formatDate(iso: string): string {
+  return iso === '' || iso.startsWith('0001') ? '—' : iso.slice(0, 10);
 }
 
 function StatusPill({ status }: { status: ApplicationStatus }) {

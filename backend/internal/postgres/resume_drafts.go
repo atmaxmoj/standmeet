@@ -133,6 +133,31 @@ func (r *ResumeDraftRepo) Delete(ctx context.Context, ownerID, id string) error 
 	return nil
 }
 
+// ListByOwner —— admin /drafts 视图：列 owner 未过期的 draft，按
+// created_at desc。1-day TTL 行不在列表里（filter 在 SQL 端做）。
+func (r *ResumeDraftRepo) ListByOwner(
+	ctx context.Context, ownerID string,
+) ([]domain.ResumeDraft, error) {
+	owner, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	q := dbq.New(r.pool)
+	rows, err := q.ListResumeDraftsByOwner(ctx, owner)
+	if err != nil {
+		return nil, fmt.Errorf("list resume drafts: %w", err)
+	}
+	out := make([]domain.ResumeDraft, 0, len(rows))
+	for i := range rows {
+		d, terr := toDomainResumeDraft(&rows[i])
+		if terr != nil {
+			return nil, terr
+		}
+		out = append(out, d)
+	}
+	return out, nil
+}
+
 // SweepExpired —— 后台 sweeper / cron 调；删 expires_at <= now() 的行。
 // 没有文件需要 unlink（PDF 从来不落盘）。
 func (r *ResumeDraftRepo) SweepExpired(ctx context.Context) error {

@@ -84,6 +84,42 @@ func (q *Queries) GetResumeDraft(ctx context.Context, arg GetResumeDraftParams) 
 	return i, err
 }
 
+const listResumeDraftsByOwner = `-- name: ListResumeDraftsByOwner :many
+SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, expires_at, created_at
+FROM resume_drafts
+WHERE owner_id = $1 AND expires_at > now()
+ORDER BY created_at DESC
+`
+
+// admin /drafts 视图：owner 未过期的 draft，按 created_at desc。
+func (q *Queries) ListResumeDraftsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ResumeDraft, error) {
+	rows, err := q.db.Query(ctx, listResumeDraftsByOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ResumeDraft
+	for rows.Next() {
+		var i ResumeDraft
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.JobCacheID,
+			&i.JobSnapshot,
+			&i.ResumeContent,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const sweepExpiredResumeDrafts = `-- name: SweepExpiredResumeDrafts :exec
 DELETE FROM resume_drafts WHERE expires_at <= now()
 `

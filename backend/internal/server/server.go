@@ -67,6 +67,8 @@ type AdminDeps struct {
 	PostLinks      *postgres.PostLinkRepo
 	Codes          *postgres.CodeRepo
 	Owners         *postgres.OwnerRepo
+	Drafts         *postgres.ResumeDraftRepo
+	Applications   *postgres.ApplicationRepo
 	Sessions       *session.OwnerSessionStore
 	SecureCookie   bool
 }
@@ -148,8 +150,10 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 				Assets: deps.Admin.Assets,
 			},
 		},
-		Log:          deps.Log,
-		SecureCookie: deps.Admin.SecureCookie,
+		DraftsAdmin:       adminroutes.DraftsAdminDeps{Drafts: deps.Admin.Drafts},
+		ApplicationsAdmin: adminroutes.ApplicationsAdminDeps{Apps: deps.Admin.Applications},
+		Log:               deps.Log,
+		SecureCookie:      deps.Admin.SecureCookie,
 	}
 }
 
