@@ -48,7 +48,13 @@ export function PostsSection() {
 }
 
 function titleCount(hook: PostsHook): string {
-  return hook.status === 'ready' ? `${hook.posts.length} posts` : '';
+  return hook.status === 'ready' ? formatPostCount(hook.posts) : '';
+}
+
+function formatPostCount(posts: PostsHook['posts']): string {
+  const published = posts.filter((p) => p.published).length;
+  const drafts = posts.length - published;
+  return drafts === 0 ? `${published} posts` : `${published} posts · ${drafts} draft${drafts === 1 ? '' : 's'}`;
 }
 
 function Intro() {

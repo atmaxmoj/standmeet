@@ -23,6 +23,7 @@ export function ConversationsSection() {
         kicker="access · sessions"
         title="conversations"
         count={`${hook.rows.length} sessions`}
+        action={<PrivateHitsHint hook={hook} />}
       />
       <FilterChip code={filterCode} />
       <ConvHeader />
@@ -34,6 +35,16 @@ export function ConversationsSection() {
         />
       )}
     </>
+  );
+}
+
+function PrivateHitsHint({ hook }: { hook: ConversationsHook }) {
+  const count = hook.rows.filter((r) => r.private_hits > 0).length;
+  return count === 0 ? null : (
+    <span className="mono text-[10.5px] tracking-[0.06em] text-(--color-muted)">
+      <span className="text-(--color-accent)">●</span>{' '}
+      {count} session{count === 1 ? '' : 's'} hit private topics
+    </span>
   );
 }
 

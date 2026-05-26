@@ -1,5 +1,8 @@
 // OutputSection —— /admin/output。raw → wiki → output 三层最精炼那层。
-// list + create / edit / delete。output 是链尾，没有 promote-up。
+// 设计源 docs/design/project/admin.js OutputsSection (434-510)：2-col card
+// grid，每张 card 顶 cover-strip + tier pill；底版面 provenance + actions。
+// tier 用现有 schema 推导：seo_indexed=true → public；!seo_indexed &&
+// show_as_source → unlisted；其他 → private。
 
 'use client';
 
@@ -7,7 +10,6 @@ import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
-import { ListFilterBar } from '@/components/admin/sections/corpus/ListFilterBar';
 import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
@@ -22,7 +24,6 @@ import {
 } from '@/lib/admin/use-output';
 import { useOutputDetail } from '@/lib/admin/use-corpus-detail';
 import { runWith } from '@/lib/admin/use-corpus-form';
-import { useListFilter, type ListFilterHook } from '@/lib/admin/use-list-filter';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function OutputSection() {
@@ -32,6 +33,7 @@ export function OutputSection() {
   return (
     <>
       <Header hook={hook} actions={actions} />
+      <Intro />
       <OutputBody hook={hook} actions={actions} />
     </>
   );
@@ -56,12 +58,23 @@ function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHoo
   );
 }
 
+function Intro() {
+  return (
+    <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]">
+      Outputs are public-facing artifacts assembled from your wiki entries — downloadable PDFs,
+      standalone web essays, investor decks. Each gets its own SEO landing at{' '}
+      <span className="mono text-(--color-ink)">/output/&lt;slug&gt;</span>. Three tiers:{' '}
+      <span className="mono text-(--color-ink)">public</span> (open to anyone, in sitemap),{' '}
+      <span className="mono text-(--color-amber)">unlisted</span> (only visible with a code),{' '}
+      <span className="mono text-(--color-violet)">private</span> (specific code scopes only, never indexed).
+    </p>
+  );
+}
+
 function NewBtn({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
   return (
     <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
+      type="button" onClick={onClick} disabled={disabled}
       data-testid="output-new-btn"
       className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
     >
@@ -70,9 +83,7 @@ function NewBtn({ onClick, disabled }: { onClick: () => void; disabled: boolean 
   );
 }
 
-function CreateForm({
-  actions, onDone,
-}: { actions: CorpusActionsHook; onDone: () => void }) {
+function CreateForm({ actions, onDone }: { actions: CorpusActionsHook; onDone: () => void }) {
   const toast = useToast();
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.createOutput(input),
@@ -90,58 +101,13 @@ function CreateForm({
 }
 
 function OutputBody({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHook }) {
-  const filter = useListFilter<OutputSummary>({
-    rows: hook.rows,
-    searchText: (o) => `${o.title} ${o.tags.join(' ')}`,
-  });
   const map = {
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <ListWithFilter filter={filter} actions={actions} />,
+    list: <OutputGrid rows={hook.rows} actions={actions} />,
   } as const;
   return map[pickOutputBodyState(hook)];
-}
-
-function ListWithFilter({
-  filter, actions,
-}: { filter: ListFilterHook<OutputSummary>; actions: CorpusActionsHook }) {
-  const toast = useToast();
-  const onBatch = () => batchDeleteOutput(filter, actions, toast);
-  return (
-    <>
-      <ListFilterBar
-        testidPrefix="output"
-        query={filter.query} setQuery={filter.setQuery}
-        sort={filter.sort} setSort={filter.setSort}
-        selectedCount={filter.selected.size}
-        batchLabel={`delete ${filter.selected.size}`}
-        onBatch={onBatch}
-        onClearSelected={filter.clearSelected}
-      />
-      <OutputList rows={filter.view} actions={actions} filter={filter} />
-    </>
-  );
-}
-
-async function batchDeleteOutput(
-  filter: ListFilterHook<OutputSummary>,
-  actions: CorpusActionsHook,
-  toast: { success: (m: string) => void },
-): Promise<void> {
-  const ok = confirm(`Delete ${filter.selected.size} output entries?`);
-  ok && await runBatchDeleteOutput(filter, actions, toast);
-}
-
-async function runBatchDeleteOutput(
-  filter: ListFilterHook<OutputSummary>,
-  actions: CorpusActionsHook,
-  toast: { success: (m: string) => void },
-): Promise<void> {
-  const ids = Array.from(filter.selected);
-  await Promise.all(ids.map((id) => actions.deleteOutput(id)));
-  filter.clearSelected();
-  toast.success(`${ids.length} output entries deleted`);
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -161,114 +127,124 @@ function EmptyState() {
   );
 }
 
-function OutputList({
-  rows, actions, filter,
-}: {
-  rows: readonly OutputSummary[];
-  actions: CorpusActionsHook;
-  filter: ListFilterHook<OutputSummary>;
-}) {
+function OutputGrid({
+  rows, actions,
+}: { rows: readonly OutputSummary[]; actions: CorpusActionsHook }) {
   return (
-    <ul className="space-y-4" data-testid="output-list">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="output-list">
       {rows.map((o) => (
-        <li key={o.id} data-testid={`output-row-${o.id}`}>
-          <OutputCard
-            entry={o} actions={actions}
-            selected={filter.selected.has(o.id)}
-            onToggleSelect={() => filter.toggleSelected(o.id)}
-          />
-        </li>
+        <div key={o.id} data-testid={`output-row-${o.id}`}>
+          <OutputCard entry={o} actions={actions} />
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 
-interface OutputCardProps {
-  entry: OutputSummary;
-  actions: CorpusActionsHook;
-  selected: boolean;
-  onToggleSelect: () => void;
+type Tier = 'public' | 'unlisted' | 'private';
+
+function deriveTier(entry: OutputSummary): Tier {
+  return entry.seo_indexed ? 'public' : (entry.show_as_source ? 'unlisted' : 'private');
 }
 
-function OutputCard({ entry, actions, selected, onToggleSelect }: OutputCardProps) {
+function OutputCard({
+  entry, actions,
+}: { entry: OutputSummary; actions: CorpusActionsHook }) {
   const [editing, setEditing] = useState(false);
+  const tier = deriveTier(entry);
   return (
-    <article className="border border-(--color-rule) p-5 rounded-sm bg-(--color-surface)/30">
-      <div className="flex items-baseline gap-3">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggleSelect}
-          data-testid={`output-select-${entry.id}`}
-          className="mt-1 shrink-0"
-        />
-        <div className="flex-1 min-w-0">
-          <OutputHead entry={entry} />
-          <OutputTags tags={entry.tags} />
-          <Provenance count={entry.source_wiki_ids.length} />
-          {editing ? null : (
-            <RowActions entry={entry} actions={actions} onEdit={() => setEditing(true)} />
-          )}
-        </div>
-      </div>
-      {editing ? (
-        <EditForm entry={entry} actions={actions} onDone={() => setEditing(false)} />
-      ) : null}
+    <article className="border border-(--color-rule) rounded-[3px] overflow-hidden bg-(--color-surface)/30">
+      <CoverStrip entry={entry} tier={tier} />
+      <CardBody entry={entry} actions={actions} editing={editing} setEditing={setEditing} />
     </article>
+  );
+}
+
+function CoverStrip({ entry, tier }: { entry: OutputSummary; tier: Tier }) {
+  return (
+    <div className="relative h-[100px] border-b border-(--color-rule) bg-(--color-surface) overflow-hidden">
+      <span className="mono absolute top-2.5 left-3 text-[9.5px] tracking-[0.18em] uppercase text-(--color-muted)">
+        output · {tier}
+      </span>
+      <span className="font-serif absolute bottom-3 left-3 text-[22px] text-(--color-ink) leading-tight pr-20 line-clamp-1">
+        {entry.title}
+      </span>
+      <TierPill tier={tier} />
+    </div>
+  );
+}
+
+function TierPill({ tier }: { tier: Tier }) {
+  const tone = tier === 'public' ? 'border-(--color-ink) text-(--color-ink)'
+    : tier === 'unlisted' ? 'border-(--color-amber) text-(--color-amber)'
+    : 'border-(--color-violet) text-(--color-violet)';
+  return (
+    <span className={`mono absolute top-2.5 right-3 text-[9.5px] tracking-[0.16em] uppercase border ${tone} px-1.5 py-0.5`}>
+      {tier}
+    </span>
+  );
+}
+
+function CardBody({
+  entry, actions, editing, setEditing,
+}: { entry: OutputSummary; actions: CorpusActionsHook; editing: boolean; setEditing: (b: boolean) => void }) {
+  return (
+    <div className="p-4">
+      <Provenance count={entry.source_wiki_ids.length} />
+      <Tags tags={entry.tags} />
+      <CardFoot entry={entry} actions={actions} editing={editing} setEditing={setEditing} />
+      {editing ? <EditForm entry={entry} actions={actions} onDone={() => setEditing(false)} /> : null}
+    </div>
+  );
+}
+
+function CardFoot({
+  entry, actions, editing, setEditing,
+}: { entry: OutputSummary; actions: CorpusActionsHook; editing: boolean; setEditing: (b: boolean) => void }) {
+  return (
+    <div className="flex justify-between items-baseline mt-3 pt-2.5 border-t border-(--color-rule)/60">
+      <FootSlug entry={entry} />
+      {editing ? null : <FootActions entry={entry} actions={actions} onEdit={() => setEditing(true)} />}
+    </div>
+  );
+}
+
+function FootSlug({ entry }: { entry: OutputSummary }) {
+  return (
+    <span className="mono text-[9.5px] tracking-[0.04em] text-(--color-faint)">
+      /output/{entry.path ?? entry.id}
+    </span>
+  );
+}
+
+function FootActions({
+  entry, actions, onEdit,
+}: { entry: OutputSummary; actions: CorpusActionsHook; onEdit: () => void }) {
+  return (
+    <div className="flex items-baseline gap-2 mono text-[10px] tracking-[0.12em] uppercase">
+      <button
+        type="button" onClick={onEdit} data-testid={`output-edit-${entry.id}`}
+        className="text-(--color-muted) hover:text-(--color-accent)"
+      >
+        edit
+      </button>
+      <ViewLiveLink path={entry.path} indexed={entry.seo_indexed} />
+      <DeleteBtn entry={entry} actions={actions} />
+    </div>
   );
 }
 
 function Provenance({ count }: { count: number }) {
   return count === 0 ? null : (
-    <p className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) mt-2">
+    <p className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)">
       ↑ promoted from {count} wiki {count === 1 ? 'entry' : 'entries'}
     </p>
   );
 }
 
-function OutputHead({ entry }: { entry: OutputSummary }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 flex-wrap">
-      <h3 className="font-serif text-(--color-ink) text-[18px] font-medium">
-        {entry.title}
-      </h3>
-      <div className="flex items-baseline gap-3">
-        {entry.show_as_source ? null : (
-          <span
-            data-testid={`output-hidden-source-${entry.id}`}
-            className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)"
-          >
-            hidden source
-          </span>
-        )}
-        <ViewLiveLink path={entry.path} indexed={entry.seo_indexed} />
-        <span className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)">
-          {formatDate(entry.created_at)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function ViewLiveLink({
-  path, indexed,
-}: { path?: string | null; indexed: boolean }) {
-  return indexed && path ? (
-    <a
-      href={`/output/${path}`}
-      target="_blank"
-      rel="noreferrer"
-      data-testid="output-view-live"
-      className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-accent) hover:underline"
-    >
-      view live ↗
-    </a>
-  ) : null;
-}
-
-function OutputTags({ tags }: { tags: readonly string[] }) {
+function Tags({ tags }: { tags: readonly string[] }) {
   return tags.length === 0 ? null : (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mt-2 flex flex-wrap gap-1.5">
       {tags.map((t) => (
         <span key={t} className="mono text-[10px] tracking-[0.08em] text-(--color-muted)">#{t}</span>
       ))}
@@ -276,27 +252,19 @@ function OutputTags({ tags }: { tags: readonly string[] }) {
   );
 }
 
-function RowActions({
-  entry, actions, onEdit,
-}: { entry: OutputSummary; actions: CorpusActionsHook; onEdit: () => void }) {
-  return (
-    <div className="mt-4 flex items-baseline gap-3 mono text-[10px] tracking-[0.12em] uppercase">
-      <button
-        type="button"
-        onClick={onEdit}
-        data-testid={`output-edit-${entry.id}`}
-        className="text-(--color-muted) hover:text-(--color-accent)"
-      >
-        edit ↗
-      </button>
-      <DeleteBtn entry={entry} actions={actions} />
-    </div>
-  );
+function ViewLiveLink({ path, indexed }: { path?: string | null; indexed: boolean }) {
+  return indexed && path ? (
+    <a
+      href={`/output/${path}`} target="_blank" rel="noreferrer"
+      data-testid="output-view-live"
+      className="text-(--color-accent) hover:underline"
+    >
+      preview ↗
+    </a>
+  ) : null;
 }
 
-function DeleteBtn({
-  entry, actions,
-}: { entry: OutputSummary; actions: CorpusActionsHook }) {
+function DeleteBtn({ entry, actions }: { entry: OutputSummary; actions: CorpusActionsHook }) {
   const toast = useToast();
   const onClick = () => confirm(`Delete output "${entry.title}"? This cannot be undone.`)
     ? void runWith(
@@ -306,9 +274,7 @@ function DeleteBtn({
     : null;
   return (
     <button
-      type="button"
-      onClick={onClick}
-      data-testid={`output-delete-${entry.id}`}
+      type="button" onClick={onClick} data-testid={`output-delete-${entry.id}`}
       className="text-(--color-faint) hover:text-(--color-accent)"
     >
       delete ×
@@ -328,30 +294,7 @@ function EditForm({
   return (
     <div className="mt-4" data-testid={`output-edit-loaded-${entry.id}`}>
       {detail ? (
-        <>
-          <CorpusEntryForm
-            initial={{
-              title: detail.title,
-              body: detail.body,
-              tags: detail.tags,
-            }}
-            busy={actions.pending}
-            submitLabel="save"
-            testidPrefix={`output-edit-form-${entry.id}`}
-            onSubmit={onSubmit}
-            onCancel={onDone}
-          />
-          <SEOEditor
-            testidPrefix={`output-${entry.id}`}
-            initial={{
-              path: detail.path,
-              seo_description: detail.seo_description,
-              seo_indexed: detail.seo_indexed,
-            }}
-            busy={actions.pending}
-            onSave={(input: PathUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input)}
-          />
-        </>
+        <EditFormBody entry={entry} detail={detail} actions={actions} onSubmit={onSubmit} onDone={onDone} />
       ) : (
         <p className="mono text-[10.5px] text-(--color-muted)">loading…</p>
       )}
@@ -359,19 +302,42 @@ function EditForm({
   );
 }
 
+function EditFormBody({
+  entry, detail, actions, onSubmit, onDone,
+}: {
+  entry: OutputSummary;
+  detail: { title: string; body: string; tags: string[]; path?: string | null; seo_description: string; seo_indexed: boolean };
+  actions: CorpusActionsHook;
+  onSubmit: (input: CorpusEntryInput) => void;
+  onDone: () => void;
+}) {
+  const toast = useToast();
+  return (
+    <>
+      <CorpusEntryForm
+        initial={{ title: detail.title, body: detail.body, tags: detail.tags }}
+        busy={actions.pending}
+        submitLabel="save"
+        testidPrefix={`output-edit-form-${entry.id}`}
+        onSubmit={onSubmit}
+        onCancel={onDone}
+      />
+      <SEOEditor
+        testidPrefix={`output-${entry.id}`}
+        initial={{ path: detail.path, seo_description: detail.seo_description, seo_indexed: detail.seo_indexed }}
+        busy={actions.pending}
+        onSave={(input: PathUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input)}
+      />
+    </>
+  );
+}
+
 async function saveOutputSEO(
-  id: string,
-  actions: CorpusActionsHook,
-  toast: { success: (m: string) => void },
-  input: PathUpdateInput,
+  id: string, actions: CorpusActionsHook,
+  toast: { success: (m: string) => void }, input: PathUpdateInput,
 ): Promise<void> {
   await runWith(
     () => actions.updateOutputSEO(id, input),
     () => toast.success('Output SEO saved'),
   );
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toISOString().slice(0, 10);
 }
