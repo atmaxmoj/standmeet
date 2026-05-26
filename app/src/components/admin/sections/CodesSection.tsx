@@ -29,7 +29,7 @@ export function CodesSection() {
   return (
     <>
       <SectionHeader
-        kicker="surface · access"
+        kicker="access · codes"
         title="codes"
         count={titleCount(hook)}
         action={<NewCodeBtn open={modals.openCreate} />}
@@ -62,7 +62,13 @@ function NewCodeBtn({ open }: { open: () => void }) {
 }
 
 function titleCount(hook: CodesHook): string {
-  return hook.status === 'ready' ? `${hook.codes.length} codes` : '';
+  return hook.status === 'ready'
+    ? `${countActive(hook.codes)} active · ${hook.codes.length} total`
+    : '';
+}
+
+function countActive(codes: readonly CodeView[]): number {
+  return codes.filter((c) => c.status === 'active').length;
 }
 
 function Intro() {

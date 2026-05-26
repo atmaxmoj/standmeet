@@ -22,13 +22,24 @@ export function RequestsSection() {
   return (
     <>
       <SectionHeader
-        kicker="surface · gate"
-        title="access requests"
+        kicker="access · gate inbox"
+        title="requests"
         count={requestCount(hook)}
       />
+      <Intro />
       <FilterRow hook={hook} />
       <RequestBody hook={hook} />
     </>
+  );
+}
+
+function Intro() {
+  return (
+    <p className="reading text-(--color-muted) mb-5 text-[14.5px] max-w-[54em]">
+      Submissions from the gate&apos;s &ldquo;no code&rdquo; path. Mark replied
+      once you&apos;ve issued a code or written back; close to archive. Owner
+      reads every one personally — that&apos;s the point.
+    </p>
   );
 }
 
@@ -55,7 +66,17 @@ function RequestBody({ hook }: { hook: RequestsHook }) {
 }
 
 function requestCount(hook: RequestsHook): string {
-  return hook.status === 'ready' ? `${hook.rows.length} requests` : '';
+  return hook.status === 'ready'
+    ? formatRequestCount(countOpen(hook.rows), hook.rows.length)
+    : '';
+}
+
+function countOpen(rows: readonly AccessRequestView[]): number {
+  return rows.filter((r) => r.status === 'open').length;
+}
+
+function formatRequestCount(open: number, total: number): string {
+  return open === 0 ? `${total} total` : `${open} new`;
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -92,9 +113,9 @@ function RequestCard({
   return (
     <article className="border border-(--color-rule) p-5 rounded-sm bg-(--color-surface)/30">
       <RequestHead req={req} />
-      <p className="reading text-(--color-ink) mt-3 text-[15.5px]">
-        {req.message}
-      </p>
+      <blockquote className="font-serif italic text-(--color-ink) text-[16px] border-l-2 border-(--color-rule) pl-4 mt-3 mb-0">
+        &ldquo;{req.message}&rdquo;
+      </blockquote>
       <RequestActions req={req} onMark={onMark} />
     </article>
   );
