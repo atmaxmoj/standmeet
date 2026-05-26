@@ -23,6 +23,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
 import type { Editor as TiptapEditor } from '@tiptap/core';
 
+import { CrosslinkCommand } from '@/components/blog/editor/extensions/crosslink-command';
 import { SlashCommand } from '@/components/blog/editor/extensions/slash-command';
 import { ImageUpload } from '@/components/blog/editor/extensions/image-upload';
 import { BubbleToolbar } from '@/components/blog/editor/ui/BubbleToolbar';
@@ -91,8 +92,7 @@ function buildExtensions(
     }),
     Markdown.configure({ html: false, tightLists: true, breaks: false }),
     SlashCommand,
-    // CrosslinkCommand 暂时移出 — admin/posts 在 prod build 下 client-side
-    // exception，extension 文件保留待下一轮 root-cause + re-enable。
+    CrosslinkCommand,
     ImageUpload.configure({ onPending }),
   ];
 }
