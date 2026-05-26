@@ -1,15 +1,11 @@
-// AdminSidebar —— admin 左侧 nav，按 NAV_GROUPS 分组（overview / corpus /
-// access / jobs / integrations / settings）。每条 mono uppercase group
-// header + 下面 serif label。设计源 docs/design/project/admin.js NAV_GROUPS
-// (27-62)。
-//
-// 跟 design 差几个：dashboard / sources / listings / seo / system 还没有
-// 对应路由 —— sidebar 先把链接挂出来 (404 入口)，对应 page route 在
-// 后续 commit 单独加。
+// AdminSidebar —— admin 左侧 nav。design 源 admin.js Sidebar (166-193) +
+// NAV_GROUPS (27-62)。mono 11.5px nav-link + "── group" headers + accent
+// badge 动态计数。border-left accent 标 active。
 
 import Link from 'next/link';
 
 import { SystemPulse } from '@/components/admin/chrome/SystemPulse';
+import { sidebarBadgeFor } from '@/lib/admin/sidebar-badge-for';
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'output' | 'conversations' | 'codes' | 'requests'
@@ -21,6 +17,7 @@ export type AdminSlug =
 interface SectionDef {
   slug: AdminSlug;
   label: string;
+  badgeTestId?: string;
 }
 
 interface NavGroup {
@@ -36,7 +33,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'corpus',
     items: [
-      { slug: 'raw', label: 'raw' },
+      { slug: 'raw', label: 'raw', badgeTestId: 'badge-raw' },
       { slug: 'wiki', label: 'wiki' },
       { slug: 'posts', label: 'writing' },
       { slug: 'output', label: 'outputs' },
@@ -48,7 +45,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { slug: 'conversations', label: 'conversations' },
       { slug: 'codes', label: 'codes' },
-      { slug: 'requests', label: 'requests' },
+      { slug: 'requests', label: 'requests', badgeTestId: 'badge-requests' },
       { slug: 'preview', label: 'preview' },
     ],
   },
@@ -56,7 +53,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     label: 'jobs',
     items: [
       { slug: 'sources', label: 'sources' },
-      { slug: 'listings', label: 'listings' },
+      { slug: 'listings', label: 'listings', badgeTestId: 'badge-listings' },
       { slug: 'drafts', label: 'drafts' },
       { slug: 'applications', label: 'applications' },
       { slug: 'skills', label: 'skills' },
@@ -81,75 +78,78 @@ const NAV_GROUPS: readonly NavGroup[] = [
   },
 ];
 
-type Props = { active: AdminSlug };
+export interface SidebarBadges {
+  raw?: number;
+  requests?: number;
+  listings?: number;
+}
 
-export function AdminSidebar({ active }: Props) {
+type Props = { active: AdminSlug; badges?: SidebarBadges };
+
+export function AdminSidebar({ active, badges }: Props) {
   return (
-    <nav className="border-r border-(--color-rule) px-5 lg:px-6 py-7 flex flex-col">
+    <nav className="w-[232px] border-r border-(--color-rule) py-5 flex flex-col sticky top-[56px] self-start overflow-y-auto h-[calc(100vh-56px)]">
       <SystemPulse />
-      <Groups active={active} />
+      <Groups active={active} badges={badges} />
       <SidebarFooter />
     </nav>
   );
 }
 
-function Groups({ active }: { active: AdminSlug }) {
+function Groups({ active, badges }: { active: AdminSlug; badges?: SidebarBadges }) {
   return (
-    <div className="flex flex-col gap-5">
-      {NAV_GROUPS.map((g) => <Group key={g.label} group={g} active={active} />)}
+    <div className="flex flex-col">
+      {NAV_GROUPS.map((g) => <Group key={g.label} group={g} active={active} badges={badges} />)}
     </div>
   );
 }
 
-function Group({ group, active }: { group: NavGroup; active: AdminSlug }) {
+function Group({ group, active, badges }: { group: NavGroup; active: AdminSlug; badges?: SidebarBadges }) {
   return (
-    <div>
-      <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-(--color-faint) mb-1.5">
-        {group.label}
+    <div className="py-1.5">
+      <div className="mono text-[9.5px] tracking-[0.22em] uppercase text-(--color-faint) px-4 py-1">
+        ── {group.label}
       </div>
-      <ul className="flex flex-col">
-        {group.items.map((s) => (
-          <SidebarItem key={s.slug} section={s} active={s.slug === active} />
-        ))}
-      </ul>
+      {group.items.map((s) => (
+        <SidebarItem key={s.slug} section={s} active={s.slug === active} badge={sidebarBadgeFor(s.slug, badges)} />
+      ))}
     </div>
   );
 }
 
-function SidebarItem({ section, active }: { section: SectionDef; active: boolean }) {
-  const tone = active ? 'text-(--color-ink)' : 'text-(--color-muted) hover:text-(--color-ink)';
+
+function SidebarItem({ section, active, badge }: { section: SectionDef; active: boolean; badge: number | null }) {
   return (
-    <li>
-      <Link
-        href={`/admin/${section.slug}`}
-        className={`group w-full text-left flex items-baseline gap-3 py-1.5 transition-colors ${tone}`}
-      >
-        <SidebarItemMarker active={active} />
-        <span
-          data-testid={`admin-nav-${section.slug}`}
-          className={`font-serif flex-1 text-[15.5px] tracking-[-0.005em] ${active ? 'font-medium' : ''}`}
-        >
-          {section.label}
-        </span>
-      </Link>
-    </li>
+    <Link href={`/admin/${section.slug}`} className={navLinkCls(active)}>
+      <span data-testid={`admin-nav-${section.slug}`} className="flex-1">{section.label}</span>
+      <Badge count={badge} testId={section.badgeTestId} />
+    </Link>
   );
 }
 
-function SidebarItemMarker({ active }: { active: boolean }) {
-  const cls = active ? 'text-(--color-accent)' : 'text-(--color-faint)';
-  return (
-    <span className={`mono text-[11px] tracking-[0.06em] tabular-nums shrink-0 w-3 ${cls}`}>
-      {active ? '›' : ' '}
+function navLinkCls(active: boolean): string {
+  const base = 'flex items-baseline gap-2.5 px-4 py-[5px] mono text-[11.5px] tracking-[0.04em] cursor-pointer border-l-2 transition-colors';
+  return active
+    ? `${base} text-(--color-ink) border-l-(--color-accent) bg-(--color-surface)`
+    : `${base} text-(--color-muted) border-l-transparent hover:text-(--color-ink) hover:bg-(--color-surface)/50`;
+}
+
+function Badge({ count, testId }: { count: number | null; testId?: string }) {
+  return count !== null ? (
+    <span
+      data-testid={testId}
+      className="ml-auto mono text-[9px] tracking-[0.06em] text-(--color-accent) tabular-nums"
+    >
+      {count}
     </span>
-  );
+  ) : null;
 }
 
 function SidebarFooter() {
   return (
-    <div className="mt-auto pt-6 border-t border-(--color-rule) mono text-[10px] tracking-[0.12em] text-(--color-faint) leading-[1.7]">
-      <div><span className="text-(--color-muted)">last ingest</span> 12 min ago</div>
-      <div className="mt-1"><span className="text-(--color-muted)">help</span> · <span>/docs</span></div>
+    <div className="mt-auto px-4 pt-4 border-t border-(--color-rule) mono text-[9.5px] tracking-[0.06em] text-(--color-faint) leading-[1.6]">
+      <div>instance · <span className="text-(--color-muted)">standmeet</span></div>
+      <div>uptime · <span className="text-(--color-muted)">—</span></div>
     </div>
   );
 }

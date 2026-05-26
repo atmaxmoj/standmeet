@@ -9,6 +9,7 @@ import { AdminSidebar, type AdminSlug } from '@/components/admin/AdminSidebar';
 import { TopBar } from '@/components/admin/chrome/TopBar';
 
 import { useAdminSession } from '@/lib/admin/use-admin-session';
+import { useSidebarBadges } from '@/lib/admin/use-sidebar-badges';
 
 type Props = {
   active: AdminSlug;
@@ -27,15 +28,14 @@ function AdminLayout({
 }: {
   active: AdminSlug; handle: string; email: string; children: ReactNode;
 }) {
+  const badges = useSidebarBadges();
   return (
     <div className="min-h-screen flex flex-col">
       <TopBar handle={handle} email={email} />
       <div className="flex-1 flex">
-        <aside className="w-[240px] shrink-0">
-          <AdminSidebar active={active} />
-        </aside>
+        <AdminSidebar active={active} badges={badges} />
         <main className="flex-1 px-8 lg:px-12 py-8 overflow-x-hidden">
-          <div className="max-w-[1100px]">{children}</div>
+          <div className="max-w-[1200px]">{children}</div>
         </main>
       </div>
     </div>
