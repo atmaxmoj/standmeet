@@ -87,7 +87,9 @@ export const RawMediaMetaSchema = z.object({ kind: z.string(), label: z.string()
 
 export const RawAdminViewSchema = z.object({
   id: z.string(), body: z.string(), source: z.string(), tags: z.array(z.string()),
-  created_at: z.string(), flagged_private: z.boolean(), archived: z.boolean(),
+  created_at: z.string(),
+  flagged_private: z.boolean().optional().default(false),
+  archived: z.boolean().optional().default(false),
   media: RawMediaMetaSchema,
 });
 export type RawAdminView = z.infer<typeof RawAdminViewSchema>;

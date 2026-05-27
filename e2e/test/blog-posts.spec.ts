@@ -168,7 +168,7 @@ test.describe('blog: atomic image upload via multipart save', () => {
       const cover = page.locator('[data-blog-cover]').first();
       const img = cover.locator('img').first();
       const src = await img.getAttribute('src');
-      expect(src).toMatch(/localhost:9200/);
+      expect(src).toMatch(/localhost(%3A|:)9200/);
     });
 
   test('paste image in editor → save → /blog renders presigned URL; body_md stores URI',
@@ -196,7 +196,7 @@ test.describe('blog: atomic image upload via multipart save', () => {
       const img = page.getByTestId('blog-article-body').locator('img').first();
       await expect(img).toBeVisible();
       const src = await img.getAttribute('src');
-      expect(src).toMatch(/localhost:9200/); // presigned URL host (minio public)
+      expect(src).toMatch(/localhost(%3A|:)9200/); // presigned URL host (minio public)
 
       // admin GET: body_md contains real asset UUID (not pending-) URI
       await assertAdminBodyHasURI(request, OWNER, 'image-post');
