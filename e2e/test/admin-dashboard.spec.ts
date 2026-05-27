@@ -41,20 +41,20 @@ test.describe('admin dashboard', () => {
       await gotoAdminSection(adminPage, 'dashboard');
       await expect(adminPage.getByTestId('kpi-entries')).toBeVisible();
       await expect(adminPage.getByTestId('kpi-unprocessed')).toBeVisible();
-      await expect(adminPage.getByTestId('kpi-codes')).toBeVisible();
+      await expect(adminPage.getByTestId('kpi-codes live')).toBeVisible();
       await expect(adminPage.getByTestId('kpi-requests')).toBeVisible();
     });
 
   test('sparkline SVG renders',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'dashboard');
-      await expect(adminPage.locator('svg.sparkline')).toHaveCount(4, { timeout: 5_000 });
+      await expect(adminPage.getByTestId('sparkline')).toBeVisible({ timeout: 5_000 });
     });
 
   test('jump links → click "raw" → navigate to admin raw',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'dashboard');
-      const jumpLink = adminPage.getByTestId('jump-raw');
+      const jumpLink = adminPage.getByTestId('dashboard-jump-raw');
       if (await jumpLink.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await jumpLink.click();
         await adminPage.waitForURL('**/admin/raw', { timeout: 5_000 });

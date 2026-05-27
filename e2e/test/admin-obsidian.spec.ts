@@ -29,7 +29,7 @@ test.describe('admin obsidian section', () => {
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'obsidian');
       await adminPage.waitForURL('**/admin/obsidian', { timeout: 5_000 });
-      await expect(adminPage.getByTestId('obsidian-stats')).toBeVisible();
+      await expect(adminPage.getByTestId('vault-stat-mode')).toBeVisible();
     });
 
   test('import + export buttons visible',

@@ -38,7 +38,7 @@ test.describe('admin system section', () => {
   test('background jobs table visible',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'system');
-      const jobsTable = adminPage.getByTestId('system-jobs-table');
+      const jobsTable = adminPage.getByTestId('system-jobs');
       await expect(jobsTable).toBeVisible();
       // Should have at least some rows
       const rows = jobsTable.locator('tr');
@@ -48,7 +48,7 @@ test.describe('admin system section', () => {
   test('health checks render with status dots',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'system');
-      const checks = adminPage.getByTestId('system-health-checks');
+      const checks = adminPage.getByTestId('system-health');
       await expect(checks).toBeVisible();
       // Status dots should be present
       const dots = checks.locator('[data-testid="health-dot"]');
