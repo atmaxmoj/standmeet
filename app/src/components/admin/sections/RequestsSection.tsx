@@ -148,16 +148,38 @@ function RequestHead({ req }: { req: AccessRequestView }) {
 function RequestActions({
   req, onMark,
 }: { req: AccessRequestView; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
-  return req.status === 'open' ? (
+  return req.status === 'open' ? <OpenActions id={req.id} onMark={onMark} />
+    : req.status === 'replied' ? <RepliedActions id={req.id} onMark={onMark} />
+    : null;
+}
+
+function OpenActions({ id, onMark }: { id: string; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
+  return (
     <div className="flex items-baseline gap-2 mt-4">
-      <Btn kind="ghost" size="sm" onClick={() => { void onMark(req.id, 'replied'); }}>
-        mark replied
+      <Btn kind="primary" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
+        approve · issue code →
       </Btn>
-      <Btn kind="ghost" size="sm" onClick={() => { void onMark(req.id, 'closed'); }}>
-        close
+      <Btn kind="outline" size="sm" onClick={() => { void onMark(id, 'closed'); }}>
+        decline politely
+      </Btn>
+      <Btn kind="ghost" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
+        defer · pending
       </Btn>
     </div>
-  ) : null;
+  );
+}
+
+function RepliedActions({ id, onMark }: { id: string; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
+  return (
+    <div className="flex items-baseline gap-2 mt-4">
+      <Btn kind="primary" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
+        approve · issue code →
+      </Btn>
+      <Btn kind="outline" size="sm" onClick={() => { void onMark(id, 'closed'); }}>
+        decline
+      </Btn>
+    </div>
+  );
 }
 
 function formatDate(iso: string): string {

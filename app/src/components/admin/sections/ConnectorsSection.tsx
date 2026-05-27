@@ -36,7 +36,7 @@ export function ConnectorsSection() {
         action={<AddBtn onOpen={() => setShowAdd(true)} />}
       />
       <Intro />
-      <Grid hook={hook} />
+      <Grid hook={hook} onBrowse={() => setShowAdd(true)} />
       {showAdd && (
         <ConnectorAddModal
           installed={installed}
@@ -76,12 +76,28 @@ function Intro() {
   );
 }
 
-function Grid({ hook }: { hook: ConnectorsHook }) {
+function Grid({ hook, onBrowse }: { hook: ConnectorsHook; onBrowse: () => void }) {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
       {hook.connectors.map((c) => (
         <ConnectorTile key={c.id} connector={c} onToggle={() => hook.toggle(c.id)} />
       ))}
+      <BrowseCatalogCard onClick={onBrowse} />
     </div>
+  );
+}
+
+function BrowseCatalogCard({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button" onClick={onClick}
+      className="border border-dashed border-(--color-rule) rounded-[3px] flex flex-col items-center justify-center gap-1.5 p-6 cursor-pointer text-(--color-muted) hover:border-(--color-accent) hover:text-(--color-accent) transition-colors bg-transparent"
+    >
+      <span className="mono text-[24px]">＋</span>
+      <span className="mono text-[11px] tracking-[0.16em] uppercase">browse the catalog</span>
+      <span className="mono text-[9.5px] tracking-[0.06em] text-(--color-faint)">
+        {catalogSize()} types available
+      </span>
+    </button>
   );
 }

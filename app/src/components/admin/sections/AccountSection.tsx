@@ -24,10 +24,12 @@ export function AccountSection() {
   return (
     <>
       <SectionHeader kicker="settings · owner" title="account" />
-      <Intro />
-      <FullNameBlock hook={account} initialValue={pickFullName(session)} />
-      <EmailBlock hook={account} initialValue={pickEmail(session)} />
-      <PasswordBlock hook={account} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <ProfileCard hook={account} session={session} />
+        <SecurityCard hook={account} />
+        <InferenceCard />
+        <DataBackupsCard />
+      </div>
     </>
   );
 }
@@ -40,13 +42,85 @@ function pickEmail(s: ReturnType<typeof useAdminSession>): string {
   return s.kind === 'ready' ? s.session.email : '';
 }
 
-function Intro() {
+function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType<typeof useAdminSession> }) {
   return (
-    <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Your owner identity. Full name is shown anywhere the page asks &quot;who is this&quot;;
-      email is your login. Password reset has a server-side fallback (&quot;standmeet
-      password-reset&quot; on the host) if you ever lock yourself out.
-    </p>
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+      <div className="sm-smallcaps mb-3">profile</div>
+      <FullNameBlock hook={hook} initialValue={pickFullName(session)} />
+      <EmailBlock hook={hook} initialValue={pickEmail(session)} />
+    </div>
+  );
+}
+
+function SecurityCard({ hook }: { hook: AccountHook }) {
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+      <div className="sm-smallcaps mb-3">security</div>
+      <PasswordBlock hook={hook} />
+      <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-(--color-rule)/60">
+        <SecurityRow label="Two-factor" detail="○ off" actionLabel="enable" />
+        <SecurityRow label="Recovery phrase" detail="not yet set" actionLabel="generate" />
+      </div>
+    </div>
+  );
+}
+
+function SecurityRow({ label, detail, actionLabel }: { label: string; detail: string; actionLabel: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
+      <div>
+        <div className="font-serif text-[15px] text-(--color-ink)">{label}</div>
+        <div className="mono text-[10px] text-(--color-muted) mt-0.5">{detail}</div>
+      </div>
+      <button className="sm-btn sm-btn-outline sm-btn-sm" type="button">{actionLabel}</button>
+    </div>
+  );
+}
+
+function InferenceCard() {
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+      <div className="sm-smallcaps mb-3">inference</div>
+      <div className="flex flex-col gap-3">
+        <div>
+          <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">default provider</div>
+          <div className="mono text-[12px] text-(--color-ink)">configured in /admin/api-mcp</div>
+        </div>
+        <div className="flex items-baseline justify-between gap-3 py-2 border-t border-(--color-rule)/60">
+          <div>
+            <div className="font-serif text-[15px] text-(--color-ink)">30-day spend</div>
+            <div className="mono text-[10px] text-(--color-faint) mt-0.5">your inference key · owner pays</div>
+          </div>
+          <span className="mono text-[16px] text-(--color-ink)">$—</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DataBackupsCard() {
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+      <div className="sm-smallcaps mb-3">data · backups</div>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60">
+          <div>
+            <div className="font-serif text-[15px] text-(--color-ink)">Storage</div>
+            <div className="mono text-[10px] text-(--color-muted) mt-0.5">— mb used</div>
+          </div>
+        </div>
+        <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60">
+          <div>
+            <div className="font-serif text-[15px] text-(--color-ink)">Last backup</div>
+            <div className="mono text-[10px] text-(--color-muted) mt-0.5">—</div>
+          </div>
+          <button className="sm-btn sm-btn-outline sm-btn-sm" type="button">backup now</button>
+        </div>
+        <button className="sm-btn sm-btn-ghost sm-btn-sm text-left mt-1 text-(--color-accent)" type="button">
+          export entire corpus ↗
+        </button>
+      </div>
+    </div>
   );
 }
 

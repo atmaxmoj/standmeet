@@ -43,9 +43,10 @@ function titleCount(hook: SkillsHook): string {
 function Intro() {
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Skills are extra system-prompt fragments composed into the visitor-facing AI. Attach one
-      or more to an invite code (under Codes) and the AI will gain that persona for visitors
-      with that code. Builtin skills can&apos;t be deleted; create your own to layer.
+      Skills serve two purposes: (1) extra system-prompt fragments composed into the visitor-facing AI —
+      attach one or more to an invite code and the AI gains that persona; (2) corpus-inferred heat map
+      used by the job loop to score listings against your strengths.
+      Builtin skills can&apos;t be deleted; create your own to layer.
     </p>
   );
 }
