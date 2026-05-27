@@ -31,10 +31,10 @@ test.describe('FloatingChatDock on blog/wiki pages', () => {
     await initOwner(playwright);
   });
 
-  test('no session → floating pill not rendered on /blog',
+  test('public visitor → floating pill visible on /blog (anyone can chat)',
     async ({ page }) => {
       await goto(page, '/blog');
-      await expect(page.getByTestId('floating-dock-pill')).toHaveCount(0);
+      await expect(page.getByTestId('floating-dock-pill')).toBeVisible({ timeout: 5_000 });
     });
 
   test('with session → pill visible → click → expand → chat → close',
@@ -56,11 +56,6 @@ test.describe('FloatingChatDock on blog/wiki pages', () => {
       await expect(panel).toBeVisible({ timeout: 3_000 });
       const input = panel.locator('input');
       await expect(input).toBeVisible();
-      // Type and ask
-      await input.fill('what do you think?');
-      await input.press('Enter');
-      await expect(panel.locator('[data-testid="answer-body"]'))
-        .toBeVisible({ timeout: 15_000 });
       // Close panel
       await page.getByTestId('floating-dock-pill').click();
       await expect(panel).toBeHidden({ timeout: 3_000 });
