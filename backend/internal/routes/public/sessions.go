@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
@@ -30,12 +31,20 @@ type sessionQuotaResp struct {
 	UsedTurns int32 `json:"used_turns"`
 }
 
+type sessionMemberResp struct {
+	Name     string `json:"name"`
+	LastSeen string `json:"last_seen"`
+}
+
+//nolint:govet // fieldalignment: JSON order > pointer alignment
 type createSessionResponse struct {
-	SessionToken   string           `json:"session_token"`
-	ConversationID string           `json:"conversation_id"`
-	Code           string           `json:"code,omitempty"`
-	VisitorName    string           `json:"visitor_name,omitempty"`
-	Quota          sessionQuotaResp `json:"quota"`
+	Quota          sessionQuotaResp    `json:"quota"`
+	Members        []sessionMemberResp `json:"members,omitempty"`
+	SessionToken   string              `json:"session_token"`
+	ConversationID string              `json:"conversation_id"`
+	Code           string              `json:"code,omitempty"`
+	CodeLabel      string              `json:"code_label,omitempty"`
+	VisitorName    string              `json:"visitor_name,omitempty"`
 }
 
 func (h *Handlers) createSession() http.HandlerFunc {
@@ -72,6 +81,20 @@ func dispatchIssueSession(
 	})
 }
 
+func toMemberResps(members []domain.CodeMember) []sessionMemberResp {
+	if len(members) == 0 {
+		return nil
+	}
+	out := make([]sessionMemberResp, 0, len(members))
+	for i := range members {
+		out = append(out, sessionMemberResp{
+			Name:     members[i].DisplayName,
+			LastSeen: members[i].LastSeenAt.UTC().Format("2006-01-02"),
+		})
+	}
+	return out
+}
+
 func pickTier(req *createSessionRequest) string {
 	if req.Tier != "" {
 		return req.Tier
@@ -90,11 +113,13 @@ func writeCreateSession(
 		SessionToken:   res.Session.Token,
 		ConversationID: res.Conversation.ID,
 		Code:           res.Code,
+		CodeLabel:      res.CodeLabel,
 		VisitorName:    res.VisitorName,
 		Quota: sessionQuotaResp{
 			MaxTurns:  res.Quota.MaxTurns,
 			UsedTurns: res.Quota.UsedTurns,
 		},
+		Members: toMemberResps(res.Members),
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

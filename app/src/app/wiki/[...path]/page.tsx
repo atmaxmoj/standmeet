@@ -5,7 +5,6 @@
 // handle 用 sole owner（v1 单 owner instance），URL 不再带 handle。
 
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
@@ -36,24 +35,92 @@ export async function generateMetadata(
 
 export default async function WikiLandingPage({ params }: { params: Promise<Params> }) {
   const { path } = await params;
-  const wiki = (await fetchWikiLanding(path.join('/'))) ?? notFound();
+  const wiki = await fetchWikiLanding(path.join('/'));
   const instance = await fetchInstance();
   const handle = instance.handle;
+  return wiki
+    ? <WikiLandingContent wiki={wiki} handle={handle} slug={path.join('/')} />
+    : <LockedView slug={path.join('/')} />;
+}
+
+function WikiLandingContent({ wiki, handle, slug }: {
+  wiki: { title: string; body: string; seo_description: string; updated_at: string };
+  handle: string;
+  slug: string;
+}) {
   return (
     <>
       <SessionStrip />
       <main className="pb-24">
+        <CoverHero title={wiki.title} description={wiki.seo_description} handle={handle} updatedAt={wiki.updated_at} />
         <article className="mx-auto max-w-2xl px-6 py-16" data-testid="wiki-landing">
           <PageHeader />
-          <Breadcrumb slug={path.join('/')} />
-          <h1 className="reading-tight text-4xl font-normal mb-6">{wiki.title}</h1>
-          <p className="mono text-[10px] tracking-[0.12em] text-(--color-muted) mb-8">
-            from {handle}&apos;s corpus · updated {wiki.updated_at.slice(0, 10)}
-          </p>
+          <Breadcrumb slug={slug} />
           <WikiBody body={wiki.body} />
           <TrustBox handle={handle} />
         </article>
         <AskAboutThis title={wiki.title} kind="wiki" />
+      </main>
+      <FloatingChatDock />
+    </>
+  );
+}
+
+function CoverHero({ title, description, handle, updatedAt }: {
+  title: string; description: string; handle: string; updatedAt: string;
+}) {
+  return (
+    <div className="border-b border-(--color-rule) bg-(--color-surface)/40 py-16 px-6">
+      <div className="mx-auto max-w-2xl">
+        <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-4">
+          wiki · from {handle}&apos;s corpus
+        </div>
+        <h1 className="font-serif text-[clamp(36px,5vw,56px)] text-(--color-ink) font-normal tracking-[-0.02em] leading-[1.05] mb-4">
+          {title}
+        </h1>
+        <WikiHeroMeta description={description} updatedAt={updatedAt} />
+      </div>
+    </div>
+  );
+}
+
+function WikiHeroMeta({ description, updatedAt }: { description: string; updatedAt: string }) {
+  return (
+    <>
+      {description && (
+        <p className="reading text-[17px] text-(--color-muted) max-w-[44em]">{description}</p>
+      )}
+      <p className="mono text-[10px] tracking-[0.12em] text-(--color-faint) mt-4">
+        updated {updatedAt.slice(0, 10)}
+      </p>
+    </>
+  );
+}
+
+function LockedView({ slug }: { slug: string }) {
+  return (
+    <>
+      <SessionStrip />
+      <main className="pb-24">
+        <div className="mx-auto max-w-2xl px-6 py-24 text-center">
+          <PageHeader />
+          <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-4">
+            wiki · {slug}
+          </div>
+          <h2 className="font-serif text-[28px] text-(--color-ink) font-normal mb-4">
+            This entry requires an access code
+          </h2>
+          <p className="reading text-(--color-muted) text-[16px] max-w-[36em] mx-auto mb-8">
+            The owner has restricted this wiki entry. Enter an access code on the gate
+            to view the full content.
+          </p>
+          <Link
+            href="/gate"
+            className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 inline-block hover:bg-(--color-accent) transition-colors"
+          >
+            enter access code →
+          </Link>
+        </div>
       </main>
       <FloatingChatDock />
     </>

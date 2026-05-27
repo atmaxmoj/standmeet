@@ -103,6 +103,7 @@ type wikiListItem struct {
 	Path         *string  `json:"path"`
 	ID           string   `json:"id"`
 	Title        string   `json:"title"`
+	Excerpt      string   `json:"excerpt"`
 	CreatedAt    string   `json:"created_at"`
 	Tags         []string `json:"tags"`
 	SourceRawIDs []string `json:"source_raw_ids"`

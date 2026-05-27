@@ -13,6 +13,7 @@
 
 import Link from 'next/link';
 
+import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
@@ -30,6 +31,7 @@ export function CustomPagesSection() {
         kicker="corpus · public-facing"
         title="pages"
         count={hook.status === 'ready' ? String(hook.rows.length) : ''}
+        action={<Btn kind="primary">+ new page</Btn>}
       />
       <Intro />
       <CustomPagesBody hook={hook} />
@@ -96,10 +98,11 @@ function TableHead() {
     <thead className="bg-(--color-surface)/60 mono text-[9.5px] tracking-[0.16em] uppercase text-(--color-muted)">
       <tr>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">page</th>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">status</th>
-        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">build</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">template</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">visibility</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">views</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">updated</th>
-        <th className="text-right px-4 py-2.5 border-b border-(--color-rule) font-normal" />
+        <th className="text-right px-4 py-2.5 border-b border-(--color-rule) font-normal">actions</th>
       </tr>
     </thead>
   );
@@ -109,11 +112,37 @@ function PageRow({ page }: { page: CustomPageSummary }) {
   return (
     <tr data-testid={`custom-page-row-${page.slug}`} className="border-b border-(--color-rule)/60 last:border-b-0">
       <PageCell page={page} />
-      <StatusCell status={page.status} />
-      <BuildCell hasLive={page.has_live} hasStaging={page.has_staging} />
+      <TemplateCell />
+      <VisibilityCell hasLive={page.has_live} hasStaging={page.has_staging} />
+      <ViewsCell />
       <DateCell iso={page.updated_at} />
       <ActionsCell page={page} />
     </tr>
+  );
+}
+
+function TemplateCell() {
+  return (
+    <td className="px-4 py-3 mono text-[10px] tracking-[0.12em] text-(--color-faint)">
+      —
+    </td>
+  );
+}
+
+function VisibilityCell({ hasLive, hasStaging }: { hasLive: boolean; hasStaging: boolean }) {
+  const view = buildView(hasLive, hasStaging);
+  return (
+    <td className={`px-4 py-3 mono text-[10px] tracking-[0.12em] uppercase ${view.tone}`}>
+      {view.label}
+    </td>
+  );
+}
+
+function ViewsCell() {
+  return (
+    <td className="px-4 py-3 mono text-[10px] text-(--color-faint)">
+      —
+    </td>
   );
 }
 
@@ -126,23 +155,6 @@ function PageCell({ page }: { page: CustomPageSummary }) {
   );
 }
 
-function StatusCell({ status }: { status: string }) {
-  const tone = status === 'active' ? 'text-(--color-ink)' : 'text-(--color-muted)';
-  return (
-    <td className={`px-4 py-3 mono text-[10px] tracking-[0.12em] uppercase ${tone}`}>
-      ● {status}
-    </td>
-  );
-}
-
-function BuildCell({ hasLive, hasStaging }: { hasLive: boolean; hasStaging: boolean }) {
-  const view = buildView(hasLive, hasStaging);
-  return (
-    <td className={`px-4 py-3 mono text-[10px] tracking-[0.12em] uppercase ${view.tone}`}>
-      {view.label}
-    </td>
-  );
-}
 
 function buildView(hasLive: boolean, hasStaging: boolean): { label: string; tone: string } {
   const key = hasLive ? 'live' : (hasStaging ? 'staging' : 'none');

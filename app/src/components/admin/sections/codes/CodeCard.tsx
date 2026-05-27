@@ -20,15 +20,14 @@ type Props = {
   onRevoke: (c: CodeView) => void;
 };
 
-export function CodeCard({ code, onEdit, onPreview, onShowQR, onRevoke }: Props) {
+export function CodeCard({ code, onEdit, onPreview, onShowQR: _onShowQR, onRevoke }: Props) {
   const link = buildShareLink(code.code);
   return (
     <article className="crosshair border border-(--color-rule) bg-(--color-surface)/30 p-5 rounded-sm" data-testid={`code-card-${code.code}`}>
       <span className="ch-tl" /><span className="ch-br" />
       <CodeCardHeader code={code} onEdit={onEdit} onPreview={onPreview} onRevoke={onRevoke} />
-      <div className="flex gap-5 mt-5 flex-wrap lg:flex-nowrap">
+      <div className="mt-5">
         <CodeCardBody code={code} />
-        <CodeCardQR code={code} link={link} onShowQR={onShowQR} />
       </div>
       <CodeCardFooter code={code} link={link} />
     </article>
@@ -112,23 +111,48 @@ function PurposeText({ purpose }: { purpose?: string }) {
 
 function CodeCardBody({ code }: { code: CodeView }) {
   return (
-    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-5">
+    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <MembersCol codeID={code.id} code={code.code} />
       <ScopeBlock perms={code.corpus_permissions} />
-      <SuggestedBlock suggested={code.suggested_questions ?? []} />
-      <QuotaLine code={code} />
+      <QRCol code={code} />
+      <QuotaBar code={code} />
     </div>
   );
 }
 
-function QuotaLine({ code }: { code: CodeView }) {
-  const hasQuota = code.max_sessions_per_member || code.max_turns_per_session;
-  return hasQuota ? (
-    <div className="col-span-full mono text-[10.5px] tracking-[0.04em] text-(--color-muted)" data-testid={`code-quotas-${code.code}`}>
-      quota · {quotaSummary(code.max_sessions_per_member, 'sessions/visitor')}
-      <span className="mx-2 text-(--color-faint)">·</span>
-      {quotaSummary(code.max_turns_per_session, 'turns/session')}
+function MembersCol({ codeID, code }: { codeID: string; code: string }) {
+  return (
+    <MetaPair label="members">
+      <MembersBlock codeID={codeID} code={code} />
+    </MetaPair>
+  );
+}
+
+function QRCol({ code }: { code: CodeView }) {
+  const link = buildShareLink(code.code);
+  return (
+    <MetaPair label="QR">
+      <QRCode value={link} size={72} />
+    </MetaPair>
+  );
+}
+
+function QuotaBar({ code }: { code: CodeView }) {
+  const sessions = quotaSummary(code.max_sessions_per_member, 'sessions');
+  const turns = quotaSummary(code.max_turns_per_session, 'turns');
+  return (
+    <div className="col-span-full" data-testid={`code-quotas-${code.code}`}>
+      <div className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) mb-1.5">quota</div>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-[4px] bg-(--color-rule) rounded-full overflow-hidden">
+          <div className="h-full bg-(--color-ink) rounded-full w-0" />
+        </div>
+        <span className="mono text-[10px] tracking-[0.04em] text-(--color-muted) shrink-0">
+          {sessions} · {turns}
+        </span>
+      </div>
     </div>
-  ) : null;
+  );
 }
 
 function quotaSummary(n: number | null | undefined, label: string): string {
@@ -158,42 +182,8 @@ function UnrestrictedHint({ shown }: { shown: boolean }) {
     : null;
 }
 
-function SuggestedBlock({ suggested }: { suggested: readonly string[] }) {
-  return (
-    <MetaPair label="suggested questions">
-      <ul className="space-y-1 text-[14.5px]">
-        {suggested.slice(0, 3).map((q, i) => (
-          <li key={i} className="font-serif italic text-(--color-muted)">&ldquo;{q}&rdquo;</li>
-        ))}
-        <MoreHint count={suggested.length} />
-      </ul>
-    </MetaPair>
-  );
-}
 
-function MoreHint({ count }: { count: number }) {
-  return count > 3
-    ? <li className="mono text-[10px] tracking-[0.12em] text-(--color-faint)">+ {count - 3} more</li>
-    : null;
-}
 
-function CodeCardQR({
-  code, link, onShowQR,
-}: { code: CodeView; link: string; onShowQR: (c: CodeView) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onShowQR(code)}
-      title={`share link · ${link}`}
-      className="shrink-0 group flex flex-col items-center gap-2 p-2.5 border border-(--color-rule) rounded-sm hover:border-(--color-ink) transition-colors self-start"
-    >
-      <QRCode value={link} size={88} />
-      <span className="mono text-[9.5px] tracking-[0.16em] uppercase text-(--color-muted) group-hover:text-(--color-ink)">
-        scan / share ↗
-      </span>
-    </button>
-  );
-}
 
 function CodeCardFooter({ code, link }: { code: CodeView; link: string }) {
   return (

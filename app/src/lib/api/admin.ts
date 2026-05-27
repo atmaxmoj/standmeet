@@ -83,6 +83,11 @@ export interface AccessRequestView {
 }
 
 // Typed views (re-export from public types where shapes match).
+export interface RawMediaMeta {
+  kind: string;
+  label: string;
+}
+
 export interface RawAdminView {
   id: string;
   body: string;
@@ -91,6 +96,7 @@ export interface RawAdminView {
   created_at: string;
   flagged_private: boolean;
   archived: boolean;
+  media?: RawMediaMeta | null;
 }
 
 export interface CreateRawInput {

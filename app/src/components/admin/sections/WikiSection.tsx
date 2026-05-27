@@ -180,6 +180,7 @@ function WikiCard({
   return (
     <article className="border-t border-(--color-rule) pt-4">
       <WikiHead entry={entry} />
+      <WikiExcerpt text={entry.excerpt} />
       <WikiTagsAndMeta entry={entry} />
       <RowActions entry={entry} mode={mode} actions={actions} setMode={setMode} />
       <InlineForms entry={entry} mode={mode} actions={actions} setMode={setMode} />
@@ -207,6 +208,12 @@ function WikiHead({ entry }: { entry: WikiSummary }) {
       <VisibilityDot indexed={entry.seo_indexed} />
     </div>
   );
+}
+
+function WikiExcerpt({ text }: { text: string }) {
+  return text ? (
+    <p className="reading text-[14.5px] text-(--color-muted) mt-1 mb-2.5 line-clamp-2">{text}</p>
+  ) : null;
 }
 
 function VisibilityDot({ indexed }: { indexed: boolean }) {

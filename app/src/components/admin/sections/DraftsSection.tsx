@@ -16,6 +16,8 @@ import { ResumeComposer } from '@/components/admin/ResumeComposer';
 import { mockDraft } from '@/lib/admin/draft-model';
 import { listViewKind } from '@/lib/admin/list-view-kind';
 import {
+  draftActionKind,
+  draftPillTone,
   useAdminDrafts,
   type AdminDraftRow,
 } from '@/lib/admin/use-admin-drafts';
@@ -121,24 +123,41 @@ function DraftCard({
   row, onOpen,
 }: { row: AdminDraftRow; onOpen: () => void }) {
   return (
-    <article className="border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors">
-      <DraftCardHead company={row.company} role={row.role} />
-      <DraftCardMeta updatedAt={row.updated_at} forJob={row.for_job} />
-      <DraftCardActions onOpen={onOpen} draftId={row.id} />
+    <article className="border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors grid grid-cols-[1fr_200px] gap-4">
+      <div>
+        <DraftCardHead company={row.company} role={row.role} status={row.status} />
+        <DraftCardMeta updatedAt={row.updated_at} forJob={row.for_job} />
+        <DraftDiff text={row.diff_text} />
+        <DraftCardActions onOpen={onOpen} draftId={row.id} actionKind={draftActionKind(row.status)} />
+      </div>
+      <DraftPDFPreview />
     </article>
   );
 }
 
-function DraftCardHead({ company, role }: { company: string; role: string }) {
+function DraftCardHead({ company, role, status }: { company: string; role: string; status?: AdminDraftRow['status'] }) {
   return (
-    <header className="mb-3">
-      <h3 className="font-serif text-[18px] text-(--color-ink) font-medium tracking-[-0.005em]">
-        {company}
-      </h3>
-      <p className="font-serif italic text-[14px] text-(--color-muted) mt-0.5">
-        {role}
-      </p>
+    <header className="mb-3 flex items-baseline justify-between gap-3">
+      <div>
+        <h3 className="font-serif text-[18px] text-(--color-ink) font-medium tracking-[-0.005em]">
+          {company}
+        </h3>
+        <p className="font-serif italic text-[14px] text-(--color-muted) mt-0.5">
+          {role}
+        </p>
+      </div>
+      <DraftStatusPill status={status} />
     </header>
+  );
+}
+
+function DraftStatusPill({ status }: { status?: AdminDraftRow['status'] }) {
+  const label = status ?? 'draft';
+  return (
+    <span className={`sm-pill ${draftPillTone(status)}`}>
+      <span className="sm-dot-mark" />
+      {label}
+    </span>
   );
 }
 
@@ -152,11 +171,36 @@ function DraftCardMeta({ updatedAt, forJob }: { updatedAt: string; forJob: strin
   );
 }
 
+function DraftDiff({ text }: { text?: string }) {
+  return text ? (
+    <blockquote className="border-l-2 border-(--color-accent) pl-3 mb-3 mono text-[11px] text-(--color-muted) leading-[1.6]">
+      {text}
+    </blockquote>
+  ) : null;
+}
+
+function DraftPDFPreview() {
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] bg-(--color-surface)/60 aspect-[8.5/11] flex items-center justify-center">
+      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint)">PDF preview</span>
+    </div>
+  );
+}
+
 function formatDate(iso: string): string {
   return iso ? iso.slice(0, 10) : '—';
 }
 
-function DraftCardActions({ onOpen, draftId }: { onOpen: () => void; draftId: string }) {
+function DraftCardActions({ onOpen, draftId, actionKind }: { onOpen: () => void; draftId: string; actionKind: 'reviewing' | 'draft' | 'sent' }) {
+  const map = {
+    reviewing: <ReviewingActions onOpen={onOpen} draftId={draftId} />,
+    draft: <DraftActions draftId={draftId} />,
+    sent: <SentActions draftId={draftId} />,
+  } as const;
+  return map[actionKind];
+}
+
+function ReviewingActions({ onOpen, draftId }: { onOpen: () => void; draftId: string }) {
   return (
     <div className="flex items-baseline gap-3">
       <button
@@ -165,6 +209,38 @@ function DraftCardActions({ onOpen, draftId }: { onOpen: () => void; draftId: st
         data-testid={`draft-open-${draftId}`}
       >
         open composer →
+      </button>
+      <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) hover:text-(--color-accent)">
+        edit
+      </button>
+      <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)">
+        regenerate
+      </button>
+    </div>
+  );
+}
+
+function DraftActions({ draftId }: { draftId: string }) {
+  return (
+    <div className="flex items-baseline gap-3" data-testid={`draft-actions-${draftId}`}>
+      <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">
+        finish drafting
+      </button>
+      <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)">
+        discard
+      </button>
+    </div>
+  );
+}
+
+function SentActions({ draftId }: { draftId: string }) {
+  return (
+    <div className="flex items-baseline gap-3" data-testid={`draft-sent-${draftId}`}>
+      <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-muted) hover:text-(--color-accent)">
+        view application
+      </button>
+      <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)">
+        view pdf
       </button>
     </div>
   );

@@ -165,7 +165,19 @@ function OpenActions({ id, onMark }: { id: string; onMark: (id: string, s: 'repl
       <Btn kind="ghost" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
         defer · pending
       </Btn>
+      <BlockSenderBtn />
     </div>
+  );
+}
+
+function BlockSenderBtn() {
+  return (
+    <button
+      type="button"
+      className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline px-1.5 py-0.5"
+    >
+      block sender
+    </button>
   );
 }
 

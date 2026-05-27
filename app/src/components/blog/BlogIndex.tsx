@@ -44,6 +44,7 @@ export function BlogIndex({ initialPosts, initialCursor }: Props) {
         <BlogIndexBody activeTag={activeTag} posts={filtered} onPickTag={pickTag} />
         <BlogScrollLoader done={feed.done} loading={feed.loading} onHit={feed.loadMore} />
         <AskCorpusCTA hasPosts={feed.posts.length > 0} />
+        <RecommendedRail posts={feed.posts} />
       </main>
       <FloatingChatDock />
     </div>
@@ -81,6 +82,39 @@ function AskCorpusCTA({ hasPosts }: { hasPosts: boolean }) {
       </div>
     </section>
   ) : null;
+}
+
+function RecommendedRail({ posts }: { posts: PostView[] }) {
+  const recommended = posts.slice(0, 2);
+  return recommended.length >= 2 ? (
+    <section className="mt-16 pt-8 border-t border-(--color-rule)">
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-5">
+        if you only read two
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {recommended.map((p) => (
+          <RecommendedCard key={p.slug} post={p} />
+        ))}
+      </div>
+    </section>
+  ) : null;
+}
+
+function RecommendedCard({ post }: { post: PostView }) {
+  return (
+    <Link
+      href={`/blog/${post.slug}`}
+      className="block border border-(--color-rule) rounded-[3px] p-5 hover:border-(--color-ink) transition-colors"
+    >
+      <h4 className="font-serif text-[18px] text-(--color-ink) font-normal leading-[1.3] mb-2">
+        {post.title}
+      </h4>
+      <p className="reading text-[14px] text-(--color-muted) line-clamp-2">{post.excerpt}</p>
+      <div className="mono text-[10px] tracking-[0.12em] text-(--color-faint) mt-3">
+        {post.read_minutes} min read
+      </div>
+    </Link>
+  );
 }
 
 function filterByTag(posts: PostView[], tag: string | null): PostView[] {

@@ -11,7 +11,9 @@ import Link from 'next/link';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Sparkline } from '@/components/admin/atoms/Sparkline';
 import {
+  allActionItems,
   useAdminDashboard,
+  type ActionItem,
   type DashboardStats,
 } from '@/lib/admin/use-admin-dashboard';
 
@@ -248,17 +250,8 @@ function NeedsYourHand({ stats }: { stats: DashboardStats }) {
   );
 }
 
-interface ActionItem { key: string; count: number; label: string; sub: string; href: string }
-
 function buildActionItems(stats: DashboardStats): ActionItem[] {
-  return [
-    { key: 'requests', count: stats.requestsNew,
-      label: `${stats.requestsNew} access request${stats.requestsNew === 1 ? '' : 's'}`,
-      sub: 'visitors waiting on a code', href: '/admin/requests' },
-    { key: 'raw', count: stats.rawUnprocessed,
-      label: `${stats.rawUnprocessed} raw ${stats.rawUnprocessed === 1 ? 'entry' : 'entries'} unprocessed`,
-      sub: 'promote, edit, or archive', href: '/admin/raw' },
-  ].filter((i) => i.count > 0);
+  return allActionItems(stats).filter((i) => i.count > 0);
 }
 
 function NeedsList({ items }: { items: ActionItem[] }) {

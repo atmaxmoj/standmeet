@@ -21,6 +21,7 @@ func wikiItemFromDomain(w *domain.WikiEntry) wikiListItem {
 	return wikiListItem{
 		ID:           w.ID,
 		Title:        w.Title,
+		Excerpt:      truncateExcerpt(w.Body, excerptMaxLen),
 		Tags:         ensureSlice(w.Tags),
 		SourceRawIDs: ensureSlice(w.SourceRawIDs),
 		ParentID:     w.ParentID,
@@ -29,6 +30,15 @@ func wikiItemFromDomain(w *domain.WikiEntry) wikiListItem {
 		SEOIndexed:   w.SEOIndexed,
 		CreatedAt:    w.CreatedAt.UTC().Format(timeRFC3339),
 	}
+}
+
+const excerptMaxLen = 200
+
+func truncateExcerpt(body string, limit int) string {
+	if len(body) <= limit {
+		return body
+	}
+	return body[:limit] + "…"
 }
 
 func outputItemFromDomain(o *domain.OutputEntry) outputListItem {

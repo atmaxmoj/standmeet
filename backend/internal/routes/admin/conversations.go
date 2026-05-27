@@ -35,7 +35,9 @@ type convSummaryView struct {
 	ID           string  `json:"id"`
 	Tier         string  `json:"tier"`
 	VisitorName  string  `json:"visitor_name"`
+	Sentiment    string  `json:"sentiment"`
 	MessageCount int32   `json:"message_count"`
+	PrivateHits  int32   `json:"private_hits"`
 }
 
 type convMessageView struct {
@@ -167,6 +169,8 @@ func toConvSummaryView(s *postgres.ConvSummary) convSummaryView {
 		Tier:         s.Tier,
 		VisitorName:  s.VisitorName,
 		MessageCount: s.MessageCount,
+		PrivateHits:  s.PrivateHits,
+		Sentiment:    usecases.DeriveSentiment(s.MessageCount, s.PrivateHits, s.Tier),
 		CodeID:       s.CodeID,
 		CodeLabel:    s.CodeLabel,
 		CodeValue:    s.CodeValue,

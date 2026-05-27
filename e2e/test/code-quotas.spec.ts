@@ -80,8 +80,8 @@ async function expectQuotaLineVisible(
 ): Promise<void> {
   const line = page.getByTestId(`code-quotas-${code}`);
   await expect(line).toBeVisible();
-  await expect(line).toContainText(`${sessions} sessions/visitor`);
-  await expect(line).toContainText(`${turns} turns/session`);
+  await expect(line).toContainText(`${sessions} sessions`);
+  await expect(line).toContainText(`${turns} turns`);
 }
 
 async function revokeCode(page: Page, code: string): Promise<void> {

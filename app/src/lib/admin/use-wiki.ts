@@ -11,6 +11,7 @@ import type { ResourceStatus } from '@/lib/state/status';
 export interface WikiSummary {
   id: string;
   title: string;
+  excerpt: string;
   tags: string[];
   source_raw_ids: string[];
   created_at: string;

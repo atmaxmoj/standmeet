@@ -137,15 +137,44 @@ function toDetailApp(row: AdminApplicationRow): Application {
 function Row({
   row, onOpen,
 }: { row: AdminApplicationRow; onOpen: () => void }) {
+  const detail = toDetailApp(row);
   return (
-    <button
-      type="button" onClick={onOpen}
+    <div
       data-testid={`application-row-${row.id}`}
-      className="w-full text-left border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors"
+      className="border border-(--color-rule) rounded-[3px] hover:border-(--color-ink) transition-colors"
     >
-      <RowHead row={row} />
-      <RowMeta row={row} />
-    </button>
+      <button
+        type="button" onClick={onOpen}
+        className="w-full text-left p-4"
+      >
+        <RowHead row={row} />
+        <RowMeta row={row} />
+      </button>
+      <AppCardFooter contact={detail.contact} notes={detail.notes} onOpen={onOpen} />
+    </div>
+  );
+}
+
+function AppCardFooter({ contact, notes, onOpen }: { contact: string; notes: string; onOpen: () => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-3 px-4 py-3 border-t border-(--color-rule)/60">
+      <div className="min-w-0">
+        <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">contact</div>
+        <div className="mono text-[11px] text-(--color-muted) truncate">{contact}</div>
+      </div>
+      <div className="min-w-0">
+        <div className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) mb-0.5">notes</div>
+        <div className="reading text-[12px] text-(--color-muted) truncate">{notes || '—'}</div>
+      </div>
+      <div className="flex items-center justify-end">
+        <button
+          type="button" onClick={onOpen}
+          className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-accent) hover:underline"
+        >
+          open ›
+        </button>
+      </div>
+    </div>
   );
 }
 

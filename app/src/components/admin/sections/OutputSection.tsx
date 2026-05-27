@@ -9,6 +9,7 @@
 import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import styles from '@/components/admin/sections/OutputSection.module.css';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
@@ -47,7 +48,7 @@ function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHoo
         kicker="corpus · public-facing"
         title="outputs"
         count={hook.status === 'ready' ? `${hook.rows.length} artifacts` : ''}
-        action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}
+        action={<NewBtnGroup onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (
         <div className="mb-6">
@@ -71,15 +72,24 @@ function Intro() {
   );
 }
 
-function NewBtn({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+function NewBtnGroup({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
   return (
-    <button
-      type="button" onClick={onClick} disabled={disabled}
-      data-testid="output-new-btn"
-      className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
-    >
-      + new output
-    </button>
+    <div className="flex items-baseline gap-2">
+      <button
+        type="button" onClick={onClick} disabled={disabled}
+        data-testid="output-new-btn"
+        className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-2.5 py-1 hover:bg-(--color-accent) transition-colors disabled:opacity-40"
+      >
+        + pdf lead-magnet
+      </button>
+      <button
+        type="button" onClick={onClick} disabled={disabled}
+        data-testid="output-new-essay-btn"
+        className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) border border-(--color-rule) px-2.5 py-1 hover:text-(--color-ink) hover:border-(--color-ink) transition-colors disabled:opacity-40"
+      >
+        + web essay
+      </button>
+    </div>
   );
 }
 
@@ -162,7 +172,7 @@ function OutputCard({
 
 function CoverStrip({ entry, tier }: { entry: OutputSummary; tier: Tier }) {
   return (
-    <div className="relative h-[100px] border-b border-(--color-rule) bg-(--color-surface) overflow-hidden">
+    <div className={`relative h-[100px] border-b border-(--color-rule) overflow-hidden ${styles.coverGradient}`}>
       <span className="mono absolute top-2.5 left-3 text-[9.5px] tracking-[0.18em] uppercase text-(--color-muted)">
         output · {tier}
       </span>
@@ -192,8 +202,19 @@ function CardBody({
     <div className="p-4">
       <Provenance count={entry.source_wiki_ids.length} />
       <Tags tags={entry.tags} />
+      <StatsRow />
       <CardFoot entry={entry} actions={actions} editing={editing} setEditing={setEditing} />
       {editing ? <EditForm entry={entry} actions={actions} onDone={() => setEditing(false)} /> : null}
+    </div>
+  );
+}
+
+function StatsRow() {
+  return (
+    <div className="mono text-[10px] tracking-[0.06em] text-(--color-faint) mt-2 flex items-baseline gap-2">
+      <span>0 views</span>
+      <span>·</span>
+      <span>0 downloads</span>
     </div>
   );
 }

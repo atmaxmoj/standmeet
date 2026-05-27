@@ -84,6 +84,7 @@ function ReadyTable({ hook }: { hook: ConversationsHook }) {
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">visitor</th>
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">via code</th>
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">turns</th>
+          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">sentiment</th>
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">flags</th>
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">last</th>
         </tr>
@@ -112,6 +113,9 @@ function ConvTableRow({ conv, open, onToggle }: { conv: ConvView; open: boolean;
           {conv.turns}
         </td>
         <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60">
+          <SentimentCell sentiment={conv.sentiment} />
+        </td>
+        <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60">
           <FlagsCell hits={conv.private_hits} />
         </td>
         <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11.5px] tabular-nums text-(--color-muted)">
@@ -120,12 +124,31 @@ function ConvTableRow({ conv, open, onToggle }: { conv: ConvView; open: boolean;
       </tr>
       {open && (
         <tr>
-          <td colSpan={5} className="px-1.5 py-3 border-b border-(--color-rule)/60">
+          <td colSpan={6} className="px-1.5 py-3 border-b border-(--color-rule)/60">
             <ConvRow conversation={conv} open onToggle={onToggle} />
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+const SENTIMENT_TONES: Record<string, string> = {
+  engaged: 'text-(--color-accent)',
+  warm: 'text-(--color-amber)',
+  curious: 'text-(--color-muted)',
+  short: 'text-(--color-faint)',
+  probing: 'text-(--color-violet)',
+  skeptical: 'text-(--color-muted)',
+  shopping: 'text-(--color-muted)',
+};
+
+function SentimentCell({ sentiment }: { sentiment: string }) {
+  const tone = SENTIMENT_TONES[sentiment] ?? 'text-(--color-faint)';
+  return (
+    <span className={`mono text-[9.5px] tracking-[0.14em] uppercase ${tone}`}>
+      {sentiment || '—'}
+    </span>
   );
 }
 

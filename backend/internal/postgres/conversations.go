@@ -244,6 +244,7 @@ type ConvSummary struct {
 	Tier         string
 	VisitorName  string
 	MessageCount int32
+	PrivateHits  int32
 }
 
 // ConversationWithMessages —— GetWithMessages 返回的 transcript bundle。

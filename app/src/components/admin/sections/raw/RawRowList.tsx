@@ -52,7 +52,7 @@ function RawRow({ row, actions }: { row: RawAdminView; actions: CorpusActionsHoo
     >
       <div className="grid grid-cols-[80px_1fr_auto] gap-6">
         <RawRowMeta source={row.source} createdAt={row.created_at} />
-        <RawRowBody body={row.body} tags={row.tags} privateFlag={row.flagged_private} />
+        <RawRowBody body={row.body} tags={row.tags} privateFlag={row.flagged_private} media={row.media} />
         <RawRowActions row={row} actions={actions} mode={mode} setMode={setMode} />
       </div>
       {mode === 'promote' ? (
@@ -75,11 +75,16 @@ function RawRowMeta({ source, createdAt }: { source: string; createdAt: string }
 }
 
 function RawRowBody({
-  body, tags, privateFlag,
-}: { body: string; tags: readonly string[]; privateFlag: boolean }) {
+  body, tags, privateFlag, media,
+}: { body: string; tags: readonly string[]; privateFlag: boolean; media?: RawAdminView['media'] }) {
   return (
     <div className="min-w-0">
       <p className="reading-tight text-(--color-ink) text-[15.5px]">{body}</p>
+      {media && (
+        <div className="mono text-[10px] tracking-[0.06em] text-(--color-faint) mt-1">
+          {media.kind} · {media.label}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-baseline gap-1.5">
         {tags.map((t) => <Chip key={t}>{t}</Chip>)}
         <PrivateBadge on={privateFlag} />

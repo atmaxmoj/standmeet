@@ -12,6 +12,7 @@ export interface DashboardStats {
   codesLive: number;
   requestsNew: number;
   conversationsCount: number;
+  draftsReviewing: number;
 }
 
 interface State {
@@ -22,13 +23,14 @@ interface State {
 
 const EMPTY_STATS: DashboardStats = {
   rawCount: 0, rawUnprocessed: 0, codesLive: 0,
-  requestsNew: 0, conversationsCount: 0,
+  requestsNew: 0, conversationsCount: 0, draftsReviewing: 0,
 };
 
 interface RawRow { id: string; promoted_wiki_id?: string | null }
 interface CodeRow { id: string; status: string }
 interface RequestRow { id: string; status: string }
 interface ConvRow { id: string }
+interface DraftRow { id: string; status?: string }
 
 export function useAdminDashboard(): State {
   const [state, setState] = useState<State>({
@@ -38,13 +40,40 @@ export function useAdminDashboard(): State {
   return state;
 }
 
+export interface ActionItem {
+  key: string;
+  count: number;
+  label: string;
+  sub: string;
+  href: string;
+}
+
+function pluralize(n: number, singular: string, plural: string): string {
+  return n === 1 ? singular : plural;
+}
+
+export function allActionItems(stats: DashboardStats): ActionItem[] {
+  return [
+    { key: 'requests', count: stats.requestsNew,
+      label: `${stats.requestsNew} access ${pluralize(stats.requestsNew, 'request', 'requests')}`,
+      sub: 'visitors waiting on a code', href: '/admin/requests' },
+    { key: 'raw', count: stats.rawUnprocessed,
+      label: `${stats.rawUnprocessed} raw ${pluralize(stats.rawUnprocessed, 'entry', 'entries')} unprocessed`,
+      sub: 'promote, edit, or archive', href: '/admin/raw' },
+    { key: 'drafts', count: stats.draftsReviewing ?? 0,
+      label: 'resume drafts pending',
+      sub: 'AI generated · awaiting your review', href: '/admin/drafts' },
+  ];
+}
+
 async function load(setState: (s: State) => void): Promise<void> {
   try {
-    const [raw, codes, requests, conversations] = await Promise.all([
+    const [raw, codes, requests, conversations, drafts] = await Promise.all([
       fetchList<RawRow>('/api/admin/raw'),
       fetchList<CodeRow>('/api/admin/codes/'),
       fetchList<RequestRow>('/api/admin/access-requests'),
       fetchList<ConvRow>('/api/admin/conversations'),
+      fetchList<DraftRow>('/api/admin/drafts/'),
     ]);
     setState({
       stats: {
@@ -55,6 +84,7 @@ async function load(setState: (s: State) => void): Promise<void> {
         requestsNew: requests.filter((r) => r.status === 'new'
           || r.status === 'pending').length,
         conversationsCount: conversations.length,
+        draftsReviewing: drafts.filter((d) => d.status !== 'sent').length,
       },
       loading: false, error: null,
     });

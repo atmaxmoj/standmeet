@@ -7,6 +7,7 @@
 import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
+import { EditorSideRail } from '@/components/admin/sections/posts/EditorSideRail';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { ObsidianBar } from '@/components/admin/sections/posts/ObsidianBar';
@@ -35,13 +36,9 @@ export function PostsSection() {
       />
       <Intro />
       <ObsidianBar onImported={() => hook.refresh()} />
-      <PostsListBody hook={hook} onEdit={setEditing} />
+      <InlineOrList hook={hook} editing={editing} setEditing={setEditing} />
       {creating && (
         <PostCreateModal onClose={() => setCreating(false)} onCreate={hook.createPost} />
-      )}
-      {editing && (
-        <PostEditModal post={editing}
-          onClose={() => setEditing(null)} onUpdate={hook.updatePost} />
       )}
     </>
   );
@@ -67,6 +64,33 @@ function Intro() {
 }
 
 type EditFn = (p: AdminPostView) => void;
+
+function InlineOrList({ hook, editing, setEditing }: {
+  hook: PostsHook; editing: AdminPostView | null; setEditing: (p: AdminPostView | null) => void;
+}) {
+  return editing
+    ? <InlineEditor post={editing} hook={hook} onClose={() => setEditing(null)} />
+    : <PostsListBody hook={hook} onEdit={setEditing} />;
+}
+
+function InlineEditor({ post, hook, onClose }: {
+  post: AdminPostView; hook: PostsHook; onClose: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
+      <div className="border border-(--color-rule) rounded-[3px] p-5 min-h-[580px]" data-testid="inline-editor">
+        <div className="flex justify-between items-baseline mb-4">
+          <div className="sm-smallcaps">composer · {post.slug}</div>
+          <button type="button" onClick={onClose} className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)">
+            ← back to list
+          </button>
+        </div>
+        <PostEditModal post={post} onClose={onClose} onUpdate={hook.updatePost} />
+      </div>
+      <EditorSideRail bodyMD="" />
+    </div>
+  );
+}
 
 function PostsListBody({ hook, onEdit }: { hook: PostsHook; onEdit: EditFn }) {
   const loading = hook.status === 'idle' || hook.status === 'loading';

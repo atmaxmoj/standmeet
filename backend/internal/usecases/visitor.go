@@ -56,7 +56,9 @@ type SessionQuota struct {
 // 二次查询；public/byoai tier 时 Code 空、Quota 留 zero value。
 type IssueCodeSessionResult struct {
 	Code         string
+	CodeLabel    string
 	VisitorName  string
+	Members      []domain.CodeMember
 	Conversation domain.Conversation
 	Session      session.IssuedVisitor
 	Quota        SessionQuota
@@ -104,10 +106,15 @@ func finalizeCodeSession(
 	if err != nil {
 		return IssueCodeSessionResult{}, err
 	}
+	members, merr := deps.Codes.ListMembers(ctx, code.ID)
+	if merr != nil {
+		members = nil
+	}
 	return IssueCodeSessionResult{
 		Session: a.Issued, Conversation: a.Conv,
-		Code: code.Code, VisitorName: in.VisitorName,
-		Quota: codeSessionQuota(code),
+		Code: code.Code, CodeLabel: code.Label, VisitorName: in.VisitorName,
+		Members: members,
+		Quota:   codeSessionQuota(code),
 	}, nil
 }
 

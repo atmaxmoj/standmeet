@@ -6,7 +6,11 @@
 import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
+import { Chip } from '@/components/admin/atoms/Chip';
 import type { CreateRawInput } from '@/lib/api/admin';
+
+const SOURCE_OPTIONS = ['claude', 'cursor', 'chatgpt', 'upload', 'obsidian', 'mcp'] as const;
+type SourceOption = typeof SOURCE_OPTIONS[number];
 
 type Props = {
   submitting: boolean;
@@ -16,14 +20,16 @@ type Props = {
 
 export function RawDumpBox({ submitting, submitError, onAdd }: Props) {
   const [text, setText] = useState('');
+  const [source, setSource] = useState<SourceOption>('claude');
   const handleAdd = useCallback(async () => {
     const trimmed = text.trim();
-    const ok = trimmed !== '' && await onAdd({ body: trimmed, source: 'admin' });
+    const ok = trimmed !== '' && await onAdd({ body: trimmed, source });
     ok && setText('');
-  }, [text, onAdd]);
+  }, [text, onAdd, source]);
   return (
     <div className="border border-dashed border-(--color-rule) bg-(--color-surface)/40 rounded-sm p-4 relative">
       <RawDumpHead />
+      <SourcePicker active={source} onPick={setSource} />
       <RawDumpTextarea value={text} onChange={setText} />
       <RawDumpFooter
         disabled={text.trim() === '' || submitting}
@@ -31,6 +37,16 @@ export function RawDumpBox({ submitting, submitError, onAdd }: Props) {
         error={submitError}
         onAdd={() => { void handleAdd(); }}
       />
+    </div>
+  );
+}
+
+function SourcePicker({ active, onPick }: { active: SourceOption; onPick: (s: SourceOption) => void }) {
+  return (
+    <div className="flex items-baseline gap-1.5 flex-wrap mb-3">
+      {SOURCE_OPTIONS.map((s) => (
+        <Chip key={s} active={active === s} onClick={() => onPick(s)}>{s}</Chip>
+      ))}
     </div>
   );
 }
@@ -73,9 +89,14 @@ function RawDumpFooter({ disabled, submitting, error, onAdd }: FooterProps) {
   return (
     <div className="flex items-center justify-between mt-3 gap-3">
       <FooterHint error={error} />
-      <Btn kind="primary" onClick={onAdd} disabled={disabled}>
-        {submitting ? 'dumping…' : 'dump ↵'}
-      </Btn>
+      <div className="flex items-baseline gap-3">
+        <span className="mono text-[10px] tracking-[0.12em] text-(--color-muted) cursor-pointer hover:text-(--color-accent)">
+          attach media
+        </span>
+        <Btn kind="primary" onClick={onAdd} disabled={disabled}>
+          {submitting ? 'dumping…' : 'dump ↵'}
+        </Btn>
+      </div>
     </div>
   );
 }

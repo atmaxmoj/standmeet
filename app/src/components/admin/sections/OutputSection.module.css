@@ -1,0 +1,9 @@
+.coverGradient {
+  background:
+    radial-gradient(
+      ellipse 60% 80% at 80% 20%,
+      color-mix(in oklab, var(--color-amber) 30%, transparent),
+      transparent 70%
+    ),
+    var(--color-surface);
+}
