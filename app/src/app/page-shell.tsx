@@ -15,6 +15,7 @@ import { useCallback, useRef } from 'react';
 import type { PageContent, PublicOwnerView } from '@/lib/api/public';
 
 import { Contact } from '@/components/Contact';
+import { QuickAskDeck } from '@/components/QuickAskDeck';
 import { Hero } from '@/components/Hero';
 import { Insights } from '@/components/Insights';
 import { Projects } from '@/components/Projects';
@@ -22,6 +23,7 @@ import { Where } from '@/components/Where';
 import { ConversationDeck } from '@/components/page/ConversationDeck';
 import { Footer } from '@/components/page/Footer';
 import { TopBar } from '@/components/page/TopBar';
+import { ChatRoom } from '@/components/visitor/ChatRoom';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { loadStoredSession } from '@/lib/gate/use-gate';
@@ -30,7 +32,7 @@ import { useConsumeQuestionFromURL } from '@/lib/page/consume-question-url';
 import { useTheme } from '@/lib/page/use-theme';
 import { useConversation } from '@/lib/page/use-conversation';
 import type { SessionTier } from '@/lib/page/use-conversation';
-import { useIsQuotaExhausted } from '@/lib/visitor/session-store';
+import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 type Props = {
   owner: PublicOwnerView;
@@ -38,12 +40,20 @@ type Props = {
 };
 
 export function PageShell({ owner, content }: Props) {
-  return <PageShellBody owner={owner} content={content} />;
+  const tier = useTierFromStorage();
+  const isChatMode = useChatModeDetect();
+  return isChatMode
+    ? <ChatRoom owner={owner} tier={tier} />
+    : <LongScrollBody owner={owner} content={content} tier={tier} />;
 }
 
-function PageShellBody({ owner, content }: Props) {
+function useChatModeDetect(): boolean {
+  const session = useVisitorSessionStore((s) => s.session);
+  return session !== null && (session.code !== null || session.byoai);
+}
+
+function LongScrollBody({ owner, content, tier }: Props & { tier: SessionTier }) {
   const { dark, toggle } = useTheme();
-  const tier = useTierFromStorage();
   const conv = useConversation({ tier });
   const exhausted = useIsQuotaExhausted();
   const [input, setInput] = useState('');
@@ -81,6 +91,11 @@ function PageShellBody({ owner, content }: Props) {
           {conv.turns.length > 0 && (
             <ConversationDeck ownerHandle={owner.handle} turns={conv.turns} onReset={conv.reset} />
           )}
+          <QuickAskDeck
+            examples={content.hero_examples}
+            askedSet={buildAskedSet(conv.turns)}
+            onAsk={onAsk}
+          />
           <Insights insights={content.insights} />
           <Projects projects={content.projects} />
           <Where where={content.where} />
@@ -90,6 +105,12 @@ function PageShellBody({ owner, content }: Props) {
       <Footer />
     </div>
   );
+}
+
+function buildAskedSet(turns: ReturnType<typeof useConversation>['turns']): ReadonlySet<string> {
+  const questions: string[] = [];
+  for (const t of turns) questions.push(t.q);
+  return new Set(questions);
 }
 
 // useTierFromStorage —— mount 后读 localStorage 拿 stored visitor-session。

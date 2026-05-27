@@ -43,8 +43,10 @@ test.describe.serial('visitor uses a gate code to enter a private page', () => {
       await page.getByTestId('gate-visitor-name').fill('Sarah (HR)');
       await page.getByTestId('gate-code-submit').click();
       await page.waitForURL('**/', { timeout: 10_000 });
-      // owner full name 在 identity strip span 里，不是 heading。
-      await expect(page.getByText(OWNER.fullName)).toBeVisible();
+      // coded visitor 现在看到 ChatRoom（focused chat），不是 long-scroll。
+      // 验 session-strip 可见 + chat input 可见。
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('chat-input')).toBeVisible();
     });
 });
 
