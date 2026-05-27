@@ -6,7 +6,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, type CreateRawInput, type RawAdminView } from '@/lib/api/admin';
+import { z } from 'zod';
+import { adminAPI, RawAdminViewSchema, type CreateRawInput, type RawAdminView } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -27,7 +28,7 @@ export interface RawHook {
 
 export const rawStore = createResourceStore<RawAdminView[]>({
   name: 'raw',
-  fetcher: () => adminAPI.get<RawAdminView[]>('/raw'),
+  fetcher: () => adminAPI.get('/raw', z.array(RawAdminViewSchema)),
 });
 
 export function useRaw(): RawHook {
@@ -84,7 +85,7 @@ async function doAddRaw(
   setSubmitting(true);
   setErr(null);
   try {
-    const created = await adminAPI.post<RawAdminView>('/raw', input);
+    const created = await adminAPI.post('/raw', input, RawAdminViewSchema);
     rawStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
     return true;
   } catch (e) {

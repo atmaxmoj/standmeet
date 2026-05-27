@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, type BYOAIUpdateInput, type MeView } from '@/lib/api/admin';
+import { adminAPI, MeViewSchema, type BYOAIUpdateInput, type MeView } from '@/lib/api/admin';
 import { sessionStore } from '@/lib/admin/use-admin-session';
 import { readResource } from '@/lib/state/create-resource-store';
 
@@ -84,7 +84,7 @@ async function doSave(
       providers: state.providers,
       blurb: state.blurb,
     };
-    await adminAPI.put<MeView>('/byoai', body);
+    await adminAPI.put('/byoai', body, MeViewSchema);
     await sessionStore.getState().refresh();
     return true;
   } catch (e) {
@@ -96,9 +96,9 @@ async function doSave(
 }
 
 function byoaiFromMe(me: MeView): BYOAIState {
-  const known: readonly BYOAIProvider[] = ['claude', 'openai', 'gemini'];
+  const known = new Set<string>(['claude', 'openai', 'gemini']);
   const filtered = me.settings.byoai.providers.filter(
-    (p): p is BYOAIProvider => (known as readonly string[]).includes(p),
+    (p): p is BYOAIProvider => known.has(p),
   );
   return {
     enabled: me.settings.byoai.enabled,

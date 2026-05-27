@@ -9,6 +9,8 @@
 
 import { useRef } from 'react';
 
+import { webkitDirectoryRef } from '@/lib/admin/webkitdirectory-ref';
+
 import { Btn } from '@/components/admin/atoms/Btn';
 import { triggerExport, useObsidianImport, type ImportResult } from '@/lib/admin/use-obsidian';
 import { useToast } from '@/lib/ui/toast';
@@ -62,13 +64,12 @@ function HiddenDirInput({
 }) {
   return (
     <input
-      ref={inputRef}
+      ref={webkitDirectoryRef(inputRef)}
       type="file"
       multiple
       data-testid="obsidian-vault-input"
       className="hidden"
       onChange={(e) => handlePick(e.target.files, onFiles)}
-      {...({ webkitdirectory: '' } as Record<string, string>)}
     />
   );
 }

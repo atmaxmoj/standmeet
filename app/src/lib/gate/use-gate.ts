@@ -23,11 +23,14 @@ import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 const BYOAI_STORAGE_KEY = 'standmeet:visitor-session';
 
-interface StoredVisitorSession {
-  session_token: string;
-  conversation_id: string;
-  byoai: boolean;
-}
+import { z } from 'zod';
+
+import { safeJsonString } from '@/lib/api/typed-json';
+
+const StoredVisitorSessionSchema = z.object({
+  session_token: z.string(), conversation_id: z.string(), byoai: z.boolean(),
+});
+type StoredVisitorSession = z.infer<typeof StoredVisitorSessionSchema>;
 
 export function persistSession(sess: PublicSessionResponse, byoai: boolean): void {
   if (typeof window === 'undefined') return;
@@ -42,7 +45,7 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
 export function loadStoredSession(): StoredVisitorSession | null {
   if (typeof window === 'undefined') return null;
   const raw = window.localStorage.getItem(BYOAI_STORAGE_KEY);
-  return raw ? (JSON.parse(raw) as StoredVisitorSession) : null;
+  return raw ? safeJsonString(raw, StoredVisitorSessionSchema) : null;
 }
 
 // Provider —— BYOAI 提交时的 provider 名。string 不收窄，因为新 backend

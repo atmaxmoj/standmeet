@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
 import {
+  APPLICATION_STATUSES,
   MOCK_APPLICATIONS,
   pillToneFor,
   type Application,
@@ -129,7 +130,7 @@ function toDetailApp(row: AdminApplicationRow): Application {
     method: 'autofill',
     contact: '—',
     notes: '',
-    status: (row.status as ApplicationStatus | undefined) ?? 'silent',
+    status: parseAppStatus(row.status),
     resumeDelta: '',
   };
 }
@@ -189,7 +190,7 @@ function RowHead({ row }: { row: AdminApplicationRow }) {
           · {row.role}
         </span>
       </div>
-      <StatusPill status={(row.status as ApplicationStatus | undefined) ?? 'silent'} />
+      <StatusPill status={parseAppStatus(row.status)} />
     </div>
   );
 }
@@ -206,6 +207,11 @@ function RowMeta({ row }: { row: AdminApplicationRow }) {
 
 function formatDate(iso: string): string {
   return iso === '' || iso.startsWith('0001') ? '—' : iso.slice(0, 10);
+}
+
+function parseAppStatus(s: string): ApplicationStatus {
+  const found = APPLICATION_STATUSES.find((x) => x === s);
+  return found ?? 'silent';
 }
 
 function StatusPill({ status }: { status: ApplicationStatus }) {

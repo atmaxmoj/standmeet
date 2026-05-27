@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { fetchItemCount, fetchRecentConversations, type DashboardRecentRow } from '@/lib/admin/dashboard-fetch';
 import { Sparkline } from '@/components/admin/atoms/Sparkline';
 import {
   allActionItems,
@@ -151,9 +152,8 @@ function JobsHeat() {
 function useApplicationCount(): { sent: number } {
   const [sent, setSent] = useState(0);
   useEffect(() => {
-    void fetch('/api/admin/applications/', { credentials: 'include' })
-      .then((r) => r.ok ? r.json() as Promise<{ items?: unknown[] }> : { items: [] })
-      .then((d) => setSent((d.items ?? []).length))
+    void fetchItemCount('/api/admin/applications/')
+      .then(setSent)
       .catch(() => setSent(0));
   }, []);
   return { sent };
@@ -195,20 +195,17 @@ function RecentVisitors() {
   );
 }
 
-interface RecentRow { id: string; visitor: string; code_label: string; turns: number; last: string; private_hits: number }
-
-function useRecentConversations(): { rows: RecentRow[] } {
-  const [rows, setRows] = useState<RecentRow[]>([]);
+function useRecentConversations(): { rows: DashboardRecentRow[] } {
+  const [rows, setRows] = useState<DashboardRecentRow[]>([]);
   useEffect(() => {
-    void fetch('/api/admin/conversations/', { credentials: 'include' })
-      .then((r) => r.ok ? r.json() as Promise<{ items?: RecentRow[] }> : { items: [] })
-      .then((d) => setRows((d.items ?? []).slice(0, 5)))
+    void fetchRecentConversations('/api/admin/conversations/', 5)
+      .then(setRows)
       .catch(() => setRows([]));
   }, []);
   return { rows };
 }
 
-function RecentVisitorsList({ rows }: { rows: readonly RecentRow[] }) {
+function RecentVisitorsList({ rows }: { rows: readonly DashboardRecentRow[] }) {
   return rows.length === 0 ? (
     <div className="mono text-[11px] text-(--color-faint) tracking-[0.06em] mt-2">
       no conversations yet — visitors will appear here once they start chatting
@@ -220,7 +217,7 @@ function RecentVisitorsList({ rows }: { rows: readonly RecentRow[] }) {
   );
 }
 
-function RecentVisitorRow({ row }: { row: RecentRow }) {
+function RecentVisitorRow({ row }: { row: DashboardRecentRow }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
       <div>
@@ -292,6 +289,7 @@ function GroupHeader({ title, action }: { title: string; action?: React.ReactNod
     </div>
   );
 }
+
 
 function ErrorBlock({ msg }: { msg: string | null }) {
   return msg === null ? null : (

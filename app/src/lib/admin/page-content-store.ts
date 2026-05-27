@@ -6,9 +6,10 @@
 // 由 [[create-resource-store]] 工厂统一形态。
 
 import { adminAPI, type PageContent } from '@/lib/api/admin';
+import { PageContentSchema } from '@/lib/api/public-schemas';
 import { createResourceStore } from '@/lib/state/create-resource-store';
 
 export const pageContentStore = createResourceStore<PageContent>({
   name: 'page-content',
-  fetcher: () => adminAPI.get<PageContent>('/page'),
+  fetcher: () => adminAPI.get('/page', PageContentSchema),
 });

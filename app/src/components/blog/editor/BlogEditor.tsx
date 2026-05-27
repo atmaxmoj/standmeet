@@ -42,7 +42,7 @@ interface Props {
   placeholder?: string;
 }
 
-interface MarkdownStorage { getMarkdown(): string }
+import { getMarkdownFromEditor } from '@/lib/blog/markdown-storage';
 
 export function BlogEditor({
   value, onChange, placeholder, onPending, assetURLs,
@@ -101,8 +101,6 @@ function emitContracted(
   ed: TiptapEditor, urlMap: Record<string, string>,
   onChange: (md: string) => void,
 ): void {
-  const storage = (ed.storage as unknown as Record<string, unknown>)['markdown'] as
-    MarkdownStorage | undefined;
-  const raw = storage?.getMarkdown();
+  const raw = getMarkdownFromEditor(ed.storage);
   typeof raw === 'string' && onChange(contractURLsToURIs(raw, invertMap(urlMap)));
 }

@@ -3,17 +3,19 @@
 
 import { useEffect, useState } from 'react';
 
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
+
 export type DraftStatus = 'reviewing' | 'draft' | 'sent';
 
-export interface AdminDraftRow {
-  id: string;
-  company: string;
-  role: string;
-  for_job: string;
-  updated_at: string;
-  status?: DraftStatus;
-  diff_text?: string;
-}
+const AdminDraftRowSchema = z.object({
+  id: z.string(), company: z.string(), role: z.string(), for_job: z.string(),
+  updated_at: z.string(),
+  status: z.enum(['reviewing', 'draft', 'sent']).optional(),
+  diff_text: z.string().optional(),
+});
+export type AdminDraftRow = z.infer<typeof AdminDraftRowSchema>;
 
 const ENDPOINT = '/api/admin/drafts/';
 
@@ -48,7 +50,7 @@ async function load(setState: (s: State) => void): Promise<void> {
   try {
     const res = await fetch(ENDPOINT, { credentials: 'include' });
     if (!res.ok) throw new Error(`list drafts: ${res.status}`);
-    const rows = await res.json() as AdminDraftRow[];
+    const rows = await safeJson(res, z.array(AdminDraftRowSchema));
     setState({ rows, loading: false, error: null });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'load drafts failed';

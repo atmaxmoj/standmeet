@@ -4,7 +4,12 @@
 
 import { useEffect, useState } from 'react';
 
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
 import type { SidebarBadges } from '@/components/admin/AdminSidebar';
+
+const BadgeRowSchema = z.object({ items: z.array(z.object({ status: z.string() })).optional() });
 
 export function useSidebarBadges(): SidebarBadges {
   const [badges, setBadges] = useState<SidebarBadges>({});
@@ -25,11 +30,11 @@ async function fetchBadges(): Promise<SidebarBadges> {
     fetch('/api/admin/requests/', { credentials: 'include' }),
   ]);
   if (rawRes.status === 'fulfilled' && rawRes.value.ok) {
-    const rows = await rawRes.value.json() as { items?: { status: string }[] };
+    const rows = await safeJson(rawRes.value, BadgeRowSchema);
     out.raw = (rows.items ?? []).filter((r) => r.status === 'unprocessed').length;
   }
   if (reqRes.status === 'fulfilled' && reqRes.value.ok) {
-    const rows = await reqRes.value.json() as { items?: { status: string }[] };
+    const rows = await safeJson(reqRes.value, BadgeRowSchema);
     out.requests = (rows.items ?? []).filter((r) => r.status === 'open').length;
   }
   return out;

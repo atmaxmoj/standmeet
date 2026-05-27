@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react';
 
-export interface AdminApplicationRow {
-  id: string;
-  company: string;
-  role: string;
-  status: string;
-  submitted_at: string;
-  created_at: string;
-}
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
+
+const AdminApplicationRowSchema = z.object({
+  id: z.string(), company: z.string(), role: z.string(), status: z.string(),
+  submitted_at: z.string(), created_at: z.string(),
+});
+export type AdminApplicationRow = z.infer<typeof AdminApplicationRowSchema>;
 
 const ENDPOINT = '/api/admin/applications/';
 
@@ -29,7 +30,7 @@ async function load(setState: (s: State) => void): Promise<void> {
   try {
     const res = await fetch(ENDPOINT, { credentials: 'include' });
     if (!res.ok) throw new Error(`list applications: ${res.status}`);
-    const rows = await res.json() as AdminApplicationRow[];
+    const rows = await safeJson(res, z.array(AdminApplicationRowSchema));
     setState({ rows, loading: false, error: null });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'load applications failed';

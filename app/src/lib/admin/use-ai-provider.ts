@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, type MeView, type SettingsView } from '@/lib/api/admin';
+import { adminAPI, SettingsViewSchema, type MeView } from '@/lib/api/admin';
 import { sessionStore } from '@/lib/admin/use-admin-session';
 import { readResource } from '@/lib/state/create-resource-store';
 
@@ -50,8 +50,6 @@ export interface SaveInput {
   key: string;      // empty string → 不改 key（只切 provider / endpoint / model）
 }
 
-// PatchResp —— PATCH /ai-provider 现在直接回新 SettingsView 一片。
-type PatchResp = SettingsView;
 
 export function useAIProvider(): AIProviderHook {
   const session = readResource(sessionStore);
@@ -157,7 +155,7 @@ async function runPatch(
   setSaving(true);
   setErr(null);
   try {
-    await adminAPI.patch<PatchResp>('/ai-provider', body);
+    await adminAPI.patch('/ai-provider', body, SettingsViewSchema);
     await sessionStore.getState().refresh();
     return true;
   } catch (e) {

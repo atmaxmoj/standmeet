@@ -1,3 +1,4 @@
+import { z } from 'zod';
 // use-handle —— owner 改 URL handle。
 // PATCH /api/admin/handle；backend 在 handle_aliases 里留旧值，老链接仍可
 // resolve（详见 internal/postgres/auth.go GetByHandle）。
@@ -15,7 +16,7 @@ export interface HandleHook {
   clearError: () => void;
 }
 
-interface HandleResp { handle: string }
+const HandleRespSchema = z.object({ handle: z.string() });
 
 export function useHandle(): HandleHook {
   const [pending, setPending] = useState(false);
@@ -25,7 +26,7 @@ export function useHandle(): HandleHook {
     setPending(true);
     setError(null);
     try {
-      const res = await adminAPI.patch<HandleResp>('/handle', { handle: raw });
+      const res = await adminAPI.patch('/handle', { handle: raw }, HandleRespSchema);
       return res.handle;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'update failed');

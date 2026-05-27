@@ -124,7 +124,8 @@ function ToolBtn({
 }
 
 function promptLink(editor: Editor): void {
-  const prev = editor.getAttributes('link').href as string | undefined;
+  const attrs: Record<string, unknown> = editor.getAttributes('link');
+  const prev = typeof attrs['href'] === 'string' ? attrs['href'] : undefined;
   const url = window.prompt('URL', prev ?? 'https://');
   applyLink(editor, url);
 }

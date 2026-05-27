@@ -1,28 +1,21 @@
-// use-custom-pages —— /admin/custom-pages 状态。GET /api/admin/custom-pages 返 list。
-//
-// 只读视图 —— create / build / promote 等写操作走 MCP tool（owner 在 Claude
-// 那侧驱动），admin UI 只显示状态 + 提供 "view live ↗" 链接让 owner 不开
-// Claude 也能确认 / 访问 live 版本。
+// use-custom-pages —— /admin/custom-pages 状态。
 
 'use client';
 
 import { useEffect } from 'react';
 
+import { z } from 'zod';
+
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-export interface CustomPageSummary {
-  id: string;
-  slug: string;
-  title: string;
-  status: string; // 'active' | 'archived' | 'deleted'
-  has_live: boolean;
-  has_staging: boolean;
-  live_build_id?: string;
-  created_at: string;
-  updated_at: string;
-}
+const CustomPageSummarySchema = z.object({
+  id: z.string(), slug: z.string(), title: z.string(), status: z.string(),
+  has_live: z.boolean(), has_staging: z.boolean(), live_build_id: z.string().optional(),
+  created_at: z.string(), updated_at: z.string(),
+});
+export type CustomPageSummary = z.infer<typeof CustomPageSummarySchema>;
 
 export type CustomPagesBodyState = 'loading' | 'error' | 'empty' | 'list';
 
@@ -34,7 +27,7 @@ export interface CustomPagesHook {
 
 export const customPagesStore = createResourceStore<CustomPageSummary[]>({
   name: 'custom-pages',
-  fetcher: () => adminAPI.get<CustomPageSummary[]>('/custom-pages'),
+  fetcher: () => adminAPI.get('/custom-pages', z.array(CustomPageSummarySchema)),
 });
 
 export function useCustomPages(): CustomPagesHook {

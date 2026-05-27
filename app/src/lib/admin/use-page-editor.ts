@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI, type PageContent } from '@/lib/api/admin';
+import { PageContentSchema } from '@/lib/api/public-schemas';
 import { pageContentStore } from '@/lib/admin/page-content-store';
 import { readResource } from '@/lib/state/create-resource-store';
 
@@ -137,7 +138,7 @@ async function runSave(
   setSaving(true);
   setErr(null);
   try {
-    const saved = await adminAPI.put<PageContent>('/page', payload);
+    const saved = await adminAPI.put('/page', payload, PageContentSchema);
     pageContentStore.getState().mutate(saved);
     setForm({
       content: toMutable(saved),

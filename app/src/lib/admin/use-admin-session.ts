@@ -9,7 +9,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { adminAPI, type MeView } from '@/lib/api/admin';
+import { adminAPI, MeViewSchema, type MeView } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 
 // AdminSession —— 旧 shape：sessionStore 全字段（MeView）的子集别名，
@@ -29,7 +29,7 @@ export type AdminSessionState =
 
 export const sessionStore = createResourceStore<MeView>({
   name: 'admin-session',
-  fetcher: () => adminAPI.get<MeView>('/me'),
+  fetcher: () => adminAPI.get('/me', MeViewSchema),
 });
 
 export function useAdminSession(): AdminSessionState {

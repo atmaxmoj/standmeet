@@ -1,25 +1,22 @@
-// use-output —— /admin/output 状态。GET /api/admin/output 返 list。raw → wiki
-// → output 三层中最精炼那层。
+// use-output —— /admin/output 状态。GET /api/admin/output 返 list。
 
 'use client';
 
 import { useEffect } from 'react';
 
+import { z } from 'zod';
+
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-export interface OutputSummary {
-  id: string;
-  title: string;
-  tags: string[];
-  source_wiki_ids: string[];
-  created_at: string;
-  parent_id?: string | null;
-  path?: string | null;
-  show_as_source: boolean;
-  seo_indexed: boolean;
-}
+export const OutputSummarySchema = z.object({
+  id: z.string(), title: z.string(), tags: z.array(z.string()),
+  source_wiki_ids: z.array(z.string()), created_at: z.string(),
+  parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
+  show_as_source: z.boolean(), seo_indexed: z.boolean(),
+});
+export type OutputSummary = z.infer<typeof OutputSummarySchema>;
 
 export type OutputBodyState = 'loading' | 'error' | 'empty' | 'list';
 
@@ -31,7 +28,7 @@ export interface OutputHook {
 
 export const outputStore = createResourceStore<OutputSummary[]>({
   name: 'output',
-  fetcher: () => adminAPI.get<OutputSummary[]>('/output'),
+  fetcher: () => adminAPI.get('/output', z.array(OutputSummarySchema)),
 });
 
 export function useOutput(): OutputHook {

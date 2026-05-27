@@ -83,10 +83,14 @@ async function runFetch<T>(opts: CreateResourceStoreOpts<T>, set: Setter<T>): Pr
   }
 }
 
-function applyMutate<T>(prev: T | undefined, next: T | ((prev: T | undefined) => T)): T {
-  return typeof next === 'function'
-    ? (next as (p: T | undefined) => T)(prev)
-    : next;
+type Updater<T> = (prev: T | undefined) => T;
+
+function applyMutate<T>(prev: T | undefined, next: T | Updater<T>): T {
+  return isFn(next) ? next(prev) : next;
+}
+
+function isFn<T>(v: T | Updater<T>): v is Updater<T> {
+  return typeof v === 'function';
 }
 
 // useResourceMount —— 简化 component side：把 ensureLoaded() 接到 mount，

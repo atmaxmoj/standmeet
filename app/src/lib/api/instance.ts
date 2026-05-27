@@ -5,15 +5,17 @@
 // /setup?t=<token>，让 operator 首次部署后打开域名 / 就自动进 claim 流程。
 // claimed 之后 setup_token 永远不返回。
 
-export type InstanceInfo = {
-  claimed: boolean;
-  handle: string;
-  setup_token?: string;
-  // captcha_site_key 非空 → /login 渲染 Turnstile widget，提交时把 token 走
-  // X-Captcha-Token header 送给 backend；空字符串表示 backend 没装 Turnstile，
-  // login 不需要 captcha。
-  captcha_site_key?: string;
-};
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
+
+const InstanceInfoSchema = z.object({
+  claimed: z.boolean(),
+  handle: z.string(),
+  setup_token: z.string().optional(),
+  captcha_site_key: z.string().optional(),
+});
+export type InstanceInfo = z.infer<typeof InstanceInfoSchema>;
 
 const FALLBACK: InstanceInfo = { claimed: false, handle: '' };
 
@@ -21,5 +23,5 @@ export async function fetchInstance(): Promise<InstanceInfo> {
   const backend = process.env['BACKEND_URL'] ?? 'http://backend:8000';
   const res = await fetch(`${backend}/api/v1/instance`, { cache: 'no-store' });
   if (!res.ok) return FALLBACK;
-  return (await res.json()) as InstanceInfo;
+  return safeJson(res, InstanceInfoSchema);
 }

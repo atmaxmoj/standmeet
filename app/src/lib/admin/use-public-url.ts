@@ -1,3 +1,4 @@
+import { z } from 'zod';
 // use-public-url —— owner 改部署的 canonical public URL。
 // PATCH /api/admin/public-url；backend 同款校验 + normalize（去末尾斜杠）。
 //
@@ -15,7 +16,7 @@ export interface PublicURLHook {
   clearError: () => void;
 }
 
-interface PublicURLResp { public_url: string }
+const PublicURLRespSchema = z.object({ public_url: z.string() });
 
 export function usePublicURL(): PublicURLHook {
   const [pending, setPending] = useState(false);
@@ -25,7 +26,7 @@ export function usePublicURL(): PublicURLHook {
     setPending(true);
     setError(null);
     try {
-      const res = await adminAPI.patch<PublicURLResp>('/public-url', { public_url: raw });
+      const res = await adminAPI.patch('/public-url', { public_url: raw }, PublicURLRespSchema);
       return res.public_url;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'update failed');

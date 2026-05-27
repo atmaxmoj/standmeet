@@ -3,33 +3,25 @@
 
 import { useEffect } from 'react';
 
+import { z } from 'zod';
+
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 import type { PendingFile } from '@/lib/blog/upload-asset';
 
-export interface AdminPostView {
-  id: string;
-  slug: string;
-  title: string;
-  excerpt: string;
-  body_md: string;
-  cover_headline: string;
-  cover_sub: string;
-  cover_hue: 'amber' | 'violet' | 'acid';
-  cover_image_asset_id?: string;
-  tags: string[];
-  visibility: 'public' | 'private';
-  cross_refs: string[];
-  path: string;
-  read_minutes: number;
-  locked_body: string;
-  published: boolean;
-  published_at?: string;
-  created_at: string;
-  updated_at: string;
-  asset_urls?: Record<string, string>;
-}
+export const AdminPostViewSchema = z.object({
+  id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
+  body_md: z.string(), cover_headline: z.string(), cover_sub: z.string(),
+  cover_hue: z.enum(['amber', 'violet', 'acid']),
+  cover_image_asset_id: z.string().optional(),
+  tags: z.array(z.string()), visibility: z.enum(['public', 'private']),
+  cross_refs: z.array(z.string()), path: z.string(), read_minutes: z.number(),
+  locked_body: z.string(), published: z.boolean(),
+  published_at: z.string().optional(), created_at: z.string(), updated_at: z.string(),
+  asset_urls: z.record(z.string(), z.string()).optional(),
+});
+export type AdminPostView = z.infer<typeof AdminPostViewSchema>;
 
 // PostSaveData —— multipart POST/PATCH 的 `data` JSON 字段。create 用
 // publish + slug；edit 时 slug 是 URL，publish 不在这（走单独 endpoint）。
@@ -71,7 +63,7 @@ export interface PostsHook {
 
 export const postsStore = createResourceStore<AdminPostView[]>({
   name: 'posts',
-  fetcher: () => adminAPI.get<AdminPostView[]>('/posts/'),
+  fetcher: () => adminAPI.get('/posts/', z.array(AdminPostViewSchema)),
 });
 
 export function usePosts(): PostsHook {
@@ -94,7 +86,7 @@ export function usePosts(): PostsHook {
 async function updatePost(id: string, bundle: PostSaveBundle): Promise<boolean> {
   try {
     const fd = buildPostFormData(bundle);
-    const updated = await adminAPI.patchForm<AdminPostView>(`/posts/${id}`, fd);
+    const updated = await adminAPI.patchForm(`/posts/${id}`, fd, AdminPostViewSchema);
     postsStore.getState().mutate((prev) =>
       (prev ?? []).map((p) => p.id === updated.id ? updated : p));
     return true;
@@ -106,7 +98,7 @@ async function updatePost(id: string, bundle: PostSaveBundle): Promise<boolean> 
 async function createPost(bundle: PostSaveBundle): Promise<boolean> {
   try {
     const fd = buildPostFormData(bundle);
-    const created = await adminAPI.postForm<AdminPostView>('/posts/', fd);
+    const created = await adminAPI.postForm('/posts/', fd, AdminPostViewSchema);
     postsStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
     return true;
   } catch {
@@ -125,7 +117,7 @@ function buildPostFormData(bundle: PostSaveBundle): FormData {
 
 async function deletePost(id: string): Promise<boolean> {
   try {
-    await adminAPI.delete<unknown>(`/posts/${id}`);
+    await adminAPI.deleteVoid(`/posts/${id}`);
     postsStore.getState().mutate((prev) => (prev ?? []).filter((p) => p.id !== id));
     return true;
   } catch {
@@ -144,7 +136,7 @@ async function unpublishPost(id: string): Promise<boolean> {
 async function flipPublish(id: string, publish: boolean): Promise<boolean> {
   try {
     const path = publish ? `/posts/${id}/publish` : `/posts/${id}/unpublish`;
-    const updated = await adminAPI.post<AdminPostView>(path, {});
+    const updated = await adminAPI.post(path, {}, AdminPostViewSchema);
     postsStore.getState().mutate((prev) =>
       (prev ?? []).map((p) => p.id === updated.id ? updated : p));
     return true;

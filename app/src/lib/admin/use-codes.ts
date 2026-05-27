@@ -1,3 +1,4 @@
+import { z } from 'zod';
 // use-codes —— /admin/codes 的状态。zustand store 管 list cache + status；
 // action 函数（create / revoke / updateQuotas / dispatchSave）跟 store
 // 平级，调完直接 mutate / refresh。
@@ -18,18 +19,15 @@ export interface PathPermission {
   order?: number;
 }
 
-export interface CodeView {
-  id: string;
-  code: string;
-  label: string;
-  status: string;
-  corpus_permissions: PathPermission[];
-  purpose?: string;
-  suggested_questions?: string[];
-  max_sessions_per_member?: number | null;
-  max_turns_per_session?: number | null;
-  skill_ids?: string[];
-}
+export const CodeViewSchema = z.object({
+  id: z.string(), code: z.string(), label: z.string(), status: z.string(),
+  corpus_permissions: z.array(z.object({ action: z.enum(['allow', 'deny']), path_pattern: z.string(), order: z.number().optional() })),
+  purpose: z.string().optional(), suggested_questions: z.array(z.string()).optional(),
+  max_sessions_per_member: z.number().nullable().optional(),
+  max_turns_per_session: z.number().nullable().optional(),
+  skill_ids: z.array(z.string()).optional(),
+});
+export type CodeView = z.infer<typeof CodeViewSchema>;
 
 export interface CreateCodeInput {
   code: string;
@@ -60,7 +58,7 @@ export interface CodesHook {
 // codesStore —— module-singleton；一次 fetch、所有 component 共享。
 export const codesStore = createResourceStore<CodeView[]>({
   name: 'codes',
-  fetcher: () => adminAPI.get<CodeView[]>('/codes/'),
+  fetcher: () => adminAPI.get('/codes/', z.array(CodeViewSchema)),
 });
 
 // useCodes —— component-facing hook。读 store + mount 时 ensureLoaded。
@@ -81,7 +79,7 @@ export function useCodes(): CodesHook {
 
 async function createCode(input: CreateCodeInput): Promise<boolean> {
   try {
-    const created = await adminAPI.post<CodeView>('/codes/', toCreateBody(input));
+    const created = await adminAPI.post('/codes/', toCreateBody(input), CodeViewSchema);
     codesStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
     return true;
   } catch (e) {
@@ -91,7 +89,7 @@ async function createCode(input: CreateCodeInput): Promise<boolean> {
 
 async function revokeCode(id: string): Promise<boolean> {
   try {
-    await adminAPI.post<unknown>(`/codes/${id}/revoke`, {});
+    await adminAPI.postVoid(`/codes/${id}/revoke`, {});
     codesStore.getState().mutate((prev) =>
       (prev ?? []).map((c) => c.id === id ? { ...c, status: 'revoked' } : c));
     return true;
@@ -102,7 +100,7 @@ async function revokeCode(id: string): Promise<boolean> {
 
 async function updateQuotas(id: string, input: QuotasInput): Promise<boolean> {
   try {
-    const updated = await adminAPI.patch<CodeView>(`/codes/${id}/quotas`, input);
+    const updated = await adminAPI.patch(`/codes/${id}/quotas`, input, CodeViewSchema);
     codesStore.getState().mutate((prev) =>
       (prev ?? []).map((c) => c.id === updated.id ? updated : c));
     return true;
@@ -160,14 +158,12 @@ export async function dispatchSave(
 
 // MemberView / listCodeMembers —— member 是 AccessCode 聚合的子实体，只读。
 // revoke 在 code 级别（revokeCode）—— member 不该单独管。
-export interface MemberView {
-  id: string;
-  display_name: string;
-  email?: string;
-  is_anonymous: boolean;
-  last_seen_at?: string;
-}
+const MemberViewSchema = z.object({
+  id: z.string(), display_name: z.string(), email: z.string().optional(),
+  is_anonymous: z.boolean(), last_seen_at: z.string().optional(),
+});
+export type MemberView = z.infer<typeof MemberViewSchema>;
 
 export async function listCodeMembers(codeID: string): Promise<MemberView[]> {
-  return await adminAPI.get<MemberView[]>(`/codes/${codeID}/members`);
+  return await adminAPI.get(`/codes/${codeID}/members`, z.array(MemberViewSchema));
 }

@@ -6,6 +6,10 @@
 // 都是 client-side（pages 是 'use client'）；和 backend 同源 origin，浏览器
 // 自动带 cookie。
 
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
+
 export interface ClaimInput {
   token: string;
   email: string;
@@ -15,13 +19,11 @@ export interface ClaimInput {
   public_url: string;
 }
 
-export interface ClaimResult {
-  owner_id: string;
-  email: string;
-  handle: string;
-  full_name: string;
-  public_url: string;
-}
+const ClaimResultSchema = z.object({
+  owner_id: z.string(), email: z.string(), handle: z.string(),
+  full_name: z.string(), public_url: z.string(),
+});
+export type ClaimResult = z.infer<typeof ClaimResultSchema>;
 
 export async function claim(input: ClaimInput): Promise<ClaimResult> {
   const res = await fetch('/api/admin/claim', {
@@ -30,7 +32,7 @@ export async function claim(input: ClaimInput): Promise<ClaimResult> {
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(await readError(res, 'claim'));
-  return await res.json() as ClaimResult;
+  return safeJson(res, ClaimResultSchema);
 }
 
 export interface LoginInput {
@@ -41,11 +43,10 @@ export interface LoginInput {
   captcha_token?: string;
 }
 
-export interface LoginResult {
-  csrf_token: string;
-  owner_id: string;
-  owner_handle: string;
-}
+const LoginResultSchema = z.object({
+  csrf_token: z.string(), owner_id: z.string(), owner_handle: z.string(),
+});
+export type LoginResult = z.infer<typeof LoginResultSchema>;
 
 export async function login(input: LoginInput): Promise<LoginResult> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -56,7 +57,7 @@ export async function login(input: LoginInput): Promise<LoginResult> {
     body: JSON.stringify({ email: input.email, password: input.password }),
   });
   if (!res.ok) throw new Error(await readError(res, 'login'));
-  return await res.json() as LoginResult;
+  return safeJson(res, LoginResultSchema);
 }
 
 export interface ResetPasswordInput {
@@ -77,7 +78,7 @@ export async function resetPassword(input: ResetPasswordInput): Promise<void> {
 
 async function readError(res: Response, op: string): Promise<string> {
   try {
-    const body = await res.json() as { error?: { message?: string } };
+    const body = await safeJson(res, z.object({ error: z.object({ message: z.string().optional() }).optional() }));
     return body.error?.message ?? `${op} failed: ${res.status}`;
   } catch {
     return `${op} failed: ${res.status}`;

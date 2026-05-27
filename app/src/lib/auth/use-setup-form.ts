@@ -109,12 +109,12 @@ export function useSetupForm(setupToken: string): SetupFormHook {
     setError(null);
     const v = validateStepAdvance(step, form);
     if (v !== null) { setError(v); return; }
-    setStep((s) => Math.min(4, s + 1) as SetupStep);
+    setStep((s) => toStep(Math.min(4, s + 1)));
   }, [step, form]);
 
   const back = useCallback(() => {
     setError(null);
-    setStep((s) => Math.max(1, s - 1) as SetupStep);
+    setStep((s) => toStep(Math.max(1, s - 1)));
   }, []);
 
   const submit = useCallback(async (): Promise<ClaimResult | null> => {
@@ -242,4 +242,9 @@ function normalizePublicURL(s: string): string {
   let t = s.trim();
   while (t.endsWith('/')) t = t.slice(0, -1);
   return t;
+}
+
+const VALID_STEPS: readonly SetupStep[] = [1, 2, 3, 4];
+function toStep(n: number): SetupStep {
+  return VALID_STEPS.find((s) => s === n) ?? 1;
 }

@@ -20,22 +20,24 @@
 //   - 两者由 issueCodeSession 的响应同时填，之后独立读写
 
 import { create } from 'zustand';
+import { z } from 'zod';
+
+import { safeJsonString } from '@/lib/api/typed-json';
 
 const STORAGE_KEY = 'standmeet-session';
 const CHANGED_EVENT = 'sm-session-changed';
 
-// VisitorSession —— SessionStrip 渲染所需的全部字段。byoai=true 时 code
-// 通常为 null、max=0 表示无限。
-export interface VisitorSession {
-  code: string | null;
-  visitor: string | null;
-  byoai: boolean;
-  byoaiProvider: string;
-  label: string | null;
-  used: number;
-  max: number;
-  startedAt: number;
-}
+const VisitorSessionSchema = z.object({
+  code: z.string().nullable(),
+  visitor: z.string().nullable(),
+  byoai: z.boolean(),
+  byoaiProvider: z.string(),
+  label: z.string().nullable(),
+  used: z.number(),
+  max: z.number(),
+  startedAt: z.number(),
+});
+export type VisitorSession = z.infer<typeof VisitorSessionSchema>;
 
 interface SessionState {
   session: VisitorSession | null;
@@ -88,7 +90,7 @@ function load(): VisitorSession | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as VisitorSession) : null;
+    return raw ? safeJsonString(raw, VisitorSessionSchema) : null;
   } catch {
     return null;
   }

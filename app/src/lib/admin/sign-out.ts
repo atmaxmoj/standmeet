@@ -5,7 +5,7 @@ import { adminAPI } from '@/lib/api/admin';
 
 export async function signOut(): Promise<void> {
   try {
-    await adminAPI.post<void>('/sessions/signout', {});
+    await adminAPI.postVoid('/sessions/signout', {});
   } catch {
     // backend may not yet expose signout; client redirect still clears the SPA.
   }

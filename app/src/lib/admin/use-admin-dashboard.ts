@@ -6,6 +6,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { z } from 'zod';
+
 export interface DashboardStats {
   rawCount: number;
   rawUnprocessed: number;
@@ -26,11 +28,11 @@ const EMPTY_STATS: DashboardStats = {
   requestsNew: 0, conversationsCount: 0, draftsReviewing: 0,
 };
 
-interface RawRow { id: string; promoted_wiki_id?: string | null }
-interface CodeRow { id: string; status: string }
-interface RequestRow { id: string; status: string }
-interface ConvRow { id: string }
-interface DraftRow { id: string; status?: string }
+const RawRowSchema = z.object({ id: z.string(), promoted_wiki_id: z.string().nullable().optional() });
+const CodeRowSchema = z.object({ id: z.string(), status: z.string() });
+const RequestRowSchema = z.object({ id: z.string(), status: z.string() });
+const ConvRowSchema = z.object({ id: z.string() });
+const DraftRowSchema = z.object({ id: z.string(), status: z.string().optional() });
 
 export function useAdminDashboard(): State {
   const [state, setState] = useState<State>({
@@ -69,11 +71,11 @@ export function allActionItems(stats: DashboardStats): ActionItem[] {
 async function load(setState: (s: State) => void): Promise<void> {
   try {
     const [raw, codes, requests, conversations, drafts] = await Promise.all([
-      fetchList<RawRow>('/api/admin/raw'),
-      fetchList<CodeRow>('/api/admin/codes/'),
-      fetchList<RequestRow>('/api/admin/access-requests'),
-      fetchList<ConvRow>('/api/admin/conversations'),
-      fetchList<DraftRow>('/api/admin/drafts/'),
+      fetchList('/api/admin/raw', z.array(RawRowSchema)),
+      fetchList('/api/admin/codes/', z.array(CodeRowSchema)),
+      fetchList('/api/admin/access-requests', z.array(RequestRowSchema)),
+      fetchList('/api/admin/conversations', z.array(ConvRowSchema)),
+      fetchList('/api/admin/drafts/', z.array(DraftRowSchema)),
     ]);
     setState({
       stats: {
@@ -94,10 +96,12 @@ async function load(setState: (s: State) => void): Promise<void> {
   }
 }
 
-async function fetchList<T>(url: string): Promise<T[]> {
+const WrappedListSchema = z.object({ items: z.array(z.unknown()).optional() });
+
+async function fetchList<T>(url: string, schema: z.ZodType<T[]>): Promise<T[]> {
   const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) throw new Error(`${url}: ${res.status}`);
-  const body = await res.json() as T[] | { items?: T[] };
-  // some endpoints wrap in {items:[]} —— normalize
-  return Array.isArray(body) ? body : (body.items ?? []);
+  const raw: unknown = await res.json();
+  const items = Array.isArray(raw) ? raw : (WrappedListSchema.safeParse(raw).success ? WrappedListSchema.parse(raw).items ?? [] : []);
+  return schema.parse(items);
 }

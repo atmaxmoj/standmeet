@@ -38,6 +38,8 @@ export function PostField({
 }
 
 export type CoverHue = 'amber' | 'violet' | 'acid';
+const COVER_HUES: readonly CoverHue[] = ['amber', 'violet', 'acid'];
+function toCoverHue(s: string): CoverHue { return COVER_HUES.find((h) => h === s) ?? 'amber'; }
 
 export function CoverHueSelect({
   value, onChange,
@@ -48,7 +50,7 @@ export function CoverHueSelect({
       <select
         className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
         value={value}
-        onChange={(e) => onChange(e.target.value as CoverHue)}
+        onChange={(e) => onChange(toCoverHue(e.target.value))}
         data-testid="post-field-cover-hue"
       >
         <option value="amber">amber</option>

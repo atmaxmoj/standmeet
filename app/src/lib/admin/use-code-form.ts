@@ -6,7 +6,13 @@
 
 import { useCallback, useState } from 'react';
 
+import { z } from 'zod';
+
 import type { CodeView, CreateCodeInput, PathPermission } from '@/lib/admin/use-codes';
+
+const PathPermArraySchema = z.array(z.object({
+  action: z.enum(['allow', 'deny']), path_pattern: z.string(), order: z.number().optional(),
+}));
 
 export interface CodeFormState {
   code: string;
@@ -108,8 +114,8 @@ function parsePermissions(raw: string): PathPermission[] {
   const trimmed = raw.trim();
   if (trimmed === '') return [];
   try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    return Array.isArray(parsed) ? parsed as PathPermission[] : [];
+    const result = PathPermArraySchema.safeParse(JSON.parse(trimmed));
+    return result.success ? result.data : [];
   } catch {
     return [];
   }

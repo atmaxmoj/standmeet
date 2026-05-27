@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 // byoai-vault.ts —— browser-only encrypted store for the visitor's BYOAI cred.
 //
 // XSS-resistant 设计：
@@ -91,18 +93,20 @@ function readEnvelope(): StoredEnvelope | null {
 
 function parseEnvelope(raw: string): StoredEnvelope | null {
   try {
-    const v = JSON.parse(raw) as Partial<StoredEnvelope>;
+    const v: unknown = JSON.parse(raw);
     return isEnvelope(v) ? v : null;
   } catch {
     return null;
   }
 }
 
-function isEnvelope(v: Partial<StoredEnvelope>): v is StoredEnvelope {
-  return typeof v.provider === 'string' && v.provider !== ''
-    && typeof v.endpoint === 'string'
-    && typeof v.model === 'string'
-    && typeof v.iv === 'string' && typeof v.ct === 'string';
+const StoredEnvelopeSchema = z.object({
+  provider: z.string().min(1), endpoint: z.string(), model: z.string(),
+  iv: z.string(), ct: z.string(),
+});
+
+function isEnvelope(v: unknown): v is StoredEnvelope {
+  return StoredEnvelopeSchema.safeParse(v).success;
 }
 
 async function decryptEnvelope(env: StoredEnvelope): Promise<string | null> {

@@ -16,12 +16,14 @@ function readCSRFCookie(): string {
   return match?.slice(CSRF_COOKIE.length + 1) ?? '';
 }
 
-export interface ImportResult {
-  created: number;
-  updated: number;
-  skipped: number;
-  errors: string[];
-}
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
+
+const ImportResultSchema = z.object({
+  created: z.number(), updated: z.number(), skipped: z.number(), errors: z.array(z.string()),
+});
+export type ImportResult = z.infer<typeof ImportResultSchema>;
 
 // triggerExport —— 直接走 anchor[download] 触发；不经 fetch + blob 路径，
 // 避免大 vault 把 zip 全部读进内存。
@@ -57,12 +59,14 @@ export async function uploadVault(files: FileList): Promise<ImportResult> {
   if (!res.ok) {
     throw new Error(`import failed: ${res.status}`);
   }
-  return await res.json() as ImportResult;
+  return safeJson(res, ImportResultSchema);
 }
 
 function relPathOf(f: File): string {
-  const withPath = f as unknown as { webkitRelativePath?: string };
-  return withPath.webkitRelativePath ?? f.name;
+  if ('webkitRelativePath' in f && typeof f.webkitRelativePath === 'string' && f.webkitRelativePath !== '') {
+    return f.webkitRelativePath;
+  }
+  return f.name;
 }
 
 // useObsidianImport —— UI 用：picker 触发的 batch 上传，loading + 结果显示。

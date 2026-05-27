@@ -10,7 +10,9 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 
-import { adminAPI, type ConversationSummary } from '@/lib/api/admin';
+import { z } from 'zod';
+
+import { adminAPI, ConversationSummarySchema, type ConversationSummary } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -56,19 +58,19 @@ export interface ConvTranscript {
   outputRefs: Record<string, string>;
 }
 
-interface ConvTranscriptResp {
-  conversation: ConversationSummary;
-  messages: Array<{
-    id: string;
-    role: string;
-    body: string;
-    created_at: string;
-    cited_wiki_ids: string[];
-    cited_output_ids: string[];
-  }>;
-  wiki_refs: TitledRef[];
-  output_refs: TitledRef[];
-}
+const TitledRefSchema = z.object({ id: z.string(), title: z.string() });
+
+const ConvMessageSchema = z.object({
+  id: z.string(), role: z.string(), body: z.string(), created_at: z.string(),
+  cited_wiki_ids: z.array(z.string()), cited_output_ids: z.array(z.string()),
+});
+
+const ConvTranscriptRespSchema = z.object({
+  conversation: ConversationSummarySchema,
+  messages: z.array(ConvMessageSchema),
+  wiki_refs: z.array(TitledRefSchema).optional(),
+  output_refs: z.array(TitledRefSchema).optional(),
+});
 
 export type TranscriptBodyState = 'loading' | 'error' | 'empty' | 'list';
 
@@ -91,7 +93,7 @@ export interface ConversationsHook {
 export const conversationsStore = createResourceStore<ConvView[]>({
   name: 'conversations',
   fetcher: async () => {
-    const data = await adminAPI.get<ConversationSummary[]>('/conversations');
+    const data = await adminAPI.get('/conversations', z.array(ConversationSummarySchema));
     return data.map(toView);
   },
 });
@@ -149,7 +151,7 @@ function filterByCode(rows: readonly ConvView[], code: string | undefined): read
 
 async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => void): Promise<void> {
   try {
-    const data = await adminAPI.get<ConvTranscriptResp>(`/conversations/${id}`);
+    const data = await adminAPI.get(`/conversations/${id}`, ConvTranscriptRespSchema);
     setTranscript({
       conversationID: id,
       loading: false,

@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, type AllowedDomainsResp } from '@/lib/api/admin';
+import { adminAPI, AllowedDomainsRespSchema } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 
 export type DomainStatus = 'unset' | 'pending' | 'verified';
@@ -33,7 +33,7 @@ const DNS_PATTERN = /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/;
 export const domainsStore = createResourceStore<string[]>({
   name: 'allowed-domains',
   fetcher: async () => {
-    const resp = await adminAPI.get<AllowedDomainsResp>('/allowed-domains');
+    const resp = await adminAPI.get('/allowed-domains', AllowedDomainsRespSchema);
     return resp.domains;
   },
 });
@@ -93,7 +93,7 @@ async function runVerify(
   setSaving(true);
   setErr(null);
   try {
-    await adminAPI.post('/allowed-domains', { domain: sanitized });
+    await adminAPI.postVoid('/allowed-domains', { domain: sanitized });
     domainsStore.getState().mutate((prev) =>
       (prev ?? []).includes(sanitized) ? (prev ?? []) : [...(prev ?? []), sanitized]);
     setStatus('verified');
@@ -113,7 +113,7 @@ async function runRemove(
   setSaving(true);
   setErr(null);
   try {
-    await adminAPI.delete(`/allowed-domains/${encodeURIComponent(dom)}`);
+    await adminAPI.deleteVoid(`/allowed-domains/${encodeURIComponent(dom)}`);
     domainsStore.getState().mutate((prev) => (prev ?? []).filter((d) => d !== dom));
   } catch (e) {
     setErr(e instanceof Error ? e.message : 'remove failed');

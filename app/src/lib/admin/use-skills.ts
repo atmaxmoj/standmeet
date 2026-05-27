@@ -4,19 +4,22 @@
 
 import { useEffect } from 'react';
 
+import { z } from 'zod';
+
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-export interface SkillView {
-  id: string;
-  name: string;
-  description: string;
-  prompt: string;
-  source: string;
-  is_builtin: boolean;
-  created_at: string;
-}
+export const SkillViewSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  prompt: z.string(),
+  source: z.string(),
+  is_builtin: z.boolean(),
+  created_at: z.string(),
+});
+export type SkillView = z.infer<typeof SkillViewSchema>;
 
 export interface CreateSkillInput {
   name: string;
@@ -35,7 +38,7 @@ export interface SkillsHook {
 
 export const skillsStore = createResourceStore<SkillView[]>({
   name: 'skills',
-  fetcher: () => adminAPI.get<SkillView[]>('/skills/'),
+  fetcher: () => adminAPI.get('/skills/', z.array(SkillViewSchema)),
 });
 
 export function useSkills(): SkillsHook {
@@ -54,7 +57,7 @@ export function useSkills(): SkillsHook {
 
 async function createSkill(input: CreateSkillInput): Promise<boolean> {
   try {
-    const created = await adminAPI.post<SkillView>('/skills/', input);
+    const created = await adminAPI.post('/skills/', input, SkillViewSchema);
     skillsStore.getState().mutate((prev) => [...(prev ?? []), created]);
     return true;
   } catch {
@@ -64,7 +67,7 @@ async function createSkill(input: CreateSkillInput): Promise<boolean> {
 
 async function deleteSkill(id: string): Promise<boolean> {
   try {
-    await adminAPI.delete<unknown>(`/skills/${id}`);
+    await adminAPI.deleteVoid(`/skills/${id}`);
     skillsStore.getState().mutate((prev) => (prev ?? []).filter((s) => s.id !== id));
     return true;
   } catch {

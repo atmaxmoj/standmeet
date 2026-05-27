@@ -8,11 +8,13 @@
 
 import { useCallback, useState } from 'react';
 
+import { z } from 'zod';
+
 import { sessionStore } from '@/lib/admin/use-admin-session';
 import { adminAPI } from '@/lib/api/admin';
 
-interface FullNameResp { full_name: string }
-interface EmailResp { email: string }
+const FullNameRespSchema = z.object({ full_name: z.string() });
+const EmailRespSchema = z.object({ email: z.string() });
 
 export interface AccountHook {
   pending: boolean;
@@ -29,7 +31,7 @@ export function useAccount(): AccountHook {
 
   const updateFullName = useCallback(async (raw: string): Promise<string | null> => {
     return runUpdate(setPending, setError, async () => {
-      const res = await adminAPI.patch<FullNameResp>('/account/full-name', { full_name: raw });
+      const res = await adminAPI.patch('/account/full-name', { full_name: raw }, FullNameRespSchema);
       sessionStore.getState().reset();
       return res.full_name;
     });
@@ -38,9 +40,9 @@ export function useAccount(): AccountHook {
   const updateEmail = useCallback(
     async (currentPassword: string, newEmail: string): Promise<string | null> => {
       return runUpdate(setPending, setError, async () => {
-        const res = await adminAPI.patch<EmailResp>('/account/email', {
+        const res = await adminAPI.patch('/account/email', {
           current_password: currentPassword, new_email: newEmail,
-        });
+        }, EmailRespSchema);
         sessionStore.getState().reset();
         return res.email;
       });
@@ -50,7 +52,7 @@ export function useAccount(): AccountHook {
   const updatePassword = useCallback(
     async (currentPassword: string, newPassword: string): Promise<boolean> => {
       const result = await runUpdate(setPending, setError, async () => {
-        await adminAPI.patch<unknown>('/account/password', {
+        await adminAPI.patchVoid('/account/password', {
           current_password: currentPassword, new_password: newPassword,
         });
         return true;

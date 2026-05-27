@@ -87,52 +87,43 @@ export type { IssueSessionInput };
 
 // BacklinkRef —— /blog/<slug> "linked from" section 的一条 backlink。后端
 // 渲染时收集，源 post 必须 published。
-export interface BacklinkRef {
-  slug: string;
-  title: string;
-}
+const BacklinkRefSchema = z.object({ slug: z.string(), title: z.string() });
+export type BacklinkRef = z.infer<typeof BacklinkRefSchema>;
 
-export interface PostView {
-  id: string;
-  slug: string;
-  title: string;
-  excerpt: string;
-  body_md: string;
-  cover_headline: string;
-  cover_sub: string;
-  cover_hue: 'amber' | 'violet' | 'acid';
-  cover_image_asset_id?: string;
-  tags: string[];
-  visibility: 'public' | 'private';
-  cross_refs: string[];
-  path: string;
-  read_minutes: number;
-  locked_body?: string;
-  published_at?: string;
-  asset_urls?: Record<string, string>;
-  backlinks?: BacklinkRef[];
-}
+const PostViewSchema = z.object({
+  id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
+  body_md: z.string(), cover_headline: z.string(), cover_sub: z.string(),
+  cover_hue: z.enum(['amber', 'violet', 'acid']),
+  cover_image_asset_id: z.string().optional(),
+  tags: z.array(z.string()), visibility: z.enum(['public', 'private']),
+  cross_refs: z.array(z.string()), path: z.string(), read_minutes: z.number(),
+  locked_body: z.string().optional(), published_at: z.string().optional(),
+  asset_urls: z.record(z.string(), z.string()).optional(),
+  backlinks: z.array(BacklinkRefSchema).optional(),
+});
+export type PostView = z.infer<typeof PostViewSchema>;
 
-async function fetchJSON<T>(path: string): Promise<T> {
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
+
+async function fetchJSONSchema<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   const res = await fetch(baseURL() + path, { cache: 'no-store' });
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
-  return await res.json() as T;
+  return safeJson(res, schema);
 }
 
-export interface PostsPage {
-  posts: PostView[];
-  next_cursor?: string;
-}
+const PostsPageSchema = z.object({
+  posts: z.array(PostViewSchema), next_cursor: z.string().optional(),
+});
 
-// fetchPostsPage —— /api/v1/posts?cursor=...&limit=...。首次 cursor 空，
-// next_cursor 非空就继续加载。infinite scroll 用。
 export const fetchPostsPage = (cursor?: string, limit?: number) => {
   const qs = new URLSearchParams();
   if (cursor) qs.set('cursor', cursor);
   if (limit) qs.set('limit', String(limit));
   const suffix = qs.toString() ? '?' + qs.toString() : '';
-  return fetchJSON<PostsPage>('/api/v1/posts' + suffix);
+  return fetchJSONSchema('/api/v1/posts' + suffix, PostsPageSchema);
 };
 
 export const fetchPost = (slug: string) =>
-  fetchJSON<PostView>('/api/v1/posts/' + encodeURIComponent(slug));
+  fetchJSONSchema('/api/v1/posts/' + encodeURIComponent(slug), PostViewSchema);

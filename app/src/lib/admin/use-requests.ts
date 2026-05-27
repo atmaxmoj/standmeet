@@ -7,7 +7,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, type AccessRequestView } from '@/lib/api/admin';
+import { z } from 'zod';
+import { adminAPI, AccessRequestViewSchema, type AccessRequestView } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -35,7 +36,7 @@ export interface RequestsHook {
 
 export const requestsStore = createResourceStore<AccessRequestView[]>({
   name: 'access-requests',
-  fetcher: () => adminAPI.get<AccessRequestView[]>('/access-requests'),
+  fetcher: () => adminAPI.get('/access-requests', z.array(AccessRequestViewSchema)),
 });
 
 export function useRequests(): RequestsHook {
@@ -46,8 +47,8 @@ export function useRequests(): RequestsHook {
 
   const mark = useCallback(async (id: string, status: 'replied' | 'closed'): Promise<void> => {
     try {
-      const updated = await adminAPI.patch<AccessRequestView>(
-        `/access-requests/${id}`, { status },
+      const updated = await adminAPI.patch(
+        `/access-requests/${id}`, { status }, AccessRequestViewSchema,
       );
       requestsStore.getState().mutate((prev) =>
         (prev ?? []).map((row) => row.id === id ? updated : row));

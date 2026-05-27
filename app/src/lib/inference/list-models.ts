@@ -11,6 +11,10 @@
 //   - 上游 401/403 → "list models: upstream 401: ..."
 // 调用方拿 error.message 直接 toast。
 
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
+
 const ENDPOINT = '/api/v1/inference/models';
 
 export interface ListModelsInput {
@@ -19,13 +23,8 @@ export interface ListModelsInput {
   key: string;
 }
 
-interface ListModelsResponse {
-  models: string[];
-}
-
-interface ErrorEnvelope {
-  error?: { message?: string };
-}
+const ListModelsResponseSchema = z.object({ models: z.array(z.string()) });
+const ErrorEnvelopeSchema = z.object({ error: z.object({ message: z.string().optional() }).optional() });
 
 export async function listModels(input: ListModelsInput): Promise<string[]> {
   const res = await fetch(ENDPOINT, {
@@ -36,13 +35,13 @@ export async function listModels(input: ListModelsInput): Promise<string[]> {
   if (!res.ok) {
     throw new Error(await readErrorMessage(res));
   }
-  const body = await res.json() as ListModelsResponse;
+  const body = await safeJson(res, ListModelsResponseSchema);
   return body.models;
 }
 
 async function readErrorMessage(res: Response): Promise<string> {
   try {
-    const body = await res.json() as ErrorEnvelope;
+    const body = await safeJson(res, ErrorEnvelopeSchema);
     return body.error?.message ?? `list models failed: ${res.status}`;
   } catch {
     return `list models failed: ${res.status}`;

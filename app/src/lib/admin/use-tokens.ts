@@ -7,23 +7,21 @@
 
 import { useEffect } from 'react';
 
+import { z } from 'zod';
+
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-export interface TokenItem {
-  id: string;
-  name: string;
-  created_at: string;
-  last_used_at: string | null;
-}
+const TokenItemSchema = z.object({
+  id: z.string(), name: z.string(), created_at: z.string(), last_used_at: z.string().nullable(),
+});
+export type TokenItem = z.infer<typeof TokenItemSchema>;
 
-interface CreatedToken {
-  id: string;
-  name: string;
-  plaintext: string;
-  created_at: string;
-}
+const CreatedTokenSchema = z.object({
+  id: z.string(), name: z.string(), plaintext: z.string(), created_at: z.string(),
+});
+type CreatedToken = z.infer<typeof CreatedTokenSchema>;
 
 export interface TokensHook {
   status: ResourceStatus;
@@ -41,7 +39,7 @@ interface TokensExtra {
 
 export const tokensStore = createResourceStore<TokenItem[]>({
   name: 'tokens',
-  fetcher: () => adminAPI.get<TokenItem[]>('/tokens'),
+  fetcher: () => adminAPI.get('/tokens', z.array(TokenItemSchema)),
 });
 
 // justCreated 是 UI 临时状态（一次性 banner），不属 resource shape。
@@ -70,7 +68,7 @@ export function useTokens(): TokensHook {
 
 async function createToken(name: string): Promise<void> {
   try {
-    const created = await adminAPI.post<CreatedToken>('/tokens', { name });
+    const created = await adminAPI.post('/tokens', { name }, CreatedTokenSchema);
     tokensStore.getState().mutate((prev) => [toListItem(created), ...(prev ?? [])]);
     justCreatedStore.getState().set(created);
   } catch {
@@ -80,7 +78,7 @@ async function createToken(name: string): Promise<void> {
 
 async function deleteToken(id: string): Promise<void> {
   try {
-    await adminAPI.delete<void>(`/tokens/${id}`);
+    await adminAPI.deleteVoid(`/tokens/${id}`);
     tokensStore.getState().mutate((prev) => (prev ?? []).filter((t) => t.id !== id));
   } catch {
     // ditto

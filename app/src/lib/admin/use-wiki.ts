@@ -2,24 +2,21 @@
 
 'use client';
 
+import { z } from 'zod';
+
 import { useEffect } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-export interface WikiSummary {
-  id: string;
-  title: string;
-  excerpt: string;
-  tags: string[];
-  source_raw_ids: string[];
-  created_at: string;
-  parent_id?: string | null;
-  path?: string | null;
-  show_as_source: boolean;
-  seo_indexed: boolean;
-}
+export const WikiSummarySchema = z.object({
+  id: z.string(), title: z.string(), excerpt: z.string(), tags: z.array(z.string()),
+  source_raw_ids: z.array(z.string()), created_at: z.string(),
+  parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
+  show_as_source: z.boolean(), seo_indexed: z.boolean(),
+});
+export type WikiSummary = z.infer<typeof WikiSummarySchema>;
 
 export type WikiBodyState = 'loading' | 'error' | 'empty' | 'list';
 
@@ -31,7 +28,7 @@ export interface WikiHook {
 
 export const wikiStore = createResourceStore<WikiSummary[]>({
   name: 'wiki',
-  fetcher: () => adminAPI.get<WikiSummary[]>('/wiki'),
+  fetcher: () => adminAPI.get('/wiki', z.array(WikiSummarySchema)),
 });
 
 export function useWiki(): WikiHook {

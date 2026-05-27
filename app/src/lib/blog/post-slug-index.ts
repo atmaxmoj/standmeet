@@ -2,22 +2,23 @@
 // (slug, title) 索引。fetch owner 所有 post（含 draft），filter 由
 // 调用方按 query 做。
 
+import { z } from 'zod';
+
+import { safeJson } from '@/lib/api/typed-json';
+
 export interface PostSlugEntry {
   slug: string;
   title: string;
 }
 
-interface AdminPostRow {
-  slug: string;
-  title: string;
-}
+const AdminPostRowSchema = z.array(z.object({ slug: z.string(), title: z.string() }));
 
 const ENDPOINT = '/api/admin/posts/';
 
 export async function fetchAdminPostSlugs(): Promise<PostSlugEntry[]> {
   const res = await fetch(ENDPOINT, { credentials: 'include' });
   if (!res.ok) throw new Error(`list admin posts: ${res.status}`);
-  const rows = await res.json() as AdminPostRow[];
+  const rows = await safeJson(res, AdminPostRowSchema);
   return rows.map((r) => ({ slug: r.slug, title: r.title }));
 }
 

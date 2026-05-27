@@ -81,26 +81,28 @@ function mountMenu(
 function createPopup(
   content: Element, clientRect: SuggestionProps<SlashItem, SlashCommandProps>['clientRect'],
 ): TippyInstance | null {
-  return clientRect
-    ? (tippy('body', {
-        getReferenceClientRect: clientRect as () => DOMRect,
-        appendTo: () => document.body,
-        content,
-        showOnCreate: true,
-        interactive: true,
-        trigger: 'manual',
-        placement: 'bottom-start',
-      })[0] ?? null)
-    : null;
+  if (!clientRect) return null;
+  const fn = clientRect;
+  const getRect = () => fn() ?? new DOMRect();
+  return tippy('body', {
+    getReferenceClientRect: getRect,
+    appendTo: () => document.body,
+    content,
+    showOnCreate: true,
+    interactive: true,
+    trigger: 'manual',
+    placement: 'bottom-start',
+  })[0] ?? null;
 }
 
 function updateMenu(
   state: SlashStorage, props: SuggestionProps<SlashItem, SlashCommandProps>,
 ): void {
   state.renderer?.updateProps({ items: props.items, command: props.command });
-  props.clientRect && state.popup?.setProps({
-    getReferenceClientRect: props.clientRect as () => DOMRect,
-  });
+  if (props.clientRect) {
+    const fn = props.clientRect;
+    state.popup?.setProps({ getReferenceClientRect: () => fn() ?? new DOMRect() });
+  }
 }
 
 function destroyMenu(state: SlashStorage): void {
