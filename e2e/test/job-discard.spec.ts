@@ -17,7 +17,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('jobs.discard removes a cached job', () => {
+test.describe('jobs.discard removes a cached job', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

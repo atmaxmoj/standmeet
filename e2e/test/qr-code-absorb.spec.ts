@@ -23,7 +23,7 @@ const OWNER = {
 
 const VISITOR_CODE = 'QR-001';
 
-test.describe.serial('QR `?code=` is absorbed into store + stripped from URL', () => {
+test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwnerWithCode(playwright);
   });

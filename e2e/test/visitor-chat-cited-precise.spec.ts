@@ -31,7 +31,7 @@ const OWNER = {
 const CODE = 'INTRO-001';
 const TARGET_PATH = 'projects/lucerna';
 
-test.describe.serial('cited reflects AI agent reads, not prompt-stuffed corpus', () => {
+test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

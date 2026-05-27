@@ -24,7 +24,7 @@ const OWNER = {
 
 const CODE = 'INTRO-001';
 
-test.describe.serial('visitor POST /summary 生成对话报告 + 结束 session', () => {
+test.describe('visitor POST /summary 生成对话报告 + 结束 session', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

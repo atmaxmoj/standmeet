@@ -19,7 +19,7 @@ const OWNER = {
   password: 'correct-horse-battery-staple',
 };
 
-test.describe.serial('owner claims a fresh instance via /setup', () => {
+test.describe('owner claims a fresh instance via /setup', () => {
   test.beforeAll(() => {
     resetInstance();
   });

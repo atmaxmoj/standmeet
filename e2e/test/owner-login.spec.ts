@@ -20,7 +20,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('owner logs back in', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner logs back in', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

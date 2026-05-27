@@ -92,9 +92,7 @@ function PreviewPaper({
 }: { model: DraftModel; page: number; zoom: number }) {
   return (
     <div
-      className="sm-composer-preview-page"
-      // eslint-disable-next-line no-restricted-syntax -- continuous prop-driven zoom; class enumeration not feasible
-      style={{ transform: `scale(${zoom})` }}
+      className={`sm-composer-preview-page sm-zoom [--zoom:${zoom}]`}
     >
       {page === 0 ? <ResumeFace model={model} /> : <CoverFace model={model} />}
     </div>

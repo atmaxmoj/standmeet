@@ -18,7 +18,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('admin /drafts · empty state when no drafts pending', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('admin /drafts · empty state when no drafts pending', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('owner opens /drafts → "No drafts pending."',

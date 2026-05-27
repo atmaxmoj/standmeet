@@ -22,7 +22,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('Redis 1d TTL eviction of fetched jobs', () => {
+test.describe('Redis 1d TTL eviction of fetched jobs', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

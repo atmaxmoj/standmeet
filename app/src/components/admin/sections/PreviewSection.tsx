@@ -54,7 +54,7 @@ function CodePicker({ codes, selected, onPick }: {
   codes: readonly CodeView[]; selected: string; onPick: (s: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5" data-testid="code-picker">
       <div className="sm-smallcaps mb-1">see-as · code</div>
       {codes.map((c) => (
         <CodePickerCard key={c.id} code={c} active={selected === c.id} onClick={() => onPick(c.id)} />
@@ -108,7 +108,7 @@ function ByoaiPickerCard({ active, onClick }: { active: boolean; onClick: () => 
 
 function PreviewFrame({ codes, selected }: { codes: readonly CodeView[]; selected: string }) {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] bg-(--color-paper) p-6 min-h-[240px]">
+    <div className="border border-(--color-rule) rounded-[3px] bg-(--color-paper) p-6 min-h-[240px]" data-testid="preview-frame">
       <div className="sm-smallcaps mb-4">preview · visitor view</div>
       {selected === 'byoai'
         ? <ByoaiPreview />

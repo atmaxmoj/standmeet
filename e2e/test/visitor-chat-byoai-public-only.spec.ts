@@ -29,7 +29,7 @@ const FAKE_KEY = 'sk-ant-fake-test-key-for-byoai-flow';
 const PUBLIC = 'public/intro';
 const PRIVATE = 'personal/secrets';
 
-test.describe.serial('BYOAI tier locked to public/** path glob', () => {
+test.describe('BYOAI tier locked to public/** path glob', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

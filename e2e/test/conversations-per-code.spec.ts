@@ -25,7 +25,8 @@ const OWNER = {
 const HR_CODE = 'HR-001';
 const INV_CODE = 'INV-001';
 
-test.describe.serial('admin filters conversations by code via UI link', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('admin filters conversations by code via UI link', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

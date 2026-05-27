@@ -28,7 +28,8 @@ const OWNER = {
 
 const RAW_BODY = 'I think microservices were Amazon org chart in YAML.';
 
-test.describe.serial('AI pushes raw insight via MCP; owner sees it in admin', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('AI pushes raw insight via MCP; owner sees it in admin', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

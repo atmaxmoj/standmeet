@@ -23,7 +23,7 @@ const OWNER = {
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-test.describe.serial('applications.commit issues an access code recruiters can use', () => {
+test.describe('applications.commit issues an access code recruiters can use', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

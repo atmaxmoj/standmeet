@@ -124,7 +124,7 @@ function ConvTableRow({ conv, open, onToggle }: { conv: ConvView; open: boolean;
       </tr>
       {open && (
         <tr>
-          <td colSpan={6} className="px-1.5 py-3 border-b border-(--color-rule)/60">
+          <td colSpan={6} className="px-1.5 py-3 border-b border-(--color-rule)/60" data-testid="transcript-panel">
             <ConvRow conversation={conv} open onToggle={onToggle} />
           </td>
         </tr>

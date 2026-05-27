@@ -52,7 +52,8 @@ interface PagePayload {
   title: string;
 }
 
-test.describe.serial('owner publishes custom React page; visitor lands on it', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner publishes custom React page; visitor lands on it', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

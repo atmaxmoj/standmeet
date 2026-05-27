@@ -19,7 +19,7 @@ const OWNER = {
   fullName: 'Ask Owner',
 };
 
-test.describe.serial('AskAboutThis · follow-up bar on blog/[slug]', () => {
+test.describe('AskAboutThis · follow-up bar on blog/[slug]', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwnerWithPost(playwright);
   });

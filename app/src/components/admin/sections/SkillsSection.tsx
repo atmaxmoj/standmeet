@@ -103,14 +103,9 @@ function HeatBar({ pct }: { pct: number }) {
   );
 }
 
-// HeatBarFill 宽度是连续 runtime value (0-100%)，CSS class 列举不出来
 function HeatBarFill({ pct }: { pct: number }) {
   return (
-    <div
-      className="h-full rounded-[1px]"
-      // eslint-disable-next-line no-restricted-syntax -- runtime-dynamic width + gradient
-      style={{ width: `${pct}%`, background: 'linear-gradient(90deg, color-mix(in oklab, var(--color-accent) 80%, transparent), var(--color-accent))' }}
-    />
+    <div className={`h-full rounded-[1px] sm-heat-fill [--fill:${pct}%]`} />
   );
 }
 
@@ -217,7 +212,7 @@ function SkillDeleteRow({
     <div className="flex justify-end">
       <button
         type="button"
-        data-testid="skill-delete"
+        data-testid={`skill-delete-${skill.name}`}
         onClick={() => void handleDelete()}
         className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
       >

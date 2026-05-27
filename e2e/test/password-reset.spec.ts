@@ -29,7 +29,7 @@ const OWNER = {
 
 const NEW_PASSWORD = 'brand-new-correct-horse-12345';
 
-test.describe.serial('owner uses CLI-issued reset link to set a new password', () => {
+test.describe('owner uses CLI-issued reset link to set a new password', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

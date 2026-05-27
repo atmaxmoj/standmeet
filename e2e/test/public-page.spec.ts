@@ -20,7 +20,7 @@ import { initMCP } from '@/fixtures/mcp';
 
 const MOCK_REPLY = 'Hello visitor, alice says hi from the mock provider.';
 
-test.describe.serial("visitor reads owner's public page and chats with the persona", () => {
+test.describe("visitor reads owner's public page and chats with the persona", () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

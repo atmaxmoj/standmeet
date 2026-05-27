@@ -1,53 +1,53 @@
-// test.ts —— 自定义 Playwright test fixture：包两种入口 page。
+// test.ts —— 自定义 Playwright test fixture。
 //
-//   `page`       —— 落根 /。模拟"访客（或 owner 自己）打开域名"。pre-claim
-//                  时 server 自动 redirect 到 /setup?t=...；claimed 时渲染
-//                  公开页。
-//   `adminPage`  —— 落 /admin/page（已登录）。模拟"owner 直接输 /admin /
-//                  从书签点进"。spec 假设：beforeAll 已经走 API claim。
-//                  fixture 自身处理 redirect-to-login → 填表单 → /admin/page。
+//   `page`       —— 落根 /。访客视角。
+//   `adminPage`  —— 落 /admin，自动登录。owner 视角。
 //
-// 这两个是 e2e 里**仅有的两处 page.goto**。spec body 一律走 UI clicks
-// (footer 链接 / sidebar / 表单按钮)，不允许出现 goto。
+// adminPage 的登录凭据从 `ownerCredentials` fixture 读 —— 每个 test file
+// 通过 test.use({ ownerCredentials: { email, password } }) 设自己的凭据。
+// 不设的话 fallback 到 alice@example.com（向后兼容老 spec）。
 //
-// 用法：
-//   import { test, expect } from '@/fixtures/test';
-//   test('...', async ({ page }) => { ... });        // 访客视角
-//   test('...', async ({ adminPage }) => { ... });   // 已登录 admin 视角
+// 隔离模型：每个 test file 用不同 email claim instance，adminPage fixture
+// 用该 file 的 credentials 登录。Playwright 1 worker 串行跑，每个 file
+// 的 beforeAll 做 resetInstance + claim。
 
 import { test as base, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-const OWNER_EMAIL = 'alice@example.com';
-const OWNER_PASSWORD = 'correct-horse-battery-staple';
+interface OwnerCredentials {
+  email: string;
+  password: string;
+}
+
+const DEFAULT_CREDENTIALS: OwnerCredentials = {
+  email: 'alice@example.com',
+  password: 'correct-horse-battery-staple',
+};
 
 type Fixtures = {
+  ownerCredentials: OwnerCredentials;
   adminPage: Page;
 };
 
 export const test = base.extend<Fixtures>({
+  ownerCredentials: [DEFAULT_CREDENTIALS, { option: true }],
+
   page: async ({ page }, use) => {
     await page.goto('/');
     await use(page);
   },
-  // adminPage 不通过 footer link 进 admin —— footer 的 admin link 已经从
-  // 公开页删了（admin 入口对访客不可见）。fixture 模拟"owner 输 /admin
-  // 直接进"，未授权时被 AdminShell 弹 /login，填表单后回 /admin/page。
-  //
-  // 等待用 race：等 login form 或 admin sidebar 任一可见，避免 URL 转场
-  // (/admin → /admin/page → /login) 中间态被 waitForURL 提前匹配。
-  adminPage: async ({ page }, use) => {
+
+  adminPage: async ({ page, ownerCredentials }, use) => {
     await page.goto('/admin');
     const loginEmail = page.getByTestId('email');
-    // sidebar 'page' nav 出现 = 已登录。data-testid 跟 design label 改名解耦。
     const adminSidebar = page.getByTestId('admin-nav-page');
     await Promise.race([
       loginEmail.waitFor({ state: 'visible', timeout: 10_000 }),
       adminSidebar.waitFor({ state: 'visible', timeout: 10_000 }),
     ]);
     if (await loginEmail.isVisible()) {
-      await loginEmail.fill(OWNER_EMAIL);
-      await page.getByTestId('password').fill(OWNER_PASSWORD);
+      await loginEmail.fill(ownerCredentials.email);
+      await page.getByTestId('password').fill(ownerCredentials.password);
       await page.getByTestId('submit').click();
       await adminSidebar.waitFor({ state: 'visible', timeout: 10_000 });
     }

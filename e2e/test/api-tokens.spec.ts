@@ -21,7 +21,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('owner mints an API token in admin and an MCP client uses it', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner mints an API token in admin and an MCP client uses it', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

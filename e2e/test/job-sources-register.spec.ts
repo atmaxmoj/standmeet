@@ -21,7 +21,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('owner registers + unregisters job sources via MCP', () => {
+test.describe('owner registers + unregisters job sources via MCP', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

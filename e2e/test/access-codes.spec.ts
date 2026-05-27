@@ -23,7 +23,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('owner issues an access code in admin; visitor uses it', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner issues an access code in admin; visitor uses it', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

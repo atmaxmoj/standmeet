@@ -29,7 +29,7 @@ const WIKI = {
   description: 'A personal note on the move from HK to Canada.',
 };
 
-test.describe.serial('SEO wiki landing renders for crawlers and deep links', () => {
+test.describe('SEO wiki landing renders for crawlers and deep links', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

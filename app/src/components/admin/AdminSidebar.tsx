@@ -120,7 +120,7 @@ function Group({ group, active, badges }: { group: NavGroup; active: AdminSlug; 
 
 function SidebarItem({ section, active, badge }: { section: SectionDef; active: boolean; badge: number | null }) {
   return (
-    <Link href={`/admin/${section.slug}`} className={navLinkCls(active)}>
+    <Link href={`/admin/${section.slug}`} className={navLinkCls(active)} aria-current={active ? 'page' : undefined}>
       <span data-testid={`admin-nav-${section.slug}`} className="flex-1">{section.label}</span>
       <Badge count={badge} testId={section.badgeTestId} />
     </Link>

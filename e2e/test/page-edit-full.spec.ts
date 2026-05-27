@@ -20,7 +20,8 @@ const OWNER = {
 const NEW_LOCATION = 'Vancouver · UTC−8';
 const NEW_EMAIL = 'reach@alice.example';
 
-test.describe.serial('PageSection — non-hero fields round-trip', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('PageSection — non-hero fields round-trip', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

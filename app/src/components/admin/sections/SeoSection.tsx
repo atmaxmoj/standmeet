@@ -12,7 +12,7 @@ export function SeoSection() {
       <SectionHeader
         kicker="settings · search"
         title="seo"
-        action={<button className="sm-btn sm-btn-outline sm-btn-sm" type="button">regenerate sitemap</button>}
+        action={<button className="sm-btn sm-btn-outline sm-btn-sm" type="button" data-testid="seo-regenerate">regenerate sitemap</button>}
       />
       <Intro />
       <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
@@ -60,7 +60,7 @@ function RightCol() {
 
 function IndexingCard() {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="seo-indexing">
       <div className="sm-smallcaps mb-3">indexing</div>
       <div className="grid grid-cols-3 gap-3">
         <IndexStat label="pages" value="—" />
@@ -102,7 +102,7 @@ function OgCard() {
 
 function FieldBlock({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div>
+    <div data-testid={`seo-${label.replace(/\s+/g, '-')}`}>
       <div className="sm-smallcaps mb-1">{label}</div>
       <div className={`border border-(--color-rule) rounded-[3px] px-3 py-2 text-(--color-ink) text-[14px] ${mono ? 'mono tracking-[0.04em]' : 'reading'}`}>
         {value}

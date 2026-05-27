@@ -24,7 +24,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('applications.commit embeds Playwright submission hint', () => {
+test.describe('applications.commit embeds Playwright submission hint', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

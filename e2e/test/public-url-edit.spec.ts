@@ -24,7 +24,8 @@ const OWNER = {
 
 const NEW_PUBLIC_URL = 'https://alice.dev';
 
-test.describe.serial('owner edits public URL post-claim', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner edits public URL post-claim', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

@@ -155,7 +155,7 @@ function RequestActions({
 
 function OpenActions({ id, onMark }: { id: string; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
   return (
-    <div className="flex items-baseline gap-2 mt-4">
+    <div className="flex items-baseline gap-2 mt-4" data-testid={`request-approve-${id}`}>
       <Btn kind="primary" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
         approve · issue code →
       </Btn>
@@ -183,7 +183,7 @@ function BlockSenderBtn() {
 
 function RepliedActions({ id, onMark }: { id: string; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
   return (
-    <div className="flex items-baseline gap-2 mt-4">
+    <div className="flex items-baseline gap-2 mt-4" data-testid={`request-approve-${id}`}>
       <Btn kind="primary" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
         approve · issue code →
       </Btn>

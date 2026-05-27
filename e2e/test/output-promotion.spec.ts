@@ -24,7 +24,8 @@ const RAW_BODY = 'Initial sketch: microservices = Amazon org chart in YAML.';
 const WIKI_TITLE = 'Microservices and org structure';
 const OUTPUT_TITLE = 'Why microservices are Conway\'s Law in disguise';
 
-test.describe.serial('raw → wiki → output three-tier promote chain', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('raw → wiki → output three-tier promote chain', () => {
   let outputTitle: string;
 
   test.beforeAll(async ({ playwright }) => {

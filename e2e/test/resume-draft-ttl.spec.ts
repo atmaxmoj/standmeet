@@ -24,7 +24,7 @@ const OWNER = {
 
 const DB_CONTAINER = 'standmeet-dev-db-1';
 
-test.describe.serial('resume_drafts 1d TTL — expired row is invisible', () => {
+test.describe('resume_drafts 1d TTL — expired row is invisible', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

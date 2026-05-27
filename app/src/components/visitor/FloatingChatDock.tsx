@@ -73,7 +73,7 @@ function ChatTrigger({
   return (
     <button
       type="button" onClick={onToggle}
-      data-testid="floating-chat-trigger"
+      data-testid="floating-dock-pill"
       aria-label={open ? 'close chat' : 'open chat'}
       className="sm-floating-chat-trigger"
     >

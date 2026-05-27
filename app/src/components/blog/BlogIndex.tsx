@@ -296,7 +296,7 @@ function BlogIndexBody({
 
 function EmptyState() {
   return (
-    <section className="py-20 text-center">
+    <section className="py-20 text-center" data-testid="blog-empty">
       <p className="italic text-(--color-muted) text-[18px]">No essays yet.</p>
     </section>
   );

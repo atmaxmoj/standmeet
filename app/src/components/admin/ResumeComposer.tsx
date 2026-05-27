@@ -166,11 +166,7 @@ function MatchGauge({ pct }: { pct: number }) {
 function MatchGaugeBar({ pct }: { pct: number }) {
   return (
     <span className="sm-session-strip-gauge-bar">
-      <span
-        className="sm-session-strip-gauge-fill"
-        // eslint-disable-next-line no-restricted-syntax -- runtime-dynamic width (0-100%)
-        style={{ width: `${pct}%`, display: 'block' }}
-      />
+      <span className={`sm-fill [--fill:${pct}%]`} />
     </span>
   );
 }

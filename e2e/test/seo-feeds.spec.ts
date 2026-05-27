@@ -25,7 +25,7 @@ const OWNER = {
 
 const INDEXED_SLUG = 'why-this-exists';
 
-test.describe.serial('crawlers can read robots + sitemap', () => {
+test.describe('crawlers can read robots + sitemap', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

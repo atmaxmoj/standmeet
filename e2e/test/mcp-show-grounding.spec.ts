@@ -31,7 +31,7 @@ interface GroundingPayload {
   cited_outputs: { id: string; title: string; body: string }[];
 }
 
-test.describe.serial('MCP chat.show_grounding returns full transcript + cited bodies', () => {
+test.describe('MCP chat.show_grounding returns full transcript + cited bodies', () => {
   let token: string;
   let convID: string;
 

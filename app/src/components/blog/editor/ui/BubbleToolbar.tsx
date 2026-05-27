@@ -57,11 +57,7 @@ function ToolbarBody({ editor, pos }: { editor: Editor; pos: Pos }) {
   return (
     <div
       data-testid="bubble-toolbar"
-      // pos.top/left 是 selection 实时坐标，每帧 viewport-px 连续值；无法用
-      // class enumerate，唯一合理路径是 inline style 直接绑数值。
-      // eslint-disable-next-line no-restricted-syntax
-      style={{ top: pos.top, left: pos.left }}
-      className="absolute -translate-x-1/2 bg-(--color-ink) text-(--color-paper) flex items-baseline gap-1 px-1 py-0.5 z-50"
+      className={`sm-pos-abs [--pos-top:${pos.top}px] [--pos-left:${pos.left}px] -translate-x-1/2 bg-(--color-ink) text-(--color-paper) flex items-baseline gap-1 px-1 py-0.5 z-50`}
     >
       <BoldBtn editor={editor} />
       <ItalicBtn editor={editor} />

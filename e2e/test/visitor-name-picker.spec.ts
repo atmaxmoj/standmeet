@@ -25,7 +25,7 @@ const OWNER = {
 
 const CODE = 'NAME-001';
 
-test.describe.serial('VisitorNamePicker · auto-pop on first chat + persist', () => {
+test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwnerWithCode(playwright);
   });

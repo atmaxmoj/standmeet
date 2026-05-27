@@ -24,11 +24,7 @@ export function ModalShell({ onClose, kicker, title, maxWidth = 540, children }:
     >
       <div
         onClick={stop}
-        // maxWidth 是 caller 给的 px（各种 modal 复用本 Shell；transcript
-        // 720 / quick edit 540 等不固定 set），无法枚举成 class。
-        // eslint-disable-next-line no-restricted-syntax
-        style={{ maxWidth }}
-        className="w-full bg-(--color-paper) border border-(--color-rule) rounded-sm rise crosshair my-auto"
+        className={`w-full bg-(--color-paper) border border-(--color-rule) rounded-sm rise crosshair my-auto sm-max-w [--max-w:${maxWidth}px]`}
       >
         <span className="ch-tl" /><span className="ch-br" />
         <ModalHeader kicker={kicker} title={title} onClose={onClose} />

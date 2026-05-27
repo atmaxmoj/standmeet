@@ -27,7 +27,7 @@ export function SystemSection() {
 
 function DeploymentBlock() {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-terminal">
       <div className="sm-smallcaps mb-3">deployment</div>
       <div className="border border-(--color-rule) rounded-[3px] p-3 bg-[color-mix(in_oklab,var(--color-ink)_6%,var(--color-paper))] mono text-[11.5px] leading-[1.7] text-(--color-muted)">
         <div><span className="text-(--color-accent)">$</span> standmeet status</div>
@@ -65,7 +65,7 @@ function ResourceStat({ label, value, sub }: { label: string; value: string; sub
 
 function JobsTable() {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2">
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2" data-testid="system-jobs">
       <div className="sm-smallcaps mb-3">background jobs</div>
       <table className="w-full border-collapse">
         <thead>
@@ -100,7 +100,7 @@ function JobRow({ name, schedule, last, status }: { name: string; schedule: stri
 
 function HealthChecks() {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2">
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2" data-testid="system-health">
       <div className="sm-smallcaps mb-3">health checks</div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <HealthRow name="database" status="ok" detail="postgres · WAL mode" />

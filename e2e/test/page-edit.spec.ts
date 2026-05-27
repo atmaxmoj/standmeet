@@ -21,7 +21,8 @@ const OWNER = {
 const NEW_HERO_PROSE =
   "I'm Alice. Newly edited hero prose to prove the page editor round-trip.";
 
-test.describe.serial('owner edits public page, visitor sees the change', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner edits public page, visitor sees the change', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

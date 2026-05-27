@@ -132,7 +132,7 @@ function QRCol({ code }: { code: CodeView }) {
   const link = buildShareLink(code.code);
   return (
     <MetaPair label="QR">
-      <QRCode value={link} size={72} />
+      <span data-testid="code-qr"><QRCode value={link} size={72} /></span>
     </MetaPair>
   );
 }

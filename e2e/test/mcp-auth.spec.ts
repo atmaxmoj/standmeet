@@ -17,7 +17,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('MCP rejects bad Bearer tokens', () => {
+test.describe('MCP rejects bad Bearer tokens', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

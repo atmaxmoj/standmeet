@@ -16,7 +16,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('jobs.fetch_new across multiple registered sources', () => {
+test.describe('jobs.fetch_new across multiple registered sources', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

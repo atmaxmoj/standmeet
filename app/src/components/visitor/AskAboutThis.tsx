@@ -20,7 +20,7 @@ interface Props {
 
 export function AskAboutThis({ title, kind = 'essay' }: Props) {
   return (
-    <section className="mt-10 pt-3 pb-4 border-t border-(--color-rule)">
+    <section className="mt-10 pt-3 pb-4 border-t border-(--color-rule)" data-testid="ask-about-this">
       <div className="max-w-[760px] mx-auto px-6 lg:px-0">
         <AskHeader title={title} kind={kind} />
         <AskForm placeholderTitle={title} />

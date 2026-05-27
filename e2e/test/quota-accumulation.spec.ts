@@ -22,7 +22,7 @@ const OWNER = {
 const CODE = 'INTERVIEW-A3';
 const MAX_SESSIONS = 3;
 
-test.describe.serial('per-member quota accumulates up to N, blocks at N+1', () => {
+test.describe('per-member quota accumulates up to N, blocks at N+1', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

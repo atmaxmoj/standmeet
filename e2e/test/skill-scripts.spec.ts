@@ -37,7 +37,7 @@ interface SkillCreateResp {
   name: string;
 }
 
-test.describe.serial('owner-curated skill scripts run in docker sandbox', () => {
+test.describe('owner-curated skill scripts run in docker sandbox', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

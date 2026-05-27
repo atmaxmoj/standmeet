@@ -23,7 +23,7 @@ const OWNER = {
   fullName: 'Cross Linker',
 };
 
-test.describe.serial('blog crosslinks: [[X]] resolves + backlinks', () => {
+test.describe('blog crosslinks: [[X]] resolves + backlinks', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('A renders [[B]] as links + B shows backlink + unresolved stays literal',

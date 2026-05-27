@@ -21,7 +21,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('admin /applications · empty state when no commits yet', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('admin /applications · empty state when no commits yet', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('owner opens /applications → "No applications sent yet."',

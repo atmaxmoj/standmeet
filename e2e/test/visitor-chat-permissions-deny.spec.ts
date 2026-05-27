@@ -30,7 +30,7 @@ const CODE = 'RECRUITER-001';
 const ALLOWED = 'projects/lucerna';
 const DENIED = 'personal/family';
 
-test.describe.serial('path-glob ACL filters denied paths out of retrieval', () => {
+test.describe('path-glob ACL filters denied paths out of retrieval', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

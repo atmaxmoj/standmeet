@@ -36,7 +36,8 @@ const SKILL = {
 
 const CODE = 'PATENT-001';
 
-test.describe.serial('owner curates AI skills and attaches them to invite codes', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner curates AI skills and attaches them to invite codes', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

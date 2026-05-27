@@ -70,7 +70,7 @@ function ActionsCard() {
 
 function StatCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-3 bg-(--color-surface)/30">
+    <div className="border border-(--color-rule) rounded-[3px] p-3 bg-(--color-surface)/30" data-testid={`vault-stat-${label}`}>
       <div className="sm-smallcaps mb-1">{label}</div>
       <div className="font-serif text-(--color-ink) text-[20px] tabular-nums leading-none">{value}</div>
     </div>

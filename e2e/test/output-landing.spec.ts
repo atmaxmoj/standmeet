@@ -31,7 +31,7 @@ const SLUG = 'local-first';
 
 const DB_CONTAINER = 'standmeet-dev-db-1';
 
-test.describe.serial('public /output/<slug> SEO landing', () => {
+test.describe('public /output/<slug> SEO landing', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

@@ -37,7 +37,7 @@ interface CreateServerResp {
   url: string;
 }
 
-test.describe.serial('owner registers external MCP server; visitor chat uses its tools', () => {
+test.describe('owner registers external MCP server; visitor chat uses its tools', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

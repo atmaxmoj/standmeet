@@ -26,6 +26,7 @@ function SparklineSVG({ points, width, height, label }: {
       preserveAspectRatio="none"
       aria-label={label ?? 'sparkline'}
       role="img"
+      data-testid="sparkline"
     >
       <polygon
         points={area}

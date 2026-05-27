@@ -35,7 +35,7 @@ function SessionStripGate({ s }: { s: VisitorSession }) {
 function SessionStripBody({ s }: { s: VisitorSession }) {
   const view = deriveStripView(s);
   return (
-    <div className={view.cls} data-testid="session-strip">
+    <div className={view.cls} data-testid="session-strip" data-warn={view.warn ? 'true' : undefined}>
       <StripLeft s={s} />
       <StripRight s={s} pct={view.pct} warn={view.warn} />
     </div>
@@ -145,14 +145,6 @@ function StripGauge({ used, max, pct }: { used: number; max: number; pct: number
   );
 }
 
-// SessionStripGaugeFill —— 进度条填充宽度只能 inline-style，因为是
-// 连续的 prop-driven runtime value (0-100%)，CSS class 列举不出来。
 function SessionStripGaugeFill({ pct }: { pct: number }) {
-  return (
-    <span
-      className="sm-session-strip-gauge-fill"
-      // eslint-disable-next-line no-restricted-syntax -- runtime-dynamic width (0-100%)，CSS class 不可枚举。
-      style={{ width: `${pct}%`, display: 'block' }}
-    />
-  );
+  return <span className={`sm-session-strip-gauge-fill sm-fill [--fill:${pct}%]`} />;
 }

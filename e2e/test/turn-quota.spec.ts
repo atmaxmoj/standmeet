@@ -24,7 +24,7 @@ const OWNER = {
 const CODE = 'INTERVIEW-T2';
 const MAX_TURNS = 2;
 
-test.describe.serial('per-session turn quota stops chat after N turns', () => {
+test.describe('per-session turn quota stops chat after N turns', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

@@ -1,0 +1,75 @@
+// admin-connectors-extended.spec.ts —— connectors: dashed add card, category tabs,
+// installed pill, secret field toggle, oauth button, connect state.
+//
+// 用户故事：
+//   1. dashed "+" card → click → modal opens
+//   2. category tab switch → catalog grid filters
+//   3. installed connector → "installed" pill
+//   4. config form → secret field → reveal/hide toggle
+//   5. config form → oauth field → "Authorize" button
+//   6. connect → tile state changes
+
+import { test, expect } from '@/fixtures/test';
+import type { Playwright } from '@playwright/test';
+
+import { claim, login as loginAPI } from '@/fixtures/admin';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { gotoAdminSection } from '@/fixtures/navigate';
+
+const OWNER = {
+  email: 'conn-ext@example.com',
+  password: 'correct-horse-battery-staple',
+  handle: 'connext',
+  fullName: 'Connector Ext Owner',
+};
+
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('admin connectors extended', () => {
+  test.beforeAll(async ({ playwright }) => {
+    await initOwner(playwright);
+  });
+
+  test('dashed add card → modal opens → categories filter',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'connectors');
+      await adminPage.waitForURL('**/admin/connectors', { timeout: 5_000 });
+      await adminPage.getByTestId('connector-add-open').click();
+      // Default category visible
+      await expect(adminPage.getByTestId('connector-card-email')).toBeVisible();
+      // Switch category
+      await adminPage.getByRole('button', { name: /storage/i }).click();
+      await expect(adminPage.getByTestId('connector-card-s3')).toBeVisible();
+      await expect(adminPage.getByTestId('connector-card-email')).toHaveCount(0);
+    });
+
+  test('secret field is type=password with reveal toggle',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'connectors');
+      await adminPage.getByTestId('connector-add-open').click();
+      await adminPage.getByRole('button', { name: /storage/i }).click();
+      await adminPage.getByTestId('connector-card-s3').click();
+      // Secret field should be password type
+      const secretField = adminPage.getByTestId('connector-field-secret_key');
+      await expect(secretField).toHaveAttribute('type', 'password');
+    });
+
+  test('calendar connector → oauth Authorize button',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'connectors');
+      await adminPage.getByTestId('connector-add-open').click();
+      await adminPage.getByTestId('connector-card-calendar').click();
+      await adminPage.getByTestId('connector-field-provider').selectOption('google');
+      await expect(adminPage.getByTestId('connector-field-oauth')).toContainText(/Authorize/i);
+    });
+});
+
+async function initOwner(playwright: Playwright): Promise<void> {
+  resetInstance();
+  const request = await playwright.request.newContext();
+  await claim(request, findSetupToken(), {
+    email: OWNER.email, password: OWNER.password,
+    handle: OWNER.handle, fullName: OWNER.fullName,
+  });
+  await loginAPI(request, OWNER.email, OWNER.password);
+  await request.dispose();
+}

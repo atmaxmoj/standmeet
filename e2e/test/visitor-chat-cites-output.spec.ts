@@ -31,7 +31,7 @@ const WIKI_TITLE = 'Local-first ≠ offline';
 const OUTPUT_TITLE = 'Local-first essay (polished)';
 const CODE = 'INTRO-001';
 
-test.describe.serial('visitor chat retrieval pulls output entries', () => {
+test.describe('visitor chat retrieval pulls output entries', () => {
   let outputID: string;
 
   test.beforeAll(async ({ playwright }) => {

@@ -8,11 +8,10 @@ import { useRef } from 'react';
 
 import Link from 'next/link';
 
-import { ToolCallBlock, type ToolCall } from '@/components/page/ToolCallBlock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
-import type { SessionTier } from '@/lib/page/use-conversation';
+import type { Citation, SessionTier } from '@/lib/page/use-conversation';
 import type { PublicOwnerView } from '@/lib/api/public';
 
 type Props = { owner: PublicOwnerView; tier: SessionTier };
@@ -21,7 +20,7 @@ export function ChatRoom({ owner, tier }: Props) {
   const derived = useChatRoomDerived();
   const { conv, exhausted, input, setInput, onAsk } = useChatRoomInput(tier);
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" data-testid="chatroom">
       <SessionStrip />
       <VisitorNamePicker />
       <ChatRoomHeader handle={owner.handle} hasConv={conv.turns.length > 0} onReset={conv.reset} />
@@ -86,7 +85,7 @@ function HeaderRight({ hasConv, onReset }: { hasConv: boolean; onReset: () => vo
 
 function ChatWelcome({ owner, d }: { owner: PublicOwnerView; d: ReturnType<typeof useChatRoomDerived> }) {
   return (
-    <article className="pt-10 pb-10 border-b border-(--color-rule)">
+    <article className="pt-10 pb-10 border-b border-(--color-rule)" data-testid="chat-welcome">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">
         {owner.handle}&apos;s ai · ready
       </div>
@@ -151,7 +150,7 @@ function ChatTurn({ turn }: { turn: Turn }) {
 
 function ThinkingDots() {
   return (
-    <div className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3">
+    <div className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3" data-testid="answer-pending">
       retrieving <span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span>
     </div>
   );
@@ -164,16 +163,23 @@ function TurnAnswer({ answer }: { answer: Turn['answer'] }) {
       {answer.paras.map((p, i) => (
         <p key={i} className="reading mb-4 last:mb-0 text-[18px]">{p}</p>
       ))}
-      <ToolCalls calls={(answer as AnswerWithTools).tool_calls} />
+      <TurnCitations citations={answer.citations} />
     </div>
   ) : null;
 }
 
-interface AnswerWithTools { tool_calls?: readonly ToolCall[] }
-
-function ToolCalls({ calls }: { calls?: readonly ToolCall[] }) {
-  return calls ? (
-    <>{calls.map((tc, i) => <ToolCallBlock key={i} tool={tc.tool} result={tc.result} />)}</>
+function TurnCitations({ citations }: { citations?: readonly Citation[] }) {
+  return citations && citations.length > 0 ? (
+    <div className="mt-6" data-testid="citations">
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">drawn from</div>
+      <ul className="flex flex-col gap-1">
+        {citations.map((c) => (
+          <li key={c.id} className="mono text-[11px] text-(--color-muted)">
+            {c.kind} · {c.title}
+          </li>
+        ))}
+      </ul>
+    </div>
   ) : null;
 }
 
@@ -239,7 +245,7 @@ function StarterChips({ starters, onPick, pending }: {
   starters: readonly string[]; onPick: (q: string) => void; pending: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-x-1 gap-y-2 mb-3 overflow-x-auto">
+    <div className="flex flex-wrap gap-x-1 gap-y-2 mb-3 overflow-x-auto" data-testid="starter-chips">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mr-3 shrink-0 pt-0.5">try</span>
       {starters.map((q, i) => (
         <StarterChip key={q} q={q} last={i === starters.length - 1} onPick={onPick} pending={pending} />

@@ -73,6 +73,7 @@ function RawDumpTextarea({ value, onChange }: { value: string; onChange: (v: str
       onChange={(e) => onChange(e.target.value)}
       placeholder="Paste a thought, a passage from a chat, a half-formed take."
       rows={3}
+      data-testid="dump-input"
       className="w-full bg-transparent text-(--color-ink) placeholder:text-(--color-faint) reading-tight text-[15.5px]"
     />
   );

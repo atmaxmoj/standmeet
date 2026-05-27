@@ -36,7 +36,8 @@ interface PagePayload { id: string; slug: string; title: string }
 interface BuildPayload { build_id: string; status: string }
 interface ListPayload { pages: PagePayload[] }
 
-test.describe.serial('custom_page lifecycle: staging → live → list → delete', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('custom_page lifecycle: staging → live → list → delete', () => {
   let apiToken = '';
 
   test.beforeAll(async ({ playwright }) => {

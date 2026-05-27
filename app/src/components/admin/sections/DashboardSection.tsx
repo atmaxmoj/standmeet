@@ -20,7 +20,7 @@ import {
 export function DashboardSection() {
   const { stats, loading, error } = useAdminDashboard();
   return (
-    <>
+    <div data-testid="dashboard">
       <SectionHeader
         kicker="overview"
         title="dashboard"
@@ -30,7 +30,7 @@ export function DashboardSection() {
       <MiddleRow stats={stats} />
       <BottomRow stats={stats} />
       <ErrorBlock msg={error} />
-    </>
+    </div>
   );
 }
 
@@ -49,7 +49,7 @@ function Kpi({ label, value, trend, sub, loading }: {
   label: string; value: number; trend?: string; sub?: string; loading: boolean;
 }) {
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid={`kpi-${label}`}>
       <div className="sm-smallcaps mb-1.5">{label}</div>
       <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none tracking-[-0.02em]">
         {loading ? '—' : value.toLocaleString()}
@@ -243,7 +243,7 @@ function RecentVisitorFlags({ hits }: { hits: number }) {
 function NeedsYourHand({ stats }: { stats: DashboardStats }) {
   const items = buildActionItems(stats);
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="needs-hand">
       <GroupHeader title="needs your hand" />
       <NeedsList items={items} />
     </div>

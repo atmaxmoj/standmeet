@@ -23,7 +23,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('resume.update_draft replaces content + re-renders', () => {
+test.describe('resume.update_draft replaces content + re-renders', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

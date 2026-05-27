@@ -20,7 +20,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('admin /connectors · add modal + dynamic config form', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('admin /connectors · add modal + dynamic config form', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);
   });

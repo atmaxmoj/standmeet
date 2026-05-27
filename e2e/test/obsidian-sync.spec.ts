@@ -30,7 +30,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('obsidian: import + publish gate', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('obsidian: import + publish gate', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('publish: true 的进库，publish 缺失的跳过',
@@ -70,7 +71,8 @@ test.describe.serial('obsidian: import + publish gate', () => {
     });
 });
 
-test.describe.serial('obsidian: image attachment round-trip', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('obsidian: image attachment round-trip', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('vault 里 .md 里 ![[pixel.png]] + attachment pixel.png → MinIO 存 + body rewrite + export 拿回 bytes',
@@ -117,7 +119,8 @@ test.describe.serial('obsidian: image attachment round-trip', () => {
     });
 });
 
-test.describe.serial('obsidian: re-import idempotency', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('obsidian: re-import idempotency', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('同 vault 第二次 import → 全部 skipped (updated_at == imported_at)',
@@ -144,7 +147,8 @@ test.describe.serial('obsidian: re-import idempotency', () => {
     });
 });
 
-test.describe.serial('obsidian: UI buttons', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('obsidian: UI buttons', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('admin /posts 渲出 import + export 两个 button',

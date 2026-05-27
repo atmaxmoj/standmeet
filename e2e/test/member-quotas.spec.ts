@@ -24,7 +24,7 @@ const OWNER = {
 
 const CODE = 'INTERVIEW-A1';
 
-test.describe.serial('per-member quota counts independently for each visitor name', () => {
+test.describe('per-member quota counts independently for each visitor name', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

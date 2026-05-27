@@ -19,7 +19,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('resume.discard_draft removes the row', () => {
+test.describe('resume.discard_draft removes the row', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

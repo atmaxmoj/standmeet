@@ -67,7 +67,8 @@ const RICH_MD = [
   '![alt text here](https://example.com/img.png)',
 ].join('\n');
 
-test.describe.serial('blog: editor flow + rich render + XSS', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('blog: editor flow + rich render + XSS', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('owner types in Tiptap editor + slash menu → /blog renders the structure',
@@ -128,7 +129,8 @@ test.describe.serial('blog: editor flow + rich render + XSS', () => {
     });
 });
 
-test.describe.serial('blog: atomic image upload via multipart save', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('blog: atomic image upload via multipart save', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('owner uploads cover image → /blog cover renders with image background',
@@ -164,8 +166,9 @@ test.describe.serial('blog: atomic image upload via multipart save', () => {
 
       await goto(page, '/blog/with-cover');
       const cover = page.locator('[data-blog-cover]').first();
-      const bg = await cover.evaluate((el) => getComputedStyle(el).backgroundImage);
-      expect(bg).toMatch(/localhost:9200/);
+      const img = cover.locator('img').first();
+      const src = await img.getAttribute('src');
+      expect(src).toMatch(/localhost:9200/);
     });
 
   test('paste image in editor → save → /blog renders presigned URL; body_md stores URI',
@@ -200,7 +203,8 @@ test.describe.serial('blog: atomic image upload via multipart save', () => {
     });
 });
 
-test.describe.serial('blog: edit existing post', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('blog: edit existing post', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('owner clicks edit → changes title → /blog reflects new title',
@@ -229,7 +233,8 @@ test.describe.serial('blog: edit existing post', () => {
     });
 });
 
-test.describe.serial('blog: infinite scroll', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('blog: infinite scroll', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('13+ posts → scroll loads page 2',

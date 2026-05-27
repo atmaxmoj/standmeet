@@ -32,7 +32,7 @@ const OWNER = {
 // CI / other host setups can override with the same env var.
 const PUBLIC_URL = process.env['PUBLIC_URL'] ?? 'http://localhost:38127';
 
-test.describe.serial('applications.commit promotes a draft into an application', () => {
+test.describe('applications.commit promotes a draft into an application', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

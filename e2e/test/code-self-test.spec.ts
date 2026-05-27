@@ -23,7 +23,8 @@ const OWNER = {
 
 const CODE = 'TEST-001';
 
-test.describe.serial('owner self-tests a code from /admin/codes preview', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner self-tests a code from /admin/codes preview', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

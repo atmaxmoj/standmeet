@@ -183,7 +183,7 @@ function Hint({ busy, error }: { busy: boolean; error: boolean }) {
 
 function HintStatus({ busy, error }: { busy: boolean; error: boolean }) {
   return error ? (
-    <p className="text-(--color-accent) mb-1 tracking-[0.16em] uppercase">unknown code</p>
+    <p className="text-(--color-accent) mb-1 tracking-[0.16em] uppercase" data-testid="gate-error">unknown code</p>
   ) : busy ? (
     <p className="text-(--color-muted) mb-1 tracking-[0.16em] uppercase">checking…</p>
   ) : null;

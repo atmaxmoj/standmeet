@@ -31,7 +31,7 @@ const OWNER = {
 const QUOTA_MAX = 5;
 const VISITOR_CODE = 'STRIP-Q5';
 
-test.describe.serial('SessionStrip · gauge / cross-surface / warn / lockdown', () => {
+test.describe('SessionStrip · gauge / cross-surface / warn / lockdown', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwnerWithQuotaCode(playwright);
   });

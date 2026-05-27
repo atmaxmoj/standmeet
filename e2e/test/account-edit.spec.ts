@@ -23,7 +23,8 @@ const NEW_FULL_NAME = 'Alice A.';
 const NEW_EMAIL = 'alice+rotated@example.com';
 const NEW_PASSWORD = 'new-correct-horse-12345';
 
-test.describe.serial('owner edits account fields post-claim', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner edits account fields post-claim', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

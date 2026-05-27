@@ -22,7 +22,7 @@ const OWNER = {
 
 const CODE = 'INTRO-001';
 
-test.describe.serial('visitor uses a gate code to enter a private page', () => {
+test.describe('visitor uses a gate code to enter a private page', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

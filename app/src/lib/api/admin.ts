@@ -109,9 +109,11 @@ export interface ConversationSummary {
   id: string;
   tier: string;
   visitor_name: string;
+  sentiment: string;
   started_at: string;
   last_at: string;
   message_count: number;
+  private_hits: number;
   hit_private: boolean;
   code_id?: string;
   code_label?: string;

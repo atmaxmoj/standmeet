@@ -36,10 +36,13 @@
       color-mix(in oklab, #6F8A2F 14%, transparent), transparent 70%);
 }
 
-.cover[data-img] {
-  background-image: var(--cover-gradient), var(--cover-img);
-  background-size: cover;
-  background-position: center;
+.coverImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
 }
 
 .cover[data-locked] {

@@ -17,7 +17,8 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe.serial('owner configures AI provider + key from /admin/api-mcp', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

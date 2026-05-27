@@ -26,7 +26,8 @@ const WIKI_TITLE = 'Thinking about local-first software';
 const WIKI_BODY = 'Local-first is mostly about ownership over data — not about offline.';
 const OUTPUT_TITLE = 'Local-first ≠ offline (essay draft)';
 
-test.describe.serial('corpus CRUD: create wiki → promote to output → delete output', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('corpus CRUD: create wiki → promote to output → delete output', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

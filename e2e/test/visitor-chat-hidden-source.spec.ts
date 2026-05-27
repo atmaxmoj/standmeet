@@ -29,7 +29,7 @@ const CODE = 'INTRO-001';
 const HIDDEN = 'meta/persona';
 const VISIBLE = 'projects/lucerna';
 
-test.describe.serial('show_as_source=false hides entry from cited footer', () => {
+test.describe('show_as_source=false hides entry from cited footer', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

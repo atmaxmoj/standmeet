@@ -21,7 +21,8 @@ const OWNER = {
 
 const CODE = 'INTERVIEW-A1';
 
-test.describe.serial('owner sets quotas on access code and revokes it', () => {
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+test.describe('owner sets quotas on access code and revokes it', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

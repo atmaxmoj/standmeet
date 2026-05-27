@@ -1134,3 +1134,17 @@
   color: var(--color-faint);
   font-style: italic;
 }
+
+/* ── runtime-dynamic value utilities ─────────────────────────
+ * 替代 inline style={{ }}。组件用 Tailwind arbitrary-property 语法
+ * 设 CSS var：className="sm-fill [--fill:83%]"，class 读 var 作用。
+ * 好处：不需要 eslint-disable no-restricted-syntax。 */
+
+.sm-fill { width: var(--fill, 0%); display: block; }
+.sm-heat-fill {
+  width: var(--fill, 0%);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--color-accent) 80%, transparent), var(--color-accent));
+}
+.sm-zoom { transform: scale(var(--zoom, 1)); transform-origin: top left; }
+.sm-pos-abs { position: absolute; top: var(--pos-top, 0); left: var(--pos-left, 0); }
+.sm-max-w { max-width: var(--max-w, 100%); }

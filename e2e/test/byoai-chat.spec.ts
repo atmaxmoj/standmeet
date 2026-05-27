@@ -24,7 +24,7 @@ const OWNER = {
 const FAKE_KEY = 'sk-ant-fake-test-key-for-byoai-flow';
 const MOCK_REPLY = 'Hello visitor, alice says hi from the mock provider.';
 
-test.describe.serial('visitor brings own API key (BYOAI) via gate page', () => {
+test.describe('visitor brings own API key (BYOAI) via gate page', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

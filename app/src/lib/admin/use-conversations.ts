@@ -190,15 +190,10 @@ function toView(s: ConversationSummary): ConvView {
     last: formatRelative(s.last_at),
     code: s.code_value ?? (s.tier === 'byoai' ? 'byoai' : '—'),
     code_label: s.code_label ?? (s.tier === 'byoai' ? 'BYOAI' : s.tier),
-    sentiment: (s as ConversationSummaryWithSentiment).sentiment ?? '',
+    sentiment: s.sentiment ?? '',
     turns: s.message_count,
-    private_hits: (s as ConversationSummaryWithSentiment).private_hits ?? (s.hit_private ? 1 : 0),
+    private_hits: s.private_hits ?? (s.hit_private ? 1 : 0),
   };
-}
-
-interface ConversationSummaryWithSentiment extends ConversationSummary {
-  sentiment?: string;
-  private_hits?: number;
 }
 
 function formatRelative(iso: string): string {
