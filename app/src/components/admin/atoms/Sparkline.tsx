@@ -1,6 +1,7 @@
-// Sparkline —— 简易 svg-less column sparkline。input 是数列。
+// Sparkline —— SVG polyline 折线图。design 源 sm-components.js Sparkline。
+// data = number[]，纯 SVG 渲，accent stroke + 半透 area fill。
 
-import { computeSparkColumns } from '@/lib/admin/sparkline';
+import { deriveSparklinePoints } from '@/lib/admin/sparkline';
 
 type Props = {
   data: readonly number[];
@@ -9,30 +10,35 @@ type Props = {
   label?: string;
 };
 
-export function Sparkline({ data, width = 120, height = 28, label }: Props) {
-  const cols = computeSparkColumns(data, width);
-  return (
-    <div
-      className="flex items-end gap-px"
-      // width/height 是 caller-driven px，未来可能跟数据量动态变；不便枚举成
-      // class。
-      // eslint-disable-next-line no-restricted-syntax
-      style={{ width, height }}
-      title={label}
-    >
-      {cols.map((c, i) => <SparkCol key={i} heightPct={c.heightPct} widthPx={c.widthPx} />)}
-    </div>
-  );
+export function Sparkline({ data, width = 260, height = 48, label }: Props) {
+  const points = deriveSparklinePoints(data, width, height);
+  return <SparklineSVG points={points} width={width} height={height} label={label} />;
 }
 
-function SparkCol({ heightPct, widthPx }: { heightPct: number; widthPx: number }) {
+function SparklineSVG({ points, width, height, label }: {
+  points: string; width: number; height: number; label?: string;
+}) {
+  const area = `0,${height} ${points} ${width},${height}`;
   return (
-    <div
-      className="bg-(--color-ink) opacity-70 hover:opacity-100 hover:bg-(--color-accent) transition-colors"
-      // 每根 bar 高度从 data 算出（连续 %），宽度从 width / 数据点数算（连
-      // 续 px）—— 真 runtime-dynamic，必走 inline style。
-      // eslint-disable-next-line no-restricted-syntax
-      style={{ height: `${heightPct}%`, width: `${widthPx}px` }}
-    />
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="w-full"
+      preserveAspectRatio="none"
+      aria-label={label ?? 'sparkline'}
+      role="img"
+    >
+      <polygon
+        points={area}
+        fill="color-mix(in oklab, var(--color-accent) 12%, transparent)"
+      />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="var(--color-accent)"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

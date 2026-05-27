@@ -4,9 +4,12 @@
 
 'use client';
 
+import { useEffect, useState } from 'react';
+
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { Sparkline } from '@/components/admin/atoms/Sparkline';
 import {
   useAdminDashboard,
   type DashboardStats,
@@ -100,7 +103,7 @@ function CorpusPulse({ stats }: { stats: DashboardStats }) {
           </div>
         </div>
         <div className="flex-1">
-          <AsciiSparkline />
+          <CorpusSparkline />
           <div className="mono text-[9.5px] text-(--color-faint) tracking-[0.06em] mt-1 flex justify-between">
             <span>14d ago</span><span>today</span>
           </div>
@@ -110,15 +113,14 @@ function CorpusPulse({ stats }: { stats: DashboardStats }) {
   );
 }
 
-function AsciiSparkline() {
-  return (
-    <div className="mono text-[10px] text-(--color-accent) tracking-[0.02em] leading-none h-[48px] flex items-end overflow-hidden">
-      <span className="text-(--color-faint)">▁▂▁▃▅▂▄▃▅▆▃▇▅█</span>
-    </div>
-  );
+const MOCK_14D = [4, 7, 2, 6, 11, 3, 8, 5, 9, 12, 6, 14, 9, 17];
+
+function CorpusSparkline() {
+  return <Sparkline data={MOCK_14D} width={260} height={48} label="corpus pulse · 14d" />;
 }
 
 function JobsHeat() {
+  const { sent } = useApplicationCount();
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <GroupHeader title="jobs · active loop" action={
@@ -129,23 +131,42 @@ function JobsHeat() {
       <div className="grid grid-cols-2 gap-3 mt-2">
         <div>
           <div className="sm-smallcaps mb-1">shortlist</div>
-          <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">—</div>
+          <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">0</div>
         </div>
         <div>
           <div className="sm-smallcaps mb-1">sent</div>
-          <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">—</div>
+          <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">{sent}</div>
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-(--color-rule)/60">
         <div className="sm-smallcaps mb-1">top match</div>
-        <div className="font-serif text-[16px] text-(--color-muted) italic">
-          no listings indexed yet
-        </div>
-        <div className="mono text-[10px] text-(--color-faint) tracking-[0.06em] mt-1">
-          register job sources → fetch → matches appear here
-        </div>
+        <JobsTopMatch />
       </div>
     </div>
+  );
+}
+
+function useApplicationCount(): { sent: number } {
+  const [sent, setSent] = useState(0);
+  useEffect(() => {
+    void fetch('/api/admin/applications/', { credentials: 'include' })
+      .then((r) => r.ok ? r.json() as Promise<{ items?: unknown[] }> : { items: [] })
+      .then((d) => setSent((d.items ?? []).length))
+      .catch(() => setSent(0));
+  }, []);
+  return { sent };
+}
+
+function JobsTopMatch() {
+  return (
+    <>
+      <div className="font-serif text-[16px] text-(--color-muted) italic">
+        register sources to start matching
+      </div>
+      <div className="mono text-[10px] text-(--color-faint) tracking-[0.06em] mt-1">
+        /admin/sources → fetch → listings ranked by corpus match
+      </div>
+    </>
   );
 }
 
@@ -159,6 +180,7 @@ function BottomRow({ stats }: { stats: DashboardStats }) {
 }
 
 function RecentVisitors() {
+  const { rows } = useRecentConversations();
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <GroupHeader title="recent visitors" action={
@@ -166,11 +188,54 @@ function RecentVisitors() {
           all →
         </Link>
       } />
-      <div className="mono text-[11px] text-(--color-faint) tracking-[0.06em] mt-2">
-        conversations will appear here once visitors start chatting
-      </div>
+      <RecentVisitorsList rows={rows} />
     </div>
   );
+}
+
+interface RecentRow { id: string; visitor: string; code_label: string; turns: number; last: string; private_hits: number }
+
+function useRecentConversations(): { rows: RecentRow[] } {
+  const [rows, setRows] = useState<RecentRow[]>([]);
+  useEffect(() => {
+    void fetch('/api/admin/conversations/', { credentials: 'include' })
+      .then((r) => r.ok ? r.json() as Promise<{ items?: RecentRow[] }> : { items: [] })
+      .then((d) => setRows((d.items ?? []).slice(0, 5)))
+      .catch(() => setRows([]));
+  }, []);
+  return { rows };
+}
+
+function RecentVisitorsList({ rows }: { rows: readonly RecentRow[] }) {
+  return rows.length === 0 ? (
+    <div className="mono text-[11px] text-(--color-faint) tracking-[0.06em] mt-2">
+      no conversations yet — visitors will appear here once they start chatting
+    </div>
+  ) : (
+    <div className="flex flex-col">
+      {rows.map((r) => <RecentVisitorRow key={r.id} row={r} />)}
+    </div>
+  );
+}
+
+function RecentVisitorRow({ row }: { row: RecentRow }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
+      <div>
+        <div className="font-serif text-[15px] text-(--color-ink)">{row.visitor}</div>
+        <div className="mono text-[10px] text-(--color-muted) mt-0.5">
+          {row.code_label} · {row.turns} turns · {row.last}
+        </div>
+      </div>
+      <RecentVisitorFlags hits={row.private_hits} />
+    </div>
+  );
+}
+
+function RecentVisitorFlags({ hits }: { hits: number }) {
+  return hits > 0
+    ? <span className="mono text-[9.5px] tracking-[0.14em] text-(--color-accent)">{hits} priv</span>
+    : null;
 }
 
 function NeedsYourHand({ stats }: { stats: DashboardStats }) {

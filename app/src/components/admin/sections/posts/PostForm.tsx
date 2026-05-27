@@ -11,6 +11,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { CoverImagePicker, type CoverAssetState } from '@/components/admin/sections/posts/CoverImagePicker';
+import { EditorSideRail } from '@/components/admin/sections/posts/EditorSideRail';
 import {
   PostField, PostFieldRow, CoverHueSelect, PostBodyField,
   PostFormFooter, PublishToggle,
@@ -124,9 +125,12 @@ function PostFormBody({
       <CoverImagePicker value={values.coverAsset}
         onChange={(v) => set('coverAsset', v)}
         onPending={handlePending} toast={toast} />
-      <PostBodyField value={values.bodyMD}
-        onChange={(v) => set('bodyMD', v)}
-        assetURLs={props.assetURLs} onPending={handlePending} />
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 items-start">
+        <PostBodyField value={values.bodyMD}
+          onChange={(v) => set('bodyMD', v)}
+          assetURLs={props.assetURLs} onPending={handlePending} />
+        <EditorSideRail bodyMD={values.bodyMD} />
+      </div>
     </>
   );
 }

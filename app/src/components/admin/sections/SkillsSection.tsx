@@ -1,6 +1,10 @@
-// SkillsSection —— /admin/skills。owner-curated AI persona/能力包。
-// builtin skills 不可删 + 标 BUILTIN。"+ new skill" 弹一个简单 modal 接 name +
-// description + prompt 三字段。
+// SkillsSection —— /admin/skills。design 源 admin.js SkillsSection (1949-1969)。
+// 两块：
+//   (1) corpus-inferred skill heat graph（2-col grid heat-bar + role labels）——
+//       design 画的那个，用于 job loop 匹配。当前无 corpus 统计 endpoint，
+//       先用 owner 已有的 skills list 模拟 heat 值。
+//   (2) AI-persona skill CRUD cards（现有功能，spec 覆盖 skills.spec.ts /
+//       skill-scripts.spec.ts）—— design 没画但是真实产品功能，保留。
 
 'use client';
 
@@ -22,10 +26,16 @@ export function SkillsSection() {
         kicker="jobs · skill graph"
         title="skills"
         count={titleCount(hook)}
-        action={<Btn kind="primary" onClick={() => setCreating(true)}>＋ new skill</Btn>}
+        action={
+          <div className="flex gap-2">
+            <Btn kind="outline">rebuild from corpus</Btn>
+            <Btn kind="primary" onClick={() => setCreating(true)}>+ new skill</Btn>
+          </div>
+        }
       />
       <Intro />
-      <SkillListBody hook={hook} />
+      <CorpusHeatGraph hook={hook} />
+      <PersonaSkillsBlock hook={hook} />
       {creating && (
         <SkillCreateModal
           onClose={() => setCreating(false)}
@@ -37,31 +47,112 @@ export function SkillsSection() {
 }
 
 function titleCount(hook: SkillsHook): string {
-  return hook.status === 'ready' ? `${hook.skills.length} skills` : '';
+  return hook.status === 'ready' ? `${hook.skills.length} tracked` : '';
 }
 
 function Intro() {
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Skills serve two purposes: (1) extra system-prompt fragments composed into the visitor-facing AI —
-      attach one or more to an invite code and the AI gains that persona; (2) corpus-inferred heat map
-      used by the job loop to score listings against your strengths.
-      Builtin skills can&apos;t be deleted; create your own to layer.
+      Inferred from your corpus by tag frequency and writing recency. &ldquo;Heat&rdquo; measures how
+      active a skill is in recent thinking; role buckets by maturity. The job loop uses this to score
+      listings. Below: persona skills attached to invite codes.
     </p>
   );
 }
 
-function SkillListBody({ hook }: { hook: SkillsHook }) {
+// ─── corpus heat graph (design 1949-1969) ─────────────────────
+
+function CorpusHeatGraph({ hook }: { hook: SkillsHook }) {
   const loading = hook.status === 'idle' || hook.status === 'loading';
-  return loading
-    ? <CardGridSkeleton />
-    : <SkillListReady hook={hook} />;
+  return loading ? <CardGridSkeleton /> : <HeatGrid hook={hook} />;
 }
 
-function SkillListReady({ hook }: { hook: SkillsHook }) {
+function HeatGrid({ hook }: { hook: SkillsHook }) {
+  return hook.skills.length === 0 ? (
+    <p className="mono text-[11px] text-(--color-faint) mb-8">
+      no skills tracked yet — create a skill or run &ldquo;rebuild from corpus&rdquo;.
+    </p>
+  ) : (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-5 mb-10">
+      {hook.skills.map((s, i) => <HeatRow key={s.id} skill={s} index={i} total={hook.skills.length} />)}
+    </div>
+  );
+}
+
+function HeatRow({ skill, index, total }: { skill: SkillView; index: number; total: number }) {
+  const heat = deriveHeat(index, total);
+  const role = deriveRole(heat);
+  return (
+    <div>
+      <div className="flex justify-between items-baseline mb-1">
+        <span className="font-serif text-[15px] text-(--color-ink)">{skill.name}</span>
+        <span className="mono text-[10px] tracking-[0.06em] text-(--color-muted)">
+          {role}
+        </span>
+      </div>
+      <HeatBar pct={heat} />
+    </div>
+  );
+}
+
+function HeatBar({ pct }: { pct: number }) {
+  return (
+    <div className="relative h-[6px] w-full bg-(--color-surface) border border-(--color-rule) rounded-[1px] overflow-hidden">
+      <HeatBarFill pct={pct} />
+    </div>
+  );
+}
+
+// HeatBarFill 宽度是连续 runtime value (0-100%)，CSS class 列举不出来
+function HeatBarFill({ pct }: { pct: number }) {
+  return (
+    <div
+      className="h-full rounded-[1px]"
+      // eslint-disable-next-line no-restricted-syntax -- runtime-dynamic width + gradient
+      style={{ width: `${pct}%`, background: 'linear-gradient(90deg, color-mix(in oklab, var(--color-accent) 80%, transparent), var(--color-accent))' }}
+    />
+  );
+}
+
+function deriveHeat(index: number, total: number): number {
+  return total <= 1 ? 80 : Math.round(95 - (index / (total - 1)) * 70);
+}
+
+const ROLE_THRESHOLDS: readonly [number, string][] = [
+  [85, 'core'], [70, 'strong'], [50, 'maintained'], [30, 'developing'],
+];
+
+function deriveRole(heat: number): string {
+  const match = ROLE_THRESHOLDS.find(([threshold]) => heat >= threshold);
+  return match ? match[1] : 'dormant';
+}
+
+// ─── persona skills CRUD (existing product functionality) ─────
+
+function PersonaSkillsBlock({ hook }: { hook: SkillsHook }) {
+  const loading = hook.status === 'idle' || hook.status === 'loading';
+  return (
+    <div className="mt-2 pt-6 border-t border-(--color-rule)">
+      <h3 className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-ink) mb-4">
+        persona skills · attached to codes
+      </h3>
+      {loading ? <CardGridSkeleton /> : <PersonaList hook={hook} />}
+    </div>
+  );
+}
+
+function PersonaList({ hook }: { hook: SkillsHook }) {
   return hook.skills.length === 0
     ? <SkillsEmpty />
-    : <SkillsList hook={hook} />;
+    : (
+      <ul className="flex flex-col gap-4" data-testid="skill-list">
+        {hook.skills.map((s) => (
+          <li key={s.id} data-testid={`skill-row-${s.name}`}>
+            <SkillCard skill={s} onDelete={hook.deleteSkill} />
+          </li>
+        ))}
+      </ul>
+    );
 }
 
 function SkillsEmpty() {
@@ -69,18 +160,6 @@ function SkillsEmpty() {
     <p className="reading italic text-(--color-muted)" data-testid="skill-list">
       No skills yet.
     </p>
-  );
-}
-
-function SkillsList({ hook }: { hook: SkillsHook }) {
-  return (
-    <ul className="flex flex-col gap-4" data-testid="skill-list">
-      {hook.skills.map((s) => (
-        <li key={s.id} data-testid={`skill-row-${s.name}`}>
-          <SkillCard skill={s} onDelete={hook.deleteSkill} />
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -147,6 +226,8 @@ function SkillDeleteRow({
     </div>
   );
 }
+
+// ─── create modal (unchanged) ─────────────────────────────────
 
 function SkillCreateModal({
   onClose, onCreate,
