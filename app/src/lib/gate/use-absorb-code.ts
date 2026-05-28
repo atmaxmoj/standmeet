@@ -5,7 +5,7 @@
 //      persistSession 写进 localStorage → clear store
 //
 // 调用方：任何 visitor 能落地 + 能 chat 的 client component（page-shell 等），
-// 一次就够。失败（code 无效 / 过期）保持 public tier，URL 还是已经清掉。
+// 一次就够。失败（code 无效 / 过期）保持 public mode，URL 还是已经清掉。
 //
 // 已有 stored session 时仍然消费 URL 上的 code —— recruiter 重新扫 QR /
 // 换 code 是有效场景；老 session 会被 server 端 issue 时换发的新 token 覆盖。
@@ -21,8 +21,8 @@ import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 // useAbsorbCodeFromURL —— mount 一次：URL → store + 立刻 replaceState；
 // 然后订阅 store 里的 pending code 自动 issue + persist。
-// onConsumed 在 session 落 localStorage 之后回调，让宿主重读 stored tier
-// （PageShell 用来把 tier 从 'public' 切到 'code'）。
+// onConsumed 在 session 落 localStorage 之后回调，让宿主重读 stored mode
+// （PageShell 用来把 mode 从 'public' 切到 'code'）。
 export function useAbsorbCodeFromURL(onConsumed?: () => void): void {
   useEffect(() => {
     absorbFromURL();
@@ -49,7 +49,7 @@ export function useAbsorbCodeFromURL(onConsumed?: () => void): void {
         });
         onConsumed?.();
       } catch {
-        // code 无效 / 过期：URL 已清，悄悄回落 public tier；
+        // code 无效 / 过期：URL 已清，悄悄回落 public mode；
         // 后续 visitor 走 /gate 手输 / 重扫。
       } finally {
         consume();

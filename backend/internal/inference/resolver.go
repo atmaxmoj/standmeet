@@ -35,7 +35,7 @@ var ErrOwnerProviderUnconfigured = errors.New("owner AI provider not configured"
 type ResolveInput struct {
 	BYOAI   *domain.AICredential
 	OwnerID string
-	Tier    string
+	Mode    string
 }
 
 // Resolver —— 业务调用点：传 ownerID + 可选 byoai 信息，拿 Provider。
@@ -43,7 +43,7 @@ type Resolver interface {
 	Resolve(ctx context.Context, in *ResolveInput) (Provider, error)
 }
 
-// EnvOrOwnerResolver —— ENV=mock 走 mock；否则按 tier 分支：byoai 用 visitor
+// EnvOrOwnerResolver —— ENV=mock 走 mock；否则按 mode 分支：byoai 用 visitor
 // 自带 key，其他走 owner key。
 type EnvOrOwnerResolver struct {
 	Mock      *MockProvider
@@ -66,7 +66,7 @@ func (r *EnvOrOwnerResolver) Resolve(
 	if r.EnvIsMock {
 		return r.Mock, nil
 	}
-	if in.Tier == "byoai" && in.BYOAI.HasKey() {
+	if in.Mode == "byoai" && in.BYOAI.HasKey() {
 		return buildFromCred(in.BYOAI)
 	}
 	p, err := r.Owner.Resolve(ctx, in)

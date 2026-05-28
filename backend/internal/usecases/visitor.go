@@ -209,7 +209,7 @@ func createCodeConversation(
 	memberID := member.ID
 	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
 		OwnerID:     code.OwnerID,
-		Tier:        "code",
+		Mode:        "code",
 		CodeID:      &code.ID,
 		MemberID:    &memberID,
 		VisitorName: visitorName,
@@ -225,7 +225,7 @@ func buildCodeSessionData(
 ) *session.VisitorSessionData {
 	return &session.VisitorSessionData{
 		OwnerID:           code.OwnerID,
-		Tier:              "code",
+		Mode:              "code",
 		CodeID:            code.ID,
 		VisitorName:       visitorName,
 		CorpusPermissions: code.CorpusPermissions,

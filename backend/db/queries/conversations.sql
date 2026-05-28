@@ -1,5 +1,5 @@
 -- name: CreateConversation :one
-INSERT INTO conversations (owner_id, tier, code_id, member_id, visitor_name, byoai_provider)
+INSERT INTO conversations (owner_id, mode, code_id, member_id, visitor_name, byoai_provider)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
@@ -23,7 +23,7 @@ SET last_at = now(),
 WHERE id = $1;
 
 -- name: ListConversationsByOwner :many
-SELECT c.id, c.tier, c.code_id, c.visitor_name, c.started_at,
+SELECT c.id, c.mode, c.code_id, c.visitor_name, c.started_at,
        c.last_at, c.message_count,
        ac.label AS code_label, ac.code AS code_value
 FROM conversations c

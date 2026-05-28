@@ -16,7 +16,7 @@ export interface VisitorSession {
 
 export interface IssueSessionInput {
   handle: string;
-  tier?: 'code' | 'public';
+  mode?: 'code' | 'public';
   code?: string;
   visitor_name?: string;
 }
@@ -40,7 +40,7 @@ export interface IssueByoaiSessionInput {
   visitor_name?: string;
 }
 
-// issueByoaiSession —— BYOAI tier。server 只看 byoai_provider；session 里
+// issueByoaiSession —— BYOAI mode。server 只看 byoai_provider；session 里
 // 不缓存 key/endpoint/model。Fixture 把 plaintext 字段透传到 returned
 // session 让 sendMessage 一并 wrap + 发 4 个 header。
 export async function issueByoaiSession(
@@ -48,7 +48,7 @@ export async function issueByoaiSession(
 ): Promise<BYOAIVisitorSession> {
   const res = await request.post(`${BACKEND}/api/v1/sessions`, {
     data: {
-      tier: 'byoai',
+      mode: 'byoai',
       handle: input.handle,
       byoai_provider: input.byoai_provider,
       visitor_name: input.visitor_name,

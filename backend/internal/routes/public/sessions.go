@@ -20,7 +20,7 @@ import (
 // BYOAIProvider 还在：一次性写到 conversation 表当 audit log，session
 // 不缓存。
 type createSessionRequest struct {
-	Tier          string `json:"tier"` // 'code' | 'public' | 'byoai'
+	Mode          string `json:"mode"` // 'code' | 'public' | 'byoai'
 	Code          string `json:"code,omitempty"`
 	VisitorName   string `json:"visitor_name,omitempty"`
 	BYOAIProvider string `json:"byoai_provider,omitempty"`
@@ -65,11 +65,11 @@ func (h *Handlers) createSession() http.HandlerFunc {
 
 // dispatchIssueSession 按 tier 派发到对应 usecase。
 // tier=='code' → IssueCodeSession（带 access code）。
-// tier=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。
+// mode=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。
 func dispatchIssueSession(
 	ctx context.Context, deps *usecases.VisitorDeps, req *createSessionRequest,
 ) (usecases.IssueCodeSessionResult, error) {
-	if pickTier(req) == "code" {
+	if pickMode(req) == "code" {
 		return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
 			Code:        req.Code,
 			VisitorName: req.VisitorName,
@@ -95,9 +95,9 @@ func toMemberResps(members []domain.CodeMember) []sessionMemberResp {
 	return out
 }
 
-func pickTier(req *createSessionRequest) string {
-	if req.Tier != "" {
-		return req.Tier
+func pickMode(req *createSessionRequest) string {
+	if req.Mode != "" {
+		return req.Mode
 	}
 	if req.Code != "" {
 		return "code"

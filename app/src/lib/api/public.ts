@@ -26,7 +26,7 @@ export type {
   OutputLandingView,
   PublicSessionResponse,
   SSEEvent,
-  SessionTier,
+  SessionMode,
 } from '@standmeet/sdk-core';
 
 // 客户端 / SSR baseURL 切换：服务端组件走容器网络 backend:8000，浏览器走
@@ -60,11 +60,11 @@ export const fetchPublicPage = () => client().fetchPage();
 export const fetchWikiLanding = (slug: string) => client().fetchWikiLanding(slug);
 export const fetchOutputLanding = (slug: string) => client().fetchOutputLanding(slug);
 
-export const issuePublicSession = () => client().issueSession({ tier: 'public' });
+export const issuePublicSession = () => client().issueSession({ mode: 'public' });
 export const issueCodeSession = (input: IssueCodeSessionInput) =>
-  client().issueSession({ ...input, tier: 'code' });
+  client().issueSession({ ...input, mode: 'code' });
 export const issueBYOAISession = (input: IssueBYOAISessionInput) =>
-  client().issueSession({ ...input, tier: 'byoai' });
+  client().issueSession({ ...input, mode: 'byoai' });
 
 export function streamChatMessage(
   conversationID: string,

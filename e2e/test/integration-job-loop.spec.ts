@@ -70,7 +70,7 @@ async function runJobLoop(request: APIRequestContext): Promise<string> {
   // Register source + fetch
   const src = await jobsRegisterSource(request, token, sid, {
     kind: 'greenhouse', label: 'Job Loop Board',
-    config: { company: 'standmeet' },
+    config: { company: 'airbnb' },
   });
   const { jobs } = await jobsFetchNew(request, token, sid, src.id);
   if (jobs.length === 0) throw new Error('No jobs fetched');

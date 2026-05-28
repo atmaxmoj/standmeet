@@ -34,8 +34,18 @@ test.describe('gate code paste + error flows', () => {
       await page.getByRole('link', { name: 'request access ↗' }).click();
       await page.waitForURL('**/gate', { timeout: 10_000 });
       const codeInput = page.getByTestId('gate-code');
-      await codeInput.fill(VALID_CODE);
-      // auto-submit should trigger without pressing enter
+      // Real paste event (not fill): dispatch ClipboardEvent so onPaste fires
+      await codeInput.focus();
+      await codeInput.evaluate((el, code) => {
+        const input = el as HTMLInputElement;
+        input.value = code;
+        const dt = new DataTransfer();
+        dt.setData('text/plain', code);
+        const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true });
+        input.dispatchEvent(ev);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }, VALID_CODE);
+      // auto-submit fires 50ms after paste → navigates to /
       await page.waitForURL('**/', { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
     });

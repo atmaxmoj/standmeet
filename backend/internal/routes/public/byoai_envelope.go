@@ -75,7 +75,7 @@ func enrichBYOAICreds(
 	h *Handlers, w http.ResponseWriter, r *http.Request,
 	parsed *parsedPostMessage, sessionToken string,
 ) (*parsedPostMessage, bool) {
-	if parsed.Data.Tier != "byoai" {
+	if parsed.Data.Mode != "byoai" {
 		return parsed, true
 	}
 	cred, ok := readBYOAICredFromHeaders(h, w, r, sessionToken)

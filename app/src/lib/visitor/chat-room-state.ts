@@ -3,7 +3,7 @@
 
 import { useCallback, useState } from 'react';
 
-import { useConversation, type SessionTier } from '@/lib/page/use-conversation';
+import { useConversation, type SessionMode } from '@/lib/page/use-conversation';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 export interface ChatRoomDerived {
@@ -23,8 +23,8 @@ export function useChatRoomDerived(): ChatRoomDerived {
   };
 }
 
-export function useChatRoomInput(tier: SessionTier) {
-  const conv = useConversation({ tier });
+export function useChatRoomInput(mode: SessionMode) {
+  const conv = useConversation({ mode });
   const exhausted = useIsQuotaExhausted();
   const [input, setInput] = useState('');
 

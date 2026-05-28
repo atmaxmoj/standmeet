@@ -64,9 +64,9 @@ test.describe('cross-tab session sync via localStorage', () => {
       await goto(tabB, '/');
       await expect(tabB.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // Tab A exits
-      await tabA.getByTestId('session-strip-exit').click();
-      await expect(tabA.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
+      // Tab A exits → navigates to /gate → clears localStorage
+      await tabA.getByRole('link', { name: 'exit session' }).click();
+      await tabA.waitForURL('**/gate', { timeout: 5_000 });
 
       // Tab B should also lose strip
       await expect(tabB.getByTestId('session-strip')).toHaveCount(0, { timeout: 10_000 });

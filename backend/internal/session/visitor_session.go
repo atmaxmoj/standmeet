@@ -43,7 +43,7 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 type VisitorSessionData struct {
 	ExpiresAt         time.Time               `json:"expires_at"`
 	OwnerID           string                  `json:"owner_id"`
-	Tier              string                  `json:"tier"`
+	Mode              string                  `json:"mode"`
 	CodeID            string                  `json:"code_id"`
 	MemberID          string                  `json:"member_id"`
 	VisitorName       string                  `json:"visitor_name"`

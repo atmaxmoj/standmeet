@@ -1,4 +1,4 @@
-// visitor-chat-byoai-public-only.spec.ts —— BYOAI tier 默认只能访问
+// visitor-chat-byoai-public-only.spec.ts —— BYOAI mode 默认只能访问
 // `public/**` 路径，其他 path 一律 deny —— owner 给 BYOAI 的兜底准入策略
 // （没 invite code 的访客，不该看到默认 corpus）。
 //
@@ -29,7 +29,7 @@ const FAKE_KEY = 'sk-ant-fake-test-key-for-byoai-flow';
 const PUBLIC = 'public/intro';
 const PRIVATE = 'personal/secrets';
 
-test.describe('BYOAI tier locked to public/** path glob', () => {
+test.describe('BYOAI mode locked to public/** path glob', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

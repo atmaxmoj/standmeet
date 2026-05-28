@@ -22,7 +22,7 @@ type Conversation struct {
 	BYOAIProvider *string
 	ID            string
 	OwnerID       string
-	Tier          string // 'code' | 'byoai' | 'public'
+	Mode          string // 'code' | 'byoai' | 'public' — session mode
 	VisitorName   string
 	SummaryMD     string
 	MessageCount  int32

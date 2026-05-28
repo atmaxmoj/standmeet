@@ -44,14 +44,14 @@ func prepareSummaryInput(
 	if !ok {
 		return nil, false
 	}
-	cred, byoaiOK := summaryBYOAICred(h, w, r, av.Data.Tier, av.Token)
+	cred, byoaiOK := summaryBYOAICred(h, w, r, av.Data.Mode, av.Token)
 	if !byoaiOK {
 		return nil, false
 	}
 	return &usecases.GenerateSummaryInput{
 		OwnerID:        av.Data.OwnerID,
 		ConversationID: chi.URLParam(r, "id"),
-		Tier:           av.Data.Tier,
+		Mode:           av.Data.Mode,
 		BYOAI:          cred,
 	}, true
 }

@@ -33,7 +33,7 @@ type convSummaryView struct {
 	CodeLabel    *string `json:"code_label,omitempty"`
 	CodeValue    *string `json:"code_value,omitempty"`
 	ID           string  `json:"id"`
-	Tier         string  `json:"tier"`
+	Mode         string  `json:"mode"`
 	VisitorName  string  `json:"visitor_name"`
 	Sentiment    string  `json:"sentiment"`
 	MessageCount int32   `json:"message_count"`
@@ -154,7 +154,7 @@ func bundleSummary(bundle *postgres.ConversationWithMessages) convSummaryView {
 	c := bundle.Conversation
 	return convSummaryView{
 		ID:           c.ID,
-		Tier:         c.Tier,
+		Mode:         c.Mode,
 		VisitorName:  c.VisitorName,
 		MessageCount: c.MessageCount,
 		CodeID:       c.CodeID,
@@ -166,11 +166,11 @@ func bundleSummary(bundle *postgres.ConversationWithMessages) convSummaryView {
 func toConvSummaryView(s *postgres.ConvSummary) convSummaryView {
 	return convSummaryView{
 		ID:           s.ID,
-		Tier:         s.Tier,
+		Mode:         s.Mode,
 		VisitorName:  s.VisitorName,
 		MessageCount: s.MessageCount,
 		PrivateHits:  s.PrivateHits,
-		Sentiment:    usecases.DeriveSentiment(s.MessageCount, s.PrivateHits, s.Tier),
+		Sentiment:    usecases.DeriveSentiment(s.MessageCount, s.PrivateHits, s.Mode),
 		CodeID:       s.CodeID,
 		CodeLabel:    s.CodeLabel,
 		CodeValue:    s.CodeValue,

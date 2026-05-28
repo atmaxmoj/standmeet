@@ -64,14 +64,14 @@ func (q *Queries) BumpConversation(ctx context.Context, id pgtype.UUID) error {
 }
 
 const createConversation = `-- name: CreateConversation :one
-INSERT INTO conversations (owner_id, tier, code_id, member_id, visitor_name, byoai_provider)
+INSERT INTO conversations (owner_id, mode, code_id, member_id, visitor_name, byoai_provider)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md
+RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md
 `
 
 type CreateConversationParams struct {
 	OwnerID       pgtype.UUID
-	Tier          string
+	Mode          string
 	CodeID        pgtype.UUID
 	MemberID      pgtype.UUID
 	VisitorName   string
@@ -81,7 +81,7 @@ type CreateConversationParams struct {
 func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error) {
 	row := q.db.QueryRow(ctx, createConversation,
 		arg.OwnerID,
-		arg.Tier,
+		arg.Mode,
 		arg.CodeID,
 		arg.MemberID,
 		arg.VisitorName,
@@ -91,7 +91,7 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Tier,
+		&i.Mode,
 		&i.CodeID,
 		&i.MemberID,
 		&i.VisitorName,
@@ -106,7 +106,7 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md FROM conversations WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md FROM conversations WHERE id = $1 AND owner_id = $2
 `
 
 type GetConversationParams struct {
@@ -120,7 +120,7 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Tier,
+		&i.Mode,
 		&i.CodeID,
 		&i.MemberID,
 		&i.VisitorName,
@@ -135,7 +135,7 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 }
 
 const listConversationsByOwner = `-- name: ListConversationsByOwner :many
-SELECT c.id, c.tier, c.code_id, c.visitor_name, c.started_at,
+SELECT c.id, c.mode, c.code_id, c.visitor_name, c.started_at,
        c.last_at, c.message_count,
        ac.label AS code_label, ac.code AS code_value
 FROM conversations c
@@ -152,7 +152,7 @@ type ListConversationsByOwnerParams struct {
 
 type ListConversationsByOwnerRow struct {
 	ID           pgtype.UUID
-	Tier         string
+	Mode         string
 	CodeID       pgtype.UUID
 	VisitorName  string
 	StartedAt    pgtype.Timestamptz
@@ -173,7 +173,7 @@ func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversa
 		var i ListConversationsByOwnerRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Tier,
+			&i.Mode,
 			&i.CodeID,
 			&i.VisitorName,
 			&i.StartedAt,
@@ -229,7 +229,7 @@ const markConversationEnded = `-- name: MarkConversationEnded :one
 UPDATE conversations
 SET ended_at = now(), summary_md = $2
 WHERE id = $1 AND ended_at IS NULL
-RETURNING id, owner_id, tier, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md
+RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md
 `
 
 type MarkConversationEndedParams struct {
@@ -245,7 +245,7 @@ func (q *Queries) MarkConversationEnded(ctx context.Context, arg MarkConversatio
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Tier,
+		&i.Mode,
 		&i.CodeID,
 		&i.MemberID,
 		&i.VisitorName,

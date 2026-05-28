@@ -8,7 +8,7 @@
 //   2. AES-256-GCM Seal: nonce(12) || ct || tag(16)
 //   3. base64 URL-safe（no padding）
 //
-// 仅 BYOAI tier 用；其他 tier 完全不 send 这俩 header。Web Crypto subtle 原生
+// 仅 BYOAI mode 用；其他 mode 完全不 send 这俩 header。Web Crypto subtle 原生
 // 跑，无第三方依赖。
 
 const HKDF_INFO = 'standmeet-byoai-v1';

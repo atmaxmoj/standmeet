@@ -11,14 +11,14 @@ import Link from 'next/link';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
-import type { Citation, SessionTier } from '@/lib/page/use-conversation';
+import type { Citation, SessionMode } from '@/lib/page/use-conversation';
 import type { PublicOwnerView } from '@/lib/api/public';
 
-type Props = { owner: PublicOwnerView; tier: SessionTier };
+type Props = { owner: PublicOwnerView; mode: SessionMode };
 
-export function ChatRoom({ owner, tier }: Props) {
+export function ChatRoom({ owner, mode }: Props) {
   const derived = useChatRoomDerived();
-  const { conv, exhausted, input, setInput, onAsk } = useChatRoomInput(tier);
+  const { conv, exhausted, input, setInput, onAsk } = useChatRoomInput(mode);
   return (
     <div className="min-h-screen flex flex-col" data-testid="chatroom">
       <SessionStrip />

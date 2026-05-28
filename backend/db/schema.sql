@@ -375,7 +375,7 @@ CREATE INDEX handle_aliases_owner_idx ON handle_aliases(owner_id);
 CREATE TABLE conversations (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    tier            text          NOT NULL,
+    mode            text          NOT NULL,
     code_id         uuid          REFERENCES access_codes(id) ON DELETE SET NULL,
     member_id       uuid          REFERENCES code_members(id) ON DELETE SET NULL,
     visitor_name    text          NOT NULL DEFAULT '',

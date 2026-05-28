@@ -1,5 +1,5 @@
 // use-chat-session.ts —— chat 状态机 hook。封装：
-//   1) issueSession（首次提问时按 tier 申请 visitor session）
+//   1) issueSession（首次提问时按 mode 申请 visitor session）
 //   2) streamMessage（每条消息走 SSE 收 token）
 //   3) message 数组累加；streaming flag；error 暴露
 //

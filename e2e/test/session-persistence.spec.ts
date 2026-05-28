@@ -51,9 +51,9 @@ test.describe('session persistence: refresh + exit', () => {
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // click exit
       await page.getByTestId('session-strip-exit').click();
-      // strip gone, long-scroll sections visible
+      // Exit navigates to /gate; session strip should be gone
+      await page.waitForURL('**/gate', { timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
-      await expect(page.getByText('Persist Owner')).toBeVisible();
     });
 
   test('BYOAI session → refresh → session restored',
@@ -84,10 +84,10 @@ test.describe('session persistence: refresh + exit', () => {
       await page.getByTestId('byoai-submit').click();
       await page.waitForURL('**/', { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // exit
+      // exit navigates to /gate
       await page.getByTestId('session-strip-exit').click();
+      await page.waitForURL('**/gate', { timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
-      await expect(page.getByText('Persist Owner')).toBeVisible();
     });
 });
 

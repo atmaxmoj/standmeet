@@ -1,9 +1,9 @@
 // use-gate —— /gate 的状态机。
 //
 // 三条 submit 路径：
-//   - code: POST /api/v1/sessions {tier:'code', code} → 拿 session_token →
+//   - code: POST /api/v1/sessions {mode:'code', code} → 拿 session_token →
 //     redirect / (chat 实例 mount 时复用 cookie/session)
-//   - byoai: POST /api/v1/sessions {tier:'byoai', byoai_provider}（server 端
+//   - byoai: POST /api/v1/sessions {mode:'byoai', byoai_provider}（server 端
 //     只要 provider，endpoint+model 在 chat header 里走）→ session 拿到后
 //     把 BYOAI {provider,endpoint,model,key} 一坨进 browser vault
 //     (lib/gate/byoai-vault.ts) → redirect /

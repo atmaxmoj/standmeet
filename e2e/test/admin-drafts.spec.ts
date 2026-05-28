@@ -65,10 +65,9 @@ async function seedDraft(request: APIRequestContext): Promise<void> {
   const sid = await initMCP(request, token);
   const src = await jobsRegisterSource(request, token, sid, {
     kind: 'greenhouse', label: 'Draft Test Board',
-    config: { company: 'standmeet' },
+    config: { company: 'airbnb' },
   });
   const { jobs } = await jobsFetchNew(request, token, sid, src.id);
-  if (jobs.length > 0) {
-    await resumeDraft(request, token, sid, jobs[0]!.cache_id, sampleResumeContent());
-  }
+  if (jobs.length === 0) throw new Error('mock job board returned 0 jobs');
+  await resumeDraft(request, token, sid, jobs[0]!.cache_id, sampleResumeContent());
 }

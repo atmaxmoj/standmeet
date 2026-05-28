@@ -1,4 +1,4 @@
-// VisitorNamePicker —— code-tier visitor 第一次进 chat-capable surface 时
+// VisitorNamePicker —— code-mode visitor 第一次进 chat-capable surface 时
 // 弹窗问名字。owner 在 /admin/conversations 看 transcript 时需要知道是谁。
 //
 // 触发条件 / 持久化逻辑全在 lib/visitor/visitor-name.ts；这里纯渲染。

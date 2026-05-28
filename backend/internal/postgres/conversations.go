@@ -29,7 +29,7 @@ type CreateConvInput struct {
 	MemberID      *string
 	BYOAIProvider *string
 	OwnerID       string
-	Tier          string
+	Mode          string
 	VisitorName   string
 }
 
@@ -52,7 +52,7 @@ func (r *ConversationRepo) CreateConversation(
 	q := dbq.New(r.pool)
 	row, err := q.CreateConversation(ctx, dbq.CreateConversationParams{
 		OwnerID:       ownerUUID,
-		Tier:          in.Tier,
+		Mode:          in.Mode,
 		CodeID:        codeUUID,
 		MemberID:      memberUUID,
 		VisitorName:   in.VisitorName,
@@ -195,7 +195,7 @@ func toDomainConv(c *dbq.Conversation) domain.Conversation {
 	out := domain.Conversation{
 		ID:           formatUUID(c.ID),
 		OwnerID:      formatUUID(c.OwnerID),
-		Tier:         c.Tier,
+		Mode:         c.Mode,
 		VisitorName:  c.VisitorName,
 		StartedAt:    c.StartedAt.Time,
 		LastAt:       c.LastAt.Time,
@@ -241,7 +241,7 @@ type ConvSummary struct {
 	CodeLabel    *string
 	CodeValue    *string
 	ID           string
-	Tier         string
+	Mode         string
 	VisitorName  string
 	MessageCount int32
 	PrivateHits  int32
@@ -314,7 +314,7 @@ func (r *ConversationRepo) loadMessages(
 func toConvSummary(row *dbq.ListConversationsByOwnerRow) ConvSummary {
 	out := ConvSummary{
 		ID:           formatUUID(row.ID),
-		Tier:         row.Tier,
+		Mode:         row.Mode,
 		VisitorName:  row.VisitorName,
 		StartedAt:    row.StartedAt.Time,
 		LastAt:       row.LastAt.Time,

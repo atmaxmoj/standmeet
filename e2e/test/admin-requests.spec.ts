@@ -7,7 +7,7 @@
 //   3. filter chips switch between states
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Playwright } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';

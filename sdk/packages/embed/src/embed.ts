@@ -13,7 +13,7 @@
 //   <standmeet-chat base-url="https://alice.dev"></standmeet-chat>
 
 import { createClient } from '@standmeet/sdk-core';
-import type { StandMeetClient, SessionTier, SSEEvent } from '@standmeet/sdk-core';
+import type { StandMeetClient, SessionMode, SSEEvent } from '@standmeet/sdk-core';
 
 const TAG = 'standmeet-chat';
 
@@ -74,9 +74,9 @@ class StandMeetChatElement extends HTMLElement {
 
   private async ensureSession(): Promise<void> {
     if (this.session || !this.client) return;
-    const tier = (this.getAttribute('tier') ?? 'public') as SessionTier;
+    const mode = toMode(this.getAttribute('mode') ?? 'public');
     const code = this.getAttribute('code') ?? undefined;
-    const s = await this.client.issueSession({ tier, code });
+    const s = await this.client.issueSession({ mode, code });
     this.session = { id: s.conversation_id, token: s.session_token };
   }
 
@@ -95,6 +95,11 @@ function applyEventToBlock(block: HTMLDivElement, ev: SSEEvent): void {
   } else if (ev.kind === 'error') {
     block.textContent = `error: ${ev.message}`;
   }
+}
+
+const MODES: readonly SessionMode[] = ['public', 'code', 'byoai'];
+function toMode(s: string): SessionMode {
+  return MODES.find((m) => m === s) ?? 'public';
 }
 
 if (typeof customElements !== 'undefined' && !customElements.get(TAG)) {

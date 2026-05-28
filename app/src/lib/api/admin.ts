@@ -97,7 +97,7 @@ export type RawAdminView = z.infer<typeof RawAdminViewSchema>;
 export interface CreateRawInput { body: string; tags?: string[]; source?: string }
 
 export const ConversationSummarySchema = z.object({
-  id: z.string(), tier: z.string(), visitor_name: z.string(),
+  id: z.string(), mode: z.string(), visitor_name: z.string(),
   sentiment: z.string().optional().default(''),
   started_at: z.string(), last_at: z.string(),
   message_count: z.number(), private_hits: z.number().optional().default(0),

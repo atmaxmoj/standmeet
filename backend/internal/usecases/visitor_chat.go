@@ -33,7 +33,7 @@ type SendMessageInput struct {
 	OwnerID        string
 	ConversationID string
 	Body           string
-	Tier           string
+	Mode           string
 	Permissions    []domain.PathPermission
 	SkillPrompts   []string
 }
@@ -138,7 +138,7 @@ func preflightSend(
 	}
 	provider, perr := deps.Resolver.Resolve(ctx, &inference.ResolveInput{
 		OwnerID: in.OwnerID,
-		Tier:    in.Tier,
+		Mode:    in.Mode,
 		BYOAI:   in.BYOAI,
 	})
 	if perr != nil {

@@ -11,20 +11,25 @@
 // prompt 走 `?q=` 跳 `/` 那条路保留；FloatingChatDock 走 inline。
 //
 // SSR-safe：组件 'use client'，所有 zustand / fetch / WebStorage 都在
-// mount 之后跑。public tier 也可用（visitor 没 code 也能问公共切片）。
+// mount 之后跑。**public 模式不渲 pill**：没人付 inference 钱（owner 不愿
+// 替路过访客买单，visitor 不带 key）。byoai / code mode 才显示。
 
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
 
 import { useConversation } from '@/lib/page/use-conversation';
-import type { SessionTier } from '@/lib/page/use-conversation';
+import type { SessionMode } from '@/lib/page/use-conversation';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 export function FloatingChatDock() {
+  const mode = useModeFromVisitorStore();
+  return mode === 'public' ? null : <FloatingChatDockInner mode={mode} />;
+}
+
+function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
   const [open, setOpen] = useState(false);
-  const tier = useTierFromVisitorStore();
-  const conv = useConversation({ tier });
+  const conv = useConversation({ mode });
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -55,15 +60,15 @@ export function FloatingChatDock() {
   );
 }
 
-// useTierFromVisitorStore —— visitor-session store 派生 tier。fresh visitor
-// 没 session → 'public'（自带 owner-configured AI provider）。
-function useTierFromVisitorStore(): SessionTier {
-  return deriveTierFromSession(useVisitorSessionStore((s) => s.session));
+// useModeFromVisitorStore —— visitor-session store 派生 mode。
+// fresh visitor 没 session → 'public'（不渲 pill）。
+function useModeFromVisitorStore(): SessionMode {
+  return deriveModeFromSession(useVisitorSessionStore((s) => s.session));
 }
 
-function deriveTierFromSession(
+function deriveModeFromSession(
   session: ReturnType<typeof useVisitorSessionStore.getState>['session'],
-): SessionTier {
+): SessionMode {
   return !session ? 'public' : session.byoai ? 'byoai' : 'code';
 }
 

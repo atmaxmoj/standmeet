@@ -45,7 +45,7 @@ type GenerateSummaryInput struct {
 	BYOAI          *domain.AICredential
 	OwnerID        string
 	ConversationID string
-	Tier           string
+	Mode           string
 }
 
 // ErrSummaryEmptyConv —— 没消息可总结。
@@ -101,7 +101,7 @@ func resolveSummaryProvider(
 ) (inference.Provider, error) {
 	provider, perr := deps.Resolver.Resolve(ctx, &inference.ResolveInput{
 		OwnerID: in.OwnerID,
-		Tier:    in.Tier,
+		Mode:    in.Mode,
 		BYOAI:   in.BYOAI,
 	})
 	if perr != nil {

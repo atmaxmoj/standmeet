@@ -175,7 +175,7 @@ func streamChatSSE(
 		Body:           parsed.Content,
 		Permissions:    parsed.Data.CorpusPermissions,
 		SkillPrompts:   parsed.Data.SkillPrompts,
-		Tier:           parsed.Data.Tier,
+		Mode:           parsed.Data.Mode,
 		BYOAI:          parsed.BYOAI,
 	})
 	if err != nil {

@@ -17,7 +17,7 @@ import type {
   WikiLandingView,
   OutputLandingView,
   PublicSessionResponse,
-  SessionTier,
+  SessionMode,
   SSEEvent,
 } from './types.js';
 
@@ -27,19 +27,19 @@ export interface ClientOptions {
   fetchImpl?: typeof fetch;
 }
 
-// IssueSessionInput —— 三档访问 tier 统一入参。tier 决定哪些字段是必需的：
+// IssueSessionInput —— 三种 session mode 统一入参。mode 决定哪些字段是必需的：
 //   public —— 无字段
 //   code   —— code (+ visitor_name optional)
 //   byoai  —— byoai_provider（key / endpoint / model 不上传 server；browser
 //             自己 vault 保管，chat header 里走）
 export interface IssueSessionInput {
-  tier: SessionTier;
+  mode: SessionMode;
   code?: string;
   visitor_name?: string;
   byoai_provider?: string;
 }
 
-// BYOAIHeaders —— streamMessage 在 tier=byoai 时透传 4 个 header（**全部必填**，
+// BYOAIHeaders —— streamMessage 在 mode=byoai 时透传 4 个 header（**全部必填**，
 // 缺任一 server 401）：
 //   X-BYOAI-Provider —— preset name ('openai' / 'deepseek' / 'custom' / ...)
 //   X-BYOAI-Endpoint —— base URL（不带 /v1/... 后缀）

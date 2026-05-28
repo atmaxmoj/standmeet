@@ -63,11 +63,11 @@ func finalizePublicSession(
 	ctx context.Context, deps *VisitorDeps,
 	in *IssuePublicSessionInput, owner *domain.Owner,
 ) (IssueCodeSessionResult, error) {
-	tier := publicTierForBYOAI(in.BYOAIProvider)
+	mode := publicModeForBYOAI(in.BYOAIProvider)
 	// conv 行 audit log：byoai_provider 一次性写到 conv 表，session 不缓存。
 	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
 		OwnerID:       owner.ID,
-		Tier:          tier,
+		Mode:          mode,
 		VisitorName:   in.VisitorName,
 		BYOAIProvider: nullableProvider(in.BYOAIProvider),
 	})
@@ -76,9 +76,9 @@ func finalizePublicSession(
 	}
 	issued, err := deps.Sessions.Issue(ctx, &session.VisitorSessionData{
 		OwnerID:           owner.ID,
-		Tier:              tier,
+		Mode:              mode,
 		VisitorName:       in.VisitorName,
-		CorpusPermissions: defaultPermsForTier(tier),
+		CorpusPermissions: defaultPermsForMode(mode),
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
@@ -98,14 +98,14 @@ func nullableProvider(p string) *string {
 	return &p
 }
 
-// defaultPermsForTier —— 无 access code 时的兜底准入策略。
+// defaultPermsForMode —— 无 access code 时的兜底准入策略。
 //   - public：unrestricted（owner 没设 code 时访客就能看完整 corpus；如果
 //     owner 想限缩，就发 code 带 corpus_permissions）。
 //   - byoai：visitor 自带 key，owner 不为推理付钱也不该让 visitor 自由
 //     翻 corpus —— 默认 `public/**` only，owner 把开放内容组织在
 //     `public/...` path 下；想要更细就发 byoai-eligible code (TODO)。
-func defaultPermsForTier(tier string) []domain.PathPermission {
-	if tier == "byoai" {
+func defaultPermsForMode(mode string) []domain.PathPermission {
+	if mode == "byoai" {
 		return []domain.PathPermission{
 			{Action: "allow", PathPattern: "public/**", Order: 1},
 			{Action: "deny", PathPattern: "**", Order: 100},
@@ -114,9 +114,9 @@ func defaultPermsForTier(tier string) []domain.PathPermission {
 	return nil
 }
 
-// publicTierForBYOAI —— browser 在 session create 时通过 BYOAIProvider 字段
-// 声明 "我自带 key"。provider 非空 → tier=byoai → ACL 收紧 + conv audit。
-func publicTierForBYOAI(provider string) string {
+// publicModeForBYOAI —— browser 在 session create 时通过 BYOAIProvider 字段
+// 声明 "我自带 key"。provider 非空 → mode=byoai → ACL 收紧 + conv audit。
+func publicModeForBYOAI(provider string) string {
 	if provider != "" {
 		return "byoai"
 	}

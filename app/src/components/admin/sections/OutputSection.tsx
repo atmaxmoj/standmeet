@@ -1,7 +1,7 @@
 // OutputSection —— /admin/output。raw → wiki → output 三层最精炼那层。
 // 设计源 docs/design/project/admin.js OutputsSection (434-510)：2-col card
-// grid，每张 card 顶 cover-strip + tier pill；底版面 provenance + actions。
-// tier 用现有 schema 推导：seo_indexed=true → public；!seo_indexed &&
+// grid，每张 card 顶 cover-strip + visibility pill；底版面 provenance + actions。
+// visibility 用现有 schema 推导：seo_indexed=true → public；!seo_indexed &&
 // show_as_source → unlisted；其他 → private。
 
 'use client';
@@ -64,7 +64,7 @@ function Intro() {
     <p className="reading text-[14.5px] text-(--color-muted) mb-6 max-w-[54em]">
       Outputs are public-facing artifacts assembled from your wiki entries — downloadable PDFs,
       standalone web essays, investor decks. Each gets its own SEO landing at{' '}
-      <span className="mono text-(--color-ink)">/output/&lt;slug&gt;</span>. Three tiers:{' '}
+      <span className="mono text-(--color-ink)">/output/&lt;slug&gt;</span>. Three visibilities:{' '}
       <span className="mono text-(--color-ink)">public</span> (open to anyone, in sitemap),{' '}
       <span className="mono text-(--color-amber)">unlisted</span> (only visible with a code),{' '}
       <span className="mono text-(--color-violet)">private</span> (specific code scopes only, never indexed).
@@ -151,9 +151,9 @@ function OutputGrid({
   );
 }
 
-type Tier = 'public' | 'unlisted' | 'private';
+type Visibility = 'public' | 'unlisted' | 'private';
 
-function deriveTier(entry: OutputSummary): Tier {
+function deriveVisibility(entry: OutputSummary): Visibility {
   return entry.seo_indexed ? 'public' : (entry.show_as_source ? 'unlisted' : 'private');
 }
 
@@ -161,36 +161,36 @@ function OutputCard({
   entry, actions,
 }: { entry: OutputSummary; actions: CorpusActionsHook }) {
   const [editing, setEditing] = useState(false);
-  const tier = deriveTier(entry);
+  const visibility = deriveVisibility(entry);
   return (
     <article className="border border-(--color-rule) rounded-[3px] overflow-hidden bg-(--color-surface)/30">
-      <CoverStrip entry={entry} tier={tier} />
+      <CoverStrip entry={entry} visibility={visibility} />
       <CardBody entry={entry} actions={actions} editing={editing} setEditing={setEditing} />
     </article>
   );
 }
 
-function CoverStrip({ entry, tier }: { entry: OutputSummary; tier: Tier }) {
+function CoverStrip({ entry, visibility }: { entry: OutputSummary; visibility: Visibility }) {
   return (
     <div className={`relative h-[100px] border-b border-(--color-rule) overflow-hidden ${styles.coverGradient}`}>
       <span className="mono absolute top-2.5 left-3 text-[9.5px] tracking-[0.18em] uppercase text-(--color-muted)">
-        output · {tier}
+        output · {visibility}
       </span>
       <span className="font-serif absolute bottom-3 left-3 text-[22px] text-(--color-ink) leading-tight pr-20 line-clamp-1">
         {entry.title}
       </span>
-      <TierPill tier={tier} />
+      <VisibilityPill visibility={visibility} />
     </div>
   );
 }
 
-function TierPill({ tier }: { tier: Tier }) {
-  const tone = tier === 'public' ? 'border-(--color-ink) text-(--color-ink)'
-    : tier === 'unlisted' ? 'border-(--color-amber) text-(--color-amber)'
+function VisibilityPill({ visibility }: { visibility: Visibility }) {
+  const tone = visibility === 'public' ? 'border-(--color-ink) text-(--color-ink)'
+    : visibility === 'unlisted' ? 'border-(--color-amber) text-(--color-amber)'
     : 'border-(--color-violet) text-(--color-violet)';
   return (
     <span className={`mono absolute top-2.5 right-3 text-[9.5px] tracking-[0.16em] uppercase border ${tone} px-1.5 py-0.5`}>
-      {tier}
+      {visibility}
     </span>
   );
 }

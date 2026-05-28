@@ -1,6 +1,6 @@
 // applications-commit-qr-works.spec.ts —— the recruiter-side closing of the
 // loop. After commit, the recruiter visits `<owner>/?code=<access_code>` and
-// the front-end calls POST /api/v1/sessions with tier='code'. We exercise
+// the front-end calls POST /api/v1/sessions with mode='code'. We exercise
 // exactly that path with the freshly issued plaintext and assert it returns a
 // valid visitor session — proving the QR-encoded code actually opens chat.
 
@@ -46,12 +46,12 @@ test.describe('applications.commit issues an access code recruiters can use', ()
       );
       const committed = await applicationsCommit(request, token, sid, drafted.view.draft_id);
 
-      // Recruiter front-end path: POST /api/v1/sessions tier='code' with the
+      // Recruiter front-end path: POST /api/v1/sessions mode='code' with the
       // plaintext from the QR. Returns a session_token if the code is valid.
       const res = await request.post(`${BACKEND}/api/v1/sessions`, {
         headers: { 'Content-Type': 'application/json' },
         data: {
-          tier: 'code',
+          mode: 'code',
           code: committed.view.access_code,
           visitor_name: 'Recruiter Bob',
         },

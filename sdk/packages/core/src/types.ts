@@ -72,7 +72,7 @@ export interface OutputLandingView {
 }
 
 // PublicSessionQuota —— session 颁发时 server 给的 turn 配额。max_turns=0
-// 表示无限（owner 在 code 上未设 max_turns_per_session，或非 code tier）。
+// 表示无限（owner 在 code 上未设 max_turns_per_session，或非 code mode）。
 export interface PublicSessionQuota {
   readonly max_turns: number;
   readonly used_turns: number;
@@ -109,4 +109,4 @@ export type SSEErrorEvent = {
 };
 export type SSEEvent = SSETokenEvent | SSEDoneEvent | SSEErrorEvent;
 
-export type SessionTier = 'public' | 'code' | 'byoai';
+export type SessionMode = 'public' | 'code' | 'byoai';

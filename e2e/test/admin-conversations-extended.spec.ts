@@ -2,14 +2,12 @@
 // transcript modal, filter by code.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Playwright } from '@playwright/test';
-
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { gotoAdminSection } from '@/fixtures/navigate';
+import { goto, gotoAdminSection } from '@/fixtures/navigate';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -68,7 +66,7 @@ test.describe('admin conversations extended', () => {
 
   test('filter by code → only matching conversations',
     async ({ adminPage }) => {
-      await adminPage.goto(`/admin/conversations?code=CONV-A`);
+      await goto(adminPage, `/admin/conversations?code=CONV-A`);
       await expect(adminPage.getByText('Visitor A', { exact: true })).toBeVisible();
       await expect(adminPage.getByText('Visitor B', { exact: true })).toHaveCount(0);
     });

@@ -88,7 +88,7 @@ type CodeSkill struct {
 type Conversation struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID
-	Tier          string
+	Mode          string
 	CodeID        pgtype.UUID
 	MemberID      pgtype.UUID
 	VisitorName   string

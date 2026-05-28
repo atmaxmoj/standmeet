@@ -3,7 +3,7 @@
 //
 // 跟旧 use-chat-dock 的差别：
 //   - Turn 是页面 inline 流（顺序展开），不是底部浮动 transcript
-//   - tier 由 caller 传入（public / code / byoai 不同 session 取号路径）
+//   - mode 由 caller 传入（public / code / byoai 不同 session 取号路径）
 //   - 不再做 ref-batched 模式 —— 每次 token 都生成新 Turn[] 数组，因为
 //     React 19 useTransition + structural sharing 够用，stale closure 不
 //     是 v1 必须解决的事
@@ -49,9 +49,9 @@ export type Turn = {
   answer: TurnAnswer | null;
 };
 
-export type SessionTier = 'public' | 'code' | 'byoai';
+export type SessionMode = 'public' | 'code' | 'byoai';
 
-// pickTier / pickBanner 已删 —— tier 现在 page-shell 通过 loadStoredSession()
+// pickMode / pickBanner 已删 —— mode 现在 page-shell 通过 loadStoredSession()
 // 直接从 localStorage 拿，不再从 URL 查询字符串派生。
 
 export type ConversationState = {
@@ -63,7 +63,7 @@ export type ConversationState = {
 };
 
 type Deps = {
-  tier: SessionTier;
+  mode: SessionMode;
 };
 
 export function useConversation(deps: Deps): ConversationState {
@@ -162,11 +162,11 @@ function reuseStored(stored: NonNullable<ReturnType<typeof loadStoredSession>>):
 }
 
 async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
-  switch (deps.tier) {
+  switch (deps.mode) {
     case 'public':
       return issuePublicSession();
     case 'code': {
-      // code-tier without a stored session is a flow error; fall back to public
+      // code-mode without a stored session is a flow error; fall back to public
       // so a deep-linked code URL still produces a usable session.
       return issueCodeSession({ code: '' });
     }
@@ -204,14 +204,14 @@ async function streamInto(
   setTurns((prev) => updateTurn(prev, turnID, state, false));
 }
 
-// wrapBYOAIHeadersFor —— tier=byoai 时从 browser vault 一次拿齐 cred
+// wrapBYOAIHeadersFor —— mode=byoai 时从 browser vault 一次拿齐 cred
 // (provider/endpoint/model/key)，HKDF 派生 session-bound AES key 信封 key →
-// 返 4 字段 BYOAIHeaders。其他 tier 返 undefined，streamChatMessage 不发
+// 返 4 字段 BYOAIHeaders。其他 mode 返 undefined，streamChatMessage 不发
 // X-BYOAI-* header，server 自动走 owner key。
 async function wrapBYOAIHeadersFor(
   deps: Deps, sess: PublicSessionResponse,
 ): Promise<BYOAIHeaders | undefined> {
-  if (deps.tier !== 'byoai') return undefined;
+  if (deps.mode !== 'byoai') return undefined;
   const cred = await readBYOAICredFull();
   if (!cred) return undefined;
   const wrappedKey = await wrapBYOAIKey(cred.key, sess.session_token);
