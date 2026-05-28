@@ -250,6 +250,7 @@ function TagChipRow({
         <ChipButton
           key={t}
           active={active === t}
+          testid={`blog-tag-${t}`}
           onClick={() => onPick(active === t ? null : t)}
         >
           {t} <span className="ml-1 opacity-60 tabular-nums">{counts.get(t) ?? 0}</span>
@@ -266,8 +267,8 @@ function countTags(posts: PostView[]): Map<string, number> {
 }
 
 function ChipButton({
-  active, onClick, children,
-}: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  active, onClick, testid, children,
+}: { active: boolean; onClick: () => void; testid?: string; children: React.ReactNode }) {
   const cls = active
     ? 'bg-(--color-ink) text-(--color-paper) border-(--color-ink)'
     : 'text-(--color-muted) border-(--color-rule) hover:text-(--color-ink)';
@@ -275,6 +276,7 @@ function ChipButton({
     <button
       type="button"
       onClick={onClick}
+      data-testid={testid}
       className={`mono text-[10.5px] tracking-[0.05em] uppercase border px-2 py-0.5 rounded-[2px] ${cls}`}
     >
       {children}

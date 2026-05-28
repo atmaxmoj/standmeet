@@ -123,7 +123,7 @@ function DraftCard({
   row, onOpen,
 }: { row: AdminDraftRow; onOpen: () => void }) {
   return (
-    <article className="border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors grid grid-cols-[1fr_200px] gap-4">
+    <article data-testid="draft-card" className="border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors grid grid-cols-[1fr_200px] gap-4">
       <div>
         <DraftCardHead company={row.company} role={row.role} status={row.status} />
         <DraftCardMeta updatedAt={row.updated_at} forJob={row.for_job} />
@@ -154,7 +154,7 @@ function DraftCardHead({ company, role, status }: { company: string; role: strin
 function DraftStatusPill({ status }: { status?: AdminDraftRow['status'] }) {
   const label = status ?? 'draft';
   return (
-    <span className={`sm-pill ${draftPillTone(status)}`}>
+    <span data-testid="draft-status-pill" className={`sm-pill ${draftPillTone(status)}`}>
       <span className="sm-dot-mark" />
       {label}
     </span>

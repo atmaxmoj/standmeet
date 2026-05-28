@@ -43,15 +43,17 @@ test.describe('admin sidebar badges + nav', () => {
       await gotoAdminSection(adminPage, 'wiki');
       await adminPage.waitForURL('**/admin/wiki', { timeout: 5_000 });
       // wiki nav should be active
-      const wikiNav = adminPage.getByTestId('admin-nav-wiki');
-      await expect(wikiNav).toHaveAttribute('aria-current', 'page');
+      // aria-current is on the Link wrapper; testid on the inner span. Use
+      // locator('..') to reach the parent.
+      const wikiNavLink = adminPage.getByTestId('admin-nav-wiki').locator('..');
+      await expect(wikiNavLink).toHaveAttribute('aria-current', 'page');
       // Switch to codes
       await gotoAdminSection(adminPage, 'codes');
       await adminPage.waitForURL('**/admin/codes', { timeout: 5_000 });
-      const codesNav = adminPage.getByTestId('admin-nav-codes');
-      await expect(codesNav).toHaveAttribute('aria-current', 'page');
+      const codesNavLink = adminPage.getByTestId('admin-nav-codes').locator('..');
+      await expect(codesNavLink).toHaveAttribute('aria-current', 'page');
       // wiki should no longer be active
-      await expect(wikiNav).not.toHaveAttribute('aria-current', 'page');
+      await expect(wikiNavLink).not.toHaveAttribute('aria-current', 'page');
     });
 });
 

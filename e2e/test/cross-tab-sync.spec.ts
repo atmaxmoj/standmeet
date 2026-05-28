@@ -60,6 +60,11 @@ test.describe('cross-tab session sync via localStorage', () => {
       await tabA.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       await expect(tabA.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      // Dismiss VisitorNamePicker so it doesn't block the strip's exit link
+      const skipBtn = tabA.getByRole('button', { name: /skip/i });
+      if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await skipBtn.click();
+      }
 
       await goto(tabB, '/');
       await expect(tabB.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });

@@ -70,7 +70,7 @@ test.describe('gate code paste + error flows', () => {
       await page.waitForURL('**/gate', { timeout: 10_000 });
       await page.getByTestId('gate-code').fill(VALID_CODE);
       await page.getByTestId('gate-code-submit').click();
-      await expect(page.getByTestId('gate-error')).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('code-panel').getByTestId('gate-error')).toBeVisible({ timeout: 5_000 });
     });
 });
 

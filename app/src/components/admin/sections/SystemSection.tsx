@@ -122,7 +122,7 @@ function HealthRow({ name, status, detail }: { name: string; status: string; det
   const tone = healthTone(status);
   return (
     <div className="flex items-baseline gap-3 pb-2 border-b border-(--color-rule)/60">
-      <span className={`inline-block w-[6px] h-[6px] rounded-full ${tone.dot} shrink-0 relative top-[1px]`} />
+      <span data-testid="health-dot" className={`inline-block w-[6px] h-[6px] rounded-full ${tone.dot} shrink-0 relative top-[1px]`} />
       <div className="flex-1">
         <div className="font-serif text-[15px] text-(--color-ink)">{name}</div>
         <div className="mono text-[10px] text-(--color-muted) mt-0.5">{detail}</div>

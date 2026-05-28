@@ -49,8 +49,13 @@ test.describe('session persistence: refresh + exit', () => {
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      // Dismiss VisitorNamePicker if it appears (overlays the strip)
+      const skipBtn = page.getByRole('button', { name: /skip/i });
+      if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await skipBtn.click();
+      }
       // click exit
-      await page.getByTestId('session-strip-exit').click();
+      await page.getByRole('link', { name: 'exit session' }).click();
       // Exit navigates to /gate; session strip should be gone
       await page.waitForURL('**/gate', { timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
@@ -85,7 +90,7 @@ test.describe('session persistence: refresh + exit', () => {
       await page.waitForURL('**/', { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // exit navigates to /gate
-      await page.getByTestId('session-strip-exit').click();
+      await page.getByRole('link', { name: 'exit session' }).click();
       await page.waitForURL('**/gate', { timeout: 5_000 });
       await expect(page.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
     });

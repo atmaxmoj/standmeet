@@ -50,7 +50,7 @@ test.describe('admin raw CRUD operations', () => {
       }
     });
 
-  test('promote raw → wiki modal → fill title → raw marked promoted',
+  test('promote raw → wiki modal → fill title → wiki entry created',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'raw');
       await dumpEntry(adminPage, 'Entry to promote to wiki.');
@@ -63,8 +63,11 @@ test.describe('admin raw CRUD operations', () => {
       const titleInput = adminPage.locator('[data-testid$="-title"]').last();
       await titleInput.fill('Promoted Wiki Entry');
       await adminPage.locator('[data-testid$="-submit"]').last().click();
-      // Raw should show "promoted" status
-      await expect(row).toContainText(/promoted/i);
+      // Toast confirms promote action
+      await expect(adminPage.getByText('Promoted to wiki')).toBeVisible({ timeout: 5_000 });
+      // The wiki entry exists in /admin/wiki
+      await gotoAdminSection(adminPage, 'wiki');
+      await expect(adminPage.getByText('Promoted Wiki Entry')).toBeVisible({ timeout: 5_000 });
     });
 });
 

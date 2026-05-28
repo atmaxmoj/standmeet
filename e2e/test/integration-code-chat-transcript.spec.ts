@@ -31,36 +31,42 @@ test.describe('code → chat → transcript integration', () => {
   });
 
   test('visitor chats with code → owner sees transcript in admin',
-    async ({ page, adminPage }) => {
-      // Visitor absorbs code and chats
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
+    async ({ browser }) => {
+      // Visitor context (no auth)
+      const visitorCtx = await browser.newContext();
+      const visitor = await visitorCtx.newPage();
+      await goto(visitor, `/?code=${CODE}`);
+      await visitor.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
-      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // Skip name if picker appears
-      const skip = page.getByTestId('visitor-name-skip');
+      await expect(visitor.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      const skip = visitor.getByTestId('visitor-name-skip');
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await skip.click();
       }
-      // Send a message
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = visitor.locator('[data-testid="chat-input"] input');
       await input.fill('tell me about integration testing');
       await input.press('Enter');
-      await expect(page.locator('[data-testid="answer-body"]'))
+      await expect(visitor.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 15_000 });
+      await visitorCtx.close();
 
-      // Owner checks conversations in admin
-      await gotoAdminSection(adminPage, 'conversations');
-      await adminPage.waitForURL('**/admin/conversations', { timeout: 5_000 });
-      // Should see the conversation
-      await expect(adminPage.getByTestId('conv-table')).toBeVisible();
-      // Click on the first conversation row to expand transcript
-      const row = adminPage.getByTestId('conv-table').locator('tbody tr').first();
+      // Owner context (separate browser session, auto-logs in via adminPage helper)
+      const ownerCtx = await browser.newContext();
+      const owner = await ownerCtx.newPage();
+      await goto(owner, '/admin');
+      await owner.getByTestId('email').fill(OWNER.email);
+      await owner.getByTestId('password').fill(OWNER.password);
+      await owner.getByTestId('submit').click();
+      await owner.waitForURL('**/admin/**', { timeout: 10_000 });
+      await gotoAdminSection(owner, 'conversations');
+      await owner.waitForURL('**/admin/conversations', { timeout: 5_000 });
+      await expect(owner.getByTestId('conv-table')).toBeVisible();
+      const row = owner.getByTestId('conv-table').locator('tbody tr').first();
       await expect(row).toBeVisible({ timeout: 5_000 });
       await row.click();
-      // Transcript should contain the visitor's message
-      await expect(adminPage.getByTestId('transcript-panel'))
+      await expect(owner.getByTestId('transcript-body'))
         .toContainText('integration testing', { timeout: 5_000 });
+      await ownerCtx.close();
     });
 });
 
