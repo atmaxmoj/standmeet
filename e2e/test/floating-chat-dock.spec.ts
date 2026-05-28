@@ -31,10 +31,13 @@ test.describe('FloatingChatDock on blog/wiki pages', () => {
     await initOwner(playwright);
   });
 
-  test('public visitor → floating pill visible on /blog (anyone can chat)',
+  test('public visitor → no floating pill on /blog (no funded chat path)',
     async ({ page }) => {
+      // Public visitor has no session → no inference funding (owner won't pay
+      // for random visitors, no BYOAI key). Pill hidden until visitor either
+      // absorbs a code or adds BYOAI on /gate.
       await goto(page, '/blog');
-      await expect(page.getByTestId('floating-dock-pill')).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('floating-dock-pill')).toHaveCount(0);
     });
 
   test('with session → pill visible → click → expand → chat → close',

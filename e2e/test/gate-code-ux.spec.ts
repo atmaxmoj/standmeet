@@ -47,7 +47,7 @@ test.describe('gate code panel UX polish', () => {
       await page.getByTestId('gate-code').fill('BOGUS-CODE');
       await page.getByTestId('gate-code-submit').click();
       // Error message visible
-      await expect(page.getByTestId('gate-error')).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('code-panel').getByTestId('gate-error')).toBeVisible({ timeout: 5_000 });
     });
 
   test('submit → checking state → button text changes',
