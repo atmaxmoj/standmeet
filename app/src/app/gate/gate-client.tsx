@@ -3,6 +3,8 @@
 
 'use client';
 
+import { useEffect } from 'react';
+
 import { TopBar } from '@/components/page/TopBar';
 import { BYOAIPanel } from '@/components/gate/BYOAIPanel';
 import { CodePanel } from '@/components/gate/CodePanel';
@@ -11,12 +13,17 @@ import { Seal } from '@/components/gate/Seal';
 import { WhatsBehind } from '@/components/gate/WhatsBehind';
 import { useTheme } from '@/lib/page/use-theme';
 import { useGate } from '@/lib/gate/use-gate';
+import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 type Props = { handle: string };
 
 export function GateClient({ handle }: Props) {
   const { dark, toggle } = useTheme();
   const hook = useGate();
+  // Landing on /gate means visitor is exiting any prior session — clear it so
+  // strip disappears across tabs (storage event fires for other tabs listening
+  // to STORAGE_KEY).
+  useClearSessionOnMount();
   return (
     <div className="min-h-screen flex flex-col">
       <TopBar handle={handle} dark={dark} onToggleDark={toggle} />
@@ -105,4 +112,9 @@ function GateError({ message }: { message: string | null }) {
   return message
     ? <p className="mono text-xs text-(--color-accent) mt-6" data-testid="gate-error">{message}</p>
     : null;
+}
+
+function useClearSessionOnMount(): void {
+  const clear = useVisitorSessionStore((s) => s.clear);
+  useEffect(() => { clear(); }, [clear]);
 }

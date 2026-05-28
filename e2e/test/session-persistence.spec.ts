@@ -89,6 +89,11 @@ test.describe('session persistence: refresh + exit', () => {
       await page.getByTestId('byoai-submit').click();
       await page.waitForURL('**/', { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      // Dismiss VisitorNamePicker if overlay
+      const skipBtn = page.getByRole('button', { name: /skip/i });
+      if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await skipBtn.click();
+      }
       // exit navigates to /gate
       await page.getByRole('link', { name: 'exit session' }).click();
       await page.waitForURL('**/gate', { timeout: 5_000 });

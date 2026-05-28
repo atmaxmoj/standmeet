@@ -54,7 +54,9 @@ test.describe('job loop end-to-end integration', () => {
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'applications');
       await adminPage.waitForURL('**/admin/applications', { timeout: 5_000 });
-      await expect(adminPage.getByTestId('application-card')).toBeVisible({ timeout: 5_000 });
+      // application row testid is `application-row-{id}`; just check at least one exists
+      await expect(adminPage.locator('[data-testid^="application-row-"]').first())
+        .toBeVisible({ timeout: 5_000 });
     });
 });
 
