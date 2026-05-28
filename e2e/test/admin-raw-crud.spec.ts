@@ -31,9 +31,9 @@ test.describe('admin raw CRUD operations', () => {
       await gotoAdminSection(adminPage, 'raw');
       await adminPage.waitForURL('**/admin/raw', { timeout: 5_000 });
       // Open dump box
-      const dumpInput = adminPage.getByTestId('dump-body');
+      const dumpInput = adminPage.getByTestId('dump-input');
       await dumpInput.fill('Test raw entry from UI.');
-      await adminPage.getByTestId('dump-submit').click();
+      await adminPage.getByRole('button', { name: /dump/i }).click();
       // New row should appear
       await expect(adminPage.getByText('Test raw entry from UI.', { exact: false }))
         .toBeVisible({ timeout: 5_000 });
@@ -59,10 +59,10 @@ test.describe('admin raw CRUD operations', () => {
       });
       await expect(row).toBeVisible();
       await row.getByRole('button', { name: /promote/i }).click();
-      // Fill wiki title in modal
-      const titleInput = adminPage.getByTestId('promote-wiki-title');
+      // Fill wiki title in promote form (testid: raw-promote-form-{id}-title)
+      const titleInput = adminPage.locator('[data-testid$="-title"]').last();
       await titleInput.fill('Promoted Wiki Entry');
-      await adminPage.getByRole('button', { name: /^promote$/i }).click();
+      await adminPage.locator('[data-testid$="-submit"]').last().click();
       // Raw should show "promoted" status
       await expect(row).toContainText(/promoted/i);
     });

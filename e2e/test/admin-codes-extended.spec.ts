@@ -47,14 +47,16 @@ test.describe('admin codes extended features', () => {
       await expect(card.locator('[data-testid="code-qr"]')).toBeVisible();
     });
 
-  test('edit code → change label → card updates',
+  test('edit code → change quotas → card updates',
     async ({ adminPage }) => {
       await openCodes(adminPage);
       const card = adminPage.getByTestId(`code-card-${CODE}`);
       await card.getByRole('button', { name: 'edit', exact: true }).click();
-      await adminPage.getByTestId('code-label').fill('Updated Ext Label');
+      // Edit mode only shows quota fields (label/code not editable)
+      await adminPage.getByTestId('code-max-sessions').fill('10');
+      await adminPage.getByTestId('code-max-turns').fill('25');
       await adminPage.getByTestId('code-save').click();
-      await expect(card).toContainText('Updated Ext Label', { timeout: 5_000 });
+      await expect(card).toContainText('10 sessions', { timeout: 5_000 });
     });
 
   test('view conversations link → navigates with code filter',

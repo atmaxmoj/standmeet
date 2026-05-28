@@ -39,6 +39,11 @@ test.describe('ChatComposer behavior', () => {
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      // Dismiss VisitorNamePicker if it appears (QR scan without name)
+      const skipBtn = page.getByRole('button', { name: /skip/i });
+      if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await skipBtn.click();
+      }
       // Starter chips should be visible
       const chips = page.getByTestId('starter-chips');
       await expect(chips).toBeVisible({ timeout: 5_000 });
@@ -47,7 +52,7 @@ test.describe('ChatComposer behavior', () => {
       // Answer should appear, chips should disappear
       await expect(page.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 15_000 });
-      await expect(chips).toHaveCount(0);
+      await expect(chips).toBeHidden({ timeout: 5_000 });
     });
 
   test('manual input → ask → turn + answer render',
