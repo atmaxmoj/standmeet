@@ -54,7 +54,7 @@ test.describe('admin raw CRUD operations', () => {
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'raw');
       await dumpEntry(adminPage, 'Entry to promote to wiki.');
-      const row = adminPage.locator('[data-testid^="raw-row-"]', {
+      const row = adminPage.getByTestId(/^raw-row-/).filter({
         hasText: 'Entry to promote to wiki.',
       });
       await expect(row).toBeVisible();
@@ -85,6 +85,10 @@ async function dumpEntry(page: Page, body: string): Promise<void> {
   const dumpInput = page.getByTestId('dump-input');
   await dumpInput.fill(body);
   await page.getByRole('button', { name: /dump/i }).click();
-  await expect(page.getByText(body, { exact: false }))
-    .toBeVisible({ timeout: 5_000 });
+  // Scope to the row, not "any text matching body" — textarea also still
+  // shows `body` during the brief window between click and async setText('')
+  // clearing it, which makes a `getByText(body)` strict-mode violate.
+  await expect(
+    page.getByTestId(/^raw-row-/).filter({ hasText: body }),
+  ).toBeVisible({ timeout: 5_000 });
 }
