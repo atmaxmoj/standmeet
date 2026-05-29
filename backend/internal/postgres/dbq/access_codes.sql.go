@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countBookingsByCode = `-- name: CountBookingsByCode :one
+SELECT COUNT(*)::int FROM code_bookings WHERE code_id = $1
+`
+
+func (q *Queries) CountBookingsByCode(ctx context.Context, codeID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countBookingsByCode, codeID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countSessionsForMember = `-- name: CountSessionsForMember :one
 SELECT COUNT(*)::int FROM conversations WHERE member_id = $1
 `
@@ -36,10 +47,11 @@ func (q *Queries) CountVisitorTurnsInConversation(ctx context.Context, conversat
 const createAccessCode = `-- name: CreateAccessCode :one
 INSERT INTO access_codes (
     owner_id, code, label, purpose, corpus_permissions, suggested_questions,
-    expires_at, max_sessions_per_member, max_turns_per_session
+    expires_at, max_sessions_per_member, max_turns_per_session,
+    granted_skills, max_bookings
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at
 `
 
 type CreateAccessCodeParams struct {
@@ -52,6 +64,8 @@ type CreateAccessCodeParams struct {
 	ExpiresAt            pgtype.Timestamptz
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
+	GrantedSkills        []string
+	MaxBookings          *int32
 }
 
 func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodeParams) (AccessCode, error) {
@@ -65,6 +79,8 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		arg.ExpiresAt,
 		arg.MaxSessionsPerMember,
 		arg.MaxTurnsPerSession,
+		arg.GrantedSkills,
+		arg.MaxBookings,
 	)
 	var i AccessCode
 	err := row.Scan(
@@ -79,6 +95,8 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
+		&i.GrantedSkills,
+		&i.MaxBookings,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -117,7 +135,7 @@ func (q *Queries) CreateCodeMember(ctx context.Context, arg CreateCodeMemberPara
 }
 
 const getAccessCode = `-- name: GetAccessCode :one
-SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at FROM access_codes WHERE code = $1 AND status = 'active'
+SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at FROM access_codes WHERE code = $1 AND status = 'active'
 `
 
 func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, error) {
@@ -135,13 +153,15 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
+		&i.GrantedSkills,
+		&i.MaxBookings,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getAccessCodeByID = `-- name: GetAccessCodeByID :one
-SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at FROM access_codes WHERE id = $1
+SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at FROM access_codes WHERE id = $1
 `
 
 func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (AccessCode, error) {
@@ -159,6 +179,8 @@ func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (Access
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
+		&i.GrantedSkills,
+		&i.MaxBookings,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -221,7 +243,7 @@ func (q *Queries) GetOrCreateCodeMember(ctx context.Context, arg GetOrCreateCode
 }
 
 const listAccessCodesByOwner = `-- name: ListAccessCodesByOwner :many
-SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
+SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]AccessCode, error) {
@@ -245,6 +267,8 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 			&i.Status,
 			&i.MaxSessionsPerMember,
 			&i.MaxTurnsPerSession,
+			&i.GrantedSkills,
+			&i.MaxBookings,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -311,11 +335,52 @@ func (q *Queries) TouchCodeMember(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const updateAccessCodeGrants = `-- name: UpdateAccessCodeGrants :one
+UPDATE access_codes
+SET granted_skills = $3, max_bookings = $4
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at
+`
+
+type UpdateAccessCodeGrantsParams struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	GrantedSkills []string
+	MaxBookings   *int32
+}
+
+func (q *Queries) UpdateAccessCodeGrants(ctx context.Context, arg UpdateAccessCodeGrantsParams) (AccessCode, error) {
+	row := q.db.QueryRow(ctx, updateAccessCodeGrants,
+		arg.ID,
+		arg.OwnerID,
+		arg.GrantedSkills,
+		arg.MaxBookings,
+	)
+	var i AccessCode
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Code,
+		&i.Label,
+		&i.Purpose,
+		&i.CorpusPermissions,
+		&i.SuggestedQuestions,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.MaxSessionsPerMember,
+		&i.MaxTurnsPerSession,
+		&i.GrantedSkills,
+		&i.MaxBookings,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const updateAccessCodePermissions = `-- name: UpdateAccessCodePermissions :one
 UPDATE access_codes
 SET corpus_permissions = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at
+RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at
 `
 
 type UpdateAccessCodePermissionsParams struct {
@@ -339,6 +404,8 @@ func (q *Queries) UpdateAccessCodePermissions(ctx context.Context, arg UpdateAcc
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
+		&i.GrantedSkills,
+		&i.MaxBookings,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -348,7 +415,7 @@ const updateAccessCodeQuotas = `-- name: UpdateAccessCodeQuotas :one
 UPDATE access_codes
 SET max_sessions_per_member = $3, max_turns_per_session = $4
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, created_at
+RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at
 `
 
 type UpdateAccessCodeQuotasParams struct {
@@ -378,6 +445,8 @@ func (q *Queries) UpdateAccessCodeQuotas(ctx context.Context, arg UpdateAccessCo
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
+		&i.GrantedSkills,
+		&i.MaxBookings,
 		&i.CreatedAt,
 	)
 	return i, err

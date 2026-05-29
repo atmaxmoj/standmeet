@@ -36,15 +36,14 @@ type sessionMemberResp struct {
 	LastSeen string `json:"last_seen"`
 }
 
-//nolint:govet // fieldalignment: JSON order > pointer alignment
 type createSessionResponse struct {
-	Quota          sessionQuotaResp    `json:"quota"`
-	Members        []sessionMemberResp `json:"members,omitempty"`
 	SessionToken   string              `json:"session_token"`
 	ConversationID string              `json:"conversation_id"`
 	Code           string              `json:"code,omitempty"`
 	CodeLabel      string              `json:"code_label,omitempty"`
 	VisitorName    string              `json:"visitor_name,omitempty"`
+	Members        []sessionMemberResp `json:"members,omitempty"`
+	Quota          sessionQuotaResp    `json:"quota"`
 }
 
 func (h *Handlers) createSession() http.HandlerFunc {

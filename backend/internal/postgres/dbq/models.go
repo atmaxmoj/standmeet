@@ -20,6 +20,8 @@ type AccessCode struct {
 	Status               string
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
+	GrantedSkills        []string
+	MaxBookings          *int32
 	CreatedAt            pgtype.Timestamptz
 }
 
@@ -64,6 +66,20 @@ type Asset struct {
 	Sha256           string
 	OriginalFilename string
 	CreatedAt        pgtype.Timestamptz
+}
+
+type CodeBooking struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	CodeID         pgtype.UUID
+	ConversationID pgtype.UUID
+	GoogleEventID  string
+	GoogleHtmlLink string
+	Summary        string
+	StartAt        pgtype.Timestamptz
+	EndAt          pgtype.Timestamptz
+	VisitorEmail   *string
+	CreatedAt      pgtype.Timestamptz
 }
 
 type CodeMcpServer struct {
@@ -223,7 +239,33 @@ type Owner struct {
 	AiModel           string
 	PasswordResetHash []byte
 	PasswordResetAt   pgtype.Timestamptz
+	ProfileTimezone   string
 	CreatedAt         pgtype.Timestamptz
+}
+
+type OwnerBookingPolicy struct {
+	OwnerID           pgtype.UUID
+	MinLeadHours      int32
+	AllowedWeekdays   []string
+	WorkingHoursStart string
+	WorkingHoursEnd   string
+	BufferMin         int32
+	UpdatedAt         pgtype.Timestamptz
+}
+
+type OwnerCalendarConnector struct {
+	ID                   pgtype.UUID
+	OwnerID              pgtype.UUID
+	Provider             string
+	ClientIDEnc          []byte
+	ClientSecretEnc      []byte
+	AccessTokenEnc       []byte
+	RefreshTokenEnc      []byte
+	AccessTokenExpiresAt pgtype.Timestamptz
+	Scopes               []byte
+	ConnectedAt          pgtype.Timestamptz
+	CreatedAt            pgtype.Timestamptz
+	UpdatedAt            pgtype.Timestamptz
 }
 
 type PageContent struct {

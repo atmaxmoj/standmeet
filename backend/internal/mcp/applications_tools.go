@@ -1,12 +1,13 @@
 // applications_tools.go —— MCP tools 的 applications.* group。
 //
 // v1 只暴露 commit —— Phase 4 之前 listing / status 走 admin REST 即可。
-// 返回 [text(json), embedded(pdf)] 多 content 结构（同 resume.draft）：JSON
-// 文本携带 application_id / access_code plaintext / QR URL；PDF 走 base64 blob。
+// 返回 [text(json), embedded(pdf)] 多 content 结构：JSON 文本携带
+// application_id / access_code plaintext / QR URL；PDF 走 base64 blob。
 //
 // 关键设计：commit 内部已经把 issue_access_code + write application + delete
-// draft 三步打包在单事务里（见 postgres.ApplicationRepo.Commit），usecase 这
-// 层只负责拼 QR URL + 渲染 final PDF。
+// draft 三步打包在单事务里（见 postgres.ApplicationRepo.Commit）。usecase 拼
+// QR URL 后调注入的 PDFRenderer（v1 = gotenberg sidecar 抓 admin /print 路由）
+// 渲染最终 PDF —— 跟 owner 在 admin 看到的 React `ResumePage` live preview 像素一致。
 
 package mcp
 
@@ -24,7 +25,10 @@ import (
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
-const applicationURIScheme = "standmeet://application/" // suffix = application id
+const (
+	mimePDF              = "application/pdf"
+	applicationURIScheme = "standmeet://application/" // suffix = application id
+)
 
 func applicationsTools(srv *server.MCPServer, deps *Deps) {
 	srv.AddTool(applicationsCommitTool(), wrapTool(invokeApplicationsCommit(deps)))

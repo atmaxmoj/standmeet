@@ -21,18 +21,27 @@ type AccessCode struct {
 	ExpiresAt            *time.Time
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
-	ID                   string
-	OwnerID              string
-	Code                 string
-	Label                string
-	Purpose              string
-	Status               string
-	CorpusPermissions    []PathPermission
-	SuggestedQuestions   []string
+	// MaxBookings —— calendar.book 配额 (per-code，跨 visitor / session 累计)。
+	// nil = 不解锁。配合 GrantedSkills 的双保险：tool registry 先看
+	// GrantedSkills 决定 spec 是否出现，再用 MaxBookings + code_bookings
+	// count 在 invoke 时拒。
+	MaxBookings        *int32
+	ID                 string
+	OwnerID            string
+	Code               string
+	Label              string
+	Purpose            string
+	Status             string
+	CorpusPermissions  []PathPermission
+	SuggestedQuestions []string
 	// SkillIDs —— InviteCode 引用的 skills。visitor session 拼 system
 	// prompt 时合并所有 selected skill.prompt。空列表 = visitor 只看到
 	// owner 默认 persona 没附加 skill。
 	SkillIDs []string
+	// GrantedSkills —— agent-capability gating (e.g. ['calendar.book'])。
+	// owner 在 create-code 时选；空 list = 不解锁任何带副作用的 agent skill。
+	// visitor_chat tool registry 用这个 first-condition 过滤 tool spec。
+	GrantedSkills []string
 }
 
 // PathPermission —— retrieval ACL 单元。

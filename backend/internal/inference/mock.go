@@ -17,6 +17,9 @@ package inference
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"slices"
 	"strings"
@@ -31,17 +34,26 @@ const (
 )
 
 // MockProvider —— 不调外部 API 的 provider。
+//
+// scriptURL —— 可选；非空时每轮 Stream 之前 GET <scriptURL>/take_next_tool
+// 拿一个 e2e 脚本指定的 tool call (typically calendar.book)，让 specs
+// 控制 mock 调啥 tool 用啥 args 而不是写死 search→read。
 type MockProvider struct {
-	reply string
+	reply     string
+	scriptURL string
 }
 
 // NewMockProvider 构造 MockProvider；reply 取 INFERENCE_MOCK_REPLY 否则默认。
+// INFERENCE_MOCK_SCRIPT_URL 空时禁用 scripting。
 func NewMockProvider() *MockProvider {
 	reply := os.Getenv("INFERENCE_MOCK_REPLY")
 	if reply == "" {
 		reply = defaultMockReply
 	}
-	return &MockProvider{reply: reply}
+	return &MockProvider{
+		reply:     reply,
+		scriptURL: os.Getenv("INFERENCE_MOCK_SCRIPT_URL"),
+	}
 }
 
 // Name —— provider 名字。
@@ -56,6 +68,7 @@ func (m *MockProvider) Stream(ctx context.Context, req *ChatRequest) (<-chan Chu
 
 func (m *MockProvider) run(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
 	defer close(ch)
+	m.maybeRunScriptedTool(ctx, req)
 	skillResults := maybeRunMockToolLoop(ctx, req)
 	// mock echoes the system prompt verbatim before the canned reply. visitor
 	// chat e2es 借此 verify owner-curated skill prompts 真的拼进了 system，
@@ -162,6 +175,80 @@ func firstSkillToolName(tools []ToolSpec) string {
 }
 
 const mockSkillPrefix = "skill_"
+
+// scriptedTool —— mock LLM 下一步要调的 tool。args 是 raw JSON 给
+// ExecuteTool(name, []byte) 直接喂。
+type scriptedTool struct {
+	Name string          `json:"name"`
+	Args json.RawMessage `json:"args"`
+}
+
+type scriptedToolWire struct {
+	Tool *scriptedTool `json:"tool"`
+}
+
+const scriptFetchTimeout = 2 * time.Second
+
+// maybeRunScriptedTool —— 若配 INFERENCE_MOCK_SCRIPT_URL 且 queue 中有
+// scripted tool，调用 req.ExecuteTool(name, args) 一次。
+func (m *MockProvider) maybeRunScriptedTool(ctx context.Context, req *ChatRequest) {
+	if !m.scriptingEnabled(req) {
+		return
+	}
+	tool, err := m.fetchScriptedTool(ctx)
+	if err != nil || tool == nil {
+		return
+	}
+	if _, terr := req.ExecuteTool(ctx, tool.Name, tool.Args); terr != nil {
+		_ = terr
+	}
+}
+
+func (m *MockProvider) scriptingEnabled(req *ChatRequest) bool {
+	return m.scriptURL != "" && req.ExecuteTool != nil
+}
+
+func (m *MockProvider) fetchScriptedTool(ctx context.Context) (*scriptedTool, error) {
+	resp, err := m.dispatchScriptFetch(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, decErr := decodeScriptedTool(resp)
+	if cerr := resp.Body.Close(); cerr != nil && decErr == nil {
+		return nil, fmt.Errorf("mock script: close body: %w", cerr)
+	}
+	return out, decErr
+}
+
+func (m *MockProvider) dispatchScriptFetch(ctx context.Context) (*http.Response, error) {
+	rctx, cancel := context.WithTimeout(ctx, scriptFetchTimeout)
+	defer cancel()
+	url := m.scriptURL + "/__mock/inference/take_next_tool"
+	req, rerr := http.NewRequestWithContext(rctx, http.MethodGet, url, http.NoBody)
+	if rerr != nil {
+		return nil, fmt.Errorf("mock script: new request: %w", rerr)
+	}
+	resp, derr := http.DefaultClient.Do(req)
+	if derr != nil {
+		return nil, fmt.Errorf("mock script: do: %w", derr)
+	}
+	return resp, nil
+}
+
+func decodeScriptedTool(resp *http.Response) (*scriptedTool, error) {
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("mock script: status %d", resp.StatusCode)
+	}
+	body, berr := io.ReadAll(resp.Body)
+	if berr != nil {
+		return nil, fmt.Errorf("mock script: read body: %w", berr)
+	}
+	var wire scriptedToolWire
+	if uerr := json.Unmarshal(body, &wire); uerr != nil {
+		return nil, fmt.Errorf("mock script: decode: %w", uerr)
+	}
+	return wire.Tool, nil
+}
 
 func canRunMockTools(req *ChatRequest) bool {
 	return len(req.Tools) > 0 && req.ExecuteTool != nil &&

@@ -41,6 +41,9 @@ type Deps struct {
 	PublicPosts          publicroutes.PostHandlers
 	Builds               sysroutes.BuilderDeps
 	TLSAsk               sysroutes.TLSAskDeps
+	PrintSession         sysroutes.PrintSessionDeps
+	TestToolSpecs        sysroutes.TestToolSpecsDeps
+	TestGCalExpire       sysroutes.TestGCalExpireDeps
 	MCP                  mcp.Deps
 	Admin                AdminDeps
 }
@@ -69,6 +72,8 @@ type AdminDeps struct {
 	Owners         *postgres.OwnerRepo
 	Drafts         *postgres.ResumeDraftRepo
 	Applications   *postgres.ApplicationRepo
+	Marketplace    usecases.MarketplaceDeps
+	Calendar       adminroutes.CalendarAdminDeps
 	Sessions       *session.OwnerSessionStore
 	SecureCookie   bool
 }
@@ -95,6 +100,9 @@ func mountInternal(r chi.Router, deps *Deps) {
 		sysroutes.Mount(r, sysroutes.Deps{DB: deps.DB, Redis: deps.Redis, Log: deps.Log})
 		sysroutes.MountBuilds(r, deps.Builds)
 		sysroutes.MountTLSAsk(r, deps.TLSAsk)
+		sysroutes.MountPrintSession(r, deps.PrintSession)
+		sysroutes.MountTestToolSpecs(r, deps.TestToolSpecs)
+		sysroutes.MountTestGCalExpire(r, deps.TestGCalExpire)
 	})
 }
 
@@ -152,6 +160,8 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		},
 		DraftsAdmin:       adminroutes.DraftsAdminDeps{Drafts: deps.Admin.Drafts},
 		ApplicationsAdmin: adminroutes.ApplicationsAdminDeps{Apps: deps.Admin.Applications},
+		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
+		CalendarAdmin:     deps.Admin.Calendar,
 		Log:               deps.Log,
 		SecureCookie:      deps.Admin.SecureCookie,
 	}

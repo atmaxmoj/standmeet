@@ -15,6 +15,7 @@ import { useCallback, useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConnectorAddModal } from '@/components/admin/ConnectorAddModal';
 import { ConnectorTile } from '@/components/admin/sections/connectors/ConnectorTile';
+import { CalendarConnectorPanel } from '@/components/admin/sections/connectors/CalendarConnectorPanel';
 import { useConnectors, type ConnectorsHook } from '@/lib/admin/use-connectors';
 import { catalogSize } from '@/lib/admin/connector-registry';
 
@@ -36,6 +37,9 @@ export function ConnectorsSection() {
         action={<AddBtn onOpen={() => setShowAdd(true)} />}
       />
       <Intro />
+      <div className="mb-8">
+        <CalendarConnectorPanel />
+      </div>
       <Grid hook={hook} onBrowse={() => setShowAdd(true)} />
       {showAdd && (
         <ConnectorAddModal

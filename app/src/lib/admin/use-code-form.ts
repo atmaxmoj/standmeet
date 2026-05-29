@@ -22,13 +22,20 @@ export interface CodeFormState {
   suggested: string[];
   maxSessions: string;
   maxTurns: string;
+  // grantedSkills —— agent capability identifiers (e.g. 'calendar.book').
+  // 空 array = code 持有者在 chat 里不能调任何带副作用的 agent skill。
+  grantedSkills: string[];
+  // maxBookings —— calendar.book quota per code; '' = nil (没解锁 calendar.book
+  // 时是 nil；解锁但要无限就 '' 也行)。string 形态便于跟 input 字段双绑。
+  maxBookings: string;
   skillIDs: string[];
 }
 
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
   permissionsRaw: '', suggested: ['', ''],
-  maxSessions: '', maxTurns: '', skillIDs: [],
+  maxSessions: '', maxTurns: '', grantedSkills: [], maxBookings: '',
+  skillIDs: [],
 };
 
 export interface CodeFormHook {
@@ -38,8 +45,10 @@ export interface CodeFormHook {
   setPurpose: (v: string) => void;
   setMaxSessions: (v: string) => void;
   setMaxTurns: (v: string) => void;
+  setMaxBookings: (v: string) => void;
   setPermissionsRaw: (v: string) => void;
   toggleSkill: (id: string) => void;
+  toggleGrantedSkill: (name: string) => void;
   updateQ: (i: number, v: string) => void;
   addQ: () => void;
   removeQ: (i: number) => void;
@@ -59,9 +68,21 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const setMaxTurns = useCallback(
     (maxTurns: string) => setValues((v) => ({ ...v, maxTurns })), [],
   );
+  const setMaxBookings = useCallback(
+    (maxBookings: string) => setValues((v) => ({ ...v, maxBookings })), [],
+  );
   const setPermissionsRaw = useCallback(
     (permissionsRaw: string) => setValues((v) => ({ ...v, permissionsRaw })), [],
   );
+
+  const toggleGrantedSkill = useCallback((name: string) => {
+    setValues((v) => ({
+      ...v,
+      grantedSkills: v.grantedSkills.includes(name)
+        ? v.grantedSkills.filter((s) => s !== name)
+        : [...v.grantedSkills, name],
+    }));
+  }, []);
 
   const updateQ = useCallback((i: number, txt: string) => {
     setValues((v) => ({ ...v, suggested: v.suggested.map((q, j) => j === i ? txt : q) }));
@@ -86,7 +107,8 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
 
   return {
     values, setCode, setLabel, setPurpose, setMaxSessions, setMaxTurns,
-    setPermissionsRaw, toggleSkill, updateQ, addQ, removeQ, reset, toInput,
+    setMaxBookings, setPermissionsRaw, toggleSkill, toggleGrantedSkill,
+    updateQ, addQ, removeQ, reset, toInput,
   };
 }
 
@@ -99,9 +121,11 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     suggested: initial?.suggested_questions?.length
       ? [...initial.suggested_questions]
       : ['', ''],
-    maxSessions: numOrEmpty(initial?.max_sessions_per_member),
-    maxTurns:    numOrEmpty(initial?.max_turns_per_session),
-    skillIDs:    initial?.skill_ids ? [...initial.skill_ids] : [],
+    maxSessions:   numOrEmpty(initial?.max_sessions_per_member),
+    maxTurns:      numOrEmpty(initial?.max_turns_per_session),
+    maxBookings:   numOrEmpty(initial?.max_bookings),
+    grantedSkills: initial?.granted_skills ? [...initial.granted_skills] : [],
+    skillIDs:      initial?.skill_ids ? [...initial.skill_ids] : [],
   };
 }
 
@@ -134,6 +158,8 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     suggested_questions: v.suggested.map((q) => q.trim()).filter(Boolean),
     max_sessions_per_member: parseQuota(v.maxSessions),
     max_turns_per_session: parseQuota(v.maxTurns),
+    max_bookings: parseQuota(v.maxBookings),
+    granted_skills: [...v.grantedSkills],
     skill_ids: [...v.skillIDs],
   };
 }

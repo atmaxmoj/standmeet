@@ -15,13 +15,17 @@ import { useCallback, useState } from 'react';
 import { ComposerPanel } from '@/components/admin/composer/ComposerPanels';
 import { PreviewPane } from '@/components/admin/composer/PreviewPane';
 import {
+  patchCustom,
   patchEducation,
   patchExperience,
   patchModel,
+  patchSocial,
   useMatchPct,
+  type DraftCustom,
   type DraftEducation,
   type DraftExperience,
   type DraftModel,
+  type DraftSocial,
 } from '@/lib/admin/draft-model';
 import { useDebouncedSavedLabel } from '@/lib/admin/use-debounced-saved-label';
 
@@ -31,6 +35,8 @@ const PANELS = [
   { id: 'skills',     label: 'skills' },
   { id: 'experience', label: 'experience' },
   { id: 'education',  label: 'education' },
+  { id: 'social',     label: 'social' },
+  { id: 'custom',     label: 'custom' },
   { id: 'cover',      label: 'cover letter' },
 ] as const;
 
@@ -58,6 +64,12 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
   const onPatchEdu = useCallback((id: string, p: Partial<DraftEducation>) => {
     setModel((m) => patchEducation(m, id, p));
   }, []);
+  const onPatchSoc = useCallback((id: string, p: Partial<DraftSocial>) => {
+    setModel((m) => patchSocial(m, id, p));
+  }, []);
+  const onPatchCus = useCallback((id: string, p: Partial<DraftCustom>) => {
+    setModel((m) => patchCustom(m, id, p));
+  }, []);
 
   return (
     <div className="sm-composer-overlay" data-testid="resume-composer">
@@ -72,6 +84,7 @@ export function ResumeComposer({ initial, onClose, onSend }: Props) {
         <EditorPane
           panel={panel} onPanel={setPanel} model={model}
           onPatch={onPatch} onPatchExp={onPatchExp} onPatchEdu={onPatchEdu}
+          onPatchSoc={onPatchSoc} onPatchCus={onPatchCus}
         />
         <PreviewPane
           model={model} zoom={zoom} page={page}
@@ -178,6 +191,8 @@ function EditorPane(props: {
   onPatch: (p: Partial<DraftModel>) => void;
   onPatchExp: (id: string, p: Partial<DraftExperience>) => void;
   onPatchEdu: (id: string, p: Partial<DraftEducation>) => void;
+  onPatchSoc: (id: string, p: Partial<DraftSocial>) => void;
+  onPatchCus: (id: string, p: Partial<DraftCustom>) => void;
 }) {
   return (
     <div className="sm-composer-editor">
@@ -189,6 +204,8 @@ function EditorPane(props: {
           onPatch={props.onPatch}
           onPatchExp={props.onPatchExp}
           onPatchEdu={props.onPatchEdu}
+          onPatchSoc={props.onPatchSoc}
+          onPatchCus={props.onPatchCus}
         />
       </div>
     </div>

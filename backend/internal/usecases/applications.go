@@ -4,7 +4,9 @@
 //      行 + 删 draft（postgres.ApplicationRepo.Commit 包了事务）
 //   2. 拼最终 QR URL = `<owner.public_url>?code=<plaintext>` —— v1 单 owner
 //      instance，访客落到根域名就是这位 owner，URL 不带 handle。
-//   3. 用 resumerender.Render 渲染 final PDF（同一渲染器，QR 现在装真的 access code）
+//   3. 让注入的 PDFRenderer 把 application（含 resume_content + job_snapshot）+
+//      qr_url 渲染成 final PDF bytes —— v1 实现是 gotenberg sidecar 调 headless
+//      Chromium 抓 admin /print 路由，跟 owner live preview 同一份 React 组件
 //   4. 返回 application + access_code + qr_url + PDF bytes 给 Claude
 //
 // L.13 决策：draft.job_snapshot 已是 commit 那一刻的快照，commit 路径不依赖
@@ -26,8 +28,17 @@ import (
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/postgres"
-	"github.com/wangsijie/standmeet/internal/resumerender"
 )
+
+// PDFRenderer —— 渲染 application 的 final PDF（包含 QR）。usecase 不关心
+// 实现走哪一条路（in-process / sidecar / 远程 service），只调一次。
+// gotenberg.NoopClient 之前在 wireup 注入，commit 会以
+// gotenberg.ErrNotConfigured 失败 —— 这是 task 13 完成前的预期行为。
+type PDFRenderer interface {
+	RenderApplicationPDF(
+		ctx context.Context, app *domain.Application, qrURL string,
+	) ([]byte, error)
+}
 
 const (
 	// 设计文档 L: 180d 有效 / 10 sessions per member / 50 turns per session。
@@ -43,9 +54,11 @@ const (
 //
 // 没有 PublicURL 字段：每条 application 的公开 URL 从 owner.PublicURL 读
 // （claim 时写进 owners 行，admin 可改）。单一来源、no env / no fallback。
+// Renderer 之前在 wireup 注入 —— v1 是 gotenberg client，测试用 fake。
 type ApplicationsDeps struct {
-	Apps   *postgres.ApplicationRepo
-	Owners OwnerLookup
+	Apps     *postgres.ApplicationRepo
+	Owners   OwnerLookup
+	Renderer PDFRenderer
 }
 
 // OwnerLookup —— 取 owner handle 用于拼 QR URL；用接口避开 usecases → postgres
@@ -67,7 +80,7 @@ func CommitApplication(
 		return domain.CommittedApplication{}, err
 	}
 	qrURL := buildQRURL(prep.publicURL, prep.out.AccessCode.Code)
-	pdf, err := resumerender.Render(&prep.out.Application.ResumeContent, qrURL)
+	pdf, err := deps.Renderer.RenderApplicationPDF(ctx, &prep.out.Application, qrURL)
 	if err != nil {
 		return domain.CommittedApplication{}, fmt.Errorf("render final pdf: %w", err)
 	}

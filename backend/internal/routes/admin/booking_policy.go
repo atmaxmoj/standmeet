@@ -1,0 +1,163 @@
+// booking_policy.go —— /api/admin/booking-policy GET + PATCH.
+// Singleton per owner. PATCH 全量 set，没 set 的字段不允许漏（前端先 GET
+// 拿当前值，做 spread 再 PATCH）。
+
+package admin
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/middleware"
+	"github.com/wangsijie/standmeet/internal/postgres"
+)
+
+// MountBookingPolicy —— /booking-policy GET + PATCH 挂载。
+func (h *Handlers) MountBookingPolicy(r chi.Router) {
+	r.Get("/booking-policy", h.getBookingPolicy())
+	r.Patch("/booking-policy", h.setBookingPolicy())
+}
+
+type policyView struct {
+	WorkingHoursStart string   `json:"working_hours_start"`
+	WorkingHoursEnd   string   `json:"working_hours_end"`
+	Timezone          string   `json:"timezone"`
+	AllowedWeekdays   []string `json:"allowed_weekdays"`
+	MinLeadHours      int32    `json:"min_lead_hours"`
+	BufferMin         int32    `json:"buffer_min"`
+}
+
+type policyPatchRequest struct {
+	WorkingHoursStart *string  `json:"working_hours_start,omitempty"`
+	WorkingHoursEnd   *string  `json:"working_hours_end,omitempty"`
+	Timezone          *string  `json:"timezone,omitempty"`
+	MinLeadHours      *int32   `json:"min_lead_hours,omitempty"`
+	BufferMin         *int32   `json:"buffer_min,omitempty"`
+	AllowedWeekdays   []string `json:"allowed_weekdays,omitempty"`
+}
+
+func (h *Handlers) getBookingPolicy() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		owner, oerr := h.AccountAdmin.Account.Owners.GetByID(r.Context(), ownerID)
+		if oerr != nil {
+			h.Log.Error("get owner for policy", "err", oerr)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		policy, perr := h.CalendarAdmin.Repo.GetBookingPolicy(r.Context(), ownerID)
+		if perr != nil {
+			h.Log.Error("get booking policy", "err", perr)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		writeJSON(h.Log, w, toPolicyView(&policy, owner.ProfileTimezone))
+	}
+}
+
+func toPolicyView(p *domain.BookingPolicy, tz string) policyView {
+	return policyView{
+		WorkingHoursStart: p.WorkingHoursStart,
+		WorkingHoursEnd:   p.WorkingHoursEnd,
+		AllowedWeekdays:   p.AllowedWeekdays,
+		MinLeadHours:      p.MinLeadHours,
+		BufferMin:         p.BufferMin,
+		Timezone:          tz,
+	}
+}
+
+func (h *Handlers) setBookingPolicy() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var patch policyPatchRequest
+		if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		runSetBookingPolicy(r, h, w, &patch)
+	}
+}
+
+func runSetBookingPolicy(
+	r *http.Request, h *Handlers, w http.ResponseWriter, patch *policyPatchRequest,
+) {
+	ownerID := middleware.OwnerIDFrom(r.Context())
+	if !upsertPolicyFromPatch(r, h, w, ownerID, patch) {
+		return
+	}
+	if patch.Timezone != nil {
+		applyTimezoneUpdate(r, h, w, ownerID, *patch.Timezone)
+		return
+	}
+	writeJSON(h.Log, w, map[string]bool{"ok": true})
+}
+
+func upsertPolicyFromPatch(
+	r *http.Request, h *Handlers, w http.ResponseWriter,
+	ownerID string, patch *policyPatchRequest,
+) bool {
+	current, gerr := h.CalendarAdmin.Repo.GetBookingPolicy(r.Context(), ownerID)
+	if gerr != nil {
+		h.Log.Error("load policy for patch", "err", gerr)
+		writeError(h.Log, w, serverErr())
+		return false
+	}
+	merged := mergePolicyPatch(&current, patch)
+	if _, uerr := h.CalendarAdmin.Repo.UpsertBookingPolicy(r.Context(), &postgres.UpsertPolicyInput{
+		OwnerID:           ownerID,
+		WorkingHoursStart: merged.WorkingHoursStart,
+		WorkingHoursEnd:   merged.WorkingHoursEnd,
+		AllowedWeekdays:   merged.AllowedWeekdays,
+		MinLeadHours:      merged.MinLeadHours,
+		BufferMin:         merged.BufferMin,
+	}); uerr != nil {
+		h.Log.Error("upsert booking policy", "err", uerr)
+		writeError(h.Log, w, serverErr())
+		return false
+	}
+	return true
+}
+
+func mergePolicyPatch(
+	current *domain.BookingPolicy, patch *policyPatchRequest,
+) *domain.BookingPolicy {
+	out := *current
+	applyStringPolicyFields(&out, patch)
+	applyNumericPolicyFields(&out, patch)
+	if patch.AllowedWeekdays != nil {
+		out.AllowedWeekdays = patch.AllowedWeekdays
+	}
+	return &out
+}
+
+func applyStringPolicyFields(out *domain.BookingPolicy, patch *policyPatchRequest) {
+	if patch.WorkingHoursStart != nil {
+		out.WorkingHoursStart = *patch.WorkingHoursStart
+	}
+	if patch.WorkingHoursEnd != nil {
+		out.WorkingHoursEnd = *patch.WorkingHoursEnd
+	}
+}
+
+func applyNumericPolicyFields(out *domain.BookingPolicy, patch *policyPatchRequest) {
+	if patch.MinLeadHours != nil {
+		out.MinLeadHours = *patch.MinLeadHours
+	}
+	if patch.BufferMin != nil {
+		out.BufferMin = *patch.BufferMin
+	}
+}
+
+func applyTimezoneUpdate(
+	r *http.Request, h *Handlers, w http.ResponseWriter, ownerID, tz string,
+) {
+	owners := h.AccountAdmin.Account.Owners
+	if err := owners.UpdateProfileTimezone(r.Context(), ownerID, tz); err != nil {
+		h.Log.Error("update profile timezone", "err", err)
+		writeError(h.Log, w, serverErr())
+		return
+	}
+	writeJSON(h.Log, w, map[string]bool{"ok": true})
+}

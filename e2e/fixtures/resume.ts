@@ -1,8 +1,10 @@
 // resume.ts —— MCP resume.* tool wrappers for spec.
 //
-// resume.draft / update_draft return multi-content [text(json), embedded(pdf)];
-// helpers split them and decode the PDF base64 → Buffer so specs can assert
-// "starts with %PDF-" + byte-length lower bound.
+// resume.draft / update_draft now return a single TextContent (JSON view).
+// The PDF render moved out of these tools — the admin browser renders the
+// React `ResumePage` live preview, and applications.commit renders the
+// final via the gotenberg sidecar. Specs that wanted PDF bytes from a
+// draft preview should drive the admin UI instead.
 //
 // resume.discard_draft returns plain `{ok:true}` so we keep the single-content
 // callTool path for it.
@@ -36,28 +38,27 @@ interface ResumeDraftView {
 export interface ResumeContent {
   identity: {
     name: string; email: string; phone?: string; location_line?: string;
+    site?: string;
     links?: Array<{ label: string; url: string }>;
   };
   summary: string;
+  cover_letter?: string;
   works: Array<{
     title: string; company: string; location: string;
     period: { start: string; end?: string };
     bullets: string[];
-  }>;
-  projects: Array<{
-    name: string; situation: string; task: string;
-    action: string; result: string; supplementary?: string;
   }>;
   educations: Array<{
     school: string; degree: string;
     period: { start: string; end?: string };
   }>;
   skills: Array<{ category: string; items: string[] }>;
+  social?: Array<{ kind: string; label?: string; handle: string }>;
+  custom?: Array<{ label: string; value: string }>;
 }
 
 export interface DraftedResume {
   view: ResumeDraftView;
-  pdf: Buffer;
 }
 
 export async function resumeDraft(
@@ -88,20 +89,15 @@ export async function resumeDiscardDraft(
   });
 }
 
-// extractDrafted —— turn a [TextContent, EmbeddedResource] tuple into our
-// typed view + decoded PDF bytes. Throws if either is missing / wrong type.
+// extractDrafted —— pull the single TextContent JSON view out of the
+// MCP response.
 function extractDrafted(parts: MCPContent[]): DraftedResume {
   const textPart = parts.find((p) => p.type === 'text');
-  const resPart = parts.find((p) => p.type === 'resource');
   if (!textPart || textPart.type !== 'text') {
     throw new Error('resume.draft: missing text content');
   }
-  if (!resPart || resPart.type !== 'resource') {
-    throw new Error('resume.draft: missing embedded PDF resource');
-  }
   const view = JSON.parse(textPart.text) as ResumeDraftView;
-  const pdf = Buffer.from(resPart.resource.blob, 'base64');
-  return { view, pdf };
+  return { view };
 }
 
 interface SubmissionHint {
@@ -158,26 +154,53 @@ export function sampleResumeContent(overrides?: Partial<ResumeContent>): ResumeC
       email: 'alice@example.com',
       phone: '+1 415 555 0100',
       location_line: 'San Francisco, CA',
-      links: [{ label: 'GitHub', url: 'https://github.com/alice' }],
+      site: 'standmeet.com/alice',
     },
-    summary: 'Backend engineer focused on self-hostable platforms.',
-    works: [{
-      title: 'Staff Engineer', company: 'Acme', location: 'Remote',
-      period: { start: '2023-01', end: '2026-04' },
-      bullets: ['Shipped X', 'Cut Y latency 40%'],
-    }],
-    projects: [{
-      name: 'StandMeet',
-      situation: 'Owner ingestion was manual',
-      task: 'Build MCP write tools',
-      action: 'Designed jobs/* + resume/* surface',
-      result: 'Owner pushes content directly from Claude Desktop',
-    }],
-    educations: [{
-      school: 'UC Berkeley', degree: 'BS EECS',
-      period: { start: '2014-09', end: '2018-05' },
-    }],
-    skills: [{ category: 'Languages', items: ['Go', 'TypeScript'] }],
+    summary: 'Backend engineer focused on self-hostable platforms. I think the eval is the product; the model is the tax. Tailored for this loop on the rebuilt-eval story — top-1 retrieval 38% → 71% over nine months at a 2023 launch.',
+    cover_letter: `Dear team,
+
+The role caught my eye for the obvious reason — what I think about retrieval is downstream of the eval, and the way you're framing this role tells me you're making the same wager.
+
+I led retrieval-quality for a 2023 product launch at Acme; we moved top-1 from 38% to 71% over nine months. The story I want to tell on a call isn't the number — it's the reframe: half of the gain was modeling, half was rebuilding the eval to measure something that mattered. I expect that frame is portable to your stack.
+
+Happy to share more on a 30-min call. The QR on page 1 also drops you straight into a chat with my AI · grounded in my corpus · scoped for this conversation.
+
+— Alice`,
+    works: [
+      {
+        title: 'staff engineer', company: 'Acme', location: 'Remote',
+        period: { start: '2023-01', end: '' },
+        bullets: [
+          'Led retrieval-quality for the 2023 product launch — top-1 38% → 71% in nine months. Half of the gain was modeling, half was rebuilding the eval rubric to measure something that mattered.',
+          'Authored the team’s ML-onboarding doc, copied into three adjacent teams.',
+          'Hold technical bar on a four-person backend; wrote ~60% of the production code.',
+        ],
+      },
+      {
+        title: 'software engineer', company: 'Stripe', location: 'SF',
+        period: { start: '2018-06', end: '2022-12' },
+        bullets: [
+          'Payments reliability — wrote idempotency-layer caching that handled ~12% of total traffic.',
+          'Pre-Acme career step; mostly distributed systems and on-call discipline.',
+        ],
+      },
+    ],
+    educations: [
+      { school: 'UC Berkeley', degree: 'BS, EECS', period: { start: '2014-09', end: '2018-05' } },
+    ],
+    skills: [
+      { category: 'core', items: ['retrieval / RAG', 'evaluation methodology', 'distributed systems'] },
+      { category: 'lang', items: ['Go', 'TypeScript', 'Python'] },
+    ],
+    social: [
+      { kind: 'linkedin', handle: 'linkedin.com/in/alice' },
+      { kind: 'github', handle: 'github.com/alice' },
+      { kind: 'twitter', handle: '@alice' },
+    ],
+    custom: [
+      { label: 'languages', value: 'English · Mandarin · learning German' },
+      { label: 'side', value: 'modal logic; running 50km/wk' },
+    ],
     ...overrides,
   };
 }

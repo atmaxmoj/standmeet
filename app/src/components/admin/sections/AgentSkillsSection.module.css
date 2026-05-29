@@ -1,0 +1,27 @@
+/* AgentSkillsSection styles —— tab bar + shared card padding. Bulk of
+   per-card layout lives in InstalledCard.module.css / MarketplaceCard.module.css
+   so tab bodies stay declarative. */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabBtn,
+.tabBtnActive {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  border-bottom: 1px solid transparent;
+}
+
+.tabBtnActive {
+  color: var(--color-ink);
+  border-bottom-color: var(--color-accent);
+}

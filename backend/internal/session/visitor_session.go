@@ -41,17 +41,19 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 // 用 HKDF(session_token) 派生的 AES-GCM 解封即用即丢。
 // 集中存储：browser 一处，session 不分摊。
 type VisitorSessionData struct {
-	ExpiresAt         time.Time               `json:"expires_at"`
-	OwnerID           string                  `json:"owner_id"`
-	Mode              string                  `json:"mode"`
-	CodeID            string                  `json:"code_id"`
-	MemberID          string                  `json:"member_id"`
-	VisitorName       string                  `json:"visitor_name"`
-	CorpusPermissions []domain.PathPermission `json:"corpus_permissions"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	MaxBookings *int32    `json:"max_bookings,omitempty"`
+	OwnerID     string    `json:"owner_id"`
+	Mode        string    `json:"mode"`
+	CodeID      string    `json:"code_id"`
+	MemberID    string    `json:"member_id"`
+	VisitorName string    `json:"visitor_name"`
 	// SkillPrompts —— InviteCode 选中 skill 的 prompt 列表（按 name asc 排序
 	// 写入）。visitor_chat.buildSystemPrompt 拼 base persona + skill prompts。
-	// session-time 解算固化到 Redis，避免每次 chat 都查 DB。
 	SkillPrompts []string `json:"skill_prompts,omitempty"`
+	// GrantedSkills —— code 解锁的 agent skill 标识 (e.g. ['calendar.book'])。
+	GrantedSkills     []string                `json:"granted_skills,omitempty"`
+	CorpusPermissions []domain.PathPermission `json:"corpus_permissions"`
 }
 
 // VisitorSessionStore wrap Redis 提供 visitor session CRUD。

@@ -6,6 +6,7 @@ package main
 
 import (
 	"github.com/wangsijie/standmeet/internal/mcp"
+	adminroutes "github.com/wangsijie/standmeet/internal/routes/admin"
 	publicroutes "github.com/wangsijie/standmeet/internal/routes/public"
 	sysroutes "github.com/wangsijie/standmeet/internal/routes/sys"
 	"github.com/wangsijie/standmeet/internal/server"
@@ -35,8 +36,13 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 			Log:    d.log,
 		},
-		Builds:          sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
-		TLSAsk:          sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
+		Builds:        sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
+		TLSAsk:        sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
+		PrintSession:  sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
+		TestToolSpecs: buildTestToolSpecsDeps(d),
+		TestGCalExpire: sysroutes.TestGCalExpireDeps{
+			Owners: d.ownerRepo, DB: d.db, Log: d.log,
+		},
 		MCP:             buildMCPDeps(d),
 		CaptchaVerifier: d.captchaVerifier,
 	}
@@ -68,8 +74,24 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Owners:         d.ownerRepo,
 		Drafts:         d.resumeDraftRepo,
 		Applications:   d.applicationRepo,
-		Sessions:       d.sessionStore,
-		SecureCookie:   d.secureCookie,
+		Marketplace:    usecases.MarketplaceDeps{Client: d.marketplaceClient},
+		Calendar: adminroutes.CalendarAdminDeps{
+			Repo: d.calendarRepo, GCal: d.gcalClient, Redis: d.rdb,
+		},
+		Sessions:     d.sessionStore,
+		SecureCookie: d.secureCookie,
+	}
+}
+
+// buildTestToolSpecsDeps —— compose visitor deps for the /test/visitor-tool-specs
+// sys route. Visitor deps shape matches what publicroutes.Handlers uses but
+// is also reusable here without a deep-copy.
+func buildTestToolSpecsDeps(d *runtimeDeps) sysroutes.TestToolSpecsDeps {
+	visitor := buildPublicDeps(d).Visitor
+	return sysroutes.TestToolSpecsDeps{
+		Sessions: d.visitorStore,
+		Visitor:  &visitor,
+		Log:      d.log,
 	}
 }
 
@@ -83,6 +105,8 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			Sandbox:    d.sandboxRunner,
 			Owners:     d.ownerRepo, Sessions: d.visitorStore,
 			Queue: d.queryQueue, Resolver: d.providerResolver,
+			Calendar: calendarStoreAdapter{repo: d.calendarRepo},
+			GCal:     calendarClientAdapter{client: d.gcalClient},
 		},
 		Sessions: d.visitorStore,
 		Log:      d.log,
@@ -143,6 +167,7 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Resume: usecases.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool},
 		Applications: usecases.ApplicationsDeps{
 			Apps: d.applicationRepo, Owners: d.ownerRepo,
+			Renderer: d.pdfRenderer,
 		},
 		Conversations: usecases.ConversationsDeps{
 			Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,

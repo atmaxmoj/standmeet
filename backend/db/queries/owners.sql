@@ -60,6 +60,12 @@ SET password_hash = $2
 WHERE id = $1
 RETURNING *;
 
+-- name: UpdateOwnerProfileTimezone :one
+UPDATE owners
+SET profile_timezone = $2
+WHERE id = $1
+RETURNING *;
+
 -- name: GetOwnerPasswordHash :one
 SELECT password_hash FROM owners WHERE id = $1;
 

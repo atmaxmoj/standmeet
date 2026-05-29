@@ -17,6 +17,14 @@ services:
     build:
       context: ./app
     restart: unless-stopped
+    # Dotted alias: single-token "app" hostname triggers Chromium's
+    # HTTPS-upgrade heuristic when gotenberg fetches the print URL
+    # (ERR_SSL_PROTOCOL_ERROR). Reaching it via app.standmeet.local skips
+    # that heuristic.
+    networks:
+      default:
+        aliases:
+          - app.standmeet.local
     environment:
       - BACKEND_URL=http://backend:8000
       - NODE_ENV=production
@@ -72,6 +80,34 @@ services:
       - HN_BASE_URL=http://job-board-mock:9000/hn
       - SMARTRECRUITERS_BASE_URL=http://job-board-mock:9000/smartrecruiters
       - WORKABLE_BASE_URL=http://job-board-mock:9000/workable
+      # Skill-marketplace search proxy upstreams. Both point at the
+      # job-board-mock service in dev/e2e so the search never touches
+      # public internet (rate limits / determinism). Production leaves
+      # these unset → real api.github.com / api.skillsmp.com.
+      - MARKETPLACE_GITHUB_BASE_URL=http://job-board-mock:9000/marketplace/github
+      - MARKETPLACE_SKILLSMP_BASE_URL=http://job-board-mock:9000/marketplace/skillsmp
+      # Gotenberg sidecar (headless Chromium) for resume PDF rendering.
+      # applications.commit POSTs the admin /print/application URL here and
+      # streams the rendered bytes back to Claude. Unset → NoopRenderer →
+      # commit fails with ErrNotConfigured (e2e fallback during dev).
+      - GOTENBERG_URL=http://gotenberg:3000
+      # The app URL gotenberg loads to render the print view. The dotted
+      # alias avoids Chromium's single-word-hostname HTTPS-upgrade heuristic
+      # (which gives ERR_SSL_PROTOCOL_ERROR on plain `http://app:3000`).
+      - PRINT_BASE_URL=http://app.standmeet.local:3000
+      # Google OAuth + Calendar overrides → point at the in-stack mock.
+      # GOOGLE_AUTH_URL is the consent-page base; backend embeds it
+      # verbatim into the auth URL it returns to the BROWSER, so it must
+      # be host-reachable (localhost). The other two are POSTed by the
+      # backend itself, so they use the service-name address.
+      # Unset in prod → backend talks to real Google.
+      - GOOGLE_AUTH_URL=http://localhost:9000/google-oauth/auth
+      - GOOGLE_TOKEN_URL=http://job-board-mock:9000/google-oauth/token
+      - GOOGLE_CALENDAR_BASE=http://job-board-mock:9000/google-calendar
+      # Mock LLM scripting bridge: backend's MockProvider polls this URL
+      # for the next scripted tool call before each agent step. e2e specs
+      # POST {name,args} via /__mock/inference/next_tool to script.
+      - INFERENCE_MOCK_SCRIPT_URL=http://job-board-mock:9000
     depends_on:
       db:
         condition: service_healthy
@@ -80,6 +116,8 @@ services:
       job-board-mock:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -132,7 +170,9 @@ services:
       # via curl. Backend talks via the internal docker network.
       - "9000:9000"
     volumes:
-      - ./e2e/fixtures/job-boards:/fixtures:ro
+      # Whole fixtures dir; mock reads job-boards/{kind}/ + marketplace/
+      # as siblings under /fixtures.
+      - ./e2e/fixtures:/fixtures:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/__mock/state"]
       interval: 3s
@@ -185,6 +225,33 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+
+  # gotenberg —— headless Chromium PDF rendering sidecar. backend POSTs the
+  # admin /print/application/<id> URL here at applications.commit time;
+  # gotenberg loads it (Chromium = same engine as owner's preview), waits
+  # for fonts + JS + network idle, prints to PDF, returns the bytes.
+  #
+  # We don't expose it to the host — it's an internal service the backend
+  # alone consumes. v8 is the LTS line at 2026-05; chromium bundled.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    # Gotenberg 8 ships with a default deny-list that blocks private /
+    # docker-compose IPs (172.x, 10.x, etc), which would 403 us on every
+    # render. Empty deny + allow-anything matches the dev posture
+    # (gotenberg is internal-only, no host-side ingress).
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=false
+      - --chromium-deny-list=
+      - --chromium-allow-list=.*
+      - --api-timeout=60s
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
 
   # minio —— S3-compatible object storage for owner-uploaded images +
   # attachments (post covers, raw entry attachments, custom page assets).

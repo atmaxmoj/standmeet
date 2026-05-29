@@ -48,7 +48,11 @@ test.describe('admin dashboard', () => {
   test('sparkline SVG renders',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'dashboard');
-      await expect(adminPage.getByTestId('sparkline')).toBeVisible({ timeout: 5_000 });
+      // Scope by aria-label — multiple sparklines now coexist on the
+      // dashboard (corpus pulse + ingest "entries per day"), so a bare
+      // getByTestId('sparkline') would fail strict mode with 2 matches.
+      await expect(adminPage.getByRole('img', { name: 'corpus pulse · 14d' }))
+        .toBeVisible({ timeout: 5_000 });
     });
 
   test('jump links → click "raw" → navigate to admin raw',

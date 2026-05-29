@@ -1,0 +1,20 @@
+/* DraftThumb —— framed scaled ResumePage. Width:height locked to 8.5:11
+   so the scaled child fits its grid cell exactly without overflow. */
+
+.thumb {
+  width: 100%;
+  aspect-ratio: 8.5 / 11;
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--color-surface) 60%, transparent);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Center the scaled page inside the box; the ResumePage component's
+   transform-origin is top-left, so the scaled child sits at 0,0 by
+   default — explicit 0/0 keeps it pinned even if the design changes. */
+.thumb > * {
+  position: absolute;
+  inset: 0;
+}

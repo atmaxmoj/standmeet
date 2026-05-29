@@ -52,6 +52,30 @@ type Config struct {
 	StorageSecretKey string
 	StorageBucket    string
 	StoragePublicURL string
+	// GotenbergURL / PrintBaseURL —— resume PDF 渲染配置。两个都填才生效；
+	// 任一为空 = NoopRenderer，applications.commit 报 ErrNotConfigured。
+	//   GOTENBERG_URL  — sidecar HTTP base (compose service "gotenberg")
+	//   PRINT_BASE_URL — app 容器对 gotenberg 暴露的 base URL，print 路由会
+	//                    被拼到这后面（gotenberg 抓 <base>/print/application/<id>?token=…）
+	GotenbergURL string
+	PrintBaseURL string
+	// MarketplaceGitHubBaseURL / MarketplaceSkillsMPBaseURL —— skill
+	// marketplace upstream overrides. Empty = use real GitHub / SkillsMP.
+	// dev/e2e point both at the job-board-mock service so the search
+	// proxy never touches the public internet.
+	MarketplaceGitHubBaseURL   string
+	MarketplaceSkillsMPBaseURL string
+	// Google Calendar overrides. Empty = real prod endpoints; e2e points
+	// these at the in-stack mock so OAuth + Calendar API never touch the
+	// public internet during tests.
+	//   GOOGLE_AUTH_URL       — consent-page base URL
+	//   GOOGLE_TOKEN_URL      — token exchange POST endpoint
+	//   GOOGLE_CALENDAR_BASE  — calendar v3 base URL
+	//   GCAL_REDIRECT_URI     — owner OAuth callback URL (back to admin)
+	GoogleAuthURL      string
+	GoogleTokenURL     string
+	GoogleCalendarBase string
+	GCalRedirectURI    string
 	// QueryQueueMaxConcurrent —— visitor chat agent loop 全局并发上限；
 	// 防一个 owner 的 anthropic 配额被并发访客打爆。≤0 关闭限流（dev 默认）。
 	// env: QUERY_QUEUE_MAX_CONCURRENT
@@ -96,6 +120,14 @@ func Load() (*Config, error) {
 		StorageSecretKey:               os.Getenv("STORAGE_SECRET_KEY"),
 		StorageBucket:                  os.Getenv("STORAGE_BUCKET"),
 		StoragePublicURL:               os.Getenv("STORAGE_PUBLIC_URL"),
+		GotenbergURL:                   os.Getenv("GOTENBERG_URL"),
+		PrintBaseURL:                   os.Getenv("PRINT_BASE_URL"),
+		MarketplaceGitHubBaseURL:       os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
+		MarketplaceSkillsMPBaseURL:     os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
+		GoogleAuthURL:                  os.Getenv("GOOGLE_AUTH_URL"),
+		GoogleTokenURL:                 os.Getenv("GOOGLE_TOKEN_URL"),
+		GoogleCalendarBase:             os.Getenv("GOOGLE_CALENDAR_BASE"),
+		GCalRedirectURI:                os.Getenv("GCAL_REDIRECT_URI"),
 		StorageUseSSL:                  os.Getenv("STORAGE_USE_SSL") == "true",
 		SecureCookie:                   envOr("SECURE_COOKIE", "true") == "true",
 	}

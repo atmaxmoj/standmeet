@@ -60,10 +60,14 @@ services:
       - INFERENCE_ANTHROPIC_KEY=${INFERENCE_ANTHROPIC_KEY:-}
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - PUBLIC_URL=${PUBLIC_URL}
+      - GOTENBERG_URL=http://gotenberg:3000
+      - PRINT_BASE_URL=http://app:3000
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
     volumes:
       - custom_pages_data:/srv/custom-pages
@@ -112,6 +116,22 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+
+  # gotenberg —— headless Chromium PDF rendering sidecar. See dev compose
+  # comment for the why; same role here.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=false
+      - --api-timeout=60s
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
 
 volumes:
   pgdata: {}

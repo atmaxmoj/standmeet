@@ -1,18 +1,16 @@
 // resume_tools.go —— MCP tools 的 resume.* group：draft / update_draft / discard_draft。
 //
-// 见 docs/design/job-loop.md "MCP tool surface" 节。draft 和 update_draft 返多 content
-// item：① TextContent JSON（draft_id / job_snapshot 等结构化数据），② EmbeddedResource
-// 带 base64 PDF blob —— Claude 客户端可以直接展示给 owner。
+// 见 docs/design/job-loop.md "MCP tool surface" 节。draft / update_draft 返回纯
+// JSON state（draft_id / job_snapshot / resume_content snapshot）—— owner 走 admin
+// 浏览器看 React `ResumePage` 的 live preview，PDF 不在 server 侧渲染。
 //
-// 关键设计：preview PDF 不落盘 —— 调用一次 tool 现场用 gopdf 渲染 bytes，每次都
-// 走同一份 resumerender.Render()。Phase 3 commit 用同一渲染器渲染最终版（QR 换成
-// 真 AccessCode URL），从而保证 owner preview 的 layout 跟 recruiter 收到的一致。
+// 终稿 PDF（带真 AccessCode QR）只在 `applications.commit` 调 gotenberg 渲一次，
+// 那条路径才走 `applications_tools.go` 的 EmbeddedResource。
 
 package mcp
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,8 +23,6 @@ import (
 )
 
 const (
-	mimePDF              = "application/pdf"
-	previewURIScheme     = "standmeet://resume-draft/" // suffix = draft id
 	resumeContentArgKey  = "resume_content"
 	resumeContentMissing = "resume_content is required"
 )
@@ -43,12 +39,13 @@ func resumeDraftTool() mcpgo.Tool {
 	return mcpgo.NewTool(
 		"resume.draft",
 		mcpgo.WithDescription(
-			"Curate a tailored resume for a cached job and get a preview PDF. "+
-				"Pass job_cache_id from jobs.fetch_new and a structured resume_content "+
-				"(identity / summary / works / projects / educations / skills). "+
-				"Returns a draft_id and an embedded PDF resource (preview-only QR; the final "+
-				"QR with the recruiter access code is generated at applications.commit time). "+
-				"Draft TTL = 24h, same as the job cache pool.",
+			"Curate a tailored resume for a cached job and stash it as a draft. "+
+				"Pass job_cache_id from jobs.fetch_new plus a structured resume_content "+
+				"(identity / summary / works / educations / skills / social / custom / "+
+				"cover_letter). Returns a draft_id plus the persisted job_snapshot. "+
+				"Owner opens the admin preview at /admin/drafts/<draft_id> to review; "+
+				"the final PDF (with real recruiter QR) is rendered by "+
+				"applications.commit, not here. Draft TTL = 24h, same as the job cache pool.",
 		),
 		mcpgo.WithString("job_cache_id", mcpgo.Required(),
 			mcpgo.Description("cache_id returned by jobs.fetch_new.")),
@@ -118,9 +115,9 @@ func resumeUpdateDraftTool() mcpgo.Tool {
 	return mcpgo.NewTool(
 		"resume.update_draft",
 		mcpgo.WithDescription(
-			"Replace the structured content of an existing draft and get a fresh preview PDF. "+
-				"job_snapshot is preserved (drafts snapshot the job at creation time and never "+
-				"refetch).",
+			"Replace the structured content of an existing draft. job_snapshot is "+
+				"preserved (drafts snapshot the job at creation time and never refetch). "+
+				"Owner sees the updated layout immediately in the admin live preview.",
 		),
 		mcpgo.WithString("draft_id", mcpgo.Required(),
 			mcpgo.Description("draft id returned by resume.draft.")),
@@ -194,7 +191,9 @@ func parseResumeContentArg(
 	return &content, nil
 }
 
-// draftedResumeResult —— 拼 [text(json), embedded(pdf)] 多 content 结果。
+// draftedResumeResult —— pure JSON content. PDF rendering lives in the
+// admin browser (live React preview) and in applications.commit (final
+// gotenberg render); neither involves this MCP tool.
 func draftedResumeResult(deps *Deps, d *usecases.DraftedResume) *mcpgo.CallToolResult {
 	view := resumeDraftView(&d.Draft)
 	jsonBytes, err := json.Marshal(view)
@@ -205,11 +204,6 @@ func draftedResumeResult(deps *Deps, d *usecases.DraftedResume) *mcpgo.CallToolR
 	return &mcpgo.CallToolResult{
 		Content: []mcpgo.Content{
 			mcpgo.TextContent{Type: mcpgo.ContentTypeText, Text: string(jsonBytes)},
-			mcpgo.NewEmbeddedResource(mcpgo.BlobResourceContents{
-				URI:      previewURIScheme + d.Draft.ID,
-				MIMEType: mimePDF,
-				Blob:     base64.StdEncoding.EncodeToString(d.PDF),
-			}),
 		},
 	}
 }

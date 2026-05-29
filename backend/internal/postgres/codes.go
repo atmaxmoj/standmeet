@@ -32,30 +32,47 @@ type CreateCodeInput struct {
 	ExpiresAt            *time.Time
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
+	MaxBookings          *int32
 	OwnerID              string
 	Code                 string
 	Label                string
 	Purpose              string
 	CorpusPermissions    []domain.PathPermission
 	SuggestedQuestions   []string
+	GrantedSkills        []string
 }
 
 // Create 写一条 access_code。
 func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.AccessCode, error) {
+	params, perr := buildCreateCodeParams(in)
+	if perr != nil {
+		return domain.AccessCode{}, perr
+	}
+	row, err := dbq.New(r.pool).CreateAccessCode(ctx, *params)
+	if err != nil {
+		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)
+	}
+	return toDomainCode(&row), nil
+}
+
+func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.AccessCode{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	qs, jerr := json.Marshal(in.SuggestedQuestions)
 	if jerr != nil {
-		return domain.AccessCode{}, fmt.Errorf("marshal suggested questions: %w", jerr)
+		return nil, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
 	perms, perr := json.Marshal(in.CorpusPermissions)
 	if perr != nil {
-		return domain.AccessCode{}, fmt.Errorf("marshal corpus permissions: %w", perr)
+		return nil, fmt.Errorf("marshal corpus permissions: %w", perr)
 	}
-	q := dbq.New(r.pool)
-	row, err := q.CreateAccessCode(ctx, dbq.CreateAccessCodeParams{
+	grants := in.GrantedSkills
+	if grants == nil {
+		grants = []string{}
+	}
+	return &dbq.CreateAccessCodeParams{
 		OwnerID:              ownerUUID,
 		Code:                 in.Code,
 		Label:                in.Label,
@@ -65,11 +82,9 @@ func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.Acce
 		ExpiresAt:            ptrToTimestamptz(in.ExpiresAt),
 		MaxSessionsPerMember: in.MaxSessionsPerMember,
 		MaxTurnsPerSession:   in.MaxTurnsPerSession,
-	})
-	if err != nil {
-		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)
-	}
-	return toDomainCode(&row), nil
+		GrantedSkills:        grants,
+		MaxBookings:          in.MaxBookings,
+	}, nil
 }
 
 // UpdatePermissions —— 改某 code 的 corpus_permissions。
@@ -269,8 +284,10 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 		CreatedAt:            c.CreatedAt.Time,
 		MaxSessionsPerMember: c.MaxSessionsPerMember,
 		MaxTurnsPerSession:   c.MaxTurnsPerSession,
+		MaxBookings:          c.MaxBookings,
 		SuggestedQuestions:   decodeStringJSON(c.SuggestedQuestions),
 		CorpusPermissions:    decodePermissionsJSON(c.CorpusPermissions),
+		GrantedSkills:        c.GrantedSkills,
 	}
 	if c.ExpiresAt.Valid {
 		t := c.ExpiresAt.Time

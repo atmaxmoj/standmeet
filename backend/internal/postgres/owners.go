@@ -78,13 +78,14 @@ func pgUniqueViolation(err error) (string, bool) {
 // settings 字段通过 toOwnerSettings 单独解（同一行 owners 表 row 拆两面）。
 func toDomainOwner(o *dbq.Owner) domain.Owner {
 	return domain.Owner{
-		ID:        formatUUID(o.ID),
-		Email:     o.Email,
-		Handle:    o.Handle,
-		FullName:  o.FullName,
-		Location:  o.Location,
-		PublicURL: o.PublicUrl,
-		CreatedAt: o.CreatedAt.Time,
+		ID:              formatUUID(o.ID),
+		Email:           o.Email,
+		Handle:          o.Handle,
+		FullName:        o.FullName,
+		Location:        o.Location,
+		PublicURL:       o.PublicUrl,
+		ProfileTimezone: o.ProfileTimezone,
+		CreatedAt:       o.CreatedAt.Time,
 	}
 }
 

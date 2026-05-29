@@ -2,10 +2,13 @@
 // 把 (job_cache_id + resume_content) 交进来：
 //   1. 从 Redis 池子取出 FetchedJob 当 snapshot（draft 创建即固化，不依赖 cache）
 //   2. 落 resume_drafts 表（1d TTL，跟 Redis 同周期）
-//   3. **现场**渲染 preview PDF bytes 塞响应（preview QR 用 placeholder URL，
-//      正式 QR 在 Phase 3 commit 时才有 AccessCode 可用）
 //
-// PDF 不落盘 —— bytes 走 MCP 响应回 Claude，Claude 给 owner 看，丢就丢。
+// PDF 这一步不渲染 —— owner 走 admin 浏览器看 React `ResumePage` live preview，
+// 想下载就在浏览器里点 print / save。`applications.commit` 才走 gotenberg 渲染
+// 终稿 PDF（带真 AccessCode QR）。
+//
+// 这样 draft / preview 不依赖 sidecar，编辑体验是即时的；server 端只持有结构
+// 化 state。
 
 package usecases
 
@@ -17,12 +20,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/jobcache"
 	"github.com/wangsijie/standmeet/internal/postgres"
-	"github.com/wangsijie/standmeet/internal/resumerender"
 )
-
-// previewQRPlaceholder —— preview 用的固定 URL，提示 owner "这是预览不是终稿"。
-// commit 阶段会换成 `<base_url>/<handle>?code=<access_code>`。
-const previewQRPlaceholder = "preview://standmeet/draft"
 
 // ResumeDeps —— resume.* usecase 依赖。
 type ResumeDeps struct {
@@ -30,15 +28,14 @@ type ResumeDeps struct {
 	Cache  *jobcache.Pool
 }
 
-// DraftedResume —— resume.draft / update_draft 的返回。PDF 是当下渲染的 bytes，
-// 不落盘；调用方决定怎么序列化（base64 / MCP resource link 等）。
+// DraftedResume —— resume.draft / update_draft 的返回。结构化 view only；PDF
+// 由 admin 浏览器现场渲染（React `ResumePage`），不经 server。
 type DraftedResume struct {
 	Draft domain.ResumeDraft
-	PDF   []byte
 }
 
 // DraftResume —— Claude 调 resume.draft：拿 Redis 池子里的 job snapshot，
-// 落 draft 表，渲染 preview PDF bytes 一并返。
+// 落 draft 表。
 func DraftResume(
 	ctx context.Context, deps ResumeDeps, ownerID, jobCacheID string, content *domain.ResumeContent,
 ) (DraftedResume, error) {
@@ -58,11 +55,11 @@ func DraftResume(
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("create draft: %w", err)
 	}
-	return renderDrafted(&draft)
+	return DraftedResume{Draft: draft}, nil
 }
 
-// UpdateResumeDraft —— Claude 调 resume.update_draft 调整 content；
-// 重新渲染 preview PDF bytes 返。job_snapshot 不变（draft 创建时即固化）。
+// UpdateResumeDraft —— Claude 调 resume.update_draft 调整 content。
+// job_snapshot 不变（draft 创建时即固化）。
 func UpdateResumeDraft(
 	ctx context.Context, deps ResumeDeps, ownerID, draftID string, content *domain.ResumeContent,
 ) (DraftedResume, error) {
@@ -73,7 +70,7 @@ func UpdateResumeDraft(
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("update draft: %w", err)
 	}
-	return renderDrafted(&draft)
+	return DraftedResume{Draft: draft}, nil
 }
 
 func requireFields(s1, s2 string, content *domain.ResumeContent) error {
@@ -94,14 +91,6 @@ func loadJobSnapshot(
 		return domain.FetchedJob{}, fmt.Errorf("cache get: %w", err)
 	}
 	return snapshot, nil
-}
-
-func renderDrafted(draft *domain.ResumeDraft) (DraftedResume, error) {
-	pdf, err := resumerender.Render(&draft.ResumeContent, previewQRPlaceholder)
-	if err != nil {
-		return DraftedResume{}, fmt.Errorf("render preview pdf: %w", err)
-	}
-	return DraftedResume{Draft: *draft, PDF: pdf}, nil
 }
 
 // DiscardResumeDraft —— resume.discard_draft；idempotent（owner 不匹配/已删都静默成功）。

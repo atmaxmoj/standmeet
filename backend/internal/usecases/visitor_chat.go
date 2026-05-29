@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/wangsijie/standmeet/internal/domain"
@@ -30,12 +29,15 @@ const queryQueueTimeout = 15 * time.Second
 // fieldalignment：BYOAI pointer 跟 strings 交错；govet 推荐顺序见 lint 输出。
 type SendMessageInput struct {
 	BYOAI          *domain.AICredential
+	MaxBookings    *int32
 	OwnerID        string
 	ConversationID string
 	Body           string
 	Mode           string
+	CodeID         string
 	Permissions    []domain.PathPermission
 	SkillPrompts   []string
+	GrantedSkills  []string
 }
 
 // MessageEvent —— chat 流式事件（token / done / error）。
@@ -68,7 +70,8 @@ func SendMessage(
 	out := make(chan MessageEvent, messageEventBufSize)
 	go streamReply(ctx, &streamArgs{
 		deps: deps, provider: prep.provider, in: in,
-		retr: prep.retr, skills: prep.skills, extMCP: prep.extMCP, out: out,
+		retr: prep.retr, skills: prep.skills, extMCP: prep.extMCP,
+		booker: prep.booker, out: out,
 	})
 	return out, nil
 }
@@ -97,6 +100,7 @@ type sendPrep struct {
 	retr     *retriever
 	skills   *skillToolBundle
 	extMCP   *externalMCPBundle
+	booker   *bookerBundle
 }
 
 // prepareSend —— SendMessage 前的全部 setup。
@@ -107,11 +111,27 @@ func prepareSend(
 	if err != nil {
 		return sendPrep{}, err
 	}
+	if aerr := appendVisitorTurn(ctx, deps, in); aerr != nil {
+		return sendPrep{}, aerr
+	}
+	return assembleBundles(ctx, deps, in, provider)
+}
+
+func appendVisitorTurn(
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
+) error {
 	if _, werr := deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
 		ConversationID: in.ConversationID, Role: "visitor", Body: in.Body,
 	}); werr != nil {
-		return sendPrep{}, fmt.Errorf("append visitor message: %w", werr)
+		return fmt.Errorf("append visitor message: %w", werr)
 	}
+	return nil
+}
+
+func assembleBundles(
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
+	provider inference.Provider,
+) (sendPrep, error) {
 	retr, lerr := buildRetriever(ctx, deps, in.OwnerID, in.Permissions)
 	if lerr != nil {
 		return sendPrep{}, lerr
@@ -120,9 +140,14 @@ func prepareSend(
 	if serr != nil {
 		return sendPrep{}, serr
 	}
-	extMCP := buildExternalMCPBundle(ctx, deps, in)
+	booker, berr := buildBookerBundle(ctx, deps, in)
+	if berr != nil {
+		return sendPrep{}, berr
+	}
 	return sendPrep{
-		provider: provider, retr: retr, skills: skills, extMCP: extMCP,
+		provider: provider, retr: retr, skills: skills,
+		extMCP: buildExternalMCPBundle(ctx, deps, in),
+		booker: booker,
 	}, nil
 }
 
@@ -232,85 +257,8 @@ func listPostsForRetrieval(
 	return posts
 }
 
-// streamArgs —— streamReply 的入参打包；revive 限制函数最多 5 个参数。
-type streamArgs struct {
-	deps     *VisitorDeps
-	provider inference.Provider
-	in       *SendMessageInput
-	out      chan<- MessageEvent
-	retr     *retriever
-	skills   *skillToolBundle
-	extMCP   *externalMCPBundle
-}
-
-func streamReply(ctx context.Context, args *streamArgs) {
-	defer close(args.out)
-	defer releaseQuerySlot(args.deps, args.in.ConversationID)
-	defer args.extMCP.Close()
-	chunks, ierr := args.provider.Stream(ctx, buildChatRequest(args))
-	if ierr != nil {
-		args.out <- MessageEvent{Kind: "error", Err: ierr}
-		return
-	}
-	full, ok := pumpChunks(chunks, args.out)
-	if !ok {
-		return
-	}
-	args.out <- emitDoneEvent(ctx, &doneInput{
-		deps: args.deps, in: args.in, full: full, retr: args.retr,
-	})
-}
-
-func buildChatRequest(args *streamArgs) *inference.ChatRequest {
-	tools := append(retrievalToolSpecs(), args.skills.Specs()...)
-	tools = append(tools, args.extMCP.Specs()...)
-	return &inference.ChatRequest{
-		System:      buildSystemPrompt(args.in.SkillPrompts),
-		Messages:    []inference.Message{{Role: "user", Content: args.in.Body}},
-		Tools:       tools,
-		ExecuteTool: makeChatExecutor(args.retr, args.skills, args.extMCP),
-	}
-}
-
-// makeChatExecutor —— 复合 dispatcher：
-//   - skill_*  → sandbox bundle (owner-curated 脚本)
-//   - ext_*    → external MCP bundle (owner-registered 外部 server)
-//   - 其他     → retrieval bundle (search/read/list_corpus_entries)
-func makeChatExecutor(
-	retr *retriever, skills *skillToolBundle, ext *externalMCPBundle,
-) inference.ToolExecutor {
-	return func(ctx context.Context, name string, input []byte) (string, error) {
-		if skills != nil && skills.Has(name) {
-			return skills.Execute(ctx, name, input)
-		}
-		if ext != nil && ext.Has(name) {
-			return ext.Execute(ctx, name, input)
-		}
-		return retr.Execute(ctx, name, input)
-	}
-}
-
-// pumpChunks 推送 token events；done 信号到达返 (full, true)；
-// error chunk 已 emit error event 后返 ("", false)。
-func pumpChunks(
-	chunks <-chan inference.Chunk, out chan<- MessageEvent,
-) (string, bool) {
-	var parts []string
-	for ch := range chunks {
-		if ch.Error != nil {
-			out <- MessageEvent{Kind: "error", Err: ch.Error}
-			return "", false
-		}
-		if ch.Text != "" {
-			parts = append(parts, ch.Text)
-			out <- MessageEvent{Kind: "token", Text: ch.Text}
-		}
-		if ch.Done {
-			return strings.Join(parts, ""), true
-		}
-	}
-	return strings.Join(parts, ""), true
-}
+// streamReply / buildChatRequest / makeChatExecutor / pumpChunks 拆到
+// visitor_chat_stream.go，守 350-line cap。
 
 // doneInput —— emitDoneEvent 入参打包；revive argument-limit ≤ 5。
 type doneInput struct {

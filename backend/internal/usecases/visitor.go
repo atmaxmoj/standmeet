@@ -30,10 +30,14 @@ type VisitorDeps struct {
 	Owners     *postgres.OwnerRepo
 	Skills     *postgres.SkillRepo
 	MCPServers *postgres.MCPServerRepo
-	Sandbox    sandbox.Runner
-	Sessions   *session.VisitorSessionStore
-	Queue      *session.QueryQueue
-	Resolver   inference.Resolver
+	// Calendar / GCal —— 可选 (admin 没装 connector 时 nil-tolerant)。
+	// bookerBundle 在 buildBookerBundle 里检查 nil 并 silently skip。
+	Calendar CalendarStore
+	GCal     CalendarClient
+	Sandbox  sandbox.Runner
+	Sessions *session.VisitorSessionStore
+	Queue    *session.QueryQueue
+	Resolver inference.Resolver
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。
@@ -230,5 +234,7 @@ func buildCodeSessionData(
 		VisitorName:       visitorName,
 		CorpusPermissions: code.CorpusPermissions,
 		SkillPrompts:      skillPrompts,
+		GrantedSkills:     code.GrantedSkills,
+		MaxBookings:       code.MaxBookings,
 	}
 }

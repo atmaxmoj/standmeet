@@ -1,9 +1,16 @@
 -- name: CreateAccessCode :one
 INSERT INTO access_codes (
     owner_id, code, label, purpose, corpus_permissions, suggested_questions,
-    expires_at, max_sessions_per_member, max_turns_per_session
+    expires_at, max_sessions_per_member, max_turns_per_session,
+    granted_skills, max_bookings
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING *;
+
+-- name: UpdateAccessCodeGrants :one
+UPDATE access_codes
+SET granted_skills = $3, max_bookings = $4
+WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
 -- name: UpdateAccessCodePermissions :one
@@ -55,3 +62,6 @@ SELECT COUNT(*)::int FROM conversations WHERE member_id = $1;
 
 -- name: CountVisitorTurnsInConversation :one
 SELECT COUNT(*)::int FROM messages WHERE conversation_id = $1 AND role = 'visitor';
+
+-- name: CountBookingsByCode :one
+SELECT COUNT(*)::int FROM code_bookings WHERE code_id = $1;

@@ -51,6 +51,8 @@ import (
 const (
 	defaultPort    = "9000"
 	defaultRoot    = "/fixtures"
+	jobBoardSubdir = "job-boards"
+	marketSubdir   = "marketplace"
 	readHeaderTime = 5 * time.Second
 	dayTwo         = 2
 	syntheticDay2A = "mockday2-1"
@@ -109,9 +111,11 @@ func (s *state) snapshot() map[string]int {
 }
 
 type server struct {
-	st   *state
-	log  *slog.Logger
-	root string
+	st        *state
+	log       *slog.Logger
+	inference inferenceQueue
+	root      string
+	gcal      gcalState
 }
 
 func newServer(root string, log *slog.Logger) *server {
@@ -154,6 +158,31 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)
 	mux.HandleFunc("POST /__mock/reset", s.adminReset)
+
+	// skill-marketplace mocks — the backend marketplace package's
+	// GitHub + SkillsMP clients point here in dev/e2e.
+	mux.HandleFunc("GET /marketplace/github/contents/skills", s.serveMarketplaceGitHub)
+	mux.HandleFunc("GET /marketplace/skillsmp/skills/search", s.serveMarketplaceSkillsMP)
+
+	// Google Calendar OAuth + API + FreeBusy mocks. Backend's
+	// internal/gcal package points GOOGLE_OAUTH_BASE_URL and
+	// GOOGLE_CALENDAR_BASE_URL at these in dev/e2e.
+	mux.HandleFunc("GET /google-oauth/auth", s.serveOAuthAuth)
+	mux.HandleFunc("POST /google-oauth/token", s.serveOAuthToken)
+	const insertRoute = "POST /google-calendar/calendars/{calendarId}/events"
+	mux.HandleFunc(insertRoute, s.serveCalendarEventsInsert)
+	mux.HandleFunc("POST /google-calendar/freeBusy", s.serveCalendarFreeBusy)
+	// /__mock/gcal/* — control endpoints e2e specs use to seed busy
+	// fixtures and inspect inserted events.
+	mux.HandleFunc("POST /__mock/gcal/set_busy", s.serveMockSetBusy)
+	mux.HandleFunc("POST /__mock/gcal/reset", s.serveMockGCalReset)
+	mux.HandleFunc("GET /__mock/gcal/events", s.serveMockGCalEvents)
+	mux.HandleFunc("GET /__mock/gcal/token_call_count", s.serveMockGCalTokenCount)
+	// /__mock/inference/* —— mock LLM scripting bridge for backend's
+	// MockProvider. Tests POST {name,args} to /next_tool; backend GETs
+	// /take_next_tool before each Stream and clears the queue atomically.
+	mux.HandleFunc("POST /__mock/inference/next_tool", s.serveMockSetNextTool)
+	mux.HandleFunc("GET /__mock/inference/take_next_tool", s.serveMockTakeNextTool)
 }
 
 func (s *server) serveGreenhouse(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +255,7 @@ func (s *server) serveJSONKind(
 }
 
 func (s *server) readFixture(kind, slug, ext string) ([]byte, error) {
-	path := filepath.Clean(filepath.Join(s.root, kind, slug+".day1."+ext))
+	path := filepath.Clean(filepath.Join(s.root, jobBoardSubdir, kind, slug+".day1."+ext))
 	body, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read fixture %s: %w", path, err)

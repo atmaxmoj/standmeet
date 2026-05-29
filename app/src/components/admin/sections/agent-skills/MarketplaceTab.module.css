@@ -1,0 +1,94 @@
+.intro {
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  color: var(--color-muted);
+  margin-bottom: 18px;
+  max-width: 54em;
+  line-height: 1.55;
+}
+
+.introInk { color: var(--color-ink); }
+
+.searchRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.search {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-bottom: 1px solid var(--color-rule);
+  padding-bottom: 6px;
+}
+
+.searchIcon {
+  font-family: var(--font-mono);
+  color: var(--color-faint);
+  font-size: 13px;
+}
+
+.searchInput {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-size: 16px;
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  outline: none;
+  padding: 0;
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--color-rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.segmentBtn,
+.segmentBtnActive {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.segmentBtnActive {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.segmentBtn + .segmentBtn,
+.segmentBtn + .segmentBtnActive,
+.segmentBtnActive + .segmentBtn,
+.segmentBtnActive + .segmentBtnActive {
+  border-left: 1px solid var(--color-rule);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 1024px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.empty {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-muted);
+  padding: 18px 0;
+}

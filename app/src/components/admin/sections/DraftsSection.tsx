@@ -13,6 +13,7 @@ import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ResumeComposer } from '@/components/admin/ResumeComposer';
+import { DraftThumb } from '@/components/admin/sections/drafts/DraftThumb';
 import { mockDraft } from '@/lib/admin/draft-model';
 import { listViewKind } from '@/lib/admin/list-view-kind';
 import {
@@ -130,7 +131,7 @@ function DraftCard({
         <DraftDiff text={row.diff_text} />
         <DraftCardActions onOpen={onOpen} draftId={row.id} actionKind={draftActionKind(row.status)} />
       </div>
-      <DraftPDFPreview />
+      <DraftThumb row={row} />
     </article>
   );
 }
@@ -179,13 +180,6 @@ function DraftDiff({ text }: { text?: string }) {
   ) : null;
 }
 
-function DraftPDFPreview() {
-  return (
-    <div className="border border-(--color-rule) rounded-[3px] bg-(--color-surface)/60 aspect-[8.5/11] flex items-center justify-center">
-      <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint)">PDF preview</span>
-    </div>
-  );
-}
 
 function formatDate(iso: string): string {
   return iso ? iso.slice(0, 10) : '—';
@@ -194,7 +188,7 @@ function formatDate(iso: string): string {
 function DraftCardActions({ onOpen, draftId, actionKind }: { onOpen: () => void; draftId: string; actionKind: 'reviewing' | 'draft' | 'sent' }) {
   const map = {
     reviewing: <ReviewingActions onOpen={onOpen} draftId={draftId} />,
-    draft: <DraftActions draftId={draftId} />,
+    draft: <DraftActions onOpen={onOpen} draftId={draftId} />,
     sent: <SentActions draftId={draftId} />,
   } as const;
   return map[actionKind];
@@ -220,11 +214,15 @@ function ReviewingActions({ onOpen, draftId }: { onOpen: () => void; draftId: st
   );
 }
 
-function DraftActions({ draftId }: { draftId: string }) {
+function DraftActions({ onOpen, draftId }: { onOpen: () => void; draftId: string }) {
   return (
     <div className="flex items-baseline gap-3" data-testid={`draft-actions-${draftId}`}>
-      <button type="button" className="sm-btn sm-btn-outline sm-btn-sm">
-        finish drafting
+      <button
+        type="button" onClick={onOpen}
+        className="sm-btn sm-btn-outline sm-btn-sm"
+        data-testid={`draft-open-${draftId}`}
+      >
+        open composer →
       </button>
       <button type="button" className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-accent)">
         discard

@@ -177,6 +177,9 @@ func streamChatSSE(
 		SkillPrompts:   parsed.Data.SkillPrompts,
 		Mode:           parsed.Data.Mode,
 		BYOAI:          parsed.BYOAI,
+		CodeID:         parsed.Data.CodeID,
+		GrantedSkills:  parsed.Data.GrantedSkills,
+		MaxBookings:    parsed.Data.MaxBookings,
 	})
 	if err != nil {
 		handleVisitorErr(h.Log, w, err)

@@ -42,6 +42,8 @@ type Handlers struct {
 	Obsidian          ObsidianDeps
 	DraftsAdmin       DraftsAdminDeps
 	ApplicationsAdmin ApplicationsAdminDeps
+	MarketplaceAdmin  MarketplaceAdminDeps
+	CalendarAdmin     CalendarAdminDeps
 	Log               *slog.Logger
 	SecureCookie      bool // false 仅限 dev (http)；prod 必须 true。
 }
@@ -86,6 +88,9 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountObsidian(r)
 	h.MountDrafts(r)
 	h.MountApplications(r)
+	h.MountMarketplace(r)
+	h.MountCalendarConnector(r)
+	h.MountBookingPolicy(r)
 }
 
 type claimRequest struct {

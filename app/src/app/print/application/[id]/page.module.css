@@ -1,0 +1,19 @@
+/* Print surface —— Chromium loads this page at 612×792px viewport (set
+   by gotenberg's `paperWidth/paperHeight`) and prints. We want zero
+   chrome — no body padding, no max-width, no font scaling, just the
+   two stacked ResumePage instances. */
+
+.printSurface {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* matches admin composer's between-pages spacing */
+}
+
+@media print {
+  .printSurface {
+    gap: 0;
+  }
+}

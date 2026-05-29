@@ -123,3 +123,14 @@ password-reset:
 
 clean:
 	@docker compose -f docker-compose.dev.yml down -v --remove-orphans 2>/dev/null || true
+
+# capture-marketplace-fixtures —— refresh the GitHub anthropics/skills
+# snapshot. SkillsMP is hand-rolled (no real upstream); see
+# e2e/fixtures/marketplace/README.md.
+capture-marketplace-fixtures:
+	@bash e2e/fixtures/marketplace/capture.sh
+
+# trim-marketplace-fixtures —— write captured .raw/ into the committed
+# fixture path (drops fields we don't read).
+trim-marketplace-fixtures:
+	@bash e2e/fixtures/marketplace/trim.sh

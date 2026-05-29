@@ -28,6 +28,7 @@ type CodesDeps struct {
 type createCodeRequest struct {
 	MaxSessionsPerMember *int32                  `json:"max_sessions_per_member,omitempty"`
 	MaxTurnsPerSession   *int32                  `json:"max_turns_per_session,omitempty"`
+	MaxBookings          *int32                  `json:"max_bookings,omitempty"`
 	Code                 string                  `json:"code"`
 	Label                string                  `json:"label"`
 	Purpose              string                  `json:"purpose"`
@@ -35,6 +36,7 @@ type createCodeRequest struct {
 	SuggestedQuestions   []string                `json:"suggested_questions"`
 	SkillIDs             []string                `json:"skill_ids,omitempty"`
 	MCPServerIDs         []string                `json:"mcp_server_ids,omitempty"`
+	GrantedSkills        []string                `json:"granted_skills,omitempty"`
 }
 
 type updateQuotasRequest struct {
@@ -46,6 +48,7 @@ type codeView struct {
 	CreatedAt            string                  `json:"created_at"`
 	MaxSessionsPerMember *int32                  `json:"max_sessions_per_member,omitempty"`
 	MaxTurnsPerSession   *int32                  `json:"max_turns_per_session,omitempty"`
+	MaxBookings          *int32                  `json:"max_bookings"`
 	ID                   string                  `json:"id"`
 	Code                 string                  `json:"code"`
 	Label                string                  `json:"label"`
@@ -54,6 +57,7 @@ type codeView struct {
 	SuggestedQuestions   []string                `json:"suggested_questions"`
 	SkillIDs             []string                `json:"skill_ids,omitempty"`
 	MCPServerIDs         []string                `json:"mcp_server_ids,omitempty"`
+	GrantedSkills        []string                `json:"granted_skills"`
 }
 
 // MountCodes 挂 /codes 子路由。
@@ -110,6 +114,10 @@ func listSkillIDsForCode(r *http.Request, h *Handlers, codeID string) []string {
 }
 
 func toCodeView(c *domain.AccessCode) codeView {
+	grants := c.GrantedSkills
+	if grants == nil {
+		grants = []string{}
+	}
 	return codeView{
 		ID:                   c.ID,
 		Code:                 c.Code,
@@ -120,6 +128,8 @@ func toCodeView(c *domain.AccessCode) codeView {
 		CreatedAt:            c.CreatedAt.Format(time.RFC3339),
 		MaxSessionsPerMember: c.MaxSessionsPerMember,
 		MaxTurnsPerSession:   c.MaxTurnsPerSession,
+		MaxBookings:          c.MaxBookings,
+		GrantedSkills:        grants,
 	}
 }
 
@@ -141,6 +151,7 @@ func runCreateCode(
 	r *http.Request, h *Handlers, w http.ResponseWriter, req *createCodeRequest,
 ) {
 	ownerID := middleware.OwnerIDFrom(r.Context())
+	ensureCodePlaintext(req)
 	code, err := h.CodesAdmin.Codes.Create(r.Context(), buildCreateInput(ownerID, req))
 	if err != nil {
 		logEncodeErr(h.Log, "create code", err)
@@ -206,6 +217,8 @@ func buildCreateInput(ownerID string, req *createCodeRequest) *postgres.CreateCo
 		SuggestedQuestions:   req.SuggestedQuestions,
 		MaxSessionsPerMember: req.MaxSessionsPerMember,
 		MaxTurnsPerSession:   req.MaxTurnsPerSession,
+		MaxBookings:          req.MaxBookings,
+		GrantedSkills:        req.GrantedSkills,
 	}
 }
 

@@ -35,8 +35,14 @@ components:
     in: internal/jobcache                 # Redis-backed 1d TTL pool for fetched jobs
   jobfetch:
     in: internal/jobfetch                 # job source fetcher adapters (Greenhouse / Lever / Ashby / ...)
-  resumerender:
-    in: internal/resumerender             # ResumeContent → PDF bytes (gopdf + go-qrcode)
+  gcal:
+    in: internal/gcal                     # Google OAuth + Calendar HTTP client (events.insert / freeBusy / token refresh)
+  gotenberg:
+    in: internal/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
+  printsess:
+    in: internal/printsess                # Redis 60s stash for gotenberg-bound resume payload
+  marketplace:
+    in: internal/marketplace              # skill marketplace aggregation client (GitHub + SkillsMP)
   captcha:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
@@ -69,6 +75,8 @@ deps:
     anyVendorDeps: true
 
   # Usecases 编排 domain + infra（postgres / session / inference / jobcache / jobfetch）。
+  # PDF 渲染走 usecases.PDFRenderer 接口；实现（gotenberg）由 wireup 注入，
+  # usecases 自己不引 gotenberg 包。
   usecases:
     mayDependOn:
       - domain
@@ -77,11 +85,11 @@ deps:
       - inference
       - jobcache
       - jobfetch
-      - resumerender
       - cryptobox
       - sandbox
       - mcpclient
       - storage
+      - gcal
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
@@ -174,10 +182,35 @@ deps:
       - domain
     anyVendorDeps: true
 
-  # resumerender —— ResumeContent → PDF bytes (vector, ATS-friendly)。
-  # 纯 domain 输入 + vendor libs (gopdf / go-qrcode / x/image fonts)。
-  # 不碰 DB / Redis / config —— layout 常量内联，调用方决定 QR URL。
-  resumerender:
+  # gcal —— Google OAuth (token exchange + refresh) + Calendar API
+  # (events.insert + freeBusy) HTTP client。usecases.CalendarBooker 接口的
+  # 实现；wireup 注入。endpoints 走 env (GOOGLE_OAUTH_BASE_URL /
+  # GOOGLE_CALENDAR_BASE_URL) 默认 prod，e2e 指向 job-board-mock。
+  gcal:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # gotenberg —— thin HTTP client for the Gotenberg sidecar (headless
+  # Chromium PDF rendering). usecases.PDFRenderer 接口的 v1 实现。
+  # 不依赖 domain / postgres —— 调 RenderURL(printURL) 就完事；wireup 里
+  # 通过 adapter 把 *domain.Application + qrURL 编码进 print URL。
+  gotenberg:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # printsess —— Redis 60s 一次性 stash，存放 gotenberg 取走的 resume
+  # 渲染 payload (application + qrURL)。
+  # sys routes 读它（/internal/print-session/{token}），wireup 里 gotenberg
+  # adapter 写它。
+  printsess:
+    mayDependOn:
+      - domain
+    anyVendorDeps: true
+
+  # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
+  # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
+  # routes 不直接 import。
+  marketplace:
     mayDependOn:
       - domain
     anyVendorDeps: true
@@ -202,6 +235,9 @@ deps:
     mayDependOn:
       - domain
       - postgres
+      - printsess
+      - session
+      - usecases
     anyVendorDeps: true
 
   # admin routes (/api/admin/*) 派发到 usecases；handler 自己 cyclo ≤3。
@@ -218,6 +254,7 @@ deps:
       - middleware
       - storage
       - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
+      - gcal        # /connectors/google-calendar/* OAuth init/callback wires gcal.Client
     anyVendorDeps: true
 
   # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image
@@ -284,7 +321,10 @@ deps:
       - inference
       - jobcache
       - jobfetch
-      - resumerender
+      - gotenberg
+      - gcal
+      - printsess
+      - marketplace
       - captcha
       - cryptobox
       - sandbox

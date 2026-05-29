@@ -35,6 +35,22 @@ func (r *OwnerRepo) UpdateFullName(
 	return toDomainOwner(&row), nil
 }
 
+// UpdateProfileTimezone —— admin booking-policy PATCH 路径触发；空串 = "UTC"。
+func (r *OwnerRepo) UpdateProfileTimezone(
+	ctx context.Context, ownerID, tz string,
+) error {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	q := dbq.New(r.pool)
+	params := dbq.UpdateOwnerProfileTimezoneParams{ID: pgID, ProfileTimezone: tz}
+	if _, qerr := q.UpdateOwnerProfileTimezone(ctx, params); qerr != nil {
+		return fmt.Errorf("update profile_timezone: %w", qerr)
+	}
+	return nil
+}
+
 // UpdateEmail —— owner 改自己的 email。唯一冲突翻 domain.ErrEmailTaken
 // 让 routes 翻 409。usecase 必须先验当前密码。
 func (r *OwnerRepo) UpdateEmail(

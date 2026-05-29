@@ -51,6 +51,10 @@ CREATE TABLE owners (
     -- 没活跃 reset token；reset 成功后由 ClearPasswordResetToken 清回去。
     password_reset_hash  bytea         NOT NULL DEFAULT ''::bytea,
     password_reset_at    timestamptz,
+    -- profile_timezone —— IANA tz name ('America/New_York' / 'Asia/Shanghai').
+    -- 用于 owner_booking_policy 解释 working_hours / allowed_weekdays。空串
+    -- 视为 'UTC'。owner 在 admin profile 改；claim 时空串。
+    profile_timezone     text          NOT NULL DEFAULT '',
     created_at           timestamptz   NOT NULL DEFAULT now()
 );
 
@@ -175,6 +179,18 @@ CREATE TABLE access_codes (
                                             CHECK (status IN ('active', 'revoked')),
     max_sessions_per_member   integer,
     max_turns_per_session     integer,
+    -- granted_skills —— agent-capability gating. 是 access_code 持有者在
+    -- visitor chat 里能调用的 "agent skills" 标识表 (e.g. 'calendar.book')。
+    -- 空 array = 这个 code 不解锁任何带副作用的 agent skill。owner 在
+    -- create-code 时选——code 一旦发出去，能力范围就锁定。tool registry 在
+    -- 装配 tool_specs 时按这个数组 first-condition 过滤；不在列表里的
+    -- skill 完全不出现在 LLM 看到的 tools 里 (而不是 "出现但拒绝调用")。
+    granted_skills            text[]        NOT NULL DEFAULT '{}',
+    -- max_bookings —— calendar.book quota per code。NULL = 不解锁 (跟
+    -- granted_skills 不含 'calendar.book' 等价的双保险)；正整数 = 总配额，
+    -- 跨 visitor / session 累计 (从 code_bookings count)。耗尽后 tool 报
+    -- quota_exhausted。
+    max_bookings              integer,
     created_at                timestamptz   NOT NULL DEFAULT now()
 );
 
@@ -504,9 +520,11 @@ CREATE TABLE job_fingerprints (
 -- 还在 preview 看，没点头 commit。draft 1d TTL（跟 Redis job 池子同周期），
 -- 过期归 expires_at < now() 的 background sweeper 清。
 --
--- 关键设计：PDF 永远 ephemeral —— server 端不落任何文件，每次 MCP 调用
--- 用 gopdf 现场渲染 bytes 塞响应，Claude 拿 bytes 经本地 Playwright MCP
--- 投递（recruiter 拿到的也只是最终投出去那一份）。表里只存结构化数据。
+-- 关键设计：PDF 永远 ephemeral —— 表里只存结构化数据，server 端不落任何
+-- PDF 文件。owner 看预览是 admin 浏览器里的 React `ResumePage` 组件（同样
+-- 用作 print 路由的源）；终稿 PDF 在 applications.commit 时由 gotenberg
+-- sidecar 抓 print 路由现场渲染 bytes 塞 MCP 响应，Claude 拿去经 Playwright
+-- MCP 投。
 CREATE TABLE resume_drafts (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -542,3 +560,97 @@ CREATE TABLE applications (
 
 CREATE INDEX applications_owner_idx ON applications(owner_id);
 CREATE INDEX applications_access_code_idx ON applications(access_code_id);
+
+-- owner_calendar_connectors —— per-(owner, provider) OAuth state for the
+-- "owner connects their calendar" admin connector flow. Self-hosted means
+-- owner pastes their own Google Cloud OAuth client_id + client_secret in
+-- admin UI (we never embed a global Anthropic/StandMeet OAuth client);
+-- then click Authorize → Google consent → our /callback exchanges code
+-- for tokens → we persist refresh_token long-term + access_token short-term.
+--
+-- All four credentials columns are cryptobox AES-256-GCM ciphertext
+-- (KEK = INSTANCE_SECRET env)。Reads always decrypt to memory; never log.
+-- Empty bytea = "not provided yet"。disconnect = DELETE the row（refresh
+-- token revocation is a best-effort RPC; row goes whether revoke RPC ok or not）。
+--
+-- provider TEXT 是开放枚举: 第一版只 'google'，未来 'microsoft' 类似形状。
+-- 单 owner 单 provider 只能存一条 row（UNIQUE (owner_id, provider)）。
+CREATE TABLE owner_calendar_connectors (
+    id                    uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id              uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    provider              text          NOT NULL,
+    client_id_enc         bytea         NOT NULL DEFAULT '\x'::bytea,
+    client_secret_enc     bytea         NOT NULL DEFAULT '\x'::bytea,
+    access_token_enc      bytea         NOT NULL DEFAULT '\x'::bytea,
+    refresh_token_enc     bytea         NOT NULL DEFAULT '\x'::bytea,
+    -- access_token_expires_at —— 服务端按这个判断是否需要 refresh；提前
+    -- 60s threshold 在 internal/gcal client 里写死，schema 不存。NULL = 没
+    -- 拿到过 access_token (credentials saved but not yet authorized)。
+    access_token_expires_at  timestamptz,
+    scopes                jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    connected_at          timestamptz,
+    created_at            timestamptz   NOT NULL DEFAULT now(),
+    updated_at            timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX owner_calendar_connectors_owner_provider_uniq
+    ON owner_calendar_connectors(owner_id, provider);
+
+-- owner_booking_policy —— singleton-per-owner availability constraints
+-- the agent must satisfy before placing a calendar.book event. Checked
+-- before (and in addition to) Google FreeBusy: policy violations return
+-- distinct error reasons so the chat agent can explain "outside hours" vs
+-- "calendar busy" rather than a generic "couldn't book"。
+--
+-- min_lead_hours —— 距 now() 至少多少小时之后才允许 book (e.g. 24 = 至少
+--                   提前 1 天)。0 = 没 lead-time 限制 (允许 in-hour book)。
+-- allowed_weekdays —— 子集 of {'mon','tue','wed','thu','fri','sat','sun'}。
+--                     空 array = 拒一切日期 (兜底，配 onboarding 强制非空 UI)。
+-- working_hours_*  —— 'HH:MM' (24h) wall-clock 字符串 + owner timezone
+--                     (owners.profile_timezone) 解释成 owner 本地时间。
+--                     working_hours_start <= working_hours_end (跨午夜不
+--                     支持，第一版假设 9-18 这种)。
+-- buffer_min       —— 任何已存在 event 前后这么多分钟也算"占用"——比如
+--                     buffer=15 时，10:30-11:00 的 event 让 10:15-11:15
+--                     都拒 (freebusy 自然 conflict)。
+CREATE TABLE owner_booking_policy (
+    owner_id            uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
+    min_lead_hours      integer       NOT NULL DEFAULT 24,
+    allowed_weekdays    text[]        NOT NULL DEFAULT ARRAY['mon','tue','wed','thu','fri'],
+    working_hours_start text          NOT NULL DEFAULT '09:00',
+    working_hours_end   text          NOT NULL DEFAULT '18:00',
+    buffer_min          integer       NOT NULL DEFAULT 15,
+    updated_at          timestamptz   NOT NULL DEFAULT now()
+);
+
+-- code_bookings —— append-only ledger of successfully placed calendar.book
+-- events. One row per Google event inserted. Used to (a) count bookings per
+-- code for quota gating (access_codes.max_bookings)；(b) provide an admin
+-- audit view ("see what was booked off this code")；(c) future cancellation
+-- path (delete event by id)。
+--
+-- code_id FK ON DELETE CASCADE —— revoke 一个 code，相关历史 booking 记录
+-- 一并消失 (不影响 Google 那侧已经发出去的事件，那是 owner 自己 calendar 行为)。
+--
+-- google_event_id 是 google 那侧 events.id；google_html_link 持久保留是为
+-- admin "open in Google Calendar" 链接，不再去查一次 API。
+--
+-- visitor_email NULL = visitor 没给 email (我们没把 visitor add 进 attendees)。
+-- summary / start_at / end_at 是 audit 用，跟事件同步落盘 (insert 时 known)。
+CREATE TABLE code_bookings (
+    id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id          uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    code_id           uuid          NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    conversation_id   uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    google_event_id   text          NOT NULL,
+    google_html_link  text          NOT NULL DEFAULT '',
+    summary           text          NOT NULL DEFAULT '',
+    start_at          timestamptz   NOT NULL,
+    end_at            timestamptz   NOT NULL,
+    visitor_email     citext,
+    created_at        timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX code_bookings_code_idx ON code_bookings(code_id);
+CREATE INDEX code_bookings_owner_idx ON code_bookings(owner_id, created_at DESC);
+CREATE INDEX code_bookings_conv_idx ON code_bookings(conversation_id);

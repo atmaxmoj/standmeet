@@ -1,0 +1,100 @@
+.card {
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  padding: 14px 16px;
+  background: color-mix(in oklab, var(--color-surface) 30%, transparent);
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.mpGithub,
+.mpSkillsmp {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.mpGithub { color: var(--color-muted); }
+.mpSkillsmp { color: var(--color-violet, var(--color-accent)); }
+
+.stars {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-faint);
+  white-space: nowrap;
+}
+
+.blurb {
+  font-family: var(--font-serif);
+  font-size: 13.5px;
+  color: var(--color-muted);
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in oklab, var(--color-rule) 60%, transparent);
+}
+
+.author {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--color-faint);
+  letter-spacing: 0.04em;
+}
+
+.installedPill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.installBtn {
+  background: var(--color-ink);
+  border: 1px solid var(--color-ink);
+  border-radius: 2px;
+  color: var(--color-paper);
+  cursor: pointer;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.installBtn:disabled { opacity: 0.6; cursor: progress; }
+
+.missing {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--color-accent);
+  margin-top: 8px;
+  letter-spacing: 0.04em;
+}

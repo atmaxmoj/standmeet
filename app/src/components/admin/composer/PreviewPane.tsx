@@ -1,204 +1,120 @@
-// PreviewPane —— ResumeComposer 右侧 PDF-shape 文字预览。
+// PreviewPane —— ResumeComposer 右侧 PDF-shape 预览。
 //
-// 不做真 PDF render —— vector render 在 backend resumerender 包里跑（per
-// memory:feedback-pdf-ephemeral，PDF 永远 ephemeral，server 现 render
-// bytes）。这里只是 owner 边编辑边看版式的快速反馈：8.5×11 比例的纸张
-// + serif body + monocaps header，跟最终 PDF 字距大致对齐。
+// Renders the canonical <ResumePage> component (same one gotenberg
+// prints at applications.commit), scaled to fit the composer pane.
+// Continuous vertical scroll: page 1 on top, page 2 below — matches the
+// post-2026-05-28 design intent (像翻 PDF 那样往下滚，而不是翻页 arrow).
 //
-// 设计源 docs/design/project/admin.js ResumePage (1682-1750)。
+// Source of truth: docs/design/project/admin.js ResumeComposer
+// PreviewPane section (1695-1713).
 
 'use client';
 
-import type { DraftModel } from '@/lib/admin/draft-model';
+import { ResumePage } from '@/components/admin/resume-page/ResumePage';
+import {
+  draftToJobContext,
+  draftToResumeContent,
+  type DraftModel,
+} from '@/lib/admin/draft-model';
+
+import styles from '@/components/admin/composer/PreviewPane.module.css';
 
 interface Props {
   model: DraftModel;
   zoom: number;       // 0.4 .. 1.2
-  page: number;       // 0 .. pages-1
+  /** Legacy page nav prop; ignored now (continuous scroll). Kept so the
+   * ResumeComposer signature doesn't churn. */
+  page: number;
   onZoom: (z: number) => void;
+  /** Legacy page setter; ignored. */
   onPage: (i: number) => void;
 }
 
-export function PreviewPane({ model, zoom, page, onZoom, onPage }: Props) {
-  const totalPages = model.coverLetter.trim() !== '' ? 2 : 1;
+const PREVIEW_QR_URL = 'preview://standmeet/draft';
+
+export function PreviewPane({ model, zoom, onZoom }: Props) {
+  const view = derivePreview(model);
   return (
-    <div className="sm-composer-preview">
+    <div className={styles.preview}>
       <PreviewToolbar
         zoom={zoom} onZoom={onZoom}
-        page={page} totalPages={totalPages} onPage={onPage}
+        pageCount={view.pageCount} fileName={view.fileName}
       />
-      <div className="sm-composer-preview-scroll">
-        <PreviewPaper model={model} page={page} zoom={zoom} />
-      </div>
+      <PreviewStack view={view} zoom={zoom} />
+    </div>
+  );
+}
+
+interface PreviewView {
+  content: ReturnType<typeof draftToResumeContent>;
+  job: ReturnType<typeof draftToJobContext>;
+  pageCount: number;
+  fileName: string;
+  hasCover: boolean;
+}
+
+function derivePreview(model: DraftModel): PreviewView {
+  const content = draftToResumeContent(model);
+  const hasCover = (content.coverLetter ?? '').trim() !== '';
+  return {
+    content,
+    job: draftToJobContext(model),
+    hasCover,
+    pageCount: hasCover ? 2 : 1,
+    fileName: fileNameFor(model),
+  };
+}
+
+function PreviewStack({ view, zoom }: { view: PreviewView; zoom: number }) {
+  return (
+    <div className={styles.scroll}>
+      <ResumePage content={view.content} job={view.job} qrURL={PREVIEW_QR_URL} pageIndex={0} scale={zoom} />
+      {view.hasCover ? (
+        <ResumePage content={view.content} job={view.job} qrURL={PREVIEW_QR_URL} pageIndex={1} scale={zoom} />
+      ) : null}
     </div>
   );
 }
 
 function PreviewToolbar({
-  zoom, onZoom, page, totalPages, onPage,
+  zoom, onZoom, pageCount, fileName,
 }: {
   zoom: number;
   onZoom: (z: number) => void;
-  page: number;
-  totalPages: number;
-  onPage: (i: number) => void;
+  pageCount: number;
+  fileName: string;
 }) {
   return (
-    <div className="sm-composer-preview-toolbar">
-      <ZoomControls zoom={zoom} onZoom={onZoom} />
-      <PageNav page={page} totalPages={totalPages} onPage={onPage} />
+    <div className={styles.toolbar}>
+      <span className={styles.fileName}>preview · {fileName}</span>
+      <div className={styles.right}>
+        <span className={styles.pageCount}>{pageCount} {pageCount === 1 ? 'page' : 'pages'}</span>
+        <span className={styles.dot}>·</span>
+        <ZoomControls zoom={zoom} onZoom={onZoom} />
+      </div>
     </div>
   );
 }
 
 function ZoomControls({ zoom, onZoom }: { zoom: number; onZoom: (z: number) => void }) {
   return (
-    <div className="flex items-center gap-2 mono text-[10px] text-(--color-muted)">
+    <span className={styles.zoom}>
       <button
         type="button" onClick={() => onZoom(Math.max(0.4, zoom - 0.1))}
-        className="sm-btn sm-btn-ghost sm-btn-sm"
+        className={styles.zoomBtn}
+        aria-label="zoom out"
       >−</button>
-      <span className="tabular-nums w-[36px] text-center">{Math.round(zoom * 100)}%</span>
+      <span className={styles.zoomPct}>{Math.round(zoom * 100)}%</span>
       <button
         type="button" onClick={() => onZoom(Math.min(1.2, zoom + 0.1))}
-        className="sm-btn sm-btn-ghost sm-btn-sm"
+        className={styles.zoomBtn}
+        aria-label="zoom in"
       >+</button>
-    </div>
+    </span>
   );
 }
 
-function PageNav({
-  page, totalPages, onPage,
-}: { page: number; totalPages: number; onPage: (i: number) => void }) {
-  return totalPages > 1 ? (
-    <div className="flex items-center gap-2 mono text-[10px] text-(--color-muted)">
-      <button
-        type="button" onClick={() => onPage(Math.max(0, page - 1))}
-        disabled={page === 0}
-        className="sm-btn sm-btn-ghost sm-btn-sm"
-      >←</button>
-      <span className="tabular-nums">{page + 1} / {totalPages}</span>
-      <button
-        type="button" onClick={() => onPage(Math.min(totalPages - 1, page + 1))}
-        disabled={page === totalPages - 1}
-        className="sm-btn sm-btn-ghost sm-btn-sm"
-      >→</button>
-    </div>
-  ) : null;
-}
-
-function PreviewPaper({
-  model, page, zoom,
-}: { model: DraftModel; page: number; zoom: number }) {
-  return (
-    <div
-      className={`sm-composer-preview-page sm-zoom [--zoom:${zoom}]`}
-    >
-      {page === 0 ? <ResumeFace model={model} /> : <CoverFace model={model} />}
-    </div>
-  );
-}
-
-function ResumeFace({ model }: { model: DraftModel }) {
-  return (
-    <div className="space-y-5">
-      <PaperHeader model={model} />
-      <Hr />
-      <PaperSection title="summary"><p className="reading">{model.summary}</p></PaperSection>
-      <PaperSection title="skills">
-        <p className="reading text-[14px]">{model.skills.join(' · ')}</p>
-      </PaperSection>
-      <PaperSection title="experience">
-        {model.experience.map((e) => (
-          <ExperienceBlock key={e.id} org={e.org} role={e.role} range={e.range} loc={e.loc} bullets={e.bullets} />
-        ))}
-      </PaperSection>
-      <PaperSection title="education">
-        {model.education.map((e) => (
-          <EducationBlock key={e.id} school={e.school} degree={e.degree} range={e.range} />
-        ))}
-      </PaperSection>
-    </div>
-  );
-}
-
-function PaperHeader({ model }: { model: DraftModel }) {
-  return (
-    <header>
-      <h1 className="font-serif text-[24px] leading-[1.1] tracking-[-0.012em] text-(--color-ink) font-normal">
-        {model.company}
-      </h1>
-      <p className="font-serif italic text-[16px] text-(--color-muted) mt-1">{model.role}</p>
-      <div className="mono text-[10px] tracking-[0.12em] text-(--color-faint) mt-3 flex flex-wrap items-baseline gap-2">
-        <span>{model.contact.email}</span>
-        <span>·</span>
-        <span>{model.contact.location}</span>
-        <span>·</span>
-        <span>{model.contact.site}</span>
-      </div>
-    </header>
-  );
-}
-
-function Hr() {
-  return <hr className="border-(--color-rule)" />;
-}
-
-function PaperSection({
-  title, children,
-}: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <div className="sm-smallcaps mb-2">{title}</div>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function ExperienceBlock({
-  org, role, range, loc, bullets,
-}: {
-  org: string; role: string; range: string; loc: string; bullets: readonly string[];
-}) {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3 flex-wrap">
-        <span className="font-serif text-[15px] text-(--color-ink) font-medium">
-          {org} · {role}
-        </span>
-        <span className="mono text-[10px] text-(--color-muted) tracking-[0.04em]">
-          {range} · {loc}
-        </span>
-      </div>
-      <ul className="reading text-[14px] mt-1 space-y-1 pl-4 border-l border-(--color-rule)">
-        {bullets.map((b, i) => <li key={i}>· {b}</li>)}
-      </ul>
-    </div>
-  );
-}
-
-function EducationBlock({
-  school, degree, range,
-}: { school: string; degree: string; range: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 flex-wrap">
-      <span className="font-serif text-[14.5px] text-(--color-ink)">
-        {school} · {degree}
-      </span>
-      <span className="mono text-[10px] text-(--color-muted) tracking-[0.04em]">{range}</span>
-    </div>
-  );
-}
-
-function CoverFace({ model }: { model: DraftModel }) {
-  return (
-    <div>
-      <PaperHeader model={model} />
-      <Hr />
-      <div className="mt-5">
-        <div className="sm-smallcaps mb-2">cover letter</div>
-        <p className="reading whitespace-pre-wrap">{model.coverLetter}</p>
-      </div>
-    </div>
-  );
+function fileNameFor(model: DraftModel): string {
+  const co = (model.company || 'draft').toLowerCase().replace(/\s+/g, '-');
+  return `resume_${co}.pdf`;
 }

@@ -1,0 +1,127 @@
+.card,
+.cardDim {
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  padding: 14px 16px;
+  background: color-mix(in oklab, var(--color-surface) 30%, transparent);
+}
+
+.cardDim { opacity: 0.62; }
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.gateAuto,
+.gateOwner,
+.mpBadge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.gateAuto { color: var(--color-muted); }
+.gateOwner { color: var(--color-violet, var(--color-accent)); }
+.mpBadge { color: var(--color-faint); letter-spacing: 0.1em; }
+
+.toggleOn,
+.toggleOff {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.toggleOn {
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.toggleOff {
+  border: 1px solid var(--color-rule);
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.toggleOff:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.blurb {
+  font-family: var(--font-serif);
+  font-size: 13.5px;
+  color: var(--color-muted);
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in oklab, var(--color-rule) 60%, transparent);
+  gap: 12px;
+}
+
+.meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.id {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+.need,
+.needMissing {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.need { color: var(--color-muted); }
+.needMissing { color: var(--color-accent); }
+
+.runs {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--color-faint);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.blockedHint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-accent);
+  margin-top: 8px;
+  letter-spacing: 0.04em;
+}

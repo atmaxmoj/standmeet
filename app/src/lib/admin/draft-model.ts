@@ -1,18 +1,33 @@
 // draft-model —— ResumeComposer 编辑的 owner draft 形状 + 派生（match%）。
 //
-// 设计源 docs/design/project/admin.js buildDraftModel + ResumeComposer。
-// 现在 (post-P3) 还没真接通后端 resume_draft REST 列表；这层先用 mock
-// fixture + client-side state，UI 跑通；后续 job-loop 加 admin endpoint
-// 时改用 fetch + PUT。
+// 设计源 docs/design/project/admin.js buildDraftModel + ResumeComposer (8
+// panel post-2026-05-28: header / summary / skills / experience /
+// education / social / custom / cover).
 //
 // 关键 invariant：
 //   - draft 在 owner client 上是 working copy，"保存" = setLastSaved 提示。
 //   - send → confirm modal → applications.commit (MCP) 落 application 行。
-//   - composer 6 panel 数据全在这一个 DraftModel 里；setters 走 immutable
+//   - composer 8 panel 数据全在这一个 DraftModel 里；setters 走 immutable
 //     patch（避免 zustand devtools 时间旅行复杂化）。
+//   - `company` + `role` 是 job context（投给哪家、什么角色），不是 owner
+//     的工作经历 — header strip 第二行渲染这两个。
+//   - `name` + `contact.*` 是 owner identity，跨 draft 应保持稳定（owner
+//     master profile 那一份，后续从 settings sync）。
+
+import { useMemo } from 'react';
+
+import type {
+  JobContext,
+} from '@/components/admin/resume-page/ResumePage';
+import type {
+  ResumeContent,
+  ResumeCustom,
+  ResumeSocial,
+} from '@/lib/admin/resume-content';
 
 export interface DraftContact {
   email: string;
+  phone: string;
   location: string;
   site: string;
 }
@@ -21,7 +36,7 @@ export interface DraftExperience {
   id: string;
   org: string;
   role: string;
-  range: string;
+  range: string;     // YYYY-MM — YYYY-MM | 'present'
   loc: string;
   bullets: readonly string[];
 }
@@ -33,15 +48,32 @@ export interface DraftEducation {
   range: string;
 }
 
+export interface DraftSocial {
+  id: string;
+  kind: string;      // linkedin | github | twitter | mastodon | bluesky | website | scholar | medium | substack | other
+  handle: string;    // url or @handle
+}
+
+export interface DraftCustom {
+  id: string;
+  label: string;
+  value: string;
+}
+
 export interface DraftModel {
   id: string;
+  /** Recipient company — header strip "for ACME". */
   company: string;
+  /** Role applied for — header strip "STAFF ENGINEER · FOR ACME". */
   role: string;
+  name: string;
   summary: string;
   contact: DraftContact;
   skills: readonly string[];
   experience: readonly DraftExperience[];
   education: readonly DraftEducation[];
+  social: readonly DraftSocial[];
+  custom: readonly DraftCustom[];
   coverLetter: string;
 }
 
@@ -52,11 +84,13 @@ export function mockDraft(id: string): DraftModel {
     id,
     company: 'Anthropic',
     role: 'Member of Technical Staff · retrieval',
+    name: 'sijie wang',
     summary: 'Building Lucerna — retrieval substrate for personal corpora. '
       + 'Previously led retrieval-quality at Google Brain. The eval is the '
       + 'product; the model is the tax.',
     contact: {
       email: 'sijie@standmeet.com',
+      phone: '',
       location: 'Markham, Ontario',
       site: 'standmeet.com/sijie',
     },
@@ -69,11 +103,8 @@ export function mockDraft(id: string): DraftModel {
     ],
     experience: [
       {
-        id: 'e-1',
-        org: 'Lucerna',
-        role: 'founder · technical',
-        range: '2024 — present',
-        loc: 'Markham',
+        id: 'e-1', org: 'Lucerna', role: 'founder · technical',
+        range: '2024-01 — present', loc: 'Markham',
         bullets: [
           'Founded Lucerna, retrieval substrate for personal corpora.',
           'Built the eval methodology — faithfulness, attribution, refusal-when-absent.',
@@ -81,11 +112,8 @@ export function mockDraft(id: string): DraftModel {
         ],
       },
       {
-        id: 'e-2',
-        org: 'Google Brain',
-        role: 'research engineer',
-        range: '2019 — 2024',
-        loc: 'SF',
+        id: 'e-2', org: 'Google Brain', role: 'research engineer',
+        range: '2019-01 — 2024-01', loc: 'SF',
         bullets: [
           'Led retrieval quality for 2023 product launch — top-1 38% → 71% in nine months.',
           'Half the gain came from rebuilding the eval rubric. The reframing was the contribution.',
@@ -93,8 +121,15 @@ export function mockDraft(id: string): DraftModel {
       },
     ],
     education: [
-      { id: 'ed-1', school: 'Stanford', degree: 'PhD, representation learning', range: '2013 — 2019' },
-      { id: 'ed-2', school: 'Tsinghua', degree: 'BSc, applied mathematics', range: '2009 — 2013' },
+      { id: 'ed-1', school: 'Stanford', degree: 'PhD, representation learning', range: '2013-09 — 2019-06' },
+      { id: 'ed-2', school: 'Tsinghua', degree: 'BSc, applied mathematics', range: '2009-09 — 2013-06' },
+    ],
+    social: [
+      { id: 's-1', kind: 'linkedin', handle: 'linkedin.com/in/sijiewang' },
+      { id: 's-2', kind: 'github', handle: 'github.com/sijiewang' },
+    ],
+    custom: [
+      { id: 'c-1', label: 'languages', value: 'English · Mandarin · learning German' },
     ],
     coverLetter: '',
   };
@@ -123,10 +158,6 @@ export const DEFAULT_KEYWORDS = [
   'retrieval', 'eval', 'evaluation', 'llm', 'rag', 'brain', 'lucerna', 'launch',
 ];
 
-// useMatchPct —— ResumeComposer top-bar match gauge 的 derived state。
-// presentation 层不准跑 useMemo，所以抽出来。返 0-100 整数。
-import { useMemo } from 'react';
-
 export function useMatchPct(model: DraftModel): number {
   return useMemo(
     () => Math.round(confidenceScore(model, DEFAULT_KEYWORDS) * 100),
@@ -139,7 +170,6 @@ export function patchModel(m: DraftModel, p: Partial<DraftModel>): DraftModel {
   return { ...m, ...p };
 }
 
-// patchExperience —— 改一条 experience entry。caller 给 id + Partial。
 export function patchExperience(
   m: DraftModel, id: string, p: Partial<DraftExperience>,
 ): DraftModel {
@@ -149,7 +179,6 @@ export function patchExperience(
   };
 }
 
-// patchEducation —— 改一条 education entry。
 export function patchEducation(
   m: DraftModel, id: string, p: Partial<DraftEducation>,
 ): DraftModel {
@@ -157,4 +186,76 @@ export function patchEducation(
     ...m,
     education: m.education.map((e) => e.id === id ? { ...e, ...p } : e),
   };
+}
+
+export function patchSocial(
+  m: DraftModel, id: string, p: Partial<DraftSocial>,
+): DraftModel {
+  return {
+    ...m,
+    social: m.social.map((s) => s.id === id ? { ...s, ...p } : s),
+  };
+}
+
+export function patchCustom(
+  m: DraftModel, id: string, p: Partial<DraftCustom>,
+): DraftModel {
+  return {
+    ...m,
+    custom: m.custom.map((c) => c.id === id ? { ...c, ...p } : c),
+  };
+}
+
+// draftToResumeContent —— adapter from the composer's edit-friendly
+// DraftModel to the print-side ResumeContent shape ResumePage consumes.
+// Splits the flat skill list into one anonymous category (ResumePage's
+// left rail flattens all categories into a bullet list anyway, so a
+// single category preserves order without forcing per-skill grouping in
+// the UI yet).
+export function draftToResumeContent(m: DraftModel): ResumeContent {
+  return {
+    identity: {
+      name: m.name,
+      email: m.contact.email,
+      phone: m.contact.phone,
+      locationLine: m.contact.location,
+      site: m.contact.site,
+    },
+    summary: m.summary,
+    coverLetter: m.coverLetter,
+    works: m.experience.map((e) => ({
+      title: e.role,
+      company: e.org,
+      location: e.loc,
+      period: parseRange(e.range),
+      bullets: [...e.bullets].filter((b) => b.trim() !== ''),
+    })),
+    educations: m.education.map((e) => ({
+      school: e.school,
+      degree: e.degree,
+      period: parseRange(e.range),
+    })),
+    skills: [{ category: '', items: [...m.skills] }],
+    social: m.social
+      .filter((s) => s.handle.trim() !== '')
+      .map((s): ResumeSocial => ({ kind: s.kind, label: s.kind, handle: s.handle })),
+    custom: m.custom
+      .filter((c) => c.label.trim() !== '' && c.value.trim() !== '')
+      .map((c): ResumeCustom => ({ label: c.label, value: c.value })),
+  };
+}
+
+export function draftToJobContext(m: DraftModel): JobContext {
+  return { role: m.role, company: m.company };
+}
+
+// parseRange —— "YYYY-MM — YYYY-MM | present" → { start, end }.
+// Tolerates extra spaces and either em-dash or hyphen. Empty / unparseable
+// → empty start (ResumePage's formatPeriod renders "—" gracefully).
+function parseRange(raw: string): { start: string; end: string | null } {
+  const cleaned = raw.replace(/—/g, '-').replace(/\s+/g, ' ').trim();
+  const parts = cleaned.split(/\s-\s/).map((s) => s.trim());
+  const start = parts[0] ?? '';
+  const rawEnd = parts[1] ?? '';
+  return { start, end: rawEnd === '' || rawEnd.toLowerCase() === 'present' ? null : rawEnd };
 }

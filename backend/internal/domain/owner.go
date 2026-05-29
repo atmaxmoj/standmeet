@@ -28,6 +28,10 @@ type Owner struct {
 	// PublicURL —— 完整对外 URL (scheme+host+port)。claim 必填，admin 可改。
 	// SEO canonical / QR URL 都从这一列读，无 env / no fallback / no default。
 	PublicURL string
+	// ProfileTimezone —— IANA tz name ('America/New_York' / 'Asia/Shanghai')。
+	// 用于 BookingPolicy / calendar.book 解释 working_hours / weekday；空串
+	// fallback UTC。owner 在 admin profile 改。
+	ProfileTimezone string
 }
 
 // OwnerSettings —— owner 聚合的"配置切面"，跟 identity 分开。

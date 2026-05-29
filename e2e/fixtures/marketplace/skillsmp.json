@@ -1,0 +1,34 @@
+{
+  "skills": [
+    {
+      "id": "reference-checker",
+      "name": "Reference checker",
+      "author": "skillsmp",
+      "category": "reach",
+      "version": "0.4.1",
+      "description": "Lets a vetted visitor request a reference; routes to your inbox for approval.",
+      "url": "skillsmp.com/skills/reference-checker",
+      "stars": 188
+    },
+    {
+      "id": "salary-band",
+      "name": "Salary-band lookup",
+      "author": "levels-fyi",
+      "category": "answer",
+      "version": "0.9.0",
+      "description": "Answers comp questions from public band data, never from your private numbers.",
+      "url": "skillsmp.com/skills/salary-band",
+      "stars": 97
+    },
+    {
+      "id": "portfolio-tour",
+      "name": "Portfolio walkthrough",
+      "author": "skillsmp",
+      "category": "answer",
+      "version": "0.2.0",
+      "description": "Guides a visitor through your projects as a narrated tour with embeds.",
+      "url": "skillsmp.com/skills/portfolio-tour",
+      "stars": 64
+    }
+  ]
+}

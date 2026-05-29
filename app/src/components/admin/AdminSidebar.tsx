@@ -12,7 +12,7 @@ export type AdminSlug =
   | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account'
   | 'skills' | 'posts' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
-  | 'preview' | 'obsidian';
+  | 'preview' | 'obsidian' | 'agent-skills';
 
 interface SectionDef {
   slug: AdminSlug;
@@ -65,6 +65,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'connectors', label: 'connectors' },
       { slug: 'api-mcp', label: 'api · mcp' },
       { slug: 'obsidian', label: 'obsidian' },
+      { slug: 'agent-skills', label: 'agent skills' },
     ],
   },
   {

@@ -143,6 +143,7 @@ func insertAccessCode(
 		ExpiresAt:            expires,
 		MaxSessionsPerMember: in.MaxSessionsPerMember,
 		MaxTurnsPerSession:   in.MaxTurnsPerSession,
+		GrantedSkills:        []string{},
 	})
 	if err != nil {
 		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)

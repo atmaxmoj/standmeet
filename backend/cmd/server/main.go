@@ -22,14 +22,18 @@ import (
 	"github.com/wangsijie/standmeet/internal/captcha"
 	"github.com/wangsijie/standmeet/internal/config"
 	"github.com/wangsijie/standmeet/internal/cryptobox"
+	"github.com/wangsijie/standmeet/internal/gcal"
 	"github.com/wangsijie/standmeet/internal/inference"
 	"github.com/wangsijie/standmeet/internal/jobcache"
 	"github.com/wangsijie/standmeet/internal/jobfetch"
+	"github.com/wangsijie/standmeet/internal/marketplace"
 	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/wangsijie/standmeet/internal/printsess"
 	"github.com/wangsijie/standmeet/internal/sandbox"
 	"github.com/wangsijie/standmeet/internal/server"
 	"github.com/wangsijie/standmeet/internal/session"
 	"github.com/wangsijie/standmeet/internal/storage"
+	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
 const (
@@ -189,6 +193,8 @@ type runtimeDeps struct {
 	assetRepo         *postgres.AssetRepo
 	postRepo          *postgres.PostRepo
 	postLinkRepo      *postgres.PostLinkRepo
+	calendarRepo      *postgres.CalendarRepo
+	gcalClient        *gcal.Client
 	sandboxRunner     sandbox.Runner
 	storageClient     *storage.Client
 	jobCachePool      *jobcache.Pool
@@ -199,6 +205,9 @@ type runtimeDeps struct {
 	providerResolver  inference.Resolver
 	setupTokenHolder  *session.SetupTokenHolder
 	captchaVerifier   captcha.Verifier
+	pdfRenderer       usecases.PDFRenderer
+	printStore        *printsess.Store
+	marketplaceClient *marketplace.Client
 	captchaSiteKey    string
 	buildsRoot        string
 	secureCookie      bool

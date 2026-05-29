@@ -1,0 +1,31 @@
+/* QR Code styles —— paper bg, ink modules, vermillion finder boxes.
+   Palette intentionally hard-coded to print-safe values rather than
+   --color-accent / --color-paper vars: the print viewport doesn't
+   guarantee those variables resolve (the global :root scope might not
+   apply in some isolated render paths). Print is the only consumer
+   needing fidelity, and we control the exact hexes. */
+
+.svg {
+  display: block;
+}
+
+.bg {
+  fill: #FAF7EF;
+}
+
+.module {
+  fill: #1B1814;
+}
+
+.finder {
+  fill: #9B3018;
+}
+
+.fallback {
+  display: grid;
+  place-items: center;
+  border: 1px solid #D7CEB9;
+  color: #9B9282;
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 9px;
+}

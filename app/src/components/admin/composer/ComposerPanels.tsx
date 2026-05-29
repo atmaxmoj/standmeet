@@ -1,22 +1,27 @@
-// ComposerPanels —— ResumeComposer 左侧 6 个 panel 的编辑器集合。
+// ComposerPanels —— ResumeComposer 左侧 8 个 panel 的编辑器集合。
 // 每个 panel 是 plain form：header / summary / skills / experience /
-// education / cover。改动通过 onPatch 回传到 ResumeComposer 持的 draft model。
+// education / social / custom / cover。改动通过 onPatch* 回传到
+// ResumeComposer 持的 draft model。
 //
 // 设计源 docs/design/project/admin.js ResumeComposer (1467-1680)。
-// experience / education 的 add/remove role 这一版先用 push-only（不删，
+// experience / education 的 add/remove 这一版先用 push-only（不删，
 // 改 bullets 用 split-by-newline）；先把 UX 跑通，后续再加 inline ✕ 按钮。
 
 'use client';
 
 import type {
+  DraftCustom,
   DraftEducation,
   DraftExperience,
   DraftModel,
+  DraftSocial,
 } from '@/lib/admin/draft-model';
 
 type Patch = (p: Partial<DraftModel>) => void;
 type PatchExp = (id: string, p: Partial<DraftExperience>) => void;
 type PatchEdu = (id: string, p: Partial<DraftEducation>) => void;
+type PatchSoc = (id: string, p: Partial<DraftSocial>) => void;
+type PatchCus = (id: string, p: Partial<DraftCustom>) => void;
 
 interface Props {
   panel: string;
@@ -24,6 +29,8 @@ interface Props {
   onPatch: Patch;
   onPatchExp: PatchExp;
   onPatchEdu: PatchEdu;
+  onPatchSoc: PatchSoc;
+  onPatchCus: PatchCus;
 }
 
 const PANEL_MAP: Record<string, (p: Props) => React.ReactElement> = {
@@ -32,6 +39,8 @@ const PANEL_MAP: Record<string, (p: Props) => React.ReactElement> = {
   skills: SkillsPanel,
   experience: ExperiencePanel,
   education: EducationPanel,
+  social: SocialPanel,
+  custom: CustomPanel,
   cover: CoverPanel,
 };
 
@@ -42,8 +51,16 @@ export function ComposerPanel(props: Props) {
 
 function HeaderPanel({ model, onPatch }: Props) {
   return (
-    <Section title="header" hint="company + role · shows at the top of the rendered PDF">
-      <Field label="company">
+    <Section title="header" hint="who you are + what you're applying for; tops the PDF">
+      <Field label="your name">
+        <input
+          type="text" value={model.name}
+          onChange={(e) => onPatch({ name: e.target.value })}
+          className="sm-field-input"
+          data-testid="composer-name"
+        />
+      </Field>
+      <Field label="company" hint="receives the resume">
         <input
           type="text" value={model.company}
           onChange={(e) => onPatch({ company: e.target.value })}
@@ -51,7 +68,7 @@ function HeaderPanel({ model, onPatch }: Props) {
           data-testid="composer-company"
         />
       </Field>
-      <Field label="role">
+      <Field label="role" hint="title applied for">
         <input
           type="text" value={model.role}
           onChange={(e) => onPatch({ role: e.target.value })}
@@ -63,6 +80,13 @@ function HeaderPanel({ model, onPatch }: Props) {
         <input
           type="email" value={model.contact.email}
           onChange={(e) => onPatch({ contact: { ...model.contact, email: e.target.value } })}
+          className="sm-field-input sm-mono"
+        />
+      </Field>
+      <Field label="phone" hint="optional">
+        <input
+          type="tel" value={model.contact.phone}
+          onChange={(e) => onPatch({ contact: { ...model.contact, phone: e.target.value } })}
           className="sm-field-input sm-mono"
         />
       </Field>
@@ -204,6 +228,81 @@ function EducationItem({
           type="text" value={edu.range}
           onChange={(e) => onPatch(edu.id, { range: e.target.value })}
           className="sm-field-input sm-mono col-span-2"
+        />
+      </Field>
+    </div>
+  );
+}
+
+function SocialPanel({ model, onPatchSoc }: Props) {
+  return (
+    <Section title="social" hint="public profiles the recruiter can verify; top one shows first">
+      {model.social.map((s) => (
+        <SocialItem key={s.id} soc={s} onPatch={onPatchSoc} />
+      ))}
+    </Section>
+  );
+}
+
+const SOCIAL_KINDS = [
+  'linkedin', 'github', 'twitter', 'mastodon', 'bluesky',
+  'website', 'scholar', 'medium', 'substack', 'other',
+];
+
+function SocialItem({
+  soc, onPatch,
+}: { soc: DraftSocial; onPatch: PatchSoc }) {
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 grid grid-cols-[120px_1fr] gap-3">
+      <Field label="kind">
+        <select
+          value={soc.kind}
+          onChange={(e) => onPatch(soc.id, { kind: e.target.value })}
+          className="sm-field-input sm-mono"
+        >
+          {SOCIAL_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+        </select>
+      </Field>
+      <Field label="handle" hint="url or @handle">
+        <input
+          type="text" value={soc.handle}
+          onChange={(e) => onPatch(soc.id, { handle: e.target.value })}
+          className="sm-field-input sm-mono"
+        />
+      </Field>
+    </div>
+  );
+}
+
+function CustomPanel({ model, onPatchCus }: Props) {
+  return (
+    <Section title="custom" hint="anything outside the standard fields — languages, certs, hobbies">
+      {model.custom.map((c) => (
+        <CustomItem key={c.id} cus={c} onPatch={onPatchCus} />
+      ))}
+    </Section>
+  );
+}
+
+function CustomItem({
+  cus, onPatch,
+}: { cus: DraftCustom; onPatch: PatchCus }) {
+  return (
+    <div className="border border-(--color-rule) rounded-[3px] p-4 grid grid-cols-[150px_1fr] gap-3">
+      <Field label="label">
+        <input
+          type="text" value={cus.label}
+          onChange={(e) => onPatch(cus.id, { label: e.target.value })}
+          className="sm-field-input"
+          placeholder="languages"
+        />
+      </Field>
+      <Field label="value">
+        <input
+          type="text" value={cus.value}
+          onChange={(e) => onPatch(cus.id, { value: e.target.value })}
+          className="sm-field-input"
+          placeholder="English · Mandarin"
         />
       </Field>
     </div>

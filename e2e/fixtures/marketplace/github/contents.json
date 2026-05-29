@@ -1,0 +1,87 @@
+[
+  {
+    "name": "algorithmic-art",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/algorithmic-art"
+  },
+  {
+    "name": "brand-guidelines",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/brand-guidelines"
+  },
+  {
+    "name": "canvas-design",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/canvas-design"
+  },
+  {
+    "name": "claude-api",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/claude-api"
+  },
+  {
+    "name": "doc-coauthoring",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/doc-coauthoring"
+  },
+  {
+    "name": "docx",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/docx"
+  },
+  {
+    "name": "frontend-design",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/frontend-design"
+  },
+  {
+    "name": "internal-comms",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/internal-comms"
+  },
+  {
+    "name": "mcp-builder",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/mcp-builder"
+  },
+  {
+    "name": "pdf",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/pdf"
+  },
+  {
+    "name": "pptx",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/pptx"
+  },
+  {
+    "name": "skill-creator",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/skill-creator"
+  },
+  {
+    "name": "slack-gif-creator",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/slack-gif-creator"
+  },
+  {
+    "name": "theme-factory",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/theme-factory"
+  },
+  {
+    "name": "web-artifacts-builder",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/web-artifacts-builder"
+  },
+  {
+    "name": "webapp-testing",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/webapp-testing"
+  },
+  {
+    "name": "xlsx",
+    "type": "dir",
+    "html_url": "https://github.com/anthropics/skills/tree/main/skills/xlsx"
+  }
+]
