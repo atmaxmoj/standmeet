@@ -125,75 +125,8 @@ func parseOwnerAndServerID(ownerID, serverID string) (serverIDArgs, error) {
 	return serverIDArgs{ownerUUID: ownerUUID, serverUUID: serverUUID}, nil
 }
 
-// SetCodeMCPServers —— InviteCode ↔ MCP server 关联：clear + bulk insert。
-// caller 已校验 server_ids 属于同 owner。空列表 → 只 clear。
-func (r *MCPServerRepo) SetCodeMCPServers(
-	ctx context.Context, codeID string, serverIDs []string,
-) error {
-	codeUUID, perr := parseUUID(codeID)
-	if perr != nil {
-		return fmt.Errorf(errParseCodeIDPrefix, perr)
-	}
-	q := dbq.New(r.pool)
-	if cerr := q.ClearCodeMCPServers(ctx, codeUUID); cerr != nil {
-		return fmt.Errorf("clear code mcp servers: %w", cerr)
-	}
-	if len(serverIDs) == 0 {
-		return nil
-	}
-	return attachCodeMCPServers(ctx, q, codeUUID, serverIDs)
-}
-
-func attachCodeMCPServers(
-	ctx context.Context, q *dbq.Queries, codeUUID pgtype.UUID, serverIDs []string,
-) error {
-	serverUUIDs, suerr := parseUUIDArray(serverIDs)
-	if suerr != nil {
-		return fmt.Errorf("parse mcp server ids: %w", suerr)
-	}
-	if aerr := q.AttachCodeMCPServers(ctx, dbq.AttachCodeMCPServersParams{
-		CodeID: codeUUID, Column2: serverUUIDs,
-	}); aerr != nil {
-		return fmt.Errorf("attach code mcp servers: %w", aerr)
-	}
-	return nil
-}
-
-// ListIDsForCode —— admin codes 视图回显 + create code 回显用。
-func (r *MCPServerRepo) ListIDsForCode(ctx context.Context, codeID string) ([]string, error) {
-	codeUUID, perr := parseUUID(codeID)
-	if perr != nil {
-		return nil, fmt.Errorf(errParseCodeIDPrefix, perr)
-	}
-	rows, err := dbq.New(r.pool).ListMCPServerIDsForCode(ctx, codeUUID)
-	if err != nil {
-		return nil, fmt.Errorf("list code mcp server ids: %w", err)
-	}
-	out := make([]string, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, formatUUID(r))
-	}
-	return out, nil
-}
-
-// ListForCode —— visitor chat 拿这一组 server 拼 tool 列表。
-func (r *MCPServerRepo) ListForCode(
-	ctx context.Context, codeID string,
-) ([]domain.MCPServerConfig, error) {
-	codeUUID, perr := parseUUID(codeID)
-	if perr != nil {
-		return nil, fmt.Errorf(errParseCodeIDPrefix, perr)
-	}
-	rows, err := dbq.New(r.pool).ListMCPServersForCode(ctx, codeUUID)
-	if err != nil {
-		return nil, fmt.Errorf("list mcp servers for code: %w", err)
-	}
-	out := make([]domain.MCPServerConfig, 0, len(rows))
-	for i := range rows {
-		out = append(out, toDomainMCPServer(&rows[i]))
-	}
-	return out, nil
-}
+// A.3-IAM-5: SetCodeMCPServers / ListIDsForCode / ListForCode 都删了 ——
+// code_mcp_servers 表已 drop。MCP servers 通过 role_mcp_servers 挂在 Role 上。
 
 func toDomainMCPServer(row *dbq.McpServer) domain.MCPServerConfig {
 	return domain.MCPServerConfig{

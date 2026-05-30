@@ -77,14 +77,29 @@ async function registerServerAndCode(request: APIRequestContext): Promise<void> 
 async function createCodeAttachingServer(
   request: APIRequestContext, csrf: string, serverID: string,
 ): Promise<void> {
+  // A.3-IAM-5: 建一个 role 把 mcp server 挂上，再用 role id 发 code。
+  const roleRes = await request.post('http://localhost:8000/api/admin/roles/', {
+    headers: { 'X-Csrftoken': csrf },
+    data: {
+      name: 'ext-mcp-role',
+      description: 'attaches external mcp server for ext_ tool spec',
+      prompt_id: null,
+      corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
+      skill_ids: [],
+      mcp_server_ids: [serverID],
+    },
+  });
+  if (roleRes.status() !== 201) {
+    throw new Error(`create role failed: ${roleRes.status()} ${await roleRes.text()}`);
+  }
+  const role = await roleRes.json() as { id: string };
   const res = await request.post('http://localhost:8000/api/admin/codes/', {
     headers: { 'X-Csrftoken': csrf },
     data: {
       code: CODE,
       label: 'External MCP code',
-      corpus_permissions: [],
       suggested_questions: [],
-      mcp_server_ids: [serverID],
+      assumed_role_id: role.id,
     },
   });
   if (res.status() !== 201) {

@@ -36,9 +36,6 @@ type SendMessageInput struct {
 	Body           string
 	Mode           string
 	CodeID         string
-	Permissions    []domain.PathPermission
-	SkillPrompts   []string
-	GrantedSkills  []string
 }
 
 // MessageEvent —— chat 流式事件（token / done / error）。
@@ -134,15 +131,12 @@ func assembleBundles(
 	provider inference.Provider,
 ) (sendPrep, error) {
 	retr, lerr := buildRetriever(ctx, deps, &retrieverBuildInput{
-		ownerID: in.OwnerID, perms: in.Permissions, snapshot: in.RoleSnapshot,
+		ownerID: in.OwnerID, snapshot: in.RoleSnapshot,
 	})
 	if lerr != nil {
 		return sendPrep{}, lerr
 	}
-	skills, serr := buildSkillBundle(ctx, deps, in)
-	if serr != nil {
-		return sendPrep{}, serr
-	}
+	skills := buildSkillBundle(ctx, deps, in)
 	booker, berr := buildBookerBundle(ctx, deps, in)
 	if berr != nil {
 		return sendPrep{}, berr
@@ -224,12 +218,10 @@ const (
 	messageEventBufSize = 64
 )
 
-// retrieverBuildInput —— buildRetriever 入参，避开 5-arg 上限 + 让 caller
-// 不用区分 PathACL vs RoleSnapshot 两条路径。
+// retrieverBuildInput —— buildRetriever 入参 (owner_id + 必填 snapshot)。
 type retrieverBuildInput struct {
 	snapshot *domain.RoleSnapshot
 	ownerID  string
-	perms    []domain.PathPermission
 }
 
 // buildRetriever —— 加载 wiki + output + posts 给 tool executor 用。retrieval
@@ -237,8 +229,8 @@ type retrieverBuildInput struct {
 // read 直接拒）。这样 ACL deny 也会被 AI "看到"为"找不到"，而不是"corpus
 // 里没有"。
 //
-// ACL 优先级：snapshot != nil → URI-based [[role_snapshot]]；否则 fallback
-// 走 perms (legacy PathACL)。commit 3 拆 PathACL 时本分支去掉。
+// ACL 走 [[role_snapshot]].AllowsCorpus —— A.3-IAM-5 起每个 session 必有
+// snapshot（code 走 assumed_role_id；public/byoai 走 owner vanilla）。
 //
 // posts 只拉已 published 的；草稿不进 visitor 视野。
 func buildRetriever(
@@ -255,7 +247,7 @@ func buildRetriever(
 	writings := listWritingsForRetrieval(ctx, deps, in.ownerID)
 	return newRetriever(&retrieverInput{
 		wikis: wikis, outputs: outputs, writings: writings,
-		perms: in.perms, snapshot: in.snapshot,
+		snapshot: in.snapshot,
 	}), nil
 }
 

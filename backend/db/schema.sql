@@ -166,30 +166,26 @@ CREATE TABLE media_assets (
 -- corpus_permissions：path-glob ACL，first-match-wins by order ascending，
 --                     default deny。空列表 → 全允许 (无 ACL = 允许全部)。
 --                     形状：[{"action": "allow"|"deny", "path_pattern": "...", "order": n}]。
+-- access_codes —— 访客访问码。A.3-IAM 起所有 ACL / capability gating 都从
+-- assumed_role_id 指向的 Role 推断（[[role_snapshot]] 在 session issue 时
+-- freeze）；不再有 corpus_permissions / granted_skills / code_skills /
+-- code_mcp_servers 这些散落字段。max_bookings 仍直接挂 code（per-code
+-- 跨 visitor 累计计数）。
 CREATE TABLE access_codes (
     id                        uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id                  uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     code                      citext        UNIQUE NOT NULL,
     label                     text          NOT NULL,
     purpose                   text          NOT NULL DEFAULT '',
-    corpus_permissions        jsonb         NOT NULL DEFAULT '[]'::jsonb,
     suggested_questions       jsonb         NOT NULL DEFAULT '[]'::jsonb,
     expires_at                timestamptz,
     status                    text          NOT NULL DEFAULT 'active'
                                             CHECK (status IN ('active', 'revoked')),
     max_sessions_per_member   integer,
     max_turns_per_session     integer,
-    -- granted_skills —— agent-capability gating. 是 access_code 持有者在
-    -- visitor chat 里能调用的 "agent skills" 标识表 (e.g. 'calendar.book')。
-    -- 空 array = 这个 code 不解锁任何带副作用的 agent skill。owner 在
-    -- create-code 时选——code 一旦发出去，能力范围就锁定。tool registry 在
-    -- 装配 tool_specs 时按这个数组 first-condition 过滤；不在列表里的
-    -- skill 完全不出现在 LLM 看到的 tools 里 (而不是 "出现但拒绝调用")。
-    granted_skills            text[]        NOT NULL DEFAULT '{}',
-    -- max_bookings —— calendar.book quota per code。NULL = 不解锁 (跟
-    -- granted_skills 不含 'calendar.book' 等价的双保险)；正整数 = 总配额，
-    -- 跨 visitor / session 累计 (从 code_bookings count)。耗尽后 tool 报
-    -- quota_exhausted。
+    -- max_bookings —— calendar.book quota per code。NULL = role 没解锁
+    -- calendar.book skill 时也无意义；解锁了的话正整数 = 总配额，跨 visitor /
+    -- session 累计 (从 code_bookings count)。耗尽后 tool 报 quota_exhausted。
     max_bookings              integer,
     created_at                timestamptz   NOT NULL DEFAULT now()
 );
@@ -232,20 +228,15 @@ CREATE TABLE skills (
 
 CREATE UNIQUE INDEX skills_owner_name_uniq ON skills(owner_id, name);
 
--- code_skills —— InviteCode ↔ Skill 多对多。同 code 选多 skill；同 skill
--- 多 code 共享。FK ON DELETE CASCADE：删 code 自动清；删 skill 自动清。
-CREATE TABLE code_skills (
-    code_id   uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
-    skill_id  uuid NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
-    PRIMARY KEY (code_id, skill_id)
-);
-
-CREATE INDEX code_skills_skill_idx ON code_skills(skill_id);
+-- code_skills / code_mcp_servers 在 A.3-IAM-5 删除。访客 capability gating
+-- 从 access_codes.assumed_role_id 指向的 Role 推断；role_skills /
+-- role_mcp_servers 才是真 source of truth。
 
 -- mcp_servers —— owner-registered external MCP servers (URL + optional
--- auth header)。InviteCode 绑一组 mcp_server_ids；visitor chat 把这些 server
--- 的 tool 也加进可用列表 (ext_<server>_<tool>)。auth_header_value 落
--- cryptobox AES-256-GCM 密文，跟 BYOAI key 同套模式（INSTANCE_SECRET KEK）。
+-- auth header)。Role 通过 role_mcp_servers 引一组 server id；visitor chat
+-- 把这些 server 的 tool 也加进可用列表 (ext_<server>_<tool>)。
+-- auth_header_value 落 cryptobox AES-256-GCM 密文，跟 BYOAI key 同套模式
+-- （INSTANCE_SECRET KEK）。
 CREATE TABLE mcp_servers (
     id                      uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id                uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -257,15 +248,6 @@ CREATE TABLE mcp_servers (
 );
 
 CREATE UNIQUE INDEX mcp_servers_owner_name_uniq ON mcp_servers(owner_id, name);
-
--- code_mcp_servers —— InviteCode ↔ McpServer 多对多。
-CREATE TABLE code_mcp_servers (
-    code_id        uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
-    mcp_server_id  uuid NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
-    PRIMARY KEY (code_id, mcp_server_id)
-);
-
-CREATE INDEX code_mcp_servers_server_idx ON code_mcp_servers(mcp_server_id);
 
 -- prompts —— owner-scoped persona/instruction 片段库。
 -- 设计 [[iam-role-pivot-plan]]：type 通用命名，挂 role 后语义角色叫"role
@@ -334,12 +316,10 @@ CREATE TABLE role_mcp_servers (
 
 CREATE INDEX role_mcp_servers_server_idx ON role_mcp_servers(mcp_server_id);
 
--- access_codes.assumed_role_id —— commit 1 只是把列加上（nullable），
--- 老路径 (corpus_permissions / granted_skills / code_skills / code_mcp_servers)
--- 仍 source of truth。commit 2 在 issue session 时拍 RoleSnapshot 并把
--- retriever ACL 切到 role；commit 3 干掉老列 + NOT NULL。
+-- access_codes.assumed_role_id —— A.3-IAM-5 NOT NULL：每张码必挂 role。
+-- 不显式选 = 上层 usecase 默认绑 owner 的 vanilla role。
 ALTER TABLE access_codes
-    ADD COLUMN assumed_role_id uuid REFERENCES roles(id) ON DELETE RESTRICT;
+    ADD COLUMN assumed_role_id uuid NOT NULL REFERENCES roles(id) ON DELETE RESTRICT;
 
 -- assets —— owner-uploaded 二进制 (图片 / 附件) 的元数据。bytes 落 MinIO
 -- (key = '<owner_id>/<asset_id>')；元数据在这里。

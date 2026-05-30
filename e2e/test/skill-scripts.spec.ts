@@ -90,14 +90,29 @@ async function createSkillAndCode(request: APIRequestContext): Promise<void> {
 async function createCodeAttachingSkill(
   request: APIRequestContext, csrf: string, skillID: string,
 ): Promise<void> {
+  // A.3-IAM-5: 建一个 role 挂 skill，再发码引用 role。
+  const roleRes = await request.post('http://localhost:8000/api/admin/roles/', {
+    headers: { 'X-Csrftoken': csrf },
+    data: {
+      name: 'sandbox-role',
+      description: 'sandbox marker fixture role',
+      prompt_id: null,
+      corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
+      skill_ids: [skillID],
+      mcp_server_ids: [],
+    },
+  });
+  if (roleRes.status() !== 201) {
+    throw new Error(`create role failed: ${roleRes.status()} ${await roleRes.text()}`);
+  }
+  const role = await roleRes.json() as { id: string };
   const res = await request.post('http://localhost:8000/api/admin/codes/', {
     headers: { 'X-Csrftoken': csrf },
     data: {
       code: CODE,
       label: 'Sandbox marker code',
-      corpus_permissions: [],
       suggested_questions: [],
-      skill_ids: [skillID],
+      assumed_role_id: role.id,
     },
   });
   if (res.status() !== 201) {

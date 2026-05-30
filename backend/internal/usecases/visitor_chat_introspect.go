@@ -36,8 +36,8 @@ func namesOf(specs []inference.ToolSpec) []string {
 }
 
 func skillNamesFor(ctx context.Context, deps *VisitorDeps, in *SendMessageInput) []string {
-	bundle, err := buildSkillBundle(ctx, deps, in)
-	if err != nil || bundle == nil {
+	bundle := buildSkillBundle(ctx, deps, in)
+	if bundle == nil {
 		return []string{}
 	}
 	return namesOf(bundle.Specs())

@@ -36,18 +36,19 @@ func buildExternalMCPBundle(
 func loadMCPServersForConversation(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 ) []domain.MCPServerConfig {
-	if deps.MCPServers == nil {
+	if deps.MCPServers == nil || in.RoleSnapshot == nil {
 		return []domain.MCPServerConfig{}
 	}
-	conv, cerr := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
-	if cerr != nil || conv.CodeID == nil {
-		return []domain.MCPServerConfig{}
+	ids := in.RoleSnapshot.MCPServerIDs()
+	out := make([]domain.MCPServerConfig, 0, len(ids))
+	for _, id := range ids {
+		cfg, err := deps.MCPServers.GetByID(ctx, in.OwnerID, id)
+		if err != nil {
+			continue
+		}
+		out = append(out, cfg)
 	}
-	servers, lerr := deps.MCPServers.ListForCode(ctx, *conv.CodeID)
-	if lerr != nil {
-		return []domain.MCPServerConfig{}
-	}
-	return servers
+	return out
 }
 
 // externalMCPBundle —— 一组 owner-registered MCP server 在本次消息里的状态。

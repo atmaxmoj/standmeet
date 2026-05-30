@@ -40,7 +40,6 @@ test.describe('show_as_source=false hides entry from cited footer', () => {
     const csrf = await seedHiddenAndVisible(request);
     await createCode(request, csrf, {
       code: CODE, label: 'intro', purpose: 'hidden-source spec',
-      corpus_permissions: [],
     });
     await request.dispose();
   });

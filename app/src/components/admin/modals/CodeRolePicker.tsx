@@ -9,7 +9,7 @@ type Props = { form: CodeFormHook };
 export function CodeRolePicker({ form }: Props) {
   const hook = useRoles();
   return (
-    <CodeRolePickerSection title="role" subtitle="snapshot of corpus + skills + mcp; frozen on issue">
+    <CodeRolePickerSection title="role" subtitle="frozen at issue; leave blank for vanilla">
       <CodeRolePickerSelect form={form} roles={hook.roles} />
     </CodeRolePickerSection>
   );
@@ -25,7 +25,7 @@ function CodeRolePickerSelect({
       onChange={(e) => form.setAssumedRoleID(e.target.value)}
       data-testid="code-field-role"
     >
-      <option value="">(legacy — use fields below)</option>
+      <option value="">— default —</option>
       {roles.map((r) => (
         <option key={r.id} value={r.id}>{r.name}</option>
       ))}

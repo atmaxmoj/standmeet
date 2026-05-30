@@ -5,6 +5,7 @@ package admin
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -15,29 +16,24 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/middleware"
 	"github.com/wangsijie/standmeet/internal/postgres"
-	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
-// CodesDeps —— admin codes handlers 依赖。
+// CodesDeps —— admin codes handlers 依赖。Roles 用来 owner 不显式给
+// assumed_role_id 时查 vanilla 兜底。
 type CodesDeps struct {
-	Codes      *postgres.CodeRepo
-	Skills     *postgres.SkillRepo
-	MCPServers *postgres.MCPServerRepo
+	Codes *postgres.CodeRepo
+	Roles *postgres.RoleRepo
 }
 
 type createCodeRequest struct {
-	MaxSessionsPerMember *int32                  `json:"max_sessions_per_member,omitempty"`
-	MaxTurnsPerSession   *int32                  `json:"max_turns_per_session,omitempty"`
-	MaxBookings          *int32                  `json:"max_bookings,omitempty"`
-	AssumedRoleID        *string                 `json:"assumed_role_id,omitempty"`
-	Code                 string                  `json:"code"`
-	Label                string                  `json:"label"`
-	Purpose              string                  `json:"purpose"`
-	CorpusPermissions    []domain.PathPermission `json:"corpus_permissions"`
-	SuggestedQuestions   []string                `json:"suggested_questions"`
-	SkillIDs             []string                `json:"skill_ids,omitempty"`
-	MCPServerIDs         []string                `json:"mcp_server_ids,omitempty"`
-	GrantedSkills        []string                `json:"granted_skills,omitempty"`
+	MaxSessionsPerMember *int32   `json:"max_sessions_per_member,omitempty"`
+	MaxTurnsPerSession   *int32   `json:"max_turns_per_session,omitempty"`
+	MaxBookings          *int32   `json:"max_bookings,omitempty"`
+	AssumedRoleID        *string  `json:"assumed_role_id,omitempty"`
+	Code                 string   `json:"code"`
+	Label                string   `json:"label"`
+	Purpose              string   `json:"purpose"`
+	SuggestedQuestions   []string `json:"suggested_questions"`
 }
 
 type updateQuotasRequest struct {
@@ -46,20 +42,16 @@ type updateQuotasRequest struct {
 }
 
 type codeView struct {
-	CreatedAt            string                  `json:"created_at"`
-	MaxSessionsPerMember *int32                  `json:"max_sessions_per_member,omitempty"`
-	MaxTurnsPerSession   *int32                  `json:"max_turns_per_session,omitempty"`
-	MaxBookings          *int32                  `json:"max_bookings"`
-	AssumedRoleID        *string                 `json:"assumed_role_id,omitempty"`
-	ID                   string                  `json:"id"`
-	Code                 string                  `json:"code"`
-	Label                string                  `json:"label"`
-	Status               string                  `json:"status"`
-	CorpusPermissions    []domain.PathPermission `json:"corpus_permissions"`
-	SuggestedQuestions   []string                `json:"suggested_questions"`
-	SkillIDs             []string                `json:"skill_ids,omitempty"`
-	MCPServerIDs         []string                `json:"mcp_server_ids,omitempty"`
-	GrantedSkills        []string                `json:"granted_skills"`
+	CreatedAt            string   `json:"created_at"`
+	MaxSessionsPerMember *int32   `json:"max_sessions_per_member,omitempty"`
+	MaxTurnsPerSession   *int32   `json:"max_turns_per_session,omitempty"`
+	MaxBookings          *int32   `json:"max_bookings"`
+	ID                   string   `json:"id"`
+	Code                 string   `json:"code"`
+	Label                string   `json:"label"`
+	Status               string   `json:"status"`
+	AssumedRoleID        string   `json:"assumed_role_id"`
+	SuggestedQuestions   []string `json:"suggested_questions"`
 }
 
 // MountCodes 挂 /codes 子路由。
@@ -85,14 +77,11 @@ func (h *Handlers) listCodes() http.HandlerFunc {
 }
 
 func writeCodesList(
-	r *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.AccessCode,
+	_ *http.Request, h *Handlers, w http.ResponseWriter, rows []domain.AccessCode,
 ) {
 	items := make([]codeView, 0, len(rows))
 	for i := range rows {
-		v := toCodeView(&rows[i])
-		v.SkillIDs = listSkillIDsForCode(r, h, rows[i].ID)
-		v.MCPServerIDs = listMCPServerIDsForCode(r, h, rows[i].ID)
-		items = append(items, v)
+		items = append(items, toCodeView(&rows[i]))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -101,37 +90,17 @@ func writeCodesList(
 	}
 }
 
-// listSkillIDsForCode —— N+1 拉每个 code 的 skill_ids。V1 owner 数据量小可接受；
-// 真要优化加一个 JOIN 查询返 map[code_id]→[]skill_id。
-func listSkillIDsForCode(r *http.Request, h *Handlers, codeID string) []string {
-	if h.CodesAdmin.Skills == nil {
-		return []string{}
-	}
-	ids, err := h.CodesAdmin.Skills.ListSkillIDsForCode(r.Context(), codeID)
-	if err != nil {
-		h.Log.Error("list code skill ids", "code_id", codeID, "err", err)
-		return []string{}
-	}
-	return ids
-}
-
 func toCodeView(c *domain.AccessCode) codeView {
-	grants := c.GrantedSkills
-	if grants == nil {
-		grants = []string{}
-	}
 	return codeView{
 		ID:                   c.ID,
 		Code:                 c.Code,
 		Label:                c.Label,
 		Status:               c.Status,
-		CorpusPermissions:    c.CorpusPermissions,
 		SuggestedQuestions:   c.SuggestedQuestions,
 		CreatedAt:            c.CreatedAt.Format(time.RFC3339),
 		MaxSessionsPerMember: c.MaxSessionsPerMember,
 		MaxTurnsPerSession:   c.MaxTurnsPerSession,
 		MaxBookings:          c.MaxBookings,
-		GrantedSkills:        grants,
 		AssumedRoleID:        c.AssumedRoleID,
 	}
 }
@@ -148,91 +117,74 @@ func (h *Handlers) createCode() http.HandlerFunc {
 }
 
 // runCreateCode —— 拆出 createCode 的 happy/error path 让 handler cyclo≤3。
-// attach 阶段失败时由 attachCreatedCodeAssoc 写 envelope；本函数只把分支
-// 减到 ≤3 路。
+// assumed_role_id 缺省 → 用 owner 的 vanilla（claim 时种入）。
 func runCreateCode(
 	r *http.Request, h *Handlers, w http.ResponseWriter, req *createCodeRequest,
 ) {
 	ownerID := middleware.OwnerIDFrom(r.Context())
 	ensureCodePlaintext(req)
-	code, err := h.CodesAdmin.Codes.Create(r.Context(), buildCreateInput(ownerID, req))
+	in, ierr := buildCreateInput(r, h, ownerID, req)
+	if ierr != nil {
+		logEncodeErr(h.Log, "build code input", ierr)
+		writeError(h.Log, w, serverErr())
+		return
+	}
+	code, err := h.CodesAdmin.Codes.Create(r.Context(), in)
 	if err != nil {
 		logEncodeErr(h.Log, "create code", err)
 		writeError(h.Log, w, serverErr())
 		return
 	}
-	if !attachCreatedCodeAssoc(&attachCodeAssocArgs{
-		r: r, h: h, w: w, ownerID: ownerID, codeID: code.ID, req: req,
-	}) {
-		return
-	}
-	writeCreatedCode(h.Log, w, &code, req.SkillIDs, req.MCPServerIDs)
+	writeCreatedCode(h.Log, w, &code)
 }
 
-// attachCodeAssocArgs —— attachCreatedCodeAssoc 入参打包；revive
-// argument-limit ≤ 5。字段按 govet fieldalignment 排：interface 16B
-// 类先 (w), 然后 8B 指针, string headers, etc。
-type attachCodeAssocArgs struct {
-	w       http.ResponseWriter
-	r       *http.Request
-	h       *Handlers
-	req     *createCodeRequest
-	ownerID string
-	codeID  string
-}
-
-// attachCreatedCodeAssoc —— 顺序绑 skill_ids + mcp_server_ids。任一失败
-// 直接写 envelope 返 false；成功返 true。
-func attachCreatedCodeAssoc(a *attachCodeAssocArgs) bool {
-	if aerr := attachCreatedCodeSkills(a.r, a.h, a.ownerID, a.codeID, a.req.SkillIDs); aerr != nil {
-		handleSetCodeSkillsErr(a.h.Log, a.w, aerr)
-		return false
+func buildCreateInput(
+	r *http.Request, h *Handlers, ownerID string, req *createCodeRequest,
+) (*postgres.CreateCodeInput, error) {
+	roleID, rerr := resolveCodeRoleID(r, h, ownerID, req.AssumedRoleID)
+	if rerr != nil {
+		return nil, rerr
 	}
-	merr := attachCreatedCodeMCPServers(a.r, a.h, a.ownerID, a.codeID, a.req.MCPServerIDs)
-	if merr != nil {
-		handleSetCodeMCPServersErr(a.h.Log, a.w, merr)
-		return false
-	}
-	return true
-}
-
-// attachCreatedCodeSkills —— createCode 时 attach skill_ids 到刚建好的 code。
-// 失败时 caller 翻译 envelope（code 已 create，不回滚 —— PUT
-// /codes/{id}/skills 之后还可以重试）。
-func attachCreatedCodeSkills(
-	r *http.Request, h *Handlers, ownerID, codeID string, skillIDs []string,
-) error {
-	if len(skillIDs) == 0 {
-		return nil
-	}
-	return usecases.SetCodeSkills(r.Context(), h.SkillsAdmin.Skills, &usecases.SetCodeSkillsInput{
-		OwnerID: ownerID, CodeID: codeID, SkillIDs: skillIDs,
-	})
-}
-
-func buildCreateInput(ownerID string, req *createCodeRequest) *postgres.CreateCodeInput {
 	return &postgres.CreateCodeInput{
 		OwnerID:              ownerID,
 		Code:                 req.Code,
 		Label:                req.Label,
 		Purpose:              req.Purpose,
-		CorpusPermissions:    req.CorpusPermissions,
 		SuggestedQuestions:   req.SuggestedQuestions,
 		MaxSessionsPerMember: req.MaxSessionsPerMember,
 		MaxTurnsPerSession:   req.MaxTurnsPerSession,
 		MaxBookings:          req.MaxBookings,
-		GrantedSkills:        req.GrantedSkills,
-		AssumedRoleID:        req.AssumedRoleID,
-	}
+		AssumedRoleID:        roleID,
+	}, nil
 }
 
-func writeCreatedCode(
-	log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode,
-	skillIDs, serverIDs []string,
-) {
+// resolveCodeRoleID —— 显式给 → 直接用；没给 → 查 owner 的 vanilla role。
+func resolveCodeRoleID(
+	r *http.Request, h *Handlers, ownerID string, requested *string,
+) (string, error) {
+	if explicit := nonEmptyPtr(requested); explicit != "" {
+		return explicit, nil
+	}
+	return lookupVanillaRoleID(r, h, ownerID)
+}
+
+func nonEmptyPtr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func lookupVanillaRoleID(r *http.Request, h *Handlers, ownerID string) (string, error) {
+	vanilla, err := h.CodesAdmin.Roles.GetByName(r.Context(), ownerID, domain.VanillaRoleName)
+	if err != nil {
+		return "", fmt.Errorf("get vanilla role: %w", err)
+	}
+	return vanilla.ID(), nil
+}
+
+func writeCreatedCode(log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode) {
 	v := toCodeView(c)
-	v.SkillIDs = skillIDs
-	v.MCPServerIDs = serverIDs
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(v); err != nil {

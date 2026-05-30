@@ -177,6 +177,7 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Resume: usecases.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool},
 		Applications: usecases.ApplicationsDeps{
 			Apps: d.applicationRepo, Owners: d.ownerRepo,
+			Roles:    d.roleRepo,
 			Renderer: d.pdfRenderer,
 		},
 		Conversations: usecases.ConversationsDeps{

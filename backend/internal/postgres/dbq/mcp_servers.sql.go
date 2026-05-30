@@ -11,32 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const attachCodeMCPServers = `-- name: AttachCodeMCPServers :exec
-INSERT INTO code_mcp_servers (code_id, mcp_server_id)
-SELECT $1, sid
-FROM unnest($2::uuid[]) AS sid
-ON CONFLICT DO NOTHING
-`
-
-type AttachCodeMCPServersParams struct {
-	CodeID  pgtype.UUID
-	Column2 []pgtype.UUID
-}
-
-func (q *Queries) AttachCodeMCPServers(ctx context.Context, arg AttachCodeMCPServersParams) error {
-	_, err := q.db.Exec(ctx, attachCodeMCPServers, arg.CodeID, arg.Column2)
-	return err
-}
-
-const clearCodeMCPServers = `-- name: ClearCodeMCPServers :exec
-DELETE FROM code_mcp_servers WHERE code_id = $1
-`
-
-func (q *Queries) ClearCodeMCPServers(ctx context.Context, codeID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, clearCodeMCPServers, codeID)
-	return err
-}
-
 const createMCPServer = `-- name: CreateMCPServer :one
 INSERT INTO mcp_servers (owner_id, name, url, auth_header_name, auth_header_value_enc)
 VALUES ($1, $2, $3, $4, $5)
@@ -113,33 +87,6 @@ func (q *Queries) GetMCPServerByID(ctx context.Context, arg GetMCPServerByIDPara
 	return i, err
 }
 
-const listMCPServerIDsForCode = `-- name: ListMCPServerIDsForCode :many
-SELECT mcp_server_id
-FROM code_mcp_servers
-WHERE code_id = $1
-ORDER BY mcp_server_id ASC
-`
-
-func (q *Queries) ListMCPServerIDsForCode(ctx context.Context, codeID pgtype.UUID) ([]pgtype.UUID, error) {
-	rows, err := q.db.Query(ctx, listMCPServerIDsForCode, codeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []pgtype.UUID
-	for rows.Next() {
-		var mcp_server_id pgtype.UUID
-		if err := rows.Scan(&mcp_server_id); err != nil {
-			return nil, err
-		}
-		items = append(items, mcp_server_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listMCPServersByOwner = `-- name: ListMCPServersByOwner :many
 SELECT id, owner_id, name, url, auth_header_name, auth_header_value_enc, created_at
 FROM mcp_servers
@@ -149,42 +96,6 @@ ORDER BY name ASC
 
 func (q *Queries) ListMCPServersByOwner(ctx context.Context, ownerID pgtype.UUID) ([]McpServer, error) {
 	rows, err := q.db.Query(ctx, listMCPServersByOwner, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []McpServer
-	for rows.Next() {
-		var i McpServer
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.Name,
-			&i.Url,
-			&i.AuthHeaderName,
-			&i.AuthHeaderValueEnc,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listMCPServersForCode = `-- name: ListMCPServersForCode :many
-SELECT s.id, s.owner_id, s.name, s.url, s.auth_header_name, s.auth_header_value_enc, s.created_at
-FROM mcp_servers s
-JOIN code_mcp_servers cs ON cs.mcp_server_id = s.id
-WHERE cs.code_id = $1
-ORDER BY s.name ASC
-`
-
-func (q *Queries) ListMCPServersForCode(ctx context.Context, codeID pgtype.UUID) ([]McpServer, error) {
-	rows, err := q.db.Query(ctx, listMCPServersForCode, codeID)
 	if err != nil {
 		return nil, err
 	}

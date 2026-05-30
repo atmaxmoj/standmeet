@@ -34,7 +34,8 @@ func NewApplicationRepo(pool *Pool) *ApplicationRepo {
 }
 
 // CommitInput —— 一次完整 commit 的入参：owner + draft + 给 access_code 的字段。
-// caller 已经决定了 code plaintext + label + 有效期 + 配额（usecase 层默认值）。
+// caller 已经决定了 code plaintext + label + 有效期 + 配额（usecase 层默认值），
+// 以及发码挂的 role id（usecase 默认走 owner 的 vanilla）。
 type CommitInput struct {
 	CodeExpiresAt        *pgtype.Timestamptz
 	MaxSessionsPerMember *int32
@@ -44,6 +45,7 @@ type CommitInput struct {
 	CodePlaintext        string
 	CodeLabel            string
 	CodePurpose          string
+	AssumedRoleID        string
 }
 
 // CommitOutput —— Commit 返回值。把 (Application, AccessCode) 打包成单结构体
@@ -129,6 +131,10 @@ func insertAccessCode(
 	if jerr != nil {
 		return domain.AccessCode{}, fmt.Errorf("marshal empty jsonb: %w", jerr)
 	}
+	roleUUID, rerr := parseUUID(in.AssumedRoleID)
+	if rerr != nil {
+		return domain.AccessCode{}, fmt.Errorf("parse assumed_role_id: %w", rerr)
+	}
 	expires := pgtype.Timestamptz{}
 	if in.CodeExpiresAt != nil {
 		expires = *in.CodeExpiresAt
@@ -138,12 +144,11 @@ func insertAccessCode(
 		Code:                 in.CodePlaintext,
 		Label:                in.CodeLabel,
 		Purpose:              in.CodePurpose,
-		CorpusPermissions:    emptyJSON,
 		SuggestedQuestions:   emptyJSON,
 		ExpiresAt:            expires,
 		MaxSessionsPerMember: in.MaxSessionsPerMember,
 		MaxTurnsPerSession:   in.MaxTurnsPerSession,
-		GrantedSkills:        []string{},
+		AssumedRoleID:        roleUUID,
 	})
 	if err != nil {
 		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)

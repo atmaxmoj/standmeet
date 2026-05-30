@@ -12,37 +12,27 @@ import { createResourceStore, readResource } from '@/lib/state/create-resource-s
 import type { ResourceStatus } from '@/lib/state/status';
 
 // PathPermission —— retrieval-redesign 的准入单元。first-match-wins by
-// order ascending；default deny。空列表 = 允许全部 (legacy 兼容)。
-export interface PathPermission {
-  action: 'allow' | 'deny';
-  path_pattern: string;
-  order?: number;
-}
-
+// A.3-IAM-5: PathPermission / corpus_permissions / granted_skills / skill_ids
+// 全部从 code wire 形态删了 —— code 只挂 assumed_role_id，ACL / capability
+// 都从 role 推断。
 export const CodeViewSchema = z.object({
   id: z.string(), code: z.string(), label: z.string(), status: z.string(),
-  corpus_permissions: z.array(z.object({ action: z.enum(['allow', 'deny']), path_pattern: z.string(), order: z.number().optional() })),
   purpose: z.string().optional(), suggested_questions: z.array(z.string()).optional(),
   max_sessions_per_member: z.number().nullable().optional(),
   max_turns_per_session: z.number().nullable().optional(),
   max_bookings: z.number().nullable().optional(),
-  skill_ids: z.array(z.string()).optional(),
-  granted_skills: z.array(z.string()).optional(),
-  assumed_role_id: z.string().nullable().optional(),
+  assumed_role_id: z.string(),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
 export interface CreateCodeInput {
   code: string;
   label: string;
-  corpus_permissions?: PathPermission[];
   purpose?: string;
   suggested_questions?: string[];
   max_sessions_per_member?: number | null;
   max_turns_per_session?: number | null;
   max_bookings?: number | null;
-  skill_ids?: string[];
-  granted_skills?: string[];
   assumed_role_id?: string | null;
 }
 
@@ -120,13 +110,10 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     code: input.code,
     label: input.label,
     purpose: input.purpose ?? '',
-    corpus_permissions: input.corpus_permissions ?? [],
     suggested_questions: input.suggested_questions ?? [],
     max_sessions_per_member: input.max_sessions_per_member ?? null,
     max_turns_per_session: input.max_turns_per_session ?? null,
     max_bookings: input.max_bookings ?? null,
-    skill_ids: input.skill_ids ?? [],
-    granted_skills: input.granted_skills ?? [],
     assumed_role_id: input.assumed_role_id ?? null,
   };
 }

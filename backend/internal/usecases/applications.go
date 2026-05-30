@@ -58,6 +58,7 @@ const (
 type ApplicationsDeps struct {
 	Apps     *postgres.ApplicationRepo
 	Owners   OwnerLookup
+	Roles    *postgres.RoleRepo
 	Renderer PDFRenderer
 }
 
@@ -127,6 +128,11 @@ func runCommitTx(
 	expires := timestamptzFromTime(time.Now().AddDate(0, 0, applicationCodeDays))
 	maxSessions := applicationMaxSessions
 	maxTurns := applicationMaxTurns
+	// A.3-IAM-5: application 自动 issue code 默认挂 owner 的 vanilla role。
+	vanilla, verr := deps.Roles.GetByName(ctx, ownerID, domain.VanillaRoleName)
+	if verr != nil {
+		return postgres.CommitOutput{}, fmt.Errorf("get vanilla role: %w", verr)
+	}
 	in := &postgres.CommitInput{
 		OwnerID:              ownerID,
 		DraftID:              draftID,
@@ -136,6 +142,7 @@ func runCommitTx(
 		CodeExpiresAt:        &expires,
 		MaxSessionsPerMember: &maxSessions,
 		MaxTurnsPerSession:   &maxTurns,
+		AssumedRoleID:        vanilla.ID(),
 	}
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {

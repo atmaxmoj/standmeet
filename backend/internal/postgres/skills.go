@@ -145,73 +145,9 @@ func parseOwnerAndSkillID(ownerID, skillID string) (skillIDArgs, error) {
 	return skillIDArgs{ownerUUID: ownerUUID, skillUUID: skillUUID}, nil
 }
 
-// SetCodeSkills —— InviteCode ↔ Skill 关联：clear + bulk insert。caller 持
-// 已 validate 过的 skill_ids（确认属于同 owner）。空列表 → 只 clear。
-func (r *SkillRepo) SetCodeSkills(
-	ctx context.Context, codeID string, skillIDs []string,
-) error {
-	codeUUID, perr := parseUUID(codeID)
-	if perr != nil {
-		return fmt.Errorf(errParseCodeIDPrefix, perr)
-	}
-	q := dbq.New(r.pool)
-	if cerr := q.ClearCodeSkills(ctx, codeUUID); cerr != nil {
-		return fmt.Errorf("clear code skills: %w", cerr)
-	}
-	if len(skillIDs) == 0 {
-		return nil
-	}
-	return attachCodeSkills(ctx, q, codeUUID, skillIDs)
-}
-
-func attachCodeSkills(
-	ctx context.Context, q *dbq.Queries, codeUUID pgtype.UUID, skillIDs []string,
-) error {
-	skillUUIDs, suerr := parseUUIDArray(skillIDs)
-	if suerr != nil {
-		return fmt.Errorf("parse skill ids: %w", suerr)
-	}
-	if aerr := q.AttachCodeSkills(ctx, dbq.AttachCodeSkillsParams{
-		CodeID: codeUUID, Column2: skillUUIDs,
-	}); aerr != nil {
-		return fmt.Errorf("attach code skills: %w", aerr)
-	}
-	return nil
-}
-
-// ListSkillIDsForCode —— admin codes 视图回显用。
-func (r *SkillRepo) ListSkillIDsForCode(ctx context.Context, codeID string) ([]string, error) {
-	codeUUID, perr := parseUUID(codeID)
-	if perr != nil {
-		return nil, fmt.Errorf(errParseCodeIDPrefix, perr)
-	}
-	rows, err := dbq.New(r.pool).ListSkillIDsForCode(ctx, codeUUID)
-	if err != nil {
-		return nil, fmt.Errorf("list code skill ids: %w", err)
-	}
-	out := make([]string, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, formatUUID(r))
-	}
-	return out, nil
-}
-
-// ListSkillsForCode —— visitor session issue 时拿 skill 列表拼 prompt。
-func (r *SkillRepo) ListSkillsForCode(ctx context.Context, codeID string) ([]domain.Skill, error) {
-	codeUUID, perr := parseUUID(codeID)
-	if perr != nil {
-		return nil, fmt.Errorf(errParseCodeIDPrefix, perr)
-	}
-	rows, err := dbq.New(r.pool).ListSkillsForCode(ctx, codeUUID)
-	if err != nil {
-		return nil, fmt.Errorf("list skills for code: %w", err)
-	}
-	out := make([]domain.Skill, 0, len(rows))
-	for i := range rows {
-		out = append(out, toDomainSkill(&rows[i]))
-	}
-	return out, nil
-}
+// A.3-IAM-5: SetCodeSkills / ListSkillIDsForCode / ListSkillsForCode 都删了
+// —— code_skills 表已 drop。Role 通过 role_skills 持 skill ids；
+// ListSkillsForRole 是 RoleSnapshot 构造时唯一的 skill 列表来源。
 
 // ListSkillsForRole —— RoleSnapshot 构造时拼 prompt / allowed_tools 用。
 // 跟 ListSkillsForCode 同形态，dbq.ListRoleSkills 在 roles.sql 已声明。

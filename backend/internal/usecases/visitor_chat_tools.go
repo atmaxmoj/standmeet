@@ -61,30 +61,26 @@ func retrievalToolSpecs() []inference.ToolSpec {
 // read/list；cited footer 仅 wiki+output (writings 有自己的 cross_refs +
 // "ask about this essay" 入口，不挤 cited 列表)。
 //
-// ACL 评估：snapshot != nil 时走 URI-based RoleSnapshot.AllowsCorpus，
-// 否则 fallback 走 path-based PathACL。commit 3 拆 PathACL 时 snapshot 一统。
+// ACL 评估：[[role_snapshot]].AllowsCorpus —— A.3-IAM-5 起 snapshot 必填。
 type retriever struct {
 	collector *readCollector
 	snapshot  *domain.RoleSnapshot
 	wikis     []domain.Wiki
 	outputs   []domain.Output
 	writings  []domain.Writing
-	acl       domain.PathACL
 }
 
-// retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。
+// retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。snapshot 必填。
 type retrieverInput struct {
 	snapshot *domain.RoleSnapshot
 	wikis    []domain.Wiki
 	outputs  []domain.Output
 	writings []domain.Writing
-	perms    []domain.PathPermission
 }
 
 func newRetriever(in *retrieverInput) *retriever {
 	return &retriever{
 		wikis: in.wikis, outputs: in.outputs, writings: in.writings,
-		acl:       domain.NewPathACL(in.perms),
 		snapshot:  in.snapshot,
 		collector: newReadCollector(),
 	}

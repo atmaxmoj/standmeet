@@ -1,29 +1,21 @@
 // codes.ts —— admin POST /api/admin/codes 创建 access code 的 helper。
+//
+// A.3-IAM-5: code 只挂 assumed_role_id；不传时 backend 默认绑 owner 的 vanilla
+// role。ACL 测试请配合 fixtures/roles.ts 先建一个 role 再传 assumed_role_id。
 
 import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// PathPermission —— retrieval-redesign 后的 ACL 单元：first-match-wins by
-// order ascending；default deny。空列表 → 全允许 (legacy 兼容)。
-interface PathPermission {
-  action: 'allow' | 'deny';
-  path_pattern: string;
-  order?: number;
-}
-
 export interface CreateCodeInput {
   code: string;
   label: string;
   purpose?: string;
-  // included_tags/excluded_tags 仍接受，retrieval-redesign 落地后将忽略。
-  // 留入参为现存 spec 不破坏；新 spec 请用 corpus_permissions。
-  included_tags?: string[];
-  excluded_tags?: string[];
-  corpus_permissions?: PathPermission[];
+  assumed_role_id?: string | null;
   suggested_questions?: string[];
   max_sessions_per_member?: number | null;
   max_turns_per_session?: number | null;
+  max_bookings?: number | null;
 }
 
 export interface CodeView {
@@ -31,6 +23,7 @@ export interface CodeView {
   code: string;
   label: string;
   status: string;
+  assumed_role_id: string;
 }
 
 export async function createCode(
@@ -44,12 +37,11 @@ export async function createCode(
       code: input.code,
       label: input.label,
       purpose: input.purpose ?? '',
-      included_tags: input.included_tags ?? [],
-      excluded_tags: input.excluded_tags ?? [],
-      corpus_permissions: input.corpus_permissions ?? [],
       suggested_questions: input.suggested_questions ?? [],
       max_sessions_per_member: input.max_sessions_per_member ?? null,
       max_turns_per_session: input.max_turns_per_session ?? null,
+      max_bookings: input.max_bookings ?? null,
+      assumed_role_id: input.assumed_role_id ?? null,
     },
   });
   if (res.status() !== 201) throw new Error(`create code failed: ${res.status()}`);

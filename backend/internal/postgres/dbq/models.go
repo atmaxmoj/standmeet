@@ -14,13 +14,11 @@ type AccessCode struct {
 	Code                 string
 	Label                string
 	Purpose              string
-	CorpusPermissions    []byte
 	SuggestedQuestions   []byte
 	ExpiresAt            pgtype.Timestamptz
 	Status               string
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
-	GrantedSkills        []string
 	MaxBookings          *int32
 	CreatedAt            pgtype.Timestamptz
 	AssumedRoleID        pgtype.UUID
@@ -83,11 +81,6 @@ type CodeBooking struct {
 	CreatedAt      pgtype.Timestamptz
 }
 
-type CodeMcpServer struct {
-	CodeID      pgtype.UUID
-	McpServerID pgtype.UUID
-}
-
 type CodeMember struct {
 	ID          pgtype.UUID
 	CodeID      pgtype.UUID
@@ -95,11 +88,6 @@ type CodeMember struct {
 	Email       *string
 	IsAnonymous bool
 	LastSeenAt  pgtype.Timestamptz
-}
-
-type CodeSkill struct {
-	CodeID  pgtype.UUID
-	SkillID pgtype.UUID
 }
 
 type Conversation struct {

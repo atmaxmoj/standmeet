@@ -173,12 +173,9 @@ func streamChatSSE(
 		OwnerID:        parsed.Data.OwnerID,
 		ConversationID: convID,
 		Body:           parsed.Content,
-		Permissions:    parsed.Data.CorpusPermissions,
-		SkillPrompts:   parsed.Data.SkillPrompts,
 		Mode:           parsed.Data.Mode,
 		BYOAI:          parsed.BYOAI,
 		CodeID:         parsed.Data.CodeID,
-		GrantedSkills:  parsed.Data.GrantedSkills,
 		MaxBookings:    parsed.Data.MaxBookings,
 		RoleSnapshot:   parsed.Data.RoleSnapshot,
 	})

@@ -27,20 +27,19 @@ type CodeRepo struct {
 // NewCodeRepo 构造 CodeRepo。
 func NewCodeRepo(pool *Pool) *CodeRepo { return &CodeRepo{pool: pool} }
 
-// CreateCodeInput —— 创建 access code 入参。
+// CreateCodeInput —— 创建 access code 入参。AssumedRoleID 必填（caller
+// usecase 不显式给则默认指 vanilla）。
 type CreateCodeInput struct {
 	ExpiresAt            *time.Time
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
 	MaxBookings          *int32
-	AssumedRoleID        *string
 	OwnerID              string
 	Code                 string
 	Label                string
 	Purpose              string
-	CorpusPermissions    []domain.PathPermission
+	AssumedRoleID        string
 	SuggestedQuestions   []string
-	GrantedSkills        []string
 }
 
 // Create 写一条 access_code。
@@ -57,83 +56,36 @@ func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.Acce
 }
 
 func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, error) {
-	prepped, err := prepCreateCodeFields(in)
+	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	roleUUID, rerr := parseUUID(in.AssumedRoleID)
+	if rerr != nil {
+		return nil, fmt.Errorf("parse assumed_role_id: %w", rerr)
+	}
+	qs, jerr := json.Marshal(in.SuggestedQuestions)
+	if jerr != nil {
+		return nil, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
 	return &dbq.CreateAccessCodeParams{
-		OwnerID:              prepped.ownerUUID,
+		OwnerID:              ownerUUID,
 		Code:                 in.Code,
 		Label:                in.Label,
 		Purpose:              in.Purpose,
-		CorpusPermissions:    prepped.perms,
-		SuggestedQuestions:   prepped.qs,
+		SuggestedQuestions:   qs,
 		ExpiresAt:            ptrToTimestamptz(in.ExpiresAt),
 		MaxSessionsPerMember: in.MaxSessionsPerMember,
 		MaxTurnsPerSession:   in.MaxTurnsPerSession,
-		GrantedSkills:        prepped.grants,
 		MaxBookings:          in.MaxBookings,
-		AssumedRoleID:        prepped.roleUUID,
+		AssumedRoleID:        roleUUID,
 	}, nil
-}
-
-// createCodePrepped —— buildCreateCodeParams 的中间打包，让父函数 cyclo ≤ 5。
-// 字段顺序按 fieldalignment：slice (24B 含 cap)、pgtype.UUID (17B) 配对放后。
-type createCodePrepped struct {
-	qs        []byte
-	perms     []byte
-	grants    []string
-	ownerUUID pgtype.UUID
-	roleUUID  pgtype.UUID
-}
-
-func prepCreateCodeFields(in *CreateCodeInput) (createCodePrepped, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
-	if err != nil {
-		return createCodePrepped{}, fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	roleUUID, rerr := optionalUUID(in.AssumedRoleID)
-	if rerr != nil {
-		return createCodePrepped{}, fmt.Errorf("parse assumed_role_id: %w", rerr)
-	}
-	blobs, jerr := marshalCodeBlobs(in)
-	if jerr != nil {
-		return createCodePrepped{}, jerr
-	}
-	grants := in.GrantedSkills
-	if grants == nil {
-		grants = []string{}
-	}
-	return createCodePrepped{
-		ownerUUID: ownerUUID, roleUUID: roleUUID,
-		qs: blobs.QS, perms: blobs.Perms, grants: grants,
-	}, nil
-}
-
-// codeBlobs —— marshalCodeBlobs 返回打包，避开 function-result-limit 3-return。
-type codeBlobs struct {
-	QS    []byte
-	Perms []byte
-}
-
-// marshalCodeBlobs —— suggested_questions + corpus_permissions JSON 串。
-// 提出来降 prepCreateCodeFields 的 cyclo。
-func marshalCodeBlobs(in *CreateCodeInput) (codeBlobs, error) {
-	qsBytes, jerr := json.Marshal(in.SuggestedQuestions)
-	if jerr != nil {
-		return codeBlobs{}, fmt.Errorf("marshal suggested questions: %w", jerr)
-	}
-	permsBytes, perr := json.Marshal(in.CorpusPermissions)
-	if perr != nil {
-		return codeBlobs{}, fmt.Errorf("marshal corpus permissions: %w", perr)
-	}
-	return codeBlobs{QS: qsBytes, Perms: permsBytes}, nil
 }
 
 // UpdateRole —— 改 code 的 assumed_role_id。新 role 必须属于同 owner（caller
-// 校验过）。NULL 也可写（commit 5 之前老 code 仍允许无 role）。
+// 校验过）。schema NOT NULL 后 role id 必填。
 func (r *CodeRepo) UpdateRole(
-	ctx context.Context, ownerID, codeID string, roleID *string,
+	ctx context.Context, ownerID, codeID, roleID string,
 ) (domain.AccessCode, error) {
 	params, perr := buildUpdateCodeRoleParams(ownerID, codeID, roleID)
 	if perr != nil {
@@ -150,7 +102,7 @@ func (r *CodeRepo) UpdateRole(
 }
 
 func buildUpdateCodeRoleParams(
-	ownerID, codeID string, roleID *string,
+	ownerID, codeID, roleID string,
 ) (*dbq.UpdateAccessCodeRoleParams, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {
@@ -160,7 +112,7 @@ func buildUpdateCodeRoleParams(
 	if cerr != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, cerr)
 	}
-	roleUUID, rerr := optionalUUID(roleID)
+	roleUUID, rerr := parseUUID(roleID)
 	if rerr != nil {
 		return nil, fmt.Errorf("parse role id: %w", rerr)
 	}
@@ -169,43 +121,8 @@ func buildUpdateCodeRoleParams(
 	}, nil
 }
 
-// UpdatePermissions —— 改某 code 的 corpus_permissions。
-func (r *CodeRepo) UpdatePermissions(
-	ctx context.Context, ownerID, codeID string, perms []domain.PathPermission,
-) (domain.AccessCode, error) {
-	params, err := buildUpdatePermissionsParams(ownerID, codeID, perms)
-	if err != nil {
-		return domain.AccessCode{}, err
-	}
-	row, qerr := dbq.New(r.pool).UpdateAccessCodePermissions(ctx, *params)
-	if qerr != nil {
-		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.AccessCode{}, domain.ErrCodeInvalid
-		}
-		return domain.AccessCode{}, fmt.Errorf("update access code permissions: %w", qerr)
-	}
-	return toDomainCode(&row), nil
-}
-
-func buildUpdatePermissionsParams(
-	ownerID, codeID string, perms []domain.PathPermission,
-) (*dbq.UpdateAccessCodePermissionsParams, error) {
-	ownerUUID, err := parseUUID(ownerID)
-	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	codeUUID, err := parseUUID(codeID)
-	if err != nil {
-		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
-	}
-	encoded, jerr := json.Marshal(perms)
-	if jerr != nil {
-		return nil, fmt.Errorf("marshal corpus permissions: %w", jerr)
-	}
-	return &dbq.UpdateAccessCodePermissionsParams{
-		ID: codeUUID, OwnerID: ownerUUID, CorpusPermissions: encoded,
-	}, nil
-}
+// UpdatePermissions / buildUpdatePermissionsParams 在 A.3-IAM-5 删 ——
+// corpus_permissions 列已 drop，ACL 走 Role.CorpusURIs。
 
 // Revoke 把 code.status 改成 'revoked'；GetAccessCode（只查 active）从此跳过它。
 func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {

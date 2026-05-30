@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
@@ -64,20 +63,22 @@ type SessionQuota struct {
 // IssueCodeSessionResult —— IssueCodeSession 返回的成对结果，避免 3-return。
 // Code / VisitorName / Quota 让 visitor UI banner 一次拿全自描述信息，免
 // 二次查询；public/byoai tier 时 Code 空、Quota 留 zero value。
+// 字段顺序：重 sub-struct (Conversation / Session) 在前，slice 中，strings
+// 后，int 末 —— 让 fieldalignment 满意。
 type IssueCodeSessionResult struct {
+	Session      session.IssuedVisitor
 	Code         string
 	CodeLabel    string
 	VisitorName  string
-	Members      []domain.CodeMember
 	Conversation domain.Conversation
-	Session      session.IssuedVisitor
+	Members      []domain.CodeMember
 	Quota        SessionQuota
 }
 
 // codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
 type codeSessionArtifacts struct {
-	Conv   domain.Conversation
 	Issued session.IssuedVisitor
+	Conv   domain.Conversation
 }
 
 // IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
@@ -140,11 +141,11 @@ func issueCodeSessionArtifacts(
 	if err != nil {
 		return codeSessionArtifacts{}, err
 	}
-	bundle, berr := loadCodeSessionBundle(ctx, deps, code)
-	if berr != nil {
-		return codeSessionArtifacts{}, berr
+	snapshot, serr := buildRoleSnapshotForCode(ctx, deps, code)
+	if serr != nil {
+		return codeSessionArtifacts{}, serr
 	}
-	sd := buildCodeSessionData(code, in.VisitorName, bundle)
+	sd := buildCodeSessionData(code, in.VisitorName, &snapshot)
 	issued, err := deps.Sessions.Issue(ctx, sd)
 	if err != nil {
 		return codeSessionArtifacts{}, fmt.Errorf("issue visitor session: %w", err)
@@ -152,59 +153,11 @@ func issueCodeSessionArtifacts(
 	return codeSessionArtifacts{Conv: conv, Issued: issued}, nil
 }
 
-// codeSessionBundle —— issueCodeSessionArtifacts 给 buildCodeSessionData 的
-// 输入 bundle：snapshot（持 assumed_role_id 时非 nil）+ legacy skill prompts
-// （snapshot nil 时 fallback 用）。两者互斥。
-type codeSessionBundle struct {
-	snapshot     *domain.RoleSnapshot
-	skillPrompts []string
-}
-
-// loadCodeSessionBundle —— 持 assumed_role_id 走 RoleSnapshot freeze；否则
-// 走 legacy code_skills 拼 prompt。
-func loadCodeSessionBundle(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode,
-) (codeSessionBundle, error) {
-	if code.AssumedRoleID != nil {
-		snapshot, serr := buildRoleSnapshotForCode(ctx, deps, code)
-		if serr != nil {
-			return codeSessionBundle{}, serr
-		}
-		return codeSessionBundle{snapshot: &snapshot}, nil
-	}
-	skillPrompts, lerr := loadCodeSkillPrompts(ctx, deps, code.ID)
-	if lerr != nil {
-		return codeSessionBundle{}, lerr
-	}
-	return codeSessionBundle{skillPrompts: skillPrompts}, nil
-}
-
 func codeSessionQuota(code *domain.AccessCode) SessionQuota {
 	if code.MaxTurnsPerSession != nil && *code.MaxTurnsPerSession > 0 {
 		return SessionQuota{MaxTurns: *code.MaxTurnsPerSession}
 	}
 	return SessionQuota{}
-}
-
-// loadCodeSkillPrompts —— 拉 InviteCode 选中的 skill prompts，固化到 session
-// 避免每次 chat 查 DB。skills 表的 ListSkillsForCode 已按 name asc 排好。
-func loadCodeSkillPrompts(
-	ctx context.Context, deps *VisitorDeps, codeID string,
-) ([]string, error) {
-	if deps.Skills == nil {
-		return []string{}, nil
-	}
-	skills, err := deps.Skills.ListSkillsForCode(ctx, codeID)
-	if err != nil {
-		return []string{}, fmt.Errorf("list code skills: %w", err)
-	}
-	out := make([]string, 0, len(skills))
-	for i := range skills {
-		if p := strings.TrimSpace(skills[i].Prompt); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out, nil
 }
 
 // resolveMemberWithQuota —— upsert member by name；配额超额翻译成 domain
@@ -258,18 +211,14 @@ func createCodeConversation(
 }
 
 func buildCodeSessionData(
-	code *domain.AccessCode, visitorName string, bundle codeSessionBundle,
+	code *domain.AccessCode, visitorName string, snapshot *domain.RoleSnapshot,
 ) *session.VisitorSessionData {
-	sd := &session.VisitorSessionData{
-		OwnerID:           code.OwnerID,
-		Mode:              "code",
-		CodeID:            code.ID,
-		VisitorName:       visitorName,
-		CorpusPermissions: code.CorpusPermissions,
-		SkillPrompts:      bundle.skillPrompts,
-		GrantedSkills:     code.GrantedSkills,
-		MaxBookings:       code.MaxBookings,
-		RoleSnapshot:      bundle.snapshot,
+	return &session.VisitorSessionData{
+		OwnerID:      code.OwnerID,
+		Mode:         "code",
+		CodeID:       code.ID,
+		VisitorName:  visitorName,
+		MaxBookings:  code.MaxBookings,
+		RoleSnapshot: snapshot,
 	}
-	return sd
 }

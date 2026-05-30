@@ -8,28 +8,19 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 )
 
-// allowsPath —— ACL 评估 (wiki/output 用)。snapshot != nil 走
-// RoleSnapshot.AllowsCorpus(uri) (genre://path)；否则 fallback PathACL。
-// genre = 调用 site (caller 已 know wiki vs output)。
+// allowsPath —— ACL 评估 (wiki/output 用)。走 RoleSnapshot.AllowsCorpus
+// (genre://path)。genre = 调用 site (caller 已 know wiki vs output)。
 func (r *retriever) allowsPath(genre domain.DocumentGenre, path string) bool {
-	if r.snapshot != nil {
-		return r.snapshot.AllowsCorpus(domain.FormatURI(genre, path))
-	}
-	return r.acl.AllowsPath(path)
+	return r.snapshot.AllowsCorpus(domain.FormatURI(genre, path))
 }
 
-// allowsEntry —— wiki/output entry-level ACL (空 path + 空 ACL → allow，
-// 空 path + 非空 ACL → deny)。snapshot 路径：corpus_uris 永远 positive-list，
-// 空 path 在 URI 形态下没法匹（"wiki://" 这个空-尾巴 URI 不会落任何 pattern），
-// 所以等同 deny；这跟 PathACL 的 "非空 ACL + 空 path → deny" 语义一致。
+// allowsEntry —— wiki/output entry-level ACL；空 path 的 entry 也走
+// AllowsCorpus，相当于评估 "<genre>://" 这条 URI —— role 配 "<genre>://**"
+// 时正则 `^genre://.*$` 允许零字符尾巴，所以"owner 没填 path 也能 retrieve"
+// 的旧语义保留。owner 显式收紧 (e.g. corpus_uris=['wiki://thinking/**']) 时
+// 空 path 自然不匹中 → 不被检索。
 func (r *retriever) allowsEntry(genre domain.DocumentGenre, path string) bool {
-	if r.snapshot != nil {
-		if path == "" {
-			return false
-		}
-		return r.snapshot.AllowsCorpus(domain.FormatURI(genre, path))
-	}
-	return r.acl.AllowsEntry(path)
+	return r.snapshot.AllowsCorpus(domain.FormatURI(genre, path))
 }
 
 // dispatchRead —— 按 genre 顺序找 entry，命中时按该 genre 评估 ACL。先 wiki，

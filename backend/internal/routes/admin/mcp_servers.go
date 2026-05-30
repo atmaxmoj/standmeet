@@ -38,18 +38,14 @@ type createMCPServerRequest struct {
 	AuthHeaderValue string `json:"auth_header_value"`
 }
 
-type setCodeMCPServersRequest struct {
-	ServerIDs []string `json:"server_ids"`
-}
-
-// MountMCPServers 挂 /mcp-servers + /codes/{id}/mcp-servers。
+// MountMCPServers 挂 /mcp-servers。owner-registered server CRUD；attach to
+// code 在 A.3-IAM-5 删了，mcp server 通过 role_mcp_servers 挂 role。
 func (h *Handlers) MountMCPServers(r chi.Router) {
 	r.Route("/mcp-servers", func(r chi.Router) {
 		r.Get("/", h.listMCPServers())
 		r.Post("/", h.createMCPServer())
 		r.Delete("/{id}", h.deleteMCPServer())
 	})
-	r.Put("/codes/{id}/mcp-servers", h.setCodeMCPServers())
 }
 
 func (h *Handlers) listMCPServers() http.HandlerFunc {
@@ -160,73 +156,5 @@ func handleDeleteMCPServerErr(log *slog.Logger, w http.ResponseWriter, err error
 	writeError(log, w, serverErr())
 }
 
-func (h *Handlers) setCodeMCPServers() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req setCodeMCPServersRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(h.Log, w, envBadReq("invalid JSON body"))
-			return
-		}
-		runSetCodeMCPServers(r, h, w, &req)
-	}
-}
-
-func runSetCodeMCPServers(
-	r *http.Request, h *Handlers, w http.ResponseWriter, req *setCodeMCPServersRequest,
-) {
-	ownerID := middleware.OwnerIDFrom(r.Context())
-	codeID := chi.URLParam(r, "id")
-	in := &usecases.SetCodeMCPServersInput{
-		OwnerID: ownerID, CodeID: codeID, ServerIDs: req.ServerIDs,
-	}
-	if err := usecases.SetCodeMCPServers(r.Context(), h.MCPServersAdmin.Servers, in); err != nil {
-		handleSetCodeMCPServersErr(h.Log, w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func handleSetCodeMCPServersErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, domain.ErrCodeInvalid):
-		writeError(log, w, apierr.Envelope{
-			Status: http.StatusNotFound, Code: "code_not_found", Message: "code not found",
-		})
-	case errors.Is(err, domain.ErrMCPServerNotFound):
-		writeError(log, w, apierr.Envelope{
-			Status: http.StatusBadRequest, Code: "mcp_server_not_found",
-			Message: "one or more mcp server ids do not exist",
-		})
-	default:
-		logEncodeErr(log, "set code mcp servers", err)
-		writeError(log, w, serverErr())
-	}
-}
-
-// attachCreatedCodeMCPServers —— createCode 时 attach mcp_server_ids；空
-// 列表跳过。failure caller 翻 envelope。
-func attachCreatedCodeMCPServers(
-	r *http.Request, h *Handlers, ownerID, codeID string, serverIDs []string,
-) error {
-	if len(serverIDs) == 0 {
-		return nil
-	}
-	in := &usecases.SetCodeMCPServersInput{
-		OwnerID: ownerID, CodeID: codeID, ServerIDs: serverIDs,
-	}
-	return usecases.SetCodeMCPServers(r.Context(), h.MCPServersAdmin.Servers, in)
-}
-
-// listMCPServerIDsForCode —— admin listCodes 视图回显用。失败 / 空 →
-// 空 slice，跟 listSkillIDsForCode 一致。
-func listMCPServerIDsForCode(r *http.Request, h *Handlers, codeID string) []string {
-	if h.CodesAdmin.MCPServers == nil {
-		return []string{}
-	}
-	ids, err := h.CodesAdmin.MCPServers.ListIDsForCode(r.Context(), codeID)
-	if err != nil {
-		h.Log.Error("list code mcp server ids", "code_id", codeID, "err", err)
-		return []string{}
-	}
-	return ids
-}
+// setCodeMCPServers / attachCreatedCodeMCPServers / listMCPServerIDsForCode
+// 在 A.3-IAM-5 删 —— mcp 通过 role_mcp_servers 挂 role。

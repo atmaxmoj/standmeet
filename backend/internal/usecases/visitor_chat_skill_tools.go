@@ -25,36 +25,31 @@ import (
 	"github.com/wangsijie/standmeet/internal/sandbox"
 )
 
-// buildSkillBundle —— 通过 conversation 反查 code，再拉 skill+scripts；
-// 没 code (public/byoai tier) → 返空 bundle (Specs() 空，dispatcher 跳过)。
+// buildSkillBundle —— 通过 RoleSnapshot.SkillIDs 拿一组 skill。snapshot 空
+// (理论上不可能，因为 commit 5 起强制) 或没 skill → 空 bundle (dispatcher 跳过)。
 func buildSkillBundle(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
-) (*skillToolBundle, error) {
-	skills, lerr := loadSkillsForConversation(ctx, deps, in)
-	if lerr != nil {
-		return nil, lerr
-	}
-	return newSkillToolBundle(deps.Sandbox, skills), nil
+) *skillToolBundle {
+	skills := loadSkillsForConversation(ctx, deps, in)
+	return newSkillToolBundle(deps.Sandbox, skills)
 }
 
 func loadSkillsForConversation(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
-) ([]domain.Skill, error) {
-	if deps.Skills == nil {
-		return []domain.Skill{}, nil
+) []domain.Skill {
+	if deps.Skills == nil || in.RoleSnapshot == nil {
+		return []domain.Skill{}
 	}
-	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
-	if err != nil {
-		return []domain.Skill{}, fmt.Errorf("load conv for skills: %w", err)
+	ids := in.RoleSnapshot.SkillIDs()
+	out := make([]domain.Skill, 0, len(ids))
+	for _, id := range ids {
+		s, err := deps.Skills.GetByID(ctx, in.OwnerID, id)
+		if err != nil {
+			continue
+		}
+		out = append(out, s)
 	}
-	if conv.CodeID == nil {
-		return []domain.Skill{}, nil
-	}
-	skills, err := deps.Skills.ListSkillsForCode(ctx, *conv.CodeID)
-	if err != nil {
-		return []domain.Skill{}, fmt.Errorf("list skills for code: %w", err)
-	}
-	return skills, nil
+	return out
 }
 
 // skillToolPrefix —— 所有 skill 派生 tool 用这个前缀，方便 dispatcher

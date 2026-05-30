@@ -25,34 +25,31 @@ type SkillsAdminDeps struct {
 }
 
 type skillView struct {
-	CreatedAt   string `json:"created_at"`
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Prompt      string `json:"prompt"`
-	Source      string `json:"source"`
-	IsBuiltin   bool   `json:"is_builtin"`
+	CreatedAt    string   `json:"created_at"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Prompt       string   `json:"prompt"`
+	Source       string   `json:"source"`
+	AllowedTools []string `json:"allowed_tools"`
+	IsBuiltin    bool     `json:"is_builtin"`
 }
 
 type createSkillRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Prompt      string `json:"prompt"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Prompt       string   `json:"prompt"`
+	AllowedTools []string `json:"allowed_tools"`
 }
 
-type setCodeSkillsRequest struct {
-	SkillIDs []string `json:"skill_ids"`
-}
-
-// MountSkills 挂 /skills + /codes/{id}/skills。MountSkills 由 MountAuthed
-// 调用，外层已经裹了 owner session。
+// MountSkills 挂 /skills。owner-curated skill 池 CRUD；attach to code 在
+// A.3-IAM-5 删了，skill 通过 role_skills 挂 role。
 func (h *Handlers) MountSkills(r chi.Router) {
 	r.Route("/skills", func(r chi.Router) {
 		r.Get("/", h.listSkills())
 		r.Post("/", h.createSkill())
 		r.Delete("/{id}", h.deleteSkill())
 	})
-	r.Put("/codes/{id}/skills", h.setCodeSkills())
 }
 
 func (h *Handlers) listSkills() http.HandlerFunc {
@@ -81,10 +78,15 @@ func writeSkillsList(log *slog.Logger, w http.ResponseWriter, rows []domain.Skil
 }
 
 func toSkillView(s *domain.Skill) skillView {
+	tools := s.AllowedTools
+	if tools == nil {
+		tools = []string{}
+	}
 	return skillView{
 		ID: s.ID, Name: s.Name, Description: s.Description, Prompt: s.Prompt,
 		Source: s.Source, IsBuiltin: s.IsBuiltin,
-		CreatedAt: s.CreatedAt.Format(time.RFC3339),
+		AllowedTools: tools,
+		CreatedAt:    s.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -98,6 +100,7 @@ func (h *Handlers) createSkill() http.HandlerFunc {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		in := &usecases.CreateSkillInput{
 			OwnerID: ownerID, Name: req.Name, Description: req.Description, Prompt: req.Prompt,
+			AllowedTools: req.AllowedTools,
 		}
 		skill, err := usecases.CreateSkill(r.Context(), h.SkillsAdmin.Skills, in)
 		if err != nil {
@@ -162,39 +165,5 @@ func handleDeleteSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	}
 }
 
-func (h *Handlers) setCodeSkills() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req setCodeSkillsRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(h.Log, w, envBadReq("invalid JSON body"))
-			return
-		}
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		codeID := chi.URLParam(r, "id")
-		in := &usecases.SetCodeSkillsInput{
-			OwnerID: ownerID, CodeID: codeID, SkillIDs: req.SkillIDs,
-		}
-		if err := usecases.SetCodeSkills(r.Context(), h.SkillsAdmin.Skills, in); err != nil {
-			handleSetCodeSkillsErr(h.Log, w, err)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
-func handleSetCodeSkillsErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, domain.ErrCodeInvalid):
-		writeError(log, w, apierr.Envelope{
-			Status: http.StatusNotFound, Code: "code_not_found", Message: "code not found",
-		})
-	case errors.Is(err, domain.ErrSkillNotFound):
-		writeError(log, w, apierr.Envelope{
-			Status: http.StatusBadRequest, Code: "skill_not_found",
-			Message: "one or more skill ids do not exist",
-		})
-	default:
-		logEncodeErr(log, "set code skills", err)
-		writeError(log, w, serverErr())
-	}
-}
+// setCodeSkills handler + handleSetCodeSkillsErr 在 A.3-IAM-5 删 ——
+// skills 通过 role_skills 挂 role，code 不再直接持 skill_ids。

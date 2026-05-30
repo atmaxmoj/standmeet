@@ -85,10 +85,13 @@ func canExposeBooker(
 }
 
 func bookerGatingPasses(in *SendMessageInput) bool {
-	if in.Mode != "code" {
+	if in.Mode != "code" || in.RoleSnapshot == nil {
 		return false
 	}
-	return slices.Contains(in.GrantedSkills, BookerSkillName)
+	// AllowedTools is the union of skill.allowed_tools across role's skills;
+	// calendar.book is granted iff role has the booker skill attached with
+	// that tool in its allow list.
+	return slices.Contains(in.RoleSnapshot.AllowedTools(), BookerSkillName)
 }
 
 func bookerQuotaExhausted(

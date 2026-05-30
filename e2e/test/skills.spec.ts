@@ -69,14 +69,34 @@ test.describe('owner curates AI skills and attaches them to invite codes', () =>
     await expect(page.getByTestId(`skill-row-${SKILL.name}`)).toBeVisible({ timeout: 5_000 });
   });
 
-  test('owner attaches the skill to a new invite code',
+  test('owner creates a role attaching the skill, then issues a code with that role',
     async ({ adminPage: page }) => {
+      // A.3-IAM-5: code 不再直接挂 skill；走 role 中转。
+      await gotoAdminSection(page, 'roles');
+      await page.waitForURL('**/admin/roles');
+      await page.getByTestId('role-new').click();
+      const modal = page.getByTestId('role-create-modal');
+      await expect(modal).toBeVisible();
+      await modal.getByTestId('role-field-name').fill('patent-loop');
+      await modal.getByTestId('role-field-corpus-uris').fill(
+        ['wiki://**', 'output://**', 'writing://**'].join('\n'),
+      );
+      const skillsField = modal.getByTestId('role-field-skills');
+      await expect(skillsField.locator(`[data-testid="role-multi-${SKILL.name}"]`))
+        .toBeVisible({ timeout: 5_000 });
+      await skillsField.locator(`[data-testid="role-multi-${SKILL.name}"]`).click();
+      await modal.getByTestId('role-create-submit').click();
+      await expect(modal).not.toBeVisible({ timeout: 5_000 });
+
       await gotoAdminSection(page, 'codes');
       await page.waitForURL('**/admin/codes');
       await page.getByRole('button', { name: /new code/i }).click();
       await page.getByTestId('code-input').fill(CODE);
       await page.getByTestId('code-label').fill('Patent reviewer loop');
-      await page.getByTestId(`code-skill-${SKILL.name}`).click();
+      const roleDropdown = page.getByTestId('code-field-role');
+      await expect(roleDropdown.locator('option', { hasText: 'patent-loop' }))
+        .toHaveCount(1, { timeout: 5_000 });
+      await roleDropdown.selectOption({ label: 'patent-loop' });
       await page.getByTestId('code-create').click();
       await expect(page.getByTestId(`code-row-${CODE}`)).toBeVisible({ timeout: 5_000 });
     });

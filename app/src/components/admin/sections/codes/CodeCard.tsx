@@ -4,7 +4,6 @@
 import Link from 'next/link';
 
 import { Btn } from '@/components/admin/atoms/Btn';
-import { Chip } from '@/components/admin/atoms/Chip';
 import { MetaPair } from '@/components/admin/atoms/MetaPair';
 import { QRCode } from '@/components/admin/atoms/QRCode';
 import { MembersBlock } from '@/components/admin/sections/codes/MembersBlock';
@@ -113,27 +112,18 @@ function CodeCardBody({ code }: { code: CodeView }) {
   return (
     <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-5">
       <MembersCol codeID={code.id} code={code.code} />
-      <RoleOrScopeCol code={code} />
+      <RoleCol code={code} />
       <QRCol code={code} />
       <QuotaBar code={code} />
     </div>
   );
 }
 
-// RoleOrScopeCol —— A.3-IAM。assumed_role_id 时显示 role 链接 + (frozen)
-// 时间戳；否则 fallback 老 PathACL scope 块。commit 5 drop legacy 后只剩
-// 上半部分。
-function RoleOrScopeCol({ code }: { code: CodeView }) {
-  return code.assumed_role_id
-    ? <RoleCol code={code} />
-    : <ScopeBlock perms={code.corpus_permissions} />;
-}
-
 function RoleCol({ code }: { code: CodeView }) {
   return (
     <MetaPair label="role">
       <div className="flex flex-col gap-1">
-        <RoleLink roleID={code.assumed_role_id ?? ''} />
+        <RoleLink roleID={code.assumed_role_id} />
         <RoleFrozenLine />
       </div>
     </MetaPair>
@@ -202,28 +192,7 @@ function quotaSummary(n: number | null | undefined, label: string): string {
   return n && n > 0 ? `${n} ${label}` : `unlimited ${label}`;
 }
 
-interface PathPerm { action: 'allow' | 'deny'; path_pattern: string }
-
-function ScopeBlock({ perms }: { perms: readonly PathPerm[] }) {
-  return (
-    <MetaPair label="access scope">
-      <div className="flex flex-wrap gap-1.5">
-        {perms.map((p, i) => (
-          <Chip key={`p-${i}`} tone={p.action === 'allow' ? undefined : 'private'}>
-            {p.action === 'allow' ? '+' : '−'} {p.path_pattern}
-          </Chip>
-        ))}
-        <UnrestrictedHint shown={perms.length === 0} />
-      </div>
-    </MetaPair>
-  );
-}
-
-function UnrestrictedHint({ shown }: { shown: boolean }) {
-  return shown
-    ? <span className="mono text-[10px] text-(--color-faint)">(unrestricted)</span>
-    : null;
-}
+// A.3-IAM-5: ScopeBlock / PathPerm / UnrestrictedHint 删 —— ACL 从 role 推断。
 
 
 

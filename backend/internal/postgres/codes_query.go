@@ -77,16 +77,11 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 		MaxTurnsPerSession:   c.MaxTurnsPerSession,
 		MaxBookings:          c.MaxBookings,
 		SuggestedQuestions:   decodeStringJSON(c.SuggestedQuestions),
-		CorpusPermissions:    decodePermissionsJSON(c.CorpusPermissions),
-		GrantedSkills:        c.GrantedSkills,
+		AssumedRoleID:        formatUUID(c.AssumedRoleID),
 	}
 	if c.ExpiresAt.Valid {
 		t := c.ExpiresAt.Time
 		out.ExpiresAt = &t
-	}
-	if c.AssumedRoleID.Valid {
-		s := formatUUID(c.AssumedRoleID)
-		out.AssumedRoleID = &s
 	}
 	return out
 }
@@ -98,17 +93,6 @@ func decodeStringJSON(raw []byte) []string {
 	var out []string
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return []string{}
-	}
-	return out
-}
-
-func decodePermissionsJSON(raw []byte) []domain.PathPermission {
-	if len(raw) == 0 {
-		return []domain.PathPermission{}
-	}
-	var out []domain.PathPermission
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return []domain.PathPermission{}
 	}
 	return out
 }

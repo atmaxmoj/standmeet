@@ -14,48 +14,24 @@ import (
 //   - MaxSessionsPerMember nil → 不限；几个 session 数（"5 轮面试" 就 5）。
 //   - MaxTurnsPerSession   nil → 不限；单 session 内 visitor turn 上限。
 //   - Status 'active' / 'revoked'（过期由 ExpiresAt 计算，不写状态字段）。
-//   - CorpusPermissions path-glob ACL；空列表 = 允许全部 (无 ACL)；非空时
-//     first-match-wins by order ascending，默认 deny。
+//   - AssumedRoleID 必填，指向 owner 的 roles 行 id；session issue 时 freeze
+//     出 [[role_snapshot]]。owner 不显式选 → usecase 默认绑 vanilla。
+//   - MaxBookings nil → role 没解锁 calendar.book 时也无意义；非 nil 是
+//     per-code 跨 visitor 累计配额，从 code_bookings count 计。
 type AccessCode struct {
 	CreatedAt            time.Time
 	ExpiresAt            *time.Time
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
-	// MaxBookings —— calendar.book 配额 (per-code，跨 visitor / session 累计)。
-	// nil = 不解锁。配合 GrantedSkills 的双保险：tool registry 先看
-	// GrantedSkills 决定 spec 是否出现，再用 MaxBookings + code_bookings
-	// count 在 invoke 时拒。
-	MaxBookings *int32
-	// AssumedRoleID —— A.3-IAM 引入。指向 owner 的 roles 行 id；session issue
-	// 时 freeze 出 [[role_snapshot]]。commit 2 nullable 兼容老路径（nil → 走
-	// CorpusPermissions / GrantedSkills / code_skills / code_mcp_servers
-	// 旧 source of truth）；commit 3 NOT NULL + 旧字段 drop。
-	AssumedRoleID      *string
-	ID                 string
-	OwnerID            string
-	Code               string
-	Label              string
-	Purpose            string
-	Status             string
-	CorpusPermissions  []PathPermission
-	SuggestedQuestions []string
-	// SkillIDs —— InviteCode 引用的 skills。visitor session 拼 system
-	// prompt 时合并所有 selected skill.prompt。空列表 = visitor 只看到
-	// owner 默认 persona 没附加 skill。
-	SkillIDs []string
-	// GrantedSkills —— agent-capability gating (e.g. ['calendar.book'])。
-	// owner 在 create-code 时选；空 list = 不解锁任何带副作用的 agent skill。
-	// visitor_chat tool registry 用这个 first-condition 过滤 tool spec。
-	GrantedSkills []string
-}
-
-// PathPermission —— retrieval ACL 单元。
-// Action: "allow" | "deny"；Pattern: glob (`*` 不跨 `/`，`**` 跨)；Order
-// 升序匹配。规则源自 legacy iam/path_matcher.py + gateway/runtime/mcp-tools.ts。
-type PathPermission struct {
-	Action      string `json:"action"`
-	PathPattern string `json:"path_pattern"`
-	Order       int    `json:"order,omitempty"`
+	MaxBookings          *int32
+	ID                   string
+	OwnerID              string
+	Code                 string
+	Label                string
+	Purpose              string
+	Status               string
+	AssumedRoleID        string
+	SuggestedQuestions   []string
 }
 
 // CodeMember —— 一个 access code 下的一个具名访客（AccessCode 聚合子实体）。

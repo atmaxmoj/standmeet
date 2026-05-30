@@ -11,33 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const attachCodeSkills = `-- name: AttachCodeSkills :exec
-INSERT INTO code_skills (code_id, skill_id)
-SELECT $1, unnest($2::uuid[])
-ON CONFLICT DO NOTHING
-`
-
-type AttachCodeSkillsParams struct {
-	CodeID  pgtype.UUID
-	Column2 []pgtype.UUID
-}
-
-// 批量插 code_skills。caller 先 DELETE FROM code_skills WHERE code_id = $1
-// 再调本句 (UpdateCodeSkills usecase 那一对原子操作)。
-func (q *Queries) AttachCodeSkills(ctx context.Context, arg AttachCodeSkillsParams) error {
-	_, err := q.db.Exec(ctx, attachCodeSkills, arg.CodeID, arg.Column2)
-	return err
-}
-
-const clearCodeSkills = `-- name: ClearCodeSkills :exec
-DELETE FROM code_skills WHERE code_id = $1
-`
-
-func (q *Queries) ClearCodeSkills(ctx context.Context, codeID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, clearCodeSkills, codeID)
-	return err
-}
-
 const createSkill = `-- name: CreateSkill :one
 INSERT INTO skills (
     owner_id, name, description, prompt, scripts, metadata,
@@ -140,80 +113,12 @@ func (q *Queries) GetSkillByID(ctx context.Context, arg GetSkillByIDParams) (Ski
 	return i, err
 }
 
-const listSkillIDsForCode = `-- name: ListSkillIDsForCode :many
-SELECT skill_id FROM code_skills WHERE code_id = $1 ORDER BY skill_id
-`
-
-// admin codes 列表回显时只要 id 数组，不必拉整 row。
-func (q *Queries) ListSkillIDsForCode(ctx context.Context, codeID pgtype.UUID) ([]pgtype.UUID, error) {
-	rows, err := q.db.Query(ctx, listSkillIDsForCode, codeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []pgtype.UUID
-	for rows.Next() {
-		var skill_id pgtype.UUID
-		if err := rows.Scan(&skill_id); err != nil {
-			return nil, err
-		}
-		items = append(items, skill_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listSkillsByOwner = `-- name: ListSkillsByOwner :many
 SELECT id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, version, license, source, created_at, updated_at FROM skills WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
 `
 
 func (q *Queries) ListSkillsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Skill, error) {
 	rows, err := q.db.Query(ctx, listSkillsByOwner, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Skill
-	for rows.Next() {
-		var i Skill
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.Name,
-			&i.Description,
-			&i.Prompt,
-			&i.Scripts,
-			&i.Metadata,
-			&i.AllowedTools,
-			&i.IsBuiltin,
-			&i.Version,
-			&i.License,
-			&i.Source,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSkillsForCode = `-- name: ListSkillsForCode :many
-SELECT s.id, s.owner_id, s.name, s.description, s.prompt, s.scripts, s.metadata, s.allowed_tools, s.is_builtin, s.version, s.license, s.source, s.created_at, s.updated_at FROM skills s
-JOIN code_skills cs ON cs.skill_id = s.id
-WHERE cs.code_id = $1
-ORDER BY s.name ASC
-`
-
-// visitor session issue 时拿 code 的 skill 列表，拼 system prompt。
-func (q *Queries) ListSkillsForCode(ctx context.Context, codeID pgtype.UUID) ([]Skill, error) {
-	rows, err := q.db.Query(ctx, listSkillsForCode, codeID)
 	if err != nil {
 		return nil, err
 	}

@@ -18,24 +18,6 @@ WHERE id = $1 AND owner_id = $2;
 DELETE FROM mcp_servers
 WHERE id = $1 AND owner_id = $2;
 
--- name: AttachCodeMCPServers :exec
-INSERT INTO code_mcp_servers (code_id, mcp_server_id)
-SELECT $1, sid
-FROM unnest($2::uuid[]) AS sid
-ON CONFLICT DO NOTHING;
-
--- name: ClearCodeMCPServers :exec
-DELETE FROM code_mcp_servers WHERE code_id = $1;
-
--- name: ListMCPServerIDsForCode :many
-SELECT mcp_server_id
-FROM code_mcp_servers
-WHERE code_id = $1
-ORDER BY mcp_server_id ASC;
-
--- name: ListMCPServersForCode :many
-SELECT s.id, s.owner_id, s.name, s.url, s.auth_header_name, s.auth_header_value_enc, s.created_at
-FROM mcp_servers s
-JOIN code_mcp_servers cs ON cs.mcp_server_id = s.id
-WHERE cs.code_id = $1
-ORDER BY s.name ASC;
+-- A.3-IAM-5: AttachCodeMCPServers / ClearCodeMCPServers / ListMCPServerIDsForCode /
+-- ListMCPServersForCode 都删了 —— code_mcp_servers 表已 drop，mcp 通过
+-- role_mcp_servers 挂在 Role 上。

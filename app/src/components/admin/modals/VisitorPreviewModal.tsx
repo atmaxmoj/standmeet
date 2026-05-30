@@ -26,7 +26,7 @@ export function VisitorPreviewModal({ code, onClose }: Props) {
       <div className="px-7 py-8 space-y-6 max-h-[75vh] overflow-y-auto">
         <Greeting label={code.label} />
         <SuggestedList items={code.suggested_questions ?? []} />
-        <ScopeNote perms={code.corpus_permissions} code={code.code} />
+        <RoleNote roleID={code.assumed_role_id} code={code.code} />
         <SelfTest code={code} />
       </div>
     </ModalShell>
@@ -70,31 +70,13 @@ function EmptySuggested() {
   );
 }
 
-interface PathPerm { action: 'allow' | 'deny'; path_pattern: string }
-
-function ScopeNote({
-  perms, code,
-}: { perms: readonly PathPerm[]; code: string }) {
+function RoleNote({ roleID, code }: { roleID: string; code: string }) {
   return (
     <div className="pt-4 border-t border-(--color-rule)/70 mono text-[10px] tracking-[0.12em] text-(--color-faint) leading-[1.7]">
-      <PermsLine perms={perms} />
+      <div>this code assumes role <span className="text-(--color-muted)">{roleID.slice(0, 8)}…</span></div>
       <div>code · {code}</div>
     </div>
   );
-}
-
-function PermsLine({ perms }: { perms: readonly PathPerm[] }) {
-  return perms.length === 0
-    ? <div>this code gives access to <span className="text-(--color-muted)">all paths</span></div>
-    : (
-      <div>
-        {perms.map((p, i) => (
-          <div key={i}>
-            {p.action} <span className={p.action === 'allow' ? 'text-(--color-muted)' : 'text-(--color-accent)'}>{p.path_pattern}</span>
-          </div>
-        ))}
-      </div>
-    );
 }
 
 function SelfTest({ code }: { code: CodeView }) {

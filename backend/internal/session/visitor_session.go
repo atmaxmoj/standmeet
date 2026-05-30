@@ -32,15 +32,12 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 // VisitorSessionData —— Redis 里存的 visitor session payload。
 //
 // 准入字段：
-//   - Tier: 'code' / 'public' / 'byoai'。byoai 走 ACL = `public/**` only。
-//   - CorpusPermissions: 从 access code（或 byoai default）继承的 path-glob ACL
-//     —— A.3-IAM commit 2 起 deprecated；新 code (持 assumed_role_id) 走
-//     RoleSnapshot.AllowsCorpus URI-glob ACL；旧 code (无 role) fallback 仍
-//     走 CorpusPermissions。commit 3 drop。
-//   - RoleSnapshot: A.3-IAM 引入。code 持 assumed_role_id 时 freeze 出 role
-//     当时的完整状态（corpus URIs / prompt / skills / mcp）。session 整个生命
-//     周期不再回头读 role 行 —— 唯一补救 = revoke code。空 snapshot 表示
-//     legacy 路径（没挂 role）。
+//   - Mode: 'code' / 'public' / 'byoai'。三者都强制挂 RoleSnapshot（A.3-IAM-5
+//     起 ACL 全部走 [[role_snapshot]].AllowsCorpus URI-glob）。public / byoai
+//     走 owner 的 vanilla role；code 走 access_code.assumed_role_id。
+//   - RoleSnapshot: session issue 时 freeze 出 role 当时的完整状态（corpus
+//     URIs / prompt / skills / mcp）。session 整个生命周期不再回头读 role
+//     行 —— 唯一补救 = revoke code。
 //
 // **不存** BYOAI provider + key —— 这两个都在 browser 一处保管
 // (localStorage 加密 vault)。visitor 每次 chat 在 `X-BYOAI-Provider` +
@@ -50,21 +47,12 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 type VisitorSessionData struct {
 	ExpiresAt    time.Time            `json:"expires_at"`
 	MaxBookings  *int32               `json:"max_bookings,omitempty"`
-	RoleSnapshot *domain.RoleSnapshot `json:"role_snapshot,omitempty"`
+	RoleSnapshot *domain.RoleSnapshot `json:"role_snapshot"`
 	OwnerID      string               `json:"owner_id"`
 	Mode         string               `json:"mode"`
 	CodeID       string               `json:"code_id"`
 	MemberID     string               `json:"member_id"`
 	VisitorName  string               `json:"visitor_name"`
-	// SkillPrompts —— InviteCode 选中 skill 的 prompt 列表（按 name asc 排序
-	// 写入）。visitor_chat.buildSystemPrompt 拼 base persona + skill prompts。
-	// 持 assumed_role_id 的 session 把 SkillPrompts 留空、走 RoleSnapshot
-	// .SkillPrompts；legacy 仍 echo code_skills join 拉出来的列表。
-	SkillPrompts []string `json:"skill_prompts,omitempty"`
-	// GrantedSkills —— code 解锁的 agent skill 标识 (e.g. ['calendar.book'])。
-	// 同 SkillPrompts —— 持 role 的走 RoleSnapshot.SkillIDs，legacy 仍 echo。
-	GrantedSkills     []string                `json:"granted_skills,omitempty"`
-	CorpusPermissions []domain.PathPermission `json:"corpus_permissions"`
 }
 
 // VisitorSessionStore wrap Redis 提供 visitor session CRUD。

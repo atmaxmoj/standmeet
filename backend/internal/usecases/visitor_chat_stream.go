@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
 )
 
@@ -45,13 +46,27 @@ func buildChatRequest(args *streamArgs) *inference.ChatRequest {
 	tools = append(tools, args.extMCP.Specs()...)
 	tools = append(tools, args.booker.Specs()...)
 	return &inference.ChatRequest{
-		System:   buildSystemPrompt(args.in.SkillPrompts),
+		System:   buildSystemPrompt(roleSystemFragments(args.in.RoleSnapshot)),
 		Messages: []inference.Message{{Role: "user", Content: args.in.Body}},
 		Tools:    tools,
 		ExecuteTool: makeChatExecutor(
 			args.retr, args.skills, args.extMCP, args.booker,
 		),
 	}
+}
+
+// roleSystemFragments —— 把 RoleSnapshot 的 persona prompt + skill prompts
+// 合并成系统 prompt 片段列表。snapshot nil 时返空。
+func roleSystemFragments(snapshot *domain.RoleSnapshot) []string {
+	if snapshot == nil {
+		return []string{}
+	}
+	out := make([]string, 0, 1+len(snapshot.SkillPrompts()))
+	if body := snapshot.PromptBody(); body != "" {
+		out = append(out, body)
+	}
+	out = append(out, snapshot.SkillPrompts()...)
+	return out
 }
 
 // makeChatExecutor —— 复合 dispatcher：

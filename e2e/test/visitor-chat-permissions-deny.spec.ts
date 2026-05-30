@@ -1,22 +1,22 @@
-// visitor-chat-permissions-deny.spec.ts —— access code corpus_permissions
-// path-glob ACL：deny "personal/**" 时 visitor 即便提的问题命中 personal/family
-// 也不会拿到那条 entry —— 既不进 search 结果，也不能 read。
+// visitor-chat-permissions-deny.spec.ts —— A.3-IAM-5 起 ACL 是正向白名单
+// (RoleSnapshot.CorpusURIs 命中即 allow，不在列表 = deny)。
 //
 // 用户故事：
-//   owner 给 recruiter 发 INTRO 代码，corpus_permissions = deny personal/**
-//   allow **，order 升序匹配。recruiter 入境后问"tell me about your family"，
-//   AI search_corpus_entries 拿不到 personal/family（ACL 在 tool 层 filter
-//   掉了），read_corpus_entry("personal/family") 也会被拒。最终 cited 不
-//   含 personal/family（无论 AI 是否尝试访问）。
+//   owner 给 recruiter 发 INTRO 代码挂 role "recruiter-only"。role 配
+//   corpus_uris = ['wiki://projects/**']，允许 projects/lucerna 但不允许
+//   personal/family。recruiter 入境后问 family，AI search_corpus_entries
+//   拿不到 personal/family，read_corpus_entry 也会被拒。最终 cited 不
+//   含 personal/family。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
+import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { createRole } from '@/fixtures/roles';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -30,7 +30,7 @@ const CODE = 'RECRUITER-001';
 const ALLOWED = 'projects/lucerna';
 const DENIED = 'personal/family';
 
-test.describe('path-glob ACL filters denied paths out of retrieval', () => {
+test.describe('positive-list URI ACL excludes paths not in role.corpus_uris', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -39,17 +39,18 @@ test.describe('path-glob ACL filters denied paths out of retrieval', () => {
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
     const csrf = await seedTwoWikis(request);
+    const role = await createRole(request, csrf, {
+      name: 'recruiter-only', description: 'projects/** visible only',
+      corpus_uris: ['wiki://projects/**', 'output://**', 'writing://**'],
+    });
     await createCode(request, csrf, {
-      code: CODE, label: 'recruiter', purpose: 'permissions-deny spec',
-      corpus_permissions: [
-        { action: 'deny',  path_pattern: 'personal/**', order: 10 },
-        { action: 'allow', path_pattern: '**',          order: 100 },
-      ],
+      code: CODE, label: 'recruiter', purpose: 'positive-list ACL spec',
+      assumed_role_id: role.id,
     });
     await request.dispose();
   });
 
-  test('denied path never appears in cited refs', async ({ playwright }) => {
+  test('path outside role.corpus_uris never appears in cited refs', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const sess = await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',

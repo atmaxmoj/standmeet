@@ -1,10 +1,8 @@
-// CreateCodeFields —— CodeCreateModal 的字段块。拆出来才不踩 70-line 上限。
-// retrieval-redesign 后：tags scope 字段砍掉，corpus_permissions 走 JSON
-// textarea (简单 follow-up 升级成可视化编辑器)。
+// CreateCodeFields —— CodeCreateModal 的字段块。A.3-IAM-5：code 只挂
+// assumed_role_id；老 permissions / skills / agent-skills picker 全删，
+// ACL / capability gating 全部从 role 推断。
 
-import { CodeAgentSkillsPicker } from '@/components/admin/modals/CodeAgentSkillsPicker';
 import { CodeRolePicker } from '@/components/admin/modals/CodeRolePicker';
-import { useSkills } from '@/lib/admin/use-skills';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
 type Props = { form: CodeFormHook };
@@ -28,76 +26,8 @@ function NonQuotaSlot({ form, editing }: EditingProps) {
   return editing ? null : (
     <>
       <CodeRolePicker form={form} />
-      <PermissionsField form={form} />
-      <SkillsPicker form={form} />
-      <CodeAgentSkillsPicker form={form} />
       <QuestionsField form={form} />
     </>
-  );
-}
-
-function SkillsPicker({ form }: Props) {
-  const hook = useSkills();
-  return (
-    <div>
-      <FieldKicker text="skills · AI persona fragments (none = base only)" />
-      <SkillsPickerList form={form} hook={hook} />
-    </div>
-  );
-}
-
-function SkillsPickerList({
-  form, hook,
-}: { form: CodeFormHook; hook: ReturnType<typeof useSkills> }) {
-  return hook.skills.length === 0
-    ? <SkillsEmpty />
-    : <SkillsPickerOptions form={form} hook={hook} />;
-}
-
-function SkillsEmpty() {
-  return (
-    <p className="reading-tight italic text-[13px] text-(--color-muted) mt-1">
-      No skills yet — create one under Skills.
-    </p>
-  );
-}
-
-function SkillsPickerOptions({
-  form, hook,
-}: { form: CodeFormHook; hook: ReturnType<typeof useSkills> }) {
-  return (
-    <ul className="flex flex-wrap gap-2 mt-2" data-testid="code-skills-picker">
-      {hook.skills.map((s) => (
-        <li key={s.id}>
-          <SkillToggle
-            id={s.id}
-            name={s.name}
-            selected={form.values.skillIDs.includes(s.id)}
-            onToggle={() => form.toggleSkill(s.id)}
-          />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function SkillToggle({
-  id, name, selected, onToggle,
-}: { id: string; name: string; selected: boolean; onToggle: () => void }) {
-  const cls = selected
-    ? 'border-(--color-accent) text-(--color-accent)'
-    : 'border-(--color-rule) text-(--color-muted) hover:text-(--color-ink)';
-  return (
-    <button
-      type="button"
-      data-testid={`code-skill-${name}`}
-      data-skill-id={id}
-      onClick={onToggle}
-      aria-pressed={selected}
-      className={`border px-3 py-1.5 mono text-[11px] tracking-[0.08em] uppercase ${cls}`}
-    >
-      {name}
-    </button>
   );
 }
 
@@ -178,16 +108,13 @@ function QuotasField({ form }: Props) {
       <QuotaInput
         label="bookings per code · blank = unlimited"
         testid="code-max-bookings"
-        placeholder="e.g. 3 (requires calendar.book skill)"
+        placeholder="e.g. 3 (role must have calendar.book skill)"
         value={form.values.maxBookings}
         onChange={form.setMaxBookings}
       />
     </div>
   );
 }
-
-// AGENT_SKILLS_CATALOG + AgentSkillsPicker + AgentSkillRow 拆到
-// CodeAgentSkillsPicker.tsx 守 max-lines。
 
 function QuotaInput({
   label, testid, placeholder, value, onChange,
@@ -210,27 +137,6 @@ function QuotaInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[15px]"
-      />
-    </label>
-  );
-}
-
-// PermissionsField —— path-glob ACL (corpus_permissions) JSON 编辑器。
-// 空 = 允许全部 (legacy 兼容)。owner 写 `[{action:"deny",path_pattern:"personal/**",order:10}]`
-// 那种 array 直接落库。可视化编辑器 follow-up。
-function PermissionsField({ form }: Props) {
-  return (
-    <label className="block">
-      <FieldKicker text="corpus_permissions · JSON array (empty = unrestricted)" />
-      <textarea
-        rows={6}
-        data-testid="code-permissions"
-        value={form.values.permissionsRaw}
-        onChange={(e) => form.setPermissionsRaw(e.target.value)}
-        spellCheck={false}
-        placeholder='[{"action":"deny","path_pattern":"personal/**","order":10},
- {"action":"allow","path_pattern":"**","order":100}]'
-        className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) p-2 mono text-[13px]"
       />
     </label>
   );

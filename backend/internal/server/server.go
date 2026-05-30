@@ -129,8 +129,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		APITokens: deps.Admin.APITokens,
 		Corpus:    adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
 		CodesAdmin: adminroutes.CodesDeps{
-			Codes: deps.Admin.Codes, Skills: deps.Admin.Skills.Skills,
-			MCPServers: deps.Admin.MCPServers.Servers,
+			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
 		},
 		PageAdmin:       adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
 		Conversations:   adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},

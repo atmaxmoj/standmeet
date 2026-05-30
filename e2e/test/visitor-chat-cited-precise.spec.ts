@@ -42,7 +42,6 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
     const csrf = await seedFourWikis(request);
     await createCode(request, csrf, {
       code: CODE, label: 'intro', purpose: 'cited-precise spec',
-      corpus_permissions: [],
     });
     await request.dispose();
   });

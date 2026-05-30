@@ -76,18 +76,10 @@ function CodePickerCard({ code, active, onClick }: { code: CodeView; active: boo
     >
       <div className="font-serif text-[15px] text-(--color-ink)">{code.label}</div>
       <div className="mono text-[10px] text-(--color-muted) mt-0.5">
-        {code.code} · {allowCount(code)} included · {denyCount(code)} excluded
+        {code.code} · role {code.assumed_role_id.slice(0, 8)}…
       </div>
     </button>
   );
-}
-
-function allowCount(code: CodeView): number {
-  return code.corpus_permissions.filter((p) => p.action === 'allow').length;
-}
-
-function denyCount(code: CodeView): number {
-  return code.corpus_permissions.filter((p) => p.action === 'deny').length;
 }
 
 function ByoaiPickerCard({ active, onClick }: { active: boolean; onClick: () => void }) {
@@ -147,8 +139,7 @@ function CodedPreview({ code }: { code: CodeView | null }) {
       </PreviewBanner>
       <p className="font-serif text-[17px] text-(--color-ink) mt-4 leading-[1.55] max-w-[48em]">
         Welcome. You&apos;ve come in on <span className="text-(--color-accent)">{code.label}</span>.
-        {' '}Scoped to {allowCount(code)} topic{allowCount(code) === 1 ? '' : 's'};
-        {' '}{denyCount(code)} excluded. Ask anything in scope.
+        {' '}This code assumes role <span className="mono text-[14px]">{code.assumed_role_id.slice(0, 8)}…</span>.
       </p>
       <SuggestedBlock questions={code.suggested_questions} />
     </>

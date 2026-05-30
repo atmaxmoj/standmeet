@@ -66,10 +66,8 @@ func writeToolSpecs(
 		OwnerID:        data.OwnerID,
 		Mode:           data.Mode,
 		CodeID:         data.CodeID,
-		Permissions:    data.CorpusPermissions,
-		SkillPrompts:   data.SkillPrompts,
-		GrantedSkills:  data.GrantedSkills,
 		MaxBookings:    data.MaxBookings,
+		RoleSnapshot:   data.RoleSnapshot,
 		ConversationID: "", // not needed for spec assembly
 		Body:           "",
 	})

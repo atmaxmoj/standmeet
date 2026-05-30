@@ -46,12 +46,12 @@ func (q *Queries) CountVisitorTurnsInConversation(ctx context.Context, conversat
 
 const createAccessCode = `-- name: CreateAccessCode :one
 INSERT INTO access_codes (
-    owner_id, code, label, purpose, corpus_permissions, suggested_questions,
+    owner_id, code, label, purpose, suggested_questions,
     expires_at, max_sessions_per_member, max_turns_per_session,
-    granted_skills, max_bookings, assumed_role_id
+    max_bookings, assumed_role_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at, assumed_role_id
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, owner_id, code, label, purpose, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, max_bookings, created_at, assumed_role_id
 `
 
 type CreateAccessCodeParams struct {
@@ -59,31 +59,26 @@ type CreateAccessCodeParams struct {
 	Code                 string
 	Label                string
 	Purpose              string
-	CorpusPermissions    []byte
 	SuggestedQuestions   []byte
 	ExpiresAt            pgtype.Timestamptz
 	MaxSessionsPerMember *int32
 	MaxTurnsPerSession   *int32
-	GrantedSkills        []string
 	MaxBookings          *int32
 	AssumedRoleID        pgtype.UUID
 }
 
-// assumed_role_id nullable in commit 2 -- legacy create flows pass NULL and
-// go through PathACL/code_skills; new flows (admin/MCP role-picker) set it
-// to roles.id, IssueCodeSession freezes RoleSnapshot. Commit 5 NOT NULL.
+// A.3-IAM-5：每张码必挂 assumed_role_id。corpus_permissions / granted_skills
+// 等 legacy 字段在 commit 5 drop，ACL / capability gating 全部从 role 推断。
 func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodeParams) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, createAccessCode,
 		arg.OwnerID,
 		arg.Code,
 		arg.Label,
 		arg.Purpose,
-		arg.CorpusPermissions,
 		arg.SuggestedQuestions,
 		arg.ExpiresAt,
 		arg.MaxSessionsPerMember,
 		arg.MaxTurnsPerSession,
-		arg.GrantedSkills,
 		arg.MaxBookings,
 		arg.AssumedRoleID,
 	)
@@ -94,13 +89,11 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		&i.Code,
 		&i.Label,
 		&i.Purpose,
-		&i.CorpusPermissions,
 		&i.SuggestedQuestions,
 		&i.ExpiresAt,
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
-		&i.GrantedSkills,
 		&i.MaxBookings,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
@@ -141,7 +134,7 @@ func (q *Queries) CreateCodeMember(ctx context.Context, arg CreateCodeMemberPara
 }
 
 const getAccessCode = `-- name: GetAccessCode :one
-SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at, assumed_role_id FROM access_codes WHERE code = $1 AND status = 'active'
+SELECT id, owner_id, code, label, purpose, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, max_bookings, created_at, assumed_role_id FROM access_codes WHERE code = $1 AND status = 'active'
 `
 
 func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, error) {
@@ -153,13 +146,11 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 		&i.Code,
 		&i.Label,
 		&i.Purpose,
-		&i.CorpusPermissions,
 		&i.SuggestedQuestions,
 		&i.ExpiresAt,
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
-		&i.GrantedSkills,
 		&i.MaxBookings,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
@@ -168,7 +159,7 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 }
 
 const getAccessCodeByID = `-- name: GetAccessCodeByID :one
-SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at, assumed_role_id FROM access_codes WHERE id = $1
+SELECT id, owner_id, code, label, purpose, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, max_bookings, created_at, assumed_role_id FROM access_codes WHERE id = $1
 `
 
 func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (AccessCode, error) {
@@ -180,13 +171,11 @@ func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (Access
 		&i.Code,
 		&i.Label,
 		&i.Purpose,
-		&i.CorpusPermissions,
 		&i.SuggestedQuestions,
 		&i.ExpiresAt,
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
-		&i.GrantedSkills,
 		&i.MaxBookings,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
@@ -251,7 +240,7 @@ func (q *Queries) GetOrCreateCodeMember(ctx context.Context, arg GetOrCreateCode
 }
 
 const listAccessCodesByOwner = `-- name: ListAccessCodesByOwner :many
-SELECT id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at, assumed_role_id FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
+SELECT id, owner_id, code, label, purpose, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, max_bookings, created_at, assumed_role_id FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]AccessCode, error) {
@@ -269,13 +258,11 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 			&i.Code,
 			&i.Label,
 			&i.Purpose,
-			&i.CorpusPermissions,
 			&i.SuggestedQuestions,
 			&i.ExpiresAt,
 			&i.Status,
 			&i.MaxSessionsPerMember,
 			&i.MaxTurnsPerSession,
-			&i.GrantedSkills,
 			&i.MaxBookings,
 			&i.CreatedAt,
 			&i.AssumedRoleID,
@@ -344,27 +331,22 @@ func (q *Queries) TouchCodeMember(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
-const updateAccessCodeGrants = `-- name: UpdateAccessCodeGrants :one
+const updateAccessCodeMaxBookings = `-- name: UpdateAccessCodeMaxBookings :one
 UPDATE access_codes
-SET granted_skills = $3, max_bookings = $4
+SET max_bookings = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at, assumed_role_id
+RETURNING id, owner_id, code, label, purpose, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, max_bookings, created_at, assumed_role_id
 `
 
-type UpdateAccessCodeGrantsParams struct {
-	ID            pgtype.UUID
-	OwnerID       pgtype.UUID
-	GrantedSkills []string
-	MaxBookings   *int32
+type UpdateAccessCodeMaxBookingsParams struct {
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	MaxBookings *int32
 }
 
-func (q *Queries) UpdateAccessCodeGrants(ctx context.Context, arg UpdateAccessCodeGrantsParams) (AccessCode, error) {
-	row := q.db.QueryRow(ctx, updateAccessCodeGrants,
-		arg.ID,
-		arg.OwnerID,
-		arg.GrantedSkills,
-		arg.MaxBookings,
-	)
+// calendar.book 配额改。granted_skills 不再存在，这里只剩 max_bookings。
+func (q *Queries) UpdateAccessCodeMaxBookings(ctx context.Context, arg UpdateAccessCodeMaxBookingsParams) (AccessCode, error) {
+	row := q.db.QueryRow(ctx, updateAccessCodeMaxBookings, arg.ID, arg.OwnerID, arg.MaxBookings)
 	var i AccessCode
 	err := row.Scan(
 		&i.ID,
@@ -372,49 +354,11 @@ func (q *Queries) UpdateAccessCodeGrants(ctx context.Context, arg UpdateAccessCo
 		&i.Code,
 		&i.Label,
 		&i.Purpose,
-		&i.CorpusPermissions,
 		&i.SuggestedQuestions,
 		&i.ExpiresAt,
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
-		&i.GrantedSkills,
-		&i.MaxBookings,
-		&i.CreatedAt,
-		&i.AssumedRoleID,
-	)
-	return i, err
-}
-
-const updateAccessCodePermissions = `-- name: UpdateAccessCodePermissions :one
-UPDATE access_codes
-SET corpus_permissions = $3
-WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at, assumed_role_id
-`
-
-type UpdateAccessCodePermissionsParams struct {
-	ID                pgtype.UUID
-	OwnerID           pgtype.UUID
-	CorpusPermissions []byte
-}
-
-func (q *Queries) UpdateAccessCodePermissions(ctx context.Context, arg UpdateAccessCodePermissionsParams) (AccessCode, error) {
-	row := q.db.QueryRow(ctx, updateAccessCodePermissions, arg.ID, arg.OwnerID, arg.CorpusPermissions)
-	var i AccessCode
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Code,
-		&i.Label,
-		&i.Purpose,
-		&i.CorpusPermissions,
-		&i.SuggestedQuestions,
-		&i.ExpiresAt,
-		&i.Status,
-		&i.MaxSessionsPerMember,
-		&i.MaxTurnsPerSession,
-		&i.GrantedSkills,
 		&i.MaxBookings,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
@@ -426,7 +370,7 @@ const updateAccessCodeQuotas = `-- name: UpdateAccessCodeQuotas :one
 UPDATE access_codes
 SET max_sessions_per_member = $3, max_turns_per_session = $4
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at, assumed_role_id
+RETURNING id, owner_id, code, label, purpose, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, max_bookings, created_at, assumed_role_id
 `
 
 type UpdateAccessCodeQuotasParams struct {
@@ -450,13 +394,11 @@ func (q *Queries) UpdateAccessCodeQuotas(ctx context.Context, arg UpdateAccessCo
 		&i.Code,
 		&i.Label,
 		&i.Purpose,
-		&i.CorpusPermissions,
 		&i.SuggestedQuestions,
 		&i.ExpiresAt,
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
-		&i.GrantedSkills,
 		&i.MaxBookings,
 		&i.CreatedAt,
 		&i.AssumedRoleID,
@@ -468,7 +410,7 @@ const updateAccessCodeRole = `-- name: UpdateAccessCodeRole :one
 UPDATE access_codes
 SET assumed_role_id = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, corpus_permissions, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, granted_skills, max_bookings, created_at, assumed_role_id
+RETURNING id, owner_id, code, label, purpose, suggested_questions, expires_at, status, max_sessions_per_member, max_turns_per_session, max_bookings, created_at, assumed_role_id
 `
 
 type UpdateAccessCodeRoleParams struct {
@@ -477,8 +419,7 @@ type UpdateAccessCodeRoleParams struct {
 	AssumedRoleID pgtype.UUID
 }
 
-// Admin "reassign role" — also used when commit 5 backfills any remaining
-// legacy codes to a per-owner default before NOT NULL.
+// Admin "reassign role"。新 role 必须属于同 owner（caller 校验过）。
 func (q *Queries) UpdateAccessCodeRole(ctx context.Context, arg UpdateAccessCodeRoleParams) (AccessCode, error) {
 	row := q.db.QueryRow(ctx, updateAccessCodeRole, arg.ID, arg.OwnerID, arg.AssumedRoleID)
 	var i AccessCode
@@ -488,13 +429,11 @@ func (q *Queries) UpdateAccessCodeRole(ctx context.Context, arg UpdateAccessCode
 		&i.Code,
 		&i.Label,
 		&i.Purpose,
-		&i.CorpusPermissions,
 		&i.SuggestedQuestions,
 		&i.ExpiresAt,
 		&i.Status,
 		&i.MaxSessionsPerMember,
 		&i.MaxTurnsPerSession,
-		&i.GrantedSkills,
 		&i.MaxBookings,
 		&i.CreatedAt,
 		&i.AssumedRoleID,

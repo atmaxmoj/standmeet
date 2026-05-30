@@ -34,23 +34,6 @@ SET name = $3, description = $4, prompt = $5, allowed_tools = $6, updated_at = n
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
--- name: AttachCodeSkills :exec
--- 批量插 code_skills。caller 先 DELETE FROM code_skills WHERE code_id = $1
--- 再调本句 (UpdateCodeSkills usecase 那一对原子操作)。
-INSERT INTO code_skills (code_id, skill_id)
-SELECT $1, unnest($2::uuid[])
-ON CONFLICT DO NOTHING;
-
--- name: ClearCodeSkills :exec
-DELETE FROM code_skills WHERE code_id = $1;
-
--- name: ListSkillsForCode :many
--- visitor session issue 时拿 code 的 skill 列表，拼 system prompt。
-SELECT s.* FROM skills s
-JOIN code_skills cs ON cs.skill_id = s.id
-WHERE cs.code_id = $1
-ORDER BY s.name ASC;
-
--- name: ListSkillIDsForCode :many
--- admin codes 列表回显时只要 id 数组，不必拉整 row。
-SELECT skill_id FROM code_skills WHERE code_id = $1 ORDER BY skill_id;
+-- A.3-IAM-5: AttachCodeSkills / ClearCodeSkills / ListSkillsForCode /
+-- ListSkillIDsForCode 都删了 —— code_skills 表已 drop，skills 通过
+-- role_skills 挂在 Role 上。
