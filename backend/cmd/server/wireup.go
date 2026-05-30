@@ -105,6 +105,8 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			Output: d.outputRepo, Skills: d.skillRepo,
 			Writings:   d.writingRepo,
 			MCPServers: d.mcpServerRepo,
+			Roles:      d.roleRepo,
+			Prompts:    d.promptRepo,
 			Sandbox:    d.sandboxRunner,
 			Owners:     d.ownerRepo, Sessions: d.visitorStore,
 			Queue: d.queryQueue, Resolver: d.providerResolver,

@@ -21,6 +21,10 @@ import (
 // Resolver 替代之前的单例 Provider —— visitor chat 每次根据 owner_id 解算
 // 该 owner 的真 provider（带自己的 key）；env=mock 时统一 fallback 到 mock
 // 给 e2e/dev 用。
+//
+// A.3-IAM 起 Roles / Prompts 用于 session issue 时 freeze RoleSnapshot；
+// code 没挂 assumed_role_id 走 legacy 路径，这两个仍然不能 nil 但调用时
+// 会 short-circuit (buildRoleSnapshotForCode 检 nil)。
 type VisitorDeps struct {
 	Codes      *postgres.CodeRepo
 	Conv       *postgres.ConversationRepo
@@ -30,6 +34,8 @@ type VisitorDeps struct {
 	Owners     *postgres.OwnerRepo
 	Skills     *postgres.SkillRepo
 	MCPServers *postgres.MCPServerRepo
+	Roles      *postgres.RoleRepo
+	Prompts    *postgres.PromptRepo
 	// Calendar / GCal —— 可选 (admin 没装 connector 时 nil-tolerant)。
 	// bookerBundle 在 buildBookerBundle 里检查 nil 并 silently skip。
 	Calendar CalendarStore
@@ -134,16 +140,43 @@ func issueCodeSessionArtifacts(
 	if err != nil {
 		return codeSessionArtifacts{}, err
 	}
-	skillPrompts, serr := loadCodeSkillPrompts(ctx, deps, code.ID)
-	if serr != nil {
-		return codeSessionArtifacts{}, serr
+	bundle, berr := loadCodeSessionBundle(ctx, deps, code)
+	if berr != nil {
+		return codeSessionArtifacts{}, berr
 	}
-	sd := buildCodeSessionData(code, in.VisitorName, skillPrompts)
+	sd := buildCodeSessionData(code, in.VisitorName, bundle)
 	issued, err := deps.Sessions.Issue(ctx, sd)
 	if err != nil {
 		return codeSessionArtifacts{}, fmt.Errorf("issue visitor session: %w", err)
 	}
 	return codeSessionArtifacts{Conv: conv, Issued: issued}, nil
+}
+
+// codeSessionBundle —— issueCodeSessionArtifacts 给 buildCodeSessionData 的
+// 输入 bundle：snapshot（持 assumed_role_id 时非 nil）+ legacy skill prompts
+// （snapshot nil 时 fallback 用）。两者互斥。
+type codeSessionBundle struct {
+	snapshot     *domain.RoleSnapshot
+	skillPrompts []string
+}
+
+// loadCodeSessionBundle —— 持 assumed_role_id 走 RoleSnapshot freeze；否则
+// 走 legacy code_skills 拼 prompt。
+func loadCodeSessionBundle(
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode,
+) (codeSessionBundle, error) {
+	if code.AssumedRoleID != nil {
+		snapshot, serr := buildRoleSnapshotForCode(ctx, deps, code)
+		if serr != nil {
+			return codeSessionBundle{}, serr
+		}
+		return codeSessionBundle{snapshot: &snapshot}, nil
+	}
+	skillPrompts, lerr := loadCodeSkillPrompts(ctx, deps, code.ID)
+	if lerr != nil {
+		return codeSessionBundle{}, lerr
+	}
+	return codeSessionBundle{skillPrompts: skillPrompts}, nil
 }
 
 func codeSessionQuota(code *domain.AccessCode) SessionQuota {
@@ -225,16 +258,18 @@ func createCodeConversation(
 }
 
 func buildCodeSessionData(
-	code *domain.AccessCode, visitorName string, skillPrompts []string,
+	code *domain.AccessCode, visitorName string, bundle codeSessionBundle,
 ) *session.VisitorSessionData {
-	return &session.VisitorSessionData{
+	sd := &session.VisitorSessionData{
 		OwnerID:           code.OwnerID,
 		Mode:              "code",
 		CodeID:            code.ID,
 		VisitorName:       visitorName,
 		CorpusPermissions: code.CorpusPermissions,
-		SkillPrompts:      skillPrompts,
+		SkillPrompts:      bundle.skillPrompts,
 		GrantedSkills:     code.GrantedSkills,
 		MaxBookings:       code.MaxBookings,
+		RoleSnapshot:      bundle.snapshot,
 	}
+	return sd
 }

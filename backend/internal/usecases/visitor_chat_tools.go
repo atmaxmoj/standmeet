@@ -60,8 +60,12 @@ func retrievalToolSpecs() []inference.ToolSpec {
 // retriever —— tool executor 的状态。writings 跟 wiki/output 共享 search/
 // read/list；cited footer 仅 wiki+output (writings 有自己的 cross_refs +
 // "ask about this essay" 入口，不挤 cited 列表)。
+//
+// ACL 评估：snapshot != nil 时走 URI-based RoleSnapshot.AllowsCorpus，
+// 否则 fallback 走 path-based PathACL。commit 3 拆 PathACL 时 snapshot 一统。
 type retriever struct {
 	collector *readCollector
+	snapshot  *domain.RoleSnapshot
 	wikis     []domain.Wiki
 	outputs   []domain.Output
 	writings  []domain.Writing
@@ -70,6 +74,7 @@ type retriever struct {
 
 // retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。
 type retrieverInput struct {
+	snapshot *domain.RoleSnapshot
 	wikis    []domain.Wiki
 	outputs  []domain.Output
 	writings []domain.Writing
@@ -80,9 +85,13 @@ func newRetriever(in *retrieverInput) *retriever {
 	return &retriever{
 		wikis: in.wikis, outputs: in.outputs, writings: in.writings,
 		acl:       domain.NewPathACL(in.perms),
+		snapshot:  in.snapshot,
 		collector: newReadCollector(),
 	}
 }
+
+// allowsPath / allowsEntry 拆到 visitor_chat_tools_read.go (跟其它 retriever
+// helper 一起，且让 funcorder 不抱怨 unexported method 出现在 Execute 前)。
 
 // Execute —— inference.ToolExecutor 实现。
 func (r *retriever) Execute(_ context.Context, name string, input []byte) (string, error) {
@@ -159,13 +168,15 @@ func (r *retriever) matchWritings(q string) []corpusRow {
 // this file under the 350-line cap.
 
 // runRead —— 按 path 查 entry，ACL 通过 + show_as_source 不抑制时进 collector。
+// ACL 评估走 dispatchRead 内部按 genre 检 (snapshot mode 需要 genre 拼 URI；
+// legacy PathACL 模式下 r.allowsPath 忽略 genre 等同 r.acl.AllowsPath)。
 func (r *retriever) runRead(input []byte) (string, error) {
 	path, perr := parseReadPath(input)
 	if perr != nil {
 		return "", perr
 	}
-	if pathDenied := r.checkReadPath(path); pathDenied != "" {
-		return pathDenied, nil
+	if path == "" {
+		return errJSON("path required"), nil
 	}
 	return r.dispatchRead(path), nil
 }
@@ -180,31 +191,8 @@ func parseReadPath(input []byte) (string, error) {
 	return args.Path, nil
 }
 
-// checkReadPath —— pre-check：空 path / denied path 返 err JSON；ok 时返 ""。
-func (r *retriever) checkReadPath(path string) string {
-	if path == "" {
-		return errJSON("path required")
-	}
-	if !r.acl.AllowsPath(path) {
-		return errJSON("access denied: " + path)
-	}
-	return ""
-}
-
-func (r *retriever) dispatchRead(path string) string {
-	if w := r.findWikiByPath(path); w != nil {
-		r.collector.addWiki(w)
-		return marshalKindBody("wiki", w.Body())
-	}
-	if o := r.findOutputByPath(path); o != nil {
-		r.collector.addOutput(o)
-		return marshalKindBody("output", o.Body())
-	}
-	if w := r.findWritingByPath(path); w != nil {
-		return marshalKindBody("writing", writingBodyText(w))
-	}
-	return errJSON("not found: " + path)
-}
+// dispatchRead / serveXRead helpers 拆到 visitor_chat_tools_read.go 守
+// max-lines 350 line cap。
 
 func (r *retriever) findWikiByPath(path string) *domain.Wiki {
 	for i := range r.wikis {
@@ -276,7 +264,7 @@ func (r *retriever) listWritingsByPrefix(prefix string) []corpusRow {
 
 func (r *retriever) listWikiRow(w *domain.Wiki, prefix string) (corpusRow, bool) {
 	p := w.PathOrEmpty()
-	if !r.acl.AllowsEntry(p) || !strings.HasPrefix(p, prefix) {
+	if !r.allowsEntry(domain.GenreWiki, p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
 	return corpusRow{Path: p, Title: w.Title(), Kind: "wiki"}, true
@@ -284,7 +272,7 @@ func (r *retriever) listWikiRow(w *domain.Wiki, prefix string) (corpusRow, bool)
 
 func (r *retriever) listOutputRow(o *domain.Output, prefix string) (corpusRow, bool) {
 	p := o.PathOrEmpty()
-	if !r.acl.AllowsEntry(p) || !strings.HasPrefix(p, prefix) {
+	if !r.allowsEntry(domain.GenreOutput, p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
 	return corpusRow{Path: p, Title: o.Title(), Kind: "output"}, true

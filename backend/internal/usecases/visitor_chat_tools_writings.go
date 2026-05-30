@@ -12,7 +12,7 @@ import (
 )
 
 func (r *retriever) writingMatches(w *domain.Writing, q string) bool {
-	return r.acl.AllowsEntry(w.Path()) &&
+	return r.allowsEntry(domain.GenreWriting, w.Path()) &&
 		textMatchesQuery(q, w.Title(), writingBodyText(w), w.Tags())
 }
 
@@ -22,7 +22,7 @@ func writingBodyText(w *domain.Writing) string {
 
 func (r *retriever) listWritingRow(w *domain.Writing, prefix string) (corpusRow, bool) {
 	p := w.Path()
-	if !r.acl.AllowsEntry(p) || !strings.HasPrefix(p, prefix) {
+	if !r.allowsEntry(domain.GenreWriting, p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
 	return corpusRow{Path: p, Title: w.Title(), Kind: "writing"}, true

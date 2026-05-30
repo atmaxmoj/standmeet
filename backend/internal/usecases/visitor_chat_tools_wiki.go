@@ -10,12 +10,12 @@ import (
 )
 
 func (r *retriever) wikiMatches(w *domain.Wiki, q string) bool {
-	return r.acl.AllowsEntry(w.PathOrEmpty()) &&
+	return r.allowsEntry(domain.GenreWiki, w.PathOrEmpty()) &&
 		textMatchesQuery(q, w.Title(), w.Body(), w.Tags())
 }
 
 func (r *retriever) outputMatches(o *domain.Output, q string) bool {
-	return r.acl.AllowsEntry(o.PathOrEmpty()) &&
+	return r.allowsEntry(domain.GenreOutput, o.PathOrEmpty()) &&
 		textMatchesQuery(q, o.Title(), o.Body(), o.Tags())
 }
 

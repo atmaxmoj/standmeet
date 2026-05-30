@@ -17,6 +17,7 @@ package domain
 import (
 	"errors"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -131,9 +132,23 @@ func (r *Role) HasMCPServer(mcpServerID string) bool {
 	return slices.Contains(r.mcpServerIDs, mcpServerID)
 }
 
-// AllowsCorpus 在 commit 2 (retriever 迁移) 时加。本 commit 是 additive
-// foundation：Role 类型 + getter，老 ACL 路径（access_codes.corpus_permissions
-// + visitor_chat PathACL）仍 source of truth。
+// AllowsCorpus —— 评估 URI 准入。raw://** hardcode deny；其他走 positive-list
+// glob 匹配。corpus_uris 空 = deny 全部。
+//
+// 跟 [[role_snapshot]].AllowsCorpus 同语义；snapshot 是 session 起 freeze
+// 那一刻的拷贝，本 method 是 owner-facing 实时检查（admin 调试时用）。
+// 同 glob 引擎（[[path_acl]] 的 compileGlob）。
+func (r *Role) AllowsCorpus(uri string) bool {
+	if strings.HasPrefix(uri, "raw://") {
+		return false
+	}
+	for _, pattern := range r.corpusURIs {
+		if compileGlob(pattern).MatchString(uri) {
+			return true
+		}
+	}
+	return false
+}
 
 // VanillaRoleName —— builtin vanilla role 的 name。SeedVanillaRole 用。
 const VanillaRoleName = "vanilla"

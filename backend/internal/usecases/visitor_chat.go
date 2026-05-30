@@ -30,6 +30,7 @@ const queryQueueTimeout = 15 * time.Second
 type SendMessageInput struct {
 	BYOAI          *domain.AICredential
 	MaxBookings    *int32
+	RoleSnapshot   *domain.RoleSnapshot
 	OwnerID        string
 	ConversationID string
 	Body           string
@@ -132,7 +133,9 @@ func assembleBundles(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 	provider inference.Provider,
 ) (sendPrep, error) {
-	retr, lerr := buildRetriever(ctx, deps, in.OwnerID, in.Permissions)
+	retr, lerr := buildRetriever(ctx, deps, &retrieverBuildInput{
+		ownerID: in.OwnerID, perms: in.Permissions, snapshot: in.RoleSnapshot,
+	})
 	if lerr != nil {
 		return sendPrep{}, lerr
 	}
@@ -221,26 +224,38 @@ const (
 	messageEventBufSize = 64
 )
 
+// retrieverBuildInput —— buildRetriever 入参，避开 5-arg 上限 + 让 caller
+// 不用区分 PathACL vs RoleSnapshot 两条路径。
+type retrieverBuildInput struct {
+	snapshot *domain.RoleSnapshot
+	ownerID  string
+	perms    []domain.PathPermission
+}
+
 // buildRetriever —— 加载 wiki + output + posts 给 tool executor 用。retrieval
-// 阶段不做 ACL 过滤——ACL 由 tool 内部按调用时的 path 评估（search 结果过滤、
-// read 直接拒）。这样 path-glob ACL 的 deny 也会被 AI "看到"为"找不到"，
-// 而不是"corpus 里没有"。
+// 阶段不做 ACL 过滤——ACL 由 tool 内部按调用时的 URI 评估（search 结果过滤、
+// read 直接拒）。这样 ACL deny 也会被 AI "看到"为"找不到"，而不是"corpus
+// 里没有"。
+//
+// ACL 优先级：snapshot != nil → URI-based [[role_snapshot]]；否则 fallback
+// 走 perms (legacy PathACL)。commit 3 拆 PathACL 时本分支去掉。
 //
 // posts 只拉已 published 的；草稿不进 visitor 视野。
 func buildRetriever(
-	ctx context.Context, deps *VisitorDeps, ownerID string, perms []domain.PathPermission,
+	ctx context.Context, deps *VisitorDeps, in *retrieverBuildInput,
 ) (*retriever, error) {
-	wikis, werr := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis)
+	wikis, werr := deps.Wiki.ListByOwner(ctx, in.ownerID, maxRAGWikis)
 	if werr != nil {
 		return nil, fmt.Errorf("list wiki for retrieval: %w", werr)
 	}
-	outputs, oerr := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs)
+	outputs, oerr := deps.Output.ListByOwner(ctx, in.ownerID, maxRAGOutputs)
 	if oerr != nil {
 		return nil, fmt.Errorf("list output for retrieval: %w", oerr)
 	}
-	writings := listWritingsForRetrieval(ctx, deps, ownerID)
+	writings := listWritingsForRetrieval(ctx, deps, in.ownerID)
 	return newRetriever(&retrieverInput{
-		wikis: wikis, outputs: outputs, writings: writings, perms: perms,
+		wikis: wikis, outputs: outputs, writings: writings,
+		perms: in.perms, snapshot: in.snapshot,
 	}), nil
 }
 

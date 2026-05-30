@@ -25,7 +25,12 @@ type AccessCode struct {
 	// nil = 不解锁。配合 GrantedSkills 的双保险：tool registry 先看
 	// GrantedSkills 决定 spec 是否出现，再用 MaxBookings + code_bookings
 	// count 在 invoke 时拒。
-	MaxBookings        *int32
+	MaxBookings *int32
+	// AssumedRoleID —— A.3-IAM 引入。指向 owner 的 roles 行 id；session issue
+	// 时 freeze 出 [[role_snapshot]]。commit 2 nullable 兼容老路径（nil → 走
+	// CorpusPermissions / GrantedSkills / code_skills / code_mcp_servers
+	// 旧 source of truth）；commit 3 NOT NULL + 旧字段 drop。
+	AssumedRoleID      *string
 	ID                 string
 	OwnerID            string
 	Code               string

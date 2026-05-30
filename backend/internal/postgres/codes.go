@@ -293,6 +293,10 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 		t := c.ExpiresAt.Time
 		out.ExpiresAt = &t
 	}
+	if c.AssumedRoleID.Valid {
+		s := formatUUID(c.AssumedRoleID)
+		out.AssumedRoleID = &s
+	}
 	return out
 }
 

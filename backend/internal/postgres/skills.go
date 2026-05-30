@@ -213,6 +213,24 @@ func (r *SkillRepo) ListSkillsForCode(ctx context.Context, codeID string) ([]dom
 	return out, nil
 }
 
+// ListSkillsForRole —— RoleSnapshot 构造时拼 prompt / allowed_tools 用。
+// 跟 ListSkillsForCode 同形态，dbq.ListRoleSkills 在 roles.sql 已声明。
+func (r *SkillRepo) ListSkillsForRole(ctx context.Context, roleID string) ([]domain.Skill, error) {
+	roleUUID, perr := parseUUID(roleID)
+	if perr != nil {
+		return nil, fmt.Errorf("parse role id: %w", perr)
+	}
+	rows, err := dbq.New(r.pool).ListRoleSkills(ctx, roleUUID)
+	if err != nil {
+		return nil, fmt.Errorf("list skills for role: %w", err)
+	}
+	out := make([]domain.Skill, 0, len(rows))
+	for i := range rows {
+		out = append(out, toDomainSkill(&rows[i]))
+	}
+	return out, nil
+}
+
 // GetByID —— admin / MCP get 单条。
 func (r *SkillRepo) GetByID(ctx context.Context, ownerID, skillID string) (domain.Skill, error) {
 	args, perr := parseOwnerAndSkillID(ownerID, skillID)
