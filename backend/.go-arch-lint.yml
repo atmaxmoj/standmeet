@@ -169,6 +169,7 @@ deps:
     mayDependOn:
       - domain
       - usecases
+      - agentskills
     anyVendorDeps: true
 
   # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。

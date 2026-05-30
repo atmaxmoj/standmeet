@@ -102,12 +102,16 @@ func buildTestVisitorCapsDeps(d *runtimeDeps) sysroutes.TestVisitorCapabilitiesD
 	}
 }
 
-// registerAgentSkills —— 把 visitor-side 内建 capability 注册进 d.agentSkills。
-// 跟 buildPublicDeps 共享一份 VisitorDeps shape；run() 阶段调用一次，
-// capability 闭包持 deps，server 跑期间 deps 不再变。
+// registerAgentSkills —— 把 visitor-side + owner-side 内建 capability 都
+// 注册进 d.agentSkills。跟 build*Deps 共享底层 repo 引用；run() 阶段调用
+// 一次，capability 闭包持 deps，server 跑期间 deps 不再变。
 func registerAgentSkills(d *runtimeDeps) {
 	visitor := buildPublicDeps(d).Visitor
 	usecases.RegisterAgentSkills(d.agentSkills, &visitor)
+	mcp.RegisterAgentSkills(d.agentSkills, mcp.RegisterDeps{
+		Owners: d.ownerRepo,
+		Log:    d.log,
+	})
 }
 
 func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
@@ -174,6 +178,7 @@ func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHand
 
 func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 	return mcp.Deps{
+		AgentSkills: d.agentSkills,
 		APITokens:   usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
 		Owners:      d.ownerRepo,
 		Corpus:      usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},

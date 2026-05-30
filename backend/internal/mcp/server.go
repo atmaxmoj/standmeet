@@ -10,14 +10,13 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
 
-	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
@@ -44,6 +43,10 @@ type Deps struct {
 	MCPServers    usecases.MCPServersDeps
 	Writings      usecases.WritingsDeps
 	WritingsTx    usecases.WritingsTxDeps
+	// AgentSkills —— Phase B-4 起 owner MCP tool 也走 Capability registry。
+	// 老的 tools_*.go AddTool 调用与 registerCapabilities walk 共存；逐步
+	// 把老文件迁成 Capability + 删 AddTool 调用。
+	AgentSkills *agentskills.Registry
 }
 
 // SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
@@ -115,8 +118,10 @@ func OwnerIDFrom(ctx context.Context) string {
 }
 
 // registerTools 把所有 tool 注册到 mcpSrv。
+// Phase B-4: 新的 capability 经 agentskills.Registry 注册；老的 tools_*.go
+// 暂时保留直接 AddTool 调用，逐步迁移为 Capability OwnerMCPBinding。
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
-	mcpSrv.AddTool(meTool(), wrapTool(invokeMe(deps)))
+	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
 	corpusTools(mcpSrv, deps)
 	outputTools(mcpSrv, deps)
 	seoTools(mcpSrv, deps)
@@ -132,31 +137,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	writingsTools(mcpSrv, deps)
 }
 
-func meTool() mcpgo.Tool {
-	return mcpgo.NewTool(
-		"me",
-		mcpgo.WithDescription("Return the currently authenticated StandMeet owner."),
-	)
-}
-
-func invokeMe(deps *Deps) invokeFn {
-	return func(ctx context.Context, _ *mcpgo.CallToolRequest) *mcpgo.CallToolResult {
-		ownerID := OwnerIDFrom(ctx)
-		if ownerID == "" {
-			return mcpgo.NewToolResultError("unauthorized: invalid or missing api token")
-		}
-		owner, err := deps.Owners.GetByID(ctx, ownerID)
-		if err != nil {
-			if errors.Is(err, domain.ErrOwnerNotFound) {
-				return mcpgo.NewToolResultError("owner not found")
-			}
-			deps.Log.Error("mcp me failed", "err", err)
-			return mcpgo.NewToolResultError("internal error")
-		}
-		return mcpgo.NewToolResultText(formatOwner(&owner))
-	}
-}
-
+// formatOwner —— `me` capability + 其他可能引用 owner profile 的地方共用。
 func formatOwner(o *domain.Owner) string {
 	return `{"owner_id":"` + o.ID + `","email":"` + o.Email +
 		`","handle":"` + o.Handle + `","full_name":"` + o.FullName + `"}`
