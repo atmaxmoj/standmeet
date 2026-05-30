@@ -23,6 +23,7 @@ type AccessCode struct {
 	GrantedSkills        []string
 	MaxBookings          *int32
 	CreatedAt            pgtype.Timestamptz
+	AssumedRoleID        pgtype.UUID
 }
 
 type AccessRequest struct {
@@ -279,6 +280,17 @@ type PageContent struct {
 	UpdatedAt    pgtype.Timestamptz
 }
 
+type Prompt struct {
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	Name        string
+	Body        string
+	Description string
+	IsBuiltin   bool
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
 type RawEntry struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID
@@ -300,6 +312,32 @@ type ResumeDraft struct {
 	ResumeContent []byte
 	ExpiresAt     pgtype.Timestamptz
 	CreatedAt     pgtype.Timestamptz
+}
+
+type Role struct {
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	Name        string
+	Description string
+	PromptID    pgtype.UUID
+	IsBuiltin   bool
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+type RoleCorpusUri struct {
+	RoleID     pgtype.UUID
+	UriPattern string
+}
+
+type RoleMcpServer struct {
+	RoleID      pgtype.UUID
+	McpServerID pgtype.UUID
+}
+
+type RoleSkill struct {
+	RoleID  pgtype.UUID
+	SkillID pgtype.UUID
 }
 
 type SeoSetting struct {

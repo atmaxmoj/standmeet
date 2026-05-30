@@ -267,6 +267,80 @@ CREATE TABLE code_mcp_servers (
 
 CREATE INDEX code_mcp_servers_server_idx ON code_mcp_servers(mcp_server_id);
 
+-- prompts —— owner-scoped persona/instruction 片段库。
+-- 设计 [[iam-role-pivot-plan]]：type 通用命名，挂 role 后语义角色叫"role
+-- prompt"，但 type 本身不带这个限定（未来 skill / page 也可能复用同张表）。
+-- builtin（is_builtin=true）现在只有一行 "vanilla" —— claim 时种，删除被
+-- repo 层拒；owner 自己加的 = false。
+CREATE TABLE prompts (
+    id           uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    name         text          NOT NULL,
+    body         text          NOT NULL DEFAULT '',
+    description  text          NOT NULL DEFAULT '',
+    is_builtin   boolean       NOT NULL DEFAULT false,
+    created_at   timestamptz   NOT NULL DEFAULT now(),
+    updated_at   timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX prompts_owner_name_uniq ON prompts(owner_id, name);
+
+-- roles —— owner-scoped visitor 身份原型。one-stop config：persona (Prompt) +
+-- 可见 corpus (URI globs via role_corpus_uris) + 解锁的 capability (Skills via
+-- role_skills + MCP servers via role_mcp_servers)。每张 access_code 挂一个
+-- assumed_role_id；session start 时拍 RoleSnapshot 进 session_data，跟 role
+-- 解耦（owner 改 role 不影响 in-flight session）。
+--
+-- vanilla role：claim 时种，is_builtin=true，公开 corpus URIs / 无 skill /
+--   无 mcp / prompt 挂 vanilla prompt；不可删（repo 层拒）。owner 不显式
+--   选 role 时 access_code 默认挂这条。
+CREATE TABLE roles (
+    id           uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    name         text          NOT NULL,
+    description  text          NOT NULL DEFAULT '',
+    prompt_id    uuid          REFERENCES prompts(id) ON DELETE SET NULL,
+    is_builtin   boolean       NOT NULL DEFAULT false,
+    created_at   timestamptz   NOT NULL DEFAULT now(),
+    updated_at   timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX roles_owner_name_uniq ON roles(owner_id, name);
+
+-- role_corpus_uris —— Role 持的"可见 corpus URI 白名单"。glob 用现
+-- compileGlob 方言（** 跨 /，* 不跨）。raw://** 永远 deny，跟此表配置无关
+-- （hardcode in Role.AllowsCorpus）；空表 = 该 role 看不到任何 corpus。
+CREATE TABLE role_corpus_uris (
+    role_id      uuid          NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    uri_pattern  text          NOT NULL,
+    PRIMARY KEY (role_id, uri_pattern)
+);
+
+-- role_skills —— Role ↔ Skill 多对多。code 不再直接挂 skill；走 role 转一层。
+CREATE TABLE role_skills (
+    role_id   uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    skill_id  uuid NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, skill_id)
+);
+
+CREATE INDEX role_skills_skill_idx ON role_skills(skill_id);
+
+-- role_mcp_servers —— Role ↔ MCP server 多对多。同上，code 不再直接挂。
+CREATE TABLE role_mcp_servers (
+    role_id        uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    mcp_server_id  uuid NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, mcp_server_id)
+);
+
+CREATE INDEX role_mcp_servers_server_idx ON role_mcp_servers(mcp_server_id);
+
+-- access_codes.assumed_role_id —— commit 1 只是把列加上（nullable），
+-- 老路径 (corpus_permissions / granted_skills / code_skills / code_mcp_servers)
+-- 仍 source of truth。commit 2 在 issue session 时拍 RoleSnapshot 并把
+-- retriever ACL 切到 role；commit 3 干掉老列 + NOT NULL。
+ALTER TABLE access_codes
+    ADD COLUMN assumed_role_id uuid REFERENCES roles(id) ON DELETE RESTRICT;
+
 -- assets —— owner-uploaded 二进制 (图片 / 附件) 的元数据。bytes 落 MinIO
 -- (key = '<owner_id>/<asset_id>')；元数据在这里。
 --

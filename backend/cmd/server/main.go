@@ -190,6 +190,8 @@ type runtimeDeps struct {
 	applicationRepo   *postgres.ApplicationRepo
 	skillRepo         *postgres.SkillRepo
 	mcpServerRepo     *postgres.MCPServerRepo
+	promptRepo        *postgres.PromptRepo
+	roleRepo          *postgres.RoleRepo
 	assetRepo         *postgres.AssetRepo
 	writingRepo       *postgres.WritingRepo
 	writingRefRepo    *postgres.WritingRefRepo

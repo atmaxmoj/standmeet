@@ -46,6 +46,8 @@ type repoSet struct {
 	application   *postgres.ApplicationRepo
 	skill         *postgres.SkillRepo
 	mcpServer     *postgres.MCPServerRepo
+	prompt        *postgres.PromptRepo
+	role          *postgres.RoleRepo
 	asset         *postgres.AssetRepo
 	writing       *postgres.WritingRepo
 	writingRef    *postgres.WritingRefRepo
@@ -71,6 +73,8 @@ func newRepos(db *postgres.Pool) *repoSet {
 		application:   postgres.NewApplicationRepo(db),
 		skill:         postgres.NewSkillRepo(db),
 		mcpServer:     postgres.NewMCPServerRepo(db),
+		prompt:        postgres.NewPromptRepo(db),
+		role:          postgres.NewRoleRepo(db),
 		asset:         postgres.NewAssetRepo(db),
 		writing:       postgres.NewWritingRepo(db),
 		writingRef:    postgres.NewWritingRefRepo(db),
@@ -109,6 +113,8 @@ func assembleRuntimeDeps(
 		applicationRepo:   repos.application,
 		skillRepo:         repos.skill,
 		mcpServerRepo:     repos.mcpServer,
+		promptRepo:        repos.prompt,
+		roleRepo:          repos.role,
 		writingRepo:       repos.writing,
 		writingRefRepo:    repos.writingRef,
 		assetRepo:         repos.asset,

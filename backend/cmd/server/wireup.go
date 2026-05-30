@@ -50,7 +50,10 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 
 func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	return server.AdminDeps{
-		Claim:     usecases.ClaimDeps{Instance: d.instanceRepo, Skills: d.skillRepo},
+		Claim: usecases.ClaimDeps{
+			Instance: d.instanceRepo, Skills: d.skillRepo,
+			Prompts: d.promptRepo, Roles: d.roleRepo,
+		},
 		Login:     usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
 		APITokens: usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
 		Corpus:    usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
