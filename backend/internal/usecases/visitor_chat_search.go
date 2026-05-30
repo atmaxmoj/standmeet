@@ -56,16 +56,16 @@ func anyTagMatches(q string, tags []string) bool {
 
 // wikiPath / outputPath —— entry 没设 path 时合成 `<kind>/<id>` 让 AI 仍能
 // read_corpus_entry，retrieval-redesign 后 path 是寻址 key 不是可选 SEO 字段。
-func wikiPath(w *domain.WikiEntry) string {
-	if w.Path != nil && *w.Path != "" {
-		return *w.Path
+func wikiPath(w *domain.Wiki) string {
+	if p, ok := w.Path(); ok && p != "" {
+		return p
 	}
-	return "wiki/" + w.ID
+	return "wiki/" + w.ID()
 }
 
-func outputPath(o *domain.OutputEntry) string {
-	if o.Path != nil && *o.Path != "" {
-		return *o.Path
+func outputPath(o *domain.Output) string {
+	if p, ok := o.Path(); ok && p != "" {
+		return p
 	}
-	return "output/" + o.ID
+	return "output/" + o.ID()
 }

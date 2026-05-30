@@ -38,7 +38,7 @@ func namesOf(specs []inference.ToolSpec) []string {
 func skillNamesFor(ctx context.Context, deps *VisitorDeps, in *SendMessageInput) []string {
 	bundle, err := buildSkillBundle(ctx, deps, in)
 	if err != nil || bundle == nil {
-		return nil
+		return []string{}
 	}
 	return namesOf(bundle.Specs())
 }
@@ -46,7 +46,7 @@ func skillNamesFor(ctx context.Context, deps *VisitorDeps, in *SendMessageInput)
 func extNamesFor(ctx context.Context, deps *VisitorDeps, in *SendMessageInput) []string {
 	bundle := buildExternalMCPBundle(ctx, deps, in)
 	if bundle == nil {
-		return nil
+		return []string{}
 	}
 	defer bundle.Close()
 	return namesOf(bundle.Specs())
@@ -55,7 +55,7 @@ func extNamesFor(ctx context.Context, deps *VisitorDeps, in *SendMessageInput) [
 func bookerNamesFor(ctx context.Context, deps *VisitorDeps, in *SendMessageInput) []string {
 	bundle, err := buildBookerBundle(ctx, deps, in)
 	if err != nil || bundle == nil {
-		return nil
+		return []string{}
 	}
 	return namesOf(bundle.Specs())
 }

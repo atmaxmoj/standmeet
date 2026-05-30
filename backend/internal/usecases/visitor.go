@@ -159,11 +159,11 @@ func loadCodeSkillPrompts(
 	ctx context.Context, deps *VisitorDeps, codeID string,
 ) ([]string, error) {
 	if deps.Skills == nil {
-		return nil, nil
+		return []string{}, nil
 	}
 	skills, err := deps.Skills.ListSkillsForCode(ctx, codeID)
 	if err != nil {
-		return nil, fmt.Errorf("list code skills: %w", err)
+		return []string{}, fmt.Errorf("list code skills: %w", err)
 	}
 	out := make([]string, 0, len(skills))
 	for i := range skills {

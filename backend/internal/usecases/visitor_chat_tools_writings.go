@@ -12,24 +12,25 @@ import (
 )
 
 func (r *retriever) writingMatches(w *domain.Writing, q string) bool {
-	return r.acl.AllowsEntry(w.Path) &&
-		textMatchesQuery(q, w.Title, writingBodyText(w), w.Tags)
+	return r.acl.AllowsEntry(w.Path()) &&
+		textMatchesQuery(q, w.Title(), writingBodyText(w), w.Tags())
 }
 
 func writingBodyText(w *domain.Writing) string {
-	return StripMarkdown(w.BodyMD)
+	return StripMarkdown(w.Body())
 }
 
 func (r *retriever) listWritingRow(w *domain.Writing, prefix string) (corpusRow, bool) {
-	if !r.acl.AllowsEntry(w.Path) || !strings.HasPrefix(w.Path, prefix) {
+	p := w.Path()
+	if !r.acl.AllowsEntry(p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
-	return corpusRow{Path: w.Path, Title: w.Title, Kind: "writing"}, true
+	return corpusRow{Path: p, Title: w.Title(), Kind: "writing"}, true
 }
 
 func (r *retriever) findWritingByPath(path string) *domain.Writing {
 	for i := range r.writings {
-		if r.writings[i].Path == path {
+		if r.writings[i].Path() == path {
 			return &r.writings[i]
 		}
 	}
@@ -38,14 +39,14 @@ func (r *retriever) findWritingByPath(path string) *domain.Writing {
 
 func writingToRow(w *domain.Writing) corpusRow {
 	return corpusRow{
-		Path: w.Path, Title: w.Title, Kind: "writing",
+		Path: w.Path(), Title: w.Title(), Kind: "writing",
 		Summary: writingRowSummary(w),
 	}
 }
 
 func writingRowSummary(w *domain.Writing) string {
-	if w.Excerpt != "" {
-		return summarize(w.Excerpt)
+	if w.Excerpt() != "" {
+		return summarize(w.Excerpt())
 	}
 	return summarize(writingBodyText(w))
 }

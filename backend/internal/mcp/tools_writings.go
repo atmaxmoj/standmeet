@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -103,7 +104,7 @@ func parseOptionalFilesArg(
 ) ([]usecases.FileInput, error) {
 	raw, ok := req.GetArguments()["files"]
 	if !ok || raw == nil {
-		return nil, nil
+		return []usecases.FileInput{}, nil
 	}
 	return resolveMCPFiles(ctx, raw)
 }
@@ -142,7 +143,7 @@ func runWritingCreate(
 		return mcpgo.NewToolResultError("create writing failed")
 	}
 	return marshalResult(deps, writingIDPayload{
-		WritingID: wg.ID, Slug: wg.Slug, Published: wg.IsPublished(),
+		WritingID: wg.ID(), Slug: wg.Slug(), Published: wg.IsPublished(),
 	})
 }
 
@@ -193,7 +194,7 @@ func invokeWritingPublish(deps *Deps) invokeFn {
 			return mcpgo.NewToolResultError("publish writing failed")
 		}
 		return marshalResult(deps, writingIDPayload{
-			WritingID: wg.ID, Slug: wg.Slug, Published: true,
+			WritingID: wg.ID(), Slug: wg.Slug(), Published: true,
 		})
 	}
 }
@@ -257,12 +258,17 @@ type writingView struct {
 func writingListView(rows []domain.Writing) writingListPayload {
 	out := make(writingListPayload, 0, len(rows))
 	for i := range rows {
+		var pubAtPtr *time.Time
+		if pub, ok := rows[i].PublishedAt(); ok {
+			cp := pub
+			pubAtPtr = &cp
+		}
 		out = append(out, writingView{
-			ID: rows[i].ID, Slug: rows[i].Slug, Title: rows[i].Title,
-			Excerpt: rows[i].Excerpt, Visibility: rows[i].Visibility,
-			Tags: rows[i].Tags, Published: rows[i].IsPublished(),
-			PublishedAt: usecases.PublishedAtRFC3339(rows[i].PublishedAt),
-			UpdatedAt:   rows[i].UpdatedAt.Format(mcpTimeFmt),
+			ID: rows[i].ID(), Slug: rows[i].Slug(), Title: rows[i].Title(),
+			Excerpt: rows[i].Excerpt(), Visibility: rows[i].VisibilityMode(),
+			Tags: rows[i].Tags(), Published: rows[i].IsPublished(),
+			PublishedAt: usecases.PublishedAtRFC3339(pubAtPtr),
+			UpdatedAt:   rows[i].UpdatedAt().Format(mcpTimeFmt),
 		})
 	}
 	return out

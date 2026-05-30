@@ -118,7 +118,12 @@ func toWritingViewResolved(r *http.Request, h *Handlers, wg *domain.Writing) wri
 }
 
 func resolveWritingAssetURLs(r *http.Request, h *Handlers, wg *domain.Writing) map[string]string {
-	ids := usecases.WritingAssetIDs(wg.BodyMD, wg.CoverImageAssetID)
+	coverID := wg.CoverImageAssetID()
+	var coverPtr *string
+	if coverID != "" {
+		coverPtr = &coverID
+	}
+	ids := usecases.WritingAssetIDs(wg.Body(), coverPtr)
 	urls, err := usecases.ResolveAssetURLs(
 		r.Context(),
 		h.WritingsAdmin.WritingsTx.Assets.Repo,
@@ -133,20 +138,21 @@ func resolveWritingAssetURLs(r *http.Request, h *Handlers, wg *domain.Writing) m
 }
 
 func toWritingView(wg *domain.Writing) writingView {
-	assetID := ""
-	if wg.CoverImageAssetID != nil {
-		assetID = *wg.CoverImageAssetID
+	var pubAtPtr *time.Time
+	if pub, ok := wg.PublishedAt(); ok {
+		cp := pub
+		pubAtPtr = &cp
 	}
 	return writingView{
-		ID: wg.ID, Slug: wg.Slug, Title: wg.Title, Excerpt: wg.Excerpt,
-		BodyMD: wg.BodyMD, CoverHeadline: wg.CoverHeadline, CoverSub: wg.CoverSub,
-		CoverHue: wg.CoverHue, CoverImageAssetID: assetID,
-		Tags: wg.Tags, Visibility: wg.Visibility, CrossRefs: wg.CrossRefs,
-		Path: wg.Path, ReadMinutes: wg.ReadMinutes, LockedBody: wg.LockedBody,
+		ID: wg.ID(), Slug: wg.Slug(), Title: wg.Title(), Excerpt: wg.Excerpt(),
+		BodyMD: wg.Body(), CoverHeadline: wg.CoverHeadline(), CoverSub: wg.CoverSub(),
+		CoverHue: wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
+		Tags: wg.Tags(), Visibility: wg.VisibilityMode(), CrossRefs: wg.CrossRefs(),
+		Path: wg.Path(), ReadMinutes: wg.ReadMinutes(), LockedBody: wg.LockedBody(),
 		Published:   wg.IsPublished(),
-		PublishedAt: usecases.PublishedAtRFC3339(wg.PublishedAt),
-		CreatedAt:   wg.CreatedAt.Format(timeFmt),
-		UpdatedAt:   wg.UpdatedAt.Format(timeFmt),
+		PublishedAt: usecases.PublishedAtRFC3339(pubAtPtr),
+		CreatedAt:   wg.CreatedAt().Format(timeFmt),
+		UpdatedAt:   wg.UpdatedAt().Format(timeFmt),
 	}
 }
 

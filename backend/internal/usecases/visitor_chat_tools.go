@@ -62,16 +62,16 @@ func retrievalToolSpecs() []inference.ToolSpec {
 // "ask about this essay" 入口，不挤 cited 列表)。
 type retriever struct {
 	collector *readCollector
-	wikis     []domain.WikiEntry
-	outputs   []domain.OutputEntry
+	wikis     []domain.Wiki
+	outputs   []domain.Output
 	writings  []domain.Writing
 	acl       domain.PathACL
 }
 
 // retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。
 type retrieverInput struct {
-	wikis    []domain.WikiEntry
-	outputs  []domain.OutputEntry
+	wikis    []domain.Wiki
+	outputs  []domain.Output
 	writings []domain.Writing
 	perms    []domain.PathPermission
 }
@@ -194,11 +194,11 @@ func (r *retriever) checkReadPath(path string) string {
 func (r *retriever) dispatchRead(path string) string {
 	if w := r.findWikiByPath(path); w != nil {
 		r.collector.addWiki(w)
-		return marshalKindBody("wiki", w.Body)
+		return marshalKindBody("wiki", w.Body())
 	}
 	if o := r.findOutputByPath(path); o != nil {
 		r.collector.addOutput(o)
-		return marshalKindBody("output", o.Body)
+		return marshalKindBody("output", o.Body())
 	}
 	if w := r.findWritingByPath(path); w != nil {
 		return marshalKindBody("writing", writingBodyText(w))
@@ -206,7 +206,7 @@ func (r *retriever) dispatchRead(path string) string {
 	return errJSON("not found: " + path)
 }
 
-func (r *retriever) findWikiByPath(path string) *domain.WikiEntry {
+func (r *retriever) findWikiByPath(path string) *domain.Wiki {
 	for i := range r.wikis {
 		if wikiPath(&r.wikis[i]) == path {
 			return &r.wikis[i]
@@ -215,7 +215,7 @@ func (r *retriever) findWikiByPath(path string) *domain.WikiEntry {
 	return nil
 }
 
-func (r *retriever) findOutputByPath(path string) *domain.OutputEntry {
+func (r *retriever) findOutputByPath(path string) *domain.Output {
 	for i := range r.outputs {
 		if outputPath(&r.outputs[i]) == path {
 			return &r.outputs[i]
@@ -274,27 +274,20 @@ func (r *retriever) listWritingsByPrefix(prefix string) []corpusRow {
 	return out
 }
 
-func (r *retriever) listWikiRow(w *domain.WikiEntry, prefix string) (corpusRow, bool) {
-	p := pathOrEmpty(w.Path)
+func (r *retriever) listWikiRow(w *domain.Wiki, prefix string) (corpusRow, bool) {
+	p := w.PathOrEmpty()
 	if !r.acl.AllowsEntry(p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
-	return corpusRow{Path: p, Title: w.Title, Kind: "wiki"}, true
+	return corpusRow{Path: p, Title: w.Title(), Kind: "wiki"}, true
 }
 
-func (r *retriever) listOutputRow(o *domain.OutputEntry, prefix string) (corpusRow, bool) {
-	p := pathOrEmpty(o.Path)
+func (r *retriever) listOutputRow(o *domain.Output, prefix string) (corpusRow, bool) {
+	p := o.PathOrEmpty()
 	if !r.acl.AllowsEntry(p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
-	return corpusRow{Path: p, Title: o.Title, Kind: "output"}, true
-}
-
-func pathOrEmpty(p *string) string {
-	if p == nil {
-		return ""
-	}
-	return *p
+	return corpusRow{Path: p, Title: o.Title(), Kind: "output"}, true
 }
 
 // errJSON / marshalRows / marshalKindBody —— tool 返回都是 JSON string。

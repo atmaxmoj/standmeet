@@ -37,15 +37,15 @@ func loadMCPServersForConversation(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 ) []domain.MCPServerConfig {
 	if deps.MCPServers == nil {
-		return nil
+		return []domain.MCPServerConfig{}
 	}
 	conv, cerr := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
 	if cerr != nil || conv.CodeID == nil {
-		return nil
+		return []domain.MCPServerConfig{}
 	}
 	servers, lerr := deps.MCPServers.ListForCode(ctx, *conv.CodeID)
 	if lerr != nil {
-		return nil
+		return []domain.MCPServerConfig{}
 	}
 	return servers
 }
@@ -71,7 +71,7 @@ func newEmptyExternalMCPBundle() *externalMCPBundle {
 // Specs —— provider 看到的 tool 列表。可能为空。
 func (b *externalMCPBundle) Specs() []inference.ToolSpec {
 	if b == nil {
-		return nil
+		return []inference.ToolSpec{}
 	}
 	return b.specs
 }

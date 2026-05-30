@@ -60,17 +60,17 @@ func PublicReady(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
 // GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 seo_indexed=true）。
 func GetWikiLanding(
 	ctx context.Context, deps SEODeps, path string,
-) (domain.WikiEntry, error) {
+) (domain.Wiki, error) {
 	if path == "" {
-		return domain.WikiEntry{}, domain.ErrWikiNotFound
+		return domain.Wiki{}, domain.ErrWikiNotFound
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return domain.WikiEntry{}, domain.ErrOwnerNotFound
+		return domain.Wiki{}, domain.ErrOwnerNotFound
 	}
 	wiki, err := deps.SEO.GetWikiByPath(ctx, owner.ID, path)
 	if err != nil {
-		return domain.WikiEntry{}, fmt.Errorf("get wiki by path: %w", err)
+		return domain.Wiki{}, fmt.Errorf("get wiki by path: %w", err)
 	}
 	return wiki, nil
 }
@@ -85,11 +85,11 @@ type LandingURL struct {
 func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return nil
+		return []LandingURL{}
 	}
 	rows, err := deps.SEO.ListIndexedPaths(ctx, owner.ID)
 	if err != nil {
-		return nil
+		return []LandingURL{}
 	}
 	return toLandingURLs(rows)
 }
@@ -97,17 +97,17 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 // GetOutputLanding —— 公开 output landing 查询。
 func GetOutputLanding(
 	ctx context.Context, deps SEODeps, path string,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	if path == "" {
-		return domain.OutputEntry{}, domain.ErrOutputNotFound
+		return domain.Output{}, domain.ErrOutputNotFound
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return domain.OutputEntry{}, domain.ErrOwnerNotFound
+		return domain.Output{}, domain.ErrOwnerNotFound
 	}
 	out, err := deps.SEO.GetOutputByPath(ctx, owner.ID, path)
 	if err != nil {
-		return domain.OutputEntry{}, fmt.Errorf("get output by path: %w", err)
+		return domain.Output{}, fmt.Errorf("get output by path: %w", err)
 	}
 	return out, nil
 }
@@ -116,11 +116,11 @@ func GetOutputLanding(
 func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return nil
+		return []LandingURL{}
 	}
 	rows, err := deps.SEO.ListIndexedOutputPaths(ctx, owner.ID)
 	if err != nil {
-		return nil
+		return []LandingURL{}
 	}
 	return toLandingURLs(rows)
 }

@@ -30,16 +30,16 @@ type UpdateRawInput struct {
 // UpdateRaw 改 raw_entries 的 body + tags + flagged_private。
 func UpdateRaw(
 	ctx context.Context, deps CorpusDeps, in *UpdateRawInput,
-) (domain.RawEntry, error) {
+) (domain.Raw, error) {
 	if in.OwnerID == "" || in.ID == "" || in.Body == "" {
-		return domain.RawEntry{}, ErrEmptyField
+		return domain.Raw{}, ErrEmptyField
 	}
 	raw, err := deps.Raw.UpdateBody(ctx, &postgres.UpdateRawInput{
 		OwnerID: in.OwnerID, ID: in.ID,
 		Body: in.Body, Tags: in.Tags, FlaggedPrivate: in.FlaggedPrivate,
 	})
 	if err != nil {
-		return domain.RawEntry{}, fmt.Errorf("update raw: %w", err)
+		return domain.Raw{}, fmt.Errorf("update raw: %w", err)
 	}
 	return raw, nil
 }
@@ -69,9 +69,9 @@ type CreateWikiInput struct {
 // CreateWiki 起一条新 wiki（admin UI"+new wiki"按钮的入口）。
 func CreateWiki(
 	ctx context.Context, deps CorpusDeps, in *CreateWikiInput,
-) (domain.WikiEntry, error) {
+) (domain.Wiki, error) {
 	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
-		return domain.WikiEntry{}, ErrEmptyField
+		return domain.Wiki{}, ErrEmptyField
 	}
 	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
 		OwnerID:  in.OwnerID,
@@ -81,7 +81,7 @@ func CreateWiki(
 		Tags:     in.Tags,
 	})
 	if err != nil {
-		return domain.WikiEntry{}, fmt.Errorf("create wiki: %w", err)
+		return domain.Wiki{}, fmt.Errorf("create wiki: %w", err)
 	}
 	return wiki, nil
 }
@@ -100,9 +100,9 @@ type UpdateWikiInput struct {
 // UpdateWiki 改 wiki 主字段。
 func UpdateWiki(
 	ctx context.Context, deps CorpusDeps, in *UpdateWikiInput,
-) (domain.WikiEntry, error) {
+) (domain.Wiki, error) {
 	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
-		return domain.WikiEntry{}, ErrEmptyField
+		return domain.Wiki{}, ErrEmptyField
 	}
 	wiki, err := deps.Wiki.Update(ctx, &postgres.UpdateWikiInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
@@ -110,7 +110,7 @@ func UpdateWiki(
 		ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
-		return domain.WikiEntry{}, fmt.Errorf("update wiki: %w", err)
+		return domain.Wiki{}, fmt.Errorf("update wiki: %w", err)
 	}
 	return wiki, nil
 }
@@ -145,9 +145,9 @@ type CreateOutputInput struct {
 // CreateOutput 起一条新 output（admin UI"+new output"按钮的入口）。
 func CreateOutput(
 	ctx context.Context, deps CorpusDeps, in *CreateOutputInput,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
-		return domain.OutputEntry{}, ErrEmptyField
+		return domain.Output{}, ErrEmptyField
 	}
 	out, err := deps.Output.Create(ctx, &postgres.CreateOutputInput{
 		OwnerID:  in.OwnerID,
@@ -157,7 +157,7 @@ func CreateOutput(
 		Tags:     in.Tags,
 	})
 	if err != nil {
-		return domain.OutputEntry{}, fmt.Errorf("create output: %w", err)
+		return domain.Output{}, fmt.Errorf("create output: %w", err)
 	}
 	return out, nil
 }
@@ -176,9 +176,9 @@ type UpdateOutputInput struct {
 // UpdateOutput 改 output 主字段。
 func UpdateOutput(
 	ctx context.Context, deps CorpusDeps, in *UpdateOutputInput,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
-		return domain.OutputEntry{}, ErrEmptyField
+		return domain.Output{}, ErrEmptyField
 	}
 	out, err := deps.Output.Update(ctx, &postgres.UpdateOutputInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
@@ -186,7 +186,7 @@ func UpdateOutput(
 		ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
-		return domain.OutputEntry{}, fmt.Errorf("update output: %w", err)
+		return domain.Output{}, fmt.Errorf("update output: %w", err)
 	}
 	return out, nil
 }

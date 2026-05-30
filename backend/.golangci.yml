@@ -110,6 +110,11 @@ linters:
           strict: true
     # ireturn 默认拦"返抽象 interface"。driver-selection 工厂 (按 env 选
     # 具体实现) 本质需要 interface 返回；其他接口照常被抓。
+    #
+    # Document / Integration 是 Go 没有 sum type 的 proxy —— Corpus.Get / List 返
+    # heterogeneous 集合元素 (Wiki|Output|Writing|Raw 任一)，URI 运行期 dispatch；
+    # Integrations.Find 按 Kind 拿回具体 (Obsidian 等) 同形态。这俩接口的"返值
+    # 是 interface"是 by design，不是懒 —— 同 Provider/Runner 的工厂模式同类。
     ireturn:
       allow:
         - error
@@ -118,6 +123,8 @@ linters:
         - stdlib
         - github.com/wangsijie/standmeet/internal/inference.Provider
         - github.com/wangsijie/standmeet/internal/sandbox.Runner
+        - github.com/wangsijie/standmeet/internal/domain.Document
+        - github.com/wangsijie/standmeet/internal/domain.Integration
     revive:
       enable-all-rules: true
       rules:

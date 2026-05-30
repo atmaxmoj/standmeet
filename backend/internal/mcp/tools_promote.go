@@ -62,16 +62,16 @@ func runPromote(
 	if presult := applyWikiPromotePostProcess(ctx, deps, &wiki, opts); presult != nil {
 		return presult
 	}
-	return marshalResult(deps, wikiIDPayload{WikiID: wiki.ID})
+	return marshalResult(deps, wikiIDPayload{WikiID: wiki.ID()})
 }
 
 // applyWikiPromotePostProcess —— promote 完后落 path（SEO repo）和
 // show_as_source（admin update repo）；都是可选。path 失败走 SEO 错误
 // envelope；show_as_source 失败不阻塞 promote 返回，写日志。
 func applyWikiPromotePostProcess(
-	ctx context.Context, deps *Deps, wiki *domain.WikiEntry, opts promoteOpts,
+	ctx context.Context, deps *Deps, wiki *domain.Wiki, opts promoteOpts,
 ) *mcpgo.CallToolResult {
-	if r := setWikiPathOpt(ctx, deps, wiki.ID, opts.path); r != nil {
+	if r := setWikiPathOpt(ctx, deps, wiki.ID(), opts.path); r != nil {
 		return r
 	}
 	if opts.hideAsSource {
@@ -92,11 +92,11 @@ func setWikiPathOpt(
 	return nil
 }
 
-func hideWikiAsSource(ctx context.Context, deps *Deps, wiki *domain.WikiEntry) {
+func hideWikiAsSource(ctx context.Context, deps *Deps, wiki *domain.Wiki) {
 	_, uerr := usecases.UpdateWiki(ctx, deps.Corpus, &usecases.UpdateWikiInput{
-		OwnerID: wiki.OwnerID, ID: wiki.ID,
-		Title: wiki.Title, Body: wiki.Body, Tags: wiki.Tags,
-		ParentID: wiki.ParentID, ShowAsSource: false,
+		OwnerID: wiki.OwnerID(), ID: wiki.ID(),
+		Title: wiki.Title(), Body: wiki.Body(), Tags: wiki.Tags(),
+		ParentID: ptrOrNil(wiki.ParentID), ShowAsSource: false,
 	})
 	if uerr != nil {
 		deps.Log.Error("promote_to_wiki set show_as_source", "err", uerr)

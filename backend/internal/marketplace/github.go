@@ -55,7 +55,7 @@ func (c *Client) fetchGitHubDirectory(ctx context.Context) []ghContentItem {
 	if err != nil {
 		// Partial-result pattern — return empty so the union still
 		// surfaces SkillsMP results if any.
-		return nil
+		return []ghContentItem{}
 	}
 	c.cache.set(cacheKey, items)
 	return items
@@ -151,7 +151,7 @@ func (c *directoryCache) get(key string) ([]ghContentItem, bool) {
 	defer c.mu.Unlock()
 	e, ok := c.entries[key]
 	if !ok || time.Now().After(e.expiresAt) {
-		return nil, false
+		return []ghContentItem{}, false
 	}
 	return e.items, true
 }

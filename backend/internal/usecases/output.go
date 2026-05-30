@@ -30,24 +30,24 @@ type PromoteToOutputInput struct {
 // output 携带 wiki_id 反链。wiki 不动（不像 raw.promoted_to 那种标记）。
 func PromoteWikiToOutput(
 	ctx context.Context, deps CorpusDeps, in *PromoteToOutputInput,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	if err := validatePromoteToOutputInput(in); err != nil {
-		return domain.OutputEntry{}, err
+		return domain.Output{}, err
 	}
 	wiki, err := loadWikiForPromote(ctx, deps, in.OwnerID, in.WikiID)
 	if err != nil {
-		return domain.OutputEntry{}, err
+		return domain.Output{}, err
 	}
 	out, err := deps.Output.Create(ctx, &postgres.CreateOutputInput{
 		OwnerID:       in.OwnerID,
 		ParentID:      in.ParentID,
 		Title:         in.Title,
-		Body:          wiki.Body,
-		Tags:          mergeTags(wiki.Tags, in.Tags),
-		SourceWikiIDs: []string{wiki.ID},
+		Body:          wiki.Body(),
+		Tags:          mergeTags(wiki.Tags(), in.Tags),
+		SourceWikiIDs: []string{wiki.ID()},
 	})
 	if err != nil {
-		return domain.OutputEntry{}, fmt.Errorf("output create: %w", err)
+		return domain.Output{}, fmt.Errorf("output create: %w", err)
 	}
 	return out, nil
 }
@@ -61,13 +61,13 @@ func validatePromoteToOutputInput(in *PromoteToOutputInput) error {
 
 func loadWikiForPromote(
 	ctx context.Context, deps CorpusDeps, ownerID, wikiID string,
-) (domain.WikiEntry, error) {
+) (domain.Wiki, error) {
 	wiki, err := deps.Wiki.GetByID(ctx, ownerID, wikiID)
 	if err != nil {
 		if errors.Is(err, domain.ErrWikiNotFound) {
-			return domain.WikiEntry{}, domain.ErrWikiNotFound
+			return domain.Wiki{}, domain.ErrWikiNotFound
 		}
-		return domain.WikiEntry{}, fmt.Errorf("get wiki: %w", err)
+		return domain.Wiki{}, fmt.Errorf("get wiki: %w", err)
 	}
 	return wiki, nil
 }

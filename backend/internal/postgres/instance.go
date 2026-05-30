@@ -186,14 +186,14 @@ func translateCreateOwnerErr(err error) error {
 func (r *InstanceRepo) loadAllowedDomains(ctx context.Context) ([]string, error) {
 	row, err := dbq.New(r.pool).GetInstanceSettings(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get instance settings: %w", err)
+		return []string{}, fmt.Errorf("get instance settings: %w", err)
 	}
 	if len(row.AllowedDomains) == 0 {
-		return nil, nil
+		return []string{}, nil
 	}
 	var list []string
 	if uerr := json.Unmarshal(row.AllowedDomains, &list); uerr != nil {
-		return nil, fmt.Errorf("unmarshal allowed domains: %w", uerr)
+		return []string{}, fmt.Errorf("unmarshal allowed domains: %w", uerr)
 	}
 	return list, nil
 }

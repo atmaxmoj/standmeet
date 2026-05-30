@@ -39,34 +39,55 @@ func parseOwnerAndWritingID(ownerID, writingID string) (writingIDArgs, error) {
 }
 
 func toDomainWriting(row *dbq.Writing) domain.Writing {
-	return domain.Writing{
+	in := domain.WritingInit{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
 		Slug: row.Slug, Title: row.Title, Excerpt: row.Excerpt,
-		BodyMD:             row.BodyMd,
-		CoverHeadline:      row.CoverHeadline,
-		CoverSub:           row.CoverSub,
-		CoverHue:           row.CoverHue,
-		CoverImageAssetID:  optAssetIDString(row.CoverImageAssetID),
-		Tags:               row.Tags,
-		Visibility:         row.Visibility,
-		CrossRefs:          row.CrossRefs,
-		Path:               row.Path,
-		ReadMinutes:        row.ReadMinutes,
-		LockedBody:         row.LockedBody,
-		ObsidianSourcePath: row.ObsidianSourcePath,
-		ObsidianImportedAt: optTime(row.ObsidianImportedAt),
-		PublishedAt:        optTime(row.PublishedAt),
-		CreatedAt:          row.CreatedAt.Time,
-		UpdatedAt:          row.UpdatedAt.Time,
+		Body:        row.BodyMd,
+		Tags:        row.Tags,
+		CrossRefs:   row.CrossRefs,
+		Path:        row.Path,
+		ReadMinutes: row.ReadMinutes,
+		Cover: domain.CoverInit{
+			Headline: row.CoverHeadline, Sub: row.CoverSub,
+			Hue: row.CoverHue, ImageAssetID: optAssetIDStringOr(row.CoverImageAssetID),
+		},
+		Visibility: domain.VisibilityInit{
+			Mode: row.Visibility, LockedBody: row.LockedBody,
+		},
+		Timestamps: domain.TimestampsInit{
+			CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
+			PublishedAt: optTime(row.PublishedAt),
+		},
+		Integrations: buildWritingIntegrations(row),
 	}
+	return domain.NewWriting(&in)
 }
 
-func optAssetIDString(u pgtype.UUID) *string {
-	if !u.Valid {
-		return nil
+// buildWritingIntegrations —— writings 表里的 obsidian_source_path /
+// _imported_at 列在 mapper 这一层翻译成 Integration 集合。未来加 Notion /
+// GitHub 等列时在这一块扩 if branch，不动 domain。
+func buildWritingIntegrations(row *dbq.Writing) domain.Integrations {
+	integrations := domain.NewIntegrations()
+	if row.ObsidianSourcePath != "" {
+		var importedAt time.Time
+		if row.ObsidianImportedAt.Valid {
+			importedAt = row.ObsidianImportedAt.Time
+		}
+		integrations.Add(domain.NewObsidian(&domain.ObsidianInit{
+			SourcePath: row.ObsidianSourcePath,
+			ImportedAt: importedAt,
+		}))
 	}
-	s := formatUUID(u)
-	return &s
+	return integrations
+}
+
+// optAssetIDStringOr —— optAssetIDString 的"返字符串而不返 *string"版，
+// 给新的 CoverInit.ImageAssetID (string) 用。
+func optAssetIDStringOr(u pgtype.UUID) string {
+	if !u.Valid {
+		return ""
+	}
+	return formatUUID(u)
 }
 
 func optTime(t pgtype.Timestamptz) *time.Time {

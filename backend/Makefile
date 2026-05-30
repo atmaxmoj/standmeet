@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build arch fmt-check max-lines routes-cyclo build-check secrets golangci-config escape-lint
+.PHONY: lint build arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo arch build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container arch build-check golangci escape-lint secrets
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -36,6 +36,11 @@ max-lines:
 # logic leaking into the presentation layer.
 routes-cyclo:
 	@bash scripts/check-routes-cyclo.sh
+
+# Container types (slice/map/chan) must never return nil — project principle.
+# Optional uses *T; collections always return empty container.
+no-nil-container:
+	@go run ./cmd/check-no-nil-container
 
 # go-arch-lint enforces the DDD layer arrows (.go-arch-lint.yml).
 arch:

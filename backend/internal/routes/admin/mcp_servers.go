@@ -218,15 +218,15 @@ func attachCreatedCodeMCPServers(
 }
 
 // listMCPServerIDsForCode —— admin listCodes 视图回显用。失败 / 空 →
-// nil，跟 listSkillIDsForCode 一致。
+// 空 slice，跟 listSkillIDsForCode 一致。
 func listMCPServerIDsForCode(r *http.Request, h *Handlers, codeID string) []string {
 	if h.CodesAdmin.MCPServers == nil {
-		return nil
+		return []string{}
 	}
 	ids, err := h.CodesAdmin.MCPServers.ListIDsForCode(r.Context(), codeID)
 	if err != nil {
 		h.Log.Error("list code mcp server ids", "code_id", codeID, "err", err)
-		return nil
+		return []string{}
 	}
 	return ids
 }

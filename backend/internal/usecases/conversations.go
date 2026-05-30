@@ -89,7 +89,7 @@ func hydrateRefs(
 ) []TitledRef {
 	refs, err := fn(ctx, ownerID, ids)
 	if err != nil {
-		return nil
+		return []TitledRef{}
 	}
 	out := make([]TitledRef, 0, len(refs))
 	for i := range refs {

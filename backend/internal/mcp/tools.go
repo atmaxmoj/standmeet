@@ -83,7 +83,7 @@ func invokeRawDump(deps *Deps) invokeFn {
 			deps.Log.Error("mcp raw_dump", "err", err)
 			return mcpgo.NewToolResultError("raw_dump failed")
 		}
-		return marshalResult(deps, rawIDPayload{RawID: raw.ID})
+		return marshalResult(deps, rawIDPayload{RawID: raw.ID()})
 	}
 }
 
@@ -232,16 +232,16 @@ type rawView struct {
 	Archived  bool     `json:"archived"`
 }
 
-func rawListView(rows []domain.RawEntry) rawListPayload {
+func rawListView(rows []domain.Raw) rawListPayload {
 	out := make(rawListPayload, 0, len(rows))
 	for i := range rows {
 		out = append(out, rawView{
-			ID:        rows[i].ID,
-			Body:      rows[i].Body,
-			Source:    rows[i].Source,
-			Tags:      rows[i].Tags,
-			CreatedAt: rows[i].CreatedAt.Format(mcpTimeFmt),
-			Archived:  rows[i].Archived,
+			ID:        rows[i].ID(),
+			Body:      rows[i].Body(),
+			Source:    rows[i].Source(),
+			Tags:      rows[i].Tags(),
+			CreatedAt: rows[i].CreatedAt().Format(mcpTimeFmt),
+			Archived:  rows[i].Archived(),
 		})
 	}
 	return out
@@ -266,19 +266,35 @@ type wikiView struct {
 	Tags      []string `json:"tags"`
 }
 
-func wikiListView(rows []domain.WikiEntry) wikiListPayload {
+func wikiListView(rows []domain.Wiki) wikiListPayload {
 	out := make(wikiListPayload, 0, len(rows))
 	for i := range rows {
 		out = append(out, wikiView{
-			ID:        rows[i].ID,
-			Title:     rows[i].Title,
-			Tags:      rows[i].Tags,
-			ParentID:  rows[i].ParentID,
-			Path:      rows[i].Path,
-			CreatedAt: rows[i].CreatedAt.Format(mcpTimeFmt),
+			ID:        rows[i].ID(),
+			Title:     rows[i].Title(),
+			Tags:      rows[i].Tags(),
+			ParentID:  ptrOrNil(rows[i].ParentID),
+			Path:      ptrOrNil(rows[i].Path),
+			CreatedAt: rows[i].CreatedAt().Format(mcpTimeFmt),
 		})
 	}
 	return out
+}
+
+// ptrOrNil —— domain 类型的 (string, bool) getter (例 Path / ParentID) →
+// *string，给 JSON marshal 当 omitempty *string 字段用。
+//
+// closure 入参形态：caller 传方法引用 `rows[i].Path` 而不是 `rows[i].Path()`，
+// 让 helper 内部统一 deref。这样 ptrOrNil 的签名是 (func) 而不是
+// (string, bool)，避开 revive flag-parameter 的误判 —— 那条 lint 把 bool
+// 参数当 control flag，对 Optional<string> 的 ok 部分是 false positive。
+func ptrOrNil(get func() (string, bool)) *string {
+	v, ok := get()
+	if !ok {
+		return nil
+	}
+	cp := v
+	return &cp
 }
 
 type wikiListPayload []wikiView

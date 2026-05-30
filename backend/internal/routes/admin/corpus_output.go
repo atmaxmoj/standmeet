@@ -39,7 +39,7 @@ func (h *Handlers) listOutput() http.HandlerFunc {
 	}
 }
 
-func writeOutputList(log *slog.Logger, w http.ResponseWriter, rows []domain.OutputEntry) {
+func writeOutputList(log *slog.Logger, w http.ResponseWriter, rows []domain.Output) {
 	items := make([]outputListItem, 0, len(rows))
 	for i := range rows {
 		items = append(items, outputItemFromDomain(&rows[i]))

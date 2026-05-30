@@ -103,12 +103,12 @@ func writeCodesList(
 // 真要优化加一个 JOIN 查询返 map[code_id]→[]skill_id。
 func listSkillIDsForCode(r *http.Request, h *Handlers, codeID string) []string {
 	if h.CodesAdmin.Skills == nil {
-		return nil
+		return []string{}
 	}
 	ids, err := h.CodesAdmin.Skills.ListSkillIDsForCode(r.Context(), codeID)
 	if err != nil {
 		h.Log.Error("list code skill ids", "code_id", codeID, "err", err)
-		return nil
+		return []string{}
 	}
 	return ids
 }

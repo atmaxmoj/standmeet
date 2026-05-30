@@ -246,22 +246,22 @@ func toDomainSkill(s *dbq.Skill) domain.Skill {
 
 func decodeSkillScripts(raw []byte) []domain.SkillScript {
 	if len(raw) == 0 {
-		return nil
+		return []domain.SkillScript{}
 	}
 	var out []domain.SkillScript
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
+		return []domain.SkillScript{}
 	}
 	return out
 }
 
 func decodeSkillMetadata(raw []byte) map[string]string {
 	if len(raw) == 0 {
-		return nil
+		return map[string]string{}
 	}
 	var out map[string]string
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
+		return map[string]string{}
 	}
 	return out
 }

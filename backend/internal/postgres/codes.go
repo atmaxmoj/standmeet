@@ -298,22 +298,22 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 
 func decodeStringJSON(raw []byte) []string {
 	if len(raw) == 0 {
-		return nil
+		return []string{}
 	}
 	var out []string
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
+		return []string{}
 	}
 	return out
 }
 
 func decodePermissionsJSON(raw []byte) []domain.PathPermission {
 	if len(raw) == 0 {
-		return nil
+		return []domain.PathPermission{}
 	}
 	var out []domain.PathPermission
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
+		return []domain.PathPermission{}
 	}
 	return out
 }

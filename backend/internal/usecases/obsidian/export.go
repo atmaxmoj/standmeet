@@ -72,9 +72,10 @@ func writeOneWriting(
 	ctx context.Context, deps ExportDeps, zw *zip.Writer,
 	writing *domain.Writing, written map[string]struct{},
 ) error {
-	assets, aerr := deps.Assets.ListByHolder(ctx, writing.ID)
+	wid := writing.ID()
+	assets, aerr := deps.Assets.ListByHolder(ctx, wid)
 	if aerr != nil {
-		return fmt.Errorf("list assets for writing %s: %w", writing.ID, aerr)
+		return fmt.Errorf("list assets for writing %s: %w", wid, aerr)
 	}
 	filenames := buildAttachmentFilenames(assets)
 	if err := writeAttachments(ctx, &writeAttachmentsArgs{
@@ -162,18 +163,19 @@ func writeOneAttachment(ctx context.Context, w *writeOneArgs) error {
 func writeWritingMarkdown(
 	zw *zip.Writer, writing *domain.Writing, filenames map[string]string,
 ) error {
-	body := RewriteToVaultPath(writing.BodyMD, filenames)
+	body := RewriteToVaultPath(writing.Body(), filenames)
 	fm := writingToFrontmatter(writing, filenames)
 	content, aerr := AssembleMarkdown(&fm, body)
 	if aerr != nil {
 		return aerr
 	}
-	entry, cerr := zw.Create("writings/" + writing.Slug + ".md")
+	slug := writing.Slug()
+	entry, cerr := zw.Create("writings/" + slug + ".md")
 	if cerr != nil {
 		return fmt.Errorf("zip writing entry: %w", cerr)
 	}
 	if _, werr := entry.Write([]byte(content)); werr != nil {
-		return fmt.Errorf("write writing %s: %w", writing.Slug, werr)
+		return fmt.Errorf("write writing %s: %w", slug, werr)
 	}
 	return nil
 }
@@ -182,14 +184,14 @@ func writeWritingMarkdown(
 // 字段引用 attachments/<filename> 形态，让 Obsidian 能直接展示。
 func writingToFrontmatter(w *domain.Writing, filenames map[string]string) Frontmatter {
 	fm := Frontmatter{
-		Title: w.Title, Slug: w.Slug,
-		Excerpt: w.Excerpt, Tags: w.Tags,
-		CoverHeadline: w.CoverHeadline, CoverSub: w.CoverSub,
-		CoverHue: w.CoverHue, Visibility: w.Visibility,
-		LockedBody: w.LockedBody, Publish: w.IsPublished(),
+		Title: w.Title(), Slug: w.Slug(),
+		Excerpt: w.Excerpt(), Tags: w.Tags(),
+		CoverHeadline: w.CoverHeadline(), CoverSub: w.CoverSub(),
+		CoverHue: w.CoverHue(), Visibility: w.VisibilityMode(),
+		LockedBody: w.LockedBody(), Publish: w.IsPublished(),
 	}
-	if w.PublishedAt != nil {
-		t := w.PublishedAt.UTC().Format(time.RFC3339)
+	if pubAt, ok := w.PublishedAt(); ok {
+		t := pubAt.UTC().Format(time.RFC3339)
 		// time.Time 直接 yaml.Marshal 出 RFC3339；用 string 形态绕开 omitempty
 		// 对 zero-time 的判断。这里设回 *time.Time 给 frontmatter。
 		parsed, perr := time.Parse(time.RFC3339, t)
@@ -202,10 +204,11 @@ func writingToFrontmatter(w *domain.Writing, filenames map[string]string) Frontm
 }
 
 func addCoverImageRef(fm *Frontmatter, w *domain.Writing, filenames map[string]string) {
-	if w.CoverImageAssetID == nil || *w.CoverImageAssetID == "" {
+	assetID := w.CoverImageAssetID()
+	if assetID == "" {
 		return
 	}
-	name, ok := filenames[*w.CoverImageAssetID]
+	name, ok := filenames[assetID]
 	if !ok {
 		return
 	}

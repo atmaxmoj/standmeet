@@ -144,14 +144,14 @@ type wikiSEOResp struct {
 	SEOIndexed     bool    `json:"seo_indexed"`
 }
 
-func writeWikiSEOResp(log *slog.Logger, w http.ResponseWriter, wiki *domain.WikiEntry) {
+func writeWikiSEOResp(log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := wikiSEOResp{
-		ID:             wiki.ID,
-		Path:           wiki.Path,
-		SEODescription: wiki.SEODescription,
-		SEOIndexed:     wiki.SEOIndexed,
+		ID:             wiki.ID(),
+		Path:           optionalToPtr(wiki.Path),
+		SEODescription: wiki.SEODescription(),
+		SEOIndexed:     wiki.SEOIndexed(),
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode wiki seo resp", "err", err)
@@ -199,14 +199,14 @@ func handleOutputSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
 // logKeyErr —— slog "err" 字面在 seo.go 多处出现，提常量。
 const logKeyErr = "err"
 
-func writeOutputSEOResp(log *slog.Logger, w http.ResponseWriter, out *domain.OutputEntry) {
+func writeOutputSEOResp(log *slog.Logger, w http.ResponseWriter, out *domain.Output) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := wikiSEOResp{
-		ID:             out.ID,
-		Path:           out.Path,
-		SEODescription: out.SEODescription,
-		SEOIndexed:     out.SEOIndexed,
+		ID:             out.ID(),
+		Path:           optionalToPtr(out.Path),
+		SEODescription: out.SEODescription(),
+		SEOIndexed:     out.SEOIndexed(),
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode output seo resp", logKeyErr, err)

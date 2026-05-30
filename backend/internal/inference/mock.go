@@ -106,7 +106,7 @@ func echoSystem(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
 // tool 的输出，let run() echo 到 reply 让 e2e 能 assert。
 func maybeRunMockToolLoop(ctx context.Context, req *ChatRequest) []string {
 	if !canRunMockTools(req) {
-		return nil
+		return []string{}
 	}
 	path := mockDoSearch(ctx, req)
 	if path != "" {
@@ -121,15 +121,15 @@ func maybeRunMockToolLoop(ctx context.Context, req *ChatRequest) []string {
 // 验证 backend 真当 MCP 客户端连上、ListTools、CallTool 一连串走通。
 func mockRunFirstExtTool(ctx context.Context, req *ChatRequest) []string {
 	if req.ExecuteTool == nil {
-		return nil
+		return []string{}
 	}
 	name := firstExtToolName(req.Tools)
 	if name == "" {
-		return nil
+		return []string{}
 	}
 	out, err := req.ExecuteTool(ctx, name, []byte("{}"))
 	if err != nil {
-		return nil
+		return []string{}
 	}
 	return []string{out}
 }
@@ -151,15 +151,15 @@ const mockExtPrefix = "ext_"
 // 返 tool 输出 string (caller echo)。失败不阻塞 reply。
 func mockRunFirstSkillTool(ctx context.Context, req *ChatRequest) []string {
 	if req.ExecuteTool == nil {
-		return nil
+		return []string{}
 	}
 	name := firstSkillToolName(req.Tools)
 	if name == "" {
-		return nil
+		return []string{}
 	}
 	out, err := req.ExecuteTool(ctx, name, []byte("{}"))
 	if err != nil {
-		return nil
+		return []string{}
 	}
 	return []string{out}
 }

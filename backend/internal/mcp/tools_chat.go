@@ -151,7 +151,7 @@ func loadWikiBodies(
 		if err != nil {
 			continue
 		}
-		out = append(out, corpusEntryView{ID: w.ID, Title: w.Title, Body: w.Body})
+		out = append(out, corpusEntryView{ID: w.ID(), Title: w.Title(), Body: w.Body()})
 	}
 	return out
 }
@@ -165,7 +165,7 @@ func loadOutputBodies(
 		if err != nil {
 			continue
 		}
-		out = append(out, corpusEntryView{ID: o.ID, Title: o.Title, Body: o.Body})
+		out = append(out, corpusEntryView{ID: o.ID(), Title: o.Title(), Body: o.Body()})
 	}
 	return out
 }

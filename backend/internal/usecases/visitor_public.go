@@ -111,7 +111,7 @@ func defaultPermsForMode(mode string) []domain.PathPermission {
 			{Action: "deny", PathPattern: "**", Order: 100},
 		}
 	}
-	return nil
+	return []domain.PathPermission{}
 }
 
 // publicModeForBYOAI —— browser 在 session create 时通过 BYOAIProvider 字段

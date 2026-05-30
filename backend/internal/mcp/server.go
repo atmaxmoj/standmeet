@@ -49,11 +49,11 @@ type SEOWriter interface {
 	UpdateWikiPath(
 		ctx context.Context, wikiID string,
 		path *string, description string, indexed bool,
-	) (domain.WikiEntry, error)
+	) (domain.Wiki, error)
 	UpdateOutputPath(
 		ctx context.Context, outputID string,
 		path *string, description string, indexed bool,
-	) (domain.OutputEntry, error)
+	) (domain.Output, error)
 	GetSettings(ctx context.Context, ownerID string) (domain.SEOSettings, error)
 	UpsertSettings(ctx context.Context, in *domain.SEOSettings) (domain.SEOSettings, error)
 }

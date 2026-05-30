@@ -99,13 +99,13 @@ func runPromoteToOutput(
 	if presult := applyOutputPromotePostProcess(ctx, deps, &out, opts); presult != nil {
 		return presult
 	}
-	return marshalResult(deps, outputIDPayload{OutputID: out.ID})
+	return marshalResult(deps, outputIDPayload{OutputID: out.ID()})
 }
 
 func applyOutputPromotePostProcess(
-	ctx context.Context, deps *Deps, out *domain.OutputEntry, opts promoteOpts,
+	ctx context.Context, deps *Deps, out *domain.Output, opts promoteOpts,
 ) *mcpgo.CallToolResult {
-	if r := setOutputPathOpt(ctx, deps, out.ID, opts.path); r != nil {
+	if r := setOutputPathOpt(ctx, deps, out.ID(), opts.path); r != nil {
 		return r
 	}
 	if opts.hideAsSource {
@@ -126,11 +126,11 @@ func setOutputPathOpt(
 	return nil
 }
 
-func hideOutputAsSource(ctx context.Context, deps *Deps, out *domain.OutputEntry) {
+func hideOutputAsSource(ctx context.Context, deps *Deps, out *domain.Output) {
 	_, uerr := usecases.UpdateOutput(ctx, deps.Corpus, &usecases.UpdateOutputInput{
-		OwnerID: out.OwnerID, ID: out.ID,
-		Title: out.Title, Body: out.Body, Tags: out.Tags,
-		ParentID: out.ParentID, ShowAsSource: false,
+		OwnerID: out.OwnerID(), ID: out.ID(),
+		Title: out.Title(), Body: out.Body(), Tags: out.Tags(),
+		ParentID: ptrOrNil(out.ParentID), ShowAsSource: false,
 	})
 	if uerr != nil {
 		deps.Log.Error("promote_wiki_to_output set show_as_source", "err", uerr)
@@ -187,17 +187,17 @@ type outputView struct {
 	SourceWikiIDs []string `json:"source_wiki_ids"`
 }
 
-func outputListView(rows []domain.OutputEntry) outputListPayload {
+func outputListView(rows []domain.Output) outputListPayload {
 	out := make(outputListPayload, 0, len(rows))
 	for i := range rows {
 		out = append(out, outputView{
-			ID:            rows[i].ID,
-			Title:         rows[i].Title,
-			Body:          rows[i].Body,
-			Path:          rows[i].Path,
-			Tags:          rows[i].Tags,
-			SourceWikiIDs: rows[i].SourceWikiIDs,
-			CreatedAt:     rows[i].CreatedAt.Format(mcpTimeFmt),
+			ID:            rows[i].ID(),
+			Title:         rows[i].Title(),
+			Body:          rows[i].Body(),
+			Path:          ptrOrNil(rows[i].Path),
+			Tags:          rows[i].Tags(),
+			SourceWikiIDs: rows[i].SourceWikiIDs(),
+			CreatedAt:     rows[i].CreatedAt().Format(mcpTimeFmt),
 		})
 	}
 	return out

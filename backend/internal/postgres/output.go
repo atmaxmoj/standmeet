@@ -37,15 +37,15 @@ type CreateOutputInput struct {
 // Create 写一条新 output。
 func (r *OutputRepo) Create(
 	ctx context.Context, in *CreateOutputInput,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	params, err := buildOutputCreateParams(in)
 	if err != nil {
-		return domain.OutputEntry{}, err
+		return domain.Output{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.CreateOutputEntry(ctx, params)
 	if qerr != nil {
-		return domain.OutputEntry{}, fmt.Errorf("create output: %w", qerr)
+		return domain.Output{}, fmt.Errorf("create output: %w", qerr)
 	}
 	return toDomainOutput(&row), nil
 }
@@ -76,7 +76,7 @@ func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateOutputEntryParams
 // ListByOwner 返回 owner 的 output（最新 N 条）。
 func (r *OutputRepo) ListByOwner(
 	ctx context.Context, ownerID string, limit int32,
-) ([]domain.OutputEntry, error) {
+) ([]domain.Output, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
@@ -88,7 +88,7 @@ func (r *OutputRepo) ListByOwner(
 	if err != nil {
 		return nil, fmt.Errorf("list output: %w", err)
 	}
-	out := make([]domain.OutputEntry, 0, len(rows))
+	out := make([]domain.Output, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainOutput(&rows[i]))
 	}
@@ -98,22 +98,22 @@ func (r *OutputRepo) ListByOwner(
 // GetByID 拿 owner 的某条 output；不命中返回 ErrOutputNotFound。
 func (r *OutputRepo) GetByID(
 	ctx context.Context, ownerID, id string,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
-		return domain.OutputEntry{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return domain.Output{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	outputUUID, err := parseUUID(id)
 	if err != nil {
-		return domain.OutputEntry{}, fmt.Errorf("parse output id: %w", err)
+		return domain.Output{}, fmt.Errorf("parse output id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, err := q.GetOutputByID(ctx, dbq.GetOutputByIDParams{ID: outputUUID, OwnerID: ownerUUID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.OutputEntry{}, domain.ErrOutputNotFound
+			return domain.Output{}, domain.ErrOutputNotFound
 		}
-		return domain.OutputEntry{}, fmt.Errorf("get output: %w", err)
+		return domain.Output{}, fmt.Errorf("get output: %w", err)
 	}
 	return toDomainOutput(&row), nil
 }
@@ -129,11 +129,12 @@ func (r *OutputRepo) ComputePath(
 		if err != nil {
 			return nil, err
 		}
-		titles = append([]string{o.Title}, titles...)
-		if o.ParentID == nil {
+		titles = append([]string{o.Title()}, titles...)
+		parentID, hasParent := o.ParentID()
+		if !hasParent {
 			return titles, nil
 		}
-		current = *o.ParentID
+		current = parentID
 	}
 	return titles, nil
 }
@@ -149,8 +150,8 @@ func (r *OutputRepo) PathString(
 	return "/" + strings.Join(titles, "/"), nil
 }
 
-func toDomainOutput(o *dbq.OutputEntry) domain.OutputEntry {
-	e := domain.OutputEntry{
+func toDomainOutput(o *dbq.OutputEntry) domain.Output {
+	in := domain.OutputInit{
 		ID:             formatUUID(o.ID),
 		OwnerID:        formatUUID(o.OwnerID),
 		Title:          o.Title,
@@ -162,13 +163,14 @@ func toDomainOutput(o *dbq.OutputEntry) domain.OutputEntry {
 		SEOIndexed:     o.SeoIndexed,
 		CreatedAt:      o.CreatedAt.Time,
 		UpdatedAt:      o.UpdatedAt.Time,
+		Integrations:   domain.NewIntegrations(),
 	}
 	if o.ParentID.Valid {
 		s := formatUUID(o.ParentID)
-		e.ParentID = &s
+		in.ParentID = &s
 	}
 	if o.Path != nil {
-		e.Path = o.Path
+		in.Path = o.Path
 	}
-	return e
+	return domain.NewOutput(&in)
 }

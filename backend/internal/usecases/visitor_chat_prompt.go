@@ -48,34 +48,34 @@ type CitedRef struct {
 	Title string `json:"title"`
 }
 
-func wikiIDsOf(items []domain.WikiEntry) []string {
+func wikiIDsOf(items []domain.Wiki) []string {
 	out := make([]string, 0, len(items))
 	for i := range items {
-		out = append(out, items[i].ID)
+		out = append(out, items[i].ID())
 	}
 	return out
 }
 
-func outputIDsOf(items []domain.OutputEntry) []string {
+func outputIDsOf(items []domain.Output) []string {
 	out := make([]string, 0, len(items))
 	for i := range items {
-		out = append(out, items[i].ID)
+		out = append(out, items[i].ID())
 	}
 	return out
 }
 
-func wikiRefsOf(items []domain.WikiEntry) []CitedRef {
+func wikiRefsOf(items []domain.Wiki) []CitedRef {
 	out := make([]CitedRef, 0, len(items))
 	for i := range items {
-		out = append(out, CitedRef{ID: items[i].ID, Title: items[i].Title})
+		out = append(out, CitedRef{ID: items[i].ID(), Title: items[i].Title()})
 	}
 	return out
 }
 
-func outputRefsOf(items []domain.OutputEntry) []CitedRef {
+func outputRefsOf(items []domain.Output) []CitedRef {
 	out := make([]CitedRef, 0, len(items))
 	for i := range items {
-		out = append(out, CitedRef{ID: items[i].ID, Title: items[i].Title})
+		out = append(out, CitedRef{ID: items[i].ID(), Title: items[i].Title()})
 	}
 	return out
 }

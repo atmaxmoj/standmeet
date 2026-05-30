@@ -9,27 +9,27 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 )
 
-func (r *retriever) wikiMatches(w *domain.WikiEntry, q string) bool {
-	return r.acl.AllowsEntry(pathOrEmpty(w.Path)) &&
-		textMatchesQuery(q, w.Title, w.Body, w.Tags)
+func (r *retriever) wikiMatches(w *domain.Wiki, q string) bool {
+	return r.acl.AllowsEntry(w.PathOrEmpty()) &&
+		textMatchesQuery(q, w.Title(), w.Body(), w.Tags())
 }
 
-func (r *retriever) outputMatches(o *domain.OutputEntry, q string) bool {
-	return r.acl.AllowsEntry(pathOrEmpty(o.Path)) &&
-		textMatchesQuery(q, o.Title, o.Body, o.Tags)
+func (r *retriever) outputMatches(o *domain.Output, q string) bool {
+	return r.acl.AllowsEntry(o.PathOrEmpty()) &&
+		textMatchesQuery(q, o.Title(), o.Body(), o.Tags())
 }
 
-func wikiToRow(w *domain.WikiEntry) corpusRow {
+func wikiToRow(w *domain.Wiki) corpusRow {
 	return corpusRow{
-		Path: wikiPath(w), Title: w.Title, Kind: "wiki",
-		Summary: summarize(w.Body),
+		Path: wikiPath(w), Title: w.Title(), Kind: "wiki",
+		Summary: summarize(w.Body()),
 	}
 }
 
-func outputToRow(o *domain.OutputEntry) corpusRow {
+func outputToRow(o *domain.Output) corpusRow {
 	return corpusRow{
-		Path: outputPath(o), Title: o.Title, Kind: "output",
-		Summary: summarize(o.Body),
+		Path: outputPath(o), Title: o.Title(), Kind: "output",
+		Summary: summarize(o.Body()),
 	}
 }
 

@@ -150,17 +150,17 @@ func buildWritingsPageResp(
 }
 
 // loadCrossLinkIndex —— 一次拉 owner published writing 的 slug+title 表，给
-// 这页所有 writing 的 body_md rewrite 复用，避开 N+1。空 page / index 失败 → nil。
+// 这页所有 writing 的 body_md rewrite 复用，避开 N+1。空 page / index 失败 → 空 slice。
 func loadCrossLinkIndex(
 	ctx context.Context, h *WritingHandlers, page *usecases.ListPublishedWritingsPageResult,
 ) []usecases.SlugTitle {
 	if len(page.Writings) == 0 {
-		return nil
+		return []usecases.SlugTitle{}
 	}
-	index, err := usecases.LoadCrossLinkIndex(ctx, h.CrossLink, page.Writings[0].OwnerID)
+	index, err := usecases.LoadCrossLinkIndex(ctx, h.CrossLink, page.Writings[0].OwnerID())
 	if err != nil {
 		h.Log.Error("crosslink slug index (list)", logErr, err)
-		return nil
+		return []usecases.SlugTitle{}
 	}
 	return index
 }
@@ -188,7 +188,7 @@ func writeWritingResp(
 ) {
 	view := toWritingViewResolved(r, h, wg)
 	view.BodyMD = rewriteBodyWithCrossLinks(r.Context(), h, ownerID, view.BodyMD)
-	view.Backlinks = loadBacklinks(r.Context(), h, ownerID, wg.ID)
+	view.Backlinks = loadBacklinks(r.Context(), h, ownerID, wg.ID())
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(view); err != nil {
@@ -220,7 +220,7 @@ func loadBacklinks(
 	refs, err := usecases.ListBacklinks(ctx, h.CrossLink, ownerID, writingID)
 	if err != nil {
 		h.Log.Error("backlinks", logErr, err)
-		return nil
+		return []backlinkView{}
 	}
 	out := make([]backlinkView, 0, len(refs))
 	for i := range refs {
@@ -241,7 +241,12 @@ func toWritingViewResolved(r *http.Request, h *WritingHandlers, wg *domain.Writi
 func resolveWritingAssetURLs(
 	r *http.Request, h *WritingHandlers, wg *domain.Writing,
 ) map[string]string {
-	ids := usecases.WritingAssetIDs(wg.BodyMD, wg.CoverImageAssetID)
+	coverID := wg.CoverImageAssetID()
+	var coverPtr *string
+	if coverID != "" {
+		coverPtr = &coverID
+	}
+	ids := usecases.WritingAssetIDs(wg.Body(), coverPtr)
 	urls, err := usecases.ResolveAssetURLs(r.Context(), h.Assets.Repo, h.Assets.Storage, ids)
 	if err != nil {
 		h.Log.Error("resolve asset urls", logErr, err)
@@ -251,17 +256,18 @@ func resolveWritingAssetURLs(
 }
 
 func toWritingView(wg *domain.Writing) writingView {
-	assetID := ""
-	if wg.CoverImageAssetID != nil {
-		assetID = *wg.CoverImageAssetID
+	var pubAtPtr *time.Time
+	if pub, ok := wg.PublishedAt(); ok {
+		cp := pub
+		pubAtPtr = &cp
 	}
 	return writingView{
-		ID: wg.ID, Slug: wg.Slug, Title: wg.Title, Excerpt: wg.Excerpt,
-		BodyMD: wg.BodyMD, CoverHeadline: wg.CoverHeadline, CoverSub: wg.CoverSub,
-		CoverHue: wg.CoverHue, CoverImageAssetID: assetID,
-		Tags: wg.Tags, Visibility: wg.Visibility, CrossRefs: wg.CrossRefs,
-		Path: wg.Path, ReadMinutes: wg.ReadMinutes, LockedBody: wg.LockedBody,
-		PublishedAt: usecases.PublishedAtRFC3339(wg.PublishedAt),
+		ID: wg.ID(), Slug: wg.Slug(), Title: wg.Title(), Excerpt: wg.Excerpt(),
+		BodyMD: wg.Body(), CoverHeadline: wg.CoverHeadline(), CoverSub: wg.CoverSub(),
+		CoverHue: wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
+		Tags: wg.Tags(), Visibility: wg.VisibilityMode(), CrossRefs: wg.CrossRefs(),
+		Path: wg.Path(), ReadMinutes: wg.ReadMinutes(), LockedBody: wg.LockedBody(),
+		PublishedAt: usecases.PublishedAtRFC3339(pubAtPtr),
 	}
 }
 

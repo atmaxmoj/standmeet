@@ -40,6 +40,7 @@ out/
 # Go local-build binaries (when running `go build ./cmd/...` outside docker)
 backend/standmeet
 backend/job-board-mock
+backend/check-no-nil-container
 
 # Test outputs
 test-results/

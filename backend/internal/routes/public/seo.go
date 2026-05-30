@@ -157,10 +157,10 @@ func loadWikiLandingView(
 	}
 	return wikiLandingView{
 		Path:           slug,
-		Title:          wiki.Title,
-		Body:           wiki.Body,
-		SEODescription: wiki.SEODescription,
-		UpdatedAt:      wiki.UpdatedAt.UTC().Format(time.RFC3339),
+		Title:          wiki.Title(),
+		Body:           wiki.Body(),
+		SEODescription: wiki.SEODescription(),
+		UpdatedAt:      wiki.UpdatedAt().UTC().Format(time.RFC3339),
 	}, nil
 }
 
@@ -240,10 +240,10 @@ func loadOutputLandingView(
 	}
 	return outputLandingView{
 		Path:           slug,
-		Title:          out.Title,
-		Body:           out.Body,
-		SEODescription: out.SEODescription,
-		UpdatedAt:      out.UpdatedAt.UTC().Format(time.RFC3339),
+		Title:          out.Title(),
+		Body:           out.Body(),
+		SEODescription: out.SEODescription(),
+		UpdatedAt:      out.UpdatedAt().UTC().Format(time.RFC3339),
 	}, nil
 }
 

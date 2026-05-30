@@ -194,7 +194,7 @@ func runSaveAndMark(ctx context.Context, a *upsertArgs, existing *domain.Writing
 	if serr != nil {
 		return fmt.Errorf("save writing: %w", serr)
 	}
-	if merr := a.Setter.SetObsidianMeta(ctx, a.OwnerID, writing.ID, a.SourcePath); merr != nil {
+	if merr := a.Setter.SetObsidianMeta(ctx, a.OwnerID, writing.ID(), a.SourcePath); merr != nil {
 		return fmt.Errorf("set obsidian meta: %w", merr)
 	}
 	return nil
@@ -216,12 +216,13 @@ func lookupExistingWriting(
 // wasWebEdited —— 上次 import 之后 owner 在 web 上又改过 → skip 避免覆盖。
 // updated_at 比 imported_at 晚 (有 buffer) 就算 web 改过。
 func wasWebEdited(w *domain.Writing) bool {
-	if w.ObsidianImportedAt == nil {
+	ob, ok := w.Obsidian()
+	if !ok {
 		return false
 	}
 	// 1 秒 buffer 避免 SaveWriting + SetObsidianMeta 之间的 race（理论上 set
 	// 之后 updated_at 又被 set 推后了，会误判 web edited）。
-	return w.UpdatedAt.After(w.ObsidianImportedAt.Add(time.Second))
+	return w.UpdatedAt().After(ob.ImportedAt().Add(time.Second))
 }
 
 func buildSaveInputFromVault(
@@ -229,7 +230,7 @@ func buildSaveInputFromVault(
 ) usecases.SaveWritingInput {
 	slug := pickSlug(p.fm.Slug, sourcePath)
 	in := usecases.SaveWritingInput{
-		OwnerID: ownerID, WritingID: existing.ID, Slug: slug,
+		OwnerID: ownerID, WritingID: existing.ID(), Slug: slug,
 		Title:         pickTitle(p.fm.Title, slug),
 		Excerpt:       p.fm.Excerpt,
 		BodyMD:        p.body,

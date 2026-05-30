@@ -142,7 +142,11 @@ func buildWritingsPageResult(rows []domain.Writing, limit int32) ListPublishedWr
 	}
 	page := rows[:limit]
 	last := page[len(page)-1]
-	cursor := last.PublishedAt
+	var cursor *time.Time
+	if pubAt, ok := last.PublishedAt(); ok {
+		cp := pubAt
+		cursor = &cp
+	}
 	return ListPublishedWritingsPageResult{Writings: page, NextCursor: cursor}
 }
 

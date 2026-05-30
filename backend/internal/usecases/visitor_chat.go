@@ -248,11 +248,11 @@ func listWritingsForRetrieval(
 	ctx context.Context, deps *VisitorDeps, ownerID string,
 ) []domain.Writing {
 	if deps.Writings == nil {
-		return nil
+		return []domain.Writing{}
 	}
 	writings, err := deps.Writings.ListPublishedByOwner(ctx, ownerID)
 	if err != nil {
-		return nil
+		return []domain.Writing{}
 	}
 	return writings
 }

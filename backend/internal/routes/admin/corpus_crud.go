@@ -264,7 +264,7 @@ func optionalString(s string) *string {
 }
 
 // writeCorpusResult —— JSON 200 if err == nil, else 翻 sentinel → envelope。
-// 泛型 T 让 caller 传具体类型（domain.RawEntry / WikiEntry / OutputEntry）；
+// 泛型 T 让 caller 传具体类型（domain.Raw / WikiEntry / OutputEntry）；
 // `any` 约束是 Go 标准库 json.Encode 已经接受的形态，不是 "business any"。
 //
 //nolint:forbidigo // generic constraint forwarded to encoding/json.

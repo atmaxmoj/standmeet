@@ -266,7 +266,7 @@ func buildSummary(in *BookMeetingInput) string {
 
 func buildAttendees(email string) []gcal.EventAttendee {
 	if email == "" {
-		return nil
+		return []gcal.EventAttendee{}
 	}
 	return []gcal.EventAttendee{{Email: email}}
 }

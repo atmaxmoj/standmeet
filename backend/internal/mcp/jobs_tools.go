@@ -127,7 +127,7 @@ func marshalConfig(req *mcpgo.CallToolRequest) ([]byte, *mcpgo.CallToolResult) {
 	}
 	out, err := json.Marshal(raw)
 	if err != nil {
-		return nil, mcpgo.NewToolResultError("config not serializable")
+		return []byte{}, mcpgo.NewToolResultError("config not serializable")
 	}
 	return out, nil
 }

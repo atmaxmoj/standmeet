@@ -33,20 +33,20 @@ func NewSEORepo(pool *Pool) *SEORepo { return &SEORepo{pool: pool} }
 // GetWikiByPath —— 公开 landing 反查；path 不存在或非 indexed 返 ErrWikiNotFound。
 func (r *SEORepo) GetWikiByPath(
 	ctx context.Context, ownerID, path string,
-) (domain.WikiEntry, error) {
+) (domain.Wiki, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.WikiEntry{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
+		return domain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
 	row, err := q.GetWikiByPath(ctx, dbq.GetWikiByPathParams{
 		OwnerID: pgID, Path: &path,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.WikiEntry{}, domain.ErrWikiNotFound
+			return domain.Wiki{}, domain.ErrWikiNotFound
 		}
-		return domain.WikiEntry{}, fmt.Errorf("get wiki by path: %w", err)
+		return domain.Wiki{}, fmt.Errorf("get wiki by path: %w", err)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -82,20 +82,20 @@ func (r *SEORepo) ListIndexedPaths(ctx context.Context, ownerID string) ([]Index
 // GetOutputByPath —— 公开 output landing 反查；同 wiki 的 ErrOutputNotFound 翻译。
 func (r *SEORepo) GetOutputByPath(
 	ctx context.Context, ownerID, path string,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	q := dbq.New(r.pool)
 	pgID, perr := parseUUID(ownerID)
 	if perr != nil {
-		return domain.OutputEntry{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
+		return domain.Output{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
 	}
 	row, err := q.GetOutputByPath(ctx, dbq.GetOutputByPathParams{
 		OwnerID: pgID, Path: &path,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.OutputEntry{}, domain.ErrOutputNotFound
+			return domain.Output{}, domain.ErrOutputNotFound
 		}
-		return domain.OutputEntry{}, fmt.Errorf("get output by path: %w", err)
+		return domain.Output{}, fmt.Errorf("get output by path: %w", err)
 	}
 	return toDomainOutput(&row), nil
 }
@@ -171,16 +171,16 @@ func (r *SEORepo) UpsertSettings(
 func (r *SEORepo) UpdateWikiPath(
 	ctx context.Context, wikiID string,
 	path *string, description string, indexed bool,
-) (domain.WikiEntry, error) {
+) (domain.Wiki, error) {
 	pgID, perr := parseUUID(wikiID)
 	if perr != nil {
-		return domain.WikiEntry{}, fmt.Errorf("parse wiki id: %w", perr)
+		return domain.Wiki{}, fmt.Errorf("parse wiki id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).UpdateWikiPath(ctx, dbq.UpdateWikiPathParams{
 		ID: pgID, Path: path, SeoDescription: description, SeoIndexed: indexed,
 	})
 	if err != nil {
-		return domain.WikiEntry{}, translateUpdateWikiPathErr(err)
+		return domain.Wiki{}, translateUpdateWikiPathErr(err)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -199,16 +199,16 @@ func translateUpdateWikiPathErr(err error) error {
 func (r *SEORepo) UpdateOutputPath(
 	ctx context.Context, outputID string,
 	path *string, description string, indexed bool,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	pgID, perr := parseUUID(outputID)
 	if perr != nil {
-		return domain.OutputEntry{}, fmt.Errorf("parse output id: %w", perr)
+		return domain.Output{}, fmt.Errorf("parse output id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).UpdateOutputPath(ctx, dbq.UpdateOutputPathParams{
 		ID: pgID, Path: path, SeoDescription: description, SeoIndexed: indexed,
 	})
 	if err != nil {
-		return domain.OutputEntry{}, translateUpdateOutputPathErr(err)
+		return domain.Output{}, translateUpdateOutputPathErr(err)
 	}
 	return toDomainOutput(&row), nil
 }

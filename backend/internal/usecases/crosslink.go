@@ -87,8 +87,8 @@ func indexCandidates(candidates []domain.Writing) writingIndex {
 		byTitle: make(map[string]*domain.Writing, len(candidates)),
 	}
 	for i := range candidates {
-		idx.bySlug[strings.ToLower(candidates[i].Slug)] = &candidates[i]
-		idx.byTitle[strings.ToLower(candidates[i].Title)] = &candidates[i]
+		idx.bySlug[strings.ToLower(candidates[i].Slug())] = &candidates[i]
+		idx.byTitle[strings.ToLower(candidates[i].Title())] = &candidates[i]
 	}
 	return idx
 }
@@ -115,9 +115,9 @@ func RewriteCrossLinksToMarkdown(body string, resolved []ResolvedLink) string {
 		}
 		display := r.Ref.Alias
 		if display == "" {
-			display = r.Dst.Title
+			display = r.Dst.Title()
 		}
-		replacement := fmt.Sprintf("[%s](/writings/%s)", display, r.Dst.Slug)
+		replacement := fmt.Sprintf("[%s](/writings/%s)", display, r.Dst.Slug())
 		body = strings.ReplaceAll(body, r.Ref.Original, replacement)
 	}
 	return body
@@ -132,7 +132,7 @@ func DedupResolvedDsts(resolved []ResolvedLink) []string {
 		if resolved[i].Dst == nil {
 			continue
 		}
-		id := resolved[i].Dst.ID
+		id := resolved[i].Dst.ID()
 		if _, dup := seen[id]; dup {
 			continue
 		}
@@ -147,7 +147,7 @@ func DedupResolvedDsts(resolved []ResolvedLink) []string {
 func resolveAndDedupForOwner(body string, candidates []domain.Writing) []string {
 	refs := ExtractCrossLinks(body)
 	if len(refs) == 0 {
-		return nil
+		return []string{}
 	}
 	return DedupResolvedDsts(ResolveCrossLinks(refs, candidates))
 }

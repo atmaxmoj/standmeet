@@ -41,18 +41,18 @@ func loadSkillsForConversation(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 ) ([]domain.Skill, error) {
 	if deps.Skills == nil {
-		return nil, nil
+		return []domain.Skill{}, nil
 	}
 	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
 	if err != nil {
-		return nil, fmt.Errorf("load conv for skills: %w", err)
+		return []domain.Skill{}, fmt.Errorf("load conv for skills: %w", err)
 	}
 	if conv.CodeID == nil {
-		return nil, nil
+		return []domain.Skill{}, nil
 	}
 	skills, err := deps.Skills.ListSkillsForCode(ctx, *conv.CodeID)
 	if err != nil {
-		return nil, fmt.Errorf("list skills for code: %w", err)
+		return []domain.Skill{}, fmt.Errorf("list skills for code: %w", err)
 	}
 	return skills, nil
 }

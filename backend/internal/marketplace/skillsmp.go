@@ -35,7 +35,7 @@ func (c *Client) searchSkillsMP(ctx context.Context, query string) []domain.Mark
 	resp, err := getSkillsMP(ctx, c.http, c.skillsmpBase, query)
 	if err != nil {
 		// Partial-result pattern — let GitHub's results carry the page.
-		return nil
+		return []domain.MarketSkill{}
 	}
 	out := make([]domain.MarketSkill, 0, len(resp.Skills))
 	for i := range resp.Skills {

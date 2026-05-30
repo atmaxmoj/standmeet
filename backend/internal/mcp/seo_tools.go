@@ -95,11 +95,16 @@ func runSetWikiSlug(
 	if err != nil {
 		return seoErrorResult(deps, err, "seo.set_wiki_slug")
 	}
+	var seoSlug *string
+	if p, ok := updated.Path(); ok {
+		cp := p
+		seoSlug = &cp
+	}
 	return marshalResult(deps, setWikiSlugPayload{
-		WikiID:         updated.ID,
-		SEOSlug:        updated.Path,
-		SEODescription: updated.SEODescription,
-		SEOIndexed:     updated.SEOIndexed,
+		WikiID:         updated.ID(),
+		SEOSlug:        seoSlug,
+		SEODescription: updated.SEODescription(),
+		SEOIndexed:     updated.SEOIndexed(),
 	})
 }
 
@@ -160,16 +165,16 @@ func invokeUpdateSEOSettings(deps *Deps) invokeFn {
 	}
 }
 
-// stringSliceArg —— 从 MCP args 拿 string array；空 / 类型不对返 nil slice。
+// stringSliceArg —— 从 MCP args 拿 string array；空 / 类型不对返空 slice。
 func stringSliceArg(req *mcpgo.CallToolRequest, key string) []string {
 	raw := req.GetArguments()
 	v, ok := raw[key]
 	if !ok {
-		return nil
+		return []string{}
 	}
 	arr, ok := v.([]any)
 	if !ok {
-		return nil
+		return []string{}
 	}
 	out := make([]string, 0, len(arr))
 	for _, x := range arr {

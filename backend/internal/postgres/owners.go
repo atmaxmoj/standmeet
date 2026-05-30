@@ -105,15 +105,15 @@ func toOwnerSettings(o *dbq.Owner) domain.OwnerSettings {
 	}
 }
 
-// decodeProviders 把 byoai_providers jsonb 解到 []string。空 / 解失败返 nil；
-// usecase 视 nil 为 "default providers"，handler 编码时按 [] 输出。
+// decodeProviders 把 byoai_providers jsonb 解到 []string。空 / 解失败返空 slice；
+// usecase 视空为 "default providers"，handler 编码时按 [] 输出。
 func decodeProviders(raw []byte) []string {
 	if len(raw) == 0 {
-		return nil
+		return []string{}
 	}
 	var out []string
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
+		return []string{}
 	}
 	return out
 }

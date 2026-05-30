@@ -7,28 +7,28 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 )
 
-func rawItemFromDomain(r *domain.RawEntry) rawListItem {
+func rawItemFromDomain(r *domain.Raw) rawListItem {
 	return rawListItem{
-		ID:        r.ID,
-		Body:      r.Body,
-		Source:    r.Source,
-		Tags:      ensureSlice(r.Tags),
-		CreatedAt: r.CreatedAt.UTC().Format(timeRFC3339),
+		ID:        r.ID(),
+		Body:      r.Body(),
+		Source:    r.Source(),
+		Tags:      ensureSlice(r.Tags()),
+		CreatedAt: r.CreatedAt().UTC().Format(timeRFC3339),
 	}
 }
 
-func wikiItemFromDomain(w *domain.WikiEntry) wikiListItem {
+func wikiItemFromDomain(w *domain.Wiki) wikiListItem {
 	return wikiListItem{
-		ID:           w.ID,
-		Title:        w.Title,
-		Excerpt:      truncateExcerpt(w.Body, excerptMaxLen),
-		Tags:         ensureSlice(w.Tags),
-		SourceRawIDs: ensureSlice(w.SourceRawIDs),
-		ParentID:     w.ParentID,
-		Path:         w.Path,
-		ShowAsSource: w.ShowAsSource,
-		SEOIndexed:   w.SEOIndexed,
-		CreatedAt:    w.CreatedAt.UTC().Format(timeRFC3339),
+		ID:           w.ID(),
+		Title:        w.Title(),
+		Excerpt:      truncateExcerpt(w.Body(), excerptMaxLen),
+		Tags:         ensureSlice(w.Tags()),
+		SourceRawIDs: ensureSlice(w.SourceRawIDs()),
+		ParentID:     optionalToPtr(w.ParentID),
+		Path:         optionalToPtr(w.Path),
+		ShowAsSource: w.ShowAsSource(),
+		SEOIndexed:   w.SEOIndexed(),
+		CreatedAt:    w.CreatedAt().UTC().Format(timeRFC3339),
 	}
 }
 
@@ -41,17 +41,17 @@ func truncateExcerpt(body string, limit int) string {
 	return body[:limit] + "…"
 }
 
-func outputItemFromDomain(o *domain.OutputEntry) outputListItem {
+func outputItemFromDomain(o *domain.Output) outputListItem {
 	return outputListItem{
-		ID:            o.ID,
-		Title:         o.Title,
-		Tags:          ensureSlice(o.Tags),
-		SourceWikiIDs: ensureSlice(o.SourceWikiIDs),
-		ParentID:      o.ParentID,
-		Path:          o.Path,
-		ShowAsSource:  o.ShowAsSource,
-		SEOIndexed:    o.SEOIndexed,
-		CreatedAt:     o.CreatedAt.UTC().Format(timeRFC3339),
+		ID:            o.ID(),
+		Title:         o.Title(),
+		Tags:          ensureSlice(o.Tags()),
+		SourceWikiIDs: ensureSlice(o.SourceWikiIDs()),
+		ParentID:      optionalToPtr(o.ParentID),
+		Path:          optionalToPtr(o.Path),
+		ShowAsSource:  o.ShowAsSource(),
+		SEOIndexed:    o.SEOIndexed(),
+		CreatedAt:     o.CreatedAt().UTC().Format(timeRFC3339),
 	}
 }
 

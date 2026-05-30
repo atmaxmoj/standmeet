@@ -32,14 +32,14 @@ type UpdateRawInput struct {
 // UpdateBody 改 raw_entries body + tags + flagged_private（source 不改）。
 func (r *RawRepo) UpdateBody(
 	ctx context.Context, in *UpdateRawInput,
-) (domain.RawEntry, error) {
+) (domain.Raw, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return domain.RawEntry{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return domain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	rawUUID, err := parseUUID(in.ID)
 	if err != nil {
-		return domain.RawEntry{}, fmt.Errorf("parse raw id: %w", err)
+		return domain.Raw{}, fmt.Errorf("parse raw id: %w", err)
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateRawBody(ctx, dbq.UpdateRawBodyParams{
@@ -48,9 +48,9 @@ func (r *RawRepo) UpdateBody(
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.RawEntry{}, domain.ErrRawNotFound
+			return domain.Raw{}, domain.ErrRawNotFound
 		}
-		return domain.RawEntry{}, fmt.Errorf("update raw: %w", qerr)
+		return domain.Raw{}, fmt.Errorf("update raw: %w", qerr)
 	}
 	return toDomainRaw(&row), nil
 }
@@ -90,18 +90,18 @@ type UpdateWikiInput struct {
 // Update 改 wiki_entries 主字段；SEO 走 SetSEO 单独写。
 func (r *WikiRepo) Update(
 	ctx context.Context, in *UpdateWikiInput,
-) (domain.WikiEntry, error) {
+) (domain.Wiki, error) {
 	params, err := buildWikiUpdateParams(in)
 	if err != nil {
-		return domain.WikiEntry{}, err
+		return domain.Wiki{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateWikiBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.WikiEntry{}, domain.ErrWikiNotFound
+			return domain.Wiki{}, domain.ErrWikiNotFound
 		}
-		return domain.WikiEntry{}, fmt.Errorf("update wiki: %w", qerr)
+		return domain.Wiki{}, fmt.Errorf("update wiki: %w", qerr)
 	}
 	return toDomainWiki(&row), nil
 }
@@ -159,11 +159,11 @@ func (r *WikiRepo) GetTitlesByIDs(
 	ctx context.Context, ownerID string, ids []string,
 ) ([]TitledRef, error) {
 	if len(ids) == 0 {
-		return nil, nil
+		return []TitledRef{}, nil
 	}
 	args, perr := parseTitleLookupArgs(ownerID, ids)
 	if perr != nil {
-		return nil, perr
+		return []TitledRef{}, perr
 	}
 	rows, err := dbq.New(r.pool).GetWikiTitlesByIDs(ctx, dbq.GetWikiTitlesByIDsParams{
 		OwnerID: args.ownerUUID, Column2: args.idUUIDs,
@@ -202,18 +202,18 @@ type UpdateOutputInput struct {
 // Update 改 output_entries 主字段。
 func (r *OutputRepo) Update(
 	ctx context.Context, in *UpdateOutputInput,
-) (domain.OutputEntry, error) {
+) (domain.Output, error) {
 	params, err := buildOutputUpdateParams(in)
 	if err != nil {
-		return domain.OutputEntry{}, err
+		return domain.Output{}, err
 	}
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateOutputBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
-			return domain.OutputEntry{}, domain.ErrOutputNotFound
+			return domain.Output{}, domain.ErrOutputNotFound
 		}
-		return domain.OutputEntry{}, fmt.Errorf("update output: %w", qerr)
+		return domain.Output{}, fmt.Errorf("update output: %w", qerr)
 	}
 	return toDomainOutput(&row), nil
 }
@@ -243,11 +243,11 @@ func (r *OutputRepo) GetTitlesByIDs(
 	ctx context.Context, ownerID string, ids []string,
 ) ([]TitledRef, error) {
 	if len(ids) == 0 {
-		return nil, nil
+		return []TitledRef{}, nil
 	}
 	args, perr := parseTitleLookupArgs(ownerID, ids)
 	if perr != nil {
-		return nil, perr
+		return []TitledRef{}, perr
 	}
 	rows, err := dbq.New(r.pool).GetOutputTitlesByIDs(ctx, dbq.GetOutputTitlesByIDsParams{
 		OwnerID: args.ownerUUID, Column2: args.idUUIDs,

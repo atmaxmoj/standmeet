@@ -115,7 +115,7 @@ func lookupVisitorName(ctx context.Context, deps *VisitorDeps, in *SendMessageIn
 // Specs —— exposed=true 时暴露 calendar.book 的 ToolSpec。
 func (b *bookerBundle) Specs() []inference.ToolSpec {
 	if !b.exposed {
-		return nil
+		return []inference.ToolSpec{}
 	}
 	return []inference.ToolSpec{{
 		Name: BookerSkillName,

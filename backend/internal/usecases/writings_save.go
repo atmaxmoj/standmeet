@@ -141,7 +141,7 @@ func uploadAndCompensate(
 		return nil
 	}
 	DeleteBlobs(ctx, deps.Assets, done)
-	if derr := DeleteWritingWithAssets(ctx, deps, ownerID, c.Writing.ID); derr != nil {
+	if derr := DeleteWritingWithAssets(ctx, deps, ownerID, c.Writing.ID()); derr != nil {
 		_ = derr
 	}
 	return fmt.Errorf("upload blobs: %w", uerr)
@@ -154,7 +154,7 @@ func runSaveInTx(
 	if perr != nil {
 		return saveCommitted{}, perr
 	}
-	prepared, ierr := insertAssetsForWriting(ctx, deps, tx, writing.ID, in.Files)
+	prepared, ierr := insertAssetsForWriting(ctx, deps, tx, writing.ID(), in.Files)
 	if ierr != nil {
 		return saveCommitted{}, ierr
 	}
@@ -177,24 +177,27 @@ func runSaveInTx(
 func refreshCrossLinks(
 	ctx context.Context, deps WritingsTxDeps, tx pgx.Tx, writing *domain.Writing,
 ) error {
-	if !HasCrossLinks(writing.BodyMD) {
+	writingID := writing.ID()
+	writingOwner := writing.OwnerID()
+	writingBody := writing.Body()
+	if !HasCrossLinks(writingBody) {
 		// body 没有 [[ ]] —— 仍要清掉之前可能存的边（owner 删了 link 也算）。
 		if err := deps.WritingRefs.ReplaceRefsBySrcTx(
-			ctx, tx, writing.ID, writing.OwnerID, nil,
+			ctx, tx, writingID, writingOwner, []string{},
 		); err != nil {
 			return fmt.Errorf("clear crosslinks: %w", err)
 		}
 		return nil
 	}
-	candidates, lerr := deps.Writings.ListByOwner(ctx, writing.OwnerID)
+	candidates, lerr := deps.Writings.ListByOwner(ctx, writingOwner)
 	if lerr != nil {
 		return fmt.Errorf("list owner writings for crosslink resolve: %w", lerr)
 	}
-	dstIDs := resolveAndDedupForOwner(writing.BodyMD, candidates)
+	dstIDs := resolveAndDedupForOwner(writingBody, candidates)
 	// 排除 self-link（src == dst）—— 没意义且让 backlink UI 显示自指。
-	dstIDs = excludeSelf(dstIDs, writing.ID)
+	dstIDs = excludeSelf(dstIDs, writingID)
 	if err := deps.WritingRefs.ReplaceRefsBySrcTx(
-		ctx, tx, writing.ID, writing.OwnerID, dstIDs,
+		ctx, tx, writingID, writingOwner, dstIDs,
 	); err != nil {
 		return fmt.Errorf("rewrite crosslinks: %w", err)
 	}
@@ -295,12 +298,12 @@ func writeWritingBody(ctx context.Context, a *writeBodyArgs) (domain.Writing, er
 	body := rewriteRefs(a.In.BodyMD, a.Rewrite)
 	cover := rewriteCoverRef(a.In.CoverImageRef, a.Rewrite)
 	p, err := a.Deps.Writings.UpdateTx(ctx, a.Tx, &postgres.UpdateWritingInput{
-		OwnerID: a.In.OwnerID, WritingID: a.Writing.ID, Title: a.In.Title,
+		OwnerID: a.In.OwnerID, WritingID: a.Writing.ID(), Title: a.In.Title,
 		Excerpt: a.In.Excerpt, BodyMD: body,
 		CoverHeadline: a.In.CoverHeadline, CoverSub: a.In.CoverSub,
 		CoverHue: a.In.CoverHue, CoverImageAssetID: cover,
 		Tags: a.In.Tags, Visibility: a.In.Visibility, CrossRefs: a.In.CrossRefs,
-		Path: a.Writing.Path, ReadMinutes: estimateReadMinutes(body),
+		Path: a.Writing.Path(), ReadMinutes: estimateReadMinutes(body),
 		LockedBody: a.In.LockedBody,
 	})
 	if err != nil {

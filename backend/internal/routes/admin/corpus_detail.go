@@ -43,26 +43,41 @@ type outputDetailItem struct {
 	SEOIndexed     bool     `json:"seo_indexed"`
 }
 
-func wikiDetailFromDomain(w *domain.WikiEntry) wikiDetailItem {
+func wikiDetailFromDomain(w *domain.Wiki) wikiDetailItem {
 	return wikiDetailItem{
-		ID: w.ID, Title: w.Title, Body: w.Body,
-		Tags: ensureSlice(w.Tags), SourceRawIDs: ensureSlice(w.SourceRawIDs),
-		ParentID: w.ParentID, SEODescription: w.SEODescription,
-		Path: w.Path, ShowAsSource: w.ShowAsSource, SEOIndexed: w.SEOIndexed,
-		CreatedAt: w.CreatedAt.UTC().Format(timeRFC3339),
-		UpdatedAt: w.UpdatedAt.UTC().Format(timeRFC3339),
+		ID: w.ID(), Title: w.Title(), Body: w.Body(),
+		Tags: ensureSlice(w.Tags()), SourceRawIDs: ensureSlice(w.SourceRawIDs()),
+		ParentID: optionalToPtr(w.ParentID), SEODescription: w.SEODescription(),
+		Path: optionalToPtr(w.Path), ShowAsSource: w.ShowAsSource(), SEOIndexed: w.SEOIndexed(),
+		CreatedAt: w.CreatedAt().UTC().Format(timeRFC3339),
+		UpdatedAt: w.UpdatedAt().UTC().Format(timeRFC3339),
 	}
 }
 
-func outputDetailFromDomain(o *domain.OutputEntry) outputDetailItem {
+func outputDetailFromDomain(o *domain.Output) outputDetailItem {
 	return outputDetailItem{
-		ID: o.ID, Title: o.Title, Body: o.Body,
-		Tags: ensureSlice(o.Tags), SourceWikiIDs: ensureSlice(o.SourceWikiIDs),
-		ParentID: o.ParentID, SEODescription: o.SEODescription,
-		Path: o.Path, ShowAsSource: o.ShowAsSource, SEOIndexed: o.SEOIndexed,
-		CreatedAt: o.CreatedAt.UTC().Format(timeRFC3339),
-		UpdatedAt: o.UpdatedAt.UTC().Format(timeRFC3339),
+		ID: o.ID(), Title: o.Title(), Body: o.Body(),
+		Tags: ensureSlice(o.Tags()), SourceWikiIDs: ensureSlice(o.SourceWikiIDs()),
+		ParentID: optionalToPtr(o.ParentID), SEODescription: o.SEODescription(),
+		Path: optionalToPtr(o.Path), ShowAsSource: o.ShowAsSource(), SEOIndexed: o.SEOIndexed(),
+		CreatedAt: o.CreatedAt().UTC().Format(timeRFC3339),
+		UpdatedAt: o.UpdatedAt().UTC().Format(timeRFC3339),
 	}
+}
+
+// optionalToPtr —— domain (string, bool) getter (例 wiki.Path / ParentID) →
+// *string，给 JSON marshal 当 omitempty *string 字段用。
+//
+// closure 入参形态：caller 传方法引用 (`w.Path`) 而不是 `w.Path()`，让 helper
+// 内部统一 deref。这样 optionalToPtr 的签名是 (func) 而不是 (string, bool)，
+// 避开 revive flag-parameter 对 Optional<string> 的 ok 部分的误判。
+func optionalToPtr(get func() (string, bool)) *string {
+	v, ok := get()
+	if !ok {
+		return nil
+	}
+	cp := v
+	return &cp
 }
 
 func (h *Handlers) getRaw() http.HandlerFunc {

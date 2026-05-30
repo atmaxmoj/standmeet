@@ -30,9 +30,9 @@ type RawDumpInput struct {
 }
 
 // RawDump 写一条新 raw_entries。MCP 工具调它；source label 由 owner 的 AI 客户端给。
-func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (domain.RawEntry, error) {
+func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (domain.Raw, error) {
 	if in.OwnerID == "" || in.Body == "" {
-		return domain.RawEntry{}, ErrEmptyField
+		return domain.Raw{}, ErrEmptyField
 	}
 	src := in.Source
 	if src == "" {
@@ -46,7 +46,7 @@ func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (domain.Raw
 		FlaggedPrivate: in.FlaggedPrivate,
 	})
 	if err != nil {
-		return domain.RawEntry{}, fmt.Errorf("raw create: %w", err)
+		return domain.Raw{}, fmt.Errorf("raw create: %w", err)
 	}
 	return raw, nil
 }
@@ -67,27 +67,27 @@ type PromoteInput struct {
 // 携带 raw_id 反链 → mark raw promoted_to。
 func PromoteToWiki(
 	ctx context.Context, deps CorpusDeps, in *PromoteInput,
-) (domain.WikiEntry, error) {
+) (domain.Wiki, error) {
 	if err := validatePromoteInput(in); err != nil {
-		return domain.WikiEntry{}, err
+		return domain.Wiki{}, err
 	}
 	raw, err := loadRawForPromote(ctx, deps, in)
 	if err != nil {
-		return domain.WikiEntry{}, err
+		return domain.Wiki{}, err
 	}
 	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
 		OwnerID:      in.OwnerID,
 		ParentID:     in.ParentID,
 		Title:        in.Title,
-		Body:         raw.Body,
-		Tags:         mergeTags(raw.Tags, in.Tags),
-		SourceRawIDs: []string{raw.ID},
+		Body:         raw.Body(),
+		Tags:         mergeTags(raw.Tags(), in.Tags),
+		SourceRawIDs: []string{raw.ID()},
 	})
 	if err != nil {
-		return domain.WikiEntry{}, fmt.Errorf("wiki create: %w", err)
+		return domain.Wiki{}, fmt.Errorf("wiki create: %w", err)
 	}
-	if perr := deps.Raw.MarkPromoted(ctx, in.OwnerID, raw.ID, wiki.ID); perr != nil {
-		return domain.WikiEntry{}, fmt.Errorf("mark promoted: %w", perr)
+	if perr := deps.Raw.MarkPromoted(ctx, in.OwnerID, raw.ID(), wiki.ID()); perr != nil {
+		return domain.Wiki{}, fmt.Errorf("mark promoted: %w", perr)
 	}
 	return wiki, nil
 }
@@ -101,13 +101,13 @@ func validatePromoteInput(in *PromoteInput) error {
 
 func loadRawForPromote(
 	ctx context.Context, deps CorpusDeps, in *PromoteInput,
-) (domain.RawEntry, error) {
+) (domain.Raw, error) {
 	raw, err := deps.Raw.GetByID(ctx, in.OwnerID, in.RawID)
 	if err != nil {
 		if errors.Is(err, domain.ErrRawNotFound) {
-			return domain.RawEntry{}, domain.ErrRawNotFound
+			return domain.Raw{}, domain.ErrRawNotFound
 		}
-		return domain.RawEntry{}, fmt.Errorf("get raw: %w", err)
+		return domain.Raw{}, fmt.Errorf("get raw: %w", err)
 	}
 	return raw, nil
 }

@@ -119,11 +119,11 @@ func buildSaveTokenParams(in *SaveTokensInput) (*dbq.UpdateCalendarTokensParams,
 
 func maybeEncrypt(plain string) ([]byte, error) {
 	if plain == "" {
-		return nil, nil
+		return []byte{}, nil
 	}
 	out, err := cryptobox.Encrypt([]byte(plain))
 	if err != nil {
-		return nil, fmt.Errorf("encrypt: %w", err)
+		return []byte{}, fmt.Errorf("encrypt: %w", err)
 	}
 	return out, nil
 }

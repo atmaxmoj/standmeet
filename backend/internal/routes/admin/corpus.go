@@ -77,15 +77,15 @@ func handleCreateRawErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, serverErr())
 }
 
-func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *domain.RawEntry) {
+func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *domain.Raw) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	item := rawListItem{
-		ID:        raw.ID,
-		Body:      raw.Body,
-		Source:    raw.Source,
-		Tags:      raw.Tags,
-		CreatedAt: raw.CreatedAt.Format(time.RFC3339),
+		ID:        raw.ID(),
+		Body:      raw.Body(),
+		Source:    raw.Source(),
+		Tags:      raw.Tags(),
+		CreatedAt: raw.CreatedAt().Format(time.RFC3339),
 	}
 	logEncodeErr(log, "encode created raw", json.NewEncoder(w).Encode(item))
 }
@@ -125,15 +125,15 @@ func (h *Handlers) listRaw() http.HandlerFunc {
 	}
 }
 
-func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []domain.RawEntry) {
+func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []domain.Raw) {
 	items := make([]rawListItem, 0, len(rows))
 	for i := range rows {
 		items = append(items, rawListItem{
-			ID:        rows[i].ID,
-			Body:      rows[i].Body,
-			Source:    rows[i].Source,
-			Tags:      rows[i].Tags,
-			CreatedAt: rows[i].CreatedAt.Format(time.RFC3339),
+			ID:        rows[i].ID(),
+			Body:      rows[i].Body(),
+			Source:    rows[i].Source(),
+			Tags:      rows[i].Tags(),
+			CreatedAt: rows[i].CreatedAt().Format(time.RFC3339),
 		})
 	}
 	writeRawListJSON(log, w, items)
@@ -153,7 +153,7 @@ func (h *Handlers) listWiki() http.HandlerFunc {
 	}
 }
 
-func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []domain.WikiEntry) {
+func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []domain.Wiki) {
 	items := make([]wikiListItem, 0, len(rows))
 	for i := range rows {
 		items = append(items, wikiItemFromDomain(&rows[i]))

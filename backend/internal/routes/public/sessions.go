@@ -82,7 +82,7 @@ func dispatchIssueSession(
 
 func toMemberResps(members []domain.CodeMember) []sessionMemberResp {
 	if len(members) == 0 {
-		return nil
+		return []sessionMemberResp{}
 	}
 	out := make([]sessionMemberResp, 0, len(members))
 	for i := range members {

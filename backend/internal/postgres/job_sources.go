@@ -134,11 +134,11 @@ func (r *JobSourceRepo) FilterUnseenExternalIDs(
 	ctx context.Context, sourceID string, candidates []string,
 ) ([]string, error) {
 	if len(candidates) == 0 {
-		return nil, nil
+		return []string{}, nil
 	}
 	seen, err := r.lookupSeen(ctx, sourceID, candidates)
 	if err != nil {
-		return nil, err
+		return []string{}, err
 	}
 	return diffUnseen(candidates, seen), nil
 }

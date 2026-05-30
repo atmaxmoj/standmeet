@@ -143,11 +143,11 @@ func (*AssetRepo) DeleteByIDsTx(
 	ctx context.Context, tx dbq.DBTX, ids []string,
 ) ([]string, error) {
 	if len(ids) == 0 {
-		return nil, nil
+		return []string{}, nil
 	}
 	uuids, perr := parseUUIDArray(ids)
 	if perr != nil {
-		return nil, fmt.Errorf("parse asset ids: %w", perr)
+		return []string{}, fmt.Errorf("parse asset ids: %w", perr)
 	}
 	keys, err := dbq.New(tx).DeleteAssetsByIDs(ctx, uuids)
 	if err != nil {

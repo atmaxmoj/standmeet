@@ -88,7 +88,7 @@ func parseSkillScripts(req *mcpgo.CallToolRequest) ([]domain.SkillScript, error)
 	args := req.GetArguments()
 	raw, ok := args["scripts"]
 	if !ok || raw == nil {
-		return nil, nil
+		return []domain.SkillScript{}, nil
 	}
 	bs, merr := json.Marshal(raw)
 	if merr != nil {
