@@ -18,6 +18,7 @@ import (
 type RegisterDeps struct {
 	Owners OwnerLookup
 	SEO    SEOWriter
+	Codes  CodesRevoker
 	Log    *slog.Logger
 }
 
@@ -27,4 +28,5 @@ type RegisterDeps struct {
 func RegisterAgentSkills(reg *agentskills.Registry, deps RegisterDeps) {
 	reg.MustRegister(newMeCapability(deps.Owners, deps.Log))
 	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
+	reg.MustRegister(newCodesCapability(deps.Codes, deps.Log))
 }

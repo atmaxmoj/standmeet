@@ -111,6 +111,7 @@ func registerAgentSkills(d *runtimeDeps) {
 	mcp.RegisterAgentSkills(d.agentSkills, mcp.RegisterDeps{
 		Owners: d.ownerRepo,
 		SEO:    d.seoRepo,
+		Codes:  d.codeRepo,
 		Log:    d.log,
 	})
 }

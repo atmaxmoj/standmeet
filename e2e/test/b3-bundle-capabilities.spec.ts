@@ -56,9 +56,6 @@ interface VisitorCapabilitiesResp {
 interface ExtMCPStats { dialed: number; closed: number }
 
 test.describe('Phase B-3 bundle capabilities present in visitor-capabilities', () => {
-  let skillRoleID: string;
-  let extRoleID: string;
-
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -66,8 +63,8 @@ test.describe('Phase B-3 bundle capabilities present in visitor-capabilities', (
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
-    skillRoleID = await seedSkillRoleAndCode(request);
-    extRoleID = await seedExtServerRoleAndCode(request);
+    await seedSkillRoleAndCode(request);
+    await seedExtServerRoleAndCode(request);
     await request.dispose();
   });
 
@@ -124,7 +121,7 @@ test.describe('Phase B-3 bundle capabilities present in visitor-capabilities', (
     });
 });
 
-async function seedSkillRoleAndCode(request: APIRequestContext): Promise<string> {
+async function seedSkillRoleAndCode(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   // Create the skill via MCP because admin POST /skills/ accepts no
   // scripts[] field (scripts are MCP-only surface; admin UI doesn't
@@ -144,10 +141,9 @@ async function seedSkillRoleAndCode(request: APIRequestContext): Promise<string>
   await createCode(request, csrf, {
     code: SKILL_CODE, label: 'b3 skill', assumed_role_id: role.id,
   });
-  return role.id;
 }
 
-async function seedExtServerRoleAndCode(request: APIRequestContext): Promise<string> {
+async function seedExtServerRoleAndCode(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const apiToken = await createAPIToken(request, csrf, 'b3-mcp-token');
   const sid = await initMCP(request, apiToken);
@@ -165,7 +161,6 @@ async function seedExtServerRoleAndCode(request: APIRequestContext): Promise<str
   await createCode(request, csrf, {
     code: EXT_CODE, label: 'b3 ext', assumed_role_id: role.id,
   });
-  return role.id;
 }
 
 interface CreateRoleInput {

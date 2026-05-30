@@ -45,27 +45,7 @@ test.describe('Phase B-2 RetrievalCapability state contract', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
-    await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
-    });
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    const full = await createRole(request, csrf, {
-      name: 'full-corpus',
-      description: 'all genres',
-      corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
-    });
-    const empty = await createRole(request, csrf, {
-      name: 'no-corpus',
-      description: 'no genres',
-      corpus_uris: [],
-    });
-    await createCode(request, csrf, {
-      code: FULL_CODE, label: 'full corpus', assumed_role_id: full.id,
-    });
-    await createCode(request, csrf, {
-      code: EMPTY_CODE, label: 'empty corpus', assumed_role_id: empty.id,
-    });
+    await seedRolesAndCodes(request);
     await request.dispose();
   });
 
@@ -123,6 +103,30 @@ test.describe('Phase B-2 RetrievalCapability state contract', () => {
       await request.dispose();
     });
 });
+
+async function seedRolesAndCodes(request: APIRequestContext): Promise<void> {
+  await claim(request, findSetupToken(), {
+    email: OWNER.email, password: OWNER.password,
+    handle: OWNER.handle, fullName: OWNER.fullName,
+  });
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const full = await createRole(request, csrf, {
+    name: 'full-corpus',
+    description: 'all genres',
+    corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
+  });
+  const empty = await createRole(request, csrf, {
+    name: 'no-corpus',
+    description: 'no genres',
+    corpus_uris: [],
+  });
+  await createCode(request, csrf, {
+    code: FULL_CODE, label: 'full corpus', assumed_role_id: full.id,
+  });
+  await createCode(request, csrf, {
+    code: EMPTY_CODE, label: 'empty corpus', assumed_role_id: empty.id,
+  });
+}
 
 async function fetchVisitorCapabilities(
   request: APIRequestContext, sessionToken: string,
