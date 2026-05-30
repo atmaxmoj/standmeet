@@ -113,9 +113,52 @@ function CodeCardBody({ code }: { code: CodeView }) {
   return (
     <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-5">
       <MembersCol codeID={code.id} code={code.code} />
-      <ScopeBlock perms={code.corpus_permissions} />
+      <RoleOrScopeCol code={code} />
       <QRCol code={code} />
       <QuotaBar code={code} />
+    </div>
+  );
+}
+
+// RoleOrScopeCol —— A.3-IAM。assumed_role_id 时显示 role 链接 + (frozen)
+// 时间戳；否则 fallback 老 PathACL scope 块。commit 5 drop legacy 后只剩
+// 上半部分。
+function RoleOrScopeCol({ code }: { code: CodeView }) {
+  return code.assumed_role_id
+    ? <RoleCol code={code} />
+    : <ScopeBlock perms={code.corpus_permissions} />;
+}
+
+function RoleCol({ code }: { code: CodeView }) {
+  return (
+    <MetaPair label="role">
+      <div className="flex flex-col gap-1">
+        <RoleLink roleID={code.assumed_role_id ?? ''} />
+        <RoleFrozenLine />
+      </div>
+    </MetaPair>
+  );
+}
+
+function RoleLink({ roleID }: { roleID: string }) {
+  return (
+    <a
+      href="/admin/roles"
+      className="mono text-[12.5px] tracking-[0.02em] text-(--color-ink) underline decoration-(--color-accent)/35"
+      data-testid={`code-role-${roleID}`}
+    >
+      {roleID.slice(0, 8)}… ↗
+    </a>
+  );
+}
+
+function RoleFrozenLine() {
+  return (
+    <div
+      className="mono text-[9.5px] tracking-[0.04em] text-(--color-faint) mt-1"
+      data-testid="code-role-frozen"
+    >
+      issued with role (frozen)
     </div>
   );
 }

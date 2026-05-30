@@ -28,6 +28,7 @@ export const CodeViewSchema = z.object({
   max_bookings: z.number().nullable().optional(),
   skill_ids: z.array(z.string()).optional(),
   granted_skills: z.array(z.string()).optional(),
+  assumed_role_id: z.string().nullable().optional(),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
@@ -42,6 +43,7 @@ export interface CreateCodeInput {
   max_bookings?: number | null;
   skill_ids?: string[];
   granted_skills?: string[];
+  assumed_role_id?: string | null;
 }
 
 export interface QuotasInput {
@@ -125,6 +127,7 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     max_bookings: input.max_bookings ?? null,
     skill_ids: input.skill_ids ?? [],
     granted_skills: input.granted_skills ?? [],
+    assumed_role_id: input.assumed_role_id ?? null,
   };
 }
 

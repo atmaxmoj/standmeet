@@ -29,6 +29,9 @@ export interface CodeFormState {
   // 时是 nil；解锁但要无限就 '' 也行)。string 形态便于跟 input 字段双绑。
   maxBookings: string;
   skillIDs: string[];
+  // assumedRoleID —— A.3-IAM。owner 选 "role: ..." dropdown 时填；为空表示
+  // legacy 路径（走 corpus_permissions / granted_skills / skill_ids）。
+  assumedRoleID: string;
 }
 
 const EMPTY: CodeFormState = {
@@ -36,6 +39,7 @@ const EMPTY: CodeFormState = {
   permissionsRaw: '', suggested: ['', ''],
   maxSessions: '', maxTurns: '', grantedSkills: [], maxBookings: '',
   skillIDs: [],
+  assumedRoleID: '',
 };
 
 export interface CodeFormHook {
@@ -47,6 +51,7 @@ export interface CodeFormHook {
   setMaxTurns: (v: string) => void;
   setMaxBookings: (v: string) => void;
   setPermissionsRaw: (v: string) => void;
+  setAssumedRoleID: (v: string) => void;
   toggleSkill: (id: string) => void;
   toggleGrantedSkill: (name: string) => void;
   updateQ: (i: number, v: string) => void;
@@ -73,6 +78,9 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   );
   const setPermissionsRaw = useCallback(
     (permissionsRaw: string) => setValues((v) => ({ ...v, permissionsRaw })), [],
+  );
+  const setAssumedRoleID = useCallback(
+    (assumedRoleID: string) => setValues((v) => ({ ...v, assumedRoleID })), [],
   );
 
   const toggleGrantedSkill = useCallback((name: string) => {
@@ -107,7 +115,8 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
 
   return {
     values, setCode, setLabel, setPurpose, setMaxSessions, setMaxTurns,
-    setMaxBookings, setPermissionsRaw, toggleSkill, toggleGrantedSkill,
+    setMaxBookings, setPermissionsRaw, setAssumedRoleID,
+    toggleSkill, toggleGrantedSkill,
     updateQ, addQ, removeQ, reset, toInput,
   };
 }
@@ -126,6 +135,7 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     maxBookings:   numOrEmpty(initial?.max_bookings),
     grantedSkills: initial?.granted_skills ? [...initial.granted_skills] : [],
     skillIDs:      initial?.skill_ids ? [...initial.skill_ids] : [],
+    assumedRoleID: initial?.assumed_role_id ?? '',
   };
 }
 
@@ -161,6 +171,7 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     max_bookings: parseQuota(v.maxBookings),
     granted_skills: [...v.grantedSkills],
     skill_ids: [...v.skillIDs],
+    assumed_role_id: v.assumedRoleID === '' ? null : v.assumedRoleID,
   };
 }
 

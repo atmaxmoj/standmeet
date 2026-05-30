@@ -1,0 +1,178 @@
+// RolesSection —— /admin/roles。design 源 docs/design/project/admin.js
+// RolesSection (1124-1174)。两栏卡片：每卡 slug + [system] pill + description +
+// prompt/corpus/skills/mcp/codes 五行 metadata + edit/delete actions（vanilla
+// 无 delete）。create modal 拆到 roles/RoleCreateModal.tsx 守 max-lines。
+
+'use client';
+
+import { useCallback, useState } from 'react';
+
+import { SectionHeader } from '@/components/admin/SectionHeader';
+import { RoleCreateModal } from '@/components/admin/sections/roles/RoleCreateModal';
+import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { useRoles, type RolesHook, type RoleView } from '@/lib/admin/use-roles';
+import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
+
+export function RolesSection() {
+  const hook = useRoles();
+  const [creating, setCreating] = useState(false);
+  useEffectErrorToast(hook.error);
+  return (
+    <>
+      <SectionHeader
+        kicker="access · personas"
+        title="roles"
+        count={titleCount(hook)}
+        action={
+          <button
+            type="button"
+            data-testid="role-new"
+            onClick={() => setCreating(true)}
+            className="mono text-[11px] tracking-[0.14em] uppercase bg-(--color-ink) text-(--color-paper) px-4 py-2 hover:bg-(--color-accent) transition-colors"
+          >
+            + new role
+          </button>
+        }
+      />
+      <Intro />
+      <RolesBody hook={hook} />
+      {creating && (
+        <RoleCreateModal onClose={() => setCreating(false)} onCreate={hook.createRole} />
+      )}
+    </>
+  );
+}
+
+function titleCount(hook: RolesHook): string {
+  return hook.status === 'ready' ? `${hook.roles.length}` : '';
+}
+
+function Intro() {
+  return (
+    <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
+      A role bundles a prompt (persona), a positive list of corpus URIs the agent can read,
+      a set of skills, and which MCP servers it may call. Codes don&rsquo;t carry permissions
+      directly — every code <em>assumes</em> a role at issue time and that snapshot is frozen
+      for that session. Edit a role and only future sessions feel it.
+    </p>
+  );
+}
+
+function RolesBody({ hook }: { hook: RolesHook }) {
+  const loading = hook.status === 'idle' || hook.status === 'loading';
+  return loading ? <CardGridSkeleton /> : <RoleList hook={hook} />;
+}
+
+function RoleList({ hook }: { hook: RolesHook }) {
+  return hook.roles.length === 0
+    ? <EmptyRoles />
+    : (
+      <ul
+        className="grid grid-cols-1 lg:grid-cols-2 gap-3.5"
+        data-testid="role-list"
+      >
+        {hook.roles.map((r) => (
+          <li key={r.id} data-testid={`role-row-${r.name}`}>
+            <RoleCard role={r} onDelete={hook.deleteRole} />
+          </li>
+        ))}
+      </ul>
+    );
+}
+
+function EmptyRoles() {
+  return (
+    <p className="reading italic text-(--color-muted)" data-testid="role-list">
+      No roles yet — vanilla is normally seeded on owner claim.
+    </p>
+  );
+}
+
+function RoleCard({
+  role, onDelete,
+}: { role: RoleView; onDelete: (id: string) => Promise<boolean> }) {
+  return (
+    <article className="border border-(--color-rule) p-5 flex flex-col gap-2">
+      <RoleCardHead role={role} onDelete={onDelete} />
+      {role.description && (
+        <p className="reading-tight text-[13.5px] text-(--color-muted)">{role.description}</p>
+      )}
+      <RoleMetaGrid role={role} />
+    </article>
+  );
+}
+
+function RoleCardHead({
+  role, onDelete,
+}: { role: RoleView; onDelete: (id: string) => Promise<boolean> }) {
+  return (
+    <div className="flex justify-between items-baseline gap-2.5">
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <h4 className="font-serif text-[18px]">{role.name}</h4>
+        {role.is_builtin && (
+          <span
+            className="mono text-[9px] tracking-[0.18em] uppercase text-(--color-violet)"
+            data-testid="role-system-pill"
+          >
+            [system]
+          </span>
+        )}
+      </div>
+      {!role.is_builtin && <RoleDeleteBtn role={role} onDelete={onDelete} />}
+    </div>
+  );
+}
+
+function RoleDeleteBtn({
+  role, onDelete,
+}: { role: RoleView; onDelete: (id: string) => Promise<boolean> }) {
+  const toast = useToast();
+  const handleDelete = useCallback(async () => {
+    const ok = await onDelete(role.id);
+    ok && toast.success(`Role ${role.name} deleted`);
+  }, [onDelete, role.id, role.name, toast]);
+  return (
+    <button
+      type="button"
+      data-testid={`role-delete-${role.name}`}
+      onClick={() => void handleDelete()}
+      className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
+    >
+      delete
+    </button>
+  );
+}
+
+function RoleMetaGrid({ role }: { role: RoleView }) {
+  const cells: ReadonlyArray<readonly [string, string, boolean]> = [
+    ['corpus', `${role.corpus_uris.length} URIs`, false],
+    ['skills', String(role.skill_ids.length), false],
+    ['mcp', `${role.mcp_server_ids.length} servers`, false],
+    ['codes', `${role.active_codes} active`, role.active_codes > 0],
+  ];
+  return (
+    <div className="grid grid-cols-[90px_1fr] gap-x-3 gap-y-1.5 mt-3 pt-2.5 border-t border-(--color-rule)/60 items-baseline">
+      {cells.map(([label, value, highlight]) => (
+        <RoleMetaCell key={label} label={label} value={value} highlight={highlight} />
+      ))}
+    </div>
+  );
+}
+
+function RoleMetaCell({
+  label, value, highlight,
+}: { label: string; value: string; highlight: boolean }) {
+  return (
+    <>
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint)">
+        {label}
+      </span>
+      <span
+        className={`mono text-[11px] ${highlight ? 'text-(--color-accent)' : 'text-(--color-ink)'}`}
+        data-testid={`role-meta-${label}`}
+      >
+        {value}
+      </span>
+    </>
+  );
+}

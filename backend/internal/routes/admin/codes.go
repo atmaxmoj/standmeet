@@ -29,6 +29,7 @@ type createCodeRequest struct {
 	MaxSessionsPerMember *int32                  `json:"max_sessions_per_member,omitempty"`
 	MaxTurnsPerSession   *int32                  `json:"max_turns_per_session,omitempty"`
 	MaxBookings          *int32                  `json:"max_bookings,omitempty"`
+	AssumedRoleID        *string                 `json:"assumed_role_id,omitempty"`
 	Code                 string                  `json:"code"`
 	Label                string                  `json:"label"`
 	Purpose              string                  `json:"purpose"`
@@ -49,6 +50,7 @@ type codeView struct {
 	MaxSessionsPerMember *int32                  `json:"max_sessions_per_member,omitempty"`
 	MaxTurnsPerSession   *int32                  `json:"max_turns_per_session,omitempty"`
 	MaxBookings          *int32                  `json:"max_bookings"`
+	AssumedRoleID        *string                 `json:"assumed_role_id,omitempty"`
 	ID                   string                  `json:"id"`
 	Code                 string                  `json:"code"`
 	Label                string                  `json:"label"`
@@ -130,6 +132,7 @@ func toCodeView(c *domain.AccessCode) codeView {
 		MaxTurnsPerSession:   c.MaxTurnsPerSession,
 		MaxBookings:          c.MaxBookings,
 		GrantedSkills:        grants,
+		AssumedRoleID:        c.AssumedRoleID,
 	}
 }
 
@@ -219,6 +222,7 @@ func buildCreateInput(ownerID string, req *createCodeRequest) *postgres.CreateCo
 		MaxTurnsPerSession:   req.MaxTurnsPerSession,
 		MaxBookings:          req.MaxBookings,
 		GrantedSkills:        req.GrantedSkills,
+		AssumedRoleID:        req.AssumedRoleID,
 	}
 }
 

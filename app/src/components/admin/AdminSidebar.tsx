@@ -12,7 +12,8 @@ export type AdminSlug =
   | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account'
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
-  | 'preview' | 'obsidian' | 'agent-skills';
+  | 'preview' | 'obsidian' | 'agent-skills'
+  | 'roles' | 'prompts';
 
 interface SectionDef {
   slug: AdminSlug;
@@ -45,6 +46,8 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { slug: 'conversations', label: 'conversations' },
       { slug: 'codes', label: 'codes' },
+      { slug: 'roles', label: 'roles' },
+      { slug: 'prompts', label: 'prompts' },
       { slug: 'requests', label: 'requests', badgeTestId: 'badge-requests' },
       { slug: 'preview', label: 'preview' },
     ],

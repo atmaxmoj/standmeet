@@ -64,6 +64,8 @@ type AdminDeps struct {
 	AIProvider     usecases.AIProviderDeps
 	CustomPages    usecases.CustomPageDeps
 	Skills         usecases.SkillsDeps
+	Prompts        usecases.PromptsDeps
+	Roles          usecases.RolesDeps
 	MCPServers     usecases.MCPServersDeps
 	Assets         usecases.AssetsDeps
 	Writings       usecases.WritingsDeps
@@ -141,6 +143,8 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AIProviderAdmin: adminroutes.AIProviderDeps{AI: deps.Admin.AIProvider},
 		CustomPages:     deps.Admin.CustomPages,
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Skills: deps.Admin.Skills},
+		PromptsAdmin:    adminroutes.PromptsAdminDeps{Prompts: deps.Admin.Prompts},
+		RolesAdmin:      adminroutes.RolesAdminDeps{Roles: deps.Admin.Roles},
 		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Servers: deps.Admin.MCPServers},
 		WritingsAdmin: adminroutes.WritingsAdminDeps{
 			Writings: deps.Admin.Writings,

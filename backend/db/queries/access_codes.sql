@@ -1,10 +1,21 @@
 -- name: CreateAccessCode :one
+-- assumed_role_id nullable in commit 2 -- legacy create flows pass NULL and
+-- go through PathACL/code_skills; new flows (admin/MCP role-picker) set it
+-- to roles.id, IssueCodeSession freezes RoleSnapshot. Commit 5 NOT NULL.
 INSERT INTO access_codes (
     owner_id, code, label, purpose, corpus_permissions, suggested_questions,
     expires_at, max_sessions_per_member, max_turns_per_session,
-    granted_skills, max_bookings
+    granted_skills, max_bookings, assumed_role_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING *;
+
+-- name: UpdateAccessCodeRole :one
+-- Admin "reassign role" — also used when commit 5 backfills any remaining
+-- legacy codes to a per-owner default before NOT NULL.
+UPDATE access_codes
+SET assumed_role_id = $3
+WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
 -- name: UpdateAccessCodeGrants :one

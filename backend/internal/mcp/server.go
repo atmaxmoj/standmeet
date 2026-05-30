@@ -39,6 +39,8 @@ type Deps struct {
 	Applications  usecases.ApplicationsDeps
 	Conversations usecases.ConversationsDeps
 	Skills        usecases.SkillsDeps
+	Prompts       usecases.PromptsDeps
+	Roles         usecases.RolesDeps
 	MCPServers    usecases.MCPServersDeps
 	Writings      usecases.WritingsDeps
 	WritingsTx    usecases.WritingsTxDeps
@@ -124,6 +126,8 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	applicationsTools(mcpSrv, deps)
 	chatTools(mcpSrv, deps)
 	skillsTools(mcpSrv, deps)
+	promptsTools(mcpSrv, deps)
+	rolesTools(mcpSrv, deps)
 	mcpServersTools(mcpSrv, deps)
 	writingsTools(mcpSrv, deps)
 }

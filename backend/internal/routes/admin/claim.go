@@ -37,6 +37,8 @@ type Handlers struct {
 	AIProviderAdmin   AIProviderDeps
 	CustomPages       usecases.CustomPageDeps
 	SkillsAdmin       SkillsAdminDeps
+	PromptsAdmin      PromptsAdminDeps
+	RolesAdmin        RolesAdminDeps
 	MCPServersAdmin   MCPServersAdminDeps
 	WritingsAdmin     WritingsAdminDeps
 	Obsidian          ObsidianDeps
@@ -83,6 +85,8 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountAIProvider(r)
 	h.MountCustomPages(r)
 	h.MountSkills(r)
+	h.MountPrompts(r)
+	h.MountRoles(r)
 	h.MountMCPServers(r)
 	h.MountWritings(r)
 	h.MountObsidian(r)
