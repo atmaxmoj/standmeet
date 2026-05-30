@@ -19,6 +19,7 @@ import (
 
 	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
 // TestVisitorCapabilitiesDeps —— deps for /test/visitor-capabilities.
@@ -73,6 +74,8 @@ func writeVisitorCapabilities(
 
 // buildVisitorCapabilitiesResp —— pure 装配，无 IO；handler 只剩 encode。
 // 让 handler 自身 cyclo ≤ 3，分支挪到 helper。
+// 与 real SendMessage 路径走同一 AssembleVisitor / ComposeSystemPrompt，
+// hash 反映实际下行 prompt。
 func buildVisitorCapabilitiesResp(
 	ctx context.Context, reg *agentskills.Registry,
 	data *session.VisitorSessionData,
@@ -85,9 +88,11 @@ func buildVisitorCapabilitiesResp(
 		CodeID:       data.CodeID,
 	}
 	return visitorCapabilitiesResp{
-		Capabilities:     reg.VisitorStates(ctx, in),
-		ToolSpecs:        toolSpecsFor(ctx, reg, in),
-		SystemPromptHash: reg.SystemPromptHash(ctx, basePersona(data), in),
+		Capabilities: reg.VisitorStates(ctx, in),
+		ToolSpecs:    toolSpecsFor(ctx, reg, in),
+		SystemPromptHash: reg.SystemPromptHash(
+			ctx, usecases.ComposeBasePersona(data.RoleSnapshot), in,
+		),
 	}
 }
 
@@ -97,21 +102,23 @@ func toolSpecsFor(
 	bindings := reg.AssembleVisitor(ctx, in)
 	specs := make([]toolSpecWireV2, 0, len(bindings))
 	for _, b := range bindings {
-		specs = append(specs, toolSpecWireV2{Name: b.Spec.Name})
-		if b.Close != nil {
-			b.Close()
-		}
+		specs = appendBindingToolSpecs(specs, b)
 	}
 	return specs
 }
 
-// basePersona —— RoleSnapshot.PromptBody。snapshot 可能 nil（理论上 A.3-IAM
-// 后所有 session 都有 snapshot，但兜底防 panic）。
-func basePersona(data *session.VisitorSessionData) string {
-	if data.RoleSnapshot == nil {
-		return ""
+// appendBindingToolSpecs —— 拍平一个 binding 的所有 tool spec 名进 out，
+// 顺便 release Close hook (introspect 用完即关，让 ext-mcp 计数 +1 后归零)。
+func appendBindingToolSpecs(
+	out []toolSpecWireV2, b *agentskills.Binding,
+) []toolSpecWireV2 {
+	for _, t := range b.Tools {
+		out = append(out, toolSpecWireV2{Name: t.Spec.Name})
 	}
-	return data.RoleSnapshot.PromptBody()
+	if b.Close != nil {
+		b.Close()
+	}
+	return out
 }
 
 func writeSessionLookupErr(w http.ResponseWriter, err error) {

@@ -3,9 +3,9 @@
 // 行为：
 //   • req.Tools 空 → 老路径：直接流回 INFERENCE_MOCK_REPLY 文本。
 //   • req.Tools 非空 → 模拟 agent loop：
-//       1. 调 search_corpus_entries({query: <last user msg>})
+//       1. 调 corpus.search({query: <last user msg>})
 //       2. 解析返回 JSON，挑第一条 path
-//       3. 调 read_corpus_entry({path: <that path>})
+//       3. 调 corpus.read({path: <that path>})
 //       4. 流回 MOCK_REPLY 文本
 //     readCollector（caller 注入的 ExecuteTool 回调里）自然记下"AI 真读了哪条"，
 //     让 cited 精度对齐"AI 真读" 而不是"corpus 全集"。
@@ -29,8 +29,8 @@ import (
 const (
 	defaultMockReply  = "Hello, this is alice's AI. I'm running in mock mode for tests."
 	mockChunkInterval = 5 * time.Millisecond
-	mockSearchTool    = "search_corpus_entries"
-	mockReadTool      = "read_corpus_entry"
+	mockSearchTool    = "corpus.search"
+	mockReadTool      = "corpus.read"
 )
 
 // MockProvider —— 不调外部 API 的 provider。
@@ -278,7 +278,7 @@ func mockDoRead(ctx context.Context, req *ChatRequest, path string) {
 	}
 }
 
-// firstPathFromSearchResult —— search_corpus_entries 返 JSON array
+// firstPathFromSearchResult —— corpus.search 返 JSON array
 // [{path, title, kind}, ...]；mock 挑第一条的 path。
 func firstPathFromSearchResult(raw string) string {
 	var rows []struct {

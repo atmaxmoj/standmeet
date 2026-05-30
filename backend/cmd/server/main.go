@@ -122,6 +122,7 @@ func wireAndServe(
 		setupTokenHolder: setupTokenHolder,
 		storageClient:    storageClient,
 	})
+	registerAgentSkills(&deps)
 	return serve(ctx, &deps, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }
 

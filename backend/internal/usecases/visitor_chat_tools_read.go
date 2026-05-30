@@ -1,4 +1,4 @@
-// visitor_chat_tools_read.go —— retriever 的 read_corpus_entry dispatch +
+// visitor_chat_tools_read.go —— retriever 的 corpus.read dispatch +
 // per-genre serve helpers + 跨 genre 的 ACL 评估 helper。从 visitor_chat_tools.go
 // 拆出守 350-line cap。
 

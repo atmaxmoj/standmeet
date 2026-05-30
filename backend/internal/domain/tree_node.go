@@ -4,7 +4,7 @@
 // 同 genre 的另一条。Path 是 owner 显式起的 URL-friendly 标识（例
 // "projects/lucerna"），跟 wiki tree 父子链不一定一致（owner 自由配）。
 // Path 为空 → 该 entry 不能被公开 /<handle>/wiki/<path> 路径访问，但
-// retriever read_corpus_entry 可走 fallback `wiki/<id>` URI 寻址。
+// retriever corpus.read 可走 fallback `wiki/<id>` URI 寻址。
 
 package domain
 

@@ -94,6 +94,7 @@ deps:
       - mcpclient
       - storage
       - gcal
+      - agentskills
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。

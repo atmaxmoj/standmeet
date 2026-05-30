@@ -1,14 +1,14 @@
 // visitor-chat-cited-precise.spec.ts —— cited 列表只含 AI 真读过的 entry。
 //
 // retrieval redesign 的招牌行为：旧实现把"所有送进 prompt 的 corpus"算作
-// cited（弱 ground truth）；新实现 AI 通过 server-side MCP tool `read_corpus_entry`
+// cited（弱 ground truth）；新实现 AI 通过 server-side MCP tool `corpus.read`
 // 主动 fetch，readCollector 累计 path —— cited = AI 实际 read 的 path 列表。
 //
 // 用户故事：
 //   owner 种 4 条 wiki（lucerna / family / sailing / about-me），各自 path
 //   独立。visitor 用 code 问"tell me about lucerna" → mock provider 模拟
-//   tool-use：search_corpus_entries(query="tell me about lucerna") 返回
-//   1 个匹配 → read_corpus_entry(path="projects/lucerna") → 回 text。
+//   tool-use：corpus.search(query="tell me about lucerna") 返回
+//   1 个匹配 → corpus.read(path="projects/lucerna") → 回 text。
 //   cited_wiki_refs 只含 projects/lucerna，不含 family/sailing/about-me。
 
 import { test, expect } from '@/fixtures/test';

@@ -1,7 +1,16 @@
-// visitor_chat_prompt.go —— system prompt 构造 + cited helpers。
+// visitor_chat_prompt.go —— system prompt base persona 构造 + cited helpers。
 //
-// retrieval-redesign 后 prompt 不再 stuff corpus —— AI 通过 search_corpus_entries
-// / read_corpus_entry tool 主动 fetch。prompt 只剩 persona 指令 + tool 使用提示。
+// 拼装顺序（registry.ComposeSystemPrompt 内部）：
+//   ComposeBasePersona(snapshot)
+//   + 每个 capability 的 SystemPromptFragment (注册顺序)
+//
+// ComposeBasePersona = visitorHeader + role.PromptBody + skillPrompts。
+// Tool 使用说明走 capability fragment（retrieval cap 贡献 corpus.search/read/
+// list 三 tool 的描述），不在 base 里。
+//
+// dev endpoint (/internal/test/visitor-capabilities) 跟 real SendMessage
+// 走同一 ComposeBasePersona + registry.ComposeSystemPrompt，hash 真实反映
+// 下行 prompt。
 
 package usecases
 
@@ -11,35 +20,33 @@ import (
 	"github.com/wangsijie/standmeet/internal/domain"
 )
 
-// buildSystemPrompt —— base persona + 可选 skill prompts。skill prompts 来自
-// visitor session 颁发时固化的 SkillPrompts（按 skill name asc）。AI 通过
-// search/read 工具按需 fetch corpus，prompt 不再 stuff corpus。
-func buildSystemPrompt(skillPrompts []string) string {
-	base := basePersonaPrompt()
-	if len(skillPrompts) == 0 {
-		return base
-	}
-	var b strings.Builder
-	_, _ = b.WriteString(base)
-	for _, p := range skillPrompts {
-		if p = strings.TrimSpace(p); p == "" {
-			continue
-		}
-		_, _ = b.WriteString("\n\n---\n\n")
-		_, _ = b.WriteString(p)
-	}
-	return b.String()
+// ComposeBasePersona —— system prompt 的 "non-capability" 部分：visitor
+// header + role persona body + skill prompts。snapshot nil 时只返 header。
+// Capability fragments 由 registry.ComposeSystemPrompt 顺序追加。
+func ComposeBasePersona(snapshot *domain.RoleSnapshot) string {
+	parts := append([]string{visitorHeader()}, snapshotPromptParts(snapshot)...)
+	return strings.Join(parts, "\n\n---\n\n")
 }
 
-func basePersonaPrompt() string {
-	return "You are answering visitor questions on behalf of the owner.\n\n" +
-		"You have three tools for accessing the owner's curated corpus:\n" +
-		"  • search_corpus_entries(query) — find entries matching a keyword;\n" +
-		"  • read_corpus_entry(path)      — fetch the full body of one entry;\n" +
-		"  • list_corpus_entries(prefix?) — browse entries by path prefix.\n\n" +
-		"When the visitor's question relates to the owner's work / projects / " +
-		"opinions, search first, read the most relevant entries, then answer. " +
-		"Quote output entries verbatim when they fit; paraphrase wiki entries."
+// snapshotPromptParts —— role persona body + 每条 skill prompt，去空 trim。
+func snapshotPromptParts(snapshot *domain.RoleSnapshot) []string {
+	if snapshot == nil {
+		return []string{}
+	}
+	out := make([]string, 0, 1+len(snapshot.SkillPrompts()))
+	if body := strings.TrimSpace(snapshot.PromptBody()); body != "" {
+		out = append(out, body)
+	}
+	for _, p := range snapshot.SkillPrompts() {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func visitorHeader() string {
+	return "You are answering visitor questions on behalf of the owner."
 }
 
 // CitedRef —— done event 推给前端的引用信息：id + title。

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
 	"github.com/wangsijie/standmeet/internal/postgres"
@@ -43,6 +44,9 @@ type VisitorDeps struct {
 	Sessions *session.VisitorSessionStore
 	Queue    *session.QueryQueue
 	Resolver inference.Resolver
+	// AgentSkills —— Phase B Capability registry (visitor session 装配
+	// retrieval / booker / ext-mcp / owner-skill tool 走它)。
+	AgentSkills *agentskills.Registry
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。

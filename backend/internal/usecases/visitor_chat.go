@@ -1,7 +1,7 @@
 // visitor_chat.go —— visitor chat 流式 + agent-loop retrieval + 配额校验。
 //
 // retrieval-redesign 后：不再 stuff 全集进 prompt。改成给 inference 注册三个
-// retrieval tool (search/read/list_corpus_entries)，让 AI 主动 fetch。
+// retrieval tool (corpus.search/read/list)，让 AI 主动 fetch。
 // readCollector 累计 AI 真读过的 entry，emitDoneEvent 从 collector 取 cited。
 
 package usecases
@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
 	"github.com/wangsijie/standmeet/internal/postgres"
@@ -68,7 +69,7 @@ func SendMessage(
 	out := make(chan MessageEvent, messageEventBufSize)
 	go streamReply(ctx, &streamArgs{
 		deps: deps, provider: prep.provider, in: in,
-		retr: prep.retr, skills: prep.skills, extMCP: prep.extMCP,
+		bindings: prep.bindings, skills: prep.skills, extMCP: prep.extMCP,
 		booker: prep.booker, out: out,
 	})
 	return out, nil
@@ -95,10 +96,10 @@ var _ = session.ErrQueueTimeout
 
 type sendPrep struct {
 	provider inference.Provider
-	retr     *retriever
 	skills   *skillToolBundle
 	extMCP   *externalMCPBundle
 	booker   *bookerBundle
+	bindings []*agentskills.Binding
 }
 
 // prepareSend —— SendMessage 前的全部 setup。
@@ -130,19 +131,15 @@ func assembleBundles(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 	provider inference.Provider,
 ) (sendPrep, error) {
-	retr, lerr := buildRetriever(ctx, deps, &retrieverBuildInput{
-		ownerID: in.OwnerID, snapshot: in.RoleSnapshot,
-	})
-	if lerr != nil {
-		return sendPrep{}, lerr
-	}
+	bindings := deps.AgentSkills.AssembleVisitor(ctx, sendMsgToAssembleInput(in))
 	skills := buildSkillBundle(ctx, deps, in)
 	booker, berr := buildBookerBundle(ctx, deps, in)
 	if berr != nil {
+		closeBindings(bindings)
 		return sendPrep{}, berr
 	}
 	return sendPrep{
-		provider: provider, retr: retr, skills: skills,
+		provider: provider, bindings: bindings, skills: skills,
 		extMCP: buildExternalMCPBundle(ctx, deps, in),
 		booker: booker,
 	}, nil
@@ -281,16 +278,17 @@ func listWritingsForRetrieval(
 
 // doneInput —— emitDoneEvent 入参打包；revive argument-limit ≤ 5。
 type doneInput struct {
-	deps *VisitorDeps
-	in   *SendMessageInput
-	retr *retriever
-	full string
+	deps     *VisitorDeps
+	in       *SendMessageInput
+	full     string
+	bindings []*agentskills.Binding
 }
 
-// emitDoneEvent —— cited = readCollector 累计的 entry，show_as_source=false
-// 已在 collector.add* 里抑制；这里直接取 snapshot。
+// emitDoneEvent —— cited = 各 binding Cited() 累积的 entry (B-2 仅
+// corpus.retrieval 实现，show_as_source=false 已在 collector.add* 抑制)；
+// 这里聚合所有 binding 的贡献。
 func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
-	wikis, outputs := d.retr.collector.snapshot()
+	wikis, outputs := gatherCited(d.bindings)
 	citedWiki := wikiIDsOf(wikis)
 	citedOutput := outputIDsOf(outputs)
 	if _, werr := d.deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
@@ -308,4 +306,20 @@ func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
 		CitedWikiRefs:   wikiRefsOf(wikis),
 		CitedOutputRefs: outputRefsOf(outputs),
 	}
+}
+
+// gatherCited —— 聚合所有 binding 的 Cited 贡献。capability 没实现 cited
+// 协议 (Cited == nil) 时 skip；B-2 阶段只 retrieval 有贡献。
+func gatherCited(bindings []*agentskills.Binding) ([]domain.Wiki, []domain.Output) {
+	var wikis []domain.Wiki
+	var outputs []domain.Output
+	for _, b := range bindings {
+		if b.Cited == nil {
+			continue
+		}
+		snap := b.Cited()
+		wikis = append(wikis, snap.Wikis...)
+		outputs = append(outputs, snap.Outputs...)
+	}
+	return wikis, outputs
 }

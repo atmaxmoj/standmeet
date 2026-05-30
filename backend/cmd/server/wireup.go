@@ -115,6 +115,14 @@ func buildTestVisitorCapsDeps(d *runtimeDeps) sysroutes.TestVisitorCapabilitiesD
 	}
 }
 
+// registerAgentSkills —— 把 visitor-side 内建 capability 注册进 d.agentSkills。
+// 跟 buildPublicDeps 共享一份 VisitorDeps shape；run() 阶段调用一次，
+// capability 闭包持 deps，server 跑期间 deps 不再变。
+func registerAgentSkills(d *runtimeDeps) {
+	visitor := buildPublicDeps(d).Visitor
+	usecases.RegisterAgentSkills(d.agentSkills, &visitor)
+}
+
 func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 	return publicroutes.Handlers{
 		Visitor: usecases.VisitorDeps{
@@ -127,8 +135,9 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			Sandbox:    d.sandboxRunner,
 			Owners:     d.ownerRepo, Sessions: d.visitorStore,
 			Queue: d.queryQueue, Resolver: d.providerResolver,
-			Calendar: calendarStoreAdapter{repo: d.calendarRepo},
-			GCal:     calendarClientAdapter{client: d.gcalClient},
+			Calendar:    calendarStoreAdapter{repo: d.calendarRepo},
+			GCal:        calendarClientAdapter{client: d.gcalClient},
+			AgentSkills: d.agentSkills,
 		},
 		Sessions: d.visitorStore,
 		Log:      d.log,

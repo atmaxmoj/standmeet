@@ -22,25 +22,27 @@ import (
 	"github.com/wangsijie/standmeet/internal/inference"
 )
 
-// Shape —— 一个 capability 暴露给哪一侧。
-type Shape string
-
-// Shape 枚举值；invariants spec 断言 visitor_only ↔ 不出现在 owner MCP，
-// owner_only ↔ 不出现在 visitor session，both ↔ 两侧都出现。
-const (
-	ShapeVisitorOnly Shape = "visitor_only"
-	ShapeOwnerOnly   Shape = "owner_only"
-	ShapeBoth        Shape = "both"
-)
-
 // AssembleInput —— 装配一次 visitor session 时的上下文。Capability 自身
 // 持有 deps (闭包)，只接收 per-session 字段。
+//
+// 同路径：dev endpoint 跟 real SendMessage 走同一 AssembleVisitor（cap 实现
+// 内部不能按 caller 是 test 还是 prod 分支 —— 违反 [[feedback-always-clean]]
+// 同路径原则）。capability 有 "shape-only" 需求时（ext-mcp 不想 dial 来取
+// tool name），应该在 register 时把 shape 缓存好。
 type AssembleInput struct {
 	RoleSnapshot *domain.RoleSnapshot
 	MaxBookings  *int32
 	OwnerID      string
 	Mode         string
 	CodeID       string
+}
+
+// BindingTool —— 一个 Capability 暴露的一个 LLM tool。Capability 可暴露
+// 多个 tool（如 corpus.retrieval 暴露 search/read/list 三个），共享同一
+// CapabilityState (per-capability 状态比 per-tool 自然)。
+type BindingTool struct {
+	Execute inference.ToolExecutor
+	Spec    inference.ToolSpec
 }
 
 // Binding —— visitor 侧某 capability 在一次 session 中的实例化。
@@ -51,11 +53,14 @@ type AssembleInput struct {
 //
 // Close 可选；持外部资源（ext MCP 长连接等）的 binding 在 session
 // 结束时由 registry 统一调用。无资源就 nil。
+//
+// Cited 可选；retrieval-style capability 提供，emitDoneEvent 在 stream
+// 结束后调用拿真读过的 entries。
 type Binding struct {
-	Execute inference.ToolExecutor
-	Close   func()
-	Spec    inference.ToolSpec
-	State   CapabilityState
+	Close func()
+	Cited func() CitedSnapshot
+	Tools []BindingTool
+	State CapabilityState
 }
 
 // CapabilityState —— pi-pivot 用：一次 session 颁发时回前端 zustand。

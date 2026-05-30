@@ -6,7 +6,7 @@
 //
 // 用户故事：
 //   owner 故意把 raw://** 加进 role.corpus_uris 想看 retriever 是否漏过。
-//   visitor 进 session 后 AI 调 read_corpus_entry 拿 raw 路径 → 应该被拒。
+//   visitor 进 session 后 AI 调 corpus.read 拿 raw 路径 → 应该被拒。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -68,7 +68,7 @@ test.describe('A.3-IAM raw://** is hardcoded deny regardless of role config', ()
       const cites = await fetchAssistantCiteCounts(request, csrf, sess.conversation_id);
       // Only raw was seeded → if raw deny works, visitor sees no cited entries
       // at all (wiki/output empty because nothing was promoted). If a future
-      // bug let raw through, the retriever's read_corpus_entry would echo raw
+      // bug let raw through, the retriever's corpus.read would echo raw
       // body and the assistant's transcript would have a non-zero cite count.
       expect(cites.wiki).toBe(0);
       expect(cites.output).toBe(0);

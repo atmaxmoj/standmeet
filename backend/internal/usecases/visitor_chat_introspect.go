@@ -15,12 +15,23 @@ import (
 // SendMessage but without writing the visitor turn or invoking the
 // inference provider. Returns tool spec names only (not full specs).
 //
-// 错误 silently skip：tool spec assembly 失败 (loading wiki / skills /
-// connector) 返回部分结果而不是 500，让 introspection endpoint 鲁棒。
+// retrieval / 后续从 registry 来的 capability 走 deps.AgentSkills；
+// 还没搬进 registry 的 legacy bundle (skills / extMCP / booker) 走原 builder。
+// B-3 后此函数退化为 registry walk + 旧 endpoint /visitor-tool-specs 删除。
+//
+// 错误 silently skip：tool spec assembly 失败返回部分结果而不是 500，
+// 让 introspection endpoint 鲁棒。
 func AssembleVisitorToolNames(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 ) []string {
-	out := append([]string{}, namesOf(retrievalToolSpecs())...)
+	bindings := deps.AgentSkills.AssembleVisitor(ctx, sendMsgToAssembleInput(in))
+	defer closeBindings(bindings)
+	out := []string{}
+	for _, b := range bindings {
+		for _, t := range b.Tools {
+			out = append(out, t.Spec.Name)
+		}
+	}
 	out = append(out, skillNamesFor(ctx, deps, in)...)
 	out = append(out, extNamesFor(ctx, deps, in)...)
 	out = append(out, bookerNamesFor(ctx, deps, in)...)

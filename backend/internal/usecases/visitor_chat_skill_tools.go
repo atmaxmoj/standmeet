@@ -53,7 +53,8 @@ func loadSkillsForConversation(
 }
 
 // skillToolPrefix —— 所有 skill 派生 tool 用这个前缀，方便 dispatcher
-// 区分 retrieval tool (search/read/list_corpus_entries) 跟 skill tool。
+// 区分 retrieval tool (corpus.search/read/list) 跟 skill tool。
+// B-3 起切 skill.<name> 点分，跟 skill 自身 ID 对齐。
 const skillToolPrefix = "skill_"
 
 // skillToolBundle —— 一组 skill 对应的 tool specs + executor 状态。

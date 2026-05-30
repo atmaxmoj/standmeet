@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	toolSearchCorpus = "search_corpus_entries"
-	toolReadCorpus   = "read_corpus_entry"
-	toolListCorpus   = "list_corpus_entries"
+	// Tool names —— Phase B 起切到点分。retrieval-capability-state spec 验。
+	toolSearchCorpus = "corpus.search"
+	toolReadCorpus   = "corpus.read"
+	toolListCorpus   = "corpus.list"
 	summaryMaxChars  = 160
 )
 
