@@ -182,9 +182,21 @@ func enforceTurnQuota(ctx context.Context, deps *VisitorDeps, in *SendMessageInp
 	if conv.CodeID == nil {
 		return nil
 	}
-	code, cerr := deps.Codes.GetByID(ctx, *conv.CodeID)
+	return enforceTurnQuotaForCode(ctx, deps, in, *conv.CodeID)
+}
+
+// enforceTurnQuotaForCode —— 拆出 code-bound 分支让父 cyclo ≤5。A.3-IAM:
+// 在跑 session 唯一补救手段 = revoke code。GetByID 含 revoked code 行，这里
+// 显式拒绝继续 (当前 turn 算完，下一 turn block)。
+func enforceTurnQuotaForCode(
+	ctx context.Context, deps *VisitorDeps, in *SendMessageInput, codeID string,
+) error {
+	code, cerr := deps.Codes.GetByID(ctx, codeID)
 	if cerr != nil {
 		return turnQuotaCodeErr(cerr)
+	}
+	if code.Status == "revoked" {
+		return domain.ErrCodeInvalid
 	}
 	return turnQuotaCheck(ctx, deps, &code, in.ConversationID)
 }
