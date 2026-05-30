@@ -110,6 +110,7 @@ func registerAgentSkills(d *runtimeDeps) {
 	usecases.RegisterAgentSkills(d.agentSkills, &visitor)
 	mcp.RegisterAgentSkills(d.agentSkills, mcp.RegisterDeps{
 		Owners: d.ownerRepo,
+		SEO:    d.seoRepo,
 		Log:    d.log,
 	})
 }

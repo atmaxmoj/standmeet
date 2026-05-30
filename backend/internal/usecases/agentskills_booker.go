@@ -41,7 +41,11 @@ func (*calendarBookCapability) ID() string { return capCalendarBook }
 func (*calendarBookCapability) Shape() agentskills.Shape {
 	return agentskills.ShapeVisitorOnly
 }
-func (*calendarBookCapability) OwnerMCPBinding() *agentskills.MCPBinding { return nil }
+
+func (*calendarBookCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
+	return []*agentskills.MCPBinding{}
+}
+
 func (*calendarBookCapability) SystemPromptFragment(
 	_ context.Context, in *agentskills.AssembleInput,
 ) string {

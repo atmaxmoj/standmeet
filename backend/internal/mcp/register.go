@@ -17,11 +17,14 @@ import (
 // 顺势依赖整 mcp.Deps (mcp.Deps 自带 AgentSkills 字段，传整个会绕回)。
 type RegisterDeps struct {
 	Owners OwnerLookup
+	SEO    SEOWriter
 	Log    *slog.Logger
 }
 
 // RegisterAgentSkills —— 注册所有 owner-side capability。重 ID panic
-// (boot 期失败比运行时漏注册好)。
+// (boot 期失败比运行时漏注册好)。后续 commit 把 jobs / resume /
+// applications / custom_page 等 file 也搬进来。
 func RegisterAgentSkills(reg *agentskills.Registry, deps RegisterDeps) {
 	reg.MustRegister(newMeCapability(deps.Owners, deps.Log))
+	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
 }

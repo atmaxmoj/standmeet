@@ -126,14 +126,13 @@ func finalizeBindingState(b *Binding, capID string) CapabilityState {
 }
 
 // OwnerMCPBindings —— 走 registry 拿 owner MCP server 应注册的所有 binding。
-// B-4 起 mcp/server.go 改成 walk 这个返回。
+// B-4 起 mcp/server.go 改成 walk 这个返回；plural 让一个 capability 可
+// 一次暴露多个 tool (seo / jobs / writings 等多 tool family)。
 func (r *Registry) OwnerMCPBindings() []*MCPBinding {
 	caps := r.List()
 	out := make([]*MCPBinding, 0, len(caps))
 	for _, c := range caps {
-		if b := c.OwnerMCPBinding(); b != nil {
-			out = append(out, b)
-		}
+		out = append(out, c.OwnerMCPBindings()...)
 	}
 	return out
 }

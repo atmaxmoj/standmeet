@@ -45,13 +45,13 @@ func (*meCapability) SystemPromptFragment(
 	return ""
 }
 
-func (c *meCapability) OwnerMCPBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *meCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
+	return []*agentskills.MCPBinding{{
 		Name:        "me",
 		Description: "Return the currently authenticated StandMeet owner.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		Handler:     c.handleMe,
-	}
+	}}
 }
 
 func (c *meCapability) handleMe(

@@ -91,10 +91,14 @@ type CapabilityState struct {
 // VisitorBinding 返 (nil, ErrHidden) 表示该 session 不暴露本 capability
 // (calendar 未装 / role 没含 skill / ext server 不可达等)；区别于
 // (nil, realErr) 真错。registry 装配时 ErrHidden silently skip。
+//
+// OwnerMCPBindings 返 0+ MCPBinding —— 一个 capability 可暴露多 owner MCP
+// tool (例 seo.bundle 暴露 seo.set_wiki_slug + seo.update_settings)；
+// 无返空 slice 表示该 capability 不暴露 owner MCP 面。
 type Capability interface {
 	ID() string
 	Shape() Shape
 	VisitorBinding(ctx context.Context, in *AssembleInput) (*Binding, error)
-	OwnerMCPBinding() *MCPBinding
+	OwnerMCPBindings() []*MCPBinding
 	SystemPromptFragment(ctx context.Context, in *AssembleInput) string
 }

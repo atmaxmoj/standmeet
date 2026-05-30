@@ -39,7 +39,11 @@ func (*extMCPCapability) ID() string { return capExtMCP }
 func (*extMCPCapability) Shape() agentskills.Shape {
 	return agentskills.ShapeVisitorOnly
 }
-func (*extMCPCapability) OwnerMCPBinding() *agentskills.MCPBinding { return nil }
+
+func (*extMCPCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
+	return []*agentskills.MCPBinding{}
+}
+
 func (*extMCPCapability) SystemPromptFragment(
 	_ context.Context, _ *agentskills.AssembleInput,
 ) string {

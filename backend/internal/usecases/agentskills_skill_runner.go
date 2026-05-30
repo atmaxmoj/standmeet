@@ -40,7 +40,11 @@ func (*skillRunnerCapability) ID() string { return capSkillRunner }
 func (*skillRunnerCapability) Shape() agentskills.Shape {
 	return agentskills.ShapeVisitorOnly
 }
-func (*skillRunnerCapability) OwnerMCPBinding() *agentskills.MCPBinding { return nil }
+
+func (*skillRunnerCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
+	return []*agentskills.MCPBinding{}
+}
+
 func (*skillRunnerCapability) SystemPromptFragment(
 	_ context.Context, _ *agentskills.AssembleInput,
 ) string {

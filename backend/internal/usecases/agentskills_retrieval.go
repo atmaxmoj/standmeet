@@ -30,10 +30,10 @@ func newRetrievalCapability(deps *VisitorDeps) *retrievalCapability {
 
 func (*retrievalCapability) ID() string               { return capRetrievalID }
 func (*retrievalCapability) Shape() agentskills.Shape { return agentskills.ShapeVisitorOnly }
-func (*retrievalCapability) OwnerMCPBinding() *agentskills.MCPBinding {
-	// retrieval B-2 不双暴露；后续 B-4 若 owner MCP 也要 search 自己的 corpus，
-	// 把这里改成返 binding。
-	return nil
+func (*retrievalCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
+	// retrieval 不双暴露；owner 自己有 corpus admin 入口，不通过 MCP 调
+	// search/read/list。
+	return []*agentskills.MCPBinding{}
 }
 
 func (*retrievalCapability) SystemPromptFragment(

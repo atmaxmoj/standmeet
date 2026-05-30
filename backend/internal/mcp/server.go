@@ -124,7 +124,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
 	corpusTools(mcpSrv, deps)
 	outputTools(mcpSrv, deps)
-	seoTools(mcpSrv, deps)
+	// seoTools 已搬进 cap_seo.go (走 registerCapabilities)
 	customPageTools(mcpSrv, deps)
 	jobsTools(mcpSrv, deps)
 	resumeTools(mcpSrv, deps)
