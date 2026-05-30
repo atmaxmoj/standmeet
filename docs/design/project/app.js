@@ -185,7 +185,8 @@ function Hero({ content, input, setInput, onAsk, pending, inputRef }) {
       </div>
 
       <p
-        className="font-serif text-ink"
+        className="font-serif text-ink balance"
+        data-vt-name="hero-prose"
         style={{
           fontSize: 'clamp(26px, 3.4vw, 38px)',
           lineHeight: 1.35,
@@ -284,12 +285,65 @@ function ToolCallBlock({ tool, result }) {
   }
   if (result.kind === 'file') {
     return (
-      <div className="mt-3 mb-1 inline-flex items-baseline gap-3 px-3 py-2 border border-rule rounded-sm">
+      <div className="mt-3 mb-1 inline-flex items-baseline gap-3 px-3 py-2 border border-rule rounded-sm flex-wrap">
         <span className="mono text-[12px] text-accent">▤</span>
-        <span className="mono text-[11.5px] text-ink">{result.label}</span>
-        <span className="mono text-[10px] text-faint">· {result.size_kb} kb</span>
-        <a href="#" className="mono text-[10px] tracking-[0.16em] uppercase text-muted hover:text-accent ml-2">download ↓</a>
+        <span className="mono text-[11.5px] text-ink">{result.label || result.name}</span>
+        <span className="mono text-[10px] text-faint">· {result.size_kb ? result.size_kb + ' kb' : result.size}</span>
+        {result.access && <span className="mono text-[9.5px] tracking-[0.12em] uppercase text-violet">· {result.access}</span>}
+        <a href={result.action ? result.action.href : '#'} className="mono text-[10px] tracking-[0.16em] uppercase text-muted hover:text-accent ml-2">{result.action ? result.action.label : 'download'} ↓</a>
       </div>
+    );
+  }
+  if (result.kind === 'gallery') {
+    return (
+      <div className="mt-3 mb-1 grid grid-cols-2 sm:grid-cols-3 gap-2" style={{ maxWidth: '520px' }}>
+        {result.images.map((im, i) => (
+          <div key={i} style={{
+            aspectRatio: '1/1',
+            background: 'linear-gradient(135deg, color-mix(in oklab, var(--' + (im.hue || 'amber') + ') 18%, transparent), transparent 60%), repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in oklab, var(--ink) 4%, transparent) 6px 7px), var(--surface)',
+            border: '1px solid var(--rule)', borderRadius: 3, position: 'relative',
+          }}>
+            <span className="mono" style={{ position: 'absolute', bottom: 5, left: 6, fontSize: 8, letterSpacing: '0.04em', color: 'var(--paper)', background: 'color-mix(in oklab, var(--ink) 80%, transparent)', padding: '1px 4px' }}>{im.label}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (result.kind === 'code') {
+    return (
+      <pre className="mt-3 mb-1" style={{ background: 'color-mix(in oklab, var(--ink) 6%, var(--paper))', border: '1px solid var(--rule)', borderRadius: 3, padding: '12px 14px', fontFamily: "'JetBrains Mono',monospace", fontSize: 12, lineHeight: 1.55, color: 'var(--ink)', overflowX: 'auto' }}>
+        {result.lang && <div className="mono" style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>{result.lang}</div>}
+        {result.code}
+      </pre>
+    );
+  }
+  if (result.kind === 'embed') {
+    // a linked card to a wiki/output/post entry
+    return (
+      <a href={result.href || '#'} className="mt-3 mb-1 block border border-rule rounded-sm overflow-hidden hover:border-ink transition-colors" style={{ maxWidth: '440px' }}>
+        <div style={{ height: 4, background: 'var(--' + (result.hue || 'amber') + ')' }} />
+        <div className="px-4 py-3">
+          <div className="mono text-[9.5px] tracking-[0.16em] uppercase text-muted mb-1">{result.source || 'corpus'} · {result.date || ''}</div>
+          <div className="font-serif text-ink" style={{ fontSize: 16, lineHeight: 1.25, letterSpacing: '-0.005em' }}>{result.title}</div>
+          {result.excerpt && <p className="reading text-muted mt-1.5" style={{ fontSize: 13.5 }}>{result.excerpt}</p>}
+          <div className="mono text-[10px] tracking-[0.14em] uppercase text-accent mt-2">open ↗</div>
+        </div>
+      </a>
+    );
+  }
+  if (result.kind === 'quote') {
+    return (
+      <blockquote className="mt-3 mb-1 pl-4 border-l-2 border-accent/40" style={{ maxWidth: '40em' }}>
+        <p className="font-serif italic text-ink" style={{ fontSize: 17, lineHeight: 1.5 }}>{result.text}</p>
+        {result.attribution && <div className="mono text-[10px] tracking-[0.06em] text-faint mt-2">— {result.attribution}</div>}
+      </blockquote>
+    );
+  }
+  if (result.kind === 'link') {
+    return (
+      <a href={result.href || '#'} className="mt-3 mb-1 inline-flex items-baseline gap-2 link mono text-[12.5px] tracking-[0.02em]">
+        {result.label || result.href} ↗
+      </a>
     );
   }
   return null;
@@ -318,8 +372,9 @@ function AnswerBody({ answer }) {
           <p key={i} className="reading mb-4 last:mb-0" style={{ fontSize: '18px' }}>{p}</p>
         ))}
       </div>
-      {answer.tool_calls && answer.tool_calls.map((tc, i) => (
-        <ToolCallBlock key={i} tool={tc.tool} result={tc.result} />
+      {/* rich media · supports both `tools` (corpus entries) and `tool_calls` (live tool runs) */}
+      {(answer.tools || answer.tool_calls || []).map((tc, i) => (
+        <ToolCallBlock key={i} tool={tc.tool} result={tc.result || tc} />
       ))}
       {answer.cta && (
         <div className="mt-5">
@@ -623,6 +678,19 @@ function ByoaiBanner({ provider }) {
   );
 }
 
+function CapabilityStrip({ tools }) {
+  if (!tools || !tools.length) return null;
+  return (
+    <div className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', color: 'var(--muted)', display: 'flex', flexWrap: 'wrap', gap: '4px 12px', padding: '6px 24px', borderBottom: '1px solid var(--rule)', background: 'color-mix(in oklab, var(--surface) 50%, transparent)' }}>
+      {tools.map((t) => (
+        <span key={t.id} title={t.tip} style={{ color: t.on ? 'var(--ink)' : 'var(--faint)', cursor: 'help' }}>
+          {t.on ? '✓' : '○'} {t.id}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function CodedBanner({ code, visitor, quota }) {
   // small label-table for known codes so the banner can name the slice
   const CODE_LABEL = {
@@ -779,7 +847,7 @@ function ChatComposer({ input, setInput, onSubmit, pending, suggestedPrompts }) 
   );
 }
 
-function ChatWelcome({ content, mode, visitor, codeLabel, byoaiProvider }) {
+function ChatWelcome({ content, mode, visitor, codeLabel, byoaiProvider, opener }) {
   return (
     <article className="pt-10 pb-10 border-b border-rule">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-accent mb-3">
@@ -800,9 +868,11 @@ function ChatWelcome({ content, mode, visitor, codeLabel, byoaiProvider }) {
               on this code — I'll say so plainly when you hit one. Everything else is on the record;
               sijie reads the transcripts afterward.
             </p>
-            <p className="mt-4">
-              Ask anything. Three starters below if you need a way in.
-            </p>
+            {!opener && (
+              <p className="mt-4">
+                Ask anything. Three starters below if you need a way in.
+              </p>
+            )}
           </>
         )}
         {mode === 'byoai' && (
@@ -819,7 +889,75 @@ function ChatWelcome({ content, mode, visitor, codeLabel, byoaiProvider }) {
           </>
         )}
       </div>
+
+      {/* owner-preset opener — sijie speaks first, steering the topic */}
+      {opener && (
+        <div className="mt-8 pt-7 border-t border-rule/60">
+          <div className="mono text-[10.5px] tracking-[0.18em] uppercase mb-3 flex items-baseline gap-3">
+            <span className="text-ink">{content.owner.handle} · opening note</span>
+            <span className="text-faint normal-case tracking-[0.06em]">· set for this code</span>
+          </div>
+          <p className="font-serif italic text-ink" style={{ fontSize: '21px', lineHeight: 1.5, fontWeight: 380, maxWidth: '32em', textWrap: 'pretty' }}>
+            {opener}
+          </p>
+        </div>
+      )}
     </article>
+  );
+}
+
+function BookingOffer({ booking, visitor, owner }) {
+  const [state, setState] = React.useState('idle'); // idle | open | booked
+  const [picked, setPicked] = React.useState(null);
+  const dur = booking.duration || 30;
+  const slots = [
+    { day: 'Tue · Jun 2', start: '10:30' },
+    { day: 'Wed · Jun 3', start: '14:00' },
+    { day: 'Thu · Jun 4', start: '09:00' },
+  ].map((s) => {
+    const [h, m] = s.start.split(':').map(Number);
+    const end = new Date(2026, 5, 2, h, m + dur);
+    return { ...s, time: s.start + '–' + String(end.getHours()).padStart(2, '0') + ':' + String(end.getMinutes()).padStart(2, '0') + ' PT' };
+  });
+  if (state === 'booked') {
+    return (
+      <div className="mt-8 border border-accent/50 rounded-sm bg-paper/60 px-5 py-4 rise">
+        <div className="mono text-[10px] tracking-[0.18em] uppercase text-accent mb-2">✓ booked · added to calendar</div>
+        <p className="reading text-ink" style={{ fontSize: 16 }}>
+          {dur}-min with {owner.handle} · <span className="text-accent">{picked.day} · {picked.time}</span>.
+          A calendar invite is on its way{visitor ? ' to ' + visitor.split(' ')[0] : ''}. {owner.handle} sees it on their side too.
+        </p>
+        <a href="#" className="link mono text-[12px] tracking-[0.04em] mt-3 inline-block">add to my calendar · .ics ↓</a>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-8 border border-rule rounded-sm bg-surface/40 px-5 py-4">
+      <div className="flex items-baseline justify-between gap-4 flex-wrap">
+        <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted">
+          ⌖ {owner.handle} opened {dur} min for this code
+        </div>
+        {state === 'idle' && (
+          <button onClick={() => setState('open')} className="mono text-[11px] tracking-[0.16em] uppercase text-paper bg-ink px-3.5 py-2 hover:bg-accent transition-colors">
+            see times →
+          </button>
+        )}
+      </div>
+      <p className="reading text-muted mt-2" style={{ fontSize: 14.5, maxWidth: '40em' }}>
+        {booking.note || (dur + '-minute conversation')}. Pick a slot and it goes straight onto {owner.handle}'s calendar — no email back-and-forth.
+      </p>
+      {state === 'open' && (
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 rise">
+          {slots.map((s, i) => (
+            <button key={i} onClick={() => { setPicked(s); setState('booked'); }}
+              className="text-left border border-rule rounded-sm px-3 py-2.5 hover:border-ink hover:bg-paper transition-colors">
+              <div className="mono text-[11px] text-ink tracking-[0.04em]">{s.day}</div>
+              <div className="mono text-[10px] text-muted mt-1">{s.time}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -842,6 +980,16 @@ function ChatRoom({ content, mode, visitor, codeParam, byoaiProvider, dark, onTo
     'A16Z-9V1': 'a16z partner intro',
     'STRA-5T8': 'Stripe advisor chat',
   })[codeParam] || 'invited';
+  const codeOpener = ({
+    'OAEN-3K2': 'Hi — you\u2019re here on the OpenAI eng loop, so I\u2019ll assume you want to know whether I\u2019d be a strong staff IC. Ask me anything, but if it helps: I think most of engineering is intention-translation, and I have strong opinions on eval. Where do you want to start?',
+    'A16Z-9V1': 'Welcome. Since you\u2019re an investor: the short version is Lucerna is retrieval infrastructure for personal corpora, and the moat is the eval, not the model. I won\u2019t talk numbers here, but I\u2019ll happily go deep on why this is a category. What\u2019s your first question?',
+    'STRA-5T8': 'Hey — advisor scoping. I take one or two founders a quarter, retrieval/eval only, equity not cash. Tell me what you\u2019re building and what you\u2019d actually want from me.',
+  })[codeParam] || null;
+  const codeBooking = ({
+    'OAEN-3K2': { enabled: true, duration: 30, note: '30-min staff-IC chat' },
+    'A16Z-9V1': { enabled: true, duration: 45, note: '45-min investor call' },
+    'STRA-5T8': { enabled: false },
+  })[codeParam] || null;
 
   // hide starters once visitor has asked anything
   const showStarters = conv.length === 0;
@@ -886,7 +1034,13 @@ function ChatRoom({ content, mode, visitor, codeParam, byoaiProvider, dark, onTo
             visitor={visitor}
             codeLabel={codeLabel}
             byoaiProvider={byoaiProvider}
+            opener={mode === 'coded' ? codeOpener : null}
           />
+
+          {/* booking offer — when the code has calendar booking enabled */}
+          {mode === 'coded' && codeBooking && codeBooking.enabled && (
+            <BookingOffer booking={codeBooking} visitor={visitor} owner={content.owner} />
+          )}
 
           {/* transcript */}
           <div className="flex-1">

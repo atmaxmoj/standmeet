@@ -18,6 +18,7 @@ const {
   OUTPUTS, PAGES,
   JOB_SOURCES, JOB_LISTINGS, RESUME_DRAFTS, APPLICATIONS, SKILLS,
   OBSIDIAN, CONNECTORS, CONNECTOR_REGISTRY, CONNECTOR_CATEGORIES, TOKEN_SCOPES, API_TOKENS,
+  PROMPTS, ROLES, MCP_SERVERS,
   SEO, ACCOUNT, SYSTEM,
   tagDot,
 } = AD;
@@ -38,6 +39,8 @@ const NAV_GROUPS = [
   { label: 'access', items: [
     { id: 'conversations', label: 'conversations' },
     { id: 'codes',         label: 'codes' },
+    { id: 'roles',         label: 'roles' },
+    { id: 'prompts',       label: 'prompts' },
     { id: 'requests',      label: 'requests', badge: () => REQUESTS.filter(r => r.status === 'new').length },
     { id: 'preview',       label: 'preview' },
   ]},
@@ -51,7 +54,9 @@ const NAV_GROUPS = [
   { label: 'integrations', items: [
     { id: 'connectors', label: 'connectors' },
     { id: 'api',        label: 'api · mcp' },
+    { id: 'calendar',   label: 'calendar' },
     { id: 'obsidian',   label: 'obsidian' },
+    { id: 'skills_agent', label: 'agent skills' },
   ]},
   { label: 'settings', items: [
     { id: 'page',     label: 'public page' },
@@ -1073,19 +1078,299 @@ function CodeCard({ code }) {
           </div>
         </div>
         <div>
-          <SmallCaps>scope</SmallCaps>
-          <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {code.scope.map(t => <Chip key={t}>{t}</Chip>)}
-            {code.excluded.map(t => <Chip key={t} tone="private">× {t}</Chip>)}
+          <SmallCaps>role</SmallCaps>
+          <div style={{ marginTop: 6 }}>
+            <button onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('sm-jump', { detail: { section: 'roles', highlight: code.role_id || 'rl-1' } })); }}
+              className="mono"
+              style={{ background:'transparent', border:0, padding:0, cursor:'pointer',
+                       fontSize: 12.5, letterSpacing:'0.02em', color: 'var(--ink)',
+                       borderBottom: '1px solid color-mix(in oklab, var(--accent) 35%, transparent)' }}>
+              {(ROLES.find(r => r.id === (code.role_id || 'rl-1')) || ROLES[1] || ROLES[0]).slug} ↗
+            </button>
+            <div className="mono" style={{ fontSize: 9.5, color: 'var(--faint)', letterSpacing: '0.04em', marginTop: 6 }}>
+              issued with role @ {code.issued_at || '2026-05-28T14:12Z'} <span style={{ color:'var(--violet)' }}>(frozen)</span>
+            </div>
           </div>
         </div>
         <QRCode value={fullLink} size={80} />
+      </div>
+      {code.opener && (
+        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid color-mix(in oklab, var(--rule) 60%, transparent)' }}>
+          <SmallCaps>opening note · ai speaks first</SmallCaps>
+          <p style={{ fontFamily: "'Newsreader',serif", fontStyle: 'italic', fontSize: 14, color: 'var(--muted)', marginTop: 5, lineHeight: 1.5, textWrap: 'pretty' }}>
+            “{code.opener}”
+          </p>
+        </div>
+      )}
+      <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid color-mix(in oklab, var(--rule) 60%, transparent)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <SmallCaps>booking</SmallCaps>
+        {code.booking && code.booking.enabled ? (
+          <span className="sm-pill is-accent"><span className="sm-dot" />{code.booking.duration}-min · {code.booking.calendar}</span>
+        ) : (
+          <span className="mono" style={{ fontSize: 10.5, color: 'var(--faint)', letterSpacing: '0.06em' }}>off · ai won't offer to book</span>
+        )}
+        <span className="mono" style={{ fontSize: 9.5, color: 'var(--faint)', letterSpacing: '0.04em' }}>
+          {code.booking && code.booking.enabled ? 'visitors on this code can put time on your calendar' : ''}
+        </span>
       </div>
       <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid color-mix(in oklab, var(--rule) 60%, transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Quota used={code.uses} max={code.quota} label="uses" />
         <span className="mono" style={{ fontSize: 9.5, color: 'var(--faint)' }}>{link}</span>
       </div>
     </Crosshair>
+  );
+}
+
+function RolesSection() {
+  const [list, setList] = React.useState(ROLES);
+  const [highlight, setHighlight] = React.useState(null);
+  React.useEffect(() => {
+    const on = (e) => { if (e.detail && e.detail.section === 'roles' && e.detail.highlight) setHighlight(e.detail.highlight); };
+    window.addEventListener('sm-jump', on);
+    return () => window.removeEventListener('sm-jump', on);
+  }, []);
+  return (
+    <Section kicker="access · personas" title="roles" count={list.length} action={<Btn kind="solid">+ new role</Btn>}>
+      <p className="reading" style={{ fontSize:14.5, color:'var(--muted)', marginBottom:22, maxWidth:'54em' }}>
+        A role bundles a prompt (persona), a positive list of corpus URIs the agent can read, a set of skills, and which MCP servers it may call. Codes don't carry permissions directly — every code <em>assumes</em> a role at issue time and that snapshot is <span style={{ color:'var(--violet)' }}>frozen</span> for that session. Edit a role and only future sessions feel it.
+      </p>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0,1fr))', gap:14 }}>
+        {list.map((r) => {
+          const prompt = PROMPTS.find((p) => p.id === r.prompt_id);
+          const isHi = highlight === r.id;
+          return (
+            <article key={r.id} className="ad-card" style={{ borderColor: isHi ? 'var(--accent)' : undefined }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6, gap:10 }}>
+                <div>
+                  <div style={{ display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
+                    <h4 style={{ fontFamily:"'Newsreader',serif", fontSize:18, fontWeight:500, margin:0 }}>{r.slug}</h4>
+                    {r.system && <span className="mono" style={{ fontSize:9, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--violet)' }}>[system]</span>}
+                  </div>
+                  <p className="reading" style={{ fontSize:13.5, color:'var(--muted)', margin:'4px 0 0' }}>{r.description}</p>
+                </div>
+                <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                  <Btn size="sm" kind="outline">edit</Btn>
+                  {!r.system && <Btn size="sm" kind="ghost">delete</Btn>}
+                </div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'90px 1fr', rowGap:5, columnGap:12, marginTop:12, paddingTop:10, borderTop:'1px solid color-mix(in oklab, var(--rule) 60%, transparent)', alignItems:'baseline' }}>
+                <span className="mono" style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--faint)' }}>prompt</span>
+                <span style={{ fontFamily:"'Newsreader',serif", fontSize:14, color:'var(--ink)' }}>{prompt ? prompt.slug : '(none)'}</span>
+                <span className="mono" style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--faint)' }}>corpus</span>
+                <span className="mono" style={{ fontSize:11, color:'var(--ink)' }}>{r.corpus_uris.length} URIs</span>
+                <span className="mono" style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--faint)' }}>skills</span>
+                <span className="mono" style={{ fontSize:11, color:'var(--ink)' }}>{r.skill_ids.length}</span>
+                <span className="mono" style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--faint)' }}>mcp</span>
+                <span className="mono" style={{ fontSize:11, color:'var(--ink)' }}>{r.mcp_ids.length} servers</span>
+                <span className="mono" style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--faint)' }}>codes</span>
+                <span className="mono" style={{ fontSize:11, color: r.active_codes ? 'var(--accent)' : 'var(--ink)' }}>{r.active_codes} active</span>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </Section>
+  );
+}
+
+function PromptsSection() {
+  const [list] = React.useState(PROMPTS);
+  return (
+    <Section kicker="access · personas" title="prompts" count={list.length} action={<Btn kind="solid">+ new prompt</Btn>}>
+      <p className="reading" style={{ fontSize:14.5, color:'var(--muted)', marginBottom:22, maxWidth:'54em' }}>
+        Library of personas. Owner-scoped, no categories. Each one is a piece of writing — the agent becomes whoever you tell it to be here. Used by roles.
+      </p>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(0,1fr))', gap:14 }}>
+        {list.map((p) => (
+          <article key={p.id} className="ad-card">
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6, gap:10 }}>
+              <div>
+                <div style={{ display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
+                  <h4 style={{ fontFamily:"'Newsreader',serif", fontSize:18, fontWeight:500, margin:0 }}>{p.slug}</h4>
+                  {p.system && <span className="mono" style={{ fontSize:9, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--violet)' }}>[system]</span>}
+                </div>
+                <p className="reading" style={{ fontSize:13.5, color:'var(--muted)', margin:'4px 0 0' }}>{p.description}</p>
+              </div>
+              <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                <Btn size="sm" kind="outline">edit</Btn>
+                {!p.system && <Btn size="sm" kind="ghost">delete</Btn>}
+              </div>
+            </div>
+            <blockquote style={{ margin:'10px 0 0', paddingLeft:14, borderLeft:'2px solid var(--rule)', fontFamily:"'Newsreader',serif", fontStyle:'italic', fontSize:14, lineHeight:1.5, color:'var(--ink)' }}>
+              {p.body.slice(0, 220)}{p.body.length > 220 ? '…' : ''}
+            </blockquote>
+            <div className="mono" style={{ marginTop:10, paddingTop:8, borderTop:'1px solid color-mix(in oklab, var(--rule) 60%, transparent)', fontSize:10, color:'var(--faint)', letterSpacing:'0.06em' }}>
+              used by {p.usage || 0} role{p.usage === 1 ? '' : 's'}
+            </div>
+          </article>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function GenerateKeypairModal({ onClose, onSaved }) {
+  const [name, setName] = React.useState('');
+  const [phase, setPhase] = React.useState('name'); // name | reveal
+  const [pair, setPair] = React.useState(null);
+  const fingerprintOf = (s) => 'sha256:' + Array.from(s).reduce((a,c)=>(a*33+c.charCodeAt(0))>>>0,0).toString(16).padStart(8,'0') + Array.from(s).reverse().reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,0).toString(16).padStart(8,'0');
+  const gen = () => {
+    const kid = Math.random().toString(36).slice(2,10);
+    const pem = '-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIH+'+Math.random().toString(36).slice(2,14)+'KGsRvyDqQ4n\n'+Math.random().toString(36).slice(2,42).repeat(2).slice(0,64)+'\n-----END PRIVATE KEY-----';
+    const p = { id:'kp-'+Date.now(), name, kid, fingerprint:fingerprintOf(name+kid), created:'just now', last_used:'never', pem };
+    setPair(p); setPhase('reveal'); onSaved(p);
+  };
+  if (phase === 'name') {
+    return (
+      <Modal open onClose={onClose} maxWidth={520} kicker="new keypair" title="generate a key" footer={<>
+        <span className="mono" style={{ fontSize:10, color:'var(--faint)' }}>ed25519 · stateless</span>
+        <div style={{ display:'flex', gap:8 }}>
+          <Btn kind="ghost" onClick={onClose}>cancel</Btn>
+          <Btn kind="solid" onClick={gen} disabled={!name.trim()}>generate</Btn>
+        </div>
+      </>}>
+        <Field label="name" hint="how you\u2019ll recognize this key in the list">
+          <Input value={name} onChange={(e)=>setName(e.target.value)} placeholder="laptop · daily driver" autoFocus />
+        </Field>
+        <p className="reading" style={{ fontSize:13, color:'var(--muted)', marginTop:14, lineHeight:1.55 }}>
+          The browser will generate an Ed25519 keypair. The <strong>public</strong> half is uploaded; the <strong>private</strong> half stays on your machine.
+        </p>
+      </Modal>
+    );
+  }
+  return (
+    <Modal open onClose={onClose} maxWidth={620} kicker="● new · only shown once" title={pair.name} footer={<>
+      <span className="mono" style={{ fontSize:10, color:'var(--accent)' }}>save it before closing</span>
+      <Btn kind="solid" onClick={onClose}>i saved it</Btn>
+    </>}>
+      <Crosshair style={{ padding:14, border:'1px solid var(--accent)', background:'color-mix(in oklab, var(--accent) 4%, transparent)', borderRadius:3 }}>
+        <p className="reading" style={{ fontSize:14, color:'var(--ink)', margin:'0 0 12px' }}>
+          This <strong>private key</strong> only shows once. Save it now — closing this dialog destroys it forever.
+        </p>
+        <pre style={{ background:'var(--paper)', border:'1px solid var(--rule)', padding:12, fontFamily:"'JetBrains Mono',monospace", fontSize:11.5, lineHeight:1.5, color:'var(--ink)', overflowX:'auto', borderRadius:2, margin:0 }}>{pair.pem}</pre>
+        <div style={{ display:'flex', gap:6, marginTop:10 }}>
+          <CopyBtn text={pair.pem} label="copy to clipboard" size="sm" />
+          <Btn size="sm" kind="outline" onClick={() => { const blob = new Blob([pair.pem],{type:'application/x-pem-file'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='standmeet-'+pair.kid+'.pem'; a.click(); }}>download .pem</Btn>
+        </div>
+      </Crosshair>
+      <div className="mono" style={{ marginTop:14, fontSize:10.5, color:'var(--muted)', letterSpacing:'0.06em', lineHeight:1.7 }}>
+        kid · <span style={{ color:'var(--ink)' }}>{pair.kid}</span><br/>
+        fingerprint · <span style={{ color:'var(--ink)' }}>{pair.fingerprint}</span>
+      </div>
+    </Modal>
+  );
+}
+
+function KeypairsPanel() {
+  const [list, setList] = React.useState(() => API_TOKENS.slice(0,3).map((t,i)=>({
+    id:'kp-'+i, name:t.name,
+    kid:Math.random().toString(36).slice(2,10),
+    fingerprint:'sha256:'+t.secret.slice(8,16)+t.secret.slice(-8),
+    created:t.created, last_used:t.last_used,
+  })));
+  const [creating, setCreating] = React.useState(false);
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <GroupHeader title="keypairs" action={<Btn kind="solid" size="sm" onClick={()=>setCreating(true)}>+ generate keypair</Btn>} />
+      {list.map((k) => (
+        <div key={k.id} className="ad-card" style={{ marginBottom: 10, display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:14 }}>
+          <div>
+            <div style={{ fontFamily:"'Newsreader',serif", fontSize:17, fontWeight:500 }}>{k.name}</div>
+            <div className="mono" style={{ fontSize:10.5, color:'var(--muted)', marginTop:4 }}>
+              kid · <span style={{ color:'var(--ink)' }}>{k.kid}</span> · {k.fingerprint}
+            </div>
+            <div className="mono" style={{ fontSize:10, color:'var(--faint)', marginTop:2 }}>
+              created {k.created} · last used {k.last_used}
+            </div>
+          </div>
+          <Btn size="sm" kind="outline" onClick={()=>setList((l)=>l.filter((x)=>x.id!==k.id))}>revoke</Btn>
+        </div>
+      ))}
+      <p className="reading" style={{ fontSize:13, color:'var(--muted)', margin:'10px 4px 0', lineHeight:1.55, maxWidth:'48em' }}>
+        Keypairs replace static bearer tokens. The browser generates Ed25519 locally; the server verifies signatures stateless. <span style={{ color:'var(--faint)' }}>For curl / raw HTTP, generate a separate keypair from this UI.</span>
+      </p>
+      {creating && <GenerateKeypairModal onClose={()=>setCreating(false)} onSaved={(p)=>setList((l)=>[...l, { id:p.id, name:p.name, kid:p.kid, fingerprint:p.fingerprint, created:p.created, last_used:p.last_used }])} />}
+    </div>
+  );
+}
+
+function CalendarSection() {
+  const [connected, setConnected] = React.useState(false);
+  const [account] = React.useState('sijie@gmail.com');
+  const [cal, setCal] = React.useState('sijie@gmail.com');
+  const [lead, setLead] = React.useState('1d');
+  const [buf, setBuf] = React.useState(15);
+  const [maxPerWeek, setMaxPerWeek] = React.useState(5);
+  const HOURS = ['9','10','11','12','13','14','15','16','17'];
+  const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+  const [grid, setGrid] = React.useState(() => {
+    const g = {};
+    DAYS.forEach((d,di) => HOURS.forEach((h) => { g[d+'-'+h] = (di < 5 && +h >= 10 && +h <= 16); }));
+    return g;
+  });
+  if (!connected) {
+    return (
+      <Section kicker="integrations · scheduling" title="calendar" action={<span className="mono" style={{ fontSize:10.5, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--faint)' }}>○ not connected</span>}>
+        <article className="ad-card">
+          <h3 style={{ fontFamily:"'Newsreader',serif", fontSize:20, fontWeight:500, margin:'0 0 8px' }}>Google Calendar</h3>
+          <p className="reading" style={{ fontSize:14.5, color:'var(--muted)', margin:'0 0 16px', maxWidth:'46em' }}>
+            Visitors holding a booking-enabled code can put time on your calendar through the chat agent — never email back-and-forth. The agent reads availability (read-only) before offering slots; writes a confirmed event when the visitor picks one.
+          </p>
+          <Btn kind="solid" onClick={()=>setConnected(true)}>connect google ↗</Btn>
+        </article>
+      </Section>
+    );
+  }
+  return (
+    <Section kicker="integrations · scheduling" title="calendar" action={<span className="mono" style={{ fontSize:10.5, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--accent)' }}>● connected</span>}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <article className="ad-card" style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:14 }}>
+          <div>
+            <div className="mono" style={{ fontSize:10, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--muted)' }}>account</div>
+            <div style={{ fontFamily:"'Newsreader',serif", fontSize:17, marginTop:4 }}>{account}</div>
+            <div className="mono" style={{ fontSize:10, color:'var(--faint)', marginTop:2 }}>last sync · 4 min ago</div>
+          </div>
+          <Btn size="sm" kind="ghost" onClick={()=>setConnected(false)}>disconnect</Btn>
+        </article>
+        <article className="ad-card">
+          <Field label="which calendar to sync">
+            <select value={cal} onChange={(e)=>setCal(e.target.value)} className="sm-field-input sm-mono" style={{ padding:'6px 0', fontSize:13 }}>
+              <option>sijie@gmail.com</option>
+              <option>lucerna-team@google.com</option>
+              <option>personal-events</option>
+            </select>
+          </Field>
+        </article>
+        <article className="ad-card">
+          <div className="mono" style={{ fontSize:10, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--muted)', marginBottom:8 }}>availability · working hours</div>
+          <div style={{ display:'grid', gridTemplateColumns:'40px repeat(7, 1fr)', gap:2, fontFamily:"'JetBrains Mono',monospace", fontSize:9.5 }}>
+            <span></span>
+            {DAYS.map((d)=><div key={d} style={{ textAlign:'center', color:'var(--muted)', letterSpacing:'0.06em', textTransform:'uppercase' }}>{d}</div>)}
+            {HOURS.map((h) => (
+              <React.Fragment key={h}>
+                <div style={{ color:'var(--faint)', textAlign:'right', paddingRight:4 }}>{h}</div>
+                {DAYS.map((d) => {
+                  const k = d+'-'+h; const on = grid[k];
+                  return <button key={k} onClick={()=>setGrid((g)=>({...g,[k]:!g[k]}))}
+                    style={{ height:22, background: on ? 'var(--ink)' : 'transparent', border:'1px solid var(--rule)', cursor:'pointer' }} />;
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginTop:14, paddingTop:12, borderTop:'1px solid color-mix(in oklab, var(--rule) 60%, transparent)' }}>
+            <Field label="buffer · min">
+              <Input mono value={String(buf)} onChange={(e)=>setBuf(+e.target.value||0)} />
+            </Field>
+            <Field label="min lead time">
+              <select value={lead} onChange={(e)=>setLead(e.target.value)} className="sm-field-input sm-mono" style={{ padding:'6px 0', fontSize:13 }}>
+                <option value="4h">4 hours</option><option value="1d">1 day</option><option value="3d">3 days</option>
+              </select>
+            </Field>
+            <Field label="max per week"><Input mono value={String(maxPerWeek)} onChange={(e)=>setMaxPerWeek(+e.target.value||0)} /></Field>
+          </div>
+        </article>
+      </div>
+    </Section>
   );
 }
 
@@ -1200,8 +1485,15 @@ function PreviewSection() {
               <p style={{ fontFamily: "'Newsreader',serif", fontSize: 17, color: 'var(--ink)', marginTop: 16, lineHeight: 1.55 }}>
                 Welcome. You've come in on <span style={{ color: 'var(--accent)' }}>{code.label}</span>.
                 I'm scoped to: {code.scope.join(', ')}. Private topics from {code.excluded.join(' / ')} stay redacted.
-                Ask anything in scope.
               </p>
+              {code.opener && (
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--rule)' }}>
+                  <SmallCaps>your opening note · ai speaks first</SmallCaps>
+                  <p style={{ fontFamily: "'Newsreader',serif", fontStyle: 'italic', fontSize: 16, color: 'var(--ink)', marginTop: 6, lineHeight: 1.5 }}>
+                    {code.opener}
+                  </p>
+                </div>
+              )}
               <div style={{ marginTop: 20 }}>
                 <SmallCaps>suggested by you</SmallCaps>
                 <ul style={{ listStyle: 'none', padding: 0, margin: '6px 0 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1393,8 +1685,15 @@ function ListingsSection() {
                 }}>● {j.status}</span>
               </td>
               <td style={{ textAlign: 'right' }}>
-                {j.status === 'shortlist' && <Btn kind="solid" size="sm">draft resume →</Btn>}
-                {j.status === 'applied' && <Btn kind="ghost" size="sm">view application</Btn>}
+                {j.status === 'shortlist' && <Btn kind="solid" size="sm" onClick={() => {
+                  // find or seed a draft for this job, then jump to the composer
+                  const existing = RESUME_DRAFTS.find(d => d.for_job === j.id);
+                  const seed = existing || { id: 'rd-' + Date.now(), for_job: j.id, company: j.company, title: j.title, based_on: 'master', cover_letter: true, status: 'draft', delta: 'fresh from master · waiting on your edits', updated: 'just now', confidence: 0.5 };
+                  if (!existing) RESUME_DRAFTS.unshift(seed);
+                  window.__openDraftId = seed.id;
+                  window.dispatchEvent(new CustomEvent('sm-jump', { detail: { section: 'drafts' } }));
+                }}>draft resume →</Btn>}
+                {j.status === 'applied' && <Btn kind="ghost" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('sm-jump', { detail: { section: 'applications' } }))}>view application</Btn>}
                 {(j.status === 'considering' || j.status === 'pass') && <Btn kind="outline" size="sm">shortlist</Btn>}
               </td>
             </tr>
@@ -1415,6 +1714,15 @@ function buildDraftModel(d) {
     company: d.company, role: d.title, job_id: d.for_job, job: job,
     summary: 'Building Lucerna — retrieval substrate for personal corpora. Previously led retrieval-quality at Google Brain (top-1 38% → 71% in nine months on the 2023 product launch). I think the eval is the product; the model is the tax. Tailored for this loop on the rebuilt-eval story.',
     contact: { email: 'sijie@standmeet.com', location: 'Markham, Ontario', site: 'standmeet.com/sijie' },
+    social: [
+      { id:'s-1', kind:'linkedin', label:'linkedin', handle:'linkedin.com/in/sijie-wang' },
+      { id:'s-2', kind:'github',   label:'github',   handle:'github.com/sijiewang' },
+      { id:'s-3', kind:'twitter',  label:'twitter',  handle:'@sijiewang' },
+    ],
+    custom: [
+      { id:'c-1', label:'languages',  value:'English · Mandarin · learning German' },
+      { id:'c-2', label:'side',       value:'kafka in the original · 4y; modal logic; running 50km/wk' },
+    ],
     skills: ['retrieval / RAG','evaluation methodology','llm post-training','distributed systems','python / typescript / rust'],
     experience: [
       { id: 'e-1', org: 'Lucerna', role: 'founder · technical', range: '2024 — present', loc: 'Markham',
@@ -1461,6 +1769,8 @@ const COMPOSER_PANELS = [
   { id:'skills',     label:'skills' },
   { id:'experience', label:'experience' },
   { id:'education',  label:'education' },
+  { id:'social',     label:'social' },
+  { id:'custom',     label:'custom' },
   { id:'cover',      label:'cover letter' },
 ];
 
@@ -1623,6 +1933,41 @@ function ResumeComposer({ draft, onClose }) {
               </div>
             )}
 
+            {panel === 'social' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p className="reading" style={{ fontSize: 13.5, color: 'var(--muted)', margin: 0 }}>
+                  Public profiles the recruiter can verify. Order matters — top one is most prominent on the PDF.
+                </p>
+                {(model.social || []).map((s, i) => (
+                  <div key={s.id} className="ad-card" style={{ padding: 10, display: 'grid', gridTemplateColumns: '110px 1fr auto', gap: 8, alignItems: 'baseline' }}>
+                    <select value={s.kind} onChange={(ev) => set({ social: model.social.map((x) => x.id === s.id ? { ...x, kind: ev.target.value, label: ev.target.value } : x) })}
+                      className="sm-field-input sm-mono" style={{ padding: '4px 0', fontSize: 12 }}>
+                      {['linkedin','github','twitter','mastodon','bluesky','website','scholar','medium','substack','other'].map(k => <option key={k} value={k}>{k}</option>)}
+                    </select>
+                    <Input mono value={s.handle} onChange={(ev) => set({ social: model.social.map((x) => x.id === s.id ? { ...x, handle: ev.target.value } : x) })} placeholder="url or handle" />
+                    <button onClick={() => set({ social: model.social.filter((x) => x.id !== s.id) })} className="mono" style={{ background:'transparent', border:0, color:'var(--faint)', cursor:'pointer', padding:'6px 4px' }}>×</button>
+                  </div>
+                ))}
+                <Btn size="sm" kind="outline" onClick={() => set({ social: [...(model.social || []), { id: 's-' + Date.now(), kind: 'linkedin', label: 'linkedin', handle: '' }] })}>＋ add profile</Btn>
+              </div>
+            )}
+
+            {panel === 'custom' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p className="reading" style={{ fontSize: 13.5, color: 'var(--muted)', margin: 0 }}>
+                  Anything outside the standard fields — languages, certifications, sports, "I read Kafka in German." Renders in the left rail under skills.
+                </p>
+                {(model.custom || []).map((c) => (
+                  <div key={c.id} className="ad-card" style={{ padding: 10, display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: 8, alignItems: 'baseline' }}>
+                    <Input value={c.label} onChange={(ev) => set({ custom: model.custom.map((x) => x.id === c.id ? { ...x, label: ev.target.value } : x) })} placeholder="label" />
+                    <Input value={c.value} onChange={(ev) => set({ custom: model.custom.map((x) => x.id === c.id ? { ...x, value: ev.target.value } : x) })} placeholder="value" />
+                    <button onClick={() => set({ custom: model.custom.filter((x) => x.id !== c.id) })} className="mono" style={{ background:'transparent', border:0, color:'var(--faint)', cursor:'pointer', padding:'6px 4px' }}>×</button>
+                  </div>
+                ))}
+                <Btn size="sm" kind="outline" onClick={() => set({ custom: [...(model.custom || []), { id: 'c-' + Date.now(), label: '', value: '' }] })}>＋ add row</Btn>
+              </div>
+            )}
+
             {panel === 'cover' && (
               <div>
                 <Field label="cover letter" hint="markdown ok · rendered on page 2">
@@ -1637,22 +1982,25 @@ function ResumeComposer({ draft, onClose }) {
           </div>
         </div>
 
-        {/* RIGHT — preview */}
+        {/* RIGHT — preview · continuous vertical scroll, pages stacked */}
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, background: 'color-mix(in oklab, var(--surface) 40%, transparent)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', borderBottom: '1px solid var(--rule)' }}>
             <SmallCaps>preview · resume_{model.company.toLowerCase().replace(/\s+/g,'-')}.pdf</SmallCaps>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button onClick={() => setPgIdx((i) => Math.max(0, i - 1))} disabled={pgIdx === 0} className="mono" style={{ background: 'transparent', border: 0, color: pgIdx === 0 ? 'var(--faint)' : 'var(--muted)', cursor: pgIdx === 0 ? 'default' : 'pointer', fontSize: 14 }}>←</button>
-              <span className="mono" style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.06em' }}>{pgIdx + 1} / {pages}</span>
-              <button onClick={() => setPgIdx((i) => Math.min(pages - 1, i + 1))} disabled={pgIdx >= pages - 1} className="mono" style={{ background: 'transparent', border: 0, color: pgIdx >= pages - 1 ? 'var(--faint)' : 'var(--muted)', cursor: pgIdx >= pages - 1 ? 'default' : 'pointer', fontSize: 14 }}>→</button>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.06em' }}>{pages} {pages === 1 ? 'page' : 'pages'}</span>
               <span style={{ color: 'var(--faint)' }}>·</span>
               <button onClick={() => setZoom((z) => Math.max(0.4, z - 0.1))} className="mono" style={{ background: 'transparent', border: 0, color: 'var(--muted)', cursor: 'pointer', fontSize: 12 }}>−</button>
               <span className="mono" style={{ fontSize: 10, color: 'var(--muted)', tabularNums: true, minWidth: 32, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
               <button onClick={() => setZoom((z) => Math.min(1.2, z + 0.1))} className="mono" style={{ background: 'transparent', border: 0, color: 'var(--muted)', cursor: 'pointer', fontSize: 12 }}>+</button>
             </div>
           </div>
-          <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '24px 0' }}>
-            <ResumePage model={model} pageIndex={pgIdx} zoom={zoom} />
+          <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '24px 0' }}>
+            {Array.from({ length: pages }).map((_, i) => (
+              <div key={i} style={{ position: 'relative' }}>
+                <ResumePage model={model} pageIndex={i} zoom={zoom} />
+                <span className="mono" style={{ position: 'absolute', top: -16, right: 0, fontSize: 9, color: 'var(--faint)', letterSpacing: '0.1em' }}>{i + 1} / {pages}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1680,81 +2028,323 @@ function ResumeComposer({ draft, onClose }) {
 }
 
 function ResumePage({ model, pageIndex, zoom }) {
-  // canvas-style page so the preview looks like a PDF, scaled with zoom
-  const W = 612; // 8.5 * 72
-  const H = 792; // 11 * 72
-  return (
+  /* Editorial-grade resume layout. Two-column page · 8.5×11 · all measurements
+   * pegged to the 72dpi PDF grid. Type uses the same Newsreader / JetBrains
+   * Mono pair as the rest of StandMeet but tightened for print — so when you
+   * hand a recruiter the PDF, it reads like a designed object, not a SaaS
+   * export.
+   *
+   * Visual anatomy (page 1):
+   *   ┌─────────────────────────────────────────────────────────────┐
+   *   │  sijie wang.        STAFF SOFTWARE ENGINEER · APPLIED   ▣  │  ← header strip
+   *   │  one-line · email · location · site                         │
+   *   │  ───────────────────────────────────────────────────────    │  ← hairline
+   *   │  SUMMARY                                                    │
+   *   │  serif body…                                                │
+   *   │  ───────────────────────────────────────────────────────    │
+   *   │  ┌─ left rail ─┐  ┌─ main column ──────────────────────┐    │
+   *   │  │ skills      │  │ experience                          │    │
+   *   │  │  · retrieval│  │  Lucerna · founder · technical      │    │
+   *   │  │  · eval     │  │   ─ bullet                          │    │
+   *   │  │             │  │  Google Brain · research engineer   │    │
+   *   │  │ education   │  │   ─ bullet                          │    │
+   *   │  │  Stanford   │  │                                     │    │
+   *   │  │  Tsinghua   │  │                                     │    │
+   *   │  └─────────────┘  └─────────────────────────────────────┘    │
+   *   │  ────────────                                                │
+   *   │  scan to talk to me        standmeet.com/sijie?c=…  · pg 1/2 │  ← footer
+   *   └─────────────────────────────────────────────────────────────┘
+   *
+   * Color palette is the StandMeet ink-on-paper subset — no full vermillion
+   * on print (would look like a complaint stamp); accent is reserved for the
+   * trailing period after the name and the QR card border. Everything else
+   * is ink / muted / faint.
+   */
+
+  const W = 612, H = 792;  // 8.5 × 11 at 72dpi
+  const MARGIN = 48;
+
+  // print-palette · slightly desaturated so it photocopies clean
+  const INK    = '#1B1814';
+  const MUTED  = '#5F564B';
+  const FAINT  = '#9B9282';
+  const RULE   = '#D7CEB9';
+  const PAPER  = '#FAF7EF';
+  const ACCENT = '#9B3018';
+
+  // shared label style — small mono caps, used for section headers
+  const LABEL = {
+    fontFamily: "'JetBrains Mono',monospace",
+    fontSize: 7.5,
+    letterSpacing: '0.22em',
+    textTransform: 'uppercase',
+    color: MUTED,
+    fontWeight: 500,
+  };
+
+  // shared body styles · tuned to real print scale (≈10pt body, one-page-safe)
+  const BODY  = { fontSize: 9.5, lineHeight: 1.45, color: INK, fontWeight: 400 };
+  const META  = { fontFamily: "'JetBrains Mono',monospace", fontSize: 8.5, letterSpacing: '0.04em', color: MUTED };
+
+  // page chrome wrapper
+  const page = (children) => (
     <div style={{
-      width:  W * zoom, height: H * zoom,
-      background: 'white',
-      boxShadow: '0 24px 60px rgba(0,0,0,0.12), 0 1px 0 var(--rule)',
+      width: W * zoom, height: H * zoom,
+      background: PAPER,
+      boxShadow: '0 24px 60px rgba(0,0,0,0.14), 0 1px 0 var(--rule)',
+      position: 'relative', overflow: 'hidden',
       transformOrigin: 'top center',
-      color: '#1B1814',
-      fontFamily: "'Newsreader',serif",
-      position: 'relative',
-      overflow: 'hidden',
     }}>
-      <div style={{ transform: 'scale(' + zoom + ')', transformOrigin: 'top left', width: W, height: H, padding: '48px 52px', boxSizing: 'border-box' }}>
-        {pageIndex === 0 && (
-          <>
-            <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.018em', lineHeight: 1, margin: 0 }}>sijie wang</h1>
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9.5, color: '#7A7167', letterSpacing: '0.06em', marginTop: 4 }}>
-              {model.contact.email} · {model.contact.location} · {model.contact.site}
-            </div>
-            <hr style={{ border: 0, borderTop: '1px solid #DCD3BF', margin: '14px 0' }} />
-
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#7A7167', marginBottom: 6 }}>summary</div>
-            <p style={{ fontSize: 11.5, lineHeight: 1.5, margin: 0 }}>{model.summary}</p>
-
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#7A7167', marginTop: 16, marginBottom: 6 }}>experience</div>
-            {model.experience.slice(0, 2).map((e) => (
-              <div key={e.id} style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <div>
-                    <span style={{ fontWeight: 500, fontSize: 12 }}>{e.org}</span>
-                    <span style={{ color: '#7A7167', fontSize: 11 }}> · {e.role}</span>
-                  </div>
-                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#7A7167' }}>{e.range} · {e.loc}</div>
-                </div>
-                <ul style={{ marginTop: 4, paddingLeft: 14, fontSize: 10.5, lineHeight: 1.45 }}>
-                  {e.bullets.filter(Boolean).map((b, i) => <li key={i} style={{ marginBottom: 3 }}>{b}</li>)}
-                </ul>
-              </div>
-            ))}
-
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#7A7167', marginTop: 14, marginBottom: 6 }}>education</div>
-            {model.education.map((e) => (
-              <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, marginBottom: 3 }}>
-                <span><span style={{ fontWeight: 500 }}>{e.school}</span> · {e.degree}</span>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#7A7167' }}>{e.range}</span>
-              </div>
-            ))}
-
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#7A7167', marginTop: 14, marginBottom: 6 }}>skills</div>
-            <div style={{ fontSize: 10.5, lineHeight: 1.5 }}>{model.skills.join(' · ')}</div>
-
-            <div style={{ position: 'absolute', bottom: 20, right: 36, fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: '#B0A89A' }}>1 / 2</div>
-          </>
-        )}
-
-        {pageIndex === 1 && (
-          <>
-            <h1 style={{ fontSize: 22, fontWeight: 500, letterSpacing: '-0.018em', lineHeight: 1, margin: 0 }}>cover letter</h1>
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9.5, color: '#7A7167', letterSpacing: '0.06em', marginTop: 4 }}>
-              to · {model.company} · {model.role}
-            </div>
-            <hr style={{ border: 0, borderTop: '1px solid #DCD3BF', margin: '14px 0' }} />
-            <div style={{ fontSize: 11.5, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{model.cover_letter}</div>
-            <div style={{ position: 'absolute', bottom: 20, right: 36, fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: '#B0A89A' }}>2 / 2</div>
-          </>
-        )}
-      </div>
+      <div style={{
+        transform: 'scale(' + zoom + ')',
+        transformOrigin: 'top left',
+        width: W, height: H,
+        padding: MARGIN + 'px ' + (MARGIN + 4) + 'px',
+        boxSizing: 'border-box',
+        fontFamily: "'Newsreader',serif",
+        color: INK,
+        position: 'relative',
+      }}>{children}</div>
     </div>
+  );
+
+  // QR card — links visitors to the per-application page where they can chat
+  // with the AI (carrying the code that this application was sent with).
+  const qrUrl = 'https://standmeet.com/sijie?c=' + (model.company || 'X').slice(0,4).toUpperCase() + '-PDF';
+  const qrCard = (
+    <div style={{
+      width: 78, height: 78,
+      border: '1px solid ' + ACCENT,
+      borderRadius: 1,
+      padding: 4,
+      background: PAPER,
+      position: 'relative',
+      flexShrink: 0,
+    }}>
+      <SM.QRCode value={qrUrl} size={68} />
+    </div>
+  );
+
+  // section header · "── LABEL ──"
+  const SectionHead = ({ children, mt = 18, mb = 8 }) => (
+    <div style={{ marginTop: mt, marginBottom: mb, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ flex: '0 0 16px', height: 1, background: RULE }} />
+      <span style={LABEL}>{children}</span>
+      <span style={{ flex: 1, height: 1, background: RULE }} />
+    </div>
+  );
+
+  if (pageIndex === 0) {
+    return page(
+      <>
+        {/* ── header strip ───────────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{
+              fontSize: 27,
+              fontWeight: 500,
+              letterSpacing: '-0.024em',
+              lineHeight: 0.96,
+              margin: 0,
+            }}>
+              sijie wang<span style={{ color: ACCENT }}>.</span>
+            </h1>
+            <div style={{
+              fontFamily: "'JetBrains Mono',monospace",
+              fontSize: 9,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: MUTED,
+              marginTop: 8,
+            }}>
+              {model.role || 'role'} <span style={{ color: FAINT, margin: '0 8px' }}>·</span>
+              for <span style={{ color: INK }}>{model.company || 'company'}</span>
+            </div>
+            <div style={{ ...META, marginTop: 10, lineHeight: 1.6 }}>
+              {model.contact.email}
+              <span style={{ color: FAINT, margin: '0 6px' }}>·</span>
+              {model.contact.location}
+              <span style={{ color: FAINT, margin: '0 6px' }}>·</span>
+              <span style={{ color: INK }}>{model.contact.site}</span>
+            </div>
+            {model.social && model.social.length > 0 && (
+              <div style={{ ...META, marginTop: 5, lineHeight: 1.5, display: 'flex', flexWrap: 'wrap', gap: '0 12px' }}>
+                {model.social.filter(s => s.handle).map((s, i) => (
+                  <span key={s.id}>
+                    <span style={{ color: MUTED, marginRight: 4 }}>{s.label || s.kind}</span>
+                    <span style={{ color: INK }}>{s.handle.replace(/^https?:\/\//, '')}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          {qrCard}
+        </div>
+
+        {/* hairline */}
+        <div style={{ height: 1, background: RULE, marginTop: 20 }} />
+
+        {/* ── summary ────────────────────────────────────────────── */}
+        <SectionHead mt={18}>summary</SectionHead>
+        <p style={{ ...BODY, margin: 0, maxWidth: '46em', textWrap: 'pretty' }}>{model.summary}</p>
+
+        {/* ── two-column body ────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '142px 1fr', gap: 24, marginTop: 22 }}>
+
+          {/* LEFT RAIL · skills + education */}
+          <div>
+            <div style={LABEL}>skills</div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {model.skills.map((s, i) => (
+                <li key={i} style={{ fontSize: 9.5, lineHeight: 1.4, color: INK }}>
+                  <span style={{ color: FAINT, marginRight: 4 }}>·</span>{s}
+                </li>
+              ))}
+            </ul>
+
+            <div style={{ ...LABEL, marginTop: 18 }}>education</div>
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {model.education.map((e) => (
+                <div key={e.id}>
+                  <div style={{ fontSize: 10.5, fontWeight: 500, color: INK, lineHeight: 1.25 }}>{e.school}</div>
+                  <div style={{ fontSize: 9, color: MUTED, lineHeight: 1.4, marginTop: 1 }}>{e.degree}</div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7.5, color: FAINT, letterSpacing: '0.06em', marginTop: 1 }}>{e.range}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* small selling line · pulls visitors to chat */}
+            <div style={{ ...LABEL, marginTop: 18 }}>also</div>
+            <div style={{ fontSize: 9.5, color: INK, lineHeight: 1.5, marginTop: 6 }}>
+              The QR is a live chat with my AI · grounded in my corpus · scoped for {model.company || 'this conversation'}.
+            </div>
+
+            {model.custom && model.custom.length > 0 && (
+              <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {model.custom.filter((c) => c.label && c.value).map((c) => (
+                  <div key={c.id}>
+                    <div style={LABEL}>{c.label}</div>
+                    <div style={{ fontSize: 9.5, color: INK, lineHeight: 1.45, marginTop: 4 }}>{c.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* MAIN · experience */}
+          <div style={{ borderLeft: '1px solid ' + RULE, paddingLeft: 24 }}>
+            <div style={LABEL}>experience</div>
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {model.experience.slice(0, 2).map((e) => (
+                <div key={e.id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: 11.5, letterSpacing: '-0.008em' }}>{e.org}</span>
+                      <span style={{ color: MUTED, fontSize: 10 }}> · {e.role}</span>
+                    </div>
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: FAINT, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                      {e.range} <span style={{ color: RULE, margin: '0 4px' }}>·</span> {e.loc}
+                    </div>
+                  </div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: '5px 0 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {e.bullets.filter(Boolean).map((b, i) => (
+                      <li key={i} style={{ fontSize: 9.5, lineHeight: 1.45, color: INK, display: 'flex', gap: 7 }}>
+                        <span style={{ color: ACCENT, flexShrink: 0, marginTop: 1, lineHeight: 1.3 }}>—</span>
+                        <span style={{ flex: 1 }}>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── footer ─────────────────────────────────────────────── */}
+        <div style={{
+          position: 'absolute', left: MARGIN, right: MARGIN + 4, bottom: 20,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+          paddingTop: 6, borderTop: '1px solid ' + RULE,
+        }}>
+          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7.5, color: FAINT, letterSpacing: '0.08em', lineHeight: 1.6 }}>
+            <div style={{ color: MUTED }}>scan or visit · {qrUrl.replace(/^https:\/\//, '')}</div>
+            <div>this resume is a snapshot · sent {new Date().toISOString().slice(0,10)}</div>
+          </div>
+          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: FAINT, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            page 1 / 2
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  /* ── page 2 · cover letter, designed like an actual letter ───── */
+  return page(
+    <>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}>
+        <div>
+          <div style={LABEL}>letter</div>
+          <h1 style={{ fontSize: 26, fontWeight: 400, letterSpacing: '-0.022em', lineHeight: 1, margin: '6px 0 0' }}>
+            To {model.company}<span style={{ color: ACCENT }}>.</span>
+          </h1>
+          <div style={{ ...META, marginTop: 10 }}>
+            re · <span style={{ color: INK }}>{model.role}</span>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={META}>{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+          <div style={{ ...META, marginTop: 2 }}>Markham, Ontario</div>
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: RULE, marginTop: 20 }} />
+
+      <div style={{
+        marginTop: 24,
+        fontSize: 10.5,
+        lineHeight: 1.6,
+        whiteSpace: 'pre-wrap',
+        maxWidth: '38em',
+        textWrap: 'pretty',
+        hangingPunctuation: 'first allow-end',
+      }}>
+        {model.cover_letter}
+      </div>
+
+      {/* signature block */}
+      <div style={{ marginTop: 28, maxWidth: '38em' }}>
+        <div style={{ fontSize: 11.5, color: INK, marginBottom: 6 }}>— Sijie</div>
+        <div style={{ ...META, fontSize: 8 }}>
+          continue the conversation · {qrUrl.replace(/^https:\/\//, '')}
+        </div>
+      </div>
+
+      <div style={{
+        position: 'absolute', left: MARGIN, right: MARGIN + 4, bottom: 20,
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+        paddingTop: 6, borderTop: '1px solid ' + RULE,
+      }}>
+        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7.5, color: FAINT, letterSpacing: '0.08em' }}>
+          sijie wang · {model.contact.email}
+        </div>
+        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: FAINT, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+          page 2 / 2
+        </div>
+      </div>
+    </>
   );
 }
 
 function DraftsSection() {
   const [openDraft, setOpenDraft] = React.useState(null);
+  // honor window.__openDraftId set by ListingsSection — open that composer on mount
+  React.useEffect(() => {
+    const id = window.__openDraftId;
+    if (!id) return;
+    const d = RESUME_DRAFTS.find(x => x.id === id);
+    if (d) setOpenDraft(d);
+    window.__openDraftId = null;
+  }, []);
   return (
     <Section kicker="jobs · resume drafts" title="drafts" count={RESUME_DRAFTS.length} action={<Btn kind="outline">master resume ↗</Btn>}>
       <p className="reading" style={{ fontSize: 14.5, color: 'var(--muted)', marginBottom: 24, maxWidth: '54em' }}>
@@ -1789,31 +2379,6 @@ function DraftCard({ d, onOpen }) {
           {d.status === 'reviewing' && <><Btn kind="solid" size="sm" onClick={onOpen}>open composer →</Btn><Btn kind="outline" size="sm" onClick={onOpen}>edit</Btn><Btn kind="ghost" size="sm">regenerate</Btn></>}
           {d.status === 'draft' && <><Btn kind="outline" size="sm" onClick={onOpen}>finish drafting →</Btn><Btn kind="ghost" size="sm">discard</Btn></>}
           {d.status === 'sent' && <><Btn kind="ghost" size="sm">view application</Btn><Btn kind="outline" size="sm" onClick={onOpen}>view pdf</Btn></>}
-        </div>
-      </div>
-      {/* preview */}
-      <div style={{
-        background: 'var(--paper)',
-        border: '1px solid var(--rule)',
-        borderRadius: 3,
-        padding: 12,
-        height: 220,
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        <div style={{ fontFamily: "'Newsreader',serif", fontSize: 14, fontWeight: 500, lineHeight: 1.05, letterSpacing: '-0.01em' }}>sijie wang</div>
-        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7.5, letterSpacing: '0.06em', color: 'var(--muted)', marginTop: 2 }}>Markham · sijie@standmeet.com</div>
-        <div style={{ borderTop: '1px solid var(--rule)', margin: '10px 0' }}></div>
-        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 6.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>experience</div>
-        <div style={{ marginTop: 4, fontSize: 7.5, fontFamily: "'Newsreader',serif", lineHeight: 1.35 }}>
-          <div style={{ fontWeight: 500 }}>Lucerna · founder</div>
-          <div style={{ color: 'var(--muted)' }}>retrieval substrate</div>
-          <div style={{ marginTop: 4, fontWeight: 500 }}>Google Brain · research eng</div>
-          <div style={{ color: 'var(--muted)' }}>retrieval quality lead · 71% top-1</div>
-        </div>
-        <div style={{ position: 'absolute', bottom: 8, left: 12, right: 12, fontFamily: "'JetBrains Mono',monospace", fontSize: 7, color: 'var(--faint)', display: 'flex', justifyContent: 'space-between' }}>
-          <span>resume_{d.company.toLowerCase()}.pdf</span>
-          <span>1 / 2</span>
         </div>
       </div>
     </div>
@@ -2191,7 +2756,7 @@ function ApiSection() {
       "args": ["-y", "@standmeet/mcp-client@latest"],
       "env": {
         "STANDMEET_HOST": "${baseUrl}",
-        "STANDMEET_API_KEY": "${API_TOKENS[0].secret}"
+        "STANDMEET_KEY_PATH": "~/.standmeet/key.pem"
       }
     }
   }
@@ -2202,12 +2767,12 @@ function ApiSection() {
     "args": ["-y", "@standmeet/mcp-client@latest"],
     "env": {
       "STANDMEET_HOST": "${baseUrl}",
-      "STANDMEET_API_KEY": "${API_TOKENS[0].secret}"
+      "STANDMEET_KEY_PATH": "~/.standmeet/key.pem"
     }
   }
 }`,
     'http': `curl -X POST ${baseUrl}/raw \\
-  -H "authorization: Bearer ${API_TOKENS[0].secret}" \\
+  -H "authorization: Bearer $(standmeet-mcp sign-token)" \\
   -H "content-type: application/json" \\
   -d '{ "source":"claude", "body":"…", "tags":["thinking"] }'`,
   };
@@ -2218,25 +2783,8 @@ function ApiSection() {
         <Btn kind="solid">＋ new token</Btn>
       </div>
     }>
-      <div style={{ marginBottom: 28 }}>
-        <GroupHeader title="api tokens" />
-        {API_TOKENS.map(t => (
-          <div key={t.id} className="ad-card" style={{ marginBottom: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-              <div>
-                <div style={{ fontFamily: "'Newsreader',serif", fontSize: 17, fontWeight: 500 }}>{t.name}</div>
-                <div className="mono" style={{ fontSize: 10.5, color: 'var(--faint)', marginTop: 2 }}>
-                  created {t.created} · last used {t.last_used} · {t.uses_30d} calls last 30d
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {t.scopes.map(s => <Chip key={s}>{s}</Chip>)}
-              </div>
-            </div>
-            <MaskedSecret value={t.secret} revealed={secret} onReveal={() => setSecret(s => !s)} onCopy={() => navigator.clipboard?.writeText(t.secret)} />
-          </div>
-        ))}
-      </div>
+      <KeypairsPanel />
+      <div style={{ marginBottom: 28 }} />
       <Crosshair className="ad-card scan">
         <GroupHeader title="mcp setup" />
         <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
@@ -2255,6 +2803,64 @@ function ApiSection() {
         </div>
         <pre style={{ background: 'var(--paper)', border: '1px solid var(--rule)', padding: 14, fontFamily: "'JetBrains Mono',monospace", fontSize: 12.5, lineHeight: 1.55, overflowX: 'auto', color: 'var(--ink)', margin: 0 }}>{snippets[tab]}</pre>
       </Crosshair>
+
+      {/* what the owner can actually do from Claude Desktop · MCP is the control plane */}
+      <div style={{ marginTop: 24 }}>
+        <GroupHeader title="run it from claude desktop" />
+        <p className="reading" style={{ fontSize: 14.5, color: 'var(--muted)', marginBottom: 16, maxWidth: '56em' }}>
+          The web admin is the dashboard. The <span style={{ color: 'var(--ink)' }}>real</span> owner surface is
+          Claude Desktop — once the standmeet tool is connected, you run your whole corpus conversationally:
+          dump thoughts, curate, issue codes, read who came by, draft replies. You never have to open this panel
+          to operate. These are the tools the MCP server exposes:
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '18px 28px' }}>
+          {[
+            { group: 'capture', tools: [
+              ['push_thought', '"remember this —" drops a raw entry, tagged + sourced'],
+              ['attach_media', 'add an image / audio / file to the last entry or a new one'],
+              ['ingest_chat', 'hand the whole current Claude conversation in as source material'],
+            ]},
+            { group: 'curate', tools: [
+              ['review_inbox', '"what\u2019s unprocessed?" — lists raw, you triage by talking'],
+              ['promote_to_wiki', 'turn a raw dump into a clean wiki entry, AI drafts the rewrite'],
+              ['edit_entry', 'reword, retag, or change visibility of any entry'],
+              ['search_corpus', 'query your own corpus — the external-brain use case'],
+            ]},
+            { group: 'access', tools: [
+              ['issue_code', '"make a code for the Anthropic loop, scope work+thinking, 50 turns, booking on"'],
+              ['set_opener', 'write the AI\u2019s opening note for a code'],
+              ['read_conversations', '"who came by this week + what did they ask?"'],
+            ]},
+            { group: 'act', tools: [
+              ['draft_reply', 'draft a reply to an access request / ping in your voice'],
+              ['publish_output', 'assemble a wiki slice into an /output PDF or page'],
+              ['tailor_resume', '"draft a resume for this JD off my master" — opens a draft'],
+            ]},
+          ].map((g) => (
+            <div key={g.group}>
+              <div className="mono" style={{ fontSize: 9.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8 }}>── {g.group}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {g.tools.map(([name, desc]) => (
+                  <div key={name} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                    <span className="mono" style={{ fontSize: 11.5, color: 'var(--ink)', flexShrink: 0, letterSpacing: '0.01em' }}>{name}</span>
+                    <span className="reading" style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.4 }}>{desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <Crosshair className="ad-card" style={{ marginTop: 18, background: 'color-mix(in oklab, var(--surface) 50%, transparent)' }}>
+          <SmallCaps>example · a morning in claude desktop</SmallCaps>
+          <div className="mono" style={{ fontSize: 12, lineHeight: 1.85, color: 'var(--muted)', marginTop: 8 }}>
+            <div><span style={{ color: 'var(--accent)' }}>you ›</span> remember: the eval is the product, the model is the tax. tag it thinking + lucerna.</div>
+            <div><span style={{ color: 'var(--violet)' }}>standmeet ›</span> pushed r-304. want me to promote it to the wiki?</div>
+            <div><span style={{ color: 'var(--accent)' }}>you ›</span> yes, and who came by yesterday?</div>
+            <div><span style={{ color: 'var(--violet)' }}>standmeet ›</span> 2 sessions — David Chen (OAEN-3K2, 11 turns, asked about eval) and an a16z partner who hit a private topic. draft a reply to the partner?</div>
+          </div>
+        </Crosshair>
+      </div>
+
       <div style={{ marginTop: 24 }}>
         <GroupHeader title="install · mcp client" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10 }}>
@@ -2274,6 +2880,320 @@ function ApiSection() {
           ))}
         </div>
       </div>
+    </Section>
+  );
+}
+
+/* ── obsidian sync ───────────────────────────────────────────── */
+
+function AgentSkillsSection() {
+  // a registry of capabilities the AI can invoke. Toggleable, scoped per code,
+  // owner-approval-gated where noted. Mirrors the connector-registry pattern so
+  // new skills are append-only.
+  const SKILLS = [
+    { id:'calendar.book',  name:'Book a meeting',        cat:'reach',  on:true,  gate:'auto',
+      blurb:'Offer open calendar slots and write the booking. Per-code toggle in codes.',
+      needs:['Calendar'], runs_30d: 14 },
+    { id:'intro.broker',   name:'Broker an intro',       cat:'reach',  on:true,  gate:'owner',
+      blurb:'When a visitor asks to be connected, file an intro request to your inbox. You approve before anything sends.',
+      needs:['Email'], runs_30d: 3 },
+    { id:'doc.release',    name:'Request a gated doc',   cat:'reach',  on:true,  gate:'owner',
+      blurb:'Instead of hard-refusing private content, file a release request you can grant per-visitor.',
+      needs:[], runs_30d: 6 },
+    { id:'topic.subscribe',name:'Topic subscribe',       cat:'reach',  on:true,  gate:'auto',
+      blurb:'Capture an email tied to a topic ("ping me when you write on retrieval").',
+      needs:['Email'], runs_30d: 11 },
+    { id:'bundle.send',    name:'Send a follow-up bundle',cat:'reach', on:false, gate:'auto',
+      blurb:'At end of a conversation, email the visitor the entries discussed + a transcript.',
+      needs:['Email'], runs_30d: 0 },
+    { id:'research.trace', name:'Show research trace',   cat:'answer', on:true,  gate:'auto',
+      blurb:'Surface a visible retrieve → rank → synthesize trace when answering hard questions.',
+      needs:[], runs_30d: 88 },
+    { id:'artifact.make',  name:'Make an artifact',      cat:'answer', on:false, gate:'owner',
+      blurb:'Assemble a one-pager / PDF from corpus entries on request, into outputs as a draft.',
+      needs:[], runs_30d: 0 },
+    { id:'memory.cross',   name:'Cross-surface memory',  cat:'answer', on:true,  gate:'auto',
+      blurb:'Remember what a visitor read on /wiki or /blog when they land in chat (session-scoped).',
+      needs:[], runs_30d: 41 },
+    { id:'reply.draft',    name:'Draft replies in my voice', cat:'owner', on:true, gate:'owner',
+      blurb:'In your admin, draft replies to access requests / pings in your voice. You edit + send.',
+      needs:['Email'], runs_30d: 9 },
+    { id:'week.summary',   name:'Weekly conversation digest', cat:'owner', on:true, gate:'auto',
+      blurb:'Summarize the week\u2019s visitor conversations and flag anyone worth a real reply.',
+      needs:[], runs_30d: 4 },
+  ];
+  const CATS = { reach:'visitor-reaching', answer:'answer-shaping', owner:'owner-side' };
+  const [skills, setSkills] = React.useState(SKILLS);
+  const [tab, setTab] = React.useState('installed'); // installed | marketplace
+  const [mq, setMq] = React.useState('');
+  const [mSource, setMSource] = React.useState('all'); // all | skillsmp | github
+  const [installing, setInstalling] = React.useState(null);
+  const toggle = (id) => setSkills((s) => s.map((x) => x.id === id ? { ...x, on: !x.on } : x));
+  const onCount = skills.filter((s) => s.on).length;
+
+  const connected = (CONNECTORS || []).filter((c) => c.connected).map((c) => c.name);
+  const grouped = Object.keys(CATS).map((cat) => ({ cat, items: skills.filter((s) => s.cat === cat) }));
+
+  // ── marketplace · aggregates two sources (SkillsMP API + GitHub anthropics/skills) ──
+  const MARKET = [
+    { id:'mp-1', name:'Negotiation coach', author:'anthropics', stars:412, version:'1.2.0', marketplace:'github',
+      category:'owner', blurb:'Reads an offer + your corpus, drafts a counter in your voice. SKILL.md · MIT.',
+      source_url:'github.com/anthropics/skills/negotiation-coach', needs:[] },
+    { id:'mp-2', name:'Reference checker', author:'skillsmp', stars:188, version:'0.4.1', marketplace:'skillsmp',
+      category:'reach', blurb:'Lets a vetted visitor request a reference; routes to your inbox for approval.',
+      source_url:'skillsmp.com/skills/reference-checker', needs:['Email'] },
+    { id:'mp-3', name:'Timezone-aware booking', author:'anthropics', stars:603, version:'2.0.0', marketplace:'github',
+      category:'reach', blurb:'Extends calendar.book with visitor-TZ detection + working-hours rules.',
+      source_url:'github.com/anthropics/skills/tz-booking', needs:['Calendar'] },
+    { id:'mp-4', name:'Salary-band lookup', author:'levels-fyi', stars:97, version:'0.9.0', marketplace:'skillsmp',
+      category:'answer', blurb:'Answers comp questions from public band data, never from your private numbers.',
+      source_url:'skillsmp.com/skills/salary-band', needs:[] },
+    { id:'mp-5', name:'Multilingual replies', author:'anthropics', stars:271, version:'1.0.3', marketplace:'github',
+      category:'answer', blurb:'Detects visitor language and answers in it, preserving your voice.',
+      source_url:'github.com/anthropics/skills/multilingual', needs:[] },
+    { id:'mp-6', name:'Portfolio walkthrough', author:'skillsmp', stars:64, version:'0.2.0', marketplace:'skillsmp',
+      category:'answer', blurb:'Guides a visitor through your projects as a narrated tour with embeds.',
+      source_url:'skillsmp.com/skills/portfolio-tour', needs:[] },
+  ];
+  const installedIds = new Set(skills.map((s) => s.mpId).filter(Boolean));
+  const marketResults = MARKET.filter((m) =>
+    (mSource === 'all' || m.marketplace === mSource) &&
+    (!mq || (m.name + ' ' + m.blurb + ' ' + m.author).toLowerCase().includes(mq.toLowerCase()))
+  );
+  const updates = skills.filter((s) => s.mpId && s.installed_version && s.latest_version && s.installed_version !== s.latest_version);
+
+  const install = (m) => {
+    setInstalling(m.id);
+    // simulate fetch + parse of SKILL.md frontmatter, then write a local copy
+    setTimeout(() => {
+      setSkills((s) => [...s, {
+        id: m.name.toLowerCase().replace(/[^a-z]+/g, '.'),
+        name: m.name, cat: m.category, on: false, gate: m.needs.includes('Email') ? 'owner' : 'auto',
+        blurb: m.blurb, needs: m.needs, runs_30d: 0,
+        mpId: m.id, marketplace: m.marketplace, source_url: m.source_url,
+        installed_version: m.version, latest_version: m.version,
+      }]);
+      setInstalling(null);
+      setTab('installed');
+    }, 900);
+  };
+
+  return (
+    <Section kicker="integrations · agent" title="agent skills" count={onCount + ' / ' + skills.length + ' on'} action={
+      <div style={{ display: 'flex', gap: 4 }}>
+        {[['installed','my skills'],['marketplace','marketplace']].map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} className="mono" style={{
+            fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase',
+            padding: '6px 12px', background: 'transparent', border: 0, cursor: 'pointer',
+            color: tab === id ? 'var(--ink)' : 'var(--muted)',
+            borderBottom: tab === id ? '1px solid var(--accent)' : '1px solid transparent',
+          }}>{label}{id === 'installed' && updates.length > 0 ? ' · ' + updates.length + ' upd' : ''}</button>
+        ))}
+      </div>
+    }>
+      {tab === 'marketplace' ? (
+        <div>
+          <p className="reading" style={{ fontSize: 14.5, color: 'var(--muted)', marginBottom: 18, maxWidth: '54em' }}>
+            Skills aggregate from two sources — the open <span style={{ color:'var(--ink)' }}>anthropics/skills</span> GitHub
+            repo (anyone can fork + PR) and <span style={{ color:'var(--ink)' }}>SkillsMP</span> (commercial channel).
+            Installing fetches the skill’s SKILL.md, parses its frontmatter, and writes a local copy you fully own —
+            edit the prompt or allowed-tools after, decoupled from the marketplace.
+          </p>
+
+          {/* search bar */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 220, display: 'flex', alignItems: 'baseline', gap: 10, borderBottom: '1px solid var(--rule)', paddingBottom: 6 }}>
+              <span className="mono" style={{ color: 'var(--faint)', fontSize: 13 }}>⌕</span>
+              <input value={mq} onChange={(e) => setMq(e.target.value)} placeholder="search skills…" className="sm-field-input" style={{ border: 0, padding: 0, fontSize: 16 }} />
+            </div>
+            <Segmented value={mSource} options={[{value:'all',label:'all'},{value:'github',label:'github'},{value:'skillsmp',label:'skillsmp'}]} onChange={setMSource} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12 }}>
+            {marketResults.map((m) => {
+              const isInstalled = installedIds.has(m.id);
+              const missing = (m.needs || []).filter((n) => !connected.includes(n));
+              return (
+                <article key={m.id} className="ad-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                      <h4 style={{ fontFamily: "'Newsreader',serif", fontSize: 17, fontWeight: 500, margin: 0 }}>{m.name}</h4>
+                      <span className="mono" style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: m.marketplace === 'github' ? 'var(--muted)' : 'var(--violet)' }}>
+                        {m.marketplace}
+                      </span>
+                    </div>
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--faint)' }}>★ {m.stars}</span>
+                  </div>
+                  <p className="reading" style={{ fontSize: 13.5, color: 'var(--muted)', margin: '0 0 10px' }}>{m.blurb}</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 8, borderTop: '1px solid color-mix(in oklab, var(--rule) 60%, transparent)' }}>
+                    <span className="mono" style={{ fontSize: 9.5, color: 'var(--faint)', letterSpacing: '0.04em' }}>{m.author} · v{m.version}</span>
+                    {isInstalled
+                      ? <span className="mono" style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>✓ installed</span>
+                      : <Btn size="sm" kind="solid" onClick={() => install(m)} disabled={installing === m.id}>{installing === m.id ? 'installing…' : 'install ↓'}</Btn>}
+                  </div>
+                  {missing.length > 0 && !isInstalled && (
+                    <div className="mono" style={{ fontSize: 9.5, color: 'var(--accent)', marginTop: 8, letterSpacing: '0.04em' }}>needs {missing.join(' + ')}</div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+          {marketResults.length === 0 && (
+            <Empty title="No skills match." blurb="Try a different term, or switch source. The GitHub repo and SkillsMP are queried in parallel." />
+          )}
+        </div>
+      ) : (
+        <div>
+          {updates.length > 0 && (
+            <Crosshair className="ad-card" style={{ marginBottom: 18, borderColor: 'var(--accent)' }}>
+              <SmallCaps>updates available</SmallCaps>
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {updates.map((s) => (
+                  <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontFamily: "'Newsreader',serif", fontSize: 15 }}>{s.name} <span className="mono" style={{ fontSize: 10, color: 'var(--faint)' }}>{s.installed_version} → {s.latest_version}</span></span>
+                    <Btn size="sm" kind="outline">update</Btn>
+                  </div>
+                ))}
+              </div>
+            </Crosshair>
+          )}
+          {grouped.map((g) => (
+            g.items.length > 0 &&
+            <div key={g.cat} style={{ marginBottom: 26 }}>
+              <GroupHeader title={CATS[g.cat]} count={g.items.filter((s)=>s.on).length} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12 }}>
+                {g.items.map((s) => {
+                  const missing = (s.needs || []).filter((n) => !connected.includes(n));
+                  const blocked = missing.length > 0;
+                  return (
+                    <article key={s.id} className="ad-card" style={{ opacity: s.on ? 1 : 0.62 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                          <h4 style={{ fontFamily: "'Newsreader',serif", fontSize: 17, fontWeight: 500, margin: 0 }}>{s.name}</h4>
+                          <span className="mono" style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: s.gate === 'owner' ? 'var(--violet)' : 'var(--muted)' }}>
+                            {s.gate === 'owner' ? 'owner-gated' : 'auto'}
+                          </span>
+                          {s.mpId && <span className="mono" style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--faint)' }}>· {s.marketplace}</span>}
+                        </div>
+                        <button
+                          onClick={() => toggle(s.id)}
+                          disabled={blocked && !s.on}
+                          className="mono"
+                          style={{
+                            fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+                            padding: '4px 9px', borderRadius: 2, cursor: blocked && !s.on ? 'not-allowed' : 'pointer',
+                            border: '1px solid ' + (s.on ? 'var(--ink)' : 'var(--rule)'),
+                            background: s.on ? 'var(--ink)' : 'transparent',
+                            color: s.on ? 'var(--paper)' : 'var(--muted)',
+                          }}>
+                          {s.on ? '● on' : '○ off'}
+                        </button>
+                      </div>
+                      <p className="reading" style={{ fontSize: 13.5, color: 'var(--muted)', margin: '0 0 10px' }}>{s.blurb}</p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 8, borderTop: '1px solid color-mix(in oklab, var(--rule) 60%, transparent)' }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                          <span className="mono" style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--faint)' }}>id · {s.id}</span>
+                          {(s.needs || []).map((n) => (
+                            <span key={n} className="mono" style={{ fontSize: 9, letterSpacing: '0.06em', color: missing.includes(n) ? 'var(--accent)' : 'var(--muted)' }}>
+                              {missing.includes(n) ? '✕ needs ' + n : '· ' + n}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="mono" style={{ fontSize: 9.5, color: 'var(--faint)', letterSpacing: '0.06em' }}>{s.runs_30d} runs / 30d</span>
+                      </div>
+                      {blocked && !s.on && (
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--accent)', marginTop: 8, letterSpacing: '0.04em' }}>
+                          connect {missing.join(' + ')} to enable
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+/* legacy single-view kept below for reference; superseded by tabbed version above */
+function AgentSkillsSectionLegacy() {
+  const SKILLS = [];
+  const CATS = { reach:'visitor-reaching', answer:'answer-shaping', owner:'owner-side' };
+  const [skills, setSkills] = React.useState(SKILLS);
+  const toggle = (id) => setSkills((s) => s.map((x) => x.id === id ? { ...x, on: !x.on } : x));
+  const onCount = skills.filter((s) => s.on).length;
+
+  const connected = (CONNECTORS || []).filter((c) => c.connected).map((c) => c.name);
+  const grouped = Object.keys(CATS).map((cat) => ({ cat, items: skills.filter((s) => s.cat === cat) }));
+
+  return (
+    <Section kicker="integrations · agent" title="agent skills" count={onCount + ' / ' + skills.length + ' on'} action={
+      <Btn kind="outline">＋ add skill</Btn>
+    }>
+      <p className="reading" style={{ fontSize: 14.5, color: 'var(--muted)', marginBottom: 22, maxWidth: '54em' }}>
+        Capabilities your AI can invoke mid-conversation. Like connectors, the registry is append-only —
+        each skill declares which connectors it needs and whether it runs automatically or waits for your
+        approval. <span style={{ color: 'var(--ink)' }}>auto</span> skills fire on their own;
+        <span style={{ color: 'var(--violet)' }}> owner-gated</span> skills queue a request for you first.
+        Nothing here ever auto-applies to jobs, DMs recruiters, or scores a visitor.
+      </p>
+
+      {grouped.map((g) => (
+        <div key={g.cat} style={{ marginBottom: 26 }}>
+          <GroupHeader title={CATS[g.cat]} count={g.items.filter((s)=>s.on).length} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12 }}>
+            {g.items.map((s) => {
+              const missing = (s.needs || []).filter((n) => !connected.includes(n));
+              const blocked = missing.length > 0;
+              return (
+                <article key={s.id} className="ad-card" style={{ opacity: s.on ? 1 : 0.62 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                      <h4 style={{ fontFamily: "'Newsreader',serif", fontSize: 17, fontWeight: 500, margin: 0 }}>{s.name}</h4>
+                      <span className="mono" style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: s.gate === 'owner' ? 'var(--violet)' : 'var(--muted)' }}>
+                        {s.gate === 'owner' ? 'owner-gated' : 'auto'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => toggle(s.id)}
+                      disabled={blocked && !s.on}
+                      className="mono"
+                      style={{
+                        fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
+                        padding: '4px 9px', borderRadius: 2, cursor: blocked && !s.on ? 'not-allowed' : 'pointer',
+                        border: '1px solid ' + (s.on ? 'var(--ink)' : 'var(--rule)'),
+                        background: s.on ? 'var(--ink)' : 'transparent',
+                        color: s.on ? 'var(--paper)' : 'var(--muted)',
+                      }}>
+                      {s.on ? '● on' : '○ off'}
+                    </button>
+                  </div>
+                  <p className="reading" style={{ fontSize: 13.5, color: 'var(--muted)', margin: '0 0 10px' }}>{s.blurb}</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 8, borderTop: '1px solid color-mix(in oklab, var(--rule) 60%, transparent)' }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                      <span className="mono" style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--faint)' }}>id · {s.id}</span>
+                      {(s.needs || []).map((n) => (
+                        <span key={n} className="mono" style={{ fontSize: 9, letterSpacing: '0.06em', color: missing.includes(n) ? 'var(--accent)' : 'var(--muted)' }}>
+                          {missing.includes(n) ? '✕ needs ' + n : '· ' + n}
+                        </span>
+                      ))}
+                    </div>
+                    <span className="mono" style={{ fontSize: 9.5, color: 'var(--faint)', letterSpacing: '0.06em' }}>{s.runs_30d} runs / 30d</span>
+                  </div>
+                  {blocked && !s.on && (
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--accent)', marginTop: 8, letterSpacing: '0.04em' }}>
+                      connect {missing.join(' + ')} to enable
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </Section>
   );
 }
@@ -2570,6 +3490,13 @@ function App() {
   const [section, setSection] = React.useState('dashboard');
   const [navOpen, setNavOpen] = React.useState(false);
 
+  // global jump: any descendant can dispatch sm-jump to switch section
+  React.useEffect(() => {
+    const onJump = (e) => { if (e.detail && e.detail.section) setSection(e.detail.section); };
+    window.addEventListener('sm-jump', onJump);
+    return () => window.removeEventListener('sm-jump', onJump);
+  }, []);
+
   const renderSection = () => {
     switch (section) {
       case 'dashboard':     return <DashboardSection onJump={setSection} />;
@@ -2580,6 +3507,8 @@ function App() {
       case 'pages':         return <PagesSection />;
       case 'conversations': return <ConversationsSection />;
       case 'codes':         return <CodesSection />;
+      case 'roles':         return <RolesSection />;
+      case 'prompts':       return <PromptsSection />;
       case 'requests':      return <RequestsSection />;
       case 'preview':       return <PreviewSection />;
       case 'sources':       return <SourcesSection />;
@@ -2588,8 +3517,10 @@ function App() {
       case 'applications':  return <ApplicationsSection />;
       case 'skills':        return <SkillsSection />;
       case 'connectors':    return <ConnectorsSection />;
+      case 'calendar':      return <CalendarSection />;
       case 'api':           return <ApiSection />;
       case 'obsidian':      return <ObsidianSection />;
+      case 'skills_agent':  return <AgentSkillsSection />;
       case 'page':          return <PageSection />;
       case 'seo':           return <SeoSection />;
       case 'account':       return <AccountSection />;

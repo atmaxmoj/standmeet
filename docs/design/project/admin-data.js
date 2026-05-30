@@ -85,23 +85,27 @@ const CODES = [
   { id:'k-1', code:'OAEN-3K2', label:'OpenAI eng loop',     purpose:'staff eng interview screening',
     members:[ {name:'David Chen',last:'12 min ago'},{name:'Sarah Park',last:'2 hours ago'},{name:'anonymous',last:'1 day ago',anon:true} ],
     scope:['thinking','work','career','lucerna'], excluded:['fundraising','private'],
+    opener:'Hi — you\u2019re here on the OpenAI eng loop, so I\u2019ll assume you want to know whether I\u2019d be a strong staff IC. Ask me anything, but if it helps: I think most of engineering is intention-translation, and I have strong opinions on eval. Where do you want to start?',
     suggested:['Walk me through your background.','What did you actually own at your last role?','How do you think about AI replacing engineers?','What\u2019s something you\u2019ve changed your mind about?'],
-    status:'active', expires:'in 18 days', uses:12, quota:50 },
+    status:'active', expires:'in 18 days', uses:12, quota:50, booking:{ enabled:true, duration:30, calendar:'Calendar', note:'30-min staff-IC chat' } },
   { id:'k-2', code:'A16Z-9V1', label:'a16z partner intro',  purpose:'first investor conversation',
     members:[ {name:'Mira Yoshida',last:'2 days ago'},{name:'James Liu',last:'3 days ago'} ],
     scope:['lucerna','thinking','product','strategy','eval'], excluded:['private','career'],
+    opener:'Welcome. Since you\u2019re an investor: the short version is Lucerna is retrieval infrastructure for personal corpora, and the moat is the eval, not the model. I won\u2019t talk numbers here, but I\u2019ll happily go deep on why this is a category. What\u2019s your first question?',
     suggested:['Why does Lucerna exist?','What\u2019s your moat?','Are you fundraising?','What have you actually shipped?'],
-    status:'active', expires:'in 4 days', uses:17, quota:30 },
+    status:'active', expires:'in 4 days', uses:17, quota:30, booking:{ enabled:true, duration:45, calendar:'Calendar', note:'45-min investor call' } },
   { id:'k-3', code:'STRA-5T8', label:'Stripe advisor chat', purpose:'advisor scoping call',
     members:[ {name:'Erin Bates',last:'6 days ago'} ],
     scope:['lucerna','thinking','work'], excluded:['private','fundraising'],
+    opener:'Hey — advisor scoping. I take one or two founders a quarter, retrieval/eval only, equity not cash. Tell me what you\u2019re building and what you\u2019d actually want from me.',
     suggested:['What kind of advising are you open to?'],
-    status:'active', expires:'in 22 days', uses:5, quota:20 },
+    status:'active', expires:'in 22 days', uses:5, quota:20, booking:{ enabled:false, duration:30, calendar:'Calendar', note:'' } },
   { id:'k-4', code:'PRES-2M4', label:'press · The Information', purpose:'one-time reporter prep',
     members:[ {name:'Ken Toda',last:'1 week ago'} ],
     scope:['lucerna','product'], excluded:['private','fundraising','career','eval'],
+    opener:'Hi — for press, here\u2019s the framing I\u2019d want quoted: Lucerna makes it possible to think with your past self. Ask away, and I\u2019ll flag anything that\u2019s off the record.',
     suggested:['What is Lucerna?','What\u2019s your timeline?'],
-    status:'expired', expires:'expired', uses:9, quota:10 },
+    status:'expired', expires:'expired', uses:9, quota:10, booking:{ enabled:false, duration:20, calendar:'Calendar', note:'' } },
 ];
 
 /* ── access requests · gate /request submissions ──────────────────── */
@@ -452,7 +456,71 @@ function tagDot(tag) {
   return map[tag] || 'neutral';
 }
 
+/* ── access · prompts library ──────────────────────────────────── */
+
+const PROMPTS = [
+  { id:'pr-1', slug:'vanilla',          description:'Plain helpful proxy. No persona overlay.',
+    body:'You are an AI proxy for {owner}. Answer questions accurately from the visible corpus. If you do not know, say so plainly.',
+    usage: 1, system:true },
+  { id:'pr-2', slug:'recruiter-facing', description:'Talks to recruiters and hiring managers. Direct, structured, leads with substance.',
+    body:'You are answering recruiters and hiring managers as sijie\u2019s proxy. Be direct. Lead with substance — what was built, what was owned, what was measured. Don\u2019t volunteer salary expectations or visa details. If they ask a behavioral question, pull from the corpus, don\u2019t fabricate.',
+    usage: 2 },
+  { id:'pr-3', slug:'investor-facing',  description:'For investor conversations. Confident on substrate, evasive on numbers.',
+    body:'You are answering investors as sijie\u2019s proxy. Be confident on the category, the moat (eval, not model), and the trajectory. Decline to share specific revenue, runway, or valuation numbers \u2014 those are owner-call only. If pushed, name the topic as private and offer to file a doc-release request.',
+    usage: 1 },
+  { id:'pr-4', slug:'press-facing',     description:'For press / podcasts. Quoteable, short, never speculative.',
+    body:'You are answering press as sijie\u2019s proxy. Keep responses quoteable \u2014 one or two sentences each. Flag anything off-the-record before the visitor pushes there. Never speculate; never name people who haven\u2019t been published yet.',
+    usage: 1 },
+  { id:'pr-5', slug:'friend-of-friend', description:'Warmer register for people coming via mutuals. Allowed to be a little more candid.',
+    body:'You are talking to a friend-of-friend. Slightly warmer register; you can be candid about taste and frustration, but never about other people by name. If they ask for an intro to someone, queue an intro-broker request; do not commit.',
+    usage: 0 },
+];
+
+/* ── access · roles · persona + corpus scope + skills + mcp ────── */
+
+const ROLES = [
+  { id:'rl-0', slug:'vanilla', description:'System default. Public corpus, no skills, no MCP. Used when no other role is assigned.',
+    prompt_id:'pr-1',
+    corpus_uris:[ 'wiki://public/**', 'output://public/**', 'writing://public/**' ],
+    skill_ids:[],
+    mcp_ids:[],
+    active_codes: 0,
+    system: true },
+  { id:'rl-1', slug:'recruiter-default', description:'Default role for incoming hiring loops. Work + thinking + career, no fundraising.',
+    prompt_id:'pr-2',
+    corpus_uris:[ 'wiki://thinking/**', 'wiki://work/**', 'wiki://career/*', 'output://public/**', 'writing://public/*' ],
+    skill_ids:[ 'calendar.book', 'intro.broker', 'doc.release', 'research.trace' ],
+    mcp_ids:[ 'mcp-1' ],
+    active_codes: 2 },
+  { id:'rl-2', slug:'investor-call',     description:'For first investor conversations. Includes strategy + eval, excludes private finance.',
+    prompt_id:'pr-3',
+    corpus_uris:[ 'wiki://lucerna/**', 'wiki://thinking/**', 'wiki://product/**', 'wiki://strategy/**', 'wiki://eval/**', 'output://public/**' ],
+    skill_ids:[ 'calendar.book', 'doc.release', 'research.trace', 'memory.cross' ],
+    mcp_ids:[ 'mcp-1' ],
+    active_codes: 1 },
+  { id:'rl-3', slug:'advisor-scoping',   description:'For advisor calls. Narrow surface, no fundraising, no calendar.',
+    prompt_id:'pr-5',
+    corpus_uris:[ 'wiki://lucerna/**', 'wiki://thinking/**', 'wiki://work/**' ],
+    skill_ids:[ 'intro.broker', 'topic.subscribe' ],
+    mcp_ids:[],
+    active_codes: 1 },
+  { id:'rl-4', slug:'press-quoteable',   description:'Talking to journalists. Tight quotes, careful around career/private.',
+    prompt_id:'pr-4',
+    corpus_uris:[ 'wiki://lucerna/**', 'wiki://product/**', 'output://public/**' ],
+    skill_ids:[ 'doc.release' ],
+    mcp_ids:[],
+    active_codes: 0 },
+];
+
+/* ── system · mcp servers (referenced by roles) ────────────────── */
+const MCP_SERVERS = [
+  { id:'mcp-1', name:'standmeet-core',  url:'mcp://standmeet/sijie',   tools:['corpus.search','corpus.cite'], owner_provided:false },
+  { id:'mcp-2', name:'google-calendar', url:'mcp://google/calendar',   tools:['calendar.find_slots','calendar.book'], owner_provided:true },
+  { id:'mcp-3', name:'gmail',           url:'mcp://google/gmail',      tools:['email.draft'], owner_provided:true },
+];
+
 window.AD = {
+  PROMPTS, ROLES, MCP_SERVERS,
   OWNER_ADMIN, SOURCES, ACTIVITY, GROWTH_14D,
   RAW_ENTRIES, WIKI_TAGS, WIKI_ENTRIES,
   CONVERSATIONS, CODES, REQUESTS,
