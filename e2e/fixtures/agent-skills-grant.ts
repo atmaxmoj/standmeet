@@ -106,23 +106,23 @@ async function postCode(
 
 // ─── tool-spec inspection (dev/test only endpoint) ──────────────
 
-interface SessionToolSpecs {
-  tools: readonly { name: string }[];
+interface VisitorCapabilitiesResp {
+  tool_specs: readonly { name: string }[];
 }
 
 /** Assert calendar.book is (or isn't) in the assembled tool spec for
- *  a session. Internally hits a dev-only debug endpoint the backend
- *  exposes when running in test mode. */
+ *  a session. Hits /internal/test/visitor-capabilities (Phase B-1+ dev
+ *  endpoint, replaces the older /visitor-tool-specs). */
 export async function expectCalendarBookExposed(
   request: APIRequestContext, sessionToken: string, exposed: boolean,
 ): Promise<void> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-tool-specs`,
+    `${BACKEND}/internal/test/visitor-capabilities`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
-  if (res.status() !== 200) throw new Error(`tool specs: ${res.status()}`);
-  const spec = await res.json() as SessionToolSpecs;
-  const names = spec.tools.map((t) => t.name);
+  if (res.status() !== 200) throw new Error(`visitor-capabilities: ${res.status()}`);
+  const body = await res.json() as VisitorCapabilitiesResp;
+  const names = body.tool_specs.map((t) => t.name);
   const has = names.includes('calendar.book');
   if (has !== exposed) {
     throw new Error(

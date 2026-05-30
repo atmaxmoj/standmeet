@@ -37,6 +37,7 @@ type SendMessageInput struct {
 	Body           string
 	Mode           string
 	CodeID         string
+	VisitorName    string
 }
 
 // MessageEvent —— chat 流式事件（token / done / error）。
@@ -69,8 +70,7 @@ func SendMessage(
 	out := make(chan MessageEvent, messageEventBufSize)
 	go streamReply(ctx, &streamArgs{
 		deps: deps, provider: prep.provider, in: in,
-		bindings: prep.bindings, skills: prep.skills, extMCP: prep.extMCP,
-		booker: prep.booker, out: out,
+		bindings: prep.bindings, out: out,
 	})
 	return out, nil
 }
@@ -96,9 +96,6 @@ var _ = session.ErrQueueTimeout
 
 type sendPrep struct {
 	provider inference.Provider
-	skills   *skillToolBundle
-	extMCP   *externalMCPBundle
-	booker   *bookerBundle
 	bindings []*agentskills.Binding
 }
 
@@ -132,17 +129,7 @@ func assembleBundles(
 	provider inference.Provider,
 ) (sendPrep, error) {
 	bindings := deps.AgentSkills.AssembleVisitor(ctx, sendMsgToAssembleInput(in))
-	skills := buildSkillBundle(ctx, deps, in)
-	booker, berr := buildBookerBundle(ctx, deps, in)
-	if berr != nil {
-		closeBindings(bindings)
-		return sendPrep{}, berr
-	}
-	return sendPrep{
-		provider: provider, bindings: bindings, skills: skills,
-		extMCP: buildExternalMCPBundle(ctx, deps, in),
-		booker: booker,
-	}, nil
+	return sendPrep{provider: provider, bindings: bindings}, nil
 }
 
 // preflightSend —— body 非空 + turn quota + resolver。

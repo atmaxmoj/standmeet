@@ -18,4 +18,7 @@ import "github.com/wangsijie/standmeet/internal/agentskills"
 // commit 加入。重复 ID 会 panic，proper for boot 期。
 func RegisterAgentSkills(reg *agentskills.Registry, deps *VisitorDeps) {
 	reg.MustRegister(newRetrievalCapability(deps))
+	reg.MustRegister(newCalendarBookCapability(deps))
+	reg.MustRegister(newSkillRunnerCapability(deps))
+	reg.MustRegister(newExtMCPCapability(deps))
 }

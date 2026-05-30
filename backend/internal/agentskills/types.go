@@ -17,10 +17,16 @@ package agentskills
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
 )
+
+// ErrHidden —— VisitorBinding 返此 sentinel 表示 capability 不暴露给本
+// session (干净路径，跟"真错"区分)。registry silently skip；VisitorStates
+// 也跳过不进 capability map。
+var ErrHidden = errors.New("agentskills: capability hidden from session")
 
 // AssembleInput —— 装配一次 visitor session 时的上下文。Capability 自身
 // 持有 deps (闭包)，只接收 per-session 字段。
@@ -29,12 +35,17 @@ import (
 // 内部不能按 caller 是 test 还是 prod 分支 —— 违反 [[feedback-always-clean]]
 // 同路径原则）。capability 有 "shape-only" 需求时（ext-mcp 不想 dial 来取
 // tool name），应该在 register 时把 shape 缓存好。
+//
+// ConversationID 在 dev endpoint introspection 时为空（无对话上下文）；
+// real SendMessage 时为当前消息所在 conv。
 type AssembleInput struct {
-	RoleSnapshot *domain.RoleSnapshot
-	MaxBookings  *int32
-	OwnerID      string
-	Mode         string
-	CodeID       string
+	RoleSnapshot   *domain.RoleSnapshot
+	MaxBookings    *int32
+	OwnerID        string
+	Mode           string
+	CodeID         string
+	VisitorName    string
+	ConversationID string
 }
 
 // BindingTool —— 一个 Capability 暴露的一个 LLM tool。Capability 可暴露
@@ -76,6 +87,10 @@ type CapabilityState struct {
 }
 
 // Capability —— 一个能力的统一注册口。三处消费方都通过它读。
+//
+// VisitorBinding 返 (nil, ErrHidden) 表示该 session 不暴露本 capability
+// (calendar 未装 / role 没含 skill / ext server 不可达等)；区别于
+// (nil, realErr) 真错。registry 装配时 ErrHidden silently skip。
 type Capability interface {
 	ID() string
 	Shape() Shape

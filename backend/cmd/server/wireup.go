@@ -39,7 +39,6 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		Builds:          sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
 		TLSAsk:          sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
 		PrintSession:    sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
-		TestToolSpecs:   buildTestToolSpecsDeps(d),
 		TestRegistry:    sysroutes.TestRegistryDeps{Registry: d.agentSkills, Log: d.log},
 		TestVisitorCaps: buildTestVisitorCapsDeps(d),
 		TestGCalExpire: sysroutes.TestGCalExpireDeps{
@@ -90,18 +89,6 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		},
 		Sessions:     d.sessionStore,
 		SecureCookie: d.secureCookie,
-	}
-}
-
-// buildTestToolSpecsDeps —— compose visitor deps for the /test/visitor-tool-specs
-// sys route. Visitor deps shape matches what publicroutes.Handlers uses but
-// is also reusable here without a deep-copy.
-func buildTestToolSpecsDeps(d *runtimeDeps) sysroutes.TestToolSpecsDeps {
-	visitor := buildPublicDeps(d).Visitor
-	return sysroutes.TestToolSpecsDeps{
-		Sessions: d.visitorStore,
-		Visitor:  &visitor,
-		Log:      d.log,
 	}
 }
 

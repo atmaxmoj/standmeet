@@ -178,6 +178,7 @@ func streamChatSSE(
 		CodeID:         parsed.Data.CodeID,
 		MaxBookings:    parsed.Data.MaxBookings,
 		RoleSnapshot:   parsed.Data.RoleSnapshot,
+		VisitorName:    parsed.Data.VisitorName,
 	})
 	if err != nil {
 		handleVisitorErr(h.Log, w, err)

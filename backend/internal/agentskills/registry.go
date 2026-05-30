@@ -64,8 +64,9 @@ func (r *Registry) List() []Capability {
 }
 
 // AssembleVisitor —— 给定 session 装配该 session 可见的 binding 集合。
-// 任一 capability 装配失败不影响其它，错误 silently skip。返回顺序与
-// Register 顺序一致。
+// ErrHidden = capability 主动隐藏 (干净路径，silently skip)；其他错误也
+// silently skip (装配失败不阻塞 chat)；都返非 nil binding 才进结果。
+// 返回顺序与 Register 顺序一致。
 func (r *Registry) AssembleVisitor(
 	ctx context.Context, in *AssembleInput,
 ) []*Binding {
@@ -97,29 +98,31 @@ func (r *Registry) VisitorStates(
 	return out
 }
 
-// visitorStateFor —— 拆分以 satisfy revive cognitive-complexity ≤ 7。
-// 返 (state, true) = 该 capability 应出现在前端 capability map；
-// 返 (_, false) = 该 capability 完全不暴露给本 session（VisitorBinding
-// 返 nil，比如 calendar 未装）。
-// VisitorBinding 返 error = 暴露但 enabled=false（让前端能渲降级提示）。
+// visitorStateFor —— 返 (state, true) = 该 capability 应出现在前端
+// capability map；返 (_, false) = 该 capability 完全不暴露 (ErrHidden 或
+// nil binding)。其他 error = 暴露但 enabled=false (让前端能渲降级提示)。
 func visitorStateFor(
 	ctx context.Context, c Capability, in *AssembleInput,
 ) (CapabilityState, bool) {
 	b, err := c.VisitorBinding(ctx, in)
+	if errors.Is(err, ErrHidden) || b == nil && err == nil {
+		return CapabilityState{}, false
+	}
 	if err != nil {
 		return CapabilityState{ID: c.ID(), Enabled: false}, true
 	}
-	if b == nil {
-		return CapabilityState{}, false
-	}
+	return finalizeBindingState(b, c.ID()), true
+}
+
+func finalizeBindingState(b *Binding, capID string) CapabilityState {
 	state := b.State
 	if state.ID == "" {
-		state.ID = c.ID()
+		state.ID = capID
 	}
 	if b.Close != nil {
 		b.Close()
 	}
-	return state, true
+	return state
 }
 
 // OwnerMCPBindings —— 走 registry 拿 owner MCP server 应注册的所有 binding。

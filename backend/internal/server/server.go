@@ -42,7 +42,6 @@ type Deps struct {
 	Builds               sysroutes.BuilderDeps
 	TLSAsk               sysroutes.TLSAskDeps
 	PrintSession         sysroutes.PrintSessionDeps
-	TestToolSpecs        sysroutes.TestToolSpecsDeps
 	TestRegistry         sysroutes.TestRegistryDeps
 	TestVisitorCaps      sysroutes.TestVisitorCapabilitiesDeps
 	TestGCalExpire       sysroutes.TestGCalExpireDeps
@@ -105,7 +104,6 @@ func mountInternal(r chi.Router, deps *Deps) {
 		sysroutes.MountBuilds(r, deps.Builds)
 		sysroutes.MountTLSAsk(r, deps.TLSAsk)
 		sysroutes.MountPrintSession(r, deps.PrintSession)
-		sysroutes.MountTestToolSpecs(r, deps.TestToolSpecs)
 		sysroutes.MountTestRegistry(r, deps.TestRegistry)
 		sysroutes.MountTestVisitorCapabilities(r, deps.TestVisitorCaps)
 		sysroutes.MountTestGCalExpire(r, deps.TestGCalExpire)
