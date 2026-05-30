@@ -191,8 +191,8 @@ type runtimeDeps struct {
 	skillRepo         *postgres.SkillRepo
 	mcpServerRepo     *postgres.MCPServerRepo
 	assetRepo         *postgres.AssetRepo
-	postRepo          *postgres.PostRepo
-	postLinkRepo      *postgres.PostLinkRepo
+	writingRepo       *postgres.WritingRepo
+	writingRefRepo    *postgres.WritingRefRepo
 	calendarRepo      *postgres.CalendarRepo
 	gcalClient        *gcal.Client
 	sandboxRunner     sandbox.Runner

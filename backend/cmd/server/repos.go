@@ -47,8 +47,8 @@ type repoSet struct {
 	skill         *postgres.SkillRepo
 	mcpServer     *postgres.MCPServerRepo
 	asset         *postgres.AssetRepo
-	post          *postgres.PostRepo
-	postLink      *postgres.PostLinkRepo
+	writing       *postgres.WritingRepo
+	writingRef    *postgres.WritingRefRepo
 	calendar      *postgres.CalendarRepo
 }
 
@@ -72,8 +72,8 @@ func newRepos(db *postgres.Pool) *repoSet {
 		skill:         postgres.NewSkillRepo(db),
 		mcpServer:     postgres.NewMCPServerRepo(db),
 		asset:         postgres.NewAssetRepo(db),
-		post:          postgres.NewPostRepo(db),
-		postLink:      postgres.NewPostLinkRepo(db),
+		writing:       postgres.NewWritingRepo(db),
+		writingRef:    postgres.NewWritingRefRepo(db),
 		calendar:      postgres.NewCalendarRepo(db),
 	}
 }
@@ -109,8 +109,8 @@ func assembleRuntimeDeps(
 		applicationRepo:   repos.application,
 		skillRepo:         repos.skill,
 		mcpServerRepo:     repos.mcpServer,
-		postRepo:          repos.post,
-		postLinkRepo:      repos.postLink,
+		writingRepo:       repos.writing,
+		writingRefRepo:    repos.writingRef,
 		assetRepo:         repos.asset,
 		calendarRepo:      repos.calendar,
 		gcalClient: gcal.New(gcal.Config{

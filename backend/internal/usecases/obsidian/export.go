@@ -1,13 +1,14 @@
-// export.go —— 把 owner 所有 post 渲成 .md + frontmatter，连带 attachment
+// export.go —— 把 owner 所有 writing 渲成 .md + frontmatter，连带 attachment
 // 一起打包成 zip。route layer 直接 stream 这个 zip 给 browser 下载。
 //
 // 形态（zip 内）：
-//   posts/<slug>.md       —— frontmatter + body（image ref 已 rewrite 成
+//   writings/<slug>.md     —— frontmatter + body（image ref 已 rewrite 成
 //                            attachments/<asset-id>.<ext> 形态，portable）
 //   attachments/<id>.<ext> —— body / cover 引用的所有 asset blob
 //
-// Obsidian 解压进 vault：每篇 post 是 `<slug>.md`，所有图片在 `attachments/`
-// 子目录。owner 可以直接在 Obsidian 里看到、编辑、用 graph view 浏览。
+// Obsidian 解压进 vault：每篇 writing 是 `<slug>.md`，所有图片在
+// `attachments/` 子目录。owner 可以直接在 Obsidian 里看到、编辑、用 graph
+// view 浏览。
 
 package obsidian
 
@@ -26,24 +27,24 @@ import (
 
 // ExportDeps —— 流式 zip writer 要的 backend hooks。
 type ExportDeps struct {
-	Posts   *postgres.PostRepo
-	Assets  *postgres.AssetRepo
-	Storage *storage.Client
+	Writings *postgres.WritingRepo
+	Assets   *postgres.AssetRepo
+	Storage  *storage.Client
 }
 
-// initialWrittenCap —— 单 owner 多 post 共享 attachment dedup map 的初始容量。
+// initialWrittenCap —— 单 owner 多 writing 共享 attachment dedup map 的初始容量。
 const initialWrittenCap = 16
 
-// WriteZip —— 全部 owner 的 post + 关联 attachment 写进 zip。w 通常是
+// WriteZip —— 全部 owner 的 writing + 关联 attachment 写进 zip。w 通常是
 // http.ResponseWriter（route layer 调）。stream 模式，不落临时文件。
 func WriteZip(ctx context.Context, deps ExportDeps, ownerID string, w io.Writer) error {
-	posts, err := deps.Posts.ListByOwner(ctx, ownerID)
+	writings, err := deps.Writings.ListByOwner(ctx, ownerID)
 	if err != nil {
-		return fmt.Errorf("list posts for export: %w", err)
+		return fmt.Errorf("list writings for export: %w", err)
 	}
 	zw := zip.NewWriter(w)
 	written := make(map[string]struct{}, initialWrittenCap)
-	if werr := writeAllPosts(ctx, deps, zw, posts, written); werr != nil {
+	if werr := writeAllWritings(ctx, deps, zw, writings, written); werr != nil {
 		if cerr := zw.Close(); cerr != nil {
 			_ = cerr
 		}
@@ -55,34 +56,34 @@ func WriteZip(ctx context.Context, deps ExportDeps, ownerID string, w io.Writer)
 	return nil
 }
 
-func writeAllPosts(
+func writeAllWritings(
 	ctx context.Context, deps ExportDeps, zw *zip.Writer,
-	posts []domain.Post, written map[string]struct{},
+	writings []domain.Writing, written map[string]struct{},
 ) error {
-	for i := range posts {
-		if err := writeOnePost(ctx, deps, zw, &posts[i], written); err != nil {
+	for i := range writings {
+		if err := writeOneWriting(ctx, deps, zw, &writings[i], written); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeOnePost(
+func writeOneWriting(
 	ctx context.Context, deps ExportDeps, zw *zip.Writer,
-	post *domain.Post, written map[string]struct{},
+	writing *domain.Writing, written map[string]struct{},
 ) error {
-	assets, aerr := deps.Assets.ListByHolder(ctx, post.ID)
+	assets, aerr := deps.Assets.ListByHolder(ctx, writing.ID)
 	if aerr != nil {
-		return fmt.Errorf("list assets for post %s: %w", post.ID, aerr)
+		return fmt.Errorf("list assets for writing %s: %w", writing.ID, aerr)
 	}
 	filenames := buildAttachmentFilenames(assets)
 	if err := writeAttachments(ctx, &writeAttachmentsArgs{
-		Zw: zw, Posts: deps.Posts, Assets: deps.Assets, Storage: deps.Storage,
+		Zw: zw, Writings: deps.Writings, Assets: deps.Assets, Storage: deps.Storage,
 		Filenames: filenames, Written: written, AssetList: assets,
 	}); err != nil {
 		return err
 	}
-	return writePostMarkdown(zw, post, filenames)
+	return writeWritingMarkdown(zw, writing, filenames)
 }
 
 // buildAttachmentFilenames —— 每张 asset 的 zip 内 filename。命名规则：
@@ -110,7 +111,7 @@ func extFromContentType(ct string) string {
 // struct 的 padding overhead。
 type writeAttachmentsArgs struct {
 	Zw        *zip.Writer
-	Posts     *postgres.PostRepo
+	Writings  *postgres.WritingRepo
 	Assets    *postgres.AssetRepo
 	Storage   *storage.Client
 	Filenames map[string]string
@@ -158,37 +159,37 @@ func writeOneAttachment(ctx context.Context, w *writeOneArgs) error {
 	return nil
 }
 
-func writePostMarkdown(
-	zw *zip.Writer, post *domain.Post, filenames map[string]string,
+func writeWritingMarkdown(
+	zw *zip.Writer, writing *domain.Writing, filenames map[string]string,
 ) error {
-	body := RewriteToVaultPath(post.BodyMD, filenames)
-	fm := postToFrontmatter(post, filenames)
+	body := RewriteToVaultPath(writing.BodyMD, filenames)
+	fm := writingToFrontmatter(writing, filenames)
 	content, aerr := AssembleMarkdown(&fm, body)
 	if aerr != nil {
 		return aerr
 	}
-	entry, cerr := zw.Create("posts/" + post.Slug + ".md")
+	entry, cerr := zw.Create("writings/" + writing.Slug + ".md")
 	if cerr != nil {
-		return fmt.Errorf("zip post entry: %w", cerr)
+		return fmt.Errorf("zip writing entry: %w", cerr)
 	}
 	if _, werr := entry.Write([]byte(content)); werr != nil {
-		return fmt.Errorf("write post %s: %w", post.Slug, werr)
+		return fmt.Errorf("write writing %s: %w", writing.Slug, werr)
 	}
 	return nil
 }
 
-// postToFrontmatter —— Post struct → Obsidian frontmatter。cover_image
+// writingToFrontmatter —— Writing struct → Obsidian frontmatter。cover_image
 // 字段引用 attachments/<filename> 形态，让 Obsidian 能直接展示。
-func postToFrontmatter(post *domain.Post, filenames map[string]string) Frontmatter {
+func writingToFrontmatter(w *domain.Writing, filenames map[string]string) Frontmatter {
 	fm := Frontmatter{
-		Title: post.Title, Slug: post.Slug,
-		Excerpt: post.Excerpt, Tags: post.Tags,
-		CoverHeadline: post.CoverHeadline, CoverSub: post.CoverSub,
-		CoverHue: post.CoverHue, Visibility: post.Visibility,
-		LockedBody: post.LockedBody, Publish: post.IsPublished(),
+		Title: w.Title, Slug: w.Slug,
+		Excerpt: w.Excerpt, Tags: w.Tags,
+		CoverHeadline: w.CoverHeadline, CoverSub: w.CoverSub,
+		CoverHue: w.CoverHue, Visibility: w.Visibility,
+		LockedBody: w.LockedBody, Publish: w.IsPublished(),
 	}
-	if post.PublishedAt != nil {
-		t := post.PublishedAt.UTC().Format(time.RFC3339)
+	if w.PublishedAt != nil {
+		t := w.PublishedAt.UTC().Format(time.RFC3339)
 		// time.Time 直接 yaml.Marshal 出 RFC3339；用 string 形态绕开 omitempty
 		// 对 zero-time 的判断。这里设回 *time.Time 给 frontmatter。
 		parsed, perr := time.Parse(time.RFC3339, t)
@@ -196,15 +197,15 @@ func postToFrontmatter(post *domain.Post, filenames map[string]string) Frontmatt
 			fm.Created = &parsed
 		}
 	}
-	addCoverImageRef(&fm, post, filenames)
+	addCoverImageRef(&fm, w, filenames)
 	return fm
 }
 
-func addCoverImageRef(fm *Frontmatter, post *domain.Post, filenames map[string]string) {
-	if post.CoverImageAssetID == nil || *post.CoverImageAssetID == "" {
+func addCoverImageRef(fm *Frontmatter, w *domain.Writing, filenames map[string]string) {
+	if w.CoverImageAssetID == nil || *w.CoverImageAssetID == "" {
 		return
 	}
-	name, ok := filenames[*post.CoverImageAssetID]
+	name, ok := filenames[*w.CoverImageAssetID]
 	if !ok {
 		return
 	}

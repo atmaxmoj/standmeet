@@ -48,9 +48,10 @@ func ScanAssetReferences(bodyMD string) []string {
 	return out
 }
 
-// PostAssetIDs —— 一个 post 里所有 asset 引用：body_md 里的 standmeet-asset
-// URI + cover_image_asset_id（如果设了）。route layer batch resolve 用。
-func PostAssetIDs(bodyMD string, coverImageAssetID *string) []string {
+// WritingAssetIDs —— 一篇 writing 里所有 asset 引用：body_md 里的
+// standmeet-asset URI + cover_image_asset_id（如果设了）。route layer batch
+// resolve 用。
+func WritingAssetIDs(bodyMD string, coverImageAssetID *string) []string {
 	ids := ScanAssetReferences(bodyMD)
 	if coverImageAssetID != nil && *coverImageAssetID != "" {
 		ids = append(ids, *coverImageAssetID)

@@ -2,9 +2,9 @@
 // /<handle>/p/<slug> 看到 vite build 出的页面。
 //
 // 用户故事：
-//   alice 跟自己 AI 客户端聊"给我建一个 /blog 页面"。AI 走 MCP 调
-//   custom_page.create('blog') → write_file('App.tsx', ...) → build →
-//   poll get_build → promote_to_live。一个访客打开 /alice/p/blog 就看到
+//   alice 跟自己 AI 客户端聊"给我建一个 /showcase 页面"。AI 走 MCP 调
+//   custom_page.create('showcase') → write_file('App.tsx', ...) → build →
+//   poll get_build → promote_to_live。一个访客打开 /alice/p/showcase 就看到
 //   vite build 出来的 React 页面里的内容；rollback 走默认（404 no live）。
 
 import { test, expect } from '@/fixtures/test';
@@ -22,7 +22,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-const SLUG = 'blog';
+const SLUG = 'showcase';
 const PAGE_TITLE = 'Alice thinks out loud';
 const HELLO_MARKER = 'STANDMEET_CUSTOM_PAGE_HELLO';
 const OWNER_APP = `

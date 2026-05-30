@@ -272,7 +272,7 @@ CREATE INDEX code_mcp_servers_server_idx ON code_mcp_servers(mcp_server_id);
 --
 -- 引用完整性：asset 行只有在归属一个 holder 实体 (post / 未来 wiki /
 -- output / ...) 时才存在。upload 不能脱离 holder 单独发生——只走 multipart
--- save (POST /api/admin/posts/ 接 post fields + 内联 image file)。upload
+-- save (POST /api/admin/writings/ 接 writing fields + 内联 image file)。upload
 -- + insert assets 行 + insert/update post 在一个事务里。
 --
 -- holder_id 是对应实体的 UUID（post.id / wiki.id / ...）。PG 不支持
@@ -304,27 +304,28 @@ CREATE TABLE assets (
 
 CREATE INDEX assets_holder_idx ON assets(holder_id);
 
--- posts —— blog 文章。设计源自 claude.ai/design 的 posts.js + blog.html
--- (Stripe-Press 风 essays)。文章本身是 corpus entry 的展开版：visitor chat
--- retriever 可读 (path='posts/<slug>')；private 文章通过 path-glob ACL 走
--- 跟 wiki 同一套 corpus_permissions (InviteCode 的 path_pattern 匹 path)。
+-- writings —— owner 公开发表的"作品"（之前叫 posts；改名为更对位 owner
+-- 内部叙事的 writing）。设计源自 claude.ai/design 的 essay 风格 (Stripe-
+-- Press)。文章本身是 corpus document 的展开版：visitor chat retriever 可读
+-- (uri='writing://<slug>')；private writing 通过 URI-glob ACL 走跟 wiki 同
+-- 一套 corpus_permissions (InviteCode 的 path_pattern 匹 URI)。
 --
 -- body_md —— canonical 唯一存储格式，GitHub-flavored markdown。owner 在
--- admin Tiptap 编辑器里写（编辑器底层 round-trip markdown），MCP `post_create`
+-- admin Tiptap 编辑器里写（编辑器底层 round-trip markdown），MCP `writing_create`
 -- 也只接 markdown，AI 原生吐什么我们就存什么。不发明 "block JSON" 中间态、
 -- 不存 "格式标签"——单一形态，render 端 react-markdown + remark-gfm 直渲。
 --
 -- cover 是 typographic (大字 + sub + hue)，不上图也好看；可选 cover_image
 -- _asset_id 后续支持真图 (落 assets 表)。
 --
--- visibility: 'public' 或 'private'；private 在 path-glob ACL 走 deny
+-- visibility: 'public' 或 'private'；private 在 URI-glob ACL 走 deny
 -- 默认，特定 code 的 allow rule 放行。
 --
 -- read_minutes：denormalized 字段，Create/Update 时从 body_md 重算。原因是
 -- list endpoint 不希望为每行算一遍 word count（也不想 ship body_md 给 list）。
 --
 -- published_at NULL = 草稿；NOT NULL = 已发布，前端公开 list 才显示。
-CREATE TABLE posts (
+CREATE TABLE writings (
     id                    uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id              uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     slug                  text          NOT NULL,
@@ -353,31 +354,31 @@ CREATE TABLE posts (
     updated_at            timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX posts_owner_slug_uniq ON posts(owner_id, slug);
-CREATE INDEX posts_owner_published_idx ON posts(owner_id, published_at DESC NULLS LAST);
-CREATE INDEX posts_owner_path_idx ON posts(owner_id, path);
+CREATE UNIQUE INDEX writings_owner_slug_uniq ON writings(owner_id, slug);
+CREATE INDEX writings_owner_published_idx ON writings(owner_id, published_at DESC NULLS LAST);
+CREATE INDEX writings_owner_path_idx ON writings(owner_id, path);
 
--- post_links —— post 内 `[[slug]]` / `[[Title]]` 双链的边表。
+-- writing_refs —— writing 内 `[[slug]]` / `[[Title]]` 双链的边表。
 --
--- body_md 里 owner 写 `[[X]]`，SavePost 同事务 resolve X 到目标 post.id
+-- body_md 里 owner 写 `[[X]]`，SaveWriting 同事务 resolve X 到目标 writing.id
 -- (规则：先按 slug case-insensitive，没中再按 title fallback；都没中就
 -- 不入边，render 那侧留原字面 [[X]] 当文字)。每次 save 走 "delete all
--- where src=this_post → insert new" 重建 src 出度，简单不易漂。
+-- where src=this_writing → insert new" 重建 src 出度，简单不易漂。
 --
--- 双向 lookup：(src) 出度跟 SavePost 共事务一起更新；(dst) 入度（=
--- backlinks）由 public /blog GET 时按 dst 查。
+-- 双向 lookup：(src) 出度跟 SaveWriting 共事务一起更新；(dst) 入度（=
+-- backlinks）由 public /writings GET 时按 dst 查。
 --
--- FK cascade ON DELETE：src 或 dst post 删了 → 对应边自动消失。
--- src_post_id = dst_post_id 不阻止 ("self-link") —— 极少用，但不破坏 invariant。
-CREATE TABLE post_links (
-    src_post_id  uuid          NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-    dst_post_id  uuid          NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-    owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    created_at   timestamptz   NOT NULL DEFAULT now(),
-    PRIMARY KEY (src_post_id, dst_post_id)
+-- FK cascade ON DELETE：src 或 dst writing 删了 → 对应边自动消失。
+-- src_writing_id = dst_writing_id 不阻止 ("self-link") —— 极少用，但不破坏 invariant。
+CREATE TABLE writing_refs (
+    src_writing_id  uuid          NOT NULL REFERENCES writings(id) ON DELETE CASCADE,
+    dst_writing_id  uuid          NOT NULL REFERENCES writings(id) ON DELETE CASCADE,
+    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    created_at      timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (src_writing_id, dst_writing_id)
 );
-CREATE INDEX post_links_dst_idx ON post_links(dst_post_id);
-CREATE INDEX post_links_owner_dst_idx ON post_links(owner_id, dst_post_id);
+CREATE INDEX writing_refs_dst_idx ON writing_refs(dst_writing_id);
+CREATE INDEX writing_refs_owner_dst_idx ON writing_refs(owner_id, dst_writing_id);
 
 -- handle_aliases —— owner 改 handle 后旧 handle 入这里，旧 URL 仍能 resolve
 -- 到同一个 owner。GetByHandle 走 owners.handle 优先，未命中走 alias。

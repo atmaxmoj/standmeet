@@ -1,12 +1,12 @@
-// crosslink.go —— post body_md 里 `[[X]]` 双链的解析 + 渲染期 rewrite。
+// crosslink.go —— writing body_md 里 `[[X]]` 双链的解析 + 渲染期 rewrite。
 //
 // **存储**：body_md 永远存原始 `[[X]]`（owner 写啥存啥；Obsidian export
 // round-trip 也保 literal）。
-// **读时（public /blog GET）**：server pre-resolve `[[X]]` → 真 post slug
-// → rewrite body_md 成 `[Title](/blog/<slug>)` 标准 markdown 再发给前端；
-// 不识别的留 literal `[[X]]` 当文字。
-// **写时（SavePost）**：同 tx 抽 [[X]] → resolve → 把 src→dst 边表
-// (post_links) 重建。
+// **读时（public /writings GET）**：server pre-resolve `[[X]]` → 真 writing
+// slug → rewrite body_md 成 `[Title](/writings/<slug>)` 标准 markdown 再发给
+// 前端；不识别的留 literal `[[X]]` 当文字。
+// **写时（SaveWriting）**：同 tx 抽 [[X]] → resolve → 把 src→dst 边表
+// (writing_refs) 重建。
 //
 // Resolution 规则（跟 Quartz CrawlLinks 对齐）：
 //  1. 先按 slug case-insensitive 精确匹配
@@ -58,15 +58,15 @@ func ExtractCrossLinks(body string) []CrossLinkRef {
 
 // ResolvedLink —— Resolution 完后的一条 link。dst nil 表示 unresolved。
 type ResolvedLink struct {
-	Dst *domain.Post // nil = unresolved（render 留 literal）
+	Dst *domain.Writing // nil = unresolved（render 留 literal）
 	Ref CrossLinkRef
 }
 
-// ResolveCrossLinks —— 一组 ref 解到对应 post。candidates 是 owner 的所有
-// post（caller 已查过，避免反复 round-trip）。规则 Quartz-style：slug
+// ResolveCrossLinks —— 一组 ref 解到对应 writing。candidates 是 owner 的所
+// 有 writing（caller 已查过，避免反复 round-trip）。规则 Quartz-style：slug
 // 先（case-insensitive 精确），title fallback（同 normalize）。
 func ResolveCrossLinks(
-	refs []CrossLinkRef, candidates []domain.Post,
+	refs []CrossLinkRef, candidates []domain.Writing,
 ) []ResolvedLink {
 	idx := indexCandidates(candidates)
 	out := make([]ResolvedLink, 0, len(refs))
@@ -76,15 +76,15 @@ func ResolveCrossLinks(
 	return out
 }
 
-// postIndex —— slug+title 两张 case-insensitive 索引打包。
-type postIndex struct {
-	bySlug, byTitle map[string]*domain.Post
+// writingIndex —— slug+title 两张 case-insensitive 索引打包。
+type writingIndex struct {
+	bySlug, byTitle map[string]*domain.Writing
 }
 
-func indexCandidates(candidates []domain.Post) postIndex {
-	idx := postIndex{
-		bySlug:  make(map[string]*domain.Post, len(candidates)),
-		byTitle: make(map[string]*domain.Post, len(candidates)),
+func indexCandidates(candidates []domain.Writing) writingIndex {
+	idx := writingIndex{
+		bySlug:  make(map[string]*domain.Writing, len(candidates)),
+		byTitle: make(map[string]*domain.Writing, len(candidates)),
 	}
 	for i := range candidates {
 		idx.bySlug[strings.ToLower(candidates[i].Slug)] = &candidates[i]
@@ -93,7 +93,7 @@ func indexCandidates(candidates []domain.Post) postIndex {
 	return idx
 }
 
-func resolveCrossLinkOne(ref *CrossLinkRef, idx postIndex) ResolvedLink {
+func resolveCrossLinkOne(ref *CrossLinkRef, idx writingIndex) ResolvedLink {
 	key := strings.ToLower(ref.Target)
 	if dst, ok := idx.bySlug[key]; ok {
 		return ResolvedLink{Ref: *ref, Dst: dst}
@@ -104,9 +104,9 @@ func resolveCrossLinkOne(ref *CrossLinkRef, idx postIndex) ResolvedLink {
 	return ResolvedLink{Ref: *ref, Dst: nil}
 }
 
-// RewriteCrossLinksToMarkdown —— public /blog render 用：把 body_md 里每条
-// `[[X]]` 换成 `[显示文本](/blog/<slug>)`。unresolved 留 literal `[[X]]`。
-// 显示文本：alias 优先 > dst.Title。
+// RewriteCrossLinksToMarkdown —— public /writings render 用：把 body_md 里
+// 每条 `[[X]]` 换成 `[显示文本](/writings/<slug>)`。unresolved 留 literal
+// `[[X]]`。显示文本：alias 优先 > dst.Title。
 func RewriteCrossLinksToMarkdown(body string, resolved []ResolvedLink) string {
 	for i := range resolved {
 		r := &resolved[i]
@@ -117,14 +117,14 @@ func RewriteCrossLinksToMarkdown(body string, resolved []ResolvedLink) string {
 		if display == "" {
 			display = r.Dst.Title
 		}
-		replacement := fmt.Sprintf("[%s](/blog/%s)", display, r.Dst.Slug)
+		replacement := fmt.Sprintf("[%s](/writings/%s)", display, r.Dst.Slug)
 		body = strings.ReplaceAll(body, r.Ref.Original, replacement)
 	}
 	return body
 }
 
-// DedupResolvedDsts —— 从 resolved 列表抽 dst post.id 去重（SavePost 写
-// post_links 边表时用，避免 (src,dst) 主键撞）。unresolved 跳过。
+// DedupResolvedDsts —— 从 resolved 列表抽 dst writing.id 去重（SaveWriting
+// 写 writing_refs 边表时用，避免 (src,dst) 主键撞）。unresolved 跳过。
 func DedupResolvedDsts(resolved []ResolvedLink) []string {
 	seen := make(map[string]struct{}, len(resolved))
 	out := make([]string, 0, len(resolved))
@@ -142,9 +142,9 @@ func DedupResolvedDsts(resolved []ResolvedLink) []string {
 	return out
 }
 
-// resolveAndDedupForOwner —— SavePost 用的便捷封装：从 body 抽 refs →
+// resolveAndDedupForOwner —— SaveWriting 用的便捷封装：从 body 抽 refs →
 // resolve against candidates → 输出去重后的 dst id 列表（用来重建边表）。
-func resolveAndDedupForOwner(body string, candidates []domain.Post) []string {
+func resolveAndDedupForOwner(body string, candidates []domain.Writing) []string {
 	refs := ExtractCrossLinks(body)
 	if len(refs) == 0 {
 		return nil
@@ -152,13 +152,13 @@ func resolveAndDedupForOwner(body string, candidates []domain.Post) []string {
 	return DedupResolvedDsts(ResolveCrossLinks(refs, candidates))
 }
 
-// HasCrossLinks —— body 里有没有 `[[X]]`。避免没 link 的 post save 时也
+// HasCrossLinks —— body 里有没有 `[[X]]`。避免没 link 的 writing save 时也
 // 跑 candidate list 查询。
 func HasCrossLinks(body string) bool {
 	return strings.Contains(body, crossLinkOpen)
 }
 
-// SlugTitle —— public /blog 路径用的 light index，避免在 candidates list
+// SlugTitle —— public /writings 路径用的 light index，避免在 candidates list
 // 里搬 body_md。跟 postgres.SlugTitle 同 shape，独立 type 保 usecase 不
 // import postgres 类型。
 type SlugTitle struct {
@@ -166,12 +166,12 @@ type SlugTitle struct {
 	Title string
 }
 
-// RewriteCrossLinksForRender —— public /blog GET 用：body_md 里 `[[X]]`
-// resolve 到 candidate slug+title → 替换成 `[Title](/blog/<slug>)`
+// RewriteCrossLinksForRender —— public /writings GET 用：body_md 里 `[[X]]`
+// resolve 到 candidate slug+title → 替换成 `[Title](/writings/<slug>)`
 // 标准 markdown；unresolved 留原文。
 //
-// 跟 SavePost 那边走的 ResolveCrossLinks 是同一套 resolver，但只需要 slug
-// + title（不需要 full domain.Post），所以走自己的轻 index。
+// 跟 SaveWriting 那边走的 ResolveCrossLinks 是同一套 resolver，但只需要 slug
+// + title（不需要 full domain.Writing），所以走自己的轻 index。
 func RewriteCrossLinksForRender(body string, index []SlugTitle) string {
 	if !HasCrossLinks(body) || len(index) == 0 {
 		return body
@@ -212,7 +212,7 @@ func applyOneCrossLinkRewrite(
 	if display == "" {
 		display = dst.Title
 	}
-	replacement := fmt.Sprintf("[%s](/blog/%s)", display, dst.Slug)
+	replacement := fmt.Sprintf("[%s](/writings/%s)", display, dst.Slug)
 	return strings.ReplaceAll(body, ref.Original, replacement)
 }
 

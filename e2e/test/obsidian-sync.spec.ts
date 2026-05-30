@@ -1,7 +1,7 @@
 // obsidian-sync.spec.ts —— Obsidian vault import/export 双向 sync 全链 e2e。
 //
 // 业务故事：
-//   1. owner 在 admin /posts 点 "import from Obsidian"，选 vault 目录 → 带
+//   1. owner 在 admin /writings 点 "import from Obsidian"，选 vault 目录 → 带
 //      `publish: true` 的 .md 进库；不带 publish 的跳过。
 //   2. round-trip: import → export → 解 zip → 比对 frontmatter + body 形态
 //      跟最初一致（lossless）。
@@ -9,7 +9,7 @@
 //      blob 写进 zip 的 attachments/ → 内容 == 原始 PNG。
 //   4. idempotency: 再次 import 同 vault → 全部 skipped（updated_at ==
 //      imported_at + buffer，没"web edited"）。
-//   5. UI: admin /posts 上的两个 button 渲出 + 状态 "X new · Y updated"。
+//   5. UI: admin /writings 上的两个 button 渲出 + 状态 "X new · Y updated"。
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -19,7 +19,7 @@ import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import {
-  PNG_1X1, downloadExport, listAdminPosts, makeVaultMD, uploadVault,
+  PNG_1X1, downloadExport, listAdminWritings, makeVaultMD, uploadVault,
   type VaultFile,
 } from '@/fixtures/obsidian';
 
@@ -38,17 +38,17 @@ test.describe('obsidian: import + publish gate', () => {
     async ({ request }) => {
       const files: VaultFile[] = [
         {
-          rel: 'notes/published-post.md',
+          rel: 'notes/published-writing.md',
           body: makeVaultMD({
-            title: 'Published Post', slug: 'published-post',
+            title: 'Published Writing', slug: 'published-writing',
             tags: ['essay'], publish: true,
             cover_hue: 'amber', cover_headline: 'cover.',
-          }, 'Body of the published post.'),
+          }, 'Body of the published writing.'),
         },
         {
-          rel: 'notes/draft-post.md',
+          rel: 'notes/draft-writing.md',
           body: makeVaultMD({
-            title: 'Draft Post', slug: 'draft-post',
+            title: 'Draft Writing', slug: 'draft-writing',
             tags: ['essay'],
           }, 'A draft that should be skipped.'),
         },
@@ -58,12 +58,12 @@ test.describe('obsidian: import + publish gate', () => {
       expect(result.skipped).toBe(1);
       expect(result.errors).toEqual([]);
 
-      const posts = await listAdminPosts(request, OWNER);
-      const slugs = posts.map((p) => p.slug);
-      expect(slugs).toContain('published-post');
-      expect(slugs).not.toContain('draft-post');
-      const pub = posts.find((p) => p.slug === 'published-post');
-      expect(pub?.title).toBe('Published Post');
+      const writings = await listAdminWritings(request, OWNER);
+      const slugs = writings.map((p) => p.slug);
+      expect(slugs).toContain('published-writing');
+      expect(slugs).not.toContain('draft-writing');
+      const pub = writings.find((p) => p.slug === 'published-writing');
+      expect(pub?.title).toBe('Published Writing');
       expect(pub?.tags).toEqual(['essay']);
       expect(pub?.published).toBe(true);
       expect(pub?.cover_hue).toBe('amber');
@@ -81,7 +81,7 @@ test.describe('obsidian: image attachment round-trip', () => {
         {
           rel: 'notes/with-image.md',
           body: makeVaultMD({
-            title: 'Post With Image', slug: 'post-with-image',
+            title: 'Writing With Image', slug: 'writing-with-image',
             tags: ['image'], publish: true,
           }, 'Below is an image:\n\n![[pixel.png]]\n\nAnd then more text.'),
         },
@@ -91,8 +91,8 @@ test.describe('obsidian: image attachment round-trip', () => {
       expect(result.created).toBe(1);
       expect(result.errors).toEqual([]);
 
-      const posts = await listAdminPosts(request, OWNER);
-      const p = posts.find((x) => x.slug === 'post-with-image');
+      const writings = await listAdminWritings(request, OWNER);
+      const p = writings.find((x) => x.slug === 'writing-with-image');
       expect(p).toBeTruthy();
       // body 里 ![[pixel.png]] 已经被 rewrite 成 standmeet-asset:<uuid>
       expect(p?.body_md).toMatch(
@@ -110,12 +110,12 @@ test.describe('obsidian: image attachment round-trip', () => {
       expect(firstAttachBytes.length).toBe(PNG_1X1.length);
       expect(Buffer.compare(Buffer.from(firstAttachBytes), Buffer.from(PNG_1X1))).toBe(0);
 
-      // post 的 .md 在 zip 里能找到，且 body 引用 attachments/<id>.png
-      const mdContent = entries['posts/post-with-image.md'];
-      if (!mdContent) throw new Error('post .md missing from export zip');
+      // writing 的 .md 在 zip 里能找到，且 body 引用 attachments/<id>.png
+      const mdContent = entries['writings/writing-with-image.md'];
+      if (!mdContent) throw new Error('writing .md missing from export zip');
       const mdText = new TextDecoder().decode(mdContent);
       expect(mdText).toContain('attachments/');
-      expect(mdText).toContain('title: Post With Image');
+      expect(mdText).toContain('title: Writing With Image');
     });
 });
 
@@ -139,7 +139,7 @@ test.describe('obsidian: re-import idempotency', () => {
       expect(first.skipped).toBe(0);
 
       // 第二次 import：source_path 撞，updated_at == imported_at（刚刚 set），
-      // 不算 web edited → 走 SavePost 覆盖 → outcomeUpdated。
+      // 不算 web edited → 走 SaveWriting 覆盖 → outcomeUpdated。
       const second = await uploadVault(request, OWNER, files);
       expect(second.created).toBe(0);
       expect(second.updated).toBe(1);
@@ -151,9 +151,9 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 test.describe('obsidian: UI buttons', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('admin /posts 渲出 import + export 两个 button',
+  test('admin /writings 渲出 import + export 两个 button',
     async ({ adminPage }) => {
-      await openAdminPosts(adminPage);
+      await openAdminWritings(adminPage);
       await expect(adminPage.getByTestId('obsidian-bar')).toBeVisible();
       await expect(
         adminPage.getByRole('button', { name: /export to obsidian/i }),
@@ -164,9 +164,9 @@ test.describe('obsidian: UI buttons', () => {
     });
 });
 
-async function openAdminPosts(page: Page): Promise<void> {
-  await gotoAdminSection(page, 'posts');
-  await page.waitForURL('**/admin/posts');
+async function openAdminWritings(page: Page): Promise<void> {
+  await gotoAdminSection(page, 'writings');
+  await page.waitForURL('**/admin/writings');
 }
 
 async function initOwner(playwright: Playwright): Promise<void> {

@@ -27,10 +27,10 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		PublicCustomPages:    buildPublicCustomPageDeps(d),
 		PublicAccessRequests: buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:  buildPublicPasswordResetDeps(d),
-		PublicPosts: publicroutes.PostHandlers{
-			Posts: usecases.PostsDeps{Posts: d.postRepo},
+		PublicWritings: publicroutes.WritingHandlers{
+			Writings: usecases.WritingsDeps{Writings: d.writingRepo},
 			CrossLink: usecases.CrossLinkQueryDeps{
-				Posts: d.postRepo, PostLinks: d.postLinkRepo,
+				Writings: d.writingRepo, WritingRefs: d.writingRefRepo,
 			},
 			Page:   usecases.PageDeps{Owners: d.ownerRepo},
 			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
@@ -68,8 +68,8 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Skills:         usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		MCPServers:     usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
 		Assets:         usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
-		Posts:          usecases.PostsDeps{Posts: d.postRepo},
-		PostLinks:      d.postLinkRepo,
+		Writings:       usecases.WritingsDeps{Writings: d.writingRepo},
+		WritingRefs:    d.writingRefRepo,
 		Codes:          d.codeRepo,
 		Owners:         d.ownerRepo,
 		Drafts:         d.resumeDraftRepo,
@@ -100,7 +100,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Visitor: usecases.VisitorDeps{
 			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
 			Output: d.outputRepo, Skills: d.skillRepo,
-			Posts:      d.postRepo,
+			Writings:   d.writingRepo,
 			MCPServers: d.mcpServerRepo,
 			Sandbox:    d.sandboxRunner,
 			Owners:     d.ownerRepo, Sessions: d.visitorStore,
@@ -174,11 +174,11 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		},
 		Skills:     usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		MCPServers: usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
-		Posts:      usecases.PostsDeps{Posts: d.postRepo},
-		PostsTx: usecases.PostsTxDeps{
-			Posts:     d.postRepo,
-			PostLinks: d.postLinkRepo,
-			Assets:    usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+		Writings:   usecases.WritingsDeps{Writings: d.writingRepo},
+		WritingsTx: usecases.WritingsTxDeps{
+			Writings:    d.writingRepo,
+			WritingRefs: d.writingRefRepo,
+			Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 		},
 		Log: d.log,
 	}

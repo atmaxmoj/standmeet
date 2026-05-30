@@ -1,6 +1,6 @@
 // SeoSection —— /admin/seo。design 源 admin.js SeoSection (2369-2417)。
 // defaults form (site_title / description / twitter / canonical / robots) +
-// indexing stats (pages / outputs / posts) + og cover preview。
+// indexing stats (pages / outputs / writings) + og cover preview。
 
 'use client';
 
@@ -65,7 +65,7 @@ function IndexingCard() {
       <div className="grid grid-cols-3 gap-3">
         <IndexStat label="pages" value="—" />
         <IndexStat label="outputs" value="—" />
-        <IndexStat label="posts" value="—" />
+        <IndexStat label="writings" value="—" />
       </div>
       <div className="mono text-[10px] text-(--color-faint) tracking-[0.06em] mt-3 leading-[1.6]">
         sitemap · auto · regenerated every 6h

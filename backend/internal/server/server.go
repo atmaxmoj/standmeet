@@ -38,7 +38,7 @@ type Deps struct {
 	PublicCustomPages    publicroutes.CustomPageHandlers
 	PublicAccessRequests publicroutes.AccessRequestsHandlers
 	PublicPasswordReset  publicroutes.PasswordResetHandlers
-	PublicPosts          publicroutes.PostHandlers
+	PublicWritings       publicroutes.WritingHandlers
 	Builds               sysroutes.BuilderDeps
 	TLSAsk               sysroutes.TLSAskDeps
 	PrintSession         sysroutes.PrintSessionDeps
@@ -66,8 +66,8 @@ type AdminDeps struct {
 	Skills         usecases.SkillsDeps
 	MCPServers     usecases.MCPServersDeps
 	Assets         usecases.AssetsDeps
-	Posts          usecases.PostsDeps
-	PostLinks      *postgres.PostLinkRepo
+	Writings       usecases.WritingsDeps
+	WritingRefs    *postgres.WritingRefRepo
 	Codes          *postgres.CodeRepo
 	Owners         *postgres.OwnerRepo
 	Drafts         *postgres.ResumeDraftRepo
@@ -142,19 +142,19 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		CustomPages:     deps.Admin.CustomPages,
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Skills: deps.Admin.Skills},
 		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Servers: deps.Admin.MCPServers},
-		PostsAdmin: adminroutes.PostsAdminDeps{
-			Posts: deps.Admin.Posts,
-			PostsTx: usecases.PostsTxDeps{
-				Posts: deps.Admin.Posts.Posts, PostLinks: deps.Admin.PostLinks,
+		WritingsAdmin: adminroutes.WritingsAdminDeps{
+			Writings: deps.Admin.Writings,
+			WritingsTx: usecases.WritingsTxDeps{
+				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
 			},
 		},
 		Obsidian: adminroutes.ObsidianDeps{
-			Posts:   deps.Admin.Posts.Posts,
-			Assets:  deps.Admin.Assets.Repo,
-			Storage: deps.Admin.Assets.Storage,
-			PostsTx: usecases.PostsTxDeps{
-				Posts: deps.Admin.Posts.Posts, PostLinks: deps.Admin.PostLinks,
+			Writings: deps.Admin.Writings.Writings,
+			Assets:   deps.Admin.Assets.Repo,
+			Storage:  deps.Admin.Assets.Storage,
+			WritingsTx: usecases.WritingsTxDeps{
+				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
 			},
 		},
@@ -192,10 +192,10 @@ func mountPublic(r chi.Router, deps *Deps) {
 		(&publicroutes.PasswordResetHandlers{
 			Deps: deps.PublicPasswordReset.Deps, Log: deps.Log,
 		}).Mount(r)
-		(&publicroutes.PostHandlers{
-			Posts:     deps.PublicPosts.Posts,
-			CrossLink: deps.PublicPosts.CrossLink,
-			Page:      deps.PublicPosts.Page,
+		(&publicroutes.WritingHandlers{
+			Writings:  deps.PublicWritings.Writings,
+			CrossLink: deps.PublicWritings.CrossLink,
+			Page:      deps.PublicWritings.Page,
 			Assets:    deps.Admin.Assets,
 			Log:       deps.Log,
 		}).Mount(r)

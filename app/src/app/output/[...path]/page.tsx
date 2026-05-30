@@ -128,7 +128,7 @@ function OutputLockedView({ slug }: { slug: string }) {
 function Breadcrumb({ slug }: { slug: string }) {
   return (
     <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-6 flex items-baseline gap-2 flex-wrap">
-      <Link href="/blog" className="hover:text-(--color-ink)">writing</Link>
+      <Link href="/writings" className="hover:text-(--color-ink)">writings</Link>
       <span className="text-(--color-faint)">/</span>
       <span className="text-(--color-ink)">output · {slug}</span>
     </div>

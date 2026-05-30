@@ -57,28 +57,28 @@ func retrievalToolSpecs() []inference.ToolSpec {
 	}
 }
 
-// retriever —— tool executor 的状态。posts 跟 wiki/output 共享 search/
-// read/list；cited footer 仅 wiki+output (posts 有自己的 cross_refs +
+// retriever —— tool executor 的状态。writings 跟 wiki/output 共享 search/
+// read/list；cited footer 仅 wiki+output (writings 有自己的 cross_refs +
 // "ask about this essay" 入口，不挤 cited 列表)。
 type retriever struct {
 	collector *readCollector
 	wikis     []domain.WikiEntry
 	outputs   []domain.OutputEntry
-	posts     []domain.Post
+	writings  []domain.Writing
 	acl       domain.PathACL
 }
 
 // retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。
 type retrieverInput struct {
-	wikis   []domain.WikiEntry
-	outputs []domain.OutputEntry
-	posts   []domain.Post
-	perms   []domain.PathPermission
+	wikis    []domain.WikiEntry
+	outputs  []domain.OutputEntry
+	writings []domain.Writing
+	perms    []domain.PathPermission
 }
 
 func newRetriever(in *retrieverInput) *retriever {
 	return &retriever{
-		wikis: in.wikis, outputs: in.outputs, posts: in.posts,
+		wikis: in.wikis, outputs: in.outputs, writings: in.writings,
 		acl:       domain.NewPathACL(in.perms),
 		collector: newReadCollector(),
 	}
@@ -118,10 +118,10 @@ type corpusRow struct {
 }
 
 func (r *retriever) collectMatchingEntries(q string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.wikis)+len(r.outputs)+len(r.posts))
+	out := make([]corpusRow, 0, len(r.wikis)+len(r.outputs)+len(r.writings))
 	out = append(out, r.matchOutputs(q)...)
 	out = append(out, r.matchWikis(q)...)
-	out = append(out, r.matchPosts(q)...)
+	out = append(out, r.matchWritings(q)...)
 	return out
 }
 
@@ -145,18 +145,18 @@ func (r *retriever) matchWikis(q string) []corpusRow {
 	return out
 }
 
-func (r *retriever) matchPosts(q string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.posts))
-	for i := range r.posts {
-		if r.postMatches(&r.posts[i], q) {
-			out = append(out, postToRow(&r.posts[i]))
+func (r *retriever) matchWritings(q string) []corpusRow {
+	out := make([]corpusRow, 0, len(r.writings))
+	for i := range r.writings {
+		if r.writingMatches(&r.writings[i], q) {
+			out = append(out, writingToRow(&r.writings[i]))
 		}
 	}
 	return out
 }
 
-// post-specific helpers live in visitor_chat_tools_posts.go to keep this
-// file under the 350-line cap.
+// writing-specific helpers live in visitor_chat_tools_writings.go to keep
+// this file under the 350-line cap.
 
 // runRead —— 按 path 查 entry，ACL 通过 + show_as_source 不抑制时进 collector。
 func (r *retriever) runRead(input []byte) (string, error) {
@@ -200,8 +200,8 @@ func (r *retriever) dispatchRead(path string) string {
 		r.collector.addOutput(o)
 		return marshalKindBody("output", o.Body)
 	}
-	if p := r.findPostByPath(path); p != nil {
-		return marshalKindBody("post", postBodyText(p))
+	if w := r.findWritingByPath(path); w != nil {
+		return marshalKindBody("writing", writingBodyText(w))
 	}
 	return errJSON("not found: " + path)
 }
@@ -237,10 +237,10 @@ func (r *retriever) runList(input []byte) (string, error) {
 }
 
 func (r *retriever) listEntries(prefix string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.wikis)+len(r.outputs)+len(r.posts))
+	out := make([]corpusRow, 0, len(r.wikis)+len(r.outputs)+len(r.writings))
 	out = append(out, r.listOutputsByPrefix(prefix)...)
 	out = append(out, r.listWikisByPrefix(prefix)...)
-	out = append(out, r.listPostsByPrefix(prefix)...)
+	out = append(out, r.listWritingsByPrefix(prefix)...)
 	return out
 }
 
@@ -264,10 +264,10 @@ func (r *retriever) listWikisByPrefix(prefix string) []corpusRow {
 	return out
 }
 
-func (r *retriever) listPostsByPrefix(prefix string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.posts))
-	for i := range r.posts {
-		if row, ok := r.listPostRow(&r.posts[i], prefix); ok {
+func (r *retriever) listWritingsByPrefix(prefix string) []corpusRow {
+	out := make([]corpusRow, 0, len(r.writings))
+	for i := range r.writings {
+		if row, ok := r.listWritingRow(&r.writings[i], prefix); ok {
 			out = append(out, row)
 		}
 	}

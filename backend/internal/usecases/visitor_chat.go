@@ -238,23 +238,23 @@ func buildRetriever(
 	if oerr != nil {
 		return nil, fmt.Errorf("list output for retrieval: %w", oerr)
 	}
-	posts := listPostsForRetrieval(ctx, deps, ownerID)
+	writings := listWritingsForRetrieval(ctx, deps, ownerID)
 	return newRetriever(&retrieverInput{
-		wikis: wikis, outputs: outputs, posts: posts, perms: perms,
+		wikis: wikis, outputs: outputs, writings: writings, perms: perms,
 	}), nil
 }
 
-func listPostsForRetrieval(
+func listWritingsForRetrieval(
 	ctx context.Context, deps *VisitorDeps, ownerID string,
-) []domain.Post {
-	if deps.Posts == nil {
+) []domain.Writing {
+	if deps.Writings == nil {
 		return nil
 	}
-	posts, err := deps.Posts.ListPublishedByOwner(ctx, ownerID)
+	writings, err := deps.Writings.ListPublishedByOwner(ctx, ownerID)
 	if err != nil {
 		return nil
 	}
-	return posts
+	return writings
 }
 
 // streamReply / buildChatRequest / makeChatExecutor / pumpChunks 拆到

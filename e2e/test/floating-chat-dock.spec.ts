@@ -1,7 +1,7 @@
-// floating-chat-dock.spec.ts —— FloatingChatDock on blog and wiki pages.
+// floating-chat-dock.spec.ts —— FloatingChatDock on writings and wiki pages.
 //
 // 用户故事：
-//   1. blog index → pill 可见 (有 session 时)
+//   1. writings index → pill 可见 (有 session 时)
 //   2. 无 session → pill 不渲染
 //   3. 点 pill → 面板展开 → input 可见
 //   4. 输入 → ask → answer 渲
@@ -26,17 +26,17 @@ const OWNER = {
 
 const CODE = 'DOCK-001';
 
-test.describe('FloatingChatDock on blog/wiki pages', () => {
+test.describe('FloatingChatDock on writings/wiki pages', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);
   });
 
-  test('public visitor → no floating pill on /blog (no funded chat path)',
+  test('public visitor → no floating pill on /writings (no funded chat path)',
     async ({ page }) => {
       // Public visitor has no session → no inference funding (owner won't pay
       // for random visitors, no BYOAI key). Pill hidden until visitor either
       // absorbs a code or adds BYOAI on /gate.
-      await goto(page, '/blog');
+      await goto(page, '/writings');
       await expect(page.getByTestId('floating-dock-pill')).toHaveCount(0);
     });
 
@@ -48,8 +48,8 @@ test.describe('FloatingChatDock on blog/wiki pages', () => {
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // Navigate to blog
-      await goto(page, '/blog');
+      // Navigate to writings
+      await goto(page, '/writings');
       // Pill should be visible
       const pill = page.getByTestId('floating-dock-pill');
       await expect(pill).toBeVisible({ timeout: 5_000 });

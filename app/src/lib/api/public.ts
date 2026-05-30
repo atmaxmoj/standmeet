@@ -85,12 +85,12 @@ export type { IssueSessionInput };
 // body_md 是 GitHub-flavored markdown 原文，render 端用 react-markdown +
 // remark-gfm 直渲。不存中间块结构。
 
-// BacklinkRef —— /blog/<slug> "linked from" section 的一条 backlink。后端
-// 渲染时收集，源 post 必须 published。
+// BacklinkRef —— /writings/<slug> "linked from" section 的一条 backlink。后端
+// 渲染时收集，源 writing 必须 published。
 const BacklinkRefSchema = z.object({ slug: z.string(), title: z.string() });
 export type BacklinkRef = z.infer<typeof BacklinkRefSchema>;
 
-const PostViewSchema = z.object({
+const WritingViewSchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
   body_md: z.string(), cover_headline: z.string(), cover_sub: z.string(),
   cover_hue: z.enum(['amber', 'violet', 'acid']),
@@ -101,7 +101,7 @@ const PostViewSchema = z.object({
   asset_urls: z.record(z.string(), z.string()).optional(),
   backlinks: z.array(BacklinkRefSchema).optional(),
 });
-export type PostView = z.infer<typeof PostViewSchema>;
+export type WritingView = z.infer<typeof WritingViewSchema>;
 
 import { z } from 'zod';
 
@@ -113,17 +113,17 @@ async function fetchJSONSchema<T>(path: string, schema: z.ZodType<T>): Promise<T
   return safeJson(res, schema);
 }
 
-const PostsPageSchema = z.object({
-  posts: z.array(PostViewSchema), next_cursor: z.string().optional(),
+const WritingsPageSchema = z.object({
+  writings: z.array(WritingViewSchema), next_cursor: z.string().optional(),
 });
 
-export const fetchPostsPage = (cursor?: string, limit?: number) => {
+export const fetchWritingsPage = (cursor?: string, limit?: number) => {
   const qs = new URLSearchParams();
   if (cursor) qs.set('cursor', cursor);
   if (limit) qs.set('limit', String(limit));
   const suffix = qs.toString() ? '?' + qs.toString() : '';
-  return fetchJSONSchema('/api/v1/posts' + suffix, PostsPageSchema);
+  return fetchJSONSchema('/api/v1/writings' + suffix, WritingsPageSchema);
 };
 
-export const fetchPost = (slug: string) =>
-  fetchJSONSchema('/api/v1/posts/' + encodeURIComponent(slug), PostViewSchema);
+export const fetchWriting = (slug: string) =>
+  fetchJSONSchema('/api/v1/writings/' + encodeURIComponent(slug), WritingViewSchema);

@@ -38,7 +38,7 @@ type Handlers struct {
 	CustomPages       usecases.CustomPageDeps
 	SkillsAdmin       SkillsAdminDeps
 	MCPServersAdmin   MCPServersAdminDeps
-	PostsAdmin        PostsAdminDeps
+	WritingsAdmin     WritingsAdminDeps
 	Obsidian          ObsidianDeps
 	DraftsAdmin       DraftsAdminDeps
 	ApplicationsAdmin ApplicationsAdminDeps
@@ -84,7 +84,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountCustomPages(r)
 	h.MountSkills(r)
 	h.MountMCPServers(r)
-	h.MountPosts(r)
+	h.MountWritings(r)
 	h.MountObsidian(r)
 	h.MountDrafts(r)
 	h.MountApplications(r)

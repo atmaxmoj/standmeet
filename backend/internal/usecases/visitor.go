@@ -26,7 +26,7 @@ type VisitorDeps struct {
 	Conv       *postgres.ConversationRepo
 	Wiki       *postgres.WikiRepo
 	Output     *postgres.OutputRepo
-	Posts      *postgres.PostRepo
+	Writings   *postgres.WritingRepo
 	Owners     *postgres.OwnerRepo
 	Skills     *postgres.SkillRepo
 	MCPServers *postgres.MCPServerRepo

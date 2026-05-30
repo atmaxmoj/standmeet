@@ -232,7 +232,7 @@ export default tseslint.config(
   // next/image 要求 width+height，与 markdown <img> 语义不兼容，本文件
   // 单点允许 raw <img>。
   {
-    files: ['src/components/blog/BlogArticleMarkdown.tsx'],
+    files: ['src/components/writings/WritingArticleMarkdown.tsx'],
     rules: {
       '@next/next/no-img-element': 'off',
     },

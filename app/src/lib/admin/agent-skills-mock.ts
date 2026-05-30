@@ -77,7 +77,7 @@ export const BUILT_IN_SKILLS: readonly AgentSkillView[] = [
     blurb: 'Assemble a one-pager / PDF from corpus entries on request, into outputs as a draft.',
     needs: [], runs_30d: 0 },
   { id: 'memory.cross', name: 'Cross-surface memory', cat: 'answer', on: true, gate: 'auto',
-    blurb: 'Remember what a visitor read on /wiki or /blog when they land in chat (session-scoped).',
+    blurb: 'Remember what a visitor read on /wiki or /writings when they land in chat (session-scoped).',
     needs: [], runs_30d: 41 },
   { id: 'reply.draft', name: 'Draft replies in my voice', cat: 'owner', on: true, gate: 'owner',
     blurb: 'In your admin, draft replies to access requests / pings in your voice. You edit + send.',

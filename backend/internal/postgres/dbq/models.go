@@ -279,37 +279,6 @@ type PageContent struct {
 	UpdatedAt    pgtype.Timestamptz
 }
 
-type Post struct {
-	ID                 pgtype.UUID
-	OwnerID            pgtype.UUID
-	Slug               string
-	Title              string
-	Excerpt            string
-	BodyMd             string
-	CoverHeadline      string
-	CoverSub           string
-	CoverHue           string
-	CoverImageAssetID  pgtype.UUID
-	Tags               []string
-	Visibility         string
-	CrossRefs          []string
-	Path               string
-	ReadMinutes        int32
-	LockedBody         string
-	ObsidianSourcePath string
-	ObsidianImportedAt pgtype.Timestamptz
-	PublishedAt        pgtype.Timestamptz
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
-}
-
-type PostLink struct {
-	SrcPostID pgtype.UUID
-	DstPostID pgtype.UUID
-	OwnerID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-}
-
 type RawEntry struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID
@@ -372,4 +341,35 @@ type WikiEntry struct {
 	SeoIndexed     bool
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
+}
+
+type Writing struct {
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	Slug               string
+	Title              string
+	Excerpt            string
+	BodyMd             string
+	CoverHeadline      string
+	CoverSub           string
+	CoverHue           string
+	CoverImageAssetID  pgtype.UUID
+	Tags               []string
+	Visibility         string
+	CrossRefs          []string
+	Path               string
+	ReadMinutes        int32
+	LockedBody         string
+	ObsidianSourcePath string
+	ObsidianImportedAt pgtype.Timestamptz
+	PublishedAt        pgtype.Timestamptz
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+}
+
+type WritingRef struct {
+	SrcWritingID pgtype.UUID
+	DstWritingID pgtype.UUID
+	OwnerID      pgtype.UUID
+	CreatedAt    pgtype.Timestamptz
 }

@@ -1,17 +1,17 @@
 // import.go —— vault 目录的批量 ingest。route layer 接 multipart 上传（owner
 // 通过 webkitdirectory 选了整个 vault），解出 .md + attachment 两类文件，
-// 这里把每个 .md 转换成 usecases.SavePost 调用。
+// 这里把每个 .md 转换成 usecases.SaveWriting 调用。
 //
 // 流程：
 //   1. 按 .md / 非 .md 分类；非 .md 按 basename 入 attachment 索引
 //   2. 每个 .md：
 //      a. 解 frontmatter；publish != true 跳过
 //      b. body 里的 image ref → 在 attachment 索引找 bytes → 生成
-//         pending-<uuid> 当 SavePost 的 PendingID
+//         pending-<uuid> 当 SaveWriting 的 PendingID
 //      c. 改写 body 里 image ref 成 standmeet-asset:pending-<uuid>
-//      d. 看 owner 的 posts 里有没有同 obsidian_source_path / 同 slug 的：
+//      d. 看 owner 的 writings 里有没有同 obsidian_source_path / 同 slug 的：
 //         - 存在 + updated_at > obsidian_imported_at → skip（owner 在 web 改过了）
-//         - 否则 SavePost（在已有 path 上 PostID 走 update，没有走 create）
+//         - 否则 SaveWriting（在已有 path 上 WritingID 走 update，没有走 create）
 //      e. SetObsidianMeta(source_path) 标记 imported_at
 //   3. 返 ImportResult 给 caller 让 UI 显示统计
 
@@ -47,14 +47,14 @@ type ImportResult struct {
 // ImportVault —— route layer 主入口。owner 通过 multipart 上传整个 vault，
 // 这里 ingest 所有带 publish: true 的 .md。
 func ImportVault(
-	ctx context.Context, deps usecases.PostsTxDeps, postRepoSetter MetaSetter,
+	ctx context.Context, deps usecases.WritingsTxDeps, writingRepoSetter MetaSetter,
 	ownerID string, files []VaultFile,
 ) ImportResult {
 	parts := partitionFiles(files)
 	result := ImportResult{}
 	for i := range parts.mds {
 		processOne(ctx, &processArgs{
-			Deps: deps, Setter: postRepoSetter, OwnerID: ownerID,
+			Deps: deps, Setter: writingRepoSetter, OwnerID: ownerID,
 			MD: &parts.mds[i], Attachments: parts.attachments, Result: &result,
 		})
 	}
@@ -63,7 +63,7 @@ func ImportVault(
 
 // processArgs —— processOne 参数打包（避开 argument-limit 5）。
 type processArgs struct {
-	Deps        usecases.PostsTxDeps
+	Deps        usecases.WritingsTxDeps
 	Setter      MetaSetter
 	MD          *VaultFile
 	Attachments map[string]VaultFile
@@ -71,11 +71,11 @@ type processArgs struct {
 	OwnerID     string
 }
 
-// MetaSetter —— SavePost 之后标记这行是从 vault 来的。
-// 实现：postgres.PostRepo.{GetByObsidianSourcePath, SetObsidianMeta}。
+// MetaSetter —— SaveWriting 之后标记这行是从 vault 来的。
+// 实现：postgres.WritingRepo.{GetByObsidianSourcePath, SetObsidianMeta}。
 type MetaSetter interface {
-	GetByObsidianSourcePath(ctx context.Context, ownerID, sourcePath string) (domain.Post, error)
-	SetObsidianMeta(ctx context.Context, ownerID, postID, sourcePath string) error
+	GetByObsidianSourcePath(ctx context.Context, ownerID, sourcePath string) (domain.Writing, error)
+	SetObsidianMeta(ctx context.Context, ownerID, writingID, sourcePath string) error
 }
 
 // partitionedVault —— partitionFiles 多返回打包（避开 funcresult-limit +
@@ -166,7 +166,7 @@ const (
 
 // upsertArgs —— upsertFromVault 参数打包（避开 argument-limit 5 + hugeParam）。
 type upsertArgs struct {
-	Deps       usecases.PostsTxDeps
+	Deps       usecases.WritingsTxDeps
 	Setter     MetaSetter
 	Parsed     *parsedVault
 	OwnerID    string
@@ -174,7 +174,7 @@ type upsertArgs struct {
 }
 
 func upsertFromVault(ctx context.Context, a *upsertArgs) (upsertOutcome, error) {
-	existing, found := lookupExistingPost(ctx, a.Setter, a.OwnerID, a.SourcePath)
+	existing, found := lookupExistingWriting(ctx, a.Setter, a.OwnerID, a.SourcePath)
 	outcome := outcomeUpdated
 	if !found {
 		outcome = outcomeCreated
@@ -188,48 +188,48 @@ func upsertFromVault(ctx context.Context, a *upsertArgs) (upsertOutcome, error) 
 	return outcome, nil
 }
 
-func runSaveAndMark(ctx context.Context, a *upsertArgs, existing *domain.Post) error {
+func runSaveAndMark(ctx context.Context, a *upsertArgs, existing *domain.Writing) error {
 	in := buildSaveInputFromVault(a.OwnerID, existing, a.SourcePath, a.Parsed)
-	post, serr := usecases.SavePost(ctx, a.Deps, &in)
+	writing, serr := usecases.SaveWriting(ctx, a.Deps, &in)
 	if serr != nil {
-		return fmt.Errorf("save post: %w", serr)
+		return fmt.Errorf("save writing: %w", serr)
 	}
-	if merr := a.Setter.SetObsidianMeta(ctx, a.OwnerID, post.ID, a.SourcePath); merr != nil {
+	if merr := a.Setter.SetObsidianMeta(ctx, a.OwnerID, writing.ID, a.SourcePath); merr != nil {
 		return fmt.Errorf("set obsidian meta: %w", merr)
 	}
 	return nil
 }
 
-func lookupExistingPost(
+func lookupExistingWriting(
 	ctx context.Context, setter MetaSetter, ownerID, sourcePath string,
-) (domain.Post, bool) {
-	p, err := setter.GetByObsidianSourcePath(ctx, ownerID, sourcePath)
+) (domain.Writing, bool) {
+	w, err := setter.GetByObsidianSourcePath(ctx, ownerID, sourcePath)
 	if err != nil {
-		if errors.Is(err, domain.ErrPostNotFound) {
-			return domain.Post{}, false
+		if errors.Is(err, domain.ErrWritingNotFound) {
+			return domain.Writing{}, false
 		}
-		return domain.Post{}, false
+		return domain.Writing{}, false
 	}
-	return p, true
+	return w, true
 }
 
 // wasWebEdited —— 上次 import 之后 owner 在 web 上又改过 → skip 避免覆盖。
 // updated_at 比 imported_at 晚 (有 buffer) 就算 web 改过。
-func wasWebEdited(p *domain.Post) bool {
-	if p.ObsidianImportedAt == nil {
+func wasWebEdited(w *domain.Writing) bool {
+	if w.ObsidianImportedAt == nil {
 		return false
 	}
-	// 1 秒 buffer 避免 SavePost + SetObsidianMeta 之间的 race（理论上 set
+	// 1 秒 buffer 避免 SaveWriting + SetObsidianMeta 之间的 race（理论上 set
 	// 之后 updated_at 又被 set 推后了，会误判 web edited）。
-	return p.UpdatedAt.After(p.ObsidianImportedAt.Add(time.Second))
+	return w.UpdatedAt.After(w.ObsidianImportedAt.Add(time.Second))
 }
 
 func buildSaveInputFromVault(
-	ownerID string, existing *domain.Post, sourcePath string, p *parsedVault,
-) usecases.SavePostInput {
+	ownerID string, existing *domain.Writing, sourcePath string, p *parsedVault,
+) usecases.SaveWritingInput {
 	slug := pickSlug(p.fm.Slug, sourcePath)
-	in := usecases.SavePostInput{
-		OwnerID: ownerID, PostID: existing.ID, Slug: slug,
+	in := usecases.SaveWritingInput{
+		OwnerID: ownerID, WritingID: existing.ID, Slug: slug,
 		Title:         pickTitle(p.fm.Title, slug),
 		Excerpt:       p.fm.Excerpt,
 		BodyMD:        p.body,
@@ -264,15 +264,15 @@ func pickTitle(fmTitle, slug string) string {
 
 func pickHue(h string) string {
 	switch h {
-	case domain.PostCoverHueAmber, domain.PostCoverHueViolet, domain.PostCoverHueAcid:
+	case domain.WritingCoverHueAmber, domain.WritingCoverHueViolet, domain.WritingCoverHueAcid:
 		return h
 	}
-	return domain.PostCoverHueAmber
+	return domain.WritingCoverHueAmber
 }
 
 func pickVisibility(v string) string {
-	if v == domain.PostVisibilityPrivate {
-		return domain.PostVisibilityPrivate
+	if v == domain.WritingVisibilityPrivate {
+		return domain.WritingVisibilityPrivate
 	}
-	return domain.PostVisibilityPublic
+	return domain.WritingVisibilityPublic
 }

@@ -5,7 +5,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { login as loginAPI } from '@/fixtures/admin';
 
-// PNG_1X1 —— 1x1 透明 PNG，最小合法字节流，跟 blog-assets.ts 同形。
+// PNG_1X1 —— 1x1 透明 PNG，最小合法字节流，跟 writing-assets.ts 同形。
 export const PNG_1X1 = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
   0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -59,8 +59,8 @@ export async function downloadExport(
   return Buffer.from(await res.body());
 }
 
-// listAdminPosts —— 单条简单 helper。
-export async function listAdminPosts(
+// listAdminWritings —— 单条简单 helper。
+export async function listAdminWritings(
   request: APIRequestContext, owner: { email: string; password: string },
 ): Promise<Array<{
   id: string; slug: string; title: string; tags: string[];
@@ -69,7 +69,7 @@ export async function listAdminPosts(
   asset_urls: Record<string, string>;
 }>> {
   const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.get('/api/admin/posts/', { headers: { 'X-Csrftoken': csrf } });
+  const res = await request.get('/api/admin/writings/', { headers: { 'X-Csrftoken': csrf } });
   return await res.json() as Array<{
     id: string; slug: string; title: string; tags: string[];
     body_md: string; published: boolean; cover_hue: string;

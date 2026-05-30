@@ -1,7 +1,7 @@
 // obsidian.go —— admin /obsidian endpoint: export vault as zip / import vault
 // from multipart upload。
 //
-// GET  /api/admin/obsidian/export  → application/zip 流（zip 内 posts/<slug>.md
+// GET  /api/admin/obsidian/export  → application/zip 流（zip 内 writings/<slug>.md
 //                                    + attachments/<id>.<ext>）
 // POST /api/admin/obsidian/import  → multipart form-data，每个 file field
 //                                    携带 vault 内相对路径（webkitRelativePath）；
@@ -32,13 +32,13 @@ import (
 
 // ObsidianDeps —— admin obsidian handlers 依赖。
 type ObsidianDeps struct {
-	Posts   *postgres.PostRepo
-	Assets  *postgres.AssetRepo
-	Storage *storage.Client
-	PostsTx usecases.PostsTxDeps
+	Writings   *postgres.WritingRepo
+	Assets     *postgres.AssetRepo
+	Storage    *storage.Client
+	WritingsTx usecases.WritingsTxDeps
 }
 
-const maxObsidianImportSize = 200 << 20 // 200 MB — vault 整个上传，比 post save 大。
+const maxObsidianImportSize = 200 << 20 // 200 MB — vault 整个上传，比 writing save 大。
 
 // MountObsidian 挂 /obsidian 子路由。
 func (h *Handlers) MountObsidian(r chi.Router) {
@@ -54,7 +54,7 @@ func (h *Handlers) exportObsidian() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Disposition", `attachment; filename="standmeet-vault.zip"`)
 		deps := obsidian.ExportDeps{
-			Posts: h.Obsidian.Posts, Assets: h.Obsidian.Assets, Storage: h.Obsidian.Storage,
+			Writings: h.Obsidian.Writings, Assets: h.Obsidian.Assets, Storage: h.Obsidian.Storage,
 		}
 		if err := obsidian.WriteZip(r.Context(), deps, ownerID, w); err != nil {
 			logEncodeErr(h.Log, "obsidian export", err)
@@ -79,7 +79,7 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		result := obsidian.ImportVault(
-			r.Context(), h.Obsidian.PostsTx, h.Obsidian.Posts, ownerID, files,
+			r.Context(), h.Obsidian.WritingsTx, h.Obsidian.Writings, ownerID, files,
 		)
 		writeImportJSON(h.Log, w, &result)
 	}

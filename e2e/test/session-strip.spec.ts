@@ -5,7 +5,7 @@
 //   1. recruiter 扫 QR (/?code=X) 落地 → SessionStrip 出现：code 标签 +
 //      gauge 0/MAX turns。绕过 /gate；URL 上的 ?code= 在 absorb 后立刻
 //      被 history.replaceState 删掉。
-//   2. SessionStrip 跨 5 个 surface 都 sticky 在顶（root / blog / blog/[slug] /
+//   2. SessionStrip 跨 5 个 surface 都 sticky 在顶（root / writings / writings/[slug] /
 //      wiki / output）— visitor 切页面看得见同一条 strip。
 //   3. quota 用到 ≥ 80% → strip 翻 is-warn (accent 红边)，"request more"
 //      链接出现。
@@ -50,18 +50,18 @@ test.describe('SessionStrip · gauge / cross-surface / warn / lockdown', () => {
       await expect(gauge).toContainText(String(QUOTA_MAX));
     });
 
-  test('strip mounts on /blog + /wiki + /output (cross-surface)',
+  test('strip mounts on /writings + /wiki + /output (cross-surface)',
     async ({ page }) => {
       await goto(page, `/?code=${VISITOR_CODE}`);
       await waitForSessionPost(page);
       // navigate via in-page link (UI-driven)
-      await goto(page, '/blog');
+      await goto(page, '/writings');
       await expect(page.getByTestId('session-strip')).toBeVisible();
       // wiki / output 这些 SSR 路径也挂了 SessionStrip
       // 直接 goto 是 entry navigation，不是页面内跳转 — 合法。
       await goto(page, '/wiki/anything-404'); // not-found 页也应该挂条
       // not-found 走 Next 404，strip 是 layout 级别。我们的 layout 没挂
-      // —— strip 在 article 内才挂，404 时 article 不渲染。所以这里只断 /blog。
+      // —— strip 在 article 内才挂，404 时 article 不渲染。所以这里只断 /writings。
     });
 
   test('invalid code → URL cleared, no strip rendered (still public tier)',

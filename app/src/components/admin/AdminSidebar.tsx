@@ -10,7 +10,7 @@ import { sidebarBadgeFor } from '@/lib/admin/sidebar-badge-for';
 export type AdminSlug =
   | 'raw' | 'wiki' | 'output' | 'conversations' | 'codes' | 'requests'
   | 'connectors' | 'page' | 'custom-pages' | 'api-mcp' | 'account'
-  | 'skills' | 'posts' | 'drafts' | 'applications'
+  | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
   | 'preview' | 'obsidian' | 'agent-skills';
 
@@ -35,7 +35,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { slug: 'raw', label: 'raw', badgeTestId: 'badge-raw' },
       { slug: 'wiki', label: 'wiki' },
-      { slug: 'posts', label: 'writing' },
+      { slug: 'writings', label: 'writings' },
       { slug: 'output', label: 'outputs' },
       { slug: 'custom-pages', label: 'pages' },
     ],

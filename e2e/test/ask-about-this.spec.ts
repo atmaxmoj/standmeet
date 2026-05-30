@@ -21,12 +21,12 @@ const OWNER = {
 
 test.describe('AskAboutThis · follow-up bar on blog/[slug]', () => {
   test.beforeAll(async ({ playwright }) => {
-    await initOwnerWithPost(playwright);
+    await initOwnerWithWriting(playwright);
   });
 
-  test('blog article shows starter prompts → click → goto / with ?q=...',
+  test('writing article shows starter prompts → click → goto / with ?q=...',
     async ({ page }) => {
-      await goto(page, '/blog/eval-is-the-product');
+      await goto(page, '/writings/eval-is-the-product');
       const form = page.getByTestId('article-ask-form');
       await expect(form).toBeVisible({ timeout: 5_000 });
       // click first "try" starter
@@ -40,7 +40,7 @@ test.describe('AskAboutThis · follow-up bar on blog/[slug]', () => {
 
   test('custom question submit → action="/" GET fires',
     async ({ page }) => {
-      await goto(page, '/blog/eval-is-the-product');
+      await goto(page, '/writings/eval-is-the-product');
       // 输自定义 → 提交 form (GET / with q=...)
       const input = page.locator('input[name="q"]');
       await input.fill('how did you build the eval rubric?');
@@ -52,7 +52,7 @@ test.describe('AskAboutThis · follow-up bar on blog/[slug]', () => {
     });
 });
 
-async function initOwnerWithPost(playwright: Playwright): Promise<void> {
+async function initOwnerWithWriting(playwright: Playwright): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();
   await claim(request, findSetupToken(), {
@@ -62,7 +62,7 @@ async function initOwnerWithPost(playwright: Playwright): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const apiToken = await createAPIToken(request, csrf, 'ask-seed-token');
   const sid = await initMCP(request, apiToken);
-  await callTool<{ post_id: string }>(request, apiToken, sid, 'post_create', {
+  await callTool<{ writing_id: string }>(request, apiToken, sid, 'writing_create', {
     slug: 'eval-is-the-product',
     title: 'Eval is the product',
     excerpt: 'How retrieval-quality moves with rubric reframes.',
