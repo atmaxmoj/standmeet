@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/wangsijie/standmeet/internal/agentskills"
@@ -21,8 +22,11 @@ import (
 const capCodesBundle = "codes.bundle"
 
 // CodesRevoker —— codes.bundle capability 需要的窄接口 (avoid 直接 import
-// postgres.CodeRepo)。
+// postgres.CodeRepo)。GetByID 用来验存在；Revoke 本身的 SQL 是 idempotent
+// (0-row update 不报错) —— 直接给 owner AI 调会"撤销不存在的 code 也返
+// 成功"，混淆。这里先 GetByID 校存在，OwnerID 一致才放过。
 type CodesRevoker interface {
+	GetByID(ctx context.Context, codeID string) (domain.AccessCode, error)
 	Revoke(ctx context.Context, ownerID, codeID string) error
 }
 
@@ -82,17 +86,47 @@ type revokeResultPayload struct {
 func (c *codesCapability) handleRevoke(
 	ctx context.Context, ownerID string, raw json.RawMessage,
 ) agentskills.MCPResult {
-	var args revokeArgsWire
-	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+	args, perr := parseRevokeArgs(raw)
+	if perr != nil {
+		return agentskills.MCPError(perr.Error())
 	}
-	if args.CodeID == "" {
-		return agentskills.MCPError("code_id is required")
+	if existsErr := c.ensureCodeExists(ctx, ownerID, args.CodeID); existsErr != nil {
+		return codesRevokeErr(c.log, existsErr)
 	}
 	if err := c.codes.Revoke(ctx, ownerID, args.CodeID); err != nil {
 		return codesRevokeErr(c.log, err)
 	}
 	return marshalRevokeResult(c.log, args.CodeID)
+}
+
+func parseRevokeArgs(raw json.RawMessage) (revokeArgsWire, error) {
+	var args revokeArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return args, errors.New("invalid arguments: " + err.Error())
+	}
+	if args.CodeID == "" {
+		return args, errors.New("code_id is required")
+	}
+	return args, nil
+}
+
+// ensureCodeExists —— GetByID 返 ErrCodeInvalid → 透传 (handler 翻"code
+// not found")；找到但 owner 不匹 → ErrCodeInvalid (不泄露存在性)；DB 故
+// 障 → 透传 (handler 走 internal error)。
+func (c *codesCapability) ensureCodeExists(
+	ctx context.Context, ownerID, codeID string,
+) error {
+	code, err := c.codes.GetByID(ctx, codeID)
+	if err != nil {
+		if errors.Is(err, domain.ErrCodeInvalid) {
+			return domain.ErrCodeInvalid
+		}
+		return fmt.Errorf("get code: %w", err)
+	}
+	if code.OwnerID != ownerID {
+		return domain.ErrCodeInvalid
+	}
+	return nil
 }
 
 func codesRevokeErr(log *slog.Logger, err error) agentskills.MCPResult {
