@@ -47,6 +47,8 @@ components:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
+  agentskills:
+    in: internal/agentskills              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
   mcpclient:
     in: internal/mcpclient                # 调外部 MCP server (owner-registered)
   storage:
@@ -97,6 +99,15 @@ deps:
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
   sandbox:
     mayDependOn:
+      - domain
+    anyVendorDeps: true
+
+  # agentskills —— Phase B Capability interface + Registry。leaf-ish 包，
+  # 只依赖 inference (ToolSpec / ToolExecutor) + domain (RoleSnapshot 类型)。
+  # 具体 Capability 实现放在 usecases / mcp 等更高层，反向 import 本包注册。
+  agentskills:
+    mayDependOn:
+      - inference
       - domain
     anyVendorDeps: true
 
@@ -240,6 +251,7 @@ deps:
       - printsess
       - session
       - usecases
+      - agentskills
     anyVendorDeps: true
 
   # admin routes (/api/admin/*) 派发到 usecases；handler 自己 cyclo ≤3。
@@ -339,4 +351,5 @@ deps:
       - mcpclient
       - storage
       - server
+      - agentskills
     anyVendorDeps: true

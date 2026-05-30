@@ -36,10 +36,12 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 			Log:    d.log,
 		},
-		Builds:        sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
-		TLSAsk:        sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
-		PrintSession:  sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
-		TestToolSpecs: buildTestToolSpecsDeps(d),
+		Builds:          sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
+		TLSAsk:          sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
+		PrintSession:    sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
+		TestToolSpecs:   buildTestToolSpecsDeps(d),
+		TestRegistry:    sysroutes.TestRegistryDeps{Registry: d.agentSkills, Log: d.log},
+		TestVisitorCaps: buildTestVisitorCapsDeps(d),
 		TestGCalExpire: sysroutes.TestGCalExpireDeps{
 			Owners: d.ownerRepo, DB: d.db, Log: d.log,
 		},
@@ -99,6 +101,16 @@ func buildTestToolSpecsDeps(d *runtimeDeps) sysroutes.TestToolSpecsDeps {
 	return sysroutes.TestToolSpecsDeps{
 		Sessions: d.visitorStore,
 		Visitor:  &visitor,
+		Log:      d.log,
+	}
+}
+
+// buildTestVisitorCapsDeps —— deps for /internal/test/visitor-capabilities.
+// Capability 自身闭包持 deps，本 deps 只装 session store + registry。
+func buildTestVisitorCapsDeps(d *runtimeDeps) sysroutes.TestVisitorCapabilitiesDeps {
+	return sysroutes.TestVisitorCapabilitiesDeps{
+		Sessions: d.visitorStore,
+		Registry: d.agentSkills,
 		Log:      d.log,
 	}
 }

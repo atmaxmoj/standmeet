@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/captcha"
 	"github.com/wangsijie/standmeet/internal/config"
 	"github.com/wangsijie/standmeet/internal/cryptobox"
@@ -210,6 +211,7 @@ type runtimeDeps struct {
 	pdfRenderer       usecases.PDFRenderer
 	printStore        *printsess.Store
 	marketplaceClient *marketplace.Client
+	agentSkills       *agentskills.Registry
 	captchaSiteKey    string
 	buildsRoot        string
 	secureCookie      bool

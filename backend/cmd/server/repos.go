@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/url"
 
+	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/captcha"
 	"github.com/wangsijie/standmeet/internal/config"
 	"github.com/wangsijie/standmeet/internal/domain"
@@ -143,6 +144,7 @@ func assembleRuntimeDeps(
 		marketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
+		agentSkills: agentskills.NewRegistry(),
 	}
 }
 
