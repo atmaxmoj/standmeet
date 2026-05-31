@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "./sm-atoms.css";
 @import "./sm-mobile.css";
+/* KaTeX 渲染样式 (chat markdown 用) */
+@import "katex/dist/katex.min.css";
 
 /* StandMeet design tokens —— canonical source: docs/design/project/sm-tokens.css。
    warm cream paper + ink + vermillion accent + amber/violet/acid 辅助色；

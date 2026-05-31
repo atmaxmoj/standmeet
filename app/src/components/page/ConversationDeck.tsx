@@ -11,9 +11,7 @@
 
 'use client';
 
-import ReactMarkdown from 'react-markdown';
-import rehypeRaw from 'rehype-raw';
-
+import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import type { Citation, Turn, TurnAnswer } from '@/lib/page/use-conversation';
 
@@ -135,7 +133,7 @@ function AnswerParas({ answer }: { answer: TurnAnswer }) {
     <div className={cls} data-testid="answer-body">
       {answer.paras.map((p, i) => (
         <div key={i} className="reading mb-4 last:mb-0 text-[18px]">
-          <ReactMarkdown rehypePlugins={[rehypeRaw]}>{p}</ReactMarkdown>
+          <ChatMarkdown source={p} />
         </div>
       ))}
     </div>

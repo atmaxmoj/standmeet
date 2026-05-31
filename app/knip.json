@@ -8,7 +8,8 @@
     "tailwindcss",
     "@standmeet/sdk-core",
     "@standmeet/sdk",
-    "@standmeet/agent-core"
+    "@standmeet/agent-core",
+    "katex"
   ],
   "ignoreExportsUsedInFile": true,
   "ignoreBinaries": []
