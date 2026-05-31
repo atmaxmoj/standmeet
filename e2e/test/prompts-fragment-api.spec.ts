@@ -1,5 +1,6 @@
-// d1-prompts-source-of-truth.spec.ts —— Phase D-1: system prompt fragments
-// 从 backend/internal/prompts/*.md 单一源加载，不再硬编码在 Go 字符串里。
+// prompts-fragment-api.spec.ts —— GET /api/v1/prompts/{id} 给前端 (pi
+// agent loop) 拿 system prompt 各 fragment 文本。
+// fragment 单一源在 backend/internal/prompts/*.md，不再硬编码 Go 字符串。
 //
 // 验证手段：
 //   1. GET /api/v1/prompts/{id} 返每个 fragment 的文本 (md 文件内容)
@@ -23,20 +24,20 @@ import { issueSession } from '@/fixtures/visitor';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
-  email: 'd1@example.com', password: 'correct-horse-battery-staple',
-  handle: 'd1', fullName: 'D-One Owner',
+  email: 'prompts-api@example.com', password: 'correct-horse-battery-staple',
+  handle: 'prompts-api', fullName: 'Prompts API Owner',
 };
 
-const CODE = 'D1-001';
+const CODE = 'PROMPTS-001';
 
 interface VisitorCapabilitiesResp {
   capabilities: Array<{ id: string; enabled: boolean }>;
   tool_specs: Array<{ name: string }>;
   system_prompt_hash: string;
-  system_prompt_full: string; // NEW in D-1
+  system_prompt_full: string;
 }
 
-async function setupD1Owner(playwright: Playwright): Promise<void> {
+async function setupPromptsOwner(playwright: Playwright): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();
   await claim(request, findSetupToken(), {
@@ -45,7 +46,7 @@ async function setupD1Owner(playwright: Playwright): Promise<void> {
   });
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const role = await createRole(request, csrf, {
-    name: 'd1-role', description: 'd1 spec',
+    name: 'prompts-role', description: 'role for prompts API spec',
     corpus_uris: ['wiki://**', 'output://**'],
   });
   await createCode(request, csrf, {
@@ -54,9 +55,9 @@ async function setupD1Owner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-test.describe('Phase D-1 prompts/ single source of truth', () => {
+test.describe('prompts fragment API · single source of truth', () => {
   test.beforeAll(async ({ playwright }) => {
-    await setupD1Owner(playwright);
+    await setupPromptsOwner(playwright);
   });
 
   test('GET /api/v1/prompts/visitor-header returns md file content',
@@ -109,14 +110,14 @@ test.describe('Phase D-1 prompts/ single source of truth', () => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const emptyRole = await createRole(request, csrf, {
-        name: 'd1-empty', description: 'no corpus',
+        name: 'no-corpus-role', description: 'no corpus',
         corpus_uris: [],
       });
       await createCode(request, csrf, {
-        code: 'D1-EMPTY', label: 'empty', assumed_role_id: emptyRole.id,
+        code: 'PROMPTS-EMPTY', label: 'empty', assumed_role_id: emptyRole.id,
       });
       const sess = await issueSession(request, {
-        handle: OWNER.handle, code: 'D1-EMPTY', visitor_name: 'V',
+        handle: OWNER.handle, code: 'PROMPTS-EMPTY', visitor_name: 'V',
       });
       const body = await fetchVisitorCapabilities(request, sess.session_token);
       const corpus = await fetchPrompt(request, 'capabilities/corpus.retrieval');

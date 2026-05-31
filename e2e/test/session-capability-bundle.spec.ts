@@ -1,7 +1,6 @@
-// d2-session-capabilities-shape.spec.ts —— Phase D-2: POST /api/v1/sessions
-// 响应里加 capabilities map + system_prompt_part_ids 数组，让前端
-// pi-agent-core 一次拿全 (a) 当前 session 启用的 capability 列表 +
-// (b) 拼 system prompt 需要的 .md fragment id 列表，再分别 GET
+// session-capability-bundle.spec.ts —— POST /api/v1/sessions 响应一次
+// 给前端 (a) 该 session 启用的 capability 列表 + (b) system prompt
+// 拼接需要的 fragment id 数组。前端按 fragment id 分别 GET
 // /api/v1/prompts/{id} 拿文本本地组合。
 //
 // 不变量：
@@ -27,12 +26,12 @@ import type { SessionCapability, VisitorSession } from '@/fixtures/visitor';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
-  email: 'd2@example.com', password: 'correct-horse-battery-staple',
-  handle: 'd2', fullName: 'D-Two Owner',
+  email: 'session-bundle@example.com', password: 'correct-horse-battery-staple',
+  handle: 'session-bundle', fullName: 'Session Bundle Owner',
 };
 
-const CODE_FULL = 'D2-FULL';
-const CODE_EMPTY = 'D2-EMPTY';
+const CODE_FULL = 'BUNDLE-FULL';
+const CODE_EMPTY = 'BUNDLE-EMPTY';
 
 interface VisitorCapsResp {
   capabilities: SessionCapability[];
@@ -40,18 +39,18 @@ interface VisitorCapsResp {
 }
 
 function requireCaps(sess: VisitorSession): SessionCapability[] {
-  if (!sess.capabilities) throw new Error('D-2: response missing capabilities[]');
+  if (!sess.capabilities) throw new Error('response missing capabilities[]');
   return sess.capabilities;
 }
 
 function requirePartIDs(sess: VisitorSession): string[] {
   if (!sess.system_prompt_part_ids) {
-    throw new Error('D-2: response missing system_prompt_part_ids[]');
+    throw new Error('response missing system_prompt_part_ids[]');
   }
   return sess.system_prompt_part_ids;
 }
 
-async function setupD2Owner(playwright: Playwright): Promise<void> {
+async function setupBundleOwner(playwright: Playwright): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();
   await claim(request, findSetupToken(), {
@@ -60,14 +59,14 @@ async function setupD2Owner(playwright: Playwright): Promise<void> {
   });
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const roleFull = await createRole(request, csrf, {
-    name: 'd2-full', description: 'd2 spec full role',
+    name: 'full-corpus-role', description: 'role with corpus URIs',
     corpus_uris: ['wiki://**', 'output://**'],
   });
   await createCode(request, csrf, {
     code: CODE_FULL, label: 'full', assumed_role_id: roleFull.id,
   });
   const roleEmpty = await createRole(request, csrf, {
-    name: 'd2-empty', description: 'd2 spec empty role',
+    name: 'no-corpus-role', description: 'role without corpus URIs',
     corpus_uris: [],
   });
   await createCode(request, csrf, {
@@ -76,9 +75,9 @@ async function setupD2Owner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-test.describe('Phase D-2 POST /api/v1/sessions capability_state + part_ids', () => {
+test.describe('session capability bundle · POST /sessions response shape', () => {
   test.beforeAll(async ({ playwright }) => {
-    await setupD2Owner(playwright);
+    await setupBundleOwner(playwright);
   });
 
   test('full corpus role → capabilities includes corpus.retrieval enabled + part_ids contains its fragment id',
