@@ -32,4 +32,5 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps RegisterDeps) {
 	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
 	reg.MustRegister(newCodesCapability(deps.Codes, deps.Log))
 	reg.MustRegister(newCorpusRawCapability(deps.Corpus, deps.SEO, deps.Log))
+	reg.MustRegister(newCorpusOutputCapability(deps.Corpus, deps.SEO, deps.Log))
 }

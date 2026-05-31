@@ -132,7 +132,7 @@ func OwnerIDFrom(ctx context.Context) string {
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
 	// corpusTools 已 E-1 迁到 cap_corpus_raw.go
-	outputTools(mcpSrv, deps)
+	// outputTools 已 E-2 迁到 cap_corpus_output.go
 	// seoTools 已搬进 cap_seo.go (走 registerCapabilities)
 	customPageTools(mcpSrv, deps)
 	jobsTools(mcpSrv, deps)
