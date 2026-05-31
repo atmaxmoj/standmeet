@@ -108,10 +108,12 @@ func buildTestVisitorCapsDeps(d *runtimeDeps) sysroutes.TestVisitorCapabilitiesD
 func registerAgentSkills(d *runtimeDeps) {
 	visitor := buildPublicDeps(d).Visitor
 	usecases.RegisterAgentSkills(d.agentSkills, &visitor)
+	corpusDeps := usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo}
 	mcp.RegisterAgentSkills(d.agentSkills, mcp.RegisterDeps{
 		Owners: d.ownerRepo,
 		SEO:    d.seoRepo,
 		Codes:  d.codeRepo,
+		Corpus: &corpusDeps,
 		Log:    d.log,
 	})
 }

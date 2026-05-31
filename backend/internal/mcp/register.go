@@ -11,6 +11,7 @@ import (
 	"log/slog"
 
 	"github.com/wangsijie/standmeet/internal/agentskills"
+	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
 // RegisterDeps —— RegisterAgentSkills 需要的窄接口集；不让 register 调用
@@ -19,6 +20,7 @@ type RegisterDeps struct {
 	Owners OwnerLookup
 	SEO    SEOWriter
 	Codes  CodesRevoker
+	Corpus *usecases.CorpusDeps
 	Log    *slog.Logger
 }
 
@@ -29,4 +31,5 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps RegisterDeps) {
 	reg.MustRegister(newMeCapability(deps.Owners, deps.Log))
 	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
 	reg.MustRegister(newCodesCapability(deps.Codes, deps.Log))
+	reg.MustRegister(newCorpusRawCapability(deps.Corpus, deps.SEO, deps.Log))
 }

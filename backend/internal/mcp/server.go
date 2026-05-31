@@ -131,7 +131,7 @@ func OwnerIDFrom(ctx context.Context) string {
 // 暂时保留直接 AddTool 调用，逐步迁移为 Capability OwnerMCPBinding。
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
-	corpusTools(mcpSrv, deps)
+	// corpusTools 已 E-1 迁到 cap_corpus_raw.go
 	outputTools(mcpSrv, deps)
 	// seoTools 已搬进 cap_seo.go (走 registerCapabilities)
 	customPageTools(mcpSrv, deps)
