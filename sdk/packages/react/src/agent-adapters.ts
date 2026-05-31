@@ -135,6 +135,17 @@ function chunkText(text: string, size = 16): string[] {
 export interface HttpInferenceStreamerOptions {
   readonly baseURL: string;
   readonly sessionToken: string;
+  // 可选 BYOAI 信封 headers (跟 /messages 老路径同 wire)。byoai mode 下
+  // visitor browser 持 plaintext key + HKDF(session_token) 派 AES key
+  // 信封，X-Byoai-* headers 带过来；server 解封即用即丢。
+  readonly byoai?: HttpBYOAIHeaders;
+}
+
+export interface HttpBYOAIHeaders {
+  readonly provider: string;
+  readonly wrappedKey: string; // base64 url-safe no-pad envelope
+  readonly endpoint: string;
+  readonly model: string;
 }
 
 export function httpInferenceStreamer(
@@ -162,10 +173,7 @@ async function* streamInferenceHTTP(
 ): AsyncIterable<LLMStreamEvent> {
   const res = await fetch(`${opts.baseURL}/api/v1/inference/stream`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${opts.sessionToken}`,
-      'Content-Type': 'application/json',
-    },
+    headers: inferenceHeaders(opts),
     body: JSON.stringify({
       system: req.system,
       messages: req.messages,
@@ -176,6 +184,23 @@ async function* streamInferenceHTTP(
     throw new Error(`inference.stream: ${res.status}`);
   }
   yield* parseSSEEvents(res.body);
+}
+
+function inferenceHeaders(opts: HttpInferenceStreamerOptions): HeadersInit {
+  const base: Record<string, string> = {
+    Authorization: `Bearer ${opts.sessionToken}`,
+    'Content-Type': 'application/json',
+  };
+  return opts.byoai ? { ...base, ...byoaiToHeaders(opts.byoai) } : base;
+}
+
+function byoaiToHeaders(b: HttpBYOAIHeaders): Record<string, string> {
+  return {
+    'X-Byoai-Provider': b.provider,
+    'X-Byoai-Key': b.wrappedKey,
+    'X-Byoai-Endpoint': b.endpoint,
+    'X-Byoai-Model': b.model,
+  };
 }
 
 async function* parseSSEEvents(

@@ -21,6 +21,8 @@ export type {
   WikiLandingView,
   OutputLandingView,
   PublicSessionResponse,
+  PublicSessionCapability,
+  PublicSessionToolSpec,
   SSEEvent,
   SSETokenEvent,
   SSEDoneEvent,

@@ -47,6 +47,7 @@ type createSessionResponse struct {
 	SystemPromptPersona string                        `json:"system_prompt_persona"`
 	Members             []sessionMemberResp           `json:"members,omitempty"`
 	Capabilities        []agentskills.CapabilityState `json:"capabilities"`
+	ToolSpecs           []agentskills.VisitorToolSpec `json:"tool_specs"`
 	SystemPromptPartIDs []string                      `json:"system_prompt_part_ids"`
 	Quota               sessionQuotaResp              `json:"quota"`
 }
@@ -122,6 +123,7 @@ func writeCreateSession(
 		VisitorName:         res.VisitorName,
 		SystemPromptPersona: usecases.ComposeDynamicPersona(res.Session.Data.RoleSnapshot),
 		Capabilities:        deps.AgentSkills.VisitorStates(ctx, in),
+		ToolSpecs:           deps.AgentSkills.VisitorToolSpecs(ctx, in),
 		SystemPromptPartIDs: deps.AgentSkills.VisitorPromptPartIDs(ctx, in),
 		Quota: sessionQuotaResp{
 			MaxTurns:  res.Quota.MaxTurns,

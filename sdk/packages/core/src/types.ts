@@ -78,12 +78,31 @@ export interface PublicSessionQuota {
   readonly used_turns: number;
 }
 
+export interface PublicSessionCapability {
+  readonly id: string;
+  readonly enabled: boolean;
+  readonly quota_remaining?: number;
+  readonly policy_summary?: string;
+}
+
+export interface PublicSessionToolSpec {
+  readonly name: string;
+  readonly description: string;
+  readonly input_schema: unknown;
+}
+
 export interface PublicSessionResponse {
   readonly session_token: string;
   readonly conversation_id: string;
   readonly code?: string;
   readonly visitor_name?: string;
   readonly quota?: PublicSessionQuota;
+  // D-2 / D-5: pi-pivot fields。pi-agent-core 装 system prompt + tool
+  // registry 用。旧 caller 不读这些字段，optional 兼容。
+  readonly capabilities?: readonly PublicSessionCapability[];
+  readonly tool_specs?: readonly PublicSessionToolSpec[];
+  readonly system_prompt_part_ids?: readonly string[];
+  readonly system_prompt_persona?: string;
 }
 
 export type SSETokenEvent = { readonly kind: 'token'; readonly text: string };

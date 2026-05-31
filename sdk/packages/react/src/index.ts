@@ -21,6 +21,6 @@ export {
 } from './agent-adapters.js';
 export type {
   HttpPromptSourceOptions, HttpToolDispatcherOptions,
-  HttpInferenceStreamerOptions,
+  HttpInferenceStreamerOptions, HttpBYOAIHeaders,
   ScriptedLLMOptions, ScriptedStep,
 } from './agent-adapters.js';

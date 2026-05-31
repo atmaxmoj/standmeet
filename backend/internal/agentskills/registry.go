@@ -12,6 +12,7 @@ package agentskills
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -128,6 +129,38 @@ func finalizeBindingState(b *Binding, capID string) CapabilityState {
 // VisitorHeaderFragmentID —— 永远是 system prompt 第一段 (visitor-header.md)。
 // 由 Registry 集中导出，避免 caller 各处硬编码。
 const VisitorHeaderFragmentID = "visitor-header"
+
+// VisitorToolSpec —— frontend 看到的 tool 描述 (LLM tool API shape)。
+// 跟 inference.ToolSpec 同字段，但放 agentskills 包让 routes 不依赖
+// inference 包就拿得到。
+type VisitorToolSpec struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	InputSchema json.RawMessage `json:"input_schema"`
+}
+
+// VisitorToolSpecs —— per-session 跑一遍 AssembleVisitor 拿到所有 enabled
+// capability 的 tool spec 列表 (name + description + input_schema)，让前端
+// pi-agent-core 知道往 LLM 注哪些 tool。Close hook 顺手释放 (一次性查询)。
+func (r *Registry) VisitorToolSpecs(
+	ctx context.Context, in *AssembleInput,
+) []VisitorToolSpec {
+	bindings := r.AssembleVisitor(ctx, in)
+	out := make([]VisitorToolSpec, 0)
+	for _, b := range bindings {
+		for i := range b.Tools {
+			out = append(out, VisitorToolSpec{
+				Name:        b.Tools[i].Spec.Name,
+				Description: b.Tools[i].Spec.Description,
+				InputSchema: b.Tools[i].Spec.InputSchema,
+			})
+		}
+		if b.Close != nil {
+			b.Close()
+		}
+	}
+	return out
+}
 
 // VisitorPromptPartIDs —— 当前 session 实际拼进 system prompt 的 fragment id
 // 顺序：[VisitorHeaderFragmentID] + [每个 capability 非空 fragment id]。

@@ -1,34 +1,40 @@
-// use-conversation —— Turn[] 状态机：visitor 一问对应一个 Turn，pending
-// 阶段渲染 retrieving 点点，SSE token 累加，done 时收 cited refs (id+title)。
+// use-conversation —— D 期切到 pi-agent-core (在 browser 里跑 LLM ↔ tool
+// loop)，UI 跟之前同样吃 Turn[] state 但内部走 useAgent + 真 prod adapters。
 //
-// 跟旧 use-chat-dock 的差别：
-//   - Turn 是页面 inline 流（顺序展开），不是底部浮动 transcript
-//   - mode 由 caller 传入（public / code / byoai 不同 session 取号路径）
-//   - 不再做 ref-batched 模式 —— 每次 token 都生成新 Turn[] 数组，因为
-//     React 19 useTransition + structural sharing 够用，stale closure 不
-//     是 v1 必须解决的事
+// 同样保留 ConversationState 接口：caller (PageShell / FloatingChatDock /
+// ChatRoom) 不变。
+//
+// 改动:
+//   - 老 streamChatMessage(/messages SSE token-by-token) → useAgent.send()
+//     (browser-side loop, /inference/stream + /sessions/{id}/tools/{name})
+//   - 老 SSE done.cited_wiki_refs → tool_completed corpus_read 事件聚合
+//   - Turn.answer.paras 仍由 body 拆段；body 从 llm_chunk text deltas 累积
 
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { VisitorAgent } from '@standmeet/agent-core';
+import type {
+  AgentEvent, EventObserver, Message, ToolSpecRegistry,
+} from '@standmeet/agent-core';
+import {
+  httpPromptSource, httpInferenceStreamer, httpToolDispatcher,
+  type HttpBYOAIHeaders,
+} from '@standmeet/sdk';
 
 import {
-  issueBYOAISession,
-  issueCodeSession,
-  issuePublicSession,
-  streamChatMessage,
-  type BYOAIHeaders,
+  issueBYOAISession, issueCodeSession, issuePublicSession,
   type PublicSessionResponse,
-  type SSEEvent,
 } from '@/lib/api/public';
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull, readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import {
+  useCapabilityStore, zustandCapabilityStateSource,
+} from '@/lib/visitor/capability-store';
 
 export type Citation = {
-  // kind 决定渲染链接前缀：wiki → /wiki/<slug>，output → /output/<slug>。
-  // (后端目前只返 id+title；slug 留到后续 hydrate，先用 title 显示。)
   kind: 'wiki' | 'output';
   id: string;
   title: string;
@@ -51,9 +57,6 @@ export type Turn = {
 
 export type SessionMode = 'public' | 'code' | 'byoai';
 
-// pickMode / pickBanner 已删 —— mode 现在 page-shell 通过 loadStoredSession()
-// 直接从 localStorage 拿，不再从 URL 查询字符串派生。
-
 export type ConversationState = {
   turns: Turn[];
   pending: boolean;
@@ -66,11 +69,23 @@ type Deps = {
   mode: SessionMode;
 };
 
+// PageSession —— ensureSession 之后内部记一份；含 pi-pivot 用的 part_ids
+// + tool_specs。browser 不再 hit /sessions 多次 (老路径每次 ask 都
+// reuseStored + 不读 part_ids)；这里 first-ask 拿一次然后整轮持有。
+interface PageSession {
+  sessionToken: string;
+  conversationID: string;
+  systemPromptPartIDs: readonly string[];
+  toolSpecRegistry: ToolSpecRegistry;
+  persona: string;
+}
+
 export function useConversation(deps: Deps): ConversationState {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const sessionRef = useRef<PublicSessionResponse | null>(null);
+  const sessionRef = useRef<PageSession | null>(null);
+  const messageHistRef = useRef<Message[]>([]);
   const counter = useRef(0);
 
   const nextID = useCallback((): string => {
@@ -80,13 +95,14 @@ export function useConversation(deps: Deps): ConversationState {
 
   const ask = useCallback(async (text: string): Promise<void> => {
     const q = text.trim();
-    const blocked = q === '' || pending;
-    blocked || (await runAsk(q, deps, sessionRef, setTurns, setPending, setError, nextID));
+    if (q === '' || pending) return;
+    await runAsk(q, deps, sessionRef, messageHistRef, setTurns, setPending, setError, nextID);
   }, [deps, pending, nextID]);
 
   const reset = useCallback((): void => {
     setTurns([]);
     setError(null);
+    messageHistRef.current = [];
   }, []);
 
   return { turns, pending, error, ask, reset };
@@ -95,7 +111,8 @@ export function useConversation(deps: Deps): ConversationState {
 async function runAsk(
   q: string,
   deps: Deps,
-  sessionRef: React.MutableRefObject<PublicSessionResponse | null>,
+  sessionRef: React.MutableRefObject<PageSession | null>,
+  histRef: React.MutableRefObject<Message[]>,
   setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
   setPending: (b: boolean) => void,
   setError: (e: string | null) => void,
@@ -107,10 +124,10 @@ async function runAsk(
   setTurns((prev) => [...prev, newPendingTurn(id, q)]);
   try {
     const sess = await ensureSession(sessionRef, deps);
-    const byoai = await wrapBYOAIHeadersFor(deps, sess);
-    await streamInto(sess, q, id, setTurns, byoai);
-    // 成功 → quota 客户端 +1。server 不再 echo（同 visitor 单线增长，client
-    // 算得准）。失败不计 —— 模型异常 / 拒码不该扣额。
+    const byoai = await wrapBYOAIFor(deps, sess);
+    const accum = makeAccumulator();
+    await runAgentTurn(sess, byoai, histRef, q, makeObserver(id, accum, setTurns));
+    finalizeTurn(id, accum, setTurns);
     bumpVisitorQuota();
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
@@ -121,12 +138,154 @@ async function runAsk(
   }
 }
 
+// wrapBYOAIFor —— byoai mode 时从 vault 拿 plaintext key 用 HKDF(session_token)
+// 派 AES key 信封过；其他 mode 返 undefined。
+async function wrapBYOAIFor(
+  deps: Deps, sess: PageSession,
+): Promise<HttpBYOAIHeaders | undefined> {
+  if (deps.mode !== 'byoai') return undefined;
+  const cred = await readBYOAICredFull();
+  if (!cred) return undefined;
+  const wrappedKey = await wrapBYOAIKey(cred.key, sess.sessionToken);
+  return {
+    provider: cred.provider, endpoint: cred.endpoint,
+    model: cred.model, wrappedKey,
+  };
+}
+
+interface TurnAccumulator {
+  body: string;
+  citations: Citation[];
+  seenCitedPaths: Set<string>;
+}
+
+function makeAccumulator(): TurnAccumulator {
+  return { body: '', citations: [], seenCitedPaths: new Set() };
+}
+
+function makeObserver(
+  turnID: string,
+  accum: TurnAccumulator,
+  setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
+): EventObserver {
+  return {
+    onEvent(ev: AgentEvent): void {
+      handleAgentEvent(ev, accum);
+      setTurns((prev) => updateTurn(prev, turnID, accum, true));
+    },
+  };
+}
+
+function handleAgentEvent(ev: AgentEvent, accum: TurnAccumulator): void {
+  if (ev.type === 'llm_chunk') {
+    accum.body += ev.text;
+    return;
+  }
+  if (ev.type === 'tool_completed') {
+    pushCitationFromTool(ev.result, accum);
+    return;
+  }
+  if (ev.type === 'capability_state_changed') {
+    useCapabilityStore.getState().setStates(ev.states);
+  }
+}
+
+function pushCitationFromTool(
+  result: { name: string; result?: unknown; ok: boolean },
+  accum: TurnAccumulator,
+): void {
+  if (!result.ok || result.name !== 'corpus_read') return;
+  const r = pickCorpusReadShape(result.result);
+  if (r === null) return;
+  const path = r.path;
+  if (accum.seenCitedPaths.has(path)) return;
+  accum.seenCitedPaths.add(path);
+  const kind: 'wiki' | 'output' = r.kind === 'output' ? 'output' : 'wiki';
+  accum.citations.push({ kind, id: path, title: r.title });
+}
+
+function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
+  if (!isRecord(raw)) return null;
+  const path = readString(raw['path']);
+  const kind = readString(raw['kind']);
+  const title = readString(raw['title']) || path;
+  return { path, kind, title };
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === 'object';
+}
+
+function readString(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+interface CorpusReadWire {
+  path: string;
+  kind: string;
+  title: string;
+}
+
+function finalizeTurn(
+  id: string, accum: TurnAccumulator,
+  setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
+): void {
+  setTurns((prev) => updateTurn(prev, id, accum, false));
+}
+
+async function runAgentTurn(
+  sess: PageSession,
+  byoai: HttpBYOAIHeaders | undefined,
+  histRef: React.MutableRefObject<Message[]>,
+  userMessage: string,
+  observer: EventObserver,
+): Promise<void> {
+  const agent = buildPageAgent(sess, byoai, observer);
+  const next = await agent.send({
+    userMessage, history: histRef.current,
+  });
+  histRef.current = [...next];
+}
+
+function buildPageAgent(
+  sess: PageSession,
+  byoai: HttpBYOAIHeaders | undefined,
+  observer: EventObserver,
+): VisitorAgent {
+  return new VisitorAgent(
+    {
+      prompts: httpPromptSource({ baseURL: '' }),
+      capabilities: zustandCapabilityStateSource(),
+      llm: httpInferenceStreamer({
+        baseURL: '', sessionToken: sess.sessionToken,
+        byoai,
+      }),
+      tools: httpToolDispatcher({
+        baseURL: '', sessionToken: sess.sessionToken,
+        conversationID: sess.conversationID,
+      }),
+      observer,
+    },
+    {
+      systemPromptPartIDs: assembledPartIDs(sess),
+      toolSpecRegistry: sess.toolSpecRegistry,
+    },
+  );
+}
+
+// assembledPartIDs —— sess.systemPromptPartIDs + 一个 inline persona pseudo
+// part 不需要 (persona 走 ComposeBasePersona 已经折进 visitor-header 之后)。
+// 为了保持简单，pi-agent-core 拼 system 时直接拉所有 part_ids；persona
+// 暂时通过 system_prompt_persona 字段（D-2 follow-up）由 caller 自己 prepend
+// (这里就单纯返 partIDs)。
+function assembledPartIDs(sess: PageSession): readonly string[] {
+  return sess.systemPromptPartIDs;
+}
+
 function newPendingTurn(id: string, q: string): Turn {
   return { id, q, time: nowHM(), pending: true, answer: null };
 }
 
-// bumpVisitorQuota —— 一轮 chat 成功后让 SessionStrip 进度条 +1。
-// 跨 tab / 同 tab 全靠 store 自带的 storage event / 自定义事件传播。
 function bumpVisitorQuota(): void {
   useVisitorSessionStore.getState().consume(1);
 }
@@ -141,126 +300,90 @@ function pad2(n: number): string {
 }
 
 async function ensureSession(
-  ref: React.MutableRefObject<PublicSessionResponse | null>,
+  ref: React.MutableRefObject<PageSession | null>,
   deps: Deps,
-): Promise<PublicSessionResponse> {
-  return ref.current ?? (ref.current = await issueSessionFor(deps));
+): Promise<PageSession> {
+  if (ref.current !== null) return ref.current;
+  const issued = await issueFresh(deps);
+  const sess = toPageSession(issued);
+  ref.current = sess;
+  useCapabilityStore.getState().setStates(extractCapabilities(issued));
+  return sess;
 }
 
-async function issueSessionFor(deps: Deps): Promise<PublicSessionResponse> {
+// IssuedSessionWithExtras —— sdk-core PublicSessionResponse 已含
+// capabilities? / tool_specs? / system_prompt_part_ids?；这里 alias 一下
+// 让本文件少 import。
+type IssuedSessionWithExtras = PublicSessionResponse;
+
+function toPageSession(issued: IssuedSessionWithExtras): PageSession {
+  return {
+    sessionToken: issued.session_token,
+    conversationID: issued.conversation_id,
+    systemPromptPartIDs: issued.system_prompt_part_ids ?? ['visitor-header'],
+    toolSpecRegistry: makeRegistry(issued),
+    persona: issued.system_prompt_persona ?? '',
+  };
+}
+
+function extractCapabilities(issued: IssuedSessionWithExtras): readonly {
+  id: string; enabled: boolean; quota_remaining?: number; policy_summary?: string;
+}[] {
+  return issued.capabilities ?? [];
+}
+
+function makeRegistry(issued: IssuedSessionWithExtras): ToolSpecRegistry {
+  // backend 给的 tool_specs 是 flat list (跨多个 capability)；frontend
+  // capability id → tool 关系不重要 (agent loop 只看 enabled cap →
+  // 所有 enabled cap 的 tool union)，索引按 cap id 给个 fallback 兜底。
+  const specs = (issued.tool_specs ?? []).map((s) => ({
+    name: s.name, description: s.description, input_schema: s.input_schema,
+  }));
+  return {
+    forCapability(_id: string) {
+      // 单 cap 触发 → return all specs (LLM 看到全部可用工具)。多次 cap
+      // walk 也只会 union 一份 (forCapability 多次回但 agent 内部已 dedupe
+      // 凭 spec name)。简化优于精确分组。
+      void _id;
+      return specs;
+    },
+  };
+}
+
+async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
   const stored = loadStoredSession();
-  return stored
+  return stored !== null
     ? reuseStored(stored)
-    : await issueFresh(deps);
+    : await issueByMode(deps);
 }
 
-function reuseStored(stored: NonNullable<ReturnType<typeof loadStoredSession>>): PublicSessionResponse {
+function reuseStored(stored: { session_token: string; conversation_id: string }): PublicSessionResponse {
   return {
     session_token: stored.session_token,
     conversation_id: stored.conversation_id,
   };
 }
 
-async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
-  switch (deps.mode) {
-    case 'public':
-      return issuePublicSession();
-    case 'code': {
-      // code-mode without a stored session is a flow error; fall back to public
-      // so a deep-linked code URL still produces a usable session.
-      return issueCodeSession({ code: '' });
-    }
-    case 'byoai': {
-      // browser vault 里没 BYOAI 时这里 provider 暂用 anthropic 占位；后续
-      // chat fetch 会因 wrapBYOAIHeaders 返 undefined → 不发 X-BYOAI-* →
-      // server 401。实际 byoai 流程都先经 /gate 把 provider+key 存进 vault。
-      const meta = readBYOAIVaultMeta();
-      return issueBYOAISession({
-        byoai_provider: meta?.provider ?? 'anthropic',
-      });
-    }
-  }
-}
-
-// StreamState —— streamInto 累积的状态：当前 body + 引用 refs。
-interface StreamState {
-  body: string;
-  citations: readonly Citation[];
-}
-
-async function streamInto(
-  sess: PublicSessionResponse,
-  q: string,
-  turnID: string,
-  setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
-  byoai: BYOAIHeaders | undefined,
-): Promise<void> {
-  let state: StreamState = { body: '', citations: [] };
-  const stream = streamChatMessage(sess.conversation_id, sess.session_token, q, byoai);
-  for await (const ev of stream) {
-    state = applyEvent(ev, state);
-    setTurns((prev) => updateTurn(prev, turnID, state, ev.kind !== 'done'));
-  }
-  setTurns((prev) => updateTurn(prev, turnID, state, false));
-}
-
-// wrapBYOAIHeadersFor —— mode=byoai 时从 browser vault 一次拿齐 cred
-// (provider/endpoint/model/key)，HKDF 派生 session-bound AES key 信封 key →
-// 返 4 字段 BYOAIHeaders。其他 mode 返 undefined，streamChatMessage 不发
-// X-BYOAI-* header，server 自动走 owner key。
-async function wrapBYOAIHeadersFor(
-  deps: Deps, sess: PublicSessionResponse,
-): Promise<BYOAIHeaders | undefined> {
-  if (deps.mode !== 'byoai') return undefined;
-  const cred = await readBYOAICredFull();
-  if (!cred) return undefined;
-  const wrappedKey = await wrapBYOAIKey(cred.key, sess.session_token);
-  return {
-    provider: cred.provider,
-    endpoint: cred.endpoint,
-    model: cred.model,
-    wrappedKey,
-  };
-}
-
-function applyEvent(ev: SSEEvent, s: StreamState): StreamState {
-  switch (ev.kind) {
-    case 'token':
-      return { ...s, body: s.body + ev.text };
-    case 'done':
-      return {
-        body: s.body,
-        citations: refsToCitations(ev.cited_wiki_refs, ev.cited_output_refs),
-      };
-    case 'error':
-      return { ...s, body: s.body || `error: ${ev.message}` };
-  }
-}
-
-function refsToCitations(
-  wikiRefs: readonly { id: string; title: string }[],
-  outputRefs: readonly { id: string; title: string }[],
-): Citation[] {
-  // output 排前面 ——"polished, quote verbatim"，跟 system prompt 优先级一致。
-  return [
-    ...outputRefs.map((r) => ({ kind: 'output' as const, id: r.id, title: r.title })),
-    ...wikiRefs.map((r) => ({ kind: 'wiki' as const, id: r.id, title: r.title })),
-  ];
+async function issueByMode(deps: Deps): Promise<PublicSessionResponse> {
+  if (deps.mode === 'public') return issuePublicSession();
+  if (deps.mode === 'code') return issueCodeSession({ code: '' });
+  const meta = readBYOAIVaultMeta();
+  return issueBYOAISession({ byoai_provider: meta?.provider ?? 'anthropic' });
 }
 
 function updateTurn(
-  prev: Turn[], id: string, state: StreamState, stillPending: boolean,
+  prev: Turn[], id: string, accum: TurnAccumulator, stillPending: boolean,
 ): Turn[] {
-  return prev.map((t) => t.id === id ? withAnswer(t, state, stillPending) : t);
+  return prev.map((t) => t.id === id ? withAnswer(t, accum, stillPending) : t);
 }
 
-function withAnswer(t: Turn, state: StreamState, stillPending: boolean): Turn {
+function withAnswer(t: Turn, accum: TurnAccumulator, stillPending: boolean): Turn {
   return {
     ...t,
-    pending: stillPending && state.body === '',
+    pending: stillPending && accum.body === '',
     answer: {
-      paras: splitParas(state.body),
-      citations: state.citations,
+      paras: splitParas(accum.body),
+      citations: accum.citations,
       private: false,
       byoaiBlocked: false,
     },
@@ -279,4 +402,3 @@ function markFailed(prev: Turn[], id: string, msg: string): Turn[] {
 function errorAnswer(msg: string): TurnAnswer {
   return { paras: [`error: ${msg}`], citations: [], private: false, byoaiBlocked: false };
 }
-
