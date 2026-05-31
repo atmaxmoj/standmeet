@@ -39,7 +39,7 @@ interface MCPCallResult {
 // {keyId, privateKeyPem}。本 file 内部解 + Sigv1 签每个请求 (无 cookie
 // 缓存)。spec 仍可继续 `callTool(req, apiToken, sid, ...)`，apiToken
 // 现在是 opaque creds blob。
-import { formatAuthHeader, signNow } from './sigv1.js';
+import { formatAuthHeader, signNow } from '@/fixtures/sigv1';
 
 interface Creds { keyId: string; privateKeyPem: string }
 

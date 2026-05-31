@@ -1,42 +1,32 @@
-// MCPClientPanel —— 让 owner 一眼看到 claude_desktop_config / cursor mcp.json / curl
-// 三种调用方式。token 选 dropdown，client 选 tabs。
+// MCPClientPanel —— /admin/api-mcp 安装说明面板。Phase C 起客户端通过
+// `STANDMEET_CREDS_PATH` 指向 owner 本地 credentials.json (keyId +
+// privateKeyPem)；不再把 plaintext key 塞 env var。
 
 'use client';
 
 import { useState } from 'react';
 
-import { MCP_CLIENTS, type MCPClient, type TokenItem } from '@/lib/admin/use-tokens';
+import { MCP_CLIENTS, type MCPClient } from '@/lib/admin/use-tokens';
 
 const HOST = 'https://standmeet.local';
 
-type Props = { tokens: readonly TokenItem[] };
-
-export function MCPClientPanel({ tokens }: Props) {
+export function MCPClientPanel() {
   const [clientId, setClientId] = useState<MCPClient['id']>(MCP_CLIENTS[0]!.id);
-  const [tokenId, setTokenId] = useState<string>(tokens[0]?.id ?? '');
   const client = pickClient(clientId);
-  const snippet = renderSnippet(client, tokens, tokenId);
+  const snippet = client.snippet(HOST);
   return (
-    <div className="crosshair border border-(--color-rule) rounded-sm bg-(--color-surface)/30 p-5">
+    <div
+      className="crosshair border border-(--color-rule) rounded-sm bg-(--color-surface)/30 p-5"
+      data-testid="mcp-install-panel"
+    >
       <span className="ch-tl" /><span className="ch-br" />
       <PanelHead />
       <ClientTabs current={clientId} setClient={setClientId} />
       <PathRow path={client.path.replace('{host}', HOST)} />
-      <TokenPicker tokens={tokens} tokenId={tokenId} setTokenId={setTokenId} />
       <SnippetBlock snippet={snippet} />
       <PanelFoot />
     </div>
   );
-}
-
-function renderSnippet(
-  client: MCPClient,
-  tokens: readonly TokenItem[],
-  tokenId: string,
-): string {
-  const token = tokens.find((t) => t.id === tokenId);
-  const keyDisplay = token ? `sm_live_${token.id}_redacted` : 'sm_live_<your-token>';
-  return client.snippet(keyDisplay, HOST);
 }
 
 function pickClient(id: MCPClient['id']): MCPClient {
@@ -48,7 +38,7 @@ function PanelHead() {
     <div className="flex items-baseline justify-between mb-4 gap-4 flex-wrap">
       <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink)">mcp setup</h3>
       <span className="mono text-[10.5px] tracking-[0.06em] text-(--color-faint)">
-        paste into your AI client to push entries directly into your corpus
+        save credentials.json + paste config into your client
       </span>
     </div>
   );
@@ -76,6 +66,7 @@ function ClientTab({
     <button
       type="button"
       onClick={onClick}
+      data-testid={`mcp-client-tab-${client.id}`}
       className={`mono text-[10.5px] tracking-[0.12em] uppercase px-3 py-2 transition-colors ${cls}`}
     >
       {client.label}
@@ -86,37 +77,18 @@ function ClientTab({
 function PathRow({ path }: { path: string }) {
   return (
     <div>
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">config path</div>
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">file path</div>
       <div className="mono text-[12.5px] text-(--color-ink) truncate mb-3">{path}</div>
     </div>
   );
 }
 
-function TokenPicker({
-  tokens, tokenId, setTokenId,
-}: { tokens: readonly TokenItem[]; tokenId: string; setTokenId: (id: string) => void }) {
-  return (
-    <div className="mb-3">
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-1">use token</div>
-      <select
-        value={tokenId}
-        onChange={(e) => setTokenId(e.target.value)}
-        className="bg-transparent border-b border-(--color-rule) mono text-[12px] py-1 pr-6 text-(--color-ink) focus:border-(--color-ink)"
-      >
-        <EmptyOption shown={tokens.length === 0} />
-        {tokens.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-      </select>
-    </div>
-  );
-}
-
-function EmptyOption({ shown }: { shown: boolean }) {
-  return shown ? <option value="">no tokens yet · create one first</option> : null;
-}
-
 function SnippetBlock({ snippet }: { snippet: string }) {
   return (
-    <pre className="mono text-[12.5px] leading-[1.55] text-(--color-ink) bg-(--color-paper) border border-(--color-rule) rounded-sm p-4 overflow-x-auto whitespace-pre">
+    <pre
+      data-testid="mcp-snippet"
+      className="mono text-[12.5px] leading-[1.55] text-(--color-ink) bg-(--color-paper) border border-(--color-rule) rounded-sm p-4 overflow-x-auto whitespace-pre"
+    >
 {snippet}
     </pre>
   );
@@ -125,10 +97,8 @@ function SnippetBlock({ snippet }: { snippet: string }) {
 function PanelFoot() {
   return (
     <div className="mt-4 mono text-[10px] tracking-[0.06em] text-(--color-faint) leading-[1.7]">
-      after pasting, restart your client. the standmeet tool will appear with capabilities like{' '}
-      <span className="text-(--color-muted)">raw_dump</span>,{' '}
-      <span className="text-(--color-muted)">promote_to_wiki</span>,{' '}
-      <span className="text-(--color-muted)">search_corpus</span>.
+      after pasting + saving credentials.json (mode 0600), restart your client. each request signs
+      a short-lived sigv1 challenge — server never sees your private key.
     </div>
   );
 }

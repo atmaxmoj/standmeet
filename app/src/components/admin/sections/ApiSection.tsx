@@ -31,7 +31,9 @@ export function ApiSection() {
 }
 
 function titleCount(hook: TokensHook): string {
-  return hook.status === 'ready' ? `${hook.tokens.length} tokens` : '';
+  return hook.status === 'ready'
+    ? `${hook.tokens.length} key${hook.tokens.length === 1 ? '' : 's'}`
+    : '';
 }
 
 function ApiBody({ hook }: { hook: TokensHook }) {
@@ -55,7 +57,7 @@ function Ready({ hook }: { hook: TokensHook }) {
       <Intro />
       <TokensBlock hook={hook} />
       <AIProviderPanel />
-      <MCPClientPanel tokens={hook.tokens} />
+      <MCPClientPanel />
       <MCPDownloadPanel />
     </div>
   );
@@ -64,9 +66,10 @@ function Ready({ hook }: { hook: TokensHook }) {
 function Intro() {
   return (
     <p className="reading-tight text-(--color-muted) text-[15px] max-w-[54em]">
-      Tokens let AI clients (Claude, Cursor, custom scripts) push raw entries into your corpus and
-      — at higher scopes — search, promote, or manage codes. Pair a token with the MCP client config
-      below.
+      MCP keys let AI clients (Claude, Cursor, custom scripts) push raw entries into your corpus,
+      promote them, manage codes. Each key is an Ed25519 keypair — server stores only the public
+      half; you save the private PEM in <code className="mono text-[12.5px]">~/.standmeet/credentials.json</code>{' '}
+      and the client signs per request.
     </p>
   );
 }
@@ -75,13 +78,23 @@ function TokensBlock({ hook }: { hook: TokensHook }) {
   return (
     <div>
       <h3 className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-ink) mb-3 pb-2 border-b border-(--color-rule)">
-        api tokens
+        mcp keys
       </h3>
-      <NewlyCreatedBanner created={hook.justCreated} dismiss={hook.dismissCreated} />
+      <NewlyCreatedBanner created={bannerView(hook.justCreated)} dismiss={hook.dismissCreated} />
       <NewTokenInline createToken={hook.createToken} error={hook.error} />
       <TokenList tokens={hook.tokens} deleteToken={hook.deleteToken} />
     </div>
   );
+}
+
+// bannerView —— hook.justCreated 形态是 { id, name, plaintext, created_at }；
+// NewlyCreatedBanner 只用 id/name/plaintext。narrow 一下避免传整个 store
+// 形态 (含 created_at 是日期 string，不需要)。
+function bannerView(c: TokensHook['justCreated']):
+  { id: string; name: string; plaintext: string } | null {
+  return c
+    ? { id: c.id, name: c.name, plaintext: c.plaintext }
+    : null;
 }
 
 function TokenList({
@@ -99,7 +112,7 @@ function TokenList({
 function EmptyTokens() {
   return (
     <div data-testid="token-list" className="mono text-[11px] text-(--color-faint) border border-dashed border-(--color-rule) px-4 py-6 rounded-sm text-center">
-      no tokens yet · create one to wire up your first AI client
+      no keys yet · generate one to wire up your first AI client
     </div>
   );
 }

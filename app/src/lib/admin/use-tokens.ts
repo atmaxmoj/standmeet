@@ -130,27 +130,31 @@ function toListItem(c: CreatedToken): TokenItem {
   return { id: c.id, name: c.name, created_at: c.created_at, last_used_at: null };
 }
 
-// MCP client snippet helpers for the design's MCPClientPanel.
+// MCP client snippet helpers —— Phase C 切 keypair。客户端不直接 embed
+// 私钥；走 creds JSON 文件 + STANDMEET_CREDS_PATH env var (跟 @youteacher
+// /mcp 同形态)。
 export interface MCPClient {
-  id: 'claude-desktop' | 'cursor' | 'http';
+  id: 'claude-desktop' | 'cursor' | 'creds-template';
   label: string;
   path: string;
-  snippet: (key: string, host: string) => string;
+  snippet: (host: string) => string;
 }
+
+const credsPath = '~/.standmeet/credentials.json';
 
 export const MCP_CLIENTS: readonly MCPClient[] = [
   {
     id: 'claude-desktop',
     label: 'Claude Desktop',
     path: '~/Library/Application Support/Claude/claude_desktop_config.json',
-    snippet: (key, host) => `{
+    snippet: (host) => `{
   "mcpServers": {
     "standmeet": {
       "command": "npx",
       "args": ["-y", "@standmeet/mcp-client@latest"],
       "env": {
         "STANDMEET_HOST": "${host}",
-        "STANDMEET_API_KEY": "${key}"
+        "STANDMEET_CREDS_PATH": "${credsPath}"
       }
     }
   }
@@ -160,28 +164,24 @@ export const MCP_CLIENTS: readonly MCPClient[] = [
     id: 'cursor',
     label: 'Cursor',
     path: '~/.cursor/mcp.json',
-    snippet: (key, host) => `{
+    snippet: (host) => `{
   "standmeet": {
     "command": "npx",
     "args": ["-y", "@standmeet/mcp-client@latest"],
     "env": {
       "STANDMEET_HOST": "${host}",
-      "STANDMEET_API_KEY": "${key}"
+      "STANDMEET_CREDS_PATH": "${credsPath}"
     }
   }
 }`,
   },
   {
-    id: 'http',
-    label: 'Raw HTTP',
-    path: 'POST {host}/mcp',
-    snippet: (key, host) => `curl -X POST ${host}/mcp \\
-  -H "authorization: Bearer ${key}" \\
-  -H "content-type: application/json" \\
-  -d '{"method":"tools/list"}'`,
+    id: 'creds-template',
+    label: 'credentials.json',
+    path: credsPath,
+    snippet: (_host) => `{
+  "keyId": "<paste keyId from the modal above>",
+  "privateKeyPem": "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+}`,
   },
 ];
-
-export function maskSecret(s: string): string {
-  return s.length <= 12 ? s : `${s.slice(0, 8)}…${s.slice(-4)}`;
-}

@@ -1,12 +1,11 @@
-// TokenRow —— 单个 token 的行视图。reveal toggle 是 client-only（值是 masked id；
-// backend 只在 create 时返回 plaintext，list 时不再回）。
+// TokenRow —— Phase C: 一个 MCP key 的行视图。显 label (token.name)，
+// key_id (token.id) — 公开 identifier，credentials.json 里写它。私钥不存
+// server, owner generate 时已经 Download .pem，list 这里不再有 plaintext 可看。
 
 'use client';
 
-import { useState } from 'react';
-
 import { Chip } from '@/components/admin/atoms/Chip';
-import { maskSecret, type TokenItem } from '@/lib/admin/use-tokens';
+import { type TokenItem } from '@/lib/admin/use-tokens';
 
 type Props = {
   token: TokenItem;
@@ -17,7 +16,7 @@ export function TokenRow({ token, deleteToken }: Props) {
   return (
     <li className="border border-(--color-rule) rounded-sm p-4 bg-(--color-surface)/40">
       <TokenRowHead token={token} deleteToken={deleteToken} />
-      <TokenSecretRow token={token} />
+      <KeyIDRow keyID={token.id} />
     </li>
   );
 }
@@ -34,8 +33,7 @@ function TokenRowHead({ token, deleteToken }: Props) {
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <Chip>read</Chip>
-        <Chip>write</Chip>
+        <Chip>ed25519</Chip>
         <RevokeBtn token={token} deleteToken={deleteToken} />
       </div>
     </div>
@@ -55,38 +53,13 @@ function RevokeBtn({ token, deleteToken }: Props) {
   );
 }
 
-function TokenSecretRow({ token }: { token: TokenItem }) {
-  const [reveal, setReveal] = useState(false);
-  // backend 不再返回 plaintext —— reveal 显示一个 placeholder 提示 owner 在 create
-  // 时就该已经存了 plaintext。
-  const fake = `sm_live_${token.id}_secret_redacted`;
+function KeyIDRow({ keyID }: { keyID: string }) {
   return (
     <div className="flex items-baseline gap-3 border-t border-(--color-rule)/70 pt-3 mt-2">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) shrink-0">secret</span>
-      <SecretCode reveal={reveal} fake={fake} />
-      <RevealToggle reveal={reveal} setReveal={setReveal} />
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) shrink-0">key id</span>
+      <code className="mono flex-1 min-w-0 truncate text-[13px] text-(--color-muted)">
+        {keyID}
+      </code>
     </div>
-  );
-}
-
-function SecretCode({ reveal, fake }: { reveal: boolean; fake: string }) {
-  return (
-    <code className="mono flex-1 min-w-0 truncate text-[13px] text-(--color-muted)">
-      {reveal ? '(plaintext only available at creation)' : maskSecret(fake)}
-    </code>
-  );
-}
-
-function RevealToggle({
-  reveal, setReveal,
-}: { reveal: boolean; setReveal: (fn: (r: boolean) => boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => setReveal((r) => !r)}
-      className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink) shrink-0"
-    >
-      {reveal ? 'hide' : 'reveal'}
-    </button>
   );
 }

@@ -38,13 +38,13 @@ function NameField({ name, onChange }: { name: string; onChange: (v: string) => 
   return (
     <label className="block">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
-        create token
+        generate key
       </div>
       <input
         type="text"
         value={name}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="e.g. 'cursor-mbp'"
+        placeholder="device label — e.g. 'mojat-mbp'"
         data-testid="token-name"
         className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading-tight text-base"
       />
@@ -63,7 +63,7 @@ function SubmitBtn() {
       data-testid="token-create"
       className="mono text-xs tracking-widest uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5"
     >
-      create
+      generate
     </button>
   );
 }
