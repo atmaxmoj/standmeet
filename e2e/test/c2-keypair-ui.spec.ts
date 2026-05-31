@@ -52,9 +52,11 @@ test.describe('C-2 owner generates MCP keypair from admin UI', () => {
       const href = await downloadLink.getAttribute('href');
       expect(href).toMatch(/^data:application\/x-pem-file;base64,/);
 
-      // List should now contain a row labelled "mojat-mbp"
-      await expect(page.getByTestId('token-list')).toBeVisible();
-      await expect(page.getByText('mojat-mbp')).toBeVisible();
+      // List should now contain a row labelled "mojat-mbp"。scope 到
+      // token-list 避免跟 banner 内的 label 多匹中。
+      const list = page.getByTestId('token-list');
+      await expect(list).toBeVisible();
+      await expect(list.getByText('mojat-mbp')).toBeVisible();
 
       // Install snippet panel shows STANDMEET_CREDS_PATH (not plaintext bearer)
       const snippet = await page.getByTestId('mcp-snippet').innerText();
@@ -63,7 +65,7 @@ test.describe('C-2 owner generates MCP keypair from admin UI', () => {
 
       // Revoke
       await page.getByTestId('token-delete-mojat-mbp').click();
-      await expect(page.getByText('mojat-mbp')).toBeHidden({ timeout: 5_000 });
+      await expect(list.getByText('mojat-mbp')).toBeHidden({ timeout: 5_000 });
     });
 
   test('install snippet panel cycles through client tabs',
