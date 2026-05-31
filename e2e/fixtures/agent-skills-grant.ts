@@ -110,9 +110,11 @@ interface VisitorCapabilitiesResp {
   tool_specs: readonly { name: string }[];
 }
 
-/** Assert calendar.book is (or isn't) in the assembled tool spec for
+/** Assert calendar_book is (or isn't) in the assembled tool spec for
  *  a session. Hits /internal/test/visitor-capabilities (Phase B-1+ dev
- *  endpoint, replaces the older /visitor-tool-specs). */
+ *  endpoint, replaces the older /visitor-tool-specs).
+ *  Tool name is snake_case since D-3 (URL ↔ LLM spec 1:1). Capability
+ *  ID stays dotted ("calendar.book") — that's a separate concern. */
 export async function expectCalendarBookExposed(
   request: APIRequestContext, sessionToken: string, exposed: boolean,
 ): Promise<void> {
@@ -123,10 +125,10 @@ export async function expectCalendarBookExposed(
   if (res.status() !== 200) throw new Error(`visitor-capabilities: ${res.status()}`);
   const body = await res.json() as VisitorCapabilitiesResp;
   const names = body.tool_specs.map((t) => t.name);
-  const has = names.includes('calendar.book');
+  const has = names.includes('calendar_book');
   if (has !== exposed) {
     throw new Error(
-      `expected calendar.book ${exposed ? 'exposed' : 'absent'}, ` +
+      `expected calendar_book ${exposed ? 'exposed' : 'absent'}, ` +
       `got tools=${names.join(',')}`,
     );
   }
