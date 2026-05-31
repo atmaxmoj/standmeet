@@ -50,6 +50,7 @@ dev:
 # app-build 之前先跑 sdk-build，让 Next 编译时能找到 @standmeet/sdk-core/dist。
 sdk-build:
 	@pnpm -F @standmeet/sdk-core build
+	@pnpm -F @standmeet/agent-core build
 	@pnpm -F @standmeet/sdk build
 	@pnpm -F @standmeet/embed build
 	@pnpm -F @standmeet/mcp-client build

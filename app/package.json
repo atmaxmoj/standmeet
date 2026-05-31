@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@standmeet/sdk-core": "workspace:*",
+    "@standmeet/agent-core": "workspace:*",
+    "@standmeet/sdk": "workspace:*",
     "@tiptap/core": "^3.23.6",
     "@tiptap/extension-image": "^3.23.6",
     "@tiptap/extension-link": "^3.23.6",

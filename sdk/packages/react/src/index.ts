@@ -11,3 +11,14 @@
 export { StandMeetProvider, useStandMeet } from './provider.js';
 export { useChatSession } from './use-chat-session.js';
 export type { ChatMessage, ChatState } from './use-chat-session.js';
+
+// D-4: agent-core React glue + browser adapters
+export { useAgent } from './use-agent.js';
+export type { AgentState, UseAgentOptions } from './use-agent.js';
+export {
+  httpPromptSource, httpToolDispatcher, scriptedLLMStreamer,
+} from './agent-adapters.js';
+export type {
+  HttpPromptSourceOptions, HttpToolDispatcherOptions,
+  ScriptedLLMOptions, ScriptedStep,
+} from './agent-adapters.js';

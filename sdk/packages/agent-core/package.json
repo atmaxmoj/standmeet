@@ -1,7 +1,7 @@
 {
-  "name": "@standmeet/sdk",
+  "name": "@standmeet/agent-core",
   "version": "0.0.0",
-  "description": "StandMeet React SDK — components + hooks. Wraps @standmeet/sdk-core.",
+  "description": "StandMeet agent core — visitor chat agent loop. Pure DI: PromptSource / CapabilityStateSource / LLMStreamer / ToolDispatcher / EventObserver ports let prod browser, eval harness, and any host run the same loop.",
   "type": "module",
   "license": "MIT",
   "private": false,
@@ -14,26 +14,19 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint src/ && tsc --noEmit"
-  },
-  "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0",
-    "react-dom": "^18.0.0 || ^19.0.0"
-  },
-  "dependencies": {
-    "@standmeet/sdk-core": "workspace:*",
-    "@standmeet/agent-core": "workspace:*"
+    "lint": "eslint src/ && tsc --noEmit",
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
     "eslint": "^9.39.3",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "prettier": "^3.3.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.56.1"

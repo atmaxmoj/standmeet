@@ -6,7 +6,9 @@
   "project": ["src/**/*.{ts,tsx}"],
   "ignoreDependencies": [
     "tailwindcss",
-    "@standmeet/sdk-core"
+    "@standmeet/sdk-core",
+    "@standmeet/sdk",
+    "@standmeet/agent-core"
   ],
   "ignoreExportsUsedInFile": true,
   "ignoreBinaries": []
