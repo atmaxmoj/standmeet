@@ -41,7 +41,120 @@ func (m *MockProvider) runSingleTurnMock(
 		emitToolCallAndDone(ctx, ch, call)
 		return
 	}
-	emitTextReplyAndDone(ctx, ch, m.reply)
+	if call := nextSkillOrExtToolCall(req); call != nil {
+		emitToolCallAndDone(ctx, ch, call)
+		return
+	}
+	emitTextReplyAndDone(ctx, ch, composeMockFinalText(req, m.reply))
+}
+
+// nextSkillOrExtToolCall —— mock 顺手调一个 skill_* / ext_* tool 让 e2e
+// 验证 sandbox 真跑 + 外部 MCP 真连。tools 含 skill_*/ext_* 但 messages
+// 无 tool_result → 调一次。
+func nextSkillOrExtToolCall(req *ChatRequest) *StreamToolCall {
+	for i := range req.Tools {
+		name := req.Tools[i].Name
+		if isSkillOrExtName(name) && !hasToolResult(req.Messages, name) {
+			return &StreamToolCall{
+				ID: "mock-" + name + "-1", Name: name, Input: []byte(`{}`),
+			}
+		}
+	}
+	return nil
+}
+
+func isSkillOrExtName(name string) bool {
+	return hasPrefix(name, "skill_") || hasPrefix(name, "ext_")
+}
+
+func hasPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
+}
+
+// composeMockFinalText —— echo 系统 prompt + 各 tool_result 内容进 reply
+// (跟老 mock 的 "[system:...] [skill_result:...] <reply>" 输出形态对齐)，
+// 让既有 e2e 验 system prompt 装配 + skill/ext tool 真跑能继续过。
+func composeMockFinalText(req *ChatRequest, baseReply string) string {
+	var b strings.Builder
+	if req.System != "" {
+		writeAll(&b, "[system:", req.System, "]\n")
+	}
+	for i := range req.Messages {
+		writeAll(&b, extractSkillExtResults(req.Messages[i].Content))
+	}
+	writeAll(&b, baseReply)
+	return b.String()
+}
+
+// writeAll —— strings.Builder.WriteString 严格 lint 要求 handle return；
+// helper 一次性吃掉所有 (string, int, error) 让 caller cyclo 不爆。
+func writeAll(b *strings.Builder, parts ...string) {
+	for _, p := range parts {
+		_, _ = b.WriteString(p)
+	}
+}
+
+// extractSkillExtResults —— 从 assistant message content (含
+// "[tool_result:NAME] {json}") 抽出 skill_*/ext_* 工具的 result body，
+// 包成 "[skill_result:<body>]\n" 形式 (跟老 mock echo 同形态)。
+func extractSkillExtResults(content string) string {
+	var out strings.Builder
+	rest := content
+	for rest != "" {
+		next, more := extractOneSkillExt(rest, &out)
+		rest = next
+		if !more {
+			break
+		}
+	}
+	return out.String()
+}
+
+// extractOneSkillExt —— 解一个 [tool_result:NAME] 块；写入 out (skill/ext
+// 名才写)；返 (剩余 rest, 是否继续找)。
+func extractOneSkillExt(rest string, out *strings.Builder) (string, bool) {
+	idx := strings.Index(rest, "[tool_result:")
+	if idx < 0 {
+		return "", false
+	}
+	nameEnd := strings.Index(rest[idx:], "]")
+	if nameEnd < 0 {
+		return "", false
+	}
+	nameStart := idx + len("[tool_result:")
+	name := rest[nameStart : idx+nameEnd]
+	sl := sliceToolResultBody(rest[idx+nameEnd+1:])
+	if isSkillOrExtName(name) {
+		writeAll(out, "[skill_result:", extractInnerResult(sl.Body), "]\n")
+	}
+	return sl.Rest, true
+}
+
+type toolResultSlice struct {
+	Body string
+	Rest string
+}
+
+func sliceToolResultBody(rest string) toolResultSlice {
+	rest = strings.TrimLeft(rest, " ")
+	end := strings.Index(rest, "[tool_result:")
+	if end < 0 {
+		return toolResultSlice{Body: rest, Rest: ""}
+	}
+	return toolResultSlice{Body: rest[:end], Rest: rest[end:]}
+}
+
+// extractInnerResult —— wrapper JSON {"ok":true,"result":...} 里的 result
+// 字段；如果不是 wrapper，返原 raw。
+func extractInnerResult(raw string) string {
+	raw = strings.TrimSpace(raw)
+	var wrap struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(raw), &wrap); err != nil || len(wrap.Result) == 0 {
+		return raw
+	}
+	return string(wrap.Result)
 }
 
 func nextScriptedToolCall(ctx context.Context, m *MockProvider) *StreamToolCall {
@@ -185,21 +298,15 @@ func emitToolCallAndDone(
 func emitTextReplyAndDone(
 	ctx context.Context, ch chan<- StreamEvent, reply string,
 ) {
-	if !pushTextChunks(ctx, ch, reply) {
+	// 一次 emit 整段 (不再做 16-char 假流式 chunking)；e2e 断言 raw body
+	// 含 marker 时 chunk 边界会切散 substring。caller 真要逐字流式可以
+	// 在 caller 侧拆。
+	select {
+	case <-ctx.Done():
 		return
+	case ch <- StreamEvent{Type: "text", Text: reply}:
 	}
 	pushDone(ctx, ch, "end_turn")
-}
-
-func pushTextChunks(ctx context.Context, ch chan<- StreamEvent, reply string) bool {
-	for _, chunk := range chunksOf(reply, mockChunkSize) {
-		select {
-		case <-ctx.Done():
-			return false
-		case ch <- StreamEvent{Type: "text", Text: chunk}:
-		}
-	}
-	return true
 }
 
 func pushDone(ctx context.Context, ch chan<- StreamEvent, stop string) {
@@ -209,16 +316,4 @@ func pushDone(ctx context.Context, ch chan<- StreamEvent, stop string) {
 	}
 }
 
-const mockChunkSize = 16
-
-func chunksOf(s string, size int) []string {
-	if size <= 0 || s == "" {
-		return []string{s}
-	}
-	out := make([]string, 0, (len(s)/size)+1)
-	for i := 0; i < len(s); i += size {
-		end := min(i+size, len(s))
-		out = append(out, s[i:end])
-	}
-	return out
-}
+// chunksOf + mockChunkSize 已删 — emitTextReplyAndDone 一次 emit 整段。

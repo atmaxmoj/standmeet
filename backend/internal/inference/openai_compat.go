@@ -82,40 +82,7 @@ func (p *OpenAICompatProvider) Name() string { return p.provider }
 //
 // 有 tools + ExecuteTool → 走 non-streaming tool loop（OpenAI 流式 +
 // tool_calls 协议太复杂且 fragments 没必要 emit）。
-// 无 tools → 走 streamSimple，SSE 解 data: 帧。
-func (p *OpenAICompatProvider) Stream(
-	ctx context.Context, req *ChatRequest,
-) (<-chan Chunk, error) {
-	if len(req.Tools) > 0 && req.ExecuteTool != nil {
-		out := make(chan Chunk, openAIStreamChanBuf)
-		go p.runToolLoop(ctx, req, out)
-		return out, nil
-	}
-	return p.streamSimple(ctx, req)
-}
-
-func (p *OpenAICompatProvider) streamSimple(
-	ctx context.Context, req *ChatRequest,
-) (<-chan Chunk, error) {
-	body, err := buildOpenAIBody(req, p.model, true)
-	if err != nil {
-		return nil, err
-	}
-	httpReq, herr := p.buildHTTPRequest(ctx, body)
-	if herr != nil {
-		return nil, herr
-	}
-	resp, derr := p.client.Do(httpReq)
-	if derr != nil {
-		return nil, normalizeNetErr(derr)
-	}
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, translateOpenAIStatus(resp)
-	}
-	out := make(chan Chunk, openAIStreamChanBuf)
-	go parseOpenAISSE(resp.Body, out)
-	return out, nil
-}
+// Provider.Stream 已删 (D-5)。同 anthropic.go 注释。
 
 func (p *OpenAICompatProvider) buildHTTPRequest(
 	ctx context.Context, body []byte,
@@ -173,20 +140,8 @@ type oaReq struct {
 	Stream    bool     `json:"stream"`
 }
 
-// buildOpenAIBody —— marshal Chat Completions request。Tools 走 toolLoop
-// 那条单独 path（用 buildOpenAIToolBody）；这里只装 simple 流式 request。
-func buildOpenAIBody(req *ChatRequest, defaultModel string, stream bool) ([]byte, error) {
-	body, err := json.Marshal(oaReq{
-		Model:     pickOpenAIModel(req.Model, defaultModel),
-		Messages:  toOpenAIMessages(req.System, req.Messages),
-		MaxTokens: pickOpenAIMaxTokens(req.MaxTokens),
-		Stream:    stream,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("openai_compat: marshal body: %w", err)
-	}
-	return body, nil
-}
+// buildOpenAIBody 已删 (D-5)。agent loop 走 openai_compat_tools.go 里的
+// 自己 marshal 路径。
 
 func pickOpenAIModel(reqModel, defaultModel string) string {
 	if reqModel != "" {

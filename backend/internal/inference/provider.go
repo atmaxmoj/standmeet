@@ -67,14 +67,15 @@ type Chunk struct {
 	Done  bool
 }
 
-// Provider —— 一个 LLM provider 的抽象。Stream 推回 channel，关闭通道表示完成。
+// Provider —— 一个 LLM provider 的抽象。D-5 后只剩 StreamSingleTurn
+// (single-turn 输出)；server-side agent loop 移到 usecases.streamReply
+// 用 StreamSingleTurn 迭代实现。
 type Provider interface {
 	Name() string
-	Stream(ctx context.Context, req *ChatRequest) (<-chan Chunk, error)
-	// StreamSingleTurn —— Phase D 加：跑**一次**调用 (不内嵌 agent loop)，
-	// 把 text delta + tool_use 都当 event 返。caller (browser pi-agent-core)
-	// 拿 tool_use 自己去调 per-tool endpoint，再以新的 messages 历史回来
-	// 再调一次。
+	// StreamSingleTurn —— 跑**一次**调用 (不内嵌 agent loop)，把 text
+	// delta + tool_use 都当 event 返。caller (browser pi-agent-core 或
+	// usecases.runServerSideAgentLoop) 拿 tool_use 自己去调 per-tool
+	// endpoint / binding，再以新的 messages 历史回来再调一次。
 	//
 	// req.Tools 非空 → provider 在 toolSpecs 里把它带给 LLM；ExecuteTool
 	// 字段不读 (单轮不执行 tool)。req.Tools 空 → 纯文本生成。

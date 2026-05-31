@@ -18,13 +18,10 @@ package inference
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 )
-
-const maxAgentTurns = 8
 
 type anthropicAgentMsg struct {
 	Role    string            `json:"role"`
@@ -58,28 +55,9 @@ type anthropicAgentReq struct {
 	Stream    bool                    `json:"stream"`
 }
 
-func (a *AnthropicProvider) runToolLoop(
-	ctx context.Context, req *ChatRequest, out chan<- Chunk,
-) {
-	defer close(out)
-	msgs := initialAgentMessages(req)
-	tools := convertToolSpecs(req.Tools)
-	for range maxAgentTurns {
-		turn, err := a.agentTurnStream(ctx, req, msgs, tools, out)
-		if err != nil {
-			out <- Chunk{Error: err}
-			return
-		}
-		msgs = append(msgs, anthropicAgentMsg{Role: "assistant", Content: turn.Blocks})
-		if turn.StopReason != "tool_use" {
-			out <- Chunk{Done: true}
-			return
-		}
-		toolMsgs := executeToolUses(ctx, req, turn.Blocks)
-		msgs = append(msgs, anthropicAgentMsg{Role: "user", Content: toolMsgs})
-	}
-	out <- Chunk{Error: errors.New("anthropic agent loop: max turns exceeded")}
-}
+// runToolLoop 已删 (D-5)。agent loop 由 usecases.streamReply 用
+// StreamSingleTurn 迭代驱动，provider 不再嵌内部 loop。executeToolUses
+// 一并删 (binding 执行走 streamReply 那侧 ExecuteTool 闭包)。
 
 func initialAgentMessages(req *ChatRequest) []anthropicAgentMsg {
 	out := make([]anthropicAgentMsg, 0, len(req.Messages))
@@ -168,21 +146,4 @@ func translateAnthropicStatusFromBody(resp *http.Response) error {
 	return fmt.Errorf("anthropic %d: %s", resp.StatusCode, string(bodyText))
 }
 
-func executeToolUses(
-	ctx context.Context, req *ChatRequest, blocks []anthropicABlock,
-) []anthropicABlock {
-	out := make([]anthropicABlock, 0)
-	for i := range blocks {
-		if blocks[i].Type != "tool_use" {
-			continue
-		}
-		result, terr := req.ExecuteTool(ctx, blocks[i].Name, []byte(blocks[i].Input))
-		if terr != nil {
-			result = fmt.Sprintf("{\"error\":%q}", terr.Error())
-		}
-		out = append(out, anthropicABlock{
-			Type: "tool_result", ToolUseID: blocks[i].ID, Content: result,
-		})
-	}
-	return out
-}
+// executeToolUses 已删 (D-5)。binding 执行走 usecases 的 ExecuteTool 闭包。

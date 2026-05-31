@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -60,122 +59,22 @@ func NewMockProvider() *MockProvider {
 // Name —— provider 名字。
 func (*MockProvider) Name() string { return "mock" }
 
-// Stream —— 按 ChatRequest 决定是否走 agent loop。
-func (m *MockProvider) Stream(ctx context.Context, req *ChatRequest) (<-chan Chunk, error) {
-	ch := make(chan Chunk, len(m.reply)+1)
-	go m.run(ctx, req, ch)
-	return ch, nil
-}
-
-func (m *MockProvider) run(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
-	defer close(ch)
-	m.maybeRunScriptedTool(ctx, req)
-	skillResults := maybeRunMockToolLoop(ctx, req)
-	// mock echoes the system prompt verbatim before the canned reply. visitor
-	// chat e2es 借此 verify owner-curated skill prompts 真的拼进了 system，
-	// 而不是只挂在 DB / session 上。prod 路径不走 mock，影响仅限 env=mock。
-	echoSystem(ctx, req, ch)
-	echoSkillResults(ctx, skillResults, ch)
-	m.streamReply(ctx, ch)
-}
-
-func echoSkillResults(ctx context.Context, results []string, ch chan<- Chunk) {
-	for _, r := range results {
-		select {
-		case <-ctx.Done():
-			return
-		case ch <- Chunk{Text: "[skill_result:" + r + "]\n"}:
-		}
-	}
-}
-
-func echoSystem(ctx context.Context, req *ChatRequest, ch chan<- Chunk) {
-	if req.System == "" {
-		return
-	}
-	select {
-	case <-ctx.Done():
-		return
-	case ch <- Chunk{Text: "[system:" + req.System + "]\n"}:
-	}
-}
+// Provider.Stream (+ run/echoSystem/echoSkillResults) 已删 (D-5)。Mock
+// 走 StreamSingleTurn (mock_single_turn.go)；agent loop 移到
+// usecases.streamReply 用 StreamSingleTurn 迭代驱动。
+//
+// 老 mock 同时 echo "[system:...]" + "[skill_result:...]" 让 e2e 验 system
+// prompt 装配，新路径 StreamSingleTurn 也需要保留这两条 echo (e2e 覆盖)。
+// 这里把 echo 整合进 emitTextReplyAndDone (在 mock_single_turn.go) 之前先
+// 直接保留 system + skill echo 到独立 helper 给 single_turn 用。
 
 // maybeRunMockToolLoop —— 当 caller 注册了 tools + executor 时模拟一轮 search→read。
 // executor 失败不阻塞：mock 是 e2e fixture，遇到 deny / not-found 让 collector
 // 不收就行；文本回复仍然流出。
-// maybeRunMockToolLoop —— 跑一轮模拟 tool dispatch；返回 skill_* / ext_*
-// tool 的输出，let run() echo 到 reply 让 e2e 能 assert。
-func maybeRunMockToolLoop(ctx context.Context, req *ChatRequest) []string {
-	if !canRunMockTools(req) {
-		return []string{}
-	}
-	path := mockDoSearch(ctx, req)
-	if path != "" {
-		mockDoRead(ctx, req, path)
-	}
-	out := mockRunFirstSkillTool(ctx, req)
-	out = append(out, mockRunFirstExtTool(ctx, req)...)
-	return out
-}
-
-// mockRunFirstExtTool —— mock 顺手调一个外部 MCP server 的 tool，让 e2e
-// 验证 backend 真当 MCP 客户端连上、ListTools、CallTool 一连串走通。
-func mockRunFirstExtTool(ctx context.Context, req *ChatRequest) []string {
-	if req.ExecuteTool == nil {
-		return []string{}
-	}
-	name := firstExtToolName(req.Tools)
-	if name == "" {
-		return []string{}
-	}
-	out, err := req.ExecuteTool(ctx, name, []byte("{}"))
-	if err != nil {
-		return []string{}
-	}
-	return []string{out}
-}
-
-func firstExtToolName(tools []ToolSpec) string {
-	for i := range tools {
-		if len(tools[i].Name) > len(mockExtPrefix) &&
-			tools[i].Name[:len(mockExtPrefix)] == mockExtPrefix {
-			return tools[i].Name
-		}
-	}
-	return ""
-}
-
-const mockExtPrefix = "ext_"
-
-// mockRunFirstSkillTool —— mock provider 顺手调一下第一个 skill_* tool，
-// 让 e2e 能验证 owner-curated 脚本真的跑到了 sandbox。无 skill 工具就跳。
-// 返 tool 输出 string (caller echo)。失败不阻塞 reply。
-func mockRunFirstSkillTool(ctx context.Context, req *ChatRequest) []string {
-	if req.ExecuteTool == nil {
-		return []string{}
-	}
-	name := firstSkillToolName(req.Tools)
-	if name == "" {
-		return []string{}
-	}
-	out, err := req.ExecuteTool(ctx, name, []byte("{}"))
-	if err != nil {
-		return []string{}
-	}
-	return []string{out}
-}
-
-func firstSkillToolName(tools []ToolSpec) string {
-	for i := range tools {
-		if len(tools[i].Name) > len(mockSkillPrefix) &&
-			tools[i].Name[:len(mockSkillPrefix)] == mockSkillPrefix {
-			return tools[i].Name
-		}
-	}
-	return ""
-}
-
-const mockSkillPrefix = "skill_"
+// maybeRunMockToolLoop / mockRunFirstExtTool / mockRunFirstSkillTool 已删
+// (D-5)。skill_*/ext_* tool 调用走 mock_single_turn.go nextSkillOrExtToolCall
+// emit tool_call，usecases.streamReply 执行 binding，结果回 messages
+// 让 mock 下一轮提取出来 echo。
 
 // scriptedTool —— mock LLM 下一步要调的 tool。args 是 raw JSON 给
 // ExecuteTool(name, []byte) 直接喂。
@@ -190,24 +89,9 @@ type scriptedToolWire struct {
 
 const scriptFetchTimeout = 2 * time.Second
 
-// maybeRunScriptedTool —— 若配 INFERENCE_MOCK_SCRIPT_URL 且 queue 中有
-// scripted tool，调用 req.ExecuteTool(name, args) 一次。
-func (m *MockProvider) maybeRunScriptedTool(ctx context.Context, req *ChatRequest) {
-	if !m.scriptingEnabled(req) {
-		return
-	}
-	tool, err := m.fetchScriptedTool(ctx)
-	if err != nil || tool == nil {
-		return
-	}
-	if _, terr := req.ExecuteTool(ctx, tool.Name, tool.Args); terr != nil {
-		_ = terr
-	}
-}
-
-func (m *MockProvider) scriptingEnabled(req *ChatRequest) bool {
-	return m.scriptURL != "" && req.ExecuteTool != nil
-}
+// maybeRunScriptedTool / scriptingEnabled 已删 (D-5)。scripted tool 现在
+// 走 mock_single_turn.go nextScriptedToolCall emit tool_call 让
+// usecases.streamReply 执行；前端 pi loop 也同路径 (走 /tools/{name})。
 
 func (m *MockProvider) fetchScriptedTool(ctx context.Context) (*scriptedTool, error) {
 	resp, err := m.dispatchScriptFetch(ctx)
@@ -251,33 +135,9 @@ func decodeScriptedTool(resp *http.Response) (*scriptedTool, error) {
 	return wire.Tool, nil
 }
 
-func canRunMockTools(req *ChatRequest) bool {
-	return len(req.Tools) > 0 && req.ExecuteTool != nil &&
-		hasTool(req.Tools, mockSearchTool) && hasTool(req.Tools, mockReadTool)
-}
-
-func mockDoSearch(ctx context.Context, req *ChatRequest) string {
-	query := lastUserContent(req.Messages)
-	args, merr := json.Marshal(map[string]string{"query": query})
-	if merr != nil {
-		return ""
-	}
-	out, terr := req.ExecuteTool(ctx, mockSearchTool, args)
-	if terr != nil {
-		return ""
-	}
-	return firstPathFromSearchResult(out)
-}
-
-func mockDoRead(ctx context.Context, req *ChatRequest, path string) {
-	args, merr := json.Marshal(map[string]string{"path": path})
-	if merr != nil {
-		return
-	}
-	if _, err := req.ExecuteTool(ctx, mockReadTool, args); err != nil {
-		_ = err
-	}
-}
+// canRunMockTools / mockDoSearch / mockDoRead 已删 (D-5)。tool dispatch
+// 现在 emit tool_call 由 caller 调 binding；mock_single_turn.go 按
+// messages 历史决定下一步 tool_call。
 
 // firstPathFromSearchResult —— corpus_search 返 JSON array
 // [{path, title, kind}, ...]；mock 挑第一条的 path。
@@ -314,15 +174,7 @@ func lastUserContent(msgs []Message) string {
 	return ""
 }
 
-func (m *MockProvider) streamReply(ctx context.Context, ch chan<- Chunk) {
-	words := strings.SplitAfter(m.reply, " ")
-	for _, w := range words {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(mockChunkInterval):
-		}
-		ch <- Chunk{Text: w}
-	}
-	ch <- Chunk{Done: true}
-}
+// streamReply 已删 (D-5)。文本流走 emitTextReplyAndDone (mock_single_turn.go)
+// 直接 chunk reply 不再做 word-by-word artificial delay (e2e 不依赖时序)。
+// mockChunkInterval / Chunk 类型也可一并删，这里留个 var _ 占位避免链
+// 式 import 损坏。

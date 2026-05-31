@@ -27,30 +27,7 @@ import (
 	"net/http"
 )
 
-const openAIMaxAgentTurns = 8
-
-// runToolLoop —— OpenAI 版 agent loop。close(out) 在 defer 里。
-func (p *OpenAICompatProvider) runToolLoop(
-	ctx context.Context, req *ChatRequest, out chan<- Chunk,
-) {
-	defer close(out)
-	msgs := initialOpenAIMessages(req)
-	tools := convertOpenAITools(req.Tools)
-	for range openAIMaxAgentTurns {
-		turn, err := p.agentTurnOnce(ctx, req, msgs, tools, out)
-		if err != nil {
-			out <- Chunk{Error: err}
-			return
-		}
-		msgs = append(msgs, turn.Assistant)
-		if turn.FinishReason != openAIFinishToolCalls || len(turn.Assistant.ToolCalls) == 0 {
-			out <- Chunk{Done: true}
-			return
-		}
-		msgs = append(msgs, executeOpenAIToolCalls(ctx, req, turn.Assistant.ToolCalls)...)
-	}
-	out <- Chunk{Error: errors.New("openai agent loop: max turns exceeded")}
-}
+// runToolLoop / executeOpenAIToolCalls 已删 (D-5)。同 anthropic_tools.go。
 
 // oaTurnResult —— 一次 agent turn 解析完的产物。
 // fieldalignment: struct 在前，string 在后。
@@ -154,21 +131,4 @@ func convertOpenAITools(in []ToolSpec) []oaTool {
 	return out
 }
 
-// executeOpenAIToolCalls —— 每个 tool_call 走 caller-provided ExecuteTool；
-// 每个 result 包成一条 role=tool message。失败 → JSON-encoded error string。
-func executeOpenAIToolCalls(
-	ctx context.Context, req *ChatRequest, calls []oaToolCall,
-) []oaMsg {
-	out := make([]oaMsg, 0, len(calls))
-	for i := range calls {
-		result, terr := req.ExecuteTool(ctx, calls[i].Function.Name,
-			[]byte(calls[i].Function.Arguments))
-		if terr != nil {
-			result = fmt.Sprintf("{\"error\":%q}", terr.Error())
-		}
-		out = append(out, oaMsg{
-			Role: openAIRoleTool, ToolCallID: calls[i].ID, Content: result,
-		})
-	}
-	return out
-}
+// executeOpenAIToolCalls 已删 (D-5)。

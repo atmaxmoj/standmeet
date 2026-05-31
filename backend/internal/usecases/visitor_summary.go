@@ -114,14 +114,14 @@ func runSummaryQuery(
 	ctx context.Context, provider inference.Provider, msgs []domain.Message,
 ) (string, error) {
 	user := buildSummaryUserPrompt(msgs)
-	chunks, ierr := provider.Stream(ctx, &inference.ChatRequest{
+	events, ierr := provider.StreamSingleTurn(ctx, &inference.ChatRequest{
 		System:   summaryPrompt,
 		Messages: []inference.Message{{Role: "user", Content: user}},
 	})
 	if ierr != nil {
 		return "", fmt.Errorf("summary stream: %w", ierr)
 	}
-	return collectChunks(chunks)
+	return collectStreamEvents(events)
 }
 
 func buildSummaryUserPrompt(msgs []domain.Message) string {
@@ -138,14 +138,14 @@ func buildSummaryUserPrompt(msgs []domain.Message) string {
 	return b.String()
 }
 
-func collectChunks(chunks <-chan inference.Chunk) (string, error) {
+func collectStreamEvents(events <-chan inference.StreamEvent) (string, error) {
 	var b strings.Builder
-	for ch := range chunks {
-		if ch.Error != nil {
-			return "", fmt.Errorf("inference chunk: %w", ch.Error)
+	for ev := range events {
+		if ev.Type == "error" {
+			return "", fmt.Errorf("inference event: %w", ev.Err)
 		}
-		if ch.Text != "" {
-			_, _ = b.WriteString(ch.Text)
+		if ev.Type == "text" {
+			_, _ = b.WriteString(ev.Text)
 		}
 	}
 	return b.String(), nil
