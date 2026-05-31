@@ -35,14 +35,36 @@ interface MCPCallResult {
   body: MCPResponse | null;
 }
 
+// Phase C: 老 `bearer` 参数现在是 createAPIToken 返的 JSON blob
+// {keyId, privateKeyPem}。本 file 内部解 + Sigv1 签每个请求 (无 cookie
+// 缓存)。spec 仍可继续 `callTool(req, apiToken, sid, ...)`，apiToken
+// 现在是 opaque creds blob。
+import { formatAuthHeader, signNow } from './sigv1.js';
+
+interface Creds { keyId: string; privateKeyPem: string }
+
+function parseCreds(blob: string): Creds {
+  try {
+    const parsed = JSON.parse(blob) as Creds;
+    if (!parsed.keyId || !parsed.privateKeyPem) {
+      throw new Error('creds missing keyId / privateKeyPem');
+    }
+    return parsed;
+  } catch (err) {
+    throw new Error(`mcp creds: invalid blob — did you call createAPIToken first? (${String(err)})`);
+  }
+}
+
 async function mcpCall(
   request: APIRequestContext,
   body: unknown,
   bearer: string,
   sessionId?: string,
 ): Promise<MCPCallResult> {
+  const creds = parseCreds(bearer);
+  const auth = formatAuthHeader(signNow(creds.privateKeyPem, creds.keyId));
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${bearer}`,
+    Authorization: auth,
     'Content-Type': 'application/json',
     Accept: 'application/json, text/event-stream',
   };

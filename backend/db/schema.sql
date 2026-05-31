@@ -71,16 +71,18 @@ CREATE TABLE instance_settings (
 
 INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 
--- API tokens —— 对齐 youteacher 简化：无 scope 细粒度（占位 ARRAY['*']）、
--- 无 prefix 字段（name 就是 owner 看的标识）、撤销 = DELETE。
-CREATE TABLE api_tokens (
-    id            uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id      uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    name          text          NOT NULL,
-    token_hash    text          UNIQUE NOT NULL,
-    scopes        text[]        NOT NULL DEFAULT ARRAY['*'],
-    last_used_at  timestamptz,
-    created_at    timestamptz   NOT NULL DEFAULT now()
+-- Owner keypairs —— Phase C: Ed25519 keypair 替换 API tokens。
+-- key_id 是公开 stub (owner 在 admin UI 看 + 写 ~/.standmeet/credentials.json)；
+-- public_key_pem 是 PKCS8 PEM 格式的 Ed25519 公钥。私钥永远不入库 (owner
+-- 自己保管 PEM)。撤销 = DELETE (硬删，对齐 youteacher 简化)。
+CREATE TABLE owner_keypairs (
+    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    key_id          text          UNIQUE NOT NULL,
+    public_key_pem  text          NOT NULL,
+    label           text          NOT NULL,
+    last_used_at    timestamptz,
+    created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
 -- Corpus —— raw 草稿 + wiki curated；embedding + SEO landing 列后续加。

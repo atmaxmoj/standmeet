@@ -54,20 +54,29 @@ export async function login(
   return { csrf: body.csrf_token ?? '' };
 }
 
+// createAPIToken —— Phase C 之后老 PAT 路径已删，本 fixture 改成 generate
+// Ed25519 keypair via /api/admin/keypairs 然后把 {keyId, privateKeyPem}
+// JSON-encode 当 "creds blob" 返回。initMCP 接到该 blob → 解 + Sigv1 签。
+//
+// 函数名留 createAPIToken 让 78 个现有 spec 不动；返值的 string 不再是
+// plaintext bearer，是 JSON。spec 都把它当 opaque blob 透传给 initMCP。
 export async function createAPIToken(
   request: APIRequestContext,
   csrf: string,
   name = 'e2e-token',
 ): Promise<string> {
-  const res = await request.post(`${BACKEND}/api/admin/tokens`, {
+  const res = await request.post(`${BACKEND}/api/admin/keypairs`, {
     headers: { 'X-Csrftoken': csrf },
-    data: { name },
+    data: { label: name },
   });
-  if (res.status() !== 201 && res.status() !== 200) {
-    throw new Error(`create token failed: ${res.status()}`);
+  if (res.status() !== 201) {
+    throw new Error(`create keypair failed: ${res.status()} ${await res.text()}`);
   }
-  const body = await res.json() as { plaintext?: string };
-  return body.plaintext ?? '';
+  const body = await res.json() as { key_id?: string; private_key_pem?: string };
+  if (!body.key_id || !body.private_key_pem) {
+    throw new Error('create keypair: missing key_id / private_key_pem in response');
+  }
+  return JSON.stringify({ keyId: body.key_id, privateKeyPem: body.private_key_pem });
 }
 
 // navigateToOwnerLogin —— 把 page 带到 /login（owner 输 /admin → 自动 redirect）。

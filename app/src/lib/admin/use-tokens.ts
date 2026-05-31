@@ -1,6 +1,9 @@
-// use-tokens —— /admin/api-mcp 的状态机：list / create / delete API tokens。
-// 创建返回 plaintext 一次性；UI 把它 highlight 出来让 owner 复制（关掉这条
-// 之后就再也看不到）。delete 是硬删，不可恢复。
+// use-tokens —— /admin/api-mcp 的状态机。
+//
+// Phase C 后端已切到 Ed25519 keypair (POST/GET/DELETE /api/admin/keypairs)。
+// 本 hook 内部 fetch /keypairs，按老 TokenItem 形态映射给上游 UI 用，让
+// ApiSection / TokenRow / NewlyCreatedBanner 等组件不动 (C-2 重做 UI 时
+// 再换语义)。"plaintext" 字段承载完整 PEM (多行)，UI 当 opaque 文本展示。
 //
 // zustand 重构：list cache 走 tokensStore (createResourceStore)；justCreated
 // 是一次性 banner，放独立 store 字段（不要每次 mount 重 mount banner）。
@@ -13,15 +16,37 @@ import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-const TokenItemSchema = z.object({
-  id: z.string(), name: z.string(), created_at: z.string(), last_used_at: z.string().nullable(),
+// keypair wire (server response shape)
+const KeypairListItemSchema = z.object({
+  key_id: z.string(),
+  label: z.string(),
+  created_at: z.string(),
+  last_used_at: z.string().nullable(),
 });
-export type TokenItem = z.infer<typeof TokenItemSchema>;
+type KeypairListItem = z.infer<typeof KeypairListItemSchema>;
 
-const CreatedTokenSchema = z.object({
-  id: z.string(), name: z.string(), plaintext: z.string(), created_at: z.string(),
+const CreatedKeypairSchema = z.object({
+  key_id: z.string(),
+  label: z.string(),
+  private_key_pem: z.string(),
+  created_at: z.string(),
 });
-type CreatedToken = z.infer<typeof CreatedTokenSchema>;
+type CreatedKeypair = z.infer<typeof CreatedKeypairSchema>;
+
+// TokenItem —— UI 形态。id ← key_id；name ← label；其他字段同 keypair。
+export interface TokenItem {
+  id: string;
+  name: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+interface CreatedToken {
+  id: string;
+  name: string;
+  plaintext: string;
+  created_at: string;
+}
 
 export interface TokensHook {
   status: ResourceStatus;
@@ -39,8 +64,18 @@ interface TokensExtra {
 
 export const tokensStore = createResourceStore<TokenItem[]>({
   name: 'tokens',
-  fetcher: () => adminAPI.get('/tokens', z.array(TokenItemSchema)),
+  fetcher: async () => {
+    const rows = await adminAPI.get('/keypairs', z.array(KeypairListItemSchema));
+    return rows.map(toTokenItemFromList);
+  },
 });
+
+function toTokenItemFromList(k: KeypairListItem): TokenItem {
+  return {
+    id: k.key_id, name: k.label,
+    created_at: k.created_at, last_used_at: k.last_used_at,
+  };
+}
 
 // justCreated 是 UI 临时状态（一次性 banner），不属 resource shape。
 // 用 module-level state + tiny subscription 跟 zustand 风格保持一致。
@@ -68,7 +103,8 @@ export function useTokens(): TokensHook {
 
 async function createToken(name: string): Promise<void> {
   try {
-    const created = await adminAPI.post('/tokens', { name }, CreatedTokenSchema);
+    const kp = await adminAPI.post('/keypairs', { label: name }, CreatedKeypairSchema);
+    const created = toCreatedToken(kp);
     tokensStore.getState().mutate((prev) => [toListItem(created), ...(prev ?? [])]);
     justCreatedStore.getState().set(created);
   } catch {
@@ -78,11 +114,16 @@ async function createToken(name: string): Promise<void> {
 
 async function deleteToken(id: string): Promise<void> {
   try {
-    await adminAPI.deleteVoid(`/tokens/${id}`);
+    // id 字段映射的是 keypair.key_id，DELETE 走 key_id path。
+    await adminAPI.deleteVoid(`/keypairs/${id}`);
     tokensStore.getState().mutate((prev) => (prev ?? []).filter((t) => t.id !== id));
   } catch {
     // ditto
   }
+}
+
+function toCreatedToken(k: CreatedKeypair): CreatedToken {
+  return { id: k.key_id, name: k.label, plaintext: k.private_key_pem, created_at: k.created_at };
 }
 
 function toListItem(c: CreatedToken): TokenItem {

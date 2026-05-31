@@ -32,7 +32,7 @@ import (
 type repoSet struct {
 	instance      *postgres.InstanceRepo
 	owner         *postgres.OwnerRepo
-	token         *postgres.APITokenRepo
+	keypair       *postgres.OwnerKeypairRepo
 	raw           *postgres.RawRepo
 	wiki          *postgres.WikiRepo
 	output        *postgres.OutputRepo
@@ -59,7 +59,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 	return &repoSet{
 		instance:      postgres.NewInstanceRepo(db),
 		owner:         postgres.NewOwnerRepo(db),
-		token:         postgres.NewAPITokenRepo(db),
+		keypair:       postgres.NewOwnerKeypairRepo(db),
 		raw:           postgres.NewRawRepo(db),
 		wiki:          postgres.NewWikiRepo(db),
 		output:        postgres.NewOutputRepo(db),
@@ -102,7 +102,7 @@ func assembleRuntimeDeps(
 	return runtimeDeps{
 		log: log, db: c.db, rdb: c.rdb,
 		instanceRepo: repos.instance, ownerRepo: repos.owner,
-		tokenRepo: repos.token, rawRepo: repos.raw, wikiRepo: repos.wiki,
+		keypairRepo: repos.keypair, rawRepo: repos.raw, wikiRepo: repos.wiki,
 		outputRepo: repos.output,
 		codeRepo:   repos.code, convRepo: repos.conv,
 		seoRepo:           repos.seo,

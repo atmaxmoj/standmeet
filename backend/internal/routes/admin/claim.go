@@ -22,7 +22,7 @@ import (
 type Handlers struct {
 	Claim             usecases.ClaimDeps
 	Auth              AuthDeps
-	APITokens         usecases.APITokenDeps
+	KeypairsAdmin     KeypairsAdminDeps
 	Corpus            CorpusDeps
 	CodesAdmin        CodesDeps
 	PageAdmin         PageAdminDeps
@@ -69,7 +69,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	r.Get("/me", h.me())
 	r.Post("/me/logout", h.logout())
 	r.Get("/csrf", h.csrfEndpoint())
-	r.Route("/tokens", func(r chi.Router) { h.MountTokens(r) })
+	r.Route("/keypairs", func(r chi.Router) { h.MountKeypairs(r) })
 	r.Route("/codes", func(r chi.Router) { h.MountCodes(r) })
 	h.MountCorpus(r)
 	h.MountCorpusCRUD(r)

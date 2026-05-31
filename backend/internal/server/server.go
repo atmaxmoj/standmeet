@@ -53,7 +53,7 @@ type Deps struct {
 type AdminDeps struct {
 	Claim          usecases.ClaimDeps
 	Login          usecases.LoginDeps
-	APITokens      usecases.APITokenDeps
+	Keypairs       usecases.KeypairDeps
 	Corpus         usecases.CorpusDeps
 	Conversations  usecases.ConversationsDeps
 	BYOAI          usecases.BYOAIDeps
@@ -128,8 +128,10 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Auth: adminroutes.AuthDeps{
 			Login: deps.Admin.Login, Sessions: deps.Admin.Sessions,
 		},
-		APITokens: deps.Admin.APITokens,
-		Corpus:    adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
+		KeypairsAdmin: adminroutes.KeypairsAdminDeps{
+			Deps: deps.Admin.Keypairs, Log: deps.Log,
+		},
+		Corpus: adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
 		CodesAdmin: adminroutes.CodesDeps{
 			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
 		},

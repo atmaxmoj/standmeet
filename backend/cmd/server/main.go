@@ -177,7 +177,7 @@ type runtimeDeps struct {
 	rdb               *redis.Client
 	instanceRepo      *postgres.InstanceRepo
 	ownerRepo         *postgres.OwnerRepo
-	tokenRepo         *postgres.APITokenRepo
+	keypairRepo       *postgres.OwnerKeypairRepo
 	rawRepo           *postgres.RawRepo
 	wikiRepo          *postgres.WikiRepo
 	outputRepo        *postgres.OutputRepo

@@ -12,7 +12,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/mark3labs/mcp-go/server"
 
@@ -27,7 +26,7 @@ var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 
 // Deps —— MCP server 需要的业务依赖。
 type Deps struct {
-	APITokens     usecases.APITokenDeps
+	Keypairs      usecases.KeypairDeps
 	Jobs          usecases.JobsDeps
 	Owners        OwnerLookup
 	Corpus        usecases.CorpusDeps
@@ -86,26 +85,20 @@ func New(deps *Deps) http.Handler {
 	return httpSrv
 }
 
-// authContextFunc 在 mcp-go HTTP layer 拦每个请求，验 Bearer token，把 owner_id
-// 注 ctx。失败时把 sentinel 错误也注 ctx，tool handler 看到就返回 error 给 MCP
-// client（mcp-go 没提供"在 HTTP 层直接返 401"的钩子，只能在 tool 层 short-circuit）。
+// authContextFunc 在 mcp-go HTTP layer 拦每个请求，解 Sigv1 + ed25519 验
+// 签，owner_id 注 ctx。失败 → ctx 不带 owner_id，tool handler short-circuit
+// 返 unauthorized（mcp-go 没提供"在 HTTP 层直接返 401"的钩子）。
+//
+// Phase C：legacy Bearer PAT 路径已删；只认 `Authorization: Sigv1 keyId=X,
+// ts=N,sig=base64`。
 func authContextFunc(deps *Deps) server.HTTPContextFunc {
 	return func(ctx context.Context, r *http.Request) context.Context {
-		token := bearerFromHeader(r.Header.Get("Authorization"))
-		ownerID, err := usecases.VerifyAPIToken(ctx, deps.APITokens, token)
+		ownerID, err := usecases.VerifySigv1(ctx, deps.Keypairs, r.Header.Get("Authorization"))
 		if err != nil {
-			return ctx // tool handler 取不到 ownerID 时返 unauthorized
+			return ctx
 		}
 		return context.WithValue(ctx, ctxKeyOwnerID, ownerID)
 	}
-}
-
-func bearerFromHeader(h string) string {
-	const prefix = "Bearer "
-	if !strings.HasPrefix(h, prefix) {
-		return ""
-	}
-	return strings.TrimSpace(strings.TrimPrefix(h, prefix))
 }
 
 // OwnerIDFrom 从 ctx 取 owner_id；tool handler 用。空字符串表示未鉴权。

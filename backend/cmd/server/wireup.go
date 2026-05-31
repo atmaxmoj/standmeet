@@ -55,9 +55,9 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Instance: d.instanceRepo, Skills: d.skillRepo,
 			Prompts: d.promptRepo, Roles: d.roleRepo,
 		},
-		Login:     usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
-		APITokens: usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
-		Corpus:    usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
+		Login:    usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
+		Keypairs: usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log},
+		Corpus:   usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
 		Conversations: usecases.ConversationsDeps{
 			Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
@@ -181,7 +181,7 @@ func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHand
 func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 	return mcp.Deps{
 		AgentSkills: d.agentSkills,
-		APITokens:   usecases.APITokenDeps{Tokens: d.tokenRepo, Owners: d.ownerRepo, Log: d.log},
+		Keypairs:    usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log},
 		Owners:      d.ownerRepo,
 		Corpus:      usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
 		SEO:         d.seoRepo,

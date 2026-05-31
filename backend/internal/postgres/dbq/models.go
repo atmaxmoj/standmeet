@@ -35,16 +35,6 @@ type AccessRequest struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-type ApiToken struct {
-	ID         pgtype.UUID
-	OwnerID    pgtype.UUID
-	Name       string
-	TokenHash  string
-	Scopes     []string
-	LastUsedAt pgtype.Timestamptz
-	CreatedAt  pgtype.Timestamptz
-}
-
 type Application struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID
@@ -255,6 +245,16 @@ type OwnerCalendarConnector struct {
 	ConnectedAt          pgtype.Timestamptz
 	CreatedAt            pgtype.Timestamptz
 	UpdatedAt            pgtype.Timestamptz
+}
+
+type OwnerKeypair struct {
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	KeyID        string
+	PublicKeyPem string
+	Label        string
+	LastUsedAt   pgtype.Timestamptz
+	CreatedAt    pgtype.Timestamptz
 }
 
 type PageContent struct {
