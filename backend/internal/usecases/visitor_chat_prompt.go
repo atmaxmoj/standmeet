@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/prompts"
 )
 
 // ComposeBasePersona —— system prompt 的 "non-capability" 部分：visitor
@@ -46,7 +47,8 @@ func snapshotPromptParts(snapshot *domain.RoleSnapshot) []string {
 }
 
 func visitorHeader() string {
-	return "You are answering visitor questions on behalf of the owner."
+	// Phase D-1: 单一源 prompts/visitor-header.md
+	return prompts.MustLoad("visitor-header")
 }
 
 // CitedRef —— done event 推给前端的引用信息：id + title。
