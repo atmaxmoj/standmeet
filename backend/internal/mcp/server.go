@@ -69,6 +69,10 @@ type OwnerLookup interface {
 }
 
 // New 构造一个挂好工具的 http.Handler，调用方挂到 /mcp/* 路由。
+//
+// 包两层：authMiddleware (Sigv1 验签，失败 401 立即 return) → mcp-go
+// streamable HTTP server。authContextFunc 已被 middleware 取代 (verifies
+// + sets ctx)，HTTPContextFunc 只把 ownerID 从 request ctx 转到 mcp ctx。
 func New(deps *Deps) http.Handler {
 	mcpSrv := server.NewMCPServer(
 		"standmeet",
@@ -79,26 +83,38 @@ func New(deps *Deps) http.Handler {
 
 	httpSrv := server.NewStreamableHTTPServer(
 		mcpSrv,
-		server.WithHTTPContextFunc(authContextFunc(deps)),
+		server.WithHTTPContextFunc(propagateOwnerCtx),
 		server.WithEndpointPath("/mcp"),
 	)
-	return httpSrv
+	return authMiddleware(deps, httpSrv)
 }
 
-// authContextFunc 在 mcp-go HTTP layer 拦每个请求，解 Sigv1 + ed25519 验
-// 签，owner_id 注 ctx。失败 → ctx 不带 owner_id，tool handler short-circuit
-// 返 unauthorized（mcp-go 没提供"在 HTTP 层直接返 401"的钩子）。
+// authMiddleware 在 mcp-go 上层做 Sigv1 验签：失败 401 立即返不进 mcp-go；
+// 通过则把 ownerID 塞 request ctx，HTTPContextFunc 再 propagate 到 mcp ctx。
 //
 // Phase C：legacy Bearer PAT 路径已删；只认 `Authorization: Sigv1 keyId=X,
 // ts=N,sig=base64`。
-func authContextFunc(deps *Deps) server.HTTPContextFunc {
-	return func(ctx context.Context, r *http.Request) context.Context {
-		ownerID, err := usecases.VerifySigv1(ctx, deps.Keypairs, r.Header.Get("Authorization"))
+func authMiddleware(deps *Deps, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		ownerID, err := usecases.VerifySigv1(r.Context(), deps.Keypairs, authHeader)
 		if err != nil {
-			return ctx
+			http.Error(w, "unauthorized: invalid Sigv1", http.StatusUnauthorized)
+			return
 		}
-		return context.WithValue(ctx, ctxKeyOwnerID, ownerID)
+		ctx := context.WithValue(r.Context(), ctxKeyOwnerID, ownerID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// propagateOwnerCtx —— HTTPContextFunc：从 request ctx 取 ownerID (middleware
+// 已校验通过塞进去) 转移到 mcp ctx (tool handler 用 OwnerIDFrom 读)。
+func propagateOwnerCtx(ctx context.Context, r *http.Request) context.Context {
+	v, ok := r.Context().Value(ctxKeyOwnerID).(string)
+	if !ok {
+		return ctx
 	}
+	return context.WithValue(ctx, ctxKeyOwnerID, v)
 }
 
 // OwnerIDFrom 从 ctx 取 owner_id；tool handler 用。空字符串表示未鉴权。
