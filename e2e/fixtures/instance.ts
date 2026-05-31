@@ -24,7 +24,7 @@ const TABLES = [
   'applications', 'access_codes',
   'wiki_entries', 'raw_entries', 'media_assets', 'page_content',
   'resume_drafts', 'job_fingerprints', 'job_sources',
-  'api_tokens', 'owners',
+  'owner_keypairs', 'owners',
 ];
 
 // resetInstance —— spec beforeAll 调；把 instance 拉回干净状态。秒内完成。
