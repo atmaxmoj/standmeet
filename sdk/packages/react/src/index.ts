@@ -17,8 +17,10 @@ export { useAgent } from './use-agent.js';
 export type { AgentState, UseAgentOptions } from './use-agent.js';
 export {
   httpPromptSource, httpToolDispatcher, scriptedLLMStreamer,
+  httpInferenceStreamer,
 } from './agent-adapters.js';
 export type {
   HttpPromptSourceOptions, HttpToolDispatcherOptions,
+  HttpInferenceStreamerOptions,
   ScriptedLLMOptions, ScriptedStep,
 } from './agent-adapters.js';
