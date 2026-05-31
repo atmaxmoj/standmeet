@@ -52,7 +52,7 @@ var builtinSkillSeeds = []builtinSkillSeed{
 		Description: "Critique frontend / UI design submissions; reference owner's design taste.",
 		Prompt: "Visitors may share UI screenshots, mockups, or component code. Critique them " +
 			"through the lens of the owner's design taste (read owner's wiki under " +
-			"`projects/` and `design/` paths via corpus.search first if you don't " +
+			"`projects/` and `design/` paths via corpus_search first if you don't " +
 			"already know it).\n\n" +
 			"Focus areas: visual hierarchy, type, spacing, color contrast, anti-patterns. " +
 			"Reference concrete prior work the owner has done when you can.",
@@ -62,7 +62,7 @@ var builtinSkillSeeds = []builtinSkillSeed{
 		Description: "Discuss the owner's resume / portfolio / past projects with recruiters.",
 		Prompt: "When the visitor is a recruiter / hiring manager, your job is to surface the " +
 			"owner's most relevant past work for the role they describe.\n\n" +
-			"Use corpus.list + corpus.read to walk the `projects/` and " +
+			"Use corpus_list + corpus_read to walk the `projects/` and " +
 			"`resume/` paths. Quote owner's own words verbatim where possible. " +
 			"Never invent achievements the corpus doesn't back. If asked something the " +
 			"corpus doesn't cover, say so clearly rather than fabricating.",

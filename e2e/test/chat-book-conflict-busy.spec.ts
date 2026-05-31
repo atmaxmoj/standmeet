@@ -24,7 +24,7 @@ test.describe('chat · calendar.book all_busy conflict', () => {
       { start: t2, end: future(7, 17) },
     ]);
     await scriptMockToolCall(seed.request, {
-      name: 'calendar.book',
+      name: 'calendar_book',
       args: {
         topic: 'Recruiter chat',
         duration_min: 30,

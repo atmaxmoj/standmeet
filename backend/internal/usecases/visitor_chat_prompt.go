@@ -5,7 +5,7 @@
 //   + 每个 capability 的 SystemPromptFragment (注册顺序)
 //
 // ComposeBasePersona = visitorHeader + role.PromptBody + skillPrompts。
-// Tool 使用说明走 capability fragment（retrieval cap 贡献 corpus.search/read/
+// Tool 使用说明走 capability fragment（retrieval cap 贡献 corpus_search/read/
 // list 三 tool 的描述），不在 base 里。
 //
 // dev endpoint (/internal/test/visitor-capabilities) 跟 real SendMessage

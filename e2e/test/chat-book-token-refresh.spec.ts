@@ -24,7 +24,7 @@ test.describe('chat · calendar.book refreshes expired access token', () => {
     async () => {
       await expireAccessToken(seed.request);     // force expiry on backend
       await scriptMockToolCall(seed.request, {
-        name: 'calendar.book',
+        name: 'calendar_book',
         args: {
           topic: 'Refresh test',
           duration_min: 30,

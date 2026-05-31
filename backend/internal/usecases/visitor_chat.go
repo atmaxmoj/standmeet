@@ -1,7 +1,7 @@
 // visitor_chat.go —— visitor chat 流式 + agent-loop retrieval + 配额校验。
 //
 // retrieval-redesign 后：不再 stuff 全集进 prompt。改成给 inference 注册三个
-// retrieval tool (corpus.search/read/list)，让 AI 主动 fetch。
+// retrieval tool (corpus_search/read/list)，让 AI 主动 fetch。
 // readCollector 累计 AI 真读过的 entry，emitDoneEvent 从 collector 取 cited。
 
 package usecases

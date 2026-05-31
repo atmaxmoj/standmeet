@@ -17,10 +17,12 @@ import (
 )
 
 const (
-	// Tool names —— Phase B 起切到点分。retrieval-capability-state spec 验。
-	toolSearchCorpus = "corpus.search"
-	toolReadCorpus   = "corpus.read"
-	toolListCorpus   = "corpus.list"
+	// Tool names —— Phase D-3 切到 snake_case (URL `/tools/{name}` 跟 LLM
+	// tool spec 1:1)；Anthropic-friendly。capability ID 自己仍是点分
+	// (`corpus.retrieval`)，是 internal 层级概念，不进 URL / LLM spec。
+	toolSearchCorpus = "corpus_search"
+	toolReadCorpus   = "corpus_read"
+	toolListCorpus   = "corpus_list"
 	summaryMaxChars  = 160
 )
 

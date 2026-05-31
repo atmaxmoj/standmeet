@@ -1,4 +1,4 @@
-// visitor_chat_collector.go —— readCollector：AI 实际通过 corpus.read
+// visitor_chat_collector.go —— readCollector：AI 实际通过 corpus_read
 // 拿到的 entry 列表。show_as_source=false 拿到 body 但不进 collector
 // （"读不挂"，让 meta/persona 这种 entry 可用但不曝光给访客 cited footer）。
 

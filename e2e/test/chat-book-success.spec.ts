@@ -20,7 +20,7 @@ test.describe('chat · calendar.book happy path', () => {
     async () => {
       const start = futureSlot(7, 14);   // 7 days out, 14:00 local
       await scriptMockToolCall(seed.request, {
-        name: 'calendar.book',
+        name: 'calendar_book',
         args: {
           topic: 'Recruiter chat about retrieval-quality role',
           duration_min: 30,

@@ -30,7 +30,7 @@ test.describe('chat · calendar.book quota disappears tool after limit', () => {
 
 async function bookOnce(seed: CodedSeed, start: string): Promise<void> {
   await scriptMockToolCall(seed.request, {
-    name: 'calendar.book',
+    name: 'calendar_book',
     args: {
       topic: 'Quota check', duration_min: 30, preferred_times: [start],
     },

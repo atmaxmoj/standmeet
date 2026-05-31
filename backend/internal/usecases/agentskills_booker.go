@@ -22,8 +22,15 @@ import (
 )
 
 const (
+	// capCalendarBook —— capability ID (internal 层级概念，dotted)。仍用
+	// 作 role.AllowedTools 的 grant key (role 数据已经按 "calendar.book"
+	// 存)，D-3 不动这个。
 	capCalendarBook           = "calendar.book"
 	capCalendarBookFragmentID = "capabilities/calendar.book"
+	// toolCalendarBookName —— LLM-facing tool name + URL path segment。D-3
+	// 切到 snake_case 跟 corpus_search/read/list 一致 (URL `/tools/{name}`
+	// 1:1)；cap ID / role grant key 仍 dotted (data 稳定)。
+	toolCalendarBookName = "calendar_book"
 	// BookerSkillName —— role.AllowedTools 中此 string 即解锁 calendar.book。
 	BookerSkillName = capCalendarBook
 
@@ -186,7 +193,7 @@ func bookerQuotaRemaining(
 
 func bookerToolSpec() inference.ToolSpec {
 	return inference.ToolSpec{
-		Name: capCalendarBook,
+		Name: toolCalendarBookName,
 		Description: "Book a meeting on the owner's Google Calendar. " +
 			"Only call after you have gathered topic, duration (15-180 minutes), " +
 			"and one or more visitor-confirmed preferred start times in RFC3339 " +
@@ -213,8 +220,8 @@ func makeBookerExecutor(
 	deps *VisitorDeps, in *agentskills.AssembleInput, owner *domain.Owner,
 ) inference.ToolExecutor {
 	return func(ctx context.Context, name string, input []byte) (string, error) {
-		if name != capCalendarBook {
-			return "", fmt.Errorf("calendar.book: unknown tool %q", name)
+		if name != toolCalendarBookName {
+			return "", fmt.Errorf("calendar_book: unknown tool %q", name)
 		}
 		args, derr := decodeBookArgs(input)
 		if derr != nil {

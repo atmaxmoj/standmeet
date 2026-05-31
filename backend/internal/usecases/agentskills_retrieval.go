@@ -2,7 +2,7 @@
 // 包住 buildRetriever + retriever struct，让 visitor chat tools 统一从
 // agentskills.Registry 装配。
 //
-// 一个 capability，3 个 tool (corpus.search / corpus.read / corpus.list)。
+// 一个 capability，3 个 tool (corpus_search / corpus_read / corpus_list)。
 // Cited closure 暴露 retriever 内部 collector 让 emitDoneEvent 拿真读过
 // 的 entry 列表，去掉 streamReply 直接持 *retriever 的耦合。
 

@@ -4,8 +4,8 @@
 // 用户故事：
 //   owner 给 recruiter 发 INTRO 代码挂 role "recruiter-only"。role 配
 //   corpus_uris = ['wiki://projects/**']，允许 projects/lucerna 但不允许
-//   personal/family。recruiter 入境后问 family，AI corpus.search
-//   拿不到 personal/family，corpus.read 也会被拒。最终 cited 不
+//   personal/family。recruiter 入境后问 family，AI corpus_search
+//   拿不到 personal/family，corpus_read 也会被拒。最终 cited 不
 //   含 personal/family。
 
 import { test, expect } from '@/fixtures/test';

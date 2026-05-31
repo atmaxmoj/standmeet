@@ -102,7 +102,7 @@ CREATE TABLE raw_entries (
 -- wiki_entries —— curated 中层。
 -- path：唯一标识 (取代 seo_slug)。retrieval ACL 按 path-glob 评估；同时
 --       是 /<handle>/wiki/<path> 公开页 URL 的最后一段（catch-all）。
--- show_as_source：false 时 AI 可以 corpus.read 拿 body，但 readCollector
+-- show_as_source：false 时 AI 可以 corpus_read 拿 body，但 readCollector
 --       不收录这条 path —— 用于 meta/persona 这种"用得到但不该曝光"的 entry。
 -- 准入靠 access_codes.corpus_permissions（path-glob first-match-wins）。
 -- 没有 visibility 字段——legacy 那套 public/on_request/private 三档被 ACL 替代。

@@ -74,9 +74,9 @@ test.describe('Phase D-1 prompts/ single source of truth', () => {
       const request = await playwright.request.newContext();
       const text = await fetchPrompt(request, 'capabilities/corpus.retrieval');
       // 已知 fragment 含 3 个 corpus tool 描述
-      expect(text).toContain('corpus.search');
-      expect(text).toContain('corpus.read');
-      expect(text).toContain('corpus.list');
+      expect(text).toContain('corpus_search');
+      expect(text).toContain('corpus_read');
+      expect(text).toContain('corpus_list');
       await request.dispose();
     });
 

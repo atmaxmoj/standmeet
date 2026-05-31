@@ -19,7 +19,7 @@ test.describe('chat · calendar.book schema rejects partial args', () => {
 
   test('missing duration_min → tool_result is error; mock has no event', async () => {
     await scriptMockToolCall(seed.request, {
-      name: 'calendar.book',
+      name: 'calendar_book',
       args: {
         topic: 'Missing duration',
         preferred_times: [future(7, 14)],

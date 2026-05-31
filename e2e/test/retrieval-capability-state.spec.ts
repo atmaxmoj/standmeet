@@ -7,7 +7,7 @@
 //   alice 建 role R1 corpus_uris=['wiki://**', 'output://**', 'writing://**']，
 //   发码 CORPUS-001 → visitor 颁发 session V1，/visitor-capabilities 必返：
 //     - capabilities[?].id=='corpus.retrieval' enabled=true
-//     - tool_specs 含 corpus.search / corpus.read / corpus.list 三项
+//     - tool_specs 含 corpus_search / corpus_read / corpus_list 三项
 //   alice 建 role R0 corpus_uris=[]（空 list），发码 EMPTY-001 → visitor V2：
 //     - capabilities[?].id=='corpus.retrieval' enabled=false
 //     - tool_specs 仍含三项（spec 永远暴露，ACL 拦由内部）
@@ -60,9 +60,9 @@ test.describe('Phase B-2 RetrievalCapability state contract', () => {
       expect(corpusCap, 'corpus.retrieval must appear').toBeDefined();
       expect(corpusCap?.enabled).toBe(true);
       const toolNames = body.tool_specs.map((t) => t.name);
-      expect(toolNames).toContain('corpus.search');
-      expect(toolNames).toContain('corpus.read');
-      expect(toolNames).toContain('corpus.list');
+      expect(toolNames).toContain('corpus_search');
+      expect(toolNames).toContain('corpus_read');
+      expect(toolNames).toContain('corpus_list');
       await request.dispose();
     });
 
@@ -79,9 +79,9 @@ test.describe('Phase B-2 RetrievalCapability state contract', () => {
       // tool_specs 仍暴露 —— LLM 还是能调，被内部 ACL 拒（snapshot.AllowsCorpus
       // 对空 uris 永远返 false）；前端用 enabled=false 渲 "no corpus access" 提示。
       const toolNames = body.tool_specs.map((t) => t.name);
-      expect(toolNames).toContain('corpus.search');
-      expect(toolNames).toContain('corpus.read');
-      expect(toolNames).toContain('corpus.list');
+      expect(toolNames).toContain('corpus_search');
+      expect(toolNames).toContain('corpus_read');
+      expect(toolNames).toContain('corpus_list');
       await request.dispose();
     });
 

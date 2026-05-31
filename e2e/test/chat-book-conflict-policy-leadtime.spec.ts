@@ -20,7 +20,7 @@ test.describe('chat · calendar.book policy: lead_time_too_short', () => {
     async () => {
       const t = inOneHour();
       await scriptMockToolCall(seed.request, {
-        name: 'calendar.book',
+        name: 'calendar_book',
         args: {
           topic: 'Quick sync',
           duration_min: 30,

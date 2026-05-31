@@ -20,7 +20,7 @@ test.describe('chat · calendar.book policy: outside_working_hours', () => {
     async () => {
       const lateNight = future(7, 23);
       await scriptMockToolCall(seed.request, {
-        name: 'calendar.book',
+        name: 'calendar_book',
         args: {
           topic: 'Late chat',
           duration_min: 30,

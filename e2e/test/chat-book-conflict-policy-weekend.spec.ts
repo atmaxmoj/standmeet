@@ -19,7 +19,7 @@ test.describe('chat · calendar.book policy: day_not_allowed', () => {
   test('Saturday slot when policy is Mon-Fri → day_not_allowed', async () => {
     const sat = nextSaturday();
     await scriptMockToolCall(seed.request, {
-      name: 'calendar.book',
+      name: 'calendar_book',
       args: {
         topic: 'Sat coffee',
         duration_min: 45,

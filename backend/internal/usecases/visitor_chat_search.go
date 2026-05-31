@@ -55,7 +55,7 @@ func anyTagMatches(q string, tags []string) bool {
 }
 
 // wikiPath / outputPath —— entry 没设 path 时合成 `<kind>/<id>` 让 AI 仍能
-// corpus.read，retrieval-redesign 后 path 是寻址 key 不是可选 SEO 字段。
+// corpus_read，retrieval-redesign 后 path 是寻址 key 不是可选 SEO 字段。
 func wikiPath(w *domain.Wiki) string {
 	if p, ok := w.Path(); ok && p != "" {
 		return p
