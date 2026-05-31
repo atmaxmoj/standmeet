@@ -26,11 +26,14 @@ const OWNER = {
 
 const SERVER_NAME = 'host-tool';
 const MOCK_MCP_URL = 'http://mcp-server-mock:9100/mcp';
+const UNREACHABLE_SERVER_NAME = 'dead-server';
+const UNREACHABLE_MCP_URL = 'http://nonexistent-host-99999:9999/mcp';
 const TOOL_NAME = `ext_${SERVER_NAME}_ping_external`;
 const EXT_MARKER = '[EXT-MCP-MARKER]';
 
 const CODE_WITH_SERVER = 'EXT-GRANT';
 const CODE_NO_SERVER = 'EXT-NONE';
+const CODE_UNREACHABLE = 'EXT-DEAD';
 
 interface CreateServerResp { server_id: string; name: string; url: string }
 
@@ -153,4 +156,52 @@ test.describe('tool endpoint · external MCP server tool', () => {
       expect(body.reason).toBe('capability_not_enabled');
       await request.dispose();
     });
+
+  test('role attaches only an UNREACHABLE server → 404 + capability_not_enabled (silent dial fail)',
+    async ({ playwright }) => {
+      // 实现选择 (agentskills_ext_mcp.go): dial 失败 silently skip server，
+      // 全失败 → bundle.tools 空 → ErrHidden → cap absent → 404。这里
+      // 验证这一兜底，而不是 plan 原文的 "tool envelope external_mcp_unreachable"
+      // (plan 跟实现不一致，按实现写真行为)。
+      const request = await playwright.request.newContext();
+      await assertUnreachableServerReturns404(request);
+      await request.dispose();
+    });
 });
+
+async function setupUnreachableCode(request: APIRequestContext): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const apiToken = await createAPIToken(request, csrf, 'ext-mcp-dead-token');
+  const sid = await initMCP(request, apiToken);
+  const dead = await callMCPTool<CreateServerResp>(
+    request, apiToken, sid, 'mcp_server_create',
+    { name: UNREACHABLE_SERVER_NAME, url: UNREACHABLE_MCP_URL },
+  );
+  await createRoleAndCode(request, csrf, dead.server_id, CODE_UNREACHABLE);
+}
+
+async function assertUnreachableServerReturns404(
+  request: APIRequestContext,
+): Promise<void> {
+  const setupReq = await request.storageState();
+  void setupReq;
+  // setup via the same request context (handler chain is auth-free for /admin/login)
+  await setupUnreachableCode(request);
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE_UNREACHABLE, visitor_name: 'V',
+  });
+  const deadToolName = `ext_${UNREACHABLE_SERVER_NAME}_ping_external`;
+  const res = await request.post(
+    `${BACKEND}/api/v1/sessions/${sess.conversation_id}/tools/${deadToolName}`,
+    {
+      headers: { Authorization: `Bearer ${sess.session_token}` },
+      data: {},
+    },
+  );
+  expect(res.status()).toBe(404);
+  const body = await res.json() as ToolResp;
+  expect(body.reason).toBe('capability_not_enabled');
+  // ext.mcp cap 也不应在 fresh state (因为 dial fail → ErrHidden)
+  const extCap = body.capability_state?.find(c => c.id === 'ext.mcp');
+  expect(extCap, 'ext.mcp cap absent when all servers unreachable').toBeUndefined();
+}

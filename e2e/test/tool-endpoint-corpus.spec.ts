@@ -15,9 +15,11 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
-import { claim, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
+import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 import type { SessionCapability, VisitorSession } from '@/fixtures/visitor';
@@ -31,6 +33,9 @@ const OWNER = {
 
 const CODE_FULL = 'CORPUS-FULL';
 const CODE_EMPTY = 'CORPUS-EMPTY';
+const CODE_NARROW = 'CORPUS-NARROW';
+const NARROW_ALLOWED_PATH = 'projects/lucerna';
+const NARROW_DENIED_PATH = 'family/secret';
 
 interface ToolResp {
   ok: boolean;
@@ -61,7 +66,33 @@ async function setupCorpusToolOwner(playwright: Playwright): Promise<void> {
   await createCode(request, csrf, {
     code: CODE_EMPTY, label: 'empty', assumed_role_id: roleEmpty.id,
   });
+  // Narrow role: 仅允许 wiki://projects/**。seed 两条 wiki: 一条 projects 下
+  // (允许)、一条 family 下 (拒)。这样可以验 ACL 拒走 result.error 而不是
+  // 404 (entry 存在但越权)。
+  const roleNarrow = await createRole(request, csrf, {
+    name: 'narrow-corpus-role', description: 'wiki://projects/** only',
+    corpus_uris: ['wiki://projects/**'],
+  });
+  await createCode(request, csrf, {
+    code: CODE_NARROW, label: 'narrow', assumed_role_id: roleNarrow.id,
+  });
+  await seedNarrowWikis(request, csrf);
   await request.dispose();
+}
+
+async function seedNarrowWikis(
+  request: APIRequestContext, csrf: string,
+): Promise<void> {
+  const apiToken = await createAPIToken(request, csrf, 'corpus-tool-seed');
+  const sid = await initMCP(request, apiToken);
+  await seedWiki(request, apiToken, sid, {
+    title: 'Lucerna project notes', body: 'Public projects detail.',
+    path: NARROW_ALLOWED_PATH,
+  });
+  await seedWiki(request, apiToken, sid, {
+    title: 'Family secret', body: 'This is private.',
+    path: NARROW_DENIED_PATH,
+  });
 }
 
 async function freshSession(
@@ -98,40 +129,35 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
   test('corpus_search happy path → 200 + result array + capability_state',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const sess = await freshSession(request, CODE_FULL);
-      const { status, body } = await callTool(
-        request, sess, 'corpus_search', { query: 'lucerna' },
-      );
-      expect(status).toBe(200);
-      expect(body.ok).toBe(true);
-      expect(body.capability_state, 'always returns fresh cap state').toBeDefined();
-      expect(Array.isArray(body.capability_state)).toBe(true);
+      await assertCorpusSearchHappy(request);
       await request.dispose();
     });
 
   test('corpus_list happy path → 200 + result + capability_state',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const sess = await freshSession(request, CODE_FULL);
-      const { status, body } = await callTool(
-        request, sess, 'corpus_list', {},
-      );
-      expect(status).toBe(200);
-      expect(body.ok).toBe(true);
+      await assertCorpusListHappy(request);
       await request.dispose();
     });
 
   test('empty corpus role → corpus_search returns 200 with empty array (cap enabled=false but tool still callable)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const sess = await freshSession(request, CODE_EMPTY);
-      const { status, body } = await callTool(
-        request, sess, 'corpus_search', { query: 'anything' },
-      );
-      // role 有 corpus.retrieval cap 但 enabled=false（无 corpus_uris）；
-      // tool 仍暴露 (B-2 spec 设计：让 LLM 调；ACL 拒返空)。
-      expect(status).toBe(200);
-      expect(body.ok).toBe(true);
+      await assertEmptyRoleSearchOk(request);
+      await request.dispose();
+    });
+
+  test('narrow ACL: corpus_read allowed path → 200 + result.kind=wiki body',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await assertNarrowAllowedPath(request);
+      await request.dispose();
+    });
+
+  test('narrow ACL: corpus_read DENIED path → 200 + result.error="access denied: <path>"',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await assertNarrowDeniedPath(request);
       await request.dispose();
     });
 
@@ -162,6 +188,64 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
       await request.dispose();
     });
 });
+
+async function assertCorpusSearchHappy(request: APIRequestContext): Promise<void> {
+  const sess = await freshSession(request, CODE_FULL);
+  const { status, body } = await callTool(
+    request, sess, 'corpus_search', { query: 'lucerna' },
+  );
+  expect(status).toBe(200);
+  expect(body.ok).toBe(true);
+  expect(body.capability_state, 'always returns fresh cap state').toBeDefined();
+  expect(Array.isArray(body.capability_state)).toBe(true);
+}
+
+async function assertCorpusListHappy(request: APIRequestContext): Promise<void> {
+  const sess = await freshSession(request, CODE_FULL);
+  const { status, body } = await callTool(
+    request, sess, 'corpus_list', {},
+  );
+  expect(status).toBe(200);
+  expect(body.ok).toBe(true);
+}
+
+async function assertEmptyRoleSearchOk(request: APIRequestContext): Promise<void> {
+  const sess = await freshSession(request, CODE_EMPTY);
+  const { status, body } = await callTool(
+    request, sess, 'corpus_search', { query: 'anything' },
+  );
+  // role 有 corpus.retrieval cap 但 enabled=false（无 corpus_uris）；
+  // tool 仍暴露 (B-2 spec 设计：让 LLM 调；ACL 拒返空)。
+  expect(status).toBe(200);
+  expect(body.ok).toBe(true);
+}
+
+async function assertNarrowAllowedPath(request: APIRequestContext): Promise<void> {
+  const sess = await freshSession(request, CODE_NARROW);
+  const { status, body } = await callTool(
+    request, sess, 'corpus_read', { path: NARROW_ALLOWED_PATH },
+  );
+  expect(status).toBe(200);
+  const result = body.result as { kind?: string; body?: string; error?: string };
+  expect(result.error, 'no ACL error for allowed path').toBeUndefined();
+  expect(result.kind).toBe('wiki');
+  expect(result.body).toContain('Public projects detail');
+}
+
+async function assertNarrowDeniedPath(request: APIRequestContext): Promise<void> {
+  const sess = await freshSession(request, CODE_NARROW);
+  const { status, body } = await callTool(
+    request, sess, 'corpus_read', { path: NARROW_DENIED_PATH },
+  );
+  // endpoint envelope 永远 ok=true (executor 跑通)；越权信号在 tool
+  // 返的 JSON 里 (result.error)，跟 plan 决策一致 (tool envelope
+  // 而非 HTTP 403)。
+  expect(status).toBe(200);
+  expect(body.ok).toBe(true);
+  const result = body.result as { error?: string };
+  expect(result.error, 'tool envelope carries access denied').toContain('access denied');
+  expect(result.error).toContain(NARROW_DENIED_PATH);
+}
 
 async function assertBadTokenReturns401(request: APIRequestContext): Promise<void> {
   const res = await request.post(
