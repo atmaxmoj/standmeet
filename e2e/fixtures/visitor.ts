@@ -8,10 +8,22 @@ import type { APIRequestContext, APIResponse } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
+export interface SessionCapability {
+  id: string;
+  enabled: boolean;
+  quota_remaining?: number;
+  policy_summary?: string;
+}
+
 export interface VisitorSession {
   session_token: string;
   conversation_id: string;
   owner_handle: string;
+  // D-2: pi-pivot 用 —— 前端 zustand 存 capability map +
+  // pi-agent-core 装 system prompt 时按 part_ids 拉 /api/v1/prompts/{id}。
+  // 旧 spec 不 touch 这些字段，optional 兼容。
+  capabilities?: SessionCapability[];
+  system_prompt_part_ids?: string[];
 }
 
 export interface IssueSessionInput {

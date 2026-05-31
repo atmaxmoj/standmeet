@@ -16,7 +16,10 @@ import (
 	"github.com/wangsijie/standmeet/internal/prompts"
 )
 
-const capRetrievalID = "corpus.retrieval"
+const (
+	capRetrievalID         = "corpus.retrieval"
+	capRetrievalFragmentID = "capabilities/corpus.retrieval"
+)
 
 // retrievalCapability —— Capability impl，持 wiki/output/writings repos
 // 闭包。VisitorBinding 每次新建一个 retriever（带新 collector），多个
@@ -37,14 +40,24 @@ func (*retrievalCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 	return []*agentskills.MCPBinding{}
 }
 
-func (*retrievalCapability) SystemPromptFragment(
+func (*retrievalCapability) SystemPromptFragmentID(
 	_ context.Context, in *agentskills.AssembleInput,
 ) string {
 	if !retrievalEnabled(in.RoleSnapshot) {
 		return ""
 	}
+	return capRetrievalFragmentID
+}
+
+func (c *retrievalCapability) SystemPromptFragment(
+	ctx context.Context, in *agentskills.AssembleInput,
+) string {
+	id := c.SystemPromptFragmentID(ctx, in)
+	if id == "" {
+		return ""
+	}
 	// Phase D-1: 单一源 prompts/capabilities/corpus.retrieval.md
-	return prompts.MustLoad("capabilities/corpus.retrieval")
+	return prompts.MustLoad(id)
 }
 
 // retrievalEnabled —— role 是否含任何 corpus URI；空 = capability 暴露

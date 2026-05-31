@@ -45,6 +45,12 @@ func (*meCapability) SystemPromptFragment(
 	return ""
 }
 
+func (*meCapability) SystemPromptFragmentID(
+	_ context.Context, _ *agentskills.AssembleInput,
+) string {
+	return ""
+}
+
 func (c *meCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 	return []*agentskills.MCPBinding{{
 		Name:        "me",

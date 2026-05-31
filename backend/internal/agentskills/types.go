@@ -95,10 +95,17 @@ type CapabilityState struct {
 // OwnerMCPBindings 返 0+ MCPBinding —— 一个 capability 可暴露多 owner MCP
 // tool (例 seo.bundle 暴露 seo.set_wiki_slug + seo.update_settings)；
 // 无返空 slice 表示该 capability 不暴露 owner MCP 面。
+//
+// SystemPromptFragmentID (D-2 加) —— 若 capability 当前 session 贡献一段
+// 来自 prompts/ 的 fragment，返 fragment id (相对路径无后缀，e.g.
+// "capabilities/corpus.retrieval")，否则返 ""。空判定逻辑必须跟
+// SystemPromptFragment 的"返非空文本"判定同步 —— 让前端 part_ids 跟
+// 后端 ComposeSystemPrompt 的实际拼接结果一一对应。
 type Capability interface {
 	ID() string
 	Shape() Shape
 	VisitorBinding(ctx context.Context, in *AssembleInput) (*Binding, error)
 	OwnerMCPBindings() []*MCPBinding
 	SystemPromptFragment(ctx context.Context, in *AssembleInput) string
+	SystemPromptFragmentID(ctx context.Context, in *AssembleInput) string
 }

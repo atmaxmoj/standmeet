@@ -53,6 +53,12 @@ func (*codesCapability) SystemPromptFragment(
 	return ""
 }
 
+func (*codesCapability) SystemPromptFragmentID(
+	_ context.Context, _ *agentskills.AssembleInput,
+) string {
+	return ""
+}
+
 func (c *codesCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 	return []*agentskills.MCPBinding{c.revokeBinding()}
 }

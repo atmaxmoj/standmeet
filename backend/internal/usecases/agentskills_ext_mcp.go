@@ -50,6 +50,12 @@ func (*extMCPCapability) SystemPromptFragment(
 	return ""
 }
 
+func (*extMCPCapability) SystemPromptFragmentID(
+	_ context.Context, _ *agentskills.AssembleInput,
+) string {
+	return ""
+}
+
 // VisitorBinding —— role.MCPServerIDs 解算 → 并发 dial → ListTools →
 // Tools[]。任一 server dial / ListTools 失败 silently skip (log + 不阻塞
 // 整 chat)。Close hook 释放所有 session + 更新计数。

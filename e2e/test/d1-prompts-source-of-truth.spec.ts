@@ -12,7 +12,7 @@
 // fail (fragment 出现在 system_prompt_full 但 GET /prompts/{id} 拿不到)。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -36,23 +36,27 @@ interface VisitorCapabilitiesResp {
   system_prompt_full: string; // NEW in D-1
 }
 
+async function setupD1Owner(playwright: Playwright): Promise<void> {
+  resetInstance();
+  const request = await playwright.request.newContext();
+  await claim(request, findSetupToken(), {
+    email: OWNER.email, password: OWNER.password,
+    handle: OWNER.handle, fullName: OWNER.fullName,
+  });
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const role = await createRole(request, csrf, {
+    name: 'd1-role', description: 'd1 spec',
+    corpus_uris: ['wiki://**', 'output://**'],
+  });
+  await createCode(request, csrf, {
+    code: CODE, label: 'd1', assumed_role_id: role.id,
+  });
+  await request.dispose();
+}
+
 test.describe('Phase D-1 prompts/ single source of truth', () => {
   test.beforeAll(async ({ playwright }) => {
-    resetInstance();
-    const request = await playwright.request.newContext();
-    await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
-    });
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    const role = await createRole(request, csrf, {
-      name: 'd1-role', description: 'd1 spec',
-      corpus_uris: ['wiki://**', 'output://**'],
-    });
-    await createCode(request, csrf, {
-      code: CODE, label: 'd1', assumed_role_id: role.id,
-    });
-    await request.dispose();
+    await setupD1Owner(playwright);
   });
 
   test('GET /api/v1/prompts/visitor-header returns md file content',

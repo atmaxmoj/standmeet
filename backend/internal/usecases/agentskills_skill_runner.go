@@ -54,6 +54,12 @@ func (*skillRunnerCapability) SystemPromptFragment(
 	return ""
 }
 
+func (*skillRunnerCapability) SystemPromptFragmentID(
+	_ context.Context, _ *agentskills.AssembleInput,
+) string {
+	return ""
+}
+
 // VisitorBinding —— 按 role.SkillIDs 加载 skill scripts，每个 script 绑一个
 // tool；role 没挂 skill → 返 ErrHidden (capability 隐藏)。
 //

@@ -125,6 +125,34 @@ func finalizeBindingState(b *Binding, capID string) CapabilityState {
 	return state
 }
 
+// VisitorHeaderFragmentID —— 永远是 system prompt 第一段 (visitor-header.md)。
+// 由 Registry 集中导出，避免 caller 各处硬编码。
+const VisitorHeaderFragmentID = "visitor-header"
+
+// VisitorPromptPartIDs —— 当前 session 实际拼进 system prompt 的 fragment id
+// 顺序：[VisitorHeaderFragmentID] + [每个 capability 非空 fragment id]。
+// 前端 pi-agent-core 按此顺序 GET /api/v1/prompts/{id} 拿文本本地拼，跟
+// 后端 ComposeSystemPrompt 的拼接顺序一致 (注册顺序 = walk 顺序)。
+//
+// "非空" 判定走 capability.SystemPromptFragmentID —— 跟
+// SystemPromptFragment 同一 gating 逻辑，cap 实现负责保持一致。
+//
+// 注意：base persona 中 role.PromptBody + skillPrompts 是 DB 内容，没有
+// 文件 id，本列表不含；前端拿这两段要靠别的字段 (D-4 时定形)。
+func (r *Registry) VisitorPromptPartIDs(
+	ctx context.Context, in *AssembleInput,
+) []string {
+	caps := r.List()
+	out := make([]string, 0, 1+len(caps))
+	out = append(out, VisitorHeaderFragmentID)
+	for _, c := range caps {
+		if id := c.SystemPromptFragmentID(ctx, in); id != "" {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 // OwnerMCPBindings —— 走 registry 拿 owner MCP server 应注册的所有 binding。
 // B-4 起 mcp/server.go 改成 walk 这个返回；plural 让一个 capability 可
 // 一次暴露多个 tool (seo / jobs / writings 等多 tool family)。

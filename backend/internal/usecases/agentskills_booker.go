@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	capCalendarBook = "calendar.book"
+	capCalendarBook           = "calendar.book"
+	capCalendarBookFragmentID = "capabilities/calendar.book"
 	// BookerSkillName —— role.AllowedTools 中此 string 即解锁 calendar.book。
 	BookerSkillName = capCalendarBook
 
@@ -47,14 +48,24 @@ func (*calendarBookCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 	return []*agentskills.MCPBinding{}
 }
 
-func (*calendarBookCapability) SystemPromptFragment(
+func (*calendarBookCapability) SystemPromptFragmentID(
 	_ context.Context, in *agentskills.AssembleInput,
 ) string {
 	if !bookerSkillGranted(in.RoleSnapshot) {
 		return ""
 	}
+	return capCalendarBookFragmentID
+}
+
+func (c *calendarBookCapability) SystemPromptFragment(
+	ctx context.Context, in *agentskills.AssembleInput,
+) string {
+	id := c.SystemPromptFragmentID(ctx, in)
+	if id == "" {
+		return ""
+	}
 	// Phase D-1: 单一源 prompts/capabilities/calendar.book.md
-	return prompts.MustLoad("capabilities/calendar.book")
+	return prompts.MustLoad(id)
 }
 
 // VisitorBinding —— 完整 gating 链：role granted skill → connector connected →

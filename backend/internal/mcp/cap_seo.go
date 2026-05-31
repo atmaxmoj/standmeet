@@ -40,6 +40,12 @@ func (*seoCapability) SystemPromptFragment(_ context.Context, _ *agentskills.Ass
 	return ""
 }
 
+func (*seoCapability) SystemPromptFragmentID(
+	_ context.Context, _ *agentskills.AssembleInput,
+) string {
+	return ""
+}
+
 func (c *seoCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 	return []*agentskills.MCPBinding{
 		c.setWikiSlugBinding(),

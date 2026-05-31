@@ -303,6 +303,7 @@ deps:
       - session
       - inference
       - apierr
+      - agentskills # D-2: /api/v1/sessions 返 capability_state + part_ids，读 Registry
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
       - prompts     # GET /api/v1/prompts/{id} 直接 dump fragment 文本
     anyVendorDeps: true

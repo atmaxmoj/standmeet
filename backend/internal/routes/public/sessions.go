@@ -11,7 +11,9 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/session"
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
@@ -37,13 +39,15 @@ type sessionMemberResp struct {
 }
 
 type createSessionResponse struct {
-	SessionToken   string              `json:"session_token"`
-	ConversationID string              `json:"conversation_id"`
-	Code           string              `json:"code,omitempty"`
-	CodeLabel      string              `json:"code_label,omitempty"`
-	VisitorName    string              `json:"visitor_name,omitempty"`
-	Members        []sessionMemberResp `json:"members,omitempty"`
-	Quota          sessionQuotaResp    `json:"quota"`
+	SessionToken        string                        `json:"session_token"`
+	ConversationID      string                        `json:"conversation_id"`
+	Code                string                        `json:"code,omitempty"`
+	CodeLabel           string                        `json:"code_label,omitempty"`
+	VisitorName         string                        `json:"visitor_name,omitempty"`
+	Members             []sessionMemberResp           `json:"members,omitempty"`
+	Capabilities        []agentskills.CapabilityState `json:"capabilities"`
+	SystemPromptPartIDs []string                      `json:"system_prompt_part_ids"`
+	Quota               sessionQuotaResp              `json:"quota"`
 }
 
 func (h *Handlers) createSession() http.HandlerFunc {
@@ -58,7 +62,7 @@ func (h *Handlers) createSession() http.HandlerFunc {
 			handleVisitorErr(h.Log, w, err)
 			return
 		}
-		writeCreateSession(h.Log, w, &res)
+		writeCreateSession(r.Context(), h.Log, &h.Visitor, w, &res)
 	}
 }
 
@@ -105,15 +109,18 @@ func pickMode(req *createSessionRequest) string {
 }
 
 func writeCreateSession(
-	log *slog.Logger, w http.ResponseWriter,
-	res *usecases.IssueCodeSessionResult,
+	ctx context.Context, log *slog.Logger, deps *usecases.VisitorDeps,
+	w http.ResponseWriter, res *usecases.IssueCodeSessionResult,
 ) {
+	in := assembleInputFromSession(&res.Session.Data, res.Conversation.ID)
 	resp := createSessionResponse{
-		SessionToken:   res.Session.Token,
-		ConversationID: res.Conversation.ID,
-		Code:           res.Code,
-		CodeLabel:      res.CodeLabel,
-		VisitorName:    res.VisitorName,
+		SessionToken:        res.Session.Token,
+		ConversationID:      res.Conversation.ID,
+		Code:                res.Code,
+		CodeLabel:           res.CodeLabel,
+		VisitorName:         res.VisitorName,
+		Capabilities:        deps.AgentSkills.VisitorStates(ctx, in),
+		SystemPromptPartIDs: deps.AgentSkills.VisitorPromptPartIDs(ctx, in),
 		Quota: sessionQuotaResp{
 			MaxTurns:  res.Quota.MaxTurns,
 			UsedTurns: res.Quota.UsedTurns,
@@ -124,5 +131,23 @@ func writeCreateSession(
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode session resp", "err", err)
+	}
+}
+
+// assembleInputFromSession —— 把 freshly issued VisitorSessionData 折成
+// agentskills.AssembleInput；ConversationID 来自 res.Conversation 不在 data
+// 里。跟 dev /internal/test/visitor-capabilities 一致，让两处 capability
+// shape 完全同源。
+func assembleInputFromSession(
+	data *session.VisitorSessionData, conversationID string,
+) *agentskills.AssembleInput {
+	return &agentskills.AssembleInput{
+		RoleSnapshot:   data.RoleSnapshot,
+		MaxBookings:    data.MaxBookings,
+		OwnerID:        data.OwnerID,
+		Mode:           data.Mode,
+		CodeID:         data.CodeID,
+		VisitorName:    data.VisitorName,
+		ConversationID: conversationID,
 	}
 }
