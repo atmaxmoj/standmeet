@@ -53,6 +53,10 @@ export type Turn = {
   time: string;
   pending: boolean;
   answer: TurnAnswer | null;
+  // D-5: per-tool throbber 序列。agent-core 跑每个 tool 时 tool_started
+  // → name 入这个列表，ConversationDeck 渲一条 "searching corpus..." /
+  // "booking meeting..." 提示。最后 done 仍渲文本。
+  toolStartedNames: readonly string[];
 };
 
 export type SessionMode = 'public' | 'code' | 'byoai';
@@ -157,10 +161,14 @@ interface TurnAccumulator {
   body: string;
   citations: Citation[];
   seenCitedPaths: Set<string>;
+  toolStartedNames: string[];
 }
 
 function makeAccumulator(): TurnAccumulator {
-  return { body: '', citations: [], seenCitedPaths: new Set() };
+  return {
+    body: '', citations: [], seenCitedPaths: new Set(),
+    toolStartedNames: [],
+  };
 }
 
 function makeObserver(
@@ -179,6 +187,10 @@ function makeObserver(
 function handleAgentEvent(ev: AgentEvent, accum: TurnAccumulator): void {
   if (ev.type === 'llm_chunk') {
     accum.body += ev.text;
+    return;
+  }
+  if (ev.type === 'tool_started') {
+    accum.toolStartedNames.push(ev.name);
     return;
   }
   if (ev.type === 'tool_completed') {
@@ -283,7 +295,10 @@ function assembledPartIDs(sess: PageSession): readonly string[] {
 }
 
 function newPendingTurn(id: string, q: string): Turn {
-  return { id, q, time: nowHM(), pending: true, answer: null };
+  return {
+    id, q, time: nowHM(), pending: true, answer: null,
+    toolStartedNames: [],
+  };
 }
 
 function bumpVisitorQuota(): void {
@@ -381,6 +396,7 @@ function withAnswer(t: Turn, accum: TurnAccumulator, stillPending: boolean): Tur
   return {
     ...t,
     pending: stillPending && accum.body === '',
+    toolStartedNames: [...accum.toolStartedNames],
     answer: {
       paras: splitParas(accum.body),
       citations: accum.citations,

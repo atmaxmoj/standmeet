@@ -64,10 +64,44 @@ function VisitorLabel({ time }: { time: string }) {
 }
 
 function AssistantBody({ turn, ownerHandle }: { turn: Turn; ownerHandle: string }) {
-  return turn.pending
-    ? <Thinking />
-    : <AnswerOrError turn={turn} ownerHandle={ownerHandle} />;
+  return (
+    <>
+      <ToolThrobbers names={turn.toolStartedNames} />
+      {turn.pending
+        ? <Thinking />
+        : <AnswerOrError turn={turn} ownerHandle={ownerHandle} />}
+    </>
+  );
 }
+
+function ToolThrobbers({ names }: { names: readonly string[] }) {
+  return names.length === 0 ? null : (
+    <ul
+      data-testid="tool-throbbers"
+      className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
+    >
+      {names.map((n, i) => (
+        <li key={i} data-testid={`tool-throbber-${n}`}>
+          {throbberLabel(n)}
+          <span className="dot">·</span>
+          <span className="dot">·</span>
+          <span className="dot">·</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function throbberLabel(name: string): string {
+  return THROBBER_LABELS[name] ?? `running ${name}`;
+}
+
+const THROBBER_LABELS: Record<string, string> = {
+  corpus_search: 'searching corpus',
+  corpus_read: 'reading entry',
+  corpus_list: 'listing entries',
+  calendar_book: 'booking meeting',
+};
 
 function AnswerOrError({ turn, ownerHandle }: { turn: Turn; ownerHandle: string }) {
   return (
