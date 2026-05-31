@@ -238,8 +238,8 @@ func requireSigv1Fields(fields map[string]string) (rawSigv1Fields, error) {
 }
 
 func withinSkew(ts int64) bool {
-	now := time.Now().Unix()
-	diff := now - ts
+	nowSec := time.Now().Unix()
+	diff := nowSec - ts
 	if diff < 0 {
 		diff = -diff
 	}
