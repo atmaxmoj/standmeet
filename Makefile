@@ -52,6 +52,7 @@ sdk-build:
 	@pnpm -F @standmeet/sdk-core build
 	@pnpm -F @standmeet/sdk build
 	@pnpm -F @standmeet/embed build
+	@pnpm -F @standmeet/mcp-client build
 
 # app-build —— host 上 pnpm build，生成 .next/standalone 让 docker 镜像 COPY。
 # 选择 host build 而非 docker build：node:22-alpine 里 pnpm install 走 npm
