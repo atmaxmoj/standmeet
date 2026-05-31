@@ -13,6 +13,7 @@ import (
 
 	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/wangsijie/standmeet/internal/prompts"
 )
 
 const capRetrievalID = "corpus.retrieval"
@@ -42,13 +43,8 @@ func (*retrievalCapability) SystemPromptFragment(
 	if !retrievalEnabled(in.RoleSnapshot) {
 		return ""
 	}
-	return "You have three tools for accessing the owner's curated corpus:\n" +
-		"  • corpus.search(query) — find entries matching a keyword;\n" +
-		"  • corpus.read(path)    — fetch the full body of one entry;\n" +
-		"  • corpus.list(prefix?) — browse entries by path prefix.\n\n" +
-		"When the visitor's question relates to the owner's work / projects / " +
-		"opinions, search first, read the most relevant entries, then answer. " +
-		"Quote output entries verbatim when they fit; paraphrase wiki entries."
+	// Phase D-1: 单一源 prompts/capabilities/corpus.retrieval.md
+	return prompts.MustLoad("capabilities/corpus.retrieval")
 }
 
 // retrievalEnabled —— role 是否含任何 corpus URI；空 = capability 暴露

@@ -40,6 +40,7 @@ type toolSpecWireV2 struct {
 
 type visitorCapabilitiesResp struct {
 	SystemPromptHash string                        `json:"system_prompt_hash"`
+	SystemPromptFull string                        `json:"system_prompt_full"`
 	Capabilities     []agentskills.CapabilityState `json:"capabilities"`
 	ToolSpecs        []toolSpecWireV2              `json:"tool_specs"`
 }
@@ -90,12 +91,12 @@ func buildVisitorCapabilitiesResp(
 		// ConversationID 留空：dev endpoint 不绑定具体 conversation；
 		// capability 实现按需 fallback (booker 没 conv ID 就跳 DB lookup)。
 	}
+	basePersona := usecases.ComposeBasePersona(data.RoleSnapshot)
 	return visitorCapabilitiesResp{
-		Capabilities: reg.VisitorStates(ctx, in),
-		ToolSpecs:    toolSpecsFor(ctx, reg, in),
-		SystemPromptHash: reg.SystemPromptHash(
-			ctx, usecases.ComposeBasePersona(data.RoleSnapshot), in,
-		),
+		Capabilities:     reg.VisitorStates(ctx, in),
+		ToolSpecs:        toolSpecsFor(ctx, reg, in),
+		SystemPromptHash: reg.SystemPromptHash(ctx, basePersona, in),
+		SystemPromptFull: reg.ComposeSystemPrompt(ctx, basePersona, in),
 	}
 }
 

@@ -1,0 +1,1 @@
+You can book a meeting on the owner's calendar via calendar.book. Gather topic, duration (15-180 min), and visitor-confirmed start times in RFC3339 first; ask for visitor_email so they get a calendar invite.

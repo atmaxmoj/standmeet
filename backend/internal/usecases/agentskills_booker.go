@@ -18,6 +18,7 @@ import (
 	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
+	"github.com/wangsijie/standmeet/internal/prompts"
 )
 
 const (
@@ -52,9 +53,8 @@ func (*calendarBookCapability) SystemPromptFragment(
 	if !bookerSkillGranted(in.RoleSnapshot) {
 		return ""
 	}
-	return "You can book a meeting on the owner's calendar via calendar.book. " +
-		"Gather topic, duration (15-180 min), and visitor-confirmed start times " +
-		"in RFC3339 first; ask for visitor_email so they get a calendar invite."
+	// Phase D-1: 单一源 prompts/capabilities/calendar.book.md
+	return prompts.MustLoad("capabilities/calendar.book")
 }
 
 // VisitorBinding —— 完整 gating 链：role granted skill → connector connected →

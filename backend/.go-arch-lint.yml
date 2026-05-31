@@ -49,6 +49,8 @@ components:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
   agentskills:
     in: internal/agentskills              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
+  prompts:
+    in: internal/prompts                  # Phase D-1: system prompt fragments 单一源 (md files + go:embed)
   mcpclient:
     in: internal/mcpclient                # 调外部 MCP server (owner-registered)
   storage:
@@ -95,6 +97,7 @@ deps:
       - storage
       - gcal
       - agentskills
+      - prompts
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
@@ -110,6 +113,13 @@ deps:
     mayDependOn:
       - inference
       - domain
+    anyVendorDeps: true
+
+  # prompts —— Phase D-1: leaf 包，只 stdlib (embed)；所有引 system prompt
+  # fragment 的地方 (usecases capability impl / sysroutes endpoint /
+  # publicroutes endpoint) 都从这里 load，不再硬编码字符串。
+  prompts:
+    mayDependOn: []
     anyVendorDeps: true
 
   # mcpclient 调 owner-registered 外部 MCP HTTP server。
@@ -294,6 +304,7 @@ deps:
       - inference
       - apierr
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
+      - prompts     # GET /api/v1/prompts/{id} 直接 dump fragment 文本
     anyVendorDeps: true
 
   # server 装配 chi 路由 + middleware；挂 admin / sysroutes / mcp / public sub-router。

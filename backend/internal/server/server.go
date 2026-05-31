@@ -206,6 +206,7 @@ func mountPublic(r chi.Router, deps *Deps) {
 			Assets:    deps.Admin.Assets,
 			Log:       deps.Log,
 		}).Mount(r)
+		(&publicroutes.PromptsHandlers{Log: deps.Log}).Mount(r)
 	})
 }
 
