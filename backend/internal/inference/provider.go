@@ -71,4 +71,12 @@ type Chunk struct {
 type Provider interface {
 	Name() string
 	Stream(ctx context.Context, req *ChatRequest) (<-chan Chunk, error)
+	// StreamSingleTurn —— Phase D 加：跑**一次**调用 (不内嵌 agent loop)，
+	// 把 text delta + tool_use 都当 event 返。caller (browser pi-agent-core)
+	// 拿 tool_use 自己去调 per-tool endpoint，再以新的 messages 历史回来
+	// 再调一次。
+	//
+	// req.Tools 非空 → provider 在 toolSpecs 里把它带给 LLM；ExecuteTool
+	// 字段不读 (单轮不执行 tool)。req.Tools 空 → 纯文本生成。
+	StreamSingleTurn(ctx context.Context, req *ChatRequest) (<-chan StreamEvent, error)
 }
