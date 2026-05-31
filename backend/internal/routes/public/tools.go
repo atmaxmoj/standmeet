@@ -45,8 +45,10 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 			return
 		}
 		toolName := chi.URLParam(r, "tool_name")
+		convID := chi.URLParam(r, "id")
 		runToolDispatch(r.Context(), h, w, toolDispatchArgs{
-			Data: auth.Data, ToolName: toolName, Body: body,
+			Data: auth.Data, ToolName: toolName,
+			ConvID: convID, Body: body,
 		})
 	}
 }
@@ -54,6 +56,7 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 type toolDispatchArgs struct {
 	Data     *session.VisitorSessionData
 	ToolName string
+	ConvID   string
 	Body     []byte
 }
 
@@ -61,7 +64,7 @@ type toolDispatchArgs struct {
 func runToolDispatch(
 	ctx context.Context, h *Handlers, w http.ResponseWriter, args toolDispatchArgs,
 ) {
-	in := assembleInputFromSession(args.Data, "")
+	in := assembleInputFromSession(args.Data, args.ConvID)
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
 	defer closeBindings(bindings)
 	tool, found := findBindingTool(bindings, args.ToolName)
