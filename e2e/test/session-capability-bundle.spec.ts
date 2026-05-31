@@ -147,7 +147,30 @@ test.describe('session capability bundle · POST /sessions response shape', () =
       await assertPartIDsResolveAndAppearInFullPrompt(request);
       await request.dispose();
     });
+
+  test('system_prompt_persona is present and appears verbatim in dev system_prompt_full',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await assertPersonaInFullPrompt(request);
+      await request.dispose();
+    });
 });
+
+async function assertPersonaInFullPrompt(
+  request: APIRequestContext,
+): Promise<void> {
+  const sess = await issueSession(
+    request, { handle: OWNER.handle, code: CODE_FULL, visitor_name: 'V' },
+  );
+  expect(typeof sess.system_prompt_persona,
+    'system_prompt_persona present').toBe('string');
+  // role 自定义 PromptBody 可能为空但 helper 必返 string；当不为空时验证它真
+  // 在 system_prompt_full 里 (跟下行 LLM prompt 一致)。
+  if ((sess.system_prompt_persona ?? '') !== '') {
+    const dev = await fetchDevCaps(request, sess.session_token);
+    expect(dev.system_prompt_full).toContain(sess.system_prompt_persona!.trim());
+  }
+}
 
 async function assertPartIDsResolveAndAppearInFullPrompt(
   request: APIRequestContext,

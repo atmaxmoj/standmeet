@@ -44,6 +44,7 @@ type createSessionResponse struct {
 	Code                string                        `json:"code,omitempty"`
 	CodeLabel           string                        `json:"code_label,omitempty"`
 	VisitorName         string                        `json:"visitor_name,omitempty"`
+	SystemPromptPersona string                        `json:"system_prompt_persona"`
 	Members             []sessionMemberResp           `json:"members,omitempty"`
 	Capabilities        []agentskills.CapabilityState `json:"capabilities"`
 	SystemPromptPartIDs []string                      `json:"system_prompt_part_ids"`
@@ -119,6 +120,7 @@ func writeCreateSession(
 		Code:                res.Code,
 		CodeLabel:           res.CodeLabel,
 		VisitorName:         res.VisitorName,
+		SystemPromptPersona: usecases.ComposeDynamicPersona(res.Session.Data.RoleSnapshot),
 		Capabilities:        deps.AgentSkills.VisitorStates(ctx, in),
 		SystemPromptPartIDs: deps.AgentSkills.VisitorPromptPartIDs(ctx, in),
 		Quota: sessionQuotaResp{

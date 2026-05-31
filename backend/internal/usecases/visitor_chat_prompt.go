@@ -29,6 +29,21 @@ func ComposeBasePersona(snapshot *domain.RoleSnapshot) string {
 	return strings.Join(parts, "\n\n---\n\n")
 }
 
+// ComposeDynamicPersona —— role 动态部分: PromptBody + SkillPrompts，
+// 不含 visitor-header (那条走 fragment id)。frontend pi-agent-core
+// 拼 system prompt 时把这段当 inline persona 段，跟 part_ids 拉的 .md
+// fragment 一起组成完整 system prompt。
+//
+// 跟 ComposeBasePersona 的区别：base 含 visitor-header；dynamic 不含
+// (避免重复，因为 frontend 已经按 part_ids fetch visitor-header 了)。
+func ComposeDynamicPersona(snapshot *domain.RoleSnapshot) string {
+	parts := snapshotPromptParts(snapshot)
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "\n\n---\n\n")
+}
+
 // snapshotPromptParts —— role persona body + 每条 skill prompt，去空 trim。
 func snapshotPromptParts(snapshot *domain.RoleSnapshot) []string {
 	if snapshot == nil {

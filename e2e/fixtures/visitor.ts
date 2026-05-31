@@ -24,6 +24,10 @@ export interface VisitorSession {
   // 旧 spec 不 touch 这些字段，optional 兼容。
   capabilities?: SessionCapability[];
   system_prompt_part_ids?: string[];
+  // D-2 follow-up: role.PromptBody + skill prompts inline。frontend 拼
+  // system prompt 时用 [visitor-header fragment, persona inline, ...cap
+  // fragments] 顺序。空字符串 = role 没自定义 persona / 没挂 skill。
+  system_prompt_persona?: string;
 }
 
 export interface IssueSessionInput {
