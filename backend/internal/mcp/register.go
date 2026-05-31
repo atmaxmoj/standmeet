@@ -17,11 +17,12 @@ import (
 // RegisterDeps —— RegisterAgentSkills 需要的窄接口集；不让 register 调用
 // 顺势依赖整 mcp.Deps (mcp.Deps 自带 AgentSkills 字段，传整个会绕回)。
 type RegisterDeps struct {
-	Owners OwnerLookup
-	SEO    SEOWriter
-	Codes  CodesRevoker
-	Corpus *usecases.CorpusDeps
-	Log    *slog.Logger
+	Owners        OwnerLookup
+	SEO           SEOWriter
+	Codes         CodesRevoker
+	Corpus        *usecases.CorpusDeps
+	Conversations *usecases.ConversationsDeps
+	Log           *slog.Logger
 }
 
 // RegisterAgentSkills —— 注册所有 owner-side capability。重 ID panic
@@ -34,4 +35,5 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps RegisterDeps) {
 	reg.MustRegister(newCorpusRawCapability(deps.Corpus, deps.SEO, deps.Log))
 	reg.MustRegister(newCorpusOutputCapability(deps.Corpus, deps.SEO, deps.Log))
 	reg.MustRegister(newCorpusMutationsCapability(deps.Corpus, deps.Log))
+	reg.MustRegister(newChatCapability(deps.Corpus, deps.Conversations, deps.Log))
 }

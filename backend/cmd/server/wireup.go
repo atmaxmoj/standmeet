@@ -109,12 +109,16 @@ func registerAgentSkills(d *runtimeDeps) {
 	visitor := buildPublicDeps(d).Visitor
 	usecases.RegisterAgentSkills(d.agentSkills, &visitor)
 	corpusDeps := usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo}
+	convsDeps := usecases.ConversationsDeps{
+		Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
+	}
 	mcp.RegisterAgentSkills(d.agentSkills, mcp.RegisterDeps{
-		Owners: d.ownerRepo,
-		SEO:    d.seoRepo,
-		Codes:  d.codeRepo,
-		Corpus: &corpusDeps,
-		Log:    d.log,
+		Owners:        d.ownerRepo,
+		SEO:           d.seoRepo,
+		Codes:         d.codeRepo,
+		Corpus:        &corpusDeps,
+		Conversations: &convsDeps,
+		Log:           d.log,
 	})
 }
 
