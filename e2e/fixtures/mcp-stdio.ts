@@ -12,8 +12,9 @@ import { join, resolve } from 'node:path';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// 从 e2e/ → sdk/packages/mcp-client/bin/standmeet-mcp 的相对路径。
-const SDK_BIN = resolve(import.meta.dirname, '../..', 'sdk/packages/mcp-client/bin/standmeet-mcp');
+// playwright 跑时 cwd = e2e/，相对解 sdk bin。`import.meta.dirname` 在
+// playwright 把 .ts 编 CJS 时不可用 (no ESM meta)，cwd-relative 更稳。
+const SDK_BIN = resolve(process.cwd(), '..', 'sdk/packages/mcp-client/bin/standmeet-mcp');
 
 export interface StdioCreds { keyId: string; privateKeyPem: string }
 
