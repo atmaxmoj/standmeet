@@ -32,6 +32,7 @@ type RegisterDeps struct {
 	Resume        *usecases.ResumeDeps
 	Applications  *usecases.ApplicationsDeps
 	CustomPages   *usecases.CustomPageDeps
+	Handle        *usecases.HandleDeps
 	Log           *slog.Logger
 }
 
@@ -55,4 +56,5 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newResumeCapability(deps.Resume, deps.Log))
 	reg.MustRegister(newApplicationsCapability(deps.Applications, deps.Log))
 	reg.MustRegister(newCustomPageCapability(deps.CustomPages, deps.Log))
+	reg.MustRegister(newPageCapability(deps.Handle, deps.Log))
 }
