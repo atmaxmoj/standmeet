@@ -2,7 +2,7 @@
 // 直接 chat。collapsed = 右下角 pill 按钮；expanded = 浮动面板（input +
 // transcript），同步同一 visitor-session（zustand store + 持久 conversation_id）。
 //
-// 跟 PageShell 上的 inline Hero/AskInput 共用 useConversation hook —— 同
+// 跟 PageShell 上的 inline Hero/AskInput 共用 useChat hook —— 同
 // session_token 同 conversation_id；server 看是同一个会话。owner 在
 // /admin/conversations 看 transcript 也是同一行。
 //
@@ -18,8 +18,8 @@
 
 import { useCallback, useRef, useState } from 'react';
 
-import { useConversation } from '@/lib/page/use-conversation';
-import type { SessionMode } from '@/lib/page/use-conversation';
+import { useChat } from '@/lib/page/use-chat';
+import type { SessionMode } from '@/lib/page/use-chat';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 export function FloatingChatDock() {
@@ -29,30 +29,30 @@ export function FloatingChatDock() {
 
 function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
   const [open, setOpen] = useState(false);
-  const conv = useConversation({ mode });
+  const chat = useChat({ mode });
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const onAsk = useCallback((q: string) => {
     setInput('');
-    void conv.ask(q);
-  }, [conv]);
+    void chat.ask(q);
+  }, [chat]);
 
   return (
     <>
       <ChatTrigger
         open={open}
         onToggle={() => setOpen((o) => !o)}
-        pending={conv.pending}
+        pending={chat.pending}
       />
       {open && (
         <ChatPanel
           input={input}
           setInput={setInput}
           onAsk={onAsk}
-          turns={conv.turns}
-          pending={conv.pending}
-          onReset={conv.reset}
+          dialogs={chat.dialogs}
+          pending={chat.pending}
+          onReset={chat.reset}
           inputRef={inputRef}
         />
       )}
@@ -99,7 +99,7 @@ interface PanelProps {
   input: string;
   setInput: (v: string) => void;
   onAsk: (q: string) => void;
-  turns: ReturnType<typeof useConversation>['turns'];
+  dialogs: ReturnType<typeof useChat>['dialogs'];
   pending: boolean;
   onReset: () => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -111,8 +111,8 @@ function ChatPanel(props: PanelProps) {
       className="sm-floating-chat-panel sm-rise"
       data-testid="floating-chat-panel"
     >
-      <ChatPanelHeader onReset={props.onReset} hasTurns={props.turns.length > 0} />
-      <ChatTranscript turns={props.turns} pending={props.pending} />
+      <ChatPanelHeader onReset={props.onReset} hasDialogs={props.dialogs.length > 0} />
+      <ChatTranscript dialogs={props.dialogs} pending={props.pending} />
       <ChatPanelInput
         value={props.input}
         onChange={props.setInput}
@@ -124,11 +124,11 @@ function ChatPanel(props: PanelProps) {
   );
 }
 
-function ChatPanelHeader({ onReset, hasTurns }: { onReset: () => void; hasTurns: boolean }) {
+function ChatPanelHeader({ onReset, hasDialogs }: { onReset: () => void; hasDialogs: boolean }) {
   return (
     <header className="sm-floating-chat-head">
       <span className="sm-smallcaps">ask the AI</span>
-      <ResetBtn onReset={onReset} visible={hasTurns} />
+      <ResetBtn onReset={onReset} visible={hasDialogs} />
     </header>
   );
 }
@@ -145,14 +145,14 @@ function ResetBtn({ onReset, visible }: { onReset: () => void; visible: boolean 
 }
 
 function ChatTranscript({
-  turns, pending,
+  dialogs, pending,
 }: {
-  turns: PanelProps['turns'];
+  dialogs: PanelProps['dialogs'];
   pending: boolean;
 }) {
-  return turns.length === 0 && !pending ? <EmptyHint /> : (
+  return dialogs.length === 0 && !pending ? <EmptyHint /> : (
     <ol className="sm-floating-chat-transcript">
-      {turns.map((t) => <TurnRow key={t.id} turn={t} />)}
+      {dialogs.map((d) => <DialogRow key={d.id} dialog={d} />)}
     </ol>
   );
 }
@@ -166,22 +166,22 @@ function EmptyHint() {
   );
 }
 
-function TurnRow({ turn }: { turn: PanelProps['turns'][number] }) {
+function DialogRow({ dialog }: { dialog: PanelProps['dialogs'][number] }) {
   return (
-    <li className="sm-floating-chat-turn">
-      <div className="sm-smallcaps">you · {turn.time}</div>
-      <p className="sm-floating-chat-q">{turn.q}</p>
-      <TurnAnswer turn={turn} />
+    <li className="sm-floating-chat-dialog">
+      <div className="sm-smallcaps">you · {dialog.time}</div>
+      <p className="sm-floating-chat-q">{dialog.q}</p>
+      <DialogAnswerView dialog={dialog} />
     </li>
   );
 }
 
-function TurnAnswer({ turn }: { turn: PanelProps['turns'][number] }) {
-  return isThinking(turn) ? <ThinkingDots /> : <AnswerBody answer={turn.answer} />;
+function DialogAnswerView({ dialog }: { dialog: PanelProps['dialogs'][number] }) {
+  return isThinking(dialog) ? <ThinkingDots /> : <AnswerBody answer={dialog.answer} />;
 }
 
-function isThinking(turn: PanelProps['turns'][number]): boolean {
-  return turn.answer === null && turn.pending;
+function isThinking(dialog: PanelProps['dialogs'][number]): boolean {
+  return dialog.answer === null && dialog.pending;
 }
 
 function ThinkingDots() {
@@ -195,7 +195,7 @@ function ThinkingDots() {
   );
 }
 
-function AnswerBody({ answer }: { answer: PanelProps['turns'][number]['answer'] }) {
+function AnswerBody({ answer }: { answer: PanelProps['dialogs'][number]['answer'] }) {
   const text = answer === null ? '—' : answer.paras.join('\n\n');
   return (
     <p className="sm-reading text-(--color-ink) text-[15px] whitespace-pre-wrap">

@@ -30,8 +30,8 @@ import { loadStoredSession } from '@/lib/gate/use-gate';
 import { useAbsorbCodeFromURL } from '@/lib/gate/use-absorb-code';
 import { useConsumeQuestionFromURL } from '@/lib/page/consume-question-url';
 import { useTheme } from '@/lib/page/use-theme';
-import { useConversation } from '@/lib/page/use-conversation';
-import type { SessionMode } from '@/lib/page/use-conversation';
+import { useChat } from '@/lib/page/use-chat';
+import type { SessionMode } from '@/lib/page/use-chat';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
 
 type Props = {
@@ -54,15 +54,15 @@ function useChatModeDetect(): boolean {
 
 function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode }) {
   const { dark, toggle } = useTheme();
-  const conv = useConversation({ mode });
+  const chat = useChat({ mode });
   const exhausted = useIsQuotaExhausted();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const onAsk = useCallback((q: string) => {
     setInput('');
-    void conv.ask(q);
-  }, [conv]);
+    void chat.ask(q);
+  }, [chat]);
 
   useConsumeQuestionFromURL(onAsk);
 
@@ -84,16 +84,16 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
             input={input}
             setInput={setInput}
             onAsk={onAsk}
-            pending={conv.pending}
+            pending={chat.pending}
             lockedReason={exhausted ? 'session full · request more ↗' : null}
             inputRef={inputRef}
           />
-          {conv.turns.length > 0 && (
-            <ConversationDeck ownerHandle={owner.handle} turns={conv.turns} onReset={conv.reset} />
+          {chat.dialogs.length > 0 && (
+            <ConversationDeck ownerHandle={owner.handle} dialogs={chat.dialogs} onReset={chat.reset} />
           )}
           <QuickAskDeck
             examples={content.hero_examples}
-            askedSet={buildAskedSet(conv.turns)}
+            askedSet={buildAskedSet(chat.dialogs)}
             onAsk={onAsk}
           />
           <Insights insights={content.insights} />
@@ -107,9 +107,9 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   );
 }
 
-function buildAskedSet(turns: ReturnType<typeof useConversation>['turns']): ReadonlySet<string> {
+function buildAskedSet(dialogs: ReturnType<typeof useChat>['dialogs']): ReadonlySet<string> {
   const questions: string[] = [];
-  for (const t of turns) questions.push(t.q);
+  for (const d of dialogs) questions.push(d.q);
   return new Set(questions);
 }
 

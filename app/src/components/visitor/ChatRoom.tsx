@@ -11,27 +11,27 @@ import Link from 'next/link';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
-import type { Citation, SessionMode } from '@/lib/page/use-conversation';
+import type { Citation, SessionMode } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
 
 type Props = { owner: PublicOwnerView; mode: SessionMode };
 
 export function ChatRoom({ owner, mode }: Props) {
   const derived = useChatRoomDerived();
-  const { conv, exhausted, input, setInput, onAsk } = useChatRoomInput(mode);
+  const { chat, exhausted, input, setInput, onAsk } = useChatRoomInput(mode);
   return (
     <div className="min-h-screen flex flex-col" data-testid="chatroom">
       <SessionStrip />
       <VisitorNamePicker />
-      <ChatRoomHeader handle={owner.handle} hasConv={conv.turns.length > 0} onReset={conv.reset} />
+      <ChatRoomHeader handle={owner.handle} hasDialogs={chat.dialogs.length > 0} onReset={chat.reset} />
       <main className="flex-1 flex flex-col">
         <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col">
           <ChatWelcome owner={owner} d={derived} />
-          <ChatTranscript turns={conv.turns} />
+          <ChatTranscript dialogs={chat.dialogs} />
           <ChatComposer
             input={input} setInput={setInput} onSubmit={onAsk}
-            pending={conv.pending} exhausted={exhausted}
-            showStarters={conv.turns.length === 0} mode={derived.mode}
+            pending={chat.pending} exhausted={exhausted}
+            showStarters={chat.dialogs.length === 0} mode={derived.mode}
           />
           <ChatFootnote handle={owner.handle} mode={derived.mode} />
         </div>
@@ -42,11 +42,11 @@ export function ChatRoom({ owner, mode }: Props) {
 
 // ── header ──────────────────────────────────────────────────
 
-function ChatRoomHeader({ handle, hasConv, onReset }: { handle: string; hasConv: boolean; onReset: () => void }) {
+function ChatRoomHeader({ handle, hasDialogs, onReset }: { handle: string; hasDialogs: boolean; onReset: () => void }) {
   return (
     <header className="flex items-center justify-between px-6 lg:px-10 py-3 border-b border-(--color-rule) shrink-0 gap-4 sticky top-0 bg-(--color-paper)/95 backdrop-blur z-20">
       <HeaderLeft handle={handle} />
-      <HeaderRight hasConv={hasConv} onReset={onReset} />
+      <HeaderRight hasDialogs={hasDialogs} onReset={onReset} />
     </header>
   );
 }
@@ -65,10 +65,10 @@ function HeaderLeft({ handle }: { handle: string }) {
   );
 }
 
-function HeaderRight({ hasConv, onReset }: { hasConv: boolean; onReset: () => void }) {
+function HeaderRight({ hasDialogs, onReset }: { hasDialogs: boolean; onReset: () => void }) {
   return (
     <div className="flex items-center gap-5 shrink-0">
-      {hasConv && (
+      {hasDialogs && (
         <button type="button" onClick={onReset}
           className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent) transition-colors">
           ↺ reset
@@ -122,29 +122,29 @@ function ByoaiWelcome({ handle, provider }: { handle: string; provider: string }
 
 // ── transcript ─────────────────────────────────────────────
 
-type Turn = ReturnType<typeof useChatRoomInput>['conv']['turns'][number];
+type Dialog = ReturnType<typeof useChatRoomInput>['chat']['dialogs'][number];
 
-function ChatTranscript({ turns }: { turns: readonly Turn[] }) {
+function ChatTranscript({ dialogs }: { dialogs: readonly Dialog[] }) {
   const endRef = useRef<HTMLDivElement | null>(null);
   return (
     <div className="flex-1">
-      {turns.map((t, i) => <ChatTurn key={t.id ?? i} turn={t} />)}
+      {dialogs.map((d, i) => <DialogCard key={d.id ?? i} dialog={d} />)}
       <div ref={endRef} />
     </div>
   );
 }
 
-function ChatTurn({ turn }: { turn: Turn }) {
+function DialogCard({ dialog }: { dialog: Dialog }) {
   return (
     <article className="pt-10 pb-10 border-b border-(--color-rule)">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase mb-3 flex items-baseline gap-3">
         <span className="text-(--color-ink)">you</span>
       </div>
       <p className="font-serif italic text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] mb-7">
-        {turn.q}
+        {dialog.q}
       </p>
-      <ToolThrobbers names={turn.toolStartedNames} />
-      {turn.pending ? <ThinkingDots /> : <TurnAnswer answer={turn.answer} />}
+      <ToolThrobbers names={dialog.toolStartedNames} />
+      {dialog.pending ? <ThinkingDots /> : <AnswerView answer={dialog.answer} />}
     </article>
   );
 }
@@ -186,26 +186,26 @@ function ThinkingDots() {
   );
 }
 
-function TurnAnswer({ answer }: { answer: Turn['answer'] }) {
+function AnswerView({ answer }: { answer: Dialog['answer'] }) {
   return answer ? (
     <div data-testid="answer-body">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">ai</div>
       {answer.paras.map((p, i) => (
         <p key={i} className="reading mb-4 last:mb-0 text-[18px]">{p}</p>
       ))}
-      <TurnCitations citations={answer.citations} />
+      <CitationsList citations={answer.citations} />
     </div>
   ) : null;
 }
 
-function TurnCitations({ citations }: { citations?: readonly Citation[] }) {
+function CitationsList({ citations }: { citations?: readonly Citation[] }) {
   return citations && citations.length > 0 ? (
     <div className="mt-6" data-testid="citations">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">drawn from</div>
       <ul className="flex flex-col gap-1">
         {citations.map((c) => (
-          <li key={c.id} className="mono text-[11px] text-(--color-muted)">
-            {c.kind} · {c.title}
+          <li key={c.path} className="mono text-[11px] text-(--color-muted)">
+            {c.genre} · {c.title}
           </li>
         ))}
       </ul>

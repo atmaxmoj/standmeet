@@ -1,14 +1,19 @@
-// use-conversation —— D 期切到 pi-agent-core (在 browser 里跑 LLM ↔ tool
-// loop)，UI 跟之前同样吃 Turn[] state 但内部走 useAgent + 真 prod adapters。
+// use-chat —— D 期切到 pi-agent-core (在 browser 里跑 LLM ↔ tool loop)，
+// UI 吃 Dialog[] state，内部走 useAgent + 真 prod adapters。
 //
-// 同样保留 ConversationState 接口：caller (PageShell / FloatingChatDock /
-// ChatRoom) 不变。
+// ChatState 接口：caller (PageShell / FloatingChatDock / ChatRoom) 不变
+// 拿 dialogs / pending / error + ask / reset。
 //
-// 改动:
+// 命名 (G-1.5)：
+//   - Turn → Dialog (一轮 visitor 问 + AI 答 + cited，跟 backend domain.Dialog 对齐)
+//   - useConversation → useChat (Chat 是聚合根，dialog 是子 entity)
+//   - Citation.kind → genre, Citation.id → path (后端复用 DocumentGenre，前端字段名说实话)
+//
+// 改动史:
 //   - 老 streamChatMessage(/messages SSE token-by-token) → useAgent.send()
 //     (browser-side loop, /inference/stream + /sessions/{id}/tools/{name})
 //   - 老 SSE done.cited_wiki_refs → tool_completed corpus_read 事件聚合
-//   - Turn.answer.paras 仍由 body 拆段；body 从 llm_chunk text deltas 累积
+//   - Dialog.answer.paras 仍由 body 拆段；body 从 llm_chunk text deltas 累积
 
 'use client';
 
@@ -36,24 +41,24 @@ import {
 } from '@/lib/visitor/capability-store';
 
 export type Citation = {
-  kind: 'wiki' | 'output';
-  id: string;
+  genre: 'wiki' | 'output';
+  path: string;
   title: string;
 };
 
-export type TurnAnswer = {
+export type DialogAnswer = {
   paras: string[];
   citations: readonly Citation[];
   private: boolean;
   byoaiBlocked: boolean;
 };
 
-export type Turn = {
+export type Dialog = {
   id: string;
   q: string;
   time: string;
   pending: boolean;
-  answer: TurnAnswer | null;
+  answer: DialogAnswer | null;
   // D-5: per-tool throbber 序列。agent-core 跑每个 tool 时 tool_started
   // → name 入这个列表，ConversationDeck 渲一条 "searching corpus..." /
   // "booking meeting..." 提示。最后 done 仍渲文本。
@@ -62,8 +67,8 @@ export type Turn = {
 
 export type SessionMode = 'public' | 'code' | 'byoai';
 
-export type ConversationState = {
-  turns: Turn[];
+export type ChatState = {
+  dialogs: Dialog[];
   pending: boolean;
   error: string | null;
   ask: (q: string) => Promise<void>;
@@ -85,8 +90,8 @@ interface PageSession {
   persona: string;
 }
 
-export function useConversation(deps: Deps): ConversationState {
-  const [turns, setTurns] = useState<Turn[]>([]);
+export function useChat(deps: Deps): ChatState {
+  const [dialogs, setDialogs] = useState<Dialog[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionRef = useRef<PageSession | null>(null);
@@ -95,22 +100,22 @@ export function useConversation(deps: Deps): ConversationState {
 
   const nextID = useCallback((): string => {
     counter.current += 1;
-    return `t${counter.current}`;
+    return `d${counter.current}`;
   }, []);
 
   const ask = useCallback(async (text: string): Promise<void> => {
     const q = text.trim();
     if (q === '' || pending) return;
-    await runAsk(q, deps, sessionRef, messageHistRef, setTurns, setPending, setError, nextID);
+    await runAsk(q, deps, sessionRef, messageHistRef, setDialogs, setPending, setError, nextID);
   }, [deps, pending, nextID]);
 
   const reset = useCallback((): void => {
-    setTurns([]);
+    setDialogs([]);
     setError(null);
     messageHistRef.current = [];
   }, []);
 
-  return { turns, pending, error, ask, reset };
+  return { dialogs, pending, error, ask, reset };
 }
 
 async function runAsk(
@@ -118,7 +123,7 @@ async function runAsk(
   deps: Deps,
   sessionRef: React.MutableRefObject<PageSession | null>,
   histRef: React.MutableRefObject<Message[]>,
-  setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
+  setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>,
   setPending: (b: boolean) => void,
   setError: (e: string | null) => void,
   nextID: () => string,
@@ -126,19 +131,19 @@ async function runAsk(
   const id = nextID();
   setError(null);
   setPending(true);
-  setTurns((prev) => [...prev, newPendingTurn(id, q)]);
+  setDialogs((prev) => [...prev, newPendingDialog(id, q)]);
   try {
     const sess = await ensureSession(sessionRef, deps);
     const byoai = await wrapBYOAIFor(deps, sess);
     const accum = makeAccumulator();
-    await runAgentTurn(sess, byoai, histRef, q, makeObserver(id, accum, setTurns));
-    finalizeTurn(id, accum, setTurns);
+    await runAgentForDialog(sess, byoai, histRef, q, makeObserver(id, accum, setDialogs));
+    finalizeDialog(id, accum, setDialogs);
     void recordDialog(sess, q, { body: accum.body, citations: accum.citations });
     bumpVisitorQuota();
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);
-    setTurns((prev) => markFailed(prev, id, msg));
+    setDialogs((prev) => markFailed(prev, id, msg));
   } finally {
     setPending(false);
   }
@@ -159,14 +164,14 @@ async function wrapBYOAIFor(
   };
 }
 
-interface TurnAccumulator {
+interface DialogAccumulator {
   body: string;
   citations: Citation[];
   seenCitedPaths: Set<string>;
   toolStartedNames: string[];
 }
 
-function makeAccumulator(): TurnAccumulator {
+function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedPaths: new Set(),
     toolStartedNames: [],
@@ -174,19 +179,19 @@ function makeAccumulator(): TurnAccumulator {
 }
 
 function makeObserver(
-  turnID: string,
-  accum: TurnAccumulator,
-  setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
+  dialogID: string,
+  accum: DialogAccumulator,
+  setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>,
 ): EventObserver {
   return {
     onEvent(ev: AgentEvent): void {
       handleAgentEvent(ev, accum);
-      setTurns((prev) => updateTurn(prev, turnID, accum, true));
+      setDialogs((prev) => updateDialog(prev, dialogID, accum, true));
     },
   };
 }
 
-function handleAgentEvent(ev: AgentEvent, accum: TurnAccumulator): void {
+function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
   if (ev.type === 'llm_chunk') {
     accum.body += ev.text;
     return;
@@ -206,7 +211,7 @@ function handleAgentEvent(ev: AgentEvent, accum: TurnAccumulator): void {
 
 function pushCitationFromTool(
   result: { name: string; result?: unknown; ok: boolean },
-  accum: TurnAccumulator,
+  accum: DialogAccumulator,
 ): void {
   if (!result.ok || result.name !== 'corpus_read') return;
   const r = pickCorpusReadShape(result.result);
@@ -214,16 +219,18 @@ function pushCitationFromTool(
   const path = r.path;
   if (accum.seenCitedPaths.has(path)) return;
   accum.seenCitedPaths.add(path);
-  const kind: 'wiki' | 'output' = r.kind === 'output' ? 'output' : 'wiki';
-  accum.citations.push({ kind, id: path, title: r.title });
+  const genre: 'wiki' | 'output' = r.genre === 'output' ? 'output' : 'wiki';
+  accum.citations.push({ genre, path, title: r.title });
 }
 
 function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
   if (!isRecord(raw)) return null;
   const path = readString(raw['path']);
-  const kind = readString(raw['kind']);
+  // backend 当前 wire 字段叫 kind (G-1.5 阶段没动 backend tool result wire)；
+  // 这里读 kind 但内部用 genre 概念。后续 wire 改 genre 时只需删 fallback。
+  const genre = readString(raw['genre']) || readString(raw['kind']);
   const title = readString(raw['title']) || path;
-  return { path, kind, title };
+  return { path, genre, title };
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -236,20 +243,18 @@ function readString(v: unknown): string {
 
 interface CorpusReadWire {
   path: string;
-  kind: string;
+  genre: string;
   title: string;
 }
 
-function finalizeTurn(
-  id: string, accum: TurnAccumulator,
-  setTurns: React.Dispatch<React.SetStateAction<Turn[]>>,
+function finalizeDialog(
+  id: string, accum: DialogAccumulator,
+  setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>,
 ): void {
-  setTurns((prev) => updateTurn(prev, id, accum, false));
+  setDialogs((prev) => updateDialog(prev, id, accum, false));
 }
 
-// persistTurn 实现拆到 persist-turn.ts。
-
-async function runAgentTurn(
+async function runAgentForDialog(
   sess: PageSession,
   byoai: HttpBYOAIHeaders | undefined,
   histRef: React.MutableRefObject<Message[]>,
@@ -289,16 +294,11 @@ function buildPageAgent(
   );
 }
 
-// assembledPartIDs —— sess.systemPromptPartIDs + 一个 inline persona pseudo
-// part 不需要 (persona 走 ComposeBasePersona 已经折进 visitor-header 之后)。
-// 为了保持简单，pi-agent-core 拼 system 时直接拉所有 part_ids；persona
-// 暂时通过 system_prompt_persona 字段（D-2 follow-up）由 caller 自己 prepend
-// (这里就单纯返 partIDs)。
 function assembledPartIDs(sess: PageSession): readonly string[] {
   return sess.systemPromptPartIDs;
 }
 
-function newPendingTurn(id: string, q: string): Turn {
+function newPendingDialog(id: string, q: string): Dialog {
   return {
     id, q, time: nowHM(), pending: true, answer: null,
     toolStartedNames: [],
@@ -352,17 +352,11 @@ function extractCapabilities(issued: IssuedSessionWithExtras): readonly {
 }
 
 function makeRegistry(issued: IssuedSessionWithExtras): ToolSpecRegistry {
-  // backend 给的 tool_specs 是 flat list (跨多个 capability)；frontend
-  // capability id → tool 关系不重要 (agent loop 只看 enabled cap →
-  // 所有 enabled cap 的 tool union)，索引按 cap id 给个 fallback 兜底。
   const specs = (issued.tool_specs ?? []).map((s) => ({
     name: s.name, description: s.description, input_schema: s.input_schema,
   }));
   return {
     forCapability(_id: string) {
-      // 单 cap 触发 → return all specs (LLM 看到全部可用工具)。多次 cap
-      // walk 也只会 union 一份 (forCapability 多次回但 agent 内部已 dedupe
-      // 凭 spec name)。简化优于精确分组。
       void _id;
       return specs;
     },
@@ -400,15 +394,15 @@ async function issueByMode(deps: Deps): Promise<PublicSessionResponse> {
   return issueBYOAISession({ byoai_provider: meta?.provider ?? 'anthropic' });
 }
 
-function updateTurn(
-  prev: Turn[], id: string, accum: TurnAccumulator, stillPending: boolean,
-): Turn[] {
-  return prev.map((t) => t.id === id ? withAnswer(t, accum, stillPending) : t);
+function updateDialog(
+  prev: Dialog[], id: string, accum: DialogAccumulator, stillPending: boolean,
+): Dialog[] {
+  return prev.map((d) => d.id === id ? withAnswer(d, accum, stillPending) : d);
 }
 
-function withAnswer(t: Turn, accum: TurnAccumulator, stillPending: boolean): Turn {
+function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean): Dialog {
   return {
-    ...t,
+    ...d,
     pending: stillPending && accum.body === '',
     toolStartedNames: [...accum.toolStartedNames],
     answer: {
@@ -425,10 +419,10 @@ function splitParas(body: string): string[] {
   return trimmed === '' ? [] : trimmed.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p !== '');
 }
 
-function markFailed(prev: Turn[], id: string, msg: string): Turn[] {
-  return prev.map((t) => t.id === id ? { ...t, pending: false, answer: errorAnswer(msg) } : t);
+function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {
+  return prev.map((d) => d.id === id ? { ...d, pending: false, answer: errorAnswer(msg) } : d);
 }
 
-function errorAnswer(msg: string): TurnAnswer {
+function errorAnswer(msg: string): DialogAnswer {
   return { paras: [`error: ${msg}`], citations: [], private: false, byoaiBlocked: false };
 }

@@ -1,4 +1,4 @@
-// ConversationDeck —— inline 累加的 Q/A 流，每个 Turn 一张卡：
+// ConversationDeck —— inline 累加的 Q/A 流，每个 Dialog 一张卡：
 //   you · HH:MM
 //   <serif italic question>
 //   alice's ai
@@ -8,25 +8,27 @@
 // 这是公开页 chat 的"主表演" —— visitor 问完不滚出去看个 modal，而是在
 // 页面 inline 累加，跟 Hero 同一根纵向阅读流上，符合设计稿"transcript
 // flow, not alternating bubbles"。
+//
+// 命名 (G-1.5)：Turn → Dialog；Citation.kind → genre, Citation.id → path。
 
 'use client';
 
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
-import type { Citation, Turn, TurnAnswer } from '@/lib/page/use-conversation';
+import type { Citation, Dialog, DialogAnswer } from '@/lib/page/use-chat';
 
 type Props = {
   ownerHandle: string;
-  turns: Turn[];
+  dialogs: Dialog[];
   onReset: () => void;
 };
 
-export function ConversationDeck({ ownerHandle, turns, onReset }: Props) {
+export function ConversationDeck({ ownerHandle, dialogs, onReset }: Props) {
   return (
     <section id="conversation" className="mt-16" data-testid="conversation-deck">
       <DeckHeader
         kicker="conversation"
-        count={turns.length}
+        count={dialogs.length}
         action={
           <button
             type="button"
@@ -37,19 +39,19 @@ export function ConversationDeck({ ownerHandle, turns, onReset }: Props) {
           </button>
         }
       />
-      {turns.map((t, i) => <TurnCard key={t.id} idx={i} turn={t} ownerHandle={ownerHandle} />)}
+      {dialogs.map((d, i) => <DialogCard key={d.id} idx={i} dialog={d} ownerHandle={ownerHandle} />)}
     </section>
   );
 }
 
-function TurnCard({ idx, turn, ownerHandle }: { idx: number; turn: Turn; ownerHandle: string }) {
+function DialogCard({ idx, dialog, ownerHandle }: { idx: number; dialog: Dialog; ownerHandle: string }) {
   return (
     <article id={`qa-${idx}`} className="pt-10 pb-10 border-b border-(--color-rule)">
-      <VisitorLabel time={turn.time} />
+      <VisitorLabel time={dialog.time} />
       <p className="font-serif italic mb-7 text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] [text-wrap:pretty]">
-        {turn.q}
+        {dialog.q}
       </p>
-      <AssistantBody turn={turn} ownerHandle={ownerHandle} />
+      <AssistantBody dialog={dialog} ownerHandle={ownerHandle} />
     </article>
   );
 }
@@ -63,13 +65,13 @@ function VisitorLabel({ time }: { time: string }) {
   );
 }
 
-function AssistantBody({ turn, ownerHandle }: { turn: Turn; ownerHandle: string }) {
+function AssistantBody({ dialog, ownerHandle }: { dialog: Dialog; ownerHandle: string }) {
   return (
     <>
-      <ToolThrobbers names={turn.toolStartedNames} />
-      {turn.pending
+      <ToolThrobbers names={dialog.toolStartedNames} />
+      {dialog.pending
         ? <Thinking />
-        : <AnswerOrError turn={turn} ownerHandle={ownerHandle} />}
+        : <AnswerOrError dialog={dialog} ownerHandle={ownerHandle} />}
     </>
   );
 }
@@ -103,11 +105,11 @@ const THROBBER_LABELS: Record<string, string> = {
   calendar_book: 'booking meeting',
 };
 
-function AnswerOrError({ turn, ownerHandle }: { turn: Turn; ownerHandle: string }) {
+function AnswerOrError({ dialog, ownerHandle }: { dialog: Dialog; ownerHandle: string }) {
   return (
     <>
       <AssistantLabel ownerHandle={ownerHandle} />
-      {turn.answer && <Answer answer={turn.answer} />}
+      {dialog.answer && <Answer answer={dialog.answer} />}
     </>
   );
 }
@@ -131,7 +133,7 @@ function Thinking() {
   );
 }
 
-function Answer({ answer }: { answer: TurnAnswer }) {
+function Answer({ answer }: { answer: DialogAnswer }) {
   return (
     <div>
       <AnswerScopeLabel answer={answer} />
@@ -141,12 +143,12 @@ function Answer({ answer }: { answer: TurnAnswer }) {
   );
 }
 
-function AnswerScopeLabel({ answer }: { answer: TurnAnswer }) {
+function AnswerScopeLabel({ answer }: { answer: DialogAnswer }) {
   const scope = pickScope(answer);
   return scope === '' ? null : <ScopeBadge text={scope} />;
 }
 
-function pickScope(answer: TurnAnswer): string {
+function pickScope(answer: DialogAnswer): string {
   return answer.byoaiBlocked
     ? 'public scope only · need a code'
     : answer.private ? 'private · layered access' : '';
@@ -160,7 +162,7 @@ function ScopeBadge({ text }: { text: string }) {
   );
 }
 
-function AnswerParas({ answer }: { answer: TurnAnswer }) {
+function AnswerParas({ answer }: { answer: DialogAnswer }) {
   const gated = answer.private || answer.byoaiBlocked;
   const cls = gated ? 'pl-5 border-l-2 border-(--color-accent)/40' : '';
   return (
@@ -180,14 +182,14 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">drawn from</div>
       <ul className="space-y-1">
         {citations.map((c) => (
-          <li key={c.id} className="flex items-baseline gap-3">
+          <li key={c.path} className="flex items-baseline gap-3">
             <span
               className={`mono text-[10px] tracking-[0.14em] uppercase tabular-nums shrink-0 ${
-                c.kind === 'output' ? 'text-(--color-accent)' : 'text-(--color-muted)'
+                c.genre === 'output' ? 'text-(--color-accent)' : 'text-(--color-muted)'
               }`}
-              data-testid={`citation-kind-${c.kind}`}
+              data-testid={`citation-genre-${c.genre}`}
             >
-              {c.kind}
+              {c.genre}
             </span>
             <span className="font-serif italic text-(--color-muted) text-[14.5px]">{c.title}</span>
           </li>
@@ -196,4 +198,3 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
     </div>
   );
 }
-
