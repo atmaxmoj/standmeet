@@ -34,6 +34,22 @@ type AccessCode struct {
 	SuggestedQuestions   []string
 }
 
+// CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +
+// 任何下游写入 AccessCode 用)。postgres.CreateCodeInput 是 repo-local 镜像，
+// CodeRepo.CreateAccessCode 把本类型转过去。
+type CreateAccessCodeInput struct {
+	ExpiresAt            *time.Time
+	MaxSessionsPerMember *int32
+	MaxTurnsPerSession   *int32
+	MaxBookings          *int32
+	OwnerID              string
+	Code                 string
+	Label                string
+	Purpose              string
+	AssumedRoleID        string
+	SuggestedQuestions   []string
+}
+
 // CodeMember —— 一个 access code 下的一个具名访客（AccessCode 聚合子实体）。
 // 同一个 code 同一个 display_name 是唯一 row。revoke 只在 AccessCode 级别
 // 做（code.status='revoked'），不针对单个 member——后者复杂度不值。

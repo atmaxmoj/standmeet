@@ -55,6 +55,26 @@ func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.Acce
 	return toDomainCode(&row), nil
 }
 
+// CreateAccessCode —— Create 的 domain-input 包装；MCP cap 用 (mcp 包不能
+// import postgres struct)。内部只是把 domain.CreateAccessCodeInput 复制到
+// postgres.CreateCodeInput 再 Create。
+func (r *CodeRepo) CreateAccessCode(
+	ctx context.Context, in *domain.CreateAccessCodeInput,
+) (domain.AccessCode, error) {
+	return r.Create(ctx, &CreateCodeInput{
+		OwnerID:              in.OwnerID,
+		Code:                 in.Code,
+		Label:                in.Label,
+		Purpose:              in.Purpose,
+		AssumedRoleID:        in.AssumedRoleID,
+		SuggestedQuestions:   in.SuggestedQuestions,
+		ExpiresAt:            in.ExpiresAt,
+		MaxSessionsPerMember: in.MaxSessionsPerMember,
+		MaxTurnsPerSession:   in.MaxTurnsPerSession,
+		MaxBookings:          in.MaxBookings,
+	})
+}
+
 func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
@@ -125,6 +145,11 @@ func buildUpdateCodeRoleParams(
 // corpus_permissions 列已 drop，ACL 走 Role.CorpusURIs。
 
 // Revoke 把 code.status 改成 'revoked'；GetAccessCode（只查 active）从此跳过它。
+//
+// 0-row match (wrong owner / unknown code id) 返 domain.ErrCodeInvalid 让上层
+// (admin REST + MCP) 都能统一翻译成"code not found"，而不是默默 OK 让 owner 误以
+// 为撤销成功。原 sqlc-generated RevokeAccessCode 走 Exec 丢弃 CommandTag，看不
+// 到 RowsAffected；这里 bypass 直接 pool.Exec 拿 tag。
 func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
@@ -134,11 +159,15 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	q := dbq.New(r.pool)
-	if rerr := q.RevokeAccessCode(ctx, dbq.RevokeAccessCodeParams{
-		ID: codeUUID, OwnerID: ownerUUID,
-	}); rerr != nil {
+	tag, rerr := r.pool.Exec(ctx,
+		`UPDATE access_codes SET status='revoked' WHERE id=$1 AND owner_id=$2`,
+		codeUUID, ownerUUID,
+	)
+	if rerr != nil {
 		return fmt.Errorf("revoke access code: %w", rerr)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrCodeInvalid
 	}
 	return nil
 }

@@ -22,12 +22,21 @@ import (
 const capCodesBundle = "codes.bundle"
 
 // CodesRevoker —— codes.bundle capability 需要的窄接口 (avoid 直接 import
-// postgres.CodeRepo)。GetByID 用来验存在；Revoke 本身的 SQL 是 idempotent
-// (0-row update 不报错) —— 直接给 owner AI 调会"撤销不存在的 code 也返
-// 成功"，混淆。这里先 GetByID 校存在，OwnerID 一致才放过。
+// postgres.CodeRepo)。
+//
+// E-13: Revoke 现在在 repo 层 0-row → ErrCodeInvalid，cap 不再需要先 GetByID
+// 校 ownership。create / update_quotas 是 E-13 新加的 parity tools，复用同
+// repo 接口。
 type CodesRevoker interface {
 	GetByID(ctx context.Context, codeID string) (domain.AccessCode, error)
 	Revoke(ctx context.Context, ownerID, codeID string) error
+	CreateAccessCode(
+		ctx context.Context, in *domain.CreateAccessCodeInput,
+	) (domain.AccessCode, error)
+	UpdateQuotas(
+		ctx context.Context, ownerID, codeID string,
+		maxSessions, maxTurns *int32,
+	) (domain.AccessCode, error)
 }
 
 type codesCapability struct {
@@ -60,7 +69,9 @@ func (*codesCapability) SystemPromptFragmentID(
 }
 
 func (c *codesCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{c.revokeBinding()}
+	return []*agentskills.MCPBinding{
+		c.revokeBinding(), c.createBinding(), c.updateQuotasBinding(),
+	}
 }
 
 func (c *codesCapability) revokeBinding() *agentskills.MCPBinding {
@@ -96,9 +107,6 @@ func (c *codesCapability) handleRevoke(
 	if perr != nil {
 		return agentskills.MCPError(perr.Error())
 	}
-	if existsErr := c.ensureCodeExists(ctx, ownerID, args.CodeID); existsErr != nil {
-		return codesRevokeErr(c.log, existsErr)
-	}
 	if err := c.codes.Revoke(ctx, ownerID, args.CodeID); err != nil {
 		return codesRevokeErr(c.log, err)
 	}
@@ -116,25 +124,6 @@ func parseRevokeArgs(raw json.RawMessage) (revokeArgsWire, error) {
 	return args, nil
 }
 
-// ensureCodeExists —— GetByID 返 ErrCodeInvalid → 透传 (handler 翻"code
-// not found")；找到但 owner 不匹 → ErrCodeInvalid (不泄露存在性)；DB 故
-// 障 → 透传 (handler 走 internal error)。
-func (c *codesCapability) ensureCodeExists(
-	ctx context.Context, ownerID, codeID string,
-) error {
-	code, err := c.codes.GetByID(ctx, codeID)
-	if err != nil {
-		if errors.Is(err, domain.ErrCodeInvalid) {
-			return domain.ErrCodeInvalid
-		}
-		return fmt.Errorf("get code: %w", err)
-	}
-	if code.OwnerID != ownerID {
-		return domain.ErrCodeInvalid
-	}
-	return nil
-}
-
 func codesRevokeErr(log *slog.Logger, err error) agentskills.MCPResult {
 	if errors.Is(err, domain.ErrCodeInvalid) {
 		return agentskills.MCPError("code not found")
@@ -150,4 +139,122 @@ func marshalRevokeResult(log *slog.Logger, codeID string) agentskills.MCPResult 
 		return agentskills.MCPError("encode payload")
 	}
 	return agentskills.MCPSuccess(string(out))
+}
+
+// codes.create 在 cap_codes_create.go (拆出来守 max-lines)。
+
+// ───── codes.update_quotas ──────────────────────────────────────
+
+func (c *codesCapability) updateQuotasBinding() *agentskills.MCPBinding {
+	return &agentskills.MCPBinding{
+		Name: "codes.update_quotas",
+		Description: "Update an access code's per-member session quota and " +
+			"per-session turn quota. Pass null to keep current value.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"code_id":{"type":"string"},
+				"max_sessions_per_member":{"type":"number"},
+				"max_turns_per_session":{"type":"number"}
+			},
+			"required":["code_id"]
+		}`),
+		Handler: c.handleUpdateQuotas,
+	}
+}
+
+type updateQuotasArgsWire struct {
+	MaxSessions *int32 `json:"max_sessions_per_member"`
+	MaxTurns    *int32 `json:"max_turns_per_session"`
+	CodeID      string `json:"code_id"`
+}
+
+func (c *codesCapability) handleUpdateQuotas(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) agentskills.MCPResult {
+	args, perr := parseUpdateQuotasArgs(raw)
+	if perr != nil {
+		return agentskills.MCPError(perr.Error())
+	}
+	merged, mErr := c.mergeQuotaArgs(ctx, ownerID, &args)
+	if mErr != nil {
+		return *mErr
+	}
+	code, err := c.codes.UpdateQuotas(
+		ctx, ownerID, args.CodeID, merged.maxSessions, merged.maxTurns,
+	)
+	if err != nil {
+		return updateQuotasErrToResult(c.log, err)
+	}
+	return marshalCapResult(c.log, "codes.update_quotas", map[string]any{
+		"code_id":                 code.ID,
+		"max_sessions_per_member": code.MaxSessionsPerMember,
+		"max_turns_per_session":   code.MaxTurnsPerSession,
+	})
+}
+
+func parseUpdateQuotasArgs(raw json.RawMessage) (updateQuotasArgsWire, error) {
+	var args updateQuotasArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return args, errors.New("invalid arguments: " + err.Error())
+	}
+	if args.CodeID == "" {
+		return args, errors.New("code_id is required")
+	}
+	return args, nil
+}
+
+func updateQuotasErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+	if errors.Is(err, domain.ErrCodeInvalid) {
+		return agentskills.MCPError("code not found")
+	}
+	log.Error("cap codes.update_quotas", "err", err)
+	return agentskills.MCPError("update quotas failed")
+}
+
+// quotaPair —— mergeQuotaArgs 返值；caller 透传给 UpdateQuotas。
+type quotaPair struct {
+	maxSessions *int32
+	maxTurns    *int32
+}
+
+// mergeQuotaArgs —— "Pass null to keep current value" 语义：caller 未传的字段
+// 走 GetByID 拿当前值填回去。GetByID 返 ErrCodeInvalid (含 wrong-owner) →
+// 翻 "code not found"。
+func (c *codesCapability) mergeQuotaArgs(
+	ctx context.Context, ownerID string, args *updateQuotasArgsWire,
+) (*quotaPair, *agentskills.MCPResult) {
+	if args.MaxSessions != nil && args.MaxTurns != nil {
+		return &quotaPair{maxSessions: args.MaxSessions, maxTurns: args.MaxTurns}, nil
+	}
+	cur, lookupErr := c.lookupOwnedCode(ctx, ownerID, args.CodeID)
+	if lookupErr != nil {
+		notFound := agentskills.MCPError("code not found")
+		return nil, &notFound
+	}
+	return buildMergedQuotas(args, cur), nil
+}
+
+func (c *codesCapability) lookupOwnedCode(
+	ctx context.Context, ownerID, codeID string,
+) (*domain.AccessCode, error) {
+	cur, err := c.codes.GetByID(ctx, codeID)
+	if err != nil {
+		return nil, fmt.Errorf("get code: %w", err)
+	}
+	if cur.OwnerID != ownerID {
+		return nil, domain.ErrCodeInvalid
+	}
+	return &cur, nil
+}
+
+func buildMergedQuotas(args *updateQuotasArgsWire, cur *domain.AccessCode) *quotaPair {
+	out := &quotaPair{maxSessions: args.MaxSessions, maxTurns: args.MaxTurns}
+	if out.maxSessions == nil {
+		out.maxSessions = cur.MaxSessionsPerMember
+	}
+	if out.maxTurns == nil {
+		out.maxTurns = cur.MaxTurnsPerSession
+	}
+	return out
 }

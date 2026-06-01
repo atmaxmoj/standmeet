@@ -1,0 +1,113 @@
+// tool-codes-create-update.spec.ts —— Phase E-13 MCP parity: owner issues access
+// codes + updates quotas via MCP (Claude Code conversation), not just admin REST.
+//
+// E-13 同时修了 CodeRepo.Revoke 的 0-row bug —— 已经在 b6-codes-revoke-mcp
+// 之外用本 spec 也间接覆盖 update_quotas 的同类 not-found 路径。
+
+import { test, expect } from '@/fixtures/test';
+
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { callTool, initMCP } from '@/fixtures/mcp';
+import { createRole } from '@/fixtures/roles';
+
+const OWNER = {
+  email: 'codes-mcp@example.com', password: 'correct-horse-battery-staple',
+  handle: 'codes-mcp', fullName: 'Codes MCP Owner',
+};
+
+interface CreateResp { code_id: string; code: string; label: string }
+interface UpdateQuotasResp {
+  code_id: string;
+  max_sessions_per_member: number | null;
+  max_turns_per_session: number | null;
+}
+
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+
+test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
+  let sid: string;
+  let apiToken: string;
+  let roleID: string;
+
+  test.beforeAll(async ({ playwright }) => {
+    resetInstance();
+    const request = await playwright.request.newContext();
+    await claim(request, findSetupToken(), {
+      email: OWNER.email, password: OWNER.password,
+      handle: OWNER.handle, fullName: OWNER.fullName,
+    });
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    const role = await createRole(request, csrf, {
+      name: 'codes-mcp-role', description: 'role for codes mcp spec',
+      corpus_uris: ['wiki://**'],
+    });
+    roleID = role.id;
+    apiToken = await createAPIToken(request, csrf, 'codes-mcp-token');
+    sid = await initMCP(request, apiToken);
+    await request.dispose();
+  });
+
+  test('codes.create issues an access code with quotas; visible in admin /codes/',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const created = await callTool<CreateResp>(
+        request, apiToken, sid, 'codes.create',
+        {
+          code: 'MCP-CREATE-001', label: 'created via mcp',
+          assumed_role_id: roleID,
+          suggested_questions: ['why us?', 'why this role?'],
+          max_sessions_per_member: 5,
+          max_turns_per_session: 30,
+        },
+      );
+      expect(created.code).toBe('MCP-CREATE-001');
+      expect(created.label).toBe('created via mcp');
+
+      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+      const list = await request.get(`${BACKEND}/api/admin/codes/`, {
+        headers: { 'X-Csrftoken': csrf },
+      });
+      expect(list.status()).toBe(200);
+      const rows = await list.json() as Array<{ id: string; code: string }>;
+      expect(rows.find((c) => c.id === created.code_id)?.code)
+        .toBe('MCP-CREATE-001');
+      await request.dispose();
+    });
+
+  test('codes.update_quotas changes per-session turn cap; admin list reflects',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const created = await callTool<CreateResp>(
+        request, apiToken, sid, 'codes.create',
+        {
+          code: 'MCP-QUOTAS-001', label: 'quotas spec',
+          assumed_role_id: roleID,
+          max_sessions_per_member: 3,
+          max_turns_per_session: 10,
+        },
+      );
+      const updated = await callTool<UpdateQuotasResp>(
+        request, apiToken, sid, 'codes.update_quotas',
+        {
+          code_id: created.code_id,
+          max_turns_per_session: 50,
+        },
+      );
+      expect(updated.code_id).toBe(created.code_id);
+      expect(updated.max_turns_per_session).toBe(50);
+      expect(updated.max_sessions_per_member).toBe(3);
+      await request.dispose();
+    });
+
+  test('codes.update_quotas on unknown code_id returns isError (CodeRepo bug fix)',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await expect(
+        callTool(request, apiToken, sid, 'codes.update_quotas',
+          { code_id: '00000000-0000-0000-0000-000000000000',
+            max_turns_per_session: 99 }),
+      ).rejects.toThrow(/code not found/);
+      await request.dispose();
+    });
+});
