@@ -23,7 +23,7 @@ import (
 type Handlers struct {
 	Visitor  usecases.VisitorDeps
 	Sessions *session.VisitorSessionStore
-	SEO      usecases.PersistTurnSEOLookup
+	Corpus   usecases.DialogCorpusLookup
 	Log      *slog.Logger
 }
 
@@ -31,7 +31,7 @@ type Handlers struct {
 func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions", h.createSession())
 	r.Post("/sessions/{id}/messages", h.postMessage())
-	r.Post("/sessions/{id}/turns", h.postTurn())
+	r.Post("/sessions/{id}/dialogs", h.postDialog())
 	r.Post("/sessions/{id}/summary", h.postSummary())
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
 	r.Post("/inference/models", h.listInferenceModels())
@@ -86,7 +86,7 @@ var visitorErrCases = []apierr.Case{
 		Code:    "session_busy",
 		Message: "previous message still streaming; wait for it to finish",
 	}},
-	{Match: domain.ErrConversationEnded, Envelope: apierr.Envelope{
+	{Match: domain.ErrChatEnded, Envelope: apierr.Envelope{
 		Status:  http.StatusGone,
 		Code:    "conversation_ended",
 		Message: "conversation has been summarized; start a new session to continue",

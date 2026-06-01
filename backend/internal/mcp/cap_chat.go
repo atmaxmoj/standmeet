@@ -89,7 +89,7 @@ func (c *chatCapability) handleShowGrounding(
 		ctx, *c.convs, ownerID, args.ConversationID,
 	)
 	if err != nil {
-		if errors.Is(err, domain.ErrConversationNotFound) {
+		if errors.Is(err, domain.ErrChatNotFound) {
 			return agentskills.MCPError("conversation not found")
 		}
 		c.log.Error("cap chat.show_grounding", "err", err)
@@ -127,8 +127,8 @@ func (c *chatCapability) hydrateGroundingView(
 	wikiIDs := transcriptRefIDs(t.WikiRefs)
 	outputIDs := transcriptRefIDs(t.OutputRefs)
 	return &groundingCapView{
-		ConversationID: t.ConvBundle.Conversation.ID,
-		VisitorName:    t.ConvBundle.Conversation.VisitorName,
+		ConversationID: t.ConvBundle.Chat.ID,
+		VisitorName:    t.ConvBundle.Chat.VisitorName,
 		Messages:       toGroundingCapMessageViews(t.ConvBundle.Messages),
 		CitedWikis:     c.loadWikiBodies(ctx, ownerID, wikiIDs),
 		CitedOutputs:   c.loadOutputBodies(ctx, ownerID, outputIDs),

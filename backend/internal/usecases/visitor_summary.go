@@ -60,7 +60,7 @@ func GenerateSummary(
 	if err != nil {
 		return "", err
 	}
-	if _, merr := deps.Conv.MarkEnded(ctx, in.ConversationID, summary); merr != nil {
+	if _, merr := deps.Chats.MarkEnded(ctx, in.ConversationID, summary); merr != nil {
 		return "", fmt.Errorf("mark conversation ended: %w", merr)
 	}
 	return summary, nil
@@ -86,12 +86,12 @@ func produceSummary(
 func loadTranscriptForSummary(
 	ctx context.Context, deps *VisitorDeps, in *GenerateSummaryInput,
 ) ([]domain.Message, error) {
-	bundle, err := deps.Conv.GetWithMessages(ctx, in.OwnerID, in.ConversationID)
+	bundle, err := deps.Chats.GetWithMessages(ctx, in.OwnerID, in.ConversationID)
 	if err != nil {
 		return nil, fmt.Errorf("load conversation: %w", err)
 	}
-	if bundle.Conversation.EndedAt != nil {
-		return nil, domain.ErrConversationEnded
+	if bundle.Chat.EndedAt != nil {
+		return nil, domain.ErrChatEnded
 	}
 	return bundle.Messages, nil
 }

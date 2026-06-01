@@ -181,8 +181,9 @@ type runtimeDeps struct {
 	rawRepo           *postgres.RawRepo
 	wikiRepo          *postgres.WikiRepo
 	outputRepo        *postgres.OutputRepo
+	corpus            *postgres.Corpus
 	codeRepo          *postgres.CodeRepo
-	convRepo          *postgres.ConversationRepo
+	chatRepo          *postgres.ChatRepo
 	seoRepo           *postgres.SEORepo
 	customPageRepo    *postgres.CustomPageRepo
 	customBuildRepo   *postgres.CustomBuildRepo

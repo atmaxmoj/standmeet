@@ -37,7 +37,7 @@ type repoSet struct {
 	wiki          *postgres.WikiRepo
 	output        *postgres.OutputRepo
 	code          *postgres.CodeRepo
-	conv          *postgres.ConversationRepo
+	chat          *postgres.ChatRepo
 	seo           *postgres.SEORepo
 	customPage    *postgres.CustomPageRepo
 	customBuild   *postgres.CustomBuildRepo
@@ -64,7 +64,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		wiki:          postgres.NewWikiRepo(db),
 		output:        postgres.NewOutputRepo(db),
 		code:          postgres.NewCodeRepo(db),
-		conv:          postgres.NewConversationRepo(db),
+		chat:          postgres.NewChatRepo(db),
 		seo:           postgres.NewSEORepo(db),
 		customPage:    postgres.NewCustomPageRepo(db),
 		customBuild:   postgres.NewCustomBuildRepo(db),
@@ -104,7 +104,8 @@ func assembleRuntimeDeps(
 		instanceRepo: repos.instance, ownerRepo: repos.owner,
 		keypairRepo: repos.keypair, rawRepo: repos.raw, wikiRepo: repos.wiki,
 		outputRepo: repos.output,
-		codeRepo:   repos.code, convRepo: repos.conv,
+		corpus:     postgres.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
+		codeRepo:   repos.code, chatRepo: repos.chat,
 		seoRepo:           repos.seo,
 		customPageRepo:    repos.customPage,
 		customBuildRepo:   repos.customBuild,

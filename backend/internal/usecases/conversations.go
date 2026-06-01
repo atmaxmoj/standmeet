@@ -15,7 +15,7 @@ import (
 // ConversationsDeps —— ListConversations / GetTranscript 需要的 repo。
 // Wiki + Output 是给 transcript 把 cited_*_ids 解到 id+title 用。
 type ConversationsDeps struct {
-	Conv   *postgres.ConversationRepo
+	Chats  *postgres.ChatRepo
 	Wiki   *postgres.WikiRepo
 	Output *postgres.OutputRepo
 }
@@ -32,7 +32,7 @@ type TitledRef struct {
 // TranscriptBundle —— GetConversationTranscript 返：conversation + messages
 // + cited wiki / output 的 id→title 索引（hydration 一次性，前端按需查）。
 type TranscriptBundle struct {
-	ConvBundle postgres.ConversationWithMessages
+	ConvBundle postgres.ChatWithMessages
 	WikiRefs   []TitledRef
 	OutputRefs []TitledRef
 }
@@ -46,11 +46,11 @@ const (
 // 超 max 截断。
 func ListConversations(
 	ctx context.Context, deps ConversationsDeps, ownerID string, limit int32,
-) ([]postgres.ConvSummary, error) {
+) ([]postgres.ChatSummary, error) {
 	if ownerID == "" {
 		return nil, ErrEmptyField
 	}
-	rows, err := deps.Conv.ListByOwner(ctx, ownerID, clampConvLimit(limit))
+	rows, err := deps.Chats.ListByOwner(ctx, ownerID, clampConvLimit(limit))
 	if err != nil {
 		return nil, fmt.Errorf("list conversations: %w", err)
 	}
@@ -67,7 +67,7 @@ func GetConversationTranscript(
 	if ownerID == "" || convID == "" {
 		return TranscriptBundle{}, ErrEmptyField
 	}
-	bundle, err := deps.Conv.GetWithMessages(ctx, ownerID, convID)
+	bundle, err := deps.Chats.GetWithMessages(ctx, ownerID, convID)
 	if err != nil {
 		return TranscriptBundle{}, fmt.Errorf("get transcript: %w", err)
 	}

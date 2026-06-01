@@ -27,7 +27,7 @@ import (
 // 会 short-circuit (buildRoleSnapshotForCode 检 nil)。
 type VisitorDeps struct {
 	Codes      *postgres.CodeRepo
-	Conv       *postgres.ConversationRepo
+	Chats      *postgres.ChatRepo
 	Wiki       *postgres.WikiRepo
 	Output     *postgres.OutputRepo
 	Writings   *postgres.WritingRepo
@@ -70,19 +70,19 @@ type SessionQuota struct {
 // 字段顺序：重 sub-struct (Conversation / Session) 在前，slice 中，strings
 // 后，int 末 —— 让 fieldalignment 满意。
 type IssueCodeSessionResult struct {
-	Session      session.IssuedVisitor
-	Code         string
-	CodeLabel    string
-	VisitorName  string
-	Conversation domain.Conversation
-	Members      []domain.CodeMember
-	Quota        SessionQuota
+	Session     session.IssuedVisitor
+	Code        string
+	CodeLabel   string
+	VisitorName string
+	Chat        domain.Chat
+	Members     []domain.CodeMember
+	Quota       SessionQuota
 }
 
 // codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
 type codeSessionArtifacts struct {
 	Issued session.IssuedVisitor
-	Conv   domain.Conversation
+	Conv   domain.Chat
 }
 
 // IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
@@ -126,7 +126,7 @@ func finalizeCodeSession(
 		members = nil
 	}
 	return IssueCodeSessionResult{
-		Session: a.Issued, Conversation: a.Conv,
+		Session: a.Issued, Chat: a.Conv,
 		Code: code.Code, CodeLabel: code.Label, VisitorName: in.VisitorName,
 		Members: members,
 		Quota:   codeSessionQuota(code),
@@ -186,7 +186,7 @@ func checkSessionQuota(
 	if code.MaxSessionsPerMember == nil || *code.MaxSessionsPerMember <= 0 {
 		return nil
 	}
-	count, err := deps.Conv.CountSessionsForMember(ctx, memberID)
+	count, err := deps.Chats.CountSessionsForMember(ctx, memberID)
 	if err != nil {
 		return fmt.Errorf("count member sessions: %w", err)
 	}
@@ -199,9 +199,9 @@ func checkSessionQuota(
 func createCodeConversation(
 	ctx context.Context, deps *VisitorDeps,
 	code *domain.AccessCode, member *domain.CodeMember, visitorName string,
-) (domain.Conversation, error) {
+) (domain.Chat, error) {
 	memberID := member.ID
-	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
+	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
 		OwnerID:     code.OwnerID,
 		Mode:        "code",
 		CodeID:      &code.ID,
@@ -209,9 +209,9 @@ func createCodeConversation(
 		VisitorName: visitorName,
 	})
 	if err != nil {
-		return domain.Conversation{}, fmt.Errorf("create conversation: %w", err)
+		return domain.Chat{}, fmt.Errorf("create chat: %w", err)
 	}
-	return conv, nil
+	return chat, nil
 }
 
 func buildCodeSessionData(

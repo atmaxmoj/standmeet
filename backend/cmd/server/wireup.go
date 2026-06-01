@@ -59,7 +59,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Keypairs: usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log},
 		Corpus:   usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
 		Conversations: usecases.ConversationsDeps{
-			Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
+			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
 		BYOAI:          usecases.BYOAIDeps{Owners: d.ownerRepo},
 		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
@@ -110,7 +110,7 @@ func registerAgentSkills(d *runtimeDeps) {
 	usecases.RegisterAgentSkills(d.agentSkills, &visitor)
 	corpusDeps := usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo}
 	convsDeps := usecases.ConversationsDeps{
-		Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
+		Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 	}
 	promptsDeps := usecases.PromptsDeps{Prompts: d.promptRepo}
 	rolesDeps := usecases.RolesDeps{
@@ -169,7 +169,7 @@ func registerAgentSkills(d *runtimeDeps) {
 func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 	return publicroutes.Handlers{
 		Visitor: usecases.VisitorDeps{
-			Codes: d.codeRepo, Conv: d.convRepo, Wiki: d.wikiRepo,
+			Codes: d.codeRepo, Chats: d.chatRepo, Wiki: d.wikiRepo,
 			Output: d.outputRepo, Skills: d.skillRepo,
 			Writings:   d.writingRepo,
 			MCPServers: d.mcpServerRepo,
@@ -183,7 +183,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			AgentSkills: d.agentSkills,
 		},
 		Sessions: d.visitorStore,
-		SEO:      d.seoRepo,
+		Corpus:   d.corpus,
 		Log:      d.log,
 	}
 }
@@ -247,7 +247,7 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 			Renderer: d.pdfRenderer,
 		},
 		Conversations: usecases.ConversationsDeps{
-			Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
+			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
 		Skills:  usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
 		Prompts: usecases.PromptsDeps{Prompts: d.promptRepo},

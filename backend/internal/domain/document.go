@@ -38,6 +38,10 @@ var AllGenres = []DocumentGenre{
 // 用到的字段；hue / cover / excerpt 这类 Genre-specific 字段不进接口，调用
 // 方需要时 type-assert 回具体类型。
 type Document interface {
+	// ID —— 后台数据库 uuid。messages.cited_*_ids 等持久化关系靠它；
+	// retriever / dialog 写消息引用时统一通过 Document.ID()。
+	ID() string
+
 	// URI —— `<genre>://<addressable>` 形态，全 corpus 唯一寻址 key。
 	URI() string
 

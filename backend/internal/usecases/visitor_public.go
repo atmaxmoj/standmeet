@@ -65,14 +65,14 @@ func finalizePublicSession(
 ) (IssueCodeSessionResult, error) {
 	mode := publicModeForBYOAI(in.BYOAIProvider)
 	// conv 行 audit log：byoai_provider 一次性写到 conv 表，session 不缓存。
-	conv, err := deps.Conv.CreateConversation(ctx, &postgres.CreateConvInput{
+	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
 		OwnerID:       owner.ID,
 		Mode:          mode,
 		VisitorName:   in.VisitorName,
 		BYOAIProvider: nullableProvider(in.BYOAIProvider),
 	})
 	if err != nil {
-		return IssueCodeSessionResult{}, fmt.Errorf("create conversation: %w", err)
+		return IssueCodeSessionResult{}, fmt.Errorf("create chat: %w", err)
 	}
 	// A.3-IAM-5: public / byoai 也强制走 RoleSnapshot —— freeze owner 的
 	// vanilla role。owner 想限缩 byoai 就改 vanilla 的 corpus_uris，或发
@@ -91,7 +91,7 @@ func finalizePublicSession(
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)
 	}
 	return IssueCodeSessionResult{
-		Session: issued, Conversation: conv,
+		Session: issued, Chat: chat,
 		VisitorName: in.VisitorName,
 		// Code 空 / Quota zero —— public/byoai 没 turn 上限，SessionStrip 看到
 		// max=0 就不渲 gauge，BYOAI 走 visitor-paid · unlimited 文案。

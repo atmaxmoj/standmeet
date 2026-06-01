@@ -116,7 +116,7 @@ func prepareSend(
 func appendVisitorTurn(
 	ctx context.Context, deps *VisitorDeps, in *SendMessageInput,
 ) error {
-	if _, werr := deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
+	if _, werr := deps.Chats.AppendMessage(ctx, &postgres.AppendMessageInput{
 		ConversationID: in.ConversationID, Role: "visitor", Body: in.Body,
 	}); werr != nil {
 		return fmt.Errorf("append visitor message: %w", werr)
@@ -156,12 +156,12 @@ func preflightSend(
 // enforceTurnQuota —— 在写访客 message 之前检查 conversation 状态 +
 // turns/session。conversation 已 ended (/summary 写过) → 拒。
 func enforceTurnQuota(ctx context.Context, deps *VisitorDeps, in *SendMessageInput) error {
-	conv, err := deps.Conv.GetConversation(ctx, in.OwnerID, in.ConversationID)
+	conv, err := deps.Chats.GetChat(ctx, in.OwnerID, in.ConversationID)
 	if err != nil {
 		return fmt.Errorf("load conv for quota: %w", err)
 	}
 	if conv.EndedAt != nil {
-		return domain.ErrConversationEnded
+		return domain.ErrChatEnded
 	}
 	if conv.CodeID == nil {
 		return nil
@@ -198,7 +198,7 @@ func turnQuotaCheck(
 	if code.MaxTurnsPerSession == nil || *code.MaxTurnsPerSession <= 0 {
 		return nil
 	}
-	count, err := deps.Conv.CountVisitorTurns(ctx, convID)
+	count, err := deps.Chats.CountVisitorTurns(ctx, convID)
 	if err != nil {
 		return fmt.Errorf("count turns: %w", err)
 	}
@@ -278,7 +278,7 @@ func emitDoneEvent(ctx context.Context, d *doneInput) MessageEvent {
 	wikis, outputs := gatherCited(d.bindings)
 	citedWiki := wikiIDsOf(wikis)
 	citedOutput := outputIDsOf(outputs)
-	if _, werr := d.deps.Conv.AppendMessage(ctx, &postgres.AppendMessageInput{
+	if _, werr := d.deps.Chats.AppendMessage(ctx, &postgres.AppendMessageInput{
 		ConversationID: d.in.ConversationID,
 		Role:           "assistant",
 		Body:           d.full,

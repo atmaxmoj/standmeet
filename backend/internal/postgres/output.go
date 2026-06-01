@@ -95,6 +95,39 @@ func (r *OutputRepo) ListByOwner(
 	return out, nil
 }
 
+// GetByPath —— path-string 寻址 output。不过滤 seo_indexed (跟 SEORepo
+// .GetOutputByPath 不同——后者是给 public landing 用的需要 indexed=true
+// 守门)。retrieval / dialog cited 用 path 反查 entry 走这条。loadByPath
+// 通用 helper 在 corpus.go (wiki + output 共享)。
+func (r *OutputRepo) GetByPath(
+	ctx context.Context, ownerID, path string,
+) (domain.Output, error) {
+	var o dbq.OutputEntry
+	args := byPathArgs{OwnerID: ownerID, Path: path}
+	if err := loadByPath(ctx, r.pool, args, outputByPathQuery, &o); err != nil {
+		return domain.Output{}, err
+	}
+	return toDomainOutput(&o), nil
+}
+
+var outputByPathQuery = byPathQuery[dbq.OutputEntry]{
+	SQL: `
+		SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids,
+		       path, show_as_source, seo_description, seo_indexed,
+		       created_at, updated_at
+		FROM output_entries WHERE owner_id=$1 AND path=$2
+	`,
+	Scan: func(row pgx.Row, o *dbq.OutputEntry) error {
+		if err := row.Scan(&o.ID, &o.OwnerID, &o.ParentID, &o.Title, &o.Body,
+			&o.Tags, &o.SourceWikiIds, &o.Path, &o.ShowAsSource,
+			&o.SeoDescription, &o.SeoIndexed, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			return fmt.Errorf("scan output: %w", err)
+		}
+		return nil
+	},
+	NotFound: domain.ErrOutputNotFound,
+}
+
 // GetByID 拿 owner 的某条 output；不命中返回 ErrOutputNotFound。
 func (r *OutputRepo) GetByID(
 	ctx context.Context, ownerID, id string,

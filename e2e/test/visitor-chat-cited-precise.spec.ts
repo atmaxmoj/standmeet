@@ -1,15 +1,18 @@
 // visitor-chat-cited-precise.spec.ts —— cited 列表只含 AI 真读过的 entry。
 //
 // retrieval redesign 的招牌行为：旧实现把"所有送进 prompt 的 corpus"算作
-// cited（弱 ground truth）；新实现 AI 通过 server-side MCP tool `corpus_read`
-// 主动 fetch，readCollector 累计 path —— cited = AI 实际 read 的 path 列表。
+// cited（弱 ground truth）；新实现 AI 通过 corpus_read 主动 fetch，readCollector
+// 累计 path —— cited = AI 实际 read 的 path 列表。
 //
 // 用户故事：
 //   owner 种 4 条 wiki（lucerna / family / sailing / about-me），各自 path
 //   独立。visitor 用 code 问"tell me about lucerna" → mock provider 模拟
-//   tool-use：corpus_search(query="tell me about lucerna") 返回
-//   1 个匹配 → corpus_read(path="projects/lucerna") → 回 text。
-//   cited_wiki_refs 只含 projects/lucerna，不含 family/sailing/about-me。
+//   tool-use：corpus_search(query=...) 返回 1 个匹配 → corpus_read(path=
+//   projects/lucerna) → 回 text。cited_wiki_refs 只含 projects/lucerna。
+//
+// UI-driven (G-1): visitor 真开浏览器 → throbber tool-throbber-corpus_search
+// + tool-throbber-corpus_read 顺序出现 → answer-body 渲染 → 然后 admin REST
+// 取 conversation transcript 验 cited 精度。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -19,7 +22,6 @@ import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -46,18 +48,67 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
     await request.dispose();
   });
 
-  test('visitor asks narrow question → cited contains only the read path', async ({ playwright }) => {
-    const request = await playwright.request.newContext();
-    const sess = await issueSession(request, {
-      handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',
+  test('visitor asks narrow question → throbbers fire + cited contains only the read path',
+    async ({ browser, playwright }) => {
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+
+      // Capture conversation_id from the /sessions response.
+      let conversationID = '';
+      page.on('response', async (res) => {
+        if (res.url().endsWith('/api/v1/sessions') && res.status() === 200) {
+          try {
+            const body = await res.json() as { conversation_id?: string };
+            if (body.conversation_id) conversationID = body.conversation_id;
+          } catch { /* noop */ }
+        }
+      });
+
+      await page.goto(`/?code=${CODE}`);
+      await page.waitForResponse((res) =>
+        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      const skip = page.getByTestId('visitor-name-skip');
+      if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await skip.click();
+      }
+
+      // Pre-register dialog response wait BEFORE pressing Enter — the POST
+      // /dialogs is fire-and-forget right after finalizeTurn; if we wait
+      // for answer-body first then attach the listener, the response can
+      // already have flown by (registration-after-action race).
+      const dialogResponsePromise = page.waitForResponse((res) =>
+        res.url().includes('/dialogs') && res.status() === 204,
+        { timeout: 20_000 },
+      );
+
+      const input = page.locator('[data-testid="chat-input"] input');
+      await input.fill('tell me about lucerna');
+      await input.press('Enter');
+
+      // Both corpus_search and corpus_read should fire in order, throbber
+      // li accumulates as turns iterate.
+      await expect(page.getByTestId('tool-throbber-corpus_search'))
+        .toBeVisible({ timeout: 20_000 });
+      await expect(page.getByTestId('tool-throbber-corpus_read'))
+        .toBeVisible({ timeout: 20_000 });
+      await expect(page.locator('[data-testid="answer-body"]'))
+        .toBeVisible({ timeout: 20_000 });
+
+      // Wait until the dialog record endpoint completes so the transcript
+      // query below sees the assistant message + cited refs (D-5 fix).
+      await dialogResponsePromise;
+
+      expect(conversationID).not.toBe('');
+
+      const reqCtx = await playwright.request.newContext();
+      const { csrf } = await loginAPI(reqCtx, OWNER.email, OWNER.password);
+      const cited = await fetchCitedRefs(reqCtx, csrf, conversationID);
+      expect(cited.wiki.map((r) => r.path)).toEqual([TARGET_PATH]);
+      await reqCtx.dispose();
+
+      await ctx.close();
     });
-    const stream = await sendMessage(request, sess, 'tell me about lucerna');
-    await stream.body();
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    const cited = await fetchCitedRefs(request, csrf, sess.conversation_id);
-    expect(cited.wiki.map((r) => r.path)).toEqual([TARGET_PATH]);
-    await request.dispose();
-  });
 });
 
 async function seedFourWikis(request: APIRequestContext): Promise<string> {

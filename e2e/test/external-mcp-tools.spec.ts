@@ -9,6 +9,9 @@
 //   ext_host-tool_ping_external → mock 路径 ExecuteTool 调用一次 → 外部
 //   server 返 marker → backend 包成 tool_result → mock provider echo
 //   [skill_result:...] (复用 skill 结果 echo) 进 reply。
+//
+// UI-driven (G-1): visitor 真开浏览器 → throbber tool-throbber-
+// ext_host-tool_ping_external 出现 + answer-body 含 EXT_MARKER。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -16,7 +19,6 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -26,10 +28,10 @@ const OWNER = {
 };
 
 const SERVER_NAME = 'host-tool';
-// mcp-server-mock 暴露 9100；docker-compose 内部用 service 名。
 const MOCK_MCP_URL = 'http://mcp-server-mock:9100/mcp';
 const CODE = 'EXT-001';
 const EXT_MARKER = '[EXT-MCP-MARKER]';
+const TOOL_NAME = `ext_${SERVER_NAME}_ping_external`;
 
 interface CreateServerResp {
   server_id: string;
@@ -50,14 +52,32 @@ test.describe('owner registers external MCP server; visitor chat uses its tools'
   });
 
   test('visitor chat dispatches ext_<server>_<tool> through MCP client',
-    async ({ request }) => {
-      const sess = await issueSession(request, {
-        handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',
-      });
-      const res = await sendMessage(request, sess, 'call the external tool');
-      expect(res.status()).toBe(200);
-      const body = await res.text();
-      expect(body).toContain(EXT_MARKER);
+    async ({ browser }) => {
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      await page.goto(`/?code=${CODE}`);
+      await page.waitForResponse((res) =>
+        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      const skip = page.getByTestId('visitor-name-skip');
+      if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await skip.click();
+      }
+      const input = page.locator('[data-testid="chat-input"] input');
+      await input.fill('call the external tool');
+      await input.press('Enter');
+
+      // throbber appears as agent dispatches the ext tool through MCP client
+      await expect(page.getByTestId(`tool-throbber-${TOOL_NAME}`))
+        .toBeVisible({ timeout: 20_000 });
+
+      // mock provider echoes [skill_result:...] containing the external
+      // server's response — proves the MCP client really dialed the
+      // mcp-server-mock and tool result roundtripped back.
+      await expect(page.locator('[data-testid="answer-body"]'))
+        .toContainText(EXT_MARKER, { timeout: 15_000 });
+
+      await ctx.close();
     });
 });
 

@@ -29,7 +29,7 @@ import {
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull, readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
-import { persistTurn } from '@/lib/page/persist-turn';
+import { recordDialog } from '@/lib/page/dialog';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import {
   useCapabilityStore, zustandCapabilityStateSource,
@@ -133,7 +133,7 @@ async function runAsk(
     const accum = makeAccumulator();
     await runAgentTurn(sess, byoai, histRef, q, makeObserver(id, accum, setTurns));
     finalizeTurn(id, accum, setTurns);
-    void persistTurn(sess, q, { body: accum.body, citations: accum.citations });
+    void recordDialog(sess, q, { body: accum.body, citations: accum.citations });
     bumpVisitorQuota();
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';

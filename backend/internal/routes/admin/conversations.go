@@ -23,7 +23,7 @@ import (
 
 // ConversationsDeps —— admin conversations handlers 依赖。
 type ConversationsDeps struct {
-	Conv usecases.ConversationsDeps
+	Chats usecases.ConversationsDeps
 }
 
 type convSummaryView struct {
@@ -72,7 +72,7 @@ func (h *Handlers) listConversations() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		limit := parseConvLimit(r.URL.Query().Get("limit"))
-		rows, err := usecases.ListConversations(r.Context(), h.Conversations.Conv, ownerID, limit)
+		rows, err := usecases.ListConversations(r.Context(), h.Conversations.Chats, ownerID, limit)
 		if err != nil {
 			h.Log.Error("list conversations", "err", err)
 			writeError(h.Log, w, serverErr())
@@ -87,7 +87,7 @@ func (h *Handlers) getConversation() http.HandlerFunc {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		convID := chi.URLParam(r, "id")
 		out, err := usecases.GetConversationTranscript(
-			r.Context(), h.Conversations.Conv, ownerID, convID,
+			r.Context(), h.Conversations.Chats, ownerID, convID,
 		)
 		if err != nil {
 			handleConvErr(h.Log, w, err)
@@ -98,7 +98,7 @@ func (h *Handlers) getConversation() http.HandlerFunc {
 }
 
 func handleConvErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrConversationNotFound) {
+	if errors.Is(err, domain.ErrChatNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "not_found", Message: "conversation not found",
 		})
@@ -108,7 +108,7 @@ func handleConvErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, serverErr())
 }
 
-func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []postgres.ConvSummary) {
+func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []postgres.ChatSummary) {
 	items := make([]convSummaryView, 0, len(rows))
 	for i := range rows {
 		items = append(items, toConvSummaryView(&rows[i]))
@@ -150,11 +150,11 @@ func toRefViews(refs []usecases.TitledRef) []titledRefView {
 	return out
 }
 
-func bundleSummary(bundle *postgres.ConversationWithMessages) convSummaryView {
-	c := bundle.Conversation
+func bundleSummary(bundle *postgres.ChatWithMessages) convSummaryView {
+	c := bundle.Chat
 	return convSummaryView{
 		ID:           c.ID,
-		Mode:         c.Mode,
+		Mode:         string(c.Mode),
 		VisitorName:  c.VisitorName,
 		MessageCount: c.MessageCount,
 		CodeID:       c.CodeID,
@@ -163,7 +163,7 @@ func bundleSummary(bundle *postgres.ConversationWithMessages) convSummaryView {
 	}
 }
 
-func toConvSummaryView(s *postgres.ConvSummary) convSummaryView {
+func toConvSummaryView(s *postgres.ChatSummary) convSummaryView {
 	return convSummaryView{
 		ID:           s.ID,
 		Mode:         s.Mode,

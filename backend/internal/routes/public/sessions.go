@@ -114,10 +114,10 @@ func writeCreateSession(
 	ctx context.Context, log *slog.Logger, deps *usecases.VisitorDeps,
 	w http.ResponseWriter, res *usecases.IssueCodeSessionResult,
 ) {
-	in := assembleInputFromSession(&res.Session.Data, res.Conversation.ID)
+	in := assembleInputFromSession(&res.Session.Data, res.Chat.ID)
 	resp := createSessionResponse{
 		SessionToken:        res.Session.Token,
-		ConversationID:      res.Conversation.ID,
+		ConversationID:      res.Chat.ID,
 		Code:                res.Code,
 		CodeLabel:           res.CodeLabel,
 		VisitorName:         res.VisitorName,
@@ -139,7 +139,7 @@ func writeCreateSession(
 }
 
 // assembleInputFromSession —— 把 freshly issued VisitorSessionData 折成
-// agentskills.AssembleInput；ConversationID 来自 res.Conversation 不在 data
+// agentskills.AssembleInput；ConversationID 来自 res.Chat 不在 data
 // 里。跟 dev /internal/test/visitor-capabilities 一致，让两处 capability
 // shape 完全同源。
 func assembleInputFromSession(

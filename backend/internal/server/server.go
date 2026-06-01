@@ -136,7 +136,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
 		},
 		PageAdmin:       adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
-		Conversations:   adminroutes.ConversationsDeps{Conv: deps.Admin.Conversations},
+		Conversations:   adminroutes.ConversationsDeps{Chats: deps.Admin.Conversations},
 		BYOAI:           adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
 		Domains:         adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
 		AccessRequests:  adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
@@ -179,6 +179,7 @@ func mountPublic(r chi.Router, deps *Deps) {
 		(&publicroutes.Handlers{
 			Visitor:  deps.Public.Visitor,
 			Sessions: deps.Public.Sessions,
+			Corpus:   deps.Public.Corpus,
 			Log:      deps.Log,
 		}).Mount(r)
 		(&publicroutes.PageHandlers{

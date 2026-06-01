@@ -295,8 +295,14 @@ func marshalRows(rows []corpusRow) string {
 	return string(out)
 }
 
-func marshalKindBody(kind, body string) string {
-	out, err := json.Marshal(map[string]string{"kind": kind, "body": body})
+// marshalKindBodyPath —— G-1 fix: visitor pi-agent-core 要从 corpus_read 的
+// tool_result 拿 path + title 累积 citations (在浏览器侧)。老 {kind, body}
+// 形态拿不到 path 走空字符串，persistTurn 上报 cited_wiki_paths=[”] 全部
+// 解析失败。新形态把 path + title 也带回去。
+func marshalKindBodyPath(kind, body, path, title string) string {
+	out, err := json.Marshal(map[string]string{
+		"kind": kind, "body": body, "path": path, "title": title,
+	})
 	if err != nil {
 		return errJSON("marshal failed")
 	}
