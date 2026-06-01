@@ -57,86 +57,10 @@ type IndexedPath struct {
 	UpdatedAt int64 // unix sec
 }
 
-// GetAnyWikiByPath / GetAnyOutputByPath —— G-1 fix: cited 解析用，跟
-// GetWikiByPath / GetOutputByPath 同形态但不过滤 seo_indexed。public
-// landing 用 seo_indexed 守门；cited 来自真 retrieve 过的 entry (已被
-// ACL 允许 read)，不该再被 landing 可见性二次过滤。
-func (r *SEORepo) GetAnyWikiByPath(
-	ctx context.Context, ownerID, path string,
-) (domain.Wiki, error) {
-	pgID, perr := parseUUID(ownerID)
-	if perr != nil {
-		return domain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
-	}
-	row := r.pool.QueryRow(ctx, anyWikiByPathSQL, pgID, &path)
-	var w dbq.WikiEntry
-	if err := scanWikiEntryRow(row, &w); err != nil {
-		return domain.Wiki{}, mapWikiPathErr(err)
-	}
-	return toDomainWiki(&w), nil
-}
-
-// GetAnyOutputByPath —— G-1 fix sibling. 同 GetAnyWikiByPath 但查 output_entries。
-func (r *SEORepo) GetAnyOutputByPath(
-	ctx context.Context, ownerID, path string,
-) (domain.Output, error) {
-	pgID, perr := parseUUID(ownerID)
-	if perr != nil {
-		return domain.Output{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
-	}
-	row := r.pool.QueryRow(ctx, anyOutputByPathSQL, pgID, &path)
-	var o dbq.OutputEntry
-	if err := scanOutputEntryRow(row, &o); err != nil {
-		return domain.Output{}, mapOutputPathErr(err)
-	}
-	return toDomainOutput(&o), nil
-}
-
-const anyWikiByPathSQL = `
-	SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids,
-	       path, show_as_source, seo_description, seo_indexed,
-	       created_at, updated_at
-	FROM wiki_entries WHERE owner_id=$1 AND path=$2
-`
-
-const anyOutputByPathSQL = `
-	SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids,
-	       path, show_as_source, seo_description, seo_indexed,
-	       created_at, updated_at
-	FROM output_entries WHERE owner_id=$1 AND path=$2
-`
-
-func scanWikiEntryRow(row pgx.Row, w *dbq.WikiEntry) error {
-	if err := row.Scan(&w.ID, &w.OwnerID, &w.ParentID, &w.Title, &w.Body,
-		&w.Tags, &w.SourceRawIds, &w.Path, &w.ShowAsSource,
-		&w.SeoDescription, &w.SeoIndexed, &w.CreatedAt, &w.UpdatedAt); err != nil {
-		return fmt.Errorf("scan wiki: %w", err)
-	}
-	return nil
-}
-
-func scanOutputEntryRow(row pgx.Row, o *dbq.OutputEntry) error {
-	if err := row.Scan(&o.ID, &o.OwnerID, &o.ParentID, &o.Title, &o.Body,
-		&o.Tags, &o.SourceWikiIds, &o.Path, &o.ShowAsSource,
-		&o.SeoDescription, &o.SeoIndexed, &o.CreatedAt, &o.UpdatedAt); err != nil {
-		return fmt.Errorf("scan output: %w", err)
-	}
-	return nil
-}
-
-func mapWikiPathErr(err error) error {
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrWikiNotFound
-	}
-	return fmt.Errorf("get any wiki by path: %w", err)
-}
-
-func mapOutputPathErr(err error) error {
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrOutputNotFound
-	}
-	return fmt.Errorf("get any output by path: %w", err)
-}
+// 旧的 GetAnyWikiByPath / GetAnyOutputByPath 删了 —— G-1.5 后 cited 解析
+// 走 Corpus facade (corpus_facade.go: getWiki / getOutput → WikiRepo /
+// OutputRepo .GetByPath，不过滤 seo_indexed)。SEORepo 只管 landing
+// (seo_indexed=true 守门)，命名 / 职责终于对上。
 
 // ListIndexedPaths —— sitemap.xml 列 indexed wiki landing。
 func (r *SEORepo) ListIndexedPaths(ctx context.Context, ownerID string) ([]IndexedPath, error) {

@@ -175,38 +175,16 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 }
 
 func mountPublic(r chi.Router, deps *Deps) {
+	// 直接挂 wireup 构好的 Handlers 值，不再字段一个个重抄 (G-1.5 smell E:
+	// 之前 Handlers 加字段 wireup 改了但 mount 漏抄 → silent nil 跑了一阵)。
 	r.Route("/api/v1", func(r chi.Router) {
-		(&publicroutes.Handlers{
-			Visitor:  deps.Public.Visitor,
-			Sessions: deps.Public.Sessions,
-			Corpus:   deps.Public.Corpus,
-			Log:      deps.Log,
-		}).Mount(r)
-		(&publicroutes.PageHandlers{
-			Page:        deps.PublicPage.Page,
-			Log:         deps.Log,
-			TokenIssuer: deps.PublicPage.TokenIssuer,
-		}).Mount(r)
-		(&publicroutes.SEOHandlers{Deps: deps.PublicSEO.Deps, Log: deps.Log}).Mount(r)
-		(&publicroutes.CustomPageHandlers{
-			Deps:       deps.PublicCustomPages.Deps,
-			Owners:     deps.PublicCustomPages.Owners,
-			Log:        deps.Log,
-			BuildsRoot: deps.PublicCustomPages.BuildsRoot,
-		}).Mount(r)
-		(&publicroutes.AccessRequestsHandlers{
-			Reqs: deps.PublicAccessRequests.Reqs, Log: deps.Log,
-		}).Mount(r)
-		(&publicroutes.PasswordResetHandlers{
-			Deps: deps.PublicPasswordReset.Deps, Log: deps.Log,
-		}).Mount(r)
-		(&publicroutes.WritingHandlers{
-			Writings:  deps.PublicWritings.Writings,
-			CrossLink: deps.PublicWritings.CrossLink,
-			Page:      deps.PublicWritings.Page,
-			Assets:    deps.Admin.Assets,
-			Log:       deps.Log,
-		}).Mount(r)
+		(&deps.Public).Mount(r)
+		(&deps.PublicPage).Mount(r)
+		(&deps.PublicSEO).Mount(r)
+		(&deps.PublicCustomPages).Mount(r)
+		(&deps.PublicAccessRequests).Mount(r)
+		(&deps.PublicPasswordReset).Mount(r)
+		(&deps.PublicWritings).Mount(r)
 		(&publicroutes.PromptsHandlers{Log: deps.Log}).Mount(r)
 	})
 }
