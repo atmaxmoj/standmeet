@@ -8,6 +8,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -63,7 +64,27 @@ func runCapabilityHandler(
 	if !result.OK {
 		return mcpgo.NewToolResultError(result.Text)
 	}
-	return mcpgo.NewToolResultText(result.Text)
+	if len(result.Embeddings) == 0 {
+		return mcpgo.NewToolResultText(result.Text)
+	}
+	return buildMultiContentResult(&result)
+}
+
+// buildMultiContentResult —— text + N binary embed → CallToolResult。E-12 起
+// applications.commit 用 (text JSON + PDF blob)。
+func buildMultiContentResult(r *agentskills.MCPResult) *mcpgo.CallToolResult {
+	content := make([]mcpgo.Content, 0, 1+len(r.Embeddings))
+	content = append(content,
+		mcpgo.TextContent{Type: mcpgo.ContentTypeText, Text: r.Text})
+	for i := range r.Embeddings {
+		e := &r.Embeddings[i]
+		content = append(content, mcpgo.NewEmbeddedResource(mcpgo.BlobResourceContents{
+			URI:      e.URI,
+			MIMEType: e.MIMEType,
+			Blob:     base64.StdEncoding.EncodeToString(e.Blob),
+		}))
+	}
+	return &mcpgo.CallToolResult{Content: content}
 }
 
 func marshalToolArgs(args map[string]any) (json.RawMessage, error) {

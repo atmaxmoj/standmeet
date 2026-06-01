@@ -26,15 +26,33 @@ type MCPBinding struct {
 type MCPHandler func(ctx context.Context, ownerID string, raw json.RawMessage) MCPResult
 
 // MCPResult —— Handler 返回结果。
-// OK=true → Text 走 NewToolResultText (success payload, JSON-encoded)；
-// OK=false → Text 走 NewToolResultError (error message string)。
+//   - OK=true → Text 走 NewToolResultText (success payload, JSON-encoded)；
+//     Embeddings 走 NewEmbeddedResource 跟在 Text 后面 (e.g. applications.commit
+//     的 PDF blob)。
+//   - OK=false → Text 走 NewToolResultError (error message string)；
+//     Embeddings 忽略。
 type MCPResult struct {
-	Text string
-	OK   bool
+	Text       string
+	Embeddings []MCPEmbedded
+	OK         bool
 }
 
-// MCPSuccess —— 简短构造 success result。
+// MCPEmbedded —— 二进制资源 (e.g. PDF / image)。Blob 走 base64 编码。
+// URI 是 client-side 引用 (e.g. "standmeet://application/<id>")，MIMEType
+// 给 client 决定怎么 render。
+type MCPEmbedded struct {
+	URI      string
+	MIMEType string
+	Blob     []byte
+}
+
+// MCPSuccess —— 简短构造 success result (text only)。
 func MCPSuccess(payload string) MCPResult { return MCPResult{Text: payload, OK: true} }
+
+// MCPSuccessWithEmbeddings —— success result with text + 一/多 binary embed。
+func MCPSuccessWithEmbeddings(payload string, embs []MCPEmbedded) MCPResult {
+	return MCPResult{Text: payload, Embeddings: embs, OK: true}
+}
 
 // MCPError —— 简短构造 error result。
 func MCPError(msg string) MCPResult { return MCPResult{Text: msg, OK: false} }

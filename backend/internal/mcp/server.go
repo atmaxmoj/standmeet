@@ -137,7 +137,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	customPageTools(mcpSrv, deps)
 	// jobsTools 已 E-10 迁到 cap_jobs.go
 	// resumeTools 已 E-11 迁到 cap_resume.go
-	applicationsTools(mcpSrv, deps)
+	// applicationsTools 已 E-12 迁到 cap_applications.go (+ MCPResult.Embeddings 扩)
 	// chatTools 已 E-4 迁到 cap_chat.go
 	// skillsTools 已 E-8 迁到 cap_skills.go
 	// promptsTools 已 E-5 迁到 cap_prompts.go
