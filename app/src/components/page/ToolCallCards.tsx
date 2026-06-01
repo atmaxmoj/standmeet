@@ -15,8 +15,8 @@
 'use client';
 
 import {
-  pickSearchHits, shouldRenderCall, cardKindFor, jsonPretty,
-  type SearchHit,
+  pickSearchHits, pickSlots, shouldRenderCall, cardKindFor, jsonPretty,
+  type SearchHit, type SlotView,
 } from '@/lib/page/tool-call-shape';
 import type { ToolCallView } from '@/lib/page/use-chat';
 import styles from '@/components/page/ToolCallCards.module.css';
@@ -30,8 +30,9 @@ export function ToolCallCards({ calls }: { calls: readonly ToolCallView[] }) {
   );
 }
 
-const CARD_RENDERERS: Record<'search' | 'dump', (c: ToolCallView) => React.ReactElement | null> = {
+const CARD_RENDERERS: Record<'search' | 'slots' | 'dump', (c: ToolCallView) => React.ReactElement | null> = {
   search: (call) => <SearchHitsCard call={call} />,
+  slots:  (call) => <SlotsCard call={call} />,
   dump:   (call) => <GenericDumpCard call={call} />,
 };
 
@@ -69,6 +70,53 @@ function SearchHitRow({ h }: { h: SearchHit }) {
       {h.summary && <span className={styles['summary']}>{h.summary}</span>}
     </li>
   );
+}
+
+// SlotsCard —— calendar_list_slots 结果。展示可订时间。G-7 minimum：静
+// 态显示 owner-local 字符串；clickable 设计放 G-7 follow-up。
+function SlotsCard({ call }: { call: ToolCallView }) {
+  const slots = pickSlots(call.result);
+  return slots.length === 0 ? <SlotsEmpty /> : (
+    <div className={styles['slotsCard']} data-testid="tool-card-calendar_list_slots">
+      <div className={styles['kicker']}>available · {slots.length} slots</div>
+      <ul className={styles['slots']}>
+        {slots.map((s) => <SlotRow key={s.start} s={s} />)}
+      </ul>
+    </div>
+  );
+}
+
+function SlotsEmpty() {
+  return (
+    <div className={styles['slotsCard']} data-testid="tool-card-calendar_list_slots">
+      <div className={styles['kicker']}>available · 0 slots</div>
+      <div className={styles['slotsEmpty']}>
+        no free slots in that window — try a different range.
+      </div>
+    </div>
+  );
+}
+
+function SlotRow({ s }: { s: SlotView }) {
+  return (
+    <li className={styles['slot']} data-testid="tool-card-slot" data-start={s.start}>
+      <span className={styles['slotTime']}>{formatSlotLocal(s.start, s.end)}</span>
+    </li>
+  );
+}
+
+// formatSlotLocal —— RFC3339 → 'Wed Jun 4 · 2:00pm-3:00pm' (visitor local
+// tz)。简单 Intl.DateTimeFormat，不引重型 lib (luxon / date-fns)。
+function formatSlotLocal(startISO: string, endISO: string): string {
+  const start = new Date(startISO);
+  const end = new Date(endISO);
+  const dayFmt = new Intl.DateTimeFormat(undefined, {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+  const timeFmt = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric', minute: '2-digit',
+  });
+  return `${dayFmt.format(start)} · ${timeFmt.format(start)}–${timeFmt.format(end)}`;
 }
 
 // GenericDumpCard —— skill_* / ext_* tool 结果。debug-grade JSON pretty

@@ -9,11 +9,8 @@ package usecases
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/wangsijie/standmeet/internal/agentskills"
 	"github.com/wangsijie/standmeet/internal/domain"
@@ -31,6 +28,10 @@ const (
 	// 切到 snake_case 跟 corpus_search/read/list 一致 (URL `/tools/{name}`
 	// 1:1)；cap ID / role grant key 仍 dotted (data 稳定)。
 	toolCalendarBookName = "calendar_book"
+	// toolCalendarListSlotsName —— G-7: visitor 想"看一眼 owner 有哪些
+	// 空"。复用 owner-side ListAvailableSlots usecase；result wire 跟
+	// owner cap_calendar 用同形态 ({slots:[{start,end}]})。
+	toolCalendarListSlotsName = "calendar_list_slots"
 	// BookerSkillName —— role.AllowedTools 中此 string 即解锁 calendar.book。
 	BookerSkillName = capCalendarBook
 
@@ -158,6 +159,8 @@ func bookerQuotaExhausted(
 
 // buildCalendarBookBinding —— gating 通过后的最终 Binding：tool spec +
 // executor 闭包 (执行 BookMeeting) + state (quota_remaining 计算)。
+// G-7 起绑两个 tool: calendar_book + calendar_list_slots (read-only，不
+// 走 quota)。同一个 executor 按 name 分发。
 func buildCalendarBookBinding(
 	ctx context.Context, deps *VisitorDeps,
 	in *agentskills.AssembleInput, owner *domain.Owner,
@@ -170,7 +173,10 @@ func buildCalendarBookBinding(
 	}
 	exec := makeBookerExecutor(deps, in, owner)
 	return &agentskills.Binding{
-		Tools: []agentskills.BindingTool{{Spec: bookerToolSpec(), Execute: exec}},
+		Tools: []agentskills.BindingTool{
+			{Spec: bookerToolSpec(), Execute: exec},
+			{Spec: listSlotsToolSpec(), Execute: exec},
+		},
 		State: state,
 	}
 }
@@ -191,155 +197,25 @@ func bookerQuotaRemaining(
 	return &rem
 }
 
-func bookerToolSpec() inference.ToolSpec {
-	return inference.ToolSpec{
-		Name: toolCalendarBookName,
-		Description: "Book a meeting on the owner's Google Calendar. " +
-			"Only call after you have gathered topic, duration (15-180 minutes), " +
-			"and one or more visitor-confirmed preferred start times in RFC3339 " +
-			"format. Optionally include a visitor_email so Google sends the " +
-			"calendar invite.",
-		InputSchema: json.RawMessage(`{
-			"type":"object",
-			"properties":{
-				"topic":{"type":"string"},
-				"duration_min":{"type":"integer","minimum":15,"maximum":180},
-				"preferred_times":{
-					"type":"array",
-					"items":{"type":"string","description":"RFC3339"},
-					"minItems":1
-				},
-				"visitor_email":{"type":"string","format":"email"}
-			},
-			"required":["topic","duration_min","preferred_times"]
-		}`),
-	}
-}
+// bookerToolSpec 拆到 agentskills_booker_book.go。
+
+// listSlotsToolSpec / decode* / marshal* / 类型 都拆到
+// agentskills_booker_slots.go (max-lines 350 cap)。
 
 func makeBookerExecutor(
 	deps *VisitorDeps, in *agentskills.AssembleInput, owner *domain.Owner,
 ) inference.ToolExecutor {
 	return func(ctx context.Context, name string, input []byte) (string, error) {
-		if name != toolCalendarBookName {
-			return "", fmt.Errorf("calendar_book: unknown tool %q", name)
+		switch name {
+		case toolCalendarBookName:
+			return runBookerBook(ctx, deps, in, owner, input)
+		case toolCalendarListSlotsName:
+			return runBookerListSlots(ctx, deps, in, owner, input)
 		}
-		args, derr := decodeBookArgs(input)
-		if derr != nil {
-			return marshalBookErrResult("invalid_args", derr.Error()), nil
-		}
-		result, berr := BookMeeting(ctx, deps.GCal, deps.Calendar, &BookMeetingInput{
-			PreferredTimes: args.PreferredTimes,
-			OwnerID:        in.OwnerID,
-			OwnerTZ:        owner.ProfileTimezone,
-			CodeID:         in.CodeID,
-			ConversationID: in.ConversationID,
-			VisitorName:    in.VisitorName,
-			Topic:          args.Topic,
-			VisitorEmail:   args.VisitorEmail,
-			DurationMin:    args.DurationMin,
-		})
-		if berr != nil {
-			return marshalBookErr(berr), nil
-		}
-		return marshalBookResult(&result), nil
+		return "", fmt.Errorf("booker: unknown tool %q", name)
 	}
 }
 
-type bookArgsWire struct {
-	Topic          string      `json:"topic"`
-	VisitorEmail   string      `json:"visitor_email"`
-	PreferredTimes []time.Time `json:"preferred_times"`
-	DurationMin    int         `json:"duration_min"`
-}
-
-func decodeBookArgs(input []byte) (bookArgsWire, error) {
-	var args bookArgsWire
-	if err := json.Unmarshal(input, &args); err != nil {
-		return args, fmt.Errorf("decode args: %w", err)
-	}
-	if verr := validateBookArgs(&args); verr != nil {
-		return args, verr
-	}
-	return args, nil
-}
-
-func validateBookArgs(args *bookArgsWire) error {
-	if args.Topic == "" {
-		return errors.New("missing topic")
-	}
-	if args.DurationMin < minDurationMin || args.DurationMin > maxDurationMin {
-		return fmt.Errorf("duration_min must be %d–%d", minDurationMin, maxDurationMin)
-	}
-	if len(args.PreferredTimes) == 0 {
-		return errors.New("preferred_times required")
-	}
-	return nil
-}
-
-// ───── result encoding —— 跟旧 bookerBundle 同 wire 格式不变 ───────
-
-type bookErrWire struct {
-	Error  string `json:"error"`
-	Detail string `json:"detail"`
-	OK     bool   `json:"ok"`
-}
-
-type bookOKWire struct {
-	EventID  string `json:"event_id"`
-	HTMLLink string `json:"html_link"`
-	Start    string `json:"start"`
-	End      string `json:"end"`
-	OK       bool   `json:"ok"`
-}
-
-type bookFailWire struct {
-	Conflict    string                  `json:"conflict"`
-	PolicyHint  string                  `json:"policy_hint,omitempty"`
-	BusyWindows []domain.BookBusyWindow `json:"busy_windows,omitempty"`
-	OK          bool                    `json:"ok"`
-}
-
-func marshalBookErrResult(reason, detail string) string {
-	out, err := json.Marshal(bookErrWire{OK: false, Error: reason, Detail: detail})
-	if err != nil {
-		return `{"ok":false,"error":"marshal_failed"}`
-	}
-	return string(out)
-}
-
-func marshalBookErr(err error) string {
-	switch {
-	case errors.Is(err, domain.ErrCalendarNotConnected):
-		return marshalBookErrResult("not_connected", "owner has not connected a calendar yet")
-	case errors.Is(err, domain.ErrCalendarRevoked):
-		return marshalBookErrResult("revoked", "owner calendar authorization has been revoked")
-	default:
-		return marshalBookErrResult("internal_error", err.Error())
-	}
-}
-
-func marshalBookResult(r *domain.BookResult) string {
-	if r.OK {
-		out, err := json.Marshal(bookOKWire{
-			OK:       true,
-			EventID:  r.EventID,
-			HTMLLink: r.HTMLLink,
-			Start:    r.Start.Format(time.RFC3339),
-			End:      r.End.Format(time.RFC3339),
-		})
-		if err != nil {
-			return `{"ok":false,"error":"marshal_failed"}`
-		}
-		return string(out)
-	}
-	out, err := json.Marshal(bookFailWire{
-		OK:          false,
-		Conflict:    string(r.Reason),
-		PolicyHint:  r.PolicyHint,
-		BusyWindows: r.BusyWindows,
-	})
-	if err != nil {
-		return `{"ok":false,"error":"marshal_failed"}`
-	}
-	return string(out)
-}
+// runBookerBook + book-side 类型/decode/marshal 全部拆到
+// agentskills_booker_book.go；runBookerListSlots + list_slots-side 全
+// 部拆到 agentskills_booker_slots.go。

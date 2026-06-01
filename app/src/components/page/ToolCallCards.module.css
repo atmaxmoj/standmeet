@@ -67,6 +67,42 @@
   line-height: 1.4;
 }
 
+/* calendar_list_slots card —— available 时间列表。比 search card 强调
+   一档 (slot 是用户要"看"的；search hit 是次要信息)。 */
+.slotsCard {
+  padding: 0.6em 0.9em;
+  background: color-mix(in oklab, var(--color-accent) 5%, transparent);
+  border-left: 2px solid var(--color-accent);
+  border-radius: 2px;
+}
+
+.slots {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.slot {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--color-ink);
+  line-height: 1.4;
+}
+
+.slotTime {
+  letter-spacing: 0.02em;
+}
+
+.slotsEmpty {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
 /* generic skill / ext dump —— debug 风：mono、paper 底、size 收。 */
 .genericCard {
   padding: 0.6em 0.9em;
