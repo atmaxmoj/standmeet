@@ -184,9 +184,10 @@ func (b *extMCPBundle) absorb(serverName string, r *dialResult) {
 		}
 		b.tools = append(b.tools, agentskills.BindingTool{
 			Spec: inference.ToolSpec{
-				Name:        toolName,
-				Description: extToolDescription(serverName, t),
-				InputSchema: t.InputSchema,
+				Name:          toolName,
+				Description:   extToolDescription(serverName, t),
+				ProgressLabel: "calling external mcp",
+				InputSchema:   t.InputSchema,
 			},
 			Execute: makeExtMCPExecutor(r.session, t.Name),
 		})

@@ -27,12 +27,15 @@ const (
 )
 
 // retrievalToolSpecs —— 三个 tool 的 JSON schema 定义。
+// ProgressLabel: G-8 throbber 文案，session 一并下发让 frontend 不必各自
+// 硬编码。
 func retrievalToolSpecs() []inference.ToolSpec {
 	return []inference.ToolSpec{
 		{
 			Name: toolSearchCorpus,
 			Description: "Search owner's curated corpus by keyword. Returns " +
-				"matching wiki + output entries with path, title, kind, summary.",
+				"matching wiki + output entries with path, title, genre, summary.",
+			ProgressLabel: "searching corpus",
 			InputSchema: json.RawMessage(`{
 				"type": "object",
 				"properties": {"query": {"type": "string"}},
@@ -43,6 +46,7 @@ func retrievalToolSpecs() []inference.ToolSpec {
 			Name: toolReadCorpus,
 			Description: "Read the full body of a corpus entry by its path " +
 				"(e.g. projects/lucerna). Use after search to fetch content.",
+			ProgressLabel: "reading entry",
 			InputSchema: json.RawMessage(`{
 				"type": "object",
 				"properties": {"path": {"type": "string"}},
@@ -50,8 +54,9 @@ func retrievalToolSpecs() []inference.ToolSpec {
 			}`),
 		},
 		{
-			Name:        toolListCorpus,
-			Description: "List corpus entry paths optionally filtered by prefix.",
+			Name:          toolListCorpus,
+			Description:   "List corpus entry paths optionally filtered by prefix.",
+			ProgressLabel: "listing entries",
 			InputSchema: json.RawMessage(`{
 				"type": "object",
 				"properties": {"prefix": {"type": "string"}}

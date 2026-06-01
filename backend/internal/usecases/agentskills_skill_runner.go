@@ -119,9 +119,10 @@ func skillBindingTools(runner sandbox.Runner, s *domain.Skill) []agentskills.Bin
 		}
 		out = append(out, agentskills.BindingTool{
 			Spec: inference.ToolSpec{
-				Name:        toolName,
-				Description: skillToolDescription(s, script),
-				InputSchema: skillScriptInputSchema(script),
+				Name:          toolName,
+				Description:   skillToolDescription(s, script),
+				ProgressLabel: "running owner skill",
+				InputSchema:   skillScriptInputSchema(script),
 			},
 			Execute: makeSkillExecutor(runner, script),
 		})

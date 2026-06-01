@@ -13,6 +13,7 @@ import {
 import { readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useToolSpecsStore } from '@/lib/visitor/tool-specs-store';
 
 export type SessionMode = 'public' | 'code' | 'byoai';
 
@@ -40,6 +41,8 @@ export async function ensureSession(
   const sess = toPageSession(issued);
   ref.current = sess;
   useCapabilityStore.getState().setStates(extractCapabilities(issued));
+  // G-8: tool_specs 进 throbber-label registry，components 读 progress_label
+  useToolSpecsStore.getState().setSpecs(issued.tool_specs ?? []);
   return sess;
 }
 

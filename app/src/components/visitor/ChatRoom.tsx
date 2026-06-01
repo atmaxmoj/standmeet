@@ -13,6 +13,7 @@ import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
+import { useThrobberLabel } from '@/lib/page/use-throbber-label';
 import type { Citation, SessionMode } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
 
@@ -158,27 +159,23 @@ function ToolThrobbers({ names }: { names: readonly string[] }) {
       data-testid="tool-throbbers"
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
     >
-      {names.map((n, i) => (
-        <li key={i} data-testid={`tool-throbber-${n}`}>
-          {throbberLabel(n)}
-          <span className="sm-dot">·</span>
-          <span className="sm-dot">·</span>
-          <span className="sm-dot">·</span>
-        </li>
-      ))}
+      {names.map((n, i) => <ToolThrobberRow key={i} name={n} />)}
     </ul>
   );
 }
 
-const THROBBER_LABELS: Record<string, string> = {
-  corpus_search: 'searching corpus',
-  corpus_read: 'reading entry',
-  corpus_list: 'listing entries',
-  calendar_book: 'booking meeting',
-};
-
-function throbberLabel(name: string): string {
-  return THROBBER_LABELS[name] ?? `running ${name}`;
+// G-8: label 走 zustand registry (backend ToolSpec.progress_label single
+// source)；之前两份硬编码 THROBBER_LABELS 表全删。
+function ToolThrobberRow({ name }: { name: string }) {
+  const label = useThrobberLabel(name);
+  return (
+    <li data-testid={`tool-throbber-${name}`}>
+      {label}
+      <span className="sm-dot">·</span>
+      <span className="sm-dot">·</span>
+      <span className="sm-dot">·</span>
+    </li>
+  );
 }
 
 function ThinkingDots() {

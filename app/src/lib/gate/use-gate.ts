@@ -34,6 +34,8 @@ import { safeJsonString } from '@/lib/api/typed-json';
 const ToolSpecSchema = z.object({
   name: z.string(),
   description: z.string(),
+  // G-8: throbber 文案随 spec 一起持久化；缺失 → fallback "running <name>"
+  progress_label: z.string().optional(),
   input_schema: z.unknown(),
 });
 const CapStateSchema = z.object({

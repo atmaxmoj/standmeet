@@ -73,9 +73,9 @@ export type Dialog = {
   time: string;
   pending: boolean;
   answer: DialogAnswer | null;
-  // D-5: per-tool throbber 序列。agent-core 跑每个 tool 时 tool_started
-  // → name 入这个列表，ConversationDeck 渲一条 "searching corpus..." /
-  // "booking meeting..." 提示。最后 done 仍渲文本。
+  // D-5: per-tool throbber 序列。agent-core 跑每个 tool 时 tool_started →
+  // name 入这个列表；ConversationDeck / ChatRoom 渲一条 throbber，label
+  // 走 useThrobberLabel 从 backend ToolSpec.progress_label 拉 (G-8)。
   toolStartedNames: readonly string[];
   // G-4: tool_completed 累到这里；UI 按 name 渲卡片 (corpus_search 卡 /
   // skill_*/ext_* generic dump)。corpus_read 的 result 走 Citation 不重复。

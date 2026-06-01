@@ -88,6 +88,10 @@ export interface PublicSessionCapability {
 export interface PublicSessionToolSpec {
   readonly name: string;
   readonly description: string;
+  // G-8: tool 跑过程中 frontend throbber 显的文案；空 / 缺失 → fallback
+  // "running <name>"。让 label 跟 tool spec 同源 (backend single source)，
+  // frontend ConversationDeck/ChatRoom 不再各自硬编码 THROBBER_LABELS 表。
+  readonly progress_label?: string;
   readonly input_schema: unknown;
 }
 

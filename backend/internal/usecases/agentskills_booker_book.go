@@ -23,6 +23,7 @@ func bookerToolSpec() inference.ToolSpec {
 			"and one or more visitor-confirmed preferred start times in RFC3339 " +
 			"format. Optionally include a visitor_email so Google sends the " +
 			"calendar invite.",
+		ProgressLabel: "booking meeting",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{

@@ -16,6 +16,7 @@
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
+import { useThrobberLabel } from '@/lib/page/use-throbber-label';
 import type { Citation, Dialog, DialogAnswer } from '@/lib/page/use-chat';
 
 type Props = {
@@ -83,28 +84,24 @@ function ToolThrobbers({ names }: { names: readonly string[] }) {
       data-testid="tool-throbbers"
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
     >
-      {names.map((n, i) => (
-        <li key={i} data-testid={`tool-throbber-${n}`}>
-          {throbberLabel(n)}
-          <span className="dot">·</span>
-          <span className="dot">·</span>
-          <span className="dot">·</span>
-        </li>
-      ))}
+      {names.map((n, i) => <ToolThrobberRow key={i} name={n} />)}
     </ul>
   );
 }
 
-function throbberLabel(name: string): string {
-  return THROBBER_LABELS[name] ?? `running ${name}`;
+// ToolThrobberRow —— G-8: label 从 backend 下发的 progress_label (zustand
+// registry) 拉，不再两份硬编码 THROBBER_LABELS。
+function ToolThrobberRow({ name }: { name: string }) {
+  const label = useThrobberLabel(name);
+  return (
+    <li data-testid={`tool-throbber-${name}`}>
+      {label}
+      <span className="dot">·</span>
+      <span className="dot">·</span>
+      <span className="dot">·</span>
+    </li>
+  );
 }
-
-const THROBBER_LABELS: Record<string, string> = {
-  corpus_search: 'searching corpus',
-  corpus_read: 'reading entry',
-  corpus_list: 'listing entries',
-  calendar_book: 'booking meeting',
-};
 
 function AnswerOrError({ dialog, ownerHandle }: { dialog: Dialog; ownerHandle: string }) {
   return (

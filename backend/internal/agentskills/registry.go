@@ -133,15 +133,22 @@ const VisitorHeaderFragmentID = "visitor-header"
 // VisitorToolSpec —— frontend 看到的 tool 描述 (LLM tool API shape)。
 // 跟 inference.ToolSpec 同字段，但放 agentskills 包让 routes 不依赖
 // inference 包就拿得到。
+//
+// ProgressLabel —— G-8: tool 跑过程中 frontend throbber 显的文案
+// ("searching corpus" / "reading entry" / ...)。空字符串 → frontend
+// fallback "running <name>"。让 label 跟 tool 注册同源，去掉前端两份硬
+// 编码 THROBBER_LABELS 重复。omitempty 保证 wire 干净。
 type VisitorToolSpec struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	InputSchema json.RawMessage `json:"input_schema"`
+	Name          string          `json:"name"`
+	Description   string          `json:"description"`
+	ProgressLabel string          `json:"progress_label,omitempty"`
+	InputSchema   json.RawMessage `json:"input_schema"`
 }
 
 // VisitorToolSpecs —— per-session 跑一遍 AssembleVisitor 拿到所有 enabled
-// capability 的 tool spec 列表 (name + description + input_schema)，让前端
-// pi-agent-core 知道往 LLM 注哪些 tool。Close hook 顺手释放 (一次性查询)。
+// capability 的 tool spec 列表 (name + description + progress_label +
+// input_schema)，让前端 pi-agent-core 知道往 LLM 注哪些 tool + throbber 怎
+// 么显。Close hook 顺手释放 (一次性查询)。
 func (r *Registry) VisitorToolSpecs(
 	ctx context.Context, in *AssembleInput,
 ) []VisitorToolSpec {
@@ -150,9 +157,10 @@ func (r *Registry) VisitorToolSpecs(
 	for _, b := range bindings {
 		for i := range b.Tools {
 			out = append(out, VisitorToolSpec{
-				Name:        b.Tools[i].Spec.Name,
-				Description: b.Tools[i].Spec.Description,
-				InputSchema: b.Tools[i].Spec.InputSchema,
+				Name:          b.Tools[i].Spec.Name,
+				Description:   b.Tools[i].Spec.Description,
+				ProgressLabel: b.Tools[i].Spec.ProgressLabel,
+				InputSchema:   b.Tools[i].Spec.InputSchema,
 			})
 		}
 		if b.Close != nil {

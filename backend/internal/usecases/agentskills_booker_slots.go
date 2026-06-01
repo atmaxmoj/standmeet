@@ -45,6 +45,7 @@ func listSlotsToolSpec() inference.ToolSpec {
 			"between from_rfc3339 and until_rfc3339 that pass booking policy and " +
 			"don't overlap any busy window. Returns up to 50 slots. Use this " +
 			"before calendar_book so the visitor can pick an actual free time.",
+		ProgressLabel: "listing slots",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
