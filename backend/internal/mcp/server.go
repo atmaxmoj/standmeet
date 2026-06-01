@@ -139,7 +139,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	resumeTools(mcpSrv, deps)
 	applicationsTools(mcpSrv, deps)
 	// chatTools 已 E-4 迁到 cap_chat.go
-	skillsTools(mcpSrv, deps)
+	// skillsTools 已 E-8 迁到 cap_skills.go
 	// promptsTools 已 E-5 迁到 cap_prompts.go
 	// rolesTools 已 E-6 迁到 cap_roles.go
 	// mcpServersTools 已 E-7 迁到 cap_mcp_servers.go

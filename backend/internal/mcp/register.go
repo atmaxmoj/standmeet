@@ -25,6 +25,7 @@ type RegisterDeps struct {
 	Prompts       *usecases.PromptsDeps
 	Roles         *usecases.RolesDeps
 	MCPServers    *usecases.MCPServersDeps
+	Skills        *usecases.SkillsDeps
 	Log           *slog.Logger
 }
 
@@ -42,4 +43,5 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newPromptsCapability(deps.Prompts, deps.Log))
 	reg.MustRegister(newRolesCapability(deps.Roles, deps.Log))
 	reg.MustRegister(newMCPServersCapability(deps.MCPServers, deps.Log))
+	reg.MustRegister(newSkillsCapability(deps.Skills, deps.Log))
 }
