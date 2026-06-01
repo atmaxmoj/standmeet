@@ -134,7 +134,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	// corpusTools 已 E-1 迁到 cap_corpus_raw.go
 	// outputTools 已 E-2 迁到 cap_corpus_output.go
 	// seoTools 已搬进 cap_seo.go (走 registerCapabilities)
-	customPageTools(mcpSrv, deps)
+	// customPageTools 已 E-14a 迁到 cap_custom_page*.go
 	// jobsTools 已 E-10 迁到 cap_jobs.go
 	// resumeTools 已 E-11 迁到 cap_resume.go
 	// applicationsTools 已 E-12 迁到 cap_applications.go (+ MCPResult.Embeddings 扩)

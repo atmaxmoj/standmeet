@@ -135,6 +135,9 @@ func registerAgentSkills(d *runtimeDeps) {
 		Apps: d.applicationRepo, Owners: d.ownerRepo,
 		Roles: d.roleRepo, Renderer: d.pdfRenderer,
 	}
+	customPagesDeps := usecases.CustomPageDeps{
+		Pages: d.customPageRepo, Builds: d.customBuildRepo,
+	}
 	mcp.RegisterAgentSkills(d.agentSkills, &mcp.RegisterDeps{
 		Owners:        d.ownerRepo,
 		SEO:           d.seoRepo,
@@ -150,6 +153,7 @@ func registerAgentSkills(d *runtimeDeps) {
 		Jobs:          &jobsDeps,
 		Resume:        &resumeDeps,
 		Applications:  &appsDeps,
+		CustomPages:   &customPagesDeps,
 		Log:           d.log,
 	})
 }

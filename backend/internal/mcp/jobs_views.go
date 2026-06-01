@@ -4,7 +4,6 @@ package mcp
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/wangsijie/standmeet/internal/domain"
@@ -50,22 +49,6 @@ func jobSourceView(s *domain.JobSource) jobSourceViewT {
 		v.LastFetchedAt = &t
 	}
 	return v
-}
-
-func (p *jobSourceViewT) marshalJSON() ([]byte, error) {
-	b, err := json.Marshal(p)
-	if err != nil {
-		return nil, fmt.Errorf("marshal job source view: %w", err)
-	}
-	return b, nil
-}
-
-func (p *fetchedJobView) marshalJSON() ([]byte, error) {
-	b, err := json.Marshal(p)
-	if err != nil {
-		return nil, fmt.Errorf("marshal fetched job view: %w", err)
-	}
-	return b, nil
 }
 
 func fetchedJobViews(jobs []domain.FetchedJob) []fetchedJobView {
