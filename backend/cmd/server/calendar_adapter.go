@@ -81,6 +81,28 @@ func (a calendarStoreAdapter) CountBookingsForCode(
 	return out, nil
 }
 
+// E-14c additions: GetBookingByID + DeleteBooking pass-through (no
+// input-type translation needed; method names match usecases interface).
+
+func (a calendarStoreAdapter) GetBookingByID(
+	ctx context.Context, ownerID, bookingID string,
+) (domain.CodeBooking, error) {
+	out, err := a.repo.GetBookingByID(ctx, ownerID, bookingID)
+	if err != nil {
+		return out, fmt.Errorf("adapter get booking: %w", err)
+	}
+	return out, nil
+}
+
+func (a calendarStoreAdapter) DeleteBooking(
+	ctx context.Context, ownerID, bookingID string,
+) error {
+	if err := a.repo.DeleteBooking(ctx, ownerID, bookingID); err != nil {
+		return fmt.Errorf("adapter delete booking: %w", err)
+	}
+	return nil
+}
+
 // calendarClientAdapter —— wraps *gcal.Client.
 type calendarClientAdapter struct {
 	client *gcal.Client
@@ -114,4 +136,14 @@ func (a calendarClientAdapter) RefreshToken(
 		return out, fmt.Errorf("adapter refresh token: %w", err)
 	}
 	return out, nil
+}
+
+// E-14c addition: DeleteEvent pass-through for cancel_booking path.
+func (a calendarClientAdapter) DeleteEvent(
+	ctx context.Context, in *gcal.DeleteEventInput,
+) error {
+	if err := a.client.DeleteEvent(ctx, in); err != nil {
+		return fmt.Errorf("adapter delete event: %w", err)
+	}
+	return nil
 }

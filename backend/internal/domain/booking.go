@@ -112,3 +112,7 @@ var ErrCalendarRevoked = errors.New("calendar oauth revoked")
 
 // ErrBookingPolicyMissingHours —— working_hours_* 值格式错。
 var ErrBookingPolicyMissingHours = errors.New("booking policy hours malformed")
+
+// ErrBookingNotFound —— E-14c: GetBookingByID / DeleteBooking 未命中
+// 或 ownership 不匹 (不泄露存在性)。
+var ErrBookingNotFound = errors.New("booking not found")

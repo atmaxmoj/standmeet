@@ -171,12 +171,15 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /google-oauth/token", s.serveOAuthToken)
 	const insertRoute = "POST /google-calendar/calendars/{calendarId}/events"
 	mux.HandleFunc(insertRoute, s.serveCalendarEventsInsert)
+	const deleteRoute = "DELETE /google-calendar/calendars/{calendarId}/events/{eventId}"
+	mux.HandleFunc(deleteRoute, s.serveCalendarEventsDelete)
 	mux.HandleFunc("POST /google-calendar/freeBusy", s.serveCalendarFreeBusy)
 	// /__mock/gcal/* — control endpoints e2e specs use to seed busy
 	// fixtures and inspect inserted events.
 	mux.HandleFunc("POST /__mock/gcal/set_busy", s.serveMockSetBusy)
 	mux.HandleFunc("POST /__mock/gcal/reset", s.serveMockGCalReset)
 	mux.HandleFunc("GET /__mock/gcal/events", s.serveMockGCalEvents)
+	mux.HandleFunc("GET /__mock/gcal/deleted_events", s.serveMockGCalDeletedEvents)
 	mux.HandleFunc("GET /__mock/gcal/token_call_count", s.serveMockGCalTokenCount)
 	// /__mock/inference/* —— mock LLM scripting bridge for backend's
 	// MockProvider. Tests POST {name,args} to /next_tool; backend GETs

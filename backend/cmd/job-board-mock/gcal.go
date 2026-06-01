@@ -53,6 +53,7 @@ type mockEvent struct {
 type gcalState struct {
 	busy           []busyWindow
 	events         []mockEvent
+	deletedEvents  []mockEvent
 	tokenCallCount int
 	mu             sync.Mutex
 }
@@ -179,6 +180,8 @@ func (s *server) serveCalendarEventsInsert(w http.ResponseWriter, r *http.Reques
 	writeInsertEvent(s.log, w, &resp)
 }
 
+// Events.delete handler 拆到 gcal_delete.go 守 max-lines。
+
 // ─── /google-calendar/freeBusy ─────────────────────────────────
 
 type freeBusyRequest struct {
@@ -259,6 +262,7 @@ func (s *server) serveMockGCalReset(w http.ResponseWriter, _ *http.Request) {
 	s.withState(func(st *gcalState) {
 		st.busy = nil
 		st.events = nil
+		st.deletedEvents = nil
 		st.tokenCallCount = 0
 	})
 	writeOK(s.log, w)

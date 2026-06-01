@@ -134,6 +134,26 @@ func (c *Client) calendarPost(
 	return resp, nil
 }
 
+// calendarDelete builds + sends a DELETE to calendarBase+path with the
+// bearer token. Body-less. Caller closes resp.Body.
+func (c *Client) calendarDelete(
+	ctx context.Context, path, accessToken string,
+) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodDelete, c.calendarBase+path, http.NoBody,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("gcal: new delete request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("gcal: delete request: %w", err)
+	}
+	return resp, nil
+}
+
 // checkCalendarStatus inspects the status code and returns ErrUnauthorized
 // for 401/403, a wrapped error with body excerpt for other non-success
 // codes, and nil for 200/201. Simple tagged switch — cyclop happy.

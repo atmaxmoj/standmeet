@@ -258,3 +258,5 @@ func decodeInsert(resp *http.Response) (InsertedEvent, error) {
 	}
 	return InsertedEvent{EventID: w.ID, HTMLLink: w.HTMLLink, Status: w.Status}, nil
 }
+
+// Events.delete 拆到 events_delete.go 守 max-public-structs=5。

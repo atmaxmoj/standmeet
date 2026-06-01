@@ -139,6 +139,11 @@ func registerAgentSkills(d *runtimeDeps) {
 		Pages: d.customPageRepo, Builds: d.customBuildRepo,
 	}
 	handleDeps := usecases.HandleDeps{Owners: d.ownerRepo}
+	calendarStore := calendarStoreAdapter{repo: d.calendarRepo}
+	calendarClient := calendarClientAdapter{client: d.gcalClient}
+	calendarDeps := &mcp.CalendarOwnerDeps{
+		Client: calendarClient, Store: calendarStore,
+	}
 	mcp.RegisterAgentSkills(d.agentSkills, &mcp.RegisterDeps{
 		Owners:        d.ownerRepo,
 		SEO:           d.seoRepo,
@@ -156,6 +161,7 @@ func registerAgentSkills(d *runtimeDeps) {
 		Applications:  &appsDeps,
 		CustomPages:   &customPagesDeps,
 		Handle:        &handleDeps,
+		Calendar:      calendarDeps,
 		Log:           d.log,
 	})
 }

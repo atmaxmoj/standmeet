@@ -95,6 +95,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountMarketplace(r)
 	h.MountCalendarConnector(r)
 	h.MountBookingPolicy(r)
+	h.MountBookings(r)
 }
 
 type claimRequest struct {
