@@ -121,6 +121,12 @@ func registerAgentSkills(d *runtimeDeps) {
 		Servers: d.mcpServerRepo, Codes: d.codeRepo,
 	}
 	skillsDeps := usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo}
+	writingsDeps := usecases.WritingsDeps{Writings: d.writingRepo}
+	writingsTxDeps := usecases.WritingsTxDeps{
+		Writings:    d.writingRepo,
+		WritingRefs: d.writingRefRepo,
+		Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
+	}
 	mcp.RegisterAgentSkills(d.agentSkills, &mcp.RegisterDeps{
 		Owners:        d.ownerRepo,
 		SEO:           d.seoRepo,
@@ -131,6 +137,8 @@ func registerAgentSkills(d *runtimeDeps) {
 		Roles:         &rolesDeps,
 		MCPServers:    &mcpServersDeps,
 		Skills:        &skillsDeps,
+		Writings:      &writingsDeps,
+		WritingsTx:    &writingsTxDeps,
 		Log:           d.log,
 	})
 }

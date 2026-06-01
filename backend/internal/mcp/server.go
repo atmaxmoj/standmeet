@@ -143,7 +143,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	// promptsTools 已 E-5 迁到 cap_prompts.go
 	// rolesTools 已 E-6 迁到 cap_roles.go
 	// mcpServersTools 已 E-7 迁到 cap_mcp_servers.go
-	writingsTools(mcpSrv, deps)
+	// writingsTools 已 E-9 迁到 cap_writings.go
 }
 
 // formatOwner —— `me` capability + 其他可能引用 owner profile 的地方共用。
