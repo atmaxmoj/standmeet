@@ -376,10 +376,20 @@ async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
     : await issueByMode(deps);
 }
 
-function reuseStored(stored: { session_token: string; conversation_id: string }): PublicSessionResponse {
+// reuseStored —— rebuild PublicSessionResponse from the persisted blob.
+// G-1 fix: persist + restore capabilities + tool_specs (D-5 lost them).
+type StoredFull = Pick<PublicSessionResponse,
+  'session_token' | 'conversation_id' | 'capabilities' | 'tool_specs' |
+  'system_prompt_part_ids' | 'system_prompt_persona'>;
+
+function reuseStored(stored: StoredFull): PublicSessionResponse {
   return {
     session_token: stored.session_token,
     conversation_id: stored.conversation_id,
+    capabilities: stored.capabilities,
+    tool_specs: stored.tool_specs,
+    system_prompt_part_ids: stored.system_prompt_part_ids,
+    system_prompt_persona: stored.system_prompt_persona,
   };
 }
 

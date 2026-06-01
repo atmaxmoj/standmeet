@@ -27,17 +27,46 @@ import { z } from 'zod';
 
 import { safeJsonString } from '@/lib/api/typed-json';
 
+// Cap state + tool spec also persisted (was missing before — D-5 pivot
+// regression where reuseStored returned partial state without capabilities,
+// pi-agent saw current()=[] and sent tools:[] to /inference/stream,
+// breaking all visitor tool calls in prod).
+const ToolSpecSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  input_schema: z.unknown(),
+});
+const CapStateSchema = z.object({
+  id: z.string(),
+  enabled: z.boolean(),
+  quota_remaining: z.number().optional(),
+  policy_summary: z.string().optional(),
+});
 const StoredVisitorSessionSchema = z.object({
-  session_token: z.string(), conversation_id: z.string(), byoai: z.boolean(),
+  session_token: z.string(),
+  conversation_id: z.string(),
+  byoai: z.boolean(),
+  capabilities: z.array(CapStateSchema).optional(),
+  tool_specs: z.array(ToolSpecSchema).optional(),
+  system_prompt_part_ids: z.array(z.string()).optional(),
+  system_prompt_persona: z.string().optional(),
 });
 type StoredVisitorSession = z.infer<typeof StoredVisitorSessionSchema>;
 
 export function persistSession(sess: PublicSessionResponse, byoai: boolean): void {
   if (typeof window === 'undefined') return;
+  // PublicSessionResponse uses readonly arrays; zod-inferred Stored shape
+  // uses mutable. Spread into fresh mutable arrays so the type-check passes
+  // without unsafe casts; JSON.stringify treats both the same anyway.
   const data: StoredVisitorSession = {
     session_token: sess.session_token,
     conversation_id: sess.conversation_id,
     byoai,
+    capabilities: sess.capabilities ? [...sess.capabilities] : undefined,
+    tool_specs: sess.tool_specs ? [...sess.tool_specs] : undefined,
+    system_prompt_part_ids: sess.system_prompt_part_ids
+      ? [...sess.system_prompt_part_ids] : undefined,
+    system_prompt_persona: sess.system_prompt_persona,
   };
   window.localStorage.setItem(BYOAI_STORAGE_KEY, JSON.stringify(data));
 }

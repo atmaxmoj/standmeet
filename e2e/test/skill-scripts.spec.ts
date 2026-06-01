@@ -19,7 +19,6 @@ import { test, expect } from '@/fixtures/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import type { APIRequestContext } from '@playwright/test';
 
 const OWNER = {
@@ -53,20 +52,13 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
   });
 
   test('visitor chat invokes skill script tool → throbber + sandbox stdout in reply',
-    async ({ browser, playwright }) => {
-      // 让 mock LLM 下一步必调 skill_marker-emitter_run。pi-agent flow
-      // 当前 toolSpecRegistry → /inference/stream tools array 之间还有 gap
-      // (capabilities enabled 但 tools array 空), scripted path 绕开
-      // req.Tools 直接 emit tool_call，路径仍真：mock → useAgent dispatch
-      // → POST /tools/skill_marker-emitter_run → sandbox docker → stdout
-      // → tool_result → second-turn 文本 echo 进 chat reply。
-      const reqCtx = await playwright.request.newContext();
-      await scriptMockToolCall(reqCtx, {
-        name: `skill_${SKILL_NAME}_run`,
-        args: {},
-      });
-      await reqCtx.dispose();
-
+    async ({ browser }) => {
+      // 自然 LLM 流程：visitor 输入 -> useAgent 把 tool_specs (含
+      // skill_marker-emitter_run) 一起发 /inference/stream -> mock 的
+      // nextSkillOrExtToolCall 看到 req.Tools 含 skill_* 就调一次 ->
+      // 浏览器接收 tool_call SSE -> dispatch tool -> sandbox 跑 ->
+      // 第二轮 mock 把 [skill_result:...] echo 回 chat。
+      // 不用 scriptMockToolCall —— 本测就是验自然路径。
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       await page.goto(`/?code=${CODE}`);
