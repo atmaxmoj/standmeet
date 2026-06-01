@@ -10,6 +10,7 @@ import Link from 'next/link';
 
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
+import { ChatMarkdown } from '@/components/page/markdown';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
 import type { Citation, SessionMode } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
@@ -203,14 +204,34 @@ function CitationsList({ citations }: { citations?: readonly Citation[] }) {
     <div className="mt-6" data-testid="citations">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">drawn from</div>
       <ul className="flex flex-col gap-1">
-        {citations.map((c) => (
-          <li key={c.path} className="mono text-[11px] text-(--color-muted)">
-            {c.genre} · {c.title}
-          </li>
-        ))}
+        {citations.map((c) => <CitationRow key={c.path} c={c} />)}
       </ul>
     </div>
   ) : null;
+}
+
+// CitationRow —— G-3: 同 ConversationDeck.CitationRow，点 summary 展开
+// inline 原文 (corpus_read body 已在手)。ChatRoom 字体更小所以 reading
+// 等级降一档。
+function CitationRow({ c }: { c: Citation }) {
+  return (
+    <li>
+      <details className="group" data-testid="citation-row" data-citation-path={c.path}>
+        <summary className="mono text-[11px] text-(--color-muted) cursor-pointer list-none marker:hidden hover:text-(--color-accent) transition-colors flex items-baseline gap-2">
+          <span data-testid={`citation-genre-${c.genre}`}>{c.genre}</span>
+          <span className="text-(--color-faint)">·</span>
+          <span className="group-open:text-(--color-ink) transition-colors">{c.title}</span>
+          <span className="text-[10px] text-(--color-faint) ml-auto group-open:rotate-90 transition-transform">›</span>
+        </summary>
+        <div
+          className="mt-2 mb-2 pl-4 border-l border-(--color-rule) reading text-[14.5px]"
+          data-testid="citation-body"
+        >
+          <ChatMarkdown source={c.body} />
+        </div>
+      </details>
+    </li>
+  );
 }
 
 // ── composer ───────────────────────────────────────────────

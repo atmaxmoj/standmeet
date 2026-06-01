@@ -181,20 +181,38 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
     <div className="mt-6" data-testid="citations">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">drawn from</div>
       <ul className="space-y-1">
-        {citations.map((c) => (
-          <li key={c.path} className="flex items-baseline gap-3">
-            <span
-              className={`mono text-[10px] tracking-[0.14em] uppercase tabular-nums shrink-0 ${
-                c.genre === 'output' ? 'text-(--color-accent)' : 'text-(--color-muted)'
-              }`}
-              data-testid={`citation-genre-${c.genre}`}
-            >
-              {c.genre}
-            </span>
-            <span className="font-serif italic text-(--color-muted) text-[14.5px]">{c.title}</span>
-          </li>
-        ))}
+        {citations.map((c) => <CitationRow key={c.path} c={c} />)}
       </ul>
     </div>
+  );
+}
+
+// CitationRow —— G-3: <details>/<summary> 让 citation 可点；展开后 inline
+// 渲 body 原文 (corpus_read 已经把 body 拿到手，不走二次 fetch)。
+// `data-testid="citation-row"` 让 spec 锁定一行 expand 测断言。
+function CitationRow({ c }: { c: Citation }) {
+  return (
+    <li>
+      <details className="group" data-testid="citation-row" data-citation-path={c.path}>
+        <summary className="flex items-baseline gap-3 cursor-pointer list-none marker:hidden hover:text-(--color-accent) transition-colors">
+          <span
+            className={`mono text-[10px] tracking-[0.14em] uppercase tabular-nums shrink-0 ${
+              c.genre === 'output' ? 'text-(--color-accent)' : 'text-(--color-muted)'
+            }`}
+            data-testid={`citation-genre-${c.genre}`}
+          >
+            {c.genre}
+          </span>
+          <span className="font-serif italic text-(--color-muted) text-[14.5px] group-open:text-(--color-ink) transition-colors">{c.title}</span>
+          <span className="mono text-[10px] text-(--color-faint) ml-auto shrink-0 group-open:rotate-90 transition-transform">›</span>
+        </summary>
+        <div
+          className="mt-3 mb-2 pl-5 border-l border-(--color-rule) reading text-[15px]"
+          data-testid="citation-body"
+        >
+          <ChatMarkdown source={c.body} />
+        </div>
+      </details>
+    </li>
   );
 }

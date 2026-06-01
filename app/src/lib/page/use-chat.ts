@@ -20,30 +20,35 @@
 import { useCallback, useRef, useState } from 'react';
 import { VisitorAgent } from '@standmeet/agent-core';
 import type {
-  AgentEvent, EventObserver, Message, ToolSpecRegistry,
+  AgentEvent, EventObserver, Message,
 } from '@standmeet/agent-core';
 import {
   httpPromptSource, httpInferenceStreamer, httpToolDispatcher,
   type HttpBYOAIHeaders,
 } from '@standmeet/sdk';
 
-import {
-  issueBYOAISession, issueCodeSession, issuePublicSession,
-  type PublicSessionResponse,
-} from '@/lib/api/public';
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
-import { readBYOAICredFull, readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
-import { loadStoredSession } from '@/lib/gate/use-gate';
+import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
 import { recordDialog } from '@/lib/page/dialog';
+import {
+  ensureSession,
+  type PageSession,
+  type SessionMode as SessionModeT,
+} from '@/lib/page/use-chat-session';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import {
   useCapabilityStore, zustandCapabilityStateSource,
 } from '@/lib/visitor/capability-store';
 
+export type SessionMode = SessionModeT;
+
 export type Citation = {
   genre: 'wiki' | 'output';
   path: string;
   title: string;
+  // G-3: corpus_read 已经把 body 拿到手；存进 citation 让 UI 点击直接展
+  // 开原文，免一次额外后端 fetch (+ 二次 ACL 评估)。
+  body: string;
 };
 
 export type DialogAnswer = {
@@ -65,8 +70,6 @@ export type Dialog = {
   toolStartedNames: readonly string[];
 };
 
-export type SessionMode = 'public' | 'code' | 'byoai';
-
 export type ChatState = {
   dialogs: Dialog[];
   pending: boolean;
@@ -78,17 +81,6 @@ export type ChatState = {
 type Deps = {
   mode: SessionMode;
 };
-
-// PageSession —— ensureSession 之后内部记一份；含 pi-pivot 用的 part_ids
-// + tool_specs。browser 不再 hit /sessions 多次 (老路径每次 ask 都
-// reuseStored + 不读 part_ids)；这里 first-ask 拿一次然后整轮持有。
-interface PageSession {
-  sessionToken: string;
-  conversationID: string;
-  systemPromptPartIDs: readonly string[];
-  toolSpecRegistry: ToolSpecRegistry;
-  persona: string;
-}
 
 export function useChat(deps: Deps): ChatState {
   const [dialogs, setDialogs] = useState<Dialog[]>([]);
@@ -220,7 +212,7 @@ function pushCitationFromTool(
   if (accum.seenCitedPaths.has(path)) return;
   accum.seenCitedPaths.add(path);
   const genre: 'wiki' | 'output' = r.genre === 'output' ? 'output' : 'wiki';
-  accum.citations.push({ genre, path, title: r.title });
+  accum.citations.push({ genre, path, title: r.title, body: r.body });
 }
 
 function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
@@ -230,7 +222,8 @@ function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
   // 这里读 kind 但内部用 genre 概念。后续 wire 改 genre 时只需删 fallback。
   const genre = readString(raw['genre']) || readString(raw['kind']);
   const title = readString(raw['title']) || path;
-  return { path, genre, title };
+  const body = readString(raw['body']);
+  return { path, genre, title, body };
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -245,6 +238,7 @@ interface CorpusReadWire {
   path: string;
   genre: string;
   title: string;
+  body: string;
 }
 
 function finalizeDialog(
@@ -316,82 +310,6 @@ function nowHM(): string {
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
-}
-
-async function ensureSession(
-  ref: React.MutableRefObject<PageSession | null>,
-  deps: Deps,
-): Promise<PageSession> {
-  if (ref.current !== null) return ref.current;
-  const issued = await issueFresh(deps);
-  const sess = toPageSession(issued);
-  ref.current = sess;
-  useCapabilityStore.getState().setStates(extractCapabilities(issued));
-  return sess;
-}
-
-// IssuedSessionWithExtras —— sdk-core PublicSessionResponse 已含
-// capabilities? / tool_specs? / system_prompt_part_ids?；这里 alias 一下
-// 让本文件少 import。
-type IssuedSessionWithExtras = PublicSessionResponse;
-
-function toPageSession(issued: IssuedSessionWithExtras): PageSession {
-  return {
-    sessionToken: issued.session_token,
-    conversationID: issued.conversation_id,
-    systemPromptPartIDs: issued.system_prompt_part_ids ?? ['visitor-header'],
-    toolSpecRegistry: makeRegistry(issued),
-    persona: issued.system_prompt_persona ?? '',
-  };
-}
-
-function extractCapabilities(issued: IssuedSessionWithExtras): readonly {
-  id: string; enabled: boolean; quota_remaining?: number; policy_summary?: string;
-}[] {
-  return issued.capabilities ?? [];
-}
-
-function makeRegistry(issued: IssuedSessionWithExtras): ToolSpecRegistry {
-  const specs = (issued.tool_specs ?? []).map((s) => ({
-    name: s.name, description: s.description, input_schema: s.input_schema,
-  }));
-  return {
-    forCapability(_id: string) {
-      void _id;
-      return specs;
-    },
-  };
-}
-
-async function issueFresh(deps: Deps): Promise<PublicSessionResponse> {
-  const stored = loadStoredSession();
-  return stored !== null
-    ? reuseStored(stored)
-    : await issueByMode(deps);
-}
-
-// reuseStored —— rebuild PublicSessionResponse from the persisted blob.
-// G-1 fix: persist + restore capabilities + tool_specs (D-5 lost them).
-type StoredFull = Pick<PublicSessionResponse,
-  'session_token' | 'conversation_id' | 'capabilities' | 'tool_specs' |
-  'system_prompt_part_ids' | 'system_prompt_persona'>;
-
-function reuseStored(stored: StoredFull): PublicSessionResponse {
-  return {
-    session_token: stored.session_token,
-    conversation_id: stored.conversation_id,
-    capabilities: stored.capabilities,
-    tool_specs: stored.tool_specs,
-    system_prompt_part_ids: stored.system_prompt_part_ids,
-    system_prompt_persona: stored.system_prompt_persona,
-  };
-}
-
-async function issueByMode(deps: Deps): Promise<PublicSessionResponse> {
-  if (deps.mode === 'public') return issuePublicSession();
-  if (deps.mode === 'code') return issueCodeSession({ code: '' });
-  const meta = readBYOAIVaultMeta();
-  return issueBYOAISession({ byoai_provider: meta?.provider ?? 'anthropic' });
 }
 
 function updateDialog(
