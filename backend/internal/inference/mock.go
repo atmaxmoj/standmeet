@@ -135,6 +135,68 @@ func decodeScriptedTool(resp *http.Response) (*scriptedTool, error) {
 	return wire.Tool, nil
 }
 
+// scriptedReplyEnvelope / scriptedReplyWire / fetchScriptedReply ——
+// G-X: tests POST 一段 markdown / katex / mermaid 文本到 next_reply；
+// mock 单 stream 拉 + 清，空 queue → fallback INFERENCE_MOCK_REPLY。
+// 路径跟 next_tool 完全对称。
+type scriptedReplyEnvelope struct {
+	Text string `json:"text"`
+}
+
+type scriptedReplyWire struct {
+	Reply *scriptedReplyEnvelope `json:"reply"`
+}
+
+// finalReply —— 决定本轮 final text 用 scripted 还是 env default。
+// scriptURL 没配 / 拉失败 / queue 空 → fallback env reply (m.reply)。
+func (m *MockProvider) finalReply(ctx context.Context) string {
+	if m.scriptURL == "" {
+		return m.reply
+	}
+	scripted, err := m.fetchScriptedReply(ctx)
+	if err != nil || scripted == "" {
+		return m.reply
+	}
+	return scripted
+}
+
+func (m *MockProvider) fetchScriptedReply(ctx context.Context) (string, error) {
+	rctx, cancel := context.WithTimeout(ctx, scriptFetchTimeout)
+	defer cancel()
+	url := m.scriptURL + "/__mock/inference/take_next_reply"
+	req, rerr := http.NewRequestWithContext(rctx, http.MethodGet, url, http.NoBody)
+	if rerr != nil {
+		return "", fmt.Errorf("mock reply: new request: %w", rerr)
+	}
+	resp, derr := http.DefaultClient.Do(req)
+	if derr != nil {
+		return "", fmt.Errorf("mock reply: do: %w", derr)
+	}
+	out, decErr := decodeScriptedReply(resp)
+	if cerr := resp.Body.Close(); cerr != nil && decErr == nil {
+		return "", fmt.Errorf("mock reply: close body: %w", cerr)
+	}
+	return out, decErr
+}
+
+func decodeScriptedReply(resp *http.Response) (string, error) {
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("mock reply: status %d", resp.StatusCode)
+	}
+	body, berr := io.ReadAll(resp.Body)
+	if berr != nil {
+		return "", fmt.Errorf("mock reply: read body: %w", berr)
+	}
+	var wire scriptedReplyWire
+	if uerr := json.Unmarshal(body, &wire); uerr != nil {
+		return "", fmt.Errorf("mock reply: decode: %w", uerr)
+	}
+	if wire.Reply == nil {
+		return "", nil
+	}
+	return wire.Reply.Text, nil
+}
+
 // canRunMockTools / mockDoSearch / mockDoRead 已删 (D-5)。tool dispatch
 // 现在 emit tool_call 由 caller 调 binding；mock_single_turn.go 按
 // messages 历史决定下一步 tool_call。

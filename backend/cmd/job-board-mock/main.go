@@ -186,6 +186,8 @@ func (s *server) routes(mux *http.ServeMux) {
 	// /take_next_tool before each Stream and clears the queue atomically.
 	mux.HandleFunc("POST /__mock/inference/next_tool", s.serveMockSetNextTool)
 	mux.HandleFunc("GET /__mock/inference/take_next_tool", s.serveMockTakeNextTool)
+	mux.HandleFunc("POST /__mock/inference/next_reply", s.serveMockSetNextReply)
+	mux.HandleFunc("GET /__mock/inference/take_next_reply", s.serveMockTakeNextReply)
 }
 
 func (s *server) serveGreenhouse(w http.ResponseWriter, r *http.Request) {

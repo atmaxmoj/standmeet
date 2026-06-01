@@ -191,7 +191,9 @@ function AnswerView({ answer }: { answer: Dialog['answer'] }) {
     <div data-testid="answer-body">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">ai</div>
       {answer.paras.map((p, i) => (
-        <p key={i} className="reading mb-4 last:mb-0 text-[18px]">{p}</p>
+        <div key={i} className="reading mb-4 last:mb-0 text-[18px]">
+          <ChatMarkdown source={p} />
+        </div>
       ))}
       <CitationsList citations={answer.citations} />
     </div>

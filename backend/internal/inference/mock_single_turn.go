@@ -45,7 +45,7 @@ func (m *MockProvider) runSingleTurnMock(
 		emitToolCallAndDone(ctx, ch, call)
 		return
 	}
-	emitTextReplyAndDone(ctx, ch, composeMockFinalText(req, m.reply))
+	emitTextReplyAndDone(ctx, ch, composeMockFinalText(req, m.finalReply(ctx)))
 }
 
 // nextSkillOrExtToolCall —— mock 顺手调一个 skill_* / ext_* tool 让 e2e

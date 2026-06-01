@@ -28,6 +28,21 @@ export async function scriptMockToolCall(
   }
 }
 
+/** Tell the mock provider: emit this text as the final reply on the
+ *  next agent step (single-slot queue, consumed once). Used by G-X to
+ *  verify markdown / katex / mermaid in answer-body renders correctly
+ *  through ConversationDeck → AnswerParas → ChatMarkdown. */
+export async function scriptMockReplyText(
+  request: APIRequestContext, text: string,
+): Promise<void> {
+  const res = await request.post(
+    `${MOCK}/__mock/inference/next_reply`, { data: { text } },
+  );
+  if (res.status() !== 200) {
+    throw new Error(`script next_reply: ${res.status()}`);
+  }
+}
+
 /** sendMessage + drain SSE stream. Most calendar.book specs care about
  *  side effects (mock GCal events, tool-spec assembly) rather than the
  *  exact reply text, so a drained-stream return shape avoids brittle
