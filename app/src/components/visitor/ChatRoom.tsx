@@ -143,9 +143,39 @@ function ChatTurn({ turn }: { turn: Turn }) {
       <p className="font-serif italic text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] mb-7">
         {turn.q}
       </p>
+      <ToolThrobbers names={turn.toolStartedNames} />
       {turn.pending ? <ThinkingDots /> : <TurnAnswer answer={turn.answer} />}
     </article>
   );
+}
+
+function ToolThrobbers({ names }: { names: readonly string[] }) {
+  return names.length === 0 ? null : (
+    <ul
+      data-testid="tool-throbbers"
+      className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
+    >
+      {names.map((n, i) => (
+        <li key={i} data-testid={`tool-throbber-${n}`}>
+          {throbberLabel(n)}
+          <span className="sm-dot">·</span>
+          <span className="sm-dot">·</span>
+          <span className="sm-dot">·</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const THROBBER_LABELS: Record<string, string> = {
+  corpus_search: 'searching corpus',
+  corpus_read: 'reading entry',
+  corpus_list: 'listing entries',
+  calendar_book: 'booking meeting',
+};
+
+function throbberLabel(name: string): string {
+  return THROBBER_LABELS[name] ?? `running ${name}`;
 }
 
 function ThinkingDots() {
