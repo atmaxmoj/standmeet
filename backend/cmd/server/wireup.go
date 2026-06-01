@@ -183,6 +183,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			AgentSkills: d.agentSkills,
 		},
 		Sessions: d.visitorStore,
+		SEO:      d.seoRepo,
 		Log:      d.log,
 	}
 }

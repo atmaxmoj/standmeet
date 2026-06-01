@@ -23,6 +23,7 @@ import (
 type Handlers struct {
 	Visitor  usecases.VisitorDeps
 	Sessions *session.VisitorSessionStore
+	SEO      usecases.PersistTurnSEOLookup
 	Log      *slog.Logger
 }
 
@@ -30,6 +31,7 @@ type Handlers struct {
 func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions", h.createSession())
 	r.Post("/sessions/{id}/messages", h.postMessage())
+	r.Post("/sessions/{id}/turns", h.postTurn())
 	r.Post("/sessions/{id}/summary", h.postSummary())
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
 	r.Post("/inference/models", h.listInferenceModels())
@@ -332,17 +334,4 @@ func handleVisitorErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeError(log, w, env)
 }
 
-func envBadReq(msg string) apierr.Envelope {
-	return apierr.Envelope{Status: http.StatusBadRequest, Code: "bad_request", Message: msg}
-}
-
-func writeError(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(env.Status)
-	payload := map[string]map[string]string{
-		"error": {"code": env.Code, "message": env.Message},
-	}
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Error("encode error envelope", "err", err)
-	}
-}
+// envBadReq / writeError 拆到 errors.go 守 max-lines 350。
