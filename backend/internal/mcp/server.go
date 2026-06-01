@@ -141,7 +141,7 @@ func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	// chatTools 已 E-4 迁到 cap_chat.go
 	skillsTools(mcpSrv, deps)
 	// promptsTools 已 E-5 迁到 cap_prompts.go
-	rolesTools(mcpSrv, deps)
+	// rolesTools 已 E-6 迁到 cap_roles.go
 	mcpServersTools(mcpSrv, deps)
 	writingsTools(mcpSrv, deps)
 }
