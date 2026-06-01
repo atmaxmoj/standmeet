@@ -33,10 +33,6 @@ type fetchedJobView struct {
 	Tags        []string `json:"tags"`
 }
 
-type okResp struct {
-	OK bool `json:"ok"`
-}
-
 func jobSourceView(s *domain.JobSource) jobSourceViewT {
 	cfg := json.RawMessage(s.Config)
 	if len(cfg) == 0 {
@@ -68,14 +64,6 @@ func (p *fetchedJobView) marshalJSON() ([]byte, error) {
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal fetched job view: %w", err)
-	}
-	return b, nil
-}
-
-func (p okResp) marshalJSON() ([]byte, error) {
-	b, err := json.Marshal(p)
-	if err != nil {
-		return nil, fmt.Errorf("marshal ok resp: %w", err)
 	}
 	return b, nil
 }

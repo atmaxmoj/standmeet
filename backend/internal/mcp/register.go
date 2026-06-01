@@ -29,6 +29,7 @@ type RegisterDeps struct {
 	Writings      *usecases.WritingsDeps
 	WritingsTx    *usecases.WritingsTxDeps
 	Jobs          *usecases.JobsDeps
+	Resume        *usecases.ResumeDeps
 	Log           *slog.Logger
 }
 
@@ -49,4 +50,5 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newSkillsCapability(deps.Skills, deps.Log))
 	reg.MustRegister(newWritingsCapability(deps.WritingsTx, deps.Writings, deps.Log))
 	reg.MustRegister(newJobsCapability(deps.Jobs, deps.Log))
+	reg.MustRegister(newResumeCapability(deps.Resume, deps.Log))
 }

@@ -130,6 +130,7 @@ func registerAgentSkills(d *runtimeDeps) {
 	jobsDeps := usecases.JobsDeps{
 		Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
 	}
+	resumeDeps := usecases.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool}
 	mcp.RegisterAgentSkills(d.agentSkills, &mcp.RegisterDeps{
 		Owners:        d.ownerRepo,
 		SEO:           d.seoRepo,
@@ -143,6 +144,7 @@ func registerAgentSkills(d *runtimeDeps) {
 		Writings:      &writingsDeps,
 		WritingsTx:    &writingsTxDeps,
 		Jobs:          &jobsDeps,
+		Resume:        &resumeDeps,
 		Log:           d.log,
 	})
 }
