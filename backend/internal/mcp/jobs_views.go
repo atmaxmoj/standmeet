@@ -19,10 +19,6 @@ type jobSourceViewT struct {
 	Config        json.RawMessage `json:"config"`
 }
 
-type jobsListResp struct {
-	Sources []jobSourceViewT `json:"sources"`
-}
-
 type fetchedJobView struct {
 	PublishedAt string   `json:"published_at,omitempty"`
 	CacheID     string   `json:"cache_id"`
@@ -35,10 +31,6 @@ type fetchedJobView struct {
 	URL         string   `json:"url"`
 	BodyText    string   `json:"body_text,omitempty"`
 	Tags        []string `json:"tags"`
-}
-
-type jobsFetchResp struct {
-	Jobs []fetchedJobView `json:"jobs"`
 }
 
 type okResp struct {
@@ -72,26 +64,10 @@ func (p *jobSourceViewT) marshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func (p *jobsListResp) marshalJSON() ([]byte, error) {
-	b, err := json.Marshal(p)
-	if err != nil {
-		return nil, fmt.Errorf("marshal jobs list: %w", err)
-	}
-	return b, nil
-}
-
 func (p *fetchedJobView) marshalJSON() ([]byte, error) {
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal fetched job view: %w", err)
-	}
-	return b, nil
-}
-
-func (p *jobsFetchResp) marshalJSON() ([]byte, error) {
-	b, err := json.Marshal(p)
-	if err != nil {
-		return nil, fmt.Errorf("marshal jobs fetch resp: %w", err)
 	}
 	return b, nil
 }
