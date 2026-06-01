@@ -45,23 +45,45 @@ function readStr(v: unknown): string {
 }
 
 // shouldRenderCall —— UI dispatch 用：哪些 tool call 该渲卡片。
-//   - ok=false → 不渲
-//   - cardKindFor === 'none' → 不渲 (corpus_read 已走 Citation，
-//     calendar_book G-7 confirmation card 还没做)
+//   - ok=false → 不渲 (calendar_book 失败时 LLM 文字会解释)
+//   - cardKindFor === 'none' → 不渲 (corpus_read 已走 Citation)
+//   - 其他 → 渲
 export function shouldRenderCall(c: ToolCallView): boolean {
   return c.ok && cardKindFor(c.name) !== 'none';
 }
 
+// BookConfirmation —— calendar_book 成功结果。
+export interface BookConfirmation {
+  eventID: string;
+  htmlLink: string;
+  start: string;
+  end: string;
+}
+
+// pickBookConfirmation —— calendar_book result wire 是
+// `{ok, event_id, html_link, start, end}` (BookCard 渲)。ok=false 时 caller
+// 通过 shouldRenderCall 已经过滤掉。
+export function pickBookConfirmation(raw: unknown): BookConfirmation | null {
+  if (!isRecordShape(raw)) return null;
+  const eventID = readStrShape(raw['event_id']);
+  const htmlLink = readStrShape(raw['html_link']);
+  const start = readStrShape(raw['start']);
+  const end = readStrShape(raw['end']);
+  return eventID === '' || start === '' ? null : { eventID, htmlLink, start, end };
+}
+
 // CardKind —— UI 渲卡时按这个 dispatch 组件：
-//   - 'search' → SearchHitsCard (corpus_search / corpus_list)
-//   - 'slots'  → SlotsCard (calendar_list_slots，G-7)
-//   - 'dump'   → GenericDumpCard (skill_* / ext_* debug 框)
-//   - 'none'   → 不渲
-export type CardKind = 'search' | 'slots' | 'dump' | 'none';
+//   - 'search'  → SearchHitsCard (corpus_search / corpus_list)
+//   - 'slots'   → SlotsCard (calendar_list_slots，G-7)
+//   - 'booked'  → BookCard (calendar_book 成功 confirmation，G-7)
+//   - 'dump'    → GenericDumpCard (skill_* / ext_* debug 框)
+//   - 'none'    → 不渲
+export type CardKind = 'search' | 'slots' | 'booked' | 'dump' | 'none';
 
 export function cardKindFor(name: string): CardKind {
   if (name === 'corpus_search' || name === 'corpus_list') return 'search';
   if (name === 'calendar_list_slots') return 'slots';
+  if (name === 'calendar_book') return 'booked';
   if (name.startsWith('skill_') || name.startsWith('ext_')) return 'dump';
   return 'none';
 }

@@ -103,6 +103,35 @@
   font-size: 14px;
 }
 
+/* calendar_book confirmation card —— book 成功后展现 event 信息 +
+   GCal 链接。强调度比 slots 更高 (vermillion 实底淡阴)。 */
+.bookCard {
+  padding: 0.7em 0.9em;
+  background: color-mix(in oklab, var(--color-accent) 10%, transparent);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 2px;
+}
+
+.bookTime {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--color-ink);
+  margin: 0.3em 0 0.5em;
+}
+
+.bookLink {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
+  text-underline-offset: 2px;
+}
+.bookLink:hover { color: var(--color-accent-soft); }
+
 /* generic skill / ext dump —— debug 风：mono、paper 底、size 收。 */
 .genericCard {
   padding: 0.6em 0.9em;

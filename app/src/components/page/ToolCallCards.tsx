@@ -15,9 +15,11 @@
 'use client';
 
 import {
-  pickSearchHits, pickSlots, shouldRenderCall, cardKindFor, jsonPretty,
-  type SearchHit, type SlotView,
+  pickSearchHits, pickSlots, pickBookConfirmation,
+  shouldRenderCall, cardKindFor, jsonPretty,
+  type SearchHit, type SlotView, type BookConfirmation,
 } from '@/lib/page/tool-call-shape';
+import { useBookingsRemaining } from '@/lib/page/use-booking-quota';
 import type { ToolCallView } from '@/lib/page/use-chat';
 import styles from '@/components/page/ToolCallCards.module.css';
 
@@ -30,9 +32,10 @@ export function ToolCallCards({ calls }: { calls: readonly ToolCallView[] }) {
   );
 }
 
-const CARD_RENDERERS: Record<'search' | 'slots' | 'dump', (c: ToolCallView) => React.ReactElement | null> = {
+const CARD_RENDERERS: Record<'search' | 'slots' | 'booked' | 'dump', (c: ToolCallView) => React.ReactElement | null> = {
   search: (call) => <SearchHitsCard call={call} />,
   slots:  (call) => <SlotsCard call={call} />,
+  booked: (call) => <BookCard call={call} />,
   dump:   (call) => <GenericDumpCard call={call} />,
 };
 
@@ -72,13 +75,15 @@ function SearchHitRow({ h }: { h: SearchHit }) {
   );
 }
 
-// SlotsCard —— calendar_list_slots 结果。展示可订时间。G-7 minimum：静
-// 态显示 owner-local 字符串；clickable 设计放 G-7 follow-up。
+// SlotsCard —— calendar_list_slots 结果。展示可订时间 + 当前剩余 booking
+// 配额 (visitor 知道还能约几次)。G-7 minimum：静态显示 owner-local 字符串；
+// clickable 设计放 G-7 follow-up。
 function SlotsCard({ call }: { call: ToolCallView }) {
   const slots = pickSlots(call.result);
-  return slots.length === 0 ? <SlotsEmpty /> : (
+  const remaining = useBookingsRemaining();
+  return slots.length === 0 ? <SlotsEmpty remaining={remaining} /> : (
     <div className={styles['slotsCard']} data-testid="tool-card-calendar_list_slots">
-      <div className={styles['kicker']}>available · {slots.length} slots</div>
+      <BookingsKicker prefix={`available · ${slots.length} slots`} remaining={remaining} />
       <ul className={styles['slots']}>
         {slots.map((s) => <SlotRow key={s.start} s={s} />)}
       </ul>
@@ -86,13 +91,50 @@ function SlotsCard({ call }: { call: ToolCallView }) {
   );
 }
 
-function SlotsEmpty() {
+function SlotsEmpty({ remaining }: { remaining: number | null }) {
   return (
     <div className={styles['slotsCard']} data-testid="tool-card-calendar_list_slots">
-      <div className={styles['kicker']}>available · 0 slots</div>
+      <BookingsKicker prefix="available · 0 slots" remaining={remaining} />
       <div className={styles['slotsEmpty']}>
         no free slots in that window — try a different range.
       </div>
+    </div>
+  );
+}
+
+// BookingsKicker —— 卡 header 拼上"X bookings left"（remaining 非 null 时）。
+function BookingsKicker({ prefix, remaining }: { prefix: string; remaining: number | null }) {
+  return (
+    <div className={styles['kicker']} data-testid="bookings-kicker">
+      {prefix}
+      {remaining !== null && (
+        <span data-testid="bookings-remaining"> · {remaining} bookings left</span>
+      )}
+    </div>
+  );
+}
+
+// BookCard —— calendar_book 成功 confirmation。
+function BookCard({ call }: { call: ToolCallView }) {
+  const conf = pickBookConfirmation(call.result);
+  return conf === null ? null : <BookCardBody conf={conf} />;
+}
+
+function BookCardBody({ conf }: { conf: BookConfirmation }) {
+  return (
+    <div className={styles['bookCard']} data-testid="tool-card-calendar_book">
+      <div className={styles['kicker']}>booked</div>
+      <div className={styles['bookTime']} data-testid="book-card-time">
+        {formatSlotLocal(conf.start, conf.end)}
+      </div>
+      {conf.htmlLink !== '' && (
+        <a
+          href={conf.htmlLink} target="_blank" rel="noopener noreferrer"
+          className={styles['bookLink']} data-testid="book-card-link"
+        >
+          open in google calendar →
+        </a>
+      )}
     </div>
   );
 }
