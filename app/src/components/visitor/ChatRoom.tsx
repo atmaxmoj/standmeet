@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { ChatMarkdown } from '@/components/page/markdown';
+import { ToolCallCards } from '@/components/page/ToolCallCards';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
 import type { Citation, SessionMode } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
@@ -145,6 +146,7 @@ function DialogCard({ dialog }: { dialog: Dialog }) {
         {dialog.q}
       </p>
       <ToolThrobbers names={dialog.toolStartedNames} />
+      <ToolCallCards calls={dialog.toolCalls} />
       {dialog.pending ? <ThinkingDots /> : <AnswerView answer={dialog.answer} />}
     </article>
   );

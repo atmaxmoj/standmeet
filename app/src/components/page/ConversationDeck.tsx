@@ -15,6 +15,7 @@
 
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
+import { ToolCallCards } from '@/components/page/ToolCallCards';
 import type { Citation, Dialog, DialogAnswer } from '@/lib/page/use-chat';
 
 type Props = {
@@ -109,6 +110,7 @@ function AnswerOrError({ dialog, ownerHandle }: { dialog: Dialog; ownerHandle: s
   return (
     <>
       <AssistantLabel ownerHandle={ownerHandle} />
+      <ToolCallCards calls={dialog.toolCalls} />
       {dialog.answer && <Answer answer={dialog.answer} />}
     </>
   );

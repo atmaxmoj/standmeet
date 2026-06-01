@@ -58,6 +58,15 @@ export type DialogAnswer = {
   byoaiBlocked: boolean;
 };
 
+// ToolCallView —— G-4: tool_completed 累到 Dialog；UI 按 name dispatch
+// 渲染 (corpus_search hits / calendar_book confirmation / generic JSON
+// dump for skill_* / ext_*)。result 是 raw unknown，渲染层自己 narrow。
+export type ToolCallView = {
+  name: string;
+  ok: boolean;
+  result: unknown;
+};
+
 export type Dialog = {
   id: string;
   q: string;
@@ -68,6 +77,9 @@ export type Dialog = {
   // → name 入这个列表，ConversationDeck 渲一条 "searching corpus..." /
   // "booking meeting..." 提示。最后 done 仍渲文本。
   toolStartedNames: readonly string[];
+  // G-4: tool_completed 累到这里；UI 按 name 渲卡片 (corpus_search 卡 /
+  // skill_*/ext_* generic dump)。corpus_read 的 result 走 Citation 不重复。
+  toolCalls: readonly ToolCallView[];
 };
 
 export type ChatState = {
@@ -161,12 +173,13 @@ interface DialogAccumulator {
   citations: Citation[];
   seenCitedPaths: Set<string>;
   toolStartedNames: string[];
+  toolCalls: ToolCallView[];
 }
 
 function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedPaths: new Set(),
-    toolStartedNames: [],
+    toolStartedNames: [], toolCalls: [],
   };
 }
 
@@ -193,6 +206,9 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
     return;
   }
   if (ev.type === 'tool_completed') {
+    accum.toolCalls.push({
+      name: ev.result.name, ok: ev.result.ok, result: ev.result.result,
+    });
     pushCitationFromTool(ev.result, accum);
     return;
   }
@@ -293,7 +309,7 @@ function assembledPartIDs(sess: PageSession): readonly string[] {
 function newPendingDialog(id: string, q: string): Dialog {
   return {
     id, q, time: nowHM(), pending: true, answer: null,
-    toolStartedNames: [],
+    toolStartedNames: [], toolCalls: [],
   };
 }
 
@@ -321,6 +337,7 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
     ...d,
     pending: stillPending && accum.body === '',
     toolStartedNames: [...accum.toolStartedNames],
+    toolCalls: [...accum.toolCalls],
     answer: {
       paras: splitParas(accum.body),
       citations: accum.citations,

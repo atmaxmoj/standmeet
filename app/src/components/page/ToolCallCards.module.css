@@ -1,0 +1,87 @@
+/* ToolCallCards.module.css —— G-4 tool 调用结果卡的样式。
+   设计：跟 .reading + chat-md 共存，配 design palette。卡片轻一点不抢
+   answer 主戏：用 paper-tinted 底 + small mono kicker + 减弱字号。 */
+
+.stack {
+  margin-top: 0.6em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 0.4em;
+}
+
+/* search / list hits card —— 比 citation 卡再淡一档 (信息层级低于 citation：
+   citation 是 AI 真读了的；search hits 只是 AI 看过) */
+.searchCard {
+  padding: 0.6em 0.9em;
+  background: color-mix(in oklab, var(--color-ink) 3%, transparent);
+  border-left: 1px solid var(--color-rule);
+  border-radius: 2px;
+}
+
+.hits {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.hit {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.7em;
+  align-items: baseline;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.genre {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.genreOutput { color: var(--color-accent); }
+
+.title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-ink);
+}
+
+.summary {
+  grid-column: 2;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+/* generic skill / ext dump —— debug 风：mono、paper 底、size 收。 */
+.genericCard {
+  padding: 0.6em 0.9em;
+  background: color-mix(in oklab, var(--color-ink) 3%, transparent);
+  border-left: 1px solid var(--color-rule);
+  border-radius: 2px;
+}
+
+.dump {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-muted);
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 200px;
+}
