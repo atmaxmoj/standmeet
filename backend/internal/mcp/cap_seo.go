@@ -49,6 +49,7 @@ func (*seoCapability) SystemPromptFragmentID(
 func (c *seoCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 	return []*agentskills.MCPBinding{
 		c.setWikiSlugBinding(),
+		c.setOutputSlugBinding(),
 		c.updateSettingsBinding(),
 	}
 }
@@ -132,6 +133,80 @@ func optionalSlug(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// ───── seo.set_output_slug ───────────────────────────────────────
+
+func (c *seoCapability) setOutputSlugBinding() *agentskills.MCPBinding {
+	return &agentskills.MCPBinding{
+		Name:        "seo.set_output_slug",
+		Description: "Set SEO slug / description / indexed for an output entry.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"output_id":{"type":"string","description":"Output UUID."},
+				"seo_slug":{"type":"string","description":"URL slug (a-z0-9-)."},
+				"seo_description":{"type":"string"},
+				"seo_indexed":{"type":"boolean"}
+			},
+			"required":["output_id"]
+		}`),
+		Handler: c.handleSetOutputSlug,
+	}
+}
+
+type setOutputSlugArgsWire struct {
+	OutputID       string `json:"output_id"`
+	SEOSlug        string `json:"seo_slug"`
+	SEODescription string `json:"seo_description"`
+	SEOIndexed     bool   `json:"seo_indexed"`
+}
+
+type setOutputSlugPayload struct {
+	OutputID       string  `json:"output_id"`
+	SEOSlug        *string `json:"seo_slug"`
+	SEODescription string  `json:"seo_description"`
+	SEOIndexed     bool    `json:"seo_indexed"`
+}
+
+func (c *seoCapability) handleSetOutputSlug(
+	ctx context.Context, _ string, raw json.RawMessage,
+) agentskills.MCPResult {
+	var args setOutputSlugArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return agentskills.MCPError("invalid arguments: " + err.Error())
+	}
+	if args.OutputID == "" {
+		return agentskills.MCPError("output_id is required")
+	}
+	updated, err := c.seo.UpdateOutputPath(
+		ctx, args.OutputID, optionalSlug(args.SEOSlug),
+		args.SEODescription, args.SEOIndexed,
+	)
+	if err != nil {
+		return seoErrToResult(c.log, err, "seo.set_output_slug")
+	}
+	return marshalSetOutputSlug(c.log, &updated)
+}
+
+func marshalSetOutputSlug(log *slog.Logger, o *domain.Output) agentskills.MCPResult {
+	var seoSlug *string
+	if p, ok := o.Path(); ok {
+		cp := p
+		seoSlug = &cp
+	}
+	payload := setOutputSlugPayload{
+		OutputID:       o.ID(),
+		SEOSlug:        seoSlug,
+		SEODescription: o.SEODescription(),
+		SEOIndexed:     o.SEOIndexed(),
+	}
+	out, err := json.Marshal(payload)
+	if err != nil {
+		log.Error("seo.set_output_slug marshal", "err", err)
+		return agentskills.MCPError(fmt.Sprintf("encode payload: %v", err))
+	}
+	return agentskills.MCPSuccess(string(out))
 }
 
 // ───── seo.update_settings ───────────────────────────────────────
