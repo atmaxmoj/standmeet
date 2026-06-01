@@ -20,6 +20,7 @@ import remarkMath from 'remark-math';
 import {
   isMermaidCode, mermaidSource,
 } from '@/components/page/markdown-helpers';
+import styles from '@/components/page/ChatMarkdown.module.css';
 
 // mermaid 是 ~600KB；lazy import 不进 SSR bundle。
 const MermaidBlock = lazy(async () => {
@@ -53,13 +54,17 @@ function MarkdownCode(props: CodeProps): React.ReactElement {
 }
 
 export function ChatMarkdown({ source }: { source: string }): React.ReactElement {
+  // styles.body scope —— ChatMarkdown.module.css 里给 table / pre / code /
+  // blockquote / a / ul 配 design palette (warm cream + ink + vermillion)。
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex, [rehypeSanitize, SAFE_SCHEMA]]}
-      components={{ code: MarkdownCode }}
-    >
-      {source}
-    </ReactMarkdown>
+    <div className={styles['body']}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, [rehypeSanitize, SAFE_SCHEMA]]}
+        components={{ code: MarkdownCode }}
+      >
+        {source}
+      </ReactMarkdown>
+    </div>
   );
 }

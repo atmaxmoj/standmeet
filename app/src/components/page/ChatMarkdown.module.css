@@ -1,0 +1,144 @@
+/* ChatMarkdown.module.css —— ChatMarkdown 输出的 scope。设计语言
+   (warm cream + ink + vermillion) 应用到 markdown 默认元素 (table /
+   code / blockquote / a / ul / hr)，跟 .reading serif body 共存。
+
+   parent 容器 className={styles.body}。 */
+
+/* headings —— chat answer 偶尔有 outline 结构；mono kicker style 跟 deck
+   header 一致 (newspaper kicker)。h1-h3 用 mono small-caps，h4-h6 用 serif
+   保留语义但不撑大字号 (chat 不是 essay)。 */
+.body h1, .body h2, .body h3 {
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-muted);
+  margin: 1.4em 0 0.4em;
+}
+.body h4, .body h5, .body h6 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 1em;
+  margin: 1em 0 0.3em;
+}
+.body h1:first-child, .body h2:first-child, .body h3:first-child,
+.body h4:first-child, .body h5:first-child, .body h6:first-child {
+  margin-top: 0;
+}
+
+.body a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
+  text-underline-offset: 2px;
+  transition: color 120ms;
+}
+.body a:hover { color: var(--color-accent-soft); }
+
+.body ul, .body ol {
+  margin: 0.6em 0 0.6em 1.4em;
+  padding: 0;
+}
+.body ul { list-style: disc; }
+.body ol { list-style: decimal; }
+.body li { margin: 0.2em 0; }
+.body li > p { margin: 0; }
+
+.body blockquote {
+  border-left: 2px solid var(--color-accent);
+  padding: 0.1em 0 0.1em 0.9em;
+  margin: 0.8em 0;
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+/* inline code —— mono + 微弱 paper-tint 底；不抢戏。 */
+.body :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 0.08em 0.34em;
+  background: color-mix(in oklab, var(--color-ink) 6%, transparent);
+  border-radius: 2px;
+}
+
+/* fenced code block —— paper-tinted block, mono, 不上 syntax highlighting
+   (chat agent 输出代码罕见；真用了用户能识别 indent 就行)。 */
+.body pre {
+  margin: 0.8em 0;
+  padding: 0.7em 0.9em;
+  background: color-mix(in oklab, var(--color-ink) 5%, transparent);
+  border-left: 2px solid color-mix(in oklab, var(--color-ink) 15%, transparent);
+  border-radius: 2px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  line-height: 1.5;
+}
+.body pre code { background: transparent; padding: 0; }
+
+/* GFM table —— rule-style 横线 (跟 newspaper / journal 风格一致)；不画
+   cell border，靠 row 横线分隔，更"阅读 transcript"少一点 spreadsheet。 */
+.body table {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+.body th, .body td {
+  padding: 0.35em 0.9em 0.35em 0;
+  border-bottom: 1px solid var(--color-rule);
+  text-align: left;
+  vertical-align: top;
+}
+.body th {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.78em;
+  color: var(--color-muted);
+}
+
+/* hr —— 同样 rule-style 横线；不打实心 1px box。 */
+.body hr {
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+  margin: 1em 0;
+}
+
+/* KaTeX —— display block 居左（不居中），跟 reading flow 对齐。
+   CSS module :global 包，因为 .katex-display 是 rehype-katex 输出的全
+   局 class，不是 module-scoped。 */
+.body :global(.katex-display) {
+  text-align: left;
+  margin: 0.6em 0;
+}
+
+/* mermaid SVG —— 限宽避免溢出 760px chat column。MermaidBlock 内层
+   div 是 testid (全局)，CSS module 要 :global 穿透。 */
+.body :global([data-testid="mermaid-svg"]) svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* mermaid render error —— 失败时显错而不是 silent，但配色不要 alarm；
+   用 muted accent + paper-tinted block (跟普通 pre code 形态一致)。 */
+.body :global([data-testid="mermaid-error"]) {
+  color: var(--color-accent);
+  background: color-mix(in oklab, var(--color-accent) 6%, transparent);
+  border-left: 2px solid var(--color-accent);
+  padding: 0.5em 0.8em;
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  white-space: pre-wrap;
+  margin: 0.6em 0;
+  border-radius: 2px;
+}
+
+/* image —— 罕见但 sanitize 没拦；限宽避免破布局。 */
+.body img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.6em 0;
+}
