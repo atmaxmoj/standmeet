@@ -7,6 +7,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { ChatMarkdown } from '@/components/page/markdown';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
@@ -161,8 +162,12 @@ function PageHeader() {
 }
 
 function WikiBody({ body }: { body: string }) {
+  // G-3 follow-up：wiki body 走 ChatMarkdown，跟 chat answer / citation
+  // body 同一套 (gfm + math + katex + mermaid + sanitize)。
   return (
-    <div className="reading text-base whitespace-pre-wrap">{body}</div>
+    <div className="reading text-base" data-testid="wiki-body">
+      <ChatMarkdown source={body} />
+    </div>
   );
 }
 

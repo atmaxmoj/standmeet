@@ -1,0 +1,102 @@
+// visitor-chat-citation-multi.spec.ts —— G-3 follow-up：多 dialog 各自带
+// 1 个 citation 行，各自独立 expand / collapse。`<details>` 本身是原生
+// 元素，但验"两个 dialog 卡片的 citation row 不会串状态"是有意义的：
+// 一个的 toggle 不影响另一个；下一个 dialog 出现时上一个的展开状态保留。
+
+import { test, expect } from '@/fixtures/test';
+
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { seedWiki } from '@/fixtures/corpus';
+import { createCode } from '@/fixtures/codes';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { initMCP } from '@/fixtures/mcp';
+
+const OWNER = {
+  email: 'alice@example.com', password: 'correct-horse-battery-staple',
+  handle: 'alice', fullName: 'Alice Anderson',
+};
+
+const CODE = 'INTRO-001';
+const LUCERNA = 'projects/lucerna';
+const FAMILY = 'personal/family';
+
+test.describe('多 dialog citation 各自独立 expand', () => {
+  test.beforeAll(async ({ playwright }) => {
+    resetInstance();
+    const request = await playwright.request.newContext();
+    await claim(request, findSetupToken(), {
+      email: OWNER.email, password: OWNER.password,
+      handle: OWNER.handle, fullName: OWNER.fullName,
+    });
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    const token = await createAPIToken(request, csrf, 'citation-multi-seed');
+    const sid = await initMCP(request, token);
+    await seedWiki(request, token, sid, {
+      body: 'lucerna is my local-first knowledge tool.',
+      title: 'Lucerna', path: LUCERNA,
+    });
+    await seedWiki(request, token, sid, {
+      body: 'my mother is from singapore, my dad from BC.',
+      title: 'Family', path: FAMILY,
+    });
+    await createCode(request, csrf, {
+      code: CODE, label: 'intro', purpose: 'citation-multi spec',
+    });
+    await request.dispose();
+  });
+
+  test('两个 dialog 各 1 cited row → expand 一个不影响另一个，两个能同时开',
+    async ({ browser }) => {
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+
+      await page.goto(`/?code=${CODE}`);
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      const skip = page.getByTestId('visitor-name-skip');
+      if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await skip.click();
+      }
+
+      const input = page.locator('[data-testid="chat-input"] input');
+      // 第一轮：lucerna
+      await input.fill('tell me about lucerna');
+      await input.press('Enter');
+      const lucernaRow = page.locator(
+        `[data-testid="citation-row"][data-citation-path="${LUCERNA}"]`,
+      );
+      await expect(lucernaRow).toBeVisible({ timeout: 20_000 });
+
+      // 第二轮：family — 等 input 重新 enable
+      await expect(input).toBeEnabled({ timeout: 20_000 });
+      await input.fill('tell me about your family');
+      await input.press('Enter');
+      const familyRow = page.locator(
+        `[data-testid="citation-row"][data-citation-path="${FAMILY}"]`,
+      );
+      await expect(familyRow).toBeVisible({ timeout: 20_000 });
+
+      // expand lucerna only
+      await lucernaRow.locator('summary').click();
+      await expect(lucernaRow.locator('[data-testid="citation-body"]'))
+        .toBeVisible({ timeout: 2_000 });
+      // family 还是关着
+      await expect(familyRow.locator('[data-testid="citation-body"]'))
+        .not.toBeVisible({ timeout: 1_000 });
+
+      // 现在 expand family，两个应该同时开
+      await familyRow.locator('summary').click();
+      await expect(familyRow.locator('[data-testid="citation-body"]'))
+        .toBeVisible({ timeout: 2_000 });
+      await expect(lucernaRow.locator('[data-testid="citation-body"]'))
+        .toBeVisible({ timeout: 1_000 });
+
+      // 折 lucerna，family 应该仍开
+      await lucernaRow.locator('summary').click();
+      await expect(lucernaRow.locator('[data-testid="citation-body"]'))
+        .not.toBeVisible({ timeout: 1_000 });
+      await expect(familyRow.locator('[data-testid="citation-body"]'))
+        .toBeVisible({ timeout: 1_000 });
+
+      await ctx.close();
+    });
+});

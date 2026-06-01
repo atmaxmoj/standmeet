@@ -121,7 +121,7 @@ func (r *retriever) runSearch(input []byte) (string, error) {
 type corpusRow struct {
 	Path    string `json:"path"`
 	Title   string `json:"title"`
-	Kind    string `json:"kind"`
+	Genre   string `json:"genre"`
 	Summary string `json:"summary,omitempty"`
 }
 
@@ -266,7 +266,7 @@ func (r *retriever) listWikiRow(w *domain.Wiki, prefix string) (corpusRow, bool)
 	if !r.allowsEntry(domain.GenreWiki, p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
-	return corpusRow{Path: p, Title: w.Title(), Kind: "wiki"}, true
+	return corpusRow{Path: p, Title: w.Title(), Genre: "wiki"}, true
 }
 
 func (r *retriever) listOutputRow(o *domain.Output, prefix string) (corpusRow, bool) {
@@ -274,7 +274,7 @@ func (r *retriever) listOutputRow(o *domain.Output, prefix string) (corpusRow, b
 	if !r.allowsEntry(domain.GenreOutput, p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
-	return corpusRow{Path: p, Title: o.Title(), Kind: "output"}, true
+	return corpusRow{Path: p, Title: o.Title(), Genre: "output"}, true
 }
 
 // errJSON / marshalRows / marshalKindBody —— tool 返回都是 JSON string。
@@ -295,13 +295,13 @@ func marshalRows(rows []corpusRow) string {
 	return string(out)
 }
 
-// marshalKindBodyPath —— G-1 fix: visitor pi-agent-core 要从 corpus_read 的
-// tool_result 拿 path + title 累积 citations (在浏览器侧)。老 {kind, body}
-// 形态拿不到 path 走空字符串，persistTurn 上报 cited_wiki_paths=[”] 全部
-// 解析失败。新形态把 path + title 也带回去。
-func marshalKindBodyPath(kind, body, path, title string) string {
+// marshalGenreBodyPath —— corpus_read 的 tool result wire 形态。包 4 个
+// 字段：genre (wiki/output/writing) + body (markdown，含 mermaid/latex
+// 等内嵌元素) + path + title。frontend pi-agent-core 收到后累积 citations
+// (genre + path + title 用于 UI；body 用于 G-3 inline 展开)。
+func marshalGenreBodyPath(genre, body, path, title string) string {
 	out, err := json.Marshal(map[string]string{
-		"kind": kind, "body": body, "path": path, "title": title,
+		"genre": genre, "body": body, "path": path, "title": title,
 	})
 	if err != nil {
 		return errJSON("marshal failed")

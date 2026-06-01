@@ -79,7 +79,7 @@ function fakeToolDispatcher(): ToolDispatcher {
     call(call: ToolCall): Promise<ToolResult> {
       return Promise.resolve({
         id: call.id, name: call.name, ok: true,
-        result: [{ path: 'projects/lucerna', title: 'Lucerna', kind: 'wiki' }],
+        result: [{ path: 'projects/lucerna', title: 'Lucerna', genre: 'wiki' }],
         capability_state: SPIKE_CAPS,
       });
     },

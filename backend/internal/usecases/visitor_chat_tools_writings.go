@@ -25,7 +25,7 @@ func (r *retriever) listWritingRow(w *domain.Writing, prefix string) (corpusRow,
 	if !r.allowsEntry(domain.GenreWriting, p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
-	return corpusRow{Path: p, Title: w.Title(), Kind: "writing"}, true
+	return corpusRow{Path: p, Title: w.Title(), Genre: "writing"}, true
 }
 
 func (r *retriever) findWritingByPath(path string) *domain.Writing {
@@ -39,7 +39,7 @@ func (r *retriever) findWritingByPath(path string) *domain.Writing {
 
 func writingToRow(w *domain.Writing) corpusRow {
 	return corpusRow{
-		Path: w.Path(), Title: w.Title(), Kind: "writing",
+		Path: w.Path(), Title: w.Title(), Genre: "writing",
 		Summary: writingRowSummary(w),
 	}
 }

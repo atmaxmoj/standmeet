@@ -21,14 +21,14 @@ func (r *retriever) outputMatches(o *domain.Output, q string) bool {
 
 func wikiToRow(w *domain.Wiki) corpusRow {
 	return corpusRow{
-		Path: wikiPath(w), Title: w.Title(), Kind: "wiki",
+		Path: wikiPath(w), Title: w.Title(), Genre: "wiki",
 		Summary: summarize(w.Body()),
 	}
 }
 
 func outputToRow(o *domain.Output) corpusRow {
 	return corpusRow{
-		Path: outputPath(o), Title: o.Title(), Kind: "output",
+		Path: outputPath(o), Title: o.Title(), Genre: "output",
 		Summary: summarize(o.Body()),
 	}
 }

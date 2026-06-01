@@ -211,24 +211,44 @@ func makeReadToolCall(messages []Message) *StreamToolCall {
 	return &StreamToolCall{ID: "mock-read-1", Name: mockReadTool, Input: args}
 }
 
-// hasToolResult —— messages 里是否已含 tool=name 的 tool_result 段。
-// 实际 wire format: assistant 消息里 content 含 "[tool_result:name]" 标签
+// hasToolResult —— 在 current exchange 窗口里是否已含 tool=name 的
+// tool_result。current exchange = 最后一条 role=user 之后的 messages
+// (即当前 dialog 的 agent loop 累积，不含历史 dialog)。
+//
+// 之前是扫整个 messages history，导致 multi-dialog 对话第 2+ 个 dialog
+// 跳过 tool 调用 —— AI 该有权对每个新问题重新 search / read 同一个 tool。
+//
+// wire format: assistant message content 含 "[tool_result:name]" 标签
 // (跟前端 agent-core 的 toolResultAsMessage 同 prefix)。
 func hasToolResult(messages []Message, name string) bool {
 	tag := "[tool_result:" + name + "]"
-	for i := range messages {
-		if strings.Contains(messages[i].Content, tag) {
+	for _, m := range messagesSinceLastUser(messages) {
+		if strings.Contains(m.Content, tag) {
 			return true
 		}
 	}
 	return false
 }
 
-// firstPathFromLastToolResult —— 找最后一个 tool=name 的 tool_result，
-// 解析它的 result JSON 取第一个 path。
+// messagesSinceLastUser —— 返从最后一条 user message (含) 之后的 messages。
+// 没找到 user message → 返全部。给 mock 限定"当前 dialog 的 agent loop
+// 累积"窗口用。
+func messagesSinceLastUser(messages []Message) []Message {
+	for i := range slices.Backward(messages) {
+		if messages[i].Role == "user" {
+			return messages[i:]
+		}
+	}
+	return messages
+}
+
+// firstPathFromLastToolResult —— 找当前 dialog (最后一条 user 之后) 里
+// 最后一个 tool=name 的 tool_result，解析 result JSON 取第一个 path。
+// 窗口同 hasToolResult，避免跨 dialog 拿到旧 search 结果。
 func firstPathFromLastToolResult(messages []Message, name string) string {
 	tag := "[tool_result:" + name + "]"
-	for _, m := range slices.Backward(messages) {
+	window := messagesSinceLastUser(messages)
+	for _, m := range slices.Backward(window) {
 		jsonStr := extractAfterTag(m.Content, tag)
 		if jsonStr != "" {
 			return extractPathFromToolResultJSON(jsonStr)

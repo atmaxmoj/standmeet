@@ -7,6 +7,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { ChatMarkdown } from '@/components/page/markdown';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
@@ -159,6 +160,10 @@ function PageHeader() {
 }
 
 function OutputBody({ body }: { body: string }) {
-  return <div className="reading text-base whitespace-pre-wrap">{body}</div>;
+  return (
+    <div className="reading text-base" data-testid="output-body">
+      <ChatMarkdown source={body} />
+    </div>
+  );
 }
 

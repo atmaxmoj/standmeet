@@ -218,9 +218,7 @@ function pushCitationFromTool(
 function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
   if (!isRecord(raw)) return null;
   const path = readString(raw['path']);
-  // backend 当前 wire 字段叫 kind (G-1.5 阶段没动 backend tool result wire)；
-  // 这里读 kind 但内部用 genre 概念。后续 wire 改 genre 时只需删 fallback。
-  const genre = readString(raw['genre']) || readString(raw['kind']);
+  const genre = readString(raw['genre']);
   const title = readString(raw['title']) || path;
   const body = readString(raw['body']);
   return { path, genre, title, body };
