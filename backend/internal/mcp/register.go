@@ -22,13 +22,14 @@ type RegisterDeps struct {
 	Codes         CodesRevoker
 	Corpus        *usecases.CorpusDeps
 	Conversations *usecases.ConversationsDeps
+	Prompts       *usecases.PromptsDeps
 	Log           *slog.Logger
 }
 
 // RegisterAgentSkills —— 注册所有 owner-side capability。重 ID panic
 // (boot 期失败比运行时漏注册好)。后续 commit 把 jobs / resume /
 // applications / custom_page 等 file 也搬进来。
-func RegisterAgentSkills(reg *agentskills.Registry, deps RegisterDeps) {
+func RegisterAgentSkills(reg *agentskills.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newMeCapability(deps.Owners, deps.Log))
 	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
 	reg.MustRegister(newCodesCapability(deps.Codes, deps.Log))
@@ -36,4 +37,5 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps RegisterDeps) {
 	reg.MustRegister(newCorpusOutputCapability(deps.Corpus, deps.SEO, deps.Log))
 	reg.MustRegister(newCorpusMutationsCapability(deps.Corpus, deps.Log))
 	reg.MustRegister(newChatCapability(deps.Corpus, deps.Conversations, deps.Log))
+	reg.MustRegister(newPromptsCapability(deps.Prompts, deps.Log))
 }

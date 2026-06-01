@@ -112,12 +112,14 @@ func registerAgentSkills(d *runtimeDeps) {
 	convsDeps := usecases.ConversationsDeps{
 		Conv: d.convRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 	}
-	mcp.RegisterAgentSkills(d.agentSkills, mcp.RegisterDeps{
+	promptsDeps := usecases.PromptsDeps{Prompts: d.promptRepo}
+	mcp.RegisterAgentSkills(d.agentSkills, &mcp.RegisterDeps{
 		Owners:        d.ownerRepo,
 		SEO:           d.seoRepo,
 		Codes:         d.codeRepo,
 		Corpus:        &corpusDeps,
 		Conversations: &convsDeps,
+		Prompts:       &promptsDeps,
 		Log:           d.log,
 	})
 }
