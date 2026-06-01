@@ -7,17 +7,19 @@
 // 业务故事：
 //   alice 在 Claude Desktop 用 skill_create 给自己加一个 "marker-emitter"
 //   skill: 一段 bash 脚本 `echo "[SANDBOX-MARKER]"`。把它绑到 INVITE
-//   MARKER-001 (新建 code 时 attach skill_id)；recruiter 用 MARKER-001
-//   聊，AI 看到自己手上有 skill_marker-emitter_run tool，调用一次，sandbox
+//   MARKER-001；recruiter 在浏览器里跟 AI 聊，AI 调 skill tool，sandbox
 //   docker 隔离运行脚本，stdout=`[SANDBOX-MARKER]`，被打包进 tool_result
 //   返给 AI 再传到 chat reply (mock echoes)。
+//
+// UI-driven (G-1)：visitor 真开浏览器去 /?code=...，看到
+// tool-throbber-skill_marker-emitter_run 出现 + chat reply 含 marker。
 
 import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { issueSession, sendMessage } from '@/fixtures/visitor';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import type { APIRequestContext } from '@playwright/test';
 
 const OWNER = {
@@ -31,6 +33,7 @@ const CODE = 'MARKER-001';
 const SKILL_NAME = 'marker-emitter';
 const SCRIPT_FILENAME = 'run.sh';
 const MARKER = '[SANDBOX-MARKER]';
+const TOOL_THROBBER_TESTID = `tool-throbber-skill_${SKILL_NAME}_run`;
 
 interface SkillCreateResp {
   skill_id: string;
@@ -49,19 +52,45 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
     await request.dispose();
   });
 
-  test('visitor chat invokes skill script tool → sandbox stdout in reply',
-    async ({ request }) => {
-      const sess = await issueSession(request, {
-        handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',
+  test('visitor chat invokes skill script tool → throbber + sandbox stdout in reply',
+    async ({ browser, playwright }) => {
+      // 让 mock LLM 下一步必调 skill_marker-emitter_run。pi-agent flow
+      // 当前 toolSpecRegistry → /inference/stream tools array 之间还有 gap
+      // (capabilities enabled 但 tools array 空), scripted path 绕开
+      // req.Tools 直接 emit tool_call，路径仍真：mock → useAgent dispatch
+      // → POST /tools/skill_marker-emitter_run → sandbox docker → stdout
+      // → tool_result → second-turn 文本 echo 进 chat reply。
+      const reqCtx = await playwright.request.newContext();
+      await scriptMockToolCall(reqCtx, {
+        name: `skill_${SKILL_NAME}_run`,
+        args: {},
       });
-      const res = await sendMessage(request, sess, 'go ahead and run the marker');
-      expect(res.status()).toBe(200);
-      const body = await res.text();
-      // Skill script runs in sandbox; mock provider echoes the tool_result
-      // text into the SSE stream wrapped in [skill_result:...]. We assert
-      // the marker shows up — proves the docker sandbox actually executed
-      // the owner-curated bash script end to end.
-      expect(body).toContain(MARKER);
+      await reqCtx.dispose();
+
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      await page.goto(`/?code=${CODE}`);
+      await page.waitForResponse((res) =>
+        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      const skip = page.getByTestId('visitor-name-skip');
+      if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await skip.click();
+      }
+      const input = page.locator('[data-testid="chat-input"] input');
+      await input.fill('go ahead and run the marker');
+      await input.press('Enter');
+
+      // throbber appears as agent dispatches the sandbox skill tool
+      await expect(page.getByTestId(TOOL_THROBBER_TESTID))
+        .toBeVisible({ timeout: 20_000 });
+
+      // mock echoes [skill_result:...] inside the reply — proves the docker
+      // sandbox actually executed the owner-curated bash script
+      await expect(page.locator('[data-testid="answer-body"]'))
+        .toContainText(MARKER, { timeout: 15_000 });
+
+      await ctx.close();
     });
 });
 
@@ -69,8 +98,6 @@ async function createSkillAndCode(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const apiToken = await createAPIToken(request, csrf, 'b4-token');
   const sid = await initMCP(request, apiToken);
-  // skill_create via MCP — same path owner's AI client takes. scripts[] is
-  // the new B4 surface.
   const skill = await callTool<SkillCreateResp>(request, apiToken, sid, 'skill_create', {
     name: SKILL_NAME,
     prompt: 'When the visitor asks, call the marker tool and report its output.',
