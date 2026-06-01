@@ -3,8 +3,6 @@
 // 接 X-Session-Token，把 backend 装配给这个 session 的 capability map +
 // tool spec + system prompt hash 全吐出。后续每个 B-N commit 加 capability
 // 都靠此 endpoint 验装配结果（含 enabled 状态、quota_remaining 计算等）。
-//
-// 老 /test/visitor-tool-specs 仍然存在（B-3 之后可删）；这个是它的 superset。
 
 package sys
 

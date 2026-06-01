@@ -111,8 +111,7 @@ interface VisitorCapabilitiesResp {
 }
 
 /** Assert calendar_book is (or isn't) in the assembled tool spec for
- *  a session. Hits /internal/test/visitor-capabilities (Phase B-1+ dev
- *  endpoint, replaces the older /visitor-tool-specs).
+ *  a session. Hits /internal/test/visitor-capabilities (dev endpoint).
  *  Tool name is snake_case since D-3 (URL ↔ LLM spec 1:1). Capability
  *  ID stays dotted ("calendar.book") — that's a separate concern. */
 export async function expectCalendarBookExposed(

@@ -126,24 +126,10 @@ func OwnerIDFrom(ctx context.Context) string {
 	return v
 }
 
-// registerTools 把所有 tool 注册到 mcpSrv。
-// Phase B-4: 新的 capability 经 agentskills.Registry 注册；老的 tools_*.go
-// 暂时保留直接 AddTool 调用，逐步迁移为 Capability OwnerMCPBinding。
+// registerTools 把所有 tool 注册到 mcpSrv。Phase E 收尾后只剩一行
+// registerCapabilities walk —— 所有 tool 都走 agentskills.Registry。
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
-	// corpusTools 已 E-1 迁到 cap_corpus_raw.go
-	// outputTools 已 E-2 迁到 cap_corpus_output.go
-	// seoTools 已搬进 cap_seo.go (走 registerCapabilities)
-	// customPageTools 已 E-14a 迁到 cap_custom_page*.go
-	// jobsTools 已 E-10 迁到 cap_jobs.go
-	// resumeTools 已 E-11 迁到 cap_resume.go
-	// applicationsTools 已 E-12 迁到 cap_applications.go (+ MCPResult.Embeddings 扩)
-	// chatTools 已 E-4 迁到 cap_chat.go
-	// skillsTools 已 E-8 迁到 cap_skills.go
-	// promptsTools 已 E-5 迁到 cap_prompts.go
-	// rolesTools 已 E-6 迁到 cap_roles.go
-	// mcpServersTools 已 E-7 迁到 cap_mcp_servers.go
-	// writingsTools 已 E-9 迁到 cap_writings.go
 }
 
 // formatOwner —— `me` capability + 其他可能引用 owner profile 的地方共用。
