@@ -14,6 +14,17 @@
 import { test as base, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+// Playwright 1.60 不再 named-export `Playwright` 类型；spec 文件里很
+// 多老地方写 `playwright: Playwright`，全改 80+ 处 import 路径不值得。
+// 这里 module augmentation 把 alias 加回去 —— 直接从 PlaywrightWorker
+// Args.playwright 取，避免依赖 `typeof import('playwright-core')` 字面
+// 解析（外层 node_modules 撞了个老 copy，会让 tsc 在不同位置看到不
+// 同的 type identity）。
+declare module '@playwright/test' {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+  export type Playwright = import('@playwright/test').PlaywrightWorkerArgs['playwright'];
+}
+
 interface OwnerCredentials {
   email: string;
   password: string;
@@ -56,3 +67,4 @@ export const test = base.extend<Fixtures>({
 });
 
 export { expect };
+export type { Page, APIRequestContext, Browser } from '@playwright/test';

@@ -96,5 +96,7 @@ async function pickFirstConv(request: APIRequestContext): Promise<string> {
   });
   if (!res.ok()) throw new Error(`list conversations: ${res.status()}`);
   const rows = (await res.json()) as ConvSummary[];
-  return rows[0].id;
+  const head = rows[0];
+  if (!head) throw new Error('no conversations rows');
+  return head.id;
 }

@@ -71,7 +71,7 @@ async function prep(playwright: Playwright): Promise<CodedSeed> {
 
 async function visitAsCoded(page: Page, code: string): Promise<void> {
   await page.goto(`/?code=${code}`);
-  await page.waitForResponse((r) =>
+  await page.waitForResponse((r: import('@playwright/test').Response) =>
     r.url().endsWith('/api/v1/sessions') && r.status() === 200);
   await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
   const skip = page.getByTestId('visitor-name-skip');

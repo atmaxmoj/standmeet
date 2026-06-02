@@ -115,7 +115,7 @@ test.describe('visitor chat 铺全 document surface + quota 可见', () => {
 
 async function absorbCode(page: Page): Promise<void> {
   await page.goto(`/?code=${CODE}`);
-  await page.waitForResponse((r) =>
+  await page.waitForResponse((r: import('@playwright/test').Response) =>
     r.url().endsWith('/api/v1/sessions') && r.status() === 200);
   await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 }

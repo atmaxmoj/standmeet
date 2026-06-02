@@ -77,7 +77,7 @@ function issueResetToken(): string {
     { encoding: 'utf-8' },
   );
   const match = out.match(/(https?:\/\/[^\s]+\/account\/reset\?t=[^\s]+)/);
-  if (!match) {
+  if (!match || !match[1]) {
     throw new Error('did not find reset URL in CLI output:\n' + out);
   }
   return match[1];
