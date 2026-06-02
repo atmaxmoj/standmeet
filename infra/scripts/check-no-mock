@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# check-no-mock —— G-Y 强制 backend/ 不含任何 mock-only / test-only 代码。
+#
+# 三类违规：
+#   A) 源码模式 (MockProvider / INFERENCE_MOCK_ / /__mock / Test{Registry,
+#      VisitorCap,GCalExpire})
+#   B) 目录   (backend/cmd/job-board-mock, backend/cmd/mcp-server-mock)
+#   C) 文件   (backend/internal/routes/sys/test_*.go)
+#
+# 排除：_test.go (Go unit test files OK), // 起头的注释行 OK (历史描述不
+# 算违规)。
+#
+# 退出码：0 = clean，1 = 有违规 (列出所有违规位置)。
+
+set -euo pipefail
+
+cd "$(dirname "$0")/../.."
+
+backend_violations=0
+report() {
+  echo "❌ $1"
+  backend_violations=$((backend_violations + 1))
+}
+
+# A) 源码模式
+patterns='MockProvider|INFERENCE_MOCK_|"/__mock/|TestRegistryDeps|TestVisitorCapabilitiesDeps|TestGCalExpireDeps'
+src_hits=$(grep -rnE "$patterns" backend/ \
+  --include='*.go' --exclude='*_test.go' 2>/dev/null \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' || true)
+if [ -n "$src_hits" ]; then
+  report "backend/ 源码含 mock-only 模式 (G-Y 应该挪到 mock-stack/):"
+  printf '%s\n' "$src_hits" | sed 's/^/  /'
+fi
+
+# B) 目录
+for dir in backend/cmd/job-board-mock backend/cmd/mcp-server-mock; do
+  if [ -d "$dir" ]; then
+    report "$dir/ 整个 binary 应该在 mock-stack/ (G-Y)"
+  fi
+done
+
+# C) 文件
+test_files=$(find backend/internal/routes/sys -name 'test_*.go' 2>/dev/null || true)
+if [ -n "$test_files" ]; then
+  report "backend/internal/routes/sys/test_*.go 应该走 mock-stack admin 或 SQL/Redis:"
+  printf '%s\n' "$test_files" | sed 's/^/  /'
+fi
+
+if [ "$backend_violations" -gt 0 ]; then
+  echo
+  echo "G-Y 强制：mock infra 全在 mock-stack/，backend/ 只剩 prod 路径。"
+  exit 1
+fi
+
+echo "✓ backend/ 无 mock-only 代码"

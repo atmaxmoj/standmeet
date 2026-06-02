@@ -5,13 +5,14 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint backend-lint app-lint sdk-lint e2e-lint env-lint
+.PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
 .PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
-# 各自跑 eslint + tsc + knip。
-lint: env-lint backend-lint app-lint sdk-lint e2e-lint
+# 各自跑 eslint + tsc + knip。backend-no-mock 是 G-Y 强制的"backend 不
+# 准含 mock-only 代码"约束。
+lint: env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint
 
 env-lint:
 	@LINT_ENV_EXCLUDE="standmeet-client standmeet-server standmeet-e2e" \
@@ -19,6 +20,19 @@ env-lint:
 
 backend-lint:
 	@$(MAKE) -C backend lint
+
+# backend-no-mock —— G-Y 守门：backend/ 里禁止任何 mock-only / test-only
+# 代码 (MockProvider / INFERENCE_MOCK_ env / /__mock URL / routes/sys/test_*)。
+# mock infra 整套去 mock-stack/。grep 排除 _test.go 跟 // 注释。
+#
+# 检查清单：
+#   1. 源码模式：MockProvider / INFERENCE_MOCK_ / __mock / TestRegistry /
+#      TestVisitorCap / TestGCalExpire
+#   2. 目录：backend/cmd/{job-board,mcp-server}-mock/ (应该在 mock-stack/)
+#   3. 文件：backend/internal/routes/sys/test_*.go (应该走 mock-stack admin
+#      端点 或 spec 直接打 SQL/Redis)
+backend-no-mock:
+	@infra/scripts/check-no-mock
 
 # 前端子项目：node_modules 没装就 skip（启用时再 pnpm install）。
 app-lint:

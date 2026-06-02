@@ -1,0 +1,217 @@
+// wire.go —— Anthropic Messages API request/response shapes.
+//
+// Subset of https://docs.anthropic.com/en/api/messages. We only decode
+// the fields backend's AnthropicProvider sends (model/system/messages/
+// tools/max_tokens/stream) and emit SSE matching what its parser
+// (anthropic_sse.go) consumes.
+package main
+
+import "encoding/json"
+
+// Block —— content_block. text / tool_use / tool_result variants share
+// the same struct; per-type fields are optional.
+type Block struct {
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	ID        string          `json:"id,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
+	Input     json.RawMessage `json:"input,omitempty"`
+}
+
+// Msg —— role + ordered content blocks.
+type Msg struct {
+	Role    string  `json:"role"`
+	Content []Block `json:"content"`
+}
+
+// ToolDef —— tool spec sent to the model.
+type ToolDef struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	InputSchema json.RawMessage `json:"input_schema"`
+}
+
+// MessagesReq —— what backend POSTs to /v1/messages.
+type MessagesReq struct {
+	Model     string    `json:"model"`
+	System    string    `json:"system,omitempty"`
+	Messages  []Msg     `json:"messages"`
+	Tools     []ToolDef `json:"tools,omitempty"`
+	MaxTokens int       `json:"max_tokens"`
+	Stream    bool      `json:"stream"`
+}
+
+// lastUserText —— flatten the last user message's text blocks into a
+// single string. Used by the default search behavior to derive the
+// `query` arg for corpus_search.
+func (r *MessagesReq) lastUserText() string {
+	for i := len(r.Messages) - 1; i >= 0; i-- {
+		if r.Messages[i].Role == "user" {
+			return joinTextBlocks(r.Messages[i].Content)
+		}
+	}
+	return ""
+}
+
+func joinTextBlocks(blocks []Block) string {
+	out := ""
+	for i := range blocks {
+		if blocks[i].Type == "text" {
+			out += blocks[i].Text
+		}
+	}
+	return out
+}
+
+// hasTool —— whether the model was offered tool `name` this turn.
+func (r *MessagesReq) hasTool(name string) bool {
+	for i := range r.Tools {
+		if r.Tools[i].Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// messagesSinceLastUser —— window starting at the most recent user
+// message whose content carries a `text` block (the visitor's actual
+// question). Tool_result user messages are NOT real questions in the
+// Anthropic protocol — they live under user role but represent the
+// previous assistant tool_use's reply.
+//
+// Without this, multi-iteration agent loops (search → result → search
+// again) would have `hasToolResult` consider only the very last user
+// message (a tool_result) and miss the assistant tool_use right above
+// it, looping forever.
+func (r *MessagesReq) messagesSinceLastUser() []Msg {
+	for i := len(r.Messages) - 1; i >= 0; i-- {
+		if r.Messages[i].Role == "user" && hasTextBlock(r.Messages[i].Content) {
+			return r.Messages[i:]
+		}
+	}
+	return r.Messages
+}
+
+func hasTextBlock(blocks []Block) bool {
+	for i := range blocks {
+		if blocks[i].Type == "text" {
+			return true
+		}
+	}
+	return false
+}
+
+// hasToolResult —— whether a tool_result for tool <name> appears in
+// the current-turn window. pi-agent-core sends Anthropic-shape typed
+// blocks now: assistant messages carry tool_use blocks (id, name) and
+// user messages carry tool_result blocks (tool_use_id, content). We
+// pair by id.
+func (r *MessagesReq) hasToolResult(name string) bool {
+	window := r.messagesSinceLastUser()
+	ids := collectToolUseIDs(window, name)
+	for i := range window {
+		if anyToolResultIn(&window[i], ids) {
+			return true
+		}
+	}
+	return false
+}
+
+func collectToolUseIDs(window []Msg, name string) map[string]bool {
+	out := map[string]bool{}
+	for i := range window {
+		if window[i].Role != "assistant" {
+			continue
+		}
+		for j := range window[i].Content {
+			b := &window[i].Content[j]
+			if b.Type == "tool_use" && b.Name == name && b.ID != "" {
+				out[b.ID] = true
+			}
+		}
+	}
+	return out
+}
+
+func anyToolResultIn(m *Msg, ids map[string]bool) bool {
+	if m.Role != "user" {
+		return false
+	}
+	for i := range m.Content {
+		b := &m.Content[i]
+		if b.Type == "tool_result" && ids[b.ToolUseID] {
+			return true
+		}
+	}
+	return false
+}
+
+// firstPathFromSearchResult —— pull the first path out of the most
+// recent corpus_search tool_result in the current-turn window.
+func (r *MessagesReq) firstPathFromSearchResult() string {
+	window := r.messagesSinceLastUser()
+	searchIDs := collectToolUseIDs(window, "corpus_search")
+	for i := len(window) - 1; i >= 0; i-- {
+		if window[i].Role != "user" {
+			continue
+		}
+		if p := pickPathFromResults(window[i].Content, searchIDs); p != "" {
+			return p
+		}
+	}
+	return ""
+}
+
+func pickPathFromResults(blocks []Block, ids map[string]bool) string {
+	for i := range blocks {
+		b := &blocks[i]
+		if b.Type != "tool_result" || !ids[b.ToolUseID] {
+			continue
+		}
+		if p := firstPath(b.Content); p != "" {
+			return p
+		}
+	}
+	return ""
+}
+
+type pathRow struct {
+	Path string `json:"path"`
+}
+
+// firstPath —— corpus_search result is JSON string content. Two formats
+// expected: bare array `[{"path":"..."}]` or wrapped `{"result":[...]}`.
+func firstPath(raw json.RawMessage) string {
+	// raw may itself be a JSON-encoded string (Anthropic tool_result.content
+	// is typically a string of JSON). Try decoding as string first.
+	var asStr string
+	body := []byte(raw)
+	if err := json.Unmarshal(body, &asStr); err == nil {
+		body = []byte(asStr)
+	}
+	if p := decodeRows(body); p != "" {
+		return p
+	}
+	var wrap struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(body, &wrap); err == nil && len(wrap.Result) > 0 {
+		return decodeRows(wrap.Result)
+	}
+	return ""
+}
+
+func decodeRows(body []byte) string {
+	var rows []pathRow
+	if err := json.Unmarshal(body, &rows); err != nil {
+		return ""
+	}
+	for i := range rows {
+		if rows[i].Path != "" {
+			return rows[i].Path
+		}
+	}
+	return ""
+}

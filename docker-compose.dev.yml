@@ -57,8 +57,10 @@ services:
       - SECURE_COOKIE=false
       # 不再有 PUBLIC_URL env —— "对外是啥地址" 全部由 owner 在 claim 表单
       # 里填，写进 owners.public_url。SEO / QR / 任何对外链接都从 DB 读。
-      - INFERENCE_PROVIDER=mock
-      - INFERENCE_MOCK_REPLY=Hello visitor, alice says hi from the mock provider.
+      # Backend always uses real anthropic-compat provider. In dev/e2e the
+      # owner row's ai_endpoint is populated (post-claim seed in
+      # e2e/fixtures/admin.ts or hand-set via admin UI) to point at the
+      # llm-gateway service below; prod points at real api.anthropic.com.
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - SANDBOX_DRIVER=docker
       # MinIO / S3 storage for owner-uploaded images + attachments.
@@ -104,16 +106,14 @@ services:
       - GOOGLE_AUTH_URL=http://localhost:9000/google-oauth/auth
       - GOOGLE_TOKEN_URL=http://job-board-mock:9000/google-oauth/token
       - GOOGLE_CALENDAR_BASE=http://job-board-mock:9000/google-calendar
-      # Mock LLM scripting bridge: backend's MockProvider polls this URL
-      # for the next scripted tool call before each agent step. e2e specs
-      # POST {name,args} via /__mock/inference/next_tool to script.
-      - INFERENCE_MOCK_SCRIPT_URL=http://job-board-mock:9000
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
       job-board-mock:
+        condition: service_healthy
+      llm-gateway:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -140,8 +140,8 @@ services:
   # 全链能在 e2e 里被验。owner 注册它当成"自家挂的 calendar/notion MCP"。
   mcp-server-mock:
     build:
-      context: ./backend
-      target: mcp-mock
+      context: ./mock-stack
+      target: mcp
     restart: unless-stopped
     environment:
       - PORT=9100
@@ -156,11 +156,11 @@ services:
   # job-board-mock —— test-only HTTP server serving captured fixtures from
   # e2e/fixtures/job-boards/. Backend points its 8 *_BASE_URL env vars at
   # this service so the fetcher chain never reaches the real internet.
-  # See backend/cmd/job-board-mock/main.go for routes + day2 derivation.
+  # See mock-stack/job-board/main.go for routes + day2 derivation.
   job-board-mock:
     build:
-      context: ./backend
-      target: mock                 # smaller image with only the mock binary
+      context: ./mock-stack
+      target: job-board
     restart: unless-stopped
     environment:
       - PORT=9000
@@ -175,6 +175,28 @@ services:
       - ./e2e/fixtures:/fixtures:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/__mock/state"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # llm-gateway —— test-only Anthropic-compatible /v1/messages SSE server.
+  # Backend's anthropic provider POSTs here in dev/e2e (owner's ai_endpoint
+  # column points at it). Gateway has scripted-tool + scripted-reply admin
+  # endpoints (/__mock/inference/next_tool, next_reply) so e2e fixtures
+  # can drive each chat turn deterministically; default behavior is a
+  # canned corpus_search→corpus_read→reply flow.
+  llm-gateway:
+    build:
+      context: ./mock-stack
+      target: llm-gateway
+    restart: unless-stopped
+    environment:
+      - PORT=9300
+      - INFERENCE_MOCK_REPLY=Hello visitor, alice says hi from the mock provider.
+    ports:
+      - "9300:9300"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9300/__mock/inference/state"]
       interval: 3s
       timeout: 3s
       retries: 10

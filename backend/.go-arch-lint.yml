@@ -67,10 +67,6 @@ components:
     in: internal/server
   cmd:
     in: cmd/server
-  mockcmd:
-    in: cmd/job-board-mock                # test-only fixture server
-  mcpmockcmd:
-    in: cmd/mcp-server-mock               # e2e fixture: minimal external MCP HTTP server
   lintcmd:
     in: cmd/check-no-nil-container        # AST lint: container types must not return nil
 
@@ -320,18 +316,6 @@ deps:
       - mcp
       - postgres
       - captcha
-    anyVendorDeps: true
-
-  # mockcmd —— test-only fixture HTTP server。纯 stdlib + 读 fixture
-  # 文件，无 internal 依赖。e2e 通过 docker compose 起。
-  mockcmd:
-    mayDependOn: []
-    anyVendorDeps: true
-
-  # mcpmockcmd —— e2e fixture: minimal external MCP HTTP server。
-  # 纯 mcp-go vendor + stdlib，无 internal 依赖。
-  mcpmockcmd:
-    mayDependOn: []
     anyVendorDeps: true
 
   # lintcmd —— AST 静态检查工具 (check-no-nil-container)，独立可执行，纯
