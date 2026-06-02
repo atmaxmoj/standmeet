@@ -3,8 +3,8 @@
 // 设计源自 legacy standmeet-server/gateway/src/runtime/report.ts +
 // seed_builtin_skills.py "Conversation Report" skill。
 //
-// One-shot non-streaming /v1/messages call. No tools, no agent loop;
-// inference.SendAnthropic returns the concatenated text directly.
+// One-shot non-streaming call. No tools, no agent loop;
+// inference.Generate (eino model.Generate) returns text directly。
 
 package usecases
 
@@ -117,10 +117,11 @@ func runSummaryQuery(
 	ctx context.Context, cred *inference.Cred, msgs []domain.Message,
 ) (string, error) {
 	user := buildSummaryUserPrompt(msgs)
-	out, err := inference.SendAnthropic(ctx, cred, &inference.MessageReq{
-		Model:    cred.Model,
-		System:   summaryPrompt,
-		Messages: []inference.AnthropicMsg{inference.NewTextMessage("user", user)},
+	out, err := inference.Generate(ctx, cred, &inference.ChatRequest{
+		System: summaryPrompt,
+		Messages: []inference.ChatRequestMsg{
+			{Role: "user", Content: user},
+		},
 	})
 	if err != nil {
 		return "", fmt.Errorf("summary upstream: %w", err)

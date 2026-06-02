@@ -1,3 +1,15 @@
+// Package inference —— LLM 调用层。统一走 cloudwego/eino 的
+// model.ToolCallingChatModel 抽象；provider (anthropic / openai-
+// compat / gemini / ollama) 由 Cred.Provider 选 adapter。两个调用
+// 形态：
+//
+//   - Stream (proxy.go)   —— 流式 SSE，给浏览器 pi-agent-core 跑
+//     chat agent loop
+//   - Generate (generate.go) —— 一次性返 text，给 visitor_summary
+//     / 未来 capability 复用
+//
+// Cred + Resolver 在 resolver.go；errors.go 是 sentinel + 状态分类。
+//
 // eino_model.go —— 按 owner / visitor BYOAI cred 构造一个
 // eino model.ToolCallingChatModel。背后选 provider-specific adapter
 // (claude / openai / openai-compat via baseURL override)，对调用方
@@ -6,7 +18,6 @@
 // 不缓存 model 实例 —— 每个 chat 请求构造一次，构造代价低 (只是
 // 装 HTTP client + 配置)，省去 cache 失效跟 owner 改 cred 后清空
 // 的复杂度。
-
 package inference
 
 import (

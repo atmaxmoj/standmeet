@@ -20,6 +20,29 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
+// Cred —— resolved upstream credential. all four fields non-empty after
+// a successful Resolve.
+type Cred struct {
+	Provider string
+	Key      string
+	Endpoint string
+	Model    string
+}
+
+// Resolver —— pick the right cred for this request (owner row vs visitor
+// BYOAI envelope). Implementation: OwnerKeyResolver below.
+type Resolver interface {
+	Resolve(ctx context.Context, in *ResolveInput) (*Cred, error)
+}
+
+// ResolveInput —— per-request input. BYOAI non-nil only in mode='byoai'.
+// fieldalignment: pointer first.
+type ResolveInput struct {
+	BYOAI   *domain.AICredential
+	OwnerID string
+	Mode    string
+}
+
 // OwnerKeyResolver —— Resolver impl that loads owner row + decrypts key.
 type OwnerKeyResolver struct {
 	Lookup    OwnerLookup
