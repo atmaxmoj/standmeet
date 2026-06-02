@@ -6,7 +6,11 @@
 // (anthropic_sse.go) consumes.
 package main
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
 
 // Block —— content_block. text / tool_use / tool_result variants share
 // the same struct; per-type fields are optional.
@@ -35,12 +39,54 @@ type ToolDef struct {
 
 // MessagesReq —— what backend POSTs to /v1/messages.
 type MessagesReq struct {
-	Model     string    `json:"model"`
-	System    string    `json:"system,omitempty"`
-	Messages  []Msg     `json:"messages"`
-	Tools     []ToolDef `json:"tools,omitempty"`
-	MaxTokens int       `json:"max_tokens"`
-	Stream    bool      `json:"stream"`
+	Model     string       `json:"model"`
+	System    SystemField  `json:"system,omitempty"`
+	Messages  []Msg        `json:"messages"`
+	Tools     []ToolDef    `json:"tools,omitempty"`
+	MaxTokens int          `json:"max_tokens"`
+	Stream    bool         `json:"stream"`
+}
+
+// SystemField —— Anthropic /v1/messages 接受两种 system 形态：
+//
+//	"system": "..."                                   // simple string
+//	"system": [{"type":"text","text":"..."}]          // prompt-cache blocks
+//
+// eino claude adapter 走 block 路径；我们的 backend byte-proxy 仍发 string。
+// 两种都解，平铺出来后续走单一 Text() string 接口。
+type SystemField struct {
+	Text string
+}
+
+func (s *SystemField) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 || string(b) == "null" {
+		return nil
+	}
+	if b[0] == '"' {
+		return json.Unmarshal(b, &s.Text)
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(b, &blocks); err != nil {
+		return fmt.Errorf("system: not string or block array: %w", err)
+	}
+	var sb strings.Builder
+	for i := range blocks {
+		if blocks[i].Type == "text" {
+			sb.WriteString(blocks[i].Text)
+		}
+	}
+	s.Text = sb.String()
+	return nil
+}
+
+func (s SystemField) MarshalJSON() ([]byte, error) {
+	if s.Text == "" {
+		return []byte(`""`), nil
+	}
+	return json.Marshal(s.Text)
 }
 
 // lastUserText —— flatten the last user message's text blocks into a

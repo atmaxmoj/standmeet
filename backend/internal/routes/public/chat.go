@@ -42,6 +42,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
 	r.Post("/inference/models", h.listInferenceModels())
 	r.Post("/inference/stream", h.inferenceStream())
+	// H.2: 新 eino-based chat 入口。pi-agent-core 在 H.5 切到这条；
+	// 老 /inference/stream byte proxy 在 H.3 删。
+	r.Post("/llm/chat/stream", h.llmChatStream())
 }
 
 var visitorErrCases = []apierr.Case{

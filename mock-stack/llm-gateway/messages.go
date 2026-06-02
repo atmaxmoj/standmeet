@@ -215,9 +215,9 @@ func isSkillOrExt(name string) bool {
 // like `# Heading` (commonmark needs the heading at block start).
 func composeFinalReply(req *MessagesReq, base string) string {
 	var b strings.Builder
-	if req.System != "" {
+	if req.System.Text != "" {
 		b.WriteString("[system:")
-		b.WriteString(req.System)
+		b.WriteString(req.System.Text)
 		b.WriteString("]\n\n")
 	}
 	collectSkillEchoes(req, &b)
