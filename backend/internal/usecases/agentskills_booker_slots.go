@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/inference"
 )
 
 func runBookerListSlots(
@@ -38,15 +37,16 @@ func runBookerListSlots(
 	return marshalListSlotsResult(slots), nil
 }
 
-func listSlotsToolSpec() inference.ToolSpec {
-	return inference.ToolSpec{
-		Name: toolCalendarListSlotsName,
-		Description: "List available [start, end] slots on the owner's calendar " +
-			"between from_rfc3339 and until_rfc3339 that pass booking policy and " +
-			"don't overlap any busy window. Returns up to 50 slots. Use this " +
+// listSlotsBindingTool —— calendar_list_slots 注册口。
+func listSlotsBindingTool(run agentskills.RunFn) agentskills.BindingTool {
+	return agentskills.NewTool(
+		toolCalendarListSlotsName,
+		"List available [start, end] slots on the owner's calendar "+
+			"between from_rfc3339 and until_rfc3339 that pass booking policy and "+
+			"don't overlap any busy window. Returns up to 50 slots. Use this "+
 			"before calendar_book so the visitor can pick an actual free time.",
-		ProgressLabel: "listing slots",
-		InputSchema: json.RawMessage(`{
+		"listing slots",
+		json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"from_rfc3339":{"type":"string","description":"Search window start (RFC3339)."},
@@ -58,7 +58,8 @@ func listSlotsToolSpec() inference.ToolSpec {
 			},
 			"required":["from_rfc3339","until_rfc3339","duration_min"]
 		}`),
-	}
+		run,
+	)
 }
 
 type listSlotsArgsParsed struct {

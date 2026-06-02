@@ -16,7 +16,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 )
 
@@ -117,15 +116,13 @@ func skillBindingTools(runner sandbox.Runner, s *domain.Skill) []agentskills.Bin
 		if toolName == "" {
 			continue
 		}
-		out = append(out, agentskills.BindingTool{
-			Spec: inference.ToolSpec{
-				Name:          toolName,
-				Description:   skillToolDescription(s, script),
-				ProgressLabel: "running owner skill",
-				InputSchema:   skillScriptInputSchema(script),
-			},
-			Execute: makeSkillExecutor(runner, script),
-		})
+		out = append(out, agentskills.NewTool(
+			toolName,
+			skillToolDescription(s, script),
+			"running owner skill",
+			skillScriptInputSchema(script),
+			makeSkillRun(runner, script),
+		))
 	}
 	return out
 }
@@ -200,14 +197,14 @@ func scriptParamSchema(p *domain.SkillScriptParam) paramSchema {
 	return paramSchema{Type: t, Description: p.Description}
 }
 
-func makeSkillExecutor(runner sandbox.Runner, script *domain.SkillScript) inference.ToolExecutor {
+func makeSkillRun(runner sandbox.Runner, script *domain.SkillScript) agentskills.RunFn {
 	language := script.Language
 	content := script.Content
-	return func(ctx context.Context, _ string, input []byte) (string, error) {
+	return func(ctx context.Context, args string) (string, error) {
 		result, err := runner.Run(ctx, &sandbox.RunInput{
 			Language: language,
 			Script:   content,
-			ArgsJSON: string(input),
+			ArgsJSON: args,
 		})
 		return skillRunToToolResult(&result, err)
 	}

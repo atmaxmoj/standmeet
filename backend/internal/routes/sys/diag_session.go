@@ -116,8 +116,8 @@ func toolSpecsFor(
 func appendBindingToolSpecs(
 	out []toolSpecWireV2, b *agentskills.Binding,
 ) []toolSpecWireV2 {
-	for _, t := range b.Tools {
-		out = append(out, toolSpecWireV2{Name: t.Spec.Name})
+	for i := range b.Tools {
+		out = append(out, toolSpecWireV2{Name: b.Tools[i].Name})
 	}
 	if b.Close != nil {
 		b.Close()

@@ -91,7 +91,7 @@ type executeArgs struct {
 func executeAndRespond(
 	ctx context.Context, h *Handlers, w http.ResponseWriter, args executeArgs,
 ) {
-	out, execErr := args.Tool.Execute(ctx, args.ToolName, args.Body)
+	out, execErr := args.Tool.Tool.InvokableRun(ctx, string(args.Body))
 	capState := h.Visitor.AgentSkills.VisitorStates(ctx, args.In)
 	if execErr != nil {
 		writeToolErr(h.Log, w, toolErr{
@@ -120,7 +120,7 @@ func findToolInBinding(
 	b *agentskills.Binding, name string,
 ) (*agentskills.BindingTool, bool) {
 	for i := range b.Tools {
-		if b.Tools[i].Spec.Name == name {
+		if b.Tools[i].Name == name {
 			return &b.Tools[i], true
 		}
 	}

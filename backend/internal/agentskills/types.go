@@ -20,7 +20,6 @@ import (
 	"errors"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/inference"
 )
 
 // ErrHidden —— VisitorBinding 返此 sentinel 表示 capability 不暴露给本
@@ -48,13 +47,10 @@ type AssembleInput struct {
 	ConversationID string
 }
 
-// BindingTool —— 一个 Capability 暴露的一个 LLM tool。Capability 可暴露
-// 多个 tool（如 corpus.retrieval 暴露 search/read/list 三个），共享同一
-// CapabilityState (per-capability 状态比 per-tool 自然)。
-type BindingTool struct {
-	Execute inference.ToolExecutor
-	Spec    inference.ToolSpec
-}
+// BindingTool 定义挪到 binding_tool.go (H.8: 走 eino tool.InvokableTool
+// canonical 接口)。Capability 可暴露多个 tool (如 corpus.retrieval 暴
+// 露 search/read/list 三个)，共享同一 CapabilityState (per-capability
+// 状态比 per-tool 自然)。
 
 // Binding —— visitor 侧某 capability 在一次 session 中的实例化。
 //

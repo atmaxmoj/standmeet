@@ -230,13 +230,7 @@ type pathRow struct {
 // firstPath —— corpus_search result is JSON string content. Two formats
 // expected: bare array `[{"path":"..."}]` or wrapped `{"result":[...]}`.
 func firstPath(raw json.RawMessage) string {
-	// raw may itself be a JSON-encoded string (Anthropic tool_result.content
-	// is typically a string of JSON). Try decoding as string first.
-	var asStr string
-	body := []byte(raw)
-	if err := json.Unmarshal(body, &asStr); err == nil {
-		body = []byte(asStr)
-	}
+	body := unwrapToolResultContent(raw)
 	if p := decodeRows(body); p != "" {
 		return p
 	}
@@ -247,6 +241,43 @@ func firstPath(raw json.RawMessage) string {
 		return decodeRows(wrap.Result)
 	}
 	return ""
+}
+
+// unwrapToolResultContent —— tool_result.content 在 Anthropic /v1/messages
+// 有两种 wire：
+//
+//  1. JSON-encoded string：`"content": "{\"ok\":true,...}"`
+//  2. content-block array：`"content": [{"type":"text","text":"{\"ok\":true,...}"}]`
+//
+// anthropic-sdk-go 的 NewToolResultBlock(toolUseID, content string) 会用 (2)；
+// eino claude adapter 走这条。两种都要解。返回最里面的那段 JSON bytes (没
+// 有外层引号或 block 包装)。
+func unwrapToolResultContent(raw json.RawMessage) []byte {
+	body := []byte(raw)
+	if len(body) == 0 {
+		return body
+	}
+	// (2) array of content blocks
+	if body[0] == '[' {
+		var blocks []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(body, &blocks); err == nil {
+			for i := range blocks {
+				if blocks[i].Type == "text" {
+					return []byte(blocks[i].Text)
+				}
+			}
+		}
+		return body
+	}
+	// (1) JSON-encoded string
+	var asStr string
+	if err := json.Unmarshal(body, &asStr); err == nil {
+		return []byte(asStr)
+	}
+	return body
 }
 
 func decodeRows(body []byte) string {

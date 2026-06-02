@@ -269,18 +269,14 @@ func echoSkillResultBlock(b *Block, ids map[string]bool, out *strings.Builder) {
 	out.WriteString("]\n\n")
 }
 
-// unwrapResultJSONRaw —— tool_result.content is typically a JSON string.
-// Decode it as string once; then look for {result: ...} envelope.
+// unwrapResultJSONRaw —— tool_result.content 跨 wire 形态拆出来：可能是
+// JSON-encoded string，也可能是 anthropic-sdk-go 的 content-block array
+// 形式。走 wire.go unwrapToolResultContent 统一处理。
 func unwrapResultJSONRaw(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
 	}
-	body := []byte(raw)
-	var asStr string
-	if err := json.Unmarshal(body, &asStr); err == nil {
-		body = []byte(asStr)
-	}
-	return unwrapResultJSON(string(body))
+	return unwrapResultJSON(string(unwrapToolResultContent(raw)))
 }
 
 // unwrapResultJSON —— if body is {"ok":true,"result":<x>}, return <x>;

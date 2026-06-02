@@ -14,7 +14,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
 
@@ -157,10 +156,12 @@ func bookerQuotaExhausted(
 	return count >= *in.MaxBookings, nil
 }
 
-// buildCalendarBookBinding —— gating 通过后的最终 Binding：tool spec +
-// executor 闭包 (执行 BookMeeting) + state (quota_remaining 计算)。
-// G-7 起绑两个 tool: calendar_book + calendar_list_slots (read-only，不
-// 走 quota)。同一个 executor 按 name 分发。
+// buildCalendarBookBinding —— gating 通过后的最终 Binding：每个 tool 独立
+// 闭包，eino tool.InvokableTool；BindingTool.NewTool 内部把 name+desc+
+// schema 装成 *schema.ToolInfo 喂 eino。
+//
+// G-7 起两个 tool: calendar_book + calendar_list_slots (read-only，不
+// 走 quota)。
 func buildCalendarBookBinding(
 	ctx context.Context, deps *VisitorDeps,
 	in *agentskills.AssembleInput, owner *domain.Owner,
@@ -171,11 +172,16 @@ func buildCalendarBookBinding(
 	if rem := bookerQuotaRemaining(ctx, deps, in); rem != nil {
 		state.QuotaRemaining = rem
 	}
-	exec := makeBookerExecutor(deps, in, owner)
+	bookRun := func(ctx context.Context, args string) (string, error) {
+		return runBookerBook(ctx, deps, in, owner, []byte(args))
+	}
+	slotsRun := func(ctx context.Context, args string) (string, error) {
+		return runBookerListSlots(ctx, deps, in, owner, []byte(args))
+	}
 	return &agentskills.Binding{
 		Tools: []agentskills.BindingTool{
-			{Spec: bookerToolSpec(), Execute: exec},
-			{Spec: listSlotsToolSpec(), Execute: exec},
+			bookerBindingTool(bookRun),
+			listSlotsBindingTool(slotsRun),
 		},
 		State: state,
 	}
@@ -197,24 +203,8 @@ func bookerQuotaRemaining(
 	return &rem
 }
 
-// bookerToolSpec 拆到 agentskills_booker_book.go。
-
-// listSlotsToolSpec / decode* / marshal* / 类型 都拆到
-// agentskills_booker_slots.go (max-lines 350 cap)。
-
-func makeBookerExecutor(
-	deps *VisitorDeps, in *agentskills.AssembleInput, owner *domain.Owner,
-) inference.ToolExecutor {
-	return func(ctx context.Context, name string, input []byte) (string, error) {
-		switch name {
-		case toolCalendarBookName:
-			return runBookerBook(ctx, deps, in, owner, input)
-		case toolCalendarListSlotsName:
-			return runBookerListSlots(ctx, deps, in, owner, input)
-		}
-		return "", fmt.Errorf("booker: unknown tool %q", name)
-	}
-}
+// bookerBindingTool / listSlotsBindingTool 在各自分文件 (max-lines 350
+// cap)；buildCalendarBookBinding 上方调用，分发 by tool 各自一个 closure。
 
 // runBookerBook + book-side 类型/decode/marshal 全部拆到
 // agentskills_booker_book.go；runBookerListSlots + list_slots-side 全

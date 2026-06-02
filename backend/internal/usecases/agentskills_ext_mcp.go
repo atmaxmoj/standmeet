@@ -18,7 +18,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/mcpclient"
 )
 
@@ -182,15 +181,13 @@ func (b *extMCPBundle) absorb(serverName string, r *dialResult) {
 		if toolName == "" {
 			continue
 		}
-		b.tools = append(b.tools, agentskills.BindingTool{
-			Spec: inference.ToolSpec{
-				Name:          toolName,
-				Description:   extToolDescription(serverName, t),
-				ProgressLabel: "calling external mcp",
-				InputSchema:   t.InputSchema,
-			},
-			Execute: makeExtMCPExecutor(r.session, t.Name),
-		})
+		b.tools = append(b.tools, agentskills.NewTool(
+			toolName,
+			extToolDescription(serverName, t),
+			"calling external mcp",
+			t.InputSchema,
+			makeExtMCPRun(r.session, t.Name),
+		))
 	}
 }
 
@@ -211,18 +208,18 @@ func extToolDescription(server string, t *mcpclient.Tool) string {
 	return prefix + strings.TrimSpace(t.Description)
 }
 
-// makeExtMCPExecutor —— CallTool 失败时不让 inference 整 abort —— 把 err
+// makeExtMCPRun —— CallTool 失败时不让 agent loop 整 abort —— 把 err
 // 包成 errJSON 进 tool_result，AI 看到"外部工具失败"自己换路。
-func makeExtMCPExecutor(session *mcpclient.Session, realToolName string) inference.ToolExecutor {
-	return func(ctx context.Context, _ string, input []byte) (string, error) {
-		return extCallToToolResult(session.CallTool(ctx, realToolName, input))
+func makeExtMCPRun(session *mcpclient.Session, realToolName string) agentskills.RunFn {
+	return func(ctx context.Context, args string) (string, error) {
+		return extCallToToolResult(session.CallTool(ctx, realToolName, []byte(args)))
 	}
 }
 
 // extCallToToolResult —— CallTool err 折成 errJSON tool_result，让 SDK
-// continue 而非 abort (Go-side err 永远 nil 是 ToolExecutor 契约)。
+// continue 而非 abort (Go-side err 永远 nil 是 RunFn 契约)。
 //
-// 故意 nil 让 inference SDK 继续 agent loop 而不 abort 整个 stream。
+// 故意 nil 让 agent loop 继续而不 abort 整个 stream。
 //
 //nolint:nilerr // tool-result envelope: err 进 JSON text，Go err return
 func extCallToToolResult(out string, err error) (string, error) {

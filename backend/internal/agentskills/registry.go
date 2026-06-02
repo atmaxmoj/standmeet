@@ -131,8 +131,9 @@ func finalizeBindingState(b *Binding, capID string) CapabilityState {
 const VisitorHeaderFragmentID = "visitor-header"
 
 // VisitorToolSpec —— frontend 看到的 tool 描述 (LLM tool API shape)。
-// 跟 inference.ToolSpec 同字段，但放 agentskills 包让 routes 不依赖
-// inference 包就拿得到。
+// H.8 之后由 BindingTool.Tool.Info() (eino schema.ToolInfo) +
+// BindingTool.InputSchema (raw JSON Schema) + BindingTool.ProgressLabel
+// 组合而成；wire 形态稳定不变。
 //
 // ProgressLabel —— G-8: tool 跑过程中 frontend throbber 显的文案
 // ("searching corpus" / "reading entry" / ...)。空字符串 → frontend
@@ -156,18 +157,33 @@ func (r *Registry) VisitorToolSpecs(
 	out := make([]VisitorToolSpec, 0)
 	for _, b := range bindings {
 		for i := range b.Tools {
-			out = append(out, VisitorToolSpec{
-				Name:          b.Tools[i].Spec.Name,
-				Description:   b.Tools[i].Spec.Description,
-				ProgressLabel: b.Tools[i].Spec.ProgressLabel,
-				InputSchema:   b.Tools[i].Spec.InputSchema,
-			})
+			out = append(out, toolToVisitorSpec(ctx, &b.Tools[i]))
 		}
 		if b.Close != nil {
 			b.Close()
 		}
 	}
 	return out
+}
+
+// toolToVisitorSpec —— BindingTool → VisitorToolSpec 投射。Name 直接读
+// BindingTool.Name (NewTool 时 stash 的快照)；Description 走 Tool.Info()
+// 拿；InputSchema + ProgressLabel 是 standmeet 自加的 sidecar。
+func toolToVisitorSpec(ctx context.Context, t *BindingTool) VisitorToolSpec {
+	return VisitorToolSpec{
+		Name:          t.Name,
+		Description:   bindingToolDescription(ctx, t),
+		ProgressLabel: t.ProgressLabel,
+		InputSchema:   t.InputSchema,
+	}
+}
+
+func bindingToolDescription(ctx context.Context, t *BindingTool) string {
+	info, ierr := t.Tool.Info(ctx)
+	if ierr != nil || info == nil {
+		return ""
+	}
+	return info.Desc
 }
 
 // VisitorPromptPartIDs —— 当前 session 实际拼进 system prompt 的 fragment id

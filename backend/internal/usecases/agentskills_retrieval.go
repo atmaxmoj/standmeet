@@ -90,15 +90,15 @@ func (c *retrievalCapability) VisitorBinding(
 	}, nil
 }
 
-// liveRetrievalTools —— 每个 tool 绑到 retriever 对应方法。retriever.Execute
-// 内部 switch by name 已存在，复用之让 3 个 tool 都路由到同一 executor 入口。
+// liveRetrievalTools —— 每个 tool 一个独立 RunFn 闭包，走 retriever
+// 对应方法；BindingTool.NewTool 把 name+desc+schema 装成 eino tool.
+// InvokableTool。
 func liveRetrievalTools(r *retriever) []agentskills.BindingTool {
-	specs := retrievalToolSpecs()
-	out := make([]agentskills.BindingTool, 0, len(specs))
-	for _, s := range specs {
-		out = append(out, agentskills.BindingTool{Spec: s, Execute: r.Execute})
+	return []agentskills.BindingTool{
+		searchBindingTool(r),
+		readBindingTool(r),
+		listBindingTool(r),
 	}
-	return out
 }
 
 func retrievalCitedClosure(r *retriever) func() agentskills.CitedSnapshot {

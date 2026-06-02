@@ -12,19 +12,20 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/inference"
 )
 
-func bookerToolSpec() inference.ToolSpec {
-	return inference.ToolSpec{
-		Name: toolCalendarBookName,
-		Description: "Book a meeting on the owner's Google Calendar. " +
-			"Only call after you have gathered topic, duration (15-180 minutes), " +
-			"and one or more visitor-confirmed preferred start times in RFC3339 " +
-			"format. Optionally include a visitor_email so Google sends the " +
+// bookerBindingTool —— calendar_book 注册口；caller 给一个 closure
+// 处理实际 booking，本函数装好 name/desc/progress_label/schema。
+func bookerBindingTool(run agentskills.RunFn) agentskills.BindingTool {
+	return agentskills.NewTool(
+		toolCalendarBookName,
+		"Book a meeting on the owner's Google Calendar. "+
+			"Only call after you have gathered topic, duration (15-180 minutes), "+
+			"and one or more visitor-confirmed preferred start times in RFC3339 "+
+			"format. Optionally include a visitor_email so Google sends the "+
 			"calendar invite.",
-		ProgressLabel: "booking meeting",
-		InputSchema: json.RawMessage(`{
+		"booking meeting",
+		json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"topic":{"type":"string"},
@@ -38,7 +39,8 @@ func bookerToolSpec() inference.ToolSpec {
 			},
 			"required":["topic","duration_min","preferred_times"]
 		}`),
-	}
+		run,
+	)
 }
 
 func runBookerBook(

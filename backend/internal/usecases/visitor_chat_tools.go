@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/inference"
 )
 
 const (
@@ -26,43 +26,57 @@ const (
 	summaryMaxChars  = 160
 )
 
-// retrievalToolSpecs —— 三个 tool 的 JSON schema 定义。
-// ProgressLabel: G-8 throbber 文案，session 一并下发让 frontend 不必各自
-// 硬编码。
-func retrievalToolSpecs() []inference.ToolSpec {
-	return []inference.ToolSpec{
-		{
-			Name: toolSearchCorpus,
-			Description: "Search owner's curated corpus by keyword. Returns " +
-				"matching wiki + output entries with path, title, genre, summary.",
-			ProgressLabel: "searching corpus",
-			InputSchema: json.RawMessage(`{
-				"type": "object",
-				"properties": {"query": {"type": "string"}},
-				"required": ["query"]
-			}`),
+// searchBindingTool / readBindingTool / listBindingTool —— 三个 tool 各
+// 自的 spec + RunFn 闭包，每个绑到 retriever 对应方法 (G-8 throbber 文
+// 案 + JSON schema 都在这一行装好；eino tool.InvokableTool 在 NewTool
+// 内部生成)。
+func searchBindingTool(r *retriever) agentskills.BindingTool {
+	return agentskills.NewTool(
+		toolSearchCorpus,
+		"Search owner's curated corpus by keyword. Returns "+
+			"matching wiki + output entries with path, title, genre, summary.",
+		"searching corpus",
+		json.RawMessage(`{
+			"type": "object",
+			"properties": {"query": {"type": "string"}},
+			"required": ["query"]
+		}`),
+		func(_ context.Context, args string) (string, error) {
+			return r.runSearch([]byte(args))
 		},
-		{
-			Name: toolReadCorpus,
-			Description: "Read the full body of a corpus entry by its path " +
-				"(e.g. projects/lucerna). Use after search to fetch content.",
-			ProgressLabel: "reading entry",
-			InputSchema: json.RawMessage(`{
-				"type": "object",
-				"properties": {"path": {"type": "string"}},
-				"required": ["path"]
-			}`),
+	)
+}
+
+func readBindingTool(r *retriever) agentskills.BindingTool {
+	return agentskills.NewTool(
+		toolReadCorpus,
+		"Read the full body of a corpus entry by its path "+
+			"(e.g. projects/lucerna). Use after search to fetch content.",
+		"reading entry",
+		json.RawMessage(`{
+			"type": "object",
+			"properties": {"path": {"type": "string"}},
+			"required": ["path"]
+		}`),
+		func(_ context.Context, args string) (string, error) {
+			return r.runRead([]byte(args))
 		},
-		{
-			Name:          toolListCorpus,
-			Description:   "List corpus entry paths optionally filtered by prefix.",
-			ProgressLabel: "listing entries",
-			InputSchema: json.RawMessage(`{
-				"type": "object",
-				"properties": {"prefix": {"type": "string"}}
-			}`),
+	)
+}
+
+func listBindingTool(r *retriever) agentskills.BindingTool {
+	return agentskills.NewTool(
+		toolListCorpus,
+		"List corpus entry paths optionally filtered by prefix.",
+		"listing entries",
+		json.RawMessage(`{
+			"type": "object",
+			"properties": {"prefix": {"type": "string"}}
+		}`),
+		func(_ context.Context, args string) (string, error) {
+			return r.runList([]byte(args))
 		},
-	}
+	)
 }
 
 // retriever —— tool executor 的状态。writings 跟 wiki/output 共享 search/
@@ -94,22 +108,8 @@ func newRetriever(in *retrieverInput) *retriever {
 	}
 }
 
-// allowsPath / allowsEntry 拆到 visitor_chat_tools_read.go (跟其它 retriever
-// helper 一起，且让 funcorder 不抱怨 unexported method 出现在 Execute 前)。
-
-// Execute —— inference.ToolExecutor 实现。
-func (r *retriever) Execute(_ context.Context, name string, input []byte) (string, error) {
-	switch name {
-	case toolSearchCorpus:
-		return r.runSearch(input)
-	case toolReadCorpus:
-		return r.runRead(input)
-	case toolListCorpus:
-		return r.runList(input)
-	default:
-		return "", fmt.Errorf("unknown tool: %s", name)
-	}
-}
+// allowsPath / allowsEntry 拆到 visitor_chat_tools_read.go。
+// runSearch / runRead / runList 各自被对应 BindingTool 闭包调用。
 
 func (r *retriever) runSearch(input []byte) (string, error) {
 	var args struct {
