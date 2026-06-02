@@ -1,8 +1,10 @@
-// test_visitor_capabilities.go —— GET /internal/test/visitor-capabilities
+// diag_session.go —— GET /internal/diag/session
 //
 // 接 X-Session-Token，把 backend 装配给这个 session 的 capability map +
-// tool spec + system prompt hash 全吐出。后续每个 B-N commit 加 capability
-// 都靠此 endpoint 验装配结果（含 enabled 状态、quota_remaining 计算等）。
+// tool spec + 完整 system prompt + hash 全吐出。Owner 排错 / e2e 验装配
+// 结果都用得着 (含 enabled 状态、quota_remaining 计算等)；同 SendMessage
+// 路径走同一 AssembleVisitor / ComposeSystemPrompt，所以 hash + body 反
+// 映实际下行 prompt。
 
 package sys
 
@@ -20,30 +22,30 @@ import (
 	"github.com/wangsijie/standmeet/internal/usecases"
 )
 
-// TestVisitorCapabilitiesDeps —— deps for /test/visitor-capabilities.
-type TestVisitorCapabilitiesDeps struct {
+// DiagSessionDeps —— deps for /diag/session.
+type DiagSessionDeps struct {
 	Sessions *session.VisitorSessionStore
 	Registry *agentskills.Registry
 	Log      *slog.Logger
 }
 
-// MountTestVisitorCapabilities —— /test/visitor-capabilities。
-func MountTestVisitorCapabilities(r chi.Router, deps TestVisitorCapabilitiesDeps) {
-	r.Get("/test/visitor-capabilities", visitorCapabilitiesHandler(deps))
+// MountDiagSession —— /diag/session.
+func MountDiagSession(r chi.Router, deps DiagSessionDeps) {
+	r.Get("/diag/session", diagSessionHandler(deps))
 }
 
 type toolSpecWireV2 struct {
 	Name string `json:"name"`
 }
 
-type visitorCapabilitiesResp struct {
+type diagSessionResp struct {
 	SystemPromptHash string                        `json:"system_prompt_hash"`
 	SystemPromptFull string                        `json:"system_prompt_full"`
 	Capabilities     []agentskills.CapabilityState `json:"capabilities"`
 	ToolSpecs        []toolSpecWireV2              `json:"tool_specs"`
 }
 
-func visitorCapabilitiesHandler(deps TestVisitorCapabilitiesDeps) http.HandlerFunc {
+func diagSessionHandler(deps DiagSessionDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("X-Session-Token")
 		if token == "" {
@@ -55,30 +57,30 @@ func visitorCapabilitiesHandler(deps TestVisitorCapabilitiesDeps) http.HandlerFu
 			writeSessionLookupErr(w, err)
 			return
 		}
-		writeVisitorCapabilities(r.Context(), &deps, w, &data)
+		writeDiagSession(r.Context(), &deps, w, &data)
 	}
 }
 
-func writeVisitorCapabilities(
-	ctx context.Context, deps *TestVisitorCapabilitiesDeps,
+func writeDiagSession(
+	ctx context.Context, deps *DiagSessionDeps,
 	w http.ResponseWriter, data *session.VisitorSessionData,
 ) {
-	resp := buildVisitorCapabilitiesResp(ctx, deps.Registry, data)
+	resp := buildDiagSessionResp(ctx, deps.Registry, data)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if eerr := json.NewEncoder(w).Encode(&resp); eerr != nil {
-		deps.Log.Error("visitor-capabilities encode", "err", eerr)
+		deps.Log.Error("diag-session encode", "err", eerr)
 	}
 }
 
-// buildVisitorCapabilitiesResp —— pure 装配，无 IO；handler 只剩 encode。
+// buildDiagSessionResp —— pure 装配，无 IO；handler 只剩 encode。
 // 让 handler 自身 cyclo ≤ 3，分支挪到 helper。
 // 与 real SendMessage 路径走同一 AssembleVisitor / ComposeSystemPrompt，
 // hash 反映实际下行 prompt。
-func buildVisitorCapabilitiesResp(
+func buildDiagSessionResp(
 	ctx context.Context, reg *agentskills.Registry,
 	data *session.VisitorSessionData,
-) visitorCapabilitiesResp {
+) diagSessionResp {
 	in := &agentskills.AssembleInput{
 		RoleSnapshot: data.RoleSnapshot,
 		MaxBookings:  data.MaxBookings,
@@ -86,11 +88,11 @@ func buildVisitorCapabilitiesResp(
 		Mode:         data.Mode,
 		CodeID:       data.CodeID,
 		VisitorName:  data.VisitorName,
-		// ConversationID 留空：dev endpoint 不绑定具体 conversation；
+		// ConversationID 留空：diag endpoint 不绑定具体 conversation；
 		// capability 实现按需 fallback (booker 没 conv ID 就跳 DB lookup)。
 	}
 	basePersona := usecases.ComposeBasePersona(data.RoleSnapshot)
-	return visitorCapabilitiesResp{
+	return diagSessionResp{
 		Capabilities:     reg.VisitorStates(ctx, in),
 		ToolSpecs:        toolSpecsFor(ctx, reg, in),
 		SystemPromptHash: reg.SystemPromptHash(ctx, basePersona, in),

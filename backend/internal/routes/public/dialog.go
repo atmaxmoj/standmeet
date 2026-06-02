@@ -44,30 +44,70 @@ func (h *Handlers) postDialog() http.HandlerFunc {
 }
 
 func dispatchPostDialog(h *Handlers, w http.ResponseWriter, r *http.Request) {
-	av, ok := authVisitorWithToken(h, w, r)
+	args, ok := prepareDialogPreflight(h, w, r)
 	if !ok {
 		return
+	}
+	if !preflightDialogQuota(r, h, args.OwnerID, args.ConvID, w) {
+		return
+	}
+	runRecordAndRespond(r, h, w, &recordArgs{
+		OwnerID: args.OwnerID, ConvID: args.ConvID, Req: args.Req,
+	})
+}
+
+type dialogPreflightArgs struct {
+	Req     *dialogRequest
+	OwnerID string
+	ConvID  string
+}
+
+func prepareDialogPreflight(
+	h *Handlers, w http.ResponseWriter, r *http.Request,
+) (*dialogPreflightArgs, bool) {
+	av, ok := authVisitorWithToken(h, w, r)
+	if !ok {
+		return nil, false
 	}
 	req, ok := decodeDialog(h, w, r)
 	if !ok {
-		return
+		return nil, false
 	}
-	runRecordAndRespond(h, w, r, av.Data.OwnerID, req)
+	return &dialogPreflightArgs{
+		Req: req, OwnerID: av.Data.OwnerID, ConvID: chi.URLParam(r, "id"),
+	}, true
+}
+
+func preflightDialogQuota(
+	r *http.Request, h *Handlers, ownerID, convID string, w http.ResponseWriter,
+) bool {
+	qerr := usecases.EnforceTurnQuota(r.Context(), &h.Visitor,
+		&usecases.TurnQuotaInput{OwnerID: ownerID, ConversationID: convID})
+	if qerr != nil {
+		handleVisitorErr(h.Log, w, qerr)
+		return false
+	}
+	return true
+}
+
+type recordArgs struct {
+	Req     *dialogRequest
+	OwnerID string
+	ConvID  string
 }
 
 func runRecordAndRespond(
-	h *Handlers, w http.ResponseWriter, r *http.Request,
-	ownerID string, req *dialogRequest,
+	r *http.Request, h *Handlers, w http.ResponseWriter, args *recordArgs,
 ) {
 	if perr := usecases.RecordDialog(r.Context(),
 		&usecases.DialogDeps{Chats: h.Visitor.Chats, Corpus: h.Corpus, Log: h.Log},
 		&usecases.RecordDialogInput{
-			OwnerID:          ownerID,
-			ConversationID:   chi.URLParam(r, "id"),
-			Question:         req.Question,
-			Answer:           req.Answer,
-			CitedWikiPaths:   req.CitedWikiPaths,
-			CitedOutputPaths: req.CitedOutputPaths,
+			OwnerID:          args.OwnerID,
+			ConversationID:   args.ConvID,
+			Question:         args.Req.Question,
+			Answer:           args.Req.Answer,
+			CitedWikiPaths:   args.Req.CitedWikiPaths,
+			CitedOutputPaths: args.Req.CitedOutputPaths,
 		},
 	); perr != nil {
 		h.Log.Error("record dialog", "err", perr)

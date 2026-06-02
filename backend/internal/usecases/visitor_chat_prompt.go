@@ -66,40 +66,9 @@ func visitorHeader() string {
 	return prompts.MustLoad("visitor-header")
 }
 
-// CitedRef —— done event 推给前端的引用信息：id + title。
+// CitedRef —— done event 推给前端的引用信息：id + title。/dialogs commit
+// 时 frontend 把 retriever 累积的 cited 列表 POST 上来，用这个 shape。
 type CitedRef struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
-}
-
-func wikiIDsOf(items []domain.Wiki) []string {
-	out := make([]string, 0, len(items))
-	for i := range items {
-		out = append(out, items[i].ID())
-	}
-	return out
-}
-
-func outputIDsOf(items []domain.Output) []string {
-	out := make([]string, 0, len(items))
-	for i := range items {
-		out = append(out, items[i].ID())
-	}
-	return out
-}
-
-func wikiRefsOf(items []domain.Wiki) []CitedRef {
-	out := make([]CitedRef, 0, len(items))
-	for i := range items {
-		out = append(out, CitedRef{ID: items[i].ID(), Title: items[i].Title()})
-	}
-	return out
-}
-
-func outputRefsOf(items []domain.Output) []CitedRef {
-	out := make([]CitedRef, 0, len(items))
-	for i := range items {
-		out = append(out, CitedRef{ID: items[i].ID(), Title: items[i].Title()})
-	}
-	return out
 }

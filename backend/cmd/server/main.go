@@ -98,17 +98,13 @@ func wireAndServe(
 	c *conns, stop context.CancelFunc,
 ) error {
 	repos := newRepos(c.db)
-	mockProvider, perr := inference.NewFromEnv()
-	if perr != nil {
-		return fmt.Errorf("init provider: %w", perr)
-	}
-	// resolver 把 mock 和真 owner-key path 串起来；env=mock 时 e2e 走 mock，
-	// 否则按 owner row 的 ai_provider 解密自己的 key 实例化 Anthropic / OpenAI。
-	ownerKeyResolver := &inference.OwnerKeyResolver{
+	// resolver always builds from owner.ai_provider + decrypted key. In
+	// dev/e2e the owner's endpoint is seeded to the mock llm-gateway
+	// service (see e2e/fixtures/admin.ts seedDevAIProvider).
+	providerResolver := &inference.OwnerKeyResolver{
 		Lookup:    &ownerLookupAdapter{repo: repos.owner},
 		Decrypter: cryptobox.Decrypt,
 	}
-	providerResolver := inference.NewEnvOrOwnerResolver(ownerKeyResolver, mockProvider)
 	setupTokenHolder := session.NewSetupTokenHolder()
 	if terr := ensureSetupToken(ctx, log, repos.instance, setupTokenHolder); terr != nil {
 		return terr

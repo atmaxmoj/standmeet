@@ -2,6 +2,9 @@
 // system prompt 总结整段对话，落 conversations.summary_md + ended_at。
 // 设计源自 legacy standmeet-server/gateway/src/runtime/report.ts +
 // seed_builtin_skills.py "Conversation Report" skill。
+//
+// One-shot non-streaming /v1/messages call. No tools, no agent loop;
+// inference.SendAnthropic returns the concatenated text directly.
 
 package usecases
 
@@ -15,8 +18,8 @@ import (
 	"github.com/wangsijie/standmeet/internal/inference"
 )
 
-// summaryPrompt —— 直接 port 自 legacy seed_builtin_skills.py 的 "Conversation
-// Report" skill prompt（Markdown 报告模板）。
+// summaryPrompt —— port from legacy seed_builtin_skills.py "Conversation
+// Report" skill prompt (Markdown report template).
 const summaryPrompt = "Generate a polished conversation report (max 600 words, " +
 	"1-2 printed pages).\n\n" +
 	"Use proper Markdown formatting — the output will be rendered with a full " +
@@ -38,9 +41,8 @@ const summaryPrompt = "Generate a polished conversation report (max 600 words, "
 	"\"The discussion covered...\")\n" +
 	"- Professional tone, suitable for sharing"
 
-// GenerateSummaryInput —— /summary 入参。BYOAI 仅 tier=byoai 时非 nil；
-// 跟 SendMessageInput 用同一份 *domain.AICredential。
-// fieldalignment: pointer 先，string 后。
+// GenerateSummaryInput —— /summary input. BYOAI non-nil only in
+// mode='byoai'. fieldalignment: pointer first.
 type GenerateSummaryInput struct {
 	BYOAI          *domain.AICredential
 	OwnerID        string
@@ -48,11 +50,12 @@ type GenerateSummaryInput struct {
 	Mode           string
 }
 
-// ErrSummaryEmptyConv —— 没消息可总结。
+// ErrSummaryEmptyConv —— no messages to summarize.
 var ErrSummaryEmptyConv = errors.New("conversation has no messages to summarize")
 
-// GenerateSummary —— 加载 transcript → 拼 user prompt → 调 provider (无 tools
-// 单 turn) → 落 conversations.summary_md + ended_at。返 final summary markdown。
+// GenerateSummary —— load transcript → build user prompt → SendAnthropic
+// (no tools, no streaming) → write conversations.summary_md + ended_at.
+// Returns final summary markdown.
 func GenerateSummary(
 	ctx context.Context, deps *VisitorDeps, in *GenerateSummaryInput,
 ) (string, error) {
@@ -76,11 +79,11 @@ func produceSummary(
 	if len(transcript) == 0 {
 		return "", ErrSummaryEmptyConv
 	}
-	provider, perr := resolveSummaryProvider(ctx, deps, in)
+	cred, perr := resolveSummaryCred(ctx, deps, in)
 	if perr != nil {
 		return "", perr
 	}
-	return runSummaryQuery(ctx, provider, transcript)
+	return runSummaryQuery(ctx, cred, transcript)
 }
 
 func loadTranscriptForSummary(
@@ -96,32 +99,33 @@ func loadTranscriptForSummary(
 	return bundle.Messages, nil
 }
 
-func resolveSummaryProvider(
+func resolveSummaryCred(
 	ctx context.Context, deps *VisitorDeps, in *GenerateSummaryInput,
-) (inference.Provider, error) {
-	provider, perr := deps.Resolver.Resolve(ctx, &inference.ResolveInput{
+) (*inference.Cred, error) {
+	cred, perr := deps.Resolver.Resolve(ctx, &inference.ResolveInput{
 		OwnerID: in.OwnerID,
 		Mode:    in.Mode,
 		BYOAI:   in.BYOAI,
 	})
 	if perr != nil {
-		return nil, fmt.Errorf("resolve summary provider: %w", perr)
+		return nil, fmt.Errorf("resolve summary cred: %w", perr)
 	}
-	return provider, nil
+	return cred, nil
 }
 
 func runSummaryQuery(
-	ctx context.Context, provider inference.Provider, msgs []domain.Message,
+	ctx context.Context, cred *inference.Cred, msgs []domain.Message,
 ) (string, error) {
 	user := buildSummaryUserPrompt(msgs)
-	events, ierr := provider.StreamSingleTurn(ctx, &inference.ChatRequest{
+	out, err := inference.SendAnthropic(ctx, cred, &inference.MessageReq{
+		Model:    cred.Model,
 		System:   summaryPrompt,
-		Messages: []inference.Message{{Role: "user", Content: user}},
+		Messages: []inference.AnthropicMsg{inference.NewTextMessage("user", user)},
 	})
-	if ierr != nil {
-		return "", fmt.Errorf("summary stream: %w", ierr)
+	if err != nil {
+		return "", fmt.Errorf("summary upstream: %w", err)
 	}
-	return collectStreamEvents(events)
+	return out, nil
 }
 
 func buildSummaryUserPrompt(msgs []domain.Message) string {
@@ -136,17 +140,4 @@ func buildSummaryUserPrompt(msgs []domain.Message) string {
 	}
 	_, _ = b.WriteString("\nPlease generate a structured summary report of this conversation.")
 	return b.String()
-}
-
-func collectStreamEvents(events <-chan inference.StreamEvent) (string, error) {
-	var b strings.Builder
-	for ev := range events {
-		if ev.Type == "error" {
-			return "", fmt.Errorf("inference event: %w", ev.Err)
-		}
-		if ev.Type == "text" {
-			_, _ = b.WriteString(ev.Text)
-		}
-	}
-	return b.String(), nil
 }

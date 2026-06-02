@@ -1,19 +1,14 @@
-// resolver.go —— per-owner / per-byoai-visitor provider 解算。
+// resolver.go —— per-owner / per-byoai-visitor credential resolution.
+// visitor chat can't import postgres directly (cycle), so resolver takes
+// a narrow `OwnerLookup` interface; caller injects it. AICredential
+// (provider+key+endpoint+model) is the shared shape between visitor
+// BYOAI envelopes and owner DB rows; resolver returns a *Cred (the
+// "ready to call /v1/messages" form).
 //
-// visitor chat 不能直接 import postgres（avoid cycle），所以 resolver 取一个
-// 窄接口 `OwnerLookup`，调用方注入。
-//
-// 输入是 `domain.AICredential` —— 一个 (provider, plaintext key) 元组。
-// visitor BYOAI 跟 owner 自己配的 provider 形态相同，都喂这个 struct 进
-// resolver。BYOAI 路径 cred 由 route layer 从 request header 信封解出来；
-// owner 路径 cred 由 OwnerKeyResolver 从 DB 密文解出来。
-//
-// 策略：
-//   1. ENV INFERENCE_PROVIDER=mock 时（e2e / dev fixture）：所有 tier 都用
-//      MockProvider。
-//   2. 否则：tier='byoai' + 非空 BYOAI cred → 直接实例化（visitor 自己付）。
-//   3. 其他 → OwnerKeyResolver 走 owner row。
-//   4. owner.ai_provider_key_enc 空 → ErrOwnerProviderUnconfigured。
+// Policy:
+//  1. mode='byoai' + non-empty BYOAI cred → use that
+//  2. otherwise → look up owner row, decrypt key
+//  3. owner.ai_provider_key_enc empty → ErrOwnerProviderUnconfigured
 
 package inference
 
@@ -21,74 +16,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 )
 
-// ErrOwnerProviderUnconfigured —— owner 还没配 ai_provider_key。访客 chat
-// 在这种情况要走 friendly fallback（前端 toast "owner hasn't connected AI yet"）。
-var ErrOwnerProviderUnconfigured = errors.New("owner AI provider not configured")
-
-// ResolveInput —— resolver 入参。BYOAI 字段仅 tier='byoai' 时非 nil；其它
-// tier 走 owner key。fieldalignment: pointer 先，string 后。
-type ResolveInput struct {
-	BYOAI   *domain.AICredential
-	OwnerID string
-	Mode    string
-}
-
-// Resolver —— 业务调用点：传 ownerID + 可选 byoai 信息，拿 Provider。
-type Resolver interface {
-	Resolve(ctx context.Context, in *ResolveInput) (Provider, error)
-}
-
-// EnvOrOwnerResolver —— ENV=mock 走 mock；否则按 mode 分支：byoai 用 visitor
-// 自带 key，其他走 owner key。
-type EnvOrOwnerResolver struct {
-	Mock      *MockProvider
-	Owner     Resolver
-	EnvIsMock bool
-}
-
-// NewEnvOrOwnerResolver —— 工厂；env 见 NewFromEnv 同一规则。
-func NewEnvOrOwnerResolver(ownerResolver Resolver, mock *MockProvider) *EnvOrOwnerResolver {
-	return &EnvOrOwnerResolver{
-		Mock: mock, Owner: ownerResolver,
-		EnvIsMock: os.Getenv("INFERENCE_PROVIDER") == "mock",
-	}
-}
-
-// Resolve 实现 Resolver 接口。
-func (r *EnvOrOwnerResolver) Resolve(
-	ctx context.Context, in *ResolveInput,
-) (Provider, error) {
-	if r.EnvIsMock {
-		return r.Mock, nil
-	}
-	if in.Mode == "byoai" && in.BYOAI.HasKey() {
-		return buildFromCred(in.BYOAI)
-	}
-	p, err := r.Owner.Resolve(ctx, in)
-	if err != nil {
-		return nil, fmt.Errorf("owner resolver: %w", err)
-	}
-	return p, nil
-}
-
-// OwnerKeyResolver —— 真正按 owner row 解算。
+// OwnerKeyResolver —— Resolver impl that loads owner row + decrypts key.
 type OwnerKeyResolver struct {
 	Lookup    OwnerLookup
 	Decrypter KeyDecrypter
 }
 
-// Resolve 实现 Resolver 接口。
-func (r *OwnerKeyResolver) Resolve(ctx context.Context, in *ResolveInput) (Provider, error) {
+// Resolve —— implement Resolver interface.
+func (r *OwnerKeyResolver) Resolve(
+	ctx context.Context, in *ResolveInput,
+) (*Cred, error) {
+	if in.Mode == "byoai" && in.BYOAI.HasKey() {
+		return validateCred(in.BYOAI)
+	}
 	cred, err := r.loadOwnerCred(ctx, in.OwnerID)
 	if err != nil {
 		return nil, err
 	}
-	return buildFromCred(&cred)
+	return validateCred(&cred)
 }
 
 func (r *OwnerKeyResolver) loadOwnerCred(
@@ -111,28 +60,18 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 	}, nil
 }
 
-// buildFromCred —— 单一构造点，byoai / owner 两条 path 都通过这里实例化
-// Provider。cred **必须完整**（Provider + Key + Endpoint + Model 都非空）：
-// preset 表只给 UI 填默认值用，server 不做 fallback —— 缺字段直接 error，
-// 强制前端 / admin layer 在写入前补全。
-//
-// Anthropic 单走 Messages API；其它 provider 全部走 OpenAI Chat Completions
-// 兼容 adapter（包括 owner 自托管的 ollama / vllm / lm-studio = provider
-// 'custom'）。
-func buildFromCred(cred *domain.AICredential) (Provider, error) {
+// validateCred —— enforce that all four fields are populated before
+// returning a Cred. preset table only fills UI defaults; server doesn't
+// fall back at request time.
+func validateCred(cred *domain.AICredential) (*Cred, error) {
+	if cred.Provider == "" {
+		return nil, errors.New("cred missing provider")
+	}
 	if cred.Endpoint == "" || cred.Model == "" {
 		return nil, fmt.Errorf("provider %q requires endpoint + model", cred.Provider)
 	}
-	if cred.Provider == "anthropic" {
-		return NewAnthropic(AnthropicConfig{
-			APIKey: cred.Key, BaseURL: cred.Endpoint, Model: cred.Model,
-		}), nil
-	}
-	if _, ok := Lookup(cred.Provider); !ok {
-		return nil, fmt.Errorf("unknown provider %q", cred.Provider)
-	}
-	return NewOpenAICompat(OpenAICompatConfig{
-		Provider: cred.Provider, APIKey: cred.Key,
-		BaseURL: cred.Endpoint, Model: cred.Model,
-	}), nil
+	return &Cred{
+		Provider: cred.Provider, Key: cred.Key,
+		Endpoint: cred.Endpoint, Model: cred.Model,
+	}, nil
 }

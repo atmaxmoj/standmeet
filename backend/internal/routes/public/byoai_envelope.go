@@ -68,25 +68,7 @@ func decodeEnvelopeB64(s string) ([]byte, error) {
 	return blob, nil
 }
 
-// enrichBYOAICreds —— tier=byoai 时从 request headers 拿 provider + 信封过
-// 的 key，组装成 *domain.AICredential。non-byoai tier parsed.BYOAI 留 nil。
-// 失败 (缺 header / 解封失败) 立刻 401。
-func enrichBYOAICreds(
-	h *Handlers, w http.ResponseWriter, r *http.Request,
-	parsed *parsedPostMessage, sessionToken string,
-) (*parsedPostMessage, bool) {
-	if parsed.Data.Mode != "byoai" {
-		return parsed, true
-	}
-	cred, ok := readBYOAICredFromHeaders(h, w, r, sessionToken)
-	if !ok {
-		return nil, false
-	}
-	parsed.BYOAI = cred
-	return parsed, true
-}
-
-// readBYOAICredFromHeaders —— chat + summary 共用。tier=byoai 才调。
+// readBYOAICredFromHeaders —— inference_stream + summary 共用。tier=byoai 才调。
 // 4 个 header (provider / key / endpoint / model) 都必填 —— browser 端
 // 用 preset 给 UI 自动填默认，但 server 不做 fallback：cred 永远完整。
 // 任一缺失 / 信封解失败立刻 401。

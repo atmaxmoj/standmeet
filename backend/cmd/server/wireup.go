@@ -39,11 +39,8 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		Builds:          sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
 		TLSAsk:          sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
 		PrintSession:    sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
-		TestRegistry:    sysroutes.TestRegistryDeps{Registry: d.agentSkills, Log: d.log},
-		TestVisitorCaps: buildTestVisitorCapsDeps(d),
-		TestGCalExpire: sysroutes.TestGCalExpireDeps{
-			Owners: d.ownerRepo, DB: d.db, Log: d.log,
-		},
+		DiagRegistry:    sysroutes.DiagRegistryDeps{Registry: d.agentSkills, Log: d.log},
+		DiagSession:     buildDiagSessionDeps(d),
 		MCP:             buildMCPDeps(d),
 		CaptchaVerifier: d.captchaVerifier,
 	}
@@ -92,10 +89,10 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	}
 }
 
-// buildTestVisitorCapsDeps —— deps for /internal/test/visitor-capabilities.
+// buildDiagSessionDeps —— deps for /internal/diag/session.
 // Capability 自身闭包持 deps，本 deps 只装 session store + registry。
-func buildTestVisitorCapsDeps(d *runtimeDeps) sysroutes.TestVisitorCapabilitiesDeps {
-	return sysroutes.TestVisitorCapabilitiesDeps{
+func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
+	return sysroutes.DiagSessionDeps{
 		Sessions: d.visitorStore,
 		Registry: d.agentSkills,
 		Log:      d.log,

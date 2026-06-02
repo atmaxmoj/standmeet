@@ -1,34 +1,38 @@
 // inference_stream.go —— POST /api/v1/inference/stream
 //
-// Phase D 主路径：browser pi-agent-core 跑 agent loop 时每轮调一次
-// 拿 LLM single-turn 输出。Body { system, messages, tools[]? }；
-// Auth Bearer visitor session token；Response SSE events:
-//   - text: { delta: "..." }
-//   - tool_call: { id, name, input }
-//   - done: { stop_reason }
-//   - error: { message }
+// Backend is a thin proxy: receives messages + system + tools from the
+// browser's pi-agent-core (@standmeet/agent-core), opens an upstream
+// /v1/messages call against the owner's (or visitor BYOAI's) Anthropic
+// endpoint, and io.Copy's the SSE bytes straight back to the visitor.
+// No SSE parsing, no event translation, no goroutines, no channels —
+// pi-agent-core in the browser consumes the Anthropic native stream
+// and runs the agent loop.
 //
-// provider 走既有 Resolver (跟 /messages 同一路径)；ExecuteTool 不填，
-// 单轮不在 backend 执行 tool —— pi-agent-core 拿 tool_call event 后自己
-// 通过 /sessions/{id}/tools/{name} 调。
+// Auth Bearer visitor session token. Body matches what pi-agent-core's
+// httpInferenceStreamer sends:
+//
+//	{ system: string, messages: [{role, content: [content_block...]}],
+//	  tools?: [{name, description, input_schema}] }
+//
+// Response: Anthropic /v1/messages SSE byte-for-byte.
 
 package public
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/wangsijie/standmeet/internal/domain"
 	"github.com/wangsijie/standmeet/internal/inference"
-	"github.com/wangsijie/standmeet/internal/session"
 )
 
-// inferenceStreamRequest —— POST /api/v1/inference/stream 入参。
-// 字段顺序按 fieldalignment (slices 先，长 strings 后) lint 调好。
+// inferenceStreamRequest —— what pi-agent-core POSTs. messages.content
+// is a JSON array of content blocks (text / tool_use / tool_result) so
+// backend can forward them straight into the Anthropic body.
 type inferenceStreamRequest struct {
 	System   string                  `json:"system"`
 	Model    string                  `json:"model,omitempty"`
@@ -37,8 +41,8 @@ type inferenceStreamRequest struct {
 }
 
 type inferenceStreamMsg struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string            `json:"role"`
+	Content []json.RawMessage `json:"content"`
 }
 
 type inferenceStreamToolIn struct {
@@ -58,103 +62,170 @@ func (h *Handlers) inferenceStream() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		runInferenceStream(r.Context(), h, w, r, &inferenceStreamArgs{
-			Data: auth.Data, Token: auth.Token, Req: &req,
-		})
+		runInferenceProxy(h, w, r, auth, &req)
 	}
 }
 
-type inferenceStreamArgs struct {
-	Data  *session.VisitorSessionData
-	Req   *inferenceStreamRequest
-	Token string
-}
-
-func runInferenceStream(
-	ctx context.Context, h *Handlers, w http.ResponseWriter, r *http.Request,
-	args *inferenceStreamArgs,
+func runInferenceProxy(
+	h *Handlers, w http.ResponseWriter, r *http.Request,
+	auth authedVisitor, req *inferenceStreamRequest,
 ) {
-	provider, perr := resolveStreamProvider(ctx, h, args, r)
-	if perr != nil {
-		writeStreamErr(h.Log, w, perr)
+	upstream, err := openInferenceUpstream(r, h, auth, req)
+	if err != nil {
+		writeStreamErr(h.Log, w, err)
 		return
 	}
-	ch, serr := provider.StreamSingleTurn(ctx, buildStreamChatRequest(args.Req))
-	if serr != nil {
-		writeStreamErr(h.Log, w, serr)
-		return
-	}
-	pumpStreamEvents(ctx, h.Log, w, ch)
+	defer closeUpstreamBody(h.Log, upstream)
+	forwardSSEBytes(h.Log, w, upstream.Body)
 }
 
-func resolveStreamProvider(
-	ctx context.Context, h *Handlers, args *inferenceStreamArgs, r *http.Request,
-) (inference.Provider, error) {
-	byoai := pickStreamBYOAICred(h, args, r)
-	return h.Visitor.Resolver.Resolve(ctx, &inference.ResolveInput{
-		OwnerID: args.Data.OwnerID, Mode: args.Data.Mode, BYOAI: byoai,
+func openInferenceUpstream(
+	r *http.Request, h *Handlers, auth authedVisitor,
+	req *inferenceStreamRequest,
+) (*http.Response, error) {
+	cred, cerr := resolveStreamCred(r, h, auth, req)
+	if cerr != nil {
+		return nil, cerr
+	}
+	return inference.OpenAnthropicStream(r.Context(), cred,
+		buildUpstreamMessageReq(req, cred))
+}
+
+func closeUpstreamBody(log *slog.Logger, resp *http.Response) {
+	if cerr := resp.Body.Close(); cerr != nil {
+		log.Warn("inference proxy close body", logErrKey, cerr)
+	}
+}
+
+// resolveStreamCred —— picks owner cred or BYOAI cred (depending on
+// session mode) and returns ready-to-use Cred.
+func resolveStreamCred(
+	r *http.Request, h *Handlers, auth authedVisitor,
+	_ *inferenceStreamRequest,
+) (*inference.Cred, error) {
+	byoai := pickStreamBYOAICred(h, auth, r)
+	return h.Visitor.Resolver.Resolve(r.Context(), &inference.ResolveInput{
+		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, BYOAI: byoai,
 	})
 }
 
-// pickStreamBYOAICred —— byoai mode 时复用 readBYOAICredFromHeaders。其他
-// mode 返 nil 让 resolver 走 owner key。读 header 失败时 readBYOAICred
-// 自己 write 401 + 返 nil；caller 用 sentinel error 把上游 resolve 短路。
 func pickStreamBYOAICred(
-	h *Handlers, args *inferenceStreamArgs, r *http.Request,
+	h *Handlers, auth authedVisitor, r *http.Request,
 ) *domain.AICredential {
-	if args.Data.Mode != "byoai" {
+	if auth.Data.Mode != "byoai" {
 		return nil
 	}
-	cred, _ := readBYOAICredFromHeaders(h, &nopResponseWriter{}, r, args.Token)
+	cred, _ := readBYOAICredFromHeaders(h, &nopResponseWriter{}, r, auth.Token)
 	return cred
 }
 
-// nopResponseWriter —— readBYOAICredFromHeaders 在缺 header 时会 write 401，
-// 但 inference_stream 想自己控制响应。这个 nop 吃掉那个 write，让 caller
-// 拿 nil cred 后走 resolver 失败路径 (resolver 没 BYOAI cred + mode=byoai
-// 时返 ErrOwnerProviderUnconfigured)。
+// nopResponseWriter —— BYOAI envelope helper writes 401 on missing
+// headers; the proxy controls response separately, so swallow that
+// write. On nil cred + mode=byoai, resolver returns ErrUnconfigured
+// which becomes the SSE-level error response.
 type nopResponseWriter struct{}
 
 func (*nopResponseWriter) Header() http.Header         { return http.Header{} }
 func (*nopResponseWriter) Write(b []byte) (int, error) { return len(b), nil }
 func (*nopResponseWriter) WriteHeader(_ int)           {}
 
-func buildStreamChatRequest(req *inferenceStreamRequest) *inference.ChatRequest {
-	msgs := make([]inference.Message, 0, len(req.Messages))
-	for i := range req.Messages {
-		msgs = append(msgs, inference.Message{
-			Role: req.Messages[i].Role, Content: req.Messages[i].Content,
-		})
+func buildUpstreamMessageReq(
+	req *inferenceStreamRequest, cred *inference.Cred,
+) *inference.MessageReq {
+	model := req.Model
+	if model == "" {
+		model = cred.Model
 	}
-	tools := make([]inference.ToolSpec, 0, len(req.Tools))
-	for i := range req.Tools {
-		tools = append(tools, inference.ToolSpec{
-			Name:        req.Tools[i].Name,
-			Description: req.Tools[i].Description,
-			InputSchema: req.Tools[i].InputSchema,
-		})
-	}
-	return &inference.ChatRequest{
-		Model: req.Model, System: req.System,
-		Messages: msgs, Tools: tools,
+	return &inference.MessageReq{
+		Model:    model,
+		System:   req.System,
+		Messages: convertStreamMessages(req.Messages),
+		Tools:    convertStreamTools(req.Tools),
 	}
 }
 
-func pumpStreamEvents(
-	ctx context.Context, log *slog.Logger,
-	w http.ResponseWriter, ch <-chan inference.StreamEvent,
-) {
+func convertStreamMessages(in []inferenceStreamMsg) []inference.AnthropicMsg {
+	out := make([]inference.AnthropicMsg, 0, len(in))
+	for i := range in {
+		out = append(out, inference.AnthropicMsg{
+			Role: in[i].Role, Content: in[i].Content,
+		})
+	}
+	return out
+}
+
+func convertStreamTools(in []inferenceStreamToolIn) []inference.ToolSpec {
+	out := make([]inference.ToolSpec, 0, len(in))
+	for i := range in {
+		out = append(out, inference.ToolSpec{
+			Name:        in[i].Name,
+			Description: in[i].Description,
+			InputSchema: in[i].InputSchema,
+		})
+	}
+	return out
+}
+
+// forwardChunkSize —— 4 KiB read window. SSE frames are usually under
+// 1 KiB; larger windows give us syscall savings on bigger payloads
+// (tool_use input_json with many fields) without holding too much.
+const (
+	forwardChunkSize = 4096
+	logErrKey        = "err"
+)
+
+// forwardSSEBytes —— set SSE headers + io.Copy bytes from upstream to
+// client. Flushes after each Read so visitors see tokens in real time
+// even if intermediary buffering would otherwise hold them.
+func forwardSSEBytes(log *slog.Logger, w http.ResponseWriter, body io.Reader) {
 	setSSEHeaders(w)
-	streamLoop(ctx, log, w, asFlusher(w), ch)
+	flusher := pickFlusher(w)
+	buf := make([]byte, forwardChunkSize)
+	for forwardOneChunk(log, w, flusher, body, buf) {
+	}
 }
 
-// asFlusher —— 安全做 http.Flusher 类型断言。errcheck 把
-// `flusher, _ := w.(http.Flusher)` 也当 ignored return。
-func asFlusher(w http.ResponseWriter) http.Flusher {
+func pickFlusher(w http.ResponseWriter) http.Flusher {
 	if f, ok := w.(http.Flusher); ok {
 		return f
 	}
 	return nil
+}
+
+func forwardOneChunk(
+	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
+	body io.Reader, buf []byte,
+) bool {
+	n, err := body.Read(buf)
+	if n > 0 && !writeAndFlush(log, w, flusher, buf[:n]) {
+		return false
+	}
+	return !isReadTerminal(log, err)
+}
+
+func writeAndFlush(
+	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher, p []byte,
+) bool {
+	wn, werr := w.Write(p)
+	if werr != nil {
+		log.Error("inference proxy write", logErrKey, werr)
+		return false
+	}
+	_ = wn
+	if flusher != nil {
+		flusher.Flush()
+	}
+	return true
+}
+
+func isReadTerminal(log *slog.Logger, err error) bool {
+	if err == nil {
+		return false
+	}
+	if !errors.Is(err, io.EOF) {
+		log.Error("inference proxy read", logErrKey, err)
+	}
+	return true
 }
 
 func setSSEHeaders(w http.ResponseWriter) {
@@ -163,133 +234,42 @@ func setSSEHeaders(w http.ResponseWriter) {
 	w.Header().Set("X-Accel-Buffering", "no")
 }
 
-func streamLoop(
-	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
-	flusher http.Flusher, ch <-chan inference.StreamEvent,
-) {
-	for streamLoopOne(ctx, log, w, flusher, ch) {
-	}
-}
-
-// streamLoopOne —— 处理一个 event；返 true 继续 loop，false 退出。
-func streamLoopOne(
-	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
-	flusher http.Flusher, ch <-chan inference.StreamEvent,
-) bool {
-	ev, ok := nextEvent(ctx, ch)
-	if !ok {
-		return false
-	}
-	writeStreamEvent(log, w, flusher, &ev)
-	return !isTerminalEvent(&ev)
-}
-
-func nextEvent(
-	ctx context.Context, ch <-chan inference.StreamEvent,
-) (inference.StreamEvent, bool) {
-	select {
-	case <-ctx.Done():
-		return inference.StreamEvent{}, false
-	case ev, ok := <-ch:
-		return ev, ok
-	}
-}
-
-func isTerminalEvent(ev *inference.StreamEvent) bool {
-	return ev.Type == "done" || ev.Type == "error"
-}
-
-func writeStreamEvent(
-	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
-	ev *inference.StreamEvent,
-) {
-	payload, err := marshalStreamEvent(ev)
-	if err != nil {
-		log.Error("inference stream marshal", "err", err)
-		return
-	}
-	flushStreamFrame(log, w, flusher, ev.Type, payload)
-}
-
-func flushStreamFrame(
-	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher,
-	evType string, payload []byte,
-) {
-	if _, werr := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", evType, payload); werr != nil {
-		log.Error("inference stream write", "err", werr)
-		return
-	}
-	if flusher != nil {
-		flusher.Flush()
-	}
-}
-
-// streamEventMarshalers —— ev.Type → payload marshaler。dispatch table 避
-// 让 marshalStreamEvent 自己 switch (lint cyclo cap)。
-var streamEventMarshalers = map[string]func(*inference.StreamEvent) ([]byte, error){
-	"text":      marshalTextEvent,
-	"tool_call": marshalToolCallEventWrap,
-	"done":      marshalDoneEvent,
-	"error":     marshalErrorEvent,
-}
-
-func marshalStreamEvent(ev *inference.StreamEvent) ([]byte, error) {
-	if fn, ok := streamEventMarshalers[ev.Type]; ok {
-		return fn(ev)
-	}
-	return json.Marshal(map[string]string{"type": ev.Type})
-}
-
-func marshalTextEvent(ev *inference.StreamEvent) ([]byte, error) {
-	return json.Marshal(map[string]string{"delta": ev.Text})
-}
-
-func marshalToolCallEventWrap(ev *inference.StreamEvent) ([]byte, error) {
-	return marshalToolCallEvent(ev.ToolCall)
-}
-
-func marshalDoneEvent(ev *inference.StreamEvent) ([]byte, error) {
-	return json.Marshal(map[string]string{"stop_reason": ev.Stop})
-}
-
-func marshalErrorEvent(ev *inference.StreamEvent) ([]byte, error) {
-	return json.Marshal(map[string]string{"message": errString(ev.Err)})
-}
-
-// toolCallWire —— tool_call event JSON shape (跟前端 agent-core 解析对齐)。
-type toolCallWire struct {
-	ID    string          `json:"id"`
-	Name  string          `json:"name"`
-	Input json.RawMessage `json:"input"`
-}
-
-func marshalToolCallEvent(call *inference.StreamToolCall) ([]byte, error) {
-	if call == nil {
-		return []byte(`{}`), nil
-	}
-	return json.Marshal(toolCallWire{
-		ID: call.ID, Name: call.Name, Input: json.RawMessage(call.Input),
-	})
-}
-
-func errString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
-}
-
+// writeStreamErr —— pre-stream errors (auth fail, cred resolve fail,
+// upstream open fail) become a single SSE `error` event so pi-agent-core
+// surfaces them via its error path. Once forwarding has started, errors
+// during proxy come from upstream as Anthropic-shape error events and
+// pi handles them directly.
 func writeStreamErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	var sentinel error
-	switch {
-	case errors.Is(err, inference.ErrInvalidAPIKey):
-		sentinel = inference.ErrInvalidAPIKey
-		http.Error(w, "invalid api key", http.StatusUnauthorized)
-	case errors.Is(err, inference.ErrOwnerProviderUnconfigured):
-		sentinel = inference.ErrOwnerProviderUnconfigured
-		http.Error(w, "owner ai not configured", http.StatusServiceUnavailable)
-	default:
-		http.Error(w, "inference stream error: "+err.Error(), http.StatusInternalServerError)
+	c := inference.ClassifyStreamErr(err)
+	log.Error("inference stream error", logErrKey, err, "code", c.Code)
+	setSSEHeaders(w)
+	w.WriteHeader(c.Status)
+	emitErrorFrame(log, w, err, c.Code)
+}
+
+func emitErrorFrame(log *slog.Logger, w http.ResponseWriter, err error, code string) {
+	payload, merr := json.Marshal(errorPayload(err, code))
+	if merr != nil {
+		log.Error("inference stream marshal", logErrKey, merr)
+		return
 	}
-	log.Error("inference stream error", "err", err, "sentinel", sentinel)
+	writeErrorFrame(log, w, payload)
+}
+
+func errorPayload(err error, code string) map[string]string {
+	return map[string]string{
+		"type":    "error",
+		"message": err.Error(),
+		"code":    code,
+	}
+}
+
+func writeErrorFrame(log *slog.Logger, w http.ResponseWriter, payload []byte) {
+	if _, ferr := fmt.Fprintf(w, "event: error\ndata: %s\n\n", payload); ferr != nil {
+		log.Error("inference stream emit", logErrKey, ferr)
+		return
+	}
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
 }

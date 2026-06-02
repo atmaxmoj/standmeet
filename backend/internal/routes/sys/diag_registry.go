@@ -1,11 +1,11 @@
-// test_registry_list.go —— GET /internal/test/registry-list
-//                       —— GET /internal/test/ext-mcp-conn-stats
+// diag_registry.go —— GET /internal/diag/registry
+//                    —— GET /internal/diag/ext-mcp-stats
 //
-// 列出所有已注册 Capability + 其 shape（前者）；读 ext MCP dial/close 计数
-// （后者）。invariants spec 据此校验：ID unique、shape 自洽、Close hook 计数
-// 对齐。
+// 操作面诊断 endpoint: 列已注册 Capability + shape (前者) / 读 ext MCP
+// dial/close 计数 (后者)。owner 排错 + e2e invariants spec 都用得着。
 //
-// 仅 e2e 用；/internal 默认不被外部 reverse proxy 暴露。
+// /internal 默认不被外部 reverse proxy 暴露，所以无 auth；同 /healthz、
+// /tls-ask、/builds 一样属 sysroutes。
 
 package sys
 
@@ -19,17 +19,17 @@ import (
 	"github.com/wangsijie/standmeet/internal/agentskills"
 )
 
-// TestRegistryDeps —— deps for the /test/registry-list endpoint.
-type TestRegistryDeps struct {
+// DiagRegistryDeps —— deps for /diag/registry + /diag/ext-mcp-stats。
+type DiagRegistryDeps struct {
 	Registry *agentskills.Registry
 	Log      *slog.Logger
 }
 
-// MountTestRegistry —— /test/registry-list + /test/ext-mcp-conn-stats。
-// 两个 endpoint 共享同一 deps，挂同一文件下避免 wireup 噪声。
-func MountTestRegistry(r chi.Router, deps TestRegistryDeps) {
-	r.Get("/test/registry-list", testRegistryListHandler(deps))
-	r.Get("/test/ext-mcp-conn-stats", testExtMCPStatsHandler(deps))
+// MountDiagRegistry —— /diag/registry + /diag/ext-mcp-stats。两个 endpoint
+// 共享同一 deps 挂同一文件下避免 wireup 噪声。
+func MountDiagRegistry(r chi.Router, deps DiagRegistryDeps) {
+	r.Get("/diag/registry", diagRegistryListHandler(deps))
+	r.Get("/diag/ext-mcp-stats", diagExtMCPStatsHandler(deps))
 }
 
 type registryCapWire struct {
@@ -41,7 +41,7 @@ type registryListResp struct {
 	Capabilities []registryCapWire `json:"capabilities"`
 }
 
-func testRegistryListHandler(deps TestRegistryDeps) http.HandlerFunc {
+func diagRegistryListHandler(deps DiagRegistryDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		caps := deps.Registry.List()
 		resp := registryListResp{Capabilities: make([]registryCapWire, 0, len(caps))}
@@ -53,7 +53,7 @@ func testRegistryListHandler(deps TestRegistryDeps) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(&resp); err != nil {
-			deps.Log.Error("registry-list encode", "err", err)
+			deps.Log.Error("registry encode", "err", err)
 		}
 	}
 }
@@ -63,7 +63,7 @@ type extMCPStatsResp struct {
 	Closed int64 `json:"closed"`
 }
 
-func testExtMCPStatsHandler(deps TestRegistryDeps) http.HandlerFunc {
+func diagExtMCPStatsHandler(deps DiagRegistryDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		stat := agentskills.ExtMCPStats()
 		resp := extMCPStatsResp{Dialed: stat.Dialed, Closed: stat.Closed}
