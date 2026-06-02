@@ -1,14 +1,15 @@
 // chat.go —— /api/v1/* 路由挂载 + visitor 错误码表 + auth/bearer helper。
-// Chat 数据流（D-5 pi pivot 之后）：
+// Chat 数据流（H.3 之后）：
 //   - POST /sessions               颁发 visitor session
-//   - POST /inference/stream       byte-proxy 到上游 Anthropic /v1/messages
-//   - POST /sessions/{id}/tools/.. 单 tool 执行 (pi-agent-core 在浏览器循环)
+//   - POST /llm/chat/stream        eino-backed unified SSE 入口；浏览器
+//                                  pi-agent-core 跑 LLM ↔ tool loop
+//   - POST /sessions/{id}/tools/.. 单 tool 执行
 //   - POST /sessions/{id}/dialogs  整 turn 结束后 commit 一段 Dialog
 //   - POST /sessions/{id}/summary  整段对话生成 summary 报告
 //
-// G-Y.6 删了 server-side agent loop (POST /messages + SendMessage usecase
-// + streamReply)；所有 chat 推理走 pi-agent-core in browser →
-// /inference/stream byte proxy → upstream Anthropic SSE。
+// H.3 删了 server-side byte-proxy (/inference/stream + OpenAnthropicStream)。
+// 所有 chat 推理走 pi-agent-core in browser → /llm/chat/stream (pi unified
+// SSE) → backend eino model.ToolCallingChatModel → upstream provider。
 
 package public
 
@@ -41,9 +42,6 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions/{id}/summary", h.postSummary())
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
 	r.Post("/inference/models", h.listInferenceModels())
-	r.Post("/inference/stream", h.inferenceStream())
-	// H.2: 新 eino-based chat 入口。pi-agent-core 在 H.5 切到这条；
-	// 老 /inference/stream byte proxy 在 H.3 删。
 	r.Post("/llm/chat/stream", h.llmChatStream())
 }
 

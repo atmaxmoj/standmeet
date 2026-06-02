@@ -1,16 +1,15 @@
-// Package inference —— upstream credential resolution + thin Anthropic
-// HTTP helpers. Backend does NOT parse upstream SSE; pi-agent-core (in
-// the browser, via @standmeet/agent-core) consumes the Anthropic native
-// stream and runs the agent loop. Backend's only job:
+// Package inference —— upstream credential resolution + 一次性 Anthropic
+// 调用 helper (visitor_summary 用)。
+//
+// H.3 之后 chat 流式推理走 eino model.ToolCallingChatModel (proxy.go) —
+// 这里只剩两件事：
 //
 //  1. resolve owner / BYOAI credentials (Cred + Resolver)
-//  2. forward bytes between visitor's /inference/stream call and the
-//     upstream Anthropic /v1/messages call (routes/public/inference_stream.go)
-//  3. one-shot non-streaming calls (visitor_summary) using SendAnthropic
+//  2. one-shot non-streaming Anthropic call (SendAnthropic / visitor_summary
+//     仍走老路；H.4 把 summary 切 eino 后这部分也会消失)
 //
-// v1 supports only anthropic-compatible upstreams. owner.ai_provider !=
-// 'anthropic' → ErrUnsupportedProvider; v2 may add openai-compat by
-// translating openai SSE → anthropic SSE on the fly.
+// 旧的 OpenAnthropicStream + postAnthropicStreaming byte-proxy 跟着
+// routes/public/inference_stream.go 一起被 H.3 删掉了。
 package inference
 
 import (
@@ -139,32 +138,6 @@ func pickMaxTokens(n int) int {
 	return anthropicDefaultMaxTok
 }
 
-// OpenAnthropicStream —— POST /v1/messages stream=true; return the live
-// HTTP response so caller can io.Copy(w, resp.Body) the SSE bytes to the
-// visitor connection. Caller must Close resp.Body.
-//
-// On HTTP-level errors the body is consumed + closed and a sentinel
-// error returned.
-func OpenAnthropicStream(
-	ctx context.Context, cred *Cred, req *MessageReq,
-) (*http.Response, error) {
-	if cred.Provider != "anthropic" {
-		return nil, ErrUnsupportedProvider
-	}
-	body, berr := BuildAnthropicBody(req, true)
-	if berr != nil {
-		return nil, berr
-	}
-	resp, err := postAnthropicStreaming(ctx, cred, body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, translateStatus(resp)
-	}
-	return resp, nil
-}
-
 // SendAnthropic —— POST /v1/messages stream=false; concatenate every
 // text content block of the assistant reply into one string. Tool_use
 // blocks ignored (one-shot summary doesn't run tools).
@@ -187,25 +160,6 @@ func SendAnthropic(
 		return "", translateStatus(resp)
 	}
 	return parseAnthropicNonStream(resp.Body)
-}
-
-// postAnthropicStreaming —— POST with SSE Accept; client has no timeout
-// so idle gaps between tokens don't kill the stream (ctx cancel covers
-// the visitor-disconnect path).
-func postAnthropicStreaming(
-	ctx context.Context, cred *Cred, body []byte,
-) (*http.Response, error) {
-	httpReq, herr := buildAnthropicHTTPReq(ctx, cred, body)
-	if herr != nil {
-		return nil, herr
-	}
-	httpReq.Header.Set("Accept", "text/event-stream")
-	client := &http.Client{}
-	resp, derr := client.Do(httpReq)
-	if derr != nil {
-		return nil, normalizeNetErr(derr)
-	}
-	return resp, nil
 }
 
 // postAnthropicOneShot —— POST without SSE Accept; client has a bounded

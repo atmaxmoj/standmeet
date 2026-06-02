@@ -25,3 +25,13 @@ func writeError(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) {
 		log.Error("encode error envelope", "err", err)
 	}
 }
+
+// nopResponseWriter —— BYOAI envelope helper writes 401 on missing
+// headers，但 llm_chat_stream 在 SSE 阶段 take control 自己写错误响应；
+// 拿一个静默 ResponseWriter 喂给那个 helper 让它能 inspect headers
+// 但不能 hit wire。
+type nopResponseWriter struct{}
+
+func (*nopResponseWriter) Header() http.Header         { return http.Header{} }
+func (*nopResponseWriter) Write(b []byte) (int, error) { return len(b), nil }
+func (*nopResponseWriter) WriteHeader(_ int)           {}
