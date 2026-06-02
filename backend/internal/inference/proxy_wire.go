@@ -16,8 +16,10 @@ import (
 
 const logErrKey = "err"
 
-// toEinoMessages —— pi 平字符串 messages + system → []*schema.Message。
-// system 作为 schema.System role 放在最前。
+// toEinoMessages —— pi 风格 messages + system → []*schema.Message。
+// system 作为 schema.System role 放在最前。assistant 调 tool 时的 tool_calls
+// 跟 tool role 的 tool_call_id 1:1 翻给 eino schema (跟 OpenAI 同构)，
+// 不再走 marker string。
 func toEinoMessages(system string, in []ChatRequestMsg) ([]*schema.Message, error) {
 	out := make([]*schema.Message, 0, len(in)+1)
 	if system != "" {
@@ -28,9 +30,32 @@ func toEinoMessages(system string, in []ChatRequestMsg) ([]*schema.Message, erro
 		if rerr != nil {
 			return nil, rerr
 		}
-		out = append(out, &schema.Message{Role: role, Content: in[i].Content})
+		out = append(out, &schema.Message{
+			Role:       role,
+			Content:    in[i].Content,
+			ToolCalls:  toEinoToolCalls(in[i].ToolCalls),
+			ToolCallID: in[i].ToolCallID,
+		})
 	}
 	return out, nil
+}
+
+func toEinoToolCalls(in []ChatToolCallRef) []schema.ToolCall {
+	out := make([]schema.ToolCall, 0, len(in))
+	for i := range in {
+		args := string(in[i].Args)
+		if args == "" {
+			args = "{}"
+		}
+		out = append(out, schema.ToolCall{
+			ID: in[i].ID,
+			Function: schema.FunctionCall{
+				Name:      in[i].Name,
+				Arguments: args,
+			},
+		})
+	}
+	return out
 }
 
 func einoRole(s string) (schema.RoleType, error) {

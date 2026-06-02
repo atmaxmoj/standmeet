@@ -186,32 +186,32 @@ type StepResult =
   | { readonly kind: 'continue'; readonly messages: readonly Message[] };
 
 // assistantTurnMessage —— encode this iteration's assistant output
-// (visible text + every tool_use call) into a single Message. The
-// httpInferenceStreamer adapter parses these markers back into native
-// Anthropic content blocks before POSTing the next /v1/messages call.
-//
-// Marker format:
-//   "<text> [tool_use:NAME:ID] <args-json> [tool_use:NAME2:ID2] ..."
-// Plain text (no tools) → just the text, no markers.
+// (visible text + every tool_use call) into a single Message. H.5: 用
+// pi unified shape — text 走 content，tool_use 列表走 tool_calls 字段，
+// backend (eino) 直接吃 schema.Message。
 function assistantTurnMessage(ctx: StepCtx): Message {
-  const parts: string[] = [];
-  if (ctx.text !== '') parts.push(ctx.text);
-  for (const c of ctx.toolCalls) {
-    parts.push(`[tool_use:${c.name}:${c.id}] ${JSON.stringify(c.args ?? {})}`);
+  if (ctx.toolCalls.length === 0) {
+    return { role: 'assistant', content: ctx.text };
   }
-  return { role: 'assistant', content: parts.join('\n') };
+  return {
+    role: 'assistant',
+    content: ctx.text,
+    tool_calls: ctx.toolCalls.map((c) => ({
+      id: c.id, name: c.name, args: c.args ?? {},
+    })),
+  };
 }
 
-// toolResultAsMessage —— Anthropic puts tool_result blocks under user
-// role (not assistant). pi-agent-core stores the result keyed by the
-// tool_use id so the adapter can pair them up when emitting content
-// blocks.
+// toolResultAsMessage —— 一次 tool dispatch 的 result 作为下一轮 input。
+// H.5: pi unified shape — role='tool' + tool_call_id 指回 assistant
+// 这轮调出的 tool_use；content 是 result envelope JSON 字符串。
 function toolResultAsMessage(result: ToolResult): Message {
   return {
-    role: 'user',
-    content: `[tool_result:${result.name}:${result.id}] ` + JSON.stringify({
+    role: 'tool',
+    content: JSON.stringify({
       ok: result.ok, result: result.result, reason: result.reason,
     }),
+    tool_call_id: result.id,
   };
 }
 

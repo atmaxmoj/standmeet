@@ -24,5 +24,6 @@ export type {
   CapabilityState,
   Message,
   ToolCall,
+  ToolCallRef,
   ToolResult,
 } from './types.js';

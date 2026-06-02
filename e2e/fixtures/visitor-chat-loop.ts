@@ -1,15 +1,17 @@
-// visitor-chat-loop.ts —— Node-side agent loop driving /inference/stream
-// + per-tool dispatch + /dialogs commit, mimicking the old POST
-// /messages behavior so existing specs keep their sendMessage() shape.
+// visitor-chat-loop.ts —— Node-side agent loop driving the pi unified
+// /api/v1/llm/chat/stream + per-tool dispatch + /dialogs commit. Mirrors
+// the browser pi-agent-core loop so e2e fixtures can drain a "turn" with
+// one call and assert on a fake APIResponse.
 //
-// pi-agent-core in the browser does the same work for real visitors;
-// this fixture replays it inside Node so e2e fixtures can drain a
-// "turn" with one call and assert on a fake APIResponse.
+// Wire (pi unified, mirrors sdk/packages/agent-core types.Message):
 //
-// Wire format outgoing (to /inference/stream): Anthropic-shape
-//   messages: [{role, content: [content_block...]}]
-// Incoming SSE: Anthropic native (message_start / content_block_delta /
-// message_stop). We parse just text deltas + tool_use blocks.
+//   POST body: {
+//     system, messages: [{role, content, tool_calls?, tool_call_id?}], tools
+//   }
+//   SSE: event: text   data: {"delta": "..."}
+//        event: tool_call data: {"id","name","input"}
+//        event: done   data: {"stop_reason": "..."}
+//        event: error  data: {"code","message"}
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -32,19 +34,16 @@ interface VisitorToolSpec {
 }
 
 interface PiMessage {
-  role: 'user' | 'assistant';
-  content: ContentBlock[];
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  tool_calls?: { id: string; name: string; args: unknown }[];
+  tool_call_id?: string;
 }
 
-type ContentBlock =
-  | { type: 'text'; text: string }
-  | { type: 'tool_use'; id: string; name: string; input: unknown }
-  | { type: 'tool_result'; tool_use_id: string; content: string };
-
 // runVisitorChatTurn —— drive one visitor question through the pi-agent
-// loop. Returns a fake APIResponse that mimics what POST /messages used
-// to return: status() reflects the /dialogs commit status (200/204 → 200,
-// quota 403 → 403, etc.), body()/text() returns the final assistant text.
+// loop. Returns a fake APIResponse mimicking the legacy /messages
+// surface: status() reflects /dialogs commit (200/204 → 200, quota
+// 403 → 403); body()/text() returns the final assistant text.
 export async function runVisitorChatTurn(
   request: APIRequestContext, sess: VisitorSession, question: string,
 ): Promise<FakeAPIResponse> {
@@ -52,7 +51,7 @@ export async function runVisitorChatTurn(
   const system = await fetchSystemPrompt(sess);
   const headers = await buildHeaders(sess);
   const history: PiMessage[] = [
-    { role: 'user', content: [{ type: 'text', text: question }] },
+    { role: 'user', content: question },
   ];
   const ctx: TurnCtx = {
     headers, sess, tools, system, request,
@@ -105,7 +104,7 @@ interface StreamStep {
 async function runStreamStep(
   history: PiMessage[], ctx: TurnCtx,
 ): Promise<StreamStep> {
-  const res = await ctx.request.post(`${BACKEND}/api/v1/inference/stream`, {
+  const res = await ctx.request.post(`${BACKEND}/api/v1/llm/chat/stream`, {
     headers: ctx.headers,
     data: {
       system: ctx.system,
@@ -114,26 +113,31 @@ async function runStreamStep(
     },
   });
   if (res.status() !== 200) {
-    throw new Error(`inference.stream: ${res.status()}`);
+    throw new Error(`llm.chat.stream: ${res.status()}`);
   }
   const body = await res.body();
-  return parseAnthropicSSE(body.toString('utf-8'));
+  return parsePiSSE(body.toString('utf-8'));
 }
 
-function parseAnthropicSSE(raw: string): StreamStep {
-  const blocks = new Map<number, BlockState>();
+function parsePiSSE(raw: string): StreamStep {
+  let text = '';
+  const toolCalls: { id: string; name: string; input: unknown }[] = [];
   for (const frame of splitFrames(raw)) {
-    applyFrame(frame, blocks);
+    const d = safeJson(frame.data) as Record<string, unknown>;
+    if (frame.event === 'text') {
+      const delta = typeof d['delta'] === 'string' ? d['delta'] : '';
+      text += delta;
+    } else if (frame.event === 'tool_call') {
+      toolCalls.push({
+        id: typeof d['id'] === 'string' ? d['id'] : '',
+        name: typeof d['name'] === 'string' ? d['name'] : '',
+        input: d['input'] ?? {},
+      });
+    } else if (frame.event === 'error') {
+      throw new Error(typeof d['message'] === 'string' ? d['message'] : 'sse error');
+    }
   }
-  return finalizeBlocks(blocks);
-}
-
-interface BlockState {
-  kind: 'text' | 'tool_use';
-  id: string;
-  name: string;
-  text: string;
-  inputBuf: string;
+  return { text, toolCalls };
 }
 
 function splitFrames(raw: string): { event: string; data: string }[] {
@@ -154,86 +158,24 @@ function parseFrame(raw: string): { event: string; data: string } | null {
   return ev === '' ? null : { event: ev, data: dt };
 }
 
-function applyFrame(
-  frame: { event: string; data: string }, blocks: Map<number, BlockState>,
-): void {
-  const d = safeJson(frame.data) as Record<string, unknown>;
-  switch (frame.event) {
-    case 'content_block_start':
-      handleBlockStart(d, blocks);
-      return;
-    case 'content_block_delta':
-      handleBlockDelta(d, blocks);
-      return;
-    case 'error':
-      throw new Error(typeof d['message'] === 'string' ? d['message'] : 'sse error');
-    default:
-      // message_start / content_block_stop / message_delta / message_stop —
-      // no state change for our needs.
-  }
-}
-
-function handleBlockStart(
-  d: Record<string, unknown>, blocks: Map<number, BlockState>,
-): void {
-  const idx = d['index'] as number | undefined;
-  const cb = d['content_block'] as Record<string, unknown> | undefined;
-  if (idx === undefined || !cb) return;
-  blocks.set(idx, {
-    kind: (cb['type'] === 'tool_use' ? 'tool_use' : 'text'),
-    id: (cb['id'] as string | undefined) ?? '',
-    name: (cb['name'] as string | undefined) ?? '',
-    text: '',
-    inputBuf: '',
-  });
-}
-
-function handleBlockDelta(
-  d: Record<string, unknown>, blocks: Map<number, BlockState>,
-): void {
-  const idx = d['index'] as number | undefined;
-  const delta = d['delta'] as Record<string, unknown> | undefined;
-  if (idx === undefined || !delta) return;
-  const b = blocks.get(idx);
-  if (!b) return;
-  if (delta['type'] === 'text_delta' && typeof delta['text'] === 'string') {
-    b.text += delta['text'];
-  }
-  if (delta['type'] === 'input_json_delta' && typeof delta['partial_json'] === 'string') {
-    b.inputBuf += delta['partial_json'];
-  }
-}
-
-function finalizeBlocks(blocks: Map<number, BlockState>): StreamStep {
-  const sorted = [...blocks.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]);
-  let text = '';
-  const toolCalls: { id: string; name: string; input: unknown }[] = [];
-  for (const b of sorted) {
-    if (b.kind === 'text') text += b.text;
-    else toolCalls.push({
-      id: b.id, name: b.name,
-      input: b.inputBuf === '' ? {} : safeJson(b.inputBuf),
-    });
-  }
-  return { text, toolCalls };
-}
-
 function buildAssistantTurnMsg(step: StreamStep): PiMessage {
-  const blocks: ContentBlock[] = [];
-  if (step.text !== '') blocks.push({ type: 'text', text: step.text });
-  for (const c of step.toolCalls) {
-    blocks.push({ type: 'tool_use', id: c.id, name: c.name, input: c.input });
+  if (step.toolCalls.length === 0) {
+    return { role: 'assistant', content: step.text };
   }
-  return { role: 'assistant', content: blocks };
+  return {
+    role: 'assistant',
+    content: step.text,
+    tool_calls: step.toolCalls.map((c) => ({
+      id: c.id, name: c.name, args: c.input,
+    })),
+  };
 }
 
 function buildToolResultMsg(toolUseID: string, result: ToolResultBody): PiMessage {
   return {
-    role: 'user',
-    content: [{
-      type: 'tool_result', tool_use_id: toolUseID,
-      content: JSON.stringify({ ok: result.ok, result: result.result, reason: result.reason }),
-    }],
+    role: 'tool',
+    content: JSON.stringify({ ok: result.ok, result: result.result, reason: result.reason }),
+    tool_call_id: toolUseID,
   };
 }
 

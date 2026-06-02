@@ -27,10 +27,25 @@ export interface ToolResult {
   readonly capability_state?: readonly CapabilityState[];
 }
 
-// Conversation message —— minimal shape (no provider-specific blocks).
+// Conversation message —— pi unified shape, mirrors eino schema.Message
+// + OpenAI chat completions. assistant role MAY carry tool_calls (this
+// turn's tool_use list); tool role carries tool_call_id (which tool_use
+// id the result is for). 不走 marker string —— 字段类型化，跨 wire 1:1
+// 翻给 backend eino。
 export interface Message {
-  readonly role: 'user' | 'assistant' | 'system';
+  readonly role: 'user' | 'assistant' | 'system' | 'tool';
   readonly content: string;
+  readonly tool_calls?: readonly ToolCallRef[];
+  readonly tool_call_id?: string;
+}
+
+// ToolCallRef —— assistant turn 内调出的一条 tool_use 的小记录，挂在
+// Message.tool_calls 上随 history 来回。跟 ToolCall (live dispatcher 输入)
+// 同形但语义不同：ToolCall 是"现在要调的"，ToolCallRef 是"上轮调过的"。
+export interface ToolCallRef {
+  readonly id: string;
+  readonly name: string;
+  readonly args: unknown;
 }
 
 // AgentEvent —— observer receives one per state transition. Names align

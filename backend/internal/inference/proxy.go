@@ -54,10 +54,24 @@ type ChatRequest struct {
 	Tools    []ChatRequestTool `json:"tools,omitempty"`
 }
 
-// ChatRequestMsg —— pi 风格平字符串消息。
+// ChatRequestMsg —— pi 风格平字符串消息。assistant 调 tool 时把 tool_calls
+// 装进当条消息；tool role 携带 tool_call_id 标明回应哪条 tool_use。形态
+// 跟 OpenAI chat completions + eino schema.Message 同构，proxy_wire 1:1
+// 翻给 eino，不再走 marker string。字段顺序按 govet fieldalignment 排
+// (4 string 在前；slice 在后)。
 type ChatRequestMsg struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string            `json:"role"`
+	Content    string            `json:"content"`
+	ToolCallID string            `json:"tool_call_id,omitempty"`
+	ToolCalls  []ChatToolCallRef `json:"tool_calls,omitempty"`
+}
+
+// ChatToolCallRef —— assistant turn 当中调出的一条 tool_use。args 是
+// raw JSON (用 RawMessage 保 caller 序列化原样)。
+type ChatToolCallRef struct {
+	ID   string          `json:"id"`
+	Name string          `json:"name"`
+	Args json.RawMessage `json:"args"`
 }
 
 // ChatRequestTool —— tool spec; input_schema 是 raw JSON schema。

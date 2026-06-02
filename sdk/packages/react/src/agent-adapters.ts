@@ -1,8 +1,9 @@
 // agent-adapters.ts —— browser host adapters for @standmeet/agent-core.
 // 4 种 port 的浏览器实现：HTTP prompts、HTTP tool dispatcher、scripted
 // mock LLM streamer (给 /dev/agent-spike 用，不依赖真 LLM 后端)、
-// HTTP inference streamer (走 POST /api/v1/inference/stream SSE
-// 拿真 LLM single-turn 输出，给生产 visitor chat 用)。
+// HTTP inference streamer (走 POST /api/v1/llm/chat/stream SSE 拿
+// pi unified events，backend 经 eino 跑 ToolCallingChatModel；浏览器看
+// 不到 provider 是 anthropic / openai-compat 哪一个)。
 
 import type {
   CapabilityState,
@@ -15,7 +16,7 @@ import type {
   ToolResult,
 } from '@standmeet/agent-core';
 
-import { parseAnthropicSSE, toAnthropicMessages } from './anthropic-wire';
+import { parsePiSSE } from './pi-sse';
 
 // ───── PromptSource: HTTP GET /api/v1/prompts/{id} ────────────────
 
@@ -132,14 +133,14 @@ function chunkText(text: string, size = 16): string[] {
   return out;
 }
 
-// ───── LLMStreamer (HTTP, prod): POST /api/v1/inference/stream ────
+// ───── LLMStreamer (HTTP, prod): POST /api/v1/llm/chat/stream ─────
 
 export interface HttpInferenceStreamerOptions {
   readonly baseURL: string;
   readonly sessionToken: string;
-  // 可选 BYOAI 信封 headers (跟 /messages 老路径同 wire)。byoai mode 下
-  // visitor browser 持 plaintext key + HKDF(session_token) 派 AES key
-  // 信封，X-Byoai-* headers 带过来；server 解封即用即丢。
+  // 可选 BYOAI 信封 headers。byoai mode 下 visitor browser 持 plaintext
+  // key + HKDF(session_token) 派 AES key 信封，X-BYOAI-* headers 带过来；
+  // server 解封即用即丢。
   readonly byoai?: HttpBYOAIHeaders;
 }
 
@@ -164,19 +165,19 @@ async function* streamInferenceHTTP(
   opts: HttpInferenceStreamerOptions,
   req: LLMStreamRequest,
 ): AsyncIterable<LLMStreamEvent> {
-  const res = await fetch(`${opts.baseURL}/api/v1/inference/stream`, {
+  const res = await fetch(`${opts.baseURL}/api/v1/llm/chat/stream`, {
     method: 'POST',
     headers: inferenceHeaders(opts),
     body: JSON.stringify({
       system: req.system,
-      messages: toAnthropicMessages(req.messages),
+      messages: req.messages,
       tools: req.toolSpecs,
     }),
   });
   if (!res.ok || res.body === null) {
-    throw new Error(`inference.stream: ${res.status}`);
+    throw new Error(`llm.chat.stream: ${res.status}`);
   }
-  yield* parseAnthropicSSE(res.body);
+  yield* parsePiSSE(res.body);
 }
 
 function inferenceHeaders(opts: HttpInferenceStreamerOptions): HeadersInit {
@@ -189,12 +190,11 @@ function inferenceHeaders(opts: HttpInferenceStreamerOptions): HeadersInit {
 
 function byoaiToHeaders(b: HttpBYOAIHeaders): Record<string, string> {
   return {
-    'X-Byoai-Provider': b.provider,
-    'X-Byoai-Key': b.wrappedKey,
-    'X-Byoai-Endpoint': b.endpoint,
-    'X-Byoai-Model': b.model,
+    'X-BYOAI-Provider': b.provider,
+    'X-BYOAI-Key': b.wrappedKey,
+    'X-BYOAI-Endpoint': b.endpoint,
+    'X-BYOAI-Model': b.model,
   };
 }
 
-// Anthropic SSE parsing + pi-Message ↔ Anthropic content translation
-// live in anthropic-wire.ts (imported above).
+// pi unified SSE parsing lives in pi-sse.ts (imported above).

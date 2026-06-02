@@ -117,9 +117,8 @@ async function issueSession(
   return (await res.json()) as PublicSessionResponse;
 }
 
-// streamMessage —— G-Y.6: POST /messages route is gone. Sends one user
-// message through /inference/stream (Anthropic-shape content blocks) +
-// translates Anthropic SSE → {kind:'token',text} events for legacy
+// streamMessage —— H.5: POST /api/v1/llm/chat/stream (eino-backed) +
+// translate pi unified SSE → {kind:'token',text} events for legacy
 // consumers (e.g. admin code-self-test preview). No tool loop; this is
 // a single-turn smoke test path.
 async function* streamMessage(
@@ -127,23 +126,20 @@ async function* streamMessage(
   conversationID: string, sessionToken: string, content: string,
   byoai?: BYOAIHeaders,
 ): AsyncGenerator<SSEEvent, void, unknown> {
-  void conversationID; // Anthropic stream doesn't need conv_id; it's a single LLM call
-  const res = await f(`${baseURL}/api/v1/inference/stream`, {
+  void conversationID; // single LLM call; no conv_id needed
+  const res = await f(`${baseURL}/api/v1/llm/chat/stream`, {
     method: 'POST',
     headers: buildMessageHeaders(sessionToken, byoai),
     body: JSON.stringify({
       system: '',
-      messages: [{
-        role: 'user',
-        content: [{ type: 'text', text: content }],
-      }],
+      messages: [{ role: 'user', content }],
     }),
   });
   if (!res.ok || !res.body) throw new Error(`send message: ${res.status}`);
-  yield* translateAnthropicSSE(res.body);
+  yield* translatePiSSE(res.body);
 }
 
-async function* translateAnthropicSSE(
+async function* translatePiSSE(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<SSEEvent, void, unknown> {
   const reader = body.getReader();
@@ -168,13 +164,12 @@ function parseFrameToToken(raw: string): SSEEvent | null {
     if (line.startsWith('event: ')) evType = line.slice(7).trim();
     else if (line.startsWith('data: ')) evData = line.slice(6).trim();
   }
-  if (evType === 'content_block_delta') {
-    const d = safeParse(evData) as { delta?: { type?: string; text?: string } };
-    if (d.delta?.type === 'text_delta' && d.delta.text) {
-      return { kind: 'token', text: d.delta.text };
-    }
+  if (evType === 'text') {
+    const d = safeParse(evData) as { delta?: string };
+    if (d.delta) return { kind: 'token', text: d.delta };
+    return null;
   }
-  if (evType === 'message_stop') {
+  if (evType === 'done') {
     return {
       kind: 'done',
       cited_wiki_ids: [], cited_output_ids: [],
