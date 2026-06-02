@@ -49,15 +49,15 @@ async function expectOwnerPageRendered(page: Page): Promise<void> {
   // 设计稿里 owner 全名摆 identity strip 里（mono caps span 不是 heading），
   // 所以走 getByText 而不是 getByRole('heading')。
   await expect(page.getByText('Alice Anderson')).toBeVisible();
+  // section 标题永远在（即使内容为空 section header 还是渲）
   await expect(page.getByText("things I've been thinking about")).toBeVisible();
   await expect(page.getByText("what I'm building")).toBeVisible();
   await expect(page.getByText('where I am', { exact: true })).toBeVisible();
   await expect(page.getByText('how to talk to me', { exact: true })).toBeVisible();
-  await expect(page.getByText('What do you think about AI replacing engineers?'))
-    .toBeVisible();
-  await expect(page.getByText("AI coding doesn't make engineers faster", { exact: false }))
-    .toBeVisible();
-  await expect(page.getByText('Lucerna').first()).toBeVisible();
+  // hero example starter 来自 defaultHeroExamples（generic placeholder）
+  await expect(page.getByText('What are you working on?')).toBeVisible();
+  // insights / projects 默认空——owner 不填就不显内容，spec 不再 assert
+  // 真实 insight 标题或 project 名字
 }
 
 async function visitorAsksAQuestion(page: Page, question: string): Promise<void> {

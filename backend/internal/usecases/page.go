@@ -14,8 +14,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // PageDeps —— page usecase 所需。PageContent 是 Owner aggregate 的内容
@@ -153,134 +153,47 @@ func buildDefaultPage(ownerID string) domain.PageContent {
 	}
 }
 
+// 默认 page content 是 placeholder，新 instance 第一次访问看到的占位文案。
+// owner 在 /admin/page 改任意 section 后就持久化覆盖。所有内容请保持泛化
+// 中立——这段会同时出现在所有自托管实例上，不要写真实个人信息。
+
 const defaultHeroProse = "" +
-	"I'm Alice. I build indie products, write code with AI but fight " +
-	"its defaults, learn German through Kafka, and think software " +
-	"architecture is about to follow organizations into a new shape."
+	"This is your StandMeet page. Open /admin/page to introduce yourself, " +
+	"share what you work on, and tell visitors how to reach you."
 
 func defaultHeroExamples() []string {
 	return []string{
-		"What do you think about AI replacing engineers?",
-		"How do you choose what to build as an indie founder?",
-		"Why did you leave Hong Kong?",
-		"What's wrong with vibe coding?",
+		"What are you working on?",
+		"How do you spend your time?",
+		"What have you written lately?",
 	}
 }
 
+// defaultInsights / defaultProjects 默认空——owner 添完才显，不挂任何 placeholder
+// 卡片占视野。
+
 func defaultInsights() []domain.PageInsight {
-	return []domain.PageInsight{
-		{
-			ID: "i-1",
-			Thesis: "AI coding doesn't make engineers faster — " +
-				"it makes codebases sicker.",
-			Context: "from a conversation about indie tooling",
-			Body: "Velocity feels real because typing is faster. But the codebase " +
-				"accumulates the surface area of every prompt you sent — none of it " +
-				"pruned, none of it pinned to a hierarchy of ideas. Six months later " +
-				"you have a project that looks like a transcript, not a system.",
-		},
-		{
-			ID: "i-2",
-			Thesis: "Software architecture mirrors organization. " +
-				"AI changes organization. So architecture will change.",
-			Context: "a 5-year prediction",
-			Body: "Microservices were Amazon's org chart in YAML. The next architecture " +
-				"is whatever shape teams take once AI absorbs the bottom half of the " +
-				"engineering pyramid. My bet: fewer services, much larger blast radius " +
-				"per repo, more long-lived AI agents owning subsystems the way a team used to.",
-		},
-		{
-			ID: "i-3",
-			Thesis: "You can't measure expertise by years. " +
-				"You measure it by feedback × time × willingness to update.",
-			Context: "from a discussion on hiring",
-			Body: "Two engineers with the same 10 years can be a decade apart in real " +
-				"depth. The one who shipped, watched, and admitted being wrong has " +
-				"compounded; the one who managed up for 10 years hasn't. The number " +
-				"itself tells you nothing.",
-		},
-		{
-			ID: "i-4",
-			Thesis: "The hiring market loses people whose value doesn't fit " +
-				"standard buckets. That's why StandMeet exists.",
-			Context: "the founding observation",
-			Body: "I'm not the engineer you find by filtering for 'staff IC, 8+ years, " +
-				"ex-FAANG'. I'm closer than that for what I can do, further than that " +
-				"on paper. StandMeet is the page that gets to argue back.",
-		},
-	}
+	return []domain.PageInsight{}
 }
 
 func defaultProjects() []domain.PageProject {
-	lucernaURL := "lucerna.dev"
-	flexmeshURL := "flexmesh.ca"
-	return []domain.PageProject{
-		{
-			URL:     &lucernaURL,
-			ID:      "p-lucerna",
-			Name:    "Lucerna",
-			Tagline: "reading-first language learning",
-			Lines: []string{
-				"Indie. ~12 new users/day. D30 retention 6%, which is healthy for the strategy.",
-				"I'm migrating it from monorepo to a 6-service architecture, solo.",
-			},
-		},
-		{
-			URL:     &flexmeshURL,
-			ID:      "p-flexmesh",
-			Name:    "FlexMesh",
-			Tagline: "routing for Canadian delivery drivers",
-			Lines: []string{
-				"$29/driver/month. Has paying users.",
-				"Built for fleet of 1, indexed by ChatGPT.",
-			},
-		},
-		{
-			ID:      "p-youteacher",
-			Name:    "YouTeacher",
-			Tagline: "ESL recruitment for China",
-			Lines: []string{
-				"Partnership with Pete. 151K LOC across 12 microservices, built in 2 months.",
-				"Not public yet.",
-			},
-		},
-		{
-			ID:      "p-standmeet",
-			Name:    "StandMeet",
-			Tagline: "what you're reading right now",
-			Lines: []string{
-				"The corpus this site is built on grows from " +
-					"every AI conversation I curate forward.",
-			},
-		},
-	}
+	return []domain.PageProject{}
 }
 
 func defaultWhere() domain.PageWhere {
 	return domain.PageWhere{
-		LocationLine: "Based in Markham, Ontario. Canadian PR.",
-		StatusProse: "Last 2 years I've been indie. I'm starting to look at employment " +
-			"again, but selectively — I'm specifically looking for tech-driven companies " +
-			"where staff IC is a real path, not where it ends at senior.",
-		LookingFor: []string{
-			"founding engineer or staff IC role",
-			"Series A+ AI startup or similar",
-			"long enough runway, real revenue",
-			"< 30 people, technical founder",
-		},
-		Closing: "Otherwise — just here to think out loud.",
+		LocationLine: "Edit your location in /admin/page.",
+		StatusProse:  "Tell visitors what you're up to right now.",
+		LookingFor:   []string{},
+		Closing:      "",
 	}
 }
 
 func defaultContact() domain.PageContact {
 	return domain.PageContact{
-		Email: "hello@sijiewang.com",
-		ChatLine: "Ask via the chat above. It knows my views on " +
-			"most things and will answer in my voice.",
-		RecruiterProse: "If you're a recruiter or hiring manager, consider sending what role + " +
-			"company first, so we can both decide if a call makes sense. Generic outreach I " +
-			"rarely respond to.",
-		CasualProse: "If you just want to chat about ideas — indie building, German, modal " +
-			"logic, Kafka, anything else here — I usually have time.",
+		Email:          "",
+		ChatLine:       "Ask via the chat above.",
+		RecruiterProse: "",
+		CasualProse:    "",
 	}
 }

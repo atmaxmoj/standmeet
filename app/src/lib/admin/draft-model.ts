@@ -125,8 +125,8 @@ export function mockDraft(id: string): DraftModel {
       { id: 'ed-2', school: 'Tsinghua', degree: 'BSc, applied mathematics', range: '2009-09 — 2013-06' },
     ],
     social: [
-      { id: 's-1', kind: 'linkedin', handle: 'linkedin.com/in/sijiewang' },
-      { id: 's-2', kind: 'github', handle: 'github.com/sijiewang' },
+      { id: 's-1', kind: 'linkedin', handle: 'linkedin.com/in/your-handle' },
+      { id: 's-2', kind: 'github', handle: 'github.com/your-handle' },
     ],
     custom: [
       { id: 'c-1', label: 'languages', value: 'English · Mandarin · learning German' },
