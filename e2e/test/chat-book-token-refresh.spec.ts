@@ -3,6 +3,7 @@
 // THEN inserts the event. Mock OAuth token endpoint is called twice
 // (initial + refresh); mock GCal records exactly one event.
 
+import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
@@ -13,7 +14,7 @@ import {
 import { scriptMockToolCall, sendAndDrain } from '@/fixtures/mock-llm-script';
 
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+const DB_CONTAINER = 'standmeet-dev-db-1';
 
 test.describe('chat · calendar.book refreshes expired access token', () => {
   let seed: CodedSeed;
@@ -22,7 +23,7 @@ test.describe('chat · calendar.book refreshes expired access token', () => {
 
   test('expired access token → backend refreshes silently → event inserted',
     async () => {
-      await expireAccessToken(seed.request);     // force expiry on backend
+      expireAccessToken();                          // mutate DB directly
       await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: {
@@ -39,14 +40,19 @@ test.describe('chat · calendar.book refreshes expired access token', () => {
     });
 });
 
-async function expireAccessToken(request: APIRequestContext): Promise<void> {
-  // backend exposes a dev-only knob to force token expiry on the
-  // claimed owner so the next /events.insert triggers a refresh.
-  const res = await request.post(
-    `${BACKEND}/internal/test/expire-gcal-token`,
-    { data: {} },
+// expireAccessToken —— force the first claimed owner's GCal access_token
+// to look expired so the next BookMeeting triggers a refresh. Sentinel
+// timestamp = epoch - 1h; backend's gcal refresher treats anything in
+// the past as needing refresh. SQL is the cleanest knob — backend now
+// has no dev-only HTTP endpoint for this (G-Y dropped /test/*).
+function expireAccessToken(): void {
+  const sql = `UPDATE owner_calendar_connectors
+              SET access_token_expires_at = NOW() - INTERVAL '1 hour'
+              WHERE provider = 'google'`;
+  execSync(
+    `docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
+    { stdio: 'pipe' },
   );
-  if (res.status() !== 200) throw new Error(`expire token: ${res.status()}`);
 }
 
 async function getMockTokenCallCount(request: APIRequestContext): Promise<number> {

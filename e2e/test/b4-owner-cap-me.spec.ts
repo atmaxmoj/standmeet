@@ -3,7 +3,7 @@
 // adapter (mcp/adapter.go) 把 binding 桥接到 mcp-go server。
 //
 // 验：
-//   1. /internal/test/registry-list 含 owner.me，shape=owner_only
+//   1. /internal/diag/registry 含 owner.me，shape=owner_only
 //   2. owner via MCP 调 'me' 仍然返 owner profile (regression — api-tokens
 //      spec 已覆盖，这里加单测让 B-4 改动失败时立即 surface)
 //   3. owner.me 不出现在 visitor session 的 capability map (Shape 自洽)
@@ -58,7 +58,7 @@ test.describe('Phase B-4 owner.me Capability via registry adapter', () => {
   test('registry-list contains owner.me with shape=owner_only',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const res = await request.get(`${BACKEND}/internal/test/registry-list`);
+      const res = await request.get(`${BACKEND}/internal/diag/registry`);
       if (res.status() !== 200) throw new Error(`registry-list: ${res.status()}`);
       const body = await res.json() as RegistryListResp;
       const me = body.capabilities.find((c) => c.id === 'owner.me');
@@ -74,7 +74,7 @@ test.describe('Phase B-4 owner.me Capability via registry adapter', () => {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
       const res = await request.get(
-        `${BACKEND}/internal/test/visitor-capabilities`,
+        `${BACKEND}/internal/diag/session`,
         { headers: { 'X-Session-Token': sess.session_token } },
       );
       if (res.status() !== 200) throw new Error(`visitor-caps: ${res.status()}`);

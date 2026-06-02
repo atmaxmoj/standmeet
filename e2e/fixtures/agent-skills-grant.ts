@@ -111,14 +111,14 @@ interface VisitorCapabilitiesResp {
 }
 
 /** Assert calendar_book is (or isn't) in the assembled tool spec for
- *  a session. Hits /internal/test/visitor-capabilities (dev endpoint).
+ *  a session. Hits /internal/diag/session (operator diag endpoint).
  *  Tool name is snake_case since D-3 (URL ↔ LLM spec 1:1). Capability
  *  ID stays dotted ("calendar.book") — that's a separate concern. */
 export async function expectCalendarBookExposed(
   request: APIRequestContext, sessionToken: string, exposed: boolean,
 ): Promise<void> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-capabilities`,
+    `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) throw new Error(`visitor-capabilities: ${res.status()}`);

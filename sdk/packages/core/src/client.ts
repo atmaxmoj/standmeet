@@ -11,7 +11,6 @@
 // v1 单 owner instance —— page / wiki landing / session 等 API 都不带
 // handle 参数：sole owner 直接在 server 端 resolve。
 
-import { readSSE } from './sse.js';
 import type {
   PublicPageView,
   WikiLandingView,
@@ -118,18 +117,79 @@ async function issueSession(
   return (await res.json()) as PublicSessionResponse;
 }
 
+// streamMessage —— G-Y.6: POST /messages route is gone. Sends one user
+// message through /inference/stream (Anthropic-shape content blocks) +
+// translates Anthropic SSE → {kind:'token',text} events for legacy
+// consumers (e.g. admin code-self-test preview). No tool loop; this is
+// a single-turn smoke test path.
 async function* streamMessage(
   f: typeof fetch, baseURL: string,
   conversationID: string, sessionToken: string, content: string,
   byoai?: BYOAIHeaders,
 ): AsyncGenerator<SSEEvent, void, unknown> {
-  const res = await f(`${baseURL}/api/v1/sessions/${conversationID}/messages`, {
+  void conversationID; // Anthropic stream doesn't need conv_id; it's a single LLM call
+  const res = await f(`${baseURL}/api/v1/inference/stream`, {
     method: 'POST',
     headers: buildMessageHeaders(sessionToken, byoai),
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({
+      system: '',
+      messages: [{
+        role: 'user',
+        content: [{ type: 'text', text: content }],
+      }],
+    }),
   });
   if (!res.ok || !res.body) throw new Error(`send message: ${res.status}`);
-  yield* readSSE(res.body);
+  yield* translateAnthropicSSE(res.body);
+}
+
+async function* translateAnthropicSSE(
+  body: ReadableStream<Uint8Array>,
+): AsyncGenerator<SSEEvent, void, unknown> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const parts = buf.split('\n\n');
+    buf = parts.at(-1) ?? '';
+    for (let i = 0; i < parts.length - 1; i++) {
+      const ev = parseFrameToToken(parts[i] ?? '');
+      if (ev !== null) yield ev;
+    }
+  }
+}
+
+function parseFrameToToken(raw: string): SSEEvent | null {
+  let evType = ''; let evData = '';
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('event: ')) evType = line.slice(7).trim();
+    else if (line.startsWith('data: ')) evData = line.slice(6).trim();
+  }
+  if (evType === 'content_block_delta') {
+    const d = safeParse(evData) as { delta?: { type?: string; text?: string } };
+    if (d.delta?.type === 'text_delta' && d.delta.text) {
+      return { kind: 'token', text: d.delta.text };
+    }
+  }
+  if (evType === 'message_stop') {
+    return {
+      kind: 'done',
+      cited_wiki_ids: [], cited_output_ids: [],
+      cited_wiki_refs: [], cited_output_refs: [],
+    };
+  }
+  if (evType === 'error') {
+    const d = safeParse(evData) as { message?: string; code?: string };
+    return { kind: 'error', code: d.code ?? 'inference_error', message: d.message ?? 'error' };
+  }
+  return null;
+}
+
+function safeParse(s: string): unknown {
+  try { return JSON.parse(s); } catch { return {}; }
 }
 
 function buildMessageHeaders(

@@ -60,7 +60,9 @@ async function seedPublic(request: APIRequestContext): Promise<void> {
 async function submitBYOAI(page: Page): Promise<void> {
   await expect(page.getByTestId('byoai-panel')).toBeVisible();
   await page.getByTestId('byoai-provider').selectOption('anthropic');
-  // endpoint 由 preset 默认自动填；model 没默认，必须手输。
+  // Override preset endpoint so backend hits the e2e llm-gateway sidecar
+  // instead of real api.anthropic.com (which would 401 a fake test key).
+  await page.getByTestId('byoai-endpoint').fill('http://llm-gateway:9300');
   await page.getByTestId('byoai-model').fill('claude-haiku-4-5-20251001');
   await page.getByTestId('byoai-key').fill(FAKE_KEY);
   await page.getByTestId('byoai-submit').click();

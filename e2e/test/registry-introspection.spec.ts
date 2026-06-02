@@ -7,9 +7,9 @@
 // 跟具体 B-N spec 检。
 //
 // 三个 endpoint：
-//   GET /internal/test/registry-list           —— 所有已注册 capability
-//   GET /internal/test/visitor-capabilities    —— 给定 session 的装配结果
-//   GET /internal/test/ext-mcp-conn-stats      —— 进程级 dial/close 计数
+//   GET /internal/diag/registry           —— 所有已注册 capability
+//   GET /internal/diag/session    —— 给定 session 的装配结果
+//   GET /internal/diag/ext-mcp-stats      —— 进程级 dial/close 计数
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -118,7 +118,7 @@ test.describe('Phase B-1 capability registry dev endpoints', () => {
 });
 
 async function fetchRegistryList(request: APIRequestContext): Promise<RegistryListResp> {
-  const res = await request.get(`${BACKEND}/internal/test/registry-list`);
+  const res = await request.get(`${BACKEND}/internal/diag/registry`);
   if (res.status() !== 200) {
     throw new Error(`registry-list: ${res.status()} ${await res.text()}`);
   }
@@ -129,7 +129,7 @@ async function fetchVisitorCapabilities(
   request: APIRequestContext, sessionToken: string,
 ): Promise<VisitorCapabilitiesResp> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-capabilities`,
+    `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {
@@ -139,7 +139,7 @@ async function fetchVisitorCapabilities(
 }
 
 async function fetchExtMCPStats(request: APIRequestContext): Promise<ExtMCPStatsResp> {
-  const res = await request.get(`${BACKEND}/internal/test/ext-mcp-conn-stats`);
+  const res = await request.get(`${BACKEND}/internal/diag/ext-mcp-stats`);
   if (res.status() !== 200) {
     throw new Error(`ext-mcp-conn-stats: ${res.status()} ${await res.text()}`);
   }

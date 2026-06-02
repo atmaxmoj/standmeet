@@ -4,7 +4,7 @@
 // /api/v1/prompts/{id} 拿文本本地组合。
 //
 // 不变量：
-//   - capabilities 跟 /internal/test/visitor-capabilities 的 capabilities
+//   - capabilities 跟 /internal/diag/session 的 capabilities
 //     字段是同一 shape (用 Registry.VisitorStates 一处算)
 //   - system_prompt_part_ids[0] 永远是 'visitor-header'
 //   - 当 capability 的 fragment 进入实际 system prompt 时，其 fragment id
@@ -130,7 +130,7 @@ test.describe('session capability bundle · POST /sessions response shape', () =
       await request.dispose();
     });
 
-  test('session.capabilities map matches /internal/test/visitor-capabilities (same Registry source)',
+  test('session.capabilities map matches /internal/diag/session (same Registry source)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const sess = await issueSession(
@@ -193,7 +193,7 @@ async function fetchDevCaps(
   request: APIRequestContext, sessionToken: string,
 ): Promise<VisitorCapsResp> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-capabilities`,
+    `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {

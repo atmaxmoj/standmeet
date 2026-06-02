@@ -126,9 +126,7 @@ export class VisitorAgent {
     messages: readonly Message[], ctx: StepCtx,
   ): Promise<StepResult> {
     let history = [...messages];
-    if (ctx.text !== '') {
-      history.push({ role: 'assistant', content: ctx.text });
-    }
+    history.push(assistantTurnMessage(ctx));
     for (const call of ctx.toolCalls) {
       const result = await this.dispatchOne(call);
       history = [...history, toolResultAsMessage(result)];
@@ -187,10 +185,31 @@ type StepResult =
   | { readonly kind: 'done'; readonly finalText: string; readonly messages: readonly Message[] }
   | { readonly kind: 'continue'; readonly messages: readonly Message[] };
 
+// assistantTurnMessage —— encode this iteration's assistant output
+// (visible text + every tool_use call) into a single Message. The
+// httpInferenceStreamer adapter parses these markers back into native
+// Anthropic content blocks before POSTing the next /v1/messages call.
+//
+// Marker format:
+//   "<text> [tool_use:NAME:ID] <args-json> [tool_use:NAME2:ID2] ..."
+// Plain text (no tools) → just the text, no markers.
+function assistantTurnMessage(ctx: StepCtx): Message {
+  const parts: string[] = [];
+  if (ctx.text !== '') parts.push(ctx.text);
+  for (const c of ctx.toolCalls) {
+    parts.push(`[tool_use:${c.name}:${c.id}] ${JSON.stringify(c.args ?? {})}`);
+  }
+  return { role: 'assistant', content: parts.join('\n') };
+}
+
+// toolResultAsMessage —— Anthropic puts tool_result blocks under user
+// role (not assistant). pi-agent-core stores the result keyed by the
+// tool_use id so the adapter can pair them up when emitting content
+// blocks.
 function toolResultAsMessage(result: ToolResult): Message {
   return {
-    role: 'assistant',
-    content: `[tool_result:${result.name}] ` + JSON.stringify({
+    role: 'user',
+    content: `[tool_result:${result.name}:${result.id}] ` + JSON.stringify({
       ok: result.ok, result: result.result, reason: result.reason,
     }),
   };

@@ -1,8 +1,10 @@
 // inference-stream-endpoint.spec.ts —— POST /api/v1/inference/stream
-// 是 browser pi-agent-core 的 LLM single-turn 出口。本 spec 验：
-//   - happy: 无 tools，发 user message → SSE 流出 text deltas + done(end_turn)
-//   - tool surfacing: 带 corpus tools，messages 没 tool_result → done
-//     (tool_use) + tool_call event 为 corpus_search
+// 是 browser pi-agent-core 的 LLM single-turn 出口。G-Y.6 起 backend
+// 变 byte proxy；wire 切到 Anthropic native：
+//   - happy: 无 tools，发 user message → content_block_delta(text_delta)
+//     + message_delta(stop_reason=end_turn)
+//   - tool surfacing: 带 corpus tools 无 tool_result → content_block_start
+//     (tool_use, name=corpus_search) + message_delta(stop_reason=tool_use)
 //   - 异常: no Bearer → 401
 //   - 异常: bad token → 401
 //   - 异常: invalid JSON body → 400
@@ -87,51 +89,17 @@ test.describe('inference stream endpoint · single-turn SSE forwarder', () => {
     await setupStreamOwner(playwright);
   });
 
-  test('plain user message (no tools) → text deltas + done(end_turn)',
+  test('plain user message (no tools) → text_delta + message_delta(end_turn)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const sess = await issueSession(request, {
-        handle: OWNER.handle, code: CODE, visitor_name: 'V',
-      });
-      const { status, sse } = await postStream(request, sess, {
-        system: 'You are alice.',
-        messages: [{ role: 'user', content: 'hi' }],
-      });
-      expect(status).toBe(200);
-      // 至少一个 text + 最后是 done(end_turn)
-      const textEvents = sse.events.filter(e => e.type === 'text');
-      expect(textEvents.length, 'has text deltas').toBeGreaterThan(0);
-      const last = sse.events.at(-1);
-      expect(last?.type).toBe('done');
-      const lastData = last?.data as { stop_reason?: string };
-      expect(lastData?.stop_reason).toBe('end_turn');
+      await assertPlainTurn(request);
       await request.dispose();
     });
 
-  test('with corpus tools + no tool_result yet → tool_call corpus_search + done(tool_use)',
+  test('with corpus tools + no tool_result yet → tool_use(corpus_search) + message_delta(tool_use)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const sess = await issueSession(request, {
-        handle: OWNER.handle, code: CODE, visitor_name: 'V',
-      });
-      const { status, sse } = await postStream(request, sess, {
-        system: 'You are alice.',
-        messages: [{ role: 'user', content: 'tell me about lucerna' }],
-        tools: [
-          { name: 'corpus_search', description: 'search',
-            input_schema: { type: 'object', properties: { query: { type: 'string' } } } },
-          { name: 'corpus_read', description: 'read',
-            input_schema: { type: 'object', properties: { path: { type: 'string' } } } },
-        ],
-      });
-      expect(status).toBe(200);
-      const toolCall = sse.events.find(e => e.type === 'tool_call');
-      expect(toolCall, 'tool_call event present').toBeDefined();
-      const callData = toolCall?.data as { name?: string; input?: unknown };
-      expect(callData?.name).toBe('corpus_search');
-      const last = sse.events.at(-1);
-      expect(last?.type).toBe('done');
-      expect((last?.data as { stop_reason?: string }).stop_reason).toBe('tool_use');
+      await assertToolUseTurn(request);
       await request.dispose();
     });
 
@@ -156,6 +124,62 @@ test.describe('inference stream endpoint · single-turn SSE forwarder', () => {
       await request.dispose();
     });
 });
+
+async function assertPlainTurn(request: APIRequestContext): Promise<void> {
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  const { status, sse } = await postStream(request, sess, {
+    system: 'You are alice.',
+    messages: [{
+      role: 'user',
+      content: [{ type: 'text', text: 'hi' }],
+    }],
+  });
+  expect(status).toBe(200);
+  const textDeltas = sse.events.filter(e =>
+    e.type === 'content_block_delta'
+    && (e.data as { delta?: { type?: string } }).delta?.type === 'text_delta',
+  );
+  expect(textDeltas.length, 'has text deltas').toBeGreaterThan(0);
+  expect(stopReasonFrom(sse)).toBe('end_turn');
+}
+
+async function assertToolUseTurn(request: APIRequestContext): Promise<void> {
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  const { status, sse } = await postStream(request, sess, {
+    system: 'You are alice.',
+    messages: [{
+      role: 'user',
+      content: [{ type: 'text', text: 'tell me about lucerna' }],
+    }],
+    tools: [
+      { name: 'corpus_search', description: 'search',
+        input_schema: { type: 'object', properties: { query: { type: 'string' } } } },
+      { name: 'corpus_read', description: 'read',
+        input_schema: { type: 'object', properties: { path: { type: 'string' } } } },
+    ],
+  });
+  expect(status).toBe(200);
+  const toolStart = sse.events.find(e =>
+    e.type === 'content_block_start'
+    && (e.data as { content_block?: { type?: string } }).content_block?.type === 'tool_use',
+  );
+  expect(toolStart, 'tool_use content_block_start present').toBeDefined();
+  const startData = toolStart?.data as { content_block?: { name?: string } };
+  expect(startData?.content_block?.name).toBe('corpus_search');
+  expect(stopReasonFrom(sse)).toBe('tool_use');
+}
+
+function stopReasonFrom(sse: ParsedSSE): string | undefined {
+  const frame = sse.events.find(e =>
+    e.type === 'message_delta'
+    && typeof (e.data as { delta?: { stop_reason?: string } }).delta?.stop_reason === 'string',
+  );
+  return (frame?.data as { delta?: { stop_reason?: string } } | undefined)?.delta?.stop_reason;
+}
 
 async function assertMissingAuth401(request: APIRequestContext): Promise<void> {
   const res = await request.post(`${BACKEND}/api/v1/inference/stream`, {

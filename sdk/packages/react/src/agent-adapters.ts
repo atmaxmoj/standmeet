@@ -15,6 +15,8 @@ import type {
   ToolResult,
 } from '@standmeet/agent-core';
 
+import { parseAnthropicSSE, toAnthropicMessages } from './anthropic-wire';
+
 // ───── PromptSource: HTTP GET /api/v1/prompts/{id} ────────────────
 
 export interface HttpPromptSourceOptions {
@@ -158,15 +160,6 @@ export function httpInferenceStreamer(
   };
 }
 
-interface InferenceStreamWireText { delta: string }
-interface InferenceStreamWireToolCall {
-  id: string;
-  name: string;
-  input: unknown;
-}
-interface InferenceStreamWireDone { stop_reason: string }
-interface InferenceStreamWireError { message: string }
-
 async function* streamInferenceHTTP(
   opts: HttpInferenceStreamerOptions,
   req: LLMStreamRequest,
@@ -176,14 +169,14 @@ async function* streamInferenceHTTP(
     headers: inferenceHeaders(opts),
     body: JSON.stringify({
       system: req.system,
-      messages: req.messages,
+      messages: toAnthropicMessages(req.messages),
       tools: req.toolSpecs,
     }),
   });
   if (!res.ok || res.body === null) {
     throw new Error(`inference.stream: ${res.status}`);
   }
-  yield* parseSSEEvents(res.body);
+  yield* parseAnthropicSSE(res.body);
 }
 
 function inferenceHeaders(opts: HttpInferenceStreamerOptions): HeadersInit {
@@ -203,75 +196,5 @@ function byoaiToHeaders(b: HttpBYOAIHeaders): Record<string, string> {
   };
 }
 
-async function* parseSSEEvents(
-  body: ReadableStream<Uint8Array>,
-): AsyncIterable<LLMStreamEvent> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const events = splitSSEFrames(buf);
-    buf = events.tail;
-    for (const ev of events.frames) {
-      const out = sseFrameToEvent(ev);
-      if (out !== null) yield out;
-    }
-  }
-}
-
-interface SSESplitResult {
-  frames: { type: string; data: string }[];
-  tail: string;
-}
-
-function splitSSEFrames(buf: string): SSESplitResult {
-  const out: { type: string; data: string }[] = [];
-  const parts = buf.split('\n\n');
-  for (let i = 0; i < parts.length - 1; i++) {
-    const f = parseSSEFrame(parts[i] ?? '');
-    if (f !== null) out.push(f);
-  }
-  return { frames: out, tail: parts.at(-1) ?? '' };
-}
-
-function parseSSEFrame(raw: string): { type: string; data: string } | null {
-  let evType = '';
-  let evData = '';
-  for (const line of raw.split('\n')) {
-    if (line.startsWith('event: ')) evType = line.slice(7).trim();
-    else if (line.startsWith('data: ')) evData = line.slice(6).trim();
-  }
-  return evType === '' ? null : { type: evType, data: evData };
-}
-
-function sseFrameToEvent(
-  frame: { type: string; data: string },
-): LLMStreamEvent | null {
-  if (frame.type === 'text') {
-    const d = JSON.parse(frame.data) as InferenceStreamWireText;
-    return { type: 'text', delta: d.delta };
-  }
-  if (frame.type === 'tool_call') {
-    const d = JSON.parse(frame.data) as InferenceStreamWireToolCall;
-    return { type: 'tool_call', call: { id: d.id, name: d.name, args: d.input } };
-  }
-  if (frame.type === 'done') {
-    const d = JSON.parse(frame.data) as InferenceStreamWireDone;
-    return { type: 'done', stopReason: stopReasonFromWire(d.stop_reason) };
-  }
-  if (frame.type === 'error') {
-    const d = JSON.parse(frame.data) as InferenceStreamWireError;
-    throw new Error(d.message);
-  }
-  return null;
-}
-
-function stopReasonFromWire(
-  raw: string,
-): 'end_turn' | 'tool_use' | 'max_tokens' {
-  if (raw === 'tool_use' || raw === 'end_turn' || raw === 'max_tokens') return raw;
-  return 'end_turn';
-}
+// Anthropic SSE parsing + pi-Message ↔ Anthropic content translation
+// live in anthropic-wire.ts (imported above).

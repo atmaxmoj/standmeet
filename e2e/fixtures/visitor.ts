@@ -6,6 +6,10 @@
 
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 
+import {
+  runVisitorChatTurn, type FakeAPIResponse,
+} from '@/fixtures/visitor-chat-loop';
+
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 export interface SessionCapability {
@@ -97,66 +101,11 @@ export async function issueSessionStatus(
   return res.status();
 }
 
+// sendMessage —— G-Y.6: backend 的 POST /messages 路由删了；spec fixtures
+// 转而在 Node 侧跑跟 pi-agent-core 等价的 loop (visitor-chat-loop.ts)，
+// 把"一次访客提问"还原成 fake APIResponse 让现有 spec assert 不变。
 export async function sendMessage(
   request: APIRequestContext, sess: VisitorSession, content: string,
-): Promise<APIResponse> {
-  return await request.post(`${BACKEND}/api/v1/sessions/${sess.conversation_id}/messages`, {
-    headers: await buildMessageHeaders(sess),
-    data: { content },
-  });
-}
-
-async function buildMessageHeaders(
-  sess: VisitorSession,
-): Promise<Record<string, string>> {
-  const base: Record<string, string> = {
-    Authorization: `Bearer ${sess.session_token}`,
-    'Content-Type': 'application/json',
-  };
-  const byoai = sess as Partial<BYOAIVisitorSession>;
-  if (!byoai.byoai_key || !byoai.byoai_provider) {
-    return base;
-  }
-  const wrapped = await wrapBYOAIKey(byoai.byoai_key, sess.session_token);
-  return {
-    ...base,
-    'X-BYOAI-Provider': byoai.byoai_provider,
-    'X-BYOAI-Key': wrapped,
-    'X-BYOAI-Endpoint': byoai.byoai_endpoint ?? '',
-    'X-BYOAI-Model': byoai.byoai_model ?? '',
-  };
-}
-
-// wrapBYOAIKey —— 跟 server cryptobox.{DeriveSessionKey,DecryptWithKey} 对
-// 称的 Node-side 实现：HKDF-SHA256(ikm=session_token, info="standmeet-byoai-v1",
-// salt=空, L=32) → AES-256-GCM seal(nonce(12)||ct||tag(16)) → base64 URL-safe
-// no padding。跟 app 那侧 byoai-envelope.ts 同算法。
-async function wrapBYOAIKey(plain: string, sessionToken: string): Promise<string> {
-  const enc = new TextEncoder();
-  const ikm = await crypto.subtle.importKey(
-    'raw', enc.encode(sessionToken), 'HKDF', false, ['deriveBits'],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: 'HKDF', hash: 'SHA-256',
-      salt: new Uint8Array(0), info: enc.encode('standmeet-byoai-v1'),
-    },
-    ikm, 256,
-  );
-  const aesKey = await crypto.subtle.importKey(
-    'raw', bits, { name: 'AES-GCM' }, false, ['encrypt'],
-  );
-  const nonce = crypto.getRandomValues(new Uint8Array(12));
-  const ct = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce }, aesKey, enc.encode(plain),
-  );
-  const blob = new Uint8Array(nonce.byteLength + ct.byteLength);
-  blob.set(nonce, 0);
-  blob.set(new Uint8Array(ct), nonce.byteLength);
-  return base64URLNoPad(blob);
-}
-
-function base64URLNoPad(bytes: Uint8Array): string {
-  const b64 = Buffer.from(bytes).toString('base64');
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+): Promise<APIResponse | FakeAPIResponse> {
+  return await runVisitorChatTurn(request, sess, content);
 }

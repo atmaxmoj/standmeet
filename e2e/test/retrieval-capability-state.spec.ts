@@ -132,7 +132,7 @@ async function fetchVisitorCapabilities(
   request: APIRequestContext, sessionToken: string,
 ): Promise<VisitorCapabilitiesResp> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-capabilities`,
+    `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {

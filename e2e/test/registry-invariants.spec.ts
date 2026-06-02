@@ -115,7 +115,7 @@ test.describe('Phase B capability registry invariants', () => {
 });
 
 async function fetchRegistryList(request: APIRequestContext): Promise<RegistryListResp> {
-  const res = await request.get(`${BACKEND}/internal/test/registry-list`);
+  const res = await request.get(`${BACKEND}/internal/diag/registry`);
   if (res.status() !== 200) {
     throw new Error(`registry-list: ${res.status()} ${await res.text()}`);
   }
@@ -126,7 +126,7 @@ async function fetchVisitorCapabilities(
   request: APIRequestContext, sessionToken: string,
 ): Promise<VisitorCapabilitiesResp> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-capabilities`,
+    `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {

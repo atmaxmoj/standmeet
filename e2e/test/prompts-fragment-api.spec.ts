@@ -4,7 +4,7 @@
 //
 // 验证手段：
 //   1. GET /api/v1/prompts/{id} 返每个 fragment 的文本 (md 文件内容)
-//   2. /internal/test/visitor-capabilities 响应加 system_prompt_full 字段
+//   2. /internal/diag/session 响应加 system_prompt_full 字段
 //      = 真实下行 LLM 的 system prompt 拼接结果
 //   3. system_prompt_full 应能由 fragment 文本按已知规则 (visitor-header +
 //      capability fragments) 重新拼出 — 一字不差
@@ -139,7 +139,7 @@ async function fetchVisitorCapabilities(
   request: APIRequestContext, sessionToken: string,
 ): Promise<VisitorCapabilitiesResp> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-capabilities`,
+    `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {

@@ -37,6 +37,43 @@ export async function claim(
     },
   });
   if (res.status() !== 200) throw new Error(`claim failed: ${res.status()}`);
+  await seedDevAIProvider(request, { email, password });
+}
+
+// seedDevAIProvider —— in dev/e2e the backend's anthropic provider talks
+// to mock-stack/llm-gateway. A real owner sets this via the admin UI once
+// after claim; here we POST the same admin endpoint so the owner row is
+// configured before any visitor-chat spec runs.
+//
+// Endpoint resolves to the gateway service from inside the docker network
+// (backend container talks to llm-gateway:9300 by service name).
+async function seedDevAIProvider(
+  request: APIRequestContext,
+  creds: { email: string; password: string },
+): Promise<void> {
+  const endpoint = process.env['LLM_GATEWAY_BACKEND_URL']
+    ?? 'http://llm-gateway:9300';
+  const loginRes = await request.post(`${BACKEND}/api/admin/login`, {
+    data: { email: creds.email, password: creds.password },
+  });
+  if (loginRes.status() !== 200) {
+    throw new Error(`seed-ai-provider login failed: ${loginRes.status()}`);
+  }
+  const { csrf_token: csrf } = await loginRes.json() as { csrf_token?: string };
+  if (!csrf) throw new Error('seed-ai-provider: missing csrf');
+  const res = await request.patch(`${BACKEND}/api/admin/ai-provider`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: {
+      provider: 'anthropic',
+      endpoint,
+      model: 'claude-haiku-4-5-20251001',
+      key_change: 'set',
+      key: 'dev-llm-gateway-dummy-key',
+    },
+  });
+  if (res.status() !== 200) {
+    throw new Error(`seed-ai-provider failed: ${res.status()} ${await res.text()}`);
+  }
 }
 
 export interface AdminLogin {

@@ -209,7 +209,7 @@ async function fetchVisitorCapabilities(
   request: APIRequestContext, sessionToken: string,
 ): Promise<VisitorCapabilitiesResp> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-capabilities`,
+    `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {
@@ -219,7 +219,7 @@ async function fetchVisitorCapabilities(
 }
 
 async function fetchExtMCPStats(request: APIRequestContext): Promise<ExtMCPStats> {
-  const res = await request.get(`${BACKEND}/internal/test/ext-mcp-conn-stats`);
+  const res = await request.get(`${BACKEND}/internal/diag/ext-mcp-stats`);
   if (res.status() !== 200) throw new Error(`ext-mcp-stats: ${res.status()}`);
   return await res.json() as ExtMCPStats;
 }

@@ -147,7 +147,7 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
       await request.dispose();
     });
 
-  test('narrow ACL: corpus_read allowed path → 200 + result.kind=wiki body',
+  test('narrow ACL: corpus_read allowed path → 200 + result.genre=wiki body',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       await assertNarrowAllowedPath(request);
@@ -226,9 +226,9 @@ async function assertNarrowAllowedPath(request: APIRequestContext): Promise<void
     request, sess, 'corpus_read', { path: NARROW_ALLOWED_PATH },
   );
   expect(status).toBe(200);
-  const result = body.result as { kind?: string; body?: string; error?: string };
+  const result = body.result as { genre?: string; body?: string; error?: string };
   expect(result.error, 'no ACL error for allowed path').toBeUndefined();
-  expect(result.kind).toBe('wiki');
+  expect(result.genre).toBe('wiki');
   expect(result.body).toContain('Public projects detail');
 }
 

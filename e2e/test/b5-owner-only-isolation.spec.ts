@@ -99,7 +99,7 @@ test.describe('Phase B-5 owner-only capability isolation', () => {
 });
 
 async function fetchOwnerOnlyIDs(request: APIRequestContext): Promise<string[]> {
-  const res = await request.get(`${BACKEND}/internal/test/registry-list`);
+  const res = await request.get(`${BACKEND}/internal/diag/registry`);
   if (res.status() !== 200) throw new Error(`registry-list: ${res.status()}`);
   const body = await res.json() as RegistryListResp;
   return body.capabilities.filter((c) => c.shape === 'owner_only').map((c) => c.id);
@@ -109,7 +109,7 @@ async function fetchVisitorCapabilities(
   request: APIRequestContext, sessionToken: string,
 ): Promise<VisitorCapabilitiesResp> {
   const res = await request.get(
-    `${BACKEND}/internal/test/visitor-capabilities`,
+    `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {
