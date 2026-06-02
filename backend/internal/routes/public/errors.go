@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/wangsijie/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 )
 
 func envBadReq(msg string) apierr.Envelope {

@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/apierr"
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/middleware"
-	"github.com/wangsijie/standmeet/internal/session"
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const ownerSessionMaxAge = 24 * 60 * 60 // 秒；和 OwnerSessionStore 的 TTL 对齐。

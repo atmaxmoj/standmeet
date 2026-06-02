@@ -16,9 +16,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	authmw "github.com/wangsijie/standmeet/internal/middleware"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // ApplicationsAdminDeps —— admin applications 路由的最小依赖。

@@ -24,9 +24,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
-	"github.com/wangsijie/standmeet/internal/storage"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
 // AssetsDeps —— 用例打包。Storage 在 composition root fail-fast 检查过，

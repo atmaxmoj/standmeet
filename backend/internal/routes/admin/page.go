@@ -13,10 +13,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/middleware"
-	"github.com/wangsijie/standmeet/internal/postgres"
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PageAdminDeps —— admin page handlers 依赖。PageContent 走 OwnerRepo

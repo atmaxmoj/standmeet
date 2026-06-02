@@ -5,12 +5,12 @@
 package main
 
 import (
-	"github.com/wangsijie/standmeet/internal/mcp"
-	adminroutes "github.com/wangsijie/standmeet/internal/routes/admin"
-	publicroutes "github.com/wangsijie/standmeet/internal/routes/public"
-	sysroutes "github.com/wangsijie/standmeet/internal/routes/sys"
-	"github.com/wangsijie/standmeet/internal/server"
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/mcp"
+	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
+	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
+	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
+	"github.com/atmaxmoj/standmeet/internal/server"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // buildServerDeps —— 把每个 sub-router 的 Deps 块组装出来。serve() 不再

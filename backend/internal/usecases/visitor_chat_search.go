@@ -10,7 +10,7 @@ import (
 
 	"github.com/bbalet/stopwords"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // textMatchesQuery —— token-based 子串匹配。query 拆 token，任意 token

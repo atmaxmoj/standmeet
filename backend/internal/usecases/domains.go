@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // AllowedDomainsDeps —— List / Add / Remove 需要 InstanceRepo。

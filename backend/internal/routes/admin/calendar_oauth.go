@@ -13,10 +13,10 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/gcal"
-	"github.com/wangsijie/standmeet/internal/middleware"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/gcal"
+	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // ───── OAuth init ────────────────────────────────────────────

@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // 内部 ctx key 类型，避免和别的包冲突。

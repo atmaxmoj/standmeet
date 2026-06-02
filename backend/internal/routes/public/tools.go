@@ -26,8 +26,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/agentskills"
-	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // toolDispatch handler —— 单一入口处理任意 per-tool 调用。

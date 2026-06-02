@@ -11,7 +11,7 @@
 
 package usecases
 
-import "github.com/wangsijie/standmeet/internal/agentskills"
+import "github.com/atmaxmoj/standmeet/internal/agentskills"
 
 // RegisterAgentSkills —— 把所有 builtin visitor-side capability 注册进
 // registry。owner MCP server / job-loop owner-only 等 capability 后续

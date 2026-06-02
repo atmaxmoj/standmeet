@@ -11,10 +11,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/wangsijie/standmeet/internal/agentskills"
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/session"
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // createSessionRequest —— POST /api/v1/sessions 入参。BYOAIKey 字段已删 ——

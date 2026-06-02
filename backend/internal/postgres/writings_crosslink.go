@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // SlugTitle —— ListPublishedSlugAndTitle 返的轻量元组；不带 body_md，

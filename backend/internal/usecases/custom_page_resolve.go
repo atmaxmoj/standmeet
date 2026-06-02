@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // SoleOwnerLookup —— ResolveLiveBuild 用，取 sole owner（v1 单 owner instance）。

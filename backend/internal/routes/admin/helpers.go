@@ -6,7 +6,7 @@ package admin
 import (
 	"net/http"
 
-	"github.com/wangsijie/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 )
 
 func serverErr() apierr.Envelope {

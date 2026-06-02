@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // TurnQuotaInput —— EnforceTurnQuota 入参 (拆出来让外部 caller pi-pivot

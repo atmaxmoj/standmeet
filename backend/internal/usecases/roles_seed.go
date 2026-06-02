@@ -13,8 +13,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // SeedVanillaRole —— 对一个 owner 幂等 upsert vanilla prompt + vanilla role

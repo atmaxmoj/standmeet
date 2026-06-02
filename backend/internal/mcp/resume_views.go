@@ -4,7 +4,7 @@
 package mcp
 
 import (
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // resumeDraftViewT —— draft / update_draft 返回的 text 部分。owner 在 Claude

@@ -13,7 +13,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const (

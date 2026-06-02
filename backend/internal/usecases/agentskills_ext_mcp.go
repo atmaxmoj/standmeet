@@ -15,11 +15,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/wangsijie/standmeet/internal/agentskills"
-	"github.com/wangsijie/standmeet/internal/cryptobox"
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/inference"
-	"github.com/wangsijie/standmeet/internal/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/mcpclient"
 )
 
 const (

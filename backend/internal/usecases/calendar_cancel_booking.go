@@ -13,8 +13,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/gcal"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/gcal"
 )
 
 // CancelBookingStore —— CancelBooking 用的窄接口。embed CalendarStore (token

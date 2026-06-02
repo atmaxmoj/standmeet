@@ -9,9 +9,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/cryptobox"
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // MCPServersDeps —— mcp servers CRUD + per-code 关联用的 repo 集合。

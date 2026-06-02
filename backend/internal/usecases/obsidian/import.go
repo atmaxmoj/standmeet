@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // VaultFile —— multipart 上传的一个文件。RelPath 是 vault 内相对路径

@@ -10,8 +10,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // AccessRequestsDeps —— SubmitForOwner / ListForOwner / UpdateStatus 共享依赖。

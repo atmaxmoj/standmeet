@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // UpdateFullName —— owner 改自己的 full_name；空字符串 / 全 whitespace 由

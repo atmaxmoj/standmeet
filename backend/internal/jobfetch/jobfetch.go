@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // Source kind strings —— 跟 schema CHECK 约束 + register_source 入参对齐。
@@ -37,7 +37,7 @@ const (
 
 const (
 	defaultHTTPTimeout = 20 * time.Second
-	defaultUserAgent   = "StandMeet/0.1 (+https://github.com/wangsijie/standmeet)"
+	defaultUserAgent   = "StandMeet/0.1 (+https://github.com/atmaxmoj/standmeet)"
 	// defaultTagCap —— common starting capacity for per-job tag slices
 	// (most adapters emit 3-4 tags; pre-sizing keeps append() amortised).
 	defaultTagCap = 4

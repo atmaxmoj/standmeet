@@ -11,7 +11,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // SeedBuiltinSkills —— 对一个 owner 幂等 upsert 全部 builtin skills。

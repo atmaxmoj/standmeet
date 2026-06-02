@@ -3,7 +3,7 @@
 package mcp
 
 import (
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // committedApplicationViewT —— commit 返回 text 部分。PDF 走 EmbeddedResource。

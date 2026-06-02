@@ -12,15 +12,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/wangsijie/standmeet/internal/captcha"
-	"github.com/wangsijie/standmeet/internal/mcp"
-	authmw "github.com/wangsijie/standmeet/internal/middleware"
-	"github.com/wangsijie/standmeet/internal/postgres"
-	adminroutes "github.com/wangsijie/standmeet/internal/routes/admin"
-	publicroutes "github.com/wangsijie/standmeet/internal/routes/public"
-	sysroutes "github.com/wangsijie/standmeet/internal/routes/sys"
-	"github.com/wangsijie/standmeet/internal/session"
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/captcha"
+	"github.com/atmaxmoj/standmeet/internal/mcp"
+	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
+	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
+	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
+	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
+	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // Deps 是 server 装配需要的依赖；composition root（cmd/server）填这个。

@@ -121,10 +121,10 @@ linters:
         - empty
         - anon
         - stdlib
-        - github.com/wangsijie/standmeet/internal/inference.Provider
-        - github.com/wangsijie/standmeet/internal/sandbox.Runner
-        - github.com/wangsijie/standmeet/internal/domain.Document
-        - github.com/wangsijie/standmeet/internal/domain.Integration
+        - github.com/atmaxmoj/standmeet/internal/inference.Provider
+        - github.com/atmaxmoj/standmeet/internal/sandbox.Runner
+        - github.com/atmaxmoj/standmeet/internal/domain.Document
+        - github.com/atmaxmoj/standmeet/internal/domain.Integration
     revive:
       enable-all-rules: true
       rules:

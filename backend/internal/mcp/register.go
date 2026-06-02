@@ -10,8 +10,8 @@ package mcp
 import (
 	"log/slog"
 
-	"github.com/wangsijie/standmeet/internal/agentskills"
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // RegisterDeps —— RegisterAgentSkills 需要的窄接口集；不让 register 调用

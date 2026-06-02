@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // CrossLinkRefScheme —— body_md 里的双链字面前缀。

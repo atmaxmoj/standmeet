@@ -23,11 +23,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/middleware"
-	"github.com/wangsijie/standmeet/internal/postgres"
-	"github.com/wangsijie/standmeet/internal/storage"
-	"github.com/wangsijie/standmeet/internal/usecases"
-	"github.com/wangsijie/standmeet/internal/usecases/obsidian"
+	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/storage"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/usecases/obsidian"
 )
 
 // ObsidianDeps —— admin obsidian handlers 依赖。

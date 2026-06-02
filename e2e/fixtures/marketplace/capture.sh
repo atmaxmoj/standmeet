@@ -12,7 +12,7 @@
 #             api.skillsmp.com/v1/skills/search 的响应形态。capture 不动它。
 
 set -u
-UA="StandMeet-fixture-capture/0.1 (+https://github.com/wangsijie/standmeet)"
+UA="StandMeet-fixture-capture/0.1 (+https://github.com/atmaxmoj/standmeet)"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 RAW="$ROOT/.raw"
 

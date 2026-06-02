@@ -16,7 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
 )
 
 // DiagRegistryDeps —— deps for /diag/registry + /diag/ext-mcp-stats。

@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/gcal"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/gcal"
 )
 
 // CalendarClient —— gcal.Client 抽象，方便 fake 测试 (实际 wireup 注入

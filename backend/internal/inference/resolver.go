@@ -17,7 +17,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // OwnerKeyResolver —— Resolver impl that loads owner row + decrypts key.

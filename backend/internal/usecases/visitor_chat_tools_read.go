@@ -5,7 +5,7 @@
 package usecases
 
 import (
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // allowsPath —— ACL 评估 (wiki/output 用)。走 RoleSnapshot.AllowsCorpus

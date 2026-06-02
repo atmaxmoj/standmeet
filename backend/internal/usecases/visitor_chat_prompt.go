@@ -17,8 +17,8 @@ package usecases
 import (
 	"strings"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/prompts"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
 
 // ComposeBasePersona —— system prompt 的 "non-capability" 部分：visitor

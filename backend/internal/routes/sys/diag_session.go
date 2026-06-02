@@ -17,9 +17,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/agentskills"
-	"github.com/wangsijie/standmeet/internal/session"
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // DiagSessionDeps —— deps for /diag/session.

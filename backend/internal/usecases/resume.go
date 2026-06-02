@@ -17,9 +17,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/jobcache"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/jobcache"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // ResumeDeps —— resume.* usecase 依赖。

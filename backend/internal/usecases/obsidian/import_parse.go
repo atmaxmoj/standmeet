@@ -17,7 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // parsedVault —— parseVaultMarkdown 的输出（避开 funcresult-limit）。

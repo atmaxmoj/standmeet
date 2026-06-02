@@ -31,8 +31,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // FileInput —— 一张上传的图。PendingID 是前端 editor 分配的 client-side

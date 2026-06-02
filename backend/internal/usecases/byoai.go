@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // BYOAIDeps —— UpdateBYOAI 需要的 repo（owners 包）。

@@ -1,4 +1,4 @@
-module github.com/wangsijie/standmeet/mock-stack
+module github.com/atmaxmoj/standmeet/mock-stack
 
 go 1.26.3
 

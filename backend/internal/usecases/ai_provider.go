@@ -9,9 +9,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/inference"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // AIProviderDeps —— UpdateOwnerAIProvider 依赖。

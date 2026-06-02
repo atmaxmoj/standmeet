@@ -20,9 +20,9 @@ import (
 	"mime"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
-	"github.com/wangsijie/standmeet/internal/storage"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
 // ExportDeps —— 流式 zip writer 要的 backend hooks。

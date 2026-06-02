@@ -18,8 +18,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // DialogCorpusLookup —— Dialog cited 把 path 反成 entry id 的窄接口。

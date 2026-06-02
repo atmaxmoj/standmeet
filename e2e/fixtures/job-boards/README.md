@@ -50,7 +50,7 @@ make trim-job-fixtures      # 把 raw 截到 8 条 → 当前路径
 
 `make capture-job-fixtures` 是 `e2e/fixtures/job-boards/capture.sh` 的 wrapper，per-kind 列表写在脚本里。
 
-User-Agent 一律是 `StandMeet-fixture-capture/0.1 (+https://github.com/wangsijie/standmeet)` —— 用于真 API 礼貌识别。
+User-Agent 一律是 `StandMeet-fixture-capture/0.1 (+https://github.com/atmaxmoj/standmeet)` —— 用于真 API 礼貌识别。
 
 ## 哪些 board 抓不到（明确划界）
 

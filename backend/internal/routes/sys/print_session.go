@@ -17,7 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/printsess"
+	"github.com/atmaxmoj/standmeet/internal/printsess"
 )
 
 // PrintSessionDeps —— smallest dep set for the route.

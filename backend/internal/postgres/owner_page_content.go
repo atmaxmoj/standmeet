@@ -14,8 +14,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // GetPageContent 拿 owner 的 page_content；不存在返 ErrPageNotFound

@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // CrossLinkQueryDeps —— public /writings GET 渲 [[crosslink]] 用的查询依赖。

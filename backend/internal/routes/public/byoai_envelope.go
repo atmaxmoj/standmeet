@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/wangsijie/standmeet/internal/cryptobox"
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const (

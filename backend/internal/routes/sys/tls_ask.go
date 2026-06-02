@@ -21,7 +21,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	smdomain "github.com/wangsijie/standmeet/internal/domain"
+	smdomain "github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // AllowedDomainLookup —— instance_settings 表的窄接口。让 sys 不直接 import

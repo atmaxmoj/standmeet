@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // defaults — overridable per-Client.

@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/wangsijie/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // WritingRefRepo —— writing_refs 表 CRUD。

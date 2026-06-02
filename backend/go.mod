@@ -1,4 +1,4 @@
-module github.com/wangsijie/standmeet
+module github.com/atmaxmoj/standmeet
 
 go 1.26.3
 
@@ -16,6 +16,7 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
@@ -39,5 +40,4 @@ require (
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
-	golang.org/x/tools v0.44.0 // indirect
 )

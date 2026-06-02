@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const greenhouseDefaultBase = "https://boards-api.greenhouse.io"

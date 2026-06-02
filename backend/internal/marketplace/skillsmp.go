@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // smpSearchResponse —— shape exposed by SkillsMP `/skills/search`.

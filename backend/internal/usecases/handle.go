@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // HandleDeps —— UpdateOwnerHandle 依赖。

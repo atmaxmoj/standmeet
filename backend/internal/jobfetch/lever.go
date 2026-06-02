@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const leverDefaultBase = "https://api.lever.co"

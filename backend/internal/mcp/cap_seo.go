@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/wangsijie/standmeet/internal/agentskills"
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const capSEOBundle = "seo.bundle"

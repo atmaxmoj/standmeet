@@ -26,8 +26,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/inference"
 )
 
 // inferenceStreamRequest —— what pi-agent-core POSTs. messages.content

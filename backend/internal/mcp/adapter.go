@@ -17,7 +17,7 @@ import (
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/wangsijie/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
 )
 
 // registerCapabilities —— walk registry.OwnerMCPBindings() 把每个 binding

@@ -16,8 +16,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres/dbq"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
 // InstanceRepo 提供 instance_settings 单行的读 + setup token 写。

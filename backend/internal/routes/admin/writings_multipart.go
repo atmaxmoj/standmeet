@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const maxWritingMultipartSize = 50 << 20 // 50MB

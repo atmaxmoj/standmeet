@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/gcal"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/gcal"
 )
 
 // ensureFreshToken —— 没过期就用现有 access_token；过期则 refresh + 持久化

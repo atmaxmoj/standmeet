@@ -7,7 +7,7 @@
 
 package agentskills
 
-import "github.com/wangsijie/standmeet/internal/domain"
+import "github.com/atmaxmoj/standmeet/internal/domain"
 
 // CitedSnapshot —— retrieval-style capability 在 streamReply 结束时回报
 // "visitor 真读过的 corpus entry"。

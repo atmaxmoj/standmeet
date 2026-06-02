@@ -4,7 +4,7 @@
 package admin
 
 import (
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 func rawItemFromDomain(r *domain.Raw) rawListItem {

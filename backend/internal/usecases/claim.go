@@ -11,9 +11,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/wangsijie/standmeet/internal/domain"
-	"github.com/wangsijie/standmeet/internal/postgres"
-	"github.com/wangsijie/standmeet/internal/session"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // ClaimDeps 把 ClaimInstance 需要的依赖打包，避免参数列表超长。

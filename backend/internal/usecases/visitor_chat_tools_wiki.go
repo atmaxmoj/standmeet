@@ -6,7 +6,7 @@ package usecases
 import (
 	"strings"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 func (r *retriever) wikiMatches(w *domain.Wiki, q string) bool {

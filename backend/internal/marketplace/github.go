@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // ghContentItem —— shape returned by GitHub Contents API. We only read

@@ -104,8 +104,8 @@ function AuthFooter() {
           <span>self-hosted retrieval for personal corpora</span>
         </div>
         <div className="flex items-baseline gap-4">
-          <a className="hover:text-(--color-ink)" href="https://github.com/wangsijie/standmeet">docs</a>
-          <a className="hover:text-(--color-ink)" href="https://github.com/wangsijie/standmeet">source</a>
+          <a className="hover:text-(--color-ink)" href="https://github.com/atmaxmoj/standmeet">docs</a>
+          <a className="hover:text-(--color-ink)" href="https://github.com/atmaxmoj/standmeet">source</a>
         </div>
       </div>
     </footer>

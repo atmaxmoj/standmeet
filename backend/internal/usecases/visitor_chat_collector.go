@@ -7,7 +7,7 @@ package usecases
 import (
 	"sync"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 type readCollector struct {

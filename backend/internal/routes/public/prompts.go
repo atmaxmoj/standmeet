@@ -14,7 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wangsijie/standmeet/internal/prompts"
+	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
 
 // PromptsHandlers —— prompts route 依赖。当前无 runtime 依赖（prompts 走

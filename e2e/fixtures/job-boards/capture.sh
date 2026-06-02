@@ -6,7 +6,7 @@
 # 完成后跑 trim.sh 把 raw 截短进 git 路径。
 
 set -u
-UA="StandMeet-fixture-capture/0.1 (+https://github.com/wangsijie/standmeet)"
+UA="StandMeet-fixture-capture/0.1 (+https://github.com/atmaxmoj/standmeet)"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 RAW="$ROOT/.raw"
 

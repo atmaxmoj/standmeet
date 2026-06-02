@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/wangsijie/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const smartRecruitersDefaultBase = "https://api.smartrecruiters.com"

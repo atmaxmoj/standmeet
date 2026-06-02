@@ -22,8 +22,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/wangsijie/standmeet/internal/config"
-	"github.com/wangsijie/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/config"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 const (

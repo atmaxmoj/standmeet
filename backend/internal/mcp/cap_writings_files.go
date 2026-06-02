@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wangsijie/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const (
