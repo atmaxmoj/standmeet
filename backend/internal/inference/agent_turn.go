@@ -28,10 +28,17 @@ import (
 	"net/http"
 
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/adk/middlewares/summarization"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 )
+
+// contextTokenThreshold —— H.9b: ChatModelAgent 的 summarization
+// middleware 触发阈值。按 [[feedback-no-anthropic-assumption]] 取最
+// 小可行 provider 偏保守的数：DeepSeek-V3 64K / GPT-4o 128K / Claude
+// 200K 都富余；Llama 8K local 会早 compact 但不会撞 provider 上限。
+const contextTokenThreshold = 32000
 
 // AgentTurnRequest —— 浏览器 POST body。
 //
@@ -92,6 +99,13 @@ func buildAgentIterator(
 	if err != nil {
 		return nil, fmt.Errorf("eino: build chat model: %w", err)
 	}
+	mw, mwerr := summarization.New(ctx, &summarization.Config{
+		Model:   cm,
+		Trigger: &summarization.TriggerCondition{ContextTokens: contextTokenThreshold},
+	})
+	if mwerr != nil {
+		return nil, fmt.Errorf("eino: summarization middleware: %w", mwerr)
+	}
 	agent, aerr := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:        "visitor",
 		Description: "standmeet visitor chat agent",
@@ -101,6 +115,7 @@ func buildAgentIterator(
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: in.Tools},
 		},
 		MaxIterations: 8,
+		Handlers:      []adk.ChatModelAgentMiddleware{mw},
 	})
 	if aerr != nil {
 		return nil, fmt.Errorf("eino: new chat model agent: %w", aerr)
