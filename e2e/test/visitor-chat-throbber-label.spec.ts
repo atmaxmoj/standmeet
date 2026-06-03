@@ -1,6 +1,7 @@
 // visitor-chat-throbber-label.spec.ts —— G-8: throbber 文案 ("searching
-// corpus" / "reading entry" / ...) 来自 backend ToolSpec.progress_label，
-// frontend 走 zustand registry 读，不再硬编码。
+// corpus" / "reading entry" / ...) 来自 backend BindingTool.ProgressLabel
+// (H.8 之前是 ToolSpec.progress_label，wire 形态不变)，frontend 走
+// zustand registry 读，不再硬编码。
 //
 // 验法：visitor 触发 corpus_search + corpus_read，verify 两个 throbber
 // `<li>` 的文字内容跟 backend 注册的 label 一致。
@@ -20,7 +21,7 @@ const OWNER = {
 
 const CODE = 'INTRO-001';
 
-test.describe('throbber label 走 backend ToolSpec.progress_label registry', () => {
+test.describe('throbber label 走 backend BindingTool.ProgressLabel registry', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

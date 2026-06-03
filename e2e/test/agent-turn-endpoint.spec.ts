@@ -164,8 +164,11 @@ async function assertToolEvents(request: APIRequestContext): Promise<void> {
   expect(status).toBe(200);
   const started = sse.events.find((e) => e.type === 'tool_started');
   expect(started, 'tool_started frame present').toBeDefined();
-  const startedData = started?.data as { name?: string };
+  const startedData = started?.data as { name?: string; progress_label?: string };
   expect(startedData?.name).toBe('corpus_search');
+  // H.11: progress_label 来自 backend BindingTool.ProgressLabel
+  // (corpus_search 在 capability 注册时是 "searching corpus")。
+  expect(startedData?.progress_label).toBe('searching corpus');
   const completed = sse.events.find((e) => e.type === 'tool_completed');
   expect(completed, 'tool_completed frame present').toBeDefined();
   const completedData = completed?.data as { name?: string };

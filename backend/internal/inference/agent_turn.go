@@ -46,18 +46,27 @@ type AgentTurnRequest struct {
 }
 
 // AgentTurnInput —— RunAgentTurn 的入参打包，避开 revive 5-arg 上限。
+// 字段顺序按 govet fieldalignment 排：3 个 pointer 在前，slice 在后。
+//
+// ProgressLabels —— tool name → throbber 文案的查表，H.11 起 tool_started
+// SSE 帧带 progress_label 字段下发给浏览器；前端直接读，不再走 zustand
+// registry 本地查表。caller (route handler) 装好；inference 不知道
+// 哪些 capability 注册了哪个 label，跨包 0 耦合。
 type AgentTurnInput struct {
-	Cred  *Cred
-	Req   *AgentTurnRequest
-	Tools []tool.BaseTool
+	Cred           *Cred
+	Req            *AgentTurnRequest
+	ProgressLabels map[string]string
+	Tools          []tool.BaseTool
 }
 
 // sseSink —— SSE 输出三件套 (log + writer + flusher) 打包，避免每个
-// helper 都接一长串参数；revive 5-arg 上限规避手段。
+// helper 都接一长串参数；revive 5-arg 上限规避手段。labels 同时透到
+// emitToolStarted 拿 throbber 文案。
 type sseSink struct {
 	log     *slog.Logger
 	w       http.ResponseWriter
 	flusher http.Flusher
+	labels  map[string]string
 }
 
 // RunAgentTurn —— 跑一整轮 agent loop，向 sink.w 写 pi-style SSE。caller
@@ -71,7 +80,9 @@ func RunAgentTurn(
 		return
 	}
 	setStreamSSEHeaders(w)
-	consumeAgentEvents(ctx, &sseSink{log: log, w: w, flusher: pickFlusher(w)}, iter)
+	consumeAgentEvents(ctx, &sseSink{
+		log: log, w: w, flusher: pickFlusher(w), labels: in.ProgressLabels,
+	}, iter)
 }
 
 func buildAgentIterator(
@@ -248,8 +259,9 @@ func accumulateAssistantToolCalls(calls []schema.ToolCall, accum *assistantAccum
 	}
 }
 
-// emitToolStarted —— 流尾把累积的 tool_call 全部 emit。H.11 之前 progress_label
-// 走空字符串；前端 fallback "running <name>"。
+// emitToolStarted —— 流尾把累积的 tool_call 全部 emit。progress_label 走
+// sink.labels 查表 (H.11)，浏览器 throbber 直接读这条；缺则前端 fallback
+// "running <name>"。
 func emitToolStarted(sink *sseSink, accum *assistantAccum) {
 	for _, pc := range accum.calls {
 		args := pc.Args
@@ -258,6 +270,7 @@ func emitToolStarted(sink *sseSink, accum *assistantAccum) {
 		}
 		body, merr := json.Marshal(toolStartedPayload{
 			ID: pc.ID, Name: pc.Name, Args: json.RawMessage(args),
+			ProgressLabel: sink.labels[pc.Name],
 		})
 		if merr != nil {
 			sink.log.Error("agent turn marshal tool_started", logErrKey, merr)
@@ -287,9 +300,10 @@ func emitToolCompleted(sink *sseSink, mv *adk.MessageVariant) {
 }
 
 type toolStartedPayload struct {
-	ID   string          `json:"id"`
-	Name string          `json:"name"`
-	Args json.RawMessage `json:"args"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	ProgressLabel string          `json:"progress_label,omitempty"`
+	Args          json.RawMessage `json:"args"`
 }
 
 type toolCompletedPayload struct {

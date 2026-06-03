@@ -114,3 +114,29 @@ func (t *funcTool) InvokableRun(
 ) (string, error) {
 	return t.run(ctx, argumentsInJSON)
 }
+
+// FlattenResult is the return of FlattenBindings: 一份 eino tool 集合 +
+// 一份 name → progress_label 表。Struct return 是为同时消 gocritic
+// unnamedResult / nonamedreturns 两个互斥 lint。字段顺序按 fieldalignment
+// 排：map (8 pointer bytes) 在前，slice 在后。
+type FlattenResult struct {
+	Labels map[string]string
+	Tools  []tool.BaseTool
+}
+
+// FlattenBindings 走每个 Binding 的 BindingTool 列表，抽 Tool 拼成
+// []tool.BaseTool 喂 eino，同时收集 ProgressLabel 进 name 索引表给
+// SSE tool_started 帧用 (H.11)。
+func FlattenBindings(bindings []*Binding) FlattenResult {
+	tools := make([]tool.BaseTool, 0)
+	labels := map[string]string{}
+	for _, b := range bindings {
+		for i := range b.Tools {
+			tools = append(tools, b.Tools[i].Tool)
+			if b.Tools[i].ProgressLabel != "" {
+				labels[b.Tools[i].Name] = b.Tools[i].ProgressLabel
+			}
+		}
+	}
+	return FlattenResult{Labels: labels, Tools: tools}
+}

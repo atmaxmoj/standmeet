@@ -4,7 +4,8 @@
 // corpus_search/read 一类的 gap。
 //
 // 实现：scriptMockToolCall 注入每个 tool call，verify 对应的 tool-throbber
-// li 文字 = backend ToolSpec.progress_label。
+// li 文字 = backend BindingTool.ProgressLabel (H.8 起 capability 注册
+// 时通过 agentskills.NewTool 传 progress_label，wire 形态不变)。
 
 import { test, expect, type Page } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

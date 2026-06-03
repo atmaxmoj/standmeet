@@ -48,11 +48,22 @@ func runAgentTurn(
 		writeLLMPreStreamErr(h, w, cerr)
 		return
 	}
-	bindings, tools := collectVisitorTools(r.Context(), h, auth, req.System)
-	defer closeBindings(bindings)
+	ts := collectVisitorTools(r.Context(), h, auth, req.System)
+	defer closeBindings(ts.Bindings)
 	inference.RunAgentTurn(r.Context(), h.Log, w, &inference.AgentTurnInput{
-		Cred: cred, Req: req, Tools: tools,
+		Cred: cred, Req: req,
+		Tools:          ts.Tools,
+		ProgressLabels: ts.Labels,
 	})
+}
+
+// visitorToolset —— collectVisitorTools 返回打包，避免 revive func-result
+// max=2 限制。bindings 仅给 handler defer close 用；inference 不接它。
+// 字段顺序按 govet fieldalignment 排：map (8 ptr bytes) 在前，slice 在后。
+type visitorToolset struct {
+	Labels   map[string]string
+	Bindings []*agentskills.Binding
+	Tools    []tool.BaseTool
 }
 
 func resolveAgentTurnCred(
@@ -74,23 +85,20 @@ func pickAgentTurnBYOAICred(
 	return cred
 }
 
-// collectVisitorTools —— 装配本 session 的所有 visitor binding，抽
-// BindingTool.Tool 拼成 ADK ChatModelAgent 要的 []tool.BaseTool。
-// 第一返：原始 bindings (caller defer close 释放 ext-mcp 等资源)；
-// 第二返：tool 集合直接喂 eino。
+// collectVisitorTools —— 装配本 session 的所有 visitor binding，拍平成
+// eino tool 集合 + name → progress_label 表 (走 agentskills.FlattenBindings；
+// 拍平逻辑放 agentskills 包，让本 handler 守 routes-cyclo ≤ 3)。
+//
+// 返回 visitorToolset 是为了避开 revive func-result max=2 限制；
+// Bindings 字段仅给 handler defer close 用，inference 不接。
 //
 // system 参数透到 AssembleInput 是兼容老结构 (PromptSnapshot 字段)，本
 // slice 不真用，跟 /llm/chat/stream 同一签名套路。
 func collectVisitorTools(
 	ctx context.Context, h *Handlers, auth authedVisitor, _ string,
-) ([]*agentskills.Binding, []tool.BaseTool) {
+) *visitorToolset {
 	in := assembleInputFromSession(auth.Data, "")
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
-	tools := make([]tool.BaseTool, 0)
-	for _, b := range bindings {
-		for i := range b.Tools {
-			tools = append(tools, b.Tools[i].Tool)
-		}
-	}
-	return bindings, tools
+	fr := agentskills.FlattenBindings(bindings)
+	return &visitorToolset{Bindings: bindings, Tools: fr.Tools, Labels: fr.Labels}
 }
