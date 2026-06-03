@@ -14,6 +14,7 @@ import type { Playwright } from '@playwright/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 import type { VisitorSession } from '@/fixtures/visitor';
@@ -95,6 +96,13 @@ test.describe('agent turn endpoint · eino ADK driven', () => {
       await request.dispose();
     });
 
+  test('scripted corpus_search tool_use → tool_started + tool_completed',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await assertToolEvents(request);
+      await request.dispose();
+    });
+
   test('missing Authorization → 401',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -138,4 +146,30 @@ async function assertPlainTurn(request: APIRequestContext): Promise<void> {
   expect(doneFrame, 'has done frame').toBeDefined();
   const doneData = doneFrame?.data as { stop_reason?: string };
   expect(doneData?.stop_reason).toBe('end_turn');
+}
+
+async function assertToolEvents(request: APIRequestContext): Promise<void> {
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  // 强制 mock 上来就抛 corpus_search tool_use；backend ADK dispatch
+  // tool → eino schema.Tool 事件 → tool_completed。
+  await scriptMockToolCall(request, {
+    name: 'corpus_search', args: { query: 'alice' },
+  });
+  const { status, sse } = await postAgentTurn(request, sess, {
+    system: 'You are alice.',
+    user_message: 'tell me about alice',
+  });
+  expect(status).toBe(200);
+  const started = sse.events.find((e) => e.type === 'tool_started');
+  expect(started, 'tool_started frame present').toBeDefined();
+  const startedData = started?.data as { name?: string };
+  expect(startedData?.name).toBe('corpus_search');
+  const completed = sse.events.find((e) => e.type === 'tool_completed');
+  expect(completed, 'tool_completed frame present').toBeDefined();
+  const completedData = completed?.data as { name?: string };
+  expect(completedData?.name).toBe('corpus_search');
+  const doneFrame = sse.events.find((e) => e.type === 'done');
+  expect(doneFrame, 'has done frame').toBeDefined();
 }

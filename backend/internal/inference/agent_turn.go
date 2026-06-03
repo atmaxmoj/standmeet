@@ -20,6 +20,7 @@ package inference
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -146,12 +147,17 @@ func routeAgentEvent(
 }
 
 // routeMessageVariant —— event 里携带的消息分三类：
-//   - Role=Assistant + IsStreaming：模型生成的 text/tool_call 流，逐 chunk emit text
-//   - Role=Assistant + 非 streaming：完整 final message，单条 emit
-//   - Role=Tool：tool 执行结果，H.9.b 才 emit；当下忽略
+//   - Role=Assistant + IsStreaming：模型生成的 text/tool_call 流，逐 chunk
+//     emit text；流尾如 ToolCalls 非空 emit tool_started 一组
+//   - Role=Assistant + 非 streaming：完整 final message，单条 emit + ToolCalls
+//   - Role=Tool：tool 执行结果，emit tool_completed
 func routeMessageVariant(
 	ctx context.Context, sink *sseSink, mv *adk.MessageVariant, stop *string,
 ) bool {
+	if mv.Role == schema.Tool {
+		emitToolCompleted(sink, mv)
+		return true
+	}
 	if mv.Role != schema.Assistant {
 		return true
 	}
@@ -169,26 +175,31 @@ func drainAssistantStream(
 	stream *schema.StreamReader[*schema.Message], stop *string,
 ) bool {
 	defer stream.Close()
+	accum := newAssistantAccum()
 	for {
 		if ctx.Err() != nil {
 			return false
 		}
 		chunk, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
+			emitToolStarted(sink, accum)
 			return true
 		}
 		if err != nil {
 			emitError(sink.log, sink.w, sink.flusher, err)
 			return false
 		}
-		processAssistantChunk(sink, chunk, stop)
+		processAssistantChunk(sink, chunk, accum, stop)
 	}
 }
 
-func processAssistantChunk(sink *sseSink, chunk *schema.Message, stop *string) {
+func processAssistantChunk(
+	sink *sseSink, chunk *schema.Message, accum *assistantAccum, stop *string,
+) {
 	if chunk.Content != "" {
 		emitTextDelta(sink.log, sink.w, sink.flusher, chunk.Content)
 	}
+	accumulateAssistantToolCalls(chunk.ToolCalls, accum)
 	if chunk.ResponseMeta != nil && chunk.ResponseMeta.FinishReason != "" {
 		*stop = mapFinishReason(chunk.ResponseMeta.FinishReason)
 	}
@@ -198,7 +209,90 @@ func emitAssistantSnapshot(sink *sseSink, msg *schema.Message, stop *string) {
 	if msg.Content != "" {
 		emitTextDelta(sink.log, sink.w, sink.flusher, msg.Content)
 	}
+	if len(msg.ToolCalls) > 0 {
+		accum := newAssistantAccum()
+		accumulateAssistantToolCalls(msg.ToolCalls, accum)
+		emitToolStarted(sink, accum)
+	}
 	if msg.ResponseMeta != nil && msg.ResponseMeta.FinishReason != "" {
 		*stop = mapFinishReason(msg.ResponseMeta.FinishReason)
 	}
+}
+
+// assistantAccum —— streaming 期间累积 assistant message 里的 tool_calls。
+// eino chunk 增量返 ToolCall.Function.Arguments，按 Index 聚合，流尾一次
+// emit 完整 tool_started。
+type assistantAccum struct {
+	calls map[int]*pendingToolCall
+}
+
+func newAssistantAccum() *assistantAccum {
+	return &assistantAccum{calls: map[int]*pendingToolCall{}}
+}
+
+func accumulateAssistantToolCalls(calls []schema.ToolCall, accum *assistantAccum) {
+	for i := range calls {
+		idx := callIndex(&calls[i])
+		pc, ok := accum.calls[idx]
+		if !ok {
+			pc = &pendingToolCall{}
+			accum.calls[idx] = pc
+		}
+		if calls[i].ID != "" {
+			pc.ID = calls[i].ID
+		}
+		if calls[i].Function.Name != "" {
+			pc.Name = calls[i].Function.Name
+		}
+		pc.Args += calls[i].Function.Arguments
+	}
+}
+
+// emitToolStarted —— 流尾把累积的 tool_call 全部 emit。H.11 之前 progress_label
+// 走空字符串；前端 fallback "running <name>"。
+func emitToolStarted(sink *sseSink, accum *assistantAccum) {
+	for _, pc := range accum.calls {
+		args := pc.Args
+		if args == "" {
+			args = "{}"
+		}
+		body, merr := json.Marshal(toolStartedPayload{
+			ID: pc.ID, Name: pc.Name, Args: json.RawMessage(args),
+		})
+		if merr != nil {
+			sink.log.Error("agent turn marshal tool_started", logErrKey, merr)
+			continue
+		}
+		writeSSEFrame(sink.log, sink.w, sink.flusher, "tool_started", body)
+	}
+}
+
+// emitToolCompleted —— ADK 发 Role=Tool event 时调；content 是 tool
+// 执行返回的字符串 (capability binding 一般是 JSON envelope，浏览器
+// 自己解)。
+func emitToolCompleted(sink *sseSink, mv *adk.MessageVariant) {
+	msg, err := mv.GetMessage()
+	if err != nil {
+		sink.log.Error("agent turn tool result message", logErrKey, err)
+		return
+	}
+	body, merr := json.Marshal(toolCompletedPayload{
+		Name: mv.ToolName, Result: msg.Content,
+	})
+	if merr != nil {
+		sink.log.Error("agent turn marshal tool_completed", logErrKey, merr)
+		return
+	}
+	writeSSEFrame(sink.log, sink.w, sink.flusher, "tool_completed", body)
+}
+
+type toolStartedPayload struct {
+	ID   string          `json:"id"`
+	Name string          `json:"name"`
+	Args json.RawMessage `json:"args"`
+}
+
+type toolCompletedPayload struct {
+	Name   string `json:"name"`
+	Result string `json:"result"`
 }
