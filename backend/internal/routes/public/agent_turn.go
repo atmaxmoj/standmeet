@@ -48,7 +48,7 @@ func runAgentTurn(
 		writeLLMPreStreamErr(h, w, cerr)
 		return
 	}
-	ts := collectVisitorTools(r.Context(), h, auth, req.System)
+	ts := collectVisitorTools(r.Context(), h, auth, req.ConversationID)
 	defer closeBindings(ts.Bindings)
 	inference.RunAgentTurn(r.Context(), h.Log, w, &inference.AgentTurnInput{
 		Cred: cred, Req: req,
@@ -92,12 +92,13 @@ func pickAgentTurnBYOAICred(
 // 返回 visitorToolset 是为了避开 revive func-result max=2 限制；
 // Bindings 字段仅给 handler defer close 用，inference 不接。
 //
-// system 参数透到 AssembleInput 是兼容老结构 (PromptSnapshot 字段)，本
-// slice 不真用，跟 /llm/chat/stream 同一签名套路。
+// convID 透到 AssembleInput.ConversationID 让下游 tool (calendar_book /
+// persist) 能找到 conversation 行；空 conv_id 会让 BookMeeting 的
+// parseUUID 失败 (H.10 sweep 时踩出的 regression)。
 func collectVisitorTools(
-	ctx context.Context, h *Handlers, auth authedVisitor, _ string,
+	ctx context.Context, h *Handlers, auth authedVisitor, convID string,
 ) *visitorToolset {
-	in := assembleInputFromSession(auth.Data, "")
+	in := assembleInputFromSession(auth.Data, convID)
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
 	fr := agentskills.FlattenBindings(bindings)
 	return &visitorToolset{Bindings: bindings, Tools: fr.Tools, Labels: fr.Labels}

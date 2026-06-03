@@ -290,7 +290,10 @@ function buildPageAgent(
       }),
       observer,
     },
-    { systemPromptPartIDs: assembledPartIDs(sess) },
+    {
+      systemPromptPartIDs: assembledPartIDs(sess),
+      conversationID: sess.conversationID,
+    },
   );
 }
 

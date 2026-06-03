@@ -67,9 +67,12 @@ export interface EventObserver {
 
 // TurnRequest —— H.10: 浏览器跑一整轮 visitor chat 的 wire payload。
 // 直接对应 backend POST /api/v1/agent/turn 的 body shape。
+// conversationID 让 backend tool (calendar_book / persist) 找得到对应
+// chat 行；空字符串会让 BookMeeting 等下游 UUID parse 失败。
 export interface TurnRequest {
   readonly system: string;
   readonly userMessage: string;
+  readonly conversationID: string;
   readonly history: readonly Message[];
 }
 

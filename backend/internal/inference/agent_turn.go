@@ -45,11 +45,17 @@ const contextTokenThreshold = 32000
 // system + user_message 拼好直接当 ChatModelAgent 的 instruction +
 // user input；history 是上一 turn 之前的对话记录（可能含 assistant
 // tool_calls / tool 结果，用 pi unified shape），传给 ADK 当上下文。
+//
+// ConversationID —— 持久化的 chat ID (issueSession 时返回的)；backend
+// 内部 tool (calendar_book / dialog persist) 用来把当 turn 的产物关
+// 联到正确的 conversation 行。老 /sessions/{convID}/tools/{name} wire
+// 走 URL path；新 /agent/turn 由 body 透。
 type AgentTurnRequest struct {
-	System      string           `json:"system"`
-	UserMessage string           `json:"user_message"`
-	Model       string           `json:"model,omitempty"`
-	History     []ChatRequestMsg `json:"history,omitempty"`
+	System         string           `json:"system"`
+	UserMessage    string           `json:"user_message"`
+	ConversationID string           `json:"conversation_id"`
+	Model          string           `json:"model,omitempty"`
+	History        []ChatRequestMsg `json:"history,omitempty"`
 }
 
 // AgentTurnInput —— RunAgentTurn 的入参打包，避开 revive 5-arg 上限。

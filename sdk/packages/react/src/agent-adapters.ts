@@ -234,6 +234,7 @@ async function* streamAgentTurnHTTP(
     body: JSON.stringify({
       system: req.system,
       user_message: req.userMessage,
+      conversation_id: req.conversationID,
       history: req.history,
     }),
   });

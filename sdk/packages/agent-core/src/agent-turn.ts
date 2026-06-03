@@ -24,6 +24,9 @@ export interface VisitorTurnAgentPorts {
 
 export interface VisitorTurnAgentConfig {
   readonly systemPromptPartIDs: readonly string[];
+  // conversationID 持久化 chat 行的 UUID，每次 /agent/turn 都要带，让
+  // backend tool (calendar_book / 等) 找得到归属的 conversation。
+  readonly conversationID: string;
 }
 
 export interface SendTurnOptions {
@@ -47,7 +50,8 @@ export class VisitorTurnAgent {
     const system = await this.composeSystemPrompt();
     const history = opts.history ?? [];
     const req: TurnRequest = {
-      system, userMessage: opts.userMessage, history,
+      system, userMessage: opts.userMessage,
+      conversationID: this.cfg.conversationID, history,
     };
     this.emit({ type: 'iteration_started', iter: 0 });
     const ctx = makeCtx();
@@ -119,16 +123,32 @@ function makeCtx(): TurnCtx {
   return { text: '', errored: false };
 }
 
-// safeParseToolResult —— backend tool dispatcher 现在直接 raw JSON 进
-// tool_completed.result；老 ToolDispatcher 走 envelope {ok, result,
-// reason}。这里两种都尝试解，让 UI 渲染层不受 wire 差异影响。
+// safeParseToolResult —— H.10: backend agent loop 把 tool RunFn 的 raw
+// 返回字符串原样塞进 SSE tool_completed.result。各 tool wire 形态
+// heterogeneous：
+//   - corpus_search/list: bare array  `[{path, title, genre, summary}]`
+//   - corpus_read: flat object        `{genre, body, path, title}`
+//   - calendar_list_slots: envelope   `{ok, slots: [...]}`
+//   - calendar_book ok: envelope      `{ok, event_id, html_link, start, end}`
+//   - calendar_book fail: envelope    `{ok: false, conflict, ...}`
+//   - skill_* / ext_*: 任意 JSON
+//
+// 这一层只做：
+//   - JSON.parse
+//   - 顶层有 `ok: boolean` 时把它当 result 的 ok 透上去 (shouldRenderCall
+//     按 c.ok 过滤失败 card)；result 字段仍透整 parsed 对象 (consumer
+//     的 pickSlots / pickBookConfirmation 自己 narrow)
+//
+// 不准对 `{ok, ...}` 当 {ok, result, reason} envelope 解包成 result =
+// parsed.result —— 那会把 {ok, slots} 误解成 {ok, result: undefined}
+// 丢数据 (H.10 sweep SlotsCard 显 0 slot 的 regression 踩这条)。
 function safeParseToolResult(raw: string): {
   ok: boolean; result?: unknown; reason?: string;
 } {
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (isResultEnvelope(parsed)) {
-      return { ok: parsed.ok, result: parsed.result, reason: parsed.reason };
+    if (isOkEnvelope(parsed)) {
+      return { ok: parsed.ok, result: parsed, reason: parsed.reason };
     }
     return { ok: true, result: parsed };
   } catch {
@@ -136,8 +156,11 @@ function safeParseToolResult(raw: string): {
   }
 }
 
-function isResultEnvelope(
+function isOkEnvelope(
   v: unknown,
-): v is { ok: boolean; result?: unknown; reason?: string } {
-  return v !== null && typeof v === 'object' && 'ok' in v;
+): v is { ok: boolean; reason?: string } {
+  return (
+    v !== null && typeof v === 'object' && !Array.isArray(v)
+    && 'ok' in v && typeof (v as Record<string, unknown>)['ok'] === 'boolean'
+  );
 }

@@ -42,13 +42,15 @@ export async function runVisitorChatTurn(
 }
 
 async function runAgentTurn(
-  request: APIRequestContext, _sess: VisitorSession,
+  request: APIRequestContext, sess: VisitorSession,
   headers: Record<string, string>, system: string, question: string,
   cited: CitedTracker,
 ): Promise<string> {
   const res = await request.post(`${BACKEND}/api/v1/agent/turn`, {
     headers, data: {
-      system, user_message: question, history: [],
+      system, user_message: question,
+      conversation_id: sess.conversation_id,
+      history: [],
     },
   });
   if (res.status() !== 200) {
