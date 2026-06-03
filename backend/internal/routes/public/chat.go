@@ -43,6 +43,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
 	r.Post("/inference/models", h.listInferenceModels())
 	r.Post("/llm/chat/stream", h.llmChatStream())
+	// H.9: 新 agent turn 入口；走 eino ADK ChatModelAgent。SDK 在 H.10
+	// 切到这条；H.10 land 后 /llm/chat/stream 退役。
+	r.Post("/agent/turn", h.agentTurn())
 }
 
 var visitorErrCases = []apierr.Case{
