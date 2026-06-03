@@ -53,14 +53,17 @@ export const test = base.extend<Fixtures>({
     const loginEmail = page.getByTestId('email');
     const adminSidebar = page.getByTestId('admin-nav-page');
     await Promise.race([
-      loginEmail.waitFor({ state: 'visible', timeout: 10_000 }),
-      adminSidebar.waitFor({ state: 'visible', timeout: 10_000 }),
+      loginEmail.waitFor({ state: 'visible', timeout: 15_000 }),
+      adminSidebar.waitFor({ state: 'visible', timeout: 15_000 }),
     ]);
     if (await loginEmail.isVisible()) {
       await loginEmail.fill(ownerCredentials.email);
       await page.getByTestId('password').fill(ownerCredentials.password);
       await page.getByTestId('submit').click();
-      await adminSidebar.waitFor({ state: 'visible', timeout: 10_000 });
+      // sweep 模式下 372 spec 串跑、admin login + 首屏渲染会被资源压力
+      // 拖到 10s 之外；超出 actionTimeout=10s 默认会零星 flake (sweep
+      // 跑了几次 admin-wiki-crud / admin-seo 都被这条踩过)。30s 留余量。
+      await adminSidebar.waitFor({ state: 'visible', timeout: 30_000 });
     }
     await use(page);
   },

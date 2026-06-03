@@ -69,7 +69,12 @@ async function mcpCall(
     Accept: 'application/json, text/event-stream',
   };
   if (sessionId) headers['Mcp-Session-Id'] = sessionId;
-  const res = await request.post(`${BACKEND}/mcp`, { headers, data: body });
+  // 显式 timeout 覆盖 playwright actionTimeout 默认 10s —— sweep 模式
+  // 372 spec 串跑时 MCP 路径 (sigv1 签名 + DB lookup + tool dispatch)
+  // 偶尔会撞 10s 上限 (_render-sample-pdfs 在 sweep 时被踩过)。
+  const res = await request.post(`${BACKEND}/mcp`, {
+    headers, data: body, timeout: 30_000,
+  });
   return {
     status: res.status(),
     sessionId: res.headers()['mcp-session-id'] ?? null,
