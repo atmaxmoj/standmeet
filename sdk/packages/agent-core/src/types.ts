@@ -48,6 +48,15 @@ export interface ToolCallRef {
   readonly args: unknown;
 }
 
+// AgentTurnEvent —— H.10: 新 wire 一条 SSE event。pi 端从 /api/v1/agent/turn
+// 接到的形态；TurnStreamer 一个 turn 把整套事件 yield 完。
+export type AgentTurnEvent =
+  | { readonly type: 'text'; readonly delta: string }
+  | { readonly type: 'tool_started'; readonly id: string; readonly name: string; readonly args: unknown; readonly progressLabel?: string }
+  | { readonly type: 'tool_completed'; readonly name: string; readonly result: string }
+  | { readonly type: 'done'; readonly stopReason: 'end_turn' | 'tool_use' | 'max_tokens' }
+  | { readonly type: 'error'; readonly code: string; readonly message: string };
+
 // AgentEvent —— observer receives one per state transition. Names align
 // with eval harness scenarios.
 export type AgentEvent =

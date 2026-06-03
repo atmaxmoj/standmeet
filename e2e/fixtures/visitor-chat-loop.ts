@@ -1,17 +1,11 @@
-// visitor-chat-loop.ts —— Node-side agent loop driving the pi unified
-// /api/v1/llm/chat/stream + per-tool dispatch + /dialogs commit. Mirrors
-// the browser pi-agent-core loop so e2e fixtures can drain a "turn" with
-// one call and assert on a fake APIResponse.
+// visitor-chat-loop.ts —— H.10: backend agent loop 接管之后，Node 端
+// fixture 不再 driver LLM ↔ tool 循环；改成单 POST /api/v1/agent/turn
+// 收 SSE 整套事件 (text / tool_started / tool_completed / done / error)
+// → 累 final text → /dialogs commit。
 //
-// Wire (pi unified, mirrors sdk/packages/agent-core types.Message):
-//
-//   POST body: {
-//     system, messages: [{role, content, tool_calls?, tool_call_id?}], tools
-//   }
-//   SSE: event: text   data: {"delta": "..."}
-//        event: tool_call data: {"id","name","input"}
-//        event: done   data: {"stop_reason": "..."}
-//        event: error  data: {"code","message"}
+// 跟浏览器 pi-agent-core (H.10 后 VisitorTurnAgent) 同形态：thin event
+// consumer。Cited tracking 走 tool_completed (corpus_read result 的
+// path/genre)，老 mechanism 不变。
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -25,123 +19,83 @@ export interface FakeAPIResponse {
 }
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-const MAX_ITERATIONS = 8;
 
-interface VisitorToolSpec {
-  name: string;
-  description: string;
-  input_schema: unknown;
-}
-
-interface PiMessage {
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string;
-  tool_calls?: { id: string; name: string; args: unknown }[];
-  tool_call_id?: string;
-}
-
-// runVisitorChatTurn —— drive one visitor question through the pi-agent
-// loop. Returns a fake APIResponse mimicking the legacy /messages
-// surface: status() reflects /dialogs commit (200/204 → 200, quota
-// 403 → 403); body()/text() returns the final assistant text.
-export async function runVisitorChatTurn(
-  request: APIRequestContext, sess: VisitorSession, question: string,
-): Promise<FakeAPIResponse> {
-  const tools = fetchSessionToolSpecs(sess);
-  const system = await fetchSystemPrompt(sess);
-  const headers = await buildHeaders(sess);
-  const history: PiMessage[] = [
-    { role: 'user', content: question },
-  ];
-  const ctx: TurnCtx = {
-    headers, sess, tools, system, request,
-    cited: { wikiPaths: [], outputPaths: [] },
-  };
-  const finalText = await driveAgentLoop(history, ctx);
-  return await commitDialog(ctx, question, finalText);
-}
-
-interface TurnCtx {
-  request: APIRequestContext;
-  sess: VisitorSession;
-  tools: VisitorToolSpec[];
-  system: string;
-  headers: Record<string, string>;
-  cited: CitedTracker;
-}
-
-// CitedTracker —— walks corpus_read tool dispatches and stashes the
-// path + the inferred kind (wiki/output) so /dialogs commit knows what
-// to attribute. The kind comes from the tool result envelope; if not
-// present, default to wiki (best-effort).
 interface CitedTracker {
   wikiPaths: string[];
   outputPaths: string[];
 }
 
-async function driveAgentLoop(
-  history: PiMessage[], ctx: TurnCtx,
+// runVisitorChatTurn —— drive one visitor question through backend
+// /agent/turn endpoint. Returns a fake APIResponse mimicking legacy
+// /messages surface: status() reflects /dialogs commit; body()/text()
+// returns final assistant text.
+export async function runVisitorChatTurn(
+  request: APIRequestContext, sess: VisitorSession, question: string,
+): Promise<FakeAPIResponse> {
+  const system = await fetchSystemPrompt(sess);
+  const headers = await buildHeaders(sess);
+  const cited: CitedTracker = { wikiPaths: [], outputPaths: [] };
+  const text = await runAgentTurn(
+    request, sess, headers, system, question, cited,
+  );
+  return await commitDialog(request, sess, headers, question, text, cited);
+}
+
+async function runAgentTurn(
+  request: APIRequestContext, _sess: VisitorSession,
+  headers: Record<string, string>, system: string, question: string,
+  cited: CitedTracker,
 ): Promise<string> {
-  let finalText = '';
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const step = await runStreamStep(history, ctx);
-    finalText = step.text;
-    if (step.toolCalls.length === 0) return finalText;
-    history.push(buildAssistantTurnMsg(step));
-    for (const call of step.toolCalls) {
-      const result = await dispatchTool(ctx, call);
-      history.push(buildToolResultMsg(call.id, result));
-    }
-  }
-  return finalText;
-}
-
-interface StreamStep {
-  text: string;
-  toolCalls: { id: string; name: string; input: unknown }[];
-}
-
-async function runStreamStep(
-  history: PiMessage[], ctx: TurnCtx,
-): Promise<StreamStep> {
-  const res = await ctx.request.post(`${BACKEND}/api/v1/llm/chat/stream`, {
-    headers: ctx.headers,
-    data: {
-      system: ctx.system,
-      messages: history,
-      tools: ctx.tools,
+  const res = await request.post(`${BACKEND}/api/v1/agent/turn`, {
+    headers, data: {
+      system, user_message: question, history: [],
     },
   });
   if (res.status() !== 200) {
-    throw new Error(`llm.chat.stream: ${res.status()}`);
+    throw new Error(`agent.turn: ${res.status()}`);
   }
   const body = await res.body();
-  return parsePiSSE(body.toString('utf-8'));
+  return accumulateAgentEvents(body.toString('utf-8'), cited);
 }
 
-function parsePiSSE(raw: string): StreamStep {
+interface AgentEventFrame {
+  event: string;
+  data: Record<string, unknown>;
+}
+
+function accumulateAgentEvents(raw: string, cited: CitedTracker): string {
   let text = '';
-  const toolCalls: { id: string; name: string; input: unknown }[] = [];
   for (const frame of splitFrames(raw)) {
-    const d = safeJson(frame.data) as Record<string, unknown>;
     if (frame.event === 'text') {
-      const delta = typeof d['delta'] === 'string' ? d['delta'] : '';
+      const delta = stringOr(frame.data['delta'], '');
       text += delta;
-    } else if (frame.event === 'tool_call') {
-      toolCalls.push({
-        id: typeof d['id'] === 'string' ? d['id'] : '',
-        name: typeof d['name'] === 'string' ? d['name'] : '',
-        input: d['input'] ?? {},
-      });
+    } else if (frame.event === 'tool_completed') {
+      trackToolCompleted(frame.data, cited);
     } else if (frame.event === 'error') {
-      throw new Error(typeof d['message'] === 'string' ? d['message'] : 'sse error');
+      throw new Error(stringOr(frame.data['message'], 'agent error'));
     }
   }
-  return { text, toolCalls };
+  return text;
 }
 
-function splitFrames(raw: string): { event: string; data: string }[] {
-  const out: { event: string; data: string }[] = [];
+function trackToolCompleted(
+  d: Record<string, unknown>, cited: CitedTracker,
+): void {
+  const name = stringOr(d['name'], '');
+  if (name !== 'corpus_read') return;
+  const rawResult = stringOr(d['result'], '');
+  const inner = safeJson(rawResult) as { path?: string; genre?: string };
+  if (!inner?.path || typeof inner.genre !== 'string') return;
+  const stripped = stripGenrePrefix(inner.genre, inner.path);
+  if (inner.genre === 'output') {
+    cited.outputPaths.push(stripped);
+  } else if (inner.genre === 'wiki') {
+    cited.wikiPaths.push(stripped);
+  }
+}
+
+function splitFrames(raw: string): AgentEventFrame[] {
+  const out: AgentEventFrame[] = [];
   for (const chunk of raw.split('\n\n')) {
     const frame = parseFrame(chunk);
     if (frame !== null) out.push(frame);
@@ -149,77 +103,14 @@ function splitFrames(raw: string): { event: string; data: string }[] {
   return out;
 }
 
-function parseFrame(raw: string): { event: string; data: string } | null {
+function parseFrame(raw: string): AgentEventFrame | null {
   let ev = ''; let dt = '';
   for (const line of raw.split('\n')) {
     if (line.startsWith('event: ')) ev = line.slice(7).trim();
     else if (line.startsWith('data: ')) dt = line.slice(6).trim();
   }
-  return ev === '' ? null : { event: ev, data: dt };
-}
-
-function buildAssistantTurnMsg(step: StreamStep): PiMessage {
-  if (step.toolCalls.length === 0) {
-    return { role: 'assistant', content: step.text };
-  }
-  return {
-    role: 'assistant',
-    content: step.text,
-    tool_calls: step.toolCalls.map((c) => ({
-      id: c.id, name: c.name, args: c.input,
-    })),
-  };
-}
-
-function buildToolResultMsg(toolUseID: string, result: ToolResultBody): PiMessage {
-  return {
-    role: 'tool',
-    content: JSON.stringify({ ok: result.ok, result: result.result, reason: result.reason }),
-    tool_call_id: toolUseID,
-  };
-}
-
-interface ToolResultBody {
-  ok: boolean;
-  result?: unknown;
-  reason?: string;
-}
-
-async function dispatchTool(
-  ctx: TurnCtx, call: { id: string; name: string; input: unknown },
-): Promise<ToolResultBody> {
-  const res = await ctx.request.post(
-    `${BACKEND}/api/v1/sessions/${ctx.sess.conversation_id}/tools/${call.name}`,
-    { headers: ctx.headers, data: call.input },
-  );
-  if (res.status() !== 200) {
-    return { ok: false, reason: `tool ${call.name} returned ${res.status()}` };
-  }
-  const result = await res.json() as ToolResultBody;
-  trackCited(ctx, call, result);
-  return result;
-}
-
-// trackCited —— corpus_read returns { result: { genre, body, path, title } };
-// stash path into the right bucket so /dialogs commit attributes it as
-// cited wiki vs output.
-function trackCited(
-  ctx: TurnCtx,
-  call: { name: string; input: unknown },
-  result: ToolResultBody,
-): void {
-  if (call.name !== 'corpus_read' || !result.ok) return;
-  const inner = result.result as { path?: string; genre?: string } | undefined;
-  if (!inner?.path) return;
-  // Strip the "wiki/" / "output/" prefix when the underlying entry has
-  // no real path (the retriever synthesizes "<genre>/<uuid>" in that
-  // case). RecordDialog's Corpus.Get accepts UUID or path; UUID wins.
-  const cited = stripGenrePrefix(inner.genre ?? '', inner.path);
-  if (inner.genre === 'output') {
-    ctx.cited.outputPaths.push(cited);
-  } else if (inner.genre === 'wiki') {
-    ctx.cited.wikiPaths.push(cited);
-  }
+  if (ev === '') return null;
+  return { event: ev, data: safeJson(dt) as Record<string, unknown> };
 }
 
 function stripGenrePrefix(genre: string, path: string): string {
@@ -235,14 +126,16 @@ function isUUIDLike(s: string): boolean {
 }
 
 async function commitDialog(
-  ctx: TurnCtx, question: string, answer: string,
+  request: APIRequestContext, sess: VisitorSession,
+  headers: Record<string, string>, question: string, answer: string,
+  cited: CitedTracker,
 ): Promise<FakeAPIResponse> {
-  const res = await ctx.request.post(
-    `${BACKEND}/api/v1/sessions/${ctx.sess.conversation_id}/dialogs`,
-    { headers: ctx.headers, data: {
+  const res = await request.post(
+    `${BACKEND}/api/v1/sessions/${sess.conversation_id}/dialogs`,
+    { headers, data: {
       question, answer,
-      cited_wiki_paths: ctx.cited.wikiPaths,
-      cited_output_paths: ctx.cited.outputPaths,
+      cited_wiki_paths: cited.wikiPaths,
+      cited_output_paths: cited.outputPaths,
     } },
   );
   const status = res.status();
@@ -262,16 +155,7 @@ function makeFakeResponse(status: number, text: string): FakeAPIResponse {
   };
 }
 
-function fetchSessionToolSpecs(sess: VisitorSession): VisitorToolSpec[] {
-  // Specs come from session response cached on first call. We don't
-  // re-fetch — sess.tool_specs is populated by issueSession/code.
-  // Fall back to empty list if visitor session didn't include them.
-  const anySess = sess as unknown as { tool_specs?: VisitorToolSpec[] };
-  return anySess.tool_specs ?? [];
-}
-
 async function fetchSystemPrompt(sess: VisitorSession): Promise<string> {
-  // Compose: each part_id fetched + persona inline.
   const parts: string[] = [];
   for (const id of sess.system_prompt_part_ids ?? []) {
     const res = await fetch(`${BACKEND}/api/v1/prompts/${id}`);
@@ -327,6 +211,10 @@ async function wrapBYOAIKey(plain: string, sessionToken: string): Promise<string
 function base64URLNoPad(bytes: Uint8Array): string {
   const b64 = Buffer.from(bytes).toString('base64');
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function stringOr(v: unknown, fallback: string): string {
+  return typeof v === 'string' ? v : fallback;
 }
 
 function safeJson(s: string): unknown {

@@ -18,12 +18,12 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import { VisitorAgent } from '@standmeet/agent-core';
+import { VisitorTurnAgent } from '@standmeet/agent-core';
 import type {
   AgentEvent, EventObserver, Message,
 } from '@standmeet/agent-core';
 import {
-  httpPromptSource, httpInferenceStreamer, httpToolDispatcher,
+  httpPromptSource, httpAgentTurnStreamer,
   type HttpBYOAIHeaders,
 } from '@standmeet/sdk';
 
@@ -36,9 +36,7 @@ import {
   type SessionMode as SessionModeT,
 } from '@/lib/page/use-chat-session';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
-import {
-  useCapabilityStore, zustandCapabilityStateSource,
-} from '@/lib/visitor/capability-store';
+import { useCapabilityStore } from '@/lib/visitor/capability-store';
 
 export type SessionMode = SessionModeT;
 
@@ -280,25 +278,19 @@ function buildPageAgent(
   sess: PageSession,
   byoai: HttpBYOAIHeaders | undefined,
   observer: EventObserver,
-): VisitorAgent {
-  return new VisitorAgent(
+): VisitorTurnAgent {
+  // H.10: backend (eino ADK) 接管 agent loop；浏览器只调一次 /agent/turn
+  // 收 SSE 事件。不再需要 capabilities / llm / tools 三个 port，整套
+  // loop / dispatch 全在 backend。
+  return new VisitorTurnAgent(
     {
       prompts: httpPromptSource({ baseURL: '' }),
-      capabilities: zustandCapabilityStateSource(),
-      llm: httpInferenceStreamer({
-        baseURL: '', sessionToken: sess.sessionToken,
-        byoai,
-      }),
-      tools: httpToolDispatcher({
-        baseURL: '', sessionToken: sess.sessionToken,
-        conversationID: sess.conversationID,
+      turn: httpAgentTurnStreamer({
+        baseURL: '', sessionToken: sess.sessionToken, byoai,
       }),
       observer,
     },
-    {
-      systemPromptPartIDs: assembledPartIDs(sess),
-      toolSpecRegistry: sess.toolSpecRegistry,
-    },
+    { systemPromptPartIDs: assembledPartIDs(sess) },
   );
 }
 

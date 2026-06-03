@@ -9,6 +9,12 @@ export type {
   VisitorAgentConfig,
   VisitorAgentPorts,
 } from './agent.js';
+export { VisitorTurnAgent } from './agent-turn.js';
+export type {
+  SendTurnOptions,
+  VisitorTurnAgentConfig,
+  VisitorTurnAgentPorts,
+} from './agent-turn.js';
 export type {
   CapabilityStateSource,
   EventObserver,
@@ -18,9 +24,12 @@ export type {
   LLMToolSpec,
   PromptSource,
   ToolDispatcher,
+  TurnRequest,
+  TurnStreamer,
 } from './ports.js';
 export type {
   AgentEvent,
+  AgentTurnEvent,
   CapabilityState,
   Message,
   ToolCall,

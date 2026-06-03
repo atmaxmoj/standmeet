@@ -6,7 +6,7 @@
 // 命名跟 [[visitor-chat-frontend-pi-pivot]] memory 锁的一致：换 host
 // 只写这 5 个 adapter。
 
-import type { AgentEvent, CapabilityState, Message, ToolCall, ToolResult } from './types.js';
+import type { AgentEvent, AgentTurnEvent, CapabilityState, Message, ToolCall, ToolResult } from './types.js';
 
 // PromptSource —— 拿 system prompt fragment 文本。prod 走 HTTP GET
 // /api/v1/prompts/{id}；eval 走 fs.readFile。
@@ -63,4 +63,19 @@ export interface ToolDispatcher {
 // 单一方法保持简单；caller 自己分流。
 export interface EventObserver {
   onEvent(event: AgentEvent): void;
+}
+
+// TurnRequest —— H.10: 浏览器跑一整轮 visitor chat 的 wire payload。
+// 直接对应 backend POST /api/v1/agent/turn 的 body shape。
+export interface TurnRequest {
+  readonly system: string;
+  readonly userMessage: string;
+  readonly history: readonly Message[];
+}
+
+// TurnStreamer —— H.10: agent-core 单一出口，浏览器调一次发一整轮事件
+// 流回来；backend (eino ADK) 全权处理 LLM ↔ tool 闭环 + summarization。
+// 老 LLMStreamer / ToolDispatcher 路径仍存在 (H.12 sweep 时再删)。
+export interface TurnStreamer {
+  stream(req: TurnRequest): AsyncIterable<AgentTurnEvent>;
 }

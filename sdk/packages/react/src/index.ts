@@ -17,10 +17,11 @@ export { useAgent } from './use-agent.js';
 export type { AgentState, UseAgentOptions } from './use-agent.js';
 export {
   httpPromptSource, httpToolDispatcher, scriptedLLMStreamer,
-  httpInferenceStreamer,
+  httpInferenceStreamer, httpAgentTurnStreamer,
 } from './agent-adapters.js';
 export type {
   HttpPromptSourceOptions, HttpToolDispatcherOptions,
-  HttpInferenceStreamerOptions, HttpBYOAIHeaders,
+  HttpInferenceStreamerOptions, HttpAgentTurnStreamerOptions,
+  HttpBYOAIHeaders,
   ScriptedLLMOptions, ScriptedStep,
 } from './agent-adapters.js';

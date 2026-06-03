@@ -6,6 +6,7 @@
 // 不到 provider 是 anthropic / openai-compat 哪一个)。
 
 import type {
+  AgentTurnEvent,
   CapabilityState,
   LLMStreamRequest,
   LLMStreamEvent,
@@ -14,8 +15,11 @@ import type {
   ToolCall,
   ToolDispatcher,
   ToolResult,
+  TurnRequest,
+  TurnStreamer,
 } from '@standmeet/agent-core';
 
+import { parseAgentTurnSSE } from './agent-turn-sse';
 import { parsePiSSE } from './pi-sse';
 
 // ───── PromptSource: HTTP GET /api/v1/prompts/{id} ────────────────
@@ -198,3 +202,43 @@ function byoaiToHeaders(b: HttpBYOAIHeaders): Record<string, string> {
 }
 
 // pi unified SSE parsing lives in pi-sse.ts (imported above).
+
+// ───── TurnStreamer (HTTP, prod): POST /api/v1/agent/turn ─────────
+//
+// H.10: backend (eino ADK) 接管 agent loop；浏览器只调一次 /agent/turn，
+// SSE 收整套事件 (text / tool_started / tool_completed / done / error)。
+// 不再用 LLMStreamer + ToolDispatcher 配对手动 loop。
+
+export interface HttpAgentTurnStreamerOptions {
+  readonly baseURL: string;
+  readonly sessionToken: string;
+  readonly byoai?: HttpBYOAIHeaders;
+}
+
+export function httpAgentTurnStreamer(
+  opts: HttpAgentTurnStreamerOptions,
+): TurnStreamer {
+  return {
+    stream(req: TurnRequest): AsyncIterable<AgentTurnEvent> {
+      return streamAgentTurnHTTP(opts, req);
+    },
+  };
+}
+
+async function* streamAgentTurnHTTP(
+  opts: HttpAgentTurnStreamerOptions, req: TurnRequest,
+): AsyncIterable<AgentTurnEvent> {
+  const res = await fetch(`${opts.baseURL}/api/v1/agent/turn`, {
+    method: 'POST',
+    headers: inferenceHeaders(opts),
+    body: JSON.stringify({
+      system: req.system,
+      user_message: req.userMessage,
+      history: req.history,
+    }),
+  });
+  if (!res.ok || res.body === null) {
+    throw new Error(`agent.turn: ${res.status}`);
+  }
+  yield* parseAgentTurnSSE(res.body);
+}
