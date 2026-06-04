@@ -50,15 +50,20 @@ export interface ToolCallRef {
 
 // AgentTurnEvent —— H.10: 新 wire 一条 SSE event。pi 端从 /api/v1/agent/turn
 // 接到的形态；TurnStreamer 一个 turn 把整套事件 yield 完。
+// H.13.c 加 `suggestions` 变体：code-accessor turn 收尾前 backend 出
+// 3 条 follow-up question；浏览器把 items 队列追到 ghost text 后面。
 export type AgentTurnEvent =
   | { readonly type: 'text'; readonly delta: string }
   | { readonly type: 'tool_started'; readonly id: string; readonly name: string; readonly args: unknown; readonly progressLabel?: string }
   | { readonly type: 'tool_completed'; readonly name: string; readonly result: string }
+  | { readonly type: 'suggestions'; readonly items: readonly string[] }
   | { readonly type: 'done'; readonly stopReason: 'end_turn' | 'tool_use' | 'max_tokens' }
   | { readonly type: 'error'; readonly code: string; readonly message: string };
 
 // AgentEvent —— observer receives one per state transition. Names align
-// with eval harness scenarios.
+// with eval harness scenarios. H.13.c 加 `suggestions_received`：
+// VisitorTurnAgent 收到 SSE `suggestions` 事件时往 observer 发；UI 拿
+// 来追 ghost text 队列。
 export type AgentEvent =
   | { readonly type: 'iteration_started'; readonly iter: number }
   | { readonly type: 'llm_chunk'; readonly text: string }
@@ -66,6 +71,7 @@ export type AgentEvent =
   | { readonly type: 'tool_started'; readonly name: string }
   | { readonly type: 'tool_completed'; readonly result: ToolResult }
   | { readonly type: 'capability_state_changed'; readonly states: readonly CapabilityState[] }
+  | { readonly type: 'suggestions_received'; readonly items: readonly string[] }
   | { readonly type: 'iteration_completed'; readonly iter: number }
   | { readonly type: 'final_text'; readonly text: string }
   | { readonly type: 'error'; readonly message: string };

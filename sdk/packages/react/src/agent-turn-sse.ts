@@ -60,6 +60,7 @@ function dispatchFrame(
     case 'text': return parseText(d);
     case 'tool_started': return parseToolStarted(d);
     case 'tool_completed': return parseToolCompleted(d);
+    case 'suggestions': return parseSuggestions(d);
     case 'done': return parseDone(d);
     case 'error': return parseError(d);
   }
@@ -87,6 +88,17 @@ function parseToolCompleted(d: Record<string, unknown>): AgentTurnEvent {
     name: stringOr(d['name'], ''),
     result: stringOr(d['result'], ''),
   };
+}
+
+function parseSuggestions(d: Record<string, unknown>): AgentTurnEvent {
+  const raw = d['items'];
+  const items: string[] = [];
+  if (Array.isArray(raw)) {
+    for (const v of raw) {
+      if (typeof v === 'string') items.push(v);
+    }
+  }
+  return { type: 'suggestions', items };
 }
 
 function parseDone(d: Record<string, unknown>): AgentTurnEvent {

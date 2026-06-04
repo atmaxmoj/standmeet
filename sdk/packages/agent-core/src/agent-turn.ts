@@ -80,6 +80,9 @@ export class VisitorTurnAgent {
       case 'tool_completed':
         this.emitToolCompleted(ev);
         return;
+      case 'suggestions':
+        this.emit({ type: 'suggestions_received', items: ev.items });
+        return;
       case 'done':
         return;
       case 'error':
