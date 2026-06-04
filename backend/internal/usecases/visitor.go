@@ -70,13 +70,14 @@ type SessionQuota struct {
 // 字段顺序：重 sub-struct (Conversation / Session) 在前，slice 中，strings
 // 后，int 末 —— 让 fieldalignment 满意。
 type IssueCodeSessionResult struct {
-	Session     session.IssuedVisitor
-	Code        string
-	CodeLabel   string
-	VisitorName string
-	Chat        domain.Chat
-	Members     []domain.CodeMember
-	Quota       SessionQuota
+	Session            session.IssuedVisitor
+	Code               string
+	CodeLabel          string
+	VisitorName        string
+	Chat               domain.Chat
+	Members            []domain.CodeMember
+	SuggestedQuestions []string
+	Quota              SessionQuota
 }
 
 // codeSessionArtifacts —— issueCodeSessionArtifacts 返回打包，避免 3-return。
@@ -128,8 +129,9 @@ func finalizeCodeSession(
 	return IssueCodeSessionResult{
 		Session: a.Issued, Chat: a.Conv,
 		Code: code.Code, CodeLabel: code.Label, VisitorName: in.VisitorName,
-		Members: members,
-		Quota:   codeSessionQuota(code),
+		Members:            members,
+		SuggestedQuestions: code.SuggestedQuestions,
+		Quota:              codeSessionQuota(code),
 	}, nil
 }
 

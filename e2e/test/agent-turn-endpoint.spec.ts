@@ -46,9 +46,18 @@ async function setupOwner(playwright: Playwright): Promise<void> {
   });
   await createCode(request, csrf, {
     code: CODE, label: 'agentturn', assumed_role_id: role.id,
+    suggested_questions: SUGGESTED_QUESTIONS as unknown as string[],
   });
   await request.dispose();
 }
+
+// SUGGESTED_QUESTIONS —— H.13.b: code 上挂的初始 ghost text 来源。前端
+// 进 chat 取第一条当 ghost。
+const SUGGESTED_QUESTIONS = [
+  'What are you working on?',
+  'How do you spend your time?',
+  'What have you written lately?',
+] as const;
 
 async function postAgentTurn(
   request: APIRequestContext, sess: VisitorSession, body: object,
@@ -103,6 +112,13 @@ test.describe('agent turn endpoint · eino ADK driven', () => {
       await request.dispose();
     });
 
+  test('issueSession (code-mode) → suggested_questions 透到 response',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await assertSessionSuggestedQuestions(request);
+      await request.dispose();
+    });
+
   test('scripted corpus_search tool_use → tool_started + tool_completed',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -153,6 +169,20 @@ async function assertPlainTurn(request: APIRequestContext): Promise<void> {
   expect(doneFrame, 'has done frame').toBeDefined();
   const doneData = doneFrame?.data as { stop_reason?: string };
   expect(doneData?.stop_reason).toBe('end_turn');
+}
+
+async function assertSessionSuggestedQuestions(
+  request: APIRequestContext,
+): Promise<void> {
+  // H.13.b: code-issued session response 应当带 owner 设的
+  // suggested_questions；前端拿这条做初始 ghost text。
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  const sq = (sess as unknown as { suggested_questions?: string[] })
+    .suggested_questions;
+  expect(Array.isArray(sq)).toBe(true);
+  expect(sq).toEqual(SUGGESTED_QUESTIONS);
 }
 
 async function assertSuggestionsFrame(request: APIRequestContext): Promise<void> {

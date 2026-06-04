@@ -107,6 +107,10 @@ export interface PublicSessionResponse {
   readonly tool_specs?: readonly PublicSessionToolSpec[];
   readonly system_prompt_part_ids?: readonly string[];
   readonly system_prompt_persona?: string;
+  // H.13.b: code-mode visitor 进 chat 时浏览器拿初始 ghost text 列表，
+  // owner 建码时填的 suggested questions 透下来。code-mode 之外是空
+  // 数组 (backend 强制 [] 不 null)。
+  readonly suggested_questions?: readonly string[];
 }
 
 export type SSETokenEvent = { readonly kind: 'token'; readonly text: string };
