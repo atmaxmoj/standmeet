@@ -20,6 +20,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
+import { useSuggestionLogger } from '@/lib/page/use-suggestion-logger';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCurrentGhost, useSuggestionsStore } from '@/lib/visitor/suggestions-store';
 import { dispatchGhostKey, pickGhost } from '@/lib/visitor/ghost-text';
@@ -36,6 +37,7 @@ function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const ghost = useCurrentGhost();
   const cycleGhost = useSuggestionsStore((s) => s.cycle);
+  const ghostLogger = useSuggestionLogger();
 
   const onAsk = useCallback((q: string) => {
     setInput('');
@@ -45,7 +47,8 @@ function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
   const onAcceptGhost = useCallback((g: string) => {
     setInput(g);
     inputRef.current?.focus();
-  }, []);
+    ghostLogger.acceptCurrent();
+  }, [ghostLogger]);
 
   return (
     <>

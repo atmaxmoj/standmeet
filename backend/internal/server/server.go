@@ -55,6 +55,7 @@ type AdminDeps struct {
 	Keypairs       usecases.KeypairDeps
 	Corpus         usecases.CorpusDeps
 	Conversations  usecases.ConversationsDeps
+	Suggestions    usecases.SuggestionDeps
 	BYOAI          usecases.BYOAIDeps
 	Domains        usecases.AllowedDomainsDeps
 	AccessRequests usecases.AccessRequestsDeps
@@ -133,8 +134,11 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		CodesAdmin: adminroutes.CodesDeps{
 			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
 		},
-		PageAdmin:       adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
-		Conversations:   adminroutes.ConversationsDeps{Chats: deps.Admin.Conversations},
+		PageAdmin: adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
+		Conversations: adminroutes.ConversationsDeps{
+			Chats:       deps.Admin.Conversations,
+			Suggestions: deps.Admin.Suggestions,
+		},
 		BYOAI:           adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
 		Domains:         adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
 		AccessRequests:  adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},

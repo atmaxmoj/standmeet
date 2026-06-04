@@ -711,3 +711,35 @@ CREATE TABLE code_bookings (
 CREATE INDEX code_bookings_code_idx ON code_bookings(code_id);
 CREATE INDEX code_bookings_owner_idx ON code_bookings(owner_id, created_at DESC);
 CREATE INDEX code_bookings_conv_idx ON code_bookings(conversation_id);
+
+-- conversation_suggestions —— H.13.e: visitor 输入框 ghost text 的展示
+-- + accept 日志。owner 在 admin conversation 详情页能看每 turn 推了哪条
+-- ghost、visitor 有没有按 Tab 接受。
+--
+-- 写入路径:
+--   - shown: visitor 浏览器渲 ghost (data-ghost 非空) → POST sessions/{id}/
+--     suggestions/shown {ghost_text, source, turn_index}；server 落一行
+--     accepted_at = NULL，返 row id
+--   - accept: visitor 按 Tab → POST sessions/{id}/suggestions/{id}/accept
+--     → server 把 accepted_at = now()
+--
+-- source: 'initial' 来自 code.suggested_questions (visitor 第一进 chat 时)
+--         'followup' 来自 backend SSE `suggestions` 帧 (每轮 AI 答完追加)
+--
+-- ON DELETE CASCADE: conversation / owner 被删时整盘清掉；suggestion 没
+-- 独立读价值。
+CREATE TABLE conversation_suggestions (
+    id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id          uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    conversation_id   uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    turn_index        integer       NOT NULL DEFAULT 0,
+    ghost_text        text          NOT NULL,
+    source            text          NOT NULL,
+    shown_at          timestamptz   NOT NULL DEFAULT now(),
+    accepted_at       timestamptz
+);
+
+CREATE INDEX conversation_suggestions_conv_idx
+    ON conversation_suggestions(conversation_id, shown_at);
+CREATE INDEX conversation_suggestions_owner_idx
+    ON conversation_suggestions(owner_id, shown_at DESC);

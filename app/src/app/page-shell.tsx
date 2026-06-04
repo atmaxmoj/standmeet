@@ -32,6 +32,7 @@ import { useConsumeQuestionFromURL } from '@/lib/page/consume-question-url';
 import { useTheme } from '@/lib/page/use-theme';
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
+import { useSuggestionLogger } from '@/lib/page/use-suggestion-logger';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCurrentGhost, useSuggestionsStore } from '@/lib/visitor/suggestions-store';
 
@@ -61,6 +62,7 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   const inputRef = useRef<HTMLInputElement | null>(null);
   const ghost = useCurrentGhost();
   const cycleGhost = useSuggestionsStore((s) => s.cycle);
+  const ghostLogger = useSuggestionLogger();
 
   const onAsk = useCallback((q: string) => {
     setInput('');
@@ -77,7 +79,8 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   const onAcceptGhost = useCallback((g: string) => {
     setInput(g);
     inputRef.current?.focus();
-  }, []);
+    ghostLogger.acceptCurrent();
+  }, [ghostLogger]);
 
   return (
     <div className="min-h-screen flex flex-col">

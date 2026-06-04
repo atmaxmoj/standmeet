@@ -58,6 +58,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Conversations: usecases.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
+		Suggestions:    usecases.SuggestionDeps{Repo: d.suggestionRepo},
 		BYOAI:          usecases.BYOAIDeps{Owners: d.ownerRepo},
 		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
@@ -179,9 +180,10 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			GCal:        calendarClientAdapter{client: d.gcalClient},
 			AgentSkills: d.agentSkills,
 		},
-		Sessions: d.visitorStore,
-		Corpus:   d.corpus,
-		Log:      d.log,
+		Sessions:    d.visitorStore,
+		Corpus:      d.corpus,
+		Suggestions: usecases.SuggestionDeps{Repo: d.suggestionRepo},
+		Log:         d.log,
 	}
 }
 

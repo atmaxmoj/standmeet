@@ -6,9 +6,11 @@
 
 import { ModalShell } from '@/components/admin/modals/ModalShell';
 import {
+  deriveSuggestionView,
   pickTranscriptState,
   type ConvTranscript,
   type ConvTranscriptMessage,
+  type SuggestionLog,
 } from '@/lib/admin/use-conversations';
 
 type Props = {
@@ -26,6 +28,7 @@ export function ConvTranscriptModal({ transcript, onClose }: Props) {
     >
       <div className="px-7 py-6" data-testid="transcript-body">
         <TranscriptBody transcript={transcript} />
+        <SuggestionsBlock suggestions={transcript.suggestions} />
       </div>
     </ModalShell>
   );
@@ -160,4 +163,44 @@ function CitedTail({
 function formatTime(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
+
+// SuggestionsBlock —— H.13.e: owner 后台观测 ghost text 日志。code 对话
+// 才会有；其他 mode 空数组 → block 整段不渲。每行：text · source ·
+// shown_at · accepted? (accepted 时显勾 + 时间，否则灰 dash)。
+function SuggestionsBlock({ suggestions }: { suggestions: readonly SuggestionLog[] }) {
+  return suggestions.length === 0 ? null : (
+    <section className="mt-8 pt-6 border-t border-(--color-rule)" data-testid="transcript-suggestions">
+      <h3 className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
+        ghost text shown
+      </h3>
+      <ul className="space-y-2">
+        {suggestions.map((s) => (
+          <SuggestionRow key={s.id} log={s} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SuggestionRow({ log }: { log: SuggestionLog }) {
+  const v = deriveSuggestionView(log);
+  return (
+    <li
+      className="flex items-baseline gap-3 text-[13px]"
+      data-testid="transcript-suggestion-row"
+      data-source={log.source}
+      data-accepted={v.acceptedAttr}
+    >
+      <span className={`mono text-[9.5px] tracking-[0.12em] uppercase shrink-0 ${v.sourceCls}`}>
+        {log.source}
+      </span>
+      <span className="reading-tight italic text-(--color-ink) flex-1">
+        &ldquo;{log.ghost_text}&rdquo;
+      </span>
+      <span className="mono text-[10px] text-(--color-faint) shrink-0">
+        {v.acceptedMark}
+      </span>
+    </li>
+  );
 }

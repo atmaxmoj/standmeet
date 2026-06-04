@@ -29,10 +29,11 @@ import (
 
 // Handlers —— public routes deps.
 type Handlers struct {
-	Visitor  usecases.VisitorDeps
-	Sessions *session.VisitorSessionStore
-	Corpus   usecases.DialogCorpusLookup
-	Log      *slog.Logger
+	Visitor     usecases.VisitorDeps
+	Sessions    *session.VisitorSessionStore
+	Corpus      usecases.DialogCorpusLookup
+	Suggestions usecases.SuggestionDeps
+	Log         *slog.Logger
 }
 
 // Mount 挂 /api/v1/* 路由。caller 负责前缀。
@@ -46,6 +47,10 @@ func (h *Handlers) Mount(r chi.Router) {
 	// H.9: 新 agent turn 入口；走 eino ADK ChatModelAgent。SDK 在 H.10
 	// 切到这条；H.10 land 后 /llm/chat/stream 退役。
 	r.Post("/agent/turn", h.agentTurn())
+	// H.13.e: ghost text 日志写路径。shown 在浏览器渲 ghost 时一次性
+	// 写一行；accept 在 visitor 按 Tab 时调；owner admin 详情页读这些。
+	r.Post("/sessions/{id}/suggestions/shown", h.postSuggestionShown())
+	r.Post("/sessions/{id}/suggestions/{sid}/accept", h.postSuggestionAccept())
 }
 
 var visitorErrCases = []apierr.Case{

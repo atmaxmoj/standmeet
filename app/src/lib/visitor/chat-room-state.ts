@@ -4,6 +4,7 @@
 import { useCallback, useState } from 'react';
 
 import { useChat, type SessionMode } from '@/lib/page/use-chat';
+import { useSuggestionLogger } from '@/lib/page/use-suggestion-logger';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCurrentGhost, useSuggestionsStore } from '@/lib/visitor/suggestions-store';
 
@@ -30,6 +31,7 @@ export function useChatRoomInput(mode: SessionMode) {
   const [input, setInput] = useState('');
   const ghost = useCurrentGhost();
   const cycleGhost = useSuggestionsStore((s) => s.cycle);
+  const ghostLogger = useSuggestionLogger();
 
   const onAsk = useCallback((q: string) => {
     setInput('');
@@ -37,10 +39,11 @@ export function useChatRoomInput(mode: SessionMode) {
   }, [chat]);
 
   // H.13.d: Tab 接受 ghost → 填进 input 不自动 submit；visitor 自己决定
-  // 直接 send 还是继续编辑。
+  // 直接 send 还是继续编辑。H.13.e: 同时 fire accept 让 admin 后台日志。
   const onAcceptGhost = useCallback((g: string) => {
     setInput(g);
-  }, []);
+    ghostLogger.acceptCurrent();
+  }, [ghostLogger]);
 
   return { chat, exhausted, input, setInput, onAsk, ghost, onAcceptGhost, onCycleGhost: cycleGhost };
 }

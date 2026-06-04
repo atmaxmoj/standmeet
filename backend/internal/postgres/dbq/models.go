@@ -95,6 +95,17 @@ type Conversation struct {
 	SummaryMd     string
 }
 
+type ConversationSuggestion struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	ConversationID pgtype.UUID
+	TurnIndex      int32
+	GhostText      string
+	Source         string
+	ShownAt        pgtype.Timestamptz
+	AcceptedAt     pgtype.Timestamptz
+}
+
 type CustomPage struct {
 	ID                  pgtype.UUID
 	OwnerID             pgtype.UUID

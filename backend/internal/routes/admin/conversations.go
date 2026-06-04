@@ -23,7 +23,8 @@ import (
 
 // ConversationsDeps —— admin conversations handlers 依赖。
 type ConversationsDeps struct {
-	Chats usecases.ConversationsDeps
+	Chats       usecases.ConversationsDeps
+	Suggestions usecases.SuggestionDeps
 }
 
 type convSummaryView struct {
@@ -60,6 +61,19 @@ type convTranscriptResp struct {
 	Messages     []convMessageView `json:"messages"`
 	WikiRefs     []titledRefView   `json:"wiki_refs"`
 	OutputRefs   []titledRefView   `json:"output_refs"`
+	// H.13.e: per-turn ghost text 日志 (shown + 是否 Tab-accept)。
+	// code-mode 对话才会有；其他 mode 永远空数组。
+	Suggestions []suggestionView `json:"suggestions"`
+}
+
+type suggestionView struct {
+	AcceptedAt *string `json:"accepted_at,omitempty"`
+	ID         string  `json:"id"`
+	GhostText  string  `json:"ghost_text"`
+	Source     string  `json:"source"`
+	ShownAt    string  `json:"shown_at"`
+	TurnIndex  int32   `json:"turn_index"`
+	Accepted   bool    `json:"accepted"`
 }
 
 // MountConversations 挂 /conversations 子路由。
@@ -84,17 +98,37 @@ func (h *Handlers) listConversations() http.HandlerFunc {
 
 func (h *Handlers) getConversation() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		convID := chi.URLParam(r, "id")
-		out, err := usecases.GetConversationTranscript(
-			r.Context(), h.Conversations.Chats, ownerID, convID,
-		)
-		if err != nil {
-			handleConvErr(h.Log, w, err)
-			return
-		}
-		writeTranscript(h.Log, w, &out)
+		dispatchGetConversation(h, w, r)
 	}
+}
+
+func dispatchGetConversation(h *Handlers, w http.ResponseWriter, r *http.Request) {
+	ownerID := middleware.OwnerIDFrom(r.Context())
+	convID := chi.URLParam(r, "id")
+	out, err := usecases.GetConversationTranscript(
+		r.Context(), h.Conversations.Chats, ownerID, convID,
+	)
+	if err != nil {
+		handleConvErr(h.Log, w, err)
+		return
+	}
+	suggestions := loadSuggestionsForAdmin(h, r, ownerID, convID)
+	writeTranscript(h.Log, w, &out, suggestions)
+}
+
+// loadSuggestionsForAdmin —— suggestions 没必要阻塞 transcript；DB 报错
+// 返空数组、记一行日志让 admin 自己排。
+func loadSuggestionsForAdmin(
+	h *Handlers, r *http.Request, ownerID, convID string,
+) []domain.ConversationSuggestion {
+	rows, err := usecases.ListSuggestionsForConversation(
+		r.Context(), &h.Conversations.Suggestions, ownerID, convID,
+	)
+	if err != nil {
+		h.Log.Warn("list suggestions for transcript", "err", err)
+		return []domain.ConversationSuggestion{}
+	}
+	return rows
 }
 
 func handleConvErr(log *slog.Logger, w http.ResponseWriter, err error) {
@@ -122,6 +156,7 @@ func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []postgres.Chat
 
 func writeTranscript(
 	log *slog.Logger, w http.ResponseWriter, t *usecases.TranscriptBundle,
+	suggestions []domain.ConversationSuggestion,
 ) {
 	conv := bundleSummary(&t.ConvBundle)
 	msgs := make([]convMessageView, 0, len(t.ConvBundle.Messages))
@@ -135,9 +170,34 @@ func writeTranscript(
 		Messages:     msgs,
 		WikiRefs:     toRefViews(t.WikiRefs),
 		OutputRefs:   toRefViews(t.OutputRefs),
+		Suggestions:  toSuggestionViews(suggestions),
 	}); err != nil {
 		log.Error("encode conv transcript", "err", err)
 	}
+}
+
+func toSuggestionViews(rows []domain.ConversationSuggestion) []suggestionView {
+	out := make([]suggestionView, 0, len(rows))
+	for i := range rows {
+		out = append(out, toSuggestionView(&rows[i]))
+	}
+	return out
+}
+
+func toSuggestionView(s *domain.ConversationSuggestion) suggestionView {
+	v := suggestionView{
+		ID:        s.ID,
+		GhostText: s.GhostText,
+		Source:    string(s.Source),
+		TurnIndex: s.TurnIndex,
+		ShownAt:   s.ShownAt.Format(time.RFC3339),
+		Accepted:  s.Accepted(),
+	}
+	if s.AcceptedAt != nil {
+		a := s.AcceptedAt.Format(time.RFC3339)
+		v.AcceptedAt = &a
+	}
+	return v
 }
 
 func toRefViews(refs []usecases.TitledRef) []titledRefView {
