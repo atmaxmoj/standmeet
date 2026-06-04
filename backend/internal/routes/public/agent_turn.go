@@ -54,6 +54,7 @@ func runAgentTurn(
 		Cred: cred, Req: req,
 		Tools:          ts.Tools,
 		ProgressLabels: ts.Labels,
+		Mode:           auth.Data.Mode,
 	})
 }
 

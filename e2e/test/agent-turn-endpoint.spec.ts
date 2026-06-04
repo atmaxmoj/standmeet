@@ -96,6 +96,13 @@ test.describe('agent turn endpoint · eino ADK driven', () => {
       await request.dispose();
     });
 
+  test('code-accessor turn → suggestions 帧 (items 数组)',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await assertSuggestionsFrame(request);
+      await request.dispose();
+    });
+
   test('scripted corpus_search tool_use → tool_started + tool_completed',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -146,6 +153,24 @@ async function assertPlainTurn(request: APIRequestContext): Promise<void> {
   expect(doneFrame, 'has done frame').toBeDefined();
   const doneData = doneFrame?.data as { stop_reason?: string };
   expect(doneData?.stop_reason).toBe('end_turn');
+}
+
+async function assertSuggestionsFrame(request: APIRequestContext): Promise<void> {
+  // H.13.a: 持 code 的 visitor turn 收尾前 backend 调 inference.Generate
+  // 出 3 条 follow-up；mock 不返 JSON，所以 backend fallback emit items=[]
+  // —— 这里只验帧 type=suggestions 存在 + items 是数组 (内容可空)。
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  const { status, sse } = await postAgentTurn(request, sess, {
+    system: 'You are alice.',
+    user_message: 'hi',
+  });
+  expect(status).toBe(200);
+  const suggestions = sse.events.find((e) => e.type === 'suggestions');
+  expect(suggestions, 'suggestions frame present for code-accessor').toBeDefined();
+  const data = suggestions?.data as { items?: unknown };
+  expect(Array.isArray(data?.items)).toBe(true);
 }
 
 async function assertToolEvents(request: APIRequestContext): Promise<void> {

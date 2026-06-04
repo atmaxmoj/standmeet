@@ -1,20 +1,11 @@
 // agent_turn.go —— POST /api/v1/agent/turn 的核心：用 eino ADK
 // ChatModelAgent 跑一整轮 visitor agent loop (LLM ↔ tool 闭环)，把
-// 事件流翻成 pi unified SSE 推给浏览器。
+// 事件流翻成 pi unified SSE 推给浏览器：
 //
-// H.9 之前 loop 在浏览器 pi-agent-core；H.9 起 loop 搬到 backend，浏览
-// 器降为 event consumer (H.10)。Backend 持 ChatModelAgent + Runner +
-// 拉 BindingTool 给 ToolsConfig，每轮把 ADK 抛的 AgentEvent 翻成：
+//	event: text/tool_started/tool_completed/done/error
 //
-//	event: text         data: {"delta":"..."}
-//	event: tool_started data: {"name":"...","args":{},"progress_label":"..."}
-//	event: tool_completed data: {"name":"...","result":<raw>,"ok":bool}
-//	event: done         data: {"stop_reason":"end_turn|tool_use|max_tokens"}
-//	event: error        data: {"code":"...","message":"..."}
-//
-// H.9.a 只覆盖 text + done 两种事件 + error。tool 事件 / capability state
-// delta / throbber label / summarization middleware 是后续 slice (H.9.b /
-// H.11 / H.9b) 增量。
+// H.13 起 code-accessor session 在 done 前多 emit 一条 `suggestions`
+// (follow-up question chip)，逻辑拆在 agent_turn_suggestions.go。
 
 package inference
 
@@ -65,10 +56,15 @@ type AgentTurnRequest struct {
 // SSE 帧带 progress_label 字段下发给浏览器；前端直接读，不再走 zustand
 // registry 本地查表。caller (route handler) 装好；inference 不知道
 // 哪些 capability 注册了哪个 label，跨包 0 耦合。
+//
+// Mode —— visitor session mode (public / code / byoai)。H.13 起 code-accessor
+// session 在 turn 收尾前 emit `suggestions` SSE event (follow-up 问题
+// chip)；public / byoai 不出 chip。
 type AgentTurnInput struct {
 	Cred           *Cred
 	Req            *AgentTurnRequest
 	ProgressLabels map[string]string
+	Mode           string
 	Tools          []tool.BaseTool
 }
 
@@ -83,7 +79,9 @@ type sseSink struct {
 }
 
 // RunAgentTurn —— 跑一整轮 agent loop，向 sink.w 写 pi-style SSE。caller
-// (route handler) 已经做完 auth + body 解 + cred resolve。
+// (route handler) 已经做完 auth + body 解 + cred resolve。turn 主流程
+// 结束后 (state.assistantText 累完)，按 in.Mode 决定是否调 H.13 的
+// follow-up 生成 + emit `suggestions` SSE event；最后 emit done。
 func RunAgentTurn(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter, in *AgentTurnInput,
 ) {
@@ -93,9 +91,12 @@ func RunAgentTurn(
 		return
 	}
 	setStreamSSEHeaders(w)
-	consumeAgentEvents(ctx, &sseSink{
+	sink := &sseSink{
 		log: log, w: w, flusher: pickFlusher(w), labels: in.ProgressLabels,
-	}, iter)
+	}
+	state := consumeAgentEvents(ctx, sink, iter)
+	maybeEmitSuggestions(ctx, sink, in, state)
+	emitDone(sink.log, sink.w, sink.flusher, state.stop)
 }
 
 func buildAgentIterator(
@@ -146,27 +147,35 @@ func turnInputMessages(req *AgentTurnRequest) ([]*schema.Message, error) {
 	return msgs, nil
 }
 
+// turnState —— consumeAgentEvents 边走边累的转态。stop 是 ADK 给的
+// FinishReason 翻译；assistantText 是本 turn assistant 流的全部文字
+// (text delta + snapshot 累)，H.13 走它生成 follow-up suggestions。
+type turnState struct {
+	stop          string
+	assistantText string
+}
+
 // consumeAgentEvents —— ADK iter → SSE 翻译。每条 AgentEvent 看 Output
-// (assistant text streaming / tool result) / Err，对应 emit。流尾 emit
-// done 帧。
+// (assistant text streaming / tool result) / Err，对应 emit。返当 turn
+// 收尾的 state；emit done 由 caller 负责，让 caller 有机会在 done 帧
+// 之前 emit 补充事件 (suggestions / etc)。
 func consumeAgentEvents(
 	ctx context.Context, sink *sseSink, iter *adk.AsyncIterator[*adk.AgentEvent],
-) {
-	stop := "end_turn"
+) *turnState {
+	state := &turnState{stop: "end_turn"}
 	for {
 		ev, hasNext := iter.Next()
 		if !hasNext {
-			emitDone(sink.log, sink.w, sink.flusher, stop)
-			return
+			return state
 		}
-		if !routeAgentEvent(ctx, sink, ev, &stop) {
-			return
+		if !routeAgentEvent(ctx, sink, ev, state) {
+			return state
 		}
 	}
 }
 
 func routeAgentEvent(
-	ctx context.Context, sink *sseSink, ev *adk.AgentEvent, stop *string,
+	ctx context.Context, sink *sseSink, ev *adk.AgentEvent, state *turnState,
 ) bool {
 	if ev.Err != nil {
 		emitError(sink.log, sink.w, sink.flusher, ev.Err)
@@ -175,7 +184,7 @@ func routeAgentEvent(
 	if ev.Output == nil || ev.Output.MessageOutput == nil {
 		return true
 	}
-	return routeMessageVariant(ctx, sink, ev.Output.MessageOutput, stop)
+	return routeMessageVariant(ctx, sink, ev.Output.MessageOutput, state)
 }
 
 // routeMessageVariant —— event 里携带的消息分三类：
@@ -184,7 +193,7 @@ func routeAgentEvent(
 //   - Role=Assistant + 非 streaming：完整 final message，单条 emit + ToolCalls
 //   - Role=Tool：tool 执行结果，emit tool_completed
 func routeMessageVariant(
-	ctx context.Context, sink *sseSink, mv *adk.MessageVariant, stop *string,
+	ctx context.Context, sink *sseSink, mv *adk.MessageVariant, state *turnState,
 ) bool {
 	if mv.Role == schema.Tool {
 		emitToolCompleted(sink, mv)
@@ -194,17 +203,17 @@ func routeMessageVariant(
 		return true
 	}
 	if mv.IsStreaming {
-		return drainAssistantStream(ctx, sink, mv.MessageStream, stop)
+		return drainAssistantStream(ctx, sink, mv.MessageStream, state)
 	}
 	if mv.Message != nil {
-		emitAssistantSnapshot(sink, mv.Message, stop)
+		emitAssistantSnapshot(sink, mv.Message, state)
 	}
 	return true
 }
 
 func drainAssistantStream(
 	ctx context.Context, sink *sseSink,
-	stream *schema.StreamReader[*schema.Message], stop *string,
+	stream *schema.StreamReader[*schema.Message], state *turnState,
 ) bool {
 	defer stream.Close()
 	accum := newAssistantAccum()
@@ -221,25 +230,27 @@ func drainAssistantStream(
 			emitError(sink.log, sink.w, sink.flusher, err)
 			return false
 		}
-		processAssistantChunk(sink, chunk, accum, stop)
+		processAssistantChunk(sink, chunk, accum, state)
 	}
 }
 
 func processAssistantChunk(
-	sink *sseSink, chunk *schema.Message, accum *assistantAccum, stop *string,
+	sink *sseSink, chunk *schema.Message, accum *assistantAccum, state *turnState,
 ) {
 	if chunk.Content != "" {
 		emitTextDelta(sink.log, sink.w, sink.flusher, chunk.Content)
+		state.assistantText += chunk.Content
 	}
 	accumulateAssistantToolCalls(chunk.ToolCalls, accum)
 	if chunk.ResponseMeta != nil && chunk.ResponseMeta.FinishReason != "" {
-		*stop = mapFinishReason(chunk.ResponseMeta.FinishReason)
+		state.stop = mapFinishReason(chunk.ResponseMeta.FinishReason)
 	}
 }
 
-func emitAssistantSnapshot(sink *sseSink, msg *schema.Message, stop *string) {
+func emitAssistantSnapshot(sink *sseSink, msg *schema.Message, state *turnState) {
 	if msg.Content != "" {
 		emitTextDelta(sink.log, sink.w, sink.flusher, msg.Content)
+		state.assistantText += msg.Content
 	}
 	if len(msg.ToolCalls) > 0 {
 		accum := newAssistantAccum()
@@ -247,7 +258,7 @@ func emitAssistantSnapshot(sink *sseSink, msg *schema.Message, stop *string) {
 		emitToolStarted(sink, accum)
 	}
 	if msg.ResponseMeta != nil && msg.ResponseMeta.FinishReason != "" {
-		*stop = mapFinishReason(msg.ResponseMeta.FinishReason)
+		state.stop = mapFinishReason(msg.ResponseMeta.FinishReason)
 	}
 }
 
