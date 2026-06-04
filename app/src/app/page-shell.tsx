@@ -103,7 +103,10 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
             onCycleGhost={cycleGhost}
           />
           {chat.dialogs.length > 0 && (
-            <ConversationDeck ownerHandle={owner.handle} dialogs={chat.dialogs} onReset={chat.reset} />
+            <ConversationDeck
+              ownerHandle={owner.handle} dialogs={chat.dialogs}
+              onReset={chat.reset} onAsk={onAsk}
+            />
           )}
           <QuickAskDeck
             examples={content.hero_examples}

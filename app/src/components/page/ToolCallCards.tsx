@@ -14,6 +14,7 @@
 
 'use client';
 
+import { AskVisitorCard } from '@/components/page/AskVisitorCard';
 import {
   pickSearchHits, pickSlots, pickBookConfirmation,
   shouldRenderCall, cardKindFor, jsonPretty,
@@ -23,25 +24,62 @@ import { useBookingsRemaining } from '@/lib/page/use-booking-quota';
 import type { ToolCallView } from '@/lib/page/use-chat';
 import styles from '@/components/page/ToolCallCards.module.css';
 
-export function ToolCallCards({ calls }: { calls: readonly ToolCallView[] }) {
+interface ToolCallCardsProps {
+  calls: readonly ToolCallView[];
+  // dialogID + onAsk —— I.1: ask_visitor 卡需要知道 dialog id (用来跟
+  // store 去重) 以及把 visitor 选项 forward 进下一 turn。其他 card 不用。
+  // 旧 caller 没传 onAsk → ask_visitor card 不渲 (跟"功能未启用"等价)。
+  dialogID?: string;
+  onAsk?: (q: string) => void;
+}
+
+export function ToolCallCards({ calls, dialogID, onAsk }: ToolCallCardsProps) {
   const visible = calls.filter(shouldRenderCall);
   return visible.length === 0 ? null : (
     <div className={styles['stack']} data-testid="tool-call-cards">
-      {visible.map((c, i) => <ToolCallCard key={`${c.name}-${i}`} call={c} />)}
+      {visible.map((c, i) => (
+        <ToolCallCard
+          key={`${c.name}-${i}`} call={c}
+          dialogID={dialogID} onAsk={onAsk}
+        />
+      ))}
     </div>
   );
 }
 
-const CARD_RENDERERS: Record<'search' | 'slots' | 'booked' | 'dump', (c: ToolCallView) => React.ReactElement | null> = {
+const CARD_RENDERERS: Record<
+  Exclude<ReturnType<typeof cardKindFor>, 'none' | 'ask'>,
+  (c: ToolCallView) => React.ReactElement | null
+> = {
   search: (call) => <SearchHitsCard call={call} />,
   slots:  (call) => <SlotsCard call={call} />,
   booked: (call) => <BookCard call={call} />,
   dump:   (call) => <GenericDumpCard call={call} />,
 };
 
-function ToolCallCard({ call }: { call: ToolCallView }) {
+function ToolCallCard({ call, dialogID, onAsk }: {
+  call: ToolCallView; dialogID?: string; onAsk?: (q: string) => void;
+}) {
   const kind = cardKindFor(call.name);
-  return kind === 'none' ? null : CARD_RENDERERS[kind](call);
+  return kind === 'none' ? null : <ToolCallDispatch
+    kind={kind} call={call} dialogID={dialogID} onAsk={onAsk}
+  />;
+}
+
+function ToolCallDispatch({ kind, call, dialogID, onAsk }: {
+  kind: Exclude<ReturnType<typeof cardKindFor>, 'none'>;
+  call: ToolCallView; dialogID?: string; onAsk?: (q: string) => void;
+}) {
+  return kind === 'ask' ? <AskVisitorOrNothing
+    call={call} dialogID={dialogID} onAsk={onAsk}
+  /> : CARD_RENDERERS[kind](call);
+}
+
+function AskVisitorOrNothing({ call, dialogID, onAsk }: {
+  call: ToolCallView; dialogID?: string; onAsk?: (q: string) => void;
+}) {
+  return dialogID === undefined || onAsk === undefined ? null
+    : <AskVisitorCard call={call} dialogID={dialogID} onAsk={onAsk} />;
 }
 
 function SearchHitsCard({ call }: { call: ToolCallView }) {

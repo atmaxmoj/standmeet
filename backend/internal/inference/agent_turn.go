@@ -64,6 +64,10 @@ type AgentTurnInput struct {
 	Cred           *Cred
 	Req            *AgentTurnRequest
 	ProgressLabels map[string]string
+	// ReturnDirectly —— I.1: tool name → true 表示调完直接结束 agent
+	// loop，不再多转一轮 LLM (ask_visitor 这种 echo-only tool 用)。
+	// nil / 空 map = 全部 tool 走默认 react 循环。
+	ReturnDirectly map[string]bool
 	Mode           string
 	Tools          []tool.BaseTool
 }
@@ -120,6 +124,7 @@ func buildAgentIterator(
 		Model:       cm,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: in.Tools},
+			ReturnDirectly:  in.ReturnDirectly,
 		},
 		MaxIterations: 8,
 		Handlers:      []adk.ChatModelAgentMiddleware{mw},

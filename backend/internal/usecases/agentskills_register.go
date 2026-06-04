@@ -21,4 +21,7 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps *VisitorDeps) {
 	reg.MustRegister(newCalendarBookCapability(deps))
 	reg.MustRegister(newSkillRunnerCapability(deps))
 	reg.MustRegister(newExtMCPCapability(deps))
+	// I.1: ask_visitor 是 deps-less echo tool；所有 mode 都暴露，AI 自决
+	// 何时调，调完 eino ADK ReturnDirectly 直接结束 agent loop。
+	reg.MustRegister(newAskVisitorCapability())
 }

@@ -54,6 +54,7 @@ func runAgentTurn(
 		Cred: cred, Req: req,
 		Tools:          ts.Tools,
 		ProgressLabels: ts.Labels,
+		ReturnDirectly: ts.ReturnDirectly,
 		Mode:           auth.Data.Mode,
 	})
 }
@@ -62,9 +63,10 @@ func runAgentTurn(
 // max=2 限制。bindings 仅给 handler defer close 用；inference 不接它。
 // 字段顺序按 govet fieldalignment 排：map (8 ptr bytes) 在前，slice 在后。
 type visitorToolset struct {
-	Labels   map[string]string
-	Bindings []*agentskills.Binding
-	Tools    []tool.BaseTool
+	Labels         map[string]string
+	ReturnDirectly map[string]bool
+	Bindings       []*agentskills.Binding
+	Tools          []tool.BaseTool
 }
 
 func resolveAgentTurnCred(
@@ -102,5 +104,8 @@ func collectVisitorTools(
 	in := assembleInputFromSession(auth.Data, convID)
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
 	fr := agentskills.FlattenBindings(bindings)
-	return &visitorToolset{Bindings: bindings, Tools: fr.Tools, Labels: fr.Labels}
+	return &visitorToolset{
+		Bindings: bindings, Tools: fr.Tools,
+		Labels: fr.Labels, ReturnDirectly: fr.ReturnDirectly,
+	}
 }

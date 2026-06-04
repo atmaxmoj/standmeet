@@ -32,7 +32,7 @@ export function ChatRoom({ owner, mode }: Props) {
       <main className="flex-1 flex flex-col">
         <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col">
           <ChatWelcome owner={owner} d={derived} />
-          <ChatTranscript dialogs={ci.chat.dialogs} />
+          <ChatTranscript dialogs={ci.chat.dialogs} onAsk={ci.onAsk} />
           <ChatComposer
             input={ci.input} setInput={ci.setInput} onSubmit={ci.onAsk}
             pending={ci.chat.pending} exhausted={ci.exhausted}
@@ -130,17 +130,19 @@ function ByoaiWelcome({ handle, provider }: { handle: string; provider: string }
 
 type Dialog = ReturnType<typeof useChatRoomInput>['chat']['dialogs'][number];
 
-function ChatTranscript({ dialogs }: { dialogs: readonly Dialog[] }) {
+function ChatTranscript({ dialogs, onAsk }: {
+  dialogs: readonly Dialog[]; onAsk: (q: string) => void;
+}) {
   const endRef = useRef<HTMLDivElement | null>(null);
   return (
     <div className="flex-1">
-      {dialogs.map((d, i) => <DialogCard key={d.id ?? i} dialog={d} />)}
+      {dialogs.map((d, i) => <DialogCard key={d.id ?? i} dialog={d} onAsk={onAsk} />)}
       <div ref={endRef} />
     </div>
   );
 }
 
-function DialogCard({ dialog }: { dialog: Dialog }) {
+function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => void }) {
   return (
     <article className="pt-10 pb-10 border-b border-(--color-rule)">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase mb-3 flex items-baseline gap-3">
@@ -150,7 +152,7 @@ function DialogCard({ dialog }: { dialog: Dialog }) {
         {dialog.q}
       </p>
       <ToolThrobbers names={dialog.toolStartedNames} />
-      <ToolCallCards calls={dialog.toolCalls} />
+      <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
       {dialog.pending ? <ThinkingDots /> : <AnswerView answer={dialog.answer} />}
     </article>
   );

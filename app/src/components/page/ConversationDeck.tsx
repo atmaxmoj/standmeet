@@ -23,9 +23,12 @@ type Props = {
   ownerHandle: string;
   dialogs: Dialog[];
   onReset: () => void;
+  // onAsk —— I.1: ask_visitor 卡里的 button click 走这条把选中项当作下
+  // 一 turn 投出去；不传 → ask_visitor 卡不渲 (功能未启用)。
+  onAsk?: (q: string) => void;
 };
 
-export function ConversationDeck({ ownerHandle, dialogs, onReset }: Props) {
+export function ConversationDeck({ ownerHandle, dialogs, onReset, onAsk }: Props) {
   return (
     <section id="conversation" className="mt-16" data-testid="conversation-deck">
       <DeckHeader
@@ -41,19 +44,27 @@ export function ConversationDeck({ ownerHandle, dialogs, onReset }: Props) {
           </button>
         }
       />
-      {dialogs.map((d, i) => <DialogCard key={d.id} idx={i} dialog={d} ownerHandle={ownerHandle} />)}
+      {dialogs.map((d, i) => (
+        <DialogCard
+          key={d.id} idx={i} dialog={d}
+          ownerHandle={ownerHandle} onAsk={onAsk}
+        />
+      ))}
     </section>
   );
 }
 
-function DialogCard({ idx, dialog, ownerHandle }: { idx: number; dialog: Dialog; ownerHandle: string }) {
+function DialogCard({ idx, dialog, ownerHandle, onAsk }: {
+  idx: number; dialog: Dialog; ownerHandle: string;
+  onAsk?: (q: string) => void;
+}) {
   return (
     <article id={`qa-${idx}`} className="pt-10 pb-10 border-b border-(--color-rule)">
       <VisitorLabel time={dialog.time} />
       <p className="font-serif italic mb-7 text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] [text-wrap:pretty]">
         {dialog.q}
       </p>
-      <AssistantBody dialog={dialog} ownerHandle={ownerHandle} />
+      <AssistantBody dialog={dialog} ownerHandle={ownerHandle} onAsk={onAsk} />
     </article>
   );
 }
@@ -67,13 +78,15 @@ function VisitorLabel({ time }: { time: string }) {
   );
 }
 
-function AssistantBody({ dialog, ownerHandle }: { dialog: Dialog; ownerHandle: string }) {
+function AssistantBody({ dialog, ownerHandle, onAsk }: {
+  dialog: Dialog; ownerHandle: string; onAsk?: (q: string) => void;
+}) {
   return (
     <>
       <ToolThrobbers names={dialog.toolStartedNames} />
       {dialog.pending
         ? <Thinking />
-        : <AnswerOrError dialog={dialog} ownerHandle={ownerHandle} />}
+        : <AnswerOrError dialog={dialog} ownerHandle={ownerHandle} onAsk={onAsk} />}
     </>
   );
 }
@@ -103,11 +116,13 @@ function ToolThrobberRow({ name }: { name: string }) {
   );
 }
 
-function AnswerOrError({ dialog, ownerHandle }: { dialog: Dialog; ownerHandle: string }) {
+function AnswerOrError({ dialog, ownerHandle, onAsk }: {
+  dialog: Dialog; ownerHandle: string; onAsk?: (q: string) => void;
+}) {
   return (
     <>
       <AssistantLabel ownerHandle={ownerHandle} />
-      <ToolCallCards calls={dialog.toolCalls} />
+      <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
       {dialog.answer && <Answer answer={dialog.answer} />}
     </>
   );

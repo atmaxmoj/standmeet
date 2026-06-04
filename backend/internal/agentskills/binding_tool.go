@@ -34,17 +34,23 @@ var (
 
 // BindingTool —— 一个 Capability 暴露的一个 LLM tool。
 //
-// 构造方式：调 NewTool(...)；不准直接 struct literal —— 避免 caller 忘
-// 设 InputSchema 或不同步 Tool.Info() 跟 sidecar 的字段。
+// 构造方式：调 NewTool(...) 或 NewReturnDirectlyTool(...)；不准直接
+// struct literal —— 避免 caller 忘设 InputSchema 或不同步 Tool.Info()
+// 跟 sidecar 的字段。
 //
 // Name 是 Tool.Info().Name 的快照，NewTool 注册时一并 stash —— 让 dispatcher
 // (routes/public/tools.go findToolInBinding / sys/diag_session 的 appendBinding
 // ToolSpecs) 按 name 找 tool 时不必每条都过一遍 ctx + Info() 失败兜底。
+//
+// ReturnDirectly —— I.1: ask_visitor 那种 tool 调完不该继续 LLM 转圈，
+// 直接把 result 当 final 推浏览器；用 eino ADK ToolsConfig.ReturnDirectly
+// map 实现。NewReturnDirectlyTool 构造时置 true；老 NewTool 默认 false。
 type BindingTool struct {
-	Tool          tool.InvokableTool
-	Name          string
-	ProgressLabel string
-	InputSchema   json.RawMessage
+	Tool           tool.InvokableTool
+	Name           string
+	ProgressLabel  string
+	InputSchema    json.RawMessage
+	ReturnDirectly bool
 }
 
 // RunFn —— capability 写的 tool 执行闭包。args 是 LLM 喂的 JSON arguments
@@ -77,6 +83,18 @@ func NewTool(
 		ProgressLabel: progressLabel,
 		InputSchema:   schemaRaw,
 	}
+}
+
+// NewReturnDirectlyTool —— 跟 NewTool 一样但置 ReturnDirectly=true。
+// agent loop 调完直接返，不再多转一圈 LLM；run fn 应该 echo (或者
+// 算出一段可直接渲的 result string)。
+func NewReturnDirectlyTool(
+	name, description, progressLabel string,
+	schemaRaw json.RawMessage, run RunFn,
+) BindingTool {
+	b := NewTool(name, description, progressLabel, schemaRaw, run)
+	b.ReturnDirectly = true
+	return b
 }
 
 // paramsFromRaw —— 跟 inference.proxy_wire 同套解析逻辑：空 schema → nil,
@@ -116,27 +134,38 @@ func (t *funcTool) InvokableRun(
 }
 
 // FlattenResult is the return of FlattenBindings: 一份 eino tool 集合 +
-// 一份 name → progress_label 表。Struct return 是为同时消 gocritic
-// unnamedResult / nonamedreturns 两个互斥 lint。字段顺序按 fieldalignment
-// 排：map (8 pointer bytes) 在前，slice 在后。
+// 一份 name → progress_label 表 + I.1 ReturnDirectly 名集合。Struct return
+// 是为同时消 gocritic unnamedResult / nonamedreturns 两个互斥 lint。
+// 字段顺序按 fieldalignment 排：map (8 pointer bytes) 在前，slice 在后。
 type FlattenResult struct {
-	Labels map[string]string
-	Tools  []tool.BaseTool
+	Labels         map[string]string
+	ReturnDirectly map[string]bool
+	Tools          []tool.BaseTool
 }
 
 // FlattenBindings 走每个 Binding 的 BindingTool 列表，抽 Tool 拼成
-// []tool.BaseTool 喂 eino，同时收集 ProgressLabel 进 name 索引表给
-// SSE tool_started 帧用 (H.11)。
+// []tool.BaseTool 喂 eino，同时收集 ProgressLabel + ReturnDirectly 名
+// 表 (SSE tool_started 帧 + eino ADK ToolsConfig 用)。
 func FlattenBindings(bindings []*Binding) FlattenResult {
-	tools := make([]tool.BaseTool, 0)
-	labels := map[string]string{}
+	out := FlattenResult{
+		Labels:         map[string]string{},
+		ReturnDirectly: map[string]bool{},
+		Tools:          make([]tool.BaseTool, 0),
+	}
 	for _, b := range bindings {
 		for i := range b.Tools {
-			tools = append(tools, b.Tools[i].Tool)
-			if b.Tools[i].ProgressLabel != "" {
-				labels[b.Tools[i].Name] = b.Tools[i].ProgressLabel
-			}
+			absorbTool(&out, &b.Tools[i])
 		}
 	}
-	return FlattenResult{Labels: labels, Tools: tools}
+	return out
+}
+
+func absorbTool(out *FlattenResult, t *BindingTool) {
+	out.Tools = append(out.Tools, t.Tool)
+	if t.ProgressLabel != "" {
+		out.Labels[t.Name] = t.ProgressLabel
+	}
+	if t.ReturnDirectly {
+		out.ReturnDirectly[t.Name] = true
+	}
 }

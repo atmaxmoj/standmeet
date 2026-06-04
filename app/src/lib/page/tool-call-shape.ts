@@ -76,14 +76,16 @@ export function pickBookConfirmation(raw: unknown): BookConfirmation | null {
 //   - 'search'  → SearchHitsCard (corpus_search / corpus_list)
 //   - 'slots'   → SlotsCard (calendar_list_slots，G-7)
 //   - 'booked'  → BookCard (calendar_book 成功 confirmation，G-7)
+//   - 'ask'     → AskVisitorCard (I.1，eino ReturnDirectly tool)
 //   - 'dump'    → GenericDumpCard (skill_* / ext_* debug 框)
 //   - 'none'    → 不渲
-export type CardKind = 'search' | 'slots' | 'booked' | 'dump' | 'none';
+export type CardKind = 'search' | 'slots' | 'booked' | 'ask' | 'dump' | 'none';
 
 export function cardKindFor(name: string): CardKind {
   if (name === 'corpus_search' || name === 'corpus_list') return 'search';
   if (name === 'calendar_list_slots') return 'slots';
   if (name === 'calendar_book') return 'booked';
+  if (name === 'ask_visitor') return 'ask';
   if (name.startsWith('skill_') || name.startsWith('ext_')) return 'dump';
   return 'none';
 }
@@ -131,4 +133,47 @@ export function jsonPretty(v: unknown): string {
   } catch {
     return String(v);
   }
+}
+
+// AskVisitorKind —— I.1 ask_visitor tool 的 widget 种类。yes_no 前端固
+// 渲 Yes/No 两个按钮 (不读 options)；radio/multi 必读 options。
+export type AskVisitorKind = 'radio' | 'multi' | 'yes_no';
+
+// AskVisitorPayload —— ask_visitor tool_result 的 echo (backend 直接把
+// LLM 的 args 原样推回；前端按 kind dispatch 渲对应 widget)。allowChat
+// 默认 false。options 在 kind=yes_no 时忽略；为方便组件渲染统一为字符
+// 串数组兜底空 []。
+export interface AskVisitorPayload {
+  question: string;
+  kind: AskVisitorKind;
+  options: readonly string[];
+  allowChat: boolean;
+}
+
+// pickAskVisitor —— narrow ask_visitor result 到 AskVisitorPayload。
+// 任一必填字段缺 / kind 非法 → null，UI 不渲。
+export function pickAskVisitor(raw: unknown): AskVisitorPayload | null {
+  if (!isRecordShape(raw)) return null;
+  const question = readStrShape(raw['question']);
+  const kind = readAskKind(raw['kind']);
+  if (question === '' || kind === null) return null;
+  return {
+    question, kind,
+    options: pickAskOptions(raw['options']),
+    allowChat: raw['allow_chat'] === true,
+  };
+}
+
+function readAskKind(v: unknown): AskVisitorKind | null {
+  if (v === 'radio' || v === 'multi' || v === 'yes_no') return v;
+  return null;
+}
+
+function pickAskOptions(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const opt of v) {
+    if (typeof opt === 'string' && opt !== '') out.push(opt);
+  }
+  return out;
 }
