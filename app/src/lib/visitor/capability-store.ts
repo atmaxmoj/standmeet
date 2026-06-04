@@ -9,15 +9,15 @@
 //   - SessionStrip / banner 渲 quota / disabled cap 提示
 //   - agent-core 装 LLM toolset 时按 enabled cap 过滤
 //
-// agent-core 的 CapabilityStateSource port 通过 zustandCapabilityStateSource
-// 适配器读这里。
+// H.10 之后 agent loop 搬 backend，原来的 zustandCapabilityStateSource()
+// adapter (给 agent-core CapabilityStateSource port 用) 已无人 import，删
+// 干净。VisitorTurnAgent 通过 SSE capability_state_changed 事件接收，不再
+// 走 port pull 模型。
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
-import type {
-  CapabilityState, CapabilityStateSource,
-} from '@standmeet/agent-core';
+import type { CapabilityState } from '@standmeet/agent-core';
 
 interface CapabilityStoreState {
   states: readonly CapabilityState[];
@@ -32,17 +32,3 @@ export const useCapabilityStore = create<CapabilityStoreState>()(
     clear: () => set({ states: [] }),
   })),
 );
-
-// zustandCapabilityStateSource —— agent-core CapabilityStateSource port
-// 适配器。current() 同步读 store；onChange 走 zustand subscribe。
-export function zustandCapabilityStateSource(): CapabilityStateSource {
-  return {
-    current: () => useCapabilityStore.getState().states,
-    onChange: (cb) => {
-      return useCapabilityStore.subscribe(
-        (s) => s.states,
-        (states) => { cb(states); },
-      );
-    },
-  };
-}

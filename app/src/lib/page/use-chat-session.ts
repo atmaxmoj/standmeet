@@ -13,6 +13,7 @@ import {
 import { readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useSuggestionsStore } from '@/lib/visitor/suggestions-store';
 import { useToolSpecsStore } from '@/lib/visitor/tool-specs-store';
 
 export type SessionMode = 'public' | 'code' | 'byoai';
@@ -43,6 +44,9 @@ export async function ensureSession(
   useCapabilityStore.getState().setStates(extractCapabilities(issued));
   // G-8: tool_specs 进 throbber-label registry，components 读 progress_label
   useToolSpecsStore.getState().setSpecs(issued.tool_specs ?? []);
+  // H.13.d: code-mode 拿到 suggested_questions 当初始 ghost 队列；非 code
+  // mode backend 给 []，seed 空数组等于 reset，ghost 自然不渲。
+  useSuggestionsStore.getState().seed(issued.suggested_questions ?? []);
   return sess;
 }
 
@@ -90,7 +94,7 @@ async function issueFresh(deps: SessionDeps): Promise<PublicSessionResponse> {
 // G-1 fix: persist + restore capabilities + tool_specs (D-5 lost them).
 type StoredFull = Pick<PublicSessionResponse,
   'session_token' | 'conversation_id' | 'capabilities' | 'tool_specs' |
-  'system_prompt_part_ids' | 'system_prompt_persona'>;
+  'system_prompt_part_ids' | 'system_prompt_persona' | 'suggested_questions'>;
 
 function reuseStored(stored: StoredFull): PublicSessionResponse {
   return {
@@ -100,6 +104,7 @@ function reuseStored(stored: StoredFull): PublicSessionResponse {
     tool_specs: stored.tool_specs,
     system_prompt_part_ids: stored.system_prompt_part_ids,
     system_prompt_persona: stored.system_prompt_persona,
+    suggested_questions: stored.suggested_questions,
   };
 }
 

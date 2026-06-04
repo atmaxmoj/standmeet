@@ -19,6 +19,10 @@ type Props = {
   pending: boolean;
   lockedReason: string | null;
   inputRef: RefObject<HTMLInputElement | null>;
+  // H.13.d: ghost text 三件套从 PageShell 透过来，code-accessor 才非 null。
+  ghost: string | null;
+  onAcceptGhost: (g: string) => void;
+  onCycleGhost: () => void;
 };
 
 export function Hero(props: Props) {
@@ -34,6 +38,9 @@ export function Hero(props: Props) {
           disabled={props.pending}
           lockedReason={props.lockedReason}
           inputRef={props.inputRef}
+          ghost={props.ghost}
+          onAcceptGhost={props.onAcceptGhost}
+          onCycleGhost={props.onCycleGhost}
         />
         <Examples items={props.content.hero_examples} onPick={props.onAsk} />
       </div>

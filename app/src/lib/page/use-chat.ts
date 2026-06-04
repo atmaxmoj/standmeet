@@ -17,7 +17,7 @@
 
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { VisitorTurnAgent } from '@standmeet/agent-core';
 import type {
   AgentEvent, EventObserver, Message,
@@ -29,6 +29,7 @@ import {
 
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
+import { loadStoredSession } from '@/lib/gate/use-gate';
 import { recordDialog } from '@/lib/page/dialog';
 import {
   ensureSession,
@@ -37,6 +38,7 @@ import {
 } from '@/lib/page/use-chat-session';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useSuggestionsStore } from '@/lib/visitor/suggestions-store';
 
 export type SessionMode = SessionModeT;
 
@@ -100,6 +102,15 @@ export function useChat(deps: Deps): ChatState {
   const messageHistRef = useRef<Message[]>([]);
   const counter = useRef(0);
 
+  // H.13.d: mount 时若 localStorage 已有 stored session (返回 visitor /
+  // ?code= 已被 useAbsorbCodeFromURL 持久化)，把 suggested_questions 种
+  // 进 ghost 队列；ensureSession 在 ask 时才跑，初始 chat 屏要 ghost 看
+  // 得见就靠这一勺。
+  useEffect(() => {
+    const stored = loadStoredSession();
+    useSuggestionsStore.getState().seed(stored?.suggested_questions ?? []);
+  }, []);
+
   const nextID = useCallback((): string => {
     counter.current += 1;
     return `d${counter.current}`;
@@ -115,6 +126,9 @@ export function useChat(deps: Deps): ChatState {
     setDialogs([]);
     setError(null);
     messageHistRef.current = [];
+    // H.13.d: 新 chat session 重新接 ghost；不 clear 会把上一段 follow-up
+    // 队列带过来。
+    useSuggestionsStore.getState().clear();
   }, []);
 
   return { dialogs, pending, error, ask, reset };
@@ -212,6 +226,13 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
   }
   if (ev.type === 'capability_state_changed') {
     useCapabilityStore.getState().setStates(ev.states);
+    return;
+  }
+  if (ev.type === 'suggestions_received') {
+    // H.13.d: code-accessor 收到 backend agent_turn 末尾的 follow-up
+    // 3 条，append 到 ghost 队列尾巴；非 code visitor backend 不发，
+    // 这里 dead branch。
+    useSuggestionsStore.getState().append(ev.items);
   }
 }
 

@@ -6,6 +6,8 @@
 
 import { useRef } from 'react';
 
+import { dispatchGhostKey, pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
+
 import Link from 'next/link';
 
 import { SessionStrip } from '@/components/visitor/SessionStrip';
@@ -21,20 +23,21 @@ type Props = { owner: PublicOwnerView; mode: SessionMode };
 
 export function ChatRoom({ owner, mode }: Props) {
   const derived = useChatRoomDerived();
-  const { chat, exhausted, input, setInput, onAsk } = useChatRoomInput(mode);
+  const ci = useChatRoomInput(mode);
   return (
     <div className="min-h-screen flex flex-col" data-testid="chatroom">
       <SessionStrip />
       <VisitorNamePicker />
-      <ChatRoomHeader handle={owner.handle} hasDialogs={chat.dialogs.length > 0} onReset={chat.reset} />
+      <ChatRoomHeader handle={owner.handle} hasDialogs={ci.chat.dialogs.length > 0} onReset={ci.chat.reset} />
       <main className="flex-1 flex flex-col">
         <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col">
           <ChatWelcome owner={owner} d={derived} />
-          <ChatTranscript dialogs={chat.dialogs} />
+          <ChatTranscript dialogs={ci.chat.dialogs} />
           <ChatComposer
-            input={input} setInput={setInput} onSubmit={onAsk}
-            pending={chat.pending} exhausted={exhausted}
-            showStarters={chat.dialogs.length === 0} mode={derived.mode}
+            input={ci.input} setInput={ci.setInput} onSubmit={ci.onAsk}
+            pending={ci.chat.pending} exhausted={ci.exhausted}
+            showStarters={ci.chat.dialogs.length === 0} mode={derived.mode}
+            ghost={ci.ghost} onAcceptGhost={ci.onAcceptGhost} onCycleGhost={ci.onCycleGhost}
           />
           <ChatFootnote handle={owner.handle} mode={derived.mode} />
         </div>
@@ -240,35 +243,45 @@ function CitationRow({ c }: { c: Citation }) {
 const CODED_STARTERS = ['Walk me through your background.', 'What did you actually own at your last role?', 'What’s a take you hold that most peers disagree with?'];
 const BYOAI_STARTERS = ['What are you working on right now?', 'How do you think about AI replacing engineers?'];
 
-function ChatComposer({ input, setInput, onSubmit, pending, exhausted, showStarters, mode }: {
+// ComposerProps —— ChatRoom 那条 sticky 输入框的全部 prop。ghost 三件套
+// 是 H.13.d 加的；code-accessor visitor 才会收到非 null ghost。
+type ComposerProps = {
   input: string; setInput: (v: string) => void; onSubmit: (q: string) => void;
-  pending: boolean; exhausted: boolean; showStarters: boolean; mode: string;
-}) {
+  pending: boolean; exhausted: boolean;
+  ghost: string | null; onAcceptGhost: (g: string) => void; onCycleGhost: () => void;
+};
+
+function ChatComposer({ showStarters, mode, ...rest }: ComposerProps & { showStarters: boolean; mode: string }) {
   const starters = mode === 'byoai' ? BYOAI_STARTERS : CODED_STARTERS;
   return (
     <div className="sticky bottom-0 z-30 bg-(--color-paper)/95 backdrop-blur border-t border-(--color-rule) pt-4 pb-5">
-      {showStarters && <StarterChips starters={starters} onPick={onSubmit} pending={pending} />}
-      <ComposerForm input={input} setInput={setInput} onSubmit={onSubmit} pending={pending} exhausted={exhausted} />
+      {showStarters && <StarterChips starters={starters} onPick={rest.onSubmit} pending={rest.pending} />}
+      <ComposerForm {...rest} />
     </div>
   );
 }
 
-function ComposerForm({ input, setInput, onSubmit, pending, exhausted }: {
-  input: string; setInput: (v: string) => void; onSubmit: (q: string) => void;
-  pending: boolean; exhausted: boolean;
-}) {
+function ComposerForm(p: ComposerProps) {
+  const blocked = p.pending || p.exhausted;
+  const ghost = pickGhost({ value: p.input, blocked, ghost: p.ghost });
+  const placeholder = pickPlaceholder({
+    locked: p.exhausted, lockedText: 'session full', ghost, fallback: 'ask…',
+  });
   return (
-    <form onSubmit={(e) => { e.preventDefault(); handleComposerSubmit(input, pending, exhausted, onSubmit); }} data-testid="chat-input">
+    <form onSubmit={(e) => { e.preventDefault(); handleComposerSubmit(p.input, p.pending, p.exhausted, p.onSubmit); }} data-testid="chat-input">
       <div className="flex items-baseline gap-4 py-3 border-t border-b border-(--color-ink) relative">
         <span className="text-(--color-accent) font-serif shrink-0 text-[26px] leading-none">›</span>
         <input
-          type="text" value={input} onChange={(e) => setInput(e.target.value)}
-          placeholder={exhausted ? 'session full' : 'ask…'}
-          disabled={pending || exhausted}
+          type="text" value={p.input} onChange={(e) => p.setInput(e.target.value)}
+          onKeyDown={(e) => dispatchGhostKey(e, ghost, { onAccept: p.onAcceptGhost, onCycle: p.onCycleGhost })}
+          placeholder={placeholder}
+          disabled={blocked}
           className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0 text-[22px] leading-[1.3] font-[380] disabled:opacity-60"
           autoComplete="off" spellCheck={false} autoFocus
+          data-testid="chat-input-field"
+          data-ghost={ghost ?? ''}
         />
-        <ComposerAction pending={pending} exhausted={exhausted} />
+        <ComposerAction pending={p.pending} exhausted={p.exhausted} />
       </div>
     </form>
   );

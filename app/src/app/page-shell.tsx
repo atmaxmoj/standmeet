@@ -33,6 +33,7 @@ import { useTheme } from '@/lib/page/use-theme';
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { useCurrentGhost, useSuggestionsStore } from '@/lib/visitor/suggestions-store';
 
 type Props = {
   owner: PublicOwnerView;
@@ -58,6 +59,8 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   const exhausted = useIsQuotaExhausted();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const ghost = useCurrentGhost();
+  const cycleGhost = useSuggestionsStore((s) => s.cycle);
 
   const onAsk = useCallback((q: string) => {
     setInput('');
@@ -69,6 +72,11 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   const focusChat = useCallback(() => {
     inputRef.current?.focus();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const onAcceptGhost = useCallback((g: string) => {
+    setInput(g);
+    inputRef.current?.focus();
   }, []);
 
   return (
@@ -87,6 +95,9 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
             pending={chat.pending}
             lockedReason={exhausted ? 'session full · request more ↗' : null}
             inputRef={inputRef}
+            ghost={ghost}
+            onAcceptGhost={onAcceptGhost}
+            onCycleGhost={cycleGhost}
           />
           {chat.dialogs.length > 0 && (
             <ConversationDeck ownerHandle={owner.handle} dialogs={chat.dialogs} onReset={chat.reset} />

@@ -21,6 +21,8 @@ import { useCallback, useRef, useState } from 'react';
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { useCurrentGhost, useSuggestionsStore } from '@/lib/visitor/suggestions-store';
+import { dispatchGhostKey, pickGhost } from '@/lib/visitor/ghost-text';
 
 export function FloatingChatDock() {
   const mode = useModeFromVisitorStore();
@@ -32,11 +34,18 @@ function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
   const chat = useChat({ mode });
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const ghost = useCurrentGhost();
+  const cycleGhost = useSuggestionsStore((s) => s.cycle);
 
   const onAsk = useCallback((q: string) => {
     setInput('');
     void chat.ask(q);
   }, [chat]);
+
+  const onAcceptGhost = useCallback((g: string) => {
+    setInput(g);
+    inputRef.current?.focus();
+  }, []);
 
   return (
     <>
@@ -54,6 +63,9 @@ function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
           pending={chat.pending}
           onReset={chat.reset}
           inputRef={inputRef}
+          ghost={ghost}
+          onAcceptGhost={onAcceptGhost}
+          onCycleGhost={cycleGhost}
         />
       )}
     </>
@@ -103,6 +115,10 @@ interface PanelProps {
   pending: boolean;
   onReset: () => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  // H.13.d ghost text 三件套；non-code mode 永远 null。
+  ghost: string | null;
+  onAcceptGhost: (g: string) => void;
+  onCycleGhost: () => void;
 }
 
 function ChatPanel(props: PanelProps) {
@@ -119,6 +135,9 @@ function ChatPanel(props: PanelProps) {
         onSubmit={props.onAsk}
         pending={props.pending}
         inputRef={props.inputRef}
+        ghost={props.ghost}
+        onAcceptGhost={props.onAcceptGhost}
+        onCycleGhost={props.onCycleGhost}
       />
     </div>
   );
@@ -204,39 +223,66 @@ function AnswerBody({ answer }: { answer: PanelProps['dialogs'][number]['answer'
   );
 }
 
-function ChatPanelInput(props: {
+interface ChatPanelInputProps {
   value: string;
   onChange: (v: string) => void;
   onSubmit: (q: string) => void;
   pending: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
-}) {
+  ghost: string | null;
+  onAcceptGhost: (g: string) => void;
+  onCycleGhost: () => void;
+}
+
+function ChatPanelInput(props: ChatPanelInputProps) {
+  const ghost = pickGhost({
+    value: props.value, blocked: props.pending, ghost: props.ghost,
+  });
+  const placeholder = ghost ?? 'Ask a follow-up…';
   return (
     <form
       onSubmit={(e) => onSubmit(e, props)}
       className="sm-floating-chat-form"
     >
       <span className="sm-floating-chat-prompt">›</span>
-      <input
-        ref={props.inputRef}
-        type="text"
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-        placeholder="Ask a follow-up…"
-        disabled={props.pending}
-        data-testid="floating-chat-input"
-        className="sm-floating-chat-input"
-        autoComplete="off"
-        spellCheck={false}
+      <ChatPanelInputField
+        props={props} ghost={ghost} placeholder={placeholder}
       />
-      <button
-        type="submit"
-        disabled={props.pending || props.value.trim() === ''}
-        className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) bg-transparent"
-      >
-        ↵
-      </button>
+      <ChatPanelInputSubmit pending={props.pending} value={props.value} />
     </form>
+  );
+}
+
+function ChatPanelInputField({ props, ghost, placeholder }: {
+  props: ChatPanelInputProps; ghost: string | null; placeholder: string;
+}) {
+  return (
+    <input
+      ref={props.inputRef}
+      type="text"
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+      onKeyDown={(e) => dispatchGhostKey(e, ghost, { onAccept: props.onAcceptGhost, onCycle: props.onCycleGhost })}
+      placeholder={placeholder}
+      disabled={props.pending}
+      data-testid="floating-chat-input"
+      className="sm-floating-chat-input"
+      autoComplete="off"
+      spellCheck={false}
+      data-ghost={ghost ?? ''}
+    />
+  );
+}
+
+function ChatPanelInputSubmit({ pending, value }: { pending: boolean; value: string }) {
+  return (
+    <button
+      type="submit"
+      disabled={pending || value.trim() === ''}
+      className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) hover:text-(--color-accent) disabled:text-(--color-faint) bg-transparent"
+    >
+      ↵
+    </button>
   );
 }
 

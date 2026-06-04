@@ -18,6 +18,7 @@ import { issueCodeSession } from '@/lib/api/public';
 import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { useSuggestionsStore } from '@/lib/visitor/suggestions-store';
 
 // useAbsorbCodeFromURL —— mount 一次：URL → store + 立刻 replaceState；
 // 然后订阅 store 里的 pending code 自动 issue + persist。
@@ -37,6 +38,9 @@ export function useAbsorbCodeFromURL(onConsumed?: () => void): void {
       try {
         const sess = await issueCodeSession({ code: pending });
         persistSession(sess, false);
+        // H.13.d: code 刚被 absorb → 立刻 seed ghost 队列，避免 useChat
+        // mount 时 stored 还没落进 localStorage 的竞态。
+        useSuggestionsStore.getState().seed(sess.suggested_questions ?? []);
         useVisitorSessionStore.getState().setSession({
           code: sess.code ?? pending,
           visitor: sess.visitor_name ?? null,
