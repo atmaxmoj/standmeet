@@ -24,4 +24,10 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps *VisitorDeps) {
 	// I.1: ask_visitor 是 deps-less echo tool；所有 mode 都暴露，AI 自决
 	// 何时调，调完 eino ADK ReturnDirectly 直接结束 agent loop。
 	reg.MustRegister(newAskVisitorCapability())
+	// I.3: summarize_conversation 调一次 inference.Generate 出 HTML 报告
+	// 落 chat_reports。所有 mode 都暴露 (visitor 自己拿 session 调，
+	// public visitor 一次额外 LLM call 也 OK)。
+	reg.MustRegister(NewSummarizeCapability(&SummarizeDeps{
+		Chats: deps.Chats, Reports: deps.Reports, Resolver: deps.Resolver,
+	}))
 }

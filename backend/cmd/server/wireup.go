@@ -179,6 +179,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			Calendar:    calendarStoreAdapter{repo: d.calendarRepo},
 			GCal:        calendarClientAdapter{client: d.gcalClient},
 			AgentSkills: d.agentSkills,
+			Reports:     d.chatReportRepo,
 		},
 		Sessions:    d.visitorStore,
 		Corpus:      d.corpus,

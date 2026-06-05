@@ -57,6 +57,14 @@ type Asset struct {
 	CreatedAt        pgtype.Timestamptz
 }
 
+type ChatReport struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	ConversationID pgtype.UUID
+	Html           string
+	CreatedAt      pgtype.Timestamptz
+}
+
 type CodeBooking struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID

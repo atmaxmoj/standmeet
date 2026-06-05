@@ -67,8 +67,7 @@ func pickLLMBYOAICred(
 	if auth.Data.Mode != "byoai" {
 		return nil
 	}
-	cred, _ := readBYOAICredFromHeaders(h, &nopResponseWriter{}, r, auth.Token)
-	return cred
+	return readBYOAICredFromHeaders(h, &nopResponseWriter{}, r, auth.Token)
 }
 
 func writeLLMPreStreamErr(h *Handlers, w http.ResponseWriter, err error) {

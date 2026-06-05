@@ -15,6 +15,7 @@
 'use client';
 
 import { AskVisitorCard } from '@/components/page/AskVisitorCard';
+import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
 import {
   pickSearchHits, pickSlots, pickBookConfirmation,
   shouldRenderCall, cardKindFor, jsonPretty,
@@ -54,6 +55,7 @@ const CARD_RENDERERS: Record<
   search: (call) => <SearchHitsCard call={call} />,
   slots:  (call) => <SlotsCard call={call} />,
   booked: (call) => <BookCard call={call} />,
+  report: (call) => <ReportArtifactCard call={call} />,
   dump:   (call) => <GenericDumpCard call={call} />,
 };
 

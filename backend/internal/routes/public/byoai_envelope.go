@@ -68,26 +68,30 @@ func decodeEnvelopeB64(s string) ([]byte, error) {
 	return blob, nil
 }
 
-// readBYOAICredFromHeaders —— inference_stream + summary 共用。tier=byoai 才调。
-// 4 个 header (provider / key / endpoint / model) 都必填 —— browser 端
-// 用 preset 给 UI 自动填默认，但 server 不做 fallback：cred 永远完整。
-// 任一缺失 / 信封解失败立刻 401。
+// readBYOAICredFromHeaders —— /llm/chat/stream + /agent/turn 共用。tier=byoai
+// 才调。4 个 header (provider / key / endpoint / model) 都必填；browser
+// 端用 preset 给 UI 自动填默认，但 server 不做 fallback：cred 永远完整。
+//
+// I.3 起 caller 都用 nopResponseWriter 屏蔽 writeError (BYOAI 缺 header
+// 等价于退回非 BYOAI 路径，cred=nil 让上游 fallback 到 owner provider)，
+// bool ok 不再被消费 (lint unparam) —— 简化签名只返指针，nil 等价老
+// false 语义。
 func readBYOAICredFromHeaders(
 	h *Handlers, w http.ResponseWriter, r *http.Request, sessionToken string,
-) (*domain.AICredential, bool) {
+) *domain.AICredential {
 	hdrs, hok := requireBYOAIHeaders(h, w, r)
 	if !hok {
-		return nil, false
+		return nil
 	}
 	plain, derr := unwrapBYOAIKey(sessionToken, hdrs.Wrapped)
 	if derr != nil {
 		writeError(h.Log, w, unauthorizedEnv("invalid byoai key envelope"))
-		return nil, false
+		return nil
 	}
 	return &domain.AICredential{
 		Provider: hdrs.Provider, Key: plain,
 		Endpoint: hdrs.Endpoint, Model: hdrs.Model,
-	}, true
+	}
 }
 
 // byoaiHeaders —— requireBYOAIHeaders 多返打包（避开 funcresult-limit 2 +

@@ -47,6 +47,9 @@ type VisitorDeps struct {
 	// AgentSkills —— Phase B Capability registry (visitor session 装配
 	// retrieval / booker / ext-mcp / owner-skill tool 走它)。
 	AgentSkills *agentskills.Registry
+	// Reports —— I.3: summarize_conversation tool 落 chat_reports 行；
+	// GET /report/{id} route 也通过它读。
+	Reports *postgres.ChatReportRepo
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。

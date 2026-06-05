@@ -15,6 +15,13 @@ func envBadReq(msg string) apierr.Envelope {
 	return apierr.Envelope{Status: http.StatusBadRequest, Code: "bad_request", Message: msg}
 }
 
+func serverErr() apierr.Envelope {
+	return apierr.Envelope{
+		Status: http.StatusInternalServerError, Code: "server_error",
+		Message: "server error",
+	}
+}
+
 func writeError(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(env.Status)

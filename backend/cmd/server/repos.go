@@ -54,6 +54,7 @@ type repoSet struct {
 	writingRef    *postgres.WritingRefRepo
 	calendar      *postgres.CalendarRepo
 	suggestion    *postgres.SuggestionRepo
+	chatReport    *postgres.ChatReportRepo
 }
 
 func newRepos(db *postgres.Pool) *repoSet {
@@ -82,6 +83,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		writingRef:    postgres.NewWritingRefRepo(db),
 		calendar:      postgres.NewCalendarRepo(db),
 		suggestion:    postgres.NewSuggestionRepo(db),
+		chatReport:    postgres.NewChatReportRepo(db),
 	}
 }
 
@@ -124,6 +126,7 @@ func assembleRuntimeDeps(
 		assetRepo:         repos.asset,
 		calendarRepo:      repos.calendar,
 		suggestionRepo:    repos.suggestion,
+		chatReportRepo:    repos.chatReport,
 		gcalClient: gcal.New(gcal.Config{
 			AuthURL:         cfg.GoogleAuthURL,
 			TokenURL:        cfg.GoogleTokenURL,

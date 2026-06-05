@@ -1,0 +1,54 @@
+/* ReportArtifactPage.module.css —— /report/[id] 全屏渲染。 */
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-paper);
+}
+
+.bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.6em 1.2em;
+  gap: 1em;
+  border-bottom: 1px solid var(--color-rule);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.title {
+  color: var(--color-ink);
+}
+
+.printBtn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.printBtn:hover {
+  color: var(--color-accent);
+}
+
+.frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--color-paper);
+}
+
+.status {
+  padding: 2em 1.2em;
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-muted);
+}

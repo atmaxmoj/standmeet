@@ -196,6 +196,7 @@ type runtimeDeps struct {
 	writingRefRepo    *postgres.WritingRefRepo
 	calendarRepo      *postgres.CalendarRepo
 	suggestionRepo    *postgres.SuggestionRepo
+	chatReportRepo    *postgres.ChatReportRepo
 	gcalClient        *gcal.Client
 	sandboxRunner     sandbox.Runner
 	storageClient     *storage.Client

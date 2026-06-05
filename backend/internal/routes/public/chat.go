@@ -1,15 +1,13 @@
 // chat.go —— /api/v1/* 路由挂载 + visitor 错误码表 + auth/bearer helper。
-// Chat 数据流（H.3 之后）：
-//   - POST /sessions               颁发 visitor session
-//   - POST /llm/chat/stream        eino-backed unified SSE 入口；浏览器
-//                                  pi-agent-core 跑 LLM ↔ tool loop
-//   - POST /sessions/{id}/tools/.. 单 tool 执行
-//   - POST /sessions/{id}/dialogs  整 turn 结束后 commit 一段 Dialog
-//   - POST /sessions/{id}/summary  整段对话生成 summary 报告
+// Chat 数据流（I.3 之后）：
+//   - POST /sessions                颁发 visitor session
+//   - POST /agent/turn              eino ADK driven 整 turn
+//   - POST /sessions/{id}/tools/..  单 tool 执行
+//   - POST /sessions/{id}/dialogs   整 turn 结束后 commit 一段 Dialog
+//   - GET  /report/{id}             读一份 chat report (I.3)
 //
-// H.3 删了 server-side byte-proxy (/inference/stream + OpenAnthropicStream)。
-// 所有 chat 推理走 pi-agent-core in browser → /llm/chat/stream (pi unified
-// SSE) → backend eino model.ToolCallingChatModel → upstream provider。
+// 老 POST /sessions/{id}/summary I.3 删；同款逻辑改走 summarize_conversation
+// capability + tool dispatch wire。
 
 package public
 
@@ -40,8 +38,10 @@ type Handlers struct {
 func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions", h.createSession())
 	r.Post("/sessions/{id}/dialogs", h.postDialog())
-	r.Post("/sessions/{id}/summary", h.postSummary())
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
+	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
+	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。
+	r.Get("/report/{id}", h.getReport())
 	r.Post("/inference/models", h.listInferenceModels())
 	r.Post("/llm/chat/stream", h.llmChatStream())
 	// H.9: 新 agent turn 入口；走 eino ADK ChatModelAgent。SDK 在 H.10
@@ -98,12 +98,7 @@ var visitorErrCases = []apierr.Case{
 	{Match: domain.ErrChatEnded, Envelope: apierr.Envelope{
 		Status:  http.StatusGone,
 		Code:    "conversation_ended",
-		Message: "conversation has been summarized; start a new session to continue",
-	}},
-	{Match: usecases.ErrSummaryEmptyConv, Envelope: apierr.Envelope{
-		Status:  http.StatusBadRequest,
-		Code:    "summary_empty",
-		Message: "no messages to summarize",
+		Message: "conversation has been ended; start a new session to continue",
 	}},
 }
 

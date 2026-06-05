@@ -743,3 +743,25 @@ CREATE INDEX conversation_suggestions_conv_idx
     ON conversation_suggestions(conversation_id, shown_at);
 CREATE INDEX conversation_suggestions_owner_idx
     ON conversation_suggestions(owner_id, shown_at DESC);
+
+-- chat_reports —— I.3: visitor chat 走完 (或中途) 调 summarize_conversation
+-- tool → AI 生成 HTML 报告，落这一行；每次调存一份 (允许重生)，session
+-- 不 mark ended (跟老 /summary 的 ended_at 不同；新 tool 是 artifact 不
+-- 是终态)。
+--
+-- html 是 AI 生成的完整 HTML body (含 <h1>/<ul>/<table>/<strong> 等)。前
+-- 端在 sandboxed iframe 里渲，独立 /report/{id} 路由可直接打开。
+--
+-- ON DELETE CASCADE: conversation / owner 删一并清。
+CREATE TABLE chat_reports (
+    id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id          uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    conversation_id   uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    html              text          NOT NULL,
+    created_at        timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX chat_reports_conv_idx
+    ON chat_reports(conversation_id, created_at DESC);
+CREATE INDEX chat_reports_owner_idx
+    ON chat_reports(owner_id, created_at DESC);

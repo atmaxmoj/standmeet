@@ -84,8 +84,7 @@ func pickAgentTurnBYOAICred(
 	if auth.Data.Mode != "byoai" {
 		return nil
 	}
-	cred, _ := readBYOAICredFromHeaders(h, &nopResponseWriter{}, r, auth.Token)
-	return cred
+	return readBYOAICredFromHeaders(h, &nopResponseWriter{}, r, auth.Token)
 }
 
 // collectVisitorTools —— 装配本 session 的所有 visitor binding，拍平成
