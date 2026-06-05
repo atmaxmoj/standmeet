@@ -91,13 +91,16 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
       const answer = page.locator('[data-testid="answer-body"]').first();
       await expect(answer).toBeVisible({ timeout: 20_000 });
 
-      // 各 markdown feature 都渲染对
+      // 各 markdown feature 都渲染对。mock provider 在 reply 前会 echo
+      // 完整 [system:...] system prompt (capability fragments)，markdown
+      // 渲完里头也有 <strong>/<em>/<code> 节点；assertion 走 hasText
+      // 精确匹配本 spec 自己塞的 token (bold / italic / "inline code")。
       // heading
       await expect(answer.locator('h1')).toContainText('Heading');
       // bold / italic / inline code
-      await expect(answer.locator('strong').first()).toContainText('bold');
-      await expect(answer.locator('em').first()).toContainText('italic');
-      await expect(answer.locator('code').first()).toContainText('inline code');
+      await expect(answer.locator('strong', { hasText: /^bold$/ })).toHaveCount(1);
+      await expect(answer.locator('em', { hasText: /^italic$/ })).toHaveCount(1);
+      await expect(answer.locator('code', { hasText: 'inline code' })).toHaveCount(1);
       // gfm table
       await expect(answer.locator('table th').first()).toContainText('col1');
       await expect(answer.locator('table td').first()).toContainText('a');
