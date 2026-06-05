@@ -16,9 +16,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/gcal"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/jobcache"
-	"github.com/atmaxmoj/standmeet/internal/jobfetch"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/plugins"
+	pluginjobs "github.com/atmaxmoj/standmeet/internal/plugins/jobs"
+	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
+	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/printsess"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
@@ -152,7 +154,20 @@ func assembleRuntimeDeps(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
 		agentSkills: agentskills.NewRegistry(),
+		// J.1: outbound plugin registry。jobs plugin scaffold 注册一次；
+		// 后续 J.2-J.4 把 MCP tools / admin routes / capability 收进来时
+		// composition root 通过 plugin 接口拿到 lifecycle hook 调用即可。
+		pluginRegistry: buildPluginRegistry(),
 	}
+}
+
+// buildPluginRegistry —— 注册当前启用的所有 outbound plugins。J 期起新增
+// outbound type 都往这里加一行 (plugins.Register(pluginX.New()))，wireup 通
+// 过 registry 迭代拿 lifecycle，不要在 composition root 散嵌入逻辑。
+func buildPluginRegistry() *plugins.Registry {
+	reg := plugins.NewRegistry()
+	reg.Register(pluginjobs.New())
+	return reg
 }
 
 // buildPDFRenderer —— gotenberg.Client adapter when both GOTENBERG_URL and

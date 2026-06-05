@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/jobcache"
+	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 

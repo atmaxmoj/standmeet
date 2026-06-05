@@ -7,7 +7,7 @@
 // / department.label / releasedDate / industry.label / typeOfEmployment.label
 // / experienceLevel.label。
 
-package jobfetch
+package fetch
 
 import (
 	"context"

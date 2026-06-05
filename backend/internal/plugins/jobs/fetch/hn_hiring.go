@@ -14,7 +14,7 @@
 //
 // No per-source config (HN aggregate is global).
 
-package jobfetch
+package fetch
 
 import (
 	"context"

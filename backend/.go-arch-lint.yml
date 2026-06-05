@@ -31,10 +31,14 @@ components:
     in: internal/mcp                      # mcp-go server + tool handlers
   inference:
     in: internal/inference                # LLM provider abstraction
+  plugins:
+    in: internal/plugins                  # J phase: Plugin interface + Registry
+  pluginjobs:
+    in: internal/plugins/jobs             # J phase: jobs plugin entry (Plugin impl)
   jobcache:
-    in: internal/jobcache                 # Redis-backed 1d TTL pool for fetched jobs
+    in: internal/plugins/jobs/cache       # J phase: jobs plugin cache sub-pkg (Redis 1d TTL)
   jobfetch:
-    in: internal/jobfetch                 # job source fetcher adapters (Greenhouse / Lever / Ashby / ...)
+    in: internal/plugins/jobs/fetch       # J phase: jobs plugin fetch sub-pkg (Greenhouse / Lever / Ashby / ...)
   gcal:
     in: internal/gcal                     # Google OAuth + Calendar HTTP client (events.insert / freeBusy / token refresh)
   gotenberg:
@@ -189,6 +193,21 @@ deps:
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
+  # plugins —— J phase: Plugin interface + Registry。leaf 包；不依赖任何
+  # 别的 internal 组件 (interface 只锁 Name() string，没有 deps)。
+  plugins:
+    mayDependOn:
+      - domain
+
+  # pluginjobs —— J phase: jobs plugin entry。当前仅声明 Plugin impl 壳；
+  # J.2-J.4 起会把 fetch / cache / usecases / mcp 子能力都收进来。允许它
+  # 依赖 plugins (实现接口) + 自己的 fetch / cache 子包。
+  pluginjobs:
+    mayDependOn:
+      - plugins
+      - jobcache
+      - jobfetch
+
   # 依赖 domain 是因为它要 marshal 真实 domain 结构（不糊弄成 []byte）。
   jobcache:
     mayDependOn:
@@ -350,4 +369,6 @@ deps:
       - storage
       - server
       - agentskills
+      - plugins
+      - pluginjobs
     anyVendorDeps: true

@@ -8,7 +8,7 @@
 //
 // fetcher 不解 content HTML —— 当 raw text 传给 agent 让 Claude 自己读。
 
-package jobfetch
+package fetch
 
 import (
 	"context"

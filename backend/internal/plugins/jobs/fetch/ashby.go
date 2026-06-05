@@ -9,7 +9,7 @@
 // 注意：team / department / location 都可能 null（agent 上的真 fixture
 // 见到过），解到 *string 兜底 nil。
 
-package jobfetch
+package fetch
 
 import (
 	"context"

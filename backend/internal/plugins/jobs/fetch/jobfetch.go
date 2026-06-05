@@ -1,6 +1,8 @@
-// Package jobfetch —— job source fetcher adapters。每个 adapter 知道一个 ATS
+// Package fetch —— job source fetcher adapters。每个 adapter 知道一个 ATS
 // 或 job board 的具体 API 形状（URL pattern、JSON shape、字段映射），统一
 // 输出 domain.FetchedJob 数组。
+//
+// J phase 起搬进 plugins/jobs/fetch/，作为 jobs plugin 的 fetch sub-package。
 //
 // 每个 adapter 的 base URL 从 env 覆写：production 不设 env，走 const 真 URL；
 // e2e/dev 把 env 指向 docker compose 起的 job-board-mock 容器。
@@ -10,8 +12,8 @@
 //
 // **Config 形状**：register_source 传上来是 schemaless object；写 DB 时
 // marshal 成 JSON bytes；fetcher 收到 []byte，第一行就 Unmarshal 到自己的
-// typed struct。这样 domain / jobfetch 边界都不沾 `any`。
-package jobfetch
+// typed struct。这样 domain / fetch 边界都不沾 `any`。
+package fetch
 
 import (
 	"context"

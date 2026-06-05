@@ -17,7 +17,7 @@
 //	pubDate            RFC-822
 //	guid / link        per-job URL (相同)
 
-package jobfetch
+package fetch
 
 import (
 	"context"

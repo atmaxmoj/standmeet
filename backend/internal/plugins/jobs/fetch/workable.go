@@ -10,7 +10,7 @@
 // always errors out so register_source for kind=workable surfaces the
 // problem instead of silently returning empty.
 
-package jobfetch
+package fetch
 
 import (
 	"context"

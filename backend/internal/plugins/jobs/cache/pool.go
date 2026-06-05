@@ -1,4 +1,4 @@
-// Package jobcache —— Redis-backed 1d TTL 池子，放 fetcher 抓出来还没 commit
+// Package cache —— Redis-backed 1d TTL 池子，放 fetcher 抓出来还没 commit
 // 的 FetchedJob。owner 在 Claude 里 `jobs.fetch_new` 后，jobs.show /
 // resume.draft 引用 cache_id 找回这条 job。
 //
@@ -7,7 +7,9 @@
 //
 // Key shape: job:{owner_id}:{cache_id} → FetchedJob JSON, TTL 24h fixed
 // (不 slide —— 池子是 ephemeral，超时就让 owner 重 fetch)。
-package jobcache
+//
+// J phase 起搬进 plugins/jobs/cache/，作为 jobs plugin 的 cache sub-package。
+package cache
 
 import (
 	"context"

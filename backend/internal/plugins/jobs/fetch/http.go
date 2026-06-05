@@ -7,7 +7,7 @@
 // functions short, satisfying cognitive-complexity without per-package
 // lint exemption.
 
-package jobfetch
+package fetch
 
 import (
 	"context"

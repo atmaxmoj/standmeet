@@ -9,7 +9,7 @@
 // Config is empty (no per-source parameters); register_source just needs
 // kind=remoteok + a label.
 
-package jobfetch
+package fetch
 
 import (
 	"context"

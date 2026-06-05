@@ -25,9 +25,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/gcal"
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/jobcache"
-	"github.com/atmaxmoj/standmeet/internal/jobfetch"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
+	"github.com/atmaxmoj/standmeet/internal/plugins"
+	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
+	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/printsess"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
@@ -202,6 +203,7 @@ type runtimeDeps struct {
 	storageClient     *storage.Client
 	jobCachePool      *jobcache.Pool
 	jobFetchRegistry  *jobfetch.Registry
+	pluginRegistry    *plugins.Registry
 	sessionStore      *session.OwnerSessionStore
 	visitorStore      *session.VisitorSessionStore
 	queryQueue        *session.QueryQueue
@@ -303,6 +305,8 @@ func serve(ctx context.Context, deps *runtimeDeps, addr string, stop context.Can
 		WriteTimeout:      httpWriteTimeout,
 		IdleTimeout:       httpIdleTimeout,
 	}
+
+	deps.log.Info("plugins enabled", "names", deps.pluginRegistry.Names())
 
 	go func() {
 		deps.log.Info("server starting", "addr", srv.Addr)

@@ -6,7 +6,7 @@
 // { commitment, department, location, team }, createdAt (epoch ms),
 // hostedUrl, applyUrl, description (HTML), tags? }。
 
-package jobfetch
+package fetch
 
 import (
 	"context"
