@@ -32,9 +32,10 @@ import (
 // rip-out commit even while task 11 is still on the bench.
 var ErrNotConfigured = errors.New("gotenberg renderer not configured")
 
-// Renderer —— matches usecases.PDFRenderer. Defined here too so the
+// Renderer —— matches jobsuc.PDFRenderer (J.2 起 PDFRenderer 接口随
+// applications usecase 搬到 plugins/jobs/jobsuc/)。Defined here too so the
 // gotenberg package can be referenced standalone in tests / fakes
-// without dragging in the usecases package.
+// without dragging in the jobsuc package.
 type Renderer interface {
 	RenderURL(ctx context.Context, printURL string) ([]byte, error)
 }

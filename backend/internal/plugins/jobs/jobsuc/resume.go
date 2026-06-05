@@ -10,7 +10,7 @@
 // 这样 draft / preview 不依赖 sidecar，编辑体验是即时的；server 端只持有结构
 // 化 state。
 
-package usecases
+package jobsuc
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ResumeDeps —— resume.* usecase 依赖。
@@ -75,7 +76,7 @@ func UpdateResumeDraft(
 
 func requireFields(s1, s2 string, content *domain.ResumeContent) error {
 	if s1 == "" || s2 == "" || content == nil {
-		return ErrEmptyField
+		return usecases.ErrEmptyField
 	}
 	return nil
 }
@@ -96,7 +97,7 @@ func loadJobSnapshot(
 // DiscardResumeDraft —— resume.discard_draft；idempotent（owner 不匹配/已删都静默成功）。
 func DiscardResumeDraft(ctx context.Context, deps ResumeDeps, ownerID, draftID string) error {
 	if ownerID == "" || draftID == "" {
-		return ErrEmptyField
+		return usecases.ErrEmptyField
 	}
 	if err := deps.Drafts.Delete(ctx, ownerID, draftID); err != nil {
 		return fmt.Errorf("delete draft: %w", err)

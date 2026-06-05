@@ -7,7 +7,11 @@
 //
 // reasoning / 排序 / 匹配 是 Claude 在客户端做的事，这里不掺合。
 
-package usecases
+// Package jobsuc —— J.2: 从 internal/usecases 搬过来的 jobs / resume /
+// applications use cases。属 jobs plugin 的内部，路径 internal/plugins/
+// jobs/jobsuc/。包名 jobsuc (避开跟核心 internal/usecases 撞名)，外部
+// 引用形如 jobsuc.JobsDeps。
+package jobsuc
 
 import (
 	"context"
@@ -18,6 +22,7 @@ import (
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // JobsDeps —— jobs.* usecase 依赖。
@@ -43,7 +48,7 @@ func RegisterJobSource(
 
 func validateRegisterInput(in *domain.CreateJobSourceInput) error {
 	if in.OwnerID == "" || in.Kind == "" || in.Label == "" {
-		return ErrEmptyField
+		return usecases.ErrEmptyField
 	}
 	if err := jobfetch.ValidateKindConfig(in.Kind, in.Config); err != nil {
 		return fmt.Errorf("validate kind/config: %w", err)
@@ -56,7 +61,7 @@ func ListJobSources(
 	ctx context.Context, deps JobsDeps, ownerID string,
 ) ([]domain.JobSource, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, usecases.ErrEmptyField
 	}
 	list, err := deps.Sources.ListByOwner(ctx, ownerID)
 	if err != nil {
@@ -70,7 +75,7 @@ func UnregisterJobSource(
 	ctx context.Context, deps JobsDeps, ownerID, sourceID string,
 ) error {
 	if ownerID == "" || sourceID == "" {
-		return ErrEmptyField
+		return usecases.ErrEmptyField
 	}
 	if err := deps.Sources.Delete(ctx, ownerID, sourceID); err != nil {
 		return fmt.Errorf("delete source: %w", err)
@@ -84,7 +89,7 @@ func FetchNewJobs(
 	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string,
 ) ([]domain.FetchedJob, error) {
 	if ownerID == "" {
-		return nil, ErrEmptyField
+		return nil, usecases.ErrEmptyField
 	}
 	sources, err := selectSourcesToFetch(ctx, deps, ownerID, sourceID)
 	if err != nil {
@@ -219,7 +224,7 @@ func ShowJob(
 	ctx context.Context, deps JobsDeps, ownerID, cacheID string,
 ) (domain.FetchedJob, error) {
 	if ownerID == "" || cacheID == "" {
-		return domain.FetchedJob{}, ErrEmptyField
+		return domain.FetchedJob{}, usecases.ErrEmptyField
 	}
 	job, err := deps.Cache.Get(ctx, ownerID, cacheID)
 	if err != nil {
@@ -234,7 +239,7 @@ func ShowJob(
 // DiscardJob —— 主动让一条 job 退出 owner 视野。
 func DiscardJob(ctx context.Context, deps JobsDeps, ownerID, cacheID string) error {
 	if ownerID == "" || cacheID == "" {
-		return ErrEmptyField
+		return usecases.ErrEmptyField
 	}
 	if err := deps.Cache.Discard(ctx, ownerID, cacheID); err != nil {
 		return fmt.Errorf("cache discard: %w", err)

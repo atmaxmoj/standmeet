@@ -6,6 +6,7 @@ package main
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/mcp"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
@@ -125,11 +126,11 @@ func registerAgentSkills(d *runtimeDeps) {
 		WritingRefs: d.writingRefRepo,
 		Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 	}
-	jobsDeps := usecases.JobsDeps{
+	jobsDeps := jobsuc.JobsDeps{
 		Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
 	}
-	resumeDeps := usecases.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool}
-	appsDeps := usecases.ApplicationsDeps{
+	resumeDeps := jobsuc.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool}
+	appsDeps := jobsuc.ApplicationsDeps{
 		Apps: d.applicationRepo, Owners: d.ownerRepo,
 		Roles: d.roleRepo, Renderer: d.pdfRenderer,
 	}
@@ -237,11 +238,11 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		Corpus:      usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
 		SEO:         d.seoRepo,
 		CustomPages: usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
-		Jobs: usecases.JobsDeps{
+		Jobs: jobsuc.JobsDeps{
 			Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
 		},
-		Resume: usecases.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool},
-		Applications: usecases.ApplicationsDeps{
+		Resume: jobsuc.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool},
+		Applications: jobsuc.ApplicationsDeps{
 			Apps: d.applicationRepo, Owners: d.ownerRepo,
 			Roles:    d.roleRepo,
 			Renderer: d.pdfRenderer,

@@ -15,18 +15,18 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
 const capResumeBundle = "resume.bundle"
 
 type resumeCapability struct {
-	resume *usecases.ResumeDeps
+	resume *jobsuc.ResumeDeps
 	log    *slog.Logger
 }
 
 func newResumeCapability(
-	resume *usecases.ResumeDeps, log *slog.Logger,
+	resume *jobsuc.ResumeDeps, log *slog.Logger,
 ) *resumeCapability {
 	return &resumeCapability{resume: resume, log: log}
 }
@@ -97,7 +97,7 @@ func (c *resumeCapability) handleDraft(
 	if args.ResumeContent == nil {
 		return agentskills.MCPError("resume_content is required")
 	}
-	drafted, err := usecases.DraftResume(
+	drafted, err := jobsuc.DraftResume(
 		ctx, *c.resume, ownerID, args.JobCacheID, args.ResumeContent,
 	)
 	if err != nil {
@@ -144,7 +144,7 @@ func (c *resumeCapability) handleUpdateDraft(
 	if args.ResumeContent == nil {
 		return agentskills.MCPError("resume_content is required")
 	}
-	drafted, err := usecases.UpdateResumeDraft(
+	drafted, err := jobsuc.UpdateResumeDraft(
 		ctx, *c.resume, ownerID, args.DraftID, args.ResumeContent,
 	)
 	if err != nil {
@@ -186,7 +186,7 @@ func (c *resumeCapability) handleDiscardDraft(
 	if args.DraftID == "" {
 		return agentskills.MCPError("draft_id is required")
 	}
-	if err := usecases.DiscardResumeDraft(ctx, *c.resume, ownerID, args.DraftID); err != nil {
+	if err := jobsuc.DiscardResumeDraft(ctx, *c.resume, ownerID, args.DraftID); err != nil {
 		return resumeCapErrToResult(c.log, err, "discard_draft")
 	}
 	return marshalCapResult(c.log, "resume.discard_draft", map[string]bool{"ok": true})

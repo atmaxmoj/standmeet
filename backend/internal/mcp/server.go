@@ -17,6 +17,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -27,14 +28,14 @@ var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 // Deps —— MCP server 需要的业务依赖。
 type Deps struct {
 	Keypairs      usecases.KeypairDeps
-	Jobs          usecases.JobsDeps
+	Jobs          jobsuc.JobsDeps
 	Owners        OwnerLookup
 	Corpus        usecases.CorpusDeps
 	SEO           SEOWriter
 	CustomPages   usecases.CustomPageDeps
-	Resume        usecases.ResumeDeps
+	Resume        jobsuc.ResumeDeps
 	Log           *slog.Logger
-	Applications  usecases.ApplicationsDeps
+	Applications  jobsuc.ApplicationsDeps
 	Conversations usecases.ConversationsDeps
 	Skills        usecases.SkillsDeps
 	Prompts       usecases.PromptsDeps

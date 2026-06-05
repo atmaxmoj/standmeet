@@ -35,6 +35,8 @@ components:
     in: internal/plugins                  # J phase: Plugin interface + Registry
   pluginjobs:
     in: internal/plugins/jobs             # J phase: jobs plugin entry (Plugin impl)
+  jobsuc:
+    in: internal/plugins/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobcache:
     in: internal/plugins/jobs/cache       # J phase: jobs plugin cache sub-pkg (Redis 1d TTL)
   jobfetch:
@@ -89,8 +91,6 @@ deps:
       - postgres
       - session
       - inference
-      - jobcache
-      - jobfetch
       - cryptobox
       - sandbox
       - mcpclient
@@ -180,6 +180,7 @@ deps:
       - domain
       - usecases
       - agentskills
+      - jobsuc
     anyVendorDeps: true
 
   # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
@@ -207,6 +208,19 @@ deps:
       - plugins
       - jobcache
       - jobfetch
+
+  # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核
+  # 心 usecases 同款依赖集 (domain/postgres/cryptobox + jobfetch/jobcache)。
+  # 依赖核心 usecases 是因为复用 ErrEmptyField 这种通用 sentinel；后续 J
+  # 期把 sentinel 抽到 domain 后可断这条。
+  jobsuc:
+    mayDependOn:
+      - domain
+      - postgres
+      - usecases
+      - jobcache
+      - jobfetch
+    anyVendorDeps: true
 
   # 依赖 domain 是因为它要 marshal 真实 domain 结构（不糊弄成 []byte）。
   jobcache:
@@ -358,6 +372,7 @@ deps:
       - inference
       - jobcache
       - jobfetch
+      - jobsuc
       - gotenberg
       - gcal
       - printsess

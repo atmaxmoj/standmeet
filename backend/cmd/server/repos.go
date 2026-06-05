@@ -21,12 +21,12 @@ import (
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/plugins/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/printsess"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // repoSet —— 所有 postgres Repository 的 bundle，让 wireAndServe 不必逐行
@@ -177,7 +177,7 @@ func buildPluginRegistry() *plugins.Registry {
 //nolint:ireturn // composition root deliberately returns interface
 func buildPDFRenderer(
 	log *slog.Logger, cfg *config.Config, store *printsess.Store,
-) usecases.PDFRenderer {
+) jobsuc.PDFRenderer {
 	if cfg.GotenbergURL == "" || cfg.PrintBaseURL == "" {
 		log.Info("pdf renderer: disabled (set GOTENBERG_URL + PRINT_BASE_URL to enable)")
 		return noopPDFRenderer{}
@@ -192,7 +192,7 @@ func buildPDFRenderer(
 	}
 }
 
-// gotenbergPDFRenderer —— bridges usecases.PDFRenderer to the gotenberg
+// gotenbergPDFRenderer —— bridges jobsuc.PDFRenderer to the gotenberg
 // sidecar. The flow:
 //  1. Stash (Application + qrURL) in Redis via printsess.Store, get token
 //  2. Build print URL: <printBase>/print/application/<id>?t=<token>

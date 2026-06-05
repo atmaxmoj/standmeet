@@ -15,7 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
 const (
@@ -25,12 +25,12 @@ const (
 )
 
 type applicationsCapability struct {
-	apps *usecases.ApplicationsDeps
+	apps *jobsuc.ApplicationsDeps
 	log  *slog.Logger
 }
 
 func newApplicationsCapability(
-	apps *usecases.ApplicationsDeps, log *slog.Logger,
+	apps *jobsuc.ApplicationsDeps, log *slog.Logger,
 ) *applicationsCapability {
 	return &applicationsCapability{apps: apps, log: log}
 }
@@ -94,7 +94,7 @@ func (c *applicationsCapability) handleCommit(
 	if args.DraftID == "" {
 		return agentskills.MCPError("draft_id is required")
 	}
-	committed, err := usecases.CommitApplication(ctx, *c.apps, ownerID, args.DraftID)
+	committed, err := jobsuc.CommitApplication(ctx, *c.apps, ownerID, args.DraftID)
 	if err != nil {
 		return applicationsCapErrToResult(c.log, err, "commit")
 	}

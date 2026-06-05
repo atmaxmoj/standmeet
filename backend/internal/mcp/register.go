@@ -11,6 +11,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -28,9 +29,9 @@ type RegisterDeps struct {
 	Skills        *usecases.SkillsDeps
 	Writings      *usecases.WritingsDeps
 	WritingsTx    *usecases.WritingsTxDeps
-	Jobs          *usecases.JobsDeps
-	Resume        *usecases.ResumeDeps
-	Applications  *usecases.ApplicationsDeps
+	Jobs          *jobsuc.JobsDeps
+	Resume        *jobsuc.ResumeDeps
+	Applications  *jobsuc.ApplicationsDeps
 	CustomPages   *usecases.CustomPageDeps
 	Handle        *usecases.HandleDeps
 	Calendar      *CalendarOwnerDeps

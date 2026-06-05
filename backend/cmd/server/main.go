@@ -29,13 +29,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/printsess"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/server"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const (
@@ -210,7 +210,7 @@ type runtimeDeps struct {
 	providerResolver  inference.Resolver
 	setupTokenHolder  *session.SetupTokenHolder
 	captchaVerifier   captcha.Verifier
-	pdfRenderer       usecases.PDFRenderer
+	pdfRenderer       jobsuc.PDFRenderer
 	printStore        *printsess.Store
 	marketplaceClient *marketplace.Client
 	agentSkills       *agentskills.Registry

@@ -12,7 +12,7 @@
 // L.13 决策：draft.job_snapshot 已是 commit 那一刻的快照，commit 路径不依赖
 // jobcache TTL；commit 完即可 evict。
 
-package usecases
+package jobsuc
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // PDFRenderer —— 渲染 application 的 final PDF（包含 QR）。usecase 不关心
@@ -74,7 +75,7 @@ func CommitApplication(
 	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string,
 ) (domain.CommittedApplication, error) {
 	if ownerID == "" || draftID == "" {
-		return domain.CommittedApplication{}, ErrEmptyField
+		return domain.CommittedApplication{}, usecases.ErrEmptyField
 	}
 	prep, err := prepareCommit(ctx, deps, ownerID, draftID)
 	if err != nil {

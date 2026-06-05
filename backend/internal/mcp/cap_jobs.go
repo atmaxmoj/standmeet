@@ -12,17 +12,17 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/usecases"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
 const capJobsBundle = "jobs.bundle"
 
 type jobsCapability struct {
-	jobs *usecases.JobsDeps
+	jobs *jobsuc.JobsDeps
 	log  *slog.Logger
 }
 
-func newJobsCapability(jobs *usecases.JobsDeps, log *slog.Logger) *jobsCapability {
+func newJobsCapability(jobs *jobsuc.JobsDeps, log *slog.Logger) *jobsCapability {
 	return &jobsCapability{jobs: jobs, log: log}
 }
 
@@ -88,7 +88,7 @@ func (c *jobsCapability) handleRegisterSource(
 	if perr != nil {
 		return agentskills.MCPError(perr.Error())
 	}
-	src, err := usecases.RegisterJobSource(ctx, *c.jobs, &domain.CreateJobSourceInput{
+	src, err := jobsuc.RegisterJobSource(ctx, *c.jobs, &domain.CreateJobSourceInput{
 		OwnerID: ownerID, Kind: args.Kind, Config: args.Config, Label: args.Label,
 	})
 	if err != nil {
@@ -130,7 +130,7 @@ func (c *jobsCapability) listSourcesBinding() *agentskills.MCPBinding {
 func (c *jobsCapability) handleListSources(
 	ctx context.Context, ownerID string, _ json.RawMessage,
 ) agentskills.MCPResult {
-	list, err := usecases.ListJobSources(ctx, *c.jobs, ownerID)
+	list, err := jobsuc.ListJobSources(ctx, *c.jobs, ownerID)
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "list_sources")
 	}
@@ -173,7 +173,7 @@ func (c *jobsCapability) handleUnregisterSource(
 	if args.SourceID == "" {
 		return agentskills.MCPError("source_id is required")
 	}
-	if err := usecases.UnregisterJobSource(ctx, *c.jobs, ownerID, args.SourceID); err != nil {
+	if err := jobsuc.UnregisterJobSource(ctx, *c.jobs, ownerID, args.SourceID); err != nil {
 		return jobsCapErrToResult(c.log, err, "unregister_source")
 	}
 	return marshalCapResult(c.log, "jobs.unregister_source", map[string]bool{"ok": true})
@@ -211,7 +211,7 @@ func (c *jobsCapability) handleFetchNew(
 		s := args.SourceID
 		sidPtr = &s
 	}
-	jobs, err := usecases.FetchNewJobs(ctx, *c.jobs, ownerID, sidPtr)
+	jobs, err := jobsuc.FetchNewJobs(ctx, *c.jobs, ownerID, sidPtr)
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "fetch_new")
 	}
@@ -250,7 +250,7 @@ func (c *jobsCapability) handleShow(
 	if args.CacheID == "" {
 		return agentskills.MCPError("cache_id is required")
 	}
-	job, err := usecases.ShowJob(ctx, *c.jobs, ownerID, args.CacheID)
+	job, err := jobsuc.ShowJob(ctx, *c.jobs, ownerID, args.CacheID)
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "show")
 	}
@@ -284,7 +284,7 @@ func (c *jobsCapability) handleDiscard(
 	if args.CacheID == "" {
 		return agentskills.MCPError("cache_id is required")
 	}
-	if err := usecases.DiscardJob(ctx, *c.jobs, ownerID, args.CacheID); err != nil {
+	if err := jobsuc.DiscardJob(ctx, *c.jobs, ownerID, args.CacheID); err != nil {
 		return jobsCapErrToResult(c.log, err, "discard")
 	}
 	return marshalCapResult(c.log, "jobs.discard", map[string]bool{"ok": true})
