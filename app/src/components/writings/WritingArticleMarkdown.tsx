@@ -5,10 +5,21 @@
 //
 // markdown body 整体挂 styles.body class（caller 由 WritingArticle 提供）；
 // 描述性 selectors `.body h1` / `.body p` 等接管字体 / 间距。
+//
+// I.2: ```` ```mermaid ```` fence → lazy MermaidBlock (跟 chat 渲染同套)；
+// math 走 remarkMath + rehypeKatex (在 WritingArticle 加 plugin)。
 
-import type { ReactNode } from 'react';
+'use client';
 
+import { lazy, Suspense, type ReactNode } from 'react';
+
+import { isMermaidCode, mermaidSource } from '@/components/page/markdown-helpers';
 import styles from '@/components/writings/WritingArticleMarkdown.module.css';
+
+const MermaidBlock = lazy(async () => {
+  const mod = await import('@/components/page/MermaidBlock');
+  return { default: mod.MermaidBlock };
+});
 
 export { styles as markdownStyles };
 
@@ -29,9 +40,26 @@ interface CodeProps { className?: string; children?: ReactNode }
 // CodeInlineOrBlock —— react-markdown 给 `inline code` 和 ```fence``` 都用
 // <code>；带 language-* className = fence 上下文，需要保留好让 syntax
 // highlighter 之类未来工具能识别。
+// I.2: language-mermaid 走 lazy MermaidBlock，渲 SVG。
 function CodeInlineOrBlock({ className, children }: CodeProps) {
-  return isFenceClass(className)
-    ? <code className={className}>{children}</code>
+  const cls = className ?? '';
+  return isMermaidCode(cls)
+    ? <MermaidCode>{children}</MermaidCode>
+    : <CodeFence cls={cls}>{children}</CodeFence>;
+}
+
+function MermaidCode({ children }: { children?: ReactNode }) {
+  const source = mermaidSource(children);
+  return (
+    <Suspense fallback={<pre data-testid="mermaid-loading">{source}</pre>}>
+      <MermaidBlock source={source} />
+    </Suspense>
+  );
+}
+
+function CodeFence({ cls, children }: { cls: string; children?: ReactNode }) {
+  return isFenceClass(cls)
+    ? <code className={cls}>{children}</code>
     : <code>{children}</code>;
 }
 

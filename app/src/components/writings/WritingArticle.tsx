@@ -4,10 +4,19 @@
 // body 来自 body_md (GitHub-flavored markdown)，react-markdown + remark-gfm
 // 渲染，每种 element 通过 components prop 套上 standmeet 字体 / 字号 / 间距
 // (见 WritingArticleMarkdown.tsx)，pixel-for-pixel 跟旧 3-block 版本对齐设计稿。
+//
+// I.2: 'use client' 让 react-markdown + rehype-katex + lazy MermaidBlock 在
+// client 上下文跑 (lazy 不能在 server 渲染)。Next.js 仍 SSR 出首屏 HTML，
+// 只是 component tree 已是 client；SEO 不受影响 (metadata 在 page.tsx 那
+// 层 generateMetadata 出，跟 component 渲染分离)。
+
+'use client';
 
 import Link from 'next/link';
 import Markdown from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 
 import type { BacklinkRef, WritingView } from '@/lib/api/public';
 import { Cover } from '@/components/writings/Cover';
@@ -156,7 +165,11 @@ function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string,
       className={`max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink) ${markdownStyles.body}`}
       data-testid="writing-article-body"
     >
-      <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+      <Markdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={markdownComponents}
+      >
         {rendered}
       </Markdown>
     </article>
