@@ -5,7 +5,7 @@
 // PDF 不在这里。终稿 PDF (带真 AccessCode QR) 走 applications.commit
 // 的 EmbeddedResource。draft 24h TTL，跟 job cache 同步。
 
-package mcp
+package jobsmcp
 
 import (
 	"context"
@@ -25,9 +25,10 @@ type resumeCapability struct {
 	log    *slog.Logger
 }
 
-func newResumeCapability(
+// NewResumeCapability —— J.3 起外露给 internal/mcp/register.go。
+func NewResumeCapability(
 	resume *jobsuc.ResumeDeps, log *slog.Logger,
-) *resumeCapability {
+) agentskills.Capability {
 	return &resumeCapability{resume: resume, log: log}
 }
 

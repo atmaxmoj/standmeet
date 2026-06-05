@@ -1,7 +1,7 @@
 // resume_views.go —— resume.* tool 响应中 text-content 部分的 JSON 形状。
 // PDF 不在这里 —— PDF 走 EmbeddedResource (blob base64)，跟结构化数据并行回。
 
-package mcp
+package jobsmcp
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/domain"

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmcp"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -62,9 +63,9 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newMCPServersCapability(deps.MCPServers, deps.Log))
 	reg.MustRegister(newSkillsCapability(deps.Skills, deps.Log))
 	reg.MustRegister(newWritingsCapability(deps.WritingsTx, deps.Writings, deps.Log))
-	reg.MustRegister(newJobsCapability(deps.Jobs, deps.Log))
-	reg.MustRegister(newResumeCapability(deps.Resume, deps.Log))
-	reg.MustRegister(newApplicationsCapability(deps.Applications, deps.Log))
+	reg.MustRegister(jobsmcp.NewJobsCapability(deps.Jobs, deps.Log))
+	reg.MustRegister(jobsmcp.NewResumeCapability(deps.Resume, deps.Log))
+	reg.MustRegister(jobsmcp.NewApplicationsCapability(deps.Applications, deps.Log))
 	reg.MustRegister(newCustomPageCapability(deps.CustomPages, deps.Log))
 	reg.MustRegister(newPageCapability(deps.Handle, deps.Log))
 	reg.MustRegister(newCalendarCapability(

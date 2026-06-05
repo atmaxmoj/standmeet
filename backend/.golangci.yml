@@ -125,6 +125,10 @@ linters:
         - github.com/atmaxmoj/standmeet/internal/sandbox.Runner
         - github.com/atmaxmoj/standmeet/internal/domain.Document
         - github.com/atmaxmoj/standmeet/internal/domain.Integration
+        # J.3: jobs plugin 的 Capability 工厂跟主 mcp 包同形态 (NewXxx →
+        # agentskills.Capability)；外部用 Capability interface 注册不耦合
+        # 实现类型。
+        - github.com/atmaxmoj/standmeet/internal/agentskills.Capability
     revive:
       enable-all-rules: true
       rules:
@@ -247,6 +251,10 @@ linters:
       # map[string]any，array 类型转换成 []any）。这是协议契约不是
       # 业务态，同 postgres 豁免。
       - path: internal/mcp/
+        linters: [forbidigo]
+      # J.3: jobs plugin 的 MCP capabilities 跟 internal/mcp 同形态，同
+      # schemaless 协议契约 (map[string]any payload)。
+      - path: internal/plugins/jobs/jobsmcp/
         linters: [forbidigo]
 
 formatters:

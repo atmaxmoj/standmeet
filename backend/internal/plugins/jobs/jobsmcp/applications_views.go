@@ -1,6 +1,6 @@
 // applications_views.go —— applications.commit tool 响应中 text 部分的 JSON 形状。
 
-package mcp
+package jobsmcp
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/domain"

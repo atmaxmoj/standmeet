@@ -2,7 +2,11 @@
 // 6 tools: register_source / list_sources / unregister_source / fetch_new /
 // show / discard。owner-only。详见 docs/design/job-loop.md。
 
-package mcp
+// Package jobsmcp —— J.3: jobs plugin 的 MCP capabilities + result wire。
+// owner-only 6+5+1 = 12 tool (jobs.*  + resume.*  + applications.commit)。
+// 从 internal/mcp 搬来；包名 jobsmcp 避开跟 internal/mcp 撞名，外部引用
+// 形如 jobsmcp.NewJobsCapability(deps, log)。
+package jobsmcp
 
 import (
 	"context"
@@ -22,7 +26,9 @@ type jobsCapability struct {
 	log  *slog.Logger
 }
 
-func newJobsCapability(jobs *jobsuc.JobsDeps, log *slog.Logger) *jobsCapability {
+// NewJobsCapability —— J.3 起外露给 internal/mcp/register.go (jobs plugin
+// 跨 package 被注册到 agentskills.Registry)。
+func NewJobsCapability(jobs *jobsuc.JobsDeps, log *slog.Logger) agentskills.Capability {
 	return &jobsCapability{jobs: jobs, log: log}
 }
 

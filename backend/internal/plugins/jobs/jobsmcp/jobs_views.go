@@ -1,6 +1,6 @@
 // jobs_views.go —— jobs.* tool 响应的 JSON 形状。
 
-package mcp
+package jobsmcp
 
 import (
 	"encoding/json"

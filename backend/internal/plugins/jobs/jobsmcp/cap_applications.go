@@ -5,7 +5,7 @@
 // MCPResult.Embeddings (Phase E-12 扩) 让 adapter 把 PDF blob 一起塞进
 // CallToolResult.Content[]。
 
-package mcp
+package jobsmcp
 
 import (
 	"context"
@@ -29,9 +29,10 @@ type applicationsCapability struct {
 	log  *slog.Logger
 }
 
-func newApplicationsCapability(
+// NewApplicationsCapability —— J.3 起外露给 internal/mcp/register.go。
+func NewApplicationsCapability(
 	apps *jobsuc.ApplicationsDeps, log *slog.Logger,
-) *applicationsCapability {
+) agentskills.Capability {
 	return &applicationsCapability{apps: apps, log: log}
 }
 
