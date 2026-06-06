@@ -12,16 +12,12 @@ export { StandMeetProvider, useStandMeet } from './provider.js';
 export { useChatSession } from './use-chat-session.js';
 export type { ChatMessage, ChatState } from './use-chat-session.js';
 
-// D-4: agent-core React glue + browser adapters
-export { useAgent } from './use-agent.js';
-export type { AgentState, UseAgentOptions } from './use-agent.js';
+// agent-core React glue + browser adapters (H.10: loop 在 backend，
+// 浏览器只用 prompt source + agent-turn streamer)
 export {
-  httpPromptSource, httpToolDispatcher, scriptedLLMStreamer,
-  httpInferenceStreamer, httpAgentTurnStreamer,
+  httpPromptSource, httpAgentTurnStreamer,
 } from './agent-adapters.js';
 export type {
-  HttpPromptSourceOptions, HttpToolDispatcherOptions,
-  HttpInferenceStreamerOptions, HttpAgentTurnStreamerOptions,
+  HttpPromptSourceOptions, HttpAgentTurnStreamerOptions,
   HttpBYOAIHeaders,
-  ScriptedLLMOptions, ScriptedStep,
 } from './agent-adapters.js';

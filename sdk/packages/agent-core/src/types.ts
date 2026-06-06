@@ -1,5 +1,5 @@
 // types.ts —— shared agent core types, kept stable across hosts so any
-// LLMStreamer / ToolDispatcher / EventObserver impl knows the contract.
+// TurnStreamer / EventObserver impl knows the contract.
 
 export interface CapabilityState {
   readonly id: string;
@@ -9,14 +9,8 @@ export interface CapabilityState {
   readonly extra?: unknown;
 }
 
-// Tool call/result envelope —— matches pi-ai shape loosely so existing
-// providers/adapters can interop without translation layer.
-export interface ToolCall {
-  readonly id: string;
-  readonly name: string;
-  readonly args: unknown;
-}
-
+// ToolResult —— tool 调用结果信封。matches pi-ai shape loosely so
+// adapters can interop without translation layer.
 export interface ToolResult {
   readonly id: string;
   readonly name: string;
@@ -40,8 +34,7 @@ export interface Message {
 }
 
 // ToolCallRef —— assistant turn 内调出的一条 tool_use 的小记录，挂在
-// Message.tool_calls 上随 history 来回。跟 ToolCall (live dispatcher 输入)
-// 同形但语义不同：ToolCall 是"现在要调的"，ToolCallRef 是"上轮调过的"。
+// Message.tool_calls 上随 history 来回 (上轮调过的，喂回 backend 当上下文)。
 export interface ToolCallRef {
   readonly id: string;
   readonly name: string;
@@ -67,7 +60,6 @@ export type AgentTurnEvent =
 export type AgentEvent =
   | { readonly type: 'iteration_started'; readonly iter: number }
   | { readonly type: 'llm_chunk'; readonly text: string }
-  | { readonly type: 'llm_tool_request'; readonly call: ToolCall }
   | { readonly type: 'tool_started'; readonly name: string }
   | { readonly type: 'tool_completed'; readonly result: ToolResult }
   | { readonly type: 'capability_state_changed'; readonly states: readonly CapabilityState[] }

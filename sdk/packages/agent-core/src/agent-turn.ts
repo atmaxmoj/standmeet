@@ -1,12 +1,9 @@
-// agent-turn.ts —— H.10: VisitorTurnAgent，agent-core 的 "降级版"。
+// agent-turn.ts —— H.10: VisitorTurnAgent，agent-core 唯一的 agent 入口。
 //
-// 老 VisitorAgent 在浏览器里跑 LLM ↔ tool 循环 (5 个 port: prompts /
-// capabilities / llm / tools / observer)；H.9 backend 接管 loop 之后
-// 浏览器只是 event consumer —— 单一 POST /api/v1/agent/turn，SSE 收
-// 整套事件 (text / tool_started / tool_completed / done / error)，分
-// 派给 observer 渲 UI 即可。
-//
-// 老 VisitorAgent 在 H.12 sweep 时删；当下并存让 caller 平滑切。
+// H.9 backend (eino ADK) 接管 LLM ↔ tool loop 之后，浏览器只是 event
+// consumer —— 单一 POST /api/v1/agent/turn，SSE 收整套事件 (text /
+// tool_started / tool_completed / done / error)，分派给 observer 渲 UI 即可。
+// (老的浏览器侧 VisitorAgent loop 已删，只剩 3 ports: prompts / turn / observer)
 
 import type {
   EventObserver,

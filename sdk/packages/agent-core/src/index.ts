@@ -1,14 +1,7 @@
 // @standmeet/agent-core —— visitor chat agent loop, host-agnostic.
-// Inject 5 ports (prompts / capabilities / llm / tools / observer);
-// same loop runs in prod browser, eval harness, IM bridge, etc.
+// H.10 后 loop 在 backend (eino ADK)；浏览器是 thin event consumer，
+// 注 3 ports (prompts / turn / observer) 跑 VisitorTurnAgent。
 
-export { VisitorAgent } from './agent.js';
-export type {
-  SendOptions,
-  ToolSpecRegistry,
-  VisitorAgentConfig,
-  VisitorAgentPorts,
-} from './agent.js';
 export { VisitorTurnAgent } from './agent-turn.js';
 export type {
   SendTurnOptions,
@@ -16,14 +9,8 @@ export type {
   VisitorTurnAgentPorts,
 } from './agent-turn.js';
 export type {
-  CapabilityStateSource,
   EventObserver,
-  LLMStreamRequest,
-  LLMStreamEvent,
-  LLMStreamer,
-  LLMToolSpec,
   PromptSource,
-  ToolDispatcher,
   TurnRequest,
   TurnStreamer,
 } from './ports.js';
@@ -32,7 +19,6 @@ export type {
   AgentTurnEvent,
   CapabilityState,
   Message,
-  ToolCall,
   ToolCallRef,
   ToolResult,
 } from './types.js';

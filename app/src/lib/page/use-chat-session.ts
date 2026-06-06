@@ -4,8 +4,6 @@
 
 'use client';
 
-import type { ToolSpecRegistry } from '@standmeet/agent-core';
-
 import {
   issueBYOAISession, issueCodeSession, issuePublicSession,
   type PublicSessionResponse,
@@ -25,7 +23,6 @@ export interface PageSession {
   sessionToken: string;
   conversationID: string;
   systemPromptPartIDs: readonly string[];
-  toolSpecRegistry: ToolSpecRegistry;
   persona: string;
 }
 
@@ -60,7 +57,6 @@ function toPageSession(issued: IssuedSessionWithExtras): PageSession {
     sessionToken: issued.session_token,
     conversationID: issued.conversation_id,
     systemPromptPartIDs: issued.system_prompt_part_ids ?? ['visitor-header'],
-    toolSpecRegistry: makeRegistry(issued),
     persona: issued.system_prompt_persona ?? '',
   };
 }
@@ -69,18 +65,6 @@ function extractCapabilities(issued: IssuedSessionWithExtras): readonly {
   id: string; enabled: boolean; quota_remaining?: number; policy_summary?: string;
 }[] {
   return issued.capabilities ?? [];
-}
-
-function makeRegistry(issued: IssuedSessionWithExtras): ToolSpecRegistry {
-  const specs = (issued.tool_specs ?? []).map((s) => ({
-    name: s.name, description: s.description, input_schema: s.input_schema,
-  }));
-  return {
-    forCapability(_id: string) {
-      void _id;
-      return specs;
-    },
-  };
 }
 
 async function issueFresh(deps: SessionDeps): Promise<PublicSessionResponse> {

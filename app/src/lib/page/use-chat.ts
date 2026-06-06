@@ -1,5 +1,6 @@
-// use-chat —— D 期切到 pi-agent-core (在 browser 里跑 LLM ↔ tool loop)，
-// UI 吃 Dialog[] state，内部走 useAgent + 真 prod adapters。
+// use-chat —— visitor chat 的 UI 状态机：UI 吃 Dialog[] state，内部走
+// VisitorTurnAgent + 真 prod adapters (H.10: agent loop 在 backend eino，
+// 浏览器一次 POST /agent/turn，SSE 事件聚合成 Dialog)。
 //
 // ChatState 接口：caller (PageShell / FloatingChatDock / ChatRoom) 不变
 // 拿 dialogs / pending / error + ask / reset。
@@ -9,10 +10,8 @@
 //   - useConversation → useChat (Chat 是聚合根，dialog 是子 entity)
 //   - Citation.kind → genre, Citation.id → path (后端复用 DocumentGenre，前端字段名说实话)
 //
-// 改动史:
-//   - 老 streamChatMessage(/messages SSE token-by-token) → useAgent.send()
-//     (browser-side loop, /inference/stream + /sessions/{id}/tools/{name})
-//   - 老 SSE done.cited_wiki_refs → tool_completed corpus_read 事件聚合
+// 事件聚合:
+//   - tool_completed corpus_read 事件 → cited 列表
 //   - Dialog.answer.paras 仍由 body 拆段；body 从 llm_chunk text deltas 累积
 
 'use client';
