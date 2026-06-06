@@ -82,6 +82,7 @@ services:
       - HN_BASE_URL=http://job-board-mock:9000/hn
       - SMARTRECRUITERS_BASE_URL=http://job-board-mock:9000/smartrecruiters
       - WORKABLE_BASE_URL=http://job-board-mock:9000/workable
+      - JBA_BASE_URL=http://job-board-mock:9000/jba
       # Skill-marketplace search proxy upstreams. Both point at the
       # job-board-mock service in dev/e2e so the search never touches
       # public internet (rate limits / determinism). Production leaves

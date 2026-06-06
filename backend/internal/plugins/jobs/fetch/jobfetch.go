@@ -35,6 +35,8 @@ const (
 	KindHNHiring        = "hn_hiring"
 	KindSmartRecruiters = "smartrecruiters"
 	KindWorkable        = "workable"
+	// KindJBA —— J.6a: JobBoardAggregator (Feashliaa) 聚合源；详见 jba.go。
+	KindJBA = "jba"
 )
 
 const (
@@ -70,6 +72,7 @@ type BaseURLs struct {
 	HN              string
 	SmartRecruiters string
 	Workable        string
+	JBA             string
 }
 
 // New 构造 Registry。BaseURLs 可单独设（e2e mock 时塞 fake server 地址），
@@ -89,6 +92,7 @@ func New(b *BaseURLs) *Registry {
 			KindHNHiring:        newHNHiringFetcher(client, b.HN),
 			KindSmartRecruiters: newSmartRecruitersFetcher(client, b.SmartRecruiters),
 			KindWorkable:        newWorkableFetcher(client, b.Workable),
+			KindJBA:             newJBAFetcher(client, b.JBA),
 		},
 	}
 }
@@ -133,6 +137,7 @@ var configValidators = map[string]func([]byte) error{
 	KindWWR:             validateWWRCfg,
 	KindRemoteOK:        validateEmptyCfg,
 	KindHNHiring:        validateEmptyCfg,
+	KindJBA:             validateJBACfg,
 }
 
 // validateEmptyCfg —— remoteok / hn_hiring 不需要任何 config，传啥都接受。

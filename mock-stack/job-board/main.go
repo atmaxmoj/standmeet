@@ -154,6 +154,8 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /hn/v0/user/whoishiring.json", s.serveHNUser)
 	// Same wildcard-suffix issue as WWR — match full filename, strip in handler.
 	mux.HandleFunc("GET /hn/v0/item/{filename}", s.serveHNItem)
+	// JBA (Feashliaa) chunked archive；适配器只 GET 这两条路径。
+	mux.HandleFunc("GET /jba/data/chunks/{filename}", s.serveJBA)
 
 	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)
@@ -239,6 +241,36 @@ func (s *server) serveHNItem(w http.ResponseWriter, r *http.Request) {
 	}
 	id := strings.TrimSuffix(filename, jsonSuffix)
 	s.serveJSONKind(w, r, "hn", "item-"+id, hnItemDay2)
+}
+
+// serveJBA —— manifest 跟 chunked gzip 都走这条；fixture 文件保留原扩展名
+// (.json / .json.gz) 直接 readFile 透传，不走 .day1. 命名 (JBA 不需要 day2
+// 变化测；fixture 一次性铺好就行)。
+func (s *server) serveJBA(w http.ResponseWriter, r *http.Request) {
+	filename := r.PathValue("filename")
+	body, err := s.readJBAFixture(filename)
+	if err != nil {
+		s.notFound(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", jbaContentType(filename))
+	writeBody(s.log, w, body)
+}
+
+func jbaContentType(filename string) string {
+	if strings.HasSuffix(filename, ".json.gz") {
+		return "application/gzip"
+	}
+	return jsonMIME
+}
+
+func (s *server) readJBAFixture(filename string) ([]byte, error) {
+	path := filepath.Clean(filepath.Join(s.root, jobBoardSubdir, "jba", filename))
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read jba fixture %s: %w", path, err)
+	}
+	return body, nil
 }
 
 // serveJSONKind is the JSON-flavour helper: read {kind}/{slug}.day1.json,
