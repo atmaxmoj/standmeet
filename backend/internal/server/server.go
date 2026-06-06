@@ -15,6 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/mcp"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -117,6 +118,9 @@ func mountAdmin(r chi.Router, deps *Deps) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
 			adminH.MountAuthed(r)
+			jobsadmin.Mount(r, jobsadmin.Deps{
+				Apps: deps.Admin.Applications, Drafts: deps.Admin.Drafts, Log: deps.Log,
+			})
 		})
 	})
 }
@@ -167,12 +171,10 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 				Assets: deps.Admin.Assets,
 			},
 		},
-		DraftsAdmin:       adminroutes.DraftsAdminDeps{Drafts: deps.Admin.Drafts},
-		ApplicationsAdmin: adminroutes.ApplicationsAdminDeps{Apps: deps.Admin.Applications},
-		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
-		CalendarAdmin:     deps.Admin.Calendar,
-		Log:               deps.Log,
-		SecureCookie:      deps.Admin.SecureCookie,
+		MarketplaceAdmin: adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
+		CalendarAdmin:    deps.Admin.Calendar,
+		Log:              deps.Log,
+		SecureCookie:     deps.Admin.SecureCookie,
 	}
 }
 

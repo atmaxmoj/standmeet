@@ -20,34 +20,32 @@ import (
 
 // Handlers 是 admin handlers 需要的依赖。
 type Handlers struct {
-	Claim             usecases.ClaimDeps
-	Auth              AuthDeps
-	KeypairsAdmin     KeypairsAdminDeps
-	Corpus            CorpusDeps
-	CodesAdmin        CodesDeps
-	PageAdmin         PageAdminDeps
-	SEOAdmin          SEOAdminDeps
-	Conversations     ConversationsDeps
-	BYOAI             BYOAIDeps
-	Domains           DomainsDeps
-	AccessRequests    AccessRequestsDeps
-	HandleAdmin       HandleDeps
-	PublicURLAdmin    PublicURLDeps
-	AccountAdmin      AccountDeps
-	AIProviderAdmin   AIProviderDeps
-	CustomPages       usecases.CustomPageDeps
-	SkillsAdmin       SkillsAdminDeps
-	PromptsAdmin      PromptsAdminDeps
-	RolesAdmin        RolesAdminDeps
-	MCPServersAdmin   MCPServersAdminDeps
-	WritingsAdmin     WritingsAdminDeps
-	Obsidian          ObsidianDeps
-	DraftsAdmin       DraftsAdminDeps
-	ApplicationsAdmin ApplicationsAdminDeps
-	MarketplaceAdmin  MarketplaceAdminDeps
-	CalendarAdmin     CalendarAdminDeps
-	Log               *slog.Logger
-	SecureCookie      bool // false 仅限 dev (http)；prod 必须 true。
+	Claim            usecases.ClaimDeps
+	Auth             AuthDeps
+	KeypairsAdmin    KeypairsAdminDeps
+	Corpus           CorpusDeps
+	CodesAdmin       CodesDeps
+	PageAdmin        PageAdminDeps
+	SEOAdmin         SEOAdminDeps
+	Conversations    ConversationsDeps
+	BYOAI            BYOAIDeps
+	Domains          DomainsDeps
+	AccessRequests   AccessRequestsDeps
+	HandleAdmin      HandleDeps
+	PublicURLAdmin   PublicURLDeps
+	AccountAdmin     AccountDeps
+	AIProviderAdmin  AIProviderDeps
+	CustomPages      usecases.CustomPageDeps
+	SkillsAdmin      SkillsAdminDeps
+	PromptsAdmin     PromptsAdminDeps
+	RolesAdmin       RolesAdminDeps
+	MCPServersAdmin  MCPServersAdminDeps
+	WritingsAdmin    WritingsAdminDeps
+	Obsidian         ObsidianDeps
+	MarketplaceAdmin MarketplaceAdminDeps
+	CalendarAdmin    CalendarAdminDeps
+	Log              *slog.Logger
+	SecureCookie     bool // false 仅限 dev (http)；prod 必须 true。
 }
 
 // MountUnauthed 挂不需要 owner session 的 endpoint：claim / login。
@@ -90,8 +88,6 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountMCPServers(r)
 	h.MountWritings(r)
 	h.MountObsidian(r)
-	h.MountDrafts(r)
-	h.MountApplications(r)
 	h.MountMarketplace(r)
 	h.MountCalendarConnector(r)
 	h.MountBookingPolicy(r)
