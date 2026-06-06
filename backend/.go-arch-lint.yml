@@ -45,6 +45,8 @@ components:
     in: internal/plugins/jobs/cache       # J phase: jobs plugin cache sub-pkg (Redis 1d TTL)
   jobfetch:
     in: internal/plugins/jobs/fetch       # J phase: jobs plugin fetch sub-pkg (Greenhouse / Lever / Ashby / ...)
+  jobdedup:
+    in: internal/plugins/jobs/dedup       # J.6c: cross-source dedup (canonical URL + composite key)
   gcal:
     in: internal/gcal                     # Google OAuth + Calendar HTTP client (events.insert / freeBusy / token refresh)
   gotenberg:
@@ -234,6 +236,14 @@ deps:
       - usecases
       - jobcache
       - jobfetch
+      - jobdedup
+    anyVendorDeps: true
+
+  # jobdedup —— J.6c: cross-source dedup (canonical URL + composite key)。
+  # 纯函数；只依赖 domain.FetchedJob shape。
+  jobdedup:
+    mayDependOn:
+      - domain
     anyVendorDeps: true
 
   # jobsmcp —— J.3: jobs plugin MCP capabilities + result wire views。

@@ -1,0 +1,28 @@
+{
+  "jobs": [
+    {
+      "id": 4001,
+      "title": "Backend Engineer (Go)",
+      "company_name": "beta-labs",
+      "absolute_url": "https://boards.greenhouse.io/betalabs/jobs/4001",
+      "location": {"name": "San Francisco, CA"},
+      "first_published": "2026-06-01T00:00:00Z",
+      "updated_at": "2026-06-01T00:00:00Z",
+      "content": "Build the platform.",
+      "departments": [{"name": "Engineering"}],
+      "offices": [{"name": "San Francisco"}]
+    },
+    {
+      "id": 4002,
+      "title": "Senior Frontend Engineer",
+      "company_name": "beta-labs",
+      "absolute_url": "https://boards.greenhouse.io/betalabs/jobs/4002",
+      "location": {"name": "Remote (US)"},
+      "first_published": "2026-06-02T00:00:00Z",
+      "updated_at": "2026-06-02T00:00:00Z",
+      "content": "Build the UI.",
+      "departments": [{"name": "Engineering"}],
+      "offices": [{"name": "Remote"}]
+    }
+  ]
+}

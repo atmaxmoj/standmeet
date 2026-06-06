@@ -20,6 +20,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
+	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/dedup"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -104,7 +105,12 @@ func FetchNewJobs(
 		}
 		allNew = append(allNew, nu...)
 	}
-	return allNew, nil
+	// J.6c: 跨源去重 (canonical URL + composite key)。在 fetchOneSourceAndDedup
+	// 的 per-source seen-by-external-id 之上再加一层 — 那层只防同一 source
+	// 内的重复 post，cross-source 用 ATS namespace 不同的 external_id 就漏。
+	// 此处不动 per-source seen 记录 (那条仍按 fetcher 返的 ID 标 seen)，
+	// 只对 visible-to-Claude 的 surface 做去重。
+	return dedup.Apply(allNew), nil
 }
 
 func selectSourcesToFetch(
