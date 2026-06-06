@@ -10,6 +10,7 @@ import { setMockBusy } from '@/fixtures/gcal';
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, type CodedSeed,
 } from '@/fixtures/gcal-setup';
+import { goto } from '@/fixtures/navigate';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 test.describe('chat · calendar_list_slots → SlotsCard', () => {
@@ -36,7 +37,7 @@ test.describe('chat · calendar_list_slots → SlotsCard', () => {
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      await page.goto(`/?code=${seed.code.code}`);
+      await goto(page, `/?code=${seed.code.code}`);
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });

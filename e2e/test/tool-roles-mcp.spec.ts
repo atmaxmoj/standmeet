@@ -4,6 +4,8 @@
 // Tools: role_create / role_list / role_delete。vanilla builtin
 // 不可删 (usecase 拦截，MCP 返 isError)。
 
+import type { Playwright } from '@playwright/test';
+
 import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
@@ -14,6 +16,24 @@ const OWNER = {
   email: 'roles-mcp@example.com', password: 'correct-horse-battery-staple',
   handle: 'roles-mcp', fullName: 'Roles MCP Owner',
 };
+
+// seedRolesMCP —— claim + login + API token + MCP session。抽出 beforeAll
+// 让 describe 回调 < 70 行 (max-lines-per-function)。
+async function seedRolesMCP(
+  playwright: Playwright,
+): Promise<{ sid: string; apiToken: string }> {
+  resetInstance();
+  const request = await playwright.request.newContext();
+  await claim(request, findSetupToken(), {
+    email: OWNER.email, password: OWNER.password,
+    handle: OWNER.handle, fullName: OWNER.fullName,
+  });
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const apiToken = await createAPIToken(request, csrf, 'roles-mcp-token');
+  const sid = await initMCP(request, apiToken);
+  await request.dispose();
+  return { sid, apiToken };
+}
 
 interface RoleCreateResp { role_id: string; name: string }
 interface RoleRow {
@@ -32,16 +52,7 @@ test.describe('Phase E-6 roles CRUD via MCP', () => {
   let apiToken: string;
 
   test.beforeAll(async ({ playwright }) => {
-    resetInstance();
-    const request = await playwright.request.newContext();
-    await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
-    });
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    apiToken = await createAPIToken(request, csrf, 'roles-mcp-token');
-    sid = await initMCP(request, apiToken);
-    await request.dispose();
+    ({ sid, apiToken } = await seedRolesMCP(playwright));
   });
 
   test('role_create + role_list returns the new role with corpus_uris',

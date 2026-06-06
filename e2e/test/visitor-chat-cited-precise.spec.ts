@@ -18,6 +18,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { goto } from '@/fixtures/navigate';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -64,7 +65,7 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
         }
       });
 
-      await page.goto(`/?code=${CODE}`);
+      await goto(page, `/?code=${CODE}`);
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });

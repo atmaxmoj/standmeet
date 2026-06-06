@@ -4,6 +4,8 @@
 // Tools: prompt_create / prompt_list / prompt_delete。vanilla builtin
 // 不可删 (usecase 拦截，MCP 返 isError)。
 
+import type { Playwright } from '@playwright/test';
+
 import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
@@ -14,6 +16,24 @@ const OWNER = {
   email: 'prompts-mcp@example.com', password: 'correct-horse-battery-staple',
   handle: 'prompts-mcp', fullName: 'Prompts MCP Owner',
 };
+
+// seedPromptsMCP —— claim + login + API token + MCP session。抽出 beforeAll
+// 让 describe 回调 < 70 行 (max-lines-per-function)。
+async function seedPromptsMCP(
+  playwright: Playwright,
+): Promise<{ sid: string; apiToken: string }> {
+  resetInstance();
+  const request = await playwright.request.newContext();
+  await claim(request, findSetupToken(), {
+    email: OWNER.email, password: OWNER.password,
+    handle: OWNER.handle, fullName: OWNER.fullName,
+  });
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const apiToken = await createAPIToken(request, csrf, 'prompts-mcp-token');
+  const sid = await initMCP(request, apiToken);
+  await request.dispose();
+  return { sid, apiToken };
+}
 
 interface PromptCreateResp { prompt_id: string; name: string }
 interface PromptRow {
@@ -29,16 +49,7 @@ test.describe('Phase E-5 prompts CRUD via MCP', () => {
   let apiToken: string;
 
   test.beforeAll(async ({ playwright }) => {
-    resetInstance();
-    const request = await playwright.request.newContext();
-    await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
-    });
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    apiToken = await createAPIToken(request, csrf, 'prompts-mcp-token');
-    sid = await initMCP(request, apiToken);
-    await request.dispose();
+    ({ sid, apiToken } = await seedPromptsMCP(playwright));
   });
 
   test('prompt_create + prompt_list returns the new prompt with metadata',

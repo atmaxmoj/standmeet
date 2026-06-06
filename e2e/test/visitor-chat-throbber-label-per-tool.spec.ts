@@ -8,11 +8,12 @@
 // 时通过 agentskills.NewTool 传 progress_label，wire 形态不变)。
 
 import { test, expect, type Page } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { Playwright, Response } from '@playwright/test';
 
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, type CodedSeed,
 } from '@/fixtures/gcal-setup';
+import { goto } from '@/fixtures/navigate';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 interface ThrobberCase {
@@ -71,8 +72,8 @@ async function prep(playwright: Playwright): Promise<CodedSeed> {
 }
 
 async function visitAsCoded(page: Page, code: string): Promise<void> {
-  await page.goto(`/?code=${code}`);
-  await page.waitForResponse((r: import('@playwright/test').Response) =>
+  await goto(page, `/?code=${code}`);
+  await page.waitForResponse((r: Response) =>
     r.url().endsWith('/api/v1/sessions') && r.status() === 200);
   await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
   const skip = page.getByTestId('visitor-name-skip');

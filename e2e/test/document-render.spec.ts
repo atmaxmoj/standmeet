@@ -12,6 +12,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -85,7 +86,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('基础 markdown · heading / bold / italic / inline code / list / link',
     async ({ page }) => {
-      await page.goto(`/wiki/${pathFor('markdown')}`);
+      await goto(page, `/wiki/${pathFor('markdown')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body).toBeVisible();
       await expect(body.locator('h1')).toHaveText('Heading');
@@ -98,7 +99,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('gfm · table / strikethrough / autolink',
     async ({ page }) => {
-      await page.goto(`/wiki/${pathFor('gfm')}`);
+      await goto(page, `/wiki/${pathFor('gfm')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body.locator('table')).toBeVisible();
       await expect(body.locator('table th').first()).toContainText('col1');
@@ -109,7 +110,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('katex · inline + display 都有 .katex / .katex-display 元素',
     async ({ page }) => {
-      await page.goto(`/wiki/${pathFor('katex')}`);
+      await goto(page, `/wiki/${pathFor('katex')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body.locator('.katex').first()).toBeVisible();
       await expect(body.locator('.katex-display')).toBeVisible();
@@ -117,7 +118,7 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('mermaid · ```mermaid block 异步渲染 <svg>',
     async ({ page }) => {
-      await page.goto(`/wiki/${pathFor('mermaid')}`);
+      await goto(page, `/wiki/${pathFor('mermaid')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body.getByTestId('mermaid-svg').locator('svg'))
         .toBeVisible({ timeout: 10_000 });
@@ -125,13 +126,14 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
 
   test('xss sanitize · <script> 被剔除 + onerror 不触发',
     async ({ page }) => {
-      await page.goto(`/wiki/${pathFor('xss')}`);
+      await goto(page, `/wiki/${pathFor('xss')}`);
       const body = page.getByTestId('wiki-body');
       await expect(body).toContainText('Before');
       await expect(body).toContainText('After');
       await expect(body.locator('script')).toHaveCount(0);
-      // 等几百 ms 让 onerror 有机会执行（如果没拦的话）
-      await page.waitForTimeout(300);
+      // 恶意 <img onerror> 应被 sanitize 整个剔除 —— 断言它不存在（web-first
+      // 断言自动重试等 DOM settle），img 没了 onerror 就永无机会 fire。
+      await expect(body.locator('img')).toHaveCount(0);
       const pwned = await page.evaluate(
         () => Boolean((window as unknown as { __pwned?: boolean }).__pwned)
           || Boolean((window as unknown as { __pwned_img?: boolean }).__pwned_img),

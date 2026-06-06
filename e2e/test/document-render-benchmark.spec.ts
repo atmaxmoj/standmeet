@@ -12,6 +12,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -80,7 +81,6 @@ test.describe('document render benchmark · wiki landing 渲染耗时 smoke', ()
   for (const b of BENCHES) {
     test(`${b.name} 渲染 < ${b.ceilMs}ms`, async ({ browser }) => {
       const elapsed = await measure(browser, b);
-      // eslint-disable-next-line no-console
       console.log(`[bench] ${b.name} : ${elapsed}ms`);
       expect(elapsed).toBeLessThan(b.ceilMs);
     });
@@ -91,7 +91,7 @@ async function measure(browser: Browser, b: Bench): Promise<number> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   const t0 = Date.now();
-  await page.goto(`/wiki/${b.path}`);
+  await goto(page, `/wiki/${b.path}`);
   await b.awaitSelector(page);
   const elapsed = Date.now() - t0;
   await ctx.close();

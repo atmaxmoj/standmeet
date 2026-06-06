@@ -4,6 +4,8 @@
 // E-13 同时修了 CodeRepo.Revoke 的 0-row bug —— 已经在 b6-codes-revoke-mcp
 // 之外用本 spec 也间接覆盖 update_quotas 的同类 not-found 路径。
 
+import type { Playwright } from '@playwright/test';
+
 import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
@@ -15,6 +17,28 @@ const OWNER = {
   email: 'codes-mcp@example.com', password: 'correct-horse-battery-staple',
   handle: 'codes-mcp', fullName: 'Codes MCP Owner',
 };
+
+// seedCodesMCP —— claim + login + role + API token + MCP session。抽出
+// beforeAll 让 describe 回调 < 70 行 (max-lines-per-function)。
+async function seedCodesMCP(
+  playwright: Playwright,
+): Promise<{ sid: string; apiToken: string; roleID: string }> {
+  resetInstance();
+  const request = await playwright.request.newContext();
+  await claim(request, findSetupToken(), {
+    email: OWNER.email, password: OWNER.password,
+    handle: OWNER.handle, fullName: OWNER.fullName,
+  });
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const role = await createRole(request, csrf, {
+    name: 'codes-mcp-role', description: 'role for codes mcp spec',
+    corpus_uris: ['wiki://**'],
+  });
+  const apiToken = await createAPIToken(request, csrf, 'codes-mcp-token');
+  const sid = await initMCP(request, apiToken);
+  await request.dispose();
+  return { sid, apiToken, roleID: role.id };
+}
 
 interface CreateResp { code_id: string; code: string; label: string }
 interface UpdateQuotasResp {
@@ -31,21 +55,7 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
   let roleID: string;
 
   test.beforeAll(async ({ playwright }) => {
-    resetInstance();
-    const request = await playwright.request.newContext();
-    await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
-    });
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    const role = await createRole(request, csrf, {
-      name: 'codes-mcp-role', description: 'role for codes mcp spec',
-      corpus_uris: ['wiki://**'],
-    });
-    roleID = role.id;
-    apiToken = await createAPIToken(request, csrf, 'codes-mcp-token');
-    sid = await initMCP(request, apiToken);
-    await request.dispose();
+    ({ sid, apiToken, roleID } = await seedCodesMCP(playwright));
   });
 
   test('codes.create issues an access code with quotas; visible in admin /codes/',

@@ -17,6 +17,7 @@
 import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { goto } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import type { APIRequestContext } from '@playwright/test';
@@ -61,7 +62,7 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
       // 不用 scriptMockToolCall —— 本测就是验自然路径。
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      await page.goto(`/?code=${CODE}`);
+      await goto(page, `/?code=${CODE}`);
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });

@@ -12,6 +12,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
 
 import { getMockEvents, setMockBusy } from '@/fixtures/gcal';
+import { goto } from '@/fixtures/navigate';
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, type CodedSeed,
 } from '@/fixtures/gcal-setup';
@@ -41,7 +42,7 @@ test.describe('chat · calendar.book all_busy conflict', () => {
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      await page.goto(`/?code=${seed.code.code}`);
+      await goto(page, `/?code=${seed.code.code}`);
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });

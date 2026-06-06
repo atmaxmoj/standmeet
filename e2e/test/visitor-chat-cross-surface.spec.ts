@@ -8,12 +8,14 @@
 // 再加 ask → quota +1 的 UI flow 验证。
 
 import { test, expect, type Page } from '@/fixtures/test';
+import type { Response } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP, callTool } from '@/fixtures/mcp';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -86,7 +88,7 @@ test.describe('visitor chat 铺全 document surface + quota 可见', () => {
     test(`coded visitor 在 ${s.label} 看到 SessionStrip gauge + FloatingChatDock pill`,
       async ({ page }) => {
         await absorbCode(page);
-        await page.goto(s.path);
+        await goto(page, s.path);
         await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
         await expect(page.getByTestId(s.bodyTestid)).toBeVisible();
         const gauge = page.getByTestId('session-strip-gauge');
@@ -99,7 +101,7 @@ test.describe('visitor chat 铺全 document surface + quota 可见', () => {
   test('开 floating dock 问一句 → quota gauge +1 (wiki landing)',
     async ({ page }) => {
       await absorbCode(page);
-      await page.goto(`/wiki/${WIKI_PATH}`);
+      await goto(page, `/wiki/${WIKI_PATH}`);
       const gauge = page.getByTestId('session-strip-gauge');
       await expect(gauge).toContainText(`0 / ${QUOTA_MAX}`);
 
@@ -114,8 +116,8 @@ test.describe('visitor chat 铺全 document surface + quota 可见', () => {
 });
 
 async function absorbCode(page: Page): Promise<void> {
-  await page.goto(`/?code=${CODE}`);
-  await page.waitForResponse((r: import('@playwright/test').Response) =>
+  await goto(page, `/?code=${CODE}`);
+  await page.waitForResponse((r: Response) =>
     r.url().endsWith('/api/v1/sessions') && r.status() === 200);
   await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 }

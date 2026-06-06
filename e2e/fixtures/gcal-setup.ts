@@ -34,7 +34,6 @@ export interface BaseSeed {
 /** Just claim + login. Cleans GCal mock state too. */
 export async function seedOwnerLoggedIn(playwright: Playwright): Promise<BaseSeed> {
   resetInstance();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- @playwright/test Playwright type's request property resolves as `error`; rules are off in test/ but on in fixtures/
   const request: APIRequestContext = await playwright.request.newContext();
   await claim(request, findSetupToken(), {
     email: OWNER.email, password: OWNER.password,

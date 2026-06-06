@@ -11,6 +11,7 @@ import { test, expect } from '@/fixtures/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
+import { goto } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 
@@ -48,7 +49,7 @@ test.describe('citation row 可点 + inline 展开原文', () => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
 
-      await page.goto(`/?code=${CODE}`);
+      await goto(page, `/?code=${CODE}`);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       const skip = page.getByTestId('visitor-name-skip');
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
