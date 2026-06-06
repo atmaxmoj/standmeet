@@ -20,3 +20,14 @@ export { staticCapabilityStateSource } from './adapters/caps-static.js';
 export { cannedToolDispatcher, type CannedToolDispatcherOptions } from './adapters/tools-canned.js';
 export { printObserver, type PrintObserverOptions } from './adapters/observer-print.js';
 export { scriptedLLMStreamer } from './adapters/llm-scripted.js';
+export {
+  directLLMStreamer,
+  DirectLLMConfigError,
+  type DirectLLMOptions,
+} from './adapters/llm-direct.js';
+export {
+  pickProvider,
+  UnknownProviderError,
+  type ProviderConfig,
+  type ProviderProtocol,
+} from './adapters/llm-providers.js';

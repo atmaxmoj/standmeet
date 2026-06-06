@@ -20,14 +20,24 @@ Owner / another agent can read a transcript and audit:
 ```sh
 # 1. fill in API keys (any one of DEEPSEEK / ANTHROPIC / OPENAI / GOOGLE)
 cp sdk/packages/eval-harness/.env.example sdk/packages/eval-harness/.env
+# 用你常用的编辑器把 key 填进去；.env 已 gitignored。
 
 # 2. build
 pnpm --filter @standmeet/eval-harness build
 
-# 3. run wiring smoke (no real LLM)
-pnpm --filter @standmeet/eval-harness exec eval-harness run \
+# 3. run wiring smoke (no real LLM, 不读 .env)
+node sdk/packages/eval-harness/bin/eval-harness.mjs run \
   sdk/packages/eval-harness/scenarios/smoke-scripted.yml
+
+# 4. run real DeepSeek scenario (CLI 启动时自动从 .env 读 key)
+node sdk/packages/eval-harness/bin/eval-harness.mjs run \
+  sdk/packages/eval-harness/scenarios/visitor-asks-projects.yml
 ```
+
+**Never type API keys on the command line** (`export KEY=... && ...` 也别) —
+plaintext 进 shell history + 进程列表。CLI 启动时自动从 sibling `.env` 加载
+(0 deps，简单 KEY=VALUE parser)；进程环境已 set 的优先，没 set 的从 `.env`
+补齐。
 
 ## Scenarios
 

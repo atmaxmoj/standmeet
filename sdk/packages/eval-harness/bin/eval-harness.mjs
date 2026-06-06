@@ -2,10 +2,15 @@
 // eval-harness CLI —— `pnpm exec eval-harness run scenarios/foo.yml`
 // 解析 argv 并调 runScenario。详细选项见 README。
 
-import { resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { loadScenario, runScenario } from '../dist/index.js';
+
+// .env loading —— 0 deps, parses KEY=VALUE 行 (跳 # 注释 + 空行)。
+// 优先级：(1) 进程环境已 set 的不动 (2) sibling .env 补齐缺的。
+loadDotEnv();
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -47,9 +52,15 @@ async function runCmd(args) {
     process.exit(2);
   }
 
-  const result = await runScenario({
-    scenario, promptRoot, fixtureRoot, jsonlPath, color,
-  });
+  let result;
+  try {
+    result = await runScenario({
+      scenario, promptRoot, fixtureRoot, jsonlPath, color,
+    });
+  } catch (err) {
+    console.error(`\n${err.message ?? err}`);
+    process.exit(2);
+  }
   process.stdout.write(`\n═══ ${result.scenarioName} done ${result.hasError ? '(with errors)' : '✓'} ═══\n`);
   process.exit(result.hasError ? 1 : 0);
 }
@@ -70,6 +81,28 @@ function defaultPromptRoot() {
 // 默认 fixture root —— 跟 scenario 同目录的 sibling fixtures/。
 function defaultFixtureRoot(scenarioPath) {
   return resolve(scenarioPath, '..', '..', 'fixtures');
+}
+
+function loadDotEnv() {
+  // package dir = bin/.. ；.env 在 package 根。
+  const here = dirname(fileURLToPath(import.meta.url));
+  const envPath = resolve(here, '..', '.env');
+  if (!existsSync(envPath)) return;
+  const raw = readFileSync(envPath, 'utf-8');
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    // strip 单 / 双引号 wrap (DEEPSEEK_API_KEY="sk-..." 风格也接)
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
 }
 
 function printUsage() {
