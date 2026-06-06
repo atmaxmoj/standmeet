@@ -15,7 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/mcp"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
-	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsadmin"
+	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -45,8 +45,11 @@ type Deps struct {
 	PrintSession         sysroutes.PrintSessionDeps
 	DiagRegistry         sysroutes.DiagRegistryDeps
 	DiagSession          sysroutes.DiagSessionDeps
-	MCP                  mcp.Deps
-	Admin                AdminDeps
+	// PluginRegistry —— J.5: outbound plugins 一次性注册全套 admin REST hook。
+	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
+	PluginRegistry *plugins.Registry
+	MCP            mcp.Deps
+	Admin          AdminDeps
 }
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
@@ -118,9 +121,7 @@ func mountAdmin(r chi.Router, deps *Deps) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
 			adminH.MountAuthed(r)
-			jobsadmin.Mount(r, jobsadmin.Deps{
-				Apps: deps.Admin.Applications, Drafts: deps.Admin.Drafts, Log: deps.Log,
-			})
+			deps.PluginRegistry.MountAllAdminRoutes(r)
 		})
 	})
 }

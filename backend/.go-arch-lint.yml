@@ -199,20 +199,29 @@ deps:
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
-  # plugins —— J phase: Plugin interface + Registry。leaf 包；不依赖任何
-  # 别的 internal 组件 (interface 只锁 Name() string，没有 deps)。
+  # plugins —— J phase: Plugin interface + Registry + optional hooks
+  # (CapabilityRegistrar / AdminRouter)。J.5 起 hooks 需要 agentskills +
+  # chi (vendor)；boundary 仍 leaf 不耦合任何业务包。
   plugins:
     mayDependOn:
       - domain
+      - agentskills
+    anyVendorDeps: true
 
-  # pluginjobs —— J phase: jobs plugin entry。当前仅声明 Plugin impl 壳；
-  # J.2-J.4 起会把 fetch / cache / usecases / mcp 子能力都收进来。允许它
-  # 依赖 plugins (实现接口) + 自己的 fetch / cache 子包。
+  # pluginjobs —— J phase: jobs plugin entry。J.5 起持 Deps 闭包 + 实现
+  # CapabilityRegistrar (调 jobsmcp) + AdminRouter (调 jobsadmin)；
+  # 它是 jobs plugin 整套面 (uc / mcp / admin / fetch / cache) 的拼装层。
   pluginjobs:
     mayDependOn:
       - plugins
+      - agentskills
       - jobcache
       - jobfetch
+      - jobsuc
+      - jobsmcp
+      - jobsadmin
+      - postgres
+    anyVendorDeps: true
 
   # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核
   # 心 usecases 同款依赖集 (domain/postgres/cryptobox + jobfetch/jobcache)。
@@ -373,7 +382,7 @@ deps:
       - mcp
       - postgres
       - captcha
-      - jobsadmin
+      - plugins
     anyVendorDeps: true
 
   # lintcmd —— AST 静态检查工具 (check-no-nil-container)，独立可执行，纯

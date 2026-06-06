@@ -154,19 +154,37 @@ func assembleRuntimeDeps(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
 		agentSkills: agentskills.NewRegistry(),
-		// J.1: outbound plugin registry。jobs plugin scaffold 注册一次；
-		// 后续 J.2-J.4 把 MCP tools / admin routes / capability 收进来时
-		// composition root 通过 plugin 接口拿到 lifecycle hook 调用即可。
-		pluginRegistry: buildPluginRegistry(),
+		// J.5: pluginRegistry 在 assembleRuntimeDeps 返回后由 caller 用全
+		// 套 deps 构造 (jobs.Plugin 需要 *jobsuc.JobsDeps 等闭包持引用)。
+		// 这里留 nil 让 lint 看到字段被用；wirePluginRegistry 后再回填。
 	}
 }
 
 // buildPluginRegistry —— 注册当前启用的所有 outbound plugins。J 期起新增
-// outbound type 都往这里加一行 (plugins.Register(pluginX.New()))，wireup 通
+// outbound type 都往这里加一行 (reg.Register(pluginX.New(...)))，wireup 通
 // 过 registry 迭代拿 lifecycle，不要在 composition root 散嵌入逻辑。
-func buildPluginRegistry() *plugins.Registry {
+//
+// 入参 *runtimeDeps：jobs.Plugin 需要 *jobsuc.JobsDeps / ResumeDeps /
+// ApplicationsDeps 等闭包持引用；这些 Deps 字段在 assembleRuntimeDeps
+// 跑完之后才齐，所以本函数在 assemble 之后再调一次。
+func buildPluginRegistry(d *runtimeDeps) *plugins.Registry {
 	reg := plugins.NewRegistry()
-	reg.Register(pluginjobs.New())
+	jobsDeps := jobsuc.JobsDeps{
+		Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
+	}
+	resumeDeps := jobsuc.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool}
+	appsDeps := jobsuc.ApplicationsDeps{
+		Apps: d.applicationRepo, Owners: d.ownerRepo,
+		Roles: d.roleRepo, Renderer: d.pdfRenderer,
+	}
+	reg.Register(pluginjobs.New(pluginjobs.Deps{
+		Jobs:         &jobsDeps,
+		Resume:       &resumeDeps,
+		Applications: &appsDeps,
+		DraftsRepo:   d.resumeDraftRepo,
+		AppsRepo:     d.applicationRepo,
+		Log:          d.log,
+	}))
 	return reg
 }
 

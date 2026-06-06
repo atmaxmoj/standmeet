@@ -44,6 +44,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		DiagSession:     buildDiagSessionDeps(d),
 		MCP:             buildMCPDeps(d),
 		CaptchaVerifier: d.captchaVerifier,
+		PluginRegistry:  d.pluginRegistry,
 	}
 }
 
@@ -126,14 +127,6 @@ func registerAgentSkills(d *runtimeDeps) {
 		WritingRefs: d.writingRefRepo,
 		Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 	}
-	jobsDeps := jobsuc.JobsDeps{
-		Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
-	}
-	resumeDeps := jobsuc.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool}
-	appsDeps := jobsuc.ApplicationsDeps{
-		Apps: d.applicationRepo, Owners: d.ownerRepo,
-		Roles: d.roleRepo, Renderer: d.pdfRenderer,
-	}
 	customPagesDeps := usecases.CustomPageDeps{
 		Pages: d.customPageRepo, Builds: d.customBuildRepo,
 	}
@@ -155,14 +148,16 @@ func registerAgentSkills(d *runtimeDeps) {
 		Skills:        &skillsDeps,
 		Writings:      &writingsDeps,
 		WritingsTx:    &writingsTxDeps,
-		Jobs:          &jobsDeps,
-		Resume:        &resumeDeps,
-		Applications:  &appsDeps,
 		CustomPages:   &customPagesDeps,
 		Handle:        &handleDeps,
 		Calendar:      calendarDeps,
 		Log:           d.log,
 	})
+	// J.5: plugins 自己接管自家 owner-MCP capabilities (jobs / resume /
+	// applications 3 套都搬到 plugins/jobs/jobs.Plugin)。core register 跑完
+	// 再让 registry 把全部 plugin 的 CapabilityRegistrar 一次性注册到同一
+	// agentskills.Registry，互不重 ID。
+	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
 }
 
 func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {

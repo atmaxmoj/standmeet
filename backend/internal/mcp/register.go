@@ -4,6 +4,10 @@
 //
 // visitor-side capability 由 usecases.RegisterAgentSkills 注册；owner-side
 // 由本函数注册。两者共用同一 *Registry，互不重 ID。
+//
+// J.5 起 jobs / resume / applications 三套 capability 不再在这里硬编码 —
+// 走 plugins/jobs/jobs.Plugin.RegisterCapabilities，由 composition root 通
+// 过 pluginRegistry.RegisterAllCapabilities 一次性挂全部 plugin 的 hook。
 
 package mcp
 
@@ -11,8 +15,6 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
-	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmcp"
-	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -30,9 +32,6 @@ type RegisterDeps struct {
 	Skills        *usecases.SkillsDeps
 	Writings      *usecases.WritingsDeps
 	WritingsTx    *usecases.WritingsTxDeps
-	Jobs          *jobsuc.JobsDeps
-	Resume        *jobsuc.ResumeDeps
-	Applications  *jobsuc.ApplicationsDeps
 	CustomPages   *usecases.CustomPageDeps
 	Handle        *usecases.HandleDeps
 	Calendar      *CalendarOwnerDeps
@@ -48,8 +47,9 @@ type CalendarOwnerDeps struct {
 }
 
 // RegisterAgentSkills —— 注册所有 owner-side capability。重 ID panic
-// (boot 期失败比运行时漏注册好)。后续 commit 把 jobs / resume /
-// applications / custom_page 等 file 也搬进来。
+// (boot 期失败比运行时漏注册好)。jobs / resume / applications 三套已
+// 拎到 plugins/jobs (J.5)，wireup 在调本函数之后再调
+// pluginRegistry.RegisterAllCapabilities 补齐。
 func RegisterAgentSkills(reg *agentskills.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newMeCapability(deps.Owners, deps.Log))
 	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
@@ -63,9 +63,6 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newMCPServersCapability(deps.MCPServers, deps.Log))
 	reg.MustRegister(newSkillsCapability(deps.Skills, deps.Log))
 	reg.MustRegister(newWritingsCapability(deps.WritingsTx, deps.Writings, deps.Log))
-	reg.MustRegister(jobsmcp.NewJobsCapability(deps.Jobs, deps.Log))
-	reg.MustRegister(jobsmcp.NewResumeCapability(deps.Resume, deps.Log))
-	reg.MustRegister(jobsmcp.NewApplicationsCapability(deps.Applications, deps.Log))
 	reg.MustRegister(newCustomPageCapability(deps.CustomPages, deps.Log))
 	reg.MustRegister(newPageCapability(deps.Handle, deps.Log))
 	reg.MustRegister(newCalendarCapability(

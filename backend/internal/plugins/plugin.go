@@ -5,27 +5,44 @@
 // 自己持 schema / MCP tools / admin routes / capability，core 不知道它存在。
 // 加新 outbound 只往 plugins/ 添子目录，不动 core。
 //
-// J.1 scaffold：interface 只锁 Name() —— 各 plugin 装 wireup 时 caller 拿到
-// 具体类型再调具体方法 (RegisterMCP / MountAdmin / ...) 完成接管。后续 slice
-// 再扩 interface 收口更多 lifecycle hook。
+// J.1 锁 Name 接口。J.5 起加 lifecycle hook (CapabilityRegistrar / AdminRouter)
+// 让 plugin 自己接管 MCP capability + admin REST 挂载；core wireup 只调
+// `reg.RegisterAllCapabilities(skills)` + `reg.MountAllAdminRoutes(r)`，不
+// 再 case-by-case if-jobs-then-... 散在 composition root。
 //
-// 这一 package 没有具体 plugin，只有抽象 + registry；plugins/jobs/ etc 持
-// 具体实现。
+// 接口 deliberately split：每个 hook 是 optional (Plugin 不强制实现)，让
+// plugin 按自己实际能力挂哪些面 (只挂 MCP 不挂 admin 等)。
 package plugins
 
+import (
+	"github.com/go-chi/chi/v5"
+
+	"github.com/atmaxmoj/standmeet/internal/agentskills"
+)
+
 // Plugin —— 一个 outbound use case 的最小标识。具体能力 (MCP tools / admin
-// routes / migrations / agent capabilities / AccessCode hooks) 由具体 plugin
-// 类型自己暴露；wireup 持具体类型 + 调具体方法即可。
-//
-// 为什么不一开始就锁全套 lifecycle interface？因为 plugin 跟 core 的边界
-// 还在演化 (J.2-J.4 会陆续把 jobs 的 wireup 迁过来)，过早接口化会 lock
-// 在错误的形状。J.1 先建空骨架 + 命名空间，让 jobs 的搬迁有归宿即可。
+// routes / migrations / agent capabilities / AccessCode hooks) 由各自 optional
+// sub-interface 暴露 (CapabilityRegistrar / AdminRouter / ...)；wireup 用
+// type-assert 拿到具体 hook 调即可。
 type Plugin interface {
 	Name() string
 }
 
+// CapabilityRegistrar —— optional hook: plugin 把自己的 owner-MCP capabilities
+// 注册到核心 agentskills.Registry。重 ID 由 agentskills 自身 panic 兜底。
+type CapabilityRegistrar interface {
+	RegisterCapabilities(reg *agentskills.Registry)
+}
+
+// AdminRouter —— optional hook: plugin 把自己的 owner admin REST routes 挂
+// 到入参 router (caller 负责事先用 WithOwner / RequireCSRF middleware 包好)。
+type AdminRouter interface {
+	MountAdminRoutes(r chi.Router)
+}
+
 // Registry —— 启动期注册全部启用 plugins。boot 跑一次 Register*，wireup
-// 时迭代 Plugins() 拿全部 plugin 调具体方法。
+// 时调 RegisterAllCapabilities / MountAllAdminRoutes 把全部 plugin 的 hook
+// 一次性执行完毕。
 type Registry struct {
 	plugins []Plugin
 }
@@ -55,4 +72,24 @@ func (r *Registry) Names() []string {
 		out = append(out, p.Name())
 	}
 	return out
+}
+
+// RegisterAllCapabilities —— 遍历每个 plugin，实现了 CapabilityRegistrar
+// 就调一次 RegisterCapabilities。注册顺序 = plugin 注册顺序。
+func (r *Registry) RegisterAllCapabilities(skills *agentskills.Registry) {
+	for _, p := range r.plugins {
+		if cr, ok := p.(CapabilityRegistrar); ok {
+			cr.RegisterCapabilities(skills)
+		}
+	}
+}
+
+// MountAllAdminRoutes —— 遍历每个 plugin，实现了 AdminRouter 就调一次
+// MountAdminRoutes。挂载顺序 = plugin 注册顺序。
+func (r *Registry) MountAllAdminRoutes(router chi.Router) {
+	for _, p := range r.plugins {
+		if ar, ok := p.(AdminRouter); ok {
+			ar.MountAdminRoutes(router)
+		}
+	}
 }
