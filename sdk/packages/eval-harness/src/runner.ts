@@ -19,7 +19,6 @@ import { staticCapabilityStateSource } from './adapters/caps-static.js';
 import { cannedToolDispatcher } from './adapters/tools-canned.js';
 import { printObserver } from './adapters/observer-print.js';
 import { scriptedLLMStreamer } from './adapters/llm-scripted.js';
-import { directLLMStreamer } from './adapters/llm-direct.js';
 
 export interface RunScenarioOptions {
   readonly scenario: Scenario;
@@ -74,16 +73,20 @@ function printScenarioHeader(scenario: Scenario): void {
   process.stdout.write(`USER: ${scenario.user}\n`);
 }
 
-// pickLLMStreamer —— scenario.scripted 存在 → scripted；scenario.model 存在
-// → directLLMStreamer (F.2 接入)；都没设走 "no-op" 兜底 (scripted 'done.'
-// reply)，让 wiring smoke 还能跑。
+// pickLLMStreamer —— scenario.scripted 存在走 scripted；scenario.model 存在
+// 走 direct provider (F.2 实现，本 commit 暂未接，未传时报错)；都没设走
+// scripted 的"done."兜底但只算 F.1 期权宜，正常不该发生。
 function pickLLMStreamer(scenario: Scenario): LLMStreamer {
   if (scenario.scripted) {
     return scriptedLLMStreamer(scenario.scripted);
   }
   if (scenario.model) {
-    return directLLMStreamer({ model: scenario.model });
+    throw new Error(
+      `scenario ${scenario.scenario}: model="${scenario.model}" requires direct-LLM adapter ` +
+      `(landing in F.2). Pass --llm-streamer or add scripted: { steps: [...] } for now.`,
+    );
   }
+  // 极端兜底：当 wiring smoke 跑无脚本 scenario 时，至少别 crash。
   return scriptedLLMStreamer({ steps: [{ text: 'eval-harness: no scripted steps configured.' }] });
 }
 
