@@ -37,6 +37,10 @@ const (
 	KindWorkable        = "workable"
 	// KindJBA —— J.6a: JobBoardAggregator (Feashliaa) 聚合源；详见 jba.go。
 	KindJBA = "jba"
+	// KindWorkday / KindBambooHR —— J.6b: 两个直 ATS adapter (跟 greenhouse
+	// 同 strategy)；不依赖 JBA。
+	KindWorkday  = "workday"
+	KindBambooHR = "bamboohr"
 )
 
 const (
@@ -73,6 +77,8 @@ type BaseURLs struct {
 	SmartRecruiters string
 	Workable        string
 	JBA             string
+	Workday         string
+	BambooHR        string
 }
 
 // New 构造 Registry。BaseURLs 可单独设（e2e mock 时塞 fake server 地址），
@@ -93,6 +99,8 @@ func New(b *BaseURLs) *Registry {
 			KindSmartRecruiters: newSmartRecruitersFetcher(client, b.SmartRecruiters),
 			KindWorkable:        newWorkableFetcher(client, b.Workable),
 			KindJBA:             newJBAFetcher(client, b.JBA),
+			KindWorkday:         newWorkdayFetcher(client, b.Workday),
+			KindBambooHR:        newBambooHRFetcher(client, b.BambooHR),
 		},
 	}
 }
@@ -138,6 +146,8 @@ var configValidators = map[string]func([]byte) error{
 	KindRemoteOK:        validateEmptyCfg,
 	KindHNHiring:        validateEmptyCfg,
 	KindJBA:             validateJBACfg,
+	KindWorkday:         validateWorkdayCfg,
+	KindBambooHR:        validateBambooHRCfg,
 }
 
 // validateEmptyCfg —— remoteok / hn_hiring 不需要任何 config，传啥都接受。

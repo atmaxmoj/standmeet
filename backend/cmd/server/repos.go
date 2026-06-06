@@ -268,5 +268,7 @@ func newJobFetchRegistry(cfg *config.Config) *jobfetch.Registry {
 		SmartRecruiters: cfg.JobFetchSmartRecruitersBaseURL,
 		Workable:        cfg.JobFetchWorkableBaseURL,
 		JBA:             cfg.JobFetchJBABaseURL,
+		Workday:         cfg.JobFetchWorkdayBaseURL,
+		BambooHR:        cfg.JobFetchBambooHRBaseURL,
 	})
 }

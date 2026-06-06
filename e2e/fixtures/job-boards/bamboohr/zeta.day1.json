@@ -1,0 +1,28 @@
+{
+  "result": [
+    {
+      "id": 1001,
+      "jobOpeningName": "Senior Backend Engineer",
+      "location": {"city": "Austin", "state": "TX", "country": "USA"},
+      "employmentStatusLabel": "Full-Time",
+      "departmentLabel": "Engineering",
+      "datePosted": "2026-06-01T00:00:00Z"
+    },
+    {
+      "id": 1002,
+      "jobOpeningName": "Product Designer",
+      "location": {"city": "Remote", "state": "", "country": "USA"},
+      "employmentStatusLabel": "Full-Time",
+      "departmentLabel": "Design",
+      "datePosted": "2026-06-03T00:00:00Z"
+    },
+    {
+      "id": 1003,
+      "jobOpeningName": "Customer Success Manager",
+      "location": null,
+      "employmentStatusLabel": "Full-Time",
+      "departmentLabel": "Customer Success",
+      "datePosted": "2026-06-04T00:00:00Z"
+    }
+  ]
+}

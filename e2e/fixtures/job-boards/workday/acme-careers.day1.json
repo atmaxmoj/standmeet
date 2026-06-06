@@ -1,0 +1,19 @@
+{
+  "total": 2,
+  "jobPostings": [
+    {
+      "title": "Senior Software Engineer (Backend)",
+      "locationsText": "San Francisco, CA",
+      "externalPath": "/en-US/careers/job/Senior-Software-Engineer-Backend_R-1234",
+      "postedOn": "Posted 3 Days Ago",
+      "bulletFields": "R-1234"
+    },
+    {
+      "title": "Staff Data Scientist",
+      "locationsText": "Remote, US",
+      "externalPath": "/en-US/careers/job/Staff-Data-Scientist_R-5678",
+      "postedOn": "Posted Today",
+      "bulletFields": "R-5678"
+    }
+  ]
+}

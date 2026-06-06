@@ -156,6 +156,9 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /hn/v0/item/{filename}", s.serveHNItem)
 	// JBA (Feashliaa) chunked archive；适配器只 GET 这两条路径。
 	mux.HandleFunc("GET /jba/data/chunks/{filename}", s.serveJBA)
+	// J.6b: Workday CXS + BambooHR careers/list (跟 ATS 真 endpoint 同 path)。
+	mux.HandleFunc("POST /workday/wday/cxs/{tenant}/{site}/jobs", s.serveWorkday)
+	mux.HandleFunc("GET /bamboohr/careers/list", s.serveBambooHR)
 
 	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)
@@ -271,6 +274,26 @@ func (s *server) readJBAFixture(filename string) ([]byte, error) {
 		return nil, fmt.Errorf("read jba fixture %s: %w", path, err)
 	}
 	return body, nil
+}
+
+// serveWorkday —— POST /workday/wday/cxs/{tenant}/{site}/jobs → fixture
+// 名按 {tenant}-{site}.day1.json (site 决定哪个 board 子集；e2e 多数情况
+// 一个 tenant 只 fixture 一个 site)。
+func (s *server) serveWorkday(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("tenant") + "-" + r.PathValue("site")
+	s.serveJSONKind(w, r, "workday", slug, nil)
+}
+
+// serveBambooHR —— GET /bamboohr/careers/list?company={slug} → fixture
+// 按 company query param 选；真 prod 是 {slug}.bamboohr.com/careers/list，
+// adapter 在 envBase 模式下 query string 替子域。
+func (s *server) serveBambooHR(w http.ResponseWriter, r *http.Request) {
+	slug := r.URL.Query().Get("company")
+	if slug == "" {
+		s.notFound(w, r, fmt.Errorf("bamboohr missing company query"))
+		return
+	}
+	s.serveJSONKind(w, r, "bamboohr", slug, nil)
 }
 
 // serveJSONKind is the JSON-flavour helper: read {kind}/{slug}.day1.json,
