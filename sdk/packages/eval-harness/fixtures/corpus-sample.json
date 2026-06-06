@@ -1,0 +1,26 @@
+{
+  "search": {
+    "projects": [
+      {"uri": "wiki://projects/lucerna", "title": "Lucerna", "snippet": "Local-first encryption..."},
+      {"uri": "wiki://projects/standmeet", "title": "StandMeet", "snippet": "Self-hosted AI introduction..."}
+    ]
+  },
+  "read": {
+    "wiki://projects/lucerna": {
+      "uri": "wiki://projects/lucerna",
+      "title": "Lucerna",
+      "body": "Lucerna is my local-first encrypted note store. Built on top of age + sqlite."
+    },
+    "wiki://projects/standmeet": {
+      "uri": "wiki://projects/standmeet",
+      "title": "StandMeet",
+      "body": "StandMeet is a self-hosted AI introduction platform replacing LinkedIn/resume."
+    }
+  },
+  "list": {
+    "wiki://": [
+      {"uri": "wiki://projects/lucerna", "title": "Lucerna"},
+      {"uri": "wiki://projects/standmeet", "title": "StandMeet"}
+    ]
+  }
+}

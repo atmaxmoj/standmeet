@@ -1,0 +1,49 @@
+# smoke-scripted.yml —— F.1 wiring smoke。
+#
+# 不打真 LLM (scripted steps)，跑通 5 个 port 的接线：
+#   - prompts → fsPromptSource 读 visitor-header.md
+#   - capabilities → staticCapabilityStateSource 给 1 个 enabled cap
+#   - llm → scriptedLLMStreamer 按 steps 顺序返事件
+#   - tools → cannedToolDispatcher 在 corpus-sample.json 里查 search
+#   - observer → printObserver 彩色 stdout
+#
+# 预期 transcript：
+#   USER: "tell me about your projects"
+#   iter 0 → llm_tool_request corpus.search({query:"projects"})
+#   tool_completed corpus.search ok
+#   iter 1 → final_text "Found 2 projects: Lucerna and StandMeet."
+
+scenario: smoke-scripted
+description: F.1 wiring smoke — proves all 5 ports接上 + ToolSpecRegistry 工作
+
+prompts:
+  - visitor-header
+
+capabilities:
+  corpus.retrieval:
+    enabled: true
+
+toolSpecs:
+  corpus.retrieval:
+    - name: corpus.search
+      description: Search the owner's curated corpus.
+      input_schema:
+        type: object
+        properties:
+          query:
+            type: string
+
+tools:
+  corpus.search:
+    fixture: corpus-sample.json
+    op: search
+
+user: tell me about your projects
+
+scripted:
+  steps:
+    - toolCalls:
+        - id: call_1
+          name: corpus.search
+          args: { query: projects }
+    - text: "Found 2 projects: Lucerna and StandMeet."
