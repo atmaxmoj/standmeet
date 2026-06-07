@@ -15,7 +15,7 @@ export function DomainEditor({ handle }: Props) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DefaultCard handle={handle} status={d.status} sanitized={d.domain} />
+        <DefaultCard status={d.status} sanitized={d.domain} />
         <CustomCard hook={d} />
       </div>
       <EffectiveLine handle={handle} domain={d.domain} status={d.status} />
@@ -23,9 +23,13 @@ export function DomainEditor({ handle }: Props) {
   );
 }
 
+function currentHost(): string {
+  return typeof window !== 'undefined' ? window.location.host : '';
+}
+
 function DefaultCard({
-  handle, status, sanitized,
-}: { handle: string; status: DomainStatus; sanitized: string }) {
+  status, sanitized,
+}: { status: DomainStatus; sanitized: string }) {
   const using = !sanitized || status !== 'verified';
   return (
     <div className={`border ${using ? 'border-(--color-ink)' : 'border-(--color-rule)'} p-4 rounded-sm bg-(--color-surface)/40`}>
@@ -34,7 +38,7 @@ function DefaultCard({
         <InUseFlag shown={using} />
       </div>
       <div className="font-serif text-(--color-ink) text-[18px] font-medium tracking-[-0.005em]">
-        standmeet.com/<span className="text-(--color-accent)">{handle}</span>
+        <span className="text-(--color-accent)">{currentHost()}</span>
       </div>
       <div className="mono text-[10.5px] tracking-[0.04em] text-(--color-faint) mt-1">no setup · always available</div>
     </div>

@@ -51,12 +51,24 @@ export const SETUP_PROVIDERS: readonly AIProviderEntry[] = [
     prefix: 'sk-…', issuer: 'platform.moonshot.cn', needsKey: true,
   },
   {
-    id: 'google', label: 'Google', defaultModel: 'gemini-2.0-pro',
-    prefix: 'AIza…', issuer: 'aistudio.google.com', needsKey: true,
+    id: 'groq', label: 'Groq', defaultModel: 'llama-3.3-70b-versatile',
+    prefix: 'gsk_…', issuer: 'console.groq.com', needsKey: true,
   },
   {
-    id: 'ollama', label: 'Ollama · local', defaultModel: 'llama3.3',
-    prefix: 'no key — runs locally', issuer: 'ollama.com', needsKey: false,
+    id: 'siliconflow', label: 'SiliconFlow', defaultModel: 'deepseek-ai/DeepSeek-V3',
+    prefix: 'sk-…', issuer: 'siliconflow.cn', needsKey: true,
+  },
+  {
+    id: 'openrouter', label: 'OpenRouter', defaultModel: 'anthropic/claude-sonnet-4',
+    prefix: 'sk-or-…', issuer: 'openrouter.ai', needsKey: true,
+  },
+  {
+    id: 'together', label: 'Together AI', defaultModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    prefix: 'API key', issuer: 'together.ai', needsKey: true,
+  },
+  {
+    id: 'custom', label: 'Custom · self-hosted (ollama / vllm / lm-studio)', defaultModel: 'llama3.3',
+    prefix: 'no key — runs locally', issuer: 'your endpoint', needsKey: false,
   },
 ];
 

@@ -145,6 +145,11 @@ export function domainHint(valid: boolean, sanitized: string): string {
     : 'e.g. yourdomain.com, talk.yourdomain.com';
 }
 
-export function domainEffectiveHost(handle: string, domain: string, status: DomainStatus): string {
-  return (domain && status === 'verified') ? domain : `standmeet.com/${handle}`;
+// domainEffectiveHost —— the host the public page is actually reached at: the
+// verified custom domain if set, otherwise this instance's own origin (the
+// deployed host). No standmeet.com/<handle> — single-owner instances serve at
+// the root of the owner's own domain. _handle kept for call-site compatibility.
+export function domainEffectiveHost(_handle: string, domain: string, status: DomainStatus): string {
+  if (domain && status === 'verified') return domain;
+  return typeof window !== 'undefined' ? window.location.host : '';
 }

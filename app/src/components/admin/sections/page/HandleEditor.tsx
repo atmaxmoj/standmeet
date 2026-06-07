@@ -26,10 +26,10 @@ function DisplayRow({ current, onEdit }: { current: string; onEdit: () => void }
   return (
     <div className="flex items-baseline gap-3 flex-wrap" data-testid="handle-display">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-        url handle
+        handle
       </span>
       <span className="font-serif text-(--color-ink) text-[18px] font-medium tracking-[-0.005em]">
-        standmeet.com/<span className="text-(--color-accent)">{current}</span>
+        @<span className="text-(--color-accent)">{current}</span>
       </span>
       <ChangeBtn onClick={onEdit} />
     </div>
@@ -59,7 +59,7 @@ function EditingRow({
   return (
     <div className="space-y-2" data-testid="handle-editor">
       <div className="flex items-baseline gap-2 border-b border-(--color-rule) pb-1">
-        <span className="mono text-(--color-faint)">standmeet.com/</span>
+        <span className="mono text-(--color-faint)">@</span>
         <input
           type="text"
           value={raw}
