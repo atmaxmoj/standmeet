@@ -34,6 +34,7 @@ import (
 const (
 	evalOwnerID = "marcus"
 	evalConvID  = "eval-conv"
+	evalCodeID  = "eval-code"
 )
 
 // persona —— the unit under test: the owner-voice role body (becomes the
@@ -87,6 +88,13 @@ type askRequest struct {
 	// triggers the follow-up suggestions (ghost text) the way an access-code
 	// session does in prod.
 	Mode string `json:"mode"`
+	// Booking —— expose the real calendar_book + calendar_list_slots tools over a
+	// canned calendar (connected, wide-open policy, slots free, insert succeeds).
+	// Mirrors an access code that granted the booking skill, so it only takes
+	// effect in "code" mode (prod hides the booker elsewhere). Leave false to test
+	// permissions-deny: the booker is then structurally absent. EVAL_BOOKING_FAIL
+	// ("notconnected" / "conflict") injects failure paths.
+	Booking bool `json:"booking"`
 }
 
 type askResponse struct {
@@ -150,6 +158,9 @@ func askCandidate(
 		Corpus: p.corpus, ConversationID: evalConvID,
 		Conversation:         toConvMessages(convo),
 		SystemPromptOverride: override,
+		EnableBooking:        req.Booking,
+		CodeID:               evalCodeID,
+		BookingFailure:       os.Getenv("EVAL_BOOKING_FAIL"),
 	})
 	if berr != nil {
 		return "", nil, nil, berr

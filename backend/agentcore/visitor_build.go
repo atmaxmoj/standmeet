@@ -44,15 +44,25 @@ type ConvMessage struct {
 
 // BuildVisitorInput —— everything BuildVisitorAgent needs to assemble a visitor
 // agent from fixtures.
+//
+// Booking: set EnableBooking with Mode "code" to expose calendar_book +
+// calendar_list_slots over a canned calendar (prod hides the booker outside code
+// mode, so this mirrors prod). CodeID + MaxBookings drive the per-code quota;
+// BookingFailure ("notconnected" / "conflict") injects failure paths.
 type BuildVisitorInput struct {
 	Cred                 *Cred
+	MaxBookings          *int32
 	OwnerID              string
 	Mode                 string
 	RoleBody             string
 	SystemPromptOverride string
 	ConversationID       string
+	CodeID               string
+	OwnerTimezone        string
+	BookingFailure       string
 	Corpus               []VisitorCorpusEntry
 	Conversation         []ConvMessage
+	EnableBooking        bool
 }
 
 // VisitorAgent —— the assembled, transport-agnostic visitor agent: the real
@@ -83,6 +93,8 @@ func BuildVisitorAgent(ctx context.Context, in *BuildVisitorInput) (*VisitorAgen
 		OwnerID:        in.OwnerID,
 		Mode:           in.Mode,
 		ConversationID: in.ConversationID,
+		CodeID:         in.CodeID,
+		MaxBookings:    in.MaxBookings,
 	}
 	fr := agentskills.FlattenBindings(reg.AssembleVisitor(ctx, assemble))
 	return &VisitorAgent{
@@ -109,25 +121,49 @@ func composePrompt(
 // buildEvalSnapshot —— RoleSnapshot framing the run: PromptBody is the owner
 // persona (RoleBody); CorpusURIs are the granted (public) entry URIs, which both
 // turn the retrieval capability on (retrievalEnabled = len>0) and gate ACL.
+// EnableBooking adds calendar.book to AllowedTools, which both unlocks the booker
+// (bookerSkillGranted) and emits its prompt fragment.
 func buildEvalSnapshot(in *BuildVisitorInput, corpusURIs []string) domain.RoleSnapshot {
+	var allowedTools []string
+	if in.EnableBooking {
+		allowedTools = []string{usecases.BookerSkillName}
+	}
 	return domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
-		RoleID:     "eval-role",
-		RoleName:   "eval",
-		PromptBody: in.RoleBody,
-		CorpusURIs: corpusURIs,
+		RoleID:       "eval-role",
+		RoleName:     "eval",
+		PromptBody:   in.RoleBody,
+		CorpusURIs:   corpusURIs,
+		AllowedTools: allowedTools,
 	})
 }
 
 // buildEvalDeps —— VisitorDeps with only the fields the registered capabilities
-// touch: corpus listers (retrieval), Reports + Resolver (summarize). Calendar /
-// Skills / MCPServers stay nil — their capabilities grant-gate to ErrHidden, so
-// they're hidden, exactly as for an owner who wired no connectors.
+// touch: corpus listers (retrieval), Reports + Resolver (summarize), and — when
+// EnableBooking — the canned calendar + owner so the booker assembles. Skills /
+// MCPServers stay nil (their capabilities grant-gate to ErrHidden); Calendar
+// stays nil when booking is off, so the booker hides exactly as for an owner who
+// wired no connector.
 func buildEvalDeps(in *BuildVisitorInput, corpus *corpusFixtures) *usecases.VisitorDeps {
-	return &usecases.VisitorDeps{
+	deps := &usecases.VisitorDeps{
 		Wiki:     wikiFixture{items: corpus.wikis},
 		Output:   outputFixture{items: corpus.outputs},
 		Writings: writingFixture{},
 		Reports:  noopReports{},
 		Resolver: fixedResolver{cred: in.Cred},
 	}
+	if in.EnableBooking {
+		deps.Calendar = cannedCalendarStore{failure: in.BookingFailure}
+		deps.GCal = cannedCalendarClient{failure: in.BookingFailure}
+		deps.Owners = ownerFixture{ownerID: in.OwnerID, tz: ownerTZ(in.OwnerTimezone)}
+	}
+	return deps
+}
+
+// ownerTZ —— default the owner timezone to UTC (a valid IANA zone the booking
+// policy math can always load) when the caller leaves it empty.
+func ownerTZ(tz string) string {
+	if tz == "" {
+		return "UTC"
+	}
+	return tz
 }

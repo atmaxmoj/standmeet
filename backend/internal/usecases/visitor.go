@@ -31,7 +31,7 @@ type VisitorDeps struct {
 	Wiki       WikiLister
 	Output     OutputLister
 	Writings   WritingLister
-	Owners     *postgres.OwnerRepo
+	Owners     OwnerGetter
 	Skills     *postgres.SkillRepo
 	MCPServers *postgres.MCPServerRepo
 	Roles      *postgres.RoleRepo
