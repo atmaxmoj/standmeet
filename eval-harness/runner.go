@@ -22,48 +22,39 @@ type runResult struct {
 	ok         bool
 }
 
-// runScenarios drives each scenario in order, printing its transcript under a
-// header, and returns per-scenario results. credBase carries the batch-wide
-// provider/key/endpoint (model overridable per scenario).
+// runScenarios drives each scenario in order through the formatter (header +
+// sink + transcript), returning per-scenario results. credBase carries the
+// batch-wide provider/key/endpoint (model overridable per scenario).
 func runScenarios(
 	ctx context.Context, log *slog.Logger, w io.Writer,
-	scenarios []*Scenario, credBase agentcore.Cred,
+	scenarios []*Scenario, credBase agentcore.Cred, fmtr formatter,
 ) []runResult {
 	results := make([]runResult, 0, len(scenarios))
 	for _, sc := range scenarios {
-		fmt.Fprintf(w, "\n═══ %s ═══\n", sc.Name)
-		if sc.Description != "" {
-			fmt.Fprintf(w, "    %s\n", sc.Description)
-		}
-		results = append(results, runOne(ctx, log, w, sc, credBase))
+		fmtr.scenarioHeader(w, sc)
+		results = append(results, runOne(ctx, log, w, sc, credBase, fmtr))
 	}
 	return results
 }
 
 func runOne(
 	ctx context.Context, log *slog.Logger, w io.Writer,
-	sc *Scenario, credBase agentcore.Cred,
+	sc *Scenario, credBase agentcore.Cred, fmtr formatter,
 ) runResult {
 	cred := credBase
 	if sc.Model != "" {
 		cred.Model = sc.Model
 	}
+	sink := fmtr.newSink(w)
 	if err := scriptGateway(cred.Endpoint, sc.Script); err != nil {
-		fmt.Fprintf(w, "FATAL     │ script gateway: %v\n", err)
+		sink.fatal(fmt.Errorf("script gateway: %w", err))
 		return runResult{name: sc.Name, ok: false}
 	}
-	in := scenarioInput(sc, &cred)
-	sink := newTranscriptSink(w)
-	if err := agentcore.RunAgentLoop(ctx, log, in, sink); err != nil {
+	if err := agentcore.RunAgentLoop(ctx, log, scenarioInput(sc, &cred), sink); err != nil {
 		sink.fatal(err)
-		return runResult{name: sc.Name, ok: false}
 	}
-	return runResult{
-		name:       sc.Name,
-		toolStarts: sink.toolStarts,
-		stop:       sink.stop,
-		ok:         !sink.errored,
-	}
+	tools, ok, stop := sink.outcome()
+	return runResult{name: sc.Name, toolStarts: tools, stop: stop, ok: ok}
 }
 
 // scenarioInput assembles the AgentTurnInput: request + history + canned tools

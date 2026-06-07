@@ -69,7 +69,16 @@ func (s *transcriptSink) Done(stop string) {
 }
 
 func (s *transcriptSink) fatal(err error) {
+	s.mu.Lock()
+	s.errored = true
+	s.mu.Unlock()
 	s.event("FATAL     │ %v", err)
+}
+
+func (s *transcriptSink) outcome() (int, bool, string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.toolStarts, !s.errored, s.stop
 }
 
 // event prints a structured line, first closing any open inline text line.

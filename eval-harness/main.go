@@ -39,6 +39,7 @@ func main() {
 	withTools := flag.Bool("tools", true, "ad-hoc: register the canned corpus_search/corpus_read toolset")
 	scenarios := flag.String("scenarios", "", "batch: path to a scenario .yml or a dir of them")
 	grep := flag.String("grep", "", "batch: keep only scenarios whose name contains this substring")
+	asJSON := flag.Bool("json", false, "batch: emit JSONL (one event per line) instead of human transcript")
 	flag.Parse()
 
 	// Loop diagnostics go to stderr (warn+); the transcript owns stdout so it
@@ -47,14 +48,14 @@ func main() {
 	cred := agentcore.Cred{Provider: *provider, Key: *key, Endpoint: *endpoint, Model: *model}
 
 	if *scenarios != "" {
-		os.Exit(runBatch(log, *scenarios, *grep, cred))
+		os.Exit(runBatch(log, *scenarios, *grep, cred, pickFormatter(*asJSON)))
 	}
 	runAdHoc(log, cred, *system, *user, *mode, *withTools)
 }
 
-// runBatch loads + filters scenarios, runs them, prints the summary, and
-// returns a process exit code (0 = all clean).
-func runBatch(log *slog.Logger, path, grep string, cred agentcore.Cred) int {
+// runBatch loads + filters scenarios, runs them through the formatter, emits
+// the summary, and returns a process exit code (0 = all clean).
+func runBatch(log *slog.Logger, path, grep string, cred agentcore.Cred, fmtr formatter) int {
 	scs, err := loadScenarios(path, grep)
 	if err != nil {
 		log.Error("load scenarios", "err", err)
@@ -64,8 +65,8 @@ func runBatch(log *slog.Logger, path, grep string, cred agentcore.Cred) int {
 		log.Error("no scenarios matched", "path", path, "grep", grep)
 		return 1
 	}
-	results := runScenarios(context.Background(), log, os.Stdout, scs, cred)
-	if printSummary(os.Stdout, results) {
+	results := runScenarios(context.Background(), log, os.Stdout, scs, cred, fmtr)
+	if fmtr.summary(os.Stdout, results) {
 		return 0
 	}
 	return 1
