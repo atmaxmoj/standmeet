@@ -98,7 +98,7 @@ func askCandidate(
 	// Full visitor toolset (corpus + built-ins). summarize_conversation needs
 	// the interview so far: prior turns + the question being answered.
 	convo := append(append([]convTurn{}, req.History...), convTurn{Role: "interviewer", Text: req.Question})
-	tools, labels := personaToolset(p.corpus, cred, convo)
+	tools, labels, returnDirectly := personaToolset(p.corpus, cred, convo)
 	in := &agentcore.AgentTurnInput{
 		Cred: &cred,
 		Req: &agentcore.AgentTurnRequest{
@@ -108,6 +108,7 @@ func askCandidate(
 		Mode:           "public",
 		Tools:          tools,
 		ProgressLabels: labels,
+		ReturnDirectly: returnDirectly,
 	}
 	sink := newCaptureSink()
 	if err := agentcore.RunAgentLoop(ctx, log, in, sink); err != nil {

@@ -74,12 +74,110 @@ func (t *summarizeTool) InvokableRun(ctx context.Context, _ string, _ ...tool.Op
 	return string(out), nil
 }
 
+// askVisitorTool —— faithful eval of ask_visitor (a ReturnDirectly tool): the
+// agent asks the visitor a structured clarifying question when intent is
+// ambiguous; the tool just echoes the question metadata (the visitor's choice
+// would come back as the next user message). ReturnDirectly => the loop ends
+// with this, no extra LLM turn.
+type askVisitorTool struct{}
+
+func (t *askVisitorTool) Info(_ context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "ask_visitor",
+		Desc: "Ask the visitor a structured clarifying question when their intent is ambiguous. " +
+			"Returns the question metadata; the visitor's choice comes back as the next user message.",
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"question": {Type: schema.String, Desc: "the clarifying question, first-person", Required: true},
+			"kind":     {Type: schema.String, Desc: "widget: radio | multi | yes_no", Required: false},
+		}),
+	}, nil
+}
+
+func (t *askVisitorTool) InvokableRun(_ context.Context, argsJSON string, _ ...tool.Option) (string, error) {
+	if argsJSON == "" {
+		argsJSON = "{}"
+	}
+	out, err := json.Marshal(map[string]any{"ok": true, "asked": json.RawMessage(argsJSON)})
+	if err != nil {
+		return "", fmt.Errorf("ask_visitor marshal: %w", err)
+	}
+	return string(out), nil
+}
+
+// listSlotsTool —— canned eval of list_slots (prod hits Google Calendar + DB;
+// the eval is DB-free, so it returns fixed illustrative slots). Lets the agent's
+// USE of the booking flow be tested even though the data is canned.
+type listSlotsTool struct{}
+
+func (t *listSlotsTool) Info(_ context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "list_slots",
+		Desc: "List available [start, end] meeting slots on the owner's calendar within a window.",
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"from_rfc3339":  {Type: schema.String, Desc: "search window start (RFC3339)", Required: false},
+			"until_rfc3339": {Type: schema.String, Desc: "search window end (RFC3339)", Required: false},
+			"duration_min":  {Type: schema.Integer, Desc: "slot length in minutes", Required: false},
+		}),
+	}, nil
+}
+
+func (t *listSlotsTool) InvokableRun(_ context.Context, _ string, _ ...tool.Option) (string, error) {
+	slots := []map[string]string{
+		{"start": "2026-06-09T15:00:00Z", "end": "2026-06-09T15:30:00Z"},
+		{"start": "2026-06-09T16:30:00Z", "end": "2026-06-09T17:00:00Z"},
+		{"start": "2026-06-10T14:00:00Z", "end": "2026-06-10T14:30:00Z"},
+	}
+	out, err := json.Marshal(map[string]any{"ok": true, "slots": slots})
+	if err != nil {
+		return "", fmt.Errorf("list_slots marshal: %w", err)
+	}
+	return string(out), nil
+}
+
+// calendarBookTool —— canned eval of calendar_book (prod writes Google Calendar
+// + a code_bookings row; the eval is DB-free, so it returns a fixed confirmation).
+type calendarBookTool struct{}
+
+func (t *calendarBookTool) Info(_ context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "calendar_book",
+		Desc: "Book a meeting on the owner's calendar once the visitor has picked a slot and given a topic + email.",
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"topic":         {Type: schema.String, Desc: "meeting topic", Required: true},
+			"visitor_email": {Type: schema.String, Desc: "visitor email", Required: true},
+			"duration_min":  {Type: schema.Integer, Desc: "duration in minutes", Required: false},
+		}),
+	}, nil
+}
+
+func (t *calendarBookTool) InvokableRun(_ context.Context, _ string, _ ...tool.Option) (string, error) {
+	out, err := json.Marshal(map[string]any{
+		"ok": true, "event_id": "evt_eval_canned", "status": "confirmed",
+	})
+	if err != nil {
+		return "", fmt.Errorf("calendar_book marshal: %w", err)
+	}
+	return string(out), nil
+}
+
 // personaToolset —— the full visitor toolset for an eval turn: real corpus
-// retrieval (ACL-respecting) + the built-in tools. convo is the interview so
-// far, used by summarize_conversation.
-func personaToolset(c *corpus, cred agentcore.Cred, convo []convTurn) ([]tool.BaseTool, map[string]string) {
+// retrieval (ACL-respecting) + every built-in tool, mirroring prod's 7-tool
+// visitor agent. Returns the eino tools, progress labels, and the ReturnDirectly
+// name set (ask_visitor ends the turn directly). convo backs summarize.
+func personaToolset(
+	c *corpus, cred agentcore.Cred, convo []convTurn,
+) ([]tool.BaseTool, map[string]string, map[string]bool) {
 	tools, labels := corpusToolset(c)
-	tools = append(tools, &summarizeTool{cred: cred, convo: convo})
+	tools = append(tools,
+		&summarizeTool{cred: cred, convo: convo},
+		&askVisitorTool{},
+		&listSlotsTool{},
+		&calendarBookTool{},
+	)
 	labels["summarize_conversation"] = "writing a report"
-	return tools, labels
+	labels["ask_visitor"] = "asking a question"
+	labels["list_slots"] = "checking the calendar"
+	labels["calendar_book"] = "booking the meeting"
+	returnDirectly := map[string]bool{"ask_visitor": true}
+	return tools, labels, returnDirectly
 }
