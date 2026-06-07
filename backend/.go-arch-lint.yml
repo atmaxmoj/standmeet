@@ -31,6 +31,8 @@ components:
     in: internal/mcp                      # mcp-go server + tool handlers
   inference:
     in: internal/inference                # LLM provider abstraction
+  agentcore:
+    in: agentcore                         # public facade over the agentic loop (eval-harness 等 out-of-module driver 入口)
   plugins:
     in: internal/plugins                  # J phase: Plugin interface + Registry
   pluginjobs:
@@ -198,6 +200,15 @@ deps:
     mayDependOn:
       - cryptobox
       - domain   # AICredential value object，统一 byoai 跟 owner key 的 shape
+    anyVendorDeps: true
+
+  # agentcore —— public facade：把 internal/inference 的 agentic loop 表面
+  # (AgentSink / AgentTurnInput / BuildAgentIterator / DriveAgentLoop) re-export
+  # 给 out-of-module driver (eval-harness)。无逻辑，纯 alias + pass-through；
+  # 唯一依赖 inference。backend 内部无人 import 它 (只给外部 module 用)。
+  agentcore:
+    mayDependOn:
+      - inference
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
