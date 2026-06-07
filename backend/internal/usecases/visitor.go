@@ -28,9 +28,9 @@ import (
 type VisitorDeps struct {
 	Codes      *postgres.CodeRepo
 	Chats      *postgres.ChatRepo
-	Wiki       *postgres.WikiRepo
-	Output     *postgres.OutputRepo
-	Writings   *postgres.WritingRepo
+	Wiki       WikiLister
+	Output     OutputLister
+	Writings   WritingLister
 	Owners     *postgres.OwnerRepo
 	Skills     *postgres.SkillRepo
 	MCPServers *postgres.MCPServerRepo
@@ -48,8 +48,9 @@ type VisitorDeps struct {
 	// retrieval / booker / ext-mcp / owner-skill tool 走它)。
 	AgentSkills *agentskills.Registry
 	// Reports —— I.3: summarize_conversation tool 落 chat_reports 行；
-	// GET /report/{id} route 也通过它读。
-	Reports *postgres.ChatReportRepo
+	// GET /report/{id} route 也通过它读。F.2: 窄接口 ReportStore 让 eval 能注
+	// no-op 实现。
+	Reports ReportStore
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。
