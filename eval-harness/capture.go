@@ -18,11 +18,12 @@ type toolUse struct {
 // for one turn plus the corpus tools it called. Silent (no printing); the
 // caller decides how to surface the captured answer.
 type captureSink struct {
-	mu      sync.Mutex
-	text    strings.Builder
-	tools   []toolUse
-	errored bool
-	errMsg  string
+	mu          sync.Mutex
+	text        strings.Builder
+	tools       []toolUse
+	suggestions []string
+	errored     bool
+	errMsg      string
 }
 
 func newCaptureSink() *captureSink { return &captureSink{} }
@@ -41,7 +42,17 @@ func (s *captureSink) ToolStarted(_, name, _ string, args json.RawMessage) {
 
 func (s *captureSink) ToolCompleted(_, _ string) {}
 
-func (s *captureSink) Suggestions(_ []string) {}
+func (s *captureSink) Suggestions(items []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.suggestions = items
+}
+
+func (s *captureSink) followups() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.suggestions
+}
 
 func (s *captureSink) Error(err error) {
 	s.mu.Lock()

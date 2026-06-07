@@ -56,7 +56,13 @@ func assemblePrompt(dir string) (string, error) {
 		filepath.Join(pd, "capabilities/corpus.retrieval.md"),
 		filepath.Join(pd, "capabilities/summarize_conversation.md"),
 		filepath.Join(pd, "capabilities/ask_visitor.md"),
-		filepath.Join(pd, "capabilities/calendar.book.md"),
+	}
+	// permissions-deny faithfully: prod assembles only GRANTED capabilities'
+	// fragments. EVAL_DENY=booking drops both the booking tools (personaToolset)
+	// AND the booking fragment here, so the agent genuinely doesn't know it can
+	// schedule — rather than being told it can but lacking the tool.
+	if !strings.Contains(os.Getenv("EVAL_DENY"), "booking") {
+		files = append(files, filepath.Join(pd, "capabilities/calendar.book.md"))
 	}
 	parts := make([]string, 0, len(files))
 	for _, f := range files {
@@ -79,12 +85,19 @@ type convTurn struct {
 type askRequest struct {
 	History  []convTurn `json:"history"`
 	Question string     `json:"question"`
+	// Mode —— visitor mode: "public" (default) / "code" / "byoai". "code"
+	// triggers the follow-up suggestions (ghost text) the way an access-code
+	// session does in prod.
+	Mode string `json:"mode"`
 }
 
 type askResponse struct {
 	Answer string    `json:"answer"`
 	Tools  []toolUse `json:"tools"`
-	Error  string    `json:"error,omitempty"`
+	// Suggestions —— the 3 follow-up questions emitted at turn end in "code"
+	// mode (empty in public mode).
+	Suggestions []string `json:"suggestions,omitempty"`
+	Error       string   `json:"error,omitempty"`
 }
 
 // runAsk reads one askRequest from stdin and writes one askResponse. Exit code
@@ -105,8 +118,8 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 		log.Error("load persona", "err", err)
 		return 1
 	}
-	answer, tools, aerr := askCandidate(context.Background(), log, cred, p, req)
-	resp := askResponse{Answer: answer, Tools: tools}
+	answer, tools, suggestions, aerr := askCandidate(context.Background(), log, cred, p, req)
+	resp := askResponse{Answer: answer, Tools: tools, Suggestions: suggestions}
 	if aerr != nil {
 		resp.Error = aerr.Error()
 	}
@@ -121,31 +134,35 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 // the prior interview, on real DeepSeek, grounded via the corpus tools.
 func askCandidate(
 	ctx context.Context, log *slog.Logger, cred agentcore.Cred, p *persona, req askRequest,
-) (string, []toolUse, error) {
+) (string, []toolUse, []string, error) {
 	// Full visitor toolset (corpus + built-ins). summarize_conversation needs
 	// the interview so far: prior turns + the question being answered.
 	convo := append(append([]convTurn{}, req.History...), convTurn{Role: "interviewer", Text: req.Question})
 	tools, labels, returnDirectly := personaToolset(p.corpus, cred, convo)
+	mode := req.Mode
+	if mode == "" {
+		mode = "public"
+	}
 	in := &agentcore.AgentTurnInput{
 		Cred: &cred,
 		Req: &agentcore.AgentTurnRequest{
 			System: p.system, UserMessage: req.Question, Model: cred.Model,
 			History: candidateHistory(req.History),
 		},
-		Mode:           "public",
+		Mode:           mode, // "code" → backend emits follow-up suggestions
 		Tools:          tools,
 		ProgressLabels: labels,
 		ReturnDirectly: returnDirectly,
 	}
 	sink := newCaptureSink()
 	if err := agentcore.RunAgentLoop(ctx, log, in, sink); err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	answer, used, ok := sink.result()
 	if !ok {
-		return answer, used, fmt.Errorf("candidate turn: %s", sink.errorText())
+		return answer, used, sink.followups(), fmt.Errorf("candidate turn: %s", sink.errorText())
 	}
-	return answer, used, nil
+	return answer, used, sink.followups(), nil
 }
 
 // candidateHistory maps the interview-so-far into the candidate's chat history:

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
@@ -186,16 +187,18 @@ func personaToolset(
 	c *corpus, cred agentcore.Cred, convo []convTurn,
 ) ([]tool.BaseTool, map[string]string, map[string]bool) {
 	tools, labels := corpusToolset(c)
-	tools = append(tools,
-		&summarizeTool{cred: cred, convo: convo},
-		&askVisitorTool{},
-		&listSlotsTool{},
-		&calendarBookTool{},
-	)
+	tools = append(tools, &summarizeTool{cred: cred, convo: convo}, &askVisitorTool{})
 	labels["summarize_conversation"] = "writing a report"
 	labels["ask_visitor"] = "asking a question"
-	labels["list_slots"] = "checking the calendar"
-	labels["calendar_book"] = "booking the meeting"
 	returnDirectly := map[string]bool{"ask_visitor": true}
+	// permissions-deny: a role/access-code without the booking skill granted →
+	// the booking tools simply aren't registered (prod's deny is structural).
+	// EVAL_DENY=booking drops them to test how the agent handles a capability
+	// it doesn't have.
+	if !strings.Contains(os.Getenv("EVAL_DENY"), "booking") {
+		tools = append(tools, &listSlotsTool{}, &calendarBookTool{})
+		labels["list_slots"] = "checking the calendar"
+		labels["calendar_book"] = "booking the meeting"
+	}
 	return tools, labels, returnDirectly
 }
