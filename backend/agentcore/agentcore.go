@@ -40,7 +40,22 @@ type (
 	// ChatRequestMsg is a pi-style flat message; AgentTurnRequest.History is
 	// a slice of these.
 	ChatRequestMsg = inference.ChatRequestMsg
+	// ChatRequest is a one-shot generation request (system + messages); the
+	// input to Generate.
+	ChatRequest = inference.ChatRequest
 )
+
+// Generate runs a single non-streaming completion (no tools, no agent loop) —
+// the same call the backend uses for follow-up suggestions and the
+// summarize_conversation report. A driver uses it to back LLM-driven fixture
+// tools (e.g. an eval of summarize) without reaching into internal/.
+func Generate(ctx context.Context, cred *Cred, req *ChatRequest) (string, error) {
+	out, err := inference.Generate(ctx, cred, req)
+	if err != nil {
+		return "", fmt.Errorf("agentcore: %w", err)
+	}
+	return out, nil
+}
 
 // BuildAgentIterator builds the eino ADK event iterator (pre-stream): chat
 // model + summarization middleware + ChatModelAgent + runner. Failures
