@@ -205,14 +205,20 @@ function AnswerView({ answer }: { answer: Dialog['answer'] }) {
   ) : null;
 }
 
+// CitationsList —— one quiet "references · N" line under the answer, collapsed
+// by default (normal-AI-chat style). Expand for the source list; each row
+// expands again to its body. Keeps the answer the main thing.
 function CitationsList({ citations }: { citations?: readonly Citation[] }) {
   return citations && citations.length > 0 ? (
-    <div className="mt-6" data-testid="citations">
-      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">drawn from</div>
-      <ul className="flex flex-col gap-1">
+    <details className="group mt-6" data-testid="citations">
+      <summary className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) cursor-pointer list-none marker:hidden select-none hover:text-(--color-accent) transition-colors inline-flex items-baseline gap-1.5">
+        references · {citations.length}
+        <span className="text-(--color-faint) group-open:rotate-90 transition-transform">›</span>
+      </summary>
+      <ul className="flex flex-col gap-1 mt-2">
         {citations.map((c) => <CitationRow key={c.path} c={c} />)}
       </ul>
-    </div>
+    </details>
   ) : null;
 }
 

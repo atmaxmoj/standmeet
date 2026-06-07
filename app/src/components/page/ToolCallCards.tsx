@@ -84,20 +84,24 @@ function AskVisitorOrNothing({ call, dialogID, onAsk }: {
     : <AskVisitorCard call={call} dialogID={dialogID} onAsk={onAsk} />;
 }
 
+// SearchHitsCard —— collapsed by default. Dumping every search hit + summary
+// inline before the answer buries the reading like raw tool output; a normal AI
+// chat keeps it tucked away. We show a quiet "searched · N entries" line the
+// reader can expand for transparency, so the answer stays the main thing.
 function SearchHitsCard({ call }: { call: ToolCallView }) {
   const hits = pickSearchHits(call.result);
   return hits.length === 0 ? null : (
-    <div
+    <details
       className={styles['searchCard']}
       data-testid={`tool-card-${call.name}`}
     >
-      <div className={styles['kicker']}>
+      <summary className={`${styles['kicker']} cursor-pointer list-none marker:hidden select-none hover:text-(--color-accent) transition-colors`}>
         {call.name === 'corpus_list' ? 'browsed' : 'searched'} · {hits.length} entries
-      </div>
+      </summary>
       <ul className={styles['hits']}>
         {hits.map((h) => <SearchHitRow key={h.path} h={h} />)}
       </ul>
-    </div>
+    </details>
   );
 }
 
