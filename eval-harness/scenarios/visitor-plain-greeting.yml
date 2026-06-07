@@ -1,0 +1,9 @@
+name: visitor-plain-greeting
+description: 纯文本 turn，无 tool。验证不调 tool 时 loop 直接答 + DONE end_turn。
+
+system: You are answering visitor questions on behalf of the owner.
+user: hey, who are you?
+mode: public
+
+script:
+  reply: I'm the owner's AI — ask me anything about their work and thinking.

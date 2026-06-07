@@ -6,6 +6,7 @@ require (
 	github.com/atmaxmoj/standmeet v0.0.0
 	github.com/cloudwego/eino v0.9.2
 	github.com/eino-contrib/jsonschema v1.0.3
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -84,7 +85,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240722135656-d784300faade // indirect
 	google.golang.org/grpc v1.64.1 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace github.com/atmaxmoj/standmeet => ../backend

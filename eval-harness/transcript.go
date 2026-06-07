@@ -19,6 +19,10 @@ type transcriptSink struct {
 	w     io.Writer
 	mu    sync.Mutex
 	atBOL bool // true when the cursor is at the start of a line
+	// stats —— collected for the batch summary table.
+	toolStarts int
+	errored    bool
+	stop       string
 }
 
 func newTranscriptSink(w io.Writer) *transcriptSink {
@@ -36,6 +40,9 @@ func (s *transcriptSink) Text(delta string) {
 }
 
 func (s *transcriptSink) ToolStarted(id, name, progressLabel string, args json.RawMessage) {
+	s.mu.Lock()
+	s.toolStarts++
+	s.mu.Unlock()
 	s.event("TOOL→     │ %s %s  (%s)", name, string(args), progressLabel)
 }
 
@@ -48,10 +55,16 @@ func (s *transcriptSink) Suggestions(items []string) {
 }
 
 func (s *transcriptSink) Error(err error) {
+	s.mu.Lock()
+	s.errored = true
+	s.mu.Unlock()
 	s.event("ERROR     │ %v", err)
 }
 
 func (s *transcriptSink) Done(stop string) {
+	s.mu.Lock()
+	s.stop = stop
+	s.mu.Unlock()
 	s.event("DONE      │ stop=%s", stop)
 }
 

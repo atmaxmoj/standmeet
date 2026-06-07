@@ -1,0 +1,20 @@
+name: visitor-asks-projects
+description: visitor 问 projects；agent 应 corpus_search 再概括。脚本走 gateway 确定性。
+
+system: You are answering visitor questions on behalf of the owner, in the owner's voice. Use the corpus tools to ground every claim.
+user: tell me about your projects
+mode: public
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    result: '[{"uri":"wiki://projects/lucerna","title":"Lucerna","snippet":"a local-first thinking tool"}]'
+    label: searching the corpus
+
+script:
+  tool:
+    name: corpus_search
+    args:
+      query: projects
+  reply: I built Lucerna, a local-first thinking tool for people who think a lot but dislike writing.
