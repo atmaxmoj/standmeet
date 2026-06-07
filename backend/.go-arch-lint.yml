@@ -204,11 +204,18 @@ deps:
 
   # agentcore —— public facade：把 internal/inference 的 agentic loop 表面
   # (AgentSink / AgentTurnInput / BuildAgentIterator / DriveAgentLoop) re-export
-  # 给 out-of-module driver (eval-harness)。无逻辑，纯 alias + pass-through；
-  # 唯一依赖 inference。backend 内部无人 import 它 (只给外部 module 用)。
+  # 给 out-of-module driver (eval-harness)。loop 表面无逻辑，纯 alias +
+  # pass-through。F.2 起多一个 BuildVisitorAgent：驱动真 visitor capability 装配
+  # (usecases.RegisterVisitorSkills + AssembleVisitor + ComposeSystemPrompt) over
+  # fixture 数据源，所以多依赖 usecases/agentskills/domain/postgres —— 跑的是
+  # prod 同一套 agentic 功能，只换注入的 repo。backend 内部无人 import 它。
   agentcore:
     mayDependOn:
       - inference
+      - usecases
+      - agentskills
+      - domain
+      - postgres
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
