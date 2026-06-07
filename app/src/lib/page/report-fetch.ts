@@ -23,6 +23,34 @@ export async function fetchReport(reportID: string): Promise<ReportLoadState> {
   return { kind: 'ready', html };
 }
 
+export type PDFDownloadResult = { ok: true } | { ok: false; message: string };
+
+// downloadReportPDF —— fetch the report's PDF (visitor-authed) as a blob and
+// trigger a browser download. Bearer-authed so a plain <a href> won't do.
+export async function downloadReportPDF(reportID: string): Promise<PDFDownloadResult> {
+  const sess = loadStoredSession();
+  if (sess === null) {
+    return { ok: false, message: 'no session — open from chat first' };
+  }
+  const res = await fetch(`/api/v1/report/${reportID}/pdf`, {
+    headers: { Authorization: `Bearer ${sess.session_token}` },
+  });
+  if (!res.ok) return { ok: false, message: `status ${res.status}` };
+  triggerBlobDownload(await res.blob(), `report-${reportID}.pdf`);
+  return { ok: true };
+}
+
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function pickReportHTML(body: unknown): string | null {
   if (!isRecord(body)) return null;
   const v = body['html'];

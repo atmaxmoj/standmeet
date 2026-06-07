@@ -5,7 +5,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { fetchReport, type ReportLoadState } from '@/lib/page/report-fetch';
+import {
+  fetchReport, downloadReportPDF, type ReportLoadState,
+} from '@/lib/page/report-fetch';
 import styles from '@/components/page/ReportArtifactPage.module.css';
 
 interface Props {
@@ -28,6 +30,7 @@ export function ReportArtifactPage({ reportID }: Props) {
     <div className={styles['shell']} data-testid="report-page">
       <header className={styles['bar']}>
         <span className={styles['title']}>report · {reportID.slice(0, 8)}</span>
+        <DownloadBtn reportID={reportID} ready={state.kind === 'ready'} />
         <PrintBtn iframeRef={iframeRef} ready={state.kind === 'ready'} />
       </header>
       <ReportBody state={state} iframeRef={iframeRef} />
@@ -45,6 +48,23 @@ function PrintBtn({ iframeRef, ready }: {
       data-testid="report-print"
     >
       print ↗
+    </button>
+  );
+}
+
+function DownloadBtn({ reportID, ready }: { reportID: string; ready: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const onClick = () => {
+    setBusy(true);
+    void downloadReportPDF(reportID).finally(() => setBusy(false));
+  };
+  return (
+    <button
+      type="button" className={styles['printBtn']}
+      disabled={!ready || busy} onClick={onClick}
+      data-testid="report-download-pdf"
+    >
+      {busy ? 'downloading…' : 'download PDF ↓'}
     </button>
   );
 }

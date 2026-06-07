@@ -31,6 +31,7 @@ type Handlers struct {
 	Sessions    *session.VisitorSessionStore
 	Corpus      usecases.DialogCorpusLookup
 	Suggestions usecases.SuggestionDeps
+	PDFRenderer ReportPDFRenderer
 	Log         *slog.Logger
 }
 
@@ -42,6 +43,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
 	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。
 	r.Get("/report/{id}", h.getReport())
+	r.Get("/report/{id}/pdf", h.getReportPDF())
 	r.Post("/inference/models", h.listInferenceModels())
 	r.Post("/llm/chat/stream", h.llmChatStream())
 	// H.9: 新 agent turn 入口；走 eino ADK ChatModelAgent。SDK 在 H.10

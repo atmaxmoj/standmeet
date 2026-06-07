@@ -32,6 +32,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/printsess"
+	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/server"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -212,6 +213,7 @@ type runtimeDeps struct {
 	setupTokenHolder  *session.SetupTokenHolder
 	captchaVerifier   captcha.Verifier
 	pdfRenderer       jobsuc.PDFRenderer
+	reportPDFRenderer publicroutes.ReportPDFRenderer
 	printStore        *printsess.Store
 	marketplaceClient *marketplace.Client
 	agentSkills       *agentskills.Registry

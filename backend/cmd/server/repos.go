@@ -24,6 +24,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/printsess"
+	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
@@ -135,21 +136,22 @@ func assembleRuntimeDeps(
 			CalendarBase:    cfg.GoogleCalendarBase,
 			DefaultRedirect: cfg.GCalRedirectURI,
 		}),
-		storageClient:    dw.storageClient,
-		jobCachePool:     jobcache.New(c.rdb, 0),
-		jobFetchRegistry: newJobFetchRegistry(cfg),
-		sessionStore:     session.NewOwnerSessionStore(c.rdb),
-		visitorStore:     session.NewVisitorSessionStore(c.rdb),
-		queryQueue:       session.NewQueryQueue(cfg.QueryQueueMaxConcurrent),
-		providerResolver: dw.providerResolver,
-		setupTokenHolder: dw.setupTokenHolder,
-		captchaVerifier:  captchaVerifier,
-		captchaSiteKey:   captchaSiteKeyFor(cfg),
-		secureCookie:     cfg.SecureCookie,
-		buildsRoot:       cfg.CustomPagesRoot,
-		sandboxRunner:    sandbox.FromEnv(cfg.SandboxDriver),
-		printStore:       printStore,
-		pdfRenderer:      buildPDFRenderer(log, cfg, printStore),
+		storageClient:     dw.storageClient,
+		jobCachePool:      jobcache.New(c.rdb, 0),
+		jobFetchRegistry:  newJobFetchRegistry(cfg),
+		sessionStore:      session.NewOwnerSessionStore(c.rdb),
+		visitorStore:      session.NewVisitorSessionStore(c.rdb),
+		queryQueue:        session.NewQueryQueue(cfg.QueryQueueMaxConcurrent),
+		providerResolver:  dw.providerResolver,
+		setupTokenHolder:  dw.setupTokenHolder,
+		captchaVerifier:   captchaVerifier,
+		captchaSiteKey:    captchaSiteKeyFor(cfg),
+		secureCookie:      cfg.SecureCookie,
+		buildsRoot:        cfg.CustomPagesRoot,
+		sandboxRunner:     sandbox.FromEnv(cfg.SandboxDriver),
+		printStore:        printStore,
+		pdfRenderer:       buildPDFRenderer(log, cfg, printStore),
+		reportPDFRenderer: buildReportPDFRenderer(cfg),
 		marketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
@@ -192,6 +194,19 @@ func buildPluginRegistry(d *runtimeDeps) *plugins.Registry {
 // PRINT_BASE_URL are set; falls back to a noop that errors on commit if
 // either is empty (lets dev / e2e start without the sidecar).
 //
+// buildReportPDFRenderer —— the report-download path uses gotenberg's
+// convert/html directly (simple HTML doc, no print-page/printsess dance), so
+// the public Handlers get a raw gotenberg client (or Noop when unconfigured →
+// the route returns a friendly 503).
+//
+//nolint:ireturn // composition root deliberately returns interface
+func buildReportPDFRenderer(cfg *config.Config) publicroutes.ReportPDFRenderer {
+	if cfg.GotenbergURL == "" {
+		return gotenberg.NoopClient{}
+	}
+	return gotenberg.New(cfg.GotenbergURL)
+}
+
 //nolint:ireturn // composition root deliberately returns interface
 func buildPDFRenderer(
 	log *slog.Logger, cfg *config.Config, store *printsess.Store,

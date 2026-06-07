@@ -13,6 +13,8 @@
 //      → iframe 渲完整 HTML
 //   5. 老 POST /api/v1/sessions/{id}/summary 已删 → 404
 
+import { readFileSync } from 'node:fs';
+
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
@@ -104,6 +106,12 @@ test.describe('visitor summarize_conversation · I.3', () => {
       await request.dispose();
     });
 
+  test('GET /api/v1/report/[id]/pdf 返 application/pdf (真 gotenberg 渲染)',
+    async ({ playwright }) => { await reportPDFRouteTest(playwright); });
+
+  test('/report/[id] 上 download PDF 按钮 → 下载一份 PDF',
+    async ({ page, playwright }) => { await reportPDFDownloadUITest(page, playwright); });
+
   test('老 POST /api/v1/sessions/{id}/summary 已删 → 404',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -121,6 +129,55 @@ test.describe('visitor summarize_conversation · I.3', () => {
       await request.dispose();
     });
 });
+
+// reportPDFRouteTest —— create a report then hit /report/{id}/pdf; assert it's
+// a real PDF rendered by gotenberg (magic bytes + attachment headers).
+async function reportPDFRouteTest(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  await scriptMockReplyText(request, REPORT_HTML);
+  const reportID = extractReportID(await postAgentTurn(request, sess));
+  expect(reportID, 'report_id in SSE').toBeTruthy();
+
+  const r = await request.get(`${BACKEND}/api/v1/report/${reportID}/pdf`, {
+    headers: { Authorization: `Bearer ${sess.session_token}` },
+  });
+  expect(r.status(), 'pdf route 200').toBe(200);
+  expect(r.headers()['content-type']).toContain('application/pdf');
+  expect(r.headers()['content-disposition']).toContain('attachment');
+  expect((await r.body()).subarray(0, 5).toString(), 'PDF magic bytes').toBe('%PDF-');
+  await request.dispose();
+}
+
+// reportPDFDownloadUITest —— create a report via chat, open /report/[id], click
+// download PDF, assert a real .pdf file downloads.
+async function reportPDFDownloadUITest(page: Page, playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  await scriptMockReplyText(request, REPORT_HTML);
+  await request.dispose();
+
+  await enterChatWithCode(page);
+  await fireFirstTurn(page, 'summarize what we discussed');
+  const card = page.getByTestId('tool-card-summarize_conversation');
+  await expect(card).toBeVisible({ timeout: 10_000 });
+  const reportID = await card.getAttribute('data-report-id');
+  expect(reportID).toBeTruthy();
+
+  await goto(page, `/report/${reportID}`);
+  const dlBtn = page.getByTestId('report-download-pdf');
+  await expect(dlBtn).toBeEnabled({ timeout: 10_000 });
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    dlBtn.click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^report-.*\.pdf$/);
+  const head = readFileSync(await download.path()).subarray(0, 5).toString();
+  expect(head, 'downloaded file is a PDF').toBe('%PDF-');
+}
 
 async function postAgentTurn(
   request: APIRequestContext,

@@ -86,6 +86,32 @@ func (c *Client) RenderURL(
 	if err != nil {
 		return nil, err
 	}
+	return c.doRender(req)
+}
+
+// RenderHTML —— convert a self-contained HTML document to PDF via Gotenberg's
+// /forms/chromium/convert/html (an index.html file upload), with document-
+// friendly Letter margins. Used for the chat-report download — a simple HTML
+// doc that doesn't need the URL/print-page dance RenderURL uses for the
+// pixel-perfect résumé. Not on the Renderer interface (which stays RenderURL-
+// only for the résumé path); callers that need it take this method directly.
+func (c *Client) RenderHTML(ctx context.Context, html string) ([]byte, error) {
+	form, err := buildHTMLForm(html)
+	if err != nil {
+		return nil, err
+	}
+	url := c.endpoint + "/forms/chromium/convert/html"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, form.body)
+	if err != nil {
+		return nil, fmt.Errorf("new request: %w", err)
+	}
+	req.Header.Set("Content-Type", form.contentType)
+	return c.doRender(req)
+}
+
+// doRender —— POST a prepared Gotenberg request, read the PDF bytes (or the
+// error body), and close. Shared by RenderURL + RenderHTML.
+func (c *Client) doRender(req *http.Request) ([]byte, error) {
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("post gotenberg: %w", err)
@@ -157,15 +183,58 @@ func buildURLForm(printURL string) (*encodedForm, error) {
 		"scale":        printScale,
 		"waitDelay":    "300ms",
 	}
-	for k, v := range fields {
-		if err := mp.WriteField(k, v); err != nil {
-			return nil, fmt.Errorf("multipart write %s: %w", k, err)
-		}
+	if err := writeFields(mp, fields); err != nil {
+		return nil, err
 	}
 	if err := mp.Close(); err != nil {
 		return nil, fmt.Errorf("multipart close: %w", err)
 	}
 	return &encodedForm{body: body, contentType: mp.FormDataContentType()}, nil
+}
+
+func buildHTMLForm(html string) (*encodedForm, error) {
+	body := &bytes.Buffer{}
+	mp := multipart.NewWriter(body)
+	if err := writeIndexHTML(mp, html); err != nil {
+		return nil, err
+	}
+	if err := writeFields(mp, htmlPageFields); err != nil {
+		return nil, err
+	}
+	if err := mp.Close(); err != nil {
+		return nil, fmt.Errorf("multipart close: %w", err)
+	}
+	return &encodedForm{body: body, contentType: mp.FormDataContentType()}, nil
+}
+
+// htmlPageFields —— document-friendly Letter margins for the report PDF.
+var htmlPageFields = map[string]string{
+	"paperWidth":   paperWidthIn,
+	"paperHeight":  paperHeightIn,
+	"marginTop":    "0.5",
+	"marginBottom": "0.5",
+	"marginLeft":   "0.6",
+	"marginRight":  "0.6",
+}
+
+func writeIndexHTML(mp *multipart.Writer, html string) error {
+	part, err := mp.CreateFormFile("files", "index.html")
+	if err != nil {
+		return fmt.Errorf("multipart index.html: %w", err)
+	}
+	if _, werr := io.WriteString(part, html); werr != nil {
+		return fmt.Errorf("multipart write html: %w", werr)
+	}
+	return nil
+}
+
+func writeFields(mp *multipart.Writer, fields map[string]string) error {
+	for k, v := range fields {
+		if err := mp.WriteField(k, v); err != nil {
+			return fmt.Errorf("multipart write %s: %w", k, err)
+		}
+	}
+	return nil
 }
 
 // NoopClient —— Returns ErrNotConfigured on every call. Wired in
@@ -174,5 +243,10 @@ type NoopClient struct{}
 
 // RenderURL implements Renderer.
 func (NoopClient) RenderURL(_ context.Context, _ string) ([]byte, error) {
+	return nil, ErrNotConfigured
+}
+
+// RenderHTML —— Noop variant; mirrors Client.RenderHTML's signature.
+func (NoopClient) RenderHTML(_ context.Context, _ string) ([]byte, error) {
 	return nil, ErrNotConfigured
 }

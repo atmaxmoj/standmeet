@@ -180,6 +180,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Sessions:    d.visitorStore,
 		Corpus:      d.corpus,
 		Suggestions: usecases.SuggestionDeps{Repo: d.suggestionRepo},
+		PDFRenderer: d.reportPDFRenderer,
 		Log:         d.log,
 	}
 }
