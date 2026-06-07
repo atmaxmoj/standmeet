@@ -73,6 +73,13 @@ func BuildAgentIterator(
 	mw, mwerr := summarization.New(ctx, &summarization.Config{
 		Model:   cm,
 		Trigger: &summarization.TriggerCondition{ContextTokens: contextTokenThreshold},
+		// Callback 只在压缩真触发时调（context 超阈值）；打一行 observability。
+		// 短对话不触发，prod 常规流量零噪音。
+		Callback: func(_ context.Context, before, after adk.ChatModelAgentState) error {
+			slog.Default().Info("agent turn: context summarized",
+				"before_msgs", len(before.Messages), "after_msgs", len(after.Messages))
+			return nil
+		},
 	})
 	if mwerr != nil {
 		return nil, fmt.Errorf("eino: summarization middleware: %w", mwerr)
