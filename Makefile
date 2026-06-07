@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction
+.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-interview eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -127,6 +127,13 @@ eval-interview:
 eval-capabilities:
 	@cd eval-harness && go build -o eval-harness-bin . && \
 	  python3 capabilities.py
+
+# eval-owner-mcp —— 当 agent 驱动 OWNER-side MCP server(inbound/ingest 那半,跟
+# 访客出站对称)。走真 @standmeet/mcp-client Sigv1 stdio bridge,跑 me → raw_dump →
+# list_recent_raw → promote_to_wiki → list_recent_wiki 闭环,机械 round-trip 断言。
+# 需 dev stack 起 + claimed(e2e 默认 owner alice);自动 mint 临时 keypair 用完即销。
+eval-owner-mcp:
+	@eval-harness/owner-mcp-setup.sh
 
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app
