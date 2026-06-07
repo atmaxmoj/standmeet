@@ -31,7 +31,10 @@ import (
 )
 
 const (
-	defaultMaxTokens = 1024
+	// defaultMaxTokens —— 单次回复的输出上限。1024 会把几百词的实质回答从句子
+	// 中间截断（eval 面试里每条答案都被切）。4096 给完整 chat 回答足够余量，
+	// 又不至于让单 turn 成本失控。
+	defaultMaxTokens = 4096
 	providerOpenAI   = "openai"
 	providerAnthrop  = "anthropic"
 )

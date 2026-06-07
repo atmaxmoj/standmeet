@@ -155,6 +155,10 @@ func routeAgentEvent(
 	ctx context.Context, em *loopEmit, ev *adk.AgentEvent, state *turnState,
 ) bool {
 	if ev.Err != nil {
+		if errors.Is(ev.Err, adk.ErrExceedMaxIterations) {
+			handleMaxIterations(em, state)
+			return false
+		}
 		em.sink.Error(ev.Err)
 		return false
 	}
@@ -162,6 +166,22 @@ func routeAgentEvent(
 		return true
 	}
 	return routeMessageVariant(ctx, em, ev.Output.MessageOutput, state)
+}
+
+// handleMaxIterations —— ADK 跑满 MaxIterations 仍没收口出 final text（模型一直
+// 调 tool 不停）。不能把这当普通 error 砸给浏览器：visitor 会收到错误帧 / 空回复，
+// 是最差的 UX（按 CLAUDE.md，fallback 必须 human-readable）。已经流了部分 assistant
+// text 就当截断收尾，让 Done 正常发；一个字都没出（纯 tool 死循环）就补一句兜底
+// 话术当回复，caller（浏览器 / eval）拿到可读内容而非空。stop 仍走默认 end_turn。
+func handleMaxIterations(em *loopEmit, state *turnState) {
+	em.log.Warn("agent turn hit max iterations", "had_text", state.assistantText != "")
+	if state.assistantText != "" {
+		return
+	}
+	const fallback = "Sorry — I couldn't pull together a solid answer to that one. " +
+		"Could you rephrase it or ask me something more specific?"
+	em.sink.Text(fallback)
+	state.assistantText = fallback
 }
 
 // routeMessageVariant —— event 里携带的消息分三类：
