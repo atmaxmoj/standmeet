@@ -107,6 +107,16 @@ eval-ask:
 eval-compaction:
 	@eval-harness/compaction-test.sh
 
+# eval-interview —— 真跑一场多轮面试 (recruiter on code session,booking granted),
+# 边跑边按维度标注:grounding / context retention / honest gap / not-in-corpus /
+# privacy / tool use。透出每轮 agent 读了哪些 corpus + 答 + ghost hint,给人/judge
+# agent 看质量、抖 prompt 破绽回填。**需真 LLM** (eval-harness/.env DeepSeek key)。
+#   make eval-interview            # 默认 marcus-chen
+#   EVAL_PERSONA=<dir> make eval-interview
+eval-interview:
+	@cd eval-harness && go build -o eval-harness-bin . && \
+	  python3 interview.py
+
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app
 dev-rebuild: app-build
