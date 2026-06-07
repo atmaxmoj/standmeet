@@ -4,12 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
+
+// EVAL_TOOLS_FAIL —— inject booking-tool failures to test how the agent explains
+// them to the visitor (prod has many conflict/denial paths; canned tools other-
+// wise always succeed). Values: "noslots" / "notconnected" (list_slots) /
+// "conflict" / "quota" (calendar_book). Envelopes mirror prod's {ok,error,detail}.
 
 // builtin_tools.go —— faithful eval fixtures of the visitor agent's built-in
 // tools beyond corpus retrieval, so the eval reflects the FULL prod toolset
@@ -122,6 +128,12 @@ func (t *listSlotsTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 }
 
 func (t *listSlotsTool) InvokableRun(_ context.Context, _ string, _ ...tool.Option) (string, error) {
+	switch os.Getenv("EVAL_TOOLS_FAIL") {
+	case "noslots":
+		return `{"ok":true,"slots":[]}`, nil
+	case "notconnected":
+		return `{"ok":false,"error":"not_connected","detail":"owner has not connected a calendar yet"}`, nil
+	}
 	slots := []map[string]string{
 		{"start": "2026-06-09T15:00:00Z", "end": "2026-06-09T15:30:00Z"},
 		{"start": "2026-06-09T16:30:00Z", "end": "2026-06-09T17:00:00Z"},
@@ -151,6 +163,12 @@ func (t *calendarBookTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 }
 
 func (t *calendarBookTool) InvokableRun(_ context.Context, _ string, _ ...tool.Option) (string, error) {
+	switch os.Getenv("EVAL_TOOLS_FAIL") {
+	case "conflict":
+		return `{"ok":false,"error":"conflict","detail":"that time was just taken by someone else"}`, nil
+	case "quota":
+		return `{"ok":false,"error":"quota_exhausted","detail":"this access code's booking limit is reached"}`, nil
+	}
 	out, err := json.Marshal(map[string]any{
 		"ok": true, "event_id": "evt_eval_canned", "status": "confirmed",
 	})
