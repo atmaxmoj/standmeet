@@ -15,13 +15,6 @@ import (
 	"strings"
 )
 
-// suggestionsPayload —— SSE `suggestions` 帧负载。items 是 3 条 follow-up
-// question 字符串数组；解析失败 / 非 code-accessor session 时浏览器要
-// 么没看到这条事件，要么 items=[] 当 "no chip"。
-type suggestionsPayload struct {
-	Items []string `json:"items"`
-}
-
 // followupGenPrompt —— 让 LLM 出 follow-up 的固定 prompt 模板。强调
 // JSON-only 输出方便机器解析；length cap 防止 LLM 写长句撑爆 ghost
 // text overlay。
@@ -40,7 +33,7 @@ const followupGenPrompt = "You will be given a short snippet of a " +
 // 非 code-accessor / 空 assistant 回复 / Generate 失败 / 输出非 JSON
 // → 不 emit 或 emit items=[]，浏览器视作 "no chip"。
 func maybeEmitSuggestions(
-	ctx context.Context, sink *sseSink, in *AgentTurnInput, state *turnState,
+	ctx context.Context, em *loopEmit, in *AgentTurnInput, state *turnState,
 ) {
 	if in.Mode != "code" {
 		return
@@ -50,11 +43,11 @@ func maybeEmitSuggestions(
 	}
 	items, err := generateFollowups(ctx, in, state.assistantText)
 	if err != nil {
-		sink.log.Warn("agent turn suggestions generate", logErrKey, err)
-		emitSuggestions(sink, []string{})
+		em.log.Warn("agent turn suggestions generate", logErrKey, err)
+		em.sink.Suggestions([]string{})
 		return
 	}
-	emitSuggestions(sink, items)
+	em.sink.Suggestions(items)
 }
 
 func generateFollowups(
@@ -78,13 +71,4 @@ func generateFollowups(
 		return nil, fmt.Errorf("follow-ups json: %w", uerr)
 	}
 	return items, nil
-}
-
-func emitSuggestions(sink *sseSink, items []string) {
-	body, merr := json.Marshal(suggestionsPayload{Items: items})
-	if merr != nil {
-		sink.log.Error("agent turn marshal suggestions", logErrKey, merr)
-		return
-	}
-	writeSSEFrame(sink.log, sink.w, sink.flusher, "suggestions", body)
 }
