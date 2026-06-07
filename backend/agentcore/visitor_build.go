@@ -23,6 +23,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
+// evalSkillID / evalMCPID —— fixed grant ids the eval RoleSnapshot references.
+const (
+	evalSkillID = "eval-skill"
+	evalMCPID   = "eval-mcp"
+)
+
 // VisitorCorpusEntry —— one curated corpus entry, plain data (the eval module
 // can't construct internal/domain types). Genre is "wiki" or "output". Private
 // entries are withheld at the retrieval ACL layer (code-level, not prompt).
@@ -52,6 +58,7 @@ type ConvMessage struct {
 type BuildVisitorInput struct {
 	Cred                 *Cred
 	MaxBookings          *int32
+	Skill                *VisitorSkillSpec
 	OwnerID              string
 	Mode                 string
 	RoleBody             string
@@ -60,9 +67,12 @@ type BuildVisitorInput struct {
 	CodeID               string
 	OwnerTimezone        string
 	BookingFailure       string
-	Corpus               []VisitorCorpusEntry
-	Conversation         []ConvMessage
-	EnableBooking        bool
+	// MCPServerURL —— an owner-registered external MCP server. When set, ext-mcp
+	// dials it for real and the agent gets its tools. Empty = ext-mcp hidden.
+	MCPServerURL  string
+	Corpus        []VisitorCorpusEntry
+	Conversation  []ConvMessage
+	EnableBooking bool
 }
 
 // VisitorAgent —— the assembled, transport-agnostic visitor agent: the real
@@ -121,20 +131,29 @@ func composePrompt(
 // buildEvalSnapshot —— RoleSnapshot framing the run: PromptBody is the owner
 // persona (RoleBody); CorpusURIs are the granted (public) entry URIs, which both
 // turn the retrieval capability on (retrievalEnabled = len>0) and gate ACL.
-// EnableBooking adds calendar.book to AllowedTools, which both unlocks the booker
-// (bookerSkillGranted) and emits its prompt fragment.
+// EnableBooking adds calendar.book to AllowedTools (unlocks the booker + emits
+// its fragment); Skill grants the skill id (+ surfaces its prompt) so skill-runner
+// builds its tool; MCPServerURL grants the server id so ext-mcp dials it.
 func buildEvalSnapshot(in *BuildVisitorInput, corpusURIs []string) domain.RoleSnapshot {
-	var allowedTools []string
-	if in.EnableBooking {
-		allowedTools = []string{usecases.BookerSkillName}
+	init := &domain.RoleSnapshotInit{
+		RoleID:     "eval-role",
+		RoleName:   "eval",
+		PromptBody: in.RoleBody,
+		CorpusURIs: corpusURIs,
 	}
-	return domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
-		RoleID:       "eval-role",
-		RoleName:     "eval",
-		PromptBody:   in.RoleBody,
-		CorpusURIs:   corpusURIs,
-		AllowedTools: allowedTools,
-	})
+	if in.EnableBooking {
+		init.AllowedTools = []string{usecases.BookerSkillName}
+	}
+	if in.Skill != nil {
+		init.SkillIDs = []string{evalSkillID}
+		if in.Skill.Prompt != "" {
+			init.SkillPrompts = []string{in.Skill.Prompt}
+		}
+	}
+	if in.MCPServerURL != "" {
+		init.MCPServerIDs = []string{evalMCPID}
+	}
+	return domain.NewRoleSnapshot(init)
 }
 
 // buildEvalDeps —— VisitorDeps with only the fields the registered capabilities
@@ -155,6 +174,17 @@ func buildEvalDeps(in *BuildVisitorInput, corpus *corpusFixtures) *usecases.Visi
 		deps.Calendar = cannedCalendarStore{failure: in.BookingFailure}
 		deps.GCal = cannedCalendarClient{failure: in.BookingFailure}
 		deps.Owners = ownerFixture{ownerID: in.OwnerID, tz: ownerTZ(in.OwnerTimezone)}
+	}
+	if in.Skill != nil {
+		sk := buildEvalSkill(in.OwnerID, in.Skill)
+		deps.Skills = skillFixture{skill: &sk}
+		deps.Sandbox = cannedSandbox{stdout: in.Skill.Stdout}
+	}
+	if in.MCPServerURL != "" {
+		cfg := domain.MCPServerConfig{
+			ID: evalMCPID, OwnerID: in.OwnerID, Name: "eval-mcp", URL: in.MCPServerURL,
+		}
+		deps.MCPServers = mcpFixture{cfg: &cfg}
 	}
 	return deps
 }

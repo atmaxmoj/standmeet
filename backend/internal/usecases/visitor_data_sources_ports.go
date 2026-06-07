@@ -29,3 +29,20 @@ type OwnerGetter interface {
 type ConversationGetter interface {
 	GetWithMessages(ctx context.Context, ownerID, chatID string) (postgres.ChatWithMessages, error)
 }
+
+// SkillGetter —— the owner-skill reads the visitor path needs: GetByID (the
+// skill-runner capability turns a granted skill's scripts into tools) +
+// ListSkillsForRole (role-snapshot freeze). VisitorDeps.Skills is this narrow
+// port so the eval can inject a fixture owner skill.
+type SkillGetter interface {
+	GetByID(ctx context.Context, ownerID, skillID string) (domain.Skill, error)
+	ListSkillsForRole(ctx context.Context, roleID string) ([]domain.Skill, error)
+}
+
+// MCPServerGetter —— the one MCP-server read the ext-mcp capability needs to
+// resolve a granted server config before dialing it. VisitorDeps.MCPServers is
+// this narrow port so the eval can inject a fixture server pointed at a real MCP
+// endpoint (the dial stays real — only the registry lookup is fixtured).
+type MCPServerGetter interface {
+	GetByID(ctx context.Context, ownerID, serverID string) (domain.MCPServerConfig, error)
+}

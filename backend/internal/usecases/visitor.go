@@ -32,8 +32,8 @@ type VisitorDeps struct {
 	Output     OutputLister
 	Writings   WritingLister
 	Owners     OwnerGetter
-	Skills     *postgres.SkillRepo
-	MCPServers *postgres.MCPServerRepo
+	Skills     SkillGetter
+	MCPServers MCPServerGetter
 	Roles      *postgres.RoleRepo
 	Prompts    *postgres.PromptRepo
 	// Calendar / GCal —— 可选 (admin 没装 connector 时 nil-tolerant)。

@@ -95,6 +95,31 @@ type askRequest struct {
 	// permissions-deny: the booker is then structurally absent. EVAL_BOOKING_FAIL
 	// ("notconnected" / "conflict") injects failure paths.
 	Booking bool `json:"booking"`
+	// Skill —— load a demo owner skill (skill-runner) so the agent gets a tool only
+	// the owner could provide (roll_dice). Tests whether the agent discovers +
+	// invokes an owner-curated skill. The canned sandbox returns a fixed roll.
+	Skill bool `json:"skill"`
+	// MCP —— register an owner external MCP server (ext-mcp dials EVAL_MCP_URL for
+	// real). Tests whether the agent invokes an owner-registered MCP tool. Needs a
+	// running MCP server (the repo's mcp-server-mock: EVAL_MCP_URL=http://localhost:9100/mcp).
+	MCP bool `json:"mcp"`
+}
+
+// demoOwnerSkill —— a representative owner-curated skill: a tool the agent has no
+// other way to satisfy (it can't roll a real die itself), so calling it is an
+// unambiguous signal the agent discovered + used the owner skill.
+func demoOwnerSkill() *agentcore.VisitorSkillSpec {
+	return &agentcore.VisitorSkillSpec{
+		Name:        "roll_dice",
+		Description: "Roll an N-sided die and return the result. Use when the visitor asks you to roll a die.",
+		Prompt:      "You have a roll_dice skill that rolls dice for the visitor. Use it when asked to roll.",
+		Language:    "python",
+		Content:     "import json,os,random; a=json.loads(os.environ.get('ARGS','{}')); print(json.dumps({'roll': random.randint(1, a.get('sides',6))}))",
+		Stdout:      `{"roll": 4}`,
+		Params: []agentcore.VisitorSkillParam{
+			{Name: "sides", Type: "integer", Description: "number of sides on the die", Required: false},
+		},
+	}
 }
 
 type askResponse struct {
@@ -161,6 +186,8 @@ func askCandidate(
 		EnableBooking:        req.Booking,
 		CodeID:               evalCodeID,
 		BookingFailure:       os.Getenv("EVAL_BOOKING_FAIL"),
+		Skill:                skillSpecFor(req),
+		MCPServerURL:         mcpURLFor(req),
 	})
 	if berr != nil {
 		return "", nil, nil, berr
@@ -185,6 +212,23 @@ func askCandidate(
 		return answer, used, sink.followups(), fmt.Errorf("candidate turn: %s", sink.errorText())
 	}
 	return answer, used, sink.followups(), nil
+}
+
+// skillSpecFor returns the demo owner skill when the request asked for it.
+func skillSpecFor(req askRequest) *agentcore.VisitorSkillSpec {
+	if !req.Skill {
+		return nil
+	}
+	return demoOwnerSkill()
+}
+
+// mcpURLFor returns the external MCP server URL when the request asked for it and
+// EVAL_MCP_URL is set (empty otherwise → ext-mcp stays hidden).
+func mcpURLFor(req askRequest) string {
+	if !req.MCP {
+		return ""
+	}
+	return os.Getenv("EVAL_MCP_URL")
 }
 
 // toConvMessages maps the interview-so-far into the facade's transcript shape

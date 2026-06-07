@@ -217,6 +217,7 @@ deps:
       - domain
       - postgres
       - gcal
+      - sandbox
     anyVendorDeps: true
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
