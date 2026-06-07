@@ -178,8 +178,7 @@ func handleMaxIterations(em *loopEmit, state *turnState) {
 	if state.assistantText != "" {
 		return
 	}
-	const fallback = "Sorry — I couldn't pull together a solid answer to that one. " +
-		"Could you rephrase it or ask me something more specific?"
+	const fallback = "Sorry — I don't have a good answer to that one."
 	em.sink.Text(fallback)
 	state.assistantText = fallback
 }
