@@ -117,6 +117,17 @@ eval-interview:
 	@cd eval-harness && go build -o eval-harness-bin . && \
 	  python3 interview.py
 
+# eval-capabilities —— 留档的 agentic 能力套件。assert 类(booking/skill/mcp 真调了
+# 没、deny 结构性缺席、隐私金丝雀漏没漏、ghost hint 有没有)硬判 PASS/FAIL;human 类
+# (grounding/诚实/ambiguity/prompt 注入/ghost 质量/booking 失败)跑完留 transcript +
+# 「LOOK FOR」给人/judge 看。mcp case 自动起 mock-stack/mcp,起不来则 SKIP(不静默)。
+# **需真 LLM** (eval-harness/.env DeepSeek key)。
+#   make eval-capabilities
+#   EVAL_CASES=booking,skill,mcp make eval-capabilities   # 子集
+eval-capabilities:
+	@cd eval-harness && go build -o eval-harness-bin . && \
+	  python3 capabilities.py
+
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app
 dev-rebuild: app-build
