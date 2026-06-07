@@ -101,12 +101,7 @@ func runAdHoc(log *slog.Logger, cred agentcore.Cred, opts adHocOpts) {
 	}
 	switch {
 	case opts.corpusDir != "":
-		c, err := loadCorpus(opts.corpusDir)
-		if err != nil {
-			log.Error("load corpus", "err", err)
-			os.Exit(1)
-		}
-		in.Tools, in.ProgressLabels = corpusToolset(c)
+		attachRealCorpusTools(context.Background(), log, in, &cred, opts)
 	case opts.withTools:
 		in.Tools, in.ProgressLabels = cannedToolset()
 	}
@@ -115,4 +110,30 @@ func runAdHoc(log *slog.Logger, cred agentcore.Cred, opts adHocOpts) {
 		sink.fatal(err)
 		os.Exit(1)
 	}
+}
+
+// attachRealCorpusTools loads a persona corpus dir and assembles the REAL
+// visitor agent over it (via the facade), attaching its corpus tools to the
+// ad-hoc turn. --system still wins as the prompt (injected as the override), so
+// the ad-hoc probe keeps its hand-set system while exercising real retrieval.
+func attachRealCorpusTools(
+	ctx context.Context, log *slog.Logger, in *agentcore.AgentTurnInput,
+	cred *agentcore.Cred, opts adHocOpts,
+) {
+	c, err := loadCorpus(opts.corpusDir)
+	if err != nil {
+		log.Error("load corpus", "err", err)
+		os.Exit(1)
+	}
+	agent, berr := agentcore.BuildVisitorAgent(ctx, &agentcore.BuildVisitorInput{
+		Cred: cred, OwnerID: evalOwnerID, Mode: opts.mode,
+		Corpus: toVisitorCorpus(c), ConversationID: evalConvID,
+		SystemPromptOverride: opts.system,
+	})
+	if berr != nil {
+		log.Error("build visitor agent", "err", berr)
+		os.Exit(1)
+	}
+	in.Req.System = agent.SystemPrompt
+	in.Tools, in.ProgressLabels, in.ReturnDirectly = agent.Tools, agent.Labels, agent.ReturnDirectly
 }

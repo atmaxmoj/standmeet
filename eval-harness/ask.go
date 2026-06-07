@@ -16,63 +16,61 @@ import (
 // expose the owner's agent (here "Marcus") as a callable "answer this question,
 // given the interview so far" function, so an external interviewer — a Claude
 // agent the operator spawns — can drive a multi-turn interview and judge the
-// answers. The thing under test is the owner's system prompt (persona
-// system.md) + corpus grounding; the harness just runs one candidate turn on
-// real DeepSeek and reports the answer + which corpus entries it consulted.
+// answers. The thing under test is the owner's REAL visitor agent — the prompt
+// prod composes + the real corpus tools — assembled over this persona's fixture
+// corpus by agentcore.BuildVisitorAgent. The harness just runs one candidate
+// turn on real DeepSeek and reports the answer + tools it used.
+//
+// F.2: no more hand-assembled prompt / canned tools. BuildVisitorAgent drives
+// the SAME capability assembly the HTTP path runs (RegisterVisitorSkills +
+// AssembleVisitor + ComposeSystemPrompt) over fixture data — so prompt + tool
+// fidelity is structural, not maintained-by-hand. The prompt stays injectable
+// (EVAL_SYSTEM_PROMPT_FILE) so experiments can be tried and backfilled.
 //
 // Protocol: read an askRequest JSON on stdin, write an askResponse JSON on
 // stdout. One process invocation = one candidate turn.
 
-// persona —— the unit under test: the owner-voice system prompt + the corpus
-// the candidate answers from.
+// evalOwnerID / evalConvID —— fixed identifiers for the single-owner eval run.
+const (
+	evalOwnerID = "marcus"
+	evalConvID  = "eval-conv"
+)
+
+// persona —— the unit under test: the owner-voice role body (becomes the
+// RoleSnapshot.PromptBody the facade frames the real prompt around) + the
+// corpus the candidate answers from (fixture → real retrieval tools).
 type persona struct {
-	system string
-	corpus *corpus
+	roleBody string
+	corpus   []agentcore.VisitorCorpusEntry
 }
 
 func loadPersona(dir string) (*persona, error) {
-	system, serr := assemblePrompt(dir)
-	if serr != nil {
-		return nil, serr
+	body, berr := os.ReadFile(filepath.Join(dir, "role-body.md"))
+	if berr != nil {
+		return nil, fmt.Errorf("read role-body.md: %w", berr)
 	}
 	c, cerr := loadCorpus(filepath.Join(dir, "corpus"))
 	if cerr != nil {
 		return nil, cerr
 	}
-	return &persona{system: system, corpus: c}, nil
+	return &persona{roleBody: strings.TrimSpace(string(body)), corpus: toVisitorCorpus(c)}, nil
 }
 
-// assemblePrompt builds the candidate's system prompt the way prod does
-// (ComposeBasePersona + capability fragments): the REAL prod visitor-header,
-// this persona's role body, then the REAL capability fragments for the tools.
-// Reading the prod fragments live (not a copy) means the eval tests the prompt
-// prod actually ships — the generic grounding/anti-injection/quality rules live
-// in visitor-header.md, not in a per-persona file.
-func assemblePrompt(dir string) (string, error) {
-	pd := envOr("EVAL_PROMPTS_DIR", "../backend/internal/prompts")
-	files := []string{
-		filepath.Join(pd, "visitor-header.md"),
-		filepath.Join(dir, "role-body.md"),
-		filepath.Join(pd, "capabilities/corpus.retrieval.md"),
-		filepath.Join(pd, "capabilities/summarize_conversation.md"),
-		filepath.Join(pd, "capabilities/ask_visitor.md"),
+// systemPromptOverride —— the prompt-experiment injection point. When
+// EVAL_SYSTEM_PROMPT_FILE points at a file, its contents REPLACE the composed
+// prod prompt for this run — that's how "试出好 prompt → 回填 prod" works: try a
+// variant here, compare, then backfill the winner into the prod fragments.
+// Empty (the default) = the faithful prompt prod actually ships.
+func systemPromptOverride() (string, error) {
+	f := os.Getenv("EVAL_SYSTEM_PROMPT_FILE")
+	if f == "" {
+		return "", nil
 	}
-	// permissions-deny faithfully: prod assembles only GRANTED capabilities'
-	// fragments. EVAL_DENY=booking drops both the booking tools (personaToolset)
-	// AND the booking fragment here, so the agent genuinely doesn't know it can
-	// schedule — rather than being told it can but lacking the tool.
-	if !strings.Contains(os.Getenv("EVAL_DENY"), "booking") {
-		files = append(files, filepath.Join(pd, "capabilities/calendar.book.md"))
+	b, err := os.ReadFile(f)
+	if err != nil {
+		return "", fmt.Errorf("EVAL_SYSTEM_PROMPT_FILE %s: %w", f, err)
 	}
-	parts := make([]string, 0, len(files))
-	for _, f := range files {
-		b, err := os.ReadFile(f)
-		if err != nil {
-			return "", fmt.Errorf("prompt fragment %s: %w", f, err)
-		}
-		parts = append(parts, strings.TrimSpace(string(b)))
-	}
-	return strings.Join(parts, "\n\n---\n\n"), nil
+	return string(b), nil
 }
 
 // convTurn —— one prior line of the interview. role is "interviewer" or
@@ -131,28 +129,41 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 }
 
 // askCandidate runs one candidate turn: the persona answers req.Question given
-// the prior interview, on real DeepSeek, grounded via the corpus tools.
+// the prior interview, on real DeepSeek, via the REAL visitor agent assembled by
+// the facade (real prompt + real corpus/summarize/ask_visitor tools).
 func askCandidate(
 	ctx context.Context, log *slog.Logger, cred agentcore.Cred, p *persona, req askRequest,
 ) (string, []toolUse, []string, error) {
-	// Full visitor toolset (corpus + built-ins). summarize_conversation needs
-	// the interview so far: prior turns + the question being answered.
-	convo := append(append([]convTurn{}, req.History...), convTurn{Role: "interviewer", Text: req.Question})
-	tools, labels, returnDirectly := personaToolset(p.corpus, cred, convo)
 	mode := req.Mode
 	if mode == "" {
 		mode = "public"
 	}
+	// The interview-so-far feeds summarize_conversation: prior turns + the
+	// question being answered, as the fixture transcript the facade exposes.
+	convo := append(append([]convTurn{}, req.History...), convTurn{Role: "interviewer", Text: req.Question})
+	override, oerr := systemPromptOverride()
+	if oerr != nil {
+		return "", nil, nil, oerr
+	}
+	agent, berr := agentcore.BuildVisitorAgent(ctx, &agentcore.BuildVisitorInput{
+		Cred: &cred, OwnerID: evalOwnerID, Mode: mode, RoleBody: p.roleBody,
+		Corpus: p.corpus, ConversationID: evalConvID,
+		Conversation:         toConvMessages(convo),
+		SystemPromptOverride: override,
+	})
+	if berr != nil {
+		return "", nil, nil, berr
+	}
 	in := &agentcore.AgentTurnInput{
 		Cred: &cred,
 		Req: &agentcore.AgentTurnRequest{
-			System: p.system, UserMessage: req.Question, Model: cred.Model,
+			System: agent.SystemPrompt, UserMessage: req.Question, Model: cred.Model,
 			History: candidateHistory(req.History),
 		},
 		Mode:           mode, // "code" → backend emits follow-up suggestions
-		Tools:          tools,
-		ProgressLabels: labels,
-		ReturnDirectly: returnDirectly,
+		Tools:          agent.Tools,
+		ProgressLabels: agent.Labels,
+		ReturnDirectly: agent.ReturnDirectly,
 	}
 	sink := newCaptureSink()
 	if err := agentcore.RunAgentLoop(ctx, log, in, sink); err != nil {
@@ -163,6 +174,20 @@ func askCandidate(
 		return answer, used, sink.followups(), fmt.Errorf("candidate turn: %s", sink.errorText())
 	}
 	return answer, used, sink.followups(), nil
+}
+
+// toConvMessages maps the interview-so-far into the facade's transcript shape
+// (visitor / assistant) so summarize_conversation has a real conversation.
+func toConvMessages(turns []convTurn) []agentcore.ConvMessage {
+	out := make([]agentcore.ConvMessage, 0, len(turns))
+	for _, t := range turns {
+		role := "visitor"
+		if t.Role == "candidate" {
+			role = "assistant"
+		}
+		out = append(out, agentcore.ConvMessage{Role: role, Body: t.Text})
+	}
+	return out
 }
 
 // candidateHistory maps the interview-so-far into the candidate's chat history:

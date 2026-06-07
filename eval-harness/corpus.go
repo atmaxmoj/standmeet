@@ -1,17 +1,15 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/schema"
 	"gopkg.in/yaml.v3"
+
+	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
 // corpusEntry —— one piece of the owner's curated corpus, loaded from a
@@ -33,18 +31,16 @@ type corpusEntry struct {
 
 func (e *corpusEntry) isPrivate() bool { return e.Visibility == "private" }
 
-// corpus —— the loaded persona corpus + a uri index. Backs the corpus_search
-// / corpus_read tools with *real* keyword retrieval over fixture material, so
-// the agent works from genuine content (not canned results) when we audit how
-// it answers an interview from "the owner's" real corpus.
+// corpus —— the loaded persona corpus. Parsed from fixture .md files and handed
+// to the facade (toVisitorCorpus) which builds the REAL retriever over it; the
+// eval no longer reimplements search/read/list itself.
 type corpus struct {
 	entries []corpusEntry
-	byURI   map[string]*corpusEntry
 }
 
 // loadCorpus reads every .md under dir, parsing frontmatter + body.
 func loadCorpus(dir string) (*corpus, error) {
-	c := &corpus{byURI: map[string]*corpusEntry{}}
+	c := &corpus{}
 	walk := func(p string, d os.DirEntry, werr error) error {
 		if werr != nil {
 			return werr
@@ -66,9 +62,6 @@ func loadCorpus(dir string) (*corpus, error) {
 		return nil, fmt.Errorf("corpus %s: no .md entries", dir)
 	}
 	sort.Slice(c.entries, func(i, j int) bool { return c.entries[i].URI < c.entries[j].URI })
-	for i := range c.entries {
-		c.byURI[c.entries[i].URI] = &c.entries[i]
-	}
 	return c, nil
 }
 
@@ -109,213 +102,35 @@ func splitFrontmatter(s string) (front, body string, ok bool) {
 	return front, body, true
 }
 
-// searchHit —— one corpus_search result row.
-type searchHit struct {
-	URI     string `json:"uri"`
-	Title   string `json:"title"`
-	Kind    string `json:"kind"`
-	Snippet string `json:"snippet"`
-}
-
-// search ranks entries by weighted keyword match (title 3, tag 2, body 1) over
-// the query terms, returning up to limit hits with score > 0.
-func (c *corpus) search(query string, limit int) []searchHit {
-	terms := strings.Fields(strings.ToLower(query))
-	type scored struct {
-		e     *corpusEntry
-		score int
-	}
-	ranked := make([]scored, 0, len(c.entries))
+// toVisitorCorpus maps the loaded fixture corpus into the facade's plain entry
+// shape. Genre comes from the URI scheme: output:// → "output", everything else
+// (wiki:// and the owner's raw:// working notes) folds into the visitor's
+// curated "wiki" layer — in prod the visitor retriever only ever sees curated
+// wiki/output, never raw, so raw fixtures stand in as wiki entries the owner
+// promoted. Privacy is code-level: a private entry's URI is withheld from the
+// granted whitelist (Private=true), so the real retriever's ACL denies it at
+// search/read/list — the agent structurally cannot reach it.
+func toVisitorCorpus(c *corpus) []agentcore.VisitorCorpusEntry {
+	out := make([]agentcore.VisitorCorpusEntry, 0, len(c.entries))
 	for i := range c.entries {
-		if c.entries[i].isPrivate() {
-			continue // ACL: visitor retriever never surfaces private entries
+		e := &c.entries[i]
+		genre, path := splitURI(e.URI)
+		if genre != "output" {
+			genre = "wiki"
 		}
-		if s := scoreEntry(&c.entries[i], terms); s > 0 {
-			ranked = append(ranked, scored{e: &c.entries[i], score: s})
-		}
-	}
-	sort.SliceStable(ranked, func(i, j int) bool { return ranked[i].score > ranked[j].score })
-	hits := make([]searchHit, 0, limit)
-	for i := 0; i < len(ranked) && i < limit; i++ {
-		e := ranked[i].e
-		hits = append(hits, searchHit{URI: e.URI, Title: e.Title, Kind: e.Kind, Snippet: snippet(e.Body, terms)})
-	}
-	return hits
-}
-
-func scoreEntry(e *corpusEntry, terms []string) int {
-	title := strings.ToLower(e.Title)
-	body := strings.ToLower(e.Body)
-	tags := strings.ToLower(strings.Join(e.Tags, " "))
-	score := 0
-	for _, t := range terms {
-		if strings.Contains(title, t) {
-			score += 3
-		}
-		if strings.Contains(tags, t) {
-			score += 2
-		}
-		score += strings.Count(body, t)
-	}
-	return score
-}
-
-// snippet returns ~200 chars of body around the first matched term (or the
-// head if none match), single-lined for the tool result.
-func snippet(body string, terms []string) string {
-	flat := strings.Join(strings.Fields(body), " ")
-	low := strings.ToLower(flat)
-	at := 0
-	for _, t := range terms {
-		if i := strings.Index(low, t); i >= 0 {
-			at = i
-			break
-		}
-	}
-	start := at - 60
-	if start < 0 {
-		start = 0
-	}
-	end := start + 200
-	if end > len(flat) {
-		end = len(flat)
-	}
-	out := flat[start:end]
-	if start > 0 {
-		out = "…" + out
-	}
-	if end < len(flat) {
-		out += "…"
+		out = append(out, agentcore.VisitorCorpusEntry{
+			Genre: genre, Path: path, Title: e.Title, Body: e.Body,
+			Tags: e.Tags, Private: e.isPrivate(),
+		})
 	}
 	return out
 }
 
-// corpusToolset builds the corpus_search + corpus_read eino tools over c, plus
-// their progress labels. These are real retrieval tools, not canned fixtures.
-func corpusToolset(c *corpus) ([]tool.BaseTool, map[string]string) {
-	tools := []tool.BaseTool{
-		&corpusSearchTool{c: c},
-		&corpusReadTool{c: c},
-		&corpusListTool{c: c},
+// splitURI splits "wiki://profile/overview" into ("wiki", "profile/overview").
+// A scheme-less uri falls back to the wiki genre with the whole string as path.
+func splitURI(uri string) (scheme, path string) {
+	if i := strings.Index(uri, "://"); i >= 0 {
+		return uri[:i], uri[i+len("://"):]
 	}
-	labels := map[string]string{
-		"corpus_search": "searching the corpus",
-		"corpus_read":   "reading an entry",
-		"corpus_list":   "listing entries",
-	}
-	return tools, labels
-}
-
-type corpusListTool struct{ c *corpus }
-
-func (t *corpusListTool) Info(_ context.Context) (*schema.ToolInfo, error) {
-	return &schema.ToolInfo{
-		Name: "corpus_list",
-		Desc: "List corpus entries (uri, title, kind), optionally filtered by a uri prefix. " +
-			"Use to browse what material is available before deciding what to read.",
-		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
-			"prefix": {Type: schema.String, Desc: "optional uri prefix filter, e.g. wiki://project", Required: false},
-		}),
-	}, nil
-}
-
-func (t *corpusListTool) InvokableRun(_ context.Context, argsJSON string, _ ...tool.Option) (string, error) {
-	var a struct {
-		Prefix string `json:"prefix"`
-	}
-	// args may be empty/{} for an unfiltered list — ignore unmarshal errors on empty.
-	_ = json.Unmarshal([]byte(argsJSON), &a)
-	out, err := json.Marshal(t.c.list(a.Prefix))
-	if err != nil {
-		return "", fmt.Errorf("corpus_list marshal: %w", err)
-	}
-	return string(out), nil
-}
-
-type corpusSearchTool struct{ c *corpus }
-
-func (t *corpusSearchTool) Info(_ context.Context) (*schema.ToolInfo, error) {
-	return &schema.ToolInfo{
-		Name: "corpus_search",
-		Desc: "Search the owner's curated corpus by keyword. Returns matching entries with uri, title and a snippet.",
-		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
-			"query": {Type: schema.String, Desc: "keywords to search for", Required: true},
-		}),
-	}, nil
-}
-
-func (t *corpusSearchTool) InvokableRun(_ context.Context, argsJSON string, _ ...tool.Option) (string, error) {
-	var a struct {
-		Query string `json:"query"`
-	}
-	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
-		return "", fmt.Errorf("corpus_search args: %w", err)
-	}
-	hits := t.c.search(a.Query, 5)
-	out, err := json.Marshal(hits)
-	if err != nil {
-		return "", fmt.Errorf("corpus_search marshal: %w", err)
-	}
-	return string(out), nil
-}
-
-type corpusReadTool struct{ c *corpus }
-
-func (t *corpusReadTool) Info(_ context.Context) (*schema.ToolInfo, error) {
-	return &schema.ToolInfo{
-		Name: "corpus_read",
-		Desc: "Read one corpus entry in full by its uri (as returned by corpus_search).",
-		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
-			"uri": {Type: schema.String, Desc: "the entry uri, e.g. wiki://project/order-reconciliation", Required: true},
-		}),
-	}, nil
-}
-
-func (t *corpusReadTool) InvokableRun(_ context.Context, argsJSON string, _ ...tool.Option) (string, error) {
-	var a struct {
-		URI string `json:"uri"`
-	}
-	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
-		return "", fmt.Errorf("corpus_read args: %w", err)
-	}
-	e, ok := t.c.read(a.URI)
-	if !ok {
-		return fmt.Sprintf("no corpus entry with uri %q", a.URI), nil
-	}
-	out, err := json.Marshal(map[string]string{"uri": e.URI, "title": e.Title, "body": e.Body})
-	if err != nil {
-		return "", fmt.Errorf("corpus_read marshal: %w", err)
-	}
-	return string(out), nil
-}
-
-func (c *corpus) read(uri string) (*corpusEntry, bool) {
-	e, ok := c.byURI[uri]
-	if !ok || e.isPrivate() {
-		return nil, false // ACL: private entries are not readable by the visitor
-	}
-	return e, ok
-}
-
-// listRow —— one corpus_list result: the browseable index of an entry.
-type listRow struct {
-	URI   string `json:"uri"`
-	Title string `json:"title"`
-	Kind  string `json:"kind"`
-}
-
-// list returns the browseable index of public entries (private skipped by ACL),
-// optionally filtered to a uri prefix — the corpus table of contents.
-func (c *corpus) list(prefix string) []listRow {
-	out := make([]listRow, 0, len(c.entries))
-	for i := range c.entries {
-		if c.entries[i].isPrivate() {
-			continue // ACL: never list private entries
-		}
-		if prefix != "" && !strings.HasPrefix(c.entries[i].URI, prefix) {
-			continue
-		}
-		out = append(out, listRow{URI: c.entries[i].URI, Title: c.entries[i].Title, Kind: c.entries[i].Kind})
-	}
-	return out
+	return "wiki", uri
 }
