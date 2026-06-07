@@ -38,3 +38,11 @@ type ReportStore interface {
 	Create(ctx context.Context, in *postgres.CreateReportInput) (domain.ChatReport, error)
 	GetByID(ctx context.Context, reportID string) (domain.ChatReport, error)
 }
+
+// ConversationGetter —— the one chat method summarize_conversation needs.
+// SummarizeDeps.Chats is this narrow port so the eval can inject a fixture that
+// returns the eval conversation; VisitorDeps.Chats stays the concrete repo
+// (broadly used by session/dialog persistence the eval doesn't exercise).
+type ConversationGetter interface {
+	GetWithMessages(ctx context.Context, ownerID, chatID string) (postgres.ChatWithMessages, error)
+}

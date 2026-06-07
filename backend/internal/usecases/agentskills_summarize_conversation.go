@@ -49,7 +49,7 @@ const summarizeHTMLPrompt = "You generate polished HTML conversation reports. " 
 
 // SummarizeDeps —— summarize capability 依赖；闭包持。
 type SummarizeDeps struct {
-	Chats    *postgres.ChatRepo
+	Chats    ConversationGetter
 	Reports  ReportStore
 	Resolver inference.Resolver
 }
