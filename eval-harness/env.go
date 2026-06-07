@@ -73,11 +73,11 @@ func resolveCredDefaults() credDefaults {
 			Provider: envOr("EVAL_PROVIDER", "deepseek"),
 			Key:      k,
 			Endpoint: envOr("EVAL_ENDPOINT", "https://api.deepseek.com"),
-			Model:    envOr("EVAL_MODEL", "deepseek-chat"),
+			Model:    envOr("EVAL_MODEL", "deepseek-v4-pro"),
 		}
 	}
 	if k := os.Getenv("DEEPSEEK_API_KEY"); k != "" {
-		return credDefaults{Provider: "deepseek", Key: k, Endpoint: "https://api.deepseek.com", Model: "deepseek-chat"}
+		return credDefaults{Provider: "deepseek", Key: k, Endpoint: "https://api.deepseek.com", Model: "deepseek-v4-pro"}
 	}
 	if k := os.Getenv("OPENAI_API_KEY"); k != "" {
 		return credDefaults{Provider: "openai", Key: k, Endpoint: "https://api.openai.com/v1", Model: "gpt-4o"}

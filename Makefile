@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-interview
+.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -92,18 +92,14 @@ gateway-up:
 eval-smoke: gateway-up
 	@eval-harness/smoke.sh
 
-# eval-interview —— 跑一整场模拟面试 (主场景):一个 LLM 面试官 ×N 轮追问
-# 被测 agent (用 Marcus Chen persona 的 voice + 真检索其 corpus 作答),观测
-# 对话质量。**需真 LLM** —— 设 EVAL_* 指向真 provider:
-#   EVAL_PROVIDER=deepseek EVAL_ENDPOINT=https://api.deepseek.com \
-#   EVAL_MODEL=deepseek-chat EVAL_KEY=sk-... make eval-interview EXCHANGES=14
-# 不设 EVAL_* 则打 mock gateway,只验循环结构 (内容是 mock 占位,无质量意义)。
-eval-interview:
+# eval-ask —— 给被测 agent (owner persona) 喂一个问题,看它怎么答 + 查了哪些
+# corpus。被测对象 = owner 的 system prompt + corpus,真 LLM (DeepSeek v4-pro,
+# harness 自读 .env)。面试官不是这里的 —— 面试官是 operator spawn 的 Claude
+# agent,反复调这个 --ask 驱动多轮面试 + 对着 corpus 判 grounding。
+#   echo '{"history":[],"question":"..."}' | make eval-ask
+eval-ask:
 	@cd eval-harness && go build -o /tmp/eval-harness . && \
-	  /tmp/eval-harness --interview \
-	    --corpus fixtures/personas/marcus-chen \
-	    --role "$${ROLE:-senior backend engineer}" \
-	    --exchanges "$${EXCHANGES:-12}"
+	  /tmp/eval-harness --ask --persona fixtures/personas/marcus-chen
 
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app

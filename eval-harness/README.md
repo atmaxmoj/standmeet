@@ -1,83 +1,86 @@
 # eval-harness
 
-An independent stack that drives the backend's **agentic loop** out-of-process
-to observe how the visitor agent actually behaves — its prompt, its tool use,
-and the **quality of a real conversation**.
+A stack for **sampling and testing the owner's agent system prompt** — the
+prompt that makes the visitor agent answer in the owner's voice, grounded in
+the owner's corpus. It exposes that agent as a callable "answer this question"
+function so an interviewer can drive it turn by turn and judge the answers.
 
 It's its own Go module (own `go.mod`, `replace → ../backend`) and imports only
 the public facade `github.com/atmaxmoj/standmeet/agentcore`. It never touches
 `internal/`. The loop it runs is byte-for-byte the same eino ADK loop the HTTP
-path (`RunAgentTurn`) runs — so what you observe is real prod behaviour, not a
-re-implementation.
+path (`RunAgentTurn`) runs — so what you observe is real prod behaviour.
 
-## The main scenario: a simulated interview
+## The idea
 
-The headline use is **simulating a full job interview and watching the agent's
-conversation quality**:
+- **Under test** = the owner's system prompt (`fixtures/personas/<name>/system.md`)
+  + their corpus. Here the persona is *Marcus Chen*, a deliberately mid-level
+  fictional engineer with a rich hand-written corpus (jobs, project deep-dives,
+  an incident postmortem, honest skill gaps, opinions, doubts) so an interview
+  has genuine quality signal.
+- **The candidate** = that prompt + corpus running on a real LLM (DeepSeek
+  v4-pro), answering via real `corpus_search` / `corpus_read`.
+- **The interviewer** = a **Claude agent the operator spawns** (not part of this
+  binary, and not a hand-written prompt). It reads the corpus as ground truth,
+  conducts a multi-turn interview by calling `--ask` repeatedly, and judges each
+  answer for grounding / voice / hallucination — surfacing where the owner's
+  prompt fails so it can be iterated.
 
-- A **mid-level fictional engineer**, *Marcus Chen*, with a rich hand-written
-  corpus (`fixtures/personas/marcus-chen/`, ~18 entries: jobs, project
-  deep-dives, an incident postmortem, honest skill gaps, opinions, career
-  doubts). He's deliberately *mid* — competent, with real limits and unresolved
-  doubts — so the interview has genuine quality signal.
-- An **LLM interviewer** that asks real questions for a role and **follows up
-  dynamically** over ~30–60 minutes (many exchanges), probing vague claims.
-- The **candidate** = the backend agentic loop answering *as Marcus, in his
-  voice*, grounded in his corpus via real `corpus_search` / `corpus_read`.
+The harness's whole job is the candidate side. Prompts are **injected, not
+hard-coded**: the candidate prompt is a per-persona file; the interviewer is the
+spawned agent itself.
 
-Both sides run through the same `agentcore.RunAgentLoop`; they differ only in
-system prompt, tools, and role-mirrored history. We **don't assert pass/fail** —
-we print the transcript for a human (or another agent) to judge.
+## `--ask` — one candidate turn (the interface interviewers drive)
 
-### Run a real interview
-
-Needs a real LLM. Point `EVAL_*` at a provider (DeepSeek shown):
+Reads an `askRequest` JSON on stdin, writes an `askResponse` on stdout. One
+process = one turn. Self-reads DeepSeek creds from `.env` (see `.env.example`).
 
 ```sh
-EVAL_PROVIDER=deepseek \
-EVAL_ENDPOINT=https://api.deepseek.com \
-EVAL_MODEL=deepseek-chat \
-EVAL_KEY=sk-... \
-make eval-interview EXCHANGES=14 ROLE="senior backend engineer"
+echo '{"history":[],"question":"Walk me through your hardest project."}' \
+  | ./eval-harness --ask --persona fixtures/personas/marcus-chen
 ```
 
-Without `EVAL_*` it hits the dev mock gateway and only the loop *structure*
-runs (content is mock filler — no quality signal). Bring the gateway up first
-with `make gateway-up` if you want that structural dry-run.
+```jsonc
+// askResponse
+{
+  "answer": "Yeah, the one I'm proudest of is the reconciliation pipeline at FlowPay…",
+  "tools":  [ {"name":"corpus_search","args":"{\"query\":\"hardest project\"}"},
+              {"name":"corpus_read","args":"{\"uri\":\"wiki://project/order-reconciliation\"}"} ]
+}
+```
 
-## Other modes
+`history` is the interview so far (`[{"role":"interviewer"|"candidate","text":…}]`);
+`question` is the new interviewer line. `tools` shows which corpus entries the
+candidate consulted, so the interviewer can check it didn't answer from thin air.
 
-- **ad-hoc** — one turn from flags, against the deterministic mock gateway.
-  Used by `make eval-smoke`.
-  ```sh
-  ./eval-harness --user "tell me about your hardest project" \
-    --corpus fixtures/personas/marcus-chen
-  ```
-- **batch** — run a directory of YAML scenarios, print a summary tally.
-  ```sh
-  ./eval-harness --scenarios scenarios --grep visitor      # human transcript
-  ./eval-harness --scenarios scenarios --json              # JSONL for tooling
-  ```
+A spawned interviewer agent loops: ask → read the JSON answer → check it against
+the corpus → ask the next (follow-up) question with the grown `history` → … then
+reports the prompt's failure modes.
 
-## Make targets
+## Credentials
 
-| target | what |
-|--------|------|
-| `make eval-smoke` | deterministic smoke: facade is independently callable + tool round-trip + batch scenarios (mock gateway, no key) |
-| `make eval-interview` | the main scenario — a full simulated interview (set `EVAL_*` for a real LLM) |
+The stack self-configures from `eval-harness/.env` (gitignored; copy
+`.env.example`). Priority: `EVAL_KEY` → `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` /
+`ANTHROPIC_API_KEY` → deterministic mock gateway. Startup logs
+`provider=… endpoint=… model=…` (never the key).
+
+## Deterministic plumbing test (no key)
+
+`make eval-smoke` proves the candidate loop is independently callable + the
+corpus tool round-trip works, against the dev mock gateway — no real LLM.
+`--scenarios <dir>` runs YAML scenarios (human transcript or `--json` JSONL).
 
 ## Layout
 
 ```
 eval-harness/
-├─ main.go            dispatch: ad-hoc / batch / interview
-├─ agentcore via facade — the loop
-├─ interview.go       the two-LLM interview loop + role mirroring
-├─ prompts.go         interviewer + candidate (owner-voice) system prompts
-├─ corpus.go          load persona md, real keyword search + read tools
-├─ scenario.go        YAML scenario loading + grep
-├─ runner.go          batch runner + gateway scripting
-├─ format.go/jsonl.go/transcript.go/capture.go   output sinks
-├─ fixtures/personas/marcus-chen/   the persona corpus (wiki/ + raw/)
-└─ scenarios/         starter YAML scenarios
+├─ main.go            dispatch: ask / batch / ad-hoc
+├─ ask.go             the candidate interface (--ask): one turn, JSON in/out
+├─ corpus.go          load persona corpus, real keyword search + read tools
+├─ capture.go         capture the candidate's answer + corpus tools it used
+├─ scenario.go/runner.go/format.go/jsonl.go/transcript.go   deterministic test path
+├─ env.go             self-read .env + resolve LLM cred
+├─ fixtures/personas/marcus-chen/
+│  ├─ system.md       the owner-voice system prompt UNDER TEST (injectable)
+│  └─ corpus/         the persona's corpus (wiki/ + raw/)
+└─ scenarios/         starter YAML scenarios for the deterministic path
 ```
