@@ -13,6 +13,8 @@
 
 'use client';
 
+import { useEffect, useRef } from 'react';
+
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
@@ -29,6 +31,16 @@ type Props = {
 };
 
 export function ConversationDeck({ ownerHandle, dialogs, onReset, onAsk }: Props) {
+  // The ask input sits up in the hero; the answer streams in down here. Without
+  // this, asking leaves the viewport on the empty input and looks like nothing
+  // happened. Scroll the newest Q/A to the top of the view the moment it's added
+  // (keyed on the last dialog's id so it fires once per question, not per stream
+  // tick), so the visitor watches their question + the answer retrieve in place.
+  const lastCardRef = useRef<HTMLElement>(null);
+  const lastId = dialogs.length > 0 ? dialogs[dialogs.length - 1]!.id : null;
+  useEffect(() => {
+    lastCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [lastId]);
   return (
     <section id="conversation" className="mt-16" data-testid="conversation-deck">
       <DeckHeader
@@ -48,18 +60,20 @@ export function ConversationDeck({ ownerHandle, dialogs, onReset, onAsk }: Props
         <DialogCard
           key={d.id} idx={i} dialog={d}
           ownerHandle={ownerHandle} onAsk={onAsk}
+          cardRef={i === dialogs.length - 1 ? lastCardRef : undefined}
         />
       ))}
     </section>
   );
 }
 
-function DialogCard({ idx, dialog, ownerHandle, onAsk }: {
+function DialogCard({ idx, dialog, ownerHandle, onAsk, cardRef }: {
   idx: number; dialog: Dialog; ownerHandle: string;
   onAsk?: (q: string) => void;
+  cardRef?: React.Ref<HTMLElement>;
 }) {
   return (
-    <article id={`qa-${idx}`} className="pt-10 pb-10 border-b border-(--color-rule)">
+    <article ref={cardRef} id={`qa-${idx}`} className="scroll-mt-6 pt-10 pb-10 border-b border-(--color-rule)">
       <VisitorLabel time={dialog.time} />
       <p className="font-serif italic mb-7 text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] [text-wrap:pretty]">
         {dialog.q}
