@@ -22,6 +22,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -29,10 +30,12 @@ import (
 )
 
 func main() {
-	provider := flag.String("provider", env("EVAL_PROVIDER", "anthropic"), "LLM provider")
-	key := flag.String("key", env("EVAL_KEY", "dev-llm-gateway-dummy-key"), "API key")
-	endpoint := flag.String("endpoint", env("EVAL_ENDPOINT", "http://localhost:9300"), "provider base URL")
-	model := flag.String("model", env("EVAL_MODEL", "claude-sonnet-4-6"), "model id")
+	loadDotenv() // self-configure from .env before resolving cred
+	dc := resolveCredDefaults()
+	provider := flag.String("provider", dc.Provider, "LLM provider")
+	key := flag.String("key", dc.Key, "API key")
+	endpoint := flag.String("endpoint", dc.Endpoint, "provider base URL")
+	model := flag.String("model", dc.Model, "model id")
 	system := flag.String("system", "You are a helpful assistant.", "system instruction")
 	user := flag.String("user", "Say hello.", "user message")
 	mode := flag.String("mode", "public", "visitor mode (public/code/byoai)")
@@ -50,6 +53,9 @@ func main() {
 	// stays clean for assertion.
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	cred := agentcore.Cred{Provider: *provider, Key: *key, Endpoint: *endpoint, Model: *model}
+	// Transparency: show which LLM this run hits (never the key) so real-vs-mock
+	// is obvious. localhost:9300 = deterministic mock gateway.
+	fmt.Fprintf(os.Stderr, "eval: provider=%s endpoint=%s model=%s\n", cred.Provider, cred.Endpoint, cred.Model)
 
 	switch {
 	case *interviewMode:
@@ -129,11 +135,4 @@ func runAdHoc(log *slog.Logger, cred agentcore.Cred, opts adHocOpts) {
 		sink.fatal(err)
 		os.Exit(1)
 	}
-}
-
-func env(name, def string) string {
-	if v := os.Getenv(name); v != "" {
-		return v
-	}
-	return def
 }
