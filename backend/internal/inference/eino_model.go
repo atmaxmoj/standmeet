@@ -86,6 +86,9 @@ func buildOpenAICompatModel(ctx context.Context, cred *Cred) (model.ToolCallingC
 		APIKey:    cred.Key,
 		Model:     cred.Model,
 		MaxTokens: &maxTok,
+		// 重试 transport:transient(连接错 / 429 / 5xx)在响应头到达前自动重试,
+		// 不重试 ctx 取消、不重读已 stream 的 token。见 http_retry.go。
+		HTTPClient: retryHTTPClient(),
 	}
 	if cred.Endpoint != "" {
 		cfg.BaseURL = cred.Endpoint
