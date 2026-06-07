@@ -41,6 +41,9 @@ func main() {
 	scenarios := flag.String("scenarios", "", "batch: path to a scenario .yml or a dir of them")
 	grep := flag.String("grep", "", "batch: keep only scenarios whose name contains this substring")
 	asJSON := flag.Bool("json", false, "batch: emit JSONL (one event per line) instead of human transcript")
+	interviewMode := flag.Bool("interview", false, "interview: simulate a full multi-turn interview (needs --corpus)")
+	role := flag.String("role", "senior backend engineer", "interview: the position being interviewed for")
+	exchanges := flag.Int("exchanges", 12, "interview: rough number of Q/A exchanges (~30–60 min)")
 	flag.Parse()
 
 	// Loop diagnostics go to stderr (warn+); the transcript owns stdout so it
@@ -48,13 +51,36 @@ func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	cred := agentcore.Cred{Provider: *provider, Key: *key, Endpoint: *endpoint, Model: *model}
 
-	if *scenarios != "" {
+	switch {
+	case *interviewMode:
+		os.Exit(runInterview(log, cred, *corpusDir, *role, *exchanges))
+	case *scenarios != "":
 		os.Exit(runBatch(log, *scenarios, *grep, cred, pickFormatter(*asJSON)))
+	default:
+		runAdHoc(log, cred, adHocOpts{
+			system: *system, user: *user, mode: *mode,
+			withTools: *withTools, corpusDir: *corpusDir,
+		})
 	}
-	runAdHoc(log, cred, adHocOpts{
-		system: *system, user: *user, mode: *mode,
-		withTools: *withTools, corpusDir: *corpusDir,
-	})
+}
+
+// runInterview loads the persona corpus and drives a full simulated interview.
+func runInterview(log *slog.Logger, cred agentcore.Cred, corpusDir, role string, exchanges int) int {
+	if corpusDir == "" {
+		log.Error("--interview requires --corpus <persona dir>")
+		return 2
+	}
+	c, err := loadCorpus(corpusDir)
+	if err != nil {
+		log.Error("load corpus", "err", err)
+		return 1
+	}
+	iv := &interview{cred: cred, corpus: c, role: role, maxExchange: exchanges, out: os.Stdout, log: log}
+	if rerr := iv.run(context.Background()); rerr != nil {
+		log.Error("interview", "err", rerr)
+		return 1
+	}
+	return 0
 }
 
 type adHocOpts struct {
