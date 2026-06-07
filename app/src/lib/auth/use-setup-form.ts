@@ -43,6 +43,14 @@ export const SETUP_PROVIDERS: readonly AIProviderEntry[] = [
     prefix: 'sk-…', issuer: 'platform.openai.com', needsKey: true,
   },
   {
+    id: 'deepseek', label: 'DeepSeek', defaultModel: 'deepseek-chat',
+    prefix: 'sk-…', issuer: 'platform.deepseek.com', needsKey: true,
+  },
+  {
+    id: 'kimi', label: 'Kimi · Moonshot', defaultModel: 'moonshot-v1-8k',
+    prefix: 'sk-…', issuer: 'platform.moonshot.cn', needsKey: true,
+  },
+  {
     id: 'google', label: 'Google', defaultModel: 'gemini-2.0-pro',
     prefix: 'AIza…', issuer: 'aistudio.google.com', needsKey: true,
   },

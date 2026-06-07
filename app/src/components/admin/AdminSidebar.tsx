@@ -92,7 +92,7 @@ type Props = { active: AdminSlug; badges?: SidebarBadges };
 
 export function AdminSidebar({ active, badges }: Props) {
   return (
-    <nav className="w-[232px] border-r border-(--color-rule) py-5 flex flex-col sticky top-[56px] self-start overflow-y-auto h-[calc(100vh-56px)]">
+    <nav className="w-[232px] shrink-0 border-r border-(--color-rule) py-5 flex flex-col overflow-y-auto">
       <SystemPulse />
       <Groups active={active} badges={badges} />
       <SidebarFooter />

@@ -30,11 +30,11 @@ function AdminLayout({
 }) {
   const badges = useSidebarBadges();
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <TopBar handle={handle} email={email} />
-      <div className="flex-1 flex">
+      <div className="flex-1 flex min-h-0">
         <AdminSidebar active={active} badges={badges} />
-        <main className="flex-1 px-8 lg:px-12 py-8 overflow-x-hidden">
+        <main className="flex-1 px-8 lg:px-12 py-8 overflow-y-auto">
           <div className="max-w-[1200px]">{children}</div>
         </main>
       </div>
