@@ -156,12 +156,7 @@ func routeAgentEvent(
 	ctx context.Context, em *loopEmit, ev *adk.AgentEvent, state *turnState,
 ) bool {
 	if ev.Err != nil {
-		if errors.Is(ev.Err, adk.ErrExceedMaxIterations) {
-			handleMaxIterations(ctx, em, state)
-			return false
-		}
-		em.sink.Error(ev.Err)
-		return false
+		return handleTerminalError(ctx, em, state, ev.Err)
 	}
 	if ev.Output == nil || ev.Output.MessageOutput == nil {
 		return true
@@ -169,23 +164,32 @@ func routeAgentEvent(
 	return routeMessageVariant(ctx, em, ev.Output.MessageOutput, state)
 }
 
-// handleMaxIterations —— ADK 跑满 MaxIterations 仍没收口出 final text（模型一直
-// 调 tool 不停）。不能把这当普通 error 砸给浏览器：visitor 会收到错误帧 / 空回复，
-// 是最差的 UX。已经流了部分 assistant text 就当截断收尾，让 Done 正常发。一个字
-// 都没出（纯 tool 死循环）就强制再发一次**无 tool** 的 model call，让模型用已有
-// 上下文当场把话说完 —— 拿到的是 in-voice、persona-aware 的真实回答 / 认怂，而不是
-// 一句死板兜底。这一步再失败才退到固定话术。stop 仍走默认 end_turn。
-func handleMaxIterations(ctx context.Context, em *loopEmit, state *turnState) {
-	em.log.Warn("agent turn hit max iterations", "had_text", state.assistantText != "")
+// handleTerminalError —— agent loop 以 error 收场。绝不把空回答交给 caller：一个字
+// 都没出时（MaxIterations 死循环、模型幻觉出一个不存在的 tool 名、mid-stream 瞬时
+// 抖动），强制再发一次**无 tool** 的 model call (forceFinalAnswer)，让模型用已有上下文
+// 当场把话说完 —— 拿到 in-voice、persona-aware 的真实回答 / 认怂，而非空 / 错误帧。
+// 真 provider 故障会让 Generate 也失败 → 透到 sink.Error（保留真错误行为）。已经流了
+// 可用回答时：MaxIterations 当截断干净收尾（不补错误帧）；其它 error 仍 surface。
+// 返 false 终止消费。stop 仍走默认 end_turn。
+func handleTerminalError(
+	ctx context.Context, em *loopEmit, state *turnState, err error,
+) bool {
 	if state.assistantText != "" {
-		return
+		if errors.Is(err, adk.ErrExceedMaxIterations) {
+			em.log.Warn("agent turn max iterations after partial answer")
+			return false
+		}
+		em.sink.Error(err)
+		return false
 	}
-	text := forceFinalAnswer(ctx, em)
-	if text == "" {
-		text = "Sorry — I don't have a good answer to that one."
+	em.log.Warn("agent turn terminal error with no answer; forcing final", logErrKey, err)
+	if recovered := forceFinalAnswer(ctx, em); recovered != "" {
+		em.sink.Text(recovered)
+		state.assistantText = recovered
+		return false
 	}
-	em.sink.Text(text)
-	state.assistantText = text
+	em.sink.Error(err)
+	return false
 }
 
 // forceFinalAnswer —— 无 tool 一次性收口。复用当前 turn 的 system + history +
