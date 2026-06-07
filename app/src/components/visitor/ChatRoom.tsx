@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { dispatchGhostKey, pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
 
@@ -24,22 +24,36 @@ type Props = { owner: PublicOwnerView; mode: SessionMode };
 export function ChatRoom({ owner, mode }: Props) {
   const derived = useChatRoomDerived();
   const ci = useChatRoomInput(mode);
+  // Normal-chat behaviour: keep the transcript pinned to the bottom as messages
+  // arrive + stream (dialogs is a fresh array each stream tick → fires here),
+  // so the newest answer is always in view.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    el && el.scrollTo(0, el.scrollHeight);
+  }, [ci.chat.dialogs]);
   return (
-    <div className="min-h-screen flex flex-col" data-testid="chatroom">
+    <div className="h-screen flex flex-col overflow-hidden" data-testid="chatroom">
       <SessionStrip />
       <VisitorNamePicker />
       <ChatRoomHeader handle={owner.handle} hasDialogs={ci.chat.dialogs.length > 0} onReset={ci.chat.reset} />
-      <main className="flex-1 flex flex-col">
-        <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col">
-          <ChatWelcome owner={owner} d={derived} />
-          <ChatTranscript dialogs={ci.chat.dialogs} onAsk={ci.onAsk} />
-          <ChatComposer
-            input={ci.input} setInput={ci.setInput} onSubmit={ci.onAsk}
-            pending={ci.chat.pending} exhausted={ci.exhausted}
-            showStarters={ci.chat.dialogs.length === 0} mode={derived.mode}
-            ghost={ci.ghost} onAcceptGhost={ci.onAcceptGhost} onCycleGhost={ci.onCycleGhost}
-          />
-          <ChatFootnote handle={owner.handle} mode={derived.mode} />
+      <main className="flex-1 flex flex-col min-h-0">
+        <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col min-h-0">
+          {/* scroll area: welcome + transcript scroll here; composer stays docked */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
+            <ChatWelcome owner={owner} d={derived} />
+            <ChatTranscript dialogs={ci.chat.dialogs} onAsk={ci.onAsk} />
+          </div>
+          {/* docked bottom: composer + footnote stay pinned to the viewport */}
+          <div className="shrink-0 bg-(--color-paper)">
+            <ChatComposer
+              input={ci.input} setInput={ci.setInput} onSubmit={ci.onAsk}
+              pending={ci.chat.pending} exhausted={ci.exhausted}
+              showStarters={ci.chat.dialogs.length === 0} mode={derived.mode}
+              ghost={ci.ghost} onAcceptGhost={ci.onAcceptGhost} onCycleGhost={ci.onCycleGhost}
+            />
+            <ChatFootnote handle={owner.handle} mode={derived.mode} />
+          </div>
         </div>
       </main>
     </div>
