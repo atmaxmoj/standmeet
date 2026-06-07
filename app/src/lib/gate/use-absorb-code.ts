@@ -19,6 +19,7 @@ import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useSuggestionsStore } from '@/lib/visitor/suggestions-store';
+import { clearNameDismiss } from '@/lib/visitor/visitor-name';
 
 // useAbsorbCodeFromURL —— mount 一次：URL → store + 立刻 replaceState；
 // 然后订阅 store 里的 pending code 自动 issue + persist。
@@ -72,6 +73,9 @@ function absorbFromURL(): void {
   // 先 set 再 replaceState：先存 store 拿到 React 队列，再清 URL；这样即使
   // replaceState 触发 router 重 render，code 已经在 store 里。
   usePendingCodeStore.getState().setCode(code);
+  // 新 code(扫 QR / 点分享链接)= 新场景 → 清掉上次 skip 的 30 天 dismiss,
+  // 让 VisitorNamePicker 重新问名字。
+  clearNameDismiss();
   url.searchParams.delete('code');
   const rest = url.searchParams.toString();
   const next = url.pathname + (rest ? `?${rest}` : '') + url.hash;

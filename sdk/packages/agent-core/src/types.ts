@@ -60,7 +60,7 @@ export type AgentTurnEvent =
 export type AgentEvent =
   | { readonly type: 'iteration_started'; readonly iter: number }
   | { readonly type: 'llm_chunk'; readonly text: string }
-  | { readonly type: 'tool_started'; readonly name: string }
+  | { readonly type: 'tool_started'; readonly name: string; readonly args: unknown }
   | { readonly type: 'tool_completed'; readonly result: ToolResult }
   | { readonly type: 'capability_state_changed'; readonly states: readonly CapabilityState[] }
   | { readonly type: 'suggestions_received'; readonly items: readonly string[] }

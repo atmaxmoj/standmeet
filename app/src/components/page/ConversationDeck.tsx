@@ -18,7 +18,6 @@ import { useEffect, useRef } from 'react';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
-import { useThrobberLabel } from '@/lib/page/use-throbber-label';
 import type { Citation, Dialog, DialogAnswer } from '@/lib/page/use-chat';
 
 type Props = {
@@ -97,7 +96,7 @@ function AssistantBody({ dialog, ownerHandle, onAsk }: {
 }) {
   return (
     <>
-      <ToolThrobbers names={dialog.toolStartedNames} />
+      <ToolThrobbers labels={dialog.toolStartedLabels} />
       {dialog.pending
         ? <Thinking />
         : <AnswerOrError dialog={dialog} ownerHandle={ownerHandle} onAsk={onAsk} />}
@@ -105,23 +104,22 @@ function AssistantBody({ dialog, ownerHandle, onAsk }: {
   );
 }
 
-function ToolThrobbers({ names }: { names: readonly string[] }) {
-  return names.length === 0 ? null : (
+// ToolThrobbers —— per-tool 进度行。label 已在 use-chat 按 name+args 拼好
+// (throbber-label.ts:动词轮换 + 在读哪个文档),这里直接渲。
+function ToolThrobbers({ labels }: { labels: readonly string[] }) {
+  return labels.length === 0 ? null : (
     <ul
       data-testid="tool-throbbers"
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
     >
-      {names.map((n, i) => <ToolThrobberRow key={i} name={n} />)}
+      {labels.map((label, i) => <ToolThrobberRow key={i} label={label} />)}
     </ul>
   );
 }
 
-// ToolThrobberRow —— G-8: label 从 backend 下发的 progress_label (zustand
-// registry) 拉，不再两份硬编码 THROBBER_LABELS。
-function ToolThrobberRow({ name }: { name: string }) {
-  const label = useThrobberLabel(name);
+function ToolThrobberRow({ label }: { label: string }) {
   return (
-    <li data-testid={`tool-throbber-${name}`}>
+    <li data-testid="tool-throbber">
       {label}
       <span className="dot">·</span>
       <span className="dot">·</span>

@@ -15,7 +15,6 @@ import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
-import { useThrobberLabel } from '@/lib/page/use-throbber-label';
 import type { Citation, SessionMode } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
 
@@ -165,30 +164,29 @@ function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => v
       <p className="font-serif italic text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] mb-7">
         {dialog.q}
       </p>
-      <ToolThrobbers names={dialog.toolStartedNames} />
+      <ToolThrobbers labels={dialog.toolStartedLabels} />
       <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
       {dialog.pending ? <ThinkingDots /> : <AnswerView answer={dialog.answer} />}
     </article>
   );
 }
 
-function ToolThrobbers({ names }: { names: readonly string[] }) {
-  return names.length === 0 ? null : (
+// ToolThrobbers —— label 已在 use-chat 按 name+args 拼好(throbber-label.ts:
+// 动词轮换 + 在读哪个文档),这里直接渲。
+function ToolThrobbers({ labels }: { labels: readonly string[] }) {
+  return labels.length === 0 ? null : (
     <ul
       data-testid="tool-throbbers"
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
     >
-      {names.map((n, i) => <ToolThrobberRow key={i} name={n} />)}
+      {labels.map((label, i) => <ToolThrobberRow key={i} label={label} />)}
     </ul>
   );
 }
 
-// G-8: label 走 zustand registry (backend ToolSpec.progress_label single
-// source)；之前两份硬编码 THROBBER_LABELS 表全删。
-function ToolThrobberRow({ name }: { name: string }) {
-  const label = useThrobberLabel(name);
+function ToolThrobberRow({ label }: { label: string }) {
   return (
-    <li data-testid={`tool-throbber-${name}`}>
+    <li data-testid="tool-throbber">
       {label}
       <span className="sm-dot">·</span>
       <span className="sm-dot">·</span>

@@ -72,7 +72,7 @@ export class VisitorTurnAgent {
         this.emit({ type: 'llm_chunk', text: ev.delta });
         return;
       case 'tool_started':
-        this.emit({ type: 'tool_started', name: ev.name });
+        this.emit({ type: 'tool_started', name: ev.name, args: ev.args });
         return;
       case 'tool_completed':
         this.emitToolCompleted(ev);

@@ -47,6 +47,17 @@ function sessionNeedsName(
     && ((session?.code ?? null) !== null || session?.byoai === true);
 }
 
+// clearNameDismiss —— 吸收新 code 时调：抹掉 dismiss 时间戳,让"问名字"在新
+// access code 进来时重新弹(扫 QR = 新场景,该重新问一次)。
+export function clearNameDismiss(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(DISMISS_KEY);
+  } catch {
+    // LS 不可用 → silent。
+  }
+}
+
 function rememberDismiss(): void {
   if (typeof window === 'undefined') return;
   try {

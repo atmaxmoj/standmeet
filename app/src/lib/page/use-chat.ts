@@ -30,6 +30,7 @@ import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { recordDialog } from '@/lib/page/dialog';
+import { throbberLabel } from '@/lib/page/throbber-label';
 import {
   ensureSession,
   type PageSession,
@@ -76,7 +77,7 @@ export type Dialog = {
   // D-5: per-tool throbber 序列。agent-core 跑每个 tool 时 tool_started →
   // name 入这个列表；ConversationDeck / ChatRoom 渲一条 throbber，label
   // 走 useThrobberLabel 从 backend ToolSpec.progress_label 拉 (G-8)。
-  toolStartedNames: readonly string[];
+  toolStartedLabels: readonly string[];
   // G-4: tool_completed 累到这里；UI 按 name 渲卡片 (corpus_search 卡 /
   // skill_*/ext_* generic dump)。corpus_read 的 result 走 Citation 不重复。
   toolCalls: readonly ToolCallView[];
@@ -186,14 +187,14 @@ interface DialogAccumulator {
   body: string;
   citations: Citation[];
   seenCitedPaths: Set<string>;
-  toolStartedNames: string[];
+  toolStartedLabels: string[];
   toolCalls: ToolCallView[];
 }
 
 function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedPaths: new Set(),
-    toolStartedNames: [], toolCalls: [],
+    toolStartedLabels: [], toolCalls: [],
   };
 }
 
@@ -216,7 +217,7 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
     return;
   }
   if (ev.type === 'tool_started') {
-    accum.toolStartedNames.push(ev.name);
+    accum.toolStartedLabels.push(throbberLabel(ev.name, ev.args, accum.toolStartedLabels.length));
     return;
   }
   if (ev.type === 'tool_completed') {
@@ -327,7 +328,7 @@ function assembledPartIDs(sess: PageSession): readonly string[] {
 function newPendingDialog(id: string, q: string): Dialog {
   return {
     id, q, time: nowHM(), pending: true, answer: null,
-    toolStartedNames: [], toolCalls: [],
+    toolStartedLabels: [], toolCalls: [],
   };
 }
 
@@ -354,7 +355,7 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
   return {
     ...d,
     pending: stillPending && accum.body === '',
-    toolStartedNames: [...accum.toolStartedNames],
+    toolStartedLabels: [...accum.toolStartedLabels],
     toolCalls: [...accum.toolCalls],
     answer: {
       paras: splitParas(accum.body),
