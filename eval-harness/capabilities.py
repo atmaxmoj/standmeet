@@ -56,6 +56,10 @@ def n_suggestions(r):
     return len(r.get("suggestions", []))
 
 
+def count(r, sub):
+    return sum(1 for t in r.get("tools", []) if sub in t["name"])
+
+
 # ---------- the suite ----------
 CONFLICT = {"EVAL_BOOKING_FAIL": "conflict"}
 
@@ -167,13 +171,14 @@ CASES = [
      "look_for": "Are the 3 suggestions grounded (corpus can actually answer them), diverse, "
                  "forward-moving — or dead-end logistics ('will this be a video call?') the "
                  "agent can't answer?"},
-    {"name": "booking-conflict", "dim": "tool · booking failure", "kind": "human", "env": CONFLICT,
+    {"name": "booking-conflict-no-loop", "dim": "tool · booking failure", "kind": "assert", "env": CONFLICT,
      "req": {"mode": "code", "booking": True,
              "question": "Book a 30-min call Tuesday 2026-06-09 at 15:00 UTC, dana@hirefast.io, "
                          "topic 'backend role'."},
-     "look_for": "Calendar is fully busy (injected). Should explain it can't book that slot, "
-                 "offer alternatives — must NOT falsely claim it booked. (Watch for it looping "
-                 "list_slots forever — a known prompt-quality signal.)"},
+     # Calendar fully busy (injected). The calendar.book fragment now bounds the
+     # search: a window or two near the request, then ask the visitor for a new
+     # timeframe — NOT widen forever. Guards the death-loop fix.
+     "checks": [("did not loop list_slots (<=3 calls)", lambda r: count(r, "calendar_list_slots") <= 3)]},
 ]
 
 
