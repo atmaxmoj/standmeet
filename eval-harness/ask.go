@@ -31,15 +31,42 @@ type persona struct {
 }
 
 func loadPersona(dir string) (*persona, error) {
-	sys, err := os.ReadFile(filepath.Join(dir, "system.md"))
-	if err != nil {
-		return nil, fmt.Errorf("persona system.md: %w", err)
+	system, serr := assemblePrompt(dir)
+	if serr != nil {
+		return nil, serr
 	}
 	c, cerr := loadCorpus(filepath.Join(dir, "corpus"))
 	if cerr != nil {
 		return nil, cerr
 	}
-	return &persona{system: strings.TrimSpace(string(sys)), corpus: c}, nil
+	return &persona{system: system, corpus: c}, nil
+}
+
+// assemblePrompt builds the candidate's system prompt the way prod does
+// (ComposeBasePersona + capability fragments): the REAL prod visitor-header,
+// this persona's role body, then the REAL capability fragments for the tools.
+// Reading the prod fragments live (not a copy) means the eval tests the prompt
+// prod actually ships — the generic grounding/anti-injection/quality rules live
+// in visitor-header.md, not in a per-persona file.
+func assemblePrompt(dir string) (string, error) {
+	pd := envOr("EVAL_PROMPTS_DIR", "../backend/internal/prompts")
+	files := []string{
+		filepath.Join(pd, "visitor-header.md"),
+		filepath.Join(dir, "role-body.md"),
+		filepath.Join(pd, "capabilities/corpus.retrieval.md"),
+		filepath.Join(pd, "capabilities/summarize_conversation.md"),
+		filepath.Join(pd, "capabilities/ask_visitor.md"),
+		filepath.Join(pd, "capabilities/calendar.book.md"),
+	}
+	parts := make([]string, 0, len(files))
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return "", fmt.Errorf("prompt fragment %s: %w", f, err)
+		}
+		parts = append(parts, strings.TrimSpace(string(b)))
+	}
+	return strings.Join(parts, "\n\n---\n\n"), nil
 }
 
 // convTurn —— one prior line of the interview. role is "interviewer" or
