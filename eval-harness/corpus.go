@@ -196,12 +196,40 @@ func corpusToolset(c *corpus) ([]tool.BaseTool, map[string]string) {
 	tools := []tool.BaseTool{
 		&corpusSearchTool{c: c},
 		&corpusReadTool{c: c},
+		&corpusListTool{c: c},
 	}
 	labels := map[string]string{
 		"corpus_search": "searching the corpus",
 		"corpus_read":   "reading an entry",
+		"corpus_list":   "listing entries",
 	}
 	return tools, labels
+}
+
+type corpusListTool struct{ c *corpus }
+
+func (t *corpusListTool) Info(_ context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "corpus_list",
+		Desc: "List corpus entries (uri, title, kind), optionally filtered by a uri prefix. " +
+			"Use to browse what material is available before deciding what to read.",
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"prefix": {Type: schema.String, Desc: "optional uri prefix filter, e.g. wiki://project", Required: false},
+		}),
+	}, nil
+}
+
+func (t *corpusListTool) InvokableRun(_ context.Context, argsJSON string, _ ...tool.Option) (string, error) {
+	var a struct {
+		Prefix string `json:"prefix"`
+	}
+	// args may be empty/{} for an unfiltered list — ignore unmarshal errors on empty.
+	_ = json.Unmarshal([]byte(argsJSON), &a)
+	out, err := json.Marshal(t.c.list(a.Prefix))
+	if err != nil {
+		return "", fmt.Errorf("corpus_list marshal: %w", err)
+	}
+	return string(out), nil
 }
 
 type corpusSearchTool struct{ c *corpus }
@@ -267,4 +295,27 @@ func (c *corpus) read(uri string) (*corpusEntry, bool) {
 		return nil, false // ACL: private entries are not readable by the visitor
 	}
 	return e, ok
+}
+
+// listRow —— one corpus_list result: the browseable index of an entry.
+type listRow struct {
+	URI   string `json:"uri"`
+	Title string `json:"title"`
+	Kind  string `json:"kind"`
+}
+
+// list returns the browseable index of public entries (private skipped by ACL),
+// optionally filtered to a uri prefix — the corpus table of contents.
+func (c *corpus) list(prefix string) []listRow {
+	out := make([]listRow, 0, len(c.entries))
+	for i := range c.entries {
+		if c.entries[i].isPrivate() {
+			continue // ACL: never list private entries
+		}
+		if prefix != "" && !strings.HasPrefix(c.entries[i].URI, prefix) {
+			continue
+		}
+		out = append(out, listRow{URI: c.entries[i].URI, Title: c.entries[i].Title, Kind: c.entries[i].Kind})
+	}
+	return out
 }
