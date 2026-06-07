@@ -18,12 +18,20 @@ import (
 // markdown file with a YAML frontmatter block. Mirrors what the owner would
 // have pushed via MCP (raw_dump / promote_to_wiki).
 type corpusEntry struct {
-	URI   string   `yaml:"uri"`
-	Title string   `yaml:"title"`
-	Kind  string   `yaml:"kind"`
-	Tags  []string `yaml:"tags"`
-	Body  string   `yaml:"-"`
+	URI string `yaml:"uri"`
+	// Visibility —— "public" (default) or "private". Mirrors the backend corpus
+	// ACL (domain.Raw.FlaggedPrivate / Writing.Visibility): the visitor
+	// retriever skips private entries entirely, so the agent never sees owner-
+	// private material and structurally cannot leak it. Enforced here in the
+	// retrieval layer (code), NOT by asking the prompt to self-censor.
+	Visibility string   `yaml:"visibility"`
+	Title      string   `yaml:"title"`
+	Kind       string   `yaml:"kind"`
+	Tags       []string `yaml:"tags"`
+	Body       string   `yaml:"-"`
 }
+
+func (e *corpusEntry) isPrivate() bool { return e.Visibility == "private" }
 
 // corpus —— the loaded persona corpus + a uri index. Backs the corpus_search
 // / corpus_read tools with *real* keyword retrieval over fixture material, so
@@ -119,6 +127,9 @@ func (c *corpus) search(query string, limit int) []searchHit {
 	}
 	ranked := make([]scored, 0, len(c.entries))
 	for i := range c.entries {
+		if c.entries[i].isPrivate() {
+			continue // ACL: visitor retriever never surfaces private entries
+		}
 		if s := scoreEntry(&c.entries[i], terms); s > 0 {
 			ranked = append(ranked, scored{e: &c.entries[i], score: s})
 		}
@@ -252,5 +263,8 @@ func (t *corpusReadTool) InvokableRun(_ context.Context, argsJSON string, _ ...t
 
 func (c *corpus) read(uri string) (*corpusEntry, bool) {
 	e, ok := c.byURI[uri]
+	if !ok || e.isPrivate() {
+		return nil, false // ACL: private entries are not readable by the visitor
+	}
 	return e, ok
 }

@@ -1,5 +1,6 @@
 ---
 uri: raw://why-looking
+visibility: private
 title: why I'm actually looking (raw)
 kind: raw
 tags: [job-search, motivation, career, raw-thought]

@@ -1,5 +1,6 @@
 ---
 uri: raw://career-doubts
+visibility: private
 title: 2am career anxiety dump
 kind: raw
 tags: [career, doubts, personal, raw-thought, weakness]
