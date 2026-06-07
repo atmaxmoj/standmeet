@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen
+.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -79,6 +79,18 @@ app-build: sdk-build
 dev-up: app-build
 	@docker compose -f docker-compose.dev.yml up -d --build --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
+
+# gateway-up —— 只起 llm-gateway sidecar (eval-smoke 用)，不跑 app-build /
+# 整栈。Anthropic-compat mock，host :9300，确定性脚本回复。
+gateway-up:
+	@docker compose -f docker-compose.dev.yml up -d --wait llm-gateway
+
+# eval-smoke —— eval-harness 独立调用 smoke：证明 backend agentic core
+# (经 agentcore facade) 能被 backend 进程外的独立 module 调起来 + 完整
+# tool round-trip。起 llm-gateway → eval-harness/smoke.sh (build + 排队
+# 确定性 tool+reply + 跑二进制 + 断言 transcript)。
+eval-smoke: gateway-up
+	@eval-harness/smoke.sh
 
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app

@@ -2,7 +2,11 @@ module github.com/atmaxmoj/standmeet/eval-harness
 
 go 1.26.3
 
-require github.com/atmaxmoj/standmeet v0.0.0
+require (
+	github.com/atmaxmoj/standmeet v0.0.0
+	github.com/cloudwego/eino v0.9.2
+	github.com/eino-contrib/jsonschema v1.0.3
+)
 
 require (
 	cloud.google.com/go/auth v0.7.2 // indirect
@@ -29,12 +33,10 @@ require (
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
-	github.com/cloudwego/eino v0.9.2 // indirect
 	github.com/cloudwego/eino-ext/components/model/claude v0.1.18 // indirect
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13 // indirect
 	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.17 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/eino-contrib/jsonschema v1.0.3 // indirect
 	github.com/evanphx/json-patch v0.5.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect

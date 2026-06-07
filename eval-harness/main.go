@@ -29,6 +29,7 @@ func main() {
 	system := flag.String("system", "You are a helpful assistant.", "system instruction")
 	user := flag.String("user", "Say hello.", "user message")
 	mode := flag.String("mode", "public", "visitor mode (public/code/byoai)")
+	withTools := flag.Bool("tools", true, "register the canned corpus_search/corpus_read toolset")
 	flag.Parse()
 
 	// Loop diagnostics go to stderr (warn+); the transcript owns stdout so
@@ -42,6 +43,9 @@ func main() {
 		},
 		Req:  &agentcore.AgentTurnRequest{System: *system, UserMessage: *user},
 		Mode: *mode,
+	}
+	if *withTools {
+		in.Tools, in.ProgressLabels = cannedToolset()
 	}
 
 	if err := agentcore.RunAgentLoop(context.Background(), log, in, sink); err != nil {
