@@ -266,7 +266,10 @@ func emitError(
 	log *slog.Logger, w http.ResponseWriter, flusher http.Flusher, err error,
 ) {
 	cls := ClassifyStreamErr(err)
-	body, merr := json.Marshal(errorPayloadShape{Code: cls.Code, Message: err.Error()})
+	// Raw error → log (ops); friendly text → user (never leak NodeRunError/stack).
+	log.Warn("agent turn stream error", "code", cls.Code, logErrKey, err)
+	payload := errorPayloadShape{Code: cls.Code, Message: FriendlyMessage(cls.Code)}
+	body, merr := json.Marshal(payload)
 	if merr != nil {
 		log.Error("proxy marshal error", logErrKey, merr)
 		return

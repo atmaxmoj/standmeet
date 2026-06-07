@@ -6,6 +6,7 @@
 package inference
 
 import (
+	"context"
 	"errors"
 	"net/http"
 )
@@ -60,10 +61,30 @@ func classifyDirectStatus(err error) (StreamErrClass, bool) {
 		return StreamErrClass{Code: "unsupported_provider", Status: http.StatusBadRequest}, true
 	case errors.Is(err, ErrRateLimited):
 		return StreamErrClass{Code: "rate_limited", Status: http.StatusTooManyRequests}, true
-	case errors.Is(err, ErrTimeout):
+	case errors.Is(err, ErrTimeout), errors.Is(err, context.DeadlineExceeded):
 		return StreamErrClass{Code: "timeout", Status: http.StatusGatewayTimeout}, true
 	}
 	return StreamErrClass{}, false
+}
+
+// friendlyMessages —— code → 用户面文案。绝不把 raw error / NodeRunError /
+// stack 漏到 UI(CLAUDE.md:errors must be user-friendly)。
+var friendlyMessages = map[string]string{
+	"timeout":              "That took too long — try a shorter, more specific question.",
+	"rate_limited":         "I'm getting rate-limited. Give it a moment and ask again.",
+	"overloaded":           "The AI provider is overloaded — please try again shortly.",
+	"invalid_api_key":      "The AI provider key isn't working — the owner needs to fix it.",
+	"owner_unconfigured":   "This page doesn't have an AI provider set up yet.",
+	"unsupported_provider": "That AI provider isn't supported here.",
+	"network":              "Network problem reaching the AI provider. Please try again.",
+}
+
+// FriendlyMessage —— 未知 code 给中性兜底。
+func FriendlyMessage(code string) string {
+	if m, ok := friendlyMessages[code]; ok {
+		return m
+	}
+	return "Something went wrong on my end — please try again."
 }
 
 func classifyServiceStatus(err error) (StreamErrClass, bool) {

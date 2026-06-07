@@ -16,9 +16,28 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/cloudwego/eino/components/tool"
 )
+
+// defaultAgentTurnTimeout —— 一整轮 agent loop(含所有 tool 迭代 + 末尾
+// suggestions)的硬上限。第三方 LLM 偶尔在大上下文上巨慢/卡住,SSE handler 的
+// ctx 只要浏览器不断连就一直活着 → 不设 deadline 就无限等(前端永远 retrieving)。
+// 给一个上限,超了取消 in-flight LLM call → surface 一帧 error 让前端解卡。
+// AGENT_TURN_TIMEOUT(秒)可覆盖(e2e 设短复现)。
+const defaultAgentTurnTimeout = 120 * time.Second
+
+func agentTurnTimeout() time.Duration {
+	if s := os.Getenv("AGENT_TURN_TIMEOUT"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			return time.Duration(n) * time.Second
+		}
+	}
+	return defaultAgentTurnTimeout
+}
 
 // AgentTurnRequest —— 浏览器 POST body。
 //
@@ -69,14 +88,45 @@ type AgentTurnInput struct {
 func RunAgentTurn(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter, in *AgentTurnInput,
 ) {
+	timeout := agentTurnTimeout()
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	start := time.Now()
+	log.Info("agent turn start", "model", credModel(in.Cred), "mode", in.Mode,
+		"tools", len(in.Tools), "timeout_s", int(timeout.Seconds()))
+
 	iter, err := BuildAgentIterator(ctx, in)
 	if err != nil {
+		log.Error("agent turn build failed", logErrKey, err,
+			"dur_ms", time.Since(start).Milliseconds())
 		writeProxyErr(log, w, err)
 		return
 	}
 	setStreamSSEHeaders(w)
 	sink := &sseSink{log: log, w: w, flusher: pickFlusher(w)}
 	DriveAgentLoop(ctx, log, in, iter, sink)
+
+	dur := time.Since(start)
+	logAgentTurnEnd(ctx, log, dur, timeout)
+}
+
+// logAgentTurnEnd —— 收尾日志:正常完成打 info;命中 deadline 打 warn(尤其是
+// 让"卡死"在日志里可见 —— 之前对超时 LLM call 啥都不打)。
+func logAgentTurnEnd(ctx context.Context, log *slog.Logger, dur, timeout time.Duration) {
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Warn("agent turn TIMED OUT — upstream LLM too slow / stalled",
+			"dur_ms", dur.Milliseconds(), "timeout_s", int(timeout.Seconds()))
+		return
+	}
+	log.Info("agent turn done", "dur_ms", dur.Milliseconds())
+}
+
+// credModel —— nil-safe model 名,给日志用。
+func credModel(c *Cred) string {
+	if c == nil {
+		return ""
+	}
+	return c.Model
 }
 
 // sseSink —— AgentSink 的 prod 实现：每条 agent loop 事件写成一帧 pi
