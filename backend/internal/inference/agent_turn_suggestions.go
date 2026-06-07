@@ -19,14 +19,16 @@ import (
 // JSON-only 输出方便机器解析；length cap 防止 LLM 写长句撑爆 ghost
 // text overlay。
 const followupGenPrompt = "You will be given a short snippet of a " +
-	"conversation between a visitor and an AI assistant about the AI's " +
-	"owner. Suggest exactly 3 short follow-up questions the visitor " +
-	"might naturally want to ask next. Each question must be ≤ 60 " +
-	"characters and feel natural for the visitor to ask in first " +
-	"person.\n\n" +
+	"conversation between a visitor and a person — the assistant answers AS " +
+	"that person, in first person (\"I\", \"my\"). Suggest exactly 3 short " +
+	"follow-up questions the visitor might naturally want to ask next, " +
+	"addressed DIRECTLY to that person in the second person (\"you\", " +
+	"\"your\"), as if speaking to them. Never refer to \"the owner\" or " +
+	"\"your owner\" in the third person — the visitor is talking to them " +
+	"directly. Each question must be ≤ 60 characters.\n\n" +
 	"Respond with ONLY a JSON array of 3 strings. No markdown, no prose, " +
 	"no surrounding code fence. Example output:\n" +
-	`["Tell me about X?","How did you Y?","What about Z?"]`
+	`["What got you into X?","How did you handle Y?","What's next for Z?"]`
 
 // maybeEmitSuggestions —— code-accessor session turn 收尾前调
 // inference.Generate 出 3 条 follow-up，emit `suggestions` SSE 帧。
