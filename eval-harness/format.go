@@ -12,7 +12,7 @@ import (
 // (machine) implement it.
 type evalSink interface {
 	agentcore.AgentSink
-	fatal(err error)                       // pre-stream failure (build / gateway script)
+	fatal(err error) // pre-stream failure (build / gateway script)
 	outcome() (tools int, ok bool, stop string)
 }
 

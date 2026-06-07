@@ -10,9 +10,9 @@
 //
 // Two modes:
 //   - ad-hoc:   flags (--system/--user/--tools …) drive one turn. Used by
-//               smoke.sh against the deterministic llm-gateway.
+//     smoke.sh against the deterministic llm-gateway.
 //   - batch:    --scenarios <file|dir> [--grep <substr>] loads YAML scenarios,
-//               scripts the gateway per-scenario, runs each, prints a summary.
+//     scripts the gateway per-scenario, runs each, prints a summary.
 //
 // Against the dev/e2e llm-gateway (Anthropic-compatible, scripted replies) it
 // produces verifiable output without a real API key; point --endpoint/--key
@@ -37,6 +37,7 @@ func main() {
 	user := flag.String("user", "Say hello.", "user message")
 	mode := flag.String("mode", "public", "visitor mode (public/code/byoai)")
 	withTools := flag.Bool("tools", true, "ad-hoc: register the canned corpus_search/corpus_read toolset")
+	corpusDir := flag.String("corpus", "", "ad-hoc: load a persona corpus dir and register real corpus_search/corpus_read (overrides --tools)")
 	scenarios := flag.String("scenarios", "", "batch: path to a scenario .yml or a dir of them")
 	grep := flag.String("grep", "", "batch: keep only scenarios whose name contains this substring")
 	asJSON := flag.Bool("json", false, "batch: emit JSONL (one event per line) instead of human transcript")
@@ -50,7 +51,15 @@ func main() {
 	if *scenarios != "" {
 		os.Exit(runBatch(log, *scenarios, *grep, cred, pickFormatter(*asJSON)))
 	}
-	runAdHoc(log, cred, *system, *user, *mode, *withTools)
+	runAdHoc(log, cred, adHocOpts{
+		system: *system, user: *user, mode: *mode,
+		withTools: *withTools, corpusDir: *corpusDir,
+	})
+}
+
+type adHocOpts struct {
+	system, user, mode, corpusDir string
+	withTools                     bool
 }
 
 // runBatch loads + filters scenarios, runs them through the formatter, emits
@@ -72,13 +81,21 @@ func runBatch(log *slog.Logger, path, grep string, cred agentcore.Cred, fmtr for
 	return 1
 }
 
-func runAdHoc(log *slog.Logger, cred agentcore.Cred, system, user, mode string, withTools bool) {
+func runAdHoc(log *slog.Logger, cred agentcore.Cred, opts adHocOpts) {
 	in := &agentcore.AgentTurnInput{
 		Cred: &cred,
-		Req:  &agentcore.AgentTurnRequest{System: system, UserMessage: user, Model: cred.Model},
-		Mode: mode,
+		Req:  &agentcore.AgentTurnRequest{System: opts.system, UserMessage: opts.user, Model: cred.Model},
+		Mode: opts.mode,
 	}
-	if withTools {
+	switch {
+	case opts.corpusDir != "":
+		c, err := loadCorpus(opts.corpusDir)
+		if err != nil {
+			log.Error("load corpus", "err", err)
+			os.Exit(1)
+		}
+		in.Tools, in.ProgressLabels = corpusToolset(c)
+	case opts.withTools:
 		in.Tools, in.ProgressLabels = cannedToolset()
 	}
 	sink := newTranscriptSink(os.Stdout)

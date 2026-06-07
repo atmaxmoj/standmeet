@@ -18,14 +18,14 @@ import (
 // Model overrides per-scenario. Script is only meaningful against the
 // gateway (deterministic); omit it to run a real provider and audit真实行为.
 type Scenario struct {
-	Name        string         `yaml:"name"`
-	Description string         `yaml:"description"`
-	System      string         `yaml:"system"`
-	User        string         `yaml:"user"`
-	Mode        string         `yaml:"mode"`
-	Model       string         `yaml:"model"`
-	History     []ScenarioMsg  `yaml:"history"`
-	Tools       []ScenarioTool `yaml:"tools"`
+	Name        string          `yaml:"name"`
+	Description string          `yaml:"description"`
+	System      string          `yaml:"system"`
+	User        string          `yaml:"user"`
+	Mode        string          `yaml:"mode"`
+	Model       string          `yaml:"model"`
+	History     []ScenarioMsg   `yaml:"history"`
+	Tools       []ScenarioTool  `yaml:"tools"`
 	Script      *ScenarioScript `yaml:"script"`
 
 	path string // source file, for error context
