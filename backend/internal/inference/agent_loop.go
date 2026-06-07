@@ -55,6 +55,7 @@ type AgentSink interface {
 type loopEmit struct {
 	log    *slog.Logger
 	sink   AgentSink
+	in     *AgentTurnInput // for the max-iterations tool-less fallback
 	labels map[string]string
 }
 
@@ -118,7 +119,7 @@ func DriveAgentLoop(
 	ctx context.Context, log *slog.Logger,
 	in *AgentTurnInput, iter *adk.AsyncIterator[*adk.AgentEvent], sink AgentSink,
 ) {
-	em := &loopEmit{log: log, sink: sink, labels: in.ProgressLabels}
+	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
 	state := consumeAgentEvents(ctx, em, iter)
 	maybeEmitSuggestions(ctx, em, in, state)
 	sink.Done(state.stop)
@@ -156,7 +157,7 @@ func routeAgentEvent(
 ) bool {
 	if ev.Err != nil {
 		if errors.Is(ev.Err, adk.ErrExceedMaxIterations) {
-			handleMaxIterations(em, state)
+			handleMaxIterations(ctx, em, state)
 			return false
 		}
 		em.sink.Error(ev.Err)
@@ -170,17 +171,43 @@ func routeAgentEvent(
 
 // handleMaxIterations —— ADK 跑满 MaxIterations 仍没收口出 final text（模型一直
 // 调 tool 不停）。不能把这当普通 error 砸给浏览器：visitor 会收到错误帧 / 空回复，
-// 是最差的 UX（按 CLAUDE.md，fallback 必须 human-readable）。已经流了部分 assistant
-// text 就当截断收尾，让 Done 正常发；一个字都没出（纯 tool 死循环）就补一句兜底
-// 话术当回复，caller（浏览器 / eval）拿到可读内容而非空。stop 仍走默认 end_turn。
-func handleMaxIterations(em *loopEmit, state *turnState) {
+// 是最差的 UX。已经流了部分 assistant text 就当截断收尾，让 Done 正常发。一个字
+// 都没出（纯 tool 死循环）就强制再发一次**无 tool** 的 model call，让模型用已有
+// 上下文当场把话说完 —— 拿到的是 in-voice、persona-aware 的真实回答 / 认怂，而不是
+// 一句死板兜底。这一步再失败才退到固定话术。stop 仍走默认 end_turn。
+func handleMaxIterations(ctx context.Context, em *loopEmit, state *turnState) {
 	em.log.Warn("agent turn hit max iterations", "had_text", state.assistantText != "")
 	if state.assistantText != "" {
 		return
 	}
-	const fallback = "Sorry — I don't have a good answer to that one."
-	em.sink.Text(fallback)
-	state.assistantText = fallback
+	text := forceFinalAnswer(ctx, em)
+	if text == "" {
+		text = "Sorry — I don't have a good answer to that one."
+	}
+	em.sink.Text(text)
+	state.assistantText = text
+}
+
+// forceFinalAnswer —— 无 tool 一次性收口。复用当前 turn 的 system + history +
+// user_message，附一句「搜索预算已用完，凭已知作答、缺具体就 in-voice 认怂、别再
+// 搜」的提示。grounding 规则仍在 system 里，所以缺料时它会认怂而非编造。失败返空，
+// 由 caller 退到固定话术。
+func forceFinalAnswer(ctx context.Context, em *loopEmit) string {
+	if em.in == nil || em.in.Req == nil {
+		return ""
+	}
+	msgs := make([]ChatRequestMsg, 0, len(em.in.Req.History)+1)
+	msgs = append(msgs, em.in.Req.History...)
+	msgs = append(msgs, ChatRequestMsg{Role: "user", Content: em.in.Req.UserMessage})
+	sys := em.in.Req.System + "\n\n(You've used your search budget for this turn. " +
+		"Answer now from what you already know, without searching further. If you " +
+		"don't have a specific example, say so briefly in your own voice and move on.)"
+	out, err := Generate(ctx, em.in.Cred, &ChatRequest{System: sys, Messages: msgs})
+	if err != nil {
+		em.log.Warn("agent turn force-final generate", logErrKey, err)
+		return ""
+	}
+	return out
 }
 
 // routeMessageVariant —— event 里携带的消息分三类：
