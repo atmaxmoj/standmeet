@@ -63,9 +63,7 @@ func (t *summarizeTool) InvokableRun(ctx context.Context, _ string, _ ...tool.Op
 		}
 		msgs = append(msgs, agentcore.ChatRequestMsg{Role: role, Content: c.Text})
 	}
-	html, err := agentcore.Generate(ctx, &t.cred, &agentcore.ChatRequest{
-		System: summarizeHTMLPrompt, Messages: msgs,
-	})
+	html, err := agentcore.Generate(ctx, &t.cred, summarizeHTMLPrompt, msgs)
 	if err != nil {
 		return "", fmt.Errorf("summarize_conversation generate: %w", err)
 	}
