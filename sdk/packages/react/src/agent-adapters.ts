@@ -78,7 +78,9 @@ async function* streamAgentTurnHTTP(
     }),
   });
   if (!res.ok || res.body === null) {
-    throw new Error(`agent.turn: ${res.status}`);
+    // 把 HTTP status 挂在 error 上,让上层(agent-core send)区分 401/403
+    // (session 失效 → 提示重进)和真正的连接掉线。
+    throw Object.assign(new Error(`agent.turn: ${res.status}`), { status: res.status });
   }
   yield* parseAgentTurnSSE(res.body);
 }
