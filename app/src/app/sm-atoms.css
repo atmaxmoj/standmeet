@@ -1063,6 +1063,17 @@
   margin-bottom: 14px;
   color: var(--color-ink);
 }
+/* sm-visitor-name-note —— 多人共用 / 同名续聊的次要说明,比主 blurb 小一号、
+   淡一档,strong 用 accent 点出 same/different name。 */
+.sm-visitor-name-note {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+.sm-visitor-name-note strong {
+  color: var(--color-accent);
+  font-weight: 500;
+}
 .sm-visitor-name-form {
   display: flex;
   align-items: baseline;

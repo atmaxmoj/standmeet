@@ -73,8 +73,15 @@ function PickerBody(props: BodyProps) {
   return (
     <div className="sm-visitor-name-body">
       <p className="sm-reading sm-visitor-name-blurb">
-        One last thing before the chat starts — owner sees this in the
-        transcript later. Pick a short name; you can use a handle.
+        One last thing before the chat starts — the owner sees this on your
+        transcript later. Pick a short name; a handle is fine.
+      </p>
+      <p className="sm-reading sm-visitor-name-blurb sm-visitor-name-note">
+        More than one person can use this code. Keep using the{' '}
+        <strong>same name</strong> and your chats stay grouped as you; a{' '}
+        <strong>different name</strong> reads as a new person and starts a
+        separate conversation. Passing the code to someone else? Have them
+        scan it and pick their own name.
       </p>
       <PickerForm {...props} />
       {props.going && <PickerGoing />}
