@@ -171,7 +171,7 @@ function QRCol({ code }: { code: CodeView }) {
 }
 
 function QuotaBar({ code }: { code: CodeView }) {
-  const sessions = quotaSummary(code.max_sessions_per_member, 'sessions');
+  const sessions = quotaSummary(code.max_members, 'names');
   const turns = quotaSummary(code.max_turns_per_session, 'turns');
   return (
     <div className="col-span-full" data-testid={`code-quotas-${code.code}`}>

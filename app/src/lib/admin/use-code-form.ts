@@ -12,7 +12,7 @@ export interface CodeFormState {
   label: string;
   purpose: string;
   suggested: string[];
-  maxSessions: string;
+  maxMembers: string;
   maxTurns: string;
   // maxBookings —— calendar.book quota per code; '' = nil (role 没解锁
   // calendar.book 时也无意义；string 形态便于跟 input 字段双绑)。
@@ -24,7 +24,7 @@ export interface CodeFormState {
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
   suggested: ['', ''],
-  maxSessions: '', maxTurns: '', maxBookings: '',
+  maxMembers: '', maxTurns: '', maxBookings: '',
   assumedRoleID: '',
 };
 
@@ -33,7 +33,7 @@ export interface CodeFormHook {
   setCode: (v: string) => void;
   setLabel: (v: string) => void;
   setPurpose: (v: string) => void;
-  setMaxSessions: (v: string) => void;
+  setMaxMembers: (v: string) => void;
   setMaxTurns: (v: string) => void;
   setMaxBookings: (v: string) => void;
   setAssumedRoleID: (v: string) => void;
@@ -50,8 +50,8 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const setCode    = useCallback((code: string) => setValues((v) => ({ ...v, code })), []);
   const setLabel   = useCallback((label: string) => setValues((v) => ({ ...v, label })), []);
   const setPurpose = useCallback((purpose: string) => setValues((v) => ({ ...v, purpose })), []);
-  const setMaxSessions = useCallback(
-    (maxSessions: string) => setValues((v) => ({ ...v, maxSessions })), [],
+  const setMaxMembers = useCallback(
+    (maxMembers: string) => setValues((v) => ({ ...v, maxMembers })), [],
   );
   const setMaxTurns = useCallback(
     (maxTurns: string) => setValues((v) => ({ ...v, maxTurns })), [],
@@ -76,7 +76,7 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const toInput = useCallback(() => buildInput(values), [values]);
 
   return {
-    values, setCode, setLabel, setPurpose, setMaxSessions, setMaxTurns,
+    values, setCode, setLabel, setPurpose, setMaxMembers, setMaxTurns,
     setMaxBookings, setAssumedRoleID,
     updateQ, addQ, removeQ, reset, toInput,
   };
@@ -90,7 +90,7 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     suggested: initial?.suggested_questions?.length
       ? [...initial.suggested_questions]
       : ['', ''],
-    maxSessions:   numOrEmpty(initial?.max_sessions_per_member),
+    maxMembers:   numOrEmpty(initial?.max_members),
     maxTurns:      numOrEmpty(initial?.max_turns_per_session),
     maxBookings:   numOrEmpty(initial?.max_bookings),
     assumedRoleID: initial?.assumed_role_id ?? '',
@@ -107,7 +107,7 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     label: v.label.trim(),
     purpose: v.purpose.trim(),
     suggested_questions: v.suggested.map((q) => q.trim()).filter(Boolean),
-    max_sessions_per_member: parseQuota(v.maxSessions),
+    max_members: parseQuota(v.maxMembers),
     max_turns_per_session: parseQuota(v.maxTurns),
     max_bookings: parseQuota(v.maxBookings),
     assumed_role_id: v.assumedRoleID === '' ? null : v.assumedRoleID,

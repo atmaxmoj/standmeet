@@ -135,8 +135,10 @@ export function useGate(): GateHook {
         byoai: false,
         byoaiProvider: '',
         label: null,
-        used: sess.quota?.used_turns ?? 0,
-        max: sess.quota?.max_turns ?? 0,
+        used: sess.quota.used_turns,
+        max: sess.quota.max_turns,
+        maxMembers: sess.quota.max_members,
+        memberCount: sess.members.length,
         startedAt: Date.now(),
       });
       return true;
@@ -160,8 +162,10 @@ export function useGate(): GateHook {
           byoai: true,
           byoaiProvider: input.provider,
           label: null,
-          used: 0,
-          max: 0,
+          used: sess.quota.used_turns,
+          max: sess.quota.max_turns,
+          maxMembers: sess.quota.max_members,
+          memberCount: sess.members.length,
           startedAt: Date.now(),
         });
         return true;

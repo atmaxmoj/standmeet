@@ -89,6 +89,10 @@ function reuseStored(stored: StoredFull): PublicSessionResponse {
     system_prompt_part_ids: stored.system_prompt_part_ids,
     system_prompt_persona: stored.system_prompt_persona,
     suggested_questions: stored.suggested_questions,
+    // 持久化的 auth-blob 不带 quota/members(那是 SessionStrip 的展示源,存在
+    // 另一个 store);这条 reuse 路径只喂 agent turn,用不到,给空值占位。
+    quota: { max_turns: 0, used_turns: 0, max_members: 0 },
+    members: [],
   };
 }
 

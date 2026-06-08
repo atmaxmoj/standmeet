@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useCallback, useRef } from 'react';
 
 import type { PageContent, PublicOwnerView } from '@/lib/api/public';
@@ -26,7 +26,6 @@ import { TopBar } from '@/components/page/TopBar';
 import { ChatRoom } from '@/components/visitor/ChatRoom';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
-import { loadStoredSession } from '@/lib/gate/use-gate';
 import { useAbsorbCodeFromURL } from '@/lib/gate/use-absorb-code';
 import { useConsumeQuestionFromURL } from '@/lib/page/consume-question-url';
 import { useTheme } from '@/lib/page/use-theme';
@@ -42,7 +41,7 @@ type Props = {
 };
 
 export function PageShell({ owner, content }: Props) {
-  const mode = useModeFromStorage();
+  const mode = useSessionMode();
   const isChatMode = useChatModeDetect();
   return isChatMode
     ? <ChatRoom owner={owner} mode={mode} />
@@ -52,6 +51,16 @@ export function PageShell({ owner, content }: Props) {
 function useChatModeDetect(): boolean {
   const session = useVisitorSessionStore((s) => s.session);
   return session !== null && (session.code !== null || session.byoai);
+}
+
+// useSessionMode —— mode 直接从 session store 派生(reactive):名字选择器
+// issue session(setSession)后无需额外 sync,mode 自动从 public 切到 code。
+// store 由 SessionStrip 的 bindVisitorSessionSync 在 mount 时从 localStorage
+// hydrate(返客)。顺手挂 useAbsorbCodeFromURL 吸 ?code=(只存 pending,不 issue)。
+function useSessionMode(): SessionMode {
+  useAbsorbCodeFromURL();
+  const session = useVisitorSessionStore((s) => s.session);
+  return session === null ? 'public' : session.byoai ? 'byoai' : 'code';
 }
 
 function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode }) {
@@ -130,19 +139,3 @@ function buildAskedSet(dialogs: ReturnType<typeof useChat>['dialogs']): Readonly
   return new Set(questions);
 }
 
-// useModeFromStorage —— mount 后读 localStorage 拿 stored visitor-session。
-// SSR 初始值是 'public'（hydration mismatch 不可见，banner 走 client only）；
-// useEffect 里 syn-read 一次，有 byoai flag → 切 'byoai'，有 session 不带
-// byoai → 'code'（gate 提交 access code 后存的），否则 'public'。
-// 还顺手挂 useAbsorbCodeFromURL：visitor 带 `?code=ABC` 来时把 code 吸进
-// store、清掉 URL、issue session 后回调一次 syncFromStorage。
-function useModeFromStorage(): SessionMode {
-  const [mode, setMode] = useState<SessionMode>('public');
-  const syncFromStorage = useCallback(() => {
-    const stored = loadStoredSession();
-    setMode(stored ? (stored.byoai ? 'byoai' : 'code') : 'public');
-  }, []);
-  useEffect(() => { syncFromStorage(); }, [syncFromStorage]);
-  useAbsorbCodeFromURL(syncFromStorage);
-  return mode;
-}

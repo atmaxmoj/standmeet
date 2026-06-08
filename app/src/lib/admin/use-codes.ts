@@ -18,7 +18,7 @@ import type { ResourceStatus } from '@/lib/state/status';
 export const CodeViewSchema = z.object({
   id: z.string(), code: z.string(), label: z.string(), status: z.string(),
   purpose: z.string().optional(), suggested_questions: z.array(z.string()).optional(),
-  max_sessions_per_member: z.number().nullable().optional(),
+  max_members: z.number().nullable().optional(),
   max_turns_per_session: z.number().nullable().optional(),
   max_bookings: z.number().nullable().optional(),
   assumed_role_id: z.string(),
@@ -30,14 +30,14 @@ export interface CreateCodeInput {
   label: string;
   purpose?: string;
   suggested_questions?: string[];
-  max_sessions_per_member?: number | null;
+  max_members?: number | null;
   max_turns_per_session?: number | null;
   max_bookings?: number | null;
   assumed_role_id?: string | null;
 }
 
 export interface QuotasInput {
-  max_sessions_per_member: number | null;
+  max_members: number | null;
   max_turns_per_session: number | null;
 }
 
@@ -111,7 +111,7 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     label: input.label,
     purpose: input.purpose ?? '',
     suggested_questions: input.suggested_questions ?? [],
-    max_sessions_per_member: input.max_sessions_per_member ?? null,
+    max_members: input.max_members ?? null,
     max_turns_per_session: input.max_turns_per_session ?? null,
     max_bookings: input.max_bookings ?? null,
     assumed_role_id: input.assumed_role_id ?? null,
@@ -147,7 +147,7 @@ export async function dispatchSave(
     return;
   }
   await onUpdateQuotas(existing.id, {
-    max_sessions_per_member: input.max_sessions_per_member ?? null,
+    max_members: input.max_members ?? null,
     max_turns_per_session: input.max_turns_per_session ?? null,
   });
 }

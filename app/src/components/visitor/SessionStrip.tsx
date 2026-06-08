@@ -98,6 +98,7 @@ function StripRight({ s, pct, warn }: { s: VisitorSession; pct: number; warn: bo
   return (
     <div className="sm-session-strip-right">
       <StripQuotaSlot s={s} pct={pct} />
+      <StripNamesSlot s={s} />
       <span className="sm-session-strip-sep">·</span>
       <StripWarnAction visible={warn && !s.byoai} />
       <Link href="/gate" className="sm-session-strip-link is-exit">
@@ -114,6 +115,20 @@ function StripQuotaSlot({ s, pct }: { s: VisitorSession; pct: number }) {
     </span>
   ) : s.max > 0 ? (
     <StripGauge used={s.used} max={s.max} pct={pct} />
+  ) : null;
+}
+
+// StripNamesSlot —— 这张码有名字上限时显 "N / M names"(几个人用了 / 共几个)。
+function StripNamesSlot({ s }: { s: VisitorSession }) {
+  return s.maxMembers > 0 ? (
+    <>
+      <span className="sm-session-strip-sep">·</span>
+      <span className="sm-session-strip-gauge-text" data-testid="session-strip-names">
+        <span className="sm-session-strip-members-used">{s.memberCount}</span>
+        {' / '}{s.maxMembers}
+        <span className="sm-session-strip-turns-suffix">names</span>
+      </span>
+    </>
   ) : null;
 }
 

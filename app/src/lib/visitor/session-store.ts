@@ -36,6 +36,10 @@ const VisitorSessionSchema = z.object({
   used: z.number(),
   max: z.number(),
   startedAt: z.number(),
+  // 名字上限展示用:maxMembers 这张码共几个名字(0=不限)、memberCount 已有几个。
+  // 必填 —— 每条 session 响应都带 quota.max_members + members,如实落进来。
+  maxMembers: z.number(),
+  memberCount: z.number(),
 });
 export type VisitorSession = z.infer<typeof VisitorSessionSchema>;
 

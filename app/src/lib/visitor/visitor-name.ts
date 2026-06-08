@@ -1,84 +1,44 @@
-// visitor-name.ts —— VisitorNamePicker 的 business logic / state derivation。
-// 从 presentation 层挪出来：components/* 不准跑 `if` / 跑 dom-derived 逻辑。
+// visitor-name.ts —— VisitorNamePicker 的可见性逻辑。
+//
+// defer-issue 模型:扫码把 code 吸进 pending store(还没 issue session)。只要
+// 有 pending code 就弹名字选择器;visitor 提交名字(或 skip)后由
+// use-issue-pending-code 真正 issueCodeSession,pending 被 consume → 自动隐藏。
+//
+// SSR 时 pending store 的 code 是 null → 不弹(无 hydration mismatch)。
 
-import { useEffect, useState } from 'react';
+import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 
-import { useVisitorSessionStore } from '@/lib/visitor/session-store';
-
-const DISMISS_KEY = 'standmeet-visitor-name-dismissed';
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
-// useShouldAskVisitorName —— 决定 VisitorNamePicker 是不是要渲染。
-// SSR 默认不弹（避免 hydration mismatch）；mount 后看 LS 是否 dismiss 过。
+// useShouldAskVisitorName —— 有 pending code(扫码进来还没选名字开会)就弹。
 export function useShouldAskVisitorName(): boolean {
-  const session = useVisitorSessionStore((s) => s.session);
-  const [recentlyDismissed, setRD] = useState(true);
-  useEffect(() => {
-    setRD(checkRecentlyDismissed());
-  }, []);
-  return !recentlyDismissed && sessionNeedsName(session);
+  return usePendingCodeStore((s) => s.code !== null);
 }
 
-// submitNameAndStart —— PickerForm 提交：写 visitor 进 store + 留 dismiss
-// timestamp（30 天内不再弹）。caller 负责设 going 状态做 "starting..." 动画。
-export function submitNameAndStart(
-  name: string,
-  setVisitor: (n: string) => void,
-): boolean {
-  const trimmed = name.trim();
-  if (trimmed === '') return false;
-  setVisitor(trimmed);
-  rememberDismiss();
-  return true;
-}
+// VISITOR_NAME_KEY —— 上次用的名字。defer-issue 下名字选择器每次扫码都弹,
+// 但同一个人(同浏览器)不该每次重打名字 → 存一份,再开自动 load 进输入框。
+const VISITOR_NAME_KEY = 'standmeet-visitor-name';
 
-// dismissNamePicker —— "skip" 路径：visitor 留 "anonymous" 占位，server 端
-// 当 null 算（visitor_name 字段不强校验）。
-export function dismissNamePicker(setVisitor: (n: string) => void): void {
-  setVisitor('anonymous');
-  rememberDismiss();
-}
-
-function sessionNeedsName(
-  session: ReturnType<typeof useVisitorSessionStore.getState>['session'],
-): boolean {
-  return Boolean(session)
-    && (session?.visitor ?? '') === ''
-    && ((session?.code ?? null) !== null || session?.byoai === true);
-}
-
-// clearNameDismiss —— 吸收新 code 时调：抹掉 dismiss 时间戳,让"问名字"在新
-// access code 进来时重新弹(扫 QR = 新场景,该重新问一次)。
-export function clearNameDismiss(): void {
-  if (typeof window === 'undefined') return;
+// loadVisitorName —— 读上次存的名字(给名字选择器预填);没有 → 空串。
+export function loadVisitorName(): string {
+  if (typeof window === 'undefined') return '';
   try {
-    window.localStorage.removeItem(DISMISS_KEY);
+    return window.localStorage.getItem(VISITOR_NAME_KEY) ?? '';
   } catch {
-    // LS 不可用 → silent。
+    return '';
   }
 }
 
-function rememberDismiss(): void {
+// rememberVisitorName —— 提交名字时存下来,下次自动 load。
+export function rememberVisitorName(name: string): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    window.localStorage.setItem(VISITOR_NAME_KEY, name);
   } catch {
     // LS 满 / 不可用 → silent。
   }
 }
 
-function checkRecentlyDismissed(): boolean {
-  if (typeof window === 'undefined') return true;
-  const raw = readDismiss();
-  return raw !== null && Date.now() - raw < THIRTY_DAYS_MS;
-}
-
-function readDismiss(): number | null {
-  try {
-    const raw = window.localStorage.getItem(DISMISS_KEY);
-    const n = raw === null ? NaN : Number(raw);
-    return Number.isFinite(n) ? n : null;
-  } catch {
-    return null;
-  }
+// clearNameDismiss —— 旧的 30 天 dismiss 机制在 defer-issue 模型下不再需要
+// (pending code 的 consume 就负责隐藏)。保留一个 no-op 兼容 absorb 调用方。
+export function clearNameDismiss(): void {
+  // no-op (kept so use-absorb-code 不用改 import)
 }

@@ -10,10 +10,11 @@
 
 import { useState } from 'react';
 
-import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { useIssuePendingCode, type IssueOutcome } from '@/lib/gate/use-issue-pending-code';
 import {
-  dismissNamePicker,
-  submitNameAndStart,
+  loadVisitorName,
+  rememberVisitorName,
   useShouldAskVisitorName,
 } from '@/lib/visitor/visitor-name';
 
@@ -23,31 +24,40 @@ export function VisitorNamePicker() {
 }
 
 function Modal() {
-  const [name, setName] = useState('');
-  const [going, setGoing] = useState(false);
-  const setVisitor = useVisitorSessionStore((s) => s.setVisitor);
-  const code = useVisitorSessionStore((s) => s.session?.code ?? null);
+  // 初值从 localStorage load 上次用的名字(同一个人再开自动带出来)。
+  const [name, setName] = useState(loadVisitorName);
+  const [full, setFull] = useState(false);
+  const code = usePendingCodeStore((s) => s.code);
+  const { issue, busy } = useIssuePendingCode();
+  const onSubmit = () => {
+    rememberVisitorName(name.trim());
+    void runIssue(issue, name.trim(), setFull);
+  };
   return (
     <div className="sm-fadein sm-visitor-name-overlay">
       <div className="sm-visitor-name-card sm-rise">
         <PickerHeader code={code} />
         <PickerBody
-          name={name} onName={setName} going={going}
-          onSubmit={() => onSubmit(name, setGoing, setVisitor)}
-          onDismiss={() => dismissNamePicker(setVisitor)}
+          name={name} onName={setName} going={busy} full={full}
+          onSubmit={onSubmit}
+          onDismiss={() => { void runIssue(issue, null, setFull); }}
         />
       </div>
     </div>
   );
 }
 
-function onSubmit(
-  name: string,
-  setGoing: (v: boolean) => void,
-  setVisitor: (n: string) => void,
-): void {
-  const ok = submitNameAndStart(name, setVisitor);
-  ok && setGoing(true);
+// runIssue —— 提交名字(或 skip=null)→ 真正 issueCodeSession。'ok' → pending
+// 被 consume,picker 自动隐藏;'full' → 这张码名字满了,显 "code 已满";'error'
+// → busy 复位,visitor 可重试。
+async function runIssue(
+  issue: (name: string | null) => Promise<IssueOutcome>,
+  name: string | null,
+  setFull: (v: boolean) => void,
+): Promise<void> {
+  const outcome = await issue(name);
+  // 'ok' → pending consumed → picker 自动隐藏;'error' → busy 复位可重试。
+  (outcome === 'full') && setFull(true);
 }
 
 function PickerHeader({ code }: { code: string | null }) {
@@ -65,6 +75,7 @@ interface BodyProps {
   name: string;
   onName: (v: string) => void;
   going: boolean;
+  full: boolean;
   onSubmit: () => void;
   onDismiss: () => void;
 }
@@ -72,6 +83,24 @@ interface BodyProps {
 function PickerBody(props: BodyProps) {
   return (
     <div className="sm-visitor-name-body">
+      {props.full ? <PickerFull /> : <PickerPrompt {...props} />}
+    </div>
+  );
+}
+
+// PickerFull —— 这张码名字数满了:进不来,讲清楚 + 让 visitor 找分享码的人。
+function PickerFull() {
+  return (
+    <p className="sm-reading sm-visitor-name-blurb" data-testid="visitor-name-full">
+      This code is full — it&rsquo;s reached its limit of names. Ask whoever
+      shared it with you for a fresh one.
+    </p>
+  );
+}
+
+function PickerPrompt(props: BodyProps) {
+  return (
+    <>
       <p className="sm-reading sm-visitor-name-blurb">
         One last thing before the chat starts — the owner sees this on your
         transcript later. Pick a short name; a handle is fine.
@@ -85,7 +114,7 @@ function PickerBody(props: BodyProps) {
       </p>
       <PickerForm {...props} />
       {props.going && <PickerGoing />}
-    </div>
+    </>
   );
 }
 

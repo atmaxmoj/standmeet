@@ -92,11 +92,11 @@ function QuotasField({ form }: Props) {
   return (
     <div className="grid grid-cols-3 gap-5">
       <QuotaInput
-        label="sessions per visitor · blank = unlimited"
-        testid="code-max-sessions"
-        placeholder="e.g. 5 (interview rounds)"
-        value={form.values.maxSessions}
-        onChange={form.setMaxSessions}
+        label="names (people) · blank = unlimited"
+        testid="code-max-members"
+        placeholder="e.g. 5 (5 candidates)"
+        value={form.values.maxMembers}
+        onChange={form.setMaxMembers}
       />
       <QuotaInput
         label="turns per session · blank = unlimited"
