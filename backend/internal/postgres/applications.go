@@ -37,15 +37,15 @@ func NewApplicationRepo(pool *Pool) *ApplicationRepo {
 // caller 已经决定了 code plaintext + label + 有效期 + 配额（usecase 层默认值），
 // 以及发码挂的 role id（usecase 默认走 owner 的 vanilla）。
 type CommitInput struct {
-	CodeExpiresAt        *pgtype.Timestamptz
-	MaxSessionsPerMember *int32
-	MaxTurnsPerSession   *int32
-	OwnerID              string
-	DraftID              string
-	CodePlaintext        string
-	CodeLabel            string
-	CodePurpose          string
-	AssumedRoleID        string
+	CodeExpiresAt      *pgtype.Timestamptz
+	MaxMembers         *int32
+	MaxTurnsPerSession *int32
+	OwnerID            string
+	DraftID            string
+	CodePlaintext      string
+	CodeLabel          string
+	CodePurpose        string
+	AssumedRoleID      string
 }
 
 // CommitOutput —— Commit 返回值。把 (Application, AccessCode) 打包成单结构体
@@ -140,15 +140,15 @@ func insertAccessCode(
 		expires = *in.CodeExpiresAt
 	}
 	row, err := q.CreateAccessCode(ctx, dbq.CreateAccessCodeParams{
-		OwnerID:              ownerUUID,
-		Code:                 in.CodePlaintext,
-		Label:                in.CodeLabel,
-		Purpose:              in.CodePurpose,
-		SuggestedQuestions:   emptyJSON,
-		ExpiresAt:            expires,
-		MaxSessionsPerMember: in.MaxSessionsPerMember,
-		MaxTurnsPerSession:   in.MaxTurnsPerSession,
-		AssumedRoleID:        roleUUID,
+		OwnerID:            ownerUUID,
+		Code:               in.CodePlaintext,
+		Label:              in.CodeLabel,
+		Purpose:            in.CodePurpose,
+		SuggestedQuestions: emptyJSON,
+		ExpiresAt:          expires,
+		MaxMembers:         in.MaxMembers,
+		MaxTurnsPerSession: in.MaxTurnsPerSession,
+		AssumedRoleID:      roleUUID,
 	})
 	if err != nil {
 		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)

@@ -76,6 +76,15 @@ export interface OutputLandingView {
 export interface PublicSessionQuota {
   readonly max_turns: number;
   readonly used_turns: number;
+  // max_members —— 这张码最多几个名字(0 = 不限)。后端恒发(非 code session
+  // 也是 0),必填 —— 直接读,不兜底。配 members 数渲 "N of M names"。
+  readonly max_members: number;
+}
+
+// PublicSessionMember —— 这张码下已有的一个名字(member)。
+export interface PublicSessionMember {
+  readonly name: string;
+  readonly last_seen: string;
 }
 
 export interface PublicSessionCapability {
@@ -100,7 +109,10 @@ export interface PublicSessionResponse {
   readonly conversation_id: string;
   readonly code?: string;
   readonly visitor_name?: string;
-  readonly quota?: PublicSessionQuota;
+  // quota / members —— 后端恒发(public/byoai 也给 zero-value quota + [] members),
+  // 必填:直接读,不用 `?.` + `?? 0` 兜底掩盖"本该有却没有"。
+  readonly quota: PublicSessionQuota;
+  readonly members: readonly PublicSessionMember[];
   // D-2 / D-5: pi-pivot fields。pi-agent-core 装 system prompt + tool
   // registry 用。旧 caller 不读这些字段，optional 兼容。
   readonly capabilities?: readonly PublicSessionCapability[];

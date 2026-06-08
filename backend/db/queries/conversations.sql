@@ -6,6 +6,14 @@ RETURNING *;
 -- name: GetConversation :one
 SELECT * FROM conversations WHERE id = $1 AND owner_id = $2;
 
+-- name: GetOpenConversationByMember :one
+-- 「一个名字=一段续聊的会」:同名 member 已有未结束(ended_at IS NULL)的对话
+-- 就续上(返最近一段);没有 → caller 新建。member ended/summarized 后再来 = 新会。
+SELECT * FROM conversations
+WHERE member_id = $1 AND ended_at IS NULL
+ORDER BY last_at DESC
+LIMIT 1;
+
 -- name: AppendMessage :one
 INSERT INTO messages (
     conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids

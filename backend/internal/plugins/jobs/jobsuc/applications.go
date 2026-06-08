@@ -42,9 +42,10 @@ type PDFRenderer interface {
 }
 
 const (
-	// 设计文档 L: 180d 有效 / 10 sessions per member / 50 turns per session。
+	// 设计文档 L: 180d 有效 / 10 个名字(人)/ 50 turns per session。
+	// "10 sessions" 本来就是"10 个人"的意思(member=name=session),落到 max_members。
 	applicationCodeDays     = 180
-	applicationMaxSessions  = int32(10)
+	applicationMaxMembers   = int32(10)
 	applicationMaxTurns     = int32(50)
 	applicationCodeRandLen  = 6 // base32 chars after the "app-" prefix
 	applicationCodePrefix   = "app"
@@ -127,7 +128,7 @@ func runCommitTx(
 	ownerID, draftID, codePlaintext string,
 ) (postgres.CommitOutput, error) {
 	expires := timestamptzFromTime(time.Now().AddDate(0, 0, applicationCodeDays))
-	maxSessions := applicationMaxSessions
+	maxMembers := applicationMaxMembers
 	maxTurns := applicationMaxTurns
 	// A.3-IAM-5: application 自动 issue code 默认挂 owner 的 vanilla role。
 	vanilla, verr := deps.Roles.GetByName(ctx, ownerID, domain.VanillaRoleName)
@@ -135,15 +136,15 @@ func runCommitTx(
 		return postgres.CommitOutput{}, fmt.Errorf("get vanilla role: %w", verr)
 	}
 	in := &postgres.CommitInput{
-		OwnerID:              ownerID,
-		DraftID:              draftID,
-		CodePlaintext:        codePlaintext,
-		CodeLabel:            applicationCodePrefix,
-		CodePurpose:          "application invitation",
-		CodeExpiresAt:        &expires,
-		MaxSessionsPerMember: &maxSessions,
-		MaxTurnsPerSession:   &maxTurns,
-		AssumedRoleID:        vanilla.ID(),
+		OwnerID:            ownerID,
+		DraftID:            draftID,
+		CodePlaintext:      codePlaintext,
+		CodeLabel:          applicationCodePrefix,
+		CodePurpose:        "application invitation",
+		CodeExpiresAt:      &expires,
+		MaxMembers:         &maxMembers,
+		MaxTurnsPerSession: &maxTurns,
+		AssumedRoleID:      vanilla.ID(),
 	}
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {

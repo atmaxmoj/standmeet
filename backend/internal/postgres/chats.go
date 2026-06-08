@@ -94,6 +94,26 @@ func (r *ChatRepo) GetChat(
 	return toDomainChat(&row), nil
 }
 
+// GetOpenChatByMember —— 「一个名字=一段续聊的会」:同名 member 已有未结束
+// (ended_at IS NULL)的 conversation 就返它续上;没有 → domain.ErrChatNotFound
+// (caller 新建)。member 的会被 summary 结束后再来 = 新会。
+func (r *ChatRepo) GetOpenChatByMember(
+	ctx context.Context, memberID string,
+) (domain.Chat, error) {
+	memberUUID, err := parseUUID(memberID)
+	if err != nil {
+		return domain.Chat{}, fmt.Errorf("parse member id: %w", err)
+	}
+	row, qerr := dbq.New(r.pool).GetOpenConversationByMember(ctx, memberUUID)
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return domain.Chat{}, domain.ErrChatNotFound
+		}
+		return domain.Chat{}, fmt.Errorf("get open chat by member: %w", qerr)
+	}
+	return toDomainChat(&row), nil
+}
+
 // AppendMessageInput —— 写一条 message 入参 (legacy /messages SSE 路径 +
 // visitor_chat retriever 仍在用；新 dialog 写路径走 AppendDialog)。
 type AppendMessageInput struct {

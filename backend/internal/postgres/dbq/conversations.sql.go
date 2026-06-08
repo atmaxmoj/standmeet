@@ -134,6 +134,35 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 	return i, err
 }
 
+const getOpenConversationByMember = `-- name: GetOpenConversationByMember :one
+SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md FROM conversations
+WHERE member_id = $1 AND ended_at IS NULL
+ORDER BY last_at DESC
+LIMIT 1
+`
+
+// 「一个名字=一段续聊的会」:同名 member 已有未结束(ended_at IS NULL)的对话
+// 就续上(返最近一段);没有 → caller 新建。member ended/summarized 后再来 = 新会。
+func (q *Queries) GetOpenConversationByMember(ctx context.Context, memberID pgtype.UUID) (Conversation, error) {
+	row := q.db.QueryRow(ctx, getOpenConversationByMember, memberID)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Mode,
+		&i.CodeID,
+		&i.MemberID,
+		&i.VisitorName,
+		&i.ByoaiProvider,
+		&i.StartedAt,
+		&i.LastAt,
+		&i.MessageCount,
+		&i.EndedAt,
+		&i.SummaryMd,
+	)
+	return i, err
+}
+
 const listConversationsByOwner = `-- name: ListConversationsByOwner :many
 SELECT c.id, c.mode, c.code_id, c.visitor_name, c.started_at,
        c.last_at, c.message_count,

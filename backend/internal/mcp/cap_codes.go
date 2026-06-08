@@ -35,7 +35,7 @@ type CodesRevoker interface {
 	) (domain.AccessCode, error)
 	UpdateQuotas(
 		ctx context.Context, ownerID, codeID string,
-		maxSessions, maxTurns *int32,
+		maxTurns, maxMembers *int32,
 	) (domain.AccessCode, error)
 }
 
@@ -154,7 +154,7 @@ func (c *codesCapability) updateQuotasBinding() *agentskills.MCPBinding {
 			"type":"object",
 			"properties":{
 				"code_id":{"type":"string"},
-				"max_sessions_per_member":{"type":"number"},
+				"max_members":{"type":"number"},
 				"max_turns_per_session":{"type":"number"}
 			},
 			"required":["code_id"]
@@ -164,9 +164,9 @@ func (c *codesCapability) updateQuotasBinding() *agentskills.MCPBinding {
 }
 
 type updateQuotasArgsWire struct {
-	MaxSessions *int32 `json:"max_sessions_per_member"`
-	MaxTurns    *int32 `json:"max_turns_per_session"`
-	CodeID      string `json:"code_id"`
+	MaxMembers *int32 `json:"max_members"`
+	MaxTurns   *int32 `json:"max_turns_per_session"`
+	CodeID     string `json:"code_id"`
 }
 
 func (c *codesCapability) handleUpdateQuotas(
@@ -181,15 +181,15 @@ func (c *codesCapability) handleUpdateQuotas(
 		return *mErr
 	}
 	code, err := c.codes.UpdateQuotas(
-		ctx, ownerID, args.CodeID, merged.maxSessions, merged.maxTurns,
+		ctx, ownerID, args.CodeID, merged.maxTurns, merged.maxMembers,
 	)
 	if err != nil {
 		return updateQuotasErrToResult(c.log, err)
 	}
 	return marshalCapResult(c.log, "codes.update_quotas", map[string]any{
-		"code_id":                 code.ID,
-		"max_sessions_per_member": code.MaxSessionsPerMember,
-		"max_turns_per_session":   code.MaxTurnsPerSession,
+		"code_id":               code.ID,
+		"max_members":           code.MaxMembers,
+		"max_turns_per_session": code.MaxTurnsPerSession,
 	})
 }
 
@@ -214,8 +214,8 @@ func updateQuotasErrToResult(log *slog.Logger, err error) agentskills.MCPResult 
 
 // quotaPair —— mergeQuotaArgs 返值；caller 透传给 UpdateQuotas。
 type quotaPair struct {
-	maxSessions *int32
-	maxTurns    *int32
+	maxMembers *int32
+	maxTurns   *int32
 }
 
 // mergeQuotaArgs —— "Pass null to keep current value" 语义：caller 未传的字段
@@ -224,8 +224,8 @@ type quotaPair struct {
 func (c *codesCapability) mergeQuotaArgs(
 	ctx context.Context, ownerID string, args *updateQuotasArgsWire,
 ) (*quotaPair, *agentskills.MCPResult) {
-	if args.MaxSessions != nil && args.MaxTurns != nil {
-		return &quotaPair{maxSessions: args.MaxSessions, maxTurns: args.MaxTurns}, nil
+	if args.MaxMembers != nil && args.MaxTurns != nil {
+		return &quotaPair{maxMembers: args.MaxMembers, maxTurns: args.MaxTurns}, nil
 	}
 	cur, lookupErr := c.lookupOwnedCode(ctx, ownerID, args.CodeID)
 	if lookupErr != nil {
@@ -249,9 +249,9 @@ func (c *codesCapability) lookupOwnedCode(
 }
 
 func buildMergedQuotas(args *updateQuotasArgsWire, cur *domain.AccessCode) *quotaPair {
-	out := &quotaPair{maxSessions: args.MaxSessions, maxTurns: args.MaxTurns}
-	if out.maxSessions == nil {
-		out.maxSessions = cur.MaxSessionsPerMember
+	out := &quotaPair{maxMembers: args.MaxMembers, maxTurns: args.MaxTurns}
+	if out.maxMembers == nil {
+		out.maxMembers = cur.MaxMembers
 	}
 	if out.maxTurns == nil {
 		out.maxTurns = cur.MaxTurnsPerSession

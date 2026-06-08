@@ -9,19 +9,19 @@ import (
 )
 
 type AccessCode struct {
-	ID                   pgtype.UUID
-	OwnerID              pgtype.UUID
-	Code                 string
-	Label                string
-	Purpose              string
-	SuggestedQuestions   []byte
-	ExpiresAt            pgtype.Timestamptz
-	Status               string
-	MaxSessionsPerMember *int32
-	MaxTurnsPerSession   *int32
-	MaxBookings          *int32
-	CreatedAt            pgtype.Timestamptz
-	AssumedRoleID        pgtype.UUID
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	Code               string
+	Label              string
+	Purpose            string
+	SuggestedQuestions []byte
+	ExpiresAt          pgtype.Timestamptz
+	Status             string
+	MaxTurnsPerSession *int32
+	MaxMembers         *int32
+	MaxBookings        *int32
+	CreatedAt          pgtype.Timestamptz
+	AssumedRoleID      pgtype.UUID
 }
 
 type AccessRequest struct {

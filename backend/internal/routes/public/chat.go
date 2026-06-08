@@ -67,10 +67,10 @@ var visitorErrCases = []apierr.Case{
 	{Match: domain.ErrCodeExpired, Envelope: apierr.Envelope{
 		Status: http.StatusUnauthorized, Code: "code_expired", Message: "access code expired",
 	}},
-	{Match: domain.ErrSessionQuotaReached, Envelope: apierr.Envelope{
+	{Match: domain.ErrMemberQuotaReached, Envelope: apierr.Envelope{
 		Status:  http.StatusForbidden,
-		Code:    "session_quota_reached",
-		Message: "no more sessions left for this visitor",
+		Code:    "member_quota_reached",
+		Message: "this code is full — no more names available",
 	}},
 	{Match: domain.ErrTurnQuotaReached, Envelope: apierr.Envelope{
 		Status:  http.StatusForbidden,

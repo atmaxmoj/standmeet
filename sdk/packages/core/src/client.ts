@@ -113,7 +113,15 @@ async function issueSession(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error(`issue session: ${res.status}`);
+  if (!res.ok) {
+    // 把 status + 后端错误 code(member_quota_reached / code_invalid …)挂到 error
+    // 上,让前端区分"code 已满"等情形给人话提示。
+    const body = (await res.json().catch(() => ({}))) as { code?: unknown };
+    throw Object.assign(new Error(`issue session: ${res.status}`), {
+      status: res.status,
+      code: typeof body.code === 'string' ? body.code : '',
+    });
+  }
   return (await res.json()) as PublicSessionResponse;
 }
 

@@ -26,32 +26,32 @@ type CodesDeps struct {
 }
 
 type createCodeRequest struct {
-	MaxSessionsPerMember *int32   `json:"max_sessions_per_member,omitempty"`
-	MaxTurnsPerSession   *int32   `json:"max_turns_per_session,omitempty"`
-	MaxBookings          *int32   `json:"max_bookings,omitempty"`
-	AssumedRoleID        *string  `json:"assumed_role_id,omitempty"`
-	Code                 string   `json:"code"`
-	Label                string   `json:"label"`
-	Purpose              string   `json:"purpose"`
-	SuggestedQuestions   []string `json:"suggested_questions"`
+	MaxMembers         *int32   `json:"max_members,omitempty"`
+	MaxTurnsPerSession *int32   `json:"max_turns_per_session,omitempty"`
+	MaxBookings        *int32   `json:"max_bookings,omitempty"`
+	AssumedRoleID      *string  `json:"assumed_role_id,omitempty"`
+	Code               string   `json:"code"`
+	Label              string   `json:"label"`
+	Purpose            string   `json:"purpose"`
+	SuggestedQuestions []string `json:"suggested_questions"`
 }
 
 type updateQuotasRequest struct {
-	MaxSessionsPerMember *int32 `json:"max_sessions_per_member,omitempty"`
-	MaxTurnsPerSession   *int32 `json:"max_turns_per_session,omitempty"`
+	MaxMembers         *int32 `json:"max_members,omitempty"`
+	MaxTurnsPerSession *int32 `json:"max_turns_per_session,omitempty"`
 }
 
 type codeView struct {
-	CreatedAt            string   `json:"created_at"`
-	MaxSessionsPerMember *int32   `json:"max_sessions_per_member,omitempty"`
-	MaxTurnsPerSession   *int32   `json:"max_turns_per_session,omitempty"`
-	MaxBookings          *int32   `json:"max_bookings"`
-	ID                   string   `json:"id"`
-	Code                 string   `json:"code"`
-	Label                string   `json:"label"`
-	Status               string   `json:"status"`
-	AssumedRoleID        string   `json:"assumed_role_id"`
-	SuggestedQuestions   []string `json:"suggested_questions"`
+	CreatedAt          string   `json:"created_at"`
+	MaxMembers         *int32   `json:"max_members,omitempty"`
+	MaxTurnsPerSession *int32   `json:"max_turns_per_session,omitempty"`
+	MaxBookings        *int32   `json:"max_bookings"`
+	ID                 string   `json:"id"`
+	Code               string   `json:"code"`
+	Label              string   `json:"label"`
+	Status             string   `json:"status"`
+	AssumedRoleID      string   `json:"assumed_role_id"`
+	SuggestedQuestions []string `json:"suggested_questions"`
 }
 
 // MountCodes 挂 /codes 子路由。
@@ -92,16 +92,16 @@ func writeCodesList(
 
 func toCodeView(c *domain.AccessCode) codeView {
 	return codeView{
-		ID:                   c.ID,
-		Code:                 c.Code,
-		Label:                c.Label,
-		Status:               c.Status,
-		SuggestedQuestions:   c.SuggestedQuestions,
-		CreatedAt:            c.CreatedAt.Format(time.RFC3339),
-		MaxSessionsPerMember: c.MaxSessionsPerMember,
-		MaxTurnsPerSession:   c.MaxTurnsPerSession,
-		MaxBookings:          c.MaxBookings,
-		AssumedRoleID:        c.AssumedRoleID,
+		ID:                 c.ID,
+		Code:               c.Code,
+		Label:              c.Label,
+		Status:             c.Status,
+		SuggestedQuestions: c.SuggestedQuestions,
+		CreatedAt:          c.CreatedAt.Format(time.RFC3339),
+		MaxMembers:         c.MaxMembers,
+		MaxTurnsPerSession: c.MaxTurnsPerSession,
+		MaxBookings:        c.MaxBookings,
+		AssumedRoleID:      c.AssumedRoleID,
 	}
 }
 
@@ -146,15 +146,15 @@ func buildCreateInput(
 		return nil, rerr
 	}
 	return &postgres.CreateCodeInput{
-		OwnerID:              ownerID,
-		Code:                 req.Code,
-		Label:                req.Label,
-		Purpose:              req.Purpose,
-		SuggestedQuestions:   req.SuggestedQuestions,
-		MaxSessionsPerMember: req.MaxSessionsPerMember,
-		MaxTurnsPerSession:   req.MaxTurnsPerSession,
-		MaxBookings:          req.MaxBookings,
-		AssumedRoleID:        roleID,
+		OwnerID:            ownerID,
+		Code:               req.Code,
+		Label:              req.Label,
+		Purpose:            req.Purpose,
+		SuggestedQuestions: req.SuggestedQuestions,
+		MaxMembers:         req.MaxMembers,
+		MaxTurnsPerSession: req.MaxTurnsPerSession,
+		MaxBookings:        req.MaxBookings,
+		AssumedRoleID:      roleID,
 	}, nil
 }
 
@@ -215,7 +215,7 @@ func (h *Handlers) updateCodeQuotas() http.HandlerFunc {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		codeID := chi.URLParam(r, "id")
 		updated, err := h.CodesAdmin.Codes.UpdateQuotas(
-			r.Context(), ownerID, codeID, req.MaxSessionsPerMember, req.MaxTurnsPerSession,
+			r.Context(), ownerID, codeID, req.MaxTurnsPerSession, req.MaxMembers,
 		)
 		if err != nil {
 			handleUpdateQuotasErr(h.Log, w, err)

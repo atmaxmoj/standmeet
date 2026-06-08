@@ -11,7 +11,8 @@ import (
 
 // AccessCode —— 访客访问码。
 //
-//   - MaxSessionsPerMember nil → 不限；几个 session 数（"5 轮面试" 就 5）。
+//   - MaxMembers nil → 不限；这张码最多容纳几个不同名字(member = 一个人 =
+//     一段续聊的会)。满了之后新名字被拒(visitor 见 "code 已满");已有名字续。
 //   - MaxTurnsPerSession   nil → 不限；单 session 内 visitor turn 上限。
 //   - Status 'active' / 'revoked'（过期由 ExpiresAt 计算，不写状态字段）。
 //   - AssumedRoleID 必填，指向 owner 的 roles 行 id；session issue 时 freeze
@@ -19,35 +20,35 @@ import (
 //   - MaxBookings nil → role 没解锁 calendar.book 时也无意义；非 nil 是
 //     per-code 跨 visitor 累计配额，从 code_bookings count 计。
 type AccessCode struct {
-	CreatedAt            time.Time
-	ExpiresAt            *time.Time
-	MaxSessionsPerMember *int32
-	MaxTurnsPerSession   *int32
-	MaxBookings          *int32
-	ID                   string
-	OwnerID              string
-	Code                 string
-	Label                string
-	Purpose              string
-	Status               string
-	AssumedRoleID        string
-	SuggestedQuestions   []string
+	CreatedAt          time.Time
+	ExpiresAt          *time.Time
+	MaxMembers         *int32
+	MaxTurnsPerSession *int32
+	MaxBookings        *int32
+	ID                 string
+	OwnerID            string
+	Code               string
+	Label              string
+	Purpose            string
+	Status             string
+	AssumedRoleID      string
+	SuggestedQuestions []string
 }
 
 // CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +
 // 任何下游写入 AccessCode 用)。postgres.CreateCodeInput 是 repo-local 镜像，
 // CodeRepo.CreateAccessCode 把本类型转过去。
 type CreateAccessCodeInput struct {
-	ExpiresAt            *time.Time
-	MaxSessionsPerMember *int32
-	MaxTurnsPerSession   *int32
-	MaxBookings          *int32
-	OwnerID              string
-	Code                 string
-	Label                string
-	Purpose              string
-	AssumedRoleID        string
-	SuggestedQuestions   []string
+	ExpiresAt          *time.Time
+	MaxMembers         *int32
+	MaxTurnsPerSession *int32
+	MaxBookings        *int32
+	OwnerID            string
+	Code               string
+	Label              string
+	Purpose            string
+	AssumedRoleID      string
+	SuggestedQuestions []string
 }
 
 // CodeMember —— 一个 access code 下的一个具名访客（AccessCode 聚合子实体）。
@@ -68,8 +69,8 @@ var ErrCodeInvalid = errors.New("access code invalid")
 // ErrCodeExpired —— access code 过期。
 var ErrCodeExpired = errors.New("access code expired")
 
-// ErrSessionQuotaReached —— 这个 member 已用满 max_sessions_per_member。
-var ErrSessionQuotaReached = errors.New("session quota reached for member")
+// ErrMemberQuotaReached —— 这张码的名字(member)数已满 max_members,新名字被拒。
+var ErrMemberQuotaReached = errors.New("member quota reached for code")
 
 // ErrTurnQuotaReached —— 这个 session 已用满 max_turns_per_session。
 var ErrTurnQuotaReached = errors.New("turn quota reached for session")

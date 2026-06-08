@@ -29,7 +29,7 @@ func (c *codesCapability) createBinding() *agentskills.MCPBinding {
 				"suggested_questions":{"type":"array","items":{"type":"string"}},
 				"expires_at_rfc3339":{"type":"string",
 					"description":"Optional RFC3339 expiry timestamp."},
-				"max_sessions_per_member":{"type":"number"},
+				"max_members":{"type":"number"},
 				"max_turns_per_session":{"type":"number"},
 				"max_bookings":{"type":"number"}
 			},
@@ -40,7 +40,7 @@ func (c *codesCapability) createBinding() *agentskills.MCPBinding {
 }
 
 type createCodeArgsWire struct {
-	MaxSessions        *int32   `json:"max_sessions_per_member"`
+	MaxMembers         *int32   `json:"max_members"`
 	MaxTurns           *int32   `json:"max_turns_per_session"`
 	MaxBookings        *int32   `json:"max_bookings"`
 	Code               string   `json:"code"`
@@ -95,10 +95,10 @@ func buildCreateCodeInputCap(
 	in := &domain.CreateAccessCodeInput{
 		OwnerID: ownerID, Code: args.Code, Label: args.Label,
 		Purpose: args.Purpose, AssumedRoleID: args.AssumedRoleID,
-		SuggestedQuestions:   nonNilStrings(args.SuggestedQuestions),
-		MaxSessionsPerMember: args.MaxSessions,
-		MaxTurnsPerSession:   args.MaxTurns,
-		MaxBookings:          args.MaxBookings,
+		SuggestedQuestions: nonNilStrings(args.SuggestedQuestions),
+		MaxMembers:         args.MaxMembers,
+		MaxTurnsPerSession: args.MaxTurns,
+		MaxBookings:        args.MaxBookings,
 	}
 	if args.ExpiresAt != "" {
 		t, terr := time.Parse(time.RFC3339, args.ExpiresAt)

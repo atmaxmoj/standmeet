@@ -30,16 +30,16 @@ func NewCodeRepo(pool *Pool) *CodeRepo { return &CodeRepo{pool: pool} }
 // CreateCodeInput —— 创建 access code 入参。AssumedRoleID 必填（caller
 // usecase 不显式给则默认指 vanilla）。
 type CreateCodeInput struct {
-	ExpiresAt            *time.Time
-	MaxSessionsPerMember *int32
-	MaxTurnsPerSession   *int32
-	MaxBookings          *int32
-	OwnerID              string
-	Code                 string
-	Label                string
-	Purpose              string
-	AssumedRoleID        string
-	SuggestedQuestions   []string
+	ExpiresAt          *time.Time
+	MaxMembers         *int32
+	MaxTurnsPerSession *int32
+	MaxBookings        *int32
+	OwnerID            string
+	Code               string
+	Label              string
+	Purpose            string
+	AssumedRoleID      string
+	SuggestedQuestions []string
 }
 
 // Create 写一条 access_code。
@@ -62,16 +62,16 @@ func (r *CodeRepo) CreateAccessCode(
 	ctx context.Context, in *domain.CreateAccessCodeInput,
 ) (domain.AccessCode, error) {
 	return r.Create(ctx, &CreateCodeInput{
-		OwnerID:              in.OwnerID,
-		Code:                 in.Code,
-		Label:                in.Label,
-		Purpose:              in.Purpose,
-		AssumedRoleID:        in.AssumedRoleID,
-		SuggestedQuestions:   in.SuggestedQuestions,
-		ExpiresAt:            in.ExpiresAt,
-		MaxSessionsPerMember: in.MaxSessionsPerMember,
-		MaxTurnsPerSession:   in.MaxTurnsPerSession,
-		MaxBookings:          in.MaxBookings,
+		OwnerID:            in.OwnerID,
+		Code:               in.Code,
+		Label:              in.Label,
+		Purpose:            in.Purpose,
+		AssumedRoleID:      in.AssumedRoleID,
+		SuggestedQuestions: in.SuggestedQuestions,
+		ExpiresAt:          in.ExpiresAt,
+		MaxMembers:         in.MaxMembers,
+		MaxTurnsPerSession: in.MaxTurnsPerSession,
+		MaxBookings:        in.MaxBookings,
 	})
 }
 
@@ -89,16 +89,16 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 		return nil, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
 	return &dbq.CreateAccessCodeParams{
-		OwnerID:              ownerUUID,
-		Code:                 in.Code,
-		Label:                in.Label,
-		Purpose:              in.Purpose,
-		SuggestedQuestions:   qs,
-		ExpiresAt:            ptrToTimestamptz(in.ExpiresAt),
-		MaxSessionsPerMember: in.MaxSessionsPerMember,
-		MaxTurnsPerSession:   in.MaxTurnsPerSession,
-		MaxBookings:          in.MaxBookings,
-		AssumedRoleID:        roleUUID,
+		OwnerID:            ownerUUID,
+		Code:               in.Code,
+		Label:              in.Label,
+		Purpose:            in.Purpose,
+		SuggestedQuestions: qs,
+		ExpiresAt:          ptrToTimestamptz(in.ExpiresAt),
+		MaxMembers:         in.MaxMembers,
+		MaxTurnsPerSession: in.MaxTurnsPerSession,
+		MaxBookings:        in.MaxBookings,
+		AssumedRoleID:      roleUUID,
 	}, nil
 }
 
@@ -177,7 +177,7 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 
 // UpdateQuotas 改某 code 的配额；返回新行（让 admin UI 直接刷）。
 func (r *CodeRepo) UpdateQuotas(
-	ctx context.Context, ownerID, codeID string, maxSessions, maxTurns *int32,
+	ctx context.Context, ownerID, codeID string, maxTurns, maxMembers *int32,
 ) (domain.AccessCode, error) {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
@@ -190,7 +190,7 @@ func (r *CodeRepo) UpdateQuotas(
 	q := dbq.New(r.pool)
 	row, qerr := q.UpdateAccessCodeQuotas(ctx, dbq.UpdateAccessCodeQuotasParams{
 		ID: codeUUID, OwnerID: ownerUUID,
-		MaxSessionsPerMember: maxSessions, MaxTurnsPerSession: maxTurns,
+		MaxTurnsPerSession: maxTurns, MaxMembers: maxMembers,
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {

@@ -183,8 +183,11 @@ CREATE TABLE access_codes (
     expires_at                timestamptz,
     status                    text          NOT NULL DEFAULT 'active'
                                             CHECK (status IN ('active', 'revoked')),
-    max_sessions_per_member   integer,
     max_turns_per_session     integer,
+    -- max_members —— 这张码最多容纳几个不同名字(member)。NULL = 不限。满了
+    -- 之后新名字被拒(visitor 见 "code 已满");已有名字照常继续。匿名(skip)
+    -- 也各占一个名额。
+    max_members               integer,
     -- max_bookings —— calendar.book quota per code。NULL = role 没解锁
     -- calendar.book skill 时也无意义；解锁了的话正整数 = 总配额，跨 visitor /
     -- session 累计 (从 code_bookings count)。耗尽后 tool 报 quota_exhausted。

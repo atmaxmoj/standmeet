@@ -29,8 +29,9 @@ type createSessionRequest struct {
 }
 
 type sessionQuotaResp struct {
-	MaxTurns  int32 `json:"max_turns"`
-	UsedTurns int32 `json:"used_turns"`
+	MaxTurns   int32 `json:"max_turns"`
+	UsedTurns  int32 `json:"used_turns"`
+	MaxMembers int32 `json:"max_members"`
 }
 
 type sessionMemberResp struct {
@@ -45,7 +46,7 @@ type createSessionResponse struct {
 	CodeLabel           string                        `json:"code_label,omitempty"`
 	VisitorName         string                        `json:"visitor_name,omitempty"`
 	SystemPromptPersona string                        `json:"system_prompt_persona"`
-	Members             []sessionMemberResp           `json:"members,omitempty"`
+	Members             []sessionMemberResp           `json:"members"`
 	Capabilities        []agentskills.CapabilityState `json:"capabilities"`
 	ToolSpecs           []agentskills.VisitorToolSpec `json:"tool_specs"`
 	SystemPromptPartIDs []string                      `json:"system_prompt_part_ids"`
@@ -131,8 +132,9 @@ func writeCreateSession(
 		SystemPromptPartIDs: deps.AgentSkills.VisitorPromptPartIDs(ctx, in),
 		SuggestedQuestions:  nonNilStringSlice(res.SuggestedQuestions),
 		Quota: sessionQuotaResp{
-			MaxTurns:  res.Quota.MaxTurns,
-			UsedTurns: res.Quota.UsedTurns,
+			MaxTurns:   res.Quota.MaxTurns,
+			UsedTurns:  res.Quota.UsedTurns,
+			MaxMembers: res.Quota.MaxMembers,
 		},
 		Members: toMemberResps(res.Members),
 	}

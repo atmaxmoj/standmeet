@@ -3,8 +3,8 @@
 -- 等 legacy 字段在 commit 5 drop，ACL / capability gating 全部从 role 推断。
 INSERT INTO access_codes (
     owner_id, code, label, purpose, suggested_questions,
-    expires_at, max_sessions_per_member, max_turns_per_session,
-    max_bookings, assumed_role_id
+    expires_at, max_turns_per_session, max_bookings,
+    assumed_role_id, max_members
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
@@ -37,9 +37,13 @@ UPDATE access_codes SET status = 'revoked' WHERE id = $1 AND owner_id = $2;
 
 -- name: UpdateAccessCodeQuotas :one
 UPDATE access_codes
-SET max_sessions_per_member = $3, max_turns_per_session = $4
+SET max_turns_per_session = $3, max_members = $4
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
+
+-- name: CountCodeMembers :one
+-- max_members 强制用:这张码已经有几个不同名字(member)。
+SELECT count(*) FROM code_members WHERE code_id = $1;
 
 -- name: CreateCodeMember :one
 INSERT INTO code_members (code_id, display_name, email, is_anonymous)

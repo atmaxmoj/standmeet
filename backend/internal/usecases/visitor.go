@@ -66,6 +66,9 @@ type IssueCodeSessionInput struct {
 type SessionQuota struct {
 	MaxTurns  int32 `json:"max_turns"`
 	UsedTurns int32 `json:"used_turns"`
+	// MaxMembers —— 这张码最多几个名字(0 = 不限);visitor UI 配 members 数渲
+	// "N of M names"。
+	MaxMembers int32 `json:"max_members"`
 }
 
 // IssueCodeSessionResult —— IssueCodeSession 返回的成对结果，避免 3-return。
@@ -164,48 +167,76 @@ func issueCodeSessionArtifacts(
 }
 
 func codeSessionQuota(code *domain.AccessCode) SessionQuota {
+	q := SessionQuota{}
 	if code.MaxTurnsPerSession != nil && *code.MaxTurnsPerSession > 0 {
-		return SessionQuota{MaxTurns: *code.MaxTurnsPerSession}
+		q.MaxTurns = *code.MaxTurnsPerSession
 	}
-	return SessionQuota{}
+	if code.MaxMembers != nil && *code.MaxMembers > 0 {
+		q.MaxMembers = *code.MaxMembers
+	}
+	return q
 }
 
-// resolveMemberWithQuota —— upsert member by name；配额超额翻译成 domain
-// sentinel error。CodeMember 没有自己的 revoked 状态，revoke 在 AccessCode
-// 级别（code.status='revoked' → GetByCode 已经过滤掉 → 走不到这里）。
+// resolveMemberWithQuota —— upsert member by name，先过 max_members 闸:
+// 满额(已有 N 个不同名字 >= MaxMembers)且这是个**新名字** → ErrMemberQuotaReached
+// (visitor 见 "code 已满")；已有名字照常放行(续聊)。CodeMember 没有自己的
+// revoked 状态，revoke 在 AccessCode 级别(code.status='revoked' → GetByCode
+// 已经过滤掉 → 走不到这里)。
 func resolveMemberWithQuota(
 	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, name string,
 ) (domain.CodeMember, error) {
+	members, lerr := deps.Codes.ListMembers(ctx, code.ID)
+	if lerr != nil {
+		return domain.CodeMember{}, fmt.Errorf("list members for quota: %w", lerr)
+	}
+	if quotaErr := checkMemberQuota(code, members, name); quotaErr != nil {
+		return domain.CodeMember{}, quotaErr
+	}
 	member, merr := deps.Codes.GetOrCreateMember(ctx, code.ID, name)
 	if merr != nil {
 		return domain.CodeMember{}, fmt.Errorf("get/create member: %w", merr)
 	}
-	if quotaErr := checkSessionQuota(ctx, deps, code, member.ID); quotaErr != nil {
-		return domain.CodeMember{}, quotaErr
-	}
 	return member, nil
 }
 
-func checkSessionQuota(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, memberID string,
-) error {
-	if code.MaxSessionsPerMember == nil || *code.MaxSessionsPerMember <= 0 {
+// checkMemberQuota —— max_members 闸。NULL/<=0 不限;已有名字放行(GetOrCreate
+// 会续上它);新名字且已满 → 拒。匿名(name="")collapse 成一个 member,同样按
+// "已有 vs 新"判。
+func checkMemberQuota(code *domain.AccessCode, members []domain.CodeMember, name string) error {
+	if code.MaxMembers == nil || *code.MaxMembers <= 0 {
 		return nil
 	}
-	count, err := deps.Chats.CountSessionsForMember(ctx, memberID)
-	if err != nil {
-		return fmt.Errorf("count member sessions: %w", err)
+	if memberExists(members, name) {
+		return nil
 	}
-	if count >= *code.MaxSessionsPerMember {
-		return domain.ErrSessionQuotaReached
+	if int32(len(members)) >= *code.MaxMembers {
+		return domain.ErrMemberQuotaReached
 	}
 	return nil
 }
 
+func memberExists(members []domain.CodeMember, name string) bool {
+	for i := range members {
+		if members[i].DisplayName == name {
+			return true
+		}
+	}
+	return false
+}
+
+// createCodeConversation —— 「一个名字=一段续聊的会」:member 已有未结束的
+// conversation 就续上;没有(新 member / 上一段已 summary 结束)才新建。
 func createCodeConversation(
 	ctx context.Context, deps *VisitorDeps,
 	code *domain.AccessCode, member *domain.CodeMember, visitorName string,
 ) (domain.Chat, error) {
+	existing, gerr := deps.Chats.GetOpenChatByMember(ctx, member.ID)
+	if gerr == nil {
+		return existing, nil
+	}
+	if !errors.Is(gerr, domain.ErrChatNotFound) {
+		return domain.Chat{}, fmt.Errorf("look up member's open chat: %w", gerr)
+	}
 	memberID := member.ID
 	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
 		OwnerID:     code.OwnerID,
