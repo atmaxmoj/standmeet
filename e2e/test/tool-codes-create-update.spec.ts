@@ -43,7 +43,7 @@ async function seedCodesMCP(
 interface CreateResp { code_id: string; code: string; label: string }
 interface UpdateQuotasResp {
   code_id: string;
-  max_sessions_per_member: number | null;
+  max_members: number | null;
   max_turns_per_session: number | null;
 }
 
@@ -67,7 +67,7 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
           code: 'MCP-CREATE-001', label: 'created via mcp',
           assumed_role_id: roleID,
           suggested_questions: ['why us?', 'why this role?'],
-          max_sessions_per_member: 5,
+          max_members: 5,
           max_turns_per_session: 30,
         },
       );
@@ -93,7 +93,7 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
         {
           code: 'MCP-QUOTAS-001', label: 'quotas spec',
           assumed_role_id: roleID,
-          max_sessions_per_member: 3,
+          max_members: 3,
           max_turns_per_session: 10,
         },
       );
@@ -106,7 +106,7 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
       );
       expect(updated.code_id).toBe(created.code_id);
       expect(updated.max_turns_per_session).toBe(50);
-      expect(updated.max_sessions_per_member).toBe(3);
+      expect(updated.max_members).toBe(3);
       await request.dispose();
     });
 

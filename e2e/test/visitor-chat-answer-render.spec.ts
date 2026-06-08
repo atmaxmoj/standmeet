@@ -16,7 +16,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 
@@ -75,9 +75,7 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((r) =>
-        r.url().endsWith('/api/v1/sessions') && r.status() === 200);
+      await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       const skip = page.getByTestId('visitor-name-skip');
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {

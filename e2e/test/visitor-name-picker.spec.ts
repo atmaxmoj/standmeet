@@ -1,11 +1,10 @@
-// visitor-name-picker.spec.ts —— 首次 chat-capable surface (root /) +
-// session 有 code 但 visitor 名空 → 弹 VisitorNamePicker 模态。
+// visitor-name-picker.spec.ts —— 扫码(pending code)→ 弹 VisitorNamePicker
+// 模态;defer-issue:模态就是 issue 点,填名/skip 才开 session。
 //
 // 业务故事：
-//   1. QR 扫码进 / → visitor 没填名字 → 模态自动弹（access granted · code…）。
-//   2. visitor 填名 + submit → 模态消失 + SessionStrip 出现 "you · <名>"。
-//   3. dismiss timestamp 落 LS → 同 session 内不再弹。
-//   4. 直接点 skip → visitor 留 "anonymous"，模态不再弹。
+//   1. QR 扫码进 / → 模态自动弹（access granted · code…）。
+//   2. visitor 填名 + submit → 开 session + 模态消失 + SessionStrip 显名字。
+//   3. skip → 匿名开 session,模态消失;reload(pending 已消费 + session 在)不再弹。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -30,49 +29,34 @@ test.describe('VisitorNamePicker · auto-pop on first chat + persist', () => {
     await initOwnerWithCode(playwright);
   });
 
-  test('QR absorb without name → modal pops; submit name → modal closes + strip shows name',
+  test('QR absorb → modal pops; submit name → session + strip shows name',
     async ({ page }) => {
       await goto(page, `/?code=${CODE}`);
-      // session POST first
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
-      // strip is up
-      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // picker auto-pops（store visitor 是 null + session 是 code-tier）
+      // 模态自动弹(有 pending code)。
       const nameInput = page.getByTestId('visitor-name-input');
       await expect(nameInput).toBeVisible({ timeout: 5_000 });
-      // 输 + submit
+      // 输 + submit → 开 session + 模态消失 + strip 显名字。
       await nameInput.fill('Recruiter Joe');
       await page.getByTestId('visitor-name-submit').click();
-      // 模态消失 + strip 显示 visitor name
-      await expect(nameInput).toBeHidden({ timeout: 3_000 });
-      await expect(page.getByTestId('session-strip')).toContainText('Recruiter Joe');
+      await expect(nameInput).toBeHidden({ timeout: 5_000 });
+      await expect(page.getByTestId('session-strip')).toContainText('Recruiter Joe', {
+        timeout: 10_000,
+      });
     });
 
-  test('skip → modal closes + visitor = "anonymous"; reload no re-pop',
+  test('skip → anonymous session, modal closes; reload does not re-pop',
     async ({ page }) => {
       await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
-      // 先清掉前一 test 留下的 dismiss flag + LS visitor，逼出 modal
-      await page.evaluate(() => {
-        window.localStorage.removeItem('standmeet-visitor-name-dismissed');
-        const raw = window.localStorage.getItem('standmeet-session');
-        if (!raw) return;
-        const s = JSON.parse(raw) as { visitor: string | null };
-        s.visitor = null;
-        window.localStorage.setItem('standmeet-session', JSON.stringify(s));
-      });
-      await goto(page, '/'); // re-mount root to pick up cleared dismiss + visitor
       const skipBtn = page.getByTestId('visitor-name-skip');
       await expect(skipBtn).toBeVisible({ timeout: 5_000 });
       await skipBtn.click();
-      // modal 消失
-      await expect(skipBtn).toBeHidden({ timeout: 3_000 });
-      // dismiss timestamp 写进 LS
-      const dismissed = await page.evaluate(
-        () => window.localStorage.getItem('standmeet-visitor-name-dismissed'));
-      expect(dismissed).toBeTruthy();
+      // 模态消失 + 匿名 session 起来(strip 在)。
+      await expect(skipBtn).toBeHidden({ timeout: 5_000 });
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 10_000 });
+      // reload:pending 已消费 + session 已落 LS → 不再弹模态。
+      await goto(page, '/');
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      await expect(page.getByTestId('visitor-name-skip')).toBeHidden();
     });
 });
 

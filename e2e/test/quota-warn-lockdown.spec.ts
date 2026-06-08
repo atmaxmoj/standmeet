@@ -14,7 +14,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'warn-owner@example.com',
@@ -34,9 +34,7 @@ test.describe('quota warn at 80% + lockdown + unlimited', () => {
 
   test('turns at 80% → strip shows warn state + request more link',
     async ({ page }) => {
-      await goto(page, `/?code=${WARN_CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, WARN_CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // Send 4 of 5 turns (80%)
       for (let i = 0; i < 4; i++) {
@@ -54,9 +52,7 @@ test.describe('quota warn at 80% + lockdown + unlimited', () => {
 
   test('quota exhausted → composer locked + session full message',
     async ({ page }) => {
-      await goto(page, `/?code=${WARN_CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, WARN_CODE);
       // Use all 5 turns
       for (let i = 0; i < MAX_TURNS; i++) {
         const input = page.locator('[data-testid="chat-input-field"]');
@@ -73,9 +69,7 @@ test.describe('quota warn at 80% + lockdown + unlimited', () => {
 
   test('max_turns = null (unlimited) → never locks',
     async ({ page }) => {
-      await goto(page, `/?code=${UNLIMITED_CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, UNLIMITED_CODE);
       // Send a few turns and verify never locked
       for (let i = 0; i < 3; i++) {
         const input = page.locator('[data-testid="chat-input-field"]');

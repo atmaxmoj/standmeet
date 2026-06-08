@@ -13,7 +13,7 @@ export interface IssueCodeInput {
   label?: string;
   granted_skills?: readonly string[];
   max_bookings?: number;
-  max_sessions_per_member?: number;
+  max_members?: number;
   max_turns_per_session?: number;
 }
 
@@ -92,7 +92,7 @@ async function postCode(
         label: input.label ?? 'gcal-spec',
         assumed_role_id: roleID,
         max_bookings: input.max_bookings ?? null,
-        max_sessions_per_member: input.max_sessions_per_member ?? 10,
+        max_members: input.max_members ?? 10,
         max_turns_per_session: input.max_turns_per_session ?? 50,
       },
       headers: { 'X-Csrftoken': csrf },

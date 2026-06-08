@@ -18,7 +18,7 @@ import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, enterCodeSession } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 
@@ -146,9 +146,7 @@ async function openConversationModalInAdmin(adminPage: Page): Promise<void> {
 }
 
 async function enterChatWithCode(page: Page): Promise<void> {
-  await goto(page, `/?code=${CODE}`);
-  await page.waitForResponse((res) =>
-    res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+  await enterCodeSession(page, CODE);
   await dismissNamePicker(page);
   // code-mode visitor 落到 ChatRoom (page-shell.useChatModeDetect)；
   // chat-input form 渲在 sticky composer 里。

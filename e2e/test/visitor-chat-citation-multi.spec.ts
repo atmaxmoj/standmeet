@@ -9,7 +9,7 @@ import type { Page } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 
@@ -52,12 +52,7 @@ test.describe('多 dialog citation 各自独立 expand', () => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
 
-      await goto(page, `/?code=${CODE}`);
-      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      const skip = page.getByTestId('visitor-name-skip');
-      if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await skip.click();
-      }
+      await enterCodeSession(page, CODE);
 
       const input = page.locator('[data-testid="chat-input-field"]');
       // 第一轮：lucerna —— references 默认折叠,先展开含 lucerna 那条的列表。

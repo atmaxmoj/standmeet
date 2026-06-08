@@ -9,14 +9,14 @@
 //   5. rapid double-submit → pending lock prevents double-send
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { Playwright, Page } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'comp-owner@example.com',
@@ -35,15 +35,8 @@ test.describe('ChatComposer behavior', () => {
 
   test('coded visitor sees starter chips → click → auto-send → chips gone',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // Dismiss VisitorNamePicker if it appears (QR scan without name)
-      const skipBtn = page.getByRole('button', { name: /skip/i });
-      if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await skipBtn.click();
-      }
       // Starter chips should be visible
       const chips = page.getByTestId('starter-chips');
       await expect(chips).toBeVisible({ timeout: 5_000 });
@@ -57,9 +50,7 @@ test.describe('ChatComposer behavior', () => {
 
   test('manual input → ask → turn + answer render',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       const input = page.getByTestId('chat-input-field');
       await input.fill('what are your skills?');
       await input.press('Enter');
@@ -72,9 +63,7 @@ test.describe('ChatComposer behavior', () => {
 
   test('pending state → input disabled + submit gray',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       const input = page.getByTestId('chat-input-field');
       await input.fill('test pending');
       // Intercept the response to keep it pending longer
@@ -82,15 +71,19 @@ test.describe('ChatComposer behavior', () => {
       // During pending, input should be disabled
       await expect(input).toBeDisabled({ timeout: 3_000 });
     });
+});
+
+// 第二组:textarea / 长粘贴行为(拆出来守 max-lines-per-function)。
+test.describe('ChatComposer textarea + paste', () => {
+  test.beforeAll(async ({ playwright }) => {
+    await initOwner(playwright);
+  });
 
   // Shift+Enter must insert a newline, NOT submit — the composer is a textarea
   // now, so a multi-line question (or someone mid-thought) doesn't fire early.
   test('Shift+Enter inserts newline; Enter submits',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
-      await dismissNamePicker(page);
+      await enterCodeSession(page, CODE);
       const input = page.getByTestId('chat-input-field');
       await expect(input).toHaveJSProperty('tagName', 'TEXTAREA');
       await input.click();
@@ -106,10 +99,7 @@ test.describe('ChatComposer behavior', () => {
   // full text is still sent, surfacing in the transcript as a collapsed block.
   test('long paste → attachment chip → sent + preserved in transcript',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
-      await dismissNamePicker(page);
+      await enterCodeSession(page, CODE);
       const input = page.getByTestId('chat-input-field');
       await input.click();
       const longText = `Senior Go Engineer\n${'We need someone with deep distributed-systems experience. '.repeat(12)}`;
@@ -134,10 +124,7 @@ test.describe('ChatComposer behavior', () => {
   // The chip is removable before sending — paste was a mistake, take it back.
   test('attachment chip is removable before send',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
-      await dismissNamePicker(page);
+      await enterCodeSession(page, CODE);
       await page.getByTestId('chat-input-field').click();
       await pasteInto(page, 'x'.repeat(400));
       const chip = page.getByTestId('composer-attachment');
@@ -147,21 +134,10 @@ test.describe('ChatComposer behavior', () => {
     });
 });
 
-// dismissNamePicker —— a coded visitor without a stored name gets the
-// VisitorNamePicker overlay, which intercepts pointer events over the composer.
-// Skip it before touching the input (no-op if it never showed).
-async function dismissNamePicker(page: import('@playwright/test').Page): Promise<void> {
-  const skip = page.getByTestId('visitor-name-skip');
-  if (await skip.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await skip.click();
-    await expect(skip).toBeHidden({ timeout: 3_000 });
-  }
-}
-
 // pasteInto —— dispatch a real `paste` ClipboardEvent carrying text, so React's
 // onPaste (the long-paste→attachment path) fires. Playwright's fill() bypasses
 // paste, so we synthesize the event on the focused textarea.
-async function pasteInto(page: import('@playwright/test').Page, text: string): Promise<void> {
+async function pasteInto(page: Page, text: string): Promise<void> {
   await page.getByTestId('chat-input-field').evaluate((el, t) => {
     const dt = new DataTransfer();
     dt.setData('text', t);

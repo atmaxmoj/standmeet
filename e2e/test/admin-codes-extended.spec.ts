@@ -37,7 +37,7 @@ test.describe('admin codes extended features', () => {
       await adminPage.getByRole('button', { name: /new code/i }).click();
       await adminPage.getByTestId('code-input').fill(CODE);
       await adminPage.getByTestId('code-label').fill('Ext Test Code');
-      await adminPage.getByTestId('code-max-sessions').fill('3');
+      await adminPage.getByTestId('code-max-members').fill('3');
       await adminPage.getByTestId('code-max-turns').fill('15');
       await adminPage.getByTestId('code-create').click();
       // Card should appear
@@ -53,10 +53,10 @@ test.describe('admin codes extended features', () => {
       const card = adminPage.getByTestId(`code-card-${CODE}`);
       await card.getByRole('button', { name: 'edit', exact: true }).click();
       // Edit mode only shows quota fields (label/code not editable)
-      await adminPage.getByTestId('code-max-sessions').fill('10');
+      await adminPage.getByTestId('code-max-members').fill('10');
       await adminPage.getByTestId('code-max-turns').fill('25');
       await adminPage.getByTestId('code-save').click();
-      await expect(card).toContainText('10 sessions', { timeout: 5_000 });
+      await expect(card).toContainText('10 names', { timeout: 5_000 });
     });
 
   test('view conversations link → navigates with code filter',

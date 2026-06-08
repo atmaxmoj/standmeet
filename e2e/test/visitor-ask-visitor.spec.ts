@@ -17,7 +17,7 @@ import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
@@ -115,9 +115,7 @@ test.describe('visitor ask_visitor capability · I.1', () => {
 });
 
 async function enterChatWithCode(page: Page): Promise<void> {
-  await goto(page, `/?code=${CODE}`);
-  await page.waitForResponse((res) =>
-    res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+  await enterCodeSession(page, CODE);
   await dismissNamePicker(page);
   await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
 }

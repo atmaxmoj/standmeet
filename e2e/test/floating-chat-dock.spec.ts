@@ -15,7 +15,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { goto, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'dock-owner@example.com',
@@ -43,9 +43,7 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
   test('with session → pill visible → click → expand → chat → close',
     async ({ page }) => {
       // Absorb code first
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
       // Navigate to writings

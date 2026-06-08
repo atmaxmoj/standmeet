@@ -11,7 +11,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession, goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'tab-owner@example.com',
@@ -37,10 +37,8 @@ test.describe('cross-tab session sync via localStorage', () => {
       await goto(tabB, '/');
       await expect(tabB.getByTestId('session-strip')).toHaveCount(0);
 
-      // Tab A absorbs code
-      await goto(tabA, `/?code=${CODE}`);
-      await tabA.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      // Tab A 扫码 + 选名(defer-issue:skip 才 issue session)。
+      await enterCodeSession(tabA, CODE);
       await expect(tabA.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
       // Tab B should pick up the storage event and show strip
@@ -55,16 +53,9 @@ test.describe('cross-tab session sync via localStorage', () => {
       const tabA = await context.newPage();
       const tabB = await context.newPage();
 
-      // Both tabs start with session
-      await goto(tabA, `/?code=${CODE}`);
-      await tabA.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      // Tab A 扫码 + 选名进来。
+      await enterCodeSession(tabA, CODE);
       await expect(tabA.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // Dismiss VisitorNamePicker so it doesn't block the strip's exit link
-      const skipBtn = tabA.getByRole('button', { name: /skip/i });
-      if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await skipBtn.click();
-      }
 
       await goto(tabB, '/');
       await expect(tabB.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });

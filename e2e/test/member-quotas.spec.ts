@@ -1,11 +1,11 @@
-// member-quotas.spec.ts —— 同一个 code 给两个人，配额按 member 独立计数。
+// member-quotas.spec.ts —— max_members:一张码最多几个不同名字(人)。
 //
-// 用户故事：
-//   owner 给 HR 团队发 INTERVIEW-A1（max_sessions_per_member=1）。Sarah
-//   开了一个 session，再开第二个被拒。Bob 用同一个码、不同名字，第一个
-//   session 仍然能开。
+// 用户故事:
+//   owner 发 INTERVIEW-A1(max_members=1)—— 只给一个人用。Sarah 用她的名字
+//   进来 ok;她再用同一个名字进来还是 ok(同名 = 同一个人,续上她那段会)。
+//   Bob 用同一张码、**不同名字**进来 → 被拒(名额满了,只允许 1 个名字)。
 //
-// 全部走 API （visitor 侧 helper），UI 在 gate-access.spec.ts 已经验证。
+// 全部走 API(visitor 侧 helper),UI 流在 max-members.spec.ts 验证。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -24,7 +24,7 @@ const OWNER = {
 
 const CODE = 'INTERVIEW-A1';
 
-test.describe('per-member quota counts independently for each visitor name', () => {
+test.describe('max_members caps the number of distinct names on a code', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -32,37 +32,39 @@ test.describe('per-member quota counts independently for each visitor name', () 
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
-    await issueCodeWithQuota(request);
+    await issueCodeWithMaxMembers(request);
     await request.dispose();
   });
 
-  test('Sarah blocked on 2nd session, Bob still allowed', async ({ request }) => {
-    const first = await issueSession(request, {
-      handle: OWNER.handle, code: CODE, visitor_name: 'Sarah',
-    });
-    expect(first.session_token).not.toBe('');
+  test('same name always allowed (resumes); a different name is blocked when full',
+    async ({ request }) => {
+      // Sarah(第 1 个名字)→ ok。
+      const first = await issueSession(request, {
+        handle: OWNER.handle, code: CODE, visitor_name: 'Sarah',
+      });
+      expect(first.session_token).not.toBe('');
 
-    const secondStatus = await issueSessionStatus(request, {
-      handle: OWNER.handle, code: CODE, visitor_name: 'Sarah',
-    });
-    expect(secondStatus).toBe(403);
+      // Sarah 再来 = 同一个人,续上 → 仍然 ok(不占新名额)。
+      const sarahAgain = await issueSessionStatus(request, {
+        handle: OWNER.handle, code: CODE, visitor_name: 'Sarah',
+      });
+      expect(sarahAgain).toBe(200);
 
-    const bob = await issueSessionStatus(request, {
-      handle: OWNER.handle, code: CODE, visitor_name: 'Bob',
+      // Bob = 第 2 个名字,max_members=1 已满 → 403。
+      const bob = await issueSessionStatus(request, {
+        handle: OWNER.handle, code: CODE, visitor_name: 'Bob',
+      });
+      expect(bob).toBe(403);
     });
-    expect(bob).toBe(200);
-  });
 });
 
-async function issueCodeWithQuota(request: APIRequestContext): Promise<void> {
+async function issueCodeWithMaxMembers(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  // helper 不需要 token，但保留 createAPIToken 一致性
   await createAPIToken(request, csrf, 'noop-token');
   await createCode(request, csrf, {
     code: CODE,
     label: 'Interview round A',
     purpose: 'member-quota spec',
-
-    max_sessions_per_member: 1,
+    max_members: 1,
   });
 }

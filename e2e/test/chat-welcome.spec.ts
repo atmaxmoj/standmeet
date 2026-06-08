@@ -14,7 +14,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'cwelcome@example.com',
@@ -32,9 +32,7 @@ test.describe('ChatWelcome renders correct greeting', () => {
 
   test('coded mode → welcome shows code info',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // Skip name picker if it appears
       const skip = page.getByTestId('visitor-name-skip');

@@ -14,7 +14,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, enterCodeSession } from '@/fixtures/navigate';
 import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
 import { applicationsCommit, resumeDraft, sampleResumeContent } from '@/fixtures/resume';
 
@@ -43,9 +43,7 @@ test.describe('job loop end-to-end integration', () => {
 
   test('recruiter scans QR code → lands in ChatRoom',
     async ({ page }) => {
-      await goto(page, `/?code=${accessCode}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, accessCode);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('chat-input')).toBeVisible();
     });

@@ -14,7 +14,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { goto, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'persist-owner@example.com',
@@ -32,9 +32,7 @@ test.describe('session persistence: refresh + exit', () => {
 
   test('code session → refresh → session restored → still in ChatRoom',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // refresh
       await goto(page, '/');
@@ -45,9 +43,7 @@ test.describe('session persistence: refresh + exit', () => {
 
   test('code session → exit → back to long-scroll',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // Dismiss VisitorNamePicker if it appears (overlays the strip)
       const skipBtn = page.getByRole('button', { name: /skip/i });

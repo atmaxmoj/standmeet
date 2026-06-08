@@ -52,7 +52,7 @@ async function editQuotas(
   // click the card's "edit" Btn (unique kind=outline / text=edit on this card).
   const card = page.getByTestId(`code-card-${code}`);
   await card.getByRole('button', { name: 'edit', exact: true }).click();
-  await page.getByTestId('code-max-sessions').fill(sessions);
+  await page.getByTestId('code-max-members').fill(sessions);
   await page.getByTestId('code-max-turns').fill(turns);
   await page.getByTestId('code-save').click();
   await expect(page.getByTestId('toast-success').filter({ hasText: 'Quotas updated' }))
@@ -70,7 +70,7 @@ async function createCodeWithQuotas(
   await page.getByRole('button', { name: /new code/i }).click();
   await page.getByTestId('code-input').fill(code);
   await page.getByTestId('code-label').fill(label);
-  await page.getByTestId('code-max-sessions').fill(sessions);
+  await page.getByTestId('code-max-members').fill(sessions);
   await page.getByTestId('code-max-turns').fill(turns);
   await page.getByTestId('code-create').click();
   await expect(page.getByTestId(`code-row-${code}`)).toBeVisible({ timeout: 5_000 });
@@ -81,7 +81,7 @@ async function expectQuotaLineVisible(
 ): Promise<void> {
   const line = page.getByTestId(`code-quotas-${code}`);
   await expect(line).toBeVisible();
-  await expect(line).toContainText(`${sessions} sessions`);
+  await expect(line).toContainText(`${sessions} names`);
   await expect(line).toContainText(`${turns} turns`);
 }
 

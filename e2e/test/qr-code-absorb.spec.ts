@@ -12,7 +12,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { goto, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'qr-owner@example.com',
@@ -28,25 +28,28 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
     await initOwnerWithCode(playwright);
   });
 
-  test('visitor lands on /?code=QR-001 → URL becomes / + coded banner shows',
+  test('lands on /?code=QR-001 → URL stripped + picker pops; skip → session + strip',
     async ({ page }) => {
-      // 监听 sessions POST，确认 absorb 确实触发了 issueCodeSession。
-      const sessionsCall = page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.request().method() === 'POST'
-        && res.status() === 200);
-
       await goto(page, '/?code=' + VISITOR_CODE);
-      await sessionsCall;
 
-      // 1. URL 被清干净（?code= 不应再在 URL 上）
+      // 1. URL 立刻被清干净（?code= 不留在 URL/history/截图上）。
       await expect.poll(() => page.url(), { timeout: 5_000 })
         .not.toMatch(/[?&]code=/);
       expect(page.url()).toMatch(/\/$/);
 
-      // 2. coded banner 渲出（说明 tier 从 'public' 切到 'code'）
+      // 2. defer-issue:此时还没 issue session,先弹名字选择器。
+      const skip = page.getByTestId('visitor-name-skip');
+      await expect(skip).toBeVisible({ timeout: 5_000 });
+
+      // 3. skip → 这时才 issueCodeSession;session + strip 起来。
+      const sessionsCall = page.waitForResponse((res) =>
+        res.url().endsWith('/api/v1/sessions') && res.request().method() === 'POST'
+        && res.status() === 200);
+      await skip.click();
+      await sessionsCall;
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // 3. localStorage 有 visitor-session（byoai=false）
+      // 4. localStorage 有 visitor-session（byoai=false）。
       const stored = await page.evaluate(() =>
         window.localStorage.getItem('standmeet:visitor-session'));
       expect(stored).toBeTruthy();
@@ -58,9 +61,7 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
   test('reload on / (no code in URL) → 不会重复 issue session；banner 仍是 code',
     async ({ page }) => {
       // 先模拟"已经吸过 code"：用户 /?code=QR-001 落地 → 现在 reload 干净 URL
-      await goto(page, '/?code=' + VISITOR_CODE);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, VISITOR_CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible();
 
       // 现在 reload 到干净 URL，看不会再发 sessions POST
@@ -77,24 +78,24 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
       expect(extraCalls).toBe(0);
     });
 
-  test('invalid `?code=BOGUS` → URL 仍被清干净；停在 public tier',
+  test('invalid `?code=BOGUS` → URL 清干净;提交后 401 → 回落 public(无 strip)',
     async ({ page }) => {
-      // 先清掉上一 test 留的 LS（context 不共享但 page 串跑共享 storage 路径，
-      // 保险起见用 evaluate 清）。
       await goto(page, '/');
       await page.evaluate(() => window.localStorage.clear());
 
       await goto(page, '/?code=BOGUS-NOPE');
-      // 等 sessions POST 返非 200（坏码）
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.request().method() === 'POST');
-
-      // URL 上 code= 也被清掉（regardless of API outcome）
+      // URL 上 code= 被清掉（absorb 仍发生,只是不立刻 issue）。
       await expect.poll(() => page.url(), { timeout: 5_000 })
         .not.toMatch(/[?&]code=/);
 
-      // SessionStrip 应不渲染（public tier, 没 code 没 byoai）
-      await expect(page.getByTestId('session-strip')).toHaveCount(0);
+      // 名字选择器弹;skip → issueCodeSession(坏码) → 401 → 丢 pending 回落 public。
+      const skip = page.getByTestId('visitor-name-skip');
+      await expect(skip).toBeVisible({ timeout: 5_000 });
+      await skip.click();
+
+      // 没 session → strip 不渲;名字选择器也消失(pending 被消费)。
+      await expect(page.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
+      await expect(skip).toBeHidden({ timeout: 5_000 });
     });
 });
 

@@ -15,7 +15,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'turn-owner@example.com',
@@ -33,9 +33,7 @@ test.describe('turn rendering: citations, pending, error', () => {
 
   test('answer renders with citations block',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       // Skip name picker if visible
       const skip = page.getByTestId('visitor-name-skip');
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {

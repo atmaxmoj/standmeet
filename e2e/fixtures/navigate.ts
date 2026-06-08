@@ -16,6 +16,35 @@ export async function goto(page: Page, path: string): Promise<void> {
   await page.goto(url);
 }
 
+// enterCodeSession —— 走 `?code=` 入口拿到一个 code session。
+//
+// defer-issue 后 /sessions 不在扫码时发,而是在名字选择器**选名字(或 skip)**
+// 时才发。所以入口序列固定:goto → 名字选择器出现 → 填名提交(或 skip)→ 等
+// /sessions 200。name 给字符串 = 用该名字(具名 member);省略 = skip(匿名)。
+export async function enterCodeSession(
+  page: Page, code: string, name?: string,
+): Promise<void> {
+  await goto(page, `/?code=${code}`);
+  const session = page.waitForResponse(
+    (r) => r.url().endsWith('/api/v1/sessions') && r.status() === 200,
+    { timeout: 15_000 },
+  );
+  await submitVisitorName(page, name);
+  await session;
+}
+
+// submitVisitorName —— 名字选择器:有名字就填+提交,没名字就 skip。
+async function submitVisitorName(page: Page, name?: string): Promise<void> {
+  const skip = page.getByTestId('visitor-name-skip');
+  await skip.waitFor({ state: 'visible', timeout: 15_000 });
+  if (name === undefined || name === '') {
+    await skip.click();
+    return;
+  }
+  await page.getByTestId('visitor-name-input').fill(name);
+  await page.getByTestId('visitor-name-submit').click();
+}
+
 // gotoAdminSection —— admin sidebar 上点一个 section 的 nav link。
 // 按 testid (data-testid="admin-nav-<slug>") 匹配，不受 design 改 label
 // / sidebar 重排 影响。

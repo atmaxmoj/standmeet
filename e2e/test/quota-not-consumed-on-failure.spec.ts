@@ -17,7 +17,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 import { scriptMockReplyText, scriptMockError } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
@@ -36,9 +36,7 @@ test.describe('failed turn does not consume a turn', () => {
 
   test('success → used 1; injected failure → still 1; success → 2',
     async ({ page, request }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((r) =>
-        r.url().endsWith('/api/v1/sessions') && r.status() === 200);
+      await enterCodeSession(page, CODE);
       await dismissNamePicker(page);
 
       const used = page.locator('.sm-session-strip-used');

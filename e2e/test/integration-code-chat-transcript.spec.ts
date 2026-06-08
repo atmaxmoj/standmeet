@@ -13,7 +13,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto, gotoAdminSection } from '@/fixtures/navigate';
+import { enterCodeSession, goto, gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'integ-chat@example.com',
@@ -35,14 +35,8 @@ test.describe('code → chat → transcript integration', () => {
       // Visitor context (no auth)
       const visitorCtx = await browser.newContext();
       const visitor = await visitorCtx.newPage();
-      await goto(visitor, `/?code=${CODE}`);
-      await visitor.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(visitor, CODE);
       await expect(visitor.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      const skip = visitor.getByTestId('visitor-name-skip');
-      if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await skip.click();
-      }
       const input = visitor.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about integration testing');
       await input.press('Enter');

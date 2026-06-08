@@ -14,7 +14,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { goto } from '@/fixtures/navigate';
+import { enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'layout-owner@example.com',
@@ -40,9 +40,7 @@ test.describe('ChatRoom layout switching', () => {
 
   test('coded visitor sees ChatRoom, not long-scroll',
     async ({ page }) => {
-      await goto(page, `/?code=${CODE}`);
-      await page.waitForResponse((res) =>
-        res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('chat-input')).toBeVisible();
       await expect(page.getByTestId('chat-welcome')).toBeVisible();
