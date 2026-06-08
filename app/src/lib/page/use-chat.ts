@@ -68,6 +68,13 @@ export type ToolCallView = {
   result: unknown;
 };
 
+// ToolThrobberView —— per-tool 进度行:name 给 `tool-throbber-<name>` testid,
+// label 是已拼好的人话文案(throbber-label.ts)。
+export type ToolThrobberView = {
+  name: string;
+  label: string;
+};
+
 export type Dialog = {
   id: string;
   q: string;
@@ -75,9 +82,9 @@ export type Dialog = {
   pending: boolean;
   answer: DialogAnswer | null;
   // D-5: per-tool throbber 序列。agent-core 跑每个 tool 时 tool_started →
-  // name 入这个列表；ConversationDeck / ChatRoom 渲一条 throbber，label
-  // 走 useThrobberLabel 从 backend ToolSpec.progress_label 拉 (G-8)。
-  toolStartedLabels: readonly string[];
+  // {name, label} 入列；label 由 throbber-label.ts 按 name+args+backend
+  // progress_label 拼(corpus 读带 document,其它用 backend label)。
+  toolStarted: readonly ToolThrobberView[];
   // G-4: tool_completed 累到这里；UI 按 name 渲卡片 (corpus_search 卡 /
   // skill_*/ext_* generic dump)。corpus_read 的 result 走 Citation 不重复。
   toolCalls: readonly ToolCallView[];
@@ -190,7 +197,7 @@ interface DialogAccumulator {
   body: string;
   citations: Citation[];
   seenCitedPaths: Set<string>;
-  toolStartedLabels: string[];
+  toolStarted: ToolThrobberView[];
   toolCalls: ToolCallView[];
   retrying: boolean;
   // errorMsg —— backend 出 `error` 事件(含 stream-cut 兜底)时的人话消息;
@@ -201,7 +208,7 @@ interface DialogAccumulator {
 function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedPaths: new Set(),
-    toolStartedLabels: [], toolCalls: [], retrying: false, errorMsg: '',
+    toolStarted: [], toolCalls: [], retrying: false, errorMsg: '',
   };
 }
 
@@ -225,7 +232,10 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
     return;
   }
   if (ev.type === 'tool_started') {
-    accum.toolStartedLabels.push(throbberLabel(ev.name, ev.args, accum.toolStartedLabels.length));
+    accum.toolStarted.push({
+      name: ev.name,
+      label: throbberLabel(ev.name, ev.args, ev.progressLabel, accum.toolStarted.length),
+    });
     accum.retrying = false;
     return;
   }
@@ -350,7 +360,7 @@ function assembledPartIDs(sess: PageSession): readonly string[] {
 function newPendingDialog(id: string, q: string): Dialog {
   return {
     id, q, time: nowHM(), pending: true, answer: null,
-    toolStartedLabels: [], toolCalls: [], retrying: false,
+    toolStarted: [], toolCalls: [], retrying: false,
   };
 }
 
@@ -379,7 +389,7 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
     // error / answer 已有内容 → 不再 pending;retrying 期间 body 空仍 pending。
     pending: stillPending && accum.body === '' && accum.errorMsg === '',
     retrying: stillPending && accum.retrying,
-    toolStartedLabels: [...accum.toolStartedLabels],
+    toolStarted: [...accum.toolStarted],
     toolCalls: [...accum.toolCalls],
     answer: accum.errorMsg !== '' ? noticeAnswer(accum.errorMsg) : {
       paras: splitParas(accum.body),

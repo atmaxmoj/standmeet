@@ -18,7 +18,7 @@ import { useEffect, useRef } from 'react';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
-import type { Citation, Dialog, DialogAnswer } from '@/lib/page/use-chat';
+import type { Citation, Dialog, DialogAnswer, ToolThrobberView } from '@/lib/page/use-chat';
 
 type Props = {
   ownerHandle: string;
@@ -96,7 +96,7 @@ function AssistantBody({ dialog, ownerHandle, onAsk }: {
 }) {
   return (
     <>
-      <ToolThrobbers labels={dialog.toolStartedLabels} />
+      <ToolThrobbers items={dialog.toolStarted} />
       {dialog.pending
         ? <Thinking retrying={dialog.retrying} />
         : <AnswerOrError dialog={dialog} ownerHandle={ownerHandle} onAsk={onAsk} />}
@@ -104,23 +104,23 @@ function AssistantBody({ dialog, ownerHandle, onAsk }: {
   );
 }
 
-// ToolThrobbers —— per-tool 进度行。label 已在 use-chat 按 name+args 拼好
-// (throbber-label.ts:动词轮换 + 在读哪个文档),这里直接渲。
-function ToolThrobbers({ labels }: { labels: readonly string[] }) {
-  return labels.length === 0 ? null : (
+// ToolThrobbers —— per-tool 进度行。label 已在 use-chat 按 name+args+backend
+// progress_label 拼好;name 给 `tool-throbber-<name>` testid。
+function ToolThrobbers({ items }: { items: readonly ToolThrobberView[] }) {
+  return items.length === 0 ? null : (
     <ul
       data-testid="tool-throbbers"
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
     >
-      {labels.map((label, i) => <ToolThrobberRow key={i} label={label} />)}
+      {items.map((it, i) => <ToolThrobberRow key={i} item={it} />)}
     </ul>
   );
 }
 
-function ToolThrobberRow({ label }: { label: string }) {
+function ToolThrobberRow({ item }: { item: ToolThrobberView }) {
   return (
-    <li data-testid="tool-throbber">
-      {label}
+    <li data-testid={`tool-throbber-${item.name}`}>
+      {item.label}
       <span className="dot">·</span>
       <span className="dot">·</span>
       <span className="dot">·</span>

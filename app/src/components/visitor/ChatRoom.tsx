@@ -18,7 +18,7 @@ import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
-import type { Citation, SessionMode } from '@/lib/page/use-chat';
+import type { Citation, SessionMode, ToolThrobberView } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
 
 type Props = { owner: PublicOwnerView; mode: SessionMode };
@@ -165,30 +165,30 @@ function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => v
         <span className="text-(--color-ink)">you</span>
       </div>
       <VisitorQuestion q={dialog.q} />
-      <ToolThrobbers labels={dialog.toolStartedLabels} />
+      <ToolThrobbers items={dialog.toolStarted} />
       <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
       {dialog.pending ? <ThinkingDots retrying={dialog.retrying} /> : <AnswerView answer={dialog.answer} />}
     </article>
   );
 }
 
-// ToolThrobbers —— label 已在 use-chat 按 name+args 拼好(throbber-label.ts:
-// 动词轮换 + 在读哪个文档),这里直接渲。
-function ToolThrobbers({ labels }: { labels: readonly string[] }) {
-  return labels.length === 0 ? null : (
+// ToolThrobbers —— per-tool 进度行。label 已在 use-chat 按 name+args+backend
+// progress_label 拼好;name 给 `tool-throbber-<name>` testid。
+function ToolThrobbers({ items }: { items: readonly ToolThrobberView[] }) {
+  return items.length === 0 ? null : (
     <ul
       data-testid="tool-throbbers"
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
     >
-      {labels.map((label, i) => <ToolThrobberRow key={i} label={label} />)}
+      {items.map((it, i) => <ToolThrobberRow key={i} item={it} />)}
     </ul>
   );
 }
 
-function ToolThrobberRow({ label }: { label: string }) {
+function ToolThrobberRow({ item }: { item: ToolThrobberView }) {
   return (
-    <li data-testid="tool-throbber">
-      {label}
+    <li data-testid={`tool-throbber-${item.name}`}>
+      {item.label}
       <span className="sm-dot">·</span>
       <span className="sm-dot">·</span>
       <span className="sm-dot">·</span>
