@@ -52,10 +52,22 @@ export class VisitorTurnAgent {
     };
     this.emit({ type: 'iteration_started', iter: 0 });
     const ctx = makeCtx();
-    for await (const ev of this.ports.turn.stream(req)) {
-      this.consumeEvent(ev, ctx);
+    try {
+      for await (const ev of this.ports.turn.stream(req)) {
+        this.consumeEvent(ev, ctx);
+      }
+    } catch {
+      // 流被中途掐断:reader.read() reject(代理/服务器 write-deadline 超时、
+      // 网络抖动 → ERR_INCOMPLETE_CHUNKED_ENCODING)。绝不让对话卡在 pending。
+      ctx.streamCut = true;
     }
     this.emit({ type: 'iteration_completed', iter: 0 });
+    // 流被掐断但已经收到可用回答(常见:答案流完了、被掐的只是 done 尾帧)→
+    // 当截断答案正常收尾。一个字都没收到才 surface 友好 error。
+    if (ctx.streamCut && ctx.text === '') {
+      ctx.errored = true;
+      this.emit({ type: 'error', message: STREAM_CUT_MESSAGE });
+    }
     if (ctx.errored) return history;
     this.emit({ type: 'final_text', text: ctx.text });
     return [
@@ -114,13 +126,20 @@ export class VisitorTurnAgent {
   }
 }
 
+// STREAM_CUT_MESSAGE —— 流被掐断且一个字都没收到时给 visitor 的人话兜底。
+// 不暴露 ERR_INCOMPLETE_CHUNKED_ENCODING 之类的技术细节。
+const STREAM_CUT_MESSAGE =
+  'The connection dropped before a reply came back. Please try asking again.';
+
 interface TurnCtx {
   text: string;
   errored: boolean;
+  // streamCut —— 流在 done 帧之前被掐断(reader 抛错)。
+  streamCut: boolean;
 }
 
 function makeCtx(): TurnCtx {
-  return { text: '', errored: false };
+  return { text: '', errored: false, streamCut: false };
 }
 
 // safeParseToolResult —— H.10: backend agent loop 把 tool RunFn 的 raw

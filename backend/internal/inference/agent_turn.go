@@ -91,6 +91,7 @@ func RunAgentTurn(
 	timeout := agentTurnTimeout()
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	ctx = withLLMLog(ctx, log) // so the retry transport (http_retry.go) can log
 	start := time.Now()
 	log.Info("agent turn start", "model", credModel(in.Cred), "mode", in.Mode,
 		"tools", len(in.Tools), "timeout_s", int(timeout.Seconds()))
@@ -103,11 +104,32 @@ func RunAgentTurn(
 		return
 	}
 	setStreamSSEHeaders(w)
+	extendStreamWriteDeadline(log, w, timeout)
 	sink := &sseSink{log: log, w: w, flusher: pickFlusher(w)}
 	DriveAgentLoop(ctx, log, in, iter, sink)
 
 	dur := time.Since(start)
 	logAgentTurnEnd(ctx, log, dur, timeout)
+}
+
+// writeDeadlineGrace —— write deadline 比 agent turn ctx timeout 多留这点,
+// 让 ctx 超时那一刻 sink 还来得及把 error/done 帧刷出去再被 server 掐。
+const writeDeadlineGrace = 15 * time.Second
+
+// extendStreamWriteDeadline —— 解"长 turn 被 http.Server.WriteTimeout(30s)
+// 拦腰掐断"的根因。WriteTimeout 是对**整条响应**写完的硬上限,对常规 endpoint
+// 合理,但 SSE 流式响应会一直写到 turn 结束;>30s 的 turn(大 JD + 慢 LLM +
+// 多轮 tool)会在中途被 server 关连接 → 浏览器收 ERR_INCOMPLETE_CHUNKED_ENCODING、
+// 前端永远 retrieving。这里用 ResponseController 把**本条连接**的 write deadline
+// 推到 agent turn timeout 之外,真正的上限交给上面的 ctx WithTimeout 兜。
+// httptest.Recorder 等不支持 deadline 的 writer 会返 ErrNotSupported —— 记一行
+// 即可,流仍由 ctx 控住。
+func extendStreamWriteDeadline(log *slog.Logger, w http.ResponseWriter, timeout time.Duration) {
+	rc := http.NewResponseController(w)
+	if err := rc.SetWriteDeadline(time.Now().Add(timeout + writeDeadlineGrace)); err != nil {
+		log.Warn("agent turn: extend write deadline unsupported (stream capped by ctx only)",
+			logErrKey, err)
+	}
 }
 
 // logAgentTurnEnd —— 收尾日志:正常完成打 info;命中 deadline 打 warn(尤其是

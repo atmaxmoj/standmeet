@@ -62,3 +62,6 @@ logs/
 # Tool caches
 .turbo/
 .cache/
+
+# Playwright MCP screenshots (local QA scratch)
+.playwright-mcp/

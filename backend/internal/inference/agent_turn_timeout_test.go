@@ -1,4 +1,4 @@
-package inference //nolint:testpackage // external pkg would self-import (arch-lint)
+package inference
 
 import (
 	"context"
