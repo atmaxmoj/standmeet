@@ -66,15 +66,16 @@ test.describe('setup wizard extended validation', () => {
       expect(anthropicPlaceholder).not.toBe(openaiPlaceholder);
     });
 
-  test('step 3 → ollama → key field hidden',
+  test('step 3 → custom (self-hosted) → key field disabled',
     async ({ page }) => {
       await page.waitForURL(/\/setup\?t=/, { timeout: 10_000 });
       await fillStep1(page);
       await page.getByTestId('next').click();
       await fillStep2(page);
       await page.getByTestId('next').click();
-      await page.getByTestId('setup-provider-ollama').click();
-      // Key field should be disabled for ollama (needsKey=false)
+      // ollama 已并入 "custom · self-hosted" preset(needsKey=false)。
+      await page.getByTestId('setup-provider-custom').click();
+      // Key field should be disabled for self-hosted (needsKey=false)
       await expect(page.getByTestId('setup-ai-key')).toBeDisabled();
     });
 
