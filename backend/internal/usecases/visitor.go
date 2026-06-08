@@ -54,9 +54,12 @@ type VisitorDeps struct {
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。
+// MemberID —— client 上次存的 member_id(尤其匿名者);带上就凭 id 续会,
+// 失效则退到按 VisitorName / 新建匿名。
 type IssueCodeSessionInput struct {
 	Code        string
 	VisitorName string
+	MemberID    string
 }
 
 // SessionQuota —— 当前 conversation 的 turn 配额；visitor UI 用来渲剩余。
@@ -81,6 +84,7 @@ type IssueCodeSessionResult struct {
 	Code               string
 	CodeLabel          string
 	VisitorName        string
+	MemberID           string
 	Chat               domain.Chat
 	Members            []domain.CodeMember
 	SuggestedQuestions []string
@@ -91,6 +95,7 @@ type IssueCodeSessionResult struct {
 type codeSessionArtifacts struct {
 	Issued session.IssuedVisitor
 	Conv   domain.Chat
+	Member domain.CodeMember
 }
 
 // IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
@@ -138,6 +143,7 @@ func finalizeCodeSession(
 		Code: code.Code, CodeLabel: code.Label, VisitorName: in.VisitorName,
 		Members:            members,
 		SuggestedQuestions: code.SuggestedQuestions,
+		MemberID:           a.Member.ID,
 		Quota:              codeSessionQuota(code),
 	}, nil
 }
@@ -146,7 +152,7 @@ func issueCodeSessionArtifacts(
 	ctx context.Context, deps *VisitorDeps,
 	in *IssueCodeSessionInput, code *domain.AccessCode,
 ) (codeSessionArtifacts, error) {
-	member, qerr := resolveMemberWithQuota(ctx, deps, code, in.VisitorName)
+	member, qerr := resolveMemberWithQuota(ctx, deps, code, in)
 	if qerr != nil {
 		return codeSessionArtifacts{}, qerr
 	}
@@ -163,7 +169,7 @@ func issueCodeSessionArtifacts(
 	if err != nil {
 		return codeSessionArtifacts{}, fmt.Errorf("issue visitor session: %w", err)
 	}
-	return codeSessionArtifacts{Conv: conv, Issued: issued}, nil
+	return codeSessionArtifacts{Conv: conv, Issued: issued, Member: member}, nil
 }
 
 func codeSessionQuota(code *domain.AccessCode) SessionQuota {
@@ -177,36 +183,92 @@ func codeSessionQuota(code *domain.AccessCode) SessionQuota {
 	return q
 }
 
-// resolveMemberWithQuota —— upsert member by name，先过 max_members 闸:
-// 满额(已有 N 个不同名字 >= MaxMembers)且这是个**新名字** → ErrMemberQuotaReached
-// (visitor 见 "code 已满")；已有名字照常放行(续聊)。CodeMember 没有自己的
-// revoked 状态，revoke 在 AccessCode 级别(code.status='revoked' → GetByCode
-// 已经过滤掉 → 走不到这里)。
+// resolveMemberWithQuota —— 三路解析 member:
+//  1. client 带 member_id → 凭 id 续会(尤其匿名者,失效则往下退)。
+//  2. 具名 → 按名字 upsert(满额闸只拦新名字;已有名字续会)。
+//  3. 匿名(skip)→ 每人一个独立 guest member(满额闸:新匿名也占名额)。
+//
+// CodeMember 没有自己的 revoked 状态,revoke 在 AccessCode 级别(已被 GetByCode
+// 过滤,走不到这里)。
 func resolveMemberWithQuota(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, name string,
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, in *IssueCodeSessionInput,
 ) (domain.CodeMember, error) {
+	resumed, rerr := resumeByMemberID(ctx, deps, code, in.MemberID)
+	if rerr == nil {
+		return resumed, nil
+	}
+	if !errors.Is(rerr, domain.ErrMemberNotFound) {
+		return domain.CodeMember{}, fmt.Errorf("resume member by id: %w", rerr)
+	}
 	members, lerr := deps.Codes.ListMembers(ctx, code.ID)
 	if lerr != nil {
 		return domain.CodeMember{}, fmt.Errorf("list members for quota: %w", lerr)
 	}
-	if quotaErr := checkMemberQuota(code, members, name); quotaErr != nil {
-		return domain.CodeMember{}, quotaErr
+	if in.VisitorName != "" {
+		return resolveNamedMember(ctx, deps, code, members, in.VisitorName)
 	}
-	member, merr := deps.Codes.GetOrCreateMember(ctx, code.ID, name)
-	if merr != nil {
-		return domain.CodeMember{}, fmt.Errorf("get/create member: %w", merr)
-	}
-	return member, nil
+	return resolveAnonMember(ctx, deps, code, members)
 }
 
-// checkMemberQuota —— max_members 闸。NULL/<=0 不限;已有名字放行(GetOrCreate
-// 会续上它);新名字且已满 → 拒。匿名(name="")collapse 成一个 member,同样按
-// "已有 vs 新"判。
+// resumeByMemberID —— member_id 空 / 查不到 → domain.ErrMemberNotFound(caller
+// 据此退到按名字 / 新建);查得到 → 返该 member 续会。
+func resumeByMemberID(
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, memberID string,
+) (domain.CodeMember, error) {
+	if memberID == "" {
+		return domain.CodeMember{}, domain.ErrMemberNotFound
+	}
+	m, err := deps.Codes.GetMemberByID(ctx, memberID, code.ID)
+	if err != nil {
+		return domain.CodeMember{}, fmt.Errorf("get member by id: %w", err)
+	}
+	return m, nil
+}
+
+func resolveNamedMember(
+	ctx context.Context, deps *VisitorDeps,
+	code *domain.AccessCode, members []domain.CodeMember, name string,
+) (domain.CodeMember, error) {
+	if err := checkMemberQuota(code, members, name); err != nil {
+		return domain.CodeMember{}, err
+	}
+	m, err := deps.Codes.GetOrCreateMember(ctx, code.ID, name)
+	if err != nil {
+		return domain.CodeMember{}, fmt.Errorf("get/create member: %w", err)
+	}
+	return m, nil
+}
+
+func resolveAnonMember(
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, members []domain.CodeMember,
+) (domain.CodeMember, error) {
+	if err := checkAnonQuota(code, members); err != nil {
+		return domain.CodeMember{}, err
+	}
+	m, err := deps.Codes.CreateAnonymousMember(ctx, code.ID)
+	if err != nil {
+		return domain.CodeMember{}, fmt.Errorf("create anon member: %w", err)
+	}
+	return m, nil
+}
+
+// checkMemberQuota —— 具名版 max_members 闸:已有名字放行(续会);新名字且已满
+// → 拒。checkAnonQuota —— 匿名版:每次都是新 member,满了就拒。
 func checkMemberQuota(code *domain.AccessCode, members []domain.CodeMember, name string) error {
 	if code.MaxMembers == nil || *code.MaxMembers <= 0 {
 		return nil
 	}
 	if memberExists(members, name) {
+		return nil
+	}
+	if int32(len(members)) >= *code.MaxMembers {
+		return domain.ErrMemberQuotaReached
+	}
+	return nil
+}
+
+func checkAnonQuota(code *domain.AccessCode, members []domain.CodeMember) error {
+	if code.MaxMembers == nil || *code.MaxMembers <= 0 {
 		return nil
 	}
 	if int32(len(members)) >= *code.MaxMembers {

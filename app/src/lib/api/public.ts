@@ -46,6 +46,7 @@ function client(): StandMeetClient {
 export interface IssueCodeSessionInput {
   code: string;
   visitor_name?: string;
+  member_id?: string;
 }
 
 // BYOAI key / endpoint / model 不再在 server 落任何层；session 只 send

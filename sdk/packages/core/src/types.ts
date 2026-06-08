@@ -109,6 +109,8 @@ export interface PublicSessionResponse {
   readonly conversation_id: string;
   readonly code?: string;
   readonly visitor_name?: string;
+  // member_id —— 这次解析到的 member id;client 存下,再来带上续会(尤其匿名)。
+  readonly member_id?: string;
   // quota / members —— 后端恒发(public/byoai 也给 zero-value quota + [] members),
   // 必填:直接读,不用 `?.` + `?? 0` 兜底掩盖"本该有却没有"。
   readonly quota: PublicSessionQuota;

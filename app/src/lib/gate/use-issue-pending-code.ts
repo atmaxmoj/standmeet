@@ -16,6 +16,7 @@ import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useSuggestionsStore } from '@/lib/visitor/suggestions-store';
+import { loadMemberID, rememberMemberID } from '@/lib/visitor/visitor-name';
 
 // IssueOutcome —— ok 成功;full 名字满了(picker 显 "code 已满");invalid 码无效
 // /过期(丢掉 pending、回落 public);error 其它(网络抖动,保留 pending 可重试)。
@@ -33,7 +34,13 @@ export function useIssuePendingCode(): IssuePending {
     if (code === null) return 'error';
     setBusy(true);
     try {
-      const sess = await issueCodeSession(name === null ? { code } : { code, visitor_name: name });
+      // 具名:按名字解析(名字就是身份,改名能改人)。匿名(skip):带上次存的
+      // member_id 续会(没有就后端新建一个独立 guest member)。
+      const sess = await issueCodeSession(
+        name === null
+          ? { code, member_id: loadMemberID() || undefined }
+          : { code, visitor_name: name },
+      );
       persistSession(sess, false);
       useSuggestionsStore.getState().seed(sess.suggested_questions ?? []);
       useVisitorSessionStore.getState().setSession({
@@ -48,6 +55,10 @@ export function useIssuePendingCode(): IssuePending {
         memberCount: sess.members.length,
         startedAt: Date.now(),
       });
+      // 匿名:把后端给的 member_id 存下,下次 skip 凭它续同一个 guest member。
+      if (name === null) {
+        rememberMemberID(sess.member_id ?? '');
+      }
       usePendingCodeStore.getState().consume();
       return 'ok';
     } catch (e) {

@@ -72,5 +72,8 @@ var ErrCodeExpired = errors.New("access code expired")
 // ErrMemberQuotaReached —— 这张码的名字(member)数已满 max_members,新名字被拒。
 var ErrMemberQuotaReached = errors.New("member quota reached for code")
 
+// ErrMemberNotFound —— 按 id 找 member 没找到(client 存的 member_id 失效)。
+var ErrMemberNotFound = errors.New("code member not found")
+
 // ErrTurnQuotaReached —— 这个 session 已用满 max_turns_per_session。
 var ErrTurnQuotaReached = errors.New("turn quota reached for session")

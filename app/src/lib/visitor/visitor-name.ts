@@ -37,6 +37,28 @@ export function rememberVisitorName(name: string): void {
   }
 }
 
+// VISITOR_MEMBER_ID_KEY —— 上次拿到的 member id。匿名(skip)访客凭它续会,不会
+// 跟别的匿名者塌成一个;后端按 (member_id, code) 校验,跨码自动失效。
+const VISITOR_MEMBER_ID_KEY = 'standmeet-visitor-member-id';
+
+export function loadMemberID(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(VISITOR_MEMBER_ID_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function rememberMemberID(memberID: string): void {
+  if (typeof window === 'undefined' || memberID === '') return;
+  try {
+    window.localStorage.setItem(VISITOR_MEMBER_ID_KEY, memberID);
+  } catch {
+    // LS 满 / 不可用 → silent。
+  }
+}
+
 // clearNameDismiss —— 旧的 30 天 dismiss 机制在 defer-issue 模型下不再需要
 // (pending code 的 consume 就负责隐藏)。保留一个 no-op 兼容 absorb 调用方。
 export function clearNameDismiss(): void {

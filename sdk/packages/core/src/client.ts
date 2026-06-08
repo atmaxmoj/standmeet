@@ -35,6 +35,9 @@ export interface IssueSessionInput {
   mode: SessionMode;
   code?: string;
   visitor_name?: string;
+  // member_id —— 上次拿到的 member id;带上凭 id 续会(尤其匿名者),失效后端
+  // 自动退到按 visitor_name / 新建。
+  member_id?: string;
   byoai_provider?: string;
 }
 

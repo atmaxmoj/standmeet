@@ -22,6 +22,7 @@ export interface SessionCapability {
 export interface VisitorSession {
   session_token: string;
   conversation_id: string;
+  member_id?: string;
   owner_handle: string;
   // D-2: pi-pivot 用 —— 前端 zustand 存 capability map +
   // pi-agent-core 装 system prompt 时按 part_ids 拉 /api/v1/prompts/{id}。
@@ -39,6 +40,7 @@ export interface IssueSessionInput {
   mode?: 'code' | 'public';
   code?: string;
   visitor_name?: string;
+  member_id?: string;
 }
 
 export async function issueSession(

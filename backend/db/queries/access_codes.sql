@@ -45,6 +45,11 @@ RETURNING *;
 -- max_members 强制用:这张码已经有几个不同名字(member)。
 SELECT count(*) FROM code_members WHERE code_id = $1;
 
+-- name: GetCodeMemberByID :one
+-- 按 member id 取(client 存了 member_id,再来时凭 id 续会;尤其匿名者)。
+-- 限定 code_id 防跨码串。
+SELECT * FROM code_members WHERE id = $1 AND code_id = $2;
+
 -- name: CreateCodeMember :one
 INSERT INTO code_members (code_id, display_name, email, is_anonymous)
 VALUES ($1, $2, $3, $4)

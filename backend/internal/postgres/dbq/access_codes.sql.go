@@ -195,6 +195,31 @@ func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (Access
 	return i, err
 }
 
+const getCodeMemberByID = `-- name: GetCodeMemberByID :one
+SELECT id, code_id, display_name, email, is_anonymous, last_seen_at FROM code_members WHERE id = $1 AND code_id = $2
+`
+
+type GetCodeMemberByIDParams struct {
+	ID     pgtype.UUID
+	CodeID pgtype.UUID
+}
+
+// 按 member id 取(client 存了 member_id,再来时凭 id 续会;尤其匿名者)。
+// 限定 code_id 防跨码串。
+func (q *Queries) GetCodeMemberByID(ctx context.Context, arg GetCodeMemberByIDParams) (CodeMember, error) {
+	row := q.db.QueryRow(ctx, getCodeMemberByID, arg.ID, arg.CodeID)
+	var i CodeMember
+	err := row.Scan(
+		&i.ID,
+		&i.CodeID,
+		&i.DisplayName,
+		&i.Email,
+		&i.IsAnonymous,
+		&i.LastSeenAt,
+	)
+	return i, err
+}
+
 const getCodeMemberByName = `-- name: GetCodeMemberByName :one
 SELECT id, code_id, display_name, email, is_anonymous, last_seen_at FROM code_members WHERE code_id = $1 AND display_name = $2
 `

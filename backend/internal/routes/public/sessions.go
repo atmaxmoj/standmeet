@@ -25,6 +25,7 @@ type createSessionRequest struct {
 	Mode          string `json:"mode"` // 'code' | 'public' | 'byoai'
 	Code          string `json:"code,omitempty"`
 	VisitorName   string `json:"visitor_name,omitempty"`
+	MemberID      string `json:"member_id,omitempty"`
 	BYOAIProvider string `json:"byoai_provider,omitempty"`
 }
 
@@ -43,6 +44,7 @@ type createSessionResponse struct {
 	SessionToken        string                        `json:"session_token"`
 	ConversationID      string                        `json:"conversation_id"`
 	Code                string                        `json:"code,omitempty"`
+	MemberID            string                        `json:"member_id,omitempty"`
 	CodeLabel           string                        `json:"code_label,omitempty"`
 	VisitorName         string                        `json:"visitor_name,omitempty"`
 	SystemPromptPersona string                        `json:"system_prompt_persona"`
@@ -83,6 +85,7 @@ func dispatchIssueSession(
 		return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
 			Code:        req.Code,
 			VisitorName: req.VisitorName,
+			MemberID:    req.MemberID,
 		})
 	}
 	return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
@@ -124,6 +127,7 @@ func writeCreateSession(
 		SessionToken:        res.Session.Token,
 		ConversationID:      res.Chat.ID,
 		Code:                res.Code,
+		MemberID:            res.MemberID,
 		CodeLabel:           res.CodeLabel,
 		VisitorName:         res.VisitorName,
 		SystemPromptPersona: usecases.ComposeDynamicPersona(res.Session.Data.RoleSnapshot),
