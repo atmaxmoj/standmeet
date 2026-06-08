@@ -6,7 +6,10 @@
 
 import { useEffect, useRef } from 'react';
 
-import { dispatchGhostKey, pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
+import { pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
+import { dispatchComposerKey, useAutoGrowTextarea } from '@/lib/visitor/composer-keys';
+import { composeMessage, useComposerAttachments } from '@/lib/visitor/composer-attachments';
+import { AttachmentChips, VisitorQuestion } from '@/components/visitor/ComposerAttachments';
 
 import Link from 'next/link';
 
@@ -161,9 +164,7 @@ function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => v
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase mb-3 flex items-baseline gap-3">
         <span className="text-(--color-ink)">you</span>
       </div>
-      <p className="font-serif italic text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] mb-7">
-        {dialog.q}
-      </p>
+      <VisitorQuestion q={dialog.q} />
       <ToolThrobbers labels={dialog.toolStartedLabels} />
       <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
       {dialog.pending ? <ThinkingDots /> : <AnswerView answer={dialog.answer} />}
@@ -287,16 +288,35 @@ function ComposerForm(p: ComposerProps) {
   const placeholder = pickPlaceholder({
     locked: p.exhausted, lockedText: 'session full', ghost, fallback: 'ask…',
   });
+  const att = useComposerAttachments();
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useAutoGrowTextarea(taRef, p.input);
+  // sendComposed —— 投出去 + 清空附件(input 的清空在 onAsk 里)。
+  const sendComposed = (msg: string): void => {
+    p.onSubmit(msg);
+    att.clear();
+  };
+  // submit —— 把输入框文字 + 已挂附件原文拼成最终消息再投。Enter 与点 button
+  // 走同一条;ready 守卫用 && 而非 if(presentation 禁 if)。
+  const submit = (): void => {
+    const msg = composeMessage(p.input, att.attachments);
+    isComposerReady(msg, p.pending, p.exhausted) && sendComposed(msg);
+  };
   return (
-    <form onSubmit={(e) => { e.preventDefault(); handleComposerSubmit(p.input, p.pending, p.exhausted, p.onSubmit); }} data-testid="chat-input">
-      <div className="flex items-baseline gap-4 py-3 border-t border-b border-(--color-ink) relative">
-        <span className="text-(--color-accent) font-serif shrink-0 text-[26px] leading-none">›</span>
-        <input
-          type="text" value={p.input} onChange={(e) => p.setInput(e.target.value)}
-          onKeyDown={(e) => dispatchGhostKey(e, ghost, { onAccept: p.onAcceptGhost, onCycle: p.onCycleGhost })}
+    <form onSubmit={(e) => { e.preventDefault(); submit(); }} data-testid="chat-input">
+      <AttachmentChips attachments={att.attachments} onRemove={att.remove} />
+      <div className="flex items-end gap-4 py-3 border-t border-b border-(--color-ink) relative">
+        <span className="text-(--color-accent) font-serif shrink-0 text-[26px] leading-none pb-1">›</span>
+        <textarea
+          ref={taRef} rows={1} value={p.input}
+          onChange={(e) => p.setInput(e.target.value)}
+          onPaste={(e) => { att.onPaste(e); }}
+          onKeyDown={(e) => dispatchComposerKey(e, {
+            ghost, onSubmit: submit, onAccept: p.onAcceptGhost, onCycle: p.onCycleGhost,
+          })}
           placeholder={placeholder}
           disabled={blocked}
-          className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0 text-[22px] leading-[1.3] font-[380] disabled:opacity-60"
+          className="flex-1 bg-transparent text-(--color-ink) placeholder:text-(--color-faint) font-serif min-w-0 text-[22px] leading-[1.4] font-[380] disabled:opacity-60 resize-none"
           autoComplete="off" spellCheck={false} autoFocus
           data-testid="chat-input-field"
           data-ghost={ghost ?? ''}
@@ -307,12 +327,8 @@ function ComposerForm(p: ComposerProps) {
   );
 }
 
-function isComposerReady(input: string, pending: boolean, exhausted: boolean): boolean {
-  return input.trim() !== '' && !pending && !exhausted;
-}
-
-function handleComposerSubmit(input: string, pending: boolean, exhausted: boolean, onSubmit: (q: string) => void): void {
-  isComposerReady(input, pending, exhausted) && onSubmit(input.trim());
+function isComposerReady(msg: string, pending: boolean, exhausted: boolean): boolean {
+  return msg.trim() !== '' && !pending && !exhausted;
 }
 
 function ComposerAction({ pending, exhausted }: { pending: boolean; exhausted: boolean }) {

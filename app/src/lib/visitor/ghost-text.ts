@@ -45,7 +45,7 @@ interface GhostHandlers {
 // dispatchGhostKey —— Tab/Esc 派发，命中调对应 handler + preventDefault。
 // 其他键 / ghost 空时无操作。
 export function dispatchGhostKey(
-  e: KeyboardEvent<HTMLInputElement>,
+  e: KeyboardEvent<HTMLElement>,
   ghost: string | null,
   h: GhostHandlers,
 ): void {
