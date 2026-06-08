@@ -64,7 +64,7 @@ test.describe('ChatRoom layout switching', () => {
 
   test('public visitor asks question → ConversationDeck appears',
     async ({ page }) => {
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about yourself');
       await input.press('Enter');
       await expect(page.locator('[data-testid="answer-body"]'))

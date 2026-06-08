@@ -83,7 +83,7 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
         { timeout: 20_000 },
       );
 
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about lucerna');
       await input.press('Enter');
 

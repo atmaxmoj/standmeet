@@ -50,7 +50,7 @@ test.describe('chat · calendar.book all_busy conflict', () => {
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await skip.click();
       }
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('Book a 30-min next week');
       await input.press('Enter');
 

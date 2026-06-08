@@ -40,7 +40,7 @@ test.describe('quota warn at 80% + lockdown + unlimited', () => {
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
       // Send 4 of 5 turns (80%)
       for (let i = 0; i < 4; i++) {
-        const input = page.locator('[data-testid="chat-input"] input');
+        const input = page.locator('[data-testid="chat-input-field"]');
         await input.fill(`turn ${i + 1}`);
         await input.press('Enter');
         await expect(page.locator('[data-testid="answer-body"]').nth(i))
@@ -59,14 +59,14 @@ test.describe('quota warn at 80% + lockdown + unlimited', () => {
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       // Use all 5 turns
       for (let i = 0; i < MAX_TURNS; i++) {
-        const input = page.locator('[data-testid="chat-input"] input');
+        const input = page.locator('[data-testid="chat-input-field"]');
         await input.fill(`exhaust turn ${i + 1}`);
         await input.press('Enter');
         await expect(page.locator('[data-testid="answer-body"]').nth(i))
           .toBeVisible({ timeout: 15_000 });
       }
       // Composer should be locked
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await expect(input).toBeDisabled();
       await expect(page.getByText('session full')).toBeVisible();
     });
@@ -78,14 +78,14 @@ test.describe('quota warn at 80% + lockdown + unlimited', () => {
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
       // Send a few turns and verify never locked
       for (let i = 0; i < 3; i++) {
-        const input = page.locator('[data-testid="chat-input"] input');
+        const input = page.locator('[data-testid="chat-input-field"]');
         await input.fill(`unlimited turn ${i + 1}`);
         await input.press('Enter');
         await expect(page.locator('[data-testid="answer-body"]').nth(i))
           .toBeVisible({ timeout: 15_000 });
       }
       // Composer still active
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await expect(input).toBeEnabled();
     });
 });

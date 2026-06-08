@@ -70,7 +70,7 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await skip.click();
       }
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('go ahead and run the marker');
       await input.press('Enter');
 

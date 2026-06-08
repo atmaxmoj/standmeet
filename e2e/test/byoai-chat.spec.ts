@@ -80,7 +80,7 @@ async function expectLandedWithBanner(page: Page): Promise<void> {
 
 async function visitorChats(page: Page): Promise<void> {
   // 新 AskInput 是 <input>，不是 <textarea>；按 Enter 提交 form。
-  const input = page.locator('[data-testid="chat-input"] input');
+  const input = page.locator('[data-testid="chat-input-field"]');
   await input.fill('tell me about you');
   await input.press('Enter');
   // ConversationDeck 把回复挂在 data-testid="answer-body" 里。

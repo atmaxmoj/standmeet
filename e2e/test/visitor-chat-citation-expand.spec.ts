@@ -56,13 +56,15 @@ test.describe('citation row 可点 + inline 展开原文', () => {
         await skip.click();
       }
 
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about lucerna');
       await input.press('Enter');
 
-      // 等 cited "drawn from" 出现 (cited 来自 tool_completed 事件)。
+      // 等 cited "references · N" 出现 (cited 来自 tool_completed 事件)。
+      // 现在默认折叠(像普通 AI chat),先点 references summary 展开列表。
       const citations = page.getByTestId('citations');
       await expect(citations).toBeVisible({ timeout: 20_000 });
+      await citations.locator('summary').first().click();
 
       // 锁定 lucerna 那行 citation。
       const row = page.locator(

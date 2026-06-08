@@ -62,7 +62,7 @@ async function expectOwnerPageRendered(page: Page): Promise<void> {
 
 async function visitorAsksAQuestion(page: Page, question: string): Promise<void> {
   // 新 AskInput 是 input[type=text]，不是 textarea；form submit on Enter。
-  const input = page.locator('[data-testid="chat-input"] input');
+  const input = page.locator('[data-testid="chat-input-field"]');
   await input.fill(question);
   await input.press('Enter');
 }
@@ -77,9 +77,8 @@ async function expectAssistantStreamsReply(page: Page): Promise<void> {
 }
 
 async function expectCitationFootnote(page: Page): Promise<void> {
-  // 引用块从 "grounded in N entries" 升级成 list with titles —— assistant
-  // 回复下方的 "drawn from" + 每条 cited corpus 的 kind 标签 + 标题。
+  // 引用块现在像普通 AI chat:默认折叠成一行 "references · N"(点开看列表)。
   const cited = page.locator('[data-testid="citations"]');
   await expect(cited).toBeVisible({ timeout: 5_000 });
-  await expect(cited).toContainText('drawn from');
+  await expect(cited).toContainText('references');
 }

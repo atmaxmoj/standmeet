@@ -43,7 +43,7 @@ test.describe('throbber label 走 backend BindingTool.ProgressLabel registry', (
     await request.dispose();
   });
 
-  test('throbber 文案 = backend 注册的 progress_label ("searching corpus" / "reading entry")',
+  test('corpus throbber 带 document(search 显 verb / read 显在读的 path)',
     async ({ browser }) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
@@ -57,18 +57,19 @@ test.describe('throbber label 走 backend BindingTool.ProgressLabel registry', (
         await skip.click();
       }
 
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about lucerna');
       await input.press('Enter');
 
-      // 两个 throbber 出现 + 文字 = backend progress_label
+      // corpus throbber 现在带 document(owner: "他到底在读什么"):
+      // corpus_search 显 verb,corpus_read 显在读哪个 path(projects/lucerna)。
       const search = page.getByTestId('tool-throbber-corpus_search');
       await expect(search).toBeVisible({ timeout: 20_000 });
-      await expect(search).toContainText('searching corpus');
+      await expect(search).toContainText('searching');
 
       const read = page.getByTestId('tool-throbber-corpus_read');
       await expect(read).toBeVisible({ timeout: 20_000 });
-      await expect(read).toContainText('reading entry');
+      await expect(read).toContainText('projects/lucerna');
 
       await ctx.close();
     });

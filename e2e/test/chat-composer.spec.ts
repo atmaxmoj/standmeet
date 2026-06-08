@@ -90,6 +90,7 @@ test.describe('ChatComposer behavior', () => {
       await goto(page, `/?code=${CODE}`);
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await dismissNamePicker(page);
       const input = page.getByTestId('chat-input-field');
       await expect(input).toHaveJSProperty('tagName', 'TEXTAREA');
       await input.click();
@@ -108,6 +109,7 @@ test.describe('ChatComposer behavior', () => {
       await goto(page, `/?code=${CODE}`);
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await dismissNamePicker(page);
       const input = page.getByTestId('chat-input-field');
       await input.click();
       const longText = `Senior Go Engineer\n${'We need someone with deep distributed-systems experience. '.repeat(12)}`;
@@ -135,6 +137,7 @@ test.describe('ChatComposer behavior', () => {
       await goto(page, `/?code=${CODE}`);
       await page.waitForResponse((res) =>
         res.url().endsWith('/api/v1/sessions') && res.status() === 200);
+      await dismissNamePicker(page);
       await page.getByTestId('chat-input-field').click();
       await pasteInto(page, 'x'.repeat(400));
       const chip = page.getByTestId('composer-attachment');
@@ -143,6 +146,17 @@ test.describe('ChatComposer behavior', () => {
       await expect(chip).toBeHidden();
     });
 });
+
+// dismissNamePicker —— a coded visitor without a stored name gets the
+// VisitorNamePicker overlay, which intercepts pointer events over the composer.
+// Skip it before touching the input (no-op if it never showed).
+async function dismissNamePicker(page: import('@playwright/test').Page): Promise<void> {
+  const skip = page.getByTestId('visitor-name-skip');
+  if (await skip.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await skip.click();
+    await expect(skip).toBeHidden({ timeout: 3_000 });
+  }
+}
 
 // pasteInto —— dispatch a real `paste` ClipboardEvent carrying text, so React's
 // onPaste (the long-paste→attachment path) fires. Playwright's fill() bypasses

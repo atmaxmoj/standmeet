@@ -84,7 +84,7 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
         await skip.click();
       }
 
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('show me everything');
       await input.press('Enter');
 

@@ -41,7 +41,7 @@ test.describe('turn rendering: citations, pending, error', () => {
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await skip.click();
       }
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about yourself');
       await input.press('Enter');
       // Pending indicator

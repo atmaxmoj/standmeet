@@ -49,7 +49,7 @@ test.describe('chat · BookCard + bookings-remaining badge', () => {
         await skip.click();
       }
 
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('what times do you have?');
       await input.press('Enter');
 

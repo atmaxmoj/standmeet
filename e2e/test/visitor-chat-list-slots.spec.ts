@@ -46,7 +46,7 @@ test.describe('chat · calendar_list_slots → SlotsCard', () => {
         await skip.click();
       }
 
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('What slots do you have next week?');
       await input.press('Enter');
 

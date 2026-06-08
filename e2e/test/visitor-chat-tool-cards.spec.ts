@@ -56,13 +56,14 @@ test.describe('tool call 渲染成卡片', () => {
         await skip.click();
       }
 
-      const input = page.locator('[data-testid="chat-input"] input');
+      const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about lucerna');
       await input.press('Enter');
 
-      // corpus_search 卡出现，含 lucerna hit
+      // corpus_search 卡出现(默认折叠),点 summary 展开看 hits。
       const searchCard = page.getByTestId('tool-card-corpus_search');
       await expect(searchCard).toBeVisible({ timeout: 20_000 });
+      await searchCard.locator('summary').first().click();
       const hit = searchCard.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
       await expect(hit).toBeVisible();
       await expect(hit).toContainText('Lucerna');

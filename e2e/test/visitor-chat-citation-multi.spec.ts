@@ -4,6 +4,7 @@
 // 一个的 toggle 不影响另一个；下一个 dialog 出现时上一个的展开状态保留。
 
 import { test, expect } from '@/fixtures/test';
+import type { Page } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
@@ -58,13 +59,14 @@ test.describe('多 dialog citation 各自独立 expand', () => {
         await skip.click();
       }
 
-      const input = page.locator('[data-testid="chat-input"] input');
-      // 第一轮：lucerna
+      const input = page.locator('[data-testid="chat-input-field"]');
+      // 第一轮：lucerna —— references 默认折叠,先展开含 lucerna 那条的列表。
       await input.fill('tell me about lucerna');
       await input.press('Enter');
       const lucernaRow = page.locator(
         `[data-testid="citation-row"][data-citation-path="${LUCERNA}"]`,
       );
+      await expandRefsContaining(page, LUCERNA);
       await expect(lucernaRow).toBeVisible({ timeout: 20_000 });
 
       // 第二轮：family — 等 input 重新 enable
@@ -74,6 +76,7 @@ test.describe('多 dialog citation 各自独立 expand', () => {
       const familyRow = page.locator(
         `[data-testid="citation-row"][data-citation-path="${FAMILY}"]`,
       );
+      await expandRefsContaining(page, FAMILY);
       await expect(familyRow).toBeVisible({ timeout: 20_000 });
 
       // expand lucerna only
@@ -101,3 +104,13 @@ test.describe('多 dialog citation 各自独立 expand', () => {
       await ctx.close();
     });
 });
+
+// expandRefsContaining —— references 默认折叠;找到含 path 那条 row 的
+// references details,点它的 summary 展开,让该 row 可见。
+async function expandRefsContaining(page: Page, path: string): Promise<void> {
+  const refs = page.locator('[data-testid="citations"]', {
+    has: page.locator(`[data-citation-path="${path}"]`),
+  });
+  await expect(refs).toBeVisible({ timeout: 20_000 });
+  await refs.locator('summary').first().click();
+}

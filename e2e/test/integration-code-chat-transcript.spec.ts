@@ -43,7 +43,7 @@ test.describe('code → chat → transcript integration', () => {
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await skip.click();
       }
-      const input = visitor.locator('[data-testid="chat-input"] input');
+      const input = visitor.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about integration testing');
       await input.press('Enter');
       await expect(visitor.locator('[data-testid="answer-body"]'))

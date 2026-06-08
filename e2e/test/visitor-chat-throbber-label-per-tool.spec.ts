@@ -83,7 +83,7 @@ async function visitAsCoded(page: Page, code: string): Promise<void> {
 }
 
 async function ask(page: Page, q: string): Promise<void> {
-  const input = page.locator('[data-testid="chat-input"] input');
+  const input = page.locator('[data-testid="chat-input-field"]');
   await input.fill(q);
   await input.press('Enter');
 }
