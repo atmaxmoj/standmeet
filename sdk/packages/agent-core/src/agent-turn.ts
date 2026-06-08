@@ -92,6 +92,9 @@ export class VisitorTurnAgent {
       case 'suggestions':
         this.emit({ type: 'suggestions_received', items: ev.items });
         return;
+      case 'retrying':
+        this.emit({ type: 'retrying', attempt: ev.attempt });
+        return;
       case 'done':
         return;
       case 'error':

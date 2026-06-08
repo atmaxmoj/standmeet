@@ -46,6 +46,10 @@ type AgentSink interface {
 	ToolStarted(id, name, progressLabel string, args json.RawMessage)
 	ToolCompleted(name, result string)
 	Suggestions(items []string)
+	// Retrying —— transport 重试一次 transient LLM 失败时调(attempt 从 1
+	// 数起)。prod sink emit `retrying` SSE 帧让 throbber 显 "retrying";
+	// 进度恢复(下一条 text/tool 事件)后前端自然清掉。
+	Retrying(attempt int)
 	Error(err error)
 	Done(stop string)
 }

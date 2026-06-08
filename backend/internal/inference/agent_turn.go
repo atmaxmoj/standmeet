@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cloudwego/eino/components/tool"
@@ -96,6 +97,12 @@ func RunAgentTurn(
 	log.Info("agent turn start", "model", credModel(in.Cred), "mode", in.Mode,
 		"tools", len(in.Tools), "timeout_s", int(timeout.Seconds()))
 
+	sink := &sseSink{log: log, w: w, flusher: pickFlusher(w)}
+	// 重试通知顺 ctx 带给 transport(http_retry.go):它每次退避前调 sink.Retrying
+	// → emit `retrying` 帧。装在 BuildAgentIterator 之前,让 model call 用的
+	// ctx 就带着回调。
+	ctx = withRetryNotifier(ctx, sink.Retrying)
+
 	iter, err := BuildAgentIterator(ctx, in)
 	if err != nil {
 		log.Error("agent turn build failed", logErrKey, err,
@@ -105,7 +112,6 @@ func RunAgentTurn(
 	}
 	setStreamSSEHeaders(w)
 	extendStreamWriteDeadline(log, w, timeout)
-	sink := &sseSink{log: log, w: w, flusher: pickFlusher(w)}
 	DriveAgentLoop(ctx, log, in, iter, sink)
 
 	dur := time.Since(start)
@@ -153,19 +159,28 @@ func credModel(c *Cred) string {
 
 // sseSink —— AgentSink 的 prod 实现：每条 agent loop 事件写成一帧 pi
 // unified SSE 推给浏览器。
+//
+// mu —— Retrying 由 transport 在 eino 的 model-call goroutine 里触发,可能
+// 跟主 DriveAgentLoop goroutine 写 Text/ToolStarted 撞;每个方法整帧写在锁
+// 内,保证 SSE 帧不交错(帧粒度原子)。
 type sseSink struct {
 	log     *slog.Logger
 	w       http.ResponseWriter
 	flusher http.Flusher
+	mu      sync.Mutex
 }
 
 var _ AgentSink = (*sseSink)(nil)
 
 func (s *sseSink) Text(delta string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	emitTextDelta(s.log, s.w, s.flusher, delta)
 }
 
 func (s *sseSink) ToolStarted(id, name, progressLabel string, args json.RawMessage) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	body, err := json.Marshal(toolStartedPayload{
 		ID: id, Name: name, Args: args, ProgressLabel: progressLabel,
 	})
@@ -177,6 +192,8 @@ func (s *sseSink) ToolStarted(id, name, progressLabel string, args json.RawMessa
 }
 
 func (s *sseSink) ToolCompleted(name, result string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	body, err := json.Marshal(toolCompletedPayload{Name: name, Result: result})
 	if err != nil {
 		s.log.Error("agent turn marshal tool_completed", logErrKey, err)
@@ -186,6 +203,8 @@ func (s *sseSink) ToolCompleted(name, result string) {
 }
 
 func (s *sseSink) Suggestions(items []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	body, err := json.Marshal(suggestionsPayload{Items: items})
 	if err != nil {
 		s.log.Error("agent turn marshal suggestions", logErrKey, err)
@@ -194,11 +213,26 @@ func (s *sseSink) Suggestions(items []string) {
 	writeSSEFrame(s.log, s.w, s.flusher, "suggestions", body)
 }
 
+func (s *sseSink) Retrying(attempt int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	body, err := json.Marshal(retryingPayload{Attempt: attempt})
+	if err != nil {
+		s.log.Error("agent turn marshal retrying", logErrKey, err)
+		return
+	}
+	writeSSEFrame(s.log, s.w, s.flusher, "retrying", body)
+}
+
 func (s *sseSink) Error(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	emitError(s.log, s.w, s.flusher, err)
 }
 
 func (s *sseSink) Done(stop string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	emitDone(s.log, s.w, s.flusher, stop)
 }
 
@@ -219,4 +253,9 @@ type toolCompletedPayload struct {
 // items=[] 当 "no chip"。生成逻辑在 agent_turn_suggestions.go。
 type suggestionsPayload struct {
 	Items []string `json:"items"`
+}
+
+// retryingPayload —— SSE `retrying` 帧负载。attempt 是第几次重试(从 1 起)。
+type retryingPayload struct {
+	Attempt int `json:"attempt"`
 }

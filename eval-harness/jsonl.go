@@ -21,6 +21,7 @@ type jsonEvent struct {
 	Result      string          `json:"result,omitempty"`
 	Label       string          `json:"label,omitempty"`
 	Items       []string        `json:"items,omitempty"`
+	Attempt     int             `json:"attempt,omitempty"`
 	Stop        string          `json:"stop,omitempty"`
 	Error       string          `json:"error,omitempty"`
 	Scenarios   []summaryRow    `json:"scenarios,omitempty"`
@@ -79,6 +80,12 @@ func (s *jsonlSink) Suggestions(items []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.write(jsonEvent{Type: "suggestions", Items: items})
+}
+
+func (s *jsonlSink) Retrying(attempt int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.write(jsonEvent{Type: "retrying", Attempt: attempt})
 }
 
 func (s *jsonlSink) Error(err error) {

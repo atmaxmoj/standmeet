@@ -50,6 +50,7 @@ export type AgentTurnEvent =
   | { readonly type: 'tool_started'; readonly id: string; readonly name: string; readonly args: unknown; readonly progressLabel?: string }
   | { readonly type: 'tool_completed'; readonly name: string; readonly result: string }
   | { readonly type: 'suggestions'; readonly items: readonly string[] }
+  | { readonly type: 'retrying'; readonly attempt: number }
   | { readonly type: 'done'; readonly stopReason: 'end_turn' | 'tool_use' | 'max_tokens' }
   | { readonly type: 'error'; readonly code: string; readonly message: string };
 
@@ -64,6 +65,7 @@ export type AgentEvent =
   | { readonly type: 'tool_completed'; readonly result: ToolResult }
   | { readonly type: 'capability_state_changed'; readonly states: readonly CapabilityState[] }
   | { readonly type: 'suggestions_received'; readonly items: readonly string[] }
+  | { readonly type: 'retrying'; readonly attempt: number }
   | { readonly type: 'iteration_completed'; readonly iter: number }
   | { readonly type: 'final_text'; readonly text: string }
   | { readonly type: 'error'; readonly message: string };

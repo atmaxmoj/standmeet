@@ -98,7 +98,7 @@ function AssistantBody({ dialog, ownerHandle, onAsk }: {
     <>
       <ToolThrobbers labels={dialog.toolStartedLabels} />
       {dialog.pending
-        ? <Thinking />
+        ? <Thinking retrying={dialog.retrying} />
         : <AnswerOrError dialog={dialog} ownerHandle={ownerHandle} onAsk={onAsk} />}
     </>
   );
@@ -148,10 +148,15 @@ function AssistantLabel({ ownerHandle }: { ownerHandle: string }) {
   );
 }
 
-function Thinking() {
+// Thinking —— 等回答的点点。retrying 时(backend 重试 transient LLM 失败)
+// 换 "retrying" 文案。
+function Thinking({ retrying }: { retrying: boolean }) {
   return (
-    <div className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3">
-      retrieving{' '}
+    <div
+      className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3"
+      data-retrying={retrying ? 'true' : 'false'}
+    >
+      {retrying ? 'retrying' : 'retrieving'}{' '}
       <span className="dot">·</span>
       <span className="dot">·</span>
       <span className="dot">·</span>

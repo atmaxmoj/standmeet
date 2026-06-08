@@ -167,7 +167,7 @@ function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => v
       <VisitorQuestion q={dialog.q} />
       <ToolThrobbers labels={dialog.toolStartedLabels} />
       <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
-      {dialog.pending ? <ThinkingDots /> : <AnswerView answer={dialog.answer} />}
+      {dialog.pending ? <ThinkingDots retrying={dialog.retrying} /> : <AnswerView answer={dialog.answer} />}
     </article>
   );
 }
@@ -196,10 +196,17 @@ function ToolThrobberRow({ label }: { label: string }) {
   );
 }
 
-function ThinkingDots() {
+// ThinkingDots —— 等回答的点点。retrying 时(backend 在重试一次 transient
+// LLM 失败)换成 "retrying" 文案,让 visitor 知道在重试而非干卡。
+function ThinkingDots({ retrying }: { retrying: boolean }) {
   return (
-    <div className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3" data-testid="answer-pending">
-      retrieving <span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span>
+    <div
+      className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3"
+      data-testid="answer-pending"
+      data-retrying={retrying ? 'true' : 'false'}
+    >
+      {retrying ? 'retrying' : 'retrieving'}{' '}
+      <span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span>
     </div>
   );
 }

@@ -61,10 +61,16 @@ function dispatchFrame(
     case 'tool_started': return parseToolStarted(d);
     case 'tool_completed': return parseToolCompleted(d);
     case 'suggestions': return parseSuggestions(d);
+    case 'retrying': return parseRetrying(d);
     case 'done': return parseDone(d);
     case 'error': return parseError(d);
   }
   return null;
+}
+
+function parseRetrying(d: Record<string, unknown>): AgentTurnEvent {
+  const n = d['attempt'];
+  return { type: 'retrying', attempt: typeof n === 'number' ? n : 1 };
 }
 
 function parseText(d: Record<string, unknown>): AgentTurnEvent | null {

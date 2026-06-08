@@ -46,6 +46,22 @@ func llmLog(ctx context.Context) *slog.Logger {
 	return slog.Default()
 }
 
+// ctxRetryKey —— 顺 ctx 把"正在重试"通知带给 sink。transport 在深层(eino
+// model call 里)拿不到 sink;RunAgentTurn 塞一个回调进 ctx,transport 每次
+// 退避前调它 → sink emit 一帧 retrying,前端 throbber 显 "retrying" 而非
+// 干等。没装回调(eval / 其它 caller)时 notify 是 no-op。
+type ctxRetryKey struct{}
+
+func withRetryNotifier(ctx context.Context, fn func(attempt int)) context.Context {
+	return context.WithValue(ctx, ctxRetryKey{}, fn)
+}
+
+func notifyRetry(ctx context.Context, attempt int) {
+	if fn, ok := ctx.Value(ctxRetryKey{}).(func(int)); ok && fn != nil {
+		fn(attempt)
+	}
+}
+
 // retryHTTPClient —— 共享 client,Transport 每次请求从 req.Context() 取 logger。
 func retryHTTPClient() *http.Client {
 	return &http.Client{Transport: &retryTransport{base: http.DefaultTransport}}
@@ -100,6 +116,8 @@ func (*retryTransport) onRetry(ctx context.Context, resp *http.Response, err err
 	}
 	llmLog(ctx).Warn("llm transient failure — retrying",
 		"attempt", attempt+1, "max", maxLLMRetries, "status", statusOf(resp), logErrKey, err)
+	// 通知前端这一轮在重试(attempt 从 1 数起,跟日志一致)。
+	notifyRetry(ctx, attempt+1)
 }
 
 // transientFailure —— 该不该重试这次结果。

@@ -54,6 +54,10 @@ func (s *transcriptSink) Suggestions(items []string) {
 	s.event("SUGGEST   │ %v", items)
 }
 
+func (s *transcriptSink) Retrying(attempt int) {
+	s.event("RETRY     │ attempt %d", attempt)
+}
+
 func (s *transcriptSink) Error(err error) {
 	s.mu.Lock()
 	s.errored = true

@@ -48,6 +48,9 @@ func (s *captureSink) Suggestions(items []string) {
 	s.suggestions = items
 }
 
+// Retrying —— 重试只影响时延,不改最终 transcript;capture 只攒终态,no-op。
+func (*captureSink) Retrying(int) {}
+
 func (s *captureSink) followups() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

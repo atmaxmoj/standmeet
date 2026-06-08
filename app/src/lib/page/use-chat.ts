@@ -81,6 +81,9 @@ export type Dialog = {
   // G-4: tool_completed 累到这里；UI 按 name 渲卡片 (corpus_search 卡 /
   // skill_*/ext_* generic dump)。corpus_read 的 result 走 Citation 不重复。
   toolCalls: readonly ToolCallView[];
+  // retrying —— backend transport 正在重试一次 transient LLM 失败;throbber
+  // 显 "retrying" 而非 "retrieving"。下一条 text/tool 进度事件自然清掉。
+  retrying: boolean;
 };
 
 export type ChatState = {
@@ -189,12 +192,16 @@ interface DialogAccumulator {
   seenCitedPaths: Set<string>;
   toolStartedLabels: string[];
   toolCalls: ToolCallView[];
+  retrying: boolean;
+  // errorMsg —— backend 出 `error` 事件(含 stream-cut 兜底)时的人话消息;
+  // 非空 → dialog 收尾渲成回答段落,而不是空白。
+  errorMsg: string;
 }
 
 function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedPaths: new Set(),
-    toolStartedLabels: [], toolCalls: [],
+    toolStartedLabels: [], toolCalls: [], retrying: false, errorMsg: '',
   };
 }
 
@@ -214,10 +221,12 @@ function makeObserver(
 function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
   if (ev.type === 'llm_chunk') {
     accum.body += ev.text;
+    accum.retrying = false; // 进度恢复
     return;
   }
   if (ev.type === 'tool_started') {
     accum.toolStartedLabels.push(throbberLabel(ev.name, ev.args, accum.toolStartedLabels.length));
+    accum.retrying = false;
     return;
   }
   if (ev.type === 'tool_completed') {
@@ -225,6 +234,19 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
       name: ev.result.name, ok: ev.result.ok, result: ev.result.result,
     });
     pushCitationFromTool(ev.result, accum);
+    accum.retrying = false;
+    return;
+  }
+  if (ev.type === 'retrying') {
+    // backend 在重试一次 transient LLM 失败 → throbber 显 "retrying"。
+    accum.retrying = true;
+    return;
+  }
+  if (ev.type === 'error') {
+    // backend `error` 事件(含前端 stream-cut 兜底):人话消息收尾渲出来,
+    // 不让对话空白。clear retrying。
+    accum.errorMsg = ev.message;
+    accum.retrying = false;
     return;
   }
   if (ev.type === 'capability_state_changed') {
@@ -328,7 +350,7 @@ function assembledPartIDs(sess: PageSession): readonly string[] {
 function newPendingDialog(id: string, q: string): Dialog {
   return {
     id, q, time: nowHM(), pending: true, answer: null,
-    toolStartedLabels: [], toolCalls: [],
+    toolStartedLabels: [], toolCalls: [], retrying: false,
   };
 }
 
@@ -354,10 +376,12 @@ function updateDialog(
 function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean): Dialog {
   return {
     ...d,
-    pending: stillPending && accum.body === '',
+    // error / answer 已有内容 → 不再 pending;retrying 期间 body 空仍 pending。
+    pending: stillPending && accum.body === '' && accum.errorMsg === '',
+    retrying: stillPending && accum.retrying,
     toolStartedLabels: [...accum.toolStartedLabels],
     toolCalls: [...accum.toolCalls],
-    answer: {
+    answer: accum.errorMsg !== '' ? noticeAnswer(accum.errorMsg) : {
       paras: splitParas(accum.body),
       citations: accum.citations,
       private: false,
@@ -366,13 +390,20 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
   };
 }
 
+// noticeAnswer —— backend error 事件的人话消息当普通段落渲(已经是友好文案,
+// 不加 "error:" 前缀)。markFailed 的 throw 路径仍走 errorAnswer 带前缀。
+function noticeAnswer(msg: string): DialogAnswer {
+  return { paras: [msg], citations: [], private: false, byoaiBlocked: false };
+}
+
 function splitParas(body: string): string[] {
   const trimmed = body.trim();
   return trimmed === '' ? [] : trimmed.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p !== '');
 }
 
 function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {
-  return prev.map((d) => d.id === id ? { ...d, pending: false, answer: errorAnswer(msg) } : d);
+  return prev.map((d) =>
+    d.id === id ? { ...d, pending: false, retrying: false, answer: errorAnswer(msg) } : d);
 }
 
 function errorAnswer(msg: string): DialogAnswer {
