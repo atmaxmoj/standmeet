@@ -167,8 +167,14 @@ async function runAsk(
     const accum = makeAccumulator();
     await runAgentForDialog(sess, byoai, histRef, q, makeObserver(id, accum, setDialogs));
     finalizeDialog(id, accum, setDialogs);
-    void recordDialog(sess, q, { body: accum.body, citations: accum.citations });
-    bumpVisitorQuota();
+    // 只有成功拿到回答才算消耗一个 turn:persist(/dialogs 是 backend 计数源
+    // CountVisitorTurns)+ 本地配额 +1。失败/掐断(空 body 或 error 兜底)→
+    // 不 persist、不计数,visitor 可免费重试。retry 是单次 /agent/turn 内部的
+    // 事,这里天然只记一次。
+    if (turnSucceeded(accum)) {
+      void recordDialog(sess, q, { body: accum.body, citations: accum.citations });
+      bumpVisitorQuota();
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);
@@ -362,6 +368,12 @@ function newPendingDialog(id: string, q: string): Dialog {
     id, q, time: nowHM(), pending: true, answer: null,
     toolStarted: [], toolCalls: [], retrying: false,
   };
+}
+
+// turnSucceeded —— 这一 turn 算不算"成功回复":拿到非空回答且没走 error 兜底。
+// 决定要不要消耗配额(只有成功才 record + bump)。
+function turnSucceeded(accum: DialogAccumulator): boolean {
+  return accum.errorMsg === '' && accum.body !== '';
 }
 
 function bumpVisitorQuota(): void {

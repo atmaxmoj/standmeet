@@ -29,6 +29,12 @@ const (
 )
 
 func (s *server) serveMessages(w http.ResponseWriter, r *http.Request) {
+	// e2e fail-injection:next_error 打开后所有 inference 调用 500,模拟 LLM 故障
+	// (测"失败/重试的 turn 不消耗配额")。
+	if s.queue.shouldFail() {
+		http.Error(w, `{"error":"mock injected failure"}`, http.StatusInternalServerError)
+		return
+	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "read body", http.StatusBadRequest)

@@ -29,16 +29,32 @@ type scriptQueue struct {
 	mu    sync.Mutex
 	tool  *ScriptedTool
 	reply *string
+	// failAll —— e2e 用 next_error 打开后,所有 /v1/messages 返 500,模拟第三方
+	// LLM 故障(测"失败的 turn 不消耗配额")。scripting 正常 tool/reply 会清掉它。
+	failAll bool
 }
 
 func newScriptQueue() *scriptQueue {
 	return &scriptQueue{}
 }
 
+func (q *scriptQueue) setFailAll(v bool) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.failAll = v
+}
+
+func (q *scriptQueue) shouldFail() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.failAll
+}
+
 func (q *scriptQueue) setTool(t *ScriptedTool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.tool = t
+	q.failAll = false
 }
 
 func (q *scriptQueue) takeTool() *ScriptedTool {
@@ -53,6 +69,7 @@ func (q *scriptQueue) setReply(text string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.reply = &text
+	q.failAll = false
 }
 
 func (q *scriptQueue) takeReply() (string, bool) {
@@ -78,6 +95,13 @@ func (s *server) serveSetNextTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.queue.setTool(&t)
+	writeJSON(s.log, w, map[string]bool{"ok": true})
+}
+
+// serveSetNextError —— e2e 打开"所有 inference 调用都 500"模式,模拟 LLM 故障。
+// 下一次 scripting 正常 reply/tool 会自动清掉。
+func (s *server) serveSetNextError(w http.ResponseWriter, _ *http.Request) {
+	s.queue.setFailAll(true)
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 

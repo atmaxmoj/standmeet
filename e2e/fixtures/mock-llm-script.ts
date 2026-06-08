@@ -45,6 +45,18 @@ export async function scriptMockReplyText(
   }
 }
 
+/** Tell the mock provider: fail every /v1/messages with 500 until a normal
+ *  reply/tool is scripted again. Simulates a third-party LLM outage — used to
+ *  verify a failed turn does NOT consume the session's turn quota. */
+export async function scriptMockError(
+  request: APIRequestContext,
+): Promise<void> {
+  const res = await request.post(`${GATEWAY}/__mock/inference/next_error`, { data: {} });
+  if (res.status() !== 200) {
+    throw new Error(`script next_error: ${res.status()}`);
+  }
+}
+
 /** Run one visitor turn through the pi-agent-core-equivalent loop in
  *  Node, drain the response. Most calendar.book specs care about side
  *  effects (mock GCal events, tool-spec assembly) rather than the exact
