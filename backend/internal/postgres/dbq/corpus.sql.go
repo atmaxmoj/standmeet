@@ -68,7 +68,7 @@ func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) 
 const createWikiEntry = `-- name: CreateWikiEntry :one
 INSERT INTO wiki_entries (owner_id, parent_id, title, body, tags, source_raw_ids)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
 `
 
 type CreateWikiEntryParams struct {
@@ -98,7 +98,6 @@ func (q *Queries) CreateWikiEntry(ctx context.Context, arg CreateWikiEntryParams
 		&i.Body,
 		&i.Tags,
 		&i.SourceRawIds,
-		&i.Path,
 		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
@@ -150,7 +149,7 @@ func (q *Queries) GetRawByID(ctx context.Context, arg GetRawByIDParams) (RawEntr
 }
 
 const getWikiByID = `-- name: GetWikiByID :one
-SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries WHERE id = $1 AND owner_id = $2
 `
 
 type GetWikiByIDParams struct {
@@ -169,7 +168,6 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 		&i.Body,
 		&i.Tags,
 		&i.SourceRawIds,
-		&i.Path,
 		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,
@@ -177,44 +175,6 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const getWikiTitlesByIDs = `-- name: GetWikiTitlesByIDs :many
-SELECT id, title, path FROM wiki_entries
-WHERE owner_id = $1 AND id = ANY($2::uuid[])
-`
-
-type GetWikiTitlesByIDsParams struct {
-	OwnerID pgtype.UUID
-	Column2 []pgtype.UUID
-}
-
-type GetWikiTitlesByIDsRow struct {
-	ID    pgtype.UUID
-	Title string
-	Path  *string
-}
-
-// transcript hydration 用：把 cited_wiki_ids 批量解到 id+title+path。
-// path 让前端在 cited footer 直接渲染 "from: <path>" 不必二次 fetch。
-func (q *Queries) GetWikiTitlesByIDs(ctx context.Context, arg GetWikiTitlesByIDsParams) ([]GetWikiTitlesByIDsRow, error) {
-	rows, err := q.db.Query(ctx, getWikiTitlesByIDs, arg.OwnerID, arg.Column2)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetWikiTitlesByIDsRow
-	for rows.Next() {
-		var i GetWikiTitlesByIDsRow
-		if err := rows.Scan(&i.ID, &i.Title, &i.Path); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const listRawByOwner = `-- name: ListRawByOwner :many
@@ -261,7 +221,7 @@ func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) 
 }
 
 const listWikiByOwner = `-- name: ListWikiByOwner :many
-SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries
+SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -289,7 +249,6 @@ func (q *Queries) ListWikiByOwner(ctx context.Context, arg ListWikiByOwnerParams
 			&i.Body,
 			&i.Tags,
 			&i.SourceRawIds,
-			&i.Path,
 			&i.ShowAsSource,
 			&i.SeoDescription,
 			&i.SeoIndexed,
@@ -397,7 +356,7 @@ UPDATE wiki_entries
 SET title = $3, body = $4, tags = $5, parent_id = $6, show_as_source = $7,
     updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, path, show_as_source, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
 `
 
 type UpdateWikiBodyParams struct {
@@ -411,7 +370,7 @@ type UpdateWikiBodyParams struct {
 }
 
 // admin "edit wiki" 入口：改 title/body/tags/parent_id/show_as_source。
-// path / seo_description / seo_indexed 由 UpdateWikiSEO 单独负责。
+// seo_description / seo_indexed 由 UpdateWikiSEO 单独负责。地址纯树派生,无 path 列。
 func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) (WikiEntry, error) {
 	row := q.db.QueryRow(ctx, updateWikiBody,
 		arg.ID,
@@ -431,7 +390,40 @@ func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) 
 		&i.Body,
 		&i.Tags,
 		&i.SourceRawIds,
-		&i.Path,
+		&i.ShowAsSource,
+		&i.SeoDescription,
+		&i.SeoIndexed,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateWikiSEO = `-- name: UpdateWikiSEO :one
+UPDATE wiki_entries
+SET seo_description = $2, seo_indexed = $3, updated_at = now()
+WHERE id = $1
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
+`
+
+type UpdateWikiSEOParams struct {
+	ID             pgtype.UUID
+	SeoDescription string
+	SeoIndexed     bool
+}
+
+// admin / MCP 编辑 SEO 描述 + indexed 开关（地址树派生,owner 不再自设 path）。
+func (q *Queries) UpdateWikiSEO(ctx context.Context, arg UpdateWikiSEOParams) (WikiEntry, error) {
+	row := q.db.QueryRow(ctx, updateWikiSEO, arg.ID, arg.SeoDescription, arg.SeoIndexed)
+	var i WikiEntry
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.ParentID,
+		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceRawIds,
 		&i.ShowAsSource,
 		&i.SeoDescription,
 		&i.SeoIndexed,

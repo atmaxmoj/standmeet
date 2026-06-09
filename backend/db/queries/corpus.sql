@@ -49,21 +49,21 @@ DELETE FROM wiki_entries WHERE id = $1 AND owner_id = $2;
 -- name: SetWikiTags :exec
 UPDATE wiki_entries SET tags = $3, updated_at = now() WHERE id = $1 AND owner_id = $2;
 
--- name: GetWikiTitlesByIDs :many
--- transcript hydration 用：把 cited_wiki_ids 批量解到 id+title+path。
--- path 让前端在 cited footer 直接渲染 "from: <path>" 不必二次 fetch。
-SELECT id, title, path FROM wiki_entries
-WHERE owner_id = $1 AND id = ANY($2::uuid[]);
-
 -- name: UpdateWikiBody :one
 -- admin "edit wiki" 入口：改 title/body/tags/parent_id/show_as_source。
--- path / seo_description / seo_indexed 由 UpdateWikiSEO 单独负责。
+-- seo_description / seo_indexed 由 UpdateWikiSEO 单独负责。地址纯树派生,无 path 列。
 UPDATE wiki_entries
 SET title = $3, body = $4, tags = $5, parent_id = $6, show_as_source = $7,
     updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
--- Path 是 induced：repo 层调 GetWikiByID 走 parent 链直到 parent_id IS NULL，
--- 把 title 拼成 "/grandparent/parent/me"。v1 不走 recursive CTE（sqlc 解析
--- ambiguity 问题 + N+1 树深通常 ≤ 5 可接受）。
+-- name: UpdateWikiSEO :one
+-- admin / MCP 编辑 SEO 描述 + indexed 开关（地址树派生,owner 不再自设 path）。
+UPDATE wiki_entries
+SET seo_description = $2, seo_indexed = $3, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- 地址(path)是 induced：纯从 parent 链 + title slug 算（usecases.WikiTreePaths），
+-- 不存列、不可由 owner 自设。

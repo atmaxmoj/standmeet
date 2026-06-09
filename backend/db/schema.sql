@@ -115,7 +115,8 @@ CREATE TABLE wiki_entries (
     body             text          NOT NULL,
     tags             text[]        NOT NULL DEFAULT '{}',
     source_raw_ids   uuid[]        NOT NULL DEFAULT '{}',
-    path             citext,
+    -- 地址(path)纯树派生(parent 链 + title slug,见 usecases.WikiTreePaths),
+    -- 不存列:corpus 是 filesystem,文件路径来自它在哪个目录下。
     show_as_source   bool          NOT NULL DEFAULT true,
     seo_description  text          NOT NULL DEFAULT '',
     seo_indexed      bool          NOT NULL DEFAULT false,
@@ -123,13 +124,9 @@ CREATE TABLE wiki_entries (
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX wiki_entries_owner_path_idx
-    ON wiki_entries(owner_id, path)
-    WHERE path IS NOT NULL;
-
 -- output_entries —— raw → wiki → output 三层中的最精炼层。结构同 wiki，
 -- 语义差别：output 是 "可以在对话里完整原样引用" 的成品；通过 MCP
--- `promote_wiki_to_output` 从 wiki 提炼上来。path / show_as_source 含义
+-- `promote_wiki_to_output` 从 wiki 提炼上来。show_as_source 含义
 -- 与 wiki_entries 完全一致；retrieval ACL 同套规则评估。
 CREATE TABLE output_entries (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -140,17 +137,13 @@ CREATE TABLE output_entries (
     body             text          NOT NULL,
     tags             text[]        NOT NULL DEFAULT '{}',
     source_wiki_ids  uuid[]        NOT NULL DEFAULT '{}',
-    path             citext,
+    -- 地址纯树派生,不存列(同 wiki_entries)。
     show_as_source   bool          NOT NULL DEFAULT true,
     seo_description  text          NOT NULL DEFAULT '',
     seo_indexed      bool          NOT NULL DEFAULT false,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
-
-CREATE UNIQUE INDEX output_entries_owner_path_idx
-    ON output_entries(owner_id, path)
-    WHERE path IS NOT NULL;
 
 CREATE TABLE media_assets (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),

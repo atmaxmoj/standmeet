@@ -129,10 +129,8 @@ func (c *corpusRawCapability) promoteToWikiBinding() *agentskills.MCPBinding {
 			"properties":{
 				"raw_id":{"type":"string","description":"raw_entries.id"},
 				"title":{"type":"string","description":"Wiki title"},
-				"path":{"type":"string",
-					"description":"Retrieval/landing path. Empty = no path."},
 				"parent_id":{"type":"string",
-					"description":"Parent wiki id (root if empty)"},
+					"description":"Parent wiki id; root if empty. URL is tree-derived."},
 				"tags":{"type":"array","items":{"type":"string"},
 					"description":"Extra tags on top of inherited raw tags"},
 				"show_as_source":{"type":"boolean",
@@ -148,7 +146,6 @@ type promoteToWikiArgsWire struct {
 	ShowAsSource *bool    `json:"show_as_source"`
 	RawID        string   `json:"raw_id"`
 	Title        string   `json:"title"`
-	Path         string   `json:"path"`
 	ParentID     string   `json:"parent_id"`
 	Tags         []string `json:"tags"`
 }
@@ -165,27 +162,10 @@ func (c *corpusRawCapability) handlePromoteToWiki(
 	if err != nil {
 		return promoteErrToResult(c.log, err)
 	}
-	if perr := c.applyPromotePostProcess(ctx, &wikiEntry, &args); perr != nil {
-		return *perr
-	}
+	// 地址树派生:promote 不再设 path,只按需藏 show_as_source。
+	c.applyShowAsSourceIfHidden(ctx, &wikiEntry, args.ShowAsSource)
 	return marshalCapResult(c.log, "promote_to_wiki",
 		map[string]string{"wiki_id": wikiEntry.ID()})
-}
-
-func (c *corpusRawCapability) applyPromotePostProcess(
-	ctx context.Context, wikiEntry *domain.Wiki, args *promoteToWikiArgsWire,
-) *agentskills.MCPResult {
-	if args.Path != "" {
-		pathPtr := args.Path
-		if _, perr := c.seo.UpdateWikiPath(
-			ctx, wikiEntry.ID(), &pathPtr, "", false,
-		); perr != nil {
-			r := seoErrToResult(c.log, perr, "promote_to_wiki set path")
-			return &r
-		}
-	}
-	c.applyShowAsSourceIfHidden(ctx, wikiEntry, args.ShowAsSource)
-	return nil
 }
 
 func (c *corpusRawCapability) applyShowAsSourceIfHidden(
@@ -233,9 +213,6 @@ func buildPromoteToWikiInput(args *promoteToWikiArgsWire, ownerID string) *useca
 func promoteErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
 	if errors.Is(err, domain.ErrRawNotFound) {
 		return agentskills.MCPError("raw entry not found")
-	}
-	if errors.Is(err, domain.ErrPathTaken) {
-		return agentskills.MCPError("path already taken")
 	}
 	if errors.Is(err, domain.ErrParentNotFound) {
 		return agentskills.MCPError("parent entry not found")

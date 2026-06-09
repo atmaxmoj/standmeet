@@ -207,19 +207,12 @@ func (c *Corpus) getRaw(
 	return &r, nil
 }
 
-// getWiki / getOutput —— UUID 形态走 GetByID，path-string 形态走
-// GetByPath (raw SQL，不过滤 seo_indexed)。看是不是合法 UUID 区分。
-//
-// 调用方 (e.g. dialog cited 解析) 拿 path 就传 path；不再让 caller 自己
-// 反查路径 → uuid。
+// getWiki / getOutput —— 按 id 拿。地址树派生、不稳定,cite/寻址一律按
+// wiki://<id> / output://<id>(见 domain.URI),所以 ref 永远是 uuid。
 func (c *Corpus) getWiki(
-	ctx context.Context, ownerID, idOrPath string,
+	ctx context.Context, ownerID, id string,
 ) (domain.Document, error) {
-	getter := c.wiki.GetByPath
-	if isUUID(idOrPath) {
-		getter = c.wiki.GetByID
-	}
-	w, err := getter(ctx, ownerID, idOrPath)
+	w, err := c.wiki.GetByID(ctx, ownerID, id)
 	if err != nil {
 		return nil, fmt.Errorf("corpus get wiki: %w", err)
 	}
@@ -227,23 +220,13 @@ func (c *Corpus) getWiki(
 }
 
 func (c *Corpus) getOutput(
-	ctx context.Context, ownerID, idOrPath string,
+	ctx context.Context, ownerID, id string,
 ) (domain.Document, error) {
-	getter := c.output.GetByPath
-	if isUUID(idOrPath) {
-		getter = c.output.GetByID
-	}
-	o, err := getter(ctx, ownerID, idOrPath)
+	o, err := c.output.GetByID(ctx, ownerID, id)
 	if err != nil {
 		return nil, fmt.Errorf("corpus get output: %w", err)
 	}
 	return &o, nil
-}
-
-// isUUID —— 复用 parseUUID 判合法 uuid 字符串。比手写 pattern 健壮。
-func isUUID(s string) bool {
-	_, err := parseUUID(s)
-	return err == nil
 }
 
 func (c *Corpus) getWriting(

@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -84,37 +83,6 @@ func (r *WikiRepo) ListByOwner(
 	return out, nil
 }
 
-// GetByPath —— path-string 寻址 wiki。不过滤 seo_indexed (跟 SEORepo
-// .GetWikiByPath 不同——后者是给 public landing 用的需要 indexed=true
-// 守门)。retrieval / dialog cited 用 path 反查 entry 走这条。loadByPath
-// 通用 helper 在 corpus.go (wiki + output 共享)。
-func (r *WikiRepo) GetByPath(ctx context.Context, ownerID, path string) (domain.Wiki, error) {
-	var w dbq.WikiEntry
-	args := byPathArgs{OwnerID: ownerID, Path: path}
-	if err := loadByPath(ctx, r.pool, args, wikiByPathQuery, &w); err != nil {
-		return domain.Wiki{}, err
-	}
-	return toDomainWiki(&w), nil
-}
-
-var wikiByPathQuery = byPathQuery[dbq.WikiEntry]{
-	SQL: `
-		SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids,
-		       path, show_as_source, seo_description, seo_indexed,
-		       created_at, updated_at
-		FROM wiki_entries WHERE owner_id=$1 AND path=$2
-	`,
-	Scan: func(row pgx.Row, w *dbq.WikiEntry) error {
-		if err := row.Scan(&w.ID, &w.OwnerID, &w.ParentID, &w.Title, &w.Body,
-			&w.Tags, &w.SourceRawIds, &w.Path, &w.ShowAsSource,
-			&w.SeoDescription, &w.SeoIndexed, &w.CreatedAt, &w.UpdatedAt); err != nil {
-			return fmt.Errorf("scan wiki: %w", err)
-		}
-		return nil
-	},
-	NotFound: domain.ErrWikiNotFound,
-}
-
 // GetByID 拿 owner 的某条 wiki；不命中返回 ErrWikiNotFound。
 func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (domain.Wiki, error) {
 	ownerUUID, err := parseUUID(ownerID)
@@ -136,35 +104,6 @@ func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (domain.Wiki
 	return toDomainWiki(&row), nil
 }
 
-// ComputePath 走 parent 链 induce 出 path：返回从根到当前 wiki 的 title 列表。
-// 防环路 / 异常深 tree：maxPathDepth 截断。
-func (r *WikiRepo) ComputePath(ctx context.Context, ownerID, wikiID string) ([]string, error) {
-	titles := make([]string, 0, maxPathDepth)
-	current := wikiID
-	for range maxPathDepth {
-		w, err := r.GetByID(ctx, ownerID, current)
-		if err != nil {
-			return nil, err
-		}
-		titles = append([]string{w.Title()}, titles...)
-		parentID, hasParent := w.ParentID()
-		if !hasParent {
-			return titles, nil
-		}
-		current = parentID
-	}
-	return titles, nil
-}
-
-// PathString 是 ComputePath 的字符串形式："/grandparent/parent/me"。
-func (r *WikiRepo) PathString(ctx context.Context, ownerID, wikiID string) (string, error) {
-	titles, err := r.ComputePath(ctx, ownerID, wikiID)
-	if err != nil {
-		return "", err
-	}
-	return "/" + strings.Join(titles, "/"), nil
-}
-
 func toDomainWiki(w *dbq.WikiEntry) domain.Wiki {
 	in := domain.WikiInit{
 		ID:             formatUUID(w.ID),
@@ -183,9 +122,6 @@ func toDomainWiki(w *dbq.WikiEntry) domain.Wiki {
 	if w.ParentID.Valid {
 		s := formatUUID(w.ParentID)
 		in.ParentID = &s
-	}
-	if w.Path != nil {
-		in.Path = w.Path
 	}
 	return domain.NewWiki(&in)
 }

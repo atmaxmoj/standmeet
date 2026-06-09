@@ -142,8 +142,9 @@ test.describe('document body (wiki landing) ChatMarkdown 渲染', () => {
     });
 });
 
+// 地址树派生:URL = 标题 slug。title `Render fixture · ${key}` → render-fixture-${key}。
 function pathFor(key: FixtureKey): string {
-  return `render/${key}`;
+  return `render-fixture-${key}`;
 }
 
 async function seedAllFixtures(request: APIRequestContext): Promise<void> {
@@ -156,9 +157,8 @@ async function seedAllFixtures(request: APIRequestContext): Promise<void> {
       body: FIXTURE_BODIES[key],
       title: `Render fixture · ${key}`, path,
     });
-    await callTool<unknown>(request, token, sid, 'seo.set_wiki_slug', {
-      wiki_id: wikiID, seo_slug: path,
-      seo_description: `${key} render fixture.`, seo_indexed: true,
+    await callTool<unknown>(request, token, sid, 'seo.set_wiki_seo', {
+      wiki_id: wikiID, seo_description: `${key} render fixture.`, seo_indexed: true,
     });
   }
 }

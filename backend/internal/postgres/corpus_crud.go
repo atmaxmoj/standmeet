@@ -12,7 +12,6 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
@@ -145,46 +144,9 @@ func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 	return nil
 }
 
-// TitledRef —— 批量解 cited id → title+path 的最小映射 view。
-// conversations transcript hydration / visitor chat done event 复用。
-type TitledRef struct {
-	ID    string
-	Title string
-	Path  string
-}
-
-// GetTitlesByIDs —— transcript hydration：批量解 wiki id → title。空 ids
-// 返空 slice，不走 DB。
-func (r *WikiRepo) GetTitlesByIDs(
-	ctx context.Context, ownerID string, ids []string,
-) ([]TitledRef, error) {
-	if len(ids) == 0 {
-		return []TitledRef{}, nil
-	}
-	args, perr := parseTitleLookupArgs(ownerID, ids)
-	if perr != nil {
-		return []TitledRef{}, perr
-	}
-	rows, err := dbq.New(r.pool).GetWikiTitlesByIDs(ctx, dbq.GetWikiTitlesByIDsParams{
-		OwnerID: args.ownerUUID, Column2: args.idUUIDs,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("get wiki titles: %w", err)
-	}
-	return wikiRowsToRefs(rows), nil
-}
-
-func wikiRowsToRefs(rows []dbq.GetWikiTitlesByIDsRow) []TitledRef {
-	out := make([]TitledRef, 0, len(rows))
-	for i := range rows {
-		ref := TitledRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title}
-		if rows[i].Path != nil {
-			ref.Path = *rows[i].Path
-		}
-		out = append(out, ref)
-	}
-	return out
-}
+// cited id → title+path 的批量反查(GetTitlesByIDs)退役了:transcript hydration
+// 改在 usecases.GetConversationTranscript 里 load 全树 + WikiTreePaths 算地址
+// (地址纯树派生,不读已退役的 path 列)。
 
 // ─── output ─────────────────────────────────────────────────
 
@@ -236,56 +198,6 @@ func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateOutputBodyParams,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		ParentID: parent, ShowAsSource: in.ShowAsSource,
 	}, nil
-}
-
-// GetTitlesByIDs —— transcript hydration：批量解 output id → title。
-func (r *OutputRepo) GetTitlesByIDs(
-	ctx context.Context, ownerID string, ids []string,
-) ([]TitledRef, error) {
-	if len(ids) == 0 {
-		return []TitledRef{}, nil
-	}
-	args, perr := parseTitleLookupArgs(ownerID, ids)
-	if perr != nil {
-		return []TitledRef{}, perr
-	}
-	rows, err := dbq.New(r.pool).GetOutputTitlesByIDs(ctx, dbq.GetOutputTitlesByIDsParams{
-		OwnerID: args.ownerUUID, Column2: args.idUUIDs,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("get output titles: %w", err)
-	}
-	return outputRowsToRefs(rows), nil
-}
-
-func outputRowsToRefs(rows []dbq.GetOutputTitlesByIDsRow) []TitledRef {
-	out := make([]TitledRef, 0, len(rows))
-	for i := range rows {
-		ref := TitledRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title}
-		if rows[i].Path != nil {
-			ref.Path = *rows[i].Path
-		}
-		out = append(out, ref)
-	}
-	return out
-}
-
-// titleLookupArgs —— GetTitlesByIDs (wiki / output) 共享的 uuid parse 结果。
-type titleLookupArgs struct {
-	idUUIDs   []pgtype.UUID
-	ownerUUID pgtype.UUID
-}
-
-func parseTitleLookupArgs(ownerID string, ids []string) (titleLookupArgs, error) {
-	ownerUUID, err := parseUUID(ownerID)
-	if err != nil {
-		return titleLookupArgs{}, fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	idUUIDs, err := parseUUIDArray(ids)
-	if err != nil {
-		return titleLookupArgs{}, fmt.Errorf("parse ids: %w", err)
-	}
-	return titleLookupArgs{ownerUUID: ownerUUID, idUUIDs: idUUIDs}, nil
 }
 
 // Delete 硬删一条 output。

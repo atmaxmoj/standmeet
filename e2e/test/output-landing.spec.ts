@@ -40,7 +40,7 @@ test.describe('public /output/<slug> SEO landing', () => {
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
     const id = await seedOutputViaMCP(request);
-    setOutputSlug(id, SLUG, 'Polished local-first essay description');
+    setOutputSeo(id, 'Polished local-first essay description');
     await request.dispose();
   });
 
@@ -83,9 +83,11 @@ function setOutputBody(outputID: string, body: string): void {
   });
 }
 
-function setOutputSlug(outputID: string, slug: string, description: string): void {
+// 地址树派生(标题 slug):公开 URL = /output/local-first-essay,不写 path 列,
+// 只置 seo_indexed + 描述让它进公开 landing/sitemap。
+function setOutputSeo(outputID: string, description: string): void {
   const sql =
-    `UPDATE output_entries SET path = '${slug}', seo_description = '${description}',`
+    `UPDATE output_entries SET seo_description = '${description}',`
     + ` seo_indexed = true WHERE id = '${outputID}'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`, {
     stdio: 'pipe',

@@ -39,7 +39,6 @@ type WikiInit struct {
 	UpdatedAt      time.Time
 	CreatedAt      time.Time
 	ParentID       *string
-	Path           *string
 	Title          string
 	ID             string
 	OwnerID        string
@@ -70,7 +69,7 @@ func NewWiki(i *WikiInit) Wiki {
 		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		}),
-		tree: NewTreeNode(&TreeNodeInit{ParentID: i.ParentID, Path: i.Path}),
+		tree: NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
 		seo: NewSEO(&SEOInit{
 			Description: i.SEODescription, Indexed: i.SEOIndexed,
 		}),
@@ -80,11 +79,9 @@ func NewWiki(i *WikiInit) Wiki {
 
 // --- Document interface (flat 转发) ---
 
-// URI —— wiki://<path>；path 没设 → fallback wiki://<id> 让 retriever 仍能寻址。
+// URI —— wiki://<id>。地址(树派生 path)是 retrieval 期算的、随集合而变,不是
+// entry 自身稳定标识;cite/寻址一律按稳定的 id。
 func (w *Wiki) URI() string {
-	if p, ok := w.tree.Path(); ok && p != "" {
-		return FormatURI(GenreWiki, p)
-	}
 	return FormatURI(GenreWiki, w.id)
 }
 
@@ -117,17 +114,9 @@ func (w *Wiki) Integrations() []Integration { return w.integrations.All() }
 
 // --- Wiki-specific accessors ---
 
-// ParentID —— 父 wiki id 或 ("", false) 表示 root。
+// ParentID —— 父 wiki id 或 ("", false) 表示 root。地址是从这条 parent 链
+// 树派生算的(usecases.WikiTreePaths),不存 entry 自身。
 func (w *Wiki) ParentID() (string, bool) { return w.tree.ParentID() }
-
-// Path —— owner 配的公开 path 或 ("", false)。
-func (w *Wiki) Path() (string, bool) { return w.tree.Path() }
-
-// PathOrEmpty —— Path 的"或空串"形态。retriever 不区分 nil 跟 "" 时用。
-func (w *Wiki) PathOrEmpty() string { return w.tree.PathOrEmpty() }
-
-// HasPath —— 是否设了 path。
-func (w *Wiki) HasPath() bool { return w.tree.HasPath() }
 
 // ShowAsSource —— 是否进 readCollector 的 cited 列表（默认 true；persona
 // 类条目设 false）。
@@ -154,10 +143,6 @@ type SEOSettings struct {
 	SitemapExtras []string
 	IndexRobots   bool
 }
-
-// ErrPathTaken —— wiki/output 的 path 已被同 owner 别的 entry 占用
-// (unique-per-owner constraint)。
-var ErrPathTaken = errors.New("path already taken in this owner")
 
 // ErrWikiNotFound —— 按 id 查 wiki 未命中。
 var ErrWikiNotFound = errors.New("wiki entry not found")

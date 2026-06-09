@@ -50,14 +50,13 @@ type Deps struct {
 }
 
 // SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
+// 地址树派生,不再设 path —— 只写 SEO 描述 + indexed 开关。
 type SEOWriter interface {
-	UpdateWikiPath(
-		ctx context.Context, wikiID string,
-		path *string, description string, indexed bool,
+	UpdateWikiSEO(
+		ctx context.Context, wikiID, description string, indexed bool,
 	) (domain.Wiki, error)
-	UpdateOutputPath(
-		ctx context.Context, outputID string,
-		path *string, description string, indexed bool,
+	UpdateOutputSEO(
+		ctx context.Context, outputID, description string, indexed bool,
 	) (domain.Output, error)
 	GetSettings(ctx context.Context, ownerID string) (domain.SEOSettings, error)
 	UpsertSettings(ctx context.Context, in *domain.SEOSettings) (domain.SEOSettings, error)

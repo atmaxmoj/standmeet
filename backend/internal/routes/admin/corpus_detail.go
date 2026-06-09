@@ -13,9 +13,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 )
 
+// detail 不含 path:地址树派生(浏览列表那条由 usecases.WikiTreePaths 算并回显);
+// 编辑表单不再有可改的 path 字段(owner 不能自设地址)。
 type wikiDetailItem struct {
 	ParentID       *string  `json:"parent_id"`
-	Path           *string  `json:"path"`
 	ID             string   `json:"id"`
 	Title          string   `json:"title"`
 	Body           string   `json:"body"`
@@ -30,7 +31,6 @@ type wikiDetailItem struct {
 
 type outputDetailItem struct {
 	ParentID       *string  `json:"parent_id"`
-	Path           *string  `json:"path"`
 	ID             string   `json:"id"`
 	Title          string   `json:"title"`
 	Body           string   `json:"body"`
@@ -48,7 +48,7 @@ func wikiDetailFromDomain(w *domain.Wiki) wikiDetailItem {
 		ID: w.ID(), Title: w.Title(), Body: w.Body(),
 		Tags: ensureSlice(w.Tags()), SourceRawIDs: ensureSlice(w.SourceRawIDs()),
 		ParentID: optionalToPtr(w.ParentID), SEODescription: w.SEODescription(),
-		Path: optionalToPtr(w.Path), ShowAsSource: w.ShowAsSource(), SEOIndexed: w.SEOIndexed(),
+		ShowAsSource: w.ShowAsSource(), SEOIndexed: w.SEOIndexed(),
 		CreatedAt: w.CreatedAt().UTC().Format(timeRFC3339),
 		UpdatedAt: w.UpdatedAt().UTC().Format(timeRFC3339),
 	}
@@ -59,7 +59,7 @@ func outputDetailFromDomain(o *domain.Output) outputDetailItem {
 		ID: o.ID(), Title: o.Title(), Body: o.Body(),
 		Tags: ensureSlice(o.Tags()), SourceWikiIDs: ensureSlice(o.SourceWikiIDs()),
 		ParentID: optionalToPtr(o.ParentID), SEODescription: o.SEODescription(),
-		Path: optionalToPtr(o.Path), ShowAsSource: o.ShowAsSource(), SEOIndexed: o.SEOIndexed(),
+		ShowAsSource: o.ShowAsSource(), SEOIndexed: o.SEOIndexed(),
 		CreatedAt: o.CreatedAt().UTC().Format(timeRFC3339),
 		UpdatedAt: o.UpdatedAt().UTC().Format(timeRFC3339),
 	}

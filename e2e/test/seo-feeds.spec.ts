@@ -67,9 +67,8 @@ async function seedIndexedWiki(request: APIRequestContext): Promise<void> {
     title: 'Why StandMeet exists',
     tags: ['intro'],
   });
-  await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_slug', {
+  await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_seo', {
     wiki_id: wikiID,
-    seo_slug: INDEXED_SLUG,
     seo_description: 'The founding observation.',
     seo_indexed: true,
   });

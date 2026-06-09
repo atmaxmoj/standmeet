@@ -30,7 +30,7 @@ interface Bench {
 const BENCHES: readonly Bench[] = [
   {
     name: 'markdown (基础)',
-    path: 'bench/markdown',
+    path: 'bench-markdown',
     body: '# Heading\n\n**bold** text\n\n- a\n- b',
     awaitSelector: async (page) => {
       await page.locator('[data-testid="wiki-body"] h1').waitFor();
@@ -39,7 +39,7 @@ const BENCHES: readonly Bench[] = [
   },
   {
     name: 'gfm (table)',
-    path: 'bench/gfm',
+    path: 'bench-gfm',
     body: '| a | b |\n| - | - |\n| 1 | 2 |',
     awaitSelector: async (page) => {
       await page.locator('[data-testid="wiki-body"] table').waitFor();
@@ -48,7 +48,7 @@ const BENCHES: readonly Bench[] = [
   },
   {
     name: 'katex inline + display',
-    path: 'bench/katex',
+    path: 'bench-katex',
     body: 'Inline $E = mc^2$\n\n$$\n\\int_0^1 x dx\n$$',
     awaitSelector: async (page) => {
       await page.locator('[data-testid="wiki-body"] .katex-display').waitFor();
@@ -57,7 +57,7 @@ const BENCHES: readonly Bench[] = [
   },
   {
     name: 'mermaid (lazy ~600KB)',
-    path: 'bench/mermaid',
+    path: 'bench-mermaid',
     body: '```mermaid\ngraph LR; A-->B\n```',
     awaitSelector: async (page) => {
       await page.getByTestId('mermaid-svg').locator('svg').waitFor();
@@ -103,12 +103,13 @@ async function seedBenchFixtures(request: APIRequestContext): Promise<void> {
   const token = await createAPIToken(request, csrf, 'bench-seed');
   const sid = await initMCP(request, token);
   for (const b of BENCHES) {
+    // 地址树派生:title = path slug(单段,root),叶子树路径 = slug(title) = b.path,
+    // 公开 URL /wiki/<b.path> 才解析得到这条。
     const { wikiID } = await seedWiki(request, token, sid, {
-      body: b.body, title: `Bench · ${b.name}`, path: b.path,
+      body: b.body, title: b.path, path: b.path,
     });
-    await callTool<unknown>(request, token, sid, 'seo.set_wiki_slug', {
-      wiki_id: wikiID, seo_slug: b.path,
-      seo_description: `${b.name} bench fixture.`, seo_indexed: true,
+    await callTool<unknown>(request, token, sid, 'seo.set_wiki_seo', {
+      wiki_id: wikiID, seo_description: `${b.name} bench fixture.`, seo_indexed: true,
     });
   }
 }

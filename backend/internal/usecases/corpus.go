@@ -54,7 +54,7 @@ func RawDump(ctx context.Context, deps CorpusDeps, in *RawDumpInput) (domain.Raw
 // PromoteInput 是 promote_to_wiki 入参。
 //
 // path / show_as_source 不在这层 —— MCP 工具层接 path 后调 PromoteToWiki
-// 再单独调 SEORepo.UpdateWikiPath / WikiRepo.Update 设置（多步写各自原子）。
+// 再单独调 SEORepo.UpdateWikiSEO / WikiRepo.Update 设置（多步写各自原子）。
 type PromoteInput struct {
 	OwnerID  string
 	RawID    string

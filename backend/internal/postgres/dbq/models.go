@@ -212,7 +212,6 @@ type OutputEntry struct {
 	Body           string
 	Tags           []string
 	SourceWikiIds  []pgtype.UUID
-	Path           *string
 	ShowAsSource   bool
 	SeoDescription string
 	SeoIndexed     bool
@@ -381,7 +380,6 @@ type WikiEntry struct {
 	Body           string
 	Tags           []string
 	SourceRawIds   []pgtype.UUID
-	Path           *string
 	ShowAsSource   bool
 	SeoDescription string
 	SeoIndexed     bool

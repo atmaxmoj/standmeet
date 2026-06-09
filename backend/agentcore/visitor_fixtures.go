@@ -118,21 +118,24 @@ func (c *corpusFixtures) grant(e *VisitorCorpusEntry, genre domain.DocumentGenre
 	if e.Private {
 		return
 	}
-	c.corpusURIs = append(c.corpusURIs, domain.FormatURI(genre, e.Path))
+	// URI 按稳定 id(地址树派生不进 URI);fixture id = "<genre>-<path>"。
+	idPrefix := "wiki-"
+	if genre == domain.GenreOutput {
+		idPrefix = "output-"
+	}
+	c.corpusURIs = append(c.corpusURIs, domain.FormatURI(genre, idPrefix+e.Path))
 }
 
 func (e *VisitorCorpusEntry) toWiki(ownerID string) domain.Wiki {
-	path := e.Path
 	return domain.NewWiki(&domain.WikiInit{
-		ID: "wiki-" + e.Path, OwnerID: ownerID, Path: &path,
+		ID: "wiki-" + e.Path, OwnerID: ownerID,
 		Title: e.Title, Body: e.Body, Tags: e.Tags,
 	})
 }
 
 func (e *VisitorCorpusEntry) toOutput(ownerID string) domain.Output {
-	path := e.Path
 	return domain.NewOutput(&domain.OutputInit{
-		ID: "output-" + e.Path, OwnerID: ownerID, Path: &path,
+		ID: "output-" + e.Path, OwnerID: ownerID,
 		Title: e.Title, Body: e.Body, Tags: e.Tags,
 	})
 }

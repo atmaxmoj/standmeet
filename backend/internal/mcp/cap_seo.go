@@ -54,17 +54,19 @@ func (c *seoCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 	}
 }
 
-// ───── seo.set_wiki_slug ─────────────────────────────────────────
+// ───── seo.set_wiki_seo ──────────────────────────────────────────
+// 地址纯树派生(标题 slug + parent 链),owner 不再自设 slug —— 这俩 tool 只
+// 管「这条要不要公开 index + meta 描述」。
 
 func (c *seoCapability) setWikiSlugBinding() *agentskills.MCPBinding {
 	return &agentskills.MCPBinding{
-		Name:        "seo.set_wiki_slug",
-		Description: "Set SEO slug / description / indexed for a wiki entry.",
+		Name: "seo.set_wiki_seo",
+		Description: "Set SEO description + public-indexed flag for a wiki entry " +
+			"(public URL is tree-derived from the title, not owner-set).",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"wiki_id":{"type":"string","description":"Wiki UUID."},
-				"seo_slug":{"type":"string","description":"URL slug (a-z0-9-)."},
 				"seo_description":{"type":"string"},
 				"seo_indexed":{"type":"boolean"}
 			},
@@ -76,16 +78,14 @@ func (c *seoCapability) setWikiSlugBinding() *agentskills.MCPBinding {
 
 type setWikiSlugArgsWire struct {
 	WikiID         string `json:"wiki_id"`
-	SEOSlug        string `json:"seo_slug"`
 	SEODescription string `json:"seo_description"`
 	SEOIndexed     bool   `json:"seo_indexed"`
 }
 
 type setWikiSlugPayload struct {
-	WikiID         string  `json:"wiki_id"`
-	SEOSlug        *string `json:"seo_slug"`
-	SEODescription string  `json:"seo_description"`
-	SEOIndexed     bool    `json:"seo_indexed"`
+	WikiID         string `json:"wiki_id"`
+	SEODescription string `json:"seo_description"`
+	SEOIndexed     bool   `json:"seo_indexed"`
 }
 
 func (c *seoCapability) handleSetWikiSlug(
@@ -98,54 +98,38 @@ func (c *seoCapability) handleSetWikiSlug(
 	if args.WikiID == "" {
 		return agentskills.MCPError("wiki_id is required")
 	}
-	updated, err := c.seo.UpdateWikiPath(
-		ctx, args.WikiID, optionalSlug(args.SEOSlug),
-		args.SEODescription, args.SEOIndexed,
-	)
+	updated, err := c.seo.UpdateWikiSEO(ctx, args.WikiID, args.SEODescription, args.SEOIndexed)
 	if err != nil {
-		return seoErrToResult(c.log, err, "seo.set_wiki_slug")
+		return seoErrToResult(c.log, err, "seo.set_wiki_seo")
 	}
 	return marshalSetWikiSlug(c.log, &updated)
 }
 
 func marshalSetWikiSlug(log *slog.Logger, w *domain.Wiki) agentskills.MCPResult {
-	var seoSlug *string
-	if p, ok := w.Path(); ok {
-		cp := p
-		seoSlug = &cp
-	}
 	payload := setWikiSlugPayload{
 		WikiID:         w.ID(),
-		SEOSlug:        seoSlug,
 		SEODescription: w.SEODescription(),
 		SEOIndexed:     w.SEOIndexed(),
 	}
 	out, err := json.Marshal(payload)
 	if err != nil {
-		log.Error("seo.set_wiki_slug marshal", "err", err)
+		log.Error("seo.set_wiki_seo marshal", "err", err)
 		return agentskills.MCPError(fmt.Sprintf("encode payload: %v", err))
 	}
 	return agentskills.MCPSuccess(string(out))
 }
 
-func optionalSlug(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
-// ───── seo.set_output_slug ───────────────────────────────────────
+// ───── seo.set_output_seo ────────────────────────────────────────
 
 func (c *seoCapability) setOutputSlugBinding() *agentskills.MCPBinding {
 	return &agentskills.MCPBinding{
-		Name:        "seo.set_output_slug",
-		Description: "Set SEO slug / description / indexed for an output entry.",
+		Name: "seo.set_output_seo",
+		Description: "Set SEO description + public-indexed flag for an output entry " +
+			"(public URL is tree-derived from the title, not owner-set).",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"output_id":{"type":"string","description":"Output UUID."},
-				"seo_slug":{"type":"string","description":"URL slug (a-z0-9-)."},
 				"seo_description":{"type":"string"},
 				"seo_indexed":{"type":"boolean"}
 			},
@@ -157,16 +141,14 @@ func (c *seoCapability) setOutputSlugBinding() *agentskills.MCPBinding {
 
 type setOutputSlugArgsWire struct {
 	OutputID       string `json:"output_id"`
-	SEOSlug        string `json:"seo_slug"`
 	SEODescription string `json:"seo_description"`
 	SEOIndexed     bool   `json:"seo_indexed"`
 }
 
 type setOutputSlugPayload struct {
-	OutputID       string  `json:"output_id"`
-	SEOSlug        *string `json:"seo_slug"`
-	SEODescription string  `json:"seo_description"`
-	SEOIndexed     bool    `json:"seo_indexed"`
+	OutputID       string `json:"output_id"`
+	SEODescription string `json:"seo_description"`
+	SEOIndexed     bool   `json:"seo_indexed"`
 }
 
 func (c *seoCapability) handleSetOutputSlug(
@@ -179,31 +161,22 @@ func (c *seoCapability) handleSetOutputSlug(
 	if args.OutputID == "" {
 		return agentskills.MCPError("output_id is required")
 	}
-	updated, err := c.seo.UpdateOutputPath(
-		ctx, args.OutputID, optionalSlug(args.SEOSlug),
-		args.SEODescription, args.SEOIndexed,
-	)
+	updated, err := c.seo.UpdateOutputSEO(ctx, args.OutputID, args.SEODescription, args.SEOIndexed)
 	if err != nil {
-		return seoErrToResult(c.log, err, "seo.set_output_slug")
+		return seoErrToResult(c.log, err, "seo.set_output_seo")
 	}
 	return marshalSetOutputSlug(c.log, &updated)
 }
 
 func marshalSetOutputSlug(log *slog.Logger, o *domain.Output) agentskills.MCPResult {
-	var seoSlug *string
-	if p, ok := o.Path(); ok {
-		cp := p
-		seoSlug = &cp
-	}
 	payload := setOutputSlugPayload{
 		OutputID:       o.ID(),
-		SEOSlug:        seoSlug,
 		SEODescription: o.SEODescription(),
 		SEOIndexed:     o.SEOIndexed(),
 	}
 	out, err := json.Marshal(payload)
 	if err != nil {
-		log.Error("seo.set_output_slug marshal", "err", err)
+		log.Error("seo.set_output_seo marshal", "err", err)
 		return agentskills.MCPError(fmt.Sprintf("encode payload: %v", err))
 	}
 	return agentskills.MCPSuccess(string(out))
@@ -297,11 +270,11 @@ func marshalUpdateSettings(log *slog.Logger, s *domain.SEOSettings) agentskills.
 // ───── shared error translation ──────────────────────────────────
 
 func seoErrToResult(log *slog.Logger, err error, name string) agentskills.MCPResult {
-	if errors.Is(err, domain.ErrPathTaken) {
-		return agentskills.MCPError("path already taken")
-	}
 	if errors.Is(err, domain.ErrWikiNotFound) {
 		return agentskills.MCPError("wiki entry not found")
+	}
+	if errors.Is(err, domain.ErrOutputNotFound) {
+		return agentskills.MCPError("output entry not found")
 	}
 	log.Error(name, "err", err)
 	return agentskills.MCPError(name + " failed")

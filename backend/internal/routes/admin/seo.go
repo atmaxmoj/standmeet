@@ -86,10 +86,10 @@ func writeSEOSettings(log *slog.Logger, w http.ResponseWriter, settings *domain.
 	}
 }
 
+// patchWikiSEORequest —— 地址树派生,owner 不设 path;只改 meta 描述 + indexed。
 type patchWikiSEORequest struct {
-	Path           *string `json:"path"`
-	SEODescription string  `json:"seo_description"`
-	SEOIndexed     bool    `json:"seo_indexed"`
+	SEODescription string `json:"seo_description"`
+	SEOIndexed     bool   `json:"seo_indexed"`
 }
 
 func (h *Handlers) patchWikiSEO() http.HandlerFunc {
@@ -100,8 +100,8 @@ func (h *Handlers) patchWikiSEO() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		updated, err := h.SEOAdmin.SEO.UpdateWikiPath(
-			r.Context(), wikiID, normalizePath(req.Path), req.SEODescription, req.SEOIndexed,
+		updated, err := h.SEOAdmin.SEO.UpdateWikiSEO(
+			r.Context(), wikiID, req.SEODescription, req.SEOIndexed,
 		)
 		if err != nil {
 			handleWikiSEOErr(h.Log, w, err)
@@ -111,37 +111,21 @@ func (h *Handlers) patchWikiSEO() http.HandlerFunc {
 	}
 }
 
-func normalizePath(s *string) *string {
-	if s == nil {
-		return nil
-	}
-	if *s == "" {
-		return nil
-	}
-	return s
-}
-
 func handleWikiSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, domain.ErrPathTaken):
-		writeError(log, w, apierr.Envelope{
-			Status: http.StatusConflict, Code: "path_taken", Message: "path already in use",
-		})
-	case errors.Is(err, domain.ErrWikiNotFound):
+	if errors.Is(err, domain.ErrWikiNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "wiki_not_found", Message: "wiki entry not found",
 		})
-	default:
-		log.Error("patch wiki seo", "err", err)
-		writeError(log, w, serverErr())
+		return
 	}
+	log.Error("patch wiki seo", "err", err)
+	writeError(log, w, serverErr())
 }
 
 type wikiSEOResp struct {
-	ID             string  `json:"id"`
-	Path           *string `json:"path"`
-	SEODescription string  `json:"seo_description"`
-	SEOIndexed     bool    `json:"seo_indexed"`
+	ID             string `json:"id"`
+	SEODescription string `json:"seo_description"`
+	SEOIndexed     bool   `json:"seo_indexed"`
 }
 
 func writeWikiSEOResp(log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki) {
@@ -149,7 +133,6 @@ func writeWikiSEOResp(log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki
 	w.WriteHeader(http.StatusOK)
 	resp := wikiSEOResp{
 		ID:             wiki.ID(),
-		Path:           optionalToPtr(wiki.Path),
 		SEODescription: wiki.SEODescription(),
 		SEOIndexed:     wiki.SEOIndexed(),
 	}
@@ -167,8 +150,8 @@ func (h *Handlers) patchOutputSEO() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		updated, err := h.SEOAdmin.SEO.UpdateOutputPath(
-			r.Context(), outputID, normalizePath(req.Path), req.SEODescription, req.SEOIndexed,
+		updated, err := h.SEOAdmin.SEO.UpdateOutputSEO(
+			r.Context(), outputID, req.SEODescription, req.SEOIndexed,
 		)
 		if err != nil {
 			handleOutputSEOErr(h.Log, w, err)
@@ -179,21 +162,16 @@ func (h *Handlers) patchOutputSEO() http.HandlerFunc {
 }
 
 func handleOutputSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, domain.ErrPathTaken):
-		writeError(log, w, apierr.Envelope{
-			Status: http.StatusConflict, Code: "path_taken", Message: "path already in use",
-		})
-	case errors.Is(err, domain.ErrOutputNotFound):
+	if errors.Is(err, domain.ErrOutputNotFound) {
 		writeError(log, w, apierr.Envelope{
 			Status:  http.StatusNotFound,
 			Code:    "output_not_found",
 			Message: "output entry not found",
 		})
-	default:
-		log.Error("patch output seo", logKeyErr, err)
-		writeError(log, w, serverErr())
+		return
 	}
+	log.Error("patch output seo", logKeyErr, err)
+	writeError(log, w, serverErr())
 }
 
 // logKeyErr —— slog "err" 字面在 seo.go 多处出现，提常量。
@@ -204,7 +182,6 @@ func writeOutputSEOResp(log *slog.Logger, w http.ResponseWriter, out *domain.Out
 	w.WriteHeader(http.StatusOK)
 	resp := wikiSEOResp{
 		ID:             out.ID(),
-		Path:           optionalToPtr(out.Path),
 		SEODescription: out.SEODescription(),
 		SEOIndexed:     out.SEOIndexed(),
 	}

@@ -91,21 +91,22 @@ async function buildPipeline(request: APIRequestContext) {
   const wiki = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
     raw_id: raw.raw_id, title: WIKI_TITLE,
   });
-  await callTool(request, token, sid, 'seo.set_wiki_slug', {
-    wiki_id: wiki.wiki_id, seo_slug: 'pipeline-wiki',
-    seo_description: 'Pipeline test wiki.', seo_indexed: true,
+  await callTool(request, token, sid, 'seo.set_wiki_seo', {
+    wiki_id: wiki.wiki_id, seo_description: 'Pipeline test wiki.', seo_indexed: true,
   });
   const output = await callTool<{ output_id: string }>(
     request, token, sid, 'promote_wiki_to_output',
     { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE },
   );
-  setOutputSlug(output.output_id, 'pipeline-output');
+  setOutputSeo(output.output_id);
   return { wikiID: wiki.wiki_id, outputID: output.output_id };
 }
 
-function setOutputSlug(outputID: string, slug: string): void {
+// 地址树派生:不写 path 列,只置 seo_indexed 让 output 进公开 landing/sitemap。
+// 公开 URL = /output/<标题 slug>。
+function setOutputSeo(outputID: string): void {
   const sql =
-    `UPDATE output_entries SET path = '${slug}', seo_description = 'test',`
+    `UPDATE output_entries SET seo_description = 'test',`
     + ` seo_indexed = true WHERE id = '${outputID}'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`, {
     stdio: 'pipe',

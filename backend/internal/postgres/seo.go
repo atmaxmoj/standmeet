@@ -76,61 +76,45 @@ func (r *SEORepo) UpsertSettings(
 	return toDomainSEOSettings(&row)
 }
 
-// UpdateWikiPath —— 给 admin / MCP 改 path + SEO 描述 + indexed 开关。
-// path 冲突翻译成 domain.ErrPathTaken。
-func (r *SEORepo) UpdateWikiPath(
-	ctx context.Context, wikiID string,
-	path *string, description string, indexed bool,
+// UpdateWikiSEO —— 给 admin / MCP 改 SEO 描述 + indexed 开关。地址树派生,
+// owner 不再自设 path,所以没有 path 冲突(ErrPathTaken)这回事。
+func (r *SEORepo) UpdateWikiSEO(
+	ctx context.Context, wikiID, description string, indexed bool,
 ) (domain.Wiki, error) {
 	pgID, perr := parseUUID(wikiID)
 	if perr != nil {
 		return domain.Wiki{}, fmt.Errorf("parse wiki id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).UpdateWikiPath(ctx, dbq.UpdateWikiPathParams{
-		ID: pgID, Path: path, SeoDescription: description, SeoIndexed: indexed,
+	row, err := dbq.New(r.pool).UpdateWikiSEO(ctx, dbq.UpdateWikiSEOParams{
+		ID: pgID, SeoDescription: description, SeoIndexed: indexed,
 	})
 	if err != nil {
-		return domain.Wiki{}, translateUpdateWikiPathErr(err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Wiki{}, domain.ErrWikiNotFound
+		}
+		return domain.Wiki{}, fmt.Errorf("update wiki seo: %w", err)
 	}
 	return toDomainWiki(&row), nil
 }
 
-func translateUpdateWikiPathErr(err error) error {
-	if name, hit := pgUniqueViolation(err); hit && name == "wiki_entries_owner_path_idx" {
-		return domain.ErrPathTaken
-	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrWikiNotFound
-	}
-	return fmt.Errorf("update wiki path: %w", err)
-}
-
-// UpdateOutputPath —— 跟 UpdateWikiPath 同套路。
-func (r *SEORepo) UpdateOutputPath(
-	ctx context.Context, outputID string,
-	path *string, description string, indexed bool,
+// UpdateOutputSEO —— 跟 UpdateWikiSEO 同套路。
+func (r *SEORepo) UpdateOutputSEO(
+	ctx context.Context, outputID, description string, indexed bool,
 ) (domain.Output, error) {
 	pgID, perr := parseUUID(outputID)
 	if perr != nil {
 		return domain.Output{}, fmt.Errorf("parse output id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).UpdateOutputPath(ctx, dbq.UpdateOutputPathParams{
-		ID: pgID, Path: path, SeoDescription: description, SeoIndexed: indexed,
+	row, err := dbq.New(r.pool).UpdateOutputSEO(ctx, dbq.UpdateOutputSEOParams{
+		ID: pgID, SeoDescription: description, SeoIndexed: indexed,
 	})
 	if err != nil {
-		return domain.Output{}, translateUpdateOutputPathErr(err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Output{}, domain.ErrOutputNotFound
+		}
+		return domain.Output{}, fmt.Errorf("update output seo: %w", err)
 	}
 	return toDomainOutput(&row), nil
-}
-
-func translateUpdateOutputPathErr(err error) error {
-	if name, hit := pgUniqueViolation(err); hit && name == "output_entries_owner_path_idx" {
-		return domain.ErrPathTaken
-	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.ErrOutputNotFound
-	}
-	return fmt.Errorf("update output path: %w", err)
 }
 
 func defaultSEOSettings(ownerID string) domain.SEOSettings {

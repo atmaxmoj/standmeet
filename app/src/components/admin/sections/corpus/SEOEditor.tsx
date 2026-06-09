@@ -1,17 +1,15 @@
-// SEOEditor —— wiki / output 共用的 path + SEO sub-section。
-// 字段：path（可空=不公开 + 不算 retrieval ACL）/ seo_description / seo_indexed。
-// owner 改完保存，indexed=true 才会进 sitemap + 渲染 /wiki/<path> 或 /output/<path>。
-// path 现在允许包含 `/`（例：projects/lucerna）—— retrieval ACL 走 path-glob，
-// landing route 用 catch-all [...path]。
+// SEOEditor —— wiki / output 共用的 public-landing SEO sub-section。
+// 字段：seo_description / seo_indexed。indexed=true 才进 sitemap + 渲染
+// /wiki/<path> 或 /output/<path>。地址(path)纯树派生(标题 slug + parent 链),
+// owner 不再自设 —— 所以这里没有 path 输入框,改名会同时改公开 URL。
 
 'use client';
 
 import { useState } from 'react';
 
-import type { PathUpdateInput } from '@/lib/admin/use-corpus-actions';
+import type { SEOUpdateInput } from '@/lib/admin/use-corpus-actions';
 
 export interface SEOEditorInitial {
-  path?: string | null;
   seo_description: string;
   seo_indexed: boolean;
 }
@@ -20,13 +18,12 @@ export interface SEOEditorProps {
   testidPrefix: string;
   initial: SEOEditorInitial;
   busy: boolean;
-  onSave: (input: PathUpdateInput) => void;
+  onSave: (input: SEOUpdateInput) => void;
 }
 
 export function SEOEditor(props: SEOEditorProps) {
   const state = useSEOState(props.initial);
   const onSave = () => props.onSave({
-    path: normalizePath(state.path),
     seo_description: state.description,
     seo_indexed: state.indexed,
   });
@@ -34,7 +31,6 @@ export function SEOEditor(props: SEOEditorProps) {
     <div className="space-y-3 border border-(--color-rule) p-4 bg-(--color-surface)/40 rounded-sm mt-3"
       data-testid={`${props.testidPrefix}-seo-form`}>
       <Heading />
-      <PathField state={state} testid={props.testidPrefix} />
       <DescriptionField state={state} testid={props.testidPrefix} />
       <IndexedField state={state} testid={props.testidPrefix} />
       <Actions busy={props.busy} onSave={onSave} testid={props.testidPrefix} />
@@ -43,50 +39,23 @@ export function SEOEditor(props: SEOEditorProps) {
 }
 
 interface SEOState {
-  path: string;
   description: string;
   indexed: boolean;
-  setPath: (v: string) => void;
   setDescription: (v: string) => void;
   setIndexed: (b: boolean) => void;
 }
 
 function useSEOState(initial: SEOEditorInitial): SEOState {
-  const [path, setPath] = useState(initial.path ?? '');
   const [description, setDescription] = useState(initial.seo_description);
   const [indexed, setIndexed] = useState(initial.seo_indexed);
-  return { path, description, indexed, setPath, setDescription, setIndexed };
-}
-
-function normalizePath(s: string): string | null {
-  const trimmed = s.trim().toLowerCase();
-  return trimmed === '' ? null : trimmed;
+  return { description, indexed, setDescription, setIndexed };
 }
 
 function Heading() {
   return (
     <h4 className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
-      path &amp; public landing
+      public landing (url is tree-derived from the title)
     </h4>
-  );
-}
-
-function PathField({ state, testid }: { state: SEOState; testid: string }) {
-  return (
-    <label className="block">
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
-        path (empty = not public; `/` allowed for grouping)
-      </span>
-      <input
-        type="text"
-        value={state.path}
-        onChange={(e) => state.setPath(e.target.value)}
-        spellCheck={false}
-        placeholder="projects/lucerna"
-        data-testid={`${testid}-path`}
-        className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
-      />
-    </label>
   );
 }
 

@@ -3,7 +3,7 @@
 // 改 title/body/tags/parent/show_as_source。Create wiki / output 是给 owner 在
 // admin UI 起一条新条目（不从 raw promote）；source 字段为空。
 // retrieval-redesign：visibility 字段全部砍掉；path / show_as_source 落地
-// 在 SEORepo.UpdateWikiPath / UpdateOutputPath 和这里的 ShowAsSource 字段。
+// 在 SEORepo.UpdateWikiSEO / UpdateOutputSEO 和这里的 ShowAsSource 字段。
 
 package usecases
 

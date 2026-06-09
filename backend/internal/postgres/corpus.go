@@ -131,42 +131,8 @@ func (r *RawRepo) MarkPromoted(ctx context.Context, ownerID, rawID, wikiID strin
 	return nil
 }
 
-// byPathQuery —— wiki / output path-lookup 的 SQL + scan + not-found sentinel
-// 三元组打包，避免 loadByPath 参数膨胀。字段顺序：pointer-only 在前，含
-// 非 ptr 的 string 在后 (govet fieldalignment)。
-type byPathQuery[T any] struct {
-	Scan     func(pgx.Row, *T) error
-	NotFound error
-	SQL      string
-}
-
-// byPathArgs —— ownerID + path 打包，loadByPath 参数控在 5 个以内 (revive
-// argument-limit)。
-type byPathArgs struct {
-	OwnerID string
-	Path    string
-}
-
-// loadByPath —— 通用 path-string lookup。bypass sqlc，pool.QueryRow + scanner
-// callback。NotFound 翻成 caller 传入的 sentinel。wiki / output 共用。target
-// 接收 scanned row (避免泛型 return 触发 ireturn lint)。
-func loadByPath[T any](
-	ctx context.Context, pool *Pool, args byPathArgs,
-	q byPathQuery[T], target *T,
-) error {
-	ownerUUID, err := parseUUID(args.OwnerID)
-	if err != nil {
-		return fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	row := pool.QueryRow(ctx, q.SQL, ownerUUID, &args.Path)
-	if scanErr := q.Scan(row, target); scanErr != nil {
-		if errors.Is(scanErr, pgx.ErrNoRows) {
-			return q.NotFound
-		}
-		return scanErr
-	}
-	return nil
-}
+// path-string lookup(byPathQuery/loadByPath)退役了:地址树派生,不再按 path
+// 列反查 entry;cite/寻址走 id(GetByID),公开 landing 走 usecases load 全树算地址。
 
 func parseOptionalUUID(s *string) (pgtype.UUID, error) {
 	if s == nil || *s == "" {

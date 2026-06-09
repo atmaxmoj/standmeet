@@ -79,7 +79,7 @@ test.describe('Phase B-5 owner-only capability isolation', () => {
 
   test('owner-side tool names absent from visitor tool_specs',
     async ({ playwright }) => {
-      // owner-only tool names (e.g. 'me', 'seo.set_wiki_slug') 没理由出现
+      // owner-only tool names (e.g. 'me', 'seo.set_wiki_seo') 没理由出现
       // 在 visitor 这边。枚举几个白名单值；后续 commit 加入更多 tool 时
       // 再扩。
       const request = await playwright.request.newContext();
@@ -89,7 +89,7 @@ test.describe('Phase B-5 owner-only capability isolation', () => {
       const body = await fetchVisitorCapabilities(request, sess.session_token);
       const names = body.tool_specs.map((t) => t.name);
       for (const ownerTool of [
-        'me', 'seo.set_wiki_slug', 'seo.update_settings',
+        'me', 'seo.set_wiki_seo', 'seo.update_settings',
       ]) {
         expect(names,
           `owner-only tool ${ownerTool} must not be exposed to visitor`).not.toContain(ownerTool);

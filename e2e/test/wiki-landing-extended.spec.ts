@@ -74,9 +74,8 @@ async function seedIndexedWiki(request: APIRequestContext): Promise<void> {
     body: 'Extended wiki content for testing.',
     title: 'Wiki Extended',
   });
-  await callTool(request, token, sid, 'seo.set_wiki_slug', {
+  await callTool(request, token, sid, 'seo.set_wiki_seo', {
     wiki_id: wikiID,
-    seo_slug: 'wiki-ext-slug',
     seo_description: 'Extended wiki test.',
     seo_indexed: true,
   });

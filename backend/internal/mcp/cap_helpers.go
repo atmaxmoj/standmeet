@@ -63,10 +63,12 @@ func rawRowsToView(rows []domain.Raw) []rawCapView {
 	return out
 }
 
+// 地址(path)不在 list_recent 里回显:这里只取最近 N 条(有 limit),不是全树,
+// 算不出准确的树派生地址。owner 看结构靠 parent_id;要寻址用 corpus_list/read
+// (retriever 那套 load 全树算地址)或 admin 网页浏览。
 type wikiCapView struct {
 	CreatedAt string   `json:"created_at"`
 	ParentID  *string  `json:"parent_id"`
-	Path      *string  `json:"path"`
 	ID        string   `json:"id"`
 	Title     string   `json:"title"`
 	Tags      []string `json:"tags"`
@@ -78,7 +80,6 @@ func wikiRowsToView(rows []domain.Wiki) []wikiCapView {
 		out = append(out, wikiCapView{
 			ID: rows[i].ID(), Title: rows[i].Title(), Tags: rows[i].Tags(),
 			ParentID:  ptrOrNil(rows[i].ParentID),
-			Path:      ptrOrNil(rows[i].Path),
 			CreatedAt: rows[i].CreatedAt().Format(mcpTimeFmt),
 		})
 	}

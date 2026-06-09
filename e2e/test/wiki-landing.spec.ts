@@ -3,7 +3,7 @@
 //
 // 用户故事：
 //   alice 写了一条"为什么我离开香港"的 wiki，想让搜索能 index 这条。在
-//   AI client 里调 MCP seo.set_wiki_slug(wiki_id, slug='leaving-hk', indexed=true)。
+//   AI client 里调 MCP seo.set_wiki_seo(wiki_id, slug='leaving-hk', indexed=true)。
 //   稍后访客 google 搜到这条 → 点链接 → 看到标题 + 全文 + 引导回主页。
 
 import { test, expect } from '@/fixtures/test';
@@ -59,9 +59,8 @@ async function setupIndexedWiki(request: APIRequestContext): Promise<void> {
     title: WIKI.title,
     tags: ['personal'],
   });
-  await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_slug', {
+  await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_seo', {
     wiki_id: wikiID,
-    seo_slug: WIKI.slug,
     seo_description: WIKI.description,
     seo_indexed: true,
   });

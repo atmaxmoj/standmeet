@@ -38,10 +38,11 @@ export interface PromoteInput {
 
 // 详情 view（GET single 返）—— 比 list summary 多 body + source_*_ids + SEO，
 // EditForm 展开时 fetch 它回填 body 字段。
+// detail 不带 path:地址树派生(浏览列表那条由后端算并回显),编辑表单无 path 字段。
 const WikiDetailSchema = z.object({
   id: z.string(), title: z.string(), body: z.string(), tags: z.array(z.string()),
   source_raw_ids: z.array(z.string()),
-  parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
+  parent_id: z.string().nullable().optional(),
   show_as_source: z.boolean(), seo_description: z.string(), seo_indexed: z.boolean(),
 });
 export type WikiDetail = z.infer<typeof WikiDetailSchema>;
@@ -49,15 +50,14 @@ export type WikiDetail = z.infer<typeof WikiDetailSchema>;
 const OutputDetailSchema = z.object({
   id: z.string(), title: z.string(), body: z.string(), tags: z.array(z.string()),
   source_wiki_ids: z.array(z.string()),
-  parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
+  parent_id: z.string().nullable().optional(),
   show_as_source: z.boolean(), seo_description: z.string(), seo_indexed: z.boolean(),
 });
 export type OutputDetail = z.infer<typeof OutputDetailSchema>;
 
-// PathUpdateInput —— PATCH /wiki/{id}/seo + /output/{id}/seo 入参。
-// 字段名重设：seo_slug → path。SEO description/indexed 继续在同一 endpoint。
-export interface PathUpdateInput {
-  path: string | null;
+// SEOUpdateInput —— PATCH /wiki/{id}/seo + /output/{id}/seo 入参。地址树派生,
+// owner 不设 path —— 只有 description/indexed。
+export interface SEOUpdateInput {
   seo_description: string;
   seo_indexed: boolean;
 }
@@ -75,13 +75,13 @@ export interface CorpusActionsHook {
   deleteWiki: (id: string) => Promise<boolean>;
   promoteWiki: (id: string, input: PromoteInput) => Promise<boolean>;
   fetchWikiDetail: (id: string) => Promise<WikiDetail | null>;
-  updateWikiSEO: (id: string, input: PathUpdateInput) => Promise<boolean>;
+  updateWikiSEO: (id: string, input: SEOUpdateInput) => Promise<boolean>;
   // output
   createOutput: (input: CorpusEntryInput) => Promise<boolean>;
   updateOutput: (id: string, input: CorpusEntryInput) => Promise<boolean>;
   deleteOutput: (id: string) => Promise<boolean>;
   fetchOutputDetail: (id: string) => Promise<OutputDetail | null>;
-  updateOutputSEO: (id: string, input: PathUpdateInput) => Promise<boolean>;
+  updateOutputSEO: (id: string, input: SEOUpdateInput) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -211,7 +211,7 @@ async function doPromoteWiki(id: string, input: PromoteInput): Promise<void> {
   outputStore.getState().reset();
 }
 
-async function doUpdateWikiSEO(id: string, input: PathUpdateInput): Promise<void> {
+async function doUpdateWikiSEO(id: string, input: SEOUpdateInput): Promise<void> {
   await adminAPI.patchVoid(`/wiki/${id}/seo`, input);
   wikiStore.getState().reset();
 }
@@ -235,7 +235,7 @@ async function doDeleteOutput(id: string): Promise<void> {
   outputStore.getState().mutate((prev) => (prev ?? []).filter((o) => o.id !== id));
 }
 
-async function doUpdateOutputSEO(id: string, input: PathUpdateInput): Promise<void> {
+async function doUpdateOutputSEO(id: string, input: SEOUpdateInput): Promise<void> {
   await adminAPI.patchVoid(`/output/${id}/seo`, input);
   outputStore.getState().reset();
 }

@@ -39,7 +39,6 @@ type OutputInit struct {
 	UpdatedAt      time.Time
 	CreatedAt      time.Time
 	ParentID       *string
-	Path           *string
 	Title          string
 	ID             string
 	OwnerID        string
@@ -70,7 +69,7 @@ func NewOutput(i *OutputInit) Output {
 		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		}),
-		tree: NewTreeNode(&TreeNodeInit{ParentID: i.ParentID, Path: i.Path}),
+		tree: NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
 		seo: NewSEO(&SEOInit{
 			Description: i.SEODescription, Indexed: i.SEOIndexed,
 		}),
@@ -80,11 +79,8 @@ func NewOutput(i *OutputInit) Output {
 
 // --- Document interface (flat 转发) ---
 
-// URI —— output://<path>；path 没设 → fallback output://<id>。
+// URI —— output://<id>。地址树派生、随集合而变,cite/寻址按稳定的 id。
 func (o *Output) URI() string {
-	if p, ok := o.tree.Path(); ok && p != "" {
-		return FormatURI(GenreOutput, p)
-	}
 	return FormatURI(GenreOutput, o.id)
 }
 
@@ -117,17 +113,8 @@ func (o *Output) Integrations() []Integration { return o.integrations.All() }
 
 // --- Output-specific accessors ---
 
-// ParentID —— 父 output id 或 ("", false) 表示 root。
+// ParentID —— 父 output id 或 ("", false) 表示 root。地址树派生(见 wiki)。
 func (o *Output) ParentID() (string, bool) { return o.tree.ParentID() }
-
-// Path —— owner 配的公开 path 或 ("", false)。
-func (o *Output) Path() (string, bool) { return o.tree.Path() }
-
-// PathOrEmpty —— Path 的"或空串"形态。
-func (o *Output) PathOrEmpty() string { return o.tree.PathOrEmpty() }
-
-// HasPath —— 是否设了 path。
-func (o *Output) HasPath() bool { return o.tree.HasPath() }
 
 // ShowAsSource —— 是否进 readCollector cited 列表。
 func (o *Output) ShowAsSource() bool { return o.showAsSource }

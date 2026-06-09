@@ -17,7 +17,7 @@ import {
   useCorpusActions,
   type CorpusActionsHook,
   type CorpusEntryInput,
-  type PathUpdateInput,
+  type SEOUpdateInput,
 } from '@/lib/admin/use-corpus-actions';
 import {
   pickOutputBodyState, useOutput,
@@ -345,9 +345,9 @@ function EditFormBody({
       />
       <SEOEditor
         testidPrefix={`output-${entry.id}`}
-        initial={{ path: detail.path, seo_description: detail.seo_description, seo_indexed: detail.seo_indexed }}
+        initial={{ seo_description: detail.seo_description, seo_indexed: detail.seo_indexed }}
         busy={actions.pending}
-        onSave={(input: PathUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input)}
+        onSave={(input: SEOUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input)}
       />
     </>
   );
@@ -355,7 +355,7 @@ function EditFormBody({
 
 async function saveOutputSEO(
   id: string, actions: CorpusActionsHook,
-  toast: { success: (m: string) => void }, input: PathUpdateInput,
+  toast: { success: (m: string) => void }, input: SEOUpdateInput,
 ): Promise<void> {
   await runWith(
     () => actions.updateOutputSEO(id, input),

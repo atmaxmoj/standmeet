@@ -10,7 +10,7 @@ import {
   type CorpusActionsHook,
   type CorpusEntryInput,
   type PromoteInput,
-  type PathUpdateInput,
+  type SEOUpdateInput,
 } from '@/lib/admin/use-corpus-actions';
 import { runWith } from '@/lib/admin/use-corpus-form';
 import { useToast } from '@/lib/ui/toast';
@@ -44,12 +44,11 @@ export function WikiEditForm({
           <SEOEditor
             testidPrefix={`wiki-${entry.id}`}
             initial={{
-              path: detail.path,
               seo_description: detail.seo_description,
               seo_indexed: detail.seo_indexed,
             }}
             busy={actions.pending}
-            onSave={(input: PathUpdateInput) => void saveWikiSEO(entry.id, actions, toast, input)}
+            onSave={(input: SEOUpdateInput) => void saveWikiSEO(entry.id, actions, toast, input)}
           />
         </>
       ) : (
@@ -63,7 +62,7 @@ async function saveWikiSEO(
   id: string,
   actions: CorpusActionsHook,
   toast: { success: (m: string) => void },
-  input: PathUpdateInput,
+  input: SEOUpdateInput,
 ): Promise<void> {
   await runWith(
     () => actions.updateWikiSEO(id, input),

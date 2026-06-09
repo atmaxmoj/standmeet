@@ -27,8 +27,11 @@ const OWNER = {
 };
 
 const CODE = 'FREEZE-001';
-const THINKING_PATH = 'thinking/A';
-const OUTPUT_PATH = 'B';
+// 地址树派生:seedWiki(title 'Thinking A', path 'thinking/A') → 父 'thinking' +
+// 叶子 slug('Thinking A')='thinking-a' → 树路径 'thinking/thinking-a'。
+// output 'Output B'(root)→ 'output-b'。role glob 'thinking/**' / 'output://**' 照样命中。
+const THINKING_PATH = 'thinking/thinking-a';
+const OUTPUT_PATH = 'output-b';
 
 test.describe('A.3-IAM role snapshot is frozen at session issue', () => {
   let roleID: string;
@@ -103,7 +106,7 @@ async function seedTwoEntries(request: APIRequestContext, csrf: string): Promise
 async function seedOutput(
   request: APIRequestContext, apiToken: string, sessionID: string,
 ): Promise<void> {
-  // raw → wiki → output chain, output path = OUTPUT_PATH.
+  // raw → wiki → output chain;output 树路径 = slug('Output B') = 'output-b'。
   const raw = await callTool<{ raw_id: string }>(
     request, apiToken, sessionID, 'raw_dump',
     { body: 'output essay about retrieval', source: 'mcp:e2e', tags: [] },
@@ -114,7 +117,7 @@ async function seedOutput(
   );
   await callTool<{ output_id: string }>(
     request, apiToken, sessionID, 'promote_wiki_to_output',
-    { wiki_id: wiki.wiki_id, title: 'Output B', path: OUTPUT_PATH, tags: [] },
+    { wiki_id: wiki.wiki_id, title: 'Output B', tags: [] },
   );
 }
 

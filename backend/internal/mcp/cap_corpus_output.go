@@ -70,10 +70,8 @@ func (c *corpusOutputCapability) promoteWikiToOutputBinding() *agentskills.MCPBi
 			"properties":{
 				"wiki_id":{"type":"string","description":"wiki_entries.id"},
 				"title":{"type":"string","description":"Output title"},
-				"path":{"type":"string",
-					"description":"Retrieval/landing path. Empty = no path."},
 				"parent_id":{"type":"string",
-					"description":"Parent output id (root if empty)"},
+					"description":"Parent output id; root if empty. URL is tree-derived."},
 				"tags":{"type":"array","items":{"type":"string"},
 					"description":"Extra tags on top of inherited wiki tags"},
 				"show_as_source":{"type":"boolean",
@@ -89,7 +87,6 @@ type promoteWikiToOutputArgsWire struct {
 	ShowAsSource *bool    `json:"show_as_source"`
 	WikiID       string   `json:"wiki_id"`
 	Title        string   `json:"title"`
-	Path         string   `json:"path"`
 	ParentID     string   `json:"parent_id"`
 	Tags         []string `json:"tags"`
 }
@@ -106,27 +103,10 @@ func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 	if err != nil {
 		return promoteToOutputErrToResult(c.log, err)
 	}
-	if perr := c.applyOutputPromotePostProcess(ctx, &out, &args); perr != nil {
-		return *perr
-	}
+	// 地址树派生:promote 不再设 path,只按需藏 show_as_source。
+	c.applyOutputShowAsSourceIfHidden(ctx, &out, args.ShowAsSource)
 	return marshalCapResult(c.log, "promote_wiki_to_output",
 		map[string]string{"output_id": out.ID()})
-}
-
-func (c *corpusOutputCapability) applyOutputPromotePostProcess(
-	ctx context.Context, out *domain.Output, args *promoteWikiToOutputArgsWire,
-) *agentskills.MCPResult {
-	if args.Path != "" {
-		pathPtr := args.Path
-		if _, perr := c.seo.UpdateOutputPath(
-			ctx, out.ID(), &pathPtr, "", false,
-		); perr != nil {
-			r := seoErrToResult(c.log, perr, "promote_wiki_to_output set path")
-			return &r
-		}
-	}
-	c.applyOutputShowAsSourceIfHidden(ctx, out, args.ShowAsSource)
-	return nil
 }
 
 func (c *corpusOutputCapability) applyOutputShowAsSourceIfHidden(
@@ -177,9 +157,6 @@ func promoteToOutputErrToResult(log *slog.Logger, err error) agentskills.MCPResu
 	if errors.Is(err, domain.ErrWikiNotFound) {
 		return agentskills.MCPError("wiki entry not found")
 	}
-	if errors.Is(err, domain.ErrPathTaken) {
-		return agentskills.MCPError("path already taken")
-	}
 	log.Error("cap promote_wiki_to_output", "err", err)
 	return agentskills.MCPError("promote_wiki_to_output failed")
 }
@@ -212,9 +189,9 @@ func (c *corpusOutputCapability) handleListRecentOutput(
 	return marshalCapResult(c.log, "list_recent_output", outputRowsToView(rows))
 }
 
+// path 不回显(同 list_recent_wiki:最近 N 条非全树,算不出准确树派生地址)。
 type outputCapView struct {
 	CreatedAt     string   `json:"created_at"`
-	Path          *string  `json:"path"`
 	ID            string   `json:"id"`
 	Title         string   `json:"title"`
 	Body          string   `json:"body"`
@@ -227,7 +204,7 @@ func outputRowsToView(rows []domain.Output) []outputCapView {
 	for i := range rows {
 		out = append(out, outputCapView{
 			ID: rows[i].ID(), Title: rows[i].Title(), Body: rows[i].Body(),
-			Path: ptrOrNil(rows[i].Path), Tags: rows[i].Tags(),
+			Tags:          rows[i].Tags(),
 			SourceWikiIDs: rows[i].SourceWikiIDs(),
 			CreatedAt:     rows[i].CreatedAt().Format(mcpTimeFmt),
 		})
