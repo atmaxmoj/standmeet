@@ -87,6 +87,27 @@ export async function fetchCodeIntro(code: string): Promise<CodeIntro | null> {
   }
 }
 
+// RestoredDialog —— 刷新恢复:一段历史 Q&A。citation 暂不带(后端先保文本)。
+const HistorySchema = z.object({
+  dialogs: z.array(z.object({ question: z.string(), answer: z.string() })),
+});
+export type RestoredDialog = z.infer<typeof HistorySchema>['dialogs'][number];
+
+// fetchHistory —— 凭 session token 拉回自己这段对话的 Q&A。无会话 / 网络挂 /
+// 形状不对 → 空数组(chat 就是空白,跟现在一样,不崩)。
+export async function fetchHistory(sessionToken: string): Promise<RestoredDialog[]> {
+  try {
+    const res = await fetch(`${baseURL()}/api/v1/sessions/history`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    if (!res.ok) return [];
+    const parsed = HistorySchema.safeParse(await res.json());
+    return parsed.success ? parsed.data.dialogs : [];
+  } catch {
+    return [];
+  }
+}
+
 export const issuePublicSession = () => client().issueSession({ mode: 'public' });
 export const issueCodeSession = (input: IssueCodeSessionInput) =>
   client().issueSession({ ...input, mode: 'code' });

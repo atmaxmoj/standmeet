@@ -164,7 +164,7 @@ func issueCodeSessionArtifacts(
 	if serr != nil {
 		return codeSessionArtifacts{}, serr
 	}
-	sd := buildCodeSessionData(code, in.VisitorName, &snapshot)
+	sd := buildCodeSessionData(code, in.VisitorName, member.ID, &snapshot)
 	issued, err := deps.Sessions.Issue(ctx, sd)
 	if err != nil {
 		return codeSessionArtifacts{}, fmt.Errorf("issue visitor session: %w", err)
@@ -314,12 +314,13 @@ func createCodeConversation(
 }
 
 func buildCodeSessionData(
-	code *domain.AccessCode, visitorName string, snapshot *domain.RoleSnapshot,
+	code *domain.AccessCode, visitorName, memberID string, snapshot *domain.RoleSnapshot,
 ) *session.VisitorSessionData {
 	return &session.VisitorSessionData{
 		OwnerID:      code.OwnerID,
 		Mode:         "code",
 		CodeID:       code.ID,
+		MemberID:     memberID,
 		VisitorName:  visitorName,
 		MaxBookings:  code.MaxBookings,
 		RoleSnapshot: snapshot,

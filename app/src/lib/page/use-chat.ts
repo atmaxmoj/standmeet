@@ -29,6 +29,7 @@ import {
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
+import { restoreHistory, splitParas } from '@/lib/page/use-chat-restore';
 import { recordDialog } from '@/lib/page/dialog';
 import { throbberLabel } from '@/lib/page/throbber-label';
 import {
@@ -124,6 +125,12 @@ export function useChat(deps: Deps): ChatState {
   useEffect(() => {
     const stored = loadStoredSession();
     useSuggestionsStore.getState().seed(stored?.suggested_questions ?? []);
+    // 刷新恢复:有 stored session 就按 token 拉回这段对话的 Q&A 重建 transcript
+    // (纯内存 dialogs 刷新会空,这里补回来)。失败 → 空,跟现在一样不崩。
+    const token = stored?.session_token ?? '';
+    if (token !== '') {
+      void restoreHistory(token, setDialogs);
+    }
   }, []);
 
   // 换人:SessionStrip 点名字重开 picker → 发新名字 issue 出新 session(新
@@ -455,11 +462,6 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
 // 不加 "error:" 前缀)。markFailed 的 throw 路径仍走 errorAnswer 带前缀。
 function noticeAnswer(msg: string): DialogAnswer {
   return { paras: [msg], citations: [], private: false, byoaiBlocked: false };
-}
-
-function splitParas(body: string): string[] {
-  const trimmed = body.trim();
-  return trimmed === '' ? [] : trimmed.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p !== '');
 }
 
 function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {
