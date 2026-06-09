@@ -74,28 +74,55 @@ func GetConversationTranscript(
 	cited := collectCitedIDs(bundle.Messages)
 	return TranscriptBundle{
 		ConvBundle: bundle,
-		WikiRefs:   hydrateRefs(ctx, deps.Wiki.GetTitlesByIDs, ownerID, cited.wikis),
-		OutputRefs: hydrateRefs(ctx, deps.Output.GetTitlesByIDs, ownerID, cited.outputs),
+		WikiRefs:   wikiCitedRefs(ctx, deps.Wiki, ownerID, cited.wikis),
+		OutputRefs: outputCitedRefs(ctx, deps.Output, ownerID, cited.outputs),
 	}, nil
 }
 
-// hydrateRefs —— 调 GetTitlesByIDs 但吞掉错误：transcript 主要数据已经在手，
-// hydrate 失败前端 fallback 显 id 就好，不该让整个 transcript 502。
-// 顺手把 postgres.TitledRef 转成 usecases.TitledRef，让 caller 不依赖 postgres。
-func hydrateRefs(
-	ctx context.Context,
-	fn func(context.Context, string, []string) ([]postgres.TitledRef, error),
-	ownerID string, ids []string,
+// wikiCitedRefs —— 把 cited wiki id 解成 (id, title, 树派生 path)。地址纯树派生
+// (load 全树 → wikiTreePaths),不读已退役的 path 列。load 失败 / id 已删 → 略过,
+// transcript 主数据已在手,前端 fallback 显 id,不该让整个 transcript 502。
+func wikiCitedRefs(
+	ctx context.Context, repo *postgres.WikiRepo, ownerID string, ids []string,
 ) []TitledRef {
-	refs, err := fn(ctx, ownerID, ids)
+	wikis, err := repo.ListByOwner(ctx, ownerID, maxRAGWikis)
 	if err != nil {
 		return []TitledRef{}
 	}
-	out := make([]TitledRef, 0, len(refs))
-	for i := range refs {
-		out = append(out, TitledRef{
-			ID: refs[i].ID, Title: refs[i].Title, Path: refs[i].Path,
-		})
+	paths := wikiTreePaths(wikis)
+	titles := make(map[string]string, len(wikis))
+	for i := range wikis {
+		titles[wikis[i].ID()] = wikis[i].Title()
+	}
+	return refsFor(ids, titles, paths)
+}
+
+// outputCitedRefs —— wiki 的 output 孪生:同样纯树派生地址。
+func outputCitedRefs(
+	ctx context.Context, repo *postgres.OutputRepo, ownerID string, ids []string,
+) []TitledRef {
+	outputs, err := repo.ListByOwner(ctx, ownerID, maxRAGOutputs)
+	if err != nil {
+		return []TitledRef{}
+	}
+	paths := outputTreePaths(outputs)
+	titles := make(map[string]string, len(outputs))
+	for i := range outputs {
+		titles[outputs[i].ID()] = outputs[i].Title()
+	}
+	return refsFor(ids, titles, paths)
+}
+
+// refsFor —— cited id → TitledRef,按 title/path 表填;不在表里(已删)的略过,
+// 保持旧 GetTitlesByIDs「只回存在的」语义。
+func refsFor(ids []string, titles, paths map[string]string) []TitledRef {
+	out := make([]TitledRef, 0, len(ids))
+	for _, id := range ids {
+		title, ok := titles[id]
+		if !ok {
+			continue
+		}
+		out = append(out, TitledRef{ID: id, Title: title, Path: paths[id]})
 	}
 	return out
 }
