@@ -4,8 +4,8 @@
 -- role_skills / role_mcp_servers）。这里只 CRUD 主表行 + join 表的 attach/clear。
 
 -- name: CreateRole :one
-INSERT INTO roles (owner_id, name, description, prompt_id)
-VALUES ($1, $2, $3, $4)
+INSERT INTO roles (owner_id, name, description, greeting, prompt_id)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: UpsertBuiltinRole :one
@@ -29,7 +29,7 @@ SELECT * FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC;
 
 -- name: UpdateRole :one
 UPDATE roles
-SET name = $3, description = $4, prompt_id = $5, updated_at = now()
+SET name = $3, description = $4, greeting = $5, prompt_id = $6, updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 

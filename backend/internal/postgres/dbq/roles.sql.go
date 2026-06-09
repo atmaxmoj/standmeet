@@ -102,15 +102,16 @@ func (q *Queries) CountActiveCodesForRole(ctx context.Context, assumedRoleID pgt
 
 const createRole = `-- name: CreateRole :one
 
-INSERT INTO roles (owner_id, name, description, prompt_id)
-VALUES ($1, $2, $3, $4)
-RETURNING id, owner_id, name, description, prompt_id, is_builtin, created_at, updated_at
+INSERT INTO roles (owner_id, name, description, greeting, prompt_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at
 `
 
 type CreateRoleParams struct {
 	OwnerID     pgtype.UUID
 	Name        string
 	Description string
+	Greeting    string
 	PromptID    pgtype.UUID
 }
 
@@ -123,6 +124,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		arg.OwnerID,
 		arg.Name,
 		arg.Description,
+		arg.Greeting,
 		arg.PromptID,
 	)
 	var i Role
@@ -131,6 +133,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		&i.OwnerID,
 		&i.Name,
 		&i.Description,
+		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
 		&i.CreatedAt,
@@ -154,7 +157,7 @@ func (q *Queries) DeleteRole(ctx context.Context, arg DeleteRoleParams) error {
 }
 
 const getRoleByID = `-- name: GetRoleByID :one
-SELECT id, owner_id, name, description, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE id = $1 AND owner_id = $2
 `
 
 type GetRoleByIDParams struct {
@@ -170,6 +173,7 @@ func (q *Queries) GetRoleByID(ctx context.Context, arg GetRoleByIDParams) (Role,
 		&i.OwnerID,
 		&i.Name,
 		&i.Description,
+		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
 		&i.CreatedAt,
@@ -179,7 +183,7 @@ func (q *Queries) GetRoleByID(ctx context.Context, arg GetRoleByIDParams) (Role,
 }
 
 const getRoleByName = `-- name: GetRoleByName :one
-SELECT id, owner_id, name, description, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE owner_id = $1 AND name = $2
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE owner_id = $1 AND name = $2
 `
 
 type GetRoleByNameParams struct {
@@ -195,6 +199,7 @@ func (q *Queries) GetRoleByName(ctx context.Context, arg GetRoleByNameParams) (R
 		&i.OwnerID,
 		&i.Name,
 		&i.Description,
+		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
 		&i.CreatedAt,
@@ -355,7 +360,7 @@ func (q *Queries) ListRoleSkills(ctx context.Context, roleID pgtype.UUID) ([]Ski
 }
 
 const listRolesByOwner = `-- name: ListRolesByOwner :many
-SELECT id, owner_id, name, description, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
 `
 
 func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Role, error) {
@@ -372,6 +377,7 @@ func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 			&i.OwnerID,
 			&i.Name,
 			&i.Description,
+			&i.Greeting,
 			&i.PromptID,
 			&i.IsBuiltin,
 			&i.CreatedAt,
@@ -389,9 +395,9 @@ func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 
 const updateRole = `-- name: UpdateRole :one
 UPDATE roles
-SET name = $3, description = $4, prompt_id = $5, updated_at = now()
+SET name = $3, description = $4, greeting = $5, prompt_id = $6, updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, name, description, prompt_id, is_builtin, created_at, updated_at
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at
 `
 
 type UpdateRoleParams struct {
@@ -399,6 +405,7 @@ type UpdateRoleParams struct {
 	OwnerID     pgtype.UUID
 	Name        string
 	Description string
+	Greeting    string
 	PromptID    pgtype.UUID
 }
 
@@ -408,6 +415,7 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		arg.OwnerID,
 		arg.Name,
 		arg.Description,
+		arg.Greeting,
 		arg.PromptID,
 	)
 	var i Role
@@ -416,6 +424,7 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		&i.OwnerID,
 		&i.Name,
 		&i.Description,
+		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
 		&i.CreatedAt,
@@ -431,7 +440,7 @@ ON CONFLICT (owner_id, name) DO UPDATE SET
     description = EXCLUDED.description,
     prompt_id   = EXCLUDED.prompt_id,
     updated_at  = now()
-RETURNING id, owner_id, name, description, prompt_id, is_builtin, created_at, updated_at
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at
 `
 
 type UpsertBuiltinRoleParams struct {
@@ -455,6 +464,7 @@ func (q *Queries) UpsertBuiltinRole(ctx context.Context, arg UpsertBuiltinRolePa
 		&i.OwnerID,
 		&i.Name,
 		&i.Description,
+		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
 		&i.CreatedAt,

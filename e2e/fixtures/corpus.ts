@@ -26,6 +26,11 @@ export async function seedWiki(
   sessionId: string,
   opts: SeedWikiOpts,
 ): Promise<{ rawID: string; wikiID: string }> {
+  // 地址是树派生的(parent 链每段 slug 化的 title)。给了多段 path 如
+  // 'projects/lucerna' 就先建出父节点链(title = 各段),让叶子的树路径重建成
+  // 这个 path —— 这样 spec 的 path 断言 + ACL glob 不用改。leaf 仍写一份列 path
+  // (admin transcript 暂时还取列;见 task #8 剩余面)。
+  const parentID = await seedParentChain(request, apiToken, sessionId, opts.path);
   const dump = await callTool<RawDumpResult>(
     request, apiToken, sessionId, 'raw_dump',
     { body: opts.body, source: 'mcp:e2e', tags: [] },
@@ -34,11 +39,34 @@ export async function seedWiki(
     raw_id: dump.raw_id, title: opts.title,
   };
   if (opts.path) args['path'] = opts.path;
+  if (parentID !== '') args['parent_id'] = parentID;
   if (opts.showAsSource === false) args['show_as_source'] = false;
   const promote = await callTool<PromoteWikiResult>(
     request, apiToken, sessionId, 'promote_to_wiki', args,
   );
   return { rawID: dump.raw_id, wikiID: promote.wiki_id };
+}
+
+// seedParentChain —— path 'a/b/leaf' → 建 a、b 两个父节点(title = 段),返回最
+// 后一个父的 wiki_id(叶子挂它下面)。单段 / 无 path → 返 ''(叶子是 root)。
+async function seedParentChain(
+  request: APIRequestContext, apiToken: string, sessionId: string, path?: string,
+): Promise<string> {
+  const segments = (path ?? '').split('/').filter((s) => s !== '');
+  let parentID = '';
+  for (const seg of segments.slice(0, -1)) {
+    const dump = await callTool<RawDumpResult>(
+      request, apiToken, sessionId, 'raw_dump',
+      { body: seg, source: 'mcp:e2e', tags: [] },
+    );
+    const args: Record<string, unknown> = { raw_id: dump.raw_id, title: seg };
+    if (parentID !== '') args['parent_id'] = parentID;
+    const promote = await callTool<PromoteWikiResult>(
+      request, apiToken, sessionId, 'promote_to_wiki', args,
+    );
+    parentID = promote.wiki_id;
+  }
+  return parentID;
 }
 
 // seedPublicWiki —— 老 spec 入口；retrieval-redesign 之后 path 字段是主要

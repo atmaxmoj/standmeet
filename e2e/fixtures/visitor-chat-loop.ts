@@ -21,8 +21,8 @@ export interface FakeAPIResponse {
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 interface CitedTracker {
-  wikiPaths: string[];
-  outputPaths: string[];
+  wikiIDs: string[];
+  outputIDs: string[];
 }
 
 // runVisitorChatTurn —— drive one visitor question through backend
@@ -34,7 +34,7 @@ export async function runVisitorChatTurn(
 ): Promise<FakeAPIResponse> {
   const system = await fetchSystemPrompt(sess);
   const headers = await buildHeaders(sess);
-  const cited: CitedTracker = { wikiPaths: [], outputPaths: [] };
+  const cited: CitedTracker = { wikiIDs: [], outputIDs: [] };
   const text = await runAgentTurn(
     request, sess, headers, system, question, cited,
   );
@@ -86,13 +86,15 @@ function trackToolCompleted(
   const name = stringOr(d['name'], '');
   if (name !== 'corpus_read') return;
   const rawResult = stringOr(d['result'], '');
-  const inner = safeJson(rawResult) as { path?: string; genre?: string };
-  if (!inner?.path || typeof inner.genre !== 'string') return;
-  const stripped = stripGenrePrefix(inner.genre, inner.path);
+  const inner = safeJson(rawResult) as { id?: string; genre?: string };
+  // 按 id 引用(跟前端 dialog.ts 一致):corpus_read 结果带 entry id,落 cited_*_ids。
+  if (typeof inner?.id !== 'string' || inner.id === '' || typeof inner.genre !== 'string') {
+    return;
+  }
   if (inner.genre === 'output') {
-    cited.outputPaths.push(stripped);
+    cited.outputIDs.push(inner.id);
   } else if (inner.genre === 'wiki') {
-    cited.wikiPaths.push(stripped);
+    cited.wikiIDs.push(inner.id);
   }
 }
 
@@ -115,18 +117,6 @@ function parseFrame(raw: string): AgentEventFrame | null {
   return { event: ev, data: safeJson(dt) as Record<string, unknown> };
 }
 
-function stripGenrePrefix(genre: string, path: string): string {
-  const prefix = `${genre}/`;
-  if (!path.startsWith(prefix)) return path;
-  const tail = path.slice(prefix.length);
-  if (isUUIDLike(tail)) return tail;
-  return path;
-}
-
-function isUUIDLike(s: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-}
-
 async function commitDialog(
   request: APIRequestContext, sess: VisitorSession,
   headers: Record<string, string>, question: string, answer: string,
@@ -136,8 +126,8 @@ async function commitDialog(
     `${BACKEND}/api/v1/sessions/${sess.conversation_id}/dialogs`,
     { headers, data: {
       question, answer,
-      cited_wiki_paths: cited.wikiPaths,
-      cited_output_paths: cited.outputPaths,
+      cited_wiki_ids: cited.wikiIDs,
+      cited_output_ids: cited.outputIDs,
     } },
   );
   const status = res.status();

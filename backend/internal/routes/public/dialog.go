@@ -11,12 +11,12 @@
 //	{
 //	  "question": "...",
 //	  "answer":   "...",
-//	  "cited_wiki_paths":   ["path1", "path2"],
-//	  "cited_output_paths": ["pathA"]
+//	  "cited_wiki_ids":   ["<wiki-uuid>", ...],
+//	  "cited_output_ids": ["<output-uuid>"]
 //	}
 //
 // Response: 204 No Content (成功) / 4xx (auth / parse) / 5xx (DB)。
-// 真正写表 + path 解析在 usecases.RecordDialog (避开 routes-cyclo)。
+// 真正写表 + cited id 反查在 usecases.RecordDialog (避开 routes-cyclo)。
 
 package public
 
@@ -31,10 +31,10 @@ import (
 )
 
 type dialogRequest struct {
-	Question         string   `json:"question"`
-	Answer           string   `json:"answer"`
-	CitedWikiPaths   []string `json:"cited_wiki_paths"`
-	CitedOutputPaths []string `json:"cited_output_paths"`
+	Question       string   `json:"question"`
+	Answer         string   `json:"answer"`
+	CitedWikiIDs   []string `json:"cited_wiki_ids"`
+	CitedOutputIDs []string `json:"cited_output_ids"`
 }
 
 func (h *Handlers) postDialog() http.HandlerFunc {
@@ -102,12 +102,12 @@ func runRecordAndRespond(
 	if perr := usecases.RecordDialog(r.Context(),
 		&usecases.DialogDeps{Chats: h.Visitor.Chats, Corpus: h.Corpus, Log: h.Log},
 		&usecases.RecordDialogInput{
-			OwnerID:          args.OwnerID,
-			ConversationID:   args.ConvID,
-			Question:         args.Req.Question,
-			Answer:           args.Req.Answer,
-			CitedWikiPaths:   args.Req.CitedWikiPaths,
-			CitedOutputPaths: args.Req.CitedOutputPaths,
+			OwnerID:        args.OwnerID,
+			ConversationID: args.ConvID,
+			Question:       args.Req.Question,
+			Answer:         args.Req.Answer,
+			CitedWikiIDs:   args.Req.CitedWikiIDs,
+			CitedOutputIDs: args.Req.CitedOutputIDs,
 		},
 	); perr != nil {
 		h.Log.Error("record dialog", "err", perr)

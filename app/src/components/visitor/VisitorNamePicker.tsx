@@ -12,6 +12,7 @@ import { useState } from 'react';
 
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useIssuePendingCode, type IssueOutcome } from '@/lib/gate/use-issue-pending-code';
+import { memberCapacityLine, useCodeIntro } from '@/lib/gate/use-code-intro';
 import {
   loadVisitorName,
   rememberVisitorName,
@@ -28,6 +29,7 @@ function Modal() {
   const [name, setName] = useState(loadVisitorName);
   const [full, setFull] = useState(false);
   const code = usePendingCodeStore((s) => s.code);
+  const intro = useCodeIntro();
   const { issue, busy } = useIssuePendingCode();
   const onSubmit = () => {
     rememberVisitorName(name.trim());
@@ -36,9 +38,10 @@ function Modal() {
   return (
     <div className="sm-fadein sm-visitor-name-overlay">
       <div className="sm-visitor-name-card sm-rise">
-        <PickerHeader code={code} />
+        <PickerHeader code={code} greeting={intro?.greeting ?? ''} />
         <PickerBody
           name={name} onName={setName} going={busy} full={full}
+          capacityLine={memberCapacityLine(intro)}
           onSubmit={onSubmit}
           onDismiss={() => { void runIssue(issue, null, setFull); }}
         />
@@ -60,12 +63,18 @@ async function runIssue(
   (outcome === 'full') && setFull(true);
 }
 
-function PickerHeader({ code }: { code: string | null }) {
+// PickerHeader —— access kicker → owner 设的「这是什么」greeting → "Who's reading?"。
+function PickerHeader({ code, greeting }: { code: string | null; greeting: string }) {
   return (
     <div className="sm-visitor-name-head">
       <div className="sm-smallcaps">
         {code ? `access granted · code ${code}` : 'before we begin'}
       </div>
+      {greeting !== '' && (
+        <p className="sm-visitor-name-greeting" data-testid="visitor-name-greeting">
+          {greeting}
+        </p>
+      )}
       <div className="sm-visitor-name-h1">Who&apos;s reading?</div>
     </div>
   );
@@ -76,6 +85,7 @@ interface BodyProps {
   onName: (v: string) => void;
   going: boolean;
   full: boolean;
+  capacityLine: string;
   onSubmit: () => void;
   onDismiss: () => void;
 }
@@ -105,12 +115,17 @@ function PickerPrompt(props: BodyProps) {
         One last thing before the chat starts — the owner sees this on your
         transcript later. Pick a short name; a handle is fine.
       </p>
-      <p className="sm-reading sm-visitor-name-blurb sm-visitor-name-note">
-        More than one person can use this code. Keep using the{' '}
-        <strong>same name</strong> and your chats stay grouped as you; a{' '}
-        <strong>different name</strong> reads as a new person and starts a
-        separate conversation. Passing the code to someone else? Have them
-        scan it and pick their own name.
+      <p
+        className="sm-reading sm-visitor-name-blurb sm-visitor-name-note"
+        data-testid="visitor-name-capacity"
+      >
+        {props.capacityLine !== ''
+          ? props.capacityLine
+          : 'More than one person can use this code.'}{' '}
+        Keep using the <strong>same name</strong> and your chats stay grouped as
+        you; a <strong>different name</strong> reads as a new person and starts a
+        separate conversation. Passing the code to someone else? Have them scan
+        it and pick their own name.
       </p>
       <PickerForm {...props} />
       {props.going && <PickerGoing />}

@@ -30,6 +30,7 @@ type roleView struct {
 	ID           string   `json:"id"`
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
+	Greeting     string   `json:"greeting"`
 	CorpusURIs   []string `json:"corpus_uris"`
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
@@ -41,6 +42,7 @@ type writeRoleRequest struct {
 	PromptID     *string  `json:"prompt_id,omitempty"`
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
+	Greeting     string   `json:"greeting"`
 	CorpusURIs   []string `json:"corpus_uris"`
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
@@ -105,6 +107,7 @@ func hydrateRoleView(r *http.Request, h *Handlers, rl *domain.Role) roleView {
 func toRoleView(rl *domain.Role, activeCodes int64) roleView {
 	v := roleView{
 		ID: rl.ID(), Name: rl.Name(), Description: rl.Description(),
+		Greeting:   rl.Greeting(),
 		CorpusURIs: rl.CorpusURIs(), SkillIDs: rl.SkillIDs(),
 		MCPServerIDs: rl.MCPServerIDs(),
 		IsBuiltin:    rl.IsBuiltin(),
@@ -127,7 +130,8 @@ func (h *Handlers) createRole() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		role, err := usecases.CreateRole(r.Context(), h.RolesAdmin.Roles, &usecases.RoleWriteInput{
-			OwnerID: ownerID, Name: req.Name, Description: req.Description, PromptID: req.PromptID,
+			OwnerID: ownerID, Name: req.Name, Description: req.Description,
+			Greeting: req.Greeting, PromptID: req.PromptID,
 			CorpusURIs: req.CorpusURIs, SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
 		})
 		if err != nil {
@@ -178,7 +182,8 @@ func (h *Handlers) updateRole() http.HandlerFunc {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		roleID := chi.URLParam(r, "id")
 		role, err := usecases.UpdateRole(r.Context(), h.RolesAdmin.Roles, &usecases.RoleWriteInput{
-			OwnerID: ownerID, RoleID: roleID, Name: req.Name, Description: req.Description,
+			OwnerID: ownerID, RoleID: roleID, Name: req.Name,
+			Description: req.Description, Greeting: req.Greeting,
 			PromptID: req.PromptID, CorpusURIs: req.CorpusURIs,
 			SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
 		})

@@ -33,6 +33,7 @@ type CreateRoleInput struct {
 	OwnerID     string
 	Name        string
 	Description string
+	Greeting    string
 }
 
 // Create 新建 role 主表行（不挂任何 join 项；attach 在 caller usecase 内单独调）。
@@ -59,7 +60,8 @@ func buildCreateRoleParams(in *CreateRoleInput) (dbq.CreateRoleParams, error) {
 		return dbq.CreateRoleParams{}, fmt.Errorf("parse prompt id: %w", perr)
 	}
 	return dbq.CreateRoleParams{
-		OwnerID: ownerUUID, Name: in.Name, Description: in.Description, PromptID: promptUUID,
+		OwnerID: ownerUUID, Name: in.Name, Description: in.Description,
+		Greeting: in.Greeting, PromptID: promptUUID,
 	}, nil
 }
 
@@ -171,6 +173,7 @@ type UpdateRoleInput struct {
 	RoleID      string
 	Name        string
 	Description string
+	Greeting    string
 }
 
 // Update 改 role 主表行（不动 join 表；caller 用 SetCorpusURIs / SetSkills /
@@ -186,7 +189,7 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (domain.Role
 	}
 	row, err := dbq.New(r.pool).UpdateRole(ctx, dbq.UpdateRoleParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
-		Name: in.Name, Description: in.Description, PromptID: promptUUID,
+		Name: in.Name, Description: in.Description, Greeting: in.Greeting, PromptID: promptUUID,
 	})
 	if err != nil {
 		return domain.Role{}, mapRoleUpdateErr(err)
@@ -273,7 +276,8 @@ func toDomainRole(
 	}
 	return domain.NewRole(&domain.RoleInit{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
-		Name: row.Name, Description: row.Description, PromptID: promptIDPtr,
+		Name: row.Name, Description: row.Description, Greeting: row.Greeting,
+		PromptID:   promptIDPtr,
 		IsBuiltin:  row.IsBuiltin,
 		CorpusURIs: corpusURIs, SkillIDs: skillIDs, MCPServerIDs: mcpServerIDs,
 		CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,

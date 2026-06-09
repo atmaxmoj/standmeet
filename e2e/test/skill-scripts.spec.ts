@@ -33,7 +33,6 @@ const CODE = 'MARKER-001';
 const SKILL_NAME = 'marker-emitter';
 const SCRIPT_FILENAME = 'run.sh';
 const MARKER = '[SANDBOX-MARKER]';
-const TOOL_THROBBER_TESTID = `tool-throbber-skill_${SKILL_NAME}_run`;
 
 interface SkillCreateResp {
   skill_id: string;
@@ -72,14 +71,11 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
       await input.fill('go ahead and run the marker');
       await input.press('Enter');
 
-      // throbber appears as agent dispatches the sandbox skill tool
-      await expect(page.getByTestId(TOOL_THROBBER_TESTID))
-        .toBeVisible({ timeout: 20_000 });
-
-      // mock echoes [skill_result:...] inside the reply — proves the docker
-      // sandbox actually executed the owner-curated bash script
+      // 证据走持久信号:reply 里含 docker sandbox 执行脚本的 stdout marker。
+      // throbber 是单值瞬时态(本地 sandbox 往返快、React batch 掉),不在这赌;
+      // 生命周期由 visitor-chat-throbber-* 专门验。
       await expect(page.locator('[data-testid="answer-body"]'))
-        .toContainText(MARKER, { timeout: 15_000 });
+        .toContainText(MARKER, { timeout: 20_000 });
 
       await ctx.close();
     });

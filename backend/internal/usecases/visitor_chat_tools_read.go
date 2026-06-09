@@ -44,7 +44,7 @@ func (r *retriever) serveWikiRead(w *domain.Wiki, path string) string {
 		return errJSON("access denied: " + path)
 	}
 	r.collector.addWiki(w)
-	return marshalGenreBodyPath("wiki", w.Body(), path, w.Title())
+	return marshalReadResult(w.ID(), "wiki", w.Body(), path, w.Title())
 }
 
 func (r *retriever) serveOutputRead(o *domain.Output, path string) string {
@@ -52,12 +52,12 @@ func (r *retriever) serveOutputRead(o *domain.Output, path string) string {
 		return errJSON("access denied: " + path)
 	}
 	r.collector.addOutput(o)
-	return marshalGenreBodyPath("output", o.Body(), path, o.Title())
+	return marshalReadResult(o.ID(), "output", o.Body(), path, o.Title())
 }
 
 func (r *retriever) serveWritingRead(w *domain.Writing, path string) string {
 	if !r.allowsPath(domain.GenreWriting, path) {
 		return errJSON("access denied: " + path)
 	}
-	return marshalGenreBodyPath("writing", writingBodyText(w), path, w.Title())
+	return marshalReadResult(w.ID(), "writing", writingBodyText(w), path, w.Title())
 }

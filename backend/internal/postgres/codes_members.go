@@ -59,6 +59,19 @@ func (r *CodeRepo) CreateAnonymousMember(
 	return toDomainMember(&row), nil
 }
 
+// CountMembers —— 这张码已有几个 member(名字选择器 pre-issue 显 "N of M")。
+func (r *CodeRepo) CountMembers(ctx context.Context, codeID string) (int32, error) {
+	codeUUID, err := parseUUID(codeID)
+	if err != nil {
+		return 0, fmt.Errorf(errParseCodeIDPrefix, err)
+	}
+	n, qerr := dbq.New(r.pool).CountCodeMembers(ctx, codeUUID)
+	if qerr != nil {
+		return 0, fmt.Errorf("count code members: %w", qerr)
+	}
+	return int32(n), nil
+}
+
 // GetMemberByID —— 按 member id + code 取(client 存 member_id 续会用);
 // 不存在 → domain.ErrMemberNotFound,caller 退到按名字 / 新建匿名。
 func (r *CodeRepo) GetMemberByID(

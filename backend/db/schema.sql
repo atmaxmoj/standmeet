@@ -286,6 +286,9 @@ CREATE TABLE roles (
     owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     name         text          NOT NULL,
     description  text          NOT NULL DEFAULT '',
+    -- greeting —— 访客在名字选择器看到的「这是什么」介绍(per-role,owner 可改)。
+    -- 空 = picker 用按 owner handle 拼的默认。
+    greeting     text          NOT NULL DEFAULT '',
     prompt_id    uuid          REFERENCES prompts(id) ON DELETE SET NULL,
     is_builtin   boolean       NOT NULL DEFAULT false,
     created_at   timestamptz   NOT NULL DEFAULT now(),

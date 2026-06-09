@@ -38,6 +38,7 @@ type RoleWriteInput struct {
 	RoleID       string // Update 才填
 	Name         string
 	Description  string
+	Greeting     string
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
@@ -74,7 +75,7 @@ func createRoleRow(
 ) (domain.Role, error) {
 	role, err := deps.Roles.Create(ctx, &postgres.CreateRoleInput{
 		OwnerID: in.OwnerID, Name: in.Name,
-		Description: in.Description, PromptID: in.PromptID,
+		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrRoleNameTaken) {
@@ -148,7 +149,7 @@ func updateRoleRow(
 ) (domain.Role, error) {
 	role, err := deps.Roles.Update(ctx, &postgres.UpdateRoleInput{
 		OwnerID: in.OwnerID, RoleID: in.RoleID, Name: in.Name,
-		Description: in.Description, PromptID: in.PromptID,
+		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
 	})
 	if err != nil {
 		return domain.Role{}, fmt.Errorf("update role: %w", err)

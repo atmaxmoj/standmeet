@@ -85,11 +85,11 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
       await input.fill('tell me about lucerna');
       await input.press('Enter');
 
-      // Both corpus_search and corpus_read should fire in order, throbber
-      // li accumulates as turns iterate.
-      await expect(page.getByTestId('tool-throbber-corpus_search'))
-        .toBeVisible({ timeout: 20_000 });
-      await expect(page.getByTestId('tool-throbber-corpus_read'))
+      // 这里只要稳定证明 agent 真 search 真 read 真答了 —— throbber 是瞬时的,
+      // 不在这赌它(它的实时性由 throbber-label / throbber-clears 专门验)。用
+      // 持久信号:`searched · N` 卡(search 跑过)+ answer-body(turn 落地)。读了
+      // 哪个 doc 由下面 cited 转录精确断言(只含 projects/lucerna)。
+      await expect(page.getByTestId('tool-card-corpus_search'))
         .toBeVisible({ timeout: 20_000 });
       await expect(page.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 20_000 });

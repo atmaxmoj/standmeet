@@ -14,6 +14,7 @@ export const RoleViewSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
+  greeting: z.string(),
   prompt_id: z.string().nullable().optional(),
   corpus_uris: z.array(z.string()),
   skill_ids: z.array(z.string()),
@@ -28,6 +29,7 @@ export type RoleView = z.infer<typeof RoleViewSchema>;
 export interface WriteRoleInput {
   name: string;
   description: string;
+  greeting: string;
   prompt_id: string | null;
   corpus_uris: string[];
   skill_ids: string[];

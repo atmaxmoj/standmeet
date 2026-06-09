@@ -22,7 +22,7 @@ interface DialogPayload {
 export async function recordDialog(
   sess: DialogSession, question: string, payload: DialogPayload,
 ): Promise<void> {
-  const { wikiPaths, outputPaths } = splitCitations(payload.citations);
+  const { wikiIDs, outputIDs } = splitCitations(payload.citations);
   try {
     const res = await fetch(
       `/api/v1/sessions/${sess.conversationID}/dialogs`,
@@ -35,8 +35,8 @@ export async function recordDialog(
         body: JSON.stringify({
           question,
           answer: payload.body,
-          cited_wiki_paths: wikiPaths,
-          cited_output_paths: outputPaths,
+          cited_wiki_ids: wikiIDs,
+          cited_output_ids: outputIDs,
         }),
       },
     );
@@ -49,13 +49,13 @@ export async function recordDialog(
 }
 
 function splitCitations(citations: readonly Citation[]): {
-  wikiPaths: string[]; outputPaths: string[];
+  wikiIDs: string[]; outputIDs: string[];
 } {
-  const wikiPaths: string[] = [];
-  const outputPaths: string[] = [];
+  const wikiIDs: string[] = [];
+  const outputIDs: string[] = [];
   for (const c of citations) {
-    if (c.genre === 'wiki') wikiPaths.push(c.path);
-    else outputPaths.push(c.path);
+    if (c.genre === 'wiki') wikiIDs.push(c.id);
+    else outputIDs.push(c.id);
   }
-  return { wikiPaths, outputPaths };
+  return { wikiIDs, outputIDs };
 }

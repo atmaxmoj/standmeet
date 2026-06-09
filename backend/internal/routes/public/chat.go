@@ -38,6 +38,8 @@ type Handlers struct {
 // Mount 挂 /api/v1/* 路由。caller 负责前缀。
 func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions", h.createSession())
+	// codes/intro —— 名字选择器 pre-issue 的公开 peek(code 走 body 不入 URL log)。
+	r.Post("/codes/intro", h.codeIntro())
 	r.Post("/sessions/{id}/dialogs", h.postDialog())
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
 	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器

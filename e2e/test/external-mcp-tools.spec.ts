@@ -32,7 +32,6 @@ const SERVER_NAME = 'host-tool';
 const MOCK_MCP_URL = 'http://mcp-server-mock:9100/mcp';
 const CODE = 'EXT-001';
 const EXT_MARKER = '[EXT-MCP-MARKER]';
-const TOOL_NAME = `ext_${SERVER_NAME}_ping_external`;
 
 interface CreateServerResp {
   server_id: string;
@@ -66,15 +65,12 @@ test.describe('owner registers external MCP server; visitor chat uses its tools'
       await input.fill('call the external tool');
       await input.press('Enter');
 
-      // throbber appears as agent dispatches the ext tool through MCP client
-      await expect(page.getByTestId(`tool-throbber-${TOOL_NAME}`))
-        .toBeVisible({ timeout: 20_000 });
-
-      // mock provider echoes [skill_result:...] containing the external
-      // server's response — proves the MCP client really dialed the
-      // mcp-server-mock and tool result roundtripped back.
+      // 证据走持久信号:answer-body 里含 ext server 的回包 marker —— 证明 MCP
+      // client 真拨了 mcp-server-mock 且 tool 结果 roundtrip 回来。throbber 是
+      // 单值瞬时态(本地 mock 往返太快、React batch 掉,DOM 来不及画),不在这赌;
+      // throbber 生命周期由 visitor-chat-throbber-* 专门验。
       await expect(page.locator('[data-testid="answer-body"]'))
-        .toContainText(EXT_MARKER, { timeout: 15_000 });
+        .toContainText(EXT_MARKER, { timeout: 20_000 });
 
       await ctx.close();
     });

@@ -326,6 +326,7 @@ type Role struct {
 	OwnerID     pgtype.UUID
 	Name        string
 	Description string
+	Greeting    string
 	PromptID    pgtype.UUID
 	IsBuiltin   bool
 	CreatedAt   pgtype.Timestamptz

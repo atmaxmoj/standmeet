@@ -34,8 +34,11 @@ const OWNER = {
 const CODE_FULL = 'CORPUS-FULL';
 const CODE_EMPTY = 'CORPUS-EMPTY';
 const CODE_NARROW = 'CORPUS-NARROW';
-const NARROW_ALLOWED_PATH = 'projects/lucerna';
-const NARROW_DENIED_PATH = 'family/secret';
+// 地址是树派生的:parent「projects/family」段 + leaf 的 slug(title)。
+// 'Lucerna project notes' → 'lucerna-project-notes';'Family secret' →
+// 'family-secret'。ACL glob wiki://projects/** 允许前者、拒后者。
+const NARROW_ALLOWED_PATH = 'projects/lucerna-project-notes';
+const NARROW_DENIED_PATH = 'family/family-secret';
 
 interface ToolResp {
   ok: boolean;

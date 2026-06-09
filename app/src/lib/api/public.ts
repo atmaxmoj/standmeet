@@ -61,6 +61,32 @@ export const fetchPublicPage = () => client().fetchPage();
 export const fetchWikiLanding = (slug: string) => client().fetchWikiLanding(slug);
 export const fetchOutputLanding = (slug: string) => client().fetchOutputLanding(slug);
 
+// CodeIntro —— 名字选择器 pre-issue 拿的 code 介绍(greeting + 名字上限/已用)。
+const CodeIntroSchema = z.object({
+  label: z.string(),
+  greeting: z.string(),
+  max_members: z.number(),
+  member_count: z.number(),
+});
+export type CodeIntro = z.infer<typeof CodeIntroSchema>;
+
+// fetchCodeIntro —— code 走 body(不入 URL log)。坏码 / 网络挂 / 形状不对 →
+// null,picker 优雅回落(只显默认表单)。
+export async function fetchCodeIntro(code: string): Promise<CodeIntro | null> {
+  try {
+    const res = await fetch(`${baseURL()}/api/v1/codes/intro`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) return null;
+    const parsed = CodeIntroSchema.safeParse(await res.json());
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export const issuePublicSession = () => client().issueSession({ mode: 'public' });
 export const issueCodeSession = (input: IssueCodeSessionInput) =>
   client().issueSession({ ...input, mode: 'code' });

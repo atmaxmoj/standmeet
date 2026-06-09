@@ -3,11 +3,11 @@
 // POST /sessions/{id}/dialogs 把这轮交换记下来。一个 dialog 含:
 //   - 用户问句 (Question)
 //   - AI 答 (Answer)
-//   - AI 引用了哪些 corpus path (Cited*Paths)
+//   - AI 引用了哪些 corpus entry —— 按 **id** 引用 (Cited*IDs)
 //
-// usecase 把 path 反成 Citation VO，走 ChatRepo.AppendDialog (单事务两
-// 行 messages 行 + bump，原子)。dialog 是逻辑聚合，落地拆 2 行是 repo
-// mapper 关心的事。
+// 按 id 而非 path:地址是树派生的(见 corpus_tree_path),路径在 ACL 子集下可能
+// 对不上;corpus_read 结果回 entry id,前端照原样回传,这里 GetByID 反查成
+// Citation VO，走 ChatRepo.AppendDialog (单事务两行 messages + bump，原子)。
 
 package usecases
 
@@ -22,9 +22,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
-// DialogCorpusLookup —— Dialog cited 把 path 反成 entry id 的窄接口。
-// *postgres.Corpus facade 满足: 走 Get(ctx, ownerID, "<genre>://<path>")
-// 内部走 WikiRepo.GetByPath / OutputRepo.GetByPath (不过滤 seo_indexed)。
+// DialogCorpusLookup —— Dialog cited 反查 entry 的窄接口。*postgres.Corpus
+// facade 满足:Get(ctx, ownerID, "<genre>://<id>") 内部 isUUID → GetByID
+// (见 corpus_facade)。
 //
 // 不直接用 postgres.Corpus 类型 (publicroutes 不能 import postgres)，靠
 // 接口模式让 mcp / publicroutes 这两个组件都能传它。
@@ -41,15 +41,15 @@ type DialogDeps struct {
 
 // RecordDialogInput —— 一个 dialog 完成后落到 transcript 的入参。
 type RecordDialogInput struct {
-	OwnerID          string
-	ConversationID   string
-	Question         string
-	Answer           string
-	CitedWikiPaths   []string
-	CitedOutputPaths []string
+	OwnerID        string
+	ConversationID string
+	Question       string
+	Answer         string
+	CitedWikiIDs   []string
+	CitedOutputIDs []string
 }
 
-// RecordDialog —— path 反查成 Citation → 构造 Dialog → ChatRepo.AppendDialog
+// RecordDialog —— cited id 反查成 Citation → 构造 Dialog → ChatRepo.AppendDialog
 // 原子落地。Answer 空时只落 question (出错的 dialog 也想留下用户问句)。
 func RecordDialog(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
@@ -78,35 +78,36 @@ func appendVisitorOnly(
 	return nil
 }
 
-// resolveCitations —— 把 frontend 传的 path 数组反查成 Citation VO
-// (kind + doc_id + path + title)。lookup 失败的丢弃 (不阻塞 dialog 落)。
+// resolveCitations —— 把 frontend 传的 cited id 数组反查成 Citation VO
+// (genre + doc_id + uri + title)。lookup 失败的丢弃 (不阻塞 dialog 落)。
 func resolveCitations(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) []domain.Citation {
-	cites := make([]domain.Citation, 0, len(in.CitedWikiPaths)+len(in.CitedOutputPaths))
+	cites := make([]domain.Citation, 0, len(in.CitedWikiIDs)+len(in.CitedOutputIDs))
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
-		OwnerID: in.OwnerID, Paths: in.CitedWikiPaths,
+		OwnerID: in.OwnerID, IDs: in.CitedWikiIDs,
 		Genre: domain.GenreWiki,
 	}, cites)
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
-		OwnerID: in.OwnerID, Paths: in.CitedOutputPaths,
+		OwnerID: in.OwnerID, IDs: in.CitedOutputIDs,
 		Genre: domain.GenreOutput,
 	}, cites)
 	return cites
 }
 
-// resolveCiteArgs —— 一组 path 用同样 (owner, genre) 反查 Citation 的入
+// resolveCiteArgs —— 一组 entry id 用同样 (owner, genre) 反查 Citation 的入
 // 参。打包让 appendResolvedCitations 参数控在 5 个以内 (revive)。字段按
 // ptr-density 排：strings 在前，slice 后 (govet fieldalignment 让 ptr 段
 // 连续)。
 type resolveCiteArgs struct {
 	OwnerID string
 	Genre   domain.DocumentGenre
-	Paths   []string
+	IDs     []string
 }
 
-// appendResolvedCitations —— 通用 path → Citation 反查。统一走 Corpus
-// facade (URI resolver)。corpus 没注入时返空。
+// appendResolvedCitations —— 一组 entry id → Citation 反查。统一走 Corpus
+// facade:Get(`<genre>://<id>`) 内部 isUUID → GetByID(见 corpus_facade)。按 id
+// 引用稳:不受树路径在 ACL 子集下对不上影响。corpus 没注入时返空。
 func appendResolvedCitations(
 	ctx context.Context, deps *DialogDeps, args *resolveCiteArgs,
 	acc []domain.Citation,
@@ -114,27 +115,27 @@ func appendResolvedCitations(
 	if deps.Corpus == nil {
 		return acc
 	}
-	for _, p := range args.Paths {
-		uri := domain.FormatURI(args.Genre, p)
+	for _, id := range args.IDs {
+		uri := domain.FormatURI(args.Genre, id)
 		doc, err := deps.Corpus.Get(ctx, args.OwnerID, uri)
 		if err != nil {
-			logIfUnexpectedNotFound(deps.Log, err, args.Genre, p)
+			logIfUnexpectedNotFound(deps.Log, err, args.Genre, id)
 			continue
 		}
 		acc = append(acc, domain.Citation{
-			Genre: args.Genre, DocID: doc.ID(), Path: p, Title: doc.Title(),
+			Genre: args.Genre, DocID: doc.ID(), Path: doc.URI(), Title: doc.Title(),
 		})
 	}
 	return acc
 }
 
 func logIfUnexpectedNotFound(
-	log *slog.Logger, err error, genre domain.DocumentGenre, path string,
+	log *slog.Logger, err error, genre domain.DocumentGenre, id string,
 ) {
 	if errors.Is(err, notFoundForGenre(genre)) {
 		return
 	}
-	log.Warn("dialog cited lookup", "genre", genre, "path", path, "err", err)
+	log.Warn("dialog cited lookup", "genre", genre, "id", id, "err", err)
 }
 
 func notFoundForGenre(g domain.DocumentGenre) error {

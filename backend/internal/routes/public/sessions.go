@@ -75,6 +75,49 @@ func (h *Handlers) createSession() http.HandlerFunc {
 	}
 }
 
+type codeIntroRequest struct {
+	Code string `json:"code"`
+}
+
+type codeIntroResponse struct {
+	Label       string `json:"label"`
+	Greeting    string `json:"greeting"`
+	MaxMembers  int32  `json:"max_members"`
+	MemberCount int32  `json:"member_count"`
+}
+
+// codeIntro —— 名字选择器 pre-issue peek:code(走 body)→ greeting + 名字上限/
+// 已用。code 无效 → handleVisitorErr(code_invalid),前端优雅回落(不显 intro)。
+func (h *Handlers) codeIntro() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req codeIntroRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		res, err := usecases.CodeIntro(r.Context(), &h.Visitor, req.Code)
+		if err != nil {
+			handleVisitorErr(h.Log, w, err)
+			return
+		}
+		writeCodeIntro(h.Log, w, &res)
+	}
+}
+
+func writeCodeIntro(
+	log *slog.Logger, w http.ResponseWriter, res *usecases.CodeIntroResult,
+) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	resp := codeIntroResponse{
+		Label: res.Label, Greeting: res.Greeting,
+		MaxMembers: res.MaxMembers, MemberCount: res.MemberCount,
+	}
+	if eerr := json.NewEncoder(w).Encode(resp); eerr != nil {
+		log.Error("encode code intro", "err", eerr)
+	}
+}
+
 // dispatchIssueSession 按 tier 派发到对应 usecase。
 // tier=='code' → IssueCodeSession（带 access code）。
 // mode=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。

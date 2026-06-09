@@ -10,25 +10,25 @@ import (
 )
 
 func (r *retriever) wikiMatches(w *domain.Wiki, q string) bool {
-	return r.allowsEntry(domain.GenreWiki, w.PathOrEmpty()) &&
+	return r.allowsEntry(domain.GenreWiki, r.wikiPath(w)) &&
 		textMatchesQuery(q, w.Title(), w.Body(), w.Tags())
 }
 
 func (r *retriever) outputMatches(o *domain.Output, q string) bool {
-	return r.allowsEntry(domain.GenreOutput, o.PathOrEmpty()) &&
+	return r.allowsEntry(domain.GenreOutput, r.outputPath(o)) &&
 		textMatchesQuery(q, o.Title(), o.Body(), o.Tags())
 }
 
-func wikiToRow(w *domain.Wiki) corpusRow {
+func (r *retriever) wikiToRow(w *domain.Wiki) corpusRow {
 	return corpusRow{
-		Path: wikiPath(w), Title: w.Title(), Genre: "wiki",
+		Path: r.wikiPath(w), Title: w.Title(), Genre: "wiki",
 		Summary: summarize(w.Body()),
 	}
 }
 
-func outputToRow(o *domain.Output) corpusRow {
+func (r *retriever) outputToRow(o *domain.Output) corpusRow {
 	return corpusRow{
-		Path: outputPath(o), Title: o.Title(), Genre: "output",
+		Path: r.outputPath(o), Title: o.Title(), Genre: "output",
 		Summary: summarize(o.Body()),
 	}
 }

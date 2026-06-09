@@ -43,7 +43,7 @@ function RoleCreateModalShell({
   onCreate: (input: WriteRoleInput) => Promise<RoleView | null>;
 }) {
   const [form, setForm] = useState<WriteRoleInput>({
-    name: '', description: '', prompt_id: null,
+    name: '', description: '', greeting: '', prompt_id: null,
     corpus_uris: [], skill_ids: [], mcp_server_ids: [],
   });
   return (
@@ -64,6 +64,12 @@ function RoleCreateModalShell({
           value={form.description}
           onChange={(v) => setForm((f) => ({ ...f, description: v }))}
           placeholder="when to use this role"
+        />
+        <RoleField
+          label="greeting"
+          value={form.greeting}
+          onChange={(v) => setForm((f) => ({ ...f, greeting: v }))}
+          placeholder="shown on the visitor name picker — blank uses a default"
         />
         <RolePromptDropdown
           prompts={prompts}

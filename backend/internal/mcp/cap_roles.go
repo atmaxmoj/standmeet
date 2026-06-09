@@ -69,6 +69,8 @@ func (c *rolesCapability) createBinding() *agentskills.MCPBinding {
 				"name":{"type":"string","description":"Role name, unique per owner."},
 				"description":{"type":"string",
 					"description":"Optional one-line description of when to use this role."},
+				"greeting":{"type":"string",
+					"description":"Greeting on visitor picker; owner's AI intro. Blank=default."},
 				"prompt_id":{"type":"string",
 					"description":"Optional prompt id for persona overlay."},
 				"corpus_uris":{"type":"array","items":{"type":"string"},
@@ -87,6 +89,7 @@ func (c *rolesCapability) createBinding() *agentskills.MCPBinding {
 type roleCreateArgsWire struct {
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
+	Greeting     string   `json:"greeting"`
 	PromptID     string   `json:"prompt_id"`
 	CorpusURIs   []string `json:"corpus_uris"`
 	SkillIDs     []string `json:"skill_ids"`
@@ -117,6 +120,7 @@ func buildRoleCreateCapInput(args *roleCreateArgsWire, ownerID string) *usecases
 	in := &usecases.RoleWriteInput{
 		OwnerID: ownerID, Name: args.Name,
 		Description:  args.Description,
+		Greeting:     args.Greeting,
 		CorpusURIs:   nonNilStrings(args.CorpusURIs),
 		SkillIDs:     nonNilStrings(args.SkillIDs),
 		MCPServerIDs: nonNilStrings(args.MCPServerIDs),
@@ -164,6 +168,7 @@ type roleListRow struct {
 	RoleID         string   `json:"role_id"`
 	Name           string   `json:"name"`
 	Description    string   `json:"description,omitempty"`
+	Greeting       string   `json:"greeting,omitempty"`
 	PromptID       string   `json:"prompt_id,omitempty"`
 	CorpusURIs     []string `json:"corpus_uris"`
 	SkillCount     int      `json:"skill_count"`
@@ -189,6 +194,7 @@ func (c *rolesCapability) handleList(
 func roleRowToCapView(rl *domain.Role) roleListRow {
 	row := roleListRow{
 		RoleID: rl.ID(), Name: rl.Name(), Description: rl.Description(),
+		Greeting:   rl.Greeting(),
 		CorpusURIs: rl.CorpusURIs(), SkillCount: len(rl.SkillIDs()),
 		MCPServerCount: len(rl.MCPServerIDs()),
 		IsBuiltin:      rl.IsBuiltin(),

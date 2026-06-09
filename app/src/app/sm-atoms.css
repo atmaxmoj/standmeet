@@ -557,6 +557,19 @@
   letter-spacing: 0.04em;
   font-size: 10px;
 }
+/* 名字可点 = 换人:虚下划线提示可交互,hover 转 accent。继承 strip 字体/字号,
+   不带 button 默认底色/边框/padding。 */
+.sm-session-strip-switch {
+  font: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  transition: color .15s;
+}
+.sm-session-strip-switch:hover { color: var(--color-accent); }
 .sm-session-strip-link {
   color: var(--color-muted);
   text-decoration: none;
@@ -1050,11 +1063,20 @@
   padding: 20px 28px;
   border-bottom: 1px solid var(--color-rule);
 }
+/* sm-visitor-name-greeting —— owner 设的「这是什么」介绍,放在 access kicker
+   和 "Who's reading?" 之间;serif 正文、稍淡。 */
+.sm-visitor-name-greeting {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.5;
+  margin-top: 10px;
+  color: var(--color-muted);
+}
 .sm-visitor-name-h1 {
   font-family: var(--font-serif);
   font-size: 22px;
   font-weight: 400;
-  margin-top: 4px;
+  margin-top: 10px;
   color: var(--color-ink);
 }
 .sm-visitor-name-body { padding: 20px 28px; }

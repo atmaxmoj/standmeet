@@ -79,6 +79,9 @@ def main():
 
     ro = text_of(b.call("role_create", {"name": "Recruiter",
                                         "description": "Recruiter visiting Marcus's page",
+                                        "greeting": "This is Marcus's AI — ask it anything about his "
+                                                    "engineering work, and it answers in his voice, "
+                                                    "grounded in his real projects and incident write-ups.",
                                         "prompt_id": prompt_id,
                                         "corpus_uris": ["wiki://**", "output://**"]}))
     role_id = json.loads(ro).get("role_id", "") if ro.strip().startswith("{") else ""
@@ -86,7 +89,7 @@ def main():
 
     co = text_of(b.call("codes.create", {
         "code": CODE, "label": "Recruiter access", "assumed_role_id": role_id,
-        "max_turns_per_session": 50,
+        "max_turns_per_session": 50, "max_members": 10,
         "suggested_questions": [
             "Walk me through your hardest production incident.",
             "How comfortable are you with Kubernetes?",

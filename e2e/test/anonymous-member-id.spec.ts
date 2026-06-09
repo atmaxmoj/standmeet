@@ -22,6 +22,7 @@ const OWNER = {
 };
 
 const CODE = 'ANON-3';
+const ANON_CAP = 'ANON-CAP-2'; // max_members=2, 纯匿名填满
 
 test.describe('anonymous visitors are distinct members via member_id', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -62,6 +63,26 @@ test.describe('anonymous visitors are distinct members via member_id', () => {
       });
       expect(overflow).toBe(403);
     });
+
+  // 纯匿名也撞墙:max_members=2 的码,两个 skip 填满,第 3 个匿名 → 403。
+  // 走的是 checkAnonQuota(跟具名 checkMemberQuota 不同函数),单独钉死它的拒绝分支。
+  test('anonymous-only fills the cap; a further anon visitor is blocked',
+    async ({ request }) => {
+      const a = await issueSession(request, { handle: OWNER.handle, code: ANON_CAP });
+      const b = await issueSession(request, { handle: OWNER.handle, code: ANON_CAP });
+      expect(a.member_id).not.toBe(b.member_id); // 各占一个名额,2/2 满。
+
+      const third = await issueSessionStatus(request, {
+        handle: OWNER.handle, code: ANON_CAP,
+      });
+      expect(third).toBe(403);
+
+      // 续会不占新名额:凭 a 的 member_id 即便满了也进得来。
+      const resume = await issueSession(request, {
+        handle: OWNER.handle, code: ANON_CAP, member_id: a.member_id,
+      });
+      expect(resume.member_id).toBe(a.member_id);
+    });
 });
 
 async function issueCodeWithMaxMembers(request: APIRequestContext): Promise<void> {
@@ -69,5 +90,8 @@ async function issueCodeWithMaxMembers(request: APIRequestContext): Promise<void
   await createAPIToken(request, csrf, 'anon-seed');
   await createCode(request, csrf, {
     code: CODE, label: 'Anon member-id test', max_members: 3,
+  });
+  await createCode(request, csrf, {
+    code: ANON_CAP, label: 'Anon cap test', max_members: 2,
   });
 }

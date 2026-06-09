@@ -17,6 +17,7 @@ import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
+import { useThinkingWord } from '@/lib/page/thinking-words';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
 import type { Citation, SessionMode, ToolThrobberView } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
@@ -165,47 +166,48 @@ function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => v
         <span className="text-(--color-ink)">you</span>
       </div>
       <VisitorQuestion q={dialog.q} />
-      <ToolThrobbers items={dialog.toolStarted} />
+      {/* throbber = observer 对 agent 的实时观察:只显 agent 此刻在跑的那个
+          tool,turn 落地即被 use-chat 清成 null 而消失,留下面折叠的 searched
+          卡当持久回执。绝不堆一串、也绝不冻在 transcript 里跟答案并排。 */}
+      <ToolThrobber tool={dialog.currentTool} />
       <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
       {dialog.pending ? <ThinkingDots retrying={dialog.retrying} /> : <AnswerView answer={dialog.answer} />}
     </article>
   );
 }
 
-// ToolThrobbers —— per-tool 进度行。label 已在 use-chat 按 name+args+backend
-// progress_label 拼好;name 给 `tool-throbber-<name>` testid。
-function ToolThrobbers({ items }: { items: readonly ToolThrobberView[] }) {
-  return items.length === 0 ? null : (
-    <ul
+// ToolThrobber —— agent 当前在跑的那一个 tool 的进度行。label 已在 use-chat 按
+// name+args+backend progress_label 拼好;name 给 `tool-throbber-<name>` testid。
+// tool 为 null(没在跑 / turn 落地)→ 不渲。
+function ToolThrobber({ tool }: { tool: ToolThrobberView | null }) {
+  return tool === null ? null : (
+    <div
       data-testid="tool-throbbers"
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
     >
-      {items.map((it, i) => <ToolThrobberRow key={i} item={it} />)}
-    </ul>
+      <span data-testid={`tool-throbber-${tool.name}`}>
+        {tool.label}
+        <span className="sm-dot">·</span>
+        <span className="sm-dot">·</span>
+        <span className="sm-dot">·</span>
+      </span>
+    </div>
   );
 }
 
-function ToolThrobberRow({ item }: { item: ToolThrobberView }) {
-  return (
-    <li data-testid={`tool-throbber-${item.name}`}>
-      {item.label}
-      <span className="sm-dot">·</span>
-      <span className="sm-dot">·</span>
-      <span className="sm-dot">·</span>
-    </li>
-  );
-}
-
-// ThinkingDots —— 等回答的点点。retrying 时(backend 在重试一次 transient
-// LLM 失败)换成 "retrying" 文案,让 visitor 知道在重试而非干卡。
+// ThinkingDots —— LLM 在想(没具体 tool 在跑)时的进度行。词从 thinking-words
+// 词库每 3 秒轮换(thinking / composing / …),长等待不显得卡死。retrying 时
+// (backend 重试一次 transient LLM 失败)固定显 "retrying",让 visitor 知道在
+// 重试而非干卡。
 function ThinkingDots({ retrying }: { retrying: boolean }) {
+  const word = useThinkingWord();
   return (
     <div
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3"
       data-testid="answer-pending"
       data-retrying={retrying ? 'true' : 'false'}
     >
-      {retrying ? 'retrying' : 'retrieving'}{' '}
+      {retrying ? 'retrying' : word}{' '}
       <span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span>
     </div>
   );

@@ -20,6 +20,7 @@ import {
   useVisitorSessionStore,
   type VisitorSession,
 } from '@/lib/visitor/session-store';
+import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 
 export function SessionStrip() {
   // mount 一次 bind storage / custom event listener。组件卸载 → unbind。
@@ -68,7 +69,7 @@ function StripLeft({ s }: { s: VisitorSession }) {
       <span className="text-(--color-muted)">
         {s.byoai ? 'public scope' : `code · ${s.code ?? ''}`}
       </span>
-      <StripVisitorBadge visitor={s.visitor} />
+      <StripVisitorBadge s={s} />
     </div>
   );
 }
@@ -85,13 +86,31 @@ function StripModeLabel({ s }: { s: VisitorSession }) {
   );
 }
 
-function StripVisitorBadge({ visitor }: { visitor: string | null }) {
-  return visitor ? (
+function StripVisitorBadge({ s }: { s: VisitorSession }) {
+  return s.visitor ? (
     <>
       <span className="sm-session-strip-sep">·</span>
-      <span className="sm-session-strip-meta">you · {visitor}</span>
+      <StripVisitorName s={s} />
     </>
   ) : null;
+}
+
+// StripVisitorName —— code 模式下名字可点 = 换人:重开名字选择器,取新名字 =
+// 新 member = 新对话(同名则续上)。byoai 无 member 概念 → 纯文字不可点。
+function StripVisitorName({ s }: { s: VisitorSession }) {
+  return s.code === null ? (
+    <span className="sm-session-strip-meta">you · {s.visitor}</span>
+  ) : (
+    <button
+      type="button"
+      className="sm-session-strip-meta sm-session-strip-switch"
+      data-testid="session-strip-switch-name"
+      title="switch name — chat as someone else"
+      onClick={() => { usePendingCodeStore.getState().setCode(s.code ?? ''); }}
+    >
+      you · {s.visitor}
+    </button>
+  );
 }
 
 function StripRight({ s, pct, warn }: { s: VisitorSession; pct: number; warn: boolean }) {

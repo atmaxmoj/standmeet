@@ -29,6 +29,7 @@ type Role struct {
 	ownerID      string
 	name         string
 	description  string
+	greeting     string // 访客名字选择器看到的「这是什么」介绍(空=用默认)
 	promptID     string // 空 = 没挂 prompt（vanilla 也是挂的，这里是真的 NULL 的情况）
 	corpusURIs   []string
 	skillIDs     []string
@@ -46,6 +47,7 @@ type RoleInit struct {
 	OwnerID      string
 	Name         string
 	Description  string
+	Greeting     string
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
@@ -59,6 +61,7 @@ func NewRole(i *RoleInit) Role {
 		ownerID:      i.OwnerID,
 		name:         i.Name,
 		description:  i.Description,
+		greeting:     i.Greeting,
 		isBuiltin:    i.IsBuiltin,
 		createdAt:    i.CreatedAt,
 		updatedAt:    i.UpdatedAt,
@@ -89,8 +92,11 @@ func (r *Role) OwnerID() string { return r.ownerID }
 // Name —— role slug（owner 内唯一）。
 func (r *Role) Name() string { return r.name }
 
-// Description —— 一句简介。
+// Description —— 一句简介(admin 内部用)。
 func (r *Role) Description() string { return r.description }
+
+// Greeting —— 访客名字选择器看到的「这是什么」介绍(per-role,owner 可改)。
+func (r *Role) Greeting() string { return r.greeting }
 
 // PromptID —— 挂的 prompt 的 ID，第二返表是否设了。SET NULL on prompt delete
 // 时 hasPrompt = false。

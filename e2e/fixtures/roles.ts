@@ -11,6 +11,7 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 export interface CreateRoleInput {
   name: string;
   description?: string;
+  greeting?: string;
   prompt_id?: string | null;
   corpus_uris?: string[];
   skill_ids?: string[];
@@ -21,6 +22,7 @@ export interface RoleView {
   id: string;
   name: string;
   description: string;
+  greeting: string;
   prompt_id?: string | null;
   corpus_uris: string[];
   skill_ids: string[];
@@ -39,6 +41,7 @@ export async function createRole(
     data: {
       name: input.name,
       description: input.description ?? '',
+      greeting: input.greeting ?? '',
       prompt_id: input.prompt_id ?? null,
       corpus_uris: input.corpus_uris ?? [],
       skill_ids: input.skill_ids ?? [],

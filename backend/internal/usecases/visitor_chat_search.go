@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/bbalet/stopwords"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // textMatchesQuery —— token-based 子串匹配。query 拆 token，任意 token
@@ -52,20 +50,4 @@ func anyTagMatches(q string, tags []string) bool {
 		}
 	}
 	return false
-}
-
-// wikiPath / outputPath —— entry 没设 path 时合成 `<kind>/<id>` 让 AI 仍能
-// corpus_read，retrieval-redesign 后 path 是寻址 key 不是可选 SEO 字段。
-func wikiPath(w *domain.Wiki) string {
-	if p, ok := w.Path(); ok && p != "" {
-		return p
-	}
-	return "wiki/" + w.ID()
-}
-
-func outputPath(o *domain.Output) string {
-	if p, ok := o.Path(); ok && p != "" {
-		return p
-	}
-	return "output/" + o.ID()
 }

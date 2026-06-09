@@ -45,6 +45,9 @@ export type SessionMode = SessionModeT;
 
 export type Citation = {
   genre: 'wiki' | 'output';
+  // id —— entry 稳定标识,落 admin transcript 的 cited_*_ids 用它(不用 path
+  // 反查,绕开树路径在 ACL 子集下对不上的坑)。path 只给 UI 显示。
+  id: string;
   path: string;
   title: string;
   // G-3: corpus_read 已经把 body 拿到手；存进 citation 让 UI 点击直接展
@@ -81,10 +84,11 @@ export type Dialog = {
   time: string;
   pending: boolean;
   answer: DialogAnswer | null;
-  // D-5: per-tool throbber 序列。agent-core 跑每个 tool 时 tool_started →
-  // {name, label} 入列；label 由 throbber-label.ts 按 name+args+backend
-  // progress_label 拼(corpus 读带 document,其它用 backend label)。
-  toolStarted: readonly ToolThrobberView[];
+  // throbber = observer 对 agent 的**实时**观察:只持「当前」活动 —— 最近一次
+  // tool_started,新 tool 来即替换,turn 落地清成 null。不是累积列表(那会堆一串
+  // 又冻进 transcript);持久回执是下面的 toolCalls。label 由 throbber-label.ts
+  // 按 name+args+backend progress_label 拼(corpus 读带 document)。
+  currentTool: ToolThrobberView | null;
   // G-4: tool_completed 累到这里；UI 按 name 渲卡片 (corpus_search 卡 /
   // skill_*/ext_* generic dump)。corpus_read 的 result 走 Citation 不重复。
   toolCalls: readonly ToolCallView[];
@@ -121,6 +125,23 @@ export function useChat(deps: Deps): ChatState {
     const stored = loadStoredSession();
     useSuggestionsStore.getState().seed(stored?.suggested_questions ?? []);
   }, []);
+
+  // 换人:SessionStrip 点名字重开 picker → 发新名字 issue 出新 session(新
+  // member / 新对话),session store 的 startedAt 随之变。chat 据此丢掉旧
+  // transcript + 缓存的 session,下一问从新 stored session 起。新 session 的
+  // suggested_questions 已由 issue 重新 seed,这里不碰 suggestions。
+  const startedAt = useVisitorSessionStore((s) => s.session?.startedAt ?? 0);
+  const lastStartedAt = useRef(startedAt);
+  useEffect(() => {
+    if (lastStartedAt.current !== 0 && startedAt !== lastStartedAt.current) {
+      sessionRef.current = null;
+      setDialogs([]);
+      setError(null);
+      messageHistRef.current = [];
+      useAskVisitorStore.getState().clear();
+    }
+    lastStartedAt.current = startedAt;
+  }, [startedAt]);
 
   const nextID = useCallback((): string => {
     counter.current += 1;
@@ -202,8 +223,11 @@ async function wrapBYOAIFor(
 interface DialogAccumulator {
   body: string;
   citations: Citation[];
-  seenCitedPaths: Set<string>;
-  toolStarted: ToolThrobberView[];
+  seenCitedIDs: Set<string>;
+  // currentTool —— 当前 throbber 活动(最近一次 tool_started);toolSeq 是单调
+  // 计数,只为 corpus_read 的动词轮换(reading / pulling up / ...)留个稳定 idx。
+  currentTool: ToolThrobberView | null;
+  toolSeq: number;
   toolCalls: ToolCallView[];
   retrying: boolean;
   // errorMsg —— backend 出 `error` 事件(含 stream-cut 兜底)时的人话消息;
@@ -213,8 +237,8 @@ interface DialogAccumulator {
 
 function makeAccumulator(): DialogAccumulator {
   return {
-    body: '', citations: [], seenCitedPaths: new Set(),
-    toolStarted: [], toolCalls: [], retrying: false, errorMsg: '',
+    body: '', citations: [], seenCitedIDs: new Set(),
+    currentTool: null, toolSeq: 0, toolCalls: [], retrying: false, errorMsg: '',
   };
 }
 
@@ -234,14 +258,19 @@ function makeObserver(
 function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
   if (ev.type === 'llm_chunk') {
     accum.body += ev.text;
+    // 答案开始流出 = agent 不在跑工具了,清掉 throbber 让位给答案。tool throbber
+    // 从 tool_started 一直显到这里(撑过「读完→组织答案」整段,清楚可见)。
+    accum.currentTool = null;
     accum.retrying = false; // 进度恢复
     return;
   }
   if (ev.type === 'tool_started') {
-    accum.toolStarted.push({
+    // 替换,不累积:throbber 永远只反映 agent 此刻在跑的那个 tool。
+    accum.currentTool = {
       name: ev.name,
-      label: throbberLabel(ev.name, ev.args, ev.progressLabel, accum.toolStarted.length),
-    });
+      label: throbberLabel(ev.name, ev.args, ev.progressLabel, accum.toolSeq),
+    };
+    accum.toolSeq += 1;
     accum.retrying = false;
     return;
   }
@@ -250,6 +279,10 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
       name: ev.result.name, ok: ev.result.ok, result: ev.result.result,
     });
     pushCitationFromTool(ev.result, accum);
+    // 不在 tool_completed 清 throbber:保留到 llm_chunk(答案开始)才清,让
+    // "reading X" 撑过「读完→LLM 组织答案」那段(DeepSeek 几十秒的大头),否则
+    // 工具往返一瞬就没了、根本看不见。tool 之间 currentTool 由下一个 tool_started
+    // 替换;首个 tool 之前是 null → thinking 词。
     accum.retrying = false;
     return;
   }
@@ -284,20 +317,21 @@ function pushCitationFromTool(
   if (!result.ok || result.name !== 'corpus_read') return;
   const r = pickCorpusReadShape(result.result);
   if (r === null) return;
-  const path = r.path;
-  if (accum.seenCitedPaths.has(path)) return;
-  accum.seenCitedPaths.add(path);
+  // 按 id 去重 + 落库:同一 entry 读多次只引一次。
+  if (r.id === '' || accum.seenCitedIDs.has(r.id)) return;
+  accum.seenCitedIDs.add(r.id);
   const genre: 'wiki' | 'output' = r.genre === 'output' ? 'output' : 'wiki';
-  accum.citations.push({ genre, path, title: r.title, body: r.body });
+  accum.citations.push({ genre, id: r.id, path: r.path, title: r.title, body: r.body });
 }
 
 function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
   if (!isRecord(raw)) return null;
+  const id = readString(raw['id']);
   const path = readString(raw['path']);
   const genre = readString(raw['genre']);
   const title = readString(raw['title']) || path;
   const body = readString(raw['body']);
-  return { path, genre, title, body };
+  return { id, path, genre, title, body };
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -309,6 +343,7 @@ function readString(v: unknown): string {
 }
 
 interface CorpusReadWire {
+  id: string;
   path: string;
   genre: string;
   title: string;
@@ -366,7 +401,7 @@ function assembledPartIDs(sess: PageSession): readonly string[] {
 function newPendingDialog(id: string, q: string): Dialog {
   return {
     id, q, time: nowHM(), pending: true, answer: null,
-    toolStarted: [], toolCalls: [], retrying: false,
+    currentTool: null, toolCalls: [], retrying: false,
   };
 }
 
@@ -401,7 +436,11 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
     // error / answer 已有内容 → 不再 pending;retrying 期间 body 空仍 pending。
     pending: stillPending && accum.body === '' && accum.errorMsg === '',
     retrying: stillPending && accum.retrying,
-    toolStarted: [...accum.toolStarted],
+    // throbber 是 observer 对 agent 的**实时**观察:observer 还在收事件
+    // (stillPending)时反映当前工具;turn 一落地(finalize,stillPending=false)
+    // 就清成 null —— agent 不动了就没什么可观察的。持久回执是下面的 toolCalls
+    // (tool_completed),不靠这个。
+    currentTool: stillPending ? accum.currentTool : null,
     toolCalls: [...accum.toolCalls],
     answer: accum.errorMsg !== '' ? noticeAnswer(accum.errorMsg) : {
       paras: splitParas(accum.body),

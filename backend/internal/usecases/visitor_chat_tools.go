@@ -87,9 +87,13 @@ func listBindingTool(r *retriever) agentskills.BindingTool {
 type retriever struct {
 	collector *readCollector
 	snapshot  *domain.RoleSnapshot
-	wikis     []domain.Wiki
-	outputs   []domain.Output
-	writings  []domain.Writing
+	// id→树派生 path(见 corpus_tree_path.go)。newRetriever 一次性算好,
+	// search/list/read/ACL 报地址都查它。(map 字段排在 slice 前,fieldalignment。)
+	wikiPaths   map[string]string
+	outputPaths map[string]string
+	wikis       []domain.Wiki
+	outputs     []domain.Output
+	writings    []domain.Writing
 }
 
 // retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。snapshot 必填。
@@ -103,10 +107,17 @@ type retrieverInput struct {
 func newRetriever(in *retrieverInput) *retriever {
 	return &retriever{
 		wikis: in.wikis, outputs: in.outputs, writings: in.writings,
-		snapshot:  in.snapshot,
-		collector: newReadCollector(),
+		snapshot:    in.snapshot,
+		collector:   newReadCollector(),
+		wikiPaths:   wikiTreePaths(in.wikis),
+		outputPaths: outputTreePaths(in.outputs),
 	}
 }
+
+// wikiPath / outputPath —— entry 的树派生地址。一律走预算好的表(永远非空,见
+// corpus_tree_path.go);不再用可空的 path 列或 `<kind>/<id>` 兜底。
+func (r *retriever) wikiPath(w *domain.Wiki) string     { return r.wikiPaths[w.ID()] }
+func (r *retriever) outputPath(o *domain.Output) string { return r.outputPaths[o.ID()] }
 
 // allowsPath / allowsEntry 拆到 visitor_chat_tools_read.go。
 // runSearch / runRead / runList 各自被对应 BindingTool 闭包调用。
@@ -142,7 +153,7 @@ func (r *retriever) matchOutputs(q string) []corpusRow {
 	out := make([]corpusRow, 0, len(r.outputs))
 	for i := range r.outputs {
 		if r.outputMatches(&r.outputs[i], q) {
-			out = append(out, outputToRow(&r.outputs[i]))
+			out = append(out, r.outputToRow(&r.outputs[i]))
 		}
 	}
 	return out
@@ -152,7 +163,7 @@ func (r *retriever) matchWikis(q string) []corpusRow {
 	out := make([]corpusRow, 0, len(r.wikis))
 	for i := range r.wikis {
 		if r.wikiMatches(&r.wikis[i], q) {
-			out = append(out, wikiToRow(&r.wikis[i]))
+			out = append(out, r.wikiToRow(&r.wikis[i]))
 		}
 	}
 	return out
@@ -200,7 +211,7 @@ func parseReadPath(input []byte) (string, error) {
 
 func (r *retriever) findWikiByPath(path string) *domain.Wiki {
 	for i := range r.wikis {
-		if wikiPath(&r.wikis[i]) == path {
+		if r.wikiPath(&r.wikis[i]) == path {
 			return &r.wikis[i]
 		}
 	}
@@ -209,7 +220,7 @@ func (r *retriever) findWikiByPath(path string) *domain.Wiki {
 
 func (r *retriever) findOutputByPath(path string) *domain.Output {
 	for i := range r.outputs {
-		if outputPath(&r.outputs[i]) == path {
+		if r.outputPath(&r.outputs[i]) == path {
 			return &r.outputs[i]
 		}
 	}
@@ -267,7 +278,7 @@ func (r *retriever) listWritingsByPrefix(prefix string) []corpusRow {
 }
 
 func (r *retriever) listWikiRow(w *domain.Wiki, prefix string) (corpusRow, bool) {
-	p := w.PathOrEmpty()
+	p := r.wikiPath(w)
 	if !r.allowsEntry(domain.GenreWiki, p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
@@ -275,7 +286,7 @@ func (r *retriever) listWikiRow(w *domain.Wiki, prefix string) (corpusRow, bool)
 }
 
 func (r *retriever) listOutputRow(o *domain.Output, prefix string) (corpusRow, bool) {
-	p := o.PathOrEmpty()
+	p := r.outputPath(o)
 	if !r.allowsEntry(domain.GenreOutput, p) || !strings.HasPrefix(p, prefix) {
 		return corpusRow{}, false
 	}
@@ -300,13 +311,14 @@ func marshalRows(rows []corpusRow) string {
 	return string(out)
 }
 
-// marshalGenreBodyPath —— corpus_read 的 tool result wire 形态。包 4 个
-// 字段：genre (wiki/output/writing) + body (markdown，含 mermaid/latex
-// 等内嵌元素) + path + title。frontend pi-agent-core 收到后累积 citations
-// (genre + path + title 用于 UI；body 用于 G-3 inline 展开)。
-func marshalGenreBodyPath(genre, body, path, title string) string {
+// marshalReadResult —— corpus_read 的 tool result wire 形态。字段:id(entry
+// 稳定标识,前端按它引用 → admin transcript 记 cited_*_ids,绕开按路径反查 +
+// ACL 子集对不上的坑)+ genre + body(markdown,含 mermaid/latex 等内嵌)+ path
+// (树派生地址,UI 显示 + AI 后续 corpus_read 用)+ title。前端 pi-agent-core
+// 收到后累积 citations(id 落库 / genre+path+title 给 UI / body 给 G-3 展开)。
+func marshalReadResult(id, genre, body, path, title string) string {
 	out, err := json.Marshal(map[string]string{
-		"genre": genre, "body": body, "path": path, "title": title,
+		"id": id, "genre": genre, "body": body, "path": path, "title": title,
 	})
 	if err != nil {
 		return errJSON("marshal failed")
