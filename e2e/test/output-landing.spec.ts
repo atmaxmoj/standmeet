@@ -27,7 +27,7 @@ const OWNER = {
 
 const OUTPUT_TITLE = 'Local-first essay';
 const OUTPUT_BODY = 'POLISHED_OUTPUT_BODY_MARKER';
-const SLUG = 'local-first';
+const SLUG = 'local-first-essay';
 
 const DB_CONTAINER = 'standmeet-dev-db-1';
 

@@ -31,7 +31,7 @@ test.describe('wiki landing extended cases', () => {
   test('wiki page shows cover hero with title and date',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
-      await goto(page, '/wiki/wiki-ext-slug');
+      await goto(page, '/wiki/wiki-extended');
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByRole('heading', { name: 'Wiki Extended' })).toBeVisible();
     });
@@ -45,7 +45,7 @@ test.describe('wiki landing extended cases', () => {
 
   test('wiki AskAboutThis → links to /?q=...',
     async ({ page }) => {
-      await goto(page, '/wiki/wiki-ext-slug');
+      await goto(page, '/wiki/wiki-extended');
       const form = page.getByTestId('article-ask-form');
       await expect(form).toBeVisible({ timeout: 5_000 });
       // starter link should point to /?q=...

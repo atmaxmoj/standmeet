@@ -12,10 +12,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
-// SEODeps —— SEO usecases 所需。
+// SEODeps —— SEO usecases 所需。Wiki/Output 用来 load 全树算公开 landing 地址
+// (纯树派生,不读已退役的 path 列)。
 type SEODeps struct {
 	Owners *postgres.OwnerRepo
 	SEO    *postgres.SEORepo
+	Wiki   *postgres.WikiRepo
+	Output *postgres.OutputRepo
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
@@ -58,6 +61,7 @@ func PublicReady(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
 }
 
 // GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 seo_indexed=true）。
+// 地址纯树派生:load 全树算 id→path,匹配请求 path 且 indexed 的那条。
 func GetWikiLanding(
 	ctx context.Context, deps SEODeps, path string,
 ) (domain.Wiki, error) {
@@ -68,11 +72,26 @@ func GetWikiLanding(
 	if !ok {
 		return domain.Wiki{}, domain.ErrOwnerNotFound
 	}
-	wiki, err := deps.SEO.GetWikiByPath(ctx, owner.ID, path)
+	wikis, err := deps.Wiki.ListByOwner(ctx, owner.ID, maxRAGWikis)
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("get wiki by path: %w", err)
+		return domain.Wiki{}, fmt.Errorf("list wiki: %w", err)
 	}
-	return wiki, nil
+	w, found := findIndexedWiki(wikis, path)
+	if !found {
+		return domain.Wiki{}, domain.ErrWikiNotFound
+	}
+	return w, nil
+}
+
+// findIndexedWiki —— 全树里挑 indexed 且树派生 path 命中那条。
+func findIndexedWiki(wikis []domain.Wiki, path string) (domain.Wiki, bool) {
+	paths := wikiTreePaths(wikis)
+	for i := range wikis {
+		if wikis[i].SEOIndexed() && paths[wikis[i].ID()] == path {
+			return wikis[i], true
+		}
+	}
+	return domain.Wiki{}, false
 }
 
 // LandingURL —— 一条 indexed landing 的 sitemap URL (wiki 或 output 通用)。
@@ -81,20 +100,29 @@ type LandingURL struct {
 	UpdatedAt int64
 }
 
-// IndexedWikiLandings —— 给 sitemap.xml 列 sole owner 所有 indexed path。
+// IndexedWikiLandings —— 给 sitemap.xml 列 sole owner 所有 indexed path（树派生）。
 func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return []LandingURL{}
 	}
-	rows, err := deps.SEO.ListIndexedPaths(ctx, owner.ID)
+	wikis, err := deps.Wiki.ListByOwner(ctx, owner.ID, maxRAGWikis)
 	if err != nil {
 		return []LandingURL{}
 	}
-	return toLandingURLs(rows)
+	paths := wikiTreePaths(wikis)
+	out := make([]LandingURL, 0, len(wikis))
+	for i := range wikis {
+		if wikis[i].SEOIndexed() {
+			out = append(out, LandingURL{
+				Path: paths[wikis[i].ID()], UpdatedAt: wikis[i].UpdatedAt().Unix(),
+			})
+		}
+	}
+	return out
 }
 
-// GetOutputLanding —— 公开 output landing 查询。
+// GetOutputLanding —— 公开 output landing 查询（同 wiki 的树派生口径）。
 func GetOutputLanding(
 	ctx context.Context, deps SEODeps, path string,
 ) (domain.Output, error) {
@@ -105,30 +133,46 @@ func GetOutputLanding(
 	if !ok {
 		return domain.Output{}, domain.ErrOwnerNotFound
 	}
-	out, err := deps.SEO.GetOutputByPath(ctx, owner.ID, path)
+	outputs, err := deps.Output.ListByOwner(ctx, owner.ID, maxRAGOutputs)
 	if err != nil {
-		return domain.Output{}, fmt.Errorf("get output by path: %w", err)
+		return domain.Output{}, fmt.Errorf("list output: %w", err)
 	}
-	return out, nil
+	o, found := findIndexedOutput(outputs, path)
+	if !found {
+		return domain.Output{}, domain.ErrOutputNotFound
+	}
+	return o, nil
 }
 
-// IndexedOutputLandings —— sitemap.xml 列 indexed output landing。
+// findIndexedOutput —— wiki 的 output 孪生。
+func findIndexedOutput(outputs []domain.Output, path string) (domain.Output, bool) {
+	paths := outputTreePaths(outputs)
+	for i := range outputs {
+		if outputs[i].SEOIndexed() && paths[outputs[i].ID()] == path {
+			return outputs[i], true
+		}
+	}
+	return domain.Output{}, false
+}
+
+// IndexedOutputLandings —— sitemap.xml 列 indexed output landing（树派生）。
 func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
 		return []LandingURL{}
 	}
-	rows, err := deps.SEO.ListIndexedOutputPaths(ctx, owner.ID)
+	outputs, err := deps.Output.ListByOwner(ctx, owner.ID, maxRAGOutputs)
 	if err != nil {
 		return []LandingURL{}
 	}
-	return toLandingURLs(rows)
-}
-
-func toLandingURLs(rows []postgres.IndexedPath) []LandingURL {
-	out := make([]LandingURL, 0, len(rows))
-	for i := range rows {
-		out = append(out, LandingURL{Path: rows[i].Path, UpdatedAt: rows[i].UpdatedAt})
+	paths := outputTreePaths(outputs)
+	out := make([]LandingURL, 0, len(outputs))
+	for i := range outputs {
+		if outputs[i].SEOIndexed() {
+			out = append(out, LandingURL{
+				Path: paths[outputs[i].ID()], UpdatedAt: outputs[i].UpdatedAt().Unix(),
+			})
+		}
 	}
 	return out
 }

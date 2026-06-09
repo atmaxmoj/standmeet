@@ -25,7 +25,8 @@ const OWNER = {
 const WIKI = {
   title: 'Why I Left Hong Kong',
   body: 'It came down to where I wanted my kids to grow up.',
-  slug: 'leaving-hk',
+  // URL 纯树派生:path = 标题 slug。'Why I Left Hong Kong' → why-i-left-hong-kong。
+  slug: 'why-i-left-hong-kong',
   description: 'A personal note on the move from HK to Canada.',
 };
 

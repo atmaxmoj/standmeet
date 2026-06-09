@@ -23,7 +23,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-const INDEXED_SLUG = 'why-this-exists';
+const INDEXED_SLUG = 'why-standmeet-exists';
 
 test.describe('crawlers can read robots + sitemap', () => {
   test.beforeAll(async ({ playwright }) => {
