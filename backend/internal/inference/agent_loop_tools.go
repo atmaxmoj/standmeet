@@ -48,6 +48,9 @@ func emitToolStarted(em *loopEmit, accum *assistantAccum) {
 		if args == "" {
 			args = "{}"
 		}
+		// tool 级日志:看清 agent 这一步在跑什么(corpus_read 的 path / search 的
+		// query / ext / skill ...)。turn 级 start/done 之外的可观测性(#12)。
+		em.log.Info("agent tool start", "name", pc.Name, "args", args)
 		em.sink.ToolStarted(pc.ID, pc.Name, em.labels[pc.Name], json.RawMessage(args))
 	}
 }
@@ -61,5 +64,7 @@ func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant) {
 		em.log.Error("agent turn tool result message", logErrKey, err)
 		return
 	}
+	// 完成日志:名字 + 结果字节数(结果可能很大,如 corpus_read 的 body,不全打)。
+	em.log.Info("agent tool done", "name", mv.ToolName, "result_bytes", len(msg.Content))
 	em.sink.ToolCompleted(mv.ToolName, msg.Content)
 }
