@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const (
@@ -57,6 +58,13 @@ func (s *server) serveStream(w http.ResponseWriter, req *MessagesReq) {
 	if serr != nil {
 		http.Error(w, serr.Error(), http.StatusInternalServerError)
 		return
+	}
+	// [[slow-final:N]] —— corpus_read 已跑完 → 这是出最终答案的调用。sleep 放在
+	// message_start **之前**:这一调用一旦开始发帧,前端就把 read throbber 顶成
+	// 答案流了;趁还没发任何帧时 hold N ms,read throbber("reading X")才在 DOM
+	// 上停得住能断言(测 #9)。
+	if d := markerDelay(req.markerText(), "slow-final"); d > 0 && req.hasToolResult(toolCorpusRead) {
+		time.Sleep(d)
 	}
 	if werr := emitMessageStart(sse, req.Model); werr != nil {
 		s.log.Warn("emit message_start", "err", werr)
@@ -101,6 +109,13 @@ type nonStreamMessage struct {
 func (s *server) dispatch(sse *sseWriter, req *MessagesReq) {
 	if t := s.queue.takeTool(); t != nil {
 		s.emitToolUseTurn(sse, t.Name, t.Args)
+		return
+	}
+	// [[think:N]] —— 跳过 tool,sleep 后直接出答案。期间没 tool 在跑,前端显
+	// thinking 词库轮换那条(测 #10)。
+	if d := markerDelay(req.markerText(), "think"); d > 0 {
+		time.Sleep(d)
+		s.emitFinalReply(sse, req)
 		return
 	}
 	if call := nextCorpusCall(req); call != nil {
@@ -173,7 +188,8 @@ func nextCorpusCall(req *MessagesReq) *toolCall {
 }
 
 func makeSearchCall(req *MessagesReq) *toolCall {
-	args, err := json.Marshal(map[string]string{"query": req.lastUserText()})
+	// 剥掉延时 marker,别让它进真 corpus_search 的 query 干扰命中。
+	args, err := json.Marshal(map[string]string{"query": stripMarkers(req.lastUserText())})
 	if err != nil {
 		return nil
 	}

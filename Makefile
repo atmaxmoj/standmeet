@@ -179,6 +179,12 @@ test-only: dev-up
 	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>]"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)")
 
+# test-headed —— 跟 test-only 同,但 --headed 开真浏览器肉眼观测(单 worker,
+# 一条一条跑)。reading-dom 那条带 [[slow-final:2500]],throbber 会停 2.5s 看得清。
+test-headed: dev-up
+	@test -n "$(SPEC)" || (echo "usage: make test-headed SPEC=<spec-name> [GREP=<title pattern>]"; exit 2)
+	@cd e2e && pnpm exec playwright test $(SPEC) --headed --workers=1 $(if $(GREP),-g "$(GREP)")
+
 # setup-token —— demo 时 owner 打开 / 自动 redirect 到 /setup?t=...；这个
 # target 直接打印 path 让 operator 复制（boot banner 已经打过一次但可能
 # 被后续日志冲掉）。e2e 不需要 —— fixtures/instance.findSetupToken 已经走

@@ -5,7 +5,9 @@
 //
 // 行为：
 //   - dev (NODE_ENV !== 'production') 直接打 console.{info,warn,error}
-//   - prod 当前 no-op；后续可以加 navigator.sendBeacon → /internal/client-errors
+//   - prod 默认 no-op；但独立开关 NEXT_PUBLIC_CLIENT_LOG=1 可强开(e2e prod app
+//     诊断 / 线上排障都用它,不用靠改 NODE_ENV)。
+//   - 后续可以加 navigator.sendBeacon → /internal/client-errors
 //
 // 用法：
 //   import { logger } from '@/lib/logger';
@@ -21,7 +23,10 @@ interface Logger {
   error: (msg: string, ...args: unknown[]) => void;
 }
 
+// NEXT_PUBLIC_CLIENT_LOG 是 build 期 inline 的独立开关:dev 默认开,prod 要显式
+// 置 1 才开。跟 NODE_ENV 解耦 —— prod 也能临时开客户端日志排障。
 function isDev(): boolean {
+  if (process.env.NEXT_PUBLIC_CLIENT_LOG === '1') return true;
   return typeof process !== 'undefined' && process.env.NODE_ENV !== 'production';
 }
 

@@ -102,7 +102,7 @@ function AssistantBody({ dialog, ownerHandle, onAsk }: {
     <>
       <ToolThrobber tool={dialog.currentTool} />
       {dialog.pending
-        ? <Thinking retrying={dialog.retrying} />
+        ? <Thinking retrying={dialog.retrying} tool={dialog.currentTool} />
         : <AnswerOrError dialog={dialog} ownerHandle={ownerHandle} onAsk={onAsk} />}
     </>
   );
@@ -149,12 +149,15 @@ function AssistantLabel({ ownerHandle }: { ownerHandle: string }) {
 
 // Thinking —— LLM 在想(没具体 tool 在跑)时的进度行。词从 thinking-words 词库
 // 每 3 秒轮换;retrying 时(backend 重试 transient LLM 失败)固定显 "retrying"。
-function Thinking({ retrying }: { retrying: boolean }) {
+// 有 tool 在跑(currentTool≠null)→ 不渲:ToolThrobber 已显 reading/searching,
+// 同一时刻只一个进度指示,免得读文档时还并排显 thinking。
+function Thinking({ retrying, tool }: { retrying: boolean; tool: ToolThrobberView | null }) {
   const word = useThinkingWord();
-  return (
+  return tool !== null ? null : (
     <div
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3"
-      data-retrying={retrying ? 'true' : 'false'}
+      data-testid="answer-pending"
+      data-retrying={String(retrying)}
     >
       {retrying ? 'retrying' : word}{' '}
       <span className="dot">·</span>

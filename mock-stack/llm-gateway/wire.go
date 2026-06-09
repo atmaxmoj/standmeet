@@ -101,6 +101,19 @@ func (r *MessagesReq) lastUserText() string {
 	return ""
 }
 
+// markerText —— 所有 message 的 text block 拼起来,给延时 marker 扫描用。
+// marker 在 visitor 问句里(早期一条 user text block);turn 内每次
+// /v1/messages 调用都带着完整消息历史,所以 search/read/final 任一调用扫全量
+// 都查得到(不像 questionText 只看窗口头,call-3 上窗口可能不落在问句)。
+func (r *MessagesReq) markerText() string {
+	var b strings.Builder
+	for i := range r.Messages {
+		b.WriteString(joinTextBlocks(r.Messages[i].Content))
+		b.WriteString(" ")
+	}
+	return b.String()
+}
+
 func joinTextBlocks(blocks []Block) string {
 	out := ""
 	for i := range blocks {

@@ -171,7 +171,9 @@ function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => v
           卡当持久回执。绝不堆一串、也绝不冻在 transcript 里跟答案并排。 */}
       <ToolThrobber tool={dialog.currentTool} />
       <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
-      {dialog.pending ? <ThinkingDots retrying={dialog.retrying} /> : <AnswerView answer={dialog.answer} />}
+      {dialog.pending
+        ? <ThinkingDots retrying={dialog.retrying} tool={dialog.currentTool} />
+        : <AnswerView answer={dialog.answer} />}
     </article>
   );
 }
@@ -199,13 +201,15 @@ function ToolThrobber({ tool }: { tool: ToolThrobberView | null }) {
 // 词库每 3 秒轮换(thinking / composing / …),长等待不显得卡死。retrying 时
 // (backend 重试一次 transient LLM 失败)固定显 "retrying",让 visitor 知道在
 // 重试而非干卡。
-function ThinkingDots({ retrying }: { retrying: boolean }) {
+function ThinkingDots({ retrying, tool }: { retrying: boolean; tool: ToolThrobberView | null }) {
   const word = useThinkingWord();
-  return (
+  // 有 tool 在跑 → ToolThrobber 已显 reading/searching,这条不叠,免得「读文档时
+  // 还并排显 thinking」。throbber 同一时刻只一个进度指示:有 tool 显 tool,没有才 thinking。
+  return tool !== null ? null : (
     <div
       className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3"
       data-testid="answer-pending"
-      data-retrying={retrying ? 'true' : 'false'}
+      data-retrying={String(retrying)}
     >
       {retrying ? 'retrying' : word}{' '}
       <span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span>

@@ -265,8 +265,7 @@ function makeObserver(
 function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
   if (ev.type === 'llm_chunk') {
     accum.body += ev.text;
-    // 答案开始流出 = agent 不在跑工具了,清掉 throbber 让位给答案。tool throbber
-    // 从 tool_started 一直显到这里(撑过「读完→组织答案」整段,清楚可见)。
+    // 答案开始流出 → 清 throbber 让位给答案(throbber 从 tool_started 撑到这里)。
     accum.currentTool = null;
     accum.retrying = false; // 进度恢复
     return;
