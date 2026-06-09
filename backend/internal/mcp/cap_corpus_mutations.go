@@ -308,6 +308,12 @@ func wikiMutationErrToResult(
 	if errors.Is(err, domain.ErrWikiNotFound) {
 		return agentskills.MCPError("wiki entry not found")
 	}
+	if errors.Is(err, domain.ErrParentNotFound) {
+		return agentskills.MCPError("parent entry not found")
+	}
+	if errors.Is(err, domain.ErrParentCycle) {
+		return agentskills.MCPError("parent would create a cycle")
+	}
 	if errors.Is(err, usecases.ErrEmptyField) {
 		return agentskills.MCPError("required field missing")
 	}

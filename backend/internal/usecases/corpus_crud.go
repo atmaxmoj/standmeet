@@ -70,8 +70,8 @@ type CreateWikiInput struct {
 func CreateWiki(
 	ctx context.Context, deps CorpusDeps, in *CreateWikiInput,
 ) (domain.Wiki, error) {
-	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
-		return domain.Wiki{}, ErrEmptyField
+	if err := preflightCreateWiki(ctx, deps, in); err != nil {
+		return domain.Wiki{}, err
 	}
 	wiki, err := deps.Wiki.Create(ctx, &postgres.CreateWikiInput{
 		OwnerID:  in.OwnerID,
@@ -84,6 +84,15 @@ func CreateWiki(
 		return domain.Wiki{}, fmt.Errorf("create wiki: %w", err)
 	}
 	return wiki, nil
+}
+
+// preflightCreateWiki —— create 前两道关:必填字段 + parent 合法。合在一处让
+// CreateWiki 的 cyclo 不超标。
+func preflightCreateWiki(ctx context.Context, deps CorpusDeps, in *CreateWikiInput) error {
+	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
+		return ErrEmptyField
+	}
+	return validateWikiParent(ctx, deps, in.OwnerID, in.ParentID)
 }
 
 // UpdateWikiInput —— admin 改 wiki 入参。
@@ -103,6 +112,9 @@ func UpdateWiki(
 ) (domain.Wiki, error) {
 	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
 		return domain.Wiki{}, ErrEmptyField
+	}
+	if err := validateWikiReparent(ctx, deps, in.OwnerID, in.ID, in.ParentID); err != nil {
+		return domain.Wiki{}, err
 	}
 	wiki, err := deps.Wiki.Update(ctx, &postgres.UpdateWikiInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,

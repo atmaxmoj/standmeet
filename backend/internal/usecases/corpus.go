@@ -68,7 +68,7 @@ type PromoteInput struct {
 func PromoteToWiki(
 	ctx context.Context, deps CorpusDeps, in *PromoteInput,
 ) (domain.Wiki, error) {
-	if err := validatePromoteInput(in); err != nil {
+	if err := preflightPromote(ctx, deps, in); err != nil {
 		return domain.Wiki{}, err
 	}
 	raw, err := loadRawForPromote(ctx, deps, in)
@@ -92,9 +92,73 @@ func PromoteToWiki(
 	return wiki, nil
 }
 
+// preflightPromote —— promote 前的两道关:必填字段 + parent 合法。合在一处让
+// PromoteToWiki 的 cyclo 不超标。
+func preflightPromote(ctx context.Context, deps CorpusDeps, in *PromoteInput) error {
+	if err := validatePromoteInput(in); err != nil {
+		return err
+	}
+	return validateWikiParent(ctx, deps, in.OwnerID, in.ParentID)
+}
+
 func validatePromoteInput(in *PromoteInput) error {
 	if in.OwnerID == "" || in.RawID == "" || in.Title == "" {
 		return ErrEmptyField
+	}
+	return nil
+}
+
+// validateWikiParent —— parent_id 给了就必须是本 owner 的 wiki(FK 只保证 id
+// 存在于 wiki_entries,不管 owner;跨 owner 父会绕过)。找不到 → ErrParentNotFound,
+// 不允许挂无效父落孤儿。空 parent(root)放行。
+func validateWikiParent(
+	ctx context.Context, deps CorpusDeps, ownerID string, parentID *string,
+) error {
+	if parentID == nil || *parentID == "" {
+		return nil
+	}
+	if _, err := deps.Wiki.GetByID(ctx, ownerID, *parentID); err != nil {
+		if errors.Is(err, domain.ErrWikiNotFound) {
+			return domain.ErrParentNotFound
+		}
+		return fmt.Errorf("validate wiki parent: %w", err)
+	}
+	return nil
+}
+
+// validateWikiReparent —— UpdateWiki 改 parent 用:存在性 + 同 owner
+// (validateWikiParent)+ 防环(不能把 nodeID 挂到自己或自己的子孙下)。
+func validateWikiReparent(
+	ctx context.Context, deps CorpusDeps, ownerID, nodeID string, parentID *string,
+) error {
+	if err := validateWikiParent(ctx, deps, ownerID, parentID); err != nil {
+		return err
+	}
+	if parentID == nil || *parentID == "" {
+		return nil
+	}
+	return checkNoParentCycle(ctx, deps, ownerID, nodeID, *parentID)
+}
+
+// checkNoParentCycle —— 从拟定 parent 沿 parent 链上溯到根,路上撞到 nodeID 就
+// 是环(把节点挂到了自己 / 自己的子孙下)→ ErrParentCycle。
+func checkNoParentCycle(
+	ctx context.Context, deps CorpusDeps, ownerID, nodeID, parentID string,
+) error {
+	cur := parentID
+	for range treeMaxDepth {
+		if cur == nodeID {
+			return domain.ErrParentCycle
+		}
+		w, err := deps.Wiki.GetByID(ctx, ownerID, cur)
+		if err != nil {
+			return fmt.Errorf("cycle check: %w", err)
+		}
+		pid, ok := w.ParentID()
+		if !ok {
+			return nil
+		}
+		cur = pid
 	}
 	return nil
 }

@@ -11,6 +11,7 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Chip } from '@/components/admin/atoms/Chip';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/WikiRowForms';
+import { descendantCounts } from '@/lib/admin/wiki-tree';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   useCorpusActions,
@@ -143,11 +144,13 @@ function TagFilterRow({
 function WikiGrid({
   rows, actions,
 }: { rows: readonly WikiSummary[]; actions: CorpusActionsHook }) {
+  // 地址树派生 + 级联删:每条算一下有多少子孙,删它时警告会连带删掉几条。
+  const childCounts = descendantCounts(rows);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8" data-testid="wiki-list">
       {rows.map((w) => (
         <div key={w.id} data-testid={`wiki-row-${w.id}`}>
-          <WikiCard entry={w} actions={actions} />
+          <WikiCard entry={w} actions={actions} childCount={childCounts[w.id] ?? 0} />
         </div>
       ))}
     </div>
@@ -174,15 +177,17 @@ function EmptyState() {
 type RowMode = 'view' | 'edit' | 'promote';
 
 function WikiCard({
-  entry, actions,
-}: { entry: WikiSummary; actions: CorpusActionsHook }) {
+  entry, actions, childCount,
+}: { entry: WikiSummary; actions: CorpusActionsHook; childCount: number }) {
   const [mode, setMode] = useState<RowMode>('view');
   return (
     <article className="border-t border-(--color-rule) pt-4">
       <WikiHead entry={entry} />
       <WikiExcerpt text={entry.excerpt} />
       <WikiTagsAndMeta entry={entry} />
-      <RowActions entry={entry} mode={mode} actions={actions} setMode={setMode} />
+      <RowActions
+        entry={entry} mode={mode} actions={actions} setMode={setMode} childCount={childCount}
+      />
       <InlineForms entry={entry} mode={mode} actions={actions} setMode={setMode} />
     </article>
   );
@@ -254,15 +259,21 @@ interface ActionsProps {
   mode: RowMode;
   actions: CorpusActionsHook;
   setMode: (m: RowMode) => void;
+  childCount: number;
 }
 
-function RowActions({ entry, mode, actions, setMode }: ActionsProps) {
-  return mode === 'view' ? <ActionRow entry={entry} actions={actions} setMode={setMode} /> : null;
+function RowActions({ entry, mode, actions, setMode, childCount }: ActionsProps) {
+  return mode === 'view' ? (
+    <ActionRow entry={entry} actions={actions} setMode={setMode} childCount={childCount} />
+  ) : null;
 }
 
 function ActionRow({
-  entry, actions, setMode,
-}: { entry: WikiSummary; actions: CorpusActionsHook; setMode: (m: RowMode) => void }) {
+  entry, actions, setMode, childCount,
+}: {
+  entry: WikiSummary; actions: CorpusActionsHook;
+  setMode: (m: RowMode) => void; childCount: number;
+}) {
   return (
     <div className="mt-3 flex items-baseline gap-3 mono text-[10px] tracking-[0.12em] uppercase">
       <RowBtn label="edit" testid={`wiki-edit-${entry.id}`} onClick={() => setMode('edit')} />
@@ -272,7 +283,7 @@ function ActionRow({
         onClick={() => setMode('promote')}
       />
       <ViewLiveLink path={entry.path} indexed={entry.seo_indexed} />
-      <DeleteBtn entry={entry} actions={actions} />
+      <DeleteBtn entry={entry} actions={actions} childCount={childCount} />
     </div>
   );
 }
@@ -300,9 +311,11 @@ function RowBtn({ label, onClick, testid }: { label: string; onClick: () => void
   );
 }
 
-function DeleteBtn({ entry, actions }: { entry: WikiSummary; actions: CorpusActionsHook }) {
+function DeleteBtn({
+  entry, actions, childCount,
+}: { entry: WikiSummary; actions: CorpusActionsHook; childCount: number }) {
   const toast = useToast();
-  const onClick = () => confirm(`Delete wiki "${entry.title}"? This cannot be undone.`)
+  const onClick = () => confirm(deleteWikiPrompt(entry.title, childCount))
     ? void runWith(
       () => actions.deleteWiki(entry.id),
       () => toast.success('Wiki deleted'),
@@ -316,6 +329,14 @@ function DeleteBtn({ entry, actions }: { entry: WikiSummary; actions: CorpusActi
       delete ×
     </button>
   );
+}
+
+// deleteWikiPrompt —— 有子孙时警告会连带删掉几条(级联删,地址树派生不留孤儿)。
+function deleteWikiPrompt(title: string, childCount: number): string {
+  const warn = childCount > 0
+    ? ` This also deletes its ${childCount} child ${childCount === 1 ? 'entry' : 'entries'}.`
+    : '';
+  return `Delete wiki "${title}"?${warn} This cannot be undone.`;
 }
 
 function formatDate(iso: string): string {

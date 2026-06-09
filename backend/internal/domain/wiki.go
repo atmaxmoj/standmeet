@@ -161,3 +161,11 @@ var ErrPathTaken = errors.New("path already taken in this owner")
 
 // ErrWikiNotFound —— 按 id 查 wiki 未命中。
 var ErrWikiNotFound = errors.New("wiki entry not found")
+
+// ErrParentNotFound —— 创建/promote 时给的 parent_id 在本 owner 下找不到
+// (不存在 / 别的 owner)。地址树派生 + 级联删,不允许挂到无效父上落孤儿。
+var ErrParentNotFound = errors.New("parent entry not found")
+
+// ErrParentCycle —— UpdateWiki 改 parent 时,把节点挂到自己或自己的子孙下会成
+// 环(地址树派生,环会让 path 计算无意义)。拒绝。
+var ErrParentCycle = errors.New("parent would create a cycle")

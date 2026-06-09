@@ -237,6 +237,9 @@ func promoteErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
 	if errors.Is(err, domain.ErrPathTaken) {
 		return agentskills.MCPError("path already taken")
 	}
+	if errors.Is(err, domain.ErrParentNotFound) {
+		return agentskills.MCPError("parent entry not found")
+	}
 	log.Error("cap promote_to_wiki", "err", err)
 	return agentskills.MCPError("promote_to_wiki failed")
 }

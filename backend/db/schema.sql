@@ -109,7 +109,8 @@ CREATE TABLE raw_entries (
 CREATE TABLE wiki_entries (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    parent_id        uuid          REFERENCES wiki_entries(id) ON DELETE SET NULL,
+    -- 地址树派生:删父 → 子孙跟着没(级联),不留无主孤儿。
+    parent_id        uuid          REFERENCES wiki_entries(id) ON DELETE CASCADE,
     title            text          NOT NULL,
     body             text          NOT NULL,
     tags             text[]        NOT NULL DEFAULT '{}',
@@ -133,7 +134,8 @@ CREATE UNIQUE INDEX wiki_entries_owner_path_idx
 CREATE TABLE output_entries (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    parent_id        uuid          REFERENCES output_entries(id) ON DELETE SET NULL,
+    -- 同 wiki:删父 → 子孙级联删。
+    parent_id        uuid          REFERENCES output_entries(id) ON DELETE CASCADE,
     title            text          NOT NULL,
     body             text          NOT NULL,
     tags             text[]        NOT NULL DEFAULT '{}',

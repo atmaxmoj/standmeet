@@ -293,6 +293,8 @@ func writeCorpusDelete(log *slog.Logger, w http.ResponseWriter, err error, tag s
 
 var corpusErrCases = []apierr.Case{
 	{Match: usecases.ErrEmptyField, Envelope: envBadReq("required field is empty")},
+	{Match: domain.ErrParentNotFound, Envelope: envBadReq("parent entry not found")},
+	{Match: domain.ErrParentCycle, Envelope: envBadReq("parent would create a cycle")},
 	{
 		Match: domain.ErrRawNotFound, Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "raw_not_found", Message: "raw entry not found",
