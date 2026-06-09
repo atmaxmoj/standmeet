@@ -31,7 +31,7 @@ type SEORepo struct {
 func NewSEORepo(pool *Pool) *SEORepo { return &SEORepo{pool: pool} }
 
 // 公开 landing 反查 + sitemap 列表已移到 usecases/seo.go：地址纯树派生
-// (load 全树 → wikiTreePaths/outputTreePaths),不再读已退役的 path 列。
+// (load 全树 → WikiTreePaths/OutputTreePaths),不再读已退役的 path 列。
 // SEORepo 只剩 seo_settings 读写 + path 列 patch（patch 增量 3 随列一起退）。
 
 // GetSettings —— singleton-per-owner；不存在返默认（IndexRobots=true）。

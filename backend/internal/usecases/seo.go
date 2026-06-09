@@ -85,7 +85,7 @@ func GetWikiLanding(
 
 // findIndexedWiki —— 全树里挑 indexed 且树派生 path 命中那条。
 func findIndexedWiki(wikis []domain.Wiki, path string) (domain.Wiki, bool) {
-	paths := wikiTreePaths(wikis)
+	paths := WikiTreePaths(wikis)
 	for i := range wikis {
 		if wikis[i].SEOIndexed() && paths[wikis[i].ID()] == path {
 			return wikis[i], true
@@ -110,7 +110,7 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	if err != nil {
 		return []LandingURL{}
 	}
-	paths := wikiTreePaths(wikis)
+	paths := WikiTreePaths(wikis)
 	out := make([]LandingURL, 0, len(wikis))
 	for i := range wikis {
 		if wikis[i].SEOIndexed() {
@@ -146,7 +146,7 @@ func GetOutputLanding(
 
 // findIndexedOutput —— wiki 的 output 孪生。
 func findIndexedOutput(outputs []domain.Output, path string) (domain.Output, bool) {
-	paths := outputTreePaths(outputs)
+	paths := OutputTreePaths(outputs)
 	for i := range outputs {
 		if outputs[i].SEOIndexed() && paths[outputs[i].ID()] == path {
 			return outputs[i], true
@@ -165,7 +165,7 @@ func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	if err != nil {
 		return []LandingURL{}
 	}
-	paths := outputTreePaths(outputs)
+	paths := OutputTreePaths(outputs)
 	out := make([]LandingURL, 0, len(outputs))
 	for i := range outputs {
 		if outputs[i].SEOIndexed() {

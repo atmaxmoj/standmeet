@@ -154,9 +154,10 @@ func (h *Handlers) listWiki() http.HandlerFunc {
 }
 
 func writeWikiList(log *slog.Logger, w http.ResponseWriter, rows []domain.Wiki) {
+	paths := usecases.WikiTreePaths(rows)
 	items := make([]wikiListItem, 0, len(rows))
 	for i := range rows {
-		items = append(items, wikiItemFromDomain(&rows[i]))
+		items = append(items, wikiItemFromDomain(&rows[i], paths[rows[i].ID()]))
 	}
 	writeWikiListJSON(log, w, items)
 }

@@ -31,10 +31,10 @@ type pathNode struct {
 	hasParent bool
 }
 
-// wikiTreePaths / outputTreePaths —— 给一组同 owner 的 document 算 id→树路径
-// 地址表(见 treePathsFor)。retriever 报地址(search/read/ACL)+ 线性反查都查
-// 这张表。
-func wikiTreePaths(ws []domain.Wiki) map[string]string {
+// WikiTreePaths / OutputTreePaths —— 给一组同 owner 的 document 算 id→树路径
+// 地址表(见 treePathsFor)。retriever 报地址(search/read/ACL)、citation 反查、
+// 公开页 landing、admin 浏览全查这张表 —— 一套树派生口径,不存列。
+func WikiTreePaths(ws []domain.Wiki) map[string]string {
 	nodes := make([]pathNode, len(ws))
 	for i := range ws {
 		pid, ok := ws[i].ParentID()
@@ -43,7 +43,8 @@ func wikiTreePaths(ws []domain.Wiki) map[string]string {
 	return treePathsFor(nodes)
 }
 
-func outputTreePaths(os []domain.Output) map[string]string {
+// OutputTreePaths —— WikiTreePaths 的 output 孪生(同一套树派生口径)。
+func OutputTreePaths(os []domain.Output) map[string]string {
 	nodes := make([]pathNode, len(os))
 	for i := range os {
 		pid, ok := os[i].ParentID()

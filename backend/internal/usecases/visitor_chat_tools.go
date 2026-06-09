@@ -109,8 +109,8 @@ func newRetriever(in *retrieverInput) *retriever {
 		wikis: in.wikis, outputs: in.outputs, writings: in.writings,
 		snapshot:    in.snapshot,
 		collector:   newReadCollector(),
-		wikiPaths:   wikiTreePaths(in.wikis),
-		outputPaths: outputTreePaths(in.outputs),
+		wikiPaths:   WikiTreePaths(in.wikis),
+		outputPaths: OutputTreePaths(in.outputs),
 	}
 }
 

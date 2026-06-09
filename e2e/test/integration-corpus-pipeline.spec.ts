@@ -60,7 +60,7 @@ test.describe('corpus pipeline: raw → wiki → output end-to-end', () => {
 
   test('wiki SEO landing accessible',
     async ({ page }) => {
-      await goto(page, '/wiki/pipeline-wiki');
+      await goto(page, '/wiki/distributed-systems-insight');
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByRole('heading', { name: WIKI_TITLE })).toBeVisible();
     });
@@ -75,7 +75,7 @@ test.describe('corpus pipeline: raw → wiki → output end-to-end', () => {
 
   test('output SEO landing accessible',
     async ({ page }) => {
-      await goto(page, '/output/pipeline-output');
+      await goto(page, '/output/polished-essay-on-distributed-systems');
       await expect(page.getByTestId('output-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByRole('heading', { name: OUTPUT_TITLE })).toBeVisible();
     });

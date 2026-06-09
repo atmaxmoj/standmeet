@@ -11,6 +11,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 type outputListItem struct {
@@ -40,9 +41,10 @@ func (h *Handlers) listOutput() http.HandlerFunc {
 }
 
 func writeOutputList(log *slog.Logger, w http.ResponseWriter, rows []domain.Output) {
+	paths := usecases.OutputTreePaths(rows)
 	items := make([]outputListItem, 0, len(rows))
 	for i := range rows {
-		items = append(items, outputItemFromDomain(&rows[i]))
+		items = append(items, outputItemFromDomain(&rows[i], paths[rows[i].ID()]))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

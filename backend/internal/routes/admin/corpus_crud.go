@@ -109,7 +109,7 @@ func (h *Handlers) promoteRaw() http.HandlerFunc {
 			Title:    body.Title,
 			Tags:     body.Tags,
 		})
-		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki), err, "promote raw")
+		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki, ""), err, "promote raw")
 	}
 }
 
@@ -136,7 +136,7 @@ func (h *Handlers) createWiki() http.HandlerFunc {
 			Title:    body.Title, Body: body.Body,
 			Tags: body.Tags,
 		})
-		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki), err, "create wiki")
+		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki, ""), err, "create wiki")
 	}
 }
 
@@ -153,7 +153,7 @@ func (h *Handlers) updateWiki() http.HandlerFunc {
 			Title:    body.Title, Body: body.Body,
 			Tags: body.Tags, ShowAsSource: body.ShowAsSource,
 		})
-		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki), err, "update wiki")
+		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki, ""), err, "update wiki")
 	}
 }
 
@@ -188,7 +188,7 @@ func (h *Handlers) promoteWiki() http.HandlerFunc {
 				Title:    body.Title,
 				Tags:     body.Tags,
 			})
-		writeCorpusResult(h.Log, w, outputItemFromDomain(&out), err, "promote wiki")
+		writeCorpusResult(h.Log, w, outputItemFromDomain(&out, ""), err, "promote wiki")
 	}
 }
 
@@ -215,7 +215,7 @@ func (h *Handlers) createOutput() http.HandlerFunc {
 			Title:    body.Title, Body: body.Body,
 			Tags: body.Tags,
 		})
-		writeCorpusResult(h.Log, w, outputItemFromDomain(&out), err, "create output")
+		writeCorpusResult(h.Log, w, outputItemFromDomain(&out, ""), err, "create output")
 	}
 }
 
@@ -232,7 +232,7 @@ func (h *Handlers) updateOutput() http.HandlerFunc {
 			Title:    body.Title, Body: body.Body,
 			Tags: body.Tags, ShowAsSource: body.ShowAsSource,
 		})
-		writeCorpusResult(h.Log, w, outputItemFromDomain(&out), err, "update output")
+		writeCorpusResult(h.Log, w, outputItemFromDomain(&out, ""), err, "update output")
 	}
 }
 

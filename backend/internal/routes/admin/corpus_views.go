@@ -17,7 +17,9 @@ func rawItemFromDomain(r *domain.Raw) rawListItem {
 	}
 }
 
-func wikiItemFromDomain(w *domain.Wiki) wikiListItem {
+// wikiItemFromDomain —— path 由 caller 传(树派生地址,纯从 parent 链算,不读
+// 已退役的 path 列);单条上下文(promote 结果)没全树可算就传 ""。
+func wikiItemFromDomain(w *domain.Wiki, path string) wikiListItem {
 	return wikiListItem{
 		ID:           w.ID(),
 		Title:        w.Title(),
@@ -25,11 +27,19 @@ func wikiItemFromDomain(w *domain.Wiki) wikiListItem {
 		Tags:         ensureSlice(w.Tags()),
 		SourceRawIDs: ensureSlice(w.SourceRawIDs()),
 		ParentID:     optionalToPtr(w.ParentID),
-		Path:         optionalToPtr(w.Path),
+		Path:         ptrIfNonEmpty(path),
 		ShowAsSource: w.ShowAsSource(),
 		SEOIndexed:   w.SEOIndexed(),
 		CreatedAt:    w.CreatedAt().UTC().Format(timeRFC3339),
 	}
+}
+
+// ptrIfNonEmpty —— 空串 → nil(JSON null / 省略),非空 → 指针。
+func ptrIfNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 const excerptMaxLen = 200
@@ -41,14 +51,14 @@ func truncateExcerpt(body string, limit int) string {
 	return body[:limit] + "…"
 }
 
-func outputItemFromDomain(o *domain.Output) outputListItem {
+func outputItemFromDomain(o *domain.Output, path string) outputListItem {
 	return outputListItem{
 		ID:            o.ID(),
 		Title:         o.Title(),
 		Tags:          ensureSlice(o.Tags()),
 		SourceWikiIDs: ensureSlice(o.SourceWikiIDs()),
 		ParentID:      optionalToPtr(o.ParentID),
-		Path:          optionalToPtr(o.Path),
+		Path:          ptrIfNonEmpty(path),
 		ShowAsSource:  o.ShowAsSource(),
 		SEOIndexed:    o.SEOIndexed(),
 		CreatedAt:     o.CreatedAt().UTC().Format(timeRFC3339),
