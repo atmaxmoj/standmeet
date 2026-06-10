@@ -13,7 +13,7 @@ import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { ObsidianBar } from '@/components/admin/sections/writings/ObsidianBar';
 import {
   WritingForm, EMPTY_VALUES,
-  type WritingFormValues, type WritingFormSubmit,
+  type WritingFormValues, type WritingFormSubmit, type ParentOption,
 } from '@/components/admin/sections/writings/WritingForm';
 import {
   useWritings, type WritingsHook, type AdminWritingView,
@@ -38,7 +38,10 @@ export function WritingsSection() {
       <ObsidianBar onImported={() => hook.refresh()} />
       <InlineOrList hook={hook} editing={editing} setEditing={setEditing} />
       {creating && (
-        <WritingCreateModal onClose={() => setCreating(false)} onCreate={hook.createWriting} />
+        <WritingCreateModal
+          onClose={() => setCreating(false)} onCreate={hook.createWriting}
+          parentOptions={parentOptionsFor(hook.writings, '')}
+        />
       )}
     </>
   );
@@ -85,7 +88,10 @@ function InlineEditor({ writing, hook, onClose }: {
             ← back to list
           </button>
         </div>
-        <WritingEditModal writing={writing} onClose={onClose} onUpdate={hook.updateWriting} />
+        <WritingEditModal
+          writing={writing} onClose={onClose} onUpdate={hook.updateWriting}
+          parentOptions={parentOptionsFor(hook.writings, writing.id)}
+        />
       </div>
       <EditorSideRail bodyMD="" />
     </div>
@@ -227,10 +233,11 @@ function useHandleDelete(
 }
 
 function WritingCreateModal({
-  onClose, onCreate,
+  onClose, onCreate, parentOptions,
 }: {
   onClose: () => void;
   onCreate: (bundle: WritingSaveBundle) => Promise<boolean>;
+  parentOptions: ParentOption[];
 }) {
   return (
     <div
@@ -244,6 +251,7 @@ function WritingCreateModal({
         showPublishToggle
         submitLabel="create"
         submitTestId="writing-create-submit"
+        parentOptions={parentOptions}
         onClose={onClose}
         onSubmit={(s) => onCreate(toBundle(s, true))}
       />
@@ -252,11 +260,12 @@ function WritingCreateModal({
 }
 
 function WritingEditModal({
-  writing, onClose, onUpdate,
+  writing, onClose, onUpdate, parentOptions,
 }: {
   writing: AdminWritingView;
   onClose: () => void;
   onUpdate: (id: string, bundle: WritingSaveBundle) => Promise<boolean>;
+  parentOptions: ParentOption[];
 }) {
   return (
     <div
@@ -271,11 +280,21 @@ function WritingEditModal({
         submitLabel="save"
         submitTestId="writing-edit-submit"
         assetURLs={writing.asset_urls ?? {}}
+        parentOptions={parentOptions}
         onClose={onClose}
         onSubmit={(s) => onUpdate(writing.id, toBundle(s, false))}
       />
     </div>
   );
+}
+
+// parentOptionsFor —— 「设父」候选 = 别的 writing(排除自己,防自挂;深层成环后端拦)。
+function parentOptionsFor(
+  writings: WritingsHook['writings'], excludeID: string,
+): ParentOption[] {
+  return writings
+    .filter((w) => w.id !== excludeID)
+    .map((w) => ({ id: w.id, title: w.title }));
 }
 
 function writingToValues(w: AdminWritingView): WritingFormValues {
@@ -285,6 +304,7 @@ function writingToValues(w: AdminWritingView): WritingFormValues {
     coverHue: w.cover_hue,
     coverAsset: coverAssetFor(w),
     tags: w.tags.join(', '),
+    parentID: w.parent_id ?? '',
     publish: w.published,
   };
 }
@@ -311,6 +331,7 @@ function toSaveData(v: WritingFormValues, isCreate: boolean): WritingSaveData {
     cover_image_ref: v.coverAsset.id, cover_headline: v.coverHeadline,
     cover_sub: v.coverSub, cover_hue: v.coverHue,
     visibility: 'public', locked_body: '',
+    parent_id: v.parentID,
     tags: parseTags(v.tags), cross_refs: [],
   };
   return isCreate ? { ...base, slug: v.slug, publish: v.publish } : base;

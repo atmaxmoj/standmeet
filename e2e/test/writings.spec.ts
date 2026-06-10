@@ -256,6 +256,45 @@ test.describe('writings: infinite scroll', () => {
     });
 });
 
+// 设父:editor 的 parent 下拉选了某篇 → 落库 parent_id → reader 公开树里成为子。
+test.describe('writings: set parent in editor → reader tree nesting', () => {
+  test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
+
+  test('create child with parent selected → child nests under parent',
+    async ({ adminPage, request }) => {
+      await openAdminWritings(adminPage);
+      await fillWritingMeta(adminPage, {
+        slug: 'tree-parent', title: 'Tree Parent', excerpt: 'p',
+        cover: { headline: 'a', sub: 'b', hue: 'amber' }, tags: '',
+      });
+      await adminPage.getByTestId('writing-create-submit').click();
+      await expect(adminPage.getByTestId('writing-row-tree-parent')).toBeVisible({ timeout: 5_000 });
+
+      await fillWritingMeta(adminPage, {
+        slug: 'tree-child', title: 'Tree Child', excerpt: 'c',
+        cover: { headline: 'a', sub: 'b', hue: 'amber' }, tags: '',
+      });
+      await adminPage.getByTestId('writing-field-parent').selectOption({ label: 'Tree Parent' });
+      await adminPage.getByTestId('writing-create-submit').click();
+      await expect(adminPage.getByTestId('writing-row-tree-child')).toBeVisible({ timeout: 5_000 });
+
+      const parentID = await adminWritingID(request, 'tree-parent');
+      const res = await request.get(`/api/v1/writing-tree?parent=${parentID}`);
+      const nodes = (await res.json() as { nodes: Array<{ slug: string }> }).nodes;
+      expect(nodes.map((n) => n.slug)).toContain('tree-child');
+    });
+});
+
+// adminWritingID —— admin list 里按 slug 找 writing id。
+async function adminWritingID(request: APIRequestContext, slug: string): Promise<string> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const res = await request.get('/api/admin/writings/', { headers: { 'X-Csrftoken': csrf } });
+  const list = await res.json() as Array<{ id: string; slug: string }>;
+  const found = list.find((w) => w.slug === slug);
+  if (!found) throw new Error(`writing ${slug} not found`);
+  return found.id;
+}
+
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();

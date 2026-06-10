@@ -14,7 +14,7 @@ import { CoverImagePicker, type CoverAssetState } from '@/components/admin/secti
 import { EditorSideRail } from '@/components/admin/sections/writings/EditorSideRail';
 import {
   WritingField, WritingFieldRow, CoverHueSelect, WritingBodyField,
-  WritingFormFooter, PublishToggle,
+  WritingFormFooter, PublishToggle, ParentSelect,
   type CoverHue,
 } from '@/components/admin/sections/writings/WritingFormAtoms';
 import type { PendingFile } from '@/lib/writings/upload-asset';
@@ -30,7 +30,14 @@ export interface WritingFormValues {
   coverHue: CoverHue;
   coverAsset: CoverAssetState;
   tags: string;
+  parentID: string;
   publish: boolean;
+}
+
+// ParentOption —— 「设父」下拉的一项(别的 writing)。
+export interface ParentOption {
+  id: string;
+  title: string;
 }
 
 // WritingFormSubmit —— values + 待上传 files。caller 在 WritingsSection 里
@@ -44,7 +51,7 @@ export const EMPTY_VALUES: WritingFormValues = {
   slug: '', title: '', excerpt: '', bodyMD: '',
   coverHeadline: '', coverSub: '', coverHue: 'amber',
   coverAsset: { id: '', url: '' },
-  tags: '', publish: true,
+  tags: '', parentID: '', publish: true,
 };
 
 interface Props {
@@ -54,6 +61,8 @@ interface Props {
   showPublishToggle: boolean;
   submitLabel: string;
   submitTestId: string;
+  // parentOptions —— 「设父」下拉的候选(别的 writing;edit 时已排除自己)。
+  parentOptions: ParentOption[];
   // assetURLs —— editor body 内 standmeet-asset:<id> 引用的预解析 URL map。
   // create 时空（{}），edit 时由 caller 从 AdminWritingView.asset_urls 传。
   assetURLs?: Record<string, string>;
@@ -122,6 +131,8 @@ function WritingFormBody({
         <WritingField label="tags" value={values.tags}
           onChange={(v) => set('tags', v)} placeholder="comma, separated" />
       </WritingFieldRow>
+      <ParentSelect value={values.parentID} options={props.parentOptions}
+        onChange={(v) => set('parentID', v)} />
       <CoverImagePicker value={values.coverAsset}
         onChange={(v) => set('coverAsset', v)}
         onPending={handlePending} toast={toast} />

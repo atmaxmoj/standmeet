@@ -61,6 +61,29 @@ export function CoverHueSelect({
   );
 }
 
+// ParentSelect —— 「设父」下拉:reader 树里把这篇挂到某篇下。「— none —」= root。
+// 选项由 caller 给(别的 writing);成环(挂到自己子孙下)由后端 reparent 校验拦 400。
+export function ParentSelect({
+  value, options, onChange,
+}: { value: string; options: { id: string; title: string }[]; onChange: (v: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
+        parent (reader tree)
+      </span>
+      <select
+        className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[14px]"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid="writing-field-parent"
+      >
+        <option value="">— none (root) —</option>
+        {options.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
+      </select>
+    </label>
+  );
+}
+
 export function WritingBodyField({
   value, onChange, assetURLs, onPending,
 }: {
