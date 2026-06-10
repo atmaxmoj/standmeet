@@ -235,6 +235,34 @@ export async function fetchWikiTree(parentID: string, token: string): Promise<Tr
   }
 }
 
+// WritingTreeNode wire —— 后端 writing-tree 节点(slug + locked)。映射成中性
+// TreeNode 时 slug 装进 path(reader 导航 /writings/<slug>),复用 LazyTree。
+const WritingTreeNodeSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  slug: z.string(),
+  has_children: z.boolean(),
+  locked: z.boolean(),
+});
+const WritingTreeResponseSchema = z.object({ nodes: z.array(WritingTreeNodeSchema) });
+
+// fetchWritingTree —— GET /api/v1/writing-tree[?parent=ID] 的一层。public(published
+// 进树,private 标 locked)。坏响应 → []。
+export async function fetchWritingTree(parentID: string): Promise<TreeNode[]> {
+  try {
+    const qs = parentID === '' ? '' : `?parent=${encodeURIComponent(parentID)}`;
+    const res = await fetch(`${baseURL()}/api/v1/writing-tree${qs}`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const parsed = WritingTreeResponseSchema.safeParse(await res.json());
+    if (!parsed.success) return [];
+    return parsed.data.nodes.map((n) => ({
+      id: n.id, title: n.title, path: n.slug, has_children: n.has_children, locked: n.locked,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // fetchWikiContext —— GET /api/v1/wiki-tree/context?path=... —— breadcrumb 祖先
 // 链 + sub-rail 子节点。SSR 走匿名(public scope),坏响应 → 空上下文。
 export async function fetchWikiContext(path: string): Promise<TreeContext> {

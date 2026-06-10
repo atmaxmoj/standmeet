@@ -14,11 +14,12 @@
 //   Draft Post(root,**未发布**) ← 不进树
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { goto } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'writingtree@example.com',
@@ -86,7 +87,32 @@ test.describe('reader writing 树端点:published 进树 + private 显示成 loc
     expect(roots.find((n) => n.title === 'Essays')?.has_children).toBe(true);
     expect(roots.find((n) => n.title === 'Private Post')?.has_children).toBe(false);
   });
+
+  // ── reader surface:真浏览器里 /writings 的树 sidebar(复用 LazyTree)──
+  test('reader sidebar:/writings 懒展开 + private 标 locked', readerSidebar);
 });
+
+// readerSidebar —— /writings 显示 writing 树:roots 出现、点开 Essays 才取 Sub Post
+// (懒)、private 节点标 locked。
+async function readerSidebar({ page }: { page: Page }): Promise<void> {
+  const treeReqs: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/api/v1/writing-tree')) treeReqs.push(r.url());
+  });
+  await goto(page, '/writings');
+  await expect(page.getByTestId('writing-tree')).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId('tree-node-essays')).toBeVisible();
+  await expect(page.getByTestId('tree-node-private-post')).toBeVisible();
+  await expect(page.getByTestId('tree-node-sub-post')).toHaveCount(0);
+  expect(treeReqs.some((u) => u.includes('parent='))).toBe(false);
+  // private 节点标 locked。
+  const locked = page.getByTestId('writing-tree').getByRole('link', { name: 'Private Post' });
+  await expect(locked).toHaveAttribute('data-locked', 'true');
+  // 点开 Essays → 这时才取 Sub Post(懒加载)。
+  await page.getByTestId('tree-toggle-essays').click();
+  await expect(page.getByTestId('tree-node-sub-post')).toBeVisible({ timeout: 5_000 });
+  expect(treeReqs.some((u) => u.includes('parent='))).toBe(true);
+}
 
 // tree —— GET /api/v1/writing-tree[?parent=ID]。
 async function tree(request: APIRequestContext, parentID: string): Promise<WNode[]> {

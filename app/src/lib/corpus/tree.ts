@@ -7,8 +7,12 @@ import { z } from 'zod';
 export const TreeNodeSchema = z.object({
   id: z.string(),
   title: z.string(),
+  // path —— 导航 + testid 的稳定键。wiki = 树派生 path;writing = slug
+  //(writing 的"路径"就是它的 slug,landing 是 /writings/<slug>)。
   path: z.string(),
   has_children: z.boolean(),
+  // locked —— writing private 节点(teaser only)。wiki 不带,可选。
+  locked: z.boolean().optional(),
 });
 
 export type TreeNode = z.infer<typeof TreeNodeSchema>;

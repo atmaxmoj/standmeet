@@ -1,0 +1,52 @@
+/* WritingTreeAside.module.css —— 240px sticky reader 左栏。同 wiki 树视觉
+   (mono 抬头 + serif 截断链接 + active accent),加 private 节点 locked 斜体。 */
+
+.aside {
+  position: sticky;
+  top: 84px;
+  width: 240px;
+  flex: none;
+  align-self: flex-start;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  padding-right: 12px;
+}
+
+.head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  margin-bottom: 10px;
+}
+
+.link {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--color-muted);
+  text-decoration: none;
+  display: block;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 0;
+}
+
+.link:hover {
+  color: var(--color-ink);
+}
+
+.link[data-active='true'] {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+/* private —— teaser only,斜体 + 弱化,设计要 show locked 节点。 */
+.link[data-locked='true'] {
+  font-style: italic;
+  color: var(--color-faint);
+}
