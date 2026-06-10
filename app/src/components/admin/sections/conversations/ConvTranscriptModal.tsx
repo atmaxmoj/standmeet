@@ -6,11 +6,11 @@
 
 import { ModalShell } from '@/components/admin/modals/ModalShell';
 import {
-  deriveSuggestionView,
+  deriveGhostView,
   pickTranscriptState,
   type ConvTranscript,
   type ConvTranscriptMessage,
-  type SuggestionLog,
+  type GhostLog,
 } from '@/lib/admin/use-conversations';
 
 type Props = {
@@ -28,7 +28,7 @@ export function ConvTranscriptModal({ transcript, onClose }: Props) {
     >
       <div className="px-7 py-6" data-testid="transcript-body">
         <TranscriptBody transcript={transcript} />
-        <SuggestionsBlock suggestions={transcript.suggestions} />
+        <GhostsBlock ghosts={transcript.ghosts} />
       </div>
     </ModalShell>
   );
@@ -165,30 +165,30 @@ function formatTime(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
-// SuggestionsBlock —— H.13.e: owner 后台观测 ghost text 日志。code 对话
+// GhostsBlock —— H.13.e: owner 后台观测 ghost text 日志。code 对话
 // 才会有；其他 mode 空数组 → block 整段不渲。每行：text · source ·
 // shown_at · accepted? (accepted 时显勾 + 时间，否则灰 dash)。
-function SuggestionsBlock({ suggestions }: { suggestions: readonly SuggestionLog[] }) {
-  return suggestions.length === 0 ? null : (
-    <section className="mt-8 pt-6 border-t border-(--color-rule)" data-testid="transcript-suggestions">
+function GhostsBlock({ ghosts }: { ghosts: readonly GhostLog[] }) {
+  return ghosts.length === 0 ? null : (
+    <section className="mt-8 pt-6 border-t border-(--color-rule)" data-testid="transcript-ghosts">
       <h3 className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-3">
         ghost text shown
       </h3>
       <ul className="space-y-2">
-        {suggestions.map((s) => (
-          <SuggestionRow key={s.id} log={s} />
+        {ghosts.map((s) => (
+          <GhostRow key={s.id} log={s} />
         ))}
       </ul>
     </section>
   );
 }
 
-function SuggestionRow({ log }: { log: SuggestionLog }) {
-  const v = deriveSuggestionView(log);
+function GhostRow({ log }: { log: GhostLog }) {
+  const v = deriveGhostView(log);
   return (
     <li
       className="flex items-baseline gap-3 text-[13px]"
-      data-testid="transcript-suggestion-row"
+      data-testid="transcript-ghost-row"
       data-source={log.source}
       data-accepted={v.acceptedAttr}
     >

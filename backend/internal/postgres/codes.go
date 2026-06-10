@@ -39,7 +39,7 @@ type CreateCodeInput struct {
 	Label              string
 	Purpose            string
 	AssumedRoleID      string
-	SuggestedQuestions []string
+	Ghosts             []string
 }
 
 // Create 写一条 access_code。
@@ -67,7 +67,7 @@ func (r *CodeRepo) CreateAccessCode(
 		Label:              in.Label,
 		Purpose:            in.Purpose,
 		AssumedRoleID:      in.AssumedRoleID,
-		SuggestedQuestions: in.SuggestedQuestions,
+		Ghosts:             in.Ghosts,
 		ExpiresAt:          in.ExpiresAt,
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
@@ -84,7 +84,7 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 	if rerr != nil {
 		return nil, fmt.Errorf("parse assumed_role_id: %w", rerr)
 	}
-	qs, jerr := json.Marshal(in.SuggestedQuestions)
+	qs, jerr := json.Marshal(in.Ghosts)
 	if jerr != nil {
 		return nil, fmt.Errorf("marshal suggested questions: %w", jerr)
 	}
@@ -93,7 +93,7 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 		Code:               in.Code,
 		Label:              in.Label,
 		Purpose:            in.Purpose,
-		SuggestedQuestions: qs,
+		Ghosts:             qs,
 		ExpiresAt:          ptrToTimestamptz(in.ExpiresAt),
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,

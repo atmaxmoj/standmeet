@@ -141,7 +141,7 @@ function CodedPreview({ code }: { code: CodeView | null }) {
         Welcome. You&apos;ve come in on <span className="text-(--color-accent)">{code.label}</span>.
         {' '}This code assumes role <span className="mono text-[14px]">{code.assumed_role_id.slice(0, 8)}…</span>.
       </p>
-      <SuggestedBlock questions={code.suggested_questions} />
+      <SuggestedBlock questions={code.ghosts} />
     </>
   );
 }

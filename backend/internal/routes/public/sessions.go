@@ -52,11 +52,11 @@ type createSessionResponse struct {
 	Capabilities        []agentskills.CapabilityState `json:"capabilities"`
 	ToolSpecs           []agentskills.VisitorToolSpec `json:"tool_specs"`
 	SystemPromptPartIDs []string                      `json:"system_prompt_part_ids"`
-	// SuggestedQuestions —— H.13.b: code 创建时 owner 设的"刚进来可问什么"
+	// Ghosts —— H.13.b: code 创建时 owner 设的"刚进来可问什么"
 	// 列表；前端 ghost text 拿第一条当初始 ghost。code-mode 之外都是空数组
-	// (json 走 "suggested_questions": [])。
-	SuggestedQuestions []string         `json:"suggested_questions"`
-	Quota              sessionQuotaResp `json:"quota"`
+	// (json 走 "ghosts": [])。
+	Ghosts []string         `json:"ghosts"`
+	Quota  sessionQuotaResp `json:"quota"`
 }
 
 func (h *Handlers) createSession() http.HandlerFunc {
@@ -177,7 +177,7 @@ func writeCreateSession(
 		Capabilities:        deps.AgentSkills.VisitorStates(ctx, in),
 		ToolSpecs:           deps.AgentSkills.VisitorToolSpecs(ctx, in),
 		SystemPromptPartIDs: deps.AgentSkills.VisitorPromptPartIDs(ctx, in),
-		SuggestedQuestions:  nonNilStringSlice(res.SuggestedQuestions),
+		Ghosts:              nonNilStringSlice(res.Ghosts),
 		Quota: sessionQuotaResp{
 			MaxTurns:   res.Quota.MaxTurns,
 			UsedTurns:  res.Quota.UsedTurns,
@@ -192,7 +192,7 @@ func writeCreateSession(
 	}
 }
 
-// nonNilStringSlice —— wire JSON 上 `suggested_questions: null` 跟 `[]`
+// nonNilStringSlice —— wire JSON 上 `ghosts: null` 跟 `[]`
 // 对前端是不同 case；nil 强转 [] 保证浏览器永远拿到 array (project
 // principle: 空容器不 nil)。
 func nonNilStringSlice(s []string) []string {

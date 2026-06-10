@@ -5,7 +5,7 @@
 // 输入框 + button 都 dim 掉，避免重复发送 + 让视觉知道"在思考中"。
 //
 // H.13.d: ghost 是当前应渲的灰色 ghost text (code-accessor visitor 进
-// 来时 backend 给的 suggested_questions[0]，每轮 AI 答完 follow-up 帧
+// 来时 backend 给的 ghosts[0]，每轮 AI 答完 follow-up 帧
 // 追加；其他 mode 永远 null)。input 空 + 非 disabled / locked 时渲；按
 // **Tab** → onAcceptGhost(ghost) 填进 input 不自动 submit；**Esc** →
 // onCycleGhost() 走下一条。开始打字 → ghost 被 value 自然遮住。

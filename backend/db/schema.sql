@@ -174,7 +174,7 @@ CREATE TABLE access_codes (
     code                      citext        UNIQUE NOT NULL,
     label                     text          NOT NULL,
     purpose                   text          NOT NULL DEFAULT '',
-    suggested_questions       jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    ghosts       jsonb         NOT NULL DEFAULT '[]'::jsonb,
     expires_at                timestamptz,
     status                    text          NOT NULL DEFAULT 'active'
                                             CHECK (status IN ('active', 'revoked')),
@@ -714,7 +714,7 @@ CREATE INDEX code_bookings_code_idx ON code_bookings(code_id);
 CREATE INDEX code_bookings_owner_idx ON code_bookings(owner_id, created_at DESC);
 CREATE INDEX code_bookings_conv_idx ON code_bookings(conversation_id);
 
--- conversation_suggestions —— H.13.e: visitor 输入框 ghost text 的展示
+-- conversation_ghosts —— H.13.e: visitor 输入框 ghost text 的展示
 -- + accept 日志。owner 在 admin conversation 详情页能看每 turn 推了哪条
 -- ghost、visitor 有没有按 Tab 接受。
 --
@@ -725,12 +725,12 @@ CREATE INDEX code_bookings_conv_idx ON code_bookings(conversation_id);
 --   - accept: visitor 按 Tab → POST sessions/{id}/suggestions/{id}/accept
 --     → server 把 accepted_at = now()
 --
--- source: 'initial' 来自 code.suggested_questions (visitor 第一进 chat 时)
+-- source: 'initial' 来自 code.ghosts (visitor 第一进 chat 时)
 --         'followup' 来自 backend SSE `suggestions` 帧 (每轮 AI 答完追加)
 --
 -- ON DELETE CASCADE: conversation / owner 被删时整盘清掉；suggestion 没
 -- 独立读价值。
-CREATE TABLE conversation_suggestions (
+CREATE TABLE conversation_ghosts (
     id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id          uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     conversation_id   uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -741,10 +741,10 @@ CREATE TABLE conversation_suggestions (
     accepted_at       timestamptz
 );
 
-CREATE INDEX conversation_suggestions_conv_idx
-    ON conversation_suggestions(conversation_id, shown_at);
-CREATE INDEX conversation_suggestions_owner_idx
-    ON conversation_suggestions(owner_id, shown_at DESC);
+CREATE INDEX conversation_ghosts_conv_idx
+    ON conversation_ghosts(conversation_id, shown_at);
+CREATE INDEX conversation_ghosts_owner_idx
+    ON conversation_ghosts(owner_id, shown_at DESC);
 
 -- chat_reports —— I.3: visitor chat 走完 (或中途) 调 summarize_conversation
 -- tool → AI 生成 HTML 报告，落这一行；每次调存一份 (允许重生)，session

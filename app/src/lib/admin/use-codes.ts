@@ -17,7 +17,7 @@ import type { ResourceStatus } from '@/lib/state/status';
 // 都从 role 推断。
 export const CodeViewSchema = z.object({
   id: z.string(), code: z.string(), label: z.string(), status: z.string(),
-  purpose: z.string().optional(), suggested_questions: z.array(z.string()).optional(),
+  purpose: z.string().optional(), ghosts: z.array(z.string()).optional(),
   max_members: z.number().nullable().optional(),
   max_turns_per_session: z.number().nullable().optional(),
   max_bookings: z.number().nullable().optional(),
@@ -29,7 +29,7 @@ export interface CreateCodeInput {
   code: string;
   label: string;
   purpose?: string;
-  suggested_questions?: string[];
+  ghosts?: string[];
   max_members?: number | null;
   max_turns_per_session?: number | null;
   max_bookings?: number | null;
@@ -110,7 +110,7 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     code: input.code,
     label: input.label,
     purpose: input.purpose ?? '',
-    suggested_questions: input.suggested_questions ?? [],
+    ghosts: input.ghosts ?? [],
     max_members: input.max_members ?? null,
     max_turns_per_session: input.max_turns_per_session ?? null,
     max_bookings: input.max_bookings ?? null,

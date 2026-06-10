@@ -136,8 +136,8 @@ def main():
         if reads:
             print("read:", " ".join(reads))
         print("MARCUS:", "\n".join(textwrap.wrap(ans, 96)))
-        if resp.get("suggestions"):
-            print("ghost:", " | ".join(resp["suggestions"]))
+        if resp.get("ghosts"):
+            print("ghost:", " | ".join(resp["ghosts"]))
         if resp.get("error"):
             print("ERROR:", resp["error"])
         history += [{"role": "interviewer", "text": q}, {"role": "candidate", "text": ans}]

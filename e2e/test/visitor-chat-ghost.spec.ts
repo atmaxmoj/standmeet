@@ -2,15 +2,15 @@
 // text autofill + admin 后台日志观测。
 //
 // 用户故事：
-//   1. owner 建 code 时填 suggested_questions
+//   1. owner 建 code 时填 ghosts
 //   2. visitor 持 code 进 chat → 输入框 placeholder = 第一条 ghost
 //   3. visitor 按 Tab → input.value = 第一条 (autofill, 不 auto-send)
 //   4. visitor 清空 → 按 Escape → ghost cycle 到第二条
 //   5. H.13.e: backend 落 shown row；Tab 触发 accept → admin transcript
 //      modal 渲一条 "ghost text shown" 日志、accepted=true
 //
-// Backend SSE `suggestions` 帧 (follow-up) 的追加路径走单独 endpoint
-// spec 验证 (agent-turn-endpoint.spec.ts assertSuggestionsFrame)。
+// Backend SSE `ghosts` 帧 (follow-up) 的追加路径走单独 endpoint
+// spec 验证 (agent-turn-endpoint.spec.ts assertGhostsFrame)。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -31,9 +31,9 @@ const OWNER = {
 
 const CODE = 'GHOST-001';
 
-// SUGGESTED —— owner 在建码时填的初始 ghost 队列。前端按 [0] 渲；按
+// GHOSTS —— owner 在建码时填的初始 ghost 队列。前端按 [0] 渲；按
 // Escape cycle 到 [1]。
-const SUGGESTED = [
+const GHOSTS = [
   'What did you ship last quarter?',
   'Why are you considering a move?',
   'What does the team look like?',
@@ -55,26 +55,26 @@ test.describe('visitor chat ghost text · H.13.d', () => {
       await enterChatWithCode(page);
       const input = page.getByTestId('chat-input-field');
       await expect(input, 'ghost = suggested[0]')
-        .toHaveAttribute('data-ghost', SUGGESTED[0]!, { timeout: 5_000 });
+        .toHaveAttribute('data-ghost', GHOSTS[0]!, { timeout: 5_000 });
       await expect(input, 'placeholder mirrors ghost')
-        .toHaveAttribute('placeholder', SUGGESTED[0]!);
+        .toHaveAttribute('placeholder', GHOSTS[0]!);
       await input.focus();
       await input.press('Tab');
       await expect(input, 'Tab 把 ghost 填进 input (不 submit)')
-        .toHaveValue(SUGGESTED[0]!);
+        .toHaveValue(GHOSTS[0]!);
     });
 
   test('Escape cycle 到下一条 ghost (input 已空)',
     async ({ page }) => {
       await enterChatWithCode(page);
       const input = page.getByTestId('chat-input-field');
-      await expect(input).toHaveAttribute('data-ghost', SUGGESTED[0]!, { timeout: 5_000 });
+      await expect(input).toHaveAttribute('data-ghost', GHOSTS[0]!, { timeout: 5_000 });
       await input.focus();
       await input.press('Escape');
       await expect(input, 'cycle 后 ghost = suggested[1]')
-        .toHaveAttribute('data-ghost', SUGGESTED[1]!);
+        .toHaveAttribute('data-ghost', GHOSTS[1]!);
       await expect(input, 'placeholder 跟着切')
-        .toHaveAttribute('placeholder', SUGGESTED[1]!);
+        .toHaveAttribute('placeholder', GHOSTS[1]!);
     });
 });
 
@@ -89,9 +89,9 @@ test.describe('visitor chat ghost text · admin 观测 · H.13.e', () => {
       await request.dispose();
 
       await openConversationModalInAdmin(adminPage);
-      const logBlock = adminPage.getByTestId('transcript-suggestions');
+      const logBlock = adminPage.getByTestId('transcript-ghosts');
       await expect(logBlock, 'admin 见 ghost text shown 块').toBeVisible({ timeout: 5_000 });
-      const rows = logBlock.getByTestId('transcript-suggestion-row');
+      const rows = logBlock.getByTestId('transcript-ghost-row');
       await expect(rows, '至少一行').toHaveCount(1, { timeout: 5_000 });
       await expect(rows.first(), 'source = initial')
         .toHaveAttribute('data-source', 'initial');
@@ -115,10 +115,10 @@ async function postShown(
   sess: { session_token: string; conversation_id: string },
 ): Promise<{ id: string }> {
   const res = await request.post(
-    `${BACKEND}/api/v1/sessions/${sess.conversation_id}/suggestions/shown`,
+    `${BACKEND}/api/v1/sessions/${sess.conversation_id}/ghosts/shown`,
     {
       headers: { Authorization: `Bearer ${sess.session_token}` },
-      data: { ghost_text: SUGGESTED[0]!, source: 'initial', turn_index: 0 },
+      data: { ghost_text: GHOSTS[0]!, source: 'initial', turn_index: 0 },
     },
   );
   expect(res.status()).toBe(200);
@@ -131,7 +131,7 @@ async function postAccept(
   id: string,
 ): Promise<void> {
   const res = await request.post(
-    `${BACKEND}/api/v1/sessions/${sess.conversation_id}/suggestions/${id}/accept`,
+    `${BACKEND}/api/v1/sessions/${sess.conversation_id}/ghosts/${id}/accept`,
     { headers: { Authorization: `Bearer ${sess.session_token}` } },
   );
   expect(res.status()).toBe(204);
@@ -173,7 +173,7 @@ async function initOwner(playwright: Playwright): Promise<void> {
   });
   await createCode(request, csrf, {
     code: CODE, label: 'ghost', assumed_role_id: role.id,
-    suggested_questions: SUGGESTED,
+    ghosts: GHOSTS,
   });
   await request.dispose();
 }

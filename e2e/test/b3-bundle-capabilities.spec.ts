@@ -196,7 +196,7 @@ async function createCode(
   const res = await request.post(`${BACKEND}/api/admin/codes/`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
-      code: input.code, label: input.label, suggested_questions: [],
+      code: input.code, label: input.label, ghosts: [],
       assumed_role_id: input.assumed_role_id,
     },
   });

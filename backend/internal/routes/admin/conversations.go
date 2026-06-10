@@ -23,8 +23,8 @@ import (
 
 // ConversationsDeps —— admin conversations handlers 依赖。
 type ConversationsDeps struct {
-	Chats       usecases.ConversationsDeps
-	Suggestions usecases.SuggestionDeps
+	Chats  usecases.ConversationsDeps
+	Ghosts usecases.GhostDeps
 }
 
 type convSummaryView struct {
@@ -63,10 +63,10 @@ type convTranscriptResp struct {
 	OutputRefs   []titledRefView   `json:"output_refs"`
 	// H.13.e: per-turn ghost text 日志 (shown + 是否 Tab-accept)。
 	// code-mode 对话才会有；其他 mode 永远空数组。
-	Suggestions []suggestionView `json:"suggestions"`
+	Ghosts []ghostView `json:"ghosts"`
 }
 
-type suggestionView struct {
+type ghostView struct {
 	AcceptedAt *string `json:"accepted_at,omitempty"`
 	ID         string  `json:"id"`
 	GhostText  string  `json:"ghost_text"`
@@ -112,21 +112,21 @@ func dispatchGetConversation(h *Handlers, w http.ResponseWriter, r *http.Request
 		handleConvErr(h.Log, w, err)
 		return
 	}
-	suggestions := loadSuggestionsForAdmin(h, r, ownerID, convID)
-	writeTranscript(h.Log, w, &out, suggestions)
+	ghosts := loadGhostsForAdmin(h, r, ownerID, convID)
+	writeTranscript(h.Log, w, &out, ghosts)
 }
 
-// loadSuggestionsForAdmin —— suggestions 没必要阻塞 transcript；DB 报错
+// loadGhostsForAdmin —— ghosts 没必要阻塞 transcript；DB 报错
 // 返空数组、记一行日志让 admin 自己排。
-func loadSuggestionsForAdmin(
+func loadGhostsForAdmin(
 	h *Handlers, r *http.Request, ownerID, convID string,
-) []domain.ConversationSuggestion {
-	rows, err := usecases.ListSuggestionsForConversation(
-		r.Context(), &h.Conversations.Suggestions, ownerID, convID,
+) []domain.ConversationGhost {
+	rows, err := usecases.ListGhostsForConversation(
+		r.Context(), &h.Conversations.Ghosts, ownerID, convID,
 	)
 	if err != nil {
-		h.Log.Warn("list suggestions for transcript", "err", err)
-		return []domain.ConversationSuggestion{}
+		h.Log.Warn("list ghosts for transcript", "err", err)
+		return []domain.ConversationGhost{}
 	}
 	return rows
 }
@@ -156,7 +156,7 @@ func writeConvList(log *slog.Logger, w http.ResponseWriter, rows []postgres.Chat
 
 func writeTranscript(
 	log *slog.Logger, w http.ResponseWriter, t *usecases.TranscriptBundle,
-	suggestions []domain.ConversationSuggestion,
+	ghosts []domain.ConversationGhost,
 ) {
 	conv := bundleSummary(&t.ConvBundle)
 	msgs := make([]convMessageView, 0, len(t.ConvBundle.Messages))
@@ -170,22 +170,22 @@ func writeTranscript(
 		Messages:     msgs,
 		WikiRefs:     toRefViews(t.WikiRefs),
 		OutputRefs:   toRefViews(t.OutputRefs),
-		Suggestions:  toSuggestionViews(suggestions),
+		Ghosts:       toGhostViews(ghosts),
 	}); err != nil {
 		log.Error("encode conv transcript", "err", err)
 	}
 }
 
-func toSuggestionViews(rows []domain.ConversationSuggestion) []suggestionView {
-	out := make([]suggestionView, 0, len(rows))
+func toGhostViews(rows []domain.ConversationGhost) []ghostView {
+	out := make([]ghostView, 0, len(rows))
 	for i := range rows {
-		out = append(out, toSuggestionView(&rows[i]))
+		out = append(out, toGhostView(&rows[i]))
 	}
 	return out
 }
 
-func toSuggestionView(s *domain.ConversationSuggestion) suggestionView {
-	v := suggestionView{
+func toGhostView(s *domain.ConversationGhost) ghostView {
+	v := ghostView{
 		ID:        s.ID,
 		GhostText: s.GhostText,
 		Source:    string(s.Source),

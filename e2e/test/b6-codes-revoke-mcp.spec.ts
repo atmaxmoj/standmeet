@@ -46,7 +46,7 @@ test.describe('Phase B-6 codes.revoke via MCP parity', () => {
       headers: { 'X-Csrftoken': csrf },
       data: {
         code: CODE, label: 'b6 spec',
-        suggested_questions: [], assumed_role_id: role.id,
+        ghosts: [], assumed_role_id: role.id,
       },
     });
     if (createRes.status() !== 201) {

@@ -76,7 +76,7 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 		MaxMembers:         c.MaxMembers,
 		MaxTurnsPerSession: c.MaxTurnsPerSession,
 		MaxBookings:        c.MaxBookings,
-		SuggestedQuestions: decodeStringJSON(c.SuggestedQuestions),
+		Ghosts:             decodeStringJSON(c.Ghosts),
 		AssumedRoleID:      formatUUID(c.AssumedRoleID),
 	}
 	if c.ExpiresAt.Valid {

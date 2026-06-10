@@ -25,7 +25,7 @@ export function VisitorPreviewModal({ code, onClose }: Props) {
     >
       <div className="px-7 py-8 space-y-6 max-h-[75vh] overflow-y-auto">
         <Greeting label={code.label} />
-        <SuggestedList items={code.suggested_questions ?? []} />
+        <SuggestedList items={code.ghosts ?? []} />
         <RoleNote roleID={code.assumed_role_id} code={code.code} />
         <SelfTest code={code} />
       </div>

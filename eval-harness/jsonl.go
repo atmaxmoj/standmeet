@@ -76,10 +76,10 @@ func (s *jsonlSink) ToolCompleted(name, result string) {
 	s.write(jsonEvent{Type: "tool_completed", Name: name, Result: result})
 }
 
-func (s *jsonlSink) Suggestions(items []string) {
+func (s *jsonlSink) Ghosts(items []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.write(jsonEvent{Type: "suggestions", Items: items})
+	s.write(jsonEvent{Type: "ghosts", Items: items})
 }
 
 func (s *jsonlSink) Retrying(attempt int) {

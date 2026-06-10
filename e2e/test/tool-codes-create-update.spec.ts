@@ -66,7 +66,7 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
         {
           code: 'MCP-CREATE-001', label: 'created via mcp',
           assumed_role_id: roleID,
-          suggested_questions: ['why us?', 'why this role?'],
+          ghosts: ['why us?', 'why this role?'],
           max_members: 5,
           max_turns_per_session: 30,
         },

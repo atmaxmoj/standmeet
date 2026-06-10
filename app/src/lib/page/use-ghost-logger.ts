@@ -1,12 +1,12 @@
-// use-suggestion-logger —— H.13.e: visitor 浏览器把 ghost text shown +
+// use-ghost-logger —— H.13.e: visitor 浏览器把 ghost text shown +
 // accept 日志写到 backend，admin 详情页能看每 turn 推了什么、是否被接受。
 //
 // 行为:
 //   - watch useCurrentGhostMeta() — ghost text 变了 (初始 seed / cycle /
-//     SSE 追加都触发) → POST /api/v1/sessions/{conv_id}/suggestions/shown
+//     SSE 追加都触发) → POST /api/v1/sessions/{conv_id}/ghosts/shown
 //     → 拿回 row id 存 store (markShown)
 //   - acceptCurrent() — Tab 触发；按 store 里最近 shown 的 text 反查 id
-//     → POST .../suggestions/{sid}/accept (204)
+//     → POST .../ghosts/{sid}/accept (204)
 //
 // non-code mode visitor 永远 ghost = null → 不发请求；同套代码兼容三种 mode。
 //
@@ -23,16 +23,16 @@ import { useCallback, useEffect } from 'react';
 
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import {
-  useCurrentGhostMeta, useSuggestionsStore, type SuggestionSource,
-} from '@/lib/visitor/suggestions-store';
+  useCurrentGhostMeta, useGhostsStore, type GhostSource,
+} from '@/lib/visitor/ghosts-store';
 
-export interface SuggestionLogger {
+export interface GhostLogger {
   // acceptCurrent —— Tab 时调；按 current ghost text 在 store shownIDs
   // 找对应 row id 调 backend accept。还没 shown response 回来 → noop。
   acceptCurrent: () => void;
 }
 
-export function useSuggestionLogger(): SuggestionLogger {
+export function useGhostLogger(): GhostLogger {
   const meta = useCurrentGhostMeta();
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export function useSuggestionLogger(): SuggestionLogger {
 
   const acceptCurrent = useCallback(() => {
     if (meta === null) return;
-    const id = useSuggestionsStore.getState().shownIDs[meta.text];
+    const id = useGhostsStore.getState().shownIDs[meta.text];
     if (id === undefined) return;
     void recordAccept(id);
   }, [meta]);
@@ -50,14 +50,14 @@ export function useSuggestionLogger(): SuggestionLogger {
   return { acceptCurrent };
 }
 
-async function recordShown(text: string, source: SuggestionSource): Promise<void> {
+async function recordShown(text: string, source: GhostSource): Promise<void> {
   // store-level dedup：text 已有 id 不再发；多实例 mount (LongScroll →
   // ChatRoom switch) 都跑同样代码也只一次落 row。
-  if (useSuggestionsStore.getState().shownIDs[text] !== undefined) return;
+  if (useGhostsStore.getState().shownIDs[text] !== undefined) return;
   const sess = loadStoredSession();
   if (sess === null) return;
   const res = await fetch(
-    `/api/v1/sessions/${sess.conversation_id}/suggestions/shown`,
+    `/api/v1/sessions/${sess.conversation_id}/ghosts/shown`,
     {
       method: 'POST',
       headers: {
@@ -70,14 +70,14 @@ async function recordShown(text: string, source: SuggestionSource): Promise<void
   if (!res.ok) return;
   const body: unknown = await res.json();
   const id = pickShownID(body);
-  if (id !== null) useSuggestionsStore.getState().markShown(text, id);
+  if (id !== null) useGhostsStore.getState().markShown(text, id);
 }
 
 async function recordAccept(id: string): Promise<void> {
   const sess = loadStoredSession();
   if (sess === null) return;
   await fetch(
-    `/api/v1/sessions/${sess.conversation_id}/suggestions/${id}/accept`,
+    `/api/v1/sessions/${sess.conversation_id}/ghosts/${id}/accept`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${sess.session_token}` },

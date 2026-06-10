@@ -30,7 +30,7 @@ type Handlers struct {
 	Visitor     usecases.VisitorDeps
 	Sessions    *session.VisitorSessionStore
 	Corpus      usecases.DialogCorpusLookup
-	Suggestions usecases.SuggestionDeps
+	Ghosts      usecases.GhostDeps
 	PDFRenderer ReportPDFRenderer
 	Log         *slog.Logger
 }
@@ -56,8 +56,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/agent/turn", h.agentTurn())
 	// H.13.e: ghost text 日志写路径。shown 在浏览器渲 ghost 时一次性
 	// 写一行；accept 在 visitor 按 Tab 时调；owner admin 详情页读这些。
-	r.Post("/sessions/{id}/suggestions/shown", h.postSuggestionShown())
-	r.Post("/sessions/{id}/suggestions/{sid}/accept", h.postSuggestionAccept())
+	r.Post("/sessions/{id}/ghosts/shown", h.postGhostShown())
+	r.Post("/sessions/{id}/ghosts/{sid}/accept", h.postGhostAccept())
 }
 
 var visitorErrCases = []apierr.Case{

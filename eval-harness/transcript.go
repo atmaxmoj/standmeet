@@ -12,7 +12,7 @@ import (
 // same loop, a stdout transcript transport instead of pi SSE frames.
 //
 // Streamed assistant text is written inline as it arrives; structured events
-// (tool start/complete, suggestions, done, error) print on their own marked
+// (tool start/complete, ghosts, done, error) print on their own marked
 // line. A mutex guards interleaving since the loop may emit from a stream
 // goroutine.
 type transcriptSink struct {
@@ -50,7 +50,7 @@ func (s *transcriptSink) ToolCompleted(name, result string) {
 	s.event("TOOL←     │ %s  ⇒ %s", name, result)
 }
 
-func (s *transcriptSink) Suggestions(items []string) {
+func (s *transcriptSink) Ghosts(items []string) {
 	s.event("SUGGEST   │ %v", items)
 }
 

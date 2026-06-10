@@ -54,7 +54,7 @@ const StoredVisitorSessionSchema = z.object({
   system_prompt_persona: z.string().optional(),
   // H.13.d: code-mode 初始 ghost 队列也持久化；reused session 第二
   // 次进站仍能看到 owner 设的 suggested ghost。
-  suggested_questions: z.array(z.string()).optional(),
+  ghosts: z.array(z.string()).optional(),
 });
 type StoredVisitorSession = z.infer<typeof StoredVisitorSessionSchema>;
 
@@ -72,8 +72,8 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
     system_prompt_part_ids: sess.system_prompt_part_ids
       ? [...sess.system_prompt_part_ids] : undefined,
     system_prompt_persona: sess.system_prompt_persona,
-    suggested_questions: sess.suggested_questions
-      ? [...sess.suggested_questions] : undefined,
+    ghosts: sess.ghosts
+      ? [...sess.ghosts] : undefined,
   };
   window.localStorage.setItem(BYOAI_STORAGE_KEY, JSON.stringify(data));
 }

@@ -6,7 +6,7 @@
 // agent loop 本体 (build model + ADK ChatModelAgent + 消费事件) 全在
 // agent_loop.go，对 AgentSink 接口编程；本文件只提供 sseSink —— 把每条
 // 事件写成 pi unified SSE 帧 (text / tool_started / tool_completed /
-// suggestions / done / error)。eval-harness 复用 agent_loop.go 同一条
+// ghosts / done / error)。eval-harness 复用 agent_loop.go 同一条
 // loop，注入自己的 transcript sink。
 
 package inference
@@ -25,7 +25,7 @@ import (
 )
 
 // defaultAgentTurnTimeout —— 一整轮 agent loop(含所有 tool 迭代 + 末尾
-// suggestions)的硬上限。第三方 LLM 偶尔在大上下文上巨慢/卡住,SSE handler 的
+// ghosts)的硬上限。第三方 LLM 偶尔在大上下文上巨慢/卡住,SSE handler 的
 // ctx 只要浏览器不断连就一直活着 → 不设 deadline 就无限等(前端永远 retrieving)。
 // 给一个上限,超了取消 in-flight LLM call → surface 一帧 error 让前端解卡。
 // AGENT_TURN_TIMEOUT(秒)可覆盖(e2e 设短复现)。
@@ -68,7 +68,7 @@ type AgentTurnRequest struct {
 // 哪些 capability 注册了哪个 label，跨包 0 耦合。
 //
 // Mode —— visitor session mode (public / code / byoai)。H.13 起 code-accessor
-// session 在 turn 收尾前 emit `suggestions` SSE event (follow-up 问题
+// session 在 turn 收尾前 emit `ghosts` SSE event (follow-up 问题
 // chip)；public / byoai 不出 chip。
 type AgentTurnInput struct {
 	Cred           *Cred
@@ -202,15 +202,15 @@ func (s *sseSink) ToolCompleted(name, result string) {
 	writeSSEFrame(s.log, s.w, s.flusher, "tool_completed", body)
 }
 
-func (s *sseSink) Suggestions(items []string) {
+func (s *sseSink) Ghosts(items []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	body, err := json.Marshal(suggestionsPayload{Items: items})
+	body, err := json.Marshal(ghostsPayload{Items: items})
 	if err != nil {
-		s.log.Error("agent turn marshal suggestions", logErrKey, err)
+		s.log.Error("agent turn marshal ghosts", logErrKey, err)
 		return
 	}
-	writeSSEFrame(s.log, s.w, s.flusher, "suggestions", body)
+	writeSSEFrame(s.log, s.w, s.flusher, "ghosts", body)
 }
 
 func (s *sseSink) Retrying(attempt int) {
@@ -248,10 +248,10 @@ type toolCompletedPayload struct {
 	Result string `json:"result"`
 }
 
-// suggestionsPayload —— SSE `suggestions` 帧负载。items 是 3 条 follow-up
+// ghostsPayload —— SSE `ghosts` 帧负载。items 是 3 条 follow-up
 // question 字符串数组 (H.13)；解析失败 / 非 code-accessor session 时
-// items=[] 当 "no chip"。生成逻辑在 agent_turn_suggestions.go。
-type suggestionsPayload struct {
+// items=[] 当 "no chip"。生成逻辑在 agent_turn_ghosts.go。
+type ghostsPayload struct {
 	Items []string `json:"items"`
 }
 

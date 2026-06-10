@@ -32,7 +32,7 @@ type AccessCode struct {
 	Purpose            string
 	Status             string
 	AssumedRoleID      string
-	SuggestedQuestions []string
+	Ghosts             []string
 }
 
 // CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +
@@ -48,7 +48,7 @@ type CreateAccessCodeInput struct {
 	Label              string
 	Purpose            string
 	AssumedRoleID      string
-	SuggestedQuestions []string
+	Ghosts             []string
 }
 
 // CodeMember —— 一个 access code 下的一个具名访客（AccessCode 聚合子实体）。

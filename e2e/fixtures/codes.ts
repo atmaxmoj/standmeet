@@ -12,7 +12,7 @@ export interface CreateCodeInput {
   label: string;
   purpose?: string;
   assumed_role_id?: string | null;
-  suggested_questions?: string[];
+  ghosts?: string[];
   max_members?: number | null;
   max_turns_per_session?: number | null;
   max_bookings?: number | null;
@@ -37,7 +37,7 @@ export async function createCode(
       code: input.code,
       label: input.label,
       purpose: input.purpose ?? '',
-      suggested_questions: input.suggested_questions ?? [],
+      ghosts: input.ghosts ?? [],
       max_members: input.max_members ?? null,
       max_turns_per_session: input.max_turns_per_session ?? null,
       max_bookings: input.max_bookings ?? null,

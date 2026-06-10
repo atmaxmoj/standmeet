@@ -60,7 +60,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Conversations: usecases.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
-		Suggestions:    usecases.SuggestionDeps{Repo: d.suggestionRepo},
+		Ghosts:         usecases.GhostDeps{Repo: d.ghostRepo},
 		BYOAI:          usecases.BYOAIDeps{Owners: d.ownerRepo},
 		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
 		AccessRequests: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
@@ -179,7 +179,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		},
 		Sessions:    d.visitorStore,
 		Corpus:      d.corpus,
-		Suggestions: usecases.SuggestionDeps{Repo: d.suggestionRepo},
+		Ghosts:      usecases.GhostDeps{Repo: d.ghostRepo},
 		PDFRenderer: d.reportPDFRenderer,
 		Log:         d.log,
 	}

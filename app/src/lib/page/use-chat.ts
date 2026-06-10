@@ -40,7 +40,7 @@ import {
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
 import { useAskVisitorStore } from '@/lib/visitor/ask-visitor-store';
-import { useSuggestionsStore } from '@/lib/visitor/suggestions-store';
+import { useGhostsStore } from '@/lib/visitor/ghosts-store';
 
 export type SessionMode = SessionModeT;
 
@@ -119,12 +119,12 @@ export function useChat(deps: Deps): ChatState {
   const counter = useRef(0);
 
   // H.13.d: mount 时若 localStorage 已有 stored session (返回 visitor /
-  // ?code= 已被 useAbsorbCodeFromURL 持久化)，把 suggested_questions 种
+  // ?code= 已被 useAbsorbCodeFromURL 持久化)，把 ghosts 种
   // 进 ghost 队列；ensureSession 在 ask 时才跑，初始 chat 屏要 ghost 看
   // 得见就靠这一勺。
   useEffect(() => {
     const stored = loadStoredSession();
-    useSuggestionsStore.getState().seed(stored?.suggested_questions ?? []);
+    useGhostsStore.getState().seed(stored?.ghosts ?? []);
     // 刷新恢复:有 stored session 就按 token 拉回这段对话的 Q&A 重建 transcript
     // (纯内存 dialogs 刷新会空,这里补回来)。失败 → 空,跟现在一样不崩。
     const token = stored?.session_token ?? '';
@@ -135,7 +135,7 @@ export function useChat(deps: Deps): ChatState {
   // 换人:SessionStrip 点名字重开 picker → 发新名字 issue 出新 session(新
   // member / 新对话),session store 的 startedAt 随之变。chat 据此丢掉旧
   // transcript + 缓存的 session,下一问从新 stored session 起。新 session 的
-  // suggested_questions 已由 issue 重新 seed,这里不碰 suggestions。
+  // ghosts 已由 issue 重新 seed,这里不碰 ghosts。
   const startedAt = useVisitorSessionStore((s) => s.session?.startedAt ?? 0);
   const lastStartedAt = useRef(startedAt);
   useEffect(() => {
@@ -166,7 +166,7 @@ export function useChat(deps: Deps): ChatState {
     messageHistRef.current = [];
     // H.13.d: 新 chat session 重新接 ghost；不 clear 会把上一段 follow-up
     // 队列带过来。
-    useSuggestionsStore.getState().clear();
+    useGhostsStore.getState().clear();
     // I.1: 老 dialog 里的 ask_visitor lock 状态也不该跨 session。
     useAskVisitorStore.getState().clear();
   }, []);
@@ -307,11 +307,11 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
     useCapabilityStore.getState().setStates(ev.states);
     return;
   }
-  if (ev.type === 'suggestions_received') {
+  if (ev.type === 'ghosts_received') {
     // H.13.d: code-accessor 收到 backend agent_turn 末尾的 follow-up
     // 3 条，append 到 ghost 队列尾巴；非 code visitor backend 不发，
     // 这里 dead branch。
-    useSuggestionsStore.getState().append(ev.items);
+    useGhostsStore.getState().append(ev.items);
   }
 }
 

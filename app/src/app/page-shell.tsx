@@ -31,9 +31,9 @@ import { useConsumeQuestionFromURL } from '@/lib/page/consume-question-url';
 import { useTheme } from '@/lib/page/use-theme';
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
-import { useSuggestionLogger } from '@/lib/page/use-suggestion-logger';
+import { useGhostLogger } from '@/lib/page/use-ghost-logger';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
-import { useCurrentGhost, useSuggestionsStore } from '@/lib/visitor/suggestions-store';
+import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
 
 type Props = {
   owner: PublicOwnerView;
@@ -70,8 +70,8 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const ghost = useCurrentGhost();
-  const cycleGhost = useSuggestionsStore((s) => s.cycle);
-  const ghostLogger = useSuggestionLogger();
+  const cycleGhost = useGhostsStore((s) => s.cycle);
+  const ghostLogger = useGhostLogger();
 
   const onAsk = useCallback((q: string) => {
     setInput('');

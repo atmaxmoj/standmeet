@@ -1,5 +1,5 @@
-// suggestions.go —— POST /api/v1/sessions/{id}/suggestions/shown
-//                    POST /api/v1/sessions/{id}/suggestions/{sid}/accept
+// ghosts.go —— POST /api/v1/sessions/{id}/ghosts/shown
+//                    POST /api/v1/sessions/{id}/ghosts/{sid}/accept
 //
 // visitor 浏览器在 ghost text 实际渲到输入框时调一次 shown (拿回 row id)；
 // visitor 按 Tab 接受时调 accept (路径里带 row id)。
@@ -34,7 +34,7 @@ type shownResponse struct {
 	ID string `json:"id"`
 }
 
-func (h *Handlers) postSuggestionShown() http.HandlerFunc {
+func (h *Handlers) postGhostShown() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dispatchShown(h, w, r)
 	}
@@ -60,8 +60,8 @@ type shownArgs struct {
 }
 
 func runRecordShown(h *Handlers, w http.ResponseWriter, r *http.Request, a *shownArgs) {
-	row, err := usecases.RecordSuggestionShown(r.Context(), &h.Suggestions,
-		&usecases.RecordSuggestionShownInput{
+	row, err := usecases.RecordGhostShown(r.Context(), &h.Ghosts,
+		&usecases.RecordGhostShownInput{
 			OwnerID:        a.av.Data.OwnerID,
 			ConversationID: a.convID,
 			GhostText:      a.req.GhostText,
@@ -69,7 +69,7 @@ func runRecordShown(h *Handlers, w http.ResponseWriter, r *http.Request, a *show
 			TurnIndex:      a.req.TurnIndex,
 		})
 	if err != nil {
-		handleSuggestionErr(h, w, err)
+		handleGhostErr(h, w, err)
 		return
 	}
 	writeShownResponse(h, w, row.ID)
@@ -92,7 +92,7 @@ func decodeShown(h *Handlers, w http.ResponseWriter, r *http.Request) (*shownReq
 	return &req, true
 }
 
-func (h *Handlers) postSuggestionAccept() http.HandlerFunc {
+func (h *Handlers) postGhostAccept() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dispatchAccept(h, w, r)
 	}
@@ -105,22 +105,22 @@ func dispatchAccept(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	}
 	convID := chi.URLParam(r, "id")
 	sid := chi.URLParam(r, "sid")
-	_, err := usecases.AcceptSuggestion(r.Context(), &h.Suggestions, av.Data.OwnerID, convID, sid)
+	_, err := usecases.AcceptGhost(r.Context(), &h.Ghosts, av.Data.OwnerID, convID, sid)
 	if err != nil {
-		handleSuggestionErr(h, w, err)
+		handleGhostErr(h, w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-var suggestionErrCases = []apierr.Case{
-	{Match: domain.ErrInvalidSuggestionSource, Envelope: apierr.Envelope{
+var ghostErrCases = []apierr.Case{
+	{Match: domain.ErrInvalidGhostSource, Envelope: apierr.Envelope{
 		Status: http.StatusBadRequest, Code: "bad_request",
-		Message: "invalid suggestion source",
+		Message: "invalid ghost source",
 	}},
-	{Match: domain.ErrSuggestionNotFound, Envelope: apierr.Envelope{
+	{Match: domain.ErrGhostNotFound, Envelope: apierr.Envelope{
 		Status: http.StatusNotFound, Code: "not_found",
-		Message: "suggestion not found",
+		Message: "ghost not found",
 	}},
 	{Match: usecases.ErrEmptyField, Envelope: apierr.Envelope{
 		Status: http.StatusBadRequest, Code: "bad_request",
@@ -128,11 +128,11 @@ var suggestionErrCases = []apierr.Case{
 	}},
 }
 
-func handleSuggestionErr(h *Handlers, w http.ResponseWriter, err error) {
-	env := apierr.Classify(err, suggestionErrCases)
-	notFound := errors.Is(err, domain.ErrSuggestionNotFound)
+func handleGhostErr(h *Handlers, w http.ResponseWriter, err error) {
+	env := apierr.Classify(err, ghostErrCases)
+	notFound := errors.Is(err, domain.ErrGhostNotFound)
 	if env.Status >= http.StatusInternalServerError || notFound {
-		h.Log.Info("suggestion flow", "err", err)
+		h.Log.Info("ghost flow", "err", err)
 	}
 	writeError(h.Log, w, env)
 }

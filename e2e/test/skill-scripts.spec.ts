@@ -125,7 +125,7 @@ async function createCodeAttachingSkill(
     data: {
       code: CODE,
       label: 'Sandbox marker code',
-      suggested_questions: [],
+      ghosts: [],
       assumed_role_id: role.id,
     },
   });

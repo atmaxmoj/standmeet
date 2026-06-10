@@ -1,5 +1,5 @@
-// agent_turn_suggestions.go —— H.13.a: code-accessor session 的 turn
-// 收尾前生成 3 条 follow-up question + emit `suggestions` SSE 帧。
+// agent_turn_ghosts.go —— H.13.a: code-accessor session 的 turn
+// 收尾前生成 3 条 follow-up question + emit `ghosts` SSE 帧。
 // 从 agent_turn.go 拆出来守 max-lines 350 cap。
 //
 // 触发只在 mode='code' (持 access code 的 visitor)；public / byoai 跳。
@@ -30,11 +30,11 @@ const followupGenPrompt = "You will be given a short snippet of a " +
 	"no surrounding code fence. Example output:\n" +
 	`["What got you into X?","How did you handle Y?","What's next for Z?"]`
 
-// maybeEmitSuggestions —— code-accessor session turn 收尾前调
-// inference.Generate 出 3 条 follow-up，emit `suggestions` SSE 帧。
+// maybeEmitGhosts —— code-accessor session turn 收尾前调
+// inference.Generate 出 3 条 follow-up，emit `ghosts` SSE 帧。
 // 非 code-accessor / 空 assistant 回复 / Generate 失败 / 输出非 JSON
 // → 不 emit 或 emit items=[]，浏览器视作 "no chip"。
-func maybeEmitSuggestions(
+func maybeEmitGhosts(
 	ctx context.Context, em *loopEmit, in *AgentTurnInput, state *turnState,
 ) {
 	if in.Mode != "code" {
@@ -45,11 +45,11 @@ func maybeEmitSuggestions(
 	}
 	items, err := generateFollowups(ctx, in, state.assistantText)
 	if err != nil {
-		em.log.Warn("agent turn suggestions generate", logErrKey, err)
-		em.sink.Suggestions([]string{})
+		em.log.Warn("agent turn ghosts generate", logErrKey, err)
+		em.sink.Ghosts([]string{})
 		return
 	}
-	em.sink.Suggestions(items)
+	em.sink.Ghosts(items)
 }
 
 func generateFollowups(

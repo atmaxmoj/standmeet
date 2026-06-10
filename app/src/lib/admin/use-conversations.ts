@@ -48,9 +48,9 @@ export interface ConvTranscriptMessage {
   cited_output_ids: string[];
 }
 
-// SuggestionLog —— H.13.e: 一行 shown 日志。owner 在详情页看到这条
+// GhostLog —— H.13.e: 一行 shown 日志。owner 在详情页看到这条
 // 让 visitor 看到了什么 ghost text、是否按了 Tab 接受。
-export interface SuggestionLog {
+export interface GhostLog {
   id: string;
   ghost_text: string;
   source: 'initial' | 'followup';
@@ -67,7 +67,7 @@ export interface ConvTranscript {
   // id → title 索引，前端按 cited_*_ids[i] 找 title 渲染 "cited: <title>"。
   wikiRefs: Record<string, string>;
   outputRefs: Record<string, string>;
-  suggestions: SuggestionLog[];
+  ghosts: GhostLog[];
 }
 
 const TitledRefSchema = z.object({ id: z.string(), title: z.string() });
@@ -77,7 +77,7 @@ const ConvMessageSchema = z.object({
   cited_wiki_ids: z.array(z.string()), cited_output_ids: z.array(z.string()),
 });
 
-const SuggestionLogSchema = z.object({
+const GhostLogSchema = z.object({
   id: z.string(),
   ghost_text: z.string(),
   source: z.enum(['initial', 'followup']),
@@ -91,7 +91,7 @@ const ConvTranscriptRespSchema = z.object({
   messages: z.array(ConvMessageSchema),
   wiki_refs: z.array(TitledRefSchema).optional(),
   output_refs: z.array(TitledRefSchema).optional(),
-  suggestions: z.array(SuggestionLogSchema).optional(),
+  ghosts: z.array(GhostLogSchema).optional(),
 });
 
 export type TranscriptBodyState = 'loading' | 'error' | 'empty' | 'list';
@@ -136,7 +136,7 @@ const transcriptStore = create<TranscriptState>((set) => ({
       openId: id,
       transcript: {
         conversationID: id, loading: true, error: null,
-        messages: [], wikiRefs: {}, outputRefs: {}, suggestions: [],
+        messages: [], wikiRefs: {}, outputRefs: {}, ghosts: [],
       },
     });
     void loadTranscript(id, (t) => set({ transcript: t }));
@@ -188,7 +188,7 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
       })),
       wikiRefs: indexRefs(data.wiki_refs),
       outputRefs: indexRefs(data.output_refs),
-      suggestions: toSuggestionLogs(data.suggestions),
+      ghosts: toGhostLogs(data.ghosts),
     });
   } catch (e) {
     setTranscript({
@@ -198,14 +198,14 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
       messages: [],
       wikiRefs: {},
       outputRefs: {},
-      suggestions: [],
+      ghosts: [],
     });
   }
 }
 
-function toSuggestionLogs(
-  raw: z.infer<typeof SuggestionLogSchema>[] | undefined,
-): SuggestionLog[] {
+function toGhostLogs(
+  raw: z.infer<typeof GhostLogSchema>[] | undefined,
+): GhostLog[] {
   return (raw ?? []).map((s) => ({
     id: s.id,
     ghost_text: s.ghost_text,
@@ -222,16 +222,16 @@ function indexRefs(refs: TitledRef[] | undefined): Record<string, string> {
   return out;
 }
 
-// SuggestionView —— H.13.e: ConvTranscriptModal 渲一行时用的派生 view。
+// GhostView —— H.13.e: ConvTranscriptModal 渲一行时用的派生 view。
 // 三态映射 (sourceCls / acceptedMark / acceptedAttr) 抽这里让组件层
 // complexity 守 ≤ 3。
-export interface SuggestionView {
+export interface GhostView {
   sourceCls: string;
   acceptedMark: string;
   acceptedAttr: 'true' | 'false';
 }
 
-export function deriveSuggestionView(log: SuggestionLog): SuggestionView {
+export function deriveGhostView(log: GhostLog): GhostView {
   const sourceCls = log.source === 'initial'
     ? 'text-(--color-accent)' : 'text-(--color-muted)';
   return {

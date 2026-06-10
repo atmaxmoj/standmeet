@@ -14,7 +14,7 @@ type AccessCode struct {
 	Code               string
 	Label              string
 	Purpose            string
-	SuggestedQuestions []byte
+	Ghosts             []byte
 	ExpiresAt          pgtype.Timestamptz
 	Status             string
 	MaxTurnsPerSession *int32
@@ -103,7 +103,7 @@ type Conversation struct {
 	SummaryMd     string
 }
 
-type ConversationSuggestion struct {
+type ConversationGhost struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID
 	ConversationID pgtype.UUID

@@ -2,7 +2,7 @@
 -- A.3-IAM-5：每张码必挂 assumed_role_id。corpus_permissions / granted_skills
 -- 等 legacy 字段在 commit 5 drop，ACL / capability gating 全部从 role 推断。
 INSERT INTO access_codes (
-    owner_id, code, label, purpose, suggested_questions,
+    owner_id, code, label, purpose, ghosts,
     expires_at, max_turns_per_session, max_bookings,
     assumed_role_id, max_members
 )

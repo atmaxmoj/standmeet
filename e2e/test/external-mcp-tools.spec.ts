@@ -113,7 +113,7 @@ async function createCodeAttachingServer(
     data: {
       code: CODE,
       label: 'External MCP code',
-      suggested_questions: [],
+      ghosts: [],
       assumed_role_id: role.id,
     },
   });

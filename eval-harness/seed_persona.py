@@ -90,7 +90,7 @@ def main():
     co = text_of(b.call("codes.create", {
         "code": CODE, "label": "Recruiter access", "assumed_role_id": role_id,
         "max_turns_per_session": 50, "max_members": 10,
-        "suggested_questions": [
+        "ghosts": [
             "Walk me through your hardest production incident.",
             "How comfortable are you with Kubernetes?",
             "Why are you looking to leave Orbit?",

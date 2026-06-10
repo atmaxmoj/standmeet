@@ -85,7 +85,7 @@ type askRequest struct {
 	History  []convTurn `json:"history"`
 	Question string     `json:"question"`
 	// Mode —— visitor mode: "public" (default) / "code" / "byoai". "code"
-	// triggers the follow-up suggestions (ghost text) the way an access-code
+	// triggers the follow-up ghosts (ghost text) the way an access-code
 	// session does in prod.
 	Mode string `json:"mode"`
 	// Booking —— expose the real calendar_book + calendar_list_slots tools over a
@@ -125,9 +125,9 @@ func demoOwnerSkill() *agentcore.VisitorSkillSpec {
 type askResponse struct {
 	Answer string    `json:"answer"`
 	Tools  []toolUse `json:"tools"`
-	// Suggestions —— the 3 follow-up questions emitted at turn end in "code"
+	// Ghosts —— the 3 follow-up questions emitted at turn end in "code"
 	// mode (empty in public mode).
-	Suggestions []string `json:"suggestions,omitempty"`
+	Ghosts []string `json:"ghosts,omitempty"`
 	Error       string   `json:"error,omitempty"`
 }
 
@@ -149,8 +149,8 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 		log.Error("load persona", "err", err)
 		return 1
 	}
-	answer, tools, suggestions, aerr := askCandidate(context.Background(), log, cred, p, req)
-	resp := askResponse{Answer: answer, Tools: tools, Suggestions: suggestions}
+	answer, tools, ghosts, aerr := askCandidate(context.Background(), log, cred, p, req)
+	resp := askResponse{Answer: answer, Tools: tools, Ghosts: ghosts}
 	if aerr != nil {
 		resp.Error = aerr.Error()
 	}
@@ -198,7 +198,7 @@ func askCandidate(
 			System: agent.SystemPrompt, UserMessage: req.Question, Model: cred.Model,
 			History: candidateHistory(req.History),
 		},
-		Mode:           mode, // "code" → backend emits follow-up suggestions
+		Mode:           mode, // "code" → backend emits follow-up ghosts
 		Tools:          agent.Tools,
 		ProgressLabels: agent.Labels,
 		ReturnDirectly: agent.ReturnDirectly,

@@ -15,7 +15,7 @@ import { issueCodeSession } from '@/lib/api/public';
 import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
-import { useSuggestionsStore } from '@/lib/visitor/suggestions-store';
+import { useGhostsStore } from '@/lib/visitor/ghosts-store';
 import { loadMemberID, rememberMemberID, rememberVisitorName } from '@/lib/visitor/visitor-name';
 
 // IssueOutcome —— ok 成功;full 名字满了(picker 显 "code 已满");invalid 码无效
@@ -72,7 +72,7 @@ export function useIssuePendingCode(): IssuePending {
           : { code, visitor_name: name },
       );
       persistSession(sess, false);
-      useSuggestionsStore.getState().seed(sess.suggested_questions ?? []);
+      useGhostsStore.getState().seed(sess.ghosts ?? []);
       useVisitorSessionStore.getState().setSession({
         code: sess.code ?? code,
         visitor: sess.visitor_name ?? null,

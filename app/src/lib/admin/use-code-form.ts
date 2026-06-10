@@ -87,8 +87,8 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     code:    initial?.code ?? '',
     label:   initial?.label ?? '',
     purpose: initial?.purpose ?? '',
-    suggested: initial?.suggested_questions?.length
-      ? [...initial.suggested_questions]
+    suggested: initial?.ghosts?.length
+      ? [...initial.ghosts]
       : ['', ''],
     maxMembers:   numOrEmpty(initial?.max_members),
     maxTurns:      numOrEmpty(initial?.max_turns_per_session),
@@ -106,7 +106,7 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     code: v.code.trim(),
     label: v.label.trim(),
     purpose: v.purpose.trim(),
-    suggested_questions: v.suggested.map((q) => q.trim()).filter(Boolean),
+    ghosts: v.suggested.map((q) => q.trim()).filter(Boolean),
     max_members: parseQuota(v.maxMembers),
     max_turns_per_session: parseQuota(v.maxTurns),
     max_bookings: parseQuota(v.maxBookings),

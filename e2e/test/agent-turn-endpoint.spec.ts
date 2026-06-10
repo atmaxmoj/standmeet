@@ -46,14 +46,14 @@ async function setupOwner(playwright: Playwright): Promise<void> {
   });
   await createCode(request, csrf, {
     code: CODE, label: 'agentturn', assumed_role_id: role.id,
-    suggested_questions: SUGGESTED_QUESTIONS as unknown as string[],
+    ghosts: GHOSTS as unknown as string[],
   });
   await request.dispose();
 }
 
-// SUGGESTED_QUESTIONS —— H.13.b: code 上挂的初始 ghost text 来源。前端
+// GHOSTS —— H.13.b: code 上挂的初始 ghost text 来源。前端
 // 进 chat 取第一条当 ghost。
-const SUGGESTED_QUESTIONS = [
+const GHOSTS = [
   'What are you working on?',
   'How do you spend your time?',
   'What have you written lately?',
@@ -105,17 +105,17 @@ test.describe('agent turn endpoint · eino ADK driven', () => {
       await request.dispose();
     });
 
-  test('code-accessor turn → suggestions 帧 (items 数组)',
+  test('code-accessor turn → ghosts 帧 (items 数组)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      await assertSuggestionsFrame(request);
+      await assertGhostsFrame(request);
       await request.dispose();
     });
 
-  test('issueSession (code-mode) → suggested_questions 透到 response',
+  test('issueSession (code-mode) → ghosts 透到 response',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      await assertSessionSuggestedQuestions(request);
+      await assertSessionGhosts(request);
       await request.dispose();
     });
 
@@ -171,24 +171,24 @@ async function assertPlainTurn(request: APIRequestContext): Promise<void> {
   expect(doneData?.stop_reason).toBe('end_turn');
 }
 
-async function assertSessionSuggestedQuestions(
+async function assertSessionGhosts(
   request: APIRequestContext,
 ): Promise<void> {
   // H.13.b: code-issued session response 应当带 owner 设的
-  // suggested_questions；前端拿这条做初始 ghost text。
+  // ghosts；前端拿这条做初始 ghost text。
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
-  const sq = (sess as unknown as { suggested_questions?: string[] })
-    .suggested_questions;
+  const sq = (sess as unknown as { ghosts?: string[] })
+    .ghosts;
   expect(Array.isArray(sq)).toBe(true);
-  expect(sq).toEqual(SUGGESTED_QUESTIONS);
+  expect(sq).toEqual(GHOSTS);
 }
 
-async function assertSuggestionsFrame(request: APIRequestContext): Promise<void> {
+async function assertGhostsFrame(request: APIRequestContext): Promise<void> {
   // H.13.a: 持 code 的 visitor turn 收尾前 backend 调 inference.Generate
   // 出 3 条 follow-up；mock 不返 JSON，所以 backend fallback emit items=[]
-  // —— 这里只验帧 type=suggestions 存在 + items 是数组 (内容可空)。
+  // —— 这里只验帧 type=ghosts 存在 + items 是数组 (内容可空)。
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
@@ -197,9 +197,9 @@ async function assertSuggestionsFrame(request: APIRequestContext): Promise<void>
     user_message: 'hi',
   });
   expect(status).toBe(200);
-  const suggestions = sse.events.find((e) => e.type === 'suggestions');
-  expect(suggestions, 'suggestions frame present for code-accessor').toBeDefined();
-  const data = suggestions?.data as { items?: unknown };
+  const ghosts = sse.events.find((e) => e.type === 'ghosts');
+  expect(ghosts, 'ghosts frame present for code-accessor').toBeDefined();
+  const data = ghosts?.data as { items?: unknown };
   expect(Array.isArray(data?.items)).toBe(true);
 }
 

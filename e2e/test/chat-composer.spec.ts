@@ -162,7 +162,7 @@ async function initOwner(playwright: Playwright): Promise<void> {
   });
   await createCode(request, csrf, {
     code: CODE, label: 'Composer test',
-    suggested_questions: STARTERS,
+    ghosts: STARTERS,
   });
   await request.dispose();
 }

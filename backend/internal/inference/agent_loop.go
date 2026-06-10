@@ -4,7 +4,7 @@
 //   - BuildAgentIterator —— pre-stream：建 chat model + summarization mw +
 //     ADK ChatModelAgent + runner，返事件 iterator。
 //   - DriveAgentLoop     —— 消费 iterator，把事件灌进一个 AgentSink；
-//     收尾跑 H.13 follow-up suggestions + Done。不碰 http。
+//     收尾跑 H.13 follow-up ghosts + Done。不碰 http。
 //
 // prod (RunAgentTurn) 注入 sseSink 写浏览器 pi SSE；eval-harness 注入
 // transcript sink 审真实行为。loop 一字不差共享，AgentSink 是唯一注入点
@@ -45,7 +45,7 @@ type AgentSink interface {
 	Text(delta string)
 	ToolStarted(id, name, progressLabel string, args json.RawMessage)
 	ToolCompleted(name, result string)
-	Suggestions(items []string)
+	Ghosts(items []string)
 	// Retrying —— transport 重试一次 transient LLM 失败时调(attempt 从 1
 	// 数起)。prod sink emit `retrying` SSE 帧让 throbber 显 "retrying";
 	// 进度恢复(下一条 text/tool 事件)后前端自然清掉。
@@ -124,7 +124,7 @@ func turnInputMessages(req *AgentTurnRequest) ([]*schema.Message, error) {
 }
 
 // DriveAgentLoop —— HTTP-free：消费事件 iterator 灌进 sink，收尾跑 H.13
-// follow-up suggestions + emit Done。caller (RunAgentTurn / eval-harness)
+// follow-up ghosts + emit Done。caller (RunAgentTurn / eval-harness)
 // 先 BuildAgentIterator 拿 iter，再调这个。
 func DriveAgentLoop(
 	ctx context.Context, log *slog.Logger,
@@ -132,13 +132,13 @@ func DriveAgentLoop(
 ) {
 	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
 	state := consumeAgentEvents(ctx, em, iter)
-	maybeEmitSuggestions(ctx, em, in, state)
+	maybeEmitGhosts(ctx, em, in, state)
 	sink.Done(state.stop)
 }
 
 // turnState —— consumeAgentEvents 边走边累的转态。stop 是 ADK 给的
 // FinishReason 翻译；assistantText 是本 turn assistant 流的全部文字
-// (text delta + snapshot 累)，H.13 走它生成 follow-up suggestions。
+// (text delta + snapshot 累)，H.13 走它生成 follow-up ghosts。
 type turnState struct {
 	stop          string
 	assistantText string
@@ -147,7 +147,7 @@ type turnState struct {
 // consumeAgentEvents —— ADK iter → sink。每条 AgentEvent 看 Output
 // (assistant text streaming / tool result) / Err，对应灌 sink。返当 turn
 // 收尾的 state；Done 由 caller (DriveAgentLoop) 负责，让 caller 有机会在
-// done 之前补 suggestions。
+// done 之前补 ghosts。
 func consumeAgentEvents(
 	ctx context.Context, em *loopEmit, iter *adk.AsyncIterator[*adk.AgentEvent],
 ) *turnState {

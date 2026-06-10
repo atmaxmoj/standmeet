@@ -5,7 +5,7 @@
 //   1. code picker → click code → right side preview frame changes
 //   2. BYOAI card → click → "byoai mode · public scope" shown
 //   3. coded preview → banner shows code label + "scoped to N topics"
-//   4. coded preview → suggested questions from code.suggested_questions
+//   4. coded preview → suggested questions from code.ghosts
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -81,7 +81,7 @@ async function initOwner(playwright: Playwright): Promise<void> {
   });
   await createCode(request, csrf, {
     code: CODE, label: 'Preview Test',
-    suggested_questions: STARTERS,
+    ghosts: STARTERS,
   });
   await request.dispose();
 }

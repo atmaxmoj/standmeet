@@ -21,7 +21,7 @@ type captureSink struct {
 	mu          sync.Mutex
 	text        strings.Builder
 	tools       []toolUse
-	suggestions []string
+	ghosts []string
 	errored     bool
 	errMsg      string
 }
@@ -42,10 +42,10 @@ func (s *captureSink) ToolStarted(_, name, _ string, args json.RawMessage) {
 
 func (s *captureSink) ToolCompleted(_, _ string) {}
 
-func (s *captureSink) Suggestions(items []string) {
+func (s *captureSink) Ghosts(items []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.suggestions = items
+	s.ghosts = items
 }
 
 // Retrying —— 重试只影响时延,不改最终 transcript;capture 只攒终态,no-op。
@@ -54,7 +54,7 @@ func (*captureSink) Retrying(int) {}
 func (s *captureSink) followups() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.suggestions
+	return s.ghosts
 }
 
 func (s *captureSink) Error(err error) {

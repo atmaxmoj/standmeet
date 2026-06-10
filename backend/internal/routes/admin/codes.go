@@ -33,7 +33,7 @@ type createCodeRequest struct {
 	Code               string   `json:"code"`
 	Label              string   `json:"label"`
 	Purpose            string   `json:"purpose"`
-	SuggestedQuestions []string `json:"suggested_questions"`
+	Ghosts             []string `json:"ghosts"`
 }
 
 type updateQuotasRequest struct {
@@ -51,7 +51,7 @@ type codeView struct {
 	Label              string   `json:"label"`
 	Status             string   `json:"status"`
 	AssumedRoleID      string   `json:"assumed_role_id"`
-	SuggestedQuestions []string `json:"suggested_questions"`
+	Ghosts             []string `json:"ghosts"`
 }
 
 // MountCodes 挂 /codes 子路由。
@@ -96,7 +96,7 @@ func toCodeView(c *domain.AccessCode) codeView {
 		Code:               c.Code,
 		Label:              c.Label,
 		Status:             c.Status,
-		SuggestedQuestions: c.SuggestedQuestions,
+		Ghosts:             c.Ghosts,
 		CreatedAt:          c.CreatedAt.Format(time.RFC3339),
 		MaxMembers:         c.MaxMembers,
 		MaxTurnsPerSession: c.MaxTurnsPerSession,
@@ -150,7 +150,7 @@ func buildCreateInput(
 		Code:               req.Code,
 		Label:              req.Label,
 		Purpose:            req.Purpose,
-		SuggestedQuestions: req.SuggestedQuestions,
+		Ghosts:             req.Ghosts,
 		MaxMembers:         req.MaxMembers,
 		MaxTurnsPerSession: req.MaxTurnsPerSession,
 		MaxBookings:        req.MaxBookings,

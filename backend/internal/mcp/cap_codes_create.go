@@ -26,7 +26,7 @@ func (c *codesCapability) createBinding() *agentskills.MCPBinding {
 				"label":{"type":"string","description":"Owner-facing label."},
 				"purpose":{"type":"string","description":"Optional purpose tag."},
 				"assumed_role_id":{"type":"string","description":"role_id from role_list."},
-				"suggested_questions":{"type":"array","items":{"type":"string"}},
+				"ghosts":{"type":"array","items":{"type":"string"}},
 				"expires_at_rfc3339":{"type":"string",
 					"description":"Optional RFC3339 expiry timestamp."},
 				"max_members":{"type":"number"},
@@ -40,15 +40,15 @@ func (c *codesCapability) createBinding() *agentskills.MCPBinding {
 }
 
 type createCodeArgsWire struct {
-	MaxMembers         *int32   `json:"max_members"`
-	MaxTurns           *int32   `json:"max_turns_per_session"`
-	MaxBookings        *int32   `json:"max_bookings"`
-	Code               string   `json:"code"`
-	Label              string   `json:"label"`
-	Purpose            string   `json:"purpose"`
-	AssumedRoleID      string   `json:"assumed_role_id"`
-	ExpiresAt          string   `json:"expires_at_rfc3339"`
-	SuggestedQuestions []string `json:"suggested_questions"`
+	MaxMembers    *int32   `json:"max_members"`
+	MaxTurns      *int32   `json:"max_turns_per_session"`
+	MaxBookings   *int32   `json:"max_bookings"`
+	Code          string   `json:"code"`
+	Label         string   `json:"label"`
+	Purpose       string   `json:"purpose"`
+	AssumedRoleID string   `json:"assumed_role_id"`
+	ExpiresAt     string   `json:"expires_at_rfc3339"`
+	Ghosts        []string `json:"ghosts"`
 }
 
 func (c *codesCapability) handleCreate(
@@ -95,7 +95,7 @@ func buildCreateCodeInputCap(
 	in := &domain.CreateAccessCodeInput{
 		OwnerID: ownerID, Code: args.Code, Label: args.Label,
 		Purpose: args.Purpose, AssumedRoleID: args.AssumedRoleID,
-		SuggestedQuestions: nonNilStrings(args.SuggestedQuestions),
+		Ghosts:             nonNilStrings(args.Ghosts),
 		MaxMembers:         args.MaxMembers,
 		MaxTurnsPerSession: args.MaxTurns,
 		MaxBookings:        args.MaxBookings,

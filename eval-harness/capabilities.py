@@ -34,7 +34,7 @@ MCP_PORT = os.environ.get("EVAL_MCP_PORT", "9111")
 MCP_URL = f"http://localhost:{MCP_PORT}/mcp"
 
 
-# ---------- predicates over a response {answer, tools[], suggestions[], error} ----------
+# ---------- predicates over a response {answer, tools[], ghosts[], error} ----------
 def fired(r, sub):
     return any(sub in t["name"] for t in r.get("tools", []))
 
@@ -52,8 +52,8 @@ def read_private(r):
                for t in r.get("tools", []))
 
 
-def n_suggestions(r):
-    return len(r.get("suggestions", []))
+def n_ghosts(r):
+    return len(r.get("ghosts", []))
 
 
 def count(r, sub):
@@ -130,17 +130,17 @@ CASES = [
     # ---- assert: ghost hints (code-tier only) ----
     {"name": "ghost-hint-code", "dim": "ghost hint · presence", "kind": "assert",
      "req": {"mode": "code", "question": "What was the hardest scaling problem you've worked on?"},
-     "checks": [("suggestions present in code mode", lambda r: n_suggestions(r) >= 1)]},
+     "checks": [("ghosts present in code mode", lambda r: n_ghosts(r) >= 1)]},
     {"name": "ghost-hint-public", "dim": "ghost hint · presence", "kind": "assert",
      "req": {"mode": "public", "question": "What was the hardest scaling problem you've worked on?"},
-     "checks": [("no suggestions in public mode", lambda r: n_suggestions(r) == 0)]},
+     "checks": [("no ghosts in public mode", lambda r: n_ghosts(r) == 0)]},
     {"name": "ghost-hint-first-person", "dim": "ghost hint · voice", "kind": "assert",
      "req": {"mode": "code", "question": "Tell me about the project you're proudest of."},
-     # Suggestions are the visitor's next questions, addressed TO the owner ("you").
+     # Ghosts are the visitor's next questions, addressed TO the owner ("you").
      # They must not leak the 'AI-about-an-owner' framing ("your owner's strength?").
-     "checks": [("suggestions present", lambda r: n_suggestions(r) >= 1),
+     "checks": [("ghosts present", lambda r: n_ghosts(r) >= 1),
                 ("no third-person 'owner' leak", lambda r: all("owner" not in s.lower()
-                                                               for s in r.get("suggestions", [])))]},
+                                                               for s in r.get("ghosts", [])))]},
 
     # ---- assert: anti-invention under pressure for a precise figure ----
     {"name": "no-invented-number", "dim": "hallucination · pressed figure", "kind": "assert",
@@ -187,7 +187,7 @@ CASES = [
     {"name": "ghost-hint-quality", "dim": "ghost hint · quality", "kind": "human",
      "req": {"mode": "code",
              "question": "Thanks, that's all my questions. We'll be in touch about next steps."},
-     "look_for": "Are the 3 suggestions grounded (corpus can actually answer them), diverse, "
+     "look_for": "Are the 3 ghosts grounded (corpus can actually answer them), diverse, "
                  "forward-moving — or dead-end logistics ('will this be a video call?') the "
                  "agent can't answer?"},
     {"name": "booking-conflict-no-loop", "dim": "tool · booking failure", "kind": "assert", "env": CONFLICT,
@@ -251,8 +251,8 @@ def show(resp):
     if tools:
         print("  tools:", ", ".join(tools))
     print("  A:", "\n     ".join(textwrap.wrap(resp.get("answer", ""), 92)[:8]))
-    if resp.get("suggestions"):
-        print("  ghost:", " | ".join(resp["suggestions"]))
+    if resp.get("ghosts"):
+        print("  ghost:", " | ".join(resp["ghosts"]))
     if resp.get("error"):
         print("  ERROR:", resp["error"])
 

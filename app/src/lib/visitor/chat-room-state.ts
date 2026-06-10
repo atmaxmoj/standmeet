@@ -4,9 +4,9 @@
 import { useCallback, useState } from 'react';
 
 import { useChat, type SessionMode } from '@/lib/page/use-chat';
-import { useSuggestionLogger } from '@/lib/page/use-suggestion-logger';
+import { useGhostLogger } from '@/lib/page/use-ghost-logger';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
-import { useCurrentGhost, useSuggestionsStore } from '@/lib/visitor/suggestions-store';
+import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
 
 export interface ChatRoomDerived {
   mode: 'coded' | 'byoai';
@@ -30,8 +30,8 @@ export function useChatRoomInput(mode: SessionMode) {
   const exhausted = useIsQuotaExhausted();
   const [input, setInput] = useState('');
   const ghost = useCurrentGhost();
-  const cycleGhost = useSuggestionsStore((s) => s.cycle);
-  const ghostLogger = useSuggestionLogger();
+  const cycleGhost = useGhostsStore((s) => s.cycle);
+  const ghostLogger = useGhostLogger();
 
   const onAsk = useCallback((q: string) => {
     setInput('');

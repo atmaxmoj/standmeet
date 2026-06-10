@@ -96,7 +96,7 @@ async function createRoleAndCode(
   const codeRes = await request.post(`${BACKEND}/api/admin/codes/`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
-      code, label: code, suggested_questions: [],
+      code, label: code, ghosts: [],
       assumed_role_id: role.id,
     },
   });

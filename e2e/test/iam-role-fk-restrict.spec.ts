@@ -68,7 +68,7 @@ test.describe('A.3-IAM role FK restrict + bogus role_id at code-create', () => {
           code: 'BOGUS-ROLE-1',
           label: 'bogus role spec',
           purpose: '',
-          suggested_questions: [],
+          ghosts: [],
           max_members: null,
           max_turns_per_session: null,
           max_bookings: null,

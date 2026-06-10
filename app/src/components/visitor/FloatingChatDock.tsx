@@ -20,9 +20,9 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
-import { useSuggestionLogger } from '@/lib/page/use-suggestion-logger';
+import { useGhostLogger } from '@/lib/page/use-ghost-logger';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
-import { useCurrentGhost, useSuggestionsStore } from '@/lib/visitor/suggestions-store';
+import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
 import { dispatchGhostKey, pickGhost } from '@/lib/visitor/ghost-text';
 
 export function FloatingChatDock() {
@@ -36,8 +36,8 @@ function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const ghost = useCurrentGhost();
-  const cycleGhost = useSuggestionsStore((s) => s.cycle);
-  const ghostLogger = useSuggestionLogger();
+  const cycleGhost = useGhostsStore((s) => s.cycle);
+  const ghostLogger = useGhostLogger();
 
   const onAsk = useCallback((q: string) => {
     setInput('');

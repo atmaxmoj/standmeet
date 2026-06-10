@@ -144,7 +144,7 @@ func insertAccessCode(
 		Code:               in.CodePlaintext,
 		Label:              in.CodeLabel,
 		Purpose:            in.CodePurpose,
-		SuggestedQuestions: emptyJSON,
+		Ghosts:             emptyJSON,
 		ExpiresAt:          expires,
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
