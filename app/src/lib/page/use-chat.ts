@@ -29,7 +29,7 @@ import {
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
-import { restoreHistory, splitParas } from '@/lib/page/use-chat-restore';
+import { restoreSession, revalidateSession, revalidateStored, splitParas } from '@/lib/page/use-chat-restore';
 import { recordDialog } from '@/lib/page/dialog';
 import { throbberLabel } from '@/lib/page/throbber-label';
 import {
@@ -128,9 +128,7 @@ export function useChat(deps: Deps): ChatState {
     // 刷新恢复:有 stored session 就按 token 拉回这段对话的 Q&A 重建 transcript
     // (纯内存 dialogs 刷新会空,这里补回来)。失败 → 空,跟现在一样不崩。
     const token = stored?.session_token ?? '';
-    if (token !== '') {
-      void restoreHistory(token, setDialogs);
-    }
+    if (token !== '') void restoreSession(token, setDialogs);
   }, []);
 
   // 换人:SessionStrip 点名字重开 picker → 发新名字 issue 出新 session(新
@@ -195,18 +193,18 @@ async function runAsk(
     const accum = makeAccumulator();
     await runAgentForDialog(sess, byoai, histRef, q, makeObserver(id, accum, setDialogs));
     finalizeDialog(id, accum, setDialogs);
-    // 只有成功拿到回答才算消耗一个 turn:persist(/dialogs 是 backend 计数源
-    // CountVisitorTurns)+ 本地配额 +1。失败/掐断(空 body 或 error 兜底)→
-    // 不 persist、不计数,visitor 可免费重试。retry 是单次 /agent/turn 内部的
-    // 事,这里天然只记一次。
+    // 成功 → persist(/dialogs = backend 计数源 CountVisitorTurns)+ 配额 +1。
+    // 失败/掐断(含 401 session 失效)→ 不计数,revalidate 收口:会话若死了就
+    // 清身份回入口,免得 strip 还显旧名字 + 旧配额。
     if (turnSucceeded(accum)) {
       void recordDialog(sess, q, { body: accum.body, citations: accum.citations });
       bumpVisitorQuota();
-    }
+    } else void revalidateSession(sess.sessionToken);
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);
     setDialogs((prev) => markFailed(prev, id, msg));
+    void revalidateStored();
   } finally {
     setPending(false);
   }

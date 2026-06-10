@@ -90,6 +90,13 @@ export const useVisitorSessionStore = create<SessionState>((set, get) => ({
   },
 }));
 
+// peekStoredSession —— 直接同步读 localStorage 里持久化的展示 session(绕开
+// zustand hydrate 时序)。dead-session 收口要拿 code 决定回哪条入口,不能等
+// store 灌好(那有竞态)。
+export function peekStoredSession(): VisitorSession | null {
+  return load();
+}
+
 function load(): VisitorSession | null {
   if (typeof window === 'undefined') return null;
   try {

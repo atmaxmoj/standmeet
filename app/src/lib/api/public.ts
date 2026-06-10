@@ -88,24 +88,59 @@ export async function fetchCodeIntro(code: string): Promise<CodeIntro | null> {
 }
 
 // RestoredDialog —— 刷新恢复:一段历史 Q&A。citation 暂不带(后端先保文本)。
-const HistorySchema = z.object({
+// SessionSnapshot —— 载入时后端给的权威快照:历史 Q&A + 实时配额/身份。前端据此
+// 在每次 load reconcile 本地缓存(strip 的 used / max / 名额 / 名字),后端
+// conversation + code 是唯一 source of truth。
+const SnapshotSchema = z.object({
   dialogs: z.array(z.object({ question: z.string(), answer: z.string() })),
+  used_turns: z.number(),
+  max_turns: z.number(),
+  max_members: z.number(),
+  member_count: z.number(),
+  visitor_name: z.string(),
 });
-export type RestoredDialog = z.infer<typeof HistorySchema>['dialogs'][number];
+export type RestoredDialog = z.infer<typeof SnapshotSchema>['dialogs'][number];
+export interface SessionSnapshot {
+  dialogs: RestoredDialog[];
+  usedTurns: number;
+  maxTurns: number;
+  maxMembers: number;
+  memberCount: number;
+  visitorName: string;
+}
 
-// fetchHistory —— 凭 session token 拉回自己这段对话的 Q&A。无会话 / 网络挂 /
-// 形状不对 → 空数组(chat 就是空白,跟现在一样,不崩)。
-export async function fetchHistory(sessionToken: string): Promise<RestoredDialog[]> {
+// SnapshotResult —— 三态,让 caller 区分「会话还活着」「会话已失效(401/403)要重进」
+// 「网络/形状抖动(保持现状)」。dead session 不能当空历史悄悄吞 —— 得清掉 stale
+// 身份、按有没有 code 回到入口流程。
+export type SnapshotResult =
+  | { status: 'ok'; snapshot: SessionSnapshot }
+  | { status: 'invalid' }
+  | { status: 'error' };
+
+// fetchSessionSnapshot —— 凭 session token 拉权威快照。401/403 = token 失效
+// (过期 / 实例重置 / 撤销)→ 'invalid';其它非 2xx / 网络挂 / 形状不对 →
+// 'error'(保持现状不崩)。
+export async function fetchSessionSnapshot(sessionToken: string): Promise<SnapshotResult> {
   try {
     const res = await fetch(`${baseURL()}/api/v1/sessions/history`, {
       headers: { Authorization: `Bearer ${sessionToken}` },
     });
-    if (!res.ok) return [];
-    const parsed = HistorySchema.safeParse(await res.json());
-    return parsed.success ? parsed.data.dialogs : [];
+    if (res.status === 401 || res.status === 403) return { status: 'invalid' };
+    if (!res.ok) return { status: 'error' };
+    const parsed = SnapshotSchema.safeParse(await res.json());
+    return parsed.success
+      ? { status: 'ok', snapshot: toSnapshot(parsed.data) }
+      : { status: 'error' };
   } catch {
-    return [];
+    return { status: 'error' };
   }
+}
+
+function toSnapshot(d: z.infer<typeof SnapshotSchema>): SessionSnapshot {
+  return {
+    dialogs: d.dialogs, usedTurns: d.used_turns, maxTurns: d.max_turns,
+    maxMembers: d.max_members, memberCount: d.member_count, visitorName: d.visitor_name,
+  };
 }
 
 // VisitorDoc —— 锁屏页凭 visitor session 走 corpus_read 取回的被引文档全文。

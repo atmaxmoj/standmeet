@@ -144,8 +144,22 @@ func finalizeCodeSession(
 		Members:            members,
 		SuggestedQuestions: code.SuggestedQuestions,
 		MemberID:           a.Member.ID,
-		Quota:              codeSessionQuota(code),
+		Quota:              codeSessionQuotaWithUsed(ctx, deps, code, a.Conv.ID),
 	}, nil
+}
+
+// codeSessionQuotaWithUsed —— 在静态配额(max)之上,把 UsedTurns 按后端这段
+// conversation 实际数出来(CountVisitorTurns)。续会(同 member 的 open chat
+// 已有 N 轮)颁发时就如实报 N,不再恒 0 —— 后端 conversation 是唯一 source of
+// truth,前端不该靠 localStorage 缓存自增的脏值。数不出来(DB 抖)→ 退回 0。
+func codeSessionQuotaWithUsed(
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, convID string,
+) SessionQuota {
+	q := codeSessionQuota(code)
+	if used, err := deps.Chats.CountVisitorTurns(ctx, convID); err == nil {
+		q.UsedTurns = used
+	}
+	return q
 }
 
 func issueCodeSessionArtifacts(

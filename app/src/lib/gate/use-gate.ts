@@ -84,6 +84,14 @@ export function loadStoredSession(): StoredVisitorSession | null {
   return raw ? safeJsonString(raw, StoredVisitorSessionSchema) : null;
 }
 
+// clearStoredSession —— 删掉 chat 鉴权凭据(session_token + conversation_id)。
+// session 失效(401)时跟 useVisitorSessionStore.clear() 一起调,免得拿着死
+// token 反复打后端。
+export function clearStoredSession(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(BYOAI_STORAGE_KEY);
+}
+
 // Provider —— BYOAI 提交时的 provider 名。string 不收窄，因为新 backend
 // 支持 anthropic / openai / deepseek / kimi / groq / siliconflow / openrouter
 // / together / custom 一长串，全枚举不划算；非法值 server 端会 reject。

@@ -71,10 +71,10 @@ test.describe('thinking 阶段 throbber 走词库轮换(非定死)', () => {
       const pending = page.locator('[data-testid="answer-pending"]');
       await expect(pending).toBeVisible({ timeout: 5_000 });
 
-      // 7s 窗口里每 ~250ms 采一次当前词,收集去重。
-      const seen = await collectWords(page, pending, 7_000);
+      // 每 ~250ms 采一次当前词,收集去重,直到看见 ≥2 个不同的词(轮换为真)。
+      const seen = await collectWords(pending);
 
-      // 1) 轮换是真的:窗口内至少出现过 2 个不同的词。
+      // 1) 轮换是真的:至少出现过 2 个不同的词。
       expect(seen.size).toBeGreaterThanOrEqual(2);
       // 2) 每个词都来自真词库(不是 "retrieving" / spinner / 空)。
       for (const w of seen) {
@@ -85,19 +85,19 @@ test.describe('thinking 阶段 throbber 走词库轮换(非定死)', () => {
     });
 });
 
-// collectWords —— 在 ms 窗口内反复读 answer-pending 的当前词(首 token,去掉
-// 尾部 "· · ·"),返回去重集合。retrying 态会显 "retrying"(不在词库),正常
-// think 路径不会进重试,所以采到的应全是词库词。
+// collectWords —— 每 ~250ms 读一次 answer-pending 的当前词(首 token,去掉尾部
+// "· · ·"),收集去重,直到看见 ≥2 个不同的词(即观察到轮换)。用 expect.poll 做
+// 采样器:可观察 + 走 spec.timeout,符合 e2e no-sleep 规则(不手卷 waitForTimeout)。
+// retrying 态会显 "retrying"(不在词库),正常 think 路径不会重试。
 async function collectWords(
-  page: Page, pending: ReturnType<Page['locator']>, ms: number,
+  pending: ReturnType<Page['locator']>,
 ): Promise<Set<string>> {
   const seen = new Set<string>();
-  const deadline = Date.now() + ms;
-  while (Date.now() < deadline) {
+  await expect.poll(async () => {
     const raw = await pending.innerText().catch(() => '');
     const word = raw.split(/[·\n]/)[0]?.trim().toLowerCase() ?? '';
     if (word !== '') seen.add(word);
-    await page.waitForTimeout(250);
-  }
+    return seen.size;
+  }, { intervals: [250], timeout: 9_000 }).toBeGreaterThanOrEqual(2);
   return seen;
 }

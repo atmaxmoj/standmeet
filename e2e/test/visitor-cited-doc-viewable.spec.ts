@@ -11,7 +11,7 @@ import { test, expect } from '@/fixtures/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
-import { enterCodeSession } from '@/fixtures/navigate';
+import { enterCodeSession, goto } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 
@@ -52,7 +52,7 @@ test.describe('持 code 访客点引用 → 看得到被引文档(不落锁屏)'
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
       // 模拟点引用:同 context(session 在 localStorage)开那篇 doc 的公开 URL。
-      await page.goto(`http://localhost:38127/wiki/${TARGET_PATH}`);
+      await goto(page, `/wiki/${TARGET_PATH}`);
 
       // 凭 session 把全文取回渲染 —— wiki-body 出现且含原文,锁屏不在。
       await expect(page.getByTestId('wiki-body')).toBeVisible({ timeout: 10_000 });
