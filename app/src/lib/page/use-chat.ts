@@ -96,6 +96,9 @@ export type Dialog = {
   // retrying —— backend transport 正在重试一次 transient LLM 失败;throbber
   // 显 "retrying" 而非 "retrieving"。下一条 text/tool 进度事件自然清掉。
   retrying: boolean;
+  // failed —— 这一轮没答成(error 兜底 / 掐断)。strip 的 used 计数把它排除:
+  // 答完的轮才算(count = 数 dialogs 里 !pending && !failed 的)。
+  failed: boolean;
 };
 
 export type ChatState = {
@@ -131,6 +134,11 @@ export function useChat(deps: Deps): ChatState {
     const conv = stored?.conversation_id ?? '';
     if (token !== '' && conv !== '') void restoreSession(conv, token, setDialogs);
   }, []);
+
+  // strip 的 used 派生自 dialogs(答完的轮 = !pending && !failed),不是独立自增的
+  // 计数器 —— conversation 是唯一源,没有「乐观 +1 被迟到快照盖回去」那种 race。
+  const used = dialogs.filter((d) => !d.pending && !d.failed).length;
+  useEffect(() => { useVisitorSessionStore.getState().setUsed(used); }, [used]);
 
   // 换人:SessionStrip 点名字重开 picker → 发新名字 issue 出新 session(新
   // member / 新对话),session store 的 startedAt 随之变。chat 据此丢掉旧
@@ -194,12 +202,11 @@ async function runAsk(
     const accum = makeAccumulator();
     await runAgentForDialog(sess, byoai, histRef, q, makeObserver(id, accum, setDialogs));
     finalizeDialog(id, accum, setDialogs);
-    // 成功 → persist(/dialogs = backend 计数源 CountVisitorTurns)+ 配额 +1。
-    // 失败/掐断(含 401 session 失效)→ 不计数,revalidate 收口:会话若死了就
-    // 清身份回入口,免得 strip 还显旧名字 + 旧配额。
+    // 成功 → persist(/dialogs 落 conversation,backend 是计数源)。used 不在这
+    // 自增:它派生自 dialogs(下面 mirror effect),答完那条进 transcript 就自然
+    // +1。失败/掐断(含 401)→ revalidate 收口:会话若死了清身份回入口。
     if (turnSucceeded(accum)) {
       void recordDialog(sess, q, { body: accum.body, citations: accum.citations, toolCalls: accum.toolCalls });
-      bumpVisitorQuota();
     } else void revalidateSession(sess.conversationID, sess.sessionToken);
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
@@ -406,7 +413,7 @@ function assembledPartIDs(sess: PageSession): readonly string[] {
 function newPendingDialog(id: string, q: string): Dialog {
   return {
     id, q, time: nowHM(), pending: true, answer: null,
-    currentTool: null, toolCalls: [], retrying: false,
+    currentTool: null, toolCalls: [], retrying: false, failed: false,
   };
 }
 
@@ -414,10 +421,6 @@ function newPendingDialog(id: string, q: string): Dialog {
 // 决定要不要消耗配额(只有成功才 record + bump)。
 function turnSucceeded(accum: DialogAccumulator): boolean {
   return accum.errorMsg === '' && accum.body !== '';
-}
-
-function bumpVisitorQuota(): void {
-  useVisitorSessionStore.getState().consume(1);
 }
 
 function nowHM(): string {
@@ -447,6 +450,8 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
     // (tool_completed),不靠这个。
     currentTool: stillPending ? accum.currentTool : null,
     toolCalls: [...accum.toolCalls],
+    // error 兜底(errorMsg 非空)= 这轮没答成,不计数。
+    failed: accum.errorMsg !== '',
     answer: accum.errorMsg !== '' ? noticeAnswer(accum.errorMsg) : {
       paras: splitParas(accum.body),
       citations: accum.citations,
@@ -464,7 +469,7 @@ function noticeAnswer(msg: string): DialogAnswer {
 
 function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {
   return prev.map((d) =>
-    d.id === id ? { ...d, pending: false, retrying: false, answer: errorAnswer(msg) } : d);
+    d.id === id ? { ...d, pending: false, retrying: false, failed: true, answer: errorAnswer(msg) } : d);
 }
 
 function errorAnswer(msg: string): DialogAnswer {

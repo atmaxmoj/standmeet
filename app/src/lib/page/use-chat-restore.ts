@@ -36,26 +36,24 @@ export function splitParas(body: string): string[] {
 export async function restoreSession(
   conversationID: string, token: string, setDialogs: DialogSetter,
 ): Promise<void> {
-  const usedBefore = currentUsed();
   const res = await fetchConversation(conversationID, token);
   if (res.status === 'invalid') {
     recoverFromDeadSession();
     return;
   }
   if (res.status !== 'ok') return;
-  applyView(res.view, usedBefore, setDialogs);
+  applyView(res.view, setDialogs);
 }
 
 // revalidateSession —— 一轮 chat 出错后回头确认会话是否还活着(失效 → 收口),
 // 不重建 transcript(当前对话还在内存,别动)。
 export async function revalidateSession(conversationID: string, token: string): Promise<void> {
-  const usedBefore = currentUsed();
   const res = await fetchConversation(conversationID, token);
   if (res.status === 'invalid') {
     recoverFromDeadSession();
     return;
   }
-  if (res.status === 'ok') reconcileView(res.view, usedBefore);
+  if (res.status === 'ok') reconcileView(res.view);
 }
 
 // revalidateStored —— 同上,但 conv id + token 从 stored session 取(catch 分支
@@ -67,28 +65,25 @@ export async function revalidateStored(): Promise<void> {
   if (token !== '' && conv !== '') await revalidateSession(conv, token);
 }
 
-function currentUsed(): number {
-  return useVisitorSessionStore.getState().session?.used ?? 0;
-}
-
-function applyView(v: VisitorView, usedBefore: number, setDialogs: DialogSetter): void {
-  reconcileView(v, usedBefore);
-  // transcript 只在当前为空时重建 —— 别盖掉 fetch 期间用户刚问的那轮。
+function applyView(v: VisitorView, setDialogs: DialogSetter): void {
+  reconcileView(v);
+  // transcript 只在当前为空时重建 —— 别盖掉 fetch 期间用户刚问的那轮。重建后
+  // useChat 的 mirror effect 会从 dialogs 数出 used,无需在这碰 used。
   if (v.dialogs.length > 0) setDialogs((prev) => (prev.length === 0 ? toDialogs(v) : prev));
 }
 
-// reconcileView —— 用后端权威值覆盖本地展示缓存。count = len(dialogs)(派生,
-// 不读字段)。byoai(无 code,无限额)不碰。名字后端给空就保留本地(匿名兜底)。
-function reconcileView(v: VisitorView, usedBefore: number): void {
+// reconcileView —— 用后端权威值覆盖本地展示缓存(身份 + code 配额)。used 不在
+// 这碰 —— 它派生自 dialogs(useChat mirror)。byoai(无 code,无限额)不碰。名字
+// 后端给空就保留本地(匿名兜底)。
+function reconcileView(v: VisitorView): void {
   const cur = useVisitorSessionStore.getState().session;
   if (cur === null || cur.byoai) return;
-  useVisitorSessionStore.getState().setSession(mergeView(cur, v, usedBefore));
+  useVisitorSessionStore.getState().setSession(mergeView(cur, v));
 }
 
-function mergeView(cur: VisitorSession, v: VisitorView, usedBefore: number): VisitorSession {
+function mergeView(cur: VisitorSession, v: VisitorView): VisitorSession {
   return {
     ...cur,
-    used: pickUsed(cur.used, usedBefore, v.dialogs.length),
     max: v.maxTurns,
     maxMembers: v.maxMembers,
     memberCount: v.memberCount,
@@ -96,16 +91,10 @@ function mergeView(cur: VisitorSession, v: VisitorView, usedBefore: number): Vis
   };
 }
 
-// pickUsed —— fetch 期间被一轮成功 turn 本地 +1 过(curUsed !== usedBefore)→
-// 信本地(更新);没动过 → 采后端数出来的 len(dialogs)(纠 stale 缓存 / re-seed)。
-function pickUsed(curUsed: number, usedBefore: number, snapUsed: number): number {
-  return curUsed === usedBefore ? snapUsed : curUsed;
-}
-
 function toDialogs(v: VisitorView): Dialog[] {
   return v.dialogs.map((d, i): Dialog => ({
     id: `h${i}`, q: d.question, time: '', pending: false,
-    currentTool: null, toolCalls: [...d.tool_calls], retrying: false,
+    currentTool: null, toolCalls: [...d.tool_calls], retrying: false, failed: false,
     answer: {
       paras: splitParas(d.answer), citations: toCitations(d.citations),
       private: false, byoaiBlocked: false,

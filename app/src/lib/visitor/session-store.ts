@@ -5,9 +5,9 @@
 // 设计跟 docs/design/project/sm-session.js 对齐：
 //   - 唯一持久化点 = localStorage key `standmeet-session`
 //   - 跨 tab 同步走 `storage` event；同 tab 跨组件走自定义事件
-//   - quota.used 客户端单调递增（chat 发言后 +1）；server 是 session 起始
-//     时的 source-of-truth（issueSession 响应里给 used / max），后续不在
-//     SSE 里 echo（同一 visitor session 单线增长，client 算得准）
+//   - used 不是独立计数器:它派生自这段 conversation 答完的轮数(useChat 从
+//     dialogs 数出来 setUsed 进来)。conversation 是唯一源,没有「乐观自增被迟到
+//     快照盖回去」的 race。max / 名额 / 名字也都从后端 reconcile。
 //   - URL 带 ?code= 时由 use-absorb-code 那侧 issue session 后写入；URL
 //     不带则继续用 stored
 //
@@ -47,7 +47,8 @@ interface SessionState {
   session: VisitorSession | null;
   setSession: (s: VisitorSession | null) => void;
   setVisitor: (name: string) => void;
-  consume: (n?: number) => void;
+  // setUsed —— used 由 chat 从 dialogs 派生后同步进来(权威值,非自增)。
+  setUsed: (n: number) => void;
   clear: () => void;
   hydrate: () => void;
 }
@@ -74,10 +75,10 @@ export const useVisitorSessionStore = create<SessionState>((set, get) => ({
     persist(next);
     set({ session: next });
   },
-  consume: (n = 1) => {
+  setUsed: (n) => {
     const cur = get().session;
-    if (!cur) return;
-    const next: VisitorSession = { ...cur, used: cur.used + n };
+    if (!cur || cur.used === n) return;
+    const next: VisitorSession = { ...cur, used: n };
     persist(next);
     set({ session: next });
   },
