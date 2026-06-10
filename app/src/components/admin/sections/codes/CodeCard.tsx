@@ -200,19 +200,30 @@ function quotaSummary(n: number | null | undefined, label: string): string {
 function CodeCardFooter({ code, link }: { code: CodeView; link: string }) {
   return (
     <div className="mt-5 pt-3 border-t border-(--color-rule)/60">
-      <FooterTop status={code.status} link={link} />
+      <FooterTop status={code.status} link={link} expiresAt={code.expires_at} />
       <ConversationsLink code={code.code} />
-      <MembersBlock codeID={code.id} code={code.code} />
     </div>
   );
 }
 
-function FooterTop({ status, link }: { status: string; link: string }) {
+function FooterTop({ status, link, expiresAt }: {
+  status: string; link: string; expiresAt?: string;
+}) {
   return (
     <div className="mono text-[10px] tracking-[0.12em] text-(--color-faint) flex items-baseline justify-between gap-3 flex-wrap">
-      <span>status · {status}</span>
+      <span>status · {status}<ExpiryText iso={expiresAt} /></span>
       <span className="truncate min-w-0">{link}</span>
     </div>
+  );
+}
+
+// ExpiryText —— 显式标过期:有 expires_at 显日期,没有显「no expiry」。过期由
+// expires_at 计算(domain 注释:不写 status 字段),owner 一眼看清这码什么时候失效。
+function ExpiryText({ iso }: { iso?: string }) {
+  return (
+    <span className="ml-2 text-(--color-muted)" data-testid="code-expiry">
+      {iso ? `· expires ${iso.slice(0, 10)}` : '· no expiry'}
+    </span>
   );
 }
 

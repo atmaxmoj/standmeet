@@ -18,6 +18,7 @@ import type { ResourceStatus } from '@/lib/state/status';
 export const CodeViewSchema = z.object({
   id: z.string(), code: z.string(), label: z.string(), status: z.string(),
   purpose: z.string().optional(), ghosts: z.array(z.string()).optional(),
+  expires_at: z.string().optional(),
   max_members: z.number().nullable().optional(),
   max_turns_per_session: z.number().nullable().optional(),
   max_bookings: z.number().nullable().optional(),

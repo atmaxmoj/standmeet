@@ -43,6 +43,7 @@ type updateQuotasRequest struct {
 
 type codeView struct {
 	CreatedAt          string   `json:"created_at"`
+	ExpiresAt          *string  `json:"expires_at,omitempty"`
 	MaxMembers         *int32   `json:"max_members,omitempty"`
 	MaxTurnsPerSession *int32   `json:"max_turns_per_session,omitempty"`
 	MaxBookings        *int32   `json:"max_bookings"`
@@ -98,11 +99,21 @@ func toCodeView(c *domain.AccessCode) codeView {
 		Status:             c.Status,
 		Ghosts:             c.Ghosts,
 		CreatedAt:          c.CreatedAt.Format(time.RFC3339),
+		ExpiresAt:          rfc3339OrNil(c.ExpiresAt),
 		MaxMembers:         c.MaxMembers,
 		MaxTurnsPerSession: c.MaxTurnsPerSession,
 		MaxBookings:        c.MaxBookings,
 		AssumedRoleID:      c.AssumedRoleID,
 	}
+}
+
+// rfc3339OrNil —— 可空时间 → 可空 RFC3339 字符串(nil 透传,前端不显 expiry)。
+func rfc3339OrNil(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.Format(time.RFC3339)
+	return &s
 }
 
 func (h *Handlers) createCode() http.HandlerFunc {

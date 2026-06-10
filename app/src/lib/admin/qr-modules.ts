@@ -1,6 +1,6 @@
-// qr-modules.ts —— pure module-grid math for the QR component. Kept out
-// of the .tsx so the cyclo + no-if-in-presentation rules apply only to
-// component bodies. Mirrors docs/design/project/sm-components.js:259.
+// qr-modules.ts —— 真 QR 的模块网格数学(qrcode-generator)。纯逻辑放 lib,
+// atoms/QRCode + resume-page/QRCode 共用(原在 resume-page 下,移到 lib 让
+// atom 不反向依赖 section)。Mirrors docs/design/project/sm-components.js:259.
 
 import qrcodeGen from 'qrcode-generator';
 

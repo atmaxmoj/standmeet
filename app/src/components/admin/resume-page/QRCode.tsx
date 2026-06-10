@@ -6,7 +6,7 @@
 
 import {
   buildQRGrid, type QRCell, type QRGrid,
-} from '@/components/admin/resume-page/qr-modules';
+} from '@/lib/admin/qr-modules';
 
 import styles from '@/components/admin/resume-page/QRCode.module.css';
 

@@ -45,6 +45,15 @@ test.describe('admin codes extended features', () => {
       await expect(card).toBeVisible({ timeout: 5_000 });
       // QR should be visible on card
       await expect(card.locator('[data-testid="code-qr"]')).toBeVisible();
+      // #30: 真 QR —— 密集 module 网格(qrcode-generator),不是稀疏伪花纹。
+      expect(await card.locator('[data-testid="code-qr"] svg rect').count())
+        .toBeGreaterThan(100);
+      // #31: members 块只一份(之前 body + footer 各渲一次 → 两个 toggle)。
+      await expect(card.getByTestId(`members-toggle-${CODE}`)).toHaveCount(1);
+      // #32: expiry 显式标出(本码没设 expires_at → "no expiry")。
+      const expiry = card.getByTestId('code-expiry');
+      await expect(expiry).toBeVisible();
+      await expect(expiry).toContainText(/expir/i);
     });
 
   test('edit code → change quotas → card updates',
