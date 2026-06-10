@@ -187,8 +187,8 @@ async function assertSessionGhosts(
 
 async function assertGhostsFrame(request: APIRequestContext): Promise<void> {
   // H.13.a: 持 code 的 visitor turn 收尾前 backend 调 inference.Generate
-  // 出 3 条 follow-up；mock 不返 JSON，所以 backend fallback emit items=[]
-  // —— 这里只验帧 type=ghosts 存在 + items 是数组 (内容可空)。
+  // 出 3 条 follow-up;mock 的 followup-gen 路径返一个 JSON 数组 → backend 解析
+  // 后 emit ghosts 帧带 3 条 items。验帧 type=ghosts 存在 + items 是非空数组。
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
@@ -201,6 +201,7 @@ async function assertGhostsFrame(request: APIRequestContext): Promise<void> {
   expect(ghosts, 'ghosts frame present for code-accessor').toBeDefined();
   const data = ghosts?.data as { items?: unknown };
   expect(Array.isArray(data?.items)).toBe(true);
+  expect((data?.items as unknown[]).length).toBe(3);
 }
 
 async function assertToolEvents(request: APIRequestContext): Promise<void> {

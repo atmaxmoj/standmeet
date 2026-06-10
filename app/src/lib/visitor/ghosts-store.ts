@@ -59,7 +59,9 @@ export const useGhostsStore = create<GhostsState>((set, get) => ({
     if (items.length === 0) return;
     const cur = get().ghosts;
     const incoming = items.map<Ghost>((text) => ({ text, source: 'followup' }));
-    set({ ghosts: [...cur, ...incoming] });
+    // index 推进到第一条新 followup —— 答完一轮后输入框直接显 AI 的「接着问」,
+    // 不再卡在 seed[0](原始 bug:append 不动 index,ghost 永远是初始那条)。
+    set({ ghosts: [...cur, ...incoming], index: cur.length });
   },
   cycle: () => {
     const { ghosts, index } = get();

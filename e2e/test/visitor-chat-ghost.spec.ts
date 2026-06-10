@@ -76,6 +76,23 @@ test.describe('visitor chat ghost text · H.13.d', () => {
       await expect(input, 'placeholder 跟着切')
         .toHaveAttribute('placeholder', GHOSTS[1]!);
     });
+
+  // 原始 bug:答完一轮后 backend emit 新的 followup ghost,但前端 append 不推进
+  // index → 输入框一直卡在 seed[0]。修后:答完 ghost 推进到 AI 的 followup。
+  test('答完后 ghost 推进到 AI followup(不再卡在 seed[0])',
+    async ({ page }) => {
+      await enterChatWithCode(page);
+      const input = page.getByTestId('chat-input-field');
+      await expect(input).toHaveAttribute('data-ghost', GHOSTS[0]!, { timeout: 5_000 });
+
+      await input.fill('what have you been up to lately');
+      await input.press('Enter');
+      await expect(page.getByTestId('answer-body')).toBeVisible({ timeout: 20_000 });
+
+      // followup 来自 mock followupGhosts[0];ghost 应推进到它,不再是 seed[0]。
+      await expect(input, '答完 ghost 推进到 followup,不卡 seed[0]')
+        .toHaveAttribute('data-ghost', 'What got you into this work?', { timeout: 10_000 });
+    });
 });
 
 // H.13.e admin observability —— admin 走 UI (打开 transcript modal 看日

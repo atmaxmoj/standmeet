@@ -73,21 +73,41 @@ func (s *server) serveStream(w http.ResponseWriter, req *MessagesReq) {
 	s.dispatch(sse, req)
 }
 
+// followupGhosts —— turn 收尾的 follow-up 生成调用(非流式,system 是
+// followupGenPrompt)固定回这 3 条,让 e2e 里 SSE `ghosts` 帧有内容、能测
+// "答完后输入框 ghost 推进到 followup"。跟 seed 问题不同,便于断言。
+const followupGhosts = `["What got you into this work?",` +
+	`"How do you handle on-call?","What are you building next?"]`
+
+// isFollowupGen —— 这次非流式调用是不是 follow-up 生成(按 followupGenPrompt
+// 里独有的 "JSON array of 3 strings" 认)。
+func isFollowupGen(req *MessagesReq) bool {
+	return strings.Contains(req.System.Text, "JSON array of 3 strings")
+}
+
 // serveNonStream —— /v1/messages stream=false. Anthropic returns one
 // JSON envelope: {content: [block...], stop_reason: ...}. Visitor
-// summary uses this path (no tools, no agent loop).
+// summary / follow-up 生成走这条(no tools, no agent loop)。
 func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
+	if isFollowupGen(req) {
+		s.writeNonStream(w, req.Model, followupGhosts)
+		return
+	}
 	text := s.reply
 	if scripted, ok := s.queue.takeReply(); ok {
 		text = scripted
 	}
 	text = composeFinalReply(req, text)
+	s.writeNonStream(w, req.Model, text)
+}
+
+func (s *server) writeNonStream(w http.ResponseWriter, model, text string) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(nonStreamMessage{
 		ID:      "msg_mock_1",
 		Type:    "message",
 		Role:    "assistant",
-		Model:   req.Model,
+		Model:   model,
 		Content: []map[string]string{{"type": "text", "text": text}},
 		Stop:    "end_turn",
 		Usage:   map[string]int{"input_tokens": 1, "output_tokens": 1},
