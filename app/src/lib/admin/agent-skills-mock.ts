@@ -21,7 +21,6 @@ export interface AgentSkillView {
   gate: SkillGate;
   blurb: string;
   needs: readonly string[];
-  runs_30d: number;
   /** marketplace metadata — only set on installed-from-marketplace skills. */
   mpId?: string;
   marketplace?: Marketplace;
@@ -57,34 +56,34 @@ export const SKILL_KIND_LABEL: Record<SkillGate, string> = {
 export const BUILT_IN_SKILLS: readonly AgentSkillView[] = [
   { id: 'calendar.book', name: 'Book a meeting', cat: 'reach', on: true, gate: 'auto',
     blurb: 'Offer open calendar slots and write the booking. Per-code toggle in codes.',
-    needs: ['Calendar'], runs_30d: 14 },
+    needs: ['Calendar'] },
   { id: 'intro.broker', name: 'Broker an intro', cat: 'reach', on: true, gate: 'owner',
     blurb: 'When a visitor asks to be connected, file an intro request to your inbox. You approve before anything sends.',
-    needs: ['Email'], runs_30d: 3 },
+    needs: ['Email'] },
   { id: 'doc.release', name: 'Request a gated doc', cat: 'reach', on: true, gate: 'owner',
     blurb: 'Instead of hard-refusing private content, file a release request you can grant per-visitor.',
-    needs: [], runs_30d: 6 },
+    needs: [] },
   { id: 'topic.subscribe', name: 'Topic subscribe', cat: 'reach', on: true, gate: 'auto',
     blurb: 'Capture an email tied to a topic ("ping me when you write on retrieval").',
-    needs: ['Email'], runs_30d: 11 },
+    needs: ['Email'] },
   { id: 'bundle.send', name: 'Send a follow-up bundle', cat: 'reach', on: false, gate: 'auto',
     blurb: 'At end of a conversation, email the visitor the entries discussed + a transcript.',
-    needs: ['Email'], runs_30d: 0 },
+    needs: ['Email'] },
   { id: 'research.trace', name: 'Show research trace', cat: 'answer', on: true, gate: 'auto',
     blurb: 'Surface a visible retrieve → rank → synthesize trace when answering hard questions.',
-    needs: [], runs_30d: 88 },
+    needs: [] },
   { id: 'artifact.make', name: 'Make an artifact', cat: 'answer', on: false, gate: 'owner',
     blurb: 'Assemble a one-pager / PDF from corpus entries on request, into outputs as a draft.',
-    needs: [], runs_30d: 0 },
+    needs: [] },
   { id: 'memory.cross', name: 'Cross-surface memory', cat: 'answer', on: true, gate: 'auto',
     blurb: 'Remember what a visitor read on /wiki or /writings when they land in chat (session-scoped).',
-    needs: [], runs_30d: 41 },
+    needs: [] },
   { id: 'reply.draft', name: 'Draft replies in my voice', cat: 'owner', on: true, gate: 'owner',
     blurb: 'In your admin, draft replies to access requests / pings in your voice. You edit + send.',
-    needs: ['Email'], runs_30d: 9 },
+    needs: ['Email'] },
   { id: 'week.summary', name: 'Weekly conversation digest', cat: 'owner', on: true, gate: 'auto',
     blurb: 'Summarize the week’s visitor conversations and flag anyone worth a real reply.',
-    needs: [], runs_30d: 4 },
+    needs: [] },
 ];
 
 // MARKET_FIXTURE deleted on backend-fetch landing — what the backend's
@@ -105,7 +104,6 @@ export function marketSkillToInstalled(m: MarketSkillView): AgentSkillView {
     gate: m.needs.includes('Email') ? 'owner' : 'auto',
     blurb: m.blurb,
     needs: m.needs,
-    runs_30d: 0,
     mpId: m.id,
     marketplace: m.marketplace,
     source_url: m.source_url,

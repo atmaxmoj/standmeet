@@ -94,7 +94,6 @@ function CardFoot({
           </span>
         ))}
       </div>
-      <span className={styles.runs}>{skill.runs_30d} runs / 30d</span>
     </footer>
   );
 }
