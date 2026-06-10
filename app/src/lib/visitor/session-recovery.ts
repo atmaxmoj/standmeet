@@ -22,11 +22,12 @@ export function clearVisitorSession(): void {
   clearStoredSession();
 }
 
-// recoverFromDeadSession —— 清掉失效会话,按有没有 code 回到入口流程。code 从
-// localStorage 直接读(不信 in-memory store —— hydrate 时序有竞态,清掉后再读
-// 会误判成「没 code」而错跳 /gate)。
+// recoverFromDeadSession —— 清掉失效会话,按有没有 code 回到入口流程。code 优先
+// 从 localStorage 读;读不到再退到 pending store —— 同页可能有两个 chat 实例都
+// 跑 restore,第一个已清掉 localStorage 并把 code 塞进 pending,第二个只能从
+// pending 拿,否则会误判「没 code」错跳 /gate。
 export function recoverFromDeadSession(): void {
-  const code = peekStoredSession()?.code ?? '';
+  const code = peekStoredSession()?.code ?? usePendingCodeStore.getState().code ?? '';
   clearVisitorSession();
   if (code !== '') {
     usePendingCodeStore.getState().setCode(code);

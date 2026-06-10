@@ -41,8 +41,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	// codes/intro —— 名字选择器 pre-issue 的公开 peek(code 走 body 不入 URL log)。
 	r.Post("/codes/intro", h.codeIntro())
 	r.Post("/sessions/{id}/dialogs", h.postDialog())
-	// 刷新恢复:按 session token 拉回自己这段对话的 Q&A 重建 transcript。
-	r.Get("/sessions/history", h.getHistory())
+	// 刷新恢复:返回整个会话聚合(session + code + conversation),前端一次性
+	// hydrate。范围由 token 锁定(member → open chat),URL {id} 仅做 RESTful 形态。
+	r.Get("/conversations/{id}", h.getConversation())
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
 	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
 	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。

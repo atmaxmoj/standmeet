@@ -128,7 +128,8 @@ export function useChat(deps: Deps): ChatState {
     // 刷新恢复:有 stored session 就按 token 拉回这段对话的 Q&A 重建 transcript
     // (纯内存 dialogs 刷新会空,这里补回来)。失败 → 空,跟现在一样不崩。
     const token = stored?.session_token ?? '';
-    if (token !== '') void restoreSession(token, setDialogs);
+    const conv = stored?.conversation_id ?? '';
+    if (token !== '' && conv !== '') void restoreSession(conv, token, setDialogs);
   }, []);
 
   // 换人:SessionStrip 点名字重开 picker → 发新名字 issue 出新 session(新
@@ -199,7 +200,7 @@ async function runAsk(
     if (turnSucceeded(accum)) {
       void recordDialog(sess, q, { body: accum.body, citations: accum.citations });
       bumpVisitorQuota();
-    } else void revalidateSession(sess.sessionToken);
+    } else void revalidateSession(sess.conversationID, sess.sessionToken);
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);

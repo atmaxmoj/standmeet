@@ -1,6 +1,15 @@
-// visitor_history.go —— 刷新恢复:按 session 的 member 拉回它 open chat 的 Q&A,
-// 配对成 dialog 列表给前端重建 transcript。member → open chat(不信 URL),所以
-// 访客只看到自己那段。citation 暂不带(先保 Q&A 文本)。
+// visitor_history.go —— 会话聚合读模型(凭 session token → member → open chat
+// → conversation)。概念三层 code → session → conversation:
+//
+//   VisitorView { Session{ VisitorName, Code{ 配额 } }, Conversation{ Dialogs… } }
+//
+// 规则:
+//   - count = len(Dialogs),没有 used 字段(前端自己数)。
+//   - dialog 持久化 iff AI 答完 → 这里只配「answer 非空」的轮。
+//   - 引用属于 dialog,从 messages.cited_* 解析成树派生 path,刷新不丢。
+//   - visitor_name 归 session;配额归 code;summary 归 conversation(只暴露
+//     ended + has_summary,全文另取)。
+//   - 时间戳一律 serverside(message.CreatedAt / chat.StartedAt)。
 
 package usecases
 
@@ -8,65 +17,68 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
-// VisitorDialog —— 一段历史交换:问 + 答。
-type VisitorDialog struct {
-	Question string
-	Answer   string
+// DialogGhost —— 这条 question 之前显示的一个候选 ghost + 是否被选中。
+type DialogGhost struct {
+	Text     string
+	Selected bool
 }
 
-// VisitorSnapshot —— 载入时的权威快照:历史 Q&A + 实时配额/身份。前端据此在每次
-// load 时 reconcile 本地 localStorage 缓存(用 / max / 名额 / 名字)—— 后端
-// conversation + code 是唯一 source of truth,客户端不该信任自增的脏值。
-type VisitorSnapshot struct {
-	VisitorName string
-	Dialogs     []VisitorDialog
-	UsedTurns   int
-	MemberCount int
-	MaxTurns    int32
-	MaxMembers  int32
+// DialogCitation —— 一条引用:genre + 树派生 path + title。
+type DialogCitation struct {
+	Genre string
+	Path  string
+	Title string
 }
 
-// BuildVisitorSnapshot —— 凭 session data(member / code / 名字)拼出权威快照:
-//   - Dialogs / UsedTurns ← member 的 open chat 里 visitor 句数
-//   - MaxTurns / MaxMembers / MemberCount ← 这张 code 当前配置(owner 改了就
-//     下次 load 纠回)
-//   - VisitorName ← session 里冻结的名字
-//
-// 无 code(public / byoai tier)→ 配额字段留 0。code 查不到(被删)→ 同样留 0,
-// 不报错(dialogs 仍可返回)。
-func BuildVisitorSnapshot(
+// ConvDialog —— 一段答完的交换:ghosts → question → answer + 引用 + serverside 时间。
+type ConvDialog struct {
+	CreatedAt time.Time
+	Ghosts    []DialogGhost
+	Question  string
+	Answer    string
+	Citations []DialogCitation
+}
+
+// Conversation / ConvCode / ConvSession / VisitorView 这几个 view 类型拆到
+// conversation_view.go(本文件 max-public-structs 限制)。
+
+// LoadVisitorView —— 凭 session data 拼出 {session, conversation}。无 code
+// (public/byoai)→ Code 留零值;还没开会 → Conversation.Dialogs 空。
+func LoadVisitorView(
 	ctx context.Context, deps *VisitorDeps, data *session.VisitorSessionData,
-) (VisitorSnapshot, error) {
-	dialogs, err := VisitorHistory(ctx, deps.Chats, data.MemberID, data.OwnerID)
+) (VisitorView, error) {
+	conv, err := loadConversation(ctx, deps, data.MemberID, data.OwnerID)
 	if err != nil {
-		return VisitorSnapshot{}, err
+		return VisitorView{}, err
 	}
-	snap := VisitorSnapshot{
-		Dialogs: dialogs, UsedTurns: len(dialogs), VisitorName: data.VisitorName,
-	}
-	applyCodeQuota(ctx, deps, data.CodeID, &snap)
-	return snap, nil
+	return VisitorView{
+		Session: ConvSession{
+			VisitorName: data.VisitorName,
+			Code:        codeView(ctx, deps, data.CodeID),
+		},
+		Conversation: conv,
+	}, nil
 }
 
-func applyCodeQuota(
-	ctx context.Context, deps *VisitorDeps, codeID string, snap *VisitorSnapshot,
-) {
+func codeView(ctx context.Context, deps *VisitorDeps, codeID string) ConvCode {
 	if codeID == "" {
-		return
+		return ConvCode{}
 	}
 	code, err := deps.Codes.GetByID(ctx, codeID)
 	if err != nil {
-		return
+		return ConvCode{}
 	}
-	snap.MaxTurns = posInt32(code.MaxTurnsPerSession)
-	snap.MaxMembers = posInt32(code.MaxMembers)
-	snap.MemberCount = countCodeMembers(ctx, deps, codeID)
+	return ConvCode{
+		MaxTurnsPerSession: posInt32(code.MaxTurnsPerSession),
+		MaxMembers:         posInt32(code.MaxMembers),
+		MemberCount:        countCodeMembers(ctx, deps, codeID),
+	}
 }
 
 // posInt32 —— *int32 取正值,nil / ≤0 → 0(0 = 不限,前端不画 gauge)。
@@ -85,45 +97,132 @@ func countCodeMembers(ctx context.Context, deps *VisitorDeps, codeID string) int
 	return len(members)
 }
 
-// VisitorHistory —— member → open chat → messages → 配对。还没开会
-// (ErrChatNotFound)→ 空列表(不是错误)。
-func VisitorHistory(
-	ctx context.Context, chats *postgres.ChatRepo, memberID, ownerID string,
-) ([]VisitorDialog, error) {
+// loadConversation —— member → open chat → messages → 配对(只配答完的轮,带引用)。
+// 还没开会(ErrChatNotFound)→ 空 conversation(不是错误)。
+func loadConversation(
+	ctx context.Context, deps *VisitorDeps, memberID, ownerID string,
+) (Conversation, error) {
 	if memberID == "" {
-		return []VisitorDialog{}, nil
+		return Conversation{}, nil
 	}
-	chat, err := chats.GetOpenChatByMember(ctx, memberID)
+	chat, err := deps.Chats.GetOpenChatByMember(ctx, memberID)
 	if errors.Is(err, domain.ErrChatNotFound) {
-		return []VisitorDialog{}, nil
+		return Conversation{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("history open chat: %w", err)
+		return Conversation{}, fmt.Errorf("open chat: %w", err)
 	}
-	bundle, err := chats.GetWithMessages(ctx, ownerID, chat.ID)
+	bundle, err := deps.Chats.GetWithMessages(ctx, ownerID, chat.ID)
 	if err != nil {
-		return nil, fmt.Errorf("history messages: %w", err)
+		return Conversation{}, fmt.Errorf("messages: %w", err)
 	}
-	return pairVisitorDialogs(bundle.Messages), nil
+	r := newCitationResolver(ctx, deps, ownerID, bundle.Messages)
+	return Conversation{
+		StartedAt:  bundle.Chat.StartedAt,
+		EndedAt:    bundle.Chat.EndedAt,
+		Ended:      bundle.Chat.EndedAt != nil,
+		HasSummary: bundle.Chat.SummaryMD != "",
+		Dialogs:    pairDialogs(bundle.Messages, r),
+	}, nil
 }
 
-// pairVisitorDialogs —— messages(按时间序)里每条 visitor 问句配它后面那条
-// assistant 答(没有就空 answer,如出错的 turn)。
-func pairVisitorDialogs(msgs []domain.Message) []VisitorDialog {
-	out := make([]VisitorDialog, 0, len(msgs))
+// dialogAnswer —— visitor 问句后面那条 assistant 答的三件套(避开 3-return）。
+type dialogAnswer struct {
+	CreatedAt time.Time
+	Body      string
+	Citations []DialogCitation
+}
+
+// pairDialogs —— 每条 visitor 问句配它后面那条 assistant 答;只收 answer 非空的
+// (dialog iff 答完)。ghosts 本轮先留空(落库恢复在后续轮接上)。
+func pairDialogs(msgs []domain.Message, r *citationResolver) []ConvDialog {
+	out := make([]ConvDialog, 0, len(msgs))
 	for i := range msgs {
-		if msgs[i].Role == "visitor" {
-			out = append(out, VisitorDialog{
-				Question: msgs[i].Body, Answer: answerAfter(msgs, i),
+		if msgs[i].Role != "visitor" {
+			continue
+		}
+		a := answerAfter(msgs, i, r)
+		if a.Body != "" {
+			out = append(out, ConvDialog{
+				CreatedAt: a.CreatedAt, Question: msgs[i].Body, Answer: a.Body,
+				Citations: a.Citations, Ghosts: []DialogGhost{},
 			})
 		}
 	}
 	return out
 }
 
-func answerAfter(msgs []domain.Message, i int) string {
+func answerAfter(msgs []domain.Message, i int, r *citationResolver) dialogAnswer {
 	if i+1 < len(msgs) && msgs[i+1].Role == "assistant" {
-		return msgs[i+1].Body
+		return dialogAnswer{
+			CreatedAt: msgs[i+1].CreatedAt, Body: msgs[i+1].Body,
+			Citations: r.resolve(&msgs[i+1]),
+		}
 	}
-	return ""
+	return dialogAnswer{Citations: []DialogCitation{}}
+}
+
+// citationResolver —— cited id → DialogCitation(树派生 path + title)。整段会话
+// 只 load 一次全树建表;没有任何引用就不 load,空表直接返空。
+type citationResolver struct {
+	wikiPaths    map[string]string
+	wikiTitles   map[string]string
+	outputPaths  map[string]string
+	outputTitles map[string]string
+}
+
+func newCitationResolver(
+	ctx context.Context, deps *VisitorDeps, ownerID string, msgs []domain.Message,
+) *citationResolver {
+	r := &citationResolver{}
+	cited := collectCitedIDs(msgs)
+	if len(cited.wikis) > 0 {
+		if wikis, err := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis); err == nil {
+			r.wikiPaths = WikiTreePaths(wikis)
+			r.wikiTitles = wikiTitleMap(wikis)
+		}
+	}
+	if len(cited.outputs) > 0 {
+		if outputs, err := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs); err == nil {
+			r.outputPaths = OutputTreePaths(outputs)
+			r.outputTitles = outputTitleMap(outputs)
+		}
+	}
+	return r
+}
+
+func (r *citationResolver) resolve(m *domain.Message) []DialogCitation {
+	out := make([]DialogCitation, 0, len(m.CitedWikiIDs)+len(m.CitedOutputIDs))
+	out = appendCites(out, "wiki", m.CitedWikiIDs, r.wikiPaths, r.wikiTitles)
+	out = appendCites(out, "output", m.CitedOutputIDs, r.outputPaths, r.outputTitles)
+	return out
+}
+
+func appendCites(
+	out []DialogCitation, genre string, ids []string, paths, titles map[string]string,
+) []DialogCitation {
+	for _, id := range ids {
+		path, ok := paths[id]
+		if !ok {
+			continue
+		}
+		out = append(out, DialogCitation{Genre: genre, Path: path, Title: titles[id]})
+	}
+	return out
+}
+
+func wikiTitleMap(ws []domain.Wiki) map[string]string {
+	m := make(map[string]string, len(ws))
+	for i := range ws {
+		m[ws[i].ID()] = ws[i].Title()
+	}
+	return m
+}
+
+func outputTitleMap(os []domain.Output) map[string]string {
+	m := make(map[string]string, len(os))
+	for i := range os {
+		m[os[i].ID()] = os[i].Title()
+	}
+	return m
 }
