@@ -142,3 +142,35 @@
   display: block;
   margin: 0.6em 0;
 }
+
+/* ── article variant (wiki / writing 长文) ───────────────────────────
+   编辑级阅读排版，对齐设计 wiki.js/blog.js 的 .article-body：大字号 serif
+   正文 + serif subhead + accent pull-quote。声明在 .body 规则之后 → 同特异性
+   下源序靠后胜出，覆盖 chat 的紧凑排版(h2 mono kicker / blockquote 小)。
+   父容器同时带 .body + .article。 */
+.article p {
+  font-size: 21px;
+  line-height: 1.65;
+  margin-bottom: 1.4em;
+}
+.article h2, .article h3 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: -0.012em;
+  line-height: 1.25;
+  color: var(--color-ink);
+}
+.article h2 { font-size: 26px; margin: 2.4em 0 0.5em; }
+.article h3 { font-size: 21px; margin: 2em 0 0.4em; }
+.article h2:first-child, .article h3:first-child { margin-top: 0; }
+.article blockquote {
+  font-style: italic;
+  font-size: 24px;
+  line-height: 1.4;
+  letter-spacing: -0.008em;
+  color: var(--color-ink);
+  margin: 2.2em -24px;
+  padding: 4px 24px;
+  border-left: 3px solid var(--color-accent);
+}

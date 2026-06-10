@@ -1,0 +1,76 @@
+/* wiki-landing.module.css —— /wiki/<slug> 的 OG cover hero。对齐设计
+   wiki.js 的 .og-cover：21:9、hue 渐变(amber/violet/acid)、四角定位的
+   mono tag / 日期 + 大 serif 标题 + italic 副标。container-type 让里头的
+   clamp(cqi) 随卡宽缩放。token 用 app 的 --color-*。 */
+
+.cover {
+  aspect-ratio: 21 / 9;
+  border: 1px solid var(--color-rule);
+  position: relative;
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.tag {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  font-family: var(--font-mono);
+  font-size: clamp(8px, 1.2cqi, 11px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.no {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  font-family: var(--font-mono);
+  font-size: clamp(8px, 1.2cqi, 11px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+.head {
+  position: absolute;
+  top: 18%;
+  left: 6%;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(28px, 9cqi, 80px);
+  line-height: 0.92;
+  letter-spacing: -0.025em;
+  color: var(--color-ink);
+  max-width: 88%;
+}
+
+.sub {
+  position: absolute;
+  bottom: 18%;
+  right: 6%;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 380;
+  font-size: clamp(20px, 6cqi, 48px);
+  color: var(--color-muted);
+  max-width: 60%;
+  text-align: right;
+}
+
+.hueAmber {
+  background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-amber) 30%, transparent), transparent 70%),
+    var(--color-surface);
+}
+.hueViolet {
+  background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-violet) 22%, transparent), transparent 70%),
+    var(--color-surface);
+}
+.hueAcid {
+  background:
+    radial-gradient(ellipse 60% 80% at 80% 20%, color-mix(in oklab, var(--color-acid) 26%, transparent), transparent 70%),
+    var(--color-surface);
+}

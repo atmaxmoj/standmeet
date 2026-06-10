@@ -53,11 +53,21 @@ function MarkdownCode(props: CodeProps): React.ReactElement {
   ) : <code className={className}>{props.children}</code>;
 }
 
-export function ChatMarkdown({ source }: { source: string }): React.ReactElement {
+// variant —— 'chat'(默认)是聊天答复的紧凑排版;'article' 给 wiki / writing
+// 长文阅读用编辑级排版(p 21/1.65、h2 serif 26、blockquote 24 italic accent),
+// 见 ChatMarkdown.module.css 的 .article 修饰。两种共用同一条 markdown 管线。
+type MarkdownVariant = 'chat' | 'article';
+
+export function ChatMarkdown(
+  { source, variant = 'chat' }: { source: string; variant?: MarkdownVariant },
+): React.ReactElement {
   // styles.body scope —— ChatMarkdown.module.css 里给 table / pre / code /
   // blockquote / a / ul 配 design palette (warm cream + ink + vermillion)。
+  const cls = variant === 'article'
+    ? `${styles['body']} ${styles['article']}`
+    : styles['body'];
   return (
-    <div className={styles['body']}>
+    <div className={cls}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex, [rehypeSanitize, SAFE_SCHEMA]]}
