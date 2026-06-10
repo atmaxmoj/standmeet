@@ -42,6 +42,7 @@ type CreateWritingInput struct {
 	Visibility        string
 	Path              string
 	LockedBody        string
+	ParentID          string
 	Tags              []string
 	CrossRefs         []string
 	ReadMinutes       int32
@@ -85,6 +86,10 @@ func buildCreateWritingParams(in *CreateWritingInput) (*dbq.CreateWritingParams,
 	if aerr != nil {
 		return nil, aerr
 	}
+	parentID, perr := parseOptionalUUID(&in.ParentID)
+	if perr != nil {
+		return nil, fmt.Errorf("parse writing parent id: %w", perr)
+	}
 	return &dbq.CreateWritingParams{
 		OwnerID: ownerUUID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
 		BodyMd: in.BodyMD, CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
@@ -92,7 +97,7 @@ func buildCreateWritingParams(in *CreateWritingInput) (*dbq.CreateWritingParams,
 		Tags: nilSafeTags(in.Tags), Visibility: writingVisibilityOr(in.Visibility),
 		CrossRefs: nilSafeTags(in.CrossRefs), Path: in.Path,
 		ReadMinutes: in.ReadMinutes, LockedBody: in.LockedBody,
-		PublishedAt: publishedAt,
+		PublishedAt: publishedAt, ParentID: parentID,
 	}, nil
 }
 
@@ -127,6 +132,7 @@ type UpdateWritingInput struct {
 	Visibility        string
 	Path              string
 	LockedBody        string
+	ParentID          string
 	Tags              []string
 	CrossRefs         []string
 	ReadMinutes       int32
@@ -164,6 +170,10 @@ func buildUpdateWritingParams(in *UpdateWritingInput) (*dbq.UpdateWritingParams,
 	if aerr != nil {
 		return nil, aerr
 	}
+	parentID, perr := parseOptionalUUID(&in.ParentID)
+	if perr != nil {
+		return nil, fmt.Errorf("parse writing parent id: %w", perr)
+	}
 	return &dbq.UpdateWritingParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID,
 		Title: in.Title, Excerpt: in.Excerpt, BodyMd: in.BodyMD,
@@ -171,7 +181,7 @@ func buildUpdateWritingParams(in *UpdateWritingInput) (*dbq.UpdateWritingParams,
 		CoverHue: writingCoverHueOr(in.CoverHue), CoverImageAssetID: assetID,
 		Tags: nilSafeTags(in.Tags), Visibility: writingVisibilityOr(in.Visibility),
 		CrossRefs: nilSafeTags(in.CrossRefs), Path: in.Path,
-		ReadMinutes: in.ReadMinutes, LockedBody: in.LockedBody,
+		ReadMinutes: in.ReadMinutes, LockedBody: in.LockedBody, ParentID: parentID,
 	}, nil
 }
 

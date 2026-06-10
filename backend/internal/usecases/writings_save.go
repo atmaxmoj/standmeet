@@ -61,6 +61,7 @@ type SaveWritingInput struct {
 	Excerpt       string
 	CoverHeadline string
 	CoverSub      string
+	ParentID      string
 	Tags          []string
 	CrossRefs     []string
 	Files         []FileInput
@@ -84,6 +85,9 @@ func SaveWriting(
 ) (domain.Writing, error) {
 	if verr := validateSaveInput(in); verr != nil {
 		return domain.Writing{}, verr
+	}
+	if perr := validateWritingParent(ctx, deps, in); perr != nil {
+		return domain.Writing{}, perr
 	}
 	committed, terr := saveInTxAndCommit(ctx, deps, in)
 	if terr != nil {
@@ -248,6 +252,7 @@ func buildShellCreateInput(in *SaveWritingInput) *postgres.CreateWritingInput {
 		CoverHue: in.CoverHue, CoverImageAssetID: nil,
 		Tags: in.Tags, Visibility: in.Visibility, CrossRefs: in.CrossRefs,
 		Path: path, ReadMinutes: 0, LockedBody: in.LockedBody, Publish: in.Publish,
+		ParentID: in.ParentID,
 	}
 }
 
@@ -304,7 +309,7 @@ func writeWritingBody(ctx context.Context, a *writeBodyArgs) (domain.Writing, er
 		CoverHue: a.In.CoverHue, CoverImageAssetID: cover,
 		Tags: a.In.Tags, Visibility: a.In.Visibility, CrossRefs: a.In.CrossRefs,
 		Path: a.Writing.Path(), ReadMinutes: estimateReadMinutes(body),
-		LockedBody: a.In.LockedBody,
+		LockedBody: a.In.LockedBody, ParentID: effectiveWritingParent(a),
 	})
 	if err != nil {
 		return domain.Writing{}, fmt.Errorf("update writing body: %w", err)

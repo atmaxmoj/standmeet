@@ -29,10 +29,12 @@ type Writing struct {
 	slug         string
 	path         string
 	excerpt      string
+	parentID     string
 	content      Content
 	integrations Integrations
 	crossRefs    []string
 	readMinutes  int32
+	hasParent    bool
 }
 
 // WritingInit —— 构造参数 (postgres mapper 用)。Excerpt / ReadMinutes /
@@ -49,6 +51,7 @@ type WritingInit struct {
 	Title        string
 	Excerpt      string
 	Body         string
+	ParentID     string
 	Tags         []string
 	CrossRefs    []string
 	Integrations Integrations
@@ -68,6 +71,8 @@ func NewWriting(i *WritingInit) Writing {
 		slug:         i.Slug,
 		path:         i.Path,
 		excerpt:      i.Excerpt,
+		parentID:     i.ParentID,
+		hasParent:    i.ParentID != "",
 		readMinutes:  i.ReadMinutes,
 		crossRefs:    refs,
 		content:      NewContent(&ContentInit{Title: i.Title, Body: i.Body, Tags: i.Tags}),
@@ -118,6 +123,10 @@ func (w *Writing) Slug() string { return w.slug }
 // Path —— retriever URI 用的 path (例 "writings/my-slug")。SaveWriting
 // 时 postgres mapper 拼好塞进 Init。
 func (w *Writing) Path() string { return w.path }
+
+// ParentID —— 树父节点 id + 是否有父(root → "", false)。reader sidebar 嵌套
+// + cycle 校验用。跟 Wiki.ParentID 同形。
+func (w *Writing) ParentID() (string, bool) { return w.parentID, w.hasParent }
 
 // Excerpt —— 短摘要 / chat answer summary / index 卡片副标题。
 func (w *Writing) Excerpt() string { return w.excerpt }

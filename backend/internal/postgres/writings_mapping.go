@@ -46,10 +46,11 @@ func toDomainWriting(row *dbq.Writing) domain.Writing {
 		Tags:        row.Tags,
 		CrossRefs:   row.CrossRefs,
 		Path:        row.Path,
+		ParentID:    optUUIDString(row.ParentID),
 		ReadMinutes: row.ReadMinutes,
 		Cover: domain.CoverInit{
 			Headline: row.CoverHeadline, Sub: row.CoverSub,
-			Hue: row.CoverHue, ImageAssetID: optAssetIDStringOr(row.CoverImageAssetID),
+			Hue: row.CoverHue, ImageAssetID: optUUIDString(row.CoverImageAssetID),
 		},
 		Visibility: domain.VisibilityInit{
 			Mode: row.Visibility, LockedBody: row.LockedBody,
@@ -81,9 +82,9 @@ func buildWritingIntegrations(row *dbq.Writing) domain.Integrations {
 	return integrations
 }
 
-// optAssetIDStringOr —— optAssetIDString 的"返字符串而不返 *string"版，
-// 给新的 CoverInit.ImageAssetID (string) 用。
-func optAssetIDStringOr(u pgtype.UUID) string {
+// optUUIDString —— 可空 uuid → 字符串(invalid → "")。cover asset id + parent_id
+// 共用(返 string 而非 *string,给 domain Init 的 string 字段)。
+func optUUIDString(u pgtype.UUID) string {
 	if !u.Valid {
 		return ""
 	}

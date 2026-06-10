@@ -407,6 +407,9 @@ CREATE TABLE writings (
     obsidian_source_path  text          NOT NULL DEFAULT '',
     obsidian_imported_at  timestamptz   NULL,
     published_at          timestamptz   NULL,
+    -- parent_id —— writing 树(reader sidebar 嵌套)。同 wiki_entries 口径:
+    -- 自引用 FK,删父级联删子孙。导航仍按 slug,parent 只决定树嵌套。
+    parent_id             uuid          NULL REFERENCES writings(id) ON DELETE CASCADE,
     created_at            timestamptz   NOT NULL DEFAULT now(),
     updated_at            timestamptz   NOT NULL DEFAULT now()
 );
@@ -414,6 +417,7 @@ CREATE TABLE writings (
 CREATE UNIQUE INDEX writings_owner_slug_uniq ON writings(owner_id, slug);
 CREATE INDEX writings_owner_published_idx ON writings(owner_id, published_at DESC NULLS LAST);
 CREATE INDEX writings_owner_path_idx ON writings(owner_id, path);
+CREATE INDEX writings_owner_parent_idx ON writings(owner_id, parent_id);
 
 -- writing_refs —— writing 内 `[[slug]]` / `[[Title]]` 双链的边表。
 --

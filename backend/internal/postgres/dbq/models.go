@@ -407,6 +407,7 @@ type Writing struct {
 	ObsidianSourcePath string
 	ObsidianImportedAt pgtype.Timestamptz
 	PublishedAt        pgtype.Timestamptz
+	ParentID           pgtype.UUID
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 }

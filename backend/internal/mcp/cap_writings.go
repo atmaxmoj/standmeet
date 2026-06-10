@@ -86,6 +86,7 @@ func writingCreateInputSchema() json.RawMessage {
 			"visibility":{"type":"string","description":"'public' (default) | 'private'."},
 			"cross_refs":{"type":"array","items":{"type":"string"}},
 			"locked_body":{"type":"string"},
+			"parent_id":{"type":"string","description":"Optional parent writing id (reader tree)."},
 			"publish":{"type":"boolean"},
 			"files":{"type":"array","items":{"type":"object",
 				"properties":{
@@ -109,6 +110,7 @@ type writingCreateArgsWire struct {
 	CoverImageAssetID string            `json:"cover_image_asset_id"`
 	Visibility        string            `json:"visibility"`
 	LockedBody        string            `json:"locked_body"`
+	ParentID          string            `json:"parent_id"`
 	Tags              []string          `json:"tags"`
 	CrossRefs         []string          `json:"cross_refs"`
 	Files             []writingFileWire `json:"files"`
@@ -191,6 +193,7 @@ func buildWritingSaveInput(
 		Visibility:    args.Visibility,
 		CrossRefs:     nonNilStrings(args.CrossRefs),
 		LockedBody:    args.LockedBody,
+		ParentID:      args.ParentID,
 		Publish:       args.Publish,
 	}
 }

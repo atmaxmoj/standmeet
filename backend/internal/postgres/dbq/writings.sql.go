@@ -16,18 +16,18 @@ INSERT INTO writings (
     owner_id, slug, title, excerpt, body_md,
     cover_headline, cover_sub, cover_hue, cover_image_asset_id,
     tags, visibility, cross_refs, path, read_minutes, locked_body,
-    published_at
+    published_at, parent_id
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9,
     $10, $11, $12, $13, $14, $15,
-    $16
+    $16, $17
 )
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           obsidian_source_path, obsidian_imported_at,
-          published_at, created_at, updated_at
+          published_at, parent_id, created_at, updated_at
 `
 
 type CreateWritingParams struct {
@@ -47,6 +47,7 @@ type CreateWritingParams struct {
 	ReadMinutes       int32
 	LockedBody        string
 	PublishedAt       pgtype.Timestamptz
+	ParentID          pgtype.UUID
 }
 
 func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (Writing, error) {
@@ -67,6 +68,7 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 		arg.ReadMinutes,
 		arg.LockedBody,
 		arg.PublishedAt,
+		arg.ParentID,
 	)
 	var i Writing
 	err := row.Scan(
@@ -89,6 +91,7 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.PublishedAt,
+		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -114,7 +117,7 @@ SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
-       published_at, created_at, updated_at
+       published_at, parent_id, created_at, updated_at
 FROM writings WHERE id = $1 AND owner_id = $2
 `
 
@@ -146,6 +149,7 @@ func (q *Queries) GetWritingByID(ctx context.Context, arg GetWritingByIDParams) 
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.PublishedAt,
+		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -157,7 +161,7 @@ SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
-       published_at, created_at, updated_at
+       published_at, parent_id, created_at, updated_at
 FROM writings WHERE owner_id = $1 AND obsidian_source_path = $2
 `
 
@@ -189,6 +193,7 @@ func (q *Queries) GetWritingByObsidianSourcePath(ctx context.Context, arg GetWri
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.PublishedAt,
+		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -200,7 +205,7 @@ SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
-       published_at, created_at, updated_at
+       published_at, parent_id, created_at, updated_at
 FROM writings WHERE owner_id = $1 AND slug = $2
 `
 
@@ -232,6 +237,7 @@ func (q *Queries) GetWritingBySlug(ctx context.Context, arg GetWritingBySlugPara
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.PublishedAt,
+		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -278,7 +284,7 @@ SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
-       published_at, created_at, updated_at
+       published_at, parent_id, created_at, updated_at
 FROM writings
 WHERE owner_id = $1 AND published_at IS NOT NULL
 ORDER BY published_at DESC
@@ -313,6 +319,7 @@ func (q *Queries) ListPublishedWritingsByOwner(ctx context.Context, ownerID pgty
 			&i.ObsidianSourcePath,
 			&i.ObsidianImportedAt,
 			&i.PublishedAt,
+			&i.ParentID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -331,7 +338,7 @@ SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
-       published_at, created_at, updated_at
+       published_at, parent_id, created_at, updated_at
 FROM writings
 WHERE owner_id = $1
   AND published_at IS NOT NULL
@@ -377,6 +384,7 @@ func (q *Queries) ListPublishedWritingsByOwnerPage(ctx context.Context, arg List
 			&i.ObsidianSourcePath,
 			&i.ObsidianImportedAt,
 			&i.PublishedAt,
+			&i.ParentID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -395,7 +403,7 @@ SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
-       published_at, created_at, updated_at
+       published_at, parent_id, created_at, updated_at
 FROM writings
 WHERE owner_id = $1
 ORDER BY COALESCE(published_at, created_at) DESC
@@ -430,6 +438,7 @@ func (q *Queries) ListWritingsByOwner(ctx context.Context, ownerID pgtype.UUID) 
 			&i.ObsidianSourcePath,
 			&i.ObsidianImportedAt,
 			&i.PublishedAt,
+			&i.ParentID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -450,7 +459,7 @@ RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           obsidian_source_path, obsidian_imported_at,
-          published_at, created_at, updated_at
+          published_at, parent_id, created_at, updated_at
 `
 
 type PublishWritingParams struct {
@@ -481,6 +490,7 @@ func (q *Queries) PublishWriting(ctx context.Context, arg PublishWritingParams) 
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.PublishedAt,
+		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -516,7 +526,7 @@ RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           obsidian_source_path, obsidian_imported_at,
-          published_at, created_at, updated_at
+          published_at, parent_id, created_at, updated_at
 `
 
 type UnpublishWritingParams struct {
@@ -547,6 +557,7 @@ func (q *Queries) UnpublishWriting(ctx context.Context, arg UnpublishWritingPara
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.PublishedAt,
+		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -558,14 +569,14 @@ UPDATE writings SET
     title = $3, excerpt = $4, body_md = $5,
     cover_headline = $6, cover_sub = $7, cover_hue = $8, cover_image_asset_id = $9,
     tags = $10, visibility = $11, cross_refs = $12, path = $13,
-    read_minutes = $14, locked_body = $15,
+    read_minutes = $14, locked_body = $15, parent_id = $16,
     updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
           cover_headline, cover_sub, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           obsidian_source_path, obsidian_imported_at,
-          published_at, created_at, updated_at
+          published_at, parent_id, created_at, updated_at
 `
 
 type UpdateWritingParams struct {
@@ -584,6 +595,7 @@ type UpdateWritingParams struct {
 	Path              string
 	ReadMinutes       int32
 	LockedBody        string
+	ParentID          pgtype.UUID
 }
 
 func (q *Queries) UpdateWriting(ctx context.Context, arg UpdateWritingParams) (Writing, error) {
@@ -603,6 +615,7 @@ func (q *Queries) UpdateWriting(ctx context.Context, arg UpdateWritingParams) (W
 		arg.Path,
 		arg.ReadMinutes,
 		arg.LockedBody,
+		arg.ParentID,
 	)
 	var i Writing
 	err := row.Scan(
@@ -625,6 +638,7 @@ func (q *Queries) UpdateWriting(ctx context.Context, arg UpdateWritingParams) (W
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.PublishedAt,
+		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
