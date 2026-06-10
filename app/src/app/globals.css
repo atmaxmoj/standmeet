@@ -55,6 +55,18 @@
   --m-snap:   .15s ease;
 }
 
+/* Tailwind v4 的 Preflight 把 <button> 默认 cursor 从 pointer 改成 default,
+   于是一堆没套 .sm-btn 的裸 button(close / revoke / sidebar nav / tab …)
+   都没了手型。全局补回:可点的 button / role=button / summary 一律 pointer,
+   disabled 的不给(走默认箭头)。 */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+}
+
 /* dark mode via .dark class on <html> (TopBar 切换写 localStorage)。系统
    级 prefers-color-scheme 不再走 @media —— useTheme hook 首次访问读
    一次 prefers，之后由 user 在 TopBar 切换控制。 */

@@ -20,15 +20,18 @@ export function ModalShell({ onClose, kicker, title, maxWidth = 540, children }:
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-(--color-ink)/40 fadein overflow-y-auto py-10 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-(--color-ink)/40 fadein p-4"
     >
       <div
         onClick={stop}
-        className={`w-full bg-(--color-paper) border border-(--color-rule) rounded-sm rise crosshair my-auto sm-max-w [--max-w:${maxWidth}px]`}
+        className={`flex flex-col w-full max-h-[85vh] overflow-hidden bg-(--color-paper) border border-(--color-rule) rounded-sm rise crosshair sm-max-w [--max-w:${maxWidth}px]`}
       >
         <span className="ch-tl" /><span className="ch-br" />
         <ModalHeader kicker={kicker} title={title} onClose={onClose} />
-        {children}
+        {/* 框固定,只这块滚 —— header/close 永远钉在顶上 */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -38,7 +41,7 @@ function ModalHeader({
   kicker, title, onClose,
 }: { kicker?: string; title: string; onClose: () => void }) {
   return (
-    <div className="flex items-baseline justify-between px-7 py-5 border-b border-(--color-rule)">
+    <div className="shrink-0 flex items-baseline justify-between px-7 py-5 border-b border-(--color-rule)">
       <ModalTitle kicker={kicker} title={title} />
       <button
         type="button"
