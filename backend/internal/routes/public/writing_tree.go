@@ -29,6 +29,25 @@ func (h *WritingHandlers) getWritingTree() http.HandlerFunc {
 	}
 }
 
+// getWritingTreeContext —— GET /api/v1/writing-tree/context?slug=... —— 一篇
+// writing 的祖先链(breadcrumb)+ 直接子(文章页 reader 框)。
+func (h *WritingHandlers) getWritingTreeContext() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		owner, err := usecases.LoadSoleOwner(r.Context(), h.Page)
+		if err != nil {
+			h.handleWritingErr(w, "load owner", err)
+			return
+		}
+		writings, lerr := usecases.ListPublishedWritings(r.Context(), h.Writings, owner.ID)
+		if lerr != nil {
+			h.handleWritingErr(w, "list published writings", lerr)
+			return
+		}
+		out := usecases.WritingNodeContext(writings, r.URL.Query().Get("slug"))
+		writeWritingTreeContext(h.Log, w, &out)
+	}
+}
+
 type writingTreeNodeView struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
@@ -41,7 +60,12 @@ type writingTreeResponse struct {
 	Nodes []writingTreeNodeView `json:"nodes"`
 }
 
-func writeWritingTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.WritingTreeNode) {
+type writingTreeContextResponse struct {
+	Ancestors []writingTreeNodeView `json:"ancestors"`
+	Children  []writingTreeNodeView `json:"children"`
+}
+
+func toWritingNodeViews(nodes []usecases.WritingTreeNode) []writingTreeNodeView {
 	views := make([]writingTreeNodeView, 0, len(nodes))
 	for i := range nodes {
 		views = append(views, writingTreeNodeView{
@@ -49,9 +73,26 @@ func writeWritingTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.
 			HasChildren: nodes[i].HasChildren, Locked: nodes[i].Locked,
 		})
 	}
+	return views
+}
+
+func writeWritingTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.WritingTreeNode) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(writingTreeResponse{Nodes: views}); err != nil {
+	resp := writingTreeResponse{Nodes: toWritingNodeViews(nodes)}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode writing tree", "err", err)
+	}
+}
+
+func writeWritingTreeContext(log *slog.Logger, w http.ResponseWriter, c *usecases.WritingContext) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	resp := writingTreeContextResponse{
+		Ancestors: toWritingNodeViews(c.Ancestors),
+		Children:  toWritingNodeViews(c.Children),
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Error("encode writing tree context", "err", err)
 	}
 }

@@ -245,6 +245,15 @@ const WritingTreeNodeSchema = z.object({
   locked: z.boolean(),
 });
 const WritingTreeResponseSchema = z.object({ nodes: z.array(WritingTreeNodeSchema) });
+const WritingTreeContextWireSchema = z.object({
+  ancestors: z.array(WritingTreeNodeSchema),
+  children: z.array(WritingTreeNodeSchema),
+});
+
+// mapWritingNode —— 后端 writing 节点(slug)→ 中性 TreeNode(slug 装进 path)。
+function mapWritingNode(n: z.infer<typeof WritingTreeNodeSchema>): TreeNode {
+  return { id: n.id, title: n.title, path: n.slug, has_children: n.has_children, locked: n.locked };
+}
 
 // fetchWritingTree —— GET /api/v1/writing-tree[?parent=ID] 的一层。public(published
 // 进树,private 标 locked)。坏响应 → []。
@@ -254,12 +263,29 @@ export async function fetchWritingTree(parentID: string): Promise<TreeNode[]> {
     const res = await fetch(`${baseURL()}/api/v1/writing-tree${qs}`, { cache: 'no-store' });
     if (!res.ok) return [];
     const parsed = WritingTreeResponseSchema.safeParse(await res.json());
-    if (!parsed.success) return [];
-    return parsed.data.nodes.map((n) => ({
-      id: n.id, title: n.title, path: n.slug, has_children: n.has_children, locked: n.locked,
-    }));
+    return parsed.success ? parsed.data.nodes.map(mapWritingNode) : [];
   } catch {
     return [];
+  }
+}
+
+// fetchWritingContext —— GET /api/v1/writing-tree/context?slug=... —— 文章页
+// breadcrumb 祖先链 + sub-rail 子节点。SSR public,坏响应 → 空上下文。
+export async function fetchWritingContext(slug: string): Promise<TreeContext> {
+  try {
+    const res = await fetch(
+      `${baseURL()}/api/v1/writing-tree/context?slug=${encodeURIComponent(slug)}`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return EMPTY_TREE_CONTEXT;
+    const parsed = WritingTreeContextWireSchema.safeParse(await res.json());
+    if (!parsed.success) return EMPTY_TREE_CONTEXT;
+    return {
+      ancestors: parsed.data.ancestors.map(mapWritingNode),
+      children: parsed.data.children.map(mapWritingNode),
+    };
+  } catch {
+    return EMPTY_TREE_CONTEXT;
   }
 }
 

@@ -68,8 +68,9 @@ type writingsPageResp struct {
 // Mount 挂 /writings。
 func (h *WritingHandlers) Mount(r chi.Router) {
 	r.Get("/writings", h.list())
-	// writing-tree —— reader sidebar 懒加载分层(handler 在 writing_tree.go)。
+	// writing-tree —— reader sidebar 懒加载分层 + 节点上下文(writing_tree.go)。
 	r.Get("/writing-tree", h.getWritingTree())
+	r.Get("/writing-tree/context", h.getWritingTreeContext())
 	r.Get("/writings/{slug}", h.get())
 }
 

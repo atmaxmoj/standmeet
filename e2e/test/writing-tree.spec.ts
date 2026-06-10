@@ -88,9 +88,34 @@ test.describe('reader writing 树端点:published 进树 + private 显示成 loc
     expect(roots.find((n) => n.title === 'Private Post')?.has_children).toBe(false);
   });
 
-  // ── reader surface:真浏览器里 /writings 的树 sidebar(复用 LazyTree)──
+  // ── 节点上下文(文章页 breadcrumb 祖先链)──
+  test('context:sub-post → 祖先 [Essays]', ctxSubAncestors);
+
+  // ── reader surface:真浏览器(/writings 树 + 文章页 breadcrumb)──
   test('reader sidebar:/writings 懒展开 + private 标 locked', readerSidebar);
+  test('reader 文章页:/writings/sub-post breadcrumb 显示祖先 Essays(可点)', articleBreadcrumb);
 });
+
+interface TreeContext { ancestors: WNode[]; children: WNode[] }
+
+// ctxSubAncestors —— sub-post 的祖先 = [Essays]。
+async function ctxSubAncestors({ request }: { request: APIRequestContext }): Promise<void> {
+  const url = `${BACKEND}/api/v1/writing-tree/context?slug=sub-post`;
+  const res = await request.get(url);
+  if (!res.ok()) throw new Error(`context ${res.status()}`);
+  const ctx = await res.json() as TreeContext;
+  expect(ctx.ancestors.map((n) => n.title)).toEqual(['Essays']);
+}
+
+// articleBreadcrumb —— /writings/sub-post 顶部 breadcrumb 显示可点祖先 Essays +
+// 树 sidebar 仍在侧。
+async function articleBreadcrumb({ page }: { page: Page }): Promise<void> {
+  await goto(page, '/writings/sub-post');
+  const crumb = page.getByTestId('writing-breadcrumb');
+  await expect(crumb).toBeVisible({ timeout: 5_000 });
+  await expect(crumb.getByRole('link', { name: 'Essays' })).toBeVisible();
+  await expect(page.getByTestId('writing-tree')).toBeVisible();
+}
 
 // readerSidebar —— /writings 显示 writing 树:roots 出现、点开 Essays 才取 Sub Post
 // (懒)、private 节点标 locked。
