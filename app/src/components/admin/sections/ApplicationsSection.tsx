@@ -12,7 +12,6 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
 import {
   APPLICATION_STATUSES,
-  MOCK_APPLICATIONS,
   pillToneFor,
   type Application,
   type ApplicationStatus,
@@ -117,12 +116,10 @@ function List({
   );
 }
 
-// toDetailApp —— list row 还没有 detail jsonb（notes / snapshot 等），
-// 暂时用 MOCK_APPLICATIONS 同 id 找匹配；找不到 fallback 一个最小 mock。
-// detail endpoint 落地后这层换 fetch by id。
+// toDetailApp —— 用真 list row 拼一个 detail（notes / snapshot / timeline 等
+// jsonb 字段后端还没出,留空,不编假数据)。detail-by-id endpoint 落地后换真 fetch。
 function toDetailApp(row: AdminApplicationRow): Application {
-  const mock = MOCK_APPLICATIONS.find((a) => a.id === row.id);
-  return mock ?? {
+  return {
     id: row.id,
     company: row.company,
     role: row.role,

@@ -34,54 +34,13 @@ export interface TimelineEvent {
   kind: 'accent' | 'muted' | 'faint';
 }
 
-// MOCK_APPLICATIONS —— 直到 admin REST 通了为止用这个填 ApplicationsSection。
-export const MOCK_APPLICATIONS: readonly Application[] = [
-  {
-    id: 'a-anth-mts',
-    company: 'Anthropic',
-    role: 'Member of Technical Staff · retrieval',
-    sentAt: '4 days ago',
-    method: 'autofill · Playwright',
-    contact: 'careers@anthropic.com',
-    notes: 'Saw retrieval-quality opening on the careers page; tailored summary lands on the eval-is-the-product framing.',
-    status: 'reviewing',
-    resumeDelta: 'Reframed Brain story around the eval rebuild — half of the launch gain came from rubric, not the model.',
-  },
-  {
-    id: 'a-openai-re',
-    company: 'OpenAI',
-    role: 'Research Engineer · long-context',
-    sentAt: '2 weeks ago',
-    method: 'manual',
-    contact: 'noreply@openai.com',
-    notes: '',
-    status: 'silent',
-    resumeDelta: 'Long-context retrieval angle; emphasized distributed systems prior.',
-  },
-];
-
-// timelineFor —— 按 status 派生 4-step timeline。设计的 mock 4 行 + kind。
-// 不是真 timeline 数据；是 owner 浏览 UI 用的可视化。后续接 mailbox-tracker
-// (webhook 进 backend) 后这层换成真 events。
+// timelineFor —— 只画**真**事件:application sent(真 sentAt)+ 当前 status。
+// 不再编「6小时后被打开 / 次日 recruiter 回复」那种 mailbox-tracker 假步骤
+// (那需要 webhook 进 backend,还没接)。接通后这里加真 events。
 export function timelineFor(app: Application): TimelineEvent[] {
   return [
     { t: app.sentAt, label: 'application sent', kind: 'accent' },
-    {
-      t: '6 hours later',
-      label: 'application opened (mailbox tracker)',
-      kind: 'muted',
-    },
-    {
-      t: 'next morning',
-      label: 'recruiter replied · scheduling',
-      kind: app.status === 'reviewing' || app.status === 'replied'
-        || app.status === 'offer' ? 'accent' : 'faint',
-    },
-    {
-      t: 'in progress',
-      label: labelForStatus(app.status),
-      kind: kindForStatus(app.status),
-    },
+    { t: 'current', label: labelForStatus(app.status), kind: kindForStatus(app.status) },
   ];
 }
 
