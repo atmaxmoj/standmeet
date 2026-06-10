@@ -227,32 +227,30 @@ function Citations({ citations }: { citations: readonly Citation[] }) {
   );
 }
 
-// CitationRow —— G-3: <details>/<summary> 让 citation 可点；展开后 inline
-// 渲 body 原文 (corpus_read 已经把 body 拿到手，不走二次 fetch)。
-// `data-testid="citation-row"` 让 spec 锁定一行 expand 测断言。
+// CitationRow —— 点引用 = 跳到那篇 document 在 owner 站上的公开页
+// (/<genre>/<树派生 path>),新标签打开。不再 inline 展开原文。
 function CitationRow({ c }: { c: Citation }) {
   return (
     <li>
-      <details className="group" data-testid="citation-row" data-citation-path={c.path}>
-        <summary className="flex items-baseline gap-3 cursor-pointer list-none marker:hidden hover:text-(--color-accent) transition-colors">
-          <span
-            className={`mono text-[10px] tracking-[0.14em] uppercase tabular-nums shrink-0 ${
-              c.genre === 'output' ? 'text-(--color-accent)' : 'text-(--color-muted)'
-            }`}
-            data-testid={`citation-genre-${c.genre}`}
-          >
-            {c.genre}
-          </span>
-          <span className="font-serif italic text-(--color-muted) text-[14.5px] group-open:text-(--color-ink) transition-colors">{c.title}</span>
-          <span className="mono text-[10px] text-(--color-faint) ml-auto shrink-0 group-open:rotate-90 transition-transform">›</span>
-        </summary>
-        <div
-          className="mt-3 mb-2 pl-5 border-l border-(--color-rule) reading text-[15px]"
-          data-testid="citation-body"
+      <a
+        href={`/${c.genre}/${c.path}`}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-baseline gap-3 hover:text-(--color-accent) transition-colors"
+        data-testid="citation-row"
+        data-citation-path={c.path}
+      >
+        <span
+          className={`mono text-[10px] tracking-[0.14em] uppercase tabular-nums shrink-0 ${
+            c.genre === 'output' ? 'text-(--color-accent)' : 'text-(--color-muted)'
+          }`}
+          data-testid={`citation-genre-${c.genre}`}
         >
-          <ChatMarkdown source={c.body} />
-        </div>
-      </details>
+          {c.genre}
+        </span>
+        <span className="font-serif italic text-(--color-muted) text-[14.5px]">{c.title}</span>
+        <span className="mono text-[10px] text-(--color-faint) ml-auto shrink-0">↗</span>
+      </a>
     </li>
   );
 }

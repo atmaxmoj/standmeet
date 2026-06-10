@@ -11,11 +11,15 @@
 import { useState } from 'react';
 
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
-import { useIssuePendingCode, type IssueOutcome } from '@/lib/gate/use-issue-pending-code';
+import {
+  dismissPicker,
+  submitPickerName,
+  useIssuePendingCode,
+  type IssueOutcome,
+} from '@/lib/gate/use-issue-pending-code';
 import { memberCapacityLine, useCodeIntro } from '@/lib/gate/use-code-intro';
 import {
   loadVisitorName,
-  rememberVisitorName,
   useShouldAskVisitorName,
 } from '@/lib/visitor/visitor-name';
 
@@ -31,35 +35,34 @@ function Modal() {
   const code = usePendingCodeStore((s) => s.code);
   const intro = useCodeIntro();
   const { issue, busy } = useIssuePendingCode();
-  const onSubmit = () => {
-    rememberVisitorName(name.trim());
-    void runIssue(issue, name.trim(), setFull);
-  };
+  const onSubmit = () => { void settleOutcome(submitPickerName(name, issue), setFull); };
+  const onDismiss = () => { void settleOutcome(dismissPicker(issue), setFull); };
   return (
-    <div className="sm-fadein sm-visitor-name-overlay">
+    // 点窗外(backdrop,非 card)= dismiss:换人窗取消保持原 session,首次则 skip。
+    <div
+      className="sm-fadein sm-visitor-name-overlay"
+      data-testid="visitor-name-overlay"
+      onClick={(e) => { (e.target === e.currentTarget) && onDismiss(); }}
+    >
       <div className="sm-visitor-name-card sm-rise">
         <PickerHeader code={code} greeting={intro?.greeting ?? ''} />
         <PickerBody
           name={name} onName={setName} going={busy} full={full}
           capacityLine={memberCapacityLine(intro)}
           onSubmit={onSubmit}
-          onDismiss={() => { void runIssue(issue, null, setFull); }}
+          onDismiss={onDismiss}
         />
       </div>
     </div>
   );
 }
 
-// runIssue —— 提交名字(或 skip=null)→ 真正 issueCodeSession。'ok' → pending
-// 被 consume,picker 自动隐藏;'full' → 这张码名字满了,显 "code 已满";'error'
-// → busy 复位,visitor 可重试。
-async function runIssue(
-  issue: (name: string | null) => Promise<IssueOutcome>,
-  name: string | null,
-  setFull: (v: boolean) => void,
+// settleOutcome —— 提交/dismiss 的收尾:'full' → 显满额。'ok' 已 consume pending
+// → picker 自动隐藏;'error' → busy 复位可重试。
+async function settleOutcome(
+  p: Promise<IssueOutcome>, setFull: (v: boolean) => void,
 ): Promise<void> {
-  const outcome = await issue(name);
-  // 'ok' → pending consumed → picker 自动隐藏;'error' → busy 复位可重试。
+  const outcome = await p;
   (outcome === 'full') && setFull(true);
 }
 

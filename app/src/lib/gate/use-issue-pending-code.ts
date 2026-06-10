@@ -16,11 +16,41 @@ import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useSuggestionsStore } from '@/lib/visitor/suggestions-store';
-import { loadMemberID, rememberMemberID } from '@/lib/visitor/visitor-name';
+import { loadMemberID, rememberMemberID, rememberVisitorName } from '@/lib/visitor/visitor-name';
 
 // IssueOutcome —— ok 成功;full 名字满了(picker 显 "code 已满");invalid 码无效
 // /过期(丢掉 pending、回落 public);error 其它(网络抖动,保留 pending 可重试)。
 export type IssueOutcome = 'ok' | 'full' | 'invalid' | 'error';
+
+// submitPickerName —— 名字选择器 START 的决策。名字跟当前 session 一样 → 续聊:
+// 只关窗(consume pending),**不 re-issue** —— 后端本就同 member 同 open chat,
+// re-issue 反而触发前端 startedAt-reset 清屏 + issue 响应 used_turns=0 看着像归零。
+// 名字不一样 / 还没 session → 真 issue(新名字 = 新 member = 新对话)。
+export async function submitPickerName(
+  name: string, issue: (name: string | null) => Promise<IssueOutcome>,
+): Promise<IssueOutcome> {
+  const trimmed = name.trim();
+  const current = useVisitorSessionStore.getState().session?.visitor ?? null;
+  if (current !== null && trimmed === current) {
+    usePendingCodeStore.getState().consume();
+    return 'ok';
+  }
+  rememberVisitorName(trimmed);
+  return issue(trimmed);
+}
+
+// dismissPicker —— skip / 点窗外。已有 session(换人窗)→ 取消,保持原 session
+// (consume,不 issue 匿名,免得凭空多一个 guest member + 新对话)。还没 session
+// (首次)→ skip = 匿名 issue。
+export async function dismissPicker(
+  issue: (name: string | null) => Promise<IssueOutcome>,
+): Promise<IssueOutcome> {
+  if (useVisitorSessionStore.getState().session !== null) {
+    usePendingCodeStore.getState().consume();
+    return 'ok';
+  }
+  return issue(null);
+}
 
 interface IssuePending {
   busy: boolean;

@@ -44,7 +44,7 @@ test.describe('citation row 可点 + inline 展开原文', () => {
     await request.dispose();
   });
 
-  test('visitor 问 → cited 行出现 → click → inline body 展开渲染原文',
+  test('visitor 问 → cited 行出现 → 是 link → 跳那篇 document 的公开页',
     async ({ browser }) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
@@ -67,18 +67,11 @@ test.describe('citation row 可点 + inline 展开原文', () => {
       );
       await expect(row).toBeVisible({ timeout: 5_000 });
 
-      // 默认 collapsed：body 在 DOM 但 details 没开。
-      const summary = row.locator('summary');
-      await summary.click();
-
-      // 点开后：body container 出现 + 含 wiki body 文字。
-      const body = row.locator('[data-testid="citation-body"]');
-      await expect(body).toBeVisible({ timeout: 2_000 });
-      await expect(body).toContainText(TARGET_BODY);
-
-      // 再点一下折叠 (details 默认 toggle 行为)。
-      await summary.click();
-      await expect(body).not.toBeVisible({ timeout: 2_000 });
+      // 点引用 = 跳那篇 document 在 owner 站上的公开页:link href =
+      // /<genre>/<树派生 path>,新标签打开。不再 inline 展开 body。
+      await expect(row).toHaveAttribute('href', `/wiki/${TARGET_PATH}`);
+      await expect(row).toHaveAttribute('target', '_blank');
+      await expect(row.locator('[data-testid="citation-body"]')).toHaveCount(0);
 
       await ctx.close();
     });

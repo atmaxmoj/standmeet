@@ -1,5 +1,5 @@
 // visitor-chat-citation-multi.spec.ts —— G-3 follow-up：多 dialog 各自带
-// 1 个 citation 行，各自独立 expand / collapse。`<details>` 本身是原生
+// 1 个 citation 行，各自 link 到 document 公开页 / collapse。`<details>` 本身是原生
 // 元素，但验"两个 dialog 卡片的 citation row 不会串状态"是有意义的：
 // 一个的 toggle 不影响另一个；下一个 dialog 出现时上一个的展开状态保留。
 
@@ -22,7 +22,7 @@ const CODE = 'INTRO-001';
 const LUCERNA = 'projects/lucerna';
 const FAMILY = 'personal/family';
 
-test.describe('多 dialog citation 各自独立 expand', () => {
+test.describe('多 dialog citation 各自 link 到 document 公开页', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -47,7 +47,7 @@ test.describe('多 dialog citation 各自独立 expand', () => {
     await request.dispose();
   });
 
-  test('两个 dialog 各 1 cited row → expand 一个不影响另一个，两个能同时开',
+  test('两个 dialog 各 1 cited row → 各是 link,各自跳那篇 document',
     async ({ browser }) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
@@ -74,27 +74,12 @@ test.describe('多 dialog citation 各自独立 expand', () => {
       await expandRefsContaining(page, FAMILY);
       await expect(familyRow).toBeVisible({ timeout: 20_000 });
 
-      // expand lucerna only
-      await lucernaRow.locator('summary').click();
-      await expect(lucernaRow.locator('[data-testid="citation-body"]'))
-        .toBeVisible({ timeout: 2_000 });
-      // family 还是关着
-      await expect(familyRow.locator('[data-testid="citation-body"]'))
-        .not.toBeVisible({ timeout: 1_000 });
-
-      // 现在 expand family，两个应该同时开
-      await familyRow.locator('summary').click();
-      await expect(familyRow.locator('[data-testid="citation-body"]'))
-        .toBeVisible({ timeout: 2_000 });
-      await expect(lucernaRow.locator('[data-testid="citation-body"]'))
-        .toBeVisible({ timeout: 1_000 });
-
-      // 折 lucerna，family 应该仍开
-      await lucernaRow.locator('summary').click();
-      await expect(lucernaRow.locator('[data-testid="citation-body"]'))
-        .not.toBeVisible({ timeout: 1_000 });
-      await expect(familyRow.locator('[data-testid="citation-body"]'))
-        .toBeVisible({ timeout: 1_000 });
+      // 每条引用都是 link → 各自跳那篇 document 的公开页(/<genre>/<树派生 path>),
+      // 互不相干、都不再 inline 展开 body。
+      await expect(lucernaRow).toHaveAttribute('href', `/wiki/${LUCERNA}`);
+      await expect(familyRow).toHaveAttribute('href', `/wiki/${FAMILY}`);
+      await expect(lucernaRow.locator('[data-testid="citation-body"]')).toHaveCount(0);
+      await expect(familyRow.locator('[data-testid="citation-body"]')).toHaveCount(0);
 
       await ctx.close();
     });

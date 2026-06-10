@@ -47,8 +47,9 @@ export function ChatRoom({ owner, mode }: Props) {
             <ChatWelcome owner={owner} d={derived} />
             <ChatTranscript dialogs={ci.chat.dialogs} onAsk={ci.onAsk} />
           </div>
-          {/* docked bottom: composer + footnote stay pinned to the viewport */}
+          {/* docked bottom: progress + composer + footnote stay pinned to the viewport */}
           <div className="shrink-0 bg-(--color-paper)">
+            <ChatProgress dialogs={ci.chat.dialogs} />
             <ChatComposer
               input={ci.input} setInput={ci.setInput} onSubmit={ci.onAsk}
               pending={ci.chat.pending} exhausted={ci.exhausted}
@@ -166,15 +167,30 @@ function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => v
         <span className="text-(--color-ink)">you</span>
       </div>
       <VisitorQuestion q={dialog.q} />
-      {/* throbber = observer 对 agent 的实时观察:只显 agent 此刻在跑的那个
-          tool,turn 落地即被 use-chat 清成 null 而消失,留下面折叠的 searched
-          卡当持久回执。绝不堆一串、也绝不冻在 transcript 里跟答案并排。 */}
-      <ToolThrobber tool={dialog.currentTool} />
+      {/* live throbber(reading/searching/thinking)不在这里 —— 搬到输入栏上方
+          (ChatProgress),turn 内的「当前动作」贴着输入框左上显。这里只留持久回执:
+          折叠的 searched 卡 + 落地的答案。 */}
       <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
-      {dialog.pending
-        ? <ThinkingDots retrying={dialog.retrying} tool={dialog.currentTool} />
-        : <AnswerView answer={dialog.answer} />}
+      {dialog.pending ? null : <AnswerView answer={dialog.answer} />}
     </article>
+  );
+}
+
+// ChatProgress —— turn 内「当前动作」观察者,贴在对话输入栏正上方、左对齐。
+// 只在最后一条 dialog 还 pending 时显:有 tool 在跑 → reading/searching(throbber),
+// 没 tool → thinking 词库轮换。turn 落地(不再 pending)即整条消失。
+function ChatProgress({ dialogs }: { dialogs: readonly Dialog[] }) {
+  const last = dialogs.at(-1);
+  return last !== undefined && last.pending ? <ProgressLine dialog={last} /> : null;
+}
+
+function ProgressLine({ dialog }: { dialog: Dialog }) {
+  return (
+    <div className="px-6 lg:px-0 pb-1 text-left" data-testid="chat-progress">
+      {dialog.currentTool !== null
+        ? <ToolThrobber tool={dialog.currentTool} />
+        : <ThinkingDots retrying={dialog.retrying} tool={null} />}
+    </div>
   );
 }
 
@@ -248,26 +264,24 @@ function CitationsList({ citations }: { citations?: readonly Citation[] }) {
   ) : null;
 }
 
-// CitationRow —— G-3: 同 ConversationDeck.CitationRow，点 summary 展开
-// inline 原文 (corpus_read body 已在手)。ChatRoom 字体更小所以 reading
-// 等级降一档。
+// CitationRow —— 点引用 = 跳到那篇 document 在 owner 站上的公开页
+// (/<genre>/<树派生 path>),新标签打开不丢聊天。不再 inline 展开原文。
 function CitationRow({ c }: { c: Citation }) {
   return (
     <li>
-      <details className="group" data-testid="citation-row" data-citation-path={c.path}>
-        <summary className="mono text-[11px] text-(--color-muted) cursor-pointer list-none marker:hidden hover:text-(--color-accent) transition-colors flex items-baseline gap-2">
-          <span data-testid={`citation-genre-${c.genre}`}>{c.genre}</span>
-          <span className="text-(--color-faint)">·</span>
-          <span className="group-open:text-(--color-ink) transition-colors">{c.title}</span>
-          <span className="text-[10px] text-(--color-faint) ml-auto group-open:rotate-90 transition-transform">›</span>
-        </summary>
-        <div
-          className="mt-2 mb-2 pl-4 border-l border-(--color-rule) reading text-[14.5px]"
-          data-testid="citation-body"
-        >
-          <ChatMarkdown source={c.body} />
-        </div>
-      </details>
+      <a
+        href={`/${c.genre}/${c.path}`}
+        target="_blank"
+        rel="noreferrer"
+        className="mono text-[11px] text-(--color-muted) hover:text-(--color-accent) transition-colors flex items-baseline gap-2"
+        data-testid="citation-row"
+        data-citation-path={c.path}
+      >
+        <span data-testid={`citation-genre-${c.genre}`}>{c.genre}</span>
+        <span className="text-(--color-faint)">·</span>
+        <span>{c.title}</span>
+        <span className="text-[10px] text-(--color-faint) ml-auto">↗</span>
+      </a>
     </li>
   );
 }
