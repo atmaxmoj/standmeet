@@ -1,13 +1,15 @@
 // chat.go —— /api/v1/* 路由挂载 + visitor 错误码表 + auth/bearer helper。
-// Chat 数据流（I.3 之后）：
+// Chat 数据流（#28 之后）：
 //   - POST /sessions                颁发 visitor session
-//   - POST /agent/turn              eino ADK driven 整 turn
+//   - POST /agent/turn              eino ADK driven 整 turn;**自己**在流末端
+//                                   把这段 Dialog sink 进 conversation 表(配额
+//                                   也在入口查)。backend 拥有这一轮,前端只显示。
 //   - POST /sessions/{id}/tools/..  单 tool 执行
-//   - POST /sessions/{id}/dialogs   整 turn 结束后 commit 一段 Dialog
 //   - GET  /report/{id}             读一份 chat report (I.3)
 //
-// 老 POST /sessions/{id}/summary I.3 删；同款逻辑改走 summarize_conversation
-// capability + tool dispatch wire。
+// 老 POST /sessions/{id}/dialogs(前端自落库)#28 退役 —— 落库整个挪到
+// /agent/turn 流末端,单一 sink、无双写。老 POST /summary I.3 删,改走
+// summarize_conversation capability。
 
 package public
 
@@ -40,7 +42,6 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Post("/sessions", h.createSession())
 	// codes/intro —— 名字选择器 pre-issue 的公开 peek(code 走 body 不入 URL log)。
 	r.Post("/codes/intro", h.codeIntro())
-	r.Post("/sessions/{id}/dialogs", h.postDialog())
 	// 刷新恢复:返回整个会话聚合(session + code + conversation),前端一次性
 	// hydrate。范围由 token 锁定(member → open chat),URL {id} 仅做 RESTful 形态。
 	r.Get("/conversations/{id}", h.getConversation())

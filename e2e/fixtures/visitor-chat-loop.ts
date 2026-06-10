@@ -1,11 +1,12 @@
 // visitor-chat-loop.ts —— H.10: backend agent loop 接管之后，Node 端
 // fixture 不再 driver LLM ↔ tool 循环；改成单 POST /api/v1/agent/turn
 // 收 SSE 整套事件 (text / tool_started / tool_completed / done / error)
-// → 累 final text → /dialogs commit。
+// → 累 final text。
 //
 // 跟浏览器 pi-agent-core (H.10 后 VisitorTurnAgent) 同形态：thin event
-// consumer。Cited tracking 走 tool_completed (corpus_read result 的
-// path/genre)，老 mechanism 不变。
+// consumer。#28 起 backend 自己在 /agent/turn 流末端把这轮(含 cited /
+// tool_calls)sink 进 conversation 表,fixture 不再 POST /dialogs —— 跟真
+// 前端一致;失败/配额错误原样透 status 让 spec 断言。
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -20,32 +21,17 @@ export interface FakeAPIResponse {
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-interface CitedTracker {
-  wikiIDs: string[];
-  outputIDs: string[];
-}
-
 // runVisitorChatTurn —— drive one visitor question through backend
-// /agent/turn endpoint. Returns a fake APIResponse mimicking legacy
-// /messages surface: status() reflects /dialogs commit; body()/text()
-// returns final assistant text.
+// /agent/turn endpoint. #28 起 /agent/turn 自己把这轮 sink 进 conversation
+// 表(配额也在它入口查),fixture 不再 POST /dialogs —— 跟真前端一致。返回
+// fake APIResponse 仿 legacy /messages surface:成功 status()=200、text()=
+// final assistant text;pre-stream 错误(配额 403 / 鉴权)原样透 status + body
+// 让 spec 断言(turn-quota 第 3 轮 403 turn_quota_reached 走这条)。
 export async function runVisitorChatTurn(
   request: APIRequestContext, sess: VisitorSession, question: string,
 ): Promise<FakeAPIResponse> {
   const system = await fetchSystemPrompt(sess);
   const headers = await buildHeaders(sess);
-  const cited: CitedTracker = { wikiIDs: [], outputIDs: [] };
-  const text = await runAgentTurn(
-    request, sess, headers, system, question, cited,
-  );
-  return await commitDialog(request, sess, headers, question, text, cited);
-}
-
-async function runAgentTurn(
-  request: APIRequestContext, sess: VisitorSession,
-  headers: Record<string, string>, system: string, question: string,
-  cited: CitedTracker,
-): Promise<string> {
   const res = await request.post(`${BACKEND}/api/v1/agent/turn`, {
     headers, data: {
       system, user_message: question,
@@ -53,11 +39,12 @@ async function runAgentTurn(
       history: [],
     },
   });
-  if (res.status() !== 200) {
-    throw new Error(`agent.turn: ${res.status()}`);
+  const status = res.status();
+  if (status !== 200) {
+    return makeFakeResponse(status, await res.text());
   }
   const body = await res.body();
-  return accumulateAgentEvents(body.toString('utf-8'), cited);
+  return makeFakeResponse(200, accumulateAgentEvents(body.toString('utf-8')));
 }
 
 interface AgentEventFrame {
@@ -65,37 +52,19 @@ interface AgentEventFrame {
   data: Record<string, unknown>;
 }
 
-function accumulateAgentEvents(raw: string, cited: CitedTracker): string {
+// accumulateAgentEvents —— SSE 帧 → final assistant text。error 帧 throw
+// (mock 注入故障 / force-final 也失败时走这条),让失败 turn 的 spec 能断言。
+// citation / tool_calls 不在这累:#28 起 backend 自己从流末端扒并落库。
+function accumulateAgentEvents(raw: string): string {
   let text = '';
   for (const frame of splitFrames(raw)) {
     if (frame.event === 'text') {
-      const delta = stringOr(frame.data['delta'], '');
-      text += delta;
-    } else if (frame.event === 'tool_completed') {
-      trackToolCompleted(frame.data, cited);
+      text += stringOr(frame.data['delta'], '');
     } else if (frame.event === 'error') {
       throw new Error(stringOr(frame.data['message'], 'agent error'));
     }
   }
   return text;
-}
-
-function trackToolCompleted(
-  d: Record<string, unknown>, cited: CitedTracker,
-): void {
-  const name = stringOr(d['name'], '');
-  if (name !== 'corpus_read') return;
-  const rawResult = stringOr(d['result'], '');
-  const inner = safeJson(rawResult) as { id?: string; genre?: string };
-  // 按 id 引用(跟前端 dialog.ts 一致):corpus_read 结果带 entry id,落 cited_*_ids。
-  if (typeof inner?.id !== 'string' || inner.id === '' || typeof inner.genre !== 'string') {
-    return;
-  }
-  if (inner.genre === 'output') {
-    cited.outputIDs.push(inner.id);
-  } else if (inner.genre === 'wiki') {
-    cited.wikiIDs.push(inner.id);
-  }
 }
 
 function splitFrames(raw: string): AgentEventFrame[] {
@@ -115,27 +84,6 @@ function parseFrame(raw: string): AgentEventFrame | null {
   }
   if (ev === '') return null;
   return { event: ev, data: safeJson(dt) as Record<string, unknown> };
-}
-
-async function commitDialog(
-  request: APIRequestContext, sess: VisitorSession,
-  headers: Record<string, string>, question: string, answer: string,
-  cited: CitedTracker,
-): Promise<FakeAPIResponse> {
-  const res = await request.post(
-    `${BACKEND}/api/v1/sessions/${sess.conversation_id}/dialogs`,
-    { headers, data: {
-      question, answer,
-      cited_wiki_ids: cited.wikiIDs,
-      cited_output_ids: cited.outputIDs,
-    } },
-  );
-  const status = res.status();
-  if (status === 204 || status === 200) {
-    return makeFakeResponse(200, answer);
-  }
-  const text = await res.text();
-  return makeFakeResponse(status, text);
 }
 
 function makeFakeResponse(status: number, text: string): FakeAPIResponse {

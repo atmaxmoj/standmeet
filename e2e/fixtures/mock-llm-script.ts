@@ -64,8 +64,8 @@ export async function scriptMockError(
  *  assertions on whatever the mock LLM happened to say.
  *
  *  G-Y.6: backend's POST /messages route is gone; visitor-chat-loop.ts
- *  reimplements the agent loop in fixture-land, posting /dialogs at the
- *  end so admin transcripts still record the exchange. */
+ *  drives /agent/turn. #28 起 backend 自己在流末端 sink 进 conversation 表,
+ *  admin transcript 照样有这段交换(fixture 不再 POST /dialogs)。 */
 export async function sendAndDrain(
   request: APIRequestContext,
   sess: VisitorSession,

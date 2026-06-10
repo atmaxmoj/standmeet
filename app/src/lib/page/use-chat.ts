@@ -30,7 +30,6 @@ import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { restoreSession, revalidateSession, revalidateStored, splitParas } from '@/lib/page/use-chat-restore';
-import { recordDialog } from '@/lib/page/dialog';
 import { throbberLabel } from '@/lib/page/throbber-label';
 import {
   ensureSession,
@@ -202,12 +201,11 @@ async function runAsk(
     const accum = makeAccumulator();
     await runAgentForDialog(sess, byoai, histRef, q, makeObserver(id, accum, setDialogs));
     finalizeDialog(id, accum, setDialogs);
-    // 成功 → persist(/dialogs 落 conversation,backend 是计数源)。used 不在这
-    // 自增:它派生自 dialogs(下面 mirror effect),答完那条进 transcript 就自然
-    // +1。失败/掐断(含 401)→ revalidate 收口:会话若死了清身份回入口。
-    if (turnSucceeded(accum)) {
-      void recordDialog(sess, q, { body: accum.body, citations: accum.citations, toolCalls: accum.toolCalls });
-    } else void revalidateSession(sess.conversationID, sess.sessionToken);
+    // backend 拥有这一轮:/agent/turn 流末端已把它 sink 进 conversation 表(#28),
+    // 前端不再自落库。答完那条留在本地 transcript 显示,used 由 dialogs 派生(下面
+    // mirror effect)自然 +1;真相在后端,刷新走 restoreSession 从 conversation 重建。
+    // 失败/掐断(含 401)→ revalidate 收口:会话若死了清身份回入口。
+    if (!turnSucceeded(accum)) void revalidateSession(sess.conversationID, sess.sessionToken);
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);

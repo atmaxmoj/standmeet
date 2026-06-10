@@ -56,13 +56,15 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       const page = await ctx.newPage();
       await enterCodeSession(page, CODE, NAME);
 
-      const dialogRecorded = page.waitForResponse((r) =>
-        r.url().includes('/dialogs') && r.status() === 204, { timeout: 20_000 });
+      // #28: backend 落库在 /agent/turn 流末端(`done` 之前);res.finished()
+      // = 流读完 = 已落库。
+      const turnDone = page.waitForResponse((r) =>
+        r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
       const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill(QUESTION);
       await input.press('Enter');
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
-      await dialogRecorded;
+      await (await turnDone).finished();
 
       const usedSel = '[data-testid="session-strip-gauge"] .sm-session-strip-used';
       const usedBefore = await page.locator(usedSel).innerText();
@@ -87,13 +89,15 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       const page = await ctx.newPage();
       await enterCodeSession(page, CODE, NAME2);
 
-      const dialogRecorded = page.waitForResponse((r) =>
-        r.url().includes('/dialogs') && r.status() === 204, { timeout: 20_000 });
+      // #28: backend 落库在 /agent/turn 流末端(`done` 之前);res.finished()
+      // = 流读完 = 已落库。
+      const turnDone = page.waitForResponse((r) =>
+        r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
       const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill(QUESTION);
       await input.press('Enter');
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
-      await dialogRecorded;
+      await (await turnDone).finished();
 
       // 重开名字选择器 → 点窗外角落(backdrop,非 card)→ 应关窗、保持原会话。
       await page.getByTestId('session-strip-switch-name').click();

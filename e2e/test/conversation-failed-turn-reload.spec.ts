@@ -83,15 +83,17 @@ test.describe('失败的一轮不进 conversation,刷新后不在也不计数', 
   });
 });
 
-// sendOk —— 脚本一条正常回答(顺带清掉 failAll),问出去,等 /dialogs 落库。
+// sendOk —— 脚本一条正常回答(顺带清掉 failAll),问出去,等这轮 sink 进 DB。
+// #28: backend 落库在 /agent/turn 流末端(`done` 之前);res.finished() = 流读完
+// = 已落库。
 async function sendOk(
   page: Page, request: APIRequestContext,
   input: ReturnType<Page['getByTestId']>, q: string,
 ): Promise<void> {
-  const recorded = page.waitForResponse((r) =>
-    r.url().includes('/dialogs') && r.status() === 204, { timeout: 20_000 });
+  const turnDone = page.waitForResponse((r) =>
+    r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
   await scriptMockReplyText(request, 'A real, grounded answer.');
   await input.fill(q);
   await input.press('Enter');
-  await recorded;
+  await (await turnDone).finished();
 }

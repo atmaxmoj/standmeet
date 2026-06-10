@@ -72,12 +72,11 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
         await skip.click();
       }
 
-      // Pre-register dialog response wait BEFORE pressing Enter — the POST
-      // /dialogs is fire-and-forget right after finalizeTurn; if we wait
-      // for answer-body first then attach the listener, the response can
-      // already have flown by (registration-after-action race).
-      const dialogResponsePromise = page.waitForResponse((res) =>
-        res.url().includes('/dialogs') && res.status() === 204,
+      // #28: backend 拥有这一轮,落库在 /agent/turn 流末端(`done` 帧之前)。
+      // 提问前挂住这条 SSE 响应,res.finished() resolve = 流读完 = done 之后 =
+      // 已落库,此后查 transcript 必见 cited refs。Enter 前挂避免 register-after-action。
+      const turnDone = page.waitForResponse((res) =>
+        res.url().includes('/agent/turn') && res.status() === 200,
         { timeout: 20_000 },
       );
 
@@ -94,9 +93,9 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
       await expect(page.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 20_000 });
 
-      // Wait until the dialog record endpoint completes so the transcript
-      // query below sees the assistant message + cited refs (D-5 fix).
-      await dialogResponsePromise;
+      // 等这轮 SSE 流读完(= backend 已 sink 进 DB),transcript 查询才看得到
+      // assistant message + cited refs。
+      await (await turnDone).finished();
 
       expect(conversationID).not.toBe('');
 

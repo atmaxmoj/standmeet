@@ -45,10 +45,10 @@ test.describe('刷新后对话历史恢复', () => {
       const page = await ctx.newPage();
       await enterCodeSession(page, CODE);
 
-      // 提问前挂 /dialogs 落库的 wait(turn 落地后 fire-and-forget);要等它落完
-      // 再 reload,否则历史还没写进 DB。
-      const dialogRecorded = page.waitForResponse((res) =>
-        res.url().includes('/dialogs') && res.status() === 204, { timeout: 20_000 });
+      // #28: backend 落库在 /agent/turn 流末端(`done` 之前)。提问前挂这条 SSE
+      // 响应,res.finished() = 流读完 = 已落库;等它再 reload,否则历史还没进 DB。
+      const turnDone = page.waitForResponse((res) =>
+        res.url().includes('/agent/turn') && res.status() === 200, { timeout: 20_000 });
 
       const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill(QUESTION);
@@ -57,7 +57,7 @@ test.describe('刷新后对话历史恢复', () => {
         timeout: 20_000,
       });
       const answerBefore = await page.locator('[data-testid="answer-body"]').innerText();
-      await dialogRecorded;
+      await (await turnDone).finished();
 
       // reload:纯内存 transcript 空掉,history endpoint 拉回重建。
       await page.reload();

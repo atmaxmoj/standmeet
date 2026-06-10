@@ -81,11 +81,13 @@ function rowFor(page: Page, path: string) {
 async function askAndRecord(
   page: Page, input: ReturnType<Page['getByTestId']>, q: string,
 ): Promise<void> {
-  const recorded = page.waitForResponse((r) =>
-    r.url().includes('/dialogs') && r.status() === 204, { timeout: 20_000 });
+  // #28: backend 落库在 /agent/turn 流末端(`done` 之前);res.finished() = 流
+  // 读完 = 已落库。这条 SSE 屏障替代旧的 /dialogs 落库等待。
+  const turnDone = page.waitForResponse((r) =>
+    r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
   await input.fill(q);
   await input.press('Enter');
-  await recorded;
+  await (await turnDone).finished();
 }
 
 // expandRefsContaining —— references 默认折叠;展开含 path 那条的 details。

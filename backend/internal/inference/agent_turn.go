@@ -78,8 +78,12 @@ type AgentTurnInput struct {
 	// loop，不再多转一轮 LLM (ask_visitor 这种 echo-only tool 用)。
 	// nil / 空 map = 全部 tool 走默认 react 循环。
 	ReturnDirectly map[string]bool
-	Mode           string
-	Tools          []tool.BaseTool
+	// Persist —— #28: 落库 port。loop 收尾(AI 答出内容时)把累计的 TurnResult
+	// sink 进 conversation 表。nil = 不落(无 conversation 的无状态 smoke 调用)。
+	// caller (route handler) 注入走 RecordDialog 的闭包;inference 不碰 DB。
+	Persist PersistFunc
+	Mode    string
+	Tools   []tool.BaseTool
 }
 
 // RunAgentTurn —— 跑一整轮 agent loop，向 w 写 pi-style SSE。caller (route
@@ -90,7 +94,10 @@ func RunAgentTurn(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter, in *AgentTurnInput,
 ) {
 	timeout := agentTurnTimeout()
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	// #28: detached ctx —— loop 跑在脱离请求的 context 上,客户端断开(刷新/关页)
+	// 不再取消它。流照样流完、流末端照样 sink 进 DB。timeout 仍兜上限(超了取消
+	// in-flight LLM call)。显示 sink 写浏览器失败无所谓(连接没了),只记日志不中断。
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	defer cancel()
 	ctx = withLLMLog(ctx, log) // so the retry transport (http_retry.go) can log
 	start := time.Now()
@@ -112,7 +119,11 @@ func RunAgentTurn(
 	}
 	setStreamSSEHeaders(w)
 	extendStreamWriteDeadline(log, w, timeout)
-	DriveAgentLoop(ctx, log, in, iter, sink)
+	// accumSink tee 显示 sink + 流末端累计;收尾(Done 前)把这一轮 sink 进 DB
+	// (detached ctx,客户端断开也落)。落在 Done 之前 → `done` 帧代表已提交。
+	acc := newAccumSink(sink)
+	acc.onDone = func() { persistTurn(ctx, log, in, acc) }
+	DriveAgentLoop(ctx, log, in, iter, acc)
 
 	dur := time.Since(start)
 	logAgentTurnEnd(ctx, log, dur, timeout)

@@ -22,6 +22,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func (h *Handlers) agentTurn() http.HandlerFunc {
@@ -48,6 +49,9 @@ func runAgentTurn(
 		writeLLMPreStreamErr(h, w, cerr)
 		return
 	}
+	if !preflightAgentTurnQuota(r, h, auth, w, req.ConversationID) {
+		return
+	}
 	ts := collectVisitorTools(r.Context(), h, auth, req.ConversationID)
 	defer closeBindings(ts.Bindings)
 	inference.RunAgentTurn(r.Context(), h.Log, w, &inference.AgentTurnInput{
@@ -56,7 +60,50 @@ func runAgentTurn(
 		ProgressLabels: ts.Labels,
 		ReturnDirectly: ts.ReturnDirectly,
 		Mode:           auth.Data.Mode,
+		Persist:        buildAgentTurnPersist(h, auth, req.ConversationID),
 	})
+}
+
+// preflightAgentTurnQuota —— #28: 落库挪到 /agent/turn 后,配额也在这查
+// (pre-stream,清晰 4xx,跟原 /dialogs 一致)。检查 conversation 状态 +
+// turns/session。convID 空(无状态 smoke 调用)跳过。返 false = 已写错误响应、
+// caller 收手。
+func preflightAgentTurnQuota(
+	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
+) bool {
+	if convID == "" {
+		return true
+	}
+	qerr := usecases.EnforceTurnQuota(r.Context(), &h.Visitor,
+		&usecases.TurnQuotaInput{OwnerID: auth.Data.OwnerID, ConversationID: convID})
+	if qerr != nil {
+		handleVisitorErr(h.Log, w, qerr)
+		return false
+	}
+	return true
+}
+
+// buildAgentTurnPersist —— 注入给 inference 的落库 port。把后端累计出的
+// TurnResult 走现有 RecordDialog sink 进 conversation 表(cited id → Citation
+// VO、两行 messages 原子)。convID 空 → nil(不落)。ctx 由 inference 传(detached,
+// 客户端断开也活)。
+func buildAgentTurnPersist(
+	h *Handlers, auth authedVisitor, convID string,
+) inference.PersistFunc {
+	if convID == "" {
+		return nil
+	}
+	ownerID := auth.Data.OwnerID
+	return func(ctx context.Context, res *inference.TurnResult) error {
+		return usecases.RecordDialog(ctx, &usecases.DialogDeps{
+			Chats: h.Visitor.Chats, Corpus: h.Corpus, Log: h.Log,
+		}, &usecases.RecordDialogInput{
+			OwnerID: ownerID, ConversationID: convID,
+			Question: res.Question, Answer: res.Answer,
+			CitedWikiIDs: res.CitedWikiIDs, CitedOutputIDs: res.CitedOutputIDs,
+			ToolCalls: res.ToolCalls,
+		})
+	}
 }
 
 // visitorToolset —— collectVisitorTools 返回打包，避免 revive func-result

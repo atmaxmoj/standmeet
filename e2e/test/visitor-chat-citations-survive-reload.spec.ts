@@ -45,11 +45,12 @@ test.describe('引用属于会话聚合,刷新后仍在', () => {
     const page = await ctx.newPage();
     await enterCodeSession(page, CODE, 'Cora');
 
-    const dialogRecorded = page.waitForResponse((r) =>
-      r.url().includes('/dialogs') && r.status() === 204, { timeout: 20_000 });
     const input = page.locator('[data-testid="chat-input-field"]');
     await input.fill('tell me about lucerna');
     await input.press('Enter');
+    // answer-body 渲出 = 收到 `done` 帧 = backend 已把这轮(含 cited_*)sink 进
+    // DB(persist 在 done 之前),此后 reload 必见。#28 起 citation 由 backend
+    // 从 corpus_read 流末端自己扒,不再靠前端 /dialogs。
     await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
 
     // live:references 默认折叠,展开后引用指向 /wiki/projects/lucerna。
@@ -57,7 +58,6 @@ test.describe('引用属于会话聚合,刷新后仍在', () => {
     const cite = page.locator(`[data-testid="citation-row"][data-citation-path="${TARGET_PATH}"]`);
     await expect(cite).toBeVisible({ timeout: 20_000 });
     await expect(cite).toHaveAttribute('href', `/wiki/${TARGET_PATH}`);
-    await dialogRecorded;
 
     // reload → 聚合重建 transcript,引用必须从后端 cited_* 解析回来,不能丢。
     await page.reload();

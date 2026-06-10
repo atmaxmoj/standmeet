@@ -60,14 +60,15 @@ test.describe('turn 计数以后端 conversation 为唯一 source of truth', () 
     const page = await ctx.newPage();
     await enterCodeSession(page, CODE, NAME);
 
-    // 问一句 → 后端落 1 条 visitor turn,strip 走到 1。
-    const dialogRecorded = page.waitForResponse((r) =>
-      r.url().includes('/dialogs') && r.status() === 204, { timeout: 20_000 });
+    // 问一句 → 后端落 1 条 visitor turn,strip 走到 1。#28: 落库在 /agent/turn
+    // 流末端(`done` 之前);res.finished() = 流读完 = 已落库。
+    const turnDone = page.waitForResponse((r) =>
+      r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
     const input = page.locator('[data-testid="chat-input-field"]');
     await input.fill(QUESTION);
     await input.press('Enter');
     await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
-    await dialogRecorded;
+    await (await turnDone).finished();
     await expect(page.locator(USED_SEL)).toHaveText('1', { timeout: 10_000 });
 
     // 人为把 localStorage 的 used 搞脏(模拟客户端缓存跟后端 desync)。
