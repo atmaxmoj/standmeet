@@ -9,7 +9,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -47,6 +46,7 @@ type writingView struct {
 	Visibility        string            `json:"visibility"`
 	Path              string            `json:"path"`
 	LockedBody        string            `json:"locked_body"`
+	ParentID          string            `json:"parent_id"`
 	AssetURLs         map[string]string `json:"asset_urls"`
 	Tags              []string          `json:"tags"`
 	CrossRefs         []string          `json:"cross_refs"`
@@ -67,6 +67,7 @@ type writingSaveRequest struct {
 	CoverHue      string   `json:"cover_hue"`
 	Visibility    string   `json:"visibility"`
 	LockedBody    string   `json:"locked_body"`
+	ParentID      string   `json:"parent_id"`
 	Tags          []string `json:"tags"`
 	CrossRefs     []string `json:"cross_refs"`
 	Publish       bool     `json:"publish"`
@@ -137,6 +138,12 @@ func resolveWritingAssetURLs(r *http.Request, h *Handlers, wg *domain.Writing) m
 	return urls
 }
 
+// writingParentIDOr —— parent id 或 ""(root)。editor 回填「设父」用。
+func writingParentIDOr(wg *domain.Writing) string {
+	pid, _ := wg.ParentID()
+	return pid
+}
+
 func toWritingView(wg *domain.Writing) writingView {
 	var pubAtPtr *time.Time
 	if pub, ok := wg.PublishedAt(); ok {
@@ -149,6 +156,7 @@ func toWritingView(wg *domain.Writing) writingView {
 		CoverHue: wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
 		Tags: wg.Tags(), Visibility: wg.VisibilityMode(), CrossRefs: wg.CrossRefs(),
 		Path: wg.Path(), ReadMinutes: wg.ReadMinutes(), LockedBody: wg.LockedBody(),
+		ParentID:    writingParentIDOr(wg),
 		Published:   wg.IsPublished(),
 		PublishedAt: usecases.PublishedAtRFC3339(pubAtPtr),
 		CreatedAt:   wg.CreatedAt().Format(timeFmt),
@@ -215,23 +223,26 @@ func buildSaveWritingInput(
 		CoverSub: req.CoverSub, CoverHue: req.CoverHue,
 		Visibility: req.Visibility, LockedBody: req.LockedBody,
 		Tags: req.Tags, CrossRefs: req.CrossRefs, Files: files,
-		Publish: req.Publish,
+		ParentID: req.ParentID, Publish: req.Publish,
 	}
 }
 
+var saveWritingErrCases = []apierr.Case{
+	{Match: usecases.ErrEmptyField, Envelope: envBadReq("owner_id, slug, title required")},
+	{Match: domain.ErrWritingSlugTaken, Envelope: apierr.Envelope{
+		Status: http.StatusConflict, Code: "writing_slug_taken",
+		Message: "writing slug already taken",
+	}},
+	{Match: domain.ErrParentNotFound, Envelope: envBadReq("parent writing not found")},
+	{Match: domain.ErrParentCycle, Envelope: envBadReq("parent would create a cycle")},
+}
+
 func handleSaveWritingErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, usecases.ErrEmptyField):
-		writeError(log, w, envBadReq("owner_id, slug, title required"))
-	case errors.Is(err, domain.ErrWritingSlugTaken):
-		writeError(log, w, apierr.Envelope{
-			Status: http.StatusConflict, Code: "writing_slug_taken",
-			Message: "writing slug already taken",
-		})
-	default:
-		logEncodeErr(log, "save writing", err)
-		writeError(log, w, serverErr())
+	env := apierr.Classify(err, saveWritingErrCases)
+	if env.Status >= http.StatusInternalServerError {
+		log.Error("save writing", "err", err)
 	}
+	writeError(log, w, env)
 }
 
 func writeSavedWriting(

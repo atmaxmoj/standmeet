@@ -25,6 +25,33 @@ func validateWritingParent(ctx context.Context, deps WritingsTxDeps, in *SaveWri
 		}
 		return fmt.Errorf("validate writing parent: %w", err)
 	}
+	// reparent(update 改父):防环 —— 不能把节点挂到自己或自己的子孙下。
+	if in.WritingID != "" {
+		return checkNoWritingParentCycle(ctx, deps, in.OwnerID, in.WritingID, in.ParentID)
+	}
+	return nil
+}
+
+// checkNoWritingParentCycle —— 从拟定 parent 沿 parent 链上溯,撞到 nodeID → 环。
+// 跟 wiki checkNoParentCycle 同口径。
+func checkNoWritingParentCycle(
+	ctx context.Context, deps WritingsTxDeps, ownerID, nodeID, parentID string,
+) error {
+	cur := parentID
+	for range treeMaxDepth {
+		if cur == nodeID {
+			return domain.ErrParentCycle
+		}
+		wg, err := deps.Writings.GetByID(ctx, ownerID, cur)
+		if err != nil {
+			return fmt.Errorf("writing cycle check: %w", err)
+		}
+		pid, ok := wg.ParentID()
+		if !ok {
+			return nil
+		}
+		cur = pid
+	}
 	return nil
 }
 

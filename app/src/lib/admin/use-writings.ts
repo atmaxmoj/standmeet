@@ -18,6 +18,7 @@ export const AdminWritingViewSchema = z.object({
   tags: z.array(z.string()), visibility: z.enum(['public', 'private']),
   cross_refs: z.array(z.string()), path: z.string(), read_minutes: z.number(),
   locked_body: z.string(), published: z.boolean(),
+  parent_id: z.string().optional(),
   published_at: z.string().optional(), created_at: z.string(), updated_at: z.string(),
   asset_urls: z.record(z.string(), z.string()).optional(),
 });
@@ -38,6 +39,7 @@ export interface WritingSaveData {
   cover_hue: 'amber' | 'violet' | 'acid';
   visibility: 'public' | 'private';
   locked_body: string;
+  parent_id?: string;
   tags: string[];
   cross_refs: string[];
   publish?: boolean;

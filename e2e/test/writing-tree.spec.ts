@@ -94,7 +94,20 @@ test.describe('reader writing 树端点:published 进树 + private 显示成 loc
   // ── reader surface:真浏览器(/writings 树 + 文章页 breadcrumb)──
   test('reader sidebar:/writings 懒展开 + private 标 locked', readerSidebar);
   test('reader 文章页:/writings/sub-post breadcrumb 显示祖先 Essays(可点)', articleBreadcrumb);
+
+  // ── admin reparent:改父防环(把 essays 挂到自己子 sub 下 → 拒绝)──
+  test('admin reparent 成环 → 400(essays 挂到子 sub-post 下被拒)', adminReparentCycle);
 });
+
+// adminReparentCycle —— admin PATCH 把 essays 的 parent 设成它的子 sub → cycle 400。
+async function adminReparentCycle({ request }: { request: APIRequestContext }): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const res = await request.patch(`/api/admin/writings/${ids['essays']}`, {
+    headers: { 'X-Csrftoken': csrf },
+    multipart: { data: JSON.stringify({ title: 'Essays', parent_id: ids['sub'] }) },
+  });
+  expect(res.status()).toBe(400);
+}
 
 interface TreeContext { ancestors: WNode[]; children: WNode[] }
 
