@@ -8,7 +8,6 @@ import { useCallback } from 'react';
 
 import { ActivityTicker } from '@/components/admin/chrome/ActivityTicker';
 import { Pill } from '@/components/admin/atoms/Pill';
-import { ACTIVITY_PLACEHOLDER } from '@/lib/admin/chrome-data';
 import { signOut } from '@/lib/admin/sign-out';
 
 type Props = {
@@ -24,7 +23,7 @@ export function TopBar({ handle, email, buildTag = DEFAULT_BUILD }: Props) {
   return (
     <header className="flex items-center px-6 lg:px-8 h-14 border-b border-(--color-rule) shrink-0 gap-4">
       <TopBarBrand handle={handle} />
-      <ActivityTicker items={ACTIVITY_PLACEHOLDER} />
+      <ActivityTicker />
       <TopBarMeta email={email} buildTag={buildTag} onSignOut={onSignOut} />
     </header>
   );

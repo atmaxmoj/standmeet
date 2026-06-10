@@ -66,8 +66,8 @@ function RequestHeadline({
         Tell {handle} who you are<span className="text-(--color-accent)">.</span>
       </h2>
       <p className="reading text-(--color-muted) mt-3 text-[15.5px]">
-        A short note. If it&rsquo;s useful to talk — through the AI or in person — they&rsquo;ll send
-        you back a code in a day or two. Read by hand, not a queue.
+        A short note. If it&rsquo;s useful to talk — through the AI or in person — they may send
+        you a code. Read by hand, not a queue.
       </p>
       <OpenButton show={!open && !sent} onOpen={onOpen} />
     </div>
@@ -180,7 +180,7 @@ function FormFooter({ why: _why, busy, valid }: { why: string; busy: boolean; va
   return (
     <div className="flex items-center justify-between pt-2">
       <span className="mono text-[10px] tracking-[0.12em] text-(--color-faint)">
-        goes straight to the owner · expect 1–3 days
+        goes straight to the owner · read by hand
       </span>
       <button
         type="submit"
@@ -200,10 +200,10 @@ function SentConfirmation({ name, email }: { name: string; email: string }) {
     <div className="rise" data-testid="request-sent">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-accent) mb-3">sent</div>
       <p className="reading text-(--color-ink) text-[17px]">
-        Thanks, {first}. The owner reads this themselves.
-        {' '}If they send you a code, it&rsquo;ll arrive at{' '}
-        <span className="text-(--color-accent)">{email}</span> with a note about which slice of the
-        corpus they&rsquo;re giving you access to.
+        Thanks, {first}. The owner reads these by hand &mdash; no bot, no queue.
+        {' '}If it&rsquo;s a fit, they&rsquo;ll reach out to{' '}
+        <span className="text-(--color-accent)">{email}</span> themselves with a code and which
+        slice of the corpus it opens.
       </p>
       <p className="reading text-(--color-muted) mt-4 text-[15.5px]">
         Not every note gets a reply. If you don&rsquo;t hear back in a week, that&rsquo;s the reply.

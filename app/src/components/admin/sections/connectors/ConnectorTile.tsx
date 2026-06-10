@@ -1,17 +1,20 @@
-// ConnectorTile —— 单个 connector 卡。connect / manage 按钮只动 local state。
-
-import { Btn } from '@/components/admin/atoms/Btn';
+// ConnectorTile —— 单个 connector 卡(catalog 预览)。后端未接 → 全是 coming
+// soon,不可连接、不假装 connected。Calendar(唯一真接通)走独立
+// CalendarConnectorPanel,不在这张列表里。
 
 import type { ConnectorView } from '@/lib/admin/use-connectors';
 
-type Props = { connector: ConnectorView; onToggle: () => void };
+type Props = { connector: ConnectorView };
 
-export function ConnectorTile({ connector, onToggle }: Props) {
+export function ConnectorTile({ connector }: Props) {
   return (
-    <article className="border border-(--color-rule) p-5 rounded-sm bg-(--color-surface)/30 flex flex-col">
+    <article
+      className="border border-(--color-rule) p-5 rounded-sm bg-(--color-surface)/30 flex flex-col"
+      data-testid={`connector-tile-${connector.id}`}
+    >
       <TileHead connector={connector} />
       <p className="reading-tight text-(--color-muted) mb-4 text-[14.5px]">{connector.note}</p>
-      <TileFoot connector={connector} onToggle={onToggle} />
+      <TileFoot />
     </article>
   );
 }
@@ -20,46 +23,20 @@ function TileHead({ connector }: { connector: ConnectorView }) {
   return (
     <div className="flex items-baseline justify-between mb-2">
       <h3 className="font-serif text-(--color-ink) text-[19px] font-medium">{connector.name}</h3>
-      <Status connected={connector.connected} />
+      <span className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-faint)">
+        ○ coming soon
+      </span>
     </div>
   );
 }
 
-function Status({ connected }: { connected: boolean }) {
-  const cls = connected ? 'text-(--color-accent)' : 'text-(--color-faint)';
-  return (
-    <span className={`mono text-[10px] tracking-[0.16em] uppercase ${cls}`}>
-      {connected ? '● connected' : '○ coming soon'}
-    </span>
-  );
-}
-
-function TileFoot({ connector, onToggle }: { connector: ConnectorView; onToggle: () => void }) {
+function TileFoot() {
   return (
     <div className="mt-auto pt-3 border-t border-(--color-rule)/60 flex items-baseline justify-between gap-3">
-      <FootMeta connector={connector} />
-      <Btn size="sm" kind={connector.connected ? 'ghost' : 'outline'} onClick={onToggle}>
-        {connector.connected ? 'manage' : 'connect ↗'}
-      </Btn>
+      <span className="mono text-[10.5px] tracking-[0.06em] text-(--color-faint)">not yet wired</span>
+      <span className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-faint) border border-(--color-rule) px-2.5 py-1 cursor-default">
+        soon
+      </span>
     </div>
   );
-}
-
-function FootMeta({ connector }: { connector: ConnectorView }) {
-  return (
-    <div className="mono text-[10.5px] tracking-[0.06em] text-(--color-muted) min-w-0">
-      <AccountLine account={connector.account} />
-      <EventLine event={connector.last_event} />
-    </div>
-  );
-}
-
-function AccountLine({ account }: { account?: string }) {
-  return account
-    ? <div>{account}</div>
-    : <div className="text-(--color-faint)">no account linked</div>;
-}
-
-function EventLine({ event }: { event?: string }) {
-  return event ? <div className="text-(--color-faint)">{event}</div> : null;
 }

@@ -1,12 +1,10 @@
 // ConnectorsSection —— /admin/connectors。
 //
-// 设计源 docs/design/project/admin.js ConnectorsSection (2115-2179)。
-// 顶部 "+ add connector" 按钮 + "N more available in catalog" 提示；
-// 点开走 ConnectorAddModal → 分类 tab → 卡片 → ConnectorConfigForm
-// 动态 render fields[]。加新 connector 只需要给 connector-registry 加
-// 一条 entry（GCal booking 之后照此模板，不动 component code）。
-//
-// 已 install 的 connector 仍走老 toggle 列表（local state，无 backend）。
+// 设计源 docs/design/project/admin.js ConnectorsSection。**Calendar 是唯一真
+// 接通的**(独立 CalendarConnectorPanel)。其余(Gmail / Slack / Telegram /
+// Discord)后端未接 —— catalog 预览,标 coming soon,**不假装 connected**。
+// "+ add connector" 也只是 catalog 浏览,不会真 install(等后端接通再走 POST
+// /api/admin/connectors)。
 
 'use client';
 
@@ -22,18 +20,14 @@ import { catalogSize } from '@/lib/admin/connector-registry';
 export function ConnectorsSection() {
   const hook = useConnectors();
   const [showAdd, setShowAdd] = useState(false);
-  const installed = hook.connectors.filter((c) => c.connected).map((c) => c.id);
-  const onConnect = useCallback((id: string, _values: Record<string, string>) => {
-    // backend 未通：先把 tile 翻 on，让 UI 显示已装。GCal 真接通后这里
-    // 走 POST /api/admin/connectors。
-    hook.toggle(id);
-  }, [hook]);
+  // 后端未接 —— catalog 浏览不真 install(不写假 connected 状态)。
+  const onConnect = useCallback(() => {}, []);
   return (
     <>
       <SectionHeader
         kicker="integrations"
         title="connectors"
-        count={titleCount(hook)}
+        count={`calendar live · ${catalogSize()} more in catalog`}
         action={<AddBtn onOpen={() => setShowAdd(true)} />}
       />
       <Intro />
@@ -42,11 +36,7 @@ export function ConnectorsSection() {
       </div>
       <Grid hook={hook} onBrowse={() => setShowAdd(true)} />
       {showAdd && (
-        <ConnectorAddModal
-          installed={installed}
-          onClose={() => setShowAdd(false)}
-          onConnect={onConnect}
-        />
+        <ConnectorAddModal installed={[]} onClose={() => setShowAdd(false)} onConnect={onConnect} />
       )}
     </>
   );
@@ -60,22 +50,17 @@ function AddBtn({ onOpen }: { onOpen: () => void }) {
       data-testid="connector-add-open"
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
-      + add connector
+      + browse catalog
     </button>
   );
-}
-
-function titleCount(hook: ConnectorsHook): string {
-  const on = hook.connectors.filter((c) => c.connected).length;
-  return `${on} installed · ${catalogSize()} in catalog`;
 }
 
 function Intro() {
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Connectors pull from external sources (Gmail / Calendar / Slack) into your raw
-      inbox, and let visitors chat with you from inside IM apps. Add new ones from the
-      catalog; existing ones below can be toggled on/off.
+      Connectors pull from external sources (Gmail / Slack) and let visitors chat from
+      inside IM apps. Calendar is live below; the rest are on the way — this is a preview
+      of what&rsquo;s coming, not yet wired.
     </p>
   );
 }
@@ -84,7 +69,7 @@ function Grid({ hook, onBrowse }: { hook: ConnectorsHook; onBrowse: () => void }
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
       {hook.connectors.map((c) => (
-        <ConnectorTile key={c.id} connector={c} onToggle={() => hook.toggle(c.id)} />
+        <ConnectorTile key={c.id} connector={c} />
       ))}
       <BrowseCatalogCard onClick={onBrowse} />
     </div>
