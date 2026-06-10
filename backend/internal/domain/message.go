@@ -10,7 +10,9 @@ package domain
 
 import "time"
 
-// Message —— conversation 内一条消息 row。
+// Message —— conversation 内一条消息 row。ToolCalls 是 assistant 那条本轮跑过的
+// tool 调用(opaque jsonb,前端 [{name,ok,result}] 原样存取),属于这段对话的
+// 一部分:owner 回看 / visitor 续看都要看见 AI search 了啥、read 了哪篇。
 type Message struct {
 	CreatedAt      time.Time
 	ID             string
@@ -19,4 +21,5 @@ type Message struct {
 	Body           string
 	CitedWikiIDs   []string
 	CitedOutputIDs []string
+	ToolCalls      []byte
 }

@@ -21,13 +21,24 @@ type Dialog struct {
 	Question  string
 	Answer    string
 	Citations []Citation
+	ToolCalls []byte
+}
+
+// DialogInit —— NewDialog 入参(打包避开 argument-limit)。
+type DialogInit struct {
+	CreatedAt time.Time
+	ChatID    string
+	Question  string
+	Answer    string
+	Citations []Citation
+	ToolCalls []byte
 }
 
 // NewDialog —— 构造 dialog (createdAt 用调用方传入的时间，便于测试 + 持
-// 久层回灌)。
-func NewDialog(chatID, question, answer string, cites []Citation, at time.Time) Dialog {
+// 久层回灌)。ToolCalls 是 assistant 本轮跑过的 tool 调用(opaque jsonb)。
+func NewDialog(in *DialogInit) Dialog {
 	return Dialog{
-		ChatID: chatID, Question: question, Answer: answer,
-		Citations: cites, CreatedAt: at,
+		ChatID: in.ChatID, Question: in.Question, Answer: in.Answer,
+		Citations: in.Citations, ToolCalls: in.ToolCalls, CreatedAt: in.CreatedAt,
 	}
 }

@@ -7,7 +7,7 @@
 // 失败不阻塞 UX (visitor 已经看到 reply)，logger.warn 即可。
 
 import { logger } from '@/lib/logger';
-import type { Citation } from '@/lib/page/use-chat';
+import type { Citation, ToolCallView } from '@/lib/page/use-chat';
 
 interface DialogSession {
   conversationID: string;
@@ -17,6 +17,8 @@ interface DialogSession {
 interface DialogPayload {
   body: string;
   citations: readonly Citation[];
+  // toolCalls —— 本轮 AI 跑过的 tool 调用,随 dialog 一起落库(属于这段对话)。
+  toolCalls: readonly ToolCallView[];
 }
 
 export async function recordDialog(
@@ -37,6 +39,7 @@ export async function recordDialog(
           answer: payload.body,
           cited_wiki_ids: wikiIDs,
           cited_output_ids: outputIDs,
+          tool_calls: payload.toolCalls,
         }),
       },
     );

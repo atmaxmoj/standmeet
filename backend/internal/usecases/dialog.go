@@ -47,6 +47,7 @@ type RecordDialogInput struct {
 	Answer         string
 	CitedWikiIDs   []string
 	CitedOutputIDs []string
+	ToolCalls      []byte
 }
 
 // RecordDialog —— cited id 反查成 Citation → 构造 Dialog → ChatRepo.AppendDialog
@@ -58,7 +59,10 @@ func RecordDialog(
 		return appendVisitorOnly(ctx, deps, in)
 	}
 	cites := resolveCitations(ctx, deps, in)
-	dlg := domain.NewDialog(in.ConversationID, in.Question, in.Answer, cites, time.Now())
+	dlg := domain.NewDialog(&domain.DialogInit{
+		ChatID: in.ConversationID, Question: in.Question, Answer: in.Answer,
+		Citations: cites, ToolCalls: in.ToolCalls, CreatedAt: time.Now(),
+	})
 	if _, err := deps.Chats.AppendDialog(ctx, in.ConversationID, &dlg); err != nil {
 		return fmt.Errorf("append dialog: %w", err)
 	}

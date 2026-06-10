@@ -105,7 +105,7 @@ function pickUsed(curUsed: number, usedBefore: number, snapUsed: number): number
 function toDialogs(v: VisitorView): Dialog[] {
   return v.dialogs.map((d, i): Dialog => ({
     id: `h${i}`, q: d.question, time: '', pending: false,
-    currentTool: null, toolCalls: [], retrying: false,
+    currentTool: null, toolCalls: [...d.tool_calls], retrying: false,
     answer: {
       paras: splitParas(d.answer), citations: toCitations(d.citations),
       private: false, byoaiBlocked: false,

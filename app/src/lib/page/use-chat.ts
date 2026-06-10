@@ -198,7 +198,7 @@ async function runAsk(
     // 失败/掐断(含 401 session 失效)→ 不计数,revalidate 收口:会话若死了就
     // 清身份回入口,免得 strip 还显旧名字 + 旧配额。
     if (turnSucceeded(accum)) {
-      void recordDialog(sess, q, { body: accum.body, citations: accum.citations });
+      void recordDialog(sess, q, { body: accum.body, citations: accum.citations, toolCalls: accum.toolCalls });
       bumpVisitorQuota();
     } else void revalidateSession(sess.conversationID, sess.sessionToken);
   } catch (e) {

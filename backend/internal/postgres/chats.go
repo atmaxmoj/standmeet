@@ -258,6 +258,7 @@ func toDomainMessage(m *dbq.Message) domain.Message {
 		Body:           m.Body,
 		CitedWikiIDs:   formatUUIDList(m.CitedWikiIds),
 		CitedOutputIDs: formatUUIDList(m.CitedOutputIds),
+		ToolCalls:      m.ToolCalls,
 		CreatedAt:      m.CreatedAt.Time,
 	}
 }

@@ -29,11 +29,12 @@ type citationResp struct {
 }
 
 type dialogResp struct {
-	CreatedAt string         `json:"created_at"`
-	Question  string         `json:"question"`
-	Answer    string         `json:"answer"`
-	Ghosts    []ghostResp    `json:"ghosts"`
-	Citations []citationResp `json:"citations"`
+	CreatedAt string          `json:"created_at"`
+	Question  string          `json:"question"`
+	Answer    string          `json:"answer"`
+	Ghosts    []ghostResp     `json:"ghosts"`
+	Citations []citationResp  `json:"citations"`
+	ToolCalls json.RawMessage `json:"tool_calls"`
 }
 
 type conversationResp struct {
@@ -119,6 +120,7 @@ func toDialogResps(ds []usecases.ConvDialog) []dialogResp {
 			Answer:    ds[i].Answer,
 			Ghosts:    toGhostResps(ds[i].Ghosts),
 			Citations: toCitationResps(ds[i].Citations),
+			ToolCalls: rawOrEmptyArray(ds[i].ToolCalls),
 		}
 	}
 	return out
@@ -146,4 +148,13 @@ func fmtTimePtr(t *time.Time) *string {
 	}
 	s := t.Format(time.RFC3339)
 	return &s
+}
+
+// rawOrEmptyArray —— 存的 tool_calls 为空(老 dialog / 没用 tool)→ 回 [],
+// 让前端拿到合法数组而不是 null。
+func rawOrEmptyArray(b []byte) json.RawMessage {
+	if len(b) == 0 {
+		return json.RawMessage("[]")
+	}
+	return json.RawMessage(b)
 }

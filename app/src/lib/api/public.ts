@@ -95,12 +95,18 @@ const DialogCitationSchema = z.object({
   path: z.string(),
   title: z.string(),
 });
+const ToolCallSchema = z.object({
+  name: z.string(),
+  ok: z.boolean(),
+  result: z.unknown(),
+});
 const AggDialogSchema = z.object({
   created_at: z.string(),
   question: z.string(),
   answer: z.string(),
   ghosts: z.array(GhostSchema),
   citations: z.array(DialogCitationSchema),
+  tool_calls: z.array(ToolCallSchema),
 });
 const ViewSchema = z.object({
   session: z.object({

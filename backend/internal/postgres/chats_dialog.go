@@ -43,7 +43,7 @@ func (r *ChatRepo) AppendDialog(
 	}
 	return r.runAppendDialogTx(ctx, &appendDialogTxArgs{
 		ChatUUID: chatUUID, Q: dialog.Question, A: dialog.Answer,
-		WikiUUIDs: wikiUUIDs, OutputUUIDs: outputUUIDs,
+		WikiUUIDs: wikiUUIDs, OutputUUIDs: outputUUIDs, ToolCalls: dialog.ToolCalls,
 	})
 }
 
@@ -55,6 +55,7 @@ type appendDialogTxArgs struct {
 	A           string
 	WikiUUIDs   []pgtype.UUID
 	OutputUUIDs []pgtype.UUID
+	ToolCalls   []byte
 	ChatUUID    pgtype.UUID
 }
 
@@ -90,6 +91,7 @@ func runAppendDialogQueries(
 	asst, aerr := q.AppendMessage(ctx, dbq.AppendMessageParams{
 		ConversationID: args.ChatUUID, Role: "assistant", Body: args.A,
 		CitedWikiIds: args.WikiUUIDs, CitedOutputIds: args.OutputUUIDs,
+		ToolCalls: args.ToolCalls,
 	})
 	if aerr != nil {
 		return "", fmt.Errorf("append assistant message: %w", aerr)

@@ -31,10 +31,11 @@ import (
 )
 
 type dialogRequest struct {
-	Question       string   `json:"question"`
-	Answer         string   `json:"answer"`
-	CitedWikiIDs   []string `json:"cited_wiki_ids"`
-	CitedOutputIDs []string `json:"cited_output_ids"`
+	Question       string          `json:"question"`
+	Answer         string          `json:"answer"`
+	CitedWikiIDs   []string        `json:"cited_wiki_ids"`
+	CitedOutputIDs []string        `json:"cited_output_ids"`
+	ToolCalls      json.RawMessage `json:"tool_calls"`
 }
 
 func (h *Handlers) postDialog() http.HandlerFunc {
@@ -108,6 +109,7 @@ func runRecordAndRespond(
 			Answer:         args.Req.Answer,
 			CitedWikiIDs:   args.Req.CitedWikiIDs,
 			CitedOutputIDs: args.Req.CitedOutputIDs,
+			ToolCalls:      args.Req.ToolCalls,
 		},
 	); perr != nil {
 		h.Log.Error("record dialog", "err", perr)

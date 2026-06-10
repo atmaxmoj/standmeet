@@ -36,13 +36,15 @@ type DialogCitation struct {
 	Title string
 }
 
-// ConvDialog —— 一段答完的交换:ghosts → question → answer + 引用 + serverside 时间。
+// ConvDialog —— 一段答完的交换:ghosts → question → answer + 引用 + 本轮 tool
+// 调用(opaque jsonb)+ serverside 时间。
 type ConvDialog struct {
 	CreatedAt time.Time
 	Ghosts    []DialogGhost
 	Question  string
 	Answer    string
 	Citations []DialogCitation
+	ToolCalls []byte
 }
 
 // Conversation / ConvCode / ConvSession / VisitorView 这几个 view 类型拆到
@@ -126,11 +128,12 @@ func loadConversation(
 	}, nil
 }
 
-// dialogAnswer —— visitor 问句后面那条 assistant 答的三件套(避开 3-return）。
+// dialogAnswer —— visitor 问句后面那条 assistant 答的几件套(避开多 return）。
 type dialogAnswer struct {
 	CreatedAt time.Time
 	Body      string
 	Citations []DialogCitation
+	ToolCalls []byte
 }
 
 // pairDialogs —— 每条 visitor 问句配它后面那条 assistant 答;只收 answer 非空的
@@ -145,7 +148,7 @@ func pairDialogs(msgs []domain.Message, r *citationResolver) []ConvDialog {
 		if a.Body != "" {
 			out = append(out, ConvDialog{
 				CreatedAt: a.CreatedAt, Question: msgs[i].Body, Answer: a.Body,
-				Citations: a.Citations, Ghosts: []DialogGhost{},
+				Citations: a.Citations, Ghosts: []DialogGhost{}, ToolCalls: a.ToolCalls,
 			})
 		}
 	}
@@ -156,7 +159,7 @@ func answerAfter(msgs []domain.Message, i int, r *citationResolver) dialogAnswer
 	if i+1 < len(msgs) && msgs[i+1].Role == "assistant" {
 		return dialogAnswer{
 			CreatedAt: msgs[i+1].CreatedAt, Body: msgs[i+1].Body,
-			Citations: r.resolve(&msgs[i+1]),
+			Citations: r.resolve(&msgs[i+1]), ToolCalls: msgs[i+1].ToolCalls,
 		}
 	}
 	return dialogAnswer{Citations: []DialogCitation{}}
