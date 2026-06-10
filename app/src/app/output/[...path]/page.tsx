@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { ChatMarkdown } from '@/components/page/markdown';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
+import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchOutputLanding } from '@/lib/api/public';
@@ -40,7 +41,7 @@ export default async function OutputLandingPage({ params }: { params: Promise<Pa
   const handle = instance.handle;
   return out
     ? <OutputLandingContent out={out} handle={handle} slug={path.join('/')} />
-    : <OutputLockedView slug={path.join('/')} />;
+    : <RestrictedDoc genre="output" slug={path.join('/')} />;
 }
 
 function OutputLandingContent({ out, handle, slug }: {
@@ -93,36 +94,6 @@ function PDFPreviewCard() {
     <div className="border border-(--color-rule) rounded-[3px] bg-(--color-surface)/60 mb-10 aspect-[8.5/11] max-w-[280px] mx-auto flex items-center justify-center">
       <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-faint)">PDF preview</span>
     </div>
-  );
-}
-
-function OutputLockedView({ slug }: { slug: string }) {
-  return (
-    <>
-      <SessionStrip />
-      <main className="pb-24">
-        <div className="mx-auto max-w-2xl px-6 py-24 text-center">
-          <PageHeader />
-          <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-4">
-            output · {slug}
-          </div>
-          <h2 className="font-serif text-[28px] text-(--color-ink) font-normal mb-4">
-            This output requires an access code
-          </h2>
-          <p className="reading text-(--color-muted) text-[16px] max-w-[36em] mx-auto mb-8">
-            The owner has restricted this output. Enter an access code on the gate
-            to download or read the full content.
-          </p>
-          <Link
-            href="/gate"
-            className="mono text-[11px] tracking-[0.16em] uppercase text-(--color-paper) bg-(--color-ink) px-4 py-2.5 inline-block hover:bg-(--color-accent) transition-colors"
-          >
-            enter access code →
-          </Link>
-        </div>
-      </main>
-      <FloatingChatDock />
-    </>
   );
 }
 

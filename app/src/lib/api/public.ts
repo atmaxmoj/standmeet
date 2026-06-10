@@ -108,6 +108,38 @@ export async function fetchHistory(sessionToken: string): Promise<RestoredDialog
   }
 }
 
+// VisitorDoc —— 锁屏页凭 visitor session 走 corpus_read 取回的被引文档全文。
+const VisitorDocSchema = z.object({
+  ok: z.boolean(),
+  result: z.object({ body: z.string(), title: z.string() }),
+});
+export interface VisitorDoc { title: string; body: string }
+
+// fetchVisitorDoc —— 公开 landing 锁屏时,凭访客 session(token + 自己的
+// conversation)走 corpus_read 按 path 取被引文档。ACL 由后端按 role 评估:
+// 授了就回全文,没授 / 无 session → null(留锁屏)。
+export async function fetchVisitorDoc(
+  conversationID: string, sessionToken: string, path: string,
+): Promise<VisitorDoc | null> {
+  try {
+    const res = await fetch(
+      `${baseURL()}/api/v1/sessions/${conversationID}/tools/corpus_read`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ path }),
+      },
+    );
+    if (!res.ok) return null;
+    const parsed = VisitorDocSchema.safeParse(await res.json());
+    return parsed.success && parsed.data.ok && parsed.data.result.body !== ''
+      ? { title: parsed.data.result.title, body: parsed.data.result.body }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export const issuePublicSession = () => client().issueSession({ mode: 'public' });
 export const issueCodeSession = (input: IssueCodeSessionInput) =>
   client().issueSession({ ...input, mode: 'code' });
