@@ -32,6 +32,7 @@ function WikiLabel({ node, active }: { node: TreeNode; active: boolean }) {
       href={`/wiki/${node.path}`}
       className={styles['link']}
       data-active={active ? 'true' : undefined}
+      title={node.title}
     >
       {node.title}
     </Link>
