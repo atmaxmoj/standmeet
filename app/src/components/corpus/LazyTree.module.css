@@ -1,0 +1,57 @@
+/* LazyTree.module.css —— 树 sidebar 版式。对齐设计 wiki.js TreeAside:mono 小字、
+   ▸/▾ toggle、嵌套 <ul> 缩进。缩进靠 .list（嵌套层）的 padding-left,不用 inline
+   style 传 depth。token 走 app 的 --color-*。 */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 嵌套层（NodeItem 里的 Subtree → NodeList）缩进 + 左侧引导线。根层 .list 无缩进。 */
+.item .list {
+  padding-left: 14px;
+  margin-left: 5px;
+  border-left: 1px solid var(--color-rule);
+}
+
+.item {
+  margin: 1px 0;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.toggle {
+  flex: none;
+  width: 14px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--color-muted);
+  background: transparent;
+  border: 0;
+  padding: 2px 0;
+  text-align: left;
+}
+
+.toggle:hover {
+  color: var(--color-accent);
+}
+
+/* leaf —— 无子节点,占住 toggle 的位让 label 对齐。 */
+.leaf {
+  flex: none;
+  width: 14px;
+}
+
+.loading {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--color-faint);
+  padding: 4px 0;
+}

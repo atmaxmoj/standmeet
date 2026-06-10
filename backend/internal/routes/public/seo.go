@@ -21,6 +21,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -31,7 +32,10 @@ import (
 // FirstOwner 返 ok=false → robots Disallow / sitemap 空。
 type SEOHandlers struct {
 	Deps usecases.SEODeps
-	Log  *slog.Logger
+	// Sessions —— 可选;wiki-tree 端点用它把 bearer token 换 RoleSnapshot 做
+	// code-scope。nil(如 MountRoot 那条只挂 robots/sitemap)→ 退到匿名 scope。
+	Sessions *session.VisitorSessionStore
+	Log      *slog.Logger
 }
 
 // Mount 挂 /wiki/* + /output/*。owner 是 sole owner，URL 不带 handle。
@@ -40,6 +44,8 @@ type SEOHandlers struct {
 func (h *SEOHandlers) Mount(r chi.Router) {
 	r.Get("/wiki/*", h.getWikiLanding())
 	r.Get("/output/*", h.getOutputLanding())
+	// wiki-tree —— sidebar 导航的懒加载分层(handler 在 wiki_tree.go)。
+	r.Get("/wiki-tree", h.getWikiTree())
 }
 
 // MountRoot —— /robots.txt + /sitemap.xml 是 SEO 标准约定路径，挂 root。

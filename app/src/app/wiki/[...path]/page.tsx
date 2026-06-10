@@ -17,6 +17,7 @@ import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
+import { WikiTreeAside } from '@/components/visitor/WikiTreeAside';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiLanding } from '@/lib/api/public';
 
@@ -56,16 +57,21 @@ function WikiLandingContent({ wiki, handle, slug }: {
     <>
       <SessionStrip />
       <main className="pb-24" data-testid="wiki-landing">
-        <div className="mx-auto max-w-[920px] px-6 pt-10">
-          <Breadcrumb slug={slug} />
-          <OgCover entry={wiki} seed={slug} />
-          <MetaStrip entry={wiki} handle={handle} />
-        </div>
-        <article className="mx-auto max-w-[680px] px-6 mt-2">
-          <WikiBody body={wiki.body} />
-        </article>
-        <div className="mx-auto max-w-[760px] px-6">
-          <TrustBox handle={handle} />
+        <div className="mx-auto max-w-[1180px] px-6 pt-10 flex gap-12 items-start">
+          <div className="hidden lg:block">
+            <WikiTreeAside activePath={slug} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <Breadcrumb slug={slug} />
+            <OgCover entry={wiki} seed={slug} />
+            <MetaStrip entry={wiki} handle={handle} />
+            <article className="max-w-[680px] mt-2">
+              <WikiBody body={wiki.body} />
+            </article>
+            <div className="max-w-[760px]">
+              <TrustBox handle={handle} />
+            </div>
+          </div>
         </div>
         <AskAboutThis title={wiki.title} kind="wiki" />
       </main>

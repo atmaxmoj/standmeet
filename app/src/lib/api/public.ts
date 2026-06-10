@@ -6,6 +6,8 @@
 // 不直接 import @standmeet/sdk-core，统一从这里走以便日后再调整。
 
 import { createClient } from '@standmeet/sdk-core';
+
+import { TreeResponseSchema, type TreeNode } from '@/lib/corpus/tree';
 import type {
   BYOAIHeaders,
   IssueSessionInput,
@@ -210,6 +212,23 @@ export async function fetchVisitorDoc(
       : null;
   } catch {
     return null;
+  }
+}
+
+// fetchWikiTree —— GET /api/v1/wiki-tree[?parent=ID] 的一层。token 非空带
+// Bearer(走 code 的 role scope);否则匿名(只 seo_indexed)。ACL 在后端评估,
+// 不在 scope 的条目整条不返。坏响应 / 网络挂 → []。逻辑薄,组件只 render。
+export async function fetchWikiTree(parentID: string, token: string): Promise<TreeNode[]> {
+  try {
+    const qs = parentID === '' ? '' : `?parent=${encodeURIComponent(parentID)}`;
+    const headers: Record<string, string> = token === ''
+      ? {} : { Authorization: `Bearer ${token}` };
+    const res = await fetch(`${baseURL()}/api/v1/wiki-tree${qs}`, { headers, cache: 'no-store' });
+    if (!res.ok) return [];
+    const parsed = TreeResponseSchema.safeParse(await res.json());
+    return parsed.success ? parsed.data.nodes : [];
+  } catch {
+    return [];
   }
 }
 

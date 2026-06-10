@@ -202,7 +202,8 @@ func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
 			Owners: d.ownerRepo, SEO: d.seoRepo,
 			Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
-		Log: d.log,
+		Sessions: d.visitorStore,
+		Log:      d.log,
 	}
 }
 
