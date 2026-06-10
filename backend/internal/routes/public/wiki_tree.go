@@ -30,6 +30,24 @@ func (h *SEOHandlers) getWikiTree() http.HandlerFunc {
 	}
 }
 
+// getWikiTreeContext —— GET /api/v1/wiki-tree/context?path=... —— 某条目的祖先链
+// (breadcrumb)+ 直接子(SubEntriesRail)。scope 同 wiki-tree。
+func (h *SEOHandlers) getWikiTreeContext() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token, _ := bearerToken(r)
+		scope := usecases.WikiTreeScopeFor(r.Context(), h.Sessions, token)
+		out, err := usecases.WikiNodeContext(
+			r.Context(), h.Deps, r.URL.Query().Get("path"), scope,
+		)
+		if err != nil {
+			h.Log.Error("wiki tree context", "err", err)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		writeWikiTreeContext(h.Log, w, &out)
+	}
+}
+
 type wikiTreeNodeView struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
@@ -41,7 +59,32 @@ type wikiTreeResponse struct {
 	Nodes []wikiTreeNodeView `json:"nodes"`
 }
 
+type wikiTreeContextResponse struct {
+	Ancestors []wikiTreeNodeView `json:"ancestors"`
+	Children  []wikiTreeNodeView `json:"children"`
+}
+
+func writeWikiTreeContext(log *slog.Logger, w http.ResponseWriter, ctx *usecases.WikiContext) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	resp := wikiTreeContextResponse{
+		Ancestors: toNodeViews(ctx.Ancestors),
+		Children:  toNodeViews(ctx.Children),
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Error("encode wiki tree context", "err", err)
+	}
+}
+
 func writeWikiTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.WikiTreeNode) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(wikiTreeResponse{Nodes: toNodeViews(nodes)}); err != nil {
+		log.Error("encode wiki tree", "err", err)
+	}
+}
+
+func toNodeViews(nodes []usecases.WikiTreeNode) []wikiTreeNodeView {
 	views := make([]wikiTreeNodeView, 0, len(nodes))
 	for i := range nodes {
 		views = append(views, wikiTreeNodeView{
@@ -49,9 +92,5 @@ func writeWikiTree(log *slog.Logger, w http.ResponseWriter, nodes []usecases.Wik
 			Path: nodes[i].Path, HasChildren: nodes[i].HasChildren,
 		})
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(wikiTreeResponse{Nodes: views}); err != nil {
-		log.Error("encode wiki tree", "err", err)
-	}
+	return views
 }

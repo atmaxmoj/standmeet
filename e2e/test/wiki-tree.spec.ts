@@ -116,9 +116,15 @@ test.describe('公开 wiki 树端点:懒加载一层 + ACL 过滤', () => {
       expect(kids.map((n) => n.title)).toEqual(['Cap Table']);
     });
 
+  // ── 节点上下文(breadcrumb 祖先链 + SubEntriesRail 子节点)──
+  test('context:匿名 thinking/lucerna → 祖先 [Thinking]、无子', ctxLucernaAncestors);
+  test('context:匿名 thinking → 无祖先、子 [Lucerna](Private Sub 不 indexed)', ctxThinkingChildren);
+  test('context:持 code fundraising/cap-table → 祖先 [Fundraising]', ctxGatedAncestors);
+
   // ── LazyTree 组件:真浏览器里的行为(默认合上 + 点开才 fetch + ACL)──
   test('sidebar:默认合上,点 ▸ 才 fetch 这层 children(懒加载)', sidebarLazyExpand);
   test('sidebar:ACL —— 匿名树里没有 Fundraising(gated root 不泄露)', sidebarAclHidesGated);
+  test('breadcrumb:lucerna landing 顶部显示祖先 Thinking(可点)', breadcrumbShowsAncestor);
 });
 
 // sidebarLazyExpand —— 默认合上 + 点开才取那层(懒加载,不预取整树)。
@@ -161,6 +167,48 @@ async function tree(
   if (!res.ok()) throw new Error(`wiki-tree ${res.status()}`);
   const body = await res.json() as { nodes?: TreeNode[] };
   return body.nodes ?? [];
+}
+
+interface TreeContext { ancestors: TreeNode[]; children: TreeNode[] }
+
+// ctxLucernaAncestors —— 匿名 lucerna:祖先 [Thinking](两者都 indexed)、无子。
+async function ctxLucernaAncestors({ request }: { request: APIRequestContext }): Promise<void> {
+  const ctx = await context(request, 'thinking/lucerna', null);
+  expect(ctx.ancestors.map((n) => n.title)).toEqual(['Thinking']);
+  expect(ctx.children).toEqual([]);
+}
+
+// ctxThinkingChildren —— 匿名 thinking:无祖先、子 [Lucerna](Private Sub 不 indexed)。
+async function ctxThinkingChildren({ request }: { request: APIRequestContext }): Promise<void> {
+  const ctx = await context(request, 'thinking', null);
+  expect(ctx.ancestors).toEqual([]);
+  expect(ctx.children.map((n) => n.title)).toEqual(['Lucerna']);
+}
+
+// ctxGatedAncestors —— 持 code:fundraising/cap-table 祖先 [Fundraising]。
+async function ctxGatedAncestors({ request }: { request: APIRequestContext }): Promise<void> {
+  const ctx = await context(request, 'fundraising/cap-table', gatedToken);
+  expect(ctx.ancestors.map((n) => n.title)).toEqual(['Fundraising']);
+}
+
+// context —— GET /api/v1/wiki-tree/context?path=...;token 非空带 Bearer。
+async function context(
+  request: APIRequestContext, path: string, token: string | null,
+): Promise<TreeContext> {
+  const url = `${BACKEND}/api/v1/wiki-tree/context?path=${encodeURIComponent(path)}`;
+  const headers = token !== null ? { Authorization: `Bearer ${token}` } : undefined;
+  const res = await request.get(url, headers ? { headers } : {});
+  if (!res.ok()) throw new Error(`context ${res.status()}`);
+  return await res.json() as TreeContext;
+}
+
+// breadcrumbShowsAncestor —— lucerna landing 顶部 breadcrumb 显示祖先 Thinking 链接。
+async function breadcrumbShowsAncestor({ page }: { page: Page }): Promise<void> {
+  await goto(page, '/wiki/thinking/lucerna');
+  await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
+  const crumb = page.getByTestId('wiki-breadcrumb');
+  await expect(crumb).toBeVisible();
+  await expect(crumb.getByRole('link', { name: 'Thinking' })).toBeVisible();
 }
 
 // issueGatedSession —— 建 role(corpus_uris=['wiki://fundraising**'])+ code +

@@ -19,7 +19,8 @@ import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { WikiTreeAside } from '@/components/visitor/WikiTreeAside';
 import { fetchInstance } from '@/lib/api/instance';
-import { fetchWikiLanding } from '@/lib/api/public';
+import { fetchWikiContext, fetchWikiLanding } from '@/lib/api/public';
+import type { TreeContext, TreeNode } from '@/lib/corpus/tree';
 
 import styles from '@/app/wiki/[...path]/wiki-landing.module.css';
 
@@ -45,13 +46,14 @@ export default async function WikiLandingPage({ params }: { params: Promise<Para
   const slug = path.join('/');
   const wiki = await fetchWikiLanding(slug);
   const instance = await fetchInstance();
+  const ctx = await fetchWikiContext(slug);
   return wiki
-    ? <WikiLandingContent wiki={wiki} handle={instance.handle} slug={slug} />
+    ? <WikiLandingContent wiki={wiki} handle={instance.handle} slug={slug} ctx={ctx} />
     : <RestrictedDoc genre="wiki" slug={slug} />;
 }
 
-function WikiLandingContent({ wiki, handle, slug }: {
-  wiki: WikiEntry; handle: string; slug: string;
+function WikiLandingContent({ wiki, handle, slug, ctx }: {
+  wiki: WikiEntry; handle: string; slug: string; ctx: TreeContext;
 }) {
   return (
     <>
@@ -62,13 +64,14 @@ function WikiLandingContent({ wiki, handle, slug }: {
             <WikiTreeAside activePath={slug} />
           </div>
           <div className="min-w-0 flex-1">
-            <Breadcrumb slug={slug} />
+            <Breadcrumb ancestors={ctx.ancestors} current={wiki.title} />
             <OgCover entry={wiki} seed={slug} />
             <MetaStrip entry={wiki} handle={handle} />
             <article className="max-w-[680px] mt-2">
               <WikiBody body={wiki.body} />
             </article>
             <div className="max-w-[760px]">
+              <SubEntriesRail nodes={ctx.children} />
               <TrustBox handle={handle} />
             </div>
           </div>
@@ -116,16 +119,52 @@ function MetaStrip({ entry, handle }: { entry: WikiEntry; handle: string }) {
   );
 }
 
-// Breadcrumb —— ← writing / wiki · slug。「← writing」替代旧的「← home」,
-// document 页统一返回 writing index(task #39)。
-function Breadcrumb({ slug }: { slug: string }) {
+// Breadcrumb —— ← writing / wiki ▸ 祖先链 ▸ 当前条。祖先来自 context(scope
+// 过滤,gated 祖先不出现),每个可点回各自 landing;当前条纯文字。「← writing」
+// 替代旧「← home」,document 页统一返回 writing index(task #39)。
+function Breadcrumb({ ancestors, current }: { ancestors: TreeNode[]; current: string }) {
   return (
-    <div className="smallcaps flex items-baseline gap-2 flex-wrap">
+    <nav className="smallcaps flex items-baseline gap-2 flex-wrap" data-testid="wiki-breadcrumb">
       <Link href="/writings" className="text-(--color-muted) hover:text-(--color-ink)">← writing</Link>
       <span className="text-(--color-faint)">/</span>
-      <span className="text-(--color-ink)">wiki · {slug}</span>
-    </div>
+      <span className="text-(--color-muted)">wiki</span>
+      {ancestors.map((a) => <Crumb key={a.id} node={a} />)}
+      <span className="text-(--color-faint)">▸</span>
+      <span className="text-(--color-ink)">{current}</span>
+    </nav>
   );
+}
+
+function Crumb({ node }: { node: TreeNode }) {
+  return (
+    <>
+      <span className="text-(--color-faint)">▸</span>
+      <Link href={`/wiki/${node.path}`} className="text-(--color-muted) hover:text-(--color-ink)">
+        {node.title}
+      </Link>
+    </>
+  );
+}
+
+// SubEntriesRail —— 当前条目的直接子条目(树派生),没有则不渲染。
+function SubEntriesRail({ nodes }: { nodes: TreeNode[] }) {
+  return nodes.length > 0 ? (
+    <div className="mt-12" data-testid="wiki-subentries">
+      <div className="smallcaps mb-3">sub-entries</div>
+      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 list-none p-0 m-0">
+        {nodes.map((c) => (
+          <li key={c.id}>
+            <Link
+              href={`/wiki/${c.path}`}
+              className="reading text-(--color-ink) hover:text-(--color-accent) text-[15px]"
+            >
+              {c.title} <span className="text-(--color-faint)">→</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : null;
 }
 
 function WikiBody({ body }: { body: string }) {

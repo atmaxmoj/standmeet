@@ -44,8 +44,9 @@ type SEOHandlers struct {
 func (h *SEOHandlers) Mount(r chi.Router) {
 	r.Get("/wiki/*", h.getWikiLanding())
 	r.Get("/output/*", h.getOutputLanding())
-	// wiki-tree —— sidebar 导航的懒加载分层(handler 在 wiki_tree.go)。
+	// wiki-tree —— sidebar 导航的懒加载分层 + 节点上下文(handler 在 wiki_tree.go)。
 	r.Get("/wiki-tree", h.getWikiTree())
+	r.Get("/wiki-tree/context", h.getWikiTreeContext())
 }
 
 // MountRoot —— /robots.txt + /sitemap.xml 是 SEO 标准约定路径，挂 root。

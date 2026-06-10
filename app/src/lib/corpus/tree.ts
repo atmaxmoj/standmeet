@@ -15,5 +15,15 @@ export type TreeNode = z.infer<typeof TreeNodeSchema>;
 
 export const TreeResponseSchema = z.object({ nodes: z.array(TreeNodeSchema) });
 
+// TreeContext —— 一个节点的 breadcrumb 祖先链(root→parent)+ 直接子(sub-rail)。
+export const TreeContextSchema = z.object({
+  ancestors: z.array(TreeNodeSchema),
+  children: z.array(TreeNodeSchema),
+});
+
+export type TreeContext = z.infer<typeof TreeContextSchema>;
+
+export const EMPTY_TREE_CONTEXT: TreeContext = { ancestors: [], children: [] };
+
 // TreeLoader —— LazyTree 的数据口:给 parentId(''=roots)返回该层直接子节点。
 export type TreeLoader = (parentId: string) => Promise<TreeNode[]>;

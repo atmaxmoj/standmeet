@@ -7,7 +7,10 @@
 
 import { createClient } from '@standmeet/sdk-core';
 
-import { TreeResponseSchema, type TreeNode } from '@/lib/corpus/tree';
+import {
+  EMPTY_TREE_CONTEXT, TreeContextSchema, TreeResponseSchema,
+  type TreeContext, type TreeNode,
+} from '@/lib/corpus/tree';
 import type {
   BYOAIHeaders,
   IssueSessionInput,
@@ -229,6 +232,22 @@ export async function fetchWikiTree(parentID: string, token: string): Promise<Tr
     return parsed.success ? parsed.data.nodes : [];
   } catch {
     return [];
+  }
+}
+
+// fetchWikiContext —— GET /api/v1/wiki-tree/context?path=... —— breadcrumb 祖先
+// 链 + sub-rail 子节点。SSR 走匿名(public scope),坏响应 → 空上下文。
+export async function fetchWikiContext(path: string): Promise<TreeContext> {
+  try {
+    const res = await fetch(
+      `${baseURL()}/api/v1/wiki-tree/context?path=${encodeURIComponent(path)}`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return EMPTY_TREE_CONTEXT;
+    const parsed = TreeContextSchema.safeParse(await res.json());
+    return parsed.success ? parsed.data : EMPTY_TREE_CONTEXT;
+  } catch {
+    return EMPTY_TREE_CONTEXT;
   }
 }
 

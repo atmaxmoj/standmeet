@@ -90,6 +90,14 @@ func buildWikiTreeLayer(
 ) []WikiTreeNode {
 	paths := WikiTreePaths(wikis)
 	inScope := scopeSet(wikis, paths, scope)
+	return nodesUnder(wikis, paths, inScope, parentID)
+}
+
+// nodesUnder —— parentID 的直接可见子(parentID="" → roots)。paths/inScope 由
+// 调用方算好,layer 与 context 共用。
+func nodesUnder(
+	wikis []domain.Wiki, paths map[string]string, inScope map[string]bool, parentID string,
+) []WikiTreeNode {
 	hasKids := parentsWithVisibleChild(wikis, inScope)
 	out := make([]WikiTreeNode, 0)
 	for i := range wikis {
