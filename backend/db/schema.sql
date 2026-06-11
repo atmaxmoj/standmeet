@@ -659,6 +659,31 @@ CREATE TABLE owner_calendar_connectors (
 CREATE UNIQUE INDEX owner_calendar_connectors_owner_provider_uniq
     ON owner_calendar_connectors(owner_id, provider);
 
+-- owner_mail_connectors —— per-(owner, provider) outbound SMTP credentials so
+-- the owner can send mail (today: the access-code email when a gate request is
+-- approved). provider is 'smtp' in v1; the row holds the owner's own SMTP server
+-- (Gmail app-password / Postmark / Fastmail / …) — self-hosted, no third-party
+-- SaaS binding. username + password are encrypted at rest (cryptobox, like the
+-- calendar client_secret); host/port/from are not secret. connected_at is set
+-- once a test send succeeds (proves the creds work) — NULL = saved-but-untested.
+CREATE TABLE owner_mail_connectors (
+    id            uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id      uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    provider      text          NOT NULL DEFAULT 'smtp',
+    host          text          NOT NULL,
+    port          integer       NOT NULL,
+    username_enc  bytea         NOT NULL DEFAULT '\x'::bytea,
+    password_enc  bytea         NOT NULL DEFAULT '\x'::bytea,
+    from_address  text          NOT NULL,
+    from_name     text          NOT NULL DEFAULT '',
+    connected_at  timestamptz,
+    created_at    timestamptz   NOT NULL DEFAULT now(),
+    updated_at    timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX owner_mail_connectors_owner_provider_uniq
+    ON owner_mail_connectors(owner_id, provider);
+
 -- owner_booking_policy —— singleton-per-owner availability constraints
 -- the agent must satisfy before placing a calendar.book event. Checked
 -- before (and in addition to) Google FreeBusy: policy violations return

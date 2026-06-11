@@ -70,6 +70,30 @@ func (r *AccessRequestRepo) ListByOwner(
 	return out, nil
 }
 
+// GetByID —— 按 (owner, id) 取一条 request；不命中返 ErrAccessRequestNotFound。
+// approve 流程先取出 email/name 再 issue+发信。
+func (r *AccessRequestRepo) GetByID(
+	ctx context.Context, ownerID, id string,
+) (domain.AccessRequest, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return domain.AccessRequest{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	reqUUID, ierr := parseUUID(id)
+	if ierr != nil {
+		return domain.AccessRequest{}, fmt.Errorf("parse request id: %w", ierr)
+	}
+	row, qerr := dbq.New(r.pool).GetAccessRequestByID(ctx,
+		dbq.GetAccessRequestByIDParams{ID: reqUUID, OwnerID: ownerUUID})
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return domain.AccessRequest{}, domain.ErrAccessRequestNotFound
+		}
+		return domain.AccessRequest{}, fmt.Errorf("get access request: %w", qerr)
+	}
+	return toDomainAccessRequest(&row), nil
+}
+
 // UpdateStatus —— admin 标记 status；不命中返 ErrAccessRequestNotFound。
 func (r *AccessRequestRepo) UpdateStatus(
 	ctx context.Context, ownerID, id, status string,

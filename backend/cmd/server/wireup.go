@@ -88,6 +88,11 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Calendar: adminroutes.CalendarAdminDeps{
 			Repo: d.calendarRepo, GCal: d.gcalClient, Redis: d.rdb,
 		},
+		Mail: adminroutes.MailAdminDeps{Repo: d.mailRepo, Owners: d.ownerRepo},
+		ApproveRequests: usecases.ApproveRequestDeps{
+			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
+			Owners: d.ownerRepo, Mail: d.mailRepo,
+		},
 		Sessions:     d.sessionStore,
 		SecureCookie: d.secureCookie,
 	}

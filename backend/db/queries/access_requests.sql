@@ -10,6 +10,10 @@ WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT 100;
 
+-- name: GetAccessRequestByID :one
+SELECT id, owner_id, name, org, email, message, status, created_at FROM access_requests
+WHERE id = $1 AND owner_id = $2;
+
 -- name: UpdateAccessRequestStatus :one
 UPDATE access_requests
 SET status = $3

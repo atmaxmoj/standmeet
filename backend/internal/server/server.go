@@ -54,36 +54,38 @@ type Deps struct {
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
 type AdminDeps struct {
-	Claim          usecases.ClaimDeps
-	Login          usecases.LoginDeps
-	Keypairs       usecases.KeypairDeps
-	Corpus         usecases.CorpusDeps
-	Conversations  usecases.ConversationsDeps
-	Ghosts         usecases.GhostDeps
-	BYOAI          usecases.BYOAIDeps
-	Domains        usecases.AllowedDomainsDeps
-	AccessRequests usecases.AccessRequestsDeps
-	HandleAdmin    usecases.HandleDeps
-	PublicURLAdmin usecases.PublicURLDeps
-	AccountAdmin   usecases.AccountDeps
-	AIProvider     usecases.AIProviderDeps
-	CustomPages    usecases.CustomPageDeps
-	Skills         usecases.SkillsDeps
-	Prompts        usecases.PromptsDeps
-	Roles          usecases.RolesDeps
-	MCPServers     usecases.MCPServersDeps
-	Assets         usecases.AssetsDeps
-	Writings       usecases.WritingsDeps
-	WritingRefs    *postgres.WritingRefRepo
-	SEO            *postgres.SEORepo
-	Codes          *postgres.CodeRepo
-	Owners         *postgres.OwnerRepo
-	Drafts         *postgres.ResumeDraftRepo
-	Applications   *postgres.ApplicationRepo
-	Marketplace    usecases.MarketplaceDeps
-	Calendar       adminroutes.CalendarAdminDeps
-	Sessions       *session.OwnerSessionStore
-	SecureCookie   bool
+	Claim           usecases.ClaimDeps
+	Login           usecases.LoginDeps
+	Keypairs        usecases.KeypairDeps
+	Corpus          usecases.CorpusDeps
+	Conversations   usecases.ConversationsDeps
+	Ghosts          usecases.GhostDeps
+	BYOAI           usecases.BYOAIDeps
+	Domains         usecases.AllowedDomainsDeps
+	AccessRequests  usecases.AccessRequestsDeps
+	HandleAdmin     usecases.HandleDeps
+	PublicURLAdmin  usecases.PublicURLDeps
+	AccountAdmin    usecases.AccountDeps
+	AIProvider      usecases.AIProviderDeps
+	CustomPages     usecases.CustomPageDeps
+	Skills          usecases.SkillsDeps
+	Prompts         usecases.PromptsDeps
+	Roles           usecases.RolesDeps
+	MCPServers      usecases.MCPServersDeps
+	Assets          usecases.AssetsDeps
+	Writings        usecases.WritingsDeps
+	WritingRefs     *postgres.WritingRefRepo
+	SEO             *postgres.SEORepo
+	Codes           *postgres.CodeRepo
+	Owners          *postgres.OwnerRepo
+	Drafts          *postgres.ResumeDraftRepo
+	Applications    *postgres.ApplicationRepo
+	Marketplace     usecases.MarketplaceDeps
+	Calendar        adminroutes.CalendarAdminDeps
+	Mail            adminroutes.MailAdminDeps
+	ApproveRequests usecases.ApproveRequestDeps
+	Sessions        *session.OwnerSessionStore
+	SecureCookie    bool
 }
 
 // New 返回一个挂好路由的 chi router，可直接传给 http.Server。
@@ -146,9 +148,11 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Chats:  deps.Admin.Conversations,
 			Ghosts: deps.Admin.Ghosts,
 		},
-		BYOAI:           adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
-		Domains:         adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
-		AccessRequests:  adminroutes.AccessRequestsDeps{Reqs: deps.Admin.AccessRequests},
+		BYOAI:   adminroutes.BYOAIDeps{BYOAI: deps.Admin.BYOAI},
+		Domains: adminroutes.DomainsDeps{Domains: deps.Admin.Domains},
+		AccessRequests: adminroutes.AccessRequestsDeps{
+			Reqs: deps.Admin.AccessRequests, Approve: deps.Admin.ApproveRequests,
+		},
 		HandleAdmin:     adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
 		PublicURLAdmin:  adminroutes.PublicURLDeps{PublicURL: deps.Admin.PublicURLAdmin},
 		AccountAdmin:    adminroutes.AccountDeps{Account: deps.Admin.AccountAdmin},
@@ -176,6 +180,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		},
 		MarketplaceAdmin: adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
 		CalendarAdmin:    deps.Admin.Calendar,
+		MailAdmin:        deps.Admin.Mail,
 		Log:              deps.Log,
 		SecureCookie:     deps.Admin.SecureCookie,
 	}

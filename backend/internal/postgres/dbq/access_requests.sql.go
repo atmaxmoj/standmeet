@@ -47,6 +47,32 @@ func (q *Queries) CreateAccessRequest(ctx context.Context, arg CreateAccessReque
 	return i, err
 }
 
+const getAccessRequestByID = `-- name: GetAccessRequestByID :one
+SELECT id, owner_id, name, org, email, message, status, created_at FROM access_requests
+WHERE id = $1 AND owner_id = $2
+`
+
+type GetAccessRequestByIDParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+func (q *Queries) GetAccessRequestByID(ctx context.Context, arg GetAccessRequestByIDParams) (AccessRequest, error) {
+	row := q.db.QueryRow(ctx, getAccessRequestByID, arg.ID, arg.OwnerID)
+	var i AccessRequest
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Name,
+		&i.Org,
+		&i.Email,
+		&i.Message,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listAccessRequestsByOwner = `-- name: ListAccessRequestsByOwner :many
 SELECT id, owner_id, name, org, email, message, status, created_at FROM access_requests
 WHERE owner_id = $1

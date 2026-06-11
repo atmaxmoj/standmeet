@@ -69,6 +69,8 @@ components:
     in: internal/mcpclient                # 调外部 MCP server (owner-registered)
   storage:
     in: internal/storage                  # MinIO/S3 对象存储 (图片 / 附件)
+  mailer:
+    in: internal/mailer                   # 出站 SMTP 发信 (net/smtp，owner 自带 mail server)
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
@@ -104,8 +106,14 @@ deps:
       - mcpclient
       - storage
       - gcal
+      - mailer
       - agentskills
       - prompts
+    anyVendorDeps: true
+
+  # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
+  mailer:
+    mayDependOn: []
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。

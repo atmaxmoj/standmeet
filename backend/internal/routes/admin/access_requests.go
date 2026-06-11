@@ -18,7 +18,13 @@ import (
 
 // AccessRequestsDeps —— admin access-requests handlers 依赖。
 type AccessRequestsDeps struct {
-	Reqs usecases.AccessRequestsDeps
+	Reqs    usecases.AccessRequestsDeps
+	Approve usecases.ApproveRequestDeps
+}
+
+type approveResponse struct {
+	Code string `json:"code"`
+	Link string `json:"link"`
 }
 
 type accessRequestView struct {
@@ -39,6 +45,22 @@ type patchRequestBody struct {
 func (h *Handlers) MountAccessRequests(r chi.Router) {
 	r.Get("/access-requests", h.listAccessRequests())
 	r.Patch("/access-requests/{id}", h.updateAccessRequest())
+	r.Post("/access-requests/{id}/approve", h.approveAccessRequest())
+}
+
+// approveAccessRequest —— 批准:issue AccessCode + 邮件发 requester + 状态置 replied。
+func (h *Handlers) approveAccessRequest() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		id := chi.URLParam(r, "id")
+		out, err := usecases.ApproveAccessRequest(
+			r.Context(), h.AccessRequests.Approve, ownerID, id)
+		if err != nil {
+			handleApproveErr(h.Log, w, err)
+			return
+		}
+		writeJSON(h.Log, w, approveResponse{Code: out.Code, Link: out.Link})
+	}
 }
 
 func (h *Handlers) listAccessRequests() http.HandlerFunc {
@@ -118,6 +140,22 @@ func handleAdminAccessRequestErr(log *slog.Logger, w http.ResponseWriter, err er
 	env := apierr.Classify(err, adminAccessRequestErrCases)
 	if env.Status >= http.StatusInternalServerError {
 		log.Error("admin access requests", "err", err)
+	}
+	writeError(log, w, env)
+}
+
+var approveErrCases = []apierr.Case{
+	{Match: usecases.ErrMailNotConfigured, Envelope: envBadReq(
+		"configure and test your mail connector first")},
+	{Match: domain.ErrAccessRequestNotFound, Envelope: apierr.Envelope{
+		Status: http.StatusNotFound, Code: "not_found", Message: "request not found",
+	}},
+}
+
+func handleApproveErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	env := apierr.Classify(err, approveErrCases)
+	if env.Status >= http.StatusInternalServerError {
+		log.Error("approve access request", "err", err)
 	}
 	writeError(log, w, env)
 }
