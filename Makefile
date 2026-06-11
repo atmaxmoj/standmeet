@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-interview eval-capabilities eval-owner-mcp
+.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-interview eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -106,6 +106,14 @@ eval-ask:
 # LLM** (harness 自读 eval-harness/.env 的 DeepSeek key;没真 key 不会触发压缩)。
 eval-compaction:
 	@eval-harness/compaction-test.sh
+
+# eval-doc-context —— #36 位置感知 / 指代解析用例:访客正读 Notification Pipeline
+# 那篇,问「tell me more about this pipeline」(corpus 里有两条 pipeline,真歧义)。
+# doc_context → 真 instructionWithDoc 注入 → 断言真模型把「this」解析成当前 doc(答
+# Orbit 通知:token-bucket/fan-out),没串到 FlowPay 对账、没反问。**需真 LLM**
+# (harness 自读 eval-harness/.env 的 DeepSeek key;mock gateway 不做指代解析会失败)。
+eval-doc-context:
+	@eval-harness/doc-context-test.sh
 
 # eval-interview —— 真跑一场多轮面试 (recruiter on code session,booking granted),
 # 边跑边按维度标注:grounding / context retention / honest gap / not-in-corpus /

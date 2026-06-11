@@ -1,0 +1,26 @@
+name: doc-context-pipeline
+description: >
+  #36 位置感知 / 指代解析,真 LLM **质量**用例(human-judged,无 PASS/FAIL bar)。
+  访客正读「Notification Pipeline (Orbit)」那篇,问「tell me more about this pipeline」。
+  corpus 有两条 pipeline(Orbit 通知 / FlowPay 对账),脱离上下文是真歧义。doc_context
+  → 真 instructionWithDoc 注入 → 看真模型把「this」解析成哪条 + 答案质量。
+  canned corpus_search 同返两条**忠于原文**的 snippet(含 Orbit 那条的坦诚短板),
+  所以 grounding / voice / 诚实 都判得公,幻觉(加 snippet 外细节)也看得出。
+
+system: You are answering visitor questions on behalf of the owner, in the owner's voice. Use the corpus tools to ground every claim. Be specific and concrete.
+user: tell me more about this pipeline
+mode: public
+
+doc_context:
+  title: Notification Pipeline (Orbit)
+  path: project/notification-pipeline
+  genre: wiki
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus. Returns matching entries with a snippet.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    label: searching the corpus
+    result: >
+      [{"uri":"wiki://project/notification-pipeline","title":"Notification Pipeline (Orbit)","snippet":"At Orbit I built the notification pipeline that sends emails (SendGrid), Slack messages, and webhooks when product events happen. Before it, notifications fired inline so a slow email provider could stall a request, and with no rate limiting a misconfigured integration once spammed a customer with 4,000 emails in an hour. The design: events go onto a Redis stream, a pool of Go workers consume them, each event is expanded into per-channel notifications based on the user's preferences, and each channel has its own rate limiter and retry. The parts I had to actually think about: fan-out (one event can become many notifications, so I batch where the channel allows and cap fan-out per event); rate limiting (a token-bucket per (customer, channel) in Redis, made distributed-safe with a small atomic Lua script -- the one piece I had to really work to understand); dedup (the same event can be emitted twice upstream, so I dedup on an event key with a short Redis TTL). Honestly it is not novel -- a fairly standard queue-workers-with-rate-limiting design; I didn't invent anything, I applied patterns I'd read about and got the details right. What is still not great: the retry/dead-letter handling is clunky -- failed webhooks go to a dead-letter stream nobody really monitors, and replaying them is a manual script I keep meaning to fix."},
+       {"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay I built the payment reconciliation pipeline: processor webhooks (Stripe, Adyen) land in a Kafka topic, a consumer normalizes each into a settlement record in Postgres, and a reconciliation job matches settlement records against ledger entries on a composite key with a 48-hour fuzzy time window. Idempotency via the processor event id with a unique constraint and upsert; late and out-of-order events stay pending and get re-evaluated on a schedule."}]
