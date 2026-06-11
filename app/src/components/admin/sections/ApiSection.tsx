@@ -12,6 +12,7 @@ import { NewTokenInline } from '@/components/admin/sections/api/NewTokenInline';
 import { TokenRow } from '@/components/admin/sections/api/TokenRow';
 import { MCPClientPanel } from '@/components/admin/sections/api/MCPClientPanel';
 import { MCPDownloadPanel } from '@/components/admin/sections/api/MCPDownloadPanel';
+import { MCPServersPanel } from '@/components/admin/sections/api/MCPServersPanel';
 import { AIProviderPanel } from '@/components/admin/sections/api/AIProviderPanel';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useTokens, type TokenItem, type TokensHook } from '@/lib/admin/use-tokens';
@@ -59,6 +60,7 @@ function Ready({ hook }: { hook: TokensHook }) {
       <AIProviderPanel />
       <MCPClientPanel />
       <MCPDownloadPanel />
+      <MCPServersPanel />
     </div>
   );
 }

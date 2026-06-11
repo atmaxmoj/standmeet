@@ -1,5 +1,6 @@
-// use-mcp-servers —— owner-registered external MCP servers 列表。RoleCreateModal
-// 用它列 multiselect。当前只读，CRUD 走 connectors / api·mcp 那条路。
+// use-mcp-servers —— owner-registered external MCP servers(agent 出站调的工具)。
+// RoleCreateModal 列 multiselect 用;ApiSection 的 MCPServersPanel 做 CRUD。
+// 后端 GET/POST/DELETE /mcp-servers 全 real;auth header value 落盘加密,view 不回。
 
 import { useEffect } from 'react';
 
@@ -13,14 +14,25 @@ export const MCPServerViewSchema = z.object({
   id: z.string(),
   name: z.string(),
   url: z.string(),
+  auth_header_name: z.string().optional().default(''),
+  created_at: z.string().optional().default(''),
 });
 export type MCPServerView = z.infer<typeof MCPServerViewSchema>;
+
+export interface CreateMCPServerInput {
+  name: string;
+  url: string;
+  auth_header_name?: string;
+  auth_header_value?: string;
+}
 
 export interface MCPServersHook {
   status: ResourceStatus;
   servers: readonly MCPServerView[];
   error: string | null;
   refresh: () => Promise<void>;
+  create: (input: CreateMCPServerInput) => Promise<{ ok: boolean; error?: string }>;
+  remove: (id: string) => Promise<boolean>;
 }
 
 export const mcpServersStore = createResourceStore<MCPServerView[]>({
@@ -37,5 +49,29 @@ export function useMCPServers(): MCPServersHook {
     servers: r.data ?? [],
     error: r.error,
     refresh: mcpServersStore.getState().refresh,
+    create: createServer,
+    remove: removeServer,
   };
+}
+
+async function createServer(
+  input: CreateMCPServerInput,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await adminAPI.post('/mcp-servers/', input, MCPServerViewSchema);
+    await mcpServersStore.getState().refresh();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Could not add MCP server' };
+  }
+}
+
+async function removeServer(id: string): Promise<boolean> {
+  try {
+    await adminAPI.deleteVoid(`/mcp-servers/${id}`);
+    await mcpServersStore.getState().refresh();
+    return true;
+  } catch {
+    return false;
+  }
 }
