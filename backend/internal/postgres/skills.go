@@ -185,11 +185,31 @@ func (r *SkillRepo) GetByID(ctx context.Context, ownerID, skillID string) (domai
 	return toDomainSkill(&row), nil
 }
 
+// SetEnabled —— #48-2: owner 全局开/关一个 skill。
+func (r *SkillRepo) SetEnabled(
+	ctx context.Context, ownerID, skillID string, enabled bool,
+) (domain.Skill, error) {
+	args, perr := parseOwnerAndSkillID(ownerID, skillID)
+	if perr != nil {
+		return domain.Skill{}, perr
+	}
+	row, err := dbq.New(r.pool).SetSkillEnabled(ctx, dbq.SetSkillEnabledParams{
+		ID: args.skillUUID, OwnerID: args.ownerUUID, Enabled: enabled,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Skill{}, domain.ErrSkillNotFound
+		}
+		return domain.Skill{}, fmt.Errorf("set skill enabled: %w", err)
+	}
+	return toDomainSkill(&row), nil
+}
+
 func toDomainSkill(s *dbq.Skill) domain.Skill {
 	out := domain.Skill{
 		ID: formatUUID(s.ID), OwnerID: formatUUID(s.OwnerID),
 		Name: s.Name, Description: s.Description, Prompt: s.Prompt,
-		AllowedTools: s.AllowedTools, IsBuiltin: s.IsBuiltin,
+		AllowedTools: s.AllowedTools, IsBuiltin: s.IsBuiltin, Enabled: s.Enabled,
 		Version: s.Version, License: s.License, Source: s.Source,
 		CreatedAt: s.CreatedAt.Time, UpdatedAt: s.UpdatedAt.Time,
 		Scripts:  decodeSkillScripts(s.Scripts),

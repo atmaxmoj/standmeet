@@ -17,7 +17,7 @@ INSERT INTO skills (
     allowed_tools, is_builtin, version, license, source
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, version, license, source, created_at, updated_at
+RETURNING id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, enabled, version, license, source, created_at, updated_at
 `
 
 type CreateSkillParams struct {
@@ -59,6 +59,7 @@ func (q *Queries) CreateSkill(ctx context.Context, arg CreateSkillParams) (Skill
 		&i.Metadata,
 		&i.AllowedTools,
 		&i.IsBuiltin,
+		&i.Enabled,
 		&i.Version,
 		&i.License,
 		&i.Source,
@@ -83,7 +84,7 @@ func (q *Queries) DeleteSkill(ctx context.Context, arg DeleteSkillParams) error 
 }
 
 const getSkillByID = `-- name: GetSkillByID :one
-SELECT id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, version, license, source, created_at, updated_at FROM skills WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, enabled, version, license, source, created_at, updated_at FROM skills WHERE id = $1 AND owner_id = $2
 `
 
 type GetSkillByIDParams struct {
@@ -104,6 +105,7 @@ func (q *Queries) GetSkillByID(ctx context.Context, arg GetSkillByIDParams) (Ski
 		&i.Metadata,
 		&i.AllowedTools,
 		&i.IsBuiltin,
+		&i.Enabled,
 		&i.Version,
 		&i.License,
 		&i.Source,
@@ -114,7 +116,7 @@ func (q *Queries) GetSkillByID(ctx context.Context, arg GetSkillByIDParams) (Ski
 }
 
 const listSkillsByOwner = `-- name: ListSkillsByOwner :many
-SELECT id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, version, license, source, created_at, updated_at FROM skills WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
+SELECT id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, enabled, version, license, source, created_at, updated_at FROM skills WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
 `
 
 func (q *Queries) ListSkillsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Skill, error) {
@@ -136,6 +138,7 @@ func (q *Queries) ListSkillsByOwner(ctx context.Context, ownerID pgtype.UUID) ([
 			&i.Metadata,
 			&i.AllowedTools,
 			&i.IsBuiltin,
+			&i.Enabled,
 			&i.Version,
 			&i.License,
 			&i.Source,
@@ -152,11 +155,48 @@ func (q *Queries) ListSkillsByOwner(ctx context.Context, ownerID pgtype.UUID) ([
 	return items, nil
 }
 
+const setSkillEnabled = `-- name: SetSkillEnabled :one
+UPDATE skills
+SET enabled = $3, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, enabled, version, license, source, created_at, updated_at
+`
+
+type SetSkillEnabledParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+	Enabled bool
+}
+
+// #48-2: owner 全局开/关一个 skill(builtin 也可开关)。
+func (q *Queries) SetSkillEnabled(ctx context.Context, arg SetSkillEnabledParams) (Skill, error) {
+	row := q.db.QueryRow(ctx, setSkillEnabled, arg.ID, arg.OwnerID, arg.Enabled)
+	var i Skill
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Name,
+		&i.Description,
+		&i.Prompt,
+		&i.Scripts,
+		&i.Metadata,
+		&i.AllowedTools,
+		&i.IsBuiltin,
+		&i.Enabled,
+		&i.Version,
+		&i.License,
+		&i.Source,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateSkill = `-- name: UpdateSkill :one
 UPDATE skills
 SET name = $3, description = $4, prompt = $5, allowed_tools = $6, updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, version, license, source, created_at, updated_at
+RETURNING id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, enabled, version, license, source, created_at, updated_at
 `
 
 type UpdateSkillParams struct {
@@ -188,6 +228,7 @@ func (q *Queries) UpdateSkill(ctx context.Context, arg UpdateSkillParams) (Skill
 		&i.Metadata,
 		&i.AllowedTools,
 		&i.IsBuiltin,
+		&i.Enabled,
 		&i.Version,
 		&i.License,
 		&i.Source,
@@ -206,7 +247,7 @@ ON CONFLICT (owner_id, name) DO UPDATE SET
     description = EXCLUDED.description,
     prompt = EXCLUDED.prompt,
     updated_at = now()
-RETURNING id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, version, license, source, created_at, updated_at
+RETURNING id, owner_id, name, description, prompt, scripts, metadata, allowed_tools, is_builtin, enabled, version, license, source, created_at, updated_at
 `
 
 type UpsertBuiltinSkillParams struct {
@@ -236,6 +277,7 @@ func (q *Queries) UpsertBuiltinSkill(ctx context.Context, arg UpsertBuiltinSkill
 		&i.Metadata,
 		&i.AllowedTools,
 		&i.IsBuiltin,
+		&i.Enabled,
 		&i.Version,
 		&i.License,
 		&i.Source,

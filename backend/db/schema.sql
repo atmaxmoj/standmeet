@@ -219,6 +219,9 @@ CREATE TABLE skills (
     metadata        jsonb         NOT NULL DEFAULT '{}'::jsonb,
     allowed_tools   text[]        NOT NULL DEFAULT '{}',
     is_builtin      bool          NOT NULL DEFAULT false,
+    -- enabled —— owner 全局开关。false = agent 永不拿到该 skill(即使挂在 role 上)。
+    -- ListRoleSkills 据此过滤;owner 不必从每个 role 解绑就能临时停用一个 skill。
+    enabled         bool          NOT NULL DEFAULT true,
     version         text          NOT NULL DEFAULT '',
     license         text          NOT NULL DEFAULT '',
     source          text          NOT NULL DEFAULT 'manual',

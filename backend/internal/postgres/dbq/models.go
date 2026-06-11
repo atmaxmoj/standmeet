@@ -380,6 +380,7 @@ type Skill struct {
 	Metadata     []byte
 	AllowedTools []string
 	IsBuiltin    bool
+	Enabled      bool
 	Version      string
 	License      string
 	Source       string

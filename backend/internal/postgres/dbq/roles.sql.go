@@ -317,13 +317,14 @@ func (q *Queries) ListRoleSkillIDs(ctx context.Context, roleID pgtype.UUID) ([]p
 }
 
 const listRoleSkills = `-- name: ListRoleSkills :many
-SELECT s.id, s.owner_id, s.name, s.description, s.prompt, s.scripts, s.metadata, s.allowed_tools, s.is_builtin, s.version, s.license, s.source, s.created_at, s.updated_at FROM skills s
+SELECT s.id, s.owner_id, s.name, s.description, s.prompt, s.scripts, s.metadata, s.allowed_tools, s.is_builtin, s.enabled, s.version, s.license, s.source, s.created_at, s.updated_at FROM skills s
 JOIN role_skills rs ON rs.skill_id = s.id
-WHERE rs.role_id = $1
+WHERE rs.role_id = $1 AND s.enabled
 ORDER BY s.name ASC
 `
 
-// session issue 时拿 skills 拼 system prompt。
+// session issue 时拿 skills 拼 system prompt。enabled=false 的 skill 被 owner
+// 全局停用,即使挂在 role 上也不进 agent(#48-2)。
 func (q *Queries) ListRoleSkills(ctx context.Context, roleID pgtype.UUID) ([]Skill, error) {
 	rows, err := q.db.Query(ctx, listRoleSkills, roleID)
 	if err != nil {
@@ -343,6 +344,7 @@ func (q *Queries) ListRoleSkills(ctx context.Context, roleID pgtype.UUID) ([]Ski
 			&i.Metadata,
 			&i.AllowedTools,
 			&i.IsBuiltin,
+			&i.Enabled,
 			&i.Version,
 			&i.License,
 			&i.Source,

@@ -33,6 +33,7 @@ type skillView struct {
 	Source       string   `json:"source"`
 	AllowedTools []string `json:"allowed_tools"`
 	IsBuiltin    bool     `json:"is_builtin"`
+	Enabled      bool     `json:"enabled"`
 }
 
 type createSkillRequest struct {
@@ -48,8 +49,57 @@ func (h *Handlers) MountSkills(r chi.Router) {
 	r.Route("/skills", func(r chi.Router) {
 		r.Get("/", h.listSkills())
 		r.Post("/", h.createSkill())
+		r.Patch("/{id}", h.patchSkill())
 		r.Delete("/{id}", h.deleteSkill())
 	})
+}
+
+type patchSkillRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// patchSkill —— #48-2: 全局开/关一个 skill。
+func (h *Handlers) patchSkill() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req patchSkillRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		skillID := chi.URLParam(r, "id")
+		skill, err := usecases.SetSkillEnabled(
+			r.Context(), h.SkillsAdmin.Skills, ownerID, skillID, req.Enabled,
+		)
+		if err != nil {
+			handlePatchSkillErr(h.Log, w, err)
+			return
+		}
+		writeSkillSingle(h.Log, w, &skill)
+	}
+}
+
+func writeSkillSingle(log *slog.Logger, w http.ResponseWriter, s *domain.Skill) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(toSkillView(s)); err != nil {
+		logEncodeErr(log, "encode skill", err)
+	}
+}
+
+func handlePatchSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, usecases.ErrEmptyField):
+		writeError(log, w, envBadReq("skill id required"))
+	case errors.Is(err, domain.ErrSkillNotFound):
+		writeError(log, w, apierr.Envelope{
+			Status: http.StatusNotFound, Code: "skill_not_found",
+			Message: "skill not found",
+		})
+	default:
+		logEncodeErr(log, "patch skill", err)
+		writeError(log, w, serverErr())
+	}
 }
 
 func (h *Handlers) listSkills() http.HandlerFunc {
@@ -84,7 +134,7 @@ func toSkillView(s *domain.Skill) skillView {
 	}
 	return skillView{
 		ID: s.ID, Name: s.Name, Description: s.Description, Prompt: s.Prompt,
-		Source: s.Source, IsBuiltin: s.IsBuiltin,
+		Source: s.Source, IsBuiltin: s.IsBuiltin, Enabled: s.Enabled,
 		AllowedTools: tools,
 		CreatedAt:    s.CreatedAt.Format(time.RFC3339),
 	}

@@ -30,6 +30,8 @@ type Skill struct {
 	AllowedTools []string
 	Scripts      []SkillScript
 	IsBuiltin    bool
+	// Enabled —— owner 全局开关;false = 不进 agent(即使挂在 role 上)。
+	Enabled bool
 }
 
 // SkillScript —— sandbox-executed code attached to a skill。预留给 B4

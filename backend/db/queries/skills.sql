@@ -34,6 +34,13 @@ SET name = $3, description = $4, prompt = $5, allowed_tools = $6, updated_at = n
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
+-- name: SetSkillEnabled :one
+-- #48-2: owner 全局开/关一个 skill(builtin 也可开关)。
+UPDATE skills
+SET enabled = $3, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
+
 -- A.3-IAM-5: AttachCodeSkills / ClearCodeSkills / ListSkillsForCode /
 -- ListSkillIDsForCode 都删了 —— code_skills 表已 drop，skills 通过
 -- role_skills 挂在 Role 上。

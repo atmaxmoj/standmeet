@@ -17,6 +17,7 @@ export const SkillViewSchema = z.object({
   prompt: z.string(),
   source: z.string(),
   is_builtin: z.boolean(),
+  enabled: z.boolean().optional().default(true),
   created_at: z.string(),
 });
 export type SkillView = z.infer<typeof SkillViewSchema>;
@@ -34,6 +35,7 @@ export interface SkillsHook {
   refresh: () => Promise<void>;
   createSkill: (input: CreateSkillInput) => Promise<boolean>;
   deleteSkill: (id: string) => Promise<boolean>;
+  toggleSkill: (id: string, enabled: boolean) => Promise<boolean>;
 }
 
 export const skillsStore = createResourceStore<SkillView[]>({
@@ -52,6 +54,7 @@ export function useSkills(): SkillsHook {
     refresh: skillsStore.getState().refresh,
     createSkill,
     deleteSkill,
+    toggleSkill,
   };
 }
 
@@ -69,6 +72,17 @@ async function deleteSkill(id: string): Promise<boolean> {
   try {
     await adminAPI.deleteVoid(`/skills/${id}`);
     skillsStore.getState().mutate((prev) => (prev ?? []).filter((s) => s.id !== id));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function toggleSkill(id: string, enabled: boolean): Promise<boolean> {
+  try {
+    const updated = await adminAPI.patch(`/skills/${id}`, { enabled }, SkillViewSchema);
+    skillsStore.getState().mutate((prev) =>
+      (prev ?? []).map((s) => s.id === id ? updated : s));
     return true;
   } catch {
     return false;

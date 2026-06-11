@@ -143,7 +143,7 @@ function PersonaList({ hook }: { hook: SkillsHook }) {
       <ul className="flex flex-col gap-4" data-testid="skill-list">
         {hook.skills.map((s) => (
           <li key={s.id} data-testid={`skill-row-${s.name}`}>
-            <SkillCard skill={s} onDelete={hook.deleteSkill} />
+            <SkillCard skill={s} onDelete={hook.deleteSkill} onToggle={hook.toggleSkill} />
           </li>
         ))}
       </ul>
@@ -158,12 +158,20 @@ function SkillsEmpty() {
   );
 }
 
-function SkillCard({
-  skill, onDelete,
-}: { skill: SkillView; onDelete: (id: string) => Promise<boolean> }) {
+interface SkillCardProps {
+  skill: SkillView;
+  onDelete: (id: string) => Promise<boolean>;
+  onToggle: (id: string, enabled: boolean) => Promise<boolean>;
+}
+
+function cardDim(enabled: boolean): string {
+  return enabled ? '' : 'opacity-55';
+}
+
+function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
   return (
-    <div className="border border-(--color-rule) px-5 py-4 flex flex-col gap-2">
-      <SkillHead skill={skill} />
+    <div className={`border border-(--color-rule) px-5 py-4 flex flex-col gap-2 ${cardDim(skill.enabled)}`}>
+      <SkillHead skill={skill} onToggle={onToggle} />
       {skill.description && (
         <p className="reading-tight text-[14px] text-(--color-muted)">{skill.description}</p>
       )}
@@ -173,19 +181,40 @@ function SkillCard({
   );
 }
 
-function SkillHead({ skill }: { skill: SkillView }) {
+function SkillHead({
+  skill, onToggle,
+}: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<boolean> }) {
   return (
-    <div className="flex items-baseline gap-3">
-      <span className="font-serif text-[18px]">{skill.name}</span>
-      {skill.is_builtin && (
-        <span
-          className="mono text-[9px] tracking-[0.18em] uppercase text-(--color-accent)"
-          data-testid="skill-builtin-badge"
-        >
-          builtin
-        </span>
-      )}
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="flex items-baseline gap-3 min-w-0">
+        <span className="font-serif text-[18px]">{skill.name}</span>
+        {skill.is_builtin && (
+          <span
+            className="mono text-[9px] tracking-[0.18em] uppercase text-(--color-accent)"
+            data-testid="skill-builtin-badge"
+          >
+            builtin
+          </span>
+        )}
+      </span>
+      <SkillToggle skill={skill} onToggle={onToggle} />
     </div>
+  );
+}
+
+function SkillToggle({
+  skill, onToggle,
+}: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<boolean> }) {
+  const cls = skill.enabled ? 'text-(--color-accent)' : 'text-(--color-faint)';
+  return (
+    <button
+      type="button"
+      onClick={() => { void onToggle(skill.id, !skill.enabled); }}
+      data-testid={`skill-toggle-${skill.name}`}
+      className={`mono text-[10px] tracking-[0.14em] uppercase shrink-0 hover:underline ${cls}`}
+    >
+      {skill.enabled ? 'on' : 'off'}
+    </button>
   );
 }
 

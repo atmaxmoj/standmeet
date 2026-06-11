@@ -60,10 +60,11 @@ ON CONFLICT DO NOTHING;
 SELECT skill_id FROM role_skills WHERE role_id = $1 ORDER BY skill_id ASC;
 
 -- name: ListRoleSkills :many
--- session issue 时拿 skills 拼 system prompt。
+-- session issue 时拿 skills 拼 system prompt。enabled=false 的 skill 被 owner
+-- 全局停用,即使挂在 role 上也不进 agent(#48-2)。
 SELECT s.* FROM skills s
 JOIN role_skills rs ON rs.skill_id = s.id
-WHERE rs.role_id = $1
+WHERE rs.role_id = $1 AND s.enabled
 ORDER BY s.name ASC;
 
 -- name: ClearRoleMCPServers :exec

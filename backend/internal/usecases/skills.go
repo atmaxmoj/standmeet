@@ -90,6 +90,20 @@ func DeleteSkill(
 	return nil
 }
 
+// SetSkillEnabled —— #48-2: owner 全局开/关一个 skill(builtin 也可开关,只是删不掉)。
+func SetSkillEnabled(
+	ctx context.Context, deps SkillsDeps, ownerID, skillID string, enabled bool,
+) (domain.Skill, error) {
+	if ownerID == "" || skillID == "" {
+		return domain.Skill{}, ErrEmptyField
+	}
+	out, err := deps.Skills.SetEnabled(ctx, ownerID, skillID, enabled)
+	if err != nil {
+		return domain.Skill{}, fmt.Errorf("set skill enabled: %w", err)
+	}
+	return out, nil
+}
+
 func checkSkillDeletable(
 	ctx context.Context, deps SkillsDeps, ownerID, skillID string,
 ) error {

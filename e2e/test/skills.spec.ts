@@ -14,7 +14,7 @@
 //   - builtin skill 没有 delete 按钮（不可删）
 
 import { test, expect } from '@/fixtures/test';
-import type { Page } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -113,7 +113,31 @@ test.describe('owner curates AI skills and attaches them to invite codes', () =>
       // prompt fragment must appear in that echo, proving composition worked.
       expect(body).toContain('SKILL-PATENT-MARKER');
     });
+
+  // #48-2: toggling a skill OFF globally excludes it from the agent even though
+  // it's still attached to the role — a fresh session no longer composes it.
+  test('toggling the skill off excludes it from a freshly issued session',
+    async ({ adminPage, request }) => {
+      await toggleSkillOffAndVerifyExcluded(adminPage, request);
+    });
 });
+
+async function toggleSkillOffAndVerifyExcluded(
+  page: Page, request: APIRequestContext,
+): Promise<void> {
+  await openSkills(page);
+  const toggle = page.getByTestId(`skill-toggle-${SKILL.name}`);
+  await expect(toggle).toHaveText('on', { timeout: 5_000 });
+  await toggle.click();
+  await expect(toggle).toHaveText('off', { timeout: 5_000 });
+
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'After Toggle',
+  });
+  const res = await sendMessage(request, sess, 'what was the role about?');
+  expect(res.status()).toBe(200);
+  expect(await res.text()).not.toContain('SKILL-PATENT-MARKER');
+}
 
 async function openSkills(page: Page): Promise<void> {
   await gotoAdminSection(page, 'skills');
