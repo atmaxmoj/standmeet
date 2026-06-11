@@ -44,6 +44,36 @@ test.describe('mail connector access-code loop', () => {
       expect(sess.session_token).toBeTruthy();
       await request.dispose();
     });
+
+  test('approve rejects (404) an unknown request id',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+      const missing = '00000000-0000-0000-0000-000000000000';
+      const res = await request.post(`${BACKEND}/api/admin/access-requests/${missing}/approve`, {
+        headers: { 'X-Csrftoken': csrf }, data: {},
+      });
+      expect(res.status()).toBe(404);
+      await request.dispose();
+    });
+
+  // Runs last: disconnect removes the connector, so can_email_codes flips back
+  // to false and the gate hides its request-access block again.
+  test('disconnect → can_email_codes false → gate hides request-access',
+    async ({ playwright, page }) => {
+      const request = await playwright.request.newContext();
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+      const dis = await request.post(`${BACKEND}/api/admin/connectors/mail/disconnect`, {
+        headers: { 'X-Csrftoken': csrf }, data: {},
+      });
+      expect(dis.status()).toBe(200);
+      const inst = await request.get(`${BACKEND}/api/v1/instance`);
+      expect((await inst.json() as { can_email_codes: boolean }).can_email_codes).toBe(false);
+      await request.dispose();
+      await page.getByRole('link', { name: 'request access ↗' }).click();
+      await page.waitForURL('**/gate', { timeout: 10_000 });
+      await expect(page.getByRole('button', { name: /write a note/i })).toHaveCount(0);
+    });
 });
 
 async function setup(playwright: Playwright): Promise<void> {

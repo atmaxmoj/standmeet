@@ -12,9 +12,11 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
+
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
   email: 'requests@example.com',
@@ -63,7 +65,47 @@ test.describe('admin requests management', () => {
       await allChip.click();
       await expect(adminPage.getByTestId('requests-list')).toBeVisible();
     });
+
+  test('gate hides the request-access block without a verified mail connector',
+    async ({ page }) => {
+      await page.getByRole('link', { name: 'request access ↗' }).click();
+      await page.waitForURL('**/gate', { timeout: 10_000 });
+      await expect(page.getByRole('button', { name: /write a note/i })).toHaveCount(0);
+      await expect(page.getByTestId('request-name')).toHaveCount(0);
+    });
+
+  test('approve endpoint rejects (400) without a verified mail connector',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const id = await firstRequestID(request);
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+      const res = await request.post(`${BACKEND}/api/admin/access-requests/${id}/approve`, {
+        headers: { 'X-Csrftoken': csrf }, data: {},
+      });
+      expect(res.status()).toBe(400);
+      await request.dispose();
+    });
+
+  test('save mail credentials rejects (400) when host is missing',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+      const res = await request.post(`${BACKEND}/api/admin/connectors/mail/credentials`, {
+        headers: { 'X-Csrftoken': csrf },
+        data: { host: '', port: 0, from_address: '' },
+      });
+      expect(res.status()).toBe(400);
+      await request.dispose();
+    });
 });
+
+async function firstRequestID(request: APIRequestContext): Promise<string> {
+  await login(request, OWNER.email, OWNER.password);
+  const res = await request.get(`${BACKEND}/api/admin/access-requests`);
+  const rows = await res.json() as { id: string }[];
+  if (rows.length === 0) throw new Error('no seeded request to approve');
+  return rows[0]!.id;
+}
 
 async function submitRequestViaAPI(request: APIRequestContext): Promise<void> {
   await request.post('/api/v1/access-requests', {

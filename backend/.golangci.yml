@@ -248,6 +248,10 @@ linters:
       # test pkg 又会被 go-arch-lint 当 self-import 拦。这里豁免 testpackage。
       - path: internal/inference/
         linters: [testpackage]
+      # mailer 的 buildMessage(RFC822 渲染 + header 注入剥离)是 unexported,
+      # 值得白盒单测;同 inference 豁免 testpackage。
+      - path: internal/mailer/
+        linters: [testpackage]
       # postgres-boundary 层与 pgx/sqlc 接口打交道，`any` 在驱动
       # 契约里是不可避免的（pgx Scan(dest ...any)、json.Marshal(v any) 等）。
       # 业务层 ban `any` 让信息流可读；这里反过来豁免。
