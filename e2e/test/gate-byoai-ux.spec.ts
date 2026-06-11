@@ -3,6 +3,7 @@
 // 用户故事：
 //   1. 缺必填字段 → submit disabled
 //   2. provider 切换 → endpoint/model placeholder 变
+//   3. 没填 key → "load models" 禁用(拉不了 model list);填了 key → 启用
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -44,6 +45,17 @@ test.describe('gate BYOAI panel UX', () => {
       const openaiPlaceholder = await keyInput.getAttribute('placeholder');
       // Key placeholders should differ per provider
       expect(anthropicPlaceholder).not.toBe(openaiPlaceholder);
+    });
+
+  test('load models disabled until a key is entered',
+    async ({ page }) => {
+      await page.getByRole('link', { name: 'request access ↗' }).click();
+      await page.waitForURL('**/gate', { timeout: 10_000 });
+      await page.getByTestId('byoai-provider').selectOption('anthropic');
+      const loadBtn = page.getByTestId('byoai-load-models');
+      await expect(loadBtn).toBeDisabled();
+      await page.getByTestId('byoai-key').fill('sk-ant-test-key');
+      await expect(loadBtn).toBeEnabled();
     });
 });
 

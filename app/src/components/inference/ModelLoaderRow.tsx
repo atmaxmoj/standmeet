@@ -27,6 +27,9 @@ interface RowProps {
    *  border-b focus 风格。把外观留给调用方。 */
   className: string;
   inputClassName: string;
+  /** loadDisabled —— 没法拉 model list 时禁用 "load models"(#41:BYOAI 没填 key
+   *  就拉不了 model,禁用 + 提示;调用方不传 = false,行为不变)。 */
+  loadDisabled?: boolean;
 }
 
 export function ModelLoaderRow(p: RowProps) {
@@ -40,7 +43,7 @@ export function ModelLoaderRow(p: RowProps) {
       <ModelActions
         loading={p.models.state.loading} options={p.models.state.options}
         onLoad={p.onLoad} onReset={p.models.reset}
-        prefix={p.testidPrefix}
+        prefix={p.testidPrefix} loadDisabled={p.loadDisabled ?? false}
       />
     </div>
   );
@@ -100,25 +103,42 @@ function ModelSelect({
 }
 
 function ModelActions({
-  loading, options, onLoad, onReset, prefix,
+  loading, options, onLoad, onReset, prefix, loadDisabled,
 }: {
   loading: boolean; options: readonly string[] | null;
   onLoad: () => void; onReset: () => void;
-  prefix: ModelTestidPrefix;
+  prefix: ModelTestidPrefix; loadDisabled: boolean;
 }) {
   return options === null
-    ? <LoadButton loading={loading} onLoad={onLoad} prefix={prefix} />
-    : <DropdownActions onLoad={onLoad} onReset={onReset} loading={loading} prefix={prefix} />;
+    ? <LoadButton loading={loading} onLoad={onLoad} prefix={prefix} loadDisabled={loadDisabled} />
+    : <DropdownActions
+        onLoad={onLoad} onReset={onReset} loading={loading}
+        prefix={prefix} loadDisabled={loadDisabled}
+      />;
+}
+
+const NO_KEY_TITLE = 'enter your API key first';
+
+function loadTitle(loadDisabled: boolean): string | undefined {
+  return loadDisabled ? NO_KEY_TITLE : undefined;
+}
+
+function refreshTitle(loadDisabled: boolean): string {
+  return loadDisabled ? NO_KEY_TITLE : 'refresh model list';
 }
 
 function LoadButton({
-  loading, onLoad, prefix,
-}: { loading: boolean; onLoad: () => void; prefix: ModelTestidPrefix }) {
+  loading, onLoad, prefix, loadDisabled,
+}: {
+  loading: boolean; onLoad: () => void;
+  prefix: ModelTestidPrefix; loadDisabled: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onLoad}
-      disabled={loading}
+      disabled={loading || loadDisabled}
+      title={loadTitle(loadDisabled)}
       data-testid={`${prefix}-load-models`}
       className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-ink) disabled:opacity-40 shrink-0"
     >
@@ -128,19 +148,19 @@ function LoadButton({
 }
 
 function DropdownActions({
-  onLoad, onReset, loading, prefix,
+  onLoad, onReset, loading, prefix, loadDisabled,
 }: {
   onLoad: () => void; onReset: () => void;
-  loading: boolean; prefix: ModelTestidPrefix;
+  loading: boolean; prefix: ModelTestidPrefix; loadDisabled: boolean;
 }) {
   return (
     <span className="flex items-baseline gap-2 shrink-0">
       <button
         type="button"
         onClick={onLoad}
-        disabled={loading}
+        disabled={loading || loadDisabled}
         data-testid={`${prefix}-load-models`}
-        title="refresh model list"
+        title={refreshTitle(loadDisabled)}
         className="mono text-[12px] text-(--color-faint) hover:text-(--color-ink) disabled:opacity-40"
       >
         {loading ? '…' : '↻'}

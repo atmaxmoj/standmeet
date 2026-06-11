@@ -125,6 +125,7 @@ function BYOAIForm(p: FormProps) {
       <ModelRow
         value={p.form.model} onChange={p.onModel}
         models={p.models}
+        loadDisabled={p.apiKey.trim() === ''}
         onLoad={() => void p.models.load({
           provider: p.form.provider, endpoint: p.form.endpoint, key: p.apiKey,
         })}
@@ -216,10 +217,10 @@ const MODEL_INPUT_CLASS =
   'placeholder:text-(--color-faint) text-[14.5px] tracking-[0.02em]';
 
 function ModelRow({
-  value, onChange, models, onLoad,
+  value, onChange, models, onLoad, loadDisabled,
 }: {
   value: string; onChange: (v: string) => void;
-  models: ModelListHook; onLoad: () => void;
+  models: ModelListHook; onLoad: () => void; loadDisabled: boolean;
 }) {
   return (
     <>
@@ -230,6 +231,7 @@ function ModelRow({
         value={value} onChange={onChange}
         models={models} onLoad={onLoad}
         testidPrefix="byoai"
+        loadDisabled={loadDisabled}
         className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1 mb-5"
         inputClassName={MODEL_INPUT_CLASS}
       />
