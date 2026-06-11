@@ -78,7 +78,7 @@ function WikiLandingContent({ wiki, handle, slug, ctx }: {
         </div>
         <AskAboutThis title={wiki.title} kind="wiki" />
       </main>
-      <FloatingChatDock />
+      <FloatingChatDock docContext={{ title: wiki.title, path: slug, genre: 'wiki' }} />
     </>
   );
 }

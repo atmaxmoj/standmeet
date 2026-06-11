@@ -75,6 +75,9 @@ async function* streamAgentTurnHTTP(
       user_message: req.userMessage,
       conversation_id: req.conversationID,
       history: req.history,
+      // doc_context —— 当前所在 doc(title/path/genre);backend 注进 instruction
+      // 让指代解析。undefined 时 JSON.stringify 直接省掉(主 chat 全屏不带)。
+      doc_context: req.docContext,
     }),
   });
   if (!res.ok || res.body === null) {

@@ -6,6 +6,7 @@
 // (老的浏览器侧 VisitorAgent loop 已删，只剩 3 ports: prompts / turn / observer)
 
 import type {
+  DocContext,
   EventObserver,
   PromptSource,
   TurnRequest,
@@ -24,6 +25,8 @@ export interface VisitorTurnAgentConfig {
   // conversationID 持久化 chat 行的 UUID，每次 /agent/turn 都要带，让
   // backend tool (calendar_book / 等) 找得到归属的 conversation。
   readonly conversationID: string;
+  // docContext —— 访客当前所在 doc(在 doc 页/浮窗发问时);主 chat 全屏 = undefined。
+  readonly docContext?: DocContext;
 }
 
 export interface SendTurnOptions {
@@ -49,6 +52,7 @@ export class VisitorTurnAgent {
     const req: TurnRequest = {
       system, userMessage: opts.userMessage,
       conversationID: this.cfg.conversationID, history,
+      docContext: this.cfg.docContext,
     };
     this.emit({ type: 'iteration_started', iter: 0 });
     const ctx = makeCtx();

@@ -17,7 +17,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VisitorTurnAgent } from '@standmeet/agent-core';
+import { VisitorTurnAgent, type DocContext } from '@standmeet/agent-core';
 import type {
   AgentEvent, EventObserver, Message,
 } from '@standmeet/agent-core';
@@ -31,6 +31,7 @@ import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { restoreSession, revalidateSession, revalidateStored, splitParas } from '@/lib/page/use-chat-restore';
 import { throbberLabel } from '@/lib/page/throbber-label';
+import { pickCorpusReadShape } from '@/lib/page/corpus-read-wire';
 import {
   ensureSession,
   type PageSession,
@@ -110,6 +111,9 @@ export type ChatState = {
 
 type Deps = {
   mode: SessionMode;
+  // docContext —— 访客当前所在 doc(doc 页/浮窗 chat);主 chat 全屏 = undefined。
+  // 透到 /agent/turn 让 AI 解析「this/这篇」指代(#36)。
+  docContext?: DocContext;
 };
 
 export function useChat(deps: Deps): ChatState {
@@ -199,7 +203,7 @@ async function runAsk(
     const sess = await ensureSession(sessionRef, deps);
     const byoai = await wrapBYOAIFor(deps, sess);
     const accum = makeAccumulator();
-    await runAgentForDialog(sess, byoai, histRef, q, makeObserver(id, accum, setDialogs));
+    await runAgentForDialog(sess, byoai, histRef, q, makeObserver(id, accum, setDialogs), deps.docContext);
     finalizeDialog(id, accum, setDialogs);
     // backend 拥有这一轮:/agent/turn 流末端已把它 sink 进 conversation 表(#28),
     // 前端不再自落库。答完那条留在本地 transcript 显示,used 由 dialogs 派生(下面
@@ -334,32 +338,6 @@ function pushCitationFromTool(
   accum.citations.push({ genre, id: r.id, path: r.path, title: r.title, body: r.body });
 }
 
-function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
-  if (!isRecord(raw)) return null;
-  const id = readString(raw['id']);
-  const path = readString(raw['path']);
-  const genre = readString(raw['genre']);
-  const title = readString(raw['title']) || path;
-  const body = readString(raw['body']);
-  return { id, path, genre, title, body };
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return v !== null && typeof v === 'object';
-}
-
-function readString(v: unknown): string {
-  return typeof v === 'string' ? v : '';
-}
-
-interface CorpusReadWire {
-  id: string;
-  path: string;
-  genre: string;
-  title: string;
-  body: string;
-}
-
 function finalizeDialog(
   id: string, accum: DialogAccumulator,
   setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>,
@@ -373,8 +351,9 @@ async function runAgentForDialog(
   histRef: React.MutableRefObject<Message[]>,
   userMessage: string,
   observer: EventObserver,
+  docContext?: DocContext,
 ): Promise<void> {
-  const agent = buildPageAgent(sess, byoai, observer);
+  const agent = buildPageAgent(sess, byoai, observer, docContext);
   const next = await agent.send({
     userMessage, history: histRef.current,
   });
@@ -385,6 +364,7 @@ function buildPageAgent(
   sess: PageSession,
   byoai: HttpBYOAIHeaders | undefined,
   observer: EventObserver,
+  docContext?: DocContext,
 ): VisitorTurnAgent {
   // H.10: backend (eino ADK) 接管 agent loop；浏览器只调一次 /agent/turn
   // 收 SSE 事件。不再需要 capabilities / llm / tools 三个 port，整套
@@ -400,6 +380,7 @@ function buildPageAgent(
     {
       systemPromptPartIDs: assembledPartIDs(sess),
       conversationID: sess.conversationID,
+      docContext,
     },
   );
 }

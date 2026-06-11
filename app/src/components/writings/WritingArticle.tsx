@@ -59,7 +59,7 @@ function UnlockedView({ writing }: { writing: WritingView }) {
         <Backlinks refs={writing.backlinks ?? []} />
         <AskAboutThis title={writing.title} kind="essay" />
       </main>
-      <FloatingChatDock />
+      <FloatingChatDock docContext={{ title: writing.title, path: writing.slug, genre: 'writing' }} />
     </div>
   );
 }

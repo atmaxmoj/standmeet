@@ -14,7 +14,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { initMCP } from '@/fixtures/mcp';
+import { callTool, initMCP } from '@/fixtures/mcp';
 import { goto, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -87,37 +87,63 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
 
   // #35 完备性(owner 原则):大 chat 的 tool-cards + citations + throbber-clears
   // 全流程在小 chat(浮窗)上也成立 —— 同 seed(Lucerna)、同问句、同 testid。
-  test('dock full flow: corpus_search 卡 + hit + citations + throbber 清除',
-    async ({ page }) => {
-      await enterCodeSession(page, CODE);
-      await goto(page, '/writings');
-      await page.getByTestId('floating-dock-pill').click();
-      const panel = page.getByTestId('floating-chat-panel');
-      await expect(panel).toBeVisible({ timeout: 3_000 });
+  test('dock full flow: corpus_search 卡 + hit + citations + throbber 清除', dockFullFlow);
 
-      const input = page.getByTestId('floating-chat-input');
-      await input.fill('tell me about lucerna');
-      await input.press('Enter');
-
-      // corpus_search 卡(折叠)→ 展开看 hit:Lucerna / wiki / path。
-      const searchCard = panel.getByTestId('tool-card-corpus_search');
-      await expect(searchCard).toBeVisible({ timeout: 20_000 });
-      await searchCard.locator('summary').first().click();
-      const hit = searchCard.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
-      await expect(hit).toBeVisible();
-      await expect(hit).toContainText('Lucerna');
-      // corpus_read 不渲卡(Citation 接管);citations 出现。
-      await expect(panel.getByTestId('tool-card-corpus_read')).toHaveCount(0);
-      await expect(panel.getByTestId('citations')).toBeVisible();
-      // citation 行是跳那篇公开页的外链。
-      await panel.getByTestId('citations').locator('summary').click();
-      const row = panel.locator('[data-testid="citation-row"][data-citation-path="projects/lucerna"]');
-      await expect(row).toHaveAttribute('href', '/wiki/projects/lucerna');
-      await expect(row).toHaveAttribute('target', '_blank');
-      // 答案落地后 throbber 消失。
-      await expect(panel.getByTestId('tool-throbbers')).toHaveCount(0, { timeout: 20_000 });
-    });
+  // #36:doc 页浮窗发问 → turn 请求带当前 doc 的 doc_context(plumbing;指代质量走 eval)。
+  test('location-aware: dock turn 带当前 doc 的 doc_context', dockSendsDocContext);
 });
+
+async function dockFullFlow({ page }: { page: Page }): Promise<void> {
+  await enterCodeSession(page, CODE);
+  await goto(page, '/writings');
+  await page.getByTestId('floating-dock-pill').click();
+  const panel = page.getByTestId('floating-chat-panel');
+  await expect(panel).toBeVisible({ timeout: 3_000 });
+
+  const input = page.getByTestId('floating-chat-input');
+  await input.fill('tell me about lucerna');
+  await input.press('Enter');
+
+  // corpus_search 卡(折叠)→ 展开看 hit:Lucerna / wiki / path。
+  const searchCard = panel.getByTestId('tool-card-corpus_search');
+  await expect(searchCard).toBeVisible({ timeout: 20_000 });
+  await searchCard.locator('summary').first().click();
+  const hit = searchCard.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
+  await expect(hit).toBeVisible();
+  await expect(hit).toContainText('Lucerna');
+  // corpus_read 不渲卡(Citation 接管);citations 出现。
+  await expect(panel.getByTestId('tool-card-corpus_read')).toHaveCount(0);
+  await expect(panel.getByTestId('citations')).toBeVisible();
+  // citation 行是跳那篇公开页的外链。
+  await panel.getByTestId('citations').locator('summary').click();
+  const row = panel.locator('[data-testid="citation-row"][data-citation-path="projects/lucerna"]');
+  await expect(row).toHaveAttribute('href', '/wiki/projects/lucerna');
+  await expect(row).toHaveAttribute('target', '_blank');
+  // 答案落地后 throbber 消失。
+  await expect(panel.getByTestId('tool-throbbers')).toHaveCount(0, { timeout: 20_000 });
+}
+
+// dockSendsDocContext —— 从 wiki landing 的浮窗发问,turn 请求带 doc_context
+// (title/path/genre),后端注进 instruction 让 AI 解析「this/这篇」指代。
+async function dockSendsDocContext({ page }: { page: Page }): Promise<void> {
+  await enterCodeSession(page, CODE);
+  let turnBody: { doc_context?: { title: string; path: string; genre: string } } | null = null;
+  await page.route('**/api/v1/agent/turn', async (route) => {
+    turnBody = route.request().postDataJSON() as typeof turnBody;
+    await route.continue();
+  });
+  await goto(page, '/wiki/projects/lucerna');
+  await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
+  await page.getByTestId('floating-dock-pill').click();
+  const input = page.getByTestId('floating-chat-input');
+  await input.fill('tell me more about this');
+  await input.press('Enter');
+  await expect(page.getByTestId('floating-chat-panel').getByTestId('answer-body'))
+    .toBeVisible({ timeout: 15_000 });
+  expect(turnBody?.doc_context).toMatchObject({
+    title: 'Lucerna', path: 'projects/lucerna', genre: 'wiki',
+  });
+}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
@@ -133,9 +159,13 @@ async function initOwner(playwright: Playwright): Promise<void> {
     body: 'dock owner intro.', title: 'Dock Intro',
   });
   // Lucerna —— 让 mock 在小 chat 里也能走 corpus_search → cite(镜像大 chat 全流程)。
-  await seedWiki(request, apiToken, sid, {
+  // 标 indexed 让 /wiki/projects/lucerna landing 能渲(位置感知 plumbing 测试用)。
+  const luc = await seedWiki(request, apiToken, sid, {
     body: 'lucerna is a local-first knowledge tool.',
     title: 'Lucerna', path: 'projects/lucerna',
+  });
+  await callTool(request, apiToken, sid, 'seo.set_wiki_seo', {
+    wiki_id: luc.wikiID, seo_description: 'a local-first knowledge tool', seo_indexed: true,
   });
   await createCode(request, csrf, {
     code: CODE, label: 'Dock test',

@@ -91,7 +91,7 @@ func BuildAgentIterator(
 	agent, aerr := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:        "visitor",
 		Description: "standmeet visitor chat agent",
-		Instruction: in.Req.System,
+		Instruction: instructionWithDoc(in.Req.System, in.Req.DocContext),
 		Model:       cm,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: in.Tools},

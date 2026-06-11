@@ -51,11 +51,38 @@ func agentTurnTimeout() time.Duration {
 // 联到正确的 conversation 行。老 /sessions/{convID}/tools/{name} wire
 // 走 URL path；新 /agent/turn 由 body 透。
 type AgentTurnRequest struct {
-	System         string           `json:"system"`
-	UserMessage    string           `json:"user_message"`
-	ConversationID string           `json:"conversation_id"`
-	Model          string           `json:"model,omitempty"`
-	History        []ChatRequestMsg `json:"history,omitempty"`
+	System         string `json:"system"`
+	UserMessage    string `json:"user_message"`
+	ConversationID string `json:"conversation_id"`
+	Model          string `json:"model,omitempty"`
+	// DocContext —— 访客发问时正看着哪篇 doc(reader/wiki/output 页或浮窗所在页)。
+	// 低信任的导航上下文,backend 用固定模板注进 instruction,让「this/这篇/这个项目」
+	// 这类指代能解析(#36)。nil = 不在 doc 页(如主 chat 全屏)。
+	DocContext *AgentDocContext `json:"doc_context,omitempty"`
+	History    []ChatRequestMsg `json:"history,omitempty"`
+}
+
+// AgentDocContext —— 访客当前所在 document 的最小标识(给指代解析用)。
+type AgentDocContext struct {
+	Title string `json:"title"`
+	Path  string `json:"path"`
+	Genre string `json:"genre"` // wiki | output | writing
+}
+
+// instructionWithDoc —— persona instruction 末尾拼一段「访客正看着 X」的位置上下文,
+// 让代词指代("this page"/"这篇"/"这个项目")解析到那篇 doc。doc 为 nil / 空 → 原样返。
+func instructionWithDoc(system string, doc *AgentDocContext) string {
+	if doc == nil || doc.Title == "" {
+		return system
+	}
+	loc := "\n\nContext: the visitor is currently reading the page \"" + doc.Title + "\""
+	if doc.Path != "" {
+		loc += " (/" + doc.Genre + "/" + doc.Path + ")"
+	}
+	loc += " on this site. When they say \"this\", \"this page\", \"this doc\", " +
+		"\"this project\", or similar without naming it, they mean that document — " +
+		"pull it up with your corpus tools if it helps answer."
+	return system + loc
 }
 
 // AgentTurnInput —— RunAgentTurn / BuildAgentIterator 的入参打包，避开

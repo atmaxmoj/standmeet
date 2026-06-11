@@ -20,20 +20,23 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
+import type { DocContext } from '@standmeet/agent-core';
 import { ChatTranscript, ChatProgress } from '@/components/visitor/ChatTranscript';
 import { useGhostLogger } from '@/lib/page/use-ghost-logger';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
 import { dispatchGhostKey, pickGhost } from '@/lib/visitor/ghost-text';
 
-export function FloatingChatDock() {
+// docContext —— 访客当前所在 doc(wiki/writing/output 页传进来),让浮窗里问
+// 「this/这篇/这个项目」时 AI 解析得到(#36)。挂在主 chat 全屏不传 = undefined。
+export function FloatingChatDock({ docContext }: { docContext?: DocContext }) {
   const mode = useModeFromVisitorStore();
-  return mode === 'public' ? null : <FloatingChatDockInner mode={mode} />;
+  return mode === 'public' ? null : <FloatingChatDockInner mode={mode} docContext={docContext} />;
 }
 
-function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
+function FloatingChatDockInner({ mode, docContext }: { mode: SessionMode; docContext?: DocContext }) {
   const [open, setOpen] = useState(false);
-  const chat = useChat({ mode });
+  const chat = useChat({ mode, docContext });
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const ghost = useCurrentGhost();

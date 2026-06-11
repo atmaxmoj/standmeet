@@ -9,6 +9,7 @@ export type {
   VisitorTurnAgentPorts,
 } from './agent-turn.js';
 export type {
+  DocContext,
   EventObserver,
   PromptSource,
   TurnRequest,

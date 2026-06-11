@@ -27,6 +27,16 @@ export interface TurnRequest {
   readonly userMessage: string;
   readonly conversationID: string;
   readonly history: readonly Message[];
+  // docContext —— 访客发问时正看着哪篇 doc(reader/wiki/output 页或浮窗所在页),
+  // backend 注进 instruction 让代词指代("this page"/"这篇")解析得到。
+  readonly docContext?: DocContext;
+}
+
+// DocContext —— 访客当前所在 document 的最小标识(给 AI 解析指代用)。
+export interface DocContext {
+  readonly title: string;
+  readonly path: string;
+  readonly genre: string; // wiki | output | writing
 }
 
 // TurnStreamer —— H.10: agent-core 单一出口，浏览器调一次发一整轮事件

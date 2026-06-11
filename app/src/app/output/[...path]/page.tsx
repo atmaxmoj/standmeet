@@ -63,7 +63,7 @@ function OutputLandingContent({ out, handle, slug }: {
         </article>
         <AskAboutThis title={out.title} kind="output" />
       </main>
-      <FloatingChatDock />
+      <FloatingChatDock docContext={{ title: out.title, path: slug, genre: 'output' }} />
     </>
   );
 }
