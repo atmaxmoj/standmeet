@@ -168,6 +168,9 @@ func (s *server) routes(mux *http.ServeMux) {
 	// GitHub + SkillsMP clients point here in dev/e2e.
 	mux.HandleFunc("GET /marketplace/github/contents/skills", s.serveMarketplaceGitHub)
 	mux.HandleFunc("GET /marketplace/skillsmp/skills/search", s.serveMarketplaceSkillsMP)
+	// #48-3 install: SKILL.md fetch endpoints (per-skill detail).
+	mux.HandleFunc("GET /marketplace/github/contents/skills/{id}/SKILL.md", s.serveMarketplaceGitHubSkillMD)
+	mux.HandleFunc("GET /marketplace/skillsmp/skills/{id}", s.serveMarketplaceSkillsMPSkillMD)
 
 	// Google Calendar OAuth + API + FreeBusy mocks. Backend's
 	// internal/gcal package points GOOGLE_OAUTH_BASE_URL and

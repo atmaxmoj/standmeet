@@ -38,3 +38,13 @@ type MarketSkill struct {
 	Source      MarketSource `json:"source"`
 	Stars       int          `json:"stars"`
 }
+
+// MarketSkillContent —— parsed SKILL.md(#48-3 install)。Prompt 是 SKILL.md 正文
+// (frontmatter 之后的全部),作为 skill 的附加 system prompt;name/description/
+// allowed-tools 来自 frontmatter。空字段由 install usecase 用搜索元数据兜底。
+type MarketSkillContent struct {
+	Name         string
+	Description  string
+	Prompt       string
+	AllowedTools []string
+}

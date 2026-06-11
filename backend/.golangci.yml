@@ -252,6 +252,10 @@ linters:
       # 值得白盒单测;同 inference 豁免 testpackage。
       - path: internal/mailer/
         linters: [testpackage]
+      # marketplace 的 parseSkillMD(SKILL.md frontmatter 解析)是 unexported,
+      # 白盒单测;同上豁免 testpackage。
+      - path: internal/marketplace/
+        linters: [testpackage]
       # postgres-boundary 层与 pgx/sqlc 接口打交道，`any` 在驱动
       # 契约里是不可避免的（pgx Scan(dest ...any)、json.Marshal(v any) 等）。
       # 业务层 ban `any` 让信息流可读；这里反过来豁免。
