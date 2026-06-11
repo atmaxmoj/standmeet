@@ -55,6 +55,20 @@ test.describe('admin sidebar badges + nav', () => {
       // wiki should no longer be active
       await expect(wikiNavLink).not.toHaveAttribute('aria-current', 'page');
     });
+
+  // #34:AdminShell 挂在 layout → 跨 section 导航 sidebar 不 remount,滚动位置保留
+  // (之前每次点击 reset 到顶)。短 viewport 逼 sidebar 滚动,滚下去再导航,验 scrollTop。
+  test('persistent layout：sidebar 滚动位置跨导航保留', async ({ adminPage }) => {
+    await adminPage.setViewportSize({ width: 1280, height: 460 });
+    await gotoAdminSection(adminPage, 'wiki');
+    const sidebar = adminPage.getByTestId('admin-sidebar');
+    await sidebar.evaluate((el) => { el.scrollTop = 120; });
+    expect(await sidebar.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    // 导航到另一个 section —— layout 持久,sidebar 不该 remount/归零。
+    await gotoAdminSection(adminPage, 'codes');
+    await adminPage.waitForURL('**/admin/codes', { timeout: 5_000 });
+    expect(await sidebar.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {
