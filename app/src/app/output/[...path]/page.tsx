@@ -121,10 +121,11 @@ function TrustBox({ handle }: { handle: string }) {
 }
 
 function PageHeader() {
+  // #39: document 页统一返回 writing index,不再「← home」回 /。
   return (
     <header className="mb-10">
-      <Link href="/" className="mono text-[10.5px] tracking-[0.12em] text-(--color-muted) hover:text-(--color-accent)">
-        ← home
+      <Link href="/writings" className="mono text-[10.5px] tracking-[0.12em] text-(--color-muted) hover:text-(--color-accent)">
+        ← writing
       </Link>
     </header>
   );

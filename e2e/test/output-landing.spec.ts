@@ -49,6 +49,9 @@ test.describe('public /output/<slug> SEO landing', () => {
       await goto(page, `/output/${SLUG}`);
       await expect(page.getByTestId('output-landing')).toBeVisible();
       await expectBodyAndTitle(page);
+      // #39: document 页返回 writing index,不再「← home」回 /。
+      await expect(page.getByRole('link', { name: '← writing' }))
+        .toHaveAttribute('href', '/writings');
       const sitemap = await fetchSitemap(page);
       expect(sitemap).toContain(`/output/${SLUG}`);
     });
