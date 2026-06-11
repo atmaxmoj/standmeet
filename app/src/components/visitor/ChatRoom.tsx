@@ -9,17 +9,15 @@ import { useEffect, useRef } from 'react';
 import { pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
 import { dispatchComposerKey, useAutoGrowTextarea } from '@/lib/visitor/composer-keys';
 import { composeMessage, useComposerAttachments } from '@/lib/visitor/composer-attachments';
-import { AttachmentChips, VisitorQuestion } from '@/components/visitor/ComposerAttachments';
+import { AttachmentChips } from '@/components/visitor/ComposerAttachments';
 
 import Link from 'next/link';
 
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
-import { ChatMarkdown } from '@/components/page/markdown';
-import { ToolCallCards } from '@/components/page/ToolCallCards';
-import { useThinkingWord } from '@/lib/page/thinking-words';
+import { ChatTranscript, ChatProgress } from '@/components/visitor/ChatTranscript';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
-import type { Citation, SessionMode, ToolThrobberView } from '@/lib/page/use-chat';
+import type { SessionMode } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
 
 type Props = { owner: PublicOwnerView; mode: SessionMode };
@@ -144,147 +142,6 @@ function ByoaiWelcome({ handle, provider }: { handle: string; provider: string }
   );
 }
 
-// ── transcript ─────────────────────────────────────────────
-
-type Dialog = ReturnType<typeof useChatRoomInput>['chat']['dialogs'][number];
-
-function ChatTranscript({ dialogs, onAsk }: {
-  dialogs: readonly Dialog[]; onAsk: (q: string) => void;
-}) {
-  const endRef = useRef<HTMLDivElement | null>(null);
-  return (
-    <div className="flex-1">
-      {dialogs.map((d, i) => <DialogCard key={d.id ?? i} dialog={d} onAsk={onAsk} />)}
-      <div ref={endRef} />
-    </div>
-  );
-}
-
-function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => void }) {
-  return (
-    <article className="pt-10 pb-10 border-b border-(--color-rule)">
-      <div className="mono text-[10.5px] tracking-[0.18em] uppercase mb-3 flex items-baseline gap-3">
-        <span className="text-(--color-ink)">you</span>
-      </div>
-      <VisitorQuestion q={dialog.q} />
-      {/* live throbber(reading/searching/thinking)不在这里 —— 搬到输入栏上方
-          (ChatProgress),turn 内的「当前动作」贴着输入框左上显。这里只留持久回执:
-          折叠的 searched 卡 + 落地的答案。 */}
-      <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
-      {dialog.pending ? null : <AnswerView answer={dialog.answer} />}
-    </article>
-  );
-}
-
-// ChatProgress —— turn 内「当前动作」观察者,贴在对话输入栏正上方、左对齐。
-// 只在最后一条 dialog 还 pending 时显:有 tool 在跑 → reading/searching(throbber),
-// 没 tool → thinking 词库轮换。turn 落地(不再 pending)即整条消失。
-function ChatProgress({ dialogs }: { dialogs: readonly Dialog[] }) {
-  const last = dialogs.at(-1);
-  return last !== undefined && last.pending ? <ProgressLine dialog={last} /> : null;
-}
-
-function ProgressLine({ dialog }: { dialog: Dialog }) {
-  return (
-    <div className="px-6 lg:px-0 pb-1 text-left" data-testid="chat-progress">
-      {dialog.currentTool !== null
-        ? <ToolThrobber tool={dialog.currentTool} />
-        : <ThinkingDots retrying={dialog.retrying} tool={null} />}
-    </div>
-  );
-}
-
-// ToolThrobber —— agent 当前在跑的那一个 tool 的进度行。label 已在 use-chat 按
-// name+args+backend progress_label 拼好;name 给 `tool-throbber-<name>` testid。
-// tool 为 null(没在跑 / turn 落地)→ 不渲。
-function ToolThrobber({ tool }: { tool: ToolThrobberView | null }) {
-  return tool === null ? null : (
-    <div
-      data-testid="tool-throbbers"
-      className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mb-3"
-    >
-      <span data-testid={`tool-throbber-${tool.name}`}>
-        {tool.label}
-        <span className="sm-dot">·</span>
-        <span className="sm-dot">·</span>
-        <span className="sm-dot">·</span>
-      </span>
-    </div>
-  );
-}
-
-// ThinkingDots —— LLM 在想(没具体 tool 在跑)时的进度行。词从 thinking-words
-// 词库每 3 秒轮换(thinking / composing / …),长等待不显得卡死。retrying 时
-// (backend 重试一次 transient LLM 失败)固定显 "retrying",让 visitor 知道在
-// 重试而非干卡。
-function ThinkingDots({ retrying, tool }: { retrying: boolean; tool: ToolThrobberView | null }) {
-  const word = useThinkingWord();
-  // 有 tool 在跑 → ToolThrobber 已显 reading/searching,这条不叠,免得「读文档时
-  // 还并排显 thinking」。throbber 同一时刻只一个进度指示:有 tool 显 tool,没有才 thinking。
-  return tool !== null ? null : (
-    <div
-      className="mono text-(--color-muted) text-[11px] tracking-[0.18em] uppercase mt-3"
-      data-testid="answer-pending"
-      data-retrying={String(retrying)}
-    >
-      {retrying ? 'retrying' : word}{' '}
-      <span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span>
-    </div>
-  );
-}
-
-function AnswerView({ answer }: { answer: Dialog['answer'] }) {
-  return answer ? (
-    <div data-testid="answer-body">
-      <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">ai</div>
-      {answer.paras.map((p, i) => (
-        <div key={i} className="reading mb-4 last:mb-0 text-[18px]">
-          <ChatMarkdown source={p} />
-        </div>
-      ))}
-      <CitationsList citations={answer.citations} />
-    </div>
-  ) : null;
-}
-
-// CitationsList —— one quiet "references · N" line under the answer, collapsed
-// by default (normal-AI-chat style). Expand for the source list; each row
-// expands again to its body. Keeps the answer the main thing.
-function CitationsList({ citations }: { citations?: readonly Citation[] }) {
-  return citations && citations.length > 0 ? (
-    <details className="group mt-6" data-testid="citations">
-      <summary className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) cursor-pointer list-none marker:hidden select-none hover:text-(--color-accent) transition-colors inline-flex items-baseline gap-1.5">
-        references · {citations.length}
-        <span className="text-(--color-faint) group-open:rotate-90 transition-transform">›</span>
-      </summary>
-      <ul className="flex flex-col gap-1 mt-2">
-        {citations.map((c) => <CitationRow key={c.path} c={c} />)}
-      </ul>
-    </details>
-  ) : null;
-}
-
-// CitationRow —— 点引用 = 跳到那篇 document 在 owner 站上的公开页
-// (/<genre>/<树派生 path>),新标签打开不丢聊天。不再 inline 展开原文。
-function CitationRow({ c }: { c: Citation }) {
-  return (
-    <li>
-      <a
-        href={`/${c.genre}/${c.path}`}
-        target="_blank"
-        rel="noreferrer"
-        className="mono text-[11px] text-(--color-muted) hover:text-(--color-accent) transition-colors flex items-baseline gap-2"
-        data-testid="citation-row"
-        data-citation-path={c.path}
-      >
-        <span data-testid={`citation-genre-${c.genre}`}>{c.genre}</span>
-        <span className="text-(--color-faint)">·</span>
-        <span>{c.title}</span>
-        <span className="text-[10px] text-(--color-faint) ml-auto">↗</span>
-      </a>
-    </li>
-  );
-}
 
 // ── composer ───────────────────────────────────────────────
 
