@@ -28,6 +28,8 @@ type ownerView struct {
 
 type aiSettingsView struct {
 	Provider      string `json:"provider"`
+	Endpoint      string `json:"endpoint"`
+	Model         string `json:"model"`
 	KeyConfigured bool   `json:"key_configured"`
 }
 
@@ -89,6 +91,8 @@ func toMeResponse(owner *domain.Owner, settings *domain.OwnerSettings) meRespons
 		Settings: settingsView{
 			AI: aiSettingsView{
 				Provider:      settings.AI.Provider,
+				Endpoint:      settings.AI.Endpoint,
+				Model:         settings.AI.Model,
 				KeyConfigured: settings.AI.KeyConfigured,
 			},
 			BYOAI: byoaiSettingsView{

@@ -107,7 +107,12 @@ export const ConversationSummarySchema = z.object({
 });
 export type ConversationSummary = z.infer<typeof ConversationSummarySchema>;
 
-const AISettingsViewSchema = z.object({ provider: z.string(), key_configured: z.boolean() });
+const AISettingsViewSchema = z.object({
+  provider: z.string(),
+  endpoint: z.string().optional(),
+  model: z.string().optional(),
+  key_configured: z.boolean(),
+});
 
 const BYOAISettingsViewSchema = z.object({
   enabled: z.boolean(), providers: z.array(z.string()), public_blurb: z.string(),

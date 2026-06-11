@@ -25,7 +25,7 @@ import {
   type AIProviderHook, type AIProviderName,
 } from '@/lib/admin/use-ai-provider';
 import {
-  initialProviderForm, setEndpoint, setModel, switchProvider,
+  seededProviderForm, setEndpoint, setModel, switchProvider,
   EMPTY_DEFAULTS, type ProviderFormState,
 } from '@/lib/inference/provider-form';
 import { useModelList, type ModelListHook } from '@/lib/inference/use-model-list';
@@ -95,8 +95,13 @@ function defaultsForName(
 function PanelForm({
   hook, presets,
 }: { hook: AIProviderHook; presets: readonly AIProviderPresetView[] }) {
+  // #33:从 SoT(hook.state.endpoint/model,/me 返回 owner 存过的)播种,而不是
+  // preset 默认 —— owner 重开设置看到自己上次存的 endpoint + MODEL。
   const [form, setForm] = useState<ProviderFormState>(
-    () => initialProviderForm(hook.state.provider, defaultsForName(hook.state.provider, presets)),
+    () => seededProviderForm(
+      hook.state.provider, hook.state.endpoint, hook.state.model,
+      defaultsForName(hook.state.provider, presets).endpoint,
+    ),
   );
   const [keyText, setKeyText] = useState('');
   const toast = useToast();

@@ -48,7 +48,9 @@ type OwnerSettings struct {
 // OwnerAISettings —— owner 自己的 inference provider 配置（给真访客 chat
 // 用）；明文 key 不出 repo，外层只看 KeyConfigured bool。
 type OwnerAISettings struct {
-	Provider      string // 'anthropic' | 'openai'
+	Provider      string // 'anthropic' | 'openai' | 'custom' | ...
+	Endpoint      string // owner 显式设过的 base URL(SoT;空 = 用 preset 默认)
+	Model         string // owner 显式设过的 model(SoT;空 = 用 preset 默认)
 	KeyConfigured bool
 }
 

@@ -20,6 +20,10 @@ export type AIProviderName = string;
 
 export interface AIProviderState {
   provider: AIProviderName;
+  // endpoint / model —— SoT 优先(owner 存过的 /me 返回值),空则退 preset 默认。
+  // #33:之前 form 只用 preset 默认,owner 存过的 model/endpoint 不回填。
+  endpoint: string;
+  model: string;
   keyConfigured: boolean;
   loading: boolean;
   saving: boolean;
@@ -132,9 +136,15 @@ function deriveState(
   saving: boolean,
   error: string | null,
 ): AIProviderState {
+  const ai = session.data?.settings.ai;
+  const provider = ai?.provider ?? 'anthropic';
+  const preset = defaultsFor(provider);
   return {
-    provider: session.data?.settings.ai.provider ?? 'anthropic',
-    keyConfigured: session.data?.settings.ai.key_configured ?? false,
+    provider,
+    // SoT(owner 存过的)优先;空则 preset 默认,让 owner 至少能 save。
+    endpoint: ai?.endpoint || preset.endpoint,
+    model: ai?.model || preset.model,
+    keyConfigured: ai?.key_configured ?? false,
     loading: session.status === 'idle' || session.status === 'loading',
     saving,
     error: error ?? session.error,

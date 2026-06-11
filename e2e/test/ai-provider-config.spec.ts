@@ -44,6 +44,9 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
       await page.reload();
       await expect(page.getByTestId('ai-provider-key'))
         .toHaveAttribute('placeholder', /already set/);
+      // #33:model 从 SoT(/me)回填,不是 preset 默认/空 —— owner 看到自己存的值。
+      await expect(page.getByTestId('ai-provider-model'))
+        .toHaveValue('claude-haiku-4-5-20251001');
 
       await page.getByTestId('ai-provider-clear').click();
       await expect(page.getByTestId('toast-success').filter({ hasText: 'AI provider cleared' }))

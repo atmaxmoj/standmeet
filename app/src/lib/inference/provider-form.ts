@@ -41,6 +41,20 @@ export function initialProviderForm(
   };
 }
 
+// seededProviderForm —— 从 SoT(/me 返回的 owner 存过的 endpoint/model)播种表单,
+// 让 owner 重开设置时看到自己上次存的值,而不是 preset 默认。lastDefaults 仍用
+// preset 默认,供切 provider 时判断 endpoint 是否被 owner 改过(#33)。
+export function seededProviderForm(
+  provider: string, endpoint: string, model: string, presetEndpoint: string,
+): ProviderFormState {
+  return {
+    provider,
+    endpoint,
+    model,
+    lastDefaults: { endpoint: presetEndpoint },
+  };
+}
+
 // switchProvider —— 选 provider 时的 state transition：
 //   - 用户改过 endpoint（prev 值 != 上次自动填的默认）就保留 user value
 //   - 没改过就重填新 preset 默认 endpoint

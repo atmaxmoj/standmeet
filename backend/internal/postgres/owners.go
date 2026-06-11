@@ -95,6 +95,8 @@ func toOwnerSettings(o *dbq.Owner) domain.OwnerSettings {
 	return domain.OwnerSettings{
 		AI: domain.OwnerAISettings{
 			Provider:      o.AiProvider,
+			Endpoint:      o.AiEndpoint,
+			Model:         o.AiModel,
 			KeyConfigured: len(o.AiProviderKeyEnc) > 0,
 		},
 		BYOAI: domain.OwnerBYOAISettings{
