@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -81,13 +82,32 @@ func handleInstallSkillErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	}
 }
 
+const (
+	marketDefaultLimit = 24
+	marketParseBase    = 10
+	marketParseWidth   = 32
+)
+
 func (h *Handlers) marketplaceSearch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("q")
-		source := r.URL.Query().Get("source")
-		items := usecases.SearchMarketplace(r.Context(), h.MarketplaceAdmin.Deps, q, source)
+		q := r.URL.Query()
+		items := usecases.SearchMarketplace(r.Context(), h.MarketplaceAdmin.Deps,
+			usecases.MarketSearchParams{
+				Query:  q.Get("q"),
+				Source: q.Get("source"),
+				Limit:  parseIntDefault(q.Get("limit"), marketDefaultLimit),
+				Offset: parseIntDefault(q.Get("offset"), 0),
+			})
 		writeMarketplace(h.Log, w, items)
 	}
+}
+
+func parseIntDefault(s string, def int) int {
+	n, err := strconv.ParseInt(s, marketParseBase, marketParseWidth)
+	if err != nil {
+		return def
+	}
+	return int(n)
 }
 
 func writeMarketplace(

@@ -35,6 +35,8 @@ export interface AgentSkillsHook {
   toggle: (id: string, on: boolean) => void;
   onCount: number;
   marketResults: readonly MarketSkillView[];
+  loadMoreMarket: () => void;
+  hasMoreMarket: boolean;
   installedNames: ReadonlySet<string>;
   installing: string | null;
   install: (m: MarketSkillView) => void;
@@ -68,7 +70,8 @@ export function useAgentSkills(): AgentSkillsHook {
 
   return {
     installed, installedStatus: skills.status, toggle, onCount,
-    marketResults: search.results, installedNames, installing, install,
+    marketResults: search.results, loadMoreMarket: search.loadMore,
+    hasMoreMarket: search.hasMore, installedNames, installing, install,
     query, setQuery, source, setSource, lastInstalledAt,
   };
 }

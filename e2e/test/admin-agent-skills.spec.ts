@@ -48,6 +48,18 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
       await expect(adminPage.locator(MARKET)).toHaveCount(3);
     });
 
+  test('marketplace paginates: first page caps the grid, load more appends',
+    async ({ adminPage }) => {
+      await openAgentSkills(adminPage);
+      await adminPage.getByTestId('agent-skills-tab-marketplace').click();
+      await expect(adminPage.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
+      // PAGE_LIMIT = 12; 'all' returns 17 github + 3 skillsmp = 20 → page 1 is 12.
+      await expect(adminPage.locator(MARKET)).toHaveCount(12);
+      await adminPage.getByTestId('marketplace-load-more').click();
+      await expect(adminPage.locator(MARKET)).toHaveCount(20);
+      await expect(adminPage.getByTestId('marketplace-load-more')).toHaveCount(0);
+    });
+
   test('install a marketplace skill → it lands in my skills',
     async ({ adminPage }) => {
       await openAgentSkills(adminPage);

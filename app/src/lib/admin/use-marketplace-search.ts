@@ -1,16 +1,18 @@
 // use-marketplace-search —— /api/admin/marketplace/search fetcher with
-// (query, source) state. Replaces the Pass-1 MARKET_FIXTURE for the
-// marketplace tab; my-skills tab still owns its own installed-list state.
+// (query, source) state + pagination (#48-4). The backend pages the aggregated
+// GitHub + SkillsMP results; loadMore appends the next page.
 //
 // Backend returns []domain.MarketSkill — we adapt to the frontend
 // MarketSkillView shape (camelCase fields, design-aligned).
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
 import type { MarketSkillView, SkillCategory } from '@/lib/admin/agent-skills-types';
 import { safeJson } from '@/lib/api/typed-json';
+
+const PAGE_LIMIT = 12;
 
 const MarketSkillWireSchema = z.object({
   id: z.string(),
@@ -34,37 +36,53 @@ interface State {
   results: readonly MarketSkillView[];
   loading: boolean;
   error: string | null;
+  hasMore: boolean;
 }
 
-const INIT_STATE: State = { results: [], loading: true, error: null };
+export interface MarketplaceSearch extends State {
+  loadMore: () => void;
+}
 
-export function useMarketplaceSearch(query: string, source: SourceParam): State {
+const INIT_STATE: State = { results: [], loading: true, error: null, hasMore: false };
+
+export function useMarketplaceSearch(query: string, source: SourceParam): MarketplaceSearch {
   const [state, setState] = useState<State>(INIT_STATE);
   useEffect(() => {
-    void load(query, source, setState);
+    void loadPage(query, source, 0, [], setState);
   }, [query, source]);
-  return state;
+  const loadMore = useCallback(() => {
+    if (state.loading || !state.hasMore) return;
+    void loadPage(query, source, state.results.length, state.results, setState);
+  }, [query, source, state.loading, state.hasMore, state.results]);
+  return { ...state, loadMore };
 }
 
-async function load(
-  query: string, source: SourceParam, setState: (s: State) => void,
+async function loadPage(
+  query: string, source: SourceParam, offset: number,
+  prev: readonly MarketSkillView[], setState: (s: State) => void,
 ): Promise<void> {
-  setState({ results: [], loading: true, error: null });
+  setState({ results: prev, loading: true, error: null, hasMore: false });
   try {
-    const wire = await fetchMarket(query, source);
-    setState({ results: wire.map(adapt), loading: false, error: null });
+    const wire = await fetchMarket(query, source, offset);
+    const page = wire.map(adapt);
+    setState({
+      results: offset === 0 ? page : [...prev, ...page],
+      loading: false, error: null, hasMore: wire.length >= PAGE_LIMIT,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'marketplace search failed';
-    setState({ results: [], loading: false, error: msg });
+    setState({ results: prev, loading: false, error: msg, hasMore: false });
   }
 }
 
 async function fetchMarket(
-  query: string, source: SourceParam,
+  query: string, source: SourceParam, offset: number,
 ): Promise<readonly MarketSkillWire[]> {
   const url = new URL('/api/admin/marketplace/search', window.location.origin);
   if (query) url.searchParams.set('q', query);
   if (source !== 'all') url.searchParams.set('source', source);
+  url.searchParams.set('limit', String(PAGE_LIMIT));
+  url.searchParams.set('offset', String(offset));
   const res = await fetch(url.toString(), { credentials: 'include' });
   if (!res.ok) throw new Error(`marketplace search: ${res.status}`);
   return safeJson(res, MarketSkillsResponseSchema);

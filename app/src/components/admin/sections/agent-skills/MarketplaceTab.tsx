@@ -29,8 +29,22 @@ export function MarketplaceTab({
       <Intro />
       <SearchBar hook={hook} />
       <ResultsGrid hook={hook} connected={connected} />
+      <LoadMore hook={hook} />
     </div>
   );
+}
+
+function LoadMore({ hook }: { hook: AgentSkillsHook }) {
+  return hook.hasMoreMarket ? (
+    <button
+      type="button"
+      onClick={hook.loadMoreMarket}
+      data-testid="marketplace-load-more"
+      className={styles.segmentBtn}
+    >
+      load more
+    </button>
+  ) : null;
 }
 
 function Intro() {

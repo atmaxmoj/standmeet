@@ -31,14 +31,37 @@ type MarketplaceDeps struct {
 	Client MarketplaceClient
 }
 
-// SearchMarketplace —— delegates to the injected client. The caller
-// translates HTTP query params into (query, source); we don't validate
-// `source` here because the client falls back to "all" on unknown
-// values.
+// MarketSearchParams —— search query + source + page window.
+type MarketSearchParams struct {
+	Query  string
+	Source string
+	Limit  int
+	Offset int
+}
+
+// SearchMarketplace —— delegates to the injected client, then returns one
+// page [offset, offset+limit). The client aggregates all of GitHub + SkillsMP
+// (cheap, cached directory); pagination is presentation-level slicing so the
+// marketplace tab can "load more". `source` isn't validated here — the client
+// falls back to "all" on unknown values.
 func SearchMarketplace(
-	ctx context.Context, deps MarketplaceDeps, query, source string,
+	ctx context.Context, deps MarketplaceDeps, p MarketSearchParams,
 ) []domain.MarketSkill {
-	return deps.Client.Search(ctx, query, source)
+	return pageSlice(deps.Client.Search(ctx, p.Query, p.Source), p.Limit, p.Offset)
+}
+
+func pageSlice(items []domain.MarketSkill, limit, offset int) []domain.MarketSkill {
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= len(items) {
+		return []domain.MarketSkill{}
+	}
+	end := offset + limit
+	if limit <= 0 || end > len(items) {
+		end = len(items)
+	}
+	return items[offset:end]
 }
 
 // InstallSkillDeps —— #48-3: install fetches the SKILL.md via the client and
