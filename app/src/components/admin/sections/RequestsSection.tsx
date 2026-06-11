@@ -3,6 +3,8 @@
 
 'use client';
 
+import { useState } from 'react';
+
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { Chip } from '@/components/admin/atoms/Chip';
@@ -11,14 +13,18 @@ import type { AccessRequestView } from '@/lib/api/admin';
 import {
   pickBodyState,
   useRequests,
+  type ApproveOutcome,
   type RequestStatusFilter,
   type RequestsHook,
 } from '@/lib/admin/use-requests';
+import { useMail } from '@/lib/admin/use-mail';
 
 const FILTERS: RequestStatusFilter[] = ['open', 'replied', 'closed', 'all'];
 
 export function RequestsSection() {
   const hook = useRequests();
+  const mail = useMail();
+  const mailConnected = mail.status?.connected ?? false;
   return (
     <>
       <SectionHeader
@@ -27,9 +33,22 @@ export function RequestsSection() {
         count={requestCount(hook)}
       />
       <Intro />
+      <MailHint mailConnected={mailConnected} />
       <FilterRow hook={hook} />
-      <RequestBody hook={hook} />
+      <RequestBody hook={hook} mailConnected={mailConnected} />
     </>
+  );
+}
+
+function MailHint({ mailConnected }: { mailConnected: boolean }) {
+  return mailConnected ? null : (
+    <p
+      className="mono text-[11.5px] text-(--color-accent) mb-5"
+      data-testid="requests-mail-hint"
+    >
+      No verified mail connector — configure and test SMTP under Connectors to issue + email
+      access codes. Until then you can only mark requests replied/closed by hand.
+    </p>
   );
 }
 
@@ -55,12 +74,12 @@ function FilterRow({ hook }: { hook: RequestsHook }) {
   );
 }
 
-function RequestBody({ hook }: { hook: RequestsHook }) {
+function RequestBody({ hook, mailConnected }: { hook: RequestsHook; mailConnected: boolean }) {
   const map = {
     loading: <ListSkeleton count={4} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState filter={hook.filter} />,
-    list: <RequestList hook={hook} />,
+    list: <RequestList hook={hook} mailConnected={mailConnected} />,
   } as const;
   return map[pickBodyState(hook)];
 }
@@ -95,12 +114,12 @@ function EmptyState({ filter }: { filter: RequestStatusFilter }) {
   );
 }
 
-function RequestList({ hook }: { hook: RequestsHook }) {
+function RequestList({ hook, mailConnected }: { hook: RequestsHook; mailConnected: boolean }) {
   return (
     <ul className="space-y-5" data-testid="requests-list">
       {hook.rows.map((r) => (
         <li key={r.id} data-testid={`request-row-${r.id}`}>
-          <RequestCard req={r} onMark={hook.mark} />
+          <RequestCard req={r} hook={hook} mailConnected={mailConnected} />
         </li>
       ))}
     </ul>
@@ -108,17 +127,41 @@ function RequestList({ hook }: { hook: RequestsHook }) {
 }
 
 function RequestCard({
-  req, onMark,
-}: { req: AccessRequestView; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
+  req, hook, mailConnected,
+}: { req: AccessRequestView; hook: RequestsHook; mailConnected: boolean }) {
+  const [outcome, setOutcome] = useState<ApproveOutcome | null>(null);
   return (
     <article className="border border-(--color-rule) p-5 rounded-sm bg-(--color-surface)/30">
       <RequestHead req={req} />
       <blockquote className="font-serif italic text-(--color-ink) text-[16px] border-l-2 border-(--color-rule) pl-4 mt-3 mb-0">
         &ldquo;{req.message}&rdquo;
       </blockquote>
-      <RequestActions req={req} onMark={onMark} />
+      <RequestActions
+        req={req} hook={hook} mailConnected={mailConnected} onApproved={setOutcome}
+      />
+      <ApproveOutcomeView outcome={outcome} />
     </article>
   );
+}
+
+function ApproveOutcomeView({ outcome }: { outcome: ApproveOutcome | null }) {
+  return outcome === null
+    ? null
+    : <ApproveOutcomeLine outcome={outcome} />;
+}
+
+function ApproveOutcomeLine({ outcome }: { outcome: ApproveOutcome }) {
+  return outcome.ok
+    ? (
+      <p className="mono text-[11.5px] text-(--color-accent) mt-3" data-testid="approve-issued-code">
+        issued {outcome.code} — emailed to the requester
+      </p>
+    )
+    : (
+      <p className="mono text-[11.5px] text-(--color-accent) mt-3" data-testid="approve-error">
+        {outcome.error}
+      </p>
+    );
 }
 
 function RequestHead({ req }: { req: AccessRequestView }) {
@@ -145,53 +188,52 @@ function RequestHead({ req }: { req: AccessRequestView }) {
   );
 }
 
-function RequestActions({
-  req, onMark,
-}: { req: AccessRequestView; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
-  return req.status === 'open' ? <OpenActions id={req.id} onMark={onMark} />
-    : req.status === 'replied' ? <RepliedActions id={req.id} onMark={onMark} />
-    : null;
+interface ActionsProps {
+  req: AccessRequestView;
+  hook: RequestsHook;
+  mailConnected: boolean;
+  onApproved: (o: ApproveOutcome) => void;
 }
 
-function OpenActions({ id, onMark }: { id: string; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
-  return (
-    <div className="flex items-baseline gap-2 mt-4" data-testid={`request-approve-${id}`}>
-      <Btn kind="primary" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
-        approve · issue code →
-      </Btn>
-      <Btn kind="outline" size="sm" onClick={() => { void onMark(id, 'closed'); }}>
-        decline politely
-      </Btn>
-      <Btn kind="ghost" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
-        defer · pending
-      </Btn>
-      <BlockSenderBtn />
-    </div>
-  );
+function RequestActions(props: ActionsProps) {
+  const closed = props.req.status === 'closed';
+  return closed ? null : <ActiveActions {...props} />;
 }
 
-function BlockSenderBtn() {
+function ActiveActions({ req, hook, mailConnected, onApproved }: ActionsProps) {
   return (
-    <button
-      type="button"
-      className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-accent) hover:underline px-1.5 py-0.5"
-    >
-      block sender
-    </button>
-  );
-}
-
-function RepliedActions({ id, onMark }: { id: string; onMark: (id: string, s: 'replied' | 'closed') => Promise<void> }) {
-  return (
-    <div className="flex items-baseline gap-2 mt-4" data-testid={`request-approve-${id}`}>
-      <Btn kind="primary" size="sm" onClick={() => { void onMark(id, 'replied'); }}>
-        approve · issue code →
-      </Btn>
-      <Btn kind="outline" size="sm" onClick={() => { void onMark(id, 'closed'); }}>
+    <div className="flex items-baseline gap-2 mt-4 flex-wrap" data-testid={`request-approve-${req.id}`}>
+      <ApproveControl id={req.id} hook={hook} mailConnected={mailConnected} onApproved={onApproved} />
+      <Btn kind="outline" size="sm" onClick={() => { void hook.mark(req.id, 'closed'); }}>
         decline
       </Btn>
     </div>
   );
+}
+
+function ApproveControl({
+  id, hook, mailConnected, onApproved,
+}: { id: string; hook: RequestsHook; mailConnected: boolean; onApproved: (o: ApproveOutcome) => void }) {
+  return mailConnected
+    ? (
+      <Btn
+        kind="primary" size="sm"
+        onClick={() => { void runApprove(hook, id, onApproved); }}
+      >
+        approve · issue + email code →
+      </Btn>
+    )
+    : (
+      <span className="mono text-[10.5px] tracking-[0.10em] uppercase text-(--color-faint)">
+        connect mail to issue codes
+      </span>
+    );
+}
+
+async function runApprove(
+  hook: RequestsHook, id: string, onApproved: (o: ApproveOutcome) => void,
+): Promise<void> {
+  onApproved(await hook.approve(id));
 }
 
 function formatDate(iso: string): string {

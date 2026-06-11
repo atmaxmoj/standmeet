@@ -204,6 +204,26 @@ services:
       timeout: 3s
       retries: 10
 
+  # mailpit —— test-only SMTP catcher. The mail-connector e2e points the
+  # owner's SMTP config at mailpit:1025 (no auth, in-network), then asserts the
+  # approve→issue→email access-code mail landed via Mailpit's HTTP API on :8025.
+  # SMTP port is internal-only (backend reaches it by service name); only the
+  # HTTP API is exposed so host-side Playwright can read captured messages.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    environment:
+      - MP_SMTP_AUTH_ACCEPT_ANY=true
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    ports:
+      # 18025 on the host (8025 commonly taken); e2e MAILPIT_URL points here.
+      - "18025:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   builder:
     build:
       context: ./builder

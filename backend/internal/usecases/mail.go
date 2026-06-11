@@ -31,6 +31,25 @@ const (
 // ErrMailNotConfigured —— owner 还没配 / 没 test 通 mail connector,发不出信。
 var ErrMailNotConfigured = errors.New("mail connector not configured")
 
+// MailStatusDeps —— 只读 mail connector 状态(给公共 gate 配置用)。
+type MailStatusDeps struct {
+	Mail *postgres.MailRepo
+}
+
+// OwnerCanEmailCodes —— owner 是否有 connected(test 通过)的 mail connector。
+// gate 用它决定要不要展示「request access」整块:发不出码就别让访客白填。
+// 读失败按"不能发"处理(保守 + 不暴露错误到公共端点)。
+func OwnerCanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string) bool {
+	if ownerID == "" {
+		return false
+	}
+	conn, err := deps.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
+	if err != nil {
+		return false
+	}
+	return conn.Connected()
+}
+
 // MailDeps —— mail connector test send 依赖。
 type MailDeps struct {
 	Mail   *postgres.MailRepo

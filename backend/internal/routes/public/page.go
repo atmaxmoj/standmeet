@@ -25,6 +25,9 @@ type PageHandlers struct {
 	Page        usecases.PageDeps
 	Log         *slog.Logger
 	TokenIssuer usecases.SetupTokenIssuer // 仅 unclaimed 时调；handler 通过它取 / self-heal plaintext
+	// MailStatus —— 读 owner mail connector 是否 connected，决定 gate 是否
+	// 展示「request access」整块(发不出码就别展示)。
+	MailStatus usecases.MailStatusDeps
 	// CaptchaSiteKey —— /api/v1/instance 把这个 echo 给前端；前端非空就渲染
 	// Turnstile widget。composition root 已经从 env 决定了"开/关"，这里
 	// 只读结果。空字符串表示 captcha 关闭。
@@ -62,6 +65,7 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 			owner:          &owner,
 			setupToken:     h.unclaimedSetupToken(r.Context(), &owner),
 			captchaSiteKey: h.CaptchaSiteKey,
+			canEmailCodes:  usecases.OwnerCanEmailCodes(r.Context(), h.MailStatus, owner.ID),
 		})
 	}
 }
@@ -85,11 +89,12 @@ func (h *PageHandlers) ensureUnclaimedTokenOrLog(ctx context.Context) string {
 	return plaintext
 }
 
-// instanceWriteInput —— writeInstanceInfo 的入参打包，参数数量 ≤ 3。
+// instanceWriteInput —— writeInstanceInfo 的入参打包。
 type instanceWriteInput struct {
 	owner          *domain.Owner
 	setupToken     string
 	captchaSiteKey string
+	canEmailCodes  bool
 }
 
 func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWriteInput) {
@@ -100,6 +105,7 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 		Handle:         in.owner.Handle,
 		SetupToken:     in.setupToken,
 		CaptchaSiteKey: in.captchaSiteKey,
+		CanEmailCodes:  in.canEmailCodes,
 	}
 	if err := json.NewEncoder(w).Encode(view); err != nil {
 		log.Error("encode instance info", "err", err)
@@ -111,6 +117,7 @@ type instanceInfoView struct {
 	SetupToken     string `json:"setup_token,omitempty"`
 	CaptchaSiteKey string `json:"captcha_site_key,omitempty"`
 	Claimed        bool   `json:"claimed"`
+	CanEmailCodes  bool   `json:"can_email_codes"`
 }
 
 func (h *PageHandlers) getPage() http.HandlerFunc {

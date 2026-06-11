@@ -32,7 +32,16 @@ export interface RequestsHook {
   filter: RequestStatusFilter;
   setFilter: (f: RequestStatusFilter) => void;
   mark: (id: string, status: 'replied' | 'closed') => Promise<void>;
+  approve: (id: string) => Promise<ApproveOutcome>;
 }
+
+export interface ApproveOutcome {
+  ok: boolean;
+  code?: string;
+  error?: string;
+}
+
+const ApproveResultSchema = z.object({ code: z.string(), link: z.string() });
 
 export const requestsStore = createResourceStore<AccessRequestView[]>({
   name: 'access-requests',
@@ -57,6 +66,17 @@ export function useRequests(): RequestsHook {
     }
   }, []);
 
+  const approve = useCallback(async (id: string): Promise<ApproveOutcome> => {
+    try {
+      const res = await adminAPI.post(`/access-requests/${id}/approve`, {}, ApproveResultSchema);
+      requestsStore.getState().mutate((prev) =>
+        (prev ?? []).map((row) => row.id === id ? { ...row, status: 'replied' as const } : row));
+      return { ok: true, code: res.code };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Approve failed' };
+    }
+  }, []);
+
   const all = r.data ?? [];
   return {
     status: r.status,
@@ -65,6 +85,7 @@ export function useRequests(): RequestsHook {
     filter,
     setFilter,
     mark,
+    approve,
   };
 }
 

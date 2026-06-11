@@ -1,9 +1,12 @@
 // admin-requests.spec.ts —— admin requests: seeded request appears, approve
-// button visible, filter chips work.
+// gated on a verified mail connector, filter chips work.
 //
 // 用户故事：
 //   1. request seeded via API → appears in admin list
-//   2. approve button visible on open request
+//   2. WITHOUT a verified mail connector: no approve button, a "connect mail"
+//      hint shows instead (can't issue + email a code you can't send). The
+//      positive approve→issue→email path is covered by the Mailpit closed-loop
+//      spec (mail-connector.spec.ts).
 //   3. filter chips switch between states
 
 import { test, expect } from '@/fixtures/test';
@@ -42,12 +45,13 @@ test.describe('admin requests management', () => {
       await expect(adminPage.getByText('apitest@example.com')).toBeVisible();
     });
 
-  test('approve button visible on open request',
+  test('no approve button without a verified mail connector',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'requests');
       await adminPage.waitForURL('**/admin/requests', { timeout: 5_000 });
-      const approveBtn = adminPage.getByRole('button', { name: /approve/i }).first();
-      await expect(approveBtn).toBeVisible({ timeout: 5_000 });
+      await expect(adminPage.getByTestId('requests-mail-hint')).toBeVisible({ timeout: 5_000 });
+      const approveBtn = adminPage.getByRole('button', { name: /approve/i });
+      await expect(approveBtn).toHaveCount(0);
     });
 
   test('filter chips switch between states',

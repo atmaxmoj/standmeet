@@ -59,16 +59,15 @@ func Send(cfg *Config, msg *Message, now time.Time) error {
 // the subject are stripped of CR/LF so a visitor-supplied name can't inject
 // extra headers.
 func buildMessage(cfg *Config, msg *Message, now time.Time) []byte {
-	var b strings.Builder
-	b.WriteString("From: " + addressHeader(cfg.FromName, cfg.FromAddress) + "\r\n")
-	b.WriteString("To: " + addressHeader(msg.ToName, msg.ToAddress) + "\r\n")
-	b.WriteString("Subject: " + headerSafe(msg.Subject) + "\r\n")
-	b.WriteString("Date: " + now.Format(time.RFC1123Z) + "\r\n")
-	b.WriteString("MIME-Version: 1.0\r\n")
-	b.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
-	b.WriteString("\r\n")
-	b.WriteString(msg.Body)
-	return []byte(b.String())
+	headers := []string{
+		"From: " + addressHeader(cfg.FromName, cfg.FromAddress),
+		"To: " + addressHeader(msg.ToName, msg.ToAddress),
+		"Subject: " + headerSafe(msg.Subject),
+		"Date: " + now.Format(time.RFC1123Z),
+		"MIME-Version: 1.0",
+		"Content-Type: text/plain; charset=\"utf-8\"",
+	}
+	return []byte(strings.Join(headers, "\r\n") + "\r\n\r\n" + msg.Body)
 }
 
 func addressHeader(name, address string) string {

@@ -15,9 +15,9 @@ import { useTheme } from '@/lib/page/use-theme';
 import { useGate } from '@/lib/gate/use-gate';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 
-type Props = { handle: string };
+type Props = { handle: string; canEmailCodes: boolean };
 
-export function GateClient({ handle }: Props) {
+export function GateClient({ handle, canEmailCodes }: Props) {
   const { dark, toggle } = useTheme();
   const hook = useGate();
   // Landing on /gate means visitor is exiting any prior session — clear it so
@@ -29,11 +29,12 @@ export function GateClient({ handle }: Props) {
       <TopBar handle={handle} dark={dark} onToggleDark={toggle} />
       <main className="flex-1">
         <div className="max-w-[920px] mx-auto px-6 lg:px-10 py-14 lg:py-20">
-          <Hero handle={handle} hook={hook} />
+          <Hero handle={handle} hook={hook} canEmailCodes={canEmailCodes} />
           <Sep />
           <BYOAIPanel hook={hook} />
           <WhatsBehind />
-          <RequestPanel handle={handle} hook={hook} />
+          {/* request-access 整块仅在 owner 能发码(connected mail connector)时展示 —— 发不出就别让访客白填 */}
+          {canEmailCodes ? <RequestPanel handle={handle} hook={hook} /> : null}
           <Footnote handle={handle} />
           <GateError message={hook.state.error} />
         </div>
@@ -43,18 +44,22 @@ export function GateClient({ handle }: Props) {
   );
 }
 
-function Hero({ handle, hook }: { handle: string; hook: ReturnType<typeof useGate> }) {
+function Hero({
+  handle, hook, canEmailCodes,
+}: { handle: string; hook: ReturnType<typeof useGate>; canEmailCodes: boolean }) {
   return (
     <section className="grid grid-cols-1 md:grid-cols-[224px_1fr] gap-10 items-start">
       <div className="flex justify-center md:justify-start">
         <Seal handle={handle} />
       </div>
-      <HeroBody handle={handle} hook={hook} />
+      <HeroBody handle={handle} hook={hook} canEmailCodes={canEmailCodes} />
     </section>
   );
 }
 
-function HeroBody({ handle, hook }: { handle: string; hook: ReturnType<typeof useGate> }) {
+function HeroBody({
+  handle, hook, canEmailCodes,
+}: { handle: string; hook: ReturnType<typeof useGate>; canEmailCodes: boolean }) {
   return (
     <div>
       <div className="mono text-[10.5px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">
@@ -66,7 +71,7 @@ function HeroBody({ handle, hook }: { handle: string; hook: ReturnType<typeof us
       <p className="font-serif italic text-(--color-muted) mt-4 text-[18.5px] leading-[1.45] font-[380] max-w-[32em]">
         {handle} gives out codes when there&rsquo;s a reason to talk — a hiring loop, an investor call,
         an advisor scoping, a piece of press. If you have a code, drop it in. Otherwise — bring your
-        own AI to chat with the public corpus, or leave a note.
+        own AI to chat with the public corpus{canEmailCodes ? ', or leave a note' : ''}.
       </p>
       <div className="mt-9">
         <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-3">

@@ -14,10 +14,13 @@ const InstanceInfoSchema = z.object({
   handle: z.string(),
   setup_token: z.string().optional(),
   captcha_site_key: z.string().optional(),
+  // can_email_codes —— owner 有 connected 的 mail connector(能发码邮件)。
+  // gate 据此决定是否展示「request access」整块。默认 false(发不出就不展示)。
+  can_email_codes: z.boolean().optional().default(false),
 });
 export type InstanceInfo = z.infer<typeof InstanceInfoSchema>;
 
-const FALLBACK: InstanceInfo = { claimed: false, handle: '' };
+const FALLBACK: InstanceInfo = { claimed: false, handle: '', can_email_codes: false };
 
 export async function fetchInstance(): Promise<InstanceInfo> {
   const backend = process.env['BACKEND_URL'] ?? 'http://backend:8000';

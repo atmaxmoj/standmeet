@@ -199,6 +199,7 @@ func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 			log: d.log, repo: d.instanceRepo, holder: d.setupTokenHolder,
 		},
 		CaptchaSiteKey: d.captchaSiteKey,
+		MailStatus:     usecases.MailStatusDeps{Mail: d.mailRepo},
 	}
 }
 
