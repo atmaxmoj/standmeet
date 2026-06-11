@@ -1,88 +1,107 @@
-// use-agent-skills —— client state for the AgentSkillsSection.
+// use-agent-skills —— client state for the AgentSkillsSection, backed by the
+// REAL skills + marketplace endpoints (#48-5; the Pass-1 mock is gone).
 //
-// Mock-only for the Pass-1 ship. Pass-2 swaps the inner stores for
-// /api/admin/agent-skills (list + toggle) and /api/admin/marketplace
-// (search + install) fetches; the hook signature stays stable.
+//   installed — the owner's real skills (use-skills), with the real
+//     enable/disable toggle.
+//   marketplace — real search; install fetches + parses the SKILL.md server
+//     side (POST /marketplace/install) and the new skill lands in `installed`.
 
 import { useCallback, useMemo, useState } from 'react';
 
+import { adminAPI } from '@/lib/api/admin';
 import {
-  BUILT_IN_SKILLS,
-  marketSkillToInstalled,
-  type AgentSkillView,
-  type MarketSkillView,
-} from '@/lib/admin/agent-skills-mock';
+  SkillViewSchema, useSkills, type SkillView,
+} from '@/lib/admin/use-skills';
 import {
   useMarketplaceSearch, type SourceParam,
 } from '@/lib/admin/use-marketplace-search';
+import type { MarketSkillView } from '@/lib/admin/agent-skills-types';
+import type { ResourceStatus } from '@/lib/state/status';
 
 export type SourceFilter = SourceParam;
 
+export interface AgentSkillView {
+  id: string;
+  name: string;
+  source: string;
+  description: string;
+  on: boolean;
+  isBuiltin: boolean;
+}
+
 export interface AgentSkillsHook {
   installed: readonly AgentSkillView[];
-  toggle: (id: string) => void;
+  installedStatus: ResourceStatus;
+  toggle: (id: string, on: boolean) => void;
   onCount: number;
-  updates: readonly AgentSkillView[];
   marketResults: readonly MarketSkillView[];
-  installedIds: ReadonlySet<string>;
+  installedNames: ReadonlySet<string>;
   installing: string | null;
   install: (m: MarketSkillView) => void;
   query: string;
   setQuery: (q: string) => void;
   source: SourceFilter;
   setSource: (s: SourceFilter) => void;
-  /** activated when an install completes — caller flips the tab back. */
+  /** bumped when an install completes — caller flips the tab back. */
   lastInstalledAt: number;
 }
 
-const INSTALL_DELAY_MS = 900;
-
 export function useAgentSkills(): AgentSkillsHook {
-  const [installed, setInstalled] = useState<readonly AgentSkillView[]>(BUILT_IN_SKILLS);
+  const skills = useSkills();
   const [query, setQuery] = useState('');
   const [source, setSource] = useState<SourceFilter>('all');
   const [installing, setInstalling] = useState<string | null>(null);
-  const [lastInstalledAt, setLastInstalledAt] = useState<number>(0);
-
+  const [lastInstalledAt, setLastInstalledAt] = useState(0);
   const search = useMarketplaceSearch(query, source);
 
-  const toggle = useCallback((id: string) => {
-    setInstalled((skills) => skills.map((s) => s.id === id ? { ...s, on: !s.on } : s));
-  }, []);
-
-  const install = useCallback((m: MarketSkillView) => {
-    setInstalling(m.id);
-    setTimeout(() => {
-      setInstalled((skills) => [...skills, marketSkillToInstalled(m)]);
-      setInstalling(null);
-      setLastInstalledAt(Date.now());
-    }, INSTALL_DELAY_MS);
-  }, []);
-
-  const installedIds = useMemo(
-    () => new Set(installed.map((s) => s.mpId).filter(isString)),
-    [installed],
-  );
-  const updates = useMemo(() => collectUpdates(installed), [installed]);
+  const installed = useMemo(() => skills.skills.map(toAgentSkillView), [skills.skills]);
+  const installedNames = useMemo(() => new Set(installed.map((s) => s.name)), [installed]);
   const onCount = useMemo(() => installed.filter((s) => s.on).length, [installed]);
 
+  const toggle = useCallback((id: string, on: boolean) => {
+    void skills.toggleSkill(id, on);
+  }, [skills]);
+
+  const install = useCallback((m: MarketSkillView) => {
+    void runInstall(m, skills.refresh, setInstalling, setLastInstalledAt);
+  }, [skills]);
+
   return {
-    installed, toggle, onCount, updates,
-    marketResults: search.results, installedIds, installing, install,
-    query, setQuery, source, setSource,
-    lastInstalledAt,
+    installed, installedStatus: skills.status, toggle, onCount,
+    marketResults: search.results, installedNames, installing, install,
+    query, setQuery, source, setSource, lastInstalledAt,
   };
 }
 
-function isString(v: string | undefined): v is string {
-  return typeof v === 'string';
+function toAgentSkillView(s: SkillView): AgentSkillView {
+  return {
+    id: s.id, name: s.name, source: s.source,
+    description: s.description, on: s.enabled, isBuiltin: s.is_builtin,
+  };
 }
 
-function collectUpdates(installed: readonly AgentSkillView[]): readonly AgentSkillView[] {
-  return installed.filter(hasUpdateAvailable);
+async function runInstall(
+  m: MarketSkillView,
+  refresh: () => Promise<void>,
+  setInstalling: (id: string | null) => void,
+  setLastInstalledAt: (t: number) => void,
+): Promise<void> {
+  setInstalling(m.id);
+  const ok = await installFromMarket(m);
+  if (ok) {
+    await refresh();
+    setLastInstalledAt(Date.now());
+  }
+  setInstalling(null);
 }
 
-function hasUpdateAvailable(s: AgentSkillView): boolean {
-  if (!s.mpId || !s.installed_version || !s.latest_version) return false;
-  return s.installed_version !== s.latest_version;
+async function installFromMarket(m: MarketSkillView): Promise<boolean> {
+  try {
+    await adminAPI.post('/marketplace/install', {
+      source: m.marketplace, id: m.id, name: m.name, version: m.version,
+    }, SkillViewSchema);
+    return true;
+  } catch {
+    return false;
+  }
 }

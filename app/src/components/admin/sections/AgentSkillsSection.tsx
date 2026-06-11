@@ -43,7 +43,7 @@ export function AgentSkillsSection() {
         kicker="integrations · agent"
         title="agent skills"
         count={`${hook.onCount} / ${hook.installed.length} on`}
-        action={<TabsBar tab={tab} setTab={setTab} updates={hook.updates.length} />}
+        action={<TabsBar tab={tab} setTab={setTab} />}
       />
       <TabBody
         tab={tab}
@@ -55,19 +55,19 @@ export function AgentSkillsSection() {
 }
 
 function TabsBar({
-  tab, setTab, updates,
-}: { tab: AgentSkillsTab; setTab: (t: AgentSkillsTab) => void; updates: number }) {
+  tab, setTab,
+}: { tab: AgentSkillsTab; setTab: (t: AgentSkillsTab) => void }) {
   return (
     <div className={styles.tabs}>
-      <TabBtn id="installed" tab={tab} setTab={setTab} updates={updates} />
-      <TabBtn id="marketplace" tab={tab} setTab={setTab} updates={0} />
+      <TabBtn id="installed" tab={tab} setTab={setTab} />
+      <TabBtn id="marketplace" tab={tab} setTab={setTab} />
     </div>
   );
 }
 
 function TabBtn({
-  id, tab, setTab, updates,
-}: { id: AgentSkillsTab; tab: AgentSkillsTab; setTab: (t: AgentSkillsTab) => void; updates: number }) {
+  id, tab, setTab,
+}: { id: AgentSkillsTab; tab: AgentSkillsTab; setTab: (t: AgentSkillsTab) => void }) {
   return (
     <button
       type="button"
@@ -75,13 +75,9 @@ function TabBtn({
       className={tab === id ? styles.tabBtnActive : styles.tabBtn}
       data-testid={`agent-skills-tab-${id}`}
     >
-      {TAB_LABEL[id]}{tabBtnSuffix(id, updates)}
+      {TAB_LABEL[id]}
     </button>
   );
-}
-
-function tabBtnSuffix(id: AgentSkillsTab, updates: number): string {
-  return id === 'installed' && updates > 0 ? ` · ${updates} upd` : '';
 }
 
 function autoSwitchAfterInstall(
@@ -96,5 +92,5 @@ function TabBody({
 }: { tab: AgentSkillsTab; hook: ReturnType<typeof useAgentSkills>; connected: readonly string[] }) {
   return tab === 'marketplace'
     ? <MarketplaceTab hook={hook} connected={connected} />
-    : <MySkillsTab hook={hook} connected={connected} />;
+    : <MySkillsTab hook={hook} />;
 }

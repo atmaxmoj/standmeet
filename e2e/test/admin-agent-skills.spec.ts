@@ -1,19 +1,16 @@
-// admin-agent-skills.spec.ts —— UI-driven proof for the new dual-tab
-// AgentSkillsSection (integrations · agent group).
+// admin-agent-skills.spec.ts —— UI-driven proof for the AgentSkillsSection,
+// now backed by REAL skills + a REAL marketplace install (#48-5).
 //
 // Coverage:
-//   1. Nav from sidebar lands on /admin/agent-skills with 10 built-in
-//      installed skills visible across 3 category groups.
-//   2. Switching to the marketplace tab shows the search + 6-card grid.
-//   3. Filtering by source (skillsmp / github) trims the grid.
-//   4. Install simulation: clicking install → loading state → auto-switch
-//      back to "installed" → that skill appears in the registry with a
-//      marketplace badge.
+//   1. My Skills tab lands with the owner's real seeded builtin skills.
+//   2. Marketplace tab: real search; the skillsmp source filter trims to 3.
+//   3. Install a marketplace skill → backend fetches + parses its SKILL.md →
+//      the new real skill lands in My Skills.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
 
-import { claim, login as loginAPI } from '@/fixtures/admin';
+import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
@@ -24,56 +21,48 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
+const INSTALLED = '[data-testid^="installed-skill-"]';
+const MARKET = '[data-testid^="market-skill-"]';
+
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-test.describe('admin /agent-skills · dual tab + marketplace install', () => {
+test.describe('admin /agent-skills · real installed + marketplace install', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('my skills tab lands with 10 built-in skills across 3 categories',
+  test('my skills tab lands with the seeded builtin skills',
     async ({ adminPage }) => {
       await openAgentSkills(adminPage);
-      // Tab "my skills" active by default.
-      await expect(adminPage.getByTestId('agent-skills-tab-installed'))
-        .toBeVisible();
-      // 10 built-in skills (5 reach + 3 answer + 2 owner per design).
-      await expect(adminPage.locator('[data-testid^="installed-skill-"]'))
-        .toHaveCount(10);
-      // Three category headers (visitor-reaching / answer-shaping / owner-side).
-      for (const cat of ['visitor-reaching', 'answer-shaping', 'owner-side']) {
-        await expect(adminPage.getByText(cat, { exact: true })).toBeVisible();
-      }
+      await expect(adminPage.getByTestId('agent-skills-tab-installed')).toBeVisible();
+      await expect(adminPage.getByTestId('installed-skills-grid')).toBeVisible({ timeout: 5_000 });
+      // 5 builtins are seeded on claim (code-review / frontend-design / … ).
+      const count = await adminPage.locator(INSTALLED).count();
+      expect(count).toBeGreaterThanOrEqual(5);
     });
 
-  test('marketplace tab fetches from both sources; skillsmp filter trims to 3',
+  test('marketplace tab: real search; skillsmp filter trims to 3',
     async ({ adminPage }) => {
       await openAgentSkills(adminPage);
       await adminPage.getByTestId('agent-skills-tab-marketplace').click();
-      // Both sources combined → at least the 3 hand-rolled skillsmp items
-      // plus however many anthropics/skills dirs were captured. Lower
-      // bound assertion keeps the spec stable as GitHub adds skills.
-      await expect(adminPage.locator('[data-testid^="market-skill-"]').first())
-        .toBeVisible({ timeout: 5_000 });
-      const allCount = await adminPage.locator('[data-testid^="market-skill-"]').count();
-      expect(allCount).toBeGreaterThanOrEqual(3 + 1); // 3 skillsmp + ≥1 github
-      // Filtering down to skillsmp pins the count exactly.
+      await expect(adminPage.locator(MARKET).first()).toBeVisible({ timeout: 5_000 });
       await adminPage.getByTestId('marketplace-source-skillsmp').click();
-      await expect(adminPage.locator('[data-testid^="market-skill-"]'))
-        .toHaveCount(3);
+      await expect(adminPage.locator(MARKET)).toHaveCount(3);
     });
 
-  test('install simulation appends to installed registry with marketplace badge',
+  test('install a marketplace skill → it lands in my skills',
     async ({ adminPage }) => {
       await openAgentSkills(adminPage);
+      await expect(adminPage.getByTestId('installed-skills-grid')).toBeVisible({ timeout: 5_000 });
+      const before = await adminPage.locator(INSTALLED).count();
+
       await adminPage.getByTestId('agent-skills-tab-marketplace').click();
-      // Install the first marketplace card.
-      const firstCard = adminPage.locator('[data-testid^="market-skill-"]').first();
+      const firstCard = adminPage.locator(MARKET).first();
+      await expect(firstCard).toBeVisible({ timeout: 5_000 });
       await firstCard.getByTestId('install-btn').click();
-      // After ~900ms the section auto-switches back to "installed".
+
+      // Real install (fetch + parse SKILL.md + create) → auto-switch back.
       await expect(adminPage.getByTestId('agent-skills-tab-installed'))
-        .toHaveAttribute('class', /tabBtnActive/, { timeout: 3_000 });
-      // Built-ins were 10; one more after install.
-      await expect(adminPage.locator('[data-testid^="installed-skill-"]'))
-        .toHaveCount(11);
+        .toHaveAttribute('class', /tabBtnActive/, { timeout: 10_000 });
+      await expect(adminPage.locator(INSTALLED)).toHaveCount(before + 1, { timeout: 5_000 });
     });
 });
 
@@ -84,7 +73,6 @@ async function initOwner(playwright: Playwright): Promise<void> {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
-  await loginAPI(request, OWNER.email, OWNER.password);
   await request.dispose();
 }
 

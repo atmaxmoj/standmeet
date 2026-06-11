@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { MarketSkillView } from '@/lib/admin/agent-skills-mock';
+import type { MarketSkillView } from '@/lib/admin/agent-skills-types';
 
 import styles from '@/components/admin/sections/agent-skills/MarketplaceCard.module.css';
 

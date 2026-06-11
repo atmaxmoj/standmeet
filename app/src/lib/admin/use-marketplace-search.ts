@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
-import type { MarketSkillView, SkillCategory } from '@/lib/admin/agent-skills-mock';
+import type { MarketSkillView, SkillCategory } from '@/lib/admin/agent-skills-types';
 import { safeJson } from '@/lib/api/typed-json';
 
 const MarketSkillWireSchema = z.object({

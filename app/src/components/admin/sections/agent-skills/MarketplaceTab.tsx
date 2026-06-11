@@ -8,7 +8,7 @@
 import { MarketplaceCard } from '@/components/admin/sections/agent-skills/MarketplaceCard';
 import {
   type Marketplace,
-} from '@/lib/admin/agent-skills-mock';
+} from '@/lib/admin/agent-skills-types';
 import type {
   AgentSkillsHook, SourceFilter,
 } from '@/lib/admin/use-agent-skills';
@@ -114,7 +114,7 @@ function ResultsGrid({
         <MarketplaceCard
           key={m.id}
           skill={m}
-          installed={hook.installedIds.has(m.id)}
+          installed={hook.installedNames.has(m.name)}
           installing={hook.installing === m.id}
           onInstall={() => hook.install(m)}
           connected={connected}
