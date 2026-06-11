@@ -52,6 +52,9 @@ const MATH_MD = [
   '```',
   '',
   'After the diagram.',
+  '',
+  // #36/#40:一句话里两个货币金额,之前 $100..$200 之间被 KaTeX 当公式吃掉。
+  'Pricing: it cost $100 up front and $200 on renewal.',
 ].join('\n');
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -74,6 +77,10 @@ test.describe('writings · LaTeX + mermaid render · I.2', () => {
         .toBeVisible({ timeout: 5_000 });
       await expect(body.locator('.katex-display').first(), 'display math .katex-display')
         .toBeVisible({ timeout: 5_000 });
+
+      // #36/#40:货币金额按字面渲(不被当公式吃掉)。两个 $ 都还在文本里。
+      await expect(body, 'currency $ rendered literally')
+        .toContainText('it cost $100 up front and $200 on renewal');
 
       // Mermaid lazy + 异步 render：MermaidBlock useEffect 跑完 setResult
       // 后才出 data-testid=mermaid-svg。lazy chunk 拉过来要时间，留 15s。

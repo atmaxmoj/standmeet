@@ -18,7 +18,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
 import {
-  isMermaidCode, mermaidSource,
+  escapeCurrencyDollars, isMermaidCode, mermaidSource,
 } from '@/components/page/markdown-helpers';
 import styles from '@/components/page/ChatMarkdown.module.css';
 
@@ -73,7 +73,7 @@ export function ChatMarkdown(
         rehypePlugins={[rehypeKatex, [rehypeSanitize, SAFE_SCHEMA]]}
         components={{ code: MarkdownCode }}
       >
-        {source}
+        {escapeCurrencyDollars(source)}
       </ReactMarkdown>
     </div>
   );
