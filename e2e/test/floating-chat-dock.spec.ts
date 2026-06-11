@@ -63,6 +63,27 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
       // Pill still there
       await expect(pill).toBeVisible();
     });
+
+  // #35:浮窗复用主 chat 的 ChatTranscript —— 大 chat 的渲染行为在小 chat 上也成立。
+  // 同 testid:answer-pending(throbber)+ answer-body(ChatMarkdown),不再是简陋纯文本。
+  test('dock reuses main-chat rendering: ask → throbber + answer-body (no reset)',
+    async ({ page }) => {
+      await enterCodeSession(page, CODE);
+      await goto(page, '/writings');
+      await page.getByTestId('floating-dock-pill').click();
+      const panel = page.getByTestId('floating-chat-panel');
+      await expect(panel).toBeVisible({ timeout: 3_000 });
+      // 没有 reset 按钮(owner 要求去掉)。
+      await expect(panel.getByRole('button', { name: /reset/i })).toHaveCount(0);
+
+      const input = page.getByTestId('floating-chat-input');
+      await input.fill('tell me about yourself');
+      await input.press('Enter');
+      // 跟主 chat 同款 throbber + answer-body(真 ChatMarkdown 渲染管线)。
+      await expect(panel.getByTestId('answer-pending')).toBeVisible({ timeout: 5_000 });
+      await expect(panel.getByTestId('answer-body')).toBeVisible({ timeout: 15_000 });
+      await expect(panel.getByTestId('answer-body')).toContainText(/./);
+    });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {

@@ -20,6 +20,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
+import { ChatTranscript, ChatProgress } from '@/components/visitor/ChatTranscript';
 import { useGhostLogger } from '@/lib/page/use-ghost-logger';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
@@ -64,7 +65,6 @@ function FloatingChatDockInner({ mode }: { mode: SessionMode }) {
           onAsk={onAsk}
           dialogs={chat.dialogs}
           pending={chat.pending}
-          onReset={chat.reset}
           inputRef={inputRef}
           ghost={ghost}
           onAcceptGhost={onAcceptGhost}
@@ -116,7 +116,6 @@ interface PanelProps {
   onAsk: (q: string) => void;
   dialogs: ReturnType<typeof useChat>['dialogs'];
   pending: boolean;
-  onReset: () => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
   // H.13.d ghost text 三件套；non-code mode 永远 null。
   ghost: string | null;
@@ -130,8 +129,13 @@ function ChatPanel(props: PanelProps) {
       className="sm-floating-chat-panel sm-rise"
       data-testid="floating-chat-panel"
     >
-      <ChatPanelHeader onReset={props.onReset} hasDialogs={props.dialogs.length > 0} />
-      <ChatTranscript dialogs={props.dialogs} pending={props.pending} />
+      <header className="sm-floating-chat-head">
+        <span className="sm-smallcaps">ask the AI</span>
+      </header>
+      <div className="sm-floating-chat-transcript sm-floating-chat-compact">
+        <FloatingTranscript dialogs={props.dialogs} pending={props.pending} onAsk={props.onAsk} />
+        <ChatProgress dialogs={props.dialogs} />
+      </div>
       <ChatPanelInput
         value={props.input}
         onChange={props.setInput}
@@ -146,37 +150,14 @@ function ChatPanel(props: PanelProps) {
   );
 }
 
-function ChatPanelHeader({ onReset, hasDialogs }: { onReset: () => void; hasDialogs: boolean }) {
-  return (
-    <header className="sm-floating-chat-head">
-      <span className="sm-smallcaps">ask the AI</span>
-      <ResetBtn onReset={onReset} visible={hasDialogs} />
-    </header>
-  );
-}
-
-function ResetBtn({ onReset, visible }: { onReset: () => void; visible: boolean }) {
-  return visible ? (
-    <button
-      type="button" onClick={onReset}
-      className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent) bg-transparent"
-    >
-      reset
-    </button>
-  ) : null;
-}
-
-function ChatTranscript({
-  dialogs, pending,
-}: {
-  dialogs: PanelProps['dialogs'];
-  pending: boolean;
+// FloatingTranscript —— 空态显引导;否则复用主 chat 的 ChatTranscript(真 md/latex
+// + throbber + citations,#35 不再另写简陋版)。
+function FloatingTranscript({ dialogs, pending, onAsk }: {
+  dialogs: PanelProps['dialogs']; pending: boolean; onAsk: (q: string) => void;
 }) {
-  return dialogs.length === 0 && !pending ? <EmptyHint /> : (
-    <ol className="sm-floating-chat-transcript">
-      {dialogs.map((d) => <DialogRow key={d.id} dialog={d} />)}
-    </ol>
-  );
+  return dialogs.length === 0 && !pending
+    ? <EmptyHint />
+    : <ChatTranscript dialogs={dialogs} onAsk={onAsk} />;
 }
 
 function EmptyHint() {
@@ -184,44 +165,6 @@ function EmptyHint() {
     <p className="sm-floating-chat-empty">
       Ask a follow-up — answered in the owner&rsquo;s voice, grounded in the
       corpus. Same session as the main chat.
-    </p>
-  );
-}
-
-function DialogRow({ dialog }: { dialog: PanelProps['dialogs'][number] }) {
-  return (
-    <li className="sm-floating-chat-dialog">
-      <div className="sm-smallcaps">you · {dialog.time}</div>
-      <p className="sm-floating-chat-q">{dialog.q}</p>
-      <DialogAnswerView dialog={dialog} />
-    </li>
-  );
-}
-
-function DialogAnswerView({ dialog }: { dialog: PanelProps['dialogs'][number] }) {
-  return isThinking(dialog) ? <ThinkingDots /> : <AnswerBody answer={dialog.answer} />;
-}
-
-function isThinking(dialog: PanelProps['dialogs'][number]): boolean {
-  return dialog.answer === null && dialog.pending;
-}
-
-function ThinkingDots() {
-  return (
-    <p className="sm-floating-chat-pending mono text-[11px] tracking-[0.16em] uppercase text-(--color-accent)">
-      thinking
-      <span className="sm-dot">·</span>
-      <span className="sm-dot">·</span>
-      <span className="sm-dot">·</span>
-    </p>
-  );
-}
-
-function AnswerBody({ answer }: { answer: PanelProps['dialogs'][number]['answer'] }) {
-  const text = answer === null ? '—' : answer.paras.join('\n\n');
-  return (
-    <p className="sm-reading text-(--color-ink) text-[15px] whitespace-pre-wrap">
-      {text}
     </p>
   );
 }

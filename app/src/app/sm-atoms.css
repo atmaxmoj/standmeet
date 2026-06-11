@@ -661,6 +661,12 @@
   color: var(--color-muted);
   line-height: 1.55;
 }
+/* sm-floating-chat-compact —— #35:浮窗复用主 chat 的 ChatTranscript,但缩小版:
+   收紧 DialogCard 的大 padding + 答案字号(高特异性 override Tailwind 显式尺寸)。 */
+.sm-floating-chat-compact article { padding-top: 14px; padding-bottom: 14px; }
+.sm-floating-chat-compact [data-testid='answer-body'] .reading { font-size: 15px; }
+.sm-floating-chat-compact [data-testid='chat-progress'] { padding-left: 0; padding-right: 0; }
+
 .sm-floating-chat-dialog { list-style: none; padding: 0; }
 .sm-floating-chat-q {
   font-family: var(--font-serif);
