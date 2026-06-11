@@ -79,6 +79,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Assets:       usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 		Writings:     usecases.WritingsDeps{Writings: d.writingRepo},
 		WritingRefs:  d.writingRefRepo,
+		SEO:          d.seoRepo,
 		Codes:        d.codeRepo,
 		Owners:       d.ownerRepo,
 		Drafts:       d.resumeDraftRepo,

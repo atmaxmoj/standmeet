@@ -144,6 +144,11 @@ dev-rebuild: app-build
 dev-down:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans
 
+# dev-logs —— tail 某个 service 的日志(诊断用)。用法：make dev-logs SVC=backend N=80
+dev-logs:
+	@test -n "$(SVC)" || (echo "usage: make dev-logs SVC=<service> [N=<lines>]"; exit 2)
+	@docker compose -f docker-compose.dev.yml logs --tail=$(if $(N),$(N),60) $(SVC)
+
 build:
 	@echo "[build] not implemented yet."
 

@@ -75,6 +75,7 @@ type AdminDeps struct {
 	Assets         usecases.AssetsDeps
 	Writings       usecases.WritingsDeps
 	WritingRefs    *postgres.WritingRefRepo
+	SEO            *postgres.SEORepo
 	Codes          *postgres.CodeRepo
 	Owners         *postgres.OwnerRepo
 	Drafts         *postgres.ResumeDraftRepo
@@ -140,6 +141,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
 		},
 		PageAdmin: adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
+		SEOAdmin:  adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO},
 		Conversations: adminroutes.ConversationsDeps{
 			Chats:  deps.Admin.Conversations,
 			Ghosts: deps.Admin.Ghosts,

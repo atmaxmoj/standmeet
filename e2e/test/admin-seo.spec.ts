@@ -8,10 +8,11 @@
 //   4. OG preview card renders
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { APIRequestContext, Playwright } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { callTool, initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -48,7 +49,29 @@ test.describe('admin SEO section', () => {
       const stats = adminPage.getByTestId('seo-indexing');
       await expect(stats).toBeVisible();
     });
+
+  // #42:PATCH /api/admin/wiki/{id}/seo 之前 500。建一条 wiki 再 PATCH seo,期望 200。
+  test('PATCH wiki seo (set indexed) → 200, not 500', async ({ request }) => {
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    const token = await createAPIToken(request, csrf, 'seo-patch');
+    const sid = await initMCP(request, token);
+    const raw = await callTool<{ raw_id: string }>(
+      request, token, sid, 'raw_dump', { body: 'x', source: 'mcp:e2e', tags: [] },
+    );
+    const wiki = await callTool<{ wiki_id: string }>(
+      request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title: 'SEO Patch Test' },
+    );
+    const res = await patchWikiSEO(request, csrf, wiki.wiki_id);
+    expect(res.status()).toBe(200);
+  });
 });
+
+async function patchWikiSEO(request: APIRequestContext, csrf: string, wikiID: string) {
+  return request.patch(`/api/admin/wiki/${wikiID}/seo`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: { seo_description: 'a short seo description', seo_indexed: true },
+  });
+}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
