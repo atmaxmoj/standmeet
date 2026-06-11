@@ -27,8 +27,18 @@ type Scenario struct {
 	History     []ScenarioMsg   `yaml:"history"`
 	Tools       []ScenarioTool  `yaml:"tools"`
 	Script      *ScenarioScript `yaml:"script"`
+	DocContext  *ScenarioDoc    `yaml:"doc_context"`
 
 	path string // source file, for error context
+}
+
+// ScenarioDoc —— the visitor's current doc, injected as AgentTurnRequest.DocContext
+// so the backend appends "the visitor is reading X" to the instruction (#36:
+// referent resolution for "this page" / "这篇").
+type ScenarioDoc struct {
+	Title string `yaml:"title"`
+	Path  string `yaml:"path"`
+	Genre string `yaml:"genre"`
 }
 
 // ScenarioMsg —— a prior-turn message injected as AgentTurnRequest.History.

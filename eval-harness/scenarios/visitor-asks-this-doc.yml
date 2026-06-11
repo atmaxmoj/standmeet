@@ -1,0 +1,31 @@
+name: visitor-asks-this-doc
+description: >
+  visitor 正看着 Lucerna 那篇 wiki,问「tell me more about this」(纯指代,没点名)。
+  turn 带 doc_context → backend 注进 instruction「访客正读 Lucerna」→ agent 应把
+  「this」解析成 Lucerna 去 corpus_search,而不是反问「which project?」(#36 位置感知)。
+  脚本走 gateway 确定性;真 LLM 跑时验指代解析质量。
+
+system: You are answering visitor questions on behalf of the owner, in the owner's voice. Use the corpus tools to ground every claim.
+user: tell me more about this
+mode: public
+
+# 关键:访客当前所在 doc。backend instructionWithDoc 据此注入位置上下文。
+doc_context:
+  title: Lucerna
+  path: projects/lucerna
+  genre: wiki
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    result: '[{"uri":"wiki://projects/lucerna","title":"Lucerna","snippet":"a local-first thinking tool"}]'
+    label: searching the corpus
+
+script:
+  # agent 把「this」解析成 Lucerna(doc_context 注入后),拿它 search,而非反问。
+  tool:
+    name: corpus_search
+    args:
+      query: Lucerna
+  reply: Lucerna is a local-first thinking tool for people who think a lot but dislike writing — it captures and connects ideas without forcing prose.

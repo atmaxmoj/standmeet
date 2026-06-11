@@ -42,6 +42,14 @@ type (
 	ChatRequestMsg = inference.ChatRequestMsg
 )
 
+// NewAgentDocContext builds the visitor's current-doc context (title/path/genre)
+// for AgentTurnRequest.DocContext. A constructor (not a type alias) so the facade
+// doesn't bump its public-struct count; drivers set it on the request to give the
+// agent referent resolution ("this page" → that doc).
+func NewAgentDocContext(title, path, genre string) *inference.AgentDocContext {
+	return &inference.AgentDocContext{Title: title, Path: path, Genre: genre}
+}
+
 // Generate runs a single non-streaming completion (no tools, no agent loop) —
 // the same call the backend uses for follow-up suggestions and the
 // summarize_conversation report. A driver uses it to back LLM-driven fixture

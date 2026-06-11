@@ -72,6 +72,11 @@ func scenarioInput(sc *Scenario, cred *agentcore.Cred) *agentcore.AgentTurnInput
 		},
 		Mode: mode,
 	}
+	// doc_context(#36):访客当前 doc → backend 注进 instruction 解析指代。字段类型
+	// 在 internal/,eval 不能 naming;直接赋构造函数结果(类型由字段推断)。
+	if d := sc.DocContext; d != nil {
+		in.Req.DocContext = agentcore.NewAgentDocContext(d.Title, d.Path, d.Genre)
+	}
 	if len(sc.Tools) > 0 {
 		in.Tools, in.ProgressLabels = scenarioTools(sc.Tools)
 	}
