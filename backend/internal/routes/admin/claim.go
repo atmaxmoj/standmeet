@@ -45,6 +45,7 @@ type Handlers struct {
 	MarketplaceAdmin MarketplaceAdminDeps
 	CalendarAdmin    CalendarAdminDeps
 	MailAdmin        MailAdminDeps
+	IPBansAdmin      IPBansAdminDeps
 	Log              *slog.Logger
 	SecureCookie     bool // false 仅限 dev (http)；prod 必须 true。
 }
@@ -92,6 +93,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountMarketplace(r)
 	h.MountCalendarConnector(r)
 	h.MountMailConnector(r)
+	h.MountIPBans(r)
 	h.MountBookingPolicy(r)
 	h.MountBookings(r)
 }

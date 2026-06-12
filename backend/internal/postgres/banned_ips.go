@@ -97,6 +97,16 @@ func (r *BannedIPRepo) IsBanned(ctx context.Context, ownerID, ip string) (bool, 
 	return banned, nil
 }
 
+// IsBannedAnywhere —— 公开面 enforcement：这个 IP 在本实例上是否被封且未过期
+// （不分 owner；v1 单 owner）。middleware 每个公开请求调一次。
+func (r *BannedIPRepo) IsBannedAnywhere(ctx context.Context, ip string) (bool, error) {
+	banned, qerr := dbq.New(r.pool).IsIPBannedAnywhere(ctx, ip)
+	if qerr != nil {
+		return false, fmt.Errorf("is ip banned anywhere: %w", qerr)
+	}
+	return banned, nil
+}
+
 func decodeBannedIP(row *dbq.BannedIp) domain.BannedIP {
 	return domain.BannedIP{
 		ID:        formatUUID(row.ID),

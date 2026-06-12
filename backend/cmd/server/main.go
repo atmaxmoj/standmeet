@@ -201,6 +201,7 @@ type runtimeDeps struct {
 	mailRepo          *postgres.MailRepo
 	ghostRepo         *postgres.GhostRepo
 	chatReportRepo    *postgres.ChatReportRepo
+	bannedIPRepo      *postgres.BannedIPRepo
 	gcalClient        *gcal.Client
 	sandboxRunner     sandbox.Runner
 	storageClient     *storage.Client

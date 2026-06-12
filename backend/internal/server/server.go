@@ -48,8 +48,10 @@ type Deps struct {
 	// PluginRegistry —— J.5: outbound plugins 一次性注册全套 admin REST hook。
 	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
 	PluginRegistry *plugins.Registry
-	MCP            mcp.Deps
-	Admin          AdminDeps
+	// BannedIPs —— 封禁 IP repo；公开面 BanGuard + admin ip-bans CRUD 共用。
+	BannedIPs *postgres.BannedIPRepo
+	MCP       mcp.Deps
+	Admin     AdminDeps
 }
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
@@ -181,6 +183,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		MarketplaceAdmin: adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
 		CalendarAdmin:    deps.Admin.Calendar,
 		MailAdmin:        deps.Admin.Mail,
+		IPBansAdmin:      adminroutes.IPBansAdminDeps{Repo: deps.BannedIPs},
 		Log:              deps.Log,
 		SecureCookie:     deps.Admin.SecureCookie,
 	}
@@ -190,7 +193,8 @@ func mountPublic(r chi.Router, deps *Deps) {
 	// 直接挂 wireup 构好的 Handlers 值，不再字段一个个重抄 (G-1.5 smell E:
 	// 之前 Handlers 加字段 wireup 改了但 mount 漏抄 → silent nil 跑了一阵)。
 	r.Route("/api/v1", func(r chi.Router) {
-		// per-IP 限流公开滥用面（session/turn/access-request/…），超限 429。
+		// 封禁 IP 先挡（403），再 per-IP 限流公开滥用面（429）。
+		r.Use(authmw.BanGuard(deps.BannedIPs))
 		r.Use(authmw.PublicRateGuard(deps.Redis))
 		(&deps.Public).Mount(r)
 		(&deps.PublicPage).Mount(r)

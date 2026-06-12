@@ -26,3 +26,12 @@ SELECT EXISTS (
     WHERE owner_id = $1 AND ip = $2
       AND (expires_at IS NULL OR expires_at > now())
 ) AS banned;
+
+-- name: IsIPBannedAnywhere :one
+-- 公开面 enforcement 用：这个 IP 在本实例上是否被任何 owner 封了且未过期。
+-- v1 单 owner，等价于「sole owner 封没封」，但不需 middleware 解析 owner。
+-- 多租户起再换成 host→owner 作用域。
+SELECT EXISTS (
+    SELECT 1 FROM banned_ips
+    WHERE ip = $1 AND (expires_at IS NULL OR expires_at > now())
+) AS banned;

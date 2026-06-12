@@ -45,6 +45,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		MCP:             buildMCPDeps(d),
 		CaptchaVerifier: d.captchaVerifier,
 		PluginRegistry:  d.pluginRegistry,
+		BannedIPs:       d.bannedIPRepo,
 	}
 }
 

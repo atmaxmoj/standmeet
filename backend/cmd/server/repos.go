@@ -59,6 +59,7 @@ type repoSet struct {
 	mailConnector *postgres.MailRepo
 	ghost         *postgres.GhostRepo
 	chatReport    *postgres.ChatReportRepo
+	bannedIP      *postgres.BannedIPRepo
 }
 
 func newRepos(db *postgres.Pool) *repoSet {
@@ -89,6 +90,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		mailConnector: postgres.NewMailRepo(db),
 		ghost:         postgres.NewGhostRepo(db),
 		chatReport:    postgres.NewChatReportRepo(db),
+		bannedIP:      postgres.NewBannedIPRepo(db),
 	}
 }
 
@@ -133,6 +135,7 @@ func assembleRuntimeDeps(
 		mailRepo:          repos.mailConnector,
 		ghostRepo:         repos.ghost,
 		chatReportRepo:    repos.chatReport,
+		bannedIPRepo:      repos.bannedIP,
 		gcalClient: gcal.New(gcal.Config{
 			AuthURL:         cfg.GoogleAuthURL,
 			TokenURL:        cfg.GoogleTokenURL,

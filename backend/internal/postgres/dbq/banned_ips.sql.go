@@ -71,6 +71,23 @@ func (q *Queries) IsIPBanned(ctx context.Context, arg IsIPBannedParams) (bool, e
 	return banned, err
 }
 
+const isIPBannedAnywhere = `-- name: IsIPBannedAnywhere :one
+SELECT EXISTS (
+    SELECT 1 FROM banned_ips
+    WHERE ip = $1 AND (expires_at IS NULL OR expires_at > now())
+) AS banned
+`
+
+// 公开面 enforcement 用：这个 IP 在本实例上是否被任何 owner 封了且未过期。
+// v1 单 owner，等价于「sole owner 封没封」，但不需 middleware 解析 owner。
+// 多租户起再换成 host→owner 作用域。
+func (q *Queries) IsIPBannedAnywhere(ctx context.Context, ip string) (bool, error) {
+	row := q.db.QueryRow(ctx, isIPBannedAnywhere, ip)
+	var banned bool
+	err := row.Scan(&banned)
+	return banned, err
+}
+
 const listBannedIPs = `-- name: ListBannedIPs :many
 SELECT id, owner_id, ip, reason, expires_at, created_at FROM banned_ips
 WHERE owner_id = $1
