@@ -468,7 +468,12 @@ CREATE TABLE conversations (
     -- visitor 不能再发消息（POST /messages 返 410 conversation_ended）。
     -- summary_md 是 AI 生成的 markdown 报告，visitor 客户端拿去渲染 PDF。
     ended_at        timestamptz,
-    summary_md      text          NOT NULL DEFAULT ''
+    summary_md      text          NOT NULL DEFAULT '',
+    -- client_ip：访客创建会话时的来源 IP（chi.RealIP 解出的 host，去 port）。
+    -- 给 owner「IP 感知」用：admin conversations 列表展示，配合 banned_ips 封禁。
+    -- 空串 = 未知（老行 / 拿不到）。存 text 而非 inet：对畸形值宽容，不让一条
+    -- 怪 header 把会话创建整崩。
+    client_ip       text          NOT NULL DEFAULT ''
 );
 
 CREATE TABLE messages (
@@ -799,3 +804,19 @@ CREATE INDEX chat_reports_conv_idx
     ON chat_reports(conversation_id, created_at DESC);
 CREATE INDEX chat_reports_owner_idx
     ON chat_reports(owner_id, created_at DESC);
+
+-- banned_ips —— owner 封掉的来源 IP。命中的 IP 在公开 /api/v1 面被 403 挡掉
+-- (visitor chat / session / access-request 全拒)。ip 存 text 精确匹配
+-- chi.RealIP 解出的 host (跟 conversations.client_ip 同口径)。reason 给 owner
+-- 自己记备注。expires_at NULL = 永久封；非空 = 到点自动失效 (enforcement
+-- 查询带 now() 过滤)。单 owner v1 仍带 owner_id，多租户免费继承。
+CREATE TABLE banned_ips (
+    id          uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id    uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    ip          text          NOT NULL,
+    reason      text          NOT NULL DEFAULT '',
+    expires_at  timestamptz,
+    created_at  timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX banned_ips_owner_ip_uniq ON banned_ips(owner_id, ip);

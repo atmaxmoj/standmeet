@@ -57,6 +57,15 @@ type Asset struct {
 	CreatedAt        pgtype.Timestamptz
 }
 
+type BannedIp struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Ip        string
+	Reason    string
+	ExpiresAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 type ChatReport struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID
@@ -101,6 +110,7 @@ type Conversation struct {
 	MessageCount  int32
 	EndedAt       pgtype.Timestamptz
 	SummaryMd     string
+	ClientIp      string
 }
 
 type ConversationGhost struct {

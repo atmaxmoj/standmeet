@@ -64,9 +64,11 @@ func (q *Queries) BumpConversation(ctx context.Context, id pgtype.UUID) error {
 }
 
 const createConversation = `-- name: CreateConversation :one
-INSERT INTO conversations (owner_id, mode, code_id, member_id, visitor_name, byoai_provider)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md
+INSERT INTO conversations (
+    owner_id, mode, code_id, member_id, visitor_name, byoai_provider, client_ip
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip
 `
 
 type CreateConversationParams struct {
@@ -76,6 +78,7 @@ type CreateConversationParams struct {
 	MemberID      pgtype.UUID
 	VisitorName   string
 	ByoaiProvider *string
+	ClientIp      string
 }
 
 func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error) {
@@ -86,6 +89,7 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		arg.MemberID,
 		arg.VisitorName,
 		arg.ByoaiProvider,
+		arg.ClientIp,
 	)
 	var i Conversation
 	err := row.Scan(
@@ -101,12 +105,13 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.MessageCount,
 		&i.EndedAt,
 		&i.SummaryMd,
+		&i.ClientIp,
 	)
 	return i, err
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md FROM conversations WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip FROM conversations WHERE id = $1 AND owner_id = $2
 `
 
 type GetConversationParams struct {
@@ -130,12 +135,13 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 		&i.MessageCount,
 		&i.EndedAt,
 		&i.SummaryMd,
+		&i.ClientIp,
 	)
 	return i, err
 }
 
 const getOpenConversationByMember = `-- name: GetOpenConversationByMember :one
-SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md FROM conversations
+SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip FROM conversations
 WHERE member_id = $1 AND ended_at IS NULL
 ORDER BY last_at DESC
 LIMIT 1
@@ -159,13 +165,14 @@ func (q *Queries) GetOpenConversationByMember(ctx context.Context, memberID pgty
 		&i.MessageCount,
 		&i.EndedAt,
 		&i.SummaryMd,
+		&i.ClientIp,
 	)
 	return i, err
 }
 
 const listConversationsByOwner = `-- name: ListConversationsByOwner :many
 SELECT c.id, c.mode, c.code_id, c.visitor_name, c.started_at,
-       c.last_at, c.message_count,
+       c.last_at, c.message_count, c.client_ip,
        ac.label AS code_label, ac.code AS code_value
 FROM conversations c
 LEFT JOIN access_codes ac ON ac.id = c.code_id
@@ -187,6 +194,7 @@ type ListConversationsByOwnerRow struct {
 	StartedAt    pgtype.Timestamptz
 	LastAt       pgtype.Timestamptz
 	MessageCount int32
+	ClientIp     string
 	CodeLabel    *string
 	CodeValue    *string
 }
@@ -208,6 +216,7 @@ func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversa
 			&i.StartedAt,
 			&i.LastAt,
 			&i.MessageCount,
+			&i.ClientIp,
 			&i.CodeLabel,
 			&i.CodeValue,
 		); err != nil {
@@ -258,7 +267,7 @@ const markConversationEnded = `-- name: MarkConversationEnded :one
 UPDATE conversations
 SET ended_at = now(), summary_md = $2
 WHERE id = $1 AND ended_at IS NULL
-RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md
+RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip
 `
 
 type MarkConversationEndedParams struct {
@@ -284,6 +293,7 @@ func (q *Queries) MarkConversationEnded(ctx context.Context, arg MarkConversatio
 		&i.MessageCount,
 		&i.EndedAt,
 		&i.SummaryMd,
+		&i.ClientIp,
 	)
 	return i, err
 }

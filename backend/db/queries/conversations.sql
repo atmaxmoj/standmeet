@@ -1,6 +1,8 @@
 -- name: CreateConversation :one
-INSERT INTO conversations (owner_id, mode, code_id, member_id, visitor_name, byoai_provider)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO conversations (
+    owner_id, mode, code_id, member_id, visitor_name, byoai_provider, client_ip
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetConversation :one
@@ -32,7 +34,7 @@ WHERE id = $1;
 
 -- name: ListConversationsByOwner :many
 SELECT c.id, c.mode, c.code_id, c.visitor_name, c.started_at,
-       c.last_at, c.message_count,
+       c.last_at, c.message_count, c.client_ip,
        ac.label AS code_label, ac.code AS code_value
 FROM conversations c
 LEFT JOIN access_codes ac ON ac.id = c.code_id

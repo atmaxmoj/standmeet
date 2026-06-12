@@ -23,6 +23,7 @@ type ChatSummary struct {
 	ID           string
 	Mode         string
 	VisitorName  string
+	ClientIP     string // 访客来源 IP（IP 感知）；空 = 未知
 	MessageCount int32
 	PrivateHits  int32
 }
@@ -99,6 +100,7 @@ func toChatSummary(row *dbq.ListConversationsByOwnerRow) ChatSummary {
 		StartedAt:    row.StartedAt.Time,
 		LastAt:       row.LastAt.Time,
 		MessageCount: row.MessageCount,
+		ClientIP:     row.ClientIp,
 		CodeLabel:    row.CodeLabel,
 		CodeValue:    row.CodeValue,
 	}

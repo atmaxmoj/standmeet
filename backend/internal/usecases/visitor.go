@@ -60,6 +60,7 @@ type IssueCodeSessionInput struct {
 	Code        string
 	VisitorName string
 	MemberID    string
+	ClientIP    string // 访客来源 IP（IP 感知）；空 = 未知
 }
 
 // SessionQuota —— 当前 conversation 的 turn 配额；visitor UI 用来渲剩余。
@@ -170,7 +171,7 @@ func issueCodeSessionArtifacts(
 	if qerr != nil {
 		return codeSessionArtifacts{}, qerr
 	}
-	conv, err := createCodeConversation(ctx, deps, code, &member, in.VisitorName)
+	conv, err := createCodeConversation(ctx, deps, code, &member, in)
 	if err != nil {
 		return codeSessionArtifacts{}, err
 	}
@@ -304,7 +305,7 @@ func memberExists(members []domain.CodeMember, name string) bool {
 // conversation 就续上;没有(新 member / 上一段已 summary 结束)才新建。
 func createCodeConversation(
 	ctx context.Context, deps *VisitorDeps,
-	code *domain.AccessCode, member *domain.CodeMember, visitorName string,
+	code *domain.AccessCode, member *domain.CodeMember, in *IssueCodeSessionInput,
 ) (domain.Chat, error) {
 	existing, gerr := deps.Chats.GetOpenChatByMember(ctx, member.ID)
 	if gerr == nil {
@@ -319,7 +320,8 @@ func createCodeConversation(
 		Mode:        "code",
 		CodeID:      &code.ID,
 		MemberID:    &memberID,
-		VisitorName: visitorName,
+		VisitorName: in.VisitorName,
+		ClientIP:    in.ClientIP,
 	})
 	if err != nil {
 		return domain.Chat{}, fmt.Errorf("create chat: %w", err)

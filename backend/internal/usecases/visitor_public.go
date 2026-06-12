@@ -23,6 +23,7 @@ import (
 type IssuePublicSessionInput struct {
 	VisitorName   string
 	BYOAIProvider string // 'anthropic' | 'openai' | '' (无 BYOAI)
+	ClientIP      string // 访客来源 IP（IP 感知）；空 = 未知
 }
 
 // IssuePublicSession —— public-tier session 颁发。
@@ -70,6 +71,7 @@ func finalizePublicSession(
 		Mode:          mode,
 		VisitorName:   in.VisitorName,
 		BYOAIProvider: nullableProvider(in.BYOAIProvider),
+		ClientIP:      in.ClientIP,
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("create chat: %w", err)

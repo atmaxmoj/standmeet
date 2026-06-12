@@ -36,6 +36,7 @@ type CreateChatInput struct {
 	OwnerID       string
 	Mode          string
 	VisitorName   string
+	ClientIP      string // 访客来源 IP（chi.RealIP host，去 port）；空 = 未知
 }
 
 // CreateChat 写一行 chat。
@@ -62,6 +63,7 @@ func (r *ChatRepo) CreateChat(
 		MemberID:      memberUUID,
 		VisitorName:   in.VisitorName,
 		ByoaiProvider: in.BYOAIProvider,
+		ClientIp:      in.ClientIP,
 	})
 	if err != nil {
 		return domain.Chat{}, fmt.Errorf("create chat: %w", err)

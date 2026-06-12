@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
@@ -66,7 +67,7 @@ func (h *Handlers) createSession() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		res, err := dispatchIssueSession(r.Context(), &h.Visitor, &req)
+		res, err := dispatchIssueSession(r.Context(), &h.Visitor, &req, clientIP(r))
 		if err != nil {
 			handleVisitorErr(h.Log, w, err)
 			return
@@ -122,18 +123,20 @@ func writeCodeIntro(
 // tier=='code' → IssueCodeSession（带 access code）。
 // mode=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。
 func dispatchIssueSession(
-	ctx context.Context, deps *usecases.VisitorDeps, req *createSessionRequest,
+	ctx context.Context, deps *usecases.VisitorDeps, req *createSessionRequest, clientIP string,
 ) (usecases.IssueCodeSessionResult, error) {
 	if pickMode(req) == "code" {
 		return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
 			Code:        req.Code,
 			VisitorName: req.VisitorName,
 			MemberID:    req.MemberID,
+			ClientIP:    clientIP,
 		})
 	}
 	return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
 		VisitorName:   req.VisitorName,
 		BYOAIProvider: req.BYOAIProvider,
+		ClientIP:      clientIP,
 	})
 }
 
@@ -149,6 +152,17 @@ func toMemberResps(members []domain.CodeMember) []sessionMemberResp {
 		})
 	}
 	return out
+}
+
+// clientIP —— 访客来源 IP。chi.RealIP 已把 X-Forwarded-For 解到 RemoteAddr，
+// 这里只去 port；裸 IP（dev/test）直接用。写 conversations.client_ip 给 owner
+// 做 IP 感知 + 封禁用。
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 func pickMode(req *createSessionRequest) string {
