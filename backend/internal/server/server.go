@@ -190,6 +190,8 @@ func mountPublic(r chi.Router, deps *Deps) {
 	// 直接挂 wireup 构好的 Handlers 值，不再字段一个个重抄 (G-1.5 smell E:
 	// 之前 Handlers 加字段 wireup 改了但 mount 漏抄 → silent nil 跑了一阵)。
 	r.Route("/api/v1", func(r chi.Router) {
+		// per-IP 限流公开滥用面（session/turn/access-request/…），超限 429。
+		r.Use(authmw.PublicRateGuard(deps.Redis))
 		(&deps.Public).Mount(r)
 		(&deps.PublicPage).Mount(r)
 		(&deps.PublicSEO).Mount(r)
