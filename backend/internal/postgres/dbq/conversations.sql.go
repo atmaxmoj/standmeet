@@ -63,12 +63,27 @@ func (q *Queries) BumpConversation(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const countVisitorTurnsForMember = `-- name: CountVisitorTurnsForMember :one
+SELECT COUNT(*)::int FROM messages m
+JOIN conversations c ON c.id = m.conversation_id
+WHERE c.member_id = $1 AND m.role = 'visitor'
+`
+
+// member 级 turn 配额:该 member 名下**全部对话**的访客发言合计。多段对话共享
+// 一个预算,不按单段对话各算。
+func (q *Queries) CountVisitorTurnsForMember(ctx context.Context, memberID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countVisitorTurnsForMember, memberID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createConversation = `-- name: CreateConversation :one
 INSERT INTO conversations (
-    owner_id, mode, code_id, member_id, visitor_name, byoai_provider, client_ip
+    owner_id, mode, code_id, member_id, visitor_name, byoai_provider, client_ip, doc_key
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip, doc_key
 `
 
 type CreateConversationParams struct {
@@ -79,6 +94,7 @@ type CreateConversationParams struct {
 	VisitorName   string
 	ByoaiProvider *string
 	ClientIp      string
+	DocKey        string
 }
 
 func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error) {
@@ -90,6 +106,7 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		arg.VisitorName,
 		arg.ByoaiProvider,
 		arg.ClientIp,
+		arg.DocKey,
 	)
 	var i Conversation
 	err := row.Scan(
@@ -106,12 +123,13 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.EndedAt,
 		&i.SummaryMd,
 		&i.ClientIp,
+		&i.DocKey,
 	)
 	return i, err
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip FROM conversations WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip, doc_key FROM conversations WHERE id = $1 AND owner_id = $2
 `
 
 type GetConversationParams struct {
@@ -136,19 +154,20 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 		&i.EndedAt,
 		&i.SummaryMd,
 		&i.ClientIp,
+		&i.DocKey,
 	)
 	return i, err
 }
 
 const getOpenConversationByMember = `-- name: GetOpenConversationByMember :one
-SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip FROM conversations
-WHERE member_id = $1 AND ended_at IS NULL
+SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip, doc_key FROM conversations
+WHERE member_id = $1 AND doc_key = '' AND ended_at IS NULL
 ORDER BY last_at DESC
 LIMIT 1
 `
 
-// 「一个名字=一段续聊的会」:同名 member 已有未结束(ended_at IS NULL)的对话
-// 就续上(返最近一段);没有 → caller 新建。member ended/summarized 后再来 = 新会。
+// 「一个名字=一段续聊的会」(主对话):同名 member 已有未结束(ended_at IS NULL)的
+// **主**对话(doc_key=”)就续上;没有 → caller 新建。member ended 后再来 = 新会。
 func (q *Queries) GetOpenConversationByMember(ctx context.Context, memberID pgtype.UUID) (Conversation, error) {
 	row := q.db.QueryRow(ctx, getOpenConversationByMember, memberID)
 	var i Conversation
@@ -166,6 +185,42 @@ func (q *Queries) GetOpenConversationByMember(ctx context.Context, memberID pgty
 		&i.EndedAt,
 		&i.SummaryMd,
 		&i.ClientIp,
+		&i.DocKey,
+	)
+	return i, err
+}
+
+const getOpenConversationByMemberAndDoc = `-- name: GetOpenConversationByMemberAndDoc :one
+SELECT id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip, doc_key FROM conversations
+WHERE member_id = $1 AND doc_key = $2 AND ended_at IS NULL
+ORDER BY last_at DESC
+LIMIT 1
+`
+
+type GetOpenConversationByMemberAndDocParams struct {
+	MemberID pgtype.UUID
+	DocKey   string
+}
+
+// 浮窗用:该 member 在某个 surface(doc_key)上未结束的那段对话。没有 → caller 新建。
+func (q *Queries) GetOpenConversationByMemberAndDoc(ctx context.Context, arg GetOpenConversationByMemberAndDocParams) (Conversation, error) {
+	row := q.db.QueryRow(ctx, getOpenConversationByMemberAndDoc, arg.MemberID, arg.DocKey)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Mode,
+		&i.CodeID,
+		&i.MemberID,
+		&i.VisitorName,
+		&i.ByoaiProvider,
+		&i.StartedAt,
+		&i.LastAt,
+		&i.MessageCount,
+		&i.EndedAt,
+		&i.SummaryMd,
+		&i.ClientIp,
+		&i.DocKey,
 	)
 	return i, err
 }
@@ -230,6 +285,55 @@ func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversa
 	return items, nil
 }
 
+const listMemberOtherConversationMessages = `-- name: ListMemberOtherConversationMessages :many
+SELECT c.doc_key, c.started_at, m.role, m.body, m.created_at
+FROM messages m
+JOIN conversations c ON c.id = m.conversation_id
+WHERE c.member_id = $1 AND c.id <> $2
+ORDER BY m.created_at
+`
+
+type ListMemberOtherConversationMessagesParams struct {
+	MemberID pgtype.UUID
+	ID       pgtype.UUID
+}
+
+type ListMemberOtherConversationMessagesRow struct {
+	DocKey    string
+	StartedAt pgtype.Timestamptz
+	Role      string
+	Body      string
+	CreatedAt pgtype.Timestamptz
+}
+
+// 「互通」:拉该 member **其他**对话(排除当前这段)的近期消息,拼进 instruction
+// 让 AI 跨对话连贯。按时间正序,caller 自己截断/汇总。
+func (q *Queries) ListMemberOtherConversationMessages(ctx context.Context, arg ListMemberOtherConversationMessagesParams) ([]ListMemberOtherConversationMessagesRow, error) {
+	rows, err := q.db.Query(ctx, listMemberOtherConversationMessages, arg.MemberID, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMemberOtherConversationMessagesRow
+	for rows.Next() {
+		var i ListMemberOtherConversationMessagesRow
+		if err := rows.Scan(
+			&i.DocKey,
+			&i.StartedAt,
+			&i.Role,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMessages = `-- name: ListMessages :many
 SELECT id, conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
 `
@@ -267,7 +371,7 @@ const markConversationEnded = `-- name: MarkConversationEnded :one
 UPDATE conversations
 SET ended_at = now(), summary_md = $2
 WHERE id = $1 AND ended_at IS NULL
-RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip
+RETURNING id, owner_id, mode, code_id, member_id, visitor_name, byoai_provider, started_at, last_at, message_count, ended_at, summary_md, client_ip, doc_key
 `
 
 type MarkConversationEndedParams struct {
@@ -294,6 +398,7 @@ func (q *Queries) MarkConversationEnded(ctx context.Context, arg MarkConversatio
 		&i.EndedAt,
 		&i.SummaryMd,
 		&i.ClientIp,
+		&i.DocKey,
 	)
 	return i, err
 }

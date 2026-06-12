@@ -473,8 +473,19 @@ CREATE TABLE conversations (
     -- 给 owner「IP 感知」用：admin conversations 列表展示，配合 banned_ips 封禁。
     -- 空串 = 未知（老行 / 拿不到）。存 text 而非 inet：对畸形值宽容，不让一条
     -- 怪 header 把会话创建整崩。
-    client_ip       text          NOT NULL DEFAULT ''
+    client_ip       text          NOT NULL DEFAULT '',
+    -- doc_key：这段对话属于哪个 surface。'' = 主聊天（首页 Hero）；否则 = 访客
+    -- 当时所在 doc 的 path（如 'projects/lucerna'）。一个 member 可以有多段对话：
+    -- 主聊天一段 + 每篇 doc 的浮窗各一段，transcript 彼此独立。turn 配额仍按 member
+    -- 汇总（共享预算），「互通」靠 AI 读该 member 全部对话实现。
+    doc_key         text          NOT NULL DEFAULT ''
 );
+
+-- 一个 member 每个 surface（doc_key）至多一段「未结束」对话，让 find-or-create
+-- 幂等；已 summary（ended_at 非空）的不占坑，再来同一 surface 开新的一段。
+CREATE UNIQUE INDEX conversations_member_dockey_open_uniq
+    ON conversations(member_id, doc_key)
+    WHERE ended_at IS NULL AND member_id IS NOT NULL;
 
 CREATE TABLE messages (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),

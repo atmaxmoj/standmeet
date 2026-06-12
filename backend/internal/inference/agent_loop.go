@@ -91,8 +91,9 @@ func BuildAgentIterator(
 	agent, aerr := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:        "visitor",
 		Description: "standmeet visitor chat agent",
-		Instruction: instructionWithDoc(in.Req.System, in.Req.DocContext),
-		Model:       cm,
+		Instruction: instructionWithCrossConv(
+			instructionWithDoc(in.Req.System, in.Req.DocContext), in.CrossConvContext),
+		Model: cm,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: in.Tools},
 			ReturnDirectly:  in.ReturnDirectly,

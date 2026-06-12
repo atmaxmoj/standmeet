@@ -85,6 +85,18 @@ func instructionWithDoc(system string, doc *AgentDocContext) string {
 	return system + loc
 }
 
+// instructionWithCrossConv —— 「互通」:把该 member 其他对话的 digest 拼进 instruction,
+// 让 AI 像「同一个人继续聊」那样跨对话连贯,但不把别段的内容混进当前 transcript。
+// digest 空(public / 无 member / 没别的对话)→ 原样返回。
+func instructionWithCrossConv(system, digest string) string {
+	if digest == "" {
+		return system
+	}
+	return system + "\n\nContext from this visitor's other conversations with you " +
+		"(separate threads, same person — draw on it naturally when the current question " +
+		"connects to it; do not pretend it was said in this thread):\n" + digest
+}
+
 // AgentTurnInput —— RunAgentTurn / BuildAgentIterator 的入参打包，避开
 // revive 5-arg 上限。字段顺序按 govet fieldalignment 排：3 个 pointer 在
 // 前，slice 在后。
@@ -110,7 +122,11 @@ type AgentTurnInput struct {
 	// caller (route handler) 注入走 RecordDialog 的闭包;inference 不碰 DB。
 	Persist PersistFunc
 	Mode    string
-	Tools   []tool.BaseTool
+	// CrossConvContext —— 「互通」:该 member 其他对话的 digest。instructionWithCrossConv
+	// 把它拼进 instruction 让 AI 跨对话连贯;route handler 装(读 DB),inference 不碰
+	// DB。空 = 不注入(public / 无 member / 没别的对话)。
+	CrossConvContext string
+	Tools            []tool.BaseTool
 }
 
 // RunAgentTurn —— 跑一整轮 agent loop，向 w 写 pi-style SSE。caller (route

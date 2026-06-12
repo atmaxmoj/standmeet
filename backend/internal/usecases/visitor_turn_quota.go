@@ -40,11 +40,11 @@ func EnforceTurnQuota(
 	if conv.CodeID == nil {
 		return nil
 	}
-	return enforceTurnQuotaForCode(ctx, deps, in, *conv.CodeID)
+	return enforceTurnQuotaForCode(ctx, deps, &conv, *conv.CodeID)
 }
 
 func enforceTurnQuotaForCode(
-	ctx context.Context, deps *VisitorDeps, in *TurnQuotaInput, codeID string,
+	ctx context.Context, deps *VisitorDeps, conv *domain.Chat, codeID string,
 ) error {
 	code, cerr := deps.Codes.GetByID(ctx, codeID)
 	if cerr != nil {
@@ -53,7 +53,7 @@ func enforceTurnQuotaForCode(
 	if code.Status == "revoked" {
 		return domain.ErrCodeInvalid
 	}
-	return turnQuotaCheck(ctx, deps, &code, in.ConversationID)
+	return turnQuotaCheck(ctx, deps, &code, conv)
 }
 
 func turnQuotaCodeErr(err error) error {
@@ -64,12 +64,12 @@ func turnQuotaCodeErr(err error) error {
 }
 
 func turnQuotaCheck(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, convID string,
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, conv *domain.Chat,
 ) error {
 	if code.MaxTurnsPerSession == nil || *code.MaxTurnsPerSession <= 0 {
 		return nil
 	}
-	count, err := deps.Chats.CountVisitorTurns(ctx, convID)
+	count, err := countTurnsForQuota(ctx, deps, conv)
 	if err != nil {
 		return fmt.Errorf("count turns: %w", err)
 	}
@@ -77,4 +77,23 @@ func turnQuotaCheck(
 		return domain.ErrTurnQuotaReached
 	}
 	return nil
+}
+
+// countTurnsForQuota —— member 级配额:有 member 就汇总该人全部对话的访客发言
+// (多段对话共享预算);无 member(anon / public)退回按单段对话数。
+func countTurnsForQuota(
+	ctx context.Context, deps *VisitorDeps, conv *domain.Chat,
+) (int32, error) {
+	if conv.MemberID != nil && *conv.MemberID != "" {
+		n, err := deps.Chats.CountVisitorTurnsForMember(ctx, *conv.MemberID)
+		if err != nil {
+			return 0, fmt.Errorf("count member turns: %w", err)
+		}
+		return n, nil
+	}
+	n, err := deps.Chats.CountVisitorTurns(ctx, conv.ID)
+	if err != nil {
+		return 0, fmt.Errorf("count conv turns: %w", err)
+	}
+	return n, nil
 }

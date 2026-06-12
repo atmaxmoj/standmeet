@@ -56,12 +56,34 @@ func runAgentTurn(
 	defer closeBindings(ts.Bindings)
 	inference.RunAgentTurn(r.Context(), h.Log, w, &inference.AgentTurnInput{
 		Cred: cred, Req: req,
-		Tools:          ts.Tools,
-		ProgressLabels: ts.Labels,
-		ReturnDirectly: ts.ReturnDirectly,
-		Mode:           auth.Data.Mode,
-		Persist:        buildAgentTurnPersist(h, auth, req.ConversationID),
+		Tools:            ts.Tools,
+		ProgressLabels:   ts.Labels,
+		ReturnDirectly:   ts.ReturnDirectly,
+		Mode:             auth.Data.Mode,
+		Persist:          buildAgentTurnPersist(h, auth, req.ConversationID),
+		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
 	})
+}
+
+// buildCrossConvForTurn —— 「互通」:turn 前算好该 member 其他对话的 digest 注入
+// instruction。无 member(public/byoai)/ 无 conv → 空。失败 fail-open(warn + 空,
+// 不为了上下文把这轮答崩)。
+func buildCrossConvForTurn(
+	r *http.Request, h *Handlers, auth authedVisitor, convID string,
+) string {
+	if auth.Data.MemberID == "" || convID == "" {
+		return ""
+	}
+	return crossConvDigestOrEmpty(r, h, auth.Data.MemberID, convID)
+}
+
+func crossConvDigestOrEmpty(r *http.Request, h *Handlers, memberID, convID string) string {
+	digest, err := usecases.BuildCrossConvDigest(r.Context(), &h.Visitor, memberID, convID)
+	if err != nil {
+		h.Log.Warn("build cross-conv digest", "err", err)
+		return ""
+	}
+	return digest
 }
 
 // preflightAgentTurnQuota —— #28: 落库挪到 /agent/turn 后,配额也在这查
@@ -74,10 +96,48 @@ func preflightAgentTurnQuota(
 	if convID == "" {
 		return true
 	}
+	if !checkConvOwnership(r, h, auth, w, convID) {
+		return false
+	}
+	return enforceTurnQuotaOrWrite(r, h, auth, w, convID)
+}
+
+func enforceTurnQuotaOrWrite(
+	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
+) bool {
 	qerr := usecases.EnforceTurnQuota(r.Context(), &h.Visitor,
 		&usecases.TurnQuotaInput{OwnerID: auth.Data.OwnerID, ConversationID: convID})
 	if qerr != nil {
 		handleVisitorErr(h.Log, w, qerr)
+		return false
+	}
+	return true
+}
+
+// checkConvOwnership —— 多对话模型:code 访客可有多段对话且 conversation_id 由
+// 客户端传,必须校验这段属于该 member,防借别人的 id 发 turn。无 member(public/
+// byoai)没 member 可比对,沿用既有信任(conversation 由 owner-scoped session 锁)。
+func checkConvOwnership(
+	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
+) bool {
+	if auth.Data.MemberID == "" {
+		return true
+	}
+	return verifyConvMember(r, h, auth, w, convID)
+}
+
+func verifyConvMember(
+	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
+) bool {
+	ok, err := usecases.ChatBelongsToMember(
+		r.Context(), &h.Visitor, auth.Data.OwnerID, convID, auth.Data.MemberID)
+	if err != nil {
+		h.Log.Error("conv ownership check", "err", err)
+		writeError(h.Log, w, serverErr())
+		return false
+	}
+	if !ok {
+		writeError(h.Log, w, forbiddenEnv("conversation does not belong to this session"))
 		return false
 	}
 	return true

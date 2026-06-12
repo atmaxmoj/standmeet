@@ -145,19 +145,19 @@ func finalizeCodeSession(
 		Members:  members,
 		Ghosts:   code.Ghosts,
 		MemberID: a.Member.ID,
-		Quota:    codeSessionQuotaWithUsed(ctx, deps, code, a.Conv.ID),
+		Quota:    codeSessionQuotaWithUsed(ctx, deps, code, &a.Conv),
 	}, nil
 }
 
-// codeSessionQuotaWithUsed —— 在静态配额(max)之上,把 UsedTurns 按后端这段
-// conversation 实际数出来(CountVisitorTurns)。续会(同 member 的 open chat
-// 已有 N 轮)颁发时就如实报 N,不再恒 0 —— 后端 conversation 是唯一 source of
-// truth,前端不该靠 localStorage 缓存自增的脏值。数不出来(DB 抖)→ 退回 0。
+// codeSessionQuotaWithUsed —— 在静态配额(max)之上,把 UsedTurns 按后端实际数
+// 出来。新模型下配额是 member 级:UsedTurns 汇总该 member **全部对话**的访客发言
+// (countTurnsForQuota),续会/多 surface 颁发时如实报合计,不再恒 0 也不按单段对话
+// 各算。数不出来(DB 抖)→ 退回 0。
 func codeSessionQuotaWithUsed(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, convID string,
+	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, conv *domain.Chat,
 ) SessionQuota {
 	q := codeSessionQuota(code)
-	if used, err := deps.Chats.CountVisitorTurns(ctx, convID); err == nil {
+	if used, err := countTurnsForQuota(ctx, deps, conv); err == nil {
 		q.UsedTurns = used
 	}
 	return q

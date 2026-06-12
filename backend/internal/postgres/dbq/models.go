@@ -111,6 +111,7 @@ type Conversation struct {
 	EndedAt       pgtype.Timestamptz
 	SummaryMd     string
 	ClientIp      string
+	DocKey        string
 }
 
 type ConversationGhost struct {

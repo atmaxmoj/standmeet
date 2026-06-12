@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-interview eval-capabilities eval-owner-mcp
+.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -114,6 +114,13 @@ eval-compaction:
 # (harness 自读 eval-harness/.env 的 DeepSeek key;mock gateway 不做指代解析会失败)。
 eval-doc-context:
 	@eval-harness/doc-context-test.sh
+
+# eval-cross-conversation —— 「互通」用例:一个 member 多段独立对话,AI 能读到该 member
+# 的全部对话。双向验引用质量:chat 里说的能在 wiki 浮窗下被 refer,反之亦然。两段「其他
+# 对话」要点注进 instruction(镜像后端注入)→ 看真模型有没有跨对话连起来 + 答得诚实/grounded。
+# **需真 LLM**(harness 自读 eval-harness/.env 的 DeepSeek key;mock gateway 跑了白跑)。
+eval-cross-conversation:
+	@eval-harness/cross-conversation-test.sh
 
 # eval-interview —— 真跑一场多轮面试 (recruiter on code session,booking granted),
 # 边跑边按维度标注:grounding / context retention / honest gap / not-in-corpus /

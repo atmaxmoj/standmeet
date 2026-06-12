@@ -114,7 +114,15 @@ func loadConversation(
 	if err != nil {
 		return Conversation{}, fmt.Errorf("open chat: %w", err)
 	}
-	bundle, err := deps.Chats.GetWithMessages(ctx, ownerID, chat.ID)
+	return ConversationForChat(ctx, deps, ownerID, chat.ID)
+}
+
+// ConversationForChat —— 把某一段 conversation(按 id,owner-scoped)组装成视图
+// (dialogs + citations)。主聊天恢复走 loadConversation,浮窗那段对话走这个。
+func ConversationForChat(
+	ctx context.Context, deps *VisitorDeps, ownerID, chatID string,
+) (Conversation, error) {
+	bundle, err := deps.Chats.GetWithMessages(ctx, ownerID, chatID)
 	if err != nil {
 		return Conversation{}, fmt.Errorf("messages: %w", err)
 	}

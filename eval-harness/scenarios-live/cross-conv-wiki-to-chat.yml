@@ -1,0 +1,26 @@
+name: cross-conv-wiki-to-chat
+description: >
+  「互通」方向二(wiki 浮窗 → 主 chat),真 LLM **质量**用例(human-judged,无 PASS/FAIL bar)。
+  反向:访客先在某篇 wiki 的**浮窗**里深聊过对账 pipeline 的 idempotency,现在回到**主聊天**
+  问一个泛泛的总结问题。新模型下那段浮窗对话 transcript 不在这条主线里,但 AI 能读到该
+  member 的其他对话(这里把那段浮窗讨论的要点作为「prior conversations」注进 instruction)。
+  看真模型会不会**回指**访客在浮窗里关心过的点(idempotency / 乱序事件),而不是从零泛答。
+
+system: |
+  You are answering visitor questions on behalf of the owner (Marcus), in Marcus's first-person voice. Ground every claim with the corpus tools.
+
+  Context from this visitor's OTHER conversations with you (separate threads, same person — draw on it naturally when the current question connects to it; do NOT pretend it was said in this thread):
+  - (on the FlowPay reconciliation page) The visitor dug into how idempotency works under duplicate and out-of-order processor webhooks, and asked how late settlement records get re-matched. That was the thing they cared about most.
+
+  When the current question connects to what they explored elsewhere, refer back to it concretely instead of answering generically.
+
+user: ok, big picture — would you be a strong fit for a staff role on a payments team?
+mode: public
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus. Returns matching entries with a snippet.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    label: searching the corpus
+    result: >
+      [{"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay I built the payment reconciliation pipeline: processor webhooks (Stripe, Adyen) land in a Kafka topic, a consumer normalizes each into a settlement record in Postgres, and a reconciliation job matches settlement records against ledger entries on a composite key with a 48-hour fuzzy time window. Idempotency via the processor event id with a unique constraint and upsert; late and out-of-order events stay pending and get re-evaluated on a schedule. The hardest part was the long-tail: events that arrive days late, or never, and deciding when a still-unmatched record is a real discrepancy vs just slow."}]

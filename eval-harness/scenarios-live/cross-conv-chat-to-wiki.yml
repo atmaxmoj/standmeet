@@ -1,0 +1,35 @@
+name: cross-conv-chat-to-wiki
+description: >
+  「互通」方向一(chat → wiki 浮窗),真 LLM **质量**用例(human-judged,无 PASS/FAIL bar)。
+  访客(同一个 member)先在**主聊天**里说清了自己在招什么;现在转到某篇 wiki 的**浮窗**里
+  问「这篇跟我要的相关吗」。新模型下两段对话 transcript 独立,但 AI 能读到该 member 的
+  **其他对话**(这里把那段主聊天的要点作为「prior conversations」注进 instruction,镜像
+  后端将做的注入)。看真模型会不会把「this page」跟「访客在别处说过的招聘目标」连起来,
+  而不是只就事论事答这篇。
+  canned corpus_search 同返 Orbit 通知 / FlowPay 对账两条,留出「这篇不是你要的、但我那条
+  对账的活才是」这种诚实重定向的空间。
+
+system: |
+  You are answering visitor questions on behalf of the owner (Marcus), in Marcus's first-person voice. Ground every claim with the corpus tools.
+
+  Context from this visitor's OTHER conversations with you (separate threads, same person — draw on it naturally when the current question connects to it; do NOT pretend it was said in this thread):
+  - (main chat) The visitor is a recruiter at a payments company. They said they're rebuilding their payments reconciliation system and specifically want someone who has done event-driven settlement matching with strong idempotency. They have not asked about notifications.
+
+  When the current question connects to what they told you elsewhere, say so and steer them to the most relevant work — even if the page they're on right now isn't it.
+
+user: is this the kind of thing relevant to what I'm trying to hire for?
+mode: public
+
+doc_context:
+  title: Notification Pipeline (Orbit)
+  path: project/notification-pipeline
+  genre: wiki
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus. Returns matching entries with a snippet.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    label: searching the corpus
+    result: >
+      [{"uri":"wiki://project/notification-pipeline","title":"Notification Pipeline (Orbit)","snippet":"At Orbit I built the notification pipeline that sends emails (SendGrid), Slack messages, and webhooks when product events happen. Events go onto a Redis stream, a pool of Go workers consume them, each event is expanded into per-channel notifications, and each channel has its own rate limiter (token-bucket per (customer, channel) in Redis, made distributed-safe with a small atomic Lua script) and retry. Dedup on an event key with a short Redis TTL. Honestly not novel -- a fairly standard queue-workers-with-rate-limiting design. What's still not great: the retry/dead-letter handling is clunky."},
+       {"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay I built the payment reconciliation pipeline: processor webhooks (Stripe, Adyen) land in a Kafka topic, a consumer normalizes each into a settlement record in Postgres, and a reconciliation job matches settlement records against ledger entries on a composite key with a 48-hour fuzzy time window. Idempotency via the processor event id with a unique constraint and upsert; late and out-of-order events stay pending and get re-evaluated on a schedule."}]

@@ -45,6 +45,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	// 刷新恢复:返回整个会话聚合(session + code + conversation),前端一次性
 	// hydrate。范围由 token 锁定(member → open chat),URL {id} 仅做 RESTful 形态。
 	r.Get("/conversations/{id}", h.getConversation())
+	// 多对话模型:浮窗在某篇 doc 上 find-or-create 自己那段对话(跟主聊天独立,
+	// 共享 member 级配额)。body {doc_key} → {conversation_id, conversation}。
+	r.Post("/conversations", h.openDocConversation())
 	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
 	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
 	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。
@@ -138,6 +141,10 @@ func authVisitorWithToken(
 
 func unauthorizedEnv(msg string) apierr.Envelope {
 	return apierr.Envelope{Status: http.StatusUnauthorized, Code: "unauthorized", Message: msg}
+}
+
+func forbiddenEnv(msg string) apierr.Envelope {
+	return apierr.Envelope{Status: http.StatusForbidden, Code: "forbidden", Message: msg}
 }
 
 func bearerToken(r *http.Request) (string, bool) {
