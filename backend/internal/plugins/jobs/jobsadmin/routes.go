@@ -13,6 +13,7 @@
 package jobsadmin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -27,13 +28,24 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
-const logErrKey = "err"
+const (
+	logErrKey = "err"
+	ctHeader  = "Content-Type"
+	ctJSON    = "application/json"
+)
+
+// PoolLister —— jobsadmin 对 job 池子的只读视图（#50 listings）。用接口而非
+// 直接依赖 plugins/jobs/cache，避免 arch-lint 组件越界依赖；cache.Pool 满足它。
+type PoolLister interface {
+	ListByOwner(ctx context.Context, ownerID string) ([]domain.FetchedJob, error)
+}
 
 // Deps —— jobs admin 路由依赖。Log 必填 (encode 失败要 log)。
 type Deps struct {
 	Apps    *postgres.ApplicationRepo
 	Drafts  *postgres.ResumeDraftRepo
 	Sources *postgres.JobSourceRepo
+	Pool    PoolLister
 	Log     *slog.Logger
 }
 
@@ -50,6 +62,72 @@ func Mount(r chi.Router, deps Deps) {
 	r.Route("/job-sources", func(r chi.Router) {
 		r.Get("/", listSources(deps))
 	})
+	r.Route("/listings", func(r chi.Router) {
+		r.Get("/", listListings(deps))
+	})
+}
+
+// ───── listings ──────────────────────────────────────────────
+//
+// #50: owner 看池子里现存(未 commit)的 FetchedJob —— ephemeral 1d-TTL，
+// 直接从 Redis 池子 SCAN，不落库。无 cache → 空列表(降级，不报错)。
+
+type listingView struct {
+	PublishedAt time.Time `json:"published_at"`
+	CacheID     string    `json:"cache_id"`
+	Title       string    `json:"title"`
+	Company     string    `json:"company"`
+	Location    string    `json:"location"`
+	URL         string    `json:"url"`
+	SourceKind  string    `json:"source_kind"`
+	Tags        []string  `json:"tags"`
+}
+
+func listListings(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.Pool == nil {
+			writeListingsList(deps.Log, w, nil)
+			return
+		}
+		ownerID := authmw.OwnerIDFrom(r.Context())
+		jobs, err := deps.Pool.ListByOwner(r.Context(), ownerID)
+		if err != nil {
+			deps.Log.Error("list job pool", logErrKey, err)
+			writeServerErr(deps.Log, w)
+			return
+		}
+		writeListingsList(deps.Log, w, jobs)
+	}
+}
+
+func writeListingsList(
+	log *slog.Logger, w http.ResponseWriter, jobs []domain.FetchedJob,
+) {
+	items := make([]listingView, 0, len(jobs))
+	for i := range jobs {
+		items = append(items, listingView{
+			CacheID:     jobs[i].CacheID,
+			Title:       jobs[i].Title,
+			Company:     jobs[i].Company,
+			Location:    jobs[i].Location,
+			URL:         jobs[i].URL,
+			SourceKind:  jobs[i].SourceKind,
+			PublishedAt: jobs[i].PublishedAt,
+			Tags:        tagsOrEmpty(jobs[i].Tags),
+		})
+	}
+	w.Header().Set(ctHeader, ctJSON)
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(items); err != nil {
+		log.Error("encode listings", logErrKey, err)
+	}
+}
+
+func tagsOrEmpty(tags []string) []string {
+	if tags == nil {
+		return []string{}
+	}
+	return tags
 }
 
 // ───── sources ───────────────────────────────────────────────
@@ -88,7 +166,7 @@ func writeSourcesList(
 			CreatedAt:     sources[i].CreatedAt,
 		})
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ctHeader, ctJSON)
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(items); err != nil {
 		log.Error("encode job sources", logErrKey, err)
@@ -139,7 +217,7 @@ func getDraft(deps Deps) http.HandlerFunc {
 			ID: draft.ID, Company: draft.JobSnapshot.Company,
 			Role: draft.JobSnapshot.Title, ResumeContent: draft.ResumeContent,
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(ctHeader, ctJSON)
 		w.WriteHeader(http.StatusOK)
 		if eerr := json.NewEncoder(w).Encode(view); eerr != nil {
 			deps.Log.Error("encode draft detail", logErrKey, eerr)
@@ -171,7 +249,7 @@ func writeDraftsList(
 			UpdatedAt: drafts[i].CreatedAt,
 		})
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ctHeader, ctJSON)
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(items); err != nil {
 		log.Error("encode drafts", logErrKey, err)
@@ -216,7 +294,7 @@ func writeApplicationsList(
 			CreatedAt:   apps[i].CreatedAt,
 		})
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ctHeader, ctJSON)
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(items); err != nil {
 		log.Error("encode applications", logErrKey, err)
@@ -232,7 +310,7 @@ func writeServerErr(log *slog.Logger, w http.ResponseWriter) {
 }
 
 func writeJSONErr(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ctHeader, ctJSON)
 	w.WriteHeader(env.Status)
 	payload := map[string]map[string]string{
 		"error": {"code": env.Code, "message": env.Message},

@@ -75,6 +75,6 @@ func (p *Plugin) RegisterCapabilities(reg *agentskills.Registry) {
 func (p *Plugin) MountAdminRoutes(r chi.Router) {
 	jobsadmin.Mount(r, jobsadmin.Deps{
 		Apps: p.deps.AppsRepo, Drafts: p.deps.DraftsRepo,
-		Sources: p.deps.SourcesRepo, Log: p.deps.Log,
+		Sources: p.deps.SourcesRepo, Pool: p.deps.Jobs.Cache, Log: p.deps.Log,
 	})
 }

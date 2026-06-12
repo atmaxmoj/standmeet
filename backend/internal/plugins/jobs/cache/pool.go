@@ -29,6 +29,7 @@ const (
 	defaultTTL   = 24 * time.Hour
 	cacheIDBytes = 12 // base64url → ~16 chars，足够避撞
 	keyPrefix    = "job:"
+	scanCount    = 100 // SCAN COUNT hint，池子小，一两轮够
 )
 
 // ErrCacheMiss —— key 不在 Redis（过期 / 从未存在 / discard 过）。
@@ -91,6 +92,19 @@ func (p *Pool) Get(
 	return job, nil
 }
 
+// ListByOwner —— owner 池子里现存的全部 job（live keys；过期的 SCAN 自然不返）。
+// admin /listings 只读视图用。池子 ephemeral，顺序不保证。无 job 返空 slice。
+func (p *Pool) ListByOwner(ctx context.Context, ownerID string) ([]domain.FetchedJob, error) {
+	keys, err := p.scanKeys(ctx, keyPrefix+ownerID+":*")
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return []domain.FetchedJob{}, nil
+	}
+	return p.mgetJobs(ctx, keys)
+}
+
 // Discard —— 主动从池子里删（owner 决定不看了）。已不存在视同成功。
 func (p *Pool) Discard(ctx context.Context, ownerID, cacheID string) error {
 	if derr := p.rdb.Del(ctx, key(ownerID, cacheID)).Err(); derr != nil {
@@ -110,6 +124,42 @@ func (p *Pool) TTL(ctx context.Context, ownerID, cacheID string) (time.Duration,
 		return 0, nil
 	}
 	return t, nil
+}
+
+func (p *Pool) scanKeys(ctx context.Context, pattern string) ([]string, error) {
+	keys := []string{}
+	var cursor uint64
+	for {
+		batch, next, err := p.rdb.Scan(ctx, cursor, pattern, scanCount).Result()
+		if err != nil {
+			return nil, fmt.Errorf("redis scan: %w", err)
+		}
+		keys = append(keys, batch...)
+		cursor = next
+		if cursor == 0 {
+			return keys, nil
+		}
+	}
+}
+
+func (p *Pool) mgetJobs(ctx context.Context, keys []string) ([]domain.FetchedJob, error) {
+	vals, err := p.rdb.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, fmt.Errorf("redis mget: %w", err)
+	}
+	out := make([]domain.FetchedJob, 0, len(vals))
+	for _, v := range vals {
+		s, ok := v.(string)
+		if !ok {
+			continue // key 在 scan 与 mget 之间过期了
+		}
+		var job domain.FetchedJob
+		if uerr := json.Unmarshal([]byte(s), &job); uerr != nil {
+			return nil, fmt.Errorf("decode job: %w", uerr)
+		}
+		out = append(out, job)
+	}
+	return out, nil
 }
 
 func key(ownerID, cacheID string) string {
