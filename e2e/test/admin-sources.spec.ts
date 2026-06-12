@@ -3,10 +3,10 @@
 // is read-only and now fetches GET /api/admin/job-sources/ (was a stub).
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Playwright } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { claimFreshOwner } from '@/fixtures/seed';
 import { initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { jobsRegisterSource } from '@/fixtures/jobs';
@@ -22,7 +22,7 @@ const LABEL = 'Sources Test Board';
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('admin sources list', () => {
-  test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
+  test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
   test('empty state when no source is registered',
     async ({ adminPage }) => {
@@ -40,16 +40,6 @@ test.describe('admin sources list', () => {
       await expect(adminPage.getByText(LABEL)).toBeVisible();
     });
 });
-
-async function initOwner(playwright: Playwright): Promise<void> {
-  resetInstance();
-  const request = await playwright.request.newContext();
-  await claim(request, findSetupToken(), {
-    email: OWNER.email, password: OWNER.password,
-    handle: OWNER.handle, fullName: OWNER.fullName,
-  });
-  await request.dispose();
-}
 
 async function seedSource(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);

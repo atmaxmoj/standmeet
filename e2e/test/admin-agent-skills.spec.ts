@@ -8,10 +8,9 @@
 //      the new real skill lands in My Skills.
 
 import { test, expect } from '@/fixtures/test';
-import type { Page, Playwright } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { claimFreshOwner } from '@/fixtures/seed';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -27,7 +26,7 @@ const MARKET = '[data-testid^="market-skill-"]';
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('admin /agent-skills · real installed + marketplace install', () => {
-  test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
+  test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
   test('my skills tab lands with the seeded builtin skills',
     async ({ adminPage }) => {
@@ -77,16 +76,6 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
       await expect(adminPage.locator(INSTALLED)).toHaveCount(before + 1, { timeout: 5_000 });
     });
 });
-
-async function initOwner(playwright: Playwright): Promise<void> {
-  resetInstance();
-  const request = await playwright.request.newContext();
-  await claim(request, findSetupToken(), {
-    email: OWNER.email, password: OWNER.password,
-    handle: OWNER.handle, fullName: OWNER.fullName,
-  });
-  await request.dispose();
-}
 
 async function openAgentSkills(page: Page): Promise<void> {
   await gotoAdminSection(page, 'agent-skills');

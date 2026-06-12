@@ -4,10 +4,8 @@
 // 真后端 /mcp-servers(POST/GET/DELETE),UI 驱动。
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { claimFreshOwner } from '@/fixtures/seed';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -21,7 +19,7 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe('admin external MCP servers CRUD', () => {
   test.beforeAll(async ({ playwright }) => {
-    await initOwner(playwright);
+    await claimFreshOwner(playwright, OWNER);
   });
 
   test('add an MCP server → appears in list → remove → gone',
@@ -43,12 +41,3 @@ test.describe('admin external MCP servers CRUD', () => {
     });
 });
 
-async function initOwner(playwright: Playwright): Promise<void> {
-  resetInstance();
-  const request = await playwright.request.newContext();
-  await claim(request, findSetupToken(), {
-    email: OWNER.email, password: OWNER.password,
-    handle: OWNER.handle, fullName: OWNER.fullName,
-  });
-  await request.dispose();
-}

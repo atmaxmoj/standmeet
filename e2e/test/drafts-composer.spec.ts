@@ -3,10 +3,10 @@
 // drafts/{id} and loads the actual resume_content, not the old mockDraft.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Page, Playwright } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
-import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { claimFreshOwner } from '@/fixtures/seed';
 import { initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
@@ -21,7 +21,7 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('admin /drafts composer', () => {
-  test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
+  test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
   test('empty state → "No drafts pending."',
     async ({ adminPage }) => {
@@ -45,16 +45,6 @@ test.describe('admin /drafts composer', () => {
       await expect(composer).not.toContainText('Lucerna');
     });
 });
-
-async function initOwner(playwright: Playwright): Promise<void> {
-  resetInstance();
-  const request = await playwright.request.newContext();
-  await claim(request, findSetupToken(), {
-    email: OWNER.email, password: OWNER.password,
-    handle: OWNER.handle, fullName: OWNER.fullName,
-  });
-  await request.dispose();
-}
 
 async function seedDraft(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
