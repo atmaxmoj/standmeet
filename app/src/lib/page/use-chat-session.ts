@@ -4,8 +4,11 @@
 
 'use client';
 
+import type { DocContext } from '@standmeet/agent-core';
+
 import {
   issueBYOAISession, issueCodeSession, issuePublicSession,
+  openDocConversation,
   type PublicSessionResponse,
 } from '@/lib/api/public';
 import { readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
@@ -28,6 +31,37 @@ export interface PageSession {
 
 export interface SessionDeps {
   mode: SessionMode;
+}
+
+// ensureEffectiveSession —— 主 chat 用 session 自带的主 conversation;浮窗(有
+// docContext)首次发问时 lazy 解析自己那段 doc conversation(POST /conversations),
+// 之后缓存复用。解析失败回退主对话(不崩,代价是这次没分流)。多对话模型核心。
+export async function ensureEffectiveSession(
+  sessionRef: React.MutableRefObject<PageSession | null>,
+  docConvRef: React.MutableRefObject<string | null>,
+  deps: SessionDeps,
+  docContext?: DocContext,
+): Promise<PageSession> {
+  const sess = await ensureSession(sessionRef, deps);
+  if (docContext === undefined) return sess;
+  const convID = await resolveDocConv(docConvRef, docContext, sess);
+  return { ...sess, conversationID: convID };
+}
+
+async function resolveDocConv(
+  docConvRef: React.MutableRefObject<string | null>,
+  dc: DocContext,
+  sess: PageSession,
+): Promise<string> {
+  if (docConvRef.current === null) {
+    const id = await openDocConversation(docKeyOf(dc), sess.sessionToken);
+    if (id !== null) docConvRef.current = id;
+  }
+  return docConvRef.current ?? sess.conversationID;
+}
+
+function docKeyOf(dc: DocContext): string {
+  return `${dc.genre}/${dc.path}`;
 }
 
 export async function ensureSession(

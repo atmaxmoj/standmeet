@@ -33,7 +33,7 @@ import { restoreSession, revalidateSession, revalidateStored, splitParas } from 
 import { throbberLabel } from '@/lib/page/throbber-label';
 import { pickCorpusReadShape } from '@/lib/page/corpus-read-wire';
 import {
-  ensureSession,
+  ensureEffectiveSession,
   type PageSession,
   type SessionMode as SessionModeT,
 } from '@/lib/page/use-chat-session';
@@ -123,6 +123,12 @@ export function useChat(deps: Deps): ChatState {
   const sessionRef = useRef<PageSession | null>(null);
   const messageHistRef = useRef<Message[]>([]);
   const counter = useRef(0);
+  // 多对话模型:浮窗(有 docContext)用自己那段对话,不蹭主对话。docConvRef 缓存
+  // 解析出的 doc conversation_id(首次发问时 lazy POST /conversations);docCtxRef
+  // 让 mount effect 不把它进依赖数组(浮窗那段不在 mount 恢复,首次发问才建,开局空)。
+  const docConvRef = useRef<string | null>(null);
+  const docCtxRef = useRef(deps.docContext);
+  docCtxRef.current = deps.docContext;
 
   // H.13.d: mount 时若 localStorage 已有 stored session (返回 visitor /
   // ?code= 已被 useAbsorbCodeFromURL 持久化)，把 ghosts 种
@@ -131,7 +137,10 @@ export function useChat(deps: Deps): ChatState {
   useEffect(() => {
     const stored = loadStoredSession();
     useGhostsStore.getState().seed(stored?.ghosts ?? []);
-    // 刷新恢复:有 stored session 就按 token 拉回这段对话的 Q&A 重建 transcript
+    // 浮窗(有 docContext)不恢复主对话 —— 那是别段,会串。它自己那段开局空,首次
+    // 发问才 lazy 建/续(ensureEffectiveSession)。主 chat 才走 restoreSession。
+    if (docCtxRef.current !== undefined) return;
+    // 刷新恢复:有 stored session 就按 token 拉回主对话的 Q&A 重建 transcript
     // (纯内存 dialogs 刷新会空,这里补回来)。失败 → 空,跟现在一样不崩。
     const token = stored?.session_token ?? '';
     const conv = stored?.conversation_id ?? '';
@@ -168,7 +177,8 @@ export function useChat(deps: Deps): ChatState {
   const ask = useCallback(async (text: string): Promise<void> => {
     const q = text.trim();
     if (q === '' || pending) return;
-    await runAsk(q, deps, sessionRef, messageHistRef, setDialogs, setPending, setError, nextID);
+    await runAsk(q, deps, { sessionRef, docConvRef, histRef: messageHistRef },
+      { setDialogs, setPending, setError }, nextID);
   }, [deps, pending, nextID]);
 
   const reset = useCallback((): void => {
@@ -185,25 +195,39 @@ export function useChat(deps: Deps): ChatState {
   return { dialogs, pending, error, ask, reset };
 }
 
+// AskRefs / AskSetters —— runAsk 的 ref / setter 打包,避开多参数(eslint
+// max-params)。docConvRef 是多对话模型新增:浮窗那段对话的 id 缓存。
+interface AskRefs {
+  sessionRef: React.MutableRefObject<PageSession | null>;
+  docConvRef: React.MutableRefObject<string | null>;
+  histRef: React.MutableRefObject<Message[]>;
+}
+
+interface AskSetters {
+  setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>;
+  setPending: (b: boolean) => void;
+  setError: (e: string | null) => void;
+}
+
 async function runAsk(
   q: string,
   deps: Deps,
-  sessionRef: React.MutableRefObject<PageSession | null>,
-  histRef: React.MutableRefObject<Message[]>,
-  setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>,
-  setPending: (b: boolean) => void,
-  setError: (e: string | null) => void,
+  refs: AskRefs,
+  setters: AskSetters,
   nextID: () => string,
 ): Promise<void> {
+  const { setDialogs, setPending, setError } = setters;
   const id = nextID();
   setError(null);
   setPending(true);
   setDialogs((prev) => [...prev, newPendingDialog(id, q)]);
   try {
-    const sess = await ensureSession(sessionRef, deps);
+    const sess = await ensureEffectiveSession(
+      refs.sessionRef, refs.docConvRef, deps, deps.docContext);
     const byoai = await wrapBYOAIFor(deps, sess);
     const accum = makeAccumulator();
-    await runAgentForDialog(sess, byoai, histRef, q, makeObserver(id, accum, setDialogs), deps.docContext);
+    await runAgentForDialog(sess, byoai, refs.histRef, q,
+      makeObserver(id, accum, setDialogs), deps.docContext);
     finalizeDialog(id, accum, setDialogs);
     // backend 拥有这一轮:/agent/turn 流末端已把它 sink 进 conversation 表(#28),
     // 前端不再自落库。答完那条留在本地 transcript 显示,used 由 dialogs 派生(下面

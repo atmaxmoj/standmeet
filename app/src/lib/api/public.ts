@@ -153,6 +153,26 @@ export type ConversationResult =
   | { status: 'invalid' }
   | { status: 'error' };
 
+// openDocConversation —— 多对话模型:浮窗在某篇 doc 上 find-or-create 该 member
+// 自己那段对话(POST /conversations {doc_key})。返 conversation_id;失败返 null
+// (caller 回退主对话,不崩)。idempotent:同一 doc 再开还是那段。
+export async function openDocConversation(
+  docKey: string, sessionToken: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${baseURL()}/api/v1/conversations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ doc_key: docKey }),
+    });
+    if (!res.ok) return null;
+    const parsed = z.object({ conversation_id: z.string() }).safeParse(await res.json());
+    return parsed.success ? parsed.data.conversation_id : null;
+  } catch {
+    return null;
+  }
+}
+
 // fetchConversation —— 凭 session token 拉会话聚合(GET /conversations/<id>)。
 // 401/403 = token 失效(过期 / 实例重置 / 撤销)→ 'invalid';其它非 2xx / 网络挂
 // / 形状不对 → 'error'(保持现状不崩)。
