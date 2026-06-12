@@ -50,11 +50,13 @@ test.describe('admin /drafts · composer live preview wires ResumePage', () => {
       await adminPage.getByText('open composer →').first().click();
       const composer = adminPage.getByTestId('resume-composer');
       await expect(composer).toBeVisible();
-      // mockDraft starts with an empty cover_letter, so preview is 1
-      // page. After we fill the cover panel a 2nd ResumePage mounts —
-      // this asserts the conditional page-2 wiring works end-to-end.
-      await expect(composer.getByTestId('resume-page')).toHaveCount(1);
+      // The seeded draft (sampleResumeContent) ships a cover letter, so the
+      // composer opens with 2 pages. Clearing the cover drops it to 1; refilling
+      // brings page 2 back — proves the conditional page-2 wiring both ways.
+      await expect(composer.getByTestId('resume-page')).toHaveCount(2);
       await composer.getByRole('button', { name: 'cover letter', exact: true }).click();
+      await composer.getByTestId('composer-cover').fill('');
+      await expect(composer.getByTestId('resume-page')).toHaveCount(1);
       await composer.getByTestId('composer-cover').fill('Dear team — this is the cover.');
       await expect(composer.getByTestId('resume-page')).toHaveCount(2);
     });
