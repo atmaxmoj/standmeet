@@ -37,6 +37,7 @@ type convSummaryView struct {
 	Mode         string  `json:"mode"`
 	VisitorName  string  `json:"visitor_name"`
 	Sentiment    string  `json:"sentiment"`
+	ClientIP     string  `json:"client_ip"`
 	MessageCount int32   `json:"message_count"`
 	PrivateHits  int32   `json:"private_hits"`
 }
@@ -230,6 +231,7 @@ func toConvSummaryView(s *postgres.ChatSummary) convSummaryView {
 		VisitorName:  s.VisitorName,
 		MessageCount: s.MessageCount,
 		PrivateHits:  s.PrivateHits,
+		ClientIP:     s.ClientIP,
 		Sentiment:    usecases.DeriveSentiment(s.MessageCount, s.PrivateHits, s.Mode),
 		CodeID:       s.CodeID,
 		CodeLabel:    s.CodeLabel,

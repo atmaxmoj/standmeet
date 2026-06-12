@@ -83,6 +83,7 @@ function ReadyTable({ hook }: { hook: ConversationsHook }) {
         <tr className="mono text-[9.5px] tracking-[0.2em] uppercase text-(--color-muted)">
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">visitor</th>
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">via code</th>
+          <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">ip</th>
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">turns</th>
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">sentiment</th>
           <th className="text-left px-1.5 py-2 border-b border-(--color-rule) font-normal">flags</th>
@@ -109,6 +110,9 @@ function ConvTableRow({ conv, open, onToggle }: { conv: ConvView; open: boolean;
         <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11.5px] tabular-nums text-(--color-ink)">
           {conv.code_label}
         </td>
+        <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11px] tabular-nums text-(--color-muted)" data-testid="conv-client-ip">
+          {conv.client_ip}
+        </td>
         <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60 mono text-[11.5px] tabular-nums text-(--color-muted)">
           {conv.turns}
         </td>
@@ -124,7 +128,7 @@ function ConvTableRow({ conv, open, onToggle }: { conv: ConvView; open: boolean;
       </tr>
       {open && (
         <tr>
-          <td colSpan={6} className="px-1.5 py-3 border-b border-(--color-rule)/60" data-testid="transcript-panel">
+          <td colSpan={7} className="px-1.5 py-3 border-b border-(--color-rule)/60" data-testid="transcript-panel">
             <ConvRow conversation={conv} open onToggle={onToggle} />
           </td>
         </tr>

@@ -104,6 +104,7 @@ export const ConversationSummarySchema = z.object({
   hit_private: z.boolean().optional().default(false),
   code_id: z.string().nullable().optional(), code_label: z.string().nullable().optional(),
   code_value: z.string().nullable().optional(),
+  client_ip: z.string().optional().default(''),
 });
 export type ConversationSummary = z.infer<typeof ConversationSummarySchema>;
 

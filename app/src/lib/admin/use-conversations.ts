@@ -29,6 +29,7 @@ export interface ConvView {
   code: string;
   code_label: string;
   sentiment: string;
+  client_ip: string;
   turns: number;
   private_hits: number;
   transcript?: ConvTurn[];
@@ -249,6 +250,7 @@ function toView(s: ConversationSummary): ConvView {
     code: s.code_value ?? (s.mode === 'byoai' ? 'byoai' : '—'),
     code_label: s.code_label ?? (s.mode === 'byoai' ? 'BYOAI' : s.mode),
     sentiment: s.sentiment ?? '',
+    client_ip: s.client_ip || '—',
     turns: s.message_count,
     private_hits: s.private_hits ?? (s.hit_private ? 1 : 0),
   };

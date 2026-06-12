@@ -13,7 +13,7 @@ export type AdminSlug =
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'seo' | 'system'
   | 'preview' | 'obsidian' | 'agent-skills'
-  | 'roles' | 'prompts';
+  | 'roles' | 'prompts' | 'ip-bans';
 
 interface SectionDef {
   slug: AdminSlug;
@@ -76,6 +76,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { slug: 'page', label: 'public page' },
       { slug: 'seo', label: 'seo' },
+      { slug: 'ip-bans', label: 'ip bans' },
       { slug: 'account', label: 'account' },
       { slug: 'system', label: 'system' },
     ],
