@@ -47,8 +47,11 @@ interface SessionState {
   session: VisitorSession | null;
   setSession: (s: VisitorSession | null) => void;
   setVisitor: (name: string) => void;
-  // setUsed —— used 由 chat 从 dialogs 派生后同步进来(权威值,非自增)。
+  // setUsed —— 后端 member 级权威值同步进来(load / reconcile)。
   setUsed: (n: number) => void;
+  // incUsed —— 一轮答成后乐观 +1。多对话下 used 是 member 级,任意 surface 答成
+  // 都把同一个共享计数 +1;下次 load 由后端 member 级合计纠正。
+  incUsed: () => void;
   clear: () => void;
   hydrate: () => void;
 }
@@ -79,6 +82,13 @@ export const useVisitorSessionStore = create<SessionState>((set, get) => ({
     const cur = get().session;
     if (!cur || cur.used === n) return;
     const next: VisitorSession = { ...cur, used: n };
+    persist(next);
+    set({ session: next });
+  },
+  incUsed: () => {
+    const cur = get().session;
+    if (!cur) return;
+    const next: VisitorSession = { ...cur, used: cur.used + 1 };
     persist(next);
     set({ session: next });
   },

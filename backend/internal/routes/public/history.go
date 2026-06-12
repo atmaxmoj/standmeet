@@ -54,11 +54,12 @@ type codeResp struct {
 type sessionResp struct {
 	VisitorName string   `json:"visitor_name"`
 	Code        codeResp `json:"code"`
+	UsedTurns   int32    `json:"used_turns"`
 }
 
 type viewResp struct {
-	Session      sessionResp      `json:"session"`
 	Conversation conversationResp `json:"conversation"`
+	Session      sessionResp      `json:"session"`
 }
 
 func (h *Handlers) getConversation() http.HandlerFunc {
@@ -91,6 +92,7 @@ func toViewResp(v *usecases.VisitorView) viewResp {
 	return viewResp{
 		Session: sessionResp{
 			VisitorName: v.Session.VisitorName,
+			UsedTurns:   v.Session.UsedTurns,
 			Code: codeResp{
 				MaxTurnsPerSession: v.Session.Code.MaxTurnsPerSession,
 				MaxMembers:         v.Session.Code.MaxMembers,

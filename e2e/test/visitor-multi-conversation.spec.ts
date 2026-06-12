@@ -74,15 +74,15 @@ test.describe('visitor multi-conversation model', () => {
       await expect(page.getByTestId('answer-body')).toHaveCount(1, { timeout: 15_000 });
 
       const panel = await openDock(page);
-      await askDock(page, 'budget turn 2');        // turn 2(浮窗对话 —— member 总数到 2)
+      await askDock(page, 'budget turn 2');        // turn 2(浮窗这段 —— member 总数到 2)
       await expect(panel.getByTestId('answer-body')).toHaveCount(1, { timeout: 15_000 });
 
-      // 第 3 轮(浮窗这段,跟主对话不是同一段)被后端拒 —— 配额按 member 汇总,
-      // 不按单段对话各算,所以「换一段对话接着烧」也越不过总预算。
-      // (前端跨 surface 主动锁输入框是后续 UX:used 需做成 member 级,见下面 note。)
-      const resp = page.waitForResponse((r) => r.url().includes('/api/v1/agent/turn'));
-      await askDock(page, 'budget turn 3 over the shared cap');
-      expect((await resp).status()).toBe(403);
+      // 浮窗里烧到第 2 轮就把 member 预算(2)用尽 —— used 是 member 级共享值,
+      // 所以浮窗输入框当场被锁(前端主动锁,不用等第 3 轮被后端 403)。
+      await expect(panel.getByTestId('floating-chat-input')).toBeDisabled({ timeout: 5_000 });
+      // 回主页,主 composer 也被同一个共享 used 锁住 —— 跨 surface 一致。
+      await goto(page, '/');
+      await expect(page.getByTestId('chat-input-field')).toBeDisabled({ timeout: 5_000 });
     });
 });
 

@@ -63,9 +63,23 @@ func LoadVisitorView(
 		Session: ConvSession{
 			VisitorName: data.VisitorName,
 			Code:        codeView(ctx, deps, data.CodeID),
+			UsedTurns:   memberUsedTurns(ctx, deps, data.MemberID),
 		},
 		Conversation: conv,
 	}, nil
+}
+
+// memberUsedTurns —— 该 member 跨全部对话的访客发言合计(member 级 used)。无
+// member(public/byoai)/ 数不出来 → 0。前端 strip 据此显 used。
+func memberUsedTurns(ctx context.Context, deps *VisitorDeps, memberID string) int32 {
+	if memberID == "" {
+		return 0
+	}
+	n, err := deps.Chats.CountVisitorTurnsForMember(ctx, memberID)
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 func codeView(ctx context.Context, deps *VisitorDeps, codeID string) ConvCode {

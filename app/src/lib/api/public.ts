@@ -116,6 +116,9 @@ const AggDialogSchema = z.object({
 const ViewSchema = z.object({
   session: z.object({
     visitor_name: z.string(),
+    // used_turns —— member 级已用 turn(后端跨该人全部对话求和)。前端 strip 据此
+    // 显 used,不再从单 surface 本地 dialogs 数(多对话下会少算)。
+    used_turns: z.number().optional().default(0),
     code: z.object({
       max_turns_per_session: z.number(),
       max_members: z.number(),
@@ -139,6 +142,7 @@ export type AggDialog = z.infer<typeof AggDialogSchema>;
 export interface VisitorView {
   visitorName: string;
   maxTurns: number;
+  usedTurns: number;
   maxMembers: number;
   memberCount: number;
   dialogs: AggDialog[];
@@ -198,6 +202,7 @@ function toView(d: z.infer<typeof ViewSchema>): VisitorView {
   return {
     visitorName: d.session.visitor_name,
     maxTurns: d.session.code.max_turns_per_session,
+    usedTurns: d.session.used_turns,
     maxMembers: d.session.code.max_members,
     memberCount: d.session.code.member_count,
     dialogs: d.conversation.dialogs,

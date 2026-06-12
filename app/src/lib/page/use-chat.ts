@@ -147,10 +147,10 @@ export function useChat(deps: Deps): ChatState {
     if (token !== '' && conv !== '') void restoreSession(conv, token, setDialogs);
   }, []);
 
-  // strip 的 used 派生自 dialogs(答完的轮 = !pending && !failed),不是独立自增的
-  // 计数器 —— conversation 是唯一源,没有「乐观 +1 被迟到快照盖回去」那种 race。
-  const used = dialogs.filter((d) => !d.pending && !d.failed).length;
-  useEffect(() => { useVisitorSessionStore.getState().setUsed(used); }, [used]);
+  // strip 的 used 是 **member 级**(后端跨该人全部对话合计),不再从本地 dialogs
+  // 数 —— 多对话下单 surface 的本地轮数会少算。seed 走 session issue 的
+  // quota.used_turns(已 member 级),每答成一轮乐观 +1(runAsk),load/reconcile
+  // 由后端权威值纠正。
 
   // 换人:SessionStrip 点名字重开 picker → 发新名字 issue 出新 session(新
   // member / 新对话),session store 的 startedAt 随之变。chat 据此丢掉旧
@@ -233,7 +233,13 @@ async function runAsk(
     // 前端不再自落库。答完那条留在本地 transcript 显示,used 由 dialogs 派生(下面
     // mirror effect)自然 +1;真相在后端,刷新走 restoreSession 从 conversation 重建。
     // 失败/掐断(含 401)→ revalidate 收口:会话若死了清身份回入口。
-    if (!turnSucceeded(accum)) void revalidateSession(sess.conversationID, sess.sessionToken);
+    // 答成 → member 级 used 乐观 +1(任意 surface 都烧同一个共享预算);失败/掐断
+    // → 不计数,回头确认会话是否还活着。
+    if (turnSucceeded(accum)) {
+      useVisitorSessionStore.getState().incUsed();
+    } else {
+      void revalidateSession(sess.conversationID, sess.sessionToken);
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);

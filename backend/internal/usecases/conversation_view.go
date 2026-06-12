@@ -22,15 +22,18 @@ type ConvCode struct {
 	MemberCount        int
 }
 
-// ConvSession —— 凭 token 找到的 session 视图:身份 + 所属 code。
+// ConvSession —— 凭 token 找到的 session 视图:身份 + 所属 code + 该 member 已用
+// turn 合计。UsedTurns 是 **member 级**(跨该人全部对话求和),前端 strip 据此显
+// used —— 多对话模型下不能再让前端从单 surface 的本地 dialogs 数,会少算。
 type ConvSession struct {
 	VisitorName string
 	Code        ConvCode
+	UsedTurns   int32
 }
 
 // VisitorView —— 端点返回的整体:session(找到 conversation 的入口)+ 它的
 // conversation。两个概念各占一块,不混。
 type VisitorView struct {
-	Session      ConvSession
 	Conversation Conversation
+	Session      ConvSession
 }

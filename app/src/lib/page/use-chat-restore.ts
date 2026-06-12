@@ -67,14 +67,14 @@ export async function revalidateStored(): Promise<void> {
 
 function applyView(v: VisitorView, setDialogs: DialogSetter): void {
   reconcileView(v);
-  // transcript 只在当前为空时重建 —— 别盖掉 fetch 期间用户刚问的那轮。重建后
-  // useChat 的 mirror effect 会从 dialogs 数出 used,无需在这碰 used。
+  // transcript 只在当前为空时重建 —— 别盖掉 fetch 期间用户刚问的那轮。
   if (v.dialogs.length > 0) setDialogs((prev) => (prev.length === 0 ? toDialogs(v) : prev));
 }
 
-// reconcileView —— 用后端权威值覆盖本地展示缓存(身份 + code 配额)。used 不在
-// 这碰 —— 它派生自 dialogs(useChat mirror)。byoai(无 code,无限额)不碰。名字
-// 后端给空就保留本地(匿名兜底)。
+// reconcileView —— 用后端权威值覆盖本地展示缓存(身份 + code 配额 + member 级
+// used)。used 取后端 **member 级** 合计(多对话下不能从单 surface 本地 dialogs
+// 数);只在 load / 失败收口时跑,不跟成功 turn 的乐观 +1 抢。byoai(无 code,
+// 无限额)不碰。名字后端给空就保留本地(匿名兜底)。
 function reconcileView(v: VisitorView): void {
   const cur = useVisitorSessionStore.getState().session;
   if (cur === null || cur.byoai) return;
@@ -85,6 +85,10 @@ function mergeView(cur: VisitorSession, v: VisitorView): VisitorSession {
   return {
     ...cur,
     max: v.maxTurns,
+    // used 以后端 **member 级** 合计为准(多对话下不能从单 surface 本地 dialogs
+    // 数,会少算)。reconcile 只在 load / 失败收口时跑,不跟成功 turn 的乐观 +1
+    // 抢,所以这里直接采纳后端值不会盖掉刚发那轮。
+    used: v.usedTurns,
     maxMembers: v.maxMembers,
     memberCount: v.memberCount,
     visitor: v.visitorName !== '' ? v.visitorName : cur.visitor,

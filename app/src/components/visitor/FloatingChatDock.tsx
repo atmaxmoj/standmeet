@@ -23,7 +23,7 @@ import type { SessionMode } from '@/lib/page/use-chat';
 import type { DocContext } from '@standmeet/agent-core';
 import { ChatTranscript, ChatProgress } from '@/components/visitor/ChatTranscript';
 import { useGhostLogger } from '@/lib/page/use-ghost-logger';
-import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { useVisitorSessionStore, useIsQuotaExhausted } from '@/lib/visitor/session-store';
 import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
 import { dispatchGhostKey, pickGhost } from '@/lib/visitor/ghost-text';
 
@@ -202,9 +202,16 @@ function ChatPanelInput(props: ChatPanelInputProps) {
   );
 }
 
+function lockedPlaceholder(exhausted: boolean, placeholder: string): string {
+  return exhausted ? 'session full' : placeholder;
+}
+
 function ChatPanelInputField({ props, ghost, placeholder }: {
   props: ChatPanelInputProps; ghost: string | null; placeholder: string;
 }) {
+  // member 级 turn 预算用尽 → 锁输入(跟主 composer 一致)。多对话下 used 是
+  // member 级共享值,所以在浮窗这段烧到上限也会在这儿锁住。
+  const exhausted = useIsQuotaExhausted();
   return (
     <input
       ref={props.inputRef}
@@ -212,8 +219,8 @@ function ChatPanelInputField({ props, ghost, placeholder }: {
       value={props.value}
       onChange={(e) => props.onChange(e.target.value)}
       onKeyDown={(e) => dispatchGhostKey(e, ghost, { onAccept: props.onAcceptGhost, onCycle: props.onCycleGhost })}
-      placeholder={placeholder}
-      disabled={props.pending}
+      placeholder={lockedPlaceholder(exhausted, placeholder)}
+      disabled={props.pending || exhausted}
       data-testid="floating-chat-input"
       className="sm-floating-chat-input"
       autoComplete="off"
