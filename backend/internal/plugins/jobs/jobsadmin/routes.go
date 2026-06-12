@@ -14,6 +14,7 @@ package jobsadmin
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -41,6 +42,7 @@ type Deps struct {
 func Mount(r chi.Router, deps Deps) {
 	r.Route("/drafts", func(r chi.Router) {
 		r.Get("/", listDrafts(deps))
+		r.Get("/{id}", getDraft(deps))
 	})
 	r.Route("/applications", func(r chi.Router) {
 		r.Get("/", listApplications(deps))
@@ -116,6 +118,46 @@ func listDrafts(deps Deps) http.HandlerFunc {
 	}
 }
 
+// draftDetailView —— #52: composer 打开时拿真 resume_content(+ job context),
+// 替代 mockDraft 占位。resume_content 直接透传 domain 形状(已有 json tags)。
+type draftDetailView struct {
+	ID            string               `json:"id"`
+	Company       string               `json:"company"`
+	Role          string               `json:"role"`
+	ResumeContent domain.ResumeContent `json:"resume_content"`
+}
+
+func getDraft(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := authmw.OwnerIDFrom(r.Context())
+		draft, err := deps.Drafts.GetByID(r.Context(), ownerID, chi.URLParam(r, "id"))
+		if err != nil {
+			handleDraftDetailErr(deps.Log, w, err)
+			return
+		}
+		view := draftDetailView{
+			ID: draft.ID, Company: draft.JobSnapshot.Company,
+			Role: draft.JobSnapshot.Title, ResumeContent: draft.ResumeContent,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if eerr := json.NewEncoder(w).Encode(view); eerr != nil {
+			deps.Log.Error("encode draft detail", logErrKey, eerr)
+		}
+	}
+}
+
+func handleDraftDetailErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	if errors.Is(err, domain.ErrResumeDraftNotFound) {
+		writeJSONErr(log, w, apierr.Envelope{
+			Status: http.StatusNotFound, Code: "draft_not_found", Message: "draft not found",
+		})
+		return
+	}
+	log.Error("get draft", logErrKey, err)
+	writeServerErr(log, w)
+}
+
 func writeDraftsList(
 	log *slog.Logger, w http.ResponseWriter, drafts []domain.ResumeDraft,
 ) {
@@ -184,9 +226,12 @@ func writeApplicationsList(
 // ───── shared helpers ────────────────────────────────────────
 
 func writeServerErr(log *slog.Logger, w http.ResponseWriter) {
-	env := apierr.Envelope{
+	writeJSONErr(log, w, apierr.Envelope{
 		Status: http.StatusInternalServerError, Code: "server_error", Message: "internal error",
-	}
+	})
+}
+
+func writeJSONErr(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(env.Status)
 	payload := map[string]map[string]string{

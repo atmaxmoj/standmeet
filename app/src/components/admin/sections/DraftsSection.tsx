@@ -14,7 +14,8 @@ import { useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ResumeComposer } from '@/components/admin/ResumeComposer';
 import { DraftThumb } from '@/components/admin/sections/drafts/DraftThumb';
-import { mockDraft } from '@/lib/admin/draft-model';
+import { useDraftDetail } from '@/lib/admin/draft-detail';
+import type { DraftModel } from '@/lib/admin/draft-model';
 import { listViewKind } from '@/lib/admin/list-view-kind';
 import {
   draftActionKind,
@@ -26,6 +27,7 @@ import {
 export function DraftsSection() {
   const { rows, loading, error } = useAdminDrafts();
   const [openId, setOpenId] = useState<string | null>(null);
+  const detail = useDraftDetail(openId);
   return (
     <>
       <SectionHeader
@@ -35,15 +37,17 @@ export function DraftsSection() {
       />
       <Intro />
       <DraftListBody rows={rows} loading={loading} error={error} onOpen={setOpenId} />
-      {openId !== null && (
-        <ResumeComposer
-          initial={mockDraft(openId)}
-          onClose={() => setOpenId(null)}
-          onSend={() => setOpenId(null)}
-        />
-      )}
+      <ComposerHost model={detail.model} onClose={() => setOpenId(null)} />
     </>
   );
+}
+
+function ComposerHost({
+  model, onClose,
+}: { model: DraftModel | null; onClose: () => void }) {
+  return model === null
+    ? null
+    : <ResumeComposer initial={model} onClose={onClose} onSend={onClose} />;
 }
 
 function titleCount(n: number, loading: boolean): string {
