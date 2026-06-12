@@ -9,20 +9,76 @@
 'use client';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
+import {
+  useAdminSources, pickSourcesBodyState, type AdminSourceRow,
+} from '@/lib/admin/use-admin-sources';
 
 export function SourcesSection() {
+  const { rows, loading, error } = useAdminSources();
   return (
     <>
       <SectionHeader
         kicker="jobs · sources"
         title="sources"
-        count="0 active"
+        count={loading ? '' : `${rows.length} active`}
         action={<ActionBtns />}
       />
       <Intro />
-      <EmptyState />
+      <Body rows={rows} loading={loading} error={error} />
     </>
   );
+}
+
+function Body({
+  rows, loading, error,
+}: { rows: readonly AdminSourceRow[]; loading: boolean; error: string | null }) {
+  const map = {
+    loading: <ListSkeleton count={3} />,
+    error: <ErrorBlock message={error ?? ''} />,
+    empty: <EmptyState />,
+    list: <SourceTable rows={rows} />,
+  } as const;
+  return map[pickSourcesBodyState(rows.length, loading, error)];
+}
+
+function ErrorBlock({ message }: { message: string }) {
+  return (
+    <p className="mono text-[11px] text-(--color-accent) mt-8" data-testid="sources-error">
+      {message}
+    </p>
+  );
+}
+
+function SourceTable({ rows }: { rows: readonly AdminSourceRow[] }) {
+  return (
+    <ul className="flex flex-col gap-2" data-testid="sources-list">
+      {rows.map((s) => <SourceRow key={s.id} source={s} />)}
+    </ul>
+  );
+}
+
+function SourceRow({ source }: { source: AdminSourceRow }) {
+  return (
+    <li
+      className="flex items-baseline justify-between gap-3 border border-(--color-rule) rounded-[3px] px-4 py-3"
+      data-testid={`source-row-${source.id}`}
+    >
+      <span className="min-w-0">
+        <span className="reading text-(--color-ink) text-[15px]">{source.label}</span>
+        <span className="mono text-[10.5px] tracking-[0.12em] uppercase text-(--color-muted) ml-3">
+          {source.kind}
+        </span>
+      </span>
+      <span className="mono text-[10.5px] text-(--color-faint) shrink-0">
+        {fmtLast(source.last_fetched_at)}
+      </span>
+    </li>
+  );
+}
+
+function fmtLast(iso: string | null | undefined): string {
+  return iso ? `last · ${iso.slice(0, 10)}` : 'never fetched';
 }
 
 function ActionBtns() {

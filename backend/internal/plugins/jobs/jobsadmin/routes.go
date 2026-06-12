@@ -26,15 +26,18 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
+const logErrKey = "err"
+
 // Deps —— jobs admin 路由依赖。Log 必填 (encode 失败要 log)。
 type Deps struct {
-	Apps   *postgres.ApplicationRepo
-	Drafts *postgres.ResumeDraftRepo
-	Log    *slog.Logger
+	Apps    *postgres.ApplicationRepo
+	Drafts  *postgres.ResumeDraftRepo
+	Sources *postgres.JobSourceRepo
+	Log     *slog.Logger
 }
 
-// Mount 挂 /drafts + /applications 到入参 router。caller 负责事先用
-// WithOwner / RequireCSRF middleware 包好 (admin 共享认证栈)。
+// Mount 挂 /drafts + /applications + /job-sources 到入参 router。caller 负责
+// 事先用 WithOwner / RequireCSRF middleware 包好 (admin 共享认证栈)。
 func Mount(r chi.Router, deps Deps) {
 	r.Route("/drafts", func(r chi.Router) {
 		r.Get("/", listDrafts(deps))
@@ -42,6 +45,52 @@ func Mount(r chi.Router, deps Deps) {
 	r.Route("/applications", func(r chi.Router) {
 		r.Get("/", listApplications(deps))
 	})
+	r.Route("/job-sources", func(r chi.Router) {
+		r.Get("/", listSources(deps))
+	})
+}
+
+// ───── sources ───────────────────────────────────────────────
+
+type sourceView struct {
+	LastFetchedAt *time.Time `json:"last_fetched_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	ID            string     `json:"id"`
+	Kind          string     `json:"kind"`
+	Label         string     `json:"label"`
+}
+
+func listSources(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := authmw.OwnerIDFrom(r.Context())
+		sources, err := deps.Sources.ListByOwner(r.Context(), ownerID)
+		if err != nil {
+			deps.Log.Error("list job sources", logErrKey, err)
+			writeServerErr(deps.Log, w)
+			return
+		}
+		writeSourcesList(deps.Log, w, sources)
+	}
+}
+
+func writeSourcesList(
+	log *slog.Logger, w http.ResponseWriter, sources []domain.JobSource,
+) {
+	items := make([]sourceView, 0, len(sources))
+	for i := range sources {
+		items = append(items, sourceView{
+			ID:            sources[i].ID,
+			Kind:          sources[i].Kind,
+			Label:         sources[i].Label,
+			LastFetchedAt: sources[i].LastFetchedAt,
+			CreatedAt:     sources[i].CreatedAt,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(items); err != nil {
+		log.Error("encode job sources", logErrKey, err)
+	}
 }
 
 // ───── drafts ────────────────────────────────────────────────
@@ -59,7 +108,7 @@ func listDrafts(deps Deps) http.HandlerFunc {
 		ownerID := authmw.OwnerIDFrom(r.Context())
 		drafts, err := deps.Drafts.ListByOwner(r.Context(), ownerID)
 		if err != nil {
-			deps.Log.Error("list drafts", "err", err)
+			deps.Log.Error("list drafts", logErrKey, err)
 			writeServerErr(deps.Log, w)
 			return
 		}
@@ -83,7 +132,7 @@ func writeDraftsList(
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(items); err != nil {
-		log.Error("encode drafts", "err", err)
+		log.Error("encode drafts", logErrKey, err)
 	}
 }
 
@@ -103,7 +152,7 @@ func listApplications(deps Deps) http.HandlerFunc {
 		ownerID := authmw.OwnerIDFrom(r.Context())
 		apps, err := deps.Apps.ListByOwner(r.Context(), ownerID)
 		if err != nil {
-			deps.Log.Error("list applications", "err", err)
+			deps.Log.Error("list applications", logErrKey, err)
 			writeServerErr(deps.Log, w)
 			return
 		}
@@ -128,7 +177,7 @@ func writeApplicationsList(
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(items); err != nil {
-		log.Error("encode applications", "err", err)
+		log.Error("encode applications", logErrKey, err)
 	}
 }
 
@@ -144,7 +193,7 @@ func writeServerErr(log *slog.Logger, w http.ResponseWriter) {
 		"error": {"code": env.Code, "message": env.Message},
 	}
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Error("encode error response", "err", err)
+		log.Error("encode error response", logErrKey, err)
 	}
 }
 

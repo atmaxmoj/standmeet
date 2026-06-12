@@ -37,6 +37,7 @@ type Deps struct {
 	Applications *jobsuc.ApplicationsDeps
 	DraftsRepo   *postgres.ResumeDraftRepo
 	AppsRepo     *postgres.ApplicationRepo
+	SourcesRepo  *postgres.JobSourceRepo
 	Log          *slog.Logger
 }
 
@@ -73,6 +74,7 @@ func (p *Plugin) RegisterCapabilities(reg *agentskills.Registry) {
 // RequireCSRF middleware 包好 (admin 共享认证栈)。
 func (p *Plugin) MountAdminRoutes(r chi.Router) {
 	jobsadmin.Mount(r, jobsadmin.Deps{
-		Apps: p.deps.AppsRepo, Drafts: p.deps.DraftsRepo, Log: p.deps.Log,
+		Apps: p.deps.AppsRepo, Drafts: p.deps.DraftsRepo,
+		Sources: p.deps.SourcesRepo, Log: p.deps.Log,
 	})
 }

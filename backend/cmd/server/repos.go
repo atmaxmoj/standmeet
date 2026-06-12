@@ -188,6 +188,7 @@ func buildPluginRegistry(d *runtimeDeps) *plugins.Registry {
 		Applications: &appsDeps,
 		DraftsRepo:   d.resumeDraftRepo,
 		AppsRepo:     d.applicationRepo,
+		SourcesRepo:  d.jobSourceRepo,
 		Log:          d.log,
 	}))
 	return reg
