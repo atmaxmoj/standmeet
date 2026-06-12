@@ -54,7 +54,17 @@ test.describe('agent-core · package invariants (lint-grade)', () => {
   });
 });
 
-function assertBannedTokensAbsent(file: string, text: string): void {
+// stripComments —— 去掉行 / 块注释，这样禁用 token 扫描只看真实代码。散文里写
+// "document"（如 DocContext 的注释）不该算违规；真用 document.x 仍会被抓。行注释
+// 用 (^|[^:]) 守卫，避免误删字符串里 URL 的 "://"。
+function stripComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
+function assertBannedTokensAbsent(file: string, raw: string): void {
+  const text = stripComments(raw);
   const bannedGlobals = [
     'window', 'document', 'fetch(',
     'localStorage', 'sessionStorage', 'navigator',
