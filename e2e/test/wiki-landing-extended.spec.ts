@@ -43,6 +43,21 @@ test.describe('wiki landing extended cases', () => {
         .toBeVisible({ timeout: 5_000 });
     });
 
+  test('metadata strip: cover tag + tag chips + by owner full name',
+    async ({ request, page }) => {
+      await seedTaggedWiki(request);
+      await goto(page, '/wiki/tagged-entry');
+      await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
+      // cover 角标用首个 tag(不再写死 corpus)。
+      await expect(page.getByTestId('wiki-cover')).toContainText('wiki · lucerna');
+      // 元信息行:tag chips + owner 全名(不是 handle)。
+      const meta = page.getByTestId('wiki-meta');
+      await expect(meta).toContainText('#lucerna');
+      await expect(meta).toContainText('#eval');
+      await expect(meta).toContainText('#thinking');
+      await expect(meta).toContainText('Wiki Ext Owner');
+    });
+
   test('wiki AskAboutThis → links to /?q=...',
     async ({ page }) => {
       await goto(page, '/wiki/wiki-extended');
@@ -78,5 +93,22 @@ async function seedIndexedWiki(request: APIRequestContext): Promise<void> {
     wiki_id: wikiID,
     seo_description: 'Extended wiki test.',
     seo_indexed: true,
+  });
+}
+
+async function seedTaggedWiki(request: APIRequestContext): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'wiki-tagged-seed');
+  const sid = await initMCP(request, token);
+  const { wikiID } = await seedPublicWiki(request, token, sid, {
+    body: 'Tagged wiki content.', title: 'Tagged Entry',
+  });
+  // tags 只能经 update_wiki 设(promote/seed 不带)。
+  await callTool(request, token, sid, 'update_wiki', {
+    wiki_id: wikiID, title: 'Tagged Entry', body: 'Tagged wiki content.',
+    tags: ['lucerna', 'eval', 'thinking'],
+  });
+  await callTool(request, token, sid, 'seo.set_wiki_seo', {
+    wiki_id: wikiID, seo_description: 'A tagged wiki.', seo_indexed: true,
   });
 }

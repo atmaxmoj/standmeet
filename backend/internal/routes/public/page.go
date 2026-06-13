@@ -103,6 +103,7 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 	view := instanceInfoView{
 		Claimed:        in.owner.ID != "",
 		Handle:         in.owner.Handle,
+		Name:           in.owner.FullName,
 		SetupToken:     in.setupToken,
 		CaptchaSiteKey: in.captchaSiteKey,
 		CanEmailCodes:  in.canEmailCodes,
@@ -114,6 +115,7 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 
 type instanceInfoView struct {
 	Handle         string `json:"handle"`
+	Name           string `json:"name"`
 	SetupToken     string `json:"setup_token,omitempty"`
 	CaptchaSiteKey string `json:"captcha_site_key,omitempty"`
 	Claimed        bool   `json:"claimed"`

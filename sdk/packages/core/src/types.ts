@@ -59,6 +59,7 @@ export interface WikiLandingView {
   readonly body: string;
   readonly seo_description: string;
   readonly updated_at: string;
+  readonly tags: readonly string[];
 }
 
 // OutputLandingView —— /output/<path> SEO landing。结构跟 WikiLandingView

@@ -27,7 +27,10 @@ import styles from '@/app/wiki/[...path]/wiki-landing.module.css';
 // catch-all [...path]：path 可含 `/` (projects/lucerna 这种分组)。
 type Params = { path: string[] };
 
-type WikiEntry = { title: string; body: string; seo_description: string; updated_at: string };
+type WikiEntry = {
+  title: string; body: string; seo_description: string; updated_at: string;
+  tags: readonly string[];
+};
 
 export async function generateMetadata(
   { params }: { params: Promise<Params> },
@@ -48,12 +51,14 @@ export default async function WikiLandingPage({ params }: { params: Promise<Para
   const instance = await fetchInstance();
   const ctx = await fetchWikiContext(slug);
   return wiki
-    ? <WikiLandingContent wiki={wiki} handle={instance.handle} slug={slug} ctx={ctx} />
+    ? <WikiLandingContent
+        wiki={wiki} handle={instance.handle} ownerName={instance.name || instance.handle}
+        slug={slug} ctx={ctx} />
     : <RestrictedDoc genre="wiki" slug={slug} />;
 }
 
-function WikiLandingContent({ wiki, handle, slug, ctx }: {
-  wiki: WikiEntry; handle: string; slug: string; ctx: TreeContext;
+function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
+  wiki: WikiEntry; handle: string; ownerName: string; slug: string; ctx: TreeContext;
 }) {
   return (
     <>
@@ -66,7 +71,7 @@ function WikiLandingContent({ wiki, handle, slug, ctx }: {
           <div className="min-w-0 flex-1">
             <Breadcrumb ancestors={ctx.ancestors} current={wiki.title} />
             <OgCover entry={wiki} seed={slug} />
-            <MetaStrip entry={wiki} handle={handle} />
+            <MetaStrip entry={wiki} ownerName={ownerName} />
             <article className="max-w-[680px] mt-2">
               <WikiBody body={wiki.body} />
             </article>
@@ -89,7 +94,7 @@ function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
   const { head, sub } = splitTitle(entry.title);
   return (
     <div className={`${styles['cover']} ${pickHue(seed)}`} data-testid="wiki-cover">
-      <span className={styles['tag']}>wiki · corpus</span>
+      <span className={styles['tag']}>wiki · {entry.tags[0] ?? 'corpus'}</span>
       <span className={styles['no']}>{formatDate(entry.updated_at)}</span>
       <span className={styles['head']}>{head}</span>
       {sub ? <span className={styles['sub']}>{sub}</span> : null}
@@ -97,15 +102,22 @@ function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
   );
 }
 
-// MetaStrip —— cover 下的文章抬头:smallcaps(日期 · by owner)+ 大 serif h1
-// + italic excerpt。对齐设计 metadata strip(无 tags/sources 数据,从略)。
-function MetaStrip({ entry, handle }: { entry: WikiEntry; handle: string }) {
+// MetaStrip —— cover 下的文章抬头:smallcaps(日期 · by owner 全名 · tag chips)
+// + 大 serif h1 + italic excerpt。对齐设计 metadata strip。
+function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }) {
   return (
-    <header className="mt-8 mb-9">
+    <header className="mt-8 mb-9" data-testid="wiki-meta">
       <div className="smallcaps flex items-baseline gap-2.5 flex-wrap mb-3">
         <span>{formatDate(entry.updated_at)}</span>
         <span className="text-(--color-faint)">·</span>
-        <span>by <span className="text-(--color-ink)">{handle}</span></span>
+        <span>by <span className="text-(--color-ink)">{ownerName}</span></span>
+        {entry.tags.map((t) => (
+          <Link key={t} href={`/writings?tag=${encodeURIComponent(t)}`} className="ml-1.5 no-underline">
+            <span className="mono text-[10px] tracking-[0.1em] text-(--color-muted) border border-(--color-rule) rounded-[2px] px-1.5 py-0.5 hover:text-(--color-ink)">
+              #{t}
+            </span>
+          </Link>
+        ))}
       </div>
       <h1 className="font-serif text-(--color-ink) text-[clamp(36px,5vw,56px)] font-[380] tracking-[-0.022em] leading-[1.04] text-pretty">
         {entry.title}

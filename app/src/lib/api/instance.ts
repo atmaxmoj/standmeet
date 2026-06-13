@@ -12,6 +12,8 @@ import { safeJson } from '@/lib/api/typed-json';
 const InstanceInfoSchema = z.object({
   claimed: z.boolean(),
   handle: z.string(),
+  // name —— owner 全名(by-line 用,如 wiki 元信息「by Sijie Wang」)。
+  name: z.string().optional().default(''),
   setup_token: z.string().optional(),
   captcha_site_key: z.string().optional(),
   // can_email_codes —— owner 有 connected 的 mail connector(能发码邮件)。
@@ -20,7 +22,7 @@ const InstanceInfoSchema = z.object({
 });
 export type InstanceInfo = z.infer<typeof InstanceInfoSchema>;
 
-const FALLBACK: InstanceInfo = { claimed: false, handle: '', can_email_codes: false };
+const FALLBACK: InstanceInfo = { claimed: false, handle: '', name: '', can_email_codes: false };
 
 export async function fetchInstance(): Promise<InstanceInfo> {
   const backend = process.env['BACKEND_URL'] ?? 'http://backend:8000';

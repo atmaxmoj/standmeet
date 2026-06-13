@@ -148,11 +148,12 @@ func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 }
 
 type wikiLandingView struct {
-	Path           string `json:"path"`
-	Title          string `json:"title"`
-	Body           string `json:"body"`
-	SEODescription string `json:"seo_description"`
-	UpdatedAt      string `json:"updated_at"`
+	Path           string   `json:"path"`
+	Title          string   `json:"title"`
+	Body           string   `json:"body"`
+	SEODescription string   `json:"seo_description"`
+	UpdatedAt      string   `json:"updated_at"`
+	Tags           []string `json:"tags"`
 }
 
 func loadWikiLandingView(
@@ -168,6 +169,7 @@ func loadWikiLandingView(
 		Body:           wiki.Body(),
 		SEODescription: wiki.SEODescription(),
 		UpdatedAt:      wiki.UpdatedAt().UTC().Format(time.RFC3339),
+		Tags:           wiki.Tags(),
 	}, nil
 }
 
