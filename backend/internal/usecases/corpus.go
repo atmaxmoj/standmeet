@@ -15,9 +15,10 @@ import (
 
 // CorpusDeps —— raw + wiki + output + path 操作需要的 repo 集合。
 type CorpusDeps struct {
-	Raw    *postgres.RawRepo
-	Wiki   *postgres.WikiRepo
-	Output *postgres.OutputRepo
+	Raw      *postgres.RawRepo
+	Wiki     *postgres.WikiRepo
+	Output   *postgres.OutputRepo
+	WikiRefs *postgres.WikiRefRepo
 }
 
 // RawDumpInput 是 raw_dump 入参。
@@ -86,10 +87,28 @@ func PromoteToWiki(
 	if err != nil {
 		return domain.Wiki{}, fmt.Errorf("wiki create: %w", err)
 	}
-	if perr := deps.Raw.MarkPromoted(ctx, in.OwnerID, raw.ID(), wiki.ID()); perr != nil {
-		return domain.Wiki{}, fmt.Errorf("mark promoted: %w", perr)
+	fin := promoteFinish{OwnerID: in.OwnerID, RawID: raw.ID(), WikiID: wiki.ID(), Body: raw.Body()}
+	if perr := finishPromote(ctx, deps, fin); perr != nil {
+		return domain.Wiki{}, perr
 	}
 	return wiki, nil
+}
+
+// promoteFinish —— finishPromote 入参打包(避免 argument-limit 超 5)。
+type promoteFinish struct {
+	OwnerID string
+	RawID   string
+	WikiID  string
+	Body    string
+}
+
+// finishPromote —— mark raw promoted + 重建这条 wiki 的 [[X]] 出度边。body 用
+// raw.Body()(Create 返回的 wiki 不一定回填 body)。合一处让 PromoteToWiki cyclo 不超标。
+func finishPromote(ctx context.Context, deps CorpusDeps, f promoteFinish) error {
+	if perr := deps.Raw.MarkPromoted(ctx, f.OwnerID, f.RawID, f.WikiID); perr != nil {
+		return fmt.Errorf("mark promoted: %w", perr)
+	}
+	return RebuildWikiRefs(ctx, deps, f.OwnerID, f.WikiID, f.Body)
 }
 
 // preflightPromote —— promote 前的两道关:必填字段 + parent 合法。合在一处让

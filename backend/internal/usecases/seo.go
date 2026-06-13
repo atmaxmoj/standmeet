@@ -15,10 +15,11 @@ import (
 // SEODeps —— SEO usecases 所需。Wiki/Output 用来 load 全树算公开 landing 地址
 // (纯树派生,不读已退役的 path 列)。
 type SEODeps struct {
-	Owners *postgres.OwnerRepo
-	SEO    *postgres.SEORepo
-	Wiki   *postgres.WikiRepo
-	Output *postgres.OutputRepo
+	Owners   *postgres.OwnerRepo
+	SEO      *postgres.SEORepo
+	Wiki     *postgres.WikiRepo
+	Output   *postgres.OutputRepo
+	WikiRefs *postgres.WikiRefRepo
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
@@ -61,15 +62,23 @@ func PublicReady(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
 }
 
 // WikiLanding —— landing 查询结果:wiki 实体 + 渲染好的 body(Obsidian `[[Title]]`
-// 已 rewrite 成 /wiki/<path> 链接)。
+// 已 rewrite 成 /wiki/<path> 链接)+ 出链(Related)/入链(CitedBy)。
 type WikiLanding struct {
-	Body string
-	Wiki domain.Wiki
+	Body    string
+	Related []WikiPathTitle
+	CitedBy []WikiPathTitle
+	Wiki    domain.Wiki
+}
+
+// wikiRefSides —— 一条 wiki 的出链 + 入链(给 landing 返回用)。
+type wikiRefSides struct {
+	Related []WikiPathTitle
+	CitedBy []WikiPathTitle
 }
 
 // GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 seo_indexed=true）+
-// 渲染好的 body。地址纯树派生:一次 load 全树,既定位目标条,又建 title→path 索引给
-// 双链解析用。
+// 渲染好的 body + read-next/cited-by。地址纯树派生:一次 load 全树,既定位目标条,
+// 又建 title→path 索引给双链解析用。
 func GetWikiLanding(
 	ctx context.Context, deps SEODeps, path string,
 ) (WikiLanding, error) {
@@ -84,13 +93,50 @@ func GetWikiLanding(
 	if err != nil {
 		return WikiLanding{}, fmt.Errorf("list wiki: %w", err)
 	}
+	return assembleWikiLanding(ctx, deps, owner.ID, wikis, path)
+}
+
+func assembleWikiLanding(
+	ctx context.Context, deps SEODeps, ownerID string, wikis []domain.Wiki, path string,
+) (WikiLanding, error) {
 	paths := WikiTreePaths(wikis)
 	w, found := pickIndexedWiki(wikis, paths, path)
 	if !found {
 		return WikiLanding{}, domain.ErrWikiNotFound
 	}
 	body := RewriteWikiCrossLinksForRender(w.Body(), WikiPathTitleIndex(wikis, paths))
-	return WikiLanding{Wiki: w, Body: body}, nil
+	sides, err := loadWikiRefSides(ctx, deps, ownerID, w.ID(), paths)
+	if err != nil {
+		return WikiLanding{}, err
+	}
+	return WikiLanding{Body: body, Related: sides.Related, CitedBy: sides.CitedBy, Wiki: w}, nil
+}
+
+// loadWikiRefSides —— 取这条 wiki 的出链(OutboundFor)+ 入链(BacklinksFor),
+// ref 的 id 用全树派生 path 映射成 (title, path)。
+func loadWikiRefSides(
+	ctx context.Context, deps SEODeps, ownerID, wikiID string, paths map[string]string,
+) (wikiRefSides, error) {
+	out, oerr := deps.WikiRefs.OutboundFor(ctx, wikiID)
+	if oerr != nil {
+		return wikiRefSides{}, fmt.Errorf("wiki outbound: %w", oerr)
+	}
+	back, berr := deps.WikiRefs.BacklinksFor(ctx, ownerID, wikiID)
+	if berr != nil {
+		return wikiRefSides{}, fmt.Errorf("wiki backlinks: %w", berr)
+	}
+	return wikiRefSides{
+		Related: wikiRefsToPathTitle(out, paths),
+		CitedBy: wikiRefsToPathTitle(back, paths),
+	}, nil
+}
+
+func wikiRefsToPathTitle(refs []postgres.WikiRef, paths map[string]string) []WikiPathTitle {
+	out := make([]WikiPathTitle, 0, len(refs))
+	for i := range refs {
+		out = append(out, WikiPathTitle{Title: refs[i].Title, Path: paths[refs[i].ID]})
+	}
+	return out
 }
 
 // pickIndexedWiki —— 全树 + 已算好的派生 path 里挑 indexed 且 path 命中那条

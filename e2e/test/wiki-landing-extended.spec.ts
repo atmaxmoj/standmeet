@@ -185,7 +185,23 @@ test.describe('wiki landing extended cases', () => {
       const link = page.getByTestId('wiki-body').getByRole('link', { name: dstTitle });
       await expect(link).toHaveAttribute('href', `/wiki/${dstPath}`, { timeout: 5_000 });
     });
+
+  // owner: 写的体验 —— 往 A 写 [[B]] 就在图里建了 A→B 边,B 的 landing 反向露出
+  // cited_by(含 A),A 的 landing 露出 related(含 B)。= Obsidian 写完即有 backlink。
+  test('writing [[Target]] into a wiki builds the cited-by / related graph',
+    async ({ request }) => {
+      const { srcTitle, srcPath, dstTitle, dstPath } = await seedLinkedWikis(request);
+      const dst = await (await request.get(`${BACKEND}/api/v1/wiki/${dstPath}`)).json() as Landing;
+      expect((dst.cited_by ?? []).map((r) => r.title)).toContain(srcTitle);
+      const src = await (await request.get(`${BACKEND}/api/v1/wiki/${srcPath}`)).json() as Landing;
+      expect((src.related ?? []).map((r) => r.title)).toContain(dstTitle);
+    });
 });
+
+type Landing = {
+  related?: Array<{ title: string; path: string }>;
+  cited_by?: Array<{ title: string; path: string }>;
+};
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
@@ -274,19 +290,26 @@ async function discoverWikiPath(
   return body.nodes.find((n) => n.id === childID)?.path ?? '';
 }
 
+// linkSeedSeq —— 每次 seedLinkedWikis 用唯一标题,避免跨 test 撞标题(同名 = 同
+// 树派生 path = cited_by/解析按 path 命中错的孪生)。
+let linkSeedSeq = 0;
+
 // seedLinkedWikis —— dst(目标)+ src(body 里写 [[dstTitle]]),都 seo_indexed。
+// src 先建 dst 后 promote,所以 promote 时 [[dstTitle]] 能解析 → 建 src→dst 边。
 async function seedLinkedWikis(request: APIRequestContext): Promise<{
-  srcPath: string; dstPath: string; dstTitle: string;
+  srcTitle: string; srcPath: string; dstTitle: string; dstPath: string;
 }> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'wiki-link-seed');
   const sid = await initMCP(request, token);
-  const dstTitle = 'Link Target Entry';
+  const n = (linkSeedSeq += 1);
+  const dstTitle = `Link Target Entry ${n}`;
+  const srcTitle = `Link Source Entry ${n}`;
   const { wikiID: dstID } = await seedPublicWiki(request, token, sid, {
     body: 'Target body.', title: dstTitle,
   });
   const { wikiID: srcID } = await seedPublicWiki(request, token, sid, {
-    body: `This links to [[${dstTitle}]] in the corpus.`, title: 'Link Source Entry',
+    body: `This links to [[${dstTitle}]] in the corpus.`, title: srcTitle,
   });
   for (const id of [dstID, srcID]) {
     await callTool(request, token, sid, 'seo.set_wiki_seo', {
@@ -294,9 +317,10 @@ async function seedLinkedWikis(request: APIRequestContext): Promise<{
     });
   }
   return {
+    srcTitle,
     srcPath: await discoverRootPath(request, srcID),
-    dstPath: await discoverRootPath(request, dstID),
     dstTitle,
+    dstPath: await discoverRootPath(request, dstID),
   };
 }
 

@@ -147,13 +147,20 @@ func (h *SEOHandlers) getWikiLanding() http.HandlerFunc {
 	}
 }
 
+type wikiRefView struct {
+	Title string `json:"title"`
+	Path  string `json:"path"`
+}
+
 type wikiLandingView struct {
-	Path           string   `json:"path"`
-	Title          string   `json:"title"`
-	Body           string   `json:"body"`
-	SEODescription string   `json:"seo_description"`
-	UpdatedAt      string   `json:"updated_at"`
-	Tags           []string `json:"tags"`
+	Path           string        `json:"path"`
+	Title          string        `json:"title"`
+	Body           string        `json:"body"`
+	SEODescription string        `json:"seo_description"`
+	UpdatedAt      string        `json:"updated_at"`
+	Tags           []string      `json:"tags"`
+	Related        []wikiRefView `json:"related"`
+	CitedBy        []wikiRefView `json:"cited_by"`
 }
 
 func loadWikiLandingView(
@@ -170,7 +177,17 @@ func loadWikiLandingView(
 		SEODescription: res.Wiki.SEODescription(),
 		UpdatedAt:      res.Wiki.UpdatedAt().UTC().Format(time.RFC3339),
 		Tags:           res.Wiki.Tags(),
+		Related:        toWikiRefViews(res.Related),
+		CitedBy:        toWikiRefViews(res.CitedBy),
 	}, nil
+}
+
+func toWikiRefViews(refs []usecases.WikiPathTitle) []wikiRefView {
+	out := make([]wikiRefView, 0, len(refs))
+	for i := range refs {
+		out = append(out, wikiRefView{Title: refs[i].Title, Path: refs[i].Path})
+	}
+	return out
 }
 
 func writeJSONWikiLanding(log *slog.Logger, w http.ResponseWriter, view *wikiLandingView) {

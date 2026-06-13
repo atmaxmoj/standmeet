@@ -179,6 +179,7 @@ type runtimeDeps struct {
 	keypairRepo       *postgres.OwnerKeypairRepo
 	rawRepo           *postgres.RawRepo
 	wikiRepo          *postgres.WikiRepo
+	wikiRefRepo       *postgres.WikiRefRepo
 	outputRepo        *postgres.OutputRepo
 	corpus            *postgres.Corpus
 	codeRepo          *postgres.CodeRepo

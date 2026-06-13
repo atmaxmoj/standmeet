@@ -8,6 +8,7 @@
 package usecases
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -71,4 +72,66 @@ func WikiPathTitleIndex(wikis []domain.Wiki, paths map[string]string) []WikiPath
 		}
 	}
 	return out
+}
+
+// RebuildWikiRefs —— wiki 写后(promote/create/update)重建这条的出度边:抽 body
+// 的 `[[Title]]` → 按 title 解析到 owner 的 wiki id → 重写 wiki_refs。没 `[[]]`
+// 也要清空旧边(owner 删了链接也算)。边表是派生索引,不要求跟写同事务。
+func RebuildWikiRefs(
+	ctx context.Context, deps CorpusDeps, ownerID, wikiID, body string,
+) error {
+	if !HasCrossLinks(body) {
+		return clearWikiRefs(ctx, deps, ownerID, wikiID)
+	}
+	wikis, err := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis)
+	if err != nil {
+		return fmt.Errorf("list wiki for crosslink: %w", err)
+	}
+	dstIDs := resolveWikiDstIDs(body, wikis, wikiID)
+	if rerr := deps.WikiRefs.ReplaceRefsBySrc(ctx, wikiID, ownerID, dstIDs); rerr != nil {
+		return fmt.Errorf("rebuild wiki refs: %w", rerr)
+	}
+	return nil
+}
+
+func clearWikiRefs(ctx context.Context, deps CorpusDeps, ownerID, wikiID string) error {
+	if err := deps.WikiRefs.ReplaceRefsBySrc(ctx, wikiID, ownerID, []string{}); err != nil {
+		return fmt.Errorf("clear wiki refs: %w", err)
+	}
+	return nil
+}
+
+// resolveWikiDstIDs —— body 的 `[[Title]]` 按 title(case-insensitive)解析到 owner
+// wiki id,去重 + 排除 self-link。
+func resolveWikiDstIDs(body string, wikis []domain.Wiki, selfID string) []string {
+	byTitle := wikiTitleToID(wikis)
+	refs := ExtractCrossLinks(body)
+	seen := make(map[string]struct{}, len(refs))
+	out := make([]string, 0, len(refs))
+	for i := range refs {
+		out = appendResolvedDst(out, seen, byTitle, refs[i].Target, selfID)
+	}
+	return out
+}
+
+func wikiTitleToID(wikis []domain.Wiki) map[string]string {
+	byTitle := make(map[string]string, len(wikis))
+	for i := range wikis {
+		byTitle[strings.ToLower(wikis[i].Title())] = wikis[i].ID()
+	}
+	return byTitle
+}
+
+func appendResolvedDst(
+	out []string, seen map[string]struct{}, byTitle map[string]string, target, selfID string,
+) []string {
+	id, ok := byTitle[strings.ToLower(target)]
+	if !ok || id == selfID {
+		return out
+	}
+	if _, dup := seen[id]; dup {
+		return out
+	}
+	seen[id] = struct{}{}
+	return append(out, id)
 }

@@ -47,6 +47,14 @@ func (*WikiRefRepo) ReplaceRefsBySrcTx(
 	return insertNewWikiRefs(ctx, q, ids.Src, ids.Owner, dstIDs)
 }
 
+// ReplaceRefsBySrc —— 非事务版(wiki 写路径不在 tx 里)。边表是派生索引,delete +
+// insert 直接走 pool(*Pool 满足 dbq.DBTX)即可,不要求原子。caller 已去重 + 排 self。
+func (r *WikiRefRepo) ReplaceRefsBySrc(
+	ctx context.Context, srcID, ownerID string, dstIDs []string,
+) error {
+	return r.ReplaceRefsBySrcTx(ctx, r.pool, srcID, ownerID, dstIDs)
+}
+
 func insertNewWikiRefs(
 	ctx context.Context, q *dbq.Queries,
 	srcUUID, ownerUUID pgtype.UUID, dstIDs []string,

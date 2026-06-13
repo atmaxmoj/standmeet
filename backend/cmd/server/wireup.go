@@ -57,7 +57,9 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		},
 		Login:    usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
 		Keypairs: usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log},
-		Corpus:   usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
+		Corpus: usecases.CorpusDeps{
+			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
+		},
 		Conversations: usecases.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 		},
@@ -115,7 +117,9 @@ func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
 func registerAgentSkills(d *runtimeDeps) {
 	visitor := buildPublicDeps(d).Visitor
 	usecases.RegisterAgentSkills(d.agentSkills, &visitor)
-	corpusDeps := usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo}
+	corpusDeps := usecases.CorpusDeps{
+		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
+	}
 	convsDeps := usecases.ConversationsDeps{
 		Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
 	}
@@ -209,6 +213,7 @@ func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
 		Deps: usecases.SEODeps{
 			Owners: d.ownerRepo, SEO: d.seoRepo,
 			Wiki: d.wikiRepo, Output: d.outputRepo,
+			WikiRefs: d.wikiRefRepo,
 		},
 		Sessions: d.visitorStore,
 		Log:      d.log,
@@ -243,7 +248,9 @@ func buildMCPDeps(d *runtimeDeps) mcp.Deps {
 		AgentSkills: d.agentSkills,
 		Keypairs:    usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log},
 		Owners:      d.ownerRepo,
-		Corpus:      usecases.CorpusDeps{Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo},
+		Corpus: usecases.CorpusDeps{
+			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
+		},
 		SEO:         d.seoRepo,
 		CustomPages: usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Jobs: jobsuc.JobsDeps{
