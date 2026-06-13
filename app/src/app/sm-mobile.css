@@ -9,7 +9,9 @@
  */
 
 /* ── viewport hardening ─────────────────────────────────────────── */
-html, body { overflow-x: hidden; }
+/* overflow-x: clip(不是 hidden)—— 一样挡横向溢出,但 clip 不建立滚动容器,所以
+   wiki reader 的 sticky toc 还能贴住视口(hidden 会让 body 变滚动容器,sticky 失效)。 */
+html, body { overflow-x: clip; }
 body { padding-bottom: env(safe-area-inset-bottom, 0); }
 
 /* ── session strip · stacks on phones, gauge wraps ──────────────── */

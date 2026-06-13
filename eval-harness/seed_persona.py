@@ -46,23 +46,57 @@ def scheme_path(uri):  # "wiki://profile/overview" -> ("wiki", "profile/overview
     return (uri[:i], uri[i + 3:]) if i >= 0 else ("wiki", uri)
 
 
+# PARENT_OF —— child uri -> parent uri,把扁平 corpus 组成真树(projects 归公司、
+# profile 子页归 "Who I am")。reader 侧栏靠 parent_id 才长出 caret/缩进。
+PARENT_OF = {
+    "wiki://profile/working-style": "wiki://profile/overview",
+    "wiki://profile/skills": "wiki://profile/overview",
+    "wiki://profile/education": "wiki://profile/overview",
+    "wiki://project/notification-pipeline": "wiki://work/orbit",
+    "wiki://project/order-reconciliation": "wiki://work/flowpay",
+    "wiki://lessons/double-charge-incident": "wiki://work/flowpay",
+    "wiki://project/slow-query-optimization": "wiki://work/acme-retail",
+}
+
+
+def _depth(uri):
+    d = 0
+    while uri in PARENT_OF:
+        uri = PARENT_OF[uri]
+        d += 1
+    return d
+
+
 def seed_corpus(b):
-    pub = priv = 0
+    priv = 0
+    public = []  # (uri, title, body, tags)
     for md in sorted(PERSONA.glob("corpus/**/*.md")):
         meta, body = split_frontmatter(md.read_text(encoding="utf-8"))
         uri = meta.get("uri", "")
         private = meta.get("visibility") == "private"
         title = meta.get("title", md.stem)
         tags = [t.strip(" []") for t in meta.get("tags", "").split(",") if t.strip(" []")]
-        dump = text_of(b.call("raw_dump", {"body": body, "source": "mcp:seed",
-                                           "tags": tags, "private": private}))
         if private:
+            b.call("raw_dump", {"body": body, "source": "mcp:seed",
+                                "tags": tags, "private": True})
             priv += 1
             continue
+        public.append((uri, title, body, tags))
+
+    # 父在子前(按 depth 排),promote 时直接带 parent_id —— 长出真树。
+    id_by_uri = {}
+    nested = 0
+    for uri, title, body, tags in sorted(public, key=lambda e: _depth(e[0])):
+        dump = text_of(b.call("raw_dump", {"body": body, "source": "mcp:seed",
+                                           "tags": tags, "private": False}))
         rid = (json.loads(dump).get("raw_id") if dump.strip().startswith("{") else "")
-        b.call("promote_to_wiki", {"raw_id": rid, "title": title, "body": body})
-        pub += 1
-    print(f"corpus: {pub} public → wiki, {priv} private (raw only)")
+        parent_id = id_by_uri.get(PARENT_OF.get(uri, ""), "")
+        nested += 1 if parent_id else 0
+        promo = text_of(b.call("promote_to_wiki", {
+            "raw_id": rid, "title": title, "body": body, "parent_id": parent_id}))
+        wid = (json.loads(promo).get("wiki_id") if promo.strip().startswith("{") else "")
+        id_by_uri[uri] = wid
+    print(f"corpus: {len(public)} public → wiki ({nested} nested), {priv} private (raw only)")
 
 
 def main():

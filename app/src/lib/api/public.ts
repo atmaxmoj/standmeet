@@ -260,6 +260,41 @@ export async function fetchWikiTree(parentID: string, token: string): Promise<Tr
   }
 }
 
+// WikiTreeFullNode —— 整棵展开的节点(自带 children)。reader 侧栏要一次画出
+// caret/缩进/当前高亮/计数,不走 LazyTree 的懒加载。
+export type WikiTreeFullNode = TreeNode & { children: WikiTreeFullNode[] };
+
+export type WikiTreeFull = {
+  nodes: WikiTreeFullNode[];
+  total: number;
+  roots: number;
+  gated: number;
+};
+
+// fetchWikiTreeFull —— 递归展开整棵公开 wiki 树 + 统计(entries/roots/gated)。
+// corpus 不大,SSR 一次拉完给 reader 侧栏;懒加载留给 admin 大树。坏层 → []。
+export async function fetchWikiTreeFull(): Promise<WikiTreeFull> {
+  const roots = await fetchWikiTree('', '');
+  const nodes = await Promise.all(roots.map(expandWikiNode));
+  const counts = { total: 0, gated: 0 };
+  countWikiNodes(nodes, counts);
+  return { nodes, total: counts.total, roots: roots.length, gated: counts.gated };
+}
+
+async function expandWikiNode(node: TreeNode): Promise<WikiTreeFullNode> {
+  const kids = node.has_children ? await fetchWikiTree(node.id, '') : [];
+  const children = await Promise.all(kids.map(expandWikiNode));
+  return { ...node, children };
+}
+
+function countWikiNodes(nodes: WikiTreeFullNode[], acc: { total: number; gated: number }): void {
+  for (const n of nodes) {
+    acc.total += 1;
+    acc.gated += n.locked ? 1 : 0;
+    countWikiNodes(n.children, acc);
+  }
+}
+
 // WritingTreeNode wire —— 后端 writing-tree 节点(slug + locked)。映射成中性
 // TreeNode 时 slug 装进 path(reader 导航 /writings/<slug>),复用 LazyTree。
 const WritingTreeNodeSchema = z.object({

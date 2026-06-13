@@ -13,13 +13,16 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { ChatMarkdown } from '@/components/page/markdown';
-import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
+import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
-import { WikiTreeAside } from '@/components/visitor/WikiTreeAside';
+import { WikiTopBar } from '@/components/visitor/WikiTopBar';
+import { WikiTreeView } from '@/components/visitor/WikiTreeView';
 import { fetchInstance } from '@/lib/api/instance';
-import { fetchWikiContext, fetchWikiLanding } from '@/lib/api/public';
+import {
+  fetchWikiContext, fetchWikiLanding, fetchWikiTreeFull, type WikiTreeFull,
+} from '@/lib/api/public';
 import type { TreeContext, TreeNode } from '@/lib/corpus/tree';
 
 import styles from '@/app/wiki/[...path]/wiki-landing.module.css';
@@ -47,44 +50,45 @@ export async function generateMetadata(
 export default async function WikiLandingPage({ params }: { params: Promise<Params> }) {
   const { path } = await params;
   const slug = path.join('/');
-  const wiki = await fetchWikiLanding(slug);
-  const instance = await fetchInstance();
-  const ctx = await fetchWikiContext(slug);
+  const [wiki, instance, ctx, tree] = await Promise.all([
+    fetchWikiLanding(slug), fetchInstance(), fetchWikiContext(slug), fetchWikiTreeFull(),
+  ]);
   return wiki
     ? <WikiLandingContent
         wiki={wiki} handle={instance.handle} ownerName={instance.name || instance.handle}
-        slug={slug} ctx={ctx} />
+        slug={slug} ctx={ctx} tree={tree} />
     : <RestrictedDoc genre="wiki" slug={slug} />;
 }
 
-function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
-  wiki: WikiEntry; handle: string; ownerName: string; slug: string; ctx: TreeContext;
+function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, tree }: {
+  wiki: WikiEntry; handle: string; ownerName: string; slug: string;
+  ctx: TreeContext; tree: WikiTreeFull;
 }) {
+  // 对齐设计 wiki.js:TopBar(全宽)→ SessionStrip(sticky)→ wiki-frame(全宽,左
+  // toc 贴左沿 + 分割线 + sticky 自滚 + 可拖宽,右正文 max-w 920 居中、body 680 /
+  // rails 760 再内收)。文档整体滚动 —— 长文一定够得到底;toc sticky 不跟文章动。
   return (
-    <>
+    <div>
+      <WikiTopBar handle={handle} />
       <SessionStrip />
-      <main className="pb-24" data-testid="wiki-landing">
-        <div className="mx-auto max-w-[1180px] px-6 pt-10 flex gap-12 items-start">
-          <div className="hidden lg:block">
-            <WikiTreeAside activePath={slug} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <Breadcrumb ancestors={ctx.ancestors} current={wiki.title} />
-            <OgCover entry={wiki} seed={slug} />
-            <MetaStrip entry={wiki} ownerName={ownerName} />
-            <article className="max-w-[680px] mt-2">
-              <WikiBody body={wiki.body} />
-            </article>
-            <div className="max-w-[760px]">
-              <SubEntriesRail nodes={ctx.children} />
-              <TrustBox handle={handle} />
-            </div>
+      <ReaderLayout mainTestId="wiki-landing" aside={<WikiTreeView tree={tree} activePath={slug} />}>
+        <div className="max-w-[920px] mx-auto pt-10 pb-24">
+          <Breadcrumb
+            ancestors={ctx.ancestors} current={wiki.title} updatedAt={wiki.updated_at}
+          />
+          <OgCover entry={wiki} seed={slug} />
+          <MetaStrip entry={wiki} ownerName={ownerName} />
+          <article className="max-w-[680px] mx-auto mt-2">
+            <WikiBody body={wiki.body} />
+          </article>
+          <div className="max-w-[760px] mx-auto">
+            <SubEntriesRail nodes={ctx.children} />
+            <TrustBox handle={handle} />
           </div>
         </div>
-        <AskAboutThis title={wiki.title} kind="wiki" />
-      </main>
+      </ReaderLayout>
       <FloatingChatDock docContext={{ title: wiki.title, path: slug, genre: 'wiki' }} />
-    </>
+    </div>
   );
 }
 
@@ -131,18 +135,28 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
   );
 }
 
-// Breadcrumb —— ← writing / wiki ▸ 祖先链 ▸ 当前条。祖先来自 context(scope
-// 过滤,gated 祖先不出现),每个可点回各自 landing;当前条纯文字。「← writing」
-// 替代旧「← home」,document 页统一返回 writing index(task #39)。
-function Breadcrumb({ ancestors, current }: { ancestors: TreeNode[]; current: string }) {
+// Breadcrumb —— ← wiki ▸ 祖先链 ▸ 当前条。祖先来自 context(scope 过滤,gated
+// 祖先不出现),每个可点回各自 landing;当前条纯文字。「← wiki」回 wiki 自己的
+// index —— 每种 document 返回自己那类(owner 要求),不再统一回 writing。
+function Breadcrumb({ ancestors, current, updatedAt }: {
+  ancestors: TreeNode[]; current: string; updatedAt: string;
+}) {
   return (
-    <nav className="smallcaps flex items-baseline gap-2 flex-wrap" data-testid="wiki-breadcrumb">
-      <Link href="/writings" className="text-(--color-muted) hover:text-(--color-ink)">← writing</Link>
-      <span className="text-(--color-faint)">/</span>
-      <span className="text-(--color-muted)">wiki</span>
-      {ancestors.map((a) => <Crumb key={a.id} node={a} />)}
-      <span className="text-(--color-faint)">▸</span>
-      <span className="text-(--color-ink)">{current}</span>
+    <nav
+      className="flex items-baseline justify-between gap-4 flex-wrap mb-6"
+      data-testid="wiki-breadcrumb"
+    >
+      <div className="smallcaps flex items-baseline gap-1.5 flex-wrap">
+        <Link href="/wiki" className="text-(--color-muted) hover:text-(--color-ink)">← wiki</Link>
+        {ancestors.map((a) => <Crumb key={a.id} node={a} />)}
+        <span className="text-(--color-faint)">▸</span>
+        <span className="font-serif italic text-[13px] normal-case tracking-normal text-(--color-ink)">
+          {current}
+        </span>
+      </div>
+      <span className="mono text-[10.5px] text-(--color-muted) tracking-[0.06em]">
+        {formatDate(updatedAt)}
+      </span>
     </nav>
   );
 }
@@ -151,7 +165,10 @@ function Crumb({ node }: { node: TreeNode }) {
   return (
     <>
       <span className="text-(--color-faint)">▸</span>
-      <Link href={`/wiki/${node.path}`} className="text-(--color-muted) hover:text-(--color-ink)">
+      <Link
+        href={`/wiki/${node.path}`}
+        className="font-serif italic text-[13px] normal-case tracking-normal text-(--color-muted) hover:text-(--color-ink)"
+      >
         {node.title}
       </Link>
     </>
