@@ -67,3 +67,31 @@ RETURNING *;
 
 -- 地址(path)是 induced：纯从 parent 链 + title slug 算（usecases.WikiTreePaths），
 -- 不存列、不可由 owner 自设。
+
+-- name: ListWikiChildren :many
+-- 懒加载一层:某节点的**直接子**(meta only,**不带 body**);$2 为 NULL = 根层。
+-- has_children 给 caller 判还能不能往下钻;翻页用 limit/offset。
+SELECT w.id, w.parent_id, w.title, w.seo_indexed,
+       EXISTS(SELECT 1 FROM wiki_entries c WHERE c.parent_id = w.id) AS has_children
+FROM wiki_entries w
+WHERE w.owner_id = $1
+  AND (($2::uuid IS NULL AND w.parent_id IS NULL) OR w.parent_id = $2)
+ORDER BY w.title ASC
+LIMIT $3 OFFSET $4;
+
+-- name: GetWikiMetaByID :one
+-- meta only(无 body):上溯算 path / 判 ACL 用,不为读正文。
+SELECT id, parent_id, title, seo_indexed
+FROM wiki_entries
+WHERE id = $1 AND owner_id = $2;
+
+-- name: SearchWikiByOwner :many
+-- 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
+SELECT id, parent_id, title, seo_indexed, left(body, 200) AS snippet
+FROM wiki_entries
+WHERE owner_id = $1
+  AND to_tsvector('english',
+        title || ' ' || body || ' ' || array_to_string(tags, ' '))
+      @@ plainto_tsquery('english', $2)
+ORDER BY updated_at DESC
+LIMIT $3 OFFSET $4;

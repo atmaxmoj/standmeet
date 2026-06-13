@@ -177,6 +177,37 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 	return i, err
 }
 
+const getWikiMetaByID = `-- name: GetWikiMetaByID :one
+SELECT id, parent_id, title, seo_indexed
+FROM wiki_entries
+WHERE id = $1 AND owner_id = $2
+`
+
+type GetWikiMetaByIDParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+type GetWikiMetaByIDRow struct {
+	ID         pgtype.UUID
+	ParentID   pgtype.UUID
+	Title      string
+	SeoIndexed bool
+}
+
+// meta only(无 body):上溯算 path / 判 ACL 用,不为读正文。
+func (q *Queries) GetWikiMetaByID(ctx context.Context, arg GetWikiMetaByIDParams) (GetWikiMetaByIDRow, error) {
+	row := q.db.QueryRow(ctx, getWikiMetaByID, arg.ID, arg.OwnerID)
+	var i GetWikiMetaByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.Title,
+		&i.SeoIndexed,
+	)
+	return i, err
+}
+
 const listRawByOwner = `-- name: ListRawByOwner :many
 SELECT id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at FROM raw_entries
 WHERE owner_id = $1 AND archived = false
@@ -265,6 +296,67 @@ func (q *Queries) ListWikiByOwner(ctx context.Context, arg ListWikiByOwnerParams
 	return items, nil
 }
 
+const listWikiChildren = `-- name: ListWikiChildren :many
+
+SELECT w.id, w.parent_id, w.title, w.seo_indexed,
+       EXISTS(SELECT 1 FROM wiki_entries c WHERE c.parent_id = w.id) AS has_children
+FROM wiki_entries w
+WHERE w.owner_id = $1
+  AND (($2::uuid IS NULL AND w.parent_id IS NULL) OR w.parent_id = $2)
+ORDER BY w.title ASC
+LIMIT $3 OFFSET $4
+`
+
+type ListWikiChildrenParams struct {
+	OwnerID pgtype.UUID
+	Column2 pgtype.UUID
+	Limit   int32
+	Offset  int32
+}
+
+type ListWikiChildrenRow struct {
+	ID          pgtype.UUID
+	ParentID    pgtype.UUID
+	Title       string
+	SeoIndexed  bool
+	HasChildren bool
+}
+
+// 地址(path)是 induced：纯从 parent 链 + title slug 算（usecases.WikiTreePaths），
+// 不存列、不可由 owner 自设。
+// 懒加载一层:某节点的**直接子**(meta only,**不带 body**);$2 为 NULL = 根层。
+// has_children 给 caller 判还能不能往下钻;翻页用 limit/offset。
+func (q *Queries) ListWikiChildren(ctx context.Context, arg ListWikiChildrenParams) ([]ListWikiChildrenRow, error) {
+	rows, err := q.db.Query(ctx, listWikiChildren,
+		arg.OwnerID,
+		arg.Column2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListWikiChildrenRow
+	for rows.Next() {
+		var i ListWikiChildrenRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Title,
+			&i.SeoIndexed,
+			&i.HasChildren,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markRawPromoted = `-- name: MarkRawPromoted :exec
 UPDATE raw_entries SET promoted_to = $3 WHERE id = $1 AND owner_id = $2
 `
@@ -278,6 +370,64 @@ type MarkRawPromotedParams struct {
 func (q *Queries) MarkRawPromoted(ctx context.Context, arg MarkRawPromotedParams) error {
 	_, err := q.db.Exec(ctx, markRawPromoted, arg.ID, arg.OwnerID, arg.PromotedTo)
 	return err
+}
+
+const searchWikiByOwner = `-- name: SearchWikiByOwner :many
+SELECT id, parent_id, title, seo_indexed, left(body, 200) AS snippet
+FROM wiki_entries
+WHERE owner_id = $1
+  AND to_tsvector('english',
+        title || ' ' || body || ' ' || array_to_string(tags, ' '))
+      @@ plainto_tsquery('english', $2)
+ORDER BY updated_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type SearchWikiByOwnerParams struct {
+	OwnerID        pgtype.UUID
+	PlaintoTsquery string
+	Limit          int32
+	Offset         int32
+}
+
+type SearchWikiByOwnerRow struct {
+	ID         pgtype.UUID
+	ParentID   pgtype.UUID
+	Title      string
+	SeoIndexed bool
+	Snippet    string
+}
+
+// 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
+func (q *Queries) SearchWikiByOwner(ctx context.Context, arg SearchWikiByOwnerParams) ([]SearchWikiByOwnerRow, error) {
+	rows, err := q.db.Query(ctx, searchWikiByOwner,
+		arg.OwnerID,
+		arg.PlaintoTsquery,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchWikiByOwnerRow
+	for rows.Next() {
+		var i SearchWikiByOwnerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Title,
+			&i.SeoIndexed,
+			&i.Snippet,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setRawTags = `-- name: SetRawTags :exec
