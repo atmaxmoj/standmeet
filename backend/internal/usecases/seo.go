@@ -60,32 +60,44 @@ func PublicReady(ctx context.Context, deps SEODeps) (domain.Owner, bool) {
 	return owner, true
 }
 
-// GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 seo_indexed=true）。
-// 地址纯树派生:load 全树算 id→path,匹配请求 path 且 indexed 的那条。
+// WikiLanding —— landing 查询结果:wiki 实体 + 渲染好的 body(Obsidian `[[Title]]`
+// 已 rewrite 成 /wiki/<path> 链接)。
+type WikiLanding struct {
+	Body string
+	Wiki domain.Wiki
+}
+
+// GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 seo_indexed=true）+
+// 渲染好的 body。地址纯树派生:一次 load 全树,既定位目标条,又建 title→path 索引给
+// 双链解析用。
 func GetWikiLanding(
 	ctx context.Context, deps SEODeps, path string,
-) (domain.Wiki, error) {
+) (WikiLanding, error) {
 	if path == "" {
-		return domain.Wiki{}, domain.ErrWikiNotFound
+		return WikiLanding{}, domain.ErrWikiNotFound
 	}
 	owner, ok := FirstOwner(ctx, deps)
 	if !ok {
-		return domain.Wiki{}, domain.ErrOwnerNotFound
+		return WikiLanding{}, domain.ErrOwnerNotFound
 	}
 	wikis, err := deps.Wiki.ListByOwner(ctx, owner.ID, maxRAGWikis)
 	if err != nil {
-		return domain.Wiki{}, fmt.Errorf("list wiki: %w", err)
+		return WikiLanding{}, fmt.Errorf("list wiki: %w", err)
 	}
-	w, found := findIndexedWiki(wikis, path)
+	paths := WikiTreePaths(wikis)
+	w, found := pickIndexedWiki(wikis, paths, path)
 	if !found {
-		return domain.Wiki{}, domain.ErrWikiNotFound
+		return WikiLanding{}, domain.ErrWikiNotFound
 	}
-	return w, nil
+	body := RewriteWikiCrossLinksForRender(w.Body(), WikiPathTitleIndex(wikis, paths))
+	return WikiLanding{Wiki: w, Body: body}, nil
 }
 
-// findIndexedWiki —— 全树里挑 indexed 且树派生 path 命中那条。
-func findIndexedWiki(wikis []domain.Wiki, path string) (domain.Wiki, bool) {
-	paths := WikiTreePaths(wikis)
+// pickIndexedWiki —— 全树 + 已算好的派生 path 里挑 indexed 且 path 命中那条
+// (不重算 paths,给 GetWikiLanding 复用同一份)。
+func pickIndexedWiki(
+	wikis []domain.Wiki, paths map[string]string, path string,
+) (domain.Wiki, bool) {
 	for i := range wikis {
 		if wikis[i].SEOIndexed() && paths[wikis[i].ID()] == path {
 			return wikis[i], true

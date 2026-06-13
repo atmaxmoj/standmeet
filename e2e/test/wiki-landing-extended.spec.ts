@@ -176,6 +176,15 @@ test.describe('wiki landing extended cases', () => {
       await expect(tree).toContainText(childTitle); // 当前条祖先自动展开 → 子条可见
       await expect(tree.getByTestId(`wiki-tree-row-${childPath}`)).toBeVisible();
     });
+
+  // owner: Obsidian 双链 —— body 里 [[Title]] 渲染成可点的 /wiki/<path> 链接。
+  test('a [[Title]] wikilink in a wiki body renders as a clickable /wiki link',
+    async ({ request, page }) => {
+      const { srcPath, dstPath, dstTitle } = await seedLinkedWikis(request);
+      await goto(page, `/wiki/${srcPath}`);
+      const link = page.getByTestId('wiki-body').getByRole('link', { name: dstTitle });
+      await expect(link).toHaveAttribute('href', `/wiki/${dstPath}`, { timeout: 5_000 });
+    });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {
@@ -263,4 +272,37 @@ async function discoverWikiPath(
   const res = await request.get(`${BACKEND}/api/v1/wiki-tree?parent=${parentID}`);
   const body = await res.json() as { nodes: Array<{ id: string; path: string }> };
   return body.nodes.find((n) => n.id === childID)?.path ?? '';
+}
+
+// seedLinkedWikis —— dst(目标)+ src(body 里写 [[dstTitle]]),都 seo_indexed。
+async function seedLinkedWikis(request: APIRequestContext): Promise<{
+  srcPath: string; dstPath: string; dstTitle: string;
+}> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'wiki-link-seed');
+  const sid = await initMCP(request, token);
+  const dstTitle = 'Link Target Entry';
+  const { wikiID: dstID } = await seedPublicWiki(request, token, sid, {
+    body: 'Target body.', title: dstTitle,
+  });
+  const { wikiID: srcID } = await seedPublicWiki(request, token, sid, {
+    body: `This links to [[${dstTitle}]] in the corpus.`, title: 'Link Source Entry',
+  });
+  for (const id of [dstID, srcID]) {
+    await callTool(request, token, sid, 'seo.set_wiki_seo', {
+      wiki_id: id, seo_description: '', seo_indexed: true,
+    });
+  }
+  return {
+    srcPath: await discoverRootPath(request, srcID),
+    dstPath: await discoverRootPath(request, dstID),
+    dstTitle,
+  };
+}
+
+// discoverRootPath —— 公开 wiki-tree 根层里按 id 拿树派生 path。
+async function discoverRootPath(request: APIRequestContext, wikiID: string): Promise<string> {
+  const res = await request.get(`${BACKEND}/api/v1/wiki-tree`);
+  const body = await res.json() as { nodes: Array<{ id: string; path: string }> };
+  return body.nodes.find((n) => n.id === wikiID)?.path ?? '';
 }

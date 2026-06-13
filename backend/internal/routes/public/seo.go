@@ -159,17 +159,17 @@ type wikiLandingView struct {
 func loadWikiLandingView(
 	ctx context.Context, deps usecases.SEODeps, slug string,
 ) (wikiLandingView, error) {
-	wiki, err := usecases.GetWikiLanding(ctx, deps, slug)
+	res, err := usecases.GetWikiLanding(ctx, deps, slug)
 	if err != nil {
 		return wikiLandingView{}, err
 	}
 	return wikiLandingView{
 		Path:           slug,
-		Title:          wiki.Title(),
-		Body:           wiki.Body(),
-		SEODescription: wiki.SEODescription(),
-		UpdatedAt:      wiki.UpdatedAt().UTC().Format(time.RFC3339),
-		Tags:           wiki.Tags(),
+		Title:          res.Wiki.Title(),
+		Body:           res.Body,
+		SEODescription: res.Wiki.SEODescription(),
+		UpdatedAt:      res.Wiki.UpdatedAt().UTC().Format(time.RFC3339),
+		Tags:           res.Wiki.Tags(),
 	}, nil
 }
 
