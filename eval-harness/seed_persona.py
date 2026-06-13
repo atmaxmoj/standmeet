@@ -83,6 +83,18 @@ PARENT_OF = {
     "wiki://thinking/correctness": "wiki://thinking",
     "wiki://thinking/boring-tech": "wiki://thinking",
     "wiki://thinking/being-mid": "wiki://thinking",
+    # knowledge 新根:项目里学到的可迁移知识,各自回链项目(W2 一开就 project↔knowledge 互联)
+    "wiki://knowledge/rate-limiting": "wiki://knowledge",
+    "wiki://knowledge/idempotency": "wiki://knowledge",
+    "wiki://knowledge/delivery-semantics": "wiki://knowledge",
+    "wiki://knowledge/retries-backoff": "wiki://knowledge",
+    "wiki://knowledge/cache-invalidation": "wiki://knowledge",
+    "wiki://knowledge/reconciliation": "wiki://knowledge",
+    "wiki://knowledge/shadow-mode": "wiki://knowledge",
+    "wiki://knowledge/isolation-levels": "wiki://knowledge",
+    "wiki://knowledge/distributed-locks": "wiki://knowledge",
+    "wiki://knowledge/backpressure": "wiki://knowledge",
+    "wiki://knowledge/eventual-consistency": "wiki://knowledge",
 }
 
 
