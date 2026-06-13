@@ -56,6 +56,14 @@ PARENT_OF = {
     "wiki://profile/looking-next": "wiki://profile/overview",
     # 公司下挂项目/事故(3 层:work > company > project)
     "wiki://project/notification-pipeline": "wiki://work/orbit",
+    # 旗舰深项目:notification-pipeline 自己再展开一棵(到 4 层 lua-script)
+    "wiki://project/notification-pipeline/fan-out": "wiki://project/notification-pipeline",
+    "wiki://project/notification-pipeline/rate-limiting": "wiki://project/notification-pipeline",
+    "wiki://project/notification-pipeline/rate-limiting/lua-script":
+        "wiki://project/notification-pipeline/rate-limiting",
+    "wiki://project/notification-pipeline/dedup": "wiki://project/notification-pipeline",
+    "wiki://project/notification-pipeline/dead-letter": "wiki://project/notification-pipeline",
+    "wiki://project/notification-pipeline/rollout": "wiki://project/notification-pipeline",
     "wiki://work/orbit/event-bus": "wiki://work/orbit",
     "wiki://work/orbit/oncall": "wiki://work/orbit",
     "wiki://work/orbit/feature-flags": "wiki://work/orbit",
