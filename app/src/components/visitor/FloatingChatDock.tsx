@@ -1,10 +1,12 @@
 // FloatingChatDock —— visitor 可以从 blog/wiki/output 任意 surface 不离页
 // 直接 chat。collapsed = 右下角 pill 按钮；expanded = 浮动面板（input +
-// transcript），同步同一 visitor-session（zustand store + 持久 conversation_id）。
+// transcript）。
 //
-// 跟 PageShell 上的 inline Hero/AskInput 共用 useChat hook —— 同
-// session_token 同 conversation_id；server 看是同一个会话。owner 在
-// /admin/conversations 看 transcript 也是同一行。
+// 多对话模型:浮窗复用 useChat hook 但带 docContext,useChat 据此 lazy 解析
+// 该 member 在这篇 doc 上**自己那段** conversation(POST /conversations,跟主
+// 聊天独立),transcript 不串。member(名字)+ turn 配额共享;「互通」靠后端把该
+// member 全部对话注进 instruction,所以这段答得出别处聊过的事。owner 在
+// /admin/conversations 看到的是该 member 名下多段对话(各占一行)。
 //
 // 设计意图（memory: visitor-chat-everywhere）：持 code 的 visitor 在
 // blog/wiki/output 看完文章想"继续问"不必跳回 `/`。AskAboutThis starter
@@ -166,8 +168,8 @@ function FloatingTranscript({ dialogs, pending, onAsk }: {
 function EmptyHint() {
   return (
     <p className="sm-floating-chat-empty">
-      Ask a follow-up — answered in the owner&rsquo;s voice, grounded in the
-      corpus. Same session as the main chat.
+      Ask about this page — answered in the owner&rsquo;s voice, grounded in the
+      corpus. A separate thread, but the AI still sees your other conversations.
     </p>
   );
 }
