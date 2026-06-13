@@ -12,10 +12,10 @@ the lock has to live somewhere shared. The options I've used or weighed:
   express the whole critical section as one atomic step, you don't need a lock at
   all. A Redis Lua script runs atomically; that's how I made the rate-limiter's
   check-and-decrement safe (see
-  wiki://project/notification-pipeline/rate-limiting/lua-script).
+  [[The atomic check-and-decrement, line by line]]).
 - **A database row lock** (`SELECT … FOR UPDATE`) — correct and durable, scoped to a
   transaction. My default when the state is already in Postgres (see
-  wiki://knowledge/isolation-levels).
+  [[Database isolation levels, where they bite]]).
 - **A Redis lock (SET NX with TTL)** — simple, but the TTL/renewal and failure modes
   are genuinely tricky; I'm wary of rolling my own and treat it as the option I'd
   reach for last.

@@ -15,7 +15,7 @@ I've enjoyed most. I want code review that pushes me, real ownership of a servic
 or two, and on-call that's humane.
 
 What I'm moving away from: I took the Orbit job partly for stability after a
-layoff (see wiki://work/flowpay) and I've realized I traded away some growth. I'd
+layoff (see [[FlowPay — Backend Engineer (2021–2023)]]) and I've realized I traded away some growth. I'd
 rather be a little uncomfortable and learning.
 
 What I'm honest about: I'm mid-level. I execute well and I'm reliable, but I'm not

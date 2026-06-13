@@ -14,7 +14,7 @@ The naive version — GET the count, check it, SET it back — has an obvious ra
 workers read the same value and both decide they're under the limit. With a pool of
 workers that race fires constantly. The fix is making the check-and-decrement
 atomic, which is where the Lua script comes in (see
-wiki://project/notification-pipeline/rate-limiting/lua-script).
+[[The atomic check-and-decrement, line by line]]).
 
 Tuning the numbers was its own thing. Too tight and legitimate bursts get throttled
 and customers complain they "missed" a notification; too loose and the limiter

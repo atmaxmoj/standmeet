@@ -12,11 +12,11 @@ and diff its would-be output against the old system's actual output until the on
 differences are ones you can explain.
 
 I used this twice: migrating notification workers onto a new event bus (see
-wiki://work/orbit/event-bus) and rolling out the rewritten notification pipeline
-(see wiki://project/notification-pipeline/rollout). In both, the diff caught subtle
+[[Moving notifications onto the event bus (Orbit)]]) and rolling out the rewritten notification pipeline
+(see [[Rolling it out without spamming anyone]]). In both, the diff caught subtle
 bugs — an ordering issue, a dedup that was actually correct where the old behavior
 was wrong — that I'd never have found by reasoning.
 
-It pairs naturally with feature flags (see wiki://work/orbit/feature-flags): shadow
+It pairs naturally with feature flags (see [[Shipping behind feature flags (Orbit)]]): shadow
 first to build confidence, then flag the real action on gradually. It's the single
 practice I'd most want to bring to a new team.

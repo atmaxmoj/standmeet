@@ -9,7 +9,7 @@ The scary part of replacing a notification system is that the failure mode is
 *visible to customers* — either silence (they miss something) or a flood (you spam
 them). You don't get to quietly roll back a thousand emails you already sent.
 
-So I rolled it out behind a flag (see wiki://work/orbit/feature-flags), and I ran
+So I rolled it out behind a flag (see [[Shipping behind feature flags (Orbit)]]), and I ran
 the new pipeline in shadow mode first: it did all the work — fan-out, rate-limit,
 dedup — but instead of actually sending, it logged what it *would* have sent. I
 diffed that against what the old system actually sent for a couple of weeks, until

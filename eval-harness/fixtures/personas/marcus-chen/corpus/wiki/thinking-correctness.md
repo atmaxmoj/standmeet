@@ -12,7 +12,7 @@ because the clever one fails in ways nobody predicted at 2am.
 In practice this means I write the boring explicit version first, I lean hard on
 types and tests to make wrong states unrepresentable, and I'm suspicious of code
 that's impressive to read. The double-charge incident (see
-wiki://lessons/double-charge-incident) was a clever-ish retry that was wrong in one
+[[The double-charge incident (FlowPay)]]) was a clever-ish retry that was wrong in one
 path, and it cost real money and trust.
 
 I'm not dogmatic — cleverness has its place in hot paths and genuine constraints.

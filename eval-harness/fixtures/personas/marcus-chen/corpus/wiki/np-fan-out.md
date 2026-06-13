@@ -19,5 +19,5 @@ lot" summary and log it.
 I batch where the channel allows it — email and Slack take batches, webhooks
 mostly don't. The cap was the important part; it's a blast-radius limit. We added
 it after an early incident where a customer's bad config turned one webhook loop
-into a few thousand emails (see wiki://project/notification-pipeline). Caps are
+into a few thousand emails (see [[Notification Pipeline (Orbit)]]). Caps are
 boring, and they're the thing that lets me sleep.

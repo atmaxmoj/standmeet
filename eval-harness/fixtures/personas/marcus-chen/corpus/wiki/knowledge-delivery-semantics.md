@@ -17,8 +17,8 @@ is what most real systems give you, including the queues I worked with.
 **"Exactly-once"** — what everyone wants. In practice you get at-least-once
 delivery plus idempotent processing on the consumer, which together *behave* like
 exactly-once. The dedup step in the notification pipeline (see
-wiki://project/notification-pipeline/dedup) and idempotency keys (see
-wiki://knowledge/idempotency) are exactly this trick — assume duplicates will
+[[Dedup — the same event twice]]) and idempotency keys (see
+[[Idempotency, as a pattern]]) are exactly this trick — assume duplicates will
 happen and make them harmless.
 
 Where I'm fuzzy: the deep guarantees of specific brokers (Kafka's exactly-once

@@ -5,7 +5,7 @@ kind: wiki
 tags: [work-experience, orbit, kafka, events, golang]
 ---
 
-When I joined Orbit the notification pipeline (see wiki://work/orbit) consumed a
+When I joined Orbit the notification pipeline (see [[Orbit — Backend Engineer (2023–present)]]) consumed a
 single Redis stream. That was fine until two more teams wanted the same events —
 billing wanted "integration failing", analytics wanted everything. Fanning out
 from one consumer group got messy.

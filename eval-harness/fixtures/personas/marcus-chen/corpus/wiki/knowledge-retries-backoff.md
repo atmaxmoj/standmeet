@@ -15,9 +15,9 @@ everyone retries at once and hammers the recovering service. The pattern I use:
 - **A dead-letter queue** — park permanent failures somewhere so they're not lost
   and can be inspected or replayed.
 
-I built this for webhook delivery at FlowPay (see wiki://work/flowpay/webhooks) and
+I built this for webhook delivery at FlowPay (see [[Webhook delivery and retries (FlowPay)]]) and
 again in the notification pipeline. The part I consistently underrate is the DLQ
 operational story — parking failures is easy, actually monitoring and replaying
 them is the work, and it's the bit I left half-done (see
-wiki://project/notification-pipeline/dead-letter). Retries also assume the
-operation is safe to repeat (see wiki://knowledge/idempotency).
+[[Dead-letter handling (the part I keep meaning to fix)]]). Retries also assume the
+operation is safe to repeat (see [[Idempotency, as a pattern]]).

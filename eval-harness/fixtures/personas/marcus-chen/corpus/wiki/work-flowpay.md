@@ -11,7 +11,7 @@ actually matters" feels like, because every bug was potentially money moving the
 wrong way.
 
 I was on the ledger and reconciliation team. My biggest piece of work was the
-payment reconciliation pipeline (see wiki://project/order-reconciliation) — the
+payment reconciliation pipeline (see [[Payment Reconciliation Pipeline (FlowPay)]]) — the
 system that matched our internal ledger against what the payment processors
 (Stripe, Adyen) said actually happened, and flagged the mismatches. Before it,
 reconciliation was a finance person with a giant spreadsheet.

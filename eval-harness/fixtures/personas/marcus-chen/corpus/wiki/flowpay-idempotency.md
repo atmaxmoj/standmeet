@@ -18,5 +18,5 @@ short lock), what's the TTL (we kept keys 24h).
 
 It's invisible when it works and a disaster when it doesn't — a missing idempotency
 key was the root cause of the double-charge incident (see
-wiki://lessons/double-charge-incident). I now add idempotency to any non-trivial
+[[The double-charge incident (FlowPay)]]). I now add idempotency to any non-trivial
 write API by default, even outside payments.

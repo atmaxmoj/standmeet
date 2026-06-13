@@ -11,7 +11,7 @@ an ORM crutch, read an EXPLAIN ANALYZE and act on it, and pick indexes that
 actually help.
 
 Things I've done in real work: fixed slow queries by understanding the plan (see
-wiki://project/slow-query-optimization), used transactions and the right isolation
+[[The Checkout Slowdown — a performance investigation (ACME)]]), used transactions and the right isolation
 level to avoid race conditions, added partial and composite indexes, and used
 SKIP LOCKED for a simple job queue.
 

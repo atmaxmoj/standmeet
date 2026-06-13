@@ -16,7 +16,7 @@ manual script I wrote that I run by hand, and it doesn't have great guardrails
 against replaying something twice.
 
 I know what good looks like here — an alert on dead-letter growth, a proper replay
-tool with idempotency (see wiki://work/flowpay/idempotency), maybe a per-customer
+tool with idempotency (see [[Idempotency keys, and why I reach for them now]]), maybe a per-customer
 "you have undelivered notifications" surface. I've written the ticket twice and it
 keeps losing to feature work. I'm including it because the honest version of a
 project includes the part you haven't gotten to, and this is mine.

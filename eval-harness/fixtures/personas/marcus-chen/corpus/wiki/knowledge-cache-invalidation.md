@@ -18,7 +18,7 @@ strategies I've actually used or weighed:
 I learned the hard way that the danger is data that changes through a path you
 didn't account for — I cached a product but its price changed via a different
 service, so my event-based invalidation missed it and the TTL was the only thing
-saving me (see wiki://work/acme-retail/cache-invalidation). Now my first question is
+saving me (see [[A caching bug that taught me invalidation (ACME)]]). Now my first question is
 "every way this can change?", and I keep a sane TTL as a backstop even with event
 invalidation. It's really a special case of eventual consistency (see
-wiki://knowledge/eventual-consistency).
+[[Eventual consistency, in practice]]).

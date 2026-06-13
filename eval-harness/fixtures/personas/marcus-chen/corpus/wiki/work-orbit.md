@@ -14,7 +14,7 @@ third-party systems — Salesforce, HubSpot, NetSuite, a dozen others. It's Go f
 the core sync engine, some Python for the data-transform scripts, Postgres,
 Redis, and a fair amount of "this vendor's API is undocumented and rate-limits
 us randomly" detective work. I also built our notification pipeline (see
-wiki://project/notification-pipeline).
+[[Notification Pipeline (Orbit)]]).
 
 Honest assessment of this job: it's comfortable and I'm good at it, but I've
 plateaued. The work is more about gluing APIs together and handling edge cases

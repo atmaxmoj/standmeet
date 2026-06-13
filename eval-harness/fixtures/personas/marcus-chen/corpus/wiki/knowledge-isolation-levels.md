@@ -19,8 +19,8 @@ and which ones I've actually hit:
 Where this got real: read-then-write logic (check a balance, then update it) under
 concurrency. The naive version has a race that Read Committed won't save you from —
 you either bump the isolation level and handle serialization-failure retries, or you
-use explicit locking (`SELECT … FOR UPDATE`, see wiki://knowledge/distributed-locks).
+use explicit locking (`SELECT … FOR UPDATE`, see [[Distributed locks and atomic operations]]).
 I reached for these during reconciliation work (see
-wiki://project/order-reconciliation), and it's the Postgres knowledge (see
-wiki://profile/skills/postgres) I'm proudest of actually understanding rather than
+[[Payment Reconciliation Pipeline (FlowPay)]]), and it's the Postgres knowledge (see
+[[Postgres, what I actually use]]) I'm proudest of actually understanding rather than
 cargo-culting.
