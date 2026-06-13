@@ -49,13 +49,32 @@ def scheme_path(uri):  # "wiki://profile/overview" -> ("wiki", "profile/overview
 # PARENT_OF —— child uri -> parent uri,把扁平 corpus 组成真树(projects 归公司、
 # profile 子页归 "Who I am")。reader 侧栏靠 parent_id 才长出 caret/缩进。
 PARENT_OF = {
+    # profile/overview ("Who I am") 下挂自我介绍类
     "wiki://profile/working-style": "wiki://profile/overview",
     "wiki://profile/skills": "wiki://profile/overview",
     "wiki://profile/education": "wiki://profile/overview",
+    "wiki://profile/looking-next": "wiki://profile/overview",
+    # 公司下挂项目/事故(3 层:work > company > project)
     "wiki://project/notification-pipeline": "wiki://work/orbit",
+    "wiki://work/orbit/event-bus": "wiki://work/orbit",
+    "wiki://work/orbit/oncall": "wiki://work/orbit",
+    "wiki://work/orbit/feature-flags": "wiki://work/orbit",
     "wiki://project/order-reconciliation": "wiki://work/flowpay",
     "wiki://lessons/double-charge-incident": "wiki://work/flowpay",
+    "wiki://work/flowpay/idempotency": "wiki://work/flowpay",
+    "wiki://work/flowpay/webhooks": "wiki://work/flowpay",
     "wiki://project/slow-query-optimization": "wiki://work/acme-retail",
+    "wiki://work/acme-retail/inventory-sync": "wiki://work/acme-retail",
+    "wiki://work/acme-retail/cache-invalidation": "wiki://work/acme-retail",
+    # skills 自己成一棵(4 层:profile/overview > skills > go/postgres/...)
+    "wiki://profile/skills/go": "wiki://profile/skills",
+    "wiki://profile/skills/postgres": "wiki://profile/skills",
+    "wiki://profile/skills/debugging": "wiki://profile/skills",
+    "wiki://profile/skills/kubernetes": "wiki://profile/skills",
+    # thinking 是新根,下挂 essays
+    "wiki://thinking/correctness": "wiki://thinking",
+    "wiki://thinking/boring-tech": "wiki://thinking",
+    "wiki://thinking/being-mid": "wiki://thinking",
 }
 
 
