@@ -136,13 +136,7 @@ test.describe('wiki landing extended cases', () => {
       // 分割线(把手)全高:撑满文章,比 toc 内容高得多 —— 竖线不能只画到 toc 底。
       const handleBox = await page.getByTestId('wiki-toc-resize').boundingBox();
       expect(handleBox?.height ?? 0).toBeGreaterThan(box?.height ?? 0);
-      const tree = page.getByTestId('wiki-tree');
-      await expect(tree).toContainText('wiki tree');
-      await expect(tree).toContainText('toggle all');
-      const stats = page.getByTestId('wiki-tree-stats');
-      await expect(stats).toContainText('entries');
-      await expect(stats).toContainText('roots');
-      await expect(stats).toContainText('gated');
+      await expect(page.getByTestId('wiki-tree')).toContainText('wiki tree');
     });
 
   // owner: 有 code 会话 → strip 显示 invited(不是 anonymous)+ ask dock 渲染。
@@ -173,8 +167,9 @@ test.describe('wiki landing extended cases', () => {
       await goto(page, `/wiki/${childPath}`);
       const tree = page.getByTestId('wiki-tree');
       await expect(tree).toContainText(parentTitle, { timeout: 5_000 });
-      await expect(tree).toContainText(childTitle); // 当前条祖先自动展开 → 子条可见
-      await expect(tree.getByTestId(`wiki-tree-row-${childPath}`)).toBeVisible();
+      // 懒加载 + openPaths(当前条前缀)自动展开到当前 → 子条这层被取、可见。
+      await expect(tree.getByTestId(`tree-node-${childPath}`)).toBeVisible({ timeout: 5_000 });
+      await expect(tree).toContainText(childTitle);
     });
 
   // owner: Obsidian 双链 —— body 里 [[Title]] 渲染成可点的 /wiki/<path> 链接。

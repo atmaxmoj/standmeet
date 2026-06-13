@@ -20,9 +20,7 @@ import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { WikiTopBar } from '@/components/visitor/WikiTopBar';
 import { WikiTreeView } from '@/components/visitor/WikiTreeView';
 import { fetchInstance } from '@/lib/api/instance';
-import {
-  fetchWikiContext, fetchWikiLanding, fetchWikiTreeFull, type WikiTreeFull,
-} from '@/lib/api/public';
+import { fetchWikiContext, fetchWikiLanding } from '@/lib/api/public';
 import type { TreeContext, TreeNode } from '@/lib/corpus/tree';
 
 import styles from '@/app/wiki/[...path]/wiki-landing.module.css';
@@ -50,19 +48,18 @@ export async function generateMetadata(
 export default async function WikiLandingPage({ params }: { params: Promise<Params> }) {
   const { path } = await params;
   const slug = path.join('/');
-  const [wiki, instance, ctx, tree] = await Promise.all([
-    fetchWikiLanding(slug), fetchInstance(), fetchWikiContext(slug), fetchWikiTreeFull(),
+  const [wiki, instance, ctx] = await Promise.all([
+    fetchWikiLanding(slug), fetchInstance(), fetchWikiContext(slug),
   ]);
   return wiki
     ? <WikiLandingContent
         wiki={wiki} handle={instance.handle} ownerName={instance.name || instance.handle}
-        slug={slug} ctx={ctx} tree={tree} />
+        slug={slug} ctx={ctx} />
     : <RestrictedDoc genre="wiki" slug={slug} />;
 }
 
-function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, tree }: {
-  wiki: WikiEntry; handle: string; ownerName: string; slug: string;
-  ctx: TreeContext; tree: WikiTreeFull;
+function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
+  wiki: WikiEntry; handle: string; ownerName: string; slug: string; ctx: TreeContext;
 }) {
   // 对齐设计 wiki.js:TopBar(全宽)→ SessionStrip(sticky)→ wiki-frame(全宽,左
   // toc 贴左沿 + 分割线 + sticky 自滚 + 可拖宽,右正文 max-w 920 居中、body 680 /
@@ -71,7 +68,7 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, tree }: {
     <div>
       <WikiTopBar handle={handle} />
       <SessionStrip />
-      <ReaderLayout mainTestId="wiki-landing" aside={<WikiTreeView tree={tree} activePath={slug} />}>
+      <ReaderLayout mainTestId="wiki-landing" aside={<WikiTreeView activePath={slug} />}>
         <div className="max-w-[920px] mx-auto pt-10 pb-24">
           <Breadcrumb
             ancestors={ctx.ancestors} current={wiki.title} updatedAt={wiki.updated_at}

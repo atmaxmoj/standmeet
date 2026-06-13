@@ -139,24 +139,26 @@ test.describe('公开 wiki 树端点:懒加载一层 + ACL 过滤', () => {
   test('breadcrumb:lucerna landing 顶部显示祖先 Thinking(可点)', breadcrumbShowsAncestor);
 });
 
-// sidebarLazyExpand —— 默认合上 + 点开才取那层(懒加载,不预取整树)。
+// sidebarLazyExpand —— 非当前路径的节点默认合上 + 点开才取那层(懒加载,不预取
+// 整树)。落在 /wiki/essays:Essays 是当前条(自动展开,但无子),Thinking 不在当前
+// 路径上 → 默认合上,验它的子是点 ▸ 才懒取的。
 async function sidebarLazyExpand({ page }: { page: Page }): Promise<void> {
   const treeReqs: string[] = [];
   page.on('request', (r) => {
     if (r.url().includes('/api/v1/wiki-tree')) treeReqs.push(r.url());
   });
-  await goto(page, '/wiki/thinking');
+  await goto(page, '/wiki/essays');
   await expect(page.getByTestId('wiki-tree')).toBeVisible({ timeout: 5_000 });
-  // roots 出现;Thinking 的子(Lucerna)默认不在 DOM。
   await expect(page.getByTestId('tree-node-thinking')).toBeVisible();
   await expect(page.getByTestId('tree-node-essays')).toBeVisible();
+  // Thinking 默认合上 → 它的子(Lucerna)不在 DOM,也没被预取。
   await expect(page.getByTestId('tree-node-thinking/lucerna')).toHaveCount(0);
-  // 到此只发过 roots 请求(无 parent=),证明没有预取整棵树。
-  expect(treeReqs.some((u) => u.includes('parent='))).toBe(false);
-  // 点 Thinking 的 ▸ → 这时才发 parent= 请求 → Lucerna 出现。
+  const thinkingID = ids['thinking'] ?? '';
+  expect(treeReqs.some((u) => u.includes(`parent=${thinkingID}`))).toBe(false);
+  // 点 Thinking 的 ▸ → 这时才发 parent=<thinking> → Lucerna 出现。
   await page.getByTestId('tree-toggle-thinking').click();
   await expect(page.getByTestId('tree-node-thinking/lucerna')).toBeVisible({ timeout: 5_000 });
-  expect(treeReqs.some((u) => u.includes('parent='))).toBe(true);
+  expect(treeReqs.some((u) => u.includes(`parent=${thinkingID}`))).toBe(true);
 }
 
 // sidebarAclHidesGated —— 匿名树整条不出现 gated root(不泄露标题)。
