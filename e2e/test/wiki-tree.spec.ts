@@ -69,11 +69,15 @@ test.describe('公开 wiki 树端点:懒加载一层 + ACL 过滤', () => {
     ids['fund'] = await promote(request, sid, 'Fundraising');
     ids['cap'] = await promote(request, sid, 'Cap Table', ids['fund']);
     ids['essays'] = await promote(request, sid, 'Essays');
+    // Indexed Orphan —— 自己 indexed,但挂在 gated(not indexed)的 Fundraising 下。
+    // 文件系统 cascade:parent gated → 它也不可见(不升根)。旧"孤儿升根"会漏它。
+    ids['orphan'] = await promote(request, sid, 'Indexed Orphan', ids['fund']);
 
-    // 标 indexed:Thinking / Lucerna / Essays(Fundraising 分支 + Private Sub 不标)。
+    // 标 indexed:Thinking / Lucerna / Essays / Indexed Orphan(Fundraising 不标)。
     await markIndexed(request, sid, ids['thinking']);
     await markIndexed(request, sid, ids['lucerna']);
     await markIndexed(request, sid, ids['essays']);
+    await markIndexed(request, sid, ids['orphan']);
 
     // gated session:role 仅 scope wiki://fundraising**(含 root + 子孙)。
     gatedToken = await issueGatedSession(request);
@@ -104,16 +108,24 @@ test.describe('公开 wiki 树端点:懒加载一层 + ACL 过滤', () => {
       expect(kids[0]?.path).toBe('thinking/lucerna');
     });
 
+  // 文件系统 cascade:gated parent → 整条子树不可见,indexed 子也不升根。
+  test('cascade ACL:gated parent 下的 indexed 子不可见、不升根',
+    async ({ request }) => {
+      const roots = await tree(request, '', null);
+      expect(roots.map((n) => n.title).sort()).toEqual(['Essays', 'Thinking']);
+      expect(roots.map((n) => n.title)).not.toContain('Indexed Orphan');
+    });
+
   test('持 code(role 仅 scope fundraising):roots 见 Fundraising,无 Thinking/Essays',
     async ({ request }) => {
       const roots = await tree(request, '', gatedToken);
       expect(roots.map((n) => n.title)).toEqual(['Fundraising']);
     });
 
-  test('持 code:懒展开 Fundraising → Cap Table(gated 子,scope 内可见)',
+  test('持 code:懒展开 Fundraising → Cap Table + Indexed Orphan(scope 内,gate 已开)',
     async ({ request }) => {
       const kids = await tree(request, ids['fund'] ?? '', gatedToken);
-      expect(kids.map((n) => n.title)).toEqual(['Cap Table']);
+      expect(kids.map((n) => n.title).sort()).toEqual(['Cap Table', 'Indexed Orphan']);
     });
 
   // ── 节点上下文(breadcrumb 祖先链 + SubEntriesRail 子节点)──

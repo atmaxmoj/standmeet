@@ -68,13 +68,13 @@ func scopedIndexAtPath(
 
 // ancestorsOf —— 沿 effective-parent 链上溯,收可见祖先,root→parent 排序。
 func ancestorsOf(
-	wikis []domain.Wiki, paths map[string]string, inScope map[string]bool, idx int,
+	wikis []domain.Wiki, paths map[string]string, _ map[string]bool, idx int,
 ) []WikiTreeNode {
 	byID := indexByID(wikis)
 	chain := make([]WikiTreeNode, 0)
 	cur := &wikis[idx]
 	for range ancestorsMaxDepth {
-		pid := effectiveParent(cur, inScope)
+		pid := effectiveParent(cur)
 		parentIdx, in := byID[pid]
 		if pid == "" || !in {
 			break

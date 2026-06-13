@@ -102,7 +102,7 @@ func nodesUnder(
 	out := make([]WikiTreeNode, 0)
 	for i := range wikis {
 		id := wikis[i].ID()
-		if inScope[id] && effectiveParent(&wikis[i], inScope) == parentID {
+		if inScope[id] && effectiveParent(&wikis[i]) == parentID {
 			out = append(out, WikiTreeNode{
 				ID: id, Title: wikis[i].Title(),
 				Path: paths[id], HasChildren: hasKids[id],
@@ -112,22 +112,53 @@ func nodesUnder(
 	return out
 }
 
-// scopeSet —— id → 是否可见。
+// scopeSet —— 文件系统式 cascade:一条可见 ⟺ 它自己过闸 **且** parent 可见
+// (祖先 gate 了 → 整条子树不可见,不存在"孤儿升根";deny ~/Download 就 deny 里
+// 面一切)。记忆化顺 parent_id 上溯。
 func scopeSet(
 	wikis []domain.Wiki, paths map[string]string, scope WikiTreeScope,
 ) map[string]bool {
-	out := make(map[string]bool, len(wikis))
+	own := make(map[string]bool, len(wikis))
+	byID := make(map[string]*domain.Wiki, len(wikis))
 	for i := range wikis {
 		id := wikis[i].ID()
-		out[id] = scope(&wikis[i], paths[id])
+		own[id] = scope(&wikis[i], paths[id])
+		byID[id] = &wikis[i]
 	}
-	return out
+	visible := make(map[string]bool, len(wikis))
+	for id := range own {
+		resolveVisible(id, own, byID, visible)
+	}
+	return visible
 }
 
-// effectiveParent —— parent 可见 → 真 parent;否则当 root(不可见 parent 不漏)。
-func effectiveParent(w *domain.Wiki, inScope map[string]bool) string {
+// resolveVisible —— 记忆化:own[id] && (是根 || parent 可见)。
+func resolveVisible(
+	id string, own map[string]bool, byID map[string]*domain.Wiki, memo map[string]bool,
+) bool {
+	if v, done := memo[id]; done {
+		return v
+	}
+	w, ok := byID[id]
+	v := ok && own[id] && parentVisible(w, own, byID, memo)
+	memo[id] = v
+	return v
+}
+
+func parentVisible(
+	w *domain.Wiki, own map[string]bool, byID map[string]*domain.Wiki, memo map[string]bool,
+) bool {
+	pid, hasParent := w.ParentID()
+	if !hasParent {
+		return true
+	}
+	return resolveVisible(pid, own, byID, memo)
+}
+
+// effectiveParent —— 真 parent(cascade 已保证 gated 子树整个不可见,无需升根)。
+func effectiveParent(w *domain.Wiki) string {
 	pid, ok := w.ParentID()
-	if ok && inScope[pid] {
+	if ok {
 		return pid
 	}
 	return ""
@@ -140,7 +171,7 @@ func parentsWithVisibleChild(wikis []domain.Wiki, inScope map[string]bool) map[s
 		if !inScope[wikis[i].ID()] {
 			continue
 		}
-		if p := effectiveParent(&wikis[i], inScope); p != "" {
+		if p := effectiveParent(&wikis[i]); p != "" {
 			out[p] = true
 		}
 	}
