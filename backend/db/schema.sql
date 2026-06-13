@@ -124,6 +124,25 @@ CREATE TABLE wiki_entries (
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
 
+-- wiki_refs —— wiki 内 `[[Title]]` 双链的边表（镜像 writing_refs）。
+--
+-- body 里 owner 写 `[[X]]`，PromoteToWiki / UpdateWiki 同事务 resolve X 到目标
+-- wiki.id（wiki 无 slug，只按 title case-insensitive；没中就不入边，render 留
+-- 原字面）。每次写走 "delete all where src → insert new" 重建 src 出度。
+--
+-- 出度 = 「read next / 本条引用了哪些条目」；入度（按 dst 查）= 「cited by」backlinks。
+-- 「N corpus sources / sources cited」= 实时数出度（COUNT），不落冗余列（owner 要
+-- single source of truth）。FK cascade：src/dst wiki 删 → 边自动消。
+CREATE TABLE wiki_refs (
+    src_wiki_id  uuid          NOT NULL REFERENCES wiki_entries(id) ON DELETE CASCADE,
+    dst_wiki_id  uuid          NOT NULL REFERENCES wiki_entries(id) ON DELETE CASCADE,
+    owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    created_at   timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (src_wiki_id, dst_wiki_id)
+);
+CREATE INDEX wiki_refs_dst_idx ON wiki_refs(dst_wiki_id);
+CREATE INDEX wiki_refs_owner_dst_idx ON wiki_refs(owner_id, dst_wiki_id);
+
 -- output_entries —— raw → wiki → output 三层中的最精炼层。结构同 wiki，
 -- 语义差别：output 是 "可以在对话里完整原样引用" 的成品；通过 MCP
 -- `promote_wiki_to_output` 从 wiki 提炼上来。show_as_source 含义

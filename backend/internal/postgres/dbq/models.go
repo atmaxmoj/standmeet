@@ -414,6 +414,13 @@ type WikiEntry struct {
 	UpdatedAt      pgtype.Timestamptz
 }
 
+type WikiRef struct {
+	SrcWikiID pgtype.UUID
+	DstWikiID pgtype.UUID
+	OwnerID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
 type Writing struct {
 	ID                 pgtype.UUID
 	OwnerID            pgtype.UUID
