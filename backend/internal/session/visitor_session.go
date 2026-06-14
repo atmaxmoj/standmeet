@@ -24,6 +24,7 @@ const (
 	visitorTokenPrefix   = "smv_"
 	visitorSessionTTL    = 60 * time.Minute
 	visitorSessionKeyPfx = "vsession:"
+	codeSessionsKeyPfx   = "vsessions:code:"
 )
 
 // ErrVisitorSessionNotFound —— Redis 里没这个 session（已 expire 或 revoke）。
@@ -83,7 +84,31 @@ func (s *VisitorSessionStore) Issue(
 	if perr := s.persist(ctx, token, data); perr != nil {
 		return IssuedVisitor{}, perr
 	}
+	if ierr := s.indexByCode(ctx, data.CodeID, token); ierr != nil {
+		return IssuedVisitor{}, ierr
+	}
 	return IssuedVisitor{Token: token, Data: *data}, nil
+}
+
+// DeleteByCode —— revoke code 时清掉这张 code 的所有 visitor session。token 真死后,
+// 下一请求 resolveVisitor 的 Sessions.Get miss → 401 + 清 cookie(失效清理是「被发现
+// 无效」时做,不是 revoke 直接碰浏览器)。
+func (s *VisitorSessionStore) DeleteByCode(ctx context.Context, codeID string) error {
+	if codeID == "" {
+		return nil
+	}
+	key := codeSessionsKeyPfx + codeID
+	tokens, err := s.rdb.SMembers(ctx, key).Result()
+	if err != nil {
+		return fmt.Errorf("redis smembers code sessions: %w", err)
+	}
+	if derr := s.delTokens(ctx, tokens); derr != nil {
+		return derr
+	}
+	if derr := s.rdb.Del(ctx, key).Err(); derr != nil {
+		return fmt.Errorf("redis del code session set: %w", derr)
+	}
+	return nil
 }
 
 // Get 读 + 滑动 TTL；不存在返 ErrVisitorSessionNotFound。
@@ -116,6 +141,31 @@ func (s *VisitorSessionStore) persist(
 	key := visitorSessionKeyPfx + token
 	if serr := s.rdb.Set(ctx, key, payload, visitorSessionTTL).Err(); serr != nil {
 		return fmt.Errorf("redis set visitor session: %w", serr)
+	}
+	return nil
+}
+
+// indexByCode —— 把 token 记进这张 code 的 session 集合,供 revoke 一次清掉。无 code
+// (public/byoai)跳过。
+func (s *VisitorSessionStore) indexByCode(ctx context.Context, codeID, token string) error {
+	if codeID == "" {
+		return nil
+	}
+	key := codeSessionsKeyPfx + codeID
+	if err := s.rdb.SAdd(ctx, key, token).Err(); err != nil {
+		return fmt.Errorf("redis index session by code: %w", err)
+	}
+	if err := s.rdb.Expire(ctx, key, visitorSessionTTL).Err(); err != nil {
+		return fmt.Errorf("redis expire code session set: %w", err)
+	}
+	return nil
+}
+
+func (s *VisitorSessionStore) delTokens(ctx context.Context, tokens []string) error {
+	for _, t := range tokens {
+		if err := s.rdb.Del(ctx, visitorSessionKeyPfx+t).Err(); err != nil {
+			return fmt.Errorf("redis del visitor session: %w", err)
+		}
 	}
 	return nil
 }

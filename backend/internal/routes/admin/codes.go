@@ -16,13 +16,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
 // CodesDeps —— admin codes handlers 依赖。Roles 用来 owner 不显式给
-// assumed_role_id 时查 vanilla 兜底。
+// assumed_role_id 时查 vanilla 兜底。Sessions:revoke 时清掉这张 code 的 visitor
+// session(token 真死,下一请求被发现无效 → 401 + 清 cookie)。
 type CodesDeps struct {
-	Codes *postgres.CodeRepo
-	Roles *postgres.RoleRepo
+	Codes    *postgres.CodeRepo
+	Roles    *postgres.RoleRepo
+	Sessions *session.VisitorSessionStore
 }
 
 type createCodeRequest struct {
@@ -211,6 +214,11 @@ func (h *Handlers) revokeCode() http.HandlerFunc {
 			logEncodeErr(h.Log, "revoke code", err)
 			writeError(h.Log, w, serverErr())
 			return
+		}
+		// 清掉这张 code 已发出的 visitor session(token 真死);失败不致命 —— 持码人
+		// 下一 turn 仍会被 per-turn 的 code-revoked 检查挡(只是 cookie 暂不清)。
+		if derr := h.CodesAdmin.Sessions.DeleteByCode(r.Context(), codeID); derr != nil {
+			h.Log.Error("revoke: purge visitor sessions", "err", derr)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}

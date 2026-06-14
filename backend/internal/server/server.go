@@ -143,6 +143,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Corpus: adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
 		CodesAdmin: adminroutes.CodesDeps{
 			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
+			Sessions: deps.Public.Sessions,
 		},
 		PageAdmin: adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
 		SEOAdmin:  adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO},
