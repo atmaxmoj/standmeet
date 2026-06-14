@@ -14,6 +14,7 @@ package agentcore
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
@@ -29,6 +30,73 @@ func (f wikiFixture) ListByOwner(
 	_ context.Context, _ string, _ int32,
 ) ([]domain.Wiki, error) {
 	return f.items, nil
+}
+
+// Search —— 全量懒搜的内存版:title/body 子串命中即返 meta+snippet,分页同 DB。
+func (f wikiFixture) Search(
+	_ context.Context, _, query string, limit, offset int32,
+) ([]postgres.WikiMeta, error) {
+	q := strings.ToLower(query)
+	out := make([]postgres.WikiMeta, 0, len(f.items))
+	for i := range f.items {
+		if fixtureWikiMatches(&f.items[i], q) {
+			out = append(out, f.metaOf(&f.items[i]))
+		}
+	}
+	return pageMeta(out, limit, offset), nil
+}
+
+// GetMetaByID —— 按 id 读一条 meta(上溯算 path 用)。
+func (f wikiFixture) GetMetaByID(
+	_ context.Context, _, id string,
+) (postgres.WikiMeta, error) {
+	for i := range f.items {
+		if f.items[i].ID() == id {
+			return f.metaOf(&f.items[i]), nil
+		}
+	}
+	return postgres.WikiMeta{}, domain.ErrWikiNotFound
+}
+
+// GetByID —— 按 id 读正文(meta 命中后读 body 用)。
+func (f wikiFixture) GetByID(_ context.Context, _, id string) (domain.Wiki, error) {
+	for i := range f.items {
+		if f.items[i].ID() == id {
+			return f.items[i], nil
+		}
+	}
+	return domain.Wiki{}, domain.ErrWikiNotFound
+}
+
+func (f wikiFixture) metaOf(w *domain.Wiki) postgres.WikiMeta {
+	m := postgres.WikiMeta{
+		ID: w.ID(), Title: w.Title(),
+		SEOIndexed: w.SEOIndexed(), Snippet: w.Body(),
+	}
+	if pid, ok := w.ParentID(); ok {
+		m.ParentID = &pid
+	}
+	for i := range f.items {
+		if cp, ok := f.items[i].ParentID(); ok && cp == w.ID() {
+			m.HasChildren = true
+			break
+		}
+	}
+	return m
+}
+
+func fixtureWikiMatches(w *domain.Wiki, q string) bool {
+	return q == "" ||
+		strings.Contains(strings.ToLower(w.Title()), q) ||
+		strings.Contains(strings.ToLower(w.Body()), q)
+}
+
+func pageMeta(rows []postgres.WikiMeta, limit, offset int32) []postgres.WikiMeta {
+	if int(offset) >= len(rows) {
+		return []postgres.WikiMeta{}
+	}
+	end := min(int(offset)+int(limit), len(rows))
+	return rows[offset:end]
 }
 
 type outputFixture struct{ items []domain.Output }

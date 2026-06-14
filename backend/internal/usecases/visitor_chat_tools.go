@@ -14,7 +14,11 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
+
+// searchPageLimit —— DB 搜索一页上限(翻页留给 LLM 用 offset)。
+const searchPageLimit = 20
 
 const (
 	// Tool names —— Phase D-3 切到 snake_case (URL `/tools/{name}` 跟 LLM
@@ -41,8 +45,8 @@ func searchBindingTool(r *retriever) agentskills.BindingTool {
 			"properties": {"query": {"type": "string"}},
 			"required": ["query"]
 		}`),
-		func(_ context.Context, args string) (string, error) {
-			return r.runSearch([]byte(args))
+		func(ctx context.Context, args string) (string, error) {
+			return r.runSearch(ctx, []byte(args))
 		},
 	)
 }
@@ -58,8 +62,8 @@ func readBindingTool(r *retriever) agentskills.BindingTool {
 			"properties": {"path": {"type": "string"}},
 			"required": ["path"]
 		}`),
-		func(_ context.Context, args string) (string, error) {
-			return r.runRead([]byte(args))
+		func(ctx context.Context, args string) (string, error) {
+			return r.runRead(ctx, []byte(args))
 		},
 	)
 }
@@ -87,18 +91,26 @@ func listBindingTool(r *retriever) agentskills.BindingTool {
 type retriever struct {
 	collector *readCollector
 	snapshot  *domain.RoleSnapshot
-	// id→树派生 path(见 corpus_tree_path.go)。newRetriever 一次性算好,
-	// search/list/read/ACL 报地址都查它。(map 字段排在 slice 前,fieldalignment。)
+	// wikiRepo —— wiki 走 DB:全量搜(Search)+ 按 id 读,不吃内存 50-cap。
+	wikiRepo WikiLister
+	// id→树派生 path(见 corpus_tree_path.go)。(map 字段排在 slice 前,fieldalignment。)
 	wikiPaths   map[string]string
 	outputPaths map[string]string
-	wikis       []domain.Wiki
-	outputs     []domain.Output
-	writings    []domain.Writing
+	// seen —— wiki DB 搜出来的 path→id 缓存(read 按 path 反查 id);顺 parent_id
+	// 上溯算 path 后填,LLM「read after search」命中超出内存 50 的条目也能读到。
+	seen    map[string]string
+	ownerID string
+	// slice 收尾(末两字 len/cap 无指针 → 缩 GC pointer-bytes,fieldalignment)。
+	wikis    []domain.Wiki
+	outputs  []domain.Output
+	writings []domain.Writing
 }
 
 // retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。snapshot 必填。
 type retrieverInput struct {
 	snapshot *domain.RoleSnapshot
+	wikiRepo WikiLister
+	ownerID  string
 	wikis    []domain.Wiki
 	outputs  []domain.Output
 	writings []domain.Writing
@@ -108,9 +120,12 @@ func newRetriever(in *retrieverInput) *retriever {
 	return &retriever{
 		wikis: in.wikis, outputs: in.outputs, writings: in.writings,
 		snapshot:    in.snapshot,
+		wikiRepo:    in.wikiRepo,
+		ownerID:     in.ownerID,
 		collector:   newReadCollector(),
 		wikiPaths:   WikiTreePaths(in.wikis),
 		outputPaths: OutputTreePaths(in.outputs),
+		seen:        make(map[string]string),
 	}
 }
 
@@ -122,15 +137,15 @@ func (r *retriever) outputPath(o *domain.Output) string { return r.outputPaths[o
 // allowsPath / allowsEntry 拆到 visitor_chat_tools_read.go。
 // runSearch / runRead / runList 各自被对应 BindingTool 闭包调用。
 
-func (r *retriever) runSearch(input []byte) (string, error) {
+func (r *retriever) runSearch(ctx context.Context, input []byte) (string, error) {
 	var args struct {
 		Query string `json:"query"`
 	}
 	if uerr := json.Unmarshal(input, &args); uerr != nil {
 		return "", fmt.Errorf("invalid arguments: %w", uerr)
 	}
-	q := strings.ToLower(strings.TrimSpace(args.Query))
-	rows := r.collectMatchingEntries(q)
+	q := strings.TrimSpace(args.Query)
+	rows := r.collectMatchingEntries(ctx, q)
 	return marshalRows(rows), nil
 }
 
@@ -141,11 +156,12 @@ type corpusRow struct {
 	Summary string `json:"summary,omitempty"`
 }
 
-func (r *retriever) collectMatchingEntries(q string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.wikis)+len(r.outputs)+len(r.writings))
-	out = append(out, r.matchOutputs(q)...)
-	out = append(out, r.matchWikis(q)...)
-	out = append(out, r.matchWritings(q)...)
+func (r *retriever) collectMatchingEntries(ctx context.Context, q string) []corpusRow {
+	lower := strings.ToLower(q)
+	out := make([]corpusRow, 0, len(r.outputs)+len(r.writings))
+	out = append(out, r.matchOutputs(lower)...)
+	out = append(out, r.matchWikis(ctx, q)...)
+	out = append(out, r.matchWritings(lower)...)
 	return out
 }
 
@@ -159,14 +175,29 @@ func (r *retriever) matchOutputs(q string) []corpusRow {
 	return out
 }
 
-func (r *retriever) matchWikis(q string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.wikis))
-	for i := range r.wikis {
-		if r.wikiMatches(&r.wikis[i], q) {
-			out = append(out, r.wikiToRow(&r.wikis[i]))
+// matchWikis —— wiki 走 DB 全量搜(SearchByOwner,full-text + 翻页),不吃内存 50。
+// 每个命中顺 parent_id 上溯算 path + ACL,把 path→id 记进 seen 供 read 反查。
+func (r *retriever) matchWikis(ctx context.Context, q string) []corpusRow {
+	hits, err := r.wikiRepo.Search(ctx, r.ownerID, q, searchPageLimit, 0)
+	if err != nil {
+		return []corpusRow{}
+	}
+	out := make([]corpusRow, 0, len(hits))
+	for i := range hits {
+		if row, ok := r.wikiHitToRow(ctx, &hits[i]); ok {
+			out = append(out, row)
 		}
 	}
 	return out
+}
+
+func (r *retriever) wikiHitToRow(ctx context.Context, h *postgres.WikiMeta) (corpusRow, bool) {
+	path, perr := wikiPathByID(ctx, r.wikiRepo, r.ownerID, h.ID)
+	if perr != nil || !r.allowsPath(domain.GenreWiki, path) {
+		return corpusRow{}, false
+	}
+	r.seen[path] = h.ID
+	return corpusRow{Path: path, Title: h.Title, Genre: "wiki", Summary: summarize(h.Snippet)}, true
 }
 
 func (r *retriever) matchWritings(q string) []corpusRow {
@@ -185,7 +216,7 @@ func (r *retriever) matchWritings(q string) []corpusRow {
 // runRead —— 按 path 查 entry，ACL 通过 + show_as_source 不抑制时进 collector。
 // ACL 评估走 dispatchRead 内部按 genre 检 (snapshot mode 需要 genre 拼 URI；
 // legacy PathACL 模式下 r.allowsPath 忽略 genre 等同 r.acl.AllowsPath)。
-func (r *retriever) runRead(input []byte) (string, error) {
+func (r *retriever) runRead(ctx context.Context, input []byte) (string, error) {
 	path, perr := parseReadPath(input)
 	if perr != nil {
 		return "", perr
@@ -193,7 +224,7 @@ func (r *retriever) runRead(input []byte) (string, error) {
 	if path == "" {
 		return errJSON("path required"), nil
 	}
-	return r.dispatchRead(path), nil
+	return r.dispatchRead(ctx, path), nil
 }
 
 func parseReadPath(input []byte) (string, error) {
@@ -209,7 +240,14 @@ func parseReadPath(input []byte) (string, error) {
 // dispatchRead / serveXRead helpers 拆到 visitor_chat_tools_read.go 守
 // max-lines 350 line cap。
 
-func (r *retriever) findWikiByPath(path string) *domain.Wiki {
+// findWikiByPath —— 先查 seen(DB 搜出来的 path→id)→ GetByID 拉 body;命中超出
+// 内存 50 的条目也读得到。退回内存 wikis(老路径,seed/小 corpus 兼容)。
+func (r *retriever) findWikiByPath(ctx context.Context, path string) *domain.Wiki {
+	if id, ok := r.seen[path]; ok {
+		if w, err := r.wikiRepo.GetByID(ctx, r.ownerID, id); err == nil {
+			return &w
+		}
+	}
 	for i := range r.wikis {
 		if r.wikiPath(&r.wikis[i]) == path {
 			return &r.wikis[i]
@@ -227,71 +265,8 @@ func (r *retriever) findOutputByPath(path string) *domain.Output {
 	return nil
 }
 
-// runList —— 按 prefix filter，返 path/title/kind。
-func (r *retriever) runList(input []byte) (string, error) {
-	var args struct {
-		Prefix string `json:"prefix"`
-	}
-	if uerr := json.Unmarshal(input, &args); uerr != nil {
-		return "", fmt.Errorf("invalid arguments: %w", uerr)
-	}
-	rows := r.listEntries(args.Prefix)
-	return marshalRows(rows), nil
-}
-
-func (r *retriever) listEntries(prefix string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.wikis)+len(r.outputs)+len(r.writings))
-	out = append(out, r.listOutputsByPrefix(prefix)...)
-	out = append(out, r.listWikisByPrefix(prefix)...)
-	out = append(out, r.listWritingsByPrefix(prefix)...)
-	return out
-}
-
-func (r *retriever) listOutputsByPrefix(prefix string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.outputs))
-	for i := range r.outputs {
-		if row, ok := r.listOutputRow(&r.outputs[i], prefix); ok {
-			out = append(out, row)
-		}
-	}
-	return out
-}
-
-func (r *retriever) listWikisByPrefix(prefix string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.wikis))
-	for i := range r.wikis {
-		if row, ok := r.listWikiRow(&r.wikis[i], prefix); ok {
-			out = append(out, row)
-		}
-	}
-	return out
-}
-
-func (r *retriever) listWritingsByPrefix(prefix string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.writings))
-	for i := range r.writings {
-		if row, ok := r.listWritingRow(&r.writings[i], prefix); ok {
-			out = append(out, row)
-		}
-	}
-	return out
-}
-
-func (r *retriever) listWikiRow(w *domain.Wiki, prefix string) (corpusRow, bool) {
-	p := r.wikiPath(w)
-	if !r.allowsEntry(domain.GenreWiki, p) || !strings.HasPrefix(p, prefix) {
-		return corpusRow{}, false
-	}
-	return corpusRow{Path: p, Title: w.Title(), Genre: "wiki"}, true
-}
-
-func (r *retriever) listOutputRow(o *domain.Output, prefix string) (corpusRow, bool) {
-	p := r.outputPath(o)
-	if !r.allowsEntry(domain.GenreOutput, p) || !strings.HasPrefix(p, prefix) {
-		return corpusRow{}, false
-	}
-	return corpusRow{Path: p, Title: o.Title(), Genre: "output"}, true
-}
+// runList / listEntries / list*ByPrefix / list*Row 拆到 visitor_chat_tools_list.go
+// 守 max-lines 350 line cap。
 
 // errJSON / marshalRows / marshalKindBody —— tool 返回都是 JSON string。
 // 用辅助函数集中 marshal + 失败兜底，避免散落 errcheck 告警。

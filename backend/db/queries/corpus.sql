@@ -87,11 +87,18 @@ WHERE id = $1 AND owner_id = $2;
 
 -- name: SearchWikiByOwner :many
 -- 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
+-- 自然语言问句("tell me about zephyrqx")按 OR 命中任一词项 —— plainto 默认 AND
+-- 会被 "tell"/"me" 这类噪声词卡死,故把 ' & ' 改成 ' | ';再按 ts_rank 关联度排序
+-- (recency 退居其次),让最相关的条目落到首位供 LLM read。
 SELECT id, parent_id, title, seo_indexed, left(body, 200) AS snippet
 FROM wiki_entries
 WHERE owner_id = $1
   AND to_tsvector('english',
         title || ' ' || body || ' ' || array_to_string(tags, ' '))
-      @@ plainto_tsquery('english', $2)
-ORDER BY updated_at DESC
+      @@ replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+ORDER BY ts_rank(
+        to_tsvector('english',
+          title || ' ' || body || ' ' || array_to_string(tags, ' ')),
+        replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+      ) DESC, updated_at DESC
 LIMIT $3 OFFSET $4;

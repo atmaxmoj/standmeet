@@ -9,21 +9,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
-func (r *retriever) wikiMatches(w *domain.Wiki, q string) bool {
-	return r.allowsEntry(domain.GenreWiki, r.wikiPath(w)) &&
-		textMatchesQuery(q, w.Title(), w.Body(), w.Tags())
-}
+// wiki 匹配/转行已切到 DB 全量搜(retriever.matchWikis → wikiRepo.Search +
+// wikiHitToRow),不再走内存窗口的 wikiMatches/wikiToRow。output/writing 仍内存。
 
 func (r *retriever) outputMatches(o *domain.Output, q string) bool {
 	return r.allowsEntry(domain.GenreOutput, r.outputPath(o)) &&
 		textMatchesQuery(q, o.Title(), o.Body(), o.Tags())
-}
-
-func (r *retriever) wikiToRow(w *domain.Wiki) corpusRow {
-	return corpusRow{
-		Path: r.wikiPath(w), Title: w.Title(), Genre: "wiki",
-		Summary: summarize(w.Body()),
-	}
 }
 
 func (r *retriever) outputToRow(o *domain.Output) corpusRow {

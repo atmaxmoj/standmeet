@@ -5,6 +5,8 @@
 package usecases
 
 import (
+	"context"
+
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -26,8 +28,8 @@ func (r *retriever) allowsEntry(genre domain.DocumentGenre, path string) bool {
 // dispatchRead —— 按 genre 顺序找 entry，命中时按该 genre 评估 ACL。先 wiki，
 // 再 output，再 writing；命中并通过 ACL 才 emit。所有 genre 都没匹中 → "not
 // found"；命中但 ACL deny → "access denied"。
-func (r *retriever) dispatchRead(path string) string {
-	if w := r.findWikiByPath(path); w != nil {
+func (r *retriever) dispatchRead(ctx context.Context, path string) string {
+	if w := r.findWikiByPath(ctx, path); w != nil {
 		return r.serveWikiRead(w, path)
 	}
 	if o := r.findOutputByPath(path); o != nil {

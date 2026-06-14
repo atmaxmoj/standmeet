@@ -85,14 +85,20 @@ func GetConversationTranscript(
 func wikiCitedRefs(
 	ctx context.Context, repo *postgres.WikiRepo, ownerID string, ids []string,
 ) []TitledRef {
-	wikis, err := repo.ListByOwner(ctx, ownerID, maxRAGWikis)
-	if err != nil {
-		return []TitledRef{}
-	}
-	paths := WikiTreePaths(wikis)
-	titles := make(map[string]string, len(wikis))
-	for i := range wikis {
-		titles[wikis[i].ID()] = wikis[i].Title()
+	// 只对真 cited 的 id 逐个上溯算 path + meta(无 50-cap;超出内存窗口的也算得出)。
+	titles := make(map[string]string, len(ids))
+	paths := make(map[string]string, len(ids))
+	for _, id := range ids {
+		meta, merr := repo.GetMetaByID(ctx, ownerID, id)
+		if merr != nil {
+			continue
+		}
+		path, perr := wikiPathByID(ctx, repo, ownerID, id)
+		if perr != nil {
+			continue
+		}
+		titles[id] = meta.Title
+		paths[id] = path
 	}
 	return refsFor(ids, titles, paths)
 }
