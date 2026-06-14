@@ -14,6 +14,7 @@
 package public
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -37,31 +38,36 @@ type Handlers struct {
 	Log         *slog.Logger
 }
 
-// Mount 挂 /api/v1/* 路由。caller 负责前缀。
+// Mount 挂 /api/v1/* 路由。caller 负责前缀。需要访客 session 的路由统一套
+// withVisitorSession 装饰器(校验 + 把 authedVisitor 塞 ctx);不需要的(发 session /
+// peek code / 列模型)裸挂。
 func (h *Handlers) Mount(r chi.Router) {
+	// ── 无需 session ──
 	r.Post("/sessions", h.createSession())
 	// codes/intro —— 名字选择器 pre-issue 的公开 peek(code 走 body 不入 URL log)。
 	r.Post("/codes/intro", h.codeIntro())
+	r.Post("/inference/models", h.listInferenceModels())
+
+	// ── 需要访客 session(装饰器统一校验) ──
 	// 刷新恢复:返回整个会话聚合(session + code + conversation),前端一次性
 	// hydrate。范围由 token 锁定(member → open chat),URL {id} 仅做 RESTful 形态。
-	r.Get("/conversations/{id}", h.getConversation())
+	r.Get("/conversations/{id}", h.withVisitorSession(h.getConversation()))
 	// 多对话模型:浮窗在某篇 doc 上 find-or-create 自己那段对话(跟主聊天独立,
 	// 共享 member 级配额)。body {doc_key} → {conversation_id, conversation}。
-	r.Post("/conversations", h.openDocConversation())
-	r.Post("/sessions/{id}/tools/{tool_name}", h.toolDispatch())
+	r.Post("/conversations", h.withVisitorSession(h.openDocConversation()))
+	r.Post("/sessions/{id}/tools/{tool_name}", h.withVisitorSession(h.toolDispatch()))
 	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
 	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。
-	r.Get("/report/{id}", h.getReport())
-	r.Get("/report/{id}/pdf", h.getReportPDF())
-	r.Post("/inference/models", h.listInferenceModels())
-	r.Post("/llm/chat/stream", h.llmChatStream())
+	r.Get("/report/{id}", h.withVisitorSession(h.getReport()))
+	r.Get("/report/{id}/pdf", h.withVisitorSession(h.getReportPDF()))
+	r.Post("/llm/chat/stream", h.withVisitorSession(h.llmChatStream()))
 	// H.9: 新 agent turn 入口；走 eino ADK ChatModelAgent。SDK 在 H.10
 	// 切到这条；H.10 land 后 /llm/chat/stream 退役。
-	r.Post("/agent/turn", h.agentTurn())
+	r.Post("/agent/turn", h.withVisitorSession(h.agentTurn()))
 	// H.13.e: ghost text 日志写路径。shown 在浏览器渲 ghost 时一次性
 	// 写一行；accept 在 visitor 按 Tab 时调；owner admin 详情页读这些。
-	r.Post("/sessions/{id}/ghosts/shown", h.postGhostShown())
-	r.Post("/sessions/{id}/ghosts/{sid}/accept", h.postGhostAccept())
+	r.Post("/sessions/{id}/ghosts/shown", h.withVisitorSession(h.postGhostShown()))
+	r.Post("/sessions/{id}/ghosts/{sid}/accept", h.withVisitorSession(h.postGhostAccept()))
 }
 
 var visitorErrCases = []apierr.Case{
@@ -120,11 +126,28 @@ type authedVisitor struct {
 	Token string
 }
 
-// authVisitorWithToken —— bearer-token → VisitorSessionData. Token is
-// kept around so chat handlers can derive the HKDF shared secret used
-// by BYOAI envelopes.
-func authVisitorWithToken(
-	h *Handlers, w http.ResponseWriter, r *http.Request,
+// visitorCtxKey —— withVisitorSession 把 authedVisitor 塞进 request context 的 key。
+type visitorCtxKey struct{}
+
+// withVisitorSession —— 访客 session 校验**装饰器**(中间件):bearer-token → Redis
+// Sessions.Get 验过 → 把 authedVisitor 塞进 ctx 交给 next handler;验不过 → 401
+// (响应已写,不进 handler)。所有需要 session 的访客路由统一套这一层,校验逻辑只此
+// 一处 —— cookie 化 / 失效清理(401/403 清凭证)将来也只改这里。
+func (h *Handlers) withVisitorSession(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		av, ok := h.resolveVisitor(w, r)
+		if !ok {
+			return
+		}
+		next(w, r.WithContext(context.WithValue(r.Context(), visitorCtxKey{}, av)))
+	}
+}
+
+// resolveVisitor —— 真校验:bearer-token → VisitorSessionData(Redis)。token 留着给
+// chat handler 派 BYOAI 信封的 HKDF 共享密钥。缺 token / session 失效(过期/evict/
+// 删)→ 401,已写响应。
+func (h *Handlers) resolveVisitor(
+	w http.ResponseWriter, r *http.Request,
 ) (authedVisitor, bool) {
 	token, hasBearer := bearerToken(r)
 	if !hasBearer {
@@ -137,6 +160,19 @@ func authVisitorWithToken(
 		return authedVisitor{}, false
 	}
 	return authedVisitor{Token: token, Data: &data}, true
+}
+
+// authVisitorWithToken —— handler 取 withVisitorSession 已验好的 authedVisitor
+// (从 ctx 读)。保留旧名 + 签名,handler body 不动;装饰器没套到的路由 → 防御性 401。
+func authVisitorWithToken(
+	h *Handlers, w http.ResponseWriter, r *http.Request,
+) (authedVisitor, bool) {
+	av, ok := r.Context().Value(visitorCtxKey{}).(authedVisitor)
+	if !ok {
+		writeError(h.Log, w, unauthorizedEnv("missing bearer token"))
+		return authedVisitor{}, false
+	}
+	return av, true
 }
 
 func unauthorizedEnv(msg string) apierr.Envelope {
