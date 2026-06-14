@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // treeMaxDepth —— 防环路 / 异常深树。
@@ -51,6 +52,36 @@ func OutputTreePaths(os []domain.Output) map[string]string {
 		nodes[i] = pathNode{id: os[i].ID(), title: os[i].Title(), parentID: pid, hasParent: ok}
 	}
 	return treePathsFor(nodes)
+}
+
+// WikiMetaTreePaths / OutputMetaTreePaths —— 同一套树派生口径,但吃 meta(无 body)。
+// landing/sitemap 用全量 meta(ListAllMeta,无 50-cap)算 path,不必 load 全量 body。
+func WikiMetaTreePaths(metas []postgres.WikiMeta) map[string]string {
+	return treePathsFor(wikiMetaNodes(metas))
+}
+
+// OutputMetaTreePaths —— WikiMetaTreePaths 的 output 孪生。
+func OutputMetaTreePaths(metas []postgres.OutputMeta) map[string]string {
+	nodes := make([]pathNode, len(metas))
+	for i := range metas {
+		nodes[i] = metaNode(metas[i].ID, metas[i].Title, metas[i].ParentID)
+	}
+	return treePathsFor(nodes)
+}
+
+func wikiMetaNodes(metas []postgres.WikiMeta) []pathNode {
+	nodes := make([]pathNode, len(metas))
+	for i := range metas {
+		nodes[i] = metaNode(metas[i].ID, metas[i].Title, metas[i].ParentID)
+	}
+	return nodes
+}
+
+func metaNode(id, title string, parentID *string) pathNode {
+	if parentID == nil {
+		return pathNode{id: id, title: title, hasParent: false}
+	}
+	return pathNode{id: id, title: title, parentID: *parentID, hasParent: true}
 }
 
 // treePathsFor —— path = 从根到该节点每段 slug 化的 title,'/' 连接。撞 path(同

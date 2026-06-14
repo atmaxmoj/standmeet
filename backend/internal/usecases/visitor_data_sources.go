@@ -32,14 +32,28 @@ type WikiLister interface {
 	GetByID(ctx context.Context, ownerID, id string) (domain.Wiki, error)
 }
 
-// OutputLister —— owner-scoped output corpus for retrieval.
+// OutputLister —— owner-scoped output corpus for retrieval。wiki 的孪生:内存窗口的
+// ListByOwner 之外,加 DB 懒加载:全量搜(Search)、按 id 读 meta(GetMetaByID,上溯算
+// path)、按 id 读正文(GetByID)。prod *postgres.OutputRepo 原样满足。
 type OutputLister interface {
 	ListByOwner(ctx context.Context, ownerID string, limit int32) ([]domain.Output, error)
+	Search(
+		ctx context.Context, ownerID, query string, limit, offset int32,
+	) ([]postgres.OutputMeta, error)
+	GetMetaByID(ctx context.Context, ownerID, id string) (postgres.OutputMeta, error)
+	GetByID(ctx context.Context, ownerID, id string) (domain.Output, error)
 }
 
-// WritingLister —— owner-scoped published writings for retrieval.
+// WritingLister —— owner-scoped published writings for retrieval。wiki/output 的
+// 第三个孪生:DB 全量搜(Search)+ 按树派生 path 读(GetPublishedByPath),不走内存窗口。
+// (writing 按 published 准入 + 自带 path 列,无需 tree 上溯。)corpus_list 仍用
+// ListPublishedByOwner 的内存列表(扁平 genre,同 output)。
 type WritingLister interface {
 	ListPublishedByOwner(ctx context.Context, ownerID string) ([]domain.Writing, error)
+	Search(
+		ctx context.Context, ownerID, query string, limit, offset int32,
+	) ([]domain.Writing, error)
+	GetPublishedByPath(ctx context.Context, ownerID, path string) (domain.Writing, error)
 }
 
 // ReportStore —— summarize_conversation persistence + the report read path.

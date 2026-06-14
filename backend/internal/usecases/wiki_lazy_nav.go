@@ -38,6 +38,27 @@ func wikiPathByID(
 	return strings.Join(segs, "/"), nil
 }
 
+// outputPathByID —— wikiPathByID 的 output 孪生:顺 parent_id 上溯算 output 的树派生
+// path(meta-only,不读 body)。
+func outputPathByID(
+	ctx context.Context, repo OutputLister, ownerID, id string,
+) (string, error) {
+	segs := make([]string, 0, treeMaxDepth)
+	cur := id
+	for range treeMaxDepth {
+		meta, err := repo.GetMetaByID(ctx, ownerID, cur)
+		if err != nil {
+			return "", fmt.Errorf("output meta walk: %w", err)
+		}
+		segs = append([]string{pathSegment(meta.Title)}, segs...)
+		if meta.ParentID == nil {
+			break
+		}
+		cur = *meta.ParentID
+	}
+	return strings.Join(segs, "/"), nil
+}
+
 // resolveWikiNodeID —— 把一条**非空**树派生 path 顺 root→下逐层解成它的节点 id(不
 // load 全树:每层 ListChildren meta-only,按 pathSegment(title) 匹配 segment)。任一段
 // 无匹配 → ErrWikiNotFound。根层(path 空)由调用方直接用 nil parentID,不进这里。

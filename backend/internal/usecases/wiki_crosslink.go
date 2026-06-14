@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // wikiLinkPrefix —— rewrite 出来的 markdown 链接前缀(reader 路由 /wiki/<path>)。
@@ -74,6 +75,20 @@ func WikiPathTitleIndex(wikis []domain.Wiki, paths map[string]string) []WikiPath
 	return out
 }
 
+// wikiMetaPathTitleIndex —— WikiPathTitleIndex 的 meta 版(无 body):landing 渲染
+// [[X]] 用全量 meta 建 title→path,deep entry 的链接也不断。
+func wikiMetaPathTitleIndex(
+	metas []postgres.WikiMeta, paths map[string]string,
+) []WikiPathTitle {
+	out := make([]WikiPathTitle, 0, len(metas))
+	for i := range metas {
+		if metas[i].SEOIndexed {
+			out = append(out, WikiPathTitle{Title: metas[i].Title, Path: paths[metas[i].ID]})
+		}
+	}
+	return out
+}
+
 // RebuildWikiRefs —— wiki 写后(promote/create/update)重建这条的出度边:抽 body
 // 的 `[[Title]]` → 按 title 解析到 owner 的 wiki id → 重写 wiki_refs。没 `[[]]`
 // 也要清空旧边(owner 删了链接也算)。边表是派生索引,不要求跟写同事务。
@@ -83,11 +98,13 @@ func RebuildWikiRefs(
 	if !HasCrossLinks(body) {
 		return clearWikiRefs(ctx, deps, ownerID, wikiID)
 	}
-	wikis, err := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis)
+	// 全量 meta(无 50-cap):[[X]] 可指向语料里任一条,deep target 也要解析得到边,
+	// 否则 backlink/related 静默漏。
+	metas, err := deps.Wiki.ListAllMeta(ctx, ownerID)
 	if err != nil {
 		return fmt.Errorf("list wiki for crosslink: %w", err)
 	}
-	dstIDs := resolveWikiDstIDs(body, wikis, wikiID)
+	dstIDs := resolveWikiDstIDs(body, metas, wikiID)
 	if rerr := deps.WikiRefs.ReplaceRefsBySrc(ctx, wikiID, ownerID, dstIDs); rerr != nil {
 		return fmt.Errorf("rebuild wiki refs: %w", rerr)
 	}
@@ -103,8 +120,8 @@ func clearWikiRefs(ctx context.Context, deps CorpusDeps, ownerID, wikiID string)
 
 // resolveWikiDstIDs —— body 的 `[[Title]]` 按 title(case-insensitive)解析到 owner
 // wiki id,去重 + 排除 self-link。
-func resolveWikiDstIDs(body string, wikis []domain.Wiki, selfID string) []string {
-	byTitle := wikiTitleToID(wikis)
+func resolveWikiDstIDs(body string, metas []postgres.WikiMeta, selfID string) []string {
+	byTitle := wikiMetaTitleToID(metas)
 	refs := ExtractCrossLinks(body)
 	seen := make(map[string]struct{}, len(refs))
 	out := make([]string, 0, len(refs))
@@ -114,10 +131,10 @@ func resolveWikiDstIDs(body string, wikis []domain.Wiki, selfID string) []string
 	return out
 }
 
-func wikiTitleToID(wikis []domain.Wiki) map[string]string {
-	byTitle := make(map[string]string, len(wikis))
-	for i := range wikis {
-		byTitle[strings.ToLower(wikis[i].Title())] = wikis[i].ID()
+func wikiMetaTitleToID(metas []postgres.WikiMeta) map[string]string {
+	byTitle := make(map[string]string, len(metas))
+	for i := range metas {
+		byTitle[strings.ToLower(metas[i].Title)] = metas[i].ID
 	}
 	return byTitle
 }

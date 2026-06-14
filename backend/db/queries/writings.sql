@@ -67,6 +67,33 @@ SELECT id, owner_id, slug, title, excerpt, body_md,
        published_at, parent_id, created_at, updated_at
 FROM writings WHERE owner_id = $1 AND slug = $2;
 
+-- name: GetPublishedWritingByPath :one
+-- retriever corpus_read 按树派生 path 读 published writing(DB,不走内存窗口)。
+SELECT id, owner_id, slug, title, excerpt, body_md,
+       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
+       published_at, parent_id, created_at, updated_at
+FROM writings WHERE owner_id = $1 AND path = $2 AND published_at IS NOT NULL;
+
+-- name: SearchPublishedWritings :many
+-- retriever corpus_search 全量搜 published writing(DB full-text,镜像 wiki/output:
+-- 自然语言问句按 OR 命中任一词项,ts_rank 排序),不吃内存窗口。
+SELECT id, owner_id, slug, title, excerpt, body_md,
+       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
+       published_at, parent_id, created_at, updated_at
+FROM writings
+WHERE owner_id = $1 AND published_at IS NOT NULL
+  AND to_tsvector('english', title || ' ' || body_md || ' ' || array_to_string(tags, ' '))
+      @@ replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+ORDER BY ts_rank(
+        to_tsvector('english', title || ' ' || body_md || ' ' || array_to_string(tags, ' ')),
+        replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+      ) DESC, published_at DESC
+LIMIT $3 OFFSET $4;
+
 -- name: ListWritingsByOwner :many
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,

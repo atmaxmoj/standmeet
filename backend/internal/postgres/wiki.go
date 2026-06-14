@@ -112,6 +112,7 @@ type WikiMeta struct {
 	ID          string
 	Title       string
 	Snippet     string
+	UpdatedAt   int64
 	SEOIndexed  bool
 	HasChildren bool
 }
@@ -181,9 +182,35 @@ func (r *WikiRepo) Search(
 	}
 	out := make([]WikiMeta, 0, len(rows))
 	for i := range rows {
+		out = append(out, wikiSearchRowMeta(&rows[i]))
+	}
+	return out, nil
+}
+
+func wikiSearchRowMeta(row *dbq.SearchWikiByOwnerRow) WikiMeta {
+	return WikiMeta{
+		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+		Title: row.Title, SEOIndexed: row.SeoIndexed, Snippet: row.Snippet,
+	}
+}
+
+// ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed + landing
+// 的 [[X]] title→path 索引用。不带 newest-N cap。
+func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	rows, qerr := dbq.New(r.pool).ListAllWikiMeta(ctx, ownerUUID)
+	if qerr != nil {
+		return nil, fmt.Errorf("list all wiki meta: %w", qerr)
+	}
+	out := make([]WikiMeta, 0, len(rows))
+	for i := range rows {
 		out = append(out, WikiMeta{
 			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
-			Title: rows[i].Title, SEOIndexed: rows[i].SeoIndexed, Snippet: rows[i].Snippet,
+			Title: rows[i].Title, SEOIndexed: rows[i].SeoIndexed,
+			UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
 		})
 	}
 	return out, nil

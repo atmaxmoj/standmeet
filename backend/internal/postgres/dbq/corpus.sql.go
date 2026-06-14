@@ -208,6 +208,50 @@ func (q *Queries) GetWikiMetaByID(ctx context.Context, arg GetWikiMetaByIDParams
 	return i, err
 }
 
+const listAllWikiMeta = `-- name: ListAllWikiMeta :many
+SELECT id, parent_id, title, seo_indexed, updated_at
+FROM wiki_entries
+WHERE owner_id = $1
+ORDER BY created_at DESC
+`
+
+type ListAllWikiMetaRow struct {
+	ID         pgtype.UUID
+	ParentID   pgtype.UUID
+	Title      string
+	SeoIndexed bool
+	UpdatedAt  pgtype.Timestamptz
+}
+
+// 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed wiki + landing 的 [[X]]
+// 渲染 title→path 索引用。不带 newest-N cap —— sitemap/链接解析必须看全量,漏一条
+// 就是 SEO bug / 断链。带 updated_at 给 sitemap <lastmod>。
+func (q *Queries) ListAllWikiMeta(ctx context.Context, ownerID pgtype.UUID) ([]ListAllWikiMetaRow, error) {
+	rows, err := q.db.Query(ctx, listAllWikiMeta, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllWikiMetaRow
+	for rows.Next() {
+		var i ListAllWikiMetaRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Title,
+			&i.SeoIndexed,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRawByOwner = `-- name: ListRawByOwner :many
 SELECT id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at FROM raw_entries
 WHERE owner_id = $1 AND archived = false

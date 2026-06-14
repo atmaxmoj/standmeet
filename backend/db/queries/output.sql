@@ -17,6 +17,37 @@ LIMIT $2;
 -- name: GetOutputByID :one
 SELECT * FROM output_entries WHERE id = $1 AND owner_id = $2;
 
+-- name: GetOutputMetaByID :one
+-- meta only(无 body):上溯算树派生 path / 判 ACL 用,不为读正文。镜像 GetWikiMetaByID。
+SELECT id, parent_id, title, seo_indexed
+FROM output_entries
+WHERE id = $1 AND owner_id = $2;
+
+-- name: SearchOutputByOwner :many
+-- 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
+-- 镜像 SearchWikiByOwner:自然语言问句按 OR 命中任一词项(' & '→' | '),ts_rank 排序。
+SELECT id, parent_id, title, seo_indexed, left(body, 200) AS snippet
+FROM output_entries
+WHERE owner_id = $1
+  AND to_tsvector('english',
+        title || ' ' || body || ' ' || array_to_string(tags, ' '))
+      @@ replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+ORDER BY ts_rank(
+        to_tsvector('english',
+          title || ' ' || body || ' ' || array_to_string(tags, ' ')),
+        replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+      ) DESC, updated_at DESC
+LIMIT $3 OFFSET $4;
+
+-- name: ListAllOutputMeta :many
+-- 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed output + landing 的树路径
+-- 派生用。不带 newest-N cap —— sitemap 必须列全,漏一条就是 SEO bug。带 updated_at
+-- 给 sitemap <lastmod>。
+SELECT id, parent_id, title, seo_indexed, updated_at
+FROM output_entries
+WHERE owner_id = $1
+ORDER BY created_at DESC;
+
 -- name: DeleteOutput :exec
 DELETE FROM output_entries WHERE id = $1 AND owner_id = $2;
 

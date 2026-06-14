@@ -128,12 +128,111 @@ func (f outputFixture) ListByOwner(
 	return f.items, nil
 }
 
+// Search / GetMetaByID / GetByID —— wikiFixture 同款的 output 内存版(满足
+// 拓宽后的 OutputLister)。
+func (f outputFixture) Search(
+	_ context.Context, _, query string, limit, offset int32,
+) ([]postgres.OutputMeta, error) {
+	q := strings.ToLower(query)
+	out := make([]postgres.OutputMeta, 0, len(f.items))
+	for i := range f.items {
+		if fixtureOutputMatches(&f.items[i], q) {
+			out = append(out, f.outputMetaOf(&f.items[i]))
+		}
+	}
+	return pageOutputMeta(out, limit, offset), nil
+}
+
+func (f outputFixture) GetMetaByID(
+	_ context.Context, _, id string,
+) (postgres.OutputMeta, error) {
+	for i := range f.items {
+		if f.items[i].ID() == id {
+			return f.outputMetaOf(&f.items[i]), nil
+		}
+	}
+	return postgres.OutputMeta{}, domain.ErrOutputNotFound
+}
+
+func (f outputFixture) GetByID(_ context.Context, _, id string) (domain.Output, error) {
+	for i := range f.items {
+		if f.items[i].ID() == id {
+			return f.items[i], nil
+		}
+	}
+	return domain.Output{}, domain.ErrOutputNotFound
+}
+
+func (outputFixture) outputMetaOf(o *domain.Output) postgres.OutputMeta {
+	m := postgres.OutputMeta{
+		ID: o.ID(), Title: o.Title(), SEOIndexed: o.SEOIndexed(), Snippet: o.Body(),
+	}
+	if pid, ok := o.ParentID(); ok {
+		m.ParentID = &pid
+	}
+	return m
+}
+
+func fixtureOutputMatches(o *domain.Output, q string) bool {
+	return q == "" ||
+		strings.Contains(strings.ToLower(o.Title()), q) ||
+		strings.Contains(strings.ToLower(o.Body()), q)
+}
+
+func pageOutputMeta(rows []postgres.OutputMeta, limit, offset int32) []postgres.OutputMeta {
+	if int(offset) >= len(rows) {
+		return []postgres.OutputMeta{}
+	}
+	end := min(int(offset)+int(limit), len(rows))
+	return rows[offset:end]
+}
+
 type writingFixture struct{ items []domain.Writing }
 
 func (f writingFixture) ListPublishedByOwner(
 	_ context.Context, _ string,
 ) ([]domain.Writing, error) {
 	return f.items, nil
+}
+
+// Search / GetPublishedByPath —— wiki/output fixture 同款的 writing 内存版(满足
+// 拓宽后的 WritingLister)。fixture 的 items 即 published 集。
+func (f writingFixture) Search(
+	_ context.Context, _, query string, limit, offset int32,
+) ([]domain.Writing, error) {
+	q := strings.ToLower(query)
+	out := make([]domain.Writing, 0, len(f.items))
+	for i := range f.items {
+		if fixtureWritingMatches(&f.items[i], q) {
+			out = append(out, f.items[i])
+		}
+	}
+	return pageWritings(out, limit, offset), nil
+}
+
+func (f writingFixture) GetPublishedByPath(
+	_ context.Context, _, path string,
+) (domain.Writing, error) {
+	for i := range f.items {
+		if f.items[i].Path() == path {
+			return f.items[i], nil
+		}
+	}
+	return domain.Writing{}, domain.ErrWritingNotFound
+}
+
+func fixtureWritingMatches(w *domain.Writing, q string) bool {
+	return q == "" ||
+		strings.Contains(strings.ToLower(w.Title()), q) ||
+		strings.Contains(strings.ToLower(w.Body()), q)
+}
+
+func pageWritings(rows []domain.Writing, limit, offset int32) []domain.Writing {
+	if int(offset) >= len(rows) {
+		return []domain.Writing{}
+	}
+	end := min(int(offset)+int(limit), len(rows))
+	return rows[offset:end]
 }
 
 // convFixture —— ConversationGetter: returns the eval's fixture transcript so

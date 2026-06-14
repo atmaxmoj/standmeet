@@ -112,6 +112,51 @@ func (q *Queries) DeleteWriting(ctx context.Context, arg DeleteWritingParams) er
 	return err
 }
 
+const getPublishedWritingByPath = `-- name: GetPublishedWritingByPath :one
+SELECT id, owner_id, slug, title, excerpt, body_md,
+       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
+       published_at, parent_id, created_at, updated_at
+FROM writings WHERE owner_id = $1 AND path = $2 AND published_at IS NOT NULL
+`
+
+type GetPublishedWritingByPathParams struct {
+	OwnerID pgtype.UUID
+	Path    string
+}
+
+// retriever corpus_read 按树派生 path 读 published writing(DB,不走内存窗口)。
+func (q *Queries) GetPublishedWritingByPath(ctx context.Context, arg GetPublishedWritingByPathParams) (Writing, error) {
+	row := q.db.QueryRow(ctx, getPublishedWritingByPath, arg.OwnerID, arg.Path)
+	var i Writing
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Slug,
+		&i.Title,
+		&i.Excerpt,
+		&i.BodyMd,
+		&i.CoverHeadline,
+		&i.CoverSub,
+		&i.CoverHue,
+		&i.CoverImageAssetID,
+		&i.Tags,
+		&i.Visibility,
+		&i.CrossRefs,
+		&i.Path,
+		&i.ReadMinutes,
+		&i.LockedBody,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.PublishedAt,
+		&i.ParentID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getWritingByID = `-- name: GetWritingByID :one
 SELECT id, owner_id, slug, title, excerpt, body_md,
        cover_headline, cover_sub, cover_hue, cover_image_asset_id,
@@ -495,6 +540,80 @@ func (q *Queries) PublishWriting(ctx context.Context, arg PublishWritingParams) 
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const searchPublishedWritings = `-- name: SearchPublishedWritings :many
+SELECT id, owner_id, slug, title, excerpt, body_md,
+       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       tags, visibility, cross_refs, path, read_minutes, locked_body,
+       obsidian_source_path, obsidian_imported_at,
+       published_at, parent_id, created_at, updated_at
+FROM writings
+WHERE owner_id = $1 AND published_at IS NOT NULL
+  AND to_tsvector('english', title || ' ' || body_md || ' ' || array_to_string(tags, ' '))
+      @@ replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+ORDER BY ts_rank(
+        to_tsvector('english', title || ' ' || body_md || ' ' || array_to_string(tags, ' ')),
+        replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+      ) DESC, published_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type SearchPublishedWritingsParams struct {
+	OwnerID        pgtype.UUID
+	PlaintoTsquery string
+	Limit          int32
+	Offset         int32
+}
+
+// retriever corpus_search 全量搜 published writing(DB full-text,镜像 wiki/output:
+// 自然语言问句按 OR 命中任一词项,ts_rank 排序),不吃内存窗口。
+func (q *Queries) SearchPublishedWritings(ctx context.Context, arg SearchPublishedWritingsParams) ([]Writing, error) {
+	rows, err := q.db.Query(ctx, searchPublishedWritings,
+		arg.OwnerID,
+		arg.PlaintoTsquery,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Writing
+	for rows.Next() {
+		var i Writing
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Slug,
+			&i.Title,
+			&i.Excerpt,
+			&i.BodyMd,
+			&i.CoverHeadline,
+			&i.CoverSub,
+			&i.CoverHue,
+			&i.CoverImageAssetID,
+			&i.Tags,
+			&i.Visibility,
+			&i.CrossRefs,
+			&i.Path,
+			&i.ReadMinutes,
+			&i.LockedBody,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
+			&i.PublishedAt,
+			&i.ParentID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setWritingObsidianMeta = `-- name: SetWritingObsidianMeta :exec

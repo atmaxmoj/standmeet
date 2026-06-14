@@ -54,7 +54,8 @@ func buildRetriever(
 	return newRetriever(&retrieverInput{
 		wikis: wikis, outputs: outputs, writings: writings,
 		snapshot: in.snapshot,
-		wikiRepo: deps.Wiki, ownerID: in.ownerID,
+		wikiRepo: deps.Wiki, outputRepo: deps.Output, writingRepo: deps.Writings,
+		ownerID: in.ownerID,
 	}), nil
 }
 

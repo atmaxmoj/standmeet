@@ -89,27 +89,45 @@ func GetWikiLanding(
 	if !ok {
 		return WikiLanding{}, domain.ErrOwnerNotFound
 	}
-	wikis, err := deps.Wiki.ListByOwner(ctx, owner.ID, maxRAGWikis)
+	// 全量 meta(无 body、无 50-cap):算树派生 path 定位条目 + 建 [[X]] 渲染 title 索引。
+	// deep entry(超出旧 newest-50)也找得到,链接也不断。正文单独 GetByID 拉。
+	metas, err := deps.Wiki.ListAllMeta(ctx, owner.ID)
 	if err != nil {
-		return WikiLanding{}, fmt.Errorf("list wiki: %w", err)
+		return WikiLanding{}, fmt.Errorf("list wiki meta: %w", err)
 	}
-	return assembleWikiLanding(ctx, deps, owner.ID, wikis, path)
+	return assembleWikiLanding(ctx, deps, owner.ID, metas, path)
 }
 
 func assembleWikiLanding(
-	ctx context.Context, deps SEODeps, ownerID string, wikis []domain.Wiki, path string,
+	ctx context.Context, deps SEODeps, ownerID string, metas []postgres.WikiMeta, path string,
 ) (WikiLanding, error) {
-	paths := WikiTreePaths(wikis)
-	w, found := pickIndexedWiki(wikis, paths, path)
+	paths := WikiMetaTreePaths(metas)
+	id, found := indexedWikiIDAtPath(metas, paths, path)
 	if !found {
 		return WikiLanding{}, domain.ErrWikiNotFound
 	}
-	body := RewriteWikiCrossLinksForRender(w.Body(), WikiPathTitleIndex(wikis, paths))
-	sides, err := loadWikiRefSides(ctx, deps, ownerID, w.ID(), paths)
-	if err != nil {
-		return WikiLanding{}, err
+	w, gerr := deps.Wiki.GetByID(ctx, ownerID, id)
+	if gerr != nil {
+		return WikiLanding{}, fmt.Errorf("get wiki: %w", gerr)
+	}
+	body := RewriteWikiCrossLinksForRender(w.Body(), wikiMetaPathTitleIndex(metas, paths))
+	sides, serr := loadWikiRefSides(ctx, deps, ownerID, id, paths)
+	if serr != nil {
+		return WikiLanding{}, serr
 	}
 	return WikiLanding{Body: body, Related: sides.Related, CitedBy: sides.CitedBy, Wiki: w}, nil
+}
+
+// indexedWikiIDAtPath —— 全量 meta + 派生 path 里挑 indexed 且 path 命中那条的 id。
+func indexedWikiIDAtPath(
+	metas []postgres.WikiMeta, paths map[string]string, path string,
+) (string, bool) {
+	for i := range metas {
+		if metas[i].SEOIndexed && paths[metas[i].ID] == path {
+			return metas[i].ID, true
+		}
+	}
+	return "", false
 }
 
 // loadWikiRefSides —— 取这条 wiki 的出链(OutboundFor)+ 入链(BacklinksFor),
@@ -139,19 +157,6 @@ func wikiRefsToPathTitle(refs []postgres.WikiRef, paths map[string]string) []Wik
 	return out
 }
 
-// pickIndexedWiki —— 全树 + 已算好的派生 path 里挑 indexed 且 path 命中那条
-// (不重算 paths,给 GetWikiLanding 复用同一份)。
-func pickIndexedWiki(
-	wikis []domain.Wiki, paths map[string]string, path string,
-) (domain.Wiki, bool) {
-	for i := range wikis {
-		if wikis[i].SEOIndexed() && paths[wikis[i].ID()] == path {
-			return wikis[i], true
-		}
-	}
-	return domain.Wiki{}, false
-}
-
 // LandingURL —— 一条 indexed landing 的 sitemap URL (wiki 或 output 通用)。
 type LandingURL struct {
 	Path      string
@@ -164,17 +169,15 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	if !ok {
 		return []LandingURL{}
 	}
-	wikis, err := deps.Wiki.ListByOwner(ctx, owner.ID, maxRAGWikis)
+	metas, err := deps.Wiki.ListAllMeta(ctx, owner.ID)
 	if err != nil {
 		return []LandingURL{}
 	}
-	paths := WikiTreePaths(wikis)
-	out := make([]LandingURL, 0, len(wikis))
-	for i := range wikis {
-		if wikis[i].SEOIndexed() {
-			out = append(out, LandingURL{
-				Path: paths[wikis[i].ID()], UpdatedAt: wikis[i].UpdatedAt().Unix(),
-			})
+	paths := WikiMetaTreePaths(metas)
+	out := make([]LandingURL, 0, len(metas))
+	for i := range metas {
+		if metas[i].SEOIndexed {
+			out = append(out, LandingURL{Path: paths[metas[i].ID], UpdatedAt: metas[i].UpdatedAt})
 		}
 	}
 	return out
@@ -191,26 +194,38 @@ func GetOutputLanding(
 	if !ok {
 		return domain.Output{}, domain.ErrOwnerNotFound
 	}
-	outputs, err := deps.Output.ListByOwner(ctx, owner.ID, maxRAGOutputs)
+	return resolveOutputLanding(ctx, deps, owner.ID, path)
+}
+
+// resolveOutputLanding —— 全量 meta 定位 indexed + path 命中那条,正文 GetByID 拉。
+func resolveOutputLanding(
+	ctx context.Context, deps SEODeps, ownerID, path string,
+) (domain.Output, error) {
+	metas, err := deps.Output.ListAllMeta(ctx, ownerID)
 	if err != nil {
-		return domain.Output{}, fmt.Errorf("list output: %w", err)
+		return domain.Output{}, fmt.Errorf("list output meta: %w", err)
 	}
-	o, found := findIndexedOutput(outputs, path)
+	id, found := indexedOutputIDAtPath(metas, OutputMetaTreePaths(metas), path)
 	if !found {
 		return domain.Output{}, domain.ErrOutputNotFound
+	}
+	o, gerr := deps.Output.GetByID(ctx, ownerID, id)
+	if gerr != nil {
+		return domain.Output{}, fmt.Errorf("get output: %w", gerr)
 	}
 	return o, nil
 }
 
-// findIndexedOutput —— wiki 的 output 孪生。
-func findIndexedOutput(outputs []domain.Output, path string) (domain.Output, bool) {
-	paths := OutputTreePaths(outputs)
-	for i := range outputs {
-		if outputs[i].SEOIndexed() && paths[outputs[i].ID()] == path {
-			return outputs[i], true
+// indexedOutputIDAtPath —— wiki 的 output 孪生:全量 meta 里挑 indexed + path 命中的 id。
+func indexedOutputIDAtPath(
+	metas []postgres.OutputMeta, paths map[string]string, path string,
+) (string, bool) {
+	for i := range metas {
+		if metas[i].SEOIndexed && paths[metas[i].ID] == path {
+			return metas[i].ID, true
 		}
 	}
-	return domain.Output{}, false
+	return "", false
 }
 
 // IndexedOutputLandings —— sitemap.xml 列 indexed output landing（树派生）。
@@ -219,17 +234,15 @@ func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	if !ok {
 		return []LandingURL{}
 	}
-	outputs, err := deps.Output.ListByOwner(ctx, owner.ID, maxRAGOutputs)
+	metas, err := deps.Output.ListAllMeta(ctx, owner.ID)
 	if err != nil {
 		return []LandingURL{}
 	}
-	paths := OutputTreePaths(outputs)
-	out := make([]LandingURL, 0, len(outputs))
-	for i := range outputs {
-		if outputs[i].SEOIndexed() {
-			out = append(out, LandingURL{
-				Path: paths[outputs[i].ID()], UpdatedAt: outputs[i].UpdatedAt().Unix(),
-			})
+	paths := OutputMetaTreePaths(metas)
+	out := make([]LandingURL, 0, len(metas))
+	for i := range metas {
+		if metas[i].SEOIndexed {
+			out = append(out, LandingURL{Path: paths[metas[i].ID], UpdatedAt: metas[i].UpdatedAt})
 		}
 	}
 	return out

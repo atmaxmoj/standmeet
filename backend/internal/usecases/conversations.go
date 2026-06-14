@@ -103,18 +103,24 @@ func wikiCitedRefs(
 	return refsFor(ids, titles, paths)
 }
 
-// outputCitedRefs —— wiki 的 output 孪生:同样纯树派生地址。
+// outputCitedRefs —— wiki 的 output 孪生:逐个 cited id 上溯算 path + meta(无 50-cap;
+// 超出内存窗口的 cited output 也解得出)。
 func outputCitedRefs(
 	ctx context.Context, repo *postgres.OutputRepo, ownerID string, ids []string,
 ) []TitledRef {
-	outputs, err := repo.ListByOwner(ctx, ownerID, maxRAGOutputs)
-	if err != nil {
-		return []TitledRef{}
-	}
-	paths := OutputTreePaths(outputs)
-	titles := make(map[string]string, len(outputs))
-	for i := range outputs {
-		titles[outputs[i].ID()] = outputs[i].Title()
+	titles := make(map[string]string, len(ids))
+	paths := make(map[string]string, len(ids))
+	for _, id := range ids {
+		meta, merr := repo.GetMetaByID(ctx, ownerID, id)
+		if merr != nil {
+			continue
+		}
+		path, perr := outputPathByID(ctx, repo, ownerID, id)
+		if perr != nil {
+			continue
+		}
+		titles[id] = meta.Title
+		paths[id] = path
 	}
 	return refsFor(ids, titles, paths)
 }

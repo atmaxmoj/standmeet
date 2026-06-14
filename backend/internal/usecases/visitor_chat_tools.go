@@ -14,7 +14,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // searchPageLimit —— DB 搜索一页上限(翻页留给 LLM 用 offset)。
@@ -96,15 +95,19 @@ func listBindingTool(r *retriever) agentskills.BindingTool {
 type retriever struct {
 	collector *readCollector
 	snapshot  *domain.RoleSnapshot
-	// wikiRepo —— wiki 走 DB:全量搜(Search)+ 按 id 读,不吃内存 50-cap。
-	wikiRepo WikiLister
+	// wikiRepo / outputRepo / writingRepo —— 三个 genre 都走 DB:全量搜(Search)+ 按
+	// path 读,不吃内存窗口。
+	wikiRepo    WikiLister
+	outputRepo  OutputLister
+	writingRepo WritingLister
 	// id→树派生 path(见 corpus_tree_path.go)。(map 字段排在 slice 前,fieldalignment。)
 	wikiPaths   map[string]string
 	outputPaths map[string]string
-	// seen —— wiki DB 搜出来的 path→id 缓存(read 按 path 反查 id);顺 parent_id
+	// seen / outputSeen —— DB 搜出来的 path→id 缓存(read 按 path 反查 id);顺 parent_id
 	// 上溯算 path 后填,LLM「read after search」命中超出内存 50 的条目也能读到。
-	seen    map[string]string
-	ownerID string
+	seen       map[string]string
+	outputSeen map[string]string
+	ownerID    string
 	// slice 收尾(末两字 len/cap 无指针 → 缩 GC pointer-bytes,fieldalignment)。
 	wikis    []domain.Wiki
 	outputs  []domain.Output
@@ -113,12 +116,14 @@ type retriever struct {
 
 // retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。snapshot 必填。
 type retrieverInput struct {
-	snapshot *domain.RoleSnapshot
-	wikiRepo WikiLister
-	ownerID  string
-	wikis    []domain.Wiki
-	outputs  []domain.Output
-	writings []domain.Writing
+	snapshot    *domain.RoleSnapshot
+	wikiRepo    WikiLister
+	outputRepo  OutputLister
+	writingRepo WritingLister
+	ownerID     string
+	wikis       []domain.Wiki
+	outputs     []domain.Output
+	writings    []domain.Writing
 }
 
 func newRetriever(in *retrieverInput) *retriever {
@@ -126,11 +131,14 @@ func newRetriever(in *retrieverInput) *retriever {
 		wikis: in.wikis, outputs: in.outputs, writings: in.writings,
 		snapshot:    in.snapshot,
 		wikiRepo:    in.wikiRepo,
+		outputRepo:  in.outputRepo,
+		writingRepo: in.writingRepo,
 		ownerID:     in.ownerID,
 		collector:   newReadCollector(),
 		wikiPaths:   WikiTreePaths(in.wikis),
 		outputPaths: OutputTreePaths(in.outputs),
 		seen:        make(map[string]string),
+		outputSeen:  make(map[string]string),
 	}
 }
 
@@ -162,58 +170,15 @@ type corpusRow struct {
 }
 
 func (r *retriever) collectMatchingEntries(ctx context.Context, q string) []corpusRow {
-	lower := strings.ToLower(q)
 	out := make([]corpusRow, 0, len(r.outputs)+len(r.writings))
-	out = append(out, r.matchOutputs(lower)...)
+	out = append(out, r.matchOutputs(ctx, q)...)
 	out = append(out, r.matchWikis(ctx, q)...)
-	out = append(out, r.matchWritings(lower)...)
+	out = append(out, r.matchWritings(ctx, q)...)
 	return out
 }
 
-func (r *retriever) matchOutputs(q string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.outputs))
-	for i := range r.outputs {
-		if r.outputMatches(&r.outputs[i], q) {
-			out = append(out, r.outputToRow(&r.outputs[i]))
-		}
-	}
-	return out
-}
-
-// matchWikis —— wiki 走 DB 全量搜(SearchByOwner,full-text + 翻页),不吃内存 50。
-// 每个命中顺 parent_id 上溯算 path + ACL,把 path→id 记进 seen 供 read 反查。
-func (r *retriever) matchWikis(ctx context.Context, q string) []corpusRow {
-	hits, err := r.wikiRepo.Search(ctx, r.ownerID, q, searchPageLimit, 0)
-	if err != nil {
-		return []corpusRow{}
-	}
-	out := make([]corpusRow, 0, len(hits))
-	for i := range hits {
-		if row, ok := r.wikiHitToRow(ctx, &hits[i]); ok {
-			out = append(out, row)
-		}
-	}
-	return out
-}
-
-func (r *retriever) wikiHitToRow(ctx context.Context, h *postgres.WikiMeta) (corpusRow, bool) {
-	path, perr := wikiPathByID(ctx, r.wikiRepo, r.ownerID, h.ID)
-	if perr != nil || !r.allowsPath(domain.GenreWiki, path) {
-		return corpusRow{}, false
-	}
-	r.seen[path] = h.ID
-	return corpusRow{Path: path, Title: h.Title, Genre: "wiki", Summary: summarize(h.Snippet)}, true
-}
-
-func (r *retriever) matchWritings(q string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.writings))
-	for i := range r.writings {
-		if r.writingMatches(&r.writings[i], q) {
-			out = append(out, writingToRow(&r.writings[i]))
-		}
-	}
-	return out
-}
+// matchWikis / matchOutputs / matchWritings(+ *HitToRow)拆到
+// visitor_chat_tools_wiki.go / _writings.go 守 350-line cap。
 
 // writing-specific helpers live in visitor_chat_tools_writings.go to keep
 // this file under the 350-line cap.
@@ -279,7 +244,14 @@ func (r *retriever) readWikiViaRepo(ctx context.Context, path string) (*domain.W
 	return &w, true
 }
 
-func (r *retriever) findOutputByPath(path string) *domain.Output {
+// findOutputByPath —— path → output,DB 优先(不吃 50-cap):outputSeen 命中(同回合
+// search 填的 path→id)→ GetByID;否则退回内存 outputs(小 corpus 兼容)。
+func (r *retriever) findOutputByPath(ctx context.Context, path string) *domain.Output {
+	if id, ok := r.outputSeen[path]; ok {
+		if o, err := r.outputRepo.GetByID(ctx, r.ownerID, id); err == nil {
+			return &o
+		}
+	}
 	for i := range r.outputs {
 		if r.outputPath(&r.outputs[i]) == path {
 			return &r.outputs[i]

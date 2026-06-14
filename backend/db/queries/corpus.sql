@@ -85,6 +85,15 @@ SELECT id, parent_id, title, seo_indexed
 FROM wiki_entries
 WHERE id = $1 AND owner_id = $2;
 
+-- name: ListAllWikiMeta :many
+-- 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed wiki + landing 的 [[X]]
+-- 渲染 title→path 索引用。不带 newest-N cap —— sitemap/链接解析必须看全量,漏一条
+-- 就是 SEO bug / 断链。带 updated_at 给 sitemap <lastmod>。
+SELECT id, parent_id, title, seo_indexed, updated_at
+FROM wiki_entries
+WHERE owner_id = $1
+ORDER BY created_at DESC;
+
 -- name: SearchWikiByOwner :many
 -- 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
 -- 自然语言问句("tell me about zephyrqx")按 OR 命中任一词项 —— plainto 默认 AND

@@ -117,6 +117,87 @@ func (r *OutputRepo) GetByID(
 	return toDomainOutput(&row), nil
 }
 
+// OutputMeta —— output 的 meta(无 body):懒加载搜/读路径用,镜像 WikiMeta。
+// UpdatedAt 仅 ListAllMeta(sitemap)填,其余路径留 0。
+type OutputMeta struct {
+	ParentID   *string
+	ID         string
+	Title      string
+	Snippet    string
+	UpdatedAt  int64
+	SEOIndexed bool
+}
+
+// GetMetaByID —— output meta(无 body):上溯算 path / 判 ACL 用。不命中 → ErrOutputNotFound。
+func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (OutputMeta, error) {
+	ids, perr := parseSrcAndOwner(id, ownerID)
+	if perr != nil {
+		return OutputMeta{}, perr
+	}
+	row, err := dbq.New(r.pool).GetOutputMetaByID(ctx, dbq.GetOutputMetaByIDParams{
+		ID: ids.Src, OwnerID: ids.Owner,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return OutputMeta{}, domain.ErrOutputNotFound
+		}
+		return OutputMeta{}, fmt.Errorf("get output meta: %w", err)
+	}
+	return OutputMeta{
+		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+		Title: row.Title, SEOIndexed: row.SeoIndexed,
+	}, nil
+}
+
+// Search —— 全量 DB 端关键词搜(full-text);返 meta + snippet(无完整 body);翻页。
+func (r *OutputRepo) Search(
+	ctx context.Context, ownerID, query string, limit, offset int32,
+) ([]OutputMeta, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	rows, qerr := dbq.New(r.pool).SearchOutputByOwner(ctx, dbq.SearchOutputByOwnerParams{
+		OwnerID: ownerUUID, PlaintoTsquery: query, Limit: limit, Offset: offset,
+	})
+	if qerr != nil {
+		return nil, fmt.Errorf("search output: %w", qerr)
+	}
+	out := make([]OutputMeta, 0, len(rows))
+	for i := range rows {
+		out = append(out, outputSearchRowMeta(&rows[i]))
+	}
+	return out, nil
+}
+
+func outputSearchRowMeta(row *dbq.SearchOutputByOwnerRow) OutputMeta {
+	return OutputMeta{
+		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+		Title: row.Title, SEOIndexed: row.SeoIndexed, Snippet: row.Snippet,
+	}
+}
+
+// ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed output 用。
+func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputMeta, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	rows, qerr := dbq.New(r.pool).ListAllOutputMeta(ctx, ownerUUID)
+	if qerr != nil {
+		return nil, fmt.Errorf("list all output meta: %w", qerr)
+	}
+	out := make([]OutputMeta, 0, len(rows))
+	for i := range rows {
+		out = append(out, OutputMeta{
+			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
+			Title: rows[i].Title, SEOIndexed: rows[i].SeoIndexed,
+			UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
+		})
+	}
+	return out, nil
+}
+
 func toDomainOutput(o *dbq.OutputEntry) domain.Output {
 	in := domain.OutputInit{
 		ID:             formatUUID(o.ID),

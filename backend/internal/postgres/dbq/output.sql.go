@@ -101,6 +101,81 @@ func (q *Queries) GetOutputByID(ctx context.Context, arg GetOutputByIDParams) (O
 	return i, err
 }
 
+const getOutputMetaByID = `-- name: GetOutputMetaByID :one
+SELECT id, parent_id, title, seo_indexed
+FROM output_entries
+WHERE id = $1 AND owner_id = $2
+`
+
+type GetOutputMetaByIDParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+type GetOutputMetaByIDRow struct {
+	ID         pgtype.UUID
+	ParentID   pgtype.UUID
+	Title      string
+	SeoIndexed bool
+}
+
+// meta only(无 body):上溯算树派生 path / 判 ACL 用,不为读正文。镜像 GetWikiMetaByID。
+func (q *Queries) GetOutputMetaByID(ctx context.Context, arg GetOutputMetaByIDParams) (GetOutputMetaByIDRow, error) {
+	row := q.db.QueryRow(ctx, getOutputMetaByID, arg.ID, arg.OwnerID)
+	var i GetOutputMetaByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.Title,
+		&i.SeoIndexed,
+	)
+	return i, err
+}
+
+const listAllOutputMeta = `-- name: ListAllOutputMeta :many
+SELECT id, parent_id, title, seo_indexed, updated_at
+FROM output_entries
+WHERE owner_id = $1
+ORDER BY created_at DESC
+`
+
+type ListAllOutputMetaRow struct {
+	ID         pgtype.UUID
+	ParentID   pgtype.UUID
+	Title      string
+	SeoIndexed bool
+	UpdatedAt  pgtype.Timestamptz
+}
+
+// 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed output + landing 的树路径
+// 派生用。不带 newest-N cap —— sitemap 必须列全,漏一条就是 SEO bug。带 updated_at
+// 给 sitemap <lastmod>。
+func (q *Queries) ListAllOutputMeta(ctx context.Context, ownerID pgtype.UUID) ([]ListAllOutputMetaRow, error) {
+	rows, err := q.db.Query(ctx, listAllOutputMeta, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllOutputMetaRow
+	for rows.Next() {
+		var i ListAllOutputMetaRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Title,
+			&i.SeoIndexed,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOutputByOwner = `-- name: ListOutputByOwner :many
 SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM output_entries
 WHERE owner_id = $1
@@ -135,6 +210,69 @@ func (q *Queries) ListOutputByOwner(ctx context.Context, arg ListOutputByOwnerPa
 			&i.SeoIndexed,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchOutputByOwner = `-- name: SearchOutputByOwner :many
+SELECT id, parent_id, title, seo_indexed, left(body, 200) AS snippet
+FROM output_entries
+WHERE owner_id = $1
+  AND to_tsvector('english',
+        title || ' ' || body || ' ' || array_to_string(tags, ' '))
+      @@ replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+ORDER BY ts_rank(
+        to_tsvector('english',
+          title || ' ' || body || ' ' || array_to_string(tags, ' ')),
+        replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
+      ) DESC, updated_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type SearchOutputByOwnerParams struct {
+	OwnerID        pgtype.UUID
+	PlaintoTsquery string
+	Limit          int32
+	Offset         int32
+}
+
+type SearchOutputByOwnerRow struct {
+	ID         pgtype.UUID
+	ParentID   pgtype.UUID
+	Title      string
+	SeoIndexed bool
+	Snippet    string
+}
+
+// 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
+// 镜像 SearchWikiByOwner:自然语言问句按 OR 命中任一词项(' & '→' | '),ts_rank 排序。
+func (q *Queries) SearchOutputByOwner(ctx context.Context, arg SearchOutputByOwnerParams) ([]SearchOutputByOwnerRow, error) {
+	rows, err := q.db.Query(ctx, searchOutputByOwner,
+		arg.OwnerID,
+		arg.PlaintoTsquery,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchOutputByOwnerRow
+	for rows.Next() {
+		var i SearchOutputByOwnerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Title,
+			&i.SeoIndexed,
+			&i.Snippet,
 		); err != nil {
 			return nil, err
 		}
