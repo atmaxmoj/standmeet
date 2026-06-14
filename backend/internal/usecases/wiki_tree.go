@@ -1,23 +1,34 @@
-// wiki_tree.go —— 公开 wiki 树的懒加载分层 + ACL 过滤。wiki landing sidebar
-// (#37)和 reader/writing 入口(#43)共用这一套。
+// wiki_tree.go —— 公开 wiki 树的**真·懒加载**分层 + ACL 过滤。wiki landing
+// sidebar(#37)和 reader/writing 入口(#43)共用这一套。
 //
-// 懒加载:一次返一层(roots / 某节点的直接子),前端展开才取下一层 —— 大 corpus
-// 不一次拉整棵。可见性走 scope:匿名只 seo_indexed,有 code 走 role corpus_uris
-// glob 准入 —— **不在 scope 的条目整条不出现**(不泄露 gated 标题)。
+// 懒加载是逐层的:一次只查一层(roots / 某节点的直接子,DB 端 ListChildren,
+// meta-only),**不 load 整棵树**。大 corpus 不再吃 newest-50 cap。
 //
-// path 跟 GetWikiLanding 同口径(全树派生),前端拿 path 直接拼 /wiki/<path>。
-// 一个不可见的 parent 会把它**可见**的子节点升为 root(parent 不在集合内 = root
-// 边界),既不漏 gated 父名又保子节点可达。
+// 可见性走 scope:匿名只 seo_indexed,有 code 走 role corpus_uris glob 准入。
+// 文件系统式 cascade:一条可见 ⟺ 它自己过闸 **且** 每个祖先都过闸 —— 祖先 gate 了
+// 整条子树不可见(不泄露 gated 标题、indexed 子也不升根)。懒加载下 cascade 这样守:
+// 列某 parent 的子前先顺 parent→root 验整条链可见(visibleChain),链断 → 返空层;
+// 链通 → parent 已可见,子的可见性就只看子自己过不过闸。
+//
+// path 跟 GetWikiLanding 同口径(树派生,pathSegment(title) 顺链拼),前端拿 path
+// 直接拼 /wiki/<path>。
 
 package usecases
 
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
+
+// wikiTreeLayerCap —— 一层最多返多少节点。逐层懒加载下这是**单层**上限(不是全
+// corpus),远松于旧的 newest-50 全树 cap。前端树暂不分页,故取一个宽值。
+const wikiTreeLayerCap = 500
 
 // WikiTreeNode —— 树的一个节点(单层)。HasChildren 决定前端要不要画展开箭头。
 type WikiTreeNode struct {
@@ -27,24 +38,24 @@ type WikiTreeNode struct {
 	HasChildren bool
 }
 
-// WikiTreeScope —— 判一条 wiki 对当前 viewer 是否可见。
-type WikiTreeScope func(w *domain.Wiki, path string) bool
+// WikiTreeScope —— 判一条 wiki(按 seo_indexed + 树派生 path)对当前 viewer 是否
+// 过闸。只看节点**自己**;cascade 的祖先链由 visibleChain 单独验。
+type WikiTreeScope func(seoIndexed bool, path string) bool
 
 // PublicWikiScope —— 匿名:只 seo_indexed 可见(跟 GetWikiLanding 一致)。
-func PublicWikiScope(w *domain.Wiki, _ string) bool {
-	return w.SEOIndexed()
+func PublicWikiScope(seoIndexed bool, _ string) bool {
+	return seoIndexed
 }
 
 // RoleWikiScope —— 有 code:role corpus_uris glob 准入 wiki://<path>。
 func RoleWikiScope(snap *domain.RoleSnapshot) WikiTreeScope {
-	return func(_ *domain.Wiki, path string) bool {
+	return func(_ bool, path string) bool {
 		return snap.AllowsCorpus("wiki://" + path)
 	}
 }
 
 // WikiTreeScopeFor —— bearer token → scope。token 空 / 无效 / 无 store 都退到
-// 匿名(只 seo_indexed);有效 session → role corpus_uris scope。route 只取 token,
-// 把分支下沉到这,守 routes-cyclo。
+// 匿名(只 seo_indexed);有效 session → role corpus_uris scope。
 func WikiTreeScopeFor(
 	ctx context.Context, sessions *session.VisitorSessionStore, token string,
 ) WikiTreeScope {
@@ -69,7 +80,16 @@ func sessionRoleSnapshot(
 	return data.RoleSnapshot
 }
 
-// WikiTreeChildren —— 返回 parentID 的直接子节点(parentID="" → roots)。
+// wikiTreeQuery —— 一次树查询的公共上下文(repo + owner + scope),把 ctx 之外的
+// 共参收进 receiver,守 argument-limit。
+type wikiTreeQuery struct {
+	repo    WikiLister
+	scope   WikiTreeScope
+	ownerID string
+}
+
+// WikiTreeChildren —— 返 parentID 的直接可见子(parentID="" → roots)。非根先验
+// parent 链整条可见(cascade),链断 → 空层。
 func WikiTreeChildren(
 	ctx context.Context, deps SEODeps, parentID string, scope WikiTreeScope,
 ) ([]WikiTreeNode, error) {
@@ -77,103 +97,116 @@ func WikiTreeChildren(
 	if !ok {
 		return []WikiTreeNode{}, nil
 	}
-	wikis, err := deps.Wiki.ListByOwner(ctx, owner.ID, maxRAGWikis)
-	if err != nil {
-		return nil, fmt.Errorf("list wiki: %w", err)
-	}
-	return buildWikiTreeLayer(wikis, parentID, scope), nil
-}
-
-// buildWikiTreeLayer —— 全树算可见集 + effective-parent,挑出 parentID 的直接子。
-func buildWikiTreeLayer(
-	wikis []domain.Wiki, parentID string, scope WikiTreeScope,
-) []WikiTreeNode {
-	paths := WikiTreePaths(wikis)
-	inScope := scopeSet(wikis, paths, scope)
-	return nodesUnder(wikis, paths, inScope, parentID)
-}
-
-// nodesUnder —— parentID 的直接可见子(parentID="" → roots)。paths/inScope 由
-// 调用方算好,layer 与 context 共用。
-func nodesUnder(
-	wikis []domain.Wiki, paths map[string]string, inScope map[string]bool, parentID string,
-) []WikiTreeNode {
-	hasKids := parentsWithVisibleChild(wikis, inScope)
-	out := make([]WikiTreeNode, 0)
-	for i := range wikis {
-		id := wikis[i].ID()
-		if inScope[id] && effectiveParent(&wikis[i]) == parentID {
-			out = append(out, WikiTreeNode{
-				ID: id, Title: wikis[i].Title(),
-				Path: paths[id], HasChildren: hasKids[id],
-			})
+	q := &wikiTreeQuery{repo: deps.Wiki, ownerID: owner.ID, scope: scope}
+	parentPath := ""
+	if parentID != "" {
+		chain, err := q.visibleChain(ctx, parentID)
+		if err != nil {
+			return nil, fmt.Errorf("wiki tree parent: %w", err)
 		}
+		if len(chain) == 0 {
+			return []WikiTreeNode{}, nil // gated 祖先链 → 整条子树不可见
+		}
+		parentPath = chain[len(chain)-1].Path
 	}
-	return out
+	return q.listChildren(ctx, parentID, parentPath)
 }
 
-// scopeSet —— 文件系统式 cascade:一条可见 ⟺ 它自己过闸 **且** parent 可见
-// (祖先 gate 了 → 整条子树不可见,不存在"孤儿升根";deny ~/Download 就 deny 里
-// 面一切)。记忆化顺 parent_id 上溯。
-func scopeSet(
-	wikis []domain.Wiki, paths map[string]string, scope WikiTreeScope,
-) map[string]bool {
-	own := make(map[string]bool, len(wikis))
-	byID := make(map[string]*domain.Wiki, len(wikis))
-	for i := range wikis {
-		id := wikis[i].ID()
-		own[id] = scope(&wikis[i], paths[id])
-		byID[id] = &wikis[i]
+// visibleChain —— 顺 nodeID→root 走一条链,top-down 算每节点 path + 验 scope。整条
+// 都过闸 → 返 root→node(含自身)的可见节点链;任一祖先(或自身)不过闸 → 返空 slice。
+func (q *wikiTreeQuery) visibleChain(
+	ctx context.Context, nodeID string,
+) ([]WikiTreeNode, error) {
+	metas, err := q.walkToRoot(ctx, nodeID)
+	if err != nil {
+		return nil, err
 	}
-	visible := make(map[string]bool, len(wikis))
-	for id := range own {
-		resolveVisible(id, own, byID, visible)
+	nodes := make([]WikiTreeNode, 0, len(metas))
+	segs := make([]string, 0, len(metas))
+	for _, meta := range slices.Backward(metas) {
+		segs = append(segs, pathSegment(meta.Title))
+		path := strings.Join(segs, "/")
+		if !q.scope(meta.SEOIndexed, path) {
+			return []WikiTreeNode{}, nil
+		}
+		nodes = append(nodes, WikiTreeNode{ID: meta.ID, Title: meta.Title, Path: path})
 	}
-	return visible
+	return nodes, nil
 }
 
-// resolveVisible —— 记忆化:own[id] && (是根 || parent 可见)。
-func resolveVisible(
-	id string, own map[string]bool, byID map[string]*domain.Wiki, memo map[string]bool,
-) bool {
-	if v, done := memo[id]; done {
-		return v
+// walkToRoot —— 顺 parent_id 上溯收 meta(bottom-up,不读 body),到 root 或 maxDepth。
+func (q *wikiTreeQuery) walkToRoot(
+	ctx context.Context, nodeID string,
+) ([]postgres.WikiMeta, error) {
+	out := make([]postgres.WikiMeta, 0, treeMaxDepth)
+	cur := nodeID
+	for range treeMaxDepth {
+		meta, err := q.repo.GetMetaByID(ctx, q.ownerID, cur)
+		if err != nil {
+			return nil, fmt.Errorf("wiki meta walk: %w", err)
+		}
+		out = append(out, meta)
+		if meta.ParentID == nil {
+			break
+		}
+		cur = *meta.ParentID
 	}
-	w, ok := byID[id]
-	v := ok && own[id] && parentVisible(w, own, byID, memo)
-	memo[id] = v
-	return v
+	return out, nil
 }
 
-func parentVisible(
-	w *domain.Wiki, own map[string]bool, byID map[string]*domain.Wiki, memo map[string]bool,
-) bool {
-	pid, hasParent := w.ParentID()
-	if !hasParent {
-		return true
+// listChildren —— DB 列 parentID 的直接子,逐个验自己过闸(parent 已验可见)。
+// has_children 是「有 ≥1 可见子」:peek 一层下去现算,无可见子 → 不画箭头。
+func (q *wikiTreeQuery) listChildren(
+	ctx context.Context, parentID, parentPath string,
+) ([]WikiTreeNode, error) {
+	kids, err := q.repo.ListChildren(ctx, q.ownerID, parentPtr(parentID), wikiTreeLayerCap, 0)
+	if err != nil {
+		return nil, fmt.Errorf("list wiki children: %w", err)
 	}
-	return resolveVisible(pid, own, byID, memo)
-}
-
-// effectiveParent —— 真 parent(cascade 已保证 gated 子树整个不可见,无需升根)。
-func effectiveParent(w *domain.Wiki) string {
-	pid, ok := w.ParentID()
-	if ok {
-		return pid
-	}
-	return ""
-}
-
-// parentsWithVisibleChild —— 有 ≥1 可见子的 parent id 集(算 HasChildren)。
-func parentsWithVisibleChild(wikis []domain.Wiki, inScope map[string]bool) map[string]bool {
-	out := make(map[string]bool)
-	for i := range wikis {
-		if !inScope[wikis[i].ID()] {
+	out := make([]WikiTreeNode, 0, len(kids))
+	for i := range kids {
+		path := joinSeg(parentPath, pathSegment(kids[i].Title))
+		if !q.scope(kids[i].SEOIndexed, path) {
 			continue
 		}
-		if p := effectiveParent(&wikis[i]); p != "" {
-			out[p] = true
+		hasKids, herr := q.hasVisibleChild(ctx, kids[i].ID, path)
+		if herr != nil {
+			return nil, herr
+		}
+		out = append(out, WikiTreeNode{
+			ID: kids[i].ID, Title: kids[i].Title, Path: path, HasChildren: hasKids,
+		})
+	}
+	return out, nil
+}
+
+// hasVisibleChild —— nodeID 是否有 ≥1 个过闸的直接子(nodePath 已知可见)。
+func (q *wikiTreeQuery) hasVisibleChild(
+	ctx context.Context, nodeID, nodePath string,
+) (bool, error) {
+	kids, err := q.repo.ListChildren(ctx, q.ownerID, &nodeID, wikiTreeLayerCap, 0)
+	if err != nil {
+		return false, fmt.Errorf("peek wiki children: %w", err)
+	}
+	for i := range kids {
+		if q.scope(kids[i].SEOIndexed, joinSeg(nodePath, pathSegment(kids[i].Title))) {
+			return true, nil
 		}
 	}
-	return out
+	return false, nil
+}
+
+// parentPtr —— ""(roots)→ nil,否则 &id;喂 ListChildren 的 parentID 参数。
+func parentPtr(id string) *string {
+	if id == "" {
+		return nil
+	}
+	return &id
+}
+
+func joinSeg(base, seg string) string {
+	if base == "" {
+		return seg
+	}
+	return base + "/" + seg
 }
