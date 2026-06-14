@@ -184,11 +184,16 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
       await request.dispose();
     });
 
-  test('missing Authorization → 401',
+  test('no credentials (no bearer, no cookie) → 401',
     async ({ playwright }) => {
-      const request = await playwright.request.newContext();
-      await assertMissingAuthReturns401(request);
-      await request.dispose();
+      const seeded = await playwright.request.newContext();
+      const sess = await freshSession(seeded, CODE_FULL);
+      // 用全新 context 打:无 bearer **且** 无 session cookie → 真·无凭证 → 401。
+      // (seeded 那个 context 因为发过 session,jar 里有 sm_vsession cookie,会被认。)
+      const anon = await playwright.request.newContext();
+      await assertNoCredsReturns401(anon, sess.conversation_id);
+      await seeded.dispose();
+      await anon.dispose();
     });
 });
 
@@ -261,10 +266,11 @@ async function assertBadTokenReturns401(request: APIRequestContext): Promise<voi
   expect(res.status()).toBe(401);
 }
 
-async function assertMissingAuthReturns401(request: APIRequestContext): Promise<void> {
-  const sess = await freshSession(request, CODE_FULL);
+async function assertNoCredsReturns401(
+  request: APIRequestContext, conversationID: string,
+): Promise<void> {
   const res = await request.post(
-    `${BACKEND}/api/v1/sessions/${sess.conversation_id}/tools/corpus_search`,
+    `${BACKEND}/api/v1/sessions/${conversationID}/tools/corpus_search`,
     { data: { query: 'x' } },
   );
   expect(res.status()).toBe(401);

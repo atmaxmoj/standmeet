@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -149,17 +150,56 @@ func (h *Handlers) withVisitorSession(next http.HandlerFunc) http.HandlerFunc {
 func (h *Handlers) resolveVisitor(
 	w http.ResponseWriter, r *http.Request,
 ) (authedVisitor, bool) {
-	token, hasBearer := bearerToken(r)
-	if !hasBearer {
-		writeError(h.Log, w, unauthorizedEnv("missing bearer token"))
+	token, has := visitorToken(r)
+	if !has {
+		writeError(h.Log, w, unauthorizedEnv("missing session token"))
 		return authedVisitor{}, false
 	}
 	data, err := h.Sessions.Get(r.Context(), token)
 	if err != nil {
+		// session 失效(TTL 过期 / evict / 删)→ 顺手清掉浏览器 cookie,别再揣着死 token。
+		clearVisitorSessionCookie(w)
 		writeError(h.Log, w, unauthorizedEnv("invalid session"))
 		return authedVisitor{}, false
 	}
 	return authedVisitor{Token: token, Data: &data}, true
+}
+
+// visitorSessionCookie —— 访客 session token 的 cookie 名。
+const visitorSessionCookie = "sm_vsession"
+
+// visitorToken —— 取访客 token:Authorization Bearer 优先,session cookie 兜底
+// (跨 tab / 活过刷新 / SSR 都认)。
+func visitorToken(r *http.Request) (string, bool) {
+	if t, ok := bearerToken(r); ok {
+		return t, true
+	}
+	return cookieToken(r)
+}
+
+func cookieToken(r *http.Request) (string, bool) {
+	c, err := r.Cookie(visitorSessionCookie)
+	if err != nil || c.Value == "" {
+		return "", false
+	}
+	return c.Value, true
+}
+
+// setVisitorSessionCookie —— 发 session 时把 token 写进 HttpOnly cookie,寿命跟
+// session 一致。HttpOnly = JS 读不到(防 XSS 偷),浏览器自动随请求带。
+func setVisitorSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+	http.SetCookie(w, &http.Cookie{
+		Name: visitorSessionCookie, Value: token, Path: "/",
+		HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: expiresAt,
+	})
+}
+
+// clearVisitorSessionCookie —— session 失效(401)时回写一个过期 cookie 清掉它。
+func clearVisitorSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name: visitorSessionCookie, Value: "", Path: "/",
+		HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1,
+	})
 }
 
 // authVisitorWithToken —— handler 取 withVisitorSession 已验好的 authedVisitor
