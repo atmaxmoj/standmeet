@@ -71,14 +71,19 @@ func readBindingTool(r *retriever) agentskills.BindingTool {
 func listBindingTool(r *retriever) agentskills.BindingTool {
 	return agentskills.NewTool(
 		toolListCorpus,
-		"List corpus entry paths optionally filtered by prefix.",
+		"Navigate the wiki tree one level at a time. Omit path to list root "+
+			"entries; pass a node's path to list its direct children (empty result "+
+			"means it's a leaf). Use page (0-based) to page through a wide level.",
 		"listing entries",
 		json.RawMessage(`{
 			"type": "object",
-			"properties": {"prefix": {"type": "string"}}
+			"properties": {
+				"path": {"type": "string"},
+				"page": {"type": "integer"}
+			}
 		}`),
-		func(_ context.Context, args string) (string, error) {
-			return r.runList([]byte(args))
+		func(ctx context.Context, args string) (string, error) {
+			return r.runList(ctx, []byte(args))
 		},
 	)
 }
@@ -240,13 +245,13 @@ func parseReadPath(input []byte) (string, error) {
 // dispatchRead / serveXRead helpers 拆到 visitor_chat_tools_read.go 守
 // max-lines 350 line cap。
 
-// findWikiByPath —— 先查 seen(DB 搜出来的 path→id)→ GetByID 拉 body;命中超出
-// 内存 50 的条目也读得到。退回内存 wikis(老路径,seed/小 corpus 兼容)。
+// findWikiByPath —— path → entry,DB 优先(不吃内存 50-cap):先 seen 缓存(同回合
+// search/list 填的 path→id),否则顺树 resolve path→id;两路都 GetByID 拉 body。最后
+// 退回内存 wikis(老路径/小 corpus 兼容)。跨 tool 调用(各自新 retriever,seen 空)
+// 也能按 path 读到任意深度条目。
 func (r *retriever) findWikiByPath(ctx context.Context, path string) *domain.Wiki {
-	if id, ok := r.seen[path]; ok {
-		if w, err := r.wikiRepo.GetByID(ctx, r.ownerID, id); err == nil {
-			return &w
-		}
+	if w, ok := r.readWikiViaRepo(ctx, path); ok {
+		return w
 	}
 	for i := range r.wikis {
 		if r.wikiPath(&r.wikis[i]) == path {
@@ -254,6 +259,24 @@ func (r *retriever) findWikiByPath(ctx context.Context, path string) *domain.Wik
 		}
 	}
 	return nil
+}
+
+// readWikiViaRepo —— DB 路:seen 命中直接拿 id,否则顺 root→下 resolve path→id;再
+// GetByID。解不出(未知 path)/读不到 → (nil,false),交回内存兜底。
+func (r *retriever) readWikiViaRepo(ctx context.Context, path string) (*domain.Wiki, bool) {
+	id, ok := r.seen[path]
+	if !ok {
+		resolved, rerr := resolveWikiNodeID(ctx, r.wikiRepo, r.ownerID, path)
+		if rerr != nil {
+			return nil, false
+		}
+		id = resolved
+	}
+	w, err := r.wikiRepo.GetByID(ctx, r.ownerID, id)
+	if err != nil {
+		return nil, false
+	}
+	return &w, true
 }
 
 func (r *retriever) findOutputByPath(path string) *domain.Output {

@@ -46,6 +46,27 @@ func (f wikiFixture) Search(
 	return pageMeta(out, limit, offset), nil
 }
 
+// ListChildren —— 某节点直接子的内存版(parentID nil = 根层),meta-only,翻页。
+func (f wikiFixture) ListChildren(
+	_ context.Context, _ string, parentID *string, limit, offset int32,
+) ([]postgres.WikiMeta, error) {
+	out := make([]postgres.WikiMeta, 0, len(f.items))
+	for i := range f.items {
+		if fixtureIsChild(&f.items[i], parentID) {
+			out = append(out, f.metaOf(&f.items[i]))
+		}
+	}
+	return pageMeta(out, limit, offset), nil
+}
+
+func fixtureIsChild(w *domain.Wiki, parentID *string) bool {
+	pid, has := w.ParentID()
+	if parentID == nil {
+		return !has
+	}
+	return has && pid == *parentID
+}
+
 // GetMetaByID —— 按 id 读一条 meta(上溯算 path 用)。
 func (f wikiFixture) GetMetaByID(
 	_ context.Context, _, id string,

@@ -25,6 +25,9 @@ type WikiLister interface {
 	Search(
 		ctx context.Context, ownerID, query string, limit, offset int32,
 	) ([]postgres.WikiMeta, error)
+	ListChildren(
+		ctx context.Context, ownerID string, parentID *string, limit, offset int32,
+	) ([]postgres.WikiMeta, error)
 	GetMetaByID(ctx context.Context, ownerID, id string) (postgres.WikiMeta, error)
 	GetByID(ctx context.Context, ownerID, id string) (domain.Wiki, error)
 }
