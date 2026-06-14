@@ -170,8 +170,8 @@ function Hint({ busy, error }: { busy: boolean; error: boolean }) {
     <div className="mono text-[10.5px] tracking-[0.12em] mt-4 leading-[1.7] max-w-[44em]">
       <HintStatus busy={busy} error={error} />
       <p className="text-(--color-faint)">
-        codes look like <span className="text-(--color-muted)">OAEN-3K2</span> · they arrive by
-        email from the owner directly · case doesn&rsquo;t matter · paste the whole thing (with
+        codes look like <span className="text-(--color-muted)">OAEN-3K2</span> · the owner bakes
+        them into a QR code or link · case doesn&rsquo;t matter · paste the whole thing (with
         or without the dash) and press enter.
       </p>
       <p className="text-(--color-faint) mt-1">
