@@ -9,6 +9,7 @@
 
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useCallback, useRef } from 'react';
 
@@ -67,16 +68,20 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   const { dark, toggle } = useTheme();
   const chat = useChat({ mode });
   const exhausted = useIsQuotaExhausted();
+  const router = useRouter();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const ghost = useCurrentGhost();
   const cycleGhost = useGhostsStore((s) => s.cycle);
   const ghostLogger = useGhostLogger();
 
+  // 长滚屏只对**没有 chat session**(public)的访客渲染 —— 这里提问不行内答,一律
+  // hand off 到 /gate(填 code/BYOAI),问题用 ?q= 带过去,过闸后在 ChatRoom 接着答。
+  // 无码不该用 owner 的 key 直接聊。
   const onAsk = useCallback((q: string) => {
     setInput('');
-    void chat.ask(q);
-  }, [chat]);
+    router.push(gateHref(q));
+  }, [router]);
 
   useConsumeQuestionFromURL(onAsk);
 
@@ -131,6 +136,12 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
       <Footer />
     </div>
   );
+}
+
+// gateHref —— 把首页问题带去 /gate(空问题就纯 /gate)。过闸后 gate 跳 /?q= 续答。
+function gateHref(q: string): string {
+  const trimmed = q.trim();
+  return trimmed === '' ? '/gate' : `/gate?q=${encodeURIComponent(trimmed)}`;
 }
 
 function buildAskedSet(dialogs: ReturnType<typeof useChat>['dialogs']): ReadonlySet<string> {

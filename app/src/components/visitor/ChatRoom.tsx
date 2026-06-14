@@ -17,6 +17,7 @@ import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { ChatTranscript, ChatProgress } from '@/components/visitor/ChatTranscript';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
+import { useConsumeQuestionFromURL } from '@/lib/page/consume-question-url';
 import type { SessionMode } from '@/lib/page/use-chat';
 import type { PublicOwnerView } from '@/lib/api/public';
 
@@ -25,6 +26,8 @@ type Props = { owner: PublicOwnerView; mode: SessionMode };
 export function ChatRoom({ owner, mode }: Props) {
   const derived = useChatRoomDerived();
   const ci = useChatRoomInput(mode);
+  // 从首页带着问题(/gate?q= → 过闸 → /?q=)进来的:mount 时把那个问题接着问掉(不丢)。
+  useConsumeQuestionFromURL(ci.onAsk);
   // Normal-chat behaviour: keep the transcript pinned to the bottom as messages
   // arrive + stream (dialogs is a fresh array each stream tick → fires here),
   // so the newest answer is always in view.

@@ -38,7 +38,7 @@ interface SubmitDeps {
   hook: GateHook;
 }
 
-// submitCodeAndGo —— 调 hook.submitCode + 成功跳 `/`。
+// submitCodeAndGo —— 调 hook.submitCode + 成功跳 `/`(带回首页问题 ?q=)。
 // CodePanel form onSubmit + paste 自动提交 共用。
 export async function submitCodeAndGo(
   code: string,
@@ -46,7 +46,17 @@ export async function submitCodeAndGo(
   deps: SubmitDeps,
 ): Promise<void> {
   const ok = await deps.hook.submitCode(code, name);
-  if (ok) deps.router.push('/');
+  if (ok) deps.router.push(postGateHref());
+}
+
+// postGateHref —— 过闸后回 `/`;若访客是从首页带着问题(/gate?q=)来的,把 ?q= 串回去,
+// 让 ChatRoom mount 时接着答(不丢问题)。
+export function postGateHref(): string {
+  if (typeof window === 'undefined') {
+    return '/';
+  }
+  const q = new URL(window.location.href).searchParams.get('q');
+  return q === null || q === '' ? '/' : `/?q=${encodeURIComponent(q)}`;
 }
 
 // scheduleAutoSubmit —— paste 的延迟自动提交（50ms 让 React state 跑完）。

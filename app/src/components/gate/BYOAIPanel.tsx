@@ -21,6 +21,7 @@ import {
   EMPTY_DEFAULTS, type ProviderFormState,
 } from '@/lib/inference/provider-form';
 import { useModelList, type ModelListHook } from '@/lib/inference/use-model-list';
+import { postGateHref } from '@/lib/gate/code-panel-logic';
 import type { GateHook } from '@/lib/gate/use-gate';
 import { useToast } from '@/lib/ui/toast';
 
@@ -349,6 +350,6 @@ async function runBYOAISubmit(
 ): Promise<void> {
   const ok = await hook.submitBYOAI(input);
   // 落根 / —— byoai 状态在 localStorage（use-gate.persistSession），
-  // page-shell mount 时读 store，URL 不挂 flag。
-  ok && router.push('/');
+  // page-shell mount 时读 store，URL 不挂 flag。带回首页问题 ?q=(跟 code 一致)。
+  ok && router.push(postGateHref());
 }
