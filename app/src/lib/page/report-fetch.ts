@@ -47,8 +47,14 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  // Defer cleanup: revoking the object URL (or removing the anchor) synchronously
+  // in the same tick as click() races Chromium's download start — it drops the
+  // download attribute and the file lands as the bare blob UUID with no .pdf
+  // extension. A macrotask later the download has been handed off; cleanup is safe.
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 function pickReportHTML(body: unknown): string | null {

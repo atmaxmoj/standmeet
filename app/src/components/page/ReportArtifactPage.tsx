@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   fetchReport, downloadReportPDF, type ReportLoadState,
 } from '@/lib/page/report-fetch';
+import { reportDocument } from '@/lib/page/report-document';
 import styles from '@/components/page/ReportArtifactPage.module.css';
 
 interface Props {
@@ -88,7 +89,7 @@ function ReportFrame({ html, iframeRef }: {
   return (
     <iframe
       ref={iframeRef} className={styles['frame']} title="chat report body"
-      sandbox="allow-same-origin" srcDoc={html}
+      sandbox="allow-same-origin" srcDoc={reportDocument(html)}
       data-testid="report-iframe"
     />
   );

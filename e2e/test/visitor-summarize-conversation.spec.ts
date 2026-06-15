@@ -112,6 +112,9 @@ test.describe('visitor summarize_conversation · I.3', () => {
   test('/report/[id] 上 download PDF 按钮 → 下载一份 PDF',
     async ({ page, playwright }) => { await reportPDFDownloadUITest(page, playwright); });
 
+  test('/report/[id] iframe 套了 StandMeet 设计语言（不是裸 Times）',
+    async ({ page, playwright }) => { await reportStyledTest(page, playwright); });
+
   test('老 POST /api/v1/sessions/{id}/summary 已删 → 404',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -177,6 +180,38 @@ async function reportPDFDownloadUITest(page: Page, playwright: Playwright): Prom
   expect(download.suggestedFilename()).toMatch(/^report-.*\.pdf$/);
   const head = readFileSync(await download.path()).subarray(0, 5).toString();
   expect(head, 'downloaded file is a PDF').toBe('%PDF-');
+}
+
+// reportStyledTest —— the AI report HTML is a bare fragment (no CSS); the page
+// must wrap it in the StandMeet design language. Guard against regressing to the
+// raw browser-default Times render: the iframe document must carry the serif
+// body font + vermillion accent, and the body's computed font must be Newsreader
+// (not the default serif/Times).
+async function reportStyledTest(page: Page, playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  await scriptMockReplyText(request, REPORT_HTML);
+  await request.dispose();
+
+  await enterChatWithCode(page);
+  await fireFirstTurn(page, 'summarize what we discussed');
+  const card = page.getByTestId('tool-card-summarize_conversation');
+  await expect(card).toBeVisible({ timeout: 10_000 });
+  const reportID = await card.getAttribute('data-report-id');
+  expect(reportID).toBeTruthy();
+
+  await goto(page, `/report/${reportID}`);
+  const frame = page.getByTestId('report-iframe');
+  const srcdoc = await frame.getAttribute('srcdoc');
+  expect(srcdoc, 'report iframe wraps the fragment in a styled document').toBeTruthy();
+  expect(srcdoc, 'serif design font declared').toContain('Newsreader');
+  expect(srcdoc, 'vermillion accent declared').toContain('#B5391C');
+  expect(srcdoc, 'still contains the report body').toContain('<h1>Quick recap</h1>');
+
+  // computed font on the rendered body is the design serif, not default Times.
+  const fontFamily = await page.frameLocator('[data-testid="report-iframe"]')
+    .locator('body').evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(fontFamily.toLowerCase(), 'body renders in Newsreader').toContain('newsreader');
 }
 
 async function postAgentTurn(

@@ -30,22 +30,45 @@ const (
 	toolSummarizeName      = "summarize_conversation"
 )
 
-// summarizeHTMLPrompt —— AI 写 HTML 报告时的 system；要求出完整 body
-// 片段 (含 <h1> 标题)，不含 <html>/<head>/<body> 包装。
-const summarizeHTMLPrompt = "You generate polished HTML conversation reports. " +
-	"Output a complete HTML body fragment (no <html>/<head>/<body> wrapper). " +
-	"Required structure:\n\n" +
-	"<h1>Title summarizing the conversation</h1>\n" +
-	"<h2>Overview</h2><p>2-3 sentence summary.</p>\n" +
-	"<h2>Key Topics</h2><ul><li>...</li></ul> (3-5 items)\n" +
-	"<h2>Key Takeaways</h2><ul><li>...</li></ul> (3-5 items)\n" +
-	"<h2>Next Steps</h2><ul><li>...</li></ul> (optional, only if actionable)\n\n" +
+// summarizeHTMLPrompt —— AI 写 HTML 报告时的 system。给一套**固定组件 kit**
+// (预先在 report-document.ts / reportPrintCSS 里 styled 好的 class) 让 AI
+// 组装,而不是从零写 markup + 样式。禁止自创 style/class,保证设计一致 + 无注入。
+// 出完整 body 片段 (含 <h1>),不含 <html>/<head>/<body> 包装。
+const summarizeHTMLPrompt = "You generate a polished HTML conversation report. " +
+	"Compose it ONLY from the StandMeet report component kit below — do not invent " +
+	"your own classes, inline styles, <style>, or <script>; the page already styles " +
+	"these. Output a complete HTML body fragment (no <html>/<head>/<body> wrapper).\n\n" +
+	"Component kit:\n" +
+	"- <h1>…</h1> — the report title (exactly one).\n" +
+	"- <p class=\"lede\">…</p> — opening 2-3 sentence overview.\n" +
+	"- <h2>…</h2> — section heading (e.g. Key Topics / Key Takeaways / Next Steps).\n" +
+	"- <div class=\"callout\">…</div> — box highlighting one standout insight.\n" +
+	"- <ul class=\"checks\"><li>…</li></ul> — takeaways / next steps lists.\n" +
+	"- <div class=\"tags\"><span class=\"tag\">topic</span>…</div> — topic chips.\n" +
+	"- STAR block — the structured spine for one experience:\n" +
+	"    <div class=\"exp\"><h2>Experience name</h2><div class=\"star\">\n" +
+	"      <div class=\"star-row\"><span class=\"star-k\">Situation</span>" +
+	"<div class=\"star-v\">…</div></div>\n" +
+	"      <div class=\"star-row\"><span class=\"star-k\">Task</span>" +
+	"<div class=\"star-v\">…</div></div>\n" +
+	"      (then Action, then Result, same shape)\n" +
+	"    </div></div>\n" +
+	"- plain <p>, <ul>/<li>, <strong>, <em>, <a href>, <blockquote> are fine too.\n\n" +
+	"Structure — most of these conversations are interviews / evaluations of the " +
+	"owner, and the reader is a recruiter or hiring manager, so DEFAULT TO STAR:\n" +
+	"- <h1> title, then a <p class=\"lede\"> 2-3 sentence overall read.\n" +
+	"- For EACH substantive experience discussed (a project, an incident), one " +
+	"<div class=\"exp\"> STAR block (Situation / Task / Action / Result). This is " +
+	"the spine of the report — use the star component, never loose bullets for it.\n" +
+	"- Close with <h2>Assessment</h2> + <ul class=\"checks\"> of honest strengths " +
+	"and gaps the conversation revealed.\n" +
+	"Use judgment: if the conversation clearly is NOT about evaluating someone's " +
+	"experience (e.g. a casual Q&A), skip STAR and write a plain topical summary " +
+	"(overview + key topics + takeaways) instead.\n" +
 	"Rules:\n" +
-	"- No inline styles, no <script>, no <iframe>, no <style> tag\n" +
-	"- Use <strong> for emphasis, <a href=...> for links\n" +
-	"- Plain HTML semantic tags only (h1/h2/p/ul/li/strong/em/a/blockquote/table)\n" +
-	"- Third-person voice (\"The visitor asked about...\")\n" +
-	"- ~500 words max; one-page printable"
+	"- Third-person voice (\"The candidate described...\")\n" +
+	"- Ground every Result in what was actually said; do not invent outcomes/metrics\n" +
+	"- ~500 words max; one-page printable; no images"
 
 // SummarizeDeps —— summarize capability 依赖；闭包持。
 type SummarizeDeps struct {
