@@ -134,6 +134,12 @@ func uniquePath(base string, taken map[string]string) string {
 	}
 }
 
+// SlugifyTitle —— pathSegment 的导出包装。eval fixture 给某条 corpus 算授权 URI 时
+// 用,跟 retriever 的 wikiPathByID/outputPathByID(flat fixture 无 parent → 单段
+// pathSegment(title))对齐,免得 grant 用旧 uri-path 而 retriever 用 title 派生 path
+// 对不上 → ACL 全拒。
+func SlugifyTitle(title string) string { return pathSegment(title) }
+
 // pathSegment —— title 转一个 URL-safe path 段:小写;字母/数字(含 unicode,path
 // 列 citext 收得下)为词,其余字符全当分隔 → FieldsFunc 切词 + '-' 连(自动去首尾
 // /合并连续分隔)。截断到 pathSegmentMaxLen。空(纯符号 title)→ "untitled" 兜底。

@@ -19,6 +19,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // wikiFixture / outputFixture / writingFixture —— corpus listers. ListByOwner
@@ -306,12 +307,10 @@ func (c *corpusFixtures) grant(e *VisitorCorpusEntry, genre domain.DocumentGenre
 	if e.Private {
 		return
 	}
-	// URI 按稳定 id(地址树派生不进 URI);fixture id = "<genre>-<path>"。
-	idPrefix := "wiki-"
-	if genre == domain.GenreOutput {
-		idPrefix = "output-"
-	}
-	c.corpusURIs = append(c.corpusURIs, domain.FormatURI(genre, idPrefix+e.Path))
+	// 授权 URI 必须跟 retriever 算的 path 对齐 —— retriever 走 wikiPathByID/
+	// outputPathByID(flat fixture 无 parent → 单段 pathSegment(title));所以这里也
+	// 用 SlugifyTitle(title),别再用旧 uri-path(那会 ACL 全拒)。
+	c.corpusURIs = append(c.corpusURIs, domain.FormatURI(genre, usecases.SlugifyTitle(e.Title)))
 }
 
 func (e *VisitorCorpusEntry) toWiki(ownerID string) domain.Wiki {
