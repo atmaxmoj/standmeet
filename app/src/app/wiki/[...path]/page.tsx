@@ -71,7 +71,7 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
   // rails 760 再内收)。文档整体滚动 —— 长文一定够得到底;toc sticky 不跟文章动。
   return (
     <div>
-      <WikiTopBar handle={handle} />
+      <WikiTopBar handle={handle} reading={wiki.title} />
       <SessionStrip />
       <ReaderLayout mainTestId="wiki-landing" aside={<WikiTreeView activePath={slug} />}>
         <div className="max-w-[920px] mx-auto pt-10 pb-24">

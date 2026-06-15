@@ -16,14 +16,14 @@ const NAV_CLS =
   'mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) '
   + 'hover:text-(--color-ink) transition-colors no-underline';
 
-export function WikiTopBar({ handle }: { handle: string }) {
+export function WikiTopBar({ handle, reading }: { handle: string; reading?: string }) {
   const { dark, toggle } = useTheme();
   return (
     <header
       className="flex items-center justify-between pt-[18px] pb-[14px] px-6 lg:px-8 border-b border-(--color-rule)"
       data-testid="wiki-topbar"
     >
-      <Brand handle={handle} />
+      <Brand handle={handle} reading={reading} />
       <nav className="flex items-baseline gap-6">
         <Link href="/writings" className={NAV_CLS}>writing</Link>
         <Link href="/" className={NAV_CLS}>chat</Link>
@@ -41,17 +41,30 @@ export function WikiTopBar({ handle }: { handle: string }) {
   );
 }
 
-function Brand({ handle }: { handle: string }) {
+function Brand({ handle, reading }: { handle: string; reading?: string }) {
   return (
     <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3">
       <Link href="/" className="text-(--color-ink) no-underline">standmeet</Link>
       <span className="text-(--color-faint)">/</span>
       <Link href="/" className="text-(--color-muted) no-underline">{handle}</Link>
       <span className="text-(--color-faint)">·</span>
-      <span className="text-(--color-accent)">wiki</span>
+      <Link href="/wiki" className="text-(--color-accent) no-underline">wiki</Link>
+      <ReadingTag reading={reading} />
       <UnlockedTag />
     </div>
   );
+}
+
+// ReadingTag —— 阅读态:顶栏标出当前正在读的条目(reader 才传,index/列表不传)。
+function ReadingTag({ reading }: { reading?: string }) {
+  return reading ? (
+    <span className="inline-flex items-baseline gap-3 normal-case" data-testid="wiki-topbar-reading">
+      <span className="text-(--color-faint)">·</span>
+      <span className="text-(--color-muted) text-[10.5px] tracking-[0.06em] max-w-[24ch] truncate">
+        {reading}
+      </span>
+    </span>
+  ) : null;
 }
 
 const isUnlocked = (s: VisitorSession): boolean => s.code !== null || s.byoai;
