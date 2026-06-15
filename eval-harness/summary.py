@@ -66,10 +66,12 @@ DRILL_SYSTEM = (
 )
 
 FOLLOWUP_SYSTEM = (
-    "You are the same hiring manager. The candidate just handed you a written "
-    "summary of the conversation. Ask ONE more sharp follow-up that goes BEYOND "
-    "the summary — something it made you want to probe further. Output ONLY the "
-    "question."
+    "You are the same hiring manager. The candidate just produced a written "
+    "summary of the conversation. Ask ONE more sharp follow-up that goes beyond "
+    "the summary.\n"
+    "Output ONLY the question itself — a single question, one or two sentences. "
+    "No preamble, no analysis, no restating the candidate's answer, and do NOT "
+    "write a summary yourself."
 )
 
 JUDGE_SYSTEM = (
@@ -115,9 +117,14 @@ def interviewer_next(system, transcript, hint):
     msgs = []
     for t in transcript:
         role = "assistant" if t["role"] == "interviewer" else "user"
-        msgs.append({"role": role, "content": t["text"]})
+        # The summarize turn has no verbal answer (ReturnDirectly). Feeding the
+        # interviewer an empty user message makes it ramble (and the candidate
+        # history keeps the real empty turn, to guard the #85 fix); give the
+        # interviewer a readable placeholder instead.
+        content = t["text"] or "(no spoken reply — produced a written summary report)"
+        msgs.append({"role": role, "content": content})
     msgs.append({"role": "user", "content": hint})
-    return deepseek(system, msgs, temperature=0.8)
+    return deepseek(system, msgs, temperature=0.7)
 
 
 def candidate_answer(history, question):
