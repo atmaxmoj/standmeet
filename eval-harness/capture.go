@@ -22,6 +22,10 @@ type captureSink struct {
 	text        strings.Builder
 	tools       []toolUse
 	ghosts []string
+	// report —— summarize_conversation is a ReturnDirectly tool with no text
+	// answer; the report HTML lives only in its tool result. Capture it so the
+	// eval can judge how good the generated summary is.
+	report      string
 	errored     bool
 	errMsg      string
 }
@@ -40,7 +44,24 @@ func (s *captureSink) ToolStarted(_, name, _ string, args json.RawMessage) {
 	s.tools = append(s.tools, toolUse{Name: name, Args: string(args)})
 }
 
-func (s *captureSink) ToolCompleted(_, _ string) {}
+// ToolCompleted —— most tool results are surfaced via ToolStarted (name+args);
+// summarize_conversation is the exception: its report HTML is only in the
+// result, and (being ReturnDirectly) there is no text answer to carry it. Pull
+// the html out so the eval can judge the summary.
+func (s *captureSink) ToolCompleted(name, result string) {
+	if name != "summarize_conversation" {
+		return
+	}
+	var wire struct {
+		HTML string `json:"html"`
+	}
+	if err := json.Unmarshal([]byte(result), &wire); err != nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.report = wire.HTML
+}
 
 func (s *captureSink) Ghosts(items []string) {
 	s.mu.Lock()
@@ -79,4 +100,12 @@ func (s *captureSink) errorText() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.errMsg
+}
+
+// reportHTML —— the summarize_conversation report body captured this turn, or
+// "" if the candidate didn't summarize.
+func (s *captureSink) reportHTML() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.report
 }

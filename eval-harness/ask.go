@@ -128,6 +128,9 @@ type askResponse struct {
 	// Ghosts —— the 3 follow-up questions emitted at turn end in "code"
 	// mode (empty in public mode).
 	Ghosts []string `json:"ghosts,omitempty"`
+	// Report —— the summarize_conversation report HTML, when the candidate
+	// summarized this turn (else empty). Lets the eval judge summary quality.
+	Report string `json:"report,omitempty"`
 	Error       string   `json:"error,omitempty"`
 }
 
@@ -149,8 +152,10 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 		log.Error("load persona", "err", err)
 		return 1
 	}
-	answer, tools, ghosts, aerr := askCandidate(context.Background(), log, cred, p, req)
-	resp := askResponse{Answer: answer, Tools: tools, Ghosts: ghosts}
+	turn, aerr := askCandidate(context.Background(), log, cred, p, req)
+	resp := askResponse{
+		Answer: turn.answer, Tools: turn.tools, Ghosts: turn.ghosts, Report: turn.report,
+	}
 	if aerr != nil {
 		resp.Error = aerr.Error()
 	}
@@ -161,12 +166,21 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 	return 0
 }
 
+// candidateTurn —— one candidate turn's captured output. report is the
+// summarize_conversation HTML when the candidate summarized (else "").
+type candidateTurn struct {
+	answer string
+	tools  []toolUse
+	ghosts []string
+	report string
+}
+
 // askCandidate runs one candidate turn: the persona answers req.Question given
 // the prior interview, on real DeepSeek, via the REAL visitor agent assembled by
 // the facade (real prompt + real corpus/summarize/ask_visitor tools).
 func askCandidate(
 	ctx context.Context, log *slog.Logger, cred agentcore.Cred, p *persona, req askRequest,
-) (string, []toolUse, []string, error) {
+) (candidateTurn, error) {
 	mode := req.Mode
 	if mode == "" {
 		mode = "public"
@@ -176,7 +190,7 @@ func askCandidate(
 	convo := append(append([]convTurn{}, req.History...), convTurn{Role: "interviewer", Text: req.Question})
 	override, oerr := systemPromptOverride()
 	if oerr != nil {
-		return "", nil, nil, oerr
+		return candidateTurn{}, oerr
 	}
 	agent, berr := agentcore.BuildVisitorAgent(ctx, &agentcore.BuildVisitorInput{
 		Cred: &cred, OwnerID: evalOwnerID, Mode: mode, RoleBody: p.roleBody,
@@ -190,7 +204,7 @@ func askCandidate(
 		MCPServerURL:         mcpURLFor(req),
 	})
 	if berr != nil {
-		return "", nil, nil, berr
+		return candidateTurn{}, berr
 	}
 	in := &agentcore.AgentTurnInput{
 		Cred: &cred,
@@ -205,13 +219,16 @@ func askCandidate(
 	}
 	sink := newCaptureSink()
 	if err := agentcore.RunAgentLoop(ctx, log, in, sink); err != nil {
-		return "", nil, nil, err
+		return candidateTurn{}, err
 	}
 	answer, used, ok := sink.result()
-	if !ok {
-		return answer, used, sink.followups(), fmt.Errorf("candidate turn: %s", sink.errorText())
+	turn := candidateTurn{
+		answer: answer, tools: used, ghosts: sink.followups(), report: sink.reportHTML(),
 	}
-	return answer, used, sink.followups(), nil
+	if !ok {
+		return turn, fmt.Errorf("candidate turn: %s", sink.errorText())
+	}
+	return turn, nil
 }
 
 // skillSpecFor returns the demo owner skill when the request asked for it.

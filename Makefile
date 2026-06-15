@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-capabilities eval-owner-mcp
+.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -131,6 +131,18 @@ eval-cross-conversation:
 eval-interview:
 	@cd eval-harness && go build -o eval-harness-bin . && \
 	  python3 interview.py
+
+# eval-summary —— end-to-end eval of summarize_conversation on REAL DeepSeek. A
+# recruiter drills into ONE point over several turns, asks for a written summary
+# (captures the report HTML), then keeps asking follow-ups (which also guard the
+# empty-assistant-message history bug — a post-summarize turn must still answer).
+# An LLM judge scores the report; report HTML + a styled doc land in
+# /tmp/sm-eval-summary for a human to open. **需真 LLM** (eval-harness/.env key)。
+#   make eval-summary
+#   EVAL_SUMMARY_DRILL=6 EVAL_SUMMARY_FOLLOWUPS=3 make eval-summary
+eval-summary:
+	@cd eval-harness && go build -o eval-harness-bin . && \
+	  python3 summary.py
 
 # eval-capabilities —— 留档的 agentic 能力套件。assert 类(booking/skill/mcp 真调了
 # 没、deny 结构性缺席、隐私金丝雀漏没漏、ghost hint 有没有)硬判 PASS/FAIL;human 类
