@@ -41,7 +41,13 @@ test.describe('mail connector OTP verification', () => {
     const code = await readMailOTP(request);
 
     expect(await mailConnected(request)).toBe(false); // sent, not verified yet
-    expect(await verifyMailOTP(request, csrf, wrongOf(code))).toBe(400);
+
+    // a wrong code is rejected AND tells the owner how many tries remain.
+    const wrong = await request.post(`${BACKEND}/api/admin/connectors/mail/verify-otp`, {
+      headers: { 'X-Csrftoken': csrf }, data: { code: wrongOf(code) },
+    });
+    expect(wrong.status()).toBe(400);
+    expect(await wrong.text()).toMatch(/attempt\(s\) left/i);
     expect(await mailConnected(request)).toBe(false); // wrong code → still off
     expect(await verifyMailOTP(request, csrf, code)).toBe(200);
     expect(await mailConnected(request)).toBe(true); // correct → connected

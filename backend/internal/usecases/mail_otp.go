@@ -20,9 +20,16 @@ var (
 	ErrMailOTPNone = errors.New("mail otp: no active code")
 	// ErrMailOTPTooMany —— 错误次数达上限,当前 OTP 作废,需重发。
 	ErrMailOTPTooMany = errors.New("mail otp: too many attempts")
-	// ErrMailOTPMismatch —— 码不对(还有剩余次数)。
-	ErrMailOTPMismatch = errors.New("mail otp: code mismatch")
 )
+
+// MailOTPMismatchError —— 码不对但还有剩余次数;带 Remaining 给 UI 提示「还有 N 次」。
+type MailOTPMismatchError struct {
+	Remaining int
+}
+
+func (e *MailOTPMismatchError) Error() string {
+	return fmt.Sprintf("mail otp: code mismatch, %d attempts left", e.Remaining)
+}
 
 // SendMailOTP —— 生成 6 位 OTP,存其 sha256+过期,真发到 from_address。不标 connected。
 func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
@@ -92,7 +99,7 @@ func registerWrongOTP(ctx context.Context, deps MailDeps, ownerID string) error 
 	if n >= domain.MailOTPMaxAttempts {
 		return voidOTP(ctx, deps, ownerID)
 	}
-	return ErrMailOTPMismatch
+	return &MailOTPMismatchError{Remaining: domain.MailOTPMaxAttempts - n}
 }
 
 func voidOTP(ctx context.Context, deps MailDeps, ownerID string) error {

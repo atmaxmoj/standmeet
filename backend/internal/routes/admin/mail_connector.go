@@ -1,14 +1,15 @@
 // mail_connector.go —— /api/admin/connectors/mail/*
 // Owner pastes their own SMTP server (host/port/user/pass/from) in admin UI —
 // self-hosted, no global mail service. credentials get encrypted-at-rest by
-// postgres.MailRepo. /test sends a probe to the owner's own email and, on
-// success, marks the connector connected; /disconnect deletes the row.
+// postgres.MailRepo. send-otp emails a 6-digit code to from_address; verify-otp
+// marks the connector connected only on the right code; /disconnect deletes the row.
 
 package admin
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -183,9 +184,11 @@ func (h *Handlers) verifyMailOTP() http.HandlerFunc {
 }
 
 func handleMailOTPVerifyErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	var mm *usecases.MailOTPMismatchError
 	switch {
-	case errors.Is(err, usecases.ErrMailOTPMismatch):
-		writeError(log, w, envBadReq("that code is incorrect"))
+	case errors.As(err, &mm):
+		writeError(log, w, envBadReq(fmt.Sprintf(
+			"that code is incorrect — %d attempt(s) left before it's voided", mm.Remaining)))
 	// no active code (never sent / expired) and too-many-attempts both mean "the
 	// pending code is gone — request a fresh one".
 	case errors.Is(err, usecases.ErrMailOTPNone), errors.Is(err, usecases.ErrMailOTPTooMany):
