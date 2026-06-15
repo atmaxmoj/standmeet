@@ -27,7 +27,6 @@ export function AccountSection() {
         <ProfileCard hook={account} session={session} />
         <SecurityCard hook={account} />
         <InferenceCard />
-        <DataBackupsCard />
       </div>
     </>
   );
@@ -109,32 +108,6 @@ function InferenceCard() {
           </div>
           <span className="mono text-[16px] text-(--color-ink)">$—</span>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function DataBackupsCard() {
-  return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <div className="sm-smallcaps mb-3">data · backups</div>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60">
-          <div>
-            <div className="font-serif text-[15px] text-(--color-ink)">Storage</div>
-            <div className="mono text-[10px] text-(--color-muted) mt-0.5">— mb used</div>
-          </div>
-        </div>
-        <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60">
-          <div>
-            <div className="font-serif text-[15px] text-(--color-ink)">Last backup</div>
-            <div className="mono text-[10px] text-(--color-muted) mt-0.5">—</div>
-          </div>
-          <button className="sm-btn sm-btn-outline sm-btn-sm" type="button">backup now</button>
-        </div>
-        <button className="sm-btn sm-btn-ghost sm-btn-sm text-left mt-1 text-(--color-accent)" type="button">
-          export entire corpus ↗
-        </button>
       </div>
     </div>
   );
