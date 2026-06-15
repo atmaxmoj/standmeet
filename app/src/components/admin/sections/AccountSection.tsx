@@ -6,10 +6,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { Block } from '@/components/admin/sections/page/Block';
 import {
   emailSaveDisabled, fullNameSaveDisabled, passwordHintMessage, passwordSaveDisabled,
 } from '@/lib/admin/account-form';
@@ -40,6 +39,23 @@ function pickFullName(s: ReturnType<typeof useAdminSession>): string {
 
 function pickEmail(s: ReturnType<typeof useAdminSession>): string {
   return s.kind === 'ready' ? s.session.email : '';
+}
+
+// AcctBlock —— like the page Block but WITHOUT its section border-t. The account
+// fields already separate with their own input underlines, so the extra divider
+// (only the 2nd block in a card picked it up — e.g. above "email") read redundant.
+function AcctBlock({ title, blurb, children }: { title: string; blurb?: string; children: ReactNode }) {
+  return (
+    <section className="mt-10 first:mt-0">
+      <div className="mb-7 flex items-baseline gap-4 flex-wrap">
+        <h2 className="font-serif text-(--color-ink) text-[22px] font-medium tracking-[-0.012em]">{title}</h2>
+        {blurb ? (
+          <p className="reading-tight text-(--color-muted) flex-1 min-w-[20em] text-[14px] max-w-[46em]">{blurb}</p>
+        ) : null}
+      </div>
+      <div className="space-y-7">{children}</div>
+    </section>
+  );
 }
 
 function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType<typeof useAdminSession> }) {
@@ -130,15 +146,15 @@ function FullNameBlock({ hook, initialValue }: { hook: AccountHook; initialValue
   const [raw, setRaw] = useState(initialValue);
   const toast = useToast();
   return (
-    <Block title="full name" blurb="Shown on the public page hero and signature line.">
-      <div className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1">
+    <AcctBlock title="full name" blurb="Shown on the public page hero and signature line.">
+      <div className="flex items-baseline gap-3">
         <input
           type="text"
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           spellCheck={false}
           data-testid="account-full-name-input"
-          className="flex-1 min-w-0 bg-transparent py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
+          className="flex-1 min-w-0 bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
         />
         <SaveBtn
           testid="account-full-name-save"
@@ -147,7 +163,7 @@ function FullNameBlock({ hook, initialValue }: { hook: AccountHook; initialValue
           onClick={() => void runSaveFullName(hook, raw, toast)}
         />
       </div>
-    </Block>
+    </AcctBlock>
   );
 }
 
@@ -167,13 +183,13 @@ function EmailBlock({ hook, initialValue }: { hook: AccountHook; initialValue: s
   const toast = useToast();
   const disabled = emailSaveDisabled(hook.pending, current, next, initialValue);
   return (
-    <Block title="email"
+    <AcctBlock title="email"
       blurb="Your login identity. Changing it requires your current password.">
       <PasswordField
         testid="account-email-current-password"
         value={current} onChange={setCurrent} label="current password"
       />
-      <div className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1 mt-3">
+      <div className="flex items-baseline gap-3 mt-3">
         <input
           type="email"
           value={next}
@@ -182,7 +198,7 @@ function EmailBlock({ hook, initialValue }: { hook: AccountHook; initialValue: s
           autoComplete="email"
           placeholder="you@example.com"
           data-testid="account-email-new"
-          className="flex-1 min-w-0 bg-transparent py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
+          className="flex-1 min-w-0 bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 reading-tight text-[17px] font-medium tracking-[-0.005em]"
         />
         <SaveBtn
           testid="account-email-save"
@@ -191,7 +207,7 @@ function EmailBlock({ hook, initialValue }: { hook: AccountHook; initialValue: s
           onClick={() => void runSaveEmail(hook, current, next, setCurrent, toast)}
         />
       </div>
-    </Block>
+    </AcctBlock>
   );
 }
 
@@ -222,7 +238,7 @@ function PasswordBlock({ hook }: { hook: AccountHook }) {
   const toast = useToast();
   const disabled = passwordSaveDisabled(hook.pending, current, next, confirm);
   return (
-    <Block title="password"
+    <AcctBlock title="password"
       blurb="At least 12 characters. Existing sessions stay valid — log out manually elsewhere if needed.">
       <PasswordField testid="account-password-current"
         value={current} onChange={setCurrent} label="current password" />
@@ -240,7 +256,7 @@ function PasswordBlock({ hook }: { hook: AccountHook }) {
             () => { setCurrent(''); setNext(''); setConfirm(''); }, toast)}
         />
       </div>
-    </Block>
+    </AcctBlock>
   );
 }
 
