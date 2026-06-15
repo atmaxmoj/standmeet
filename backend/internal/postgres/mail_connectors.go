@@ -8,8 +8,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
@@ -97,6 +99,50 @@ func (r *MailRepo) MarkConnected(ctx context.Context, ownerID, provider string) 
 	return nil
 }
 
+// SetOTP —— 存一份待验 OTP(sha256 hash + 过期),重置尝试计数。
+func (r *MailRepo) SetOTP(
+	ctx context.Context, ownerID, provider string, hash []byte, expiresAt time.Time,
+) error {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	if serr := dbq.New(r.pool).SetMailOTP(ctx, dbq.SetMailOTPParams{
+		OwnerID: ownerUUID, Provider: provider,
+		OtpHash: hash, OtpExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+	}); serr != nil {
+		return fmt.Errorf("set mail otp: %w", serr)
+	}
+	return nil
+}
+
+// IncOTPAttempts —— 验码错一次,尝试计数 +1,返回新值。
+func (r *MailRepo) IncOTPAttempts(ctx context.Context, ownerID, provider string) (int, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return 0, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	n, ierr := dbq.New(r.pool).IncMailOTPAttempts(ctx,
+		dbq.IncMailOTPAttemptsParams{OwnerID: ownerUUID, Provider: provider})
+	if ierr != nil {
+		return 0, fmt.Errorf("inc mail otp attempts: %w", ierr)
+	}
+	return int(n), nil
+}
+
+// ClearOTP —— 作废当前 OTP。
+func (r *MailRepo) ClearOTP(ctx context.Context, ownerID, provider string) error {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	if cerr := dbq.New(r.pool).ClearMailOTP(ctx,
+		dbq.ClearMailOTPParams{OwnerID: ownerUUID, Provider: provider}); cerr != nil {
+		return fmt.Errorf("clear mail otp: %w", cerr)
+	}
+	return nil
+}
+
 // DeleteConnector —— hard disconnect。
 func (r *MailRepo) DeleteConnector(ctx context.Context, ownerID, provider string) error {
 	ownerUUID, err := parseUUID(ownerID)
@@ -126,10 +172,15 @@ func decodeMailConnector(
 		Host: row.Host, Port: int(row.Port),
 		Username: user, Password: pass,
 		FromAddress: row.FromAddress, FromName: row.FromName,
+		OTPHash: row.OtpHash, OTPAttempts: int(row.OtpAttempts),
 	}
 	if row.ConnectedAt.Valid {
 		t := row.ConnectedAt.Time
 		out.ConnectedAt = &t
+	}
+	if row.OtpExpiresAt.Valid {
+		t := row.OtpExpiresAt.Time
+		out.OTPExpiresAt = &t
 	}
 	return out, nil
 }

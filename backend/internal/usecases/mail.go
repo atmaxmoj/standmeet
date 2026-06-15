@@ -56,54 +56,6 @@ type MailDeps struct {
 	Owners *postgres.OwnerRepo
 }
 
-// TestMailConnector —— 给 owner 自己发一封测试信验凭据;成功则标 connected。
-func TestMailConnector(ctx context.Context, deps MailDeps, ownerID string) error {
-	tgt, err := loadTestTarget(ctx, deps, ownerID)
-	if err != nil {
-		return err
-	}
-	if serr := sendTestProbe(&tgt.conn, tgt.owner.Email); serr != nil {
-		return serr
-	}
-	if merr := deps.Mail.MarkConnected(ctx, ownerID, domain.MailProvider); merr != nil {
-		return fmt.Errorf("mark mail connected: %w", merr)
-	}
-	return nil
-}
-
-type testTarget struct {
-	owner domain.Owner
-	conn  domain.MailConnector
-}
-
-func loadTestTarget(ctx context.Context, deps MailDeps, ownerID string) (testTarget, error) {
-	conn, err := deps.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
-	if err != nil {
-		return testTarget{}, fmt.Errorf("get mail connector: %w", err)
-	}
-	if !conn.HasCredentials() {
-		return testTarget{}, ErrMailNotConfigured
-	}
-	owner, oerr := deps.Owners.GetByID(ctx, ownerID)
-	if oerr != nil {
-		return testTarget{}, fmt.Errorf("get owner: %w", oerr)
-	}
-	return testTarget{owner: owner, conn: conn}, nil
-}
-
-func sendTestProbe(conn *domain.MailConnector, toEmail string) error {
-	cfg := connectorConfig(conn)
-	msg := mailer.Message{
-		ToAddress: toEmail,
-		Subject:   "StandMeet mail connector test",
-		Body:      "This is a test email from StandMeet. Your outbound mail connector is working.",
-	}
-	if err := mailer.Send(&cfg, &msg, time.Now()); err != nil {
-		return fmt.Errorf("send test email: %w", err)
-	}
-	return nil
-}
-
 // ApproveRequestDeps —— approve 闭环依赖(跨 mail / requests / codes / roles / owners)。
 type ApproveRequestDeps struct {
 	Reqs   *postgres.AccessRequestRepo
@@ -129,8 +81,9 @@ func ApproveAccessRequest(
 	if err != nil {
 		return ApproveResult{}, err
 	}
-	cfg := connectorConfig(&prep.conn)
-	if serr := mailer.Send(&cfg, &prep.msg, time.Now()); serr != nil {
+	if serr := mailer.Compose(connectorConfig(&prep.conn)).
+		To(prep.msg.ToAddress).Subject(prep.msg.Subject).Body(prep.msg.Body).
+		Send(); serr != nil {
 		return ApproveResult{}, fmt.Errorf("send approval email: %w", serr)
 	}
 	if _, uerr := deps.Reqs.UpdateStatus(ctx, ownerID, requestID, "replied"); uerr != nil {
@@ -227,8 +180,8 @@ func buildCodeLink(publicURL, code string) string {
 	return strings.TrimRight(publicURL, "/") + "?code=" + code
 }
 
-func connectorConfig(c *domain.MailConnector) mailer.Config {
-	return mailer.Config{
+func connectorConfig(c *domain.MailConnector) *mailer.Config {
+	return &mailer.Config{
 		Host: c.Host, Port: c.Port,
 		Username: c.Username, Password: c.Password,
 		FromAddress: c.FromAddress, FromName: c.FromName,

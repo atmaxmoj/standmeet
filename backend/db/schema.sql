@@ -715,6 +715,13 @@ CREATE TABLE owner_mail_connectors (
     from_address  text          NOT NULL,
     from_name     text          NOT NULL DEFAULT '',
     connected_at  timestamptz,
+    -- email-OTP verification: a 6-digit code is emailed to from_address; the
+    -- owner must echo it back to prove they actually receive mail (not just that
+    -- the SMTP creds accept a send). otp_hash is sha256(code); cleared on success
+    -- or after otp_attempts hits the cap. connected_at is set only on a match.
+    otp_hash      bytea,
+    otp_expires_at timestamptz,
+    otp_attempts  integer       NOT NULL DEFAULT 0,
     created_at    timestamptz   NOT NULL DEFAULT now(),
     updated_at    timestamptz   NOT NULL DEFAULT now()
 );

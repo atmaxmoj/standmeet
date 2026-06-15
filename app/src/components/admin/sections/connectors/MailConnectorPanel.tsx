@@ -1,8 +1,8 @@
 // MailConnectorPanel —— owner-facing outbound SMTP connector card.
 // 三块:
-//   1. status badge (connected / configured · click Test / not configured)
+//   1. status badge (connected / configured · verify email / not configured)
 //   2. credentials form (host / port / username / password / from)
-//   3. Test (发探针信验凭据) + Disconnect
+//   3. OTP verify (发 6 位码到 from → 输对才 connected) + Disconnect
 //
 // 设计稿没专门画 mail 卡,沿用 CalendarConnectorPanel 的视觉语言
 // (crosshair + mono kicker + 字段一列),布局窄一档 (max-w-[640px])。
@@ -59,7 +59,7 @@ function badgeText(s: NonNullable<MailHook['status']>): string {
   return s.connected
     ? 'connected'
     : s.has_credentials
-      ? 'configured · click Test'
+      ? 'configured · verify email'
       : 'not configured';
 }
 
@@ -166,7 +166,9 @@ function toCredsInput(form: FormState): MailCredsInput {
   };
 }
 
-// ─── test / disconnect ────────────────────────────────────────
+// ─── OTP verify / disconnect ──────────────────────────────────
+// Send a 6-digit code to the from address, type it back to verify the owner
+// actually receives mail (not just that the SMTP creds accept a send).
 
 function Actions({ hook }: { hook: MailHook }) {
   return hook.status?.has_credentials === true
@@ -175,41 +177,68 @@ function Actions({ hook }: { hook: MailHook }) {
 }
 
 function ActionsRow({ hook }: { hook: MailHook }) {
-  const [result, setResult] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
   return (
     <div className="space-y-2 mb-1">
-      <div className="flex gap-2">
-        <TestBtn hook={hook} onResult={setResult} />
+      <div className="flex flex-wrap gap-2 items-end">
+        <SendCodeBtn onClick={() => { void runSend(hook, setMsg); }} />
+        <CodeInput value={code} onChange={setCode} />
+        <VerifyBtn code={code} onClick={() => { void runVerify(hook, code, setMsg); }} />
         <DisconnectBtn hook={hook} />
       </div>
-      <TestResult result={result} />
+      <ActionMsg msg={msg} />
     </div>
   );
 }
 
-function TestBtn({ hook, onResult }: { hook: MailHook; onResult: (m: string) => void }) {
+function SendCodeBtn({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      data-testid="mail-test"
-      onClick={() => { void runTest(hook, onResult); }}
-      className="sm-btn sm-btn-solid sm-btn-sm"
-    >
-      Send test email →
+    <button type="button" data-testid="mail-send-otp" onClick={onClick}
+      className="sm-btn sm-btn-ghost sm-btn-sm">
+      Send code →
     </button>
   );
 }
 
-async function runTest(hook: MailHook, onResult: (m: string) => void): Promise<void> {
-  onResult('sending…');
-  const res = await hook.test();
-  onResult(res.ok ? 'sent — check your inbox' : (res.error ?? 'test failed'));
+function CodeInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <input
+      type="text" inputMode="numeric" maxLength={6} placeholder="6-digit code"
+      data-testid="mail-otp-code" value={value}
+      onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+      className="w-[120px] bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px] tracking-[0.2em]"
+    />
+  );
 }
 
-function TestResult({ result }: { result: string | null }) {
-  return result === null
+function VerifyBtn({ code, onClick }: { code: string; onClick: () => void }) {
+  return (
+    <button type="button" data-testid="mail-verify-otp" disabled={code.length !== 6} onClick={onClick}
+      className="sm-btn sm-btn-solid sm-btn-sm disabled:opacity-40">
+      Verify
+    </button>
+  );
+}
+
+async function runSend(hook: MailHook, onMsg: (m: string) => void): Promise<void> {
+  onMsg('sending…');
+  const res = await hook.sendOTP();
+  onMsg(res.ok ? 'code sent — check your inbox' : (res.error ?? 'could not send the code'));
+}
+
+async function runVerify(
+  hook: MailHook, code: string, onMsg: (m: string) => void,
+): Promise<void> {
+  onMsg('verifying…');
+  const res = await hook.verifyOTP(code);
+  onMsg(res.ok ? 'verified ✓' : (res.error ?? 'verification failed'));
+}
+
+function ActionMsg({ msg }: { msg: string | null }) {
+  return msg === null
     ? null
-    : <p className="mono text-[11.5px] text-(--color-muted)" data-testid="mail-test-result">{result}</p>;
+    : <p className="mono text-[11.5px] text-(--color-muted)" data-testid="mail-otp-result">{msg}</p>;
 }
 
 function DisconnectBtn({ hook }: { hook: MailHook }) {

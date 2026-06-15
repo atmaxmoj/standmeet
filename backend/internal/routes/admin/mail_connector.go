@@ -32,7 +32,8 @@ func (h *Handlers) MountMailConnector(r chi.Router) {
 	r.Route("/connectors/mail", func(r chi.Router) {
 		r.Post("/credentials", h.saveMailCredentials())
 		r.Get("/status", h.getMailStatus())
-		r.Post("/test", h.testMailConnector())
+		r.Post("/send-otp", h.sendMailOTP())
+		r.Post("/verify-otp", h.verifyMailOTP())
 		r.Post("/disconnect", h.disconnectMail())
 	})
 }
@@ -127,35 +128,72 @@ func (h *Handlers) getMailStatus() http.HandlerFunc {
 	}
 }
 
-// ───── test ───────────────────────────────────────────────────
+// ───── OTP verify ─────────────────────────────────────────────
+// 老 /test 只发探针信、SMTP 不报错就标 connected。换成真 OTP:send-otp 发一封
+// 6 位码到 from_address,verify-otp 码对才标 connected(错满 10 次作废)。
 
-func (h *Handlers) testMailConnector() http.HandlerFunc {
+func (h *Handlers) sendMailOTP() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		err := usecases.TestMailConnector(r.Context(), usecases.MailDeps{
+		err := usecases.SendMailOTP(r.Context(), usecases.MailDeps{
 			Mail: h.MailAdmin.Repo, Owners: h.MailAdmin.Owners,
 		}, ownerID)
 		if err != nil {
-			handleMailTestErr(h.Log, w, err)
+			handleMailOTPSendErr(h.Log, w, err)
 			return
 		}
 		writeJSON(h.Log, w, map[string]bool{"ok": true})
 	}
 }
 
-// handleMailTestErr —— not-configured 是 400;发信失败给 user-friendly 502
-// (不漏 SMTP 原始报错到 UI,只记日志)。
-func handleMailTestErr(log *slog.Logger, w http.ResponseWriter, err error) {
+func handleMailOTPSendErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	if errors.Is(err, usecases.ErrMailNotConfigured) {
 		writeError(log, w, envBadReq("configure your SMTP host and from address first"))
 		return
 	}
-	log.Error("mail connector test", logErrKey, err)
+	log.Error("mail otp send", logErrKey, err)
 	writeError(log, w, apierr.Envelope{
 		Status:  http.StatusBadGateway,
-		Code:    "mail_test_failed",
-		Message: "Test email failed — check your SMTP host, port, and credentials.",
+		Code:    "mail_send_failed",
+		Message: "Couldn't send the code — check your SMTP host, port, and credentials.",
 	})
+}
+
+type mailVerifyRequest struct {
+	Code string `json:"code"`
+}
+
+func (h *Handlers) verifyMailOTP() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req mailVerifyRequest
+		if derr := json.NewDecoder(r.Body).Decode(&req); derr != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		err := usecases.VerifyMailOTP(r.Context(), usecases.MailDeps{
+			Mail: h.MailAdmin.Repo, Owners: h.MailAdmin.Owners,
+		}, ownerID, req.Code)
+		if err != nil {
+			handleMailOTPVerifyErr(h.Log, w, err)
+			return
+		}
+		writeJSON(h.Log, w, map[string]bool{"ok": true})
+	}
+}
+
+func handleMailOTPVerifyErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, usecases.ErrMailOTPMismatch):
+		writeError(log, w, envBadReq("that code is incorrect"))
+	// no active code (never sent / expired) and too-many-attempts both mean "the
+	// pending code is gone — request a fresh one".
+	case errors.Is(err, usecases.ErrMailOTPNone), errors.Is(err, usecases.ErrMailOTPTooMany):
+		writeError(log, w, envBadReq("that code is no longer valid — send a new one"))
+	default:
+		log.Error("mail otp verify", logErrKey, err)
+		writeError(log, w, serverErr())
+	}
 }
 
 // ───── disconnect ─────────────────────────────────────────────

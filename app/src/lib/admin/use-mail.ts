@@ -1,8 +1,9 @@
 // use-mail —— state + actions for the /admin/connectors Mail (SMTP) panel.
 //
 // 一块状态:connector status (has_credentials / connected / host / from)。
-// saveCredentials 存配置;test 发探针信(成功后 backend 标 connected);
-// disconnect 删配置。所有 mutation 立即 refresh status store。
+// saveCredentials 存配置;sendOTP 真发一封 6 位码到 from_address;verifyOTP 码对了
+// backend 才标 connected;disconnect 删配置。所有改 connected 的 mutation 立即
+// refresh status store。
 
 'use client';
 
@@ -48,7 +49,8 @@ export interface MailHook {
   status: MailStatus | null;
   error: string | null;
   saveCredentials: (input: MailCredsInput) => Promise<boolean>;
-  test: () => Promise<MailTestResult>;
+  sendOTP: () => Promise<MailTestResult>;
+  verifyOTP: (code: string) => Promise<MailTestResult>;
   disconnect: () => Promise<boolean>;
 }
 
@@ -61,7 +63,8 @@ export function useMail(): MailHook {
     status: r.data ?? null,
     error: r.error,
     saveCredentials,
-    test: testConnector,
+    sendOTP,
+    verifyOTP,
     disconnect,
   };
 }
@@ -76,13 +79,22 @@ async function saveCredentials(input: MailCredsInput): Promise<boolean> {
   }
 }
 
-async function testConnector(): Promise<MailTestResult> {
+async function sendOTP(): Promise<MailTestResult> {
   try {
-    await adminAPI.postVoid('/connectors/mail/test', {});
+    await adminAPI.postVoid('/connectors/mail/send-otp', {});
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Could not send the code' };
+  }
+}
+
+async function verifyOTP(code: string): Promise<MailTestResult> {
+  try {
+    await adminAPI.postVoid('/connectors/mail/verify-otp', { code });
     await mailStatusStore.getState().refresh();
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Test send failed' };
+    return { ok: false, error: e instanceof Error ? e.message : 'Verification failed' };
   }
 }
 

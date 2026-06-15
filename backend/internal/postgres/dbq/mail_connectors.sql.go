@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearMailOTP = `-- name: ClearMailOTP :exec
+UPDATE owner_mail_connectors
+SET otp_hash = NULL, otp_expires_at = NULL, otp_attempts = 0, updated_at = now()
+WHERE owner_id = $1 AND provider = $2
+`
+
+type ClearMailOTPParams struct {
+	OwnerID  pgtype.UUID
+	Provider string
+}
+
+// 作废当前 OTP（达尝试上限 / 主动清）。
+func (q *Queries) ClearMailOTP(ctx context.Context, arg ClearMailOTPParams) error {
+	_, err := q.db.Exec(ctx, clearMailOTP, arg.OwnerID, arg.Provider)
+	return err
+}
+
 const deleteMailConnector = `-- name: DeleteMailConnector :exec
 DELETE FROM owner_mail_connectors
 WHERE owner_id = $1 AND provider = $2
@@ -27,7 +44,7 @@ func (q *Queries) DeleteMailConnector(ctx context.Context, arg DeleteMailConnect
 }
 
 const getMailConnector = `-- name: GetMailConnector :one
-SELECT id, owner_id, provider, host, port, username_enc, password_enc, from_address, from_name, connected_at, created_at, updated_at FROM owner_mail_connectors
+SELECT id, owner_id, provider, host, port, username_enc, password_enc, from_address, from_name, connected_at, otp_hash, otp_expires_at, otp_attempts, created_at, updated_at FROM owner_mail_connectors
 WHERE owner_id = $1 AND provider = $2
 `
 
@@ -50,15 +67,40 @@ func (q *Queries) GetMailConnector(ctx context.Context, arg GetMailConnectorPara
 		&i.FromAddress,
 		&i.FromName,
 		&i.ConnectedAt,
+		&i.OtpHash,
+		&i.OtpExpiresAt,
+		&i.OtpAttempts,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
+const incMailOTPAttempts = `-- name: IncMailOTPAttempts :one
+UPDATE owner_mail_connectors
+SET otp_attempts = otp_attempts + 1, updated_at = now()
+WHERE owner_id = $1 AND provider = $2
+RETURNING otp_attempts
+`
+
+type IncMailOTPAttemptsParams struct {
+	OwnerID  pgtype.UUID
+	Provider string
+}
+
+// 验码错一次：尝试计数 +1，返回新值（caller 据此判是否达上限作废）。
+func (q *Queries) IncMailOTPAttempts(ctx context.Context, arg IncMailOTPAttemptsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, incMailOTPAttempts, arg.OwnerID, arg.Provider)
+	var otp_attempts int32
+	err := row.Scan(&otp_attempts)
+	return otp_attempts, err
+}
+
 const markMailConnected = `-- name: MarkMailConnected :exec
 UPDATE owner_mail_connectors
-SET connected_at = now(), updated_at = now()
+SET connected_at = now(),
+    otp_hash = NULL, otp_expires_at = NULL, otp_attempts = 0,
+    updated_at = now()
 WHERE owner_id = $1 AND provider = $2
 `
 
@@ -67,9 +109,33 @@ type MarkMailConnectedParams struct {
 	Provider string
 }
 
-// test send 成功后标记 connected（凭据可用）。
+// OTP 验证通过后标记 connected，并清掉用过的 OTP。
 func (q *Queries) MarkMailConnected(ctx context.Context, arg MarkMailConnectedParams) error {
 	_, err := q.db.Exec(ctx, markMailConnected, arg.OwnerID, arg.Provider)
+	return err
+}
+
+const setMailOTP = `-- name: SetMailOTP :exec
+UPDATE owner_mail_connectors
+SET otp_hash = $3, otp_expires_at = $4, otp_attempts = 0, updated_at = now()
+WHERE owner_id = $1 AND provider = $2
+`
+
+type SetMailOTPParams struct {
+	OwnerID      pgtype.UUID
+	Provider     string
+	OtpHash      []byte
+	OtpExpiresAt pgtype.Timestamptz
+}
+
+// 发码：存 sha256(code) + 过期时间，重置尝试计数。
+func (q *Queries) SetMailOTP(ctx context.Context, arg SetMailOTPParams) error {
+	_, err := q.db.Exec(ctx, setMailOTP,
+		arg.OwnerID,
+		arg.Provider,
+		arg.OtpHash,
+		arg.OtpExpiresAt,
+	)
 	return err
 }
 
@@ -86,8 +152,11 @@ SET host = EXCLUDED.host,
     from_address = EXCLUDED.from_address,
     from_name = EXCLUDED.from_name,
     connected_at = NULL,
+    otp_hash = NULL,
+    otp_expires_at = NULL,
+    otp_attempts = 0,
     updated_at = now()
-RETURNING id, owner_id, provider, host, port, username_enc, password_enc, from_address, from_name, connected_at, created_at, updated_at
+RETURNING id, owner_id, provider, host, port, username_enc, password_enc, from_address, from_name, connected_at, otp_hash, otp_expires_at, otp_attempts, created_at, updated_at
 `
 
 type UpsertMailConnectorParams struct {
@@ -101,8 +170,8 @@ type UpsertMailConnectorParams struct {
 	FromName    string
 }
 
-// 写入或覆盖 owner/provider 的 SMTP 配置。改 credentials 必须重新 test，所以
-// connected_at 清回 NULL（区别于 calendar：那边改 client 不动 token）。
+// 写入或覆盖 owner/provider 的 SMTP 配置。改 credentials 必须重新验证，所以
+// connected_at 清回 NULL + 作废任何待验 OTP（区别于 calendar：那边改 client 不动 token）。
 func (q *Queries) UpsertMailConnector(ctx context.Context, arg UpsertMailConnectorParams) (OwnerMailConnector, error) {
 	row := q.db.QueryRow(ctx, upsertMailConnector,
 		arg.OwnerID,
@@ -126,6 +195,9 @@ func (q *Queries) UpsertMailConnector(ctx context.Context, arg UpsertMailConnect
 		&i.FromAddress,
 		&i.FromName,
 		&i.ConnectedAt,
+		&i.OtpHash,
+		&i.OtpExpiresAt,
+		&i.OtpAttempts,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

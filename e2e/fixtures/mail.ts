@@ -19,24 +19,56 @@ const SMTP_PORT = 1025;
 interface MailpitTo { Address: string }
 interface MailpitMessage { ID: string; To: MailpitTo[]; Subject: string }
 
+// MAIL_FROM —— the connector's from_address; the OTP verification email is sent
+// here, so tests read the code off Mailpit at this address.
+export const MAIL_FROM = 'noreply@standmeet.test';
+
+export async function saveMailCreds(request: APIRequestContext, csrf: string): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/credentials`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: {
+      host: SMTP_HOST, port: SMTP_PORT, username: '', password: '',
+      from_address: MAIL_FROM, from_name: 'StandMeet',
+    },
+  });
+  if (res.status() !== 200) throw new Error(`mail credentials failed: ${res.status()}`);
+}
+
+export async function sendMailOTP(request: APIRequestContext, csrf: string): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/send-otp`, {
+    headers: { 'X-Csrftoken': csrf }, data: {},
+  });
+  if (res.status() !== 200) throw new Error(`send-otp failed: ${res.status()} ${await res.text()}`);
+}
+
+// readMailOTP —— pull the verification email off Mailpit and extract its 6-digit code.
+export async function readMailOTP(request: APIRequestContext): Promise<string> {
+  const body = await waitForMailTo(request, MAIL_FROM);
+  const code = /\b(\d{6})\b/.exec(body)?.[1];
+  if (code === undefined) throw new Error(`no 6-digit code in OTP mail:\n${body}`);
+  return code;
+}
+
+export async function verifyMailOTP(
+  request: APIRequestContext, csrf: string, code: string,
+): Promise<number> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/verify-otp`, {
+    headers: { 'X-Csrftoken': csrf }, data: { code },
+  });
+  return res.status();
+}
+
+// configureMailConnector —— full real OTP roundtrip: save creds → send-otp →
+// read the code off Mailpit → verify-otp, leaving the connector connected.
 export async function configureMailConnector(
   request: APIRequestContext, email?: string, password?: string,
 ): Promise<void> {
   const { csrf } = await login(request, email, password);
-  const creds = await request.post(`${BACKEND}/api/admin/connectors/mail/credentials`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: {
-      host: SMTP_HOST, port: SMTP_PORT, username: '', password: '',
-      from_address: 'noreply@standmeet.test', from_name: 'StandMeet',
-    },
-  });
-  if (creds.status() !== 200) throw new Error(`mail credentials failed: ${creds.status()}`);
-  const test = await request.post(`${BACKEND}/api/admin/connectors/mail/test`, {
-    headers: { 'X-Csrftoken': csrf }, data: {},
-  });
-  if (test.status() !== 200) {
-    throw new Error(`mail test failed: ${test.status()} ${await test.text()}`);
-  }
+  await saveMailCreds(request, csrf);
+  await sendMailOTP(request, csrf);
+  const code = await readMailOTP(request);
+  const status = await verifyMailOTP(request, csrf, code);
+  if (status !== 200) throw new Error(`verify-otp failed: ${status}`);
 }
 
 export async function clearMailpit(request: APIRequestContext): Promise<void> {
