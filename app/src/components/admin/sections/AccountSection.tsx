@@ -11,9 +11,11 @@ import { useState, type ReactNode } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import {
   emailSaveDisabled, fullNameSaveDisabled, passwordHintMessage, passwordSaveDisabled,
+  recoveryRowView,
 } from '@/lib/admin/account-form';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useAccount, type AccountHook } from '@/lib/admin/use-account';
+import { useMail } from '@/lib/admin/use-mail';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function AccountSection() {
@@ -68,17 +70,25 @@ function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType
 }
 
 function SecurityCard({ hook }: { hook: AccountHook }) {
+  const mailConnected = useMail().status?.connected ?? false;
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <div className="sm-smallcaps mb-3">security</div>
       <PasswordBlock hook={hook} />
       <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-(--color-rule)/60">
-        <SecurityRow label="Two-factor" detail="○ off" actionLabel="enable"
-          note="Not yet available — TOTP two-factor is planned for a later release." />
-        <SecurityRow label="Recovery phrase" detail="needs email setup" actionLabel="generate"
-          note="Configure email (SMTP) delivery first — the recovery phrase is sent to you by email." />
+        <RecoveryRow mailConnected={mailConnected} />
       </div>
     </div>
+  );
+}
+
+// RecoveryRow —— pure render; the enabled/copy decision lives in account-form.
+function RecoveryRow({ mailConnected }: { mailConnected: boolean }) {
+  const view = recoveryRowView(mailConnected);
+  return (
+    <SecurityRow
+      label="Recovery phrase" detail={view.detail} actionLabel="generate" note={view.note}
+    />
   );
 }
 

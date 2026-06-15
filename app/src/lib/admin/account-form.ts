@@ -31,6 +31,26 @@ export function passwordHintMessage(next: string, confirm: string): string {
         : '';
 }
 
+export interface RecoveryRowView {
+  detail: string;
+  note: string;
+}
+
+// recoveryRowView —— recovery phrase 行的展示数据。recovery 靠邮件发送，需先有
+// 已验证的 SMTP connector；未验证 → 灰态 + 引导去 Connectors 配。业务判断放这层，
+// presentation 只渲染。
+export function recoveryRowView(mailConnected: boolean): RecoveryRowView {
+  return mailConnected
+    ? {
+        detail: 'not yet set',
+        note: 'Generates a recovery phrase emailed to you (coming soon).',
+      }
+    : {
+        detail: 'needs verified email',
+        note: 'Verify email (SMTP) under Connectors first — the recovery phrase is sent to you by email.',
+      };
+}
+
 function isAnyBlank(...vals: string[]): boolean {
   return vals.some((v) => v === '');
 }
