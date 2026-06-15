@@ -330,6 +330,28 @@ export async function fetchWikiContext(path: string): Promise<TreeContext> {
   }
 }
 
+// WikiTreeStats —— 侧栏脚定位计数(总数/根数/非公开)。
+const WikiTreeStatsSchema = z.object({
+  entries: z.number(),
+  roots: z.number(),
+  gated: z.number(),
+});
+export type WikiTreeStats = z.infer<typeof WikiTreeStatsSchema>;
+
+const EMPTY_WIKI_STATS: WikiTreeStats = { entries: 0, roots: 0, gated: 0 };
+
+// fetchWikiTreeStats —— GET /api/v1/wiki-tree/stats —— 侧栏脚计数。坏响应 → 全 0。
+export async function fetchWikiTreeStats(): Promise<WikiTreeStats> {
+  try {
+    const res = await fetch(`${baseURL()}/api/v1/wiki-tree/stats`, { cache: 'no-store' });
+    if (!res.ok) return EMPTY_WIKI_STATS;
+    const parsed = WikiTreeStatsSchema.safeParse(await res.json());
+    return parsed.success ? parsed.data : EMPTY_WIKI_STATS;
+  } catch {
+    return EMPTY_WIKI_STATS;
+  }
+}
+
 export const issuePublicSession = () => client().issueSession({ mode: 'public' });
 export const issueCodeSession = (input: IssueCodeSessionInput) =>
   client().issueSession({ ...input, mode: 'code' });

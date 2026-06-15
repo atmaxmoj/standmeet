@@ -25,6 +25,29 @@ func (q *Queries) ArchiveRaw(ctx context.Context, arg ArchiveRawParams) error {
 	return err
 }
 
+const countWikiStats = `-- name: CountWikiStats :one
+SELECT
+  count(*) AS entries,
+  count(*) FILTER (WHERE parent_id IS NULL) AS roots,
+  count(*) FILTER (WHERE NOT seo_indexed) AS gated
+FROM wiki_entries
+WHERE owner_id = $1
+`
+
+type CountWikiStatsRow struct {
+	Entries int64
+	Roots   int64
+	Gated   int64
+}
+
+// 侧栏脚定位计数:总条数 / 根条数 / 非公开(gated)条数。纯聚合,不 load 树,零内存压力。
+func (q *Queries) CountWikiStats(ctx context.Context, ownerID pgtype.UUID) (CountWikiStatsRow, error) {
+	row := q.db.QueryRow(ctx, countWikiStats, ownerID)
+	var i CountWikiStatsRow
+	err := row.Scan(&i.Entries, &i.Roots, &i.Gated)
+	return i, err
+}
+
 const createRawEntry = `-- name: CreateRawEntry :one
 INSERT INTO raw_entries (owner_id, body, source, source_meta, tags, flagged_private)
 VALUES ($1, $2, $3, $4, $5, $6)

@@ -30,6 +30,34 @@ func (h *SEOHandlers) getWikiTree() http.HandlerFunc {
 	}
 }
 
+type wikiTreeStatsView struct {
+	Entries int `json:"entries"`
+	Roots   int `json:"roots"`
+	Gated   int `json:"gated"`
+}
+
+// getWikiTreeStats —— GET /api/v1/wiki-tree/stats —— 侧栏脚定位计数(纯聚合 COUNT,
+// 不 load 树)。owner 级,不按访客 scope。
+// logErrKey —— slog 错误字段名(本文件 "err" 多处,提常量过 add-constant)。
+const logErrKey = "err"
+
+func (h *SEOHandlers) getWikiTreeStats() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		stats, err := usecases.WikiTreeStats(r.Context(), h.Deps)
+		if err != nil {
+			h.Log.Error("wiki tree stats", logErrKey, err)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		view := wikiTreeStatsView{Entries: stats.Entries, Roots: stats.Roots, Gated: stats.Gated}
+		if eerr := json.NewEncoder(w).Encode(view); eerr != nil {
+			h.Log.Error("encode wiki tree stats", logErrKey, eerr)
+		}
+	}
+}
+
 // getWikiTreeContext —— GET /api/v1/wiki-tree/context?path=... —— 某条目的祖先链
 // (breadcrumb)+ 直接子(SubEntriesRail)。scope 同 wiki-tree。
 func (h *SEOHandlers) getWikiTreeContext() http.HandlerFunc {

@@ -88,6 +88,20 @@ type wikiTreeQuery struct {
 	ownerID string
 }
 
+// WikiTreeStats —— 侧栏脚定位计数(owner 级聚合:总数/根数/非公开数),不按访客 scope,
+// 纯 COUNT 不 load 树。
+func WikiTreeStats(ctx context.Context, deps SEODeps) (postgres.WikiStats, error) {
+	owner, ok := FirstOwner(ctx, deps)
+	if !ok {
+		return postgres.WikiStats{}, nil
+	}
+	stats, err := deps.Wiki.CountStats(ctx, owner.ID)
+	if err != nil {
+		return postgres.WikiStats{}, fmt.Errorf("wiki tree stats: %w", err)
+	}
+	return stats, nil
+}
+
 // WikiTreeChildren —— 返 parentID 的直接可见子(parentID="" → roots)。非根先验
 // parent 链整条可见(cascade),链断 → 空层。
 func WikiTreeChildren(

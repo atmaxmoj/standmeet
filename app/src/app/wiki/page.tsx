@@ -11,17 +11,19 @@ import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { WikiTopBar } from '@/components/visitor/WikiTopBar';
 import { WikiTreeView } from '@/components/visitor/WikiTreeView';
 import { fetchInstance } from '@/lib/api/instance';
-import { fetchWikiTree } from '@/lib/api/public';
+import { fetchWikiTree, fetchWikiTreeStats } from '@/lib/api/public';
 
 export const dynamic = 'force-dynamic';
 
 export default async function WikiIndexPage() {
-  const [roots, instance] = await Promise.all([fetchWikiTree('', ''), fetchInstance()]);
+  const [roots, instance, stats] = await Promise.all([
+    fetchWikiTree('', ''), fetchInstance(), fetchWikiTreeStats(),
+  ]);
   return (
     <div>
       <WikiTopBar handle={instance.handle} />
       <SessionStrip />
-      <ReaderLayout mainTestId="wiki-index" aside={<WikiTreeView activePath="" />}>
+      <ReaderLayout mainTestId="wiki-index" aside={<WikiTreeView activePath="" stats={stats} />}>
         <div className="max-w-[920px] mx-auto pt-10 pb-24">
           <div className="smallcaps mb-2">wiki</div>
           <h1 className="font-serif text-(--color-ink) text-[clamp(32px,4vw,48px)] font-[380] tracking-[-0.02em] leading-[1.05] mb-8 text-pretty">

@@ -194,6 +194,26 @@ func wikiSearchRowMeta(row *dbq.SearchWikiByOwnerRow) WikiMeta {
 	}
 }
 
+// WikiStats —— 侧栏脚定位计数(纯聚合,不 load 树)。
+type WikiStats struct {
+	Entries int
+	Roots   int
+	Gated   int
+}
+
+// CountStats —— owner 的 wiki 总数 / 根数 / 非公开(gated)数。一句 COUNT,零内存。
+func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return WikiStats{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	row, qerr := dbq.New(r.pool).CountWikiStats(ctx, ownerUUID)
+	if qerr != nil {
+		return WikiStats{}, fmt.Errorf("count wiki stats: %w", qerr)
+	}
+	return WikiStats{Entries: int(row.Entries), Roots: int(row.Roots), Gated: int(row.Gated)}, nil
+}
+
 // ListAllMeta —— 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed + landing
 // 的 [[X]] title→path 索引用。不带 newest-N cap。
 func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta, error) {

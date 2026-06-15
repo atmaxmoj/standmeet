@@ -12,11 +12,12 @@ import Link from 'next/link';
 
 import { LazyTree } from '@/components/corpus/LazyTree';
 import type { TreeNode } from '@/lib/corpus/tree';
+import type { WikiTreeStats } from '@/lib/api/public';
 import { loadWikiChildren } from '@/lib/visitor/load-wiki-children';
 
 import styles from '@/components/visitor/WikiTreeView.module.css';
 
-export function WikiTreeView({ activePath }: { activePath: string }) {
+export function WikiTreeView({ activePath, stats }: { activePath: string; stats: WikiTreeStats }) {
   const openPaths = prefixSet(activePath);
   const renderLabel = useCallback(
     (node: TreeNode) => <WikiLabel node={node} active={node.path === activePath} />,
@@ -28,7 +29,19 @@ export function WikiTreeView({ activePath }: { activePath: string }) {
         <span className={styles['headLabel']}>wiki tree</span>
       </div>
       <LazyTree load={loadWikiChildren} renderLabel={renderLabel} openPaths={openPaths} />
+      <TreeStats stats={stats} />
     </nav>
+  );
+}
+
+// TreeStats —— 侧栏脚定位计数(纯 COUNT 聚合,不拉树、不破坏懒加载)。
+function TreeStats({ stats }: { stats: WikiTreeStats }) {
+  return (
+    <div className={styles['stats']} data-testid="wiki-tree-stats">
+      <span className={styles['statNum']}>{stats.entries}</span> entries{' · '}
+      <span className={styles['statNum']}>{stats.roots}</span> roots{' · '}
+      <span className={styles['statNum']}>{stats.gated}</span> gated
+    </div>
   );
 }
 

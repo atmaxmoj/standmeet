@@ -85,6 +85,15 @@ SELECT id, parent_id, title, seo_indexed
 FROM wiki_entries
 WHERE id = $1 AND owner_id = $2;
 
+-- name: CountWikiStats :one
+-- 侧栏脚定位计数:总条数 / 根条数 / 非公开(gated)条数。纯聚合,不 load 树,零内存压力。
+SELECT
+  count(*) AS entries,
+  count(*) FILTER (WHERE parent_id IS NULL) AS roots,
+  count(*) FILTER (WHERE NOT seo_indexed) AS gated
+FROM wiki_entries
+WHERE owner_id = $1;
+
 -- name: ListAllWikiMeta :many
 -- 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed wiki + landing 的 [[X]]
 -- 渲染 title→path 索引用。不带 newest-N cap —— sitemap/链接解析必须看全量,漏一条

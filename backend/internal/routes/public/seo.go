@@ -46,6 +46,7 @@ func (h *SEOHandlers) Mount(r chi.Router) {
 	r.Get("/output/*", h.getOutputLanding())
 	// wiki-tree —— sidebar 导航的懒加载分层 + 节点上下文(handler 在 wiki_tree.go)。
 	r.Get("/wiki-tree", h.getWikiTree())
+	r.Get("/wiki-tree/stats", h.getWikiTreeStats())
 	r.Get("/wiki-tree/context", h.getWikiTreeContext())
 }
 
