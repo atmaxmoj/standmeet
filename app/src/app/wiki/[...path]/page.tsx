@@ -28,9 +28,13 @@ import styles from '@/app/wiki/[...path]/wiki-landing.module.css';
 // catch-all [...path]：path 可含 `/` (projects/lucerna 这种分组)。
 type Params = { path: string[] };
 
+type WikiRef = { path: string; title: string };
+
 type WikiEntry = {
   title: string; body: string; seo_description: string; updated_at: string;
   tags: readonly string[];
+  related: readonly WikiRef[];
+  cited_by: readonly WikiRef[];
 };
 
 export async function generateMetadata(
@@ -80,6 +84,8 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
           </article>
           <div className="max-w-[760px] mx-auto">
             <SubEntriesRail nodes={ctx.children} />
+            <RelatedRail items={wiki.related} title="read next" testid="related-rail-read-next" />
+            <RelatedRail items={wiki.cited_by} title="cited by" testid="related-rail-cited-by" />
             <TrustBox handle={handle} />
           </div>
         </div>
@@ -185,6 +191,30 @@ function SubEntriesRail({ nodes }: { nodes: TreeNode[] }) {
               className="reading text-(--color-ink) hover:text-(--color-accent) text-[15px]"
             >
               {c.title} <span className="text-(--color-faint)">→</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : null;
+}
+
+// RelatedRail —— 底部 read next(出链 related)/ cited by(入链 cited_by)。每项是
+// 指向另一条 wiki 的标题链接;空则不渲染(出/入链各自独立)。
+function RelatedRail(
+  { items, title, testid }: { items: readonly WikiRef[]; title: string; testid: string },
+) {
+  return items.length > 0 ? (
+    <div className="mt-12" data-testid={testid}>
+      <div className="smallcaps mb-3">{title}</div>
+      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 list-none p-0 m-0">
+        {items.map((r) => (
+          <li key={r.path}>
+            <Link
+              href={`/wiki/${r.path}`}
+              className="reading text-(--color-ink) hover:text-(--color-accent) text-[15px]"
+            >
+              {r.title} <span className="text-(--color-faint)">→</span>
             </Link>
           </li>
         ))}

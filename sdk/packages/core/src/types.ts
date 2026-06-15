@@ -60,6 +60,9 @@ export interface WikiLandingView {
   readonly seo_description: string;
   readonly updated_at: string;
   readonly tags: readonly string[];
+  // 出/入链(read next / cited by rail):每项指向另一条 wiki。
+  readonly related: readonly { readonly path: string; readonly title: string }[];
+  readonly cited_by: readonly { readonly path: string; readonly title: string }[];
 }
 
 // OutputLandingView —— /output/<path> SEO landing。结构跟 WikiLandingView
