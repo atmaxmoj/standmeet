@@ -63,6 +63,8 @@ export interface WikiLandingView {
   // 出/入链(read next / cited by rail):每项指向另一条 wiki。
   readonly related: readonly { readonly path: string; readonly title: string }[];
   readonly cited_by: readonly { readonly path: string; readonly title: string }[];
+  // 这条 wiki 是从几条 raw 提炼来的(N corpus sources)。
+  readonly sources_count: number;
 }
 
 // OutputLandingView —— /output/<path> SEO landing。结构跟 WikiLandingView

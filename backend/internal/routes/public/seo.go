@@ -161,6 +161,8 @@ type wikiLandingView struct {
 	Tags           []string      `json:"tags"`
 	Related        []wikiRefView `json:"related"`
 	CitedBy        []wikiRefView `json:"cited_by"`
+	// SourcesCount —— 这条 wiki 是从几条 raw 提炼来的(N corpus sources)。
+	SourcesCount int `json:"sources_count"`
 }
 
 func loadWikiLandingView(
@@ -179,6 +181,7 @@ func loadWikiLandingView(
 		Tags:           res.Wiki.Tags(),
 		Related:        toWikiRefViews(res.Related),
 		CitedBy:        toWikiRefViews(res.CitedBy),
+		SourcesCount:   len(res.Wiki.SourceRawIDs()),
 	}, nil
 }
 

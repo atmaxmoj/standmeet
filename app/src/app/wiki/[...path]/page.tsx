@@ -35,6 +35,7 @@ type WikiEntry = {
   tags: readonly string[];
   related: readonly WikiRef[];
   cited_by: readonly WikiRef[];
+  sources_count: number;
 };
 
 export async function generateMetadata(
@@ -76,6 +77,7 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
         <div className="max-w-[920px] mx-auto pt-10 pb-24">
           <Breadcrumb
             ancestors={ctx.ancestors} current={wiki.title} updatedAt={wiki.updated_at}
+            sourcesCount={wiki.sources_count}
           />
           <OgCover entry={wiki} seed={slug} />
           <MetaStrip entry={wiki} ownerName={ownerName} />
@@ -101,7 +103,7 @@ function OgCover({ entry, seed }: { entry: WikiEntry; seed: string }) {
   const { head, sub } = splitTitle(entry.title);
   return (
     <div className={`${styles['cover']} ${pickHue(seed)}`} data-testid="wiki-cover">
-      <span className={styles['tag']}>wiki · {entry.tags[0] ?? 'corpus'}</span>
+      <span className={styles['tag']}>{entry.tags[0] ? `wiki · ${entry.tags[0]}` : 'wiki'}</span>
       <span className={styles['no']}>{formatDate(entry.updated_at)}</span>
       <span className={styles['head']}>{head}</span>
       {sub ? <span className={styles['sub']}>{sub}</span> : null}
@@ -118,6 +120,8 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
         <span>{formatDate(entry.updated_at)}</span>
         <span className="text-(--color-faint)">·</span>
         <span>by <span className="text-(--color-ink)">{ownerName}</span></span>
+        <span className="text-(--color-faint)">·</span>
+        <span data-testid="wiki-sources-count">{entry.sources_count} corpus sources</span>
         {entry.tags.map((t) => (
           <Link key={t} href={`/writings?tag=${encodeURIComponent(t)}`} className="ml-1.5 no-underline">
             <span className="mono text-[10px] tracking-[0.1em] text-(--color-muted) border border-(--color-rule) rounded-[2px] px-1.5 py-0.5 hover:text-(--color-ink)">
@@ -141,8 +145,8 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
 // Breadcrumb —— ← wiki ▸ 祖先链 ▸ 当前条。祖先来自 context(scope 过滤,gated
 // 祖先不出现),每个可点回各自 landing;当前条纯文字。「← wiki」回 wiki 自己的
 // index —— 每种 document 返回自己那类(owner 要求),不再统一回 writing。
-function Breadcrumb({ ancestors, current, updatedAt }: {
-  ancestors: TreeNode[]; current: string; updatedAt: string;
+function Breadcrumb({ ancestors, current, updatedAt, sourcesCount }: {
+  ancestors: TreeNode[]; current: string; updatedAt: string; sourcesCount: number;
 }) {
   return (
     <nav
@@ -158,7 +162,7 @@ function Breadcrumb({ ancestors, current, updatedAt }: {
         </span>
       </div>
       <span className="mono text-[10.5px] text-(--color-muted) tracking-[0.06em]">
-        {formatDate(updatedAt)}
+        {formatDate(updatedAt)} · {sourcesCount} sources cited
       </span>
     </nav>
   );
