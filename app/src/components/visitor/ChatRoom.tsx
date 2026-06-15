@@ -40,7 +40,7 @@ export function ChatRoom({ owner, mode }: Props) {
     <div className="h-screen flex flex-col overflow-hidden" data-testid="chatroom">
       <SessionStrip />
       <VisitorNamePicker />
-      <ChatRoomHeader handle={owner.handle} hasDialogs={ci.chat.dialogs.length > 0} onReset={ci.chat.reset} />
+      <ChatRoomHeader handle={owner.handle} />
       <main className="flex-1 flex flex-col min-h-0">
         <div className="max-w-[760px] w-full mx-auto px-6 lg:px-0 flex-1 flex flex-col min-h-0">
           {/* scroll area: welcome + transcript scroll here; composer stays docked */}
@@ -67,11 +67,11 @@ export function ChatRoom({ owner, mode }: Props) {
 
 // ── header ──────────────────────────────────────────────────
 
-function ChatRoomHeader({ handle, hasDialogs, onReset }: { handle: string; hasDialogs: boolean; onReset: () => void }) {
+function ChatRoomHeader({ handle }: { handle: string }) {
   return (
     <header className="flex items-center justify-between px-6 lg:px-10 py-3 border-b border-(--color-rule) shrink-0 gap-4 sticky top-0 bg-(--color-paper)/95 backdrop-blur z-20">
       <HeaderLeft handle={handle} />
-      <HeaderRight hasDialogs={hasDialogs} onReset={onReset} />
+      <HeaderRight />
     </header>
   );
 }
@@ -90,15 +90,9 @@ function HeaderLeft({ handle }: { handle: string }) {
   );
 }
 
-function HeaderRight({ hasDialogs, onReset }: { hasDialogs: boolean; onReset: () => void }) {
+function HeaderRight() {
   return (
     <div className="flex items-center gap-5 shrink-0">
-      {hasDialogs && (
-        <button type="button" onClick={onReset}
-          className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent) transition-colors">
-          ↺ reset
-        </button>
-      )}
       <Link href="/" className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink) transition-colors">
         full page →
       </Link>

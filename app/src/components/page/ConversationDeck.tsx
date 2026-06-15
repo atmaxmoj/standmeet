@@ -24,13 +24,12 @@ import type { Citation, Dialog, DialogAnswer, ToolThrobberView } from '@/lib/pag
 type Props = {
   ownerHandle: string;
   dialogs: Dialog[];
-  onReset: () => void;
   // onAsk —— I.1: ask_visitor 卡里的 button click 走这条把选中项当作下
   // 一 turn 投出去；不传 → ask_visitor 卡不渲 (功能未启用)。
   onAsk?: (q: string) => void;
 };
 
-export function ConversationDeck({ ownerHandle, dialogs, onReset, onAsk }: Props) {
+export function ConversationDeck({ ownerHandle, dialogs, onAsk }: Props) {
   // The ask input sits up in the hero; the answer streams in down here. Without
   // this, asking leaves the viewport on the empty input and looks like nothing
   // happened. Scroll the newest Q/A to the top of the view the moment it's added
@@ -46,15 +45,6 @@ export function ConversationDeck({ ownerHandle, dialogs, onReset, onAsk }: Props
       <DeckHeader
         kicker="conversation"
         count={dialogs.length}
-        action={
-          <button
-            type="button"
-            onClick={onReset}
-            className="mono text-[10px] tracking-[0.16em] uppercase text-(--color-muted) hover:text-(--color-accent) transition-colors"
-          >
-            ↺ reset
-          </button>
-        }
       />
       {dialogs.map((d, i) => (
         <DialogCard

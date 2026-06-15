@@ -67,7 +67,7 @@ function SidePanel() {
 type OfferRow = { k: string; t: string; b: string };
 
 const OFFERS: OfferRow[] = [
-  { k: '01', t: 'your own corpus', b: 'A local database that holds every raw dump, every promoted wiki entry, every conversation. You own the file.' },
+  { k: '01', t: 'your own corpus', b: 'A self-hosted database that holds every raw dump, every promoted wiki entry, every conversation. You own the instance.' },
   { k: '02', t: 'mcp push endpoint', b: 'Send entries to your corpus from Claude / ChatGPT / Cursor with one client install. No copy-pasting screenshots between tools.' },
   { k: '03', t: 'api tokens', b: 'Generate scoped tokens for AI agents, scripts, or other apps to read or write to your corpus.' },
   { k: '04', t: 'gated chat', b: 'A public surface visitors land on. Codes you issue grant scoped access; BYOAI handles the rest.' },
