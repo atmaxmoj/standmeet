@@ -73,22 +73,51 @@ function SecurityCard({ hook }: { hook: AccountHook }) {
       <div className="sm-smallcaps mb-3">security</div>
       <PasswordBlock hook={hook} />
       <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-(--color-rule)/60">
-        <SecurityRow label="Two-factor" detail="○ off" actionLabel="enable" />
-        <SecurityRow label="Recovery phrase" detail="not yet set" actionLabel="generate" />
+        <SecurityRow label="Two-factor" detail="○ off" actionLabel="enable"
+          note="Not yet available — TOTP two-factor is planned for a later release." />
+        <SecurityRow label="Recovery phrase" detail="needs email setup" actionLabel="generate"
+          note="Configure email (SMTP) delivery first — the recovery phrase is sent to you by email." />
       </div>
     </div>
   );
 }
 
-function SecurityRow({ label, detail, actionLabel }: { label: string; detail: string; actionLabel: string }) {
+interface SecurityRowProps {
+  label: string;
+  detail: string;
+  actionLabel: string;
+  // note —— why the action is disabled; shown in a ⓘ tooltip next to the label.
+  note: string;
+}
+
+function SecurityRow({ label, detail, actionLabel, note }: SecurityRowProps) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
       <div>
-        <div className="font-serif text-[15px] text-(--color-ink)">{label}</div>
+        <div className="font-serif text-[15px] text-(--color-ink) flex items-center gap-1.5">
+          {label}
+          <InfoDot note={note} />
+        </div>
         <div className="mono text-[10px] text-(--color-muted) mt-0.5">{detail}</div>
       </div>
-      <button className="sm-btn sm-btn-outline sm-btn-sm" type="button">{actionLabel}</button>
+      <button
+        className="sm-btn sm-btn-outline sm-btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
+        type="button" disabled title={note}
+      >
+        {actionLabel}
+      </button>
     </div>
+  );
+}
+
+function InfoDot({ note }: { note: string }) {
+  return (
+    <span
+      title={note}
+      className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-(--color-muted)/50 text-(--color-muted) mono text-[8px] leading-none cursor-help"
+    >
+      ?
+    </span>
   );
 }
 
