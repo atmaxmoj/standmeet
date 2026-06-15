@@ -187,7 +187,12 @@ body {
   color: var(--color-muted);
 }
 
-input[type="text"]:focus, textarea:focus { outline: none; }
+/* Visible, on-brand text caret in every input/textarea (some inputs showed no
+   insertion caret), and a consistent focus treatment — the design signals focus
+   with a border-color change, so drop the default outline on all of them, not
+   just type=text (password/email were getting a stray browser ring). */
+input, textarea, select { caret-color: var(--color-accent); }
+input:focus, textarea:focus, select:focus { outline: none; }
 
 /* live-dot —— TopBar / banner 里指示"live"系统状态的脉冲。 */
 @keyframes live-pulse {

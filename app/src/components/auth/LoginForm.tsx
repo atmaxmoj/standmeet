@@ -4,7 +4,7 @@
 
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { useRouter } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { Field } from '@/components/auth/Field';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
@@ -69,24 +69,59 @@ function LoginFormBody({ form, captcha, onSubmit }: ShellProps) {
           className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
         />
       </Field>
-      <Field label="password">
-        <input
-          type="password"
-          value={form.password}
-          onChange={(e) => form.setPassword(e.target.value)}
-          placeholder="••••••••••••"
-          disabled={form.busy}
-          data-testid="password"
-          autoComplete="current-password"
-          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 reading text-base"
-        />
-      </Field>
+      <PasswordField form={form} />
       <FormError message={form.error} />
       {captcha.siteKey ? (
         <TurnstileWidget siteKey={captcha.siteKey} onToken={form.setCaptchaToken} />
       ) : null}
       <SubmitRow form={form} captcha={captcha} />
     </form>
+  );
+}
+
+// PasswordField —— password input with a show/hide eye toggle. Local state only;
+// the value still lives in the form hook.
+function PasswordField({ form }: { form: ReturnType<typeof useLoginForm> }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <Field label="password">
+      <div className="relative">
+        <input
+          type={shown ? 'text' : 'password'}
+          value={form.password}
+          onChange={(e) => form.setPassword(e.target.value)}
+          placeholder="••••••••••••"
+          disabled={form.busy}
+          data-testid="password"
+          autoComplete="current-password"
+          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 pr-9 reading text-base"
+        />
+        <button
+          type="button"
+          onClick={() => setShown((s) => !s)}
+          aria-label={shown ? 'hide password' : 'show password'}
+          data-testid="password-toggle"
+          className="absolute right-0 bottom-2.5 text-(--color-muted) hover:text-(--color-ink) transition-colors"
+        >
+          <EyeIcon off={shown} />
+        </button>
+      </div>
+    </Field>
+  );
+}
+
+// EyeIcon —— open eye (password hidden, click to reveal) vs struck-through eye
+// (password shown). Inline SVG keeps it dependency-free + on the mono palette.
+function EyeIcon({ off }: { off: boolean }) {
+  return (
+    <svg
+      width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+      {off ? <line x1="3" y1="3" x2="21" y2="21" /> : null}
+    </svg>
   );
 }
 
