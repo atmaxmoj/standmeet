@@ -146,9 +146,11 @@ eval-capabilities:
 # eval-owner-mcp —— 当 agent 驱动 OWNER-side MCP server(inbound/ingest 那半,跟
 # 访客出站对称)。走真 @standmeet/mcp-client Sigv1 stdio bridge,跑 me → raw_dump →
 # list_recent_raw → promote_to_wiki → list_recent_wiki 闭环,机械 round-trip 断言。
-# 需 dev stack 起 + claimed(e2e 默认 owner alice);自动 mint 临时 keypair 用完即销。
+# 需 dev stack 起 + claimed。默认打 demo owner(marcus,reseed-marcus claim 的);
+# 别的实例用 OWNER_EMAIL=... 覆盖。自动 mint 临时 keypair 用完即销。注意:会往 corpus
+# 写一条 eval 测试 raw+wiki,跑完用 reseed-marcus.sh 清回 50。
 eval-owner-mcp:
-	@eval-harness/owner-mcp-setup.sh
+	@OWNER_EMAIL="$${OWNER_EMAIL:-marcus@local.test}" eval-harness/owner-mcp-setup.sh
 
 # dev-rebuild —— 改 backend / app 代码后强制 rebuild + recreate 指定服务，
 # 不动 db/redis/minio (保数据)。用法：make dev-rebuild SVC=app
