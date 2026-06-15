@@ -30,6 +30,16 @@ func toEinoMessages(system string, in []ChatRequestMsg) ([]*schema.Message, erro
 		if rerr != nil {
 			return nil, rerr
 		}
+		// Never forward an assistant message with neither content nor tool_calls:
+		// OpenAI-compatible providers (DeepSeek) 400 with "Invalid assistant
+		// message: content or tool_calls must be set". A ReturnDirectly tool
+		// (summarize_conversation) ends a turn on an artifact with no text, leaving
+		// exactly such a message in history. Dropping it here — at the single
+		// boundary every provider request crosses — means no "bad reply" can poison
+		// the next turn of any conversation, whatever the history source.
+		if isEmptyAssistant(role, &in[i]) {
+			continue
+		}
 		out = append(out, &schema.Message{
 			Role:       role,
 			Content:    in[i].Content,
@@ -38,6 +48,13 @@ func toEinoMessages(system string, in []ChatRequestMsg) ([]*schema.Message, erro
 		})
 	}
 	return out, nil
+}
+
+// isEmptyAssistant —— assistant turn carrying neither text nor a tool call. Such
+// a message is invalid to send to the provider and meaningless to replay; it has
+// no tool-call pairing to preserve, so it is always safe to drop.
+func isEmptyAssistant(role schema.RoleType, m *ChatRequestMsg) bool {
+	return role == schema.Assistant && m.Content == "" && len(m.ToolCalls) == 0
 }
 
 func toEinoToolCalls(in []ChatToolCallRef) []schema.ToolCall {
