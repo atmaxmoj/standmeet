@@ -46,55 +46,13 @@ def scheme_path(uri):  # "wiki://profile/overview" -> ("wiki", "profile/overview
     return (uri[:i], uri[i + 3:]) if i >= 0 else ("wiki", uri)
 
 
-# PARENT_OF —— child uri -> parent uri,把扁平 corpus 组成真树(projects 归公司、
-# profile 子页归 "Who I am")。reader 侧栏靠 parent_id 才长出 caret/缩进。
+# PARENT_OF —— child uri -> parent uri,单一来源 = persona 自己的 tree.json(本脚本
+# 和 e2e persona seeder 共用同一份)。把扁平 corpus 组成真树(projects 归公司、profile
+# 子页归 "Who I am");reader 侧栏靠 parent_id 才长出 caret/缩进。改树只动 tree.json。
 PARENT_OF = {
-    # profile/overview ("Who I am") 下挂自我介绍类
-    "wiki://profile/working-style": "wiki://profile/overview",
-    "wiki://profile/skills": "wiki://profile/overview",
-    "wiki://profile/education": "wiki://profile/overview",
-    "wiki://profile/looking-next": "wiki://profile/overview",
-    # 公司下挂项目/事故(3 层:work > company > project)
-    "wiki://project/notification-pipeline": "wiki://work/orbit",
-    # 旗舰深项目:notification-pipeline 自己再展开一棵(到 4 层 lua-script)
-    "wiki://project/notification-pipeline/fan-out": "wiki://project/notification-pipeline",
-    "wiki://project/notification-pipeline/rate-limiting": "wiki://project/notification-pipeline",
-    "wiki://project/notification-pipeline/rate-limiting/lua-script":
-        "wiki://project/notification-pipeline/rate-limiting",
-    "wiki://project/notification-pipeline/dedup": "wiki://project/notification-pipeline",
-    "wiki://project/notification-pipeline/dead-letter": "wiki://project/notification-pipeline",
-    "wiki://project/notification-pipeline/rollout": "wiki://project/notification-pipeline",
-    "wiki://work/orbit/event-bus": "wiki://work/orbit",
-    "wiki://work/orbit/oncall": "wiki://work/orbit",
-    "wiki://work/orbit/feature-flags": "wiki://work/orbit",
-    "wiki://project/order-reconciliation": "wiki://work/flowpay",
-    "wiki://lessons/double-charge-incident": "wiki://work/flowpay",
-    "wiki://work/flowpay/idempotency": "wiki://work/flowpay",
-    "wiki://work/flowpay/webhooks": "wiki://work/flowpay",
-    "wiki://project/slow-query-optimization": "wiki://work/acme-retail",
-    "wiki://work/acme-retail/inventory-sync": "wiki://work/acme-retail",
-    "wiki://work/acme-retail/cache-invalidation": "wiki://work/acme-retail",
-    # skills 自己成一棵(4 层:profile/overview > skills > go/postgres/...)
-    "wiki://profile/skills/go": "wiki://profile/skills",
-    "wiki://profile/skills/postgres": "wiki://profile/skills",
-    "wiki://profile/skills/debugging": "wiki://profile/skills",
-    "wiki://profile/skills/kubernetes": "wiki://profile/skills",
-    # thinking 是新根,下挂 essays
-    "wiki://thinking/correctness": "wiki://thinking",
-    "wiki://thinking/boring-tech": "wiki://thinking",
-    "wiki://thinking/being-mid": "wiki://thinking",
-    # knowledge 新根:项目里学到的可迁移知识,各自回链项目(W2 一开就 project↔knowledge 互联)
-    "wiki://knowledge/rate-limiting": "wiki://knowledge",
-    "wiki://knowledge/idempotency": "wiki://knowledge",
-    "wiki://knowledge/delivery-semantics": "wiki://knowledge",
-    "wiki://knowledge/retries-backoff": "wiki://knowledge",
-    "wiki://knowledge/cache-invalidation": "wiki://knowledge",
-    "wiki://knowledge/reconciliation": "wiki://knowledge",
-    "wiki://knowledge/shadow-mode": "wiki://knowledge",
-    "wiki://knowledge/isolation-levels": "wiki://knowledge",
-    "wiki://knowledge/distributed-locks": "wiki://knowledge",
-    "wiki://knowledge/backpressure": "wiki://knowledge",
-    "wiki://knowledge/eventual-consistency": "wiki://knowledge",
+    k: v
+    for k, v in json.loads((PERSONA / "tree.json").read_text(encoding="utf-8")).items()
+    if not k.startswith("_")  # 跳过 _comment 之类的元字段
 }
 
 
