@@ -10,6 +10,7 @@ import {
 import {
   seedOwnerGCalConnected, teardownSeed, type BaseSeed,
 } from '@/fixtures/gcal-setup';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 test.describe('admin · booking policy edit', () => {
   let seed: BaseSeed;
@@ -38,6 +39,20 @@ test.describe('admin · booking policy edit', () => {
       expect(p.allowed_weekdays).toEqual(['tue', 'wed', 'thu']);
       expect(p.working_hours_start).toBe('10:00');
       expect(p.working_hours_end).toBe('16:00');
+    });
+
+  // timezone is a real <select> (IANA list from @vvo/tzdb), not free text —
+  // picking one in the UI persists. seed owner is alice (= default adminPage creds).
+  test('owner picks a timezone from the dropdown → persists',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'connectors');
+      const select = adminPage.getByTestId('gcal-timezone');
+      await expect(select).toBeVisible({ timeout: 10_000 });
+      await select.selectOption('Asia/Tokyo'); // option value is the IANA name
+      await expect.poll(
+        async () => (await getBookingPolicy(seed.request)).timezone,
+        { timeout: 10_000 },
+      ).toBe('Asia/Tokyo');
     });
 });
 

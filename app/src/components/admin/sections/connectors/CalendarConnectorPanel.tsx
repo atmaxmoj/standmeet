@@ -14,6 +14,7 @@ import { useState } from 'react';
 import {
   useGCal, type BookingPolicy, type WeekdayT,
 } from '@/lib/admin/use-gcal';
+import { timezoneOptions } from '@/lib/admin/timezones';
 
 const ALL_WEEKDAYS: readonly WeekdayT[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -271,13 +272,21 @@ function PolicyTimezoneRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
   return (
-    <PolicyInput
-      label="timezone (IANA)"
-      testid="gcal-timezone"
-      value={policy.timezone}
-      placeholder="America/New_York"
-      onBlur={(v) => { void hook.savePolicy({ timezone: v }); }}
-    />
+    <label className="block">
+      <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
+        timezone (IANA)
+      </span>
+      <select
+        data-testid="gcal-timezone"
+        value={policy.timezone}
+        onChange={(e) => { void hook.savePolicy({ timezone: e.target.value }); }}
+        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
+      >
+        {timezoneOptions(policy.timezone).map((tz) => (
+          <option key={tz.value} value={tz.value}>{tz.label}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 
