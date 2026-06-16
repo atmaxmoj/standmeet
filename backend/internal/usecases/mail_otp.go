@@ -20,6 +20,8 @@ var (
 	ErrMailOTPNone = errors.New("mail otp: no active code")
 	// ErrMailOTPTooMany —— 错误次数达上限,当前 OTP 作废,需重发。
 	ErrMailOTPTooMany = errors.New("mail otp: too many attempts")
+	// ErrMailOTPCooldown —— 距上次发码太近,拒绝(防 email bomb)。
+	ErrMailOTPCooldown = errors.New("mail otp: resend cooldown")
 )
 
 // MailOTPMismatchError —— 码不对但还有剩余次数;带 Remaining 给 UI 提示「还有 N 次」。
@@ -31,14 +33,16 @@ func (e *MailOTPMismatchError) Error() string {
 	return fmt.Sprintf("mail otp: code mismatch, %d attempts left", e.Remaining)
 }
 
-// SendMailOTP —— 生成 6 位 OTP,存其 sha256+过期,真发到 from_address。不标 connected。
+// SendMailOTP —— 生成 6 位 OTP,存其 sha256+过期,从 from_address 发到 owner 自己的
+// 邮箱(验证 owner 控制该邮箱 + SMTP 真能发)。不标 connected。
 func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
-	conn, err := deps.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
+	conn, err := loadConfiguredConnector(ctx, deps, ownerID)
 	if err != nil {
-		return fmt.Errorf("get mail connector: %w", err)
+		return err
 	}
-	if !conn.HasCredentials() {
-		return ErrMailNotConfigured
+	owner, oerr := deps.Owners.GetByID(ctx, ownerID)
+	if oerr != nil {
+		return fmt.Errorf("get owner: %w", oerr)
 	}
 	code, gerr := domain.GenerateMailOTP()
 	if gerr != nil {
@@ -48,16 +52,37 @@ func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
 		time.Now().Add(domain.MailOTPTTL)); serr != nil {
 		return fmt.Errorf("set mail otp: %w", serr)
 	}
-	return sendOTPEmail(&conn, code)
+	return sendOTPEmail(&conn, owner.Email, code)
 }
 
-func sendOTPEmail(conn *domain.MailConnector, code string) error {
+// loadConfiguredConnector —— 取 connector 并确认已填凭据(没填 → ErrMailNotConfigured)。
+func loadConfiguredConnector(
+	ctx context.Context, deps MailDeps, ownerID string,
+) (domain.MailConnector, error) {
+	conn, err := deps.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
+	if err != nil {
+		return conn, fmt.Errorf("get mail connector: %w", err)
+	}
+	if !conn.HasCredentials() {
+		return conn, ErrMailNotConfigured
+	}
+	if conn.OTPIssuedRecently(time.Now(), domain.MailOTPResendCooldown) {
+		return conn, ErrMailOTPCooldown
+	}
+	return conn, nil
+}
+
+// sendOTPEmail —— From = connector 的 from_address(合法发件人),To = owner 邮箱。
+// 发 HTML(StandMeet 风格)+ 纯文本兜底。
+func sendOTPEmail(conn *domain.MailConnector, toEmail, code string) error {
+	mins := int(domain.MailOTPTTL.Minutes())
 	err := mailer.Compose(connectorConfig(conn)).
-		To(conn.FromAddress).
+		To(toEmail).
 		Subject("StandMeet email verification code").
 		Body(fmt.Sprintf("Your StandMeet verification code is %s\n\nEnter it under "+
 			"admin → Connectors to verify outbound email. It expires in %d minutes.",
-			code, int(domain.MailOTPTTL.Minutes()))).
+			code, mins)).
+		HTML(otpEmailHTML(code, mins)).
 		Send()
 	if err != nil {
 		return fmt.Errorf("send otp email: %w", err)

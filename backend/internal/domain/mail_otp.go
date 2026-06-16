@@ -18,6 +18,9 @@ const (
 	MailOTPDigits      = 6
 	MailOTPTTL         = 10 * time.Minute
 	MailOTPMaxAttempts = 10
+	// MailOTPResendCooldown —— 两次发码之间的最小间隔,防 email bomb(每次发码都经
+	// owner 的 SMTP 发一封真信)。前端也按这个倒计时 disable 重发按钮。
+	MailOTPResendCooldown = 30 * time.Second
 )
 
 const mailOTPMax = 1_000_000 // exclusive upper bound for a 6-digit code
@@ -46,6 +49,16 @@ func (c *MailConnector) OTPActive(now time.Time) bool {
 // OTPExhausted —— too many wrong attempts; the pending OTP must be voided.
 func (c *MailConnector) OTPExhausted() bool {
 	return c.OTPAttempts >= MailOTPMaxAttempts
+}
+
+// OTPIssuedRecently —— a code was issued within `cooldown` (issued = expiry-TTL).
+// Used to refuse rapid re-sends (email-bomb guard).
+func (c *MailConnector) OTPIssuedRecently(now time.Time, cooldown time.Duration) bool {
+	if c.OTPExpiresAt == nil {
+		return false
+	}
+	issued := c.OTPExpiresAt.Add(-MailOTPTTL)
+	return now.Before(issued.Add(cooldown))
 }
 
 // OTPMatches —— constant-time compare of a submitted code against the stored hash.

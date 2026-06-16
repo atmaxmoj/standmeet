@@ -30,9 +30,15 @@ func (b *Builder) Subject(s string) *Builder {
 	return b
 }
 
-// Body —— 正文。
+// Body —— 纯文本正文(非 HTML 客户端的兜底)。
 func (b *Builder) Body(s string) *Builder {
 	b.msg.Body = s
+	return b
+}
+
+// HTML —— 可选的 HTML 正文;设了就发 multipart/alternative。
+func (b *Builder) HTML(s string) *Builder {
+	b.msg.HTML = s
 	return b
 }
 

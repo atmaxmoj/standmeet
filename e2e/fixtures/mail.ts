@@ -19,8 +19,8 @@ const SMTP_PORT = 1025;
 interface MailpitTo { Address: string }
 interface MailpitMessage { ID: string; To: MailpitTo[]; Subject: string }
 
-// MAIL_FROM —— the connector's from_address; the OTP verification email is sent
-// here, so tests read the code off Mailpit at this address.
+// MAIL_FROM —— the connector's from_address (the sender). The OTP itself is sent
+// TO the owner's own email, not here.
 export const MAIL_FROM = 'noreply@standmeet.test';
 
 export async function saveMailCreds(request: APIRequestContext, csrf: string): Promise<void> {
@@ -41,9 +41,10 @@ export async function sendMailOTP(request: APIRequestContext, csrf: string): Pro
   if (res.status() !== 200) throw new Error(`send-otp failed: ${res.status()} ${await res.text()}`);
 }
 
-// readMailOTP —— pull the verification email off Mailpit and extract its 6-digit code.
-export async function readMailOTP(request: APIRequestContext): Promise<string> {
-  const body = await waitForMailTo(request, MAIL_FROM);
+// readMailOTP —— pull the verification email (sent to the owner's address) off
+// Mailpit and extract its 6-digit code.
+export async function readMailOTP(request: APIRequestContext, to: string): Promise<string> {
+  const body = await waitForMailTo(request, to);
   const code = /\b(\d{6})\b/.exec(body)?.[1];
   if (code === undefined) throw new Error(`no 6-digit code in OTP mail:\n${body}`);
   return code;
@@ -61,12 +62,12 @@ export async function verifyMailOTP(
 // configureMailConnector —— full real OTP roundtrip: save creds → send-otp →
 // read the code off Mailpit → verify-otp, leaving the connector connected.
 export async function configureMailConnector(
-  request: APIRequestContext, email?: string, password?: string,
+  request: APIRequestContext, email: string, password?: string,
 ): Promise<void> {
   const { csrf } = await login(request, email, password);
   await saveMailCreds(request, csrf);
   await sendMailOTP(request, csrf);
-  const code = await readMailOTP(request);
+  const code = await readMailOTP(request, email); // OTP is sent to the owner's email
   const status = await verifyMailOTP(request, csrf, code);
   if (status !== 200) throw new Error(`verify-otp failed: ${status}`);
 }

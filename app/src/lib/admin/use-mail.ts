@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
@@ -77,6 +77,53 @@ async function saveCredentials(input: MailCredsInput): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// MAIL_OTP_COOLDOWN_SECS —— must match backend domain.MailOTPResendCooldown; the
+// resend button is disabled for this long after a send (email-bomb guard, mirrored
+// client-side so the user sees the countdown).
+export const MAIL_OTP_COOLDOWN_SECS = 30;
+
+export interface MailOTPFlow {
+  code: string;
+  setCode: (v: string) => void;
+  msg: string | null;
+  cooldown: number;
+  sent: boolean;
+  send: () => Promise<void>;
+  verify: () => Promise<void>;
+}
+
+// useMailOTPFlow —— the send-code → enter-code → verify interaction state. Keeps
+// the panel a pure renderer; the cooldown countdown + send/verify live here.
+export function useMailOTPFlow(hook: MailHook): MailOTPFlow {
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  const [sent, setSent] = useState(false);
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+  const send = useCallback(async () => {
+    setMsg('sending…');
+    const r = await hook.sendOTP();
+    setMsg(r.ok ? 'code sent — check your inbox' : (r.error ?? 'could not send the code'));
+    r.ok && setSent(true);
+    r.ok && setCooldown(MAIL_OTP_COOLDOWN_SECS);
+  }, [hook]);
+  const verify = useCallback(async () => {
+    setMsg('verifying…');
+    const r = await hook.verifyOTP(code);
+    setMsg(r.ok ? 'verified ✓' : (r.error ?? 'verification failed'));
+  }, [hook, code]);
+  return { code, setCode, msg, cooldown, sent, send, verify };
+}
+
+// sendCodeLabel —— button copy: cooldown countdown → 'Resend' once sent → 'Send'.
+export function sendCodeLabel(cooldown: number, sent: boolean): string {
+  return cooldown > 0 ? `Resend in ${cooldown}s` : sent ? 'Resend code →' : 'Send code →';
 }
 
 async function sendOTP(): Promise<MailTestResult> {

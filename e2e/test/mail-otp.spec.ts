@@ -38,7 +38,7 @@ test.describe('mail connector OTP verification', () => {
     await saveMailCreds(request, csrf); // resets connected + clears any otp
     await clearMailpit(request);
     await sendMailOTP(request, csrf);
-    const code = await readMailOTP(request);
+    const code = await readMailOTP(request, OWNER.email);
 
     expect(await mailConnected(request)).toBe(false); // sent, not verified yet
 
@@ -61,7 +61,7 @@ test.describe('mail connector OTP verification', () => {
       await saveMailCreds(request, csrf); // fresh: connected=false, otp cleared
       await clearMailpit(request);
       await sendMailOTP(request, csrf);
-      const code = await readMailOTP(request);
+      const code = await readMailOTP(request, OWNER.email);
 
       for (let i = 0; i < 10; i++) {
         expect(await verifyMailOTP(request, csrf, wrongOf(code))).toBe(400);

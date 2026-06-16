@@ -11,7 +11,10 @@
 
 import { useState } from 'react';
 
-import { useMail, type MailCredsInput, type MailHook } from '@/lib/admin/use-mail';
+import {
+  useMail, useMailOTPFlow, sendCodeLabel,
+  type MailCredsInput, type MailHook, type MailOTPFlow,
+} from '@/lib/admin/use-mail';
 
 type FormState = Record<'host' | 'port' | 'username' | 'password' | 'fromAddress' | 'fromName', string>;
 
@@ -177,26 +180,28 @@ function Actions({ hook }: { hook: MailHook }) {
 }
 
 function ActionsRow({ hook }: { hook: MailHook }) {
-  const [code, setCode] = useState('');
-  const [msg, setMsg] = useState<string | null>(null);
+  const flow = useMailOTPFlow(hook);
   return (
     <div className="space-y-2 mb-1">
       <div className="flex flex-wrap gap-2 items-end">
-        <SendCodeBtn onClick={() => { void runSend(hook, setMsg); }} />
-        <CodeInput value={code} onChange={setCode} />
-        <VerifyBtn code={code} onClick={() => { void runVerify(hook, code, setMsg); }} />
+        <SendCodeBtn flow={flow} />
+        <CodeInput value={flow.code} onChange={flow.setCode} />
+        <VerifyBtn code={flow.code} onClick={() => { void flow.verify(); }} />
         <DisconnectBtn hook={hook} />
       </div>
-      <ActionMsg msg={msg} />
+      <ActionMsg msg={flow.msg} />
     </div>
   );
 }
 
-function SendCodeBtn({ onClick }: { onClick: () => void }) {
+function SendCodeBtn({ flow }: { flow: MailOTPFlow }) {
   return (
-    <button type="button" data-testid="mail-send-otp" onClick={onClick}
-      className="sm-btn sm-btn-ghost sm-btn-sm">
-      Send code →
+    <button
+      type="button" data-testid="mail-send-otp"
+      disabled={flow.cooldown > 0} onClick={() => { void flow.send(); }}
+      className="sm-btn sm-btn-ghost sm-btn-sm disabled:opacity-40"
+    >
+      {sendCodeLabel(flow.cooldown, flow.sent)}
     </button>
   );
 }
@@ -219,20 +224,6 @@ function VerifyBtn({ code, onClick }: { code: string; onClick: () => void }) {
       Verify
     </button>
   );
-}
-
-async function runSend(hook: MailHook, onMsg: (m: string) => void): Promise<void> {
-  onMsg('sending…');
-  const res = await hook.sendOTP();
-  onMsg(res.ok ? 'code sent — check your inbox' : (res.error ?? 'could not send the code'));
-}
-
-async function runVerify(
-  hook: MailHook, code: string, onMsg: (m: string) => void,
-): Promise<void> {
-  onMsg('verifying…');
-  const res = await hook.verifyOTP(code);
-  onMsg(res.ok ? 'verified ✓' : (res.error ?? 'verification failed'));
 }
 
 function ActionMsg({ msg }: { msg: string | null }) {

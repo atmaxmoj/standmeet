@@ -148,16 +148,23 @@ func (h *Handlers) sendMailOTP() http.HandlerFunc {
 }
 
 func handleMailOTPSendErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, usecases.ErrMailNotConfigured) {
+	switch {
+	case errors.Is(err, usecases.ErrMailNotConfigured):
 		writeError(log, w, envBadReq("configure your SMTP host and from address first"))
-		return
+	case errors.Is(err, usecases.ErrMailOTPCooldown):
+		writeError(log, w, apierr.Envelope{
+			Status:  http.StatusTooManyRequests,
+			Code:    "mail_otp_cooldown",
+			Message: "Please wait a moment before sending another code.",
+		})
+	default:
+		log.Error("mail otp send", logErrKey, err)
+		writeError(log, w, apierr.Envelope{
+			Status:  http.StatusBadGateway,
+			Code:    "mail_send_failed",
+			Message: "Couldn't send the code — check your SMTP host, port, and credentials.",
+		})
 	}
-	log.Error("mail otp send", logErrKey, err)
-	writeError(log, w, apierr.Envelope{
-		Status:  http.StatusBadGateway,
-		Code:    "mail_send_failed",
-		Message: "Couldn't send the code — check your SMTP host, port, and credentials.",
-	})
 }
 
 type mailVerifyRequest struct {
