@@ -29,11 +29,18 @@ const (
 	gcalStateTTL    = 10 * time.Minute
 	gcalStatePrefix = "gcal:oauth:state:"
 	gcalScope       = "https://www.googleapis.com/auth/calendar"
+	// gcalCallbackPath —— OAuth redirect 路径。完整 redirect_uri = owner.PublicURL
+	// + 此路径(见 gcalRedirectURI)；用 owner 的对外 URL 而非 r.Host,因为反代
+	// (dev Next / prod Caddy) 会把 Host 改成内部名 backend:8000,那既不能被浏览器
+	// 解析、Google 也只许 localhost 用 http。public_url 是 claim 必填的 canonical
+	// 地址,QR/SEO 也都读它。
+	gcalCallbackPath = "/api/admin/connectors/google-calendar/callback"
 )
 
 // CalendarAdminDeps —— admin connectors/google-calendar handler 依赖。
 type CalendarAdminDeps struct {
 	Repo   *postgres.CalendarRepo
+	Owners *postgres.OwnerRepo
 	GCal   *gcal.Client
 	Redis  *redis.Client
 	Random func(n int) (string, error) // 让测试注入；nil 走默认 crypto rand

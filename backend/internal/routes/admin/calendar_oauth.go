@@ -60,12 +60,41 @@ func runInitGCalOAuth(
 		writeError(h.Log, w, serverErr())
 		return
 	}
+	writeGCalAuthURL(r, h, w, conn, state)
+}
+
+// writeGCalAuthURL —— resolve the redirect from owner.PublicURL, build the consent
+// URL, write it back. Split out so runInitGCalOAuth stays within the routes ≤3
+// cyclo budget.
+func writeGCalAuthURL(
+	r *http.Request, h *Handlers, w http.ResponseWriter,
+	conn *domain.CalendarConnector, state string,
+) {
+	redirect, rerr := gcalRedirectURI(r.Context(), h, conn.OwnerID)
+	if rerr != nil {
+		h.Log.Error("gcal redirect uri", logErrKey, rerr)
+		writeError(h.Log, w, serverErr())
+		return
+	}
 	authURL := h.CalendarAdmin.GCal.BuildAuthCodeURL(gcal.AuthCodeURLInput{
 		ClientID: conn.ClientID, State: state,
-		RedirectURI: redirectURIFor(r),
+		RedirectURI: redirect,
 		Scopes:      []string{gcalScope},
 	})
 	writeJSON(h.Log, w, gcalInitResponse{AuthURL: authURL, State: state})
+}
+
+// gcalRedirectURI —— full OAuth redirect_uri = owner.PublicURL + callback path.
+// Using the owner's canonical public URL (not r.Host) is what makes this work
+// behind a reverse proxy: dev Next / prod Caddy rewrite Host to the internal
+// service name (backend:8000), which the browser can't reach and Google rejects
+// for non-localhost http. init + callback must pass the identical value.
+func gcalRedirectURI(ctx context.Context, h *Handlers, ownerID string) (string, error) {
+	owner, err := h.CalendarAdmin.Owners.GetByID(ctx, ownerID)
+	if err != nil {
+		return "", fmt.Errorf("gcal redirect: load owner: %w", err)
+	}
+	return owner.PublicURL + gcalCallbackPath, nil
 }
 
 func randomState(custom func(n int) (string, error)) (string, error) {
@@ -196,11 +225,7 @@ func finishOAuthExchange(
 	r *http.Request, h *Handlers, w http.ResponseWriter,
 	conn *domain.CalendarConnector, code string,
 ) error {
-	token, err := h.CalendarAdmin.GCal.ExchangeCode(r.Context(), gcal.ExchangeCodeInput{
-		ClientID: conn.ClientID, ClientSecret: conn.ClientSecret,
-		Code:        code,
-		RedirectURI: redirectURIFor(r),
-	})
+	token, err := exchangeGCalCode(r.Context(), h, conn, code)
 	if err != nil {
 		h.Log.Error("exchange code", logErrKey, err)
 		writeError(h.Log, w, envBadReq("oauth exchange failed"))
@@ -221,12 +246,24 @@ func finishOAuthExchange(
 	return nil
 }
 
-func redirectURIFor(r *http.Request) string {
-	scheme := "https"
-	if r.TLS == nil {
-		scheme = "http"
+// exchangeGCalCode —— resolve the (proxy-safe) redirect, then trade the consent
+// code for tokens. RedirectURI must match the one BuildAuthCodeURL used.
+func exchangeGCalCode(
+	ctx context.Context, h *Handlers, conn *domain.CalendarConnector, code string,
+) (gcal.TokenResponse, error) {
+	redirect, rerr := gcalRedirectURI(ctx, h, conn.OwnerID)
+	if rerr != nil {
+		return gcal.TokenResponse{}, rerr
 	}
-	return scheme + "://" + r.Host + "/api/admin/connectors/google-calendar/callback"
+	token, err := h.CalendarAdmin.GCal.ExchangeCode(ctx, gcal.ExchangeCodeInput{
+		ClientID: conn.ClientID, ClientSecret: conn.ClientSecret,
+		Code:        code,
+		RedirectURI: redirect,
+	})
+	if err != nil {
+		return gcal.TokenResponse{}, fmt.Errorf("exchange code: %w", err)
+	}
+	return token, nil
 }
 
 // ───── disconnect ─────────────────────────────────────────────

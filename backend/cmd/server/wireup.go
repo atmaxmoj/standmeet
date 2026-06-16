@@ -89,7 +89,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Applications: d.applicationRepo,
 		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
 		Calendar: adminroutes.CalendarAdminDeps{
-			Repo: d.calendarRepo, GCal: d.gcalClient, Redis: d.rdb,
+			Repo: d.calendarRepo, Owners: d.ownerRepo, GCal: d.gcalClient, Redis: d.rdb,
 		},
 		Mail: adminroutes.MailAdminDeps{Repo: d.mailRepo, Owners: d.ownerRepo},
 		ApproveRequests: usecases.ApproveRequestDeps{
