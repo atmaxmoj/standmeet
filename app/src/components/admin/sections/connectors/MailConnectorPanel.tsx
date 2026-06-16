@@ -12,7 +12,7 @@
 import { useState } from 'react';
 
 import {
-  useMail, useMailStore, sendCodeLabel, mailActionsView,
+  useMail, sendCodeLabel, mailActionsView,
   type MailCredsInput, type MailHook,
 } from '@/lib/admin/use-mail';
 
@@ -180,10 +180,12 @@ function toCredsInput(form: FormState): MailCredsInput {
 // decision is a pure helper (mailActionsView) so this stays a thin renderer.
 function Actions({ hook }: { hook: MailHook }) {
   const view = mailActionsView(hook.status);
-  return view === 'none' ? null : view === 'connected' ? <ConnectedRow /> : <VerifyRow />;
+  return view === 'none'
+    ? null
+    : view === 'connected' ? <ConnectedRow hook={hook} /> : <VerifyRow hook={hook} />;
 }
 
-function ConnectedRow() {
+function ConnectedRow({ hook }: { hook: MailHook }) {
   return (
     <div className="flex items-center gap-3 mb-1">
       <span
@@ -192,40 +194,35 @@ function ConnectedRow() {
       >
         ✓ email verified
       </span>
-      <DisconnectBtn />
+      <DisconnectBtn hook={hook} />
     </div>
   );
 }
 
-function VerifyRow() {
-  const code = useMailStore((s) => s.code);
-  const msg = useMailStore((s) => s.msg);
-  const setCode = useMailStore((s) => s.setCode);
-  const verifyCode = useMailStore((s) => s.verifyCode);
+function VerifyRow({ hook }: { hook: MailHook }) {
+  const { otp } = hook;
   return (
     <div className="space-y-2 mb-1">
       <div className="flex flex-wrap gap-2 items-end">
-        <SendCodeBtn />
-        <CodeInput value={code} onChange={setCode} />
-        <VerifyBtn code={code} onClick={() => { void verifyCode(); }} />
-        <DisconnectBtn />
+        <SendCodeBtn hook={hook} />
+        <CodeInput value={otp.code} onChange={otp.setCode} />
+        <VerifyBtn code={otp.code} onClick={() => { void otp.verify(); }} />
+        <DisconnectBtn hook={hook} />
       </div>
-      <ActionMsg msg={msg} />
+      <ActionMsg msg={otp.msg} />
     </div>
   );
 }
 
-function SendCodeBtn() {
-  const cooldown = useMailStore((s) => s.cooldown);
-  const sent = useMailStore((s) => s.sent);
-  const sendCode = useMailStore((s) => s.sendCode);
+function SendCodeBtn({ hook }: { hook: MailHook }) {
+  const { otp } = hook;
   return (
     <button
       type="button" data-testid="mail-send-otp"
-      disabled={cooldown > 0} onClick={() => { void sendCode(); }}
+      disabled={otp.cooldown > 0} onClick={() => { void otp.send(); }}
       className="sm-btn sm-btn-ghost sm-btn-sm disabled:opacity-40"
     >
-      {sendCodeLabel(cooldown, sent)}
+      {sendCodeLabel(otp.cooldown, otp.sent)}
     </button>
   );
 }
@@ -256,15 +253,14 @@ function ActionMsg({ msg }: { msg: string | null }) {
     : <p className="mono text-[11.5px] text-(--color-muted)" data-testid="mail-otp-result">{msg}</p>;
 }
 
-// disconnect lives on the store; it also resets the OTP flow (clears any pending
-// code + cooldown) so re-verifying after a disconnect starts clean.
-function DisconnectBtn() {
-  const disconnect = useMailStore((s) => s.disconnect);
+// disconnect (on the facade) also resets the OTP flow (clears any pending code +
+// cooldown) so re-verifying after a disconnect starts clean.
+function DisconnectBtn({ hook }: { hook: MailHook }) {
   return (
     <button
       type="button"
       data-testid="mail-disconnect"
-      onClick={() => { void disconnect(); }}
+      onClick={() => { void hook.disconnect(); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
       Disconnect
