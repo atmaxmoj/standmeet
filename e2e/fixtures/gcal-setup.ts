@@ -80,11 +80,13 @@ export async function seedCodeVisitorOnConnectedOwner(
   playwright: Playwright, input: CodedSeedInput = {},
 ): Promise<CodedSeed> {
   // chat-book specs care about quotas/conflicts, not policy gating. Apply
-  // a permissive policy (all weekdays, no lead time) by default so they
-  // don't have to guess what day "+N days from now" lands on.
+  // a permissive policy (all weekdays, minimum 1-day lead) by default so
+  // they don't have to guess what day "+N days from now" lands on. min_lead_days
+  // is always >= 1 (positive-int contract); these specs book +7 days out so the
+  // lead never bites.
   const permissive: Partial<BookingPolicy> = {
     allowed_weekdays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-    min_lead_hours: 0,
+    min_lead_days: 1,
   };
   const seed = await seedOwnerGCalConnected(playwright, {
     ...permissive, ...input.policy,

@@ -75,7 +75,7 @@ func (c *calendarCapability) listSlotsBinding() *agentskills.MCPBinding {
 	return &agentskills.MCPBinding{
 		Name: "calendar.list_slots",
 		Description: "Enumerate available [start, end] slots that pass booking policy " +
-			"(weekday + working_hours + min_lead_hours) AND don't overlap any FreeBusy " +
+			"(weekday + working_hours + min_lead_days) AND don't overlap any FreeBusy " +
 			"window. Returns up to 50 slots, RFC3339-formatted in UTC.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",

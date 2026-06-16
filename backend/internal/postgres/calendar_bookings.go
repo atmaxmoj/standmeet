@@ -24,7 +24,7 @@ type UpsertPolicyInput struct {
 	WorkingHoursStart string
 	WorkingHoursEnd   string
 	AllowedWeekdays   []string
-	MinLeadHours      int32
+	MinLeadDays       int32
 	BufferMin         int32
 }
 
@@ -38,7 +38,7 @@ func (r *CalendarRepo) UpsertBookingPolicy(
 	}
 	row, qerr := dbq.New(r.pool).UpsertBookingPolicy(ctx, dbq.UpsertBookingPolicyParams{
 		OwnerID:           ownerUUID,
-		MinLeadHours:      in.MinLeadHours,
+		MinLeadDays:       in.MinLeadDays,
 		AllowedWeekdays:   in.AllowedWeekdays,
 		WorkingHoursStart: in.WorkingHoursStart,
 		WorkingHoursEnd:   in.WorkingHoursEnd,
@@ -72,7 +72,7 @@ func toDomainPolicy(row *dbq.OwnerBookingPolicy, ownerID string) domain.BookingP
 	return domain.BookingPolicy{
 		UpdatedAt:         row.UpdatedAt.Time,
 		OwnerID:           ownerID,
-		MinLeadHours:      row.MinLeadHours,
+		MinLeadDays:       row.MinLeadDays,
 		AllowedWeekdays:   row.AllowedWeekdays,
 		WorkingHoursStart: row.WorkingHoursStart,
 		WorkingHoursEnd:   row.WorkingHoursEnd,

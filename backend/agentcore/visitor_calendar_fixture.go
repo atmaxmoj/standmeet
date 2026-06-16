@@ -78,7 +78,7 @@ func (cannedCalendarStore) GetBookingPolicy(
 		WorkingHoursStart: "00:00",
 		WorkingHoursEnd:   "23:59",
 		AllowedWeekdays:   []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"},
-		MinLeadHours:      0,
+		MinLeadDays:       0,
 		BufferMin:         0,
 	}, nil
 }

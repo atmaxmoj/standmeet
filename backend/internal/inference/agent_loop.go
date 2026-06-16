@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"time"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/middlewares/summarization"
@@ -91,8 +92,10 @@ func BuildAgentIterator(
 	agent, aerr := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:        "visitor",
 		Description: "standmeet visitor chat agent",
-		Instruction: instructionWithCrossConv(
-			instructionWithDoc(in.Req.System, in.Req.DocContext), in.CrossConvContext),
+		Instruction: instructionWithDateTime(
+			instructionWithCrossConv(
+				instructionWithDoc(in.Req.System, in.Req.DocContext), in.CrossConvContext),
+			time.Now(), in.OwnerTimezone),
 		Model: cm,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: in.Tools},

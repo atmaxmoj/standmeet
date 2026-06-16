@@ -5,7 +5,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
 
 import {
-  getBookingPolicy, setBookingPolicy,
+  getBookingPolicy, setBookingPolicy, patchBookingPolicyStatus,
 } from '@/fixtures/gcal';
 import {
   seedOwnerGCalConnected, teardownSeed, type BaseSeed,
@@ -17,9 +17,9 @@ test.describe('admin · booking policy edit', () => {
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('defaults are 24h lead / Mon-Fri / 09:00-18:00 / buffer 15', async () => {
+  test('defaults are 2-day lead / Mon-Fri / 09:00-18:00 / buffer 15', async () => {
     const p = await getBookingPolicy(seed.request);
-    expect(p.min_lead_hours).toBe(24);
+    expect(p.min_lead_days).toBe(2);
     expect(p.allowed_weekdays).toEqual(['mon', 'tue', 'wed', 'thu', 'fri']);
     expect(p.working_hours_start).toBe('09:00');
     expect(p.working_hours_end).toBe('18:00');
@@ -29,16 +29,28 @@ test.describe('admin · booking policy edit', () => {
   test('owner changes lead time + hours + weekdays → reflected on reload',
     async () => {
       await setBookingPolicy(seed.request, seed.csrf, {
-        min_lead_hours: 48,
+        min_lead_days: 3,
         allowed_weekdays: ['tue', 'wed', 'thu'],
         working_hours_start: '10:00',
         working_hours_end: '16:00',
       });
       const p = await getBookingPolicy(seed.request);
-      expect(p.min_lead_hours).toBe(48);
+      expect(p.min_lead_days).toBe(3);
       expect(p.allowed_weekdays).toEqual(['tue', 'wed', 'thu']);
       expect(p.working_hours_start).toBe('10:00');
       expect(p.working_hours_end).toBe('16:00');
+    });
+
+  test('min_lead_days must be a positive integer → 0 and negative are rejected (400)',
+    async () => {
+      for (const bad of [0, -1]) {
+        const status = await patchBookingPolicyStatus(
+          seed.request, seed.csrf, { min_lead_days: bad },
+        );
+        expect(status).toBe(400);
+      }
+      // unchanged: still the last valid value (3 from the previous test)
+      expect((await getBookingPolicy(seed.request)).min_lead_days).toBe(3);
     });
 
   // timezone is a real <select> (IANA list from @vvo/tzdb), not free text —

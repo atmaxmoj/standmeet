@@ -735,8 +735,9 @@ CREATE UNIQUE INDEX owner_mail_connectors_owner_provider_uniq
 -- distinct error reasons so the chat agent can explain "outside hours" vs
 -- "calendar busy" rather than a generic "couldn't book"。
 --
--- min_lead_hours —— 距 now() 至少多少小时之后才允许 book (e.g. 24 = 至少
---                   提前 1 天)。0 = 没 lead-time 限制 (允许 in-hour book)。
+-- min_lead_days —— 距 now() 至少多少天之后才允许 book (e.g. 2 = 至少提前
+--                   2 天)。正整数 (owner UI 强制 ≥1)；恒正保证永远不会 book
+--                   到过去 / 太近的时段。
 -- allowed_weekdays —— 子集 of {'mon','tue','wed','thu','fri','sat','sun'}。
 --                     空 array = 拒一切日期 (兜底，配 onboarding 强制非空 UI)。
 -- working_hours_*  —— 'HH:MM' (24h) wall-clock 字符串 + owner timezone
@@ -748,7 +749,7 @@ CREATE UNIQUE INDEX owner_mail_connectors_owner_provider_uniq
 --                     都拒 (freebusy 自然 conflict)。
 CREATE TABLE owner_booking_policy (
     owner_id            uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
-    min_lead_hours      integer       NOT NULL DEFAULT 24,
+    min_lead_days       integer       NOT NULL DEFAULT 2,
     allowed_weekdays    text[]        NOT NULL DEFAULT ARRAY['mon','tue','wed','thu','fri'],
     working_hours_start text          NOT NULL DEFAULT '09:00',
     working_hours_end   text          NOT NULL DEFAULT '18:00',

@@ -5,7 +5,7 @@
 //
 // 算法：
 //   1. ensure connector + token fresh (同 BookMeeting)
-//   2. policy 枚举：weekday 允许 + working_hours 之内 + 满足 min_lead_hours
+//   2. policy 枚举：weekday 允许 + working_hours 之内 + 满足 min_lead_days
 //      每 step_minutes 起点（默认 30 min）
 //   3. 单次 FreeBusy 查 [from, until]
 //   4. 过滤掉跟 busy 重叠的 slot；返排好序的 free slot 列表
@@ -15,6 +15,7 @@ package usecases
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
@@ -57,13 +58,23 @@ func ListAvailableSlots(
 	}
 	candidates := enumerateSlots(&policy, in)
 	if len(candidates) == 0 {
+		slog.Default().Info("list_slots: no policy-passing candidates",
+			"from", in.From.Format(time.RFC3339), "until", in.Until.Format(time.RFC3339),
+			"owner_tz", in.OwnerTZ, "weekdays", policy.AllowedWeekdays,
+			"hours", policy.WorkingHoursStart+"-"+policy.WorkingHoursEnd,
+			"min_lead_days", policy.MinLeadDays)
 		return []AvailableSlot{}, nil
 	}
 	busy, ferr := queryListFreeBusy(ctx, client, access, in)
 	if ferr != nil {
 		return nil, ferr
 	}
-	return filterFreeSlots(candidates, in.DurationMin, busy), nil
+	free := filterFreeSlots(candidates, in.DurationMin, busy)
+	slog.Default().Info("list_slots: enumerated",
+		"from", in.From.Format(time.RFC3339), "until", in.Until.Format(time.RFC3339),
+		"owner_tz", in.OwnerTZ, "candidates", len(candidates),
+		"busy_windows", len(busy), "free", len(free))
+	return free, nil
 }
 
 func queryListFreeBusy(

@@ -253,10 +253,10 @@ function PolicyLeadBufferRow({
   return (
     <div className="grid grid-cols-2 gap-3">
       <PolicyInput
-        label="min lead hours"
-        testid="gcal-lead-hours"
-        value={String(policy.min_lead_hours)}
-        onBlur={(v) => { void hook.savePolicy({ min_lead_hours: parseInt(v, 10) || 0 }); }}
+        label="min days in advance"
+        testid="gcal-lead-days"
+        value={String(policy.min_lead_days)}
+        onBlur={(v) => { void hook.savePolicy({ min_lead_days: positiveIntOr(v, 2) }); }}
       />
       <PolicyInput
         label="buffer min (around existing events)"
@@ -266,6 +266,13 @@ function PolicyLeadBufferRow({
       />
     </div>
   );
+}
+
+// positiveIntOr —— min_lead_days 只接受正整数 (≥1)；空 / 0 / 负 / 非数回退到
+// fallback。恒正保证 booking 永远落在未来，杜绝过去时段。
+function positiveIntOr(v: string, fallback: number): number {
+  const n = parseInt(v, 10);
+  return Number.isInteger(n) && n >= 1 ? n : fallback;
 }
 
 function PolicyTimezoneRow({

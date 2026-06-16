@@ -26,7 +26,7 @@ type policyView struct {
 	WorkingHoursEnd   string   `json:"working_hours_end"`
 	Timezone          string   `json:"timezone"`
 	AllowedWeekdays   []string `json:"allowed_weekdays"`
-	MinLeadHours      int32    `json:"min_lead_hours"`
+	MinLeadDays       int32    `json:"min_lead_days"`
 	BufferMin         int32    `json:"buffer_min"`
 }
 
@@ -34,7 +34,7 @@ type policyPatchRequest struct {
 	WorkingHoursStart *string  `json:"working_hours_start,omitempty"`
 	WorkingHoursEnd   *string  `json:"working_hours_end,omitempty"`
 	Timezone          *string  `json:"timezone,omitempty"`
-	MinLeadHours      *int32   `json:"min_lead_hours,omitempty"`
+	MinLeadDays       *int32   `json:"min_lead_days,omitempty"`
 	BufferMin         *int32   `json:"buffer_min,omitempty"`
 	AllowedWeekdays   []string `json:"allowed_weekdays,omitempty"`
 }
@@ -63,7 +63,7 @@ func toPolicyView(p *domain.BookingPolicy, tz string) policyView {
 		WorkingHoursStart: p.WorkingHoursStart,
 		WorkingHoursEnd:   p.WorkingHoursEnd,
 		AllowedWeekdays:   p.AllowedWeekdays,
-		MinLeadHours:      p.MinLeadHours,
+		MinLeadDays:       p.MinLeadDays,
 		BufferMin:         p.BufferMin,
 		Timezone:          tz,
 	}
@@ -84,7 +84,7 @@ func runSetBookingPolicy(
 	r *http.Request, h *Handlers, w http.ResponseWriter, patch *policyPatchRequest,
 ) {
 	ownerID := middleware.OwnerIDFrom(r.Context())
-	if !upsertPolicyFromPatch(r, h, w, ownerID, patch) {
+	if !applyPolicyPatch(r, h, w, ownerID, patch) {
 		return
 	}
 	if patch.Timezone != nil {
@@ -92,6 +92,28 @@ func runSetBookingPolicy(
 		return
 	}
 	writeJSON(h.Log, w, map[string]bool{"ok": true})
+}
+
+// applyPolicyPatch —— 校验 + upsert 合一,让 handler (runSetBookingPolicy) 守
+// routes-cyclo ≤3。返 false = 已写错误响应、caller 收手。
+func applyPolicyPatch(
+	r *http.Request, h *Handlers, w http.ResponseWriter,
+	ownerID string, patch *policyPatchRequest,
+) bool {
+	if !validatePolicyPatch(h, w, patch) {
+		return false
+	}
+	return upsertPolicyFromPatch(r, h, w, ownerID, patch)
+}
+
+// validatePolicyPatch —— min_lead_days 必须正整数 (≥1)。恒正才能保证 booking
+// 永远落在未来 (杜绝过去时段)。返 false = 已写 400、caller 收手。
+func validatePolicyPatch(h *Handlers, w http.ResponseWriter, patch *policyPatchRequest) bool {
+	if patch.MinLeadDays != nil && *patch.MinLeadDays < 1 {
+		writeError(h.Log, w, envBadReq("min_lead_days must be a positive integer (>= 1)"))
+		return false
+	}
+	return true
 }
 
 func upsertPolicyFromPatch(
@@ -110,7 +132,7 @@ func upsertPolicyFromPatch(
 		WorkingHoursStart: merged.WorkingHoursStart,
 		WorkingHoursEnd:   merged.WorkingHoursEnd,
 		AllowedWeekdays:   merged.AllowedWeekdays,
-		MinLeadHours:      merged.MinLeadHours,
+		MinLeadDays:       merged.MinLeadDays,
 		BufferMin:         merged.BufferMin,
 	}); uerr != nil {
 		h.Log.Error("upsert booking policy", "err", uerr)
@@ -142,8 +164,8 @@ func applyStringPolicyFields(out *domain.BookingPolicy, patch *policyPatchReques
 }
 
 func applyNumericPolicyFields(out *domain.BookingPolicy, patch *policyPatchRequest) {
-	if patch.MinLeadHours != nil {
-		out.MinLeadHours = *patch.MinLeadHours
+	if patch.MinLeadDays != nil {
+		out.MinLeadDays = *patch.MinLeadDays
 	}
 	if patch.BufferMin != nil {
 		out.BufferMin = *patch.BufferMin

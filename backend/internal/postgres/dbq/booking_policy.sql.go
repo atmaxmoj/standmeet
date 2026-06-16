@@ -12,7 +12,7 @@ import (
 )
 
 const getBookingPolicy = `-- name: GetBookingPolicy :one
-SELECT owner_id, min_lead_hours, allowed_weekdays, working_hours_start, working_hours_end, buffer_min, updated_at FROM owner_booking_policy WHERE owner_id = $1
+SELECT owner_id, min_lead_days, allowed_weekdays, working_hours_start, working_hours_end, buffer_min, updated_at FROM owner_booking_policy WHERE owner_id = $1
 `
 
 func (q *Queries) GetBookingPolicy(ctx context.Context, ownerID pgtype.UUID) (OwnerBookingPolicy, error) {
@@ -20,7 +20,7 @@ func (q *Queries) GetBookingPolicy(ctx context.Context, ownerID pgtype.UUID) (Ow
 	var i OwnerBookingPolicy
 	err := row.Scan(
 		&i.OwnerID,
-		&i.MinLeadHours,
+		&i.MinLeadDays,
 		&i.AllowedWeekdays,
 		&i.WorkingHoursStart,
 		&i.WorkingHoursEnd,
@@ -32,23 +32,23 @@ func (q *Queries) GetBookingPolicy(ctx context.Context, ownerID pgtype.UUID) (Ow
 
 const upsertBookingPolicy = `-- name: UpsertBookingPolicy :one
 INSERT INTO owner_booking_policy (
-    owner_id, min_lead_hours, allowed_weekdays,
+    owner_id, min_lead_days, allowed_weekdays,
     working_hours_start, working_hours_end, buffer_min
 )
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (owner_id) DO UPDATE
-SET min_lead_hours = EXCLUDED.min_lead_hours,
+SET min_lead_days = EXCLUDED.min_lead_days,
     allowed_weekdays = EXCLUDED.allowed_weekdays,
     working_hours_start = EXCLUDED.working_hours_start,
     working_hours_end = EXCLUDED.working_hours_end,
     buffer_min = EXCLUDED.buffer_min,
     updated_at = now()
-RETURNING owner_id, min_lead_hours, allowed_weekdays, working_hours_start, working_hours_end, buffer_min, updated_at
+RETURNING owner_id, min_lead_days, allowed_weekdays, working_hours_start, working_hours_end, buffer_min, updated_at
 `
 
 type UpsertBookingPolicyParams struct {
 	OwnerID           pgtype.UUID
-	MinLeadHours      int32
+	MinLeadDays       int32
 	AllowedWeekdays   []string
 	WorkingHoursStart string
 	WorkingHoursEnd   string
@@ -58,7 +58,7 @@ type UpsertBookingPolicyParams struct {
 func (q *Queries) UpsertBookingPolicy(ctx context.Context, arg UpsertBookingPolicyParams) (OwnerBookingPolicy, error) {
 	row := q.db.QueryRow(ctx, upsertBookingPolicy,
 		arg.OwnerID,
-		arg.MinLeadHours,
+		arg.MinLeadDays,
 		arg.AllowedWeekdays,
 		arg.WorkingHoursStart,
 		arg.WorkingHoursEnd,
@@ -67,7 +67,7 @@ func (q *Queries) UpsertBookingPolicy(ctx context.Context, arg UpsertBookingPoli
 	var i OwnerBookingPolicy
 	err := row.Scan(
 		&i.OwnerID,
-		&i.MinLeadHours,
+		&i.MinLeadDays,
 		&i.AllowedWeekdays,
 		&i.WorkingHoursStart,
 		&i.WorkingHoursEnd,

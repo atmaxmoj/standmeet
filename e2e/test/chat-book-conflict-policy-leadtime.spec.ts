@@ -1,5 +1,5 @@
 // chat-book-conflict-policy-leadtime.spec.ts —— visitor proposes a time
-// that's sooner than owner's min_lead_hours allows. Backend returns
+// that's sooner than owner's min_lead_days allows. Backend returns
 // `conflict: policy, reasons: [lead_time_too_short]`; no event written.
 
 import { test, expect } from '@/fixtures/test';
@@ -16,7 +16,7 @@ test.describe('chat · calendar.book policy: lead_time_too_short', () => {
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('preferred time only 1h away → reasons include lead_time_too_short',
+  test('preferred time only 1h away (< 1-day lead) → reasons include lead_time_too_short',
     async () => {
       const t = inOneHour();
       await scriptMockToolCall(seed.request, {
@@ -36,7 +36,7 @@ test.describe('chat · calendar.book policy: lead_time_too_short', () => {
 async function prep(playwright: Playwright): Promise<CodedSeed> {
   return seedCodeVisitorOnConnectedOwner(playwright, {
     granted_skills: ['calendar.book'],
-    policy: { min_lead_hours: 24 },
+    policy: { min_lead_days: 1 },
   });
 }
 

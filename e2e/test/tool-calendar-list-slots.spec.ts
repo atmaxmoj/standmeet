@@ -5,7 +5,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
 
-import { setMockBusy } from '@/fixtures/gcal';
+import { setMockBusy, setBookingPolicy } from '@/fixtures/gcal';
 import {
   seedOwnerGCalConnected, teardownSeed, OWNER, type BaseSeed,
 } from '@/fixtures/gcal-setup';
@@ -18,10 +18,14 @@ test.describe('Phase E-14c calendar.list_slots via MCP', () => {
   let seed: BaseSeed;
   let sid: string;
   let apiToken: string;
+  // freshCsrf —— the re-login below rotates the session, so seed.csrf goes
+  // stale; admin PATCHes in tests must use this one.
+  let freshCsrf: string;
 
   test.beforeAll(async ({ playwright }) => {
     seed = await prep(playwright);
     const { csrf } = await loginAPI(seed.request, OWNER.email, OWNER.password);
+    freshCsrf = csrf;
     apiToken = await createAPIToken(seed.request, csrf, 'list-slots-token');
     sid = await initMCP(seed.request, apiToken);
   });
@@ -29,8 +33,8 @@ test.describe('Phase E-14c calendar.list_slots via MCP', () => {
 
   test('list_slots returns slots within working hours; FreeBusy filters them',
     async () => {
-      const from = future(1, 8);
-      const until = future(2, 20);
+      const from = future(2, 8);
+      const until = future(3, 20);
 
       const beforeBusy = await callTool<ListSlotsResp>(
         seed.request, apiToken, sid, 'calendar.list_slots',
@@ -67,14 +71,32 @@ test.describe('Phase E-14c calendar.list_slots via MCP', () => {
           duration_min: 30 }),
     ).rejects.toThrow(/from_rfc3339 parse/);
   });
+
+  // Regression guard: a named IANA timezone (not empty / UTC) must still
+  // yield slots. The backend evaluates working hours via
+  // time.LoadLocation(owner.profile_timezone) — on a static CGO_ENABLED=0
+  // binary in an image without tzdata that call errors and EVERY candidate
+  // gets rejected (list_slots returns 0). The binary embeds `time/tzdata`
+  // so this passes; this test fails loudly if that import is ever dropped.
+  test('named IANA timezone (America/Toronto) still enumerates slots', async () => {
+    await setBookingPolicy(seed.request, freshCsrf, { timezone: 'America/Toronto' });
+    // +3/+4 days clears the 2-day lead; 14:00–22:00 UTC = 10:00–18:00 EDT,
+    // inside 09:00–18:00 Toronto working hours.
+    const resp = await callTool<ListSlotsResp>(
+      seed.request, apiToken, sid, 'calendar.list_slots',
+      { from_rfc3339: future(3, 14), until_rfc3339: future(4, 22),
+        duration_min: 30, step_min: 60 },
+    );
+    expect(resp.slots.length).toBeGreaterThan(0);
+  });
 });
 
 async function prep(playwright: Playwright): Promise<BaseSeed> {
-  // permissive policy: all weekdays + no lead time → so today/tomorrow
-  // both yield slots regardless of current weekday.
+  // permissive policy: all weekdays + minimum 1-day lead → the +2/+3-day
+  // window clears the lead and yields slots regardless of current weekday.
   return seedOwnerGCalConnected(playwright, {
     allowed_weekdays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-    min_lead_hours: 0,
+    min_lead_days: 1,
   });
 }
 

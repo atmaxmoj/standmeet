@@ -11,7 +11,7 @@ type BookConflictReason string
 const (
 	// BookConflictAllBusy —— 全部 preferred_time 跟 owner 现有 event 冲突。
 	BookConflictAllBusy BookConflictReason = "all_busy"
-	// BookConflictLeadTime —— preferred_time 距 now() 不足 min_lead_hours。
+	// BookConflictLeadTime —— preferred_time 距 now() 不足 min_lead_days。
 	BookConflictLeadTime BookConflictReason = "lead_time"
 	// BookConflictWeekday —— 周几不在 allowed_weekdays 里。
 	BookConflictWeekday BookConflictReason = "weekday_not_allowed"

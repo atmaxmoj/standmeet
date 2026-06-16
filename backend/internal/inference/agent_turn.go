@@ -85,6 +85,28 @@ func instructionWithDoc(system string, doc *AgentDocContext) string {
 	return system + loc
 }
 
+// instructionWithDateTime —— 把"现在的日期时间 + owner 所在时区"作为**通用**
+// 上下文注入每一轮 instruction(与 capability 无关)。技术 / 简历 / 经历都有
+// 时效性:agent 必须知道"今天"才能正确回答"最近""N 年经验"这类问题,也才能把
+// booking 里"6 月 18 号"这种无年份的相对日期锚到将来而不是某个过去的年份
+// (实测里模型会默认 fallback 到训练期的年份,谎报 avail)。tz 空 / 非法 → UTC。
+func instructionWithDateTime(system string, now time.Time, ownerTZ string) string {
+	loc, label := time.UTC, "UTC"
+	if ownerTZ != "" {
+		if l, err := time.LoadLocation(ownerTZ); err == nil {
+			loc, label = l, ownerTZ
+		}
+	}
+	local := now.In(loc)
+	return system + "\n\nCurrent date and time: " +
+		local.Format("Monday, 2006-01-02 15:04") + " (" + label + "). " +
+		"Treat this as \"now\": the owner's experience and any \"recent\" / " +
+		"\"N years\" framing is relative to it, and when the visitor names a date " +
+		"or time without a year, assume the nearest upcoming occurrence (never a " +
+		"past year). For scheduling, the owner's calendar runs in this timezone — " +
+		"confirm the visitor's own timezone before proposing or booking times."
+}
+
 // instructionWithCrossConv —— 「互通」:把该 member 其他对话的 digest 拼进 instruction,
 // 让 AI 像「同一个人继续聊」那样跨对话连贯,但不把别段的内容混进当前 transcript。
 // digest 空(public / 无 member / 没别的对话)→ 原样返回。
@@ -126,7 +148,11 @@ type AgentTurnInput struct {
 	// 把它拼进 instruction 让 AI 跨对话连贯;route handler 装(读 DB),inference 不碰
 	// DB。空 = 不注入(public / 无 member / 没别的对话)。
 	CrossConvContext string
-	Tools            []tool.BaseTool
+	// OwnerTimezone —— owner 的 IANA tz (owners.profile_timezone)。
+	// instructionWithDateTime 用它把"现在几点 + 在哪个时区"锚进通用 instruction。
+	// 空 → 退 UTC。route handler 装 (读 owner);inference 不碰 DB。
+	OwnerTimezone string
+	Tools         []tool.BaseTool
 }
 
 // RunAgentTurn —— 跑一整轮 agent loop，向 w 写 pi-style SSE。caller (route

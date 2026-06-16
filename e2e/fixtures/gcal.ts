@@ -81,7 +81,7 @@ export async function disconnectGCal(
 // ─── admin REST: booking policy ─────────────────────────────────
 
 export interface BookingPolicy {
-  min_lead_hours: number;
+  min_lead_days: number;
   allowed_weekdays: readonly ('mon'|'tue'|'wed'|'thu'|'fri'|'sat'|'sun')[];
   working_hours_start: string;  // 'HH:MM'
   working_hours_end: string;
@@ -105,6 +105,18 @@ export async function setBookingPolicy(
     { data: patch, headers: { 'X-Csrftoken': csrf } },
   );
   if (res.status() !== 200) throw new Error(`policy set: ${res.status()}`);
+}
+
+// patchBookingPolicyStatus —— PATCH 并返回 HTTP 状态码(不断言成功)。给
+// 校验类测试用(e.g. min_lead_days 非正整数 → 期望 400)。
+export async function patchBookingPolicyStatus(
+  request: APIRequestContext, csrf: string, patch: Partial<BookingPolicy>,
+): Promise<number> {
+  const res = await request.patch(
+    `${BACKEND}/api/admin/booking-policy`,
+    { data: patch, headers: { 'X-Csrftoken': csrf } },
+  );
+  return res.status();
 }
 
 // ─── mock control: FreeBusy fixture + Events inspection ─────────

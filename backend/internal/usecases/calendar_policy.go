@@ -39,7 +39,7 @@ func evaluatePolicy(
 	policy *domain.BookingPolicy, ownerTZ string,
 	start time.Time, durationMin int,
 ) (policyResult, error) {
-	if !leadTimeOK(start, policy.MinLeadHours) {
+	if !leadTimeOK(start, policy.MinLeadDays) {
 		return policyResult{Reason: domain.BookConflictLeadTime}, nil
 	}
 	loc, lerr := loadTimezone(ownerTZ)
@@ -67,11 +67,14 @@ func finishHoursCheck(
 	return policyResult{Reason: domain.BookConflictHours}, nil
 }
 
-func leadTimeOK(start time.Time, minLeadHours int32) bool {
-	if minLeadHours <= 0 {
-		return true
+// leadTimeOK —— start 必须在 now + minLeadDays 天之后。minLeadDays 恒为正
+// (owner UI/后端强制 ≥1)，所以这条天然挡掉所有过去 / 太近的时段。<=0 兜底
+// 视为无限制 (理论上不该出现)，仍要求不早于 now。
+func leadTimeOK(start time.Time, minLeadDays int32) bool {
+	threshold := time.Now()
+	if minLeadDays > 0 {
+		threshold = threshold.Add(time.Duration(minLeadDays) * 24 * time.Hour)
 	}
-	threshold := time.Now().Add(time.Duration(minLeadHours) * time.Hour)
 	return !start.Before(threshold)
 }
 

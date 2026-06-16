@@ -16,6 +16,13 @@ import (
 	"syscall"
 	"time"
 
+	// time/tzdata 把 IANA 时区库嵌进二进制 —— 静态 CGO_ENABLED=0 binary 跑在
+	// 不带 tzdata 的镜像 (alpine 只装了 ca-certificates+docker-cli) 时,
+	// time.LoadLocation("America/Toronto") 这类命名时区否则会失败,导致 booking
+	// policy 的 working-hours 评估对每个候选 slot 报错 → list_slots 永远 0 个候选。
+	// 嵌进二进制保证任何 owner 的 IANA tz 在任何部署镜像上都能加载。
+	_ "time/tzdata"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 

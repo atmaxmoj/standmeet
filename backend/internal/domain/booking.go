@@ -20,8 +20,8 @@ const (
 	// 在真过期前发生)。
 	tokenStaleThreshold = 60 * time.Second
 
-	// DefaultMinLeadHours —— DefaultBookingPolicy 的 min_lead_hours 兜底。
-	DefaultMinLeadHours = 24
+	// DefaultMinLeadDays —— DefaultBookingPolicy 的 min_lead_days 兜底 (2 天)。
+	DefaultMinLeadDays = 2
 	// DefaultBufferMin —— DefaultBookingPolicy 的 buffer_min 兜底。
 	DefaultBufferMin = 15
 )
@@ -69,7 +69,7 @@ type BookingPolicy struct {
 	WorkingHoursStart string // 'HH:MM'
 	WorkingHoursEnd   string // 'HH:MM'
 	AllowedWeekdays   []string
-	MinLeadHours      int32
+	MinLeadDays       int32
 	BufferMin         int32
 }
 
@@ -77,7 +77,7 @@ type BookingPolicy struct {
 func DefaultBookingPolicy(ownerID string) BookingPolicy {
 	return BookingPolicy{
 		OwnerID:           ownerID,
-		MinLeadHours:      DefaultMinLeadHours,
+		MinLeadDays:       DefaultMinLeadDays,
 		AllowedWeekdays:   []string{"mon", "tue", "wed", "thu", "fri"},
 		WorkingHoursStart: "09:00",
 		WorkingHoursEnd:   "18:00",

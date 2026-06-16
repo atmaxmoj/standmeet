@@ -1,4 +1,4 @@
-// ToolCallCards —— G-4: 渲 Dialog.toolCalls per tool name。
+// ToolCallCards —— G-4: 渲 answer.toolCalls per tool name(assistant 这一轮调的工具)。
 //
 // dispatch 表：
 //   - corpus_search / corpus_list  → SearchHitsCard (path+title+summary 列表)
@@ -16,11 +16,13 @@
 
 import { AskVisitorCard } from '@/components/page/AskVisitorCard';
 import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
+import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
   pickSearchHits, pickSlots, pickBookConfirmation,
   shouldRenderCall, cardKindFor, jsonPretty,
-  type SearchHit, type SlotView, type BookConfirmation,
+  type SearchHit, type BookConfirmation,
 } from '@/lib/page/tool-call-shape';
+import { formatSlotLocal } from '@/lib/page/slot-format';
 import { useBookingsRemaining } from '@/lib/page/use-booking-quota';
 import type { ToolCallView } from '@/lib/page/use-chat';
 import styles from '@/components/page/ToolCallCards.module.css';
@@ -48,12 +50,12 @@ export function ToolCallCards({ calls, dialogID, onAsk }: ToolCallCardsProps) {
   );
 }
 
+// slots/ask 单独走 ToolCallDispatch (需要 onAsk),其余 kind 查表。
 const CARD_RENDERERS: Record<
-  Exclude<ReturnType<typeof cardKindFor>, 'none' | 'ask'>,
+  Exclude<ReturnType<typeof cardKindFor>, 'none' | 'ask' | 'slots'>,
   (c: ToolCallView) => React.ReactElement | null
 > = {
   search: (call) => <SearchHitsCard call={call} />,
-  slots:  (call) => <SlotsCard call={call} />,
   booked: (call) => <BookCard call={call} />,
   report: (call) => <ReportArtifactCard call={call} />,
   dump:   (call) => <GenericDumpCard call={call} />,
@@ -72,9 +74,11 @@ function ToolCallDispatch({ kind, call, dialogID, onAsk }: {
   kind: Exclude<ReturnType<typeof cardKindFor>, 'none'>;
   call: ToolCallView; dialogID?: string; onAsk?: (q: string) => void;
 }) {
-  return kind === 'ask' ? <AskVisitorOrNothing
-    call={call} dialogID={dialogID} onAsk={onAsk}
-  /> : CARD_RENDERERS[kind](call);
+  return kind === 'ask'
+    ? <AskVisitorOrNothing call={call} dialogID={dialogID} onAsk={onAsk} />
+    : kind === 'slots'
+      ? <SlotsCard call={call} onAsk={onAsk} />
+      : CARD_RENDERERS[kind](call);
 }
 
 function AskVisitorOrNothing({ call, dialogID, onAsk }: {
@@ -122,17 +126,12 @@ function SearchHitRow({ h }: { h: SearchHit }) {
 // SlotsCard —— calendar_list_slots 结果。展示可订时间 + 当前剩余 booking
 // 配额 (visitor 知道还能约几次)。G-7 minimum：静态显示 owner-local 字符串；
 // clickable 设计放 G-7 follow-up。
-function SlotsCard({ call }: { call: ToolCallView }) {
+function SlotsCard({ call, onAsk }: { call: ToolCallView; onAsk?: (q: string) => void }) {
   const slots = pickSlots(call.result);
   const remaining = useBookingsRemaining();
-  return slots.length === 0 ? <SlotsEmpty remaining={remaining} /> : (
-    <div className={styles['slotsCard']} data-testid="tool-card-calendar_list_slots">
-      <BookingsKicker prefix={`available · ${slots.length} slots`} remaining={remaining} />
-      <ul className={styles['slots']}>
-        {slots.map((s) => <SlotRow key={s.start} s={s} />)}
-      </ul>
-    </div>
-  );
+  return slots.length === 0
+    ? <SlotsEmpty remaining={remaining} />
+    : <SlotsCalendarCard slots={slots} remaining={remaining} onAsk={onAsk} />;
 }
 
 function SlotsEmpty({ remaining }: { remaining: number | null }) {
@@ -181,28 +180,6 @@ function BookCardBody({ conf }: { conf: BookConfirmation }) {
       )}
     </div>
   );
-}
-
-function SlotRow({ s }: { s: SlotView }) {
-  return (
-    <li className={styles['slot']} data-testid="tool-card-slot" data-start={s.start}>
-      <span className={styles['slotTime']}>{formatSlotLocal(s.start, s.end)}</span>
-    </li>
-  );
-}
-
-// formatSlotLocal —— RFC3339 → 'Wed Jun 4 · 2:00pm-3:00pm' (visitor local
-// tz)。简单 Intl.DateTimeFormat，不引重型 lib (luxon / date-fns)。
-function formatSlotLocal(startISO: string, endISO: string): string {
-  const start = new Date(startISO);
-  const end = new Date(endISO);
-  const dayFmt = new Intl.DateTimeFormat(undefined, {
-    weekday: 'short', month: 'short', day: 'numeric',
-  });
-  const timeFmt = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric', minute: '2-digit',
-  });
-  return `${dayFmt.format(start)} · ${timeFmt.format(start)}–${timeFmt.format(end)}`;
 }
 
 // GenericDumpCard —— skill_* / ext_* tool 结果。debug-grade JSON pretty

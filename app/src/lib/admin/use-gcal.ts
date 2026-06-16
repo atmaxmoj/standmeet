@@ -38,7 +38,7 @@ export const Weekday = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])
 export type WeekdayT = z.infer<typeof Weekday>;
 
 export const BookingPolicySchema = z.object({
-  min_lead_hours: z.number(),
+  min_lead_days: z.number(),
   allowed_weekdays: z.array(Weekday),
   working_hours_start: z.string(),
   working_hours_end: z.string(),
