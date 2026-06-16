@@ -87,13 +87,17 @@ func buildMultipart(cfg *Config, msg *Message, now time.Time) []byte {
 	headers := append(baseHeaders(cfg, msg, now),
 		"Content-Type: multipart/alternative; boundary=\""+boundary+"\"")
 	var b strings.Builder
-	b.WriteString(strings.Join(headers, "\r\n") + "\r\n\r\n")
-	b.WriteString("--" + boundary + "\r\nContent-Type: text/plain; charset=\"utf-8\"\r\n\r\n")
-	b.WriteString(msg.Body + "\r\n")
-	b.WriteString("--" + boundary + "\r\nContent-Type: text/html; charset=\"utf-8\"\r\n\r\n")
-	b.WriteString(msg.HTML + "\r\n")
-	b.WriteString("--" + boundary + "--\r\n")
+	_, _ = b.WriteString(strings.Join(headers, "\r\n") + "\r\n\r\n")
+	writePart(&b, boundary, "text/plain", msg.Body)
+	writePart(&b, boundary, "text/html", msg.HTML)
+	_, _ = b.WriteString("--" + boundary + "--\r\n")
 	return []byte(b.String())
+}
+
+func writePart(b *strings.Builder, boundary, contentType, body string) {
+	_, _ = b.WriteString("--" + boundary + "\r\n")
+	_, _ = b.WriteString("Content-Type: " + contentType + "; charset=\"utf-8\"\r\n\r\n")
+	_, _ = b.WriteString(body + "\r\n")
 }
 
 func addressHeader(name, address string) string {

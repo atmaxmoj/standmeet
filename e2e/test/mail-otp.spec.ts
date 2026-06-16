@@ -54,6 +54,23 @@ test.describe('mail connector OTP verification', () => {
     await request.dispose();
   });
 
+  test('resend is rate-limited (429); re-saving creds clears the cooldown',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+      await saveMailCreds(request, csrf); // clears any prior otp + cooldown
+      await clearMailpit(request);
+      await sendMailOTP(request, csrf); // first send (throws unless 200)
+
+      // an immediate resend is blocked — the email-bomb guard.
+      expect(await rawSendOTP(request, csrf)).toBe(429);
+
+      // re-saving credentials clears the pending code + cooldown, so send works again.
+      await saveMailCreds(request, csrf);
+      expect(await rawSendOTP(request, csrf)).toBe(200);
+      await request.dispose();
+    });
+
   test('10 wrong attempts void the code (even the right one then fails)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -75,6 +92,14 @@ test.describe('mail connector OTP verification', () => {
 
 function wrongOf(code: string): string {
   return code === '000000' ? '111111' : '000000';
+}
+
+// rawSendOTP —— POST send-otp and return the status (sendMailOTP throws on !200).
+async function rawSendOTP(request: APIRequestContext, csrf: string): Promise<number> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/send-otp`, {
+    headers: { 'X-Csrftoken': csrf }, data: {},
+  });
+  return res.status();
 }
 
 async function mailConnected(request: APIRequestContext): Promise<boolean> {
