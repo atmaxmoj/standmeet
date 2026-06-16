@@ -86,6 +86,29 @@ for ex in "${examples[@]}"; do
   fi
 done
 
+# Rule 3: the root .env.example key set must match exactly the ${VARS} that
+# docker-compose.prod.yml reads — every var the prod stack needs is documented,
+# and no documented key is unused. Catches prod-compose ↔ .env.example drift
+# (a missing required var = the backend won't boot on a fresh deploy).
+compose="$ROOT/docker-compose.prod.yml"
+root_example="$ROOT/.env.example"
+if [ -f "$compose" ] && [ -f "$root_example" ]; then
+  compose_vars=$(grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*' "$compose" | sed 's/^\${//' | sort -u)
+  ex_keys=$(extract_keys "$root_example")
+  undocumented=$(comm -23 <(printf '%s\n' "$compose_vars") <(printf '%s\n' "$ex_keys") || true)
+  unused=$(comm -13 <(printf '%s\n' "$compose_vars") <(printf '%s\n' "$ex_keys") || true)
+  if [ -n "$undocumented" ]; then
+    echo "${RED}✗${RESET} .env.example: vars read by docker-compose.prod.yml but not documented"
+    echo "$undocumented" | sed 's/^/    + /'
+    fail=1
+  fi
+  if [ -n "$unused" ]; then
+    echo "${RED}✗${RESET} .env.example: keys not referenced by docker-compose.prod.yml"
+    echo "$unused" | sed 's/^/    - /'
+    fail=1
+  fi
+fi
+
 if [ $fail -eq 0 ]; then
   echo "${GREEN}✓${RESET} all .env.example files are value-free and key-consistent (${#examples[@]} checked)"
 fi

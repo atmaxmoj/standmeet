@@ -31,6 +31,13 @@ services:
     build:
       context: ./app
     restart: unless-stopped
+    # Dotted alias: a single-token "app" hostname trips Chromium's HTTPS-upgrade
+    # heuristic when gotenberg fetches the print URL (ERR_SSL_PROTOCOL_ERROR);
+    # app.standmeet.local skips it. Mirrors dev.
+    networks:
+      default:
+        aliases:
+          - app.standmeet.local
     environment:
       - BACKEND_URL=http://backend:8000
       - NODE_ENV=production
@@ -55,19 +62,35 @@ services:
       - DATABASE_URL=postgres://standmeet:${POSTGRES_PASSWORD}@db:5432/standmeet?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       - SESSION_KEY=${SESSION_KEY}
-      - SECURE_COOKIE=true
+      # at-rest encryption key for connector secrets/tokens (≥32 chars; cryptobox
+      # refuses to boot otherwise). Rotate per instance.
+      - INSTANCE_SECRET=${INSTANCE_SECRET}
+      # https in real deploys; set false for a plain-http localhost bring-up.
+      - SECURE_COOKIE=${SECURE_COOKIE:-true}
       - INFERENCE_PROVIDER=${INFERENCE_PROVIDER:-anthropic}
       - INFERENCE_ANTHROPIC_KEY=${INFERENCE_ANTHROPIC_KEY:-}
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
+      - SANDBOX_DRIVER=docker
       - PUBLIC_URL=${PUBLIC_URL}
+      # Object storage —— self-contained: the bundled minio service below. The
+      # backend requires these at boot. STORAGE_PUBLIC_URL is the browser-facing
+      # base for presigned object URLs.
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-standmeet}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-standmeet}
+      - STORAGE_USE_SSL=false
+      - STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}
       - GOTENBERG_URL=http://gotenberg:3000
-      - PRINT_BASE_URL=http://app:3000
+      - PRINT_BASE_URL=http://app.standmeet.local:3000
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
       gotenberg:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     volumes:
       - custom_pages_data:/srv/custom-pages
@@ -100,6 +123,10 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # schema.sql is the single source of truth: postgres applies it on a
+      # fresh volume's first boot (same as dev). Mirrors dev — prod was missing
+      # this, so a fresh prod db had no tables and the backend couldn't boot.
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
       interval: 3s
@@ -133,9 +160,28 @@ services:
       retries: 12
       start_period: 5s
 
+  # Bundled object storage —— this is a self-contained stack, so storage ships
+  # with it (no external S3 to set up). Only reachable in-network; presigned
+  # object URLs are served to the browser via STORAGE_PUBLIC_URL.
+  minio:
+    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    restart: unless-stopped
+    command: server /data --console-address ":9201"
+    environment:
+      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY:-standmeet}
+      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_KEY}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
 volumes:
   pgdata: {}
   redisdata: {}
   custom_pages_data: {}
   caddy_data: {}
   caddy_config: {}
+  miniodata: {}

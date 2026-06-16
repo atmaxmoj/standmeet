@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -79,6 +79,19 @@ app-build: sdk-build
 dev-up: app-build
 	@docker compose -f docker-compose.dev.yml up -d --build --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
+
+# prod-up —— bring up the real production stack (self-contained: caddy + app +
+# backend + db + redis + gotenberg + minio, no mocks). Reads .env (cp from
+# .env.example). On localhost it serves http://localhost; point a real domain at
+# the host and Caddy signs Let's Encrypt on demand. Separate compose project so
+# it coexists with the dev/test stack.
+prod-up:
+	@test -f .env || { echo "create .env first: cp .env.example .env && edit"; exit 2; }
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build --wait
+	@echo "[prod] http://localhost"
+
+prod-down:
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml down
 
 # gateway-up —— 只起 llm-gateway sidecar (eval-smoke 用)，不跑 app-build /
 # 整栈。Anthropic-compat mock，host :9300，确定性脚本回复。

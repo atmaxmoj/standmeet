@@ -22,6 +22,19 @@
 	admin off
 }
 
+# Local / pre-domain bring-up: serve http://localhost + http://127.0.0.1 directly,
+# no ACME (Let's Encrypt won't sign localhost). Lets a self-hoster
+# `docker compose -f docker-compose.prod.yml up`, claim, and use the instance on
+# http://localhost BEFORE pointing a real domain at it; once they add a domain the
+# on-demand block below signs real TLS for it. Matched by host, so it takes
+# precedence over the :80 catch-all for localhost only.
+http://localhost, http://127.0.0.1 {
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
 # 默认 site block: 处理所有未明确列出的 host（dev / on-demand 时全部走这里）。
 # tls 用 on_demand 让 Caddy 自动决定加密策略。
 :443, :80 {
