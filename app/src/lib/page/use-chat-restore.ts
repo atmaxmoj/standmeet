@@ -98,10 +98,10 @@ function mergeView(cur: VisitorSession, v: VisitorView): VisitorSession {
 function toDialogs(v: VisitorView): Dialog[] {
   return v.dialogs.map((d, i): Dialog => ({
     id: `h${i}`, q: d.question, time: '', pending: false,
-    currentTool: null, toolCalls: [...d.tool_calls], retrying: false, failed: false,
+    currentTool: null, retrying: false, failed: false,
     answer: {
       paras: splitParas(d.answer), citations: toCitations(d.citations),
-      private: false, byoaiBlocked: false,
+      toolCalls: [...d.tool_calls],
     },
   }));
 }

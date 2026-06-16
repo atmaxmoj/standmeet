@@ -128,9 +128,6 @@ const ViewSchema = z.object({
   conversation: z.object({
     dialogs: z.array(AggDialogSchema),
     started_at: z.string(),
-    ended_at: z.string().nullable().optional(),
-    ended: z.boolean(),
-    has_summary: z.boolean(),
   }),
 });
 export type DialogCitation = z.infer<typeof DialogCitationSchema>;
@@ -146,8 +143,6 @@ export interface VisitorView {
   maxMembers: number;
   memberCount: number;
   dialogs: AggDialog[];
-  ended: boolean;
-  hasSummary: boolean;
 }
 
 // ConversationResult —— 三态:活着 / 失效(401/403,要重进)/ 抖动(保持现状)。
@@ -206,8 +201,6 @@ function toView(d: z.infer<typeof ViewSchema>): VisitorView {
     maxMembers: d.session.code.max_members,
     memberCount: d.session.code.member_count,
     dialogs: d.conversation.dialogs,
-    ended: d.conversation.ended,
-    hasSummary: d.conversation.has_summary,
   };
 }
 

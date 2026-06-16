@@ -251,7 +251,7 @@ function toView(s: ConversationSummary): ConvView {
     code_label: s.code_label ?? (s.mode === 'byoai' ? 'BYOAI' : s.mode),
     sentiment: s.sentiment ?? '',
     client_ip: s.client_ip || '—',
-    turns: s.message_count,
+    turns: s.turns,
     private_hits: s.private_hits ?? (s.hit_private ? 1 : 0),
   };
 }

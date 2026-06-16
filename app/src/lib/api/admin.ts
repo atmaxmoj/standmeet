@@ -100,7 +100,7 @@ export const ConversationSummarySchema = z.object({
   id: z.string(), mode: z.string(), visitor_name: z.string(),
   sentiment: z.string().optional().default(''),
   started_at: z.string(), last_at: z.string(),
-  message_count: z.number(), private_hits: z.number().optional().default(0),
+  turns: z.number(), private_hits: z.number().optional().default(0),
   hit_private: z.boolean().optional().default(false),
   code_id: z.string().nullable().optional(), code_label: z.string().nullable().optional(),
   code_value: z.string().nullable().optional(),

@@ -7,8 +7,8 @@
 //   - count = len(Dialogs),没有 used 字段(前端自己数)。
 //   - dialog 持久化 iff AI 答完 → 这里只配「answer 非空」的轮。
 //   - 引用属于 dialog,从 messages.cited_* 解析成树派生 path,刷新不丢。
-//   - visitor_name 归 session;配额归 code;summary 归 conversation(只暴露
-//     ended + has_summary,全文另取)。
+//   - visitor_name 归 session;配额归 code;summary 是独立 chat_reports artifact
+//     (一会话一份),不挂 conversation 视图。
 //   - 时间戳一律 serverside(message.CreatedAt / chat.StartedAt)。
 
 package usecases
@@ -142,11 +142,8 @@ func ConversationForChat(
 	}
 	r := newCitationResolver(ctx, deps, ownerID, bundle.Messages)
 	return Conversation{
-		StartedAt:  bundle.Chat.StartedAt,
-		EndedAt:    bundle.Chat.EndedAt,
-		Ended:      bundle.Chat.EndedAt != nil,
-		HasSummary: bundle.Chat.SummaryMD != "",
-		Dialogs:    pairDialogs(bundle.Messages, r),
+		StartedAt: bundle.Chat.StartedAt,
+		Dialogs:   pairDialogs(bundle.Messages, r),
 	}, nil
 }
 

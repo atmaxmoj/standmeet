@@ -15,7 +15,7 @@ const RecentRowSchema = z.object({
   id: z.string(),
   visitor_name: z.string().optional().default(''),
   code_label: z.string().nullable().optional(),
-  message_count: z.number().optional().default(0),
+  turns: z.number().optional().default(0),
   last_at: z.string().optional().default(''),
 });
 
@@ -43,7 +43,7 @@ function toRecentRow(x: unknown): DashboardRecentRow | null {
     id: p.data.id,
     visitor: p.data.visitor_name || '(anonymous)',
     code_label: p.data.code_label ?? '—',
-    turns: p.data.message_count,
+    turns: p.data.turns,
     last: p.data.last_at,
     private_hits: 0,
   };

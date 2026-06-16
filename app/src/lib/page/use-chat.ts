@@ -56,11 +56,14 @@ export type Citation = {
   body: string;
 };
 
-export type DialogAnswer = {
+// Answer —— assistant 这一轮的全部产出:散文段落 + 引用 + 它调的工具。访客只
+// 产生 q;tool call 永远是 assistant 发起的,所以 toolCalls 属于 Answer。ACL /
+// 切片在检索层就锁死了(agent 读不到范围外的东西),不存在"生成完再标 private"
+// 这一步,所以这里没有 private/byoaiBlocked 标志。
+export type Answer = {
   paras: string[];
   citations: readonly Citation[];
-  private: boolean;
-  byoaiBlocked: boolean;
+  toolCalls: readonly ToolCallView[];
 };
 
 // ToolCallView —— G-4: tool_completed 累到 Dialog；UI 按 name dispatch
@@ -84,15 +87,13 @@ export type Dialog = {
   q: string;
   time: string;
   pending: boolean;
-  answer: DialogAnswer | null;
+  // answer 始终在场(开局空对象);流式期间 paras/toolCalls 往里加,pending 表示
+  // 还没收尾。toolCalls 在 answer 里(assistant 产出),不再是 Dialog 顶层字段。
+  answer: Answer;
   // throbber = observer 对 agent 的**实时**观察:只持「当前」活动 —— 最近一次
-  // tool_started,新 tool 来即替换,turn 落地清成 null。不是累积列表(那会堆一串
-  // 又冻进 transcript);持久回执是下面的 toolCalls。label 由 throbber-label.ts
-  // 按 name+args+backend progress_label 拼(corpus 读带 document)。
+  // tool_started,新 tool 来即替换,turn 落地清成 null。纯 UI 瞬态,不持久
+  // (持久回执是 answer.toolCalls)。label 由 throbber-label.ts 拼。
   currentTool: ToolThrobberView | null;
-  // G-4: tool_completed 累到这里；UI 按 name 渲卡片 (corpus_search 卡 /
-  // skill_*/ext_* generic dump)。corpus_read 的 result 走 Citation 不重复。
-  toolCalls: readonly ToolCallView[];
   // retrying —— backend transport 正在重试一次 transient LLM 失败;throbber
   // 显 "retrying" 而非 "retrieving"。下一条 text/tool 进度事件自然清掉。
   retrying: boolean;
@@ -419,10 +420,14 @@ function assembledPartIDs(sess: PageSession): readonly string[] {
   return sess.systemPromptPartIDs;
 }
 
+function emptyAnswer(): Answer {
+  return { paras: [], citations: [], toolCalls: [] };
+}
+
 function newPendingDialog(id: string, q: string): Dialog {
   return {
-    id, q, time: nowHM(), pending: true, answer: null,
-    currentTool: null, toolCalls: [], retrying: false, failed: false,
+    id, q, time: nowHM(), pending: true, answer: emptyAnswer(),
+    currentTool: null, retrying: false, failed: false,
   };
 }
 
@@ -458,22 +463,20 @@ function withAnswer(d: Dialog, accum: DialogAccumulator, stillPending: boolean):
     // 就清成 null —— agent 不动了就没什么可观察的。持久回执是下面的 toolCalls
     // (tool_completed),不靠这个。
     currentTool: stillPending ? accum.currentTool : null,
-    toolCalls: [...accum.toolCalls],
     // error 兜底(errorMsg 非空)= 这轮没答成,不计数。
     failed: accum.errorMsg !== '',
-    answer: accum.errorMsg !== '' ? noticeAnswer(accum.errorMsg) : {
-      paras: splitParas(accum.body),
-      citations: accum.citations,
-      private: false,
-      byoaiBlocked: false,
-    },
+    // answer 始终在场:错误兜底渲成友好段落,正常则散文 + 引用;toolCalls 一律带上
+    // (跑过的卡片即使最终报错也该留着)。
+    answer: accum.errorMsg !== ''
+      ? noticeAnswer(accum.errorMsg, accum.toolCalls)
+      : { paras: splitParas(accum.body), citations: accum.citations, toolCalls: [...accum.toolCalls] },
   };
 }
 
 // noticeAnswer —— backend error 事件的人话消息当普通段落渲(已经是友好文案,
 // 不加 "error:" 前缀)。markFailed 的 throw 路径仍走 errorAnswer 带前缀。
-function noticeAnswer(msg: string): DialogAnswer {
-  return { paras: [msg], citations: [], private: false, byoaiBlocked: false };
+function noticeAnswer(msg: string, toolCalls: readonly ToolCallView[]): Answer {
+  return { paras: [msg], citations: [], toolCalls: [...toolCalls] };
 }
 
 function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {
@@ -481,6 +484,6 @@ function markFailed(prev: Dialog[], id: string, msg: string): Dialog[] {
     d.id === id ? { ...d, pending: false, retrying: false, failed: true, answer: errorAnswer(msg) } : d);
 }
 
-function errorAnswer(msg: string): DialogAnswer {
-  return { paras: [`error: ${msg}`], citations: [], private: false, byoaiBlocked: false };
+function errorAnswer(msg: string): Answer {
+  return { paras: [`error: ${msg}`], citations: [], toolCalls: [] };
 }

@@ -98,20 +98,16 @@ type CodeMember struct {
 }
 
 type Conversation struct {
-	ID            pgtype.UUID
-	OwnerID       pgtype.UUID
-	Mode          string
-	CodeID        pgtype.UUID
-	MemberID      pgtype.UUID
-	VisitorName   string
-	ByoaiProvider *string
-	StartedAt     pgtype.Timestamptz
-	LastAt        pgtype.Timestamptz
-	MessageCount  int32
-	EndedAt       pgtype.Timestamptz
-	SummaryMd     string
-	ClientIp      string
-	DocKey        string
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	Mode        string
+	CodeID      pgtype.UUID
+	MemberID    pgtype.UUID
+	VisitorName string
+	StartedAt   pgtype.Timestamptz
+	LastAt      pgtype.Timestamptz
+	ClientIp    string
+	DocKey      string
 }
 
 type ConversationGhost struct {
@@ -253,7 +249,7 @@ type Owner struct {
 
 type OwnerBookingPolicy struct {
 	OwnerID           pgtype.UUID
-	MinLeadHours      int32
+	MinLeadDays       int32
 	AllowedWeekdays   []string
 	WorkingHoursStart string
 	WorkingHoursEnd   string

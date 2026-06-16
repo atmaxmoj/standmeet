@@ -64,14 +64,14 @@ func finalizePublicSession(
 	ctx context.Context, deps *VisitorDeps,
 	in *IssuePublicSessionInput, owner *domain.Owner,
 ) (IssueCodeSessionResult, error) {
+	// Mode 记 byoai/public(功能性,resolver/quota 在用);BYOAI 的具体 provider 是
+	// visitor/session 的属性(前端 session-store + per-request cred),不落 conv 行。
 	mode := publicModeForBYOAI(in.BYOAIProvider)
-	// conv 行 audit log：byoai_provider 一次性写到 conv 表，session 不缓存。
 	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
-		OwnerID:       owner.ID,
-		Mode:          mode,
-		VisitorName:   in.VisitorName,
-		BYOAIProvider: nullableProvider(in.BYOAIProvider),
-		ClientIP:      in.ClientIP,
+		OwnerID:     owner.ID,
+		Mode:        mode,
+		VisitorName: in.VisitorName,
+		ClientIP:    in.ClientIP,
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("create chat: %w", err)

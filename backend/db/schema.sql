@@ -479,15 +479,9 @@ CREATE TABLE conversations (
     code_id         uuid          REFERENCES access_codes(id) ON DELETE SET NULL,
     member_id       uuid          REFERENCES code_members(id) ON DELETE SET NULL,
     visitor_name    text          NOT NULL DEFAULT '',
-    byoai_provider  text,
     started_at      timestamptz   NOT NULL DEFAULT now(),
     last_at         timestamptz   NOT NULL DEFAULT now(),
-    message_count   integer       NOT NULL DEFAULT 0,
-    -- ended_at + summary_md：A2 /summary 路径写。session ended 之后
-    -- visitor 不能再发消息（POST /messages 返 410 conversation_ended）。
-    -- summary_md 是 AI 生成的 markdown 报告，visitor 客户端拿去渲染 PDF。
-    ended_at        timestamptz,
-    summary_md      text          NOT NULL DEFAULT '',
+    -- summary / report 是独立的 chat_reports 表(一会话一份),不挂 conversations 行。
     -- client_ip：访客创建会话时的来源 IP（chi.RealIP 解出的 host，去 port）。
     -- 给 owner「IP 感知」用：admin conversations 列表展示，配合 banned_ips 封禁。
     -- 空串 = 未知（老行 / 拿不到）。存 text 而非 inet：对畸形值宽容，不让一条
@@ -500,11 +494,11 @@ CREATE TABLE conversations (
     doc_key         text          NOT NULL DEFAULT ''
 );
 
--- 一个 member 每个 surface（doc_key）至多一段「未结束」对话，让 find-or-create
--- 幂等；已 summary（ended_at 非空）的不占坑，再来同一 surface 开新的一段。
+-- 一个 member 每个 surface（doc_key）唯一一段对话，让 find-or-create 幂等。
+-- 对话不会结束（生成 summary 不封口），所以一个 member+surface 永远续同一段。
 CREATE UNIQUE INDEX conversations_member_dockey_open_uniq
     ON conversations(member_id, doc_key)
-    WHERE ended_at IS NULL AND member_id IS NOT NULL;
+    WHERE member_id IS NOT NULL;
 
 CREATE TABLE messages (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),

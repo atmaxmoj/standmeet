@@ -20,8 +20,8 @@ import (
 
 // createSessionRequest —— POST /api/v1/sessions 入参。BYOAIKey 字段已删 ——
 // browser 自己保管 key（IndexedDB Web Crypto wrap），不上传 server。
-// BYOAIProvider 还在：一次性写到 conversation 表当 audit log，session
-// 不缓存。
+// BYOAIProvider 仅用来判 tier(带 provider → mode=byoai);provider 本身是
+// visitor/session 的属性(前端 session-store + per-request cred),不落 conv 行。
 type createSessionRequest struct {
 	Mode          string `json:"mode"` // 'code' | 'public' | 'byoai'
 	Code          string `json:"code,omitempty"`

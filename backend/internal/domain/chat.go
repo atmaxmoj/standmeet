@@ -22,36 +22,23 @@ const (
 	ChatModePublic ChatMode = "public"
 )
 
-// Chat —— visitor session aggregate root。
+// Chat —— visitor session aggregate root。对话不结束：summary 只是 chat_reports
+// 表里的一份 artifact(一会话一份),访客可继续聊;不挂 conversations 行。
 //
 // 不变式：
-//   - EndedAt 非 nil 时不能再 append dialog (CanAppendDialog 返 false)
 //   - 同一 chat 内 Dialog.CreatedAt 单调递增 (caller 责任)
 //
 // 字段顺序按 govet fieldalignment：time.Time 在前、pointer、string、数值。
 type Chat struct {
-	StartedAt     time.Time
-	LastAt        time.Time
-	EndedAt       *time.Time
-	CodeID        *string
-	MemberID      *string
-	BYOAIProvider *string
-	ID            string
-	OwnerID       string
-	VisitorName   string
-	SummaryMD     string
-	Mode          ChatMode
-	MessageCount  int32
+	StartedAt   time.Time
+	LastAt      time.Time
+	CodeID      *string
+	MemberID    *string
+	ID          string
+	OwnerID     string
+	VisitorName string
+	Mode        ChatMode
 }
-
-// IsEnded —— 这个 chat 是否已经 /summary 关闭。EndedAt 非 nil 即视为 ended。
-func (c *Chat) IsEnded() bool { return c.EndedAt != nil }
-
-// CanAppendDialog —— 现在能不能再写一轮 dialog 进去。ended 之后不能。
-func (c *Chat) CanAppendDialog() bool { return !c.IsEnded() }
 
 // ErrChatNotFound —— chat 不存在 / 不属于 owner。
 var ErrChatNotFound = errors.New("chat not found")
-
-// ErrChatEnded —— visitor 在 /summary 之后再发消息 / 再 append dialog 触发。
-var ErrChatEnded = errors.New("chat has ended")

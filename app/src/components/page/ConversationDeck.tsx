@@ -19,7 +19,7 @@ import { ChatMarkdown } from '@/components/page/markdown';
 import { DeckHeader } from '@/components/page/DeckHeader';
 import { ToolCallCards } from '@/components/page/ToolCallCards';
 import { useThinkingWord } from '@/lib/page/thinking-words';
-import type { Citation, Dialog, DialogAnswer, ToolThrobberView } from '@/lib/page/use-chat';
+import type { Answer, Citation, Dialog, ToolThrobberView } from '@/lib/page/use-chat';
 
 type Props = {
   ownerHandle: string;
@@ -123,8 +123,8 @@ function AnswerOrError({ dialog, ownerHandle, onAsk }: {
   return (
     <>
       <AssistantLabel ownerHandle={ownerHandle} />
-      <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
-      {dialog.answer && <Answer answer={dialog.answer} />}
+      <ToolCallCards calls={dialog.answer.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
+      <AnswerView answer={dialog.answer} />
     </>
   );
 }
@@ -157,40 +157,18 @@ function Thinking({ retrying, tool }: { retrying: boolean; tool: ToolThrobberVie
   );
 }
 
-function Answer({ answer }: { answer: DialogAnswer }) {
+function AnswerView({ answer }: { answer: Answer }) {
   return (
     <div>
-      <AnswerScopeLabel answer={answer} />
       <AnswerParas answer={answer} />
       <Citations citations={answer.citations} />
     </div>
   );
 }
 
-function AnswerScopeLabel({ answer }: { answer: DialogAnswer }) {
-  const scope = pickScope(answer);
-  return scope === '' ? null : <ScopeBadge text={scope} />;
-}
-
-function pickScope(answer: DialogAnswer): string {
-  return answer.byoaiBlocked
-    ? 'public scope only · need a code'
-    : answer.private ? 'private · layered access' : '';
-}
-
-function ScopeBadge({ text }: { text: string }) {
+function AnswerParas({ answer }: { answer: Answer }) {
   return (
-    <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">
-      {text}
-    </div>
-  );
-}
-
-function AnswerParas({ answer }: { answer: DialogAnswer }) {
-  const gated = answer.private || answer.byoaiBlocked;
-  const cls = gated ? 'pl-5 border-l-2 border-(--color-accent)/40' : '';
-  return (
-    <div className={cls} data-testid="answer-body">
+    <div data-testid="answer-body">
       {answer.paras.map((p, i) => (
         <div key={i} className="reading mb-4 last:mb-0 text-[18px]">
           <ChatMarkdown source={p} />

@@ -32,7 +32,7 @@ function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => v
         <span className="text-(--color-ink)">you</span>
       </div>
       <VisitorQuestion q={dialog.q} />
-      <ToolCallCards calls={dialog.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
+      <ToolCallCards calls={dialog.answer.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
       {dialog.pending ? null : <AnswerView answer={dialog.answer} />}
     </article>
   );
@@ -89,7 +89,7 @@ function ThinkingDots({ retrying, tool }: { retrying: boolean; tool: ToolThrobbe
 }
 
 function AnswerView({ answer }: { answer: Dialog['answer'] }) {
-  return answer ? (
+  return (
     <div data-testid="answer-body">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase text-(--color-accent) mb-3">ai</div>
       {answer.paras.map((p, i) => (
@@ -99,7 +99,7 @@ function AnswerView({ answer }: { answer: Dialog['answer'] }) {
       ))}
       <CitationsList citations={answer.citations} />
     </div>
-  ) : null;
+  );
 }
 
 // CitationsList —— 答案下一条安静的 "references · N" 折叠行(normal-AI-chat 风),

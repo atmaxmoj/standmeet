@@ -15,17 +15,17 @@ import (
 // ChatSummary —— admin list 用的 chat 摘要（含 code label 关联）。
 // 字段顺序按 govet fieldalignment：time.Time 在前、pointer、string、数值、bool。
 type ChatSummary struct {
-	StartedAt    time.Time
-	LastAt       time.Time
-	CodeID       *string
-	CodeLabel    *string
-	CodeValue    *string
-	ID           string
-	Mode         string
-	VisitorName  string
-	ClientIP     string // 访客来源 IP（IP 感知）；空 = 未知
-	MessageCount int32
-	PrivateHits  int32
+	StartedAt   time.Time
+	LastAt      time.Time
+	CodeID      *string
+	CodeLabel   *string
+	CodeValue   *string
+	ID          string
+	Mode        string
+	VisitorName string
+	ClientIP    string // 访客来源 IP（IP 感知）；空 = 未知
+	Turns       int32  // 从 messages 派生(数 visitor role),不是存储字段
+	PrivateHits int32
 }
 
 // ChatWithMessages —— GetWithMessages 返回的 transcript bundle。
@@ -94,15 +94,15 @@ func (r *ChatRepo) loadMessages(
 
 func toChatSummary(row *dbq.ListConversationsByOwnerRow) ChatSummary {
 	out := ChatSummary{
-		ID:           formatUUID(row.ID),
-		Mode:         row.Mode,
-		VisitorName:  row.VisitorName,
-		StartedAt:    row.StartedAt.Time,
-		LastAt:       row.LastAt.Time,
-		MessageCount: row.MessageCount,
-		ClientIP:     row.ClientIp,
-		CodeLabel:    row.CodeLabel,
-		CodeValue:    row.CodeValue,
+		ID:          formatUUID(row.ID),
+		Mode:        row.Mode,
+		VisitorName: row.VisitorName,
+		StartedAt:   row.StartedAt.Time,
+		LastAt:      row.LastAt.Time,
+		Turns:       row.TurnCount,
+		ClientIP:    row.ClientIp,
+		CodeLabel:   row.CodeLabel,
+		CodeValue:   row.CodeValue,
 	}
 	if row.CodeID.Valid {
 		s := formatUUID(row.CodeID)

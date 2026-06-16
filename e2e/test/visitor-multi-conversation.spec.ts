@@ -76,13 +76,18 @@ test.describe('visitor multi-conversation model', () => {
       const panel = await openDock(page);
       await askDock(page, 'budget turn 2');        // turn 2(浮窗这段 —— member 总数到 2)
       await expect(panel.getByTestId('answer-body')).toHaveCount(1, { timeout: 15_000 });
+      // answer-body 在答案「开始流」就出现,但乐观 +1(incUsed)在这一轮**收尾**才落。
+      // 等进度行消失 = 收尾完成 → used 到上限,再断锁 —— 不给 disable 任意墙钟窗口
+      // (锁本该即时;若收尾后还没锁,那是真 bug 不是慢)。
+      await expect(panel.getByTestId('chat-progress')).toHaveCount(0, { timeout: 15_000 });
+      // 浮窗里烧到第 2 轮就把 member 预算(2)用尽 —— used 是 member 级共享值,当场锁。
+      await expect(panel.getByTestId('floating-chat-input')).toBeDisabled();
 
-      // 浮窗里烧到第 2 轮就把 member 预算(2)用尽 —— used 是 member 级共享值,
-      // 所以浮窗输入框当场被锁(前端主动锁,不用等第 3 轮被后端 403)。
-      await expect(panel.getByTestId('floating-chat-input')).toBeDisabled({ timeout: 5_000 });
-      // 回主页,主 composer 也被同一个共享 used 锁住 —— 跨 surface 一致。
+      // 回主页:restore 落地(主对话那 1 轮重现,同一份 VisitorView 把 used 设成 2)
+      // 后,主 composer 也被同一个共享 used 锁住 —— 跨 surface 一致。
       await goto(page, '/');
-      await expect(page.getByTestId('chat-input-field')).toBeDisabled({ timeout: 5_000 });
+      await expect(page.getByTestId('answer-body')).toHaveCount(1, { timeout: 15_000 });
+      await expect(page.getByTestId('chat-input-field')).toBeDisabled();
     });
 });
 

@@ -113,11 +113,6 @@ var visitorErrCases = []apierr.Case{
 		Code:    "session_busy",
 		Message: "previous message still streaming; wait for it to finish",
 	}},
-	{Match: domain.ErrChatEnded, Envelope: apierr.Envelope{
-		Status:  http.StatusGone,
-		Code:    "conversation_ended",
-		Message: "conversation has been ended; start a new session to continue",
-	}},
 }
 
 // authedVisitor —— bundled return of authVisitorWithToken; rich-return

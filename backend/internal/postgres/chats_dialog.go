@@ -22,9 +22,6 @@ import (
 // AppendDialog —— 一轮 Q-A 落 2 条 message + bump conversation，单事务原子。
 // dialog.Citations 拆成 wiki_ids / output_ids 落 assistant 那行。
 // 返 assistant message id 当 dialog id 给 caller (DB 还没 dialog 表)。
-//
-// 不变式：caller 应该先 chat.CanAppendDialog() 判断 (chat ended 时直接拒)；
-// 这里再校验一次作 server-side guard。
 func (r *ChatRepo) AppendDialog(
 	ctx context.Context, chatID string, dialog *domain.Dialog,
 ) (string, error) {

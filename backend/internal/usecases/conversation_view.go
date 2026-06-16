@@ -6,12 +6,10 @@ package usecases
 import "time"
 
 // Conversation —— 对话聚合本体。count = len(Dialogs)(无 used 字段);只含答完的轮。
+// 对话不结束(生成 summary 不封口);summary 是独立 chat_reports artifact,不挂这里。
 type Conversation struct {
-	StartedAt  time.Time
-	EndedAt    *time.Time
-	Dialogs    []ConvDialog
-	Ended      bool
-	HasSummary bool
+	StartedAt time.Time
+	Dialogs   []ConvDialog
 }
 
 // ConvCode —— 这段会话所属 code 的配额视图(概念上属 code,不属 conversation)。

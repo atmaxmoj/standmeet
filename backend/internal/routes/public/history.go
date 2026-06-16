@@ -38,11 +38,8 @@ type dialogResp struct {
 }
 
 type conversationResp struct {
-	StartedAt  string       `json:"started_at"`
-	EndedAt    *string      `json:"ended_at"`
-	Dialogs    []dialogResp `json:"dialogs"`
-	Ended      bool         `json:"ended"`
-	HasSummary bool         `json:"has_summary"`
+	StartedAt string       `json:"started_at"`
+	Dialogs   []dialogResp `json:"dialogs"`
 }
 
 type codeResp struct {
@@ -105,11 +102,8 @@ func toViewResp(v *usecases.VisitorView) viewResp {
 
 func toConversationResp(c *usecases.Conversation) conversationResp {
 	return conversationResp{
-		StartedAt:  c.StartedAt.Format(time.RFC3339),
-		EndedAt:    fmtTimePtr(c.EndedAt),
-		Dialogs:    toDialogResps(c.Dialogs),
-		Ended:      c.Ended,
-		HasSummary: c.HasSummary,
+		StartedAt: c.StartedAt.Format(time.RFC3339),
+		Dialogs:   toDialogResps(c.Dialogs),
 	}
 }
 
@@ -142,14 +136,6 @@ func toCitationResps(cs []usecases.DialogCitation) []citationResp {
 		out[i] = citationResp{Genre: cs[i].Genre, Path: cs[i].Path, Title: cs[i].Title}
 	}
 	return out
-}
-
-func fmtTimePtr(t *time.Time) *string {
-	if t == nil {
-		return nil
-	}
-	s := t.Format(time.RFC3339)
-	return &s
 }
 
 // rawOrEmptyArray —— 存的 tool_calls 为空(老 dialog / 没用 tool)→ 回 [],

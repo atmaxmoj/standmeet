@@ -28,18 +28,18 @@ type ConversationsDeps struct {
 }
 
 type convSummaryView struct {
-	StartedAt    string  `json:"started_at"`
-	LastAt       string  `json:"last_at"`
-	CodeID       *string `json:"code_id,omitempty"`
-	CodeLabel    *string `json:"code_label,omitempty"`
-	CodeValue    *string `json:"code_value,omitempty"`
-	ID           string  `json:"id"`
-	Mode         string  `json:"mode"`
-	VisitorName  string  `json:"visitor_name"`
-	Sentiment    string  `json:"sentiment"`
-	ClientIP     string  `json:"client_ip"`
-	MessageCount int32   `json:"message_count"`
-	PrivateHits  int32   `json:"private_hits"`
+	StartedAt   string  `json:"started_at"`
+	LastAt      string  `json:"last_at"`
+	CodeID      *string `json:"code_id,omitempty"`
+	CodeLabel   *string `json:"code_label,omitempty"`
+	CodeValue   *string `json:"code_value,omitempty"`
+	ID          string  `json:"id"`
+	Mode        string  `json:"mode"`
+	VisitorName string  `json:"visitor_name"`
+	Sentiment   string  `json:"sentiment"`
+	ClientIP    string  `json:"client_ip"`
+	Turns       int32   `json:"turns"`
+	PrivateHits int32   `json:"private_hits"`
 }
 
 type convMessageView struct {
@@ -214,30 +214,42 @@ func toRefViews(refs []usecases.TitledRef) []titledRefView {
 func bundleSummary(bundle *postgres.ChatWithMessages) convSummaryView {
 	c := bundle.Chat
 	return convSummaryView{
-		ID:           c.ID,
-		Mode:         string(c.Mode),
-		VisitorName:  c.VisitorName,
-		MessageCount: c.MessageCount,
-		CodeID:       c.CodeID,
-		StartedAt:    c.StartedAt.Format(time.RFC3339),
-		LastAt:       c.LastAt.Format(time.RFC3339),
+		ID:          c.ID,
+		Mode:        string(c.Mode),
+		VisitorName: c.VisitorName,
+		Turns:       countVisitorTurns(bundle.Messages),
+		CodeID:      c.CodeID,
+		StartedAt:   c.StartedAt.Format(time.RFC3339),
+		LastAt:      c.LastAt.Format(time.RFC3339),
 	}
+}
+
+// countVisitorTurns —— 从 messages 派生 turn 数:一个 dialog 一条 visitor 消息。
+// count 一律从 dialog 派生,不存计数字段。
+func countVisitorTurns(msgs []domain.Message) int32 {
+	var n int32
+	for i := range msgs {
+		if msgs[i].Role == "visitor" {
+			n++
+		}
+	}
+	return n
 }
 
 func toConvSummaryView(s *postgres.ChatSummary) convSummaryView {
 	return convSummaryView{
-		ID:           s.ID,
-		Mode:         s.Mode,
-		VisitorName:  s.VisitorName,
-		MessageCount: s.MessageCount,
-		PrivateHits:  s.PrivateHits,
-		ClientIP:     s.ClientIP,
-		Sentiment:    usecases.DeriveSentiment(s.MessageCount, s.PrivateHits, s.Mode),
-		CodeID:       s.CodeID,
-		CodeLabel:    s.CodeLabel,
-		CodeValue:    s.CodeValue,
-		StartedAt:    s.StartedAt.Format(time.RFC3339),
-		LastAt:       s.LastAt.Format(time.RFC3339),
+		ID:          s.ID,
+		Mode:        s.Mode,
+		VisitorName: s.VisitorName,
+		Turns:       s.Turns,
+		PrivateHits: s.PrivateHits,
+		ClientIP:    s.ClientIP,
+		Sentiment:   usecases.DeriveSentiment(s.Turns, s.PrivateHits, s.Mode),
+		CodeID:      s.CodeID,
+		CodeLabel:   s.CodeLabel,
+		CodeValue:   s.CodeValue,
+		StartedAt:   s.StartedAt.Format(time.RFC3339),
+		LastAt:      s.LastAt.Format(time.RFC3339),
 	}
 }
 

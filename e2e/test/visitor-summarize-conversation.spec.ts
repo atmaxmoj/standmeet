@@ -131,6 +131,29 @@ test.describe('visitor summarize_conversation · I.3', () => {
       expect(res.status()).toBe(404);
       await request.dispose();
     });
+
+  // 生成 summary 不结束对话:同一 conversation 在 summarize 之后还能继续发 turn。
+  // (老模型 /summary 写 ended_at → 下一 turn 配额 preflight 翻 ErrChatEnded → 410。
+  //  那套已删,这里守住"summary 只是 artifact、对话不封口"。postAgentTurn 内部
+  //  assert 200,所以第二次 turn 若被挡会直接失败。)
+  test('summary 不结束对话 —— 同一会话之后还能继续发 turn',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const sess = await issueSession(request, {
+        handle: OWNER.handle, code: CODE, visitor_name: 'V',
+      });
+      await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+      await scriptMockReplyText(request, REPORT_HTML);
+      expect(extractReportID(await postAgentTurn(request, sess)), 'summary produced')
+        .toBeTruthy();
+
+      // 同一会话再发一 turn → 必须 200 + 正常答出来(没被 ended 挡)。
+      await scriptMockReplyText(request, 'Sure, happy to keep going.');
+      const sse = await postAgentTurn(request, sess);
+      expect(sse, 'follow-up answered — conversation not ended')
+        .toContain('Sure, happy to keep going');
+      await request.dispose();
+    });
 });
 
 // reportPDFRouteTest —— create a report then hit /report/{id}/pdf; assert it's

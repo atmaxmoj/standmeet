@@ -30,14 +30,13 @@ func NewChatRepo(pool *Pool) *ChatRepo { return &ChatRepo{pool: pool} }
 
 // CreateChatInput —— 创建 chat 入参。
 type CreateChatInput struct {
-	CodeID        *string
-	MemberID      *string
-	BYOAIProvider *string
-	OwnerID       string
-	Mode          string
-	VisitorName   string
-	ClientIP      string // 访客来源 IP（chi.RealIP host，去 port）；空 = 未知
-	DocKey        string // surface 标识：'' = 主聊天；否则 = 当时所在 doc 的 path
+	CodeID      *string
+	MemberID    *string
+	OwnerID     string
+	Mode        string
+	VisitorName string
+	ClientIP    string // 访客来源 IP（chi.RealIP host，去 port）；空 = 未知
+	DocKey      string // surface 标识：'' = 主聊天；否则 = 当时所在 doc 的 path
 }
 
 // CreateChat 写一行 chat。
@@ -58,14 +57,13 @@ func (r *ChatRepo) CreateChat(
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateConversation(ctx, dbq.CreateConversationParams{
-		OwnerID:       ownerUUID,
-		Mode:          in.Mode,
-		CodeID:        codeUUID,
-		MemberID:      memberUUID,
-		VisitorName:   in.VisitorName,
-		ByoaiProvider: in.BYOAIProvider,
-		ClientIp:      in.ClientIP,
-		DocKey:        in.DocKey,
+		OwnerID:     ownerUUID,
+		Mode:        in.Mode,
+		CodeID:      codeUUID,
+		MemberID:    memberUUID,
+		VisitorName: in.VisitorName,
+		ClientIp:    in.ClientIP,
+		DocKey:      in.DocKey,
 	})
 	if err != nil {
 		return domain.Chat{}, fmt.Errorf("create chat: %w", err)
@@ -98,9 +96,8 @@ func (r *ChatRepo) GetChat(
 	return toDomainChat(&row), nil
 }
 
-// GetOpenChatByMember —— 「一个名字=一段续聊的会」:同名 member 已有未结束
-// (ended_at IS NULL)的 conversation 就返它续上;没有 → domain.ErrChatNotFound
-// (caller 新建)。member 的会被 summary 结束后再来 = 新会。
+// GetOpenChatByMember —— 「一个名字=一段续聊的会」:同名 member 的主对话就返它
+// 续上;没有 → domain.ErrChatNotFound (caller 新建)。对话不结束,同名永远续同一段。
 func (r *ChatRepo) GetOpenChatByMember(
 	ctx context.Context, memberID string,
 ) (domain.Chat, error) {
@@ -204,37 +201,14 @@ func (r *ChatRepo) CountVisitorTurns(
 	return n, nil
 }
 
-// MarkEnded —— /summary 路径写：summary + ended_at；已 ended 返
-// ErrChatEnded 让 caller 翻 409 友好错误。
-func (r *ChatRepo) MarkEnded(
-	ctx context.Context, chatID, summaryMD string,
-) (domain.Chat, error) {
-	chatUUID, perr := parseUUID(chatID)
-	if perr != nil {
-		return domain.Chat{}, fmt.Errorf("parse chat id: %w", perr)
-	}
-	row, err := dbq.New(r.pool).MarkConversationEnded(ctx, dbq.MarkConversationEndedParams{
-		ID: chatUUID, SummaryMd: summaryMD,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Chat{}, domain.ErrChatEnded
-		}
-		return domain.Chat{}, fmt.Errorf("mark chat ended: %w", err)
-	}
-	return toDomainChat(&row), nil
-}
-
 func toDomainChat(c *dbq.Conversation) domain.Chat {
 	out := domain.Chat{
-		ID:           formatUUID(c.ID),
-		OwnerID:      formatUUID(c.OwnerID),
-		Mode:         domain.ChatMode(c.Mode),
-		VisitorName:  c.VisitorName,
-		StartedAt:    c.StartedAt.Time,
-		LastAt:       c.LastAt.Time,
-		MessageCount: c.MessageCount,
-		SummaryMD:    c.SummaryMd,
+		ID:          formatUUID(c.ID),
+		OwnerID:     formatUUID(c.OwnerID),
+		Mode:        domain.ChatMode(c.Mode),
+		VisitorName: c.VisitorName,
+		StartedAt:   c.StartedAt.Time,
+		LastAt:      c.LastAt.Time,
 	}
 	if c.CodeID.Valid {
 		s := formatUUID(c.CodeID)
@@ -243,13 +217,6 @@ func toDomainChat(c *dbq.Conversation) domain.Chat {
 	if c.MemberID.Valid {
 		s := formatUUID(c.MemberID)
 		out.MemberID = &s
-	}
-	if c.ByoaiProvider != nil {
-		out.BYOAIProvider = c.ByoaiProvider
-	}
-	if c.EndedAt.Valid {
-		t := c.EndedAt.Time
-		out.EndedAt = &t
 	}
 	return out
 }
