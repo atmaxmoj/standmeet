@@ -37,14 +37,15 @@ const nextConfig: NextConfig = {
         source: '/p/:slug/:path*',
         destination: `${BACKEND_URL}/api/v1/custom-pages/:slug/:path*`,
       },
+      // owner MCP endpoint (Claude/Cursor → standmeet-mcp bridge POSTs here).
+      // Not under /api, and must beat the dynamic [handle] owner-page route —
+      // hence beforeFiles (same reason as /p/:slug). Without this it's
+      // unreachable behind the prod app and owners can't connect over MCP.
+      { source: '/mcp', destination: `${BACKEND_URL}/mcp` },
+      { source: '/mcp/:path*', destination: `${BACKEND_URL}/mcp/:path*` },
     ],
     afterFiles: [
       { source: '/api/:path*', destination: `${BACKEND_URL}/api/:path*` },
-      // owner MCP endpoint (Claude/Cursor → standmeet-mcp bridge POSTs here).
-      // Not under /api, so it needs its own rewrite — otherwise it's
-      // unreachable behind the prod app/Caddy and owners can't connect.
-      { source: '/mcp', destination: `${BACKEND_URL}/mcp` },
-      { source: '/mcp/:path*', destination: `${BACKEND_URL}/mcp/:path*` },
       { source: '/internal/:path*', destination: `${BACKEND_URL}/internal/:path*` },
       { source: '/robots.txt', destination: `${BACKEND_URL}/robots.txt` },
       { source: '/sitemap.xml', destination: `${BACKEND_URL}/sitemap.xml` },
