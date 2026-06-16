@@ -108,12 +108,25 @@ def main():
     prompt_id = json.loads(pr).get("prompt_id", "") if pr.strip().startswith("{") else ""
     print("prompt:", pr[:120])
 
+    # Booking skill —— allowed_tools unlocks the built-in calendar.book capability
+    # on any role it's attached to, so the recruiter can schedule a call with Marcus
+    # (requires the owner's calendar connector to be connected).
+    sk = text_of(b.call("skill_create", {
+        "name": "Schedule a meeting",
+        "prompt": "When the recruiter wants to talk live, or asks about Marcus's "
+                  "availability, offer to schedule a short call and book it on his calendar.",
+        "description": "Lets the visitor book a meeting on the owner's calendar.",
+        "allowed_tools": ["calendar.book"]}))
+    skill_id = json.loads(sk).get("skill_id", "") if sk.strip().startswith("{") else ""
+    print("skill:", sk[:120])
+
     ro = text_of(b.call("role_create", {"name": "Recruiter",
                                         "description": "Recruiter visiting Marcus's page",
                                         "greeting": "This is Marcus's AI — ask it anything about his "
                                                     "engineering work, and it answers in his voice, "
                                                     "grounded in his real projects and incident write-ups.",
                                         "prompt_id": prompt_id,
+                                        "skill_ids": [skill_id] if skill_id else [],
                                         "corpus_uris": ["wiki://**", "output://**"]}))
     role_id = json.loads(ro).get("role_id", "") if ro.strip().startswith("{") else ""
     print("role:", ro[:120])

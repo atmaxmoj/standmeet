@@ -70,6 +70,9 @@ func (c *skillsCapability) createBinding() *agentskills.MCPBinding {
 					"description":"System prompt fragment appended to base persona."},
 				"description":{"type":"string",
 					"description":"Optional one-line description."},
+				"allowed_tools":{"type":"array","items":{"type":"string"},
+					"description":"Built-in capability IDs this skill unlocks on roles it is "+
+						"attached to (e.g. \"calendar.book\" to let visitors book meetings)."},
 				"scripts":{"type":"array","items":{"type":"object"},
 					"description":"Optional sandbox scripts; each {filename,language,content,...}."}
 			},
@@ -80,10 +83,11 @@ func (c *skillsCapability) createBinding() *agentskills.MCPBinding {
 }
 
 type skillCreateArgsWire struct {
-	Name        string               `json:"name"`
-	Prompt      string               `json:"prompt"`
-	Description string               `json:"description"`
-	Scripts     []domain.SkillScript `json:"scripts"`
+	Name         string               `json:"name"`
+	Prompt       string               `json:"prompt"`
+	Description  string               `json:"description"`
+	AllowedTools []string             `json:"allowed_tools"`
+	Scripts      []domain.SkillScript `json:"scripts"`
 }
 
 func (c *skillsCapability) handleCreate(
@@ -95,7 +99,7 @@ func (c *skillsCapability) handleCreate(
 	}
 	skill, cerr := usecases.CreateSkill(ctx, *c.skills, &usecases.CreateSkillInput{
 		OwnerID: ownerID, Name: args.Name, Prompt: args.Prompt,
-		Description: args.Description, Scripts: args.Scripts,
+		Description: args.Description, AllowedTools: args.AllowedTools, Scripts: args.Scripts,
 	})
 	if cerr != nil {
 		if errors.Is(cerr, domain.ErrSkillNameTaken) {
