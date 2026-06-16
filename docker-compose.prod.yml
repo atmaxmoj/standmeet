@@ -92,8 +92,13 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    # root + docker socket: SANDBOX_DRIVER=docker runs owner skill scripts in
+    # isolated containers. Mirrors dev — prod was missing these, so any skill
+    # script would fail. (Security tradeoff documented; same posture as dev.)
+    user: "0:0"
     volumes:
       - custom_pages_data:/srv/custom-pages
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
       interval: 5s
@@ -153,6 +158,11 @@ services:
       - gotenberg
       - --chromium-disable-javascript=false
       - --api-timeout=60s
+      # gotenberg 8's default deny-list blocks private/docker IPs (172.x/10.x)
+      # → 403 on every internal render. Allow anything (internal-only sidecar).
+      # Mirrors dev — prod was missing this.
+      - --chromium-deny-list=
+      - --chromium-allow-list=.*
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
       interval: 5s

@@ -40,6 +40,11 @@ const nextConfig: NextConfig = {
     ],
     afterFiles: [
       { source: '/api/:path*', destination: `${BACKEND_URL}/api/:path*` },
+      // owner MCP endpoint (Claude/Cursor → standmeet-mcp bridge POSTs here).
+      // Not under /api, so it needs its own rewrite — otherwise it's
+      // unreachable behind the prod app/Caddy and owners can't connect.
+      { source: '/mcp', destination: `${BACKEND_URL}/mcp` },
+      { source: '/mcp/:path*', destination: `${BACKEND_URL}/mcp/:path*` },
       { source: '/internal/:path*', destination: `${BACKEND_URL}/internal/:path*` },
       { source: '/robots.txt', destination: `${BACKEND_URL}/robots.txt` },
       { source: '/sitemap.xml', destination: `${BACKEND_URL}/sitemap.xml` },
