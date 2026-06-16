@@ -80,15 +80,15 @@ dev-up: app-build
 	@docker compose -f docker-compose.dev.yml up -d --build --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
 
-# prod-up —— bring up the real production stack (self-contained: caddy + app +
-# backend + db + redis + gotenberg + minio, no mocks). Reads .env (cp from
-# .env.example). On localhost it serves http://localhost; point a real domain at
-# the host and Caddy signs Let's Encrypt on demand. Separate compose project so
-# it coexists with the dev/test stack.
+# prod-up —— bring up the real production stack (self-contained: app + backend +
+# db + redis + gotenberg + minio, no mocks). Reads .env (cp from .env.example).
+# = dev minus the mocks, with real secrets. TLS/domain is external (front the
+# app's published port with your proxy). Separate compose project + offset host
+# ports so it coexists with the dev/test stack.
 prod-up:
 	@test -f .env || { echo "create .env first: cp .env.example .env && edit"; exit 2; }
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml up -d --build --wait
-	@echo "[prod] http://localhost"
+	@echo "[prod] app on http://localhost:38227 (front with your TLS proxy)"
 
 prod-down:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down

@@ -1,39 +1,28 @@
-# docker-compose.prod.yml —— self-host owner 一键起服务用。跟 dev compose
-# 的区别：
-#   1) 暴露 Caddy 在 80/443；其他服务只在内网；
-#   2) backend / app / builder 镜像走 release tag（registry）而不是 host build；
-#   3) sessions / pgdata / redisdata / custom_pages_data / caddy_data 都用
-#      named volume，方便 backup.sh 一键备份。
+# docker-compose.prod.yml —— self-host owner runs this. It is docker-compose.dev.yml
+# with exactly two kinds of change, nothing else:
+#   1. the mock services + their *_BASE_URL / GOOGLE_* env overrides are removed,
+#      so every connector talks to the real service (the backend's baked-in
+#      defaults: real Google, real Greenhouse/Lever/…, real api.github.com, …);
+#   2. dev placeholder secrets become env vars read from .env (cp .env.example).
+# Everything else (services, volumes, sandbox docker socket, gotenberg flags,
+# schema init mount, app alias) is identical to dev — keep them in sync. The one
+# extra difference: host ports are offset from dev's (38227/8100/5532/6479/9210/
+# 9211) so a local prod instance coexists with the dev/test stack.
 #
-# install.sh 把这文件拷到 owner 服务器，docker compose -f standmeet.yml up -d
-# 就完事。当前先内置 dev 用的 host build；出 release 镜像后再切。
+# TLS / domain is handled OUTSIDE this stack (the owner's platform / Cloudflare /
+# their own reverse proxy fronts the app's published port). No bundled proxy.
 
 name: standmeet
 
 services:
-  caddy:
-    image: caddy:2.8
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      app:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-
   app:
     build:
       context: ./app
     restart: unless-stopped
-    # Dotted alias: a single-token "app" hostname trips Chromium's HTTPS-upgrade
-    # heuristic when gotenberg fetches the print URL (ERR_SSL_PROTOCOL_ERROR);
-    # app.standmeet.local skips it. Mirrors dev.
+    # Dotted alias: single-token "app" hostname triggers Chromium's
+    # HTTPS-upgrade heuristic when gotenberg fetches the print URL
+    # (ERR_SSL_PROTOCOL_ERROR). Reaching it via app.standmeet.local skips
+    # that heuristic.
     networks:
       default:
         aliases:
@@ -44,6 +33,10 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    ports:
+      # The public entry point. Front it with your TLS proxy (domain:443 →
+      # host:38227). Host ports are offset from dev's so both stacks coexist.
+      - "38227:3000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/v1/instance"]
       interval: 5s
@@ -65,36 +58,39 @@ services:
       # at-rest encryption key for connector secrets/tokens (≥32 chars; cryptobox
       # refuses to boot otherwise). Rotate per instance.
       - INSTANCE_SECRET=${INSTANCE_SECRET}
-      # https in real deploys; set false for a plain-http localhost bring-up.
+      # true behind https; set false only for a plain-http localhost bring-up.
       - SECURE_COOKIE=${SECURE_COOKIE:-true}
-      - INFERENCE_PROVIDER=${INFERENCE_PROVIDER:-anthropic}
-      - INFERENCE_ANTHROPIC_KEY=${INFERENCE_ANTHROPIC_KEY:-}
+      # "对外是啥地址" 由 owner 在 claim 表单填，写进 owners.public_url；LLM
+      # provider 也由 owner 在 admin/MCP 配 (ai_endpoint)。两者都不走 env。
       - CUSTOM_PAGES_ROOT=/srv/custom-pages
       - SANDBOX_DRIVER=docker
-      - PUBLIC_URL=${PUBLIC_URL}
-      # Object storage —— self-contained: the bundled minio service below. The
-      # backend requires these at boot. STORAGE_PUBLIC_URL is the browser-facing
-      # base for presigned object URLs.
+      # MinIO / S3 storage for owner-uploaded images + attachments.
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-standmeet}
       - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
       - STORAGE_BUCKET=${STORAGE_BUCKET:-standmeet}
       - STORAGE_USE_SSL=false
+      # Browser-facing base for presigned object URLs (your public storage origin).
       - STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}
       - GOTENBERG_URL=http://gotenberg:3000
+      # Dotted alias avoids Chromium's single-word-host HTTPS-upgrade heuristic.
       - PRINT_BASE_URL=http://app.standmeet.local:3000
+      # NOTE: no *_BASE_URL / GOOGLE_* overrides here — prod talks to the real
+      # Greenhouse / Lever / Ashby / marketplace / Google endpoints (backend
+      # defaults). dev adds the mock overrides; that's the only env difference.
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      gotenberg:
-        condition: service_healthy
       minio:
         condition: service_healthy
-    # root + docker socket: SANDBOX_DRIVER=docker runs owner skill scripts in
-    # isolated containers. Mirrors dev — prod was missing these, so any skill
-    # script would fail. (Security tradeoff documented; same posture as dev.)
+      gotenberg:
+        condition: service_healthy
+    ports:
+      - "8100:8000"
+    # sandbox 需要 root + docker socket：owner-curated skill 脚本跑在隔离
+    # docker container 里。docs 里说明权衡。
     user: "0:0"
     volumes:
       - custom_pages_data:/srv/custom-pages
@@ -128,10 +124,10 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # schema.sql is the single source of truth: postgres applies it on a
-      # fresh volume's first boot (same as dev). Mirrors dev — prod was missing
-      # this, so a fresh prod db had no tables and the backend couldn't boot.
+      # schema.sql 是唯一权威：fresh volume 首次启动时 postgres 自动应用。
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "5532:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "standmeet", "-d", "standmeet"]
       interval: 3s
@@ -143,26 +139,26 @@ services:
     restart: unless-stopped
     volumes:
       - redisdata:/data
+    ports:
+      - "6479:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
       timeout: 3s
       retries: 10
 
-  # gotenberg —— headless Chromium PDF rendering sidecar. See dev compose
-  # comment for the why; same role here.
+  # gotenberg —— headless Chromium PDF rendering sidecar for resume drafts.
   gotenberg:
     image: gotenberg/gotenberg:8
     restart: unless-stopped
+    # Gotenberg 8's default deny-list blocks private / docker IPs (172.x, 10.x)
+    # → 403 on every internal render. Empty deny + allow-anything (internal-only).
     command:
       - gotenberg
       - --chromium-disable-javascript=false
-      - --api-timeout=60s
-      # gotenberg 8's default deny-list blocks private/docker IPs (172.x/10.x)
-      # → 403 on every internal render. Allow anything (internal-only sidecar).
-      # Mirrors dev — prod was missing this.
       - --chromium-deny-list=
       - --chromium-allow-list=.*
+      - --api-timeout=60s
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
       interval: 5s
@@ -170,9 +166,8 @@ services:
       retries: 12
       start_period: 5s
 
-  # Bundled object storage —— this is a self-contained stack, so storage ships
-  # with it (no external S3 to set up). Only reachable in-network; presigned
-  # object URLs are served to the browser via STORAGE_PUBLIC_URL.
+  # minio —— bundled S3-compatible object storage (self-contained stack).
+  # Bucket "standmeet" auto-created on first backend boot via internal/storage.
   minio:
     image: minio/minio:RELEASE.2025-04-08T15-41-24Z
     restart: unless-stopped
@@ -182,6 +177,9 @@ services:
       - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_KEY}
     volumes:
       - miniodata:/data
+    ports:
+      - "9210:9000"
+      - "9211:9201"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
       interval: 5s
@@ -191,7 +189,5 @@ services:
 volumes:
   pgdata: {}
   redisdata: {}
-  custom_pages_data: {}
-  caddy_data: {}
-  caddy_config: {}
   miniodata: {}
+  custom_pages_data: {}
