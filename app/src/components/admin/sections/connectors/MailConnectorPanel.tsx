@@ -12,8 +12,8 @@
 import { useState } from 'react';
 
 import {
-  useMail, useMailOTPFlow, sendCodeLabel,
-  type MailCredsInput, type MailHook, type MailOTPFlow,
+  useMail, useMailStore, sendCodeLabel, mailActionsView,
+  type MailCredsInput, type MailHook,
 } from '@/lib/admin/use-mail';
 
 type FormState = Record<'host' | 'port' | 'username' | 'password' | 'fromAddress' | 'fromName', string>;
@@ -173,35 +173,59 @@ function toCredsInput(form: FormState): MailCredsInput {
 // Send a 6-digit code to the from address, type it back to verify the owner
 // actually receives mail (not just that the SMTP creds accept a send).
 
+// Actions —— three states: no creds → nothing; configured-but-unverified → the
+// send/verify flow; verified → only a 'verified' line + Disconnect (no resend, no
+// verify until you disconnect). The connected branch is also what replaces the
+// transient send/verify messages once verification succeeds. The which-view
+// decision is a pure helper (mailActionsView) so this stays a thin renderer.
 function Actions({ hook }: { hook: MailHook }) {
-  return hook.status?.has_credentials === true
-    ? <ActionsRow hook={hook} />
-    : null;
+  const view = mailActionsView(hook.status);
+  return view === 'none' ? null : view === 'connected' ? <ConnectedRow /> : <VerifyRow />;
 }
 
-function ActionsRow({ hook }: { hook: MailHook }) {
-  const flow = useMailOTPFlow(hook);
+function ConnectedRow() {
   return (
-    <div className="space-y-2 mb-1">
-      <div className="flex flex-wrap gap-2 items-end">
-        <SendCodeBtn flow={flow} />
-        <CodeInput value={flow.code} onChange={flow.setCode} />
-        <VerifyBtn code={flow.code} onClick={() => { void flow.verify(); }} />
-        <DisconnectBtn hook={hook} />
-      </div>
-      <ActionMsg msg={flow.msg} />
+    <div className="flex items-center gap-3 mb-1">
+      <span
+        data-testid="mail-verified"
+        className="mono text-[11px] tracking-[0.08em] uppercase text-(--color-accent)"
+      >
+        ✓ email verified
+      </span>
+      <DisconnectBtn />
     </div>
   );
 }
 
-function SendCodeBtn({ flow }: { flow: MailOTPFlow }) {
+function VerifyRow() {
+  const code = useMailStore((s) => s.code);
+  const msg = useMailStore((s) => s.msg);
+  const setCode = useMailStore((s) => s.setCode);
+  const verifyCode = useMailStore((s) => s.verifyCode);
+  return (
+    <div className="space-y-2 mb-1">
+      <div className="flex flex-wrap gap-2 items-end">
+        <SendCodeBtn />
+        <CodeInput value={code} onChange={setCode} />
+        <VerifyBtn code={code} onClick={() => { void verifyCode(); }} />
+        <DisconnectBtn />
+      </div>
+      <ActionMsg msg={msg} />
+    </div>
+  );
+}
+
+function SendCodeBtn() {
+  const cooldown = useMailStore((s) => s.cooldown);
+  const sent = useMailStore((s) => s.sent);
+  const sendCode = useMailStore((s) => s.sendCode);
   return (
     <button
       type="button" data-testid="mail-send-otp"
-      disabled={flow.cooldown > 0} onClick={() => { void flow.send(); }}
+      disabled={cooldown > 0} onClick={() => { void sendCode(); }}
       className="sm-btn sm-btn-ghost sm-btn-sm disabled:opacity-40"
     >
-      {sendCodeLabel(flow.cooldown, flow.sent)}
+      {sendCodeLabel(cooldown, sent)}
     </button>
   );
 }
@@ -232,12 +256,15 @@ function ActionMsg({ msg }: { msg: string | null }) {
     : <p className="mono text-[11.5px] text-(--color-muted)" data-testid="mail-otp-result">{msg}</p>;
 }
 
-function DisconnectBtn({ hook }: { hook: MailHook }) {
+// disconnect lives on the store; it also resets the OTP flow (clears any pending
+// code + cooldown) so re-verifying after a disconnect starts clean.
+function DisconnectBtn() {
+  const disconnect = useMailStore((s) => s.disconnect);
   return (
     <button
       type="button"
       data-testid="mail-disconnect"
-      onClick={() => { void hook.disconnect(); }}
+      onClick={() => { void disconnect(); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
       Disconnect

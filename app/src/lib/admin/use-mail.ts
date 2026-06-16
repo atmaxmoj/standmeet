@@ -1,18 +1,21 @@
-// use-mail —— state + actions for the /admin/connectors Mail (SMTP) panel.
+// use-mail —— 整个 mail (SMTP) connector 的状态都在一个 zustand store 里。
 //
-// 一块状态:connector status (has_credentials / connected / host / from)。
-// saveCredentials 存配置;sendOTP 真发一封 6 位码到 from_address;verifyOTP 码对了
-// backend 才标 connected;disconnect 删配置。所有改 connected 的 mutation 立即
-// refresh status store。
+// 一处管两类状态:
+//   1. 从后端拉的 connector status (has_credentials / connected / host / from)。
+//   2. send-code → 输码 → verify 这套 OTP 交互态 (code / msg / cooldown / sent)。
+// 放一个 store —— verify 成功要就地翻 connected、disconnect 要顺手清掉 OTP flow +
+// 倒计时,两类状态本就耦合。useMail() 是给只关心 status 的地方用的薄 selector;
+// 面板的 OTP 流程直接订阅 useMailStore。
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { z } from 'zod';
+import { create, type StoreApi } from 'zustand';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { logger } from '@/lib/logger';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export const MailStatusSchema = z.object({
@@ -24,11 +27,6 @@ export const MailStatusSchema = z.object({
   port: z.number().optional(),
 });
 export type MailStatus = z.infer<typeof MailStatusSchema>;
-
-export const mailStatusStore = createResourceStore<MailStatus>({
-  name: 'mail-status',
-  fetcher: () => adminAPI.get('/connectors/mail/status', MailStatusSchema),
-});
 
 export interface MailCredsInput {
   host: string;
@@ -44,86 +42,139 @@ export interface MailTestResult {
   error?: string;
 }
 
-export interface MailHook {
-  statusKind: ResourceStatus;
-  status: MailStatus | null;
-  error: string | null;
-  saveCredentials: (input: MailCredsInput) => Promise<boolean>;
-  sendOTP: () => Promise<MailTestResult>;
-  verifyOTP: (code: string) => Promise<MailTestResult>;
-  disconnect: () => Promise<boolean>;
-}
-
-export function useMail(): MailHook {
-  const r = readResource(mailStatusStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  return {
-    statusKind: r.status,
-    status: r.data ?? null,
-    error: r.error,
-    saveCredentials,
-    sendOTP,
-    verifyOTP,
-    disconnect,
-  };
-}
-
-async function saveCredentials(input: MailCredsInput): Promise<boolean> {
-  try {
-    await adminAPI.postVoid('/connectors/mail/credentials', input);
-    await mailStatusStore.getState().refresh();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // MAIL_OTP_COOLDOWN_SECS —— must match backend domain.MailOTPResendCooldown; the
 // resend button is disabled for this long after a send (email-bomb guard, mirrored
 // client-side so the user sees the countdown).
 export const MAIL_OTP_COOLDOWN_SECS = 30;
 
-export interface MailOTPFlow {
+// MailState —— 整个 mail connector 的状态:fetched status + OTP 交互态 + 全部 action。
+export interface MailState {
+  // —— fetched connector status ——
+  status: MailStatus | null;
+  statusKind: ResourceStatus;
+  error: string | null;
+  // —— OTP verify flow ——
   code: string;
-  setCode: (v: string) => void;
   msg: string | null;
   cooldown: number;
   sent: boolean;
-  send: () => Promise<void>;
-  verify: () => Promise<void>;
+  // —— actions ——
+  ensureLoaded: () => Promise<void>;
+  refresh: () => Promise<void>;
+  saveCredentials: (input: MailCredsInput) => Promise<boolean>;
+  disconnect: () => Promise<boolean>;
+  setCode: (v: string) => void;
+  sendCode: () => Promise<void>;
+  verifyCode: () => Promise<void>;
+  resetFlow: () => void;
 }
 
-// useMailOTPFlow —— the send-code → enter-code → verify interaction state. Keeps
-// the panel a pure renderer; the cooldown countdown + send/verify live here.
-export function useMailOTPFlow(hook: MailHook): MailOTPFlow {
-  const [code, setCode] = useState('');
-  const [msg, setMsg] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-  const [sent, setSent] = useState(false);
-  useEffect(() => {
-    if (cooldown <= 0) return undefined;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown]);
-  const send = useCallback(async () => {
-    setMsg('sending…');
-    const r = await hook.sendOTP();
-    setMsg(r.ok ? 'code sent — check your inbox' : (r.error ?? 'could not send the code'));
-    r.ok && setSent(true);
-    r.ok && setCooldown(MAIL_OTP_COOLDOWN_SECS);
-  }, [hook]);
-  const verify = useCallback(async () => {
-    setMsg('verifying…');
-    const r = await hook.verifyOTP(code);
-    setMsg(r.ok ? 'verified ✓' : (r.error ?? 'verification failed'));
-  }, [hook, code]);
-  return { code, setCode, msg, cooldown, sent, send, verify };
+type MailSet = StoreApi<MailState>['setState'];
+type MailGet = StoreApi<MailState>['getState'];
+
+// 倒计时跑在模块级 interval 上,所以离开面板再回来,倒计时还在(后端 429 才是真
+// 防 email-bomb 的闸,这里只镜像让用户看到读秒)。
+let mailCooldownTimer: ReturnType<typeof setInterval> | null = null;
+
+export const useMailStore = create<MailState>((set, get) => ({
+  status: null,
+  statusKind: 'idle',
+  error: null,
+  code: '',
+  msg: null,
+  cooldown: 0,
+  sent: false,
+
+  ensureLoaded: async () => {
+    if (get().statusKind !== 'idle') return;
+    await fetchMailStatus(set);
+  },
+  refresh: async () => { await fetchMailStatus(set); },
+
+  saveCredentials: async (input) =>
+    mutateThenRefresh(set, () => adminAPI.postVoid('/connectors/mail/credentials', input)),
+
+  disconnect: async () => {
+    const ok = await mutateThenRefresh(set,
+      () => adminAPI.postVoid('/connectors/mail/disconnect', {}));
+    if (ok) resetFlowState(set);
+    return ok;
+  },
+
+  setCode: (code) => set({ code }),
+
+  sendCode: async () => {
+    set({ msg: 'sending…' });
+    applySendResult(set, get, await sendOTP());
+  },
+
+  verifyCode: async () => {
+    set({ msg: 'verifying…' });
+    const r = await verifyOTP(get().code);
+    if (!r.ok) { set({ msg: r.error ?? 'verification failed' }); return; }
+    await fetchMailStatus(set); // flips connected → panel switches to ConnectedRow
+    resetFlowState(set);
+  },
+
+  resetFlow: () => resetFlowState(set),
+}));
+
+// MailHook —— useMail() 的返回:给只关心 connector status 的地方用(account / requests
+// 看 connected;面板的 cred 表单 + disconnect 按钮)。OTP flow 直接订阅 useMailStore。
+export interface MailHook {
+  statusKind: ResourceStatus;
+  status: MailStatus | null;
+  error: string | null;
+  saveCredentials: (input: MailCredsInput) => Promise<boolean>;
+  disconnect: () => Promise<boolean>;
+}
+
+export function useMail(): MailHook {
+  const statusKind = useMailStore((s) => s.statusKind);
+  const status = useMailStore((s) => s.status);
+  const error = useMailStore((s) => s.error);
+  const saveCredentials = useMailStore((s) => s.saveCredentials);
+  const disconnect = useMailStore((s) => s.disconnect);
+  const ensureLoaded = useMailStore((s) => s.ensureLoaded);
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  return { statusKind, status, error, saveCredentials, disconnect };
 }
 
 // sendCodeLabel —— button copy: cooldown countdown → 'Resend' once sent → 'Send'.
 export function sendCodeLabel(cooldown: number, sent: boolean): string {
   return cooldown > 0 ? `Resend in ${cooldown}s` : sent ? 'Resend code →' : 'Send code →';
+}
+
+// mailActionsView —— which connector controls to show: nothing (no creds), the
+// verify flow (configured but unverified), or just disconnect (verified).
+export function mailActionsView(status: MailStatus | null): 'none' | 'verify' | 'connected' {
+  if (status?.has_credentials !== true) return 'none';
+  return status.connected ? 'connected' : 'verify';
+}
+
+// ─── internals ────────────────────────────────────────────────
+
+async function fetchMailStatus(set: MailSet): Promise<void> {
+  set({ statusKind: 'loading', error: null });
+  try {
+    const data = await adminAPI.get('/connectors/mail/status', MailStatusSchema);
+    set({ status: data, statusKind: 'ready', error: null });
+  } catch (e) {
+    logger.error('store mail: status fetch', e);
+    set({ statusKind: 'error', error: e instanceof Error ? e.message : 'load failed' });
+  }
+}
+
+// mutateThenRefresh —— run a write, then re-pull status so connected/has_credentials
+// reflect it. Returns false (without throwing) if the write failed.
+async function mutateThenRefresh(set: MailSet, run: () => Promise<void>): Promise<boolean> {
+  try {
+    await run();
+  } catch {
+    return false;
+  }
+  await fetchMailStatus(set);
+  return true;
 }
 
 async function sendOTP(): Promise<MailTestResult> {
@@ -138,19 +189,36 @@ async function sendOTP(): Promise<MailTestResult> {
 async function verifyOTP(code: string): Promise<MailTestResult> {
   try {
     await adminAPI.postVoid('/connectors/mail/verify-otp', { code });
-    await mailStatusStore.getState().refresh();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Verification failed' };
   }
 }
 
-async function disconnect(): Promise<boolean> {
-  try {
-    await adminAPI.postVoid('/connectors/mail/disconnect', {});
-    await mailStatusStore.getState().refresh();
-    return true;
-  } catch {
-    return false;
+function applySendResult(set: MailSet, get: MailGet, r: MailTestResult): void {
+  if (!r.ok) { set({ msg: r.error ?? 'could not send the code' }); return; }
+  set({ msg: 'code sent — check your inbox', sent: true });
+  startMailCooldown(set, get);
+}
+
+function startMailCooldown(set: MailSet, get: MailGet): void {
+  stopMailCooldown();
+  set({ cooldown: MAIL_OTP_COOLDOWN_SECS });
+  mailCooldownTimer = setInterval(() => {
+    const next = get().cooldown - 1;
+    set({ cooldown: next });
+    if (next <= 0) stopMailCooldown();
+  }, 1000);
+}
+
+function stopMailCooldown(): void {
+  if (mailCooldownTimer !== null) {
+    clearInterval(mailCooldownTimer);
+    mailCooldownTimer = null;
   }
+}
+
+function resetFlowState(set: MailSet): void {
+  stopMailCooldown();
+  set({ code: '', msg: null, cooldown: 0, sent: false });
 }
