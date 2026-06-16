@@ -24,11 +24,22 @@ const OWNER = {
   fullName: 'Wiki Ext Owner',
 };
 
+// 14 个 case 分成 4 组注册 —— 原本全堆在一个 describe 回调里(138 行,超
+// max-lines-per-function 70)。拆成 registerXxx() 每组各自 <70 行,describe 只
+// 串起来,执行顺序不变(test() 注册顺序 = 运行顺序)。
 test.describe('wiki landing extended cases', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);
   });
 
+  registerHeroTests();
+  registerLayoutTests();
+  registerSidebarSessionTests();
+  registerGraphTests();
+});
+
+// registerHeroTests —— cover hero / locked / metadata strip / no inline ask。
+function registerHeroTests(): void {
   test('wiki page shows cover hero with title and date',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
@@ -67,7 +78,10 @@ test.describe('wiki landing extended cases', () => {
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
       await expect(page.getByTestId('article-ask-form')).toHaveCount(0);
     });
+}
 
+// registerLayoutTests —— breadcrumb / sticky toc / long-scroll / TopBar。
+function registerLayoutTests(): void {
   // owner: 每种 document 返回自己那类 —— wiki 的「← back」回 /wiki,不是 /writings。
   test('wiki breadcrumb back link goes to /wiki (its own index), not /writings',
     async ({ request, page }) => {
@@ -122,7 +136,10 @@ test.describe('wiki landing extended cases', () => {
       await expect.poll(() => page.evaluate(() =>
         document.documentElement.classList.contains('dark'))).toBe(!before);
     });
+}
 
+// registerSidebarSessionTests —— flush-left sidebar / code session / no session / nesting。
+function registerSidebarSessionTests(): void {
   // owner: toc 贴最左 + 有分割线(可拖)+ 树抬头/统计都在。
   test('sidebar is flush-left with a resize divider, header, and stats',
     async ({ request, page }) => {
@@ -171,7 +188,10 @@ test.describe('wiki landing extended cases', () => {
       await expect(tree.getByTestId(`tree-node-${childPath}`)).toBeVisible({ timeout: 5_000 });
       await expect(tree).toContainText(childTitle);
     });
+}
 
+// registerGraphTests —— [[wikilink]] 渲染 + cited-by/related 反向图。
+function registerGraphTests(): void {
   // owner: Obsidian 双链 —— body 里 [[Title]] 渲染成可点的 /wiki/<path> 链接。
   test('a [[Title]] wikilink in a wiki body renders as a clickable /wiki link',
     async ({ request, page }) => {
@@ -191,7 +211,7 @@ test.describe('wiki landing extended cases', () => {
       const src = await (await request.get(`${BACKEND}/api/v1/wiki/${srcPath}`)).json() as Landing;
       expect((src.related ?? []).map((r) => r.title)).toContain(dstTitle);
     });
-});
+}
 
 type Landing = {
   related?: Array<{ title: string; path: string }>;

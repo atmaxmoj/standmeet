@@ -20,8 +20,8 @@ interface MailpitTo { Address: string }
 interface MailpitMessage { ID: string; To: MailpitTo[]; Subject: string }
 
 // MAIL_FROM —— the connector's from_address (the sender). The OTP itself is sent
-// TO the owner's own email, not here.
-export const MAIL_FROM = 'noreply@standmeet.test';
+// TO the owner's own email, not here. Module-local (only saveMailCreds uses it).
+const MAIL_FROM = 'noreply@standmeet.test';
 
 export async function saveMailCreds(request: APIRequestContext, csrf: string): Promise<void> {
   const res = await request.post(`${BACKEND}/api/admin/connectors/mail/credentials`, {
