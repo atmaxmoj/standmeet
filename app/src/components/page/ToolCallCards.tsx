@@ -25,6 +25,7 @@ import {
 } from '@/lib/page/tool-call-shape';
 import { formatSlotLocal } from '@/lib/page/slot-format';
 import { useBookingsRemaining } from '@/lib/page/use-booking-quota';
+import { useBookingCancel, type BookingCancelControl } from '@/lib/page/use-booking-cancel';
 import type { ToolCallView } from '@/lib/page/use-chat';
 import styles from '@/components/page/ToolCallCards.module.css';
 
@@ -172,12 +173,30 @@ function BookCard({ call, conversationID }: {
 function BookCardBody({ conf, conversationID }: {
   conf: BookConfirmation; conversationID?: string;
 }) {
+  const cancel = useBookingCancel(conf.eventID);
+  const cancelled = cancel.phase === 'cancelled';
   return (
-    <div className={styles['bookCard']} data-testid="tool-card-calendar_book">
-      <div className={styles['kicker']}>booked</div>
+    <div
+      className={styles['bookCard']} data-testid="tool-card-calendar_book"
+      data-cancelled={cancelled}
+    >
+      <div className={styles['kicker']}>{cancelled ? 'cancelled' : 'booked'}</div>
       <div className={styles['bookTime']} data-testid="book-card-time">
         {formatSlotLocal(conf.start, conf.end)}
       </div>
+      {cancelled
+        ? <div className={styles['kicker']} data-testid="book-card-cancelled">this meeting was cancelled</div>
+        : <BookCardLive conf={conf} conversationID={conversationID} cancel={cancel} />}
+    </div>
+  );
+}
+
+// BookCardLive —— 未取消时的 card 下半:GCal 链接 + 确认邮件 widget + 取消按钮。
+function BookCardLive({ conf, conversationID, cancel }: {
+  conf: BookConfirmation; conversationID?: string; cancel: BookingCancelControl;
+}) {
+  return (
+    <>
       {conf.htmlLink !== '' && (
         <a
           href={conf.htmlLink} target="_blank" rel="noopener noreferrer"
@@ -187,6 +206,26 @@ function BookCardBody({ conf, conversationID }: {
         </a>
       )}
       <BookingEmailPrompt conversationID={conversationID} />
+      <BookCardCancel cancel={cancel} />
+    </>
+  );
+}
+
+function BookCardCancel({ cancel }: { cancel: BookingCancelControl }) {
+  return (
+    <div className={styles['cancelRow']}>
+      <button
+        type="button" className={styles['cancelBtn']}
+        disabled={cancel.phase === 'cancelling'}
+        data-testid="book-card-cancel" onClick={cancel.cancel}
+      >
+        cancel meeting
+      </button>
+      {cancel.error !== null && (
+        <span className={styles['cancelErr']} data-testid="book-card-cancel-error">
+          {cancel.error}
+        </span>
+      )}
     </div>
   );
 }

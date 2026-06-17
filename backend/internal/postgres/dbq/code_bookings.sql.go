@@ -63,6 +63,50 @@ func (q *Queries) CreateCodeBooking(ctx context.Context, arg CreateCodeBookingPa
 	return i, err
 }
 
+const getBookingForMemberByEvent = `-- name: GetBookingForMemberByEvent :one
+SELECT b.id, b.owner_id, b.code_id, b.conversation_id, b.google_event_id, b.google_html_link, b.summary, b.start_at, b.end_at, b.visitor_email, b.confirmation_sent_at, b.created_at FROM code_bookings b
+JOIN conversations c ON c.id = b.conversation_id
+WHERE b.google_event_id = $1
+  AND b.owner_id = $2
+  AND b.code_id = $3
+  AND c.member_id = $4
+`
+
+type GetBookingForMemberByEventParams struct {
+	GoogleEventID string
+	OwnerID       pgtype.UUID
+	CodeID        pgtype.UUID
+	MemberID      pgtype.UUID
+}
+
+// #123 访客取消的隔离门:用 google_event_id 找 booking,但只在它属于本 session
+// (owner + code 都对,且其 conversation 归属同一个 member)时才返。任一不匹 → 0 行
+// → caller 翻 ErrBookingNotFound(不泄露存在性)。同码跨 member / 跨 code 都被挡。
+func (q *Queries) GetBookingForMemberByEvent(ctx context.Context, arg GetBookingForMemberByEventParams) (CodeBooking, error) {
+	row := q.db.QueryRow(ctx, getBookingForMemberByEvent,
+		arg.GoogleEventID,
+		arg.OwnerID,
+		arg.CodeID,
+		arg.MemberID,
+	)
+	var i CodeBooking
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.CodeID,
+		&i.ConversationID,
+		&i.GoogleEventID,
+		&i.GoogleHtmlLink,
+		&i.Summary,
+		&i.StartAt,
+		&i.EndAt,
+		&i.VisitorEmail,
+		&i.ConfirmationSentAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLatestBookingByConversation = `-- name: GetLatestBookingByConversation :one
 SELECT id, owner_id, code_id, conversation_id, google_event_id, google_html_link, summary, start_at, end_at, visitor_email, confirmation_sent_at, created_at FROM code_bookings
 WHERE conversation_id = $1

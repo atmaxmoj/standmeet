@@ -33,6 +33,7 @@ import (
 type Handlers struct {
 	Visitor     usecases.VisitorDeps
 	Confirm     usecases.BookingConfirmDeps
+	Cancel      usecases.VisitorCancelDeps
 	Sessions    *session.VisitorSessionStore
 	Corpus      usecases.DialogCorpusLookup
 	Ghosts      usecases.GhostDeps
@@ -61,6 +62,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	// #122: 约成后访客点确认卡 → 这条把一封确认信发到所选地址(引用/透传/不发)。
 	// AI 不参与;后端按 session→conversation 定位最近一笔预约,收件人硬控。
 	r.Post("/booking-confirmation", h.withVisitorSession(h.sendBookingConfirmation()))
+	// #123: 访客取消自己约的会议。隔离在 usecase(owner+code+member 解析 event_id),
+	// 不属于本 member → 404。AI 不参与。
+	r.Post("/booking-cancellation", h.withVisitorSession(h.cancelOwnBooking()))
 	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
 	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。
 	r.Get("/report/{id}", h.withVisitorSession(h.getReport()))

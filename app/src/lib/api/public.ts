@@ -36,7 +36,9 @@ export type {
 
 // 客户端 / SSR baseURL 切换：服务端组件走容器网络 backend:8000，浏览器走
 // 相对路径（Next rewrites 转给后端）。集中一个工厂，避免每个调用点重判。
-function baseURL(): string {
+// baseURL —— 客户端走相对路径(Next rewrites 转后端),SSR 走容器网络。booking.ts
+// 也复用,故 export。
+export function baseURL(): string {
   if (typeof window === 'undefined') {
     return process.env['BACKEND_URL'] ?? 'http://backend:8000';
   }
@@ -173,40 +175,7 @@ export async function openDocConversation(
   }
 }
 
-// BookingConfirmOutcome —— 约成确认信的发送结果。ok=发出/已发(两者都该锁卡);
-// 其余按后端错误码区分给 UI 提示。
-export type BookingConfirmOutcome =
-  | 'sent' | 'already_sent' | 'no_recipient' | 'mail_unavailable' | 'error';
-
-// postBookingConfirmation —— #122: 访客在约成卡上选好(引用/透传)后,把确认信发到
-// 所选地址。前端不持 booking_id —— 只告诉后端 conversation_id + 可选 email + 浏览器
-// 时区;后端按 session→conversation 定位最近一笔预约、硬控收件人、走 owner SMTP。
-export async function postBookingConfirmation(
-  conversationID: string, email: string, sessionToken: string,
-): Promise<BookingConfirmOutcome> {
-  try {
-    const res = await fetch(`${baseURL()}/api/v1/booking-confirmation`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-      body: JSON.stringify({
-        conversation_id: conversationID,
-        email,
-        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      }),
-    });
-    if (res.ok) return 'sent';
-    return bookingConfirmErrorFor(res.status);
-  } catch {
-    return 'error';
-  }
-}
-
-function bookingConfirmErrorFor(status: number): BookingConfirmOutcome {
-  if (status === 409) return 'already_sent';
-  if (status === 422) return 'no_recipient';
-  if (status === 503) return 'mail_unavailable';
-  return 'error';
-}
+// 约成卡的两个 POST(确认信 / 取消)拆到 api/booking.ts 守 350-line cap。
 
 // fetchConversation —— 凭 session token 拉会话聚合(GET /conversations/<id>)。
 // 401/403 = token 失效(过期 / 实例重置 / 撤销)→ 'invalid';其它非 2xx / 网络挂

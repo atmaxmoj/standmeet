@@ -191,6 +191,10 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
 		},
+		Cancel: usecases.VisitorCancelDeps{
+			Client: calendarClientAdapter{client: d.gcalClient},
+			Store:  calendarStoreAdapter{repo: d.calendarRepo},
+		},
 		Sessions:    d.visitorStore,
 		Corpus:      d.corpus,
 		Ghosts:      usecases.GhostDeps{Repo: d.ghostRepo},

@@ -8,7 +8,7 @@
 
 import { useCallback, useState } from 'react';
 
-import { postBookingConfirmation, type BookingConfirmOutcome } from '@/lib/api/public';
+import { postBookingConfirmation, type BookingConfirmOutcome } from '@/lib/api/booking';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 

@@ -103,6 +103,17 @@ func (a calendarStoreAdapter) DeleteBooking(
 	return nil
 }
 
+// #123: member-scoped 取消隔离门 pass-through (no input translation).
+func (a calendarStoreAdapter) BookingForMemberByEvent(
+	ctx context.Context, ownerID, codeID, memberID, eventID string,
+) (domain.CodeBooking, error) {
+	out, err := a.repo.BookingForMemberByEvent(ctx, ownerID, codeID, memberID, eventID)
+	if err != nil {
+		return out, fmt.Errorf("adapter booking for member by event: %w", err)
+	}
+	return out, nil
+}
+
 // calendarClientAdapter —— wraps *gcal.Client.
 type calendarClientAdapter struct {
 	client *gcal.Client

@@ -278,6 +278,49 @@ func (r *CalendarRepo) LatestBookingForConversation(
 	return toDomainBooking(&row), nil
 }
 
+// BookingForMemberByEvent —— #123 取消隔离门:按 google_event_id 找 booking,但
+// 仅当它属于本 session(owner + code 都对、conversation 归属同一 member)才返;否则
+// → domain.ErrBookingNotFound(不泄露存在性)。同码跨 member / 跨 code 都被挡。
+func (r *CalendarRepo) BookingForMemberByEvent(
+	ctx context.Context, ownerID, codeID, memberID, eventID string,
+) (domain.CodeBooking, error) {
+	params, perr := memberScopeParams(ownerID, codeID, memberID, eventID)
+	if perr != nil {
+		return domain.CodeBooking{}, perr // ErrBookingNotFound(空/非法 member)或 parse err
+	}
+	row, qerr := dbq.New(r.pool).GetBookingForMemberByEvent(ctx, *params)
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return domain.CodeBooking{}, domain.ErrBookingNotFound
+		}
+		return domain.CodeBooking{}, fmt.Errorf("booking for member by event: %w", qerr)
+	}
+	return toDomainBooking(&row), nil
+}
+
+// memberScopeParams —— 解 owner/code/member UUID。member 空/非法(公开访客)直接
+// → ErrBookingNotFound(没有归属 = 当作不存在,而非 500)。
+func memberScopeParams(
+	ownerID, codeID, memberID, eventID string,
+) (*dbq.GetBookingForMemberByEventParams, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	codeUUID, err := parseUUID(codeID)
+	if err != nil {
+		return nil, fmt.Errorf("parse code id: %w", err)
+	}
+	memberUUID, err := parseUUID(memberID)
+	if err != nil {
+		return nil, domain.ErrBookingNotFound
+	}
+	return &dbq.GetBookingForMemberByEventParams{
+		GoogleEventID: eventID, OwnerID: ownerUUID,
+		CodeID: codeUUID, MemberID: memberUUID,
+	}, nil
+}
+
 // MarkBookingConfirmed —— #122: 标记这笔已发过确认信(幂等)。
 func (r *CalendarRepo) MarkBookingConfirmed(ctx context.Context, bookingID string) error {
 	bookingUUID, err := parseUUID(bookingID)

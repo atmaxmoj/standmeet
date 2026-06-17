@@ -132,6 +132,33 @@
 }
 .bookLink:hover { color: var(--color-accent-soft); }
 
+/* #123 cancel —— 朴素文字按钮,克制(取消是破坏性动作,不抢戏)。 */
+.cancelRow {
+  margin-top: 0.7em;
+  padding-top: 0.6em;
+  border-top: 1px dashed color-mix(in oklab, var(--color-ink) 14%, transparent);
+}
+.cancelBtn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  background: transparent;
+  border: none;
+  padding: 0.2em 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cancelBtn:hover:not(:disabled) { color: var(--color-accent); }
+.cancelBtn:disabled { opacity: 0.5; cursor: default; }
+.cancelErr {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent);
+  margin-left: 0.6em;
+}
+
 /* generic skill / ext dump —— debug 风：mono、paper 底、size 收。 */
 .genericCard {
   padding: 0.6em 0.9em;
