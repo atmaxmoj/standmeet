@@ -21,11 +21,11 @@ test.describe('chat · calendar.book happy path', () => {
       const start = futureSlot(7, 14);   // 7 days out, 14:00 local
       await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
+        // 无 visitor_email arg —— booker 硬控走 session profile 的 email。
         args: {
           topic: 'Recruiter chat about retrieval-quality role',
           duration_min: 30,
           preferred_times: [start],
-          visitor_email: 'rachel@example.com',
         },
       });
       await sendAndDrain(seed.request, seed.visitor, 'Can we book a 30-min chat next week?');
@@ -33,6 +33,7 @@ test.describe('chat · calendar.book happy path', () => {
       expect(events).toHaveLength(1);
       expect(events[0]!.summary).toContain('Recruiter Rachel');
       expect(events[0]!.summary).toContain('Recruiter chat about retrieval-quality role');
+      // attendee 来自 session profile 的 email(seed 里 rachel@example.com),不是 tool arg。
       expect(events[0]!.attendees ?? []).toEqual(
         expect.arrayContaining([expect.objectContaining({ email: 'rachel@example.com' })]),
       );

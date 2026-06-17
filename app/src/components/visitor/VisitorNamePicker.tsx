@@ -20,6 +20,7 @@ import {
 import { memberCapacityLine, useCodeIntro } from '@/lib/gate/use-code-intro';
 import {
   loadVisitorName,
+  loadVisitorEmail,
   useShouldAskVisitorName,
 } from '@/lib/visitor/visitor-name';
 
@@ -29,13 +30,14 @@ export function VisitorNamePicker() {
 }
 
 function Modal() {
-  // 初值从 localStorage load 上次用的名字(同一个人再开自动带出来)。
+  // 初值从 localStorage load 上次用的名字 + 可选邮箱(同一个人再开自动带出来)。
   const [name, setName] = useState(loadVisitorName);
+  const [email, setEmail] = useState(loadVisitorEmail);
   const [full, setFull] = useState(false);
   const code = usePendingCodeStore((s) => s.code);
   const intro = useCodeIntro();
   const { issue, busy } = useIssuePendingCode();
-  const onSubmit = () => { void settleOutcome(submitPickerName(name, issue), setFull); };
+  const onSubmit = () => { void settleOutcome(submitPickerName(name, email, issue), setFull); };
   const onDismiss = () => { void settleOutcome(dismissPicker(issue), setFull); };
   return (
     // 点窗外(backdrop,非 card)= dismiss:换人窗取消保持原 session,首次则 skip。
@@ -47,7 +49,8 @@ function Modal() {
       <div className="sm-visitor-name-card sm-rise">
         <PickerHeader code={code} greeting={intro?.greeting ?? ''} />
         <PickerBody
-          name={name} onName={setName} going={busy} full={full}
+          name={name} onName={setName} email={email} onEmail={setEmail}
+          going={busy} full={full}
           capacityLine={memberCapacityLine(intro)}
           onSubmit={onSubmit}
           onDismiss={onDismiss}
@@ -86,6 +89,8 @@ function PickerHeader({ code, greeting }: { code: string | null; greeting: strin
 interface BodyProps {
   name: string;
   onName: (v: string) => void;
+  email: string;
+  onEmail: (v: string) => void;
   going: boolean;
   full: boolean;
   capacityLine: string;
@@ -151,6 +156,14 @@ function PickerForm(props: BodyProps) {
         autoFocus
         className="sm-visitor-name-input"
         data-testid="visitor-name-input"
+      />
+      <input
+        type="email"
+        value={props.email}
+        onChange={(e) => props.onEmail(e.target.value)}
+        placeholder="email (optional, for meeting invites)"
+        className="sm-visitor-name-input"
+        data-testid="visitor-email-input"
       />
       <button
         type="submit"

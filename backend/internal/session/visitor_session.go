@@ -53,7 +53,9 @@ type VisitorSessionData struct {
 	Mode         string               `json:"mode"`
 	CodeID       string               `json:"code_id"`
 	MemberID     string               `json:"member_id"`
-	VisitorName  string               `json:"visitor_name"`
+	// Visitor —— 访客自述身份(name + 可选 email)。挂 session(visitor 身份),
+	// 不挂 chat。booker 拿 Email 当 visitor_email 兜底。
+	Visitor domain.VisitorProfile `json:"visitor"`
 }
 
 // VisitorSessionStore wrap Redis 提供 visitor session CRUD。

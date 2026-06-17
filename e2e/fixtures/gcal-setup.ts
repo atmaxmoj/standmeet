@@ -95,9 +95,11 @@ export async function seedCodeVisitorOnConnectedOwner(
     granted_skills: input.granted_skills ?? ['calendar.book'],
     max_bookings: input.max_bookings,
   });
+  // visitor_email 进 session profile —— booking 的 invite 收件人硬控走它
+  // (calendar_book 不再接受 visitor_email tool arg)。
   const visitor = await issueSession(seed.request, {
     handle: OWNER.handle, mode: 'code', code: code.code,
-    visitor_name: 'Recruiter Rachel',
+    visitor_name: 'Recruiter Rachel', visitor_email: 'rachel@example.com',
   });
   return { ...seed, code, visitor };
 }

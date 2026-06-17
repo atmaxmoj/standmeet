@@ -57,10 +57,11 @@ type VisitorDeps struct {
 // MemberID —— client 上次存的 member_id(尤其匿名者);带上就凭 id 续会,
 // 失效则退到按 VisitorName / 新建匿名。
 type IssueCodeSessionInput struct {
-	Code        string
-	VisitorName string
-	MemberID    string
-	ClientIP    string // 访客来源 IP（IP 感知）；空 = 未知
+	Code         string
+	VisitorName  string
+	VisitorEmail string // 可选;访客进入时填的邮箱 → session profile
+	MemberID     string
+	ClientIP     string // 访客来源 IP（IP 感知）；空 = 未知
 }
 
 // SessionQuota —— 当前 conversation 的 turn 配额；visitor UI 用来渲剩余。
@@ -179,7 +180,9 @@ func issueCodeSessionArtifacts(
 	if serr != nil {
 		return codeSessionArtifacts{}, serr
 	}
-	sd := buildCodeSessionData(code, in.VisitorName, member.ID, &snapshot)
+	sd := buildCodeSessionData(code, domain.VisitorProfile{
+		Name: in.VisitorName, Email: in.VisitorEmail,
+	}, member.ID, &snapshot)
 	issued, err := deps.Sessions.Issue(ctx, sd)
 	if err != nil {
 		return codeSessionArtifacts{}, fmt.Errorf("issue visitor session: %w", err)
@@ -330,14 +333,15 @@ func createCodeConversation(
 }
 
 func buildCodeSessionData(
-	code *domain.AccessCode, visitorName, memberID string, snapshot *domain.RoleSnapshot,
+	code *domain.AccessCode, visitor domain.VisitorProfile,
+	memberID string, snapshot *domain.RoleSnapshot,
 ) *session.VisitorSessionData {
 	return &session.VisitorSessionData{
 		OwnerID:      code.OwnerID,
 		Mode:         "code",
 		CodeID:       code.ID,
 		MemberID:     memberID,
-		VisitorName:  visitorName,
+		Visitor:      visitor,
 		MaxBookings:  code.MaxBookings,
 		RoleSnapshot: snapshot,
 	}

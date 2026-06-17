@@ -16,6 +16,8 @@ export function useShouldAskVisitorName(): boolean {
 // VISITOR_NAME_KEY —— 上次用的名字。defer-issue 下名字选择器每次扫码都弹,
 // 但同一个人(同浏览器)不该每次重打名字 → 存一份,再开自动 load 进输入框。
 const VISITOR_NAME_KEY = 'standmeet-visitor-name';
+// VISITOR_EMAIL_KEY —— 同理:可选邮箱也存一份,返回访客不用重打(#121)。
+const VISITOR_EMAIL_KEY = 'standmeet-visitor-email';
 
 // loadVisitorName —— 读上次存的名字(给名字选择器预填);没有 → 空串。
 export function loadVisitorName(): string {
@@ -24,6 +26,26 @@ export function loadVisitorName(): string {
     return window.localStorage.getItem(VISITOR_NAME_KEY) ?? '';
   } catch {
     return '';
+  }
+}
+
+// loadVisitorEmail —— 读上次存的可选邮箱(预填);没有 → 空串。
+export function loadVisitorEmail(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(VISITOR_EMAIL_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+// rememberVisitorEmail —— 提交时存下可选邮箱,下次自动 load。
+export function rememberVisitorEmail(email: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(VISITOR_EMAIL_KEY, email);
+  } catch {
+    // LS 满 / 不可用 → silent。
   }
 }
 

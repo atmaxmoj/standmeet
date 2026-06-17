@@ -43,7 +43,7 @@ func runOpenDocConversation(h *Handlers, w http.ResponseWriter, r *http.Request,
 	chat, err := usecases.OpenConversationForDoc(r.Context(), &h.Visitor,
 		&usecases.OpenConvForDocInput{
 			OwnerID: av.Data.OwnerID, CodeID: av.Data.CodeID, MemberID: av.Data.MemberID,
-			VisitorName: av.Data.VisitorName, Mode: av.Data.Mode, DocKey: req.DocKey,
+			VisitorName: av.Data.Visitor.Name, Mode: av.Data.Mode, DocKey: req.DocKey,
 		})
 	if err != nil {
 		handleVisitorErr(h.Log, w, err)

@@ -61,7 +61,7 @@ func LoadVisitorView(
 	}
 	return VisitorView{
 		Session: ConvSession{
-			VisitorName: data.VisitorName,
+			VisitorName: data.Visitor.Name,
 			Code:        codeView(ctx, deps, data.CodeID),
 			UsedTurns:   memberUsedTurns(ctx, deps, data.MemberID),
 		},

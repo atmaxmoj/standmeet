@@ -43,7 +43,7 @@ type AssembleInput struct {
 	OwnerID        string
 	Mode           string
 	CodeID         string
-	VisitorName    string
+	Visitor        domain.VisitorProfile
 	ConversationID string
 }
 

@@ -40,6 +40,7 @@ export interface IssueSessionInput {
   mode?: 'code' | 'public';
   code?: string;
   visitor_name?: string;
+  visitor_email?: string;
   member_id?: string;
 }
 

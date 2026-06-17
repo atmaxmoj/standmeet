@@ -16,7 +16,9 @@ import { persistSession } from '@/lib/gate/use-gate';
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
-import { loadMemberID, rememberMemberID, rememberVisitorName } from '@/lib/visitor/visitor-name';
+import {
+  loadMemberID, rememberMemberID, rememberVisitorName, rememberVisitorEmail,
+} from '@/lib/visitor/visitor-name';
 
 // IssueOutcome —— ok 成功;full 名字满了(picker 显 "code 已满");invalid 码无效
 // /过期(丢掉 pending、回落 public);error 其它(网络抖动,保留 pending 可重试)。
@@ -27,7 +29,8 @@ export type IssueOutcome = 'ok' | 'full' | 'invalid' | 'error';
 // re-issue 反而触发前端 startedAt-reset 清屏 + issue 响应 used_turns=0 看着像归零。
 // 名字不一样 / 还没 session → 真 issue(新名字 = 新 member = 新对话)。
 export async function submitPickerName(
-  name: string, issue: (name: string | null) => Promise<IssueOutcome>,
+  name: string, email: string,
+  issue: (name: string | null, email: string) => Promise<IssueOutcome>,
 ): Promise<IssueOutcome> {
   const trimmed = name.trim();
   const current = useVisitorSessionStore.getState().session?.visitor ?? null;
@@ -36,40 +39,41 @@ export async function submitPickerName(
     return 'ok';
   }
   rememberVisitorName(trimmed);
-  return issue(trimmed);
+  rememberVisitorEmail(email.trim());
+  return issue(trimmed, email.trim());
 }
 
 // dismissPicker —— skip / 点窗外。已有 session(换人窗)→ 取消,保持原 session
 // (consume,不 issue 匿名,免得凭空多一个 guest member + 新对话)。还没 session
 // (首次)→ skip = 匿名 issue。
 export async function dismissPicker(
-  issue: (name: string | null) => Promise<IssueOutcome>,
+  issue: (name: string | null, email: string) => Promise<IssueOutcome>,
 ): Promise<IssueOutcome> {
   if (useVisitorSessionStore.getState().session !== null) {
     usePendingCodeStore.getState().consume();
     return 'ok';
   }
-  return issue(null);
+  return issue(null, '');
 }
 
 interface IssuePending {
   busy: boolean;
-  issue: (name: string | null) => Promise<IssueOutcome>;
+  issue: (name: string | null, email: string) => Promise<IssueOutcome>;
 }
 
 export function useIssuePendingCode(): IssuePending {
   const [busy, setBusy] = useState(false);
-  const issue = useCallback(async (name: string | null): Promise<IssueOutcome> => {
+  const issue = useCallback(async (name: string | null, email: string): Promise<IssueOutcome> => {
     const code = usePendingCodeStore.getState().code;
     if (code === null) return 'error';
     setBusy(true);
     try {
       // 具名:按名字解析(名字就是身份,改名能改人)。匿名(skip):带上次存的
-      // member_id 续会(没有就后端新建一个独立 guest member)。
+      // member_id 续会(没有就后端新建一个独立 guest member)。email 可选。
       const sess = await issueCodeSession(
         name === null
           ? { code, member_id: loadMemberID() || undefined }
-          : { code, visitor_name: name },
+          : { code, visitor_name: name, visitor_email: email || undefined },
       );
       persistSession(sess, false);
       useGhostsStore.getState().seed(sess.ghosts ?? []);

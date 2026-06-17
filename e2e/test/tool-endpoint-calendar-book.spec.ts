@@ -65,7 +65,6 @@ test.describe('tool endpoint · calendar_book happy + gating + quota cascade', (
         topic: 'Recruiter intro',
         duration_min: 30,
         preferred_times: [future(7, 14)],
-        visitor_email: 'rachel@example.com',
       });
       expect(status).toBe(200);
       expect(body.ok, 'endpoint envelope ok').toBe(true);

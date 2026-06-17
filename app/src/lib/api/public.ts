@@ -51,6 +51,7 @@ function client(): StandMeetClient {
 export interface IssueCodeSessionInput {
   code: string;
   visitor_name?: string;
+  visitor_email?: string; // 可选;进入时填的邮箱 → session profile
   member_id?: string;
 }
 

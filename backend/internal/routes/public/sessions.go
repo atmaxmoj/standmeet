@@ -26,6 +26,7 @@ type createSessionRequest struct {
 	Mode          string `json:"mode"` // 'code' | 'public' | 'byoai'
 	Code          string `json:"code,omitempty"`
 	VisitorName   string `json:"visitor_name,omitempty"`
+	VisitorEmail  string `json:"visitor_email,omitempty"` // 可选;进入时填的邮箱
 	MemberID      string `json:"member_id,omitempty"`
 	BYOAIProvider string `json:"byoai_provider,omitempty"`
 }
@@ -127,14 +128,16 @@ func dispatchIssueSession(
 ) (usecases.IssueCodeSessionResult, error) {
 	if pickMode(req) == "code" {
 		return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{
-			Code:        req.Code,
-			VisitorName: req.VisitorName,
-			MemberID:    req.MemberID,
-			ClientIP:    clientIP,
+			Code:         req.Code,
+			VisitorName:  req.VisitorName,
+			VisitorEmail: req.VisitorEmail,
+			MemberID:     req.MemberID,
+			ClientIP:     clientIP,
 		})
 	}
 	return usecases.IssuePublicSession(ctx, deps, &usecases.IssuePublicSessionInput{
 		VisitorName:   req.VisitorName,
+		VisitorEmail:  req.VisitorEmail,
 		BYOAIProvider: req.BYOAIProvider,
 		ClientIP:      clientIP,
 	})
@@ -232,7 +235,7 @@ func assembleInputFromSession(
 		OwnerID:        data.OwnerID,
 		Mode:           data.Mode,
 		CodeID:         data.CodeID,
-		VisitorName:    data.VisitorName,
+		Visitor:        data.Visitor,
 		ConversationID: conversationID,
 	}
 }

@@ -22,8 +22,8 @@ func bookerBindingTool(run agentskills.RunFn) agentskills.BindingTool {
 		"Book a meeting on the owner's Google Calendar. "+
 			"Only call after you have gathered topic, duration (15-180 minutes), "+
 			"and one or more visitor-confirmed preferred start times in RFC3339 "+
-			"format. Optionally include a visitor_email so Google sends the "+
-			"calendar invite.",
+			"format. The invite goes to the email the visitor gave when they "+
+			"entered (if any) — you do not supply a recipient.",
 		"booking meeting",
 		json.RawMessage(`{
 			"type":"object",
@@ -34,8 +34,7 @@ func bookerBindingTool(run agentskills.RunFn) agentskills.BindingTool {
 					"type":"array",
 					"items":{"type":"string","description":"RFC3339"},
 					"minItems":1
-				},
-				"visitor_email":{"type":"string","format":"email"}
+				}
 			},
 			"required":["topic","duration_min","preferred_times"]
 		}`),
@@ -57,10 +56,13 @@ func runBookerBook(
 		OwnerTZ:        owner.ProfileTimezone,
 		CodeID:         in.CodeID,
 		ConversationID: in.ConversationID,
-		VisitorName:    in.VisitorName,
+		VisitorName:    in.Visitor.Name,
 		Topic:          args.Topic,
-		VisitorEmail:   args.VisitorEmail,
-		DurationMin:    args.DurationMin,
+		// 收件人**硬控**走 session profile —— 访客进入时亲手填的 email(#121),
+		// 不接受 AI tool 参数。防 prompt 注入让 owner 日历给任意地址发 invite;
+		// 没填则空 → buildAttendees 不加任何 attendee。
+		VisitorEmail: in.Visitor.Email,
+		DurationMin:  args.DurationMin,
 	})
 	if berr != nil {
 		return marshalBookErr(berr), nil
@@ -70,7 +72,6 @@ func runBookerBook(
 
 type bookArgsWire struct {
 	Topic          string      `json:"topic"`
-	VisitorEmail   string      `json:"visitor_email"`
 	PreferredTimes []time.Time `json:"preferred_times"`
 	DurationMin    int         `json:"duration_min"`
 }

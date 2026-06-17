@@ -22,6 +22,7 @@ import (
 // 没有 Handle 字段：v1 单 owner instance，访客落到根 / 就是这位 owner。
 type IssuePublicSessionInput struct {
 	VisitorName   string
+	VisitorEmail  string // 可选;访客进入时填的邮箱 → session profile
 	BYOAIProvider string // 'anthropic' | 'openai' | '' (无 BYOAI)
 	ClientIP      string // 访客来源 IP（IP 感知）；空 = 未知
 }
@@ -86,7 +87,7 @@ func finalizePublicSession(
 	issued, err := deps.Sessions.Issue(ctx, &session.VisitorSessionData{
 		OwnerID:      owner.ID,
 		Mode:         mode,
-		VisitorName:  in.VisitorName,
+		Visitor:      domain.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},
 		RoleSnapshot: &snapshot,
 	})
 	if err != nil {
