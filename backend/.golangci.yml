@@ -256,6 +256,10 @@ linters:
       # 白盒单测;同上豁免 testpackage。
       - path: internal/marketplace/
         linters: [testpackage]
+      # usecases 的 resolveConfirmation(#122 确认信归属/幂等/收件人那一关)是
+      # unexported 纯逻辑,值得白盒单测(UI 锁卡 → e2e 走不到幂等 409);同上豁免。
+      - path: internal/usecases/
+        linters: [testpackage]
       # postgres-boundary 层与 pgx/sqlc 接口打交道，`any` 在驱动
       # 契约里是不可避免的（pgx Scan(dest ...any)、json.Marshal(v any) 等）。
       # 业务层 ban `any` 让信息流可读；这里反过来豁免。

@@ -103,6 +103,11 @@ type askRequest struct {
 	// real). Tests whether the agent invokes an owner-registered MCP tool. Needs a
 	// running MCP server (the repo's mcp-server-mock: EVAL_MCP_URL=http://localhost:9100/mcp).
 	MCP bool `json:"mcp"`
+	// VisitorTimezone / OwnerTimezone —— #120: 把访客浏览器时区 + owner 日历时区锚进
+	// 通用 instruction(instructionWithDateTime)。让 booking 用例能验"agent 按访客
+	// 时区解释其给的时间、换算到 owner 日历时区"。空 → 退 UTC。
+	VisitorTimezone string `json:"visitor_timezone"`
+	OwnerTimezone   string `json:"owner_timezone"`
 }
 
 // demoOwnerSkill —— a representative owner-curated skill: a tool the agent has no
@@ -216,6 +221,9 @@ func askCandidate(
 		Tools:          agent.Tools,
 		ProgressLabels: agent.Labels,
 		ReturnDirectly: agent.ReturnDirectly,
+		// #120: 喂 owner + 访客时区进通用 instruction(instructionWithDateTime)。
+		OwnerTimezone:   req.OwnerTimezone,
+		VisitorTimezone: req.VisitorTimezone,
 	}
 	sink := newCaptureSink()
 	if err := agentcore.RunAgentLoop(ctx, log, in, sink); err != nil {

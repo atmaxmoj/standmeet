@@ -24,9 +24,19 @@ var (
 
 // BookingConfirmDeps —— 只装这段 usecase 真用的三样(窄依赖,不胖 VisitorDeps)。
 type BookingConfirmDeps struct {
-	Calendar *postgres.CalendarRepo // 查这笔 booking + 标记已发
-	Mail     *postgres.MailRepo     // owner mail connector
-	Owners   *postgres.OwnerRepo    // owner tz/名字 + connector 复用
+	Calendar ConfirmationCalendar // 查这笔 booking + 标记已发
+	Mail     *postgres.MailRepo   // owner mail connector
+	Owners   *postgres.OwnerRepo  // owner tz/名字 + connector 复用
+}
+
+// ConfirmationCalendar —— SendBookingConfirmation 只用 calendar 的两样:定位该对话
+// 最近一笔预约 + 标记已发。窄接口(不绑 *postgres.CalendarRepo)让 resolveConfirmation
+// 的归属/幂等/收件人逻辑能用 fake 单测。*postgres.CalendarRepo 满足它。
+type ConfirmationCalendar interface {
+	LatestBookingForConversation(
+		ctx context.Context, conversationID string,
+	) (domain.CodeBooking, error)
+	MarkBookingConfirmed(ctx context.Context, bookingID string) error
 }
 
 // SendBookingConfirmationInput —— OwnerID/ConversationID/CodeID 来自 session;

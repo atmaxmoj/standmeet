@@ -26,6 +26,8 @@ import sys
 import textwrap
 import time
 import urllib.request
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 BIN = os.environ.get("EVAL_BIN", "./eval-harness-bin")
 PERSONA = os.environ.get("EVAL_PERSONA", "fixtures/personas/marcus-chen")
@@ -60,6 +62,28 @@ def count(r, sub):
     return sum(1 for t in r.get("tools", []) if sub in t["name"])
 
 
+def booked_local_hour(r, tzname, hour):
+    """True if calendar_book fired with a preferred time that lands on `hour`
+    in `tzname` (DST-safe via zoneinfo). #120: distinguishes correct
+    visitor-tz interpretation from the agent assuming UTC or the owner's tz."""
+    tz = ZoneInfo(tzname)
+    for t in r.get("tools", []):
+        if "calendar_book" not in t["name"]:
+            continue
+        try:
+            args = json.loads(t["args"])
+        except (ValueError, TypeError):
+            continue
+        for ts in args.get("preferred_times", []):
+            try:
+                dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                continue
+            if dt.astimezone(tz).hour == hour:
+                return True
+    return False
+
+
 # ---------- the suite ----------
 CONFLICT = {"EVAL_BOOKING_FAIL": "conflict"}
 
@@ -77,6 +101,19 @@ CASES = [
              "question": "Show me your open 30-minute slots on the calendar for the week of "
                          "June 9th 2026 — just list the available times."},
      "checks": [("calendar_list_slots fired", lambda r: fired(r, "calendar_list_slots"))]},
+    # #120: visitor gives a bare wall-clock time; the agent knows the visitor's
+    # timezone (LA) and the owner's calendar tz (NY), so it must book 2pm Pacific
+    # — NOT 2pm UTC and NOT 2pm New-York-time. Catches the regression where the
+    # agent has to ask, or silently assumes UTC / the owner's zone.
+    {"name": "booking-visitor-timezone", "dim": "tool · booking · #120 tz", "kind": "assert",
+     "req": {"mode": "code", "booking": True,
+             "visitor_timezone": "America/Los_Angeles",
+             "owner_timezone": "America/New_York",
+             "question": "Book me a 30-minute call on Wednesday 2026-06-10 at 2pm my time. "
+                         "Topic 'Sync', just take that slot — don't ask me anything."},
+     "checks": [("calendar_book fired", lambda r: fired(r, "calendar_book")),
+                ("booked 2pm visitor-local (LA), not UTC / owner-tz",
+                 lambda r: booked_local_hour(r, "America/Los_Angeles", 14))]},
     {"name": "booking-vague-slots", "dim": "tool · booking judgment", "kind": "human",
      "req": {"mode": "code", "booking": True,
              "question": "What times are you free for a call next week?"},
