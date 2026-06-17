@@ -27,9 +27,11 @@ type Props = {
   // onAsk —— I.1: ask_visitor 卡里的 button click 走这条把选中项当作下
   // 一 turn 投出去；不传 → ask_visitor 卡不渲 (功能未启用)。
   onAsk?: (q: string) => void;
+  // conversationID —— #122: 这段对话 id,BookCard 发约成确认信时带上。
+  conversationID?: string;
 };
 
-export function ConversationDeck({ ownerHandle, dialogs, onAsk }: Props) {
+export function ConversationDeck({ ownerHandle, dialogs, onAsk, conversationID }: Props) {
   // The ask input sits up in the hero; the answer streams in down here. Without
   // this, asking leaves the viewport on the empty input and looks like nothing
   // happened. Scroll the newest Q/A to the top of the view the moment it's added
@@ -49,7 +51,7 @@ export function ConversationDeck({ ownerHandle, dialogs, onAsk }: Props) {
       {dialogs.map((d, i) => (
         <DialogCard
           key={d.id} idx={i} dialog={d}
-          ownerHandle={ownerHandle} onAsk={onAsk}
+          ownerHandle={ownerHandle} onAsk={onAsk} conversationID={conversationID}
           cardRef={i === dialogs.length - 1 ? lastCardRef : undefined}
         />
       ))}
@@ -57,9 +59,10 @@ export function ConversationDeck({ ownerHandle, dialogs, onAsk }: Props) {
   );
 }
 
-function DialogCard({ idx, dialog, ownerHandle, onAsk, cardRef }: {
+function DialogCard({ idx, dialog, ownerHandle, onAsk, conversationID, cardRef }: {
   idx: number; dialog: Dialog; ownerHandle: string;
   onAsk?: (q: string) => void;
+  conversationID?: string;
   cardRef?: React.Ref<HTMLElement>;
 }) {
   return (
@@ -68,7 +71,10 @@ function DialogCard({ idx, dialog, ownerHandle, onAsk, cardRef }: {
       <p className="font-serif italic mb-7 text-[22px] leading-[1.3] font-[380] tracking-[-0.003em] [text-wrap:pretty]">
         {dialog.q}
       </p>
-      <AssistantBody dialog={dialog} ownerHandle={ownerHandle} onAsk={onAsk} />
+      <AssistantBody
+        dialog={dialog} ownerHandle={ownerHandle}
+        onAsk={onAsk} conversationID={conversationID}
+      />
     </article>
   );
 }
@@ -82,8 +88,9 @@ function VisitorLabel({ time }: { time: string }) {
   );
 }
 
-function AssistantBody({ dialog, ownerHandle, onAsk }: {
+function AssistantBody({ dialog, ownerHandle, onAsk, conversationID }: {
   dialog: Dialog; ownerHandle: string; onAsk?: (q: string) => void;
+  conversationID?: string;
 }) {
   // throbber 是 observer 对 agent 的实时观察:只显 agent 此刻在跑的那个 tool,
   // turn 落地即被 use-chat 清成 null 而消失,由 AnswerOrError 里折叠的 searched
@@ -93,7 +100,10 @@ function AssistantBody({ dialog, ownerHandle, onAsk }: {
       <ToolThrobber tool={dialog.currentTool} />
       {dialog.pending
         ? <Thinking retrying={dialog.retrying} tool={dialog.currentTool} />
-        : <AnswerOrError dialog={dialog} ownerHandle={ownerHandle} onAsk={onAsk} />}
+        : <AnswerOrError
+            dialog={dialog} ownerHandle={ownerHandle}
+            onAsk={onAsk} conversationID={conversationID}
+          />}
     </>
   );
 }
@@ -117,13 +127,17 @@ function ToolThrobber({ tool }: { tool: ToolThrobberView | null }) {
   );
 }
 
-function AnswerOrError({ dialog, ownerHandle, onAsk }: {
+function AnswerOrError({ dialog, ownerHandle, onAsk, conversationID }: {
   dialog: Dialog; ownerHandle: string; onAsk?: (q: string) => void;
+  conversationID?: string;
 }) {
   return (
     <>
       <AssistantLabel ownerHandle={ownerHandle} />
-      <ToolCallCards calls={dialog.answer.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
+      <ToolCallCards
+        calls={dialog.answer.toolCalls} dialogID={dialog.id}
+        onAsk={onAsk} conversationID={conversationID}
+      />
       <AnswerView answer={dialog.answer} />
     </>
   );

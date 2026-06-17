@@ -87,17 +87,20 @@ func DefaultBookingPolicy(ownerID string) BookingPolicy {
 
 // CodeBooking —— 持久化的 calendar.book 记录（一条事件 = 一行）。
 type CodeBooking struct {
-	StartAt        time.Time
-	EndAt          time.Time
-	CreatedAt      time.Time
-	ID             string
-	OwnerID        string
-	CodeID         string
-	ConversationID string
-	GoogleEventID  string
-	GoogleHTMLLink string
-	Summary        string
-	VisitorEmail   string
+	StartAt   time.Time
+	EndAt     time.Time
+	CreatedAt time.Time
+	// ConfirmationSentAt —— 访客点过"发确认邮件"后落的时间;nil = 没发过。
+	// 一笔 booking 只发一次:非 nil 时再发 → ErrConfirmationAlreadySent。
+	ConfirmationSentAt *time.Time
+	ID                 string
+	OwnerID            string
+	CodeID             string
+	ConversationID     string
+	GoogleEventID      string
+	GoogleHTMLLink     string
+	Summary            string
+	VisitorEmail       string
 }
 
 // BookConflictReason / BookResult / BookBusyWindow 见 booking_result.go。

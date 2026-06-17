@@ -776,6 +776,9 @@ CREATE TABLE code_bookings (
     start_at          timestamptz   NOT NULL,
     end_at            timestamptz   NOT NULL,
     visitor_email     citext,
+    -- confirmation_sent_at —— 访客点过"发确认邮件"后落的时间;NULL = 没发过。
+    -- 一笔 booking 只发一次的幂等依据。
+    confirmation_sent_at timestamptz,
     created_at        timestamptz   NOT NULL DEFAULT now()
 );
 

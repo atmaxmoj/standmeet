@@ -75,17 +75,18 @@ type ChatReport struct {
 }
 
 type CodeBooking struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
-	CodeID         pgtype.UUID
-	ConversationID pgtype.UUID
-	GoogleEventID  string
-	GoogleHtmlLink string
-	Summary        string
-	StartAt        pgtype.Timestamptz
-	EndAt          pgtype.Timestamptz
-	VisitorEmail   *string
-	CreatedAt      pgtype.Timestamptz
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	CodeID             pgtype.UUID
+	ConversationID     pgtype.UUID
+	GoogleEventID      string
+	GoogleHtmlLink     string
+	Summary            string
+	StartAt            pgtype.Timestamptz
+	EndAt              pgtype.Timestamptz
+	VisitorEmail       *string
+	ConfirmationSentAt pgtype.Timestamptz
+	CreatedAt          pgtype.Timestamptz
 }
 
 type CodeMember struct {

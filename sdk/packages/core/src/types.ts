@@ -131,6 +131,9 @@ export interface PublicSessionResponse {
   // owner 建码时填的 suggested questions 透下来。code-mode 之外是空
   // 数组 (backend 强制 [] 不 null)。
   readonly ghosts?: readonly string[];
+  // #122: owner 已配通 mail connector。前端据此决定约成卡要不要显
+  // "发确认邮件" 那块(没配 → 整张确认卡不渲染,owner 根本发不了信)。
+  readonly owner_can_email?: boolean;
 }
 
 export type SSETokenEvent = { readonly kind: 'token'; readonly text: string };

@@ -59,6 +59,9 @@ type createSessionResponse struct {
 	// (json 走 "ghosts": [])。
 	Ghosts []string         `json:"ghosts"`
 	Quota  sessionQuotaResp `json:"quota"`
+	// OwnerCanEmail —— owner 已配通 mail connector。前端据此决定约成卡片要不要
+	// 显"发确认邮件"那块(#122:没配就根本不渲染那张卡)。
+	OwnerCanEmail bool `json:"owner_can_email"`
 }
 
 func (h *Handlers) createSession() http.HandlerFunc {
@@ -73,7 +76,7 @@ func (h *Handlers) createSession() http.HandlerFunc {
 			handleVisitorErr(h.Log, w, err)
 			return
 		}
-		writeCreateSession(r.Context(), h.Log, &h.Visitor, w, &res)
+		writeCreateSession(r.Context(), h, w, &res)
 	}
 }
 
@@ -179,9 +182,12 @@ func pickMode(req *createSessionRequest) string {
 }
 
 func writeCreateSession(
-	ctx context.Context, log *slog.Logger, deps *usecases.VisitorDeps,
+	ctx context.Context, h *Handlers,
 	w http.ResponseWriter, res *usecases.IssueCodeSessionResult,
 ) {
+	log, deps := h.Log, &h.Visitor
+	canEmail := usecases.OwnerCanEmailCodes(ctx,
+		usecases.MailStatusDeps{Mail: h.Confirm.Mail}, res.Session.Data.OwnerID)
 	in := assembleInputFromSession(&res.Session.Data, res.Chat.ID)
 	resp := createSessionResponse{
 		SessionToken:        res.Session.Token,
@@ -200,7 +206,8 @@ func writeCreateSession(
 			UsedTurns:  res.Quota.UsedTurns,
 			MaxMembers: res.Quota.MaxMembers,
 		},
-		Members: toMemberResps(res.Members),
+		Members:       toMemberResps(res.Members),
+		OwnerCanEmail: canEmail,
 	}
 	// session token 也落一份 HttpOnly cookie(bearer 之外的兜底:跨 tab / 活过刷新 /
 	// SSR);Set-Cookie 必须在 WriteHeader 前。

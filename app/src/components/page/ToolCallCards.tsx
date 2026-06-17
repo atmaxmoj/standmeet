@@ -15,6 +15,7 @@
 'use client';
 
 import { AskVisitorCard } from '@/components/page/AskVisitorCard';
+import { BookingEmailPrompt } from '@/components/page/BookingEmailPrompt';
 import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
 import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
@@ -34,51 +35,50 @@ interface ToolCallCardsProps {
   // 旧 caller 没传 onAsk → ask_visitor card 不渲 (跟"功能未启用"等价)。
   dialogID?: string;
   onAsk?: (q: string) => void;
+  // conversationID —— #122: BookCard 发约成确认信要带这段对话 id。
+  conversationID?: string;
 }
 
-export function ToolCallCards({ calls, dialogID, onAsk }: ToolCallCardsProps) {
+export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCallCardsProps) {
   const visible = calls.filter(shouldRenderCall);
   return visible.length === 0 ? null : (
     <div className={styles['stack']} data-testid="tool-call-cards">
       {visible.map((c, i) => (
         <ToolCallCard
           key={`${c.name}-${i}`} call={c}
-          dialogID={dialogID} onAsk={onAsk}
+          dialogID={dialogID} onAsk={onAsk} conversationID={conversationID}
         />
       ))}
     </div>
   );
 }
 
-// slots/ask 单独走 ToolCallDispatch (需要 onAsk),其余 kind 查表。
-const CARD_RENDERERS: Record<
-  Exclude<ReturnType<typeof cardKindFor>, 'none' | 'ask' | 'slots'>,
-  (c: ToolCallView) => React.ReactElement | null
-> = {
-  search: (call) => <SearchHitsCard call={call} />,
-  booked: (call) => <BookCard call={call} />,
-  report: (call) => <ReportArtifactCard call={call} />,
-  dump:   (call) => <GenericDumpCard call={call} />,
-};
-
-function ToolCallCard({ call, dialogID, onAsk }: {
-  call: ToolCallView; dialogID?: string; onAsk?: (q: string) => void;
-}) {
-  const kind = cardKindFor(call.name);
-  return kind === 'none' ? null : <ToolCallDispatch
-    kind={kind} call={call} dialogID={dialogID} onAsk={onAsk}
-  />;
+// CardCtx —— dispatch 每个 renderer 拿到的全套上下文(call + 几张卡各自需要的
+// dialogID / onAsk / conversationID),按 kind 查表渲,避开 presentation 层 if。
+interface CardCtx {
+  call: ToolCallView;
+  dialogID?: string;
+  onAsk?: (q: string) => void;
+  conversationID?: string;
 }
 
-function ToolCallDispatch({ kind, call, dialogID, onAsk }: {
-  kind: Exclude<ReturnType<typeof cardKindFor>, 'none'>;
-  call: ToolCallView; dialogID?: string; onAsk?: (q: string) => void;
-}) {
-  return kind === 'ask'
-    ? <AskVisitorOrNothing call={call} dialogID={dialogID} onAsk={onAsk} />
-    : kind === 'slots'
-      ? <SlotsCard call={call} onAsk={onAsk} />
-      : CARD_RENDERERS[kind](call);
+const CARD_RENDERERS: Record<
+  Exclude<ReturnType<typeof cardKindFor>, 'none'>,
+  (ctx: CardCtx) => React.ReactElement | null
+> = {
+  search: ({ call }) => <SearchHitsCard call={call} />,
+  report: ({ call }) => <ReportArtifactCard call={call} />,
+  dump:   ({ call }) => <GenericDumpCard call={call} />,
+  ask:    (ctx) => <AskVisitorOrNothing call={ctx.call} dialogID={ctx.dialogID} onAsk={ctx.onAsk} />,
+  slots:  (ctx) => <SlotsCard call={ctx.call} onAsk={ctx.onAsk} />,
+  booked: (ctx) => <BookCard call={ctx.call} conversationID={ctx.conversationID} />,
+};
+
+function ToolCallCard({ call, dialogID, onAsk, conversationID }: CardCtx) {
+  const kind = cardKindFor(call.name);
+  return kind === 'none'
+    ? null
+    : CARD_RENDERERS[kind]({ call, dialogID, onAsk, conversationID });
 }
 
 function AskVisitorOrNothing({ call, dialogID, onAsk }: {
@@ -157,13 +157,21 @@ function BookingsKicker({ prefix, remaining }: { prefix: string; remaining: numb
   );
 }
 
-// BookCard —— calendar_book 成功 confirmation。
-function BookCard({ call }: { call: ToolCallView }) {
+// BookCard —— calendar_book 成功 confirmation。约成后给一截"发确认邮件吗"
+// (#122),收件人引用 session email / 透传现填地址 / 不发;owner 没配 mail
+// connector 时那截不渲染。
+function BookCard({ call, conversationID }: {
+  call: ToolCallView; conversationID?: string;
+}) {
   const conf = pickBookConfirmation(call.result);
-  return conf === null ? null : <BookCardBody conf={conf} />;
+  return conf === null ? null : (
+    <BookCardBody conf={conf} conversationID={conversationID} />
+  );
 }
 
-function BookCardBody({ conf }: { conf: BookConfirmation }) {
+function BookCardBody({ conf, conversationID }: {
+  conf: BookConfirmation; conversationID?: string;
+}) {
   return (
     <div className={styles['bookCard']} data-testid="tool-card-calendar_book">
       <div className={styles['kicker']}>booked</div>
@@ -178,6 +186,7 @@ function BookCardBody({ conf }: { conf: BookConfirmation }) {
           open in google calendar →
         </a>
       )}
+      <BookingEmailPrompt conversationID={conversationID} />
     </div>
   );
 }

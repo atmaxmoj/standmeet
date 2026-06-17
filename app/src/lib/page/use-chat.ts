@@ -108,6 +108,10 @@ export type ChatState = {
   error: string | null;
   ask: (q: string) => Promise<void>;
   reset: () => void;
+  // conversationID —— 这段 chat 落地的 conversation id(主 chat = session 自带;
+  // 浮窗 = lazy 解析的 doc 对话)。#122 约成卡发确认信要带它(后端按它定位最近一笔
+  // 预约)。开局可能空(浮窗首问前未解析),BookCard 出现时必非空。
+  conversationID: string;
 };
 
 type Deps = {
@@ -121,6 +125,9 @@ export function useChat(deps: Deps): ChatState {
   const [dialogs, setDialogs] = useState<Dialog[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // conversationID —— 暴露给 BookCard(#122 发确认信带它)。主 chat mount 时从 stored
+  // 灌;每次 ask 解析出 effective conversation(浮窗 doc 对话)后同步。
+  const [conversationID, setConversationID] = useState<string>('');
   const sessionRef = useRef<PageSession | null>(null);
   const messageHistRef = useRef<Message[]>([]);
   const counter = useRef(0);
@@ -145,6 +152,7 @@ export function useChat(deps: Deps): ChatState {
     // (纯内存 dialogs 刷新会空,这里补回来)。失败 → 空,跟现在一样不崩。
     const token = stored?.session_token ?? '';
     const conv = stored?.conversation_id ?? '';
+    if (conv !== '') setConversationID(conv);
     if (token !== '' && conv !== '') void restoreSession(conv, token, setDialogs);
   }, []);
 
@@ -179,7 +187,7 @@ export function useChat(deps: Deps): ChatState {
     const q = text.trim();
     if (q === '' || pending) return;
     await runAsk(q, deps, { sessionRef, docConvRef, histRef: messageHistRef },
-      { setDialogs, setPending, setError }, nextID);
+      { setDialogs, setPending, setError, setConvID: setConversationID }, nextID);
   }, [deps, pending, nextID]);
 
   const reset = useCallback((): void => {
@@ -193,7 +201,7 @@ export function useChat(deps: Deps): ChatState {
     useAskVisitorStore.getState().clear();
   }, []);
 
-  return { dialogs, pending, error, ask, reset };
+  return { dialogs, pending, error, ask, reset, conversationID };
 }
 
 // AskRefs / AskSetters —— runAsk 的 ref / setter 打包,避开多参数(eslint
@@ -208,6 +216,8 @@ interface AskSetters {
   setDialogs: React.Dispatch<React.SetStateAction<Dialog[]>>;
   setPending: (b: boolean) => void;
   setError: (e: string | null) => void;
+  // setConvID —— effective conversation 解析后回灌(#122 BookCard 要这段对话 id)。
+  setConvID: (id: string) => void;
 }
 
 async function runAsk(
@@ -217,7 +227,7 @@ async function runAsk(
   setters: AskSetters,
   nextID: () => string,
 ): Promise<void> {
-  const { setDialogs, setPending, setError } = setters;
+  const { setDialogs, setPending, setError, setConvID } = setters;
   const id = nextID();
   setError(null);
   setPending(true);
@@ -225,6 +235,7 @@ async function runAsk(
   try {
     const sess = await ensureEffectiveSession(
       refs.sessionRef, refs.docConvRef, deps, deps.docContext);
+    setConvID(sess.conversationID);
     const byoai = await wrapBYOAIFor(deps, sess);
     const accum = makeAccumulator();
     await runAgentForDialog(sess, byoai, refs.histRef, q,

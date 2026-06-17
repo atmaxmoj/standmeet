@@ -69,6 +69,7 @@ function FloatingChatDockInner({ mode, docContext }: { mode: SessionMode; docCon
           setInput={setInput}
           onAsk={onAsk}
           dialogs={chat.dialogs}
+          conversationID={chat.conversationID}
           pending={chat.pending}
           inputRef={inputRef}
           ghost={ghost}
@@ -120,6 +121,7 @@ interface PanelProps {
   setInput: (v: string) => void;
   onAsk: (q: string) => void;
   dialogs: ReturnType<typeof useChat>['dialogs'];
+  conversationID?: string;
   pending: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
   // H.13.d ghost text 三件套；non-code mode 永远 null。
@@ -138,7 +140,10 @@ function ChatPanel(props: PanelProps) {
         <span className="sm-smallcaps">ask the AI</span>
       </header>
       <div className="sm-floating-chat-transcript sm-floating-chat-compact">
-        <FloatingTranscript dialogs={props.dialogs} pending={props.pending} onAsk={props.onAsk} />
+        <FloatingTranscript
+          dialogs={props.dialogs} pending={props.pending}
+          onAsk={props.onAsk} conversationID={props.conversationID}
+        />
         <ChatProgress dialogs={props.dialogs} />
       </div>
       <ChatPanelInput
@@ -157,12 +162,13 @@ function ChatPanel(props: PanelProps) {
 
 // FloatingTranscript —— 空态显引导;否则复用主 chat 的 ChatTranscript(真 md/latex
 // + throbber + citations,#35 不再另写简陋版)。
-function FloatingTranscript({ dialogs, pending, onAsk }: {
+function FloatingTranscript({ dialogs, pending, onAsk, conversationID }: {
   dialogs: PanelProps['dialogs']; pending: boolean; onAsk: (q: string) => void;
+  conversationID?: string;
 }) {
   return dialogs.length === 0 && !pending
     ? <EmptyHint />
-    : <ChatTranscript dialogs={dialogs} onAsk={onAsk} />;
+    : <ChatTranscript dialogs={dialogs} onAsk={onAsk} conversationID={conversationID} />;
 }
 
 function EmptyHint() {

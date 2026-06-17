@@ -16,12 +16,23 @@ const MAILPIT = process.env['MAILPIT_URL'] ?? 'http://localhost:18025';
 const SMTP_HOST = process.env['MAILPIT_SMTP_HOST'] ?? 'mailpit';
 const SMTP_PORT = 1025;
 
-interface MailpitTo { Address: string }
-interface MailpitMessage { ID: string; To: MailpitTo[]; Subject: string }
+interface MailpitAddr { Address: string }
+interface MailpitMessage { ID: string; To: MailpitAddr[]; Subject: string }
 
-// MAIL_FROM —— the connector's from_address (the sender). The OTP itself is sent
-// TO the owner's own email, not here. Module-local (only saveMailCreds uses it).
-const MAIL_FROM = 'noreply@standmeet.test';
+// MailEnvelope —— 一封被 Mailpit 捕获的邮件的关键信息:收发件人 + 主题 + 正文。
+// #122 的确认邮件测试断言 from(owner from_address)+ to(访客选的地址)。
+export interface MailEnvelope {
+  from: string;
+  to: string[];
+  subject: string;
+  text: string;
+  // html —— HTML 正文(#122 确认邮件断言里面带 schema.org JSON-LD markup)。
+  html: string;
+}
+
+// MAIL_FROM —— the connector's from_address (the sender). Tests asserting the
+// booking-confirmation sender (#122) import it.
+export const MAIL_FROM = 'noreply@standmeet.test';
 
 export async function saveMailCreds(request: APIRequestContext, csrf: string): Promise<void> {
   const res = await request.post(`${BACKEND}/api/admin/connectors/mail/credentials`, {
@@ -103,4 +114,44 @@ async function fetchMessageText(request: APIRequestContext, id: string): Promise
   if (res.status() !== 200) throw new Error(`fetch message ${id}: ${res.status()}`);
   const body = await res.json() as { Text?: string };
   return body.Text ?? '';
+}
+
+// waitForMailEnvelopeTo —— poll Mailpit for a message addressed to `to`, return
+// its full envelope (from / to / subject / text). 给收发件人 + 内容断言用。
+export async function waitForMailEnvelopeTo(
+  request: APIRequestContext, to: string, timeoutMs = 10_000,
+): Promise<MailEnvelope> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const id = await findMessageId(request, to);
+    if (id !== null) return fetchMessageEnvelope(request, id);
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error(`no Mailpit message to ${to} within ${timeoutMs}ms`);
+}
+
+async function fetchMessageEnvelope(
+  request: APIRequestContext, id: string,
+): Promise<MailEnvelope> {
+  const res = await request.get(`${MAILPIT}/api/v1/message/${id}`);
+  if (res.status() !== 200) throw new Error(`fetch message ${id}: ${res.status()}`);
+  const body = await res.json() as {
+    From?: MailpitAddr; To?: MailpitAddr[];
+    Subject?: string; Text?: string; HTML?: string;
+  };
+  return {
+    from: body.From?.Address ?? '',
+    to: (body.To ?? []).map((t) => t.Address),
+    subject: body.Subject ?? '',
+    text: body.Text ?? '',
+    html: body.HTML ?? '',
+  };
+}
+
+// countMailpitMessages —— 当前捕获到的邮件总数(给"不发 → 没邮件"断言)。
+export async function countMailpitMessages(request: APIRequestContext): Promise<number> {
+  const res = await request.get(`${MAILPIT}/api/v1/messages`);
+  if (res.status() !== 200) return 0;
+  const body = await res.json() as { messages?: MailpitMessage[] };
+  return (body.messages ?? []).length;
 }

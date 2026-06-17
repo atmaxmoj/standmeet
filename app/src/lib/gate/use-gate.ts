@@ -78,6 +78,26 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
   window.localStorage.setItem(BYOAI_STORAGE_KEY, JSON.stringify(data));
 }
 
+// storeDisplaySession —— 把 issue 响应折进 SessionStrip 展示 store。code/byoai
+// 两条路径共用:role-specific 字段(code/visitor/byoai/provider)由 caller 传,其余
+// quota/members/startedAt + #122 的 email/ownerCanEmail 在这里统一映射。
+function storeDisplaySession(
+  sess: PublicSessionResponse,
+  fields: { code: string | null; visitor: string | null; byoai: boolean; byoaiProvider: string },
+): void {
+  useVisitorSessionStore.getState().setSession({
+    ...fields,
+    label: null,
+    used: sess.quota.used_turns,
+    max: sess.quota.max_turns,
+    maxMembers: sess.quota.max_members,
+    memberCount: sess.members.length,
+    startedAt: Date.now(),
+    email: '',
+    ownerCanEmail: sess.owner_can_email ?? false,
+  });
+}
+
 export function loadStoredSession(): StoredVisitorSession | null {
   if (typeof window === 'undefined') return null;
   const raw = window.localStorage.getItem(BYOAI_STORAGE_KEY);
@@ -137,17 +157,10 @@ export function useGate(): GateHook {
         code: trimmedCode, visitor_name: trimmedName,
       });
       persistSession(sess, false);
-      useVisitorSessionStore.getState().setSession({
+      storeDisplaySession(sess, {
         code: sess.code ?? trimmedCode,
         visitor: sess.visitor_name ?? trimmedName ?? null,
-        byoai: false,
-        byoaiProvider: '',
-        label: null,
-        used: sess.quota.used_turns,
-        max: sess.quota.max_turns,
-        maxMembers: sess.quota.max_members,
-        memberCount: sess.members.length,
-        startedAt: Date.now(),
+        byoai: false, byoaiProvider: '',
       });
       return true;
     });
@@ -164,17 +177,9 @@ export function useGate(): GateHook {
           key: input.key.trim(),
         });
         persistSession(sess, true);
-        useVisitorSessionStore.getState().setSession({
-          code: null,
-          visitor: sess.visitor_name ?? null,
-          byoai: true,
-          byoaiProvider: input.provider,
-          label: null,
-          used: sess.quota.used_turns,
-          max: sess.quota.max_turns,
-          maxMembers: sess.quota.max_members,
-          memberCount: sess.members.length,
-          startedAt: Date.now(),
+        storeDisplaySession(sess, {
+          code: null, visitor: sess.visitor_name ?? null,
+          byoai: true, byoaiProvider: input.provider,
         });
         return true;
       });

@@ -46,7 +46,10 @@ export function ChatRoom({ owner, mode }: Props) {
           {/* scroll area: welcome + transcript scroll here; composer stays docked */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
             <ChatWelcome owner={owner} d={derived} />
-            <ChatTranscript dialogs={ci.chat.dialogs} onAsk={ci.onAsk} />
+            <ChatTranscript
+              dialogs={ci.chat.dialogs} onAsk={ci.onAsk}
+              conversationID={ci.chat.conversationID}
+            />
           </div>
           {/* docked bottom: progress + composer + footnote stay pinned to the viewport */}
           <div className="shrink-0 bg-(--color-paper)">

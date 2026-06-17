@@ -1,0 +1,89 @@
+/* BookingEmailPrompt —— #122 约成卡里的"发确认邮件吗"那一截。
+   寄生在 .bookCard 内,顶部一道淡分隔线把它跟 event 信息分开。
+   anti-SaaS:mono 小标 + 朴素描边按钮,vermillion 落在主动作上。 */
+
+.prompt {
+  margin-top: 0.7em;
+  padding-top: 0.6em;
+  border-top: 1px dashed color-mix(in oklab, var(--color-accent) 35%, transparent);
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 0.5em;
+}
+
+.choice {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-accent) 45%, transparent);
+  border-radius: 2px;
+  padding: 0.3em 0.7em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.choice:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--color-accent) 12%, transparent);
+}
+.choice:disabled { opacity: 0.5; cursor: default; }
+
+.otherRow {
+  display: flex;
+  gap: 0.4em;
+  align-items: center;
+  margin: 0.5em 0;
+}
+
+.otherInput {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 2px;
+  padding: 0.35em 0.5em;
+}
+.otherInput:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--color-accent) 55%, transparent);
+}
+
+.skip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  background: transparent;
+  border: none;
+  padding: 0.2em 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.skip:hover:not(:disabled) { color: var(--color-ink); }
+.skip:disabled { opacity: 0.5; cursor: default; }
+
+.done {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.error {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent);
+  margin-top: 0.4em;
+}

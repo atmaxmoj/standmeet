@@ -15,24 +15,32 @@ import { ToolCallCards } from '@/components/page/ToolCallCards';
 import { VisitorQuestion } from '@/components/visitor/ComposerAttachments';
 import type { Citation, Dialog, ToolThrobberView } from '@/lib/page/use-chat';
 
-export function ChatTranscript({ dialogs, onAsk }: {
+export function ChatTranscript({ dialogs, onAsk, conversationID }: {
   dialogs: readonly Dialog[]; onAsk: (q: string) => void;
+  conversationID?: string;
 }) {
   return (
     <div className="flex-1">
-      {dialogs.map((d, i) => <DialogCard key={d.id ?? i} dialog={d} onAsk={onAsk} />)}
+      {dialogs.map((d, i) => (
+        <DialogCard key={d.id ?? i} dialog={d} onAsk={onAsk} conversationID={conversationID} />
+      ))}
     </div>
   );
 }
 
-function DialogCard({ dialog, onAsk }: { dialog: Dialog; onAsk: (q: string) => void }) {
+function DialogCard({ dialog, onAsk, conversationID }: {
+  dialog: Dialog; onAsk: (q: string) => void; conversationID?: string;
+}) {
   return (
     <article className="pt-10 pb-10 border-b border-(--color-rule)">
       <div className="mono text-[10.5px] tracking-[0.18em] uppercase mb-3 flex items-baseline gap-3">
         <span className="text-(--color-ink)">you</span>
       </div>
       <VisitorQuestion q={dialog.q} />
-      <ToolCallCards calls={dialog.answer.toolCalls} dialogID={dialog.id} onAsk={onAsk} />
+      <ToolCallCards
+        calls={dialog.answer.toolCalls} dialogID={dialog.id}
+        onAsk={onAsk} conversationID={conversationID}
+      />
       {dialog.pending ? null : <AnswerView answer={dialog.answer} />}
     </article>
   );

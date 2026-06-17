@@ -88,6 +88,8 @@ export function useIssuePendingCode(): IssuePending {
         maxMembers: sess.quota.max_members,
         memberCount: sess.members.length,
         startedAt: Date.now(),
+        email: email || '',
+        ownerCanEmail: sess.owner_can_email ?? false,
       });
       // 匿名:把后端给的 member_id 存下,下次 skip 凭它续同一个 guest member。
       if (name === null) {

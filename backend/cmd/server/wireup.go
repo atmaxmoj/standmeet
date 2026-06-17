@@ -188,6 +188,9 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			AgentSkills: d.agentSkills,
 			Reports:     d.chatReportRepo,
 		},
+		Confirm: usecases.BookingConfirmDeps{
+			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
+		},
 		Sessions:    d.visitorStore,
 		Corpus:      d.corpus,
 		Ghosts:      usecases.GhostDeps{Repo: d.ghostRepo},

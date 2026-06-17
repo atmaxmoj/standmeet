@@ -32,6 +32,7 @@ import (
 // Handlers —— public routes deps.
 type Handlers struct {
 	Visitor     usecases.VisitorDeps
+	Confirm     usecases.BookingConfirmDeps
 	Sessions    *session.VisitorSessionStore
 	Corpus      usecases.DialogCorpusLookup
 	Ghosts      usecases.GhostDeps
@@ -57,6 +58,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	// 共享 member 级配额)。body {doc_key} → {conversation_id, conversation}。
 	r.Post("/conversations", h.withVisitorSession(h.openDocConversation()))
 	r.Post("/sessions/{id}/tools/{tool_name}", h.withVisitorSession(h.toolDispatch()))
+	// #122: 约成后访客点确认卡 → 这条把一封确认信发到所选地址(引用/透传/不发)。
+	// AI 不参与;后端按 session→conversation 定位最近一笔预约,收件人硬控。
+	r.Post("/booking-confirmation", h.withVisitorSession(h.sendBookingConfirmation()))
 	// I.3: /report/{id} 拿一份 chat_reports 行 (visitor 浏览器
 	// /report/[id] 独立路由 fetch；owner 端走 admin route 后续单独加)。
 	r.Get("/report/{id}", h.withVisitorSession(h.getReport()))

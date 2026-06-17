@@ -18,7 +18,7 @@ INSERT INTO code_bookings (
     start_at, end_at, visitor_email
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, owner_id, code_id, conversation_id, google_event_id, google_html_link, summary, start_at, end_at, visitor_email, created_at
+RETURNING id, owner_id, code_id, conversation_id, google_event_id, google_html_link, summary, start_at, end_at, visitor_email, confirmation_sent_at, created_at
 `
 
 type CreateCodeBookingParams struct {
@@ -57,13 +57,42 @@ func (q *Queries) CreateCodeBooking(ctx context.Context, arg CreateCodeBookingPa
 		&i.StartAt,
 		&i.EndAt,
 		&i.VisitorEmail,
+		&i.ConfirmationSentAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getLatestBookingByConversation = `-- name: GetLatestBookingByConversation :one
+SELECT id, owner_id, code_id, conversation_id, google_event_id, google_html_link, summary, start_at, end_at, visitor_email, confirmation_sent_at, created_at FROM code_bookings
+WHERE conversation_id = $1
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+// 某对话最近一笔预约(#122 发确认信:前端不传 id,后端按 session→对话定位)。
+func (q *Queries) GetLatestBookingByConversation(ctx context.Context, conversationID pgtype.UUID) (CodeBooking, error) {
+	row := q.db.QueryRow(ctx, getLatestBookingByConversation, conversationID)
+	var i CodeBooking
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.CodeID,
+		&i.ConversationID,
+		&i.GoogleEventID,
+		&i.GoogleHtmlLink,
+		&i.Summary,
+		&i.StartAt,
+		&i.EndAt,
+		&i.VisitorEmail,
+		&i.ConfirmationSentAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listCodeBookingsByOwner = `-- name: ListCodeBookingsByOwner :many
-SELECT id, owner_id, code_id, conversation_id, google_event_id, google_html_link, summary, start_at, end_at, visitor_email, created_at FROM code_bookings
+SELECT id, owner_id, code_id, conversation_id, google_event_id, google_html_link, summary, start_at, end_at, visitor_email, confirmation_sent_at, created_at FROM code_bookings
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -94,6 +123,7 @@ func (q *Queries) ListCodeBookingsByOwner(ctx context.Context, arg ListCodeBooki
 			&i.StartAt,
 			&i.EndAt,
 			&i.VisitorEmail,
+			&i.ConfirmationSentAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -104,4 +134,16 @@ func (q *Queries) ListCodeBookingsByOwner(ctx context.Context, arg ListCodeBooki
 		return nil, err
 	}
 	return items, nil
+}
+
+const markBookingConfirmationSent = `-- name: MarkBookingConfirmationSent :exec
+UPDATE code_bookings
+SET confirmation_sent_at = now()
+WHERE id = $1 AND confirmation_sent_at IS NULL
+`
+
+// 标记这笔已发过确认信(幂等:已发再发 → 0 行,caller 翻 ErrConfirmationAlreadySent)。
+func (q *Queries) MarkBookingConfirmationSent(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, markBookingConfirmationSent, id)
+	return err
 }

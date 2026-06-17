@@ -252,5 +252,40 @@ func toDomainBooking(row *dbq.CodeBooking) domain.CodeBooking {
 	if row.VisitorEmail != nil {
 		out.VisitorEmail = *row.VisitorEmail
 	}
+	if row.ConfirmationSentAt.Valid {
+		t := row.ConfirmationSentAt.Time
+		out.ConfirmationSentAt = &t
+	}
 	return out
+}
+
+// LatestBookingForConversation —— #122: 某对话最近一笔预约(发确认信用)。
+// 无 → domain.ErrBookingNotFound。
+func (r *CalendarRepo) LatestBookingForConversation(
+	ctx context.Context, conversationID string,
+) (domain.CodeBooking, error) {
+	convUUID, err := parseUUID(conversationID)
+	if err != nil {
+		return domain.CodeBooking{}, fmt.Errorf("parse conversation id: %w", err)
+	}
+	row, qerr := dbq.New(r.pool).GetLatestBookingByConversation(ctx, convUUID)
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return domain.CodeBooking{}, domain.ErrBookingNotFound
+		}
+		return domain.CodeBooking{}, fmt.Errorf("latest booking: %w", qerr)
+	}
+	return toDomainBooking(&row), nil
+}
+
+// MarkBookingConfirmed —— #122: 标记这笔已发过确认信(幂等)。
+func (r *CalendarRepo) MarkBookingConfirmed(ctx context.Context, bookingID string) error {
+	bookingUUID, err := parseUUID(bookingID)
+	if err != nil {
+		return fmt.Errorf("parse booking id: %w", err)
+	}
+	if qerr := dbq.New(r.pool).MarkBookingConfirmationSent(ctx, bookingUUID); qerr != nil {
+		return fmt.Errorf("mark booking confirmed: %w", qerr)
+	}
+	return nil
 }
