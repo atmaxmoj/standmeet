@@ -58,7 +58,7 @@ test.describe('visitor · cancel own booking + isolation (#123)', () => {
       await ctx.close();
     });
 
-  test('isolation (same code, other member): Mallory cannot cancel Dana\'s booking',
+  test('isolation (same code, other member): Mallory cannot cancel Dana\'s booking — but Dana can',
     async ({ browser }) => {
       await resetMockGCal(seed.request);
       // 受害者 Dana 通过浏览器真约一场。
@@ -80,6 +80,14 @@ test.describe('visitor · cancel own booking + isolation (#123)', () => {
       // 受害者的 event 仍在(没被误删)。
       const still = await getMockEvents(seed.request);
       expect(still.find((e) => e.event_id === victimEvent)).toBeDefined();
+
+      // 正例(同 member):Mallory 取消不了的这场,Dana 本人在自己卡片上点 cancel
+      // 可以取消 —— 隔离只挡别人,不挡本人。
+      await page.getByTestId('book-card-cancel').click();
+      await expect(page.getByTestId('tool-card-calendar_book'))
+        .toHaveAttribute('data-cancelled', 'true', { timeout: 10_000 });
+      const afterDana = await getMockEvents(seed.request);
+      expect(afterDana.find((e) => e.event_id === victimEvent)).toBeUndefined();
       await ctx.close();
     });
 
