@@ -63,6 +63,7 @@ func runAgentTurn(
 		Persist:          buildAgentTurnPersist(h, auth, req.ConversationID),
 		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
+		VisitorTimezone:  req.VisitorTimezone,
 	})
 }
 

@@ -51,15 +51,13 @@ func agentTurnTimeout() time.Duration {
 // 联到正确的 conversation 行。老 /sessions/{convID}/tools/{name} wire
 // 走 URL path；新 /agent/turn 由 body 透。
 type AgentTurnRequest struct {
-	System         string `json:"system"`
-	UserMessage    string `json:"user_message"`
-	ConversationID string `json:"conversation_id"`
-	Model          string `json:"model,omitempty"`
-	// DocContext —— 访客发问时正看着哪篇 doc(reader/wiki/output 页或浮窗所在页)。
-	// 低信任的导航上下文,backend 用固定模板注进 instruction,让「this/这篇/这个项目」
-	// 这类指代能解析(#36)。nil = 不在 doc 页(如主 chat 全屏)。
-	DocContext *AgentDocContext `json:"doc_context,omitempty"`
-	History    []ChatRequestMsg `json:"history,omitempty"`
+	DocContext      *AgentDocContext `json:"doc_context,omitempty"`
+	System          string           `json:"system"`
+	UserMessage     string           `json:"user_message"`
+	ConversationID  string           `json:"conversation_id"`
+	Model           string           `json:"model,omitempty"`
+	VisitorTimezone string           `json:"visitor_timezone,omitempty"`
+	History         []ChatRequestMsg `json:"history,omitempty"`
 }
 
 // AgentDocContext —— 访客当前所在 document 的最小标识(给指代解析用)。
@@ -69,55 +67,8 @@ type AgentDocContext struct {
 	Genre string `json:"genre"` // wiki | output | writing
 }
 
-// instructionWithDoc —— persona instruction 末尾拼一段「访客正看着 X」的位置上下文,
-// 让代词指代("this page"/"这篇"/"这个项目")解析到那篇 doc。doc 为 nil / 空 → 原样返。
-func instructionWithDoc(system string, doc *AgentDocContext) string {
-	if doc == nil || doc.Title == "" {
-		return system
-	}
-	loc := "\n\nContext: the visitor is currently reading the page \"" + doc.Title + "\""
-	if doc.Path != "" {
-		loc += " (/" + doc.Genre + "/" + doc.Path + ")"
-	}
-	loc += " on this site. When they say \"this\", \"this page\", \"this doc\", " +
-		"\"this project\", or similar without naming it, they mean that document — " +
-		"pull it up with your corpus tools if it helps answer."
-	return system + loc
-}
-
-// instructionWithDateTime —— 把"现在的日期时间 + owner 所在时区"作为**通用**
-// 上下文注入每一轮 instruction(与 capability 无关)。技术 / 简历 / 经历都有
-// 时效性:agent 必须知道"今天"才能正确回答"最近""N 年经验"这类问题,也才能把
-// booking 里"6 月 18 号"这种无年份的相对日期锚到将来而不是某个过去的年份
-// (实测里模型会默认 fallback 到训练期的年份,谎报 avail)。tz 空 / 非法 → UTC。
-func instructionWithDateTime(system string, now time.Time, ownerTZ string) string {
-	loc, label := time.UTC, "UTC"
-	if ownerTZ != "" {
-		if l, err := time.LoadLocation(ownerTZ); err == nil {
-			loc, label = l, ownerTZ
-		}
-	}
-	local := now.In(loc)
-	return system + "\n\nCurrent date and time: " +
-		local.Format("Monday, 2006-01-02 15:04") + " (" + label + "). " +
-		"Treat this as \"now\": the owner's experience and any \"recent\" / " +
-		"\"N years\" framing is relative to it, and when the visitor names a date " +
-		"or time without a year, assume the nearest upcoming occurrence (never a " +
-		"past year). For scheduling, the owner's calendar runs in this timezone — " +
-		"confirm the visitor's own timezone before proposing or booking times."
-}
-
-// instructionWithCrossConv —— 「互通」:把该 member 其他对话的 digest 拼进 instruction,
-// 让 AI 像「同一个人继续聊」那样跨对话连贯,但不把别段的内容混进当前 transcript。
-// digest 空(public / 无 member / 没别的对话)→ 原样返回。
-func instructionWithCrossConv(system, digest string) string {
-	if digest == "" {
-		return system
-	}
-	return system + "\n\nContext from this visitor's other conversations with you " +
-		"(separate threads, same person — draw on it naturally when the current question " +
-		"connects to it; do not pretend it was said in this thread):\n" + digest
-}
+// 通用 instruction 的组合器(doc / date+tz / cross-conv)拆到 agent_instruction.go
+// 守 350-line cap。
 
 // AgentTurnInput —— RunAgentTurn / BuildAgentIterator 的入参打包，避开
 // revive 5-arg 上限。字段顺序按 govet fieldalignment 排：3 个 pointer 在
@@ -152,7 +103,10 @@ type AgentTurnInput struct {
 	// instructionWithDateTime 用它把"现在几点 + 在哪个时区"锚进通用 instruction。
 	// 空 → 退 UTC。route handler 装 (读 owner);inference 不碰 DB。
 	OwnerTimezone string
-	Tools         []tool.BaseTool
+	// VisitorTimezone —— 访客浏览器 tz(从 AgentTurnRequest 透传)。instructionWithDateTime
+	// 用它告诉 agent 访客在哪个时区,解释访客给的时间(尤其 booking)不再含糊(#120)。
+	VisitorTimezone string
+	Tools           []tool.BaseTool
 }
 
 // RunAgentTurn —— 跑一整轮 agent loop，向 w 写 pi-style SSE。caller (route

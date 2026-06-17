@@ -95,7 +95,7 @@ func BuildAgentIterator(
 		Instruction: instructionWithDateTime(
 			instructionWithCrossConv(
 				instructionWithDoc(in.Req.System, in.Req.DocContext), in.CrossConvContext),
-			time.Now(), in.OwnerTimezone),
+			time.Now(), in.OwnerTimezone, in.VisitorTimezone),
 		Model: cm,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: in.Tools},

@@ -78,6 +78,9 @@ async function* streamAgentTurnHTTP(
       // doc_context —— 当前所在 doc(title/path/genre);backend 注进 instruction
       // 让指代解析。undefined 时 JSON.stringify 直接省掉(主 chat 全屏不带)。
       doc_context: req.docContext,
+      // #120: 访客浏览器时区,每轮上送。backend 锚进通用 instruction,让 agent 按
+      // 访客时区解释其给出的时间(尤其 booking),不再含糊/反问。
+      visitor_timezone: browserTimezone(),
     }),
   });
   if (!res.ok || res.body === null) {
@@ -86,6 +89,16 @@ async function* streamAgentTurnHTTP(
     throw Object.assign(new Error(`agent.turn: ${res.status}`), { status: res.status });
   }
   yield* parseAgentTurnSSE(res.body);
+}
+
+// browserTimezone —— 访客 IANA tz(Intl…timeZone)。环境拿不到 → 空字符串
+// (backend 退回"先问访客时区"的措辞)。
+function browserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
+  } catch {
+    return '';
+  }
 }
 
 function turnHeaders(opts: HttpAgentTurnStreamerOptions): HeadersInit {
