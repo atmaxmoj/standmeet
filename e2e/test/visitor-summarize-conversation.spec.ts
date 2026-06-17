@@ -54,29 +54,7 @@ test.beforeAll(async ({ playwright }) => {
 
 test.describe('visitor summarize_conversation · I.3', () => {
   test('AI tool call → ReportArtifactCard inline + /report/[id] 独立路由',
-    async ({ page, playwright }) => {
-      const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, {
-        name: 'summarize_conversation', args: {},
-      });
-      // tool 后 LLM 又被调一次出 HTML 当报告内容；mock 走 next_reply。
-      await scriptMockReplyText(request, REPORT_HTML);
-      await request.dispose();
-
-      await enterChatWithCode(page);
-      await fireFirstTurn(page, 'summarize what we discussed');
-
-      // ReportArtifactCard 在 chat 流里渲；iframe srcDoc 含报告 HTML。
-      const card = page.getByTestId('tool-card-summarize_conversation');
-      await expect(card, 'ReportArtifactCard rendered')
-        .toBeVisible({ timeout: 10_000 });
-      const reportID = await card.getAttribute('data-report-id');
-      expect(reportID, 'report id 透到 card data attribute').toBeTruthy();
-
-      // 点 open as page → 新 tab 走 /report/[id]
-      const openLink = card.getByTestId('report-open-link');
-      await expect(openLink).toHaveAttribute('href', `/report/${reportID}`);
-    });
+    async ({ page, playwright }) => { await reportInlineCardTest(page, playwright); });
 
   test('GET /api/v1/report/[id] 返 owner-scoped 报告 row',
     async ({ playwright }) => {
@@ -158,6 +136,29 @@ test.describe('visitor summarize_conversation · I.3', () => {
 
 // reportPDFRouteTest —— create a report then hit /report/{id}/pdf; assert it's
 // a real PDF rendered by gotenberg (magic bytes + attachment headers).
+// reportInlineCardTest —— AI 调 summarize_conversation → ReportArtifactCard 内联渲染 +
+// open-link 指向 /report/[id]。从 describe 抽出守 max-lines-per-function。
+async function reportInlineCardTest(page: Page, playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  // tool 后 LLM 又被调一次出 HTML 当报告内容；mock 走 next_reply。
+  await scriptMockReplyText(request, REPORT_HTML);
+  await request.dispose();
+
+  await enterChatWithCode(page);
+  await fireFirstTurn(page, 'summarize what we discussed');
+
+  // ReportArtifactCard 在 chat 流里渲；iframe srcDoc 含报告 HTML。
+  const card = page.getByTestId('tool-card-summarize_conversation');
+  await expect(card, 'ReportArtifactCard rendered').toBeVisible({ timeout: 10_000 });
+  const reportID = await card.getAttribute('data-report-id');
+  expect(reportID, 'report id 透到 card data attribute').toBeTruthy();
+
+  // 点 open as page → 新 tab 走 /report/[id]
+  const openLink = card.getByTestId('report-open-link');
+  await expect(openLink).toHaveAttribute('href', `/report/${reportID}`);
+}
+
 async function reportPDFRouteTest(playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
   const sess = await issueSession(request, {

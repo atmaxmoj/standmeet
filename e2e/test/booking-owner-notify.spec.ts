@@ -6,7 +6,7 @@
 // 真 e2e:浏览器约 → 后端 → owner SMTP(Mailpit)。
 
 import { test, expect } from '@/fixtures/test';
-import type { Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 
 import {
   configureMailConnector, clearMailpit, waitForMailEnvelopeTo,
@@ -59,8 +59,37 @@ test.describe('booking · per-role owner notification (#130)', () => {
       const page = await enterAndBook(browser, code.code, 'Eli', 15);
 
       // 约成卡照常(booking 成功),但 owner 不该收到通知。
+      // book-card 出现 = booker tool 已返回,owner-notify 在 commit 后同步触发过了
+      // (ON 会同步发完,OFF/无 connector 直接跳过)→ 此刻 count 已确定,无需 sleep。
       await expect(page.getByTestId('book-card-time')).toBeVisible();
-      await new Promise((r) => setTimeout(r, 1_000));
+      expect(await countMailpitMessages(seed.request)).toBe(0);
+      await page.context().close();
+    });
+});
+
+// notify on,但 owner **没配** mail connector → 发不出信,best-effort 静默跳过:
+// booking 照常成功,不崩、不挡。这是 #130 "通知失败绝不影响 booking" 的保证。
+test.describe('booking · owner notify on but no mail connector (#130 best-effort)', () => {
+  let seed: CodedSeed;
+  test.beforeAll(async ({ playwright }) => {
+    // 注意:**不**调 configureMailConnector —— owner 没发信能力。
+    seed = await seedCodeVisitorOnConnectedOwner(playwright, {
+      granted_skills: ['calendar.book'],
+    });
+  });
+  test.afterAll(async () => { await teardownSeed(seed); });
+
+  test('notify-on role + no connector → booking succeeds, no email, no crash',
+    async ({ browser }) => {
+      await clearMailpit(seed.request);
+      const code = await issueCodeWithSkills(seed.request, seed.csrf, {
+        granted_skills: ['calendar.book'], notify_owner_on_booking: true,
+      });
+      const page = await enterAndBook(browser, code.code, 'Dana', 14);
+
+      // book-card 出现 = booker tool 已返回,owner-notify 在 commit 后同步触发过了
+      // (ON 会同步发完,OFF/无 connector 直接跳过)→ 此刻 count 已确定,无需 sleep。
+      await expect(page.getByTestId('book-card-time')).toBeVisible();
       expect(await countMailpitMessages(seed.request)).toBe(0);
       await page.context().close();
     });
@@ -68,7 +97,7 @@ test.describe('booking · per-role owner notification (#130)', () => {
 
 // enterAndBook —— ?code 入口 → 填名字 → script calendar_book → 触发 → 等 BookCard。
 async function enterAndBook(
-  browser: import('@playwright/test').Browser, code: string, name: string, hour: number,
+  browser: Browser, code: string, name: string, hour: number,
 ): Promise<Page> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();

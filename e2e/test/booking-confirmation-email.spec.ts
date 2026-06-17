@@ -13,7 +13,7 @@
 // 收件人只能是 引用(已知 session email)或 透传(访客字面输入)—— 跟 #121 收件人硬控一致。
 
 import { test, expect } from '@/fixtures/test';
-import type { Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 
 import {
   configureMailConnector, clearMailpit, waitForMailEnvelopeTo,
@@ -38,74 +38,100 @@ test.describe('booking · send-confirmation email (#122 — deterministic, no AI
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('引用: visitor with a profile email clicks "send to my email" → owner mails it',
-    async ({ browser }) => {
-      await clearMailpit(seed.request);
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterWithProfile(page, seed.code.code, 'Dana', 'dana.profile@example.com');
-      await bookInChat(page, 14);
-
-      const prompt = page.getByTestId('booking-email-prompt');
-      await expect(prompt).toBeVisible({ timeout: 10_000 });
-      await prompt.getByTestId('booking-email-use-profile').click();
-
-      const mail = await waitForMailEnvelopeTo(seed.request, 'dana.profile@example.com');
-      expect(mail.from).toBe(MAIL_FROM);
-      expect(mail.text).toContain(TOPIC);
-      // 邮件内容:HTML 正文带 schema.org JSON-LD(EventReservation)→ Gmail 富卡片。
-      expect(mail.html).toContain(TOPIC);
-      expect(mail.html).toContain('application/ld+json');
-      expect(mail.html).toContain('"@type":"EventReservation"');
-      expect(mail.html).toContain('"reservationFor"');
-      expect(mail.html).toContain('"startDate"');
-
-      // 一笔 booking 只发一次:点完即锁(进 sent 态、动作按钮消失),Mailpit 只一封。
-      await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 5_000 });
-      await expect(prompt.getByTestId('booking-email-use-profile')).toHaveCount(0);
-      await expect(prompt.getByTestId('booking-email-skip')).toHaveCount(0);
-      await new Promise((r) => setTimeout(r, 500));
-      expect(await countMailpitMessages(seed.request)).toBe(1);
-      await ctx.close();
-    });
-
-  test('透传: no profile email → only "other" + "don\'t send"; type an address → owner mails it',
-    async ({ browser }) => {
-      await clearMailpit(seed.request);
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterWithProfile(page, seed.code.code, 'Eli'); // 没填 email
-      await bookInChat(page, 15);
-
-      const prompt = page.getByTestId('booking-email-prompt');
-      await expect(prompt).toBeVisible({ timeout: 10_000 });
-      // 没 session email → 不渲染「引用」
-      await expect(prompt.getByTestId('booking-email-use-profile')).toHaveCount(0);
-      await prompt.getByTestId('booking-email-other').fill('eli.typed@example.com');
-      await prompt.getByTestId('booking-email-send').click();
-
-      const mail = await waitForMailEnvelopeTo(seed.request, 'eli.typed@example.com');
-      expect(mail.from).toBe(MAIL_FROM);
-      await ctx.close();
-    });
-
-  test('不发: visitor clicks "don\'t send" → no email goes out',
-    async ({ browser }) => {
-      await clearMailpit(seed.request);
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterWithProfile(page, seed.code.code, 'Mara', 'mara@example.com');
-      await bookInChat(page, 16);
-
-      const prompt = page.getByTestId('booking-email-prompt');
-      await expect(prompt).toBeVisible({ timeout: 10_000 });
-      await prompt.getByTestId('booking-email-skip').click();
-
-      await new Promise((r) => setTimeout(r, 1_000));
-      expect(await countMailpitMessages(seed.request)).toBe(0);
-      await ctx.close();
-    });
+  test('引用: profile email → "send to my email" → owner mails it (HTML + schema.org)',
+    ({ browser }) => quoteFlow(browser, seed));
+  test('透传: no profile email → type an address → owner mails it',
+    ({ browser }) => passthroughFlow(browser, seed));
+  test('透传 非法地址: junk → backend 422, card error, nothing sent',
+    ({ browser }) => invalidRecipientFlow(browser, seed));
+  test('不发: "don\'t send" → no email goes out',
+    ({ browser }) => skipFlow(browser, seed));
 });
+
+// 引用 —— session email 在 → 点引用 → owner 发到它;邮件带 schema.org markup;一笔一发。
+async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
+  await clearMailpit(seed.request);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterWithProfile(page, seed.code.code, 'Dana', 'dana.profile@example.com');
+  await bookInChat(page, 14);
+
+  const prompt = page.getByTestId('booking-email-prompt');
+  await expect(prompt).toBeVisible({ timeout: 10_000 });
+  await prompt.getByTestId('booking-email-use-profile').click();
+
+  const mail = await waitForMailEnvelopeTo(seed.request, 'dana.profile@example.com');
+  expect(mail.from).toBe(MAIL_FROM);
+  expect(mail.text).toContain(TOPIC);
+  expect(mail.html).toContain(TOPIC);
+  expect(mail.html).toContain('application/ld+json');
+  expect(mail.html).toContain('"@type":"EventReservation"');
+  expect(mail.html).toContain('"reservationFor"');
+  expect(mail.html).toContain('"startDate"');
+
+  // 点完即锁(sent 态、动作消失);邮件已 waitForMailEnvelope 收到 → count 已确定为 1。
+  await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 5_000 });
+  await expect(prompt.getByTestId('booking-email-use-profile')).toHaveCount(0);
+  await expect(prompt.getByTestId('booking-email-skip')).toHaveCount(0);
+  expect(await countMailpitMessages(seed.request)).toBe(1);
+  await ctx.close();
+}
+
+// 透传 —— 没 session email → 不渲引用 → 现填地址发出。
+async function passthroughFlow(browser: Browser, seed: CodedSeed): Promise<void> {
+  await clearMailpit(seed.request);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterWithProfile(page, seed.code.code, 'Eli'); // 没填 email
+  await bookInChat(page, 15);
+
+  const prompt = page.getByTestId('booking-email-prompt');
+  await expect(prompt).toBeVisible({ timeout: 10_000 });
+  await expect(prompt.getByTestId('booking-email-use-profile')).toHaveCount(0);
+  await prompt.getByTestId('booking-email-other').fill('eli.typed@example.com');
+  await prompt.getByTestId('booking-email-send').click();
+
+  const mail = await waitForMailEnvelopeTo(seed.request, 'eli.typed@example.com');
+  expect(mail.from).toBe(MAIL_FROM);
+  await ctx.close();
+}
+
+// 透传非法 —— 填垃圾地址 → 后端 ParseAddress 失败 → 422 → 卡片报错、不进 sent、零发送。
+async function invalidRecipientFlow(browser: Browser, seed: CodedSeed): Promise<void> {
+  await clearMailpit(seed.request);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterWithProfile(page, seed.code.code, 'Nads'); // 没 session email
+  await bookInChat(page, 13);
+
+  const prompt = page.getByTestId('booking-email-prompt');
+  await expect(prompt).toBeVisible({ timeout: 10_000 });
+  await prompt.getByTestId('booking-email-other').fill('not-an-email');
+  await prompt.getByTestId('booking-email-send').click();
+
+  // 报错可见 = 422 已回 → 没进 sent、一封都没发。error 可见就是确定性信号,无需 sleep。
+  await expect(prompt.getByTestId('booking-email-error')).toBeVisible({ timeout: 5_000 });
+  await expect(prompt).toHaveAttribute('data-sent', 'false');
+  expect(await countMailpitMessages(seed.request)).toBe(0);
+  await ctx.close();
+}
+
+// 不发 —— 点 skip 纯本地锁卡、不发请求。data-sent=true = 已落定,此刻零邮件。
+async function skipFlow(browser: Browser, seed: CodedSeed): Promise<void> {
+  await clearMailpit(seed.request);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterWithProfile(page, seed.code.code, 'Mara', 'mara@example.com');
+  await bookInChat(page, 16);
+
+  const prompt = page.getByTestId('booking-email-prompt');
+  await expect(prompt).toBeVisible({ timeout: 10_000 });
+  await prompt.getByTestId('booking-email-skip').click();
+
+  await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 5_000 });
+  expect(await countMailpitMessages(seed.request)).toBe(0);
+  await ctx.close();
+}
 
 // owner 没配 mail connector → 整张确认卡不渲染(owner 根本发不了信)。
 test.describe('booking · no mail connector → no confirmation card (#122)', () => {

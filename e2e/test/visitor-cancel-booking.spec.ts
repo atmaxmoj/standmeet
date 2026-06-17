@@ -12,7 +12,7 @@
 // 挡下且受害者的 GCal event 仍在。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Browser, Page } from '@playwright/test';
 
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, OWNER, type CodedSeed,
@@ -58,66 +58,72 @@ test.describe('visitor · cancel own booking + isolation (#123)', () => {
       await ctx.close();
     });
 
-  test('isolation (same code, other member): Mallory cannot cancel Dana\'s booking — but Dana can',
-    async ({ browser }) => {
-      await resetMockGCal(seed.request);
-      // 受害者 Dana 通过浏览器真约一场。
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterAndBook(page, seed.code.code, 'Dana', 'dana@example.com', 15);
-      const events = await getMockEvents(seed.request);
-      const victimEvent = events[0]!.event_id;
-
-      // 攻击者 Mallory:同一张 code 下另一个 member。她的 session 合法,但 member 不同。
-      const mallory = await issueSession(seed.request, {
-        handle: OWNER.handle, mode: 'code', code: seed.code.code,
-        visitor_name: 'Mallory', visitor_email: 'mallory@example.com',
-      });
-
-      const status = await attemptCancel(seed.request, mallory.session_token, victimEvent);
-      expect(status).toBe(404); // 隔离:不是你约的,当作不存在
-
-      // 受害者的 event 仍在(没被误删)。
-      const still = await getMockEvents(seed.request);
-      expect(still.find((e) => e.event_id === victimEvent)).toBeDefined();
-
-      // 正例(同 member):Mallory 取消不了的这场,Dana 本人在自己卡片上点 cancel
-      // 可以取消 —— 隔离只挡别人,不挡本人。
-      await page.getByTestId('book-card-cancel').click();
-      await expect(page.getByTestId('tool-card-calendar_book'))
-        .toHaveAttribute('data-cancelled', 'true', { timeout: 10_000 });
-      const afterDana = await getMockEvents(seed.request);
-      expect(afterDana.find((e) => e.event_id === victimEvent)).toBeUndefined();
-      await ctx.close();
+  test('nonexistent event_id with a valid session → 404 (not 500)',
+    async () => {
+      const status = await attemptCancel(
+        seed.request, seed.visitor.session_token, 'evt-does-not-exist');
+      expect(status).toBe(404); // 合法 session,但没这笔 booking → ErrBookingNotFound
     });
+
+  test('isolation (same code, other member): Mallory cannot cancel Dana\'s booking — but Dana can',
+    ({ browser }) => crossMemberIsolation(browser, seed));
 
   // 单 owner 实例下跨 owner 没法真造两个 owner(resetInstance 会清掉重 claim 同一人),
   // 所以 owner 维度的隔离改用**跨 code**(同 owner、另一张 access code)覆盖 code_id 那一维。
   test('isolation (other code, same owner): a code-2 visitor cannot cancel a code-1 booking',
-    async ({ browser }) => {
-      await resetMockGCal(seed.request);
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterAndBook(page, seed.code.code, 'Dana', 'dana@example.com', 16);
-      const victimEvent = (await getMockEvents(seed.request))[0]!.event_id;
-
-      // 同 owner 下另一张 code 的合法访客。
-      const code2 = await issueCodeWithSkills(seed.request, seed.csrf, {
-        granted_skills: ['calendar.book'], max_bookings: 9,
-      });
-      const intruder = await issueSession(seed.request, {
-        handle: OWNER.handle, mode: 'code', code: code2.code,
-        visitor_name: 'Ivan', visitor_email: 'ivan@example.com',
-      });
-
-      const status = await attemptCancel(seed.request, intruder.session_token, victimEvent);
-      expect(status).toBe(404); // code_id 不匹 → 当作不存在
-
-      const still = await getMockEvents(seed.request);
-      expect(still.find((e) => e.event_id === victimEvent)).toBeDefined();
-      await ctx.close();
-    });
+    ({ browser }) => crossCodeIsolation(browser, seed));
 });
+
+// crossMemberIsolation —— Dana(member A)约,Mallory(同码 member B)取消不了(404),
+// 受害 event 仍在;但 Dana 本人能取消自己那场。
+async function crossMemberIsolation(browser: Browser, seed: CodedSeed): Promise<void> {
+  await resetMockGCal(seed.request);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterAndBook(page, seed.code.code, 'Dana', 'dana@example.com', 15);
+  const victimEvent = (await getMockEvents(seed.request))[0]!.event_id;
+
+  // 攻击者 Mallory:同一张 code 下另一个 member。session 合法,但 member 不同。
+  const mallory = await issueSession(seed.request, {
+    handle: OWNER.handle, mode: 'code', code: seed.code.code,
+    visitor_name: 'Mallory', visitor_email: 'mallory@example.com',
+  });
+  expect(await attemptCancel(seed.request, mallory.session_token, victimEvent)).toBe(404);
+  expect((await getMockEvents(seed.request)).find((e) => e.event_id === victimEvent))
+    .toBeDefined(); // 受害者的 event 没被误删
+
+  // 正例(同 member):这场 Mallory 取消不了,Dana 本人点卡片上的 cancel 可以。
+  await page.getByTestId('book-card-cancel').click();
+  await expect(page.getByTestId('tool-card-calendar_book'))
+    .toHaveAttribute('data-cancelled', 'true', { timeout: 10_000 });
+  expect((await getMockEvents(seed.request)).find((e) => e.event_id === victimEvent))
+    .toBeUndefined();
+  await ctx.close();
+}
+
+// crossCodeIsolation —— 同 owner 另一张 code 的合法访客取消不了 code-1 的 booking。
+async function crossCodeIsolation(browser: Browser, seed: CodedSeed): Promise<void> {
+  await resetMockGCal(seed.request);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterAndBook(page, seed.code.code, 'Dana', 'dana@example.com', 16);
+  const victimEvent = (await getMockEvents(seed.request))[0]!.event_id;
+
+  const code2 = await issueCodeWithSkills(seed.request, seed.csrf, {
+    granted_skills: ['calendar.book'], max_bookings: 9,
+  });
+  const intruder = await issueSession(seed.request, {
+    handle: OWNER.handle, mode: 'code', code: code2.code,
+    visitor_name: 'Ivan', visitor_email: 'ivan@example.com',
+  });
+
+  const status = await attemptCancel(seed.request, intruder.session_token, victimEvent);
+  expect(status).toBe(404); // code_id 不匹 → 当作不存在
+
+  expect((await getMockEvents(seed.request)).find((e) => e.event_id === victimEvent))
+    .toBeDefined(); // 受害者的 event 仍在
+  await ctx.close();
+}
 
 // enterAndBook —— ?code 入口 → 填名字(+email)→ script 一次 calendar_book → 触发 →
 // 等 BookCard 出现。hour 错开真实 GCal 时段避免冲突(同 #122)。
