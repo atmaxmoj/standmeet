@@ -51,6 +51,8 @@ type VisitorDeps struct {
 	// GET /report/{id} route 也通过它读。F.2: 窄接口 ReportStore 让 eval 能注
 	// no-op 实现。
 	Reports ReportStore
+	// Notify —— #130: 约成后给 owner 发通知(per-role 开关,best-effort 触发)。
+	Notify OwnerNotifyDeps
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。

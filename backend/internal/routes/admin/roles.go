@@ -36,6 +36,8 @@ type roleView struct {
 	MCPServerIDs []string `json:"mcp_server_ids"`
 	ActiveCodes  int64    `json:"active_codes"`
 	IsBuiltin    bool     `json:"is_builtin"`
+	// NotifyOwnerOnBooking —— #130 per-role 通知开关(owner 看/设)。
+	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking"`
 }
 
 type writeRoleRequest struct {
@@ -46,6 +48,8 @@ type writeRoleRequest struct {
 	CorpusURIs   []string `json:"corpus_uris"`
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
+	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
+	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking"`
 }
 
 // MountRoles 挂 /roles 子路由。
@@ -109,11 +113,12 @@ func toRoleView(rl *domain.Role, activeCodes int64) roleView {
 		ID: rl.ID(), Name: rl.Name(), Description: rl.Description(),
 		Greeting:   rl.Greeting(),
 		CorpusURIs: rl.CorpusURIs(), SkillIDs: rl.SkillIDs(),
-		MCPServerIDs: rl.MCPServerIDs(),
-		IsBuiltin:    rl.IsBuiltin(),
-		ActiveCodes:  activeCodes,
-		CreatedAt:    rl.CreatedAt().UTC().Format(time.RFC3339),
-		UpdatedAt:    rl.UpdatedAt().UTC().Format(time.RFC3339),
+		MCPServerIDs:         rl.MCPServerIDs(),
+		IsBuiltin:            rl.IsBuiltin(),
+		NotifyOwnerOnBooking: rl.NotifyOwnerOnBooking(),
+		ActiveCodes:          activeCodes,
+		CreatedAt:            rl.CreatedAt().UTC().Format(time.RFC3339),
+		UpdatedAt:            rl.UpdatedAt().UTC().Format(time.RFC3339),
 	}
 	if pid, ok := rl.PromptID(); ok {
 		v.PromptID = &pid
@@ -133,6 +138,7 @@ func (h *Handlers) createRole() http.HandlerFunc {
 			OwnerID: ownerID, Name: req.Name, Description: req.Description,
 			Greeting: req.Greeting, PromptID: req.PromptID,
 			CorpusURIs: req.CorpusURIs, SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
+			NotifyOwnerOnBooking: req.NotifyOwnerOnBooking,
 		})
 		if err != nil {
 			handleWriteRoleErr(h.Log, w, err, "create")
@@ -186,6 +192,7 @@ func (h *Handlers) updateRole() http.HandlerFunc {
 			Description: req.Description, Greeting: req.Greeting,
 			PromptID: req.PromptID, CorpusURIs: req.CorpusURIs,
 			SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
+			NotifyOwnerOnBooking: req.NotifyOwnerOnBooking,
 		})
 		if err != nil {
 			handleWriteRoleErr(h.Log, w, err, "update")

@@ -187,6 +187,9 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			GCal:        calendarClientAdapter{client: d.gcalClient},
 			AgentSkills: d.agentSkills,
 			Reports:     d.chatReportRepo,
+			Notify: usecases.OwnerNotifyDeps{
+				Mail: d.mailRepo, Owners: d.ownerRepo, Roles: d.roleRepo,
+			},
 		},
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,

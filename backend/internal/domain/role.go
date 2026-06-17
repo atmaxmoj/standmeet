@@ -36,6 +36,8 @@ type Role struct {
 	mcpServerIDs []string
 	isBuiltin    bool
 	hasPrompt    bool
+	// notifyOnBooking —— #130: 这个 role 下约成后给 owner 自己发通知邮件。
+	notifyOnBooking bool
 }
 
 // RoleInit —— 构造参数。
@@ -52,22 +54,25 @@ type RoleInit struct {
 	SkillIDs     []string
 	MCPServerIDs []string
 	IsBuiltin    bool
+	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
+	NotifyOwnerOnBooking bool
 }
 
 // NewRole —— 从 Init 构造。容器字段 defensive clone；nil → 空切片。
 func NewRole(i *RoleInit) Role {
 	r := Role{
-		id:           i.ID,
-		ownerID:      i.OwnerID,
-		name:         i.Name,
-		description:  i.Description,
-		greeting:     i.Greeting,
-		isBuiltin:    i.IsBuiltin,
-		createdAt:    i.CreatedAt,
-		updatedAt:    i.UpdatedAt,
-		corpusURIs:   cloneStrings(i.CorpusURIs),
-		skillIDs:     cloneStrings(i.SkillIDs),
-		mcpServerIDs: cloneStrings(i.MCPServerIDs),
+		id:              i.ID,
+		ownerID:         i.OwnerID,
+		name:            i.Name,
+		description:     i.Description,
+		greeting:        i.Greeting,
+		isBuiltin:       i.IsBuiltin,
+		createdAt:       i.CreatedAt,
+		updatedAt:       i.UpdatedAt,
+		corpusURIs:      cloneStrings(i.CorpusURIs),
+		skillIDs:        cloneStrings(i.SkillIDs),
+		mcpServerIDs:    cloneStrings(i.MCPServerIDs),
+		notifyOnBooking: i.NotifyOwnerOnBooking,
 	}
 	if i.PromptID != nil {
 		r.promptID = *i.PromptID
@@ -121,6 +126,9 @@ func (r *Role) MCPServerIDs() []string { return slices.Clone(r.mcpServerIDs) }
 
 // IsBuiltin —— 是否种入的 builtin（vanilla 是 true）。
 func (r *Role) IsBuiltin() bool { return r.isBuiltin }
+
+// NotifyOwnerOnBooking —— #130: 约成后是否给 owner 自己发通知邮件。
+func (r *Role) NotifyOwnerOnBooking() bool { return r.notifyOnBooking }
 
 // CreatedAt —— 创建时间。
 func (r *Role) CreatedAt() time.Time { return r.createdAt }

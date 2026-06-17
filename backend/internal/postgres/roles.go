@@ -29,11 +29,12 @@ func NewRoleRepo(pool *Pool) *RoleRepo { return &RoleRepo{pool: pool} }
 // CreateRoleInput —— Create 入参。PromptID nil = NULL；caller 已校验 prompt
 // 属于同 owner。
 type CreateRoleInput struct {
-	PromptID    *string
-	OwnerID     string
-	Name        string
-	Description string
-	Greeting    string
+	PromptID             *string
+	OwnerID              string
+	Name                 string
+	Description          string
+	Greeting             string
+	NotifyOwnerOnBooking bool
 }
 
 // Create 新建 role 主表行（不挂任何 join 项；attach 在 caller usecase 内单独调）。
@@ -62,6 +63,7 @@ func buildCreateRoleParams(in *CreateRoleInput) (dbq.CreateRoleParams, error) {
 	return dbq.CreateRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description,
 		Greeting: in.Greeting, PromptID: promptUUID,
+		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
 	}, nil
 }
 
@@ -168,12 +170,13 @@ func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (domain.
 
 // UpdateRoleInput —— Update 入参。
 type UpdateRoleInput struct {
-	PromptID    *string
-	OwnerID     string
-	RoleID      string
-	Name        string
-	Description string
-	Greeting    string
+	PromptID             *string
+	OwnerID              string
+	RoleID               string
+	Name                 string
+	Description          string
+	Greeting             string
+	NotifyOwnerOnBooking bool
 }
 
 // Update 改 role 主表行（不动 join 表；caller 用 SetCorpusURIs / SetSkills /
@@ -190,11 +193,26 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (domain.Role
 	row, err := dbq.New(r.pool).UpdateRole(ctx, dbq.UpdateRoleParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
 		Name: in.Name, Description: in.Description, Greeting: in.Greeting, PromptID: promptUUID,
+		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
 	})
 	if err != nil {
 		return domain.Role{}, mapRoleUpdateErr(err)
 	}
 	return toDomainRoleBare(&row), nil
+}
+
+// NotifiesOwnerOnBooking —— #130: 约成时实时读这个 role 的通知开关。EXISTS 查询恒返
+// 一行,role 不存在 / 开关关 → false(无 no-rows 特判)。
+func (r *RoleRepo) NotifiesOwnerOnBooking(ctx context.Context, roleID string) (bool, error) {
+	roleUUID, err := parseUUID(roleID)
+	if err != nil {
+		return false, fmt.Errorf("parse role id: %w", err)
+	}
+	on, qerr := dbq.New(r.pool).RoleNotifiesOwnerOnBooking(ctx, roleUUID)
+	if qerr != nil {
+		return false, fmt.Errorf("role notifies owner: %w", qerr)
+	}
+	return on, nil
 }
 
 // mapRoleUpdateErr —— 单独抽出来降 Update 的 cognitive complexity。
@@ -280,6 +298,7 @@ func toDomainRole(
 		PromptID:   promptIDPtr,
 		IsBuiltin:  row.IsBuiltin,
 		CorpusURIs: corpusURIs, SkillIDs: skillIDs, MCPServerIDs: mcpServerIDs,
-		CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
+		NotifyOwnerOnBooking: row.NotifyOwnerOnBooking,
+		CreatedAt:            row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	})
 }

@@ -308,6 +308,9 @@ CREATE TABLE roles (
     greeting     text          NOT NULL DEFAULT '',
     prompt_id    uuid          REFERENCES prompts(id) ON DELETE SET NULL,
     is_builtin   boolean       NOT NULL DEFAULT false,
+    -- notify_owner_on_booking —— #130: 这个 role 下的访客约成后,给 owner 自己发一封
+    -- owner 视角的通知邮件(per-role 开关,owner 设)。默认关。
+    notify_owner_on_booking boolean NOT NULL DEFAULT false,
     created_at   timestamptz   NOT NULL DEFAULT now(),
     updated_at   timestamptz   NOT NULL DEFAULT now()
 );

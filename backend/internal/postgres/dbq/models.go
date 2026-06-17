@@ -347,15 +347,16 @@ type ResumeDraft struct {
 }
 
 type Role struct {
-	ID          pgtype.UUID
-	OwnerID     pgtype.UUID
-	Name        string
-	Description string
-	Greeting    string
-	PromptID    pgtype.UUID
-	IsBuiltin   bool
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID                   pgtype.UUID
+	OwnerID              pgtype.UUID
+	Name                 string
+	Description          string
+	Greeting             string
+	PromptID             pgtype.UUID
+	IsBuiltin            bool
+	NotifyOwnerOnBooking bool
+	CreatedAt            pgtype.Timestamptz
+	UpdatedAt            pgtype.Timestamptz
 }
 
 type RoleCorpusUri struct {

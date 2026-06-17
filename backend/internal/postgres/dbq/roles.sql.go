@@ -102,17 +102,18 @@ func (q *Queries) CountActiveCodesForRole(ctx context.Context, assumedRoleID pgt
 
 const createRole = `-- name: CreateRole :one
 
-INSERT INTO roles (owner_id, name, description, greeting, prompt_id)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at
+INSERT INTO roles (owner_id, name, description, greeting, prompt_id, notify_owner_on_booking)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, notify_owner_on_booking, created_at, updated_at
 `
 
 type CreateRoleParams struct {
-	OwnerID     pgtype.UUID
-	Name        string
-	Description string
-	Greeting    string
-	PromptID    pgtype.UUID
+	OwnerID              pgtype.UUID
+	Name                 string
+	Description          string
+	Greeting             string
+	PromptID             pgtype.UUID
+	NotifyOwnerOnBooking bool
 }
 
 // roles —— owner-scoped visitor 身份原型。语义见 schema.sql + [[iam-role-pivot-plan]]。
@@ -126,6 +127,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		arg.Description,
 		arg.Greeting,
 		arg.PromptID,
+		arg.NotifyOwnerOnBooking,
 	)
 	var i Role
 	err := row.Scan(
@@ -136,6 +138,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
+		&i.NotifyOwnerOnBooking,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -157,7 +160,7 @@ func (q *Queries) DeleteRole(ctx context.Context, arg DeleteRoleParams) error {
 }
 
 const getRoleByID = `-- name: GetRoleByID :one
-SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, notify_owner_on_booking, created_at, updated_at FROM roles WHERE id = $1 AND owner_id = $2
 `
 
 type GetRoleByIDParams struct {
@@ -176,6 +179,7 @@ func (q *Queries) GetRoleByID(ctx context.Context, arg GetRoleByIDParams) (Role,
 		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
+		&i.NotifyOwnerOnBooking,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -183,7 +187,7 @@ func (q *Queries) GetRoleByID(ctx context.Context, arg GetRoleByIDParams) (Role,
 }
 
 const getRoleByName = `-- name: GetRoleByName :one
-SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE owner_id = $1 AND name = $2
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, notify_owner_on_booking, created_at, updated_at FROM roles WHERE owner_id = $1 AND name = $2
 `
 
 type GetRoleByNameParams struct {
@@ -202,6 +206,7 @@ func (q *Queries) GetRoleByName(ctx context.Context, arg GetRoleByNameParams) (R
 		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
+		&i.NotifyOwnerOnBooking,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -362,7 +367,7 @@ func (q *Queries) ListRoleSkills(ctx context.Context, roleID pgtype.UUID) ([]Ski
 }
 
 const listRolesByOwner = `-- name: ListRolesByOwner :many
-SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
+SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, notify_owner_on_booking, created_at, updated_at FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
 `
 
 func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Role, error) {
@@ -382,6 +387,7 @@ func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 			&i.Greeting,
 			&i.PromptID,
 			&i.IsBuiltin,
+			&i.NotifyOwnerOnBooking,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -395,20 +401,38 @@ func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]
 	return items, nil
 }
 
+const roleNotifiesOwnerOnBooking = `-- name: RoleNotifiesOwnerOnBooking :one
+SELECT EXISTS(
+    SELECT 1 FROM roles WHERE id = $1 AND notify_owner_on_booking
+)
+`
+
+// #130: 约成时**实时**读这个 role 的通知开关(不冻进 session — 通知偏好是 owner 的
+// 当前设置,不是 ACL/一致性约束)。EXISTS 恒返一行 bool:role 不存在 / 开关关 → false
+// (省掉 no-rows 特判)。
+func (q *Queries) RoleNotifiesOwnerOnBooking(ctx context.Context, id pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, roleNotifiesOwnerOnBooking, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const updateRole = `-- name: UpdateRole :one
 UPDATE roles
-SET name = $3, description = $4, greeting = $5, prompt_id = $6, updated_at = now()
+SET name = $3, description = $4, greeting = $5, prompt_id = $6,
+    notify_owner_on_booking = $7, updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, notify_owner_on_booking, created_at, updated_at
 `
 
 type UpdateRoleParams struct {
-	ID          pgtype.UUID
-	OwnerID     pgtype.UUID
-	Name        string
-	Description string
-	Greeting    string
-	PromptID    pgtype.UUID
+	ID                   pgtype.UUID
+	OwnerID              pgtype.UUID
+	Name                 string
+	Description          string
+	Greeting             string
+	PromptID             pgtype.UUID
+	NotifyOwnerOnBooking bool
 }
 
 func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error) {
@@ -419,6 +443,7 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		arg.Description,
 		arg.Greeting,
 		arg.PromptID,
+		arg.NotifyOwnerOnBooking,
 	)
 	var i Role
 	err := row.Scan(
@@ -429,6 +454,7 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
+		&i.NotifyOwnerOnBooking,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -442,7 +468,7 @@ ON CONFLICT (owner_id, name) DO UPDATE SET
     description = EXCLUDED.description,
     prompt_id   = EXCLUDED.prompt_id,
     updated_at  = now()
-RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, created_at, updated_at
+RETURNING id, owner_id, name, description, greeting, prompt_id, is_builtin, notify_owner_on_booking, created_at, updated_at
 `
 
 type UpsertBuiltinRoleParams struct {
@@ -469,6 +495,7 @@ func (q *Queries) UpsertBuiltinRole(ctx context.Context, arg UpsertBuiltinRolePa
 		&i.Greeting,
 		&i.PromptID,
 		&i.IsBuiltin,
+		&i.NotifyOwnerOnBooking,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

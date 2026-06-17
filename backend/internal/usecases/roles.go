@@ -42,6 +42,8 @@ type RoleWriteInput struct {
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
+	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
+	NotifyOwnerOnBooking bool
 }
 
 // CreateRole 新建 role + 同步三组 join 表。
@@ -76,6 +78,7 @@ func createRoleRow(
 	role, err := deps.Roles.Create(ctx, &postgres.CreateRoleInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
+		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrRoleNameTaken) {
@@ -150,6 +153,7 @@ func updateRoleRow(
 	role, err := deps.Roles.Update(ctx, &postgres.UpdateRoleInput{
 		OwnerID: in.OwnerID, RoleID: in.RoleID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
+		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
 	})
 	if err != nil {
 		return domain.Role{}, fmt.Errorf("update role: %w", err)

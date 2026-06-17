@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/agentskills"
@@ -67,7 +68,33 @@ func runBookerBook(
 	if berr != nil {
 		return marshalBookErr(berr), nil
 	}
+	// #130: 约成后 best-effort 给 owner 发通知(per-role 开关在 usecase 里实时查)。
+	// 通知失败绝不影响 booking 结果(已成);err 吞掉,booking 仍如实返给 agent。
+	notifyOwnerBestEffort(ctx, deps, in, &result, args.Topic)
 	return marshalBookResult(&result), nil
+}
+
+// notifyOwnerBestEffort —— #130 触发点。RoleSnapshot 给 role id;约成的起止 + 访客名
+// + 主题进通知。fire-and-forget(无 logger,通知是纯 side-effect)。
+func notifyOwnerBestEffort(
+	ctx context.Context, deps *VisitorDeps, in *agentskills.AssembleInput,
+	result *domain.BookResult, topic string,
+) {
+	roleID := ""
+	if in.RoleSnapshot != nil {
+		roleID = in.RoleSnapshot.RoleID()
+	}
+	if err := NotifyOwnerOfBooking(ctx, deps.Notify, &NotifyOwnerOfBookingInput{
+		OwnerID:     in.OwnerID,
+		RoleID:      roleID,
+		VisitorName: in.Visitor.Name,
+		Topic:       topic,
+		StartAt:     result.Start,
+		EndAt:       result.End,
+	}); err != nil {
+		// best-effort:booking 已成,通知失败只记日志,不影响返回给 agent 的结果。
+		slog.Default().Warn("owner booking notify failed", "owner_id", in.OwnerID, "err", err)
+	}
 }
 
 type bookArgsWire struct {

@@ -15,6 +15,8 @@ export interface IssueCodeInput {
   max_bookings?: number;
   max_members?: number;
   max_turns_per_session?: number;
+  // #130: 这张码的 role 是否在约成后给 owner 自己发通知邮件。
+  notify_owner_on_booking?: boolean;
 }
 
 export interface IssuedCode {
@@ -41,7 +43,8 @@ export async function issueCodeWithSkills(
     const skill = await createSkillWithTools(request, csrf, `skill-${tag}`, tools);
     skillID = skill.id;
   }
-  const role = await createRoleAttachingSkill(request, csrf, `role-${tag}`, skillID);
+  const role = await createRoleAttachingSkill(request, csrf, `role-${tag}`, skillID,
+    input.notify_owner_on_booking ?? false);
   return await postCode(request, csrf, role.id, input);
 }
 
@@ -64,7 +67,7 @@ async function createSkillWithTools(
 
 async function createRoleAttachingSkill(
   request: APIRequestContext, csrf: string,
-  name: string, skillID: string | null,
+  name: string, skillID: string | null, notifyOwnerOnBooking = false,
 ): Promise<RoleView> {
   const res = await request.post(`${BACKEND}/api/admin/roles/`, {
     headers: { 'X-Csrftoken': csrf },
@@ -75,6 +78,7 @@ async function createRoleAttachingSkill(
       corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
       skill_ids: skillID ? [skillID] : [],
       mcp_server_ids: [],
+      notify_owner_on_booking: notifyOwnerOnBooking,
     },
   });
   if (res.status() !== 201) throw new Error(`create role: ${res.status()}`);
