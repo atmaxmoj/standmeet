@@ -24,11 +24,18 @@ const (
 // retrievalCapability —— Capability impl，持 wiki/output/writings repos
 // 闭包。VisitorBinding 每次新建一个 retriever（带新 collector），多个
 // session 互不干扰。
-type retrievalCapability struct {
-	deps *VisitorDeps
+// retrievalDeps —— 窄依赖(#131):corpus 三类 lister(wiki/output/writing)。
+type retrievalDeps struct {
+	Wiki     WikiLister
+	Output   OutputLister
+	Writings WritingLister
 }
 
-func newRetrievalCapability(deps *VisitorDeps) *retrievalCapability {
+type retrievalCapability struct {
+	deps retrievalDeps
+}
+
+func newRetrievalCapability(deps retrievalDeps) *retrievalCapability {
 	return &retrievalCapability{deps: deps}
 }
 

@@ -27,11 +27,17 @@ const (
 
 var skillToolNameRe = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
-type skillRunnerCapability struct {
-	deps *VisitorDeps
+// skillRunnerDeps —— 窄依赖(#131):owner skill 目录 + 跑脚本的 sandbox。
+type skillRunnerDeps struct {
+	Skills  SkillGetter
+	Sandbox sandbox.Runner
 }
 
-func newSkillRunnerCapability(deps *VisitorDeps) *skillRunnerCapability {
+type skillRunnerCapability struct {
+	deps skillRunnerDeps
+}
+
+func newSkillRunnerCapability(deps skillRunnerDeps) *skillRunnerCapability {
 	return &skillRunnerCapability{deps: deps}
 }
 
@@ -67,7 +73,7 @@ func (*skillRunnerCapability) SystemPromptFragmentID(
 func (c *skillRunnerCapability) VisitorBinding(
 	ctx context.Context, in *agentskills.AssembleInput,
 ) (*agentskills.Binding, error) {
-	skills := loadSkillsForBinding(ctx, c.deps, in)
+	skills := loadSkillsForBinding(ctx, c.deps.Skills, in)
 	tools := buildSkillTools(c.deps.Sandbox, skills)
 	if len(tools) == 0 {
 		return nil, agentskills.ErrHidden
@@ -79,15 +85,15 @@ func (c *skillRunnerCapability) VisitorBinding(
 }
 
 func loadSkillsForBinding(
-	ctx context.Context, deps *VisitorDeps, in *agentskills.AssembleInput,
+	ctx context.Context, skills SkillGetter, in *agentskills.AssembleInput,
 ) []domain.Skill {
-	if deps.Skills == nil || in.RoleSnapshot == nil {
+	if skills == nil || in.RoleSnapshot == nil {
 		return []domain.Skill{}
 	}
 	ids := in.RoleSnapshot.SkillIDs()
 	out := make([]domain.Skill, 0, len(ids))
 	for _, id := range ids {
-		s, err := deps.Skills.GetByID(ctx, in.OwnerID, id)
+		s, err := skills.GetByID(ctx, in.OwnerID, id)
 		if err != nil {
 			continue // race: skill deleted after session issue
 		}

@@ -26,12 +26,13 @@ const (
 	extToolPrefix = "ext_"
 )
 
+// extMCPCapability —— 窄依赖(#131):只要 owner 注册的外部 MCP server 目录。
 type extMCPCapability struct {
-	deps *VisitorDeps
+	servers MCPServerGetter
 }
 
-func newExtMCPCapability(deps *VisitorDeps) *extMCPCapability {
-	return &extMCPCapability{deps: deps}
+func newExtMCPCapability(servers MCPServerGetter) *extMCPCapability {
+	return &extMCPCapability{servers: servers}
 }
 
 func (*extMCPCapability) ID() string { return capExtMCP }
@@ -61,7 +62,7 @@ func (*extMCPCapability) SystemPromptFragmentID(
 func (c *extMCPCapability) VisitorBinding(
 	ctx context.Context, in *agentskills.AssembleInput,
 ) (*agentskills.Binding, error) {
-	servers := loadMCPServersForRole(ctx, c.deps, in)
+	servers := loadMCPServersForRole(ctx, c.servers, in)
 	if len(servers) == 0 {
 		return nil, agentskills.ErrHidden
 	}
@@ -78,15 +79,15 @@ func (c *extMCPCapability) VisitorBinding(
 }
 
 func loadMCPServersForRole(
-	ctx context.Context, deps *VisitorDeps, in *agentskills.AssembleInput,
+	ctx context.Context, servers MCPServerGetter, in *agentskills.AssembleInput,
 ) []domain.MCPServerConfig {
-	if deps.MCPServers == nil || in.RoleSnapshot == nil {
+	if servers == nil || in.RoleSnapshot == nil {
 		return []domain.MCPServerConfig{}
 	}
 	ids := in.RoleSnapshot.MCPServerIDs()
 	out := make([]domain.MCPServerConfig, 0, len(ids))
 	for _, id := range ids {
-		cfg, err := deps.MCPServers.GetByID(ctx, in.OwnerID, id)
+		cfg, err := servers.GetByID(ctx, in.OwnerID, id)
 		if err != nil {
 			continue
 		}

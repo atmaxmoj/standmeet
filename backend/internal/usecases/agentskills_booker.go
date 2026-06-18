@@ -38,11 +38,19 @@ const (
 	maxDurationMin = 180
 )
 
-type calendarBookCapability struct {
-	deps *VisitorDeps
+// bookerDeps —— 窄依赖(#131):日历 store + GCal client + owner 查询 + 约成通知。
+type bookerDeps struct {
+	Calendar CalendarStore
+	GCal     CalendarClient
+	Owners   OwnerGetter
+	Notify   OwnerNotifyDeps
 }
 
-func newCalendarBookCapability(deps *VisitorDeps) *calendarBookCapability {
+type calendarBookCapability struct {
+	deps bookerDeps
+}
+
+func newCalendarBookCapability(deps bookerDeps) *calendarBookCapability {
 	return &calendarBookCapability{deps: deps}
 }
 
@@ -126,7 +134,7 @@ func bookerSkillGranted(snapshot *domain.RoleSnapshot) bool {
 // 返 (gating_pass, err)。connector 未装 / quota 耗尽 → (false, nil)；DB 错
 // → (false, err)。
 func bookerGatingClear(
-	ctx context.Context, deps *VisitorDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
 ) (bool, error) {
 	conn, err := deps.Calendar.GetConnector(ctx, in.OwnerID, domain.CalendarProvider)
 	if err != nil {
@@ -144,7 +152,7 @@ func bookerGatingClear(
 
 // bookerQuotaExhausted —— code 设了 MaxBookings 且当前已 booking >= cap。
 func bookerQuotaExhausted(
-	ctx context.Context, deps *VisitorDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
 ) (bool, error) {
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return false, nil
@@ -163,7 +171,7 @@ func bookerQuotaExhausted(
 // G-7 起两个 tool: calendar_book + calendar_list_slots (read-only，不
 // 走 quota)。
 func buildCalendarBookBinding(
-	ctx context.Context, deps *VisitorDeps,
+	ctx context.Context, deps bookerDeps,
 	in *agentskills.AssembleInput, owner *domain.Owner,
 ) *agentskills.Binding {
 	state := agentskills.CapabilityState{
@@ -190,7 +198,7 @@ func buildCalendarBookBinding(
 // bookerQuotaRemaining —— 当前 code 剩余可 booking 数。无 cap / DB 错 → nil。
 // 已知 quota 未耗尽（gating 通过到这里），但 LiveCount 仍可能跟 cap 差距。
 func bookerQuotaRemaining(
-	ctx context.Context, deps *VisitorDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
 ) *int32 {
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return nil

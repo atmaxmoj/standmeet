@@ -19,7 +19,7 @@ import (
 )
 
 func runBookerListSlots(
-	ctx context.Context, deps *VisitorDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
 	owner *domain.Owner, input []byte,
 ) (string, error) {
 	args, derr := decodeListSlotsArgs(input)

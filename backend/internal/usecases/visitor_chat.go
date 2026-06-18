@@ -40,7 +40,7 @@ type retrieverBuildInput struct {
 //
 // posts: only published; drafts stay out of visitor scope.
 func buildRetriever(
-	ctx context.Context, deps *VisitorDeps, in *retrieverBuildInput,
+	ctx context.Context, deps retrievalDeps, in *retrieverBuildInput,
 ) (*retriever, error) {
 	wikis, werr := deps.Wiki.ListByOwner(ctx, in.ownerID, maxRAGWikis)
 	if werr != nil {
@@ -60,7 +60,7 @@ func buildRetriever(
 }
 
 func listWritingsForRetrieval(
-	ctx context.Context, deps *VisitorDeps, ownerID string,
+	ctx context.Context, deps retrievalDeps, ownerID string,
 ) []domain.Writing {
 	if deps.Writings == nil {
 		return []domain.Writing{}

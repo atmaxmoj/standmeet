@@ -34,10 +34,16 @@ func RegisterAgentSkills(reg *agentskills.Registry, deps *VisitorDeps) {
 func RegisterVisitorSkills(
 	reg *agentskills.Registry, deps *VisitorDeps, sumChats ConversationGetter,
 ) {
-	reg.MustRegister(newRetrievalCapability(deps))
-	reg.MustRegister(newCalendarBookCapability(deps))
-	reg.MustRegister(newSkillRunnerCapability(deps))
-	reg.MustRegister(newExtMCPCapability(deps))
+	reg.MustRegister(newRetrievalCapability(retrievalDeps{
+		Wiki: deps.Wiki, Output: deps.Output, Writings: deps.Writings,
+	}))
+	reg.MustRegister(newCalendarBookCapability(bookerDeps{
+		Calendar: deps.Calendar, GCal: deps.GCal, Owners: deps.Owners, Notify: deps.Notify,
+	}))
+	reg.MustRegister(newSkillRunnerCapability(skillRunnerDeps{
+		Skills: deps.Skills, Sandbox: deps.Sandbox,
+	}))
+	reg.MustRegister(newExtMCPCapability(deps.MCPServers))
 	// I.1: ask_visitor 是 deps-less echo tool；所有 mode 都暴露，AI 自决
 	// 何时调，调完 eino ADK ReturnDirectly 直接结束 agent loop。
 	reg.MustRegister(newAskVisitorCapability())
