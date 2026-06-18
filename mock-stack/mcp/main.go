@@ -1,16 +1,26 @@
-// Package main —— minimal external MCP HTTP server fixture for e2e。
-// 暴露一个 tool `ping_external` 返回固定 marker；让 backend 当 MCP client
-// 时能验证 dial / ListTools / CallTool 全链通。
+// Package main —— minimal external MCP server fixture for e2e + 单元集成测试。
+// 两种传输：默认 HTTP（e2e fixture，等价 job-board-mock 的角色）；带 --stdio
+// 参数则走 stdio（mcpclient stdio 传输的测试替身，C2 用）。
 //
-// 真生产 owner 注册的 MCP server 是其他人写的（Notion / Calendar / 自定义
-// 微服务），这里只是 e2e fixture 等价于 job-board-mock 的角色。
+// 暴露两个 tool：
+//   - ping_external —— 返固定 marker（http e2e 既有用例）
+//   - echo —— 回 "<marker>:<text>"（stdio list/call 验证用）
+//
+// 故障注入（给 error-stream 测试）：
+//   - MOCK_MCP_EXIT_AFTER=N —— echo 被调 N 次后进程退出（模拟 mid-session 死）
+//   - 启动时总往 stderr 写一行 banner —— 验证 stdout 帧不被 stderr 干扰
+//
+// 真生产 owner 注册的 MCP server 是别人写的；这里只是 fixture。
 package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"sync/atomic"
 	"time"
 
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
@@ -25,23 +35,46 @@ const (
 	writeTimeout      = 30 * time.Second
 )
 
+// echoCalls —— echo 被调次数；配合 MOCK_MCP_EXIT_AFTER 模拟中途退出。
+var echoCalls atomic.Int64
+
 func main() {
+	// 启动 banner 走 stderr —— stdio 模式下 stdout 只能是 MCP 帧，banner 不能污染它。
+	fmt.Fprintln(os.Stderr, "mcp-server-mock starting")
+
+	// MOCK_MCP_HANG —— 进程起来但永不响应（测 client 的 initialize 超时）。
+	if os.Getenv("MOCK_MCP_HANG") != "" {
+		select {}
+	}
+
+	srv := server.NewMCPServer("mcp-server-mock", "0.1.0",
+		server.WithToolCapabilities(true))
+	// MOCK_MCP_NO_TOOLS —— 不注册任何 tool（测 "list 空 → capability 隐藏"）。
+	if os.Getenv("MOCK_MCP_NO_TOOLS") == "" {
+		srv.AddTool(pingTool(), pingHandler)
+		srv.AddTool(echoTool(), echoHandler)
+		srv.AddTool(boomTool(), boomHandler)
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "--stdio" {
+		if err := server.ServeStdio(srv); err != nil {
+			log.Fatalf("serve stdio: %v", err)
+		}
+		return
+	}
+	serveHTTP(srv)
+}
+
+func serveHTTP(srv *server.MCPServer) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
 	}
-	srv := server.NewMCPServer("mcp-server-mock", "0.1.0",
-		server.WithToolCapabilities(true))
-	srv.AddTool(pingTool(), pingHandler)
 	httpSrv := server.NewStreamableHTTPServer(srv, server.WithEndpointPath("/mcp"))
-
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", httpSrv)
 	mux.HandleFunc("/healthz", healthz)
-
-	// port 来自 env，可能被外部控制；这里只是 stdout 不落用户面，G706 nolint。
-	//nolint:gosec // log message 不进 user output；e2e fixture 启动横幅。
-	log.Println("mcp-server-mock listening on :" + port + "/mcp")
+	fmt.Fprintln(os.Stderr, "mcp-server-mock listening on :"+port+"/mcp")
 	httpServer := &http.Server{
 		Addr: ":" + port, Handler: mux,
 		ReadHeaderTimeout: readHeaderTimeout,
@@ -67,12 +100,54 @@ func pingTool() mcpgo.Tool {
 	)
 }
 
-// pingHandler —— mcp-go 强制 by-value 接收 CallToolRequest；nolint
-// gocritic hugeParam，签名受 SDK 限制改不动。
-//
 //nolint:gocritic // mcp-go 接口要求 value-typed request；改不了。
 func pingHandler(
 	_ context.Context, _ mcpgo.CallToolRequest,
 ) (*mcpgo.CallToolResult, error) {
 	return mcpgo.NewToolResultText(marker), nil
+}
+
+func echoTool() mcpgo.Tool {
+	return mcpgo.NewTool(
+		"echo",
+		mcpgo.WithDescription("Echo back the input text with a marker. Test fixture."),
+		mcpgo.WithString("text", mcpgo.Required(), mcpgo.Description("text to echo")),
+	)
+}
+
+// echoHandler —— 回 "<marker>:<text>"。若 MOCK_MCP_EXIT_AFTER=N，第 N 次调用后
+// 进程 os.Exit(1) —— 给 mcpclient 的 "进程 mid-session 退出" 错误流测试。
+//
+//nolint:gocritic // mcp-go 接口要求 value-typed request；改不了。
+func echoHandler(
+	_ context.Context, req mcpgo.CallToolRequest,
+) (*mcpgo.CallToolResult, error) {
+	n := echoCalls.Add(1)
+	maybeExit(n)
+	text, _ := req.GetArguments()["text"].(string)
+	return mcpgo.NewToolResultText(marker + ":" + text), nil
+}
+
+func maybeExit(n int64) {
+	limit, err := strconv.ParseInt(os.Getenv("MOCK_MCP_EXIT_AFTER"), 10, 64)
+	if err == nil && limit > 0 && n >= limit {
+		os.Exit(1)
+	}
+}
+
+func boomTool() mcpgo.Tool {
+	return mcpgo.NewTool(
+		"boom",
+		mcpgo.WithDescription("Always returns a tool error. Fault fixture."),
+	)
+}
+
+// boomHandler —— 返 isError tool result，让 client 验证 "tool 调用中途失败 →
+// 折成 errJSON tool_result（Go err nil），chat 不崩、AI 友好降级"。
+//
+//nolint:gocritic // mcp-go 接口要求 value-typed request；改不了。
+func boomHandler(
+	_ context.Context, _ mcpgo.CallToolRequest,
+) (*mcpgo.CallToolResult, error) {
+	return mcpgo.NewToolResultError("boom: intentional failure"), nil
 }

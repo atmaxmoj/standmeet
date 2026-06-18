@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -88,6 +88,11 @@ secrets:
 	else \
 	  echo "secrets: no .git in cwd, skipping (pre-commit on host catches this)"; \
 	fi
+
+# `make test` runs the Go unit/integration tests (testify, no DB/docker).
+# Pure-logic + in-process coverage; e2e lives in the root `make test`.
+test:
+	go test ./...
 
 # `make build` produces a local binary at ./bin/standmeet for ad-hoc
 # inspection.  Production binaries come out of the Dockerfile.

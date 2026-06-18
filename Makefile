@@ -5,7 +5,7 @@
 # 没装依赖（node_modules 不存在）或没 src 的子项目自动 skip，便于早期
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
-.PHONY: lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint env-lint
+.PHONY: lint backend-lint backend-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
 .PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
@@ -20,6 +20,10 @@ env-lint:
 
 backend-lint:
 	@$(MAKE) -C backend lint
+
+# backend-test —— Go 单元/集成测试（testify，无 DB/docker）。e2e 走 `make test`。
+backend-test:
+	@$(MAKE) -C backend test
 
 # backend-no-mock —— G-Y 守门：backend/ 里禁止任何 mock-only / test-only
 # 代码 (MockProvider / INFERENCE_MOCK_ env / /__mock URL / routes/sys/test_*)。
