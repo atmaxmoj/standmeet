@@ -68,6 +68,9 @@ async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   expect(mail.html).toContain('"@type":"EventReservation"');
   expect(mail.html).toContain('"reservationFor"');
   expect(mail.html).toContain('"startDate"');
+  // 可见卡片里那条可点链接(访客唯一能点的东西)在、且指向真实 GCal 事件。
+  expect(mail.html).toContain('open in google calendar');
+  expect(mail.html).toContain('calendar.google.com');
 
   // 点完即锁(sent 态、动作消失);邮件已 waitForMailEnvelope 收到 → count 已确定为 1。
   await expect(prompt).toHaveAttribute('data-sent', 'true', { timeout: 5_000 });
