@@ -9,6 +9,7 @@
 package usecases
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -92,9 +93,15 @@ func treePathsFor(nodes []pathNode) map[string]string {
 	for _, n := range nodes {
 		byNodeID[n.id] = n
 	}
+	// 按 id 定序后再去重 —— 撞车 slug 的 -2 分配跟输入顺序**无关**。否则上游
+	// query 的 ORDER BY 在 created_at tie 上不稳定时,两次独立 corpus_read 会把
+	// 同一 path 解析到不同 doc(path→id 不再单射稳定)。
+	ordered := make([]pathNode, len(nodes))
+	copy(ordered, nodes)
+	slices.SortFunc(ordered, func(a, b pathNode) int { return strings.Compare(a.id, b.id) })
 	byID := make(map[string]string, len(nodes))
 	seen := make(map[string]string, len(nodes))
-	for _, n := range nodes {
+	for _, n := range ordered {
 		p := uniquePath(computePath(n, byNodeID), seen)
 		byID[n.id] = p
 		seen[p] = n.id
