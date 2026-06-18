@@ -26,8 +26,15 @@ import sys
 import textwrap
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
+# BOOK_DATE —— 一个稳定在**将来**的工作日(相对 eval 跑的当天算),给需要真约成的
+# booking 用例用。硬编码日期会随时间变过去 → 那天没 slot → agent 约不成,用例假红。
+_book_day = datetime.now(ZoneInfo("America/Los_Angeles")) + timedelta(days=12)
+while _book_day.weekday() >= 5:  # 落到周一~周五(wide-open policy 收工作日)
+    _book_day += timedelta(days=1)
+BOOK_DATE = _book_day.strftime("%A %B %d, %Y")  # e.g. "Friday June 26, 2026"
 
 BIN = os.environ.get("EVAL_BIN", "./eval-harness-bin")
 PERSONA = os.environ.get("EVAL_PERSONA", "fixtures/personas/marcus-chen")
@@ -91,15 +98,18 @@ CASES = [
     # ---- assert: booking ----
     {"name": "booking-success", "dim": "tool · booking", "kind": "assert",
      "req": {"mode": "code", "booking": True,
-             "question": "Please book a 30-minute call Tuesday 2026-06-09 at 15:00 UTC. "
+             "question": f"Please book a 30-minute call on {BOOK_DATE} at 15:00 UTC. "
                          "Email dana@hirefast.io, topic 'Senior backend role'."},
      "checks": [("calendar_book fired", lambda r: fired(r, "calendar_book")),
                 ("no error", lambda r: not r.get("error")),
                 ("confirms booking", lambda r: ans_has(r, "book") or ans_has(r, "confirm"))]},
     {"name": "booking-list-slots", "dim": "tool · booking", "kind": "assert",
+     # visitor_timezone 必带 —— prod 里浏览器每轮都送(#120),不带的话 agent 会按
+     # instruction 先反问"你哪个时区"而不是列时段(那本身是对的,但不是 prod 现实)。
      "req": {"mode": "code", "booking": True,
-             "question": "Show me your open 30-minute slots on the calendar for the week of "
-                         "June 9th 2026 — just list the available times."},
+             "visitor_timezone": "America/Los_Angeles",
+             "question": f"Show me your open 30-minute slots on the calendar for the week of "
+                         f"{BOOK_DATE} — just list the available times."},
      "checks": [("calendar_list_slots fired", lambda r: fired(r, "calendar_list_slots"))]},
     # #120: visitor gives a bare wall-clock time; the agent knows the visitor's
     # timezone (LA) and the owner's calendar tz (NY), so it must book 2pm Pacific
@@ -109,7 +119,7 @@ CASES = [
      "req": {"mode": "code", "booking": True,
              "visitor_timezone": "America/Los_Angeles",
              "owner_timezone": "America/New_York",
-             "question": "Book me a 30-minute call on Wednesday 2026-06-10 at 2pm my time. "
+             "question": f"Book me a 30-minute call on {BOOK_DATE} at 2pm my time. "
                          "Topic 'Sync', just take that slot — don't ask me anything."},
      "checks": [("calendar_book fired", lambda r: fired(r, "calendar_book")),
                 ("booked 2pm visitor-local (LA), not UTC / owner-tz",
