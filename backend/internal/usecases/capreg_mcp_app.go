@@ -14,9 +14,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 )
@@ -51,10 +53,14 @@ func (*mcpAppCapability) SystemPromptFragmentID(
 	return ""
 }
 
-// VisitorBinding —— dial 插件 → list → wrap。dial / list 失败 / 空 tool → 隐藏。
+// VisitorBinding —— ACL gate(role 授权)→ dial → list → wrap。未授权 / dial /
+// list 失败 / 空 tool → 隐藏。先查授权再 dial(省掉没授权还白拨的开销)。
 func (c *mcpAppCapability) VisitorBinding(
-	ctx context.Context, _ *capreg.AssembleInput,
+	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
+	if !mcpAppGranted(in.RoleSnapshot, c.m.ID) {
+		return nil, capreg.ErrHidden
+	}
 	sess, err := dialMCPApp(ctx, &c.m.Transport)
 	if err != nil {
 		return nil, capreg.ErrHidden
@@ -84,6 +90,16 @@ func dialMCPApp(ctx context.Context, t *mcpplugin.Transport) (*mcpclient.Session
 	default:
 		return nil, fmt.Errorf("plugin: unknown transport kind %q", t.Kind)
 	}
+}
+
+// mcpAppGranted —— role 的 AllowedTools 含本插件 ID 才暴露(ACL,跟 booking /
+// ext-mcp 同套路:基础 role-grant 授权;Phase D/H 再统一进 interceptor + 管理面)。
+// 无 role(public / byoai)→ 不授权 → 隐藏。
+func mcpAppGranted(snap *domain.RoleSnapshot, id string) bool {
+	if snap == nil {
+		return false
+	}
+	return slices.Contains(snap.AllowedTools(), id)
 }
 
 func wrapDial(err error) error {
