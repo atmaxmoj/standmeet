@@ -24,7 +24,9 @@ type CodeIntroResult struct {
 // CodeIntro —— code → label + greeting(role 的;空则按 owner handle 拼默认)+
 // max_members + 已有 member 数。code 无效 / 撤销 → domain.ErrCodeInvalid(route
 // 翻 404)。
-func CodeIntro(ctx context.Context, deps *VisitorDeps, codeStr string) (CodeIntroResult, error) {
+func CodeIntro(
+	ctx context.Context, deps *VisitorSessionDeps, codeStr string,
+) (CodeIntroResult, error) {
 	code, err := lookupAccessCode(ctx, deps, codeStr)
 	if err != nil {
 		return CodeIntroResult{}, err
@@ -42,7 +44,9 @@ func CodeIntro(ctx context.Context, deps *VisitorDeps, codeStr string) (CodeIntr
 }
 
 // resolveCodeGreeting —— role 设了 greeting 就用,否则按 owner handle 拼默认。
-func resolveCodeGreeting(ctx context.Context, deps *VisitorDeps, code *domain.AccessCode) string {
+func resolveCodeGreeting(
+	ctx context.Context, deps *VisitorSessionDeps, code *domain.AccessCode,
+) string {
 	role, err := deps.Roles.GetByID(ctx, code.OwnerID, code.AssumedRoleID)
 	if err == nil && role.Greeting() != "" {
 		return role.Greeting()
@@ -50,7 +54,7 @@ func resolveCodeGreeting(ctx context.Context, deps *VisitorDeps, code *domain.Ac
 	return defaultGreeting(ownerHandleOrEmpty(ctx, deps, code.OwnerID))
 }
 
-func ownerHandleOrEmpty(ctx context.Context, deps *VisitorDeps, ownerID string) string {
+func ownerHandleOrEmpty(ctx context.Context, deps *VisitorSessionDeps, ownerID string) string {
 	owner, err := deps.Owners.GetByID(ctx, ownerID)
 	if err != nil {
 		return ""

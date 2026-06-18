@@ -16,43 +16,41 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
-// VisitorDeps —— visitor 用例所需。
-//
-// Resolver 替代之前的单例 Provider —— visitor chat 每次根据 owner_id 解算
-// 该 owner 的真 provider（带自己的 key）；env=mock 时统一 fallback 到 mock
-// 给 e2e/dev 用。
-//
-// A.3-IAM 起 Roles / Prompts 用于 session issue 时 freeze RoleSnapshot；
-// code 没挂 assumed_role_id 走 legacy 路径，这两个仍然不能 nil 但调用时
-// 会 short-circuit (buildRoleSnapshotForCode 检 nil)。
-type VisitorDeps struct {
-	Codes      *postgres.CodeRepo
-	Chats      *postgres.ChatRepo
-	Wiki       WikiLister
-	Output     OutputLister
-	Writings   WritingLister
-	Owners     OwnerGetter
-	Skills     SkillGetter
-	MCPServers MCPServerGetter
-	Roles      *postgres.RoleRepo
-	Prompts    *postgres.PromptRepo
-	// Calendar / GCal —— 可选 (admin 没装 connector 时 nil-tolerant)。
-	// bookerBundle 在 buildBookerBundle 里检查 nil 并 silently skip。
-	Calendar CalendarStore
-	GCal     CalendarClient
-	Sandbox  sandbox.Runner
+// VisitorSessionDeps —— #131: visitor **会话生命周期**那一有界上下文所需(发码会话 /
+// 公开会话 / 续会 / 历史恢复 / 配额派生 / code intro)。不含任何 tool/capability 依赖
+// (那些走各 capability 的窄 deps + VisitorSkillsDeps)。god-struct 拆出来的一半。
+type VisitorSessionDeps struct {
+	Codes    *postgres.CodeRepo
+	Chats    *postgres.ChatRepo
+	Owners   OwnerGetter
+	Skills   SkillGetter // role snapshot freeze 读 ListSkillsForRole
+	Roles    *postgres.RoleRepo
+	Prompts  *postgres.PromptRepo
 	Sessions *session.VisitorSessionStore
-	Queue    *session.QueryQueue
-	Resolver inference.Resolver
-	// AgentSkills —— Phase B Capability registry (visitor session 装配
-	// retrieval / booker / ext-mcp / owner-skill tool 走它)。
+	Wiki     WikiLister // 历史恢复 hydrate conversation view
+	Output   OutputLister
+	// AgentSkills —— session 装配时算 capability states / tool specs(retrieval /
+	// booker / ext-mcp / owner-skill)。
 	AgentSkills *agentskills.Registry
-	// Reports —— I.3: summarize_conversation tool 落 chat_reports 行；
-	// GET /report/{id} route 也通过它读。F.2: 窄接口 ReportStore 让 eval 能注
-	// no-op 实现。
-	Reports ReportStore
-	// Notify —— #130: 约成后给 owner 发通知(per-role 开关,best-effort 触发)。
-	Notify OwnerNotifyDeps
+}
+
+// VisitorSkillsDeps —— #131: 注册 visitor capability 时所需的**原料**(capability
+// 接线那一半)。RegisterVisitorSkills 据此构造各 capability 的窄 deps。prod wireup +
+// eval facade 都构造它。不漏进业务逻辑,只在注册口用一次。
+type VisitorSkillsDeps struct {
+	Wiki     WikiLister
+	Output   OutputLister
+	Writings WritingLister
+	// Calendar / GCal —— 可选(admin 没装 connector → nil,booker gating 自动隐藏)。
+	Calendar   CalendarStore
+	GCal       CalendarClient
+	Owners     OwnerGetter
+	Notify     OwnerNotifyDeps
+	Skills     SkillGetter
+	Sandbox    sandbox.Runner
+	MCPServers MCPServerGetter
+	Reports    ReportStore
+	Resolver   inference.Resolver
 }
 
 // IssueCodeSessionInput —— code-tier 访客发起 session 的入参。
@@ -105,7 +103,7 @@ type codeSessionArtifacts struct {
 // IssueCodeSession —— code-tier session 颁发：查 code → 校验 → 创 conversation
 // + visitor session。
 func IssueCodeSession(
-	ctx context.Context, deps *VisitorDeps, in *IssueCodeSessionInput,
+	ctx context.Context, deps *VisitorSessionDeps, in *IssueCodeSessionInput,
 ) (IssueCodeSessionResult, error) {
 	if in.Code == "" {
 		return IssueCodeSessionResult{}, ErrEmptyField
@@ -118,7 +116,7 @@ func IssueCodeSession(
 }
 
 func lookupAccessCode(
-	ctx context.Context, deps *VisitorDeps, codeStr string,
+	ctx context.Context, deps *VisitorSessionDeps, codeStr string,
 ) (domain.AccessCode, error) {
 	code, err := deps.Codes.GetByCode(ctx, codeStr)
 	if err != nil {
@@ -131,7 +129,7 @@ func lookupAccessCode(
 }
 
 func finalizeCodeSession(
-	ctx context.Context, deps *VisitorDeps,
+	ctx context.Context, deps *VisitorSessionDeps,
 	in *IssueCodeSessionInput, code *domain.AccessCode,
 ) (IssueCodeSessionResult, error) {
 	a, err := issueCodeSessionArtifacts(ctx, deps, in, code)
@@ -157,7 +155,7 @@ func finalizeCodeSession(
 // (countTurnsForQuota),续会/多 surface 颁发时如实报合计,不再恒 0 也不按单段对话
 // 各算。数不出来(DB 抖)→ 退回 0。
 func codeSessionQuotaWithUsed(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, conv *domain.Chat,
+	ctx context.Context, deps *VisitorSessionDeps, code *domain.AccessCode, conv *domain.Chat,
 ) SessionQuota {
 	q := codeSessionQuota(code)
 	if used, err := countTurnsForQuota(ctx, deps, conv); err == nil {
@@ -167,7 +165,7 @@ func codeSessionQuotaWithUsed(
 }
 
 func issueCodeSessionArtifacts(
-	ctx context.Context, deps *VisitorDeps,
+	ctx context.Context, deps *VisitorSessionDeps,
 	in *IssueCodeSessionInput, code *domain.AccessCode,
 ) (codeSessionArtifacts, error) {
 	member, qerr := resolveMemberWithQuota(ctx, deps, code, in)
@@ -211,7 +209,8 @@ func codeSessionQuota(code *domain.AccessCode) SessionQuota {
 // CodeMember 没有自己的 revoked 状态,revoke 在 AccessCode 级别(已被 GetByCode
 // 过滤,走不到这里)。
 func resolveMemberWithQuota(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, in *IssueCodeSessionInput,
+	ctx context.Context, deps *VisitorSessionDeps,
+	code *domain.AccessCode, in *IssueCodeSessionInput,
 ) (domain.CodeMember, error) {
 	resumed, rerr := resumeByMemberID(ctx, deps, code, in.MemberID)
 	if rerr == nil {
@@ -233,7 +232,7 @@ func resolveMemberWithQuota(
 // resumeByMemberID —— member_id 空 / 查不到 → domain.ErrMemberNotFound(caller
 // 据此退到按名字 / 新建);查得到 → 返该 member 续会。
 func resumeByMemberID(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, memberID string,
+	ctx context.Context, deps *VisitorSessionDeps, code *domain.AccessCode, memberID string,
 ) (domain.CodeMember, error) {
 	if memberID == "" {
 		return domain.CodeMember{}, domain.ErrMemberNotFound
@@ -246,7 +245,7 @@ func resumeByMemberID(
 }
 
 func resolveNamedMember(
-	ctx context.Context, deps *VisitorDeps,
+	ctx context.Context, deps *VisitorSessionDeps,
 	code *domain.AccessCode, members []domain.CodeMember, name string,
 ) (domain.CodeMember, error) {
 	if err := checkMemberQuota(code, members, name); err != nil {
@@ -260,7 +259,8 @@ func resolveNamedMember(
 }
 
 func resolveAnonMember(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode, members []domain.CodeMember,
+	ctx context.Context, deps *VisitorSessionDeps,
+	code *domain.AccessCode, members []domain.CodeMember,
 ) (domain.CodeMember, error) {
 	if err := checkAnonQuota(code, members); err != nil {
 		return domain.CodeMember{}, err
@@ -309,7 +309,7 @@ func memberExists(members []domain.CodeMember, name string) bool {
 // createCodeConversation —— 「一个名字=一段续聊的会」:member 已有未结束的
 // conversation 就续上;没有(新 member / 上一段已 summary 结束)才新建。
 func createCodeConversation(
-	ctx context.Context, deps *VisitorDeps,
+	ctx context.Context, deps *VisitorSessionDeps,
 	code *domain.AccessCode, member *domain.CodeMember, in *IssueCodeSessionInput,
 ) (domain.Chat, error) {
 	existing, gerr := deps.Chats.GetOpenChatByMember(ctx, member.ID)

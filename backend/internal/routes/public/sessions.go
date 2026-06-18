@@ -127,7 +127,8 @@ func writeCodeIntro(
 // tier=='code' → IssueCodeSession（带 access code）。
 // mode=='public' / 'byoai' / 空 → IssuePublicSession，BYOAI 字段透传到 session data。
 func dispatchIssueSession(
-	ctx context.Context, deps *usecases.VisitorDeps, req *createSessionRequest, clientIP string,
+	ctx context.Context, deps *usecases.VisitorSessionDeps,
+	req *createSessionRequest, clientIP string,
 ) (usecases.IssueCodeSessionResult, error) {
 	if pickMode(req) == "code" {
 		return usecases.IssueCodeSession(ctx, deps, &usecases.IssueCodeSessionInput{

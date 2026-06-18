@@ -31,9 +31,13 @@ import (
 
 // Handlers —— public routes deps.
 type Handlers struct {
-	Visitor     usecases.VisitorDeps
-	Confirm     usecases.BookingConfirmDeps
-	Cancel      usecases.VisitorCancelDeps
+	Visitor usecases.VisitorSessionDeps
+	Confirm usecases.BookingConfirmDeps
+	Cancel  usecases.VisitorCancelDeps
+	// Resolver / Reports —— route-level deps(非会话生命周期):chat turn 解析 owner
+	// provider + GET /report 读报告。#131 从 VisitorDeps 拆出来直接挂 Handlers。
+	Resolver    inference.Resolver
+	Reports     usecases.ReportStore
 	Sessions    *session.VisitorSessionStore
 	Corpus      usecases.DialogCorpusLookup
 	Ghosts      usecases.GhostDeps

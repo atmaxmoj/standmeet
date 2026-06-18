@@ -115,8 +115,8 @@ func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
 // 注册进 d.agentSkills。跟 build*Deps 共享底层 repo 引用；run() 阶段调用
 // 一次，capability 闭包持 deps，server 跑期间 deps 不再变。
 func registerAgentSkills(d *runtimeDeps) {
-	visitor := buildPublicDeps(d).Visitor
-	usecases.RegisterAgentSkills(d.agentSkills, &visitor)
+	skills := buildVisitorSkillsDeps(d)
+	usecases.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
 	corpusDeps := usecases.CorpusDeps{
 		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
 	}
@@ -171,25 +171,35 @@ func registerAgentSkills(d *runtimeDeps) {
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
 }
 
+// buildVisitorSkillsDeps —— #131: capability 注册所需的原料(各 capability 的窄 deps
+// 由 RegisterVisitorSkills 从这里取)。registerAgentSkills 用,不进 Handlers。
+func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
+	return usecases.VisitorSkillsDeps{
+		Wiki: d.wikiRepo, Output: d.outputRepo, Writings: d.writingRepo,
+		Calendar:   calendarStoreAdapter{repo: d.calendarRepo},
+		GCal:       calendarClientAdapter{client: d.gcalClient},
+		Owners:     d.ownerRepo,
+		Skills:     d.skillRepo,
+		Sandbox:    d.sandboxRunner,
+		MCPServers: d.mcpServerRepo,
+		Reports:    d.chatReportRepo,
+		Resolver:   d.providerResolver,
+		Notify: usecases.OwnerNotifyDeps{
+			Mail: d.mailRepo, Owners: d.ownerRepo, Roles: d.roleRepo,
+		},
+	}
+}
+
 func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 	return publicroutes.Handlers{
-		Visitor: usecases.VisitorDeps{
-			Codes: d.codeRepo, Chats: d.chatRepo, Wiki: d.wikiRepo,
-			Output: d.outputRepo, Skills: d.skillRepo,
-			Writings:   d.writingRepo,
-			MCPServers: d.mcpServerRepo,
-			Roles:      d.roleRepo,
-			Prompts:    d.promptRepo,
-			Sandbox:    d.sandboxRunner,
-			Owners:     d.ownerRepo, Sessions: d.visitorStore,
-			Queue: d.queryQueue, Resolver: d.providerResolver,
-			Calendar:    calendarStoreAdapter{repo: d.calendarRepo},
-			GCal:        calendarClientAdapter{client: d.gcalClient},
+		Visitor: usecases.VisitorSessionDeps{
+			Codes: d.codeRepo, Chats: d.chatRepo,
+			Owners: d.ownerRepo, Skills: d.skillRepo,
+			Roles: d.roleRepo, Prompts: d.promptRepo,
+			Sessions:    d.visitorStore,
+			Wiki:        d.wikiRepo,
+			Output:      d.outputRepo,
 			AgentSkills: d.agentSkills,
-			Reports:     d.chatReportRepo,
-			Notify: usecases.OwnerNotifyDeps{
-				Mail: d.mailRepo, Owners: d.ownerRepo, Roles: d.roleRepo,
-			},
 		},
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
@@ -198,6 +208,8 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			Client: calendarClientAdapter{client: d.gcalClient},
 			Store:  calendarStoreAdapter{repo: d.calendarRepo},
 		},
+		Resolver:    d.providerResolver,
+		Reports:     d.chatReportRepo,
 		Sessions:    d.visitorStore,
 		Corpus:      d.corpus,
 		Ghosts:      usecases.GhostDeps{Repo: d.ghostRepo},

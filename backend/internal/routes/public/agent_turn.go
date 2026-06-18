@@ -194,7 +194,7 @@ func resolveAgentTurnCred(
 	r *http.Request, h *Handlers, auth authedVisitor,
 ) (*inference.Cred, error) {
 	byoai := pickAgentTurnBYOAICred(h, auth, r)
-	return h.Visitor.Resolver.Resolve(r.Context(), &inference.ResolveInput{
+	return h.Resolver.Resolve(r.Context(), &inference.ResolveInput{
 		OwnerID: auth.Data.OwnerID, Mode: auth.Data.Mode, BYOAI: byoai,
 	})
 }

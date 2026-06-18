@@ -162,8 +162,8 @@ func buildEvalSnapshot(in *BuildVisitorInput, corpusURIs []string) domain.RoleSn
 // MCPServers stay nil (their capabilities grant-gate to ErrHidden); Calendar
 // stays nil when booking is off, so the booker hides exactly as for an owner who
 // wired no connector.
-func buildEvalDeps(in *BuildVisitorInput, corpus *corpusFixtures) *usecases.VisitorDeps {
-	deps := &usecases.VisitorDeps{
+func buildEvalDeps(in *BuildVisitorInput, corpus *corpusFixtures) *usecases.VisitorSkillsDeps {
+	deps := &usecases.VisitorSkillsDeps{
 		Wiki:     wikiFixture{items: corpus.wikis},
 		Output:   outputFixture{items: corpus.outputs},
 		Writings: writingFixture{},

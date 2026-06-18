@@ -19,7 +19,7 @@ import (
 // buildRoleSnapshotForCode —— code.AssumedRoleID 必填（schema NOT NULL）→ 构造
 // RoleSnapshot。失败永远是真 error。
 func buildRoleSnapshotForCode(
-	ctx context.Context, deps *VisitorDeps, code *domain.AccessCode,
+	ctx context.Context, deps *VisitorSessionDeps, code *domain.AccessCode,
 ) (domain.RoleSnapshot, error) {
 	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID)
 }
@@ -28,7 +28,7 @@ func buildRoleSnapshotForCode(
 // vanilla role snapshot。owner 没改过 vanilla 的话覆盖 wiki/output/writing
 // 三个公开 glob。
 func buildRoleSnapshotForOwnerVanilla(
-	ctx context.Context, deps *VisitorDeps, ownerID string,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID string,
 ) (domain.RoleSnapshot, error) {
 	role, err := deps.Roles.GetByName(ctx, ownerID, domain.VanillaRoleName)
 	if err != nil {
@@ -38,7 +38,7 @@ func buildRoleSnapshotForOwnerVanilla(
 }
 
 func buildRoleSnapshotByID(
-	ctx context.Context, deps *VisitorDeps, ownerID, roleID string,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID, roleID string,
 ) (domain.RoleSnapshot, error) {
 	role, err := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if err != nil {
@@ -68,7 +68,7 @@ func buildRoleSnapshotByID(
 // loadPromptBody —— role 没挂 prompt 或挂的 prompt 不存在 → 返空串（vanilla
 // 之类 role 不一定有 prompt，session 没问题）。
 func loadPromptBody(
-	ctx context.Context, deps *VisitorDeps, ownerID string, role *domain.Role,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID string, role *domain.Role,
 ) (string, error) {
 	promptID, ok := role.PromptID()
 	if !ok {
@@ -93,7 +93,7 @@ type roleSkillBundle struct {
 // loadRoleSkills —— 把 role 挂的 skills 的 prompt 拼一组、allowed_tools 合并
 // 去重一组。
 func loadRoleSkills(
-	ctx context.Context, deps *VisitorDeps, roleID string,
+	ctx context.Context, deps *VisitorSessionDeps, roleID string,
 ) (roleSkillBundle, error) {
 	skills, lerr := deps.Skills.ListSkillsForRole(ctx, roleID)
 	if lerr != nil {

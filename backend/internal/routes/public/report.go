@@ -54,7 +54,7 @@ func dispatchGetReport(h *Handlers, w http.ResponseWriter, r *http.Request) {
 func fetchOwnedReport(
 	h *Handlers, r *http.Request, id, ownerID string,
 ) (domain.ChatReport, error) {
-	report, err := h.Visitor.Reports.GetByID(r.Context(), id)
+	report, err := h.Reports.GetByID(r.Context(), id)
 	if err != nil {
 		return domain.ChatReport{}, err
 	}

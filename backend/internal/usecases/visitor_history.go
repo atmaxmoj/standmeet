@@ -53,7 +53,7 @@ type ConvDialog struct {
 // LoadVisitorView —— 凭 session data 拼出 {session, conversation}。无 code
 // (public/byoai)→ Code 留零值;还没开会 → Conversation.Dialogs 空。
 func LoadVisitorView(
-	ctx context.Context, deps *VisitorDeps, data *session.VisitorSessionData,
+	ctx context.Context, deps *VisitorSessionDeps, data *session.VisitorSessionData,
 ) (VisitorView, error) {
 	conv, err := loadConversation(ctx, deps, data.MemberID, data.OwnerID)
 	if err != nil {
@@ -71,7 +71,7 @@ func LoadVisitorView(
 
 // memberUsedTurns —— 该 member 跨全部对话的访客发言合计(member 级 used)。无
 // member(public/byoai)/ 数不出来 → 0。前端 strip 据此显 used。
-func memberUsedTurns(ctx context.Context, deps *VisitorDeps, memberID string) int32 {
+func memberUsedTurns(ctx context.Context, deps *VisitorSessionDeps, memberID string) int32 {
 	if memberID == "" {
 		return 0
 	}
@@ -82,7 +82,7 @@ func memberUsedTurns(ctx context.Context, deps *VisitorDeps, memberID string) in
 	return n
 }
 
-func codeView(ctx context.Context, deps *VisitorDeps, codeID string) ConvCode {
+func codeView(ctx context.Context, deps *VisitorSessionDeps, codeID string) ConvCode {
 	if codeID == "" {
 		return ConvCode{}
 	}
@@ -105,7 +105,7 @@ func posInt32(p *int32) int32 {
 	return 0
 }
 
-func countCodeMembers(ctx context.Context, deps *VisitorDeps, codeID string) int {
+func countCodeMembers(ctx context.Context, deps *VisitorSessionDeps, codeID string) int {
 	members, err := deps.Codes.ListMembers(ctx, codeID)
 	if err != nil {
 		return 0
@@ -116,7 +116,7 @@ func countCodeMembers(ctx context.Context, deps *VisitorDeps, codeID string) int
 // loadConversation —— member → open chat → messages → 配对(只配答完的轮,带引用)。
 // 还没开会(ErrChatNotFound)→ 空 conversation(不是错误)。
 func loadConversation(
-	ctx context.Context, deps *VisitorDeps, memberID, ownerID string,
+	ctx context.Context, deps *VisitorSessionDeps, memberID, ownerID string,
 ) (Conversation, error) {
 	if memberID == "" {
 		return Conversation{}, nil
@@ -134,7 +134,7 @@ func loadConversation(
 // ConversationForChat —— 把某一段 conversation(按 id,owner-scoped)组装成视图
 // (dialogs + citations)。主聊天恢复走 loadConversation,浮窗那段对话走这个。
 func ConversationForChat(
-	ctx context.Context, deps *VisitorDeps, ownerID, chatID string,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID, chatID string,
 ) (Conversation, error) {
 	bundle, err := deps.Chats.GetWithMessages(ctx, ownerID, chatID)
 	if err != nil {
@@ -194,7 +194,7 @@ type citationResolver struct {
 }
 
 func newCitationResolver(
-	ctx context.Context, deps *VisitorDeps, ownerID string, msgs []domain.Message,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID string, msgs []domain.Message,
 ) *citationResolver {
 	r := &citationResolver{}
 	cited := collectCitedIDs(msgs)

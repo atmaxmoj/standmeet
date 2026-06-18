@@ -34,7 +34,7 @@ type OpenConvForDocInput struct {
 // 的就续上,没有就新建。仅限 code 访客(有 member);缺 owner/member/docKey 返
 // ErrEmptyField。
 func OpenConversationForDoc(
-	ctx context.Context, deps *VisitorDeps, in *OpenConvForDocInput,
+	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
 ) (domain.Chat, error) {
 	if !validOpenConvInput(in) {
 		return domain.Chat{}, ErrEmptyField
@@ -54,7 +54,7 @@ func validOpenConvInput(in *OpenConvForDocInput) bool {
 }
 
 func createDocConversation(
-	ctx context.Context, deps *VisitorDeps, in *OpenConvForDocInput,
+	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
 ) (domain.Chat, error) {
 	memberID := in.MemberID
 	chat, err := deps.Chats.CreateChat(ctx, &postgres.CreateChatInput{
@@ -75,7 +75,7 @@ func createDocConversation(
 // 的近期消息压成一段紧凑文本,喂进 instruction 让 AI 跨对话连贯。空 member / 没别的
 // 对话 → 空串。有界:只取末尾若干条、每条截断、总长封顶。
 func BuildCrossConvDigest(
-	ctx context.Context, deps *VisitorDeps, memberID, excludeConvID string,
+	ctx context.Context, deps *VisitorSessionDeps, memberID, excludeConvID string,
 ) (string, error) {
 	if memberID == "" || excludeConvID == "" {
 		return "", nil
@@ -123,7 +123,7 @@ func capRunes(s string, n int) string {
 // ChatBelongsToMember —— turn handler 归属校验:这段 conversation 是否属于该
 // member(owner-scoped 加载)。防访客借别人的 conversation_id 发 turn。
 func ChatBelongsToMember(
-	ctx context.Context, deps *VisitorDeps, ownerID, convID, memberID string,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID, convID, memberID string,
 ) (bool, error) {
 	conv, err := deps.Chats.GetChat(ctx, ownerID, convID)
 	if err != nil {
