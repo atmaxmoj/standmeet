@@ -81,6 +81,13 @@ func confirmationCard(b *domain.CodeBooking, owner *domain.Owner, when string) s
 
 // confirmationJSONLD —— schema.org EventReservation,Gmail 据此渲染预约卡片。
 // 时间用 RFC3339(带 tz offset)满足 schema.org 的 ISO-8601 要求。
+//
+// Gmail 的 EventReservation 必填:reservationNumber + reservationStatus +
+// reservationFor(Event: name + startDate + location)。reservationNumber 用 GCal
+// event id。location —— 这是**线上会议**,没有可填的真实邮政地址,按 schema.org 用
+// VirtualLocation(url 指事件)而不是编造一个 Place 地址。Gmail 对线上事件的原生卡
+// 渲染本就不如线下有保证;markup 现在结构完整 + 诚实,渲不渲由 Gmail 定,渲不出也有
+// HTML 卡兜底。owner 上线前可用"自己发自己"在真 Gmail 自测(绕过白名单注册)。
 func confirmationJSONLD(b *domain.CodeBooking, loc *time.Location) string {
 	ev := ldEvent{
 		Type:      "Event",
@@ -89,10 +96,14 @@ func confirmationJSONLD(b *domain.CodeBooking, loc *time.Location) string {
 		EndDate:   b.EndAt.In(loc).Format(time.RFC3339),
 		URL:       b.GoogleHTMLLink,
 	}
+	if b.GoogleHTMLLink != "" {
+		ev.Location = &ldVirtualLocation{Type: "VirtualLocation", URL: b.GoogleHTMLLink}
+	}
 	res := ldReservation{
 		Context:           "https://schema.org",
 		Type:              "EventReservation",
 		ReservationStatus: "https://schema.org/ReservationConfirmed",
+		ReservationNumber: b.GoogleEventID,
 		ReservationFor:    ev,
 	}
 	out, err := json.Marshal(res)
@@ -102,19 +113,27 @@ func confirmationJSONLD(b *domain.CodeBooking, loc *time.Location) string {
 	return string(out)
 }
 
+// ldVirtualLocation —— schema.org VirtualLocation(线上事件地点)。
+type ldVirtualLocation struct {
+	Type string `json:"@type"`
+	URL  string `json:"url,omitempty"`
+}
+
 type ldEvent struct {
-	Type      string `json:"@type"`
-	Name      string `json:"name"`
-	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate,omitempty"`
-	URL       string `json:"url,omitempty"`
+	Location  *ldVirtualLocation `json:"location,omitempty"`
+	Type      string             `json:"@type"`
+	Name      string             `json:"name"`
+	StartDate string             `json:"startDate"`
+	EndDate   string             `json:"endDate,omitempty"`
+	URL       string             `json:"url,omitempty"`
 }
 
 type ldReservation struct {
+	ReservationFor    ldEvent `json:"reservationFor"`
 	Context           string  `json:"@context"`
 	Type              string  `json:"@type"`
 	ReservationStatus string  `json:"reservationStatus"`
-	ReservationFor    ldEvent `json:"reservationFor"`
+	ReservationNumber string  `json:"reservationNumber"`
 }
 
 // confirmationLocation —— 优先访客 tz,空/非法退 owner tz,再退 UTC。

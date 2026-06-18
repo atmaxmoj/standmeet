@@ -1,5 +1,6 @@
 // booking_confirmation_test.go —— #122 确认信"定位 + 归属 + 幂等 + 收件人"那一关
-// (resolveConfirmation)的纯逻辑单测。用 fake ConfirmationCalendar,不碰 DB / mail。
+// (resolveConfirmation)+ schema.org markup 的纯逻辑单测。用 fake ConfirmationCalendar,
+// 不碰 DB / mail。测试跑在确定环境下 → 断言一律 require.*(无 if 分支)。
 // 重点盖**幂等**:已发过(ConfirmationSentAt != nil)再发 → ErrBookingConfirmationSent
 // —— 这条 UI 锁了卡片所以 e2e 走不到,只能单测。
 
@@ -10,6 +11,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
@@ -29,10 +32,7 @@ type fakeConfirmCalendar struct {
 func (f *fakeConfirmCalendar) LatestBookingForConversation(
 	_ context.Context, _ string,
 ) (domain.CodeBooking, error) {
-	if f.lookupErr != nil {
-		return domain.CodeBooking{}, f.lookupErr
-	}
-	return f.booking, nil
+	return f.booking, f.lookupErr
 }
 
 func (*fakeConfirmCalendar) MarkBookingConfirmed(_ context.Context, _ string) error {
@@ -67,9 +67,7 @@ func TestResolveConfirmationIdempotent(t *testing.T) {
 	b := baseBooking()
 	b.ConfirmationSentAt = &sent
 	_, err := resolveWith(&b, confirmInput("", "v@example.com"))
-	if !errors.Is(err, ErrBookingConfirmationSent) {
-		t.Fatalf("err = %v, want ErrBookingConfirmationSent", err)
-	}
+	require.ErrorIs(t, err, ErrBookingConfirmationSent)
 }
 
 // 归属:owner / code 任一不匹 → ErrBookingNotFound(不泄露存在性)。
@@ -83,51 +81,43 @@ func TestResolveConfirmationScope(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			_, err := resolveWith(&b, confirmInput("", "v@example.com"))
-			if !errors.Is(err, domain.ErrBookingNotFound) {
-				t.Fatalf("err = %v, want ErrBookingNotFound", err)
-			}
+			require.ErrorIs(t, err, domain.ErrBookingNotFound)
 		})
 	}
 }
 
-// 收件人:透传优先,否则引用 session;空/非法 → ErrBookingNoRecipient。
-func TestResolveConfirmationRecipient(t *testing.T) {
+// 收件人 ok:透传优先,否则引用 session。
+func TestResolveConfirmationRecipientOK(t *testing.T) {
 	t.Parallel()
-	cases := []struct {
-		wantErr   error
-		name      string
-		recipient string
-		session   string
-		want      string
-	}{
-		{name: "passthrough wins", recipient: "a@x.co", session: "b@x.co", want: "a@x.co"},
-		{name: "session fallback", recipient: "", session: "b@x.co", want: "b@x.co"},
-		{name: "none", recipient: "", session: "", wantErr: ErrBookingNoRecipient},
-		{name: "invalid", recipient: "nope", session: "", wantErr: ErrBookingNoRecipient},
+	cases := map[string]struct{ recipient, session, want string }{
+		"passthrough wins": {recipient: "a@x.co", session: "b@x.co", want: "a@x.co"},
+		"session fallback": {recipient: "", session: "b@x.co", want: "b@x.co"},
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			b := baseBooking()
 			tgt, err := resolveWith(&b, confirmInput(tc.recipient, tc.session))
-			checkRecipient(t, tgt.Recipient, err, tc.want, tc.wantErr)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, tgt.Recipient)
 		})
 	}
 }
 
-func checkRecipient(t *testing.T, got string, err error, want string, wantErr error) {
-	t.Helper()
-	if wantErr != nil {
-		if !errors.Is(err, wantErr) {
-			t.Fatalf("err = %v, want %v", err, wantErr)
-		}
-		return
+// 收件人不可用:空 / 非法 → ErrBookingNoRecipient。
+func TestResolveConfirmationRecipientRejected(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct{ recipient, session string }{
+		"none":    {recipient: "", session: ""},
+		"invalid": {recipient: "nope", session: ""},
 	}
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if got != want {
-		t.Fatalf("recipient = %q, want %q", got, want)
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			b := baseBooking()
+			_, err := resolveWith(&b, confirmInput(tc.recipient, tc.session))
+			require.ErrorIs(t, err, ErrBookingNoRecipient)
+		})
 	}
 }
 
@@ -137,7 +127,26 @@ func TestResolveConfirmationLookupError(t *testing.T) {
 	sentinel := errors.New("db down")
 	deps := BookingConfirmDeps{Calendar: &fakeConfirmCalendar{lookupErr: sentinel}}
 	_, err := resolveConfirmation(context.Background(), deps, confirmInput("", "v@example.com"))
-	if !errors.Is(err, sentinel) {
-		t.Fatalf("err = %v, want wrap of %v", err, sentinel)
+	require.ErrorIs(t, err, sentinel)
+}
+
+// confirmationJSONLD 必须产出 Gmail EventReservation 的必填字段:reservationNumber
+// + reservationStatus + reservationFor(name + startDate + location[VirtualLocation])。
+func TestConfirmationJSONLD(t *testing.T) {
+	t.Parallel()
+	b := baseBooking()
+	b.GoogleEventID = "evt-xyz"
+	b.GoogleHTMLLink = "https://calendar.google.com/event?eid=evt-xyz"
+	jld := confirmationJSONLD(&b, time.UTC)
+	for _, want := range []string{
+		`"@type":"EventReservation"`,
+		`"reservationStatus":"https://schema.org/ReservationConfirmed"`,
+		`"reservationNumber":"evt-xyz"`,
+		`"reservationFor"`,
+		`"name":"Intro call"`,
+		`"startDate":"`,
+		`"location":{"@type":"VirtualLocation"`,
+	} {
+		require.Contains(t, jld, want)
 	}
 }

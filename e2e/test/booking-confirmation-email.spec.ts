@@ -68,6 +68,9 @@ async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   expect(mail.html).toContain('"@type":"EventReservation"');
   expect(mail.html).toContain('"reservationFor"');
   expect(mail.html).toContain('"startDate"');
+  // Gmail EventReservation 必填:reservationNumber + location(线上 → VirtualLocation)。
+  expect(mail.html).toContain('"reservationNumber"');
+  expect(mail.html).toContain('"@type":"VirtualLocation"');
   // 可见卡片里那条可点链接(访客唯一能点的东西)在、且指向真实 GCal 事件。
   expect(mail.html).toContain('open in google calendar');
   expect(mail.html).toContain('calendar.google.com');
