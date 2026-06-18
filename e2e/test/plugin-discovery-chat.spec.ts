@@ -4,22 +4,19 @@
 //
 // 跟 external-mcp-tools.spec.ts 的区别:那条是 **owner** 用 mcp_server_create 注册;
 // 这条**没有任何 owner 注册动作** —— 插件由部署在 STANDMEET_PLUGINS 配置里声明
-// (builtin / compose 装载),指向 docker-compose 起的 mcp-server-mock(echo tool)。
-//
-// C0 阶段红:dev 栈还没把 mock 当 builtin 插件装载(C4 wire docker-compose +
-// 装载器);wire 完转绿。dial 失败的降级在 C2/C3 单测(ErrHidden)已覆盖。
+// (builtin / compose 装载,infra/dev-plugins.json),指向 mcp-server-mock(echo/boom)。
+// 访客的 role 只是**授权**了这个平台插件 id(ACL via role,跟 booking 一套),
+// owner 没注册任何 MCP server。
 //
 // UI-driven:走持久信号 answer-body 含 marker(throbber 瞬时,不在此赌)。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
-import { createCode } from '@/fixtures/codes';
+import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockToolCall, scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { enterCodeSession } from '@/fixtures/navigate';
-import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
   email: 'plug@example.com',
@@ -28,10 +25,12 @@ const OWNER = {
   fullName: 'Plug Owner',
 };
 
-const CODE = 'PLUG-001';
 const EXT_MARKER = '[EXT-MCP-MARKER]';
-// 平台插件 "echoer" 暴露的工具,命名约定 <pluginid>_<tool>（C4 实现锁定）。
-const PLUGIN_TOOL = 'echoer_echo';
+// 平台插件 "echoer" 暴露的工具,命名约定 <pluginid>_<tool>(C4 实现锁定)。
+const PLUGIN_ID = 'echoer';
+
+// pluginCode —— beforeAll 里发的、role 授权了 echoer 的 code(随机生成,捕获复用)。
+let pluginCode = '';
 
 test.describe('platform-declared plugin discovered + used in visitor chat (no owner registration)', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -41,21 +40,26 @@ test.describe('platform-declared plugin discovered + used in visitor chat (no ow
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
-    await issuePlainCode(request);
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    // 关键:role 授权了平台插件 id 'echoer'(granted_skills → role.AllowedTools)。
+    // owner 全程没注册任何 MCP server —— 插件能力来自装机配置,不来自 owner。
+    const issued = await issueCodeWithSkills(request, csrf, {
+      label: 'plug', granted_skills: [PLUGIN_ID],
+    });
+    pluginCode = issued.code;
     await request.dispose();
   });
 
   test('AI 调到装机声明的插件工具 → 回包 marker 进 answer（core 发现了非 MustRegister 的能力）',
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
-      // 让 mock LLM 这一轮调那个平台插件的工具,再用回包文本作答。
-      await scriptMockToolCall(request, { name: PLUGIN_TOOL, args: { text: 'hi' } });
+      await scriptMockToolCall(request, { name: 'echoer_echo', args: { text: 'hi' } });
       await scriptMockReplyText(request, `the plugin said ${EXT_MARKER}:hi`);
       await request.dispose();
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      await enterCodeSession(page, CODE);
+      await enterCodeSession(page, pluginCode);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
       const input = page.getByTestId('chat-input-field');
       await input.fill('use the plugin');
@@ -79,7 +83,7 @@ test.describe('platform-declared plugin discovered + used in visitor chat (no ow
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      await enterCodeSession(page, CODE);
+      await enterCodeSession(page, pluginCode);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
       const input = page.getByTestId('chat-input-field');
       await input.fill('use the broken plugin tool');
@@ -90,14 +94,3 @@ test.describe('platform-declared plugin discovered + used in visitor chat (no ow
       await ctx.close();
     });
 });
-
-// issuePlainCode —— 普通 role + code,**不挂任何 owner MCP server**;插件能力来自
-// 平台装载,不来自 owner 注册 —— 这正是要证的点。
-async function issuePlainCode(request: APIRequestContext): Promise<void> {
-  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const role = await createRole(request, csrf, {
-    name: 'plug-role', description: 'plugin discovery spec',
-    corpus_uris: ['wiki://**', 'output://**'],
-  });
-  await createCode(request, csrf, { code: CODE, label: 'plug', assumed_role_id: role.id });
-}

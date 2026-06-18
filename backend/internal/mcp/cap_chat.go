@@ -30,7 +30,7 @@ func newChatCapability(
 	return &chatCapability{corpus: corpus, convs: convs, log: log}
 }
 
-func (*chatCapability) ID() string               { return capChatBundle }
+func (*chatCapability) ID() string          { return capChatBundle }
 func (*chatCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*chatCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

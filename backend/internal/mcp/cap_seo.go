@@ -28,7 +28,7 @@ func newSEOCapability(seo SEOWriter, log *slog.Logger) *seoCapability {
 	return &seoCapability{seo: seo, log: log}
 }
 
-func (*seoCapability) ID() string               { return capSEOBundle }
+func (*seoCapability) ID() string          { return capSEOBundle }
 func (*seoCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*seoCapability) VisitorBinding(_ context.Context, _ *capreg.AssembleInput) (
 	*capreg.Binding, error,

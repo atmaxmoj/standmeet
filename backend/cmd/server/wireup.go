@@ -5,7 +5,10 @@
 package main
 
 import (
+	"os"
+
 	"github.com/atmaxmoj/standmeet/internal/mcp"
+	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -169,6 +172,26 @@ func registerAgentSkills(d *runtimeDeps) {
 	// 再让 registry 把全部 plugin 的 CapabilityRegistrar 一次性注册到同一
 	// capreg.Registry，互不重 ID。
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
+	registerDiscoveredPlugins(d)
+}
+
+// registerDiscoveredPlugins —— 从 STANDMEET_PLUGINS 配置(装机声明)发现外部 MCP
+// 插件,注册进同一个 capreg.Registry。env 未设 → 无插件(prod 默认)。坏配置 /
+// 撞名 → log + skip,不崩 boot。
+func registerDiscoveredPlugins(d *runtimeDeps) {
+	res, err := mcpplugin.Load(os.Getenv("STANDMEET_PLUGINS"))
+	if err != nil {
+		d.log.Error("plugin config load", "err", err)
+		return
+	}
+	for i := range res.Skipped {
+		d.log.Warn("plugin manifest skipped",
+			"id", res.Skipped[i].ID, "reason", res.Skipped[i].Reason)
+	}
+	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, res.Manifests)
+	for _, id := range dupes {
+		d.log.Warn("plugin register skipped (duplicate id)", "id", id)
+	}
 }
 
 // buildVisitorSkillsDeps —— #131: capability 注册所需的原料(各 capability 的窄 deps

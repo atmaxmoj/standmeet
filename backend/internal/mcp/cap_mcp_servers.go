@@ -27,7 +27,7 @@ func newMCPServersCapability(
 	return &mcpServersCapability{servers: servers, log: log}
 }
 
-func (*mcpServersCapability) ID() string               { return capMCPServersBundle }
+func (*mcpServersCapability) ID() string          { return capMCPServersBundle }
 func (*mcpServersCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*mcpServersCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

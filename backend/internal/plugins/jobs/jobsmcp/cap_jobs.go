@@ -32,7 +32,7 @@ func NewJobsCapability(jobs *jobsuc.JobsDeps, log *slog.Logger) capreg.Capabilit
 	return &jobsCapability{jobs: jobs, log: log}
 }
 
-func (*jobsCapability) ID() string               { return capJobsBundle }
+func (*jobsCapability) ID() string          { return capJobsBundle }
 func (*jobsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*jobsCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

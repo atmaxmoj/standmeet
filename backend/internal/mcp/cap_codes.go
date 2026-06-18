@@ -48,7 +48,7 @@ func newCodesCapability(codes CodesRevoker, log *slog.Logger) *codesCapability {
 	return &codesCapability{codes: codes, log: log}
 }
 
-func (*codesCapability) ID() string               { return capCodesBundle }
+func (*codesCapability) ID() string          { return capCodesBundle }
 func (*codesCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*codesCapability) VisitorBinding(_ context.Context, _ *capreg.AssembleInput) (
 	*capreg.Binding, error,

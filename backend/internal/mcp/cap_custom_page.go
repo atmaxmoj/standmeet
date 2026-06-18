@@ -32,7 +32,7 @@ func newCustomPageCapability(
 	return &customPageCapability{pages: pages, log: log}
 }
 
-func (*customPageCapability) ID() string               { return capCustomPageBundle }
+func (*customPageCapability) ID() string          { return capCustomPageBundle }
 func (*customPageCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*customPageCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

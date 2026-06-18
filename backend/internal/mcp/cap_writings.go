@@ -29,7 +29,7 @@ func newWritingsCapability(
 	return &writingsCapability{rw: rw, ro: ro, log: log}
 }
 
-func (*writingsCapability) ID() string               { return capWritingsBundle }
+func (*writingsCapability) ID() string          { return capWritingsBundle }
 func (*writingsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*writingsCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

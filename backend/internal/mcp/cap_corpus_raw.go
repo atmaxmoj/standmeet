@@ -32,7 +32,7 @@ func newCorpusRawCapability(
 	return &corpusRawCapability{corpus: corpus, seo: seo, log: log}
 }
 
-func (*corpusRawCapability) ID() string               { return capCorpusRawBundle }
+func (*corpusRawCapability) ID() string          { return capCorpusRawBundle }
 func (*corpusRawCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*corpusRawCapability) VisitorBinding(_ context.Context, _ *capreg.AssembleInput) (
 	*capreg.Binding, error,

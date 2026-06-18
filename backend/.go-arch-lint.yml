@@ -462,6 +462,7 @@ deps:
       - cryptobox
       - sandbox
       - mcpclient
+      - mcpplugin
       - storage
       - server
       - capreg

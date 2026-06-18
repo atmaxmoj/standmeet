@@ -43,7 +43,7 @@ func newCalendarCapability(
 	return &calendarCapability{client: client, store: store, ownerTZ: owners, log: log}
 }
 
-func (*calendarCapability) ID() string               { return capCalendarBundle }
+func (*calendarCapability) ID() string          { return capCalendarBundle }
 func (*calendarCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*calendarCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

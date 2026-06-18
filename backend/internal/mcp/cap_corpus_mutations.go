@@ -30,7 +30,7 @@ func newCorpusMutationsCapability(
 	return &corpusMutationsCapability{corpus: corpus, log: log}
 }
 
-func (*corpusMutationsCapability) ID() string               { return capCorpusMutationsBundle }
+func (*corpusMutationsCapability) ID() string          { return capCorpusMutationsBundle }
 func (*corpusMutationsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*corpusMutationsCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

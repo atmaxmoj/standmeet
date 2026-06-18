@@ -31,7 +31,7 @@ func newCorpusOutputCapability(
 	return &corpusOutputCapability{corpus: corpus, seo: seo, log: log}
 }
 
-func (*corpusOutputCapability) ID() string               { return capCorpusOutputBundle }
+func (*corpusOutputCapability) ID() string          { return capCorpusOutputBundle }
 func (*corpusOutputCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*corpusOutputCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

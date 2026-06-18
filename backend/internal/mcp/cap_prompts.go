@@ -29,7 +29,7 @@ func newPromptsCapability(
 	return &promptsCapability{prompts: prompts, log: log}
 }
 
-func (*promptsCapability) ID() string               { return capPromptsBundle }
+func (*promptsCapability) ID() string          { return capPromptsBundle }
 func (*promptsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*promptsCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

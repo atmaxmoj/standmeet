@@ -36,7 +36,7 @@ func NewApplicationsCapability(
 	return &applicationsCapability{apps: apps, log: log}
 }
 
-func (*applicationsCapability) ID() string               { return capApplicationsBundle }
+func (*applicationsCapability) ID() string          { return capApplicationsBundle }
 func (*applicationsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*applicationsCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

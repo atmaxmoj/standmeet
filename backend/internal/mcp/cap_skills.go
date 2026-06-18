@@ -28,7 +28,7 @@ func newSkillsCapability(
 	return &skillsCapability{skills: skills, log: log}
 }
 
-func (*skillsCapability) ID() string               { return capSkillsBundle }
+func (*skillsCapability) ID() string          { return capSkillsBundle }
 func (*skillsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*skillsCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,

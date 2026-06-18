@@ -109,6 +109,9 @@ services:
       - GOOGLE_AUTH_URL=http://localhost:9000/google-oauth/auth
       - GOOGLE_TOKEN_URL=http://job-board-mock:9000/google-oauth/token
       - GOOGLE_CALENDAR_BASE=http://job-board-mock:9000/google-calendar
+      # Plugin discovery (Phase A): declares the in-stack mcp-server-mock as a
+      # builtin MCP-app plugin 'echoer'. Prod leaves this unset → no plugins.
+      - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
     depends_on:
       db:
         condition: service_healthy
@@ -122,6 +125,8 @@ services:
         condition: service_healthy
       gotenberg:
         condition: service_healthy
+      mcp-server-mock:
+        condition: service_healthy
     ports:
       - "8000:8000"
     # sandbox 需要 root + docker socket：dev/e2e 用 owner-curated skill
@@ -131,6 +136,7 @@ services:
     volumes:
       - custom_pages_data:/srv/custom-pages
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/dev-plugins.json:/etc/standmeet/plugins.json:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
       interval: 5s

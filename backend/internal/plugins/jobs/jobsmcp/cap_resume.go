@@ -32,7 +32,7 @@ func NewResumeCapability(
 	return &resumeCapability{resume: resume, log: log}
 }
 
-func (*resumeCapability) ID() string               { return capResumeBundle }
+func (*resumeCapability) ID() string          { return capResumeBundle }
 func (*resumeCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*resumeCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,
