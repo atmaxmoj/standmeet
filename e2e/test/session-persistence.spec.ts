@@ -43,13 +43,10 @@ test.describe('session persistence: refresh + exit', () => {
 
   test('code session → exit → back to long-scroll',
     async ({ page }) => {
+      // enterCodeSession 已 skip 名字选择器并等到 /sessions 200 —— picker 已 consume,
+      // 不二次 dismiss (会采样到 unmount 窗口 → click 10s 超时,check-then-act race)。
       await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // Dismiss VisitorNamePicker if it appears (overlays the strip)
-      const skipBtn = page.getByRole('button', { name: /skip/i });
-      if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await skipBtn.click();
-      }
       // click exit
       await page.getByRole('link', { name: 'exit session' }).click();
       // Exit navigates to /gate; session strip should be gone
@@ -85,11 +82,7 @@ test.describe('session persistence: refresh + exit', () => {
       await page.getByTestId('byoai-submit').click();
       await page.waitForURL('**/', { timeout: 10_000 });
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      // Dismiss VisitorNamePicker if overlay
-      const skipBtn = page.getByRole('button', { name: /skip/i });
-      if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await skipBtn.click();
-      }
+      // BYOAI 流不触发名字选择器(picker 只 code-mode),无需 dismiss。
       // exit navigates to /gate
       await page.getByRole('link', { name: 'exit session' }).click();
       await page.waitForURL('**/gate', { timeout: 5_000 });

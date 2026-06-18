@@ -267,16 +267,12 @@ function extractReportID(sse: string): string {
   return plain === null ? '' : plain[1] ?? '';
 }
 
+// enterCodeSession 已经 skip 了名字选择器并等到 /sessions 200,picker 此刻已
+// consume。这里不再二次 dismiss —— 二次 isVisible-then-click 会采样到 picker
+// 正在 unmount 的窗口,click 落到 detach 中的按钮 → 10s 超时 (check-then-act race)。
 async function enterChatWithCode(page: Page): Promise<void> {
   await enterCodeSession(page, CODE);
-  await dismissNamePicker(page);
   await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
-}
-
-async function dismissNamePicker(page: Page): Promise<void> {
-  const skipBtn = page.getByRole('button', { name: /skip/i });
-  const visible = await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false);
-  visible && await skipBtn.click();
 }
 
 async function fireFirstTurn(page: Page, q: string): Promise<void> {

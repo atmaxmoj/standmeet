@@ -11,7 +11,7 @@
 // error 帧 → 前端兜底文案,不消耗。
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright, Page } from '@playwright/test';
+import type { Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -37,8 +37,9 @@ test.describe('failed turn does not consume a turn', () => {
 
   test('success → used 1; injected failure → still 1; success → 2',
     async ({ page, request }) => {
+      // enterCodeSession 已 skip 名字选择器并等到 /sessions 200 —— 不二次 dismiss
+      // (会采样到 picker unmount 窗口 → click 10s 超时,check-then-act race)。
       await enterCodeSession(page, CODE);
-      await dismissNamePicker(page);
 
       const used = page.locator('.sm-session-strip-used');
       const input = page.getByTestId('chat-input-field');
@@ -68,15 +69,6 @@ test.describe('failed turn does not consume a turn', () => {
       await expect(used).toHaveText('2');
     });
 });
-
-// dismissNamePicker —— coded visitor 的 name overlay 挡着 composer,先 skip。
-async function dismissNamePicker(page: Page): Promise<void> {
-  const skip = page.getByTestId('visitor-name-skip');
-  if (await skip.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await skip.click();
-    await expect(skip).toBeHidden({ timeout: 3_000 });
-  }
-}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();

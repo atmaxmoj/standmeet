@@ -78,11 +78,10 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
     });
 });
 
+// enterCodeSession 已 skip 名字选择器并等到 /sessions 200;不二次 dismiss
+// (会采样到 picker unmount 窗口 → click 10s 超时,check-then-act race)。
 async function enterChat(page: Page, code: string): Promise<void> {
   await enterCodeSession(page, code);
-  const skip = page.getByRole('button', { name: /skip/i });
-  const visible = await skip.isVisible({ timeout: 2_000 }).catch(() => false);
-  visible && await skip.click();
   await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
 }
 

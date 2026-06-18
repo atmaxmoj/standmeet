@@ -162,18 +162,13 @@ async function openConversationModalInAdmin(adminPage: Page): Promise<void> {
   await expect(adminPage.getByTestId('transcript-body')).toBeVisible({ timeout: 5_000 });
 }
 
+// enterCodeSession 已 skip 名字选择器并等到 /sessions 200;不二次 dismiss
+// (会采样到 picker unmount 窗口 → click 10s 超时,check-then-act race)。
 async function enterChatWithCode(page: Page): Promise<void> {
   await enterCodeSession(page, CODE);
-  await dismissNamePicker(page);
   // code-mode visitor 落到 ChatRoom (page-shell.useChatModeDetect)；
   // chat-input form 渲在 sticky composer 里。
   await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
-}
-
-async function dismissNamePicker(page: Page): Promise<void> {
-  const skipBtn = page.getByRole('button', { name: /skip/i });
-  const visible = await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false);
-  visible && await skipBtn.click();
 }
 
 async function initOwner(playwright: Playwright): Promise<void> {
