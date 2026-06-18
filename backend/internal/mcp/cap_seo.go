@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -29,25 +29,25 @@ func newSEOCapability(seo SEOWriter, log *slog.Logger) *seoCapability {
 }
 
 func (*seoCapability) ID() string               { return capSEOBundle }
-func (*seoCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
-func (*seoCapability) VisitorBinding(_ context.Context, _ *agentskills.AssembleInput) (
-	*agentskills.Binding, error,
+func (*seoCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
+func (*seoCapability) VisitorBinding(_ context.Context, _ *capreg.AssembleInput) (
+	*capreg.Binding, error,
 ) {
-	return nil, agentskills.ErrHidden
+	return nil, capreg.ErrHidden
 }
 
-func (*seoCapability) SystemPromptFragment(_ context.Context, _ *agentskills.AssembleInput) string {
+func (*seoCapability) SystemPromptFragment(_ context.Context, _ *capreg.AssembleInput) string {
 	return ""
 }
 
 func (*seoCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *seoCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *seoCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.setWikiSlugBinding(),
 		c.setOutputSlugBinding(),
 		c.updateSettingsBinding(),
@@ -58,8 +58,8 @@ func (c *seoCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 // 地址纯树派生(标题 slug + parent 链),owner 不再自设 slug —— 这俩 tool 只
 // 管「这条要不要公开 index + meta 描述」。
 
-func (c *seoCapability) setWikiSlugBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *seoCapability) setWikiSlugBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "seo.set_wiki_seo",
 		Description: "Set SEO description + public-indexed flag for a wiki entry " +
 			"(public URL is tree-derived from the title, not owner-set).",
@@ -90,13 +90,13 @@ type setWikiSlugPayload struct {
 
 func (c *seoCapability) handleSetWikiSlug(
 	ctx context.Context, _ string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args setWikiSlugArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.WikiID == "" {
-		return agentskills.MCPError("wiki_id is required")
+		return capreg.MCPError("wiki_id is required")
 	}
 	updated, err := c.seo.UpdateWikiSEO(ctx, args.WikiID, args.SEODescription, args.SEOIndexed)
 	if err != nil {
@@ -105,7 +105,7 @@ func (c *seoCapability) handleSetWikiSlug(
 	return marshalSetWikiSlug(c.log, &updated)
 }
 
-func marshalSetWikiSlug(log *slog.Logger, w *domain.Wiki) agentskills.MCPResult {
+func marshalSetWikiSlug(log *slog.Logger, w *domain.Wiki) capreg.MCPResult {
 	payload := setWikiSlugPayload{
 		WikiID:         w.ID(),
 		SEODescription: w.SEODescription(),
@@ -114,15 +114,15 @@ func marshalSetWikiSlug(log *slog.Logger, w *domain.Wiki) agentskills.MCPResult 
 	out, err := json.Marshal(payload)
 	if err != nil {
 		log.Error("seo.set_wiki_seo marshal", "err", err)
-		return agentskills.MCPError(fmt.Sprintf("encode payload: %v", err))
+		return capreg.MCPError(fmt.Sprintf("encode payload: %v", err))
 	}
-	return agentskills.MCPSuccess(string(out))
+	return capreg.MCPSuccess(string(out))
 }
 
 // ───── seo.set_output_seo ────────────────────────────────────────
 
-func (c *seoCapability) setOutputSlugBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *seoCapability) setOutputSlugBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "seo.set_output_seo",
 		Description: "Set SEO description + public-indexed flag for an output entry " +
 			"(public URL is tree-derived from the title, not owner-set).",
@@ -153,13 +153,13 @@ type setOutputSlugPayload struct {
 
 func (c *seoCapability) handleSetOutputSlug(
 	ctx context.Context, _ string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args setOutputSlugArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.OutputID == "" {
-		return agentskills.MCPError("output_id is required")
+		return capreg.MCPError("output_id is required")
 	}
 	updated, err := c.seo.UpdateOutputSEO(ctx, args.OutputID, args.SEODescription, args.SEOIndexed)
 	if err != nil {
@@ -168,7 +168,7 @@ func (c *seoCapability) handleSetOutputSlug(
 	return marshalSetOutputSlug(c.log, &updated)
 }
 
-func marshalSetOutputSlug(log *slog.Logger, o *domain.Output) agentskills.MCPResult {
+func marshalSetOutputSlug(log *slog.Logger, o *domain.Output) capreg.MCPResult {
 	payload := setOutputSlugPayload{
 		OutputID:       o.ID(),
 		SEODescription: o.SEODescription(),
@@ -177,15 +177,15 @@ func marshalSetOutputSlug(log *slog.Logger, o *domain.Output) agentskills.MCPRes
 	out, err := json.Marshal(payload)
 	if err != nil {
 		log.Error("seo.set_output_seo marshal", "err", err)
-		return agentskills.MCPError(fmt.Sprintf("encode payload: %v", err))
+		return capreg.MCPError(fmt.Sprintf("encode payload: %v", err))
 	}
-	return agentskills.MCPSuccess(string(out))
+	return capreg.MCPSuccess(string(out))
 }
 
 // ───── seo.update_settings ───────────────────────────────────────
 
-func (c *seoCapability) updateSettingsBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *seoCapability) updateSettingsBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "seo.update_settings",
 		Description: "Update owner-wide SEO settings (robots, sitemap_extras, og_template).",
 		InputSchema: json.RawMessage(`{
@@ -214,10 +214,10 @@ type updateSettingsPayload struct {
 
 func (c *seoCapability) handleUpdateSettings(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseUpdateSettingsArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError("invalid arguments: " + perr.Error())
+		return capreg.MCPError("invalid arguments: " + perr.Error())
 	}
 	in := &domain.SEOSettings{
 		OwnerID:       ownerID,
@@ -253,7 +253,7 @@ func indexRobotsOrDefault(p *bool) bool {
 	return *p
 }
 
-func marshalUpdateSettings(log *slog.Logger, s *domain.SEOSettings) agentskills.MCPResult {
+func marshalUpdateSettings(log *slog.Logger, s *domain.SEOSettings) capreg.MCPResult {
 	payload := updateSettingsPayload{
 		IndexRobots:   s.IndexRobots,
 		SitemapExtras: s.SitemapExtras,
@@ -262,20 +262,20 @@ func marshalUpdateSettings(log *slog.Logger, s *domain.SEOSettings) agentskills.
 	out, err := json.Marshal(payload)
 	if err != nil {
 		log.Error("seo.update_settings marshal", "err", err)
-		return agentskills.MCPError(fmt.Sprintf("encode payload: %v", err))
+		return capreg.MCPError(fmt.Sprintf("encode payload: %v", err))
 	}
-	return agentskills.MCPSuccess(string(out))
+	return capreg.MCPSuccess(string(out))
 }
 
 // ───── shared error translation ──────────────────────────────────
 
-func seoErrToResult(log *slog.Logger, err error, name string) agentskills.MCPResult {
+func seoErrToResult(log *slog.Logger, err error, name string) capreg.MCPResult {
 	if errors.Is(err, domain.ErrWikiNotFound) {
-		return agentskills.MCPError("wiki entry not found")
+		return capreg.MCPError("wiki entry not found")
 	}
 	if errors.Is(err, domain.ErrOutputNotFound) {
-		return agentskills.MCPError("output entry not found")
+		return capreg.MCPError("output entry not found")
 	}
 	log.Error(name, "err", err)
-	return agentskills.MCPError(name + " failed")
+	return capreg.MCPError(name + " failed")
 }

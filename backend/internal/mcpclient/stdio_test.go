@@ -1,8 +1,9 @@
 // stdio_test.go —— C2: mcpclient stdio 传输的集成测试（spawn 真 MCP server 子进程）。
 // 测试替身 = mock-stack/mcp --stdio（含 echo / ping_external + 故障注入）。
 // 覆盖 happy（initialize/list/call）+ corner（stderr 不破帧）+ error-stream
-// （进程 mid-session 退出 → 干净报错；Close 幂等 + 关后调用报错）。
-// 跑在确定环境 → 断言一律 require.*（无 if）。C0 阶段红（DialStdio 是 stub）。
+// （进程 mid-session 退出 / initialize 卡死 → 干净报错；Close 幂等 + 关后调用报错）。
+// 跑在确定环境 → 断言一律 require.*（无 if）。
+
 package mcpclient_test
 
 import (
@@ -24,7 +25,8 @@ const marker = "[EXT-MCP-MARKER]"
 func buildMockStdio(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "mcpmock")
-	cmd := exec.Command("go", "build", "-o", bin, "./mcp")
+	//nolint:gosec // test：把已知 mock server 编译进 t.TempDir()，命令固定。
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, "./mcp")
 	cmd.Dir = "../../../mock-stack"
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "build mock stdio server: %s", out)

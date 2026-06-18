@@ -6,7 +6,7 @@
 // Result.OK=false 时 Text 当作 error 消息走 mcpgo.NewToolResultError；
 // OK=true 时 Text 当作 success payload 走 mcpgo.NewToolResultText。
 
-package agentskills
+package capreg
 
 import (
 	"context"

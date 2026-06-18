@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -32,27 +32,27 @@ func newCorpusOutputCapability(
 }
 
 func (*corpusOutputCapability) ID() string               { return capCorpusOutputBundle }
-func (*corpusOutputCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*corpusOutputCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*corpusOutputCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*corpusOutputCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*corpusOutputCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *corpusOutputCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *corpusOutputCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.promoteWikiToOutputBinding(),
 		c.listRecentOutputBinding(),
 	}
@@ -60,8 +60,8 @@ func (c *corpusOutputCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 
 // ───── promote_wiki_to_output ─────────────────────────────────────
 
-func (c *corpusOutputCapability) promoteWikiToOutputBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusOutputCapability) promoteWikiToOutputBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "promote_wiki_to_output",
 		Description: "Promote a wiki entry to a polished output entry " +
 			"(refined enough to be quoted verbatim in conversation).",
@@ -93,10 +93,10 @@ type promoteWikiToOutputArgsWire struct {
 
 func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parsePromoteWikiToOutputArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	out, err := usecases.PromoteWikiToOutput(ctx, *c.corpus,
 		buildPromoteToOutputCapInput(&args, ownerID))
@@ -153,18 +153,18 @@ func buildPromoteToOutputCapInput(
 	return in
 }
 
-func promoteToOutputErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func promoteToOutputErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrWikiNotFound) {
-		return agentskills.MCPError("wiki entry not found")
+		return capreg.MCPError("wiki entry not found")
 	}
 	log.Error("cap promote_wiki_to_output", "err", err)
-	return agentskills.MCPError("promote_wiki_to_output failed")
+	return capreg.MCPError("promote_wiki_to_output failed")
 }
 
 // ───── list_recent_output ───────────────────────────────────────
 
-func (c *corpusOutputCapability) listRecentOutputBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusOutputCapability) listRecentOutputBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "list_recent_output",
 		Description: "List recent output entries (newest first).",
 		InputSchema: json.RawMessage(`{
@@ -179,12 +179,12 @@ func (c *corpusOutputCapability) listRecentOutputBinding() *agentskills.MCPBindi
 
 func (c *corpusOutputCapability) handleListRecentOutput(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	limit := parseListLimit(raw)
 	rows, err := c.corpus.Output.ListByOwner(ctx, ownerID, limit)
 	if err != nil {
 		c.log.Error("cap list_recent_output", "err", err)
-		return agentskills.MCPError("list failed")
+		return capreg.MCPError("list failed")
 	}
 	return marshalCapResult(c.log, "list_recent_output", outputRowsToView(rows))
 }

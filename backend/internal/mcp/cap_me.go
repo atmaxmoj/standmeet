@@ -1,5 +1,5 @@
 // cap_me.go —— Phase B-4 pilot: 把 `me` tool 从 server.go AddTool 调用迁
-// 成 agentskills.Capability + OwnerMCPBinding。owner-only (访客侧不暴露)。
+// 成 capreg.Capability + OwnerMCPBinding。owner-only (访客侧不暴露)。
 //
 // 后续 corpus / output / promote / writings / skills / prompts / roles /
 // mcp_servers / chat / seo / page / jobs / resume / applications 一个个
@@ -13,7 +13,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -29,30 +29,30 @@ func newMeCapability(owners OwnerLookup, log *slog.Logger) *meCapability {
 }
 
 func (*meCapability) ID() string { return capOwnerMe }
-func (*meCapability) Shape() agentskills.Shape {
-	return agentskills.ShapeOwnerOnly
+func (*meCapability) Shape() capreg.Shape {
+	return capreg.ShapeOwnerOnly
 }
 
 func (*meCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*meCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*meCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *meCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{{
+func (c *meCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{{
 		Name:        "me",
 		Description: "Return the currently authenticated StandMeet owner.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
@@ -62,14 +62,14 @@ func (c *meCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 
 func (c *meCapability) handleMe(
 	ctx context.Context, ownerID string, _ json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	owner, err := c.owners.GetByID(ctx, ownerID)
 	if err != nil {
 		if errors.Is(err, domain.ErrOwnerNotFound) {
-			return agentskills.MCPError("owner not found")
+			return capreg.MCPError("owner not found")
 		}
 		c.log.Error("mcp me failed", "err", err)
-		return agentskills.MCPError("internal error")
+		return capreg.MCPError("internal error")
 	}
-	return agentskills.MCPSuccess(formatOwner(&owner))
+	return capreg.MCPSuccess(formatOwner(&owner))
 }

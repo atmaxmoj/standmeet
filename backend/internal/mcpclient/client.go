@@ -60,21 +60,10 @@ func Dial(ctx context.Context, url string, headers map[string]string) (*Session,
 	}
 	ictx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
-	if _, ierr := cli.Initialize(ictx, mcpgo.InitializeRequest{
-		Params: mcpgo.InitializeParams{
-			ProtocolVersion: mcpgo.LATEST_PROTOCOL_VERSION,
-			ClientInfo: mcpgo.Implementation{
-				Name: "standmeet-backend", Version: "0.1.0",
-			},
-		},
-	}); ierr != nil {
+	if _, ierr := cli.Initialize(ictx, initRequest()); ierr != nil {
 		return nil, fmt.Errorf("%w: initialize: %w", ErrUnreachable, ierr)
 	}
-	return &Session{c: cli, url: url, closeFn: func() {
-		if cerr := cli.Close(); cerr != nil {
-			_ = cerr
-		}
-	}}, nil
+	return &Session{c: cli, url: url, closeFn: func() { closeQuietly(cli) }}, nil
 }
 
 // Close —— 释放 transport。multiple Close 安全。

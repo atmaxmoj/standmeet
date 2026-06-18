@@ -13,7 +13,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
@@ -32,38 +32,38 @@ type applicationsCapability struct {
 // NewApplicationsCapability —— J.3 起外露给 internal/mcp/register.go。
 func NewApplicationsCapability(
 	apps *jobsuc.ApplicationsDeps, log *slog.Logger,
-) agentskills.Capability {
+) capreg.Capability {
 	return &applicationsCapability{apps: apps, log: log}
 }
 
 func (*applicationsCapability) ID() string               { return capApplicationsBundle }
-func (*applicationsCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*applicationsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*applicationsCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*applicationsCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*applicationsCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *applicationsCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{c.commitBinding()}
+func (c *applicationsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{c.commitBinding()}
 }
 
 // ───── applications.commit ──────────────────────────────────────
 
-func (c *applicationsCapability) commitBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *applicationsCapability) commitBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "applications.commit",
 		Description: "Promote a resume draft to a persistent application: atomically " +
 			"issues a 180-day AccessCode (10 sessions / 50 turns per member), writes " +
@@ -87,13 +87,13 @@ type commitArgsWire struct {
 
 func (c *applicationsCapability) handleCommit(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args commitArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.DraftID == "" {
-		return agentskills.MCPError("draft_id is required")
+		return capreg.MCPError("draft_id is required")
 	}
 	committed, err := jobsuc.CommitApplication(ctx, *c.apps, ownerID, args.DraftID)
 	if err != nil {
@@ -104,16 +104,16 @@ func (c *applicationsCapability) handleCommit(
 
 func buildCommitResult(
 	log *slog.Logger, committed *domain.CommittedApplication,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	view := committedApplicationView(committed)
 	jsonBytes, err := json.Marshal(view)
 	if err != nil {
 		log.Error("cap applications.commit marshal view", "err", err)
-		return agentskills.MCPError("encode view: " + err.Error())
+		return capreg.MCPError("encode view: " + err.Error())
 	}
-	return agentskills.MCPSuccessWithEmbeddings(
+	return capreg.MCPSuccessWithEmbeddings(
 		string(jsonBytes),
-		[]agentskills.MCPEmbedded{{
+		[]capreg.MCPEmbedded{{
 			URI:      applicationCapURIScheme + committed.Application.ID,
 			MIMEType: applicationMIMEPDF,
 			Blob:     committed.PDF,
@@ -125,15 +125,15 @@ func buildCommitResult(
 
 func applicationsCapErrToResult(
 	log *slog.Logger, err error, op string,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	switch {
 	case errors.Is(err, domain.ErrResumeDraftNotFound):
-		return agentskills.MCPError("draft not found (expired or wrong owner)")
+		return capreg.MCPError("draft not found (expired or wrong owner)")
 	case errors.Is(err, domain.ErrApplicationNotFound):
-		return agentskills.MCPError("application not found")
+		return capreg.MCPError("application not found")
 	case errors.Is(err, domain.ErrOwnerNotFound):
-		return agentskills.MCPError("owner not found")
+		return capreg.MCPError("owner not found")
 	}
 	log.Error("cap applications."+op, "err", err)
-	return agentskills.MCPError("applications." + op + " failed")
+	return capreg.MCPError("applications." + op + " failed")
 }

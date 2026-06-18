@@ -18,7 +18,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsmcp"
@@ -61,9 +61,9 @@ var (
 func (*Plugin) Name() string { return Name }
 
 // RegisterCapabilities —— plugins.CapabilityRegistrar 实现：注册 6+3+1 个
-// owner-MCP tool 进核心 agentskills.Registry。重 ID 由 agentskills MustRegister
+// owner-MCP tool 进核心 capreg.Registry。重 ID 由 capreg MustRegister
 // 兜底 panic (boot 期失败比运行时漏注册好)。
-func (p *Plugin) RegisterCapabilities(reg *agentskills.Registry) {
+func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(jobsmcp.NewJobsCapability(p.deps.Jobs, p.deps.Log))
 	reg.MustRegister(jobsmcp.NewResumeCapability(p.deps.Resume, p.deps.Log))
 	reg.MustRegister(jobsmcp.NewApplicationsCapability(p.deps.Applications, p.deps.Log))

@@ -1,6 +1,6 @@
 // register.go —— Phase B-4: owner-side Capability 注册口。composition
 // root (cmd/server/wireup.go) 调一次，把所有 owner-MCP-only capability
-// register 进 agentskills.Registry。
+// register 进 capreg.Registry。
 //
 // visitor-side capability 由 usecases.RegisterAgentSkills 注册；owner-side
 // 由本函数注册。两者共用同一 *Registry，互不重 ID。
@@ -14,7 +14,7 @@ package mcp
 import (
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -50,7 +50,7 @@ type CalendarOwnerDeps struct {
 // (boot 期失败比运行时漏注册好)。jobs / resume / applications 三套已
 // 拎到 plugins/jobs (J.5)，wireup 在调本函数之后再调
 // pluginRegistry.RegisterAllCapabilities 补齐。
-func RegisterAgentSkills(reg *agentskills.Registry, deps *RegisterDeps) {
+func RegisterAgentSkills(reg *capreg.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newMeCapability(deps.Owners, deps.Log))
 	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
 	reg.MustRegister(newCodesCapability(deps.Codes, deps.Log))

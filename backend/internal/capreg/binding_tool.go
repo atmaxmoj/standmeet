@@ -14,7 +14,7 @@
 //	                 eino ParamsOneOf 反序列化路径，保持 schema 字符串完全
 //	                 等同 caller 注册时的写法。
 
-package agentskills
+package capreg
 
 import (
 	"context"
@@ -28,8 +28,8 @@ import (
 )
 
 var (
-	errEmptySchema  = errors.New("agentskills: empty schema")
-	errSchemaNoType = errors.New("agentskills: schema missing type")
+	errEmptySchema  = errors.New("capreg: empty schema")
+	errSchemaNoType = errors.New("capreg: schema missing type")
 )
 
 // BindingTool —— 一个 Capability 暴露的一个 LLM tool。
@@ -106,7 +106,7 @@ func paramsFromRaw(raw json.RawMessage) (*schema.ParamsOneOf, error) {
 	}
 	var js jsonschema.Schema
 	if err := json.Unmarshal(raw, &js); err != nil {
-		return nil, fmt.Errorf("agentskills: schema decode: %w", err)
+		return nil, fmt.Errorf("capreg: schema decode: %w", err)
 	}
 	if js.Type == "" {
 		return nil, errSchemaNoType

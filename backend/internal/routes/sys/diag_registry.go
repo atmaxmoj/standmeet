@@ -16,12 +16,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 )
 
 // DiagRegistryDeps —— deps for /diag/registry + /diag/ext-mcp-stats。
 type DiagRegistryDeps struct {
-	Registry *agentskills.Registry
+	Registry *capreg.Registry
 	Log      *slog.Logger
 }
 
@@ -65,7 +65,7 @@ type extMCPStatsResp struct {
 
 func diagExtMCPStatsHandler(deps DiagRegistryDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		stat := agentskills.ExtMCPStats()
+		stat := capreg.ExtMCPStats()
 		resp := extMCPStatsResp{Dialed: stat.Dialed, Closed: stat.Closed}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

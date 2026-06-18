@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
-func (c *codesCapability) createBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *codesCapability) createBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "codes.create",
 		Description: "Issue a new access code. assumed_role_id required (use role_list / " +
 			"role_create to pick one). Returns plaintext code + the persisted record.",
@@ -53,19 +53,19 @@ type createCodeArgsWire struct {
 
 func (c *codesCapability) handleCreate(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseCreateCodeArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	in, ierr := buildCreateCodeInputCap(&args, ownerID)
 	if ierr != nil {
-		return agentskills.MCPError(ierr.Error())
+		return capreg.MCPError(ierr.Error())
 	}
 	code, err := c.codes.CreateAccessCode(ctx, in)
 	if err != nil {
 		c.log.Error("cap codes.create", "err", err)
-		return agentskills.MCPError("create code failed")
+		return capreg.MCPError("create code failed")
 	}
 	return marshalCapResult(c.log, "codes.create", map[string]any{
 		"code_id": code.ID, "code": code.Code, "label": code.Label,

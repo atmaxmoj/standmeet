@@ -1,5 +1,5 @@
 // cap_corpus_raw.go —— Phase E-1: tools.go 里 4 个 corpus 工具迁 Capability。
-// 老 srv.AddTool 路径删；走 agentskills.Registry → adapter.go
+// 老 srv.AddTool 路径删；走 capreg.Registry → adapter.go
 // wrapCapabilityHandler 统一入口。owner-only。
 //
 // 4 tools: raw_dump / promote_to_wiki / list_recent_raw / list_recent_wiki。
@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -33,27 +33,27 @@ func newCorpusRawCapability(
 }
 
 func (*corpusRawCapability) ID() string               { return capCorpusRawBundle }
-func (*corpusRawCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
-func (*corpusRawCapability) VisitorBinding(_ context.Context, _ *agentskills.AssembleInput) (
-	*agentskills.Binding, error,
+func (*corpusRawCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
+func (*corpusRawCapability) VisitorBinding(_ context.Context, _ *capreg.AssembleInput) (
+	*capreg.Binding, error,
 ) {
-	return nil, agentskills.ErrHidden
+	return nil, capreg.ErrHidden
 }
 
 func (*corpusRawCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*corpusRawCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *corpusRawCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *corpusRawCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.rawDumpBinding(),
 		c.promoteToWikiBinding(),
 		c.listRecentRawBinding(),
@@ -63,8 +63,8 @@ func (c *corpusRawCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 
 // ───── raw_dump ───────────────────────────────────────────────────
 
-func (c *corpusRawCapability) rawDumpBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusRawCapability) rawDumpBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "raw_dump",
 		Description: "Push a raw insight (rough draft) into the owner's corpus.",
 		InputSchema: json.RawMessage(`{
@@ -94,13 +94,13 @@ type rawDumpArgsWire struct {
 
 func (c *corpusRawCapability) handleRawDump(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args rawDumpArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.Body == "" {
-		return agentskills.MCPError("body is required")
+		return capreg.MCPError("body is required")
 	}
 	source := args.Source
 	if source == "" {
@@ -112,7 +112,7 @@ func (c *corpusRawCapability) handleRawDump(
 	})
 	if err != nil {
 		c.log.Error("cap raw_dump", "err", err)
-		return agentskills.MCPError("raw_dump failed")
+		return capreg.MCPError("raw_dump failed")
 	}
 	return marshalCapResult(c.log, "raw_dump",
 		map[string]string{"raw_id": rawEntry.ID()})
@@ -120,8 +120,8 @@ func (c *corpusRawCapability) handleRawDump(
 
 // ───── promote_to_wiki ───────────────────────────────────────────
 
-func (c *corpusRawCapability) promoteToWikiBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusRawCapability) promoteToWikiBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "promote_to_wiki",
 		Description: "Promote a raw entry to a curated wiki entry.",
 		InputSchema: json.RawMessage(`{
@@ -152,10 +152,10 @@ type promoteToWikiArgsWire struct {
 
 func (c *corpusRawCapability) handlePromoteToWiki(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parsePromoteToWikiArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	wikiEntry, err := usecases.PromoteToWiki(ctx, *c.corpus,
 		buildPromoteToWikiInput(&args, ownerID))
@@ -210,21 +210,21 @@ func buildPromoteToWikiInput(args *promoteToWikiArgsWire, ownerID string) *useca
 	return in
 }
 
-func promoteErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func promoteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrRawNotFound) {
-		return agentskills.MCPError("raw entry not found")
+		return capreg.MCPError("raw entry not found")
 	}
 	if errors.Is(err, domain.ErrParentNotFound) {
-		return agentskills.MCPError("parent entry not found")
+		return capreg.MCPError("parent entry not found")
 	}
 	log.Error("cap promote_to_wiki", "err", err)
-	return agentskills.MCPError("promote_to_wiki failed")
+	return capreg.MCPError("promote_to_wiki failed")
 }
 
 // ───── list_recent_raw ───────────────────────────────────────────
 
-func (c *corpusRawCapability) listRecentRawBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusRawCapability) listRecentRawBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "list_recent_raw",
 		Description: "List recent raw entries (newest first).",
 		InputSchema: json.RawMessage(`{
@@ -239,20 +239,20 @@ func (c *corpusRawCapability) listRecentRawBinding() *agentskills.MCPBinding {
 
 func (c *corpusRawCapability) handleListRecentRaw(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	limit := parseListLimit(raw)
 	rows, err := c.corpus.Raw.ListByOwner(ctx, ownerID, limit)
 	if err != nil {
 		c.log.Error("cap list_recent_raw", "err", err)
-		return agentskills.MCPError("list failed")
+		return capreg.MCPError("list failed")
 	}
 	return marshalCapResult(c.log, "list_recent_raw", rawRowsToView(rows))
 }
 
 // ───── list_recent_wiki ───────────────────────────────────────────
 
-func (c *corpusRawCapability) listRecentWikiBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusRawCapability) listRecentWikiBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "list_recent_wiki",
 		Description: "List recent wiki entries (newest first).",
 		InputSchema: json.RawMessage(`{
@@ -267,12 +267,12 @@ func (c *corpusRawCapability) listRecentWikiBinding() *agentskills.MCPBinding {
 
 func (c *corpusRawCapability) handleListRecentWiki(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	limit := parseListLimit(raw)
 	rows, err := c.corpus.Wiki.ListByOwner(ctx, ownerID, limit)
 	if err != nil {
 		c.log.Error("cap list_recent_wiki", "err", err)
-		return agentskills.MCPError("list failed")
+		return capreg.MCPError("list failed")
 	}
 	return marshalCapResult(c.log, "list_recent_wiki", wikiRowsToView(rows))
 }

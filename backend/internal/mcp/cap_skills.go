@@ -10,7 +10,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -29,35 +29,35 @@ func newSkillsCapability(
 }
 
 func (*skillsCapability) ID() string               { return capSkillsBundle }
-func (*skillsCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*skillsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*skillsCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*skillsCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*skillsCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *skillsCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *skillsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(), c.deleteBinding(),
 	}
 }
 
 // ───── skill_create ─────────────────────────────────────────────
 
-func (c *skillsCapability) createBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *skillsCapability) createBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "skill_create",
 		Description: "Create an owner-curated AI skill (extra system prompt + optional " +
 			"sandbox scripts). Attach to invite codes to compose the visitor-facing " +
@@ -92,10 +92,10 @@ type skillCreateArgsWire struct {
 
 func (c *skillsCapability) handleCreate(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseSkillCreateArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	skill, cerr := usecases.CreateSkill(ctx, *c.skills, &usecases.CreateSkillInput{
 		OwnerID: ownerID, Name: args.Name, Prompt: args.Prompt,
@@ -103,10 +103,10 @@ func (c *skillsCapability) handleCreate(
 	})
 	if cerr != nil {
 		if errors.Is(cerr, domain.ErrSkillNameTaken) {
-			return agentskills.MCPError("skill name already taken")
+			return capreg.MCPError("skill name already taken")
 		}
 		c.log.Error("cap skill_create", "err", cerr)
-		return agentskills.MCPError("create skill failed")
+		return capreg.MCPError("create skill failed")
 	}
 	return marshalCapResult(c.log, "skill_create", map[string]string{
 		"skill_id": skill.ID, "name": skill.Name,
@@ -132,8 +132,8 @@ func parseSkillCreateArgs(raw json.RawMessage) (skillCreateArgsWire, error) {
 
 // ───── skill_list ──────────────────────────────────────────────
 
-func (c *skillsCapability) listBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *skillsCapability) listBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "skill_list",
 		Description: "List all skills (builtin first, then owner-curated, by name).",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
@@ -153,11 +153,11 @@ type skillListRow struct {
 
 func (c *skillsCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	rows, err := usecases.ListSkills(ctx, *c.skills, ownerID)
 	if err != nil {
 		c.log.Error("cap skill_list", "err", err)
-		return agentskills.MCPError("list skills failed")
+		return capreg.MCPError("list skills failed")
 	}
 	out := make([]skillListRow, 0, len(rows))
 	for i := range rows {
@@ -173,8 +173,8 @@ func (c *skillsCapability) handleList(
 
 // ───── skill_delete ───────────────────────────────────────────
 
-func (c *skillsCapability) deleteBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *skillsCapability) deleteBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "skill_delete",
 		Description: "Delete an owner-curated skill. Builtin skills cannot be deleted.",
 		InputSchema: json.RawMessage(`{
@@ -194,13 +194,13 @@ type skillDeleteArgsWire struct {
 
 func (c *skillsCapability) handleDelete(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args skillDeleteArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.SkillID == "" {
-		return agentskills.MCPError("skill_id is required")
+		return capreg.MCPError("skill_id is required")
 	}
 	if err := usecases.DeleteSkill(ctx, *c.skills, ownerID, args.SkillID); err != nil {
 		return skillDeleteErrToResult(c.log, err)
@@ -210,13 +210,13 @@ func (c *skillsCapability) handleDelete(
 	})
 }
 
-func skillDeleteErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func skillDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrSkillBuiltinImmutable) {
-		return agentskills.MCPError("builtin skill cannot be deleted")
+		return capreg.MCPError("builtin skill cannot be deleted")
 	}
 	if errors.Is(err, domain.ErrSkillNotFound) {
-		return agentskills.MCPError("skill not found")
+		return capreg.MCPError("skill not found")
 	}
 	log.Error("cap skill_delete", "err", err)
-	return agentskills.MCPError("delete skill failed")
+	return capreg.MCPError("delete skill failed")
 }

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -31,7 +31,7 @@ type VisitorSessionDeps struct {
 	Output   OutputLister
 	// AgentSkills —— session 装配时算 capability states / tool specs(retrieval /
 	// booker / ext-mcp / owner-skill)。
-	AgentSkills *agentskills.Registry
+	AgentSkills *capreg.Registry
 }
 
 // VisitorSkillsDeps —— #131: 注册 visitor capability 时所需的**原料**(capability

@@ -10,7 +10,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -30,27 +30,27 @@ func newWritingsCapability(
 }
 
 func (*writingsCapability) ID() string               { return capWritingsBundle }
-func (*writingsCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*writingsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*writingsCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*writingsCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*writingsCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *writingsCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *writingsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(),
 		c.publishBinding(), c.deleteBinding(),
 	}
@@ -58,8 +58,8 @@ func (c *writingsCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 
 // ───── writing_create ─────────────────────────────────────────────
 
-func (c *writingsCapability) createBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *writingsCapability) createBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "writing_create",
 		Description: "Write a long-form piece to the owner's /writings. body_md " +
 			"is GitHub-flavored markdown; publish=true makes it visible immediately; " +
@@ -119,14 +119,14 @@ type writingCreateArgsWire struct {
 
 func (c *writingsCapability) handleCreate(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseWritingCreateArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	files, ferr := fetchInlineFiles(ctx, args.Files)
 	if ferr != nil {
-		return agentskills.MCPError(ferr.Error())
+		return capreg.MCPError(ferr.Error())
 	}
 	in := buildWritingSaveInput(&args, ownerID)
 	in.Files = files
@@ -139,12 +139,12 @@ func (c *writingsCapability) handleCreate(
 	})
 }
 
-func writingCreateErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func writingCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrWritingSlugTaken) {
-		return agentskills.MCPError("writing slug already taken")
+		return capreg.MCPError("writing slug already taken")
 	}
 	log.Error("cap writing_create", "err", err)
-	return agentskills.MCPError("create writing failed")
+	return capreg.MCPError("create writing failed")
 }
 
 func parseWritingCreateArgs(raw json.RawMessage) (writingCreateArgsWire, error) {
@@ -200,8 +200,8 @@ func buildWritingSaveInput(
 
 // ───── writing_list ────────────────────────────────────────────
 
-func (c *writingsCapability) listBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *writingsCapability) listBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "writing_list",
 		Description: "List all writings (drafts + published, newest first).",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
@@ -223,11 +223,11 @@ type writingListRow struct {
 
 func (c *writingsCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	rows, err := usecases.ListAllWritings(ctx, *c.ro, ownerID)
 	if err != nil {
 		c.log.Error("cap writing_list", "err", err)
-		return agentskills.MCPError("list writings failed")
+		return capreg.MCPError("list writings failed")
 	}
 	out := make([]writingListRow, 0, len(rows))
 	for i := range rows {
@@ -251,8 +251,8 @@ func writingRowToCapView(w *domain.Writing) writingListRow {
 
 // ───── writing_publish ────────────────────────────────────────
 
-func (c *writingsCapability) publishBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *writingsCapability) publishBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "writing_publish",
 		Description: "Publish a draft writing (sets published_at=now).",
 		InputSchema: writingByIDSchema(),
@@ -276,18 +276,18 @@ func writingByIDSchema() json.RawMessage {
 
 func (c *writingsCapability) handlePublish(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args writingByIDArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.WritingID == "" {
-		return agentskills.MCPError("writing_id is required")
+		return capreg.MCPError("writing_id is required")
 	}
 	wg, err := usecases.PublishWriting(ctx, *c.ro, ownerID, args.WritingID)
 	if err != nil {
 		c.log.Error("cap writing_publish", "err", err)
-		return agentskills.MCPError("publish writing failed")
+		return capreg.MCPError("publish writing failed")
 	}
 	return marshalCapResult(c.log, "writing_publish", map[string]any{
 		"writing_id": wg.ID(), "slug": wg.Slug(), "published": true,
@@ -296,8 +296,8 @@ func (c *writingsCapability) handlePublish(
 
 // ───── writing_delete ────────────────────────────────────────
 
-func (c *writingsCapability) deleteBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *writingsCapability) deleteBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "writing_delete",
 		Description: "Delete a writing.",
 		InputSchema: writingByIDSchema(),
@@ -307,19 +307,19 @@ func (c *writingsCapability) deleteBinding() *agentskills.MCPBinding {
 
 func (c *writingsCapability) handleDelete(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args writingByIDArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.WritingID == "" {
-		return agentskills.MCPError("writing_id is required")
+		return capreg.MCPError("writing_id is required")
 	}
 	if err := usecases.DeleteWritingWithAssets(
 		ctx, *c.rw, ownerID, args.WritingID,
 	); err != nil {
 		c.log.Error("cap writing_delete", "err", err)
-		return agentskills.MCPError("delete writing failed")
+		return capreg.MCPError("delete writing failed")
 	}
 	return marshalCapResult(c.log, "writing_delete", map[string]string{
 		"writing_id": args.WritingID,

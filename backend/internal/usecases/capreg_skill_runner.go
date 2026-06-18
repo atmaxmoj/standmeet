@@ -1,4 +1,4 @@
-// agentskills_skill_runner.go —— Phase B-3: skillRunnerCapability。
+// capreg_skill_runner.go —— Phase B-3: skillRunnerCapability。
 // owner 在 admin 加的 skill (脚本 + parameter schema) 在 visitor session 装配
 // 时被自动暴露成 LLM tool (skill_<name>_<script>)；执行走 sandbox.Run。
 //
@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 )
@@ -42,16 +42,16 @@ func newSkillRunnerCapability(deps skillRunnerDeps) *skillRunnerCapability {
 }
 
 func (*skillRunnerCapability) ID() string { return capSkillRunner }
-func (*skillRunnerCapability) Shape() agentskills.Shape {
-	return agentskills.ShapeVisitorOnly
+func (*skillRunnerCapability) Shape() capreg.Shape {
+	return capreg.ShapeVisitorOnly
 }
 
-func (*skillRunnerCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{}
+func (*skillRunnerCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{}
 }
 
 func (*skillRunnerCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	// Skill scripts 自带 description (在 tool spec)，prompt fragment 留空避免
 	// 噪声。owner-curated skill prompt 走 ComposeBasePersona 的 SkillPrompts
@@ -60,7 +60,7 @@ func (*skillRunnerCapability) SystemPromptFragment(
 }
 
 func (*skillRunnerCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
@@ -71,21 +71,21 @@ func (*skillRunnerCapability) SystemPromptFragmentID(
 // SkillIDs 含已删除 skill id (race，owner 删 skill 但已颁的 session 还引)
 // → GetByID 返 err，silently skip 该 id。
 func (c *skillRunnerCapability) VisitorBinding(
-	ctx context.Context, in *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
+	ctx context.Context, in *capreg.AssembleInput,
+) (*capreg.Binding, error) {
 	skills := loadSkillsForBinding(ctx, c.deps.Skills, in)
 	tools := buildSkillTools(c.deps.Sandbox, skills)
 	if len(tools) == 0 {
-		return nil, agentskills.ErrHidden
+		return nil, capreg.ErrHidden
 	}
-	return &agentskills.Binding{
+	return &capreg.Binding{
 		Tools: tools,
-		State: agentskills.CapabilityState{ID: capSkillRunner, Enabled: true},
+		State: capreg.CapabilityState{ID: capSkillRunner, Enabled: true},
 	}, nil
 }
 
 func loadSkillsForBinding(
-	ctx context.Context, skills SkillGetter, in *agentskills.AssembleInput,
+	ctx context.Context, skills SkillGetter, in *capreg.AssembleInput,
 ) []domain.Skill {
 	if skills == nil || in.RoleSnapshot == nil {
 		return []domain.Skill{}
@@ -102,27 +102,27 @@ func loadSkillsForBinding(
 	return out
 }
 
-func buildSkillTools(runner sandbox.Runner, skills []domain.Skill) []agentskills.BindingTool {
+func buildSkillTools(runner sandbox.Runner, skills []domain.Skill) []capreg.BindingTool {
 	totalScripts := 0
 	for i := range skills {
 		totalScripts += len(skills[i].Scripts)
 	}
-	out := make([]agentskills.BindingTool, 0, totalScripts)
+	out := make([]capreg.BindingTool, 0, totalScripts)
 	for i := range skills {
 		out = append(out, skillBindingTools(runner, &skills[i])...)
 	}
 	return out
 }
 
-func skillBindingTools(runner sandbox.Runner, s *domain.Skill) []agentskills.BindingTool {
-	out := make([]agentskills.BindingTool, 0, len(s.Scripts))
+func skillBindingTools(runner sandbox.Runner, s *domain.Skill) []capreg.BindingTool {
+	out := make([]capreg.BindingTool, 0, len(s.Scripts))
 	for j := range s.Scripts {
 		script := &s.Scripts[j]
 		toolName := composeSkillToolName(s.Name, script.Filename)
 		if toolName == "" {
 			continue
 		}
-		out = append(out, agentskills.NewTool(
+		out = append(out, capreg.NewTool(
 			toolName,
 			skillToolDescription(s, script),
 			"running owner skill",
@@ -203,7 +203,7 @@ func scriptParamSchema(p *domain.SkillScriptParam) paramSchema {
 	return paramSchema{Type: t, Description: p.Description}
 }
 
-func makeSkillRun(runner sandbox.Runner, script *domain.SkillScript) agentskills.RunFn {
+func makeSkillRun(runner sandbox.Runner, script *domain.SkillScript) capreg.RunFn {
 	language := script.Language
 	content := script.Content
 	return func(ctx context.Context, args string) (string, error) {

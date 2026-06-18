@@ -1,7 +1,7 @@
 // system_prompt.go —— system prompt 拼接：base + role persona + 每个
 // capability 的 SystemPromptFragment。Hash 给 dev endpoint 用，验确定性。
 
-package agentskills
+package capreg
 
 import (
 	"context"

@@ -15,7 +15,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -46,7 +46,7 @@ type Deps struct {
 	// AgentSkills —— Phase B-4 起 owner MCP tool 也走 Capability registry。
 	// 老的 tools_*.go AddTool 调用与 registerCapabilities walk 共存；逐步
 	// 把老文件迁成 Capability + 删 AddTool 调用。
-	AgentSkills *agentskills.Registry
+	AgentSkills *capreg.Registry
 }
 
 // SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
@@ -127,7 +127,7 @@ func OwnerIDFrom(ctx context.Context) string {
 }
 
 // registerTools 把所有 tool 注册到 mcpSrv。Phase E 收尾后只剩一行
-// registerCapabilities walk —— 所有 tool 都走 agentskills.Registry。
+// registerCapabilities walk —— 所有 tool 都走 capreg.Registry。
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
 }

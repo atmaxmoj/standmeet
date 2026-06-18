@@ -18,7 +18,7 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -93,12 +93,12 @@ func BuildVisitorAgent(ctx context.Context, in *BuildVisitorInput) (*VisitorAgen
 	snapshot := buildEvalSnapshot(in, corpus.corpusURIs)
 	deps := buildEvalDeps(in, &corpus)
 
-	reg := agentskills.NewRegistry()
+	reg := capreg.NewRegistry()
 	usecases.RegisterVisitorSkills(reg, deps, convFixture{
 		msgs: toMessages(in.ConversationID, in.Conversation),
 	})
 
-	assemble := &agentskills.AssembleInput{
+	assemble := &capreg.AssembleInput{
 		RoleSnapshot:   &snapshot,
 		OwnerID:        in.OwnerID,
 		Mode:           in.Mode,
@@ -106,7 +106,7 @@ func BuildVisitorAgent(ctx context.Context, in *BuildVisitorInput) (*VisitorAgen
 		CodeID:         in.CodeID,
 		MaxBookings:    in.MaxBookings,
 	}
-	fr := agentskills.FlattenBindings(reg.AssembleVisitor(ctx, assemble))
+	fr := capreg.FlattenBindings(reg.AssembleVisitor(ctx, assemble))
 	return &VisitorAgent{
 		SystemPrompt:   composePrompt(ctx, reg, &snapshot, assemble, in.SystemPromptOverride),
 		Tools:          fr.Tools,
@@ -118,8 +118,8 @@ func BuildVisitorAgent(ctx context.Context, in *BuildVisitorInput) (*VisitorAgen
 // composePrompt —— the override IS the prompt when set (experiment injection);
 // otherwise compose the faithful prod prompt (base persona + capability fragments).
 func composePrompt(
-	ctx context.Context, reg *agentskills.Registry,
-	snapshot *domain.RoleSnapshot, in *agentskills.AssembleInput, override string,
+	ctx context.Context, reg *capreg.Registry,
+	snapshot *domain.RoleSnapshot, in *capreg.AssembleInput, override string,
 ) string {
 	if override != "" {
 		return override

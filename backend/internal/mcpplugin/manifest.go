@@ -13,7 +13,7 @@ package mcpplugin
 // SupportedVersion —— 本 core 认的 manifest schema 版本；插件 version 不等 → 拒。
 const SupportedVersion = "1"
 
-// Shape —— 插件暴露给哪一侧（与 agentskills.Shape 取值一致，留独立类型让本包是 leaf）。
+// Shape —— 插件暴露给哪一侧（与 capreg.Shape 取值一致，留独立类型让本包是 leaf）。
 type Shape string
 
 // Shape 枚举值。

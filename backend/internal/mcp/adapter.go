@@ -1,4 +1,4 @@
-// adapter.go —— Phase B-4: 把 agentskills.MCPBinding 绑到 mcp-go server。
+// adapter.go —— Phase B-4: 把 capreg.MCPBinding 绑到 mcp-go server。
 //
 // 每个 capability 实现 OwnerMCPBinding 返一份 {Name, Description,
 // InputSchema, Handler}；本 adapter 统一做 owner_id resolve + panic recover
@@ -17,13 +17,13 @@ import (
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 )
 
 // registerCapabilities —— walk registry.OwnerMCPBindings() 把每个 binding
 // 装进 mcp-go server。corpus / page / job-loop 等若也有 MCP 面，自动出现
 // 在 owner MCP 的 tools/list。
-func registerCapabilities(srv *server.MCPServer, reg *agentskills.Registry, log *slog.Logger) {
+func registerCapabilities(srv *server.MCPServer, reg *capreg.Registry, log *slog.Logger) {
 	for _, b := range reg.OwnerMCPBindings() {
 		mcpTool := mcpgo.NewToolWithRawSchema(b.Name, b.Description, b.InputSchema)
 		srv.AddTool(mcpTool, wrapCapabilityHandler(b.Handler, b.Name, log))
@@ -36,7 +36,7 @@ func registerCapabilities(srv *server.MCPServer, reg *agentskills.Registry, log 
 //   - args JSON marshal (mcp-go 拿到 map[string]any，统一序列化成 raw 给 Handler)
 //   - MCPResult → *CallToolResult 翻译
 func wrapCapabilityHandler(
-	h agentskills.MCPHandler, toolName string, log *slog.Logger,
+	h capreg.MCPHandler, toolName string, log *slog.Logger,
 ) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
 		defer func() {
@@ -50,7 +50,7 @@ func wrapCapabilityHandler(
 }
 
 func runCapabilityHandler(
-	ctx context.Context, h agentskills.MCPHandler, req *mcpgo.CallToolRequest,
+	ctx context.Context, h capreg.MCPHandler, req *mcpgo.CallToolRequest,
 ) *mcpgo.CallToolResult {
 	ownerID := OwnerIDFrom(ctx)
 	if ownerID == "" {
@@ -72,7 +72,7 @@ func runCapabilityHandler(
 
 // buildMultiContentResult —— text + N binary embed → CallToolResult。E-12 起
 // applications.commit 用 (text JSON + PDF blob)。
-func buildMultiContentResult(r *agentskills.MCPResult) *mcpgo.CallToolResult {
+func buildMultiContentResult(r *capreg.MCPResult) *mcpgo.CallToolResult {
 	content := make([]mcpgo.Content, 0, 1+len(r.Embeddings))
 	content = append(content,
 		mcpgo.TextContent{Type: mcpgo.ContentTypeText, Text: r.Text})

@@ -1,7 +1,7 @@
 // cap_calendar.go —— Phase E-14c: owner-side calendar parity Capability。
 // 2 tools: calendar.list_slots / calendar.cancel_booking。owner-only。
 //
-// visitor-side calendar.book 仍走 visitor agentskills (capability dotted ID
+// visitor-side calendar.book 仍走 visitor capreg (capability dotted ID
 // "calendar.book")。本 capability 给 owner 在 Claude Code 排时间 / 撤会用。
 
 package mcp
@@ -14,7 +14,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -44,35 +44,35 @@ func newCalendarCapability(
 }
 
 func (*calendarCapability) ID() string               { return capCalendarBundle }
-func (*calendarCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*calendarCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*calendarCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*calendarCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*calendarCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *calendarCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *calendarCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.listSlotsBinding(), c.cancelBookingBinding(),
 	}
 }
 
 // ───── calendar.list_slots ───────────────────────────────────────
 
-func (c *calendarCapability) listSlotsBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *calendarCapability) listSlotsBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "calendar.list_slots",
 		Description: "Enumerate available [start, end] slots that pass booking policy " +
 			"(weekday + working_hours + min_lead_days) AND don't overlap any FreeBusy " +
@@ -104,15 +104,15 @@ type listSlotsArgsWire struct {
 
 func (c *calendarCapability) handleListSlots(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseListSlotsArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	owner, oerr := c.ownerTZ.GetByID(ctx, ownerID)
 	if oerr != nil {
 		c.log.Error("cap calendar.list_slots owner lookup", "err", oerr)
-		return agentskills.MCPError("owner not found")
+		return capreg.MCPError("owner not found")
 	}
 	slots, err := usecases.ListAvailableSlots(ctx, c.client, c.store, &usecases.ListSlotsInput{
 		OwnerID: ownerID, OwnerTZ: owner.ProfileTimezone,
@@ -183,8 +183,8 @@ func viewSlots(slots []usecases.AvailableSlot) []slotView {
 
 // ───── calendar.cancel_booking ──────────────────────────────────
 
-func (c *calendarCapability) cancelBookingBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *calendarCapability) cancelBookingBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "calendar.cancel_booking",
 		Description: "Cancel a persisted booking by id. Deletes the Google Calendar event " +
 			"(sendUpdates='all' if visitor_email present) and removes the code_bookings row.",
@@ -205,13 +205,13 @@ type cancelBookingArgsWire struct {
 
 func (c *calendarCapability) handleCancelBooking(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args cancelBookingArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.BookingID == "" {
-		return agentskills.MCPError("booking_id is required")
+		return capreg.MCPError("booking_id is required")
 	}
 	cancelled, err := usecases.CancelBooking(ctx, c.client, c.store, &usecases.CancelBookingInput{
 		OwnerID: ownerID, BookingID: args.BookingID,
@@ -230,15 +230,15 @@ func (c *calendarCapability) handleCancelBooking(
 
 // ───── error mapping ────────────────────────────────────────────
 
-func calendarCapErr(log *slog.Logger, err error, op string) agentskills.MCPResult {
+func calendarCapErr(log *slog.Logger, err error, op string) capreg.MCPResult {
 	switch {
 	case errors.Is(err, domain.ErrBookingNotFound):
-		return agentskills.MCPError("booking not found")
+		return capreg.MCPError("booking not found")
 	case errors.Is(err, domain.ErrCalendarNotConnected):
-		return agentskills.MCPError("calendar connector not connected")
+		return capreg.MCPError("calendar connector not connected")
 	case errors.Is(err, domain.ErrCalendarRevoked):
-		return agentskills.MCPError("calendar oauth revoked")
+		return capreg.MCPError("calendar oauth revoked")
 	}
 	log.Error("cap calendar."+op, "err", err)
-	return agentskills.MCPError("calendar." + op + " failed")
+	return capreg.MCPError("calendar." + op + " failed")
 }

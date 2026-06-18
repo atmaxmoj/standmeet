@@ -3,7 +3,7 @@
 //
 // ext-mcp capability（B-3 加入）每开关一次连接就调一下。
 
-package agentskills
+package capreg
 
 import "sync/atomic"
 

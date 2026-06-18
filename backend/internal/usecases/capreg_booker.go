@@ -1,4 +1,4 @@
-// agentskills_booker.go —— Phase B-3: calendarBookCapability。
+// capreg_booker.go —— Phase B-3: calendarBookCapability。
 // 包住 BookMeeting + connector/quota gating + visitor name 透传，让 visitor
 // chat agent 通过 calendar.book tool 把会议直接写进 owner Google Calendar。
 //
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
@@ -55,16 +55,16 @@ func newCalendarBookCapability(deps bookerDeps) *calendarBookCapability {
 }
 
 func (*calendarBookCapability) ID() string { return capCalendarBook }
-func (*calendarBookCapability) Shape() agentskills.Shape {
-	return agentskills.ShapeVisitorOnly
+func (*calendarBookCapability) Shape() capreg.Shape {
+	return capreg.ShapeVisitorOnly
 }
 
-func (*calendarBookCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{}
+func (*calendarBookCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{}
 }
 
 func (*calendarBookCapability) SystemPromptFragmentID(
-	_ context.Context, in *agentskills.AssembleInput,
+	_ context.Context, in *capreg.AssembleInput,
 ) string {
 	if !bookerSkillGranted(in.RoleSnapshot) {
 		return ""
@@ -73,7 +73,7 @@ func (*calendarBookCapability) SystemPromptFragmentID(
 }
 
 func (c *calendarBookCapability) SystemPromptFragment(
-	ctx context.Context, in *agentskills.AssembleInput,
+	ctx context.Context, in *capreg.AssembleInput,
 ) string {
 	id := c.SystemPromptFragmentID(ctx, in)
 	if id == "" {
@@ -87,10 +87,10 @@ func (c *calendarBookCapability) SystemPromptFragment(
 // quota not exhausted → load owner profile。任一不过 = 返 ErrHidden (capability
 // 隐藏)。Quota 已耗尽时也隐藏（兼容旧行为，让 LLM 看不到调不通的 tool）。
 func (c *calendarBookCapability) VisitorBinding(
-	ctx context.Context, in *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
+	ctx context.Context, in *capreg.AssembleInput,
+) (*capreg.Binding, error) {
 	if !bookerCanExpose(in) || c.deps.Calendar == nil {
-		return nil, agentskills.ErrHidden
+		return nil, capreg.ErrHidden
 	}
 	return c.tryBuildBinding(ctx, in)
 }
@@ -98,14 +98,14 @@ func (c *calendarBookCapability) VisitorBinding(
 // tryBuildBinding —— 拆出 VisitorBinding 余下的 gating + 装配逻辑让
 // 父 cyclo ≤ 5。
 func (c *calendarBookCapability) tryBuildBinding(
-	ctx context.Context, in *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
+	ctx context.Context, in *capreg.AssembleInput,
+) (*capreg.Binding, error) {
 	connected, qerr := bookerGatingClear(ctx, c.deps, in)
 	if qerr != nil {
 		return nil, qerr
 	}
 	if !connected {
-		return nil, agentskills.ErrHidden
+		return nil, capreg.ErrHidden
 	}
 	owner, oerr := c.deps.Owners.GetByID(ctx, in.OwnerID)
 	if oerr != nil {
@@ -115,7 +115,7 @@ func (c *calendarBookCapability) tryBuildBinding(
 }
 
 // bookerCanExpose —— 进入 gating 的最低条件 (mode=code + role granted skill)。
-func bookerCanExpose(in *agentskills.AssembleInput) bool {
+func bookerCanExpose(in *capreg.AssembleInput) bool {
 	if in.Mode != "code" {
 		return false
 	}
@@ -134,7 +134,7 @@ func bookerSkillGranted(snapshot *domain.RoleSnapshot) bool {
 // 返 (gating_pass, err)。connector 未装 / quota 耗尽 → (false, nil)；DB 错
 // → (false, err)。
 func bookerGatingClear(
-	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
 ) (bool, error) {
 	conn, err := deps.Calendar.GetConnector(ctx, in.OwnerID, domain.CalendarProvider)
 	if err != nil {
@@ -152,7 +152,7 @@ func bookerGatingClear(
 
 // bookerQuotaExhausted —— code 设了 MaxBookings 且当前已 booking >= cap。
 func bookerQuotaExhausted(
-	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
 ) (bool, error) {
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return false, nil
@@ -172,9 +172,9 @@ func bookerQuotaExhausted(
 // 走 quota)。
 func buildCalendarBookBinding(
 	ctx context.Context, deps bookerDeps,
-	in *agentskills.AssembleInput, owner *domain.Owner,
-) *agentskills.Binding {
-	state := agentskills.CapabilityState{
+	in *capreg.AssembleInput, owner *domain.Owner,
+) *capreg.Binding {
+	state := capreg.CapabilityState{
 		ID: capCalendarBook, Enabled: true,
 	}
 	if rem := bookerQuotaRemaining(ctx, deps, in); rem != nil {
@@ -186,8 +186,8 @@ func buildCalendarBookBinding(
 	slotsRun := func(ctx context.Context, args string) (string, error) {
 		return runBookerListSlots(ctx, deps, in, owner, []byte(args))
 	}
-	return &agentskills.Binding{
-		Tools: []agentskills.BindingTool{
+	return &capreg.Binding{
+		Tools: []capreg.BindingTool{
 			bookerBindingTool(bookRun),
 			listSlotsBindingTool(slotsRun),
 		},
@@ -198,7 +198,7 @@ func buildCalendarBookBinding(
 // bookerQuotaRemaining —— 当前 code 剩余可 booking 数。无 cap / DB 错 → nil。
 // 已知 quota 未耗尽（gating 通过到这里），但 LiveCount 仍可能跟 cap 差距。
 func bookerQuotaRemaining(
-	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
 ) *int32 {
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return nil
@@ -215,5 +215,5 @@ func bookerQuotaRemaining(
 // cap)；buildCalendarBookBinding 上方调用，分发 by tool 各自一个 closure。
 
 // runBookerBook + book-side 类型/decode/marshal 全部拆到
-// agentskills_booker_book.go；runBookerListSlots + list_slots-side 全
-// 部拆到 agentskills_booker_slots.go。
+// capreg_booker_book.go；runBookerListSlots + list_slots-side 全
+// 部拆到 capreg_booker_slots.go。

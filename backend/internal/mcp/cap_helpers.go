@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -31,13 +31,13 @@ func parseListLimit(raw json.RawMessage) int32 {
 }
 
 // marshalCapResult —— 通用 capability handler JSON 响应封装。
-func marshalCapResult(log *slog.Logger, name string, payload any) agentskills.MCPResult {
+func marshalCapResult(log *slog.Logger, name string, payload any) capreg.MCPResult {
 	out, err := json.Marshal(payload)
 	if err != nil {
 		log.Error("cap marshal", "tool", name, "err", err)
-		return agentskills.MCPError(fmt.Sprintf("encode payload: %v", err))
+		return capreg.MCPError(fmt.Sprintf("encode payload: %v", err))
 	}
-	return agentskills.MCPSuccess(string(out))
+	return capreg.MCPSuccess(string(out))
 }
 
 // ───── raw / wiki view 转换 (E-1 列表 tool 用) ─────────────────

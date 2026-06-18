@@ -9,7 +9,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -28,35 +28,35 @@ func newMCPServersCapability(
 }
 
 func (*mcpServersCapability) ID() string               { return capMCPServersBundle }
-func (*mcpServersCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*mcpServersCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*mcpServersCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*mcpServersCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*mcpServersCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *mcpServersCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *mcpServersCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(), c.deleteBinding(),
 	}
 }
 
 // ───── mcp_server_create ────────────────────────────────────────
 
-func (c *mcpServersCapability) createBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *mcpServersCapability) createBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "mcp_server_create",
 		Description: "Register an external MCP server (HTTP streamable). " +
 			"Attach it to invite codes; visitors with that code get those tools.",
@@ -85,10 +85,10 @@ type mcpServerCreateArgsWire struct {
 
 func (c *mcpServersCapability) handleCreate(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseMCPServerCreateArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	cfg, err := usecases.CreateMCPServer(ctx, *c.servers, &usecases.CreateMCPServerInput{
 		OwnerID: ownerID, Name: args.Name, URL: args.URL,
@@ -116,18 +116,18 @@ func parseMCPServerCreateArgs(raw json.RawMessage) (mcpServerCreateArgsWire, err
 	return args, nil
 }
 
-func mcpServerCreateErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func mcpServerCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrMCPServerNameTaken) {
-		return agentskills.MCPError("mcp server name already taken")
+		return capreg.MCPError("mcp server name already taken")
 	}
 	log.Error("cap mcp_server_create", "err", err)
-	return agentskills.MCPError("create mcp server failed")
+	return capreg.MCPError("create mcp server failed")
 }
 
 // ───── mcp_server_list ──────────────────────────────────────────
 
-func (c *mcpServersCapability) listBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *mcpServersCapability) listBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "mcp_server_list",
 		Description: "List all owner-registered external MCP servers.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
@@ -145,11 +145,11 @@ type mcpServerListRow struct {
 
 func (c *mcpServersCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	rows, err := usecases.ListMCPServers(ctx, *c.servers, ownerID)
 	if err != nil {
 		c.log.Error("cap mcp_server_list", "err", err)
-		return agentskills.MCPError("list mcp servers failed")
+		return capreg.MCPError("list mcp servers failed")
 	}
 	out := make([]mcpServerListRow, 0, len(rows))
 	for i := range rows {
@@ -164,8 +164,8 @@ func (c *mcpServersCapability) handleList(
 
 // ───── mcp_server_delete ───────────────────────────────────────
 
-func (c *mcpServersCapability) deleteBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *mcpServersCapability) deleteBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "mcp_server_delete",
 		Description: "Delete an owner-registered external MCP server. " +
 			"Existing invite codes lose access; code_mcp_servers join rows cascade.",
@@ -186,20 +186,20 @@ type mcpServerDeleteArgsWire struct {
 
 func (c *mcpServersCapability) handleDelete(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args mcpServerDeleteArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.ServerID == "" {
-		return agentskills.MCPError("server_id is required")
+		return capreg.MCPError("server_id is required")
 	}
 	if err := usecases.DeleteMCPServer(ctx, *c.servers, ownerID, args.ServerID); err != nil {
 		if errors.Is(err, domain.ErrMCPServerNotFound) {
-			return agentskills.MCPError("mcp server not found")
+			return capreg.MCPError("mcp server not found")
 		}
 		c.log.Error("cap mcp_server_delete", "err", err)
-		return agentskills.MCPError("delete mcp server failed")
+		return capreg.MCPError("delete mcp server failed")
 	}
 	return marshalCapResult(c.log, "mcp_server_delete", map[string]string{
 		"server_id": args.ServerID,

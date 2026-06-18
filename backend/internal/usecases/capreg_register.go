@@ -1,4 +1,4 @@
-// agentskills_register.go —— Phase B: agentskills.Registry 的 builtin 注册口。
+// capreg_register.go —— Phase B: capreg.Registry 的 builtin 注册口。
 // composition root (cmd/server/wireup.go) 在 buildPublicDeps 之后调
 // RegisterAgentSkills(reg, &visitor) 一次，把 visitor-side 内建 capability
 // 全部 register 进去。
@@ -11,7 +11,7 @@
 
 package usecases
 
-import "github.com/atmaxmoj/standmeet/internal/agentskills"
+import "github.com/atmaxmoj/standmeet/internal/capreg"
 
 // RegisterVisitorSkills —— 注册口。跟 prod 同一组 capability 构造
 // (newRetrievalCapability / booker / skill-runner / ext-mcp / ask_visitor /
@@ -20,7 +20,7 @@ import "github.com/atmaxmoj/standmeet/internal/agentskills"
 // (跑同一套真 capability 构造,只换数据源)。booker 的 Calendar 在 eval 留 nil →
 // VisitorBinding ErrHidden 自动隐藏。
 func RegisterVisitorSkills(
-	reg *agentskills.Registry, deps *VisitorSkillsDeps, sumChats ConversationGetter,
+	reg *capreg.Registry, deps *VisitorSkillsDeps, sumChats ConversationGetter,
 ) {
 	reg.MustRegister(newRetrievalCapability(retrievalDeps{
 		Wiki: deps.Wiki, Output: deps.Output, Writings: deps.Writings,

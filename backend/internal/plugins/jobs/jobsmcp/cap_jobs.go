@@ -14,7 +14,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
@@ -27,33 +27,33 @@ type jobsCapability struct {
 }
 
 // NewJobsCapability —— J.3 起外露给 internal/mcp/register.go (jobs plugin
-// 跨 package 被注册到 agentskills.Registry)。
-func NewJobsCapability(jobs *jobsuc.JobsDeps, log *slog.Logger) agentskills.Capability {
+// 跨 package 被注册到 capreg.Registry)。
+func NewJobsCapability(jobs *jobsuc.JobsDeps, log *slog.Logger) capreg.Capability {
 	return &jobsCapability{jobs: jobs, log: log}
 }
 
 func (*jobsCapability) ID() string               { return capJobsBundle }
-func (*jobsCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*jobsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*jobsCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*jobsCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*jobsCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *jobsCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *jobsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.registerSourceBinding(), c.listSourcesBinding(),
 		c.unregisterSourceBinding(), c.fetchNewBinding(),
 		c.showBinding(), c.discardBinding(),
@@ -62,8 +62,8 @@ func (c *jobsCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 
 // ───── jobs.register_source ─────────────────────────────────────
 
-func (c *jobsCapability) registerSourceBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *jobsCapability) registerSourceBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "jobs.register_source",
 		Description: "Register a job source. kind ∈ greenhouse|lever|ashby|remoteok|wwr|" +
 			"hn_hiring|smartrecruiters|workable. config: {company} for ats; " +
@@ -89,10 +89,10 @@ type registerSourceArgsWire struct {
 
 func (c *jobsCapability) handleRegisterSource(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseRegisterSourceCapArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	src, err := jobsuc.RegisterJobSource(ctx, *c.jobs, &domain.CreateJobSourceInput{
 		OwnerID: ownerID, Kind: args.Kind, Config: args.Config, Label: args.Label,
@@ -124,8 +124,8 @@ func parseRegisterSourceCapArgs(
 
 // ───── jobs.list_sources ───────────────────────────────────────
 
-func (c *jobsCapability) listSourcesBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *jobsCapability) listSourcesBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "jobs.list_sources",
 		Description: "List all job sources the owner has registered.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
@@ -135,7 +135,7 @@ func (c *jobsCapability) listSourcesBinding() *agentskills.MCPBinding {
 
 func (c *jobsCapability) handleListSources(
 	ctx context.Context, ownerID string, _ json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	list, err := jobsuc.ListJobSources(ctx, *c.jobs, ownerID)
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "list_sources")
@@ -150,8 +150,8 @@ func (c *jobsCapability) handleListSources(
 
 // ───── jobs.unregister_source ──────────────────────────────────
 
-func (c *jobsCapability) unregisterSourceBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *jobsCapability) unregisterSourceBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "jobs.unregister_source",
 		Description: "Delete a registered job source (and its dedup fingerprints).",
 		InputSchema: json.RawMessage(`{
@@ -171,13 +171,13 @@ type sourceIDArgsWire struct {
 
 func (c *jobsCapability) handleUnregisterSource(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args sourceIDArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.SourceID == "" {
-		return agentskills.MCPError("source_id is required")
+		return capreg.MCPError("source_id is required")
 	}
 	if err := jobsuc.UnregisterJobSource(ctx, *c.jobs, ownerID, args.SourceID); err != nil {
 		return jobsCapErrToResult(c.log, err, "unregister_source")
@@ -187,8 +187,8 @@ func (c *jobsCapability) handleUnregisterSource(
 
 // ───── jobs.fetch_new ──────────────────────────────────────────
 
-func (c *jobsCapability) fetchNewBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *jobsCapability) fetchNewBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "jobs.fetch_new",
 		Description: "Fetch new (since-last-seen) jobs from one or all registered sources. " +
 			"Returns FetchedJob array with cache_id refs; cached for 24h.",
@@ -205,11 +205,11 @@ func (c *jobsCapability) fetchNewBinding() *agentskills.MCPBinding {
 
 func (c *jobsCapability) handleFetchNew(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args sourceIDArgsWire
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &args); err != nil {
-			return agentskills.MCPError("invalid arguments: " + err.Error())
+			return capreg.MCPError("invalid arguments: " + err.Error())
 		}
 	}
 	var sidPtr *string
@@ -227,8 +227,8 @@ func (c *jobsCapability) handleFetchNew(
 
 // ───── jobs.show ────────────────────────────────────────────────
 
-func (c *jobsCapability) showBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *jobsCapability) showBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "jobs.show",
 		Description: "Look up a job by cache_id; returns full JD body.",
 		InputSchema: json.RawMessage(`{
@@ -248,13 +248,13 @@ type cacheIDArgsWire struct {
 
 func (c *jobsCapability) handleShow(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args cacheIDArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.CacheID == "" {
-		return agentskills.MCPError("cache_id is required")
+		return capreg.MCPError("cache_id is required")
 	}
 	job, err := jobsuc.ShowJob(ctx, *c.jobs, ownerID, args.CacheID)
 	if err != nil {
@@ -265,8 +265,8 @@ func (c *jobsCapability) handleShow(
 
 // ───── jobs.discard ─────────────────────────────────────────────
 
-func (c *jobsCapability) discardBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *jobsCapability) discardBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "jobs.discard",
 		Description: "Drop a job from the cache pool (owner reviewed and rejected).",
 		InputSchema: json.RawMessage(`{
@@ -282,13 +282,13 @@ func (c *jobsCapability) discardBinding() *agentskills.MCPBinding {
 
 func (c *jobsCapability) handleDiscard(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args cacheIDArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.CacheID == "" {
-		return agentskills.MCPError("cache_id is required")
+		return capreg.MCPError("cache_id is required")
 	}
 	if err := jobsuc.DiscardJob(ctx, *c.jobs, ownerID, args.CacheID); err != nil {
 		return jobsCapErrToResult(c.log, err, "discard")
@@ -298,12 +298,12 @@ func (c *jobsCapability) handleDiscard(
 
 // ───── error mapping ───────────────────────────────────────────
 
-func jobsCapErrToResult(log *slog.Logger, err error, op string) agentskills.MCPResult {
+func jobsCapErrToResult(log *slog.Logger, err error, op string) capreg.MCPResult {
 	if msg, ok := jobsCapClientErr(err); ok {
-		return agentskills.MCPError(msg)
+		return capreg.MCPError(msg)
 	}
 	log.Error("cap jobs."+op, "err", err)
-	return agentskills.MCPError("jobs." + op + " failed")
+	return capreg.MCPError("jobs." + op + " failed")
 }
 
 func jobsCapClientErr(err error) (string, bool) {

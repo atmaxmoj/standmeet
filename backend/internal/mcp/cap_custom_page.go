@@ -14,7 +14,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -33,27 +33,27 @@ func newCustomPageCapability(
 }
 
 func (*customPageCapability) ID() string               { return capCustomPageBundle }
-func (*customPageCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*customPageCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*customPageCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*customPageCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*customPageCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *customPageCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *customPageCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.createBinding(), c.writeFileBinding(),
 		c.buildBinding(), c.getBuildBinding(),
 		c.promoteStagingBinding(), c.promoteLiveBinding(),
@@ -63,8 +63,8 @@ func (c *customPageCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
 
 // ───── custom_page.create ──────────────────────────────────────
 
-func (c *customPageCapability) createBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) createBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.create",
 		Description: "Create a new custom page under /<handle>/p/<slug>.",
 		InputSchema: json.RawMessage(`{
@@ -86,13 +86,13 @@ type pageSlugArgs struct {
 
 func (c *customPageCapability) handleCreate(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args pageSlugArgs
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.Slug == "" {
-		return agentskills.MCPError("slug is required")
+		return capreg.MCPError("slug is required")
 	}
 	title := args.Title
 	if title == "" {
@@ -109,8 +109,8 @@ func (c *customPageCapability) handleCreate(
 
 // ───── custom_page.write_file ─────────────────────────────────
 
-func (c *customPageCapability) writeFileBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) writeFileBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.write_file",
 		Description: "Add or overwrite a source file in the page draft.",
 		InputSchema: json.RawMessage(`{
@@ -134,10 +134,10 @@ type writeFileArgsWire struct {
 
 func (c *customPageCapability) handleWriteFile(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseWriteFileArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	build, err := usecases.WriteFile(ctx, *c.pages, &usecases.WriteFileInput{
 		OwnerID: ownerID, Slug: args.Slug, Path: args.Path, Content: args.Content,
@@ -161,8 +161,8 @@ func parseWriteFileArgs(raw json.RawMessage) (writeFileArgsWire, error) {
 
 // ───── custom_page.build ────────────────────────────────────────
 
-func (c *customPageCapability) buildBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) buildBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.build",
 		Description: "Trigger / surface the current draft build. Builder is async.",
 		InputSchema: json.RawMessage(`{
@@ -182,13 +182,13 @@ type slugOnlyArgs struct {
 
 func (c *customPageCapability) handleBuild(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args slugOnlyArgs
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.Slug == "" {
-		return agentskills.MCPError("slug is required")
+		return capreg.MCPError("slug is required")
 	}
 	build, err := usecases.Build(ctx, *c.pages, ownerID, args.Slug)
 	if err != nil {
@@ -199,8 +199,8 @@ func (c *customPageCapability) handleBuild(
 
 // ───── custom_page.get_build ───────────────────────────────────
 
-func (c *customPageCapability) getBuildBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) getBuildBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.get_build",
 		Description: "Poll a build for status: pending → building → built|failed.",
 		InputSchema: json.RawMessage(`{
@@ -220,13 +220,13 @@ type buildIDArgs struct {
 
 func (c *customPageCapability) handleGetBuild(
 	ctx context.Context, _ string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args buildIDArgs
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.BuildID == "" {
-		return agentskills.MCPError("build_id is required")
+		return capreg.MCPError("build_id is required")
 	}
 	build, err := usecases.GetBuild(ctx, *c.pages, args.BuildID)
 	if err != nil {
@@ -262,15 +262,15 @@ func capBuildView(b *domain.CustomPageBuild) capBuildViewT {
 	}
 }
 
-func customPageCapErr(log *slog.Logger, err error, name string) agentskills.MCPResult {
+func customPageCapErr(log *slog.Logger, err error, name string) capreg.MCPResult {
 	switch {
 	case errors.Is(err, domain.ErrCustomPageNotFound):
-		return agentskills.MCPError("page not found")
+		return capreg.MCPError("page not found")
 	case errors.Is(err, domain.ErrCustomPageBuildNotFound):
-		return agentskills.MCPError("build not found")
+		return capreg.MCPError("build not found")
 	case errors.Is(err, domain.ErrCustomPageSlugTaken):
-		return agentskills.MCPError("slug already taken")
+		return capreg.MCPError("slug already taken")
 	}
 	log.Error(name, "err", err)
-	return agentskills.MCPError(name + " failed: " + err.Error())
+	return capreg.MCPError(name + " failed: " + err.Error())
 }

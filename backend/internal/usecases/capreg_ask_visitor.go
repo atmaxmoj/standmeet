@@ -1,4 +1,4 @@
-// agentskills_ask_visitor.go —— I.1: ask_visitor capability.
+// capreg_ask_visitor.go —— I.1: ask_visitor capability.
 //
 // LLM 觉得 visitor 意图不明时，调 ask_visitor 抛一段结构化问题让 visitor
 // 在 UI 上一键回 (radio / multi / yes_no + 可选 free chat)。tool 走 eino
@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
 
@@ -37,22 +37,22 @@ func newAskVisitorCapability() *askVisitorCapability {
 }
 
 func (*askVisitorCapability) ID() string { return capAskVisitor }
-func (*askVisitorCapability) Shape() agentskills.Shape {
-	return agentskills.ShapeVisitorOnly
+func (*askVisitorCapability) Shape() capreg.Shape {
+	return capreg.ShapeVisitorOnly
 }
 
-func (*askVisitorCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{}
+func (*askVisitorCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{}
 }
 
 func (*askVisitorCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return capAskVisitorFragmentID
 }
 
 func (c *askVisitorCapability) SystemPromptFragment(
-	ctx context.Context, in *agentskills.AssembleInput,
+	ctx context.Context, in *capreg.AssembleInput,
 ) string {
 	id := c.SystemPromptFragmentID(ctx, in)
 	if id == "" {
@@ -62,16 +62,16 @@ func (c *askVisitorCapability) SystemPromptFragment(
 }
 
 func (*askVisitorCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return &agentskills.Binding{
-		Tools: []agentskills.BindingTool{askVisitorBindingTool()},
-		State: agentskills.CapabilityState{ID: capAskVisitor, Enabled: true},
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return &capreg.Binding{
+		Tools: []capreg.BindingTool{askVisitorBindingTool()},
+		State: capreg.CapabilityState{ID: capAskVisitor, Enabled: true},
 	}, nil
 }
 
-func askVisitorBindingTool() agentskills.BindingTool {
-	return agentskills.NewReturnDirectlyTool(
+func askVisitorBindingTool() capreg.BindingTool {
+	return capreg.NewReturnDirectlyTool(
 		toolAskVisitorName,
 		"Ask the visitor a structured clarifying question when their intent "+
 			"is ambiguous. Returns the question metadata; the visitor's choice "+

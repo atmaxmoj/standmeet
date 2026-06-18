@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"net/url"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/config"
 	"github.com/atmaxmoj/standmeet/internal/domain"
@@ -164,7 +164,7 @@ func assembleRuntimeDeps(
 		marketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
-		agentSkills: agentskills.NewRegistry(),
+		agentSkills: capreg.NewRegistry(),
 		// J.5: pluginRegistry 在 assembleRuntimeDeps 返回后由 caller 用全
 		// 套 deps 构造 (jobs.Plugin 需要 *jobsuc.JobsDeps 等闭包持引用)。
 		// 这里留 nil 让 lint 看到字段被用；wirePluginRegistry 后再回填。

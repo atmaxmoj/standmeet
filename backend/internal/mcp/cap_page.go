@@ -13,7 +13,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -32,31 +32,31 @@ func newPageCapability(
 }
 
 func (*pageCapability) ID() string               { return capPageBundle }
-func (*pageCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*pageCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*pageCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*pageCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*pageCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *pageCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{c.updateHandleBinding()}
+func (c *pageCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{c.updateHandleBinding()}
 }
 
-func (c *pageCapability) updateHandleBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *pageCapability) updateHandleBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "page.update_handle",
 		Description: "Change owner's public handle (URL prefix). New handle must be " +
 			"2-64 chars of a-z0-9-. Old handle remains as alias (handle_aliases table) " +
@@ -79,13 +79,13 @@ type updateHandleArgsWire struct {
 
 func (c *pageCapability) handleUpdateHandle(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args updateHandleArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.Handle == "" {
-		return agentskills.MCPError("handle is required")
+		return capreg.MCPError("handle is required")
 	}
 	owner, err := usecases.UpdateOwnerHandle(ctx, *c.handle, ownerID, args.Handle)
 	if err != nil {
@@ -96,13 +96,13 @@ func (c *pageCapability) handleUpdateHandle(
 	})
 }
 
-func updateHandleErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func updateHandleErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, usecases.ErrEmptyField) {
-		return agentskills.MCPError("handle must be 2-64 chars of a-z0-9-")
+		return capreg.MCPError("handle must be 2-64 chars of a-z0-9-")
 	}
 	if errors.Is(err, domain.ErrHandleTaken) {
-		return agentskills.MCPError("handle already taken")
+		return capreg.MCPError("handle already taken")
 	}
 	log.Error("cap page.update_handle", "err", err)
-	return agentskills.MCPError("update handle failed")
+	return capreg.MCPError("update handle failed")
 }

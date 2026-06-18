@@ -167,7 +167,7 @@ func registerAgentSkills(d *runtimeDeps) {
 	// J.5: plugins 自己接管自家 owner-MCP capabilities (jobs / resume /
 	// applications 3 套都搬到 plugins/jobs/jobs.Plugin)。core register 跑完
 	// 再让 registry 把全部 plugin 的 CapabilityRegistrar 一次性注册到同一
-	// agentskills.Registry，互不重 ID。
+	// capreg.Registry，互不重 ID。
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
 }
 

@@ -1,4 +1,4 @@
-// Package agentskills —— 一个 Capability interface + Registry，三处消费：
+// Package capreg —— 一个 Capability interface + Registry，三处消费：
 // visitor chat tools、owner MCP server、system prompt fragments。详见
 // [[phase-b-capability-registry]] memory。
 //
@@ -7,12 +7,12 @@
 // MCP parity 由 B-2..B-6 顺序填入。
 //
 // 设计约束：
-//   - agentskills 是 leaf-ish 包，只依赖 inference + domain + std。具体
+//   - capreg 是 leaf-ish 包，只依赖 inference + domain + std。具体
 //     Capability 实现放在 usecases / mcp 包里，反向 import 本包注册。
 //   - 高层 Capability 实现是闭包形态：构造时持有自己的 deps，VisitorBinding
 //     只接 per-session 上下文（AssembleInput），不接 deps —— 类型安全，
 //     避免 any。
-package agentskills
+package capreg
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 // ErrHidden —— VisitorBinding 返此 sentinel 表示 capability 不暴露给本
 // session (干净路径，跟"真错"区分)。registry silently skip；VisitorStates
 // 也跳过不进 capability map。
-var ErrHidden = errors.New("agentskills: capability hidden from session")
+var ErrHidden = errors.New("capreg: capability hidden from session")
 
 // AssembleInput —— 装配一次 visitor session 时的上下文。Capability 自身
 // 持有 deps (闭包)，只接收 per-session 字段。

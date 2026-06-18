@@ -1,5 +1,5 @@
-// agentskills_booker_slots.go —— G-7: visitor-side calendar_list_slots
-// 工具的实现 (spec + decode + execute + marshal)。从 agentskills_booker.go
+// capreg_booker_slots.go —— G-7: visitor-side calendar_list_slots
+// 工具的实现 (spec + decode + execute + marshal)。从 capreg_booker.go
 // 拆出来守 max-lines 350 cap。
 //
 // 复用 ListAvailableSlots usecase；wire 形态 ({slots:[{start,end}]}) 跟
@@ -14,12 +14,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 func runBookerListSlots(
-	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
 	owner *domain.Owner, input []byte,
 ) (string, error) {
 	args, derr := decodeListSlotsArgs(input)
@@ -38,8 +38,8 @@ func runBookerListSlots(
 }
 
 // listSlotsBindingTool —— calendar_list_slots 注册口。
-func listSlotsBindingTool(run agentskills.RunFn) agentskills.BindingTool {
-	return agentskills.NewTool(
+func listSlotsBindingTool(run capreg.RunFn) capreg.BindingTool {
+	return capreg.NewTool(
 		toolCalendarListSlotsName,
 		"List available [start, end] slots on the owner's calendar "+
 			"between from_rfc3339 and until_rfc3339 that pass booking policy and "+

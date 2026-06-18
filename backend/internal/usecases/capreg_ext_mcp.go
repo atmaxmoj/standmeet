@@ -1,8 +1,8 @@
-// agentskills_ext_mcp.go —— Phase B-3: extMCPCapability。
+// capreg_ext_mcp.go —— Phase B-3: extMCPCapability。
 // owner 在 admin 注册的外部 MCP server (URL + auth) 在 visitor session 装配
 // 时被并发 dial，每 server.ListTools 暴露成 ext_<server>_<tool>；执行走
 // session.CallTool。session 在 Binding.Close 里释放，dial/close 计数进
-// agentskills.ExtMCP{Dialed,Closed}。
+// capreg.ExtMCP{Dialed,Closed}。
 //
 // Shape=visitor_only；owner 通过自己的 MCP 客户端跟外部 server 直连，不
 // 走 standmeet 转发。
@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcpclient"
@@ -36,22 +36,22 @@ func newExtMCPCapability(servers MCPServerGetter) *extMCPCapability {
 }
 
 func (*extMCPCapability) ID() string { return capExtMCP }
-func (*extMCPCapability) Shape() agentskills.Shape {
-	return agentskills.ShapeVisitorOnly
+func (*extMCPCapability) Shape() capreg.Shape {
+	return capreg.ShapeVisitorOnly
 }
 
-func (*extMCPCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{}
+func (*extMCPCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{}
 }
 
 func (*extMCPCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*extMCPCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
@@ -60,26 +60,26 @@ func (*extMCPCapability) SystemPromptFragmentID(
 // Tools[]。任一 server dial / ListTools 失败 silently skip (log + 不阻塞
 // 整 chat)。Close hook 释放所有 session + 更新计数。
 func (c *extMCPCapability) VisitorBinding(
-	ctx context.Context, in *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
+	ctx context.Context, in *capreg.AssembleInput,
+) (*capreg.Binding, error) {
 	servers := loadMCPServersForRole(ctx, c.servers, in)
 	if len(servers) == 0 {
-		return nil, agentskills.ErrHidden
+		return nil, capreg.ErrHidden
 	}
 	bundle := dialExternalMCPs(ctx, servers)
 	if len(bundle.tools) == 0 {
 		bundle.closeAll()
-		return nil, agentskills.ErrHidden
+		return nil, capreg.ErrHidden
 	}
-	return &agentskills.Binding{
+	return &capreg.Binding{
 		Tools: bundle.tools,
-		State: agentskills.CapabilityState{ID: capExtMCP, Enabled: true},
+		State: capreg.CapabilityState{ID: capExtMCP, Enabled: true},
 		Close: bundle.closeAll,
 	}, nil
 }
 
 func loadMCPServersForRole(
-	ctx context.Context, servers MCPServerGetter, in *agentskills.AssembleInput,
+	ctx context.Context, servers MCPServerGetter, in *capreg.AssembleInput,
 ) []domain.MCPServerConfig {
 	if servers == nil || in.RoleSnapshot == nil {
 		return []domain.MCPServerConfig{}
@@ -99,14 +99,14 @@ func loadMCPServersForRole(
 // extMCPBundle —— 一次 dial 出来的 session + tools 打包，让 Close hook 闭包
 // 持有引用，VisitorBinding 拿到 tools 列表给 LLM。
 type extMCPBundle struct {
-	tools    []agentskills.BindingTool
+	tools    []capreg.BindingTool
 	sessions []*mcpclient.Session
 }
 
 func (b *extMCPBundle) closeAll() {
 	for _, s := range b.sessions {
 		s.Close()
-		agentskills.ExtMCPClosed()
+		capreg.ExtMCPClosed()
 	}
 	b.sessions = nil
 }
@@ -156,7 +156,7 @@ func dialOne(ctx context.Context, cfg *domain.MCPServerConfig) dialResult {
 		sess.Close()
 		return dialResult{err: terr}
 	}
-	agentskills.ExtMCPDialed()
+	capreg.ExtMCPDialed()
 	return dialResult{session: sess, tools: tools}
 }
 
@@ -182,7 +182,7 @@ func (b *extMCPBundle) absorb(serverName string, r *dialResult) {
 		if toolName == "" {
 			continue
 		}
-		b.tools = append(b.tools, agentskills.NewTool(
+		b.tools = append(b.tools, capreg.NewTool(
 			toolName,
 			extToolDescription(serverName, t),
 			"calling external mcp",
@@ -211,7 +211,7 @@ func extToolDescription(server string, t *mcpclient.Tool) string {
 
 // makeExtMCPRun —— CallTool 失败时不让 agent loop 整 abort —— 把 err
 // 包成 errJSON 进 tool_result，AI 看到"外部工具失败"自己换路。
-func makeExtMCPRun(session *mcpclient.Session, realToolName string) agentskills.RunFn {
+func makeExtMCPRun(session *mcpclient.Session, realToolName string) capreg.RunFn {
 	return func(ctx context.Context, args string) (string, error) {
 		return extCallToToolResult(session.CallTool(ctx, realToolName, []byte(args)))
 	}

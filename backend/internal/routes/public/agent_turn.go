@@ -19,7 +19,7 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -186,7 +186,7 @@ func buildAgentTurnPersist(
 type visitorToolset struct {
 	Labels         map[string]string
 	ReturnDirectly map[string]bool
-	Bindings       []*agentskills.Binding
+	Bindings       []*capreg.Binding
 	Tools          []tool.BaseTool
 }
 
@@ -209,8 +209,8 @@ func pickAgentTurnBYOAICred(
 }
 
 // collectVisitorTools —— 装配本 session 的所有 visitor binding，拍平成
-// eino tool 集合 + name → progress_label 表 (走 agentskills.FlattenBindings；
-// 拍平逻辑放 agentskills 包，让本 handler 守 routes-cyclo ≤ 3)。
+// eino tool 集合 + name → progress_label 表 (走 capreg.FlattenBindings；
+// 拍平逻辑放 capreg 包，让本 handler 守 routes-cyclo ≤ 3)。
 //
 // 返回 visitorToolset 是为了避开 revive func-result max=2 限制；
 // Bindings 字段仅给 handler defer close 用，inference 不接。
@@ -223,7 +223,7 @@ func collectVisitorTools(
 ) *visitorToolset {
 	in := assembleInputFromSession(auth.Data, convID)
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
-	fr := agentskills.FlattenBindings(bindings)
+	fr := capreg.FlattenBindings(bindings)
 	return &visitorToolset{
 		Bindings: bindings, Tools: fr.Tools,
 		Labels: fr.Labels, ReturnDirectly: fr.ReturnDirectly,

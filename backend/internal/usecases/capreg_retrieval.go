@@ -1,6 +1,6 @@
-// agentskills_retrieval.go —— Phase B-2: RetrievalCapability。Capability 形态
+// capreg_retrieval.go —— Phase B-2: RetrievalCapability。Capability 形态
 // 包住 buildRetriever + retriever struct，让 visitor chat tools 统一从
-// agentskills.Registry 装配。
+// capreg.Registry 装配。
 //
 // 一个 capability，3 个 tool (corpus_search / corpus_read / corpus_list)。
 // Cited closure 暴露 retriever 内部 collector 让 emitDoneEvent 拿真读过
@@ -11,7 +11,7 @@ package usecases
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
@@ -39,16 +39,16 @@ func newRetrievalCapability(deps retrievalDeps) *retrievalCapability {
 	return &retrievalCapability{deps: deps}
 }
 
-func (*retrievalCapability) ID() string               { return capRetrievalID }
-func (*retrievalCapability) Shape() agentskills.Shape { return agentskills.ShapeVisitorOnly }
-func (*retrievalCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
+func (*retrievalCapability) ID() string          { return capRetrievalID }
+func (*retrievalCapability) Shape() capreg.Shape { return capreg.ShapeVisitorOnly }
+func (*retrievalCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	// retrieval 不双暴露；owner 自己有 corpus admin 入口，不通过 MCP 调
 	// search/read/list。
-	return []*agentskills.MCPBinding{}
+	return []*capreg.MCPBinding{}
 }
 
 func (*retrievalCapability) SystemPromptFragmentID(
-	_ context.Context, in *agentskills.AssembleInput,
+	_ context.Context, in *capreg.AssembleInput,
 ) string {
 	if !retrievalEnabled(in.RoleSnapshot) {
 		return ""
@@ -57,7 +57,7 @@ func (*retrievalCapability) SystemPromptFragmentID(
 }
 
 func (c *retrievalCapability) SystemPromptFragment(
-	ctx context.Context, in *agentskills.AssembleInput,
+	ctx context.Context, in *capreg.AssembleInput,
 ) string {
 	id := c.SystemPromptFragmentID(ctx, in)
 	if id == "" {
@@ -80,17 +80,17 @@ func retrievalEnabled(snapshot *domain.RoleSnapshot) bool {
 // real SendMessage 走同路径：load corpus → 新建 retriever → 把 3 个 tool
 // 绑到 retriever.Execute。
 func (c *retrievalCapability) VisitorBinding(
-	ctx context.Context, in *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
+	ctx context.Context, in *capreg.AssembleInput,
+) (*capreg.Binding, error) {
 	retr, err := buildRetriever(ctx, c.deps, &retrieverBuildInput{
 		ownerID: in.OwnerID, snapshot: in.RoleSnapshot,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &agentskills.Binding{
+	return &capreg.Binding{
 		Tools: liveRetrievalTools(retr),
-		State: agentskills.CapabilityState{
+		State: capreg.CapabilityState{
 			ID: capRetrievalID, Enabled: retrievalEnabled(in.RoleSnapshot),
 		},
 		Cited: retrievalCitedClosure(retr),
@@ -100,17 +100,17 @@ func (c *retrievalCapability) VisitorBinding(
 // liveRetrievalTools —— 每个 tool 一个独立 RunFn 闭包，走 retriever
 // 对应方法；BindingTool.NewTool 把 name+desc+schema 装成 eino tool.
 // InvokableTool。
-func liveRetrievalTools(r *retriever) []agentskills.BindingTool {
-	return []agentskills.BindingTool{
+func liveRetrievalTools(r *retriever) []capreg.BindingTool {
+	return []capreg.BindingTool{
 		searchBindingTool(r),
 		readBindingTool(r),
 		listBindingTool(r),
 	}
 }
 
-func retrievalCitedClosure(r *retriever) func() agentskills.CitedSnapshot {
-	return func() agentskills.CitedSnapshot {
+func retrievalCitedClosure(r *retriever) func() capreg.CitedSnapshot {
+	return func() capreg.CitedSnapshot {
 		wikis, outputs := r.collector.snapshot()
-		return agentskills.CitedSnapshot{Wikis: wikis, Outputs: outputs}
+		return capreg.CitedSnapshot{Wikis: wikis, Outputs: outputs}
 	}
 }

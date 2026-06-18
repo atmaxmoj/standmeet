@@ -17,7 +17,7 @@ package plugins
 import (
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 )
 
 // Plugin —— 一个 outbound use case 的最小标识。具体能力 (MCP tools / admin
@@ -29,9 +29,9 @@ type Plugin interface {
 }
 
 // CapabilityRegistrar —— optional hook: plugin 把自己的 owner-MCP capabilities
-// 注册到核心 agentskills.Registry。重 ID 由 agentskills 自身 panic 兜底。
+// 注册到核心 capreg.Registry。重 ID 由 capreg 自身 panic 兜底。
 type CapabilityRegistrar interface {
-	RegisterCapabilities(reg *agentskills.Registry)
+	RegisterCapabilities(reg *capreg.Registry)
 }
 
 // AdminRouter —— optional hook: plugin 把自己的 owner admin REST routes 挂
@@ -76,7 +76,7 @@ func (r *Registry) Names() []string {
 
 // RegisterAllCapabilities —— 遍历每个 plugin，实现了 CapabilityRegistrar
 // 就调一次 RegisterCapabilities。注册顺序 = plugin 注册顺序。
-func (r *Registry) RegisterAllCapabilities(skills *agentskills.Registry) {
+func (r *Registry) RegisterAllCapabilities(skills *capreg.Registry) {
 	for _, p := range r.plugins {
 		if cr, ok := p.(CapabilityRegistrar); ok {
 			cr.RegisterCapabilities(skills)

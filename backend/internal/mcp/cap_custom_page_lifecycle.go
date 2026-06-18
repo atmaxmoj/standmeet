@@ -9,15 +9,15 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ───── promote_to_staging ──────────────────────────────────────
 
-func (c *customPageCapability) promoteStagingBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) promoteStagingBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.promote_to_staging",
 		Description: "Promote a built build to staging (owner-visible preview).",
 		InputSchema: promoteToBuildIDSchema(),
@@ -29,8 +29,8 @@ func (c *customPageCapability) promoteStagingBinding() *agentskills.MCPBinding {
 
 // ───── promote_to_live ────────────────────────────────────────
 
-func (c *customPageCapability) promoteLiveBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) promoteLiveBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.promote_to_live",
 		Description: "Promote a built build to live (visitor-facing).",
 		InputSchema: promoteToBuildIDSchema(),
@@ -63,14 +63,14 @@ type promoteUsecaseFn func(
 
 func (c *customPageCapability) handlePromote(
 	name string, fn promoteUsecaseFn,
-) agentskills.MCPHandler {
-	return func(ctx context.Context, ownerID string, raw json.RawMessage) agentskills.MCPResult {
+) capreg.MCPHandler {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) capreg.MCPResult {
 		var args promoteArgsWire
 		if err := json.Unmarshal(raw, &args); err != nil {
-			return agentskills.MCPError("invalid arguments: " + err.Error())
+			return capreg.MCPError("invalid arguments: " + err.Error())
 		}
 		if args.Slug == "" || args.BuildID == "" {
-			return agentskills.MCPError("slug + build_id required")
+			return capreg.MCPError("slug + build_id required")
 		}
 		page, err := fn(ctx, *c.pages, ownerID, args.Slug, args.BuildID)
 		if err != nil {
@@ -82,8 +82,8 @@ func (c *customPageCapability) handlePromote(
 
 // ───── rollback ────────────────────────────────────────────────
 
-func (c *customPageCapability) rollbackBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) rollbackBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.rollback",
 		Description: "Revert live to the previous build. No-op if no previous.",
 		InputSchema: slugOnlySchema(),
@@ -103,13 +103,13 @@ func slugOnlySchema() json.RawMessage {
 
 func (c *customPageCapability) handleRollback(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args slugOnlyArgs
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.Slug == "" {
-		return agentskills.MCPError("slug is required")
+		return capreg.MCPError("slug is required")
 	}
 	page, err := usecases.Rollback(ctx, *c.pages, ownerID, args.Slug)
 	if err != nil {
@@ -120,8 +120,8 @@ func (c *customPageCapability) handleRollback(
 
 // ───── delete ─────────────────────────────────────────────────
 
-func (c *customPageCapability) deleteBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) deleteBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.delete",
 		Description: "Soft-delete a custom page (status='deleted').",
 		InputSchema: slugOnlySchema(),
@@ -131,13 +131,13 @@ func (c *customPageCapability) deleteBinding() *agentskills.MCPBinding {
 
 func (c *customPageCapability) handleDelete(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args slugOnlyArgs
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.Slug == "" {
-		return agentskills.MCPError("slug is required")
+		return capreg.MCPError("slug is required")
 	}
 	if err := usecases.DeletePage(ctx, *c.pages, ownerID, args.Slug); err != nil {
 		return customPageCapErr(c.log, err, "custom_page.delete")
@@ -147,8 +147,8 @@ func (c *customPageCapability) handleDelete(
 
 // ───── list ────────────────────────────────────────────────────
 
-func (c *customPageCapability) listBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *customPageCapability) listBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "custom_page.list",
 		Description: "List the owner's custom pages.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
@@ -158,7 +158,7 @@ func (c *customPageCapability) listBinding() *agentskills.MCPBinding {
 
 func (c *customPageCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	pages, err := usecases.ListPages(ctx, *c.pages, ownerID)
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.list")

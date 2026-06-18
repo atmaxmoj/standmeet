@@ -6,6 +6,11 @@ allow:
   deepScan: false        # cmd/server/main.go 是 composition root，
                          # 跨所有 layer 是预期；关闭 deepScan 避免误报。
 
+# 测试文件不参与架构约束 —— 架构图管的是生产依赖；外部 test 包 import 自身、
+# 跨层 import 都是正常的，不该被架构规则误判。
+excludeFiles:
+  - "^.*_test\\.go$"
+
 # Components 命名对齐 Otium auth。按外部系统切 infra（postgres / inference /
 # storage / sandbox 各自独立）而不是扁平 infra/。
 components:
@@ -61,12 +66,14 @@ components:
     in: internal/captcha                  # Cloudflare Turnstile / noop captcha verifier abstraction
   sandbox:
     in: internal/sandbox                  # owner-curated skill script 在 docker container 里跑
-  agentskills:
-    in: internal/agentskills              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
+  capreg:
+    in: internal/capreg              # Phase B Capability registry: visitor + owner MCP 三处消费的统一注册口
   prompts:
     in: internal/prompts                  # Phase D-1: system prompt fragments 单一源 (md files + go:embed)
   mcpclient:
     in: internal/mcpclient                # 调外部 MCP server (owner-registered)
+  mcpplugin:
+    in: internal/mcpplugin                # C1: 装机插件 manifest 解析 + 发现来源 (leaf)
   storage:
     in: internal/storage                  # MinIO/S3 对象存储 (图片 / 附件)
   mailer:
@@ -107,8 +114,9 @@ deps:
       - storage
       - gcal
       - mailer
-      - agentskills
+      - capreg
       - prompts
+      - mcpplugin
     anyVendorDeps: true
 
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
@@ -122,10 +130,10 @@ deps:
       - domain
     anyVendorDeps: true
 
-  # agentskills —— Phase B Capability interface + Registry。leaf-ish 包，
+  # capreg —— Phase B Capability interface + Registry。leaf-ish 包，
   # 只依赖 inference (ToolSpec / ToolExecutor) + domain (RoleSnapshot 类型)。
   # 具体 Capability 实现放在 usecases / mcp 等更高层，反向 import 本包注册。
-  agentskills:
+  capreg:
     mayDependOn:
       - inference
       - domain
@@ -195,7 +203,7 @@ deps:
     mayDependOn:
       - domain
       - usecases
-      - agentskills
+      - capreg
       - jobsuc
       - jobsmcp
     anyVendorDeps: true
@@ -215,13 +223,13 @@ deps:
   # 给 out-of-module driver (eval-harness)。loop 表面无逻辑，纯 alias +
   # pass-through。F.2 起多一个 BuildVisitorAgent：驱动真 visitor capability 装配
   # (usecases.RegisterVisitorSkills + AssembleVisitor + ComposeSystemPrompt) over
-  # fixture 数据源，所以多依赖 usecases/agentskills/domain/postgres —— 跑的是
+  # fixture 数据源，所以多依赖 usecases/capreg/domain/postgres —— 跑的是
   # prod 同一套 agentic 功能，只换注入的 repo。backend 内部无人 import 它。
   agentcore:
     mayDependOn:
       - inference
       - usecases
-      - agentskills
+      - capreg
       - domain
       - postgres
       - gcal
@@ -230,12 +238,12 @@ deps:
 
   # jobcache —— Redis-backed 1d TTL 池子，存 fetcher 抓的 FetchedJob。
   # plugins —— J phase: Plugin interface + Registry + optional hooks
-  # (CapabilityRegistrar / AdminRouter)。J.5 起 hooks 需要 agentskills +
+  # (CapabilityRegistrar / AdminRouter)。J.5 起 hooks 需要 capreg +
   # chi (vendor)；boundary 仍 leaf 不耦合任何业务包。
   plugins:
     mayDependOn:
       - domain
-      - agentskills
+      - capreg
     anyVendorDeps: true
 
   # pluginjobs —— J phase: jobs plugin entry。J.5 起持 Deps 闭包 + 实现
@@ -244,7 +252,7 @@ deps:
   pluginjobs:
     mayDependOn:
       - plugins
-      - agentskills
+      - capreg
       - jobcache
       - jobfetch
       - jobsuc
@@ -275,11 +283,11 @@ deps:
     anyVendorDeps: true
 
   # jobsmcp —— J.3: jobs plugin MCP capabilities + result wire views。
-  # 跨 agentskills 注册到核心 Registry；依赖 jobsuc 拿 *Deps。
+  # 跨 capreg 注册到核心 Registry；依赖 jobsuc 拿 *Deps。
   jobsmcp:
     mayDependOn:
       - domain
-      - agentskills
+      - capreg
       - jobsuc
     anyVendorDeps: true
 
@@ -363,7 +371,7 @@ deps:
       - printsess
       - session
       - usecases
-      - agentskills
+      - capreg
     anyVendorDeps: true
 
   # admin routes (/api/admin/*) 派发到 usecases；handler 自己 cyclo ≤3。
@@ -403,7 +411,7 @@ deps:
       - session
       - inference
       - apierr
-      - agentskills # D-2: /api/v1/sessions 返 capability_state + part_ids，读 Registry
+      - capreg # D-2: /api/v1/sessions 返 capability_state + part_ids，读 Registry
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
       - prompts     # GET /api/v1/prompts/{id} 直接 dump fragment 文本
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
@@ -456,7 +464,7 @@ deps:
       - mcpclient
       - storage
       - server
-      - agentskills
+      - capreg
       - plugins
       - pluginjobs
     anyVendorDeps: true

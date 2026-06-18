@@ -1,5 +1,5 @@
-// agentskills_booker_book.go —— calendar_book tool 的 spec + decode +
-// execute + marshal。从 agentskills_booker.go 拆出来守 max-lines 350 cap。
+// capreg_booker_book.go —— calendar_book tool 的 spec + decode +
+// execute + marshal。从 capreg_booker.go 拆出来守 max-lines 350 cap。
 
 package usecases
 
@@ -11,14 +11,14 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // bookerBindingTool —— calendar_book 注册口；caller 给一个 closure
 // 处理实际 booking，本函数装好 name/desc/progress_label/schema。
-func bookerBindingTool(run agentskills.RunFn) agentskills.BindingTool {
-	return agentskills.NewTool(
+func bookerBindingTool(run capreg.RunFn) capreg.BindingTool {
+	return capreg.NewTool(
 		toolCalendarBookName,
 		"Book a meeting on the owner's Google Calendar. "+
 			"Only call after you have gathered topic, duration (15-180 minutes), "+
@@ -44,7 +44,7 @@ func bookerBindingTool(run agentskills.RunFn) agentskills.BindingTool {
 }
 
 func runBookerBook(
-	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
 	owner *domain.Owner, input []byte,
 ) (string, error) {
 	args, derr := decodeBookArgs(input)
@@ -77,7 +77,7 @@ func runBookerBook(
 // notifyOwnerBestEffort —— #130 触发点。RoleSnapshot 给 role id;约成的起止 + 访客名
 // + 主题进通知。fire-and-forget(无 logger,通知是纯 side-effect)。
 func notifyOwnerBestEffort(
-	ctx context.Context, deps bookerDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
 	result *domain.BookResult, topic string,
 ) {
 	roleID := ""

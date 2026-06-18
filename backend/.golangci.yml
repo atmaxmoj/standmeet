@@ -126,9 +126,9 @@ linters:
         - github.com/atmaxmoj/standmeet/internal/domain.Document
         - github.com/atmaxmoj/standmeet/internal/domain.Integration
         # J.3: jobs plugin 的 Capability 工厂跟主 mcp 包同形态 (NewXxx →
-        # agentskills.Capability)；外部用 Capability interface 注册不耦合
+        # capreg.Capability)；外部用 Capability interface 注册不耦合
         # 实现类型。
-        - github.com/atmaxmoj/standmeet/internal/agentskills.Capability
+        - github.com/atmaxmoj/standmeet/internal/capreg.Capability
     revive:
       enable-all-rules: true
       rules:

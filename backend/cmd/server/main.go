@@ -26,7 +26,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/config"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
@@ -226,7 +226,7 @@ type runtimeDeps struct {
 	reportPDFRenderer publicroutes.ReportPDFRenderer
 	printStore        *printsess.Store
 	marketplaceClient *marketplace.Client
-	agentSkills       *agentskills.Registry
+	agentSkills       *capreg.Registry
 	captchaSiteKey    string
 	buildsRoot        string
 	secureCookie      bool

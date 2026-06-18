@@ -8,7 +8,7 @@
 //
 // AssembleVisitor 失败 silently skip；caller 注入 log（B-2 起加 log hook）。
 
-package agentskills
+package capreg
 
 import (
 	"context"
@@ -37,10 +37,10 @@ func (r *Registry) Register(c Capability) error {
 	defer r.mu.Unlock()
 	id := c.ID()
 	if id == "" {
-		return errors.New("agentskills: capability with empty ID")
+		return errors.New("capreg: capability with empty ID")
 	}
 	if r.seen[id] {
-		return fmt.Errorf("agentskills: duplicate capability ID %q", id)
+		return fmt.Errorf("capreg: duplicate capability ID %q", id)
 	}
 	r.seen[id] = true
 	r.caps = append(r.caps, c)

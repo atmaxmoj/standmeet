@@ -5,7 +5,7 @@
 // 仅 corpus.retrieval 实现；其他 capability (booker / ext-mcp / skill) 不
 // 贡献 cited，Binding.Cited 留 nil。
 
-package agentskills
+package capreg
 
 import "github.com/atmaxmoj/standmeet/internal/domain"
 

@@ -13,7 +13,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
@@ -28,40 +28,40 @@ type resumeCapability struct {
 // NewResumeCapability —— J.3 起外露给 internal/mcp/register.go。
 func NewResumeCapability(
 	resume *jobsuc.ResumeDeps, log *slog.Logger,
-) agentskills.Capability {
+) capreg.Capability {
 	return &resumeCapability{resume: resume, log: log}
 }
 
 func (*resumeCapability) ID() string               { return capResumeBundle }
-func (*resumeCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*resumeCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*resumeCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*resumeCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*resumeCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *resumeCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *resumeCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.draftBinding(), c.updateDraftBinding(), c.discardDraftBinding(),
 	}
 }
 
 // ───── resume.draft ─────────────────────────────────────────────
 
-func (c *resumeCapability) draftBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *resumeCapability) draftBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "resume.draft",
 		Description: "Curate a tailored resume for a cached job and stash it as a " +
 			"draft. Returns draft_id plus job_snapshot. Owner opens admin preview " +
@@ -87,16 +87,16 @@ type resumeDraftArgsWire struct {
 
 func (c *resumeCapability) handleDraft(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args resumeDraftArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.JobCacheID == "" {
-		return agentskills.MCPError("job_cache_id is required")
+		return capreg.MCPError("job_cache_id is required")
 	}
 	if args.ResumeContent == nil {
-		return agentskills.MCPError("resume_content is required")
+		return capreg.MCPError("resume_content is required")
 	}
 	drafted, err := jobsuc.DraftResume(
 		ctx, *c.resume, ownerID, args.JobCacheID, args.ResumeContent,
@@ -109,8 +109,8 @@ func (c *resumeCapability) handleDraft(
 
 // ───── resume.update_draft ────────────────────────────────────
 
-func (c *resumeCapability) updateDraftBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *resumeCapability) updateDraftBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "resume.update_draft",
 		Description: "Replace the structured content of an existing draft. " +
 			"job_snapshot is preserved.",
@@ -134,16 +134,16 @@ type resumeUpdateArgsWire struct {
 
 func (c *resumeCapability) handleUpdateDraft(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args resumeUpdateArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.DraftID == "" {
-		return agentskills.MCPError("draft_id is required")
+		return capreg.MCPError("draft_id is required")
 	}
 	if args.ResumeContent == nil {
-		return agentskills.MCPError("resume_content is required")
+		return capreg.MCPError("resume_content is required")
 	}
 	drafted, err := jobsuc.UpdateResumeDraft(
 		ctx, *c.resume, ownerID, args.DraftID, args.ResumeContent,
@@ -157,8 +157,8 @@ func (c *resumeCapability) handleUpdateDraft(
 
 // ───── resume.discard_draft ───────────────────────────────────
 
-func (c *resumeCapability) discardDraftBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *resumeCapability) discardDraftBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "resume.discard_draft",
 		Description: "Delete a draft (idempotent — unknown / wrong-owner / " +
 			"already-deleted all succeed).",
@@ -179,13 +179,13 @@ type resumeDiscardArgsWire struct {
 
 func (c *resumeCapability) handleDiscardDraft(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args resumeDiscardArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.DraftID == "" {
-		return agentskills.MCPError("draft_id is required")
+		return capreg.MCPError("draft_id is required")
 	}
 	if err := jobsuc.DiscardResumeDraft(ctx, *c.resume, ownerID, args.DraftID); err != nil {
 		return resumeCapErrToResult(c.log, err, "discard_draft")
@@ -195,12 +195,12 @@ func (c *resumeCapability) handleDiscardDraft(
 
 // ───── error mapping ──────────────────────────────────────────
 
-func resumeCapErrToResult(log *slog.Logger, err error, op string) agentskills.MCPResult {
+func resumeCapErrToResult(log *slog.Logger, err error, op string) capreg.MCPResult {
 	if msg, ok := resumeCapClientErr(err); ok {
-		return agentskills.MCPError(msg)
+		return capreg.MCPError(msg)
 	}
 	log.Error("cap resume."+op, "err", err)
-	return agentskills.MCPError("resume." + op + " failed")
+	return capreg.MCPError("resume." + op + " failed")
 }
 
 func resumeCapClientErr(err error) (string, bool) {

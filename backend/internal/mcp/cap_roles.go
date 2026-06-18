@@ -10,7 +10,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -29,35 +29,35 @@ func newRolesCapability(
 }
 
 func (*rolesCapability) ID() string               { return capRolesBundle }
-func (*rolesCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*rolesCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*rolesCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*rolesCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*rolesCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *rolesCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *rolesCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(), c.deleteBinding(),
 	}
 }
 
 // ───── role_create ────────────────────────────────────────────────
 
-func (c *rolesCapability) createBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *rolesCapability) createBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "role_create",
 		Description: "Create an owner-curated Role (visitor identity archetype). " +
 			"A role bundles a Prompt (persona) + a positive-list of corpus URI globs " +
@@ -98,13 +98,13 @@ type roleCreateArgsWire struct {
 
 func (c *rolesCapability) handleCreate(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args roleCreateArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.Name == "" {
-		return agentskills.MCPError("name is required")
+		return capreg.MCPError("name is required")
 	}
 	in := buildRoleCreateCapInput(&args, ownerID)
 	role, cerr := usecases.CreateRole(ctx, *c.roles, in)
@@ -142,20 +142,20 @@ var roleCreateErrCases = []struct {
 	{domain.ErrMCPServerNotFound, "one or more mcp_server_ids not found"},
 }
 
-func roleCreateErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func roleCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	for _, c := range roleCreateErrCases {
 		if errors.Is(err, c.match) {
-			return agentskills.MCPError(c.msg)
+			return capreg.MCPError(c.msg)
 		}
 	}
 	log.Error("cap role_create", "err", err)
-	return agentskills.MCPError("create role failed")
+	return capreg.MCPError("create role failed")
 }
 
 // ───── role_list ────────────────────────────────────────────────
 
-func (c *rolesCapability) listBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *rolesCapability) listBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "role_list",
 		Description: "List the owner's roles (incl. vanilla builtin) " +
 			"with their corpus URIs / skill counts / mcp counts.",
@@ -178,11 +178,11 @@ type roleListRow struct {
 
 func (c *rolesCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	rows, err := usecases.ListRoles(ctx, *c.roles, ownerID)
 	if err != nil {
 		c.log.Error("cap role_list", "err", err)
-		return agentskills.MCPError("list roles failed")
+		return capreg.MCPError("list roles failed")
 	}
 	items := make([]roleListRow, 0, len(rows))
 	for i := range rows {
@@ -207,8 +207,8 @@ func roleRowToCapView(rl *domain.Role) roleListRow {
 
 // ───── role_delete ───────────────────────────────────────────────
 
-func (c *rolesCapability) deleteBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *rolesCapability) deleteBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "role_delete",
 		Description: "Delete an owner-curated role. Vanilla builtin cannot be deleted. " +
 			"Roles in use by active codes are FK-restricted from deletion — " +
@@ -230,13 +230,13 @@ type roleDeleteArgsWire struct {
 
 func (c *rolesCapability) handleDelete(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args roleDeleteArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.RoleID == "" {
-		return agentskills.MCPError("role_id is required")
+		return capreg.MCPError("role_id is required")
 	}
 	if err := usecases.DeleteRole(ctx, *c.roles, ownerID, args.RoleID); err != nil {
 		return roleDeleteErrToResult(c.log, err)
@@ -244,13 +244,13 @@ func (c *rolesCapability) handleDelete(
 	return marshalCapResult(c.log, "role_delete", map[string]bool{"ok": true})
 }
 
-func roleDeleteErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func roleDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrRoleBuiltinImmutable) {
-		return agentskills.MCPError("builtin role cannot be deleted")
+		return capreg.MCPError("builtin role cannot be deleted")
 	}
 	if errors.Is(err, domain.ErrRoleNotFound) {
-		return agentskills.MCPError("role not found")
+		return capreg.MCPError("role not found")
 	}
 	log.Error("cap role_delete", "err", err)
-	return agentskills.MCPError("delete role failed (codes referencing this role?)")
+	return capreg.MCPError("delete role failed (codes referencing this role?)")
 }

@@ -17,7 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -25,7 +25,7 @@ import (
 // DiagSessionDeps —— deps for /diag/session.
 type DiagSessionDeps struct {
 	Sessions *session.VisitorSessionStore
-	Registry *agentskills.Registry
+	Registry *capreg.Registry
 	Log      *slog.Logger
 }
 
@@ -39,10 +39,10 @@ type toolSpecWireV2 struct {
 }
 
 type diagSessionResp struct {
-	SystemPromptHash string                        `json:"system_prompt_hash"`
-	SystemPromptFull string                        `json:"system_prompt_full"`
-	Capabilities     []agentskills.CapabilityState `json:"capabilities"`
-	ToolSpecs        []toolSpecWireV2              `json:"tool_specs"`
+	SystemPromptHash string                   `json:"system_prompt_hash"`
+	SystemPromptFull string                   `json:"system_prompt_full"`
+	Capabilities     []capreg.CapabilityState `json:"capabilities"`
+	ToolSpecs        []toolSpecWireV2         `json:"tool_specs"`
 }
 
 func diagSessionHandler(deps DiagSessionDeps) http.HandlerFunc {
@@ -78,10 +78,10 @@ func writeDiagSession(
 // 与 real SendMessage 路径走同一 AssembleVisitor / ComposeSystemPrompt，
 // hash 反映实际下行 prompt。
 func buildDiagSessionResp(
-	ctx context.Context, reg *agentskills.Registry,
+	ctx context.Context, reg *capreg.Registry,
 	data *session.VisitorSessionData,
 ) diagSessionResp {
-	in := &agentskills.AssembleInput{
+	in := &capreg.AssembleInput{
 		RoleSnapshot: data.RoleSnapshot,
 		MaxBookings:  data.MaxBookings,
 		OwnerID:      data.OwnerID,
@@ -101,7 +101,7 @@ func buildDiagSessionResp(
 }
 
 func toolSpecsFor(
-	ctx context.Context, reg *agentskills.Registry, in *agentskills.AssembleInput,
+	ctx context.Context, reg *capreg.Registry, in *capreg.AssembleInput,
 ) []toolSpecWireV2 {
 	bindings := reg.AssembleVisitor(ctx, in)
 	specs := make([]toolSpecWireV2, 0, len(bindings))
@@ -114,7 +114,7 @@ func toolSpecsFor(
 // appendBindingToolSpecs —— 拍平一个 binding 的所有 tool spec 名进 out，
 // 顺便 release Close hook (introspect 用完即关，让 ext-mcp 计数 +1 后归零)。
 func appendBindingToolSpecs(
-	out []toolSpecWireV2, b *agentskills.Binding,
+	out []toolSpecWireV2, b *capreg.Binding,
 ) []toolSpecWireV2 {
 	for i := range b.Tools {
 		out = append(out, toolSpecWireV2{Name: b.Tools[i].Name})

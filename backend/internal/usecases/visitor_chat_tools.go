@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -33,8 +33,8 @@ const (
 // 自的 spec + RunFn 闭包，每个绑到 retriever 对应方法 (G-8 throbber 文
 // 案 + JSON schema 都在这一行装好；eino tool.InvokableTool 在 NewTool
 // 内部生成)。
-func searchBindingTool(r *retriever) agentskills.BindingTool {
-	return agentskills.NewTool(
+func searchBindingTool(r *retriever) capreg.BindingTool {
+	return capreg.NewTool(
 		toolSearchCorpus,
 		"Search owner's curated corpus by keyword. Returns "+
 			"matching wiki + output entries with path, title, genre, summary.",
@@ -50,8 +50,8 @@ func searchBindingTool(r *retriever) agentskills.BindingTool {
 	)
 }
 
-func readBindingTool(r *retriever) agentskills.BindingTool {
-	return agentskills.NewTool(
+func readBindingTool(r *retriever) capreg.BindingTool {
+	return capreg.NewTool(
 		toolReadCorpus,
 		"Read the full body of a corpus entry by its path "+
 			"(e.g. projects/lucerna). Use after search to fetch content.",
@@ -67,8 +67,8 @@ func readBindingTool(r *retriever) agentskills.BindingTool {
 	)
 }
 
-func listBindingTool(r *retriever) agentskills.BindingTool {
-	return agentskills.NewTool(
+func listBindingTool(r *retriever) capreg.BindingTool {
+	return capreg.NewTool(
 		toolListCorpus,
 		"Navigate the wiki tree one level at a time. Omit path to list root "+
 			"entries; pass a node's path to list its direct children (empty result "+

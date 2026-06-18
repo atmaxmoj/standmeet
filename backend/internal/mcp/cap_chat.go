@@ -11,7 +11,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -31,31 +31,31 @@ func newChatCapability(
 }
 
 func (*chatCapability) ID() string               { return capChatBundle }
-func (*chatCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*chatCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*chatCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*chatCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*chatCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *chatCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{c.showGroundingBinding()}
+func (c *chatCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{c.showGroundingBinding()}
 }
 
-func (c *chatCapability) showGroundingBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *chatCapability) showGroundingBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "chat.show_grounding",
 		Description: "Show transcript of a visitor conversation with the wiki + output " +
 			"entries the assistant cited—lets the owner debug corpus retrieval.",
@@ -77,23 +77,23 @@ type showGroundingArgsWire struct {
 
 func (c *chatCapability) handleShowGrounding(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args showGroundingArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.ConversationID == "" {
-		return agentskills.MCPError("conversation_id is required")
+		return capreg.MCPError("conversation_id is required")
 	}
 	bundle, err := usecases.GetConversationTranscript(
 		ctx, *c.convs, ownerID, args.ConversationID,
 	)
 	if err != nil {
 		if errors.Is(err, domain.ErrChatNotFound) {
-			return agentskills.MCPError("conversation not found")
+			return capreg.MCPError("conversation not found")
 		}
 		c.log.Error("cap chat.show_grounding", "err", err)
-		return agentskills.MCPError("show_grounding failed")
+		return capreg.MCPError("show_grounding failed")
 	}
 	view := c.hydrateGroundingView(ctx, ownerID, &bundle)
 	return marshalCapResult(c.log, "chat.show_grounding", view)

@@ -12,7 +12,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -43,17 +43,17 @@ type sessionMemberResp struct {
 }
 
 type createSessionResponse struct {
-	SessionToken        string                        `json:"session_token"`
-	ConversationID      string                        `json:"conversation_id"`
-	Code                string                        `json:"code,omitempty"`
-	MemberID            string                        `json:"member_id,omitempty"`
-	CodeLabel           string                        `json:"code_label,omitempty"`
-	VisitorName         string                        `json:"visitor_name,omitempty"`
-	SystemPromptPersona string                        `json:"system_prompt_persona"`
-	Members             []sessionMemberResp           `json:"members"`
-	Capabilities        []agentskills.CapabilityState `json:"capabilities"`
-	ToolSpecs           []agentskills.VisitorToolSpec `json:"tool_specs"`
-	SystemPromptPartIDs []string                      `json:"system_prompt_part_ids"`
+	SessionToken        string                   `json:"session_token"`
+	ConversationID      string                   `json:"conversation_id"`
+	Code                string                   `json:"code,omitempty"`
+	MemberID            string                   `json:"member_id,omitempty"`
+	CodeLabel           string                   `json:"code_label,omitempty"`
+	VisitorName         string                   `json:"visitor_name,omitempty"`
+	SystemPromptPersona string                   `json:"system_prompt_persona"`
+	Members             []sessionMemberResp      `json:"members"`
+	Capabilities        []capreg.CapabilityState `json:"capabilities"`
+	ToolSpecs           []capreg.VisitorToolSpec `json:"tool_specs"`
+	SystemPromptPartIDs []string                 `json:"system_prompt_part_ids"`
 	// Ghosts —— H.13.b: code 创建时 owner 设的"刚进来可问什么"
 	// 列表；前端 ghost text 拿第一条当初始 ghost。code-mode 之外都是空数组
 	// (json 走 "ghosts": [])。
@@ -231,13 +231,13 @@ func nonNilStringSlice(s []string) []string {
 }
 
 // assembleInputFromSession —— 把 freshly issued VisitorSessionData 折成
-// agentskills.AssembleInput；ConversationID 来自 res.Chat 不在 data
+// capreg.AssembleInput；ConversationID 来自 res.Chat 不在 data
 // 里。跟 dev /internal/test/visitor-capabilities 一致，让两处 capability
 // shape 完全同源。
 func assembleInputFromSession(
 	data *session.VisitorSessionData, conversationID string,
-) *agentskills.AssembleInput {
-	return &agentskills.AssembleInput{
+) *capreg.AssembleInput {
+	return &capreg.AssembleInput{
 		RoleSnapshot:   data.RoleSnapshot,
 		MaxBookings:    data.MaxBookings,
 		OwnerID:        data.OwnerID,

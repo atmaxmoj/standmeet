@@ -3,7 +3,7 @@
 //   owner_only   ↔ 不出现在 visitor session
 //   both         ↔ 两侧都出现
 
-package agentskills
+package capreg
 
 // Shape —— 一个 capability 暴露给哪一侧。
 type Shape string

@@ -26,7 +26,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
@@ -82,8 +82,8 @@ func runToolDispatch(
 }
 
 type executeArgs struct {
-	In       *agentskills.AssembleInput
-	Tool     *agentskills.BindingTool
+	In       *capreg.AssembleInput
+	Tool     *capreg.BindingTool
 	ToolName string
 	Body     []byte
 }
@@ -106,8 +106,8 @@ func executeAndRespond(
 // findBindingTool —— walk bindings 找 name 匹配的 tool。同名只取第一个
 // (capability 注册顺序里没有跟 name 撞的设计前提)。
 func findBindingTool(
-	bindings []*agentskills.Binding, name string,
-) (*agentskills.BindingTool, bool) {
+	bindings []*capreg.Binding, name string,
+) (*capreg.BindingTool, bool) {
 	for _, b := range bindings {
 		if t, ok := findToolInBinding(b, name); ok {
 			return t, true
@@ -117,8 +117,8 @@ func findBindingTool(
 }
 
 func findToolInBinding(
-	b *agentskills.Binding, name string,
-) (*agentskills.BindingTool, bool) {
+	b *capreg.Binding, name string,
+) (*capreg.BindingTool, bool) {
 	for i := range b.Tools {
 		if b.Tools[i].Name == name {
 			return &b.Tools[i], true
@@ -129,7 +129,7 @@ func findToolInBinding(
 
 // closeBindings —— 释放装配产生的 binding 资源 (ext-mcp session 等)。
 // 跟 chat path 的 close pattern 一致；defer 在 handler 顶部一次。
-func closeBindings(bindings []*agentskills.Binding) {
+func closeBindings(bindings []*capreg.Binding) {
 	for _, b := range bindings {
 		if b.Close != nil {
 			b.Close()
@@ -138,21 +138,21 @@ func closeBindings(bindings []*agentskills.Binding) {
 }
 
 type toolOKResp struct {
-	Result          json.RawMessage               `json:"result"`
-	CapabilityState []agentskills.CapabilityState `json:"capability_state"`
-	OK              bool                          `json:"ok"`
+	Result          json.RawMessage          `json:"result"`
+	CapabilityState []capreg.CapabilityState `json:"capability_state"`
+	OK              bool                     `json:"ok"`
 }
 
 type toolErrResp struct {
-	Reason          string                        `json:"reason"`
-	Detail          string                        `json:"detail,omitempty"`
-	CapabilityState []agentskills.CapabilityState `json:"capability_state,omitempty"`
-	OK              bool                          `json:"ok"`
+	Reason          string                   `json:"reason"`
+	Detail          string                   `json:"detail,omitempty"`
+	CapabilityState []capreg.CapabilityState `json:"capability_state,omitempty"`
+	OK              bool                     `json:"ok"`
 }
 
 func writeToolOK(
 	log *slog.Logger, w http.ResponseWriter,
-	executorOut string, capState []agentskills.CapabilityState,
+	executorOut string, capState []capreg.CapabilityState,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -167,7 +167,7 @@ func writeToolOK(
 type toolErr struct {
 	Reason   string
 	Detail   string
-	CapState []agentskills.CapabilityState
+	CapState []capreg.CapabilityState
 	Status   int
 }
 

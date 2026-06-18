@@ -1,4 +1,4 @@
-// agentskills_summarize_conversation.go —— I.3: summarize_conversation
+// capreg_summarize_conversation.go —— I.3: summarize_conversation
 // capability。LLM 决定调时调一次 inference.Generate 拿 HTML body，落
 // chat_reports 表，结果返一段 JSON {ok, report_id, html} 让浏览器渲
 // ReportArtifact 卡 (sandbox iframe + 独立 /report/{id} 链接)。
@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -92,25 +92,25 @@ func NewSummarizeCapability(deps *SummarizeDeps) *SummarizeCapability {
 func (*SummarizeCapability) ID() string { return capSummarize }
 
 // Shape —— visitor only v1。
-func (*SummarizeCapability) Shape() agentskills.Shape {
-	return agentskills.ShapeVisitorOnly
+func (*SummarizeCapability) Shape() capreg.Shape {
+	return capreg.ShapeVisitorOnly
 }
 
 // OwnerMCPBindings —— 暂不暴露给 owner MCP；后续 commit 加。
-func (*SummarizeCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{}
+func (*SummarizeCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{}
 }
 
 // SystemPromptFragmentID —— 始终返 fragment id；LLM 就知道 tool 是啥。
 func (*SummarizeCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return capSummarizeFragmentID
 }
 
 // SystemPromptFragment —— 加载 capabilities/summarize_conversation.md。
 func (c *SummarizeCapability) SystemPromptFragment(
-	ctx context.Context, in *agentskills.AssembleInput,
+	ctx context.Context, in *capreg.AssembleInput,
 ) string {
 	id := c.SystemPromptFragmentID(ctx, in)
 	if id == "" {
@@ -121,22 +121,22 @@ func (c *SummarizeCapability) SystemPromptFragment(
 
 // VisitorBinding —— 装一个 summarize_conversation tool。
 func (c *SummarizeCapability) VisitorBinding(
-	_ context.Context, in *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
+	_ context.Context, in *capreg.AssembleInput,
+) (*capreg.Binding, error) {
 	bind := func(ctx context.Context, args string) (string, error) {
 		return runSummarize(ctx, c.deps, in, args)
 	}
-	return &agentskills.Binding{
-		Tools: []agentskills.BindingTool{summarizeBindingTool(bind)},
-		State: agentskills.CapabilityState{ID: capSummarize, Enabled: true},
+	return &capreg.Binding{
+		Tools: []capreg.BindingTool{summarizeBindingTool(bind)},
+		State: capreg.CapabilityState{ID: capSummarize, Enabled: true},
 	}, nil
 }
 
-func summarizeBindingTool(run agentskills.RunFn) agentskills.BindingTool {
+func summarizeBindingTool(run capreg.RunFn) capreg.BindingTool {
 	// ReturnDirectly: 报告生成完直接结束 agent loop，把 tool result 推
 	// 浏览器渲 ReportArtifactCard；不再走第二轮 LLM (agent 可能误调 corpus
 	// 之类的，徒增延迟)。conversation 不终结，visitor 下 turn 可继续。
-	return agentskills.NewReturnDirectlyTool(
+	return capreg.NewReturnDirectlyTool(
 		toolSummarizeName,
 		"Generate a polished HTML report summarizing the conversation so far. "+
 			"Returns {report_id, html}. Repeat calls allowed; each generates a "+
@@ -164,7 +164,7 @@ type summarizeResultWire struct {
 }
 
 func runSummarize(
-	ctx context.Context, deps *SummarizeDeps, in *agentskills.AssembleInput, _ string,
+	ctx context.Context, deps *SummarizeDeps, in *capreg.AssembleInput, _ string,
 ) (string, error) {
 	html, err := generateReportHTML(ctx, deps, in)
 	if err != nil {
@@ -180,7 +180,7 @@ func runSummarize(
 }
 
 func generateReportHTML(
-	ctx context.Context, deps *SummarizeDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps *SummarizeDeps, in *capreg.AssembleInput,
 ) (string, error) {
 	transcript, terr := loadTranscriptForSummarize(ctx, deps, in)
 	if terr != nil {
@@ -205,7 +205,7 @@ func generateReportHTML(
 }
 
 func loadTranscriptForSummarize(
-	ctx context.Context, deps *SummarizeDeps, in *agentskills.AssembleInput,
+	ctx context.Context, deps *SummarizeDeps, in *capreg.AssembleInput,
 ) ([]domain.Message, error) {
 	bundle, err := deps.Chats.GetWithMessages(ctx, in.OwnerID, in.ConversationID)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -30,35 +30,35 @@ func newPromptsCapability(
 }
 
 func (*promptsCapability) ID() string               { return capPromptsBundle }
-func (*promptsCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*promptsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*promptsCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*promptsCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*promptsCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *promptsCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *promptsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(), c.deleteBinding(),
 	}
 }
 
 // ───── prompt_create ──────────────────────────────────────────────
 
-func (c *promptsCapability) createBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *promptsCapability) createBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "prompt_create",
 		Description: "Create an owner-curated Prompt (persona / instruction " +
 			"fragment library). Roles reference prompts; visitor sessions snapshot the " +
@@ -87,16 +87,16 @@ type promptCreateArgsWire struct {
 
 func (c *promptsCapability) handleCreate(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args promptCreateArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.Name == "" {
-		return agentskills.MCPError("name is required")
+		return capreg.MCPError("name is required")
 	}
 	if args.Body == "" {
-		return agentskills.MCPError("body is required")
+		return capreg.MCPError("body is required")
 	}
 	prompt, err := usecases.CreatePrompt(ctx, *c.prompts, &usecases.CreatePromptInput{
 		OwnerID: ownerID, Name: args.Name, Body: args.Body,
@@ -110,18 +110,18 @@ func (c *promptsCapability) handleCreate(
 	})
 }
 
-func promptCreateErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func promptCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrPromptNameTaken) {
-		return agentskills.MCPError("prompt name already taken")
+		return capreg.MCPError("prompt name already taken")
 	}
 	log.Error("cap prompt_create", "err", err)
-	return agentskills.MCPError("create prompt failed")
+	return capreg.MCPError("create prompt failed")
 }
 
 // ───── prompt_list ───────────────────────────────────────────────
 
-func (c *promptsCapability) listBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *promptsCapability) listBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "prompt_list",
 		Description: "List the owner's prompts (incl. vanilla builtin).",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
@@ -138,11 +138,11 @@ type promptListRow struct {
 
 func (c *promptsCapability) handleList(
 	ctx context.Context, ownerID string, _ json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	rows, err := usecases.ListPrompts(ctx, *c.prompts, ownerID)
 	if err != nil {
 		c.log.Error("cap prompt_list", "err", err)
-		return agentskills.MCPError("list prompts failed")
+		return capreg.MCPError("list prompts failed")
 	}
 	items := make([]promptListRow, 0, len(rows))
 	for i := range rows {
@@ -156,8 +156,8 @@ func (c *promptsCapability) handleList(
 
 // ───── prompt_delete ─────────────────────────────────────────────
 
-func (c *promptsCapability) deleteBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *promptsCapability) deleteBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "prompt_delete",
 		Description: "Delete an owner-curated prompt. Vanilla builtin cannot be deleted.",
 		InputSchema: json.RawMessage(`{
@@ -177,13 +177,13 @@ type promptDeleteArgsWire struct {
 
 func (c *promptsCapability) handleDelete(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args promptDeleteArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.PromptID == "" {
-		return agentskills.MCPError("prompt_id is required")
+		return capreg.MCPError("prompt_id is required")
 	}
 	if err := usecases.DeletePrompt(ctx, *c.prompts, ownerID, args.PromptID); err != nil {
 		return promptDeleteErrToResult(c.log, err)
@@ -191,13 +191,13 @@ func (c *promptsCapability) handleDelete(
 	return marshalCapResult(c.log, "prompt_delete", map[string]bool{"ok": true})
 }
 
-func promptDeleteErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func promptDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrPromptBuiltinImmutable) {
-		return agentskills.MCPError("builtin prompt cannot be deleted")
+		return capreg.MCPError("builtin prompt cannot be deleted")
 	}
 	if errors.Is(err, domain.ErrPromptNotFound) {
-		return agentskills.MCPError("prompt not found")
+		return capreg.MCPError("prompt not found")
 	}
 	log.Error("cap prompt_delete", "err", err)
-	return agentskills.MCPError(fmt.Sprintf("delete prompt failed: %v", err))
+	return capreg.MCPError(fmt.Sprintf("delete prompt failed: %v", err))
 }

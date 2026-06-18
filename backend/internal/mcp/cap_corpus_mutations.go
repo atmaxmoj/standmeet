@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -31,27 +31,27 @@ func newCorpusMutationsCapability(
 }
 
 func (*corpusMutationsCapability) ID() string               { return capCorpusMutationsBundle }
-func (*corpusMutationsCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
+func (*corpusMutationsCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 func (*corpusMutationsCapability) VisitorBinding(
-	_ context.Context, _ *agentskills.AssembleInput,
-) (*agentskills.Binding, error) {
-	return nil, agentskills.ErrHidden
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
 }
 
 func (*corpusMutationsCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*corpusMutationsCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *corpusMutationsCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *corpusMutationsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.updateWikiBinding(),
 		c.updateOutputBinding(),
 		c.deleteWikiBinding(),
@@ -61,8 +61,8 @@ func (c *corpusMutationsCapability) OwnerMCPBindings() []*agentskills.MCPBinding
 
 // ───── update_wiki ────────────────────────────────────────────────
 
-func (c *corpusMutationsCapability) updateWikiBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusMutationsCapability) updateWikiBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "update_wiki",
 		Description: "Update a wiki entry's title / body / parent / tags / show_as_source.",
 		InputSchema: json.RawMessage(`{
@@ -95,10 +95,10 @@ type updateWikiArgsWire struct {
 
 func (c *corpusMutationsCapability) handleUpdateWiki(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseUpdateWikiArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	in := buildUpdateWikiInput(&args, ownerID)
 	wiki, err := usecases.UpdateWiki(ctx, *c.corpus, in)
@@ -144,8 +144,8 @@ func buildUpdateWikiInput(
 
 // ───── update_output ───────────────────────────────────────────────
 
-func (c *corpusMutationsCapability) updateOutputBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusMutationsCapability) updateOutputBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "update_output",
 		Description: "Update an output entry's title / body / parent / tags / show_as_source.",
 		InputSchema: json.RawMessage(`{
@@ -178,10 +178,10 @@ type updateOutputArgsWire struct {
 
 func (c *corpusMutationsCapability) handleUpdateOutput(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseUpdateOutputArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	in := buildUpdateOutputInput(&args, ownerID)
 	out, err := usecases.UpdateOutput(ctx, *c.corpus, in)
@@ -227,8 +227,8 @@ func buildUpdateOutputInput(
 
 // ───── delete_wiki ────────────────────────────────────────────────
 
-func (c *corpusMutationsCapability) deleteWikiBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusMutationsCapability) deleteWikiBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "delete_wiki",
 		Description: "Hard-delete a wiki entry by id.",
 		InputSchema: json.RawMessage(`{
@@ -249,13 +249,13 @@ type deleteByIDArgsWire struct {
 
 func (c *corpusMutationsCapability) handleDeleteWiki(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args deleteByIDArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.WikiID == "" {
-		return agentskills.MCPError("wiki_id is required")
+		return capreg.MCPError("wiki_id is required")
 	}
 	if err := usecases.DeleteWiki(ctx, *c.corpus, ownerID, args.WikiID); err != nil {
 		return wikiMutationErrToResult(c.log, err, "delete_wiki")
@@ -267,8 +267,8 @@ func (c *corpusMutationsCapability) handleDeleteWiki(
 
 // ───── delete_output ───────────────────────────────────────────────
 
-func (c *corpusMutationsCapability) deleteOutputBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *corpusMutationsCapability) deleteOutputBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name:        "delete_output",
 		Description: "Hard-delete an output entry by id.",
 		InputSchema: json.RawMessage(`{
@@ -284,13 +284,13 @@ func (c *corpusMutationsCapability) deleteOutputBinding() *agentskills.MCPBindin
 
 func (c *corpusMutationsCapability) handleDeleteOutput(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	var args deleteByIDArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
-		return agentskills.MCPError("invalid arguments: " + err.Error())
+		return capreg.MCPError("invalid arguments: " + err.Error())
 	}
 	if args.OutputID == "" {
-		return agentskills.MCPError("output_id is required")
+		return capreg.MCPError("output_id is required")
 	}
 	if err := usecases.DeleteOutput(ctx, *c.corpus, ownerID, args.OutputID); err != nil {
 		return outputMutationErrToResult(c.log, err, "delete_output")
@@ -304,32 +304,32 @@ func (c *corpusMutationsCapability) handleDeleteOutput(
 
 func wikiMutationErrToResult(
 	log *slog.Logger, err error, name string,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	if errors.Is(err, domain.ErrWikiNotFound) {
-		return agentskills.MCPError("wiki entry not found")
+		return capreg.MCPError("wiki entry not found")
 	}
 	if errors.Is(err, domain.ErrParentNotFound) {
-		return agentskills.MCPError("parent entry not found")
+		return capreg.MCPError("parent entry not found")
 	}
 	if errors.Is(err, domain.ErrParentCycle) {
-		return agentskills.MCPError("parent would create a cycle")
+		return capreg.MCPError("parent would create a cycle")
 	}
 	if errors.Is(err, usecases.ErrEmptyField) {
-		return agentskills.MCPError("required field missing")
+		return capreg.MCPError("required field missing")
 	}
 	log.Error("cap "+name, "err", err)
-	return agentskills.MCPError(name + " failed")
+	return capreg.MCPError(name + " failed")
 }
 
 func outputMutationErrToResult(
 	log *slog.Logger, err error, name string,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	if errors.Is(err, domain.ErrOutputNotFound) {
-		return agentskills.MCPError("output entry not found")
+		return capreg.MCPError("output entry not found")
 	}
 	if errors.Is(err, usecases.ErrEmptyField) {
-		return agentskills.MCPError("required field missing")
+		return capreg.MCPError("required field missing")
 	}
 	log.Error("cap "+name, "err", err)
-	return agentskills.MCPError(name + " failed")
+	return capreg.MCPError(name + " failed")
 }

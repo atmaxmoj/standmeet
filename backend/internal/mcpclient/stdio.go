@@ -1,20 +1,60 @@
 // stdio.go —— C2: MCP stdio 传输（core 把插件当子进程拉起来，走 stdin/stdout）。
-// 现为 stub（红）—— C0 先写测试，C2 实现：spawn 子进程 + Initialize + 进程回收。
+// 跟 Dial(http) 同一 Session/Initialize 形态，只是 transport 是 spawn 的进程。
+
 package mcpclient
 
 import (
 	"context"
-	"errors"
+	"fmt"
+
+	mcpgoclient "github.com/mark3labs/mcp-go/client"
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 )
 
-// errStdioNotImplemented —— C2 未实现的占位错误（让 C0 测试红得干净）。
-var errStdioNotImplemented = errors.New("mcpclient: DialStdio not implemented (C2)")
+// initRequest —— 共用的 MCP initialize 参数（http / stdio 同一握手）。
+func initRequest() mcpgo.InitializeRequest {
+	return mcpgo.InitializeRequest{
+		Params: mcpgo.InitializeParams{
+			ProtocolVersion: mcpgo.LATEST_PROTOCOL_VERSION,
+			ClientInfo: mcpgo.Implementation{
+				Name: "standmeet-backend", Version: "0.1.0",
+			},
+		},
+	}
+}
+
+// closeQuietly —— 关 client 忽略错误（释放子进程 / transport）。
+func closeQuietly(cli *mcpgoclient.Client) {
+	cerr := cli.Close()
+	_ = cerr
+}
 
 // DialStdio —— spawn command（带 args/env）作 MCP server 子进程，走 stdio 传输，
-// Initialize 后返 Session。env 是 K=V 注入子进程环境（per-owner 凭据走这里，
-// 但 C2 只做传输；注入策略在 connector 层）。
+// Initialize 后返 Session。env 是在 os.Environ() 之上追加的额外变量（mcp-go
+// 自己合并继承）。命令不存在 / initialize 超时（ctx 或 dialTimeout 先到）→ 返
+// ErrUnreachable 并回收已 spawn 的子进程，不留僵尸、不永久 hang。
 func DialStdio(
-	_ context.Context, _ string, _ []string, _ map[string]string,
+	ctx context.Context, command string, args []string, env map[string]string,
 ) (*Session, error) {
-	return nil, errStdioNotImplemented
+	cli, err := mcpgoclient.NewStdioMCPClient(command, envSlice(env), args...)
+	if err != nil {
+		return nil, fmt.Errorf("%w: stdio start %s: %w", ErrUnreachable, command, err)
+	}
+	ictx, cancel := context.WithTimeout(ctx, dialTimeout)
+	defer cancel()
+	_, ierr := cli.Initialize(ictx, initRequest())
+	if ierr != nil {
+		closeQuietly(cli)
+		return nil, fmt.Errorf("%w: stdio initialize: %w", ErrUnreachable, ierr)
+	}
+	return &Session{c: cli, url: "stdio:" + command, closeFn: func() { closeQuietly(cli) }}, nil
+}
+
+// envSlice —— map → []string{"K=V"}（mcp-go 在 os.Environ() 上追加这些）。
+func envSlice(env map[string]string) []string {
+	out := make([]string, 0, len(env))
+	for k, v := range env {
+		out = append(out, k+"="+v)
+	}
+	return out
 }

@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
@@ -49,33 +49,33 @@ func newCodesCapability(codes CodesRevoker, log *slog.Logger) *codesCapability {
 }
 
 func (*codesCapability) ID() string               { return capCodesBundle }
-func (*codesCapability) Shape() agentskills.Shape { return agentskills.ShapeOwnerOnly }
-func (*codesCapability) VisitorBinding(_ context.Context, _ *agentskills.AssembleInput) (
-	*agentskills.Binding, error,
+func (*codesCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
+func (*codesCapability) VisitorBinding(_ context.Context, _ *capreg.AssembleInput) (
+	*capreg.Binding, error,
 ) {
-	return nil, agentskills.ErrHidden
+	return nil, capreg.ErrHidden
 }
 
 func (*codesCapability) SystemPromptFragment(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
 func (*codesCapability) SystemPromptFragmentID(
-	_ context.Context, _ *agentskills.AssembleInput,
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
 	return ""
 }
 
-func (c *codesCapability) OwnerMCPBindings() []*agentskills.MCPBinding {
-	return []*agentskills.MCPBinding{
+func (c *codesCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{
 		c.revokeBinding(), c.createBinding(), c.updateQuotasBinding(),
 	}
 }
 
-func (c *codesCapability) revokeBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *codesCapability) revokeBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "codes.revoke",
 		Description: "Revoke an access code by id. In-flight visitor sessions can " +
 			"finish current turn but the next turn is blocked. Idempotent on already " +
@@ -102,10 +102,10 @@ type revokeResultPayload struct {
 
 func (c *codesCapability) handleRevoke(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseRevokeArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	if err := c.codes.Revoke(ctx, ownerID, args.CodeID); err != nil {
 		return codesRevokeErr(c.log, err)
@@ -124,29 +124,29 @@ func parseRevokeArgs(raw json.RawMessage) (revokeArgsWire, error) {
 	return args, nil
 }
 
-func codesRevokeErr(log *slog.Logger, err error) agentskills.MCPResult {
+func codesRevokeErr(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrCodeInvalid) {
-		return agentskills.MCPError("code not found")
+		return capreg.MCPError("code not found")
 	}
 	log.Error("codes.revoke", "err", err)
-	return agentskills.MCPError("revoke failed")
+	return capreg.MCPError("revoke failed")
 }
 
-func marshalRevokeResult(log *slog.Logger, codeID string) agentskills.MCPResult {
+func marshalRevokeResult(log *slog.Logger, codeID string) capreg.MCPResult {
 	out, err := json.Marshal(revokeResultPayload{CodeID: codeID, Revoked: true})
 	if err != nil {
 		log.Error("codes.revoke marshal", "err", err)
-		return agentskills.MCPError("encode payload")
+		return capreg.MCPError("encode payload")
 	}
-	return agentskills.MCPSuccess(string(out))
+	return capreg.MCPSuccess(string(out))
 }
 
 // codes.create 在 cap_codes_create.go (拆出来守 max-lines)。
 
 // ───── codes.update_quotas ──────────────────────────────────────
 
-func (c *codesCapability) updateQuotasBinding() *agentskills.MCPBinding {
-	return &agentskills.MCPBinding{
+func (c *codesCapability) updateQuotasBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
 		Name: "codes.update_quotas",
 		Description: "Update an access code's per-member session quota and " +
 			"per-session turn quota. Pass null to keep current value.",
@@ -171,10 +171,10 @@ type updateQuotasArgsWire struct {
 
 func (c *codesCapability) handleUpdateQuotas(
 	ctx context.Context, ownerID string, raw json.RawMessage,
-) agentskills.MCPResult {
+) capreg.MCPResult {
 	args, perr := parseUpdateQuotasArgs(raw)
 	if perr != nil {
-		return agentskills.MCPError(perr.Error())
+		return capreg.MCPError(perr.Error())
 	}
 	merged, mErr := c.mergeQuotaArgs(ctx, ownerID, &args)
 	if mErr != nil {
@@ -204,12 +204,12 @@ func parseUpdateQuotasArgs(raw json.RawMessage) (updateQuotasArgsWire, error) {
 	return args, nil
 }
 
-func updateQuotasErrToResult(log *slog.Logger, err error) agentskills.MCPResult {
+func updateQuotasErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrCodeInvalid) {
-		return agentskills.MCPError("code not found")
+		return capreg.MCPError("code not found")
 	}
 	log.Error("cap codes.update_quotas", "err", err)
-	return agentskills.MCPError("update quotas failed")
+	return capreg.MCPError("update quotas failed")
 }
 
 // quotaPair —— mergeQuotaArgs 返值；caller 透传给 UpdateQuotas。
@@ -223,13 +223,13 @@ type quotaPair struct {
 // 翻 "code not found"。
 func (c *codesCapability) mergeQuotaArgs(
 	ctx context.Context, ownerID string, args *updateQuotasArgsWire,
-) (*quotaPair, *agentskills.MCPResult) {
+) (*quotaPair, *capreg.MCPResult) {
 	if args.MaxMembers != nil && args.MaxTurns != nil {
 		return &quotaPair{maxMembers: args.MaxMembers, maxTurns: args.MaxTurns}, nil
 	}
 	cur, lookupErr := c.lookupOwnedCode(ctx, ownerID, args.CodeID)
 	if lookupErr != nil {
-		notFound := agentskills.MCPError("code not found")
+		notFound := capreg.MCPError("code not found")
 		return nil, &notFound
 	}
 	return buildMergedQuotas(args, cur), nil

@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/agentskills"
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 )
 
 // mcpTimeFmt —— ISO-8601 UTC 时间格式 (Go 标准；跟 internal/mcp 同源)。
@@ -20,11 +20,11 @@ const mcpTimeFmt = "2006-01-02T15:04:05Z"
 
 // marshalCapResult —— 通用 capability handler JSON 响应封装；跟
 // internal/mcp/cap_helpers.go 同源。
-func marshalCapResult(log *slog.Logger, name string, payload any) agentskills.MCPResult {
+func marshalCapResult(log *slog.Logger, name string, payload any) capreg.MCPResult {
 	out, err := json.Marshal(payload)
 	if err != nil {
 		log.Error("cap marshal", "tool", name, "err", err)
-		return agentskills.MCPError(fmt.Sprintf("encode payload: %v", err))
+		return capreg.MCPError(fmt.Sprintf("encode payload: %v", err))
 	}
-	return agentskills.MCPSuccess(string(out))
+	return capreg.MCPSuccess(string(out))
 }
