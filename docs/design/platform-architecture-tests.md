@@ -13,6 +13,7 @@
    - **corner cases** —— 全覆盖：空/缺字段、边界值、并发、重复、未授权、未连接、配额耗尽、版本不符、撞名、降级可见、幂等。
    - **error stream（中途出错）** —— 流式/多步链路里**任意一步崩**仍可控：tool 调用中途失败、连接器代调失败、插件进程 mid-session 退出、SSE 流中断、依赖 mid-turn 断、超时。每条都要有用例，且 UI/agent 表现是**友好降级**，不是 stack trace / 挂死。
    覆盖不到位 = phase 不算开始。先红后绿（CLAUDE.md：未测 = 未完成）。
+   - **对着 feature floor 逐条核**，别只对着"这东西干啥"审。每个 visitor-facing 能力都要按 floor 清单走一遍：**ACL via role、connector 依赖、quota、mode(code/public/byoai)、capability_state、降级可见** —— 适用的每条都要有用例。（教训：C3 漏了 ACL，因为只对着"插件 dial/list/wrap"审、没对 floor 核 → 漏测 → 漏实现。floor 就是 checklist。）
 
 1. **e2e 是 feature 的唯一证明（CLAUDE.md）。** 「core 发现了它没写死的能力」这件事，必须有一条**浏览器驱动**的 e2e：真访客进 chat → AI 调到一个**配置声明、非 `MustRegister`**的工具 → 答案正确。这是 C4，是本 feature 的主证。
 2. **协议管道层补 unit/integration，但不当主覆盖。** manifest 解析、stdio 帧读写、version 闸 —— 这些是组合爆炸的纯管道（畸形 JSON / 版本不符 / 进程退出），用浏览器跑既慢又测不全。它们是 booking_confirmation_test.go 那种**补充快测**，不替代 e2e。先例已在：`inference` / `mailer` / `booking_confirmation` 都有 unit。
