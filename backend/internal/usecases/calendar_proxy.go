@@ -21,7 +21,7 @@ type CalendarProxy interface {
 	// FreeBusy —— owner 主日历在 [TimeMin,TimeMax] 的忙时段。
 	FreeBusy(ctx context.Context, ownerID string, req FreeBusyReq) ([]BusyInterval, error)
 	// InsertEvent —— 在 owner 主日历建事件，返回事件 id + 链接。
-	InsertEvent(ctx context.Context, ownerID string, req InsertEventReq) (InsertedEvent, error)
+	InsertEvent(ctx context.Context, ownerID string, req *InsertEventReq) (InsertedEvent, error)
 	// DeleteEvent —— 删事件（404/410 当成功，由 adapter 吸收）。attendeeEmail
 	// 非空 → 通知与会者取消（sendUpdates=all）。
 	DeleteEvent(ctx context.Context, ownerID, eventID, attendeeEmail string) error

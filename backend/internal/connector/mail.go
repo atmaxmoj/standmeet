@@ -1,6 +1,7 @@
 // mail.go —— Phase B：SMTP 邮件 proxy，实现 usecases.MailProxy。句柄
 // (ownerID) → load mail 连接器 + 解密 SMTP 凭据 + 经 net/smtp 发出。SMTP
 // 用户名/密码只在本包内存活，不进 usecases。
+
 package connector
 
 import (
@@ -42,7 +43,10 @@ func (p *MailProxy) Send(ctx context.Context, ownerID string, msg usecases.MailM
 	if err != nil {
 		return fmt.Errorf("load mail connector: %w", err)
 	}
-	if !conn.Connected() {
+	// Send 的下限是「有凭据能物理发出」(HasCredentials)，不是「已验证可用」
+	// (Connected)。OTP 验证信本身就在 Connected 之前发 —— 验证后才 Connected。
+	// 「只对已验证连接器发应用邮件」的门留在各 caller（approval 检 Connected）。
+	if !conn.HasCredentials() {
 		return usecases.ErrMailNotConfigured
 	}
 	b := mailer.Compose(&mailer.Config{

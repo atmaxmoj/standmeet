@@ -28,6 +28,7 @@ func (fakeCap) OwnerMCPBindings() []*capreg.MCPBinding { return []*capreg.MCPBin
 func (fakeCap) SystemPromptFragment(_ context.Context, _ *capreg.AssembleInput) string {
 	return ""
 }
+
 func (fakeCap) SystemPromptFragmentID(_ context.Context, _ *capreg.AssembleInput) string {
 	return ""
 }

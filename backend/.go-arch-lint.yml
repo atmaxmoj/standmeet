@@ -78,6 +78,8 @@ components:
     in: internal/storage                  # MinIO/S3 对象存储 (图片 / 附件)
   mailer:
     in: internal/mailer                   # 出站 SMTP 发信 (net/smtp，owner 自带 mail server)
+  connector:
+    in: internal/connector                # Phase B: Nango-style 连接器层 —— 解密凭据 + 代调外部 (gcal/mailer)；凭据永不出 vault 进 usecases
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   sysroutes:
@@ -112,8 +114,6 @@ deps:
       - sandbox
       - mcpclient
       - storage
-      - gcal
-      - mailer
       - capreg
       - prompts
       - mcpplugin
@@ -122,6 +122,18 @@ deps:
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
   mailer:
     mayDependOn: []
+    anyVendorDeps: true
+
+  # connector —— Phase B Nango-proxy 层：唯一解密 owner 凭据 + 代调外部
+  # (gcal / mailer) 的地方。usecases 只持 CalendarProxy / MailProxy 接口，
+  # 凭据永不进 usecases。实现外部能力 → 依赖 gcal + mailer + domain；
+  # 复用 usecases 的 DTO 类型 (FreeBusyReq / MailMessage 等) → 依赖 usecases。
+  connector:
+    mayDependOn:
+      - domain
+      - usecases
+      - gcal
+      - mailer
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
@@ -232,7 +244,6 @@ deps:
       - capreg
       - domain
       - postgres
-      - gcal
       - sandbox
     anyVendorDeps: true
 
@@ -388,7 +399,7 @@ deps:
       - middleware
       - storage
       - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
-      - gcal        # /connectors/google-calendar/* OAuth init/callback wires gcal.Client
+      - connector   # /connectors/* OAuth init/callback + mail OTP 经连接器层（不直碰 gcal/mailer）
     anyVendorDeps: true
 
   # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image
@@ -456,6 +467,7 @@ deps:
       - jobsuc
       - gotenberg
       - gcal
+      - connector
       - printsess
       - marketplace
       - captcha

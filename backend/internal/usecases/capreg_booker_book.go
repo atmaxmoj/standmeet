@@ -44,7 +44,7 @@ func bookerBindingTool(run capreg.RunFn) capreg.BindingTool {
 }
 
 func runBookerBook(
-	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
+	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
 	owner *domain.Owner, input []byte,
 ) (string, error) {
 	args, derr := decodeBookArgs(input)
@@ -77,7 +77,7 @@ func runBookerBook(
 // notifyOwnerBestEffort —— #130 触发点。RoleSnapshot 给 role id;约成的起止 + 访客名
 // + 主题进通知。fire-and-forget(无 logger,通知是纯 side-effect)。
 func notifyOwnerBestEffort(
-	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
+	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
 	result *domain.BookResult, topic string,
 ) {
 	roleID := ""

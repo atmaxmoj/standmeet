@@ -146,7 +146,8 @@ func queryFreeBusy(
 	ctx context.Context, proxy CalendarProxy, b *bookCtx, slots []time.Time,
 ) ([]BusyInterval, error) {
 	span := freebusySpan(slots, b.in.DurationMin)
-	busy, err := proxy.FreeBusy(ctx, b.in.OwnerID, FreeBusyReq{TimeMin: span.min, TimeMax: span.max})
+	busy, err := proxy.FreeBusy(ctx, b.in.OwnerID,
+		FreeBusyReq{TimeMin: span.min, TimeMax: span.max})
 	if err != nil {
 		return nil, fmt.Errorf("freebusy: %w", err)
 	}
@@ -198,7 +199,7 @@ func commitBooking(
 	b *bookCtx, slot time.Time,
 ) (domain.BookResult, error) {
 	end := slot.Add(time.Duration(b.in.DurationMin) * time.Minute)
-	inserted, err := proxy.InsertEvent(ctx, b.in.OwnerID, InsertEventReq{
+	inserted, err := proxy.InsertEvent(ctx, b.in.OwnerID, &InsertEventReq{
 		Summary:      buildSummary(b.in),
 		Description:  b.in.Topic,
 		Start:        slot,

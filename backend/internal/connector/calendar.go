@@ -82,18 +82,18 @@ func (p *CalendarProxy) FreeBusy(
 
 // InsertEvent —— 在 owner 主日历建事件。
 func (p *CalendarProxy) InsertEvent(
-	ctx context.Context, ownerID string, req usecases.InsertEventReq,
+	ctx context.Context, ownerID string, req *usecases.InsertEventReq,
 ) (usecases.InsertedEvent, error) {
 	token, err := p.freshToken(ctx, ownerID)
 	if err != nil {
 		return usecases.InsertedEvent{}, err
 	}
-	atts, send := attendeesFor(req.VisitorEmail)
+	spec := attendeesFor(req.VisitorEmail)
 	ins, ierr := p.client.InsertEvent(ctx, &gcal.InsertEventInput{
 		AccessToken: token, CalendarID: "primary",
 		Summary: req.Summary, Description: req.Description,
 		Start: req.Start, End: req.End, TimeZone: req.TimeZone,
-		Attendees: atts, SendUpdates: send,
+		Attendees: spec.attendees, SendUpdates: spec.sendUpdates,
 	})
 	if ierr != nil {
 		return usecases.InsertedEvent{}, fmt.Errorf("insert event: %w", ierr)
@@ -103,25 +103,34 @@ func (p *CalendarProxy) InsertEvent(
 
 // DeleteEvent —— 删事件（404/410 由 gcal client 吸收成 nil）。attendeeEmail
 // 非空 → sendUpdates=all 通知取消。
-func (p *CalendarProxy) DeleteEvent(ctx context.Context, ownerID, eventID, attendeeEmail string) error {
+func (p *CalendarProxy) DeleteEvent(
+	ctx context.Context, ownerID, eventID, attendeeEmail string,
+) error {
 	token, err := p.freshToken(ctx, ownerID)
 	if err != nil {
 		return err
 	}
-	_, send := attendeesFor(attendeeEmail)
+	spec := attendeesFor(attendeeEmail)
 	if derr := p.client.DeleteEvent(ctx, &gcal.DeleteEventInput{
-		AccessToken: token, CalendarID: "primary", EventID: eventID, SendUpdates: send,
+		AccessToken: token, CalendarID: "primary", EventID: eventID, SendUpdates: spec.sendUpdates,
 	}); derr != nil {
 		return fmt.Errorf("delete event: %w", derr)
 	}
 	return nil
 }
 
-func attendeesFor(email string) ([]gcal.EventAttendee, string) {
+// attendeeSpec —— 与会者 + sendUpdates 策略一对（单返回值，避开 unnamedResult
+// 与 nonamedreturns 之间的拉锯）。
+type attendeeSpec struct {
+	sendUpdates string
+	attendees   []gcal.EventAttendee
+}
+
+func attendeesFor(email string) attendeeSpec {
 	if email == "" {
-		return []gcal.EventAttendee{}, "none"
+		return attendeeSpec{attendees: []gcal.EventAttendee{}, sendUpdates: "none"}
 	}
-	return []gcal.EventAttendee{{Email: email}}, "all"
+	return attendeeSpec{attendees: []gcal.EventAttendee{{Email: email}}, sendUpdates: "all"}
 }
 
 // freshToken —— load 连接器，过期则刷新 + 回存；invalid_grant → ErrCalendarRevoked。
@@ -137,6 +146,14 @@ func (p *CalendarProxy) freshToken(ctx context.Context, ownerID string) (string,
 	if !conn.AccessTokenStale() {
 		return conn.AccessToken, nil
 	}
+	return p.refreshAndStore(ctx, &conn)
+}
+
+// refreshAndStore —— token 过期时刷新 + 回存；invalid_grant → ErrCalendarRevoked。
+// 从 freshToken 拆出守 cyclop ≤5。
+func (p *CalendarProxy) refreshAndStore(
+	ctx context.Context, conn *domain.CalendarConnector,
+) (string, error) {
 	resp, rerr := p.client.RefreshToken(ctx, gcal.RefreshTokenInput{
 		ClientID: conn.ClientID, ClientSecret: conn.ClientSecret, RefreshToken: conn.RefreshToken,
 	})

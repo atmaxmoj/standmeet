@@ -51,8 +51,8 @@ type calendarBookCapability struct {
 	deps bookerDeps
 }
 
-func newCalendarBookCapability(deps bookerDeps) *calendarBookCapability {
-	return &calendarBookCapability{deps: deps}
+func newCalendarBookCapability(deps *bookerDeps) *calendarBookCapability {
+	return &calendarBookCapability{deps: *deps}
 }
 
 func (*calendarBookCapability) ID() string { return capCalendarBook }
@@ -101,7 +101,7 @@ func (c *calendarBookCapability) VisitorBinding(
 func (c *calendarBookCapability) tryBuildBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
-	connected, qerr := bookerGatingClear(ctx, c.deps, in)
+	connected, qerr := bookerGatingClear(ctx, &c.deps, in)
 	if qerr != nil {
 		return nil, qerr
 	}
@@ -112,7 +112,7 @@ func (c *calendarBookCapability) tryBuildBinding(
 	if oerr != nil {
 		return nil, fmt.Errorf("calendar.book: load owner: %w", oerr)
 	}
-	return buildCalendarBookBinding(ctx, c.deps, in, &owner), nil
+	return buildCalendarBookBinding(ctx, &c.deps, in, &owner), nil
 }
 
 // bookerCanExpose —— 进入 gating 的最低条件 (mode=code + role granted skill)。
@@ -135,7 +135,7 @@ func bookerSkillGranted(snapshot *domain.RoleSnapshot) bool {
 // 返 (gating_pass, err)。connector 未装 / quota 耗尽 → (false, nil)；DB 错
 // → (false, err)。
 func bookerGatingClear(
-	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
+	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
 ) (bool, error) {
 	connected, err := deps.Proxy.Connected(ctx, in.OwnerID)
 	if err != nil {
@@ -153,7 +153,7 @@ func bookerGatingClear(
 
 // bookerQuotaExhausted —— code 设了 MaxBookings 且当前已 booking >= cap。
 func bookerQuotaExhausted(
-	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
+	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
 ) (bool, error) {
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return false, nil
@@ -172,7 +172,7 @@ func bookerQuotaExhausted(
 // G-7 起两个 tool: calendar_book + calendar_list_slots (read-only，不
 // 走 quota)。
 func buildCalendarBookBinding(
-	ctx context.Context, deps bookerDeps,
+	ctx context.Context, deps *bookerDeps,
 	in *capreg.AssembleInput, owner *domain.Owner,
 ) *capreg.Binding {
 	state := capreg.CapabilityState{
@@ -199,7 +199,7 @@ func buildCalendarBookBinding(
 // bookerQuotaRemaining —— 当前 code 剩余可 booking 数。无 cap / DB 错 → nil。
 // 已知 quota 未耗尽（gating 通过到这里），但 LiveCount 仍可能跟 cap 差距。
 func bookerQuotaRemaining(
-	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
+	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
 ) *int32 {
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return nil

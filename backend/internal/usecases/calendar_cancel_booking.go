@@ -45,7 +45,9 @@ func CancelBooking(
 	if err != nil {
 		return CancelledBooking{}, fmt.Errorf("get booking: %w", err)
 	}
-	if dErr := proxy.DeleteEvent(ctx, in.OwnerID, booking.GoogleEventID, booking.VisitorEmail); dErr != nil {
+	if dErr := proxy.DeleteEvent(
+		ctx, in.OwnerID, booking.GoogleEventID, booking.VisitorEmail,
+	); dErr != nil {
 		return CancelledBooking{}, fmt.Errorf("delete gcal event: %w", dErr)
 	}
 	if delErr := store.DeleteBooking(ctx, in.OwnerID, in.BookingID); delErr != nil {

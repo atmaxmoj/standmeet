@@ -7,6 +7,7 @@ package main
 import (
 	"os"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/mcp"
 	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
@@ -92,7 +93,8 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Applications: d.applicationRepo,
 		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
 		Calendar: adminroutes.CalendarAdminDeps{
-			Repo: d.calendarRepo, Owners: d.ownerRepo, GCal: d.gcalClient, Redis: d.rdb,
+			Repo: d.calendarRepo, Owners: d.ownerRepo,
+			Auth: connector.NewCalendarAuth(d.gcalClient), Redis: d.rdb,
 		},
 		Mail: adminroutes.MailAdminDeps{Repo: d.mailRepo, Owners: d.ownerRepo},
 		ApproveRequests: usecases.ApproveRequestDeps{

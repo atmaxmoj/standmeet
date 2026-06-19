@@ -18,8 +18,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/gcal"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -41,7 +41,7 @@ const (
 type CalendarAdminDeps struct {
 	Repo   *postgres.CalendarRepo
 	Owners *postgres.OwnerRepo
-	GCal   *gcal.Client
+	Auth   *connector.CalendarAuth
 	Redis  *redis.Client
 	Random func(n int) (string, error) // 让测试注入；nil 走默认 crypto rand
 }

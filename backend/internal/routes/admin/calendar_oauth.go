@@ -13,8 +13,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/gcal"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -76,7 +76,7 @@ func writeGCalAuthURL(
 		writeError(h.Log, w, serverErr())
 		return
 	}
-	authURL := h.CalendarAdmin.GCal.BuildAuthCodeURL(gcal.AuthCodeURLInput{
+	authURL := h.CalendarAdmin.Auth.AuthURL(connector.AuthURLInput{
 		ClientID: conn.ClientID, State: state,
 		RedirectURI: redirect,
 		Scopes:      []string{gcalScope},
@@ -250,18 +250,18 @@ func finishOAuthExchange(
 // code for tokens. RedirectURI must match the one BuildAuthCodeURL used.
 func exchangeGCalCode(
 	ctx context.Context, h *Handlers, conn *domain.CalendarConnector, code string,
-) (gcal.TokenResponse, error) {
+) (connector.TokenResult, error) {
 	redirect, rerr := gcalRedirectURI(ctx, h, conn.OwnerID)
 	if rerr != nil {
-		return gcal.TokenResponse{}, rerr
+		return connector.TokenResult{}, rerr
 	}
-	token, err := h.CalendarAdmin.GCal.ExchangeCode(ctx, gcal.ExchangeCodeInput{
+	token, err := h.CalendarAdmin.Auth.Exchange(ctx, connector.ExchangeInput{
 		ClientID: conn.ClientID, ClientSecret: conn.ClientSecret,
 		Code:        code,
 		RedirectURI: redirect,
 	})
 	if err != nil {
-		return gcal.TokenResponse{}, fmt.Errorf("exchange code: %w", err)
+		return connector.TokenResult{}, fmt.Errorf("exchange code: %w", err)
 	}
 	return token, nil
 }

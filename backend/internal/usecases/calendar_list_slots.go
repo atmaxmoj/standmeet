@@ -47,16 +47,9 @@ func ListAvailableSlots(
 	ctx context.Context, proxy CalendarProxy, store CalendarStore,
 	in *ListSlotsInput,
 ) ([]AvailableSlot, error) {
-	connected, cErr := proxy.Connected(ctx, in.OwnerID)
-	if cErr != nil {
-		return nil, fmt.Errorf("connector status: %w", cErr)
-	}
-	if !connected {
-		return nil, domain.ErrCalendarNotConnected
-	}
-	policy, perr := store.GetBookingPolicy(ctx, in.OwnerID)
-	if perr != nil {
-		return nil, fmt.Errorf("load policy: %w", perr)
+	policy, gerr := listSlotsPolicy(ctx, proxy, store, in)
+	if gerr != nil {
+		return nil, gerr
 	}
 	candidates := enumerateSlots(&policy, in)
 	if len(candidates) == 0 {
@@ -77,6 +70,25 @@ func ListAvailableSlots(
 		"owner_tz", in.OwnerTZ, "candidates", len(candidates),
 		"busy_windows", len(busy), "free", len(free))
 	return free, nil
+}
+
+// listSlotsPolicy —— connector connected 闸 + load 政策。从 ListAvailableSlots
+// 拆出守 cyclop ≤5。未连 → ErrCalendarNotConnected。
+func listSlotsPolicy(
+	ctx context.Context, proxy CalendarProxy, store CalendarStore, in *ListSlotsInput,
+) (domain.BookingPolicy, error) {
+	connected, cErr := proxy.Connected(ctx, in.OwnerID)
+	if cErr != nil {
+		return domain.BookingPolicy{}, fmt.Errorf("connector status: %w", cErr)
+	}
+	if !connected {
+		return domain.BookingPolicy{}, domain.ErrCalendarNotConnected
+	}
+	policy, perr := store.GetBookingPolicy(ctx, in.OwnerID)
+	if perr != nil {
+		return domain.BookingPolicy{}, fmt.Errorf("load policy: %w", perr)
+	}
+	return policy, nil
 }
 
 func queryListFreeBusy(

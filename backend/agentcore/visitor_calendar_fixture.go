@@ -96,7 +96,7 @@ func (p cannedCalendarProxy) FreeBusy(
 }
 
 func (cannedCalendarProxy) InsertEvent(
-	_ context.Context, _ string, _ usecases.InsertEventReq,
+	_ context.Context, _ string, _ *usecases.InsertEventReq,
 ) (usecases.InsertedEvent, error) {
 	return usecases.InsertedEvent{
 		EventID:  "evt_eval_canned",
