@@ -154,3 +154,8 @@ var ErrParentNotFound = errors.New("parent entry not found")
 // ErrParentCycle —— UpdateWiki 改 parent 时,把节点挂到自己或自己的子孙下会成
 // 环(地址树派生,环会让 path 计算无意义)。拒绝。
 var ErrParentCycle = errors.New("parent would create a cycle")
+
+// ErrSiblingSlugTaken —— 同一 parent(文件夹)下已有一条 title slug 相同的兄弟。
+// 地址 = 树派生 slug path,同 slug 兄弟会让 path 不再 1↔1(第二条无法单独寻址)。
+// Obsidian 语义:一个文件夹里不能有两个同名文件 —— 写时直接拒,不静默改名/合并。
+var ErrSiblingSlugTaken = errors.New("a sibling entry with the same name already exists")

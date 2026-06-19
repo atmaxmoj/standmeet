@@ -296,6 +296,13 @@ var corpusErrCases = []apierr.Case{
 	{Match: domain.ErrParentNotFound, Envelope: envBadReq("parent entry not found")},
 	{Match: domain.ErrParentCycle, Envelope: envBadReq("parent would create a cycle")},
 	{
+		Match: domain.ErrSiblingSlugTaken, Envelope: apierr.Envelope{
+			Status:  http.StatusConflict,
+			Code:    "sibling_name_taken",
+			Message: "an entry with the same name already exists here",
+		},
+	},
+	{
 		Match: domain.ErrRawNotFound, Envelope: apierr.Envelope{
 			Status: http.StatusNotFound, Code: "raw_not_found", Message: "raw entry not found",
 		},

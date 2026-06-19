@@ -217,6 +217,9 @@ func promoteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	if errors.Is(err, domain.ErrParentNotFound) {
 		return capreg.MCPError("parent entry not found")
 	}
+	if errors.Is(err, domain.ErrSiblingSlugTaken) {
+		return capreg.MCPError("an entry with the same name already exists here")
+	}
 	log.Error("cap promote_to_wiki", "err", err)
 	return capreg.MCPError("promote_to_wiki failed")
 }

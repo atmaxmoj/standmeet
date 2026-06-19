@@ -111,13 +111,52 @@ func finishPromote(ctx context.Context, deps CorpusDeps, f promoteFinish) error 
 	return RebuildWikiRefs(ctx, deps, f.OwnerID, f.WikiID, f.Body)
 }
 
-// preflightPromote —— promote 前的两道关:必填字段 + parent 合法。合在一处让
-// PromoteToWiki 的 cyclo 不超标。
+// preflightPromote —— promote 前的三道关:必填字段 + parent 合法 + 同 slug 兄弟
+// 不撞。合在一处让 PromoteToWiki 的 cyclo 不超标。
 func preflightPromote(ctx context.Context, deps CorpusDeps, in *PromoteInput) error {
 	if err := validatePromoteInput(in); err != nil {
 		return err
 	}
-	return validateWikiParent(ctx, deps, in.OwnerID, in.ParentID)
+	if err := validateWikiParent(ctx, deps, in.OwnerID, in.ParentID); err != nil {
+		return err
+	}
+	return ensureSiblingSlugFree(ctx, deps, siblingSlugCheck{
+		OwnerID: in.OwnerID, ParentID: in.ParentID, Title: in.Title,
+	})
+}
+
+// siblingScanLimit —— 撞名检查扫同一 parent 下的兄弟。一个目录下手工 curate 的
+// 文档不会上千;给个宽上限一次扫完(不翻页),够覆盖任何现实树。
+const siblingScanLimit = 10_000
+
+// siblingSlugCheck —— ensureSiblingSlugFree 入参打包(避免 argument-limit 超 5)。
+// ExcludeID 给 update 自查用:改名成自己当前的 slug 不算撞,空表示纯新建。
+type siblingSlugCheck struct {
+	OwnerID   string
+	ParentID  *string
+	Title     string
+	ExcludeID string
+}
+
+// ensureSiblingSlugFree —— Obsidian 语义的写时撞名防护:同一 parent(含 root)下
+// 不允许两条 title slug 相同的兄弟,否则地址 path 不再 1↔1。slug 不入库(树派生),
+// 没法在 SQL 里按 slug 查 → 取该 parent 的兄弟在 Go 里比 pathSegment。撞 →
+// ErrSiblingSlugTaken。
+func ensureSiblingSlugFree(ctx context.Context, deps CorpusDeps, c siblingSlugCheck) error {
+	slug := pathSegment(c.Title)
+	sibs, err := deps.Wiki.ListChildren(ctx, c.OwnerID, c.ParentID, siblingScanLimit, 0)
+	if err != nil {
+		return fmt.Errorf("list siblings for slug check: %w", err)
+	}
+	for i := range sibs {
+		if sibs[i].ID == c.ExcludeID {
+			continue
+		}
+		if pathSegment(sibs[i].Title) == slug {
+			return domain.ErrSiblingSlugTaken
+		}
+	}
+	return nil
 }
 
 func validatePromoteInput(in *PromoteInput) error {

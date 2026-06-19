@@ -113,10 +113,7 @@ type UpdateWikiInput struct {
 func UpdateWiki(
 	ctx context.Context, deps CorpusDeps, in *UpdateWikiInput,
 ) (domain.Wiki, error) {
-	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
-		return domain.Wiki{}, ErrEmptyField
-	}
-	if err := validateWikiReparent(ctx, deps, in.OwnerID, in.ID, in.ParentID); err != nil {
+	if err := preflightUpdateWiki(ctx, deps, in); err != nil {
 		return domain.Wiki{}, err
 	}
 	wiki, err := deps.Wiki.Update(ctx, &postgres.UpdateWikiInput{
@@ -131,6 +128,21 @@ func UpdateWiki(
 		return domain.Wiki{}, rerr
 	}
 	return wiki, nil
+}
+
+// preflightUpdateWiki —— UpdateWiki 前三道关:必填字段 + reparent 合法(存在/同
+// owner/防环)+ 同 slug 兄弟不撞(改名/改 parent 都可能撞,排除自己)。合一处让
+// UpdateWiki 的 cyclo 不超标。
+func preflightUpdateWiki(ctx context.Context, deps CorpusDeps, in *UpdateWikiInput) error {
+	if hasBlankCorpusField(in.OwnerID, in.ID, in.Title, in.Body) {
+		return ErrEmptyField
+	}
+	if err := validateWikiReparent(ctx, deps, in.OwnerID, in.ID, in.ParentID); err != nil {
+		return err
+	}
+	return ensureSiblingSlugFree(ctx, deps, siblingSlugCheck{
+		OwnerID: in.OwnerID, ParentID: in.ParentID, Title: in.Title, ExcludeID: in.ID,
+	})
 }
 
 // hasBlankCorpusField —— UpdateWiki / UpdateOutput 共用的"必填字段空"检查。
