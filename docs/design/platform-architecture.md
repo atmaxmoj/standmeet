@@ -34,7 +34,7 @@ flowchart TB
   subgraph CORE["CORE = BIG ADAPTER · host · 零能力"]
     direction TB
     loop["corpus · agent loop · AccessCode · PDF · AI provider"]
-    icpt["INTERCEPTOR — ACL · audit · secret-scan<br/>ref: Docker MCP Gateway"]
+    icpt["INTERCEPTOR（call-time）— audit/observe · secret-scan<br/>ACL 不在此：session 建立时发现过滤<br/>ref: Docker MCP Gateway"]
     di["DI CONTAINER + REGISTRY<br/>capability = plugin-scoped · connector = root-scoped<br/>ref: Backstage"]
     subgraph CONN["CONNECTORS · root-scoped · 持凭据代调 · ref: Nango"]
       cal["calendar proxy<br/>holds GCal token"]
@@ -79,11 +79,12 @@ sequenceDiagram
   participant G as Google
 
   V->>Core: 提问
-  Core->>I: ACL — role 授权 calendar.book？
-  Note over I: ✔ 访客层 ACL
+  Note over Core: calendar.book 已在 frozen spec 内<br/>（访客 ACL 在 session 建立时定，没授权根本不在 spec）
+  Core->>I: tools/call calendar.book
+  Note over I: observe/audit + secret-scan（call-time）
   I->>B: tools/call
   B->>DI: requires: calendar？
-  Note over DI: ✔ 插件层 ACL → 注入句柄
+  Note over DI: ✔ 插件层依赖解析 → 注入句柄
   DI-->>B: calendar 句柄（非 token）
   B->>Cal: calendar.create_event(句柄)
   Cal->>G: 解密 owner token · 代调
@@ -99,7 +100,7 @@ sequenceDiagram
 | 能力（inward, 无密） | MCP App（plugin-scoped 插件） | MCP Apps |
 | connector（outward, 持密代调） | root-scoped proxy 服务 | Nango |
 | host 接线（capability ← connector） | DI 容器 + scope | Backstage |
-| 统一关卡（ACL / 审计 / 防泄漏） | interceptor 中间件 | Docker MCP Gateway |
+| call-time 关卡（审计·观察 / 防泄漏；**ACL 不在此 —— session 建立时发现过滤，见 P.11**） | interceptor 中间件 | Docker MCP Gateway |
 | 能力 ↔ 凭据 分离 | piece ↔ connection | Activepieces |
 
 ---
@@ -135,23 +136,30 @@ StandMeet 同时扮演三个角色，凭据方向各不同，别混：
 | **connector（B）** | connectors（calendar/mail）· obsidian · sources | → connector 层（action / sync） |
 | **corpus（C）** | raw · wiki · output · writings · seo | → core 数据（owner 内容仓 + 策展） |
 | **as-MCP-server（D）** | api-mcp · keypair | → 对外 facade（owner 的 Claude Desktop 连进来） |
-| **权限控制器（E）** | roles · codes · prompts · ip-bans/security | → host 横切 controller #1（interceptor 的 **ACL**） |
-| **观察器（F）** | conversations · dashboard · requests · preview · ghost 日志 · activity-ticker | → host 横切 controller #2（interceptor 的 **audit/observe**） |
+| **权限控制器（E）** | roles · codes · prompts · ip-bans/security | → host 横切 controller #1（ACL，**session 建立时的发现/装配过滤**，非 call-time 拦截） |
+| **观察器（F）** | **系统可观测**：system（版本/资源/job/health/指标）· activity-ticker；**会话观测（产品侧）**：conversations · dashboard · requests · preview · ghost 日志 | → host 横切 controller #2 = **系统可观测 → admin/system（#101）**；会话观测属产品/内容侧，**非** host controller |
 | **page 托管（G）** | page · custom-pages · preview | → SDK + 沙箱页托管 |
 | **outbound/job（H）** | applications · drafts · listings · sources | → job-loop 插件 |
 | **account（I）** | account · security | → 账户/认证 |
 
-### 两个横切 controller = 就是那层 interceptor
-host 的 interceptor（架构图里那条）= **权限控制器（ACL）+ 观察器（audit/observe）+ secret-scan**，对**每个插件一视同仁**地套（Docker MCP Gateway 的 `log-calls` / ACL / `block-secrets` 三件套就是这个）。
-- **权限控制器**：roles（prompt + corpus URI glob + skills + mcp_servers）+ codes（quota + assumed_role，snapshot frozen）+ ip-bans。**已全 + 测试扎实**（`iam-role-*` / `admin-codes-*` / `admin-ip-bans`）。
-- **观察器**：所有插件调用经 interceptor 留痕 → 喂 conversations 转录（含 ghost 日志、tool calls、citations）+ dashboard KPI + activity-ticker。**插件化后自动受益**：观察的是 interceptor 这一层，不管 tool 来自哪个插件。surface 都在、有测试；**待补**：activity-ticker 后端实时流仍是 placeholder。
+### 两个横切 controller —— 时机/机制不同，别混成一层 inline interceptor
+host 有两个横切 controller，但它们**作用时机和机制完全不同**，**不是** Docker MCP Gateway 那种「每次 call 都过同一道 inline 中间件」：
+
+- **权限控制器（ACL）—— 作用在 session 建立时，机制是「不被发现」而非「被拦截」。**
+  session/code 建立时 role snapshot 被 frozen（`RoleSnapshot` / `AllowedTools` / corpus_uris / mcp_server_ids）。装配 visitor 工具时（`AssembleVisitor` / `VisitorToolSpecs`），没授权的插件 tool 直接 `ErrHidden` —— **压根不进这个 session 的 tool spec**，访客的 AI 从来没见过它。所以**没有逐次调用再判一道**这回事：判定一次性发生在 **session 边界**。roles（prompt + corpus glob + skills + mcp_servers）+ codes（quota + assumed_role）+ ip-bans。**已全 + 测试扎实**（`iam-role-*` / `admin-codes-*` / `admin-ip-bans`）。
+  （注：call-time 还有一道**插件层**依赖解析 —— `requires: calendar` → 注入 connector 句柄；那是 DI/connector 依赖解析，不是访客 ACL。）
+- **观察器 —— 作用在 call time，是系统可观测面（→ admin/system）。** 每个插件调用经过时吐 telemetry（谁、调了什么、量/延迟/health）→ 喂 **admin/system**（版本/资源/后台 job/health/指标，#101 现在还是硬编码、health 假 OK）+ activity-ticker 实时流。插件化后自动受益：观察的是这一层，不管 tool 来自哪个插件。**待补**：admin/system 接真后端 + activity-ticker 实时流（现 placeholder）。
+- **secret-scan** —— call-time 防泄漏，跟观察器同侧（真正的 inline 中间件）。
+
+→ 只有**观察器 + secret-scan** 才是 Docker MCP Gateway 那种 call-time inline 三件套；**ACL 不是** —— 它是 session 建立时的发现/装配过滤，决定哪些插件 tool 进得了这个 session 的 frozen spec。
+
+> **注意区分**：conversations 转录（ghost 日志 / tool calls / citations）、dashboard KPI 是**产品/内容侧**对「会话里发生了什么」的读，**不是** host 观察器 controller；也**不是**那个已废弃的 observe-and-distill 蒸馏引擎（`observer-deprecated`，方向已死，不碰 corpus、不蒸馏、不写内容）。
 
 ### 归桶有歧义的（Z，记一笔，不阻塞）
-- **system**（版本/资源/后台 job/health）——基础设施 ops，属观察器但自成一类，#101 待接真后端。
-- **seo** —— 设置 + 监控混在一节，可拆（设置归 account、indexing 统计归观察器）。
+- **seo** —— 设置 + 监控混在一节，可拆（设置归 account、indexing 统计归观察器/系统面）。
 - **sources / listings** —— admin 只读，生命周期在 MCP（job-loop 插件）——不对称，要么补 admin CRUD，要么明确"MCP-owned"。
 
-**决策点 P.11：host 有两个横切 controller —— 权限控制器（ACL）+ 观察器（audit/observe），二者即 interceptor 层，统一套在所有插件上。观察器要显式化（含 activity-ticker 实时流后端）。Z 项（system/seo/sources/listings）记为归位歧义，不阻塞主线。**
+**决策点 P.11：host 有两个横切 controller，时机/机制不同 —— ① 权限控制器（ACL）作用在 session 建立时，机制是「不被发现」（`ErrHidden`，不进 frozen spec），非 call-time 拦截；② 观察器作用在 call time，是系统可观测面（→ admin/system，#101）+ activity-ticker 实时流。只有观察器 + secret-scan 是 call-time inline 中间件，ACL 不是。conversations/dashboard 等会话观测归产品/内容侧，不是 host 观察器。Z 项（seo/sources/listings）记为归位歧义，不阻塞主线。**
 
 ---
 
