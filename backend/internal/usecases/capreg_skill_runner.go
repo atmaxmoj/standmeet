@@ -1,9 +1,19 @@
-// capreg_skill_runner.go —— Phase B-3: skillRunnerCapability。
-// owner 在 admin 加的 skill (脚本 + parameter schema) 在 visitor session 装配
-// 时被自动暴露成 LLM tool (skill_<name>_<script>)；执行走 sandbox.Run。
+// capreg_skill_runner.go —— Phase C: skillRunnerCapability（faithful Agent
+// Skills + progressive disclosure）。
 //
-// 一个 capability，多个 tool (= role.SkillIDs 解算的所有 script)。Shape=
-// visitor_only；owner 没必要通过 MCP 调自己的 skill。
+// role 授权且 enabled 的 skill 只把 name+description 进系统提示（L1，见
+// visitor_role_snapshot.collectRoleSkillBundle）。这个 capability 暴露**两个
+// 通用 tool**（替换旧的「每脚本一 tool」eager 模型）：
+//
+//   • skill_use({name})          —— L2：把该 skill render 成标准 SKILL.md
+//                                   （frontmatter name+description + body）回给
+//                                   agent 按需读正文。
+//   • skill_run_script({name,     —— L3：正文引用的脚本经 sandbox.Runner 按需
+//      script,args})                跑，只回 stdout/stderr/exit_code。
+//
+// 一个 capability、两个 tool。role 含 ≥1 enabled skill → enabled；否则 ErrHidden。
+// per-skill ACL 在 tool 内做：name 不在本 session 授权集 → 回错误，绝不披露。
+// Shape=visitor_only；owner 没必要通过 MCP 调自己的 skill。
 
 package usecases
 
@@ -11,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
@@ -20,12 +29,20 @@ import (
 )
 
 const (
-	capSkillRunner  = "skill.runner"
-	skillToolPrefix = "skill_"
-	maxToolNameLen  = 64
+	capSkillRunner     = "skill.runner"
+	toolSkillUse       = "skill_use"
+	toolSkillRunScript = "skill_run_script"
 )
 
-var skillToolNameRe = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+const skillUseSchema = `{"type":"object","properties":{` +
+	`"name":{"type":"string","description":"name of the skill to read"}},` +
+	`"required":["name"]}`
+
+const skillRunScriptSchema = `{"type":"object","properties":{` +
+	`"name":{"type":"string","description":"name of the skill"},` +
+	`"script":{"type":"string","description":"script filename within the skill (e.g. run.sh)"},` +
+	`"args":{"type":"object","description":"arguments passed to the script as JSON"}},` +
+	`"required":["name","script"]}`
 
 // skillRunnerDeps —— 窄依赖(#131):owner skill 目录 + 跑脚本的 sandbox。
 type skillRunnerDeps struct {
@@ -53,9 +70,8 @@ func (*skillRunnerCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 func (*skillRunnerCapability) SystemPromptFragment(
 	_ context.Context, _ *capreg.AssembleInput,
 ) string {
-	// Skill scripts 自带 description (在 tool spec)，prompt fragment 留空避免
-	// 噪声。owner-curated skill prompt 走 ComposeBasePersona 的 SkillPrompts
-	// 通道，不在这里。
+	// L1（name+description）走 ComposeBasePersona 的 SkillPrompts 通道注入，
+	// 不在这里;capability fragment 留空避免重复。
 	return ""
 }
 
@@ -65,18 +81,33 @@ func (*skillRunnerCapability) SystemPromptFragmentID(
 	return ""
 }
 
-// VisitorBinding —— 按 role.SkillIDs 加载 skill scripts，每个 script 绑一个
-// tool；role 没挂 skill → 返 ErrHidden (capability 隐藏)。
-//
-// SkillIDs 含已删除 skill id (race，owner 删 skill 但已颁的 session 还引)
-// → GetByID 返 err，silently skip 该 id。
+// VisitorBinding —— role 含 ≥1 enabled skill → 暴露 skill_use + skill_run_script
+// 两个通用 tool;否则 ErrHidden（capability 隐藏）。
 func (c *skillRunnerCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
 	skills := loadSkillsForBinding(ctx, c.deps.Skills, in)
-	tools := buildSkillTools(c.deps.Sandbox, skills)
-	if len(tools) == 0 {
+	if len(skills) == 0 {
 		return nil, capreg.ErrHidden
+	}
+	tools := []capreg.BindingTool{
+		capreg.NewTool(
+			toolSkillUse,
+			"Read the full SKILL.md instructions of one of the skills listed in your "+
+				"system prompt. Call this when a skill's name/description looks relevant, "+
+				"before acting on it.",
+			"reading skill",
+			json.RawMessage(skillUseSchema),
+			makeSkillUse(skills),
+		),
+		capreg.NewTool(
+			toolSkillRunScript,
+			"Run a bundled script of a skill inside a sandbox and get its stdout/stderr/"+
+				"exit code. Read the skill with skill_use first to learn which scripts it has.",
+			"running skill script",
+			json.RawMessage(skillRunScriptSchema),
+			makeSkillRunScript(c.deps.Sandbox, skills),
+		),
 	}
 	return &capreg.Binding{
 		Tools: tools,
@@ -84,6 +115,8 @@ func (c *skillRunnerCapability) VisitorBinding(
 	}, nil
 }
 
+// loadSkillsForBinding —— 按 snapshot.SkillIDs（已是 enabled-granted）加载 skill
+// 全量（含 body + scripts），供两个 tool 内查 name。已删 skill id（race）→ skip。
 func loadSkillsForBinding(
 	ctx context.Context, skills SkillGetter, in *capreg.AssembleInput,
 ) []domain.Skill {
@@ -102,126 +135,151 @@ func loadSkillsForBinding(
 	return out
 }
 
-func buildSkillTools(runner sandbox.Runner, skills []domain.Skill) []capreg.BindingTool {
-	totalScripts := 0
+// skillsByName —— name → *skill（指针指进 slice，调用期不再改 slice）。
+func skillsByName(skills []domain.Skill) map[string]*domain.Skill {
+	m := make(map[string]*domain.Skill, len(skills))
 	for i := range skills {
-		totalScripts += len(skills[i].Scripts)
+		m[skills[i].Name] = &skills[i]
 	}
-	out := make([]capreg.BindingTool, 0, totalScripts)
-	for i := range skills {
-		out = append(out, skillBindingTools(runner, &skills[i])...)
-	}
-	return out
+	return m
 }
 
-func skillBindingTools(runner sandbox.Runner, s *domain.Skill) []capreg.BindingTool {
-	out := make([]capreg.BindingTool, 0, len(s.Scripts))
-	for j := range s.Scripts {
-		script := &s.Scripts[j]
-		toolName := composeSkillToolName(s.Name, script.Filename)
-		if toolName == "" {
-			continue
+// ─── L2: skill_use ───────────────────────────────────────────────
+
+func makeSkillUse(skills []domain.Skill) capreg.RunFn {
+	byName := skillsByName(skills)
+	return func(_ context.Context, argsJSON string) (string, error) {
+		name, ok := parseSkillName(argsJSON)
+		if !ok {
+			return errJSON("invalid arguments"), nil
 		}
-		out = append(out, capreg.NewTool(
-			toolName,
-			skillToolDescription(s, script),
-			"running owner skill",
-			skillScriptInputSchema(script),
-			makeSkillRun(runner, script),
-		))
+		s, found := byName[name]
+		if !found {
+			return errJSON(fmt.Sprintf("skill %q is not available in this session", name)), nil
+		}
+		return skillUsePayload(s), nil
 	}
-	return out
 }
 
-// composeSkillToolName —— 规范化 skill_<skill>_<script-stem> 给 LLM。
-// 非法字符 (含 `.`) 替成 `_`，超长截到 maxToolNameLen。
-func composeSkillToolName(skillName, filename string) string {
-	stem := strings.TrimSuffix(filename, fileExt(filename))
-	raw := skillToolPrefix + skillName + "_" + stem
-	clean := skillToolNameRe.ReplaceAllString(raw, "_")
-	if len(clean) > maxToolNameLen {
-		clean = clean[:maxToolNameLen]
+// parseSkillName —— 解 {name}（bool 返回避免 nilerr：解析失败不当 Go error，
+// 由 caller 折成 tool-result envelope）。
+func parseSkillName(argsJSON string) (string, bool) {
+	var a struct {
+		Name string `json:"name"`
 	}
-	return clean
+	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
+		return "", false
+	}
+	return a.Name, true
 }
 
-func fileExt(filename string) string {
-	if idx := strings.LastIndex(filename, "."); idx >= 0 {
-		return filename[idx:]
-	}
-	return ""
-}
-
-func skillToolDescription(s *domain.Skill, script *domain.SkillScript) string {
-	if script.Description != "" {
-		return script.Description
-	}
-	return fmt.Sprintf("Run %s script %q (skill %q).", script.Language, script.Filename, s.Name)
-}
-
-func skillScriptInputSchema(script *domain.SkillScript) json.RawMessage {
-	if len(script.Parameters) == 0 {
-		return json.RawMessage(`{"type":"object","properties":{}}`)
-	}
-	schema := buildScriptSchema(script.Parameters)
-	raw, err := json.Marshal(schema)
+func skillUsePayload(s *domain.Skill) string {
+	out, err := json.Marshal(map[string]string{"skill_md": renderSkillMD(s)})
 	if err != nil {
-		return json.RawMessage(`{"type":"object","properties":{}}`)
+		return errJSON("marshal skill failed")
 	}
-	return raw
+	return string(out)
 }
 
-type scriptSchema struct {
-	Type       string                 `json:"type"`
-	Properties map[string]paramSchema `json:"properties"`
-	Required   []string               `json:"required,omitempty"`
+// renderSkillMD —— DB skill row → 标准 Anthropic Agent Skills 的 SKILL.md
+// （YAML frontmatter: name + description；正文 = body；脚本清单附后）。这是
+// P.1e 的「render 成 SKILL.md 喂 runtime」—— DB 仍是管理存储，喂给 agent 的是
+// SKILL.md。
+func renderSkillMD(s *domain.Skill) string {
+	lines := []string{"---", "name: " + s.Name}
+	if d := strings.TrimSpace(s.Description); d != "" {
+		lines = append(lines, "description: "+d)
+	}
+	lines = append(lines, "---", "", strings.TrimSpace(s.Prompt))
+	if scripts := renderSkillScriptsSection(s); scripts != "" {
+		lines = append(lines, "", scripts)
+	}
+	return strings.Join(lines, "\n") + "\n"
 }
 
-type paramSchema struct {
-	Type        string `json:"type"`
-	Description string `json:"description,omitempty"`
-}
-
-func buildScriptSchema(params []domain.SkillScriptParam) scriptSchema {
-	props := make(map[string]paramSchema, len(params))
-	required := make([]string, 0, len(params))
-	for i := range params {
-		p := &params[i]
-		props[p.Name] = scriptParamSchema(p)
-		if p.Required {
-			required = append(required, p.Name)
+// renderSkillScriptsSection —— 正文末尾列出可跑脚本，引导 agent 用
+// skill_run_script(name, script) 调它们（L3）。无脚本则空。
+func renderSkillScriptsSection(s *domain.Skill) string {
+	if len(s.Scripts) == 0 {
+		return ""
+	}
+	lines := []string{
+		"## Scripts",
+		"Run with skill_run_script(name=" + s.Name + ", script=<filename>):",
+	}
+	for i := range s.Scripts {
+		sc := &s.Scripts[i]
+		line := "- `" + sc.Filename + "` (" + sc.Language + ")"
+		if d := strings.TrimSpace(sc.Description); d != "" {
+			line += " — " + d
 		}
+		lines = append(lines, line)
 	}
-	return scriptSchema{Type: "object", Properties: props, Required: required}
+	return strings.Join(lines, "\n")
 }
 
-func scriptParamSchema(p *domain.SkillScriptParam) paramSchema {
-	t := p.Type
-	if t == "" {
-		t = "string"
-	}
-	return paramSchema{Type: t, Description: p.Description}
+// ─── L3: skill_run_script ────────────────────────────────────────
+
+// runScriptArgs —— skill_run_script 的入参。
+type runScriptArgs struct {
+	Name   string          `json:"name"`
+	Script string          `json:"script"`
+	Args   json.RawMessage `json:"args"`
 }
 
-func makeSkillRun(runner sandbox.Runner, script *domain.SkillScript) capreg.RunFn {
-	language := script.Language
-	content := script.Content
-	return func(ctx context.Context, args string) (string, error) {
+// scriptArgsJSON —— 透传给 sandbox 的脚本 args；空 → "{}"。
+func (r *runScriptArgs) scriptArgsJSON() string {
+	s := strings.TrimSpace(string(r.Args))
+	if s == "" {
+		return "{}"
+	}
+	return s
+}
+
+// parseRunScriptArgs —— 解 {name,script,args}（bool 返回避免 nilerr）。
+func parseRunScriptArgs(argsJSON string) (runScriptArgs, bool) {
+	var a runScriptArgs
+	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
+		return runScriptArgs{}, false
+	}
+	return a, true
+}
+
+func makeSkillRunScript(runner sandbox.Runner, skills []domain.Skill) capreg.RunFn {
+	byName := skillsByName(skills)
+	return func(ctx context.Context, argsJSON string) (string, error) {
+		a, ok := parseRunScriptArgs(argsJSON)
+		if !ok {
+			return errJSON("invalid arguments"), nil
+		}
+		s, found := byName[a.Name]
+		if !found {
+			return errJSON(fmt.Sprintf("skill %q is not available in this session", a.Name)), nil
+		}
+		script := findSkillScript(s, a.Script)
+		if script == nil {
+			return errJSON(fmt.Sprintf("skill %q has no script %q", a.Name, a.Script)), nil
+		}
 		result, err := runner.Run(ctx, &sandbox.RunInput{
-			Language: language,
-			Script:   content,
-			ArgsJSON: args,
+			Language: script.Language, Script: script.Content, ArgsJSON: a.scriptArgsJSON(),
 		})
 		return skillRunToToolResult(&result, err)
 	}
 }
 
+func findSkillScript(s *domain.Skill, filename string) *domain.SkillScript {
+	for i := range s.Scripts {
+		if s.Scripts[i].Filename == filename {
+			return &s.Scripts[i]
+		}
+	}
+	return nil
+}
+
 // skillRunToToolResult —— sandbox 错误折成 errJSON 进 tool_result，让 LLM
 // 看到 "tool failed" 而不是 abort agent loop。
 //
-// 故意 nil 让 inference SDK 继续 agent loop 而不 abort 整个 stream。
-//
-//nolint:nilerr // tool-result envelope: err 进 JSON text，Go err return
+//nolint:nilerr // tool-result envelope: err 进 JSON text，Go err return nil
 func skillRunToToolResult(r *sandbox.Result, err error) (string, error) {
 	if err != nil {
 		return errJSON("skill script: " + err.Error()), nil

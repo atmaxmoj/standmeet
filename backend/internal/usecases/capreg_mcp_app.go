@@ -146,11 +146,7 @@ func wrapMCPAppTools(
 }
 
 func composeMCPAppToolName(pluginID, tool string) string {
-	clean := skillToolNameRe.ReplaceAllString(pluginID+"_"+tool, "_")
-	if len(clean) > maxToolNameLen {
-		clean = clean[:maxToolNameLen]
-	}
-	return clean
+	return sanitizeToolName(pluginID + "_" + tool)
 }
 
 func mcpAppToolDescription(pluginID string, t *mcpclient.Tool) string {

@@ -5,8 +5,8 @@
 // 的实际 chat 行为（regression）；这里只验 B-3 引入的契约：
 //   1. role 含 calendar.book skill + connector connected → calendar.book cap
 //      enabled + quota_remaining 算对
-//   2. role 含 owner skills → skill.runner cap enabled，tool_specs 含
-//      skill_<name>_<script>
+//   2. role 含 owner skills → skill.runner cap enabled，tool_specs 含通用的
+//      skill_use + skill_run_script（Phase C：替换 eager 每脚本一 tool）
 //   3. role 含 ext MCP server → ext.mcp cap enabled，tool_specs 含
 //      ext_<server>_<tool>；dial/close 计数对齐 (Close hook 真跑)
 
@@ -79,7 +79,11 @@ test.describe('Phase B-3 bundle capabilities present in visitor-capabilities', (
       expect(skillCap, 'skill.runner must appear').toBeDefined();
       expect(skillCap?.enabled).toBe(true);
       const toolNames = body.tool_specs.map((t) => t.name);
-      expect(toolNames.some((n) => n.startsWith('skill_b3-skill_'))).toBe(true);
+      // Phase C: tool_specs 暴露的是两个**通用** skill 工具,不再是每脚本一 tool。
+      expect(toolNames, 'skill_use generic tool').toContain('skill_use');
+      expect(toolNames, 'skill_run_script generic tool').toContain('skill_run_script');
+      // eager per-script tool 已删,不该再出现。
+      expect(toolNames.some((n) => n.startsWith('skill_b3-skill_'))).toBe(false);
       await request.dispose();
     });
 

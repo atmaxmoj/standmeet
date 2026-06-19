@@ -231,7 +231,7 @@ func makeReadCall(req *MessagesReq) *toolCall {
 func nextSkillOrExtCall(req *MessagesReq) *toolCall {
 	for i := range req.Tools {
 		name := req.Tools[i].Name
-		if !isSkillOrExt(name) {
+		if !isSkillOrExt(name) || isGenericSkillTool(name) {
 			continue
 		}
 		if req.hasToolResult(name) {
@@ -244,6 +244,13 @@ func nextSkillOrExtCall(req *MessagesReq) *toolCall {
 
 func isSkillOrExt(name string) bool {
 	return strings.HasPrefix(name, "skill_") || strings.HasPrefix(name, "ext_")
+}
+
+// isGenericSkillTool —— Phase C 的两个通用 skill 工具(skill_use / skill_run_script)
+// 需要 {name,script,...} 入参,自然路径的空 {} 喂不了 → 不自动调,只能 e2e 用
+// scriptMockToolCall 显式驱动。仍参与 [skill_result:...] echo(isSkillOrExt 不变)。
+func isGenericSkillTool(name string) bool {
+	return name == "skill_use" || name == "skill_run_script"
 }
 
 // composeFinalReply —— echo system prompt + every skill_result body the

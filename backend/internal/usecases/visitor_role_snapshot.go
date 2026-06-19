@@ -60,7 +60,9 @@ func buildRoleSnapshotByID(
 		CorpusURIs:   role.CorpusURIs(),
 		SkillPrompts: skills.Prompts,
 		AllowedTools: skills.Tools,
-		SkillIDs:     role.SkillIDs(),
+		// Phase C: 只冻 enabled 授权 skill 的 id（bundle 已过 enabled），让
+		// disabled skill 既不进 L1，也不被 skill_use/skill_run_script 命中。
+		SkillIDs:     skills.IDs,
 		MCPServerIDs: role.MCPServerIDs(),
 	}), nil
 }
@@ -86,8 +88,9 @@ func loadPromptBody(
 
 // roleSkillBundle —— loadRoleSkills 返回打包，避开 function-result-limit 3-return。
 type roleSkillBundle struct {
-	Prompts []string
+	Prompts []string // Phase C / L1: 每条 = skill 的 name+description（不是正文）
 	Tools   []string
+	IDs     []string // enabled 授权 skill 的 id（snapshot.SkillIDs → skill_use/run）
 }
 
 // loadRoleSkills —— 把 role 挂的 skills 的 prompt 拼一组、allowed_tools 合并
@@ -102,14 +105,18 @@ func loadRoleSkills(
 	return collectRoleSkillBundle(skills), nil
 }
 
-// collectRoleSkillBundle —— skills → (prompts, deduped allowed_tools)。提
-// 出来降 loadRoleSkills 的 cyclo。
+// collectRoleSkillBundle —— ListSkillsForRole 已按 enabled 过滤。Phase C：
+// 系统提示只放 name+description（L1 progressive disclosure），正文要 agent 调
+// skill_use 才披露（L2）；同时收 enabled skill id 冻进 snapshot，让 binding 只
+// 对 enabled 授权 skill 暴露 skill_use/skill_run_script。
 func collectRoleSkillBundle(skills []domain.Skill) roleSkillBundle {
 	prompts := make([]string, 0, len(skills))
+	ids := make([]string, 0, len(skills))
 	toolSet := make(map[string]struct{}, len(skills)*2)
 	for i := range skills {
-		if p := strings.TrimSpace(skills[i].Prompt); p != "" {
-			prompts = append(prompts, p)
+		ids = append(ids, skills[i].ID)
+		if line := skillL1Line(&skills[i]); line != "" {
+			prompts = append(prompts, line)
 		}
 		for _, t := range skills[i].AllowedTools {
 			toolSet[t] = struct{}{}
@@ -119,5 +126,19 @@ func collectRoleSkillBundle(skills []domain.Skill) roleSkillBundle {
 	for t := range toolSet {
 		tools = append(tools, t)
 	}
-	return roleSkillBundle{Prompts: prompts, Tools: tools}
+	return roleSkillBundle{Prompts: prompts, Tools: tools, IDs: ids}
+}
+
+// skillL1Line —— L1 注入系统提示的一行:name + 一句话 description + 提示用
+// skill_use 读正文。引导 agent 在相关时才把正文（L2）拉进上下文。
+func skillL1Line(s *domain.Skill) string {
+	name := strings.TrimSpace(s.Name)
+	if name == "" {
+		return ""
+	}
+	line := fmt.Sprintf("skill %q", name)
+	if d := strings.TrimSpace(s.Description); d != "" {
+		line += ": " + d
+	}
+	return line + fmt.Sprintf(" (call skill_use(name=%q) to read its instructions)", name)
 }

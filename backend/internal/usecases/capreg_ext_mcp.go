@@ -193,12 +193,7 @@ func (b *extMCPBundle) absorb(serverName string, r *dialResult) {
 }
 
 func composeExtToolName(server, tool string) string {
-	raw := extToolPrefix + server + "_" + tool
-	clean := skillToolNameRe.ReplaceAllString(raw, "_")
-	if len(clean) > maxToolNameLen {
-		clean = clean[:maxToolNameLen]
-	}
-	return clean
+	return sanitizeToolName(extToolPrefix + server + "_" + tool)
 }
 
 func extToolDescription(server string, t *mcpclient.Tool) string {

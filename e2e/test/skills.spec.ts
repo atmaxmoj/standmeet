@@ -1,13 +1,16 @@
-// skills.spec.ts —— owner curates an AI skill and attaches it to an invite
-// code; visitor chats with that code and the skill prompt is composed into
-// the AI's system prompt (mock provider echoes the system prompt → assert it
-// contains the skill's marker).
+// skills.spec.ts —— Phase C / L1（progressive disclosure 第一级）：owner 策展
+// 一个 skill 挂到 code；visitor 进 chat 时，**只有 skill 的 name+description
+// 常驻系统提示，正文（body）不进**。mock provider 回显 [system:...] → 断言
+// 里有 description 的 L1 marker，但**没有** body 的 L2 marker（正文要 skill_use
+// 之后才披露，见 skill-progressive-disclosure.spec.ts）。
+//
+// 这是对 eager 模型的替换：以前整段 prompt 全塞进 system prompt（首轮就见
+// body marker）。现在 L1 只放元信息。
 //
 // 业务故事：
-//   alice 在 /admin/skills 加一个叫 "patent-marker" 的 skill (prompt =
-//   "Always begin replies with [SKILL-PATENT-MARKER]"). 切到 /admin/codes
-//   建 PATENT-001 时点选这个 skill。visitor 用 PATENT-001 进入 chat，
-//   mock provider 在回复前面塞 system prompt → 回复里能看到该 marker。
+//   alice 在 /admin/skills 加 "patent-marker"：description 含 [SKILL-L1-DESC]，
+//   正文 prompt 含 [SKILL-L2-BODY]。挂 role → 发 PATENT-001。visitor 进 chat：
+//   系统提示回显里有 L1-DESC、没有 L2-BODY。
 //
 // 还顺便验：
 //   - builtin skills 已 seed（claim 后自动 5 个）
@@ -30,9 +33,14 @@ const OWNER = {
 
 const SKILL = {
   name: 'patent-marker',
-  description: 'A test skill that injects a recognizable marker.',
-  prompt: 'Always begin replies with [SKILL-PATENT-MARKER].',
+  // L1 marker lives in the description → must appear in the system prompt.
+  description: 'Reviews patents [SKILL-L1-DESC].',
+  // L2 marker lives in the body/prompt → must NOT appear at L1, only after skill_use.
+  prompt: 'When reviewing, always note [SKILL-L2-BODY].',
 };
+
+const L1_DESC_MARKER = '[SKILL-L1-DESC]';
+const L2_BODY_MARKER = '[SKILL-L2-BODY]';
 
 const CODE = 'PATENT-001';
 
@@ -101,18 +109,8 @@ test.describe('owner curates AI skills and attaches them to invite codes', () =>
       await expect(page.getByTestId(`code-row-${CODE}`)).toBeVisible({ timeout: 5_000 });
     });
 
-  test('visitor chats with the code; skill prompt is composed into AI system',
-    async ({ request }) => {
-      const sess = await issueSession(request, {
-        handle: OWNER.handle, code: CODE, visitor_name: 'Patent Recruiter',
-      });
-      const res = await sendMessage(request, sess, 'what was the role about?');
-      expect(res.status()).toBe(200);
-      const body = await res.text();
-      // mock provider echoes system prompt as a streamed body line; the skill
-      // prompt fragment must appear in that echo, proving composition worked.
-      expect(body).toContain('SKILL-PATENT-MARKER');
-    });
+  test('L1: visitor system prompt carries skill name+description, NOT the body',
+    async ({ request }) => { await assertL1SystemPrompt(request); });
 
   // #48-2: toggling a skill OFF globally excludes it from the agent even though
   // it's still attached to the role — a fresh session no longer composes it.
@@ -121,6 +119,20 @@ test.describe('owner curates AI skills and attaches them to invite codes', () =>
       await toggleSkillOffAndVerifyExcluded(adminPage, request);
     });
 });
+
+async function assertL1SystemPrompt(request: APIRequestContext): Promise<void> {
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'Patent Recruiter',
+  });
+  const res = await sendMessage(request, sess, 'what was the role about?');
+  expect(res.status()).toBe(200);
+  const body = await res.text();
+  // mock echoes [system:...]; L1 = description present, skill name present,
+  // body (L2) absent until skill_use. 这是 progressive disclosure 的关键断言。
+  expect(body, 'description in system prompt (L1)').toContain(L1_DESC_MARKER);
+  expect(body, 'skill name in system prompt (L1)').toContain(SKILL.name);
+  expect(body, 'body NOT in system prompt (L2 deferred)').not.toContain(L2_BODY_MARKER);
+}
 
 async function toggleSkillOffAndVerifyExcluded(
   page: Page, request: APIRequestContext,
@@ -136,7 +148,8 @@ async function toggleSkillOffAndVerifyExcluded(
   });
   const res = await sendMessage(request, sess, 'what was the role about?');
   expect(res.status()).toBe(200);
-  expect(await res.text()).not.toContain('SKILL-PATENT-MARKER');
+  // disabled → 连 L1 元信息都不进系统提示。
+  expect(await res.text()).not.toContain(L1_DESC_MARKER);
 }
 
 async function openSkills(page: Page): Promise<void> {

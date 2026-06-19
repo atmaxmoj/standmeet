@@ -1,18 +1,16 @@
-// skill-scripts.spec.ts —— owner curates a Skill with a sandbox-executed
-// script; the script becomes an MCP-style tool the visitor-facing AI can
-// call. mock provider exercises it; the chat reply echoes the tool result
-// (因为 mock 模式下 backend echo `[skill_result:...]` block 进 reply 让
-// e2e 可以 assert)。
+// skill-scripts.spec.ts —— Phase C / L3（progressive disclosure 第三级）：
+// skill 正文引用的脚本经 **一个通用 `skill_run_script({name,script,args})`
+// tool** 按需跑 sandbox（docker 隔离），只回 stdout/stderr/exit_code。**替换**
+// 旧的「每个 script 预先暴露成 `skill_<name>_<script>` tool」eager 模型。
 //
 // 业务故事：
-//   alice 在 Claude Desktop 用 skill_create 给自己加一个 "marker-emitter"
-//   skill: 一段 bash 脚本 `echo "[SANDBOX-MARKER]"`。把它绑到 INVITE
-//   MARKER-001；recruiter 在浏览器里跟 AI 聊，AI 调 skill tool，sandbox
-//   docker 隔离运行脚本，stdout=`[SANDBOX-MARKER]`，被打包进 tool_result
-//   返给 AI 再传到 chat reply (mock echoes)。
+//   alice 用 skill_create 加 "marker-emitter"：一段 bash `echo "[SANDBOX-MARKER]"`。
+//   绑到 MARKER-001；recruiter 在浏览器跟 AI 聊，AI 调 **skill_run_script**
+//   （script=run.sh）→ sandbox 跑 → stdout=`[SANDBOX-MARKER]` 打包进 tool_result
+//   → mock 把 [skill_result:...] echo 回 chat reply。
 //
-// UI-driven (G-1)：visitor 真开浏览器去 /?code=...，看到
-// tool-throbber-skill_marker-emitter_run 出现 + chat reply 含 marker。
+// scripted（非自然路径）：skill_run_script 要 {name,script} 入参，自然路径喂不了
+// → 用 scriptMockToolCall 显式驱动。
 
 import { test, expect } from '@/fixtures/test';
 
@@ -20,6 +18,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall, scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import type { APIRequestContext } from '@playwright/test';
 
 const OWNER = {
@@ -51,14 +50,18 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
     await request.dispose();
   });
 
-  test('visitor chat invokes skill script tool → throbber + sandbox stdout in reply',
-    async ({ browser }) => {
-      // 自然 LLM 流程：visitor 输入 -> useAgent 把 tool_specs (含
-      // skill_marker-emitter_run) 一起发 /inference/stream -> mock 的
-      // nextSkillOrExtToolCall 看到 req.Tools 含 skill_* 就调一次 ->
-      // 浏览器接收 tool_call SSE -> dispatch tool -> sandbox 跑 ->
-      // 第二轮 mock 把 [skill_result:...] echo 回 chat。
-      // 不用 scriptMockToolCall —— 本测就是验自然路径。
+  test('L3: AI calls skill_run_script → sandbox runs the script → stdout in reply',
+    async ({ browser, playwright }) => {
+      // scripted：skill_run_script 要 {name,script} 入参 → 显式驱动 mock，
+      // 而不是赌自然路径（通用 tool 拿不到自然路径塞的空 args）。
+      const request = await playwright.request.newContext();
+      await scriptMockToolCall(request, {
+        name: 'skill_run_script',
+        args: { name: SKILL_NAME, script: SCRIPT_FILENAME, args: {} },
+      });
+      await scriptMockReplyText(request, 'ran the marker for you');
+      await request.dispose();
+
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       await enterCodeSession(page, CODE);
@@ -71,9 +74,8 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
       await input.fill('go ahead and run the marker');
       await input.press('Enter');
 
-      // 证据走持久信号:reply 里含 docker sandbox 执行脚本的 stdout marker。
-      // throbber 是单值瞬时态(本地 sandbox 往返快、React batch 掉),不在这赌;
-      // 生命周期由 visitor-chat-throbber-* 专门验。
+      // 持久信号:reply 里含 docker sandbox 跑脚本的 stdout marker，经
+      // skill_run_script 的 [skill_result:...] echo 回来。
       await expect(page.locator('[data-testid="answer-body"]'))
         .toContainText(MARKER, { timeout: 20_000 });
 
