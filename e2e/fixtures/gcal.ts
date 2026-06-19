@@ -135,6 +135,15 @@ export async function setMockBusy(
   if (res.status() !== 200) throw new Error(`mock set_busy: ${res.status()}`);
 }
 
+/** Make the mock OAuth token endpoint reject the next refresh with
+ *  invalid_grant — simulates the owner revoking calendar access at Google.
+ *  The backend should map this to a revoked connector and degrade
+ *  gracefully (Phase B: friendly error, not a crash). */
+export async function revokeMockGCalToken(request: APIRequestContext): Promise<void> {
+  const res = await request.post(`${MOCK}/__mock/gcal/revoke`);
+  if (res.status() !== 200) throw new Error(`mock gcal revoke: ${res.status()}`);
+}
+
 /** Reset all GCal mock state (busy fixture + recorded events). */
 export async function resetMockGCal(request: APIRequestContext): Promise<void> {
   const res = await request.post(`${MOCK}/__mock/gcal/reset`);

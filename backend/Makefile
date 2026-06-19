@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo no-nil-container build-check secrets golangci-config escape-lint connector-boundary
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container arch build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container arch connector-boundary build-check golangci escape-lint secrets
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -45,6 +45,12 @@ no-nil-container:
 # go-arch-lint enforces the DDD layer arrows (.go-arch-lint.yml).
 arch:
 	@"$$(go env GOPATH)/bin/go-arch-lint" check
+
+# Phase B structural gate: outbound connector clients (gcal/mailer) may only
+# be reached through the connector layer — credentials never leave the vault
+# into capability/usecases code. Red until the connector proxy lands.
+connector-boundary:
+	@bash scripts/check-connector-boundary.sh
 
 # Catch compile errors at lint time.
 build-check:

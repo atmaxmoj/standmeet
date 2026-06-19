@@ -1,0 +1,62 @@
+// capability-panel-lists-all.spec.ts —— Phase H / P.5：能力面板列**全部**
+// capability + connector + skill，每行透出 origin 徽章（builtin/managed/owner）。
+// 锁 ListByOrigin 透到前端 + 三种 kind 都在一张表里。
+
+import { test, expect } from '@/fixtures/test';
+
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { callTool, initMCP } from '@/fixtures/mcp';
+import { listCapabilities } from '@/fixtures/capabilities';
+
+const OWNER = {
+  email: 'cap-list@example.com', password: 'correct-horse-battery-staple',
+  handle: 'caplist', fullName: 'Cap List Owner',
+};
+
+let csrf = '';
+
+test.describe('Phase H · capability panel lists all kinds with origin badge (P.5)', () => {
+  test.beforeAll(async ({ playwright }) => {
+    resetInstance();
+    const request = await playwright.request.newContext();
+    await claim(request, findSetupToken(), {
+      email: OWNER.email, password: OWNER.password,
+      handle: OWNER.handle, fullName: OWNER.fullName,
+    });
+    ({ csrf } = await loginAPI(request, OWNER.email, OWNER.password));
+    // owner-authored skill → an owner-origin skill row.
+    const token = await createAPIToken(request, csrf, 'cap-list-seed');
+    const sid = await initMCP(request, token);
+    await callTool(request, token, sid, 'skill_create', {
+      name: 'owner-skill', description: 'an owner skill', prompt: 'do the thing',
+    });
+    await request.dispose();
+  });
+
+  test('panel includes a builtin capability, a connector, and an owner skill — each with origin',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const rows = await listCapabilities(request, csrf);
+
+      // builtin capability (corpus.retrieval ships with the product).
+      const builtin = rows.find((c) => c.id === 'corpus.retrieval');
+      expect(builtin, 'builtin capability listed').toBeDefined();
+      expect(builtin?.kind).toBe('capability');
+      expect(builtin?.origin).toBe('builtin');
+
+      // a connector row (google calendar) — kind connector.
+      const connector = rows.find((c) => c.kind === 'connector');
+      expect(connector, 'a connector listed').toBeDefined();
+
+      // an owner-authored skill — kind skill, origin owner.
+      const skill = rows.find((c) => c.kind === 'skill' && c.origin === 'owner');
+      expect(skill, 'owner skill listed').toBeDefined();
+
+      // every row carries one of the three origins.
+      for (const r of rows) {
+        expect(['builtin', 'managed', 'owner'], `origin on ${r.id}`).toContain(r.origin);
+      }
+      await request.dispose();
+    });
+});
