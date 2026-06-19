@@ -165,6 +165,12 @@ func calendarProxy(d *runtimeDeps) *connector.CalendarProxy {
 	)
 }
 
+// mailProxy —— composition root 装配 usecases.MailProxy。postgres.MailRepo 直接
+// 满足 connector.MailVault（GetConnector 同签名）。
+func mailProxy(d *runtimeDeps) *connector.MailProxy {
+	return connector.NewMailProxy(d.mailRepo)
+}
+
 // E-14c addition: DeleteEvent pass-through for cancel_booking path.
 func (a calendarClientAdapter) DeleteEvent(
 	ctx context.Context, in *gcal.DeleteEventInput,

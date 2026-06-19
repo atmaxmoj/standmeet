@@ -11,7 +11,6 @@ import (
 	"net/mail"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/mailer"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -22,11 +21,13 @@ var (
 	ErrBookingConfirmationSent = errors.New("booking confirmation: already sent")
 )
 
-// BookingConfirmDeps —— 只装这段 usecase 真用的三样(窄依赖,不胖 VisitorDeps)。
+// BookingConfirmDeps —— 只装这段 usecase 真用的(窄依赖,不胖 VisitorDeps)。
+// Proxy = 出站发信(连接器代调，凭据不出 vault；未配 → ErrMailNotConfigured)。
 type BookingConfirmDeps struct {
 	Calendar ConfirmationCalendar // 查这笔 booking + 标记已发
-	Mail     *postgres.MailRepo   // owner mail connector
-	Owners   *postgres.OwnerRepo  // owner tz/名字 + connector 复用
+	Owners   *postgres.OwnerRepo  // owner tz/名字
+	Proxy    MailProxy            // owner SMTP 发信（连接器代调）
+	Mail     *postgres.MailRepo   // 只读 connector 状态（can-email gate）
 }
 
 // ConfirmationCalendar —— SendBookingConfirmation 只用 calendar 的两样:定位该对话
@@ -104,18 +105,14 @@ func deliverConfirmation(
 	ctx context.Context, deps BookingConfirmDeps,
 	booking *domain.CodeBooking, to, tz string,
 ) error {
-	conn, cerr := loadConfiguredConnector(ctx,
-		MailDeps{Mail: deps.Mail, Owners: deps.Owners}, booking.OwnerID)
-	if cerr != nil {
-		return cerr // ErrMailNotConfigured 等(同包 usecases,直接传)
-	}
 	owner, oerr := deps.Owners.GetByID(ctx, booking.OwnerID)
 	if oerr != nil {
 		return fmt.Errorf("get owner: %w", oerr)
 	}
 	msg := buildConfirmationEmail(booking, &owner, tz)
-	if serr := mailer.Compose(connectorConfig(&conn)).
-		To(to).Subject(msg.Subject).Body(msg.Body).HTML(msg.HTML).Send(); serr != nil {
+	msg.To = to
+	if serr := deps.Proxy.Send(ctx, booking.OwnerID, msg); serr != nil {
+		// 未配 connector → proxy 返 ErrMailNotConfigured（%w 保留给 route 翻译）。
 		return fmt.Errorf("send booking confirmation: %w", serr)
 	}
 	if merr := deps.Calendar.MarkBookingConfirmed(ctx, booking.ID); merr != nil {

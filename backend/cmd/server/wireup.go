@@ -97,7 +97,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Mail: adminroutes.MailAdminDeps{Repo: d.mailRepo, Owners: d.ownerRepo},
 		ApproveRequests: usecases.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-			Owners: d.ownerRepo, Mail: d.mailRepo,
+			Owners: d.ownerRepo, Mail: d.mailRepo, Proxy: mailProxy(d),
 		},
 		Sessions:     d.sessionStore,
 		SecureCookie: d.secureCookie,
@@ -207,7 +207,7 @@ func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
 		Reports:    d.chatReportRepo,
 		Resolver:   d.providerResolver,
 		Notify: usecases.OwnerNotifyDeps{
-			Mail: d.mailRepo, Owners: d.ownerRepo, Roles: d.roleRepo,
+			Owners: d.ownerRepo, Roles: d.roleRepo, Proxy: mailProxy(d),
 		},
 	}
 }
@@ -225,6 +225,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		},
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
+			Proxy: mailProxy(d),
 		},
 		Cancel: usecases.VisitorCancelDeps{
 			Proxy: calendarProxy(d),

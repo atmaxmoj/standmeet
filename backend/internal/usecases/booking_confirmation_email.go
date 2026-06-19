@@ -16,16 +16,16 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/mailer"
 )
 
 // buildConfirmationEmail —— owner 口吻模板。时间按访客 tz(tz)渲,缺省退 owner tz。
+// To 由 caller 填(挑好的收件人)。
 func buildConfirmationEmail(
 	b *domain.CodeBooking, owner *domain.Owner, tz string,
-) mailer.Message {
+) MailMessage {
 	loc := confirmationLocation(tz, owner.ProfileTimezone)
 	when := b.StartAt.In(loc).Format("Monday, Jan 2, 2006 · 3:04 PM MST")
-	return mailer.Message{
+	return MailMessage{
 		Subject: "Confirmed: " + b.Summary,
 		Body:    confirmationText(b, owner, when),
 		HTML:    confirmationHTML(b, owner, when, loc),

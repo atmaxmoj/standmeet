@@ -1,7 +1,7 @@
 // mail_otp.go —— 出站 SMTP connector 的「真 OTP」验证。老 test 只发探针信、SMTP
 // 不报错就标 connected —— 不证明 owner 真控制收件箱。改成:SendMailOTP 真发一封
 // 6 位码到 from_address;VerifyMailOTP 只有码对才标 connected,错满 MailOTPMaxAttempts
-// 次即作废。码只存 sha256,明文只进邮件。
+// 次即作废。码只存 sha256,明文只进邮件。发信走 MailProxy(凭据不出 vault)。
 
 package usecases
 
@@ -12,8 +12,16 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/mailer"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
+
+// MailDeps —— mail connector OTP / 状态管理依赖。Proxy = 出站发信(连接器代调，
+// SMTP 凭据不出 vault);Mail = OTP/connector 状态读写;Owners = 收件人(owner 邮箱)。
+type MailDeps struct {
+	Mail   *postgres.MailRepo
+	Owners *postgres.OwnerRepo
+	Proxy  MailProxy
+}
 
 var (
 	// ErrMailOTPNone —— 没有待验 OTP(没发过 / 已过期 / 已用)。
@@ -36,8 +44,7 @@ func (e *MailOTPMismatchError) Error() string {
 // SendMailOTP —— 生成 6 位 OTP,存其 sha256+过期,从 from_address 发到 owner 自己的
 // 邮箱(验证 owner 控制该邮箱 + SMTP 真能发)。不标 connected。
 func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
-	conn, err := loadConfiguredConnector(ctx, deps, ownerID)
-	if err != nil {
+	if _, err := loadConfiguredConnector(ctx, deps, ownerID); err != nil {
 		return err
 	}
 	owner, oerr := deps.Owners.GetByID(ctx, ownerID)
@@ -52,10 +59,11 @@ func SendMailOTP(ctx context.Context, deps MailDeps, ownerID string) error {
 		time.Now().Add(domain.MailOTPTTL)); serr != nil {
 		return fmt.Errorf("set mail otp: %w", serr)
 	}
-	return sendOTPEmail(&conn, owner.Email, code)
+	return sendOTPEmail(ctx, deps, ownerID, owner.Email, code)
 }
 
-// loadConfiguredConnector —— 取 connector 并确认已填凭据(没填 → ErrMailNotConfigured)。
+// loadConfiguredConnector —— 取 connector 并确认已填凭据(没填 → ErrMailNotConfigured)
+// + 冷却窗校验。返 conn 供 caller 读字段(发信走 proxy，不直接用 conn 凭据)。
 func loadConfiguredConnector(
 	ctx context.Context, deps MailDeps, ownerID string,
 ) (domain.MailConnector, error) {
@@ -72,19 +80,18 @@ func loadConfiguredConnector(
 	return conn, nil
 }
 
-// sendOTPEmail —— From = connector 的 from_address(合法发件人),To = owner 邮箱。
+// sendOTPEmail —— To = owner 邮箱;From = connector from_address(由 proxy 内置)。
 // 发 HTML(StandMeet 风格)+ 纯文本兜底。
-func sendOTPEmail(conn *domain.MailConnector, toEmail, code string) error {
+func sendOTPEmail(ctx context.Context, deps MailDeps, ownerID, toEmail, code string) error {
 	mins := int(domain.MailOTPTTL.Minutes())
-	err := mailer.Compose(connectorConfig(conn)).
-		To(toEmail).
-		Subject("StandMeet email verification code").
-		Body(fmt.Sprintf("Your StandMeet verification code is %s\n\nEnter it under "+
+	if err := deps.Proxy.Send(ctx, ownerID, MailMessage{
+		To:      toEmail,
+		Subject: "StandMeet email verification code",
+		Body: fmt.Sprintf("Your StandMeet verification code is %s\n\nEnter it under "+
 			"admin → Connectors to verify outbound email. It expires in %d minutes.",
-			code, mins)).
-		HTML(otpEmailHTML(code, mins)).
-		Send()
-	if err != nil {
+			code, mins),
+		HTML: otpEmailHTML(code, mins),
+	}); err != nil {
 		return fmt.Errorf("send otp email: %w", err)
 	}
 	return nil

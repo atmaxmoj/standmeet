@@ -1,7 +1,7 @@
-// mail.go —— 出站 mail connector 的业务逻辑:test send(验凭据 + 标 connected)
-// 和 approve 闭环(批准 gate 请求 → issue AccessCode → 邮件发 requester)。
+// mail.go —— 出站 mail connector 的业务逻辑:approve 闭环(批准 gate 请求 →
+// issue AccessCode → 邮件发 requester)。
 //
-// 发信走 internal/mailer(std net/smtp,owner 自带 SMTP)。approve 复用 codes /
+// 发信走 MailProxy(连接器代调，SMTP 凭据不出 vault)。approve 复用 codes /
 // roles / owners repo,跟 job-loop 的 applications.commit 自动发码同范式。
 
 package usecases
@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/mailer"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -50,19 +49,15 @@ func OwnerCanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string
 	return conn.Connected()
 }
 
-// MailDeps —— mail connector test send 依赖。
-type MailDeps struct {
-	Mail   *postgres.MailRepo
-	Owners *postgres.OwnerRepo
-}
-
 // ApproveRequestDeps —— approve 闭环依赖(跨 mail / requests / codes / roles / owners)。
+// Proxy = 出站发信(连接器代调，凭据不出 vault)；Mail = 连接器状态读(Connected 预检)。
 type ApproveRequestDeps struct {
 	Reqs   *postgres.AccessRequestRepo
 	Codes  *postgres.CodeRepo
 	Roles  *postgres.RoleRepo
 	Owners *postgres.OwnerRepo
 	Mail   *postgres.MailRepo
+	Proxy  MailProxy
 }
 
 // ApproveResult —— 发码闭环结果(回 admin UI 展示)。
@@ -81,9 +76,7 @@ func ApproveAccessRequest(
 	if err != nil {
 		return ApproveResult{}, err
 	}
-	if serr := mailer.Compose(connectorConfig(&prep.conn)).
-		To(prep.msg.ToAddress).Subject(prep.msg.Subject).Body(prep.msg.Body).
-		Send(); serr != nil {
+	if serr := deps.Proxy.Send(ctx, ownerID, prep.msg); serr != nil {
 		return ApproveResult{}, fmt.Errorf("send approval email: %w", serr)
 	}
 	if _, uerr := deps.Reqs.UpdateStatus(ctx, ownerID, requestID, "replied"); uerr != nil {
@@ -93,10 +86,9 @@ func ApproveAccessRequest(
 }
 
 type approvalPrep struct {
-	msg  mailer.Message
+	msg  MailMessage
 	code string
 	link string
-	conn domain.MailConnector
 }
 
 func prepareApproval(
@@ -112,7 +104,7 @@ func prepareApproval(
 	}
 	link := buildCodeLink(c.owner.PublicURL, code)
 	return approvalPrep{
-		conn: c.conn, code: code, link: link,
+		code: code, link: link,
 		msg: buildApprovalEmail(&c.req, code, link),
 	}, nil
 }
@@ -120,7 +112,6 @@ func prepareApproval(
 type approvalContext struct {
 	req   domain.AccessRequest
 	owner domain.Owner
-	conn  domain.MailConnector
 }
 
 func loadApprovalContext(
@@ -141,7 +132,7 @@ func loadApprovalContext(
 	if oerr != nil {
 		return approvalContext{}, fmt.Errorf("get owner: %w", oerr)
 	}
-	return approvalContext{conn: conn, req: req, owner: owner}, nil
+	return approvalContext{req: req, owner: owner}, nil
 }
 
 func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID string) (string, error) {
@@ -180,15 +171,7 @@ func buildCodeLink(publicURL, code string) string {
 	return strings.TrimRight(publicURL, "/") + "?code=" + code
 }
 
-func connectorConfig(c *domain.MailConnector) *mailer.Config {
-	return &mailer.Config{
-		Host: c.Host, Port: c.Port,
-		Username: c.Username, Password: c.Password,
-		FromAddress: c.FromAddress, FromName: c.FromName,
-	}
-}
-
-func buildApprovalEmail(req *domain.AccessRequest, code, link string) mailer.Message {
+func buildApprovalEmail(req *domain.AccessRequest, code, link string) MailMessage {
 	greeting := "Hi there,"
 	if req.Name != "" {
 		greeting = "Hi " + req.Name + ","
@@ -199,10 +182,9 @@ func buildApprovalEmail(req *domain.AccessRequest, code, link string) mailer.Mes
 		"Open this link to start the conversation (the code is already filled in):\n\n" +
 		"    " + link + "\n\n" +
 		"Sent via StandMeet."
-	return mailer.Message{
-		ToAddress: req.Email,
-		ToName:    req.Name,
-		Subject:   "Your access request has been approved",
-		Body:      body,
+	return MailMessage{
+		To:      req.Email,
+		Subject: "Your access request has been approved",
+		Body:    body,
 	}
 }

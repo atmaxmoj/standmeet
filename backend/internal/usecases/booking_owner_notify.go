@@ -1,7 +1,7 @@
 // booking_owner_notify.go —— #130: per-role「约成通知 owner」。访客在某 role 下约成
 // 后,若该 role 开了开关,给 **owner 自己** 发一封 owner 视角的通知邮件(区别于 #122
 // 发给访客的确认信)。AI 不参与:booking commit 后确定性触发,best-effort —— role 关 /
-// 没配 mail connector → 静默跳过,绝不挡 booking。
+// 没配 mail connector → 静默跳过,绝不挡 booking。发信走 MailProxy(凭据不出 vault)。
 
 package usecases
 
@@ -12,15 +12,14 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/mailer"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
-// OwnerNotifyDeps —— 窄依赖:role 开关(实时读)+ owner mail。
+// OwnerNotifyDeps —— 窄依赖:role 开关(实时读)+ owner 查询 + 出站发信 proxy。
 type OwnerNotifyDeps struct {
-	Mail   *postgres.MailRepo
 	Owners *postgres.OwnerRepo
 	Roles  *postgres.RoleRepo
+	Proxy  MailProxy
 }
 
 // NotifyOwnerOfBookingInput —— OwnerID/RoleID 来自 session(RoleSnapshot);其余来自
@@ -62,26 +61,21 @@ func ownerWantsBookingNotify(
 	return on, nil
 }
 
-// sendOwnerNotify —— 走 owner SMTP 发 owner 视角的通知。没配 connector → best-effort
-// 跳过(不报错)。
+// sendOwnerNotify —— 走 owner SMTP(proxy)发 owner 视角通知。没配 connector →
+// proxy 返 ErrMailNotConfigured → best-effort 跳过(不报错,不挡 booking)。
 func sendOwnerNotify(
 	ctx context.Context, deps OwnerNotifyDeps, in *NotifyOwnerOfBookingInput,
 ) error {
-	conn, cerr := loadConfiguredConnector(ctx,
-		MailDeps{Mail: deps.Mail, Owners: deps.Owners}, in.OwnerID)
-	if cerr != nil {
-		if errors.Is(cerr, ErrMailNotConfigured) {
-			return nil // 没配 connector → 发不了,跳过
-		}
-		return cerr
-	}
 	owner, oerr := deps.Owners.GetByID(ctx, in.OwnerID)
 	if oerr != nil {
 		return fmt.Errorf("get owner: %w", oerr)
 	}
 	msg := buildOwnerNotifyEmail(in, &owner)
-	if serr := mailer.Compose(connectorConfig(&conn)).
-		To(owner.Email).Subject(msg.Subject).Body(msg.Body).Send(); serr != nil {
+	msg.To = owner.Email
+	if serr := deps.Proxy.Send(ctx, in.OwnerID, msg); serr != nil {
+		if errors.Is(serr, ErrMailNotConfigured) {
+			return nil // 没配 connector → 发不了,跳过
+		}
 		return fmt.Errorf("send owner notify: %w", serr)
 	}
 	return nil
@@ -90,7 +84,7 @@ func sendOwnerNotify(
 // buildOwnerNotifyEmail —— owner 视角:谁在什么时候约了什么。时间按 owner 自己的 tz 渲。
 func buildOwnerNotifyEmail(
 	in *NotifyOwnerOfBookingInput, owner *domain.Owner,
-) mailer.Message {
+) MailMessage {
 	loc := confirmationLocation("", owner.ProfileTimezone) // owner tz,缺省退 UTC
 	when := in.StartAt.In(loc).Format("Monday, Jan 2, 2006 · 3:04 PM MST")
 	who := in.VisitorName
@@ -99,5 +93,5 @@ func buildOwnerNotifyEmail(
 	}
 	body := fmt.Sprintf("New booking on your calendar:\n\n  %s\n  with %s\n  %s\n",
 		in.Topic, who, when)
-	return mailer.Message{Subject: "New booking: " + in.Topic, Body: body}
+	return MailMessage{Subject: "New booking: " + in.Topic, Body: body}
 }

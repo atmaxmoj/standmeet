@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -138,6 +139,7 @@ func (h *Handlers) sendMailOTP() http.HandlerFunc {
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		err := usecases.SendMailOTP(r.Context(), usecases.MailDeps{
 			Mail: h.MailAdmin.Repo, Owners: h.MailAdmin.Owners,
+			Proxy: connector.NewMailProxy(h.MailAdmin.Repo),
 		}, ownerID)
 		if err != nil {
 			handleMailOTPSendErr(h.Log, w, err)
