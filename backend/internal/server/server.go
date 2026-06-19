@@ -85,6 +85,7 @@ type AdminDeps struct {
 	Marketplace     usecases.MarketplaceDeps
 	Calendar        adminroutes.CalendarAdminDeps
 	Mail            adminroutes.MailAdminDeps
+	Capabilities    adminroutes.CapabilityAdminDeps
 	ApproveRequests usecases.ApproveRequestDeps
 	Sessions        *session.OwnerSessionStore
 	SecureCookie    bool
@@ -181,12 +182,13 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 				Assets: deps.Admin.Assets,
 			},
 		},
-		MarketplaceAdmin: adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
-		CalendarAdmin:    deps.Admin.Calendar,
-		MailAdmin:        deps.Admin.Mail,
-		IPBansAdmin:      adminroutes.IPBansAdminDeps{Repo: deps.BannedIPs},
-		Log:              deps.Log,
-		SecureCookie:     deps.Admin.SecureCookie,
+		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
+		CalendarAdmin:     deps.Admin.Calendar,
+		MailAdmin:         deps.Admin.Mail,
+		CapabilitiesAdmin: deps.Admin.Capabilities,
+		IPBansAdmin:       adminroutes.IPBansAdminDeps{Repo: deps.BannedIPs},
+		Log:               deps.Log,
+		SecureCookie:      deps.Admin.SecureCookie,
 	}
 }
 

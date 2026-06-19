@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
@@ -97,6 +98,10 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Auth: connector.NewCalendarAuth(d.gcalClient), Redis: d.rdb,
 		},
 		Mail: adminroutes.MailAdminDeps{Repo: d.mailRepo, Owners: d.ownerRepo},
+		Capabilities: adminroutes.CapabilityAdminDeps{
+			Registry: d.agentSkills, Settings: d.capabilityRepo,
+			Skills: d.skillRepo, Calendar: d.calendarRepo, Mail: d.mailRepo,
+		},
 		ApproveRequests: usecases.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
 			Owners: d.ownerRepo, Mail: d.mailRepo, Proxy: mailProxy(d),
@@ -174,6 +179,21 @@ func registerAgentSkills(d *runtimeDeps) {
 	// capreg.Registry，互不重 ID。
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
 	registerDiscoveredPlugins(d)
+	wireCapabilityEnableGate(d)
+}
+
+// wireCapabilityEnableGate —— Phase H: 把 owner-enable 闸接到 registry。访客
+// 装配时 registry 据此把 owner 关掉的 capability 摘掉。DB 错 → fail-open
+// (返 nil = 全开)，保 availability，不让一次读失败把所有能力都拦了。
+func wireCapabilityEnableGate(d *runtimeDeps) {
+	d.agentSkills.SetEnableGate(func(ctx context.Context, ownerID string) map[string]bool {
+		disabled, err := d.capabilityRepo.DisabledSet(ctx, ownerID)
+		if err != nil {
+			d.log.Warn("capability enable-gate load", "err", err, "owner", ownerID)
+			return nil
+		}
+		return disabled
+	})
 }
 
 // registerDiscoveredPlugins —— 从 STANDMEET_PLUGINS 配置(装机声明)发现外部 MCP

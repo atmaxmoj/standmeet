@@ -18,21 +18,34 @@ import (
 	"sync"
 )
 
+// EnableGate —— 注入式 owner-enable 解析器：给 ownerID 返回该 owner **关掉**
+// 的 capability ID 集合（P.6 的 owner_enabled 闸）。nil = 没装 gate（eval /
+// 单测 → 全开）。实现自己吞 DB 错（错 → 返空，fail-open 到全开，保 availability）。
+type EnableGate func(ctx context.Context, ownerID string) map[string]bool
+
 // Registry —— Capability 注册口。Register 撞 ID 返错；boot 期用
 // MustRegister 让启动失败比运行时漏注册好。
 type Registry struct {
-	seen map[string]bool
-	caps []Capability
-	mu   sync.RWMutex
+	seen   map[string]bool
+	origin map[string]Origin
+	gate   EnableGate
+	caps   []Capability
+	mu     sync.RWMutex
 }
 
 // NewRegistry —— 新建空 Registry。
 func NewRegistry() *Registry {
-	return &Registry{seen: map[string]bool{}}
+	return &Registry{seen: map[string]bool{}, origin: map[string]Origin{}}
 }
 
-// Register —— 注册一个 capability。ID 撞名 / 空 ID 返错。
+// Register —— 注册一个 builtin-origin capability。ID 撞名 / 空 ID 返错。
 func (r *Registry) Register(c Capability) error {
+	return r.RegisterOrigin(c, OriginBuiltin)
+}
+
+// RegisterOrigin —— 带 Origin 注册（插件 managed / owner-authored owner）。
+// ID 撞名 / 空 ID 返错；撞名时 first-wins，已注册的不被影子覆盖（P.5 guard）。
+func (r *Registry) RegisterOrigin(c Capability, origin Origin) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	id := c.ID()
@@ -43,8 +56,38 @@ func (r *Registry) Register(c Capability) error {
 		return fmt.Errorf("capreg: duplicate capability ID %q", id)
 	}
 	r.seen[id] = true
+	r.origin[id] = origin
 	r.caps = append(r.caps, c)
 	return nil
+}
+
+// SetEnableGate —— composition root 注入 owner-enable 解析器（backed by
+// capability_settings repo）。boot 期一次性设；nil-safe（没设 → 全开）。
+func (r *Registry) SetEnableGate(g EnableGate) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.gate = g
+}
+
+// OriginOf —— 某 capability 的来源；未注册返 ("", false)。
+func (r *Registry) OriginOf(id string) (Origin, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	o, ok := r.origin[id]
+	return o, ok
+}
+
+// ListByOrigin —— 注册顺序返回某 origin 的 capability 子集（P.5 迁移计数器）。
+func (r *Registry) ListByOrigin(origin Origin) []Capability {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]Capability, 0, len(r.caps))
+	for _, c := range r.caps {
+		if r.origin[c.ID()] == origin {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // MustRegister —— Register 失败 panic（boot 期使用，启动失败比运行时漏
@@ -67,11 +110,11 @@ func (r *Registry) List() []Capability {
 // AssembleVisitor —— 给定 session 装配该 session 可见的 binding 集合。
 // ErrHidden = capability 主动隐藏 (干净路径，silently skip)；其他错误也
 // silently skip (装配失败不阻塞 chat)；都返非 nil binding 才进结果。
-// 返回顺序与 Register 顺序一致。
+// 返回顺序与 Register 顺序一致。owner 关掉的 capability 不参与装配。
 func (r *Registry) AssembleVisitor(
 	ctx context.Context, in *AssembleInput,
 ) []*Binding {
-	caps := r.List()
+	caps := r.enabledCaps(ctx, in)
 	out := make([]*Binding, 0, len(caps))
 	for _, c := range caps {
 		b, err := c.VisitorBinding(ctx, in)
@@ -89,7 +132,7 @@ func (r *Registry) AssembleVisitor(
 func (r *Registry) VisitorStates(
 	ctx context.Context, in *AssembleInput,
 ) []CapabilityState {
-	caps := r.List()
+	caps := r.enabledCaps(ctx, in)
 	out := make([]CapabilityState, 0, len(caps))
 	for _, c := range caps {
 		if state, ok := visitorStateFor(ctx, c, in); ok {
@@ -202,7 +245,7 @@ func (r *Registry) VisitorPromptPartIDs(
 	caps := r.List()
 	out := make([]string, 0, 1+len(caps))
 	out = append(out, VisitorHeaderFragmentID)
-	for _, c := range caps {
+	for _, c := range r.enabledCaps(ctx, in) {
 		if id := c.SystemPromptFragmentID(ctx, in); id != "" {
 			out = append(out, id)
 		}
@@ -220,4 +263,34 @@ func (r *Registry) OwnerMCPBindings() []*MCPBinding {
 		out = append(out, c.OwnerMCPBindings()...)
 	}
 	return out
+}
+
+// enabledCaps —— List() 去掉本 owner 关掉的（owner_enabled 闸，P.6）。所有
+// visitor-facing walk（AssembleVisitor / VisitorStates / VisitorPromptPartIDs /
+// ComposeSystemPrompt）都经它 —— owner-disable 成为单点闸，对 builtin 也生效。
+func (r *Registry) enabledCaps(ctx context.Context, in *AssembleInput) []Capability {
+	caps := r.List()
+	disabled := r.disabledSet(ctx, in)
+	if len(disabled) == 0 {
+		return caps
+	}
+	out := make([]Capability, 0, len(caps))
+	for _, c := range caps {
+		if !disabled[c.ID()] {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// disabledSet —— 本 owner 被关掉的 capability ID 集合（经注入的 EnableGate）。
+// 没装 gate / 无 owner 上下文 → nil（全开）。
+func (r *Registry) disabledSet(ctx context.Context, in *AssembleInput) map[string]bool {
+	r.mu.RLock()
+	gate := r.gate
+	r.mu.RUnlock()
+	if gate == nil || in == nil || in.OwnerID == "" {
+		return nil
+	}
+	return gate(ctx, in.OwnerID)
 }

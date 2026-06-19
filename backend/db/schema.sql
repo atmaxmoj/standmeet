@@ -754,6 +754,20 @@ CREATE TABLE owner_booking_policy (
     updated_at          timestamptz   NOT NULL DEFAULT now()
 );
 
+-- capability_settings —— Phase H / P.6+P.7: per-(owner, capability) 的 owner-enable
+-- 开关。只存「被 owner 显式关掉」的偏好；没有行 = 默认开（builtin 出厂即可见）。
+-- capability_id 是 registry 的 dotted ID（corpus.retrieval / calendar.book / …）或
+-- owner-origin entry 的 ID。enabled=false 时该 capability 的 tool 不进访客 session
+-- （owner_enabled 闸，对 builtin 也生效；builtin 可关不可删，P.7）。
+-- (owner_id, capability_id) 唯一 → upsert 安全（并发 toggle 不串）。
+CREATE TABLE capability_settings (
+    owner_id      uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    capability_id text          NOT NULL,
+    enabled       boolean       NOT NULL DEFAULT true,
+    updated_at    timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (owner_id, capability_id)
+);
+
 -- code_bookings —— append-only ledger of successfully placed calendar.book
 -- events. One row per Google event inserted. Used to (a) count bookings per
 -- code for quota gating (access_codes.max_bookings)；(b) provide an admin

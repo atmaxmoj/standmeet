@@ -66,6 +66,13 @@ type BannedIp struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type CapabilitySetting struct {
+	OwnerID      pgtype.UUID
+	CapabilityID string
+	Enabled      bool
+	UpdatedAt    pgtype.Timestamptz
+}
+
 type ChatReport struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID

@@ -58,6 +58,7 @@ type repoSet struct {
 	writingRef    *postgres.WritingRefRepo
 	calendar      *postgres.CalendarRepo
 	mailConnector *postgres.MailRepo
+	capability    *postgres.CapabilityRepo
 	ghost         *postgres.GhostRepo
 	chatReport    *postgres.ChatReportRepo
 	bannedIP      *postgres.BannedIPRepo
@@ -90,6 +91,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		writingRef:    postgres.NewWritingRefRepo(db),
 		calendar:      postgres.NewCalendarRepo(db),
 		mailConnector: postgres.NewMailRepo(db),
+		capability:    postgres.NewCapabilityRepo(db),
 		ghost:         postgres.NewGhostRepo(db),
 		chatReport:    postgres.NewChatReportRepo(db),
 		bannedIP:      postgres.NewBannedIPRepo(db),
@@ -136,6 +138,7 @@ func assembleRuntimeDeps(
 		assetRepo:         repos.asset,
 		calendarRepo:      repos.calendar,
 		mailRepo:          repos.mailConnector,
+		capabilityRepo:    repos.capability,
 		ghostRepo:         repos.ghost,
 		chatReportRepo:    repos.chatReport,
 		bannedIPRepo:      repos.bannedIP,

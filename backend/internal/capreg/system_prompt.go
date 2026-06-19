@@ -20,11 +20,12 @@ import (
 func (r *Registry) ComposeSystemPrompt(
 	ctx context.Context, basePersona string, in *AssembleInput,
 ) string {
-	parts := make([]string, 0, 1+len(r.caps))
+	caps := r.enabledCaps(ctx, in)
+	parts := make([]string, 0, 1+len(caps))
 	if basePersona != "" {
 		parts = append(parts, basePersona)
 	}
-	for _, c := range r.List() {
+	for _, c := range caps {
 		if frag := c.SystemPromptFragment(ctx, in); frag != "" {
 			parts = append(parts, frag)
 		}
