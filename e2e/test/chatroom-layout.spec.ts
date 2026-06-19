@@ -4,7 +4,7 @@
 //   1. public visitor (no session) → long-scroll (Hero + Insights + Projects + Where + Contact)
 //   2. coded visitor → ChatRoom (slim header + welcome + composer) — 不看到 long-scroll
 //   3. BYOAI visitor → ChatRoom (BYOAI mode welcome)
-//   4. long-scroll visitor 提问后 → ConversationDeck 出现
+//   4. long-scroll(无码)visitor 提问后 → 不行内答,hand off 到 /gate(带 ?q=)
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -60,13 +60,15 @@ test.describe('ChatRoom layout switching', () => {
       await expect(page.getByTestId('chat-welcome')).toContainText(/public/i);
     });
 
-  test('public visitor asks question → ConversationDeck appears',
+  test('public visitor asks question → 不行内答,hand off 到 /gate(带 ?q=)',
     async ({ page }) => {
+      // 无码访客在 long-scroll 提问不行内答(485bf66):一律跳 /gate,问题用
+      // ?q= 带过去,过闸后才在 ChatRoom 接着答(全链路见 coded-ask-continues)。
       const input = page.locator('[data-testid="chat-input-field"]');
       await input.fill('tell me about yourself');
       await input.press('Enter');
-      await expect(page.locator('[data-testid="answer-body"]'))
-        .toBeVisible({ timeout: 15_000 });
+      await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });
+      await expect(page.getByTestId('code-panel')).toBeVisible();
     });
 });
 

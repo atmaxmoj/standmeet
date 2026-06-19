@@ -56,7 +56,10 @@ test.describe('admin wiki CRUD extended', () => {
       // Verify in output section
       await gotoAdminSection(adminPage, 'output');
       await adminPage.waitForURL('**/admin/output', { timeout: 5_000 });
-      await expect(adminPage.getByText('Promoted Output from Wiki')).toBeVisible();
+      // 满载下 output section 的列表重取 + 渲染偶尔 >5s(read-after-write);
+      // 数据一定在(wiki 已 seed、promote 已成),只是渲染慢 → 给宽超时,别 flake。
+      await expect(adminPage.getByText('Promoted Output from Wiki'))
+        .toBeVisible({ timeout: 15_000 });
     });
 });
 

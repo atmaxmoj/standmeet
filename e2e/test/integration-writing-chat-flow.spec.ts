@@ -1,14 +1,19 @@
 // integration-writing-chat-flow.spec.ts —— writings → chat integration:
-// owner publishes writing → visitor sees it → AskAboutThis → ChatRoom auto-ask.
+// owner publishes writing → visitor sees it → AskAboutThis → 无码 hand off
+// 到 /gate → 填码过闸 → ChatRoom 自动 ask 带过去的问题 → answer 引用 corpus。
 //
 // 用户故事：
-//   owner 发 writing → visitor 在 /writings 看到 → 点开文章 →
-//   AskAboutThis → /?q=... → ChatRoom 自动 ask → answer 引用 corpus
+//   owner 发 writing → visitor 在 /writings 看到 → 点开文章 → AskAboutThis
+//   starter → /?q=... → root 消费后(无 session)跳 /gate?q= → 填码进会话 →
+//   ChatRoom 自动 ask 带过去的问题 → answer 落 answer-body(全链路同
+//   coded-ask-continues,只是起点是文章不是首页)。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { createCode } from '@/fixtures/codes';
+import { createRole } from '@/fixtures/roles';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
@@ -21,12 +26,14 @@ const OWNER = {
   fullName: 'Writing Chat Owner',
 };
 
+const CODE = 'WRITINGCHAT-1';
+
 test.describe('writing → chat flow integration', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);
   });
 
-  test('visitor reads writing → AskAboutThis → /?q= → auto-ask → answer',
+  test('visitor reads writing → AskAboutThis → /gate → 填码 → auto-ask → answer',
     async ({ page }) => {
       await goto(page, '/writings/writing-chat-test');
       await expect(page.getByTestId('writing-article-title'))
@@ -37,15 +44,18 @@ test.describe('writing → chat flow integration', () => {
       await expect(starter).toBeVisible({ timeout: 5_000 });
       await starter.click();
 
-      // Should navigate to / with ?q= param
-      await page.waitForURL(/\/\?q=/, { timeout: 5_000 });
+      // 无 session 访客:root 消费 ?q= 后 hand off 到 /gate(带 ?q=)。
+      await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });
 
-      // The q param gets consumed and auto-asked
-      await expect.poll(() => page.url(), { timeout: 5_000 }).not.toMatch(/\?q=/);
+      // 填码过闸:session 起来,?q= 串回 /,ChatRoom 自动 ask 带过去的问题。
+      await page.getByTestId('gate-code').fill(CODE);
+      await page.getByTestId('gate-visitor-name').fill('Reader');
+      await page.getByTestId('gate-code-submit').click();
 
-      // Answer should appear (auto-asked)
+      // Answer should appear (auto-asked carried question)
+      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 8_000 });
       await expect(page.locator('[data-testid="answer-body"]'))
-        .toBeVisible({ timeout: 15_000 });
+        .toBeVisible({ timeout: 20_000 });
     });
 });
 
@@ -62,6 +72,11 @@ async function initOwner(playwright: Playwright): Promise<void> {
 
 async function seedContent(request: APIRequestContext): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  // 过闸 code 挂能读 corpus 的 role,过闸后回答能引用 wiki。
+  const role = await createRole(request, csrf, {
+    name: 'full', description: 'wiki://**', corpus_uris: ['wiki://**'],
+  });
+  await createCode(request, csrf, { code: CODE, label: 'writingchat', assumed_role_id: role.id });
   const token = await createAPIToken(request, csrf, 'writingchat-seed');
   const sid = await initMCP(request, token);
   await seedPublicWiki(request, token, sid, {

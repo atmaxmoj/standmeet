@@ -34,7 +34,9 @@ export interface BaseSeed {
 /** Just claim + login. Cleans GCal mock state too. */
 export async function seedOwnerLoggedIn(playwright: Playwright): Promise<BaseSeed> {
   resetInstance();
-  const request: APIRequestContext = await playwright.request.newContext();
+  // beforeAll setup POSTs 在满载串行跑时偶发 >10s(config actionTimeout=10_000),
+  // 给 seed 的 request context 一个宽的显式超时,别让前置条件 flake 掉整个 describe。
+  const request: APIRequestContext = await playwright.request.newContext({ timeout: 30_000 });
   await claim(request, findSetupToken(), {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
@@ -119,7 +121,10 @@ async function runMockOAuthFlow(seed: BaseSeed): Promise<void> {
 
 // ─── teardown ───────────────────────────────────────────────────
 
-export async function teardownSeed(seed: BaseSeed): Promise<void> {
+export async function teardownSeed(seed: BaseSeed | undefined): Promise<void> {
+  // beforeAll 抛了(setup POST 超时等)→ seed 没赋值。别让 afterAll 再抛个
+  // "reading 'request' of undefined" 把真因盖掉;没 seed 直接静默返回。
+  if (seed === undefined) return;
   await safeDisconnect(seed);
   await seed.request.dispose();
 }

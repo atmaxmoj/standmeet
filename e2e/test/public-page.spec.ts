@@ -1,24 +1,28 @@
 // public-page.spec.ts —— 访客的 end-to-end 用户流程。
 //
 // 用户故事：
-//   一个陌生访客打开 owner 的 StandMeet 公开页，应当读到 owner 的 hero
+//   一个陌生访客打开 owner 的 StandMeet 公开页，读到 owner 的 hero
 //   prose、看到 insights / projects / where / contact 全部 section，
-//   然后能在 chat dock 输入问题、按 Enter，收到 AI 流式回复（mock
-//   provider 注入的固定文本），最后看到回复底部标注引用了多少条 corpus
-//   entry。
+//   然后在 chat dock 输入问题、按 Enter。无码访客**不行内答** —— 一律
+//   hand off 到 /gate(问题用 ?q= 带过去；见 commit 485bf66 + page-shell.onAsk)。
+//   填一个 code 过闸后回到 ChatRoom，带过去的问题被接着答，回复底部标注
+//   引用了多少条 corpus entry。
 //
-// e2e 零 goto：claim + seed wiki 在 beforeAll 走 API；page fixture 自动
-// goto('/') 之后 instance 已 claimed → 渲染公开页（不会 redirect 到 /setup）。
+// e2e 零 goto：claim + seed wiki + 发 code 在 beforeAll 走 API；page fixture
+// 自动 goto('/') 之后 instance 已 claimed → 渲染公开页(不 redirect /setup)。
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
 import { claim, createAPIToken, login } from '@/fixtures/admin';
+import { createCode } from '@/fixtures/codes';
+import { createRole } from '@/fixtures/roles';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 
-const MOCK_REPLY = 'Hello visitor, alice says hi from the mock provider.';
+const CODE = 'PUBLIC-1';
+const QUESTION = 'tell me about alice';
 
 test.describe("visitor reads owner's public page and chats with the persona", () => {
   test.beforeAll(async ({ playwright }) => {
@@ -26,6 +30,11 @@ test.describe("visitor reads owner's public page and chats with the persona", ()
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken());
     const { csrf } = await login(request);
+    // 过闸用的 code 挂一个能读 corpus 的 role(wiki://**)→ 回答能引用、出脚注。
+    const role = await createRole(request, csrf, {
+      name: 'full', description: 'wiki://**', corpus_uris: ['wiki://**'],
+    });
+    await createCode(request, csrf, { code: CODE, label: 'public', assumed_role_id: role.id });
     const apiToken = await createAPIToken(request, csrf);
     const sid = await initMCP(request, apiToken);
     await seedPublicWiki(request, apiToken, sid, {
@@ -36,11 +45,13 @@ test.describe("visitor reads owner's public page and chats with the persona", ()
     await request.dispose();
   });
 
-  test('visitor sees full page, asks a question, gets a streamed grounded reply',
+  test('visitor sees full page, asks → hands off to /gate → over the gate the question is answered + cited',
     async ({ page }) => {
       await expectOwnerPageRendered(page);
-      await visitorAsksAQuestion(page, 'tell me about alice');
-      await expectAssistantStreamsReply(page);
+      await visitorAsksAQuestion(page, QUESTION);
+      await expectHandoffToGate(page);
+      await enterCodeAtGate(page, CODE);
+      await expectCarriedQuestionAnswered(page);
       await expectCitationFootnote(page);
     });
 });
@@ -67,13 +78,25 @@ async function visitorAsksAQuestion(page: Page, question: string): Promise<void>
   await input.press('Enter');
 }
 
-async function expectAssistantStreamsReply(page: Page): Promise<void> {
-  // ConversationDeck 把回复挂在 data-testid="answer-body" 里；mock 文本会
-  // 流到那里。
+// expectHandoffToGate —— 无码提问不行内答：落到 /gate，问题用 ?q= 带过去。
+async function expectHandoffToGate(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });
+}
+
+// enterCodeAtGate —— 在 /gate 填码进会话；过闸后 ?q= 串回 / 续答。
+async function enterCodeAtGate(page: Page, code: string): Promise<void> {
+  await page.getByTestId('gate-code').fill(code);
+  await page.getByTestId('gate-visitor-name').fill('Sarah (Acme HR)');
+  await page.getByTestId('gate-code-submit').click();
+}
+
+async function expectCarriedQuestionAnswered(page: Page): Promise<void> {
+  // ConversationDeck 把回复挂在 data-testid="answer-body" 里。带过去的问题
+  // 被 ChatRoom 自动 ask(不丢)→ 流式回复落到 answer-body。
+  await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 8_000 });
   await expect(page.locator('[data-testid="answer-body"]'))
-    .toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(MOCK_REPLY, { exact: false }))
-    .toBeVisible({ timeout: 15_000 });
+    .toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(QUESTION)).toBeVisible();
 }
 
 async function expectCitationFootnote(page: Page): Promise<void> {

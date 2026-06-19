@@ -38,17 +38,17 @@ test.describe('AskAboutThis · follow-up bar on blog/[slug]', () => {
       expect(decodeURIComponent(href!)).toMatch(/eval is the product/i);
     });
 
-  test('custom question submit → action="/" GET fires',
+  test('custom question submit → action="/" GET fires → 无码 hand off 到 /gate(带 ?q=)',
     async ({ page }) => {
       await goto(page, '/writings/eval-is-the-product');
       // 输自定义 → 提交 form (GET / with q=...)
       const input = page.locator('input[name="q"]');
       await input.fill('how did you build the eval rubric?');
-      // form has method=get action=/ — 提交后 URL 应有 ?q=...
+      // form 是 method=get action=/ → 落 /?q=,root 的 useConsumeQuestionFromURL
+      // 消费后,无 session 访客一律 hand off 到 /gate(485bf66),问题用 ?q= 串过去。
       await input.press('Enter');
-      await page.waitForURL(/\/\?q=/, { timeout: 5_000 });
-      // q 已被 useConsumeQuestionFromURL hook 抹掉（一次性 replaceState）
-      await expect.poll(() => page.url(), { timeout: 3_000 }).not.toMatch(/\?q=/);
+      await expect(page).toHaveURL(/\/gate\?.*q=/, { timeout: 5_000 });
+      await expect(page.getByTestId('code-panel')).toBeVisible();
     });
 });
 

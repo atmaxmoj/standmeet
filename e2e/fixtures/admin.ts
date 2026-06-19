@@ -4,8 +4,15 @@
 
 import type { APIRequestContext, Page } from '@playwright/test';
 
+import { findSetupToken } from '@/fixtures/instance';
+
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const DEFAULT_PASSWORD = 'correct-horse-battery-staple';
+// resetInstance() 的 unclaim 会轮换 setup_token;偶发 findSetupToken 读到旧
+// token → claim 401("invalid or already consumed")。这是个 beforeAll 竞态,
+// 只在 401 路径重取 token 重试,200 happy path 完全不动。
+const CLAIM_RETRIES = 3;
+const CLAIM_RETRY_DELAY_MS = 300;
 
 export interface ClaimOptions {
   email?: string;
@@ -30,14 +37,34 @@ export async function claim(
   const handle = opts.handle ?? 'alice';
   const fullName = opts.fullName ?? 'Alice Anderson';
   const publicUrl = opts.publicUrl ?? DEFAULT_PUBLIC_URL;
-  const res = await request.post(`${BACKEND}/api/admin/claim`, {
-    data: {
-      token: setupToken,
-      email, password, handle, full_name: fullName, public_url: publicUrl,
-    },
+  await postClaimWithRetry(request, setupToken, {
+    email, password, handle, full_name: fullName, public_url: publicUrl,
   });
-  if (res.status() !== 200) throw new Error(`claim failed: ${res.status()}`);
   await seedDevAIProvider(request, { email, password });
+}
+
+interface ClaimBody {
+  email: string; password: string; handle: string;
+  full_name: string; public_url: string;
+}
+
+// postClaimWithRetry —— claim 偶发 401(setup_token 被 unclaim 轮换的竞态)。
+// 401 时重取 token 重试;其它状态 / 重试用尽 → 抛。200 直接返回(happy path 不变)。
+async function postClaimWithRetry(
+  request: APIRequestContext, setupToken: string, body: ClaimBody,
+): Promise<void> {
+  let token = setupToken;
+  for (let attempt = 0; attempt < CLAIM_RETRIES; attempt++) {
+    const res = await request.post(`${BACKEND}/api/admin/claim`, {
+      data: { token, ...body },
+    });
+    if (res.status() === 200) return;
+    if (res.status() !== 401 || attempt === CLAIM_RETRIES - 1) {
+      throw new Error(`claim failed: ${res.status()}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, CLAIM_RETRY_DELAY_MS));
+    token = findSetupToken();
+  }
 }
 
 // seedDevAIProvider —— in dev/e2e the backend's anthropic provider talks

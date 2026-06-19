@@ -89,8 +89,10 @@ test.describe('corpus 树完整性:删父级联 + 创建校验 parent', () => {
   // 边界:改名不影响 citation(引用按 id,改名后 transcript 显新名;id⊥name)。
   test('读 entry → 改名 → admin transcript 的 citation 仍解析,显新名', renameKeepsCitation);
 
-  // 边界:兄弟 title slug 撞车 → dedup(-2),两条各读各的、body distinct。
-  test('兄弟 slug 撞车 → dedup,两条各读各的(distinct)', slugCollisionDistinct);
+  // 边界:兄弟 title slug 撞车 → 写时直接拒(Obsidian 语义:一个目录不能有两个
+  // 同名文件)。地址 = 树派生 slug path,放进来第二条就让 path 不再 1↔1。
+  test('兄弟 slug 撞车 → 写时拒绝创建(same name exists),已有那条仍可寻址',
+    slugCollisionRejected);
 });
 
 // renameKeepsCitation —— 读 entry → 改名 → transcript 的 cited wiki ref(按 id
@@ -116,23 +118,26 @@ async function renameKeepsCitation({ playwright }: { playwright: Playwright }): 
   await request.dispose();
 }
 
-// slugCollisionDistinct —— 两个 root 的 title slug 都 → "foo-bar",dedup 给后者
-// 加 "-2";corpus_read 两条 path 各拿各的 body(distinct),证明同 slug 兄弟仍
-// 各自可寻址、不串。
-async function slugCollisionDistinct({ playwright }: { playwright: Playwright }): Promise<void> {
+// slugCollisionRejected —— 两个 root 的 title('Foo Bar' / 'Foo-Bar')slug 都
+// → "foo-bar"。第一条建得下;第二条写时直接被拒(地址要 1↔1,不静默改名/合并)。
+// 已存在的那条仍按 'foo-bar' 可寻址、拿到自己的 body —— 拒绝没有污染先到者。
+async function slugCollisionRejected({ playwright }: { playwright: Playwright }): Promise<void> {
   const request = await playwright.request.newContext();
   const sid = await initMCP(request, mcpToken);
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   await promoteWiki(request, mcpToken, sid, 'Foo Bar');
-  await promoteWiki(request, mcpToken, sid, 'Foo-Bar');
+  // 同 parent(root)下 slug 撞车 → 拒绝,友好报错(不是 stack trace)。
+  await expect(
+    promoteWiki(request, mcpToken, sid, 'Foo-Bar'),
+  ).rejects.toThrow(/same name already exists/i);
   await createCode(request, csrf, { code: SLUG_CODE, label: 'slug' });
 
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: SLUG_CODE, visitor_name: 'V',
   });
-  const a = await visitorRead(request, sess, 'foo-bar');
-  const b = await visitorRead(request, sess, 'foo-bar-2');
-  expect(new Set([a, b])).toEqual(new Set(['body of Foo Bar', 'body of Foo-Bar']));
+  // 先到的那条仍可寻址,且 'foo-bar-2' 不该存在(第二条没建成)。
+  expect(await visitorRead(request, sess, 'foo-bar')).toBe('body of Foo Bar');
+  await expect(visitorRead(request, sess, 'foo-bar-2')).rejects.toThrow();
   await request.dispose();
 }
 
