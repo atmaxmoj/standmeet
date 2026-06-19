@@ -146,9 +146,8 @@ func registerAgentSkills(d *runtimeDeps) {
 	}
 	handleDeps := usecases.HandleDeps{Owners: d.ownerRepo}
 	calendarStore := calendarStoreAdapter{repo: d.calendarRepo}
-	calendarClient := calendarClientAdapter{client: d.gcalClient}
 	calendarDeps := &mcp.CalendarOwnerDeps{
-		Client: calendarClient, Store: calendarStore,
+		Proxy: calendarProxy(d), Store: calendarStore,
 	}
 	mcp.RegisterAgentSkills(d.agentSkills, &mcp.RegisterDeps{
 		Owners:        d.ownerRepo,
@@ -199,8 +198,8 @@ func registerDiscoveredPlugins(d *runtimeDeps) {
 func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
 	return usecases.VisitorSkillsDeps{
 		Wiki: d.wikiRepo, Output: d.outputRepo, Writings: d.writingRepo,
+		Proxy:      calendarProxy(d),
 		Calendar:   calendarStoreAdapter{repo: d.calendarRepo},
-		GCal:       calendarClientAdapter{client: d.gcalClient},
 		Owners:     d.ownerRepo,
 		Skills:     d.skillRepo,
 		Sandbox:    d.sandboxRunner,
@@ -228,8 +227,8 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
 		},
 		Cancel: usecases.VisitorCancelDeps{
-			Client: calendarClientAdapter{client: d.gcalClient},
-			Store:  calendarStoreAdapter{repo: d.calendarRepo},
+			Proxy: calendarProxy(d),
+			Store: calendarStoreAdapter{repo: d.calendarRepo},
 		},
 		Resolver:    d.providerResolver,
 		Reports:     d.chatReportRepo,

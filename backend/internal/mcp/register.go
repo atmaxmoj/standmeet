@@ -42,8 +42,8 @@ type RegisterDeps struct {
 // 都从 usecases 重新声明的接口；wireup.go 时 *gcal.Client +
 // *postgres.CalendarRepo 同时满足。
 type CalendarOwnerDeps struct {
-	Client CalendarOwnerClient
-	Store  CalendarOwnerStore
+	Proxy usecases.CalendarProxy
+	Store CalendarOwnerStore
 }
 
 // RegisterAgentSkills —— 注册所有 owner-side capability。重 ID panic
@@ -66,6 +66,6 @@ func RegisterAgentSkills(reg *capreg.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newCustomPageCapability(deps.CustomPages, deps.Log))
 	reg.MustRegister(newPageCapability(deps.Handle, deps.Log))
 	reg.MustRegister(newCalendarCapability(
-		deps.Calendar.Client, deps.Calendar.Store, deps.Owners, deps.Log,
+		deps.Calendar.Proxy, deps.Calendar.Store, deps.Owners, deps.Log,
 	))
 }

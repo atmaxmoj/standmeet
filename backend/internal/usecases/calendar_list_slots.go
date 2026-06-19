@@ -4,10 +4,10 @@
 // 找时间 (visitor-side calendar_book 已经走 BookMeeting；这里是 owner 看)。
 //
 // 算法：
-//   1. ensure connector + token fresh (同 BookMeeting)
+//   1. ensure connector connected (CalendarProxy.Connected)
 //   2. policy 枚举：weekday 允许 + working_hours 之内 + 满足 min_lead_days
 //      每 step_minutes 起点（默认 30 min）
-//   3. 单次 FreeBusy 查 [from, until]
+//   3. 单次 FreeBusy 查 [from, until]（via proxy）
 //   4. 过滤掉跟 busy 重叠的 slot；返排好序的 free slot 列表
 
 package usecases
@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/gcal"
 )
 
 const (
@@ -43,14 +42,17 @@ type AvailableSlot struct {
 	End   time.Time
 }
 
-// ListAvailableSlots —— 主流程。store + client 同 BookMeeting 复用接口。
+// ListAvailableSlots —— 主流程。proxy + store 同 BookMeeting 复用接口。
 func ListAvailableSlots(
-	ctx context.Context, client CalendarClient, store CalendarStore,
+	ctx context.Context, proxy CalendarProxy, store CalendarStore,
 	in *ListSlotsInput,
 ) ([]AvailableSlot, error) {
-	access, aErr := cancelEnsureAccess(ctx, client, store, in.OwnerID)
-	if aErr != nil {
-		return nil, aErr
+	connected, cErr := proxy.Connected(ctx, in.OwnerID)
+	if cErr != nil {
+		return nil, fmt.Errorf("connector status: %w", cErr)
+	}
+	if !connected {
+		return nil, domain.ErrCalendarNotConnected
 	}
 	policy, perr := store.GetBookingPolicy(ctx, in.OwnerID)
 	if perr != nil {
@@ -65,7 +67,7 @@ func ListAvailableSlots(
 			"min_lead_days", policy.MinLeadDays)
 		return []AvailableSlot{}, nil
 	}
-	busy, ferr := queryListFreeBusy(ctx, client, access, in)
+	busy, ferr := queryListFreeBusy(ctx, proxy, in)
 	if ferr != nil {
 		return nil, ferr
 	}
@@ -78,13 +80,9 @@ func ListAvailableSlots(
 }
 
 func queryListFreeBusy(
-	ctx context.Context, client CalendarClient, access string, in *ListSlotsInput,
-) ([]gcal.BusyWindow, error) {
-	busy, err := client.FreeBusy(ctx, &gcal.FreeBusyInput{
-		AccessToken: access,
-		TimeMin:     in.From, TimeMax: in.Until,
-		CalendarIDs: []string{"primary"}, TimeZone: "UTC",
-	})
+	ctx context.Context, proxy CalendarProxy, in *ListSlotsInput,
+) ([]BusyInterval, error) {
+	busy, err := proxy.FreeBusy(ctx, in.OwnerID, FreeBusyReq{TimeMin: in.From, TimeMax: in.Until})
 	if err != nil {
 		return nil, fmt.Errorf("freebusy: %w", err)
 	}
@@ -126,7 +124,7 @@ func slotStep(in *ListSlotsInput) int {
 
 // filterFreeSlots —— 排除跟 busy 任意 window 重叠的 slot。
 func filterFreeSlots(
-	slots []AvailableSlot, durationMin int, busy []gcal.BusyWindow,
+	slots []AvailableSlot, durationMin int, busy []BusyInterval,
 ) []AvailableSlot {
 	dur := time.Duration(durationMin) * time.Minute
 	out := make([]AvailableSlot, 0, len(slots))

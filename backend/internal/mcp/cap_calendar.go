@@ -21,26 +21,26 @@ import (
 
 const capCalendarBundle = "calendar.bundle"
 
-// CalendarOwnerClient —— 类型 alias，cap 内引用 usecases.CancelBookingClient
-// (含 FreeBusy / InsertEvent / DeleteEvent / RefreshToken)。
-type CalendarOwnerClient = usecases.CancelBookingClient
-
-// CalendarOwnerStore —— 类型 alias，cap 内引用 usecases.CancelBookingStore
-// (含 CalendarStore + GetBookingByID + DeleteBooking)。
-type CalendarOwnerStore = usecases.CancelBookingStore
+// CalendarOwnerStore —— owner 日历工具需要 booking policy/count/create
+// (CalendarStore) + booking 行存取 (CancelBookingStore)。凭据/代调走
+// CalendarProxy，不在 store 里。
+type CalendarOwnerStore interface {
+	usecases.CalendarStore
+	usecases.CancelBookingStore
+}
 
 type calendarCapability struct {
-	client  CalendarOwnerClient
+	proxy   usecases.CalendarProxy
 	store   CalendarOwnerStore
 	ownerTZ OwnerLookup
 	log     *slog.Logger
 }
 
 func newCalendarCapability(
-	client CalendarOwnerClient, store CalendarOwnerStore,
+	proxy usecases.CalendarProxy, store CalendarOwnerStore,
 	owners OwnerLookup, log *slog.Logger,
 ) *calendarCapability {
-	return &calendarCapability{client: client, store: store, ownerTZ: owners, log: log}
+	return &calendarCapability{proxy: proxy, store: store, ownerTZ: owners, log: log}
 }
 
 func (*calendarCapability) ID() string          { return capCalendarBundle }
@@ -114,7 +114,7 @@ func (c *calendarCapability) handleListSlots(
 		c.log.Error("cap calendar.list_slots owner lookup", "err", oerr)
 		return capreg.MCPError("owner not found")
 	}
-	slots, err := usecases.ListAvailableSlots(ctx, c.client, c.store, &usecases.ListSlotsInput{
+	slots, err := usecases.ListAvailableSlots(ctx, c.proxy, c.store, &usecases.ListSlotsInput{
 		OwnerID: ownerID, OwnerTZ: owner.ProfileTimezone,
 		From: args.from, Until: args.until,
 		DurationMin: args.DurationMin, StepMin: args.StepMin,
@@ -213,7 +213,7 @@ func (c *calendarCapability) handleCancelBooking(
 	if args.BookingID == "" {
 		return capreg.MCPError("booking_id is required")
 	}
-	cancelled, err := usecases.CancelBooking(ctx, c.client, c.store, &usecases.CancelBookingInput{
+	cancelled, err := usecases.CancelBooking(ctx, c.proxy, c.store, &usecases.CancelBookingInput{
 		OwnerID: ownerID, BookingID: args.BookingID,
 	})
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/gcal"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -22,25 +23,31 @@ type calendarStoreAdapter struct {
 	repo *postgres.CalendarRepo
 }
 
-func (a calendarStoreAdapter) GetConnector(
+// calendarVaultAdapter —— wraps *postgres.CalendarRepo to satisfy
+// connector.CalendarVault（连接器凭据存取，只给 connector 层；usecases 不碰）。
+type calendarVaultAdapter struct {
+	repo *postgres.CalendarRepo
+}
+
+func (a calendarVaultAdapter) GetConnector(
 	ctx context.Context, ownerID, provider string,
 ) (domain.CalendarConnector, error) {
 	out, err := a.repo.GetConnector(ctx, ownerID, provider)
 	if err != nil {
-		return out, fmt.Errorf("adapter get connector: %w", err)
+		return out, fmt.Errorf("vault get connector: %w", err)
 	}
 	return out, nil
 }
 
-func (a calendarStoreAdapter) SaveTokens(
-	ctx context.Context, in *usecases.SaveTokensInput,
+func (a calendarVaultAdapter) SaveTokens(
+	ctx context.Context, in *connector.SaveTokensInput,
 ) error {
 	if err := a.repo.SaveTokens(ctx, &postgres.SaveTokensInput{
 		OwnerID: in.OwnerID, Provider: in.Provider,
 		AccessToken: in.AccessToken, RefreshToken: in.RefreshToken,
 		ExpiresAt: in.ExpiresAt, Scopes: in.Scopes,
 	}); err != nil {
-		return fmt.Errorf("adapter save tokens: %w", err)
+		return fmt.Errorf("vault save tokens: %w", err)
 	}
 	return nil
 }
@@ -147,6 +154,15 @@ func (a calendarClientAdapter) RefreshToken(
 		return out, fmt.Errorf("adapter refresh token: %w", err)
 	}
 	return out, nil
+}
+
+// calendarProxy —— composition root 装配 usecases.CalendarProxy：gcal client
+// adapter + vault adapter。booking/list/cancel 三处都经它拿连接器代调能力。
+func calendarProxy(d *runtimeDeps) *connector.CalendarProxy {
+	return connector.NewCalendarProxy(
+		calendarClientAdapter{client: d.gcalClient},
+		calendarVaultAdapter{repo: d.calendarRepo},
+	)
 }
 
 // E-14c addition: DeleteEvent pass-through for cancel_booking path.

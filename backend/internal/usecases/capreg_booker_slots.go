@@ -26,7 +26,7 @@ func runBookerListSlots(
 	if derr != nil {
 		return marshalBookErrResult("invalid_args", derr.Error()), nil
 	}
-	slots, lerr := ListAvailableSlots(ctx, deps.GCal, deps.Calendar, &ListSlotsInput{
+	slots, lerr := ListAvailableSlots(ctx, deps.Proxy, deps.Store, &ListSlotsInput{
 		OwnerID: in.OwnerID, OwnerTZ: owner.ProfileTimezone,
 		From: args.from, Until: args.until,
 		DurationMin: args.DurationMin, StepMin: args.StepMin,

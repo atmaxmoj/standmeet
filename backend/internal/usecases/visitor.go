@@ -41,9 +41,10 @@ type VisitorSkillsDeps struct {
 	Wiki     WikiLister
 	Output   OutputLister
 	Writings WritingLister
-	// Calendar / GCal —— 可选(admin 没装 connector → nil,booker gating 自动隐藏)。
+	// Proxy / Calendar —— 可选(admin 没装 connector → Proxy nil,booker gating
+	// 自动隐藏)。Proxy = 连接器代调；Calendar = booking 行 store。
+	Proxy      CalendarProxy
 	Calendar   CalendarStore
-	GCal       CalendarClient
 	Owners     OwnerGetter
 	Notify     OwnerNotifyDeps
 	Skills     SkillGetter

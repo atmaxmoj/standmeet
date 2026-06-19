@@ -172,7 +172,7 @@ func buildEvalDeps(in *BuildVisitorInput, corpus *corpusFixtures) *usecases.Visi
 	}
 	if in.EnableBooking {
 		deps.Calendar = cannedCalendarStore{failure: in.BookingFailure}
-		deps.GCal = cannedCalendarClient{failure: in.BookingFailure}
+		deps.Proxy = cannedCalendarProxy{failure: in.BookingFailure}
 		deps.Owners = ownerFixture{ownerID: in.OwnerID, tz: ownerTZ(in.OwnerTimezone)}
 	}
 	if in.Skill != nil {

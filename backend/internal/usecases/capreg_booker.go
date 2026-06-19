@@ -38,12 +38,13 @@ const (
 	maxDurationMin = 180
 )
 
-// bookerDeps —— 窄依赖(#131):日历 store + GCal client + owner 查询 + 约成通知。
+// bookerDeps —— 窄依赖(#131):日历 proxy（连接器代调）+ booking store + owner
+// 查询 + 约成通知。凭据/token 在 Proxy 内，这层不碰。
 type bookerDeps struct {
-	Calendar CalendarStore
-	GCal     CalendarClient
-	Owners   OwnerGetter
-	Notify   OwnerNotifyDeps
+	Proxy  CalendarProxy
+	Store  CalendarStore
+	Owners OwnerGetter
+	Notify OwnerNotifyDeps
 }
 
 type calendarBookCapability struct {
@@ -89,7 +90,7 @@ func (c *calendarBookCapability) SystemPromptFragment(
 func (c *calendarBookCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
-	if !bookerCanExpose(in) || c.deps.Calendar == nil {
+	if !bookerCanExpose(in) || c.deps.Proxy == nil {
 		return nil, capreg.ErrHidden
 	}
 	return c.tryBuildBinding(ctx, in)
@@ -136,11 +137,11 @@ func bookerSkillGranted(snapshot *domain.RoleSnapshot) bool {
 func bookerGatingClear(
 	ctx context.Context, deps bookerDeps, in *capreg.AssembleInput,
 ) (bool, error) {
-	conn, err := deps.Calendar.GetConnector(ctx, in.OwnerID, domain.CalendarProvider)
+	connected, err := deps.Proxy.Connected(ctx, in.OwnerID)
 	if err != nil {
-		return false, fmt.Errorf("calendar.book: load connector: %w", err)
+		return false, fmt.Errorf("calendar.book: connector status: %w", err)
 	}
-	if !conn.Connected() {
+	if !connected {
 		return false, nil
 	}
 	exhausted, qerr := bookerQuotaExhausted(ctx, deps, in)
@@ -157,7 +158,7 @@ func bookerQuotaExhausted(
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return false, nil
 	}
-	count, err := deps.Calendar.CountBookingsForCode(ctx, in.CodeID)
+	count, err := deps.Store.CountBookingsForCode(ctx, in.CodeID)
 	if err != nil {
 		return false, fmt.Errorf("calendar.book: count bookings: %w", err)
 	}
@@ -203,7 +204,7 @@ func bookerQuotaRemaining(
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return nil
 	}
-	count, err := deps.Calendar.CountBookingsForCode(ctx, in.CodeID)
+	count, err := deps.Store.CountBookingsForCode(ctx, in.CodeID)
 	if err != nil {
 		return nil
 	}

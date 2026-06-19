@@ -1,24 +1,21 @@
 // visitor_calendar_fixture.go —— F.2.2b: canned calendar backings so the eval
 // facade can expose the REAL booking capability (calendar_book + list_slots).
-// The booker assembles BookMeeting/ListAvailableSlots over the CalendarStore +
-// CalendarClient interfaces (already fake-friendly in prod) and an OwnerGetter;
-// these fixtures stand in for Google Calendar + the connector/policy/booking
-// repos so the agent's USE of booking runs end-to-end without a DB or OAuth.
+// Phase B: booking assembles over usecases.CalendarProxy (connector 代调) +
+// the narrowed CalendarStore (booking policy/rows) + an OwnerGetter; these
+// fixtures stand in for the connector + policy/booking repos so the agent's
+// USE of booking runs end-to-end without a DB, OAuth, or Google.
 //
 // Default behaviour is "connected, wide-open policy, every slot free, insert
 // succeeds" so a proposed time books deterministically. bookingFailure injects
-// the interesting failure paths (the eval's old EVAL_TOOLS_FAIL, now at the
-// right layer — the data source, not a canned tool) to audit how the agent
-// explains them.
+// the interesting failure paths (notconnected / conflict) to audit how the
+// agent explains them.
 
 package agentcore
 
 import (
 	"context"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/gcal"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -42,32 +39,11 @@ func (f ownerFixture) GetByHandle(_ context.Context, handle string) (domain.Owne
 	return domain.Owner{ID: f.ownerID, Handle: handle, ProfileTimezone: f.tz}, nil
 }
 
-// cannedCalendarStore —— CalendarStore fixture: a connected connector with a
-// fresh token (so the refresh path is skipped), a wide-open booking policy (any
-// future time passes), zero existing bookings, and a no-op persist.
+// cannedCalendarStore —— CalendarStore fixture: wide-open booking policy (any
+// future time passes), zero existing bookings, no-op persist。连接器/凭据走
+// cannedCalendarProxy，不在这里。
 type cannedCalendarStore struct {
 	failure string
-}
-
-func (s cannedCalendarStore) GetConnector(
-	_ context.Context, ownerID, provider string,
-) (domain.CalendarConnector, error) {
-	if s.failure == "notconnected" {
-		return domain.CalendarConnector{OwnerID: ownerID, Provider: provider}, nil
-	}
-	exp := time.Now().Add(2 * time.Hour) // not stale → ensureFreshToken skips refresh
-	now := time.Now()
-	return domain.CalendarConnector{
-		OwnerID: ownerID, Provider: provider,
-		ClientID: "eval", ClientSecret: "eval",
-		AccessToken: "eval-access-token", RefreshToken: "eval-refresh-token",
-		AccessTokenExpiresAt: &exp, ConnectedAt: &now,
-		Scopes: []string{"https://www.googleapis.com/auth/calendar"},
-	}, nil
-}
-
-func (cannedCalendarStore) SaveTokens(_ context.Context, _ *usecases.SaveTokensInput) error {
-	return nil
 }
 
 func (cannedCalendarStore) GetBookingPolicy(
@@ -98,39 +74,36 @@ func (cannedCalendarStore) CountBookingsForCode(_ context.Context, _ string) (in
 	return 0, nil
 }
 
-// cannedCalendarClient —— CalendarClient fixture: FreeBusy reports everything
-// free (so any policy-passing slot is bookable), InsertEvent succeeds with a
-// canned event. bookingFailure="conflict" makes every proposed slot busy, so the
-// agent hits the all-busy path and has to explain it.
-type cannedCalendarClient struct {
+// cannedCalendarProxy —— usecases.CalendarProxy fixture：默认 connected、
+// FreeBusy 全空（任何政策通过的 slot 可订）、InsertEvent 成功。
+// failure="notconnected" → Connected=false；failure="conflict" → 整个查询窗
+// 标忙（命中 all-busy 路径让 agent 解释）。
+type cannedCalendarProxy struct {
 	failure string
 }
 
-func (c cannedCalendarClient) FreeBusy(
-	_ context.Context, in *gcal.FreeBusyInput,
-) ([]gcal.BusyWindow, error) {
-	if c.failure == "conflict" {
-		// Mark the entire queried span busy → no free slot found.
-		return []gcal.BusyWindow{{Start: in.TimeMin, End: in.TimeMax}}, nil
-	}
-	return nil, nil
+func (p cannedCalendarProxy) Connected(_ context.Context, _ string) (bool, error) {
+	return p.failure != "notconnected", nil
 }
 
-func (cannedCalendarClient) InsertEvent(
-	_ context.Context, _ *gcal.InsertEventInput,
-) (gcal.InsertedEvent, error) {
-	return gcal.InsertedEvent{
+func (p cannedCalendarProxy) FreeBusy(
+	_ context.Context, _ string, req usecases.FreeBusyReq,
+) ([]usecases.BusyInterval, error) {
+	if p.failure == "conflict" {
+		return []usecases.BusyInterval{{Start: req.TimeMin, End: req.TimeMax}}, nil
+	}
+	return []usecases.BusyInterval{}, nil
+}
+
+func (cannedCalendarProxy) InsertEvent(
+	_ context.Context, _ string, _ usecases.InsertEventReq,
+) (usecases.InsertedEvent, error) {
+	return usecases.InsertedEvent{
 		EventID:  "evt_eval_canned",
 		HTMLLink: "https://calendar.google.com/event?eid=evt_eval_canned",
-		Status:   "confirmed",
 	}, nil
 }
 
-func (cannedCalendarClient) RefreshToken(
-	_ context.Context, _ gcal.RefreshTokenInput,
-) (gcal.TokenResponse, error) {
-	return gcal.TokenResponse{
-		AccessToken: "eval-access-token",
-		ExpiresAt:   time.Now().Add(time.Hour),
-	}, nil
+func (cannedCalendarProxy) DeleteEvent(_ context.Context, _, _, _ string) error {
+	return nil
 }

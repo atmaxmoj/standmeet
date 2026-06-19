@@ -51,7 +51,7 @@ func runBookerBook(
 	if derr != nil {
 		return marshalBookErrResult("invalid_args", derr.Error()), nil
 	}
-	result, berr := BookMeeting(ctx, deps.GCal, deps.Calendar, &BookMeetingInput{
+	result, berr := BookMeeting(ctx, deps.Proxy, deps.Store, &BookMeetingInput{
 		PreferredTimes: args.PreferredTimes,
 		OwnerID:        in.OwnerID,
 		OwnerTZ:        owner.ProfileTimezone,

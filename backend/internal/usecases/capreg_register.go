@@ -26,7 +26,7 @@ func RegisterVisitorSkills(
 		Wiki: deps.Wiki, Output: deps.Output, Writings: deps.Writings,
 	}))
 	reg.MustRegister(newCalendarBookCapability(bookerDeps{
-		Calendar: deps.Calendar, GCal: deps.GCal, Owners: deps.Owners, Notify: deps.Notify,
+		Proxy: deps.Proxy, Store: deps.Calendar, Owners: deps.Owners, Notify: deps.Notify,
 	}))
 	reg.MustRegister(newSkillRunnerCapability(skillRunnerDeps{
 		Skills: deps.Skills, Sandbox: deps.Sandbox,

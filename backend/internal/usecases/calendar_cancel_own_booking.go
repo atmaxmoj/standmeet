@@ -24,10 +24,10 @@ type VisitorCancelStore interface {
 	) (domain.CodeBooking, error)
 }
 
-// VisitorCancelDeps —— 窄依赖(不胖 VisitorDeps):cancel client + member-scoped store。
+// VisitorCancelDeps —— 窄依赖(不胖 VisitorDeps):cancel proxy + member-scoped store。
 type VisitorCancelDeps struct {
-	Client CancelBookingClient
-	Store  VisitorCancelStore
+	Proxy CalendarProxy
+	Store VisitorCancelStore
 }
 
 // CancelOwnBookingInput —— OwnerID/CodeID/MemberID 来自 session;EventID 来自
@@ -50,7 +50,7 @@ func CancelOwnBooking(
 		// 越权或不存在都被 store 翻成 ErrBookingNotFound;%w 保留 Is 让 route 翻 404。
 		return CancelledBooking{}, fmt.Errorf("resolve own booking: %w", err)
 	}
-	return CancelBooking(ctx, deps.Client, deps.Store, &CancelBookingInput{
+	return CancelBooking(ctx, deps.Proxy, deps.Store, &CancelBookingInput{
 		OwnerID: in.OwnerID, BookingID: booking.ID,
 	})
 }
