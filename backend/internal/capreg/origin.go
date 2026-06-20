@@ -1,7 +1,6 @@
 // origin.go —— Phase H / P.5：每个注册的 capability 带一个 Origin（来源），
-// 管理面据此分组 + 决定可删性，迁移期 ListByOrigin(builtin) 数还剩几个内建没
-// 迁出去。Origin 在 Register 时定（默认 builtin）；插件发现的走 managed，
-// owner 自己 author 的走 owner。
+// 管理面据此分组（OriginOf）+ 决定可删性。Origin 在 Register 时定（默认
+// builtin）；插件发现的走 managed，owner 自己 author 的走 owner。
 
 package capreg
 

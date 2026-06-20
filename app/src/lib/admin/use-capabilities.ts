@@ -29,8 +29,6 @@ const CapabilityRowSchema = z.object({
   dependency: CapabilityDependencySchema.optional(),
 });
 export type CapabilityRow = z.infer<typeof CapabilityRowSchema>;
-export type CapabilityOrigin = CapabilityRow['origin'];
-export type CapabilityKind = CapabilityRow['kind'];
 
 const CapabilitiesRespSchema = z.object({
   capabilities: z.array(CapabilityRowSchema),
@@ -72,11 +70,6 @@ export function useCapabilities(): CapabilitiesHook {
 }
 
 // ─── view helpers ──────────────────────────────────────────────
-
-// originLabel —— 徽章文案（设计：mono 小写标签）。
-export function originLabel(origin: CapabilityOrigin): string {
-  return origin;
-}
 
 // dependencyHint —— connector 依赖未满足时的人话提示（calendar.book 需连日历）。
 export function dependencyHint(row: CapabilityRow): string | null {

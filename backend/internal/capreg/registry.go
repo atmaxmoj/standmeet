@@ -77,19 +77,6 @@ func (r *Registry) OriginOf(id string) (Origin, bool) {
 	return o, ok
 }
 
-// ListByOrigin —— 注册顺序返回某 origin 的 capability 子集（P.5 迁移计数器）。
-func (r *Registry) ListByOrigin(origin Origin) []Capability {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	out := make([]Capability, 0, len(r.caps))
-	for _, c := range r.caps {
-		if r.origin[c.ID()] == origin {
-			out = append(out, c)
-		}
-	}
-	return out
-}
-
 // MustRegister —— Register 失败 panic（boot 期使用，启动失败比运行时漏
 // 注册好）。
 func (r *Registry) MustRegister(c Capability) {
