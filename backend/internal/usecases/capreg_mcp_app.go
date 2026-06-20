@@ -32,13 +32,14 @@ func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
 }
 
 // RegisterDiscoveredPlugins —— 把发现来源(装机配置)的 manifest 逐个注册成
-// mcpAppCapability(builtin / 装机来源)进同一个 Registry。撞 ID(跟内建或彼此)
-// → 跳过该条、收进返回的 skipped(caller log),不让一个坏插件 panic 整个 boot。
-// 跟 RegisterVisitorSkills 的 MustRegister 内建并存(迁移期);origin/防影子 Phase H。
+// mcpAppCapability 进同一个 Registry。装机插件不是随产品发的内建，而是部署期
+// 声明装上的 —— origin=managed(P.5/P.6)：管理面据此分组、且 managed 不可经面板删
+// (删 = 改装机配置，不是运行期删)。撞 ID(跟内建或彼此) → 跳过该条、收进返回的
+// skipped(caller log),不让一个坏插件 panic 整个 boot。
 func RegisterDiscoveredPlugins(reg *capreg.Registry, manifests []mcpplugin.Manifest) []string {
 	skipped := []string{}
 	for i := range manifests {
-		err := reg.Register(newMCPAppCapability(&manifests[i]))
+		err := reg.RegisterOrigin(newMCPAppCapability(&manifests[i]), capreg.OriginManaged)
 		if err != nil {
 			skipped = append(skipped, manifests[i].ID)
 		}

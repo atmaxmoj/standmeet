@@ -126,12 +126,20 @@ func (h *Handlers) loadCapabilityContext(
 	}, nil
 }
 
-// registryRows —— 每个注册的 capability 一行（kind=capability）。origin 来自
-// registry；enabled = 没被 owner 关掉；deletable 由 origin 决定（builtin 不可删）。
+// registryRows —— 每个有访客面的 capability 一行（kind=capability）。
+//
+// 本面板是**访客可用性**平面：owner-enable 闸只作用于 visitor 装配
+// (AssembleVisitor)，所以只列 visitor-facing 能力（visitor_only / both）。
+// owner-only 能力（seo / writings / prompts… 是 owner 自己 AI 客户端的工具）
+// 不在此列 —— 给它们放开关纯属 no-op。给 owner MCP 也加闸是另一件事（需要把
+// owner 上下文穿进 OwnerMCPBindings），本期不做。
 func (h *Handlers) registryRows(cc *capabilityContext) []capabilityRowResp {
 	caps := h.CapabilitiesAdmin.Registry.List()
 	out := make([]capabilityRowResp, 0, len(caps))
 	for _, c := range caps {
+		if c.Shape() == capreg.ShapeOwnerOnly {
+			continue
+		}
 		id := c.ID()
 		origin, _ := h.CapabilitiesAdmin.Registry.OriginOf(id)
 		out = append(out, capabilityRowResp{
@@ -173,6 +181,9 @@ func connectorRows(cc *capabilityContext) []capabilityRowResp {
 }
 
 // skillRows —— owner author 的 skill 各一行（kind=skill，origin=owner，可删）。
+// enabled 透出 skill 自己的全局开关（domain.Skill.Enabled —— skill runner 真读
+// 的那个），不是 capability_settings：skill 不是 registry capability，走自己那套
+// enable 机制（SetSkillEnabled），别拿 owner-enable 闸的表当真值。
 func skillRows(cc *capabilityContext) []capabilityRowResp {
 	out := make([]capabilityRowResp, 0, len(cc.skills))
 	for i := range cc.skills {
@@ -182,7 +193,7 @@ func skillRows(cc *capabilityContext) []capabilityRowResp {
 		}
 		out = append(out, capabilityRowResp{
 			ID: s.ID, Origin: string(capreg.OriginOwner), Kind: "skill",
-			Enabled: !cc.disabled[s.ID], Deletable: true,
+			Enabled: s.Enabled, Deletable: true,
 		})
 	}
 	return out
@@ -219,14 +230,26 @@ func (h *Handlers) patchCapability() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		err := h.CapabilitiesAdmin.Settings.SetEnabled(r.Context(), ownerID, id, req.Enabled)
-		if err != nil {
+		if err := h.applyCapabilityEnabled(r.Context(), ownerID, id, req.Enabled); err != nil {
 			h.Log.Error("set capability enabled", logErrKey, err)
 			writeError(h.Log, w, serverErr())
 			return
 		}
 		writeJSON(h.Log, w, map[string]bool{"ok": true})
 	}
+}
+
+// applyCapabilityEnabled —— 开关写到**真正读它的**那张表：registry capability →
+// capability_settings（owner-enable 闸读它）；owner skill → skill.Enabled
+// （skill runner 读它，不是 capability_settings）。connector 行前端锁死、不 PATCH。
+func (h *Handlers) applyCapabilityEnabled(
+	ctx context.Context, ownerID, id string, enabled bool,
+) error {
+	if _, ok := h.CapabilitiesAdmin.Registry.OriginOf(id); ok {
+		return h.CapabilitiesAdmin.Settings.SetEnabled(ctx, ownerID, id, enabled)
+	}
+	_, err := h.CapabilitiesAdmin.Skills.SetEnabled(ctx, ownerID, id, enabled)
+	return err
 }
 
 // ───── DELETE ─────────────────────────────────────────────────
