@@ -8,8 +8,10 @@
 // 确定、不依赖外部连器,适合当稳定 golden。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
-import { claim, login as loginAPI } from '@/fixtures/admin';
+import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
+import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { createRole } from '@/fixtures/roles';
@@ -27,15 +29,25 @@ const CODE = 'NORM-ASM-1';
 // 顺序本身由 registry-snapshot 那条锁)。重构后必须一致。
 //   corpus_search/read/list —— corpus.retrieval
 //   ask_visitor / summarize_conversation —— 无授权门,所有 mode 暴露的基础能力
-const GOLDEN_TOOLS: readonly string[] = [
+const GOLDEN_CORPUS_TOOLS: readonly string[] = [
   'corpus_search', 'corpus_read', 'corpus_list',
+  'ask_visitor', 'summarize_conversation',
+];
+
+// skill-granted role(fixture 默认也带 corpus)→ 锁 skill.runner 装配
+// (skill_use / skill_run_script 出现)+ corpus + 基础能力。
+const GOLDEN_SKILL_TOOLS: readonly string[] = [
+  'corpus_search', 'corpus_read', 'corpus_list',
+  'skill_use', 'skill_run_script',
   'ask_visitor', 'summarize_conversation',
 ];
 
 interface DiagSessionResp { tool_specs: Array<{ name: string }> }
 
+let corpusToken = '';
+let skillToken = '';
+
 test.describe('能力归一化 · 访客装配黄金快照', () => {
-  let sessionToken = '';
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -44,6 +56,7 @@ test.describe('能力归一化 · 访客装配黄金快照', () => {
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    // 1) corpus-only role
     const role = await createRole(request, csrf, {
       name: 'norm-asm-role', description: 'corpus-only',
       corpus_uris: ['wiki://**', 'output://**', 'writing://**'],
@@ -51,23 +64,42 @@ test.describe('能力归一化 · 访客装配黄金快照', () => {
     await createCode(request, csrf, {
       code: CODE, label: 'norm asm', assumed_role_id: role.id,
     });
-    const sess = await issueSession(request, {
+    corpusToken = (await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Inspector',
+    })).session_token;
+    // 2) skill-granted role(挂一个 skill → skill.runner 暴露)
+    await createAPIToken(request, csrf, 'norm-asm-seed');
+    const skillCode = await issueCodeWithSkills(request, csrf, {
+      label: 'norm skill', granted_skills: ['noop.tool'],
     });
-    sessionToken = sess.session_token;
+    skillToken = (await issueSession(request, {
+      handle: OWNER.handle, code: skillCode.code, visitor_name: 'Inspector2',
+    })).session_token;
     await request.dispose();
   });
 
   test('corpus-only role 的 visitor tool_specs 逐字等于 golden',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const res = await request.get(`${BACKEND}/internal/diag/session`, {
-        headers: { 'X-Session-Token': sessionToken },
-      });
-      expect(res.status()).toBe(200);
-      const body = await res.json() as DiagSessionResp;
-      const names = body.tool_specs.map((t) => t.name).sort();
-      expect(names).toEqual([...GOLDEN_TOOLS].sort());
+      const names = await toolNames(request, corpusToken);
+      expect(names).toEqual([...GOLDEN_CORPUS_TOOLS].sort());
+      await request.dispose();
+    });
+
+  test('skill-granted role 的 visitor tool_specs 逐字等于 golden(锁 skill.runner)',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const names = await toolNames(request, skillToken);
+      expect(names).toEqual([...GOLDEN_SKILL_TOOLS].sort());
       await request.dispose();
     });
 });
+
+async function toolNames(request: APIRequestContext, token: string): Promise<string[]> {
+  const res = await request.get(`${BACKEND}/internal/diag/session`, {
+    headers: { 'X-Session-Token': token },
+  });
+  if (res.status() !== 200) throw new Error(`diag/session: ${res.status()}`);
+  const body = await res.json() as DiagSessionResp;
+  return body.tool_specs.map((t) => t.name).sort();
+}

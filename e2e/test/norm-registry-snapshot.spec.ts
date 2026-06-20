@@ -25,41 +25,46 @@ import { resetInstance } from '@/fixtures/instance';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 type Shape = 'visitor_only' | 'owner_only' | 'both';
-interface Cap { id: string; shape: Shape }
+type Origin = 'builtin' | 'managed' | 'owner';
+interface Cap { id: string; shape: Shape; origin: Origin }
 interface RegistryListResp { capabilities: Cap[] }
 
-// GOLDEN —— 注册顺序逐条锁定(顺序 = prompt 拼接顺序,不可漂)。
-// 重构(把 builtin 收成统一 provider 机制)后必须**完全一致**。
+// GOLDEN —— 注册顺序 + id + shape + **origin** 逐条锁定。
+// 顺序 = prompt 拼接顺序,不可漂;origin 锁住"谁是 builtin / managed / owner"。
+// 重构(把 builtin 收成统一 provider 机制)后必须一致 —— 但有**一处故意改动**:
+// jobs 三个(jobs/resume/applications.bundle)现在误标 builtin,归一化把它们
+// 改成 owner/managed(插件本就不该是 builtin)。重构时把那三行的 origin 改成
+// 新值、保留本注释,即"故意改"而非回归。
 const GOLDEN: readonly Cap[] = [
   // ── visitor builtin (RegisterVisitorSkills) ──
-  { id: 'corpus.retrieval', shape: 'visitor_only' },
-  { id: 'calendar.book', shape: 'visitor_only' },
-  { id: 'skill.runner', shape: 'visitor_only' },
-  { id: 'ext.mcp', shape: 'visitor_only' },
-  { id: 'ask_visitor', shape: 'visitor_only' },
-  { id: 'summarize_conversation', shape: 'visitor_only' },
+  { id: 'corpus.retrieval', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'calendar.book', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'skill.runner', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'ext.mcp', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
   // ── owner builtin (mcp.RegisterAgentSkills) ──
-  { id: 'owner.me', shape: 'owner_only' },
-  { id: 'seo.bundle', shape: 'owner_only' },
-  { id: 'codes.bundle', shape: 'owner_only' },
-  { id: 'corpus.raw.bundle', shape: 'owner_only' },
-  { id: 'corpus.output.bundle', shape: 'owner_only' },
-  { id: 'corpus.mutations.bundle', shape: 'owner_only' },
-  { id: 'chat.bundle', shape: 'owner_only' },
-  { id: 'prompts.bundle', shape: 'owner_only' },
-  { id: 'roles.bundle', shape: 'owner_only' },
-  { id: 'mcp_servers.bundle', shape: 'owner_only' },
-  { id: 'skills.bundle', shape: 'owner_only' },
-  { id: 'writings.bundle', shape: 'owner_only' },
-  { id: 'custom_page.bundle', shape: 'owner_only' },
-  { id: 'page.bundle', shape: 'owner_only' },
-  { id: 'calendar.bundle', shape: 'owner_only' },
-  // ── jobs plugin (CapabilityRegistrar hook) ──
-  { id: 'jobs.bundle', shape: 'owner_only' },
-  { id: 'resume.bundle', shape: 'owner_only' },
-  { id: 'applications.bundle', shape: 'owner_only' },
+  { id: 'owner.me', shape: 'owner_only', origin: 'builtin' },
+  { id: 'seo.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'codes.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'corpus.raw.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'corpus.output.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'corpus.mutations.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'chat.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'prompts.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'roles.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'mcp_servers.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'skills.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'writings.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'custom_page.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'page.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'calendar.bundle', shape: 'owner_only', origin: 'builtin' },
+  // ── jobs plugin (CapabilityRegistrar hook) —— origin 现误标 builtin,归一化改 ──
+  { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
   // ── discovered plugin (STANDMEET_PLUGINS) ──
-  { id: 'echoer', shape: 'visitor_only' },
+  { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
 ];
 
 test.describe('能力归一化 · 注册黄金快照(重构安全网)', () => {

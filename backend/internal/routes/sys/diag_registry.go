@@ -33,8 +33,9 @@ func MountDiagRegistry(r chi.Router, deps DiagRegistryDeps) {
 }
 
 type registryCapWire struct {
-	ID    string `json:"id"`
-	Shape string `json:"shape"`
+	ID     string `json:"id"`
+	Shape  string `json:"shape"`
+	Origin string `json:"origin"`
 }
 
 type registryListResp struct {
@@ -46,8 +47,9 @@ func diagRegistryListHandler(deps DiagRegistryDeps) http.HandlerFunc {
 		caps := deps.Registry.List()
 		resp := registryListResp{Capabilities: make([]registryCapWire, 0, len(caps))}
 		for _, c := range caps {
+			origin, _ := deps.Registry.OriginOf(c.ID())
 			resp.Capabilities = append(resp.Capabilities, registryCapWire{
-				ID: c.ID(), Shape: string(c.Shape()),
+				ID: c.ID(), Shape: string(c.Shape()), Origin: string(origin),
 			})
 		}
 		w.Header().Set("Content-Type", "application/json")
