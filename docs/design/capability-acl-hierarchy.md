@@ -117,21 +117,47 @@ code_capability_overrides(
 
 ---
 
-## 5. 落点（哪段代码改）
+## 5. 代码架构 —— 改 / 留 / 删
+
+> 原则：新设计不背老残留。下面逐块定 **KEEP（不动）/ CHANGE（改）/ ADD（新增）/ DELETE（删）**，每条点到真实文件。**这块不跟现有结构妥协拼凑** —— 该改的改干净，但要尊重一个铁律不变量：**role/code 在 issue 时冻结进 RoleSnapshot，session 生命周期不回读**。
+
+### 5.1 合并点（唯一改动核心）
+
+issue code-tier session 时，`buildRoleSnapshotForCode(code)` 现在直接把 `code.AssumedRoleID` 丢给 `buildRoleSnapshotByID`。code-override 就插在"拼好 role grant 集"与"`NewRoleSnapshot` 冻结"之间：
 
 ```mermaid
 flowchart LR
-  issue["session issue<br/>(IssueCodeSession)"] -->|读 role grant + code override| merge["resolveFrozenACL<br/>role ⊕ code（code 赢）"]
-  merge -->|冻结 allow 列表| snap["RoleSnapshot"]
+  code["AccessCode"] --> roleGrant["buildRoleSnapshotByID<br/>role grant 集<br/>(AllowedTools / SkillIDs / CorpusURIs)"]
+  ovr["code_capability_overrides<br/>code_skill_overrides"] --> merge
+  roleGrant --> merge["applyCodeOverrides<br/>tri-state: code ▷ role（code 赢）"]
+  merge --> snap["NewRoleSnapshot（冻结）"]
   snap --> gate["capreg assemble"]
-  gset["capability_settings<br/>(global, 活)"] -.->|enabledCaps 实时 deny| gate
+  gset["capability_settings (global,活)"] -.->|enabledCaps 实时 deny| gate
   gate --> tools["visitor tool specs"]
 ```
 
-- **新增 `resolveFrozenACL(role, codeOverrides)`**（usecases / domain）：合并 → allow 列表。在 `IssueCodeSession` 构造 RoleSnapshot 那一步调。
-- **RoleSnapshot 不变形** —— 它继续只持冻结后的 allow 列表；合并发生在它**之前**。下游（skill runner / booker gating / capreg）零改动。
-- **global 层不动** —— `capability_settings` + `enabledCaps` 活 gate 保持现状（Phase H 已做）。
-- **admin surface**：code 编辑器加"能力 override"区（相对 role 的 +/−）；能力面板（global）维持现状；role 编辑器维持现状。
+### 5.2 改 / 留 / 删 清单
+
+| 区块 | 文件 | 动作 | 说明 |
+|---|---|---|---|
+| **合并函数** | `internal/usecases/visitor_role_snapshot.go` | **CHANGE** | `buildRoleSnapshotForCode` 在拼好 role 的 `AllowedTools`/`SkillIDs` 之后、`NewRoleSnapshot` 之前，调新增的纯函数 `applyCodeOverrides(roleTools, roleSkillIDs, overrides)`。owner-vanilla（public/byoai）路径**不**走 override（没有 code），保持现状。 |
+| **override 解析** | `internal/domain/code_override.go`（新） | **ADD** | 纯 domain 函数 `ResolveACL(roleGranted []string, overrides []CapOverride) []string`：tri-state 合并，code allow/deny ▷ role。无 IO、可单测。tri-state 解析代数（§3）就落这里，是整套唯一的"真值表"，别散到各处。 |
+| **override 读取** | `internal/postgres/code_override.go`（新）+ `db/queries/code_overrides.sql` | **ADD** | `ListCodeCapabilityOverrides(codeID)` / `ListCodeSkillOverrides(codeID)`。issue 时一次性读，喂给合并函数。 |
+| **schema** | `db/schema.sql` | **ADD** | `code_capability_overrides` / `code_skill_overrides` 两张稀疏表（§4）。**纯加表**，不动 `roles` / `access_codes` 现有列。 |
+| **RoleSnapshot 本身** | `internal/domain/role_snapshot.go` | **KEEP** | 形状不变 —— 还是冻结后的 allow 列表。合并在它**之前**发生，它不知道有 override 这回事。**这是关键：下游零改动。** |
+| **下游 gate** | `capreg` `enabledCaps` / booker `bookerSkillGranted` / `mcpAppGranted` / skill runner | **KEEP** | 全部继续读 `RoleSnapshot.AllowedTools()` / `SkillIDs()`。它们看到的就是"role ⊕ code 合并后的结果"，分不出也不需要分出是 role 给的还是 code 给的。 |
+| **global 层** | `capability_settings` + `enabledCaps` 活 gate | **KEEP** | Phase H 已做。它是叠在冻结快照之上的活 master，跟本期合并逻辑正交。 |
+| **admin: code 编辑** | `internal/routes/admin/codes.go` + 新 override 子路由 | **ADD** | code 上加"能力 override"读写（相对 role 的稀疏 +/−）。 |
+| **admin: role 编辑** | role 路由 | **KEEP** | role ACL 仍是现状的 grant 列表，不动。 |
+| **能力面板（global）** | `capabilities.go` + 前端面板 | **KEEP** | 本期不碰。 |
+
+### 5.3 不留老残留 —— 要核对删的点
+
+新设计要求"该删的删，别让老的和新的并存制造两套真值来源"。盘下来本期**没有要删的旧代码**（这是纯增量扩展，不是替换），但有两处**必须显式核对、防止退化成双源**：
+
+- **`code.AssumedRoleID` 保留** —— code 仍靠它选 role；override 是叠在所选 role 之上，不是取代选 role。**设计如此**，不算残留。
+- **不要把 override 也塞进 `RoleSnapshot` 当第四类字段** —— 一旦 snapshot 里既有"合并后 allow 列表"又有"原始 override"，就是双源、必然漂移。override **只活在 issue 那一刻的合并函数里**，合并完即抛，snapshot 只留结果。（对应 §2 的"snapshot 不变形"。）
+- **skill 的 enable 仍是 `domain.Skill.Enabled`（Phase H 已厘清）** —— code-override 控的是 skill 的**授权**（这个 code 给不给用），不是 skill 的**存在/可用**（owner 全局 `skill.Enabled`）。两者正交，见 §6 corner（`acl-code-allow-cannot-resurrect-disabled-skill`）。别让 code-override 变成第二个 skill enable 开关。
 
 ---
 
@@ -139,13 +165,7 @@ flowchart LR
 
 **迁移：** 纯加表（`code_capability_overrides` / `code_skill_overrides`），不动 role 现有列 → 老 code 自然"零 override = 完全继承 role"，行为不变（向后兼容，无数据迁移）。
 
-**测试矩阵（全红 → 实现 → 绿）：**
-1. `acl-code-inherits-role` —— code 无 override → ACL 完全等于 role（回归保护）。
-2. `acl-code-deny-overrides-role` —— role 授了 calendar.book，code deny → 该 code 访客看不到，**同 role 别的 code 仍看得到**。
-3. `acl-code-allow-overrides-role` —— role 没授 skillX，code allow → 该 code 访客有（覆盖反向也成立）。
-4. `acl-global-beats-all` —— global 关掉 → 不管 role/code 怎么 allow 都没（master 优先；已有 `capability-disable-while-attached` 的强化版）。
-5. `acl-frozen-at-issue` —— issue 后改 code override → 在跑 session 不变（冻结不变量）；新 issue 才生效。
-6. `acl-resolution-order` —— code > role > default，三态在一个 target 上交叉验证。
+**测试设计单开一份：** [`capability-acl-hierarchy-tests.md`](capability-acl-hierarchy-tests.md) —— 穷尽真值表（6 行）+ happy 组合矩阵（capability/skill 两类 target）+ 冻结/活两种时序 + per-code 隔离 + 错误流 + corner（三道正交闸交叉）+ 回归锚 + 红先行顺序。本节不再重复。
 
 ---
 
