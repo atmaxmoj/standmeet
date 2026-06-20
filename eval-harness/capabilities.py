@@ -144,7 +144,9 @@ CASES = [
     {"name": "skill-use", "dim": "tool · owner skill", "kind": "assert",
      "req": {"mode": "code", "skill": True,
              "question": "Roll a 20-sided die for me."},
-     "checks": [("skill tool fired", lambda r: fired(r, "skill_roll_dice"))]},
+     # owner skills run through the generic skill runner (skill_use → skill_run_script),
+     # not a per-skill tool name; assert the skill_ prefix, symmetric with skill-deny.
+     "checks": [("skill tool fired", lambda r: fired(r, "skill_"))]},
     {"name": "skill-deny", "dim": "permissions · owner skill", "kind": "assert",
      "req": {"mode": "code", "skill": False,
              "question": "Roll a 20-sided die for me."},
