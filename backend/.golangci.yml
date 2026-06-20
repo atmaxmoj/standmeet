@@ -276,6 +276,11 @@ linters:
       # (controller 层),但形态仍是 MCP 协议契约,不是 HTTP route handler。
       - path: internal/routes/mcphandle/
         linters: [forbidigo]
+      # mcpclient 是 MCP vendor 边界层。tool `_meta` 按 MCP 规范是任意
+      # schemaless JSON（mcp-go AdditionalFields 即 map[string]any），同
+      # 协议契约豁免；mcpclient 只透传不解释。
+      - path: internal/mcpclient/
+        linters: [forbidigo]
       # J.3: jobs plugin 的 MCP capabilities 跟 internal/mcp 同形态，同
       # schemaless 协议契约 (map[string]any payload)。
       - path: internal/plugins/jobs/jobsmcp/

@@ -42,12 +42,15 @@ func DialStdio(
 	}
 	ictx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
-	_, ierr := cli.Initialize(ictx, initRequest())
+	res, ierr := cli.Initialize(ictx, initRequest())
 	if ierr != nil {
 		closeQuietly(cli)
 		return nil, fmt.Errorf("%w: stdio initialize: %w", ErrUnreachable, ierr)
 	}
-	return &Session{c: cli, url: "stdio:" + command, closeFn: func() { closeQuietly(cli) }}, nil
+	return &Session{
+		c: cli, url: "stdio:" + command, instructions: initInstructions(res),
+		closeFn: func() { closeQuietly(cli) },
+	}, nil
 }
 
 // envSlice —— map → []string{"K=V"}（mcp-go 在 os.Environ() 上追加这些）。

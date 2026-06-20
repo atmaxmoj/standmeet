@@ -33,6 +33,9 @@ const (
 	readHeaderTimeout = 10 * time.Second
 	readTimeout       = 30 * time.Second
 	writeTimeout      = 30 * time.Second
+	// mockInstructions —— server-level instructions（initialize 响应）。test
+	// 断言 mcpclient.Session.Instructions() 原样浮出。
+	mockInstructions = "Mock server instructions: use echo to test framing."
 )
 
 // echoCalls —— echo 被调次数；配合 MOCK_MCP_EXIT_AFTER 模拟中途退出。
@@ -48,12 +51,16 @@ func main() {
 	}
 
 	srv := server.NewMCPServer("mcp-server-mock", "0.1.0",
-		server.WithToolCapabilities(true))
+		server.WithToolCapabilities(true),
+		// instructions —— MCP 原生 "how to use this server" 字段；验证 mcpclient
+		// 把它当 system-prompt fragment 浮出来（外置能力携带 prompt 的载体）。
+		server.WithInstructions(mockInstructions))
 	// MOCK_MCP_NO_TOOLS —— 不注册任何 tool（测 "list 空 → capability 隐藏"）。
 	if os.Getenv("MOCK_MCP_NO_TOOLS") == "" {
 		srv.AddTool(pingTool(), pingHandler)
 		srv.AddTool(echoTool(), echoHandler)
 		srv.AddTool(boomTool(), boomHandler)
+		srv.AddTool(returnDirectlyTool(), echoHandler)
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "--stdio" {
@@ -133,6 +140,19 @@ func maybeExit(n int64) {
 	if err == nil && limit > 0 && n >= limit {
 		os.Exit(1)
 	}
+}
+
+// returnDirectlyTool —— 带 `_meta.return_directly=true` 的 tool。验证 mcpclient
+// 把 tool `_meta` 自定义字段透传出来（外置能力声明 ReturnDirectly 的载体）。复用
+// echoHandler 当行为；这里只关心 _meta 是否被搬运。
+func returnDirectlyTool() mcpgo.Tool {
+	t := mcpgo.NewTool(
+		"clarify",
+		mcpgo.WithDescription("Echo tool that declares return_directly via _meta. Fixture."),
+		mcpgo.WithString("text", mcpgo.Required(), mcpgo.Description("text to echo")),
+	)
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"return_directly": true})
+	return t
 }
 
 func boomTool() mcpgo.Tool {

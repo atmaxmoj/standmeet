@@ -30,18 +30,34 @@ const dialTimeout = 8 * time.Second
 const callTimeout = 15 * time.Second
 
 // Tool —— 翻译过的 tool spec：跨包暴露用本地类型，不漏 mcp-go API。
+// Meta 是 tool 的 `_meta` 透传（mcp-go 的 AdditionalFields）：mcpclient 不解释
+// 它的语义，只搬运；适配器自行读取约定 key（如 return_directly）。
 type Tool struct {
+	Meta        map[string]any
 	Name        string
 	Description string
 	InputSchema json.RawMessage
 }
 
 // Session —— 一次外部 server 连接 + initialized handshake 完成后的状态。
+// instructions 是 server 在 initialize 响应里给的 "how to use this server"
+// 文本（MCP 原生字段）：mcpclient 只搬运，由适配器决定当作 system-prompt
+// fragment 用。
 // 字段按 govet fieldalignment 排：指针 (8B) → string header (16B) → func (8B)。
 type Session struct {
-	c       *mcpgoclient.Client
-	closeFn func()
-	url     string
+	c            *mcpgoclient.Client
+	closeFn      func()
+	url          string
+	instructions string
+}
+
+// Instructions —— server 在 initialize 响应里声明的使用说明（MCP `instructions`
+// 字段）；server 未提供则为空串。
+func (s *Session) Instructions() string {
+	if s == nil {
+		return ""
+	}
+	return s.instructions
 }
 
 // ErrUnreachable —— Initialize 失败（网络 / TLS / 协议）。
@@ -60,10 +76,22 @@ func Dial(ctx context.Context, url string, headers map[string]string) (*Session,
 	}
 	ictx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
-	if _, ierr := cli.Initialize(ictx, initRequest()); ierr != nil {
+	res, ierr := cli.Initialize(ictx, initRequest())
+	if ierr != nil {
 		return nil, fmt.Errorf("%w: initialize: %w", ErrUnreachable, ierr)
 	}
-	return &Session{c: cli, url: url, closeFn: func() { closeQuietly(cli) }}, nil
+	return &Session{
+		c: cli, url: url, instructions: initInstructions(res),
+		closeFn: func() { closeQuietly(cli) },
+	}, nil
+}
+
+// initInstructions —— 从 initialize 响应取 server instructions；nil-safe。
+func initInstructions(res *mcpgo.InitializeResult) string {
+	if res == nil {
+		return ""
+	}
+	return res.Instructions
 }
 
 // Close —— 释放 transport。multiple Close 安全。
@@ -141,7 +169,16 @@ func translateTool(t *mcpgo.Tool) Tool {
 	}
 	return Tool{
 		Name: t.Name, Description: t.Description, InputSchema: schemaBytes,
+		Meta: toolMeta(t),
 	}
+}
+
+// toolMeta —— 透传 tool 的 `_meta` 自定义字段；server 没给则 nil。
+func toolMeta(t *mcpgo.Tool) map[string]any {
+	if t.Meta == nil || len(t.Meta.AdditionalFields) == 0 {
+		return nil
+	}
+	return t.Meta.AdditionalFields
 }
 
 // extractText —— 把 CallToolResult.Content 里的 TextContent 拼起来。

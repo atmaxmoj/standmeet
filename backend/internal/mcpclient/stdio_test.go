@@ -64,6 +64,32 @@ func TestStdio_InitializeAndListTools(t *testing.T) {
 	require.Contains(t, names, "ping_external")
 }
 
+// Session.Instructions() —— server 的 initialize instructions 原样浮出（外置能力
+// 携带 system-prompt fragment 的载体）。
+func TestStdio_SurfacesServerInstructions(t *testing.T) {
+	t.Parallel()
+	sess := dialMock(t, nil)
+	require.Equal(t,
+		"Mock server instructions: use echo to test framing.",
+		sess.Instructions())
+}
+
+// Tool.Meta —— tool 的 `_meta` 自定义字段被透传（外置能力声明 ReturnDirectly 的
+// 载体）。clarify 带 return_directly=true；echo 不带 → Meta 为 nil。
+func TestStdio_SurfacesToolMeta(t *testing.T) {
+	t.Parallel()
+	sess := dialMock(t, nil)
+	tools, err := sess.ListTools(context.Background())
+	require.NoError(t, err)
+	byName := map[string]mcpclient.Tool{}
+	for _, tl := range tools {
+		byName[tl.Name] = tl
+	}
+	require.Equal(t, true, byName["clarify"].Meta["return_directly"],
+		"clarify tool surfaces _meta.return_directly")
+	require.Nil(t, byName["echo"].Meta, "echo tool has no _meta")
+}
+
 // happy：call echo → 回 marker:text。
 func TestStdio_CallEcho(t *testing.T) {
 	t.Parallel()
