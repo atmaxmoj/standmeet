@@ -254,8 +254,10 @@ func (h *Handlers) capabilityDeletable(id string) bool {
 	if _, ok := h.CapabilitiesAdmin.Registry.OriginOf(id); ok {
 		return false // 注册的 capability 都是 builtin/managed origin → 不可删
 	}
-	if id == connectorGCalID || id == connectorMailID {
-		return false
-	}
-	return true
+	return !isConnectorRowID(id)
+}
+
+// isConnectorRowID —— connector kind 的稳定行 ID（不可删，断开而非删）。
+func isConnectorRowID(id string) bool {
+	return id == connectorGCalID || id == connectorMailID
 }

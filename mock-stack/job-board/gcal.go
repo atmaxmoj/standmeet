@@ -55,6 +55,7 @@ type gcalState struct {
 	events         []mockEvent
 	deletedEvents  []mockEvent
 	tokenCallCount int
+	revoked        bool // owner revoked at Google → next refresh returns invalid_grant
 	mu             sync.Mutex
 }
 
@@ -112,6 +113,17 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	grant := r.PostForm.Get("grant_type")
+	var revoked bool
+	s.withState(func(st *gcalState) {
+		st.tokenCallCount++
+		revoked = st.revoked
+	})
+	// owner revoked at Google → refresh-token grant fails with invalid_grant
+	// (the backend maps this to ErrCalendarRevoked → friendly degrade).
+	if grant == "refresh_token" && revoked {
+		writeInvalidGrant(s.log, w)
+		return
+	}
 	resp := oauthTokenResponse{
 		AccessToken: "mock-access-" + randomHex(mockAccessTokenLen),
 		Scope:       mockScope,
@@ -121,7 +133,6 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 	if grant == "authorization_code" {
 		resp.RefreshToken = "mock-refresh-" + randomHex(mockAccessTokenLen)
 	}
-	s.withState(func(st *gcalState) { st.tokenCallCount++ })
 	writeOAuthToken(s.log, w, resp)
 }
 
@@ -264,7 +275,15 @@ func (s *server) serveMockGCalReset(w http.ResponseWriter, _ *http.Request) {
 		st.events = nil
 		st.deletedEvents = nil
 		st.tokenCallCount = 0
+		st.revoked = false
 	})
+	writeOK(s.log, w)
+}
+
+// serveMockGCalRevoke —— e2e 控制点：把连接器标记为「owner 在 Google 端撤销
+// 了授权」。之后任何 refresh_token grant 都返 invalid_grant，逼后端走友好降级。
+func (s *server) serveMockGCalRevoke(w http.ResponseWriter, _ *http.Request) {
+	s.withState(func(st *gcalState) { st.revoked = true })
 	writeOK(s.log, w)
 }
 
@@ -302,6 +321,16 @@ func writeOAuthToken(log *slog.Logger, w http.ResponseWriter, resp oauthTokenRes
 	writeJSONHeader(w)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Warn("write oauth token", logErrKey, err)
+	}
+}
+
+// writeInvalidGrant —— OAuth invalid_grant 错误体（revoked 后 refresh 返这个）。
+// 后端 decodeToken 读 body.error == "invalid_grant" → ErrInvalidGrant。
+func writeInvalidGrant(log *slog.Logger, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", jsonMIME)
+	w.WriteHeader(http.StatusBadRequest)
+	if _, err := w.Write([]byte(`{"error":"invalid_grant"}`)); err != nil {
+		log.Warn("write invalid_grant", logErrKey, err)
 	}
 }
 

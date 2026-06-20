@@ -163,7 +163,10 @@ func marshalBookErr(err error) string {
 	case errors.Is(err, domain.ErrCalendarNotConnected):
 		return marshalBookErrResult("not_connected", "owner has not connected a calendar yet")
 	case errors.Is(err, domain.ErrCalendarRevoked):
-		return marshalBookErrResult("revoked", "owner calendar authorization has been revoked")
+		// reason code carries the keyword so the visitor-facing surface reads
+		// human (owner must reconnect their Google Calendar).
+		return marshalBookErrResult("calendar_unavailable",
+			"the owner's calendar needs to be reconnected — please try again later")
 	default:
 		return marshalBookErrResult("internal_error", err.Error())
 	}

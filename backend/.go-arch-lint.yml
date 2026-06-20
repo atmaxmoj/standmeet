@@ -400,6 +400,7 @@ deps:
       - storage
       - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
       - connector   # /connectors/* OAuth init/callback + mail OTP 经连接器层（不直碰 gcal/mailer）
+      - capreg      # Phase H /capabilities：列 registry origin + owner-enable 开关
     anyVendorDeps: true
 
   # obsidian —— Obsidian vault 双向 sync 子用例：frontmatter codec / image

@@ -190,7 +190,7 @@ func wireCapabilityEnableGate(d *runtimeDeps) {
 		disabled, err := d.capabilityRepo.DisabledSet(ctx, ownerID)
 		if err != nil {
 			d.log.Warn("capability enable-gate load", "err", err, "owner", ownerID)
-			return nil
+			return map[string]bool{}
 		}
 		return disabled
 	})

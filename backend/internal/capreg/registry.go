@@ -290,7 +290,7 @@ func (r *Registry) disabledSet(ctx context.Context, in *AssembleInput) map[strin
 	gate := r.gate
 	r.mu.RUnlock()
 	if gate == nil || in == nil || in.OwnerID == "" {
-		return nil
+		return map[string]bool{}
 	}
 	return gate(ctx, in.OwnerID)
 }

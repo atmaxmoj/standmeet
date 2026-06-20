@@ -185,6 +185,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	// /__mock/gcal/* — control endpoints e2e specs use to seed busy
 	// fixtures and inspect inserted events.
 	mux.HandleFunc("POST /__mock/gcal/set_busy", s.serveMockSetBusy)
+	mux.HandleFunc("POST /__mock/gcal/revoke", s.serveMockGCalRevoke)
 	mux.HandleFunc("POST /__mock/gcal/reset", s.serveMockGCalReset)
 	mux.HandleFunc("GET /__mock/gcal/events", s.serveMockGCalEvents)
 	mux.HandleFunc("GET /__mock/gcal/deleted_events", s.serveMockGCalDeletedEvents)
