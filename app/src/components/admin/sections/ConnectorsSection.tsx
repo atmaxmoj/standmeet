@@ -15,6 +15,7 @@ import { ConnectorAddModal } from '@/components/admin/ConnectorAddModal';
 import { ConnectorTile } from '@/components/admin/sections/connectors/ConnectorTile';
 import { CalendarConnectorPanel } from '@/components/admin/sections/connectors/CalendarConnectorPanel';
 import { MailConnectorPanel } from '@/components/admin/sections/connectors/MailConnectorPanel';
+import { CapabilitiesPanel } from '@/components/admin/sections/connectors/CapabilitiesPanel';
 import { useConnectors, type ConnectorsHook } from '@/lib/admin/use-connectors';
 import { catalogSize } from '@/lib/admin/connector-registry';
 
@@ -35,6 +36,9 @@ export function ConnectorsSection() {
       <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <CalendarConnectorPanel />
         <MailConnectorPanel />
+      </div>
+      <div className="mb-8">
+        <CapabilitiesPanel />
       </div>
       <Grid hook={hook} onBrowse={() => setShowAdd(true)} />
       {showAdd && (
