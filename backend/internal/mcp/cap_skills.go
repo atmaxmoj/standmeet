@@ -71,8 +71,7 @@ func (c *skillsCapability) createBinding() *capreg.MCPBinding {
 				"description":{"type":"string",
 					"description":"Optional one-line description."},
 				"allowed_tools":{"type":"array","items":{"type":"string"},
-					"description":"Built-in capability IDs this skill unlocks on roles it is "+
-						"attached to (e.g. \"calendar.book\" to let visitors book meetings)."},
+					"description":"Capability IDs unlocked on roles (e.g. calendar.book)."},
 				"scripts":{"type":"array","items":{"type":"object"},
 					"description":"Optional sandbox scripts; each {filename,language,content,...}."}
 			},

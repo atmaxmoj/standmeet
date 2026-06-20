@@ -107,6 +107,33 @@ export async function initMCP(request: APIRequestContext, bearer: string): Promi
   return init.sessionId;
 }
 
+// MCPToolDef —— tools/list 单条工具元数据(name + 可选描述/schema)。
+export interface MCPToolDef { name: string; description?: string }
+interface MCPListResult { tools: MCPToolDef[] }
+
+// listTools —— 真实 MCP 工具发现路径(tools/list)。这条路径会序列化**全部**
+// 工具的 InputSchema —— 一个坏 schema 就让整张表 marshal 失败、返空 body、客户端
+// 一个工具都发现不了。所以它是 owner MCP 能被真实客户端(Claude Desktop)用起来
+// 的命门。返回工具名+元数据列表。
+export async function listTools(
+  request: APIRequestContext,
+  bearer: string,
+  sessionId: string,
+): Promise<MCPToolDef[]> {
+  const res = await mcpCall(request, {
+    jsonrpc: '2.0', id: nextID(), method: 'tools/list', params: {},
+  }, bearer, sessionId);
+  if (res.status !== 200 || !res.body) {
+    throw new Error(`tools/list status=${res.status}`);
+  }
+  if (res.body.error) {
+    throw new Error(`tools/list error: ${res.body.error.message}`);
+  }
+  const result = res.body.result as unknown as MCPListResult | undefined;
+  if (!result?.tools) throw new Error('tools/list returned no tools array (empty body?)');
+  return result.tools;
+}
+
 export async function callTool<T>(
   request: APIRequestContext,
   bearer: string,
