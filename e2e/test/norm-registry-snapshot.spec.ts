@@ -1,21 +1,25 @@
 // norm-registry-snapshot.spec.ts —— 能力归一化的「黄金快照」回归网。
 //
-// 重构目标:让 builtin 能力和插件能力走同一套注册/装载机制(唯一区别 = UI 标
-// builtin + 构建自带)。本 spec 在重构**之前**把"注册出来的全套能力"拍成 golden,
-// 重构中/后必须一字不变 —— 任何能力丢失 / 多出 / 改名 / 改 shape / **改注册顺序**
-// 都会被逮到。
+// 归一化 = 把 6 个内建 **inward 能力**(访客 AI 能用的本事:retrieval / booker /
+// skill.runner / ext.mcp / ask_visitor / summarize)从进程内 Go 写死,**外置成标准
+// MCP server**(各自目录/进程 + manifest + 被 core dial,跟 echoer / jobs 已有的外
+// 置样子一致;架构图 platform-architecture.md 的 (乙))。
 //
-// 注册顺序也锁(不是只锁集合):system prompt 的拼接顺序 = capability 注册顺序,
-// 顺序一漂 system_prompt_hash 就变。归一化重构必须保持注册顺序,本 golden 守住它。
+// 关键:加载机制变了(进程内 Go → 外置 MCP server),但这对 `diag/registry` 看到
+// 的东西**完全不可见** —— id / shape / origin / 注册顺序都不该变。所以本 golden
+// 全程**一字不变**,任何能力丢/多/改名/改 shape/改 origin/改顺序都会被逮到。
+//
+// 注册顺序也锁:system prompt 拼接顺序 = capability 注册顺序,顺序一漂 hash 就变。
 //
 // 跟 registry-introspection / registry-invariants 互补:那俩只验 shape 自洽 +
-// 确定性,**故意不锁具体哪些 capability**;这条就是锁那个具体集合 + 顺序。
+// 确定性,**故意不锁具体哪些 capability**;这条锁那个具体集合 + 顺序 + origin。
 //
-// 来源标注(重构关心的分叉):
-//   visitor builtin  ×6  —— RegisterVisitorSkills 写死 MustRegister
-//   owner builtin    ×15 —— mcp.RegisterAgentSkills 写死 MustRegister
-//   jobs plugin      ×3  —— plugins CapabilityRegistrar hook(现 origin 误标 builtin)
-//   discovered       ×1  —— STANDMEET_PLUGINS 发现的 echoer(managed)
+// 来源标注(只第一组是本次迁移对象;其余本次不碰):
+//   inward 能力(迁移对象)×6 —— 现 RegisterVisitorSkills 写死,将外置成 MCP server
+//   自管理 MCP(owner_only) ×15 —— mcp.RegisterAgentSkills(owner 从 Claude Code 管
+//                                 StandMeet 的 handles;as-MCP-server 朝向,本次不碰)
+//   jobs/resume/applications ×3 —— 也是自管理 MCP(owner-facing),本次不碰
+//   discovered echoer        ×1 —— STANDMEET_PLUGINS 发现的外置插件(managed),已是样板
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -29,21 +33,20 @@ type Origin = 'builtin' | 'managed' | 'owner';
 interface Cap { id: string; shape: Shape; origin: Origin }
 interface RegistryListResp { capabilities: Cap[] }
 
-// GOLDEN —— 注册顺序 + id + shape + **origin** 逐条锁定。
+// GOLDEN —— 注册顺序 + id + shape + **origin** 逐条锁定,**全程不变**。
 // 顺序 = prompt 拼接顺序,不可漂;origin 锁住"谁是 builtin / managed / owner"。
-// 重构(把 builtin 收成统一 provider 机制)后必须一致 —— 但有**一处故意改动**:
-// jobs 三个(jobs/resume/applications.bundle)现在误标 builtin,归一化把它们
-// 改成 owner/managed(插件本就不该是 builtin)。重构时把那三行的 origin 改成
-// 新值、保留本注释,即"故意改"而非回归。
+// 本次归一化只把前 6 个 inward 能力的**加载机制**外置(进程内 Go → MCP server),
+// 那对 diag/registry 不可见;内建仍标 origin=builtin(构建自带)。所以这 25 行
+// **一条都不该变** —— 包括 jobs(它是自管理 MCP、本次不碰,origin 保持 builtin)。
 const GOLDEN: readonly Cap[] = [
-  // ── visitor builtin (RegisterVisitorSkills) ──
+  // ── inward 能力(本次迁移对象;外置后仍标 builtin) ──
   { id: 'corpus.retrieval', shape: 'visitor_only', origin: 'builtin' },
   { id: 'calendar.book', shape: 'visitor_only', origin: 'builtin' },
   { id: 'skill.runner', shape: 'visitor_only', origin: 'builtin' },
   { id: 'ext.mcp', shape: 'visitor_only', origin: 'builtin' },
   { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
   { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
-  // ── owner builtin (mcp.RegisterAgentSkills) ──
+  // ── 自管理 MCP(owner-facing,本次不碰) ──
   { id: 'owner.me', shape: 'owner_only', origin: 'builtin' },
   { id: 'seo.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'codes.bundle', shape: 'owner_only', origin: 'builtin' },
@@ -59,18 +62,18 @@ const GOLDEN: readonly Cap[] = [
   { id: 'custom_page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'calendar.bundle', shape: 'owner_only', origin: 'builtin' },
-  // ── jobs plugin (CapabilityRegistrar hook) —— origin 现误标 builtin,归一化改 ──
+  // ── jobs/resume/applications:也是自管理 MCP(owner-facing),本次不碰 ──
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
-  // ── discovered plugin (STANDMEET_PLUGINS) ──
+  // ── discovered 外置插件(STANDMEET_PLUGINS;已是外置样板) ──
   { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
 ];
 
 test.describe('能力归一化 · 注册黄金快照(重构安全网)', () => {
   test.beforeAll(() => { resetInstance(); });
 
-  test('registry 注册的全套 capability(id + shape + 顺序)逐字等于 golden',
+  test('registry 注册的全套 capability(id + shape + origin + 顺序)逐字等于 golden',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const list = await fetchRegistry(request);

@@ -1,8 +1,9 @@
 // norm-visitor-assembly.spec.ts —— 能力归一化的访客侧黄金快照。
 //
 // registry-snapshot 锁"哪些 capability 注册了";这条锁"装配给一个访客 session 的
-// 工具集" —— 也就是访客真正看得到的东西。归一化重构(统一 builtin/plugin 注册)
-// 后,同一个 role 装出来的 tool_specs 必须一字不变。
+// 工具集" —— 访客真正看得到的东西。归一化把那 6 个 inward 能力的加载机制外置成
+// MCP server(平台架构的 (乙)),装配结果不该受影响 —— 同一个 role 装出来的
+// tool_specs 必须一字不变。
 //
 // 用一个 corpus-only role(不挂 skill / 不连 calendar / 不授 echoer)→ 装配结果
 // 确定、不依赖外部连器,适合当稳定 golden。
