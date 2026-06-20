@@ -118,6 +118,32 @@ func (s *Session) ListTools(ctx context.Context) ([]Tool, error) {
 	return out, nil
 }
 
+// ReadResource —— 读一个 MCP 资源（resources/read），返回其 text 内容（多个
+// TextResourceContents 拼接；blob 跳过）。MCP Apps 的 ui:// 卡片资源就经这条
+// 取 HTML。uri 由 server 自定义协议（ui://...）；server 怎么解释是它的事。
+func (s *Session) ReadResource(ctx context.Context, uri string) (string, error) {
+	rctx, cancel := context.WithTimeout(ctx, callTimeout)
+	defer cancel()
+	req := mcpgo.ReadResourceRequest{}
+	req.Params.URI = uri
+	res, err := s.c.ReadResource(rctx, req)
+	if err != nil {
+		return "", fmt.Errorf("read resource %s: %w", uri, err)
+	}
+	return extractResourceText(res), nil
+}
+
+// extractResourceText —— 拼 ReadResourceResult 里的 TextResourceContents.Text。
+func extractResourceText(res *mcpgo.ReadResourceResult) string {
+	var b strings.Builder
+	for i := range res.Contents {
+		if tc, ok := res.Contents[i].(mcpgo.TextResourceContents); ok {
+			_, _ = b.WriteString(tc.Text)
+		}
+	}
+	return b.String()
+}
+
 // CallTool —— 调一个 tool；name+args 直接转给对方。返回 text content（多
 // content 拼一起；非 text 跳）。失败返 err；isError 返 err 让 caller 翻
 // tool_result。args 形态：JSON object；空串 → 空 object {}。

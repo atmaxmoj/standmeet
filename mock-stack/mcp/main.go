@@ -52,6 +52,7 @@ func main() {
 
 	srv := server.NewMCPServer("mcp-server-mock", "0.1.0",
 		server.WithToolCapabilities(true),
+		server.WithResourceCapabilities(false, false),
 		// instructions —— MCP 原生 "how to use this server" 字段；验证 mcpclient
 		// 把它当 system-prompt fragment 浮出来（外置能力携带 prompt 的载体）。
 		server.WithInstructions(mockInstructions))
@@ -62,6 +63,10 @@ func main() {
 		srv.AddTool(boomTool(), boomHandler)
 		srv.AddTool(returnDirectlyTool(), echoHandler)
 	}
+	// 一个普通资源 —— 仅证明 resources/read 传输通（mcpclient.ReadResource 的
+	// transport-boundary fixture，跟 echo/ping/boom 同级）。真正的 ui:// 卡片资源
+	// 由各外置能力 server 自带，不在这个通用 mock 里预演。
+	srv.AddResource(sampleResource(), sampleResourceHandler)
 
 	if len(os.Args) > 1 && os.Args[1] == "--stdio" {
 		if err := server.ServeStdio(srv); err != nil {
@@ -153,6 +158,30 @@ func returnDirectlyTool() mcpgo.Tool {
 	)
 	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"return_directly": true})
 	return t
+}
+
+const sampleResourceURI = "mock://resource/sample.txt"
+
+// sampleResource —— 一个普通文本资源声明，仅用于验证 resources/read 传输。
+func sampleResource() mcpgo.Resource {
+	return mcpgo.NewResource(
+		sampleResourceURI, "sample resource",
+		mcpgo.WithMIMEType("text/plain"),
+		mcpgo.WithResourceDescription("resources/read transport fixture."),
+	)
+}
+
+// sampleResourceHandler —— 返回带 marker 的文本，让 mcpclient 测断言内容原样取回。
+//
+//nolint:gocritic // mcp-go 接口要求 value-typed request；改不了。
+func sampleResourceHandler(
+	_ context.Context, _ mcpgo.ReadResourceRequest,
+) ([]mcpgo.ResourceContents, error) {
+	return []mcpgo.ResourceContents{
+		mcpgo.TextResourceContents{
+			URI: sampleResourceURI, MIMEType: "text/plain", Text: marker + ":resource",
+		},
+	}, nil
 }
 
 func boomTool() mcpgo.Tool {

@@ -90,6 +90,16 @@ func TestStdio_SurfacesToolMeta(t *testing.T) {
 	require.Nil(t, byName["echo"].Meta, "echo tool has no _meta")
 }
 
+// ReadResource —— resources/read 传输通：取回资源文本内容。真正的 ui:// 卡片
+// 由外置能力 server 自带，这里只验传输层。
+func TestStdio_ReadResource(t *testing.T) {
+	t.Parallel()
+	sess := dialMock(t, nil)
+	text, err := sess.ReadResource(context.Background(), "mock://resource/sample.txt")
+	require.NoError(t, err)
+	require.Contains(t, text, marker+":resource")
+}
+
 // happy：call echo → 回 marker:text。
 func TestStdio_CallEcho(t *testing.T) {
 	t.Parallel()
