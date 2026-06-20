@@ -26,8 +26,8 @@ test.describe('Phase H · owner-disable beats ACL grant (P.6)', () => {
   test.afterAll(async () => { await teardownSeed(seed); });
 
   test('disable calendar.book while a role still grants it → gone from the session',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = seed.request;
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: seed.code.code, visitor_name: 'V',
       });
@@ -46,6 +46,5 @@ test.describe('Phase H · owner-disable beats ACL grant (P.6)', () => {
       expect(await sessionToolNames(request, sess.session_token))
         .toContain(BOOKING_TOOL);
 
-      await request.dispose();
     });
 });

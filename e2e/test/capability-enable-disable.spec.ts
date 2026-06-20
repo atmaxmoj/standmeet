@@ -7,6 +7,7 @@
 // 内建、且任何带 corpus 授权的访客都看得到 corpus_search）。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createRole } from '@/fixtures/roles';
@@ -29,11 +30,13 @@ const RETRIEVAL_ID = 'corpus.retrieval';
 const RETRIEVAL_TOOL = 'corpus_search';
 
 let csrf = '';
+let admin: APIRequestContext;
 
 test.describe('Phase H · capability enable/disable (owner-plane availability gate)', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
-    const request = await playwright.request.newContext();
+    admin = await playwright.request.newContext();
+    const request = admin;
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
@@ -44,23 +47,23 @@ test.describe('Phase H · capability enable/disable (owner-plane availability ga
     });
     await createCode(request, csrf, { code: CODE, label: 'cap toggle', assumed_role_id: role.id });
     await createAPIToken(request, csrf, 'cap-toggle-seed');
-    await request.dispose();
   });
 
+  test.afterAll(async () => { await admin?.dispose(); });
+
   test('builtin corpus.retrieval: listed as builtin + enabled + NOT deletable',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = admin;
       const cap = await findCapability(request, csrf, RETRIEVAL_ID);
       expect(cap, 'corpus.retrieval listed').toBeDefined();
       expect(cap?.origin).toBe('builtin');
       expect(cap?.enabled).toBe(true);
       expect(cap?.deletable, 'builtin not deletable').toBe(false);
-      await request.dispose();
     });
 
   test('disable a builtin → its tool disappears from a visitor session; re-enable → back',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = admin;
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
@@ -79,6 +82,5 @@ test.describe('Phase H · capability enable/disable (owner-plane availability ga
       expect(await sessionToolNames(request, sess.session_token), 're-enabled → back')
         .toContain(RETRIEVAL_TOOL);
 
-      await request.dispose();
     });
 });

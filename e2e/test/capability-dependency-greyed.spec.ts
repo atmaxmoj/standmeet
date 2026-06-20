@@ -4,6 +4,7 @@
 // 连上 → 变 true。这跟 chat-book-not-connected（访客侧隐藏）是同一门的 admin 视图。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -20,22 +21,25 @@ const OWNER = {
 const BOOKING_ID = 'calendar.book';
 
 let csrf = '';
+let admin: APIRequestContext;
 
 test.describe('Phase H · capability connector-dependency status (P.6)', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
-    const request = await playwright.request.newContext();
+    admin = await playwright.request.newContext();
+    const request = admin;
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
     ({ csrf } = await loginAPI(request, OWNER.email, OWNER.password));
-    await request.dispose();
   });
 
+  test.afterAll(async () => { await admin?.dispose(); });
+
   test('calendar.book row: dependency Google Calendar, not connected → connected after OAuth',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = admin;
 
       // before connecting: dependency present + unmet.
       const before = await findCapability(request, csrf, BOOKING_ID);
@@ -52,6 +56,5 @@ test.describe('Phase H · capability connector-dependency status (P.6)', () => {
       const after = await findCapability(request, csrf, BOOKING_ID);
       expect(after?.dependency?.connected, 'met after connect').toBe(true);
 
-      await request.dispose();
     });
 });

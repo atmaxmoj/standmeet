@@ -3,6 +3,7 @@
 // 锁 ListByOrigin 透到前端 + 三种 kind 都在一张表里。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -15,11 +16,13 @@ const OWNER = {
 };
 
 let csrf = '';
+let admin: APIRequestContext;
 
 test.describe('Phase H · capability panel lists all kinds with origin badge (P.5)', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
-    const request = await playwright.request.newContext();
+    admin = await playwright.request.newContext();
+    const request = admin;
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
@@ -31,12 +34,13 @@ test.describe('Phase H · capability panel lists all kinds with origin badge (P.
     await callTool(request, token, sid, 'skill_create', {
       name: 'owner-skill', description: 'an owner skill', prompt: 'do the thing',
     });
-    await request.dispose();
   });
 
+  test.afterAll(async () => { await admin?.dispose(); });
+
   test('panel includes a builtin capability, a connector, and an owner skill — each with origin',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = admin;
       const rows = await listCapabilities(request, csrf);
 
       // builtin capability (corpus.retrieval ships with the product).
@@ -57,6 +61,5 @@ test.describe('Phase H · capability panel lists all kinds with origin badge (P.
       for (const r of rows) {
         expect(['builtin', 'managed', 'owner'], `origin on ${r.id}`).toContain(r.origin);
       }
-      await request.dispose();
     });
 });

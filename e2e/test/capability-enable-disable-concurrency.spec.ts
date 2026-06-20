@@ -4,6 +4,7 @@
 // 写要安全。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -17,22 +18,25 @@ const OWNER = {
 const CAP_ID = 'corpus.retrieval';
 
 let csrf = '';
+let admin: APIRequestContext;
 
 test.describe('Phase H · enable/disable under concurrency', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
-    const request = await playwright.request.newContext();
+    admin = await playwright.request.newContext();
+    const request = admin;
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
     ({ csrf } = await loginAPI(request, OWNER.email, OWNER.password));
-    await request.dispose();
   });
 
+  test.afterAll(async () => { await admin?.dispose(); });
+
   test('many concurrent toggles → all 200, no corruption, deterministic final state',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = admin;
 
       // fire 12 interleaved enable/disable concurrently.
       const calls = Array.from({ length: 12 }, (_, i) =>
@@ -47,6 +51,5 @@ test.describe('Phase H · enable/disable under concurrency', () => {
       expect(await setCapabilityEnabled(request, csrf, CAP_ID, true)).toBe(200);
       expect((await findCapability(request, csrf, CAP_ID))?.enabled).toBe(true);
 
-      await request.dispose();
     });
 });

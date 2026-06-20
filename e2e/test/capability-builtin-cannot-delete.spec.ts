@@ -4,6 +4,7 @@
 // skill / 注册的 MCP server）有完整删除入口。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -20,11 +21,13 @@ const OWNER = {
 const BUILTIN_ID = 'corpus.retrieval';
 
 let csrf = '';
+let admin: APIRequestContext;
 
 test.describe('Phase H · existence is Origin-controlled (delete only owner-origin)', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
-    const request = await playwright.request.newContext();
+    admin = await playwright.request.newContext();
+    const request = admin;
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
@@ -37,23 +40,23 @@ test.describe('Phase H · existence is Origin-controlled (delete only owner-orig
       name: 'owner-thing', description: 'an owner-origin capability',
       prompt: 'owner instructions',
     });
-    await request.dispose();
   });
 
+  test.afterAll(async () => { await admin?.dispose(); });
+
   test('builtin corpus.retrieval → deletable:false AND DELETE is rejected',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = admin;
       const cap = await findCapability(request, csrf, BUILTIN_ID);
       expect(cap?.origin).toBe('builtin');
       expect(cap?.deletable, 'builtin not deletable').toBe(false);
       // hard guard: even a direct DELETE must be refused (>=400), not silently no-op.
       expect(await deleteCapability(request, csrf, BUILTIN_ID)).toBeGreaterThanOrEqual(400);
-      await request.dispose();
     });
 
   test('owner-origin entry → deletable:true AND DELETE removes it',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = admin;
       // find the owner-origin row by its origin (don't hardcode the id scheme).
       const ownerRow = (await listCapabilities(request, csrf)).find((c) => c.origin === 'owner');
       expect(ownerRow, 'an owner-origin capability exists').toBeDefined();
@@ -66,6 +69,5 @@ test.describe('Phase H · existence is Origin-controlled (delete only owner-orig
       // gone from the list.
       expect((await listCapabilities(request, csrf)).some((c) => c.id === ownerRow!.id))
         .toBe(false);
-      await request.dispose();
     });
 });

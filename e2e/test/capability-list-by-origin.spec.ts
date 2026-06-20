@@ -3,6 +3,7 @@
 // builtin origin」—— 迁移期 ListByOrigin(builtin) 数出还剩几个没迁出去。
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -20,22 +21,25 @@ const KNOWN_BUILTINS = [
 ];
 
 let csrf = '';
+let admin: APIRequestContext;
 
 test.describe('Phase H · ListByOrigin (P.5 migration counter)', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
-    const request = await playwright.request.newContext();
+    admin = await playwright.request.newContext();
+    const request = admin;
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
     ({ csrf } = await loginAPI(request, OWNER.email, OWNER.password));
-    await request.dispose();
   });
 
+  test.afterAll(async () => { await admin?.dispose(); });
+
   test('known builtin capabilities all report origin=builtin',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
+    async () => {
+      const request = admin;
       const rows = await listCapabilities(request, csrf);
       const builtinIDs = rows.filter((c) => c.origin === 'builtin').map((c) => c.id);
 
@@ -47,6 +51,5 @@ test.describe('Phase H · ListByOrigin (P.5 migration counter)', () => {
         expect(row, `${id} listed`).toBeDefined();
         expect(row?.origin, `${id} origin`).toBe('builtin');
       }
-      await request.dispose();
     });
 });
