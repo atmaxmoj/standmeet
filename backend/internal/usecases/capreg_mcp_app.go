@@ -88,9 +88,22 @@ func (c *mcpAppCapability) VisitorBinding(
 	}
 	return &capreg.Binding{
 		Tools: wrapMCPAppTools(c.m.ID, sess, tools),
-		State: mcpAppState(&c.m),
+		State: mcpAppState(ctx, sess, &c.m),
 		Close: sess.Close,
 	}, nil
+}
+
+// readUIHTML —— manifest 带 ui 时，装配期经 resources/read 取卡片 HTML 模板。
+// 取不到不致命（card 渲染降级，不阻塞 chat）：返空串、caller 仍带 resource_uri。
+func readUIHTML(ctx context.Context, sess *mcpclient.Session, m *mcpplugin.Manifest) string {
+	if m.UI == nil || m.UI.ResourceURI == "" {
+		return ""
+	}
+	html, err := sess.ReadResource(ctx, m.UI.ResourceURI)
+	if err != nil {
+		return ""
+	}
+	return html
 }
 
 // dialMCPApp —— 按 transport kind 选 stdio / http。manifest 已过校验,kind 必是
@@ -158,14 +171,21 @@ func mcpAppToolDescription(pluginID string, t *mcpclient.Tool) string {
 	return prefix + strings.TrimSpace(t.Description)
 }
 
-// mcpAppState —— CapabilityState；manifest 带 ui 则把 ui 挂进 Extra(#134 接点)。
-func mcpAppState(m *mcpplugin.Manifest) capreg.CapabilityState {
+// mcpAppState —— CapabilityState；manifest 带 ui 则把 ui 资源（resource_uri /
+// mime_type + 装配期读到的 HTML 模板）挂进 Extra（#134：前端沙盒渲染的取料）。
+func mcpAppState(
+	ctx context.Context, sess *mcpclient.Session, m *mcpplugin.Manifest,
+) capreg.CapabilityState {
 	st := capreg.CapabilityState{ID: m.ID, Enabled: true}
 	if m.UI == nil {
 		return st
 	}
 	extra, err := json.Marshal(map[string]map[string]string{
-		"ui": {"resource_uri": m.UI.ResourceURI, "mime_type": m.UI.MimeType},
+		"ui": {
+			"resource_uri": m.UI.ResourceURI,
+			"mime_type":    m.UI.MimeType,
+			"html":         readUIHTML(ctx, sess, m),
+		},
 	})
 	if err == nil {
 		st.Extra = extra

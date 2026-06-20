@@ -86,10 +86,14 @@ func TestMCPApp_DialsAndExposesTools(t *testing.T) {
 	require.Contains(t, bindingToolNames(b), "echo")
 }
 
-// happy：manifest 带 ui → CapabilityState.Extra 携带 ui resourceUri（#134 接点）。
+// happy：manifest 带 ui → CapabilityState.Extra 携带 ui resource_uri + 装配期经
+// resources/read 取到的 HTML 模板（#134：前端沙盒渲染取料）。resource_uri 用
+// mock 真 serve 的那条，断言内容被读出来嵌进 Extra。
 func TestMCPApp_UIMetaIntoExtra(t *testing.T) {
 	t.Parallel()
-	ui := &mcpplugin.UI{ResourceURI: "ui://card", MimeType: "text/html+mcp"}
+	ui := &mcpplugin.UI{
+		ResourceURI: "mock://resource/sample.txt", MimeType: "text/html+mcp",
+	}
 	c := newMCPAppCapability(stdioManifest(echoerID, buildPluginMock(t), ui))
 	b, err := c.VisitorBinding(context.Background(), grantInput(echoerID))
 	require.NoError(t, err)
@@ -98,7 +102,9 @@ func TestMCPApp_UIMetaIntoExtra(t *testing.T) {
 			b.Close()
 		}
 	})
-	require.Contains(t, string(b.State.Extra), "ui://card")
+	require.Contains(t, string(b.State.Extra), "mock://resource/sample.txt")
+	require.Contains(t, string(b.State.Extra), "[EXT-MCP-MARKER]:resource",
+		"ui html template read via resources/read embedded into Extra")
 }
 
 // ACL：role 授权了别的、不含本插件 → ErrHidden（即使 mock 在、可 dial）。
