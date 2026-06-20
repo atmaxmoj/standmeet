@@ -34,15 +34,20 @@ func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
 	return &mcpAppCapability{m: *m, instrOnce: &sync.Once{}, instr: new(string)}
 }
 
-// RegisterDiscoveredPlugins —— 把发现来源(装机配置)的 manifest 逐个注册成
-// mcpAppCapability 进同一个 Registry。装机插件不是随产品发的内建，而是部署期
-// 声明装上的 —— origin=managed(P.5/P.6)：管理面据此分组、且 managed 不可经面板删
-// (删 = 改装机配置，不是运行期删)。撞 ID(跟内建或彼此) → 跳过该条、收进返回的
-// skipped(caller log),不让一个坏插件 panic 整个 boot。
-func RegisterDiscoveredPlugins(reg *capreg.Registry, manifests []mcpplugin.Manifest) []string {
+// RegisterDiscoveredPlugins —— 把发现来源的 manifest 逐个注册成 mcpAppCapability
+// 进同一个 Registry，带指定 origin：
+//   - OriginBuiltin：随产品镜像发的 bundled 内建（外置后的 ask_visitor 等）。这条源
+//     prod 也在；管理面不可删（删 = 改镜像）。
+//   - OriginManaged：部署期经 STANDMEET_PLUGINS 声明装上的第三方/集成插件。
+//
+// 撞 ID(跟别的内建或彼此) → 跳过该条、收进返回的 skipped(caller log),不让一个坏
+// 插件 panic 整个 boot。
+func RegisterDiscoveredPlugins(
+	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
+) []string {
 	skipped := []string{}
 	for i := range manifests {
-		err := reg.RegisterOrigin(newMCPAppCapability(&manifests[i]), capreg.OriginManaged)
+		err := reg.RegisterOrigin(newMCPAppCapability(&manifests[i]), origin)
 		if err != nil {
 			skipped = append(skipped, manifests[i].ID)
 		}

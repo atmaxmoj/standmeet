@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
@@ -196,20 +197,30 @@ func wireCapabilityEnableGate(d *runtimeDeps) {
 	})
 }
 
-// registerDiscoveredPlugins —— 从 STANDMEET_PLUGINS 配置(装机声明)发现外部 MCP
-// 插件,注册进同一个 capreg.Registry。env 未设 → 无插件(prod 默认)。坏配置 /
-// 撞名 → log + skip,不崩 boot。
+// registerDiscoveredPlugins —— 两条发现源注册进同一个 capreg.Registry：
+//   - STANDMEET_BUILTIN_PLUGINS：随产品镜像发的 bundled 内建（外置后的 ask_visitor
+//     等），origin=builtin。prod 也在。
+//   - STANDMEET_PLUGINS：部署期声明的第三方/集成插件，origin=managed。env 未设 →
+//     无（prod 默认无第三方）。
+//
+// 任一源坏配置 / 撞名 → log + skip,不崩 boot。
 func registerDiscoveredPlugins(d *runtimeDeps) {
-	res, err := mcpplugin.Load(os.Getenv("STANDMEET_PLUGINS"))
+	registerPluginSource(d, os.Getenv("STANDMEET_BUILTIN_PLUGINS"), capreg.OriginBuiltin)
+	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged)
+}
+
+// registerPluginSource —— 加载一条发现源配置并以指定 origin 注册。
+func registerPluginSource(d *runtimeDeps, path string, origin capreg.Origin) {
+	res, err := mcpplugin.Load(path)
 	if err != nil {
-		d.log.Error("plugin config load", "err", err)
+		d.log.Error("plugin config load", "origin", string(origin), "err", err)
 		return
 	}
 	for i := range res.Skipped {
 		d.log.Warn("plugin manifest skipped",
 			"id", res.Skipped[i].ID, "reason", res.Skipped[i].Reason)
 	}
-	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, res.Manifests)
+	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, res.Manifests, origin)
 	for _, id := range dupes {
 		d.log.Warn("plugin register skipped (duplicate id)", "id", id)
 	}

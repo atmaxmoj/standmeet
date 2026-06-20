@@ -131,6 +131,18 @@ func TestMCPApp_ReturnDirectlyFromMeta(t *testing.T) {
 	require.False(t, echo.ReturnDirectly, "echo has no return_directly meta")
 }
 
+// B2: RegisterDiscoveredPlugins 按传入 origin 注册（bundled 内建 → builtin）。
+func TestMCPApp_RegisterWithBuiltinOrigin(t *testing.T) {
+	t.Parallel()
+	reg := capreg.NewRegistry()
+	m := stdioManifest("ask_visitor", buildPluginMock(t), nil)
+	skipped := RegisterDiscoveredPlugins(reg, []mcpplugin.Manifest{*m}, capreg.OriginBuiltin)
+	require.Empty(t, skipped)
+	origin, ok := reg.OriginOf("ask_visitor")
+	require.True(t, ok)
+	require.Equal(t, capreg.OriginBuiltin, origin)
+}
+
 // B1: SystemPromptFragment ← server initialize instructions（prompt 自包含于 server）。
 func TestMCPApp_PromptFromInstructions(t *testing.T) {
 	t.Parallel()
