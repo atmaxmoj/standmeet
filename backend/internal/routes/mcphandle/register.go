@@ -9,7 +9,7 @@
 // 走 plugins/jobs/jobs.Plugin.RegisterCapabilities，由 composition root 通
 // 过 pluginRegistry.RegisterAllCapabilities 一次性挂全部 plugin 的 hook。
 
-package mcp
+package mcphandle
 
 import (
 	"log/slog"

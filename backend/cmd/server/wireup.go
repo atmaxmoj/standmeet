@@ -9,10 +9,10 @@ import (
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/mcp"
 	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
+	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
 	"github.com/atmaxmoj/standmeet/internal/server"
@@ -153,10 +153,10 @@ func registerAgentSkills(d *runtimeDeps) {
 	}
 	handleDeps := usecases.HandleDeps{Owners: d.ownerRepo}
 	calendarStore := calendarStoreAdapter{repo: d.calendarRepo}
-	calendarDeps := &mcp.CalendarOwnerDeps{
+	calendarDeps := &mcphandle.CalendarOwnerDeps{
 		Proxy: calendarProxy(d), Store: calendarStore,
 	}
-	mcp.RegisterAgentSkills(d.agentSkills, &mcp.RegisterDeps{
+	mcphandle.RegisterAgentSkills(d.agentSkills, &mcphandle.RegisterDeps{
 		Owners:        d.ownerRepo,
 		SEO:           d.seoRepo,
 		Codes:         d.codeRepo,
@@ -310,8 +310,8 @@ func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHand
 	}
 }
 
-func buildMCPDeps(d *runtimeDeps) mcp.Deps {
-	return mcp.Deps{
+func buildMCPDeps(d *runtimeDeps) mcphandle.Deps {
+	return mcphandle.Deps{
 		AgentSkills: d.agentSkills,
 		Keypairs:    usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log},
 		Owners:      d.ownerRepo,

@@ -5,7 +5,7 @@
 // mcp_servers / chat / seo / page / jobs / resume / applications 一个个
 // 按同模式迁。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

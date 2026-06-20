@@ -1,7 +1,7 @@
 // cap_codes_create.go —— Phase E-13 拆出来守 max-lines。codes.create 单 tool
 // + 入参 parse + build。codes.update_quotas 仍在 cap_codes.go。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

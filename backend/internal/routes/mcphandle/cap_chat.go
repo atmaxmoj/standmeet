@@ -3,7 +3,7 @@
 // 让 owner 在 Claude / Cursor 里直接看一段 conversation 的 grounding：
 // assistant 回复 + cited wiki + cited output (含 body)，方便迭代自己的 corpus。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

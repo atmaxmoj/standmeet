@@ -2,7 +2,7 @@
 // 3 tools: prompt_create / prompt_list / prompt_delete。owner-only。
 // vanilla builtin 不可删，usecase 层拦，cap 翻译成 isError。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

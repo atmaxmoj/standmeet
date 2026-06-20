@@ -7,7 +7,7 @@
 //
 // 后续可加：private IP block 列表 / host allowlist。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

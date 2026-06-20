@@ -6,7 +6,7 @@
 // 拆出 cap_custom_page_lifecycle.go (promote_to_* / rollback / delete / list)
 // 守 max-lines。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

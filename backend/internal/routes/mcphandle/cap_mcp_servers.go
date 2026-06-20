@@ -1,7 +1,7 @@
 // cap_mcp_servers.go —— Phase E-7: owner external MCP server registry CRUD
 // via Capability。3 tools: mcp_server_create / list / delete。owner-only。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

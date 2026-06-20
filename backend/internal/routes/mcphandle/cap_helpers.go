@@ -2,7 +2,7 @@
 // 解析、通用 MCPResult JSON 封装、raw/wiki view 转换。从 cap_corpus_raw.go
 // 拆出来守 max-lines。
 
-package mcp
+package mcphandle
 
 import (
 	"encoding/json"

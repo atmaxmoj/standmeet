@@ -1,4 +1,5 @@
-// Package mcp 提供 owner 的 AI 客户端用的 MCP server。
+// Package mcphandle 提供 owner 的 AI 客户端用的 MCP server（owner 自管理工具的
+// controller 层，住 internal/routes/ 下与 admin/public/sys 并列）。
 //
 // Auth：Bearer API token（mcp:write/mcp:read/mcp:pages 在 v1 不分粒度，所有
 // token 一视同仁）。token 校验通过 HTTPContextFunc 注 ownerID 到 ctx，tool
@@ -6,7 +7,7 @@
 //
 // Transport：mcp-go 的 streamable HTTP。/mcp/ 同 endpoint 处理 POST request +
 // 可选 SSE。
-package mcp
+package mcphandle
 
 import (
 	"context"

@@ -6,7 +6,7 @@
 // page.update_handle / corpus.update_wiki / calendar.list_slots /
 // calendar.cancel_booking 等其他 parity 缺口。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

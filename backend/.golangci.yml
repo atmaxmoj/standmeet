@@ -228,19 +228,24 @@ linters:
     # owns that error (response write + its error handler), so
     # wrapping would break the framework's contract.
     rules:
-      - path: internal/routes/
+      # HTTP route handlers (echo `func(c) error`) only — mcphandle lives
+      # under internal/routes/ too but returns capreg.MCPResult, not error,
+      # so it is NOT exempt from wrapcheck (keeps its pre-move budget).
+      - path: internal/routes/(admin|public|sys)/
         linters: [wrapcheck]
       # Same echo-handler reasoning for middleware as for routes:
       # `func(c echo.Context) error` requires `return c.JSON(...)`.
       - path: internal/middleware/
         linters: [wrapcheck]
-      # cyclop runs at the looser business budget (≤5) — the routes
+      # cyclop runs at the looser business budget (≤5) — the HTTP route
       # layer's stricter ≤3 cap is enforced by scripts/check-routes-
-      # cyclo.sh, which uses gocyclo against this folder only.
-      # Excluding routes here avoids double-reporting (one error
-      # per violation rather than two with subtly different
-      # framings).
-      - path: internal/routes/
+      # cyclo.sh, which uses gocyclo against admin/public/sys only.
+      # Excluding those here avoids double-reporting (one error per
+      # violation rather than two with subtly different framings).
+      # mcphandle is an MCP controller (inline schemaless-arg parsing),
+      # not an HTTP handler — it stays on the cyclop ≤5 business budget,
+      # exactly as it was under the old internal/mcp path.
+      - path: internal/routes/(admin|public|sys)/
         linters: [cyclop]
       # inference 的重试 transport / 超时收尾是 unexported helpers,值得直接
       # 白盒单测(retryTransport / drainResp / agentTurnTimeout 等)。testpackage
@@ -267,8 +272,9 @@ linters:
         linters: [forbidigo]
       # MCP layer 接 schemaless JSON args（mcp-go 把 tool args 解到
       # map[string]any，array 类型转换成 []any）。这是协议契约不是
-      # 业务态，同 postgres 豁免。
-      - path: internal/mcp/
+      # 业务态，同 postgres 豁免。owner MCP handles 现住 routes/mcphandle
+      # (controller 层),但形态仍是 MCP 协议契约,不是 HTTP route handler。
+      - path: internal/routes/mcphandle/
         linters: [forbidigo]
       # J.3: jobs plugin 的 MCP capabilities 跟 internal/mcp 同形态，同
       # schemaless 协议契约 (map[string]any payload)。

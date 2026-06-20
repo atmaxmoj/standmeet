@@ -4,7 +4,7 @@
 //
 // 4 tools: raw_dump / promote_to_wiki / list_recent_raw / list_recent_wiki。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

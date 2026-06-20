@@ -4,7 +4,7 @@
 // 取代老 seo_tools.go (AddTool 调用)；同 SEOWriter 接口注入，wire 通过
 // mcp.RegisterDeps 透传。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

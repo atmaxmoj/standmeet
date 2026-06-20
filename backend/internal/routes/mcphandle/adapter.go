@@ -4,7 +4,7 @@
 // InputSchema, Handler}；本 adapter 统一做 owner_id resolve + panic recover
 // + result translation；Handler 拿到的 ownerID 已经验过、raw 是 args JSON。
 
-package mcp
+package mcphandle
 
 import (
 	"context"

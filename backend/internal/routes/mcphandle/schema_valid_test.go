@@ -1,4 +1,4 @@
-package mcp_test
+package mcphandle_test
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/mcp"
+	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 )
 
 // TestOwnerToolSchemasAreValidJSON —— 每个 owner-MCP 工具的 InputSchema 必须是
@@ -17,9 +17,9 @@ func TestOwnerToolSchemasAreValidJSON(t *testing.T) {
 	t.Parallel()
 
 	reg := capreg.NewRegistry()
-	mcp.RegisterAgentSkills(reg, &mcp.RegisterDeps{
+	mcphandle.RegisterAgentSkills(reg, &mcphandle.RegisterDeps{
 		Log:      slog.Default(),
-		Calendar: &mcp.CalendarOwnerDeps{}, // RegisterAgentSkills derefs .Proxy/.Store
+		Calendar: &mcphandle.CalendarOwnerDeps{}, // RegisterAgentSkills derefs .Proxy/.Store
 	})
 
 	for _, b := range reg.OwnerMCPBindings() {

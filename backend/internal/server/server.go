@@ -13,11 +13,11 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/captcha"
-	"github.com/atmaxmoj/standmeet/internal/mcp"
 	authmw "github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
+	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
 	"github.com/atmaxmoj/standmeet/internal/session"
@@ -50,7 +50,7 @@ type Deps struct {
 	PluginRegistry *plugins.Registry
 	// BannedIPs —— 封禁 IP repo；公开面 BanGuard + admin ip-bans CRUD 共用。
 	BannedIPs *postgres.BannedIPRepo
-	MCP       mcp.Deps
+	MCP       mcphandle.Deps
 	Admin     AdminDeps
 }
 
@@ -104,7 +104,7 @@ func New(deps *Deps) http.Handler {
 	mountAdmin(r, deps)
 	mountPublic(r, deps)
 	mountRootSEO(r, deps)
-	r.Mount("/mcp", mcp.New(&deps.MCP))
+	r.Mount("/mcp", mcphandle.New(&deps.MCP))
 	return r
 }
 

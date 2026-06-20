@@ -32,8 +32,8 @@ components:
     in: internal/apierr                   # HTTP error envelope 翻译 helper
   middleware:
     in: internal/middleware               # chi middleware: WithOwner, RequireCSRF
-  mcp:
-    in: internal/mcp                      # mcp-go server + tool handlers
+  mcphandle:
+    in: internal/routes/mcphandle         # owner MCP handles (controller layer): mcp-go server + tool handlers
   inference:
     in: internal/inference                # LLM provider abstraction
   agentcore:
@@ -209,9 +209,9 @@ deps:
       - captcha
     anyVendorDeps: true
 
-  # mcp 是 owner AI 客户端用的 MCP server；通过 OwnerLookup 接口注入 owner
-  # profile 查询，避免直接 import postgres；usecases 提供 token verify。
-  mcp:
+  # mcphandle 是 owner AI 客户端用的 MCP server (controller 层)；通过 OwnerLookup
+  # 接口注入 owner profile 查询，避免直接 import postgres；usecases 提供 token verify。
+  mcphandle:
     mayDependOn:
       - domain
       - usecases
@@ -429,7 +429,7 @@ deps:
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
     anyVendorDeps: true
 
-  # server 装配 chi 路由 + middleware；挂 admin / sysroutes / mcp / public sub-router。
+  # server 装配 chi 路由 + middleware；挂 admin / sysroutes / mcphandle / public sub-router。
   server:
     mayDependOn:
       - sysroutes
@@ -438,7 +438,7 @@ deps:
       - usecases
       - session
       - middleware
-      - mcp
+      - mcphandle
       - postgres
       - captcha
       - plugins
@@ -461,7 +461,7 @@ deps:
       - sysroutes
       - adminroutes
       - publicroutes
-      - mcp
+      - mcphandle
       - inference
       - jobcache
       - jobfetch

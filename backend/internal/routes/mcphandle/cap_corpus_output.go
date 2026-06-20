@@ -3,7 +3,7 @@
 //
 // 2 tools: promote_wiki_to_output / list_recent_output。
 
-package mcp
+package mcphandle
 
 import (
 	"context"
