@@ -61,6 +61,85 @@ func bindingToolNames(b *capreg.Binding) string {
 	return strings.Join(parts, ",")
 }
 
+// noRoleInput —— public 访客（无 role）。ACL=always 的能力即便如此也该暴露。
+func noRoleInput() *capreg.AssembleInput {
+	return &capreg.AssembleInput{OwnerID: "o", Mode: "public"}
+}
+
+func findTool(b *capreg.Binding, name string) (capreg.BindingTool, bool) {
+	for i := range b.Tools {
+		if b.Tools[i].Name == name {
+			return b.Tools[i], true
+		}
+	}
+	return capreg.BindingTool{}, false
+}
+
+// B1: ACL=always → 无 role 也暴露（外置内建基础能力，所有 mode）。
+func TestMCPApp_ACLAlwaysExposesWithoutRole(t *testing.T) {
+	t.Parallel()
+	m := stdioManifest(echoerID, buildPluginMock(t), nil)
+	m.ACL = mcpplugin.ACLAlways
+	c := newMCPAppCapability(m)
+	b, err := c.VisitorBinding(context.Background(), noRoleInput())
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if b.Close != nil {
+			b.Close()
+		}
+	})
+	require.Contains(t, bindingToolNames(b), "echo")
+}
+
+// B1: RawToolNames=true → 工具用 server 原名，不加 <id>_ 前缀。
+func TestMCPApp_RawToolNames(t *testing.T) {
+	t.Parallel()
+	m := stdioManifest(echoerID, buildPluginMock(t), nil)
+	m.RawToolNames = true
+	c := newMCPAppCapability(m)
+	b, err := c.VisitorBinding(context.Background(), grantInput(echoerID))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if b.Close != nil {
+			b.Close()
+		}
+	})
+	_, ok := findTool(b, "echo")
+	require.True(t, ok, "raw name 'echo' present, not 'echoer_echo'")
+	_, prefixed := findTool(b, "echoer_echo")
+	require.False(t, prefixed, "no <id>_ prefix when RawToolNames")
+}
+
+// B1: tool `_meta.return_directly` → BindingTool.ReturnDirectly=true（clarify 带）。
+func TestMCPApp_ReturnDirectlyFromMeta(t *testing.T) {
+	t.Parallel()
+	m := stdioManifest(echoerID, buildPluginMock(t), nil)
+	m.RawToolNames = true
+	c := newMCPAppCapability(m)
+	b, err := c.VisitorBinding(context.Background(), grantInput(echoerID))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if b.Close != nil {
+			b.Close()
+		}
+	})
+	clarify, ok := findTool(b, "clarify")
+	require.True(t, ok)
+	require.True(t, clarify.ReturnDirectly, "clarify declares _meta.return_directly")
+	echo, ok := findTool(b, "echo")
+	require.True(t, ok)
+	require.False(t, echo.ReturnDirectly, "echo has no return_directly meta")
+}
+
+// B1: SystemPromptFragment ← server initialize instructions（prompt 自包含于 server）。
+func TestMCPApp_PromptFromInstructions(t *testing.T) {
+	t.Parallel()
+	c := newMCPAppCapability(stdioManifest(echoerID, buildPluginMock(t), nil))
+	frag := c.SystemPromptFragment(context.Background(), grantInput(echoerID))
+	require.Contains(t, frag, "Mock server instructions")
+	require.NotEmpty(t, c.SystemPromptFragmentID(context.Background(), grantInput(echoerID)))
+}
+
 // happy：ID / Shape 直接来自 manifest（不 dial）。
 func TestMCPApp_IDAndShape(t *testing.T) {
 	t.Parallel()

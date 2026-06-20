@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
@@ -24,11 +25,13 @@ import (
 )
 
 type mcpAppCapability struct {
-	m mcpplugin.Manifest
+	instrOnce *sync.Once
+	instr     *string
+	m         mcpplugin.Manifest
 }
 
 func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
-	return &mcpAppCapability{m: *m}
+	return &mcpAppCapability{m: *m, instrOnce: &sync.Once{}, instr: new(string)}
 }
 
 // RegisterDiscoveredPlugins —— 把发现来源(装机配置)的 manifest 逐个注册成
@@ -57,16 +60,19 @@ func (*mcpAppCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{}
 }
 
-func (*mcpAppCapability) SystemPromptFragment(
-	_ context.Context, _ *capreg.AssembleInput,
+func (c *mcpAppCapability) SystemPromptFragment(
+	ctx context.Context, _ *capreg.AssembleInput,
 ) string {
-	return ""
+	return c.cachedInstructions(ctx)
 }
 
-func (*mcpAppCapability) SystemPromptFragmentID(
-	_ context.Context, _ *capreg.AssembleInput,
+func (c *mcpAppCapability) SystemPromptFragmentID(
+	ctx context.Context, _ *capreg.AssembleInput,
 ) string {
-	return ""
+	if c.cachedInstructions(ctx) == "" {
+		return ""
+	}
+	return "mcpapp/" + c.m.ID
 }
 
 // VisitorBinding —— ACL gate(role 授权)→ dial → list → wrap。未授权 / dial /
@@ -74,7 +80,7 @@ func (*mcpAppCapability) SystemPromptFragmentID(
 func (c *mcpAppCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
-	if !mcpAppGranted(in.RoleSnapshot, c.m.ID) {
+	if !mcpAppGranted(&c.m, in.RoleSnapshot) {
 		return nil, capreg.ErrHidden
 	}
 	sess, err := dialMCPApp(ctx, &c.m.Transport)
@@ -87,10 +93,26 @@ func (c *mcpAppCapability) VisitorBinding(
 		return nil, capreg.ErrHidden
 	}
 	return &capreg.Binding{
-		Tools: wrapMCPAppTools(c.m.ID, sess, tools),
+		Tools: wrapMCPAppTools(&c.m, sess, tools),
 		State: mcpAppState(ctx, sess, &c.m),
 		Close: sess.Close,
 	}, nil
+}
+
+// cachedInstructions —— server 的 initialize instructions = 本能力的 system-prompt
+// fragment（自包含：prompt 由 server 自己声明，不写在 core）。instructions 是 server
+// 级静态，lazy 拨号读一次缓存；deterministic（同 server 同文本），不每次装配重拨。
+// 首个调用方的 ctx 决定这次一次性拨号。
+func (c *mcpAppCapability) cachedInstructions(ctx context.Context) string {
+	c.instrOnce.Do(func() {
+		sess, err := dialMCPApp(ctx, &c.m.Transport)
+		if err != nil {
+			return
+		}
+		defer sess.Close()
+		*c.instr = sess.Instructions()
+	})
+	return *c.instr
 }
 
 // readUIHTML —— manifest 带 ui 时，装配期经 resources/read 取卡片 HTML 模板。
@@ -121,14 +143,17 @@ func dialMCPApp(ctx context.Context, t *mcpplugin.Transport) (*mcpclient.Session
 	}
 }
 
-// mcpAppGranted —— role 的 AllowedTools 含本插件 ID 才暴露(ACL,跟 booking /
-// ext-mcp 同套路:基础 role-grant 授权;Phase D/H 再统一进 interceptor + 管理面)。
-// 无 role(public / byoai)→ 不授权 → 隐藏。
-func mcpAppGranted(snap *domain.RoleSnapshot, id string) bool {
+// mcpAppGranted —— 暴露门。ACL=always → 无条件暴露给所有 mode（外置的内建基础
+// 能力，如 ask_visitor）。否则 role-granted：role 的 AllowedTools 含本插件 ID 才暴露
+// （echoer / 第三方 server），无 role(public/byoai) → 隐藏。
+func mcpAppGranted(m *mcpplugin.Manifest, snap *domain.RoleSnapshot) bool {
+	if m.ACL == mcpplugin.ACLAlways {
+		return true
+	}
 	if snap == nil {
 		return false
 	}
-	return slices.Contains(snap.AllowedTools(), id)
+	return slices.Contains(snap.AllowedTools(), m.ID)
 }
 
 func wrapDial(err error) error {
@@ -139,28 +164,45 @@ func wrapDial(err error) error {
 }
 
 func wrapMCPAppTools(
-	pluginID string, sess *mcpclient.Session, tools []mcpclient.Tool,
+	m *mcpplugin.Manifest, sess *mcpclient.Session, tools []mcpclient.Tool,
 ) []capreg.BindingTool {
 	out := make([]capreg.BindingTool, 0, len(tools))
 	for i := range tools {
 		t := &tools[i]
-		name := composeMCPAppToolName(pluginID, t.Name)
+		name := composeMCPAppToolName(m, t.Name)
 		if name == "" {
 			continue
 		}
-		out = append(out, capreg.NewTool(
+		bt := capreg.NewTool(
 			name,
-			mcpAppToolDescription(pluginID, t),
+			mcpAppToolDescription(m.ID, t),
 			"calling plugin",
 			t.InputSchema,
 			makeExtMCPRun(sess, t.Name),
-		))
+		)
+		// ReturnDirectly —— server 经 tool `_meta.return_directly` 声明：调完直接
+		// 结束 agent loop，把 result 当 final 推浏览器（ask_visitor 那套语义）。
+		if toolReturnsDirectly(t) {
+			bt.ReturnDirectly = true
+		}
+		out = append(out, bt)
 	}
 	return out
 }
 
-func composeMCPAppToolName(pluginID, tool string) string {
-	return sanitizeToolName(pluginID + "_" + tool)
+// toolReturnsDirectly —— 读 server 在 tool `_meta` 里声明的 return_directly。
+func toolReturnsDirectly(t *mcpclient.Tool) bool {
+	v, ok := t.Meta["return_directly"].(bool)
+	return ok && v
+}
+
+// composeMCPAppToolName —— RawToolNames 时用 server 原名（外置内建保 canonical
+// 名）；否则加 <id>_ 前缀（多个第三方 server 防撞名）。
+func composeMCPAppToolName(m *mcpplugin.Manifest, tool string) string {
+	if m.RawToolNames {
+		return sanitizeToolName(tool)
+	}
+	return sanitizeToolName(m.ID + "_" + tool)
 }
 
 func mcpAppToolDescription(pluginID string, t *mcpclient.Tool) string {

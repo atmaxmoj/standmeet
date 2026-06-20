@@ -40,6 +40,16 @@ type UI struct {
 	MimeType    string
 }
 
+// ACL 取值 —— 插件工具对访客的暴露门。
+const (
+	// ACLRoleGranted —— 默认：role.AllowedTools 含本插件 ID 才暴露（echoer /
+	// owner 注册的第三方 server 同此）。
+	ACLRoleGranted = "role_granted"
+	// ACLAlways —— 无条件暴露给所有 mode（public/code/byoai），不看 role 授权。
+	// 外置的内建基础能力（如 ask_visitor）用这个，保住"所有 mode 都有"的语义。
+	ACLAlways = "always"
+)
+
 // Manifest —— 一条校验通过的 MCP 插件声明。
 type Manifest struct {
 	UI               *UI
@@ -48,5 +58,11 @@ type Manifest struct {
 	Version          string
 	Shape            Shape
 	PromptFragmentID string
-	Transport        Transport
+	// ACL —— 暴露门：ACLRoleGranted（默认）或 ACLAlways。
+	ACL       string
+	Transport Transport
+	// RawToolNames —— true 时工具用 server 原名（不加 <id>_ 前缀）。外置的内建
+	// 能力保留 canonical 名（ask_visitor 就叫 ask_visitor，不是 ask_visitor_ask_visitor）。
+	// 默认 false：跟 ext-mcp 同样加前缀，避免多个第三方 server 撞名。
+	RawToolNames bool
 }

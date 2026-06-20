@@ -31,7 +31,9 @@ type rawManifest struct {
 	Version          string       `json:"version"`
 	Shape            string       `json:"shape"`
 	PromptFragmentID string       `json:"prompt_fragment_id"`
+	ACL              string       `json:"acl"`
 	Transport        rawTransport `json:"transport"`
+	RawToolNames     bool         `json:"raw_tool_names"`
 }
 
 type rawTransport struct {
@@ -131,6 +133,15 @@ func transportReason(t *rawTransport) string {
 	}
 }
 
+// normalizeACL —— 空 / 未知 → 默认 role_granted（最严，跟 echoer 同）。只有显式
+// "always" 才放开成无条件暴露。
+func normalizeACL(acl string) string {
+	if acl == ACLAlways {
+		return ACLAlways
+	}
+	return ACLRoleGranted
+}
+
 func missingReason(v, reason string) string {
 	if v == "" {
 		return reason
@@ -144,6 +155,8 @@ func toManifest(r *rawManifest) Manifest {
 		Version:          r.Version,
 		Shape:            Shape(r.Shape),
 		PromptFragmentID: r.PromptFragmentID,
+		ACL:              normalizeACL(r.ACL),
+		RawToolNames:     r.RawToolNames,
 		Requires:         r.Requires,
 		Transport: Transport{
 			Kind:    r.Transport.Kind,
