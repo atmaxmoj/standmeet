@@ -15,7 +15,9 @@
 'use client';
 
 import { AskVisitorCard } from '@/components/page/AskVisitorCard';
+import { McpAppCard } from '@/components/page/McpAppCard';
 import { BookingEmailPrompt } from '@/components/page/BookingEmailPrompt';
+import { useCapabilityStore, uiHtmlForTool } from '@/lib/visitor/capability-store';
 import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
 import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
@@ -75,7 +77,20 @@ const CARD_RENDERERS: Record<
   booked: (ctx) => <BookCard call={ctx.call} conversationID={ctx.conversationID} />,
 };
 
-function ToolCallCard({ call, dialogID, onAsk, conversationID }: CardCtx) {
+function ToolCallCard(ctx: CardCtx) {
+  // 外置 MCP app 自带 ui:// 卡 → 沙盒渲染（优先于写死卡）。能力自包含自己的渲染。
+  const states = useCapabilityStore((s) => s.states);
+  const uiHtml = uiHtmlForTool(states, ctx.call.name);
+  return sandboxCard(ctx, uiHtml) ?? hardcodedCard(ctx);
+}
+
+function sandboxCard({ call, onAsk }: CardCtx, uiHtml: string) {
+  return uiHtml !== '' && onAsk !== undefined
+    ? <McpAppCard call={call} html={uiHtml} onAsk={onAsk} />
+    : null;
+}
+
+function hardcodedCard({ call, dialogID, onAsk, conversationID }: CardCtx) {
   const kind = cardKindFor(call.name);
   return kind === 'none'
     ? null

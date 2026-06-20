@@ -68,6 +68,8 @@ const cardHTML = `<!doctype html><html><head><meta charset="utf-8">
  function send(v){ if(answered)return; answered=true;
    document.body.setAttribute("data-answered","true");
    parent.postMessage({type:"mcp-ui:submit",value:v},"*"); }
+ function postHeight(){ parent.postMessage(
+   {type:"mcp-ui:height",height:document.documentElement.scrollHeight+8},"*"); }
  function render(d){
    kind=d.kind||"radio";
    document.body.setAttribute("data-kind",kind);
@@ -100,7 +102,7 @@ const cardHTML = `<!doctype html><html><head><meta charset="utf-8">
    }
  }
  window.addEventListener("message",function(e){
-   if(e.data&&e.data.type==="mcp-ui:data"){ render(e.data.data||{}); }
+   if(e.data&&e.data.type==="mcp-ui:data"){ render(e.data.data||{}); postHeight(); }
  });
  parent.postMessage({type:"mcp-ui:ready"},"*");
 })();
