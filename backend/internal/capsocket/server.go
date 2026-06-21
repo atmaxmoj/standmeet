@@ -34,10 +34,11 @@ const (
 	maxRequestLen = 16 * 1024 * 1024
 )
 
-// Handler —— decode the op's request, do the work, return the response value to
-// be JSON-encoded. Returning an error puts {"error":...} on the wire (the plugin
-// folds it into a tool error); it never kills the server.
-type Handler func(ctx context.Context, req json.RawMessage) (any, error)
+// Handler —— decode the op's request, do the work, return the JSON response bytes.
+// Returning an error puts {"error":...} on the wire (the plugin folds it into a
+// tool error); it never kills the server. Response is json.RawMessage (not `any`)
+// so handlers — which live next to their usecase deps — stay typed.
+type Handler func(ctx context.Context, req json.RawMessage) (json.RawMessage, error)
 
 // Server —— a unix-socket listener dispatching line-delimited JSON requests to
 // per-op handlers. One Server per builtin socket.
@@ -117,12 +118,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	sc.Buffer(make([]byte, 0, 64*1024), maxRequestLen)
 	for sc.Scan() {
 		resp := s.dispatch(context.Background(), sc.Bytes())
-		line, merr := json.Marshal(resp)
-		if merr != nil {
-			s.log.Warn("capsocket: marshal response", "err", merr)
-			return
-		}
-		if _, werr := conn.Write(append(line, '\n')); werr != nil {
+		if _, werr := conn.Write(append(resp, '\n')); werr != nil {
 			return
 		}
 	}
@@ -134,7 +130,7 @@ type opEnvelope struct {
 
 // dispatch —— route one request to its handler; unknown op or handler error
 // becomes an {"error":...} envelope (never panics the connection).
-func (s *Server) dispatch(ctx context.Context, raw []byte) any {
+func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 	var env opEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return errResp("bad request: " + err.Error())
@@ -150,4 +146,10 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) any {
 	return out
 }
 
-func errResp(msg string) map[string]string { return map[string]string{"error": msg} }
+func errResp(msg string) json.RawMessage {
+	b, err := json.Marshal(map[string]string{"error": msg})
+	if err != nil {
+		return json.RawMessage(`{"error":"internal"}`)
+	}
+	return b
+}
