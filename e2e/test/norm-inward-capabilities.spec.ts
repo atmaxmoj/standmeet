@@ -18,13 +18,16 @@ interface RegistryListResp { capabilities: Cap[] }
 
 // GOLDEN(对内)—— 注册顺序逐条锁;外置后仍标 origin=builtin(构建自带)。
 // echoer 是 STANDMEET_PLUGINS 发现的外置访客插件(managed),已是"外置样板"。
+// ask_visitor 已外置成独立 module，由 composition root 经 in-process 走统一插件路径
+// 以 origin=builtin 加载（在 RegisterVisitorSkills 之后）→ 注册顺序挪到
+// summarize_conversation 之后、echoer(managed 第三方)之前。id/shape/origin 不变。
 const GOLDEN_INWARD: readonly Cap[] = [
   { id: 'corpus.retrieval', shape: 'visitor_only', origin: 'builtin' },
   { id: 'calendar.book', shape: 'visitor_only', origin: 'builtin' },
   { id: 'skill.runner', shape: 'visitor_only', origin: 'builtin' },
   { id: 'ext.mcp', shape: 'visitor_only', origin: 'builtin' },
-  { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
   { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
   { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
 ];
 
