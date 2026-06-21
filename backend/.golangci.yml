@@ -287,6 +287,10 @@ linters:
       # 协议契约豁免；mcpclient 只透传不解释。
       - path: internal/mcpclient/
         linters: [forbidigo]
+      # capsocket 是 host↔沙箱内建的 unix-socket transport 边界层。wire 是
+      # schemaless line-JSON（按 op 动态），跟 mcpclient 同性质，同样豁免裸 any。
+      - path: internal/capsocket/
+        linters: [forbidigo]
       # J.3: jobs plugin 的 MCP capabilities 跟 internal/mcp 同形态，同
       # schemaless 协议契约 (map[string]any payload)。
       - path: internal/plugins/jobs/jobsmcp/
