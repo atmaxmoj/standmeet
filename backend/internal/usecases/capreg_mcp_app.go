@@ -239,6 +239,7 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		OwnerID:        in.OwnerID,
 		CodeID:         in.CodeID,
 		ConversationID: in.ConversationID,
+		Mode:           in.Mode,
 		VisitorName:    in.Visitor.Name,
 		VisitorEmail:   in.Visitor.Email,
 	}
