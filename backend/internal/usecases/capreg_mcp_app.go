@@ -71,13 +71,14 @@ func (c *mcpAppCapability) SystemPromptFragment(
 	return c.cachedInstructions(ctx)
 }
 
-func (c *mcpAppCapability) SystemPromptFragmentID(
-	ctx context.Context, _ *capreg.AssembleInput,
+// SystemPromptFragmentID —— 空。mcp-app 的 prompt 是 server 的 initialize
+// instructions（inline 文本，经 SystemPromptFragment 进 ComposeSystemPrompt），
+// **不是**一个可加载的 prompt 文件 id。返非空会让"按 part-id 加载 prompt 文件"那条
+// 路径走 prompts.load("mcpapp/<id>") → 404，拖垮整个 agent turn。
+func (*mcpAppCapability) SystemPromptFragmentID(
+	_ context.Context, _ *capreg.AssembleInput,
 ) string {
-	if c.cachedInstructions(ctx) == "" {
-		return ""
-	}
-	return "mcpapp/" + c.m.ID
+	return ""
 }
 
 // VisitorBinding —— ACL gate(role 授权)→ dial → list → wrap。未授权 / dial /

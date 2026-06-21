@@ -185,7 +185,9 @@ func TestMCPApp_PromptFromInstructions(t *testing.T) {
 	c := newMCPAppCapability(stdioManifest(echoerID, buildPluginMock(t), nil))
 	frag := c.SystemPromptFragment(context.Background(), grantInput(echoerID))
 	require.Contains(t, frag, "Mock server instructions")
-	require.NotEmpty(t, c.SystemPromptFragmentID(context.Background(), grantInput(echoerID)))
+	// FragmentID 为空：prompt 是 inline instructions，不是可加载的文件 id
+	// （返非空会让 part-id 加载路径 404）。
+	require.Empty(t, c.SystemPromptFragmentID(context.Background(), grantInput(echoerID)))
 }
 
 // happy：ID / Shape 直接来自 manifest（不 dial）。
