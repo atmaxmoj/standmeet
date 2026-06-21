@@ -10,6 +10,11 @@ allow:
 # 跨层 import 都是正常的，不该被架构规则误判。
 excludeFiles:
   - "^.*_test\\.go$"
+  # composition root 的插件接线文件：唯一 import 外置能力 module（独立 go.mod，
+  # import path 落在 standmeet 根前缀下、arch-lint 当 internal 但映不到组）做
+  # in-process 加载的地方。跟 cmd 关 deepScan 同理 —— composition root 跨边界是
+  # 预期，不该被内部依赖图规则误判。
+  - "^.*cmd/server/plugins\\.go$"
 
 # Components 命名对齐 Otium auth。按外部系统切 infra（postgres / inference /
 # storage / sandbox 各自独立）而不是扁平 infra/。

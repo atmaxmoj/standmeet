@@ -44,7 +44,8 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: .                   # repo root: backend links mcp-servers/* in-process
+      dockerfile: backend/Dockerfile
       target: production           # build stage 已经跑了 lint；dev 走完整链
     restart: unless-stopped
     environment:

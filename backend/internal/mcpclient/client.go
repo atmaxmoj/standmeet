@@ -199,10 +199,10 @@ func translateTool(t *mcpgo.Tool) Tool {
 	}
 }
 
-// toolMeta —— 透传 tool 的 `_meta` 自定义字段；server 没给则 nil。
+// toolMeta —— 透传 tool 的 `_meta` 自定义字段；server 没给则空 map（容器不返 nil）。
 func toolMeta(t *mcpgo.Tool) map[string]any {
 	if t.Meta == nil || len(t.Meta.AdditionalFields) == 0 {
-		return nil
+		return map[string]any{}
 	}
 	return t.Meta.AdditionalFields
 }

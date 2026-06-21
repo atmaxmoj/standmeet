@@ -71,6 +71,12 @@ linters:
   # built-in default values.  We were bitten by exactly that — see
   # commit history for the v1 → v2 fix.
   settings:
+    gomoddirectives:
+      # The externalized inward-capability modules live in-repo (mcp-servers/*)
+      # and are linked in-process via a local replace — a standard monorepo
+      # pattern here (go.work didn't resolve cleanly in the backend subdir).
+      # Allow local (filesystem) replaces for that.
+      replace-local: true
     cyclop:
       # Project policy splits the cyclo budget by layer:
       #   routes (presentation)   → ≤ 3

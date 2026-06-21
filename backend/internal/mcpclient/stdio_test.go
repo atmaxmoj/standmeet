@@ -87,7 +87,7 @@ func TestStdio_SurfacesToolMeta(t *testing.T) {
 	}
 	require.Equal(t, true, byName["clarify"].Meta["return_directly"],
 		"clarify tool surfaces _meta.return_directly")
-	require.Nil(t, byName["echo"].Meta, "echo tool has no _meta")
+	require.Empty(t, byName["echo"].Meta, "echo tool has no _meta")
 }
 
 // ReadResource —— resources/read 传输通：取回资源文本内容。真正的 ui:// 卡片

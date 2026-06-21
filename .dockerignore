@@ -1,0 +1,25 @@
+# Root build context for the backend image (docker-compose backend: context: .).
+# Only the backend module + the in-process capability modules (mcp-servers/*) are
+# needed; everything else (app/, e2e/, docs/, .git, node_modules, screenshots,
+# other modules) bloats the context and slows the build — exclude it all, then
+# re-include just what the backend build links.
+*
+!backend
+!mcp-servers
+
+# Re-exclude noise inside the included trees (mirrors the old backend/.dockerignore).
+# .git excluded → lint's gitleaks scans the tree, not history; history out of image.
+**/.git/
+**/.github/
+**/.idea/
+**/.vscode/
+**/.DS_Store
+**/bin/
+**/out/
+**/*.swp
+**/*~
+**/*_test.go
+**/testdata/
+**/.env
+**/.env.*
+!**/.env.example
