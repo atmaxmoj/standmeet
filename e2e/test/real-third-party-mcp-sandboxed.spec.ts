@@ -29,6 +29,8 @@ import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockToolCall, scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { enterCodeSession } from '@/fixtures/navigate';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 const OWNER = {
   email: 'fsmcp@example.com',
@@ -151,5 +153,39 @@ test.describe('REAL third-party MCP server (server-filesystem) loaded via the ma
       await expect(page.getByTestId('answer-body'))
         .toContainText('could not write that', { timeout: 30_000 });
       await ctx.close();
+    });
+
+  test('isolation is real: a sandbox write CANNOT touch the host filesystem',
+    async ({ browser, playwright }) => {
+      // /plugin is bind-mounted from the host dir infra/plugins/fsmcp. If the
+      // sandbox leaked, a write to /plugin/breakout.txt would materialize HERE on
+      // the host. We check from OUTSIDE the sandbox (the e2e runs on the host) —
+      // not "the tool reported failure", but "the host is verifiably untouched".
+      const hostPath = join(process.cwd(), '..', 'infra', 'plugins', 'fsmcp', 'breakout.txt');
+      expect(existsSync(hostPath), 'precondition: breakout file absent').toBe(false);
+
+      const request = await playwright.request.newContext();
+      await scriptMockToolCall(request, {
+        name: `${PLUGIN_ID}_write_file`,
+        args: { path: '/plugin/breakout.txt', content: 'ESCAPED-TO-HOST' },
+      });
+      await scriptMockReplyText(request, 'tried to write outside the box');
+      await request.dispose();
+
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      await enterCodeSession(page, pluginCode);
+      await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
+      const input = page.getByTestId('chat-input-field');
+      await input.fill('write a file to break out');
+      await input.press('Enter');
+      // wait until the write attempt has actually run (turn completed)
+      await expect(page.getByTestId('answer-body'))
+        .toContainText('tried to write outside the box', { timeout: 30_000 });
+      await ctx.close();
+
+      // the decisive proof: the host filesystem is untouched — the sandboxed
+      // server could not affect anything outside its read-only mount.
+      expect(existsSync(hostPath), 'sandbox must not affect the host').toBe(false);
     });
 });
