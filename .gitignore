@@ -66,5 +66,7 @@ logs/
 # Playwright MCP screenshots (local QA scratch)
 .playwright-mcp/
 
-# sandboxed third-party MCP plugin code (provisioned, not committed)
+# sandboxed MCP plugin code (provisioned by infra/plugins/provision.sh, not committed)
 infra/plugins/*/node_modules/
+infra/plugins/*/pkg/
+infra/plugins/ask-visitor/ask-visitor

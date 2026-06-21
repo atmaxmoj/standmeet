@@ -46,7 +46,13 @@ type StdioLaunch struct {
 	WorkspaceDir string
 	Command      string
 	Args         []string
-	AllowNet     bool
+	// HostSockets —— host unix sockets bind-mounted into the sandbox at the same
+	// path. This is how a builtin reaches a NARROW host interface (a corpus /
+	// inference / booking API) without any network: a unix socket is filesystem,
+	// not a network namespace, so it stays reachable even under --unshare-net.
+	// Third-party plugins get none; a builtin gets exactly the one socket it needs.
+	HostSockets []string
+	AllowNet    bool
 }
 
 const (
@@ -79,6 +85,7 @@ func (l *StdioLaunch) BwrapArgv() ([]string, error) {
 	// sees, and it cannot modify it.
 	argv = append(argv, "--ro-bind", l.CodeDir, codeMountTarget, "--chdir", codeMountTarget)
 	argv = l.appendWorkspace(argv)
+	argv = l.appendSockets(argv)
 	argv = l.appendNetwork(argv)
 	argv = append(argv, "--", l.Command)
 	return append(argv, l.Args...), nil
@@ -94,6 +101,16 @@ func (l *StdioLaunch) validate() error {
 	}
 	if l.Command == "" {
 		return errors.New("sandbox stdio: command is required")
+	}
+	return firstNonAbs(l.HostSockets, "host socket")
+}
+
+// firstNonAbs —— err if any path isn't absolute (bind-mount sources must be).
+func firstNonAbs(paths []string, what string) error {
+	for _, p := range paths {
+		if !filepath.IsAbs(p) {
+			return fmt.Errorf("sandbox stdio: %s must be absolute, got %q", what, p)
+		}
 	}
 	return nil
 }
@@ -120,6 +137,16 @@ func (l *StdioLaunch) appendWorkspace(argv []string) []string {
 		return argv
 	}
 	return append(argv, "--bind", l.WorkspaceDir, workspaceMountTarget)
+}
+
+// appendSockets —— bind each narrow host socket into the sandbox at its own
+// path. Survives --unshare-net (a unix socket is filesystem, not network), so a
+// builtin reaches its host API with zero network access.
+func (l *StdioLaunch) appendSockets(argv []string) []string {
+	for _, s := range l.HostSockets {
+		argv = append(argv, "--bind", s, s)
+	}
+	return argv
 }
 
 // appendNetwork —— AllowNet binds the DNS/CA files real networking needs;

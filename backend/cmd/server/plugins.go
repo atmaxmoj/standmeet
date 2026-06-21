@@ -20,14 +20,14 @@ import (
 //
 // 三类走同一条 RegisterDiscoveredPlugins，只是 manifest 来源 / transport 不同。
 func registerDiscoveredPlugins(d *runtimeDeps) {
-	registerInProcessBuiltins(d)
+	registerBuiltins(d)
 	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged)
 }
 
-// registerInProcessBuiltins —— 随产品发的内建能力，代码在独立 module、运行时
-// in-process。每个给一个 mcp-go server 对象 + manifest 元数据，走跟第三方插件同一条
-// RegisterDiscoveredPlugins（归一），origin=builtin。
-func registerInProcessBuiltins(d *runtimeDeps) {
+// registerBuiltins —— 随产品发的内建能力。代码在独立 module、**编译成静态二进制随镜像
+// 装进插件目录**，运行时跟第三方插件**完全同一条** sandbox_stdio 路径（bwrap 隔离）。
+// 归一到底：builtin 只剩 origin=builtin 这个标签，加载机制没有任何特殊路。
+func registerBuiltins(d *runtimeDeps) {
 	manifests := []mcpplugin.Manifest{askVisitorManifest()}
 	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, manifests, capreg.OriginBuiltin)
 	for _, id := range dupes {
@@ -35,8 +35,9 @@ func registerInProcessBuiltins(d *runtimeDeps) {
 	}
 }
 
-// askVisitorManifest —— 把外置 ask_visitor 模块包成一条 in-process manifest：server
-// 对象来自模块，元数据（id/ui server 自带；acl/raw 名是 host 暴露策略）。
+// askVisitorManifest —— ask_visitor 内建：静态二进制在 /srv/plugins/ask-visitor，经
+// sandbox_stdio 在 bwrap 里跑（无后端数据依赖 → 无 HostSockets、完全断网）。元数据
+// （acl=always / raw 名 / ui:// 卡）跟以前一致，只是加载从 in-process 换成沙箱二进制。
 func askVisitorManifest() mcpplugin.Manifest {
 	return mcpplugin.Manifest{
 		ID:           askvisitor.ID,
@@ -48,8 +49,9 @@ func askVisitorManifest() mcpplugin.Manifest {
 			ResourceURI: askvisitor.UICardURI, MimeType: askvisitor.UICardMIME,
 		},
 		Transport: mcpplugin.Transport{
-			Kind:            mcpplugin.TransportInProcess,
-			InProcessServer: askvisitor.NewMCPServer(),
+			Kind:    mcpplugin.TransportSandboxStdio,
+			Command: "/plugin/ask-visitor",
+			Sandbox: &mcpplugin.Sandbox{PluginDir: "/srv/plugins/ask-visitor"},
 		},
 	}
 }

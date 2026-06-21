@@ -52,6 +52,24 @@ install_python_into() {
   echo "[provision] $plugin (python) <- $pkg"
 }
 
+# build_go_into —— a BUILTIN capability shipped as Go source in its own module
+# (mcp-servers/<name>), cross-compiled to a static linux binary so it runs in the
+# bwrap sandbox with no libc/interpreter at all. builtin = just an origin tag; it
+# loads through the exact same sandbox_stdio path as a third-party plugin.
+ROOT="$(cd "$DIR/../.." && pwd)"
+build_go_into() {
+  local plugin="$1" mod="$2" pkg="$3"
+  if [ -x "$DIR/$plugin/$plugin" ]; then
+    echo "[provision] $plugin: already built, skip"
+    return
+  fi
+  mkdir -p "$DIR/$plugin"
+  ( cd "$ROOT/$mod" && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+      go build -trimpath -ldflags='-s -w' -o "$DIR/$plugin/$plugin" "$pkg" )
+  echo "[provision] $plugin (go static) <- $mod $pkg"
+}
+
+build_go_into ask-visitor "mcp-servers/ask-visitor" ./cmd/ask-visitor
 install_into everything "@modelcontextprotocol/server-everything@2026.1.26"
 install_into fsmcp      "@modelcontextprotocol/server-filesystem@2026.1.14"
 # fetch —— shared by both netfetch (allow_net) and cagedfetch (--network=none);
