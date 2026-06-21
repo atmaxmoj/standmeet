@@ -40,6 +40,7 @@ import {
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
+import { logger } from '@/lib/logger';
 
 export type SessionMode = SessionModeT;
 
@@ -327,6 +328,7 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
     return;
   }
   if (ev.type === 'tool_completed') {
+    logger.info('chat tool_completed', { name: ev.result.name, ok: ev.result.ok });
     accum.toolCalls.push({
       name: ev.result.name, ok: ev.result.ok, result: ev.result.result,
     });

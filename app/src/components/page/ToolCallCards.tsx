@@ -19,6 +19,7 @@ import type { CapabilityState } from '@standmeet/agent-core';
 import { McpAppCard } from '@/components/page/McpAppCard';
 import { BookingEmailPrompt } from '@/components/page/BookingEmailPrompt';
 import { useCapabilityStore, uiHtmlForTool } from '@/lib/visitor/capability-store';
+import { logger } from '@/lib/logger';
 import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
 import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
@@ -61,7 +62,13 @@ export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCa
 // renderableCall —— 渲卡判定。外置能力自带 ui:// 卡（extra.ui.html）→ 渲沙盒；
 // 否则尚未外置的 legacy 卡（cardKindFor）。两者皆无 → 不渲。
 function renderableCall(c: ToolCallView, states: readonly CapabilityState[]): boolean {
-  return c.ok && (uiHtmlForTool(states, c.name) !== '' || cardKindFor(c.name) !== 'none');
+  const uiHtml = uiHtmlForTool(states, c.name);
+  const renderable = c.ok && (uiHtml !== '' || cardKindFor(c.name) !== 'none');
+  logger.info('tool card render decision', {
+    name: c.name, ok: c.ok, uiHtmlLen: uiHtml.length,
+    kind: cardKindFor(c.name), renderable,
+  });
+  return renderable;
 }
 
 // CardCtx —— dispatch 每个 renderer 拿到的全套上下文(call + 几张卡各自需要的

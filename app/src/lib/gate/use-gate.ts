@@ -43,6 +43,10 @@ const CapStateSchema = z.object({
   enabled: z.boolean(),
   quota_remaining: z.number().optional(),
   policy_summary: z.string().optional(),
+  // extra —— 能力的附加状态（#134: 外置 MCP app 的 ui:// 卡 html / resource_uri
+  // 挂在 ui 下）。必须保留 —— Zod 默认 strip 未知键，漏了它 reuseStored 会把
+  // 沙盒卡的 html 丢掉，前端渲不出卡。
+  extra: z.unknown().optional(),
 });
 const StoredVisitorSessionSchema = z.object({
   session_token: z.string(),

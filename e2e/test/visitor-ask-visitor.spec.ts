@@ -1,17 +1,19 @@
-// visitor-ask-visitor.spec.ts —— I.1: code-accessor 进 chat 问句意图不明
-// AI 调 ask_visitor → 浏览器渲对应 widget → visitor 点 option → 选中项
-// 作为下一 turn 投出去 + 老卡 lock 住显已选。
+// visitor-ask-visitor.spec.ts —— ask_visitor 已外置成独立 MCP app（in-process 加载），
+// 它的 widget 现在是 server 自带的 ui:// 卡，渲在**沙盒 iframe** 里（McpAppCard）。
 //
-// 用户故事:
+// 用户故事不变，渲染机制变了：
 //   1. visitor 持 code 进 chat
-//   2. AI (mock) 决定调 ask_visitor (kind=radio, 3 options)
-//   3. ConversationDeck 渲一张 AskVisitorCard，3 个 button 可点
-//   4. visitor 点 option[1] → 下一 turn 自动 ask(option[1])，老卡 lock
+//   2. AI (mock) 调 ask_visitor (kind=radio, 3 options)
+//   3. McpAppCard 渲一个 sandbox iframe（data-testid=mcp-app-card-ask_visitor），
+//      卡 HTML 来自 ask-visitor server 的 ui:// 资源；question/options 由父页经
+//      postMessage 注入，渲在 iframe 内
+//   4. visitor 在 iframe 里点 option → 卡 postMessage('mcp-ui:submit') → 下一 turn
+//      自动 ask(选中项)，卡 lock 住 (data-answered=true)
 //
-// yes_no / multi widget 由额外两条 test 覆盖 (button 数 / 多选 submit 流)。
+// 断言用 frameLocator 钻进沙盒 iframe。yes_no / multi 各一条覆盖。
 
 import { test, expect } from '@/fixtures/test';
-import type { Page, Playwright } from '@playwright/test';
+import type { FrameLocator, Page, Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -37,8 +39,8 @@ test.beforeAll(async ({ playwright }) => {
   await initOwner(playwright);
 });
 
-test.describe('visitor ask_visitor capability · I.1', () => {
-  test('radio widget renders → click option → next turn carries selection + card locks',
+test.describe('visitor ask_visitor capability · externalized sandbox card', () => {
+  test('radio widget renders in sandbox → click option → next turn + card locks',
     async ({ page, playwright }) => {
       const request = await playwright.request.newContext();
       await scriptMockToolCall(request, {
@@ -53,25 +55,14 @@ test.describe('visitor ask_visitor capability · I.1', () => {
 
       await enterChatWithCode(page);
       await fireFirstTurn(page, 'hello');
-      const card = page.getByTestId('tool-card-ask_visitor');
-      await expect(card, 'AskVisitorCard rendered').toBeVisible({ timeout: 10_000 });
-      await expect(card).toHaveAttribute('data-kind', 'radio');
-      await expect(card.getByTestId('ask-visitor-question'))
-        .toHaveText('Which best describes you?');
-      // 3 个 option 都得有
-      for (let i = 0; i < RADIO_OPTIONS.length; i++) {
-        await expect(card.getByTestId(`ask-visitor-opt-${i}`)).toBeVisible();
-      }
-      // Click option[1] = 'Engineering peer'
-      await card.getByTestId('ask-visitor-opt-1').click();
-      // Card 锁住 (data-answered=true)
-      await expect(card).toHaveAttribute('data-answered', 'true', { timeout: 5_000 });
-      // 新 dialog 出现，visitor q = 'Engineering peer'
-      const dialogs = page.locator('[data-testid="conversation-deck"] article, [data-testid="chatroom"] article');
-      await expect(dialogs.last()).toContainText('Engineering peer', { timeout: 5_000 });
+      const frame = await assertRadioCard(page, 'Which best describes you?');
+      await frame.getByTestId('ask-visitor-opt-1').click();
+      await expect(frame.locator('[data-testid="ask-visitor-card"]'))
+        .toHaveAttribute('data-answered', 'true', { timeout: 5_000 });
+      await expect(lastDialog(page)).toContainText('Engineering peer', { timeout: 5_000 });
     });
 
-  test('yes_no widget renders Yes / No buttons',
+  test('yes_no widget renders Yes / No buttons in sandbox',
     async ({ page, playwright }) => {
       const request = await playwright.request.newContext();
       await scriptMockToolCall(request, {
@@ -82,11 +73,13 @@ test.describe('visitor ask_visitor capability · I.1', () => {
 
       await enterChatWithCode(page);
       await fireFirstTurn(page, 'tell me about the project');
-      const card = page.getByTestId('tool-card-ask_visitor');
-      await expect(card).toBeVisible({ timeout: 10_000 });
-      await expect(card).toHaveAttribute('data-kind', 'yes_no');
-      await expect(card.getByTestId('ask-visitor-opt-yes')).toBeVisible();
-      await expect(card.getByTestId('ask-visitor-opt-no')).toBeVisible();
+      await expect(page.getByTestId('mcp-app-card-ask_visitor'))
+        .toBeVisible({ timeout: 10_000 });
+      const frame = askFrame(page);
+      await expect(frame.locator('[data-testid="ask-visitor-card"]'))
+        .toHaveAttribute('data-kind', 'yes_no', { timeout: 10_000 });
+      await expect(frame.getByTestId('ask-visitor-opt-yes')).toBeVisible();
+      await expect(frame.getByTestId('ask-visitor-opt-no')).toBeVisible();
     });
 
   test('multi widget collects picks → submit posts joined selection',
@@ -103,19 +96,43 @@ test.describe('visitor ask_visitor capability · I.1', () => {
 
       await enterChatWithCode(page);
       await fireFirstTurn(page, 'what do you write about');
-      const card = page.getByTestId('tool-card-ask_visitor');
-      await expect(card).toBeVisible({ timeout: 10_000 });
-      await expect(card).toHaveAttribute('data-kind', 'multi');
-      await card.getByTestId('ask-visitor-opt-0').click(); // systems
-      await card.getByTestId('ask-visitor-opt-2').click(); // careers
-      await card.getByTestId('ask-visitor-submit-multi').click();
+      await expect(page.getByTestId('mcp-app-card-ask_visitor'))
+        .toBeVisible({ timeout: 10_000 });
+      const frame = askFrame(page);
+      await expect(frame.locator('[data-testid="ask-visitor-card"]'))
+        .toHaveAttribute('data-kind', 'multi', { timeout: 10_000 });
+      await frame.getByTestId('ask-visitor-opt-0').click(); // systems
+      await frame.getByTestId('ask-visitor-opt-2').click(); // careers
+      await frame.getByTestId('ask-visitor-submit').click();
       const dialogs = page.locator('[data-testid="conversation-deck"] article, [data-testid="chatroom"] article');
       await expect(dialogs.last()).toContainText('systems, careers', { timeout: 5_000 });
     });
 });
 
-// enterCodeSession 已 skip 名字选择器并等到 /sessions 200;不二次 dismiss
-// (会采样到 picker unmount 窗口 → click 10s 超时,check-then-act race)。
+function askFrame(page: Page): FrameLocator {
+  return page.frameLocator('[data-testid="mcp-app-card-ask_visitor"]');
+}
+
+function lastDialog(page: Page) {
+  return page
+    .locator('[data-testid="conversation-deck"] article, [data-testid="chatroom"] article')
+    .last();
+}
+
+// assertRadioCard —— 等沙盒卡渲出 + 校验 question/options，返回 frame 供点击。
+async function assertRadioCard(page: Page, question: string): Promise<FrameLocator> {
+  await expect(page.getByTestId('mcp-app-card-ask_visitor'),
+    'sandbox iframe rendered').toBeVisible({ timeout: 10_000 });
+  const frame = askFrame(page);
+  await expect(frame.locator('[data-testid="ask-visitor-card"]'))
+    .toHaveAttribute('data-kind', 'radio', { timeout: 10_000 });
+  await expect(frame.getByTestId('ask-visitor-question')).toHaveText(question);
+  for (let i = 0; i < RADIO_OPTIONS.length; i++) {
+    await expect(frame.getByTestId(`ask-visitor-opt-${i}`)).toBeVisible();
+  }
+  return frame;
+}
+
 async function enterChatWithCode(page: Page): Promise<void> {
   await enterCodeSession(page, CODE);
   await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });

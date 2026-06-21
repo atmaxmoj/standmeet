@@ -19,6 +19,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 
 import type { CapabilityState } from '@standmeet/agent-core';
 
+
 interface CapabilityStoreState {
   states: readonly CapabilityState[];
   setStates: (s: readonly CapabilityState[]) => void;
