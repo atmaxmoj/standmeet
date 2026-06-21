@@ -39,10 +39,16 @@ type rawManifest struct {
 type rawTransport struct {
 	Env     map[string]string `json:"env"`
 	Headers map[string]string `json:"headers"`
+	Sandbox *rawSandbox       `json:"sandbox"`
 	Kind    string            `json:"kind"`
 	Command string            `json:"command"`
 	URL     string            `json:"url"`
 	Args    []string          `json:"args"`
+}
+
+type rawSandbox struct {
+	PluginDir string `json:"plugin_dir"`
+	AllowNet  bool   `json:"allow_net"`
 }
 
 type rawUI struct {
@@ -128,9 +134,23 @@ func transportReason(t *rawTransport) string {
 		return missingReason(t.Command, "stdio transport missing command")
 	case "http":
 		return missingReason(t.URL, "http transport missing url")
+	case TransportSandboxStdio:
+		return sandboxStdioReason(t)
 	default:
 		return "unknown transport kind " + t.Kind
 	}
+}
+
+// sandboxStdioReason —— sandbox_stdio 要有容器内启动 command + sandbox.plugin_dir
+// （代码目录）。
+func sandboxStdioReason(t *rawTransport) string {
+	if t.Command == "" {
+		return "sandbox_stdio transport missing command"
+	}
+	if t.Sandbox == nil || t.Sandbox.PluginDir == "" {
+		return "sandbox_stdio transport missing sandbox.plugin_dir"
+	}
+	return ""
 }
 
 // normalizeACL —— 空 / 未知 → 默认 role_granted（最严，跟 echoer 同）。只有显式
@@ -169,6 +189,12 @@ func toManifest(r *rawManifest) Manifest {
 	}
 	if r.UI != nil {
 		m.UI = &UI{ResourceURI: r.UI.ResourceURI, MimeType: r.UI.MimeType}
+	}
+	if r.Transport.Sandbox != nil {
+		m.Transport.Sandbox = &Sandbox{
+			PluginDir: r.Transport.Sandbox.PluginDir,
+			AllowNet:  r.Transport.Sandbox.AllowNet,
+		}
 	}
 	return m
 }

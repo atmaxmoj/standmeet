@@ -242,6 +242,33 @@ func nextSkillOrExtCall(req *MessagesReq) *toolCall {
 	return nil
 }
 
+// echoToolPrefixes —— 「工具结果要 echo 进 mock 回复（[skill_result:...]）」的工具名
+// 前缀**注册表**。要支持新东西（又一个沙箱插件、归一后的内建能力）就往这里**注册一个
+// 前缀**，不用动 isSkillOrExt 的逻辑本体。
+//
+// 为什么要 echo 这些：沙箱 / FS / 网络「关押」的 e2e 断言要能区分「真读到 vs 被拒」，
+// 而 mock 回复是写死的；把真实工具结果反射进回复，断言才不是空断言。
+var echoToolPrefixes = []string{
+	"skill_", "ext_", // Phase C skills + 第三方 ext-mcp
+	"everything_", "fsmcp_", "netfetch_", "cagedfetch_", // e2e 真第三方沙箱插件
+}
+
+// shouldEchoResult —— 该工具结果是否 echo 进 mock 回复（[skill_result:...]）。用宽的
+// echoToolPrefixes 注册表（含沙箱插件前缀），让沙箱/FS/网络关押断言能区分真读到 vs
+// 被拒。**只管 echo，不影响自动调用。**
+func shouldEchoResult(name string) bool {
+	for _, p := range echoToolPrefixes {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// isSkillOrExt —— 自然路径「自动探测调用」用的**窄**判定：无脚本时 mock 只自动调
+// skill_/ext_。**沙箱插件工具绝不自动调** —— 多工具插件(如 server-filesystem 的 14
+// 个)会被挨个空 args 级联，淹没脚本工具的真实结果。它们只在 e2e 用 scriptMockToolCall
+// 显式驱动。
 func isSkillOrExt(name string) bool {
 	return strings.HasPrefix(name, "skill_") || strings.HasPrefix(name, "ext_")
 }
@@ -300,7 +327,7 @@ func skillExtToolUseIDs(msgs []Msg) map[string]bool {
 		}
 		for j := range msgs[i].Content {
 			b := &msgs[i].Content[j]
-			if b.Type == "tool_use" && isSkillOrExt(b.Name) && b.ID != "" {
+			if b.Type == "tool_use" && shouldEchoResult(b.Name) && b.ID != "" {
 				out[b.ID] = true
 			}
 		}

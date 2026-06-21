@@ -137,10 +137,21 @@ services:
     # 脚本（python/bash/node 跑在隔离 docker container 里）。生产同样需要
     # 这两个，docs 里说明权衡。
     user: "0:0"
+    # bubblewrap (MCP 沙箱) 要在容器内建 user/mount namespace —— 默认 seccomp/
+    # apparmor profile 挡 unshare(CLONE_NEW*)。放开让 bwrap 能起隔离环境。dev 后端
+    # 本就 root + docker.sock，这一致；prod 同样需要，docs 里说明权衡。
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
     volumes:
       - custom_pages_data:/srv/custom-pages
       - /var/run/docker.sock:/var/run/docker.sock
       - ./infra/dev-plugins.json:/etc/standmeet/plugins.json:ro
+      # 沙箱第三方 MCP 插件代码（dev：host 上 npm 装好的目录；bwrap 只读挂进沙箱）。
+      - ./infra/plugins:/srv/plugins:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
       interval: 5s

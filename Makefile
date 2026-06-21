@@ -81,6 +81,7 @@ app-build: sdk-build
 	@pnpm -F standmeet-app build
 
 dev-up: app-build
+	@infra/plugins/provision.sh
 	@docker compose -f docker-compose.dev.yml up -d --build --wait
 	@echo "[dev] app=http://localhost:3000 backend=http://localhost:8000"
 

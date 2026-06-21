@@ -35,7 +35,21 @@ const (
 	// 代码解耦在外、运行时在进程里）。InProcessServer 在 composition root 用代码
 	// 填，不经 JSON manifest（Go 对象进不了 JSON）。
 	TransportInProcess = "in_process"
+	// TransportSandboxStdio —— 第三方 stdio server，但 **主进程把它起在一个受限
+	// docker 沙箱里**（只读根、--tmpfs、只挂自己的插件目录、默认无网），而不是裸
+	// spawn。Command/Args 是容器内的启动命令；沙箱细节在 Transport.Sandbox。stdio
+	// 透明走 docker -i pipe，dial 跟普通 stdio 同一条路（只是命令被包了一层 docker）。
+	TransportSandboxStdio = "sandbox_stdio"
 )
+
+// Sandbox —— kind=sandbox_stdio 时的沙箱声明（来自 JSON manifest）。PluginDir 是
+// 宿主上该 server 的安装目录（owner 装插件就装进这里），bubblewrap 只读挂进沙箱的
+// /plugin —— 那个「特定目录」就是沙箱；解释器用 host 的只读 /usr，不需要镜像。
+// AllowNet 仅放给真正要 egress 的（yt-dlp 那类），默认无网。
+type Sandbox struct {
+	PluginDir string
+	AllowNet  bool
+}
 
 // Transport —— 插件的 MCP 传输声明：stdio 用 Command/Args/Env；http 用 URL/Headers；
 // in_process 用 InProcessServer（随产品发的内建能力，composition root 在代码里填一个
@@ -47,10 +61,12 @@ type Transport struct {
 	// InProcessServer —— kind=in_process 时的同进程 *mcp-go server.MCPServer。
 	// json:"-"：Go 对象不进 JSON 配置，只由 composition root 代码填。
 	InProcessServer *mcpgoserver.MCPServer `json:"-"`
-	Kind            string
-	Command         string
-	URL             string
-	Args            []string
+	// Sandbox —— kind=sandbox_stdio 时的受限容器声明（来自 JSON）。
+	Sandbox *Sandbox
+	Kind    string
+	Command string
+	URL     string
+	Args    []string
 }
 
 // UI —— 可选 MCP Apps UI 资源（#134）：tool 在 chat 里渲染的 ui:// 卡片。

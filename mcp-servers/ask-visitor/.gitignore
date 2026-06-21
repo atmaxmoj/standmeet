@@ -1,0 +1,3 @@
+# go build 产物(二进制名 = module 目录名)。in-process 加载是把本 module
+# 编进 backend,独立二进制从不需要 —— 别提交。
+/ask-visitor

@@ -29,6 +29,11 @@ const GOLDEN_INWARD: readonly Cap[] = [
   { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
   { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
   { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
+  // everything / fsmcp —— 真·第三方 MCP server（@modelcontextprotocol 官方参考
+  // server），经 sandbox_stdio 在 bwrap 隔离里加载（STANDMEET_PLUGINS 声明，managed）。
+  // 证明统一加载器对"我们没写的" server 也成立，且沙箱关押是真的。
+  { id: 'everything', shape: 'visitor_only', origin: 'managed' },
+  { id: 'fsmcp', shape: 'visitor_only', origin: 'managed' },
 ];
 
 test.describe('能力归一化 · 【对内】agent 能力黄金快照', () => {

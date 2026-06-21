@@ -65,3 +65,6 @@ logs/
 
 # Playwright MCP screenshots (local QA scratch)
 .playwright-mcp/
+
+# sandboxed third-party MCP plugin code (provisioned, not committed)
+infra/plugins/*/node_modules/

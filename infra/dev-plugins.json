@@ -6,6 +6,28 @@
       "version": "1",
       "shape": "visitor_only",
       "transport": { "kind": "http", "url": "http://mcp-server-mock:9100/mcp" }
+    },
+    {
+      "id": "everything",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "node",
+        "args": ["/plugin/node_modules/@modelcontextprotocol/server-everything/dist/index.js", "stdio"],
+        "sandbox": { "plugin_dir": "/srv/plugins/everything", "allow_net": false }
+      }
+    },
+    {
+      "id": "fsmcp",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "node",
+        "args": ["/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/plugin"],
+        "sandbox": { "plugin_dir": "/srv/plugins/fsmcp", "allow_net": false }
+      }
     }
   ]
 }

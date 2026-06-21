@@ -46,7 +46,12 @@ RUN go build \
 FROM alpine:3.21 AS production
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates docker-cli
+# ca-certificates + docker-cli (legacy skill sandbox).
+# bubblewrap + node + python3: the MCP-plugin sandbox. The main process launches
+# third-party MCP servers via `bwrap` (an isolation env, no image) — the server
+# code rides a mounted dir, but the interpreters live here in the host image and
+# bwrap bind-mounts them read-only into the sandbox.
+RUN apk add --no-cache ca-certificates docker-cli bubblewrap nodejs npm python3
 
 RUN addgroup --system --gid 1001 standmeet && \
     adduser --system --uid 1001 --ingroup standmeet standmeet

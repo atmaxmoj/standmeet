@@ -40,7 +40,10 @@ test.describe('visitor · cancel own booking + isolation (#123)', () => {
       await resetMockGCal(seed.request);
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      await enterAndBook(page, seed.code.code, 'Dana', 'dana@example.com', 14);
+      // 名字必须跨 sub-test 唯一:member 按 (code_id, name) 取(GetOrCreateMember),
+      // 同名同码会续上同一段 open chat,前一 sub-test 的 booking 卡会泄漏进来 →
+      // 后续 sub-test 的 calendar_book 定位器撞多卡 strict-mode 炸。各用独立访客隔离。
+      await enterAndBook(page, seed.code.code, 'Hana', 'hana@example.com', 14);
 
       const before = await getMockEvents(seed.request);
       expect(before).toHaveLength(1);
@@ -106,7 +109,8 @@ async function crossCodeIsolation(browser: Browser, seed: CodedSeed): Promise<vo
   await resetMockGCal(seed.request);
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await enterAndBook(page, seed.code.code, 'Dana', 'dana@example.com', 16);
+  // 唯一名字隔离 sub-test(见 happy 测试注释:同名同码会续上同一段 chat)。
+  await enterAndBook(page, seed.code.code, 'Cody', 'cody@example.com', 16);
   const victimEvent = (await getMockEvents(seed.request))[0]!.event_id;
 
   const code2 = await issueCodeWithSkills(seed.request, seed.csrf, {
