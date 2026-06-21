@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
+	mcpgoserver "github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/require"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
@@ -129,6 +131,40 @@ func TestMCPApp_ReturnDirectlyFromMeta(t *testing.T) {
 	echo, ok := findTool(b, "echo")
 	require.True(t, ok)
 	require.False(t, echo.ReturnDirectly, "echo has no return_directly meta")
+}
+
+// in-process 走**同一条** RegisterDiscoveredPlugins + mcpAppCapability + dialMCPApp
+// （归一）：manifest.Transport.Kind=in_process + 一个同进程 server 对象，VisitorBinding
+// 内存直连、暴露 tool。不开进程/线程/网络。
+func TestMCPApp_InProcessUnifiedPath(t *testing.T) {
+	t.Parallel()
+	srv := mcpgoserver.NewMCPServer("inproc-cap", "1.0.0",
+		mcpgoserver.WithToolCapabilities(true))
+	srv.AddTool(mcpgo.NewTool("do_thing", mcpgo.WithDescription("fixture")), func(
+		_ context.Context, _ mcpgo.CallToolRequest,
+	) (*mcpgo.CallToolResult, error) {
+		return mcpgo.NewToolResultText("ok"), nil
+	})
+	m := &mcpplugin.Manifest{
+		ID: "inproc_cap", Shape: mcpplugin.ShapeVisitorOnly, ACL: mcpplugin.ACLAlways,
+		RawToolNames: true,
+		Transport: mcpplugin.Transport{
+			Kind: mcpplugin.TransportInProcess, InProcessServer: srv,
+		},
+	}
+	reg := capreg.NewRegistry()
+	skipped := RegisterDiscoveredPlugins(reg, []mcpplugin.Manifest{*m}, capreg.OriginBuiltin)
+	require.Empty(t, skipped)
+
+	c := newMCPAppCapability(m)
+	b, err := c.VisitorBinding(context.Background(), noRoleInput())
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if b.Close != nil {
+			b.Close()
+		}
+	})
+	require.Contains(t, bindingToolNames(b), "do_thing")
 }
 
 // B2: RegisterDiscoveredPlugins 按传入 origin 注册（bundled 内建 → builtin）。

@@ -133,15 +133,19 @@ func readUIHTML(ctx context.Context, sess *mcpclient.Session, m *mcpplugin.Manif
 	return html
 }
 
-// dialMCPApp —— 按 transport kind 选 stdio / http。manifest 已过校验,kind 必是
-// 两者之一;default 防御。错误被 VisitorBinding 收成 ErrHidden,这里只负责 dial。
+// dialMCPApp —— 按 transport kind 选 stdio / http / in_process。三类走同一条 dial
+// 入口（归一），只是底层 transport 不同：in_process 内存直连同进程 server 对象。
+// 错误被 VisitorBinding 收成 ErrHidden,这里只负责 dial。
 func dialMCPApp(ctx context.Context, t *mcpplugin.Transport) (*mcpclient.Session, error) {
 	switch t.Kind {
-	case "stdio":
+	case mcpplugin.TransportStdio:
 		sess, err := mcpclient.DialStdio(ctx, t.Command, t.Args, t.Env)
 		return sess, wrapDial(err)
-	case "http":
+	case mcpplugin.TransportHTTP:
 		sess, err := mcpclient.Dial(ctx, t.URL, t.Headers)
+		return sess, wrapDial(err)
+	case mcpplugin.TransportInProcess:
+		sess, err := mcpclient.DialInProcess(ctx, t.InProcessServer)
 		return sess, wrapDial(err)
 	default:
 		return nil, fmt.Errorf("plugin: unknown transport kind %q", t.Kind)

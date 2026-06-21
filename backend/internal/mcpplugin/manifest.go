@@ -10,6 +10,8 @@
 // caller 负责把 Skipped log 出来（返回而非内部 log → 可测、无隐藏副作用）。
 package mcpplugin
 
+import mcpgoserver "github.com/mark3labs/mcp-go/server"
+
 // SupportedVersion —— 本 core 认的 manifest schema 版本；插件 version 不等 → 拒。
 const SupportedVersion = "1"
 
@@ -23,15 +25,32 @@ const (
 	ShapeBoth        Shape = "both"
 )
 
-// Transport —— 插件的 MCP 传输声明：stdio（core spawn 子进程）或 http（连 URL）。
-// 二选一：kind=stdio 用 Command/Args/Env；kind=http 用 URL/Headers。
+// Transport kind 取值。
+const (
+	// TransportStdio —— core spawn 子进程，走 stdin/stdout（第三方插件）。
+	TransportStdio = "stdio"
+	// TransportHTTP —— 连 URL（第三方插件）。
+	TransportHTTP = "http"
+	// TransportInProcess —— 同进程内的 mcp-go server 对象（随产品发的内建能力，
+	// 代码解耦在外、运行时在进程里）。InProcessServer 在 composition root 用代码
+	// 填，不经 JSON manifest（Go 对象进不了 JSON）。
+	TransportInProcess = "in_process"
+)
+
+// Transport —— 插件的 MCP 传输声明：stdio 用 Command/Args/Env；http 用 URL/Headers；
+// in_process 用 InProcessServer（随产品发的内建能力，composition root 在代码里填一个
+// 同进程 mcp-go server 对象）。三种走同一条注册/dial 路径（归一），只是 dial 时按 Kind
+// 分流。
 type Transport struct {
 	Env     map[string]string
 	Headers map[string]string
-	Kind    string
-	Command string
-	URL     string
-	Args    []string
+	// InProcessServer —— kind=in_process 时的同进程 *mcp-go server.MCPServer。
+	// json:"-"：Go 对象不进 JSON 配置，只由 composition root 代码填。
+	InProcessServer *mcpgoserver.MCPServer `json:"-"`
+	Kind            string
+	Command         string
+	URL             string
+	Args            []string
 }
 
 // UI —— 可选 MCP Apps UI 资源（#134）：tool 在 chat 里渲染的 ui:// 卡片。
