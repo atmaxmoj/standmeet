@@ -1,0 +1,8 @@
+go 1.26.3
+
+use (
+	./backend
+	./mcp-servers/ask-visitor
+	./mock-stack
+	./eval-harness
+)

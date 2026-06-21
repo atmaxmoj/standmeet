@@ -72,21 +72,21 @@ export function pickBookConfirmation(raw: unknown): BookConfirmation | null {
   return eventID === '' || start === '' ? null : { eventID, htmlLink, start, end };
 }
 
-// CardKind —— UI 渲卡时按这个 dispatch 组件：
-//   - 'search'  → SearchHitsCard (corpus_search / corpus_list)
-//   - 'slots'   → SlotsCard (calendar_list_slots，G-7)
-//   - 'booked'  → BookCard (calendar_book 成功 confirmation，G-7)
-//   - 'ask'     → AskVisitorCard (I.1，eino ReturnDirectly tool)
-//   - 'report'  → ReportArtifactCard (I.3，HTML report + open as page)
+// CardKind —— **legacy** 写死卡 dispatch（仅服务尚未外置的能力，随各能力外置逐个
+// 删除，目标态为空）。外置后的能力自带 ui:// 卡走沙盒渲染，不在这。
+//   - 'search'  → SearchHitsCard (corpus_search / corpus_list) —— retrieval 外置后删
+//   - 'slots'   → SlotsCard (calendar_list_slots) —— booker 外置后删
+//   - 'booked'  → BookCard (calendar_book 成功 confirmation) —— booker 外置后删
+//   - 'report'  → ReportArtifactCard (summarize) —— summarize 外置后删
 //   - 'dump'    → GenericDumpCard (skill_* / ext_* debug 框)
 //   - 'none'    → 不渲
-export type CardKind = 'search' | 'slots' | 'booked' | 'ask' | 'report' | 'dump' | 'none';
+// ask_visitor 已外置 → 自带 ui:// 卡，**不再有写死卡**。
+export type CardKind = 'search' | 'slots' | 'booked' | 'report' | 'dump' | 'none';
 
 export function cardKindFor(name: string): CardKind {
   if (name === 'corpus_search' || name === 'corpus_list') return 'search';
   if (name === 'calendar_list_slots') return 'slots';
   if (name === 'calendar_book') return 'booked';
-  if (name === 'ask_visitor') return 'ask';
   if (name === 'summarize_conversation') return 'report';
   if (name.startsWith('skill_') || name.startsWith('ext_')) return 'dump';
   return 'none';

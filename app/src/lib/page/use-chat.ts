@@ -39,7 +39,6 @@ import {
 } from '@/lib/page/use-chat-session';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
-import { useAskVisitorStore } from '@/lib/visitor/ask-visitor-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
 
 export type SessionMode = SessionModeT;
@@ -173,7 +172,6 @@ export function useChat(deps: Deps): ChatState {
       setDialogs([]);
       setError(null);
       messageHistRef.current = [];
-      useAskVisitorStore.getState().clear();
     }
     lastStartedAt.current = startedAt;
   }, [startedAt]);
@@ -197,8 +195,6 @@ export function useChat(deps: Deps): ChatState {
     // H.13.d: 新 chat session 重新接 ghost；不 clear 会把上一段 follow-up
     // 队列带过来。
     useGhostsStore.getState().clear();
-    // I.1: 老 dialog 里的 ask_visitor lock 状态也不该跨 session。
-    useAskVisitorStore.getState().clear();
   }, []);
 
   return { dialogs, pending, error, ask, reset, conversationID };

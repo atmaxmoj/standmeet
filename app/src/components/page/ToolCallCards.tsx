@@ -14,7 +14,8 @@
 
 'use client';
 
-import { AskVisitorCard } from '@/components/page/AskVisitorCard';
+import type { CapabilityState } from '@standmeet/agent-core';
+
 import { McpAppCard } from '@/components/page/McpAppCard';
 import { BookingEmailPrompt } from '@/components/page/BookingEmailPrompt';
 import { useCapabilityStore, uiHtmlForTool } from '@/lib/visitor/capability-store';
@@ -22,7 +23,7 @@ import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
 import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
   pickSearchHits, pickSlots, pickBookConfirmation,
-  shouldRenderCall, cardKindFor, jsonPretty,
+  cardKindFor, jsonPretty,
   type SearchHit, type BookConfirmation,
 } from '@/lib/page/tool-call-shape';
 import { formatSlotLocal } from '@/lib/page/slot-format';
@@ -43,7 +44,8 @@ interface ToolCallCardsProps {
 }
 
 export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCallCardsProps) {
-  const visible = calls.filter(shouldRenderCall);
+  const states = useCapabilityStore((s) => s.states);
+  const visible = calls.filter((c) => renderableCall(c, states));
   return visible.length === 0 ? null : (
     <div className={styles['stack']} data-testid="tool-call-cards">
       {visible.map((c, i) => (
@@ -56,6 +58,12 @@ export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCa
   );
 }
 
+// renderableCall —— 渲卡判定。外置能力自带 ui:// 卡（extra.ui.html）→ 渲沙盒；
+// 否则尚未外置的 legacy 卡（cardKindFor）。两者皆无 → 不渲。
+function renderableCall(c: ToolCallView, states: readonly CapabilityState[]): boolean {
+  return c.ok && (uiHtmlForTool(states, c.name) !== '' || cardKindFor(c.name) !== 'none');
+}
+
 // CardCtx —— dispatch 每个 renderer 拿到的全套上下文(call + 几张卡各自需要的
 // dialogID / onAsk / conversationID),按 kind 查表渲,避开 presentation 层 if。
 interface CardCtx {
@@ -65,23 +73,24 @@ interface CardCtx {
   conversationID?: string;
 }
 
-const CARD_RENDERERS: Record<
+// LEGACY_CARD_RENDERERS —— 尚未外置能力的写死卡，随各能力外置逐个删除（目标态为
+// 空）。外置能力走沙盒 McpAppCard，不在这。ask_visitor 已外置 → 不在这。
+const LEGACY_CARD_RENDERERS: Record<
   Exclude<ReturnType<typeof cardKindFor>, 'none'>,
   (ctx: CardCtx) => React.ReactElement | null
 > = {
   search: ({ call }) => <SearchHitsCard call={call} />,
   report: ({ call }) => <ReportArtifactCard call={call} />,
   dump:   ({ call }) => <GenericDumpCard call={call} />,
-  ask:    (ctx) => <AskVisitorOrNothing call={ctx.call} dialogID={ctx.dialogID} onAsk={ctx.onAsk} />,
   slots:  (ctx) => <SlotsCard call={ctx.call} onAsk={ctx.onAsk} />,
   booked: (ctx) => <BookCard call={ctx.call} conversationID={ctx.conversationID} />,
 };
 
 function ToolCallCard(ctx: CardCtx) {
-  // 外置 MCP app 自带 ui:// 卡 → 沙盒渲染（优先于写死卡）。能力自包含自己的渲染。
+  // 外置 MCP app 自带 ui:// 卡 → 沙盒渲染。能力自包含自己的渲染。
   const states = useCapabilityStore((s) => s.states);
   const uiHtml = uiHtmlForTool(states, ctx.call.name);
-  return sandboxCard(ctx, uiHtml) ?? hardcodedCard(ctx);
+  return sandboxCard(ctx, uiHtml) ?? legacyCard(ctx);
 }
 
 function sandboxCard({ call, onAsk }: CardCtx, uiHtml: string) {
@@ -90,18 +99,12 @@ function sandboxCard({ call, onAsk }: CardCtx, uiHtml: string) {
     : null;
 }
 
-function hardcodedCard({ call, dialogID, onAsk, conversationID }: CardCtx) {
+// legacyCard —— 尚未外置能力的写死卡（随外置进度删空）。
+function legacyCard({ call, dialogID, onAsk, conversationID }: CardCtx) {
   const kind = cardKindFor(call.name);
   return kind === 'none'
     ? null
-    : CARD_RENDERERS[kind]({ call, dialogID, onAsk, conversationID });
-}
-
-function AskVisitorOrNothing({ call, dialogID, onAsk }: {
-  call: ToolCallView; dialogID?: string; onAsk?: (q: string) => void;
-}) {
-  return dialogID === undefined || onAsk === undefined ? null
-    : <AskVisitorCard call={call} dialogID={dialogID} onAsk={onAsk} />;
+    : LEGACY_CARD_RENDERERS[kind]({ call, dialogID, onAsk, conversationID });
 }
 
 // SearchHitsCard —— collapsed by default. Dumping every search hit + summary

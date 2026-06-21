@@ -32,9 +32,9 @@ func RegisterVisitorSkills(
 		Skills: deps.Skills, Sandbox: deps.Sandbox,
 	}))
 	reg.MustRegister(newExtMCPCapability(deps.MCPServers))
-	// I.1: ask_visitor 是 deps-less echo tool；所有 mode 都暴露，AI 自决
-	// 何时调，调完 eino ADK ReturnDirectly 直接结束 agent loop。
-	reg.MustRegister(newAskVisitorCapability())
+	// ask_visitor 已外置成独立 module（mcp-servers/ask-visitor），由 composition
+	// root 经 in-process 走统一插件路径以 origin=builtin 加载，主 app 内不再有它的
+	// 任何代码。
 	// I.3: summarize_conversation 调一次 inference.Generate 出 HTML 报告
 	// 落 chat_reports。所有 mode 都暴露 (visitor 自己拿 session 调，
 	// public visitor 一次额外 LLM call 也 OK)。

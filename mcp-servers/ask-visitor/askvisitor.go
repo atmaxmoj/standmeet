@@ -1,80 +1,54 @@
-// Package main —— ask_visitor as a standalone, self-contained external MCP server.
+// Package askvisitor —— the externalized ask_visitor inward capability as a
+// standalone mcp-go server, in its own module (code decoupled from the core).
 //
-// This is the externalized form of the former in-process ask_visitor capability.
+// It is NOT run as a separate service/subprocess. The host imports this package,
+// builds the server object via NewMCPServer(), and loads it in-process over an
+// in-memory MCP transport — plain method calls, no network, no child process,
+// no thread. The host registers it through the same plugin path as any MCP app,
+// using the metadata constants below.
+//
 // It owns everything it needs and depends on nothing in the core:
 //   - the ask_visitor tool (echoes the LLM's structured question back)
 //   - its system-prompt fragment, declared via MCP `instructions`
-//   - the ReturnDirectly semantics, declared via the tool's `_meta`
+//   - ReturnDirectly, declared via the tool's `_meta`
 //   - its own rendering, served as a ui:// card resource (sandboxed in chat)
-//
-// Transport: default HTTP (compose service); `--stdio` for a spawned child.
-// The core discovers it as a bundled-builtin MCP app (origin=builtin), acl=always,
-// raw_tool_names=true so the tool stays canonical `ask_visitor`.
-package main
+package askvisitor
 
 import (
 	"context"
-	"log"
-	"net/http"
-	"os"
-	"time"
 
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
+// Plugin metadata —— the host builds its manifest from these (id / acl / raw tool
+// name / ui resource). acl=always: exposed in every mode without a role grant.
+// raw tool name: the tool stays canonical `ask_visitor`.
 const (
-	defaultPort       = "9200"
-	uiCardURI         = "ui://ask-visitor/card.html"
-	readHeaderTimeout = 10 * time.Second
-	readTimeout       = 30 * time.Second
-	writeTimeout      = 30 * time.Second
+	ID           = "ask_visitor"
+	Version      = "1"
+	UICardURI    = "ui://ask-visitor/card.html"
+	UICardMIME   = "text/html"
+	ToolName     = "ask_visitor"
+	ReturnDirect = true
+	ACLAlways    = true
+	RawToolNames = true
 )
 
-func main() {
+// NewMCPServer —— build the ask_visitor mcp-go server object. The host connects to
+// it in-process (no serving loop here).
+func NewMCPServer() *server.MCPServer {
 	srv := server.NewMCPServer("ask-visitor", "1.0.0",
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
 	srv.AddTool(askVisitorTool(), askVisitorHandler)
 	srv.AddResource(uiCardResource(), uiCardHandler)
-
-	if len(os.Args) > 1 && os.Args[1] == "--stdio" {
-		if err := server.ServeStdio(srv); err != nil {
-			log.Fatalf("serve stdio: %v", err)
-		}
-		return
-	}
-	serveHTTP(srv)
+	return srv
 }
 
-func serveHTTP(srv *server.MCPServer) {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = defaultPort
-	}
-	httpSrv := server.NewStreamableHTTPServer(srv, server.WithEndpointPath("/mcp"))
-	mux := http.NewServeMux()
-	mux.Handle("/mcp", httpSrv)
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-	httpServer := &http.Server{
-		Addr: ":" + port, Handler: mux,
-		ReadHeaderTimeout: readHeaderTimeout,
-		ReadTimeout:       readTimeout,
-		WriteTimeout:      writeTimeout,
-	}
-	if err := httpServer.ListenAndServe(); err != nil {
-		log.Fatalf("listen: %v", err)
-	}
-}
-
-// askVisitorTool —— the ask_visitor tool spec + _meta.return_directly so the core
-// ends the agent loop and pushes the echoed args as the final result.
 func askVisitorTool() mcpgo.Tool {
-	t := mcpgo.NewTool("ask_visitor",
+	t := mcpgo.NewTool(ToolName,
 		mcpgo.WithDescription(
 			"Ask the visitor a structured clarifying question when their intent is "+
 				"ambiguous. Returns the question metadata; the visitor's choice comes "+
@@ -88,7 +62,7 @@ func askVisitorTool() mcpgo.Tool {
 		mcpgo.WithBoolean("allow_chat",
 			mcpgo.Description("If true, show a free-text box alongside the widget.")),
 	)
-	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"return_directly": true})
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"return_directly": ReturnDirect})
 	return t
 }
 
@@ -103,8 +77,8 @@ func askVisitorHandler(
 }
 
 func uiCardResource() mcpgo.Resource {
-	return mcpgo.NewResource(uiCardURI, "ask_visitor card",
-		mcpgo.WithMIMEType("text/html"),
+	return mcpgo.NewResource(UICardURI, "ask_visitor card",
+		mcpgo.WithMIMEType(UICardMIME),
 		mcpgo.WithResourceDescription("Sandboxed ask_visitor widget (radio/multi/yes_no)."))
 }
 
@@ -113,6 +87,6 @@ func uiCardHandler(
 	_ context.Context, _ mcpgo.ReadResourceRequest,
 ) ([]mcpgo.ResourceContents, error) {
 	return []mcpgo.ResourceContents{
-		mcpgo.TextResourceContents{URI: uiCardURI, MIMEType: "text/html", Text: cardHTML},
+		mcpgo.TextResourceContents{URI: UICardURI, MIMEType: UICardMIME, Text: cardHTML},
 	}, nil
 }

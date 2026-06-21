@@ -1,4 +1,4 @@
-package main
+package askvisitor
 
 import "encoding/json"
 
