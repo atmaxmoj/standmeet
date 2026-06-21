@@ -187,7 +187,7 @@ func (b *extMCPBundle) absorb(serverName string, r *dialResult) {
 			extToolDescription(serverName, t),
 			"calling external mcp",
 			t.InputSchema,
-			makeExtMCPRun(r.session, t.Name),
+			makeExtMCPRun(r.session, t.Name, nil),
 		))
 	}
 }
@@ -206,9 +206,11 @@ func extToolDescription(server string, t *mcpclient.Tool) string {
 
 // makeExtMCPRun —— CallTool 失败时不让 agent loop 整 abort —— 把 err
 // 包成 errJSON 进 tool_result，AI 看到"外部工具失败"自己换路。
-func makeExtMCPRun(session *mcpclient.Session, realToolName string) capreg.RunFn {
+func makeExtMCPRun(
+	session *mcpclient.Session, realToolName string, sctx *mcpclient.SessionContext,
+) capreg.RunFn {
 	return func(ctx context.Context, args string) (string, error) {
-		return extCallToToolResult(session.CallTool(ctx, realToolName, []byte(args)))
+		return extCallToToolResult(session.CallTool(ctx, realToolName, []byte(args), sctx))
 	}
 }
 

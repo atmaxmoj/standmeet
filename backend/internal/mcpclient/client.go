@@ -144,15 +144,38 @@ func extractResourceText(res *mcpgo.ReadResourceResult) string {
 	return b.String()
 }
 
-// CallTool —— 调一个 tool；name+args 直接转给对方。返回 text content（多
-// content 拼一起；非 text 跳）。失败返 err；isError 返 err 让 caller 翻
-// tool_result。args 形态：JSON object；空串 → 空 object {}。
+// SessionContext —— host 递给内建沙箱 server 的可信 session 身份，走 tool-call 的
+// `_meta` 旁路（不是 LLM 控制的 arguments）。类型化（business code 禁裸 `any`）；到
+// map 的转换收在本 transport 边界层。第三方插件传 nil → 不带 session 上下文。
+type SessionContext struct {
+	OwnerID        string
+	CodeID         string
+	ConversationID string
+	VisitorName    string
+	VisitorEmail   string
+}
+
+func (s *SessionContext) meta() map[string]any {
+	if s == nil {
+		return nil
+	}
+	return map[string]any{"standmeet/session": map[string]any{
+		"owner_id":        s.OwnerID,
+		"code_id":         s.CodeID,
+		"conversation_id": s.ConversationID,
+		"visitor_name":    s.VisitorName,
+		"visitor_email":   s.VisitorEmail,
+	}}
+}
+
+// CallTool —— 调一个 tool。sctx 非 nil 时把可信 session 上下文挂到请求的 `_meta`，
+// 内建沙箱 server 经 req.GetMeta() 读。
 func (s *Session) CallTool(
-	ctx context.Context, name string, args json.RawMessage,
+	ctx context.Context, name string, args json.RawMessage, sctx *SessionContext,
 ) (string, error) {
 	cctx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
-	req, perr := buildCallToolRequest(name, args)
+	req, perr := buildCallToolRequest(name, args, sctx.meta())
 	if perr != nil {
 		return "", perr
 	}
@@ -165,8 +188,10 @@ func (s *Session) CallTool(
 
 // buildCallToolRequest —— args JSON object 摊到 mcp-go 期望的
 // map[string]any (mcp-go API 已经类型化好；这一步是 transport boundary
-// 必须 marshal 到 any-shape)。
-func buildCallToolRequest(name string, args json.RawMessage) (mcpgo.CallToolRequest, error) {
+// 必须 marshal 到 any-shape)。meta 非空 → 挂 `_meta`。
+func buildCallToolRequest(
+	name string, args json.RawMessage, meta map[string]any,
+) (mcpgo.CallToolRequest, error) {
 	req := mcpgo.CallToolRequest{}
 	req.Params.Name = name
 	parsed, perr := parseArgsAsMap(args)
@@ -174,6 +199,9 @@ func buildCallToolRequest(name string, args json.RawMessage) (mcpgo.CallToolRequ
 		return mcpgo.CallToolRequest{}, fmt.Errorf("call tool %s args: %w", name, perr)
 	}
 	req.Params.Arguments = parsed
+	if len(meta) > 0 {
+		req.Params.Meta = mcpgo.NewMetaFromMap(meta)
+	}
 	return req, nil
 }
 

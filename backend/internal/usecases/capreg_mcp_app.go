@@ -101,7 +101,7 @@ func (c *mcpAppCapability) VisitorBinding(
 		return nil, capreg.ErrHidden
 	}
 	return &capreg.Binding{
-		Tools: wrapMCPAppTools(&c.m, sess, tools),
+		Tools: wrapMCPAppTools(&c.m, sess, tools, sessionMetaFor(&c.m, in)),
 		State: mcpAppState(ctx, sess, &c.m),
 		Close: sess.Close,
 	}, nil
@@ -199,6 +199,7 @@ func sandboxStdioArgv(t *mcpplugin.Transport) ([]string, error) {
 		Command:      t.Command,
 		Args:         t.Args,
 		AllowNet:     t.Sandbox.AllowNet,
+		HostSockets:  t.Sandbox.HostSockets, // 数据型内建的窄 socket（断网也可达）
 	}
 	argv, err := launch.BwrapArgv()
 	if err != nil {
@@ -227,8 +228,25 @@ func wrapDial(err error) error {
 	return fmt.Errorf("plugin dial: %w", err)
 }
 
+// sessionMetaFor —— 数据型内建（manifest 声明了 HostSockets）才拿到可信 session
+// 上下文，经 tool-call `_meta` 递给它自己的沙箱 server（再转给宿主窄 socket API）。
+// ask_visitor / 第三方插件无 HostSockets → 返 nil，拿不到 session 上下文（防泄漏）。
+func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.SessionContext {
+	if m.Transport.Sandbox == nil || len(m.Transport.Sandbox.HostSockets) == 0 {
+		return nil
+	}
+	return &mcpclient.SessionContext{
+		OwnerID:        in.OwnerID,
+		CodeID:         in.CodeID,
+		ConversationID: in.ConversationID,
+		VisitorName:    in.Visitor.Name,
+		VisitorEmail:   in.Visitor.Email,
+	}
+}
+
 func wrapMCPAppTools(
 	m *mcpplugin.Manifest, sess *mcpclient.Session, tools []mcpclient.Tool,
+	sessionMeta *mcpclient.SessionContext,
 ) []capreg.BindingTool {
 	out := make([]capreg.BindingTool, 0, len(tools))
 	for i := range tools {
@@ -242,7 +260,7 @@ func wrapMCPAppTools(
 			mcpAppToolDescription(m.ID, t),
 			"calling plugin",
 			t.InputSchema,
-			makeExtMCPRun(sess, t.Name),
+			makeExtMCPRun(sess, t.Name, sessionMeta),
 		)
 		// ReturnDirectly —— server 经 tool `_meta.return_directly` 声明：调完直接
 		// 结束 agent loop，把 result 当 final 推浏览器（ask_visitor 那套语义）。

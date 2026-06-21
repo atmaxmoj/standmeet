@@ -104,7 +104,7 @@ func TestStdio_ReadResource(t *testing.T) {
 func TestStdio_CallEcho(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, nil)
-	out, err := sess.CallTool(context.Background(), "echo", []byte(`{"text":"hi"}`))
+	out, err := sess.CallTool(context.Background(), "echo", []byte(`{"text":"hi"}`), nil)
 	require.NoError(t, err)
 	require.Contains(t, out, marker+":hi")
 }
@@ -121,9 +121,9 @@ func TestStdio_StderrDoesNotBreakFraming(t *testing.T) {
 func TestStdio_ProcessExitMidSession(t *testing.T) {
 	t.Parallel()
 	sess := dialMock(t, map[string]string{"MOCK_MCP_EXIT_AFTER": "2"})
-	_, err1 := sess.CallTool(context.Background(), "echo", []byte(`{"text":"a"}`))
+	_, err1 := sess.CallTool(context.Background(), "echo", []byte(`{"text":"a"}`), nil)
 	require.NoError(t, err1)
-	_, err2 := sess.CallTool(context.Background(), "echo", []byte(`{"text":"b"}`))
+	_, err2 := sess.CallTool(context.Background(), "echo", []byte(`{"text":"b"}`), nil)
 	require.Error(t, err2)
 }
 
@@ -153,6 +153,6 @@ func TestStdio_CloseIdempotentThenCallErrors(t *testing.T) {
 	sess := dialMock(t, nil)
 	sess.Close()
 	sess.Close()
-	_, err := sess.CallTool(context.Background(), "echo", []byte(`{"text":"x"}`))
+	_, err := sess.CallTool(context.Background(), "echo", []byte(`{"text":"x"}`), nil)
 	require.Error(t, err)
 }

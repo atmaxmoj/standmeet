@@ -48,7 +48,11 @@ const (
 // AllowNet 仅放给真正要 egress 的（yt-dlp 那类），默认无网。
 type Sandbox struct {
 	PluginDir string
-	AllowNet  bool
+	// HostSockets —— 宿主 unix socket bind 进沙箱（数据型内建经它够到后端窄 API，
+	// 断网也可达）。非空 = 这是个需要后端数据的内建 → host 会把可信 session 上下文
+	// 经 tool-call `_meta` 递给它；第三方插件（无 HostSockets）拿不到 session 上下文。
+	HostSockets []string
+	AllowNet    bool
 }
 
 // Transport —— 插件的 MCP 传输声明：stdio 用 Command/Args/Env；http 用 URL/Headers；

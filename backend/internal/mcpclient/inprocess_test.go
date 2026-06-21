@@ -57,7 +57,7 @@ func TestInProcess_LoadServerObject(t *testing.T) {
 	require.Contains(t, html, "<b>card</b>")
 
 	// tools/call over the in-memory transport actually invokes the handler.
-	out, cerr := sess.CallTool(context.Background(), "greet", []byte(`{}`))
+	out, cerr := sess.CallTool(context.Background(), "greet", []byte(`{}`), nil)
 	require.NoError(t, cerr)
 	require.Equal(t, "hi", out)
 }
