@@ -34,6 +34,10 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // 证明统一加载器对"我们没写的" server 也成立，且沙箱关押是真的。
   { id: 'everything', shape: 'visitor_only', origin: 'managed' },
   { id: 'fsmcp', shape: 'visitor_only', origin: 'managed' },
+  // netfetch / cagedfetch —— 同一个真 fetch server(mcp-server-fetch），差别只在
+  // 沙箱网络策略:netfetch 放行 egress、cagedfetch --network=none。验网络关押双向。
+  { id: 'netfetch', shape: 'visitor_only', origin: 'managed' },
+  { id: 'cagedfetch', shape: 'visitor_only', origin: 'managed' },
 ];
 
 test.describe('能力归一化 · 【对内】agent 能力黄金快照', () => {

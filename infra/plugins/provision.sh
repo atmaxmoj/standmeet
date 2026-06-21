@@ -34,6 +34,27 @@ install_into() {
   echo "[provision] $plugin <- $pkg"
 }
 
+# install_python_into —— Python MCP server. Installed via a one-shot container
+# whose interpreter MATCHES the backend's: python:3.12-ALPINE (musl libc, same as
+# the alpine backend image). A glibc (debian) wheel's native .so (regex._regex,
+# pydantic-core, lxml) won't load under the backend's musl python — so we pull
+# musllinux wheels here. Lands at <plugin>/pkg; the manifest runs it with
+# PYTHONPATH=/plugin/pkg.
+install_python_into() {
+  local plugin="$1" pkg="$2"
+  if [ -d "$DIR/$plugin/pkg" ]; then
+    echo "[provision] $plugin: already present, skip"
+    return
+  fi
+  mkdir -p "$DIR/$plugin/pkg"
+  docker run --rm -v "$DIR/$plugin/pkg:/out" python:3.12-alpine \
+    pip install --target /out "$pkg" --no-cache-dir -q
+  echo "[provision] $plugin (python) <- $pkg"
+}
+
 install_into everything "@modelcontextprotocol/server-everything@2026.1.26"
 install_into fsmcp      "@modelcontextprotocol/server-filesystem@2026.1.14"
+# fetch —— shared by both netfetch (allow_net) and cagedfetch (--network=none);
+# they read the same immutable code, differ only in network policy.
+install_python_into fetch "mcp-server-fetch==2026.6.4"
 echo "[provision] done"

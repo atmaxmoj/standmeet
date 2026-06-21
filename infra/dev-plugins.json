@@ -28,6 +28,30 @@
         "args": ["/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/plugin"],
         "sandbox": { "plugin_dir": "/srv/plugins/fsmcp", "allow_net": false }
       }
+    },
+    {
+      "id": "netfetch",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "python",
+        "args": ["-m", "mcp_server_fetch", "--ignore-robots-txt"],
+        "env": { "PYTHONPATH": "/plugin/pkg" },
+        "sandbox": { "plugin_dir": "/srv/plugins/fetch", "allow_net": true }
+      }
+    },
+    {
+      "id": "cagedfetch",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "python",
+        "args": ["-m", "mcp_server_fetch", "--ignore-robots-txt"],
+        "env": { "PYTHONPATH": "/plugin/pkg" },
+        "sandbox": { "plugin_dir": "/srv/plugins/fetch", "allow_net": false }
+      }
     }
   ]
 }

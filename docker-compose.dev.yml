@@ -177,6 +177,21 @@ services:
       timeout: 3s
       retries: 10
 
+  # payload-origin —— e2e 网络沙箱测试(T4)的**本地** HTTP 源:只在 compose 内网，
+  # 不出公网。真 fetch MCP server(netfetch)从这里真下载一个带 marker 的文件 →
+  # 证明 AllowNet 放行;cagedfetch(--network=none)拉同一 URL 失败 → 证明默认断网。
+  payload-origin:
+    image: python:3.12-slim
+    restart: unless-stopped
+    command: sh -c "printf 'REAL-LOCAL-DOWNLOAD-c41d8e\n' > /srv/payload.txt && cd /srv && exec python -m http.server 7070"
+    expose:
+      - "7070"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if 'REAL-LOCAL-DOWNLOAD' in urllib.request.urlopen('http://127.0.0.1:7070/payload.txt').read().decode() else 1)"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   # job-board-mock —— test-only HTTP server serving captured fixtures from
   # e2e/fixtures/job-boards/. Backend points its 8 *_BASE_URL env vars at
   # this service so the fetcher chain never reaches the real internet.
