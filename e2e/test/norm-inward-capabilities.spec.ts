@@ -38,6 +38,9 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // 沙箱网络策略:netfetch 放行 egress、cagedfetch --network=none。验网络关押双向。
   { id: 'netfetch', shape: 'visitor_only', origin: 'managed' },
   { id: 'cagedfetch', shape: 'visitor_only', origin: 'managed' },
+  // escapee —— 对抗插件:server-filesystem rooted at /，专门用来主动尝试逃逸(读
+  // docker.sock / 宿主 config / 路径穿越)，证明 bwrap 把这些全挡住。
+  { id: 'escapee', shape: 'visitor_only', origin: 'managed' },
 ];
 
 test.describe('能力归一化 · 【对内】agent 能力黄金快照', () => {

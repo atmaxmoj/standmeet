@@ -250,7 +250,7 @@ func nextSkillOrExtCall(req *MessagesReq) *toolCall {
 // 而 mock 回复是写死的；把真实工具结果反射进回复，断言才不是空断言。
 var echoToolPrefixes = []string{
 	"skill_", "ext_", // Phase C skills + 第三方 ext-mcp
-	"everything_", "fsmcp_", "netfetch_", "cagedfetch_", // e2e 真第三方沙箱插件
+	"everything_", "fsmcp_", "netfetch_", "cagedfetch_", "escapee_", // e2e 真第三方沙箱插件
 }
 
 // shouldEchoResult —— 该工具结果是否 echo 进 mock 回复（[skill_result:...]）。用宽的

@@ -52,6 +52,18 @@
         "env": { "PYTHONPATH": "/plugin/pkg" },
         "sandbox": { "plugin_dir": "/srv/plugins/fetch", "allow_net": false }
       }
+    },
+    {
+      "_comment": "escapee —— adversarial: server-filesystem rooted at / (NO app-level restriction), so ONLY bwrap confines it. The escape spec drives it to actively attempt known breakout vectors (host config, docker.sock, path traversal). Everything outside the sandbox mounts must be unreachable.",
+      "id": "escapee",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "node",
+        "args": ["/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/"],
+        "sandbox": { "plugin_dir": "/srv/plugins/fsmcp", "allow_net": false }
+      }
     }
   ]
 }
