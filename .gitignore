@@ -42,6 +42,11 @@ backend/standmeet
 backend/server
 backend/job-board-mock
 backend/check-no-nil-container
+mock-stack/llm-gateway/llm-gateway
+
+# Local QA scratch screenshots (manual snapshots at repo root)
+/demo-*.png
+/wiki-*.png
 
 # Test outputs
 test-results/
