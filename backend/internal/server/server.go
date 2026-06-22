@@ -208,7 +208,12 @@ func mountPublic(r chi.Router, deps *Deps) {
 		(&deps.PublicAccessRequests).Mount(r)
 		(&deps.PublicPasswordReset).Mount(r)
 		(&deps.PublicWritings).Mount(r)
-		(&publicroutes.PromptsHandlers{Log: deps.Log}).Mount(r)
+		// Fallback 让 /prompts/{id} 在 embed .md 未命中时返 registry 里外置能力的
+		// fragment 文本（capabilities/<id> 已搬进插件 instructions，无 .md）。
+		(&publicroutes.PromptsHandlers{
+			Log:      deps.Log,
+			Fallback: deps.DiagRegistry.Registry.PromptFragmentText,
+		}).Mount(r)
 	})
 }
 

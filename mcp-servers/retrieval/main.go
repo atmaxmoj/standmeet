@@ -39,30 +39,37 @@ func main() {
 	}
 }
 
+// progressLabel —— set the throbber label the host surfaces while the tool runs
+// (preserves the in-process capability's per-tool labels through the _meta sidechannel).
+func progressLabel(t mcpgo.Tool, label string) mcpgo.Tool {
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"progress_label": label})
+	return t
+}
+
 func searchTool() mcpgo.Tool {
-	return mcpgo.NewToolWithRawSchema("corpus_search",
+	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_search",
 		"Search owner's curated corpus by keyword. Returns matching wiki + output "+
 			"entries with path, title, genre, summary.",
 		json.RawMessage(`{
 			"type": "object",
 			"properties": {"query": {"type": "string"}},
 			"required": ["query"]
-		}`))
+		}`)), "searching corpus")
 }
 
 func readTool() mcpgo.Tool {
-	return mcpgo.NewToolWithRawSchema("corpus_read",
+	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_read",
 		"Read the full body of a corpus entry by its path (e.g. projects/lucerna). "+
 			"Use after search to fetch content.",
 		json.RawMessage(`{
 			"type": "object",
 			"properties": {"path": {"type": "string"}},
 			"required": ["path"]
-		}`))
+		}`)), "reading entry")
 }
 
 func listTool() mcpgo.Tool {
-	return mcpgo.NewToolWithRawSchema("corpus_list",
+	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_list",
 		"Navigate the wiki tree one level at a time. Omit path to list root entries; "+
 			"pass a node's path to list its direct children (empty result means it's a "+
 			"leaf). Use page (0-based) to page through a wide level.",
@@ -72,15 +79,16 @@ func listTool() mcpgo.Tool {
 				"path": {"type": "string"},
 				"page": {"type": "integer"}
 			}
-		}`))
+		}`)), "listing entries")
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`. For
 // retrieval the host op needs the owner id + the frozen corpus-ACL scope (the role
 // snapshot's URI glob whitelist) to re-evaluate AllowsCorpus.
 type session struct {
-	OwnerID    string
-	CorpusURIs []string
+	OwnerID        string
+	ConversationID string
+	CorpusURIs     []string
 }
 
 //nolint:gocritic // mcp-go passes the request by value.
@@ -94,8 +102,9 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 		return session{}
 	}
 	return session{
-		OwnerID:    str(raw, "owner_id"),
-		CorpusURIs: strSlice(raw, "corpus_uris"),
+		OwnerID:        str(raw, "owner_id"),
+		ConversationID: str(raw, "conversation_id"),
+		CorpusURIs:     strSlice(raw, "corpus_uris"),
 	}
 }
 
@@ -131,10 +140,11 @@ func opHandler(op string) server.ToolHandlerFunc {
 			return toolErr(merr), nil
 		}
 		resp, err := callHost(map[string]any{
-			"op":          op,
-			"owner_id":    s.OwnerID,
-			"corpus_uris": s.CorpusURIs,
-			"args":        json.RawMessage(args),
+			"op":              op,
+			"owner_id":        s.OwnerID,
+			"conversation_id": s.ConversationID,
+			"corpus_uris":     s.CorpusURIs,
+			"args":            json.RawMessage(args),
 		})
 		if err != nil {
 			return toolErr(err), nil

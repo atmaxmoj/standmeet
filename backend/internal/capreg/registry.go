@@ -94,6 +94,27 @@ func (r *Registry) List() []Capability {
 	return out
 }
 
+// staticFragmentProvider —— 外置能力实现：按稳定 id 提供 session-无关的 prompt 文本
+// （server initialize instructions）。GET /api/v1/prompts/{id} 经 PromptFragmentText
+// fallback 到这里，服务那些已不在 embed .md、只活在插件 instructions 里的 fragment。
+type staticFragmentProvider interface {
+	StaticFragmentID() string
+	StaticFragment(ctx context.Context) string
+}
+
+// PromptFragmentText —— 按 fragment id 返某能力的静态 prompt 文本。命中外置能力返
+// (text, true)；无 → ("", false)。prompts 端点对 embed .md 未命中时 fallback 到它，
+// 让前端按 part-id 取得到外置 fragment 的文本（拼进 system prompt）。
+func (r *Registry) PromptFragmentText(ctx context.Context, fragmentID string) (string, bool) {
+	for _, c := range r.List() {
+		sf, ok := c.(staticFragmentProvider)
+		if ok && sf.StaticFragmentID() == fragmentID {
+			return sf.StaticFragment(ctx), true
+		}
+	}
+	return "", false
+}
+
 // AssembleVisitor —— 给定 session 装配该 session 可见的 binding 集合。
 // ErrHidden = capability 主动隐藏 (干净路径，silently skip)；其他错误也
 // silently skip (装配失败不阻塞 chat)；都返非 nil binding 才进结果。

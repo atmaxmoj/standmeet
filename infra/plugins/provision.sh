@@ -59,10 +59,9 @@ install_python_into() {
 ROOT="$(cd "$DIR/../.." && pwd)"
 build_go_into() {
   local plugin="$1" mod="$2" pkg="$3"
-  if [ -x "$DIR/$plugin/$plugin" ]; then
-    echo "[provision] $plugin: already built, skip"
-    return
-  fi
+  # ALWAYS rebuild (no skip-if-exists): go build is cheap + cached, and skipping
+  # would silently keep a stale binary when the plugin source changed — a real
+  # gotcha (a source edit wouldn't reach the running sandbox until manual rm).
   mkdir -p "$DIR/$plugin"
   ( cd "$ROOT/$mod" && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
       go build -trimpath -ldflags='-s -w' -o "$DIR/$plugin/$plugin" "$pkg" )

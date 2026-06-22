@@ -112,14 +112,30 @@ func (c *mcpAppCapability) SystemPromptFragment(
 	return c.cachedInstructions(ctx)
 }
 
-// SystemPromptFragmentID —— 空。mcp-app 的 prompt 是 server 的 initialize
-// instructions（inline 文本，经 SystemPromptFragment 进 ComposeSystemPrompt），
-// **不是**一个可加载的 prompt 文件 id。返非空会让"按 part-id 加载 prompt 文件"那条
-// 路径走 prompts.load("mcpapp/<id>") → 404，拖垮整个 agent turn。
-func (*mcpAppCapability) SystemPromptFragmentID(
-	_ context.Context, _ *capreg.AssembleInput,
+// SystemPromptFragmentID —— fragment 活跃时返 "capabilities/<id>"（跟 in-process 时代
+// 同一 id），否则空。前端按 part-id 走 GET /api/v1/prompts/{id} 取 fragment 文本拼进
+// system prompt；该 id 不再对应 embed 的 .md 文件（已外置），prompts 端点改为 fallback
+// 到 registry 返本插件的 server initialize instructions（StaticFragment）。空判定跟
+// SystemPromptFragment 同步（都 role-grant + fragmentActive），part_ids 与实际拼接一致。
+func (c *mcpAppCapability) SystemPromptFragmentID(
+	_ context.Context, in *capreg.AssembleInput,
 ) string {
-	return ""
+	if !mcpAppGranted(&c.m, in.RoleSnapshot) || !c.fragmentActive(in) {
+		return ""
+	}
+	return c.StaticFragmentID()
+}
+
+// StaticFragmentID —— 本能力 fragment 的稳定 id（session 无关）。registry 据此把
+// GET /prompts/{id} 路由到 StaticFragment。跟 SystemPromptFragmentID 活跃时返的一致。
+func (c *mcpAppCapability) StaticFragmentID() string {
+	return "capabilities/" + c.m.ID
+}
+
+// StaticFragment —— 本能力 fragment 的文本（= server initialize instructions，session
+// 无关）。prompts 端点服务外置能力 fragment 用。
+func (c *mcpAppCapability) StaticFragment(ctx context.Context) string {
+	return c.cachedInstructions(ctx)
 }
 
 // VisitorBinding —— ACL gate(role 授权)→ dial → list → wrap。未授权 / dial /

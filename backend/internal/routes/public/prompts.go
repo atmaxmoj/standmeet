@@ -8,6 +8,7 @@
 package public
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -17,11 +18,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
 
-// PromptsHandlers —— prompts route 依赖。当前无 runtime 依赖（prompts 走
-// 包级 embed.FS），保留 struct 是为了跟其他 public handler 形态一致 +
-// 留 Log 注入口。
+// PromptsHandlers —— prompts route 依赖。embed .md 走包级 prompts.FS；Fallback 由
+// composition root 注入（= registry.PromptFragmentText），服务那些已外置进插件
+// instructions、不再有 .md 的 capability fragment（GET /prompts/capabilities/<id>）。
 type PromptsHandlers struct {
-	Log *slog.Logger
+	Log      *slog.Logger
+	Fallback func(ctx context.Context, id string) (string, bool)
 }
 
 // Mount 挂 GET /prompts/*。caller 负责前缀。
@@ -32,7 +34,7 @@ func (h *PromptsHandlers) Mount(r chi.Router) {
 func (h *PromptsHandlers) get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "*")
-		body, ok := loadPromptOrWriteErr(h.Log, w, id)
+		body, ok := h.loadPromptOrWriteErr(r.Context(), w, id)
 		if !ok {
 			return
 		}
@@ -40,21 +42,34 @@ func (h *PromptsHandlers) get() http.HandlerFunc {
 	}
 }
 
-// loadPromptOrWriteErr —— 尝试加载 prompt；失败时写好响应并返 (_, false)。
-// 把错误分流挪出 handler 让 cyclo ≤ 3。
-func loadPromptOrWriteErr(
-	log *slog.Logger, w http.ResponseWriter, id string,
+// loadPromptOrWriteErr —— embed .md 命中即返；未命中 fallback 到 registry（外置能力
+// fragment）；都没有 → 404。把错误分流挪出 handler 让 cyclo ≤ 3。
+func (h *PromptsHandlers) loadPromptOrWriteErr(
+	ctx context.Context, w http.ResponseWriter, id string,
 ) (string, bool) {
 	body, err := prompts.Load(id)
 	if err == nil {
 		return body, true
 	}
-	if errors.Is(err, prompts.ErrPromptNotFound) {
-		http.Error(w, "prompt not found", http.StatusNotFound)
+	if !errors.Is(err, prompts.ErrPromptNotFound) {
+		h.Log.Error("prompts load", "id", id, "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return "", false
 	}
-	log.Error("prompts load", "id", id, "err", err)
-	http.Error(w, "internal error", http.StatusInternalServerError)
+	return h.fallbackOr404(ctx, w, id)
+}
+
+// fallbackOr404 —— embed .md 未命中：试 registry fallback（外置能力 fragment），都没
+// 有 → 404。
+func (h *PromptsHandlers) fallbackOr404(
+	ctx context.Context, w http.ResponseWriter, id string,
+) (string, bool) {
+	if h.Fallback != nil {
+		if text, ok := h.Fallback(ctx, id); ok {
+			return text, true
+		}
+	}
+	http.Error(w, "prompt not found", http.StatusNotFound)
 	return "", false
 }
 

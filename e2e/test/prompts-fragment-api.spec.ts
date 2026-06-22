@@ -77,13 +77,15 @@ test.describe('prompts fragment API · single source of truth', () => {
       await request.dispose();
     });
 
-  test('capability fragments are externalized → not served by the prompts endpoint (404)',
+  test('GET /api/v1/prompts/capabilities/corpus.retrieval returns tool description',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      // 四个 leaf 能力 fragment 已搬进各自插件的 MCP instructions；prompts 端点不再有。
-      const res = await request.get(
-        `${BACKEND}/api/v1/prompts/capabilities/corpus.retrieval`);
-      expect(res.status()).toBe(404);
+      // fragment 已外置进插件 instructions（无 .md），但 prompts 端点经 registry
+      // fallback 仍按 id 服务它 —— 前端按 part-id 取得到，拼进 system prompt。
+      const text = await fetchPrompt(request, 'capabilities/corpus.retrieval');
+      expect(text).toContain('corpus_search');
+      expect(text).toContain('corpus_read');
+      expect(text).toContain('corpus_list');
       await request.dispose();
     });
 

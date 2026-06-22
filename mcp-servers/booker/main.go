@@ -39,8 +39,14 @@ func main() {
 	}
 }
 
+// progressLabel —— set the throbber label the host surfaces while the tool runs.
+func progressLabel(t mcpgo.Tool, label string) mcpgo.Tool {
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"progress_label": label})
+	return t
+}
+
 func bookTool() mcpgo.Tool {
-	return mcpgo.NewToolWithRawSchema("calendar_book",
+	return progressLabel(mcpgo.NewToolWithRawSchema("calendar_book",
 		"Book a meeting on the owner's Google Calendar. Only call after you have "+
 			"gathered topic, duration (15-180 minutes), and one or more "+
 			"visitor-confirmed preferred start times in RFC3339 format. The invite "+
@@ -58,11 +64,11 @@ func bookTool() mcpgo.Tool {
 				}
 			},
 			"required":["topic","duration_min","preferred_times"]
-		}`))
+		}`)), "booking meeting")
 }
 
 func listSlotsTool() mcpgo.Tool {
-	return mcpgo.NewToolWithRawSchema("calendar_list_slots",
+	return progressLabel(mcpgo.NewToolWithRawSchema("calendar_list_slots",
 		"List available [start, end] slots on the owner's calendar between "+
 			"from_rfc3339 and until_rfc3339 that pass booking policy and don't "+
 			"overlap any busy window. Returns up to 50 slots. Use this before "+
@@ -78,7 +84,7 @@ func listSlotsTool() mcpgo.Tool {
 					"description":"Enumeration step in minutes (default 30)."}
 			},
 			"required":["from_rfc3339","until_rfc3339","duration_min"]
-		}`))
+		}`)), "listing slots")
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`.

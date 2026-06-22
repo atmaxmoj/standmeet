@@ -28,7 +28,7 @@ func wrapMCPAppTools(
 		bt := capreg.NewTool(
 			name,
 			mcpAppToolDescription(m.ID, t),
-			"calling plugin",
+			toolProgressLabel(t),
 			t.InputSchema,
 			makeExtMCPRun(sess, t.Name, sessionMeta),
 		)
@@ -46,6 +46,15 @@ func wrapMCPAppTools(
 func toolReturnsDirectly(t *mcpclient.Tool) bool {
 	v, ok := t.Meta["return_directly"].(bool)
 	return ok && v
+}
+
+// toolProgressLabel —— server 在 tool `_meta.progress_label` 里声明的 throbber 文案
+// （外置内建保各自原文案：corpus_search "searching corpus" 等）。未声明 → 通用兜底。
+func toolProgressLabel(t *mcpclient.Tool) string {
+	if v, ok := t.Meta["progress_label"].(string); ok && v != "" {
+		return v
+	}
+	return "calling plugin"
 }
 
 // composeMCPAppToolName —— RawToolNames 时用 server 原名（外置内建保 canonical
