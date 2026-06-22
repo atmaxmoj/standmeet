@@ -45,6 +45,7 @@ type Deps struct {
 	PrintSession         sysroutes.PrintSessionDeps
 	DiagRegistry         sysroutes.DiagRegistryDeps
 	DiagSession          sysroutes.DiagSessionDeps
+	DiagSandbox          sysroutes.DiagSandboxDeps
 	// PluginRegistry —— J.5: outbound plugins 一次性注册全套 admin REST hook。
 	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
 	PluginRegistry *plugins.Registry
@@ -115,6 +116,7 @@ func mountInternal(r chi.Router, deps *Deps) {
 		sysroutes.MountTLSAsk(r, deps.TLSAsk)
 		sysroutes.MountPrintSession(r, deps.PrintSession)
 		sysroutes.MountDiagRegistry(r, deps.DiagRegistry)
+		sysroutes.MountDiagSandbox(r, deps.DiagSandbox)
 		sysroutes.MountDiagSession(r, deps.DiagSession)
 	})
 }

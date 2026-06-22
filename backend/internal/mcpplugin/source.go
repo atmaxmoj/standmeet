@@ -50,6 +50,7 @@ type rawSandbox struct {
 	PluginDir   string   `json:"plugin_dir"`
 	HostSockets []string `json:"host_sockets"`
 	AllowNet    bool     `json:"allow_net"`
+	Workspace   bool     `json:"workspace"`
 }
 
 type rawUI struct {
@@ -196,6 +197,7 @@ func toManifest(r *rawManifest) Manifest {
 			PluginDir:   r.Transport.Sandbox.PluginDir,
 			HostSockets: r.Transport.Sandbox.HostSockets,
 			AllowNet:    r.Transport.Sandbox.AllowNet,
+			Workspace:   r.Transport.Sandbox.Workspace,
 		}
 	}
 	return m

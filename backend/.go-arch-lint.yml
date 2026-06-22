@@ -81,6 +81,8 @@ components:
     in: internal/mcpplugin                # C1: 装机插件 manifest 解析 + 发现来源 (leaf)
   capsocket:
     in: internal/capsocket                # 窄 unix-socket host 服务：断网沙箱插件经 bind 进的 socket 调后端 op (leaf)
+  sandboxws:
+    in: internal/sandboxws                # per-session 沙箱工作区生命周期：懒建/TTL/cron sweep (leaf)
   storage:
     in: internal/storage                  # MinIO/S3 对象存储 (图片 / 附件)
   mailer:
@@ -396,6 +398,12 @@ deps:
       - session
       - usecases
       - capreg
+      - sandboxws
+    anyVendorDeps: true
+
+  # sandboxws —— per-session 沙箱工作区生命周期 leaf：纯 stdlib (os/filepath/sync/time)。
+  sandboxws:
+    mayDependOn: []
     anyVendorDeps: true
 
   # admin routes (/api/admin/*) 派发到 usecases；handler 自己 cyclo ≤3。
@@ -495,4 +503,5 @@ deps:
       - plugins
       - pluginjobs
       - capsocket
+      - sandboxws
     anyVendorDeps: true

@@ -53,6 +53,11 @@ type Sandbox struct {
 	// 经 tool-call `_meta` 递给它；第三方插件（无 HostSockets）拿不到 session 上下文。
 	HostSockets []string
 	AllowNet    bool
+	// Workspace —— true = 这个 server 要一块**持久的 per-visitor-session 工作区**
+	// （写文件那类，如 server-filesystem）。host 按 conversation_id 懒建一个目录、
+	// bwrap --bind 进沙箱的 /workspace（可写）；不写就没目录。这块区有后端可控的 TTL +
+	// cron 清扫（#148），不会无限涨。默认 false（无持久工作区，只有 ephemeral tmpfs /tmp）。
+	Workspace bool
 }
 
 // Transport —— 插件的 MCP 传输声明：stdio 用 Command/Args/Env；http 用 URL/Headers；

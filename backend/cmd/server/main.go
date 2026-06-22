@@ -41,6 +41,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/printsess"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
+	"github.com/atmaxmoj/standmeet/internal/sandboxws"
 	"github.com/atmaxmoj/standmeet/internal/server"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
@@ -179,6 +180,7 @@ func ensureSetupToken(
 // runtimeDeps 把 serve 的依赖打包，避免函数参数列表超过 revive argument-limit。
 type runtimeDeps struct {
 	log               *slog.Logger
+	sandboxWorkspaces *sandboxws.Manager
 	db                *pgxpool.Pool
 	rdb               *redis.Client
 	instanceRepo      *postgres.InstanceRepo

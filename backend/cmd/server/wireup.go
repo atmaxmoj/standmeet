@@ -40,11 +40,14 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 			Assets: usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 			Log:    d.log,
 		},
-		Builds:          sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
-		TLSAsk:          sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
-		PrintSession:    sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
-		DiagRegistry:    sysroutes.DiagRegistryDeps{Registry: d.agentSkills, Log: d.log},
-		DiagSession:     buildDiagSessionDeps(d),
+		Builds:       sysroutes.BuilderDeps{Log: d.log, Builds: d.customBuildRepo},
+		TLSAsk:       sysroutes.TLSAskDeps{Log: d.log, Domains: d.instanceRepo},
+		PrintSession: sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
+		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.agentSkills, Log: d.log},
+		DiagSession:  buildDiagSessionDeps(d),
+		DiagSandbox: sysroutes.DiagSandboxDeps{
+			Workspaces: d.sandboxWorkspaces, Log: d.log,
+		},
 		MCP:             buildMCPDeps(d),
 		CaptchaVerifier: d.captchaVerifier,
 		PluginRegistry:  d.pluginRegistry,
@@ -123,6 +126,7 @@ func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
 // 注册进 d.agentSkills。跟 build*Deps 共享底层 repo 引用；run() 阶段调用
 // 一次，capability 闭包持 deps，server 跑期间 deps 不再变。
 func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
+	wireSandboxWorkspaces(ctx, d)
 	skills := buildVisitorSkillsDeps(d)
 	usecases.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
 	wireSummarizeSocket(ctx, d, &skills)

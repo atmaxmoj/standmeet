@@ -53,6 +53,11 @@ type StdioLaunch struct {
 	// Third-party plugins get none; a builtin gets exactly the one socket it needs.
 	HostSockets []string
 	AllowNet    bool
+	// Workspace —— this plugin wants a /workspace mount. With WorkspaceDir set it's
+	// the persistent per-session dir (--bind); without (a sessionless dial, e.g.
+	// reading instructions) it's an ephemeral tmpfs so a server rooted at /workspace
+	// still starts. Plugins that don't want a workspace get neither.
+	Workspace bool
 }
 
 const (
@@ -130,13 +135,18 @@ func baseBwrapArgv() []string {
 	}
 }
 
-// appendWorkspace —— mount the per-session writable workspace, but only when one
-// was provisioned (lazy: no data, no dir, no mount).
+// appendWorkspace —— mount /workspace for a workspace-wanting plugin: the
+// persistent per-session dir when provisioned (--bind, writable, survives the
+// turn), else an ephemeral tmpfs (sessionless dial, so a server rooted at
+// /workspace still boots). Plugins that don't want a workspace get nothing.
 func (l *StdioLaunch) appendWorkspace(argv []string) []string {
-	if l.WorkspaceDir == "" {
-		return argv
+	if l.WorkspaceDir != "" {
+		return append(argv, "--bind", l.WorkspaceDir, workspaceMountTarget)
 	}
-	return append(argv, "--bind", l.WorkspaceDir, workspaceMountTarget)
+	if l.Workspace {
+		return append(argv, "--tmpfs", workspaceMountTarget)
+	}
+	return argv
 }
 
 // appendSockets —— bind each narrow host socket into the sandbox at its own

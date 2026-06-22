@@ -134,7 +134,7 @@ func (c *mcpAppCapability) VisitorBinding(
 	if !expose {
 		return nil, capreg.ErrHidden
 	}
-	ds, derr := dialAndList(ctx, &c.m.Transport)
+	ds, derr := dialAndList(ctx, &c.m.Transport, provisionWorkspaceFor(&c.m, in.ConversationID))
 	if derr != nil {
 		return nil, derr
 	}
@@ -167,8 +167,10 @@ type dialedApp struct {
 
 // dialAndList —— dial transport + ListTools。dial 失败 / list 失败 / 空 tool 都收成
 // ErrHidden（隐藏，不阻塞 chat）；空 tool 时关掉会话不泄漏。
-func dialAndList(ctx context.Context, t *mcpplugin.Transport) (*dialedApp, error) {
-	sess, err := dialMCPApp(ctx, t)
+func dialAndList(
+	ctx context.Context, t *mcpplugin.Transport, workspaceDir string,
+) (*dialedApp, error) {
+	sess, err := dialMCPApp(ctx, t, workspaceDir)
 	if err != nil {
 		return nil, capreg.ErrHidden
 	}
@@ -208,7 +210,8 @@ func (c *mcpAppCapability) fragmentActive(in *capreg.AssembleInput) bool {
 // 首个调用方的 ctx 决定这次一次性拨号。
 func (c *mcpAppCapability) cachedInstructions(ctx context.Context) string {
 	c.instrOnce.Do(func() {
-		sess, err := dialMCPApp(ctx, &c.m.Transport)
+		// instructions 读取是无 session 的一次性拨号 → 不分配工作区（workspaceDir 空）。
+		sess, err := dialMCPApp(ctx, &c.m.Transport, "")
 		if err != nil {
 			return
 		}

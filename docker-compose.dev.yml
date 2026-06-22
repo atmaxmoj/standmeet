@@ -116,6 +116,10 @@ services:
       # they load in-process from their own modules, wired in the composition
       # root; nothing to mount or deploy separately.)
       - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
+      # per-session sandbox workspace root (#148): host dir the backend lazily
+      # provisions per-conversation workdirs under, bwrap-binds at /workspace, and
+      # cron-sweeps by TTL. Inside the backend container's writable fs.
+      - SANDBOX_WORKSPACE_ROOT=/srv/sandbox-workspaces
     depends_on:
       db:
         condition: service_healthy

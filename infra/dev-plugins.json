@@ -30,6 +30,18 @@
       }
     },
     {
+      "_comment": "wsfs —— server-filesystem rooted at /workspace with sandbox.workspace=true: exercises the per-session workspace lifecycle (#148). Reuses fsmcp's installed code; the host lazily binds a per-conversation /workspace dir, swept by the backend TTL cron.",
+      "id": "wsfs",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "node",
+        "args": ["/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/workspace"],
+        "sandbox": { "plugin_dir": "/srv/plugins/fsmcp", "allow_net": false, "workspace": true }
+      }
+    },
+    {
       "id": "netfetch",
       "version": "1",
       "shape": "visitor_only",
