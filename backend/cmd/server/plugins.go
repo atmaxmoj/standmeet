@@ -19,19 +19,50 @@ import (
 //     无（prod 默认无第三方）。
 //
 // 三类走同一条 RegisterDiscoveredPlugins，只是 manifest 来源 / transport 不同。
-func registerDiscoveredPlugins(d *runtimeDeps) {
-	registerBuiltins(d)
+func registerDiscoveredPlugins(d *runtimeDeps, gates map[string]capreg.SessionGate) {
+	registerBuiltins(d, gates)
 	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged)
 }
 
 // registerBuiltins —— 随产品发的内建能力。代码在独立 module、**编译成静态二进制随镜像
 // 装进插件目录**，运行时跟第三方插件**完全同一条** sandbox_stdio 路径（bwrap 隔离）。
-// 归一到底：builtin 只剩 origin=builtin 这个标签，加载机制没有任何特殊路。
-func registerBuiltins(d *runtimeDeps) {
-	manifests := []mcpplugin.Manifest{askVisitorManifest(), summarizeManifest()}
-	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, manifests, capreg.OriginBuiltin)
+// 归一到底：builtin 只剩 origin=builtin 这个标签，加载机制没有任何特殊路。gates 给需要
+// 运行时暴露闸的内建（booker: connector+quota）挂 per-session SessionGate。
+func registerBuiltins(d *runtimeDeps, gates map[string]capreg.SessionGate) {
+	manifests := []mcpplugin.Manifest{
+		askVisitorManifest(), summarizeManifest(), bookerManifest(),
+	}
+	dupes := usecases.RegisterDiscoveredPluginsGated(
+		d.agentSkills, manifests, capreg.OriginBuiltin, gates)
 	for _, id := range dupes {
 		d.log.Warn("builtin register skipped (duplicate id)", "id", id)
+	}
+}
+
+// bookerManifest —— calendar.book 内建：静态二进制在 /srv/plugins/booker，经
+// sandbox_stdio 在 bwrap 里跑。它要后端数据（日历 connector / booking store / owner /
+// 约成通知）→ HostSockets 绑窄 unix socket（host 跑 book/list_slots pipeline），插件
+// 断网经 socket 够到。ACL=role-granted（role 的 AllowedTools 含 calendar.book 才暴露）；
+// 再叠一个 SessionGate（connector-connected + quota，composition root 经 NewBookerGate
+// 注入）。tool 保 canonical 名 calendar_book / calendar_list_slots。卡片暂仍由前端
+// 旧渲染器按 result wire 画（ui:// 迁移是 #134），故这里不声明 UI。
+func bookerManifest() mcpplugin.Manifest {
+	const sock = "/run/standmeet/booker.sock"
+	return mcpplugin.Manifest{
+		ID:           "calendar.book",
+		Version:      "1",
+		Shape:        mcpplugin.ShapeVisitorOnly,
+		ACL:          mcpplugin.ACLRoleGranted,
+		RawToolNames: true,
+		Transport: mcpplugin.Transport{
+			Kind:    mcpplugin.TransportSandboxStdio,
+			Command: "/plugin/booker",
+			Env:     map[string]string{"BOOKER_SOCKET": sock},
+			Sandbox: &mcpplugin.Sandbox{
+				PluginDir:   "/srv/plugins/booker",
+				HostSockets: []string{sock},
+			},
+		},
 	}
 }
 

@@ -154,6 +154,7 @@ type SessionContext struct {
 	Mode           string
 	VisitorName    string
 	VisitorEmail   string
+	RoleID         string
 }
 
 func (s *SessionContext) meta() map[string]any {
@@ -167,6 +168,7 @@ func (s *SessionContext) meta() map[string]any {
 		"mode":            s.Mode,
 		"visitor_name":    s.VisitorName,
 		"visitor_email":   s.VisitorEmail,
+		"role_id":         s.RoleID,
 	}}
 }
 

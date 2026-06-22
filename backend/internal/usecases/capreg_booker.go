@@ -1,9 +1,13 @@
-// capreg_booker.go —— Phase B-3: calendarBookCapability。
-// 包住 BookMeeting + connector/quota gating + visitor name 透传，让 visitor
-// chat agent 通过 calendar.book tool 把会议直接写进 owner Google Calendar。
+// capreg_booker.go —— booker(calendar.book)外置后留在 core 的 host 侧：per-session
+// 暴露闸 + book/list_slots 的 pipeline。能力本体（MCP tool / binding / prompt）已外置
+// 成沙箱插件 mcp-servers/booker，经 sandbox_stdio 以 origin=builtin 加载；它断网，靠
+// bind 进沙箱的窄 socket（booker.sock）回调这里的 host ops 跑真活（capreg_booker_socket.go）。
 //
-// Shape=visitor_only；OwnerMCPBinding=nil (owner 自己有 admin UI 排 connector
-// + Google 端日历，不通过 MCP 调本 tool)。
+// 这里只剩两类 host 侧东西，都不是 MCP 能力代码：
+//   - NewBookerGate：capreg.SessionGate，装配期判 connector-connected + quota，决定
+//     tool 是否暴露（mcp-app 适配器在 dial 前调）。connector/store 在 host，闸只能在 host。
+//   - runBookerBook / runBookerListSlots（在 _book.go / _slots.go）：socket op handler
+//     的 body，复用既有 BookMeeting / ListAvailableSlots。
 
 package usecases
 
@@ -14,23 +18,12 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/prompts"
 )
 
 const (
-	// capCalendarBook —— capability ID (internal 层级概念，dotted)。仍用
-	// 作 role.AllowedTools 的 grant key (role 数据已经按 "calendar.book"
-	// 存)，D-3 不动这个。
-	capCalendarBook           = "calendar.book"
-	capCalendarBookFragmentID = "capabilities/calendar.book"
-	// toolCalendarBookName —— LLM-facing tool name + URL path segment。D-3
-	// 切到 snake_case 跟 corpus_search/read/list 一致 (URL `/tools/{name}`
-	// 1:1)；cap ID / role grant key 仍 dotted (data 稳定)。
-	toolCalendarBookName = "calendar_book"
-	// toolCalendarListSlotsName —— G-7: visitor 想"看一眼 owner 有哪些
-	// 空"。复用 owner-side ListAvailableSlots usecase；result wire 跟
-	// owner cap_calendar 用同形态 ({slots:[{start,end}]})。
-	toolCalendarListSlotsName = "calendar_list_slots"
+	// capCalendarBook —— capability ID（dotted），也是 role.AllowedTools 的 grant
+	// key（role 数据按 "calendar.book" 存）+ 外置插件 manifest 的 ID。
+	capCalendarBook = "calendar.book"
 	// BookerSkillName —— role.AllowedTools 中此 string 即解锁 calendar.book。
 	BookerSkillName = capCalendarBook
 
@@ -38,81 +31,42 @@ const (
 	maxDurationMin = 180
 )
 
-// bookerDeps —— 窄依赖(#131):日历 proxy（连接器代调）+ booking store + owner
-// 查询 + 约成通知。凭据/token 在 Proxy 内，这层不碰。
-type bookerDeps struct {
+// BookerDeps —— 窄依赖(#131):日历 proxy（连接器代调）+ booking store + owner
+// 查询 + 约成通知。凭据/token 在 Proxy 内，这层不碰。gate 只用 Proxy+Store；
+// socket op handler 还要 Owners(查 TZ) + Notify(#130)。composition root 建一份，
+// 同时喂 NewBookerGate + RegisterBookerSocket。
+type BookerDeps struct {
 	Proxy  CalendarProxy
 	Store  CalendarStore
 	Owners OwnerGetter
 	Notify OwnerNotifyDeps
 }
 
-type calendarBookCapability struct {
-	deps bookerDeps
+// bookerCallInput —— 一次 book / list_slots host op 的 session 派生入参。沙箱插件
+// 把 _meta 上的可信 session（host 种的，非 LLM 控的 arguments）转发进 socket 请求，
+// op handler 解出来填这个；OwnerTZ 由 handler 自己用 Owners 查（不进 _meta）。
+type bookerCallInput struct {
+	OwnerID        string
+	OwnerTZ        string
+	CodeID         string
+	ConversationID string
+	VisitorName    string
+	VisitorEmail   string
+	RoleID         string
 }
 
-func newCalendarBookCapability(deps *bookerDeps) *calendarBookCapability {
-	return &calendarBookCapability{deps: *deps}
-}
-
-func (*calendarBookCapability) ID() string { return capCalendarBook }
-func (*calendarBookCapability) Shape() capreg.Shape {
-	return capreg.ShapeVisitorOnly
-}
-
-func (*calendarBookCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{}
-}
-
-func (*calendarBookCapability) SystemPromptFragmentID(
-	_ context.Context, in *capreg.AssembleInput,
-) string {
-	if !bookerSkillGranted(in.RoleSnapshot) {
-		return ""
+// NewBookerGate —— 装配期 per-session 暴露闸：connector 已连 + quota 未耗尽 → 暴露。
+// role grant / mode 已由 mcp-app 适配器的 ACL=role-granted 门把住（role 无 calendar.book
+// → 根本不到这），这里只补连接器/配额这两个运行时态。connector/store 在 host，闸天生
+// 在 host —— 不是 MCP 能力代码，是插件暴露与否的宿主裁决。proxy==nil（eval 不接日历）→
+// 永远隐藏。
+func NewBookerGate(deps *BookerDeps) capreg.SessionGate {
+	return func(ctx context.Context, in *capreg.AssembleInput) (bool, error) {
+		if deps.Proxy == nil || !bookerCanExpose(in) {
+			return false, nil
+		}
+		return bookerGatingClear(ctx, deps, in)
 	}
-	return capCalendarBookFragmentID
-}
-
-func (c *calendarBookCapability) SystemPromptFragment(
-	ctx context.Context, in *capreg.AssembleInput,
-) string {
-	id := c.SystemPromptFragmentID(ctx, in)
-	if id == "" {
-		return ""
-	}
-	// Phase D-1: 单一源 prompts/capabilities/calendar.book.md
-	return prompts.MustLoad(id)
-}
-
-// VisitorBinding —— 完整 gating 链：role granted skill → connector connected →
-// quota not exhausted → load owner profile。任一不过 = 返 ErrHidden (capability
-// 隐藏)。Quota 已耗尽时也隐藏（兼容旧行为，让 LLM 看不到调不通的 tool）。
-func (c *calendarBookCapability) VisitorBinding(
-	ctx context.Context, in *capreg.AssembleInput,
-) (*capreg.Binding, error) {
-	if !bookerCanExpose(in) || c.deps.Proxy == nil {
-		return nil, capreg.ErrHidden
-	}
-	return c.tryBuildBinding(ctx, in)
-}
-
-// tryBuildBinding —— 拆出 VisitorBinding 余下的 gating + 装配逻辑让
-// 父 cyclo ≤ 5。
-func (c *calendarBookCapability) tryBuildBinding(
-	ctx context.Context, in *capreg.AssembleInput,
-) (*capreg.Binding, error) {
-	connected, qerr := bookerGatingClear(ctx, &c.deps, in)
-	if qerr != nil {
-		return nil, qerr
-	}
-	if !connected {
-		return nil, capreg.ErrHidden
-	}
-	owner, oerr := c.deps.Owners.GetByID(ctx, in.OwnerID)
-	if oerr != nil {
-		return nil, fmt.Errorf("calendar.book: load owner: %w", oerr)
-	}
-	return buildCalendarBookBinding(ctx, &c.deps, in, &owner), nil
 }
 
 // bookerCanExpose —— 进入 gating 的最低条件 (mode=code + role granted skill)。
@@ -135,7 +89,7 @@ func bookerSkillGranted(snapshot *domain.RoleSnapshot) bool {
 // 返 (gating_pass, err)。connector 未装 / quota 耗尽 → (false, nil)；DB 错
 // → (false, err)。
 func bookerGatingClear(
-	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
+	ctx context.Context, deps *BookerDeps, in *capreg.AssembleInput,
 ) (bool, error) {
 	connected, err := deps.Proxy.Connected(ctx, in.OwnerID)
 	if err != nil {
@@ -153,7 +107,7 @@ func bookerGatingClear(
 
 // bookerQuotaExhausted —— code 设了 MaxBookings 且当前已 booking >= cap。
 func bookerQuotaExhausted(
-	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
+	ctx context.Context, deps *BookerDeps, in *capreg.AssembleInput,
 ) (bool, error) {
 	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
 		return false, nil
@@ -164,57 +118,3 @@ func bookerQuotaExhausted(
 	}
 	return count >= *in.MaxBookings, nil
 }
-
-// buildCalendarBookBinding —— gating 通过后的最终 Binding：每个 tool 独立
-// 闭包，eino tool.InvokableTool；BindingTool.NewTool 内部把 name+desc+
-// schema 装成 *schema.ToolInfo 喂 eino。
-//
-// G-7 起两个 tool: calendar_book + calendar_list_slots (read-only，不
-// 走 quota)。
-func buildCalendarBookBinding(
-	ctx context.Context, deps *bookerDeps,
-	in *capreg.AssembleInput, owner *domain.Owner,
-) *capreg.Binding {
-	state := capreg.CapabilityState{
-		ID: capCalendarBook, Enabled: true,
-	}
-	if rem := bookerQuotaRemaining(ctx, deps, in); rem != nil {
-		state.QuotaRemaining = rem
-	}
-	bookRun := func(ctx context.Context, args string) (string, error) {
-		return runBookerBook(ctx, deps, in, owner, []byte(args))
-	}
-	slotsRun := func(ctx context.Context, args string) (string, error) {
-		return runBookerListSlots(ctx, deps, in, owner, []byte(args))
-	}
-	return &capreg.Binding{
-		Tools: []capreg.BindingTool{
-			bookerBindingTool(bookRun),
-			listSlotsBindingTool(slotsRun),
-		},
-		State: state,
-	}
-}
-
-// bookerQuotaRemaining —— 当前 code 剩余可 booking 数。无 cap / DB 错 → nil。
-// 已知 quota 未耗尽（gating 通过到这里），但 LiveCount 仍可能跟 cap 差距。
-func bookerQuotaRemaining(
-	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
-) *int32 {
-	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
-		return nil
-	}
-	count, err := deps.Store.CountBookingsForCode(ctx, in.CodeID)
-	if err != nil {
-		return nil
-	}
-	rem := max(*in.MaxBookings-count, 0)
-	return &rem
-}
-
-// bookerBindingTool / listSlotsBindingTool 在各自分文件 (max-lines 350
-// cap)；buildCalendarBookBinding 上方调用，分发 by tool 各自一个 closure。
-
-// runBookerBook + book-side 类型/decode/marshal 全部拆到
-// capreg_booker_book.go；runBookerListSlots + list_slots-side 全
-// 部拆到 capreg_booker_slots.go。

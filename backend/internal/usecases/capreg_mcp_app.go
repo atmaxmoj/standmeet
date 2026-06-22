@@ -13,8 +13,6 @@ package usecases
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -23,12 +21,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
-	"github.com/atmaxmoj/standmeet/internal/sandbox"
 )
 
 type mcpAppCapability struct {
 	instrOnce *sync.Once
 	instr     *string
+	gate      capreg.SessionGate
 	m         mcpplugin.Manifest
 }
 
@@ -47,10 +45,24 @@ func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
 func RegisterDiscoveredPlugins(
 	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
 ) []string {
+	return RegisterDiscoveredPluginsGated(reg, manifests, origin, nil)
+}
+
+// RegisterDiscoveredPluginsGated —— RegisterDiscoveredPlugins + 给特定 ID 的插件挂一个
+// per-session 暴露闸（capreg.SessionGate）。闸由 composition root 注入（连接器
+// proxy / store 在那），externalized booker(calendar.book) 用它做 connector-connected
+// + quota 的运行时隐藏。gates 为 nil / 无此 ID → 该插件无额外闸（默认）。
+func RegisterDiscoveredPluginsGated(
+	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
+	gates map[string]capreg.SessionGate,
+) []string {
 	skipped := []string{}
 	for i := range manifests {
-		err := reg.RegisterOrigin(newMCPAppCapability(&manifests[i]), origin)
-		if err != nil {
+		appCap := newMCPAppCapability(&manifests[i])
+		if g, ok := gates[manifests[i].ID]; ok {
+			appCap.gate = g
+		}
+		if err := reg.RegisterOrigin(appCap, origin); err != nil {
 			skipped = append(skipped, manifests[i].ID)
 		}
 	}
@@ -67,9 +79,17 @@ func (*mcpAppCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{}
 }
 
+// SystemPromptFragment —— server initialize instructions 即本能力的 prompt 片段。
+// 按暴露门（role-grant）gate：role-granted 插件（外置 booker / echoer / 第三方）只在
+// role 授权时贡献 prompt，跟 in-process 时代 booker fragment 随 role gate 的行为一致；
+// ACL=always（ask_visitor / summarize）则恒贡献。connector/quota 闸只隐藏 tool，不影响
+// prompt（沿用旧行为：role-granted-未连 → fragment 在、tool 隐）。
 func (c *mcpAppCapability) SystemPromptFragment(
-	ctx context.Context, _ *capreg.AssembleInput,
+	ctx context.Context, in *capreg.AssembleInput,
 ) string {
+	if !mcpAppGranted(&c.m, in.RoleSnapshot) {
+		return ""
+	}
 	return c.cachedInstructions(ctx)
 }
 
@@ -88,10 +108,35 @@ func (*mcpAppCapability) SystemPromptFragmentID(
 func (c *mcpAppCapability) VisitorBinding(
 	ctx context.Context, in *capreg.AssembleInput,
 ) (*capreg.Binding, error) {
-	if !mcpAppGranted(&c.m, in.RoleSnapshot) {
+	expose, gerr := c.exposable(ctx, in)
+	if gerr != nil {
+		return nil, gerr
+	}
+	if !expose {
 		return nil, capreg.ErrHidden
 	}
-	sess, err := dialMCPApp(ctx, &c.m.Transport)
+	ds, derr := dialAndList(ctx, &c.m.Transport)
+	if derr != nil {
+		return nil, derr
+	}
+	return &capreg.Binding{
+		Tools: wrapMCPAppTools(&c.m, ds.sess, ds.tools, sessionMetaFor(&c.m, in)),
+		State: mcpAppState(ctx, ds.sess, &c.m),
+		Close: ds.sess.Close,
+	}, nil
+}
+
+// dialedApp —— dialAndList 的结果（会话 + 它的 tool 列表），打包成单返回值（revive
+// function-result-limit ≤ 2）。
+type dialedApp struct {
+	sess  *mcpclient.Session
+	tools []mcpclient.Tool
+}
+
+// dialAndList —— dial transport + ListTools。dial 失败 / list 失败 / 空 tool 都收成
+// ErrHidden（隐藏，不阻塞 chat）；空 tool 时关掉会话不泄漏。
+func dialAndList(ctx context.Context, t *mcpplugin.Transport) (*dialedApp, error) {
+	sess, err := dialMCPApp(ctx, t)
 	if err != nil {
 		return nil, capreg.ErrHidden
 	}
@@ -100,11 +145,23 @@ func (c *mcpAppCapability) VisitorBinding(
 		sess.Close()
 		return nil, capreg.ErrHidden
 	}
-	return &capreg.Binding{
-		Tools: wrapMCPAppTools(&c.m, sess, tools, sessionMetaFor(&c.m, in)),
-		State: mcpAppState(ctx, sess, &c.m),
-		Close: sess.Close,
-	}, nil
+	return &dialedApp{sess: sess, tools: tools}, nil
+}
+
+// exposable —— dial 前的两道门：ACL（role-grant）+ 可选 per-session SessionGate
+// （booker: connector-connected + quota）。返 (proceed, realErr)：proceed=false →
+// 隐藏（caller 折成 ErrHidden）；闸的真错往上抛。挂闸的插件先过闸再 dial，省掉隐藏时
+// 还白拨沙箱的开销。
+func (c *mcpAppCapability) exposable(
+	ctx context.Context, in *capreg.AssembleInput,
+) (bool, error) {
+	if !mcpAppGranted(&c.m, in.RoleSnapshot) {
+		return false, nil
+	}
+	if c.gate == nil {
+		return true, nil
+	}
+	return c.gate(ctx, in)
 }
 
 // cachedInstructions —— server 的 initialize instructions = 本能力的 system-prompt
@@ -136,78 +193,6 @@ func readUIHTML(ctx context.Context, sess *mcpclient.Session, m *mcpplugin.Manif
 	return html
 }
 
-// transportDialers —— 每种 transport 一个拨号器，dialMCPApp 查表分发（归一：四类
-// 走同一入口，只是底层不同）。in_process 内存直连同进程 server；sandbox_stdio 经
-// bwrap 隔离起第三方 server。
-var transportDialers = map[string]func(
-	context.Context, *mcpplugin.Transport,
-) (*mcpclient.Session, error){
-	mcpplugin.TransportStdio:        dialStdio,
-	mcpplugin.TransportHTTP:         dialHTTP,
-	mcpplugin.TransportInProcess:    dialInProcess,
-	mcpplugin.TransportSandboxStdio: dialSandboxStdio,
-}
-
-// dialMCPApp —— 查 transportDialers 分发。未知 kind → error。错误被 VisitorBinding
-// 收成 ErrHidden,这里只负责 dial。
-func dialMCPApp(ctx context.Context, t *mcpplugin.Transport) (*mcpclient.Session, error) {
-	d, ok := transportDialers[t.Kind]
-	if !ok {
-		return nil, fmt.Errorf("plugin: unknown transport kind %q", t.Kind)
-	}
-	return d(ctx, t)
-}
-
-func dialStdio(ctx context.Context, t *mcpplugin.Transport) (*mcpclient.Session, error) {
-	sess, err := mcpclient.DialStdio(ctx, t.Command, t.Args, t.Env)
-	return sess, wrapDial(err)
-}
-
-func dialHTTP(ctx context.Context, t *mcpplugin.Transport) (*mcpclient.Session, error) {
-	sess, err := mcpclient.Dial(ctx, t.URL, t.Headers)
-	return sess, wrapDial(err)
-}
-
-func dialInProcess(ctx context.Context, t *mcpplugin.Transport) (*mcpclient.Session, error) {
-	sess, err := mcpclient.DialInProcess(ctx, t.InProcessServer)
-	return sess, wrapDial(err)
-}
-
-// dialSandboxStdio —— 主进程把第三方 server 起在 bubblewrap 隔离环境里（只读 host
-// 运行时 + 只读插件代码 + per-session workspace + tmpfs /tmp + 默认无网，碰不了
-// host）；stdio 透明走 bwrap 的 stdin/stdout，dial 仍是普通 DialStdio，只是命令被包
-// 了一层 `bwrap`。
-func dialSandboxStdio(ctx context.Context, t *mcpplugin.Transport) (*mcpclient.Session, error) {
-	argv, aerr := sandboxStdioArgv(t)
-	if aerr != nil {
-		return nil, wrapDial(aerr)
-	}
-	sess, derr := mcpclient.DialStdio(ctx, "bwrap", argv, t.Env)
-	return sess, wrapDial(derr)
-}
-
-// sandboxStdioArgv —— 把 manifest 的沙箱声明 + 容器内启动命令拼成 `bwrap ...` argv
-// （只读 host 运行时 / 只读插件代码 / tmpfs / 网络策略），交给 DialStdio。
-func sandboxStdioArgv(t *mcpplugin.Transport) ([]string, error) {
-	if t.Sandbox == nil {
-		return nil, errors.New("plugin: sandbox_stdio missing sandbox config")
-	}
-	launch := &sandbox.StdioLaunch{
-		CodeDir: t.Sandbox.PluginDir, // 插件代码（MinIO materialize 出来的只读 artifact）
-		// WorkspaceDir 暂空 —— per-session 懒建工作区接 session 上下文时再填（#148）。
-		WorkspaceDir: "",
-		Command:      t.Command,
-		Args:         t.Args,
-		AllowNet:     t.Sandbox.AllowNet,
-		HostSockets:  t.Sandbox.HostSockets, // 数据型内建的窄 socket（断网也可达）
-	}
-	argv, err := launch.BwrapArgv()
-	if err != nil {
-		return nil, fmt.Errorf("plugin: build sandbox argv: %w", err)
-	}
-	return argv, nil
-}
-
 // mcpAppGranted —— 暴露门。ACL=always → 无条件暴露给所有 mode（外置的内建基础
 // 能力，如 ask_visitor）。否则 role-granted：role 的 AllowedTools 含本插件 ID 才暴露
 // （echoer / 第三方 server），无 role(public/byoai) → 隐藏。
@@ -219,13 +204,6 @@ func mcpAppGranted(m *mcpplugin.Manifest, snap *domain.RoleSnapshot) bool {
 		return false
 	}
 	return slices.Contains(snap.AllowedTools(), m.ID)
-}
-
-func wrapDial(err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("plugin dial: %w", err)
 }
 
 // sessionMetaFor —— 数据型内建（manifest 声明了 HostSockets）才拿到可信 session
@@ -242,7 +220,17 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		Mode:           in.Mode,
 		VisitorName:    in.Visitor.Name,
 		VisitorEmail:   in.Visitor.Email,
+		RoleID:         roleIDOf(in),
 	}
+}
+
+// roleIDOf —— 当前 session 的 role id（booker owner-notify 的 per-role 开关要）。
+// 无 role(public/byoai) → 空串。
+func roleIDOf(in *capreg.AssembleInput) string {
+	if in.RoleSnapshot == nil {
+		return ""
+	}
+	return in.RoleSnapshot.RoleID()
 }
 
 func wrapMCPAppTools(

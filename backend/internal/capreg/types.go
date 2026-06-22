@@ -105,3 +105,14 @@ type Capability interface {
 	SystemPromptFragment(ctx context.Context, in *AssembleInput) string
 	SystemPromptFragmentID(ctx context.Context, in *AssembleInput) string
 }
+
+// SessionGate —— an optional per-session exposure predicate for a plugin whose
+// tool visibility depends on RUNTIME state the manifest can't express. The
+// externalized booker uses it: role-grant alone isn't enough — the owner's
+// calendar connector must be connected AND the access code's booking quota not
+// exhausted, else the tool stays hidden (chat-book-not-connected /
+// chat-book-quota-exhausted). It is wired host-side by the composition root
+// (where the connector proxy + store live) and consulted by the mcp-app adapter
+// in VisitorBinding, BEFORE dialing the sandbox. Returns (expose, err): false →
+// ErrHidden; a real err propagates. nil gate = no extra gating (the default).
+type SessionGate func(ctx context.Context, in *AssembleInput) (bool, error)

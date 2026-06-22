@@ -1,9 +1,7 @@
-// capreg_booker_slots.go —— G-7: visitor-side calendar_list_slots
-// 工具的实现 (spec + decode + execute + marshal)。从 capreg_booker.go
-// 拆出来守 max-lines 350 cap。
-//
-// 复用 ListAvailableSlots usecase；wire 形态 ({slots:[{start,end}]}) 跟
-// owner cap_calendar.go viewSlots 同形态，frontend SlotsCard 共用 narrow。
+// capreg_booker_slots.go —— calendar_list_slots host op 的 decode + execute +
+// marshal。booker.sock 的 "list_slots" op handler 调 runBookerListSlots。tool
+// spec / schema 在外置插件 mcp-servers/booker；wire 形态 ({slots:[{start,end}]})
+// 不变，frontend SlotsCard 照旧解。
 
 package usecases
 
@@ -13,21 +11,17 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 func runBookerListSlots(
-	ctx context.Context, deps *bookerDeps, in *capreg.AssembleInput,
-	owner *domain.Owner, input []byte,
+	ctx context.Context, deps *BookerDeps, ci *bookerCallInput, input []byte,
 ) (string, error) {
 	args, derr := decodeListSlotsArgs(input)
 	if derr != nil {
 		return marshalBookErrResult("invalid_args", derr.Error()), nil
 	}
 	slots, lerr := ListAvailableSlots(ctx, deps.Proxy, deps.Store, &ListSlotsInput{
-		OwnerID: in.OwnerID, OwnerTZ: owner.ProfileTimezone,
+		OwnerID: ci.OwnerID, OwnerTZ: ci.OwnerTZ,
 		From: args.from, Until: args.until,
 		DurationMin: args.DurationMin, StepMin: args.StepMin,
 	})
@@ -35,31 +29,6 @@ func runBookerListSlots(
 		return marshalBookErrResult("list_slots_failed", lerr.Error()), nil
 	}
 	return marshalListSlotsResult(slots), nil
-}
-
-// listSlotsBindingTool —— calendar_list_slots 注册口。
-func listSlotsBindingTool(run capreg.RunFn) capreg.BindingTool {
-	return capreg.NewTool(
-		toolCalendarListSlotsName,
-		"List available [start, end] slots on the owner's calendar "+
-			"between from_rfc3339 and until_rfc3339 that pass booking policy and "+
-			"don't overlap any busy window. Returns up to 50 slots. Use this "+
-			"before calendar_book so the visitor can pick an actual free time.",
-		"listing slots",
-		json.RawMessage(`{
-			"type":"object",
-			"properties":{
-				"from_rfc3339":{"type":"string","description":"Search window start (RFC3339)."},
-				"until_rfc3339":{"type":"string","description":"Search window end (RFC3339)."},
-				"duration_min":{"type":"integer","minimum":15,"maximum":180,
-					"description":"Slot length in minutes."},
-				"step_min":{"type":"integer","minimum":15,"maximum":120,
-					"description":"Enumeration step in minutes (default 30)."}
-			},
-			"required":["from_rfc3339","until_rfc3339","duration_min"]
-		}`),
-		run,
-	)
 }
 
 type listSlotsArgsParsed struct {

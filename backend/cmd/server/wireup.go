@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
@@ -177,7 +178,14 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	// 再让 registry 把全部 plugin 的 CapabilityRegistrar 一次性注册到同一
 	// capreg.Registry，互不重 ID。
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
-	registerDiscoveredPlugins(d)
+	bookerDeps := &usecases.BookerDeps{
+		Proxy: skills.Proxy, Store: skills.Calendar,
+		Owners: skills.Owners, Notify: skills.Notify,
+	}
+	wireBookerSocket(ctx, d, bookerDeps)
+	registerDiscoveredPlugins(d, map[string]capreg.SessionGate{
+		usecases.BookerSkillName: usecases.NewBookerGate(bookerDeps),
+	})
 	wireCapabilityEnableGate(d)
 }
 

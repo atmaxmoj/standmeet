@@ -77,3 +77,4 @@ infra/plugins/*/node_modules/
 infra/plugins/*/pkg/
 infra/plugins/ask-visitor/ask-visitor
 infra/plugins/summarize/summarize
+infra/plugins/booker/booker
