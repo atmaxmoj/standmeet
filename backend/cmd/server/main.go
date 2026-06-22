@@ -128,7 +128,7 @@ func wireAndServe(
 		storageClient:    storageClient,
 	})
 	deps.pluginRegistry = buildPluginRegistry(&deps)
-	registerAgentSkills(&deps)
+	registerAgentSkills(ctx, &deps)
 	return serve(ctx, &deps, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }
 

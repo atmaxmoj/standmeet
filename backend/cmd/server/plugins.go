@@ -28,10 +28,34 @@ func registerDiscoveredPlugins(d *runtimeDeps) {
 // 装进插件目录**，运行时跟第三方插件**完全同一条** sandbox_stdio 路径（bwrap 隔离）。
 // 归一到底：builtin 只剩 origin=builtin 这个标签，加载机制没有任何特殊路。
 func registerBuiltins(d *runtimeDeps) {
-	manifests := []mcpplugin.Manifest{askVisitorManifest()}
+	manifests := []mcpplugin.Manifest{askVisitorManifest(), summarizeManifest()}
 	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, manifests, capreg.OriginBuiltin)
 	for _, id := range dupes {
 		d.log.Warn("builtin register skipped (duplicate id)", "id", id)
+	}
+}
+
+// summarizeManifest —— summarize 内建：静态二进制在 /srv/plugins/summarize，经
+// sandbox_stdio 在 bwrap 里跑。它要后端数据（transcript/LLM/落库）→ HostSockets 绑一个
+// 窄 unix socket（host 跑 report pipeline），插件断网经 socket 够到。tool 保 canonical
+// 名 summarize_conversation；ACL=always（summarize 原对所有 mode 暴露）。
+func summarizeManifest() mcpplugin.Manifest {
+	const sock = "/run/standmeet/summarize.sock"
+	return mcpplugin.Manifest{
+		ID:           "summarize_conversation",
+		Version:      "1",
+		Shape:        mcpplugin.ShapeVisitorOnly,
+		ACL:          mcpplugin.ACLAlways,
+		RawToolNames: true,
+		Transport: mcpplugin.Transport{
+			Kind:    mcpplugin.TransportSandboxStdio,
+			Command: "/plugin/summarize",
+			Env:     map[string]string{"SUMMARIZE_SOCKET": sock},
+			Sandbox: &mcpplugin.Sandbox{
+				PluginDir:   "/srv/plugins/summarize",
+				HostSockets: []string{sock},
+			},
+		},
 	}
 }
 

@@ -86,14 +86,16 @@ func chmodOrClose(ln net.Listener, path string, log *slog.Logger) error {
 // Handle —— register an op. Call before Serve.
 func (s *Server) Handle(op string, h Handler) { s.handlers[op] = h }
 
-// Serve —— accept loop; one goroutine per connection. Blocks until Close.
-func (s *Server) Serve() {
+// Serve —— accept loop; one goroutine per connection. Blocks until Close. ctx is
+// the server-lifetime context (the same one passed to Listen), threaded down to
+// each request's handler.
+func (s *Server) Serve(ctx context.Context) {
 	for {
 		conn, err := s.ln.Accept()
 		if err != nil {
 			return // listener closed
 		}
-		go s.handleConn(conn)
+		go s.handleConn(ctx, conn)
 	}
 }
 
@@ -108,7 +110,7 @@ func (s *Server) Close() error {
 	return nil
 }
 
-func (s *Server) handleConn(conn net.Conn) {
+func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 	defer func() {
 		if cerr := conn.Close(); cerr != nil {
 			s.log.Debug("capsocket: conn close", "err", cerr)
@@ -117,7 +119,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	sc := bufio.NewScanner(conn)
 	sc.Buffer(make([]byte, 0, 64*1024), maxRequestLen)
 	for sc.Scan() {
-		resp := s.dispatch(context.Background(), sc.Bytes())
+		resp := s.dispatch(ctx, sc.Bytes())
 		if _, werr := conn.Write(append(resp, '\n')); werr != nil {
 			return
 		}

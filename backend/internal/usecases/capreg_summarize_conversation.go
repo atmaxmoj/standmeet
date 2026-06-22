@@ -1,33 +1,20 @@
-// capreg_summarize_conversation.go —— I.3: summarize_conversation
-// capability。LLM 决定调时调一次 inference.Generate 拿 HTML body，落
-// chat_reports 表，结果返一段 JSON {ok, report_id, html} 让浏览器渲
-// ReportArtifact 卡 (sandbox iframe + 独立 /report/{id} 链接)。
+// capreg_summarize_conversation.go —— summarize 的 HOST 侧 report pipeline。
 //
-// 不 mark conversation ended (跟老 /summary 的语义不同；新 tool 是
-// artifact 不是终态)。同 conversation 可多次调，每次新 row。
-//
-// Shape=ShapeVisitorOnly v1；capability 设计 mode-decoupled，owner-side
-// MCP 暴露后续 commit。
+// 归一(#144)后 summarize 的 MCP **能力**已外置成沙箱插件(mcp-servers/summarize)；
+// 主 app 内不再有它的 capability/tool 代码。这里只留**生成报告的 compute pipeline**
+// (transcript → inference.Generate → HTML)——它是后端的算力/数据 plumbing，由
+// capreg_summarize_socket.go 的窄 socket op 调用，插件经 socket 够到它。
 
 package usecases
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/inference"
-	"github.com/atmaxmoj/standmeet/internal/postgres"
-	"github.com/atmaxmoj/standmeet/internal/prompts"
-)
-
-const (
-	capSummarize           = "summarize_conversation"
-	capSummarizeFragmentID = "capabilities/summarize_conversation"
-	toolSummarizeName      = "summarize_conversation"
 )
 
 // summarizeHTMLPrompt —— AI 写 HTML 报告时的 system。给一套**固定组件 kit**
@@ -70,115 +57,14 @@ const summarizeHTMLPrompt = "You generate a polished HTML conversation report. "
 	"- Ground every Result in what was actually said; do not invent outcomes/metrics\n" +
 	"- ~500 words max; one-page printable; no images"
 
-// SummarizeDeps —— summarize capability 依赖；闭包持。
+// SummarizeDeps —— report pipeline 的窄依赖；socket handler 持。
 type SummarizeDeps struct {
 	Chats    ConversationGetter
 	Reports  ReportStore
 	Resolver inference.Resolver
 }
 
-// SummarizeCapability —— Capability impl。导出让 NewSummarizeCapability
-// 返具体类型 (revive unexported-return)；外部直接持也 OK。
-type SummarizeCapability struct {
-	deps *SummarizeDeps
-}
-
-// NewSummarizeCapability —— DI 构造；wireup 持 registry 调一次。
-func NewSummarizeCapability(deps *SummarizeDeps) *SummarizeCapability {
-	return &SummarizeCapability{deps: deps}
-}
-
-// ID —— Capability ID。
-func (*SummarizeCapability) ID() string { return capSummarize }
-
-// Shape —— visitor only v1。
-func (*SummarizeCapability) Shape() capreg.Shape {
-	return capreg.ShapeVisitorOnly
-}
-
-// OwnerMCPBindings —— 暂不暴露给 owner MCP；后续 commit 加。
-func (*SummarizeCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{}
-}
-
-// SystemPromptFragmentID —— 始终返 fragment id；LLM 就知道 tool 是啥。
-func (*SummarizeCapability) SystemPromptFragmentID(
-	_ context.Context, _ *capreg.AssembleInput,
-) string {
-	return capSummarizeFragmentID
-}
-
-// SystemPromptFragment —— 加载 capabilities/summarize_conversation.md。
-func (c *SummarizeCapability) SystemPromptFragment(
-	ctx context.Context, in *capreg.AssembleInput,
-) string {
-	id := c.SystemPromptFragmentID(ctx, in)
-	if id == "" {
-		return ""
-	}
-	return prompts.MustLoad(id)
-}
-
-// VisitorBinding —— 装一个 summarize_conversation tool。
-func (c *SummarizeCapability) VisitorBinding(
-	_ context.Context, in *capreg.AssembleInput,
-) (*capreg.Binding, error) {
-	bind := func(ctx context.Context, args string) (string, error) {
-		return runSummarize(ctx, c.deps, in, args)
-	}
-	return &capreg.Binding{
-		Tools: []capreg.BindingTool{summarizeBindingTool(bind)},
-		State: capreg.CapabilityState{ID: capSummarize, Enabled: true},
-	}, nil
-}
-
-func summarizeBindingTool(run capreg.RunFn) capreg.BindingTool {
-	// ReturnDirectly: 报告生成完直接结束 agent loop，把 tool result 推
-	// 浏览器渲 ReportArtifactCard；不再走第二轮 LLM (agent 可能误调 corpus
-	// 之类的，徒增延迟)。conversation 不终结，visitor 下 turn 可继续。
-	return capreg.NewReturnDirectlyTool(
-		toolSummarizeName,
-		"Generate a polished HTML report summarizing the conversation so far. "+
-			"Returns {report_id, html}. Repeat calls allowed; each generates a "+
-			"fresh report row. Does not end the conversation.",
-		"writing report",
-		json.RawMessage(`{
-			"type":"object",
-			"properties":{
-				"focus":{
-					"type":"string",
-					"description":"Optional: what angle to emphasize."
-				}
-			}
-		}`),
-		run,
-	)
-}
-
-// summarizeResultWire —— tool_result 推浏览器的 wire；frontend
-// ReportArtifact 按 report_id + html 渲卡 + open-as-page 链接。
-type summarizeResultWire struct {
-	ReportID string `json:"report_id"`
-	HTML     string `json:"html"`
-	OK       bool   `json:"ok"`
-}
-
-func runSummarize(
-	ctx context.Context, deps *SummarizeDeps, in *capreg.AssembleInput, _ string,
-) (string, error) {
-	html, err := generateReportHTML(ctx, deps, in)
-	if err != nil {
-		return marshalSummarizeFail(err), nil
-	}
-	row, perr := deps.Reports.Create(ctx, &postgres.CreateReportInput{
-		OwnerID: in.OwnerID, ConversationID: in.ConversationID, HTML: html,
-	})
-	if perr != nil {
-		return marshalSummarizeFail(perr), nil
-	}
-	return marshalSummarizeOK(row.ID, html), nil
-}
-
+// generateReportHTML —— transcript → resolve cred → inference.Generate → HTML body。
 func generateReportHTML(
 	ctx context.Context, deps *SummarizeDeps, in *capreg.AssembleInput,
 ) (string, error) {
@@ -226,18 +112,4 @@ func buildSummarizeUserPrompt(msgs []domain.Message) string {
 	}
 	_, _ = b.WriteString("\nPlease generate the structured HTML report of this conversation.")
 	return b.String()
-}
-
-func marshalSummarizeOK(reportID, html string) string {
-	buf, err := json.Marshal(summarizeResultWire{
-		OK: true, ReportID: reportID, HTML: html,
-	})
-	if err != nil {
-		return `{"ok":false,"error":"marshal_failed"}`
-	}
-	return string(buf)
-}
-
-func marshalSummarizeFail(err error) string {
-	return fmt.Sprintf(`{"ok":false,"error":%q}`, err.Error())
 }

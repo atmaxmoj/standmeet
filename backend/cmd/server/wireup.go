@@ -122,9 +122,10 @@ func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
 // registerAgentSkills —— 把 visitor-side + owner-side 内建 capability 都
 // 注册进 d.agentSkills。跟 build*Deps 共享底层 repo 引用；run() 阶段调用
 // 一次，capability 闭包持 deps，server 跑期间 deps 不再变。
-func registerAgentSkills(d *runtimeDeps) {
+func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	skills := buildVisitorSkillsDeps(d)
 	usecases.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
+	wireSummarizeSocket(ctx, d, &skills)
 	corpusDeps := usecases.CorpusDeps{
 		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
 	}

@@ -39,6 +39,7 @@ out/
 *.tsbuildinfo
 # Go local-build binaries (when running `go build ./cmd/...` outside docker)
 backend/standmeet
+backend/server
 backend/job-board-mock
 backend/check-no-nil-container
 
@@ -70,3 +71,4 @@ logs/
 infra/plugins/*/node_modules/
 infra/plugins/*/pkg/
 infra/plugins/ask-visitor/ask-visitor
+infra/plugins/summarize/summarize

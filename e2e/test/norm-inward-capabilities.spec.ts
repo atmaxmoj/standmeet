@@ -26,8 +26,11 @@ const GOLDEN_INWARD: readonly Cap[] = [
   { id: 'calendar.book', shape: 'visitor_only', origin: 'builtin' },
   { id: 'skill.runner', shape: 'visitor_only', origin: 'builtin' },
   { id: 'ext.mcp', shape: 'visitor_only', origin: 'builtin' },
-  { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
+  // ask_visitor + summarize_conversation —— 已外置成沙箱插件（mcp-servers/*），经
+  // registerBuiltins 走统一 sandbox_stdio 路径以 origin=builtin 加载（在 capreg
+  // 内建之后、managed 第三方之前）。id/shape/origin 不变，加载机制变。
   { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
   { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
   // everything / fsmcp —— 真·第三方 MCP server（@modelcontextprotocol 官方参考
   // server），经 sandbox_stdio 在 bwrap 隔离里加载（STANDMEET_PLUGINS 声明，managed）。

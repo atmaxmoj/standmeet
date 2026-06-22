@@ -158,7 +158,7 @@ type SessionContext struct {
 
 func (s *SessionContext) meta() map[string]any {
 	if s == nil {
-		return nil
+		return map[string]any{}
 	}
 	return map[string]any{"standmeet/session": map[string]any{
 		"owner_id":        s.OwnerID,

@@ -14,13 +14,17 @@ package usecases
 import "github.com/atmaxmoj/standmeet/internal/capreg"
 
 // RegisterVisitorSkills —— 注册口。跟 prod 同一组 capability 构造
-// (newRetrievalCapability / booker / skill-runner / ext-mcp / ask_visitor /
-// summarize)，按各 capability 的窄 deps 从 VisitorSkillsDeps 取料。summarize 的
-// 对话源由 sumChats 显式注入：prod 传 chat repo，eval facade 传 fixture 对话源
-// (跑同一套真 capability 构造,只换数据源)。booker 的 Calendar 在 eval 留 nil →
+// (newRetrievalCapability / booker / skill-runner / ext-mcp)，按各 capability 的
+// 窄 deps 从 VisitorSkillsDeps 取料。booker 的 Calendar 在 eval 留 nil →
 // VisitorBinding ErrHidden 自动隐藏。
+//
+// ask_visitor + summarize 已外置成沙箱插件（mcp-servers/*），由 composition root
+// 走统一 sandbox_stdio 路径以 origin=builtin 加载，主 app 内不再有它们的 capability
+// 代码。summarize 的 report pipeline 留作 host socket op（capreg_summarize_socket.go），
+// 不在这里注册成 capability。sumChats 仍透传供 composition root 起 summarize socket
+// server 用（这里不再消费它）。
 func RegisterVisitorSkills(
-	reg *capreg.Registry, deps *VisitorSkillsDeps, sumChats ConversationGetter,
+	reg *capreg.Registry, deps *VisitorSkillsDeps, _ ConversationGetter,
 ) {
 	reg.MustRegister(newRetrievalCapability(retrievalDeps{
 		Wiki: deps.Wiki, Output: deps.Output, Writings: deps.Writings,
@@ -32,13 +36,4 @@ func RegisterVisitorSkills(
 		Skills: deps.Skills, Sandbox: deps.Sandbox,
 	}))
 	reg.MustRegister(newExtMCPCapability(deps.MCPServers))
-	// ask_visitor 已外置成独立 module（mcp-servers/ask-visitor），由 composition
-	// root 经 in-process 走统一插件路径以 origin=builtin 加载，主 app 内不再有它的
-	// 任何代码。
-	// I.3: summarize_conversation 调一次 inference.Generate 出 HTML 报告
-	// 落 chat_reports。所有 mode 都暴露 (visitor 自己拿 session 调，
-	// public visitor 一次额外 LLM call 也 OK)。
-	reg.MustRegister(NewSummarizeCapability(&SummarizeDeps{
-		Chats: sumChats, Reports: deps.Reports, Resolver: deps.Resolver,
-	}))
 }

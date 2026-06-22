@@ -79,6 +79,8 @@ components:
     in: internal/mcpclient                # 调外部 MCP server (owner-registered)
   mcpplugin:
     in: internal/mcpplugin                # C1: 装机插件 manifest 解析 + 发现来源 (leaf)
+  capsocket:
+    in: internal/capsocket                # 窄 unix-socket host 服务：断网沙箱插件经 bind 进的 socket 调后端 op (leaf)
   storage:
     in: internal/storage                  # MinIO/S3 对象存储 (图片 / 附件)
   mailer:
@@ -122,6 +124,7 @@ deps:
       - capreg
       - prompts
       - mcpplugin
+      - capsocket
     anyVendorDeps: true
 
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
@@ -167,6 +170,11 @@ deps:
   mcpclient:
     mayDependOn:
       - domain
+    anyVendorDeps: true
+
+  # capsocket —— 窄 host unix-socket 服务 leaf：line-JSON 分发，无 internal 依赖。
+  capsocket:
+    mayDependOn: []
     anyVendorDeps: true
 
   # storage 是 S3 / MinIO 客户端，纯 vendor + stdlib。
@@ -486,4 +494,5 @@ deps:
       - capreg
       - plugins
       - pluginjobs
+      - capsocket
     anyVendorDeps: true
