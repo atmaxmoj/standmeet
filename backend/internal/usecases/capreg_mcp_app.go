@@ -24,6 +24,13 @@ import (
 type mcpAppCapability struct {
 	instrOnce *sync.Once
 	instr     *string
+	// toolsOnce/tools —— 缓存首拨拿到的 tool specs（name/desc/schema/_meta）。tool 元数据
+	// 是 server 级静态的，但每次 VisitorBinding 都重拨 + ListTools 会让 `_meta`（尤其
+	// return_directly / progress_label）在高负载冷启时偶发丢失（#149），导致 ask_visitor
+	// 卡不返、间歇 flake。读一次缓存：之后每次装配只用 live session 执行，specs 取缓存的
+	// 可靠值，彻底消掉 per-dial 的 _meta 读竞态。
+	toolsOnce *sync.Once
+	tools     *[]mcpclient.Tool
 	gate      capreg.SessionGate
 	// fragmentGate —— 可选 per-session 谓词，决定本能力是否「实际活跃」：控制
 	// SystemPromptFragment 是否贡献 + CapabilityState.Enabled。tool 暴露不受它影响
@@ -48,7 +55,10 @@ type CapHooks struct {
 }
 
 func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
-	return &mcpAppCapability{m: *m, instrOnce: &sync.Once{}, instr: new(string)}
+	return &mcpAppCapability{
+		m: *m, instrOnce: &sync.Once{}, instr: new(string),
+		toolsOnce: &sync.Once{}, tools: new([]mcpclient.Tool),
+	}
 }
 
 // RegisterDiscoveredPlugins —— 把发现来源的 manifest 逐个注册成 mcpAppCapability
@@ -154,11 +164,20 @@ func (c *mcpAppCapability) VisitorBinding(
 	if derr != nil {
 		return nil, derr
 	}
+	specs := c.cachedToolSpecs(ds.tools)
 	return &capreg.Binding{
-		Tools: wrapMCPAppTools(&c.m, ds.sess, ds.tools, sessionMetaFor(&c.m, in)),
+		Tools: wrapMCPAppTools(&c.m, ds.sess, specs, sessionMetaFor(&c.m, in)),
 		State: c.stateFor(ctx, in, ds.sess),
 		Close: ds.sess.Close,
 	}, nil
+}
+
+// cachedToolSpecs —— 首拨缓存 tool specs（含 _meta），之后恒返缓存：tool 元数据是静态
+// 的，缓存住就不会被某次冷启高负载的 ListTools 把 return_directly/progress_label 丢掉。
+// 执行仍走本次 dial 的 live session（tool name 一致），只有 specs 取缓存。
+func (c *mcpAppCapability) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.Tool {
+	c.toolsOnce.Do(func() { *c.tools = dialed })
+	return *c.tools
 }
 
 // stateFor —— 通用 mcpAppState（id/enabled/ui）+ 可选 stateHook overlay（booker:
