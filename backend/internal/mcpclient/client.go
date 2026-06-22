@@ -23,8 +23,12 @@ import (
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 )
 
-// dialTimeout —— Initialize + ListTools 总预算；超了视为 server 不可达。
-const dialTimeout = 8 * time.Second
+// dialTimeout —— Initialize + ListTools/ReadResource 总预算；超了视为 server 不可达。
+// 20s（不是 8s）：sandbox_stdio 是冷启 —— bwrap 起命名空间 + node/python 解释器冷启 +
+// MCP initialize 握手，负载高时（一次装配要起好几个沙箱）偶发 >8s，超时会把能力误判
+// 成 ErrHidden（卡片/工具消失，间歇 flake）。真·死插件在 connect 阶段就快速失败，不
+// 吃这个超时，所以放宽只惩罚「慢但活着」的罕见情形。
+const dialTimeout = 20 * time.Second
 
 // callTimeout —— 单次 CallTool 上限；外部 server 卡死不能拖垮 visitor chat。
 const callTimeout = 15 * time.Second
