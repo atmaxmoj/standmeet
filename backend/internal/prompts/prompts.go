@@ -21,7 +21,11 @@ import (
 	"strings"
 )
 
-//go:embed *.md capabilities/*.md
+// capabilities/*.md 全空了 —— 四个 leaf 能力（corpus.retrieval / calendar.book /
+// summarize / ask_visitor）的 prompt fragment 都随能力外置进了各自插件的 MCP
+// `instructions`，不再从这里 embed。剩 visitor-header.md 等非能力 fragment。
+//
+//go:embed *.md
 var promptFS embed.FS
 
 // ErrPromptNotFound —— Load 的 id 没对应 .md 文件。

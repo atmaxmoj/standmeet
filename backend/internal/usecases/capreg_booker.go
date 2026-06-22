@@ -69,6 +69,35 @@ func NewBookerGate(deps *BookerDeps) capreg.SessionGate {
 	}
 }
 
+// NewBookerStateHook —— 给外置 booker 的 CapabilityState 补 quota_remaining（外置前由
+// in-process binding 的 buildCalendarBookBinding 设；mcp-app 适配器的通用 state 不含它）。
+// composition root 经 CapHooks.State 注入；装配期实时查 code 剩余可 booking 数，前端用它
+// 渲 "还剩 N 次"（tool-endpoint-state-cascade 跨 tool 不变量）。
+func NewBookerStateHook(deps *BookerDeps) StateHook {
+	return func(ctx context.Context, in *capreg.AssembleInput) capreg.CapabilityState {
+		st := capreg.CapabilityState{}
+		if rem := bookerQuotaRemaining(ctx, deps, in); rem != nil {
+			st.QuotaRemaining = rem
+		}
+		return st
+	}
+}
+
+// bookerQuotaRemaining —— 当前 code 剩余可 booking 数。无 cap / DB 错 → nil。
+func bookerQuotaRemaining(
+	ctx context.Context, deps *BookerDeps, in *capreg.AssembleInput,
+) *int32 {
+	if in.MaxBookings == nil || *in.MaxBookings <= 0 || in.CodeID == "" {
+		return nil
+	}
+	count, err := deps.Store.CountBookingsForCode(ctx, in.CodeID)
+	if err != nil {
+		return nil
+	}
+	rem := max(*in.MaxBookings-count, 0)
+	return &rem
+}
+
 // bookerCanExpose —— 进入 gating 的最低条件 (mode=code + role granted skill)。
 func bookerCanExpose(in *capreg.AssembleInput) bool {
 	if in.Mode != "code" {

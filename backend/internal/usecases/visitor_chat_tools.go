@@ -12,80 +12,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // searchPageLimit —— DB 搜索一页上限(翻页留给 LLM 用 offset)。
 const searchPageLimit = 20
 
-const (
-	// Tool names —— Phase D-3 切到 snake_case (URL `/tools/{name}` 跟 LLM
-	// tool spec 1:1)；Anthropic-friendly。capability ID 自己仍是点分
-	// (`corpus.retrieval`)，是 internal 层级概念，不进 URL / LLM spec。
-	toolSearchCorpus = "corpus_search"
-	toolReadCorpus   = "corpus_read"
-	toolListCorpus   = "corpus_list"
-	summaryMaxChars  = 160
-)
-
-// searchBindingTool / readBindingTool / listBindingTool —— 三个 tool 各
-// 自的 spec + RunFn 闭包，每个绑到 retriever 对应方法 (G-8 throbber 文
-// 案 + JSON schema 都在这一行装好；eino tool.InvokableTool 在 NewTool
-// 内部生成)。
-func searchBindingTool(r *retriever) capreg.BindingTool {
-	return capreg.NewTool(
-		toolSearchCorpus,
-		"Search owner's curated corpus by keyword. Returns "+
-			"matching wiki + output entries with path, title, genre, summary.",
-		"searching corpus",
-		json.RawMessage(`{
-			"type": "object",
-			"properties": {"query": {"type": "string"}},
-			"required": ["query"]
-		}`),
-		func(ctx context.Context, args string) (string, error) {
-			return r.runSearch(ctx, []byte(args))
-		},
-	)
-}
-
-func readBindingTool(r *retriever) capreg.BindingTool {
-	return capreg.NewTool(
-		toolReadCorpus,
-		"Read the full body of a corpus entry by its path "+
-			"(e.g. projects/lucerna). Use after search to fetch content.",
-		"reading entry",
-		json.RawMessage(`{
-			"type": "object",
-			"properties": {"path": {"type": "string"}},
-			"required": ["path"]
-		}`),
-		func(ctx context.Context, args string) (string, error) {
-			return r.runRead(ctx, []byte(args))
-		},
-	)
-}
-
-func listBindingTool(r *retriever) capreg.BindingTool {
-	return capreg.NewTool(
-		toolListCorpus,
-		"Navigate the wiki tree one level at a time. Omit path to list root "+
-			"entries; pass a node's path to list its direct children (empty result "+
-			"means it's a leaf). Use page (0-based) to page through a wide level.",
-		"listing entries",
-		json.RawMessage(`{
-			"type": "object",
-			"properties": {
-				"path": {"type": "string"},
-				"page": {"type": "integer"}
-			}
-		}`),
-		func(ctx context.Context, args string) (string, error) {
-			return r.runList(ctx, []byte(args))
-		},
-	)
-}
+// summaryMaxChars —— corpus_search 摘要截断上限。tool 名 / schema / desc 现在由外置
+// 插件 mcp-servers/retrieval 声明；这里只剩 retriever 执行体（runSearch/Read/List），
+// 由 retrieval.sock 的 op handler 调（capreg_retrieval_socket.go）。
+const summaryMaxChars = 160
 
 // retriever —— tool executor 的状态。writings 跟 wiki/output 共享 search/
 // read/list；cited footer 仅 wiki+output (writings 有自己的 cross_refs +
@@ -93,8 +29,7 @@ func listBindingTool(r *retriever) capreg.BindingTool {
 //
 // ACL 评估：[[role_snapshot]].AllowsCorpus —— A.3-IAM-5 起 snapshot 必填。
 type retriever struct {
-	collector *readCollector
-	snapshot  *domain.RoleSnapshot
+	snapshot *domain.RoleSnapshot
 	// wikiRepo / outputRepo / writingRepo —— 三个 genre 都走 DB:全量搜(Search)+ 按
 	// path 读,不吃内存窗口。
 	wikiRepo    WikiLister
@@ -134,7 +69,6 @@ func newRetriever(in *retrieverInput) *retriever {
 		outputRepo:  in.outputRepo,
 		writingRepo: in.writingRepo,
 		ownerID:     in.ownerID,
-		collector:   newReadCollector(),
 		wikiPaths:   WikiTreePaths(in.wikis),
 		outputPaths: OutputTreePaths(in.outputs),
 		seen:        make(map[string]string),
@@ -183,7 +117,8 @@ func (r *retriever) collectMatchingEntries(ctx context.Context, q string) []corp
 // writing-specific helpers live in visitor_chat_tools_writings.go to keep
 // this file under the 350-line cap.
 
-// runRead —— 按 path 查 entry，ACL 通过 + show_as_source 不抑制时进 collector。
+// runRead —— 按 path 查 entry，ACL 通过则返全文 wire {id,genre,body,path,title}。
+// citation 不在这做：inference 的 accumSink 从这个结果的 {id,genre} 自行累计。
 // ACL 评估走 dispatchRead 内部按 genre 检 (snapshot mode 需要 genre 拼 URI；
 // legacy PathACL 模式下 r.allowsPath 忽略 genre 等同 r.acl.AllowsPath)。
 func (r *retriever) runRead(ctx context.Context, input []byte) (string, error) {

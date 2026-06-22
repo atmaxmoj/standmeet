@@ -61,11 +61,10 @@ type AssembleInput struct {
 // Close 可选；持外部资源（ext MCP 长连接等）的 binding 在 session
 // 结束时由 registry 统一调用。无资源就 nil。
 //
-// Cited 可选；retrieval-style capability 提供，emitDoneEvent 在 stream
-// 结束后调用拿真读过的 entries。
+// （旧 Cited 字段已删：citation 早就由 inference 的 accumSink 从 corpus_read 结果
+// {id,genre} 自行累计，跟能力解耦；retrieval 外置后该字段成死代码，随之删除。）
 type Binding struct {
 	Close func()
-	Cited func() CitedSnapshot
 	Tools []BindingTool
 	State CapabilityState
 }

@@ -1,16 +1,17 @@
 // prompts-fragment-api.spec.ts —— GET /api/v1/prompts/{id} 给前端 (pi
-// agent loop) 拿 system prompt 各 fragment 文本。
-// fragment 单一源在 backend/internal/prompts/*.md，不再硬编码 Go 字符串。
+// agent loop) 拿 NON-capability system prompt fragment 文本 (visitor-header 等)。
+//
+// 归一(#144)后：四个 leaf 能力的 prompt fragment 随能力外置进了各自插件的 MCP
+// `instructions`，**不再**由 /api/v1/prompts/{id} 端点提供 (capabilities/* 全 404)。
+// 它们仍经 mcp-app 适配器的 SystemPromptFragment 拼进 system_prompt_full —— 所以
+// corpus fragment 还在 full 里 (有 corpus scope 时)，只是来源从 prompts/*.md 换成了
+// 插件 instructions。本 spec 用 full 里的 verbatim 文案核对，不再从端点取期望值。
 //
 // 验证手段：
-//   1. GET /api/v1/prompts/{id} 返每个 fragment 的文本 (md 文件内容)
-//   2. /internal/diag/session 响应加 system_prompt_full 字段
-//      = 真实下行 LLM 的 system prompt 拼接结果
-//   3. system_prompt_full 应能由 fragment 文本按已知规则 (visitor-header +
-//      capability fragments) 重新拼出 — 一字不差
-//
-// 漂移侦测：以后谁在 Go 里硬编码新 fragment 而不抽到 prompts/，本 spec 会
-// fail (fragment 出现在 system_prompt_full 但 GET /prompts/{id} 拿不到)。
+//   1. GET /api/v1/prompts/visitor-header 返 md 文本 (非能力 fragment 仍在端点)
+//   2. capabilities/* 已外置 → 端点 404
+//   3. system_prompt_full = 真实下行 LLM 的拼接结果，含 corpus fragment verbatim
+//      (有 corpus scope 时)，无 scope 时不含。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -29,6 +30,12 @@ const OWNER = {
 };
 
 const CODE = 'PROMPTS-001';
+
+// CORPUS_FRAGMENT_MARK —— corpus.retrieval fragment 的 verbatim 开头 (插件
+// instructions = 旧 corpus.retrieval.md 一字不差)。端点不再提供该 fragment，
+// 故用这个 marker 在 system_prompt_full 里核对它在/不在。
+const CORPUS_FRAGMENT_MARK =
+  "You have three tools for accessing the owner's curated corpus:";
 
 interface VisitorCapabilitiesResp {
   capabilities: Array<{ id: string; enabled: boolean }>;
@@ -70,14 +77,13 @@ test.describe('prompts fragment API · single source of truth', () => {
       await request.dispose();
     });
 
-  test('GET /api/v1/prompts/capabilities/corpus.retrieval returns tool description',
+  test('capability fragments are externalized → not served by the prompts endpoint (404)',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const text = await fetchPrompt(request, 'capabilities/corpus.retrieval');
-      // 已知 fragment 含 3 个 corpus tool 描述
-      expect(text).toContain('corpus_search');
-      expect(text).toContain('corpus_read');
-      expect(text).toContain('corpus_list');
+      // 四个 leaf 能力 fragment 已搬进各自插件的 MCP instructions；prompts 端点不再有。
+      const res = await request.get(
+        `${BACKEND}/api/v1/prompts/capabilities/corpus.retrieval`);
+      expect(res.status()).toBe(404);
       await request.dispose();
     });
 
@@ -97,11 +103,11 @@ test.describe('prompts fragment API · single source of truth', () => {
       const body = await fetchVisitorCapabilities(request, sess.session_token);
       expect(typeof body.system_prompt_full).toBe('string');
       expect(body.system_prompt_full.length).toBeGreaterThan(0);
-      // header + corpus retrieval fragment 应原文 (一字不差) 出现在 full 里
+      // header (端点 fragment) + corpus retrieval fragment (插件 instructions) 都应
+      // 原文出现在 full 里。
       const header = await fetchPrompt(request, 'visitor-header');
-      const corpus = await fetchPrompt(request, 'capabilities/corpus.retrieval');
       expect(body.system_prompt_full).toContain(header.trim());
-      expect(body.system_prompt_full).toContain(corpus.trim());
+      expect(body.system_prompt_full).toContain(CORPUS_FRAGMENT_MARK);
       await request.dispose();
     });
 
@@ -120,9 +126,8 @@ test.describe('prompts fragment API · single source of truth', () => {
         handle: OWNER.handle, code: 'PROMPTS-EMPTY', visitor_name: 'V',
       });
       const body = await fetchVisitorCapabilities(request, sess.session_token);
-      const corpus = await fetchPrompt(request, 'capabilities/corpus.retrieval');
-      // header 还在；corpus fragment 因 enabled=false 不该出现
-      expect(body.system_prompt_full).not.toContain(corpus.trim());
+      // header 还在；corpus fragment 因无 corpus scope (enabled=false) 不该出现
+      expect(body.system_prompt_full).not.toContain(CORPUS_FRAGMENT_MARK);
       await request.dispose();
     });
 });

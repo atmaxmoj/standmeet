@@ -55,7 +55,6 @@ func (r *retriever) readWikiIfAllowed(ctx context.Context, path string) string {
 	if w == nil || !r.allowsPath(domain.GenreWiki, path) {
 		return ""
 	}
-	r.collector.addWiki(w)
 	return marshalReadResult(w.ID(), "wiki", w.Body(), path, w.Title())
 }
 
@@ -64,7 +63,6 @@ func (r *retriever) readOutputIfAllowed(ctx context.Context, path string) string
 	if o == nil || !r.allowsPath(domain.GenreOutput, path) {
 		return ""
 	}
-	r.collector.addOutput(o)
 	return marshalReadResult(o.ID(), "output", o.Body(), path, o.Title())
 }
 

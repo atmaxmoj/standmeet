@@ -1,116 +1,29 @@
-// capreg_retrieval.go —— Phase B-2: RetrievalCapability。Capability 形态
-// 包住 buildRetriever + retriever struct，让 visitor chat tools 统一从
-// capreg.Registry 装配。
+// capreg_retrieval.go —— corpus.retrieval 外置后留在 core 的 host 侧依赖声明。
+// 能力本体（3 个 MCP tool / binding / prompt）已外置成沙箱插件 mcp-servers/retrieval，
+// 经 sandbox_stdio 以 origin=builtin 加载；它断网，靠 bind 进沙箱的窄 socket
+// （retrieval.sock）回调 host ops 跑真活（capreg_retrieval_socket.go）。
 //
-// 一个 capability，3 个 tool (corpus_search / corpus_read / corpus_list)。
-// Cited closure 暴露 retriever 内部 collector 让 emitDoneEvent 拿真读过
-// 的 entry 列表，去掉 streamReply 直接持 *retriever 的耦合。
+// retriever 业务逻辑（buildRetriever + runSearch/runRead/runList，在 visitor_chat*.go）
+// 原封不动复用，只是 invoke 从 in-process BindingTool 换成 socket op handler。citation
+// 不经能力：inference 的 accumSink 从 corpus_read 结果 {id,genre} 自行累计（早已解耦，
+// 旧 Binding.Cited closure 是死代码，随本次一并删）。
 
 package usecases
 
-import (
-	"context"
+import "github.com/atmaxmoj/standmeet/internal/capreg"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/prompts"
-)
-
-const (
-	capRetrievalID         = "corpus.retrieval"
-	capRetrievalFragmentID = "capabilities/corpus.retrieval"
-)
-
-// retrievalCapability —— Capability impl，持 wiki/output/writings repos
-// 闭包。VisitorBinding 每次新建一个 retriever（带新 collector），多个
-// session 互不干扰。
-// retrievalDeps —— 窄依赖(#131):corpus 三类 lister(wiki/output/writing)。
-type retrievalDeps struct {
+// RetrievalDeps —— 窄依赖(#131):corpus 三类 lister(wiki/output/writing)。
+// composition root 建一份喂 RegisterRetrievalSocket。
+type RetrievalDeps struct {
 	Wiki     WikiLister
 	Output   OutputLister
 	Writings WritingLister
 }
 
-type retrievalCapability struct {
-	deps retrievalDeps
-}
-
-func newRetrievalCapability(deps retrievalDeps) *retrievalCapability {
-	return &retrievalCapability{deps: deps}
-}
-
-func (*retrievalCapability) ID() string          { return capRetrievalID }
-func (*retrievalCapability) Shape() capreg.Shape { return capreg.ShapeVisitorOnly }
-func (*retrievalCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	// retrieval 不双暴露；owner 自己有 corpus admin 入口，不通过 MCP 调
-	// search/read/list。
-	return []*capreg.MCPBinding{}
-}
-
-func (*retrievalCapability) SystemPromptFragmentID(
-	_ context.Context, in *capreg.AssembleInput,
-) string {
-	if !retrievalEnabled(in.RoleSnapshot) {
-		return ""
-	}
-	return capRetrievalFragmentID
-}
-
-func (c *retrievalCapability) SystemPromptFragment(
-	ctx context.Context, in *capreg.AssembleInput,
-) string {
-	id := c.SystemPromptFragmentID(ctx, in)
-	if id == "" {
-		return ""
-	}
-	// Phase D-1: 单一源 prompts/capabilities/corpus.retrieval.md
-	return prompts.MustLoad(id)
-}
-
-// retrievalEnabled —— role 是否含任何 corpus URI；空 = capability 暴露
-// 但 enabled=false（前端渲降级提示）。
-func retrievalEnabled(snapshot *domain.RoleSnapshot) bool {
-	if snapshot == nil {
-		return false
-	}
-	return len(snapshot.CorpusURIs()) > 0
-}
-
-// VisitorBinding —— 装配本 session 的 retrieval binding。dev endpoint 跟
-// real SendMessage 走同路径：load corpus → 新建 retriever → 把 3 个 tool
-// 绑到 retriever.Execute。
-func (c *retrievalCapability) VisitorBinding(
-	ctx context.Context, in *capreg.AssembleInput,
-) (*capreg.Binding, error) {
-	retr, err := buildRetriever(ctx, c.deps, &retrieverBuildInput{
-		ownerID: in.OwnerID, snapshot: in.RoleSnapshot,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &capreg.Binding{
-		Tools: liveRetrievalTools(retr),
-		State: capreg.CapabilityState{
-			ID: capRetrievalID, Enabled: retrievalEnabled(in.RoleSnapshot),
-		},
-		Cited: retrievalCitedClosure(retr),
-	}, nil
-}
-
-// liveRetrievalTools —— 每个 tool 一个独立 RunFn 闭包，走 retriever
-// 对应方法；BindingTool.NewTool 把 name+desc+schema 装成 eino tool.
-// InvokableTool。
-func liveRetrievalTools(r *retriever) []capreg.BindingTool {
-	return []capreg.BindingTool{
-		searchBindingTool(r),
-		readBindingTool(r),
-		listBindingTool(r),
-	}
-}
-
-func retrievalCitedClosure(r *retriever) func() capreg.CitedSnapshot {
-	return func() capreg.CitedSnapshot {
-		wikis, outputs := r.collector.snapshot()
-		return capreg.CitedSnapshot{Wikis: wikis, Outputs: outputs}
-	}
+// RetrievalScopeVisible —— retrieval 的 fragment/enabled 闸：role snapshot 有任何 corpus
+// URI = 活跃（prompt 贡献 + CapabilityState.Enabled=true）。空 scope → fragment 不进
+// prompt + enabled=false，但 3 个 tool 仍暴露（ACL=always；内部 AllowsCorpus 对空白名单
+// 恒 deny）。沿用旧 retrievalEnabled 语义。composition root 经 CapHooks.Fragment 注入。
+func RetrievalScopeVisible(in *capreg.AssembleInput) bool {
+	return len(corpusURIsOf(in)) > 0
 }

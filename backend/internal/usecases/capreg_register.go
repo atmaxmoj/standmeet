@@ -15,22 +15,20 @@ import "github.com/atmaxmoj/standmeet/internal/capreg"
 
 // RegisterVisitorSkills —— 注册口。跟 prod 同一组 capability 构造
 // (newRetrievalCapability / booker / skill-runner / ext-mcp)，按各 capability 的
-// 窄 deps 从 VisitorSkillsDeps 取料。booker 的 Calendar 在 eval 留 nil →
-// VisitorBinding ErrHidden 自动隐藏。
+// 窄 deps 从 VisitorSkillsDeps 取料。
 //
-// ask_visitor + summarize + calendar.book(booker) 已外置成沙箱插件（mcp-servers/*），
-// 由 composition root 走统一 sandbox_stdio 路径以 origin=builtin 加载，主 app 内不再有
-// 它们的 capability 代码。summarize / booker 要后端数据，留 host socket op
-// （capreg_summarize_socket.go / capreg_booker_socket.go），不在这里注册成 capability。
-// booker 的 per-session 暴露闸（connector+quota）以 capreg.SessionGate 由 composition
-// root 注入到外置插件（NewBookerGate）。sumChats 仍透传供 composition root 起 socket
-// server 用（这里不再消费它）。
+// 四个 leaf 能力（ask_visitor / summarize / calendar.book / corpus.retrieval）已**全部**
+// 外置成沙箱插件（mcp-servers/*），由 composition root 走统一 sandbox_stdio 路径以
+// origin=builtin 加载，主 app 内不再有任何 specific MCP 能力代码。要后端数据的
+// （summarize / booker / retrieval）留 host socket op（capreg_*_socket.go），不在这里
+// 注册成 capability。booker 的 per-session 暴露闸（connector+quota）以 capreg.SessionGate
+// 由 composition root 注入（NewBookerGate）。
+//
+// 这里只剩 skill.runner + ext.mcp —— 它们是 loader/机制（装载第三方 skill / MCP server），
+// 不是 leaf 能力，故不外置。sumChats 第三参已不消费（透传保签名）。
 func RegisterVisitorSkills(
 	reg *capreg.Registry, deps *VisitorSkillsDeps, _ ConversationGetter,
 ) {
-	reg.MustRegister(newRetrievalCapability(retrievalDeps{
-		Wiki: deps.Wiki, Output: deps.Output, Writings: deps.Writings,
-	}))
 	reg.MustRegister(newSkillRunnerCapability(skillRunnerDeps{
 		Skills: deps.Skills, Sandbox: deps.Sandbox,
 	}))

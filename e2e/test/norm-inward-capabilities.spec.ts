@@ -22,17 +22,18 @@ interface RegistryListResp { capabilities: Cap[] }
 // 以 origin=builtin 加载（在 RegisterVisitorSkills 之后）→ 注册顺序挪到
 // summarize_conversation 之后、echoer(managed 第三方)之前。id/shape/origin 不变。
 const GOLDEN_INWARD: readonly Cap[] = [
-  { id: 'corpus.retrieval', shape: 'visitor_only', origin: 'builtin' },
+  // skill.runner + ext.mcp 是 loader/机制（不是 leaf 能力），留在 capreg 内建注册口。
   { id: 'skill.runner', shape: 'visitor_only', origin: 'builtin' },
   { id: 'ext.mcp', shape: 'visitor_only', origin: 'builtin' },
-  // ask_visitor + summarize_conversation + calendar.book —— 已外置成沙箱插件
-  // （mcp-servers/*），经 registerBuiltins 走统一 sandbox_stdio 路径以 origin=builtin
-  // 加载（在 capreg 内建 retrieval/skill.runner/ext.mcp 之后、managed 第三方之前）。
-  // calendar.book 从原 capreg 第 2 位挪到这（registerBuiltins 注册顺序）；它还叠一个
-  // SessionGate（connector+quota）做 per-session 隐藏。id/shape/origin 不变。
+  // ask_visitor + summarize_conversation + calendar.book + corpus.retrieval —— 四个
+  // leaf 能力全外置成沙箱插件（mcp-servers/*），经 registerBuiltins 走统一 sandbox_stdio
+  // 路径以 origin=builtin 加载（在 capreg loader 之后、managed 第三方之前）。主 app 内
+  // 已无任何 specific MCP 能力代码。id/shape/origin 不变，加载机制变。calendar.book 还叠
+  // 一个 SessionGate（connector+quota）做 per-session 隐藏。
   { id: 'ask_visitor', shape: 'visitor_only', origin: 'builtin' },
   { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
   { id: 'calendar.book', shape: 'visitor_only', origin: 'builtin' },
+  { id: 'corpus.retrieval', shape: 'visitor_only', origin: 'builtin' },
   { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
   // everything / fsmcp —— 真·第三方 MCP server（@modelcontextprotocol 官方参考
   // server），经 sandbox_stdio 在 bwrap 隔离里加载（STANDMEET_PLUGINS 声明，managed）。

@@ -155,6 +155,11 @@ type SessionContext struct {
 	VisitorName    string
 	VisitorEmail   string
 	RoleID         string
+	// CorpusURIs —— the session's frozen corpus-ACL scope (role snapshot's URI
+	// glob whitelist). Carried so the externalized retrieval plugin's host op can
+	// re-evaluate AllowsCorpus host-side without a role lookup (the frozen scope
+	// travels with the call, no staleness). Empty for non-retrieval sessions.
+	CorpusURIs []string
 }
 
 func (s *SessionContext) meta() map[string]any {
@@ -169,6 +174,7 @@ func (s *SessionContext) meta() map[string]any {
 		"visitor_name":    s.VisitorName,
 		"visitor_email":   s.VisitorEmail,
 		"role_id":         s.RoleID,
+		"corpus_uris":     s.CorpusURIs,
 	}}
 }
 

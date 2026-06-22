@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
@@ -183,8 +182,15 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 		Owners: skills.Owners, Notify: skills.Notify,
 	}
 	wireBookerSocket(ctx, d, bookerDeps)
-	registerDiscoveredPlugins(d, map[string]capreg.SessionGate{
-		usecases.BookerSkillName: usecases.NewBookerGate(bookerDeps),
+	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
+		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
+	})
+	registerDiscoveredPlugins(d, map[string]usecases.CapHooks{
+		usecases.BookerSkillName: {
+			Gate:  usecases.NewBookerGate(bookerDeps),
+			State: usecases.NewBookerStateHook(bookerDeps),
+		},
+		"corpus.retrieval": {Fragment: usecases.RetrievalScopeVisible},
 	})
 	wireCapabilityEnableGate(d)
 }

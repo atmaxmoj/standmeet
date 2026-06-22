@@ -12,9 +12,7 @@ package usecases
 
 import (
 	"context"
-	"encoding/json"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
@@ -27,7 +25,26 @@ type mcpAppCapability struct {
 	instrOnce *sync.Once
 	instr     *string
 	gate      capreg.SessionGate
-	m         mcpplugin.Manifest
+	// fragmentGate —— 可选 per-session 谓词，决定本能力是否「实际活跃」：控制
+	// SystemPromptFragment 是否贡献 + CapabilityState.Enabled。tool 暴露不受它影响
+	// （retrieval: 无 corpus scope 时 enabled=false + 不进 prompt，但 3 个 tool 仍暴露，
+	// 内部 ACL 拦）。nil = 恒活跃（默认）。跟 gate（控 tool 暴露）正交。
+	fragmentGate func(*capreg.AssembleInput) bool
+	stateHook    StateHook
+	m            mcpplugin.Manifest
+}
+
+// StateHook —— 给某能力的 CapabilityState 补 host 侧算出来的字段（booker: quota_remaining）。
+// 装配期调，返回的非零字段（QuotaRemaining / PolicySummary / Extra）overlay 到通用 state。
+type StateHook func(context.Context, *capreg.AssembleInput) capreg.CapabilityState
+
+// CapHooks —— composition root 给特定内建挂的 per-session 钩子（都可选）。Gate 控 tool
+// 暴露（booker: connector+quota 隐藏）；Fragment 控 prompt 贡献 + enabled（retrieval:
+// 无 corpus scope）；State 补 host 侧算的 state 字段（booker: quota_remaining）。三者正交。
+type CapHooks struct {
+	Gate     capreg.SessionGate
+	Fragment func(*capreg.AssembleInput) bool
+	State    StateHook
 }
 
 func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
@@ -45,22 +62,24 @@ func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
 func RegisterDiscoveredPlugins(
 	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
 ) []string {
-	return RegisterDiscoveredPluginsGated(reg, manifests, origin, nil)
+	return RegisterDiscoveredPluginsHooked(reg, manifests, origin, nil)
 }
 
-// RegisterDiscoveredPluginsGated —— RegisterDiscoveredPlugins + 给特定 ID 的插件挂一个
-// per-session 暴露闸（capreg.SessionGate）。闸由 composition root 注入（连接器
-// proxy / store 在那），externalized booker(calendar.book) 用它做 connector-connected
-// + quota 的运行时隐藏。gates 为 nil / 无此 ID → 该插件无额外闸（默认）。
-func RegisterDiscoveredPluginsGated(
+// RegisterDiscoveredPluginsHooked —— RegisterDiscoveredPlugins + 给特定 ID 的插件挂
+// per-session 钩子（CapHooks）。由 composition root 注入（连接器 proxy / store / corpus
+// scope 都在那）：booker 用 Gate 做 connector+quota 的 tool 隐藏；retrieval 用 Fragment
+// 做 corpus-scope 的 prompt/enabled 闸。hooks 为 nil / 无此 ID → 无额外钩子（默认）。
+func RegisterDiscoveredPluginsHooked(
 	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
-	gates map[string]capreg.SessionGate,
+	hooks map[string]CapHooks,
 ) []string {
 	skipped := []string{}
 	for i := range manifests {
 		appCap := newMCPAppCapability(&manifests[i])
-		if g, ok := gates[manifests[i].ID]; ok {
-			appCap.gate = g
+		if h, ok := hooks[manifests[i].ID]; ok {
+			appCap.gate = h.Gate
+			appCap.fragmentGate = h.Fragment
+			appCap.stateHook = h.State
 		}
 		if err := reg.RegisterOrigin(appCap, origin); err != nil {
 			skipped = append(skipped, manifests[i].ID)
@@ -87,7 +106,7 @@ func (*mcpAppCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 func (c *mcpAppCapability) SystemPromptFragment(
 	ctx context.Context, in *capreg.AssembleInput,
 ) string {
-	if !mcpAppGranted(&c.m, in.RoleSnapshot) {
+	if !mcpAppGranted(&c.m, in.RoleSnapshot) || !c.fragmentActive(in) {
 		return ""
 	}
 	return c.cachedInstructions(ctx)
@@ -121,9 +140,22 @@ func (c *mcpAppCapability) VisitorBinding(
 	}
 	return &capreg.Binding{
 		Tools: wrapMCPAppTools(&c.m, ds.sess, ds.tools, sessionMetaFor(&c.m, in)),
-		State: mcpAppState(ctx, ds.sess, &c.m),
+		State: c.stateFor(ctx, in, ds.sess),
 		Close: ds.sess.Close,
 	}, nil
+}
+
+// stateFor —— 通用 mcpAppState（id/enabled/ui）+ 可选 stateHook overlay（booker:
+// quota_remaining）。enabled 走 fragmentActive。
+func (c *mcpAppCapability) stateFor(
+	ctx context.Context, in *capreg.AssembleInput, sess *mcpclient.Session,
+) capreg.CapabilityState {
+	st := mcpAppState(ctx, sess, &c.m, c.fragmentActive(in))
+	if c.stateHook == nil {
+		return st
+	}
+	overlayCapState(&st, c.stateHook(ctx, in))
+	return st
 }
 
 // dialedApp —— dialAndList 的结果（会话 + 它的 tool 列表），打包成单返回值（revive
@@ -162,6 +194,12 @@ func (c *mcpAppCapability) exposable(
 		return true, nil
 	}
 	return c.gate(ctx, in)
+}
+
+// fragmentActive —— fragmentGate 谓词（retrieval: 有 corpus scope）。nil = 恒活跃。
+// 控 prompt fragment 贡献 + CapabilityState.Enabled。
+func (c *mcpAppCapability) fragmentActive(in *capreg.AssembleInput) bool {
+	return c.fragmentGate == nil || c.fragmentGate(in)
 }
 
 // cachedInstructions —— server 的 initialize instructions = 本能力的 system-prompt
@@ -221,6 +259,7 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		VisitorName:    in.Visitor.Name,
 		VisitorEmail:   in.Visitor.Email,
 		RoleID:         roleIDOf(in),
+		CorpusURIs:     corpusURIsOf(in),
 	}
 }
 
@@ -233,75 +272,11 @@ func roleIDOf(in *capreg.AssembleInput) string {
 	return in.RoleSnapshot.RoleID()
 }
 
-func wrapMCPAppTools(
-	m *mcpplugin.Manifest, sess *mcpclient.Session, tools []mcpclient.Tool,
-	sessionMeta *mcpclient.SessionContext,
-) []capreg.BindingTool {
-	out := make([]capreg.BindingTool, 0, len(tools))
-	for i := range tools {
-		t := &tools[i]
-		name := composeMCPAppToolName(m, t.Name)
-		if name == "" {
-			continue
-		}
-		bt := capreg.NewTool(
-			name,
-			mcpAppToolDescription(m.ID, t),
-			"calling plugin",
-			t.InputSchema,
-			makeExtMCPRun(sess, t.Name, sessionMeta),
-		)
-		// ReturnDirectly —— server 经 tool `_meta.return_directly` 声明：调完直接
-		// 结束 agent loop，把 result 当 final 推浏览器（ask_visitor 那套语义）。
-		if toolReturnsDirectly(t) {
-			bt.ReturnDirectly = true
-		}
-		out = append(out, bt)
+// corpusURIsOf —— 当前 session 的 corpus-ACL scope（role snapshot 的 URI glob 白名单），
+// 给外置 retrieval 插件的 host op 重建 AllowsCorpus 用。无 role → 空（无 scope）。
+func corpusURIsOf(in *capreg.AssembleInput) []string {
+	if in.RoleSnapshot == nil {
+		return []string{}
 	}
-	return out
-}
-
-// toolReturnsDirectly —— 读 server 在 tool `_meta` 里声明的 return_directly。
-func toolReturnsDirectly(t *mcpclient.Tool) bool {
-	v, ok := t.Meta["return_directly"].(bool)
-	return ok && v
-}
-
-// composeMCPAppToolName —— RawToolNames 时用 server 原名（外置内建保 canonical
-// 名）；否则加 <id>_ 前缀（多个第三方 server 防撞名）。
-func composeMCPAppToolName(m *mcpplugin.Manifest, tool string) string {
-	if m.RawToolNames {
-		return sanitizeToolName(tool)
-	}
-	return sanitizeToolName(m.ID + "_" + tool)
-}
-
-func mcpAppToolDescription(pluginID string, t *mcpclient.Tool) string {
-	prefix := "[" + pluginID + "] "
-	if t.Description == "" {
-		return prefix + t.Name
-	}
-	return prefix + strings.TrimSpace(t.Description)
-}
-
-// mcpAppState —— CapabilityState；manifest 带 ui 则把 ui 资源（resource_uri /
-// mime_type + 装配期读到的 HTML 模板）挂进 Extra（#134：前端沙盒渲染的取料）。
-func mcpAppState(
-	ctx context.Context, sess *mcpclient.Session, m *mcpplugin.Manifest,
-) capreg.CapabilityState {
-	st := capreg.CapabilityState{ID: m.ID, Enabled: true}
-	if m.UI == nil {
-		return st
-	}
-	extra, err := json.Marshal(map[string]map[string]string{
-		"ui": {
-			"resource_uri": m.UI.ResourceURI,
-			"mime_type":    m.UI.MimeType,
-			"html":         readUIHTML(ctx, sess, m),
-		},
-	})
-	if err == nil {
-		st.Extra = extra
-	}
-	return st
+	return in.RoleSnapshot.CorpusURIs()
 }

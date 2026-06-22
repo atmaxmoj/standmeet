@@ -19,23 +19,51 @@ import (
 //     无（prod 默认无第三方）。
 //
 // 三类走同一条 RegisterDiscoveredPlugins，只是 manifest 来源 / transport 不同。
-func registerDiscoveredPlugins(d *runtimeDeps, gates map[string]capreg.SessionGate) {
-	registerBuiltins(d, gates)
+func registerDiscoveredPlugins(d *runtimeDeps, hooks map[string]usecases.CapHooks) {
+	registerBuiltins(d, hooks)
 	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged)
 }
 
 // registerBuiltins —— 随产品发的内建能力。代码在独立 module、**编译成静态二进制随镜像
 // 装进插件目录**，运行时跟第三方插件**完全同一条** sandbox_stdio 路径（bwrap 隔离）。
-// 归一到底：builtin 只剩 origin=builtin 这个标签，加载机制没有任何特殊路。gates 给需要
-// 运行时暴露闸的内建（booker: connector+quota）挂 per-session SessionGate。
-func registerBuiltins(d *runtimeDeps, gates map[string]capreg.SessionGate) {
+// 归一到底：builtin 只剩 origin=builtin 这个标签，加载机制没有任何特殊路。hooks 给需要
+// 运行时钩子的内建挂 per-session CapHooks（booker: connector+quota tool 闸；retrieval:
+// corpus-scope fragment/enabled 闸）。
+func registerBuiltins(d *runtimeDeps, hooks map[string]usecases.CapHooks) {
 	manifests := []mcpplugin.Manifest{
-		askVisitorManifest(), summarizeManifest(), bookerManifest(),
+		askVisitorManifest(), summarizeManifest(), bookerManifest(), retrievalManifest(),
 	}
-	dupes := usecases.RegisterDiscoveredPluginsGated(
-		d.agentSkills, manifests, capreg.OriginBuiltin, gates)
+	dupes := usecases.RegisterDiscoveredPluginsHooked(
+		d.agentSkills, manifests, capreg.OriginBuiltin, hooks)
 	for _, id := range dupes {
 		d.log.Warn("builtin register skipped (duplicate id)", "id", id)
+	}
+}
+
+// retrievalManifest —— corpus.retrieval 内建：静态二进制在 /srv/plugins/retrieval，经
+// sandbox_stdio 在 bwrap 里跑。它要后端 corpus 数据（wiki/output/writing listers）→
+// HostSockets 绑窄 unix socket（host 跑 search/read/list pipeline），插件断网经 socket
+// 够到。per-session corpus-ACL scope（role snapshot 的 URI glob 白名单）经 tool-call
+// `_meta` 携给插件、插件转进 socket 请求，host op 重建 AllowsCorpus。ACL=always（tool
+// 恒暴露，scope 空则结果空，跟旧 in-process 行为一致）；tool 保 canonical 名
+// corpus_search / corpus_read / corpus_list。
+func retrievalManifest() mcpplugin.Manifest {
+	const sock = "/run/standmeet/retrieval.sock"
+	return mcpplugin.Manifest{
+		ID:           "corpus.retrieval",
+		Version:      "1",
+		Shape:        mcpplugin.ShapeVisitorOnly,
+		ACL:          mcpplugin.ACLAlways,
+		RawToolNames: true,
+		Transport: mcpplugin.Transport{
+			Kind:    mcpplugin.TransportSandboxStdio,
+			Command: "/plugin/retrieval",
+			Env:     map[string]string{"RETRIEVAL_SOCKET": sock},
+			Sandbox: &mcpplugin.Sandbox{
+				PluginDir:   "/srv/plugins/retrieval",
+				HostSockets: []string{sock},
+			},
+		},
 	}
 }
 

@@ -78,3 +78,4 @@ infra/plugins/*/pkg/
 infra/plugins/ask-visitor/ask-visitor
 infra/plugins/summarize/summarize
 infra/plugins/booker/booker
+infra/plugins/retrieval/retrieval
