@@ -45,6 +45,7 @@ test.describe('visitor ask_visitor capability · externalized sandbox card', () 
       const request = await playwright.request.newContext();
       await scriptMockToolCall(request, {
         name: 'ask_visitor',
+        whenUser: 'hello',
         args: {
           question: 'Which best describes you?',
           kind: 'radio',
@@ -67,6 +68,7 @@ test.describe('visitor ask_visitor capability · externalized sandbox card', () 
       const request = await playwright.request.newContext();
       await scriptMockToolCall(request, {
         name: 'ask_visitor',
+        whenUser: 'tell me about the project',
         args: { question: 'Want me to focus on details?', kind: 'yes_no' },
       });
       await request.dispose();
@@ -87,6 +89,7 @@ test.describe('visitor ask_visitor capability · externalized sandbox card', () 
       const request = await playwright.request.newContext();
       await scriptMockToolCall(request, {
         name: 'ask_visitor',
+        whenUser: 'what do you write about',
         args: {
           question: 'Which topics?', kind: 'multi',
           options: ['systems', 'design', 'careers'],

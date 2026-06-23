@@ -15,9 +15,16 @@ import (
 // ScriptedTool —— tool call the gateway should emit next instead of its
 // default search→read behavior. Args is raw JSON forwarded as-is into the
 // SSE input_json_delta partial_json field.
+//
+// WhenUser —— keyed registration: only the turn whose last user message
+// equals WhenUser consumes this script. "" = wildcard (legacy single-slot:
+// any turn). Keying isolates concurrent scripts so a trailing/other turn
+// can't steal a script meant for a specific message (the global single-slot
+// theft that flaked visitor-ask-visitor).
 type ScriptedTool struct {
-	Name string          `json:"name"`
-	Args json.RawMessage `json:"args"`
+	Name     string          `json:"name"`
+	Args     json.RawMessage `json:"args"`
+	WhenUser string          `json:"when_user"`
 }
 
 // ScriptedReply —— final text reply to emit (overrides INFERENCE_MOCK_REPLY).
@@ -26,8 +33,11 @@ type ScriptedReply struct {
 }
 
 type scriptQueue struct {
-	mu    sync.Mutex
-	tool  *ScriptedTool
+	mu sync.Mutex
+	// tools —— keyed by WhenUser ("" = wildcard). A keyed registry instead of
+	// a single slot so concurrent scripts (overlapping turns across tests)
+	// don't steal each other.
+	tools map[string]*ScriptedTool
 	reply *string
 	// failAll —— e2e 用 next_error 打开后,所有 /v1/messages 返 500,模拟第三方
 	// LLM 故障(测"失败的 turn 不消耗配额")。scripting 正常 tool/reply 会清掉它。
@@ -35,7 +45,7 @@ type scriptQueue struct {
 }
 
 func newScriptQueue() *scriptQueue {
-	return &scriptQueue{}
+	return &scriptQueue{tools: map[string]*ScriptedTool{}}
 }
 
 func (q *scriptQueue) setFailAll(v bool) {
@@ -53,16 +63,25 @@ func (q *scriptQueue) shouldFail() bool {
 func (q *scriptQueue) setTool(t *ScriptedTool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.tool = t
+	q.tools[t.WhenUser] = t
 	q.failAll = false
 }
 
-func (q *scriptQueue) takeTool() *ScriptedTool {
+// takeToolFor —— consume the script registered for this turn. Exact match on
+// the turn's last user text wins; falls back to the wildcard ("") slot. The
+// matched entry is removed (single-shot per registration).
+func (q *scriptQueue) takeToolFor(userText string) *ScriptedTool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	out := q.tool
-	q.tool = nil
-	return out
+	if t, ok := q.tools[userText]; ok {
+		delete(q.tools, userText)
+		return t
+	}
+	if t, ok := q.tools[""]; ok {
+		delete(q.tools, "")
+		return t
+	}
+	return nil
 }
 
 func (q *scriptQueue) setReply(text string) {
@@ -121,13 +140,13 @@ func (s *server) serveSetNextReply(w http.ResponseWriter, r *http.Request) {
 }
 
 type stateResp struct {
-	Tool  *ScriptedTool `json:"tool"`
-	Reply *string       `json:"reply"`
+	Tools map[string]*ScriptedTool `json:"tools"`
+	Reply *string                  `json:"reply"`
 }
 
 func (s *server) serveState(w http.ResponseWriter, _ *http.Request) {
 	s.queue.mu.Lock()
-	resp := stateResp{Tool: s.queue.tool, Reply: s.queue.reply}
+	resp := stateResp{Tools: s.queue.tools, Reply: s.queue.reply}
 	s.queue.mu.Unlock()
 	writeJSON(s.log, w, resp)
 }

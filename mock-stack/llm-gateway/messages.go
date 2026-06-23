@@ -127,7 +127,7 @@ type nonStreamMessage struct {
 }
 
 func (s *server) dispatch(sse *sseWriter, req *MessagesReq) {
-	if t := s.queue.takeTool(); t != nil {
+	if t := s.queue.takeToolFor(req.lastUserText()); t != nil {
 		s.emitToolUseTurn(sse, t.Name, t.Args)
 		return
 	}

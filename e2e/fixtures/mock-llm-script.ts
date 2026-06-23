@@ -17,6 +17,11 @@ const GATEWAY = process.env['LLM_GATEWAY_URL'] ?? 'http://localhost:9300';
 export interface ScriptedToolCall {
   name: string;
   args: Record<string, unknown>;
+  // whenUser —— keyed registration: only the turn whose last user message
+  // equals this consumes the script. Omit ("") = wildcard, any turn (legacy
+  // single-slot). Pass it when another turn could overlap and steal the slot
+  // (e.g. an ask_visitor card whose submit fires a trailing turn).
+  whenUser?: string;
 }
 
 /** Tell the mock provider: when next called with tools available,
@@ -24,7 +29,8 @@ export interface ScriptedToolCall {
 export async function scriptMockToolCall(
   request: APIRequestContext, call: ScriptedToolCall,
 ): Promise<void> {
-  const res = await request.post(`${GATEWAY}/__mock/inference/next_tool`, { data: call });
+  const data = { name: call.name, args: call.args, when_user: call.whenUser ?? '' };
+  const res = await request.post(`${GATEWAY}/__mock/inference/next_tool`, { data });
   if (res.status() !== 200) {
     throw new Error(`script next_tool: ${res.status()}`);
   }

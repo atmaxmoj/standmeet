@@ -225,11 +225,13 @@ test: dev-up
 test-fresh: clean test
 
 # test-only —— 只跑一个 spec / 一个 grep 模式。隔离 reproducer 用。
+# REPEAT=N —— 把这个 spec 跑 N 遍（--repeat-each），抓间歇性 flake 用。
 # usage:   make test-only SPEC=blog-posts
 #          make test-only SPEC=blog-posts GREP="MCP post_create"
+#          make test-only SPEC=visitor-ask-visitor REPEAT=15
 test-only: dev-up
-	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>]"; exit 2)
-	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)")
+	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
+	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT))
 
 # test-headed —— 跟 test-only 同,但 --headed 开真浏览器肉眼观测(单 worker,
 # 一条一条跑)。reading-dom 那条带 [[slow-final:2500]],throbber 会停 2.5s 看得清。

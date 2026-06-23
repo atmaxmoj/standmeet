@@ -17,13 +17,18 @@ const OUT = path.join(__dirname, 'test-results', 'backend.log');
 
 export default async function dumpBackendLog(): Promise<void> {
   await fs.mkdir(path.dirname(OUT), { recursive: true });
+  await dumpService('backend', OUT);
+  await dumpService('llm-gateway', path.join(__dirname, 'test-results', 'gateway.log'));
+}
+
+async function dumpService(service: string, out: string): Promise<void> {
   try {
     const { stdout, stderr } = await execAsync(
-      'docker compose -f docker-compose.dev.yml logs --no-color backend',
+      `docker compose -f docker-compose.dev.yml logs --no-color ${service}`,
       { cwd: REPO_ROOT, maxBuffer: 32 * 1024 * 1024 },
     );
-    await fs.writeFile(OUT, stdout + (stderr ? '\n--- stderr ---\n' + stderr : ''));
+    await fs.writeFile(out, stdout + (stderr ? '\n--- stderr ---\n' + stderr : ''));
   } catch (e) {
-    await fs.writeFile(OUT, `[global-teardown] capture failed: ${String(e)}\n`);
+    await fs.writeFile(out, `[global-teardown] capture failed: ${String(e)}\n`);
   }
 }
