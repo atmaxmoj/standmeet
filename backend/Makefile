@@ -65,13 +65,13 @@ golangci-config:
 	fi
 
 # golangci-lint runs the full linter set.  Slowest of the three,
-# runs last.  --timeout=10m so docker-builder boxes don't trip the
+# runs last.  --timeout=30m so docker-builder boxes don't trip the
 # default 1m ceiling when the eino dep tree expands the scan surface.
 golangci:
 	@if command -v golangci-lint >/dev/null 2>&1; then \
-	  golangci-lint run --timeout=10m ./...; \
+	  golangci-lint run --timeout=30m ./...; \
 	else \
-	  "$$(go env GOPATH)/bin/golangci-lint" run --timeout=10m ./...; \
+	  "$$(go env GOPATH)/bin/golangci-lint" run --timeout=30m ./...; \
 	fi
 
 # escape-lint verifies compiler escape-analysis decisions against
