@@ -20,6 +20,21 @@ import (
 
 var delayMarkerRe = regexp.MustCompile(`\[\[(think|slow-final):(\d+)\]\]`)
 
+// scriptKeyRe —— [[s:KEY]] token a test embeds in a turn message to bind that
+// turn to a keyed script (script.go registry). Request-level like the delay
+// markers, so concurrent/overlapping turns across tests can't steal each
+// other's scripts (the global single-slot theft that flaked ask_visitor).
+var scriptKeyRe = regexp.MustCompile(`\[\[s:([^\]]+)\]\]`)
+
+// scriptKey —— pull the [[s:KEY]] token from a turn message; "" if none.
+func scriptKey(text string) string {
+	m := scriptKeyRe.FindStringSubmatch(text)
+	if m == nil {
+		return ""
+	}
+	return m[1]
+}
+
 func markerDelay(text, kind string) time.Duration {
 	for _, m := range delayMarkerRe.FindAllStringSubmatch(text, -1) {
 		if m[1] == kind {
@@ -31,5 +46,7 @@ func markerDelay(text, kind string) time.Duration {
 }
 
 func stripMarkers(text string) string {
-	return strings.TrimSpace(delayMarkerRe.ReplaceAllString(text, ""))
+	text = delayMarkerRe.ReplaceAllString(text, "")
+	text = scriptKeyRe.ReplaceAllString(text, "")
+	return strings.TrimSpace(text)
 }

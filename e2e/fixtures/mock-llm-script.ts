@@ -14,22 +14,33 @@ import type { VisitorSession } from '@/fixtures/visitor';
 
 const GATEWAY = process.env['LLM_GATEWAY_URL'] ?? 'http://localhost:9300';
 
+/** scriptTag —— hidden [[s:KEY]] token to append to a fired turn message so the
+ *  mock binds THIS turn to the keyed script (scriptMockToolCall key). Request-
+ *  level, so an overlapping/trailing turn from another test can't consume it.
+ *  Cosmetically visible in the transcript (like the delay markers); tests that
+ *  key a turn don't assert that turn's displayed text. */
+export function scriptTag(key: string): string {
+  return ` [[s:${key}]]`;
+}
+
 export interface ScriptedToolCall {
   name: string;
   args: Record<string, unknown>;
-  // whenUser —— keyed registration: only the turn whose last user message
-  // equals this consumes the script. Omit ("") = wildcard, any turn (legacy
-  // single-slot). Pass it when another turn could overlap and steal the slot
-  // (e.g. an ask_visitor card whose submit fires a trailing turn).
-  whenUser?: string;
+  // key —— keyed registration: only the turn carrying the matching scriptTag(key)
+  // token in its message consumes this script. Omit = wildcard, any turn with no
+  // token (legacy single-slot). Pass it (a unique `test#turn` label) when another
+  // turn could overlap and steal the slot — e.g. an ask_visitor card whose submit
+  // fires a trailing turn. Embed the SAME key in the turn message via scriptTag.
+  key?: string;
 }
 
-/** Tell the mock provider: when next called with tools available,
- *  invoke this tool with these args before replying. */
+/** Tell the mock provider: when the turn tagged with this key (or any turn, if
+ *  no key) is next called with tools available, invoke this tool before
+ *  replying. Pair with scriptTag(key) in the fired message. */
 export async function scriptMockToolCall(
   request: APIRequestContext, call: ScriptedToolCall,
 ): Promise<void> {
-  const data = { name: call.name, args: call.args, when_user: call.whenUser ?? '' };
+  const data = { name: call.name, args: call.args, key: call.key ?? '' };
   const res = await request.post(`${GATEWAY}/__mock/inference/next_tool`, { data });
   if (res.status() !== 200) {
     throw new Error(`script next_tool: ${res.status()}`);

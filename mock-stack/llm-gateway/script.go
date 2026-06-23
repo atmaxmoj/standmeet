@@ -16,15 +16,15 @@ import (
 // default search→read behavior. Args is raw JSON forwarded as-is into the
 // SSE input_json_delta partial_json field.
 //
-// WhenUser —— keyed registration: only the turn whose last user message
-// equals WhenUser consumes this script. "" = wildcard (legacy single-slot:
-// any turn). Keying isolates concurrent scripts so a trailing/other turn
-// can't steal a script meant for a specific message (the global single-slot
-// theft that flaked visitor-ask-visitor).
+// Key —— keyed registration: only the turn carrying a matching [[s:Key]] token
+// in its message consumes this script. "" = wildcard (any turn whose message
+// has no token). Keying isolates concurrent scripts so a trailing/other turn
+// can't steal a script meant for a specific (test, turn) — the global
+// single-slot theft that flaked visitor-ask-visitor.
 type ScriptedTool struct {
-	Name     string          `json:"name"`
-	Args     json.RawMessage `json:"args"`
-	WhenUser string          `json:"when_user"`
+	Name string          `json:"name"`
+	Args json.RawMessage `json:"args"`
+	Key  string          `json:"key"`
 }
 
 // ScriptedReply —— final text reply to emit (overrides INFERENCE_MOCK_REPLY).
@@ -63,19 +63,21 @@ func (q *scriptQueue) shouldFail() bool {
 func (q *scriptQueue) setTool(t *ScriptedTool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.tools[t.WhenUser] = t
+	q.tools[t.Key] = t
 	q.failAll = false
 }
 
-// takeToolFor —— consume the script registered for this turn. Exact match on
-// the turn's last user text wins; falls back to the wildcard ("") slot. The
-// matched entry is removed (single-shot per registration).
-func (q *scriptQueue) takeToolFor(userText string) *ScriptedTool {
+// takeToolFor —— consume the script registered for this turn's [[s:KEY]] token.
+// Exact key match wins; a turn with no token (key="") falls back to the
+// wildcard slot. The matched entry is removed (single-shot per registration).
+func (q *scriptQueue) takeToolFor(key string) *ScriptedTool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if t, ok := q.tools[userText]; ok {
-		delete(q.tools, userText)
-		return t
+	if key != "" {
+		if t, ok := q.tools[key]; ok {
+			delete(q.tools, key)
+			return t
+		}
 	}
 	if t, ok := q.tools[""]; ok {
 		delete(q.tools, "")

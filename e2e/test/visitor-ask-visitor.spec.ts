@@ -18,7 +18,7 @@ import type { FrameLocator, Page, Playwright } from '@playwright/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
+import { scriptMockToolCall, scriptTag } from '@/fixtures/mock-llm-script';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
@@ -45,7 +45,7 @@ test.describe('visitor ask_visitor capability · externalized sandbox card', () 
       const request = await playwright.request.newContext();
       await scriptMockToolCall(request, {
         name: 'ask_visitor',
-        whenUser: 'hello',
+        key: 'askv-radio',
         args: {
           question: 'Which best describes you?',
           kind: 'radio',
@@ -55,7 +55,7 @@ test.describe('visitor ask_visitor capability · externalized sandbox card', () 
       await request.dispose();
 
       await enterChatWithCode(page);
-      await fireFirstTurn(page, 'hello');
+      await fireFirstTurn(page, 'hello', 'askv-radio');
       const frame = await assertRadioCard(page, 'Which best describes you?');
       await frame.getByTestId('ask-visitor-opt-1').click();
       await expect(frame.locator('[data-testid="ask-visitor-card"]'))
@@ -68,13 +68,13 @@ test.describe('visitor ask_visitor capability · externalized sandbox card', () 
       const request = await playwright.request.newContext();
       await scriptMockToolCall(request, {
         name: 'ask_visitor',
-        whenUser: 'tell me about the project',
+        key: 'askv-yesno',
         args: { question: 'Want me to focus on details?', kind: 'yes_no' },
       });
       await request.dispose();
 
       await enterChatWithCode(page);
-      await fireFirstTurn(page, 'tell me about the project');
+      await fireFirstTurn(page, 'tell me about the project', 'askv-yesno');
       await expect(page.getByTestId('mcp-app-card-ask_visitor'))
         .toBeVisible({ timeout: 10_000 });
       const frame = askFrame(page);
@@ -89,7 +89,7 @@ test.describe('visitor ask_visitor capability · externalized sandbox card', () 
       const request = await playwright.request.newContext();
       await scriptMockToolCall(request, {
         name: 'ask_visitor',
-        whenUser: 'what do you write about',
+        key: 'askv-multi',
         args: {
           question: 'Which topics?', kind: 'multi',
           options: ['systems', 'design', 'careers'],
@@ -98,7 +98,7 @@ test.describe('visitor ask_visitor capability · externalized sandbox card', () 
       await request.dispose();
 
       await enterChatWithCode(page);
-      await fireFirstTurn(page, 'what do you write about');
+      await fireFirstTurn(page, 'what do you write about', 'askv-multi');
       await expect(page.getByTestId('mcp-app-card-ask_visitor'))
         .toBeVisible({ timeout: 10_000 });
       const frame = askFrame(page);
@@ -141,9 +141,12 @@ async function enterChatWithCode(page: Page): Promise<void> {
   await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
 }
 
-async function fireFirstTurn(page: Page, q: string): Promise<void> {
+// fireFirstTurn —— type + send the first visitor turn. scriptKey binds this
+// turn to a keyed mock script (scriptTag token) so a trailing turn from a
+// sibling test can't steal it.
+async function fireFirstTurn(page: Page, q: string, scriptKey?: string): Promise<void> {
   const input = page.getByTestId('chat-input-field');
-  await input.fill(q);
+  await input.fill(scriptKey ? `${q}${scriptTag(scriptKey)}` : q);
   await input.press('Enter');
 }
 
