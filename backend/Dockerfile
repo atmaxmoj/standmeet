@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Build context is the REPO ROOT (see docker-compose: context: .), because the
 # backend links the externalized inward-capability modules (mcp-servers/*) in-
 # process — they live in their own Go modules outside backend/ and are wired via
@@ -31,12 +32,18 @@ WORKDIR /app
 COPY backend ./backend
 COPY mcp-servers/ask-visitor ./mcp-servers/ask-visitor
 WORKDIR /app/backend
-RUN make lint
+# 编译缓存挂成 BuildKit cache —— 源码改了 layer 会失效，但 eino 等依赖的 object
+# 文件不变；持久化 GOCACHE + golangci cache 让每次只重编改过的包，不再冷编全树
+# （这才是慢的真因，依赖 download 早在上面 go mod download 层缓存住了）。
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/.cache/golangci-lint \
+    make lint
 
 # Stage 2: Build
 FROM lint AS builder
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go build \
     -trimpath \
     -ldflags='-s -w' \
     -o /out/standmeet \
