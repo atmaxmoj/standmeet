@@ -90,6 +90,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		WritingRefs:  d.writingRefRepo,
 		SEO:          d.seoRepo,
 		Codes:        d.codeRepo,
+		CodeDenials:  d.codeDenialRepo,
 		Owners:       d.ownerRepo,
 		Drafts:       d.resumeDraftRepo,
 		Applications: d.applicationRepo,
@@ -242,6 +243,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 			Wiki:        d.wikiRepo,
 			Output:      d.outputRepo,
 			AgentSkills: d.agentSkills,
+			CodeDenials: d.codeDenialRepo,
 		},
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,

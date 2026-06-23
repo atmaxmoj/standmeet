@@ -4,6 +4,8 @@
 package usecases
 
 import (
+	"context"
+
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -27,6 +29,17 @@ type VisitorSessionDeps struct {
 	// AgentSkills —— session 装配时算 capability states / tool specs(retrieval /
 	// booker / ext-mcp / owner-skill)。
 	AgentSkills *capreg.Registry
+	// CodeDenials —— ACL hierarchy 的 code 层(capability-acl-hierarchy.md)。
+	// buildRoleSnapshotForCode 冻结前据此从 role grant 里相减。可空(无 code 的
+	// vanilla/public 路径、或老 facade 没接 → 视作零 deny)。
+	CodeDenials CodeDenialReader
+}
+
+// CodeDenialReader —— 读一张 code 的 deny 集(capability / skill id)。纯 deny：
+// code 只能从所选 role 授的里再砍。postgres.CodeDenialRepo 实现它。
+type CodeDenialReader interface {
+	ListCapabilities(ctx context.Context, codeID string) ([]string, error)
+	ListSkills(ctx context.Context, codeID string) ([]string, error)
 }
 
 // VisitorSkillsDeps —— #131: 注册 visitor capability 时所需的**原料**(capability

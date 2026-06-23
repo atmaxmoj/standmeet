@@ -41,6 +41,7 @@ type repoSet struct {
 	wikiRef       *postgres.WikiRefRepo
 	output        *postgres.OutputRepo
 	code          *postgres.CodeRepo
+	codeDenial    *postgres.CodeDenialRepo
 	chat          *postgres.ChatRepo
 	seo           *postgres.SEORepo
 	customPage    *postgres.CustomPageRepo
@@ -74,6 +75,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		wikiRef:       postgres.NewWikiRefRepo(db),
 		output:        postgres.NewOutputRepo(db),
 		code:          postgres.NewCodeRepo(db),
+		codeDenial:    postgres.NewCodeDenialRepo(db),
 		chat:          postgres.NewChatRepo(db),
 		seo:           postgres.NewSEORepo(db),
 		customPage:    postgres.NewCustomPageRepo(db),
@@ -121,7 +123,7 @@ func assembleRuntimeDeps(
 		wikiRefRepo: repos.wikiRef,
 		outputRepo:  repos.output,
 		corpus:      postgres.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
-		codeRepo:    repos.code, chatRepo: repos.chat,
+		codeRepo:    repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
 		seoRepo:           repos.seo,
 		customPageRepo:    repos.customPage,
 		customBuildRepo:   repos.customBuild,

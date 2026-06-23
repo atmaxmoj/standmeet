@@ -19,25 +19,29 @@
 | 连器 corner | `e2e/fixtures/gcal-setup.ts` `seedCodeVisitorOnConnectedOwner` | 不动 |
 | code / role 种子 | `e2e/fixtures/codes.ts` `roles.ts` | **加** `setCodeCapabilityDenial(req,csrf,codeId,capId)` + `setCodeSkillDenial(...)` + `clearCodeCapabilityDenial(...)`（撤销）+ `listCodeDenials(...)`（读回） |
 | 文件位置 | `e2e/test/` | **加** `acl-*.spec.ts`，跟 `capability-*.spec.ts` 并排 |
-| 单测真值表 | —— | **加** `internal/domain/code_denial_test.go` |
+| 单测真值表 | —— | **加** `internal/domain/role_snapshot_acl_test.go`（测 `AllowsCapability`） |
 
 **回归锚（必须保持绿，证明没把"role 冻结基线"改坏）：**
 `chat-book-success` · `chat-book-not-connected` · `mcp-skill-grant-booking` · `external-mcp-tools` · `retrieval-capability-state` · `session-capability-bundle` · `capability-disable-while-attached`（global 活闸）。这些一条不能红。
 
 ---
 
-## A. 解析真值表（domain 单测，穷尽 4 行）
+## A. 真值表（domain 单测）
 
-被测纯函数 `domain.ResolveACL(roleGranted, denied) → frozenAllow`（= `roleGranted \ denied`）。每个 target 输入 `role ∈ {Y,N}` × `code ∈ {unset, deny}` = **4 行全测**（code 没有 allow 态）：
+被测方法 `RoleSnapshot.AllowsCapability(capID, aclAlways) bool` = `baseGrant(aclAlways ∨
+allowedTools∋capID) ∧ capID ∉ deniedCapabilities`。`mcpAppGranted` 委托它，是整套 frozen 判定
+的真值之锚。穷尽 baseGrant × code deny（含 ACL=always 维度）：
 
-| # | role 授 | code deny | frozen | 语义 |
+| # | baseGrant | code deny | exposed | 语义 |
 |---|---|---|---|---|
-| A1 | Y | — | **allow** | 继承 role 授权 |
-| A2 | Y | Y | **deny** | **code 撤销 role 授的** |
-| A3 | N | — | **deny** | 继承 role 未授 |
-| A4 | N | Y | **deny** | 幂等 noop（deny 一个 role 本就没授的，无效果） |
+| A1 | role-granted | — | **true** | 继承 role 授权 |
+| A2 | role-granted | Y | **false** | code 撤销 role 授的 |
+| A3 | 无 | — | **false** | role 未授 |
+| A4 | 无 | Y | **false** | 幂等 noop |
+| A5 | ACL=always | — | **true** | always 能力恒暴露 |
+| A6 | ACL=always | Y | **false** | **code deny 盖过 always**（subtract 减不到，门上挡） |
 
-外加 `code_denial_resolution_deterministic`：同输入跑 3 次结果一致（防 map iter 抖动，对齐 system_prompt_hash 不变量）。
+外加 wire round-trip：`deniedCapabilities` marshal→unmarshal 后仍生效（冻进 session_data 不丢）。
 
 ---
 
@@ -133,8 +137,8 @@ code-deny 是在 frozen 之前把 cap 从 grant 集里减掉，所以它**整条
 
 ## G. 红先行实施顺序
 
-1. **§A domain 单测**（4 行真值表 + determinism）→ 红 → 实现 `ResolveACL`（集合相减）→ 绿。锚定真值。
-2. **§B happy 矩阵（含 B.3 frozen 产物）** → 红 → 实现 schema + repo + `applyCodeDenials` 接进 `buildRoleSnapshotForCode` + admin deny 写/读口 → 绿。B.3 顺带验证 fragment/part_ids/hash 与 state 缺席（多半实现完即绿，是 lock-in）。
+1. **§A domain 单测**（真值表 + wire round-trip）→ 红 → 实现 `RoleSnapshot.AllowsCapability` + `mcpAppGranted` 委托它 → 绿。锚定真值。
+2. **§B happy 矩阵（含 B.3 frozen 产物）** → 红 → 实现 schema + repo + `CodeDenialReader` 接进 `buildRoleSnapshotForCode`（skill 源头剔除 / cap 进 `DeniedCapabilities`）+ admin deny 写/读口 → 绿。B.3 顺带验证 fragment/part_ids/hash 与 state 缺席。
 3. **§C 冻结/活 + §D 隔离 + 多 deny** → 红 → （多半 2 实现完就绿；补 isolation 的两 code 种子）。
 4. **§F corner**（F4/F5/F8）→ 逐条红→绿。
 5. **§E 错误流**（未知 id / revoked / 无 CSRF / 坏 body / 重复 / 撤销 / 读回）→ 红→绿。

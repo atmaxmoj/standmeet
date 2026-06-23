@@ -80,6 +80,7 @@ type AdminDeps struct {
 	WritingRefs     *postgres.WritingRefRepo
 	SEO             *postgres.SEORepo
 	Codes           *postgres.CodeRepo
+	CodeDenials     *postgres.CodeDenialRepo
 	Owners          *postgres.OwnerRepo
 	Drafts          *postgres.ResumeDraftRepo
 	Applications    *postgres.ApplicationRepo
@@ -146,7 +147,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Corpus: adminroutes.CorpusDeps{Corpus: deps.Admin.Corpus},
 		CodesAdmin: adminroutes.CodesDeps{
 			Codes: deps.Admin.Codes, Roles: deps.Admin.Roles.Roles,
-			Sessions: deps.Public.Sessions,
+			Sessions: deps.Public.Sessions, Denials: deps.Admin.CodeDenials,
 		},
 		PageAdmin: adminroutes.PageAdminDeps{Owners: deps.Admin.Owners},
 		SEOAdmin:  adminroutes.SEOAdminDeps{SEO: deps.Admin.SEO},

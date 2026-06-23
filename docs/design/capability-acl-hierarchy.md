@@ -60,37 +60,43 @@ exposed(X) = global_enabled(X)         ← 活的 ban 闸（owner 随时关，�
 
 ---
 
-## 3. resolution 代数（纯 AND · 收窄 / 集合相减）
+## 3. resolution 代数（纯 AND · 收窄）
 
-没有 tri-state。每层只会让能力**更少**。
+没有 tri-state。每层只会让能力**更少**。穷尽真值（per target）：
 
-**冻结层（role ∧ ¬code_deny）解析** —— 给定访客的 code → 它的 role：
-
-```
-frozenAllow(T 类) = roleGranted(role, T) \ codeDenied(code, T)
-```
-
-即 role 授的集合，减掉 code 显式 deny 的。穷尽真值（per target ID）：
-
-| role 授 | code deny | frozen |
+| baseGrant | code deny | frozen |
 |---|---|---|
-| Y | — | **allow**（继承 role） |
-| Y | Y | **deny**（code 撤销 role 授的） |
-| N | — | **deny**（继承 role 未授） |
-| N | Y | deny（幂等 noop —— deny 一个 role 本就没授的，无效果） |
+| Y | — | **allow**（继承） |
+| Y | Y | **deny**（code 撤销） |
+| N | — | **deny**（未授） |
+| N | Y | deny（幂等 noop） |
 
-`default = deny`（positive-list；要 role 显式 grant 才有）。code **只能 deny**，所以 `role=N` 那两行恒 deny —— code 永远翻不出 role 没给的。
+`default = deny`。code **只能 deny**，`baseGrant=N` 两行恒 deny —— code 翻不出没给的。
 
-issue 时对每个 target 跑一遍 `\`，把结果冻进 `RoleSnapshot.allowedTools / skillIDs`。**RoleSnapshot 形状不变** —— 还是一份 allow 列表，只是这份列表是 **role 减掉 code-deny 后的结果**。下游 gate / skill runner 读法完全不变。
+**关键实现细节（ACL=always 决定的形态）：** capability 有一档 `ACL=always`（retrieval /
+ask_visitor / summarize 等内建基础能力，**无视 role 授权恒暴露**）。它们根本不进
+`allowedTools`，所以**不能靠「从 allowedTools 里减」来 deny**。因此：
+
+- **capability**：deny 单独冻进 `RoleSnapshot.deniedCapabilities`，**在暴露门上挡**。门
+  = `RoleSnapshot.AllowsCapability(capID, aclAlways)` = `baseGrant(aclAlways ∨ allowedTools∋capID)
+  ∧ capID ∉ deniedCapabilities`。这是整套 frozen 判定的**真值之锚**（domain 单测 §A 锁它），
+  `mcpAppGranted` 直接委托它。`baseGrant` 仍是纯 role 状态（allowedTools 不动），deny 是叠在
+  门上的独立一项 —— 连 always 能力也挡得住。
+- **skill**：没有 always 档。deny 在**装配源头**剔除（`filterDeniedSkills` 按 id 滤掉），
+  让该 skill 的 L1 prompt / tool 授权 / skill id **一并**消失（只减 skillIDs 会漏掉 L1 prompt）。
+
+issue 时算好冻进 `RoleSnapshot`：`deniedCapabilities` 新增一字段；`skillIDs/skillPrompts/
+allowedTools` 是源头滤过的结果。下游除 `mcpAppGranted` 改成委托 `AllowsCapability`（加一项
+deny 判定）外，读法不变。
 
 **活层（global）** —— assemble 时（每条访客消息）：
 
 ```
-exposed(cap) = cap ∈ frozenAllow                  # 冻结快照里有
+exposed(cap) = frozenAllows(cap)                  # AllowsCapability（含 code deny）
              ∧ NOT global_disabled(owner, cap)    # capability_settings 里没被关
 ```
 
-global 只能**关**，不能凭空开一个 role 没授权的能力 —— ban 闸，不是授权来源。
+global 只能**关** —— ban 闸，不是授权来源。
 
 > **A.3（accept）** —— global 只减不增（纯 deny master）。"能力面板关掉" = 强制下线；面板不能给某访客**多**开一个他 role 没有的能力。
 
@@ -129,29 +135,29 @@ issue code-tier session 时，`buildRoleSnapshotForCode(code)` 现在直接把 `
 
 ```mermaid
 flowchart LR
-  code["AccessCode"] --> roleGrant["buildRoleSnapshotByID<br/>role grant 集<br/>(AllowedTools / SkillIDs / CorpusURIs)"]
-  ovr["code_capability_denials<br/>code_skill_denials"] --> merge
-  roleGrant --> merge["applyCodeDenials<br/>集合相减: roleGranted \ codeDenied"]
-  merge --> snap["NewRoleSnapshot（冻结）"]
-  snap --> gate["capreg assemble"]
+  code["AccessCode"] --> roleGrant["buildRoleSnapshotByID<br/>role grant 集"]
+  dn["code_capability_denials<br/>code_skill_denials"] --> merge
+  roleGrant --> merge["filterDeniedSkills（skill 源头剔除）<br/>+ DeniedCapabilities（cap 带进 snapshot）"]
+  merge --> snap["NewRoleSnapshot（冻结：allowedTools / skillIDs / deniedCapabilities）"]
+  snap --> gate["capreg assemble · mcpAppGranted → AllowsCapability"]
   gset["capability_settings (global,活)"] -.->|enabledCaps 实时 deny| gate
   gate --> tools["visitor tool specs"]
 ```
 
-### 5.2 改 / 留 / 删 清单
+### 5.2 改 / 留 / 删 清单（as built）
 
 | 区块 | 文件 | 动作 | 说明 |
 |---|---|---|---|
-| **合并函数** | `internal/usecases/visitor_role_snapshot.go` | **CHANGE** | `buildRoleSnapshotForCode` 在拼好 role 的 `AllowedTools`/`SkillIDs` 之后、`NewRoleSnapshot` 之前，调新增的纯函数 `applyCodeDenials(roleTools, roleSkillIDs, deniedCaps, deniedSkills)`（集合相减）。owner-vanilla（public/byoai）路径**不**走 deny 层（没有 code），保持现状。 |
-| **deny 解析** | `internal/domain/code_denial.go`（新） | **ADD** | 纯 domain 函数 `ResolveACL(roleGranted []string, denied []string) []string`：`roleGranted \ denied`（去掉被 deny 的）。无 IO、可单测。§3 真值表落这里，是整套唯一的"真值之锚"。 |
-| **deny 读取** | `internal/postgres/code_denial.go`（新）+ `db/queries/code_denials.sql` | **ADD** | `ListCodeCapabilityDenials(codeID)` / `ListCodeSkillDenials(codeID)`。issue 时一次性读，喂给合并函数。 |
-| **schema** | `db/schema.sql` | **ADD** | `code_capability_denials` / `code_skill_denials` 两张稀疏表（§4，无 state 列）。**纯加表**，不动 `roles` / `access_codes` 现有列。 |
-| **RoleSnapshot 本身** | `internal/domain/role_snapshot.go` | **KEEP** | 形状不变 —— 还是冻结后的 allow 列表。相减在它**之前**发生，它不知道有 code-deny 这回事。**这是关键：下游零改动。** |
-| **下游 gate** | `capreg` `enabledCaps` / booker `bookerSkillGranted` / `mcpAppGranted` / skill runner | **KEEP** | 全部继续读 `RoleSnapshot.AllowedTools()` / `SkillIDs()`。它们看到的就是"role ⊕ code 合并后的结果"，分不出也不需要分出是 role 给的还是 code 给的。 |
-| **global 层** | `capability_settings` + `enabledCaps` 活 gate | **KEEP** | Phase H 已做。它是叠在冻结快照之上的活 master，跟本期合并逻辑正交。 |
-| **admin: code 编辑** | `internal/routes/admin/codes.go` + 新 deny 子路由 | **ADD** | code 上加"能力 deny"读写（相对 role 的稀疏 −，纯删）。 |
-| **admin: role 编辑** | role 路由 | **KEEP** | role ACL 仍是现状的 grant 列表，不动。 |
-| **能力面板（global）** | `capabilities.go` + 前端面板 | **KEEP** | 本期不碰。 |
+| **合并点** | `internal/usecases/visitor_role_snapshot.go` | **CHANGE** | `buildRoleSnapshotForCode` 读 `deps.CodeDenials.List(code.ID)`，把 `denials` 透进 `buildRoleSnapshotByID`：skill 经 `filterDeniedSkills` 源头剔除（prompt/tool/id 一并消失），cap 的 deny 集塞进 `DeniedCapabilities`。owner-vanilla（public/byoai）传零 deny，保持现状。 |
+| **真值之锚** | `internal/domain/role_snapshot.go` | **CHANGE** | RoleSnapshot 加 `deniedCapabilities` 字段（含 wire round-trip）+ `AllowsCapability(capID, aclAlways) bool` = `baseGrant ∧ ¬denied`。§A domain 单测锁它。 |
+| **能力暴露门** | `internal/usecases/capreg_mcp_app.go` `mcpAppGranted` | **CHANGE** | 委托 `snap.AllowsCapability(m.ID, m.ACL==always)` —— 这样 ACL=always 的能力也能被 code deny 挡（subtract 减不掉它们）。 |
+| **deny 读写** | `internal/postgres/code_denials.go`（新）+ `db/queries/code_denials.sql` | **ADD** | `CodeDenialRepo`：List/Add/Delete capability & skill。issue 时一次性读喂合并；admin 子路由写。 |
+| **schema** | `db/schema.sql` | **ADD** | `code_capability_denials` / `code_skill_denials` 两张稀疏表（§4，无 state 列）。纯加表，不动 `roles`/`access_codes`。 |
+| **port** | `usecases.CodeDenialReader` + `VisitorSessionDeps.CodeDenials` | **ADD** | 窄读接口（List capability/skill）；可空 = 零 deny（eval facade / 老路径向后兼容）。 |
+| **下游其余 gate** | `enabledCaps` / skill runner / `AllowedTools()` / `SkillIDs()` | **KEEP** | skill 在源头已滤过；cap deny 全收口在 `AllowsCapability`。这些读法不变。 |
+| **global 层** | `capability_settings` + `enabledCaps` 活 gate | **KEEP** | Phase H 已做，正交。 |
+| **admin: code 编辑** | `internal/routes/admin/codes_denials.go`（新）+ `MountCodes` | **ADD** | 5 子路由：GET denials、POST/DELETE capability-denials、POST/DELETE skill-denials。owner-scope（GetByID 比对 owner → 404）。 |
+| **admin: role 编辑 / 能力面板** | role 路由 / `capabilities.go` | **KEEP** | 不碰。 |
 
 ### 5.3 不留老残留 —— 要核对删的点
 

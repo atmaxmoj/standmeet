@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,7 +22,37 @@ import (
 func buildRoleSnapshotForCode(
 	ctx context.Context, deps *VisitorSessionDeps, code *domain.AccessCode,
 ) (domain.RoleSnapshot, error) {
-	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID)
+	denials, err := loadCodeDenials(ctx, deps, code.ID)
+	if err != nil {
+		return domain.RoleSnapshot{}, err
+	}
+	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID, denials)
+}
+
+// roleDenials —— code 层要从 role grant 里砍掉的 capability / skill id（纯 deny）。
+// 非 code 路径（vanilla/public）传零值 = 不砍。
+type roleDenials struct {
+	Caps   []string
+	Skills []string
+}
+
+// loadCodeDenials —— 读一张 code 的 deny 集。无 CodeDenials port（eval facade /
+// 老路径没接）→ 零 deny，行为同从前（向后兼容）。
+func loadCodeDenials(
+	ctx context.Context, deps *VisitorSessionDeps, codeID string,
+) (roleDenials, error) {
+	if deps.CodeDenials == nil {
+		return roleDenials{}, nil
+	}
+	caps, err := deps.CodeDenials.ListCapabilities(ctx, codeID)
+	if err != nil {
+		return roleDenials{}, fmt.Errorf("list code capability denials: %w", err)
+	}
+	skills, err := deps.CodeDenials.ListSkills(ctx, codeID)
+	if err != nil {
+		return roleDenials{}, fmt.Errorf("list code skill denials: %w", err)
+	}
+	return roleDenials{Caps: caps, Skills: skills}, nil
 }
 
 // buildRoleSnapshotForOwnerVanilla —— public / byoai session 用 owner 的
@@ -34,11 +65,11 @@ func buildRoleSnapshotForOwnerVanilla(
 	if err != nil {
 		return domain.RoleSnapshot{}, fmt.Errorf("get vanilla role: %w", err)
 	}
-	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID())
+	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID(), roleDenials{})
 }
 
 func buildRoleSnapshotByID(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID, roleID string,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID, roleID string, denials roleDenials,
 ) (domain.RoleSnapshot, error) {
 	role, err := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if err != nil {
@@ -48,7 +79,9 @@ func buildRoleSnapshotByID(
 	if err != nil {
 		return domain.RoleSnapshot{}, err
 	}
-	skills, err := loadRoleSkills(ctx, deps, role.ID())
+	// ACL code 层（capability-acl-hierarchy.md）：deny 的 skill 在装配源头就剔除，
+	// 这样它的 L1 prompt / tool 授权 / id 一并消失（只减 SkillIDs 漏掉了 L1 prompt）。
+	skills, err := loadRoleSkills(ctx, deps, role.ID(), denials.Skills)
 	if err != nil {
 		return domain.RoleSnapshot{}, err
 	}
@@ -60,6 +93,9 @@ func buildRoleSnapshotByID(
 		CorpusURIs:   role.CorpusURIs(),
 		SkillPrompts: skills.Prompts,
 		AllowedTools: skills.Tools,
+		// capability deny 冻进 DeniedCapabilities，能力暴露门据此挡掉（含 ACL=always
+		// 的——它们不进 allowedTools，subtract 减不到，只能在门上挡）。
+		DeniedCapabilities: denials.Caps,
 		// Phase C: 只冻 enabled 授权 skill 的 id（bundle 已过 enabled），让
 		// disabled skill 既不进 L1，也不被 skill_use/skill_run_script 命中。
 		SkillIDs:     skills.IDs,
@@ -96,13 +132,28 @@ type roleSkillBundle struct {
 // loadRoleSkills —— 把 role 挂的 skills 的 prompt 拼一组、allowed_tools 合并
 // 去重一组。
 func loadRoleSkills(
-	ctx context.Context, deps *VisitorSessionDeps, roleID string,
+	ctx context.Context, deps *VisitorSessionDeps, roleID string, deniedSkills []string,
 ) (roleSkillBundle, error) {
 	skills, lerr := deps.Skills.ListSkillsForRole(ctx, roleID)
 	if lerr != nil {
 		return roleSkillBundle{}, fmt.Errorf("list role skills: %w", lerr)
 	}
-	return collectRoleSkillBundle(skills), nil
+	return collectRoleSkillBundle(filterDeniedSkills(skills, deniedSkills)), nil
+}
+
+// filterDeniedSkills —— ACL code 层：剔掉这张 code deny 的 skill（按 id）。源头剔除
+// 让 prompt / tool / id 一致消失。空 deny → 原样返回。
+func filterDeniedSkills(skills []domain.Skill, denied []string) []domain.Skill {
+	if len(denied) == 0 {
+		return skills
+	}
+	out := make([]domain.Skill, 0, len(skills))
+	for i := range skills {
+		if !slices.Contains(denied, skills[i].ID) {
+			out = append(out, skills[i])
+		}
+	}
+	return out
 }
 
 // collectRoleSkillBundle —— ListSkillsForRole 已按 enabled 过滤。Phase C：

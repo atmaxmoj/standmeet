@@ -12,7 +12,6 @@ package usecases
 
 import (
 	"context"
-	"slices"
 	"sync"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
@@ -273,13 +272,12 @@ func readUIHTML(ctx context.Context, sess *mcpclient.Session, m *mcpplugin.Manif
 // 能力，如 ask_visitor）。否则 role-granted：role 的 AllowedTools 含本插件 ID 才暴露
 // （echoer / 第三方 server），无 role(public/byoai) → 隐藏。
 func mcpAppGranted(m *mcpplugin.Manifest, snap *domain.RoleSnapshot) bool {
-	if m.ACL == mcpplugin.ACLAlways {
-		return true
-	}
+	always := m.ACL == mcpplugin.ACLAlways
 	if snap == nil {
-		return false
+		return always // 无 snapshot：没 code deny 来源，只 always 能力暴露
 	}
-	return slices.Contains(snap.AllowedTools(), m.ID)
+	// frozen 三层判定（global 活闸在 enabledCaps 另算）。code deny 含在内。
+	return snap.AllowsCapability(m.ID, always)
 }
 
 // sessionMetaFor —— 数据型内建（manifest 声明了 HostSockets）才拿到可信 session

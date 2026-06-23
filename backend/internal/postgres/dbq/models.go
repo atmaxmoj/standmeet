@@ -96,6 +96,11 @@ type CodeBooking struct {
 	CreatedAt          pgtype.Timestamptz
 }
 
+type CodeCapabilityDenial struct {
+	CodeID       pgtype.UUID
+	CapabilityID string
+}
+
 type CodeMember struct {
 	ID          pgtype.UUID
 	CodeID      pgtype.UUID
@@ -103,6 +108,11 @@ type CodeMember struct {
 	Email       *string
 	IsAnonymous bool
 	LastSeenAt  pgtype.Timestamptz
+}
+
+type CodeSkillDenial struct {
+	CodeID  pgtype.UUID
+	SkillID pgtype.UUID
 }
 
 type Conversation struct {

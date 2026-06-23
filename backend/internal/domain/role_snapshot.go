@@ -32,35 +32,42 @@ type RoleSnapshot struct {
 	corpusURIs   []string
 	skillPrompts []string
 	allowedTools []string
-	skillIDs     []string
-	mcpServerIDs []string
+	// deniedCapabilities —— ACL code 层：这张 code 显式 deny 的 capability id。
+	// 跟 allowedTools 正交：能力暴露门 = baseGrant(ACL=always 或 allowedTools 含它)
+	// **且 不在 deniedCapabilities**。单独存（不从 allowedTools 减），因为 ACL=always
+	// 的能力(retrieval/ask_visitor)根本不进 allowedTools，减不掉，只能在门上挡。
+	deniedCapabilities []string
+	skillIDs           []string
+	mcpServerIDs       []string
 }
 
 // RoleSnapshotInit —— NewRoleSnapshot 入参。
 type RoleSnapshotInit struct {
-	FrozenAt     time.Time
-	RoleID       string
-	RoleName     string
-	PromptBody   string
-	CorpusURIs   []string
-	SkillPrompts []string
-	AllowedTools []string
-	SkillIDs     []string
-	MCPServerIDs []string
+	FrozenAt           time.Time
+	RoleID             string
+	RoleName           string
+	PromptBody         string
+	CorpusURIs         []string
+	SkillPrompts       []string
+	AllowedTools       []string
+	DeniedCapabilities []string
+	SkillIDs           []string
+	MCPServerIDs       []string
 }
 
 // NewRoleSnapshot —— 从 Init 构造。slice 字段 defensive clone；空 input → 空切片。
 func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 	return RoleSnapshot{
-		frozenAt:     i.FrozenAt,
-		roleID:       i.RoleID,
-		roleName:     i.RoleName,
-		promptBody:   i.PromptBody,
-		corpusURIs:   cloneStrings(i.CorpusURIs),
-		skillPrompts: cloneStrings(i.SkillPrompts),
-		allowedTools: cloneStrings(i.AllowedTools),
-		skillIDs:     cloneStrings(i.SkillIDs),
-		mcpServerIDs: cloneStrings(i.MCPServerIDs),
+		frozenAt:           i.FrozenAt,
+		roleID:             i.RoleID,
+		roleName:           i.RoleName,
+		promptBody:         i.PromptBody,
+		corpusURIs:         cloneStrings(i.CorpusURIs),
+		skillPrompts:       cloneStrings(i.SkillPrompts),
+		allowedTools:       cloneStrings(i.AllowedTools),
+		deniedCapabilities: cloneStrings(i.DeniedCapabilities),
+		skillIDs:           cloneStrings(i.SkillIDs),
+		mcpServerIDs:       cloneStrings(i.MCPServerIDs),
 	}
 }
 
@@ -86,6 +93,21 @@ func (s *RoleSnapshot) SkillPrompts() []string { return slices.Clone(s.skillProm
 
 // AllowedTools —— 拍下来的 skill.allowed_tools 合并去重（defensive copy）。
 func (s *RoleSnapshot) AllowedTools() []string { return slices.Clone(s.allowedTools) }
+
+// DeniedCapabilities —— code 层显式 deny 的 capability id（defensive copy）。
+// 能力暴露门据此把 baseGrant 通过的能力再挡掉（含 ACL=always 的）。
+func (s *RoleSnapshot) DeniedCapabilities() []string { return slices.Clone(s.deniedCapabilities) }
+
+// AllowsCapability —— ACL 三层里 frozen 那部分的能力暴露判定（global 活闸在外另算）：
+// baseGrant（aclAlways 恒真，否则 allowedTools 含它）**且** 不被 code deny。这是
+// 三层 ACL 的真值之锚（capability-acl-hierarchy.md §3）：code 只能减，连 ACL=always
+// 的能力也能被 deny 挡下（它们不进 allowedTools，只能在门上挡）。
+func (s *RoleSnapshot) AllowsCapability(capID string, aclAlways bool) bool {
+	if slices.Contains(s.deniedCapabilities, capID) {
+		return false
+	}
+	return aclAlways || slices.Contains(s.allowedTools, capID)
+}
 
 // SkillIDs —— 拍下来的 skill id 列表，agent invoke 时 capability gating 用。
 func (s *RoleSnapshot) SkillIDs() []string { return slices.Clone(s.skillIDs) }
@@ -119,15 +141,16 @@ func (s *RoleSnapshot) AllowsCorpus(uri string) bool {
 // 类型默认不可序列化，sidecar wire 形态把字段映出来。
 func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(roleSnapshotWire{
-		FrozenAt:     s.frozenAt,
-		RoleID:       s.roleID,
-		RoleName:     s.roleName,
-		PromptBody:   s.promptBody,
-		CorpusURIs:   s.corpusURIs,
-		SkillPrompts: s.skillPrompts,
-		AllowedTools: s.allowedTools,
-		SkillIDs:     s.skillIDs,
-		MCPServerIDs: s.mcpServerIDs,
+		FrozenAt:           s.frozenAt,
+		RoleID:             s.roleID,
+		RoleName:           s.roleName,
+		PromptBody:         s.promptBody,
+		CorpusURIs:         s.corpusURIs,
+		SkillPrompts:       s.skillPrompts,
+		AllowedTools:       s.allowedTools,
+		DeniedCapabilities: s.deniedCapabilities,
+		SkillIDs:           s.skillIDs,
+		MCPServerIDs:       s.mcpServerIDs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal role snapshot: %w", err)
@@ -142,15 +165,16 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("unmarshal role snapshot: %w", err)
 	}
 	*s = NewRoleSnapshot(&RoleSnapshotInit{
-		FrozenAt:     w.FrozenAt,
-		RoleID:       w.RoleID,
-		RoleName:     w.RoleName,
-		PromptBody:   w.PromptBody,
-		CorpusURIs:   w.CorpusURIs,
-		SkillPrompts: w.SkillPrompts,
-		AllowedTools: w.AllowedTools,
-		SkillIDs:     w.SkillIDs,
-		MCPServerIDs: w.MCPServerIDs,
+		FrozenAt:           w.FrozenAt,
+		RoleID:             w.RoleID,
+		RoleName:           w.RoleName,
+		PromptBody:         w.PromptBody,
+		CorpusURIs:         w.CorpusURIs,
+		SkillPrompts:       w.SkillPrompts,
+		AllowedTools:       w.AllowedTools,
+		DeniedCapabilities: w.DeniedCapabilities,
+		SkillIDs:           w.SkillIDs,
+		MCPServerIDs:       w.MCPServerIDs,
 	})
 	return nil
 }
@@ -158,13 +182,14 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 // roleSnapshotWire —— JSON sidecar。字段顺序按 fieldalignment：time 在前
 // (time.Time = 24B with monotonic clock)、string 中、slice 末。
 type roleSnapshotWire struct {
-	FrozenAt     time.Time `json:"frozen_at"`
-	RoleID       string    `json:"role_id"`
-	RoleName     string    `json:"role_name"`
-	PromptBody   string    `json:"prompt_body,omitempty"`
-	CorpusURIs   []string  `json:"corpus_uris,omitempty"`
-	SkillPrompts []string  `json:"skill_prompts,omitempty"`
-	AllowedTools []string  `json:"allowed_tools,omitempty"`
-	SkillIDs     []string  `json:"skill_ids,omitempty"`
-	MCPServerIDs []string  `json:"mcp_server_ids,omitempty"`
+	FrozenAt           time.Time `json:"frozen_at"`
+	RoleID             string    `json:"role_id"`
+	RoleName           string    `json:"role_name"`
+	PromptBody         string    `json:"prompt_body,omitempty"`
+	CorpusURIs         []string  `json:"corpus_uris,omitempty"`
+	SkillPrompts       []string  `json:"skill_prompts,omitempty"`
+	AllowedTools       []string  `json:"allowed_tools,omitempty"`
+	DeniedCapabilities []string  `json:"denied_capabilities,omitempty"`
+	SkillIDs           []string  `json:"skill_ids,omitempty"`
+	MCPServerIDs       []string  `json:"mcp_server_ids,omitempty"`
 }

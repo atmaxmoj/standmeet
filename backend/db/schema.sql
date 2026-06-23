@@ -768,6 +768,26 @@ CREATE TABLE capability_settings (
     PRIMARY KEY (owner_id, capability_id)
 );
 
+-- code_capability_denials / code_skill_denials —— ACL hierarchy 的 code 层
+-- (docs/design/capability-acl-hierarchy.md)。纯 AND·code-deny：code 从所选 role
+-- 授的集合里**再砍**(只减不加)。presence=deny，无 state 列；无行=完全继承 role
+-- (向后兼容，老 code 零 deny)。issue 时跟 role grant 相减(ResolveACL)再冻进
+-- RoleSnapshot。capability_id 是 registry id(非表，无 FK，同 capability_settings)；
+-- skill_id 是 skills 行(有 FK)。
+CREATE TABLE code_capability_denials (
+    code_id       uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    capability_id text NOT NULL,
+    PRIMARY KEY (code_id, capability_id)
+);
+
+CREATE TABLE code_skill_denials (
+    code_id   uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    skill_id  uuid NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+    PRIMARY KEY (code_id, skill_id)
+);
+
+CREATE INDEX code_skill_denials_skill_idx ON code_skill_denials(skill_id);
+
 -- code_bookings —— append-only ledger of successfully placed calendar.book
 -- events. One row per Google event inserted. Used to (a) count bookings per
 -- code for quota gating (access_codes.max_bookings)；(b) provide an admin

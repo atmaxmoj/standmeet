@@ -192,6 +192,7 @@ type runtimeDeps struct {
 	outputRepo        *postgres.OutputRepo
 	corpus            *postgres.Corpus
 	codeRepo          *postgres.CodeRepo
+	codeDenialRepo    *postgres.CodeDenialRepo
 	chatRepo          *postgres.ChatRepo
 	seoRepo           *postgres.SEORepo
 	customPageRepo    *postgres.CustomPageRepo
