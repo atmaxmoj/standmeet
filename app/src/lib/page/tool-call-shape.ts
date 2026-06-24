@@ -34,46 +34,17 @@ export function pickBookConfirmation(raw: unknown): BookConfirmation | null {
 
 // CardKind —— **legacy** 写死卡 dispatch（仅服务尚未外置的能力，随各能力外置逐个
 // 删除，目标态为空）。外置后的能力自带 ui:// 卡走沙盒渲染，不在这。
-//   - 'slots'   → SlotsCard (calendar_list_slots) —— booker 外置后删
-//   - 'booked'  → BookCard (calendar_book 成功 confirmation) —— booker 外置后删
+//   - 'booked'  → BookCard (calendar_book 成功 confirmation) —— booked 卡的
+//     cancel/确认信是 connector-backed mutation，归 connector 重构（最后一张写死卡）
 //   - 'dump'    → GenericDumpCard (skill_* / ext_* debug 框)
 //   - 'none'    → 不渲
-// ask_visitor / retrieval(corpus_search·corpus_list) / summarize 已外置 → 自带
-// ui:// 卡，不在这。
-export type CardKind = 'slots' | 'booked' | 'dump' | 'none';
+// ask_visitor / retrieval / summarize / calendar_list_slots 已外置 → 自带 ui:// 卡。
+export type CardKind = 'booked' | 'dump' | 'none';
 
 export function cardKindFor(name: string): CardKind {
-  if (name === 'calendar_list_slots') return 'slots';
   if (name === 'calendar_book') return 'booked';
   if (name.startsWith('skill_') || name.startsWith('ext_')) return 'dump';
   return 'none';
-}
-
-// SlotView —— calendar_list_slots wire 的一条 slot ({start, end} RFC3339)。
-export interface SlotView {
-  start: string;
-  end: string;
-}
-
-// pickSlots —— calendar_list_slots result 是 {ok, slots: [{start, end}]}；
-// narrow 出 SlotView[]。失败 (wire 错 / ok=false) 返空。
-export function pickSlots(raw: unknown): SlotView[] {
-  if (!isRecordShape(raw)) return [];
-  const slots = raw['slots'];
-  if (!Array.isArray(slots)) return [];
-  const out: SlotView[] = [];
-  for (const s of slots) {
-    const slot = parseSlot(s);
-    if (slot !== null) out.push(slot);
-  }
-  return out;
-}
-
-function parseSlot(raw: unknown): SlotView | null {
-  if (!isRecordShape(raw)) return null;
-  const start = readStrShape(raw['start']);
-  const end = readStrShape(raw['end']);
-  return start === '' || end === '' ? null : { start, end };
 }
 
 function isRecordShape(v: unknown): v is Record<string, unknown> {

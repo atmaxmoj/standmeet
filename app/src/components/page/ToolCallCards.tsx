@@ -19,14 +19,12 @@ import type { PublicSessionToolSpec } from '@standmeet/sdk-core';
 import { McpAppCard } from '@/components/page/McpAppCard';
 import { BookingEmailPrompt } from '@/components/page/BookingEmailPrompt';
 import { useToolSpecsStore, uiHtmlForTool } from '@/lib/visitor/tool-specs-store';
-import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
-  pickSlots, pickBookConfirmation,
+  pickBookConfirmation,
   cardKindFor, jsonPretty,
   type BookConfirmation,
 } from '@/lib/page/tool-call-shape';
 import { formatSlotLocal } from '@/lib/page/slot-format';
-import { useBookingsRemaining } from '@/lib/page/use-booking-quota';
 import { useBookingCancel, type BookingCancelControl } from '@/lib/page/use-booking-cancel';
 import type { ToolCallView } from '@/lib/page/use-chat';
 import styles from '@/components/page/ToolCallCards.module.css';
@@ -82,7 +80,6 @@ const LEGACY_CARD_RENDERERS: Record<
   (ctx: CardCtx) => React.ReactElement | null
 > = {
   dump:   ({ call }) => <GenericDumpCard call={call} />,
-  slots:  (ctx) => <SlotsCard call={ctx.call} onAsk={ctx.onAsk} />,
   booked: (ctx) => <BookCard call={ctx.call} conversationID={ctx.conversationID} />,
 };
 
@@ -105,40 +102,6 @@ function legacyCard({ call, dialogID, onAsk, conversationID }: CardCtx) {
   return kind === 'none'
     ? null
     : LEGACY_CARD_RENDERERS[kind]({ call, dialogID, onAsk, conversationID });
-}
-
-// SlotsCard —— calendar_list_slots 结果。展示可订时间 + 当前剩余 booking
-// 配额 (visitor 知道还能约几次)。G-7 minimum：静态显示 owner-local 字符串；
-// clickable 设计放 G-7 follow-up。
-function SlotsCard({ call, onAsk }: { call: ToolCallView; onAsk?: (q: string) => void }) {
-  const slots = pickSlots(call.result);
-  const remaining = useBookingsRemaining();
-  return slots.length === 0
-    ? <SlotsEmpty remaining={remaining} />
-    : <SlotsCalendarCard slots={slots} remaining={remaining} onAsk={onAsk} />;
-}
-
-function SlotsEmpty({ remaining }: { remaining: number | null }) {
-  return (
-    <div className={styles['slotsCard']} data-testid="tool-card-calendar_list_slots">
-      <BookingsKicker prefix="available · 0 slots" remaining={remaining} />
-      <div className={styles['slotsEmpty']}>
-        no free slots in that window — try a different range.
-      </div>
-    </div>
-  );
-}
-
-// BookingsKicker —— 卡 header 拼上"X bookings left"（remaining 非 null 时）。
-function BookingsKicker({ prefix, remaining }: { prefix: string; remaining: number | null }) {
-  return (
-    <div className={styles['kicker']} data-testid="bookings-kicker">
-      {prefix}
-      {remaining !== null && (
-        <span data-testid="bookings-remaining"> · {remaining} bookings left</span>
-      )}
-    </div>
-  );
 }
 
 // BookCard —— calendar_book 成功 confirmation。约成后给一截"发确认邮件吗"

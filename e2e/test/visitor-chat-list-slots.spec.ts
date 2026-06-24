@@ -48,17 +48,26 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
       await enterChat(page, seed.code.code);
       await fireTurn(page, 'what afternoons are open next week?');
 
-      const card = page.getByTestId('tool-card-calendar_list_slots');
-      await expect(card, 'calendar card visible').toBeVisible({ timeout: 20_000 });
+      // slots 卡(booker 插件 ui:// 沙盒 iframe)出现,内容经 frameLocator 取。
+      await expect(page.getByTestId('mcp-app-card-calendar_list_slots'),
+        'calendar card visible').toBeVisible({ timeout: 20_000 });
+      const frame = page.frameLocator('[data-testid="mcp-app-card-calendar_list_slots"]');
+      const card = frame.getByTestId('tool-card-calendar_list_slots');
       // collapsible <details>, default-open
       await expect(card).toHaveJSProperty('open', true);
-      await expect(card.getByTestId('bookings-kicker')).toContainText('available ·');
-      // react-day-picker month grid rendered (stable rdp-* classes)
-      await expect(card.locator('.rdp-root')).toBeVisible();
-      await expect(card.locator('.rdp-day_button').first()).toBeVisible();
+      await expect(frame.getByTestId('bookings-kicker')).toContainText('available ·');
+      // vanilla day picker rendered (day buttons grouped from the slots)
+      await expect(frame.getByTestId('slot-calendar')).toBeVisible();
+      await expect(frame.getByTestId('slot-day').first()).toBeVisible();
       // time chips for the selected day
-      const chips = card.getByTestId('tool-card-slot');
+      const chips = frame.getByTestId('tool-card-slot');
       await expect(chips.first()).toBeVisible();
+
+      // wait for the turn to settle before toggling — list_slots isn't
+      // return-directly, so a final answer streams after the card; interacting
+      // mid-stream races the chat's re-renders.
+      await expect(page.locator('[data-testid="answer-body"]').last())
+        .toBeVisible({ timeout: 20_000 });
 
       // collapse + re-open works
       const summary = card.locator('summary').first();

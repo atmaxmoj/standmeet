@@ -1,6 +1,7 @@
 // slot-format.ts —— RFC3339 slot → visitor-local display strings + day
-// grouping helpers. Shared by BookCard (confirmation) and SlotsCalendarCard
-// (the availability picker). Plain Intl.DateTimeFormat, no heavy date lib.
+// grouping helpers. Used by BookCard (the booked-confirmation legacy card).
+// The availability picker is now the booker plugin's ui:// card (own JS
+// formatting). Plain Intl.DateTimeFormat, no heavy date lib.
 
 const dayFmt = new Intl.DateTimeFormat(undefined, {
   weekday: 'short', month: 'short', day: 'numeric',

@@ -30,9 +30,11 @@ const socketEnv = "BOOKER_SOCKET"
 func main() {
 	srv := server.NewMCPServer("booker", "1.0.0",
 		server.WithToolCapabilities(true),
+		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
 	srv.AddTool(bookTool(), opHandler("book"))
 	srv.AddTool(listSlotsTool(), opHandler("list_slots"))
+	srv.AddResource(slotsCardResource(), slotsCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "booker:", err)
 		os.Exit(1)
@@ -67,8 +69,32 @@ func bookTool() mcpgo.Tool {
 		}`)), "booking meeting")
 }
 
+func slotsCardResource() mcpgo.Resource {
+	return mcpgo.NewResource(slotsCardURI, "slots card",
+		mcpgo.WithMIMEType(slotsCardMIME),
+		mcpgo.WithResourceDescription("Sandboxed calendar_list_slots day picker."))
+}
+
+//nolint:gocritic // mcp-go requires a value-typed request.
+func slotsCardHandler(
+	_ context.Context, _ mcpgo.ReadResourceRequest,
+) ([]mcpgo.ResourceContents, error) {
+	return []mcpgo.ResourceContents{
+		mcpgo.TextResourceContents{URI: slotsCardURI, MIMEType: slotsCardMIME, Text: slotsCardHTML},
+	}, nil
+}
+
+// withCard —— like progressLabel but also declares the tool's ui:// card on `_meta`.
+func withCard(t mcpgo.Tool, label, cardURI string) mcpgo.Tool {
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{
+		"progress_label": label,
+		"ui_resource":    cardURI,
+	})
+	return t
+}
+
 func listSlotsTool() mcpgo.Tool {
-	return progressLabel(mcpgo.NewToolWithRawSchema("calendar_list_slots",
+	return withCard(mcpgo.NewToolWithRawSchema("calendar_list_slots",
 		"List available [start, end] slots on the owner's calendar between "+
 			"from_rfc3339 and until_rfc3339 that pass booking policy and don't "+
 			"overlap any busy window. Returns up to 50 slots. Use this before "+
@@ -84,7 +110,7 @@ func listSlotsTool() mcpgo.Tool {
 					"description":"Enumeration step in minutes (default 30)."}
 			},
 			"required":["from_rfc3339","until_rfc3339","duration_min"]
-		}`)), "listing slots")
+		}`)), "listing slots", slotsCardURI)
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`.
