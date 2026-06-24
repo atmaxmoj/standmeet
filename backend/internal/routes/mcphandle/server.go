@@ -44,9 +44,9 @@ type Deps struct {
 	MCPServers    usecases.MCPServersDeps
 	Writings      usecases.WritingsDeps
 	WritingsTx    usecases.WritingsTxDeps
-	// AgentSkills —— Phase B-4 起 owner MCP tool 也走 Capability registry。
-	// 老的 tools_*.go AddTool 调用与 registerCapabilities walk 共存；逐步
-	// 把老文件迁成 Capability + 删 AddTool 调用。
+	// AgentSkills —— owner MCP facade 的唯一工具来源。registerTools 只是
+	// walk reg.OwnerMCPBindings()（Phase E 收尾，老 tools_*.go AddTool 全删）：
+	// core owner capability + 插件 owner 工具汇成单端点，core 不写死 tool 清单。
 	AgentSkills *capreg.Registry
 }
 
@@ -127,8 +127,9 @@ func OwnerIDFrom(ctx context.Context) string {
 	return v
 }
 
-// registerTools 把所有 tool 注册到 mcpSrv。Phase E 收尾后只剩一行
-// registerCapabilities walk —— 所有 tool 都走 capreg.Registry。
+// registerTools 把所有 owner tool 注册到 mcpSrv。Phase E 收尾：只剩一行
+// registerCapabilities walk —— 所有 tool 都走 capreg.Registry（facade 聚合，
+// core 不写死）。
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
 }

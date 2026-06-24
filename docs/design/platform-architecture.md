@@ -121,7 +121,7 @@ StandMeet 同时扮演三个角色，凭据方向各不同，别混：
 
 插件化后**自动受益**：每个插件声明自己的 owner-facing 工具，facade 自动汇入对外端点，core 不写死。已存在：owner-MCP + keypair 签名 + `@standmeet/mcp-client` SDK（`c3-mcp-client-stdio` spec）。
 
-**决策点 P.10：StandMeet 三个朝向（host / connector-owner / as-MCP-server）。as-MCP-server 是 registry 的对外脸，聚合插件 owner 工具成单端点；与 visitor 侧同一 gateway 模式。**
+**决策点 P.10：StandMeet 三个朝向（host / connector-owner / as-MCP-server）。as-MCP-server 是 registry 的对外脸，聚合插件 owner 工具成单端点；与 visitor 侧同一 gateway 模式。** *(已落地 / #143：`mcphandle.registerTools` 只 walk `reg.OwnerMCPBindings()` —— core owner capability + 插件 owner 工具一并汇入，core 不写死 tool 清单；老 `tools_*.go` AddTool 全删。)*
 
 ---
 
