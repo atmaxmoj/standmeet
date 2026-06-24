@@ -29,6 +29,7 @@ type Registry struct {
 	seen   map[string]bool
 	origin map[string]Origin
 	gate   EnableGate
+	depReg *DepRegistry
 	caps   []Capability
 	mu     sync.RWMutex
 }
@@ -67,6 +68,15 @@ func (r *Registry) SetEnableGate(g EnableGate) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.gate = g
+}
+
+// SetDepRegistry —— composition root 注入命名依赖 provider 注册表（D-2）。
+// enabledCaps 用它把 Requires 未连的 cap 从 global 单点闸踢掉。boot 期一次性设；
+// nil-safe（没设 → 不 connector-gate）。
+func (r *Registry) SetDepRegistry(dr *DepRegistry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.depReg = dr
 }
 
 // OriginOf —— 某 capability 的来源；未注册返 ("", false)。
@@ -281,14 +291,13 @@ func (r *Registry) OwnerMCPBindings() []*MCPBinding {
 func (r *Registry) enabledCaps(ctx context.Context, in *AssembleInput) []Capability {
 	caps := r.List()
 	disabled := r.disabledSet(ctx, in)
-	if len(disabled) == 0 {
-		return caps
-	}
 	out := make([]Capability, 0, len(caps))
 	for _, c := range caps {
-		if !disabled[c.ID()] {
-			out = append(out, c)
+		// global 单点闸 = owner 手关（disabled）∧ Requires 的 connector 全连（D-2）。
+		if disabled[c.ID()] || !r.depsConnected(ctx, c, in) {
+			continue
 		}
+		out = append(out, c)
 	}
 	return out
 }

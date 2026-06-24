@@ -8,7 +8,46 @@
 // 凭据永不进本层：provider 只回「连没连」(Connected) 与「调用句柄」(非 token)。
 package capreg
 
-import "context"
+import (
+	"context"
+	"log/slog"
+)
+
+// RequiresDeps —— 可选接口：一个 capability 声明它依赖哪些命名 in-app 依赖
+// （connector 名，如 "calendar" / "smtp"）。enabledCaps 据此 gate：任一未连 → 该
+// cap 不进 enabledCaps（global 单点闸，D-2）。pluginCapability 从 manifest.Requires
+// 取；不实现本接口的 cap 永不被 connector-gate。
+type RequiresDeps interface {
+	Requires() []string
+}
+
+// depsConnected —— 该 cap 的所有 Requires 依赖是否都已连（gate 半边）。判定：
+//   - cap 不声明 Requires / 没装 depReg / 无 owner 上下文 → true（不 gate）。
+//   - 任一未连 → false（隐藏）。AllConnected 返 error（E1：DB 读错等）→ 当未连隐藏
+//     + log（fail-closed：连没连不确定时不暴露能调外部的工具）。
+func (r *Registry) depsConnected(ctx context.Context, c Capability, in *AssembleInput) bool {
+	rd, ok := c.(RequiresDeps)
+	if !ok {
+		return true
+	}
+	names := rd.Requires()
+	if len(names) == 0 {
+		return true
+	}
+	r.mu.RLock()
+	dr := r.depReg
+	r.mu.RUnlock()
+	if dr == nil || in == nil || in.OwnerID == "" {
+		return true
+	}
+	connected, err := dr.AllConnected(ctx, in.OwnerID, names)
+	if err != nil {
+		slog.Default().Warn("dep resolve failed, hiding capability",
+			"capability", c.ID(), "requires", names, "err", err)
+		return false
+	}
+	return connected
+}
 
 // DepProvider —— 一个命名 in-app 依赖（"calendar" / "smtp"），背后是一个持凭据的
 // connector。host 用它解析插件的 manifest Requires。
