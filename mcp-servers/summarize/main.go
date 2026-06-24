@@ -24,8 +24,10 @@ const socketEnv = "SUMMARIZE_SOCKET"
 func main() {
 	srv := server.NewMCPServer("summarize", "1.0.0",
 		server.WithToolCapabilities(true),
+		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
 	srv.AddTool(summarizeTool(), handleSummarize)
+	srv.AddResource(reportCardResource(), reportCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "summarize:", err)
 		os.Exit(1)
@@ -41,8 +43,26 @@ func summarizeTool() mcpgo.Tool {
 		mcpgo.WithString("focus",
 			mcpgo.Description("Optional: what angle to emphasize.")),
 	)
-	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"return_directly": true})
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{
+		"return_directly": true,
+		"ui_resource":     reportCardURI,
+	})
 	return t
+}
+
+func reportCardResource() mcpgo.Resource {
+	return mcpgo.NewResource(reportCardURI, "report card",
+		mcpgo.WithMIMEType(reportCardMIME),
+		mcpgo.WithResourceDescription("Sandboxed summarize_conversation report sneak-peek."))
+}
+
+//nolint:gocritic // mcp-go requires a value-typed request.
+func reportCardHandler(
+	_ context.Context, _ mcpgo.ReadResourceRequest,
+) ([]mcpgo.ResourceContents, error) {
+	return []mcpgo.ResourceContents{
+		mcpgo.TextResourceContents{URI: reportCardURI, MIMEType: reportCardMIME, Text: reportCardHTML},
+	}, nil
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`.

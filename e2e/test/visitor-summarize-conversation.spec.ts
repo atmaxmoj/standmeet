@@ -28,6 +28,15 @@ import { issueSession } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
+// reportCardInFrame —— summarize 卡现是 summarize 插件 serve 的 ui:// 沙盒 iframe;
+// 卡内容(tool-card-summarize_conversation + report-open-link)在 frame 里,经
+// frameLocator 取。
+function reportCardInFrame(page: Page) {
+  return page
+    .frameLocator('[data-testid="mcp-app-card-summarize_conversation"]')
+    .getByTestId('tool-card-summarize_conversation');
+}
+
 const OWNER = {
   email: 'summary-owner@example.com',
   password: 'correct-horse-battery-staple',
@@ -148,13 +157,14 @@ async function reportInlineCardTest(page: Page, playwright: Playwright): Promise
   await enterChatWithCode(page);
   await fireFirstTurn(page, 'summarize what we discussed');
 
-  // ReportArtifactCard 在 chat 流里渲；iframe srcDoc 含报告 HTML。
-  const card = page.getByTestId('tool-card-summarize_conversation');
-  await expect(card, 'ReportArtifactCard rendered').toBeVisible({ timeout: 10_000 });
+  // report 卡(summarize 插件 ui:// 沙盒卡)在 chat 流里渲；进 frame 找内容。
+  await expect(page.getByTestId('mcp-app-card-summarize_conversation'),
+    'report card rendered').toBeVisible({ timeout: 10_000 });
+  const card = reportCardInFrame(page);
   const reportID = await card.getAttribute('data-report-id');
   expect(reportID, 'report id 透到 card data attribute').toBeTruthy();
 
-  // 点 open as page → 新 tab 走 /report/[id]
+  // 点 open as page → /report/[id]（href 供断言；点击经 mcp-ui:link 由父开窗）
   const openLink = card.getByTestId('report-open-link');
   await expect(openLink).toHaveAttribute('href', `/report/${reportID}`);
 }
@@ -189,8 +199,9 @@ async function reportPDFDownloadUITest(page: Page, playwright: Playwright): Prom
 
   await enterChatWithCode(page);
   await fireFirstTurn(page, 'summarize what we discussed');
-  const card = page.getByTestId('tool-card-summarize_conversation');
-  await expect(card).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('mcp-app-card-summarize_conversation'))
+    .toBeVisible({ timeout: 10_000 });
+  const card = reportCardInFrame(page);
   const reportID = await card.getAttribute('data-report-id');
   expect(reportID).toBeTruthy();
 
@@ -219,8 +230,9 @@ async function reportStyledTest(page: Page, playwright: Playwright): Promise<voi
 
   await enterChatWithCode(page);
   await fireFirstTurn(page, 'summarize what we discussed');
-  const card = page.getByTestId('tool-card-summarize_conversation');
-  await expect(card).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('mcp-app-card-summarize_conversation'))
+    .toBeVisible({ timeout: 10_000 });
+  const card = reportCardInFrame(page);
   const reportID = await card.getAttribute('data-report-id');
   expect(reportID).toBeTruthy();
 

@@ -19,7 +19,6 @@ import type { PublicSessionToolSpec } from '@standmeet/sdk-core';
 import { McpAppCard } from '@/components/page/McpAppCard';
 import { BookingEmailPrompt } from '@/components/page/BookingEmailPrompt';
 import { useToolSpecsStore, uiHtmlForTool } from '@/lib/visitor/tool-specs-store';
-import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
 import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
   pickSlots, pickBookConfirmation,
@@ -82,7 +81,6 @@ const LEGACY_CARD_RENDERERS: Record<
   Exclude<ReturnType<typeof cardKindFor>, 'none'>,
   (ctx: CardCtx) => React.ReactElement | null
 > = {
-  report: ({ call }) => <ReportArtifactCard call={call} />,
   dump:   ({ call }) => <GenericDumpCard call={call} />,
   slots:  (ctx) => <SlotsCard call={ctx.call} onAsk={ctx.onAsk} />,
   booked: (ctx) => <BookCard call={ctx.call} conversationID={ctx.conversationID} />,

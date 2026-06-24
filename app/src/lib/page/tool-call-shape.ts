@@ -36,16 +36,15 @@ export function pickBookConfirmation(raw: unknown): BookConfirmation | null {
 // 删除，目标态为空）。外置后的能力自带 ui:// 卡走沙盒渲染，不在这。
 //   - 'slots'   → SlotsCard (calendar_list_slots) —— booker 外置后删
 //   - 'booked'  → BookCard (calendar_book 成功 confirmation) —— booker 外置后删
-//   - 'report'  → ReportArtifactCard (summarize) —— summarize 外置后删
 //   - 'dump'    → GenericDumpCard (skill_* / ext_* debug 框)
 //   - 'none'    → 不渲
-// ask_visitor / retrieval(corpus_search·corpus_list) 已外置 → 自带 ui:// 卡，不在这。
-export type CardKind = 'slots' | 'booked' | 'report' | 'dump' | 'none';
+// ask_visitor / retrieval(corpus_search·corpus_list) / summarize 已外置 → 自带
+// ui:// 卡，不在这。
+export type CardKind = 'slots' | 'booked' | 'dump' | 'none';
 
 export function cardKindFor(name: string): CardKind {
   if (name === 'calendar_list_slots') return 'slots';
   if (name === 'calendar_book') return 'booked';
-  if (name === 'summarize_conversation') return 'report';
   if (name.startsWith('skill_') || name.startsWith('ext_')) return 'dump';
   return 'none';
 }
@@ -136,20 +135,4 @@ function pickAskOptions(v: unknown): string[] {
     if (typeof opt === 'string' && opt !== '') out.push(opt);
   }
   return out;
-}
-
-// ReportPayload —— I.3 summarize_conversation tool_result 的 narrow。
-// 后端 wire: {ok, report_id, html}。前端按这条渲 ReportArtifact 卡 +
-// 提供 /report/[id] open-as-page 链接。
-export interface ReportPayload {
-  reportID: string;
-  html: string;
-}
-
-export function pickReport(raw: unknown): ReportPayload | null {
-  if (!isRecordShape(raw)) return null;
-  if (raw['ok'] === false) return null;
-  const reportID = readStrShape(raw['report_id']);
-  const html = readStrShape(raw['html']);
-  return reportID === '' || html === '' ? null : { reportID, html };
 }
