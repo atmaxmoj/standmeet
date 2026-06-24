@@ -426,12 +426,26 @@ exposed = exists(origin) ∧ owner_enabled ∧ connector_deps_met ∧ role_acl_g
 - 把 retrieval（或 booker）重写成一个 manifest 插件，证明内建能外置；`MustRegister` 清单往空走。
 - **测试：** 该能力的现有 e2e 不动、全绿（行为等价，只换注册来源）。
 
-### C4.5 / #134 —— `_meta.ui` 接到卡片 *(后期，归 #134)*
-- 前端读 `CapabilityState.Extra.ui.resourceUri` → 沙箱 iframe 渲插件自带 UI，替代写死的工具卡片。
+### C4.5 / #134 —— per-tool `ui://` 卡片接到 chat *(已落地)*
+MCP Apps 协议把 ui 资源声明在**每个 tool** 的 `_meta.ui_resource`（不是 manifest/能力级），
+所以一个多工具能力可以发多张卡。host 在装配期按 tool 读 ui（`resources/read`），下发到
+`tool_specs[].ui_html`；前端按 tool 名精确取，渲进 sandbox iframe（`sandbox="allow-scripts"`）。
 
-**本轮交付 = C1–C4。** C5 / #134 是后续。
+postMessage 协议（`use-mcp-app-card`）：
+- `mcp-ui:ready` → 父注入 `{data:<tool result>, tool:<tool name>}`（tool 名让一张卡服务同形多工具）
+- `mcp-ui:submit {value}` → 父 `onAsk(value)` 进下一 turn（ask_visitor / slots chip）
+- `mcp-ui:link {href}` → 父开窗（沙盒无 allow-popups；report「open as page」）
+- `mcp-ui:height` → 自适应高度
 
-**决策点 P.3：迁移期内建与插件并存，不一次性掀。** 先让发现机制跟 MustRegister 共存跑绿，再逐个迁内建，最后清空写死清单。
+**已迁（插件自带卡，写死卡删）：** `ask_visitor`（ask-visitor）、`corpus_search`/`corpus_list`
+（retrieval，一张卡服务两工具）、`summarize_conversation`（summarize）、`calendar_list_slots`（booker）。
+
+**仍写死（`NON_SANDBOX_CARDS`）：**
+- `calendar_book`（booked 卡）—— cancel / 发确认信是 **connector-backed mutation**，从卡触发，
+  归 connector 重构（卡随之外置；那才是「沙盒怎么发带凭据操作」的归宿 = `mcp-ui:tool` + connector）。
+- `skill_*`/`ext_*`（dump 卡）—— 任意「无卡」工具的通用 debug 兜底，不是按能力写死的卡。
+
+**决策点 P.3：迁移期内建与插件并存，不一次性掀。** 先让发现机制跟 MustRegister 共存跑绿，再逐个迁内建，最后清空写死清单 —— 写死卡现仅余 booked（connector 重构）+ dump（通用兜底），按计划收口。
 
 ---
 
