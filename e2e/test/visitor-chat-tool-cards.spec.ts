@@ -55,11 +55,13 @@ test.describe('tool call 渲染成卡片', () => {
       await input.fill('tell me about lucerna');
       await input.press('Enter');
 
-      // corpus_search 卡出现(默认折叠),点 summary 展开看 hits。
-      const searchCard = page.getByTestId('tool-card-corpus_search');
-      await expect(searchCard).toBeVisible({ timeout: 20_000 });
-      await searchCard.locator('summary').first().click();
-      const hit = searchCard.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
+      // corpus_search 卡(retrieval 插件 ui:// 沙盒卡)出现,点 summary 展开看 hits。
+      // 卡渲在 sandbox iframe 里 → 用 frameLocator 进 frame 找内容。
+      await expect(page.getByTestId('mcp-app-card-corpus_search'))
+        .toBeVisible({ timeout: 20_000 });
+      const frame = page.frameLocator('[data-testid="mcp-app-card-corpus_search"]');
+      await frame.locator('summary').first().click();
+      const hit = frame.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
       await expect(hit).toBeVisible();
       await expect(hit).toContainText('Lucerna');
       await expect(hit).toContainText('wiki');

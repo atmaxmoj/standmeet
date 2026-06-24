@@ -88,7 +88,7 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
       // 不在这赌它(它的实时性由 throbber-label / throbber-clears 专门验)。用
       // 持久信号:`searched · N` 卡(search 跑过)+ answer-body(turn 落地)。读了
       // 哪个 doc 由下面 cited 转录精确断言(只含 projects/lucerna)。
-      await expect(page.getByTestId('tool-card-corpus_search'))
+      await expect(page.getByTestId('mcp-app-card-corpus_search'))
         .toBeVisible({ timeout: 20_000 });
       await expect(page.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 20_000 });

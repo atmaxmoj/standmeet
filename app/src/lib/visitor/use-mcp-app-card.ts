@@ -32,37 +32,49 @@ interface Ctx {
   win: Window;
   data: Record<string, unknown>;
   result: unknown;
+  tool: string;
   onAsk: (q: string) => void;
   setHeight: (h: number) => void;
 }
 
 const HANDLERS: Record<string, (c: Ctx) => void> = {
-  'mcp-ui:ready': ({ win, result }) =>
-    { win.postMessage({ type: 'mcp-ui:data', data: parseResult(result) }, '*'); },
+  // ready → 父注入 {data:<tool result>, tool:<tool name>}。tool 名让一张卡服务多
+  // 个同形工具(corpus_search/corpus_list)时自挑 label/testid，不必每工具一份卡。
+  'mcp-ui:ready': ({ win, result, tool }) =>
+    { win.postMessage({ type: 'mcp-ui:data', data: parseResult(result), tool }, '*'); },
   'mcp-ui:submit': ({ data, onAsk }) =>
     { typeof data['value'] === 'string' && onAsk(data['value']); },
+  // link → 卡请求父开一个 URL（沙盒 iframe 无 allow-popups/top-navigation，开窗只能
+  // 父代劳）。href 来自插件卡(可信，见信任边界 P.4)；report「open as page」用。
+  'mcp-ui:link': ({ data }) => { openLink(data['href']); },
   'mcp-ui:height': ({ data, setHeight }) => {
     const h = clampHeight(data['height']);
     h !== null && setHeight(h);
   },
 };
 
+function openLink(href: unknown): void {
+  if (typeof href === 'string' && href !== '') {
+    window.open(href, '_blank', 'noopener,noreferrer');
+  }
+}
+
 function dispatch(c: Ctx): void {
   const type = typeof c.data['type'] === 'string' ? c.data['type'] : '';
   HANDLERS[type]?.(c);
 }
 
-export function useMcpAppCard(result: unknown, onAsk: (q: string) => void) {
+export function useMcpAppCard(result: unknown, onAsk: (q: string) => void, tool: string) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   useEffect(() => {
     function onMsg(e: MessageEvent): void {
       const win = ref.current?.contentWindow ?? null;
       const ok = win !== null && e.source === win && isRecord(e.data);
-      ok && dispatch({ win, data: e.data, result, onAsk, setHeight });
+      ok && dispatch({ win, data: e.data, result, tool, onAsk, setHeight });
     }
     window.addEventListener('message', onMsg);
     return () => { window.removeEventListener('message', onMsg); };
-  }, [result, onAsk]);
+  }, [result, onAsk, tool]);
   return { ref, height };
 }

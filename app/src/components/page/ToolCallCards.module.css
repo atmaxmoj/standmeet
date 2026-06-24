@@ -18,55 +18,6 @@
   margin-bottom: 0.4em;
 }
 
-/* search / list hits card —— 比 citation 卡再淡一档 (信息层级低于 citation：
-   citation 是 AI 真读了的；search hits 只是 AI 看过) */
-.searchCard {
-  padding: 0.6em 0.9em;
-  background: color-mix(in oklab, var(--color-ink) 3%, transparent);
-  border-left: 1px solid var(--color-rule);
-  border-radius: 2px;
-}
-
-.hits {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3em;
-}
-
-.hit {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  column-gap: 0.7em;
-  align-items: baseline;
-  font-size: 13.5px;
-  line-height: 1.4;
-}
-
-.genre {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-.genreOutput { color: var(--color-accent); }
-
-.title {
-  font-family: var(--font-serif);
-  font-style: italic;
-  color: var(--color-ink);
-}
-
-.summary {
-  grid-column: 2;
-  color: var(--color-muted);
-  font-size: 12.5px;
-  line-height: 1.4;
-}
-
 /* calendar_list_slots card —— available 时间列表。比 search card 强调
    一档 (slot 是用户要"看"的；search hit 是次要信息)。 */
 .slotsCard {

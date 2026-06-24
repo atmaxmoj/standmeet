@@ -40,6 +40,7 @@ import {
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
+import { useToolSpecsStore } from '@/lib/visitor/tool-specs-store';
 import { logger } from '@/lib/logger';
 
 export type SessionMode = SessionModeT;
@@ -145,6 +146,10 @@ export function useChat(deps: Deps): ChatState {
   useEffect(() => {
     const stored = loadStoredSession();
     useGhostsStore.getState().seed(stored?.ghosts ?? []);
+    // 刷新恢复 tool_specs（含 per-tool ui_html）—— transcript 重建出 tool 卡需要按
+    // 名查 ui_html 渲沙盒卡；lazy ensureSession 只在发问时才 setSpecs，刷新不发问
+    // 就空，外置卡(corpus hits / report …)会渲不出。像 ghosts 一样开局就补回。
+    useToolSpecsStore.getState().setSpecs(stored?.tool_specs ?? []);
     // 浮窗(有 docContext)不恢复主对话 —— 那是别段,会串。它自己那段开局空,首次
     // 发问才 lazy 建/续(ensureEffectiveSession)。主 chat 才走 restoreSession。
     if (docCtxRef.current !== undefined) return;

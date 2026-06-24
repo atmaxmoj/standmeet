@@ -29,10 +29,12 @@ const socketEnv = "RETRIEVAL_SOCKET"
 func main() {
 	srv := server.NewMCPServer("retrieval", "1.0.0",
 		server.WithToolCapabilities(true),
+		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
 	srv.AddTool(searchTool(), opHandler("corpus_search"))
 	srv.AddTool(readTool(), opHandler("corpus_read"))
 	srv.AddTool(listTool(), opHandler("corpus_list"))
+	srv.AddResource(searchCardResource(), searchCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "retrieval:", err)
 		os.Exit(1)
@@ -46,15 +48,40 @@ func progressLabel(t mcpgo.Tool, label string) mcpgo.Tool {
 	return t
 }
 
+// withCard —— like progressLabel but also declares this tool's ui:// card on `_meta`
+// (MCP Apps). corpus_search / corpus_list both point at the one search card.
+func withCard(t mcpgo.Tool, label, cardURI string) mcpgo.Tool {
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{
+		"progress_label": label,
+		"ui_resource":    cardURI,
+	})
+	return t
+}
+
+func searchCardResource() mcpgo.Resource {
+	return mcpgo.NewResource(searchCardURI, "corpus hits card",
+		mcpgo.WithMIMEType(searchCardMIME),
+		mcpgo.WithResourceDescription("Sandboxed corpus_search/corpus_list hits list."))
+}
+
+//nolint:gocritic // mcp-go requires a value-typed request.
+func searchCardHandler(
+	_ context.Context, _ mcpgo.ReadResourceRequest,
+) ([]mcpgo.ResourceContents, error) {
+	return []mcpgo.ResourceContents{
+		mcpgo.TextResourceContents{URI: searchCardURI, MIMEType: searchCardMIME, Text: searchCardHTML},
+	}, nil
+}
+
 func searchTool() mcpgo.Tool {
-	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_search",
+	return withCard(mcpgo.NewToolWithRawSchema("corpus_search",
 		"Search owner's curated corpus by keyword. Returns matching wiki + output "+
 			"entries with path, title, genre, summary.",
 		json.RawMessage(`{
 			"type": "object",
 			"properties": {"query": {"type": "string"}},
 			"required": ["query"]
-		}`)), "searching corpus")
+		}`)), "searching corpus", searchCardURI)
 }
 
 func readTool() mcpgo.Tool {
@@ -69,7 +96,7 @@ func readTool() mcpgo.Tool {
 }
 
 func listTool() mcpgo.Tool {
-	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_list",
+	return withCard(mcpgo.NewToolWithRawSchema("corpus_list",
 		"Navigate the wiki tree one level at a time. Omit path to list root entries; "+
 			"pass a node's path to list its direct children (empty result means it's a "+
 			"leaf). Use page (0-based) to page through a wide level.",
@@ -79,7 +106,7 @@ func listTool() mcpgo.Tool {
 				"path": {"type": "string"},
 				"page": {"type": "integer"}
 			}
-		}`)), "listing entries")
+		}`)), "listing entries", searchCardURI)
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`. For

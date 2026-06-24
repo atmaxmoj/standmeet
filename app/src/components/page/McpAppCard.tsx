@@ -13,11 +13,15 @@ import type { ToolCallView } from '@/lib/page/use-chat';
 interface Props {
   call: ToolCallView;
   html: string;
-  onAsk: (q: string) => void;
+  // onAsk —— 仅交互卡(ask_visitor / slots)需要把访客选择 forward 进下一 turn；
+  // 只读卡(corpus hits / report)不 submit，省略即可，submit 走 no-op。
+  onAsk?: (q: string) => void;
 }
 
+const NOOP = (): void => {};
+
 export function McpAppCard({ call, html, onAsk }: Props) {
-  const { ref, height } = useMcpAppCard(call.result, onAsk);
+  const { ref, height } = useMcpAppCard(call.result, onAsk ?? NOOP, call.name);
   return (
     <iframe
       ref={ref}

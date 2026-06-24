@@ -104,11 +104,12 @@ async function dockFullFlow({ page }: { page: Page }): Promise<void> {
   await input.fill('tell me about lucerna');
   await input.press('Enter');
 
-  // corpus_search 卡(折叠)→ 展开看 hit:Lucerna / wiki / path。
-  const searchCard = panel.getByTestId('tool-card-corpus_search');
-  await expect(searchCard).toBeVisible({ timeout: 20_000 });
-  await searchCard.locator('summary').first().click();
-  const hit = searchCard.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
+  // corpus_search 卡(retrieval ui:// 沙盒 iframe,折叠)→ 进 frame 展开看 hit。
+  await expect(panel.getByTestId('mcp-app-card-corpus_search'))
+    .toBeVisible({ timeout: 20_000 });
+  const frame = panel.frameLocator('[data-testid="mcp-app-card-corpus_search"]');
+  await frame.locator('summary').first().click();
+  const hit = frame.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
   await expect(hit).toBeVisible();
   await expect(hit).toContainText('Lucerna');
   // corpus_read 不渲卡(Citation 接管);citations 出现。

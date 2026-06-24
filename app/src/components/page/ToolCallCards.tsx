@@ -22,9 +22,9 @@ import { useToolSpecsStore, uiHtmlForTool } from '@/lib/visitor/tool-specs-store
 import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
 import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
-  pickSearchHits, pickSlots, pickBookConfirmation,
+  pickSlots, pickBookConfirmation,
   cardKindFor, jsonPretty,
-  type SearchHit, type BookConfirmation,
+  type BookConfirmation,
 } from '@/lib/page/tool-call-shape';
 import { formatSlotLocal } from '@/lib/page/slot-format';
 import { useBookingsRemaining } from '@/lib/page/use-booking-quota';
@@ -82,7 +82,6 @@ const LEGACY_CARD_RENDERERS: Record<
   Exclude<ReturnType<typeof cardKindFor>, 'none'>,
   (ctx: CardCtx) => React.ReactElement | null
 > = {
-  search: ({ call }) => <SearchHitsCard call={call} />,
   report: ({ call }) => <ReportArtifactCard call={call} />,
   dump:   ({ call }) => <GenericDumpCard call={call} />,
   slots:  (ctx) => <SlotsCard call={ctx.call} onAsk={ctx.onAsk} />,
@@ -97,7 +96,7 @@ function ToolCallCard(ctx: CardCtx) {
 }
 
 function sandboxCard({ call, onAsk }: CardCtx, uiHtml: string) {
-  return uiHtml !== '' && onAsk !== undefined
+  return uiHtml !== ''
     ? <McpAppCard call={call} html={uiHtml} onAsk={onAsk} />
     : null;
 }
@@ -108,41 +107,6 @@ function legacyCard({ call, dialogID, onAsk, conversationID }: CardCtx) {
   return kind === 'none'
     ? null
     : LEGACY_CARD_RENDERERS[kind]({ call, dialogID, onAsk, conversationID });
-}
-
-// SearchHitsCard —— collapsed by default. Dumping every search hit + summary
-// inline before the answer buries the reading like raw tool output; a normal AI
-// chat keeps it tucked away. We show a quiet "searched · N entries" line the
-// reader can expand for transparency, so the answer stays the main thing.
-function SearchHitsCard({ call }: { call: ToolCallView }) {
-  const hits = pickSearchHits(call.result);
-  return hits.length === 0 ? null : (
-    <details
-      className={styles['searchCard']}
-      data-testid={`tool-card-${call.name}`}
-    >
-      <summary className={`${styles['kicker']} cursor-pointer list-none marker:hidden select-none hover:text-(--color-accent) transition-colors`}>
-        {call.name === 'corpus_list' ? 'browsed' : 'searched'} · {hits.length} entries
-      </summary>
-      <ul className={styles['hits']}>
-        {hits.map((h) => <SearchHitRow key={h.path} h={h} />)}
-      </ul>
-    </details>
-  );
-}
-
-function SearchHitRow({ h }: { h: SearchHit }) {
-  return (
-    <li className={styles['hit']} data-testid="tool-card-hit" data-path={h.path}>
-      <span
-        className={`${styles['genre']} ${h.genre === 'output' ? styles['genreOutput'] : ''}`}
-      >
-        {h.genre}
-      </span>
-      <span className={styles['title']}>{h.title}</span>
-      {h.summary && <span className={styles['summary']}>{h.summary}</span>}
-    </li>
-  );
 }
 
 // SlotsCard —— calendar_list_slots 结果。展示可订时间 + 当前剩余 booking
