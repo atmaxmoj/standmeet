@@ -135,7 +135,7 @@ function AnswerOrError({ dialog, ownerHandle, onAsk, conversationID }: {
     <>
       <AssistantLabel ownerHandle={ownerHandle} />
       <ToolCallCards
-        calls={dialog.answer.toolCalls} dialogID={dialog.id}
+        calls={dialog.answer.toolCalls}
         onAsk={onAsk} conversationID={conversationID}
       />
       <AnswerView answer={dialog.answer} />

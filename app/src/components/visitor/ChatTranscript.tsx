@@ -38,7 +38,7 @@ function DialogCard({ dialog, onAsk, conversationID }: {
       </div>
       <VisitorQuestion q={dialog.q} />
       <ToolCallCards
-        calls={dialog.answer.toolCalls} dialogID={dialog.id}
+        calls={dialog.answer.toolCalls}
         onAsk={onAsk} conversationID={conversationID}
       />
       {dialog.pending ? null : <AnswerView answer={dialog.answer} />}

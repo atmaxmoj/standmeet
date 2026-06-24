@@ -31,16 +31,14 @@ import styles from '@/components/page/ToolCallCards.module.css';
 
 interface ToolCallCardsProps {
   calls: readonly ToolCallView[];
-  // dialogID + onAsk —— I.1: ask_visitor 卡需要知道 dialog id (用来跟
-  // store 去重) 以及把 visitor 选项 forward 进下一 turn。其他 card 不用。
-  // 旧 caller 没传 onAsk → ask_visitor card 不渲 (跟"功能未启用"等价)。
-  dialogID?: string;
+  // onAsk —— 交互卡(ask_visitor / slots 沙盒卡)把 visitor 选择 forward 进下一
+  // turn(经 McpAppCard 的 mcp-ui:submit)。只读卡不用。
   onAsk?: (q: string) => void;
   // conversationID —— #122: BookCard 发约成确认信要带这段对话 id。
   conversationID?: string;
 }
 
-export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCallCardsProps) {
+export function ToolCallCards({ calls, onAsk, conversationID }: ToolCallCardsProps) {
   const byName = useToolSpecsStore((s) => s.byName);
   const visible = calls.filter((c) => renderableCall(c, byName));
   return visible.length === 0 ? null : (
@@ -48,7 +46,7 @@ export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCa
       {visible.map((c, i) => (
         <ToolCallCard
           key={`${c.name}-${i}`} call={c}
-          dialogID={dialogID} onAsk={onAsk} conversationID={conversationID}
+          onAsk={onAsk} conversationID={conversationID}
         />
       ))}
     </div>
@@ -56,7 +54,7 @@ export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCa
 }
 
 // renderableCall —— 渲卡判定。tool 自带 ui:// 卡（per-tool ui_html）→ 渲沙盒；
-// 否则尚未迁的 legacy 卡（cardKindFor）。两者皆无 → 不渲。
+// 否则 booked 遗留卡 / skill·ext 通用兜底（cardKindFor）。皆无 → 不渲。
 function renderableCall(
   c: ToolCallView, byName: Record<string, PublicSessionToolSpec>,
 ): boolean {
@@ -64,44 +62,39 @@ function renderableCall(
   return c.ok && (uiHtml !== '' || cardKindFor(c.name) !== 'none');
 }
 
-// CardCtx —— dispatch 每个 renderer 拿到的全套上下文(call + 几张卡各自需要的
-// dialogID / onAsk / conversationID),按 kind 查表渲,避开 presentation 层 if。
+// CardCtx —— dispatch 每张卡拿到的上下文(call + onAsk + conversationID)。
 interface CardCtx {
   call: ToolCallView;
-  dialogID?: string;
   onAsk?: (q: string) => void;
   conversationID?: string;
 }
 
-// LEGACY_CARD_RENDERERS —— 尚未外置能力的写死卡，随各能力外置逐个删除（目标态为
-// 空）。外置能力走沙盒 McpAppCard，不在这。ask_visitor 已外置 → 不在这。
-const LEGACY_CARD_RENDERERS: Record<
+// NON_SANDBOX_CARDS —— 工具没自带 ui:// 卡时的兜底渲染（按 kind 查表，避开
+// presentation 层 if）：
+//   - dump (skill_*/ext_*) → GenericDumpCard：任意「无卡」工具的通用 debug 兜底
+//     （不是按能力写死的卡，是 fallback；自带卡的 externalized 工具走沙盒）。
+//   - booked (calendar_book) → BookCard：**唯一遗留写死卡**。cancel / 发确认信是
+//     connector-backed mutation，从卡触发，归 connector 重构（booked 卡随之外置）。
+const NON_SANDBOX_CARDS: Record<
   Exclude<ReturnType<typeof cardKindFor>, 'none'>,
   (ctx: CardCtx) => React.ReactElement | null
 > = {
   dump:   ({ call }) => <GenericDumpCard call={call} />,
-  booked: (ctx) => <BookCard call={ctx.call} conversationID={ctx.conversationID} />,
+  booked: ({ call, conversationID }) => <BookCard call={call} conversationID={conversationID} />,
 };
 
 function ToolCallCard(ctx: CardCtx) {
-  // tool 自带 ui:// 卡 → 沙盒渲染（per-tool）。能力自包含自己的渲染。
+  // tool 自带 ui:// 卡 → 沙盒渲染（per-tool，能力自包含自己的渲染）；否则走兜底。
   const byName = useToolSpecsStore((s) => s.byName);
   const uiHtml = uiHtmlForTool(byName, ctx.call.name);
-  return sandboxCard(ctx, uiHtml) ?? legacyCard(ctx);
-}
-
-function sandboxCard({ call, onAsk }: CardCtx, uiHtml: string) {
   return uiHtml !== ''
-    ? <McpAppCard call={call} html={uiHtml} onAsk={onAsk} />
-    : null;
+    ? <McpAppCard call={ctx.call} html={uiHtml} onAsk={ctx.onAsk} />
+    : nonSandboxCard(ctx);
 }
 
-// legacyCard —— 尚未外置能力的写死卡（随外置进度删空）。
-function legacyCard({ call, dialogID, onAsk, conversationID }: CardCtx) {
-  const kind = cardKindFor(call.name);
-  return kind === 'none'
-    ? null
-    : LEGACY_CARD_RENDERERS[kind]({ call, dialogID, onAsk, conversationID });
+function nonSandboxCard(ctx: CardCtx) {
+  const kind = cardKindFor(ctx.call.name);
+  return kind === 'none' ? null : NON_SANDBOX_CARDS[kind](ctx);
 }
 
 // BookCard —— calendar_book 成功 confirmation。约成后给一截"发确认邮件吗"
