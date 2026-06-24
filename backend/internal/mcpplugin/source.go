@@ -25,7 +25,6 @@ type configDoc struct {
 }
 
 type rawManifest struct {
-	UI               *rawUI       `json:"ui"`
 	Requires         []string     `json:"requires"`
 	ID               string       `json:"id"`
 	Version          string       `json:"version"`
@@ -51,11 +50,6 @@ type rawSandbox struct {
 	HostSockets []string `json:"host_sockets"`
 	AllowNet    bool     `json:"allow_net"`
 	Workspace   bool     `json:"workspace"`
-}
-
-type rawUI struct {
-	ResourceURI string `json:"resource_uri"`
-	MimeType    string `json:"mime_type"`
 }
 
 // Load —— 从配置文件路径读 + 解析。空路径 / 文件不存在 → 空 Result（部署默认无
@@ -188,9 +182,6 @@ func toManifest(r *rawManifest) Manifest {
 			URL:     r.Transport.URL,
 			Headers: r.Transport.Headers,
 		},
-	}
-	if r.UI != nil {
-		m.UI = &UI{ResourceURI: r.UI.ResourceURI, MimeType: r.UI.MimeType}
 	}
 	if r.Transport.Sandbox != nil {
 		m.Transport.Sandbox = &Sandbox{

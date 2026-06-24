@@ -194,6 +194,7 @@ type VisitorToolSpec struct {
 	Name          string          `json:"name"`
 	Description   string          `json:"description"`
 	ProgressLabel string          `json:"progress_label,omitempty"`
+	UIHTML        string          `json:"ui_html,omitempty"`
 	InputSchema   json.RawMessage `json:"input_schema"`
 }
 
@@ -226,6 +227,7 @@ func toolToVisitorSpec(ctx context.Context, t *BindingTool) VisitorToolSpec {
 		Description:   bindingToolDescription(ctx, t),
 		ProgressLabel: t.ProgressLabel,
 		InputSchema:   t.InputSchema,
+		UIHTML:        t.UIHTML,
 	}
 }
 

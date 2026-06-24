@@ -147,16 +147,19 @@ func maybeExit(n int64) {
 	}
 }
 
-// returnDirectlyTool —— 带 `_meta.return_directly=true` 的 tool。验证 mcpclient
-// 把 tool `_meta` 自定义字段透传出来（外置能力声明 ReturnDirectly 的载体）。复用
-// echoHandler 当行为；这里只关心 _meta 是否被搬运。
+// returnDirectlyTool —— 带 `_meta.return_directly=true` + `_meta.ui_resource` 的
+// tool。验证 mcpclient 把 tool `_meta` 自定义字段透传出来（外置能力声明 ReturnDirectly
+// 与 per-tool ui:// 卡的载体）。复用 echoHandler 当行为；这里只关心 _meta 被搬运。
 func returnDirectlyTool() mcpgo.Tool {
 	t := mcpgo.NewTool(
 		"clarify",
-		mcpgo.WithDescription("Echo tool that declares return_directly via _meta. Fixture."),
+		mcpgo.WithDescription("Echo tool that declares return_directly + ui_resource via _meta. Fixture."),
 		mcpgo.WithString("text", mcpgo.Required(), mcpgo.Description("text to echo")),
 	)
-	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"return_directly": true})
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{
+		"return_directly": true,
+		"ui_resource":     sampleResourceURI,
+	})
 	return t
 }
 

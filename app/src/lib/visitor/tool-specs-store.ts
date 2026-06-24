@@ -34,3 +34,11 @@ function indexByName(
   for (const s of specs) out[s.name] = s;
   return out;
 }
+
+// uiHtmlForTool —— 这个 tool 自带的 ui:// 卡片 HTML（#134 / MCP Apps，per-tool）。
+// 按 tool 名精确取（插件经 tool `_meta.ui_resource` 声明）；无 → ''（无卡）。
+export function uiHtmlForTool(
+  byName: Record<string, PublicSessionToolSpec>, toolName: string,
+): string {
+  return byName[toolName]?.ui_html ?? '';
+}

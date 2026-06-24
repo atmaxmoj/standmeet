@@ -62,7 +62,12 @@ func askVisitorTool() mcpgo.Tool {
 		mcpgo.WithBoolean("allow_chat",
 			mcpgo.Description("If true, show a free-text box alongside the widget.")),
 	)
-	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"return_directly": ReturnDirect})
+	// MCP Apps: declare this tool's ui:// card on the tool `_meta`. The host reads
+	// it (resources/read) at assembly and renders it sandboxed for this tool.
+	t.Meta = mcpgo.NewMetaFromMap(map[string]any{
+		"return_directly": ReturnDirect,
+		"ui_resource":     UICardURI,
+	})
 	return t
 }
 

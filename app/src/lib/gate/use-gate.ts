@@ -37,6 +37,9 @@ const ToolSpecSchema = z.object({
   // G-8: throbber 文案随 spec 一起持久化；缺失 → fallback "running <name>"
   progress_label: z.string().optional(),
   input_schema: z.unknown(),
+  // #134: 这个 tool 自带的 ui:// 卡 HTML（MCP Apps，per-tool）。随 spec 持久化，
+  // 否则 code-mode 进站(gate issue → localStorage → chat reuse)那一跳被 zod 剥掉。
+  ui_html: z.string().optional(),
 });
 const CapStateSchema = z.object({
   id: z.string(),

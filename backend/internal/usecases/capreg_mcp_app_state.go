@@ -6,7 +6,7 @@ package usecases
 
 import (
 	"context"
-	"encoding/json"
+	"log/slog"
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
@@ -15,10 +15,11 @@ import (
 )
 
 func wrapMCPAppTools(
-	m *mcpplugin.Manifest, sess *mcpclient.Session, tools []mcpclient.Tool,
-	sessionMeta *mcpclient.SessionContext,
+	ctx context.Context, m *mcpplugin.Manifest, sess *mcpclient.Session,
+	tools []mcpclient.Tool, sessionMeta *mcpclient.SessionContext,
 ) []capreg.BindingTool {
 	out := make([]capreg.BindingTool, 0, len(tools))
+	uiCache := map[string]string{} // per-assembly dedup of resources/read（同 uri 只读一次）
 	for i := range tools {
 		t := &tools[i]
 		name := composeMCPAppToolName(m, t.Name)
@@ -37,6 +38,8 @@ func wrapMCPAppTools(
 		if toolReturnsDirectly(t) {
 			bt.ReturnDirectly = true
 		}
+		// UIHTML —— MCP Apps：ui 挂 tool（`_meta.ui_resource`）。装配时读卡片 HTML。
+		bt.UIHTML = toolUIHTML(ctx, sess, t, uiCache)
 		out = append(out, bt)
 	}
 	return out
@@ -46,6 +49,28 @@ func wrapMCPAppTools(
 func toolReturnsDirectly(t *mcpclient.Tool) bool {
 	v, ok := t.Meta["return_directly"].(bool)
 	return ok && v
+}
+
+// toolUIHTML —— 读 tool `_meta.ui_resource` 指向的 ui:// 卡片 HTML（per-tool，对齐
+// MCP Apps）。无声明 → 空（无卡）；读不到 → 空（降级，不阻塞 chat）。同 uri 走 cache。
+func toolUIHTML(
+	ctx context.Context, sess *mcpclient.Session, t *mcpclient.Tool, cache map[string]string,
+) string {
+	uri, ok := t.Meta["ui_resource"].(string)
+	if !ok || uri == "" {
+		return ""
+	}
+	if html, hit := cache[uri]; hit {
+		return html
+	}
+	html, err := sess.ReadResource(ctx, uri)
+	if err != nil {
+		// 读不到不致命（card 降级，不阻塞 chat），但记一笔——不静默吞。
+		slog.Default().Warn("read ui card resource", "tool", t.Name, "uri", uri, "err", err)
+		return ""
+	}
+	cache[uri] = html
+	return html
 }
 
 // toolProgressLabel —— server 在 tool `_meta.progress_label` 里声明的 throbber 文案
@@ -87,24 +112,8 @@ func overlayCapState(dst *capreg.CapabilityState, extra capreg.CapabilityState) 
 	}
 }
 
-// mcpAppState —— CapabilityState；manifest 带 ui 则把 ui 资源（resource_uri /
-// mime_type + 装配期读到的 HTML 模板）挂进 Extra（#134：前端沙盒渲染的取料）。
-func mcpAppState(
-	ctx context.Context, sess *mcpclient.Session, m *mcpplugin.Manifest, enabled bool,
-) capreg.CapabilityState {
-	st := capreg.CapabilityState{ID: m.ID, Enabled: enabled}
-	if m.UI == nil {
-		return st
-	}
-	extra, err := json.Marshal(map[string]map[string]string{
-		"ui": {
-			"resource_uri": m.UI.ResourceURI,
-			"mime_type":    m.UI.MimeType,
-			"html":         readUIHTML(ctx, sess, m),
-		},
-	})
-	if err == nil {
-		st.Extra = extra
-	}
-	return st
+// mcpAppState —— 通用 CapabilityState（id/enabled）。#134：ui 卡片已挪到 per-tool
+// （tool `_meta.ui_resource` → tool_spec.UIHTML），不再挂在 capability 上。
+func mcpAppState(m *mcpplugin.Manifest, enabled bool) capreg.CapabilityState {
+	return capreg.CapabilityState{ID: m.ID, Enabled: enabled}
 }

@@ -78,12 +78,6 @@ type Transport struct {
 	Args    []string
 }
 
-// UI —— 可选 MCP Apps UI 资源（#134）：tool 在 chat 里渲染的 ui:// 卡片。
-type UI struct {
-	ResourceURI string
-	MimeType    string
-}
-
 // ACL 取值 —— 插件工具对访客的暴露门。
 const (
 	// ACLRoleGranted —— 默认：role.AllowedTools 含本插件 ID 才暴露（echoer /
@@ -96,7 +90,6 @@ const (
 
 // Manifest —— 一条校验通过的 MCP 插件声明。
 type Manifest struct {
-	UI               *UI
 	Requires         []string
 	ID               string
 	Version          string

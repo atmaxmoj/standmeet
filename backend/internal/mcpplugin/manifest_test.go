@@ -30,7 +30,6 @@ func TestParseConfig_StdioAndHttp(t *testing.T) {
 	   "transport":{"kind":"stdio","command":"booking-plugin",
 	     "args":["--serve"],"env":{"FOO":"bar"}},
 	   "requires":["calendar","smtp"],
-	   "ui":{"resource_uri":"ui://booking-card","mime_type":"text/html+mcp"},
 	   "prompt_fragment_id":"capabilities/booking"},
 	  {"id":"weather","version":"1","shape":"both",
 	   "transport":{"kind":"http","url":"http://weather:9000/mcp",
@@ -51,9 +50,6 @@ func TestParseConfig_StdioAndHttp(t *testing.T) {
 	require.Equal(t, "bar", b.Transport.Env["FOO"])
 	require.Equal(t, []string{"calendar", "smtp"}, b.Requires)
 	require.Equal(t, "capabilities/booking", b.PromptFragmentID)
-	require.NotNil(t, b.UI)
-	require.Equal(t, "ui://booking-card", b.UI.ResourceURI)
-	require.Equal(t, "text/html+mcp", b.UI.MimeType)
 
 	w := res.Manifests[1]
 	require.Equal(t, "weather", w.ID)
@@ -61,7 +57,6 @@ func TestParseConfig_StdioAndHttp(t *testing.T) {
 	require.Equal(t, "http", w.Transport.Kind)
 	require.Equal(t, "http://weather:9000/mcp", w.Transport.URL)
 	require.Equal(t, "Bearer x", w.Transport.Headers["Authorization"])
-	require.Nil(t, w.UI)
 }
 
 // --- corner：畸形 JSON → 整体报错（唯一 fail-closed 情形）---

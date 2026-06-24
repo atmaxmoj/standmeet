@@ -14,12 +14,11 @@
 
 'use client';
 
-import type { CapabilityState } from '@standmeet/agent-core';
+import type { PublicSessionToolSpec } from '@standmeet/sdk-core';
 
 import { McpAppCard } from '@/components/page/McpAppCard';
 import { BookingEmailPrompt } from '@/components/page/BookingEmailPrompt';
-import { useCapabilityStore, uiHtmlForTool } from '@/lib/visitor/capability-store';
-import { logger } from '@/lib/logger';
+import { useToolSpecsStore, uiHtmlForTool } from '@/lib/visitor/tool-specs-store';
 import { ReportArtifactCard } from '@/components/page/ReportArtifactCard';
 import { SlotsCalendarCard } from '@/components/page/SlotsCalendarCard';
 import {
@@ -45,8 +44,8 @@ interface ToolCallCardsProps {
 }
 
 export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCallCardsProps) {
-  const states = useCapabilityStore((s) => s.states);
-  const visible = calls.filter((c) => renderableCall(c, states));
+  const byName = useToolSpecsStore((s) => s.byName);
+  const visible = calls.filter((c) => renderableCall(c, byName));
   return visible.length === 0 ? null : (
     <div className={styles['stack']} data-testid="tool-call-cards">
       {visible.map((c, i) => (
@@ -59,16 +58,13 @@ export function ToolCallCards({ calls, dialogID, onAsk, conversationID }: ToolCa
   );
 }
 
-// renderableCall —— 渲卡判定。外置能力自带 ui:// 卡（extra.ui.html）→ 渲沙盒；
-// 否则尚未外置的 legacy 卡（cardKindFor）。两者皆无 → 不渲。
-function renderableCall(c: ToolCallView, states: readonly CapabilityState[]): boolean {
-  const uiHtml = uiHtmlForTool(states, c.name);
-  const renderable = c.ok && (uiHtml !== '' || cardKindFor(c.name) !== 'none');
-  logger.info('tool card render decision', {
-    name: c.name, ok: c.ok, uiHtmlLen: uiHtml.length,
-    kind: cardKindFor(c.name), renderable,
-  });
-  return renderable;
+// renderableCall —— 渲卡判定。tool 自带 ui:// 卡（per-tool ui_html）→ 渲沙盒；
+// 否则尚未迁的 legacy 卡（cardKindFor）。两者皆无 → 不渲。
+function renderableCall(
+  c: ToolCallView, byName: Record<string, PublicSessionToolSpec>,
+): boolean {
+  const uiHtml = uiHtmlForTool(byName, c.name);
+  return c.ok && (uiHtml !== '' || cardKindFor(c.name) !== 'none');
 }
 
 // CardCtx —— dispatch 每个 renderer 拿到的全套上下文(call + 几张卡各自需要的
@@ -94,9 +90,9 @@ const LEGACY_CARD_RENDERERS: Record<
 };
 
 function ToolCallCard(ctx: CardCtx) {
-  // 外置 MCP app 自带 ui:// 卡 → 沙盒渲染。能力自包含自己的渲染。
-  const states = useCapabilityStore((s) => s.states);
-  const uiHtml = uiHtmlForTool(states, ctx.call.name);
+  // tool 自带 ui:// 卡 → 沙盒渲染（per-tool）。能力自包含自己的渲染。
+  const byName = useToolSpecsStore((s) => s.byName);
+  const uiHtml = uiHtmlForTool(byName, ctx.call.name);
   return sandboxCard(ctx, uiHtml) ?? legacyCard(ctx);
 }
 

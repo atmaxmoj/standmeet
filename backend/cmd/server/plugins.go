@@ -119,8 +119,8 @@ func summarizeManifest() mcpplugin.Manifest {
 }
 
 // askVisitorManifest —— ask_visitor 内建：静态二进制在 /srv/plugins/ask-visitor，经
-// sandbox_stdio 在 bwrap 里跑（无后端数据依赖 → 无 HostSockets、完全断网）。元数据
-// （acl=always / raw 名 / ui:// 卡）跟以前一致，只是加载从 in-process 换成沙箱二进制。
+// sandbox_stdio 在 bwrap 里跑（无后端数据依赖 → 无 HostSockets、完全断网）。ui:// 卡
+// 现按 MCP Apps 挂在 tool `_meta.ui_resource` 上（不再在 manifest 声明）。
 func askVisitorManifest() mcpplugin.Manifest {
 	return mcpplugin.Manifest{
 		ID:           askvisitor.ID,
@@ -128,9 +128,6 @@ func askVisitorManifest() mcpplugin.Manifest {
 		Shape:        mcpplugin.ShapeVisitorOnly,
 		ACL:          mcpplugin.ACLAlways,
 		RawToolNames: true,
-		UI: &mcpplugin.UI{
-			ResourceURI: askvisitor.UICardURI, MimeType: askvisitor.UICardMIME,
-		},
 		Transport: mcpplugin.Transport{
 			Kind:    mcpplugin.TransportSandboxStdio,
 			Command: "/plugin/ask-visitor",

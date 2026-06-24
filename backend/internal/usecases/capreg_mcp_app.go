@@ -165,8 +165,8 @@ func (c *mcpAppCapability) VisitorBinding(
 	}
 	specs := c.cachedToolSpecs(ds.tools)
 	return &capreg.Binding{
-		Tools: wrapMCPAppTools(&c.m, ds.sess, specs, sessionMetaFor(&c.m, in)),
-		State: c.stateFor(ctx, in, ds.sess),
+		Tools: wrapMCPAppTools(ctx, &c.m, ds.sess, specs, sessionMetaFor(&c.m, in)),
+		State: c.stateFor(ctx, in),
 		Close: ds.sess.Close,
 	}, nil
 }
@@ -179,12 +179,12 @@ func (c *mcpAppCapability) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.
 	return *c.tools
 }
 
-// stateFor —— 通用 mcpAppState（id/enabled/ui）+ 可选 stateHook overlay（booker:
+// stateFor —— 通用 mcpAppState（id/enabled）+ 可选 stateHook overlay（booker:
 // quota_remaining）。enabled 走 fragmentActive。
 func (c *mcpAppCapability) stateFor(
-	ctx context.Context, in *capreg.AssembleInput, sess *mcpclient.Session,
+	ctx context.Context, in *capreg.AssembleInput,
 ) capreg.CapabilityState {
-	st := mcpAppState(ctx, sess, &c.m, c.fragmentActive(in))
+	st := mcpAppState(&c.m, c.fragmentActive(in))
 	if c.stateHook == nil {
 		return st
 	}
@@ -253,19 +253,6 @@ func (c *mcpAppCapability) cachedInstructions(ctx context.Context) string {
 		*c.instr = sess.Instructions()
 	})
 	return *c.instr
-}
-
-// readUIHTML —— manifest 带 ui 时，装配期经 resources/read 取卡片 HTML 模板。
-// 取不到不致命（card 渲染降级，不阻塞 chat）：返空串、caller 仍带 resource_uri。
-func readUIHTML(ctx context.Context, sess *mcpclient.Session, m *mcpplugin.Manifest) string {
-	if m.UI == nil || m.UI.ResourceURI == "" {
-		return ""
-	}
-	html, err := sess.ReadResource(ctx, m.UI.ResourceURI)
-	if err != nil {
-		return ""
-	}
-	return html
 }
 
 // mcpAppGranted —— 暴露门。ACL=always → 无条件暴露给所有 mode（外置的内建基础

@@ -49,6 +49,7 @@ type BindingTool struct {
 	Tool           tool.InvokableTool
 	Name           string
 	ProgressLabel  string
+	UIHTML         string
 	InputSchema    json.RawMessage
 	ReturnDirectly bool
 }

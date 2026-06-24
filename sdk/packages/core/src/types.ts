@@ -108,6 +108,9 @@ export interface PublicSessionToolSpec {
   // frontend ConversationDeck/ChatRoom 不再各自硬编码 THROBBER_LABELS 表。
   readonly progress_label?: string;
   readonly input_schema: unknown;
+  // #134 / MCP Apps: 这个 tool 自带的 ui:// 卡片 HTML（插件经 tool `_meta.ui_resource`
+  // 声明，宿主装配时 resources/read 进来）。空 / 缺失 → 无卡。
+  readonly ui_html?: string;
 }
 
 export interface PublicSessionResponse {
