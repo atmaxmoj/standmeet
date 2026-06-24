@@ -8,7 +8,7 @@
 //   5. 关闭面板 → pill 恢复
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { Page, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -126,11 +126,13 @@ async function dockFullFlow({ page }: { page: Page }): Promise<void> {
 
 // dockSendsDocContext —— 从 wiki landing 的浮窗发问,turn 请求带 doc_context
 // (title/path/genre),后端注进 instruction 让 AI 解析「this/这篇」指代。
+type TurnBody = { doc_context?: { title: string; path: string; genre: string } };
+
 async function dockSendsDocContext({ page }: { page: Page }): Promise<void> {
   await enterCodeSession(page, CODE);
-  let turnBody: { doc_context?: { title: string; path: string; genre: string } } | null = null;
+  let turnBody: TurnBody | null = null;
   await page.route('**/api/v1/agent/turn', async (route) => {
-    turnBody = route.request().postDataJSON() as typeof turnBody;
+    turnBody = route.request().postDataJSON() as TurnBody;
     await route.continue();
   });
   await goto(page, '/wiki/projects/lucerna');
@@ -141,7 +143,8 @@ async function dockSendsDocContext({ page }: { page: Page }): Promise<void> {
   await input.press('Enter');
   await expect(page.getByTestId('floating-chat-panel').getByTestId('answer-body'))
     .toBeVisible({ timeout: 15_000 });
-  expect(turnBody?.doc_context).toMatchObject({
+  // turnBody 只在 route 闭包里赋值 → TS CFA 把它窄成 null；读处显式 cast 回 union。
+  expect((turnBody as TurnBody | null)?.doc_context).toMatchObject({
     title: 'Lucerna', path: 'projects/lucerna', genre: 'wiki',
   });
 }
