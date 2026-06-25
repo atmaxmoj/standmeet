@@ -138,15 +138,31 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	grant := r.PostForm.Get("grant_type")
-	var revoked bool
+	var (
+		revoked bool
+		fault   *failInjection
+	)
 	s.withState(func(st *gcalState) {
 		st.tokenCallCount++
 		revoked = st.revoked
+		if grant == "refresh_token" {
+			fault, _ = st.takeFail("token")
+		}
 	})
 	// owner revoked at Google → refresh-token grant fails with invalid_grant
 	// (the backend maps this to ErrCalendarRevoked → friendly degrade).
 	if grant == "refresh_token" && revoked {
 		writeInvalidGrant(s.log, w)
+		return
+	}
+	// E7: injected network/500 fault on refresh (NOT invalid_grant) → backend
+	// treats it as transient (retry + friendly degrade), not as a revoke.
+	if fault != nil {
+		if fault.mode == "network" {
+			s.hijackClose(w)
+			return
+		}
+		http.Error(w, `{"error":"server_error"}`, fault.status)
 		return
 	}
 	resp := oauthTokenResponse{
@@ -250,19 +266,7 @@ func (s *server) insertDecision(ev mockEvent) (*mockEvent, *failInjection) {
 // 重试）；其余模式回注入的状态码。
 func (s *server) applyInsertFail(w http.ResponseWriter, fail *failInjection) {
 	if fail.mode == connResetAfterWrite {
-		hj, ok := w.(http.Hijacker)
-		if !ok {
-			http.Error(w, "hijack unsupported", http.StatusInternalServerError)
-			return
-		}
-		conn, _, err := hj.Hijack()
-		if err != nil {
-			s.log.Warn("insert connreset hijack", logErrKey, err)
-			return
-		}
-		if cerr := conn.Close(); cerr != nil {
-			s.log.Warn("insert connreset close", logErrKey, cerr)
-		}
+		s.hijackClose(w)
 		return
 	}
 	http.Error(w, `{"error":"injected insert failure"}`, fail.status)
@@ -416,15 +420,70 @@ func (s *server) serveMockGCalFail(w http.ResponseWriter, r *http.Request) {
 	if req.Status == 0 {
 		req.Status = http.StatusServiceUnavailable
 	}
+	if req.Times == 0 { // "failNext" semantics: omitted count = fail once
+		req.Times = 1
+	}
+	s.setFail(req.Op, &failInjection{
+		mode: req.Mode, status: req.Status, remaining: req.Times,
+	})
+	writeOK(s.log, w)
+}
+
+// setFail —— 记一条 op 的注入失败（懒建 map）。
+func (s *server) setFail(op string, f *failInjection) {
 	s.withState(func(st *gcalState) {
 		if st.fails == nil {
 			st.fails = map[string]*failInjection{}
 		}
-		st.fails[req.Op] = &failInjection{
-			mode: req.Mode, status: req.Status, remaining: req.Times,
-		}
+		st.fails[op] = f
+	})
+}
+
+// tokenFaultBody —— /__mock/gcal/token_fault 入参：让接下来 times 次 refresh token
+// 调用以 network 错（断连）或 500（非 invalid_grant）失败（E7）。
+type tokenFaultBody struct {
+	Mode  string `json:"mode"` // "network" | "500"
+	Times int    `json:"times"`
+}
+
+// serveMockGCalTokenFault —— 注入 token refresh 的 network/500 故障（区别于 revoke
+// 的 invalid_grant）。验证后端把它当瞬时错重试 + 友好降级，不当撤销。
+func (s *server) serveMockGCalTokenFault(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body", http.StatusBadRequest)
+		return
+	}
+	var req tokenFaultBody
+	if uerr := json.Unmarshal(body, &req); uerr != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	if req.Times == 0 {
+		req.Times = 1
+	}
+	s.setFail("token", &failInjection{
+		mode: req.Mode, status: http.StatusInternalServerError, remaining: req.Times,
 	})
 	writeOK(s.log, w)
+}
+
+// hijackClose —— 劫持连接直接断开，模拟传输层 network 错（客户端拿到 EOF/conn
+// reset → 后端当瞬时错重试）。connreset-after-write 与 token network 故障共用。
+func (s *server) hijackClose(w http.ResponseWriter) {
+	hj, ok := w.(http.Hijacker)
+	if !ok {
+		http.Error(w, "hijack unsupported", http.StatusInternalServerError)
+		return
+	}
+	conn, _, err := hj.Hijack()
+	if err != nil {
+		s.log.Warn("hijack", logErrKey, err)
+		return
+	}
+	if cerr := conn.Close(); cerr != nil {
+		s.log.Warn("hijack close", logErrKey, cerr)
+	}
 }
 
 // serveMockResetTokenCount —— 只清 token 调用计数（invalid-grant-no-retry 用它

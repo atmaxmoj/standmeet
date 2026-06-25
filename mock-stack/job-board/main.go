@@ -192,6 +192,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /__mock/gcal/token_call_count", s.serveMockGCalTokenCount)
 	mux.HandleFunc("POST /__mock/gcal/reset_token_count", s.serveMockResetTokenCount)
 	mux.HandleFunc("POST /__mock/gcal/fail", s.serveMockGCalFail)
+	mux.HandleFunc("POST /__mock/gcal/token_fault", s.serveMockGCalTokenFault)
 	// /__mock/inference/* —— mock LLM scripting bridge for backend's
 	// MockProvider. Tests POST {name,args} to /next_tool; backend GETs
 	// /take_next_tool before each Stream and clears the queue atomically.

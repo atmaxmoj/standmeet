@@ -179,7 +179,7 @@ func statusError(resp *http.Response) error {
 		resp.StatusCode, strconv.Quote(string(excerpt)),
 	)
 	if transientStatus(resp.StatusCode) {
-		return fmt.Errorf("%w: %w", err, ErrTransient)
+		return fmt.Errorf("%w: %w", err, ErrServerBusy)
 	}
 	return err
 }

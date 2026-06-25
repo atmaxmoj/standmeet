@@ -10,11 +10,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/gcal"
-	"github.com/atmaxmoj/standmeet/internal/retry"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -30,6 +30,9 @@ type CalendarClient interface {
 type CalendarVault interface {
 	GetConnector(ctx context.Context, ownerID, provider string) (domain.CalendarConnector, error)
 	SaveTokens(ctx context.Context, in *SaveTokensInput) error
+	// ClearTokens —— soft disconnect：擦 OAuth token，保留 client_id/secret。撤销
+	// (invalid_grant) 落库用：连接置 disconnected，下一 session 经单点闸 gate 掉。
+	ClearTokens(ctx context.Context, ownerID, provider string) error
 }
 
 // SaveTokensInput —— 刷新后回存 token（composition root 把它翻成 postgres input）。
@@ -68,7 +71,7 @@ func (p *CalendarProxy) FreeBusy(
 		return nil, err
 	}
 	var busy []gcal.BusyWindow
-	if ferr := calendarRetry(ctx, func() error {
+	if ferr := calendarRetry(ctx, readPolicy(), func() error {
 		got, e := p.client.FreeBusy(ctx, &gcal.FreeBusyInput{
 			AccessToken: token, TimeMin: req.TimeMin, TimeMax: req.TimeMax,
 			CalendarIDs: []string{"primary"}, TimeZone: "UTC",
@@ -104,7 +107,7 @@ func (p *CalendarProxy) InsertEvent(
 		return usecases.InsertedEvent{}, kerr
 	}
 	var ins gcal.InsertedEvent
-	if ierr := calendarRetry(ctx, func() error {
+	if ierr := calendarRetry(ctx, writePolicy(), func() error {
 		got, e := p.client.InsertEvent(ctx, &gcal.InsertEventInput{
 			AccessToken: token, CalendarID: "primary",
 			Summary: req.Summary, Description: req.Description,
@@ -176,24 +179,15 @@ func (p *CalendarProxy) freshToken(ctx context.Context, ownerID string) (string,
 func (p *CalendarProxy) refreshAndStore(
 	ctx context.Context, conn *domain.CalendarConnector,
 ) (string, error) {
-	var resp gcal.TokenResponse
-	rerr := retry.Do(ctx, readPolicy(), func() error {
-		got, e := p.client.RefreshToken(ctx, gcal.RefreshTokenInput{
-			ClientID:     conn.ClientID,
-			ClientSecret: conn.ClientSecret,
-			RefreshToken: conn.RefreshToken,
-		})
-		resp = got
-		if e != nil {
-			return fmt.Errorf("refresh token: %w", e)
-		}
-		return nil
+	// token refresh 不重试：撞 invalid_grant → 撤销落库 + 友好降级；撞 network/5xx →
+	// 友好「稍后再试」（booking 路上的同步操作，快速降级优于多轮退避，决策点 D-6 per-op）。
+	resp, rerr := p.client.RefreshToken(ctx, gcal.RefreshTokenInput{
+		ClientID:     conn.ClientID,
+		ClientSecret: conn.ClientSecret,
+		RefreshToken: conn.RefreshToken,
 	})
 	if rerr != nil {
-		if errors.Is(rerr, gcal.ErrInvalidGrant) {
-			return "", domain.ErrCalendarRevoked
-		}
-		return "", fmt.Errorf("calendar: %w", rerr)
+		return "", p.onRefreshErr(ctx, conn, rerr)
 	}
 	if serr := p.vault.SaveTokens(ctx, &SaveTokensInput{
 		OwnerID: conn.OwnerID, Provider: conn.Provider,
@@ -203,4 +197,23 @@ func (p *CalendarProxy) refreshAndStore(
 		return "", fmt.Errorf("save refreshed token: %w", serr)
 	}
 	return resp.AccessToken, nil
+}
+
+// onRefreshErr —— 刷新失败归类：invalid_grant → 落库 disconnect（擦 token → 连接
+// disconnected，下一 session 经单点闸 gate 掉，撤销→gate 联动）+ ErrCalendarRevoked；
+// 落库失败不掩盖撤销，仅记日志。其余原样包。从 refreshAndStore 抽出守 cognitive ≤7。
+func (p *CalendarProxy) onRefreshErr(
+	ctx context.Context, conn *domain.CalendarConnector, rerr error,
+) error {
+	if errors.Is(rerr, gcal.ErrInvalidGrant) {
+		if cerr := p.vault.ClearTokens(ctx, conn.OwnerID, conn.Provider); cerr != nil {
+			slog.Default().Warn("clear tokens after invalid_grant failed",
+				"owner", conn.OwnerID, "provider", conn.Provider, "err", cerr)
+		}
+		return domain.ErrCalendarRevoked
+	}
+	if gcal.Transient(rerr) { // network/5xx 重试耗尽 → 友好「稍后再试」(E7)
+		return domain.ErrCalendarUnavailable
+	}
+	return fmt.Errorf("calendar: %w", rerr)
 }

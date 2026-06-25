@@ -52,6 +52,15 @@ func (a calendarVaultAdapter) SaveTokens(
 	return nil
 }
 
+func (a calendarVaultAdapter) ClearTokens(
+	ctx context.Context, ownerID, provider string,
+) error {
+	if err := a.repo.ClearTokens(ctx, ownerID, provider); err != nil {
+		return fmt.Errorf("vault clear tokens: %w", err)
+	}
+	return nil
+}
+
 func (a calendarStoreAdapter) GetBookingPolicy(
 	ctx context.Context, ownerID string,
 ) (domain.BookingPolicy, error) {

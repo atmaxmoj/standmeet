@@ -22,11 +22,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/retry"
 )
 
-// calendarRetry —— 按 readPolicy 跑一次 connector 调用并归一错误：瞬时错重试耗尽
-// → domain.ErrCalendarUnavailable（visitor-facing 层映成「稍后再试」友好降级，不
-// 泄漏底层 5xx / stack）；其余原样包。把映射从各调用点抽出，压 cyclop。
-func calendarRetry(ctx context.Context, fn func() error) error {
-	err := retry.Do(ctx, readPolicy(), fn)
+// calendarRetry —— 按给定 policy 跑一次 connector 调用并归一错误：瞬时错（重试耗尽
+// 或不可重的 5xx 写）→ domain.ErrCalendarUnavailable（visitor-facing 层映成「稍后
+// 再试」友好降级，不泄漏底层 5xx / stack）；其余原样包。把映射从各调用点抽出，压
+// cyclop。读传 readPolicy（传输错 + 5xx 都重）；写传 writePolicy（只重 pre-send
+// 传输错，5xx 不盲重——非幂等写可能已生效）。
+func calendarRetry(ctx context.Context, policy retry.Policy, fn func() error) error {
+	err := retry.Do(ctx, policy, fn)
 	if err == nil {
 		return nil
 	}
@@ -56,11 +58,24 @@ const (
 	syncMaxTotal    = 10 * time.Second
 )
 
-// readPolicy —— 读类（freeBusy / list_slots）+ token refresh：sync 短预算，瞬时
-// 错重试、永久错快速降级。读幂等，重试无副作用。
+// readPolicy —— 读类（freeBusy / list_slots）：sync 短预算，传输错 + 5xx 都重（读
+// 幂等，重试无副作用），永久错快速降级。
 func readPolicy() retry.Policy {
 	return retry.Policy{
 		Retryable:   gcal.Transient,
+		MaxAttempts: syncMaxAttempts,
+		BaseDelay:   syncBaseDelay,
+		MaxInterval: syncMaxInterval,
+		MaxTotal:    syncMaxTotal,
+	}
+}
+
+// writePolicy —— 写类（events.insert）：**只重 pre-send 传输错**（连接失败请求多半
+// 没到对端，配幂等键重发安全）；**5xx 不重**（非幂等写可能已生效，盲重会双订）→
+// 直接友好降级。配 InsertEvent 的幂等键一起，保证「连接断重发恰好一单」。
+func writePolicy() retry.Policy {
+	return retry.Policy{
+		Retryable:   gcal.Transport,
 		MaxAttempts: syncMaxAttempts,
 		BaseDelay:   syncBaseDelay,
 		MaxInterval: syncMaxInterval,
