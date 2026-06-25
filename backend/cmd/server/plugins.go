@@ -82,6 +82,10 @@ func bookerManifest() mcpplugin.Manifest {
 		Shape:        mcpplugin.ShapeVisitorOnly,
 		ACL:          mcpplugin.ACLRoleGranted,
 		RawToolNames: true,
+		// 硬依赖 calendar connector：未连 → 经 global 单点闸隐藏（D-2，取代 booker
+		// SessionGate 里的 Connected() 自查）。smtp 不在此 —— 确认信是软依赖，没连也能
+		// book，只是 send_confirmation 那截不可用（per-tool，不 gate 整 cap）。
+		Requires: []string{"calendar"},
 		Transport: mcpplugin.Transport{
 			Kind:    mcpplugin.TransportSandboxStdio,
 			Command: "/plugin/booker",

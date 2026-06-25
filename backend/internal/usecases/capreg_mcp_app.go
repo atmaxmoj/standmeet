@@ -103,6 +103,11 @@ func (c *mcpAppCapability) Shape() capreg.Shape {
 	return capreg.Shape(string(c.m.Shape))
 }
 
+// Requires —— 本插件声明的命名 in-app 依赖（connector 名，来自 manifest.Requires）。
+// capreg.enabledCaps 据此走 global 单点闸：任一未连 → 整个 cap 隐藏（D-2）。实现
+// capreg.RequiresDeps，让 connector-gating 从写死在 booker 里收成单点。
+func (c *mcpAppCapability) Requires() []string { return c.m.Requires }
+
 func (*mcpAppCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{}
 }

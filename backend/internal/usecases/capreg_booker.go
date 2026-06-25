@@ -114,19 +114,13 @@ func bookerSkillGranted(snapshot *domain.RoleSnapshot) bool {
 	return slices.Contains(snapshot.AllowedTools(), BookerSkillName)
 }
 
-// bookerGatingClear —— connector 已 connected 且 quota 未耗尽 → true。
-// 返 (gating_pass, err)。connector 未装 / quota 耗尽 → (false, nil)；DB 错
-// → (false, err)。
+// bookerGatingClear —— quota 未耗尽 → true。**connector-connected 不在此判** —— 已收进
+// global 单点闸：calendar 未连 → enabledCaps 据 manifest `Requires:["calendar"]` 直接把整
+// 个 calendar.book cap 隐藏（D-2），SessionGate 根本不会被调到。这里只留 booking 专属的
+// quota 闸（max_bookings 耗尽 → 隐藏，非 connector 关注点）。
 func bookerGatingClear(
 	ctx context.Context, deps *BookerDeps, in *capreg.AssembleInput,
 ) (bool, error) {
-	connected, err := deps.Proxy.Connected(ctx, in.OwnerID)
-	if err != nil {
-		return false, fmt.Errorf("calendar.book: connector status: %w", err)
-	}
-	if !connected {
-		return false, nil
-	}
 	exhausted, qerr := bookerQuotaExhausted(ctx, deps, in)
 	if qerr != nil {
 		return false, qerr

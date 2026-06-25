@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 
+	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
@@ -197,7 +198,19 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 		},
 		"corpus.retrieval": {Fragment: usecases.RetrievalScopeVisible},
 	})
+	wireConnectorDeps(d)
 	wireCapabilityEnableGate(d)
+}
+
+// wireConnectorDeps —— 把命名 connector 依赖 provider 注册进 registry（D-2）。访客装配
+// 时 enabledCaps 据此 gate：cap 的 Requires 里有 connector 未连 → 经 global 单点闸隐藏，
+// 取代散在 booker SessionGate 里的 Connected() 自查。provider 只暴露「这个 owner 连没连」，
+// 凭据全程留在 connector proxy 内。
+func wireConnectorDeps(d *runtimeDeps) {
+	depReg := capreg.NewDepRegistry()
+	depReg.Register(capreg.NamedProvider("calendar", calendarProxy(d).Connected))
+	depReg.Register(capreg.NamedProvider("smtp", mailProxy(d).Connected))
+	d.agentSkills.SetDepRegistry(depReg)
 }
 
 // wireCapabilityEnableGate —— Phase H: 把 owner-enable 闸接到 registry。访客
