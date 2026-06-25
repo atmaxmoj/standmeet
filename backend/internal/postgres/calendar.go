@@ -36,8 +36,9 @@ type SaveCredentialsInput struct {
 	ClientSecret string
 }
 
-// SaveCredentials —— upsert client_id + client_secret 加密落盘。
-// access_token / refresh_token 故意保留 (改 credentials 不重置 token)。
+// SaveCredentials —— upsert client_id + client_secret 加密落盘。D-5：改身份字段
+// (client_id/secret) → 清 OAuth token 强制重新授权（连接置 disconnected，依赖它的
+// 能力经单点闸隐藏，直到重走 OAuth）；首存或值不变则保留已有 token。
 func (r *CalendarRepo) SaveCredentials(
 	ctx context.Context, in *SaveCredentialsInput,
 ) error {
@@ -45,24 +46,7 @@ func (r *CalendarRepo) SaveCredentials(
 	if err != nil {
 		return fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	idEnc, ierr := cryptobox.Encrypt([]byte(in.ClientID))
-	if ierr != nil {
-		return fmt.Errorf("encrypt client_id: %w", ierr)
-	}
-	secEnc, serr := cryptobox.Encrypt([]byte(in.ClientSecret))
-	if serr != nil {
-		return fmt.Errorf("encrypt client_secret: %w", serr)
-	}
-	q := dbq.New(r.pool)
-	if _, qerr := q.UpsertCalendarCredentials(ctx, dbq.UpsertCalendarCredentialsParams{
-		OwnerID:         ownerUUID,
-		Provider:        in.Provider,
-		ClientIDEnc:     idEnc,
-		ClientSecretEnc: secEnc,
-	}); qerr != nil {
-		return fmt.Errorf("upsert calendar credentials: %w", qerr)
-	}
-	return nil
+	return r.saveCredsAndReverify(ctx, ownerUUID, in)
 }
 
 // SaveTokensInput —— OAuth 拿到 access + refresh token 后入参。
@@ -177,6 +161,65 @@ func (r *CalendarRepo) ClearTokens(
 	if derr := dbq.New(r.pool).ClearCalendarTokens(ctx,
 		dbq.ClearCalendarTokensParams{OwnerID: ownerUUID, Provider: provider}); derr != nil {
 		return fmt.Errorf("clear calendar tokens: %w", derr)
+	}
+	return nil
+}
+
+// saveCredsAndReverify —— 判轮换（必须在写新值前读旧值）→ upsert → 轮换则清 token。
+func (r *CalendarRepo) saveCredsAndReverify(
+	ctx context.Context, ownerUUID pgtype.UUID, in *SaveCredentialsInput,
+) error {
+	rotated, rerr := r.identityRotated(ctx, in)
+	if rerr != nil {
+		return rerr
+	}
+	if uerr := r.upsertCreds(ctx, ownerUUID, in); uerr != nil {
+		return uerr
+	}
+	if !rotated {
+		return nil
+	}
+	if cerr := r.ClearTokens(ctx, in.OwnerID, in.Provider); cerr != nil {
+		return fmt.Errorf("clear tokens after credential rotate: %w", cerr)
+	}
+	return nil
+}
+
+// identityRotated —— 已有凭据且 client_id/secret 跟新值不同 → 身份轮换（D-5 需重验）。
+// 首存（无既有凭据）或值不变 → false。
+func (r *CalendarRepo) identityRotated(
+	ctx context.Context, in *SaveCredentialsInput,
+) (bool, error) {
+	cur, err := r.GetConnector(ctx, in.OwnerID, in.Provider)
+	if err != nil {
+		return false, fmt.Errorf("load connector for rotate check: %w", err)
+	}
+	if cur.ClientID == "" {
+		return false, nil
+	}
+	return cur.ClientID != in.ClientID || cur.ClientSecret != in.ClientSecret, nil
+}
+
+// upsertCreds —— 加密 client_id/secret 并 upsert（token 保留）。
+func (r *CalendarRepo) upsertCreds(
+	ctx context.Context, ownerUUID pgtype.UUID, in *SaveCredentialsInput,
+) error {
+	idEnc, ierr := cryptobox.Encrypt([]byte(in.ClientID))
+	if ierr != nil {
+		return fmt.Errorf("encrypt client_id: %w", ierr)
+	}
+	secEnc, serr := cryptobox.Encrypt([]byte(in.ClientSecret))
+	if serr != nil {
+		return fmt.Errorf("encrypt client_secret: %w", serr)
+	}
+	if _, qerr := dbq.New(r.pool).UpsertCalendarCredentials(ctx,
+		dbq.UpsertCalendarCredentialsParams{
+			OwnerID:         ownerUUID,
+			Provider:        in.Provider,
+			ClientIDEnc:     idEnc,
+			ClientSecretEnc: secEnc,
+		}); qerr != nil {
+		return fmt.Errorf("upsert calendar credentials: %w", qerr)
 	}
 	return nil
 }
