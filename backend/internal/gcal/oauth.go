@@ -127,7 +127,7 @@ func (c *Client) tokenRequest(
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return TokenResponse{}, fmt.Errorf("gcal: token request: %w", err)
+		return TokenResponse{}, transportErr("token request", err)
 	}
 	out, decErr := decodeToken(resp)
 	if cerr := resp.Body.Close(); cerr != nil && decErr == nil {
@@ -146,12 +146,8 @@ func decodeToken(resp *http.Response) (TokenResponse, error) {
 		return TokenResponse{},
 			fmt.Errorf("gcal: decode token body (status %d): %w", resp.StatusCode, uerr)
 	}
-	if w.Error == "invalid_grant" {
-		return TokenResponse{}, ErrInvalidGrant
-	}
-	if resp.StatusCode != http.StatusOK {
-		return TokenResponse{},
-			fmt.Errorf("gcal: token request status %d: %s", resp.StatusCode, w.Error)
+	if serr := tokenStatusErr(resp.StatusCode, &w); serr != nil {
+		return TokenResponse{}, serr
 	}
 	return TokenResponse{
 		ExpiresAt:    time.Now().Add(time.Duration(w.ExpiresIn) * time.Second),
@@ -160,4 +156,20 @@ func decodeToken(resp *http.Response) (TokenResponse, error) {
 		Scope:        w.Scope,
 		TokenType:    w.TokenType,
 	}, nil
+}
+
+// tokenStatusErr —— token 响应的错误判定：invalid_grant → 不可重 sentinel；非 200
+// → 包错（5xx 再裹 ErrTransient 让 connector 重试，4xx 不重）；200 → nil。
+func tokenStatusErr(code int, w *tokenWire) error {
+	if w.Error == "invalid_grant" {
+		return ErrInvalidGrant
+	}
+	if code == http.StatusOK {
+		return nil
+	}
+	err := fmt.Errorf("gcal: token request status %d: %s", code, w.Error)
+	if transientStatus(code) {
+		return fmt.Errorf("%w: %w", err, ErrTransient)
+	}
+	return err
 }

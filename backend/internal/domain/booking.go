@@ -113,6 +113,10 @@ var ErrCalendarNotConnected = errors.New("calendar connector not connected")
 // ErrCalendarRevoked —— refresh_token 失效 (用户在 Google 那边 revoke 了)。
 var ErrCalendarRevoked = errors.New("calendar oauth revoked")
 
+// ErrCalendarUnavailable —— 日历服务瞬时不可用（5xx / 网络抖动）且重试预算用尽。
+// connector 把瞬时错耗尽翻成它；visitor-facing 层映成「稍后再试」友好降级。
+var ErrCalendarUnavailable = errors.New("calendar temporarily unavailable")
+
 // ErrBookingPolicyMissingHours —— working_hours_* 值格式错。
 var ErrBookingPolicyMissingHours = errors.New("booking policy hours malformed")
 

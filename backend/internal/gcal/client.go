@@ -129,7 +129,7 @@ func (c *Client) calendarPost(
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("gcal: calendar request: %w", err)
+		return nil, transportErr("calendar request", err)
 	}
 	return resp, nil
 }
@@ -149,7 +149,7 @@ func (c *Client) calendarDelete(
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("gcal: delete request: %w", err)
+		return nil, transportErr("delete request", err)
 	}
 	return resp, nil
 }
@@ -174,10 +174,14 @@ func statusError(resp *http.Response) error {
 			"gcal: calendar status %d (body unreadable: %w)", resp.StatusCode, rerr,
 		)
 	}
-	return fmt.Errorf(
+	err := fmt.Errorf(
 		"gcal: calendar status %d: %s",
 		resp.StatusCode, strconv.Quote(string(excerpt)),
 	)
+	if transientStatus(resp.StatusCode) {
+		return fmt.Errorf("%w: %w", err, ErrTransient)
+	}
+	return err
 }
 
 // Close-body pattern (callers): read response body → `resp.Body.Close()`

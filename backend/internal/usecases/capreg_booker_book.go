@@ -134,6 +134,10 @@ func marshalBookErr(err error) string {
 		// human (owner must reconnect their Google Calendar).
 		return marshalBookErrResult("calendar_unavailable",
 			"the owner's calendar needs to be reconnected — please try again later")
+	case errors.Is(err, domain.ErrCalendarUnavailable):
+		// 瞬时不可用 + 重试耗尽：友好「稍后再试」，不泄漏底层 5xx / stack。
+		return marshalBookErrResult("calendar_unavailable",
+			"the calendar service is temporarily unavailable — please try again later")
 	default:
 		return marshalBookErrResult("internal_error", err.Error())
 	}

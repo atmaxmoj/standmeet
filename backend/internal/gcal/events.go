@@ -155,7 +155,11 @@ type InsertEventInput struct {
 	Description string
 	TimeZone    string
 	SendUpdates string
-	Attendees   []EventAttendee
+	// IdempotencyKey —— 客户端生成的 event id（base32hex）。带它 → 重试下重复
+	// insert 命中同 id 返已存事件而非新建（幂等键，杜绝瞬时错重试双订）。空 = 让
+	// Google 自分配 id（无幂等保护）。
+	IdempotencyKey string
+	Attendees      []EventAttendee
 }
 
 // InsertedEvent —— normalized return of Events.insert. We persist EventID
@@ -183,6 +187,7 @@ type attendeeWire struct {
 }
 
 type insertReqWire struct {
+	ID          string         `json:"id,omitempty"`
 	Summary     string         `json:"summary"`
 	Description string         `json:"description,omitempty"`
 	Start       insertTimeWire `json:"start"`
@@ -235,6 +240,7 @@ func buildInsertReq(in *InsertEventInput) insertReqWire {
 		atts = append(atts, attendeeWire(a))
 	}
 	return insertReqWire{
+		ID:          in.IdempotencyKey,
 		Summary:     in.Summary,
 		Description: in.Description,
 		Start: insertTimeWire{

@@ -54,9 +54,34 @@ type gcalState struct {
 	busy           []busyWindow
 	events         []mockEvent
 	deletedEvents  []mockEvent
+	fails          map[string]*failInjection // op → injected failure (retry-matrix e2e)
 	tokenCallCount int
 	revoked        bool // owner revoked at Google → next refresh returns invalid_grant
 	mu             sync.Mutex
+}
+
+// failInjection —— e2e 控制点：让某个 op（"freeBusy" / "events.insert"）的下 N 次
+// 调用失败，验证 connector 重试层。remaining: >0 = 还要失败的次数；-1 = 永远失败。
+// mode "connreset-after-write"（仅 insert）：把（带幂等键的）事件写进 state 后断开
+// 连接，模拟「写后响应丢失」——重试带同 id 重发 → 命中已存事件，验证不双订。
+type failInjection struct {
+	mode      string
+	status    int
+	remaining int
+}
+
+// takeFail —— op 这次该不该失败 + 怎么失败。命中则按 remaining 递减（-1 不减）。
+// 调用方持有 s.gcal.mu。
+func (st *gcalState) takeFail(op string) (*failInjection, bool) {
+	f, ok := st.fails[op]
+	if !ok || f.remaining == 0 {
+		return nil, false
+	}
+	hit := *f
+	if f.remaining > 0 {
+		f.remaining--
+	}
+	return &hit, true
 }
 
 // withState —— defer-friendly mutex helper. Used by every handler.
@@ -139,6 +164,7 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 // ─── /google-calendar/calendars/{calendarId}/events ────────────
 
 type insertEventRequest struct {
+	ID          string     `json:"id"` // client idempotency key (optional)
 	Summary     string     `json:"summary"`
 	Description string     `json:"description"`
 	Start       eventTime  `json:"start"`
@@ -167,28 +193,101 @@ func (s *server) serveCalendarEventsInsert(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	id := "evt-" + randomHex(mockEventIDLen)
-	resp := insertEventResponse{
-		ID:        id,
-		HTMLLink:  "https://calendar.google.com/event?eid=" + id,
-		Status:    "confirmed",
-		Summary:   req.Summary,
-		Start:     req.Start,
-		End:       req.End,
-		Attendees: req.Attendees,
+	ev := mockEvent{
+		EventID:     eventID(req.ID),
+		Summary:     req.Summary,
+		Description: req.Description,
+		Start:       req.Start,
+		End:         req.End,
+		Attendees:   req.Attendees,
+		SendUpdates: r.URL.Query().Get("sendUpdates"),
 	}
+	existing, fail := s.insertDecision(ev)
+	switch {
+	case existing != nil: // idempotent replay: same id already stored
+		writeInsertEvent(s.log, w, eventToInsertResp(existing))
+	case fail != nil:
+		s.applyInsertFail(w, fail)
+	default:
+		writeInsertEvent(s.log, w, eventToInsertResp(&ev))
+	}
+}
+
+const connResetAfterWrite = "connreset-after-write"
+
+// eventID —— 用客户端幂等键作 event id；空则 mock 自分配。
+func eventID(key string) string {
+	if key != "" {
+		return key
+	}
+	return "evt-" + randomHex(mockEventIDLen)
+}
+
+// insertDecision —— 锁内决定 insert 归宿并完成 state 写入。返回 (existing, fail)：
+//   existing != nil → 同 id 已存（幂等重放），不重复写；
+//   fail != nil     → 注入失败（connreset 模式已把事件写进 state，模拟「写后丢响应」）；
+//   都 nil          → 正常新建（已 append）。
+func (s *server) insertDecision(ev mockEvent) (*mockEvent, *failInjection) {
+	var existing, fail = (*mockEvent)(nil), (*failInjection)(nil)
 	s.withState(func(st *gcalState) {
-		st.events = append(st.events, mockEvent{
-			EventID:     id,
-			Summary:     req.Summary,
-			Description: req.Description,
-			Start:       req.Start,
-			End:         req.End,
-			Attendees:   req.Attendees,
-			SendUpdates: r.URL.Query().Get("sendUpdates"),
-		})
+		if e := st.findEvent(ev.EventID); e != nil {
+			existing = e
+			return
+		}
+		if f, ok := st.takeFail("events.insert"); ok {
+			fail = f
+			if f.mode == connResetAfterWrite {
+				st.events = append(st.events, ev)
+			}
+			return
+		}
+		st.events = append(st.events, ev)
 	})
-	writeInsertEvent(s.log, w, &resp)
+	return existing, fail
+}
+
+// applyInsertFail —— connreset 模式劫持连接直接断开（客户端拿到传输错 → 瞬时 →
+// 重试）；其余模式回注入的状态码。
+func (s *server) applyInsertFail(w http.ResponseWriter, fail *failInjection) {
+	if fail.mode == connResetAfterWrite {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			http.Error(w, "hijack unsupported", http.StatusInternalServerError)
+			return
+		}
+		conn, _, err := hj.Hijack()
+		if err != nil {
+			s.log.Warn("insert connreset hijack", logErrKey, err)
+			return
+		}
+		if cerr := conn.Close(); cerr != nil {
+			s.log.Warn("insert connreset close", logErrKey, cerr)
+		}
+		return
+	}
+	http.Error(w, `{"error":"injected insert failure"}`, fail.status)
+}
+
+// findEvent —— 按 id 找已存事件（幂等去重）。调用方持锁。
+func (st *gcalState) findEvent(id string) *mockEvent {
+	for i := range st.events {
+		if st.events[i].EventID == id {
+			return &st.events[i]
+		}
+	}
+	return nil
+}
+
+func eventToInsertResp(e *mockEvent) *insertEventResponse {
+	return &insertEventResponse{
+		ID:        e.EventID,
+		HTMLLink:  "https://calendar.google.com/event?eid=" + e.EventID,
+		Status:    "confirmed",
+		Summary:   e.Summary,
+		Start:     e.Start,
+		End:       e.End,
+		Attendees: e.Attendees,
+	}
 }
 
 // Events.delete handler 拆到 gcal_delete.go 守 max-lines。
@@ -224,8 +323,21 @@ func (s *server) serveCalendarFreeBusy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	var busy []busyWindow
-	s.withState(func(st *gcalState) { busy = append(busy, st.busy...) })
+	var (
+		busy []busyWindow
+		fail *failInjection
+	)
+	s.withState(func(st *gcalState) {
+		if f, ok := st.takeFail("freeBusy"); ok {
+			fail = f
+			return
+		}
+		busy = append(busy, st.busy...)
+	})
+	if fail != nil {
+		http.Error(w, `{"error":"injected freeBusy failure"}`, fail.status)
+		return
+	}
 	writeFreeBusy(s.log, w, freeBusyResponse{
 		Kind: "calendar#freeBusy", TimeMin: req.TimeMin, TimeMax: req.TimeMax,
 		Calendars: buildFreeBusyCalendars(req.Items, busy),
@@ -274,9 +386,51 @@ func (s *server) serveMockGCalReset(w http.ResponseWriter, _ *http.Request) {
 		st.busy = nil
 		st.events = nil
 		st.deletedEvents = nil
+		st.fails = nil
 		st.tokenCallCount = 0
 		st.revoked = false
 	})
+	writeOK(s.log, w)
+}
+
+// failBody —— /__mock/gcal/fail 入参：让 op 的下 times 次失败（-1 = 永远）。
+type failBody struct {
+	Op     string `json:"op"`
+	Mode   string `json:"mode"`
+	Status int    `json:"status"`
+	Times  int    `json:"times"`
+}
+
+// serveMockGCalFail —— 注入某 op 的瞬时失败（重试矩阵 e2e）。status 默认 503。
+func (s *server) serveMockGCalFail(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body", http.StatusBadRequest)
+		return
+	}
+	var req failBody
+	if uerr := json.Unmarshal(body, &req); uerr != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	if req.Status == 0 {
+		req.Status = http.StatusServiceUnavailable
+	}
+	s.withState(func(st *gcalState) {
+		if st.fails == nil {
+			st.fails = map[string]*failInjection{}
+		}
+		st.fails[req.Op] = &failInjection{
+			mode: req.Mode, status: req.Status, remaining: req.Times,
+		}
+	})
+	writeOK(s.log, w)
+}
+
+// serveMockResetTokenCount —— 只清 token 调用计数（invalid-grant-no-retry 用它
+// 在 revoke 之后归零，单测 refresh 恰好命中一次）。
+func (s *server) serveMockResetTokenCount(w http.ResponseWriter, _ *http.Request) {
+	s.withState(func(st *gcalState) { st.tokenCallCount = 0 })
 	writeOK(s.log, w)
 }
 

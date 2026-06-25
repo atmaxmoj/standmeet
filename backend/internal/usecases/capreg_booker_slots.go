@@ -26,7 +26,9 @@ func runBookerListSlots(
 		DurationMin: args.DurationMin, StepMin: args.StepMin,
 	})
 	if lerr != nil {
-		return marshalBookErrResult("list_slots_failed", lerr.Error()), nil
+		// 经统一友好映射（not_connected / calendar_unavailable / …），不把底层
+		// 5xx / stack 泄漏给访客。
+		return marshalBookErr(lerr), nil
 	}
 	return marshalListSlotsResult(slots), nil
 }

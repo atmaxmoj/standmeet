@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/gcal"
+	"github.com/atmaxmoj/standmeet/internal/retry"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -66,12 +67,19 @@ func (p *CalendarProxy) FreeBusy(
 	if err != nil {
 		return nil, err
 	}
-	busy, ferr := p.client.FreeBusy(ctx, &gcal.FreeBusyInput{
-		AccessToken: token, TimeMin: req.TimeMin, TimeMax: req.TimeMax,
-		CalendarIDs: []string{"primary"}, TimeZone: "UTC",
-	})
-	if ferr != nil {
-		return nil, fmt.Errorf("freebusy: %w", ferr)
+	var busy []gcal.BusyWindow
+	if ferr := calendarRetry(ctx, func() error {
+		got, e := p.client.FreeBusy(ctx, &gcal.FreeBusyInput{
+			AccessToken: token, TimeMin: req.TimeMin, TimeMax: req.TimeMax,
+			CalendarIDs: []string{"primary"}, TimeZone: "UTC",
+		})
+		busy = got
+		if e != nil {
+			return fmt.Errorf("freebusy: %w", e)
+		}
+		return nil
+	}); ferr != nil {
+		return nil, ferr
 	}
 	out := make([]usecases.BusyInterval, 0, len(busy))
 	for i := range busy {
@@ -89,14 +97,28 @@ func (p *CalendarProxy) InsertEvent(
 		return usecases.InsertedEvent{}, err
 	}
 	spec := attendeesFor(req.VisitorEmail)
-	ins, ierr := p.client.InsertEvent(ctx, &gcal.InsertEventInput{
-		AccessToken: token, CalendarID: "primary",
-		Summary: req.Summary, Description: req.Description,
-		Start: req.Start, End: req.End, TimeZone: req.TimeZone,
-		Attendees: spec.attendees, SendUpdates: spec.sendUpdates,
-	})
-	if ierr != nil {
-		return usecases.InsertedEvent{}, fmt.Errorf("insert event: %w", ierr)
+	// 幂等键在重试循环外生成一次、跨重试复用：events.insert 是非幂等写，瞬时错
+	// （含「写后连接断」）盲重试会双订；带同一 id 重发 → 命中已存事件，恰好一单。
+	key, kerr := idempotencyKey()
+	if kerr != nil {
+		return usecases.InsertedEvent{}, kerr
+	}
+	var ins gcal.InsertedEvent
+	if ierr := calendarRetry(ctx, func() error {
+		got, e := p.client.InsertEvent(ctx, &gcal.InsertEventInput{
+			AccessToken: token, CalendarID: "primary",
+			Summary: req.Summary, Description: req.Description,
+			Start: req.Start, End: req.End, TimeZone: req.TimeZone,
+			Attendees: spec.attendees, SendUpdates: spec.sendUpdates,
+			IdempotencyKey: key,
+		})
+		ins = got
+		if e != nil {
+			return fmt.Errorf("insert event: %w", e)
+		}
+		return nil
+	}); ierr != nil {
+		return usecases.InsertedEvent{}, ierr
 	}
 	return usecases.InsertedEvent{EventID: ins.EventID, HTMLLink: ins.HTMLLink}, nil
 }
@@ -154,14 +176,24 @@ func (p *CalendarProxy) freshToken(ctx context.Context, ownerID string) (string,
 func (p *CalendarProxy) refreshAndStore(
 	ctx context.Context, conn *domain.CalendarConnector,
 ) (string, error) {
-	resp, rerr := p.client.RefreshToken(ctx, gcal.RefreshTokenInput{
-		ClientID: conn.ClientID, ClientSecret: conn.ClientSecret, RefreshToken: conn.RefreshToken,
+	var resp gcal.TokenResponse
+	rerr := retry.Do(ctx, readPolicy(), func() error {
+		got, e := p.client.RefreshToken(ctx, gcal.RefreshTokenInput{
+			ClientID:     conn.ClientID,
+			ClientSecret: conn.ClientSecret,
+			RefreshToken: conn.RefreshToken,
+		})
+		resp = got
+		if e != nil {
+			return fmt.Errorf("refresh token: %w", e)
+		}
+		return nil
 	})
 	if rerr != nil {
 		if errors.Is(rerr, gcal.ErrInvalidGrant) {
 			return "", domain.ErrCalendarRevoked
 		}
-		return "", fmt.Errorf("refresh token: %w", rerr)
+		return "", fmt.Errorf("calendar: %w", rerr)
 	}
 	if serr := p.vault.SaveTokens(ctx, &SaveTokensInput{
 		OwnerID: conn.OwnerID, Provider: conn.Provider,
