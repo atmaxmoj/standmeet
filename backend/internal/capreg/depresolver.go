@@ -6,10 +6,12 @@
 // 该 cap 不进 enabledCaps（global 单点闸）→ 对所有 session 一律隐藏（决策点 D-2）。
 //
 // 凭据永不进本层：provider 只回「连没连」(Connected) 与「调用句柄」(非 token)。
+
 package capreg
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 )
 
@@ -24,16 +26,20 @@ type RequiresDeps interface {
 // depsConnected —— 该 cap 的所有 Requires 依赖是否都已连（gate 半边）。判定：
 //   - cap 不声明 Requires / 没装 depReg / 无 owner 上下文 → true（不 gate）。
 //   - 任一未连 → false（隐藏）。AllConnected 返 error（E1：DB 读错等）→ 当未连隐藏
-//     + log（fail-closed：连没连不确定时不暴露能调外部的工具）。
+//   - log（fail-closed：连没连不确定时不暴露能调外部的工具）。
 func (r *Registry) depsConnected(ctx context.Context, c Capability, in *AssembleInput) bool {
 	rd, ok := c.(RequiresDeps)
-	if !ok {
+	if !ok || len(rd.Requires()) == 0 {
 		return true
 	}
-	names := rd.Requires()
-	if len(names) == 0 {
-		return true
-	}
+	return r.requiredDepsConnected(ctx, c, in, rd.Requires())
+}
+
+// requiredDepsConnected —— 解析 names 这组依赖：没装 depReg / 无 owner 上下文 → true（不
+// gate）；AllConnected 出错（E1）→ false + log（fail-closed）；否则按解析结果。
+func (r *Registry) requiredDepsConnected(
+	ctx context.Context, c Capability, in *AssembleInput, names []string,
+) bool {
 	r.mu.RLock()
 	dr := r.depReg
 	r.mu.RUnlock()
@@ -62,13 +68,15 @@ type DepProvider interface {
 // NamedProvider —— 把一个 (name, Connected 闭包) 包成 DepProvider。composition root
 // 用它把 connector proxy 的 Connected 方法（calendar / smtp）注册成命名依赖，无需让
 // connector 包反向 import capreg。凭据从不经此 —— 闭包只回「连没连」。
-func NamedProvider(name string, connected func(ctx context.Context, ownerID string) (bool, error)) DepProvider {
+func NamedProvider(
+	name string, connected func(ctx context.Context, ownerID string) (bool, error),
+) DepProvider {
 	return funcProvider{name: name, connected: connected}
 }
 
 type funcProvider struct {
-	name      string
 	connected func(context.Context, string) (bool, error)
+	name      string
 }
 
 func (p funcProvider) Name() string { return p.name }
@@ -116,7 +124,9 @@ func (r *DepRegistry) Unknown(names []string) []string {
 // AllConnected —— names 里的依赖**全部**已连才返 true（AND 语义）。任一 provider 未
 // 注册 → false（防御）。任一 Connected 返 error → (false, err)（E1：caller 当未连
 // 隐藏 + log）。空 names → (true, nil)（无依赖的 cap 不被 gate）。
-func (r *DepRegistry) AllConnected(ctx context.Context, ownerID string, names []string) (bool, error) {
+func (r *DepRegistry) AllConnected(
+	ctx context.Context, ownerID string, names []string,
+) (bool, error) {
 	for _, n := range names {
 		p, ok := r.providers[n]
 		if !ok {
@@ -124,7 +134,7 @@ func (r *DepRegistry) AllConnected(ctx context.Context, ownerID string, names []
 		}
 		connected, err := p.Connected(ctx, ownerID)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("dep %q connected check: %w", n, err)
 		}
 		if !connected {
 			return false, nil

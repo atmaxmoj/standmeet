@@ -135,6 +135,11 @@ linters:
         # capreg.Capability)；外部用 Capability interface 注册不耦合
         # 实现类型。
         - github.com/atmaxmoj/standmeet/internal/capreg.Capability
+        # connector 重构：命名依赖/连接器注册表按名解析回的「元素 interface」—— 跟
+        # Document/Integration 的 registry-lookup 同形态 (DepRegistry.Lookup /
+        # connector.Hub.Resolve 返 by-design interface，消费者类型断言到能力接口)。
+        - github.com/atmaxmoj/standmeet/internal/capreg.DepProvider
+        - github.com/atmaxmoj/standmeet/internal/connector.Connector
     revive:
       enable-all-rules: true
       rules:

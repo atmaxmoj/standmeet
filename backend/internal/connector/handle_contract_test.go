@@ -4,6 +4,7 @@
 // getter**。owner token/secret/密码只活在 connector 包内（解密 token 的 freshToken
 // 是未导出方法，不在句柄面上）。本测试盯住 proxy 的导出 API surface，防有人后来加个
 // Token() / Secret() / Credentials() 把凭据漏出连接器层。
+
 package connector_test
 
 import (
@@ -19,15 +20,14 @@ var credGetterRe = regexp.MustCompile(`(?i)token|secret|password|passwd|credenti
 
 func assertNoCredentialGetter(t *testing.T, typ reflect.Type) {
 	t.Helper()
-	for i := 0; i < typ.NumMethod(); i++ {
-		name := typ.Method(i).Name // NumMethod 只数导出方法 —— 句柄对外面
-		require.Falsef(t, credGetterRe.MatchString(name),
-			"%s exposes credential-ish method %q; creds must never leave the connector layer", typ, name)
+	for m := range typ.Methods() { // 只遍历导出方法 —— 句柄对外面
+		require.Falsef(t, credGetterRe.MatchString(m.Name),
+			"%s exposes credential-ish method %q (creds stay in connector)", typ, m.Name)
 	}
 }
 
 func TestHandleContract_NoCredentialGetter(t *testing.T) {
 	t.Parallel()
-	assertNoCredentialGetter(t, reflect.TypeOf((*connector.CalendarProxy)(nil)))
-	assertNoCredentialGetter(t, reflect.TypeOf((*connector.MailProxy)(nil)))
+	assertNoCredentialGetter(t, reflect.TypeFor[*connector.CalendarProxy]())
+	assertNoCredentialGetter(t, reflect.TypeFor[*connector.MailProxy]())
 }

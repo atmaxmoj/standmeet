@@ -10,31 +10,63 @@ package retry
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
 // Policy —— 一次重试的配置。零值不可用（MaxAttempts 必须 ≥ 1）。
 type Policy struct {
-	// MaxAttempts —— 总尝试次数上限（含首次）。
+	Retryable   func(error) bool
+	sleep       func(context.Context, time.Duration) error
+	now         func() time.Time
 	MaxAttempts int
-	// BaseDelay —— 首次退避；之后每次翻倍，封顶 MaxInterval。
-	BaseDelay time.Duration
-	// MaxInterval —— 单次退避上限（退避不会涨过它）。0 = 不额外封顶（仍受 MaxTotal）。
+	BaseDelay   time.Duration
 	MaxInterval time.Duration
-	// MaxTotal —— 整个重试序列的总时长上限（含退避等待）。0 = 不封顶（不推荐）。
-	MaxTotal time.Duration
-	// Retryable —— 判一个 error 该不该重；nil = 所有非 nil error 都重。返 false →
-	// 立即返回该 error，不再重（如 invalid_grant、4xx、非法参数）。
-	Retryable func(error) bool
-	// sleep —— 可注入的等待（测试用，记录退避时长且不真睡）。nil = 真 time.Sleep。
-	sleep func(context.Context, time.Duration) error
-	// now —— 可注入的时钟（测试用）。nil = time.Now。
-	now func() time.Time
+	MaxTotal    time.Duration
 }
 
 // Do —— 按 policy 重试 fn，直到成功、错误不可重、次数用尽、或总时长到点。返回最后
 // 一次的 error（成功则 nil）。ctx 取消 → 立即返回 ctx.Err()。
 func Do(ctx context.Context, p Policy, fn func() error) error {
+	bo := newBackoff(p)
+	var last error
+	for attempt := 1; attempt <= p.MaxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("retry: %w", err)
+		}
+		last = fn()
+		if done, err := bo.advance(ctx, p, last, attempt); done {
+			return firstErr(err, last) // ctx 打断 → err；否则收尾 → last（成功为 nil）
+		}
+	}
+	return last
+}
+
+// firstErr —— a 非 nil 取 a，否则 b（退避被 ctx 打断 → a；正常收尾 → b=最后一次结果）。
+func firstErr(a, b error) error {
+	if a != nil {
+		return a
+	}
+	return b
+}
+
+// nonRetryable —— Retryable 判 false 的 error → 立即返回，不重（invalid_grant、4xx 等）。
+func nonRetryable(p Policy, err error) bool {
+	return p.Retryable != nil && !p.Retryable(err)
+}
+
+// backoff —— 退避状态机：每次等当前退避（封顶 MaxInterval + 不越 MaxTotal），再翻倍。把
+// Do 的分支挪进来，压住 Do 的认知复杂度。只持自己要的字段（不抓整个 Policy，免重复存）。
+type backoff struct {
+	sleep       func(context.Context, time.Duration) error
+	now         func() time.Time
+	start       time.Time
+	delay       time.Duration
+	maxInterval time.Duration
+	maxTotal    time.Duration
+}
+
+func newBackoff(p Policy) *backoff {
 	sleep := p.sleep
 	if sleep == nil {
 		sleep = sleepCtx
@@ -43,49 +75,56 @@ func Do(ctx context.Context, p Policy, fn func() error) error {
 	if now == nil {
 		now = time.Now
 	}
-	start := now()
-	delay := p.BaseDelay
-	var last error
-	for attempt := 1; attempt <= p.MaxAttempts; attempt++ {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		last = fn()
-		if last == nil {
-			return nil
-		}
-		if p.Retryable != nil && !p.Retryable(last) {
-			return last
-		}
-		if attempt == p.MaxAttempts {
-			break
-		}
-		wait := capWait(delay, p, now, start)
-		if wait < 0 {
-			break // 总时长到点：不再等、不再试
-		}
-		if err := sleep(ctx, wait); err != nil {
-			return err
-		}
-		delay = nextDelay(delay, p.MaxInterval)
+	return &backoff{
+		sleep: sleep, now: now, start: now(),
+		delay: p.BaseDelay, maxInterval: p.MaxInterval, maxTotal: p.MaxTotal,
 	}
-	return last
 }
 
-// capWait —— 把本次退避压在 MaxInterval 以内，并保证不越过 MaxTotal 截止；越过返 -1。
-func capWait(delay time.Duration, p Policy, now func() time.Time, start time.Time) time.Duration {
-	wait := delay
-	if p.MaxInterval > 0 && wait > p.MaxInterval {
-		wait = p.MaxInterval
+// advance —— 一次尝试后的决策：成功 / 不可重 / 到次数上限 → (true, nil) 停（caller 返
+// last）；否则退避等下一次 —— 总时长到点 → (true, nil) 停；被 ctx 打断 → (true, err)。
+func (b *backoff) advance(ctx context.Context, p Policy, last error, attempt int) (bool, error) {
+	if last == nil || nonRetryable(p, last) || attempt == p.MaxAttempts {
+		return true, nil
 	}
-	if p.MaxTotal > 0 {
-		remaining := p.MaxTotal - now().Sub(start)
-		if remaining <= 0 {
-			return -1
-		}
-		if wait > remaining {
-			wait = remaining
-		}
+	stop, err := b.pause(ctx)
+	return stop || err != nil, err
+}
+
+// pause —— 等下一次重试前的退避。返 (stop, err)：总时长到点 → (true, nil) 停；sleep 被
+// ctx 打断 → (false, err) 让 Do 直接返回。
+func (b *backoff) pause(ctx context.Context) (bool, error) {
+	wait := b.capped()
+	if wait < 0 {
+		return true, nil
+	}
+	if err := b.sleep(ctx, wait); err != nil {
+		return false, err
+	}
+	b.delay = nextDelay(b.delay, b.maxInterval)
+	return false, nil
+}
+
+// capped —— 当前退避压在 MaxInterval 内、不越 MaxTotal 截止；已到点返 -1。
+func (b *backoff) capped() time.Duration {
+	wait := b.delay
+	if b.maxInterval > 0 && wait > b.maxInterval {
+		wait = b.maxInterval
+	}
+	return b.withinTotal(wait)
+}
+
+// withinTotal —— 把 wait 压在 MaxTotal 剩余内；已到点返 -1；无 MaxTotal 原样返。
+func (b *backoff) withinTotal(wait time.Duration) time.Duration {
+	if b.maxTotal <= 0 {
+		return wait
+	}
+	remaining := b.maxTotal - b.now().Sub(b.start)
+	if remaining <= 0 {
+		return -1
+	}
+	if wait > remaining {
+		return remaining
 	}
 	return wait
 }
@@ -103,7 +142,7 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("retry sleep: %w", ctx.Err())
 	case <-t.C:
 		return nil
 	}

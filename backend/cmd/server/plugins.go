@@ -169,17 +169,26 @@ func registerPluginSource(
 		d.log.Warn("plugin manifest skipped",
 			"id", res.Skipped[i].ID, "reason", res.Skipped[i].Reason)
 	}
-	kept := make([]mcpplugin.Manifest, 0, len(res.Manifests))
-	for i := range res.Manifests {
-		if unknown := depReg.Unknown(res.Manifests[i].Requires); len(unknown) > 0 {
-			d.log.Warn("plugin register rejected (unknown required dependency)",
-				"id", res.Manifests[i].ID, "unknown_requires", unknown)
-			continue
-		}
-		kept = append(kept, res.Manifests[i])
-	}
+	kept := keepResolvableDeps(d, res.Manifests, depReg)
 	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, kept, origin)
 	for _, id := range dupes {
 		d.log.Warn("plugin register skipped (duplicate id)", "id", id)
 	}
+}
+
+// keepResolvableDeps —— 丢掉声明了 core 给不了的命名依赖（Requires 里有未注册 connector
+// 名）的 manifest + log；其余原样保留（requires-boot-reject，fail-fast）。
+func keepResolvableDeps(
+	d *runtimeDeps, manifests []mcpplugin.Manifest, depReg *capreg.DepRegistry,
+) []mcpplugin.Manifest {
+	kept := make([]mcpplugin.Manifest, 0, len(manifests))
+	for i := range manifests {
+		if unknown := depReg.Unknown(manifests[i].Requires); len(unknown) > 0 {
+			d.log.Warn("plugin register rejected (unknown required dependency)",
+				"id", manifests[i].ID, "unknown_requires", unknown)
+			continue
+		}
+		kept = append(kept, manifests[i])
+	}
+	return kept
 }

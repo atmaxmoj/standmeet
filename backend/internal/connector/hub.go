@@ -17,6 +17,7 @@
 //
 // 凭据永不出 connector：Hub 解析回的是「句柄」（Connector 基面 + 各连接器自己的能力接口），
 // 没有任何凭据 getter；read 和 write 都在连接器内部用解密后的凭据完成。
+
 package connector
 
 import "context"

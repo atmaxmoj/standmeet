@@ -21,11 +21,13 @@
 //
 // 一个底座、多个消费者：capreg 的 enabledCaps gate 是「MCP 那个消费者」，本测试是「IM
 // Gateway 那个消费者」，将来共用同一个 Hub。
+
 package connector_test
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"regexp"
 	"testing"
@@ -42,12 +44,12 @@ var (
 // fakeDiscord —— 一个**双向** IM 连接器：持 bot token（凭据只活在连接器内部），能 read
 // channel 历史 + send 消息。对外（句柄面）**没有任何掏 token 的方法**。
 type fakeDiscord struct {
-	botToken string              // 凭据：只在连接器内部用，绝不经句柄漏出去
-	history  map[string][]string // channel → 历史消息（read 用）
-	sent     map[string][]string // channel → 已发消息（write 落点）
+	history  map[string][]string
+	sent     map[string][]string
+	botToken string
 }
 
-func (d *fakeDiscord) Name() string { return "discord" }
+func (*fakeDiscord) Name() string { return "discord" }
 
 func (d *fakeDiscord) Connected(_ context.Context, _ string) (bool, error) {
 	return d.botToken != "", nil
@@ -74,7 +76,7 @@ type messenger interface {
 }
 
 // fakeGateway —— 代表将来的 IM Gateway / 任务编排：owner 在 IM 被 @ 唤起 → 用连接器凭据
-// 消费 channel 记录进上下文 →（agent 处理）→ 用同一凭据发回复。**全程不碰 MCP / capreg。**
+// 消费 channel 记录进上下文 →（agent 处理）→ 用同一凭据发回复（全程不碰 MCP / capreg）。
 type fakeGateway struct{ hub *connector.Hub }
 
 func (g *fakeGateway) handleMention(
@@ -90,9 +92,12 @@ func (g *fakeGateway) handleMention(
 	}
 	history, err := im.ReadChannel(ctx, owner, channel) // ① 用凭据消费 channel 记录
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gateway read: %w", err)
 	}
-	return history, im.Send(ctx, owner, channel, agentReply) // ② 用同一凭据发回去
+	if serr := im.Send(ctx, owner, channel, agentReply); serr != nil { // ② 用同一凭据发回去
+		return nil, fmt.Errorf("gateway send: %w", serr)
+	}
+	return history, nil
 }
 
 func TestConnector_ConsumerAgnostic_BidirectionalGateway(t *testing.T) {
@@ -111,22 +116,23 @@ func TestConnector_ConsumerAgnostic_BidirectionalGateway(t *testing.T) {
 	require.NoError(t, err)
 
 	// 双向都通：read 拿到了 channel 历史（进 agent 上下文）……
-	require.Equal(t, []string{"hi", "anyone around?"}, history, "agent 经连接器凭据读到了 channel 历史")
+	require.Equal(t, []string{"hi", "anyone around?"}, history,
+		"agent read channel history via the connector creds")
 	// ……send 把回复发了出去。
-	require.Equal(t, []string{"hello from the agent"}, disc.sent["#general"], "agent 经同一凭据发回了 channel")
+	require.Equal(t, []string{"hello from the agent"}, disc.sent["#general"],
+		"agent sent the reply back via the same creds")
 
 	// 凭据不泄漏：Gateway 拿到的句柄（messenger 接口）面上没有任何掏 token 的方法。
-	assertHandleHasNoCredGetter(t, reflect.TypeOf((*messenger)(nil)).Elem())
-	assertHandleHasNoCredGetter(t, reflect.TypeOf((*connector.Connector)(nil)).Elem())
+	assertHandleHasNoCredGetter(t, reflect.TypeFor[messenger]())
+	assertHandleHasNoCredGetter(t, reflect.TypeFor[connector.Connector]())
 }
 
 var credRe = regexp.MustCompile(`(?i)token|secret|password|credential|apikey`)
 
 func assertHandleHasNoCredGetter(t *testing.T, iface reflect.Type) {
 	t.Helper()
-	for i := 0; i < iface.NumMethod(); i++ {
-		name := iface.Method(i).Name
-		require.Falsef(t, credRe.MatchString(name),
-			"connector 句柄接口 %s 暴露了凭据方法 %q —— 凭据必须留在连接器内", iface, name)
+	for m := range iface.Methods() {
+		require.Falsef(t, credRe.MatchString(m.Name),
+			"connector handle %s exposes credential method %q (creds stay inside)", iface, m.Name)
 	}
 }
