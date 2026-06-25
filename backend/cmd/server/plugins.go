@@ -20,8 +20,22 @@ import (
 //
 // 三类走同一条 RegisterDiscoveredPlugins，只是 manifest 来源 / transport 不同。
 func registerDiscoveredPlugins(d *runtimeDeps, hooks map[string]usecases.CapHooks) {
-	registerBuiltins(d, hooks)
-	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged)
+	// connector 命名依赖注册表先建好：(a) 装配期 enabledCaps 据它把 Requires 未连的 cap
+	// 经 global 单点闸隐藏（D-2）；(b) 注册 config 插件时校验其 Requires —— 声明了 core
+	// 给不了的依赖名 → 拒（fail-fast，requires-boot-reject）。
+	depReg := connectorDepRegistry(d)
+	d.agentSkills.SetDepRegistry(depReg)
+	registerBuiltins(d, hooks) // 内建依赖名由构造保证已知，不必再校验
+	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged, depReg)
+}
+
+// connectorDepRegistry —— 命名 connector 依赖 provider 注册表。provider 只暴露「这个
+// owner 连没连」，凭据全程留在 connector proxy 内（句柄非凭据）。
+func connectorDepRegistry(d *runtimeDeps) *capreg.DepRegistry {
+	depReg := capreg.NewDepRegistry()
+	depReg.Register(capreg.NamedProvider("calendar", calendarProxy(d).Connected))
+	depReg.Register(capreg.NamedProvider("smtp", mailProxy(d).Connected))
+	return depReg
 }
 
 // registerBuiltins —— 随产品发的内建能力。代码在独立 module、**编译成静态二进制随镜像
@@ -140,8 +154,12 @@ func askVisitorManifest() mcpplugin.Manifest {
 	}
 }
 
-// registerPluginSource —— 加载一条发现源配置并以指定 origin 注册。
-func registerPluginSource(d *runtimeDeps, path string, origin capreg.Origin) {
+// registerPluginSource —— 加载一条发现源配置并以指定 origin 注册。声明了 core 给不了的
+// 命名依赖（Requires 里有未注册的 connector 名）的插件 → 拒 + log，不让它带着满足不了的
+// 依赖上（fail-fast，跟 version 闸同性质）。
+func registerPluginSource(
+	d *runtimeDeps, path string, origin capreg.Origin, depReg *capreg.DepRegistry,
+) {
 	res, err := mcpplugin.Load(path)
 	if err != nil {
 		d.log.Error("plugin config load", "origin", string(origin), "err", err)
@@ -151,7 +169,16 @@ func registerPluginSource(d *runtimeDeps, path string, origin capreg.Origin) {
 		d.log.Warn("plugin manifest skipped",
 			"id", res.Skipped[i].ID, "reason", res.Skipped[i].Reason)
 	}
-	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, res.Manifests, origin)
+	kept := make([]mcpplugin.Manifest, 0, len(res.Manifests))
+	for i := range res.Manifests {
+		if unknown := depReg.Unknown(res.Manifests[i].Requires); len(unknown) > 0 {
+			d.log.Warn("plugin register rejected (unknown required dependency)",
+				"id", res.Manifests[i].ID, "unknown_requires", unknown)
+			continue
+		}
+		kept = append(kept, res.Manifests[i])
+	}
+	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, kept, origin)
 	for _, id := range dupes {
 		d.log.Warn("plugin register skipped (duplicate id)", "id", id)
 	}
