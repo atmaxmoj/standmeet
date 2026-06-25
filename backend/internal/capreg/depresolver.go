@@ -59,6 +59,23 @@ type DepProvider interface {
 	Connected(ctx context.Context, ownerID string) (bool, error)
 }
 
+// NamedProvider —— 把一个 (name, Connected 闭包) 包成 DepProvider。composition root
+// 用它把 connector proxy 的 Connected 方法（calendar / smtp）注册成命名依赖，无需让
+// connector 包反向 import capreg。凭据从不经此 —— 闭包只回「连没连」。
+func NamedProvider(name string, connected func(ctx context.Context, ownerID string) (bool, error)) DepProvider {
+	return funcProvider{name: name, connected: connected}
+}
+
+type funcProvider struct {
+	name      string
+	connected func(context.Context, string) (bool, error)
+}
+
+func (p funcProvider) Name() string { return p.name }
+func (p funcProvider) Connected(ctx context.Context, ownerID string) (bool, error) {
+	return p.connected(ctx, ownerID)
+}
+
 // DepRegistry —— host 持有的命名依赖 provider 注册表。enabledCaps 查它做 gate；
 // boot 期用 Unknown 校验 manifest Requires 名字都已知（fail-fast）。
 type DepRegistry struct {

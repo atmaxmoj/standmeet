@@ -9,8 +9,44 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 	"github.com/stretchr/testify/require"
 )
+
+func okConnected(context.Context, string) (bool, error) { return true, nil }
+
+// requires-boot-reject —— 一个插件 manifest 声明了 core 给不了的命名依赖
+// （Requires 含 "weather"），boot 校验应把它挑出来拒绝（fail-fast）。校验逻辑 =
+// 拿真解析出来的 manifest.Requires 去 DepRegistry.Unknown；非空 → 该插件该被拒 + log。
+func TestRequiresBootReject_UnknownDepFlagged(t *testing.T) {
+	t.Parallel()
+	depReg := capreg.NewDepRegistry()
+	depReg.Register(capreg.NamedProvider("calendar", okConnected))
+	depReg.Register(capreg.NamedProvider("smtp", okConnected))
+
+	cfg := []byte(`{"plugins":[
+	  {"id":"booking","version":"1","shape":"visitor_only",
+	   "transport":{"kind":"stdio","command":"booking-plugin"},
+	   "requires":["calendar","weather"]}
+	]}`)
+	res, err := mcpplugin.ParseConfig(cfg)
+	require.NoError(t, err)
+	require.Len(t, res.Manifests, 1)
+
+	require.Equal(t, []string{"weather"},
+		depReg.Unknown(res.Manifests[0].Requires),
+		"boot 校验挑出 core 给不了的依赖 → 该插件应被拒")
+
+	// 依赖全已知 → Unknown 空 → 收。
+	ok := []byte(`{"plugins":[
+	  {"id":"booking","version":"1","shape":"visitor_only",
+	   "transport":{"kind":"stdio","command":"booking-plugin"},
+	   "requires":["calendar","smtp"]}
+	]}`)
+	res2, err := mcpplugin.ParseConfig(ok)
+	require.NoError(t, err)
+	require.Empty(t, depReg.Unknown(res2.Manifests[0].Requires), "依赖全已知 → 收")
+}
 
 // fakeProvider —— 测试用命名 provider，连接状态/错误可控。
 type fakeProvider struct {
@@ -22,6 +58,21 @@ type fakeProvider struct {
 func (p fakeProvider) Name() string { return p.name }
 func (p fakeProvider) Connected(context.Context, string) (bool, error) {
 	return p.connected, p.err
+}
+
+// NamedProvider —— 把 (name, Connected 闭包) 包成 DepProvider，透传 name + ownerID。
+// composition root 用它把 connector proxy 的 Connected 注册成命名依赖。
+func TestNamedProvider_Delegates(t *testing.T) {
+	var gotOwner string
+	p := capreg.NamedProvider("calendar", func(_ context.Context, owner string) (bool, error) {
+		gotOwner = owner
+		return true, nil
+	})
+	require.Equal(t, "calendar", p.Name())
+	ok, err := p.Connected(context.Background(), "owner-9")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "owner-9", gotOwner, "ownerID 透传给闭包")
 }
 
 // dep-registry —— register → lookup 命中；未知 → not found。
