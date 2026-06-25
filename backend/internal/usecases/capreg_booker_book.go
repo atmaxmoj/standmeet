@@ -139,7 +139,12 @@ func marshalBookErr(err error) string {
 		return marshalBookErrResult("calendar_unavailable",
 			"the calendar service is temporarily unavailable — please try again later")
 	default:
-		return marshalBookErrResult("internal_error", err.Error())
+		// 未预期的 host-edge / 内部错误（解密失败、plugin→host socket 不可达、句柄构建
+		// 失败等）：友好通用降级，绝不把底层错误文本（cipher/nonce/dial unix/stack）泄漏
+		// 给访客。真错记日志供 ops 排查（错误流矩阵 E3/E4/E5）。
+		slog.Default().Warn("booking degraded on unexpected error", "err", err)
+		return marshalBookErrResult("calendar_unavailable",
+			"the calendar service is temporarily unavailable — please try again later")
 	}
 }
 
