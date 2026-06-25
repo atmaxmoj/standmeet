@@ -236,6 +236,29 @@ func TestEnabledCaps_ConnectorGate(t *testing.T) {
 	require.Equal(t, []string{"calendar.book"}, stateIDs(shown), "calendar connected -> exposed")
 }
 
+// arbitrariness（命门）—— gating 机制对 dep 名无知：换一个跟 calendar/smtp 毫不相干
+// 的全新名字 "weather"，注册 provider + 一个 Requires:[weather] 的 cap，未连→隐藏、
+// 已连→暴露，跟 calendar 一模一样。证明 connector gating 是**通用命名依赖**机制，没
+// 写死 calendar/smtp —— 任何底座给的命名依赖都经同一个单点闸 gate。
+func TestEnabledCaps_ArbitraryDepName_GatesIdentically(t *testing.T) {
+	t.Parallel()
+	const weatherDep = "weather"
+	in := &capreg.AssembleInput{OwnerID: "o1"}
+	weatherCap := depCap{
+		fakeVisitorCap: fakeVisitorCap{id: "weather.report"},
+		requires:       []string{weatherDep},
+	}
+
+	hidden := regWithCalendar(weatherCap, fakeProvider{name: weatherDep, connected: false}).
+		VisitorStates(context.Background(), in)
+	require.Empty(t, stateIDs(hidden), "arbitrary dep not connected -> cap hidden")
+
+	shown := regWithCalendar(weatherCap, fakeProvider{name: weatherDep, connected: true}).
+		VisitorStates(context.Background(), in)
+	require.Equal(t, []string{"weather.report"}, stateIDs(shown),
+		"arbitrary dep connected -> exposed (same mechanism as calendar)")
+}
+
 // connected-errors (E1) 在 enabledCaps 层 —— Connected 返 error → 隐藏（fail-closed）。
 func TestEnabledCaps_ConnectorError_Hides(t *testing.T) {
 	t.Parallel()
