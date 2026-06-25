@@ -34,6 +34,7 @@ func main() {
 		server.WithInstructions(instructions))
 	srv.AddTool(bookTool(), opHandler("book"))
 	srv.AddTool(listSlotsTool(), opHandler("list_slots"))
+	srv.AddTool(sendConfirmationTool(), opHandler("send_confirmation"))
 	srv.AddResource(slotsCardResource(), slotsCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "booker:", err)
@@ -67,6 +68,26 @@ func bookTool() mcpgo.Tool {
 			},
 			"required":["topic","duration_min","preferred_times"]
 		}`)), "booking meeting")
+}
+
+// sendConfirmationTool —— send the booking confirmation email for the meeting
+// just booked in this conversation. Triggered by the booked card's email widget
+// (mcp-ui:tool); recipient defaults to the visitor's session email unless they
+// typed a different one (backend hard-controls it, D-4). Not for direct agent use.
+func sendConfirmationTool() mcpgo.Tool {
+	return progressLabel(mcpgo.NewToolWithRawSchema("send_confirmation",
+		"Send the booking confirmation email for the meeting just booked in this "+
+			"conversation. This is triggered by the booking card's email widget — the "+
+			"recipient is the visitor's session email unless they typed a different one. "+
+			"You do not normally call this directly; the card drives it.",
+		json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"recipient":{"type":"string",
+					"description":"Override recipient address; empty uses the visitor's session email."},
+				"tz":{"type":"string","description":"Visitor IANA timezone for rendering body times."}
+			}
+		}`)), "sending confirmation")
 }
 
 func slotsCardResource() mcpgo.Resource {

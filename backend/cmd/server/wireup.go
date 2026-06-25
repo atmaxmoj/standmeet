@@ -182,10 +182,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	// 再让 registry 把全部 plugin 的 CapabilityRegistrar 一次性注册到同一
 	// capreg.Registry，互不重 ID。
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
-	bookerDeps := &usecases.BookerDeps{
-		Proxy: skills.Proxy, Store: skills.Calendar,
-		Owners: skills.Owners, Notify: skills.Notify,
-	}
+	bookerDeps := newBookerDeps(d, &skills)
 	wireBookerSocket(ctx, d, bookerDeps)
 	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,

@@ -33,6 +33,7 @@ type bookerSockReq struct {
 func RegisterBookerSocket(srv *capsocket.Server, deps *BookerDeps) {
 	srv.Handle("book", bookerOpHandler(deps, runBookerBook))
 	srv.Handle("list_slots", bookerOpHandler(deps, runBookerListSlots))
+	srv.Handle("send_confirmation", bookerOpHandler(deps, runBookerSendConfirmation))
 }
 
 // bookerOpHandler —— 两个 op 同形：解 session + args、查 owner 时区、跑 run（book /

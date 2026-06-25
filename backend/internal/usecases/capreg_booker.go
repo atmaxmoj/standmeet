@@ -40,6 +40,10 @@ type BookerDeps struct {
 	Store  CalendarStore
 	Owners OwnerGetter
 	Notify OwnerNotifyDeps
+	// Confirm —— booked 卡外置后，确认信从 REST 收成 booker tool（send_confirmation，
+	// 经 mcp-ui:tool 从卡派发）。复用 SendBookingConfirmation（归属/幂等/D-4 收件人
+	// 校验都在里面）。凭据在 MailProxy 内，这层不碰。
+	Confirm BookingConfirmDeps
 }
 
 // bookerCallInput —— 一次 book / list_slots host op 的 session 派生入参。沙箱插件

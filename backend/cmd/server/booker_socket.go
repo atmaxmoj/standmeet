@@ -13,6 +13,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
+// newBookerDeps —— booker host ops 的窄依赖（book/list_slots 用 Proxy/Store/Owners/
+// Notify；send_confirmation 用 Confirm，复用确认信 deps，凭据在 MailProxy 内）。
+// 同 NewBookerGate / NewBookerStateHook / RegisterBookerSocket 共一份。
+func newBookerDeps(d *runtimeDeps, skills *usecases.VisitorSkillsDeps) *usecases.BookerDeps {
+	return &usecases.BookerDeps{
+		Proxy: skills.Proxy, Store: skills.Calendar,
+		Owners: skills.Owners, Notify: skills.Notify,
+		Confirm: usecases.BookingConfirmDeps{
+			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
+			Proxy: mailProxy(d),
+		},
+	}
+}
+
 func wireBookerSocket(ctx context.Context, d *runtimeDeps, deps *usecases.BookerDeps) {
 	if mkErr := os.MkdirAll("/run/standmeet", socketDirMode); mkErr != nil {
 		d.log.Error("booker socket dir", "err", mkErr)
