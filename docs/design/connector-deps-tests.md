@@ -28,6 +28,13 @@
 - **D-3：booked 外置 + cancel/email→tool 进本刀**，做干净。
 - **D-4：发确认信的收件人硬控（引用/透传/422/skip）放 tool 内（后端校验，422 仍后端出）。**
   卡只收集 + 显示 —— #121 收件人硬控由 `send_confirmation` tool 后端把守，沙盒卡绕不过。
+- **D-8：connector = 消费者无关、双向的底座。** 凭据/OAuth/重试全在连接器内，**谁用它不感知**。
+  MCP 能力（经 capreg 依赖解析 gate）只是「其中一个消费者」；将来的 **IM Gateway**（owner 在
+  Discord/Slack 被 @ → Gateway 唤起 agent → agent 用连接器凭据**读 channel 历史** + **发消息**）
+  是另一个消费者，**不碰 MCP**。因此「按名解析连接器 + 拿句柄」必须住中性位置、**不 import
+  capreg**；句柄双向（read+write）、无凭据 getter。守卫测试：`connector.TestConnector_
+  ConsumerAgnostic_BidirectionalGateway`（fakeGateway 不 import capreg = 编译期证明）。
+  实现阶段把 `capreg.DepRegistry` 并进中性的 `connector.Hub`（一个底座、多个消费者）。
 
 ## 测试哲学（沿用平台架构测试设计）
 
