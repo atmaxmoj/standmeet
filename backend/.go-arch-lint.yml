@@ -91,6 +91,8 @@ components:
     in: internal/connector                # Phase B: Nango-style 连接器层 —— 解密凭据 + 代调外部 (gcal/mailer)；凭据永不出 vault 进 usecases
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
+  retry:
+    in: internal/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
   sysroutes:
     in: internal/routes/sys
   adminroutes:
@@ -144,6 +146,13 @@ deps:
       - usecases
       - gcal
       - mailer
+      - retry
+    anyVendorDeps: true
+
+  # retry —— #132 通用可配重试 infra leaf：纯 stdlib (context/time)，无 internal 依赖。
+  # connector 代调外部（gcal/mailer，第三方易抖）按 call-class 在它之上配策略（D-6/D-7）。
+  retry:
+    mayDependOn: []
     anyVendorDeps: true
 
   # sandbox 调外部 docker，仅依赖 stdlib + domain (SkillScript)。
