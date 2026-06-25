@@ -123,6 +123,31 @@ StandMeet 同时扮演三个角色，凭据方向各不同，别混：
 
 **决策点 P.10：StandMeet 三个朝向（host / connector-owner / as-MCP-server）。as-MCP-server 是 registry 的对外脸，聚合插件 owner 工具成单端点；与 visitor 侧同一 gateway 模式。** *(已落地 / #143：`mcphandle.registerTools` 只 walk `reg.OwnerMCPBindings()` —— core owner capability + 插件 owner 工具一并汇入，core 不写死 tool 清单；老 `tools_*.go` AddTool 全删。)*
 
+### 入口无关：agent 中性，两边对称
+
+**core 夹的两类东西（inward 能力 / outward connector）都对「谁唤起 agent」透明。** 入口 / 编排只是
+**消费者**，各自填一份 **session context** 唤起 agent；agent 不知道、也不该知道是谁唤起的：
+
+| 角色 | 唯一知道的 | 拿到的接缝 | 不知道 |
+|---|---|---|---|
+| **入口 / 编排**（消费者） | 自己收到的事件 | —— 填 session context、唤起 agent | 能力/连接器内部 |
+| web 访客（code/BYOAI/gate）· **IM Gateway（将来）** · **job-loop outbound（将来）** | | | |
+| **agent loop**（中性 core） | 有 tool、有 session context | —— | 入口是谁 |
+| **inward：能力（MCP App）** | 「被 agent 用了」 | `_meta.standmeet/session`（中性 session context：owner_id / conversation_id / corpus 域 …） | 入口是 web 还是 IM |
+| **outward：连接器** | 「被按名解析了」 | 句柄（ownerID 调用口，无凭据 getter） | 谁在用它（D-8） |
+
+两个接缝**对称**：能力 ↔ session context；连接器 ↔ 句柄。都对入口透明 —— 所以 IM Gateway /
+job-loop 接进来时，**能力和连接器一行不改**，只是多了一个填 session context 的消费者。
+
+> v1 的实现语言是「visitor」（web 单入口），那是当前唯一消费者，不是模型限制。`_meta.standmeet/
+> session` 这个中性 sidechannel 就是为「以后换/加入口」准备的承载 —— booker 注释里「per-visitor
+> identity rides `_meta`」说的是机制，机制本身入口无关。
+
+**决策点 P.12：agent 入口无关，inward/outward 对称。** 入口/编排是消费者（填 session context、
+唤起 agent）；能力只知「被 agent 用」（吃中性 session context），连接器只知「被按名解析」（D-8）。
+新入口（IM Gateway / job-loop）= 新消费者，能力与连接器不动。as-MCP facade 与「IM Gateway 当消费者」
+本质同类（都把 agent/能力暴露给一个外部编排），实现阶段考虑归一，别搭两套。
+
 ---
 
 ## 全貌覆盖（以测试为准）—— 26 个 admin surface 的归位
@@ -305,6 +330,20 @@ connector 都是「host 带凭据向外延伸的手」，但有两种方向（= 
 | **sync / ingest** | 外部 → corpus（往里灌内容） | 后台 / 定时，跟某次 chat 无关 | Obsidian / Notion 同步 | Sync（Functions） |
 
 同一套 connector 抽象（同一份 provider 声明 + 同一个加密凭据 vault），只是模式不同。**Obsidian 不是新的第三类，是 sync 模式的 connector**：它接在 ingest 边（`vault → corpus`），再由 `retrieval` 能力服务访客，**永不进 visitor 的调用链**。
+
+### 6. connector = 消费者无关、双向的底座（D-8）
+connector 不只服务 MCP。把「按名解析连接器 + 拿句柄」摆在**中性位置**（`connector.Hub`，**不 import
+MCP 包**），任何消费者都能用：
+- **MCP 能力**（经依赖解析 gate）是「其中一个消费者」 —— 现在是这个。
+- **IM Gateway（将来）** 是另一个：owner 在 Discord/Slack 被 @ → Gateway 唤起 agent → agent 用该 IM
+  连接器凭据 **读 channel 历史**（read）进上下文，再用同一凭据 **发消息**（write）回 channel。**全程不碰
+  MCP / 访客 session / mcp-ui:tool**。
+- **job-loop outbound（将来）** 也是：直接吃连接器发确认信 / 排程。
+
+所以连接器句柄要**双向**（read+write，不止 action 的 `Send`），且基面无凭据 getter。实现阶段把
+`capreg.DepRegistry` 并进 `connector.Hub`（一个底座、多个消费者，别各搭一套）。守卫测试
+`connector.TestConnector_ConsumerAgnostic_BidirectionalGateway`（fakeGateway 不 import capreg =
+编译期证明）锁死这条红线。
 
 **安全**：owner 凭据**永不进插件**（Nango proxy 持密代调，插件只拿经 host 路由的调用句柄）。owner 运行时加的 ext-mcp **连句柄都不给**（owner 自己的外部 server，信任最低，要 owner 显式授权才接 dep）。
 
