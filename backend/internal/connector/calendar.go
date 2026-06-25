@@ -66,21 +66,19 @@ func (p *CalendarProxy) Connected(ctx context.Context, ownerID string) (bool, er
 func (p *CalendarProxy) FreeBusy(
 	ctx context.Context, ownerID string, req usecases.FreeBusyReq,
 ) ([]usecases.BusyInterval, error) {
-	token, err := p.freshToken(ctx, ownerID)
-	if err != nil {
-		return nil, err
-	}
 	var busy []gcal.BusyWindow
-	if ferr := calendarRetry(ctx, readPolicy(), func() error {
-		got, e := p.client.FreeBusy(ctx, &gcal.FreeBusyInput{
-			AccessToken: token, TimeMin: req.TimeMin, TimeMax: req.TimeMax,
-			CalendarIDs: []string{"primary"}, TimeZone: "UTC",
+	if ferr := p.callWithAuth(ctx, ownerID, func(token string) error {
+		return calendarRetry(ctx, readPolicy(), func() error {
+			got, e := p.client.FreeBusy(ctx, &gcal.FreeBusyInput{
+				AccessToken: token, TimeMin: req.TimeMin, TimeMax: req.TimeMax,
+				CalendarIDs: []string{"primary"}, TimeZone: "UTC",
+			})
+			busy = got
+			if e != nil {
+				return fmt.Errorf("freebusy: %w", e)
+			}
+			return nil
 		})
-		busy = got
-		if e != nil {
-			return fmt.Errorf("freebusy: %w", e)
-		}
-		return nil
 	}); ferr != nil {
 		return nil, ferr
 	}
@@ -95,31 +93,30 @@ func (p *CalendarProxy) FreeBusy(
 func (p *CalendarProxy) InsertEvent(
 	ctx context.Context, ownerID string, req *usecases.InsertEventReq,
 ) (usecases.InsertedEvent, error) {
-	token, err := p.freshToken(ctx, ownerID)
-	if err != nil {
-		return usecases.InsertedEvent{}, err
-	}
 	spec := attendeesFor(req.VisitorEmail)
-	// 幂等键在重试循环外生成一次、跨重试复用：events.insert 是非幂等写，瞬时错
-	// （含「写后连接断」）盲重试会双订；带同一 id 重发 → 命中已存事件，恰好一单。
+	// 幂等键在重试 / 401-refresh 循环外生成一次、跨重试复用：events.insert 是非幂等
+	// 写，瞬时错（含「写后连接断」）盲重试会双订；带同一 id 重发 → 命中已存事件，恰
+	// 好一单。
 	key, kerr := idempotencyKey()
 	if kerr != nil {
 		return usecases.InsertedEvent{}, kerr
 	}
 	var ins gcal.InsertedEvent
-	if ierr := calendarRetry(ctx, writePolicy(), func() error {
-		got, e := p.client.InsertEvent(ctx, &gcal.InsertEventInput{
-			AccessToken: token, CalendarID: "primary",
-			Summary: req.Summary, Description: req.Description,
-			Start: req.Start, End: req.End, TimeZone: req.TimeZone,
-			Attendees: spec.attendees, SendUpdates: spec.sendUpdates,
-			IdempotencyKey: key,
+	if ierr := p.callWithAuth(ctx, ownerID, func(token string) error {
+		return calendarRetry(ctx, writePolicy(), func() error {
+			got, e := p.client.InsertEvent(ctx, &gcal.InsertEventInput{
+				AccessToken: token, CalendarID: "primary",
+				Summary: req.Summary, Description: req.Description,
+				Start: req.Start, End: req.End, TimeZone: req.TimeZone,
+				Attendees: spec.attendees, SendUpdates: spec.sendUpdates,
+				IdempotencyKey: key,
+			})
+			ins = got
+			if e != nil {
+				return fmt.Errorf("insert event: %w", e)
+			}
+			return nil
 		})
-		ins = got
-		if e != nil {
-			return fmt.Errorf("insert event: %w", e)
-		}
-		return nil
 	}); ierr != nil {
 		return usecases.InsertedEvent{}, ierr
 	}
@@ -156,6 +153,40 @@ func attendeesFor(email string) attendeeSpec {
 		return attendeeSpec{attendees: []gcal.EventAttendee{}, sendUpdates: "none"}
 	}
 	return attendeeSpec{attendees: []gcal.EventAttendee{{Email: email}}, sendUpdates: "all"}
+}
+
+// callWithAuth —— 跑一次需 token 的 gcal 调用。撞 401（token 被拒：owner 在外部撤销
+// 了授权，但 access token 还没到期 → 不会主动刷新）→ 强制刷新一次再重试。强制刷新撞
+// invalid_grant → 撤销落库 + ErrCalendarRevoked（撤销→gate 联动）。读写共用。
+func (p *CalendarProxy) callWithAuth(
+	ctx context.Context, ownerID string, fn func(token string) error,
+) error {
+	token, err := p.freshToken(ctx, ownerID)
+	if err != nil {
+		return err
+	}
+	cerr := fn(token)
+	if !errors.Is(cerr, gcal.ErrUnauthorized) {
+		return cerr
+	}
+	fresh, rerr := p.forceRefresh(ctx, ownerID)
+	if rerr != nil {
+		return rerr
+	}
+	return fn(fresh)
+}
+
+// forceRefresh —— 不论 access token 是否过期，强制刷新一次（401 后用：token 未到期
+// 但被外部撤销）。复用 refreshAndStore 的 invalid_grant → 撤销落库逻辑。
+func (p *CalendarProxy) forceRefresh(ctx context.Context, ownerID string) (string, error) {
+	conn, err := p.vault.GetConnector(ctx, ownerID, domain.CalendarProvider)
+	if err != nil {
+		return "", fmt.Errorf("load connector: %w", err)
+	}
+	if !conn.Connected() {
+		return "", domain.ErrCalendarNotConnected
+	}
+	return p.refreshAndStore(ctx, &conn)
 }
 
 // freshToken —— load 连接器，过期则刷新 + 回存；invalid_grant → ErrCalendarRevoked。

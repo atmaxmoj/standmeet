@@ -209,6 +209,12 @@ func (s *server) serveCalendarEventsInsert(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
+	var revoked bool
+	s.withState(func(st *gcalState) { revoked = st.revoked })
+	if revoked { // 外部撤销 → access token 被拒（401）→ 后端刷新撞 invalid_grant 降级
+		writeCalendarUnauthorized(s.log, w)
+		return
+	}
 	ev := mockEvent{
 		EventID:     eventID(req.ID),
 		Summary:     req.Summary,
@@ -328,16 +334,25 @@ func (s *server) serveCalendarFreeBusy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var (
-		busy []busyWindow
-		fail *failInjection
+		busy    []busyWindow
+		fail    *failInjection
+		revoked bool
 	)
 	s.withState(func(st *gcalState) {
+		revoked = st.revoked
+		if revoked {
+			return
+		}
 		if f, ok := st.takeFail("freeBusy"); ok {
 			fail = f
 			return
 		}
 		busy = append(busy, st.busy...)
 	})
+	if revoked { // 外部撤销后 access token 被拒（401）→ 后端刷新撞 invalid_grant 降级
+		writeCalendarUnauthorized(s.log, w)
+		return
+	}
 	if fail != nil {
 		http.Error(w, `{"error":"injected freeBusy failure"}`, fail.status)
 		return
@@ -534,6 +549,17 @@ func writeOAuthToken(log *slog.Logger, w http.ResponseWriter, resp oauthTokenRes
 	writeJSONHeader(w)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Warn("write oauth token", logErrKey, err)
+	}
+}
+
+// writeCalendarUnauthorized —— 日历 API 401（access token 被拒：外部撤销但 token
+// 未过期）。后端 checkCalendarStatus 把 401 映成 ErrUnauthorized → 强制刷新一次 →
+// 刷新撞 invalid_grant → 撤销落库 + 友好降级。
+func writeCalendarUnauthorized(log *slog.Logger, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", jsonMIME)
+	w.WriteHeader(http.StatusUnauthorized)
+	if _, err := w.Write([]byte(`{"error":{"code":401,"message":"Invalid Credentials"}}`)); err != nil {
+		log.Warn("write calendar 401", logErrKey, err)
 	}
 }
 
