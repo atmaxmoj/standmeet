@@ -1,54 +1,45 @@
-// Package askvisitor —— the externalized ask_visitor inward capability as a
-// standalone mcp-go server, in its own module (code decoupled from the core).
-//
-// It is NOT run as a separate service/subprocess. The host imports this package,
-// builds the server object via NewMCPServer(), and loads it in-process over an
-// in-memory MCP transport — plain method calls, no network, no child process,
-// no thread. The host registers it through the same plugin path as any MCP app,
-// using the metadata constants below.
-//
-// It owns everything it needs and depends on nothing in the core:
-//   - the ask_visitor tool (echoes the LLM's structured question back)
-//   - its system-prompt fragment, declared via MCP `instructions`
-//   - ReturnDirectly, declared via the tool's `_meta`
-//   - its own rendering, served as a ui:// card resource (sandboxed in chat)
-package askvisitor
+// Command ask-visitor —— the externalized ask_visitor capability as a sandboxed
+// stdio MCP server (origin=builtin). It owns everything it needs and depends on
+// nothing in the core: the ask_visitor tool (echoes the LLM's structured question
+// back), its system-prompt fragment (MCP `instructions`), ReturnDirectly (the
+// tool's `_meta`), and its ui:// card resource. The host launches this binary in a
+// bubblewrap sandbox via sandbox_stdio — the SAME path as any third-party plugin;
+// "builtin" is just an origin tag. The host never imports this code: the contract
+// is the manifest (id/version as data, host-side) + the runtime MCP protocol, not
+// a Go dependency. ask_visitor needs no host data, so it gets no HostSockets and
+// runs fully network-isolated.
+package main
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// Plugin metadata —— the host builds its manifest from these (id / acl / raw tool
-// name / ui resource). acl=always: exposed in every mode without a role grant.
-// raw tool name: the tool stays canonical `ask_visitor`.
 const (
-	ID           = "ask_visitor"
-	Version      = "1"
-	UICardURI    = "ui://ask-visitor/card.html"
-	UICardMIME   = "text/html"
-	ToolName     = "ask_visitor"
-	ReturnDirect = true
-	ACLAlways    = true
-	RawToolNames = true
+	uiCardURI  = "ui://ask-visitor/card.html"
+	uiCardMIME = "text/html"
+	toolName   = "ask_visitor"
 )
 
-// NewMCPServer —— build the ask_visitor mcp-go server object. The host connects to
-// it in-process (no serving loop here).
-func NewMCPServer() *server.MCPServer {
+func main() {
 	srv := server.NewMCPServer("ask-visitor", "1.0.0",
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
 	srv.AddTool(askVisitorTool(), askVisitorHandler)
 	srv.AddResource(uiCardResource(), uiCardHandler)
-	return srv
+	if err := server.ServeStdio(srv); err != nil {
+		fmt.Fprintln(os.Stderr, "ask-visitor:", err)
+		os.Exit(1)
+	}
 }
 
 func askVisitorTool() mcpgo.Tool {
-	t := mcpgo.NewTool(ToolName,
+	t := mcpgo.NewTool(toolName,
 		mcpgo.WithDescription(
 			"Ask the visitor a structured clarifying question when their intent is "+
 				"ambiguous. Returns the question metadata; the visitor's choice comes "+
@@ -65,15 +56,14 @@ func askVisitorTool() mcpgo.Tool {
 	// MCP Apps: declare this tool's ui:// card on the tool `_meta`. The host reads
 	// it (resources/read) at assembly and renders it sandboxed for this tool.
 	t.Meta = mcpgo.NewMetaFromMap(map[string]any{
-		"return_directly": ReturnDirect,
-		"ui_resource":     UICardURI,
+		"return_directly": true,
+		"ui_resource":     uiCardURI,
 	})
 	return t
 }
 
 // askVisitorHandler —— echo the LLM's args back as a JSON object string. The
 // frontend dispatches by kind to render the widget; no DB, no quota, no LLM.
-//
 func askVisitorHandler(
 	_ context.Context, req mcpgo.CallToolRequest,
 ) (*mcpgo.CallToolResult, error) {
@@ -81,8 +71,8 @@ func askVisitorHandler(
 }
 
 func uiCardResource() mcpgo.Resource {
-	return mcpgo.NewResource(UICardURI, "ask_visitor card",
-		mcpgo.WithMIMEType(UICardMIME),
+	return mcpgo.NewResource(uiCardURI, "ask_visitor card",
+		mcpgo.WithMIMEType(uiCardMIME),
 		mcpgo.WithResourceDescription("Sandboxed ask_visitor widget (radio/multi/yes_no)."))
 }
 
@@ -90,6 +80,6 @@ func uiCardHandler(
 	_ context.Context, _ mcpgo.ReadResourceRequest,
 ) ([]mcpgo.ResourceContents, error) {
 	return []mcpgo.ResourceContents{
-		mcpgo.TextResourceContents{URI: UICardURI, MIMEType: UICardMIME, Text: cardHTML},
+		mcpgo.TextResourceContents{URI: uiCardURI, MIMEType: uiCardMIME, Text: cardHTML},
 	}, nil
 }

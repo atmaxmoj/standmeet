@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:1
-# Build context is the REPO ROOT (see docker-compose: context: .), because the
-# backend links the externalized inward-capability modules (mcp-servers/*) in-
-# process — they live in their own Go modules outside backend/ and are wired via
-# a local `replace` in backend/go.mod. The image therefore needs both backend/
-# and the mcp-servers/* module sources.
+# The backend imports NO plugin code: mcp-servers/* are pure runtime artifacts
+# (static binaries built by infra/plugins/provision.sh, bind-mounted in dev /
+# materialized from object storage in prod — #135). The host↔plugin contract is
+# the manifest + the runtime MCP protocol, never a Go dependency. So this image
+# is backend-only; the build context stays repo-root (docker-compose: context: .)
+# but nothing outside backend/ is copied here.
 
 # Stage 1: Lint
 #
@@ -20,17 +21,14 @@ RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest \
  && go install github.com/maxpoletaev/go-escape-lint@latest
 ENV PATH="/root/go/bin:${PATH}"
 
-# 依赖先下（独立缓存层）。go.work 不进镜像 —— backend/go.mod 的 replace 解析本地
-# mcp-servers/* 模块；只需它们的 go.mod 在位即可。
+# 依赖先下（独立缓存层）。backend 不再 import 任何 mcp-servers 模块，只需 backend 自己。
 COPY backend/go.mod backend/go.sum ./backend/
-COPY mcp-servers/ask-visitor/go.mod mcp-servers/ask-visitor/go.sum ./mcp-servers/ask-visitor/
 WORKDIR /app/backend
 RUN go mod download
 
 # 全量源码 + lint。
 WORKDIR /app
 COPY backend ./backend
-COPY mcp-servers/ask-visitor ./mcp-servers/ask-visitor
 WORKDIR /app/backend
 # 编译缓存挂成 BuildKit cache —— 源码改了 layer 会失效，但 eino 等依赖的 object
 # 文件不变；持久化 GOCACHE + golangci cache 让每次只重编改过的包，不再冷编全树

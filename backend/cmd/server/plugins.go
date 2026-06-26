@@ -9,12 +9,12 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcpplugin"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
-	askvisitor "github.com/atmaxmoj/standmeet/mcp-servers/ask-visitor"
 )
 
 // registerDiscoveredPlugins —— 注册所有 MCP-app 能力进同一个 capreg.Registry，归一：
-//   - 内建：代码解耦在独立 module（mcp-servers/ask-visitor 等），运行时 in-process
-//     加载（server 对象 + 元数据），origin=builtin。prod 也在。
+//   - 内建：代码在独立 module（mcp-servers/*），编成静态二进制随产品发，运行时跟第三方
+//     **完全同一条** sandbox_stdio 路径（bwrap）加载，origin=builtin。host 不 import 它们
+//     ——契约只有下面的 manifest（id/version/transport 是数据）+ 运行时 MCP 协议。
 //   - 第三方：STANDMEET_PLUGINS 声明的 stdio/http 插件，origin=managed。env 未设 →
 //     无（prod 默认无第三方）。
 //
@@ -142,8 +142,10 @@ func summarizeManifest() mcpplugin.Manifest {
 // 现按 MCP Apps 挂在 tool `_meta.ui_resource` 上（不再在 manifest 声明）。
 func askVisitorManifest() mcpplugin.Manifest {
 	return mcpplugin.Manifest{
-		ID:           askvisitor.ID,
-		Version:      askvisitor.Version,
+		// id/version 是写死的数据（跟 booker/retrieval/summarize 一致）——host 绝不
+		// import 插件代码：契约只有 manifest + 运行时 MCP 协议，不是 Go 依赖。
+		ID:           "ask_visitor",
+		Version:      "1",
 		Shape:        mcpplugin.ShapeVisitorOnly,
 		ACL:          mcpplugin.ACLAlways,
 		RawToolNames: true,

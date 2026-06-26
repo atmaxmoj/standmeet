@@ -68,7 +68,7 @@ build_go_into() {
   echo "[provision] $plugin (go static) <- $mod $pkg"
 }
 
-build_go_into ask-visitor "mcp-servers/ask-visitor" ./cmd/ask-visitor
+build_go_into ask-visitor "mcp-servers/ask-visitor" .
 build_go_into summarize   "mcp-servers/summarize"  .
 build_go_into booker      "mcp-servers/booker"     .
 build_go_into retrieval   "mcp-servers/retrieval"  .
