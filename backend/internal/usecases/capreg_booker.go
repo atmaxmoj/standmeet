@@ -44,6 +44,9 @@ type BookerDeps struct {
 	// 经 mcp-ui:tool 从卡派发）。复用 SendBookingConfirmation（归属/幂等/D-4 收件人
 	// 校验都在里面）。凭据在 MailProxy 内，这层不碰。
 	Confirm BookingConfirmDeps
+	// Cancel —— 同理，取消从 REST 收成 calendar_cancel booker tool。隔离靠 host 种的
+	// ConversationID（非 LLM 控）：访客只能取消**本对话**那笔预约，撤不了别人的。
+	Cancel VisitorCancelDeps
 }
 
 // bookerCallInput —— 一次 book / list_slots host op 的 session 派生入参。沙箱插件

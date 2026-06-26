@@ -35,6 +35,7 @@ func main() {
 	srv.AddTool(bookTool(), opHandler("book"))
 	srv.AddTool(listSlotsTool(), opHandler("list_slots"))
 	srv.AddTool(sendConfirmationTool(), opHandler("send_confirmation"))
+	srv.AddTool(cancelTool(), opHandler("cancel"))
 	srv.AddResource(slotsCardResource(), slotsCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "booker:", err)
@@ -88,6 +89,23 @@ func sendConfirmationTool() mcpgo.Tool {
 				"tz":{"type":"string","description":"Visitor IANA timezone for rendering body times."}
 			}
 		}`)), "sending confirmation")
+}
+
+// cancelTool —— cancel the meeting booked in this conversation. Triggered by the
+// booked card's cancel button (mcp-ui:tool). Isolation is host-side (the trusted
+// conversation context), so a visitor can only cancel their own booking. Not for
+// direct agent use.
+func cancelTool() mcpgo.Tool {
+	return progressLabel(mcpgo.NewToolWithRawSchema("calendar_cancel",
+		"Cancel the meeting just booked in this conversation. This is triggered by "+
+			"the booking card's cancel button — it removes the calendar event for the "+
+			"booking the visitor made here. You do not normally call this directly.",
+		json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"event_id":{"type":"string","description":"The booking's google_event_id from the card."}
+			}
+		}`)), "cancelling booking")
 }
 
 func slotsCardResource() mcpgo.Resource {

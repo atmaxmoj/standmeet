@@ -24,6 +24,10 @@ func newBookerDeps(d *runtimeDeps, skills *usecases.VisitorSkillsDeps) *usecases
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
 			Proxy: mailProxy(d),
 		},
+		Cancel: usecases.VisitorCancelDeps{
+			Proxy: calendarProxy(d),
+			Store: calendarStoreAdapter{repo: d.calendarRepo},
+		},
 	}
 }
 
