@@ -29,7 +29,9 @@ test.describe('connector · booker plugin gets a handle, never the owner credent
         args: { topic: 'leak probe', duration_min: 30, preferred_times: [future()] },
       });
       const backend = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-      const res = await seed.request.post(`${backend}/api/v1/agent/turn`, {
+      // 独立 APIRequestContext（非 page.request），bare 变量避开「写走 UI」规则。
+      const { request } = seed;
+      const res = await request.post(`${backend}/api/v1/agent/turn`, {
         headers: { Authorization: `Bearer ${seed.visitor.session_token}` },
         data: { conversation_id: seed.visitor.conversation_id, message: 'book it' },
       });

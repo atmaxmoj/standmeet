@@ -21,6 +21,8 @@
 // run it on demand), and the admin sandbox panel lists active workspaces
 // (#147/#148). Test first.
 
+import type { APIRequestContext } from '@playwright/test';
+
 import { test, expect } from '@/fixtures/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
@@ -44,7 +46,7 @@ const OWNER = {
 const PLUGIN_ID = 'wsfs';
 
 let code = '';
-let request: import('@playwright/test').APIRequestContext;
+let request: APIRequestContext;
 
 test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -90,12 +92,13 @@ test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
       // workspace now exists for that session.
       expect((await listSandboxWorkspaces(request)).length).toBe(1);
 
-      // 2) let the TTL elapse, then run the cron sweep on demand.
-      await new Promise((r) => setTimeout(r, 1500));
-      await runSandboxWorkspaceSweep(request);
-
-      // expired workspace is gone.
-      expect((await listSandboxWorkspaces(request)).length).toBe(0);
+      // 2) run the cron sweep until the workspace ages past the TTL and is gone.
+      //    poll (not sleep): waits on the real observable (workspace deleted),
+      //    real time elapses across retries so the TTL boundary is crossed.
+      await expect.poll(async () => {
+        await runSandboxWorkspaceSweep(request);
+        return (await listSandboxWorkspaces(request)).length;
+      }, { timeout: 8_000, intervals: [200] }).toBe(0);
 
       // 3) a workspace written AFTER the sweep (fresh) is NOT deleted by it.
       await scriptMockToolCall(request, {

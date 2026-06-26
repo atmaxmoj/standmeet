@@ -22,6 +22,8 @@
 // mcpclient stdio-via-sandbox + the managed plugin dir + dev-plugins.json entry
 // + a node runtime image) is wired. That is the point: test first.
 
+import type { Browser, Playwright } from '@playwright/test';
+
 import { test, expect } from '@/fixtures/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
@@ -50,6 +52,37 @@ const SECRET_MARKER = 'SANDBOX-READABLE-7f3a91';
 
 let pluginCode = '';
 
+// SandboxProbe —— 一次「脚本工具 + 回复 → 进会话发问 → 断言答里含某串」的探针。
+// tool 类型直接复用 scriptMockToolCall 的入参，保证形状一致。
+interface SandboxProbe {
+  tool: Parameters<typeof scriptMockToolCall>[1];
+  reply: string;
+  prompt: string;
+  expectText: string;
+}
+
+// runSandboxedProbe —— 4 个用例共用的真·端到端流程（脚本真服务的 tool + 回复，
+// 浏览器进 code 会话发问，断言答里出现期望串 = 真服务在沙箱里跑通了）。
+async function runSandboxedProbe(
+  browser: Browser, playwright: Playwright, probe: SandboxProbe,
+): Promise<void> {
+  const request = await playwright.request.newContext();
+  await scriptMockToolCall(request, probe.tool);
+  await scriptMockReplyText(request, probe.reply);
+  await request.dispose();
+
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterCodeSession(page, pluginCode);
+  await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
+  const input = page.getByTestId('chat-input-field');
+  await input.fill(probe.prompt);
+  await input.press('Enter');
+  await expect(page.getByTestId('answer-body'))
+    .toContainText(probe.expectText, { timeout: 30_000 });
+  await ctx.close();
+}
+
 test.describe('REAL third-party MCP server (server-filesystem) loaded via the managed sandbox', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -69,123 +102,57 @@ test.describe('REAL third-party MCP server (server-filesystem) loaded via the ma
     await request.dispose();
   });
 
+  // 真读：server-filesystem 读 /plugin/secret.txt（沙箱只读挂在那）。脚本回复故意不含
+  // marker —— marker 只能经 mock 反射真 tool 结果到达，断言它=证明真读非套话。
   test('discovers + invokes the real server: reads a file planted in its sandbox dir',
     async ({ browser, playwright }) => {
-      const request = await playwright.request.newContext();
-      // server-filesystem reads a path; the sandbox mounts the plugin dir at
-      // /plugin (read-only), so the planted secret lives at /plugin/secret.txt.
-      await scriptMockToolCall(request, {
-        name: `${PLUGIN_ID}_read_text_file`, args: { path: '/plugin/secret.txt' },
+      await runSandboxedProbe(browser, playwright, {
+        tool: { name: `${PLUGIN_ID}_read_text_file`, args: { path: '/plugin/secret.txt' } },
+        reply: 'I read the file you asked for',
+        prompt: 'read the secret file',
+        expectText: SECRET_MARKER,
       });
-      // The scripted reply deliberately does NOT contain the marker — the marker
-      // only reaches the chat via the mock's reflection of the REAL tool result
-      // (the bytes server-filesystem actually read from /plugin/secret.txt over
-      // the sandbox mount). So asserting it proves a real read, not a canned line.
-      await scriptMockReplyText(request, 'I read the file you asked for');
-      await request.dispose();
-
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterCodeSession(page, pluginCode);
-      await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
-      const input = page.getByTestId('chat-input-field');
-      await input.fill('read the secret file');
-      await input.press('Enter');
-
-      // marker in the answer = the REAL third-party server was discovered,
-      // launched in its sandbox, and read its mounted plugin dir end-to-end.
-      await expect(page.getByTestId('answer-body'))
-        .toContainText(SECRET_MARKER, { timeout: 30_000 });
-      await ctx.close();
     });
 
+  // 限域：/etc/standmeet/plugins.json 在 BACKEND host 上但没挂进沙箱（只挂 /plugin）。
+  // 受限服务读不到 → tool 失败 → 后端折成 errJSON → 友好降级。
   test('filesystem is confined: a path OUTSIDE the plugin dir cannot be read',
     async ({ browser, playwright }) => {
-      const request = await playwright.request.newContext();
-      // /etc/standmeet/plugins.json exists on the BACKEND host but is NOT mounted
-      // into the sandbox container — only /plugin is. A confined server cannot
-      // read it; the tool fails, backend folds to errJSON, chat degrades
-      // gracefully. (If the sandbox leaked the host fs, the server would happily
-      // return the config and this assertion would never see the refusal.)
-      await scriptMockToolCall(request, {
-        name: `${PLUGIN_ID}_read_text_file`,
-        args: { path: '/etc/standmeet/plugins.json' },
+      await runSandboxedProbe(browser, playwright, {
+        tool: { name: `${PLUGIN_ID}_read_text_file`, args: { path: '/etc/standmeet/plugins.json' } },
+        reply: 'sorry, I could not read that file',
+        prompt: 'read the host config file',
+        expectText: 'could not read that',
       });
-      await scriptMockReplyText(request, 'sorry, I could not read that file');
-      await request.dispose();
-
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterCodeSession(page, pluginCode);
-      await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
-      const input = page.getByTestId('chat-input-field');
-      await input.fill('read the host config file');
-      await input.press('Enter');
-
-      await expect(page.getByTestId('answer-body'))
-        .toContainText('could not read that', { timeout: 30_000 });
-      await ctx.close();
     });
 
+  // 不可变代码：/plugin 是只读 bind-mount 的服务代码（MinIO 物化、所有访客共享）。
+  // 写它必败 —— 第三方服务篡改不了自己的安装代码（可写区是 per-session /workspace）。
   test('immutable code: writing into /plugin (the read-only code mount) fails',
     async ({ browser, playwright }) => {
-      const request = await playwright.request.newContext();
-      // /plugin is the server's CODE, bind-mounted READ-ONLY (the immutable
-      // artifact materialized from MinIO, shared by all visitors). A write there
-      // must fail — a third-party server cannot tamper with its own installed
-      // code. The writable area is the per-session /workspace (proven writable in
-      // sandbox-workspace-ttl-cron.spec.ts); host paths are not mounted at all.
-      await scriptMockToolCall(request, {
-        name: `${PLUGIN_ID}_write_file`,
-        args: { path: '/plugin/tamper.txt', content: 'pwned' },
+      await runSandboxedProbe(browser, playwright, {
+        tool: { name: `${PLUGIN_ID}_write_file`, args: { path: '/plugin/tamper.txt', content: 'pwned' } },
+        reply: 'sorry, I could not write that file',
+        prompt: 'write into the plugin dir',
+        expectText: 'could not write that',
       });
-      await scriptMockReplyText(request, 'sorry, I could not write that file');
-      await request.dispose();
-
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterCodeSession(page, pluginCode);
-      await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
-      const input = page.getByTestId('chat-input-field');
-      await input.fill('write into the plugin dir');
-      await input.press('Enter');
-
-      await expect(page.getByTestId('answer-body'))
-        .toContainText('could not write that', { timeout: 30_000 });
-      await ctx.close();
     });
 
+  // 隔离为真：从沙箱外（e2e 跑在 host）核对——不是「tool 报失败」，而是「host 确未被动」。
   test('isolation is real: a sandbox write CANNOT touch the host filesystem',
     async ({ browser, playwright }) => {
-      // /plugin is bind-mounted from the host dir infra/plugins/fsmcp. If the
-      // sandbox leaked, a write to /plugin/breakout.txt would materialize HERE on
-      // the host. We check from OUTSIDE the sandbox (the e2e runs on the host) —
-      // not "the tool reported failure", but "the host is verifiably untouched".
       const hostPath = join(process.cwd(), '..', 'infra', 'plugins', 'fsmcp', 'breakout.txt');
       expect(existsSync(hostPath), 'precondition: breakout file absent').toBe(false);
 
-      const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, {
-        name: `${PLUGIN_ID}_write_file`,
-        args: { path: '/plugin/breakout.txt', content: 'ESCAPED-TO-HOST' },
+      await runSandboxedProbe(browser, playwright, {
+        tool: { name: `${PLUGIN_ID}_write_file`,
+          args: { path: '/plugin/breakout.txt', content: 'ESCAPED-TO-HOST' } },
+        reply: 'tried to write outside the box',
+        prompt: 'write a file to break out',
+        expectText: 'tried to write outside the box',
       });
-      await scriptMockReplyText(request, 'tried to write outside the box');
-      await request.dispose();
 
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
-      await enterCodeSession(page, pluginCode);
-      await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
-      const input = page.getByTestId('chat-input-field');
-      await input.fill('write a file to break out');
-      await input.press('Enter');
-      // wait until the write attempt has actually run (turn completed)
-      await expect(page.getByTestId('answer-body'))
-        .toContainText('tried to write outside the box', { timeout: 30_000 });
-      await ctx.close();
-
-      // the decisive proof: the host filesystem is untouched — the sandboxed
-      // server could not affect anything outside its read-only mount.
+      // 决定性证据：host 文件系统未被触碰 —— 沙箱服务影响不到只读挂载之外的任何东西。
       expect(existsSync(hostPath), 'sandbox must not affect the host').toBe(false);
     });
 });

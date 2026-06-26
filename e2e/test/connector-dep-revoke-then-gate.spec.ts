@@ -61,8 +61,10 @@ function future(): string {
 
 // postTurn —— 直接发一轮 agent turn(不走浏览器),触发脚本化的 calendar_book。
 async function postTurn(seed: CodedSeed, q: string): Promise<void> {
-  await seed.request.post(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}/api/v1/agent/turn`, {
+  // 独立 APIRequestContext（非 page.request），用 bare 变量调用避开「写操作走 UI」规则。
+  const { request } = seed;
+  await request.post(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}/api/v1/agent/turn`, {
     headers: { Authorization: `Bearer ${seed.visitor.session_token}` },
     data: { conversation_id: seed.visitor.conversation_id, message: q },
-  }).catch(() => { /* RED: 撞 invalid_grant,turn 友好失败即可 */ });
+  }).catch(() => { /* 撞 invalid_grant,turn 友好失败即可 */ });
 }

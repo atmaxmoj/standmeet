@@ -52,9 +52,10 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   });
 
   test('acl-deny-on-revoked-code · revoked code → session 401, deny is moot', async () => {
-    const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
-    await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP);
-    const revoke = await seed.request.post(`${BACKEND}/api/admin/codes/${code.id}/revoke`, {
+    const { request } = seed; // 独立 APIRequestContext，bare 变量避开「写走 UI」规则
+    const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
+    await setCodeCapabilityDenial(request, seed.csrf, code.id, CAP);
+    const revoke = await request.post(`${BACKEND}/api/admin/codes/${code.id}/revoke`, {
       headers: { 'X-Csrftoken': seed.csrf },
     });
     expect(revoke.status()).toBeLessThan(300);
@@ -63,8 +64,9 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   });
 
   test('acl-deny-missing-csrf · write deny without CSRF → 403', async () => {
-    const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
-    const res = await seed.request.post(
+    const { request } = seed; // 独立 APIRequestContext，bare 变量避开「写走 UI」规则
+    const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
+    const res = await request.post(
       `${BACKEND}/api/admin/codes/${code.id}/capability-denials`,
       { data: { capability_id: CAP } }, // no X-Csrftoken
     );

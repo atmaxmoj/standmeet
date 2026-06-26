@@ -52,11 +52,14 @@ test.describe('connector error stream · confirmation email is idempotent (E14)'
         key: 'e14-resend',
       });
       const input = page.getByTestId('chat-input-field');
+      const answersBefore = await page.getByTestId('answer-body').count();
       await input.fill('please resend that confirmation');
       await input.press('Enter');
 
-      // give the (idempotent) resend a chance to land; count must stay at 1.
-      await page.waitForTimeout(2_000);
+      // wait on the real signal (the resend turn produced its reply → the resend
+      // tool ran), not a fixed sleep; the idempotent backend must keep count at 1.
+      await expect(page.getByTestId('answer-body'))
+        .toHaveCount(answersBefore + 1, { timeout: 15_000 });
       expect(await countMailpitMessages(seed.request), 'no double-send').toBe(1);
 
       await ctx.close();

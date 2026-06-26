@@ -2,16 +2,6 @@
 // 状的纯数据 helper。ToolCallCards.tsx 是 presentation 层，不准做 if /
 // 类型断言；narrow 在这一层完成。
 
-import type { ToolCallView } from '@/lib/page/use-chat';
-
-// shouldRenderCall —— UI dispatch 用：哪些 tool call 该渲卡片。
-//   - ok=false → 不渲 (calendar_book 失败时 LLM 文字会解释)
-//   - cardKindFor === 'none' → 不渲 (corpus_read 已走 Citation)
-//   - 其他 → 渲
-export function shouldRenderCall(c: ToolCallView): boolean {
-  return c.ok && cardKindFor(c.name) !== 'none';
-}
-
 // BookConfirmation —— calendar_book 成功结果。
 export interface BookConfirmation {
   eventID: string;
@@ -63,47 +53,4 @@ export function jsonPretty(v: unknown): string {
   } catch {
     return String(v);
   }
-}
-
-// AskVisitorKind —— I.1 ask_visitor tool 的 widget 种类。yes_no 前端固
-// 渲 Yes/No 两个按钮 (不读 options)；radio/multi 必读 options。
-export type AskVisitorKind = 'radio' | 'multi' | 'yes_no';
-
-// AskVisitorPayload —— ask_visitor tool_result 的 echo (backend 直接把
-// LLM 的 args 原样推回；前端按 kind dispatch 渲对应 widget)。allowChat
-// 默认 false。options 在 kind=yes_no 时忽略；为方便组件渲染统一为字符
-// 串数组兜底空 []。
-export interface AskVisitorPayload {
-  question: string;
-  kind: AskVisitorKind;
-  options: readonly string[];
-  allowChat: boolean;
-}
-
-// pickAskVisitor —— narrow ask_visitor result 到 AskVisitorPayload。
-// 任一必填字段缺 / kind 非法 → null，UI 不渲。
-export function pickAskVisitor(raw: unknown): AskVisitorPayload | null {
-  if (!isRecordShape(raw)) return null;
-  const question = readStrShape(raw['question']);
-  const kind = readAskKind(raw['kind']);
-  if (question === '' || kind === null) return null;
-  return {
-    question, kind,
-    options: pickAskOptions(raw['options']),
-    allowChat: raw['allow_chat'] === true,
-  };
-}
-
-function readAskKind(v: unknown): AskVisitorKind | null {
-  if (v === 'radio' || v === 'multi' || v === 'yes_no') return v;
-  return null;
-}
-
-function pickAskOptions(v: unknown): string[] {
-  if (!Array.isArray(v)) return [];
-  const out: string[] = [];
-  for (const opt of v) {
-    if (typeof opt === 'string' && opt !== '') out.push(opt);
-  }
-  return out;
 }
