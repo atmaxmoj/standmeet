@@ -18,61 +18,8 @@
   margin-bottom: 0.4em;
 }
 
-/* calendar_book confirmation card —— book 成功后展现 event 信息 +
-   GCal 链接。强调度比 slots 更高 (vermillion 实底淡阴)。 */
-.bookCard {
-  padding: 0.7em 0.9em;
-  background: color-mix(in oklab, var(--color-accent) 10%, transparent);
-  border-left: 3px solid var(--color-accent);
-  border-radius: 2px;
-}
-
-.bookTime {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 16px;
-  color: var(--color-ink);
-  margin: 0.3em 0 0.5em;
-}
-
-.bookLink {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-accent);
-  text-decoration: underline;
-  text-decoration-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
-  text-underline-offset: 2px;
-}
-.bookLink:hover { color: var(--color-accent-soft); }
-
-/* #123 cancel —— 朴素文字按钮,克制(取消是破坏性动作,不抢戏)。 */
-.cancelRow {
-  margin-top: 0.7em;
-  padding-top: 0.6em;
-  border-top: 1px dashed color-mix(in oklab, var(--color-ink) 14%, transparent);
-}
-.cancelBtn {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--color-muted);
-  background: transparent;
-  border: none;
-  padding: 0.2em 0;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.cancelBtn:hover:not(:disabled) { color: var(--color-accent); }
-.cancelBtn:disabled { opacity: 0.5; cursor: default; }
-.cancelErr {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--color-accent);
-  margin-left: 0.6em;
-}
+/* booked confirmation 卡已外置成 booker 插件的 ui:// 沙盒卡（自带样式），写死的
+   React BookCard + 其 .bookCard/.bookTime/.bookLink/.cancel* 样式随之删除。 */
 
 /* generic skill / ext dump —— debug 风：mono、paper 底、size 收。 */
 .genericCard {

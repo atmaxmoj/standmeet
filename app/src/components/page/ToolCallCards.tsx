@@ -17,15 +17,8 @@
 import type { PublicSessionToolSpec } from '@standmeet/sdk-core';
 
 import { McpAppCard } from '@/components/page/McpAppCard';
-import { BookingEmailPrompt } from '@/components/page/BookingEmailPrompt';
 import { useToolSpecsStore, uiHtmlForTool } from '@/lib/visitor/tool-specs-store';
-import {
-  pickBookConfirmation,
-  cardKindFor, jsonPretty,
-  type BookConfirmation,
-} from '@/lib/page/tool-call-shape';
-import { formatSlotLocal } from '@/lib/page/slot-format';
-import { useBookingCancel, type BookingCancelControl } from '@/lib/page/use-booking-cancel';
+import { cardKindFor, jsonPretty } from '@/lib/page/tool-call-shape';
 import type { ToolCallView } from '@/lib/page/use-chat';
 import styles from '@/components/page/ToolCallCards.module.css';
 
@@ -34,7 +27,8 @@ interface ToolCallCardsProps {
   // onAsk —— 交互卡(ask_visitor / slots 沙盒卡)把 visitor 选择 forward 进下一
   // turn(经 McpAppCard 的 mcp-ui:submit)。只读卡不用。
   onAsk?: (q: string) => void;
-  // conversationID —— #122: BookCard 发约成确认信要带这段对话 id。
+  // conversationID —— booked 沙盒卡的 mcp-ui:tool 派发(cancel / send_confirmation)
+  // 凭它 + 访客 session 调 tool；传给 McpAppCard。
   conversationID?: string;
 }
 
@@ -54,7 +48,7 @@ export function ToolCallCards({ calls, onAsk, conversationID }: ToolCallCardsPro
 }
 
 // renderableCall —— 渲卡判定。tool 自带 ui:// 卡（per-tool ui_html）→ 渲沙盒；
-// 否则 booked 遗留卡 / skill·ext 通用兜底（cardKindFor）。皆无 → 不渲。
+// 否则 skill·ext 通用 debug 兜底（cardKindFor → dump）。皆无 → 不渲。
 function renderableCall(
   c: ToolCallView, byName: Record<string, PublicSessionToolSpec>,
 ): boolean {
@@ -70,17 +64,14 @@ interface CardCtx {
 }
 
 // NON_SANDBOX_CARDS —— 工具没自带 ui:// 卡时的兜底渲染（按 kind 查表，避开
-// presentation 层 if）：
-//   - dump (skill_*/ext_*) → GenericDumpCard：任意「无卡」工具的通用 debug 兜底
-//     （不是按能力写死的卡，是 fallback；自带卡的 externalized 工具走沙盒）。
-//   - booked (calendar_book) → BookCard：**唯一遗留写死卡**。cancel / 发确认信是
-//     connector-backed mutation，从卡触发，归 connector 重构（booked 卡随之外置）。
+// presentation 层 if）。dump (skill_*/ext_*) → GenericDumpCard：任意「无卡」工具的
+// 通用 debug 兜底（不是按能力写死的卡；自带卡的 externalized 工具走沙盒）。booked 卡
+// 已外置成 booker 插件的 ui:// 沙盒卡，不再有写死的 React 卡。
 const NON_SANDBOX_CARDS: Record<
   Exclude<ReturnType<typeof cardKindFor>, 'none'>,
   (ctx: CardCtx) => React.ReactElement | null
 > = {
-  dump:   ({ call }) => <GenericDumpCard call={call} />,
-  booked: ({ call, conversationID }) => <BookCard call={call} conversationID={conversationID} />,
+  dump: ({ call }) => <GenericDumpCard call={call} />,
 };
 
 function ToolCallCard(ctx: CardCtx) {
@@ -95,78 +86,6 @@ function ToolCallCard(ctx: CardCtx) {
 function nonSandboxCard(ctx: CardCtx) {
   const kind = cardKindFor(ctx.call.name);
   return kind === 'none' ? null : NON_SANDBOX_CARDS[kind](ctx);
-}
-
-// BookCard —— calendar_book 成功 confirmation。约成后给一截"发确认邮件吗"
-// (#122),收件人引用 session email / 透传现填地址 / 不发;owner 没配 mail
-// connector 时那截不渲染。
-function BookCard({ call, conversationID }: {
-  call: ToolCallView; conversationID?: string;
-}) {
-  const conf = pickBookConfirmation(call.result);
-  return conf === null ? null : (
-    <BookCardBody conf={conf} conversationID={conversationID} />
-  );
-}
-
-function BookCardBody({ conf, conversationID }: {
-  conf: BookConfirmation; conversationID?: string;
-}) {
-  const cancel = useBookingCancel(conf.eventID);
-  const cancelled = cancel.phase === 'cancelled';
-  return (
-    <div
-      className={styles['bookCard']} data-testid="tool-card-calendar_book"
-      data-cancelled={cancelled}
-    >
-      <div className={styles['kicker']}>{cancelled ? 'cancelled' : 'booked'}</div>
-      <div className={styles['bookTime']} data-testid="book-card-time">
-        {formatSlotLocal(conf.start, conf.end)}
-      </div>
-      {cancelled
-        ? <div className={styles['kicker']} data-testid="book-card-cancelled">this meeting was cancelled</div>
-        : <BookCardLive conf={conf} conversationID={conversationID} cancel={cancel} />}
-    </div>
-  );
-}
-
-// BookCardLive —— 未取消时的 card 下半:GCal 链接 + 确认邮件 widget + 取消按钮。
-function BookCardLive({ conf, conversationID, cancel }: {
-  conf: BookConfirmation; conversationID?: string; cancel: BookingCancelControl;
-}) {
-  return (
-    <>
-      {conf.htmlLink !== '' && (
-        <a
-          href={conf.htmlLink} target="_blank" rel="noopener noreferrer"
-          className={styles['bookLink']} data-testid="book-card-link"
-        >
-          open in google calendar →
-        </a>
-      )}
-      <BookingEmailPrompt conversationID={conversationID} />
-      <BookCardCancel cancel={cancel} />
-    </>
-  );
-}
-
-function BookCardCancel({ cancel }: { cancel: BookingCancelControl }) {
-  return (
-    <div className={styles['cancelRow']}>
-      <button
-        type="button" className={styles['cancelBtn']}
-        disabled={cancel.phase === 'cancelling'}
-        data-testid="book-card-cancel" onClick={cancel.cancel}
-      >
-        cancel meeting
-      </button>
-      {cancel.error !== null && (
-        <span className={styles['cancelErr']} data-testid="book-card-cancel-error">
-          {cancel.error}
-        </span>
-      )}
-    </div>
-  );
 }
 
 // GenericDumpCard —— skill_* / ext_* tool 结果。debug-grade JSON pretty
