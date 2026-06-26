@@ -42,7 +42,17 @@ func runBookerBook(
 	// #130: 约成后 best-effort 给 owner 发通知(per-role 开关在 usecase 里实时查)。
 	// 通知失败绝不影响 booking 结果(已成);err 吞掉,booking 仍如实返给 agent。
 	notifyOwnerBestEffort(ctx, deps, ci, &result, args.Topic)
-	return marshalBookResult(&result), nil
+	return marshalBookResult(&result, ci.VisitorEmail, ownerCanEmail(ctx, deps, ci.OwnerID)), nil
+}
+
+// ownerCanEmail —— owner 是否有可用 mail connector（决定确认信 widget 进不进卡）。
+// 查不到 / 未连 → false（widget 不渲，跟 send_confirmation Requires smtp 的门一致）。
+func ownerCanEmail(ctx context.Context, deps *BookerDeps, ownerID string) bool {
+	if deps.Confirm.Proxy == nil {
+		return false
+	}
+	ok, err := deps.Confirm.Proxy.Connected(ctx, ownerID)
+	return err == nil && ok
 }
 
 // notifyOwnerBestEffort —— #130 触发点。约成后**异步 + 后台重试**给 owner 发通知（D-6 R6）：
@@ -106,7 +116,13 @@ type bookOKWire struct {
 	HTMLLink string `json:"html_link"`
 	Start    string `json:"start"`
 	End      string `json:"end"`
-	OK       bool   `json:"ok"`
+	// VisitorEmail —— 访客进入时填的 session email（#121）。卡据它决定要不要渲「用我的
+	// 邮箱」(引用)按钮：空 = 访客没留地址，只给「填别的地址」(透传)。
+	VisitorEmail string `json:"visitor_email,omitempty"`
+	OK           bool   `json:"ok"`
+	// CanEmail —— owner 有没有可用 mail connector。false → 确认信 widget 整个不进卡
+	// （跟 send_confirmation Requires smtp 的门一致：发不了信就别给发信入口）。
+	CanEmail bool `json:"can_email"`
 }
 
 type bookFailWire struct {
@@ -147,14 +163,16 @@ func marshalBookErr(err error) string {
 	}
 }
 
-func marshalBookResult(r *domain.BookResult) string {
+func marshalBookResult(r *domain.BookResult, visitorEmail string, canEmail bool) string {
 	if r.OK {
 		out, err := json.Marshal(bookOKWire{
-			OK:       true,
-			EventID:  r.EventID,
-			HTMLLink: r.HTMLLink,
-			Start:    r.Start.Format(time.RFC3339),
-			End:      r.End.Format(time.RFC3339),
+			OK:           true,
+			EventID:      r.EventID,
+			HTMLLink:     r.HTMLLink,
+			Start:        r.Start.Format(time.RFC3339),
+			End:          r.End.Format(time.RFC3339),
+			VisitorEmail: visitorEmail,
+			CanEmail:     canEmail,
 		})
 		if err != nil {
 			return `{"ok":false,"error":"marshal_failed"}`

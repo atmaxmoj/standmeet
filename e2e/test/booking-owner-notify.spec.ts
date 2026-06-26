@@ -6,7 +6,7 @@
 // 真 e2e:浏览器约 → 后端 → owner SMTP(Mailpit)。
 
 import { test, expect } from '@/fixtures/test';
-import type { Browser, Page } from '@playwright/test';
+import type { Browser, FrameLocator, Page } from '@playwright/test';
 
 import {
   configureMailConnector, clearMailpit, waitForMailEnvelopeTo,
@@ -21,6 +21,11 @@ import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
+
+// booked 卡已外置成 booker 插件的 ui:// 沙箱 iframe；卡内容经 frameLocator 取。
+function bookedFrame(page: Page): FrameLocator {
+  return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
+}
 
 test.describe('booking · per-role owner notification (#130)', () => {
   let seed: CodedSeed;
@@ -59,9 +64,9 @@ test.describe('booking · per-role owner notification (#130)', () => {
       const page = await enterAndBook(browser, code.code, 'Eli', 15);
 
       // 约成卡照常(booking 成功),但 owner 不该收到通知。
-      // book-card 出现 = booker tool 已返回,owner-notify 在 commit 后同步触发过了
-      // (ON 会同步发完,OFF/无 connector 直接跳过)→ 此刻 count 已确定,无需 sleep。
-      await expect(page.getByTestId('book-card-time')).toBeVisible();
+      // book-card 出现 = booker tool 已返回。owner-notify 现在是 async 后台跑,但 OFF/无
+      // connector 根本**不发信**(没信可发),故 count 恒 0,无需等后台。
+      await expect(bookedFrame(page).getByTestId('book-card-time')).toBeVisible();
       expect(await countMailpitMessages(seed.request)).toBe(0);
       await page.context().close();
     });
@@ -87,9 +92,9 @@ test.describe('booking · owner notify on but no mail connector (#130 best-effor
       });
       const page = await enterAndBook(browser, code.code, 'Dana', 14);
 
-      // book-card 出现 = booker tool 已返回,owner-notify 在 commit 后同步触发过了
-      // (ON 会同步发完,OFF/无 connector 直接跳过)→ 此刻 count 已确定,无需 sleep。
-      await expect(page.getByTestId('book-card-time')).toBeVisible();
+      // book-card 出现 = booker tool 已返回。owner-notify 现在是 async 后台跑,但 OFF/无
+      // connector 根本**不发信**(没信可发),故 count 恒 0,无需等后台。
+      await expect(bookedFrame(page).getByTestId('book-card-time')).toBeVisible();
       expect(await countMailpitMessages(seed.request)).toBe(0);
       await page.context().close();
     });
@@ -117,7 +122,7 @@ async function enterAndBook(
   const input = page.getByTestId('chat-input-field');
   await input.fill('book me a 30-minute chat next week, please');
   await input.press('Enter');
-  await expect(page.getByTestId('tool-card-calendar_book')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
   return page;
 }
 

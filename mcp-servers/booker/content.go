@@ -170,7 +170,7 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    parent.postMessage({type:"mcp-ui:tool",name:name,args:args,requestId:id},"*");
  }
  function tz(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(_){return "";}}
- function emailPrompt(){
+ function emailPrompt(d){
    var p=el("div","prompt"); p.setAttribute("data-testid","booking-email-prompt");
    p.setAttribute("data-sent","false");
    p.appendChild(el("div","label","Send a confirmation email?"));
@@ -206,7 +206,9 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    }
    useProfile.onclick=function(){send("",[useProfile,sendTyped]);};
    sendTyped.onclick=function(){send(input.value,[useProfile,sendTyped]);};
-   row.appendChild(useProfile); row.appendChild(input); row.appendChild(sendTyped);
+   // 引用按钮（发到 session email）只在访客进入时留了 email 时出现；没留 → 只给透传输入框。
+   if(d.visitor_email){ row.appendChild(useProfile); }
+   row.appendChild(input); row.appendChild(sendTyped);
    row.appendChild(skip);
    p.appendChild(row);
    return p;
@@ -247,7 +249,8 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
      });
    };
    var crow=el("div","row"); crow.appendChild(cancel); root.appendChild(crow);
-   root.appendChild(emailPrompt());
+   // 确认信 widget 只在 owner 有可用 mail connector（can_email）时进卡：发不了信就别给入口。
+   if(d.can_email){ root.appendChild(emailPrompt(d)); }
    // restore：本卡跨刷新状态（host 注入 mcp-ui:data.state）若标了这条 booking 取消 →
    // 直接落 cancelled 终态：没有可点的 cancel、没有发信 prompt，幂等稳定。
    var st=state&&state[d.event_id];
