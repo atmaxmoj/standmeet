@@ -16,12 +16,15 @@ interface Props {
   // onAsk —— 仅交互卡(ask_visitor / slots)需要把访客选择 forward 进下一 turn；
   // 只读卡(corpus hits / report)不 submit，省略即可，submit 走 no-op。
   onAsk?: (q: string) => void;
+  // conversationID —— booked 卡的 mcp-ui:tool 派发(cancel / send_confirmation)凭它 +
+  // 访客 session 调 tool；不发 tool 的卡省略即可。
+  conversationID?: string;
 }
 
 const NOOP = (): void => {};
 
-export function McpAppCard({ call, html, onAsk }: Props) {
-  const { ref, height } = useMcpAppCard(call.result, onAsk ?? NOOP, call.name);
+export function McpAppCard({ call, html, onAsk, conversationID }: Props) {
+  const { ref, height } = useMcpAppCard(call.result, onAsk ?? NOOP, call.name, conversationID ?? '');
   return (
     <iframe
       ref={ref}

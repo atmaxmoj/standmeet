@@ -56,7 +56,6 @@ func reportCardResource() mcpgo.Resource {
 		mcpgo.WithResourceDescription("Sandboxed summarize_conversation report sneak-peek."))
 }
 
-//nolint:gocritic // mcp-go requires a value-typed request.
 func reportCardHandler(
 	_ context.Context, _ mcpgo.ReadResourceRequest,
 ) ([]mcpgo.ResourceContents, error) {
@@ -72,7 +71,6 @@ type session struct {
 	Mode           string
 }
 
-//nolint:gocritic // mcp-go passes the request by value.
 func sessionFromMeta(req mcpgo.CallToolRequest) session {
 	meta := req.Params.Meta
 	if meta == nil {
@@ -99,7 +97,6 @@ func str(m map[string]any, k string) string {
 // handleSummarize —— forward to the host "summarize" op; return its JSON result
 // (the report wire {report_id, html, ok}) straight through, or a folded error.
 //
-//nolint:gocritic // mcp-go passes the request by value.
 func handleSummarize(
 	_ context.Context, req mcpgo.CallToolRequest,
 ) (*mcpgo.CallToolResult, error) {

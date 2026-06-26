@@ -42,7 +42,9 @@ type Handlers struct {
 	Corpus      usecases.DialogCorpusLookup
 	Ghosts      usecases.GhostDeps
 	PDFRenderer ReportPDFRenderer
-	Log         *slog.Logger
+	// AppState —— MCP App（ui:// 卡）跨刷新状态 store；卡经 host 对自己 mcp 那格 CRUD。
+	AppState AppStateStore
+	Log      *slog.Logger
 }
 
 // Mount 挂 /api/v1/* 路由。caller 负责前缀。需要访客 session 的路由统一套
@@ -63,6 +65,10 @@ func (h *Handlers) Mount(r chi.Router) {
 	// 共享 member 级配额)。body {doc_key} → {conversation_id, conversation}。
 	r.Post("/conversations", h.withVisitorSession(h.openDocConversation()))
 	r.Post("/sessions/{id}/tools/{tool_name}", h.withVisitorSession(h.toolDispatch()))
+	// MCP App 跨刷新状态：沙箱卡经 host 对自己 mcp 那格增删改查。mcp_id 由 {tool} 派生。
+	r.Get("/sessions/{id}/app-state/{tool}", h.withVisitorSession(h.getAppState()))
+	r.Put("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.setAppState()))
+	r.Delete("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.deleteAppState()))
 	// #122: 约成后访客点确认卡 → 这条把一封确认信发到所选地址(引用/透传/不发)。
 	// AI 不参与;后端按 session→conversation 定位最近一笔预约,收件人硬控。
 	r.Post("/booking-confirmation", h.withVisitorSession(h.sendBookingConfirmation()))

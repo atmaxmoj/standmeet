@@ -19,11 +19,15 @@ When the visitor's preferred time isn't free: don't keep hunting blindly. List t
 // it sandboxed: a collapsible day picker; clicking a time chip posts mcp-ui:submit
 // ("book the … slot") which the host forwards as the next visitor turn.
 //
-// calendar_book ships NO card here yet — its confirmation needs connector-backed
-// actions (cancel / send confirmation), which belong to the connector refactor.
+// calendar_book declares the booked-confirmation card: time + GCal link + cancel
+// button + "send confirmation email?" widget. Cancel / send dispatch via mcp-ui:tool
+// (calendar_cancel / send_confirmation), the host runs the connector-backed op and
+// posts mcp-ui:tool-result back so the card flips to cancelled / sent.
 const (
-	slotsCardURI  = "ui://booker/slots-card.html"
-	slotsCardMIME = "text/html"
+	slotsCardURI   = "ui://booker/slots-card.html"
+	bookedCardURI  = "ui://booker/booked-card.html"
+	slotsCardMIME  = "text/html"
+	bookedCardMIME = "text/html"
 )
 
 // slotsCardHTML —— the self-contained sandboxed slots picker. Receives the tool
@@ -116,6 +120,150 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
  window.addEventListener("message",function(e){
    if(e.data&&e.data.type==="mcp-ui:data"){
      var d=e.data.data||{}; render(Array.isArray(d.slots)?d.slots:[]); h();
+   }
+ });
+ parent.postMessage({type:"mcp-ui:ready"},"*");
+})();
+</script></body></html>`
+
+// bookedCardHTML —— calendar_book 成功后的「已约确认卡」（沙盒 iframe）。收 book 结果
+// {ok,event_id,html_link,start,end}（mcp-ui:data）后渲：时间 + GCal 链接 + 取消按钮 +
+// 「发确认邮件吗」widget。取消 / 发信经 mcp-ui:tool 派给 host（calendar_cancel /
+// send_confirmation），host 跑连接器 op 后 post mcp-ui:tool-result 回来，卡据此翻到
+// cancelled / sent。凭据全程在 host，卡断网只发协议消息。
+const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
+<style>
+ :root{font-family:ui-serif,Georgia,serif;color:#1B1814}
+ body{margin:0;padding:2px}
+ .card{font:13px ui-serif,Georgia,serif;border:1px solid #d9d0c2;padding:10px;background:#F3EFE6}
+ .kicker{font:600 11px ui-monospace,monospace;color:#6b5d4f;text-transform:uppercase;letter-spacing:.05em}
+ .time{font:600 15px ui-serif,Georgia,serif;margin:4px 0}
+ .link{display:inline-block;margin:2px 0 8px;color:#B5391C;text-decoration:underline}
+ .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+ button{padding:5px 10px;border:1px solid #1B1814;background:#F3EFE6;cursor:pointer;
+   font:12px ui-monospace,monospace}
+ button:hover:not(:disabled){background:#1B1814;color:#F3EFE6}
+ button:disabled{opacity:.5;cursor:default}
+ .prompt{margin-top:10px;border-top:1px solid #d9d0c2;padding-top:8px}
+ .label{font:12px ui-serif,Georgia,serif;margin-bottom:6px}
+ input{padding:5px 7px;border:1px solid #1B1814;background:#fff;font:12px ui-monospace,monospace;flex:1;min-width:120px}
+ .err{margin-top:6px;color:#B5391C;font-size:12px}
+ .muted{color:#6b5d4f}
+ [data-cancelled=true] .time{text-decoration:line-through;color:#6b5d4f}
+</style></head><body>
+<script>
+(function(){
+ var seq=0, pending={}, statePending={};
+ function h(){parent.postMessage({type:"mcp-ui:height",
+   height:document.documentElement.scrollHeight+8},"*");}
+ function el(tag,cls,txt){var e=document.createElement(tag);
+   if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e;}
+ function fmt(s,e){
+   var a=new Date(s), b=new Date(e);
+   if(isNaN(a.getTime()))return "";
+   var d=a.toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"});
+   var t=function(x){return x.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});};
+   return d+" · "+t(a)+"–"+t(b);
+ }
+ function callTool(name,args,cb){
+   var id="t"+(++seq); pending[id]=cb;
+   parent.postMessage({type:"mcp-ui:tool",name:name,args:args,requestId:id},"*");
+ }
+ function tz(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(_){return "";}}
+ function emailPrompt(){
+   var p=el("div","prompt"); p.setAttribute("data-testid","booking-email-prompt");
+   p.setAttribute("data-sent","false");
+   p.appendChild(el("div","label","Send a confirmation email?"));
+   var row=el("div","row");
+   var useProfile=el("button",null,"Use my email");
+   useProfile.setAttribute("data-testid","booking-email-use-profile");
+   var input=el("input"); input.setAttribute("data-testid","booking-email-other");
+   input.placeholder="a different address";
+   var sendTyped=el("button",null,"Send");
+   sendTyped.setAttribute("data-testid","booking-email-send");
+   var skip=el("button",null,"No thanks");
+   skip.setAttribute("data-testid","booking-email-skip");
+   skip.onclick=function(){
+     p.setAttribute("data-sent","true");
+     p.innerHTML=""; p.appendChild(el("div","label muted","no confirmation sent"));
+     h();
+   };
+   function send(recipient,btns){
+     btns.forEach(function(b){b.disabled=true;});
+     callTool("send_confirmation",{recipient:recipient,tz:tz()},function(res){
+       if(res&&res.ok){
+         p.setAttribute("data-sent","true");
+         p.innerHTML=""; p.appendChild(el("div","label muted","confirmation sent"));
+       }else{
+         btns.forEach(function(b){b.disabled=false;});
+         var old=p.querySelector(".err"); if(old)old.remove();
+         var em=el("div","err",(res&&(res.detail||res.error))||"couldn't send — try again");
+         em.setAttribute("data-testid","booking-email-error");
+         p.appendChild(em);
+       }
+       h();
+     });
+   }
+   useProfile.onclick=function(){send("",[useProfile,sendTyped]);};
+   sendTyped.onclick=function(){send(input.value,[useProfile,sendTyped]);};
+   row.appendChild(useProfile); row.appendChild(input); row.appendChild(sendTyped);
+   row.appendChild(skip);
+   p.appendChild(row);
+   return p;
+ }
+ function render(d,state){
+   document.body.innerHTML="";
+   if(!d||!d.ok)return; // book 失败 → 不渲卡（agent 文字解释）
+   var root=el("div","card"); root.setAttribute("data-testid","tool-card-calendar_book");
+   root.setAttribute("data-cancelled","false");
+   var kick=el("div","kicker","booked"); root.appendChild(kick);
+   var time=el("div","time",fmt(d.start,d.end)); time.setAttribute("data-testid","book-card-time");
+   root.appendChild(time);
+   if(d.html_link){
+     var link=el("a","link","View on Google Calendar");
+     link.setAttribute("href",d.html_link); link.setAttribute("target","_blank");
+     link.setAttribute("rel","noopener"); link.setAttribute("data-testid","book-card-link");
+     root.appendChild(link);
+   }
+   var cancel=el("button",null,"Cancel meeting");
+   cancel.setAttribute("data-testid","book-card-cancel");
+   function toCancelled(){
+     root.setAttribute("data-cancelled","true"); kick.textContent="cancelled";
+     if(cancel.parentNode)cancel.remove();
+     var pr=root.querySelector('[data-testid="booking-email-prompt"]'); if(pr)pr.remove();
+     h();
+   }
+   cancel.onclick=function(){
+     cancel.disabled=true;
+     callTool("calendar_cancel",{event_id:d.event_id},function(res){
+       // 成功取消，或 booking 已不在（幂等：重复取消 / 越权一视同仁）→ 都落 cancelled。
+       if(res&&((res.ok&&res.cancelled)||res.error==="booking_not_found")){
+         // 先把 cancelled 态落库（mcp-state，按 mcp 隔离），ack 回来再进终态 —— 保证
+         // 「显示已取消」时状态已持久，刷新重渲也是 cancelled。
+         var rid="s"+(++seq); statePending[rid]=toCancelled;
+         parent.postMessage(
+           {type:"mcp-ui:state-set",key:d.event_id,value:{cancelled:true},requestId:rid},"*");
+       } else { cancel.disabled=false; h(); }
+     });
+   };
+   var crow=el("div","row"); crow.appendChild(cancel); root.appendChild(crow);
+   root.appendChild(emailPrompt());
+   // restore：本卡跨刷新状态（host 注入 mcp-ui:data.state）若标了这条 booking 取消 →
+   // 直接落 cancelled 终态：没有可点的 cancel、没有发信 prompt，幂等稳定。
+   var st=state&&state[d.event_id];
+   if(st&&st.cancelled){ toCancelled(); }
+   document.body.appendChild(root); h();
+ }
+ window.addEventListener("message",function(e){
+   var m=e.data||{};
+   if(m.type==="mcp-ui:data"){ render(m.data||{}, m.state||{}); }
+   else if(m.type==="mcp-ui:state-ack"){
+     var scb=statePending[m.requestId];
+     if(scb){ delete statePending[m.requestId]; scb(); }
+   }
+   else if(m.type==="mcp-ui:tool-result"){
+     var cb=pending[m.requestId];
+     if(cb){ delete pending[m.requestId]; cb(m.result||{}); }
    }
  });
  parent.postMessage({type:"mcp-ui:ready"},"*");

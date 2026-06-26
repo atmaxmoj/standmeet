@@ -37,6 +37,7 @@ func main() {
 	srv.AddTool(sendConfirmationTool(), opHandler("send_confirmation"))
 	srv.AddTool(cancelTool(), opHandler("cancel"))
 	srv.AddResource(slotsCardResource(), slotsCardHandler)
+	srv.AddResource(bookedCardResource(), bookedCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "booker:", err)
 		os.Exit(1)
@@ -50,7 +51,7 @@ func progressLabel(t mcpgo.Tool, label string) mcpgo.Tool {
 }
 
 func bookTool() mcpgo.Tool {
-	return progressLabel(mcpgo.NewToolWithRawSchema("calendar_book",
+	return withCard(mcpgo.NewToolWithRawSchema("calendar_book",
 		"Book a meeting on the owner's Google Calendar. Only call after you have "+
 			"gathered topic, duration (15-180 minutes), and one or more "+
 			"visitor-confirmed preferred start times in RFC3339 format. The invite "+
@@ -68,7 +69,7 @@ func bookTool() mcpgo.Tool {
 				}
 			},
 			"required":["topic","duration_min","preferred_times"]
-		}`)), "booking meeting")
+		}`)), "booking meeting", bookedCardURI)
 }
 
 // sendConfirmationTool —— send the booking confirmation email for the meeting
@@ -114,12 +115,25 @@ func slotsCardResource() mcpgo.Resource {
 		mcpgo.WithResourceDescription("Sandboxed calendar_list_slots day picker."))
 }
 
-//nolint:gocritic // mcp-go requires a value-typed request.
 func slotsCardHandler(
 	_ context.Context, _ mcpgo.ReadResourceRequest,
 ) ([]mcpgo.ResourceContents, error) {
 	return []mcpgo.ResourceContents{
 		mcpgo.TextResourceContents{URI: slotsCardURI, MIMEType: slotsCardMIME, Text: slotsCardHTML},
+	}, nil
+}
+
+func bookedCardResource() mcpgo.Resource {
+	return mcpgo.NewResource(bookedCardURI, "booked card",
+		mcpgo.WithMIMEType(bookedCardMIME),
+		mcpgo.WithResourceDescription("Sandboxed calendar_book confirmation (cancel / send-confirmation)."))
+}
+
+func bookedCardHandler(
+	_ context.Context, _ mcpgo.ReadResourceRequest,
+) ([]mcpgo.ResourceContents, error) {
+	return []mcpgo.ResourceContents{
+		mcpgo.TextResourceContents{URI: bookedCardURI, MIMEType: bookedCardMIME, Text: bookedCardHTML},
 	}, nil
 }
 
@@ -162,7 +176,6 @@ type session struct {
 	RoleID         string
 }
 
-//nolint:gocritic // mcp-go passes the request by value.
 func sessionFromMeta(req mcpgo.CallToolRequest) session {
 	meta := req.Params.Meta
 	if meta == nil {

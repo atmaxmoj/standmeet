@@ -216,6 +216,44 @@ const VisitorDocSchema = z.object({
 });
 export interface VisitorDoc { title: string; body: string }
 
+// callVisitorTool —— booked 卡的 mcp-ui:tool 派发：凭访客 session 调一个具名 tool
+// （calendar_cancel / send_confirmation）。host 带 session context（conversation +
+// token）派发，回工具结果 wire（{ok,...}）。坏响应 / 网络挂 → {ok:false,error}，
+// 卡据此进 error 终态。
+export async function callVisitorTool(
+  conversationID: string, sessionToken: string,
+  name: string, args: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (conversationID === '' || sessionToken === '' || name === '') {
+    return { ok: false, error: 'unavailable' };
+  }
+  try {
+    const res = await fetch(
+      `${baseURL()}/api/v1/sessions/${conversationID}/tools/${encodeURIComponent(name)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify(args),
+      },
+    );
+    const body: unknown = await res.json();
+    if (!isRecordValue(body)) return { ok: false, error: 'bad_response' };
+    // /tools envelope is {ok, result:<tool wire>, reason}. The card wants the tool
+    // wire (result); a dispatch failure (no result — expired session / quota) →
+    // return the envelope itself (ok:false + reason) so the card degrades in-card.
+    return isRecordValue(body['result']) ? body['result'] : body;
+  } catch {
+    return { ok: false, error: 'network' };
+  }
+}
+
+// isRecordValue —— 把 res.json() 的 unknown 收成 Record（避开 `as` 断言，过 eslint
+// consistent-type-assertions）。
+function isRecordValue(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+
 // fetchVisitorDoc —— 公开 landing 锁屏时,凭访客 session(token + 自己的
 // conversation)走 corpus_read 按 path 取被引文档。ACL 由后端按 role 评估:
 // 授了就回全文,没授 / 无 session → null(留锁屏)。

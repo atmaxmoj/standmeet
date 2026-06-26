@@ -43,9 +43,12 @@ test.describe('connector · visitor calendar_cancel as a tool (§一)', () => {
       const frame = bookedFrame(page);
       await frame.getByTestId('book-card-cancel').click();
 
-      // tool 路径的可观察副作用:event 经 connector proxy 被删。
-      const after = await getMockEvents(seed.request);
-      expect(after.find((e) => e.event_id === eventID)).toBeUndefined();
+      // tool 路径的可观察副作用:event 经 connector proxy 被删。派发是异步(卡 → host →
+      // tool),poll 等真实删除落地,而不是 click 后立刻读(会赛跑)。
+      await expect.poll(
+        async () => (await getMockEvents(seed.request)).find((e) => e.event_id === eventID),
+        { timeout: 10_000, message: 'calendar_cancel tool removed the event' },
+      ).toBeUndefined();
 
       // 卡进 cancelled 终态(tool-result 回卡 → 重渲)。
       await expect(frame.getByTestId('tool-card-calendar_book'))

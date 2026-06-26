@@ -892,3 +892,19 @@ CREATE TABLE banned_ips (
 );
 
 CREATE UNIQUE INDEX banned_ips_owner_ip_uniq ON banned_ips(owner_id, ip);
+
+-- mcp_app_state —— MCP App（ui:// 沙箱卡）的跨刷新状态。卡是「能跨刷新存活的小应用」，
+-- 经 host 对自己 mcp 那一格做增删改查。挂在 session 背后的耐久身份 member 上，按能力
+-- （=mcp，capreg capability id，如 calendar.book / corpus.retrieval）分格；mcp_id 由后端
+-- 从 tool 派生（绝不收客户端值）→ 同 mcp 跨 session 隔离、同 session 跨 mcp 隔离。value
+-- 是 app 自定义 jsonb（booked 卡存 {event_id: {cancelled:true}}）。member 删（会员清理）
+-- 级联清掉其全部 app state。单 owner v1 仍带 owner_id，多租户免费继承。
+CREATE TABLE mcp_app_state (
+    owner_id   uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    member_id  uuid        NOT NULL REFERENCES code_members(id) ON DELETE CASCADE,
+    mcp_id     text        NOT NULL,
+    state_key  text        NOT NULL,
+    value      jsonb       NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (member_id, mcp_id, state_key)
+);

@@ -88,7 +88,7 @@ function ToolCallCard(ctx: CardCtx) {
   const byName = useToolSpecsStore((s) => s.byName);
   const uiHtml = uiHtmlForTool(byName, ctx.call.name);
   return uiHtml !== ''
-    ? <McpAppCard call={ctx.call} html={uiHtml} onAsk={ctx.onAsk} />
+    ? <McpAppCard call={ctx.call} html={uiHtml} onAsk={ctx.onAsk} conversationID={ctx.conversationID} />
     : nonSandboxCard(ctx);
 }
 

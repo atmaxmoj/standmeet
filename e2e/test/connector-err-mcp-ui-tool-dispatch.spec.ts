@@ -13,7 +13,7 @@
 // RED / TDD：依赖 mcp-ui:tool host 派发把这三类失败映射成卡内友好结果落地后转绿。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, FrameLocator, Page, Playwright } from '@playwright/test';
+import type { FrameLocator, Page, Playwright } from '@playwright/test';
 
 import { configureMailConnector, clearMailpit } from '@/fixtures/mail';
 import {
@@ -22,23 +22,29 @@ import {
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const TOPIC = 'Intro call about backend work';
+const TOOL_ROUTE = '**/api/v1/sessions/*/tools/send_confirmation';
 
-// TODO(impl): needs host-side mcp-ui:tool dispatch fault toggles — no helper exists
-// yet. Raw POSTs so the spec COMPILES; backend control endpoints to add with the
-// refactor. fault ∈ dispatch (host派发失败) | session (令该 session 失效) | quota
-// (把 send-action 配额耗尽)。
-async function failNextDispatch(request: APIRequestContext): Promise<void> {
-  await request.post(`${BACKEND}/__mock/mcp-ui/dispatch_fault`, { data: { times: 1 } });
+// 三类派发故障用 Playwright 劫持卡的 /tools 请求制造(不动后端、不留 test seam):
+//   (a) host 派发失败 → 502; (b) session 失效 → 401; (c) 配额耗尽 → 200 ok:false。
+// 卡的 mcp-ui:tool 由父页 callVisitorTool fetch,故 page.route 能拦到。
+async function failHostDispatch(page: Page): Promise<void> {
+  await page.route(TOOL_ROUTE, (route) => route.fulfill({
+    status: 502, contentType: 'application/json',
+    body: JSON.stringify({ ok: false, reason: 'dispatch_fault' }),
+  }));
 }
-async function invalidateSession(request: APIRequestContext, convID: string): Promise<void> {
-  await request.post(`${BACKEND}/__mock/session/expire`, { data: { conversation_id: convID } });
+async function expireSession(page: Page): Promise<void> {
+  await page.route(TOOL_ROUTE, (route) => route.fulfill({
+    status: 401, contentType: 'application/json',
+    body: JSON.stringify({ ok: false, reason: 'session_expired' }),
+  }));
 }
-async function exhaustCardActionQuota(request: APIRequestContext, convID: string): Promise<void> {
-  await request.post(`${BACKEND}/__mock/quota/exhaust`, {
-    data: { conversation_id: convID, kind: 'send_confirmation' },
-  });
+async function exhaustCardActionQuota(page: Page): Promise<void> {
+  await page.route(TOOL_ROUTE, (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ ok: false, reason: 'quota_exhausted' }),
+  }));
 }
 
 test.describe('connector error stream · mcp-ui:tool dispatch failures degrade in-card (E12)', () => {
@@ -54,7 +60,7 @@ test.describe('connector error stream · mcp-ui:tool dispatch failures degrade i
       const page = await ctx.newPage();
       await enterAndBook(page, seed.code.code, 'Dana', 14, 'dana.a@example.com');
 
-      await failNextDispatch(seed.request);
+      await failHostDispatch(page);
       const frame = bookedFrame(page);
       await frame.getByTestId('booking-email-use-profile').click();
 
@@ -69,9 +75,9 @@ test.describe('connector error stream · mcp-ui:tool dispatch failures degrade i
       await clearMailpit(seed.request);
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      const convID = await enterAndBook(page, seed.code.code, 'Eli', 15, 'eli.b@example.com');
+      await enterAndBook(page, seed.code.code, 'Eli', 15, 'eli.b@example.com');
 
-      await invalidateSession(seed.request, convID);
+      await expireSession(page);
       const frame = bookedFrame(page);
       await frame.getByTestId('booking-email-use-profile').click();
 
@@ -86,9 +92,9 @@ test.describe('connector error stream · mcp-ui:tool dispatch failures degrade i
       await clearMailpit(seed.request);
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      const convID = await enterAndBook(page, seed.code.code, 'Mara', 16, 'mara.c@example.com');
+      await enterAndBook(page, seed.code.code, 'Mara', 16, 'mara.c@example.com');
 
-      await exhaustCardActionQuota(seed.request, convID);
+      await exhaustCardActionQuota(page);
       const frame = bookedFrame(page);
       await frame.getByTestId('booking-email-use-profile').click();
 

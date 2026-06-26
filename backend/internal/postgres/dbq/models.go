@@ -194,6 +194,15 @@ type JobSource struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type McpAppState struct {
+	OwnerID   pgtype.UUID
+	MemberID  pgtype.UUID
+	McpID     string
+	StateKey  string
+	Value     []byte
+	UpdatedAt pgtype.Timestamptz
+}
+
 type McpServer struct {
 	ID                 pgtype.UUID
 	OwnerID            pgtype.UUID

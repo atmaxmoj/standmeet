@@ -256,6 +256,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Corpus:      d.corpus,
 		Ghosts:      usecases.GhostDeps{Repo: d.ghostRepo},
 		PDFRenderer: d.reportPDFRenderer,
+		AppState:    d.appStateRepo,
 		Log:         d.log,
 	}
 }

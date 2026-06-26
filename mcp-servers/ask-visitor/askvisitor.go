@@ -74,7 +74,6 @@ func askVisitorTool() mcpgo.Tool {
 // askVisitorHandler —— echo the LLM's args back as a JSON object string. The
 // frontend dispatches by kind to render the widget; no DB, no quota, no LLM.
 //
-//nolint:gocritic // mcp-go requires a value-typed request.
 func askVisitorHandler(
 	_ context.Context, req mcpgo.CallToolRequest,
 ) (*mcpgo.CallToolResult, error) {
@@ -87,7 +86,6 @@ func uiCardResource() mcpgo.Resource {
 		mcpgo.WithResourceDescription("Sandboxed ask_visitor widget (radio/multi/yes_no)."))
 }
 
-//nolint:gocritic // mcp-go requires a value-typed request.
 func uiCardHandler(
 	_ context.Context, _ mcpgo.ReadResourceRequest,
 ) ([]mcpgo.ResourceContents, error) {

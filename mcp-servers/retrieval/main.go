@@ -64,7 +64,6 @@ func searchCardResource() mcpgo.Resource {
 		mcpgo.WithResourceDescription("Sandboxed corpus_search/corpus_list hits list."))
 }
 
-//nolint:gocritic // mcp-go requires a value-typed request.
 func searchCardHandler(
 	_ context.Context, _ mcpgo.ReadResourceRequest,
 ) ([]mcpgo.ResourceContents, error) {
@@ -118,7 +117,6 @@ type session struct {
 	CorpusURIs     []string
 }
 
-//nolint:gocritic // mcp-go passes the request by value.
 func sessionFromMeta(req mcpgo.CallToolRequest) session {
 	meta := req.Params.Meta
 	if meta == nil {
