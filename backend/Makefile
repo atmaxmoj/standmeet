@@ -30,17 +30,17 @@ fmt-check:
 
 # Cap every Go source file under cmd/ + internal/ at 350 lines.
 max-lines:
-	@bash scripts/check-max-lines.sh
+	@bash ../infra/scripts/check-max-lines.sh
 
 # Route handlers must stay at cyclo ≤ 3 — anything richer is business
 # logic leaking into the presentation layer.
 routes-cyclo:
-	@bash scripts/check-routes-cyclo.sh
+	@bash ../infra/scripts/check-routes-cyclo.sh
 
 # Container types (slice/map/chan) must never return nil — project principle.
 # Optional uses *T; collections always return empty container.
 no-nil-container:
-	@go run ./cmd/check-no-nil-container
+	@tool=$$(mktemp) && ( cd ../infra/scripts/check-no-nil-container && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; exit $$rc
 
 # go-arch-lint enforces the DDD layer arrows (.go-arch-lint.yml).
 arch:
@@ -50,7 +50,7 @@ arch:
 # be reached through the connector layer — credentials never leave the vault
 # into capability/usecases code. Red until the connector proxy lands.
 connector-boundary:
-	@bash scripts/check-connector-boundary.sh
+	@bash ../infra/scripts/check-connector-boundary.sh
 
 # Catch compile errors at lint time.
 build-check:

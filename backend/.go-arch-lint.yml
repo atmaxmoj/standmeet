@@ -103,8 +103,6 @@ components:
     in: internal/server
   cmd:
     in: cmd/server
-  lintcmd:
-    in: cmd/check-no-nil-container        # AST lint: container types must not return nil
 
 deps:
   # Domain 纯内核，无 internal 依赖。
@@ -472,12 +470,6 @@ deps:
       - postgres
       - captcha
       - plugins
-    anyVendorDeps: true
-
-  # lintcmd —— AST 静态检查工具 (check-no-nil-container)，独立可执行，纯
-  # go/parser + go/ast，无 internal 依赖。make lint 跑。
-  lintcmd:
-    mayDependOn: []
     anyVendorDeps: true
 
   # cmd/ 是 composition root —— 唯一允许跨所有 layer 的地方。

@@ -26,9 +26,12 @@ COPY backend/go.mod backend/go.sum ./backend/
 WORKDIR /app/backend
 RUN go mod download
 
-# 全量源码 + lint。
+# 全量源码 + lint。lint 工具住在 backend 外（infra/scripts —— max-lines/routes-cyclo/
+# connector-boundary 是 shell，check-no-nil-container 是独立 Go module），make lint 经
+# ../infra/scripts 调它们，故镜像 lint stage 也得带上。
 WORKDIR /app
 COPY backend ./backend
+COPY infra/scripts ./infra/scripts
 WORKDIR /app/backend
 # 编译缓存挂成 BuildKit cache —— 源码改了 layer 会失效，但 eino 等依赖的 object
 # 文件不变；持久化 GOCACHE + golangci cache 让每次只重编改过的包，不再冷编全树

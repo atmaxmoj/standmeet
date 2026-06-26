@@ -9,7 +9,7 @@
 # 配合 connector-secret-no-leak.spec.ts 从两侧夹：结构上碰不到 + 行为上不泄漏。
 # Phase B 落地（把 gcal/mailer 调用搬进 internal/connector）后本检查转绿。
 set -euo pipefail
-cd "$(dirname "$0")/.."   # → backend/
+cd "${1:-.}"   # → 目标 Go 源根（backend/）
 
 # 允许直连出站客户端的目录：connector 层 + 接线（composition root）。
 ALLOWED='internal/connector|cmd/server'

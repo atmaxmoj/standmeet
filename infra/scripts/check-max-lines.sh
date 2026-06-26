@@ -17,7 +17,7 @@
 set -euo pipefail
 
 MAX_LINES=350
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "${1:-.}" && pwd)"  # 目标 Go 源根（make -C backend 跑时 CWD=backend → 默认 .）
 
 # Use a portable `find … | while read` loop instead of `mapfile`
 # (macOS ships bash 3.2 which doesn't have it).  NUL-delimited reads
