@@ -62,6 +62,7 @@ func main() {
 		srv.AddTool(echoTool(), echoHandler)
 		srv.AddTool(boomTool(), boomHandler)
 		srv.AddTool(returnDirectlyTool(), echoHandler)
+		srv.AddTool(needsCalendarTool(), echoHandler) // _meta.requires:[calendar]（dep-grant 测试）
 	}
 	// 一个普通资源 —— 仅证明 resources/read 传输通（mcpclient.ReadResource 的
 	// transport-boundary fixture，跟 echo/ping/boom 同级）。真正的 ui:// 卡片资源

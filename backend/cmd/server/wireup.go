@@ -128,55 +128,15 @@ func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
 // 一次，capability 闭包持 deps，server 跑期间 deps 不再变。
 func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireSandboxWorkspaces(ctx, d)
+	// connector 命名依赖注册表一处建、一处 set：ext-mcp dep-grant 闸（工具 _meta.requires
+	// 按 grant+connected 放行）与 registerDiscoveredPlugins 的 Requires 校验共用同一份。
+	depReg := connectorDepRegistry(d)
+	d.agentSkills.SetDepRegistry(depReg)
 	skills := buildVisitorSkillsDeps(d)
+	skills.DepConnected = depReg
 	usecases.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
 	wireSummarizeSocket(ctx, d, &skills)
-	corpusDeps := usecases.CorpusDeps{
-		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
-	}
-	convsDeps := usecases.ConversationsDeps{
-		Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
-	}
-	promptsDeps := usecases.PromptsDeps{Prompts: d.promptRepo}
-	rolesDeps := usecases.RolesDeps{
-		Roles: d.roleRepo, Prompts: d.promptRepo,
-		Skills: d.skillRepo, MCPServers: d.mcpServerRepo,
-	}
-	mcpServersDeps := usecases.MCPServersDeps{
-		Servers: d.mcpServerRepo, Codes: d.codeRepo,
-	}
-	skillsDeps := usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo}
-	writingsDeps := usecases.WritingsDeps{Writings: d.writingRepo}
-	writingsTxDeps := usecases.WritingsTxDeps{
-		Writings:    d.writingRepo,
-		WritingRefs: d.writingRefRepo,
-		Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
-	}
-	customPagesDeps := usecases.CustomPageDeps{
-		Pages: d.customPageRepo, Builds: d.customBuildRepo,
-	}
-	handleDeps := usecases.HandleDeps{Owners: d.ownerRepo}
-	calendarStore := calendarStoreAdapter{repo: d.calendarRepo}
-	calendarDeps := &mcphandle.CalendarOwnerDeps{
-		Proxy: calendarProxy(d), Store: calendarStore,
-	}
-	mcphandle.RegisterAgentSkills(d.agentSkills, &mcphandle.RegisterDeps{
-		Owners:        d.ownerRepo,
-		SEO:           d.seoRepo,
-		Codes:         d.codeRepo,
-		Corpus:        &corpusDeps,
-		Conversations: &convsDeps,
-		Prompts:       &promptsDeps,
-		Roles:         &rolesDeps,
-		MCPServers:    &mcpServersDeps,
-		Skills:        &skillsDeps,
-		Writings:      &writingsDeps,
-		WritingsTx:    &writingsTxDeps,
-		CustomPages:   &customPagesDeps,
-		Handle:        &handleDeps,
-		Calendar:      calendarDeps,
-		Log:           d.log,
-	})
+	registerOwnerMCPHandlers(d)
 	// J.5: plugins 自己接管自家 owner-MCP capabilities (jobs / resume /
 	// applications 3 套都搬到 plugins/jobs/jobs.Plugin)。core register 跑完
 	// 再让 registry 把全部 plugin 的 CapabilityRegistrar 一次性注册到同一
@@ -187,7 +147,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
 	})
-	registerDiscoveredPlugins(d, map[string]usecases.CapHooks{
+	registerDiscoveredPlugins(d, depReg, map[string]usecases.CapHooks{
 		usecases.BookerSkillName: {
 			Gate:  usecases.NewBookerGate(bookerDeps),
 			State: usecases.NewBookerStateHook(bookerDeps),

@@ -19,12 +19,13 @@ import (
 //     无（prod 默认无第三方）。
 //
 // 三类走同一条 RegisterDiscoveredPlugins，只是 manifest 来源 / transport 不同。
-func registerDiscoveredPlugins(d *runtimeDeps, hooks map[string]usecases.CapHooks) {
-	// connector 命名依赖注册表先建好：(a) 装配期 enabledCaps 据它把 Requires 未连的 cap
-	// 经 global 单点闸隐藏（D-2）；(b) 注册 config 插件时校验其 Requires —— 声明了 core
-	// 给不了的依赖名 → 拒（fail-fast，requires-boot-reject）。
-	depReg := connectorDepRegistry(d)
-	d.agentSkills.SetDepRegistry(depReg)
+// depReg 由 registerAgentSkills 一处建好并 SetDepRegistry（ext-mcp dep 闸与这里的
+// Requires 校验共用同一份）：(a) 装配期 enabledCaps 据它把 Requires 未连的 cap 经 global
+// 单点闸隐藏（D-2）；(b) 注册 config 插件时校验其 Requires —— 声明了 core 给不了的依赖名
+// → 拒（fail-fast，requires-boot-reject）。
+func registerDiscoveredPlugins(
+	d *runtimeDeps, depReg *capreg.DepRegistry, hooks map[string]usecases.CapHooks,
+) {
 	registerBuiltins(d, hooks) // 内建依赖名由构造保证已知，不必再校验
 	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged, depReg)
 }

@@ -266,6 +266,12 @@ CREATE TABLE mcp_servers (
     url                     text          NOT NULL,
     auth_header_name        text          NOT NULL DEFAULT '',
     auth_header_value_enc   bytea         NOT NULL DEFAULT '\x'::bytea,
+    -- granted_deps —— owner 显式授权这个 ext-mcp server 可接的 connector 依赖名
+    -- （"calendar" / "smtp"…）。ext-mcp 是最低信任（别人写的进程，owner 只是注册了
+    -- URL），其工具即便声明 Requires:[calendar] 且 calendar 已连，默认也**不**注入句柄
+    -- （连接器句柄带 owner 权限，自动给任意注册 server 等于把 owner 账号借出去）。owner
+    -- 把某个 dep 加进这里 = 显式同意，工具才解析暴露。空 = 一个都不授权（默认拒）。
+    granted_deps            text[]        NOT NULL DEFAULT '{}',
     created_at              timestamptz   NOT NULL DEFAULT now()
 );
 

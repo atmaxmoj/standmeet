@@ -32,5 +32,5 @@ func RegisterVisitorSkills(
 	reg.MustRegister(newSkillRunnerCapability(skillRunnerDeps{
 		Skills: deps.Skills, Sandbox: deps.Sandbox,
 	}))
-	reg.MustRegister(newExtMCPCapability(deps.MCPServers))
+	reg.MustRegister(newExtMCPCapability(deps.MCPServers, deps.DepConnected))
 }

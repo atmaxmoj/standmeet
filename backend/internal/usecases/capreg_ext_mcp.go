@@ -26,13 +26,15 @@ const (
 	extToolPrefix = "ext_"
 )
 
-// extMCPCapability —— 窄依赖(#131):只要 owner 注册的外部 MCP server 目录。
+// extMCPCapability —— 窄依赖(#131):owner 注册的外部 MCP server 目录 + connector-dep
+// 连通查询（ext-mcp 工具声明 _meta.requires 时按 grant+connected 闸，见 _deps.go）。
 type extMCPCapability struct {
-	servers MCPServerGetter
+	servers   MCPServerGetter
+	connected DepConnected
 }
 
-func newExtMCPCapability(servers MCPServerGetter) *extMCPCapability {
-	return &extMCPCapability{servers: servers}
+func newExtMCPCapability(servers MCPServerGetter, connected DepConnected) *extMCPCapability {
+	return &extMCPCapability{servers: servers, connected: connected}
 }
 
 func (*extMCPCapability) ID() string { return capExtMCP }
@@ -66,7 +68,7 @@ func (c *extMCPCapability) VisitorBinding(
 	if len(servers) == 0 {
 		return nil, capreg.ErrHidden
 	}
-	bundle := dialExternalMCPs(ctx, servers)
+	bundle := dialExternalMCPs(ctx, servers, c.connected)
 	if len(bundle.tools) == 0 {
 		bundle.closeAll()
 		return nil, capreg.ErrHidden
@@ -112,12 +114,12 @@ func (b *extMCPBundle) closeAll() {
 }
 
 func dialExternalMCPs(
-	ctx context.Context, servers []domain.MCPServerConfig,
+	ctx context.Context, servers []domain.MCPServerConfig, connected DepConnected,
 ) *extMCPBundle {
 	bundle := &extMCPBundle{}
 	results := dialAllInParallel(ctx, servers)
 	for i := range results {
-		bundle.absorb(servers[i].Name, &results[i])
+		bundle.absorb(ctx, &servers[i], connected, &results[i])
 	}
 	return bundle
 }
@@ -171,25 +173,38 @@ func buildAuthHeaders(cfg *domain.MCPServerConfig) (map[string]string, error) {
 	return map[string]string{cfg.AuthHeaderName: string(plain)}, nil
 }
 
-func (b *extMCPBundle) absorb(serverName string, r *dialResult) {
+func (b *extMCPBundle) absorb(
+	ctx context.Context, cfg *domain.MCPServerConfig, connected DepConnected, r *dialResult,
+) {
 	if r.err != nil || r.session == nil {
 		return
 	}
 	b.sessions = append(b.sessions, r.session)
 	for i := range r.tools {
-		t := &r.tools[i]
-		toolName := composeExtToolName(serverName, t.Name)
-		if toolName == "" {
-			continue
-		}
-		b.tools = append(b.tools, capreg.NewTool(
-			toolName,
-			extToolDescription(serverName, t),
-			"calling external mcp",
-			t.InputSchema,
-			makeExtMCPRun(r.session, t.Name, nil),
-		))
+		b.addTool(ctx, cfg, connected, r.session, &r.tools[i])
 	}
+}
+
+// addTool —— 暴露一个 ext-mcp 工具，先过 connector-dep 闸（ext-mcp 最低信任，见 _deps.go）：
+// 工具声明的 requires 必须 owner 显式 grant + 已连，否则隐藏。
+func (b *extMCPBundle) addTool(
+	ctx context.Context, cfg *domain.MCPServerConfig, connected DepConnected,
+	session *mcpclient.Session, t *mcpclient.Tool,
+) {
+	if !extToolDepsAllowed(ctx, cfg, connected, t) {
+		return
+	}
+	toolName := composeExtToolName(cfg.Name, t.Name)
+	if toolName == "" {
+		return
+	}
+	b.tools = append(b.tools, capreg.NewTool(
+		toolName,
+		extToolDescription(cfg.Name, t),
+		"calling external mcp",
+		t.InputSchema,
+		makeExtMCPRun(session, t.Name, nil),
+	))
 }
 
 func composeExtToolName(server, tool string) string {

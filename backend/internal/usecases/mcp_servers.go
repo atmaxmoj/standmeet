@@ -110,5 +110,30 @@ func DeleteMCPServer(
 	return nil
 }
 
+// GrantMCPServerDep —— owner 显式授权这个 ext-mcp server 可接某 connector 依赖（dep 名）。
+// ext-mcp 最低信任，工具声明 Requires 默认不注入；grant 写进 server.GrantedDeps，装配期
+// 闸（capreg_ext_mcp_deps.go）凭它 + connected 放行。先校验 server 属于 owner。幂等。
+func GrantMCPServerDep(
+	ctx context.Context, deps MCPServersDeps, ownerID, serverID, dep string,
+) error {
+	if ownerID == "" || serverID == "" || dep == "" {
+		return ErrEmptyField
+	}
+	return grantDepOwned(ctx, deps, ownerID, serverID, dep)
+}
+
+// grantDepOwned —— 校验 server 属于 owner 后写 grant（幂等）。
+func grantDepOwned(
+	ctx context.Context, deps MCPServersDeps, ownerID, serverID, dep string,
+) error {
+	if _, gerr := deps.Servers.GetByID(ctx, ownerID, serverID); gerr != nil {
+		return fmt.Errorf("get mcp server: %w", gerr)
+	}
+	if err := deps.Servers.GrantDep(ctx, ownerID, serverID, dep); err != nil {
+		return fmt.Errorf("grant mcp server dep: %w", err)
+	}
+	return nil
+}
+
 // A.3-IAM-5: SetCodeMCPServers / SetCodeMCPServersInput 等都删了 —— mcp servers
 // 通过 role_mcp_servers 挂在 Role 上。

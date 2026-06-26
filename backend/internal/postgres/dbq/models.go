@@ -210,6 +210,7 @@ type McpServer struct {
 	Url                string
 	AuthHeaderName     string
 	AuthHeaderValueEnc []byte
+	GrantedDeps        []string
 	CreatedAt          pgtype.Timestamptz
 }
 

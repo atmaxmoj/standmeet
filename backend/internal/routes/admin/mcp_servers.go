@@ -45,6 +45,8 @@ func (h *Handlers) MountMCPServers(r chi.Router) {
 		r.Get("/", h.listMCPServers())
 		r.Post("/", h.createMCPServer())
 		r.Delete("/{id}", h.deleteMCPServer())
+		// owner 显式授权这个 ext-mcp server 接某 connector 依赖（最低信任，默认拒）。
+		r.Post("/{id}/dep-grants", h.grantMCPServerDep())
 	})
 }
 
@@ -154,6 +156,45 @@ func handleDeleteMCPServerErr(log *slog.Logger, w http.ResponseWriter, err error
 	}
 	logEncodeErr(log, "delete mcp server", err)
 	writeError(log, w, serverErr())
+}
+
+type depGrantRequest struct {
+	Dep string `json:"dep"`
+}
+
+func (h *Handlers) grantMCPServerDep() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req depGrantRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		serverID := chi.URLParam(r, "id")
+		err := usecases.GrantMCPServerDep(
+			r.Context(), h.MCPServersAdmin.Servers, ownerID, serverID, req.Dep,
+		)
+		if err != nil {
+			handleGrantMCPServerDepErr(h.Log, w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func handleGrantMCPServerDepErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, usecases.ErrEmptyField):
+		writeError(log, w, envBadReq("dep is required"))
+	case errors.Is(err, domain.ErrMCPServerNotFound):
+		writeError(log, w, apierr.Envelope{
+			Status: http.StatusNotFound, Code: "mcp_server_not_found",
+			Message: "mcp server not found",
+		})
+	default:
+		logEncodeErr(log, "grant mcp server dep", err)
+		writeError(log, w, serverErr())
+	}
 }
 
 // setCodeMCPServers / attachCreatedCodeMCPServers / listMCPServerIDsForCode

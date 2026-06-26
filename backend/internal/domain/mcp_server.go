@@ -24,6 +24,10 @@ type MCPServerConfig struct {
 	URL                string
 	AuthHeaderName     string
 	AuthHeaderValueEnc []byte
+	// GrantedDeps —— owner 显式授权这个 ext-mcp server 可接的 connector 依赖名
+	// （"calendar"/"smtp"…）。ext-mcp 最低信任：工具声明 Requires 默认不注入句柄，
+	// 只有 dep 在这里 = owner 显式同意，才解析暴露。空 = 默认全拒。
+	GrantedDeps []string
 }
 
 // ErrMCPServerNotFound —— server id 不存在或不属于该 owner。

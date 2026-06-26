@@ -262,7 +262,7 @@ func (q *Queries) ListRoleMCPServerIDs(ctx context.Context, roleID pgtype.UUID) 
 }
 
 const listRoleMCPServers = `-- name: ListRoleMCPServers :many
-SELECT m.id, m.owner_id, m.name, m.url, m.auth_header_name, m.auth_header_value_enc, m.created_at FROM mcp_servers m
+SELECT m.id, m.owner_id, m.name, m.url, m.auth_header_name, m.auth_header_value_enc, m.granted_deps, m.created_at FROM mcp_servers m
 JOIN role_mcp_servers rms ON rms.mcp_server_id = m.id
 WHERE rms.role_id = $1
 ORDER BY m.name ASC
@@ -285,6 +285,7 @@ func (q *Queries) ListRoleMCPServers(ctx context.Context, roleID pgtype.UUID) ([
 			&i.Url,
 			&i.AuthHeaderName,
 			&i.AuthHeaderValueEnc,
+			&i.GrantedDeps,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

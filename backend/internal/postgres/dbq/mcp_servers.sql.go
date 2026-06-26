@@ -14,7 +14,7 @@ import (
 const createMCPServer = `-- name: CreateMCPServer :one
 INSERT INTO mcp_servers (owner_id, name, url, auth_header_name, auth_header_value_enc)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_id, name, url, auth_header_name, auth_header_value_enc, created_at
+RETURNING id, owner_id, name, url, auth_header_name, auth_header_value_enc, granted_deps, created_at
 `
 
 type CreateMCPServerParams struct {
@@ -41,6 +41,7 @@ func (q *Queries) CreateMCPServer(ctx context.Context, arg CreateMCPServerParams
 		&i.Url,
 		&i.AuthHeaderName,
 		&i.AuthHeaderValueEnc,
+		&i.GrantedDeps,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -62,7 +63,7 @@ func (q *Queries) DeleteMCPServer(ctx context.Context, arg DeleteMCPServerParams
 }
 
 const getMCPServerByID = `-- name: GetMCPServerByID :one
-SELECT id, owner_id, name, url, auth_header_name, auth_header_value_enc, created_at
+SELECT id, owner_id, name, url, auth_header_name, auth_header_value_enc, granted_deps, created_at
 FROM mcp_servers
 WHERE id = $1 AND owner_id = $2
 `
@@ -82,13 +83,33 @@ func (q *Queries) GetMCPServerByID(ctx context.Context, arg GetMCPServerByIDPara
 		&i.Url,
 		&i.AuthHeaderName,
 		&i.AuthHeaderValueEnc,
+		&i.GrantedDeps,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
+const grantMCPServerDep = `-- name: GrantMCPServerDep :exec
+UPDATE mcp_servers
+SET granted_deps = array_append(granted_deps, $3)
+WHERE id = $1 AND owner_id = $2 AND NOT ($3 = ANY(granted_deps))
+`
+
+type GrantMCPServerDepParams struct {
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	ArrayAppend interface{}
+}
+
+// GrantMCPServerDep —— owner 显式授权这个 server 接某个 connector 依赖（dep 名）。
+// 幂等：已在 granted_deps 里就不重复 append。
+func (q *Queries) GrantMCPServerDep(ctx context.Context, arg GrantMCPServerDepParams) error {
+	_, err := q.db.Exec(ctx, grantMCPServerDep, arg.ID, arg.OwnerID, arg.ArrayAppend)
+	return err
+}
+
 const listMCPServersByOwner = `-- name: ListMCPServersByOwner :many
-SELECT id, owner_id, name, url, auth_header_name, auth_header_value_enc, created_at
+SELECT id, owner_id, name, url, auth_header_name, auth_header_value_enc, granted_deps, created_at
 FROM mcp_servers
 WHERE owner_id = $1
 ORDER BY name ASC
@@ -110,6 +131,7 @@ func (q *Queries) ListMCPServersByOwner(ctx context.Context, ownerID pgtype.UUID
 			&i.Url,
 			&i.AuthHeaderName,
 			&i.AuthHeaderValueEnc,
+			&i.GrantedDeps,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

@@ -128,12 +128,27 @@ func parseOwnerAndServerID(ownerID, serverID string) (serverIDArgs, error) {
 // A.3-IAM-5: SetCodeMCPServers / ListIDsForCode / ListForCode 都删了 ——
 // code_mcp_servers 表已 drop。MCP servers 通过 role_mcp_servers 挂在 Role 上。
 
+// GrantDep —— owner 显式授权这个 server 接某 connector 依赖（幂等 append）。
+func (r *MCPServerRepo) GrantDep(ctx context.Context, ownerID, serverID, dep string) error {
+	args, perr := parseOwnerAndServerID(ownerID, serverID)
+	if perr != nil {
+		return perr
+	}
+	if err := dbq.New(r.pool).GrantMCPServerDep(ctx, dbq.GrantMCPServerDepParams{
+		ID: args.serverUUID, OwnerID: args.ownerUUID, ArrayAppend: dep,
+	}); err != nil {
+		return fmt.Errorf("grant mcp server dep: %w", err)
+	}
+	return nil
+}
+
 func toDomainMCPServer(row *dbq.McpServer) domain.MCPServerConfig {
 	return domain.MCPServerConfig{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
 		Name: row.Name, URL: row.Url,
 		AuthHeaderName:     row.AuthHeaderName,
 		AuthHeaderValueEnc: append([]byte(nil), row.AuthHeaderValueEnc...),
+		GrantedDeps:        append([]string(nil), row.GrantedDeps...),
 		CreatedAt:          row.CreatedAt.Time,
 	}
 }

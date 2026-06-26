@@ -60,4 +60,8 @@ type VisitorSkillsDeps struct {
 	MCPServers MCPServerGetter
 	Reports    ReportStore
 	Resolver   inference.Resolver
+	// DepConnected —— 命名 connector 依赖连通查询（ext-mcp dep-grant 闸用：工具声明
+	// _meta.requires 时按 grant+connected 放行）。prod 注 connector DepRegistry；eval
+	// facade 留 nil → ext-mcp 依赖工具一律 fail-closed 隐藏。
+	DepConnected DepConnected
 }
