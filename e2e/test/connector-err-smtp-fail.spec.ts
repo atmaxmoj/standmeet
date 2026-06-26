@@ -10,9 +10,11 @@
 // no stack trace leaks.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Page, Playwright } from '@playwright/test';
+import type { FrameLocator, Page, Playwright } from '@playwright/test';
 
-import { configureMailConnector, clearMailpit } from '@/fixtures/mail';
+import {
+  configureMailConnector, clearMailpit, armSMTPFault, resetSMTPFault,
+} from '@/fixtures/mail';
 import { getMockEvents } from '@/fixtures/gcal';
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, OWNER, type CodedSeed,
@@ -20,26 +22,21 @@ import {
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
-const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 const TOPIC = 'Intro call about backend work';
 
-// TODO(impl): needs mock SMTP fault toggle — no setMockSMTPFailure helper exists yet.
-// Raw POST so the spec still COMPILES; a mock SMTP fault endpoint to be added with the
-// refactor (make the next send refuse/timeout once). Mailpit itself has no fault mode,
-// so this targets the in-network mock that the connector proxies through.
-async function failNextSMTPSend(request: APIRequestContext): Promise<void> {
-  await request.post(`${MOCK}/__mock/smtp/fail`, { data: { mode: 'connection_refused' } });
+function bookedFrame(page: Page): FrameLocator {
+  return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
 test.describe('connector error stream · SMTP send fails (E8 — booking not rolled back)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
-  test.afterAll(async () => { await teardownSeed(seed); });
+  test.afterAll(async () => { await resetSMTPFault(seed.request); await teardownSeed(seed); });
 
   test('confirmation send fails → card shows friendly error, booking kept, no stack',
     async ({ browser }) => {
       await clearMailpit(seed.request);
-      await failNextSMTPSend(seed.request);
+      await armSMTPFault(seed.request, { mode: 'connection_refused' });
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
@@ -51,11 +48,12 @@ test.describe('connector error stream · SMTP send fails (E8 — booking not rol
       expect(events.length, 'booking committed despite send failure').toBeGreaterThanOrEqual(1);
 
       // visitor triggers the confirmation send → SMTP fails → friendly card error.
-      const prompt = page.getByTestId('booking-email-prompt');
+      const frame = bookedFrame(page);
+      const prompt = frame.getByTestId('booking-email-prompt');
       await expect(prompt).toBeVisible({ timeout: 10_000 });
-      await prompt.getByTestId('booking-email-use-profile').click();
+      await frame.getByTestId('booking-email-use-profile').click();
 
-      const err = prompt.getByTestId('booking-email-error');
+      const err = frame.getByTestId('booking-email-error');
       await expect(err, 'friendly card error').toBeVisible({ timeout: 10_000 });
       const errText = (await err.textContent()) ?? '';
       expect(errText, 'no stack / raw smtp error')
@@ -91,7 +89,7 @@ async function bookInChat(page: Page, hour: number): Promise<void> {
   const input = page.getByTestId('chat-input-field');
   await input.fill('book me a 30-minute chat next week, please');
   await input.press('Enter');
-  await expect(page.getByTestId('tool-card-calendar_book')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
 }
 
 function future(days: number, hour: number): string {

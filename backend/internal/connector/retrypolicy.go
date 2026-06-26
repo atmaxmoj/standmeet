@@ -82,3 +82,23 @@ func writePolicy() retry.Policy {
 		MaxTotal:    syncMaxTotal,
 	}
 }
+
+const (
+	notifyMaxAttempts = 10
+	notifyBaseDelay   = 2 * time.Second
+	notifyMaxInterval = 60 * time.Second
+	notifyMaxTotal    = 2 * time.Minute
+)
+
+// notifyPolicy —— owner-notify 异步发信（D-6 R6）：长预算后台重试，只重瞬时传输错
+// （连接被断/拒/超时；发信未达对端，重发安全），永久错（未配置等）不重。RetryingMailProxy
+// 用；确认信走同步单发不重。
+func notifyPolicy() retry.Policy {
+	return retry.Policy{
+		Retryable:   mailTransient,
+		MaxAttempts: notifyMaxAttempts,
+		BaseDelay:   notifyBaseDelay,
+		MaxInterval: notifyMaxInterval,
+		MaxTotal:    notifyMaxTotal,
+	}
+}

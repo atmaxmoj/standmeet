@@ -23,6 +23,10 @@ FROM deps AS build-llm-gateway
 COPY . .
 RUN go build -trimpath -ldflags='-s -w' -o /out/llm-gateway ./llm-gateway
 
+FROM deps AS build-mail
+COPY . .
+RUN go build -trimpath -ldflags='-s -w' -o /out/mail ./mail
+
 # ----- runtime: job-board ------------------------------------------------
 FROM alpine:3.21 AS job-board
 WORKDIR /app
@@ -59,3 +63,15 @@ USER mock
 EXPOSE 9300
 ENV PORT=9300
 ENTRYPOINT ["/app/llm-gateway"]
+
+# ----- runtime: mail (SMTP fault mock in front of mailpit) ----------------
+FROM alpine:3.21 AS mail
+WORKDIR /app
+RUN apk add --no-cache wget                                                   \
+ && addgroup --system --gid 1001 mock                                         \
+ && adduser --system --uid 1001 --ingroup mock mock
+COPY --from=build-mail --chown=mock:mock /out/mail /app/mail
+USER mock
+EXPOSE 9400 1025
+ENV PORT=9400
+ENTRYPOINT ["/app/mail"]

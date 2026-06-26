@@ -45,23 +45,22 @@ func runBookerBook(
 	return marshalBookResult(&result), nil
 }
 
-// notifyOwnerBestEffort —— #130 触发点。ci.RoleID 给 role id;约成的起止 + 访客名
-// + 主题进通知。fire-and-forget(无 logger,通知是纯 side-effect)。
+// notifyOwnerBestEffort —— #130 触发点。约成后**异步 + 后台重试**给 owner 发通知（D-6 R6）：
+// booking 已成立即返回、**不被通知阻塞**；瞬时发信失败在后台按预算重试，彻底失败只记日志，
+// 绝不回滚/失败 booking。async+retry 机制由 deps.NotifyOwnerAsync 注入（cmd 用 internal/retry
+// 实现），usecases 不直接依赖 retry 基座（守 arch 边界）。
 func notifyOwnerBestEffort(
 	ctx context.Context, deps *BookerDeps, ci *bookerCallInput,
 	result *domain.BookResult, topic string,
 ) {
-	if err := NotifyOwnerOfBooking(ctx, deps.Notify, &NotifyOwnerOfBookingInput{
+	deps.NotifyOwnerAsync(ctx, &NotifyOwnerOfBookingInput{
 		OwnerID:     ci.OwnerID,
 		RoleID:      ci.RoleID,
 		VisitorName: ci.VisitorName,
 		Topic:       topic,
 		StartAt:     result.Start,
 		EndAt:       result.End,
-	}); err != nil {
-		// best-effort:booking 已成,通知失败只记日志,不影响返回给 agent 的结果。
-		slog.Default().Warn("owner booking notify failed", "owner_id", ci.OwnerID, "err", err)
-	}
+	})
 }
 
 type bookArgsWire struct {

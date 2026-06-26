@@ -12,9 +12,32 @@ import { login } from '@/fixtures/admin';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const MAILPIT = process.env['MAILPIT_URL'] ?? 'http://localhost:18025';
-// Backend (in the compose network) reaches Mailpit by service name on 1025.
-const SMTP_HOST = process.env['MAILPIT_SMTP_HOST'] ?? 'mailpit';
+// Backend (in the compose network) sends through the mail-mock SMTP fault layer on
+// 1025, which forwards to Mailpit (inspection still via Mailpit's HTTP API).
+const SMTP_HOST = process.env['MAILPIT_SMTP_HOST'] ?? 'mail-mock';
 const SMTP_PORT = 1025;
+// mail-mock control plane (host-mapped). armSMTPFault / resetSMTPFault drive it.
+const MAIL_MOCK = process.env['MAIL_MOCK_URL'] ?? 'http://localhost:19400';
+
+// SMTPFault —— arm the next send(s) to fail. times omitted = persistent until reset
+// (模拟「SMTP 服务宕」); subjectContains 限定只让匹配主题的信失败（内容触发）。
+export interface SMTPFault {
+  mode: 'connection_refused' | 'transient';
+  times?: number;
+  subjectContains?: string;
+}
+
+// armSMTPFault —— 让 mail-mock 接下来的发信按条件失败（E8/E10/E11 + owner-notify R6）。
+export async function armSMTPFault(request: APIRequestContext, fault: SMTPFault): Promise<void> {
+  const res = await request.post(`${MAIL_MOCK}/__mock/smtp/fail`, {
+    data: { mode: fault.mode, times: fault.times ?? 0, subject_contains: fault.subjectContains ?? '' },
+  });
+  if (res.status() !== 200) throw new Error(`arm smtp fault failed: ${res.status()}`);
+}
+
+export async function resetSMTPFault(request: APIRequestContext): Promise<void> {
+  await request.post(`${MAIL_MOCK}/__mock/smtp/reset`, { data: {} });
+}
 
 interface MailpitAddr { Address: string }
 interface MailpitMessage { ID: string; To: MailpitAddr[]; Subject: string }

@@ -10,9 +10,11 @@
 // failure does NOT roll back or error the booking.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Browser, Page, Playwright } from '@playwright/test';
+import type { Browser, FrameLocator, Page, Playwright } from '@playwright/test';
 
-import { configureMailConnector, clearMailpit, countMailpitMessages } from '@/fixtures/mail';
+import {
+  configureMailConnector, clearMailpit, countMailpitMessages, armSMTPFault, resetSMTPFault,
+} from '@/fixtures/mail';
 import { getMockEvents } from '@/fixtures/gcal';
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, OWNER, type CodedSeed,
@@ -22,20 +24,16 @@ import { login } from '@/fixtures/admin';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
-const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 const TOPIC = 'Intro call about backend work';
 
-// TODO(impl): needs mock SMTP fault toggle — no setMockSMTPFailure helper exists yet.
-// Raw POST so the spec still COMPILES; mock SMTP fault endpoint to be added with the
-// refactor (make the owner-notify send fail once).
-async function failNextSMTPSend(request: APIRequestContext): Promise<void> {
-  await request.post(`${MOCK}/__mock/smtp/fail`, { data: { mode: 'connection_refused' } });
+function bookedFrame(page: Page): FrameLocator {
+  return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
 test.describe('connector error stream · owner-notify fails, booking not rolled back (E10)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
-  test.afterAll(async () => { await teardownSeed(seed); });
+  test.afterAll(async () => { await resetSMTPFault(seed.request); await teardownSeed(seed); });
 
   test('notify-on role + SMTP fails → booking commits, visitor sees success, no crash',
     async ({ browser }) => {
@@ -45,12 +43,12 @@ test.describe('connector error stream · owner-notify fails, booking not rolled 
         granted_skills: ['calendar.book'], notify_owner_on_booking: true,
       });
       // make the (owner-notify) send fail.
-      await failNextSMTPSend(seed.request);
+      await armSMTPFault(seed.request, { mode: 'connection_refused' });
 
       const page = await enterAndBook(browser, code.code, 'Dana', 14);
 
       // booking still succeeded (visitor sees the booked card).
-      await expect(page.getByTestId('book-card-time')).toBeVisible();
+      await expect(bookedFrame(page).getByTestId('book-card-time')).toBeVisible();
       // and the event was actually committed to the calendar.
       const events = await getMockEvents(seed.request);
       expect(events.length, 'booking committed despite notify failure').toBeGreaterThanOrEqual(1);
@@ -83,7 +81,7 @@ async function enterAndBook(
   const input = page.getByTestId('chat-input-field');
   await input.fill('book me a 30-minute chat next week, please');
   await input.press('Enter');
-  await expect(page.getByTestId('tool-card-calendar_book')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
   return page;
 }
 

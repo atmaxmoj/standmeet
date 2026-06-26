@@ -47,6 +47,9 @@ type BookerDeps struct {
 	// Cancel —— 同理，取消从 REST 收成 calendar_cancel booker tool。隔离靠 host 种的
 	// ConversationID（非 LLM 控）：访客只能取消**本对话**那笔预约，撤不了别人的。
 	Cancel VisitorCancelDeps
+	// NotifyOwnerAsync —— #130/D-6 R6：约成后异步 + 后台重试发 owner 通知（不堵 booking）。
+	// 机制由 cmd 注入（用 internal/retry），usecases 不直接依赖 retry 基座（守 arch 边界）。
+	NotifyOwnerAsync func(context.Context, *NotifyOwnerOfBookingInput)
 }
 
 // bookerCallInput —— 一次 book / list_slots host op 的 session 派生入参。沙箱插件

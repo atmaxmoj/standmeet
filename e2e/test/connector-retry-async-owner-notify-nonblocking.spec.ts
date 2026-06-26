@@ -12,10 +12,11 @@
 // RED / TDD：依赖 owner-notify 走 async 后台重试且对 booking 非阻塞/不连坐落地后转绿。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Browser, Page, Playwright } from '@playwright/test';
+import type { Browser, FrameLocator, Page, Playwright } from '@playwright/test';
 
 import {
   configureMailConnector, clearMailpit, waitForMailEnvelopeTo, MAIL_FROM,
+  armSMTPFault, resetSMTPFault,
 } from '@/fixtures/mail';
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, OWNER, type CodedSeed,
@@ -26,16 +27,10 @@ import { getMockEvents } from '@/fixtures/gcal';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
-const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 const TOPIC = 'Intro call about backend work';
 
-// TODO(impl): needs a mock SMTP transient-fault toggle that fails the FIRST N
-// owner-notify sends then succeeds (so the async retry can be observed in the
-// background while the booking returns immediately). No setMockSMTPFailure helper
-// yet; raw POST so the spec COMPILES. mode='transient', times=2 → first attempts
-// fail, a later background retry succeeds.
-async function flakeOwnerNotifyTwice(request: APIRequestContext): Promise<void> {
-  await request.post(`${MOCK}/__mock/smtp/fail`, { data: { mode: 'transient', times: 2 } });
+function bookedFrame(page: Page): FrameLocator {
+  return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
 }
 
 test.describe('connector retry · owner-notify async, non-blocking, retried in background (R6)', () => {
@@ -49,7 +44,7 @@ test.describe('connector retry · owner-notify async, non-blocking, retried in b
     // 后面 issueCodeWithSkills 拿旧 token 会 403(同 booking-owner-notify)。
     seed.csrf = (await login(seed.request, OWNER.email, OWNER.password)).csrf;
   });
-  test.afterAll(async () => { await teardownSeed(seed); });
+  test.afterAll(async () => { await resetSMTPFault(seed.request); await teardownSeed(seed); });
 
   test('notify-on role + transient send faults → booking returns immediately, notify retried in background, booking never fails',
     async ({ browser }) => {
@@ -60,13 +55,13 @@ test.describe('connector retry · owner-notify async, non-blocking, retried in b
 
       // arm the transient owner-notify faults BEFORE booking so the first
       // background attempts fail and the async retry has to recover.
-      await flakeOwnerNotifyTwice(seed.request);
+      await armSMTPFault(seed.request, { mode: 'transient', times: 2 });
 
       const page = await enterAndBook(browser, code.code, 'Dana', 14);
 
       // ① non-blocking: book-card is visible = booker tool returned. The notify
       // retries run in the background; the booking is NOT held until they finish.
-      await expect(page.getByTestId('book-card-time')).toBeVisible();
+      await expect(bookedFrame(page).getByTestId('book-card-time')).toBeVisible();
 
       // booking really committed — the event exists regardless of notify outcome.
       const events = await getMockEvents(seed.request);
@@ -104,7 +99,7 @@ async function enterAndBook(
   const input = page.getByTestId('chat-input-field');
   await input.fill('book me a 30-minute chat next week, please');
   await input.press('Enter');
-  await expect(page.getByTestId('tool-card-calendar_book')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
   return page;
 }
 

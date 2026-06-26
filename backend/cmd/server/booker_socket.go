@@ -7,9 +7,11 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -28,6 +30,31 @@ func newBookerDeps(d *runtimeDeps, skills *usecases.VisitorSkillsDeps) *usecases
 			Proxy: calendarProxy(d),
 			Store: calendarStoreAdapter{repo: d.calendarRepo},
 		},
+		NotifyOwnerAsync: ownerNotifyAsync(retryingNotify(skills.Notify), d.log),
+	}
+}
+
+// retryingNotify —— owner-notify 的发信换成 connector 的 RetryingMailProxy（瞬时传输错
+// 后台重试在那层；retry 基座只许 connector 用）。确认信不换 → 同步单发不重。
+func retryingNotify(notify usecases.OwnerNotifyDeps) usecases.OwnerNotifyDeps {
+	notify.Proxy = connector.NewRetryingMailProxy(notify.Proxy)
+	return notify
+}
+
+// ownerNotifyAsync —— 把 owner 通知做成异步 + 不堵 booking（D-6 R6）：约成立即返回，
+// 发信（含 RetryingMailProxy 的后台重试）在 goroutine 里跑，彻底失败只 warn。WithoutCancel：
+// 脱离请求取消（请求返回后 ctx 即取消，后台重试得自己活着）但保留 parent values。
+func ownerNotifyAsync(
+	notify usecases.OwnerNotifyDeps, log *slog.Logger,
+) func(context.Context, *usecases.NotifyOwnerOfBookingInput) {
+	return func(ctx context.Context, in *usecases.NotifyOwnerOfBookingInput) {
+		bg := context.WithoutCancel(ctx)
+		go func() {
+			if err := usecases.NotifyOwnerOfBooking(bg, notify, in); err != nil {
+				log.Warn("owner booking notify gave up after retries",
+					"owner_id", in.OwnerID, "err", err)
+			}
+		}()
 	}
 }
 

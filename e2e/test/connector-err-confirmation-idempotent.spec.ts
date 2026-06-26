@@ -8,7 +8,7 @@
 // double-send — Mailpit count stays at 1.
 
 import { test, expect } from '@/fixtures/test';
-import type { Page, Playwright } from '@playwright/test';
+import type { FrameLocator, Page, Playwright } from '@playwright/test';
 
 import {
   configureMailConnector, clearMailpit, waitForMailEnvelopeTo, countMailpitMessages,
@@ -20,6 +20,10 @@ import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
+
+function bookedFrame(page: Page): FrameLocator {
+  return page.frameLocator('[data-testid="mcp-app-card-calendar_book"]');
+}
 
 test.describe('connector error stream · confirmation email is idempotent (E14)', () => {
   let seed: CodedSeed;
@@ -34,7 +38,7 @@ test.describe('connector error stream · confirmation email is idempotent (E14)'
       await enterWithProfile(page, seed.code.code, 'Dana', 'dana.profile@example.com');
       await bookInChat(page, 14);
 
-      const prompt = page.getByTestId('booking-email-prompt');
+      const prompt = bookedFrame(page).getByTestId('booking-email-prompt');
       await expect(prompt).toBeVisible({ timeout: 10_000 });
 
       // first send.
@@ -90,7 +94,7 @@ async function bookInChat(page: Page, hour: number): Promise<void> {
   const input = page.getByTestId('chat-input-field');
   await input.fill('book me a 30-minute chat next week, please');
   await input.press('Enter');
-  await expect(page.getByTestId('tool-card-calendar_book')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
 }
 
 function future(days: number, hour: number): string {

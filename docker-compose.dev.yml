@@ -135,6 +135,8 @@ services:
         condition: service_healthy
       mcp-server-mock:
         condition: service_healthy
+      mail-mock:
+        condition: service_healthy
     ports:
       - "8000:8000"
     # sandbox 需要 root + docker socket：dev/e2e 用 owner-curated skill
@@ -260,6 +262,31 @@ services:
       - "18025:8025"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # mail-mock —— controllable SMTP fault layer in front of mailpit. The mail
+  # connector e2e points the owner's SMTP host here (mail-mock:1025); a normal
+  # send is forwarded to mailpit (so Mailpit still captures it + its inspection
+  # API on :18025 is untouched), and POST :19400/__mock/smtp/fail arms send
+  # failures for the error-stream / retry specs (E8/E10/E11 + owner-notify R6).
+  mail-mock:
+    build:
+      context: ./mock-stack
+      target: mail
+    restart: unless-stopped
+    environment:
+      - PORT=9400
+      - MAILPIT_SMTP=mailpit:1025
+    ports:
+      # 19400 on the host → host-side Playwright arms faults via /__mock/smtp/*.
+      - "19400:9400"
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9400/healthz"]
       interval: 3s
       timeout: 3s
       retries: 10

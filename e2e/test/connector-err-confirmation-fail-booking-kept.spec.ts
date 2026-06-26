@@ -11,9 +11,11 @@
 // RED / TDD：依赖 send_confirmation 把 SMTP 失败映射成卡内友好错误且**不回滚已 commit 的 booking** 落地后转绿。
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, FrameLocator, Page, Playwright } from '@playwright/test';
+import type { FrameLocator, Page, Playwright } from '@playwright/test';
 
-import { configureMailConnector, clearMailpit } from '@/fixtures/mail';
+import {
+  configureMailConnector, clearMailpit, armSMTPFault, resetSMTPFault,
+} from '@/fixtures/mail';
 import { getMockEvents } from '@/fixtures/gcal';
 import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, OWNER, type CodedSeed,
@@ -21,21 +23,12 @@ import {
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
 
-const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 const TOPIC = 'Intro call about backend work';
-
-// TODO(impl): needs a mock SMTP fault toggle — no setMockSMTPFailure helper exists
-// yet. Raw POST so the spec COMPILES; targets the in-network SMTP mock the connector
-// proxies through (Mailpit itself has no fault mode). Fault fires AFTER the booking
-// has already committed, so we can verify the event is kept.
-async function failNextSMTPSend(request: APIRequestContext): Promise<void> {
-  await request.post(`${MOCK}/__mock/smtp/fail`, { data: { mode: 'connection_refused', times: 1 } });
-}
 
 test.describe('connector error stream · confirmation send fails but booking is kept (E11)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => { seed = await prep(playwright); });
-  test.afterAll(async () => { await teardownSeed(seed); });
+  test.afterAll(async () => { await resetSMTPFault(seed.request); await teardownSeed(seed); });
 
   test('booking commits → confirmation send fails → event kept, card shows error, no rollback, no crash',
     async ({ browser }) => {
@@ -51,7 +44,7 @@ test.describe('connector error stream · confirmation send fails but booking is 
       expect(before.length, 'booking committed (event exists)').toBeGreaterThanOrEqual(1);
 
       // now arm the SMTP fault and trigger the confirmation send from the card.
-      await failNextSMTPSend(seed.request);
+      await armSMTPFault(seed.request, { mode: 'connection_refused', times: 1 });
       const frame = bookedFrame(page);
       const prompt = frame.getByTestId('booking-email-prompt');
       await expect(prompt).toBeVisible({ timeout: 10_000 });
