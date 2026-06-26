@@ -130,3 +130,28 @@ HTTP 路径回归：跑现有 ext-mcp e2e（已覆盖 http），确认抽 Transp
 - e2e 等 UI 状态 / 网络响应，零 `setTimeout`-as-sleep；unit 零 if。
 
 **决策点 T.7：故障注入靠「起一个带该 env 的 server 实例」，不靠运行时管理端切状态。**
+
+---
+
+## Driver / 独立拉起（Bridge 不变量，对应 P.13）
+
+C1–C4 测的是「能力/插件外置」。P.13 是另一刀：**agent core 是独立可拉起的模块，靠 Bridge/Driver
+注入环境**。下面对着 P.13 的四条不变量逐条核（不是对「干啥」审 —— 见 TL;DR 第 16 行 floor 教训）。
+
+测试替身：**`EvalDriver`** —— eval-harness 里 `agentcore.Driver` 的 canned 实现（写死 stdout /
+假 booking / .env cred / 内存 corpus）。它**就是** P.13 说的 ConcreteImplementor，不是额外的 mock。
+
+| 不变量 | 测法 | 文件 / 闸 |
+|---|---|---|
+| ② **backend 零 fixture** | `check-no-mock` 扩成真闸：`backend/`（**含 agentcore**）grep 到 `canned*` / `*Fixture` / `stub*` 命名即红。整改后 agentcore 无此类，canned 全在 eval-harness。**这条本就该拦住今天焊在 agentcore 的 fixture（具名黑名单漏了它）。** | `infra/scripts/check-no-mock`（lint 闸） |
+| ① **Driver 零 `internal/` 泄漏 = 独立** | eval-harness（**独立 go.mod**）implement `agentcore.Driver` 且**编过** —— Driver 接口若漏任何 `internal/*` 类型，外部 module 根本编不过（Go internal 铁律）。**编译即证**，不必额外断言。 | eval-harness `go build`（CI） |
+| ③ **prod / eval 同一 `Launch` + faithful** | `eval-smoke` 升为**必跑闸**：EvalDriver 拉起的 agent 工具集 = **真 capreg 装配**（非简化 stub 工具）、prompt = **真 `ComposeSystemPrompt`**（override 空时）；脚本化 tool+reply，断言 transcript 完整 round-trip。证明 eval 跟 prod 走同一条 `Launch(driver,…)`、同一真装配。 | `eval-harness/smoke.sh`（从手动 target → CI 闸） |
+| **并行注入 prompt**（原始需求） | smoke：N 进程各注 `SystemPromptOverride=variant_i`、**同时** `Launch`、各自跑通、互不串状态 → 证明「把 agent 单独拉起、多进程并行试 prompt」真成立。 | `eval-harness`（新 smoke） |
+| **floor 仍要核** | EvalDriver 注入下，能力的 floor（ACL via role / connector-dep gate / quota / mode）行为**跟 prod 一致** —— 别只测「driver 能拉起」，要测「拉起后能力 floor 不塌」。复用 capability-acl / connector-deps 的用例，换 EvalDriver 注入跑一遍关键几条。 | eval-harness 集成 |
+
+**决策点 T.8：Driver 独立性 = 编译即证（eval-harness 编过 = 零 internal 泄漏）；`eval-smoke` 从手动
+target 升为 CI 闸（活证明「独立拉起 + 同一 Launch + faithful 真装配」）；backend-零-fixture 靠扩
+`check-no-mock` 成 lint 闸（顺带拦住今天焊在 agentcore 的 canned）。**
+
+**决策点 T.9：「并行注入 prompt」要有专门 smoke（N 进程各注不同 override 同时拉起），因为这正是 agent
+core 独立化的**原始动机**——不证它，等于没证独立化拿到了想要的东西。**

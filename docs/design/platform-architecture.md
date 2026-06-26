@@ -148,6 +148,63 @@ job-loop 接进来时，**能力和连接器一行不改**，只是多了一个�
 新入口（IM Gateway / job-loop）= 新消费者，能力与连接器不动。as-MCP facade 与「IM Gateway 当消费者」
 本质同类（都把 agent/能力暴露给一个外部编排），实现阶段考虑归一，别搭两套。
 
+### agent core = 独立可拉起的模块（Bridge / Driver）
+
+P.12 说「agent 中性、入口只是消费者」——其**结构实现**是：**core 是个能独立拉起的模块，暴露
+一个 handle `Launch(Driver, input) → transcript`**；prod 和 eval（试 prompt 用）都靠**同一个**
+handle 拉，各插各的 **Driver**。这既是入口无关的落地，也是「试出好 prompt」的机制：把 agent
+单独拉起、多进程并行注入不同 prompt，靠的就是「eval 也只是一个消费者」。
+
+**Driver = 桥接（Bridge 模式的 Implementor）。** 会随环境变的那几样**外部副作用 + 数据**
+（跑脚本 / 日历 book·freebusy / 发信 / LLM resolve / 取 corpus·会话）抽成 **core 自己定义的一个
+窄接口**，方法签名**全用 agentcore 自己的公开 DTO**（`CorpusEntry`/`BookReq`/`SkillIO`/`Cred`…），
+**零 `internal/` 泄漏**。
+
+> **铁律：re-export ≠ 独立，re-export = 依赖。** 把 `internal/` 的 `VisitorSkillsDeps`/`domain.Wiki`
+> 贴成 alias 给外部 module 用，只是把「依赖 backend 内部」换个名字——调用方照样认识那堆内部类型，
+> 照样耦。**Driver 是 core 定义自己的契约**，prod / eval 各写一个 ConcreteImplementor 插上来；
+> 驱动依赖的是 **core 的稳定接口**，不是 internal —— 就像设备驱动 implement OS 的驱动 API，OS 不认识
+> 具体硬件。**这才叫独立。**
+
+```
+  module: eval-harness (独立 go.mod)          module: backend · cmd/server
+  ┌────────────────────────┐                  ┌────────────────────────┐
+  │  EvalDriver «concrete» │                  │  ProdDriver «concrete» │
+  │  RunSkill→写死 stdout   │                  │  RunSkill→真沙箱        │
+  │  Book→假/注入失败       │                  │  Book→真 GCal          │
+  │  Resolve→.env key      │ canned 全在这     │  Corpus→postgres       │  真系统
+  └───────────┬────────────┘                  └───────────┬────────────┘
+              ┊ implements                                 ┊ implements
+              ▽         both: Launch(driver, input)        ▽
+  ┌─── backend · package agentcore (公开 · 独立可拉起) ──────────────────┐
+  │   «Implementor» Driver（窄接口，全公开 DTO，零 internal 泄漏）        │
+  │        △ uses                                                       │
+  │   «Abstraction» Launch(d Driver, in Input) → transcript  ← 拉起 handle│
+  │        │ 1) d.Corpus()/RunSkill()… 取副作用+数据                     │
+  │        ▽ 2) bridgeAdapter：公开 DTO ⇆ 内部 deps（prod/eval 共用，    │
+  │   ┌──────────────────────────────────────────────┐  非 fixture！）  │
+  │   │ bridgeAdapter → internal/capreg(真装配) +      │                 │
+  │   │                 internal/inference(跑 loop)    │                 │
+  │   └──────────────────────────────────────────────┘                 │
+  └────────────────────────────────────────────────────────────────────┘
+   internal/* —— core，永不被外部 module import；driver 只认 agentcore.Driver
+```
+
+**不变量**：① Driver 接口 + DTO 全是 agentcore 公开类型 → eval-harness implement 它，**零 import
+`internal/`**。② **canned 全在 EvalDriver（eval-harness 里）；backend 一个 fixture 都没有。**
+③ `bridgeAdapter`（Driver→capreg 的翻译）住 backend、prod 与 eval **共用**，是**真适配器、不是
+mock**。④ Driver 的副作用面正好就是 connector 那几个外部边界（sandbox/calendar/mail）——跟
+D-8「连接器 = 消费者无关的底座」一条线。
+
+> 现状偏差（要改）：今天 `backend/agentcore/*_fixture.go` 把 `cannedSandbox`/`skillFixture` 等
+> **焊在 backend 里**，eval 没插驱动、而是 core 内部现攒 fixture——违反 ②。整改 = 抽 `Driver` 接口、
+> canned 迁去 eval-harness、backend 只留 `bridgeAdapter`。
+
+**决策点 P.13：agent core 是独立可拉起模块，靠 Bridge/Driver 注入环境。** core 暴露
+`Launch(Driver, input)`；prod / eval 各 implement `agentcore.Driver`（窄接口、全公开 DTO、零
+internal 泄漏）。**re-export 内部类型 = 依赖，禁止**；canned 只许住调用方（eval-harness），backend
+零 fixture。Driver 副作用面 = connector 外部边界（与 D-8 归一）。
+
 ---
 
 ## 全貌覆盖（以测试为准）—— 26 个 admin surface 的归位
