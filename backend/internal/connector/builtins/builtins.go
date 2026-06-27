@@ -72,14 +72,14 @@ func loadRefs(dir string, d *descriptor, m *connector.Manifest) error {
 		if err != nil {
 			return fmt.Errorf("read %s spec: %w", dir, err)
 		}
-		m.Spec = raw
+		m.Spec = expandEnv(raw) // ${VAR:-default} 端点：prod 默认，e2e 指向 mock
 	}
 	if d.Binding != "" {
 		raw, err := dataFS.ReadFile(path.Join("data", dir, d.Binding))
 		if err != nil {
 			return fmt.Errorf("read %s binding: %w", dir, err)
 		}
-		m.Binding = raw
+		m.Binding = expandEnv(raw)
 	}
 	return nil
 }

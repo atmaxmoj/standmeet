@@ -3,7 +3,7 @@ info:
   title: Google Calendar
   version: v3
 servers:
-  - url: "https://www.googleapis.com/calendar/v3"
+  - url: "${GOOGLE_CALENDAR_BASE:-https://www.googleapis.com/calendar/v3}"
 paths:
   /freeBusy:
     post:
@@ -23,7 +23,7 @@ components:
       type: oauth2
       flows:
         authorizationCode:
-          authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth"
-          tokenUrl: "https://oauth2.googleapis.com/token"
+          authorizationUrl: "${GOOGLE_AUTH_URL:-https://accounts.google.com/o/oauth2/v2/auth}"
+          tokenUrl: "${GOOGLE_TOKEN_URL:-https://oauth2.googleapis.com/token}"
           scopes:
             "https://www.googleapis.com/auth/calendar": Manage the owner's calendar
