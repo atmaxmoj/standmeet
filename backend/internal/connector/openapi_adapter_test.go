@@ -19,6 +19,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
+const futureYear = 2030
+
 const calSpecTmpl = `
 openapi: 3.0.3
 info: { title: Cal, version: "1" }
@@ -92,13 +94,13 @@ func TestAssembleOpenAPI_CalendarContract_FreeBusy(t *testing.T) {
 	defer srv.Close()
 
 	busy, err := cal.FreeBusy(context.Background(), "owner-1", usecases.FreeBusyReq{
-		TimeMin: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
-		TimeMax: time.Date(2030, 1, 2, 0, 0, 0, 0, time.UTC),
+		TimeMin: time.Date(futureYear, 1, 1, 0, 0, 0, 0, time.UTC),
+		TimeMax: time.Date(futureYear, 1, 2, 0, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("FreeBusy: %v", err)
 	}
-	if len(busy) != 1 || !busy[0].Start.Equal(time.Date(2030, 1, 1, 10, 0, 0, 0, time.UTC)) {
+	if len(busy) != 1 || busy[0].Start.Format(time.RFC3339) != "2030-01-01T10:00:00Z" {
 		t.Fatalf("freebusy not mapped through contract: %+v", busy)
 	}
 }
