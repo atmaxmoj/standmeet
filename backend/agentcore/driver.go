@@ -39,6 +39,12 @@ type Driver interface {
 	// stdio. Their host ops (corpus / booking / …) are reached over the socket paths in
 	// each spec's Env, which the consumer backs with this same Driver. nil = none.
 	Plugins(ctx context.Context) ([]PluginSpec, error)
+	// SearchCorpus / ListCorpus / GetCorpus —— the corpus DATA the retrieval plugin reaches
+	// over its host socket. ACL-free: return raw entries; the bridge applies the session's
+	// granted-glob ACL. GetCorpus returns ErrCorpusNotFound for an unknown path.
+	SearchCorpus(ctx context.Context, query string) ([]CorpusHit, error)
+	ListCorpus(ctx context.Context, parentPath string, page int) ([]CorpusHit, error)
+	GetCorpus(ctx context.Context, path string) (CorpusDoc, error)
 	// Resolve —— the LLM cred the agent's own inference calls use.
 	Resolve(ctx context.Context) (Cred, error)
 }

@@ -41,9 +41,17 @@ type retrievalSockReq struct {
 // corpusRunner —— 一个 op 的执行体：解析 args、调 lister、返 wire JSON。
 type corpusRunner func(context.Context, CorpusLister, *retrievalSockReq) (string, error)
 
-// RegisterRetrievalSocket —— 把三个 corpus op 注册到 capsocket server，背后是 CorpusLister。
+// RegisterRetrievalSocket —— prod 接线：从 postgres 的 RetrievalDeps 建 pgCorpusLister，
+// 注册三个 corpus op。
 func RegisterRetrievalSocket(srv *capsocket.Server, deps *RetrievalDeps) {
 	lister := &pgCorpusLister{wiki: deps.Wiki, output: deps.Output, writing: deps.Writings}
+	RegisterRetrievalSocketLister(srv, lister)
+}
+
+// RegisterRetrievalSocketLister —— 把三个 corpus op 注册到 capsocket server，背后是任意
+// CorpusLister。prod 经 RegisterRetrievalSocket 注入 pgCorpusLister；agentcore 的 eval
+// mini-host 注入一个 Driver-backed 内存 lister，让 retrieval 不碰 postgres 也能装配。
+func RegisterRetrievalSocketLister(srv *capsocket.Server, lister CorpusLister) {
 	srv.Handle("corpus_search", corpusOp(lister, runCorpusSearch))
 	srv.Handle("corpus_read", corpusOp(lister, runCorpusRead))
 	srv.Handle("corpus_list", corpusOp(lister, runCorpusList))

@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
@@ -56,3 +57,67 @@ func (d *EvalDriver) Plugins(_ context.Context) ([]agentcore.PluginSpec, error) 
 }
 
 func (d *EvalDriver) Resolve(_ context.Context) (agentcore.Cred, error) { return d.cred, nil }
+
+// SearchCorpus / ListCorpus / GetCorpus —— the corpus data the retrieval plugin reaches
+// over its host socket. ACL-free in-memory ops over the persona corpus (incl. private
+// entries); the agentcore bridge applies the granted-glob ACL, so privacy still holds.
+
+func (d *EvalDriver) SearchCorpus(_ context.Context, query string) ([]agentcore.CorpusHit, error) {
+	q := strings.ToLower(strings.TrimSpace(query))
+	hits := make([]agentcore.CorpusHit, 0, len(d.corpus))
+	for i := range d.corpus {
+		e := &d.corpus[i]
+		if q != "" && !strings.Contains(strings.ToLower(e.Title+" "+e.Body), q) {
+			continue
+		}
+		hits = append(hits, agentcore.CorpusHit{
+			ID: e.Genre + "://" + e.Path, Path: e.Path, Title: e.Title,
+			Genre: e.Genre, Snippet: corpusSnippet(e.Body),
+		})
+	}
+	return hits, nil
+}
+
+func (d *EvalDriver) ListCorpus(_ context.Context, parentPath string, _ int) ([]agentcore.CorpusHit, error) {
+	hits := make([]agentcore.CorpusHit, 0, len(d.corpus))
+	for i := range d.corpus {
+		e := &d.corpus[i]
+		if !corpusUnder(e.Path, parentPath) {
+			continue
+		}
+		hits = append(hits, agentcore.CorpusHit{
+			ID: e.Genre + "://" + e.Path, Path: e.Path, Title: e.Title, Genre: e.Genre,
+		})
+	}
+	return hits, nil
+}
+
+func (d *EvalDriver) GetCorpus(_ context.Context, path string) (agentcore.CorpusDoc, error) {
+	for i := range d.corpus {
+		e := &d.corpus[i]
+		if e.Path == path {
+			return agentcore.CorpusDoc{
+				ID: e.Genre + "://" + e.Path, Path: e.Path, Title: e.Title,
+				Genre: e.Genre, Body: e.Body,
+			}, nil
+		}
+	}
+	return agentcore.CorpusDoc{}, agentcore.ErrCorpusNotFound
+}
+
+// corpusSnippet —— first ~160 chars of body, trimmed.
+func corpusSnippet(body string) string {
+	trimmed := strings.TrimSpace(body)
+	if len(trimmed) <= 160 {
+		return trimmed
+	}
+	return trimmed[:160] + "…"
+}
+
+// corpusUnder —— is path a direct-ish child of parentPath? "" = roots (no slash).
+func corpusUnder(path, parentPath string) bool {
+	if parentPath == "" {
+		return !strings.Contains(path, "/")
+	}
+	return strings.HasPrefix(path, parentPath+"/")
+}

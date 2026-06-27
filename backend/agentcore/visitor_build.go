@@ -172,9 +172,9 @@ func buildDriverDeps(
 }
 
 // buildCorpusGrants —— public corpus entries → granted CorpusURI whitelist. Privacy is
-// code-level: a Private entry's URI is omitted, so RoleSnapshot.AllowsCorpus denies it
-// at search/read/list no matter what the prompt says. URIs align with the retriever's
-// path math (single-segment SlugifyTitle for flat fixture entries).
+// code-level: a Private entry's URI is omitted, so the ACL denies it at search/read/list
+// no matter what the prompt says. URIs are FormatURI(genre, entry.Path) — the same path
+// the Driver's corpus ops report, so a granted entry actually matches at retrieval time.
 func buildCorpusGrants(entries []VisitorCorpusEntry) []string {
 	uris := make([]string, 0, len(entries))
 	for i := range entries {
@@ -186,7 +186,7 @@ func buildCorpusGrants(entries []VisitorCorpusEntry) []string {
 		if e.Genre == "output" {
 			genre = domain.GenreOutput
 		}
-		uris = append(uris, domain.FormatURI(genre, usecases.SlugifyTitle(e.Title)))
+		uris = append(uris, domain.FormatURI(genre, e.Path))
 	}
 	return uris
 }
