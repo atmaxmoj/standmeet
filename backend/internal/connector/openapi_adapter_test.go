@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -49,17 +48,15 @@ operations:
     op: events.delete
 `
 
-// fakeAuth —— 测试用 AuthManager：恒 connected，注入固定 bearer。
-type fakeAuth struct{ connected bool }
+// fakeStore —— 测试用 ConnectionStore：恒 connected，bearer 凭据 {token}。
+type fakeStore struct{ connected bool }
 
-func (f fakeAuth) Connected(_ context.Context, _, _ string) (bool, error) {
-	return f.connected, nil
-}
-
-func (fakeAuth) Injector(_ context.Context, _, _ string) (openapi.AuthInjector, error) {
-	return func(req *http.Request) error {
-		req.Header.Set("Authorization", "Bearer x")
-		return nil
+func (f fakeStore) Get(
+	_ context.Context, connectorID, _ string,
+) (domain.ConnectorConnection, error) {
+	return domain.ConnectorConnection{
+		ConnectorID: connectorID, Connected: f.connected,
+		Credentials: []byte(`{"token":"x"}`),
 	}, nil
 }
 
@@ -72,7 +69,7 @@ func assembleCal(t *testing.T, h http.Handler) (usecases.CalendarProxy, *httptes
 		Spec:    []byte(strings.ReplaceAll(calSpecTmpl, "%SERVER%", srv.URL)),
 		Binding: []byte(calBindingYAML),
 	}
-	c, err := connector.AssembleOpenAPI(m, http.DefaultClient, fakeAuth{connected: true})
+	c, err := connector.AssembleOpenAPI(m, http.DefaultClient, fakeStore{connected: true})
 	if err != nil {
 		t.Fatalf("AssembleOpenAPI: %v", err)
 	}

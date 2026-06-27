@@ -21,37 +21,36 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-// AuthManager —— 按 (连接器, owner) 给出认证注入 + 连接状态。凭据/OAuth token 全在它内部
-// （凭据永不出 connector）。P1 的凭据/连接 vault 实现它。
-type AuthManager interface {
-	Connected(ctx context.Context, connectorID, ownerID string) (bool, error)
-	Injector(ctx context.Context, connectorID, ownerID string) (openapi.AuthInjector, error)
-}
-
-// openapiCore —— 一个装配好的 openapi 连接器的公共件：id + 共享 runtime + auth 管理器。
+// openapiCore —— 一个装配好的 openapi 连接器的公共件：id + 共享 runtime + 连接状态源 +
+// 认证策略。凭据/token 经 ConnectionStore 解密给出，按 authStrategy 注入——凭据永不出本层。
 type openapiCore struct {
 	runtime *openapi.Runtime
-	auth    AuthManager
+	store   ConnectionStore
+	auth    authStrategy
 	id      string
 }
 
 // Name —— Connector 基面：连接器名。
 func (c *openapiCore) Name() string { return c.id }
 
-// Connected —— Connector 基面：这个 owner 连没连（委托 AuthManager）。
+// Connected —— Connector 基面：这个 owner 连没连（读连接状态）。
 func (c *openapiCore) Connected(ctx context.Context, ownerID string) (bool, error) {
-	ok, err := c.auth.Connected(ctx, c.id, ownerID)
+	conn, err := c.store.Get(ctx, c.id, ownerID)
 	if err != nil {
 		return false, fmt.Errorf("connector %q connected: %w", c.id, err)
 	}
-	return ok, nil
+	return conn.Connected, nil
 }
 
-// injector —— 解出该 owner 的认证注入器（凭据/OAuth token 全在 AuthManager 内部）。
+// injector —— 读该 owner 的连接状态，按 authStrategy 解出注入器（凭据全在本层内解密注入）。
 func (c *openapiCore) injector(ctx context.Context, ownerID string) (openapi.AuthInjector, error) {
-	inj, err := c.auth.Injector(ctx, c.id, ownerID)
+	conn, err := c.store.Get(ctx, c.id, ownerID)
 	if err != nil {
-		return nil, fmt.Errorf("connector %q auth: %w", c.id, err)
+		return nil, fmt.Errorf("connector %q load: %w", c.id, err)
+	}
+	inj, ierr := c.auth.inject(&conn)
+	if ierr != nil {
+		return nil, fmt.Errorf("connector %q auth: %w", c.id, ierr)
 	}
 	return inj, nil
 }
