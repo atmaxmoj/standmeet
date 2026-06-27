@@ -31,6 +31,20 @@ func (a connectionStoreAdapter) Get(
 	return conn, nil
 }
 
+// SaveTokens —— oauth2 静默刷新回写（connector.TokenRefresh → 存储）。
+func (a connectionStoreAdapter) SaveTokens(
+	ctx context.Context, connectorID, ownerID string, tok *connector.TokenRefresh,
+) error {
+	if err := a.repo.SaveTokens(ctx, &postgres.SaveConnectorTokensInput{
+		OwnerID: ownerID, ConnectorID: connectorID,
+		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
+		ExpiresAt: tok.ExpiresAt, Scopes: tok.Scopes,
+	}); err != nil {
+		return fmt.Errorf("connection store save tokens: %w", err)
+	}
+	return nil
+}
+
 // smtpCredJSON —— smtp 连接器 credentials_enc 里的 JSON 形状。
 type smtpCredJSON struct {
 	Host        string `json:"host"`

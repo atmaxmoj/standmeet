@@ -60,6 +60,12 @@ func (f fakeStore) Get(
 	}, nil
 }
 
+func (fakeStore) SaveTokens(
+	_ context.Context, _, _ string, _ *connector.TokenRefresh,
+) error {
+	return nil
+}
+
 //nolint:ireturn // 测试辅助：返回契约接口供断言；同生产侧 AssembleOpenAPI 的工厂意图。
 func assembleCal(t *testing.T, h http.Handler) (usecases.CalendarProxy, *httptest.Server) {
 	t.Helper()

@@ -32,20 +32,37 @@ func OAuthEndpointsFor(m *Manifest, schemeName string) (OAuthEndpoints, error) {
 	if err != nil {
 		return OAuthEndpoints{}, fmt.Errorf("connector %q: %w", m.ID, err)
 	}
-	scheme, ok := spec.SecuritySchemes()[schemeName]
-	if !ok {
-		return OAuthEndpoints{}, fmt.Errorf("%w: %q", errUnknownScheme, schemeName)
+	return oauthEndpointsFromSpec(spec, schemeName)
+}
+
+// oauthEndpointsFromSpec —— 从已解析 spec 取 authorization-code 端点（schemeName 空 = 唯一那个）。
+func oauthEndpointsFromSpec(spec *openapi.Spec, schemeName string) (OAuthEndpoints, error) {
+	scheme, serr := pickScheme(spec, schemeName)
+	if serr != nil {
+		return OAuthEndpoints{}, serr
 	}
 	flow := scheme.Flows.AuthorizationCode
 	if flow == nil {
-		return OAuthEndpoints{}, fmt.Errorf("%w: scheme %q has no authorizationCode flow",
-			errUnsupportedAuth, schemeName)
+		return OAuthEndpoints{}, fmt.Errorf("%w: scheme has no authorizationCode flow",
+			errUnsupportedAuth)
 	}
 	return OAuthEndpoints{
 		AuthorizationURL: flow.AuthorizationURL,
 		TokenURL:         flow.TokenURL,
 		Scopes:           scopeKeys(flow.Scopes),
 	}, nil
+}
+
+// RefreshToken —— 用 refresh_token 换新 access token（静默刷新；token 端点同 ExchangeCode）。
+func (e OAuthEndpoints) RefreshToken(
+	ctx context.Context, doer openapi.Doer, refreshToken, clientID, clientSecret string,
+) (TokenResult, error) {
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", refreshToken)
+	form.Set("client_id", clientID)
+	form.Set("client_secret", clientSecret)
+	return e.postToken(ctx, doer, form)
 }
 
 func scopeKeys(m map[string]string) []string {

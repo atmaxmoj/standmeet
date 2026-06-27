@@ -61,11 +61,22 @@ export async function initGCalOAuth(
   request: APIRequestContext, csrf: string,
 ): Promise<OAuthInitResult> {
   const res = await request.post(
-    `${BACKEND}/api/admin/connectors/google-calendar/init`,
+    `${BACKEND}/api/admin/connectors/google-calendar/connect`,
     { headers: { 'X-Csrftoken': csrf } },
   );
-  if (res.status() !== 200) throw new Error(`gcal init: ${res.status()}`);
+  if (res.status() !== 200) throw new Error(`gcal connect: ${res.status()}`);
   return await res.json() as OAuthInitResult;
+}
+
+// activateGCal —— 占用 calendar 品类槽（§9：booking 解析的是 active 连接器）。
+export async function activateGCal(
+  request: APIRequestContext, csrf: string,
+): Promise<void> {
+  const res = await request.post(
+    `${BACKEND}/api/admin/connectors/google-calendar/activate`,
+    { headers: { 'X-Csrftoken': csrf } },
+  );
+  if (res.status() !== 200) throw new Error(`gcal activate: ${res.status()}`);
 }
 
 export async function disconnectGCal(

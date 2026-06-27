@@ -43,7 +43,10 @@ func AssembleOpenAPI(m *Manifest, doer openapi.Doer, store ConnectionStore) (Con
 	if rerr != nil {
 		return nil, fmt.Errorf("connector %q: %w", m.ID, rerr)
 	}
-	core := &openapiCore{runtime: rt, store: store, auth: auth, id: m.ID}
+	core := &openapiCore{
+		runtime: rt, store: store, auth: auth, id: m.ID,
+		refresher: buildRefresher(p.spec, m.AuthScheme, doer, store),
+	}
 	return adaptByCategory(p.binding.Category, core)
 }
 

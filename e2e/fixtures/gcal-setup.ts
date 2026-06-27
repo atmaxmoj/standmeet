@@ -7,7 +7,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
-  MOCK_GCAL_CREDS, disconnectGCal, getGCalStatus, initGCalOAuth,
+  MOCK_GCAL_CREDS, activateGCal, disconnectGCal, getGCalStatus, initGCalOAuth,
   resetMockGCal, saveGCalCredentials, setBookingPolicy,
   type BookingPolicy,
 } from '@/fixtures/gcal';
@@ -117,6 +117,8 @@ async function runMockOAuthFlow(seed: BaseSeed): Promise<void> {
   if (res.status() !== 200) {
     throw new Error(`oauth flow: final status ${res.status()}`);
   }
+  // §9: connect 只是连上；要被 booking 解析到，还得占用 calendar 品类槽。
+  await activateGCal(seed.request, seed.csrf);
 }
 
 // ─── teardown ───────────────────────────────────────────────────

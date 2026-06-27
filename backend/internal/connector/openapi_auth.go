@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 	"github.com/atmaxmoj/standmeet/internal/domain"
@@ -28,9 +29,19 @@ var (
 	errOAuthExchange   = errors.New("oauth token exchange failed")
 )
 
-// ConnectionStore —— 连接状态的读（domain 类型）。由 composition root 从 ConnectorRepo 接线。
+// ConnectionStore —— 连接状态的读 + oauth2 静默刷新的回写（domain 类型）。由 composition root
+// 从 ConnectorRepo 接线——connector 层不直依赖 postgres。
 type ConnectionStore interface {
 	Get(ctx context.Context, connectorID, ownerID string) (domain.ConnectorConnection, error)
+	SaveTokens(ctx context.Context, connectorID, ownerID string, tok *TokenRefresh) error
+}
+
+// TokenRefresh —— 静默刷新后要回写的 token（connector 层类型，adapter 映射到存储）。
+type TokenRefresh struct {
+	ExpiresAt    time.Time
+	AccessToken  string
+	RefreshToken string
+	Scopes       []string
 }
 
 // authStrategy —— 把一个连接的凭据/token 注入请求。无状态、按 scheme 类型分。

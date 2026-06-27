@@ -22,6 +22,12 @@ func (fakeStore) Get(
 	return domain.ConnectorConnection{ConnectorID: connectorID, Connected: true}, nil
 }
 
+func (fakeStore) SaveTokens(
+	_ context.Context, _, _ string, _ *connector.TokenRefresh,
+) error {
+	return nil
+}
+
 func mustFind(t *testing.T, ms []connector.Manifest, id string) connector.Manifest {
 	t.Helper()
 	for i := range ms {

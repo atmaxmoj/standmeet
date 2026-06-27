@@ -24,10 +24,11 @@ import (
 // openapiCore —— 一个装配好的 openapi 连接器的公共件：id + 共享 runtime + 连接状态源 +
 // 认证策略。凭据/token 经 ConnectionStore 解密给出，按 authStrategy 注入——凭据永不出本层。
 type openapiCore struct {
-	runtime *openapi.Runtime
-	store   ConnectionStore
-	auth    authStrategy
-	id      string
+	runtime   *openapi.Runtime
+	store     ConnectionStore
+	auth      authStrategy
+	refresher *oauthRefresher // oauth2 静默刷新；非 oauth2 为 nil
+	id        string
 }
 
 // Name —— Connector 基面：连接器名。
@@ -47,6 +48,11 @@ func (c *openapiCore) injector(ctx context.Context, ownerID string) (openapi.Aut
 	conn, err := c.store.Get(ctx, c.id, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("connector %q load: %w", c.id, err)
+	}
+	if c.refresher != nil {
+		if rerr := c.refresher.maybeRefresh(ctx, c.id, ownerID, &conn); rerr != nil {
+			return nil, fmt.Errorf("connector %q refresh: %w", c.id, rerr)
+		}
 	}
 	inj, ierr := c.auth.inject(&conn)
 	if ierr != nil {
@@ -74,13 +80,17 @@ type busyResult struct {
 	Busy []busyRow `json:"busy"`
 }
 
+// rfc3339Millis —— 事件时间带毫秒发出（Go 默认 RFC3339Nano 会裁掉 .000 尾零，
+// 丢精度；显式毫秒让预约时间忠实 round-trip 进日历）。
+const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
+
 type insertEventInput struct {
-	Summary      string    `json:"summary"`
-	Description  string    `json:"description"`
-	Start        time.Time `json:"start"`
-	End          time.Time `json:"end"`
-	TimeZone     string    `json:"timeZone"`
-	VisitorEmail string    `json:"visitorEmail"`
+	Summary      string `json:"summary"`
+	Description  string `json:"description"`
+	Start        string `json:"start"`
+	End          string `json:"end"`
+	TimeZone     string `json:"timeZone"`
+	VisitorEmail string `json:"visitorEmail"`
 }
 
 type insertedResult struct {
@@ -124,7 +134,9 @@ func (a calendarAdapter) InsertEvent(
 	}
 	in := insertEventInput{
 		Summary: req.Summary, Description: req.Description,
-		Start: req.Start, End: req.End, TimeZone: req.TimeZone, VisitorEmail: req.VisitorEmail,
+		Start:    req.Start.Format(rfc3339Millis),
+		End:      req.End.Format(rfc3339Millis),
+		TimeZone: req.TimeZone, VisitorEmail: req.VisitorEmail,
 	}
 	var out insertedResult
 	if cerr := a.runtime.Call(ctx, "create_event", in, &out, inj); cerr != nil {
