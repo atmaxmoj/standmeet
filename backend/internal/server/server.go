@@ -86,6 +86,7 @@ type AdminDeps struct {
 	Applications    *postgres.ApplicationRepo
 	Marketplace     usecases.MarketplaceDeps
 	Calendar        adminroutes.CalendarAdminDeps
+	Connectors      adminroutes.ConnectorsAdminDeps
 	Capabilities    adminroutes.CapabilityAdminDeps
 	ApproveRequests usecases.ApproveRequestDeps
 	Sessions        *session.OwnerSessionStore
@@ -186,6 +187,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		},
 		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Deps: deps.Admin.Marketplace},
 		CalendarAdmin:     deps.Admin.Calendar,
+		ConnectorsAdmin:   deps.Admin.Connectors,
 		CapabilitiesAdmin: deps.Admin.Capabilities,
 		IPBansAdmin:       adminroutes.IPBansAdminDeps{Repo: deps.BannedIPs},
 		Log:               deps.Log,

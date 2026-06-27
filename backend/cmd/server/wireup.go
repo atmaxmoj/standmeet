@@ -6,7 +6,9 @@ package main
 
 import (
 	"context"
+	"net/http"
 
+	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
@@ -95,6 +97,12 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Applications: d.applicationRepo,
 		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
 		Calendar:     adminroutes.CalendarAdminDeps{Repo: d.calendarRepo},
+		Connectors: adminroutes.ConnectorsAdminDeps{
+			Svc: connectorsvc.New(connectorsvc.Deps{
+				Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
+				HTTP: http.DefaultClient, Manifests: loadBuiltinConnectorManifests(d),
+			}),
+		},
 		Capabilities: adminroutes.CapabilityAdminDeps{
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
 			Skills: d.skillRepo, Connectors: d.connectorRepo,

@@ -118,6 +118,17 @@ func registerDiscoveredConnectors(d *runtimeDeps, depReg *capreg.DepRegistry) er
 	return nil
 }
 
+// loadBuiltinConnectorManifests —— admin 路由要的内置 manifest（id→category/kind/spec）。
+// 拉起时读一次（embed），失败 → 空（连接器 admin 面空，不挂整个 server）。
+func loadBuiltinConnectorManifests(d *runtimeDeps) []connector.Manifest {
+	manifests, err := builtins.Load()
+	if err != nil {
+		d.log.Error("load builtin connector manifests", "err", err)
+		return []connector.Manifest{}
+	}
+	return manifests
+}
+
 // assembleConnector —— 按 kind 把一份 manifest 装配成 Connector（内置/上传同一路）。
 func assembleConnector(
 	m *connector.Manifest, doer *http.Client,

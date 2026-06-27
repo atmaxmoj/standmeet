@@ -91,6 +91,8 @@ components:
     in: internal/connector/openapi        # #155: 通用 openapi 连接器执行核（spec+JSONata+HTTP）；schemaless-JSON 边界，leaf
   connectorbuiltins:
     in: internal/connector/builtins       # #155: 内置连接器数据（embed 的 spec+binding / protocol manifest）+ 拉起时 Load
+  connectorsvc:
+    in: internal/connectorsvc             # #155: 连接器 admin 编排（凭据/connect/oauth dance/activate）——routes 层之下，cyclop ≤5
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   retry:
@@ -161,6 +163,15 @@ deps:
   connectorbuiltins:
     mayDependOn:
       - connector
+    anyVendorDeps: true
+
+  # connectorsvc —— #155 连接器 admin 编排：凭据/connect/oauth dance/activate/disconnect。
+  # routes 层之下（cyclop ≤5，不受 routes ≤3 约束）。读写连接器存储 + 走 OAuth dance。
+  connectorsvc:
+    mayDependOn:
+      - connector
+      - postgres
+      - domain
     anyVendorDeps: true
 
   # retry —— #132 通用可配重试 infra leaf：纯 stdlib (context/time)，无 internal 依赖。
@@ -437,7 +448,8 @@ deps:
       - middleware
       - storage
       - inference   # /ai-provider/presets 暴露 preset 表给 admin UI
-      - connector   # /connectors/* OAuth init/callback + mail OTP 经连接器层（不直碰 gcal/mailer）
+      - connector   # /connectors/* 经连接器层（不直碰 gcal/mailer）
+      - connectorsvc # #155 /connectors/* 编排（凭据/connect/oauth/activate）抽到 service
       - capreg      # Phase H /capabilities：列 registry origin + owner-enable 开关
     anyVendorDeps: true
 
@@ -501,6 +513,7 @@ deps:
       - gotenberg
       - connector
       - connectorbuiltins
+      - connectorsvc
       - printsess
       - marketplace
       - captcha
