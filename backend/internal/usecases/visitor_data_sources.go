@@ -40,6 +40,9 @@ type OutputLister interface {
 	Search(
 		ctx context.Context, ownerID, query string, limit, offset int32,
 	) ([]postgres.OutputMeta, error)
+	ListChildren(
+		ctx context.Context, ownerID string, parentID *string, limit, offset int32,
+	) ([]postgres.OutputMeta, error)
 	GetMetaByID(ctx context.Context, ownerID, id string) (postgres.OutputMeta, error)
 	GetByID(ctx context.Context, ownerID, id string) (domain.Output, error)
 }

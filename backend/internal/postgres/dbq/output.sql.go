@@ -221,6 +221,65 @@ func (q *Queries) ListOutputByOwner(ctx context.Context, arg ListOutputByOwnerPa
 	return items, nil
 }
 
+const listOutputChildren = `-- name: ListOutputChildren :many
+SELECT o.id, o.parent_id, o.title, o.seo_indexed,
+       EXISTS(SELECT 1 FROM output_entries c WHERE c.parent_id = o.id) AS has_children
+FROM output_entries o
+WHERE o.owner_id = $1
+  AND (($2::uuid IS NULL AND o.parent_id IS NULL) OR o.parent_id = $2)
+ORDER BY o.title ASC
+LIMIT $3 OFFSET $4
+`
+
+type ListOutputChildrenParams struct {
+	OwnerID pgtype.UUID
+	Column2 pgtype.UUID
+	Limit   int32
+	Offset  int32
+}
+
+type ListOutputChildrenRow struct {
+	ID          pgtype.UUID
+	ParentID    pgtype.UUID
+	Title       string
+	SeoIndexed  bool
+	HasChildren bool
+}
+
+// 懒加载一层:某 output 节点的直接子(meta only,不带 body);$2 NULL = 根层。翻页用
+// limit/offset。镜像 ListWikiChildren —— output 跟 wiki 同构(都是带 parent_id 的树),
+// 检索按 path 下钻解析靠它,不再特例 output。
+func (q *Queries) ListOutputChildren(ctx context.Context, arg ListOutputChildrenParams) ([]ListOutputChildrenRow, error) {
+	rows, err := q.db.Query(ctx, listOutputChildren,
+		arg.OwnerID,
+		arg.Column2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOutputChildrenRow
+	for rows.Next() {
+		var i ListOutputChildrenRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Title,
+			&i.SeoIndexed,
+			&i.HasChildren,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchOutputByOwner = `-- name: SearchOutputByOwner :many
 SELECT id, parent_id, title, seo_indexed, left(body, 200) AS snippet
 FROM output_entries

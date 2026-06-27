@@ -1,101 +1,20 @@
-// visitor_chat_tools.go —— visitor chat 的 server-side retrieval tools。
-//
-// 设计源自 legacy standmeet-server/gateway/src/runtime/mcp-tools.ts：把
-// retrieval 从"server 端预 stuff 全集进 prompt"换成"AI 主动 search/read"。
-// 让 cited = AI 真读过的 entry，而不是 ACL-filtered corpus 全集。
+// visitor_chat_tools.go —— corpus retrieval WIRE helpers (#157). The retriever engine
+// moved into pgCorpusLister (corpus_lister_pg*.go); what remains here is the tool result
+// wire format shared by the socket op handlers (corpus_search/read/list) and the summary
+// truncation. tool name / schema / desc are declared by the external retrieval plugin
+// (mcp-servers/retrieval); this file owns only the JSON shapes those ops return.
 
 package usecases
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
-
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
-// searchPageLimit —— DB 搜索一页上限(翻页留给 LLM 用 offset)。
-const searchPageLimit = 20
-
-// summaryMaxChars —— corpus_search 摘要截断上限。tool 名 / schema / desc 现在由外置
-// 插件 mcp-servers/retrieval 声明；这里只剩 retriever 执行体（runSearch/Read/List），
-// 由 retrieval.sock 的 op handler 调（capreg_retrieval_socket.go）。
+// summaryMaxChars —— corpus_search 摘要截断上限。
 const summaryMaxChars = 160
 
-// retriever —— tool executor 的状态。writings 跟 wiki/output 共享 search/
-// read/list；cited footer 仅 wiki+output (writings 有自己的 cross_refs +
-// "ask about this essay" 入口，不挤 cited 列表)。
-//
-// ACL 评估：[[role_snapshot]].AllowsCorpus —— A.3-IAM-5 起 snapshot 必填。
-type retriever struct {
-	snapshot *domain.RoleSnapshot
-	// wikiRepo / outputRepo / writingRepo —— 三个 genre 都走 DB:全量搜(Search)+ 按
-	// path 读,不吃内存窗口。
-	wikiRepo    WikiLister
-	outputRepo  OutputLister
-	writingRepo WritingLister
-	// id→树派生 path(见 corpus_tree_path.go)。(map 字段排在 slice 前,fieldalignment。)
-	wikiPaths   map[string]string
-	outputPaths map[string]string
-	// seen / outputSeen —— DB 搜出来的 path→id 缓存(read 按 path 反查 id);顺 parent_id
-	// 上溯算 path 后填,LLM「read after search」命中超出内存 50 的条目也能读到。
-	seen       map[string]string
-	outputSeen map[string]string
-	ownerID    string
-	// slice 收尾(末两字 len/cap 无指针 → 缩 GC pointer-bytes,fieldalignment)。
-	wikis    []domain.Wiki
-	outputs  []domain.Output
-	writings []domain.Writing
-}
-
-// retrieverInput —— newRetriever 入参打包，避开 5-arg 上限。snapshot 必填。
-type retrieverInput struct {
-	snapshot    *domain.RoleSnapshot
-	wikiRepo    WikiLister
-	outputRepo  OutputLister
-	writingRepo WritingLister
-	ownerID     string
-	wikis       []domain.Wiki
-	outputs     []domain.Output
-	writings    []domain.Writing
-}
-
-func newRetriever(in *retrieverInput) *retriever {
-	return &retriever{
-		wikis: in.wikis, outputs: in.outputs, writings: in.writings,
-		snapshot:    in.snapshot,
-		wikiRepo:    in.wikiRepo,
-		outputRepo:  in.outputRepo,
-		writingRepo: in.writingRepo,
-		ownerID:     in.ownerID,
-		wikiPaths:   WikiTreePaths(in.wikis),
-		outputPaths: OutputTreePaths(in.outputs),
-		seen:        make(map[string]string),
-		outputSeen:  make(map[string]string),
-	}
-}
-
-// wikiPath / outputPath —— entry 的树派生地址。一律走预算好的表(永远非空,见
-// corpus_tree_path.go);不再用可空的 path 列或 `<kind>/<id>` 兜底。
-func (r *retriever) wikiPath(w *domain.Wiki) string     { return r.wikiPaths[w.ID()] }
-func (r *retriever) outputPath(o *domain.Output) string { return r.outputPaths[o.ID()] }
-
-// allowsPath / allowsEntry 拆到 visitor_chat_tools_read.go。
-// runSearch / runRead / runList 各自被对应 BindingTool 闭包调用。
-
-func (r *retriever) runSearch(ctx context.Context, input []byte) (string, error) {
-	var args struct {
-		Query string `json:"query"`
-	}
-	if uerr := json.Unmarshal(input, &args); uerr != nil {
-		return "", fmt.Errorf("invalid arguments: %w", uerr)
-	}
-	q := strings.TrimSpace(args.Query)
-	rows := r.collectMatchingEntries(ctx, q)
-	return marshalRows(rows), nil
-}
-
+// corpusRow —— corpus_search / corpus_list 的 wire 行。summary 仅 search 填(omitempty)。
 type corpusRow struct {
 	Path    string `json:"path"`
 	Title   string `json:"title"`
@@ -103,103 +22,17 @@ type corpusRow struct {
 	Summary string `json:"summary,omitempty"`
 }
 
-func (r *retriever) collectMatchingEntries(ctx context.Context, q string) []corpusRow {
-	out := make([]corpusRow, 0, len(r.outputs)+len(r.writings))
-	out = append(out, r.matchOutputs(ctx, q)...)
-	out = append(out, r.matchWikis(ctx, q)...)
-	out = append(out, r.matchWritings(ctx, q)...)
-	return out
+// summarize —— 截断到 summaryMaxChars，给 corpus_search 摘要 / writing 行摘要用。
+func summarize(body string) string {
+	trimmed := strings.TrimSpace(body)
+	if len(trimmed) <= summaryMaxChars {
+		return trimmed
+	}
+	return trimmed[:summaryMaxChars] + "…"
 }
 
-// matchWikis / matchOutputs / matchWritings(+ *HitToRow)拆到
-// visitor_chat_tools_wiki.go / _writings.go 守 350-line cap。
-
-// writing-specific helpers live in visitor_chat_tools_writings.go to keep
-// this file under the 350-line cap.
-
-// runRead —— 按 path 查 entry，ACL 通过则返全文 wire {id,genre,body,path,title}。
-// citation 不在这做：inference 的 accumSink 从这个结果的 {id,genre} 自行累计。
-// ACL 评估走 dispatchRead 内部按 genre 检 (snapshot mode 需要 genre 拼 URI；
-// legacy PathACL 模式下 r.allowsPath 忽略 genre 等同 r.acl.AllowsPath)。
-func (r *retriever) runRead(ctx context.Context, input []byte) (string, error) {
-	path, perr := parseReadPath(input)
-	if perr != nil {
-		return "", perr
-	}
-	if path == "" {
-		return errJSON("path required"), nil
-	}
-	return r.dispatchRead(ctx, path), nil
-}
-
-func parseReadPath(input []byte) (string, error) {
-	var args struct {
-		Path string `json:"path"`
-	}
-	if uerr := json.Unmarshal(input, &args); uerr != nil {
-		return "", fmt.Errorf("invalid arguments: %w", uerr)
-	}
-	return args.Path, nil
-}
-
-// dispatchRead / serveXRead helpers 拆到 visitor_chat_tools_read.go 守
-// max-lines 350 line cap。
-
-// findWikiByPath —— path → entry,DB 优先(不吃内存 50-cap):先 seen 缓存(同回合
-// search/list 填的 path→id),否则顺树 resolve path→id;两路都 GetByID 拉 body。最后
-// 退回内存 wikis(老路径/小 corpus 兼容)。跨 tool 调用(各自新 retriever,seen 空)
-// 也能按 path 读到任意深度条目。
-func (r *retriever) findWikiByPath(ctx context.Context, path string) *domain.Wiki {
-	if w, ok := r.readWikiViaRepo(ctx, path); ok {
-		return w
-	}
-	for i := range r.wikis {
-		if r.wikiPath(&r.wikis[i]) == path {
-			return &r.wikis[i]
-		}
-	}
-	return nil
-}
-
-// readWikiViaRepo —— DB 路:seen 命中直接拿 id,否则顺 root→下 resolve path→id;再
-// GetByID。解不出(未知 path)/读不到 → (nil,false),交回内存兜底。
-func (r *retriever) readWikiViaRepo(ctx context.Context, path string) (*domain.Wiki, bool) {
-	id, ok := r.seen[path]
-	if !ok {
-		resolved, rerr := resolveWikiNodeID(ctx, r.wikiRepo, r.ownerID, path)
-		if rerr != nil {
-			return nil, false
-		}
-		id = resolved
-	}
-	w, err := r.wikiRepo.GetByID(ctx, r.ownerID, id)
-	if err != nil {
-		return nil, false
-	}
-	return &w, true
-}
-
-// findOutputByPath —— path → output,DB 优先(不吃 50-cap):outputSeen 命中(同回合
-// search 填的 path→id)→ GetByID;否则退回内存 outputs(小 corpus 兼容)。
-func (r *retriever) findOutputByPath(ctx context.Context, path string) *domain.Output {
-	if id, ok := r.outputSeen[path]; ok {
-		if o, err := r.outputRepo.GetByID(ctx, r.ownerID, id); err == nil {
-			return &o
-		}
-	}
-	for i := range r.outputs {
-		if r.outputPath(&r.outputs[i]) == path {
-			return &r.outputs[i]
-		}
-	}
-	return nil
-}
-
-// runList / listEntries / list*ByPrefix / list*Row 拆到 visitor_chat_tools_list.go
-// 守 max-lines 350 line cap。
-
-// errJSON / marshalRows / marshalKindBody —— tool 返回都是 JSON string。
-// 用辅助函数集中 marshal + 失败兜底，避免散落 errcheck 告警。
+// errJSON / marshalRows / marshalReadResult —— tool 返回都是 JSON string;集中 marshal +
+// 失败兜底，避免散落 errcheck 告警。
 func errJSON(msg string) string {
 	out, err := json.Marshal(map[string]string{"error": msg})
 	if err != nil {
@@ -216,11 +49,9 @@ func marshalRows(rows []corpusRow) string {
 	return string(out)
 }
 
-// marshalReadResult —— corpus_read 的 tool result wire 形态。字段:id(entry
-// 稳定标识,前端按它引用 → admin transcript 记 cited_*_ids,绕开按路径反查 +
-// ACL 子集对不上的坑)+ genre + body(markdown,含 mermaid/latex 等内嵌)+ path
-// (树派生地址,UI 显示 + AI 后续 corpus_read 用)+ title。前端 pi-agent-core
-// 收到后累积 citations(id 落库 / genre+path+title 给 UI / body 给 G-3 展开)。
+// marshalReadResult —— corpus_read 的 wire:id(稳定标识,admin transcript 记 cited_*_ids)
+// + genre + body(markdown) + path(树派生地址) + title。前端 pi-agent-core 收到后累积
+// citations(id 落库 / genre+path+title 给 UI / body 给展开)。
 func marshalReadResult(id, genre, body, path, title string) string {
 	out, err := json.Marshal(map[string]string{
 		"id": id, "genre": genre, "body": body, "path": path, "title": title,

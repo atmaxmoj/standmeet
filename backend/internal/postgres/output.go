@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
@@ -120,12 +121,32 @@ func (r *OutputRepo) GetByID(
 // OutputMeta —— output 的 meta(无 body):懒加载搜/读路径用,镜像 WikiMeta。
 // UpdatedAt 仅 ListAllMeta(sitemap)填,其余路径留 0。
 type OutputMeta struct {
-	ParentID   *string
-	ID         string
-	Title      string
-	Snippet    string
-	UpdatedAt  int64
-	SEOIndexed bool
+	ParentID    *string
+	ID          string
+	Title       string
+	Snippet     string
+	UpdatedAt   int64
+	SEOIndexed  bool
+	HasChildren bool
+}
+
+// ListChildren —— output 节点的直接子(meta only,无 body);parentID nil = 根层;翻页。
+// 镜像 WikiRepo.ListChildren —— output 跟 wiki 同构,按 path 下钻解析靠它。
+func (r *OutputRepo) ListChildren(
+	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
+) ([]OutputMeta, error) {
+	return listChildrenMeta(ownerID, parentID,
+		func(o, p pgtype.UUID) ([]dbq.ListOutputChildrenRow, error) {
+			return dbq.New(r.pool).ListOutputChildren(ctx, dbq.ListOutputChildrenParams{
+				OwnerID: o, Column2: p, Limit: limit, Offset: offset,
+			})
+		},
+		func(row dbq.ListOutputChildrenRow) OutputMeta {
+			return OutputMeta{
+				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+				Title: row.Title, SEOIndexed: row.SeoIndexed, HasChildren: row.HasChildren,
+			}
+		})
 }
 
 // GetMetaByID —— output meta(无 body):上溯算 path / 判 ACL 用。不命中 → ErrOutputNotFound。

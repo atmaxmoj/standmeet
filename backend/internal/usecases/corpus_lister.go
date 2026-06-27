@@ -44,15 +44,14 @@ type CorpusEntry struct {
 // owns path computation and ACL filtering. ErrCorpusDenied / ErrCorpusNotFound separate
 // "you may not" from "no such path" on Get.
 type CorpusLister interface {
-	// Search —— full-text across all genres, returning only entries the role may see.
+	// Search —— full-text across all genres (first page), returning only entries the role
+	// may see.
 	Search(
-		ctx context.Context, ownerID string, grantedGlobs []string,
-		query string, limit, offset int32,
+		ctx context.Context, ownerID string, grantedGlobs []string, query string,
 	) ([]CorpusMeta, error)
-	// List —— children at parentPath ("" = roots), only those the role may see.
+	// List —— children at parentPath ("" = roots), page 0-based, only those the role may see.
 	List(
-		ctx context.Context, ownerID string, grantedGlobs []string,
-		parentPath string, limit, offset int32,
+		ctx context.Context, ownerID string, grantedGlobs []string, parentPath string, page int,
 	) ([]CorpusMeta, error)
 	// Get —— full entry by path. ErrCorpusDenied if out of scope, ErrCorpusNotFound if
 	// no such path.

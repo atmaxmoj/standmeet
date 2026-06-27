@@ -1,35 +1,33 @@
-// capreg_retrieval_socket.go —— 归一(#144): corpus.retrieval 的 HOST 侧 compute plumbing。
+// capreg_retrieval_socket.go —— corpus.retrieval 的 HOST 侧 compute plumbing (#144/#157)。
 //
-// 外置的 retrieval 插件（沙箱、断网）经 bind 进来的 unix socket 调三个 op：
-//   - "corpus_search" → runSearch（关键词搜 wiki/output/writing，ACL 过滤）
-//   - "corpus_read"   → runRead（按 path 取全文，ACL 准入）
-//   - "corpus_list"   → runList（wiki 树逐层导航，ACL 过滤）
+// 外置的 retrieval 插件（沙箱、断网）经 bind 进来的 unix socket 调三个 op:
+//   - "corpus_search" → CorpusLister.Search（关键词搜 wiki/output/writing，ACL 在方法内）
+//   - "corpus_read"   → CorpusLister.Get（按 path 取全文，ACL 准入；denied/not-found 分流）
+//   - "corpus_list"   → CorpusLister.List（wiki 树逐层导航 + output/writing 扁平根层）
 //
-// 每个 op 用 session 携来的 corpus-URI scope（role snapshot 的 glob 白名单，经 _meta
-// 转发；frozen，无 staleness）重建一个最小 RoleSnapshot，装出 retriever，调对应方法、
-// 返同一套 wire JSON。
+// 每个 op 用 session 携来的 corpus-URI scope（role snapshot 的 glob 白名单，经 _meta 转发；
+// frozen，无 staleness）作为 grantedGlobs 调对应方法，返同一套 wire JSON。
 //
-// retriever 按 conversation_id 缓存（带 TTL）：in-process 时代同一个 turn 的 search+read
-// 共用一个 retriever 实例，read 靠 search 填进的 seen(path→id) 反查超出内存-50 窗口的
-// entry。外置后每个 socket op 独立调用，若每次新建 retriever 就丢了 seen → 深层 output
-// 读不到、引不上（output-retrieval-scale）。缓存把同会话的 retriever 续上，复刻旧行为。
+// #157: CorpusLister 无状态——path→id 每次 DB 现解（wiki/output 下钻、writing 按 path 列），
+// 不再需要 per-conversation 的 retriever 缓存 / seen 续命。旧的 retrieverCache 整体删除。
 
 package usecases
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"sync"
-	"time"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
-	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 const (
-	retrieverTTL      = 5 * time.Minute // 覆盖一个 turn 的 search→read；过期重建防 corpus 漂移
-	retrieverCacheMax = 256             // 上限，满了整体清空（简单有界，不做 LRU）
+	// searchPageLimit —— corpus_search 一页上限（翻页留给 LLM 用 offset，当前固定首页）。
+	searchPageLimit = 20
+	// listPageLimit —— corpus_list 一层一页上限（宽子树翻页用 page）。
+	listPageLimit = 50
 )
 
 // retrievalSockReq —— 插件经 socket 发来的请求。session scope 字段 + 原样转发的 args。
@@ -40,48 +38,24 @@ type retrievalSockReq struct {
 	Args           json.RawMessage `json:"args"`
 }
 
-// retrieverCache —— per-conversation retriever 缓存（seen 续命）。nil-safe via methods。
-type retrieverCache struct {
-	entries map[string]cachedRetriever
-	mu      sync.Mutex
-}
+// corpusRunner —— 一个 op 的执行体：解析 args、调 lister、返 wire JSON。
+type corpusRunner func(context.Context, CorpusLister, *retrievalSockReq) (string, error)
 
-type cachedRetriever struct {
-	builtAt time.Time
-	r       *retriever
-}
-
-// RegisterRetrievalSocket —— 把三个 corpus op 注册到 capsocket server。
+// RegisterRetrievalSocket —— 把三个 corpus op 注册到 capsocket server，背后是 CorpusLister。
 func RegisterRetrievalSocket(srv *capsocket.Server, deps *RetrievalDeps) {
-	cache := &retrieverCache{entries: map[string]cachedRetriever{}}
-	srv.Handle("corpus_search", retrievalOpHandler(deps, cache,
-		func(ctx context.Context, r *retriever, args []byte) (string, error) {
-			return r.runSearch(ctx, args)
-		}))
-	srv.Handle("corpus_read", retrievalOpHandler(deps, cache,
-		func(ctx context.Context, r *retriever, args []byte) (string, error) {
-			return r.runRead(ctx, args)
-		}))
-	srv.Handle("corpus_list", retrievalOpHandler(deps, cache,
-		func(ctx context.Context, r *retriever, args []byte) (string, error) {
-			return r.runList(ctx, args)
-		}))
+	lister := &pgCorpusLister{wiki: deps.Wiki, output: deps.Output, writing: deps.Writings}
+	srv.Handle("corpus_search", corpusOp(lister, runCorpusSearch))
+	srv.Handle("corpus_read", corpusOp(lister, runCorpusRead))
+	srv.Handle("corpus_list", corpusOp(lister, runCorpusList))
 }
 
-func retrievalOpHandler(
-	deps *RetrievalDeps, cache *retrieverCache,
-	run func(context.Context, *retriever, []byte) (string, error),
-) capsocket.Handler {
+func corpusOp(lister CorpusLister, run corpusRunner) capsocket.Handler {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req retrievalSockReq
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("retrieval req: %w", err)
 		}
-		retr, berr := cache.getOrBuild(ctx, deps, &req)
-		if berr != nil {
-			return nil, berr
-		}
-		out, rerr := run(ctx, retr, req.Args)
+		out, rerr := run(ctx, lister, &req)
 		if rerr != nil {
 			return nil, rerr
 		}
@@ -89,58 +63,79 @@ func retrievalOpHandler(
 	}
 }
 
-// getOrBuild —— 同 conversation 复用上次的 retriever（seen 续命），过期/无 id/未命中则
-// 新建。无 conversation_id（无状态调用）→ 不缓存，直接新建。
-func (c *retrieverCache) getOrBuild(
-	ctx context.Context, deps *RetrievalDeps, req *retrievalSockReq,
-) (*retriever, error) {
-	if req.ConversationID == "" {
-		return buildRetrieverFromReq(ctx, deps, req)
+func runCorpusSearch(ctx context.Context, l CorpusLister, req *retrievalSockReq) (string, error) {
+	var args struct {
+		Query string `json:"query"`
 	}
-	if r := c.fresh(req.ConversationID); r != nil {
-		return r, nil
+	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
+		return "", fmt.Errorf("invalid arguments: %w", uerr)
 	}
-	retr, err := buildRetrieverFromReq(ctx, deps, req)
+	rows, err := l.Search(ctx, req.OwnerID, req.CorpusURIs, strings.TrimSpace(args.Query))
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("corpus search: %w", err)
 	}
-	c.store(req.ConversationID, retr)
-	return retr, nil
+	return marshalCorpusRows(rows), nil
 }
 
-// fresh —— 命中且未过期的缓存 retriever，否则 nil。
-func (c *retrieverCache) fresh(key string) *retriever {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if e, ok := c.entries[key]; ok && time.Since(e.builtAt) < retrieverTTL {
-		return e.r
+func runCorpusRead(ctx context.Context, l CorpusLister, req *retrievalSockReq) (string, error) {
+	var args struct {
+		Path string `json:"path"`
 	}
-	return nil
-}
-
-// store —— 存入缓存；满了整体清空（简单有界）。
-func (c *retrieverCache) store(key string, r *retriever) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if len(c.entries) >= retrieverCacheMax {
-		c.entries = map[string]cachedRetriever{}
+	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
+		return "", fmt.Errorf("invalid arguments: %w", uerr)
 	}
-	c.entries[key] = cachedRetriever{r: r, builtAt: time.Now()}
+	if args.Path == "" {
+		return errJSON("path required"), nil
+	}
+	entry, err := l.Get(ctx, req.OwnerID, req.CorpusURIs, args.Path)
+	if err != nil {
+		return corpusReadErrWire(err, args.Path)
+	}
+	return marshalReadResult(entry.ID, entry.Genre, entry.Body, entry.Path, entry.Title), nil
 }
 
-func buildRetrieverFromReq(
-	ctx context.Context, deps *RetrievalDeps, req *retrievalSockReq,
-) (*retriever, error) {
-	return buildRetriever(ctx, *deps, &retrieverBuildInput{
-		ownerID:  req.OwnerID,
-		snapshot: retrievalSnapshot(req.CorpusURIs),
-	})
+// corpusReadErrWire —— map Get's failure to the wire: denied/not-found are friendly tool
+// envelopes (ok=true, result.error), anything else is a real transport error.
+func corpusReadErrWire(err error, path string) (string, error) {
+	switch {
+	case errors.Is(err, ErrCorpusDenied):
+		return errJSON("access denied: " + path), nil
+	case errors.Is(err, ErrCorpusNotFound):
+		return errJSON("not found: " + path), nil
+	default:
+		return "", fmt.Errorf("corpus read: %w", err)
+	}
 }
 
-// retrievalSnapshot —— 从 session 携来的 corpus-URI glob 白名单重建一个最小 RoleSnapshot；
-// retriever 只用 snapshot 的 AllowsCorpus 做 ACL，别的字段无关。空 scope → 空白名单
-// （AllowsCorpus 一律 deny，search/read/list 自然返空 / not found）。
-func retrievalSnapshot(corpusURIs []string) *domain.RoleSnapshot {
-	snap := domain.NewRoleSnapshot(&domain.RoleSnapshotInit{CorpusURIs: corpusURIs})
-	return &snap
+func runCorpusList(ctx context.Context, l CorpusLister, req *retrievalSockReq) (string, error) {
+	var args struct {
+		Path string `json:"path"`
+		Page int    `json:"page"`
+	}
+	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
+		return "", fmt.Errorf("invalid arguments: %w", uerr)
+	}
+	rows, err := l.List(ctx, req.OwnerID, req.CorpusURIs, args.Path, args.Page)
+	if err != nil {
+		return corpusListErrWire(err) // 未知地址等 → friendly 行，不 502
+	}
+	return marshalCorpusRows(rows), nil
+}
+
+// corpusListErrWire —— list 的错误（未知地址等）→ friendly tool envelope，永不 502。
+func corpusListErrWire(err error) (string, error) {
+	return errJSON("list: " + err.Error()), nil
+}
+
+// marshalCorpusRows —— []CorpusMeta → 既有 wire（[{path,title,genre,summary?}]）。Snippet
+// 仅 search 填，list 行为空 → omitempty 落掉 summary，复刻旧 list/search wire 差异。
+func marshalCorpusRows(metas []CorpusMeta) string {
+	rows := make([]corpusRow, 0, len(metas))
+	for i := range metas {
+		rows = append(rows, corpusRow{
+			Path: metas[i].Path, Title: metas[i].Title,
+			Genre: metas[i].Genre, Summary: metas[i].Snippet,
+		})
+	}
+	return marshalRows(rows)
 }

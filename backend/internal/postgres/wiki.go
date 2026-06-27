@@ -121,28 +121,18 @@ type WikiMeta struct {
 func (r *WikiRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]WikiMeta, error) {
-	ownerUUID, err := parseUUID(ownerID)
-	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	parentUUID, perr := parseOptionalUUID(parentID)
-	if perr != nil {
-		return nil, fmt.Errorf("parse parent id: %w", perr)
-	}
-	rows, qerr := dbq.New(r.pool).ListWikiChildren(ctx, dbq.ListWikiChildrenParams{
-		OwnerID: ownerUUID, Column2: parentUUID, Limit: limit, Offset: offset,
-	})
-	if qerr != nil {
-		return nil, fmt.Errorf("list wiki children: %w", qerr)
-	}
-	out := make([]WikiMeta, 0, len(rows))
-	for i := range rows {
-		out = append(out, WikiMeta{
-			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
-			Title: rows[i].Title, SEOIndexed: rows[i].SeoIndexed, HasChildren: rows[i].HasChildren,
+	return listChildrenMeta(ownerID, parentID,
+		func(o, p pgtype.UUID) ([]dbq.ListWikiChildrenRow, error) {
+			return dbq.New(r.pool).ListWikiChildren(ctx, dbq.ListWikiChildrenParams{
+				OwnerID: o, Column2: p, Limit: limit, Offset: offset,
+			})
+		},
+		func(row dbq.ListWikiChildrenRow) WikiMeta {
+			return WikiMeta{
+				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
+				Title: row.Title, SEOIndexed: row.SeoIndexed, HasChildren: row.HasChildren,
+			}
 		})
-	}
-	return out, nil
 }
 
 // GetMetaByID —— 一条 wiki 的 meta(无 body):上溯算 path / 判 ACL 用。不命中 → ErrWikiNotFound。

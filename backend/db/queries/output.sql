@@ -23,6 +23,18 @@ SELECT id, parent_id, title, seo_indexed
 FROM output_entries
 WHERE id = $1 AND owner_id = $2;
 
+-- name: ListOutputChildren :many
+-- 懒加载一层:某 output 节点的直接子(meta only,不带 body);$2 NULL = 根层。翻页用
+-- limit/offset。镜像 ListWikiChildren —— output 跟 wiki 同构(都是带 parent_id 的树),
+-- 检索按 path 下钻解析靠它,不再特例 output。
+SELECT o.id, o.parent_id, o.title, o.seo_indexed,
+       EXISTS(SELECT 1 FROM output_entries c WHERE c.parent_id = o.id) AS has_children
+FROM output_entries o
+WHERE o.owner_id = $1
+  AND (($2::uuid IS NULL AND o.parent_id IS NULL) OR o.parent_id = $2)
+ORDER BY o.title ASC
+LIMIT $3 OFFSET $4;
+
 -- name: SearchOutputByOwner :many
 -- 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
 -- 镜像 SearchWikiByOwner:自然语言问句按 OR 命中任一词项(' & '→' | '),ts_rank 排序。

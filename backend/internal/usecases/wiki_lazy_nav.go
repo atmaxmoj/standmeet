@@ -106,3 +106,47 @@ func segInPage(kids []postgres.WikiMeta, seg string) (string, bool) {
 	}
 	return "", false
 }
+
+// resolveOutputNodeID —— resolveWikiNodeID 的 output 孪生(output 跟 wiki 同构,都是
+// 带 parent_id 的树);顺 root→下逐层 ListChildren meta-only 解 path→id。
+func resolveOutputNodeID(
+	ctx context.Context, repo OutputLister, ownerID, path string,
+) (string, error) {
+	var parentID *string
+	id := ""
+	for seg := range strings.SplitSeq(path, "/") {
+		found, err := findOutputChildBySegment(ctx, repo, ownerID, parentID, seg)
+		if err != nil {
+			return "", err
+		}
+		id = found
+		parentID = &id
+	}
+	return id, nil
+}
+
+func findOutputChildBySegment(
+	ctx context.Context, repo OutputLister, ownerID string, parentID *string, seg string,
+) (string, error) {
+	for offset := int32(0); ; offset += resolveChildPageLimit {
+		kids, err := repo.ListChildren(ctx, ownerID, parentID, resolveChildPageLimit, offset)
+		if err != nil {
+			return "", fmt.Errorf("list output children: %w", err)
+		}
+		if id, ok := segInOutputPage(kids, seg); ok {
+			return id, nil
+		}
+		if len(kids) < resolveChildPageLimit {
+			return "", domain.ErrOutputNotFound
+		}
+	}
+}
+
+func segInOutputPage(kids []postgres.OutputMeta, seg string) (string, bool) {
+	for i := range kids {
+		if pathSegment(kids[i].Title) == seg {
+			return kids[i].ID, true
+		}
+	}
+	return "", false
+}

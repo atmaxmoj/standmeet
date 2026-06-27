@@ -193,6 +193,12 @@ type citationResolver struct {
 	outputTitles map[string]string
 }
 
+// maxRAGWikis / maxRAGOutputs —— citation 反查时载入 owner 语料算树派生 path 的窗口上限。
+const (
+	maxRAGWikis   = 50
+	maxRAGOutputs = 50
+)
+
 func newCitationResolver(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID string, msgs []domain.Message,
 ) *citationResolver {
