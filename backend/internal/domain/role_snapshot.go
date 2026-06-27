@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -126,15 +125,7 @@ func (s *RoleSnapshot) IsZero() bool {
 // Pattern 跟 entry URI 都包含 scheme（"wiki://thinking/lucerna"）；compileGlob
 // 把 "wiki://thinking/**" 转成 "^wiki://thinking/.*$" regex 直接 match URI。
 func (s *RoleSnapshot) AllowsCorpus(uri string) bool {
-	if strings.HasPrefix(uri, "raw://") {
-		return false
-	}
-	for _, pattern := range s.corpusURIs {
-		if compileGlob(pattern).MatchString(uri) {
-			return true
-		}
-	}
-	return false
+	return MatchesAnyCorpusGlob(s.corpusURIs, uri)
 }
 
 // MarshalJSON / UnmarshalJSON —— session 存 Redis 用 JSON，encapsulation
