@@ -47,6 +47,21 @@ if [ -n "$test_files" ]; then
   printf '%s\n' "$test_files" | sed 's/^/  /'
 fi
 
+# D) fixture / canned 测试替身命名 (P.13 不变量：backend 零 fixture)。
+#    canned 实现只许住 eval-harness 的 EvalDriver（Bridge/Driver 的 ConcreteImplementor），
+#    backend 内一个都不许有。今天 backend/agentcore/*_fixture.go 把 cannedSandbox /
+#    skillFixture 焊在 backend 里 —— 正是这条要顶红的（A 类具名黑名单当年漏了它，fixture
+#    还故意"中性命名"来躲）。不抓 noop* —— 那是合法 prod null-object（noopVerifier /
+#    noopPDFRenderer），不是测试替身。
+fixture_hits=$(grep -rnE 'canned[A-Z]|[a-zA-Z]Fixture\b|\bstub[A-Z]' backend/ \
+  --include='*.go' --exclude='*_test.go' 2>/dev/null \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' || true)
+if [ -n "$fixture_hits" ]; then
+  report "backend/ 含 fixture/canned 测试替身 (P.13：canned 只许在 eval-harness 的 EvalDriver):"
+  printf '%s\n' "$fixture_hits" | sed 's/^/  /'
+fi
+
 if [ "$backend_violations" -gt 0 ]; then
   echo
   echo "G-Y 强制：mock infra 全在 mock-stack/，backend/ 只剩 prod 路径。"

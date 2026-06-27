@@ -1,20 +1,21 @@
-// visitor_build.go —— F.2: the eval facade's build entry. BuildVisitorAgent
-// drives the SAME real visitor capability assembly the HTTP path runs —
-// usecases.RegisterVisitorSkills (real capability constructors) + AssembleVisitor
-// (real eino tools) + ComposeSystemPrompt (real prompt fragments) — but injects
-// fixture data sources (visitor_fixtures.go) instead of postgres. The eval gets
-// the real tools + real prompt; only the backing data differs.
+// visitor_build.go —— P.13: the standalone-launch handle. BuildVisitorAgent drives
+// the SAME real visitor capability assembly the HTTP path runs (RegisterVisitorSkills
+// + AssembleVisitor + ComposeSystemPrompt) — but takes its environment from an
+// injected agentcore.Driver instead of postgres/connectors. prod plugs in a real
+// Driver; eval-harness plugs in a canned one. No fixture lives here: the Driver IS the
+// environment, the bridge (bridge.go) adapts it onto the real internal ports.
 //
-// The system prompt is the injectable experiment point: leave SystemPromptOverride
-// empty for the faithful composed prompt (ComposeBasePersona + capability
-// fragments), or set it to try a variant. That's the "试出好 prompt → 回填 prod"
-// mechanism — the core runs whatever prompt you hand it.
+// The system prompt is the experiment injection point: leave SystemPromptOverride
+// empty for the faithful composed prompt (ComposeBasePersona + capability fragments),
+// or set it to try a variant. The core runs whatever prompt you hand it — that's the
+// "试出好 prompt → 回填 prod" mechanism, parallelizable across processes.
 
 package agentcore
 
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/cloudwego/eino/components/tool"
 
@@ -23,60 +24,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-// evalSkillID / evalMCPID —— fixed grant ids the eval RoleSnapshot references.
+// evalSkillID / evalMCPID —— fixed grant ids the launch RoleSnapshot references when
+// the Driver grants a skill / ext-mcp server.
 const (
 	evalSkillID = "eval-skill"
 	evalMCPID   = "eval-mcp"
 )
 
-// VisitorCorpusEntry —— one curated corpus entry, plain data (the eval module
-// can't construct internal/domain types). Genre is "wiki" or "output". Private
-// entries are withheld at the retrieval ACL layer (code-level, not prompt).
-type VisitorCorpusEntry struct {
-	Genre   string
-	Path    string
-	Title   string
-	Body    string
-	Tags    []string
-	Private bool
-}
-
-// ConvMessage —— one turn of a fixture transcript for summarize_conversation.
-// Role is "visitor" or "assistant".
-type ConvMessage struct {
-	Role string
-	Body string
-}
-
-// BuildVisitorInput —— everything BuildVisitorAgent needs to assemble a visitor
-// agent from fixtures.
-//
-// Booking: set EnableBooking with Mode "code" to expose calendar_book +
-// calendar_list_slots over a canned calendar (prod hides the booker outside code
-// mode, so this mirrors prod). CodeID + MaxBookings drive the per-code quota;
-// BookingFailure ("notconnected" / "conflict") injects failure paths.
-type BuildVisitorInput struct {
-	Cred                 *Cred
-	MaxBookings          *int32
-	Skill                *VisitorSkillSpec
-	OwnerID              string
-	Mode                 string
-	RoleBody             string
-	SystemPromptOverride string
-	ConversationID       string
-	CodeID               string
-	OwnerTimezone        string
-	BookingFailure       string
-	// MCPServerURL —— an owner-registered external MCP server. When set, ext-mcp
-	// dials it for real and the agent gets its tools. Empty = ext-mcp hidden.
-	MCPServerURL  string
-	Corpus        []VisitorCorpusEntry
-	Conversation  []ConvMessage
-	EnableBooking bool
-}
-
-// VisitorAgent —— the assembled, transport-agnostic visitor agent: the real
-// tools + composed prompt, ready to feed into an AgentTurnInput and RunAgentLoop.
+// VisitorAgent —— the assembled, transport-agnostic visitor agent: the real tools +
+// composed prompt, ready to feed into an AgentTurnInput and RunAgentLoop.
 type VisitorAgent struct {
 	Labels         map[string]string
 	ReturnDirectly map[string]bool
@@ -84,19 +40,29 @@ type VisitorAgent struct {
 	Tools          []tool.BaseTool
 }
 
-// BuildVisitorAgent —— assemble the real visitor agent over fixture data.
-func BuildVisitorAgent(ctx context.Context, in *BuildVisitorInput) (*VisitorAgent, error) {
-	if in.Cred == nil {
-		return nil, errors.New("agentcore: BuildVisitorAgent needs a Cred")
+// BuildVisitorAgent —— assemble the real visitor agent over the injected Driver. The
+// Driver supplies the environment (persona/corpus, skill + its execution, ext-mcp,
+// cred); LaunchInput supplies the per-run framing. Returns the real tools + composed
+// prompt; makes no LLM call (assembly only).
+func BuildVisitorAgent(ctx context.Context, d Driver, in *LaunchInput) (*VisitorAgent, error) {
+	if d == nil {
+		return nil, errors.New("agentcore: BuildVisitorAgent needs a Driver")
 	}
-	corpus := buildCorpusFixtures(in.OwnerID, in.Corpus)
-	snapshot := buildEvalSnapshot(in, corpus.corpusURIs)
-	deps := buildEvalDeps(in, &corpus)
+	if in == nil {
+		return nil, errors.New("agentcore: BuildVisitorAgent needs a LaunchInput")
+	}
+	env, eerr := fetchDriverEnv(ctx, d)
+	if eerr != nil {
+		return nil, eerr
+	}
+
+	snapshot := buildSnapshot(
+		env.persona.RoleBody, buildCorpusGrants(env.persona.Corpus), env.skill, env.mcpURL,
+	)
+	deps := buildDriverDeps(d, in.OwnerID, env.skill, env.mcpURL)
 
 	reg := capreg.NewRegistry()
-	usecases.RegisterVisitorSkills(reg, deps, convFixture{
-		msgs: toMessages(in.ConversationID, in.Conversation),
-	})
+	usecases.RegisterVisitorSkills(reg, deps, nil)
 
 	assemble := &capreg.AssembleInput{
 		RoleSnapshot:   &snapshot,
@@ -104,7 +70,6 @@ func BuildVisitorAgent(ctx context.Context, in *BuildVisitorInput) (*VisitorAgen
 		Mode:           in.Mode,
 		ConversationID: in.ConversationID,
 		CodeID:         in.CodeID,
-		MaxBookings:    in.MaxBookings,
 	}
 	fr := capreg.FlattenBindings(reg.AssembleVisitor(ctx, assemble))
 	return &VisitorAgent{
@@ -113,6 +78,31 @@ func BuildVisitorAgent(ctx context.Context, in *BuildVisitorInput) (*VisitorAgen
 		Labels:         fr.Labels,
 		ReturnDirectly: fr.ReturnDirectly,
 	}, nil
+}
+
+// driverEnv —— the launch environment pulled off the Driver in one shot.
+type driverEnv struct {
+	skill   *VisitorSkillSpec
+	mcpURL  string
+	persona Persona
+}
+
+// fetchDriverEnv —— pull the launch environment off the Driver (persona, granted skill,
+// ext-mcp URL); first error wins, wrapped for context.
+func fetchDriverEnv(ctx context.Context, d Driver) (driverEnv, error) {
+	persona, perr := d.Persona(ctx)
+	if perr != nil {
+		return driverEnv{}, fmt.Errorf("driver persona: %w", perr)
+	}
+	skill, serr := d.Skill(ctx)
+	if serr != nil {
+		return driverEnv{}, fmt.Errorf("driver skill: %w", serr)
+	}
+	mcpURL, merr := d.ExtMCPURL(ctx)
+	if merr != nil {
+		return driverEnv{}, fmt.Errorf("driver ext-mcp: %w", merr)
+	}
+	return driverEnv{persona: persona, skill: skill, mcpURL: mcpURL}, nil
 }
 
 // composePrompt —— the override IS the prompt when set (experiment injection);
@@ -128,72 +118,69 @@ func composePrompt(
 	return reg.ComposeSystemPrompt(ctx, base, in)
 }
 
-// buildEvalSnapshot —— RoleSnapshot framing the run: PromptBody is the owner
-// persona (RoleBody); CorpusURIs are the granted (public) entry URIs, which both
-// turn the retrieval capability on (retrievalEnabled = len>0) and gate ACL.
-// EnableBooking adds calendar.book to AllowedTools (unlocks the booker + emits
-// its fragment); Skill grants the skill id (+ surfaces its prompt) so skill-runner
-// builds its tool; MCPServerURL grants the server id so ext-mcp dials it.
-func buildEvalSnapshot(in *BuildVisitorInput, corpusURIs []string) domain.RoleSnapshot {
+// buildSnapshot —— RoleSnapshot framing the run: PromptBody is the owner persona;
+// CorpusURIs are the granted (public) entry URIs (turn retrieval on + gate ACL); a
+// granted skill adds its id + prompt; a non-empty mcpURL adds its server id.
+func buildSnapshot(
+	roleBody string, corpusURIs []string, skill *VisitorSkillSpec, mcpURL string,
+) domain.RoleSnapshot {
 	init := &domain.RoleSnapshotInit{
 		RoleID:     "eval-role",
 		RoleName:   "eval",
-		PromptBody: in.RoleBody,
+		PromptBody: roleBody,
 		CorpusURIs: corpusURIs,
 	}
-	if in.EnableBooking {
-		init.AllowedTools = []string{usecases.BookerSkillName}
-	}
-	if in.Skill != nil {
+	if skill != nil {
 		init.SkillIDs = []string{evalSkillID}
-		if in.Skill.Prompt != "" {
-			init.SkillPrompts = []string{in.Skill.Prompt}
+		if skill.Prompt != "" {
+			init.SkillPrompts = []string{skill.Prompt}
 		}
 	}
-	if in.MCPServerURL != "" {
+	if mcpURL != "" {
 		init.MCPServerIDs = []string{evalMCPID}
 	}
 	return domain.NewRoleSnapshot(init)
 }
 
-// buildEvalDeps —— VisitorDeps with only the fields the registered capabilities
-// touch: corpus listers (retrieval), Reports + Resolver (summarize), and — when
-// EnableBooking — the canned calendar + owner so the booker assembles. Skills /
-// MCPServers stay nil (their capabilities grant-gate to ErrHidden); Calendar
-// stays nil when booking is off, so the booker hides exactly as for an owner who
-// wired no connector.
-func buildEvalDeps(in *BuildVisitorInput, corpus *corpusFixtures) *usecases.VisitorSkillsDeps {
-	deps := &usecases.VisitorSkillsDeps{
-		Wiki:     wikiFixture{items: corpus.wikis},
-		Output:   outputFixture{items: corpus.outputs},
-		Writings: writingFixture{},
-		Reports:  noopReports{},
-		Resolver: fixedResolver{cred: in.Cred},
+// buildDriverDeps —— VisitorSkillsDeps with only the ports the assembled capabilities
+// touch, each backed by the Driver: skill-runner (Skills + Sandbox) when a skill is
+// granted, ext-mcp (MCPServers) when a server is granted, plus the Resolver. The other
+// ports stay nil — their capabilities grant-gate to ErrHidden, same as for an owner
+// who wired nothing.
+func buildDriverDeps(
+	d Driver, ownerID string, skill *VisitorSkillSpec, mcpURL string,
+) *usecases.VisitorSkillsDeps {
+	deps := &usecases.VisitorSkillsDeps{Resolver: driverResolver{driver: d}}
+	if skill != nil {
+		sk := buildSkillFromSpec(ownerID, skill)
+		deps.Skills = driverSkillGetter{skill: &sk}
+		deps.Sandbox = driverSandbox{driver: d}
 	}
-	if in.EnableBooking {
-		deps.Calendar = cannedCalendarStore{failure: in.BookingFailure}
-		deps.Proxy = cannedCalendarProxy{failure: in.BookingFailure}
-		deps.Owners = ownerFixture{ownerID: in.OwnerID, tz: ownerTZ(in.OwnerTimezone)}
-	}
-	if in.Skill != nil {
-		sk := buildEvalSkill(in.OwnerID, in.Skill)
-		deps.Skills = skillFixture{skill: &sk}
-		deps.Sandbox = cannedSandbox{stdout: in.Skill.Stdout}
-	}
-	if in.MCPServerURL != "" {
+	if mcpURL != "" {
 		cfg := domain.MCPServerConfig{
-			ID: evalMCPID, OwnerID: in.OwnerID, Name: "eval-mcp", URL: in.MCPServerURL,
+			ID: evalMCPID, OwnerID: ownerID, Name: "eval-mcp", URL: mcpURL,
 		}
-		deps.MCPServers = mcpFixture{cfg: &cfg}
+		deps.MCPServers = driverMCPGetter{cfg: &cfg}
 	}
 	return deps
 }
 
-// ownerTZ —— default the owner timezone to UTC (a valid IANA zone the booking
-// policy math can always load) when the caller leaves it empty.
-func ownerTZ(tz string) string {
-	if tz == "" {
-		return "UTC"
+// buildCorpusGrants —— public corpus entries → granted CorpusURI whitelist. Privacy is
+// code-level: a Private entry's URI is omitted, so RoleSnapshot.AllowsCorpus denies it
+// at search/read/list no matter what the prompt says. URIs align with the retriever's
+// path math (single-segment SlugifyTitle for flat fixture entries).
+func buildCorpusGrants(entries []VisitorCorpusEntry) []string {
+	uris := make([]string, 0, len(entries))
+	for i := range entries {
+		e := &entries[i]
+		if e.Private {
+			continue
+		}
+		genre := domain.GenreWiki
+		if e.Genre == "output" {
+			genre = domain.GenreOutput
+		}
+		uris = append(uris, domain.FormatURI(genre, usecases.SlugifyTitle(e.Title)))
 	}
-	return tz
+	return uris
 }

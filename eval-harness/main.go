@@ -125,9 +125,11 @@ func attachRealCorpusTools(
 		log.Error("load corpus", "err", err)
 		os.Exit(1)
 	}
-	agent, berr := agentcore.BuildVisitorAgent(ctx, &agentcore.BuildVisitorInput{
-		Cred: cred, OwnerID: evalOwnerID, Mode: opts.mode,
-		Corpus: toVisitorCorpus(c), ConversationID: evalConvID,
+	agent, berr := agentcore.BuildVisitorAgent(ctx, &EvalDriver{
+		corpus: toVisitorCorpus(c),
+		cred:   *cred,
+	}, &agentcore.LaunchInput{
+		OwnerID: evalOwnerID, Mode: opts.mode, ConversationID: evalConvID,
 		SystemPromptOverride: opts.system,
 	})
 	if berr != nil {

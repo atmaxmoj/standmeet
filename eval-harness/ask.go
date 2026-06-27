@@ -190,23 +190,22 @@ func askCandidate(
 	if mode == "" {
 		mode = "public"
 	}
-	// The interview-so-far feeds summarize_conversation: prior turns + the
-	// question being answered, as the fixture transcript the facade exposes.
-	convo := append(append([]convTurn{}, req.History...), convTurn{Role: "interviewer", Text: req.Question})
 	override, oerr := systemPromptOverride()
 	if oerr != nil {
 		return candidateTurn{}, oerr
 	}
-	agent, berr := agentcore.BuildVisitorAgent(ctx, &agentcore.BuildVisitorInput{
-		Cred: &cred, OwnerID: evalOwnerID, Mode: mode, RoleBody: p.roleBody,
-		Corpus: p.corpus, ConversationID: evalConvID,
-		Conversation:         toConvMessages(convo),
-		SystemPromptOverride: override,
-		EnableBooking:        req.Booking,
-		CodeID:               evalCodeID,
-		BookingFailure:       os.Getenv("EVAL_BOOKING_FAIL"),
-		Skill:                skillSpecFor(req),
-		MCPServerURL:         mcpURLFor(req),
+	// P.13: inject the canned environment through a Driver; the core launches the
+	// real assembly behind it. (summarize/booker fixtures retired — those caps are
+	// sandbox plugins now, not in the eval path.)
+	agent, berr := agentcore.BuildVisitorAgent(ctx, &EvalDriver{
+		roleBody: p.roleBody,
+		corpus:   p.corpus,
+		skill:    skillSpecFor(req),
+		mcpURL:   mcpURLFor(req),
+		cred:     cred,
+	}, &agentcore.LaunchInput{
+		OwnerID: evalOwnerID, Mode: mode, ConversationID: evalConvID,
+		CodeID: evalCodeID, SystemPromptOverride: override,
 	})
 	if berr != nil {
 		return candidateTurn{}, berr
@@ -254,20 +253,6 @@ func mcpURLFor(req askRequest) string {
 		return ""
 	}
 	return os.Getenv("EVAL_MCP_URL")
-}
-
-// toConvMessages maps the interview-so-far into the facade's transcript shape
-// (visitor / assistant) so summarize_conversation has a real conversation.
-func toConvMessages(turns []convTurn) []agentcore.ConvMessage {
-	out := make([]agentcore.ConvMessage, 0, len(turns))
-	for _, t := range turns {
-		role := "visitor"
-		if t.Role == "candidate" {
-			role = "assistant"
-		}
-		out = append(out, agentcore.ConvMessage{Role: role, Body: t.Text})
-	}
-	return out
 }
 
 // candidateHistory maps the interview-so-far into the candidate's chat history:
