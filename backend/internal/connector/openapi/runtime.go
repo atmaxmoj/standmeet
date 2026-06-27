@@ -29,22 +29,22 @@ type Doer interface {
 // AuthInjector —— 给请求加认证（解密后的凭据 + securityScheme 决定怎么加）。凭据永不出本层。
 type AuthInjector func(req *http.Request) error
 
-// Runtime —— 一份 spec + 一份 binding + 出站客户端 + 认证注入 = 一个可调的连接器实现。
+// Runtime —— 一份 spec + 一份 binding + 出站客户端 = 一个可调的连接器实现。认证**不**存在
+// 这里：一个连接器服务多 owner，token 随 owner/请求变，所以 AuthInjector 是每次 Call 传入的。
 type Runtime struct {
 	spec    *Spec
 	binding *Binding
 	doer    Doer
-	auth    AuthInjector
 	baseURL string
 }
 
 // NewRuntime —— 组装 runtime。spec 无 server → 拒（出站没地址）。
-func NewRuntime(spec *Spec, binding *Binding, doer Doer, auth AuthInjector) (*Runtime, error) {
+func NewRuntime(spec *Spec, binding *Binding, doer Doer) (*Runtime, error) {
 	base := spec.serverURL()
 	if base == "" {
 		return nil, ErrSpecNoServer
 	}
-	return &Runtime{spec: spec, binding: binding, doer: doer, auth: auth, baseURL: base}, nil
+	return &Runtime{spec: spec, binding: binding, doer: doer, baseURL: base}, nil
 }
 
 // StatusError —— 非 2xx 的归一错误。Transient=true（429/5xx）→ 契约适配器映射成「稍后再试」。
@@ -65,7 +65,7 @@ type boundOp struct {
 
 // Call —— 执行一个契约方法。op = 契约方法名（list_busy/create_event/send…）；input 是带类型
 // 入参（marshal 成 JSON 喂 request JSONata）；dst 非 nil 时把契约出参解进它。
-func (r *Runtime) Call(ctx context.Context, op string, input, dst any) error {
+func (r *Runtime) Call(ctx context.Context, op string, input, dst any, auth AuthInjector) error {
 	bo, err := r.resolve(op)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (r *Runtime) Call(ctx context.Context, op string, input, dst any) error {
 	if err != nil {
 		return err
 	}
-	req, err := r.buildRequest(ctx, &bo, inputData)
+	req, err := r.buildRequest(ctx, &bo, inputData, auth)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,9 @@ func (r *Runtime) resolve(op string) (boundOp, error) {
 }
 
 // buildRequest —— 渲染请求体 + 拼 URL + 注入认证。
-func (r *Runtime) buildRequest(ctx context.Context, bo *boundOp, input any) (*http.Request, error) {
+func (r *Runtime) buildRequest(
+	ctx context.Context, bo *boundOp, input any, auth AuthInjector,
+) (*http.Request, error) {
 	rdr, err := renderBody(bo.binding, input)
 	if err != nil {
 		return nil, err
@@ -112,7 +114,7 @@ func (r *Runtime) buildRequest(ctx context.Context, bo *boundOp, input any) (*ht
 	if rdr != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if aerr := r.injectAuth(req); aerr != nil {
+	if aerr := injectAuth(req, auth); aerr != nil {
 		return nil, aerr
 	}
 	return req, nil
@@ -135,11 +137,11 @@ func renderBody(ob opBinding, input any) (io.Reader, error) {
 }
 
 // injectAuth —— 注入认证（无 injector → 直接放行）。
-func (r *Runtime) injectAuth(req *http.Request) error {
-	if r.auth == nil {
+func injectAuth(req *http.Request, auth AuthInjector) error {
+	if auth == nil {
 		return nil
 	}
-	if err := r.auth(req); err != nil {
+	if err := auth(req); err != nil {
 		return fmt.Errorf("inject auth: %w", err)
 	}
 	return nil

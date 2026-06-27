@@ -1,0 +1,192 @@
+// openapi_adapter.go —— 品类契约适配器：把通用 openapi 执行核（openapi.Runtime）接成消费者
+// 认的品类契约（usecases.CalendarProxy / MailProxy）。归一化的「最后一公里」：booker 只认
+// CalendarProxy，背后是 Google / Outlook / 任意贴了 spec+binding 的 SaaS，一概不知。
+//
+// 一个连接器服务多 owner：runtime（spec+binding）共享，认证 + 连接状态按 (连接器,owner) 经
+// AuthManager 解出（凭据/OAuth token 全在它内部，永不出 connector）。openapiCore 管 Name/
+// Connected/call 这些公共件；calendarAdapter / mailAdapter 各加自己那套 typed 契约方法 +
+// 错误映射（calendar→domain.ErrCalendar* / mail→usecases.ErrMail*）。
+
+package connector
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
+	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
+)
+
+// AuthManager —— 按 (连接器, owner) 给出认证注入 + 连接状态。凭据/OAuth token 全在它内部
+// （凭据永不出 connector）。P1 的凭据/连接 vault 实现它。
+type AuthManager interface {
+	Connected(ctx context.Context, connectorID, ownerID string) (bool, error)
+	Injector(ctx context.Context, connectorID, ownerID string) (openapi.AuthInjector, error)
+}
+
+// openapiCore —— 一个装配好的 openapi 连接器的公共件：id + 共享 runtime + auth 管理器。
+type openapiCore struct {
+	runtime *openapi.Runtime
+	auth    AuthManager
+	id      string
+}
+
+// Name —— Connector 基面：连接器名。
+func (c *openapiCore) Name() string { return c.id }
+
+// Connected —— Connector 基面：这个 owner 连没连（委托 AuthManager）。
+func (c *openapiCore) Connected(ctx context.Context, ownerID string) (bool, error) {
+	ok, err := c.auth.Connected(ctx, c.id, ownerID)
+	if err != nil {
+		return false, fmt.Errorf("connector %q connected: %w", c.id, err)
+	}
+	return ok, nil
+}
+
+// injector —— 解出该 owner 的认证注入器（凭据/OAuth token 全在 AuthManager 内部）。
+func (c *openapiCore) injector(ctx context.Context, ownerID string) (openapi.AuthInjector, error) {
+	inj, err := c.auth.Injector(ctx, c.id, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("connector %q auth: %w", c.id, err)
+	}
+	return inj, nil
+}
+
+// ───────────────────────── calendar 契约适配 ─────────────────────────
+
+// calendarAdapter —— openapiCore 实现 usecases.CalendarProxy。
+type calendarAdapter struct{ *openapiCore }
+
+type listBusyInput struct {
+	TimeMin time.Time `json:"timeMin"`
+	TimeMax time.Time `json:"timeMax"`
+}
+
+type busyRow struct {
+	Start time.Time `json:"start"`
+	End   time.Time `json:"end"`
+}
+
+type busyResult struct {
+	Busy []busyRow `json:"busy"`
+}
+
+type insertEventInput struct {
+	Summary      string    `json:"summary"`
+	Description  string    `json:"description"`
+	Start        time.Time `json:"start"`
+	End          time.Time `json:"end"`
+	TimeZone     string    `json:"timeZone"`
+	VisitorEmail string    `json:"visitorEmail"`
+}
+
+type insertedResult struct {
+	EventID  string `json:"id"`
+	HTMLLink string `json:"htmlLink"`
+}
+
+type cancelInput struct {
+	EventID       string `json:"eventId"`
+	AttendeeEmail string `json:"attendeeEmail"`
+}
+
+// FreeBusy —— list_busy 契约方法。
+func (a calendarAdapter) FreeBusy(
+	ctx context.Context, ownerID string, req usecases.FreeBusyReq,
+) ([]usecases.BusyInterval, error) {
+	inj, err := a.injector(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	var out busyResult
+	in := listBusyInput{TimeMin: req.TimeMin, TimeMax: req.TimeMax}
+	if cerr := a.runtime.Call(ctx, "list_busy", in, &out, inj); cerr != nil {
+		return nil, mapCalendarErr(cerr)
+	}
+	intervals := make([]usecases.BusyInterval, 0, len(out.Busy))
+	for i := range out.Busy {
+		b := out.Busy[i]
+		intervals = append(intervals, usecases.BusyInterval{Start: b.Start, End: b.End})
+	}
+	return intervals, nil
+}
+
+// InsertEvent —— create_event 契约方法。
+func (a calendarAdapter) InsertEvent(
+	ctx context.Context, ownerID string, req *usecases.InsertEventReq,
+) (usecases.InsertedEvent, error) {
+	inj, err := a.injector(ctx, ownerID)
+	if err != nil {
+		return usecases.InsertedEvent{}, err
+	}
+	in := insertEventInput{
+		Summary: req.Summary, Description: req.Description,
+		Start: req.Start, End: req.End, TimeZone: req.TimeZone, VisitorEmail: req.VisitorEmail,
+	}
+	var out insertedResult
+	if cerr := a.runtime.Call(ctx, "create_event", in, &out, inj); cerr != nil {
+		return usecases.InsertedEvent{}, mapCalendarErr(cerr)
+	}
+	return usecases.InsertedEvent{EventID: out.EventID, HTMLLink: out.HTMLLink}, nil
+}
+
+// DeleteEvent —— cancel_event 契约方法。
+func (a calendarAdapter) DeleteEvent(
+	ctx context.Context, ownerID, eventID, attendeeEmail string,
+) error {
+	inj, err := a.injector(ctx, ownerID)
+	if err != nil {
+		return err
+	}
+	in := cancelInput{EventID: eventID, AttendeeEmail: attendeeEmail}
+	if cerr := a.runtime.Call(ctx, "cancel_event", in, nil, inj); cerr != nil {
+		return mapCalendarErr(cerr)
+	}
+	return nil
+}
+
+// mapCalendarErr —— 把执行核错映射成 calendar 域错（友好降级）。429/5xx → 「稍后再试」。
+func mapCalendarErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	var se *openapi.StatusError
+	if errors.As(err, &se) {
+		if se.Transient {
+			return domain.ErrCalendarUnavailable
+		}
+		if se.Code == http.StatusUnauthorized {
+			return domain.ErrCalendarRevoked
+		}
+	}
+	return fmt.Errorf("calendar: %w", err)
+}
+
+// ───────────────────────── mail 契约适配 ─────────────────────────
+
+// mailAdapter —— openapiCore 实现 usecases.MailProxy。
+type mailAdapter struct{ *openapiCore }
+
+type sendInput struct {
+	To      string `json:"to"`
+	Subject string `json:"subject"`
+	Body    string `json:"body"`
+	HTML    string `json:"html"`
+}
+
+// Send —— send 契约方法。
+func (a mailAdapter) Send(ctx context.Context, ownerID string, msg usecases.MailMessage) error {
+	inj, err := a.injector(ctx, ownerID)
+	if err != nil {
+		return err
+	}
+	in := sendInput{To: msg.To, Subject: msg.Subject, Body: msg.Body, HTML: msg.HTML}
+	if cerr := a.runtime.Call(ctx, "send", in, nil, inj); cerr != nil {
+		return fmt.Errorf("mail: %w", cerr)
+	}
+	return nil
+}

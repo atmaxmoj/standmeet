@@ -49,13 +49,14 @@ func newCalRuntime(t *testing.T, h http.Handler) (*Runtime, *httptest.Server) {
 	binding, berr := ParseBinding([]byte(calBinding))
 	mustNoErr(t, "ParseBinding", berr)
 	mustNoErr(t, "ValidateAgainst", binding.ValidateAgainst(spec))
-	bearer := func(req *http.Request) error {
-		req.Header.Set("Authorization", "Bearer tok")
-		return nil
-	}
-	rt, rerr := NewRuntime(spec, binding, srv.Client(), bearer)
+	rt, rerr := NewRuntime(spec, binding, srv.Client())
 	mustNoErr(t, "NewRuntime", rerr)
 	return rt, srv
+}
+
+func bearerAuth(req *http.Request) error {
+	req.Header.Set("Authorization", "Bearer tok")
+	return nil
 }
 
 type busyInterval struct {
@@ -80,7 +81,7 @@ func TestRuntime_ListBusy_RequestShape(t *testing.T) {
 
 	var out busyOut
 	in := listBusyIn{TimeMin: "2030-01-01T00:00:00Z", TimeMax: "2030-01-02T00:00:00Z"}
-	mustNoErr(t, "Call", rt.Call(context.Background(), "list_busy", in, &out))
+	mustNoErr(t, "Call", rt.Call(context.Background(), "list_busy", in, &out, bearerAuth))
 
 	if rec.path != "/freeBusy" {
 		t.Fatalf("hit wrong path: %q", rec.path)
@@ -102,7 +103,7 @@ func TestRuntime_ListBusy_ResponseShape(t *testing.T) {
 	defer srv.Close()
 
 	var out busyOut
-	mustNoErr(t, "Call", rt.Call(context.Background(), "list_busy", listBusyIn{}, &out))
+	mustNoErr(t, "Call", rt.Call(context.Background(), "list_busy", listBusyIn{}, &out, bearerAuth))
 	if len(out.Busy) != 1 || out.Busy[0].Start != "2030-01-01T10:00:00Z" {
 		t.Fatalf("response JSONata wrong: %+v", out.Busy)
 	}
@@ -113,7 +114,7 @@ func TestRuntime_RateLimited_TransientError(t *testing.T) {
 	rt, srv := newCalRuntime(t, &reqRecorder{status: http.StatusTooManyRequests})
 	defer srv.Close()
 
-	err := rt.Call(context.Background(), "list_busy", listBusyIn{}, nil)
+	err := rt.Call(context.Background(), "list_busy", listBusyIn{}, nil, bearerAuth)
 	var se *StatusError
 	if !errors.As(err, &se) {
 		t.Fatalf("want *StatusError, got %T (%v)", err, err)
@@ -129,7 +130,7 @@ func TestRuntime_MissingResponseField_Graceful(t *testing.T) {
 	defer srv.Close()
 
 	var out busyOut
-	mustNoErr(t, "Call", rt.Call(context.Background(), "list_busy", listBusyIn{}, &out))
+	mustNoErr(t, "Call", rt.Call(context.Background(), "list_busy", listBusyIn{}, &out, bearerAuth))
 	if len(out.Busy) != 0 {
 		t.Fatalf("missing field should degrade to empty, got %+v", out.Busy)
 	}
