@@ -89,6 +89,8 @@ components:
     in: internal/mailer                   # 出站 SMTP 发信 (net/smtp，owner 自带 mail server)
   connector:
     in: internal/connector                # Phase B: Nango-style 连接器层 —— 解密凭据 + 代调外部 (gcal/mailer)；凭据永不出 vault 进 usecases
+  connectoropenapi:
+    in: internal/connector/openapi        # #155: 通用 openapi 连接器执行核（spec+JSONata+HTTP）；schemaless-JSON 边界，leaf
   cryptobox:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   retry:
@@ -145,6 +147,14 @@ deps:
       - gcal
       - mailer
       - retry
+      - connectoropenapi
+    anyVendorDeps: true
+
+  # connectoropenapi —— #155 通用 openapi 执行核 leaf：spec 解析 + JSONata 绑定 + HTTP 代调。
+  # 纯 stdlib + vendor (jsonata-go / yaml)，无 internal 依赖（provider 的一切都在 spec+binding
+  # 数据里）。schemaless-JSON 边界，golangci 对本路径豁免 forbidigo `any`。
+  connectoropenapi:
+    mayDependOn: []
     anyVendorDeps: true
 
   # retry —— #132 通用可配重试 infra leaf：纯 stdlib (context/time)，无 internal 依赖。
