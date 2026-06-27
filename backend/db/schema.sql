@@ -732,6 +732,37 @@ CREATE TABLE owner_mail_connectors (
 CREATE UNIQUE INDEX owner_mail_connectors_owner_provider_uniq
     ON owner_mail_connectors(owner_id, provider);
 
+-- owner_connectors —— #155 统一连接器**连接状态**表（替代 owner_calendar_connectors +
+-- owner_mail_connectors；归一化：任意 kind / 任意品类的连接器一张表）。这里只存「这个 owner
+-- 连了哪些连接器、凭据/token 是什么、连没连、哪个是品类槽的 active」——连接器的**定义**
+-- (spec+binding / protocol)不在这：内置来自仓库里的 bundled manifest 文件、上传的另存。
+--
+-- credentials_enc —— 加密 JSON，按 kind 解：openapi oauth2 {client_id,client_secret} /
+--                    openapi apiKey {key} / protocol smtp {host,port,username,password,
+--                    from_address,from_name,tls}。凭据只在 connector 层解密，永不进 usecases。
+-- token_enc       —— 加密 JSON {access_token,refresh_token}（仅 openapi oauth2）。
+-- token_expires_at—— 服务端据此判断是否 refresh；NULL = 还没拿到 token（存了 creds 未授权）。
+-- connected_at    —— 非空 = 已连/已验（oauth 走完 dance / protocol 验证通过）。
+-- active          —— 一个品类槽同时只一个 active 连接器（§9 槽位规则）；owner 显式 activate。
+CREATE TABLE owner_connectors (
+    id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    connector_id     text          NOT NULL,
+    category         text          NOT NULL,
+    kind             text          NOT NULL,
+    credentials_enc  bytea         NOT NULL DEFAULT '\x'::bytea,
+    token_enc        bytea         NOT NULL DEFAULT '\x'::bytea,
+    token_expires_at timestamptz,
+    scopes           jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    connected_at     timestamptz,
+    active           boolean       NOT NULL DEFAULT false,
+    created_at       timestamptz   NOT NULL DEFAULT now(),
+    updated_at       timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX owner_connectors_owner_connector_uniq
+    ON owner_connectors(owner_id, connector_id);
+
 -- owner_booking_policy —— singleton-per-owner availability constraints
 -- the agent must satisfy before placing a calendar.book event. Checked
 -- before (and in addition to) Google FreeBusy: policy violations return
