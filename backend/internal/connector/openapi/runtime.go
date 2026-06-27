@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 )
 
 // Doer —— 出站 HTTP 抽象（prod 用 *http.Client）。
@@ -106,7 +107,7 @@ func (r *Runtime) buildRequest(
 	if err != nil {
 		return nil, err
 	}
-	url := r.baseURL + bo.resolved.Path
+	url := r.baseURL + substitutePath(bo.resolved.Path, input)
 	req, rerr := http.NewRequestWithContext(ctx, bo.resolved.Method, url, rdr)
 	if rerr != nil {
 		return nil, fmt.Errorf("build request: %w", rerr)
@@ -230,3 +231,22 @@ func decodeInto(value, dst any) error {
 
 // maxResponseBytes —— 出站响应体读取上限（防恶意/失控 provider）。
 const maxResponseBytes = 4 << 20 // 4 MiB
+
+// pathParamRE —— 路径里的 {param} 占位（如 /events/{eventId}）。
+var pathParamRE = regexp.MustCompile(`\{([^}]+)\}`)
+
+// substitutePath —— 把路径里的 {param} 用契约入参里的同名字段替换（gcal 的 {eventId} 等）。
+// 入参不是对象、或字段缺失 → 原样保留（上游会 404，走友好降级）。
+func substitutePath(path string, input any) string {
+	m, ok := input.(map[string]any)
+	if !ok {
+		return path
+	}
+	return pathParamRE.ReplaceAllStringFunc(path, func(match string) string {
+		key := match[1 : len(match)-1]
+		if v, found := m[key]; found {
+			return fmt.Sprint(v)
+		}
+		return match
+	})
+}

@@ -1,0 +1,21 @@
+category: calendar
+kind: openapi
+operations:
+  list_busy:
+    op: freebusy.query
+    request: '{ "timeMin": timeMin, "timeMax": timeMax, "items": [{"id": "primary"}] }'
+    response: '{ "busy": calendars.primary.busy }'
+  create_event:
+    op: events.insert
+    request: >-
+      {
+        "summary": summary,
+        "description": description,
+        "start": { "dateTime": start, "timeZone": timeZone },
+        "end": { "dateTime": end, "timeZone": timeZone },
+        "attendees": [visitorEmail ? { "email": visitorEmail }]
+      }
+    response: '{ "id": id, "htmlLink": htmlLink }'
+  cancel_event:
+    op: events.delete
+    # eventId 走路径替换（/events/{eventId}），DELETE 无 body。

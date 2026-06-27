@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: Google Calendar
+  version: v3
+servers:
+  - url: "https://www.googleapis.com/calendar/v3"
+paths:
+  /freeBusy:
+    post:
+      operationId: freebusy.query
+      summary: Query free/busy windows for the owner's primary calendar
+  /calendars/primary/events:
+    post:
+      operationId: events.insert
+      summary: Create an event on the owner's primary calendar
+  /calendars/primary/events/{eventId}:
+    delete:
+      operationId: events.delete
+      summary: Cancel an event on the owner's primary calendar
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth"
+          tokenUrl: "https://oauth2.googleapis.com/token"
+          scopes:
+            "https://www.googleapis.com/auth/calendar": Manage the owner's calendar

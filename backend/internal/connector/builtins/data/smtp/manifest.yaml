@@ -1,0 +1,4 @@
+id: smtp
+kind: protocol
+category: mail
+protocol: smtp

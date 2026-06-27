@@ -1,0 +1,6 @@
+id: google-calendar
+kind: openapi
+category: calendar
+auth_scheme: oauth2
+spec: spec.yaml
+binding: binding.yaml
