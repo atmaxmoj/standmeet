@@ -164,6 +164,17 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
       await request.dispose();
     });
 
+  // ACL must hold on SEARCH too, not just READ. read-deny above only proves you
+  // can't READ an out-of-scope path; this proves SEARCH never SURFACES one — the
+  // exact behaviour #157 moves from "filter after the scan" into the Search method.
+  // Direct (no LLM): the prior coverage was only the LLM-driven cited-refs path.
+  test('narrow ACL: corpus_search excludes entries outside role.corpus_uris (ACL on SEARCH, not just read)',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await assertNarrowSearchExcludesDenied(request);
+      await request.dispose();
+    });
+
   test('unknown tool name → 404 + {ok:false, reason:"capability_not_enabled"}',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
@@ -253,6 +264,26 @@ async function assertNarrowDeniedPath(request: APIRequestContext): Promise<void>
   const result = body.result as { error?: string };
   expect(result.error, 'tool envelope carries access denied').toContain('access denied');
   expect(result.error).toContain(NARROW_DENIED_PATH);
+}
+
+async function assertNarrowSearchExcludesDenied(request: APIRequestContext): Promise<void> {
+  const sess = await freshSession(request, CODE_NARROW);
+
+  // a query that WOULD match the out-of-scope 'Family secret' (family/**, not granted)
+  const denied = await callTool(request, sess, 'corpus_search', { query: 'secret' });
+  expect(denied.status).toBe(200);
+  expect(denied.body.ok).toBe(true);
+  const deniedRows = (denied.body.result ?? []) as Array<{ path?: string; title?: string }>;
+  expect(deniedRows.map((r) => r.path),
+    'corpus_search must not surface a path outside role.corpus_uris').not.toContain(NARROW_DENIED_PATH);
+  expect(deniedRows.map((r) => r.title),
+    'corpus_search must not surface the denied entry').not.toContain('Family secret');
+
+  // sanity: the in-scope projects entry IS searchable (so the exclusion isn't "search returns nothing")
+  const allowed = await callTool(request, sess, 'corpus_search', { query: 'lucerna' });
+  const allowedRows = (allowed.body.result ?? []) as Array<{ path?: string }>;
+  expect(allowedRows.map((r) => r.path),
+    'in-scope projects entry must still be searchable').toContain(NARROW_ALLOWED_PATH);
 }
 
 async function assertBadTokenReturns401(request: APIRequestContext): Promise<void> {
