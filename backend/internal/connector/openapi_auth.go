@@ -25,6 +25,7 @@ var (
 	errNoAuthScheme    = errors.New("openapi spec has no security scheme")
 	errUnknownScheme   = errors.New("connector references an unknown security scheme")
 	errSchemeAmbiguous = errors.New("multiple security schemes; owner must pick one")
+	errOAuthExchange   = errors.New("oauth token exchange failed")
 )
 
 // ConnectionStore —— 连接状态的读（domain 类型）。由 composition root 从 ConnectorRepo 接线。
