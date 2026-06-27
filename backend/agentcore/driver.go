@@ -34,6 +34,11 @@ type Driver interface {
 	// ExtMCPURL —— an owner-registered external MCP server URL to dial for real
 	// ("" = none granted). The dial itself stays real even in eval.
 	ExtMCPURL(ctx context.Context) (string, error)
+	// Plugins —— the externalized MCP-server plugins this launch should also assemble
+	// (booker / retrieval / summarize / ask-visitor), as real binaries run over plain
+	// stdio. Their host ops (corpus / booking / …) are reached over the socket paths in
+	// each spec's Env, which the consumer backs with this same Driver. nil = none.
+	Plugins(ctx context.Context) ([]PluginSpec, error)
 	// Resolve —— the LLM cred the agent's own inference calls use.
 	Resolve(ctx context.Context) (Cred, error)
 }

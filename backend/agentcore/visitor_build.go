@@ -63,6 +63,7 @@ func BuildVisitorAgent(ctx context.Context, d Driver, in *LaunchInput) (*Visitor
 
 	reg := capreg.NewRegistry()
 	usecases.RegisterVisitorSkills(reg, deps, nil)
+	registerDriverPlugins(reg, env.plugins)
 
 	assemble := &capreg.AssembleInput{
 		RoleSnapshot:   &snapshot,
@@ -83,12 +84,13 @@ func BuildVisitorAgent(ctx context.Context, d Driver, in *LaunchInput) (*Visitor
 // driverEnv —— the launch environment pulled off the Driver in one shot.
 type driverEnv struct {
 	skill   *VisitorSkillSpec
+	plugins []PluginSpec
 	mcpURL  string
 	persona Persona
 }
 
 // fetchDriverEnv —— pull the launch environment off the Driver (persona, granted skill,
-// ext-mcp URL); first error wins, wrapped for context.
+// ext-mcp URL, plugins); first error wins, wrapped for context.
 func fetchDriverEnv(ctx context.Context, d Driver) (driverEnv, error) {
 	persona, perr := d.Persona(ctx)
 	if perr != nil {
@@ -102,7 +104,11 @@ func fetchDriverEnv(ctx context.Context, d Driver) (driverEnv, error) {
 	if merr != nil {
 		return driverEnv{}, fmt.Errorf("driver ext-mcp: %w", merr)
 	}
-	return driverEnv{persona: persona, skill: skill, mcpURL: mcpURL}, nil
+	plugins, plerr := d.Plugins(ctx)
+	if plerr != nil {
+		return driverEnv{}, fmt.Errorf("driver plugins: %w", plerr)
+	}
+	return driverEnv{persona: persona, skill: skill, mcpURL: mcpURL, plugins: plugins}, nil
 }
 
 // composePrompt —— the override IS the prompt when set (experiment injection);

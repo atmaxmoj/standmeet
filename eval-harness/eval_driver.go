@@ -25,6 +25,7 @@ type EvalDriver struct {
 	corpus   []agentcore.VisitorCorpusEntry
 	skill    *agentcore.VisitorSkillSpec
 	mcpURL   string
+	plugins  []agentcore.PluginSpec
 	cred     agentcore.Cred
 }
 
@@ -46,5 +47,12 @@ func (d *EvalDriver) RunSkill(_ context.Context, _ agentcore.SkillRun) (agentcor
 }
 
 func (d *EvalDriver) ExtMCPURL(_ context.Context) (string, error) { return d.mcpURL, nil }
+
+// Plugins —— the externalized plugins this launch assembles (host-built MCP-server
+// binaries, plain stdio). Their host-op sockets (corpus / booking / …) are backed by
+// this same EvalDriver via the host-socket servers the harness runs.
+func (d *EvalDriver) Plugins(_ context.Context) ([]agentcore.PluginSpec, error) {
+	return d.plugins, nil
+}
 
 func (d *EvalDriver) Resolve(_ context.Context) (agentcore.Cred, error) { return d.cred, nil }
