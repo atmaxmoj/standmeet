@@ -289,15 +289,28 @@ booker → CalendarContract.ListBusy(conn, t0, t1)
 整套 UI/后端**从零**，且**用户上传任意 spec** → 错误/边界面巨大。~30-50 条，按区写红测（`test.fixme`，
 对齐下面接口草图），实现逐区转绿。**老的 ~30 个 connector/booking e2e 是回归网，保持绿、不动。**
 
-### 目标接口草图（红测对着这个写，实现照它落）
+### 目标接口（审计后校准——区分「已有真实」和「新建」）
 - **路由**：`/admin/connectors`（nav testid `admin-nav-connectors` 已有）。
-- **testid**：`connector-add-button` / `connector-spec-input`(粘贴或上传) / `connector-row-{category}` /
-  `connector-scheme-select`(多 scheme) / `connector-field-{key}`(派生字段) / `connector-connect-button` /
-  `connector-status`(connected|not) / `connector-disconnect-button`。
-- **REST**（泛化现有 gcal 那套到 `{id}`）：`POST /api/admin/connectors`(从 spec 建) /
-  `POST …/{id}/credentials` / `POST …/{id}/connect`(起 oauth) / `GET …/{id}/status` /
-  `DELETE …/{id}/disconnect`。
+- **已有真实 testid（新契约必须复用，别另起名）**：`connector-add-open`(加按钮) /
+  `connector-card-{category}`(加目录里的卡，如 calendar/email/s3) / `connector-config-save`(保存) /
+  `connector-field-{key}`(配置字段)。**mail 连接器自带 `mail-*` 命名空间**（`mail-host`/`mail-port`/
+  `mail-save-credentials`/`mail-verified`/`mail-disconnect`…），不是 `connector-*`。
+- **新建 testid（spec-driven 流，要建）**：`connector-spec-input`(粘/传 spec) / `connector-spec-submit` /
+  `connector-spec-error` / `connector-candidate` / `connector-scheme-select`(多 scheme) /
+  `connector-connect-button` / `connector-status`(connected|not) / `connector-disconnect-button` /
+  `connector-redirect-uri`(只读) / `connector-error`。
+- **REST（agents 收敛，泛化现有 gcal 那套到 `{id}`）**：
+  `POST /api/admin/connectors`（openapi `{spec,binding}` | protocol `{kind,protocol,category}` → `201 {id}`，
+  4xx `{error}`）/ `POST …/{id}/credentials`(回应打码) / `POST …/{id}/connect`（oauth 回 `{auth_url}`，
+  protocol 回 `{connected}`）/ `GET …/{id}/status`(`{id,category,kind,has_credentials,connected}`) /
+  `POST/DELETE …/{id}/disconnect` / `GET /api/admin/connectors`(`{connectors:[…]}`)。
+  运行时直验 diag：`POST /internal/diag/connector/{id}/{list-busy,create-event}`。
+- **mock 端（要建，job-board-mock 里加）**：`/__mock/oauth/*`(可编程 authorize/token，覆盖 deny/
+  invalid_client/state/network) / `/__mock/caldav/{id}/{events,fail,reset}` / 扩 `/__mock/smtp/*`。
 - **品类契约**：`CalendarContract.{ListBusy,CreateEvent,CancelEvent}` / `MailContract.Send`（= 现有 proxy）。
+
+> 审计未决：①SMTP 走 `mail-*`(已有) 还是迁到 `connector-*`(新统一)——实现时定，红测两套都先挂着；
+> ②`connector-card-{category}`(目录卡) vs 新契约里的 `connector-row-{category}`(已装槽位行)是两个视图，保留。
 
 ### 区（happy + err；标 phase）
 - **A 摄入**：合法 3.0 解析✓ ／ 畸形 ／ 非 3.0 拒 ／ 无 servers/operations ／ URL 失败 ／ 超大。
