@@ -13,7 +13,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/config"
 	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/gcal"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
@@ -64,6 +63,7 @@ type repoSet struct {
 	chatReport    *postgres.ChatReportRepo
 	bannedIP      *postgres.BannedIPRepo
 	appState      *postgres.AppStateRepo
+	connector     *postgres.ConnectorRepo
 }
 
 func newRepos(db *postgres.Pool) *repoSet {
@@ -99,6 +99,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		chatReport:    postgres.NewChatReportRepo(db),
 		bannedIP:      postgres.NewBannedIPRepo(db),
 		appState:      postgres.NewAppStateRepo(db),
+		connector:     postgres.NewConnectorRepo(db),
 	}
 }
 
@@ -147,12 +148,7 @@ func assembleRuntimeDeps(
 		chatReportRepo:    repos.chatReport,
 		bannedIPRepo:      repos.bannedIP,
 		appStateRepo:      repos.appState,
-		gcalClient: gcal.New(gcal.Config{
-			AuthURL:         cfg.GoogleAuthURL,
-			TokenURL:        cfg.GoogleTokenURL,
-			CalendarBase:    cfg.GoogleCalendarBase,
-			DefaultRedirect: cfg.GCalRedirectURI,
-		}),
+		connectorRepo:     repos.connector,
 		storageClient:     dw.storageClient,
 		jobCachePool:      jobcache.New(c.rdb, 0),
 		jobFetchRegistry:  newJobFetchRegistry(cfg),

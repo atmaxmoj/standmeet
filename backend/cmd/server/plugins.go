@@ -30,12 +30,14 @@ func registerDiscoveredPlugins(
 	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), capreg.OriginManaged, depReg)
 }
 
-// connectorDepRegistry —— 命名 connector 依赖 provider 注册表。provider 只暴露「这个
-// owner 连没连」，凭据全程留在 connector proxy 内（句柄非凭据）。
+// connectorDepRegistry —— 命名 connector 依赖 provider 注册表。#155：拉起时 discovery 把内置
+// 连接器装配进 Hub，品类 dep 由 slot 分派器背书（active 连接器 connected 才放行）。provider
+// 只暴露「这个 owner 连没连」，凭据全程留在 connector 层内（句柄非凭据）。
 func connectorDepRegistry(d *runtimeDeps) *capreg.DepRegistry {
 	depReg := capreg.NewDepRegistry()
-	depReg.Register(capreg.NamedProvider("calendar", calendarProxy(d).Connected))
-	depReg.Register(capreg.NamedProvider("smtp", mailProxy(d).Connected))
+	if err := registerDiscoveredConnectors(d, depReg); err != nil {
+		d.log.Error("register discovered connectors", "err", err)
+	}
 	return depReg
 }
 

@@ -26,7 +26,7 @@ func registerOwnerMCPHandlers(d *runtimeDeps) {
 		Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 	}
 	calendarDeps := &mcphandle.CalendarOwnerDeps{
-		Proxy: calendarProxy(d), Store: calendarStoreAdapter{repo: d.calendarRepo},
+		Proxy: d.connectorSlots.Calendar(), Store: calendarStoreAdapter{repo: d.calendarRepo},
 	}
 	mcphandle.RegisterAgentSkills(d.agentSkills, &mcphandle.RegisterDeps{
 		Owners:        d.ownerRepo,

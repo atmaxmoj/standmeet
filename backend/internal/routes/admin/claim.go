@@ -44,7 +44,6 @@ type Handlers struct {
 	Obsidian          ObsidianDeps
 	MarketplaceAdmin  MarketplaceAdminDeps
 	CalendarAdmin     CalendarAdminDeps
-	MailAdmin         MailAdminDeps
 	CapabilitiesAdmin CapabilityAdminDeps
 	IPBansAdmin       IPBansAdminDeps
 	Log               *slog.Logger
@@ -92,8 +91,6 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountWritings(r)
 	h.MountObsidian(r)
 	h.MountMarketplace(r)
-	h.MountCalendarConnector(r)
-	h.MountMailConnector(r)
 	h.MountCapabilities(r)
 	h.MountIPBans(r)
 	h.MountBookingPolicy(r)

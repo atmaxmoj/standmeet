@@ -29,8 +29,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/config"
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
-	"github.com/atmaxmoj/standmeet/internal/gcal"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
@@ -215,7 +215,8 @@ type runtimeDeps struct {
 	chatReportRepo    *postgres.ChatReportRepo
 	bannedIPRepo      *postgres.BannedIPRepo
 	appStateRepo      *postgres.AppStateRepo
-	gcalClient        *gcal.Client
+	connectorRepo     *postgres.ConnectorRepo
+	connectorSlots    *connector.Slots
 	sandboxRunner     sandbox.Runner
 	storageClient     *storage.Client
 	jobCachePool      *jobcache.Pool

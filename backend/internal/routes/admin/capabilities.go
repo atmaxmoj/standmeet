@@ -28,11 +28,10 @@ import (
 // capability 列表；Settings 读/写 owner-enable；Skills 删 owner-origin 条目；
 // Calendar/Mail 读 connector 依赖状态。
 type CapabilityAdminDeps struct {
-	Registry *capreg.Registry
-	Settings *postgres.CapabilityRepo
-	Skills   *postgres.SkillRepo
-	Calendar *postgres.CalendarRepo
-	Mail     *postgres.MailRepo
+	Registry   *capreg.Registry
+	Settings   *postgres.CapabilityRepo
+	Skills     *postgres.SkillRepo
+	Connectors *postgres.ConnectorRepo
 }
 
 // connector 行的稳定 ID（kind=connector）。
@@ -200,19 +199,20 @@ func skillRows(cc *capabilityContext) []capabilityRowResp {
 }
 
 func (h *Handlers) calendarConnected(ctx context.Context, ownerID string) bool {
-	conn, err := h.CapabilitiesAdmin.Calendar.GetConnector(ctx, ownerID, domain.CalendarProvider)
-	if err != nil {
-		return false
-	}
-	return conn.Connected()
+	return h.categoryConnected(ctx, ownerID, "calendar")
 }
 
 func (h *Handlers) mailConnected(ctx context.Context, ownerID string) bool {
-	conn, err := h.CapabilitiesAdmin.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
+	return h.categoryConnected(ctx, ownerID, "mail")
+}
+
+// categoryConnected —— #155：某品类是否有 active 且已连的连接器（统一 owner_connectors）。
+func (h *Handlers) categoryConnected(ctx context.Context, ownerID, category string) bool {
+	ok, err := h.CapabilitiesAdmin.Connectors.CategoryConnected(ctx, ownerID, category)
 	if err != nil {
 		return false
 	}
-	return conn.Connected()
+	return ok
 }
 
 // ───── PATCH ──────────────────────────────────────────────────

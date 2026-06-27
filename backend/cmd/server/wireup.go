@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
@@ -95,18 +94,14 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Drafts:       d.resumeDraftRepo,
 		Applications: d.applicationRepo,
 		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
-		Calendar: adminroutes.CalendarAdminDeps{
-			Repo: d.calendarRepo, Owners: d.ownerRepo,
-			Auth: connector.NewCalendarAuth(d.gcalClient), Redis: d.rdb,
-		},
-		Mail: adminroutes.MailAdminDeps{Repo: d.mailRepo, Owners: d.ownerRepo},
+		Calendar:     adminroutes.CalendarAdminDeps{Repo: d.calendarRepo},
 		Capabilities: adminroutes.CapabilityAdminDeps{
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
-			Skills: d.skillRepo, Calendar: d.calendarRepo, Mail: d.mailRepo,
+			Skills: d.skillRepo, Connectors: d.connectorRepo,
 		},
 		ApproveRequests: usecases.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-			Owners: d.ownerRepo, Mail: d.mailRepo, Proxy: mailProxy(d),
+			Owners: d.ownerRepo, Mail: d.mailRepo, Proxy: d.connectorSlots.Mail(),
 		},
 		Sessions:     d.sessionStore,
 		SecureCookie: d.secureCookie,
@@ -176,7 +171,7 @@ func wireCapabilityEnableGate(d *runtimeDeps) {
 func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
 	return usecases.VisitorSkillsDeps{
 		Wiki: d.wikiRepo, Output: d.outputRepo, Writings: d.writingRepo,
-		Proxy:      calendarProxy(d),
+		Proxy:      d.connectorSlots.Calendar(),
 		Calendar:   calendarStoreAdapter{repo: d.calendarRepo},
 		Owners:     d.ownerRepo,
 		Skills:     d.skillRepo,
@@ -185,7 +180,7 @@ func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
 		Reports:    d.chatReportRepo,
 		Resolver:   d.providerResolver,
 		Notify: usecases.OwnerNotifyDeps{
-			Owners: d.ownerRepo, Roles: d.roleRepo, Proxy: mailProxy(d),
+			Owners: d.ownerRepo, Roles: d.roleRepo, Proxy: d.connectorSlots.Mail(),
 		},
 	}
 }
@@ -204,10 +199,10 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		},
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
-			Proxy: mailProxy(d),
+			Proxy: d.connectorSlots.Mail(),
 		},
 		Cancel: usecases.VisitorCancelDeps{
-			Proxy: calendarProxy(d),
+			Proxy: d.connectorSlots.Calendar(),
 			Store: calendarStoreAdapter{repo: d.calendarRepo},
 		},
 		Resolver:    d.providerResolver,

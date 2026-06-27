@@ -59,8 +59,6 @@ components:
     in: internal/plugins/jobs/fetch       # J phase: jobs plugin fetch sub-pkg (Greenhouse / Lever / Ashby / ...)
   jobdedup:
     in: internal/plugins/jobs/dedup       # J.6c: cross-source dedup (canonical URL + composite key)
-  gcal:
-    in: internal/gcal                     # Google OAuth + Calendar HTTP client (events.insert / freeBusy / token refresh)
   gotenberg:
     in: internal/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
   printsess:
@@ -146,7 +144,6 @@ deps:
     mayDependOn:
       - domain
       - usecases
-      - gcal
       - mailer
       - retry
       - connectoropenapi
@@ -369,14 +366,6 @@ deps:
       - domain
     anyVendorDeps: true
 
-  # gcal —— Google OAuth (token exchange + refresh) + Calendar API
-  # (events.insert + freeBusy) HTTP client。usecases.CalendarBooker 接口的
-  # 实现；wireup 注入。endpoints 走 env (GOOGLE_OAUTH_BASE_URL /
-  # GOOGLE_CALENDAR_BASE_URL) 默认 prod，e2e 指向 job-board-mock。
-  gcal:
-    mayDependOn: []
-    anyVendorDeps: true
-
   # gotenberg —— thin HTTP client for the Gotenberg sidecar (headless
   # Chromium PDF rendering). usecases.PDFRenderer 接口的 v1 实现。
   # 不依赖 domain / postgres —— 调 RenderURL(printURL) 就完事；wireup 里
@@ -510,8 +499,8 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
-      - gcal
       - connector
+      - connectorbuiltins
       - printsess
       - marketplace
       - captcha

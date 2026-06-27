@@ -24,10 +24,10 @@ func newBookerDeps(d *runtimeDeps, skills *usecases.VisitorSkillsDeps) *usecases
 		Owners: skills.Owners, Notify: skills.Notify,
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
-			Proxy: mailProxy(d),
+			Proxy: d.connectorSlots.Mail(),
 		},
 		Cancel: usecases.VisitorCancelDeps{
-			Proxy: calendarProxy(d),
+			Proxy: d.connectorSlots.Calendar(),
 			Store: calendarStoreAdapter{repo: d.calendarRepo},
 		},
 		NotifyOwnerAsync: ownerNotifyAsync(retryingNotify(skills.Notify), d.log),

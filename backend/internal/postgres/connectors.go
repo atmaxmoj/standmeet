@@ -201,6 +201,22 @@ func (r *ConnectorRepo) ListByCategory(
 	return decodeConnectorConns(rows)
 }
 
+// CategoryConnected —— owner 某品类是否有 active 且已连的连接器（§9 槽位）。
+func (r *ConnectorRepo) CategoryConnected(
+	ctx context.Context, ownerID, category string,
+) (bool, error) {
+	conns, err := r.ListByCategory(ctx, ownerID, category)
+	if err != nil {
+		return false, err
+	}
+	for i := range conns {
+		if conns[i].Active && conns[i].Connected {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // ─── 加解密 helpers ───
 
 func encBytes(b []byte) ([]byte, error) {
