@@ -117,6 +117,76 @@ function specWithOAuthURLs(authorizeURL: string, tokenURL: string): string {
   });
 }
 
+// MOCK base — the programmable OAuth/HTTP mock. Consume-time SSRF specs point
+// their public-looking base at a mock endpoint that 302-redirects to an internal
+// address only WHEN CALLED, so they sail through any upload/connect-time static
+// URL check and only reveal the internal hop at consume time.
+const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
+
+// specConsumeRedirectsInternal —— servers[].url is a benign mock endpoint that,
+// at call time, 302s to an internal address (the SSRF lands during the API call,
+// not at validate time). apiKey scheme so upload+credentials succeed cleanly.
+function specConsumeRedirectsInternal(): string {
+  return JSON.stringify({
+    openapi: '3.0.3',
+    info: { title: 'Consume-time SSRF probe', version: '1.0.0' },
+    // public-looking base; the mock 302s /freebusy → http://169.254.169.254/... at runtime.
+    servers: [{ url: `${MOCK}/__mock/ssrf/redirect-internal` }],
+    paths: {
+      '/freebusy': {
+        get: {
+          operationId: 'freebusy.query',
+          security: [{ apiKeyAuth: [] }],
+          responses: { '200': { description: 'ok' } },
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-Api-Key' },
+      },
+    },
+    'x-standmeet-category': 'calendar',
+  });
+}
+
+// specOAuthDanceRedirectsInternal —— authorize/token URLs are benign mock
+// endpoints that, at dance time, redirect the callback / token exchange toward an
+// internal address. Passes any static upload-time URL check; the internal hop only
+// appears once the server-side dance follows the provider's redirect.
+function specOAuthDanceRedirectsInternal(): string {
+  return JSON.stringify({
+    openapi: '3.0.3',
+    info: { title: 'OAuth redirect SSRF probe', version: '1.0.0' },
+    servers: [{ url: 'https://api.example.com' }],
+    paths: {
+      '/freebusy': {
+        get: {
+          operationId: 'freebusy.query',
+          security: [{ oauth: [] }],
+          responses: { '200': { description: 'ok' } },
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        oauth: {
+          type: 'oauth2',
+          flows: {
+            authorizationCode: {
+              // mock authorize 302s the callback toward an internal host; the
+              // token endpoint likewise redirects the server-side exchange inward.
+              authorizationUrl: `${MOCK}/__mock/oauth/authorize?redirect=internal`,
+              tokenUrl: `${MOCK}/__mock/oauth/token?redirect=internal`,
+              scopes: { read: 'read' },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 // SPEC_BENIGN_APIKEY —— a fully valid public-base apiKey connector, used by the
 // credential-leak + isolation tests (must assemble cleanly so we can store a
 // secret and then prove it never echoes / never crosses owner scope).
@@ -186,6 +256,13 @@ test.describe('connector · §8 区 H 安全 (SSRF / 凭据不外泄 / per-owner
 
   test('凭据不外泄 · 上传 connector 的 secret 不出现在任何访客可见表面',
     ({ playwright }) => secretNotInVisitorSurface(playwright));
+
+  // ── 1b. consume-time SSRF（upload/connect 过了，运行时调用才打内网） ──
+  test('SSRF · 运行时 API 调用解析/重定向到内网 → runtime 拒绝出站',
+    ({ playwright }) => ssrfConsumeTimeRejected(playwright));
+
+  test('SSRF · OAuth dance 中 provider 把 callback/token 交换重定向到内网 → 拒绝',
+    ({ playwright }) => ssrfOAuthDanceRedirectRejected(playwright));
 
   // ── 3. per-owner 隔离（v1 单 owner → API 层 owner_id scoping） ──
   test('隔离 · 未鉴权请求拿不到 owner 上传的 connector',
@@ -258,6 +335,66 @@ async function ssrfRejectLeavesNoConnector(playwright: Playwright): Promise<void
   expect(list.status()).toBe(200);
   expect(await list.text(), 'rejected internal spec left no connector behind')
     .not.toContain('169.254.169.254');
+  await request.dispose();
+}
+
+// ── 1b. consume-time SSRF ──
+// Upload + credential a connector whose *static* URLs are benign, then drive the
+// runtime path (diag list-busy) and prove the backend refuses the internal hop the
+// provider tries to redirect into — no SSRF at consume time, no crash, no leak.
+async function ssrfConsumeTimeRejected(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const { csrf } = await login(request, OWNER.email, OWNER.password);
+  // passes upload (public-looking base) + credentials cleanly.
+  const id = await uploadSpec(request, csrf, specConsumeRedirectsInternal());
+  await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
+    headers: { 'X-Csrftoken': csrf }, data: { api_key: 'benign-key' },
+  });
+
+  // runtime consume: the upstream 302s toward 169.254.169.254 → the HTTP runtime
+  // must refuse to follow the internal redirect, surfacing a policy refusal (not a
+  // 200 with metadata, not a 5xx stack).
+  const diag = await request.post(`${BACKEND}/internal/diag/connector/${id}/list-busy`, {
+    headers: { 'X-Csrftoken': csrf }, data: {},
+  });
+  expect(diag.status(), 'runtime refuses internal redirect').toBeGreaterThanOrEqual(400);
+  expect(diag.status(), 'runtime refusal is not a crash').toBeLessThan(500);
+  const text = await diag.text();
+  expect(text, 'refusal names the address policy').toMatch(SSRF_REJECT_RE);
+  expect(text, 'no metadata exfiltrated').not.toContain('meta-data');
+  expect(text, 'no raw go panic / stack').not.toContain('goroutine');
+  await request.dispose();
+}
+
+// During the server-side dance, the provider tries to redirect the callback /
+// token exchange to an internal address. The backend must refuse — at connect
+// (start of dance) or when following the redirect — never let the dance hop inward.
+async function ssrfOAuthDanceRedirectRejected(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const { csrf } = await login(request, OWNER.email, OWNER.password);
+  const id = await uploadSpec(request, csrf, specOAuthDanceRedirectsInternal());
+  await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
+    headers: { 'X-Csrftoken': csrf }, data: { client_id: 'cid', client_secret: 'sec' },
+  });
+  // start the dance; the mock authorize/token redirect toward internal. The dance
+  // must NOT land a connection by following an internal redirect.
+  const connect = await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
+    headers: { 'X-Csrftoken': csrf }, data: {},
+  });
+  if (connect.status() >= 400) {
+    // refused up front — acceptable and preferred.
+    expect(connect.status()).toBeLessThan(500);
+    expect(await connect.text()).toMatch(SSRF_REJECT_RE);
+    await request.dispose();
+    return;
+  }
+  // dance was allowed to start → the redirect-following step must have refused, so
+  // the connector must end up NOT connected (the internal hop never completed).
+  const st = await request.get(`${BACKEND}/api/admin/connectors/${id}/status`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  const body = await st.json() as { connected: boolean };
+  expect(body.connected, 'dance must not connect via an internal redirect').toBe(false);
   await request.dispose();
 }
 

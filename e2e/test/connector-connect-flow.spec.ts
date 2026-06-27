@@ -24,8 +24,10 @@
 // page.goto。所有写操作（connect / disconnect / 填字段）一律走 UI 点按钮。status
 // 只读断言可用 GET。describe 拆成几块以让每个回调 < 70 行。
 
+import { execSync } from 'node:child_process';
+
 import { test, expect } from '@/fixtures/test';
-import type { Page, Playwright, Locator } from '@playwright/test';
+import type { APIRequestContext, Page, Playwright, Locator } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -44,6 +46,15 @@ const OWNER = {
 const OAUTH2_CONNECTOR_ID = 'google-calendar';
 // 非 dance 连接器：一个 bearer/apiKey 鉴权的连接器（无 OAuth dance），存密钥即连。
 const NONDANCE_CONNECTOR_ID = 'bearer-api';
+// owner 上传的 generic openapi oauth2 连接器 id（token-refresh 泛化用，非 gcal 内置）。
+const UPLOADED_CONNECTOR_ID = 'uploaded-oauth2';
+
+// oauth2 scope 多选：勾选子集断言用。READ 勾、WRITE 不勾。
+const SCOPE_READ = 'calendar.readonly';
+const SCOPE_WRITE = 'calendar.events';
+
+const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
+const DB_CONTAINER = 'standmeet-dev-db-1';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
@@ -94,6 +105,29 @@ test.describe('connector · 连接流 happy (§8 区 D)', () => {
         new RegExp(`/api/admin/connectors/${OAUTH2_CONNECTOR_ID}/callback`),
       );
       await expect(redirect).toHaveAttribute('readonly', '');
+    });
+
+  test('oauth2: owner 勾选的 scope 子集被原样带进 authorize dance',
+    async ({ adminPage: page }) => {
+      // §4：oauth2 的 scope 是多选；owner 勾哪些，dance 的 authorize URL 就
+      // 必须只带哪些（既不偷加、也不漏带）。mock provider 记录它收到的 scope
+      // param，断言对着 mock 的记录做 —— 而不是猜后端拼了什么字符串。
+      await resetMockOAuthRecord(page);
+      const card = await openConnectorCard(page, OAUTH2_CONNECTOR_ID);
+      await fillOAuth2Creds(card, 'mock-client-id', 'mock-client-secret');
+
+      // 勾一个**子集**（READ 勾、WRITE 不勾），故意漏掉表单里其余可选 scope。
+      await selectScope(card, SCOPE_READ, true);
+      await selectScope(card, SCOPE_WRITE, false);
+
+      await card.getByTestId('connector-connect-button').click();
+      await page.waitForURL('**/admin/connectors**');
+      await expectConnected(card);
+
+      // mock 录到的 authorize scope param 必须 === 勾选集合，不多不少。
+      const requested = await getRecordedAuthorizeScopes(page);
+      expect(requested).toContain(SCOPE_READ);
+      expect(requested).not.toContain(SCOPE_WRITE);
     });
 });
 
@@ -173,6 +207,57 @@ test.describe('connector · 重连 / 轮换 / 断开 (§8 区 D)', () => {
       await card.getByTestId('connector-disconnect-button').click();
       await expectNotConnected(card);
       expect((await getConnectorStatus(page, OAUTH2_CONNECTOR_ID)).connected).toBe(false);
+    });
+
+  test('Disconnect 保留 client_id/secret → 一键重连无需重填凭据',
+    async ({ adminPage: page }) => {
+      // 对齐 admin-gcal-disconnect「preserves credentials」：disconnect 只清
+      // token，加密存的 client_id/secret 留着 → 下次 Connect 一键重跑 dance，
+      // owner 不用再去翻 Google project 把 client_id/secret 抄一遍。
+      const card = await runOAuth2Dance(page, 'mock-client-id', 'mock-client-secret');
+      await expectConnected(card);
+
+      await card.getByTestId('connector-disconnect-button').click();
+      await expectNotConnected(card);
+      // 凭据保留：status 仍 has_credentials；UI 字段也仍回填（masked）。
+      const afterDisconnect = await getConnectorStatus(page, OAUTH2_CONNECTOR_ID);
+      expect(afterDisconnect.has_credentials).toBe(true);
+
+      // 不重填任何凭据，直接 Connect → dance 用保留的凭据跑通 → 重新 Connected。
+      await card.getByTestId('connector-connect-button').click();
+      await page.waitForURL('**/admin/connectors**');
+      await expectConnected(card);
+      expect((await getConnectorStatus(page, OAUTH2_CONNECTOR_ID)).connected).toBe(true);
+    });
+});
+
+// ════════ generic openapi oauth2 连接器：token 静默刷新 (§8 区 D) ════
+// 把 chat-book-token-refresh 的「过期 access token → 静默刷新 → 消费成功」
+// 泛化到一个**owner 上传的** openapi oauth2 连接器（非 gcal 内置那条）。
+// 连接走 UI dance；消费走 §8 接口草图的运行时直验 diag。
+test.describe('connector · generic oauth2 token 静默刷新 (§8 区 D)', () => {
+  test.fixme(true, 'pending #155: generic openapi oauth2 silent token refresh');
+  test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
+
+  test('uploaded oauth2 连接器：access token 过期 → 后端静默刷新 → 运行时调用成功',
+    async ({ adminPage: page, playwright }) => {
+      // owner 上传 + 派生表单 + dance 连上一个 generic openapi oauth2 连接器。
+      const card = await runUploadedOAuth2Dance(page);
+      await expectConnected(card);
+
+      // 直接改库把该连接器的 access token 标记过期（同 chat-book-token-refresh
+      // 手法，但针对 user-uploaded connector 的 connection 行，按 id 命中）。
+      await resetMockOAuthRecord(page);
+      expireUploadedAccessToken(UPLOADED_CONNECTOR_ID);
+
+      // 触发一次运行时消费（diag list-busy）→ 后端发现 token 过期 → 静默刷新
+      // → 用新 token 重试 → 调用成功。mock token 端点被打到 >= 2 次（初签 + 刷新）。
+      const request = await playwright.request.newContext();
+      const status = await diagListBusy(request, UPLOADED_CONNECTOR_ID);
+      expect(status, 'runtime consume succeeds after silent refresh').toBe(200);
+      const tokenCalls = await getMockTokenCallCount(request);
+      expect(tokenCalls, 'token endpoint hit twice: initial + refresh').toBeGreaterThanOrEqual(2);
+      await request.dispose();
     });
 });
 
@@ -254,6 +339,107 @@ async function programMockOAuth(page: Page, outcome: MockOAuthOutcome): Promise<
     throw new Error(`program mock oauth (${outcome}): ${res.status()}`);
   }
 }
+
+// ─── scope 多选 helper（新 testid：连接器派生表单里的 scope 勾选项）──────
+// 假设 scope 在派生表单里渲染成可勾选项，testid = connector-scope-{scope}。
+// 这是 §4「scope 多选」落到 UI 的形态；正式 testid 实现时定，红测先挂着。
+async function selectScope(card: Locator, scope: string, checked: boolean): Promise<void> {
+  const box = card.getByTestId(`connector-scope-${scope}`);
+  if (checked) await box.check();
+  else await box.uncheck();
+}
+
+// ─── mock OAuth 记录读取（GET；eslint 允许）──────────────────────────
+// 复用 gcal mock 的可编程 OAuth provider，新增「记录上次 authorize 收到的
+// scope param」+「token 端点命中计数」+「reset」。GET 触发，避开 POST 限制。
+
+async function resetMockOAuthRecord(page: Page): Promise<void> {
+  const res = await page.request.get(`${MOCK}/__mock/oauth/reset`);
+  if (res.status() !== 200) throw new Error(`reset mock oauth record: ${res.status()}`);
+}
+
+// getRecordedAuthorizeScopes —— mock 记录的、本次 authorize 请求里 scope
+// param 拆出来的 scope 列表。断言「勾选子集被原样带进 dance」对着它做。
+async function getRecordedAuthorizeScopes(page: Page): Promise<string[]> {
+  const res = await page.request.get(`${MOCK}/__mock/oauth/last_authorize`);
+  if (res.status() !== 200) throw new Error(`last_authorize: ${res.status()}`);
+  const body = await res.json() as { scopes?: string[] };
+  return body.scopes ?? [];
+}
+
+// getMockTokenCallCount —— mock token 端点被命中的次数（初签 + 刷新计数）。
+async function getMockTokenCallCount(request: APIRequestContext): Promise<number> {
+  const res = await request.get(`${MOCK}/__mock/oauth/token_call_count`);
+  if (res.status() !== 200) throw new Error(`token_call_count: ${res.status()}`);
+  return (await res.json() as { count: number }).count;
+}
+
+// ─── generic uploaded oauth2 连接器：上传 + dance + 运行时消费 helper ──────
+// runUploadedOAuth2Dance —— 经 UI 上传 spec（connector-spec-input/submit）派生出
+// oauth2 表单 → 填凭据 → Connect → dance → 回 connectors 区。返回卡片 Locator。
+async function runUploadedOAuth2Dance(page: Page): Promise<Locator> {
+  await page.getByTestId('admin-nav-connectors').click();
+  await page.waitForURL('**/admin/connectors**');
+  await page.getByTestId('connector-add-open').click();
+  await page.getByTestId('connector-spec-input').fill(UPLOADED_OAUTH2_SPEC);
+  await page.getByTestId('connector-spec-submit').click();
+  const card = page.getByTestId(`connector-row-${UPLOADED_CONNECTOR_ID}`);
+  await expect(card).toBeVisible();
+  await fillOAuth2Creds(card, 'mock-client-id', 'mock-client-secret');
+  await card.getByTestId('connector-connect-button').click();
+  await page.waitForURL('**/admin/connectors**');
+  return card;
+}
+
+// expireUploadedAccessToken —— 把 user-uploaded 连接器 connection 行的 access
+// token 标记过期（同 chat-book-token-refresh 直改库手法），按 connector id 命中，
+// 逼下一次运行时消费走刷新路径。表名按泛化后的 connector_connections 假设。
+function expireUploadedAccessToken(id: string): void {
+  const sql = `UPDATE connector_connections
+              SET access_token_expires_at = NOW() - INTERVAL '1 hour'
+              WHERE connector_id = '${id}'`;
+  execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
+    { stdio: 'pipe' });
+}
+
+// diagListBusy —— §8 接口草图的运行时直验：POST /internal/diag/connector/{id}/list-busy。
+// 在 fresh request context 上发（非 page.request，eslint 允许）。返回 HTTP 状态。
+async function diagListBusy(request: APIRequestContext, id: string): Promise<number> {
+  const res = await request.post(`${BACKEND}/internal/diag/connector/${id}/list-busy`, { data: {} });
+  return res.status();
+}
+
+// UPLOADED_OAUTH2_SPEC —— 一个 generic（非 gcal）openapi oauth2 connector spec，
+// authorize/token URL 指向 mock provider，归 calendar 品类好让 list-busy 可消费。
+const UPLOADED_OAUTH2_SPEC = JSON.stringify({
+  openapi: '3.0.3',
+  info: { title: 'Generic OAuth2 calendar', version: '1.0.0' },
+  servers: [{ url: `${MOCK}/upstream` }],
+  paths: {
+    '/freebusy': {
+      get: {
+        operationId: 'freebusy.query',
+        security: [{ oauth: [SCOPE_READ] }],
+        responses: { '200': { description: 'ok' } },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      oauth: {
+        type: 'oauth2',
+        flows: {
+          authorizationCode: {
+            authorizationUrl: `${MOCK}/__mock/oauth/authorize`,
+            tokenUrl: `${MOCK}/__mock/oauth/token`,
+            scopes: { [SCOPE_READ]: 'read', [SCOPE_WRITE]: 'write' },
+          },
+        },
+      },
+    },
+  },
+  'x-standmeet-category': 'calendar',
+});
 
 // ─── owner 前置：claim（不走任何被测写路径）───────────────────────
 async function initOwner(playwright: Playwright): Promise<void> {

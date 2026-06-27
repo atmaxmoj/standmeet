@@ -326,3 +326,23 @@ booker → CalendarContract.ListBusy(conn, t0, t1)
 **A+B+D+F 的 happy** 打通「上传 spec → 派生表单 → OAuth → booker 跑非-gcal calendar」主干；
 **C/E/G/H + 各区 err** 随后。
 
+---
+
+## 9. 红测已假设的设计决策（实现时确认/可调）
+
+§8 红测把设计留白的地方钉成了可测契约。实现前过一遍：
+
+- **品类槽位规则**（§1 一品类两 kind）：一个品类槽**同时只一个 active connector**，owner **显式 activate**；连第二个**不自动抢槽**；active 断开 → **回退到另一个 connected 候选**（⚠️ 或改成「不回退、复闸、owner 重选」——红测里留了 alt 断言）。dep-gating 绑「至少一个 active connected」，不绑具体 provider。
+  - 新 REST：`POST /api/admin/connectors/{id}/activate`；status/list 行带 `active` bool。
+- **agent 工具化机制**（§3 第二条 consumer 路）：**opt-in**（建连接器时 `expose_as_agent_tools:true`）；工具名 `op_<operationId>`（点→下划线，D-3 snake_case）；描述取 operation `summary`；**per-op ACL 跟 cap 同闸**（连上 + 被 grant 才暴露）；**category-only 连接器不漏 raw ops**（只暴露归一 cap）。
+  - 新 diag：`POST /internal/diag/connector/{id}/agent-call`（返 raw SaaS 响应，agent 路无契约）。
+- **disconnect 保留凭据**（不清除）—— 跟现有 `admin-gcal-disconnect` 一致，一键重连不重填。
+- **spec 摄入**：external `$ref` **拒**（无中心 fetch）；只收 **3.0**；YAML/JSON 同 parse 路；size 上限拒超大。
+- **openIdConnect ≈ oauth2**（派生同形，多 discovery URL 提示）。
+- **凭据派生**：scheme 多选 owner 自选；oauth2 选中的 scope **真带进 dance**（mock 录 authorize scope 验）。
+- **要建的 mock 端**（job-board-mock 里）：`/__mock/oauth/*`（可编程 authorize/token + 录 scope/调用数）、
+  `/__mock/sendgrid/*`、`/__mock/caldav/{id}/*`、`/__mock/ssrf/*`，+ gcal `set_freebusy_raw`/`set_event_shape`。
+- **新 diag**：`POST /internal/diag/connector/{id}/send`（mail 版，对应 list-busy/create-event）。
+
+> 这些都在红测里写死成断言了——实现时要么照做转绿，要么改设计 + 改对应红测。
+

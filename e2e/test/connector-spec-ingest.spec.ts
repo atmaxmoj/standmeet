@@ -158,6 +158,95 @@ test.describe('connector · 区A spec 摄入 · err', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────
+// 区A 额外 corner（§8 区 A 表里点到、上面没覆盖的）：超大尺寸 / 重复
+// operationId / 缺 operationId / YAML 解析 / 未解析 $ref。同样全 fixme。
+// ──────────────────────────────────────────────────────────────────────────
+test.describe('connector · 区A spec 摄入 corner · err', () => {
+  // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
+  test.fixme(true, 'pending #155: connector OpenAPI spec ingest corners');
+
+  test.beforeAll(async ({ playwright }) => {
+    await claimOwner(playwright);
+  });
+
+  // err —— 超过大小上限（合法 JSON 但巨大）→ 拒，给 size-limit 级别的人类可读错误。
+  test('超大 spec（超大小上限）→ 拒 + size-limit 提示', async ({ adminPage: page }) => {
+    await openSpecPaste(page);
+    await page.getByTestId('connector-spec-input').fill(oversizedSpec());
+    await page.getByTestId('connector-spec-submit').click();
+
+    const err = page.getByTestId('connector-spec-error');
+    await expect(err).toBeVisible();
+    await expect(err).toContainText(/size|too large|过大|上限|limit/i);
+    await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
+  });
+
+  // err —— 两个 operation 撞同一个 operationId → 拒/标记（绑定无法唯一指向）。
+  test('重复 operationId → 拒/标记（无法唯一绑定）', async ({ adminPage: page }) => {
+    await openSpecPaste(page);
+    await page.getByTestId('connector-spec-input').fill(duplicateOperationIdSpec());
+    await page.getByTestId('connector-spec-submit').click();
+
+    const err = page.getByTestId('connector-spec-error');
+    await expect(err).toBeVisible();
+    await expect(err).toContainText(/duplicate|operationId|重复|唯一/i);
+    await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
+  });
+
+  // err —— operation 没有 operationId（绑定要靠它指向）→ 标记缺 operationId。
+  test('operation 缺 operationId → 标记（绑定无锚点）', async ({ adminPage: page }) => {
+    await openSpecPaste(page);
+    await page.getByTestId('connector-spec-input').fill(specMissingOperationId());
+    await page.getByTestId('connector-spec-submit').click();
+
+    const err = page.getByTestId('connector-spec-error');
+    await expect(err).toBeVisible();
+    await expect(err).toContainText(/operationId|operation id|缺.*id|missing/i);
+    await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
+  });
+
+  // err —— 外部 $ref（指向另一个文件/URL）无法解析 → 给清晰结果（拒，不静默吞）。
+  test('外部/未解析 $ref → 拒 + 指出无法解析引用', async ({ adminPage: page }) => {
+    await openSpecPaste(page);
+    await page.getByTestId('connector-spec-input').fill(specExternalRef());
+    await page.getByTestId('connector-spec-submit').click();
+
+    const err = page.getByTestId('connector-spec-error');
+    await expect(err).toBeVisible();
+    await expect(err).toContainText(/\$ref|reference|引用|resolve|unresolved/i);
+    await expect(page.getByTestId('connector-candidate')).toHaveCount(0);
+  });
+});
+
+test.describe('connector · 区A spec 摄入 corner · happy', () => {
+  test.fixme(true, 'pending #155: connector OpenAPI spec ingest corners');
+
+  test.beforeAll(async ({ playwright }) => {
+    await claimOwner(playwright);
+  });
+
+  // happy —— YAML（非 JSON）走同一解析路 → 解析成功 → candidate 出现。
+  test('合法 3.0 YAML spec → 同 parse 路解析 → candidate 出现', async ({ adminPage: page }) => {
+    await openSpecPaste(page);
+    await page.getByTestId('connector-spec-input').fill(validCalendarSpecYaml());
+    await page.getByTestId('connector-spec-submit').click();
+
+    await expect(page.getByTestId('connector-candidate')).toContainText(/calendar/i);
+    await expect(page.getByTestId('connector-spec-error')).toHaveCount(0);
+  });
+
+  // happy —— 内部 $ref（同文档 #/components/...）→ 解析得动 → candidate 出现。
+  test('内部 $ref（同文档）→ 解析得动 → candidate 出现', async ({ adminPage: page }) => {
+    await openSpecPaste(page);
+    await page.getByTestId('connector-spec-input').fill(specInternalRef());
+    await page.getByTestId('connector-spec-submit').click();
+
+    await expect(page.getByTestId('connector-candidate')).toBeVisible();
+    await expect(page.getByTestId('connector-spec-error')).toHaveCount(0);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
 // 本地 helper（实现落地后提升为共享 fixture：openConnectorAdd / openSpecPaste +
 // 样例 spec 串）。
 // ──────────────────────────────────────────────────────────────────────────
@@ -246,4 +335,97 @@ function specMissingOperations(): string {
     servers: [{ url: 'https://api.acme.test/v1' }],
     paths: {},
   });
+}
+
+// oversizedSpec —— 合法 3.0 但塞了一大坨 description 把体积顶过上限 → 必拒。
+// 用一个超长字符串字段撑大，避免手写几 MB 字面量。
+function oversizedSpec(): string {
+  const huge = 'x'.repeat(8 * 1024 * 1024); // ~8 MB padding, well over any sane cap
+  return JSON.stringify({
+    openapi: '3.0.0',
+    info: { title: 'Huge API', version: '1.0.0', description: huge },
+    servers: [{ url: 'https://api.acme.test/v1' }],
+    paths: { '/freebusy': { post: { operationId: 'freebusy.query', responses: {} } } },
+  });
+}
+
+// duplicateOperationIdSpec —— 两个不同 operation 用同一 operationId → 绑定无法唯一指向，拒。
+function duplicateOperationIdSpec(): string {
+  return JSON.stringify({
+    openapi: '3.0.0',
+    info: { title: 'Dup Op', version: '1.0.0' },
+    servers: [{ url: 'https://api.acme.test/v1' }],
+    paths: {
+      '/freebusy': { post: { operationId: 'dup.op', responses: { '200': { description: 'ok' } } } },
+      '/events': { post: { operationId: 'dup.op', responses: { '200': { description: 'ok' } } } },
+    },
+  });
+}
+
+// specMissingOperationId —— operation 没 operationId（绑定要靠它指向）→ 标记缺锚点。
+function specMissingOperationId(): string {
+  return JSON.stringify({
+    openapi: '3.0.0',
+    info: { title: 'No OpId', version: '1.0.0' },
+    servers: [{ url: 'https://api.acme.test/v1' }],
+    paths: { '/freebusy': { post: { responses: { '200': { description: 'ok' } } } } },
+  });
+}
+
+// specExternalRef —— $ref 指向外部文件（无法在本文档内解析）→ 拒/给清晰结果。
+function specExternalRef(): string {
+  return JSON.stringify({
+    openapi: '3.0.0',
+    info: { title: 'External Ref', version: '1.0.0' },
+    servers: [{ url: 'https://api.acme.test/v1' }],
+    paths: {
+      '/freebusy': {
+        post: {
+          operationId: 'freebusy.query',
+          requestBody: { content: { 'application/json': { schema: { $ref: './common.yaml#/FreeBusyReq' } } } },
+          responses: { '200': { description: 'ok' } },
+        },
+      },
+    },
+  });
+}
+
+// specInternalRef —— $ref 指向同文档 #/components/...（可解析）→ 解析得动。
+function specInternalRef(): string {
+  return JSON.stringify({
+    openapi: '3.0.0',
+    info: { title: 'Internal Ref Calendar', version: '1.0.0' },
+    servers: [{ url: 'https://calendar.acme.test/v1' }],
+    paths: {
+      '/freebusy': {
+        post: {
+          operationId: 'freebusy.query',
+          requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/FreeBusyReq' } } } },
+          responses: { '200': { description: 'ok' } },
+        },
+      },
+    },
+    components: { schemas: { FreeBusyReq: { type: 'object', properties: { timeMin: { type: 'string' } } } } },
+  });
+}
+
+// validCalendarSpecYaml —— 同 validCalendarSpec 的语义，但 YAML 文本（验证非 JSON
+// 走同一 parse 路）。手写 YAML 字面量，缩进有意义，勿格式化。
+function validCalendarSpecYaml(): string {
+  return [
+    'openapi: "3.0.0"',
+    'info:',
+    '  title: Acme Calendar',
+    '  version: "1.0.0"',
+    'servers:',
+    '  - url: https://calendar.acme.test/v1',
+    'paths:',
+    '  /freebusy:',
+    '    post:',
+    '      operationId: freebusy.query',
+    '      responses:',
+    '        "200":',
+    '          description: ok',
+    '',
+  ].join('\n');
 }

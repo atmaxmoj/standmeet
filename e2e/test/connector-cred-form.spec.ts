@@ -133,6 +133,69 @@ const SPEC_NO_AUTH = JSON.stringify({
   paths: { '/open': { get: { operationId: 'open.get', responses: { '200': { description: 'ok' } } } } },
 });
 
+// openIdConnect — derived form looks like oauth2 (client_id/secret + Connect);
+// a discovery-URL note points at the openIdConnectUrl. token is NOT a field.
+const SPEC_OIDC = JSON.stringify({
+  openapi: '3.0.3',
+  info: { title: 'OIDC API', version: '1.0.0' },
+  servers: [{ url: 'https://api.oidc.example.com' }],
+  paths: { '/me': { get: { operationId: 'me.get', security: [{ oidc: ['openid', 'profile'] }], responses: { '200': { description: 'ok' } } } } },
+  components: {
+    securitySchemes: {
+      oidc: {
+        type: 'openIdConnect',
+        openIdConnectUrl: 'https://api.oidc.example.com/.well-known/openid-configuration',
+      },
+    },
+  },
+});
+
+// apiKey in: query — single key field; UI must show it goes in the QUERY (param
+// name api_key), not a header (contrast with SPEC_APIKEY above which is header).
+const SPEC_APIKEY_QUERY = JSON.stringify({
+  openapi: '3.0.3',
+  info: { title: 'Query ApiKey API', version: '1.0.0' },
+  servers: [{ url: 'https://api.qk.example.com' }],
+  paths: { '/data': { get: { operationId: 'data.get', security: [{ apiKey: [] }], responses: { '200': { description: 'ok' } } } } },
+  components: {
+    securitySchemes: {
+      apiKey: { type: 'apiKey', in: 'query', name: 'api_key' },
+    },
+  },
+});
+
+// oauth2 with many scopes — the scope multi-select must list EVERY declared scope
+// (not just the ones referenced by one operation).
+const SPEC_OAUTH2_MULTISCOPE = JSON.stringify({
+  openapi: '3.0.3',
+  info: { title: 'Multi-scope OAuth2 API', version: '1.0.0' },
+  servers: [{ url: 'https://api.ms.example.com/v1' }],
+  paths: {
+    '/freebusy': {
+      get: { operationId: 'freebusy.query', security: [{ oauth2: ['cal.read'] }], responses: { '200': { description: 'ok' } } },
+    },
+  },
+  components: {
+    securitySchemes: {
+      oauth2: {
+        type: 'oauth2',
+        flows: {
+          authorizationCode: {
+            authorizationUrl: 'https://api.ms.example.com/oauth/authorize',
+            tokenUrl: 'https://api.ms.example.com/oauth/token',
+            scopes: {
+              'cal.read': 'Read calendar',
+              'cal.write': 'Write calendar',
+              'contacts.read': 'Read contacts',
+              'profile': 'Profile info',
+            },
+          },
+        },
+      },
+    },
+  },
+});
+
 // unsupported auth type (mutualTLS) — derive should reject/flag it.
 const SPEC_UNSUPPORTED = JSON.stringify({
   openapi: '3.0.3',
@@ -253,6 +316,64 @@ test.describe('connector · 凭据表单从 spec 派生 · happy（区 B）', ()
       // apiKey here is in query param api_key — surfaced to owner.
       await expect(page.getByTestId('connector-cred-form')).toContainText(/query/i);
       await expect(page.getByTestId('connector-cred-form')).toContainText(/api_key/);
+    });
+});
+
+// 区B 额外 corner（§4 表里点到、上面没覆盖的）：openIdConnect 渲如 oauth2 /
+// apiKey in:query 的位置展示 / oauth2 多 scope 全列。独立 describe 让上一块
+// 回调保持 ≤70 行。
+test.describe('connector · 凭据表单从 spec 派生 corner · happy（区 B）', () => {
+  test.fixme(true, 'pending #155: spec-driven credential form derivation corners');
+
+  test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
+
+  // ── happy: openIdConnect → renders like oauth2 ───────────────────────────
+  test('openIdConnect spec → client_id + client_secret + Connect + discovery-URL note',
+    async ({ adminPage: page }) => {
+      await pasteSpec(page, SPEC_OIDC);
+
+      // OIDC is an oauth2 superset → same owner-facing client creds, no token field.
+      await expect(page.getByTestId('connector-field-client_id')).toBeVisible();
+      await expect(page.getByTestId('connector-field-client_secret')).toBeVisible();
+      await expect(page.getByTestId('connector-field-token')).toHaveCount(0);
+
+      // needs the dance → Connect button present (like oauth2).
+      await expect(page.getByTestId('connector-connect-button')).toBeVisible();
+
+      // a discovery-URL note points owner at the openIdConnectUrl.
+      const form = page.getByTestId('connector-cred-form');
+      await expect(form).toContainText(/\.well-known\/openid-configuration/);
+    });
+
+  // ── happy: apiKey in query (vs header) ───────────────────────────────────
+  test('apiKey (in: query) spec → single key field + shows it goes in the query',
+    async ({ adminPage: page }) => {
+      await pasteSpec(page, SPEC_APIKEY_QUERY);
+
+      await expect(page.getByTestId('connector-field-key')).toBeVisible();
+
+      // UI tells owner the key rides in the query string as api_key, NOT a header.
+      const form = page.getByTestId('connector-cred-form');
+      await expect(form).toContainText(/query/i);
+      await expect(form).toContainText(/api_key/);
+      await expect(form).not.toContainText(/header/i);
+
+      // no dance → no Connect button.
+      await expect(page.getByTestId('connector-connect-button')).toHaveCount(0);
+    });
+
+  // ── happy: oauth2 multiple scopes → all listed in multi-select ───────────
+  test('oauth2 multi-scope spec → scope picker lists every declared scope',
+    async ({ adminPage: page }) => {
+      await pasteSpec(page, SPEC_OAUTH2_MULTISCOPE);
+
+      const scope = page.getByTestId('connector-field-scope');
+      await expect(scope).toBeVisible();
+      // every scope declared on the flow shows up, not just the op-referenced one.
+      await expect(scope).toContainText(/cal\.read/);
+      await expect(scope).toContainText(/cal\.write/);
+      await expect(scope).toContainText(/contacts\.read/);
+      await expect(scope).toContainText(/profile/);
     });
 });
 
