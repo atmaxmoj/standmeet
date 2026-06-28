@@ -1,20 +1,8 @@
-// connector-binding-jsonata.spec.ts —— #155 §8 区 C（JSONata 绑定）目标契约（RED）。
-//
-// 把「声明式 JSONata 绑定」这层钉死：作者给 SaaS 官方 OpenAPI spec + 一份绑定
-// （category + 每个契约 op → operationId + request/response 的 JSONata），后端在
-// 装配时校验、在运行时执行——
-//   request JSONata : 从契约输入构造 SaaS API body（CreateEvent → events.insert body）
-//   response JSONata: 从 SaaS 响应抽出契约输出（freeBusy → CalendarContract.ListBusy []{start,end}）
-//   category        : 填 connectorDepRegistry 的 "calendar" / "mail" 槽
-//
-// 全部 test.fixme：绑定子系统（POST /api/admin/connectors 收 spec+binding、JSONata
-// 运行时、装配期校验）从零，未建。实现逐条转绿。decision #1（docs/design/connector.md
-// §7）：映射语言只 JSONata 一个，response 抽取 + request 构造一个语言两向。
-//
-// e2e 不碰真 Google：内联 spec 的 servers 指向 job-board-mock 的 gcal 端点（已有
-// /__mock/gcal/{set_busy,events,reset}），绑定把 list_busy/create_event 映射到 spec 里
-// 两个 operationId。响应归一断言走 diag 端点；category 槽断言走日历消费者（booker
-// 的 calendar_book 在 calendar.book 授权的 session 里装配成功）。
+// connector-binding-jsonata.spec.ts —— #155 §8 区 C（声明式 JSONata 绑定）。作者给 SaaS spec +
+// 绑定（category + 每契约 op → operationId + request/response JSONata），后端装配期校验 + 运行时
+// 执行：request JSONata 从契约输入构 SaaS body；response JSONata 从 SaaS 响应抽契约输出；category
+// 填 "calendar"/"mail" 槽。e2e 不碰真 Google：内联 spec 的 servers 指 job-board-mock 的 gcal 端点；
+// 响应归一断言走 diag 端点，category 槽断言走 booker 的 calendar_book 装配。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -26,6 +14,11 @@ import {
 } from '@/fixtures/gcal';
 import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { issueSession } from '@/fixtures/visitor';
+import {
+  SAMPLE_SPEC, SAMPLE_BINDING, NULL_REQUIRED_FIELD_BINDING, NESTED_ARRAY_BINDING,
+  EXTRA_OP_BINDING, BROKEN_JSONATA_BINDING, GHOST_OP_BINDING, UNKNOWN_CATEGORY_BINDING,
+  INCOMPLETE_BINDING,
+} from '@/fixtures/connector-jsonata';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -38,138 +31,6 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-// ─── inlined sample OpenAPI 3.0 spec (calendar; servers → mock gcal) ───
-// 一个最小但合法的 3.0 spec：两个 operationId（freebusy.query / events.insert）+
-// 一个 oauth2 securityScheme。servers.url 指 e2e 的 gcal mock，所以运行时实打实打到
-// 已有的 /__mock/gcal 端点（set_busy 喂 freebusy、events 录 insert）。
-const SAMPLE_SPEC = {
-  openapi: '3.0.3',
-  info: { title: 'Sample Calendar', version: '1.0.0' },
-  servers: [{ url: 'http://localhost:9000/__mock/gcal' }],
-  paths: {
-    '/freeBusy': {
-      post: {
-        operationId: 'freebusy.query',
-        security: [{ oauth2: ['calendar.readonly'] }],
-        responses: { '200': { description: 'free/busy' } },
-      },
-    },
-    '/events': {
-      post: {
-        operationId: 'events.insert',
-        security: [{ oauth2: ['calendar.events'] }],
-        responses: { '200': { description: 'created event' } },
-      },
-    },
-  },
-  components: {
-    securitySchemes: {
-      oauth2: {
-        type: 'oauth2',
-        flows: {
-          authorizationCode: {
-            authorizationUrl: 'http://localhost:9000/__mock/gcal/authorize',
-            tokenUrl: 'http://localhost:9000/__mock/gcal/token',
-            scopes: {
-              'calendar.readonly': 'read free/busy',
-              'calendar.events': 'write events',
-            },
-          },
-        },
-      },
-    },
-  },
-} as const;
-
-// ─── inlined sample JSONata binding (request + response, both directions) ───
-// list_busy.response : SaaS freeBusy 形状 → 契约 []{start,end}
-//   SaaS 给 { calendars: { primary: { busy: [{ start, end }] } } }，JSONata 抽 .busy。
-// create_event.request: 契约输入 {title,start,end,attendee} → SaaS events.insert body
-//   JSONata 构造 { summary, start.dateTime, end.dateTime, attendees:[{email}] }。
-const SAMPLE_BINDING = {
-  category: 'calendar',
-  kind: 'openapi',
-  operations: {
-    list_busy: {
-      op: 'freebusy.query',
-      // request: 契约 (timeMin,timeMax) → SaaS body。
-      request: '{ "timeMin": timeMin, "timeMax": timeMax, "items": [{ "id": "primary" }] }',
-      // response: SaaS → 契约 []{start,end}。
-      response: 'calendars.primary.busy.{ "start": start, "end": end }',
-    },
-    create_event: {
-      op: 'events.insert',
-      // request: 契约 (title,start,end,attendee) → SaaS events.insert body。
-      request:
-        '{ "summary": title, "start": { "dateTime": start }, ' +
-        '"end": { "dateTime": end }, "attendees": [{ "email": attendee }] }',
-      // response: SaaS → 契约 EventRef {id,url}。
-      response: '{ "id": id, "url": htmlLink }',
-    },
-  },
-} as const;
-
-// ─── inlined bindings for §8-C RUNTIME branches (assemble OK, runtime quirks) ───
-// 下面这些 binding 装配期都合法（语法对、op 在 spec、category 对、映全）；区别全在
-// 「运行时 SaaS 响应不按理想形状来 / 输入构造出非法 body」时怎么优雅降级。
-//  (1) 缺字段 / (2) shape 不符 用 SAMPLE_BINDING 本身（读 calendars.primary.busy /
-//  events.insert .htmlLink），只是 mock 喂畸形响应；下面三个是要改 binding 的。
-
-// (3) request JSONata 求出非法 body：必填字段 summary 映到契约输入没有的字段 → 求值
-//     null。create 应 pre-flight 拒 / 友好报错，不发畸形请求。
-// summary 映到契约输入没有的字段 nonexistent_title → 求值 null（必填却空）。
-const NULL_REQUIRED_FIELD_BINDING = {
-  ...SAMPLE_BINDING,
-  operations: {
-    ...SAMPLE_BINDING.operations,
-    create_event: { ...SAMPLE_BINDING.operations.create_event, request: '{ "summary": nonexistent_title, "start": { "dateTime": start }, "end": { "dateTime": end } }' },
-  },
-} as const;
-
-// (4) 嵌套数组映射 happy：busy 藏在 periods[].interval{from,to}，嵌套映射 + 重命名
-//     抽成契约 []{start,end}（证明 JSONata 构造力超出扁平路径）。
-const NESTED_ARRAY_BINDING = {
-  ...SAMPLE_BINDING,
-  operations: {
-    ...SAMPLE_BINDING.operations,
-    list_busy: { ...SAMPLE_BINDING.operations.list_busy, response: 'calendars.primary.periods.interval.{ "start": from, "end": to }' },
-  },
-} as const;
-
-// (5) 多映一个 consumer 不要的 op：calendar 只要 list_busy + create_event；多绑一个
-//     cancel_event（占位到合法 op events.insert）应被容忍、照常装配。
-const EXTRA_OP_BINDING = {
-  ...SAMPLE_BINDING,
-  operations: {
-    ...SAMPLE_BINDING.operations,
-    cancel_event: { op: 'events.insert', request: '{ "id": eventId }', response: '{ "ok": true }' },
-  },
-} as const;
-
-// ─── inlined bad bindings (装配期校验的四种拒因) ───
-// 非法 JSONata：response 缺右括号。
-const BROKEN_JSONATA_BINDING = {
-  ...SAMPLE_BINDING,
-  operations: {
-    ...SAMPLE_BINDING.operations,
-    list_busy: { ...SAMPLE_BINDING.operations.list_busy, response: 'calendars.primary.busy.{ "start": start' },
-  },
-} as const;
-// op 不在 spec：引用一个不存在的 operationId。
-const GHOST_OP_BINDING = {
-  ...SAMPLE_BINDING,
-  operations: {
-    ...SAMPLE_BINDING.operations,
-    list_busy: { ...SAMPLE_BINDING.operations.list_busy, op: 'freebusy.nonexistent' },
-  },
-} as const;
-// 未知 category：没有对应的品类槽。
-const UNKNOWN_CATEGORY_BINDING = { ...SAMPLE_BINDING, category: 'telepathy' } as const;
-// 不完整：calendar 契约要求 list_busy + create_event，这里漏掉 create_event。
-const INCOMPLETE_BINDING = {
-  category: 'calendar', kind: 'openapi',
-  operations: { list_busy: SAMPLE_BINDING.operations.list_busy },
-} as const;
 
 // ─── unbuilt binding REST helpers (target contract; §8 决策草图) ───
 // POST /api/admin/connectors —— 从 spec+binding 建连接器。201 → {id}；4xx → {error}。
@@ -179,8 +40,11 @@ async function createConnector(
   request: APIRequestContext, csrf: string, body: { spec: unknown; binding: unknown },
 ): Promise<CreateResult> {
   const res = await request.post(`${BACKEND}/api/admin/connectors`, { headers: { 'X-Csrftoken': csrf }, data: body });
-  const json = await res.json().catch(() => ({})) as { id?: string; error?: string };
-  return { status: res.status(), id: json.id, error: json.error };
+  const json = await res.json().catch(() => ({})) as {
+    id?: string; error?: string | { message?: string };
+  };
+  const err = typeof json.error === 'string' ? json.error : json.error?.message;
+  return { status: res.status(), id: json.id, error: err };
 }
 
 // diag: 跑该连接器的 list_busy 契约 op，返回归一后的 []{start,end}。证明 response
@@ -189,7 +53,7 @@ interface BusyInterval { start: string; end: string }
 async function diagListBusy(
   request: APIRequestContext, csrf: string, id: string, timeMin: string, timeMax: string,
 ): Promise<{ status: number; busy: BusyInterval[] }> {
-  const res = await request.post(`${BACKEND}/internal/diag/connector/${encodeURIComponent(id)}/list-busy`,
+  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/list-busy`,
     { headers: { 'X-Csrftoken': csrf }, data: { timeMin, timeMax } });
   const json = await res.json().catch(() => ({ busy: [] })) as { busy?: BusyInterval[] };
   return { status: res.status(), busy: json.busy ?? [] };
@@ -222,7 +86,7 @@ async function diagCreateEventResult(
   request: APIRequestContext, csrf: string, id: string,
   input: { title?: string; start: string; end: string; attendee: string },
 ): Promise<{ status: number; ref: EventRef; error?: string }> {
-  const res = await request.post(`${BACKEND}/internal/diag/connector/${encodeURIComponent(id)}/create-event`,
+  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/create-event`,
     { headers: { 'X-Csrftoken': csrf }, data: input });
   const json = await res.json().catch(() => ({})) as { id?: string; url?: string; error?: string };
   return { status: res.status(), ref: { id: json.id, url: json.url }, error: json.error };
@@ -398,9 +262,8 @@ async function initOwner(playwright: Playwright): Promise<{
 }
 
 test.describe('connector binding · JSONata 绑定（§8 区 C）', () => {
-  // RED 契约：声明式 JSONata 绑定子系统（POST /api/admin/connectors 收 spec+binding、
-  // 装配期校验、运行时 request/response JSONata）未建。实现后去掉。
-  test.fixme(true, 'pending #155 §8-C: declarative JSONata connector binding');
+  // #155 §8-C 已落地：声明式 JSONata 绑定子系统（POST /api/admin/connectors 收 spec+binding、
+  // 装配期校验、运行时 request/response JSONata）。
 
   let request: APIRequestContext;
   let csrf: string;

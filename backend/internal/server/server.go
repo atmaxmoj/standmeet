@@ -120,12 +120,6 @@ func mountInternal(r chi.Router, deps *Deps) {
 		sysroutes.MountDiagRegistry(r, deps.DiagRegistry)
 		sysroutes.MountDiagSandbox(r, deps.DiagSandbox)
 		sysroutes.MountDiagSession(r, deps.DiagSession)
-		// 连接器 diag 要 owner 身份（按 id 跑 owner 自己连的连接器），套 owner-session + CSRF。
-		r.Group(func(r chi.Router) {
-			r.Use(authmw.WithOwner(deps.Admin.Sessions))
-			r.Use(authmw.RequireCSRF)
-			sysroutes.MountDiagConnector(r, deps.DiagConnector)
-		})
 	})
 }
 
@@ -137,6 +131,8 @@ func mountAdmin(r chi.Router, deps *Deps) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
 			adminH.MountAuthed(r)
+			// 连接器 diag（owner-authed，session cookie path=/api/admin 才到这）。
+			sysroutes.MountDiagConnector(r, deps.DiagConnector)
 			deps.PluginRegistry.MountAllAdminRoutes(r)
 		})
 	})

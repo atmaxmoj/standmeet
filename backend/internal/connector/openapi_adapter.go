@@ -193,8 +193,8 @@ func mapCalendarErr(err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, ErrInvalidGrant) {
-		return domain.ErrCalendarRevoked
+	if d := mapCalendarSentinel(err); d != nil {
+		return d
 	}
 	if mapped := mapStatusErr(err); mapped != nil {
 		return mapped
@@ -203,6 +203,17 @@ func mapCalendarErr(err error) error {
 		return domain.ErrCalendarUnavailable
 	}
 	return fmt.Errorf("calendar: %w", err)
+}
+
+// mapCalendarSentinel —— sentinel 错映射：invalid_grant → revoked；pre-flight 缺必填 → bad request。
+func mapCalendarSentinel(err error) error {
+	if errors.Is(err, ErrInvalidGrant) {
+		return domain.ErrCalendarRevoked
+	}
+	if errors.Is(err, openapi.ErrMissingRequired) {
+		return fmt.Errorf("%w: %w", domain.ErrCalendarBadRequest, err)
+	}
+	return nil
 }
 
 // mapStatusErr —— StatusError 专项映射（transient → unavailable；401 → revoked）；非 StatusError → nil。

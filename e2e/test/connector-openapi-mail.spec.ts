@@ -200,7 +200,7 @@ async function diagSend(
   mail: { to: string; subject: string; text: string },
 ): Promise<MailSendDiag> {
   const res = await request.post(
-    `${BACKEND}/internal/diag/connector/${encodeURIComponent(id)}/send`,
+    `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/send`,
     { headers: { 'X-Csrftoken': csrf }, data: mail },
   );
   const json = await res.json().catch(() => ({})) as

@@ -111,9 +111,9 @@ func (s *Service) exchangeAndStore(ctx context.Context, ownerID, id, code string
 
 // danceContext —— 取 dance 三件套（endpoints + 凭据 + redirect_uri）。
 func (s *Service) danceContext(ctx context.Context, ownerID, id string) (danceCtx, error) {
-	m := s.Manifest(id)
-	if m == nil {
-		return danceCtx{}, ErrNotFound
+	m, merr := s.manifestFor(ctx, ownerID, id)
+	if merr != nil {
+		return danceCtx{}, merr
 	}
 	ep, eerr := connector.OAuthEndpointsFor(m, m.AuthScheme)
 	if eerr != nil {

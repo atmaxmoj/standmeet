@@ -24,9 +24,24 @@ type server struct {
 }
 
 type operation struct {
-	OperationID string `yaml:"operationId"`
-	Summary     string `yaml:"summary"`
-	Description string `yaml:"description"`
+	RequestBody requestBody `yaml:"requestBody"`
+	OperationID string      `yaml:"operationId"`
+	Summary     string      `yaml:"summary"`
+	Description string      `yaml:"description"`
+}
+
+// requestBody/mediaType/bodySchema —— 仅取 application/json 的 schema.required（运行时 pre-flight
+// 校验：request JSONata 求出的 body 缺必填字段 → 拒，不发畸形请求）。
+type requestBody struct {
+	Content map[string]mediaType `yaml:"content"`
+}
+
+type mediaType struct {
+	Schema bodySchema `yaml:"schema"`
+}
+
+type bodySchema struct {
+	Required []string `yaml:"required"`
 }
 
 type components struct {
@@ -58,8 +73,9 @@ type OAuthFlow struct {
 
 // resolvedOp —— 一个 operationId 解析成的具体 HTTP 操作。
 type resolvedOp struct {
-	Method string
-	Path   string
+	Method   string
+	Path     string
+	Required []string // requestBody application/json schema.required（pre-flight 校验）
 }
 
 // ParseSpec —— 解析 spec 原文（JSON 或 YAML）。非 3.0.x → 错（版本闸在此）。
@@ -95,7 +111,10 @@ func (s *Spec) lookup(operationID string) (resolvedOp, bool) {
 	for path, methods := range s.Paths {
 		for method, op := range methods {
 			if op.OperationID == operationID {
-				return resolvedOp{Method: strings.ToUpper(method), Path: path}, true
+				return resolvedOp{
+					Method: strings.ToUpper(method), Path: path,
+					Required: op.RequestBody.Content["application/json"].Schema.Required,
+				}, true
 			}
 		}
 	}

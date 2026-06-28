@@ -117,6 +117,10 @@ var ErrCalendarRevoked = errors.New("calendar oauth revoked")
 // connector 把瞬时错耗尽翻成它；visitor-facing 层映成「稍后再试」友好降级。
 var ErrCalendarUnavailable = errors.New("calendar temporarily unavailable")
 
+// ErrCalendarBadRequest —— 请求本身不合法（pre-flight：binding 求出的 body 缺必填字段等）。
+// 客户端错（4xx），不是上游故障；connector 把 openapi pre-flight 错翻成它。
+var ErrCalendarBadRequest = errors.New("calendar request invalid")
+
 // ErrBookingPolicyMissingHours —— working_hours_* 值格式错。
 var ErrBookingPolicyMissingHours = errors.New("booking policy hours malformed")
 

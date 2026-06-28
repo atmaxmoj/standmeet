@@ -163,7 +163,7 @@ async function armMockStatus(request: APIRequestContext, op: string, status: num
 async function diagListBusy(
   request: APIRequestContext, id: string,
 ): Promise<{ status: number; body: unknown }> {
-  const res = await request.post(`${BACKEND}/internal/diag/connector/${id}/list-busy`, {
+  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, {
     data: { time_min: '2030-01-01T00:00:00Z', time_max: '2030-01-02T00:00:00Z' },
   });
   return { status: res.status(), body: await res.json() };

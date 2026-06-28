@@ -8,12 +8,14 @@ package sys
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -111,12 +113,15 @@ func diagNotFound(log *slog.Logger, w http.ResponseWriter) {
 	diagStatus(log, w, http.StatusNotFound, map[string]string{"error": "connector not found"})
 }
 
+// rfc3339Millis —— 带毫秒（Go RFC3339 裁 .000 尾零；显式毫秒让忙时段忠实 round-trip）。
+const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
+
 func toDiagIntervals(busy []usecases.BusyInterval) []diagInterval {
 	out := make([]diagInterval, 0, len(busy))
 	for i := range busy {
 		out = append(out, diagInterval{
-			Start: busy[i].Start.Format(time.RFC3339),
-			End:   busy[i].End.Format(time.RFC3339),
+			Start: busy[i].Start.Format(rfc3339Millis),
+			End:   busy[i].End.Format(rfc3339Millis),
 		})
 	}
 	return out
@@ -150,7 +155,7 @@ func diagRunCreateEvent(
 		Summary: req.Title, Start: tp.start, End: tp.end, VisitorEmail: req.Attendee,
 	})
 	if cerr != nil {
-		diagFail(log, w, cerr)
+		diagCreateErr(log, w, cerr)
 		return
 	}
 	diagStatus(log, w, http.StatusOK, map[string]string{"id": ev.EventID, "url": ev.HTMLLink})
@@ -193,6 +198,15 @@ func diagDecode(log *slog.Logger, w http.ResponseWriter, r *http.Request, dst an
 		return false
 	}
 	return true
+}
+
+// diagCreateErr —— 建会失败：客户端错（pre-flight 缺必填）→ 400；其余上游故障 → 502。
+func diagCreateErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	if errors.Is(err, domain.ErrCalendarBadRequest) {
+		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	diagFail(log, w, err)
 }
 
 // diagFail —— 契约调用失败 → 友好 502（diag 不暴露栈）。

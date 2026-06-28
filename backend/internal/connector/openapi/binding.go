@@ -13,8 +13,9 @@ import (
 )
 
 // CategoryContractOps —— 每个品类契约「必须映全」的方法名。装配期据此判 binding 是否缺映射。
+// calendar 必须能查忙时 + 建会（订）；cancel_event 可选（连接器可不支持取消，多映出来则容忍）。
 var CategoryContractOps = map[string][]string{
-	"calendar": {"list_busy", "create_event", "cancel_event"},
+	"calendar": {"list_busy", "create_event"},
 	"mail":     {"send"},
 }
 

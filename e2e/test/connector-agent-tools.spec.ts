@@ -48,7 +48,7 @@
 //       连接器只给 agent 暴露归一后的品类 cap（calendar_book），不暴露 raw `op_*`，除非也
 //       显式带 `expose_as_agent_tools`。这条假设最需确认（见对应用例）。
 //
-//  [A6] **运行时入口 = diag `/internal/diag/connector/{id}/agent-call`**，按 op + args 调
+//  [A6] **运行时入口 = diag `/api/admin/diag/connector/{id}/agent-call`**，按 op + args 调
 //       SaaS、注入 auth、回原始（未归一）响应 —— 因为 agent 路无契约、无 response JSONata，
 //       LLM 直接消费 SaaS 形状。复用 connector-binding 的 diag 命名习惯。
 // ─────────────────────────────────────────────────────────────────────────────
@@ -298,7 +298,7 @@ async function diagAgentCall(
   op: string, args: Record<string, unknown>,
 ): Promise<number> {
   const res = await request.post(
-    `${BACKEND}/internal/diag/connector/${encodeURIComponent(id)}/agent-call`,
+    `${BACKEND}/api/admin/diag/connector/${encodeURIComponent(id)}/agent-call`,
     { headers: { 'X-Csrftoken': csrf }, data: { op, args } },
   );
   return res.status();

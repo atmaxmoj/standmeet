@@ -402,10 +402,10 @@ function expireUploadedAccessToken(id: string): void {
     { stdio: 'pipe' });
 }
 
-// diagListBusy —— §8 接口草图的运行时直验：POST /internal/diag/connector/{id}/list-busy。
+// diagListBusy —— §8 接口草图的运行时直验：POST /api/admin/diag/connector/{id}/list-busy。
 // 在 fresh request context 上发（非 page.request，eslint 允许）。返回 HTTP 状态。
 async function diagListBusy(request: APIRequestContext, id: string): Promise<number> {
-  const res = await request.post(`${BACKEND}/internal/diag/connector/${id}/list-busy`, { data: {} });
+  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, { data: {} });
   return res.status();
 }
 

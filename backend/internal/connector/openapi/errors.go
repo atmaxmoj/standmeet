@@ -17,4 +17,7 @@ var (
 	ErrBindingUnknownCategory = errors.New("binding declares an unknown category")
 	ErrBindingIncomplete      = errors.New("binding does not map all required contract operations")
 	ErrBindingBadJSONata      = errors.New("binding has an invalid JSONata expression")
+	// ErrMissingRequired —— 运行时 pre-flight：request JSONata 求出的 body 缺 spec 声明的必填
+	// 字段（如 events.insert 缺 summary）→ 拒，不发畸形请求。
+	ErrMissingRequired = errors.New("required request field missing")
 )

@@ -354,7 +354,7 @@ async function ssrfConsumeTimeRejected(playwright: Playwright): Promise<void> {
   // runtime consume: the upstream 302s toward 169.254.169.254 → the HTTP runtime
   // must refuse to follow the internal redirect, surfacing a policy refusal (not a
   // 200 with metadata, not a 5xx stack).
-  const diag = await request.post(`${BACKEND}/internal/diag/connector/${id}/list-busy`, {
+  const diag = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, {
     headers: { 'X-Csrftoken': csrf }, data: {},
   });
   expect(diag.status(), 'runtime refuses internal redirect').toBeGreaterThanOrEqual(400);

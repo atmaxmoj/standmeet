@@ -244,7 +244,8 @@ func (s *server) serveCalendarEventsInsert(w http.ResponseWriter, r *http.Reques
 func (s *server) writeInsertShaped(w http.ResponseWriter, resp *insertEventResponse, shape string) {
 	if shape == "array" {
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode([]*insertEventResponse{resp}); err != nil {
+		// 明确的数组（≥2 元素）→ 求值出序列塞不进标量契约字段，后端优雅降级。
+		if err := json.NewEncoder(w).Encode([]*insertEventResponse{resp, resp}); err != nil {
 			s.log.Error("encode insert array", "err", err)
 		}
 		return

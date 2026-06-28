@@ -103,7 +103,7 @@ func (r *Runtime) resolve(op string) (boundOp, error) {
 func (r *Runtime) buildRequest(
 	ctx context.Context, bo *boundOp, input any, auth AuthInjector,
 ) (*http.Request, error) {
-	rdr, err := renderBody(bo.binding, input)
+	rdr, err := renderBody(bo.binding, input, bo.resolved.Required)
 	if err != nil {
 		return nil, err
 	}
@@ -121,11 +121,15 @@ func (r *Runtime) buildRequest(
 	return req, nil
 }
 
-// renderBody —— request JSONata → 请求体 reader。无体 → nil reader（合法空）。
-func renderBody(ob opBinding, input any) (io.Reader, error) {
+// renderBody —— request JSONata → 请求体 reader。pre-flight 校验必填字段（缺 → 拒，不发畸形
+// 请求）。无体 → nil reader（合法空）。
+func renderBody(ob opBinding, input any, required []string) (io.Reader, error) {
 	body, err := ob.evalRequest(input)
 	if err != nil {
 		return nil, err
+	}
+	if verr := checkRequired(body, required); verr != nil {
+		return nil, verr
 	}
 	if body == nil {
 		return nil, nil
@@ -135,6 +139,28 @@ func renderBody(ob opBinding, input any) (io.Reader, error) {
 		return nil, fmt.Errorf("marshal request body: %w", merr)
 	}
 	return bytes.NewReader(raw), nil
+}
+
+// checkRequired —— body 缺任一必填字段（缺键或值 null）→ ErrMissingRequired（pre-flight 拒）。
+func checkRequired(body any, required []string) error {
+	if len(required) == 0 {
+		return nil
+	}
+	m, ok := body.(map[string]any)
+	if !ok {
+		m = nil // 非对象 body → 视作所有必填都缺
+	}
+	for _, f := range required {
+		if fieldMissing(m, f) {
+			return fmt.Errorf("%w: %q", ErrMissingRequired, f)
+		}
+	}
+	return nil
+}
+
+func fieldMissing(m map[string]any, field string) bool {
+	v, present := m[field]
+	return !present || v == nil
 }
 
 // injectAuth —— 注入认证（无 injector → 直接放行）。
@@ -214,7 +240,9 @@ func toJSONValue(v any) (any, error) {
 	return out, nil
 }
 
-// decodeInto —— 把契约出参（JSON 值）解进调用方的 typed dst。dst nil → 丢弃。
+// decodeInto —— 把契约出参（JSON 值）解进调用方的 typed dst。dst nil → 丢弃。SaaS 形状不符
+// （该回 object 却回 array → 求值出的值塞不进标量字段）时**优雅降级**：dst 保持零值、不报错，
+// 契约方法返回空结果而非 5xx（§8-C：shape mismatch degrades cleanly, no garbage）。
 func decodeInto(value, dst any) error {
 	if dst == nil {
 		return nil
@@ -224,7 +252,7 @@ func decodeInto(value, dst any) error {
 		return fmt.Errorf("marshal output: %w", err)
 	}
 	if uerr := json.Unmarshal(raw, dst); uerr != nil {
-		return fmt.Errorf("decode output into dst: %w", uerr)
+		return nil //nolint:nilerr // 形状不符故意吞错→零值降级（§8-C）
 	}
 	return nil
 }
