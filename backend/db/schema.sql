@@ -761,6 +761,8 @@ CREATE TABLE owner_connectors (
     spec             bytea         NOT NULL DEFAULT '\x'::bytea,
     binding          bytea         NOT NULL DEFAULT '\x'::bytea,
     auth_scheme      text          NOT NULL DEFAULT '',
+    -- protocol (caldav/smtp/…) for kind=protocol connectors owner-created in the UI (no spec).
+    protocol         text          NOT NULL DEFAULT '',
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );

@@ -117,6 +117,7 @@ type server struct {
 	root      string
 	gcal      gcalState
 	sendgrid  sendgridState
+	caldav    caldavState
 }
 
 func newServer(root string, log *slog.Logger) *server {
@@ -197,6 +198,15 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /__mock/sendgrid/reset", s.serveSendGridReset)
 	// consume-time SSRF probe: benign base, 302s to cloud-metadata at call time (#155 §8-H)
 	mux.HandleFunc("/__mock/ssrf/redirect-internal/", s.serveSSRFRedirectInternal)
+	// CalDAV server mock (#155 §8 provider-agnostic): per-connector collection + control plane
+	mux.HandleFunc("REPORT /caldav/{coll}", s.serveCalDAVReport)
+	mux.HandleFunc("PROPFIND /caldav/{coll}", s.serveCalDAVPropfind)
+	mux.HandleFunc("PUT /caldav/{coll}/{file}", s.serveCalDAVPut)
+	mux.HandleFunc("DELETE /caldav/{coll}/{file}", s.serveCalDAVDelete)
+	mux.HandleFunc("GET /__mock/caldav/{coll}/events", s.serveCalDAVEvents)
+	mux.HandleFunc("POST /__mock/caldav/{coll}/fail", s.serveCalDAVFail)
+	mux.HandleFunc("POST /__mock/caldav/{coll}/set_busy", s.serveCalDAVSetBusy)
+	mux.HandleFunc("POST /__mock/caldav/{coll}/reset", s.serveCalDAVReset)
 	mux.HandleFunc("GET /__mock/gcal/events", s.serveMockGCalEvents)
 	mux.HandleFunc("GET /__mock/gcal/deleted_events", s.serveMockGCalDeletedEvents)
 	mux.HandleFunc("GET /__mock/gcal/token_call_count", s.serveMockGCalTokenCount)

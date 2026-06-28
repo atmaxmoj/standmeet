@@ -14,18 +14,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// SaveUploadedInput —— 上传 openapi 连接器的存储入参。
+// SaveUploadedInput —— owner 自建连接器的存储入参（openapi: spec/binding；protocol: protocol）。
 type SaveUploadedInput struct {
 	OwnerID     string
 	ConnectorID string
 	Category    string
 	Kind        string
 	AuthScheme  string
+	Protocol    string
 	Spec        []byte
 	Binding     []byte
 }
 
-// SaveUploaded —— 存一个上传的 openapi 连接器（建行 + 存 manifest：spec/binding/auth_scheme）。
+// SaveUploaded —— 存一个 owner 自建连接器（openapi 带 spec/binding；protocol 带 protocol）。
 func (r *ConnectorRepo) SaveUploaded(ctx context.Context, in *SaveUploadedInput) error {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
@@ -33,7 +34,8 @@ func (r *ConnectorRepo) SaveUploaded(ctx context.Context, in *SaveUploadedInput)
 	}
 	if _, qerr := dbq.New(r.pool).InsertUploadedConnector(ctx, dbq.InsertUploadedConnectorParams{
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID, Category: in.Category,
-		Kind: in.Kind, Spec: in.Spec, Binding: in.Binding, AuthScheme: in.AuthScheme,
+		Kind: in.Kind, Spec: in.Spec, Binding: in.Binding,
+		AuthScheme: in.AuthScheme, Protocol: in.Protocol,
 	}); qerr != nil {
 		return fmt.Errorf("insert uploaded connector: %w", qerr)
 	}
@@ -55,12 +57,13 @@ func (r *ConnectorRepo) UpdateUploaded(ctx context.Context, in *SaveUploadedInpu
 	return nil
 }
 
-// UploadedManifest —— 一个上传连接器的存档 manifest（拉起重装用）。
+// UploadedManifest —— 一个 owner 自建连接器的存档 manifest（拉起重装用）。
 type UploadedManifest struct {
 	ConnectorID string
 	Category    string
 	Kind        string
 	AuthScheme  string
+	Protocol    string
 	Spec        []byte
 	Binding     []byte
 }
@@ -86,6 +89,7 @@ func (r *ConnectorRepo) GetManifest(
 	return UploadedManifest{
 		Spec: row.Spec, Binding: row.Binding, ConnectorID: connectorID,
 		Category: row.Category, Kind: row.Kind, AuthScheme: row.AuthScheme,
+		Protocol: row.Protocol,
 	}, nil
 }
 
@@ -100,7 +104,7 @@ func (r *ConnectorRepo) ListUploaded(ctx context.Context) ([]UploadedManifest, e
 		out = append(out, UploadedManifest{
 			Spec: rows[i].Spec, Binding: rows[i].Binding,
 			ConnectorID: rows[i].ConnectorID, Category: rows[i].Category,
-			Kind: rows[i].Kind, AuthScheme: rows[i].AuthScheme,
+			Kind: rows[i].Kind, AuthScheme: rows[i].AuthScheme, Protocol: rows[i].Protocol,
 		})
 	}
 	return out, nil

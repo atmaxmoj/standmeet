@@ -32,6 +32,8 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // 非 Google calendar provider 的 mock 控制面（CalDAV/test provider）：set_busy /
 // events / fail / reset，跟 gcal mock 同构但走「calendar」品类的 provider-agnostic 端。
 const CALDAV_MOCK = process.env['CALDAV_MOCK_URL'] ?? 'http://localhost:9000';
+// backend 容器内打 CalDAV 用 service-name（SSRF 白名单放行）；控制面读用 localhost。
+const CALDAV_API = 'http://job-board-mock:9000';
 
 const OWNER = {
   email: 'provider-agnostic@example.com',
@@ -43,13 +45,17 @@ const OWNER = {
 function futureSlot(daysAhead: number, hour: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + daysAhead);
+  // 默认 booking policy 只允许 Mon-Fri；跳到下一个工作日，slot 才过策略闸。
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
   d.setUTCHours(hour, 0, 0, 0);
   return d.toISOString();
 }
 
 test.describe('connector · provider-agnostic 消费闭环（区 F）', () => {
-  // 红契约：品类归一（非 gcal provider 喂 booker）+ MailContract 任意 kind 未建（connector.md §8 区 F）。
-  test.fixme(true, 'pending #155 §8-F: category normalization — non-Google calendar feeds booker unchanged');
+  // #155 §8-F：品类归一 —— 非 Google（CalDAV protocol）calendar 喂 booker，代码一行不改。
+  // SMTP mail 那条依赖「mail 作为访客 capability」（沙箱插件，未建），单条 fixme。
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => {
@@ -94,8 +100,9 @@ test.describe('connector · provider-agnostic 消费闭环（区 F）', () => {
       expect(events[0]!.attendees ?? [], 'attendee 来自 session profile').toContain('rachel@example.com');
     });
 
-  // SMTP（kind=protocol）→ mailer 经 MailContract.Send 发信，无视 kind。
-  test('SMTP 连接器（kind=protocol）→ mailer 经 MailContract.Send 发信（无视 kind）',
+  // SMTP（kind=protocol）→ mailer 经 MailContract.Send 发信，无视 kind。需「mail 作为访客
+  // capability」（mail.send，沙箱插件，未建），fixme。
+  test.fixme('SMTP 连接器（kind=protocol）→ mailer 经 MailContract.Send 发信（无视 kind）',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await connectSMTPMail(request, csrf);
@@ -187,10 +194,12 @@ async function connectCalDAVCalendar(
   const id = await ensureConnector(request, csrf, {
     kind: 'protocol', protocol: 'caldav', category: 'calendar',
   });
+  // 清这个 collection 的 mock 状态（events/busy/fail）—— 多 test 共享同一连接器，绝对计数要干净。
+  await request.post(`${CALDAV_MOCK}/__mock/caldav/${id}/reset`, { data: {} }).catch(() => undefined);
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
-      url: `${CALDAV_MOCK}/caldav`, username: 'owner', password: 'pw', tls: 'none',
+      url: `${CALDAV_API}/caldav/${id}`, username: 'owner', password: 'pw', tls: 'none',
     },
   });
   return connectAndRead(request, csrf, id);

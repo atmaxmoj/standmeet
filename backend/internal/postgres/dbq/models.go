@@ -315,6 +315,7 @@ type OwnerConnector struct {
 	Spec           []byte
 	Binding        []byte
 	AuthScheme     string
+	Protocol       string
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 }

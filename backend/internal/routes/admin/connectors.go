@@ -5,6 +5,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -128,10 +129,26 @@ func (h *Handlers) listConnectors() http.HandlerFunc {
 	}
 }
 
+// createConnectorReq —— Kind ""/"openapi" → 上传 spec+binding；"protocol" → 协议连接器（Protocol
+// 选 caldav/smtp，Category 显式给；openapi 的品类由 binding 定）。
 type createConnectorReq struct {
 	AuthScheme string          `json:"auth_scheme"`
+	Kind       string          `json:"kind"`
+	Protocol   string          `json:"protocol"`
+	Category   string          `json:"category"`
 	Spec       json.RawMessage `json:"spec"`
 	Binding    json.RawMessage `json:"binding"`
+}
+
+// createConnectorID —— 按 kind 建连接器：protocol 走 CreateProtocol（无 spec）；其余走 CreateUploaded
+// （openapi spec+binding）。
+func createConnectorID(
+	ctx context.Context, svc *connectorsvc.Service, ownerID string, body *createConnectorReq,
+) (string, error) {
+	if body.Kind == "protocol" {
+		return svc.CreateProtocol(ctx, ownerID, body.Category, body.Protocol)
+	}
+	return svc.CreateUploaded(ctx, ownerID, body.Spec, body.Binding, body.AuthScheme)
 }
 
 // createConnector —— 上传一个 openapi 连接器（spec + JSONata binding）。201 {id}；坏 manifest → 400。
@@ -146,8 +163,7 @@ func (h *Handlers) createConnector() http.HandlerFunc {
 			})
 			return
 		}
-		id, err := h.ConnectorsAdmin.Svc.CreateUploaded(
-			r.Context(), ownerID, body.Spec, body.Binding, body.AuthScheme)
+		id, err := createConnectorID(r.Context(), h.ConnectorsAdmin.Svc, ownerID, &body)
 		if err != nil {
 			h.writeConnErr(w, err)
 			return

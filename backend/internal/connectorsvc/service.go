@@ -99,6 +99,31 @@ func (s *Service) CreateUploaded(
 	return m.ID, nil
 }
 
+// CreateProtocol —— owner 自建一个 protocol 连接器（caldav/smtp…，无 spec）：装配（NewXxxConnector）
+// + 注册进 live Hub + 存档。凭据随后经 SaveCredentials 填。
+func (s *Service) CreateProtocol(
+	ctx context.Context, ownerID, category, protocol string,
+) (string, error) {
+	id, err := randomState()
+	if err != nil {
+		return "", err
+	}
+	m := &connector.Manifest{
+		ID: "up-" + id, Kind: "protocol", Protocol: protocol, Category: category,
+	}
+	cat, ierr := s.d.Installer.Install(m)
+	if ierr != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
+	}
+	if serr := s.d.Repo.SaveUploaded(ctx, &postgres.SaveUploadedInput{
+		OwnerID: ownerID, ConnectorID: m.ID, Category: cat, Kind: "protocol", Protocol: protocol,
+		Spec: []byte{}, Binding: []byte{}, // protocol 无 spec/binding，给空 bytea（列 NOT NULL）
+	}); serr != nil {
+		return "", fmt.Errorf("persist protocol connector: %w", serr)
+	}
+	return m.ID, nil
+}
+
 // UpdateUploaded —— 编辑已建上传连接器的 spec/binding（换认证 type 等）→ 重新装配（校验+SSRF）+
 // 重注册进 Hub + 存档。内置连接器不可编辑（spec 来自 embed）→ ErrInvalidManifest。
 func (s *Service) UpdateUploaded(
@@ -236,11 +261,12 @@ func (s *Service) manifestFor(
 	if err != nil {
 		return nil, fmt.Errorf("load uploaded manifest: %w", err)
 	}
-	if len(um.Spec) == 0 { // 空 spec = 不是上传连接器（无行 / 内置）
+	// 空 spec 且非 protocol = 不是 owner 自建连接器（无行 / 内置）。protocol 连接器 spec 本就空。
+	if len(um.Spec) == 0 && um.Kind != "protocol" {
 		return nil, ErrNotFound
 	}
 	return &connector.Manifest{
-		ID: id, Kind: um.Kind, Category: um.Category,
+		ID: id, Kind: um.Kind, Category: um.Category, Protocol: um.Protocol,
 		AuthScheme: um.AuthScheme, Spec: um.Spec, Binding: um.Binding,
 	}, nil
 }

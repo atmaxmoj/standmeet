@@ -107,9 +107,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 				HTTP: connectorEgressClient(), Verifier: d.connectorSlots,
 				Installer: uploadedInstaller{
 					slots: d.connectorSlots,
-					store: connectionStoreAdapter{repo: d.connectorRepo},
-					doer:  connectorEgressClient(),
-					allow: connectorEgressAllow(),
+					deps:  newAssembleDeps(d.connectorRepo),
 				},
 				Manifests: loadBuiltinConnectorManifests(d),
 			}),

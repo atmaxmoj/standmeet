@@ -71,11 +71,12 @@ WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 -- 上传一个 openapi 连接器（owner 在 UI 贴 spec + JSONata binding）：建行并存下 manifest
 -- （spec/binding/auth_scheme），首次未连。category/kind 由 binding 定。
 INSERT INTO owner_connectors (
-    owner_id, connector_id, category, kind, spec, binding, auth_scheme
+    owner_id, connector_id, category, kind, spec, binding, auth_scheme, protocol
 )
 VALUES (
     sqlc.arg(owner_id), sqlc.arg(connector_id), sqlc.arg(category),
-    sqlc.arg(kind), sqlc.arg(spec)::bytea, sqlc.arg(binding)::bytea, sqlc.arg(auth_scheme)
+    sqlc.arg(kind), sqlc.arg(spec)::bytea, sqlc.arg(binding)::bytea,
+    sqlc.arg(auth_scheme), sqlc.arg(protocol)
 )
 RETURNING *;
 
@@ -89,15 +90,16 @@ SET spec = sqlc.arg(spec)::bytea, binding = sqlc.arg(binding)::bytea,
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 
 -- name: GetConnectorManifest :one
--- 取一个连接器存档的 manifest 字段（上传连接器有 spec/binding；内置的这些为空）。
-SELECT category, kind, spec, binding, auth_scheme
+-- 取一个连接器存档的 manifest 字段（上传连接器有 spec/binding；protocol 连接器有 protocol）。
+SELECT category, kind, spec, binding, auth_scheme, protocol
 FROM owner_connectors
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
 
 -- name: ListUploadedConnectors :many
--- 拉起时重装：所有带 spec 的（上传的）连接器，跨 owner（v1 单 owner；Hub 按 connector_id）。
+-- 拉起时重装：所有 owner 自建连接器（带 spec 的 openapi + kind=protocol 协议连接器），跨 owner
+-- （v1 单 owner；Hub 按 connector_id）。内置连接器 spec 空且 kind!=protocol，不在此列。
 SELECT DISTINCT ON (connector_id)
-    connector_id, category, kind, spec, binding, auth_scheme
+    connector_id, category, kind, spec, binding, auth_scheme, protocol
 FROM owner_connectors
-WHERE length(spec) > 0
+WHERE length(spec) > 0 OR kind = 'protocol'
 ORDER BY connector_id, updated_at DESC;

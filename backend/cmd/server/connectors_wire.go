@@ -115,6 +115,42 @@ func (a smtpVaultAdapter) SMTPConfig(
 	}, nil
 }
 
+// caldavCredJSON —— caldav 连接器 credentials_enc 里的 JSON 形状（owner 填的 url/user/pass）。
+type caldavCredJSON struct {
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// caldavVaultAdapter —— ConnectorRepo → connector.CalDAVVault（解码 caldav 配置 JSON）。
+type caldavVaultAdapter struct{ repo *postgres.ConnectorRepo }
+
+func (a caldavVaultAdapter) Connected(
+	ctx context.Context, connectorID, ownerID string,
+) (bool, error) {
+	conn, err := a.repo.Get(ctx, ownerID, connectorID)
+	if err != nil {
+		return false, fmt.Errorf("caldav vault connected: %w", err)
+	}
+	return conn.Connected, nil
+}
+
+func (a caldavVaultAdapter) CalDAVConfig(
+	ctx context.Context, connectorID, ownerID string,
+) (connector.CalDAVConfig, error) {
+	conn, err := a.repo.Get(ctx, ownerID, connectorID)
+	if err != nil {
+		return connector.CalDAVConfig{}, fmt.Errorf("caldav vault config: %w", err)
+	}
+	var c caldavCredJSON
+	if len(conn.Credentials) > 0 {
+		if uerr := json.Unmarshal(conn.Credentials, &c); uerr != nil {
+			return connector.CalDAVConfig{}, fmt.Errorf("decode caldav credentials: %w", uerr)
+		}
+	}
+	return connector.CalDAVConfig{URL: c.URL, Username: c.Username, Password: c.Password}, nil
+}
+
 // slotStoreAdapter —— ConnectorRepo → connector.SlotStore（同品类的 active 连接器 id）。
 type slotStoreAdapter struct{ repo *postgres.ConnectorRepo }
 
@@ -143,18 +179,15 @@ func registerDiscoveredConnectors(
 		return fmt.Errorf("load builtin connectors: %w", err)
 	}
 	hub := connector.NewHub()
-	store := connectionStoreAdapter{repo: d.connectorRepo}
-	smtpVault := smtpVaultAdapter{repo: d.connectorRepo}
-	allow := connectorEgressAllow()
-	client := allow.GuardedHTTPClient()
+	deps := newAssembleDeps(d.connectorRepo)
 	for i := range manifests {
-		c, aerr := assembleConnector(&manifests[i], client, store, smtpVault, allow)
+		c, aerr := assembleConnector(&manifests[i], deps)
 		if aerr != nil {
 			return aerr
 		}
 		hub.Register(c)
 	}
-	if uerr := registerUploadedConnectors(ctx, hub, store, d.connectorRepo, allow); uerr != nil {
+	if uerr := registerUploadedConnectors(ctx, hub, d.connectorRepo, deps); uerr != nil {
 		return uerr
 	}
 	d.connectorSlots = connector.NewSlots(hub, slotStoreAdapter{repo: d.connectorRepo})
@@ -163,24 +196,22 @@ func registerDiscoveredConnectors(
 	return nil
 }
 
-// registerUploadedConnectors —— 拉起重装：DB 里 owner 上传的 openapi 连接器（存了 spec+binding）
-// 装配进 Hub（跟内置同一路 AssembleOpenAPI）。
+// registerUploadedConnectors —— 拉起重装：DB 里 owner 自建的连接器（openapi 带 spec+binding；
+// protocol 带 protocol）装配进 Hub（跟内置同一路 assembleConnector，归一）。
 func registerUploadedConnectors(
-	ctx context.Context, hub *connector.Hub,
-	store connectionStoreAdapter, repo *postgres.ConnectorRepo, allow connector.EgressAllow,
+	ctx context.Context, hub *connector.Hub, repo *postgres.ConnectorRepo, deps *assembleDeps,
 ) error {
 	uploaded, err := repo.ListUploaded(ctx)
 	if err != nil {
 		return fmt.Errorf("load uploaded connectors: %w", err)
 	}
-	client := allow.GuardedHTTPClient()
 	for i := range uploaded {
 		u := &uploaded[i]
 		m := &connector.Manifest{
-			ID: u.ConnectorID, Kind: u.Kind, Category: u.Category,
+			ID: u.ConnectorID, Kind: u.Kind, Category: u.Category, Protocol: u.Protocol,
 			AuthScheme: u.AuthScheme, Spec: u.Spec, Binding: u.Binding,
 		}
-		c, aerr := connector.AssembleOpenAPI(m, client, store, allow)
+		c, aerr := assembleConnector(m, deps)
 		if aerr != nil {
 			return fmt.Errorf("assemble uploaded connector %q: %w", u.ConnectorID, aerr)
 		}
@@ -189,25 +220,55 @@ func registerUploadedConnectors(
 	return nil
 }
 
-// uploadedInstaller —— connectorsvc.Installer：装配（校验）一份上传 manifest + 注册进 live Hub。
+// uploadedInstaller —— connectorsvc.Installer：装配（校验）一份自建 manifest + 注册进 live Hub。
 type uploadedInstaller struct {
 	slots *connector.Slots
-	store connectionStoreAdapter
-	doer  *http.Client
-	allow connector.EgressAllow
+	deps  *assembleDeps
 }
 
 func (i uploadedInstaller) Install(m *connector.Manifest) (string, error) {
-	c, err := connector.AssembleOpenAPI(m, i.doer, i.store, i.allow)
+	c, err := assembleConnector(m, i.deps)
 	if err != nil {
-		return "", fmt.Errorf("assemble uploaded connector: %w", err)
+		return "", fmt.Errorf("assemble connector: %w", err)
+	}
+	cat, cerr := manifestCategory(m)
+	if cerr != nil {
+		return "", cerr
+	}
+	i.slots.Register(c)
+	return cat, nil
+}
+
+// manifestCategory —— openapi 从 binding 取品类；protocol 用声明的 Category。
+func manifestCategory(m *connector.Manifest) (string, error) {
+	if m.Kind == "protocol" {
+		return m.Category, nil
 	}
 	cat, cerr := connector.BindingCategory(m)
 	if cerr != nil {
 		return "", fmt.Errorf("binding category: %w", cerr)
 	}
-	i.slots.Register(c)
 	return cat, nil
+}
+
+// assembleDeps —— 装配一个连接器要的全部依赖（归一：openapi + 各 protocol 同一套）。
+type assembleDeps struct {
+	doer        *http.Client
+	store       connectionStoreAdapter
+	smtpVault   smtpVaultAdapter
+	caldavVault caldavVaultAdapter
+	allow       connector.EgressAllow
+}
+
+func newAssembleDeps(repo *postgres.ConnectorRepo) *assembleDeps {
+	allow := connectorEgressAllow()
+	return &assembleDeps{
+		doer:        allow.GuardedHTTPClient(),
+		store:       connectionStoreAdapter{repo: repo},
+		smtpVault:   smtpVaultAdapter{repo: repo},
+		caldavVault: caldavVaultAdapter{repo: repo},
+		allow:       allow,
+	}
 }
 
 // loadBuiltinConnectorManifests —— admin 路由要的内置 manifest（id→category/kind/spec）。
@@ -221,31 +282,32 @@ func loadBuiltinConnectorManifests(d *runtimeDeps) []connector.Manifest {
 	return manifests
 }
 
-// assembleConnector —— 按 kind 把一份 manifest 装配成 Connector（内置/上传同一路）。
-func assembleConnector(
-	m *connector.Manifest, doer *http.Client,
-	store connector.ConnectionStore, smtpVault connector.SMTPVault, allow connector.EgressAllow,
-) (connector.Connector, error) {
+// assembleConnector —— 按 kind 把一份 manifest 装配成 Connector（内置/上传、openapi/protocol 同一路）。
+func assembleConnector(m *connector.Manifest, d *assembleDeps) (connector.Connector, error) {
 	switch m.Kind {
 	case "openapi":
-		c, err := connector.AssembleOpenAPI(m, doer, store, allow)
+		c, err := connector.AssembleOpenAPI(m, d.doer, d.store, d.allow)
 		if err != nil {
 			return nil, fmt.Errorf("assemble openapi connector: %w", err)
 		}
 		return c, nil
 	case "protocol":
-		return assembleProtocolConnector(m, smtpVault)
+		return assembleProtocolConnector(m, d)
 	default:
 		return nil, fmt.Errorf("unknown connector kind %q for %q", m.Kind, m.ID)
 	}
 }
 
-// assembleProtocolConnector —— protocol kind 按 Protocol 选内置实现。
+// assembleProtocolConnector —— protocol kind 按 Protocol 选内置协议实现（smtp / caldav …）。
 func assembleProtocolConnector(
-	m *connector.Manifest, smtpVault connector.SMTPVault,
+	m *connector.Manifest, d *assembleDeps,
 ) (connector.Connector, error) {
-	if m.Protocol == "smtp" {
-		return connector.NewSMTPConnector(m.ID, smtpVault), nil
+	switch m.Protocol {
+	case "smtp":
+		return connector.NewSMTPConnector(m.ID, d.smtpVault), nil
+	case "caldav":
+		return connector.NewCalDAVConnector(m.ID, d.caldavVault, d.doer), nil
+	default:
+		return nil, fmt.Errorf("unknown protocol %q for connector %q", m.Protocol, m.ID)
 	}
-	return nil, fmt.Errorf("unknown protocol %q for connector %q", m.Protocol, m.ID)
 }
