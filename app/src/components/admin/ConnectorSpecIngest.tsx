@@ -6,23 +6,33 @@
 
 import { useState } from 'react';
 
-import { useConnectorIngest } from '@/lib/admin/use-connector-ingest';
+import { useConnectorIngest, type AuthForms } from '@/lib/admin/use-connector-ingest';
+import { ConnectorCredForm } from '@/components/admin/ConnectorCredForm';
 
 export function ConnectorSpecIngest() {
   const hook = useConnectorIngest();
   return (
     <div className="mb-6 border-b border-(--color-rule)/60 pb-6">
       <SpecHeading />
-      <SpecTextarea onText={hook.setText} />
+      <SpecTextarea onText={hook.setText} onBlur={hook.submitSpec} />
       <div className="flex gap-2 mt-2 items-center">
         <SubmitButton onClick={hook.submitSpec} />
         <FileInput onFile={hook.ingestFile} />
       </div>
       <SpecUrlRow onFetch={hook.fetchUrl} />
-      {hook.error !== '' && <SpecError message={hook.error} />}
-      {hook.candidate !== null && <SpecCandidate title={hook.candidate.title} />}
+      <SpecError message={hook.error} />
+      <SpecCandidateMaybe candidate={hook.candidate} />
+      <CredFormMaybe auth={hook.auth} />
     </div>
   );
+}
+
+function SpecCandidateMaybe({ candidate }: { candidate: { title: string } | null }) {
+  return candidate === null ? null : <SpecCandidate title={candidate.title} />;
+}
+
+function CredFormMaybe({ auth }: { auth: AuthForms | null }) {
+  return auth === null ? null : <ConnectorCredForm auth={auth} />;
 }
 
 function SpecHeading() {
@@ -38,11 +48,12 @@ function SpecHeading() {
   );
 }
 
-function SpecTextarea({ onText }: { onText: (t: string) => void }) {
+function SpecTextarea({ onText, onBlur }: { onText: (t: string) => void; onBlur: () => void }) {
   return (
     <textarea
       data-testid="connector-spec-input"
       onChange={(e) => onText(e.target.value)}
+      onBlur={onBlur}
       placeholder='{ "openapi": "3.0.0", "info": { … }, "servers": [ … ], "paths": { … } }'
       rows={6}
       className="w-full bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
@@ -103,7 +114,7 @@ function SpecUrlRow({ onFetch }: { onFetch: (url: string) => void }) {
 }
 
 function SpecError({ message }: { message: string }) {
-  return (
+  return message === '' ? null : (
     <p
       data-testid="connector-spec-error"
       className="mono text-[12px] text-(--color-accent) mt-3"

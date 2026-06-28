@@ -16,10 +16,14 @@ import (
 // specFetchReason —— URL 拉取失败的 owner 友好文案（不漏底层）。
 const specFetchReason = "could not fetch the spec from that URL (is it reachable?)"
 
-// SpecVerdict —— 摄入校验结果：OK → Title（候选标题）；否则 Reason（人类可读拒绝理由）。
+// AuthForms —— 派生凭据表单（别名透传，让 adminroutes 经 connectorsvc 用，不直接 import connector）。
+type AuthForms = connector.AuthForms
+
+// SpecVerdict —— 摄入校验结果：OK → Title（候选标题）+ 派生凭据表单；否则 Reason（拒绝理由）。
 type SpecVerdict struct {
 	Title  string
 	Reason string
+	Auth   connector.AuthForms
 	OK     bool
 }
 
@@ -35,7 +39,7 @@ func (s *Service) ValidateSpec(ctx context.Context, spec []byte, url string) Spe
 		raw = fetched
 	}
 	v := connector.ValidateIngestSpec(raw)
-	return SpecVerdict{OK: v.OK, Title: v.Title, Reason: v.Reason}
+	return SpecVerdict{OK: v.OK, Title: v.Title, Reason: v.Reason, Auth: v.Auth}
 }
 
 // fetchSpec —— 从 URL 拉 spec 文本（限长 + 非 2xx 视为失败）。owner-only；任何失败统一回 ErrSpecFetch。

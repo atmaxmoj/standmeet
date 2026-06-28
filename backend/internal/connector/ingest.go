@@ -8,18 +8,27 @@ import "github.com/atmaxmoj/standmeet/internal/connector/openapi"
 // MaxSpecBytes —— 摄入 spec 的尺寸上限（前后端共用一个数）。
 const MaxSpecBytes = openapi.MaxSpecBytes
 
-// IngestVerdict —— 摄入校验结果（owner 友好）：OK → Title；否则 Reason 是人类可读拒绝理由。
+// AuthForms / AuthSchemeForm / AuthFieldForm —— 派生的凭据表单描述（别名透传 openapi 类型，让
+// connectorsvc/adminroutes 经 connector 用，不直接 import openapi 子包）。
+type AuthForms = openapi.AuthForms
+
+// IngestVerdict —— 摄入校验结果（owner 友好）：OK → Title + 派生凭据表单；否则 Reason 是拒绝理由。
 type IngestVerdict struct {
 	Title  string
 	Reason string
+	Auth   AuthForms
 	OK     bool
 }
 
-// ValidateIngestSpec —— 校验一份待摄入 spec。错误转成 owner 友好 verdict（不外泄 Go error）。
+// ValidateIngestSpec —— 校验一份待摄入 spec + 派生凭据表单。错误转成 owner 友好 verdict。
 func ValidateIngestSpec(raw []byte) IngestVerdict {
 	title, err := openapi.ValidateIngest(raw)
 	if err != nil {
 		return IngestVerdict{Reason: err.Error()}
 	}
-	return IngestVerdict{OK: true, Title: title}
+	spec, perr := openapi.ParseSpec(raw)
+	if perr != nil {
+		return IngestVerdict{Reason: "could not parse the spec"}
+	}
+	return IngestVerdict{OK: true, Title: title, Auth: openapi.DeriveAuthForms(spec)}
 }

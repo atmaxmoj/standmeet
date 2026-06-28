@@ -221,7 +221,6 @@ async function claimOwner(playwright: Playwright): Promise<void> {
 
 test.describe('connector · 凭据表单从 spec 派生 · happy（区 B）', () => {
   // 红契约：spec-driven 凭据表单派生未建（docs/design/connector.md §4/§8 区 B）。
-  test.fixme(true, 'pending #155: spec-driven credential form derivation');
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
 
@@ -323,7 +322,6 @@ test.describe('connector · 凭据表单从 spec 派生 · happy（区 B）', ()
 // apiKey in:query 的位置展示 / oauth2 多 scope 全列。独立 describe 让上一块
 // 回调保持 ≤70 行。
 test.describe('connector · 凭据表单从 spec 派生 corner · happy（区 B）', () => {
-  test.fixme(true, 'pending #155: spec-driven credential form derivation corners');
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
 
@@ -378,7 +376,6 @@ test.describe('connector · 凭据表单从 spec 派生 corner · happy（区 B�
 });
 
 test.describe('connector · 凭据表单从 spec 派生 · err（区 B）', () => {
-  test.fixme(true, 'pending #155: spec-driven credential form derivation');
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
 
@@ -413,6 +410,9 @@ test.describe('connector · 凭据表单从 spec 派生 · err（区 B）', () =
 // credential form / status is what each test asserts against.
 async function pasteSpec(page: Page, spec: string): Promise<void> {
   await page.getByTestId('admin-nav-connectors').click();
+  await page.waitForURL('**/admin/connectors**');
+  // spec-paste input lives in the add panel (same entry as spec-ingest).
+  await page.getByTestId('connector-add-open').click();
   await page.getByTestId('connector-spec-input').fill(spec);
   // derivation is triggered by leaving the field; assertions then poll the form.
   await page.getByTestId('connector-spec-input').blur();

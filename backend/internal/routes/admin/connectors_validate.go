@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 )
 
 // maxSpecBodyBytes —— validate-spec 请求体上限（spec 文本 + JSON 信封余量；超大 spec 前端先拒）。
@@ -21,9 +22,10 @@ type validateSpecReq struct {
 }
 
 type validateSpecResp struct {
-	Title string `json:"title,omitempty"`
-	Error string `json:"error,omitempty"`
-	OK    bool   `json:"ok"`
+	Title string                 `json:"title,omitempty"`
+	Error string                 `json:"error,omitempty"`
+	Auth  connectorsvc.AuthForms `json:"auth"`
+	OK    bool                   `json:"ok"`
 }
 
 // validateSpec —— 校验摄入的 spec。坏 body → 400；校验失败 → 200 {ok:false,error}（人类可读，
@@ -43,6 +45,6 @@ func (h *Handlers) validateSpec() http.HandlerFunc {
 			writeJSON(h.Log, w, validateSpecResp{OK: false, Error: v.Reason})
 			return
 		}
-		writeJSON(h.Log, w, validateSpecResp{OK: true, Title: v.Title})
+		writeJSON(h.Log, w, validateSpecResp{OK: true, Title: v.Title, Auth: v.Auth})
 	}
 }
