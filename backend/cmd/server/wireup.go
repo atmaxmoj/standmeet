@@ -111,6 +111,8 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 				},
 				Manifests: loadBuiltinConnectorManifests(d),
 			}),
+			Mail:     d.connectorSlots.Mail(),
+			MailKind: d.connectorSlots.MailKind,
 		},
 		Capabilities: adminroutes.CapabilityAdminDeps{
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
@@ -156,6 +158,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
 	bookerDeps := newBookerDeps(d, &skills)
 	wireBookerSocket(ctx, d, bookerDeps)
+	wireMailSenderSocket(ctx, d)
 	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
 	})

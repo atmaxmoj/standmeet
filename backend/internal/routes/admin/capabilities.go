@@ -153,13 +153,17 @@ func (h *Handlers) registryRows(cc *capabilityContext) []capabilityRowResp {
 	return out
 }
 
-// dependencyFor —— capability 依赖的 connector 状态（目前只有 calendar.book
-// 依赖 Google Calendar）。无依赖返 nil。
+// dependencyFor —— capability 依赖的 connector 状态。calendar.book → 日历品类槽；mail.send →
+// mail 品类槽（connected 由 active 连接器决定，不绑具体 provider）。无依赖返 nil。
 func dependencyFor(id string, cc *capabilityContext) *capDependencyResp {
-	if id == "calendar.book" {
+	switch id {
+	case "calendar.book":
 		return &capDependencyResp{Name: "Google Calendar", Connected: cc.gcalConn}
+	case "mail.send":
+		return &capDependencyResp{Name: "Mail", Connected: cc.mailConn}
+	default:
+		return nil
 	}
-	return nil
 }
 
 // connectorRows —— connector 类型各一行（kind=connector，origin=managed，

@@ -367,17 +367,14 @@ test.describe('connector · openapi mail（SendGrid-style，kind=openapi 填 mai
   let request: APIRequestContext;
   let csrf: string;
 
-  test.beforeAll(async ({ playwright }) => {
+  // 每 test 重置实例 + owner + SendGrid mock（连接器跨 test 不累积；dep-gating 断绝对状态要干净）。
+  test.beforeEach(async ({ playwright }) => {
     ({ request, csrf } = await initOwner(playwright));
   });
-  test.afterAll(async () => { await request.dispose(); });
-  // 每 test 起前清 SendGrid mock 收件箱（owner/连接器跨 test 共享，但每 test 断自己的投递计数）。
-  test.beforeEach(async () => { await resetSendGridMock(request); });
+  test.afterEach(async () => { await request.dispose(); });
 
-  // happy: 装配 openapi mail 连接器 → connect(apiKey) → mail.send 解闸 → MailContract 经它发信 → mock 收到。
-  // mail.send 这条 capability 依赖闸需要「mail 作为访客能力」（沙箱插件，未建）；发信主干本身
-  // 由下面 request-construct / degrade 用例覆盖。建好 mail 访客 capability 后去 fixme。
-  test.fixme('assemble openapi mail connector → connect (apiKey, no dance) → mail.send un-gates → MailContract.Send goes through it → mock received',
+  // happy: 装配 openapi mail 连接器 → connect(apiKey) → mail.send cap 解闸 → MailContract 经它发信 → mock 收到。
+  test('assemble openapi mail connector → connect (apiKey, no dance) → mail.send un-gates → MailContract.Send goes through it → mock received',
     async () => { await runHappyMainline(request, csrf); });
 
   // happy: request JSONata 把契约 {to,subject,text} 正确构造成 SaaS send body 形状。
@@ -409,6 +406,6 @@ test.describe('connector · openapi mail（SendGrid-style，kind=openapi 填 mai
     async () => { await runNonSendingFlagged(request, csrf); });
 
   // dep-gating: 断开 openapi mail 连接器 → mail.send re-gate。需「mail 作为访客 capability」（未建）。
-  test.fixme('disconnect the openapi mail connector → mail.send re-gates',
+  test('disconnect the openapi mail connector → mail.send re-gates',
     async () => { await runDepGating(request, csrf); });
 });

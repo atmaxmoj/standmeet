@@ -102,7 +102,7 @@ test.describe('connector · provider-agnostic 消费闭环（区 F）', () => {
 
   // SMTP（kind=protocol）→ mailer 经 MailContract.Send 发信，无视 kind。需「mail 作为访客
   // capability」（mail.send，沙箱插件，未建），fixme。
-  test.fixme('SMTP 连接器（kind=protocol）→ mailer 经 MailContract.Send 发信（无视 kind）',
+  test('SMTP 连接器（kind=protocol）→ mailer 经 MailContract.Send 发信（无视 kind）',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await connectSMTPMail(request, csrf);
@@ -215,7 +215,7 @@ async function connectSMTPMail(request: APIRequestContext, csrf: string): Promis
     headers: { 'X-Csrftoken': csrf },
     data: {
       host, port: '1025', username: '', password: '',
-      from: 'noreply@standmeet.test', tls: 'none',
+      from_address: 'noreply@standmeet.test', from_name: 'StandMeet',
     },
   });
   return connectAndRead(request, csrf, id);

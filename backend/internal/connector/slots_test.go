@@ -18,6 +18,7 @@ type fakeCalConnector struct {
 }
 
 func (f fakeCalConnector) Name() string { return f.name }
+func (fakeCalConnector) Kind() string   { return "openapi" }
 
 func (f fakeCalConnector) Connected(_ context.Context, _ string) (bool, error) {
 	return f.connected, nil

@@ -27,6 +27,7 @@ import "context"
 // 按名解析到 Connector 后，按需类型断言到它要的能力接口。基面上**没有凭据 getter**。
 type Connector interface {
 	Name() string
+	Kind() string // "openapi" | "protocol"（消费者经此知道底下走 HTTP spec 还是内置协议）
 	Connected(ctx context.Context, ownerID string) (bool, error)
 }
 

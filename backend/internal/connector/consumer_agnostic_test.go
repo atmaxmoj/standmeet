@@ -50,6 +50,7 @@ type fakeDiscord struct {
 }
 
 func (*fakeDiscord) Name() string { return "discord" }
+func (*fakeDiscord) Kind() string { return "protocol" }
 
 func (d *fakeDiscord) Connected(_ context.Context, _ string) (bool, error) {
 	return d.botToken != "", nil

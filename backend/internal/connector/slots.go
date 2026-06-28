@@ -60,6 +60,16 @@ func (s *Slots) ConnectorMail(id string) (usecases.MailProxy, bool) {
 	return m, isMail
 }
 
+// MailKind —— active mail 连接器的 kind（openapi/protocol）；无 active → 空串。消费者（test-send）
+// 借此报 via_kind，证「mailer 不挑 kind」。
+func (s *Slots) MailKind(ctx context.Context, ownerID string) string {
+	c, err := s.active(ctx, ownerID, "mail")
+	if err != nil {
+		return ""
+	}
+	return c.Kind()
+}
+
 // VerifyConnector —— 按名解析连接器跑连接测试（protocol connect 用）。未注册 → 错；不支持
 // 连接测试（非 Verifier）→ nil（存即可用，无需测试）。
 func (s *Slots) VerifyConnector(ctx context.Context, connectorID, ownerID string) error {

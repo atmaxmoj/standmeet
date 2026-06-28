@@ -17,6 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 const (
@@ -24,9 +25,11 @@ const (
 	paramID      = "id"
 )
 
-// ConnectorsAdminDeps —— 通用连接器路由依赖：编排服务。
+// ConnectorsAdminDeps —— 通用连接器路由依赖：编排服务 + active mail 分派器（test-send 用）。
 type ConnectorsAdminDeps struct {
-	Svc *connectorsvc.Service
+	Svc      *connectorsvc.Service
+	Mail     usecases.MailProxy
+	MailKind func(ctx context.Context, ownerID string) string
 }
 
 // MountConnectors —— /connectors 子路由。
@@ -34,6 +37,7 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 	r.Route("/connectors", func(r chi.Router) {
 		r.Get("/", h.listConnectors())
 		r.Post("/", h.createConnector())
+		r.Post("/mail/test-send", h.mailTestSend())
 		r.Route("/{id}", func(r chi.Router) {
 			r.Put("/", h.updateConnector())
 			r.Get("/credential-form", h.connectorCredentialForm())
@@ -225,6 +229,41 @@ func toCredFormResp(f *connectorsvc.CredentialForm) credFormResp {
 		fields = append(fields, credFormField{Key: k})
 	}
 	return credFormResp{AuthType: f.AuthType, Fields: fields}
+}
+
+type mailTestSendReq struct {
+	To      string `json:"to"`
+	Subject string `json:"subject"`
+	Text    string `json:"text"`
+}
+
+type mailTestSendResp struct {
+	ViaKind string `json:"via_kind,omitempty"`
+	Ok      bool   `json:"ok"`
+}
+
+// mailTestSend —— owner 自测：经 active mail 连接器（品类契约）发一封。报 via_kind 证 mailer 不挑 kind。
+func (h *Handlers) mailTestSend() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		var body mailTestSendReq
+		dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
+		if derr := dec.Decode(&body); derr != nil {
+			writeError(h.Log, w, apierr.Envelope{
+				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
+			})
+			return
+		}
+		serr := h.ConnectorsAdmin.Mail.Send(r.Context(), ownerID,
+			usecases.MailMessage{To: body.To, Subject: body.Subject, Body: body.Text})
+		if serr != nil {
+			writeJSON(h.Log, w, mailTestSendResp{Ok: false})
+			return
+		}
+		writeJSON(h.Log, w, mailTestSendResp{
+			Ok: true, ViaKind: h.ConnectorsAdmin.MailKind(r.Context(), ownerID),
+		})
+	}
 }
 
 func (h *Handlers) saveConnectorCredentials() http.HandlerFunc {

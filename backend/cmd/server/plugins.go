@@ -50,6 +50,7 @@ func connectorDepRegistry(ctx context.Context, d *runtimeDeps) *capreg.DepRegist
 func registerBuiltins(d *runtimeDeps, hooks map[string]usecases.CapHooks) {
 	manifests := []mcpplugin.Manifest{
 		askVisitorManifest(), summarizeManifest(), bookerManifest(), retrievalManifest(),
+		mailSenderManifest(),
 	}
 	dupes := usecases.RegisterDiscoveredPluginsHooked(
 		d.agentSkills, manifests, capreg.OriginBuiltin, hooks)
@@ -79,6 +80,30 @@ func retrievalManifest() mcpplugin.Manifest {
 			Env:     map[string]string{"RETRIEVAL_SOCKET": sock},
 			Sandbox: &mcpplugin.Sandbox{
 				PluginDir:   "/srv/plugins/retrieval",
+				HostSockets: []string{sock},
+			},
+		},
+	}
+}
+
+// mailSenderManifest —— mail.send 内建：访客向 owner 配的 mail 连接器发信。硬依赖 mail 品类槽
+// （dep provider 名 "smtp"）connected → 未连经 global 单点闸隐藏。沙箱插件经 host socket 调
+// MailContract.Send，落到 active mail 连接器（openapi SaaS / SMTP，插件不知 kind）。
+func mailSenderManifest() mcpplugin.Manifest {
+	const sock = "/run/standmeet/mail-sender.sock"
+	return mcpplugin.Manifest{
+		ID:           "mail.send",
+		Version:      "1",
+		Shape:        mcpplugin.ShapeVisitorOnly,
+		ACL:          mcpplugin.ACLRoleGranted,
+		RawToolNames: true,
+		Requires:     []string{"smtp"},
+		Transport: mcpplugin.Transport{
+			Kind:    mcpplugin.TransportSandboxStdio,
+			Command: "/plugin/mail-sender",
+			Env:     map[string]string{"MAIL_SENDER_SOCKET": sock},
+			Sandbox: &mcpplugin.Sandbox{
+				PluginDir:   "/srv/plugins/mail-sender",
 				HostSockets: []string{sock},
 			},
 		},

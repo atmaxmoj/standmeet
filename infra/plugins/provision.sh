@@ -72,6 +72,7 @@ build_go_into ask-visitor "mcp-servers/ask-visitor" .
 build_go_into summarize   "mcp-servers/summarize"  .
 build_go_into booker      "mcp-servers/booker"     .
 build_go_into retrieval   "mcp-servers/retrieval"  .
+build_go_into mail-sender "mcp-servers/mail-sender" .
 install_into everything "@modelcontextprotocol/server-everything@2026.1.26"
 install_into fsmcp      "@modelcontextprotocol/server-filesystem@2026.1.14"
 # fetch —— shared by both netfetch (allow_net) and cagedfetch (--network=none);
