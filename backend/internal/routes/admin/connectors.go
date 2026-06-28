@@ -38,6 +38,7 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 		r.Get("/", h.listConnectors())
 		r.Post("/", h.createConnector())
 		r.Post("/mail/test-send", h.mailTestSend())
+		r.Post("/validate-spec", h.validateSpec())
 		r.Route("/{id}", func(r chi.Router) {
 			r.Put("/", h.updateConnector())
 			r.Get("/credential-form", h.connectorCredentialForm())

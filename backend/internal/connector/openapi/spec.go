@@ -15,9 +15,18 @@ import (
 type Spec struct {
 	Paths      map[string]map[string]operation `yaml:"paths"`
 	Components components                      `yaml:"components"`
+	Info       specInfo                        `yaml:"info"`
 	OpenAPI    string                          `yaml:"openapi"`
 	Servers    []server                        `yaml:"servers"`
 }
+
+// specInfo —— spec 的 info 块（摄入候选展示 title 给 owner 确认）。
+type specInfo struct {
+	Title string `yaml:"title"`
+}
+
+// Title —— spec 的 info.title（摄入候选展示）。
+func (s *Spec) Title() string { return s.Info.Title }
 
 type server struct {
 	URL string `yaml:"url"`

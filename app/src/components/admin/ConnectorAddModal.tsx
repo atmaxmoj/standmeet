@@ -16,6 +16,7 @@ import {
 } from '@/lib/admin/connector-registry';
 
 import { ConnectorConfigForm } from '@/components/admin/ConnectorConfigForm';
+import { ConnectorSpecIngest } from '@/components/admin/ConnectorSpecIngest';
 
 interface Props {
   installed: readonly string[];
@@ -81,6 +82,7 @@ function Catalog({
 }) {
   return (
     <div className="sm-connector-modal-body">
+      <ConnectorSpecIngest />
       <CategoryTabs cat={cat} onCat={onCat} />
       <CategoryBlurb cat={cat} />
       <ConnectorGrid cat={cat} installed={installed} onPick={onPick} />

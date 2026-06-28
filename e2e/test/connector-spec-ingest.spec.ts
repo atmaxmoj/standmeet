@@ -42,7 +42,6 @@ async function claimOwner(playwright: Playwright): Promise<void> {
 
 test.describe('connector · 区A spec 摄入 · happy', () => {
   // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
-  test.fixme(true, 'pending #155: connector OpenAPI spec ingest');
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
@@ -66,19 +65,19 @@ test.describe('connector · 区A spec 摄入 · happy', () => {
   // happy —— 同一份 spec 走「上传文件」入口（贴 vs 上传两条路同结果）。
   test('合法 3.0 spec 文件上传 → 解析 → candidate 出现', async ({ adminPage: page }) => {
     await openSpecPaste(page);
-    await page.getByTestId('connector-spec-input').setInputFiles({
+    // 文件上传走专门的 file input（Playwright setInputFiles 只认 input[type=file]；粘贴用
+    // textarea connector-spec-input）。onChange 读文件 → 同一校验路 → candidate。
+    await page.getByTestId('connector-spec-file').setInputFiles({
       name: 'calendar.openapi.json',
       mimeType: 'application/json',
       buffer: Buffer.from(validCalendarSpec(), 'utf-8'),
     });
-    await page.getByTestId('connector-spec-submit').click();
     await expect(page.getByTestId('connector-candidate')).toContainText(/calendar/i);
   });
 });
 
 test.describe('connector · 区A spec 摄入 · err', () => {
   // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
-  test.fixme(true, 'pending #155: connector OpenAPI spec ingest');
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
@@ -163,7 +162,6 @@ test.describe('connector · 区A spec 摄入 · err', () => {
 // ──────────────────────────────────────────────────────────────────────────
 test.describe('connector · 区A spec 摄入 corner · err', () => {
   // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
-  test.fixme(true, 'pending #155: connector OpenAPI spec ingest corners');
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
@@ -219,7 +217,6 @@ test.describe('connector · 区A spec 摄入 corner · err', () => {
 });
 
 test.describe('connector · 区A spec 摄入 corner · happy', () => {
-  test.fixme(true, 'pending #155: connector OpenAPI spec ingest corners');
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
