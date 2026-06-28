@@ -55,6 +55,8 @@ type gcalState struct {
 	events         []mockEvent
 	deletedEvents  []mockEvent
 	fails          map[string]*failInjection // op → injected failure (retry-matrix e2e)
+	freeBusyRaw    []byte                     // set_freebusy_raw: 下次 freeBusy 原样回这个（一次性）
+	eventShape     string                     // set_event_shape: "" | "object" | "array"（响应形状）
 	tokenCallCount int
 	revoked        bool // owner revoked at Google → next refresh returns invalid_grant
 	mu             sync.Mutex
@@ -225,14 +227,29 @@ func (s *server) serveCalendarEventsInsert(w http.ResponseWriter, r *http.Reques
 		SendUpdates: r.URL.Query().Get("sendUpdates"),
 	}
 	existing, fail := s.insertDecision(ev)
+	var shape string
+	s.withState(func(st *gcalState) { shape = st.eventShape })
 	switch {
 	case existing != nil: // idempotent replay: same id already stored
-		writeInsertEvent(s.log, w, eventToInsertResp(existing))
+		s.writeInsertShaped(w, eventToInsertResp(existing), shape)
 	case fail != nil:
 		s.applyInsertFail(w, fail)
 	default:
-		writeInsertEvent(s.log, w, eventToInsertResp(&ev))
+		s.writeInsertShaped(w, eventToInsertResp(&ev), shape)
 	}
+}
+
+// writeInsertShaped —— 正常回 object；set_event_shape=array 时回 [obj]（验 binding response
+// 抽取对「形状不符」的处理：要么归一、要么拒，不崩）。
+func (s *server) writeInsertShaped(w http.ResponseWriter, resp *insertEventResponse, shape string) {
+	if shape == "array" {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode([]*insertEventResponse{resp}); err != nil {
+			s.log.Error("encode insert array", "err", err)
+		}
+		return
+	}
+	writeInsertEvent(s.log, w, resp)
 }
 
 const connResetAfterWrite = "connreset-after-write"
@@ -337,10 +354,15 @@ func (s *server) serveCalendarFreeBusy(w http.ResponseWriter, r *http.Request) {
 		busy    []busyWindow
 		fail    *failInjection
 		revoked bool
+		raw     []byte
 	)
 	s.withState(func(st *gcalState) {
 		revoked = st.revoked
 		if revoked {
+			return
+		}
+		if st.freeBusyRaw != nil { // 一次性：原样回这坨 JSON（验 binding 对畸形/缺字段的归一）
+			raw, st.freeBusyRaw = st.freeBusyRaw, nil
 			return
 		}
 		if f, ok := st.takeFail("freeBusy"); ok {
@@ -351,6 +373,11 @@ func (s *server) serveCalendarFreeBusy(w http.ResponseWriter, r *http.Request) {
 	})
 	if revoked { // 外部撤销后 access token 被拒（401）→ 后端刷新撞 invalid_grant 降级
 		writeCalendarUnauthorized(s.log, w)
+		return
+	}
+	if raw != nil {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
 		return
 	}
 	if fail != nil {
@@ -400,12 +427,54 @@ func (s *server) serveMockSetBusy(w http.ResponseWriter, r *http.Request) {
 	writeOK(s.log, w)
 }
 
+type setFreeBusyRawRequest struct {
+	Body json.RawMessage `json:"body"`
+}
+
+// serveMockSetFreeBusyRaw —— 让下次 freeBusy 原样回 body 里这坨 JSON（验 binding response 归一）。
+func (s *server) serveMockSetFreeBusyRaw(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body", http.StatusBadRequest)
+		return
+	}
+	var req setFreeBusyRawRequest
+	if uerr := json.Unmarshal(body, &req); uerr != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	s.withState(func(st *gcalState) { st.freeBusyRaw = []byte(req.Body) })
+	writeOK(s.log, w)
+}
+
+type setEventShapeRequest struct {
+	Shape string `json:"shape"`
+}
+
+// serveMockSetEventShape —— 控 events.insert 回 object（正常）或 array（形状不符）。
+func (s *server) serveMockSetEventShape(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body", http.StatusBadRequest)
+		return
+	}
+	var req setEventShapeRequest
+	if uerr := json.Unmarshal(body, &req); uerr != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	s.withState(func(st *gcalState) { st.eventShape = req.Shape })
+	writeOK(s.log, w)
+}
+
 func (s *server) serveMockGCalReset(w http.ResponseWriter, _ *http.Request) {
 	s.withState(func(st *gcalState) {
 		st.busy = nil
 		st.events = nil
 		st.deletedEvents = nil
 		st.fails = nil
+		st.freeBusyRaw = nil
+		st.eventShape = ""
 		st.tokenCallCount = 0
 		st.revoked = false
 	})
