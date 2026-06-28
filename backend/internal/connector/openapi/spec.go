@@ -98,6 +98,15 @@ func (s *Spec) SecuritySchemes() map[string]SecurityScheme {
 	return s.Components.SecuritySchemes
 }
 
+// ServerURLs —— 所有 server 的 base URL（出站 SSRF 守卫装配期校验用）。
+func (s *Spec) ServerURLs() []string {
+	out := make([]string, 0, len(s.Servers))
+	for i := range s.Servers {
+		out = append(out, s.Servers[i].URL)
+	}
+	return out
+}
+
 // serverURL —— 第一个 server 的 base URL（去尾斜杠）。无 → 空串。
 func (s *Spec) serverURL() string {
 	if len(s.Servers) == 0 {

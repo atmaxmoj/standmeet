@@ -9,7 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
@@ -17,6 +19,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
+
+// connectorEgressAllow —— 出站 SSRF 白名单（CONNECTOR_EGRESS_ALLOW 逗号分隔 hostname；
+// e2e 放行 job-board-mock，prod 留空 = 全拦内网）。
+func connectorEgressAllow() connector.EgressAllow {
+	return connector.NewEgressAllow(strings.Split(os.Getenv("CONNECTOR_EGRESS_ALLOW"), ","))
+}
+
+// connectorEgressClient —— SSRF-guarded 出站客户端（按 allow-list 放行，否则拦内网）。
+func connectorEgressClient() *http.Client {
+	return connectorEgressAllow().GuardedHTTPClient()
+}
 
 // connectionStoreAdapter —— ConnectorRepo → connector.ConnectionStore（换 arg 次序）。
 type connectionStoreAdapter struct{ repo *postgres.ConnectorRepo }
@@ -132,14 +145,16 @@ func registerDiscoveredConnectors(
 	hub := connector.NewHub()
 	store := connectionStoreAdapter{repo: d.connectorRepo}
 	smtpVault := smtpVaultAdapter{repo: d.connectorRepo}
+	allow := connectorEgressAllow()
+	client := allow.GuardedHTTPClient()
 	for i := range manifests {
-		c, aerr := assembleConnector(&manifests[i], http.DefaultClient, store, smtpVault)
+		c, aerr := assembleConnector(&manifests[i], client, store, smtpVault, allow)
 		if aerr != nil {
 			return aerr
 		}
 		hub.Register(c)
 	}
-	if uerr := registerUploadedConnectors(ctx, hub, store, d.connectorRepo); uerr != nil {
+	if uerr := registerUploadedConnectors(ctx, hub, store, d.connectorRepo, allow); uerr != nil {
 		return uerr
 	}
 	d.connectorSlots = connector.NewSlots(hub, slotStoreAdapter{repo: d.connectorRepo})
@@ -152,19 +167,20 @@ func registerDiscoveredConnectors(
 // 装配进 Hub（跟内置同一路 AssembleOpenAPI）。
 func registerUploadedConnectors(
 	ctx context.Context, hub *connector.Hub,
-	store connectionStoreAdapter, repo *postgres.ConnectorRepo,
+	store connectionStoreAdapter, repo *postgres.ConnectorRepo, allow connector.EgressAllow,
 ) error {
 	uploaded, err := repo.ListUploaded(ctx)
 	if err != nil {
 		return fmt.Errorf("load uploaded connectors: %w", err)
 	}
+	client := allow.GuardedHTTPClient()
 	for i := range uploaded {
 		u := &uploaded[i]
 		m := &connector.Manifest{
 			ID: u.ConnectorID, Kind: u.Kind, Category: u.Category,
 			AuthScheme: u.AuthScheme, Spec: u.Spec, Binding: u.Binding,
 		}
-		c, aerr := connector.AssembleOpenAPI(m, http.DefaultClient, store)
+		c, aerr := connector.AssembleOpenAPI(m, client, store, allow)
 		if aerr != nil {
 			return fmt.Errorf("assemble uploaded connector %q: %w", u.ConnectorID, aerr)
 		}
@@ -178,10 +194,11 @@ type uploadedInstaller struct {
 	slots *connector.Slots
 	store connectionStoreAdapter
 	doer  *http.Client
+	allow connector.EgressAllow
 }
 
 func (i uploadedInstaller) Install(m *connector.Manifest) (string, error) {
-	c, err := connector.AssembleOpenAPI(m, i.doer, i.store)
+	c, err := connector.AssembleOpenAPI(m, i.doer, i.store, i.allow)
 	if err != nil {
 		return "", fmt.Errorf("assemble uploaded connector: %w", err)
 	}
@@ -207,11 +224,11 @@ func loadBuiltinConnectorManifests(d *runtimeDeps) []connector.Manifest {
 // assembleConnector —— 按 kind 把一份 manifest 装配成 Connector（内置/上传同一路）。
 func assembleConnector(
 	m *connector.Manifest, doer *http.Client,
-	store connector.ConnectionStore, smtpVault connector.SMTPVault,
+	store connector.ConnectionStore, smtpVault connector.SMTPVault, allow connector.EgressAllow,
 ) (connector.Connector, error) {
 	switch m.Kind {
 	case "openapi":
-		c, err := connector.AssembleOpenAPI(m, doer, store)
+		c, err := connector.AssembleOpenAPI(m, doer, store, allow)
 		if err != nil {
 			return nil, fmt.Errorf("assemble openapi connector: %w", err)
 		}

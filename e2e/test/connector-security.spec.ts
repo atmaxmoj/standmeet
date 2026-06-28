@@ -30,6 +30,11 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import {
+  INTERNAL_SERVER_URLS, specWithServerURL, specWithOAuthURLs,
+  specConsumeRedirectsInternal, specOAuthDanceRedirectsInternal,
+  BENIGN_API_KEY_SECRET, SPEC_BENIGN_APIKEY, BENIGN_BINDING,
+} from '@/fixtures/connector-security-specs';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -42,177 +47,6 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-// ── inlined sample/malicious specs (promote to fixtures when impl lands) ──────
-//
-// minimal-but-valid OpenAPI 3.0 base; tests clone it and swap `servers[].url`
-// (or the oauth2 token/authorize URLs) to the internal address under test.
-// Everything else is benign so a REJECT can only be attributed to the URL.
-
-const INTERNAL_SERVER_URLS = [
-  'http://localhost:8000',          // the backend itself (loopback)
-  'http://127.0.0.1/admin',         // loopback IP
-  'http://169.254.169.254/latest/meta-data/', // cloud metadata (the classic SSRF target)
-  'http://10.0.0.5/internal',       // RFC1918 private
-  'http://192.168.1.1/router',      // RFC1918 private
-  'http://[::1]:8000/v1',           // IPv6 loopback
-  'http://metadata.google.internal/computeMetadata/v1/', // GCP metadata hostname
-];
-
-// SPEC_SSRF_SERVER —— a spec whose only "reach-out" surface is servers[].url.
-// The apiKey scheme means assembly itself need not call out, but a freebusy-style
-// consume would; the backend must refuse the internal base at validate or call time.
-function specWithServerURL(url: string): string {
-  return JSON.stringify({
-    openapi: '3.0.3',
-    info: { title: 'SSRF probe', version: '1.0.0' },
-    servers: [{ url }],
-    paths: {
-      '/freebusy': {
-        get: {
-          operationId: 'freebusy.query',
-          security: [{ apiKeyAuth: [] }],
-          responses: { '200': { description: 'ok' } },
-        },
-      },
-    },
-    components: {
-      securitySchemes: {
-        apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-Api-Key' },
-      },
-    },
-  });
-}
-
-// SPEC_SSRF_OAUTH_URLS —— a benign servers[] but malicious oauth2 token/authorize
-// URLs. The OAuth dance fetches those server-side, so internal URLs there are the
-// SSRF vector even when the API base looks fine.
-function specWithOAuthURLs(authorizeURL: string, tokenURL: string): string {
-  return JSON.stringify({
-    openapi: '3.0.3',
-    info: { title: 'OAuth SSRF probe', version: '1.0.0' },
-    servers: [{ url: 'https://api.example.com' }],
-    paths: {
-      '/freebusy': {
-        get: {
-          operationId: 'freebusy.query',
-          security: [{ oauth: [] }],
-          responses: { '200': { description: 'ok' } },
-        },
-      },
-    },
-    components: {
-      securitySchemes: {
-        oauth: {
-          type: 'oauth2',
-          flows: {
-            authorizationCode: {
-              authorizationUrl: authorizeURL,
-              tokenUrl: tokenURL,
-              scopes: { read: 'read' },
-            },
-          },
-        },
-      },
-    },
-  });
-}
-
-// MOCK base — the programmable OAuth/HTTP mock. Consume-time SSRF specs point
-// their public-looking base at a mock endpoint that 302-redirects to an internal
-// address only WHEN CALLED, so they sail through any upload/connect-time static
-// URL check and only reveal the internal hop at consume time.
-const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
-
-// specConsumeRedirectsInternal —— servers[].url is a benign mock endpoint that,
-// at call time, 302s to an internal address (the SSRF lands during the API call,
-// not at validate time). apiKey scheme so upload+credentials succeed cleanly.
-function specConsumeRedirectsInternal(): string {
-  return JSON.stringify({
-    openapi: '3.0.3',
-    info: { title: 'Consume-time SSRF probe', version: '1.0.0' },
-    // public-looking base; the mock 302s /freebusy → http://169.254.169.254/... at runtime.
-    servers: [{ url: `${MOCK}/__mock/ssrf/redirect-internal` }],
-    paths: {
-      '/freebusy': {
-        get: {
-          operationId: 'freebusy.query',
-          security: [{ apiKeyAuth: [] }],
-          responses: { '200': { description: 'ok' } },
-        },
-      },
-    },
-    components: {
-      securitySchemes: {
-        apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-Api-Key' },
-      },
-    },
-    'x-standmeet-category': 'calendar',
-  });
-}
-
-// specOAuthDanceRedirectsInternal —— authorize/token URLs are benign mock
-// endpoints that, at dance time, redirect the callback / token exchange toward an
-// internal address. Passes any static upload-time URL check; the internal hop only
-// appears once the server-side dance follows the provider's redirect.
-function specOAuthDanceRedirectsInternal(): string {
-  return JSON.stringify({
-    openapi: '3.0.3',
-    info: { title: 'OAuth redirect SSRF probe', version: '1.0.0' },
-    servers: [{ url: 'https://api.example.com' }],
-    paths: {
-      '/freebusy': {
-        get: {
-          operationId: 'freebusy.query',
-          security: [{ oauth: [] }],
-          responses: { '200': { description: 'ok' } },
-        },
-      },
-    },
-    components: {
-      securitySchemes: {
-        oauth: {
-          type: 'oauth2',
-          flows: {
-            authorizationCode: {
-              // mock authorize 302s the callback toward an internal host; the
-              // token endpoint likewise redirects the server-side exchange inward.
-              authorizationUrl: `${MOCK}/__mock/oauth/authorize?redirect=internal`,
-              tokenUrl: `${MOCK}/__mock/oauth/token?redirect=internal`,
-              scopes: { read: 'read' },
-            },
-          },
-        },
-      },
-    },
-  });
-}
-
-// SPEC_BENIGN_APIKEY —— a fully valid public-base apiKey connector, used by the
-// credential-leak + isolation tests (must assemble cleanly so we can store a
-// secret and then prove it never echoes / never crosses owner scope).
-const BENIGN_API_KEY_SECRET = 'sk_live_uploaded_connector_secret_DO_NOT_LEAK_42';
-const SPEC_BENIGN_APIKEY = JSON.stringify({
-  openapi: '3.0.3',
-  info: { title: 'Benign calendar', version: '1.0.0' },
-  servers: [{ url: 'https://api.example.com' }],
-  paths: {
-    '/freebusy': {
-      get: {
-        operationId: 'freebusy.query',
-        security: [{ apiKeyAuth: [] }],
-        responses: { '200': { description: 'ok' } },
-      },
-    },
-  },
-  components: {
-    securitySchemes: {
-      apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-Api-Key' },
-    },
-  },
-  // a hint so the assembled connector lands in the calendar category slot
-  'x-standmeet-category': 'calendar',
-});
-
 // uploadSpec —— POST /api/admin/connectors from a raw spec string. Returns the
 // new connector id (assigned by the backend). Throws on non-2xx so callers that
 // expect success fail loudly; SSRF tests call the endpoint directly to inspect
@@ -222,7 +56,8 @@ async function uploadSpec(
 ): Promise<string> {
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf },
-    data: { spec },
+    // 统一上传契约 {spec 对象, binding 对象}（spec 内联串成 JSON，这里解回对象）。
+    data: { spec: JSON.parse(spec), binding: BENIGN_BINDING },
   });
   if (res.status() < 200 || res.status() >= 300) {
     throw new Error(`uploadSpec failed: ${res.status()} ${await res.text()}`);
@@ -233,8 +68,9 @@ async function uploadSpec(
 }
 
 test.describe('connector · §8 区 H 安全 (SSRF / 凭据不外泄 / per-owner 隔离)', () => {
-  // 红契约：spec-driven connector 上传 + 其安全门未建（docs/design/connector.md §8 H）。
-  test.fixme(true, 'pending #155: user-uploaded connector security surface');
+  // #155 §8 H 落地：spec-driven connector 上传的安全门（装配期 SSRF 静态拦 + 凭据打码 +
+  // owner_id scoping）。consume-time / OAuth-dance 重定向到内网的两条（运行期 dialer 守卫已建，
+  // 但还缺 mock 的 302→内网 端点）暂留 fixme。
 
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);
@@ -258,10 +94,12 @@ test.describe('connector · §8 区 H 安全 (SSRF / 凭据不外泄 / per-owner
     ({ playwright }) => secretNotInVisitorSurface(playwright));
 
   // ── 1b. consume-time SSRF（upload/connect 过了，运行时调用才打内网） ──
-  test('SSRF · 运行时 API 调用解析/重定向到内网 → runtime 拒绝出站',
+  // 运行期 dialer 守卫已建（GuardedHTTPClient 拦解析到内网 + 拒内网重定向），但这两条还需
+  // mock 的 302→内网 端点（/__mock/ssrf/* + /__mock/oauth/*?redirect=internal）才能驱动，暂 fixme。
+  test.fixme('SSRF · 运行时 API 调用解析/重定向到内网 → runtime 拒绝出站',
     ({ playwright }) => ssrfConsumeTimeRejected(playwright));
 
-  test('SSRF · OAuth dance 中 provider 把 callback/token 交换重定向到内网 → 拒绝',
+  test.fixme('SSRF · OAuth dance 中 provider 把 callback/token 交换重定向到内网 → 拒绝',
     ({ playwright }) => ssrfOAuthDanceRedirectRejected(playwright));
 
   // ── 3. per-owner 隔离（v1 单 owner → API 层 owner_id scoping） ──
@@ -280,7 +118,7 @@ async function ssrfServerUrlRejected(playwright: Playwright): Promise<void> {
   for (const url of INTERNAL_SERVER_URLS) {
     const res = await request.post(`${BACKEND}/api/admin/connectors`, {
       headers: { 'X-Csrftoken': csrf },
-      data: { spec: specWithServerURL(url) },
+      data: { spec: JSON.parse(specWithServerURL(url)) },
     });
     // the backend must refuse an internal base. 4xx (validation refusal) is the
     // contract; it must NOT 2xx and silently hold an internal-pointing connector
@@ -302,7 +140,7 @@ async function ssrfOAuthUrlRejected(playwright: Playwright): Promise<void> {
   // them. The backend must refuse — either at upload, or at connect time.
   const spec = specWithOAuthURLs('http://169.254.169.254/authorize', 'http://169.254.169.254/token');
   const upload = await request.post(`${BACKEND}/api/admin/connectors`, {
-    headers: { 'X-Csrftoken': csrf }, data: { spec },
+    headers: { 'X-Csrftoken': csrf }, data: { spec: JSON.parse(spec), binding: BENIGN_BINDING },
   });
   if (upload.status() >= 400) {
     // refused at upload — acceptable and preferred.
@@ -326,7 +164,7 @@ async function ssrfRejectLeavesNoConnector(playwright: Playwright): Promise<void
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   await request.post(`${BACKEND}/api/admin/connectors`, {
     headers: { 'X-Csrftoken': csrf },
-    data: { spec: specWithServerURL('http://169.254.169.254/latest/meta-data/') },
+    data: { spec: JSON.parse(specWithServerURL('http://169.254.169.254/latest/meta-data/')) },
   });
   // a rejected SSRF spec must not have been persisted as a connector row.
   const list = await request.get(`${BACKEND}/api/admin/connectors`, {

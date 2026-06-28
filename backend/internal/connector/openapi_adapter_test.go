@@ -79,7 +79,8 @@ func assembleCal(t *testing.T, h http.Handler) (usecases.CalendarProxy, *httptes
 		Spec:    []byte(strings.ReplaceAll(calSpecTmpl, "%SERVER%", srv.URL)),
 		Binding: []byte(calBindingYAML),
 	}
-	c, err := connector.AssembleOpenAPI(m, http.DefaultClient, fakeStore{connected: true})
+	loopback := connector.NewEgressAllow([]string{"127.0.0.1"}) // httptest 服务器跑在 loopback
+	c, err := connector.AssembleOpenAPI(m, http.DefaultClient, fakeStore{connected: true}, loopback)
 	if err != nil {
 		t.Fatalf("AssembleOpenAPI: %v", err)
 	}

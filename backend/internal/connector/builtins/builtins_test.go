@@ -69,7 +69,7 @@ func TestLoad_GcalAssemblesAtLaunch(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	gcal := mustFind(t, ms, "google-calendar")
-	c, aerr := connector.AssembleOpenAPI(&gcal, http.DefaultClient, fakeStore{})
+	c, aerr := connector.AssembleOpenAPI(&gcal, http.DefaultClient, fakeStore{}, nil)
 	if aerr != nil {
 		t.Fatalf("assemble builtin gcal: %v", aerr)
 	}

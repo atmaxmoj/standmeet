@@ -33,8 +33,10 @@ type parsed struct {
 
 // AssembleOpenAPI —— 把一份 openapi manifest 装配成 Connector。解析/校验/选策略任一步失败 → 错
 // （装配期当场拒，回 admin 友好提示）。返回的具体类型按绑定品类是 calendarAdapter / mailAdapter。
-func AssembleOpenAPI(m *Manifest, doer openapi.Doer, store ConnectionStore) (Connector, error) {
-	p, err := parseAndValidate(m)
+func AssembleOpenAPI(
+	m *Manifest, doer openapi.Doer, store ConnectionStore, allow EgressAllow,
+) (Connector, error) {
+	p, err := parseAndValidate(m, allow)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +55,22 @@ func AssembleOpenAPI(m *Manifest, doer openapi.Doer, store ConnectionStore) (Con
 	return adaptByCategory(p.binding.Category, core)
 }
 
+// checkEgress —— 装配期 SSRF 静态校验：servers[].url + oauth token URL 指内网 → 拒（不建连接器）。
+// authorize URL 是浏览器跟的、后端不打，不校验（否则 e2e 的 localhost authorize 会被误伤）。
+func checkEgress(spec *openapi.Spec, schemeName string, allow EgressAllow) error {
+	for _, u := range spec.ServerURLs() {
+		if err := allow.CheckEgressURL(u); err != nil {
+			return err
+		}
+	}
+	if ep, err := oauthEndpointsFromSpec(spec, schemeName); err == nil {
+		if cerr := allow.CheckEgressURL(ep.TokenURL); cerr != nil {
+			return cerr
+		}
+	}
+	return nil
+}
+
 // BindingCategory —— 解析 manifest 的 binding，取声明的品类（admin 建上传连接器时用，定占哪个槽）。
 func BindingCategory(m *Manifest) (string, error) {
 	b, err := openapi.ParseBinding(m.Binding)
@@ -62,11 +80,14 @@ func BindingCategory(m *Manifest) (string, error) {
 	return b.Category, nil
 }
 
-// parseAndValidate —— 解析 spec + binding，校验自洽。
-func parseAndValidate(m *Manifest) (parsed, error) {
+// parseAndValidate —— 解析 spec → SSRF 出站校验（安全闸先于 binding 语义）→ 解析 binding + 校验自洽。
+func parseAndValidate(m *Manifest, allow EgressAllow) (parsed, error) {
 	spec, err := openapi.ParseSpec(m.Spec)
 	if err != nil {
 		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, err)
+	}
+	if eerr := checkEgress(spec, m.AuthScheme, allow); eerr != nil {
+		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, eerr)
 	}
 	binding, berr := openapi.ParseBinding(m.Binding)
 	if berr != nil {

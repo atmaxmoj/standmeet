@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
@@ -105,11 +104,12 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Connectors: adminroutes.ConnectorsAdminDeps{
 			Svc: connectorsvc.New(connectorsvc.Deps{
 				Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
-				HTTP: http.DefaultClient, Verifier: d.connectorSlots,
+				HTTP: connectorEgressClient(), Verifier: d.connectorSlots,
 				Installer: uploadedInstaller{
 					slots: d.connectorSlots,
 					store: connectionStoreAdapter{repo: d.connectorRepo},
-					doer:  http.DefaultClient,
+					doer:  connectorEgressClient(),
+					allow: connectorEgressAllow(),
 				},
 				Manifests: loadBuiltinConnectorManifests(d),
 			}),
