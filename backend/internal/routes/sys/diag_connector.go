@@ -54,7 +54,7 @@ type diagEventReq struct {
 type diagSendReq struct {
 	To      string `json:"to"`
 	Subject string `json:"subject"`
-	Body    string `json:"body"`
+	Body    string `json:"text"` // 契约 body 的 plaintext（§8 mail 契约用 "text" 字段名）
 }
 
 func diagListBusy(deps DiagConnectorDeps) http.HandlerFunc {
@@ -176,17 +176,35 @@ func diagSend(deps DiagConnectorDeps) http.HandlerFunc {
 	}
 }
 
+type diagSendResp struct {
+	ViaKind string `json:"via_kind,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+	Ok      bool   `json:"ok"`
+}
+
+// mailFailReason —— 发信失败的友好措辞（不泄 provider 原始错/状态码/stack；§8 mail 降级）。
+const mailFailReason = "the mail could not be sent — the provider rejected it or is unavailable"
+
 func diagRunSend(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
 	mail usecases.MailProxy, req *diagSendReq,
 ) {
 	serr := mail.Send(ctx, middleware.OwnerIDFrom(ctx),
 		usecases.MailMessage{To: req.To, Subject: req.Subject, Body: req.Body})
-	if serr != nil {
-		diagFail(log, w, serr)
+	if serr != nil { // provider 拒/挂 → 友好降级（200 + ok:false），真错进日志
+		log.Warn("diag mail send failed", "err", serr)
+		diagStatus(log, w, http.StatusOK, diagSendResp{Ok: false, Reason: mailFailReason})
 		return
 	}
-	diagStatus(log, w, http.StatusOK, map[string]bool{"ok": true})
+	diagStatus(log, w, http.StatusOK, diagSendResp{Ok: true, ViaKind: mailKind(mail)})
+}
+
+// mailKind —— 报连接器 kind（openapi / protocol）；消费者经契约发信，diag 借此证「mailer 不知 kind」。
+func mailKind(m usecases.MailProxy) string {
+	if k, ok := m.(interface{ Kind() string }); ok {
+		return k.Kind()
+	}
+	return ""
 }
 
 // diagDecode —— 解 JSON body；坏 → 400 + false。

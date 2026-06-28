@@ -116,6 +116,7 @@ type server struct {
 	inference inferenceQueue
 	root      string
 	gcal      gcalState
+	sendgrid  sendgridState
 }
 
 func newServer(root string, log *slog.Logger) *server {
@@ -189,6 +190,11 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /__mock/gcal/set_event_shape", s.serveMockSetEventShape)
 	mux.HandleFunc("POST /__mock/gcal/revoke", s.serveMockGCalRevoke)
 	mux.HandleFunc("POST /__mock/gcal/reset", s.serveMockGCalReset)
+	// SendGrid-style mail mock (#155 §8 openapi-mail)
+	mux.HandleFunc("POST /__mock/sendgrid/mail/send", s.serveSendGridSend)
+	mux.HandleFunc("GET /__mock/sendgrid/sent", s.serveSendGridSent)
+	mux.HandleFunc("POST /__mock/sendgrid/fail", s.serveSendGridFail)
+	mux.HandleFunc("POST /__mock/sendgrid/reset", s.serveSendGridReset)
 	mux.HandleFunc("GET /__mock/gcal/events", s.serveMockGCalEvents)
 	mux.HandleFunc("GET /__mock/gcal/deleted_events", s.serveMockGCalDeletedEvents)
 	mux.HandleFunc("GET /__mock/gcal/token_call_count", s.serveMockGCalTokenCount)

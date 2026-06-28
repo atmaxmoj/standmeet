@@ -37,6 +37,9 @@ type openapiCore struct {
 // Name —— Connector 基面：连接器名。
 func (c *openapiCore) Name() string { return c.id }
 
+// Kind —— openapi 执行核固定 kind=openapi（消费者经此知道底下走 HTTP spec+binding）。
+func (*openapiCore) Kind() string { return "openapi" }
+
 // Connected —— Connector 基面：这个 owner 连没连（读连接状态）。
 func (c *openapiCore) Connected(ctx context.Context, ownerID string) (bool, error) {
 	conn, err := c.store.Get(ctx, c.id, ownerID)

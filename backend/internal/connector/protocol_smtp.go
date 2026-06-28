@@ -48,6 +48,9 @@ func NewSMTPConnector(id string, vault SMTPVault) Connector {
 // Name —— Connector 基面。
 func (c *smtpConnector) Name() string { return c.id }
 
+// Kind —— protocol 连接器固定 kind=protocol（消费者经此知道底下走内置协议而非 HTTP spec）。
+func (*smtpConnector) Kind() string { return "protocol" }
+
 // Verify —— Connector 连接测试：用 owner 存的 SMTP 配置跑一次握手（不发信）。host/port/auth/TLS
 // 任一错 → 错（admin connect 时映射成友好「未连接」）。protocol 连接器的 connect = 这个测试。
 func (c *smtpConnector) Verify(ctx context.Context, ownerID string) error {
