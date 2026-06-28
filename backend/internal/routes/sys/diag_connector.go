@@ -230,17 +230,26 @@ func diagDecode(log *slog.Logger, w http.ResponseWriter, r *http.Request, dst an
 	return true
 }
 
-// diagCalErr —— 日历契约调用失败：客户端/配置错（pre-flight 缺必填 / SSRF 出站被拦）→ 400 带原因；
-// 其余上游故障 → 502。list-busy / create-event 共用。
+// calErrCase —— 日历契约错 → 友好 HTTP 状态（都 <500，不暴露 5xx/stack）。sentinel 都带干净
+// 消息（BlockedEgress 不回显内网 URL；Unavailable 限流/瞬时；BadRequest 缺必填等）。
+type calErrCase struct {
+	match  error
+	status int
+}
+
+var calErrCases = []calErrCase{
+	{domain.ErrCalendarBlockedEgress, http.StatusBadRequest},
+	{domain.ErrCalendarUnavailable, http.StatusOK}, // 限流/瞬时 → 友好降级（可退避，不崩）
+	{domain.ErrCalendarBadRequest, http.StatusBadRequest},
+}
+
+// diagCalErr —— 日历契约调用失败：已知 sentinel → 友好 <500 带干净原因；其余上游故障 → 502。
 func diagCalErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrCalendarBlockedEgress) { // 固定干净消息，不回显内网 URL
-		diagStatus(log, w, http.StatusBadRequest,
-			map[string]string{"error": domain.ErrCalendarBlockedEgress.Error()})
-		return
-	}
-	if errors.Is(err, domain.ErrCalendarBadRequest) {
-		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
+	for i := range calErrCases {
+		if errors.Is(err, calErrCases[i].match) {
+			diagStatus(log, w, calErrCases[i].status, map[string]string{"error": err.Error()})
+			return
+		}
 	}
 	diagFail(log, w, err)
 }

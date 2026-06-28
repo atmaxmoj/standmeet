@@ -29,29 +29,33 @@ const OWNER = {
   fullName: 'Corner Extra Owner',
 };
 
-// 一份指向 gcal mock 的 openapi calendar spec + binding（freebusy/events.insert）。
+// 一份指向 gcal mock 的 openapi calendar spec + binding（freebusy/events.insert）。servers 用
+// service-name（backend 容器内打 gcal API + 命中 fail 注入）；/__mock/gcal/* 控制面走 localhost。
 const CAL_SPEC = JSON.stringify({
   openapi: '3.0.3',
   info: { title: 'Cal', version: '1' },
-  servers: [{ url: `${MOCK}/__mock/gcal` }],
+  servers: [{ url: 'http://job-board-mock:9000/google-calendar' }],
   paths: {
     '/freeBusy': { post: { operationId: 'freebusy.query', responses: { '200': { description: 'ok' } } } },
     '/events': { post: { operationId: 'events.insert', responses: { '200': { description: 'ok' } } } },
   },
   components: { securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } } },
 });
-const CAL_BINDING = `category: calendar
-kind: openapi
-operations:
-  list_busy: { op: freebusy.query, request: { body: {} }, response: { busy: "calendars.primary.busy" } }
-  create_event: { op: events.insert, request: { body: { summary: "{{.title}}" } }, response: { id: "id" } }
-`;
-// 第二份 spec 内容不同（不同 operationId 描述），但仍是 openapi calendar —— 用来测同 kind 共存。
+// 统一 binding 格式：request/response 是 JSONata 字符串（跟 binding-jsonata 契约一致）。
+const CAL_BINDING = {
+  category: 'calendar',
+  kind: 'openapi',
+  operations: {
+    list_busy: { op: 'freebusy.query', request: '{}', response: '{ "busy": calendars.primary.busy }' },
+    create_event: { op: 'events.insert', request: '{ "summary": summary }', response: '{ "id": id }' },
+  },
+};
+// 第二份 spec 内容不同（标题不同），但仍是 openapi calendar —— 用来测同 kind 共存。
 const CAL_SPEC_2 = CAL_SPEC.replace('"Cal"', '"Cal Two"');
 
 test.describe('connector · 额外 corner / error stream（收尾）', () => {
-  // 红契约：429 降级 / spec 编辑重派生 / 同 kind 共存 —— 均未建（connector.md §1/§4/§9）。
-  test.fixme(true, 'pending #155: 429 degrade / spec-edit re-derive / same-kind coexist');
+  // 429 降级 + 同 kind 共存已落地。spec 编辑重派生（PUT + credential-form 派生端）属 #161
+  // 通用 admin 路由的凭据表单派生，单列待建，逐条 fixme。
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => { request = await initOwner(playwright); });
@@ -61,17 +65,18 @@ test.describe('connector · 额外 corner / error stream（收尾）', () => {
   test('429 限流：runtime SaaS 调用回 429 → 友好降级（无 5xx/stack，不返垃圾）', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
-    await armMockStatus(request, 'freebusy', 429);
+    await armMockStatus(request, 'freeBusy', 429);
 
-    const { status, body } = await diagListBusy(request, id);
+    const { status, body } = await diagListBusy(request, csrf, id);
     expect(status, '429 不该让我们崩').toBeLessThan(500);
     const msg = JSON.stringify(body);
     expect(msg, '友好限流提示，可退避/稍后再试').toMatch(/again|later|rate|busy|limit|unavailable/i);
     expect(msg, '不泄 provider 原始错误/stack/状态码').not.toMatch(/panic|goroutine|stack|429/);
   });
 
-  // 编辑已建连接器的 spec（换认证 type）→ 凭据表单/状态重新派生。
-  test('编辑 spec → 凭据表单重新派生（bearer → apiKey 后字段跟着变）', async () => {
+  // 编辑已建连接器的 spec（换认证 type）→ 凭据表单/状态重新派生。需 PUT /{id} + credential-form
+  // 派生端（#161 通用 admin 路由），未建，fixme。
+  test.fixme('编辑 spec → 凭据表单重新派生（bearer → apiKey 后字段跟着变）', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
 
@@ -133,10 +138,10 @@ async function initOwner(playwright: Playwright): Promise<APIRequestContext> {
 
 // assembleOpenapiCalendar —— 建 openapi calendar 连接器 + 存 bearer 凭据 + connect。返回 id。
 async function assembleOpenapiCalendar(
-  request: APIRequestContext, csrf: string, spec: string, binding: string,
+  request: APIRequestContext, csrf: string, spec: string, binding: unknown,
 ): Promise<string> {
   const res = await request.post(`${BACKEND}/api/admin/connectors`, {
-    headers: { 'X-Csrftoken': csrf }, data: { spec, binding },
+    headers: { 'X-Csrftoken': csrf }, data: { spec: JSON.parse(spec), binding },
   });
   if (res.status() !== 201) throw new Error(`create connector: ${res.status()}`);
   const id = (await res.json() as { id: string }).id;
@@ -154,17 +159,19 @@ async function listConnectors(request: APIRequestContext): Promise<ConnRow[]> {
   return (await res.json() as { connectors?: ConnRow[] }).connectors ?? [];
 }
 
-// armMockStatus —— 让 gcal mock 下一次某 op 返指定 HTTP status（429 限流等）。
+// armMockStatus —— 让 gcal mock 某 op 持续返指定 HTTP status（429 限流等；times:-1 = 持续，
+// 让重试预算耗尽 → 友好降级）。
 async function armMockStatus(request: APIRequestContext, op: string, status: number): Promise<void> {
-  await request.post(`${MOCK}/__mock/gcal/fail`, { data: { op, status } });
+  await request.post(`${MOCK}/__mock/gcal/fail`, { data: { op, status, times: -1 } });
 }
 
 // diagListBusy —— 直打 runtime（避开 LLM），干净断降级形状。
 async function diagListBusy(
-  request: APIRequestContext, id: string,
+  request: APIRequestContext, csrf: string, id: string,
 ): Promise<{ status: number; body: unknown }> {
   const res = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, {
-    data: { time_min: '2030-01-01T00:00:00Z', time_max: '2030-01-02T00:00:00Z' },
+    headers: { 'X-Csrftoken': csrf },
+    data: { timeMin: '2030-01-01T00:00:00Z', timeMax: '2030-01-02T00:00:00Z' },
   });
   return { status: res.status(), body: await res.json() };
 }
