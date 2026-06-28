@@ -312,6 +312,9 @@ type OwnerConnector struct {
 	Scopes         []byte
 	ConnectedAt    pgtype.Timestamptz
 	Active         bool
+	Spec           []byte
+	Binding        []byte
+	AuthScheme     string
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 }

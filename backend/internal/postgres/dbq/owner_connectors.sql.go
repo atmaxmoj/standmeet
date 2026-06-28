@@ -45,7 +45,7 @@ func (q *Queries) DeleteConnector(ctx context.Context, arg DeleteConnectorParams
 }
 
 const getConnector = `-- name: GetConnector :one
-SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, created_at, updated_at FROM owner_connectors
+SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, created_at, updated_at FROM owner_connectors
 WHERE owner_id = $1 AND connector_id = $2
 `
 
@@ -69,6 +69,97 @@ func (q *Queries) GetConnector(ctx context.Context, arg GetConnectorParams) (Own
 		&i.Scopes,
 		&i.ConnectedAt,
 		&i.Active,
+		&i.Spec,
+		&i.Binding,
+		&i.AuthScheme,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getConnectorManifest = `-- name: GetConnectorManifest :one
+SELECT category, kind, spec, binding, auth_scheme
+FROM owner_connectors
+WHERE owner_id = $1 AND connector_id = $2
+`
+
+type GetConnectorManifestParams struct {
+	OwnerID     pgtype.UUID
+	ConnectorID string
+}
+
+type GetConnectorManifestRow struct {
+	Category   string
+	Kind       string
+	Spec       []byte
+	Binding    []byte
+	AuthScheme string
+}
+
+// 取一个连接器存档的 manifest 字段（上传连接器有 spec/binding；内置的这些为空）。
+func (q *Queries) GetConnectorManifest(ctx context.Context, arg GetConnectorManifestParams) (GetConnectorManifestRow, error) {
+	row := q.db.QueryRow(ctx, getConnectorManifest, arg.OwnerID, arg.ConnectorID)
+	var i GetConnectorManifestRow
+	err := row.Scan(
+		&i.Category,
+		&i.Kind,
+		&i.Spec,
+		&i.Binding,
+		&i.AuthScheme,
+	)
+	return i, err
+}
+
+const insertUploadedConnector = `-- name: InsertUploadedConnector :one
+INSERT INTO owner_connectors (
+    owner_id, connector_id, category, kind, spec, binding, auth_scheme
+)
+VALUES (
+    $1, $2, $3,
+    $4, $5::bytea, $6::bytea, $7
+)
+RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, created_at, updated_at
+`
+
+type InsertUploadedConnectorParams struct {
+	OwnerID     pgtype.UUID
+	ConnectorID string
+	Category    string
+	Kind        string
+	Spec        []byte
+	Binding     []byte
+	AuthScheme  string
+}
+
+// 上传一个 openapi 连接器（owner 在 UI 贴 spec + JSONata binding）：建行并存下 manifest
+// （spec/binding/auth_scheme），首次未连。category/kind 由 binding 定。
+func (q *Queries) InsertUploadedConnector(ctx context.Context, arg InsertUploadedConnectorParams) (OwnerConnector, error) {
+	row := q.db.QueryRow(ctx, insertUploadedConnector,
+		arg.OwnerID,
+		arg.ConnectorID,
+		arg.Category,
+		arg.Kind,
+		arg.Spec,
+		arg.Binding,
+		arg.AuthScheme,
+	)
+	var i OwnerConnector
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.ConnectorID,
+		&i.Category,
+		&i.Kind,
+		&i.CredentialsEnc,
+		&i.TokenEnc,
+		&i.TokenExpiresAt,
+		&i.Scopes,
+		&i.ConnectedAt,
+		&i.Active,
+		&i.Spec,
+		&i.Binding,
+		&i.AuthScheme,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -76,7 +167,7 @@ func (q *Queries) GetConnector(ctx context.Context, arg GetConnectorParams) (Own
 }
 
 const listConnectorsByCategory = `-- name: ListConnectorsByCategory :many
-SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, created_at, updated_at FROM owner_connectors
+SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, created_at, updated_at FROM owner_connectors
 WHERE owner_id = $1 AND category = $2
 ORDER BY connector_id
 `
@@ -107,6 +198,9 @@ func (q *Queries) ListConnectorsByCategory(ctx context.Context, arg ListConnecto
 			&i.Scopes,
 			&i.ConnectedAt,
 			&i.Active,
+			&i.Spec,
+			&i.Binding,
+			&i.AuthScheme,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -121,7 +215,7 @@ func (q *Queries) ListConnectorsByCategory(ctx context.Context, arg ListConnecto
 }
 
 const listConnectorsByOwner = `-- name: ListConnectorsByOwner :many
-SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, created_at, updated_at FROM owner_connectors
+SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, created_at, updated_at FROM owner_connectors
 WHERE owner_id = $1
 ORDER BY category, connector_id
 `
@@ -147,8 +241,56 @@ func (q *Queries) ListConnectorsByOwner(ctx context.Context, ownerID pgtype.UUID
 			&i.Scopes,
 			&i.ConnectedAt,
 			&i.Active,
+			&i.Spec,
+			&i.Binding,
+			&i.AuthScheme,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUploadedConnectors = `-- name: ListUploadedConnectors :many
+SELECT DISTINCT ON (connector_id)
+    connector_id, category, kind, spec, binding, auth_scheme
+FROM owner_connectors
+WHERE length(spec) > 0
+ORDER BY connector_id, updated_at DESC
+`
+
+type ListUploadedConnectorsRow struct {
+	ConnectorID string
+	Category    string
+	Kind        string
+	Spec        []byte
+	Binding     []byte
+	AuthScheme  string
+}
+
+// 拉起时重装：所有带 spec 的（上传的）连接器，跨 owner（v1 单 owner；Hub 按 connector_id）。
+func (q *Queries) ListUploadedConnectors(ctx context.Context) ([]ListUploadedConnectorsRow, error) {
+	rows, err := q.db.Query(ctx, listUploadedConnectors)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUploadedConnectorsRow
+	for rows.Next() {
+		var i ListUploadedConnectorsRow
+		if err := rows.Scan(
+			&i.ConnectorID,
+			&i.Category,
+			&i.Kind,
+			&i.Spec,
+			&i.Binding,
+			&i.AuthScheme,
 		); err != nil {
 			return nil, err
 		}
@@ -203,7 +345,7 @@ SET token_enc = $1::bytea,
     connected_at = COALESCE(connected_at, now()),
     updated_at = now()
 WHERE owner_id = $4 AND connector_id = $5
-RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, created_at, updated_at
+RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, created_at, updated_at
 `
 
 type UpdateConnectorTokensParams struct {
@@ -236,6 +378,9 @@ func (q *Queries) UpdateConnectorTokens(ctx context.Context, arg UpdateConnector
 		&i.Scopes,
 		&i.ConnectedAt,
 		&i.Active,
+		&i.Spec,
+		&i.Binding,
+		&i.AuthScheme,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -257,7 +402,7 @@ SET credentials_enc = EXCLUDED.credentials_enc,
     kind = EXCLUDED.kind,
     connected_at = NULL,
     updated_at = now()
-RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, created_at, updated_at
+RETURNING id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, created_at, updated_at
 `
 
 type UpsertConnectorCredentialsParams struct {
@@ -293,6 +438,9 @@ func (q *Queries) UpsertConnectorCredentials(ctx context.Context, arg UpsertConn
 		&i.Scopes,
 		&i.ConnectedAt,
 		&i.Active,
+		&i.Spec,
+		&i.Binding,
+		&i.AuthScheme,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

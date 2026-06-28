@@ -10,6 +10,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
 
+// errConnectorWrap —— 装配期错误统一前缀（带连接器 id）。
+const errConnectorWrap = "connector %q: %w"
+
 // Manifest —— 一个连接器的声明（数据，非代码）。openapi: spec+binding（+ owner 选的 AuthScheme）；
 // protocol: 由 Protocol 字段选内置协议 runtime（P3）。内置与上传同构，只是数据来源不同。
 type Manifest struct {
@@ -37,11 +40,11 @@ func AssembleOpenAPI(m *Manifest, doer openapi.Doer, store ConnectionStore) (Con
 	}
 	auth, aerr := resolveAuth(p.spec, m.AuthScheme)
 	if aerr != nil {
-		return nil, fmt.Errorf("connector %q: %w", m.ID, aerr)
+		return nil, fmt.Errorf(errConnectorWrap, m.ID, aerr)
 	}
 	rt, rerr := openapi.NewRuntime(p.spec, p.binding, doer)
 	if rerr != nil {
-		return nil, fmt.Errorf("connector %q: %w", m.ID, rerr)
+		return nil, fmt.Errorf(errConnectorWrap, m.ID, rerr)
 	}
 	core := &openapiCore{
 		runtime: rt, store: store, auth: auth, id: m.ID,
@@ -50,18 +53,27 @@ func AssembleOpenAPI(m *Manifest, doer openapi.Doer, store ConnectionStore) (Con
 	return adaptByCategory(p.binding.Category, core)
 }
 
+// BindingCategory —— 解析 manifest 的 binding，取声明的品类（admin 建上传连接器时用，定占哪个槽）。
+func BindingCategory(m *Manifest) (string, error) {
+	b, err := openapi.ParseBinding(m.Binding)
+	if err != nil {
+		return "", fmt.Errorf(errConnectorWrap, m.ID, err)
+	}
+	return b.Category, nil
+}
+
 // parseAndValidate —— 解析 spec + binding，校验自洽。
 func parseAndValidate(m *Manifest) (parsed, error) {
 	spec, err := openapi.ParseSpec(m.Spec)
 	if err != nil {
-		return parsed{}, fmt.Errorf("connector %q: %w", m.ID, err)
+		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, err)
 	}
 	binding, berr := openapi.ParseBinding(m.Binding)
 	if berr != nil {
-		return parsed{}, fmt.Errorf("connector %q: %w", m.ID, berr)
+		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, berr)
 	}
 	if verr := binding.ValidateAgainst(spec); verr != nil {
-		return parsed{}, fmt.Errorf("connector %q: %w", m.ID, verr)
+		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, verr)
 	}
 	return parsed{spec: spec, binding: binding}, nil
 }

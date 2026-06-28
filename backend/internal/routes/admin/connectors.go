@@ -5,6 +5,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -30,6 +31,7 @@ type ConnectorsAdminDeps struct {
 func (h *Handlers) MountConnectors(r chi.Router) {
 	r.Route("/connectors", func(r chi.Router) {
 		r.Get("/", h.listConnectors())
+		r.Post("/", h.createConnector())
 		r.Route("/{id}", func(r chi.Router) {
 			r.Post("/credentials", h.saveConnectorCredentials())
 			r.Get("/status", h.connectorStatus())
@@ -84,6 +86,11 @@ var connErrCases = []apierr.Case{
 		Code:    "bad_request",
 		Message: "connection test failed — check host/port/credentials",
 	}},
+	{Match: connectorsvc.ErrInvalidManifest, Envelope: apierr.Envelope{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_manifest",
+		Message: "the connector spec or binding is invalid",
+	}},
 }
 
 // writeConnErr —— 把 connectorsvc sentinel 翻成 HTTP envelope（dispatch 集中此处，handler 保 ≤3）。
@@ -108,6 +115,34 @@ func (h *Handlers) listConnectors() http.HandlerFunc {
 			rows = append(rows, statusRow(&conns[i]))
 		}
 		writeJSON(h.Log, w, connectorsListResp{Connectors: rows})
+	}
+}
+
+type createConnectorReq struct {
+	AuthScheme string          `json:"auth_scheme"`
+	Spec       json.RawMessage `json:"spec"`
+	Binding    json.RawMessage `json:"binding"`
+}
+
+// createConnector —— 上传一个 openapi 连接器（spec + JSONata binding）。201 {id}；坏 manifest → 400。
+func (h *Handlers) createConnector() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		var body createConnectorReq
+		dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
+		if derr := dec.Decode(&body); derr != nil {
+			writeError(h.Log, w, apierr.Envelope{
+				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
+			})
+			return
+		}
+		id, err := h.ConnectorsAdmin.Svc.CreateUploaded(
+			r.Context(), ownerID, body.Spec, body.Binding, body.AuthScheme)
+		if err != nil {
+			h.writeConnErr(w, err)
+			return
+		}
+		writeCreated(h.Log, w, map[string]string{"id": id})
 	}
 }
 

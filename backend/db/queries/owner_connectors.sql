@@ -66,3 +66,29 @@ ORDER BY connector_id;
 -- name: DeleteConnector :exec
 DELETE FROM owner_connectors
 WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
+
+-- name: InsertUploadedConnector :one
+-- 上传一个 openapi 连接器（owner 在 UI 贴 spec + JSONata binding）：建行并存下 manifest
+-- （spec/binding/auth_scheme），首次未连。category/kind 由 binding 定。
+INSERT INTO owner_connectors (
+    owner_id, connector_id, category, kind, spec, binding, auth_scheme
+)
+VALUES (
+    sqlc.arg(owner_id), sqlc.arg(connector_id), sqlc.arg(category),
+    sqlc.arg(kind), sqlc.arg(spec)::bytea, sqlc.arg(binding)::bytea, sqlc.arg(auth_scheme)
+)
+RETURNING *;
+
+-- name: GetConnectorManifest :one
+-- 取一个连接器存档的 manifest 字段（上传连接器有 spec/binding；内置的这些为空）。
+SELECT category, kind, spec, binding, auth_scheme
+FROM owner_connectors
+WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
+
+-- name: ListUploadedConnectors :many
+-- 拉起时重装：所有带 spec 的（上传的）连接器，跨 owner（v1 单 owner；Hub 按 connector_id）。
+SELECT DISTINCT ON (connector_id)
+    connector_id, category, kind, spec, binding, auth_scheme
+FROM owner_connectors
+WHERE length(spec) > 0
+ORDER BY connector_id, updated_at DESC;

@@ -756,6 +756,11 @@ CREATE TABLE owner_connectors (
     scopes           jsonb         NOT NULL DEFAULT '[]'::jsonb,
     connected_at     timestamptz,
     active           boolean       NOT NULL DEFAULT false,
+    -- uploaded (openapi) connectors carry their own spec + JSONata binding (built-ins leave these
+    -- empty — their manifest comes from go:embed data). auth_scheme = owner-picked securityScheme.
+    spec             bytea         NOT NULL DEFAULT '\x'::bytea,
+    binding          bytea         NOT NULL DEFAULT '\x'::bytea,
+    auth_scheme      text          NOT NULL DEFAULT '',
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );

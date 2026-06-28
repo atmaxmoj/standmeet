@@ -101,6 +101,11 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Svc: connectorsvc.New(connectorsvc.Deps{
 				Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
 				HTTP: http.DefaultClient, Verifier: d.connectorSlots,
+				Installer: uploadedInstaller{
+					slots: d.connectorSlots,
+					store: connectionStoreAdapter{repo: d.connectorRepo},
+					doer:  http.DefaultClient,
+				},
 				Manifests: loadBuiltinConnectorManifests(d),
 			}),
 		},
@@ -134,7 +139,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireSandboxWorkspaces(ctx, d)
 	// connector 命名依赖注册表一处建、一处 set：ext-mcp dep-grant 闸（工具 _meta.requires
 	// 按 grant+connected 放行）与 registerDiscoveredPlugins 的 Requires 校验共用同一份。
-	depReg := connectorDepRegistry(d)
+	depReg := connectorDepRegistry(ctx, d)
 	d.agentSkills.SetDepRegistry(depReg)
 	skills := buildVisitorSkillsDeps(d)
 	skills.DepConnected = depReg

@@ -33,6 +33,9 @@ type Slots struct {
 // NewSlots —— composition root 注入 Hub + active 解析。
 func NewSlots(hub *Hub, store SlotStore) *Slots { return &Slots{hub: hub, store: store} }
 
+// Register —— 把一个（运行时装配好的上传）连接器注册进 Hub（幂等）。POST /connectors 用。
+func (s *Slots) Register(c Connector) { s.hub.Upsert(c) }
+
 // VerifyConnector —— 按名解析连接器跑连接测试（protocol connect 用）。未注册 → 错；不支持
 // 连接测试（非 Verifier）→ nil（存即可用，无需测试）。
 func (s *Slots) VerifyConnector(ctx context.Context, connectorID, ownerID string) error {

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
@@ -33,9 +34,9 @@ func registerDiscoveredPlugins(
 // connectorDepRegistry —— 命名 connector 依赖 provider 注册表。#155：拉起时 discovery 把内置
 // 连接器装配进 Hub，品类 dep 由 slot 分派器背书（active 连接器 connected 才放行）。provider
 // 只暴露「这个 owner 连没连」，凭据全程留在 connector 层内（句柄非凭据）。
-func connectorDepRegistry(d *runtimeDeps) *capreg.DepRegistry {
+func connectorDepRegistry(ctx context.Context, d *runtimeDeps) *capreg.DepRegistry {
 	depReg := capreg.NewDepRegistry()
-	if err := registerDiscoveredConnectors(d, depReg); err != nil {
+	if err := registerDiscoveredConnectors(ctx, d, depReg); err != nil {
 		d.log.Error("register discovered connectors", "err", err)
 	}
 	return depReg

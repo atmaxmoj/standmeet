@@ -122,7 +122,9 @@ func (a slotStoreAdapter) ActiveConnectorID(
 
 // registerDiscoveredConnectors —— 拉起时：内置 manifest 装配进 Hub + slot-backed 品类 dep 注册。
 // 同 registerDiscoveredPlugins（MCP 插件）同构——host 不 import 任何具体连接器，契约只有数据。
-func registerDiscoveredConnectors(d *runtimeDeps, depReg *capreg.DepRegistry) error {
+func registerDiscoveredConnectors(
+	ctx context.Context, d *runtimeDeps, depReg *capreg.DepRegistry,
+) error {
 	manifests, err := builtins.Load()
 	if err != nil {
 		return fmt.Errorf("load builtin connectors: %w", err)
@@ -137,10 +139,58 @@ func registerDiscoveredConnectors(d *runtimeDeps, depReg *capreg.DepRegistry) er
 		}
 		hub.Register(c)
 	}
+	if uerr := registerUploadedConnectors(ctx, hub, store, d.connectorRepo); uerr != nil {
+		return uerr
+	}
 	d.connectorSlots = connector.NewSlots(hub, slotStoreAdapter{repo: d.connectorRepo})
 	depReg.Register(capreg.NamedProvider("calendar", d.connectorSlots.Calendar().Connected))
 	depReg.Register(capreg.NamedProvider("smtp", d.connectorSlots.Mail().Connected))
 	return nil
+}
+
+// registerUploadedConnectors —— 拉起重装：DB 里 owner 上传的 openapi 连接器（存了 spec+binding）
+// 装配进 Hub（跟内置同一路 AssembleOpenAPI）。
+func registerUploadedConnectors(
+	ctx context.Context, hub *connector.Hub,
+	store connectionStoreAdapter, repo *postgres.ConnectorRepo,
+) error {
+	uploaded, err := repo.ListUploaded(ctx)
+	if err != nil {
+		return fmt.Errorf("load uploaded connectors: %w", err)
+	}
+	for i := range uploaded {
+		u := &uploaded[i]
+		m := &connector.Manifest{
+			ID: u.ConnectorID, Kind: u.Kind, Category: u.Category,
+			AuthScheme: u.AuthScheme, Spec: u.Spec, Binding: u.Binding,
+		}
+		c, aerr := connector.AssembleOpenAPI(m, http.DefaultClient, store)
+		if aerr != nil {
+			return fmt.Errorf("assemble uploaded connector %q: %w", u.ConnectorID, aerr)
+		}
+		hub.Upsert(c)
+	}
+	return nil
+}
+
+// uploadedInstaller —— connectorsvc.Installer：装配（校验）一份上传 manifest + 注册进 live Hub。
+type uploadedInstaller struct {
+	slots *connector.Slots
+	store connectionStoreAdapter
+	doer  *http.Client
+}
+
+func (i uploadedInstaller) Install(m *connector.Manifest) (string, error) {
+	c, err := connector.AssembleOpenAPI(m, i.doer, i.store)
+	if err != nil {
+		return "", fmt.Errorf("assemble uploaded connector: %w", err)
+	}
+	cat, cerr := connector.BindingCategory(m)
+	if cerr != nil {
+		return "", fmt.Errorf("binding category: %w", cerr)
+	}
+	i.slots.Register(c)
+	return cat, nil
 }
 
 // loadBuiltinConnectorManifests —— admin 路由要的内置 manifest（id→category/kind/spec）。

@@ -59,3 +59,6 @@ func (h *Hub) Resolve(name string) (Connector, bool) {
 	c, ok := h.conns[name]
 	return c, ok
 }
+
+// Upsert —— 注册或替换一个命名连接器（上传连接器运行时动态装配 / 拉起重装用，幂等，不 panic）。
+func (h *Hub) Upsert(c Connector) { h.conns[c.Name()] = c }

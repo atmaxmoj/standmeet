@@ -31,9 +31,18 @@ var ErrNoOAuthClient = errors.New("connector oauth client_id not set")
 // ErrConnectionFailed —— protocol 连接器的连接测试失败（host/port/auth/TLS 错）。
 var ErrConnectionFailed = errors.New("connector connection test failed")
 
+// ErrInvalidManifest —— 上传的 spec/binding 装配期校验失败（坏 JSONata / 未知 op / 缺品类等）。
+var ErrInvalidManifest = errors.New("invalid connector spec/binding")
+
 // Verifier —— protocol 连接器 connect 时跑的连接测试（composition root 接 connector.Slots）。
 type Verifier interface {
 	VerifyConnector(ctx context.Context, connectorID, ownerID string) error
+}
+
+// Installer —— 校验（装配）一份上传 manifest + 注册进 live Hub，返回它声明的品类。composition
+// root 接 connector.AssembleOpenAPI + Slots.Register。
+type Installer interface {
+	Install(m *connector.Manifest) (category string, err error)
 }
 
 // Deps —— 服务依赖（composition root 注入）。Manifests = 内置连接器（id→category/kind/spec）。
@@ -43,6 +52,7 @@ type Deps struct {
 	Redis     *redis.Client
 	HTTP      *http.Client
 	Verifier  Verifier
+	Installer Installer
 	Manifests []connector.Manifest
 }
 
@@ -50,6 +60,8 @@ type Deps struct {
 type Service struct{ d Deps }
 
 // New —— 构造。
+//
+//nolint:gocritic // Deps 是装配期一次性入参，按值传清晰
 func New(d Deps) *Service { return &Service{d: d} }
 
 // Manifest —— 内置 manifest 按 id 查。
@@ -62,11 +74,36 @@ func (s *Service) Manifest(id string) *connector.Manifest {
 	return nil
 }
 
+// CreateUploaded —— 从 owner 贴的 spec + JSONata binding 建一个 openapi 连接器：装配期校验
+// （坏 spec/binding/jsonata → ErrInvalidManifest）→ 注册进 live Hub → 存档（拉起重装）。返回 id。
+func (s *Service) CreateUploaded(
+	ctx context.Context, ownerID string, spec, binding []byte, authScheme string,
+) (string, error) {
+	id, err := randomState()
+	if err != nil {
+		return "", err
+	}
+	m := &connector.Manifest{
+		ID: "up-" + id, Kind: "openapi", AuthScheme: authScheme, Spec: spec, Binding: binding,
+	}
+	cat, ierr := s.d.Installer.Install(m)
+	if ierr != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
+	}
+	if serr := s.d.Repo.SaveUploaded(ctx, &postgres.SaveUploadedInput{
+		OwnerID: ownerID, ConnectorID: m.ID, Category: cat, Kind: "openapi",
+		Spec: spec, Binding: binding, AuthScheme: authScheme,
+	}); serr != nil {
+		return "", fmt.Errorf("persist uploaded connector: %w", serr)
+	}
+	return m.ID, nil
+}
+
 // SaveCredentials —— 存凭据（原样 JSON）。category/kind 由内置 manifest 定；未知 id → ErrNotFound。
 func (s *Service) SaveCredentials(ctx context.Context, ownerID, id string, body []byte) error {
-	m := s.Manifest(id)
-	if m == nil {
-		return ErrNotFound
+	m, merr := s.manifestFor(ctx, ownerID, id)
+	if merr != nil {
+		return merr
 	}
 	if err := s.d.Repo.SaveCredentials(ctx, &postgres.SaveConnectorCredsInput{
 		OwnerID: ownerID, ConnectorID: id,
@@ -86,9 +123,9 @@ type ConnectResult struct {
 
 // Connect —— oauth2 → 起 dance（建同意页 URL + state 存 Redis）；非 dance → 标 connected。
 func (s *Service) Connect(ctx context.Context, ownerID, id string) (ConnectResult, error) {
-	m := s.Manifest(id)
-	if m == nil {
-		return ConnectResult{}, ErrNotFound
+	m, merr := s.manifestFor(ctx, ownerID, id)
+	if merr != nil {
+		return ConnectResult{}, merr
 	}
 	ep, err := connector.OAuthEndpointsFor(m, m.AuthScheme)
 	if err != nil {
@@ -111,9 +148,9 @@ func (s *Service) Callback(ctx context.Context, id, code, state string) error {
 
 // Activate —— 占品类槽。Disconnect —— soft disconnect。Status / List —— 读。
 func (s *Service) Activate(ctx context.Context, ownerID, id string) error {
-	m := s.Manifest(id)
-	if m == nil {
-		return ErrNotFound
+	m, merr := s.manifestFor(ctx, ownerID, id)
+	if merr != nil {
+		return merr
 	}
 	if err := s.d.Repo.SetActive(ctx, ownerID, id, m.Category); err != nil {
 		return fmt.Errorf("activate connector: %w", err)
@@ -150,6 +187,27 @@ func (s *Service) Status(
 	return conn, nil
 }
 
+// manifestFor —— 解析一个 id 的 manifest：内置（embed）优先，否则上传连接器（DB 存档的
+// spec/binding）。都没有 → ErrNotFound。
+func (s *Service) manifestFor(
+	ctx context.Context, ownerID, id string,
+) (*connector.Manifest, error) {
+	if m := s.Manifest(id); m != nil {
+		return m, nil
+	}
+	um, err := s.d.Repo.GetManifest(ctx, ownerID, id)
+	if err != nil {
+		return nil, fmt.Errorf("load uploaded manifest: %w", err)
+	}
+	if len(um.Spec) == 0 { // 空 spec = 不是上传连接器（无行 / 内置）
+		return nil, ErrNotFound
+	}
+	return &connector.Manifest{
+		ID: id, Kind: um.Kind, Category: um.Category,
+		AuthScheme: um.AuthScheme, Spec: um.Spec, Binding: um.Binding,
+	}, nil
+}
+
 // verifyAndConnect —— 非 dance：先跑连接测试（protocol 连接器有；其它 no-op）→ 通过才标 connected。
 func (s *Service) verifyAndConnect(ctx context.Context, ownerID, id string) (ConnectResult, error) {
 	if s.d.Verifier != nil {
@@ -173,9 +231,9 @@ func (s *Service) markConnected(ctx context.Context, ownerID, id string) (Connec
 // ensureActive —— 该品类还没有 active 连接器 → 把刚连上的这个占了槽（首连即用；已有 active
 // 则不抢，切换走显式 activate）。§9：同品类同时只一个 active。
 func (s *Service) ensureActive(ctx context.Context, ownerID, id string) error {
-	m := s.Manifest(id)
-	if m == nil {
-		return nil
+	m, merr := s.manifestFor(ctx, ownerID, id)
+	if merr != nil {
+		return nil //nolint:nilerr // 找不到 manifest → 不自动激活（非致命）
 	}
 	conns, err := s.d.Repo.ListByCategory(ctx, ownerID, m.Category)
 	if err != nil {
