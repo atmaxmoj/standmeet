@@ -44,12 +44,13 @@ import { findCapability } from '@/fixtures/capabilities';
 import { issueCodeWithSkills, expectCalendarBookExposed } from '@/fixtures/agent-skills-grant';
 import { issueSession } from '@/fixtures/visitor';
 import { scriptMockToolCall, sendAndDrain } from '@/fixtures/mock-llm-script';
+import { SAMPLE_SPEC, SAMPLE_BINDING } from '@/fixtures/connector-jsonata';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-// 非-gcal（CalDAV/protocol）calendar provider 的 mock 控制面，跟 provider-agnostic spec 同构。
+// mock 控制面（events / fail / reset）走 localhost；backend 容器内打 caldav 用 service-name。
 const CALDAV_MOCK = process.env['CALDAV_MOCK_URL'] ?? 'http://localhost:9000';
-// Google-style openapi calendar 的 mock 控制面（gcal mock：events / fail / reset）。
-const GCAL_MOCK = process.env['GCAL_MOCK_URL'] ?? 'http://localhost:9100';
+const GCAL_MOCK = process.env['GCAL_MOCK_URL'] ?? 'http://localhost:9000';
+const CALDAV_API = 'http://job-board-mock:9000';
 
 const OWNER = {
   email: 'kind-coexist@example.com',
@@ -61,13 +62,16 @@ const OWNER = {
 function futureSlot(daysAhead: number, hour: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + daysAhead);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) { // 默认 policy 只允许工作日
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
   d.setUTCHours(hour, 0, 0, 0);
   return d.toISOString();
 }
 
 test.describe('connector · 一个品类两种 kind 共存（§1 kind 轴缺测分支）', () => {
-  // 红契约：同品类双 kind 共存 + 单 active 槽仲裁 + 切换/回退，全未建（connector.md §1 + §3）。
-  test.fixme(true, 'pending #155 §1: one-category-two-kinds coexistence / active-slot arbitration');
+  // #155 §1 已落地：同品类双 kind（Google openapi + CalDAV protocol）共存 + 单 active 槽仲裁 +
+  // 切换 + disconnect-active 回退（promoteFallback）。
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => {
@@ -256,22 +260,26 @@ async function initOwner(playwright: Playwright): Promise<APIRequestContext> {
 async function connectGoogleCalendar(
   request: APIRequestContext, csrf: string,
 ): Promise<ConnRef> {
-  const id = await ensureOpenapiConnector(request, csrf, {
-    spec: `${GCAL_MOCK}/google-calendar.openapi.yaml`,
-    binding: {
-      category: 'calendar',
-      operations: {
-        list_busy: { op: 'freebusy.query' },
-        create_event: { op: 'events.insert' },
-      },
-    },
-  });
-  // openapi oauth2：存 client_id/secret 后跑 mock dance（这里 connect 返回直接 connected）。
+  let id = await findExisting(request, 'calendar', 'openapi');
+  if (!id) {
+    const res = await request.post(`${BACKEND}/api/admin/connectors`, {
+      headers: { 'X-Csrftoken': csrf }, data: { spec: SAMPLE_SPEC, binding: SAMPLE_BINDING },
+    });
+    if (res.status() !== 201) throw new Error(`create gcal openapi: ${res.status()} ${await res.text()}`);
+    id = (await res.json() as { id: string }).id;
+  }
+  await request.post(`${GCAL_MOCK}/__mock/gcal/reset`, { data: {} }).catch(() => undefined);
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { client_id: 'kc-client', client_secret: 'kc-secret', scheme: 'oauth2' },
+    headers: { 'X-Csrftoken': csrf }, data: { client_id: 'kc-client', client_secret: 'kc-secret' },
   });
-  return connectAndRead(request, csrf, id);
+  // oauth2 dance：connect 给同意页 URL，跟一遍 authorize→callback→token，回来即 connected+active。
+  const conn = await request.post(`${BACKEND}/api/admin/connectors/${id}/connect`, {
+    headers: { 'X-Csrftoken': csrf }, data: {},
+  });
+  const { auth_url: authURL } = await conn.json() as { auth_url?: string };
+  if (authURL) await request.get(authURL);
+  const st = await request.get(`${BACKEND}/api/admin/connectors/${id}/status`);
+  return await st.json() as ConnRef;
 }
 
 // connectCalDAVCalendar —— 装一个非-Google **protocol** calendar 连接器（CalDAV）填同一品类槽。
@@ -281,31 +289,15 @@ async function connectCalDAVCalendar(
   const id = await ensureProtocolConnector(request, csrf, {
     kind: 'protocol', protocol: 'caldav', category: 'calendar',
   });
+  await request.post(`${CALDAV_MOCK}/__mock/caldav/${id}/reset`, { data: {} }).catch(() => undefined);
   await request.post(`${BACKEND}/api/admin/connectors/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
-    data: { url: `${CALDAV_MOCK}/caldav`, username: 'owner', password: 'pw', tls: 'none' },
+    data: { url: `${CALDAV_API}/caldav/${id}`, username: 'owner', password: 'pw', tls: 'none' },
   });
   return connectAndRead(request, csrf, id);
 }
 
-interface OpenapiCreateBody {
-  spec: string;
-  binding: { category: string; operations: Record<string, { op: string }> };
-}
 interface ProtocolCreateBody { kind: string; protocol: string; category: string }
-
-// ensureOpenapiConnector —— 建 openapi 连接器，若同 (category,kind=openapi) 已有则复用。
-async function ensureOpenapiConnector(
-  request: APIRequestContext, csrf: string, body: OpenapiCreateBody,
-): Promise<string> {
-  const hit = await findExisting(request, body.binding.category, 'openapi');
-  if (hit) return hit;
-  const res = await request.post(`${BACKEND}/api/admin/connectors`, {
-    headers: { 'X-Csrftoken': csrf }, data: { kind: 'openapi', ...body },
-  });
-  if (res.status() !== 201) throw new Error(`create openapi connector: ${res.status()}`);
-  return (await res.json() as { id: string }).id;
-}
 
 // ensureProtocolConnector —— 建 protocol 连接器，若同 (category,kind) 已有则复用。
 async function ensureProtocolConnector(
@@ -418,12 +410,27 @@ async function bookViaChat(
   );
 }
 
-// getProviderEvents —— 读某 provider mock 记录的 event（断 booker 落到哪个 kind 的 provider）。
+// gcalRawEvent —— gcal mock 的 event 形（start 是 {dateTime} 对象，attendees 是 {email} 列表）。
+interface GcalRawEvent {
+  event_id: string; summary: string;
+  start?: { dateTime?: string }; attendees?: { email?: string }[];
+}
+
+// getProviderEvents —— 读某 provider mock 记录的 event，归一成 CalEvent（断 booker 落到哪个 kind）。
+// gcal mock 全局（/__mock/gcal/events，start={dateTime}）；caldav 按 collection（start 已是字符串）。
 async function getProviderEvents(
   request: APIRequestContext, provider: ProviderKind, connID: string,
 ): Promise<CalEvent[]> {
-  const base = provider === 'gcal' ? GCAL_MOCK : CALDAV_MOCK;
-  const res = await request.get(`${base}/__mock/${provider}/${connID}/events`);
-  if (res.status() !== 200) throw new Error(`${provider} events: ${res.status()}`);
+  if (provider === 'gcal') {
+    const res = await request.get(`${GCAL_MOCK}/__mock/gcal/events`);
+    if (res.status() !== 200) throw new Error(`gcal events: ${res.status()}`);
+    const raw = (await res.json() as { events?: GcalRawEvent[] }).events ?? [];
+    return raw.map((e) => ({
+      event_id: e.event_id, summary: e.summary, start: e.start?.dateTime ?? '',
+      attendees: (e.attendees ?? []).map((a) => a.email ?? ''),
+    }));
+  }
+  const res = await request.get(`${CALDAV_MOCK}/__mock/caldav/${connID}/events`);
+  if (res.status() !== 200) throw new Error(`caldav events: ${res.status()}`);
   return (await res.json() as { events: CalEvent[] }).events;
 }
