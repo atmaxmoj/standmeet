@@ -136,12 +136,21 @@ func (h *Handlers) listConnectors() http.HandlerFunc {
 // createConnectorReq —— Kind ""/"openapi" → 上传 spec+binding；"protocol" → 协议连接器（Protocol
 // 选 caldav/smtp，Category 显式给；openapi 的品类由 binding 定）。
 type createConnectorReq struct {
-	AuthScheme string          `json:"auth_scheme"`
-	Kind       string          `json:"kind"`
-	Protocol   string          `json:"protocol"`
-	Category   string          `json:"category"`
-	Spec       json.RawMessage `json:"spec"`
-	Binding    json.RawMessage `json:"binding"`
+	AuthScheme         string          `json:"auth_scheme"`
+	Kind               string          `json:"kind"`
+	Protocol           string          `json:"protocol"`
+	Category           string          `json:"category"`
+	Spec               json.RawMessage `json:"spec"`
+	Binding            json.RawMessage `json:"binding"`
+	ExposeAsAgentTools bool            `json:"expose_as_agent_tools"`
+}
+
+// uploadedSpecFrom —— createConnectorReq → connectorsvc.UploadedSpec（create + update 共用）。
+func (b *createConnectorReq) uploadedSpec() *connectorsvc.UploadedSpec {
+	return &connectorsvc.UploadedSpec{
+		Spec: b.Spec, Binding: b.Binding, AuthScheme: b.AuthScheme,
+		ExposeAsAgentTools: b.ExposeAsAgentTools,
+	}
 }
 
 // createConnectorID —— 按 kind 建连接器：protocol 走 CreateProtocol（无 spec）；其余走 CreateUploaded
@@ -152,7 +161,7 @@ func createConnectorID(
 	if body.Kind == "protocol" {
 		return svc.CreateProtocol(ctx, ownerID, body.Category, body.Protocol)
 	}
-	return svc.CreateUploaded(ctx, ownerID, body.Spec, body.Binding, body.AuthScheme)
+	return svc.CreateUploaded(ctx, ownerID, body.uploadedSpec())
 }
 
 // createConnector —— 上传一个 openapi 连接器（spec + JSONata binding）。201 {id}；坏 manifest → 400。
@@ -188,9 +197,7 @@ func (h *Handlers) updateConnector() http.HandlerFunc {
 			})
 			return
 		}
-		in := &connectorsvc.UploadedSpec{
-			Spec: body.Spec, Binding: body.Binding, AuthScheme: body.AuthScheme,
-		}
+		in := body.uploadedSpec()
 		if err := h.ConnectorsAdmin.Svc.UpdateUploaded(
 			r.Context(), ownerID, chi.URLParam(r, paramID), in); err != nil {
 			h.writeConnErr(w, err)
@@ -229,41 +236,6 @@ func toCredFormResp(f *connectorsvc.CredentialForm) credFormResp {
 		fields = append(fields, credFormField{Key: k})
 	}
 	return credFormResp{AuthType: f.AuthType, Fields: fields}
-}
-
-type mailTestSendReq struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Text    string `json:"text"`
-}
-
-type mailTestSendResp struct {
-	ViaKind string `json:"via_kind,omitempty"`
-	Ok      bool   `json:"ok"`
-}
-
-// mailTestSend —— owner 自测：经 active mail 连接器（品类契约）发一封。报 via_kind 证 mailer 不挑 kind。
-func (h *Handlers) mailTestSend() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		var body mailTestSendReq
-		dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
-		if derr := dec.Decode(&body); derr != nil {
-			writeError(h.Log, w, apierr.Envelope{
-				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
-			})
-			return
-		}
-		serr := h.ConnectorsAdmin.Mail.Send(r.Context(), ownerID,
-			usecases.MailMessage{To: body.To, Subject: body.Subject, Body: body.Text})
-		if serr != nil {
-			writeJSON(h.Log, w, mailTestSendResp{Ok: false})
-			return
-		}
-		writeJSON(h.Log, w, mailTestSendResp{
-			Ok: true, ViaKind: h.ConnectorsAdmin.MailKind(r.Context(), ownerID),
-		})
-	}
 }
 
 func (h *Handlers) saveConnectorCredentials() http.HandlerFunc {

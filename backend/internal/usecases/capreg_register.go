@@ -33,4 +33,7 @@ func RegisterVisitorSkills(
 		Skills: deps.Skills, Sandbox: deps.Sandbox,
 	}))
 	reg.MustRegister(newExtMCPCapability(deps.MCPServers, deps.DepConnected))
+	if deps.AgentConnectors != nil {
+		reg.MustRegister(newOpenapiAgentToolsCapability(deps.AgentConnectors))
+	}
 }

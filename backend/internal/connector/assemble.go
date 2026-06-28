@@ -16,13 +16,14 @@ const errConnectorWrap = "connector %q: %w"
 // Manifest —— 一个连接器的声明（数据，非代码）。openapi: spec+binding（+ owner 选的 AuthScheme）；
 // protocol: 由 Protocol 字段选内置协议 runtime（P3）。内置与上传同构，只是数据来源不同。
 type Manifest struct {
-	ID         string
-	Kind       string // "openapi" | "protocol"
-	Category   string
-	Protocol   string // protocol kind: "smtp" | "caldav"
-	AuthScheme string // openapi: owner 选中的 securityScheme key（空 = spec 里唯一那个）
-	Spec       []byte
-	Binding    []byte
+	ID                 string
+	Kind               string // "openapi" | "protocol"
+	Category           string
+	Protocol           string // protocol kind: "smtp" | "caldav"
+	AuthScheme         string // openapi: owner 选中的 securityScheme key（空 = spec 里唯一那个）
+	Spec               []byte
+	Binding            []byte
+	ExposeAsAgentTools bool // openapi: 把 raw operations 暴露成 agent 工具（§3，可无 binding）
 }
 
 // parsed —— 解析 + 校验后的 spec/binding（function-result-limit ≤2，用结构体承载）。
@@ -49,8 +50,12 @@ func AssembleOpenAPI(
 		return nil, fmt.Errorf(errConnectorWrap, m.ID, rerr)
 	}
 	core := &openapiCore{
-		runtime: rt, store: store, auth: auth, id: m.ID,
+		runtime: rt, store: store, auth: auth, id: m.ID, expose: m.ExposeAsAgentTools,
 		refresher: buildRefresher(p.spec, m.AuthScheme, doer, store),
+	}
+	if p.binding == nil {
+		// agent-only（§3）：无品类绑定 → 不占品类槽，裸 core 既是 Connector 也是 AgentToolConnector。
+		return core, nil
 	}
 	return adaptByCategory(p.binding.Category, core)
 }
@@ -89,14 +94,27 @@ func parseAndValidate(m *Manifest, allow EgressAllow) (parsed, error) {
 	if eerr := checkEgress(spec, m.AuthScheme, allow); eerr != nil {
 		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, eerr)
 	}
-	binding, berr := openapi.ParseBinding(m.Binding)
-	if berr != nil {
-		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, berr)
+	if len(m.Binding) == 0 {
+		// agent-only 连接器（§3）：无品类 binding，只暴露 raw ops 给 agent。spec+egress 仍校验。
+		return parsed{spec: spec, binding: nil}, nil
 	}
-	if verr := binding.ValidateAgainst(spec); verr != nil {
-		return parsed{}, fmt.Errorf(errConnectorWrap, m.ID, verr)
+	binding, berr := parseBindingFor(m, spec)
+	if berr != nil {
+		return parsed{}, berr
 	}
 	return parsed{spec: spec, binding: binding}, nil
+}
+
+// parseBindingFor —— 解析 binding + 校验它跟 spec 自洽（引用的 op 都在）。
+func parseBindingFor(m *Manifest, spec *openapi.Spec) (*openapi.Binding, error) {
+	binding, berr := openapi.ParseBinding(m.Binding)
+	if berr != nil {
+		return nil, fmt.Errorf(errConnectorWrap, m.ID, berr)
+	}
+	if verr := binding.ValidateAgainst(spec); verr != nil {
+		return nil, fmt.Errorf(errConnectorWrap, m.ID, verr)
+	}
+	return binding, nil
 }
 
 // resolveAuth —— 选 securityScheme + 建注入策略。

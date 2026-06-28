@@ -107,6 +107,29 @@ func (s *Spec) ServerURLs() []string {
 	return out
 }
 
+// OpInfo —— 一个 operation 的 agent-facing 元数据（agent 路：每个 op 暴露成一个 tool；
+// Summary/Description 喂 LLM 当工具描述选用）。
+type OpInfo struct {
+	ID          string
+	Summary     string
+	Description string
+}
+
+// Operations —— spec 里所有带 operationId 的 operation（agent 路把每个 op 暴露成一个工具）。
+func (s *Spec) Operations() []OpInfo {
+	out := make([]OpInfo, 0)
+	for _, methods := range s.Paths {
+		for _, op := range methods {
+			if op.OperationID != "" {
+				out = append(out, OpInfo{
+					ID: op.OperationID, Summary: op.Summary, Description: op.Description,
+				})
+			}
+		}
+	}
+	return out
+}
+
 // serverURL —— 第一个 server 的 base URL（去尾斜杠）。无 → 空串。
 func (s *Spec) serverURL() string {
 	if len(s.Servers) == 0 {

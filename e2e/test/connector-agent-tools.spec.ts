@@ -86,7 +86,7 @@ function TOOL_NAME_FOR(operationId: string): string {
 const AGENT_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Acme CRM', version: '1.0.0' },
-  servers: [{ url: 'http://localhost:9000/__mock/gcal' }],
+  servers: [{ url: 'http://job-board-mock:9000/crm' }],
   paths: {
     '/contacts': {
       get: {
@@ -120,8 +120,8 @@ const AGENT_SPEC = {
         type: 'oauth2',
         flows: {
           authorizationCode: {
-            authorizationUrl: 'http://localhost:9000/__mock/gcal/authorize',
-            tokenUrl: 'http://localhost:9000/__mock/gcal/token',
+            authorizationUrl: 'http://localhost:9000/google-oauth/auth',
+            tokenUrl: 'http://job-board-mock:9000/google-oauth/token',
             scopes: {
               'contacts.read': 'read contacts',
               'deals.write': 'write deals',
@@ -146,7 +146,7 @@ const ALL_OP_TOOLS = [
 const CALENDAR_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Sample Calendar', version: '1.0.0' },
-  servers: [{ url: 'http://localhost:9000/__mock/gcal' }],
+  servers: [{ url: 'http://job-board-mock:9000/google-calendar' }],
   paths: {
     '/freeBusy': {
       post: {
@@ -169,8 +169,8 @@ const CALENDAR_SPEC = {
         type: 'oauth2',
         flows: {
           authorizationCode: {
-            authorizationUrl: 'http://localhost:9000/__mock/gcal/authorize',
-            tokenUrl: 'http://localhost:9000/__mock/gcal/token',
+            authorizationUrl: 'http://localhost:9000/google-oauth/auth',
+            tokenUrl: 'http://job-board-mock:9000/google-oauth/token',
             scopes: { 'calendar.readonly': 'read', 'calendar.events': 'write' },
           },
         },
@@ -321,15 +321,14 @@ async function initOwner(playwright: Playwright): Promise<{
 test.describe('connector · agent-tool 暴露（§3 第二条 consumer 路：agent=语义读操作）', () => {
   // RED 契约：openapi operations → per-session agent tools 子系统未建。design §3 已定
   // 这条路、§7 只欠排期。实现 land 后去掉这行。
-  test.fixme(true, 'pending #155 §3: openapi operations exposed as agent tools (LLM semantic selection)');
 
   let request: APIRequestContext;
   let csrf: string;
 
-  test.beforeAll(async ({ playwright }) => {
+  test.beforeEach(async ({ playwright }) => {
     ({ request, csrf } = await initOwner(playwright));
   });
-  test.afterAll(async () => { await request.dispose(); });
+  test.afterEach(async () => { await request.dispose(); });
 
   // happy: connected openapi 连接器（[A1] expose_as_agent_tools）→ 它的 operations 进会话
   // tool 集，名 [A2] / 描述 [A3] 来自 spec 的 operation summaries。
@@ -386,15 +385,14 @@ test.describe('connector · agent-tool 暴露（§3 第二条 consumer 路：age
 
 test.describe('connector · agent-tool 暴露 · ACL/gating（§3 + §6 全局单点闸）', () => {
   // 同一张 grant/ACL 闸管 agent tools：per-op grant、纯品类连接器不泄 raw ops、断开即消失。
-  test.fixme(true, 'pending #155 §3: agent-tool exposure shares the per-session grant/ACL gate');
 
   let request: APIRequestContext;
   let csrf: string;
 
-  test.beforeAll(async ({ playwright }) => {
+  test.beforeEach(async ({ playwright }) => {
     ({ request, csrf } = await initOwner(playwright));
   });
-  test.afterAll(async () => { await request.dispose(); });
+  test.afterEach(async () => { await request.dispose(); });
 
   // ACL/gating [A4]: 只 grant contacts.list；contacts.search / deals.create 未授 → 不进 tool 集。
   test('agent-tool exposure respects per-session grant/ACL (an ungranted op is not exposed)',

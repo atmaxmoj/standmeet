@@ -13,9 +13,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
@@ -32,6 +34,7 @@ type openapiCore struct {
 	auth      authStrategy
 	refresher *oauthRefresher // oauth2 静默刷新；非 oauth2 为 nil
 	id        string
+	expose    bool // expose_as_agent_tools：把 raw operations 暴露成 agent 工具（§3）
 }
 
 // Name —— Connector 基面：连接器名。
@@ -47,6 +50,42 @@ func (c *openapiCore) Connected(ctx context.Context, ownerID string) (bool, erro
 		return false, fmt.Errorf("connector %q connected: %w", c.id, err)
 	}
 	return conn.Connected, nil
+}
+
+// ExposesAgentTools —— 这个连接器是否把 raw operations 暴露成 agent 工具（§3）。
+func (c *openapiCore) ExposesAgentTools() bool { return c.expose }
+
+// AgentOps —— spec 的每个 operation → 一个 agent tool 元数据（op_<id> + summary）。
+func (c *openapiCore) AgentOps() []usecases.AgentOp {
+	ops := c.runtime.Operations()
+	out := make([]usecases.AgentOp, 0, len(ops))
+	for i := range ops {
+		desc := ops[i].Summary
+		if desc == "" {
+			desc = ops[i].Description
+		}
+		out = append(out, usecases.AgentOp{
+			Name:        "op_" + strings.ReplaceAll(ops[i].ID, ".", "_"),
+			OpID:        ops[i].ID,
+			Description: desc,
+		})
+	}
+	return out
+}
+
+// CallAgentOp —— 运行时按 operationId 直调 SaaS（注入该 owner 的 auth），回原始响应（无映射）。
+func (c *openapiCore) CallAgentOp(
+	ctx context.Context, ownerID, opID string, argsJSON json.RawMessage,
+) (json.RawMessage, error) {
+	inj, err := c.injector(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	raw, cerr := c.runtime.RawCall(ctx, opID, argsJSON, inj)
+	if cerr != nil {
+		return nil, fmt.Errorf("connector %q agent call: %w", c.id, cerr)
+	}
+	return raw, nil
 }
 
 // injector —— 读该 owner 的连接状态，按 authStrategy 解出注入器（凭据全在本层内解密注入）。

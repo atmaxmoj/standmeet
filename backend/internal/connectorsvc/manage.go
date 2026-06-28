@@ -14,14 +14,15 @@ import (
 // CreateUploaded —— 从 owner 贴的 spec + JSONata binding 建一个 openapi 连接器：装配期校验
 // （坏 spec/binding/jsonata → ErrInvalidManifest）→ 注册进 live Hub → 存档（拉起重装）。返回 id。
 func (s *Service) CreateUploaded(
-	ctx context.Context, ownerID string, spec, binding []byte, authScheme string,
+	ctx context.Context, ownerID string, in *UploadedSpec,
 ) (string, error) {
 	id, err := randomState()
 	if err != nil {
 		return "", err
 	}
 	m := &connector.Manifest{
-		ID: "up-" + id, Kind: "openapi", AuthScheme: authScheme, Spec: spec, Binding: binding,
+		ID: "up-" + id, Kind: "openapi", AuthScheme: in.AuthScheme,
+		Spec: in.Spec, Binding: in.Binding, ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {
@@ -29,11 +30,20 @@ func (s *Service) CreateUploaded(
 	}
 	if serr := s.d.Repo.SaveUploaded(ctx, &postgres.SaveUploadedInput{
 		OwnerID: ownerID, ConnectorID: m.ID, Category: cat, Kind: "openapi",
-		Spec: spec, Binding: binding, AuthScheme: authScheme,
+		Spec: bytesOrEmpty(in.Spec), Binding: bytesOrEmpty(in.Binding),
+		AuthScheme: in.AuthScheme, ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}); serr != nil {
 		return "", fmt.Errorf("persist uploaded connector: %w", serr)
 	}
 	return m.ID, nil
+}
+
+// bytesOrEmpty —— nil → 空 bytea（列 NOT NULL）。agent-only 连接器无 binding（nil），存空非 NULL。
+func bytesOrEmpty(b []byte) []byte {
+	if b == nil {
+		return []byte{}
+	}
+	return b
 }
 
 // CreateProtocol —— owner 自建一个 protocol 连接器（caldav/smtp…，无 spec）：装配（NewXxxConnector）
@@ -71,6 +81,7 @@ func (s *Service) UpdateUploaded(
 	}
 	m := &connector.Manifest{
 		ID: id, Kind: "openapi", AuthScheme: in.AuthScheme, Spec: in.Spec, Binding: in.Binding,
+		ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {
@@ -78,7 +89,8 @@ func (s *Service) UpdateUploaded(
 	}
 	if serr := s.d.Repo.UpdateUploaded(ctx, &postgres.SaveUploadedInput{
 		OwnerID: ownerID, ConnectorID: id, Category: cat, Kind: "openapi",
-		Spec: in.Spec, Binding: in.Binding, AuthScheme: in.AuthScheme,
+		Spec: bytesOrEmpty(in.Spec), Binding: bytesOrEmpty(in.Binding),
+		AuthScheme: in.AuthScheme, ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}); serr != nil {
 		return fmt.Errorf("persist updated connector: %w", serr)
 	}

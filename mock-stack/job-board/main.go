@@ -191,6 +191,10 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /__mock/gcal/set_event_shape", s.serveMockSetEventShape)
 	mux.HandleFunc("POST /__mock/gcal/revoke", s.serveMockGCalRevoke)
 	mux.HandleFunc("POST /__mock/gcal/reset", s.serveMockGCalReset)
+	// CRM-ish SaaS mock (#155 §3 agent-tool exposure): binding-less openapi connector 落点
+	mux.HandleFunc("GET /crm/contacts", s.serveCRMContacts)
+	mux.HandleFunc("POST /crm/contacts/search", s.serveCRMContactSearch)
+	mux.HandleFunc("POST /crm/deals", s.serveCRMDealCreate)
 	// SendGrid-style mail mock (#155 §8 openapi-mail)
 	mux.HandleFunc("POST /__mock/sendgrid/mail/send", s.serveSendGridSend)
 	mux.HandleFunc("GET /__mock/sendgrid/sent", s.serveSendGridSent)

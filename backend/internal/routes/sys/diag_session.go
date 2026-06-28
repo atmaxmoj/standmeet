@@ -35,7 +35,8 @@ func MountDiagSession(r chi.Router, deps DiagSessionDeps) {
 }
 
 type toolSpecWireV2 struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 }
 
 type diagSessionResp struct {
@@ -106,7 +107,7 @@ func toolSpecsFor(
 	bindings := reg.AssembleVisitor(ctx, in)
 	specs := make([]toolSpecWireV2, 0, len(bindings))
 	for _, b := range bindings {
-		specs = appendBindingToolSpecs(specs, b)
+		specs = appendBindingToolSpecs(ctx, specs, b)
 	}
 	return specs
 }
@@ -114,15 +115,25 @@ func toolSpecsFor(
 // appendBindingToolSpecs —— 拍平一个 binding 的所有 tool spec 名进 out，
 // 顺便 release Close hook (introspect 用完即关，让 ext-mcp 计数 +1 后归零)。
 func appendBindingToolSpecs(
-	out []toolSpecWireV2, b *capreg.Binding,
+	ctx context.Context, out []toolSpecWireV2, b *capreg.Binding,
 ) []toolSpecWireV2 {
 	for i := range b.Tools {
-		out = append(out, toolSpecWireV2{Name: b.Tools[i].Name})
+		out = append(out, toolSpecWireV2{
+			Name: b.Tools[i].Name, Description: toolDesc(ctx, &b.Tools[i]),
+		})
 	}
 	if b.Close != nil {
 		b.Close()
 	}
 	return out
+}
+
+// toolDesc —— 工具的描述（eino Tool.Info().Desc）；取不到 → 空。
+func toolDesc(ctx context.Context, t *capreg.BindingTool) string {
+	if info, err := t.Tool.Info(ctx); err == nil {
+		return info.Desc
+	}
+	return ""
 }
 
 func writeSessionLookupErr(w http.ResponseWriter, err error) {

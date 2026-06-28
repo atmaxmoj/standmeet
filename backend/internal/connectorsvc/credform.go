@@ -9,9 +9,11 @@ type CredentialForm struct {
 	Fields   []string
 }
 
-// UploadedSpec —— 上传/编辑连接器的内容（spec + JSONata binding + 选中的 authScheme）。
+// UploadedSpec —— 上传/编辑连接器的内容（spec + JSONata binding + 选中的 authScheme +
+// 是否把 raw ops 暴露成 agent 工具）。
 type UploadedSpec struct {
-	AuthScheme string
-	Spec       []byte
-	Binding    []byte
+	AuthScheme         string
+	Spec               []byte
+	Binding            []byte
+	ExposeAsAgentTools bool
 }

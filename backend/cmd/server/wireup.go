@@ -46,9 +46,10 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.agentSkills, Log: d.log},
 		DiagSession:  buildDiagSessionDeps(d),
 		DiagConnector: sysroutes.DiagConnectorDeps{
-			Calendar: d.connectorSlots.ConnectorCalendar,
-			Mail:     d.connectorSlots.ConnectorMail,
-			Log:      d.log,
+			Calendar:  d.connectorSlots.ConnectorCalendar,
+			Mail:      d.connectorSlots.ConnectorMail,
+			AgentCall: d.connectorSlots.AgentCall,
+			Log:       d.log,
 		},
 		DiagSandbox: sysroutes.DiagSandboxDeps{
 			Workspaces: d.sandboxWorkspaces, Log: d.log,
@@ -202,6 +203,7 @@ func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
 		Notify: usecases.OwnerNotifyDeps{
 			Owners: d.ownerRepo, Roles: d.roleRepo, Proxy: d.connectorSlots.Mail(),
 		},
+		AgentConnectors: &agentConnectorSource{repo: d.connectorRepo, slots: d.connectorSlots},
 	}
 }
 

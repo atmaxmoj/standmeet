@@ -7,6 +7,7 @@ package usecases
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
@@ -61,18 +62,19 @@ func parseMailSend(raw json.RawMessage) (mailSendCall, error) {
 	return mailSendCall{OwnerID: req.OwnerID, To: to, Subject: args.Subject, Body: args.Body}, nil
 }
 
-// mailSendHandler —— 解参 → MailContract.Send。发信失败 → 友好 {ok:false}（不泄底层）。
+// errMailSendFailed —— 发信失败的干净错（capsocket 折成 {"error":...}，不泄底层 SMTP/SaaS 细节）。
+var errMailSendFailed = errors.New("the email could not be sent")
+
+// mailSendHandler —— 解参 → MailContract.Send。发信失败 → 干净错（capsocket 折成 {"error":...}）。
 func mailSendHandler(deps *MailSenderDeps) capsocket.Handler {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		c, err := parseMailSend(raw)
 		if err != nil {
 			return nil, err
 		}
-		serr := deps.Proxy.Send(ctx, c.OwnerID,
-			MailMessage{To: c.To, Subject: c.Subject, Body: c.Body})
-		if serr != nil {
-			//nolint:nilerr // 发信失败 → 友好降级 wire，不泄底层错
-			return json.RawMessage(`{"ok":false,"error":"the email could not be sent"}`), nil
+		if serr := deps.Proxy.Send(ctx, c.OwnerID,
+			MailMessage{To: c.To, Subject: c.Subject, Body: c.Body}); serr != nil {
+			return nil, errMailSendFailed
 		}
 		return json.RawMessage(`{"ok":true}`), nil
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/connector/builtins"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // connectorEgressAllow —— 出站 SSRF 白名单（CONNECTOR_EGRESS_ALLOW 逗号分隔 hostname；
@@ -210,6 +211,7 @@ func registerUploadedConnectors(
 		m := &connector.Manifest{
 			ID: u.ConnectorID, Kind: u.Kind, Category: u.Category, Protocol: u.Protocol,
 			AuthScheme: u.AuthScheme, Spec: u.Spec, Binding: u.Binding,
+			ExposeAsAgentTools: u.ExposeAsAgentTools,
 		}
 		c, aerr := assembleConnector(m, deps)
 		if aerr != nil {
@@ -240,9 +242,40 @@ func (i uploadedInstaller) Install(m *connector.Manifest) (string, error) {
 }
 
 // manifestCategory —— openapi 从 binding 取品类；protocol 用声明的 Category。
+// agentConnectorSource —— usecases.AgentConnectorSource 适配器：owner 的 connected 连接器里挑出
+// 暴露 agent 工具的 openapi 连接器（ListByOwner 过 connected → Hub 解析 → type-assert + expose）。
+type agentConnectorSource struct {
+	repo  *postgres.ConnectorRepo
+	slots *connector.Slots
+}
+
+func (s *agentConnectorSource) AgentConnectors(
+	ctx context.Context, ownerID string,
+) ([]usecases.AgentToolConnector, error) {
+	conns, err := s.repo.ListByOwner(ctx, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("list connectors for agent tools: %w", err)
+	}
+	return s.slots.AgentConnectorsByID(connectedIDs(conns)), nil
+}
+
+// connectedIDs —— 已 connected 的连接器 id（agent-tools 闸：未连不暴露）。
+func connectedIDs(conns []domain.ConnectorConnection) []string {
+	out := make([]string, 0, len(conns))
+	for i := range conns {
+		if conns[i].Connected {
+			out = append(out, conns[i].ConnectorID)
+		}
+	}
+	return out
+}
+
 func manifestCategory(m *connector.Manifest) (string, error) {
 	if m.Kind == "protocol" {
 		return m.Category, nil
+	}
+	if len(m.Binding) == 0 {
+		return "", nil // agent-only openapi 连接器（§3）：无品类绑定，不占品类槽
 	}
 	cat, cerr := connector.BindingCategory(m)
 	if cerr != nil {

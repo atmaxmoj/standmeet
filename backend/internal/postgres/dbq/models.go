@@ -301,23 +301,24 @@ type OwnerCalendarConnector struct {
 }
 
 type OwnerConnector struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
-	ConnectorID    string
-	Category       string
-	Kind           string
-	CredentialsEnc []byte
-	TokenEnc       []byte
-	TokenExpiresAt pgtype.Timestamptz
-	Scopes         []byte
-	ConnectedAt    pgtype.Timestamptz
-	Active         bool
-	Spec           []byte
-	Binding        []byte
-	AuthScheme     string
-	Protocol       string
-	CreatedAt      pgtype.Timestamptz
-	UpdatedAt      pgtype.Timestamptz
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	ConnectorID        string
+	Category           string
+	Kind               string
+	CredentialsEnc     []byte
+	TokenEnc           []byte
+	TokenExpiresAt     pgtype.Timestamptz
+	Scopes             []byte
+	ConnectedAt        pgtype.Timestamptz
+	Active             bool
+	Spec               []byte
+	Binding            []byte
+	AuthScheme         string
+	Protocol           string
+	ExposeAsAgentTools bool
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 }
 
 type OwnerKeypair struct {

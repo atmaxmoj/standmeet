@@ -64,4 +64,7 @@ type VisitorSkillsDeps struct {
 	// _meta.requires 时按 grant+connected 放行）。prod 注 connector DepRegistry；eval
 	// facade 留 nil → ext-mcp 依赖工具一律 fail-closed 隐藏。
 	DepConnected DepConnected
+	// AgentConnectors —— openapi 连接器的 raw ops 暴露成 agent 工具（§3）的来源。prod 注
+	// composition root 的适配器（ConnectorRepo + Hub）；nil → 不暴露任何 agent 工具。
+	AgentConnectors AgentConnectorSource
 }

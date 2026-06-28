@@ -763,6 +763,8 @@ CREATE TABLE owner_connectors (
     auth_scheme      text          NOT NULL DEFAULT '',
     -- protocol (caldav/smtp/…) for kind=protocol connectors owner-created in the UI (no spec).
     protocol         text          NOT NULL DEFAULT '',
+    -- expose this openapi connector's raw operations as per-session agent tools (§3 agent 路).
+    expose_as_agent_tools boolean   NOT NULL DEFAULT false,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );

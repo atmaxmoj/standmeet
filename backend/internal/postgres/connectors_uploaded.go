@@ -16,14 +16,15 @@ import (
 
 // SaveUploadedInput —— owner 自建连接器的存储入参（openapi: spec/binding；protocol: protocol）。
 type SaveUploadedInput struct {
-	OwnerID     string
-	ConnectorID string
-	Category    string
-	Kind        string
-	AuthScheme  string
-	Protocol    string
-	Spec        []byte
-	Binding     []byte
+	OwnerID            string
+	ConnectorID        string
+	Category           string
+	Kind               string
+	AuthScheme         string
+	Protocol           string
+	Spec               []byte
+	Binding            []byte
+	ExposeAsAgentTools bool
 }
 
 // SaveUploaded —— 存一个 owner 自建连接器（openapi 带 spec/binding；protocol 带 protocol）。
@@ -36,6 +37,7 @@ func (r *ConnectorRepo) SaveUploaded(ctx context.Context, in *SaveUploadedInput)
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID, Category: in.Category,
 		Kind: in.Kind, Spec: in.Spec, Binding: in.Binding,
 		AuthScheme: in.AuthScheme, Protocol: in.Protocol,
+		ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}); qerr != nil {
 		return fmt.Errorf("insert uploaded connector: %w", qerr)
 	}
@@ -51,6 +53,7 @@ func (r *ConnectorRepo) UpdateUploaded(ctx context.Context, in *SaveUploadedInpu
 	if qerr := dbq.New(r.pool).UpdateUploadedConnector(ctx, dbq.UpdateUploadedConnectorParams{
 		OwnerID: ownerUUID, ConnectorID: in.ConnectorID, Category: in.Category,
 		Spec: in.Spec, Binding: in.Binding, AuthScheme: in.AuthScheme,
+		ExposeAsAgentTools: in.ExposeAsAgentTools,
 	}); qerr != nil {
 		return fmt.Errorf("update uploaded connector: %w", qerr)
 	}
@@ -59,13 +62,14 @@ func (r *ConnectorRepo) UpdateUploaded(ctx context.Context, in *SaveUploadedInpu
 
 // UploadedManifest —— 一个 owner 自建连接器的存档 manifest（拉起重装用）。
 type UploadedManifest struct {
-	ConnectorID string
-	Category    string
-	Kind        string
-	AuthScheme  string
-	Protocol    string
-	Spec        []byte
-	Binding     []byte
+	ConnectorID        string
+	Category           string
+	Kind               string
+	AuthScheme         string
+	Protocol           string
+	Spec               []byte
+	Binding            []byte
+	ExposeAsAgentTools bool
 }
 
 // GetManifest —— 取一个连接器存档的 manifest 字段（上传连接器用：category/kind/spec/binding/
@@ -89,7 +93,7 @@ func (r *ConnectorRepo) GetManifest(
 	return UploadedManifest{
 		Spec: row.Spec, Binding: row.Binding, ConnectorID: connectorID,
 		Category: row.Category, Kind: row.Kind, AuthScheme: row.AuthScheme,
-		Protocol: row.Protocol,
+		Protocol: row.Protocol, ExposeAsAgentTools: row.ExposeAsAgentTools,
 	}, nil
 }
 
@@ -105,6 +109,7 @@ func (r *ConnectorRepo) ListUploaded(ctx context.Context) ([]UploadedManifest, e
 			Spec: rows[i].Spec, Binding: rows[i].Binding,
 			ConnectorID: rows[i].ConnectorID, Category: rows[i].Category,
 			Kind: rows[i].Kind, AuthScheme: rows[i].AuthScheme, Protocol: rows[i].Protocol,
+			ExposeAsAgentTools: rows[i].ExposeAsAgentTools,
 		})
 	}
 	return out, nil

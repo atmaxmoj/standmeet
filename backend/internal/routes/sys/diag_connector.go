@@ -20,11 +20,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-// DiagConnectorDeps —— 按 id 解析某连接器的品类契约（composition root 接 connector.Slots）。
+// AgentCallFn —— 按 id 跑一个 agent-tool op（注入 auth 调 SaaS），回原始响应或错（diag 直验通路）。
+type AgentCallFn func(
+	ctx context.Context, id, ownerID, op string, args json.RawMessage,
+) (json.RawMessage, error)
+
+// DiagConnectorDeps —— 按 id 解析某连接器的品类契约（composition root 接 Slots）+ agent-tool 直调。
 type DiagConnectorDeps struct {
-	Calendar func(id string) (usecases.CalendarProxy, bool)
-	Mail     func(id string) (usecases.MailProxy, bool)
-	Log      *slog.Logger
+	Calendar  func(id string) (usecases.CalendarProxy, bool)
+	Mail      func(id string) (usecases.MailProxy, bool)
+	AgentCall AgentCallFn
+	Log       *slog.Logger
 }
 
 // MountDiagConnector —— 挂连接器 diag（caller 已套 owner-session 中间件）。
@@ -32,6 +38,31 @@ func MountDiagConnector(r chi.Router, deps DiagConnectorDeps) {
 	r.Post("/diag/connector/{id}/list-busy", diagListBusy(deps))
 	r.Post("/diag/connector/{id}/create-event", diagCreateEvent(deps))
 	r.Post("/diag/connector/{id}/send", diagSend(deps))
+	r.Post("/diag/connector/{id}/agent-call", diagAgentCall(deps))
+}
+
+type diagAgentCallReq struct {
+	Op   string          `json:"op"`
+	Args json.RawMessage `json:"args"`
+}
+
+// diagAgentCall —— owner 直跑一个 agent-tool（op）：注入 auth 调 SaaS，证运行时通路（§3 [A6]）。
+// 成功 → 200 {ok:true}；运行失败 → 友好 200 {ok:false}（不泄底层，真错进日志）。
+func diagAgentCall(deps DiagConnectorDeps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req diagAgentCallReq
+		if !diagDecode(deps.Log, w, r, &req) {
+			return
+		}
+		owner := middleware.OwnerIDFrom(r.Context())
+		_, cerr := deps.AgentCall(r.Context(), chi.URLParam(r, "id"), owner, req.Op, req.Args)
+		if cerr != nil {
+			deps.Log.Warn("diag agent-call failed", "op", req.Op, "err", cerr)
+			diagStatus(deps.Log, w, http.StatusOK, map[string]bool{"ok": false})
+			return
+		}
+		diagStatus(deps.Log, w, http.StatusOK, map[string]bool{"ok": true})
+	}
 }
 
 type diagRangeReq struct {

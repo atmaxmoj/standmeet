@@ -7,6 +7,7 @@ package connector
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -58,6 +59,42 @@ func (s *Slots) ConnectorMail(id string) (usecases.MailProxy, bool) {
 	}
 	m, isMail := c.(usecases.MailProxy)
 	return m, isMail
+}
+
+// AgentConnectorsByID —— 给一组 connector id，挑出实现 AgentToolConnector 且开了 expose 的那些
+// （§3：openapi 把 raw ops 暴露成 agent 工具）。返回切片（非裸接口），per-session 源用。
+func (s *Slots) AgentConnectorsByID(ids []string) []usecases.AgentToolConnector {
+	out := make([]usecases.AgentToolConnector, 0, len(ids))
+	for _, id := range ids {
+		c, ok := s.hub.Resolve(id)
+		if !ok {
+			continue
+		}
+		if atc, isAgent := c.(usecases.AgentToolConnector); isAgent && atc.ExposesAgentTools() {
+			out = append(out, atc)
+		}
+	}
+	return out
+}
+
+// AgentCall —— diag/agent-call：按 id 解析连接器、跑一个 op（注入 auth 调 SaaS），回原始响应。
+// 未注册 / 非 agent 连接器 → errNoActiveConnector（diag 翻 404）。不回裸接口。
+func (s *Slots) AgentCall(
+	ctx context.Context, id, ownerID, opID string, args json.RawMessage,
+) (json.RawMessage, error) {
+	c, ok := s.hub.Resolve(id)
+	if !ok {
+		return nil, fmt.Errorf("agent call %q: %w", id, errNoActiveConnector)
+	}
+	atc, isAgent := c.(usecases.AgentToolConnector)
+	if !isAgent {
+		return nil, fmt.Errorf("agent call %q: %w", id, errNoActiveConnector)
+	}
+	raw, err := atc.CallAgentOp(ctx, ownerID, opID, args)
+	if err != nil {
+		return nil, fmt.Errorf("agent call %q: %w", id, err)
+	}
+	return raw, nil
 }
 
 // MailKind —— active mail 连接器的 kind（openapi/protocol）；无 active → 空串。消费者（test-send）
