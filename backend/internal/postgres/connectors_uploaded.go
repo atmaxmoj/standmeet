@@ -40,6 +40,21 @@ func (r *ConnectorRepo) SaveUploaded(ctx context.Context, in *SaveUploadedInput)
 	return nil
 }
 
+// UpdateUploaded —— 编辑已建上传连接器的 spec/binding/auth_scheme/category（重新装配后存档）。
+func (r *ConnectorRepo) UpdateUploaded(ctx context.Context, in *SaveUploadedInput) error {
+	ownerUUID, err := parseUUID(in.OwnerID)
+	if err != nil {
+		return fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	if qerr := dbq.New(r.pool).UpdateUploadedConnector(ctx, dbq.UpdateUploadedConnectorParams{
+		OwnerID: ownerUUID, ConnectorID: in.ConnectorID, Category: in.Category,
+		Spec: in.Spec, Binding: in.Binding, AuthScheme: in.AuthScheme,
+	}); qerr != nil {
+		return fmt.Errorf("update uploaded connector: %w", qerr)
+	}
+	return nil
+}
+
 // UploadedManifest —— 一个上传连接器的存档 manifest（拉起重装用）。
 type UploadedManifest struct {
 	ConnectorID string

@@ -34,6 +34,8 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 		r.Get("/", h.listConnectors())
 		r.Post("/", h.createConnector())
 		r.Route("/{id}", func(r chi.Router) {
+			r.Put("/", h.updateConnector())
+			r.Get("/credential-form", h.connectorCredentialForm())
 			r.Post("/credentials", h.saveConnectorCredentials())
 			r.Get("/status", h.connectorStatus())
 			r.Post("/connect", h.connectConnector())
@@ -152,6 +154,61 @@ func (h *Handlers) createConnector() http.HandlerFunc {
 		}
 		writeCreated(h.Log, w, map[string]string{"id": id})
 	}
+}
+
+// updateConnector —— 编辑已建上传连接器的 spec+binding（PUT）。坏 manifest / 内置 → 400。
+func (h *Handlers) updateConnector() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		var body createConnectorReq
+		dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
+		if derr := dec.Decode(&body); derr != nil {
+			writeError(h.Log, w, apierr.Envelope{
+				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
+			})
+			return
+		}
+		in := &connectorsvc.UploadedSpec{
+			Spec: body.Spec, Binding: body.Binding, AuthScheme: body.AuthScheme,
+		}
+		if err := h.ConnectorsAdmin.Svc.UpdateUploaded(
+			r.Context(), ownerID, chi.URLParam(r, paramID), in); err != nil {
+			h.writeConnErr(w, err)
+			return
+		}
+		writeJSON(h.Log, w, map[string]bool{"ok": true})
+	}
+}
+
+type credFormField struct {
+	Key string `json:"key"`
+}
+
+type credFormResp struct {
+	AuthType string          `json:"auth_type"`
+	Fields   []credFormField `json:"fields"`
+}
+
+// connectorCredentialForm —— 派生的凭据表单（owner 该填哪些字段连这个连接器）。
+func (h *Handlers) connectorCredentialForm() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		form, err := h.ConnectorsAdmin.Svc.CredentialForm(
+			r.Context(), ownerID, chi.URLParam(r, paramID))
+		if err != nil {
+			h.writeConnErr(w, err)
+			return
+		}
+		writeJSON(h.Log, w, toCredFormResp(&form))
+	}
+}
+
+func toCredFormResp(f *connectorsvc.CredentialForm) credFormResp {
+	fields := make([]credFormField, 0, len(f.Fields))
+	for _, k := range f.Fields {
+		fields = append(fields, credFormField{Key: k})
+	}
+	return credFormResp{AuthType: f.AuthType, Fields: fields}
 }
 
 func (h *Handlers) saveConnectorCredentials() http.HandlerFunc {

@@ -99,6 +99,43 @@ func (s *Service) CreateUploaded(
 	return m.ID, nil
 }
 
+// UpdateUploaded —— 编辑已建上传连接器的 spec/binding（换认证 type 等）→ 重新装配（校验+SSRF）+
+// 重注册进 Hub + 存档。内置连接器不可编辑（spec 来自 embed）→ ErrInvalidManifest。
+func (s *Service) UpdateUploaded(
+	ctx context.Context, ownerID, id string, in *UploadedSpec,
+) error {
+	if s.Manifest(id) != nil { // 内置：不可编辑
+		return ErrInvalidManifest
+	}
+	m := &connector.Manifest{
+		ID: id, Kind: "openapi", AuthScheme: in.AuthScheme, Spec: in.Spec, Binding: in.Binding,
+	}
+	cat, ierr := s.d.Installer.Install(m)
+	if ierr != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
+	}
+	if serr := s.d.Repo.UpdateUploaded(ctx, &postgres.SaveUploadedInput{
+		OwnerID: ownerID, ConnectorID: id, Category: cat, Kind: "openapi",
+		Spec: in.Spec, Binding: in.Binding, AuthScheme: in.AuthScheme,
+	}); serr != nil {
+		return fmt.Errorf("persist updated connector: %w", serr)
+	}
+	return nil
+}
+
+// CredentialForm —— 派生这个连接器要 owner 填的凭据表单（按 spec 的 securityScheme）。
+func (s *Service) CredentialForm(ctx context.Context, ownerID, id string) (CredentialForm, error) {
+	m, merr := s.manifestFor(ctx, ownerID, id)
+	if merr != nil {
+		return CredentialForm{}, merr
+	}
+	form, derr := connector.DeriveCredentialForm(m)
+	if derr != nil {
+		return CredentialForm{}, fmt.Errorf("%w: %w", ErrInvalidManifest, derr)
+	}
+	return CredentialForm{AuthType: form.AuthType, Fields: form.Fields}, nil
+}
+
 // SaveCredentials —— 存凭据（原样 JSON）。category/kind 由内置 manifest 定；未知 id → ErrNotFound。
 func (s *Service) SaveCredentials(ctx context.Context, ownerID, id string, body []byte) error {
 	m, merr := s.manifestFor(ctx, ownerID, id)

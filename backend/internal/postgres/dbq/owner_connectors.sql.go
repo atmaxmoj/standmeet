@@ -387,6 +387,37 @@ func (q *Queries) UpdateConnectorTokens(ctx context.Context, arg UpdateConnector
 	return i, err
 }
 
+const updateUploadedConnector = `-- name: UpdateUploadedConnector :exec
+UPDATE owner_connectors
+SET spec = $1::bytea, binding = $2::bytea,
+    category = $3, auth_scheme = $4,
+    connected_at = NULL, updated_at = now()
+WHERE owner_id = $5 AND connector_id = $6
+`
+
+type UpdateUploadedConnectorParams struct {
+	Spec        []byte
+	Binding     []byte
+	Category    string
+	AuthScheme  string
+	OwnerID     pgtype.UUID
+	ConnectorID string
+}
+
+// 编辑已建上传连接器的 spec/binding/auth_scheme（owner 在 UI 改 spec → 重新装配 + 重派生凭据
+// 表单）。换认证 type 后凭据需重新填，清掉 connected_at（重新连）。category 可能随之变。
+func (q *Queries) UpdateUploadedConnector(ctx context.Context, arg UpdateUploadedConnectorParams) error {
+	_, err := q.db.Exec(ctx, updateUploadedConnector,
+		arg.Spec,
+		arg.Binding,
+		arg.Category,
+		arg.AuthScheme,
+		arg.OwnerID,
+		arg.ConnectorID,
+	)
+	return err
+}
+
 const upsertConnectorCredentials = `-- name: UpsertConnectorCredentials :one
 
 INSERT INTO owner_connectors (

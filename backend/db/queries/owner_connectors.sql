@@ -79,6 +79,15 @@ VALUES (
 )
 RETURNING *;
 
+-- name: UpdateUploadedConnector :exec
+-- 编辑已建上传连接器的 spec/binding/auth_scheme（owner 在 UI 改 spec → 重新装配 + 重派生凭据
+-- 表单）。换认证 type 后凭据需重新填，清掉 connected_at（重新连）。category 可能随之变。
+UPDATE owner_connectors
+SET spec = sqlc.arg(spec)::bytea, binding = sqlc.arg(binding)::bytea,
+    category = sqlc.arg(category), auth_scheme = sqlc.arg(auth_scheme),
+    connected_at = NULL, updated_at = now()
+WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);
+
 -- name: GetConnectorManifest :one
 -- 取一个连接器存档的 manifest 字段（上传连接器有 spec/binding；内置的这些为空）。
 SELECT category, kind, spec, binding, auth_scheme

@@ -74,9 +74,8 @@ test.describe('connector · 额外 corner / error stream（收尾）', () => {
     expect(msg, '不泄 provider 原始错误/stack/状态码').not.toMatch(/panic|goroutine|stack|429/);
   });
 
-  // 编辑已建连接器的 spec（换认证 type）→ 凭据表单/状态重新派生。需 PUT /{id} + credential-form
-  // 派生端（#161 通用 admin 路由），未建，fixme。
-  test.fixme('编辑 spec → 凭据表单重新派生（bearer → apiKey 后字段跟着变）', async () => {
+  // 编辑已建连接器的 spec（换认证 type）→ 凭据表单/状态重新派生（#161 PUT /{id} + credential-form）。
+  test('编辑 spec → 凭据表单重新派生（bearer → apiKey 后字段跟着变）', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
 
@@ -86,7 +85,8 @@ test.describe('connector · 额外 corner / error stream（收尾）', () => {
       '{"apiKey":{"type":"apiKey","in":"header","name":"X-Api-Key"}}',
     );
     const res = await request.put(`${BACKEND}/api/admin/connectors/${id}`, {
-      headers: { 'X-Csrftoken': csrf }, data: { spec: apiKeySpec, binding: CAL_BINDING },
+      headers: { 'X-Csrftoken': csrf },
+      data: { spec: JSON.parse(apiKeySpec), binding: CAL_BINDING },
     });
     expect(res.status(), 'PUT 编辑 spec → 200').toBe(200);
 
