@@ -28,6 +28,10 @@ func (fakeStore) SaveTokens(
 	return nil
 }
 
+func (fakeStore) MarkDisconnected(_ context.Context, _, _ string) error {
+	return nil
+}
+
 func mustFind(t *testing.T, ms []connector.Manifest, id string) connector.Manifest {
 	t.Helper()
 	for i := range ms {

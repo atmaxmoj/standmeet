@@ -18,6 +18,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/retry"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -109,11 +110,13 @@ func (a calendarAdapter) FreeBusy(
 ) ([]usecases.BusyInterval, error) {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {
-		return nil, err
+		return nil, mapCalendarErr(err)
 	}
 	var out busyResult
 	in := listBusyInput{TimeMin: req.TimeMin, TimeMax: req.TimeMax}
-	if cerr := a.runtime.Call(ctx, "list_busy", in, &out, inj); cerr != nil {
+	if cerr := retry.Do(ctx, calendarRetryPolicy(), func() error {
+		return a.runtime.Call(ctx, "list_busy", in, &out, inj)
+	}); cerr != nil {
 		return nil, mapCalendarErr(cerr)
 	}
 	intervals := make([]usecases.BusyInterval, 0, len(out.Busy))
@@ -130,7 +133,7 @@ func (a calendarAdapter) InsertEvent(
 ) (usecases.InsertedEvent, error) {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {
-		return usecases.InsertedEvent{}, err
+		return usecases.InsertedEvent{}, mapCalendarErr(err)
 	}
 	in := insertEventInput{
 		Summary: req.Summary, Description: req.Description,
@@ -139,7 +142,9 @@ func (a calendarAdapter) InsertEvent(
 		TimeZone: req.TimeZone, VisitorEmail: req.VisitorEmail,
 	}
 	var out insertedResult
-	if cerr := a.runtime.Call(ctx, "create_event", in, &out, inj); cerr != nil {
+	if cerr := retry.Do(ctx, calendarRetryPolicy(), func() error {
+		return a.runtime.Call(ctx, "create_event", in, &out, inj)
+	}); cerr != nil {
 		return usecases.InsertedEvent{}, mapCalendarErr(cerr)
 	}
 	return usecases.InsertedEvent{EventID: out.EventID, HTMLLink: out.HTMLLink}, nil
@@ -151,30 +156,48 @@ func (a calendarAdapter) DeleteEvent(
 ) error {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {
-		return err
+		return mapCalendarErr(err)
 	}
 	in := cancelInput{EventID: eventID, AttendeeEmail: attendeeEmail}
-	if cerr := a.runtime.Call(ctx, "cancel_event", in, nil, inj); cerr != nil {
+	if cerr := retry.Do(ctx, calendarRetryPolicy(), func() error {
+		return a.runtime.Call(ctx, "cancel_event", in, nil, inj)
+	}); cerr != nil {
 		return mapCalendarErr(cerr)
 	}
 	return nil
 }
 
-// mapCalendarErr —— 把执行核错映射成 calendar 域错（友好降级）。429/5xx → 「稍后再试」。
+// mapCalendarErr —— 把执行核错映射成 calendar 域错（友好降级）。invalid_grant/401 → revoked；
+// 429/5xx/网络抖动 → 「稍后再试」；其余 → 包一层。
 func mapCalendarErr(err error) error {
 	if err == nil {
 		return nil
 	}
-	var se *openapi.StatusError
-	if errors.As(err, &se) {
-		if se.Transient {
-			return domain.ErrCalendarUnavailable
-		}
-		if se.Code == http.StatusUnauthorized {
-			return domain.ErrCalendarRevoked
-		}
+	if errors.Is(err, ErrInvalidGrant) {
+		return domain.ErrCalendarRevoked
+	}
+	if mapped := mapStatusErr(err); mapped != nil {
+		return mapped
+	}
+	if openapiTransient(err) {
+		return domain.ErrCalendarUnavailable
 	}
 	return fmt.Errorf("calendar: %w", err)
+}
+
+// mapStatusErr —— StatusError 专项映射（transient → unavailable；401 → revoked）；非 StatusError → nil。
+func mapStatusErr(err error) error {
+	var se *openapi.StatusError
+	if !errors.As(err, &se) {
+		return nil
+	}
+	if se.Transient {
+		return domain.ErrCalendarUnavailable
+	}
+	if se.Code == http.StatusUnauthorized {
+		return domain.ErrCalendarRevoked
+	}
+	return nil
 }
 
 // ───────────────────────── mail 契约适配 ─────────────────────────

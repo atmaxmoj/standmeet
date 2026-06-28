@@ -7,6 +7,7 @@
 // RED until: invalid_grant → 把 owner 的 calendar connector 标记 disconnected
 // (清 access_token/置 needs-reauth),且 enabledCaps 据此 gate。
 
+import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
 
 import {
@@ -31,6 +32,8 @@ test.describe('connector dep · revoke detected → connector marked disconnecte
 
       // token 被 owner 在 Google 端撤了 → 下一次调用(或其刷新)撞 invalid_grant。
       await revokeMockGCalToken(seed.request);
+      // access token 过期 → 这次 book 必须先 refresh，refresh 撞 invalid_grant。
+      expireAccessToken();
 
       // 触发一次真 book —— 它会撞 invalid_grant。这一刀的「友好降级」由
       // connector-dep-drop-mid-turn 验;这里只关心它**之后**连接状态翻没翻。
@@ -57,6 +60,15 @@ function future(): string {
   d.setUTCDate(d.getUTCDate() + 3);
   d.setUTCHours(14, 0, 0, 0);
   return d.toISOString();
+}
+
+// expireAccessToken —— 把 owner 的 gcal access token 标过期，强制下一次 book 走刷新。
+function expireAccessToken(): void {
+  const sql = `UPDATE owner_connectors
+              SET token_expires_at = NOW() - INTERVAL '1 hour'
+              WHERE connector_id = 'google-calendar'`;
+  execSync(`docker exec standmeet-dev-db-1 psql -U standmeet -d standmeet -c "${sql}"`,
+    { stdio: 'pipe' });
 }
 
 // postTurn —— 直接发一轮 agent turn(不走浏览器),触发脚本化的 calendar_book。

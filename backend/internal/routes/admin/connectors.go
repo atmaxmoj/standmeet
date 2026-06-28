@@ -42,11 +42,12 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 }
 
 type connectorStatusResp struct {
-	ID        string `json:"id"`
-	Category  string `json:"category"`
-	Kind      string `json:"kind"`
-	Connected bool   `json:"connected"`
-	Active    bool   `json:"active"`
+	ID             string `json:"id"`
+	Category       string `json:"category"`
+	Kind           string `json:"kind"`
+	HasCredentials bool   `json:"has_credentials"`
+	Connected      bool   `json:"connected"`
+	Active         bool   `json:"active"`
 }
 
 type connectorsListResp struct {
@@ -62,7 +63,8 @@ type connectInitResp struct {
 func statusRow(c *domain.ConnectorConnection) connectorStatusResp {
 	return connectorStatusResp{
 		ID: c.ConnectorID, Category: c.Category, Kind: c.Kind,
-		Connected: c.Connected, Active: c.Active,
+		HasCredentials: len(c.Credentials) > 0,
+		Connected:      c.Connected, Active: c.Active,
 	}
 }
 

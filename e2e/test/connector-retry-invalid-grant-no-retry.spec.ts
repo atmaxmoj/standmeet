@@ -48,9 +48,9 @@ function future(days: number, hour: number): string {
 // expireAccessToken —— force the GCal access_token expired so the book call
 // must go through token refresh (which will hit the revoked token endpoint).
 function expireAccessToken(): void {
-  const sql = `UPDATE owner_calendar_connectors
-              SET access_token_expires_at = NOW() - INTERVAL '1 hour'
-              WHERE provider = 'google'`;
+  const sql = `UPDATE owner_connectors
+              SET token_expires_at = NOW() - INTERVAL '1 hour'
+              WHERE connector_id = 'google-calendar'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
     { stdio: 'pipe' });
 }

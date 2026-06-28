@@ -39,9 +39,9 @@ function future(days: number, hour: number): string {
 // expireAccessToken —— 标记 owner GCal access_token 过期,逼下一次 book 走刷新路径
 // (跟 connector-revoked-degrades 同手法)。
 function expireAccessToken(): void {
-  const sql = `UPDATE owner_calendar_connectors
-              SET access_token_expires_at = NOW() - INTERVAL '1 hour'
-              WHERE provider = 'google'`;
+  const sql = `UPDATE owner_connectors
+              SET token_expires_at = NOW() - INTERVAL '1 hour'
+              WHERE connector_id = 'google-calendar'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
     { stdio: 'pipe' });
 }

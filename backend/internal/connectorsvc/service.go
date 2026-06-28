@@ -103,7 +103,10 @@ func (s *Service) Callback(ctx context.Context, id, code, state string) error {
 	if !ok {
 		return fmt.Errorf("%w: invalid oauth state", ErrNoOAuthClient)
 	}
-	return s.exchangeAndStore(ctx, ownerID, id, code)
+	if err := s.exchangeAndStore(ctx, ownerID, id, code); err != nil {
+		return err
+	}
+	return s.ensureActive(ctx, ownerID, id)
 }
 
 // Activate —— 占品类槽。Disconnect —— soft disconnect。Status / List —— 读。
@@ -161,7 +164,39 @@ func (s *Service) markConnected(ctx context.Context, ownerID, id string) (Connec
 	if err := s.d.Repo.MarkConnected(ctx, ownerID, id); err != nil {
 		return ConnectResult{}, fmt.Errorf("mark connected: %w", err)
 	}
+	if err := s.ensureActive(ctx, ownerID, id); err != nil {
+		return ConnectResult{}, err
+	}
 	return ConnectResult{Connected: true}, nil
+}
+
+// ensureActive —— 该品类还没有 active 连接器 → 把刚连上的这个占了槽（首连即用；已有 active
+// 则不抢，切换走显式 activate）。§9：同品类同时只一个 active。
+func (s *Service) ensureActive(ctx context.Context, ownerID, id string) error {
+	m := s.Manifest(id)
+	if m == nil {
+		return nil
+	}
+	conns, err := s.d.Repo.ListByCategory(ctx, ownerID, m.Category)
+	if err != nil {
+		return fmt.Errorf("list category for auto-activate: %w", err)
+	}
+	if hasActive(conns) {
+		return nil
+	}
+	if serr := s.d.Repo.SetActive(ctx, ownerID, id, m.Category); serr != nil {
+		return fmt.Errorf("auto-activate: %w", serr)
+	}
+	return nil
+}
+
+func hasActive(conns []domain.ConnectorConnection) bool {
+	for i := range conns {
+		if conns[i].Active {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) initDance(

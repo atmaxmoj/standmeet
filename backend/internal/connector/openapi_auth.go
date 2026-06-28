@@ -27,6 +27,9 @@ var (
 	errUnknownScheme   = errors.New("connector references an unknown security scheme")
 	errSchemeAmbiguous = errors.New("multiple security schemes; owner must pick one")
 	errOAuthExchange   = errors.New("oauth token exchange failed")
+	// ErrInvalidGrant —— refresh/exchange 拿到 invalid_grant（owner 在 provider 端撤权 / refresh
+	// token 失效）：永久错，不重试，连接落库 disconnected（下个 session 闸掉该能力）。
+	ErrInvalidGrant = errors.New("oauth invalid_grant (revoked)")
 )
 
 // ConnectionStore —— 连接状态的读 + oauth2 静默刷新的回写（domain 类型）。由 composition root
@@ -34,6 +37,8 @@ var (
 type ConnectionStore interface {
 	Get(ctx context.Context, connectorID, ownerID string) (domain.ConnectorConnection, error)
 	SaveTokens(ctx context.Context, connectorID, ownerID string, tok *TokenRefresh) error
+	// MarkDisconnected —— 撤权检测到（invalid_grant）→ 连接落库 disconnected。
+	MarkDisconnected(ctx context.Context, connectorID, ownerID string) error
 }
 
 // TokenRefresh —— 静默刷新后要回写的 token（connector 层类型，adapter 映射到存储）。

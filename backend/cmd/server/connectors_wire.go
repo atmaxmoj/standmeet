@@ -45,6 +45,17 @@ func (a connectionStoreAdapter) SaveTokens(
 	return nil
 }
 
+// MarkDisconnected —— 撤权检测（invalid_grant）→ 落库 disconnected（清 token + connected + active，
+// owner 需重连）。
+func (a connectionStoreAdapter) MarkDisconnected(
+	ctx context.Context, connectorID, ownerID string,
+) error {
+	if err := a.repo.ClearTokens(ctx, ownerID, connectorID); err != nil {
+		return fmt.Errorf("connection store mark disconnected: %w", err)
+	}
+	return nil
+}
+
 // smtpCredJSON —— smtp 连接器 credentials_enc 里的 JSON 形状。
 type smtpCredJSON struct {
 	Host        string `json:"host"`

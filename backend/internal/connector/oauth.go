@@ -162,13 +162,27 @@ func parseTokenResponse(resp *http.Response) (TokenResult, error) {
 		return TokenResult{}, fmt.Errorf("read token response: %w", rerr)
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return TokenResult{}, fmt.Errorf("%w (status %d)", errOAuthExchange, resp.StatusCode)
+		return TokenResult{}, classifyTokenError(raw, resp.StatusCode)
 	}
 	var tr tokenResponse
 	if jerr := json.Unmarshal(raw, &tr); jerr != nil {
 		return TokenResult{}, fmt.Errorf("decode token response: %w", jerr)
 	}
 	return buildTokenResult(&tr), nil
+}
+
+// classifyTokenError —— token 端点 4xx：invalid_grant（撤权，永久）→ ErrInvalidGrant；其余 →
+// errOAuthExchange（含 5xx，瞬时降级）。OAuth2 错误体形如 {"error":"invalid_grant"}。
+func classifyTokenError(raw []byte, status int) error {
+	var body struct {
+		Error string `json:"error"`
+	}
+	if jerr := json.Unmarshal(raw, &body); jerr == nil && body.Error == "invalid_grant" {
+		return ErrInvalidGrant
+	}
+	// 非 invalid_grant：5xx 当瞬时（友好降级 + 可重试），其余永久。归一到 StatusError 让
+	// 契约适配器统一映射。
+	return &openapi.StatusError{Code: status, Transient: status >= http.StatusInternalServerError}
 }
 
 // buildTokenResult —— token 响应 → TokenResult（解析 expires_in / scope）。

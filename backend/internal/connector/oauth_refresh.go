@@ -7,6 +7,7 @@ package connector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
@@ -41,7 +42,7 @@ func (r *oauthRefresher) doRefresh(
 	tok, rerr := r.endpoints.RefreshToken(
 		ctx, r.doer, conn.RefreshToken, cred.ClientID, cred.ClientSecret)
 	if rerr != nil {
-		return fmt.Errorf("refresh token: %w", rerr)
+		return r.handleRefreshErr(ctx, connectorID, ownerID, rerr)
 	}
 	refresh := pickRefreshToken(conn.RefreshToken, tok.RefreshToken)
 	if serr := r.store.SaveTokens(ctx, connectorID, ownerID, &TokenRefresh{
@@ -54,6 +55,19 @@ func (r *oauthRefresher) doRefresh(
 	conn.RefreshToken = refresh
 	conn.TokenExpiresAt = &tok.ExpiresAt
 	return nil
+}
+
+// handleRefreshErr —— invalid_grant（撤权）→ 落库 disconnected（下个 session 闸掉）+ 透传错；
+// 其余瞬时错只透传（上层映射成「稍后再试」降级，不动连接状态）。
+func (r *oauthRefresher) handleRefreshErr(
+	ctx context.Context, connectorID, ownerID string, rerr error,
+) error {
+	if errors.Is(rerr, ErrInvalidGrant) {
+		if derr := r.store.MarkDisconnected(ctx, connectorID, ownerID); derr != nil {
+			return fmt.Errorf("mark disconnected after invalid_grant: %w", derr)
+		}
+	}
+	return fmt.Errorf("refresh token: %w", rerr)
 }
 
 // pickRefreshToken —— provider 可能不回新 refresh_token → 留旧的。
