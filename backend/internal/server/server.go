@@ -45,6 +45,7 @@ type Deps struct {
 	PrintSession         sysroutes.PrintSessionDeps
 	DiagRegistry         sysroutes.DiagRegistryDeps
 	DiagSession          sysroutes.DiagSessionDeps
+	DiagConnector        sysroutes.DiagConnectorDeps
 	DiagSandbox          sysroutes.DiagSandboxDeps
 	// PluginRegistry —— J.5: outbound plugins 一次性注册全套 admin REST hook。
 	// mountAdmin 在 WithOwner+RequireCSRF group 内调 MountAllAdminRoutes。
@@ -119,6 +120,12 @@ func mountInternal(r chi.Router, deps *Deps) {
 		sysroutes.MountDiagRegistry(r, deps.DiagRegistry)
 		sysroutes.MountDiagSandbox(r, deps.DiagSandbox)
 		sysroutes.MountDiagSession(r, deps.DiagSession)
+		// 连接器 diag 要 owner 身份（按 id 跑 owner 自己连的连接器），套 owner-session + CSRF。
+		r.Group(func(r chi.Router) {
+			r.Use(authmw.WithOwner(deps.Admin.Sessions))
+			r.Use(authmw.RequireCSRF)
+			sysroutes.MountDiagConnector(r, deps.DiagConnector)
+		})
 	})
 }
 

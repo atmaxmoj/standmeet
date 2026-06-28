@@ -46,6 +46,11 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		PrintSession: sysroutes.PrintSessionDeps{Log: d.log, Store: d.printStore},
 		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.agentSkills, Log: d.log},
 		DiagSession:  buildDiagSessionDeps(d),
+		DiagConnector: sysroutes.DiagConnectorDeps{
+			Calendar: d.connectorSlots.ConnectorCalendar,
+			Mail:     d.connectorSlots.ConnectorMail,
+			Log:      d.log,
+		},
 		DiagSandbox: sysroutes.DiagSandboxDeps{
 			Workspaces: d.sandboxWorkspaces, Log: d.log,
 		},

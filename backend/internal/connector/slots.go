@@ -36,6 +36,30 @@ func NewSlots(hub *Hub, store SlotStore) *Slots { return &Slots{hub: hub, store:
 // Register —— 把一个（运行时装配好的上传）连接器注册进 Hub（幂等）。POST /connectors 用。
 func (s *Slots) Register(c Connector) { s.hub.Upsert(c) }
 
+// ConnectorCalendar —— 按 id 取一个连接器的 CalendarProxy（diag：直接打某个连接器，不经 active 槽）。
+//
+//nolint:ireturn // 返回品类契约接口供 diag 直调，是这里的意图。
+func (s *Slots) ConnectorCalendar(id string) (usecases.CalendarProxy, bool) {
+	c, ok := s.hub.Resolve(id)
+	if !ok {
+		return nil, false
+	}
+	cal, isCal := c.(usecases.CalendarProxy)
+	return cal, isCal
+}
+
+// ConnectorMail —— 按 id 取一个连接器的 MailProxy（diag：直接打某个连接器，不经 active 槽）。
+//
+//nolint:ireturn // 同 ConnectorCalendar。
+func (s *Slots) ConnectorMail(id string) (usecases.MailProxy, bool) {
+	c, ok := s.hub.Resolve(id)
+	if !ok {
+		return nil, false
+	}
+	m, isMail := c.(usecases.MailProxy)
+	return m, isMail
+}
+
 // VerifyConnector —— 按名解析连接器跑连接测试（protocol connect 用）。未注册 → 错；不支持
 // 连接测试（非 Verifier）→ nil（存即可用，无需测试）。
 func (s *Slots) VerifyConnector(ctx context.Context, connectorID, ownerID string) error {

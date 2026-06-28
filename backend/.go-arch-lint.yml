@@ -427,6 +427,7 @@ deps:
       - usecases
       - capreg
       - sandboxws
+      - middleware  # #155 连接器 diag：owner id 从 context（middleware.OwnerIDFrom）
     anyVendorDeps: true
 
   # sandboxws —— per-session 沙箱工作区生命周期 leaf：纯 stdlib (os/filepath/sync/time)。
