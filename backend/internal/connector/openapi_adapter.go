@@ -11,6 +11,8 @@ package connector
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -85,13 +87,26 @@ type busyResult struct {
 // 丢精度；显式毫秒让预约时间忠实 round-trip 进日历）。
 const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
 
+const idempotencyKeyBytes = 16
+
+// newIdempotencyKey —— 一次写操作的幂等键（随机 16B hex）。本次 InsertEvent 调用生成一份，
+// 重试整段复用，外部按它去重 → 网络抖动重试不双建。
+func newIdempotencyKey() (string, error) {
+	buf := make([]byte, idempotencyKeyBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("gen idempotency key: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
+
 type insertEventInput struct {
-	Summary      string `json:"summary"`
-	Description  string `json:"description"`
-	Start        string `json:"start"`
-	End          string `json:"end"`
-	TimeZone     string `json:"timeZone"`
-	VisitorEmail string `json:"visitorEmail"`
+	Summary        string `json:"summary"`
+	Description    string `json:"description"`
+	Start          string `json:"start"`
+	End            string `json:"end"`
+	TimeZone       string `json:"timeZone"`
+	VisitorEmail   string `json:"visitorEmail"`
+	IdempotencyKey string `json:"idempotencyKey"`
 }
 
 type insertedResult struct {
@@ -114,7 +129,7 @@ func (a calendarAdapter) FreeBusy(
 	}
 	var out busyResult
 	in := listBusyInput{TimeMin: req.TimeMin, TimeMax: req.TimeMax}
-	if cerr := retry.Do(ctx, calendarRetryPolicy(), func() error {
+	if cerr := retry.Do(ctx, calendarReadPolicy(), func() error {
 		return a.runtime.Call(ctx, "list_busy", in, &out, inj)
 	}); cerr != nil {
 		return nil, mapCalendarErr(cerr)
@@ -135,14 +150,19 @@ func (a calendarAdapter) InsertEvent(
 	if err != nil {
 		return usecases.InsertedEvent{}, mapCalendarErr(err)
 	}
+	key, kerr := newIdempotencyKey() // 本次调用一份，重试复用 → 不重复建（D-7）
+	if kerr != nil {
+		return usecases.InsertedEvent{}, kerr
+	}
 	in := insertEventInput{
 		Summary: req.Summary, Description: req.Description,
 		Start:    req.Start.Format(rfc3339Millis),
 		End:      req.End.Format(rfc3339Millis),
 		TimeZone: req.TimeZone, VisitorEmail: req.VisitorEmail,
+		IdempotencyKey: key,
 	}
 	var out insertedResult
-	if cerr := retry.Do(ctx, calendarRetryPolicy(), func() error {
+	if cerr := retry.Do(ctx, calendarWritePolicy(), func() error {
 		return a.runtime.Call(ctx, "create_event", in, &out, inj)
 	}); cerr != nil {
 		return usecases.InsertedEvent{}, mapCalendarErr(cerr)
@@ -159,7 +179,7 @@ func (a calendarAdapter) DeleteEvent(
 		return mapCalendarErr(err)
 	}
 	in := cancelInput{EventID: eventID, AttendeeEmail: attendeeEmail}
-	if cerr := retry.Do(ctx, calendarRetryPolicy(), func() error {
+	if cerr := retry.Do(ctx, calendarWritePolicy(), func() error {
 		return a.runtime.Call(ctx, "cancel_event", in, nil, inj)
 	}); cerr != nil {
 		return mapCalendarErr(cerr)

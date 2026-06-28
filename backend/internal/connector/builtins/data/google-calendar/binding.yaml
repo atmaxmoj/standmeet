@@ -9,6 +9,7 @@ operations:
     op: events.insert
     request: >-
       {
+        "id": idempotencyKey,
         "summary": summary,
         "description": description,
         "start": { "dateTime": start, "timeZone": timeZone },

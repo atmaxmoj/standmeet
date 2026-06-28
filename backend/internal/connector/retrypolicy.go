@@ -28,11 +28,24 @@ const (
 	calRetryMaxTotal    = 4 * time.Second
 )
 
-// calendarRetryPolicy —— openapi 日历出站读/写重试（D-6/D-7）：只重瞬时错（429/5xx 的
-// StatusError + 网络抖动），短预算（同步路径，访客在等）。永久错（4xx/invalid_grant）不重。
-func calendarRetryPolicy() retry.Policy {
+// calendarReadPolicy —— 读（freeBusy）重试：重瞬时错（429/5xx 的 StatusError + 网络抖动），
+// 短预算。读幂等，重它无副作用。
+func calendarReadPolicy() retry.Policy {
 	return retry.Policy{
 		Retryable:   openapiTransient,
+		MaxAttempts: calRetryMaxAttempts,
+		BaseDelay:   calRetryBaseDelay,
+		MaxInterval: calRetryMaxInterval,
+		MaxTotal:    calRetryMaxTotal,
+	}
+}
+
+// calendarWritePolicy —— 写（events.insert/delete）重试（D-7）：只重**网络层**错（请求可能没
+// 到对端，带幂等键重发安全去重）；5xx **不重**——服务端已收到、可能已生效，快速友好降级而不是
+// 盲目重发。
+func calendarWritePolicy() retry.Policy {
+	return retry.Policy{
+		Retryable:   openapiNetworkOnly,
 		MaxAttempts: calRetryMaxAttempts,
 		BaseDelay:   calRetryBaseDelay,
 		MaxInterval: calRetryMaxInterval,
@@ -49,6 +62,23 @@ func openapiTransient(err error) bool {
 	if errors.As(err, &se) {
 		return se.Transient
 	}
+	return isNetworkErr(err)
+}
+
+// openapiNetworkOnly —— 只认网络层错（写重试用）；任何 HTTP 状态错（含 5xx）→ 不重。
+func openapiNetworkOnly(err error) bool {
+	if err == nil {
+		return false
+	}
+	var se *openapi.StatusError
+	if errors.As(err, &se) {
+		return false
+	}
+	return isNetworkErr(err)
+}
+
+// isNetworkErr —— dial/超时/EOF 等传输层抖动。
+func isNetworkErr(err error) bool {
 	var ne net.Error
 	if errors.As(err, &ne) {
 		return true
