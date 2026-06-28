@@ -19,16 +19,6 @@ func serverErr() apierr.Envelope {
 	}
 }
 
-func notFoundErr() apierr.Envelope {
-	return apierr.Envelope{
-		Status: http.StatusNotFound, Code: "not_found", Message: "not found",
-	}
-}
-
-func badRequestErr(msg string) apierr.Envelope {
-	return apierr.Envelope{Status: http.StatusBadRequest, Code: "bad_request", Message: msg}
-}
-
 // writeJSON —— 200 + JSON body。
 //
 //nolint:forbidigo // json.Encoder.Encode 必须 interface{}; 集中此处放行

@@ -48,6 +48,25 @@ func NewSMTPConnector(id string, vault SMTPVault) Connector {
 // Name —— Connector 基面。
 func (c *smtpConnector) Name() string { return c.id }
 
+// Verify —— Connector 连接测试：用 owner 存的 SMTP 配置跑一次握手（不发信）。host/port/auth/TLS
+// 任一错 → 错（admin connect 时映射成友好「未连接」）。protocol 连接器的 connect = 这个测试。
+func (c *smtpConnector) Verify(ctx context.Context, ownerID string) error {
+	cfg, err := c.vault.SMTPConfig(ctx, c.id, ownerID)
+	if err != nil {
+		return fmt.Errorf("connector %q smtp config: %w", c.id, err)
+	}
+	if !cfg.Configured() {
+		return usecases.ErrMailNotConfigured
+	}
+	if verr := mailer.Verify(&mailer.Config{
+		Host: cfg.Host, Port: cfg.Port, Username: cfg.Username,
+		Password: cfg.Password, FromAddress: cfg.FromAddress, FromName: cfg.FromName,
+	}); verr != nil {
+		return fmt.Errorf("connector %q smtp verify: %w", c.id, verr)
+	}
+	return nil
+}
+
 // Connected —— mail 连接器是否可用（有凭据 + 已验证），委托 vault。
 func (c *smtpConnector) Connected(ctx context.Context, ownerID string) (bool, error) {
 	ok, err := c.vault.Connected(ctx, c.id, ownerID)

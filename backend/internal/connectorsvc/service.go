@@ -28,12 +28,21 @@ var ErrNotFound = errors.New("connector not found")
 // ErrNoOAuthClient —— oauth 连接器还没存 client_id（connect 前必须先存凭据）。
 var ErrNoOAuthClient = errors.New("connector oauth client_id not set")
 
+// ErrConnectionFailed —— protocol 连接器的连接测试失败（host/port/auth/TLS 错）。
+var ErrConnectionFailed = errors.New("connector connection test failed")
+
+// Verifier —— protocol 连接器 connect 时跑的连接测试（composition root 接 connector.Slots）。
+type Verifier interface {
+	VerifyConnector(ctx context.Context, connectorID, ownerID string) error
+}
+
 // Deps —— 服务依赖（composition root 注入）。Manifests = 内置连接器（id→category/kind/spec）。
 type Deps struct {
 	Repo      *postgres.ConnectorRepo
 	Owners    *postgres.OwnerRepo
 	Redis     *redis.Client
 	HTTP      *http.Client
+	Verifier  Verifier
 	Manifests []connector.Manifest
 }
 
@@ -83,7 +92,7 @@ func (s *Service) Connect(ctx context.Context, ownerID, id string) (ConnectResul
 	}
 	ep, err := connector.OAuthEndpointsFor(m, m.AuthScheme)
 	if err != nil {
-		return s.markConnected(ctx, ownerID, id)
+		return s.verifyAndConnect(ctx, ownerID, id)
 	}
 	return s.initDance(ctx, ownerID, id, ep)
 }
@@ -136,6 +145,16 @@ func (s *Service) Status(
 	}
 	conn.ConnectorID = id
 	return conn, nil
+}
+
+// verifyAndConnect —— 非 dance：先跑连接测试（protocol 连接器有；其它 no-op）→ 通过才标 connected。
+func (s *Service) verifyAndConnect(ctx context.Context, ownerID, id string) (ConnectResult, error) {
+	if s.d.Verifier != nil {
+		if verr := s.d.Verifier.VerifyConnector(ctx, id, ownerID); verr != nil {
+			return ConnectResult{}, fmt.Errorf("%w: %w", ErrConnectionFailed, verr)
+		}
+	}
+	return s.markConnected(ctx, ownerID, id)
 }
 
 func (s *Service) markConnected(ctx context.Context, ownerID, id string) (ConnectResult, error) {

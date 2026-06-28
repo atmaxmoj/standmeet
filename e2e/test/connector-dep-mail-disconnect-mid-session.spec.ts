@@ -48,7 +48,7 @@ test.describe('connector dep · mail disconnect between turns hides smtp-depende
 
       // owner 在两回合之间断开 mail connector。
       const { csrf } = await login(request, OWNER.email, OWNER.password);
-      const dis = await request.post(`${BACKEND}/api/admin/connectors/mail/disconnect`, {
+      const dis = await request.post(`${BACKEND}/api/admin/connectors/smtp/disconnect`, {
         headers: { 'X-Csrftoken': csrf }, data: {},
       });
       expect(dis.status()).toBe(200);

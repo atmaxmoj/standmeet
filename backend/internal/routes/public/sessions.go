@@ -188,7 +188,7 @@ func writeCreateSession(
 ) {
 	log, deps := h.Log, &h.Visitor
 	canEmail := usecases.OwnerCanEmailCodes(ctx,
-		usecases.MailStatusDeps{Mail: h.Confirm.Mail}, res.Session.Data.OwnerID)
+		usecases.MailStatusDeps{Proxy: h.Confirm.Proxy}, res.Session.Data.OwnerID)
 	in := assembleInputFromSession(&res.Session.Data, res.Chat.ID)
 	// 一次 walk 出三样(States/ToolSpecs/PromptPartIDs):分别调会把每个外置插件
 	// 冷拨两遍,两个网络沙箱插件能把 /sessions 顶到 ~16s(超 e2e 15s 等待)。

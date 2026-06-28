@@ -86,15 +86,22 @@ test.describe('admin requests management', () => {
       await request.dispose();
     });
 
-  test('save mail credentials rejects (400) when host is missing',
+  // #155: the generic /credentials store no longer validates per-connector
+  // fields (that lives in the form + the connection test). Saving empty SMTP
+  // creds succeeds; the connection test then rejects (host missing).
+  test('connect rejects (400) when SMTP host is missing',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
-      const res = await request.post(`${BACKEND}/api/admin/connectors/mail/credentials`, {
+      const saved = await request.post(`${BACKEND}/api/admin/connectors/smtp/credentials`, {
         headers: { 'X-Csrftoken': csrf },
-        data: { host: '', port: 0, from_address: '' },
+        data: { host: '', port: '0', username: '', password: '', from_address: '', from_name: '' },
       });
-      expect(res.status()).toBe(400);
+      expect(saved.status()).toBe(200);
+      const connected = await request.post(`${BACKEND}/api/admin/connectors/smtp/connect`, {
+        headers: { 'X-Csrftoken': csrf },
+      });
+      expect(connected.status()).toBe(400);
       await request.dispose();
     });
 });

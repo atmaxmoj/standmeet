@@ -1,8 +1,9 @@
 -- owner_connectors.sql —— #155 统一连接器连接状态的读写（归一：任意 kind/品类一张表）。
 
 -- name: UpsertConnectorCredentials :one
--- 存/覆盖一个连接器的凭据（owner 填的 app creds / apiKey / smtp config）。改 creds 不动
--- 已有 token（owner 要 reset 走 Disconnect）。category/kind 随首次写入定。
+-- 存/覆盖一个连接器的凭据（owner 填的 app creds / apiKey / smtp config）。轮换凭据 → 重置
+-- connected_at（§三 D-5：改身份/凭据必须重新验证；非凭据配置如 booking policy 不走这条，不
+-- 受影响）。category/kind 随首次写入定。
 INSERT INTO owner_connectors (
     owner_id, connector_id, category, kind, credentials_enc
 )
@@ -14,6 +15,7 @@ ON CONFLICT (owner_id, connector_id) DO UPDATE
 SET credentials_enc = EXCLUDED.credentials_enc,
     category = EXCLUDED.category,
     kind = EXCLUDED.kind,
+    connected_at = NULL,
     updated_at = now()
 RETURNING *;
 

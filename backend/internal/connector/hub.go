@@ -30,6 +30,12 @@ type Connector interface {
 	Connected(ctx context.Context, ownerID string) (bool, error)
 }
 
+// Verifier —— 可做连接测试的连接器（protocol 连接器在 connect 时跑：dial + auth 握手）。不实现
+// 它的连接器（oauth/apiKey）connect 无需测试——存即可用。消费者按需类型断言。
+type Verifier interface {
+	Verify(ctx context.Context, ownerID string) error
+}
+
 // Hub —— 消费者无关的命名连接器注册表。任何消费者（MCP 能力 gate、IM Gateway、未来的任务
 // 编排）都按名解析，拿句柄、调用；凭据 / OAuth / 重试全在连接器内，消费者不感知。
 type Hub struct {

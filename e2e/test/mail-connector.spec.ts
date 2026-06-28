@@ -63,7 +63,7 @@ test.describe('mail connector access-code loop', () => {
     async ({ playwright, page }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
-      const dis = await request.post(`${BACKEND}/api/admin/connectors/mail/disconnect`, {
+      const dis = await request.post(`${BACKEND}/api/admin/connectors/smtp/disconnect`, {
         headers: { 'X-Csrftoken': csrf }, data: {},
       });
       expect(dis.status()).toBe(200);

@@ -100,7 +100,8 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Connectors: adminroutes.ConnectorsAdminDeps{
 			Svc: connectorsvc.New(connectorsvc.Deps{
 				Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
-				HTTP: http.DefaultClient, Manifests: loadBuiltinConnectorManifests(d),
+				HTTP: http.DefaultClient, Verifier: d.connectorSlots,
+				Manifests: loadBuiltinConnectorManifests(d),
 			}),
 		},
 		Capabilities: adminroutes.CapabilityAdminDeps{
@@ -109,7 +110,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		},
 		ApproveRequests: usecases.ApproveRequestDeps{
 			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-			Owners: d.ownerRepo, Mail: d.mailRepo, Proxy: d.connectorSlots.Mail(),
+			Owners: d.ownerRepo, Proxy: d.connectorSlots.Mail(),
 		},
 		Sessions:     d.sessionStore,
 		SecureCookie: d.secureCookie,
@@ -232,7 +233,7 @@ func buildPublicPageDeps(d *runtimeDeps) publicroutes.PageHandlers {
 			log: d.log, repo: d.instanceRepo, holder: d.setupTokenHolder,
 		},
 		CaptchaSiteKey: d.captchaSiteKey,
-		MailStatus:     usecases.MailStatusDeps{Mail: d.mailRepo},
+		MailStatus:     usecases.MailStatusDeps{Proxy: d.connectorSlots.Mail()},
 	}
 }
 

@@ -30,23 +30,24 @@ const (
 // ErrMailNotConfigured —— owner 还没配 / 没 test 通 mail connector,发不出信。
 var ErrMailNotConfigured = errors.New("mail connector not configured")
 
-// MailStatusDeps —— 只读 mail connector 状态(给公共 gate 配置用)。
+// MailStatusDeps —— 只读 mail connector 状态(给公共 gate 配置用)。#155：经品类槽
+// (MailProxy.Connected = active mail 连接器连没连)，不再读旧 mail 连接器存储。
 type MailStatusDeps struct {
-	Mail *postgres.MailRepo
+	Proxy MailProxy
 }
 
-// OwnerCanEmailCodes —— owner 是否有 connected(test 通过)的 mail connector。
+// OwnerCanEmailCodes —— owner 是否有 connected(test 通过)的 active mail connector。
 // gate 用它决定要不要展示「request access」整块:发不出码就别让访客白填。
 // 读失败按"不能发"处理(保守 + 不暴露错误到公共端点)。
 func OwnerCanEmailCodes(ctx context.Context, deps MailStatusDeps, ownerID string) bool {
 	if ownerID == "" {
 		return false
 	}
-	conn, err := deps.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
+	ok, err := deps.Proxy.Connected(ctx, ownerID)
 	if err != nil {
 		return false
 	}
-	return conn.Connected()
+	return ok
 }
 
 // ApproveRequestDeps —— approve 闭环依赖(跨 mail / requests / codes / roles / owners)。
@@ -56,7 +57,6 @@ type ApproveRequestDeps struct {
 	Codes  *postgres.CodeRepo
 	Roles  *postgres.RoleRepo
 	Owners *postgres.OwnerRepo
-	Mail   *postgres.MailRepo
 	Proxy  MailProxy
 }
 
@@ -117,11 +117,11 @@ type approvalContext struct {
 func loadApprovalContext(
 	ctx context.Context, deps ApproveRequestDeps, ownerID, requestID string,
 ) (approvalContext, error) {
-	conn, err := deps.Mail.GetConnector(ctx, ownerID, domain.MailProvider)
+	ok, err := deps.Proxy.Connected(ctx, ownerID)
 	if err != nil {
-		return approvalContext{}, fmt.Errorf("get mail connector: %w", err)
+		return approvalContext{}, fmt.Errorf("mail connector status: %w", err)
 	}
-	if !conn.Connected() {
+	if !ok {
 		return approvalContext{}, ErrMailNotConfigured
 	}
 	req, rerr := deps.Reqs.GetByID(ctx, ownerID, requestID)

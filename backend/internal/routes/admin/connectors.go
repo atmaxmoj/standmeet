@@ -5,12 +5,12 @@
 package admin
 
 import (
-	"errors"
 	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
@@ -66,17 +66,31 @@ func statusRow(c *domain.ConnectorConnection) connectorStatusResp {
 	}
 }
 
+// connErrCases —— connectorsvc sentinel → HTTP envelope（table-driven，apierr.Classify 派发；
+// 无匹配 → 500）。集中映射让 handler 保 cyclo ≤3。
+var connErrCases = []apierr.Case{
+	{Match: connectorsvc.ErrNotFound, Envelope: apierr.Envelope{
+		Status: http.StatusNotFound, Code: "not_found", Message: "not found",
+	}},
+	{Match: connectorsvc.ErrNoOAuthClient, Envelope: apierr.Envelope{
+		Status:  http.StatusBadRequest,
+		Code:    "bad_request",
+		Message: "connector credentials not set",
+	}},
+	{Match: connectorsvc.ErrConnectionFailed, Envelope: apierr.Envelope{
+		Status:  http.StatusBadRequest,
+		Code:    "bad_request",
+		Message: "connection test failed — check host/port/credentials",
+	}},
+}
+
 // writeConnErr —— 把 connectorsvc sentinel 翻成 HTTP envelope（dispatch 集中此处，handler 保 ≤3）。
 func (h *Handlers) writeConnErr(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, connectorsvc.ErrNotFound):
-		writeError(h.Log, w, notFoundErr())
-	case errors.Is(err, connectorsvc.ErrNoOAuthClient):
-		writeError(h.Log, w, badRequestErr("connector credentials not set"))
-	default:
+	env := apierr.Classify(err, connErrCases)
+	if env.Status >= http.StatusInternalServerError {
 		h.Log.Error("connector admin", logErrKey, err)
-		writeError(h.Log, w, serverErr())
 	}
+	writeError(h.Log, w, env)
 }
 
 func (h *Handlers) listConnectors() http.HandlerFunc {

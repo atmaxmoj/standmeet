@@ -57,53 +57,56 @@ export interface MailEnvelope {
 // booking-confirmation sender (#122) import it.
 export const MAIL_FROM = 'noreply@standmeet.test';
 
-export async function saveMailCreds(request: APIRequestContext, csrf: string): Promise<void> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/credentials`, {
+// SMTP_ID —— 内置 SMTP protocol 连接器的 id（category=mail, kind=protocol）。
+const SMTP_ID = 'smtp';
+
+// SMTP_FROM_NAME —— 发件显示名（凭据的一部分）。
+const SMTP_FROM_NAME = 'StandMeet';
+
+// smtpCreds —— SMTP 连接器的固定凭据表单（port 以字符串存，跟后端 smtpForm 一致）。
+function smtpCreds(over: Partial<Record<string, string>> = {}): Record<string, string> {
+  return {
+    host: SMTP_HOST, port: String(SMTP_PORT), username: '', password: '',
+    from_address: MAIL_FROM, from_name: SMTP_FROM_NAME, ...over,
+  };
+}
+
+export async function saveMailCreds(
+  request: APIRequestContext, csrf: string, over: Partial<Record<string, string>> = {},
+): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
-    data: {
-      host: SMTP_HOST, port: SMTP_PORT, username: '', password: '',
-      from_address: MAIL_FROM, from_name: 'StandMeet',
-    },
+    data: smtpCreds(over),
   });
   if (res.status() !== 200) throw new Error(`mail credentials failed: ${res.status()}`);
 }
 
-export async function sendMailOTP(request: APIRequestContext, csrf: string): Promise<void> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/send-otp`, {
-    headers: { 'X-Csrftoken': csrf }, data: {},
-  });
-  if (res.status() !== 200) throw new Error(`send-otp failed: ${res.status()} ${await res.text()}`);
-}
-
-// readMailOTP —— pull the verification email (sent to the owner's address) off
-// Mailpit and extract its 6-digit code.
-export async function readMailOTP(request: APIRequestContext, to: string): Promise<string> {
-  const body = await waitForMailTo(request, to);
-  const code = /\b(\d{6})\b/.exec(body)?.[1];
-  if (code === undefined) throw new Error(`no 6-digit code in OTP mail:\n${body}`);
-  return code;
-}
-
-export async function verifyMailOTP(
-  request: APIRequestContext, csrf: string, code: string,
-): Promise<number> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/mail/verify-otp`, {
-    headers: { 'X-Csrftoken': csrf }, data: { code },
+// connectMail —— protocol 连接测试（真去 dial SMTP 握手）；通过 → connected。
+export async function connectMail(request: APIRequestContext, csrf: string): Promise<number> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/connect`, {
+    headers: { 'X-Csrftoken': csrf },
   });
   return res.status();
 }
 
-// configureMailConnector —— full real OTP roundtrip: save creds → send-otp →
-// read the code off Mailpit → verify-otp, leaving the connector connected.
+// activateMail —— 占用 mail 品类槽（§9：发信解析的是 active 连接器）。
+async function activateMail(request: APIRequestContext, csrf: string): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/activate`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  if (res.status() !== 200) throw new Error(`mail activate failed: ${res.status()}`);
+}
+
+// configureMailConnector —— save creds → connect(test) → activate, leaving the
+// mail connector connected + owning the mail slot (so can_email_codes flips true).
 export async function configureMailConnector(
   request: APIRequestContext, email: string, password?: string,
 ): Promise<void> {
   const { csrf } = await login(request, email, password);
   await saveMailCreds(request, csrf);
-  await sendMailOTP(request, csrf);
-  const code = await readMailOTP(request, email); // OTP is sent to the owner's email
-  const status = await verifyMailOTP(request, csrf, code);
-  if (status !== 200) throw new Error(`verify-otp failed: ${status}`);
+  const status = await connectMail(request, csrf);
+  if (status !== 200) throw new Error(`mail connect failed: ${status}`);
+  await activateMail(request, csrf);
 }
 
 export async function clearMailpit(request: APIRequestContext): Promise<void> {

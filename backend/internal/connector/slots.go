@@ -33,6 +33,23 @@ type Slots struct {
 // NewSlots —— composition root 注入 Hub + active 解析。
 func NewSlots(hub *Hub, store SlotStore) *Slots { return &Slots{hub: hub, store: store} }
 
+// VerifyConnector —— 按名解析连接器跑连接测试（protocol connect 用）。未注册 → 错；不支持
+// 连接测试（非 Verifier）→ nil（存即可用，无需测试）。
+func (s *Slots) VerifyConnector(ctx context.Context, connectorID, ownerID string) error {
+	c, ok := s.hub.Resolve(connectorID)
+	if !ok {
+		return fmt.Errorf("verify connector %q: %w", connectorID, errNoActiveConnector)
+	}
+	v, isVerifier := c.(Verifier)
+	if !isVerifier {
+		return nil
+	}
+	if err := v.Verify(ctx, ownerID); err != nil {
+		return fmt.Errorf("verify connector %q: %w", connectorID, err)
+	}
+	return nil
+}
+
 // Calendar —— 一个把 calendar 契约分派到 active 连接器的 CalendarProxy。
 //
 //nolint:ireturn // 返回品类契约接口供消费者注入，是这里的意图（消费者 provider-agnostic）。
