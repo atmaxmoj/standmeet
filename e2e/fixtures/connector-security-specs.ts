@@ -89,12 +89,19 @@ export function specConsumeRedirectsInternal(): string {
   return JSON.stringify({
     openapi: '3.0.3',
     info: { title: 'Consume-time SSRF probe', version: '1.0.0' },
-    // public-looking base; the mock 302s /freebusy → http://169.254.169.254/... at runtime.
-    servers: [{ url: `${MOCK}/__mock/ssrf/redirect-internal` }],
+    // benign allow-listed base (passes assemble); the mock 302s any path → 169.254.169.254 at runtime.
+    servers: [{ url: 'http://job-board-mock:9000/__mock/ssrf/redirect-internal' }],
     paths: {
       '/freebusy': {
-        get: {
+        post: {
           operationId: 'freebusy.query',
+          security: [{ apiKeyAuth: [] }],
+          responses: { '200': { description: 'ok' } },
+        },
+      },
+      '/events': {
+        post: {
+          operationId: 'events.insert',
           security: [{ apiKeyAuth: [] }],
           responses: { '200': { description: 'ok' } },
         },
@@ -105,7 +112,6 @@ export function specConsumeRedirectsInternal(): string {
         apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-Api-Key' },
       },
     },
-    'x-standmeet-category': 'calendar',
   });
 }
 
@@ -120,8 +126,15 @@ export function specOAuthDanceRedirectsInternal(): string {
     servers: [{ url: 'https://api.example.com' }],
     paths: {
       '/freebusy': {
-        get: {
+        post: {
           operationId: 'freebusy.query',
+          security: [{ oauth: [] }],
+          responses: { '200': { description: 'ok' } },
+        },
+      },
+      '/events': {
+        post: {
+          operationId: 'events.insert',
           security: [{ oauth: [] }],
           responses: { '200': { description: 'ok' } },
         },
@@ -133,10 +146,10 @@ export function specOAuthDanceRedirectsInternal(): string {
           type: 'oauth2',
           flows: {
             authorizationCode: {
-              // mock authorize 302s the callback toward an internal host; the
-              // token endpoint likewise redirects the server-side exchange inward.
+              // authorize is browser-followed (localhost mock); token is backend-dialed →
+              // allow-listed job-board-mock so it assembles, then 302s the exchange inward.
               authorizationUrl: `${MOCK}/__mock/oauth/authorize?redirect=internal`,
-              tokenUrl: `${MOCK}/__mock/oauth/token?redirect=internal`,
+              tokenUrl: 'http://job-board-mock:9000/__mock/oauth/token?redirect=internal',
               scopes: { read: 'read' },
             },
           },

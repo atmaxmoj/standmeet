@@ -195,6 +195,8 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /__mock/sendgrid/sent", s.serveSendGridSent)
 	mux.HandleFunc("POST /__mock/sendgrid/fail", s.serveSendGridFail)
 	mux.HandleFunc("POST /__mock/sendgrid/reset", s.serveSendGridReset)
+	// consume-time SSRF probe: benign base, 302s to cloud-metadata at call time (#155 §8-H)
+	mux.HandleFunc("/__mock/ssrf/redirect-internal/", s.serveSSRFRedirectInternal)
 	mux.HandleFunc("GET /__mock/gcal/events", s.serveMockGCalEvents)
 	mux.HandleFunc("GET /__mock/gcal/deleted_events", s.serveMockGCalDeletedEvents)
 	mux.HandleFunc("GET /__mock/gcal/token_call_count", s.serveMockGCalTokenCount)

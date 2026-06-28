@@ -94,12 +94,11 @@ test.describe('connector · §8 区 H 安全 (SSRF / 凭据不外泄 / per-owner
     ({ playwright }) => secretNotInVisitorSurface(playwright));
 
   // ── 1b. consume-time SSRF（upload/connect 过了，运行时调用才打内网） ──
-  // 运行期 dialer 守卫已建（GuardedHTTPClient 拦解析到内网 + 拒内网重定向），但这两条还需
-  // mock 的 302→内网 端点（/__mock/ssrf/* + /__mock/oauth/*?redirect=internal）才能驱动，暂 fixme。
-  test.fixme('SSRF · 运行时 API 调用解析/重定向到内网 → runtime 拒绝出站',
+  // 运行期 dialer 守卫（GuardedHTTPClient 拦解析到内网 + 拒内网重定向）+ mock 的 302→内网 端点。
+  test('SSRF · 运行时 API 调用解析/重定向到内网 → runtime 拒绝出站',
     ({ playwright }) => ssrfConsumeTimeRejected(playwright));
 
-  test.fixme('SSRF · OAuth dance 中 provider 把 callback/token 交换重定向到内网 → 拒绝',
+  test('SSRF · OAuth dance 中 provider 把 callback/token 交换重定向到内网 → 拒绝',
     ({ playwright }) => ssrfOAuthDanceRedirectRejected(playwright));
 
   // ── 3. per-owner 隔离（v1 单 owner → API 层 owner_id scoping） ──

@@ -121,6 +121,11 @@ var ErrCalendarUnavailable = errors.New("calendar temporarily unavailable")
 // 客户端错（4xx），不是上游故障；connector 把 openapi pre-flight 错翻成它。
 var ErrCalendarBadRequest = errors.New("calendar request invalid")
 
+// ErrCalendarBlockedEgress —— 连接器出站目标落在内网（SSRF 守卫拦下）。独立 sentinel：消息固定
+// 干净（不回显被拦的内网 URL，防 metadata 路径外泄），且映成 4xx 配置错。
+var ErrCalendarBlockedEgress = errors.New(
+	"calendar connector blocked: target resolves to an internal/private address")
+
 // ErrBookingPolicyMissingHours —— working_hours_* 值格式错。
 var ErrBookingPolicyMissingHours = errors.New("booking policy hours malformed")
 

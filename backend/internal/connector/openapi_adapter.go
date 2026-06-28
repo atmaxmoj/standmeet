@@ -208,10 +208,14 @@ func mapCalendarErr(err error) error {
 	return fmt.Errorf("calendar: %w", err)
 }
 
-// mapCalendarSentinel —— sentinel 错映射：invalid_grant → revoked；pre-flight 缺必填 → bad request。
+// mapCalendarSentinel —— sentinel 错映射：invalid_grant → revoked；pre-flight 缺必填 / SSRF 出站
+// 被拦 → bad request（客户端/配置错，4xx，不是上游故障）。
 func mapCalendarSentinel(err error) error {
 	if errors.Is(err, ErrInvalidGrant) {
 		return domain.ErrCalendarRevoked
+	}
+	if errors.Is(err, ErrBlockedEgress) { // 干净 sentinel（不回显内网 URL）
+		return domain.ErrCalendarBlockedEgress
 	}
 	if errors.Is(err, openapi.ErrMissingRequired) {
 		return fmt.Errorf("%w: %w", domain.ErrCalendarBadRequest, err)

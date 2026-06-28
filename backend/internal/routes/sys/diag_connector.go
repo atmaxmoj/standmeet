@@ -76,6 +76,7 @@ func diagRunListBusy(
 	ctx context.Context, log *slog.Logger, w http.ResponseWriter,
 	cal usecases.CalendarProxy, req *diagRangeReq,
 ) {
+	applyDefaultRange(req)
 	tp, perr := parseTimePair(req.TimeMin, req.TimeMax)
 	if perr != nil {
 		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": "bad time range"})
@@ -84,10 +85,21 @@ func diagRunListBusy(
 	busy, ferr := cal.FreeBusy(ctx, middleware.OwnerIDFrom(ctx),
 		usecases.FreeBusyReq{TimeMin: tp.start, TimeMax: tp.end})
 	if ferr != nil {
-		diagFail(log, w, ferr)
+		diagCalErr(log, w, ferr)
 		return
 	}
 	diagStatus(log, w, http.StatusOK, map[string][]diagInterval{"busy": toDiagIntervals(busy)})
+}
+
+// applyDefaultRange —— 时间窗都空则填 now..now+7d（诊断 list-busy 不强制传时间，让 SSRF /
+// 连通性探测能不带 body 直接触发 FreeBusy）。
+func applyDefaultRange(req *diagRangeReq) {
+	if req.TimeMin != "" || req.TimeMax != "" {
+		return
+	}
+	now := time.Now().UTC()
+	req.TimeMin = now.Format(time.RFC3339)
+	req.TimeMax = now.Add(7 * 24 * time.Hour).Format(time.RFC3339)
 }
 
 // timePair —— 一对解析好的时间（function-result-limit ≤2，用结构体承载）。
@@ -155,7 +167,7 @@ func diagRunCreateEvent(
 		Summary: req.Title, Start: tp.start, End: tp.end, VisitorEmail: req.Attendee,
 	})
 	if cerr != nil {
-		diagCreateErr(log, w, cerr)
+		diagCalErr(log, w, cerr)
 		return
 	}
 	diagStatus(log, w, http.StatusOK, map[string]string{"id": ev.EventID, "url": ev.HTMLLink})
@@ -218,8 +230,14 @@ func diagDecode(log *slog.Logger, w http.ResponseWriter, r *http.Request, dst an
 	return true
 }
 
-// diagCreateErr —— 建会失败：客户端错（pre-flight 缺必填）→ 400；其余上游故障 → 502。
-func diagCreateErr(log *slog.Logger, w http.ResponseWriter, err error) {
+// diagCalErr —— 日历契约调用失败：客户端/配置错（pre-flight 缺必填 / SSRF 出站被拦）→ 400 带原因；
+// 其余上游故障 → 502。list-busy / create-event 共用。
+func diagCalErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	if errors.Is(err, domain.ErrCalendarBlockedEgress) { // 固定干净消息，不回显内网 URL
+		diagStatus(log, w, http.StatusBadRequest,
+			map[string]string{"error": domain.ErrCalendarBlockedEgress.Error()})
+		return
+	}
 	if errors.Is(err, domain.ErrCalendarBadRequest) {
 		diagStatus(log, w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
