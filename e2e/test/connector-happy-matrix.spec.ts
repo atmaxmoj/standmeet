@@ -161,6 +161,7 @@ async function assembleOpenAPI(
     scheme?: string; fields: Record<string, string>; needsDance: boolean;
   },
 ): Promise<ConnRef> {
+  const before = await connectorIdSet(request);
   await openAddCard(page, opts.category);
   await page.getByTestId('connector-spec-input')
     .fill(JSON.stringify({ spec: opts.spec, binding: opts.binding }));
@@ -170,24 +171,11 @@ async function assembleOpenAPI(
     await page.getByTestId(`connector-field-${k}`).fill(v);
   }
   await page.getByTestId('connector-connect-button').click();
-  // dance：整页跳去 provider 同意页再回来。waitForURL 可能因「本就在 /admin/connectors」提前命中，
-  // 所以轮询 GET /connectors 直到该品类真有 connected 连接器（dance 回程的 callback 落库）。
-  // 非 dance：原地连，模态里的 connector-status 直接翻 connected。
-  if (opts.needsDance) {
-    await page.waitForURL('**/admin/connectors**');
-    await expect.poll(() => anyConnected(request, opts.category), { timeout: 15_000 }).toBe(true);
-  } else {
-    await expect(page.getByTestId('connector-status')).toHaveText(/connected|已连接/i);
-  }
-  return latestConnector(request, opts.category);
-}
-
-// anyConnected —— 该品类是否已有 connected 连接器（dance 回程轮询用）。
-async function anyConnected(request: APIRequestContext, category: string): Promise<boolean> {
-  const res = await request.get(`${BACKEND}/api/admin/connectors`);
-  if (res.status() !== 200) return false;
-  const rows = (await res.json() as { connectors?: ConnRef[] }).connectors ?? [];
-  return rows.some((c) => c.category === category && c.connected);
+  // dance：整页跳去 provider 同意页再回来（waitForURL 可能因「本就在 /admin/connectors」提前命中，
+  // 由 newConnector 的轮询兜住 callback 落库的延迟）。非 dance：原地连，状态直接翻 connected。
+  if (opts.needsDance) await page.waitForURL('**/admin/connectors**');
+  else await expect(page.getByTestId('connector-status')).toHaveText(/connected|已连接/i);
+  return newConnector(request, before, opts.category);
 }
 
 // assembleProtocol —— 选内置协议卡（固定表单，无 spec）→ 填固定字段 → connect。
@@ -196,24 +184,39 @@ async function assembleProtocol(
     category: string; fields: Record<string, string>;
   },
 ): Promise<ConnRef> {
+  const before = await connectorIdSet(request);
   await openAddCard(page, opts.category);
   for (const [k, v] of Object.entries(opts.fields)) {
     await page.getByTestId(`connector-field-${k}`).fill(v);
   }
   await page.getByTestId('connector-connect-button').click();
   await expect(page.getByTestId('connector-status')).toHaveText(/connected|已连接/i);
-  return latestConnector(request, opts.category);
+  return newConnector(request, before, opts.category);
 }
 
-// latestConnector —— 读 GET /api/admin/connectors 取该品类刚装好的连接器（拿 {id}）。
-async function latestConnector(
-  request: APIRequestContext, category: string,
-): Promise<ConnRef> {
+// connectorIdSet —— 装配前拍一张「现有连接器 id」快照，装配后 diff 出新建那个。
+async function connectorIdSet(request: APIRequestContext): Promise<Set<string>> {
   const res = await request.get(`${BACKEND}/api/admin/connectors`);
   if (res.status() !== 200) throw new Error(`list connectors: ${res.status()}`);
   const rows = (await res.json() as { connectors?: ConnRef[] }).connectors ?? [];
-  const hit = rows.find((c) => c.category === category && c.connected);
-  if (!hit) throw new Error(`no connected ${category} connector found`);
+  return new Set(rows.map((c) => c.id));
+}
+
+// newConnector —— 轮询直到出现一个 before 快照里没有、且 connected 的该品类连接器（= 刚装的那个）。
+// 多 combo 共享 owner：按品类取「第一个 connected」会拿到旧 combo 的连接器（于是 activate 错连接器、
+// booker 走错 provider）；按「新出现的 id」精确定位才对。
+async function newConnector(
+  request: APIRequestContext, before: Set<string>, category: string,
+): Promise<ConnRef> {
+  let hit: ConnRef | undefined;
+  await expect.poll(async () => {
+    const res = await request.get(`${BACKEND}/api/admin/connectors`);
+    if (res.status() !== 200) return false;
+    const rows = (await res.json() as { connectors?: ConnRef[] }).connectors ?? [];
+    hit = rows.find((c) => c.category === category && c.connected && !before.has(c.id));
+    return Boolean(hit);
+  }, { timeout: 15_000 }).toBe(true);
+  if (!hit) throw new Error(`no new connected ${category} connector found`);
   return hit;
 }
 

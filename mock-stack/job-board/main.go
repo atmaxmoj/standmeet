@@ -128,6 +128,14 @@ func newServer(root string, log *slog.Logger) *server {
 	}
 }
 
+// logRequests —— 每个入站请求记 method+path（调试用：看清消费侧到底打哪个端点）。
+func (s *server) logRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.log.Info("mock request", "method", r.Method, "path", r.URL.Path)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *server) run(port string) error {
 	mux := http.NewServeMux()
 	s.routes(mux)
@@ -135,7 +143,7 @@ func (s *server) run(port string) error {
 	s.log.Info("job-board-mock listening", "addr", addr, "root", s.root)
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           s.logRequests(mux),
 		ReadHeaderTimeout: readHeaderTime,
 	}
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
