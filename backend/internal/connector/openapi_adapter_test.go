@@ -70,7 +70,6 @@ func (fakeStore) MarkDisconnected(_ context.Context, _, _ string) error {
 	return nil
 }
 
-//nolint:ireturn // 测试辅助：返回契约接口供断言；同生产侧 AssembleOpenAPI 的工厂意图。
 func assembleCal(t *testing.T, h http.Handler) (usecases.CalendarProxy, *httptest.Server) {
 	t.Helper()
 	srv := httptest.NewServer(h)

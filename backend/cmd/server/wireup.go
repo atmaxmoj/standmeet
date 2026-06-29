@@ -103,7 +103,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
 		Calendar:     adminroutes.CalendarAdminDeps{Repo: d.calendarRepo},
 		Connectors: adminroutes.ConnectorsAdminDeps{
-			Svc: connectorsvc.New(connectorsvc.Deps{
+			Svc: connectorsvc.New(&connectorsvc.Deps{
 				Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
 				HTTP: connectorEgressClient(), Verifier: d.connectorSlots,
 				Installer: uploadedInstaller{

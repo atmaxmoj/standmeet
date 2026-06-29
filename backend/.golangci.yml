@@ -121,6 +121,10 @@ linters:
     # heterogeneous 集合元素 (Wiki|Output|Writing|Raw 任一)，URI 运行期 dispatch；
     # Integrations.Find 按 Kind 拿回具体 (Obsidian 等) 同形态。这俩接口的"返值
     # 是 interface"是 by design，不是懒 —— 同 Provider/Runner 的工厂模式同类。
+    #
+    # CalendarProxy / MailProxy 是 connector 的「品类契约」—— 消费者 (booker/mailer)
+    # provider-agnostic 地编程于它，槽位分派器按 owner 当前 active 连接器返对应实现。
+    # 多方法消费契约，返 interface 是归一化的本质 (任意 provider 填同一契约)，非懒。
     ireturn:
       allow:
         - error
@@ -129,6 +133,8 @@ linters:
         - stdlib
         - github.com/atmaxmoj/standmeet/internal/inference.Provider
         - github.com/atmaxmoj/standmeet/internal/sandbox.Runner
+        - github.com/atmaxmoj/standmeet/internal/usecases.CalendarProxy
+        - github.com/atmaxmoj/standmeet/internal/usecases.MailProxy
         - github.com/atmaxmoj/standmeet/internal/domain.Document
         - github.com/atmaxmoj/standmeet/internal/domain.Integration
         # J.3: jobs plugin 的 Capability 工厂跟主 mcp 包同形态 (NewXxx →

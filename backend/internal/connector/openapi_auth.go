@@ -49,20 +49,17 @@ type TokenRefresh struct {
 	Scopes       []string
 }
 
-// authStrategy —— 把一个连接的凭据/token 注入请求。无状态、按 scheme 类型分。
-type authStrategy interface {
-	inject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error)
-}
+// authStrategy —— 把一个连接的凭据/token 注入出站请求。单方法、无状态行为，故用 func 类型
+// （同 http.HandlerFunc 的取舍）：工厂返 func 值，免去接口 + 一堆空 struct + 接口返值抑制。
+type authStrategy func(conn *domain.ConnectorConnection) (openapi.AuthInjector, error)
 
 // buildAuthStrategy —— 按 securityScheme 选注入策略。不支持的类型 → 错（装配期拒）。
-//
-//nolint:ireturn // factory：按 scheme 类型返不同 strategy 实现，接口返值是这里的意图。
 func buildAuthStrategy(scheme *openapi.SecurityScheme) (authStrategy, error) {
 	switch scheme.Type {
 	case "oauth2", "openIdConnect":
-		return oauth2Strategy{}, nil
+		return oauth2Inject, nil
 	case "apiKey":
-		return apiKeyStrategy{in: scheme.In, name: scheme.Name}, nil
+		return apiKeyInject(scheme.In, scheme.Name), nil
 	case "http":
 		return httpAuthStrategy(scheme.Scheme)
 	default:
@@ -70,66 +67,54 @@ func buildAuthStrategy(scheme *openapi.SecurityScheme) (authStrategy, error) {
 	}
 }
 
-//nolint:ireturn // 同 buildAuthStrategy：按 http scheme 返不同 strategy。
 func httpAuthStrategy(scheme string) (authStrategy, error) {
 	switch scheme {
 	case "basic":
-		return basicStrategy{}, nil
+		return basicInject, nil
 	case "bearer":
-		return bearerStrategy{}, nil
+		return bearerInject, nil
 	default:
 		return nil, fmt.Errorf("%w: http scheme %q", errUnsupportedAuth, scheme)
 	}
 }
 
-// ─── oauth2 / openIdConnect：用存着的 access token 作 bearer ───
-
-type oauth2Strategy struct{}
-
-func (oauth2Strategy) inject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
-	token := conn.AccessToken
-	return bearerInjector(token), nil
-}
-
-// ─── apiKey：header 或 query 带 key ───
-
-type apiKeyStrategy struct {
-	in   string // header | query
-	name string
+// oauth2Inject —— oauth2 / openIdConnect：用存着的 access token 作 bearer。
+func oauth2Inject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
+	return bearerInjector(conn.AccessToken), nil
 }
 
 type apiKeyCred struct {
 	Key string `json:"key"`
 }
 
-func (s apiKeyStrategy) inject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
-	var c apiKeyCred
-	if err := decodeCred(conn.Credentials, &c); err != nil {
-		return nil, err
-	}
-	in, name, key := s.in, s.name, c.Key
-	return func(req *http.Request) error {
-		if in == "query" {
-			q := req.URL.Query()
-			q.Set(name, key)
-			req.URL.RawQuery = q.Encode()
-			return nil
+// apiKeyInject —— apiKey：header 或 query 带 key（in/name 来自 scheme，闭包捕获）。
+func apiKeyInject(in, name string) authStrategy {
+	return func(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
+		var c apiKeyCred
+		if err := decodeCred(conn.Credentials, &c); err != nil {
+			return nil, err
 		}
-		req.Header.Set(name, key)
-		return nil
-	}, nil
+		key := c.Key
+		return func(req *http.Request) error {
+			if in == "query" {
+				q := req.URL.Query()
+				q.Set(name, key)
+				req.URL.RawQuery = q.Encode()
+				return nil
+			}
+			req.Header.Set(name, key)
+			return nil
+		}, nil
+	}
 }
-
-// ─── http basic ───
-
-type basicStrategy struct{}
 
 type basicCred struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-func (basicStrategy) inject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
+// basicInject —— http basic：base64(user:pass) 进 Authorization。
+func basicInject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
 	var c basicCred
 	if err := decodeCred(conn.Credentials, &c); err != nil {
 		return nil, err
@@ -141,15 +126,12 @@ func (basicStrategy) inject(conn *domain.ConnectorConnection) (openapi.AuthInjec
 	}, nil
 }
 
-// ─── http bearer：凭据里存的固定 token ───
-
-type bearerStrategy struct{}
-
 type bearerCred struct {
 	Token string `json:"token"`
 }
 
-func (bearerStrategy) inject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
+// bearerInject —— http bearer：凭据里存的固定 token。
+func bearerInject(conn *domain.ConnectorConnection) (openapi.AuthInjector, error) {
 	var c bearerCred
 	if err := decodeCred(conn.Credentials, &c); err != nil {
 		return nil, err

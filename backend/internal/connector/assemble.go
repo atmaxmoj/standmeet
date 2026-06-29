@@ -118,8 +118,6 @@ func parseBindingFor(m *Manifest, spec *openapi.Spec) (*openapi.Binding, error) 
 }
 
 // resolveAuth —— 选 securityScheme + 建注入策略。
-//
-//nolint:ireturn // 透传 buildAuthStrategy 的工厂返值（按 scheme 类型返不同实现）。
 func resolveAuth(spec *openapi.Spec, schemeName string) (authStrategy, error) {
 	scheme, serr := pickScheme(spec, schemeName)
 	if serr != nil {

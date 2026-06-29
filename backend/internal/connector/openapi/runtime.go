@@ -251,10 +251,16 @@ func decodeInto(value, dst any) error {
 	if err != nil {
 		return fmt.Errorf("marshal output: %w", err)
 	}
-	if uerr := json.Unmarshal(raw, dst); uerr != nil {
-		return nil //nolint:nilerr // 形状不符故意吞错→零值降级（§8-C）
-	}
+	decodeOrEmpty(raw, dst)
 	return nil
+}
+
+// decodeOrEmpty —— best-effort 解 JSON 进 dst；形状不符 → dst 留零值（§8-C：provider 回的形状跟
+// 契约 dst 不符按「无数据」处理，不是故障，不上报，契约方法返空而非 5xx）。
+func decodeOrEmpty(raw []byte, dst any) {
+	if err := json.Unmarshal(raw, dst); err != nil {
+		return
+	}
 }
 
 // maxResponseBytes —— 出站响应体读取上限（防恶意/失控 provider）。

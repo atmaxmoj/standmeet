@@ -99,7 +99,7 @@ func (c *openapiCore) injector(ctx context.Context, ownerID string) (openapi.Aut
 			return nil, fmt.Errorf("connector %q refresh: %w", c.id, rerr)
 		}
 	}
-	inj, ierr := c.auth.inject(&conn)
+	inj, ierr := c.auth(&conn)
 	if ierr != nil {
 		return nil, fmt.Errorf("connector %q auth: %w", c.id, ierr)
 	}

@@ -265,6 +265,13 @@ async function activateConnector(request: APIRequestContext, csrf: string, id: s
     headers: { 'X-Csrftoken': csrf },
   });
   if (res.status() !== 200) throw new Error(`activate ${id}: ${res.status()}`);
+  // 等激活在 GET /connectors 里坐实再返回 —— booker 按 active 槽解析，杜绝「刚 activate 就 book」竞态。
+  await expect.poll(async () => {
+    const list = await request.get(`${BACKEND}/api/admin/connectors`);
+    if (list.status() !== 200) return false;
+    const rows = (await list.json() as { connectors?: { id: string; active?: boolean }[] }).connectors ?? [];
+    return rows.find((c) => c.id === id)?.active === true;
+  }, { timeout: 10_000 }).toBe(true);
 }
 
 const CALDAV_COLL = 'hmcal';
@@ -374,10 +381,9 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
       await bookAndAssert(request, csrf, 8);
     });
 
-  // combo 3 —— protocol · calendar · CalDAV：内置卡 → 固定表单 → connect → book。
-  // 仍 fixme：UI 装配 + caldav connect 都通了（连接器 active+connected），但 booker 的 create_event
-  // 没落到这个「经装配建」的 caldav 连接器的 collection（provider-agnostic 经 API 建的 caldav 能 book）。
-  // 是 booker→assemble-caldav 的后端集成细节，单独排查。
+  // combo 3 —— protocol · calendar · CalDAV：内置卡 → 固定表单 → connect → 显式激活 → book。
+  // 前面 combo 已占了 calendar 槽（连上不自动抢占），故装配后显式 activate 这个 caldav 并坐实，
+  // booker 才走它（落 CalDAV mock 的 coll，不是 gcal store）。
   test('protocol calendar (CalDAV): pick built-in card → fixed form → booker books',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);

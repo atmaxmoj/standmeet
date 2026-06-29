@@ -38,8 +38,6 @@ func NewSlots(hub *Hub, store SlotStore) *Slots { return &Slots{hub: hub, store:
 func (s *Slots) Register(c Connector) { s.hub.Upsert(c) }
 
 // ConnectorCalendar —— 按 id 取一个连接器的 CalendarProxy（diag：直接打某个连接器，不经 active 槽）。
-//
-//nolint:ireturn // 返回品类契约接口供 diag 直调，是这里的意图。
 func (s *Slots) ConnectorCalendar(id string) (usecases.CalendarProxy, bool) {
 	c, ok := s.hub.Resolve(id)
 	if !ok {
@@ -50,8 +48,6 @@ func (s *Slots) ConnectorCalendar(id string) (usecases.CalendarProxy, bool) {
 }
 
 // ConnectorMail —— 按 id 取一个连接器的 MailProxy（diag：直接打某个连接器，不经 active 槽）。
-//
-//nolint:ireturn // 同 ConnectorCalendar。
 func (s *Slots) ConnectorMail(id string) (usecases.MailProxy, bool) {
 	c, ok := s.hub.Resolve(id)
 	if !ok {
@@ -125,13 +121,9 @@ func (s *Slots) VerifyConnector(ctx context.Context, connectorID, ownerID string
 }
 
 // Calendar —— 一个把 calendar 契约分派到 active 连接器的 CalendarProxy。
-//
-//nolint:ireturn // 返回品类契约接口供消费者注入，是这里的意图（消费者 provider-agnostic）。
 func (s *Slots) Calendar() usecases.CalendarProxy { return calendarSlot{s: s} }
 
 // Mail —— 一个把 mail 契约分派到 active 连接器的 MailProxy。
-//
-//nolint:ireturn // 同 Calendar。
 func (s *Slots) Mail() usecases.MailProxy { return mailSlot{s: s} }
 
 // active —— 找 owner 某品类的 active 连接器句柄。无 active / 未注册 → errNoActiveConnector。
@@ -212,8 +204,6 @@ func (cs calendarSlot) DeleteEvent(
 }
 
 // resolve —— active calendar 连接器断言成 CalendarProxy。无 active → ErrCalendarNotConnected。
-//
-//nolint:ireturn // 返回品类契约接口供分派；同 Slots.Calendar 的意图。
 func (cs calendarSlot) resolve(
 	ctx context.Context, ownerID string,
 ) (usecases.CalendarProxy, error) {
@@ -263,8 +253,6 @@ func (ms mailSlot) Send(ctx context.Context, ownerID string, msg usecases.MailMe
 }
 
 // resolve —— active mail 连接器断言成 MailProxy。无 active → ErrMailNotConfigured。
-//
-//nolint:ireturn // 返回品类契约接口供分派；同 Slots.Mail 的意图。
 func (ms mailSlot) resolve(ctx context.Context, ownerID string) (usecases.MailProxy, error) {
 	c, err := ms.s.active(ctx, ownerID, "mail")
 	if errors.Is(err, errNoActiveConnector) {

@@ -57,12 +57,10 @@ type Deps struct {
 }
 
 // Service —— 连接器 admin 编排。
-type Service struct{ d Deps }
+type Service struct{ d *Deps }
 
-// New —— 构造。
-//
-//nolint:gocritic // Deps 是装配期一次性入参，按值传清晰
-func New(d Deps) *Service { return &Service{d: d} }
+// New —— 构造（按指针接装配期依赖束，不按值拷大 struct）。
+func New(d *Deps) *Service { return &Service{d: d} }
 
 // Manifest —— 内置 manifest 按 id 查。
 func (s *Service) Manifest(id string) *connector.Manifest {
@@ -272,18 +270,40 @@ func (s *Service) markConnected(ctx context.Context, ownerID, id string) (Connec
 // ensureActive —— 该品类还没有 active 连接器 → 把刚连上的这个占了槽（首连即用；已有 active
 // 则不抢，切换走显式 activate）。§9：同品类同时只一个 active。
 func (s *Service) ensureActive(ctx context.Context, ownerID, id string) error {
-	m, merr := s.manifestFor(ctx, ownerID, id)
-	if merr != nil {
-		return nil //nolint:nilerr // 找不到 manifest → 不自动激活（非致命）
+	category, err := s.activateCategory(ctx, ownerID, id)
+	if err != nil {
+		return err
 	}
-	conns, err := s.d.Repo.ListByCategory(ctx, ownerID, m.Category)
+	if category == "" {
+		return nil // 定不出品类（无 manifest）→ 静默跳过自动激活
+	}
+	return s.claimSlotIfFree(ctx, ownerID, id, category)
+}
+
+// activateCategory —— 解出该连接器的品类供自动激活。空品类 = 没有 manifest（ErrNotFound），跳过信号；
+// 真错（DB 等）→ 上报。
+func (s *Service) activateCategory(ctx context.Context, ownerID, id string) (string, error) {
+	m, merr := s.manifestFor(ctx, ownerID, id)
+	switch {
+	case merr == nil:
+		return m.Category, nil
+	case errors.Is(merr, ErrNotFound):
+		return "", nil
+	default:
+		return "", fmt.Errorf("manifest for auto-activate: %w", merr)
+	}
+}
+
+// claimSlotIfFree —— 该品类槽还没有 active 连接器 → 把这个占了（首连即用）；已有则不抢。
+func (s *Service) claimSlotIfFree(ctx context.Context, ownerID, id, category string) error {
+	conns, err := s.d.Repo.ListByCategory(ctx, ownerID, category)
 	if err != nil {
 		return fmt.Errorf("list category for auto-activate: %w", err)
 	}
 	if hasActive(conns) {
 		return nil
 	}
-	if serr := s.d.Repo.SetActive(ctx, ownerID, id, m.Category); serr != nil {
+	if serr := s.d.Repo.SetActive(ctx, ownerID, id, category); serr != nil {
 		return fmt.Errorf("auto-activate: %w", serr)
 	}
 	return nil
