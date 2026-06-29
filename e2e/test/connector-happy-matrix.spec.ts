@@ -259,6 +259,14 @@ async function bookAndAssert(
   expect(events[0]!.attendees ?? []).toContain('rachel@example.com');
 }
 
+// activateConnector —— 把一个连接器设为它品类槽的 active（一个品类一个 active；连上不自动抢占）。
+async function activateConnector(request: APIRequestContext, csrf: string, id: string): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/connectors/${id}/activate`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  if (res.status() !== 200) throw new Error(`activate ${id}: ${res.status()}`);
+}
+
 const CALDAV_COLL = 'hmcal';
 
 // getCalDAVEvents —— CalDAV combo 的会落在 CalDAV mock 的 collection 里（不是 gcal store），单独读它。
@@ -370,17 +378,20 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
   // 仍 fixme：UI 装配 + caldav connect 都通了（连接器 active+connected），但 booker 的 create_event
   // 没落到这个「经装配建」的 caldav 连接器的 collection（provider-agnostic 经 API 建的 caldav 能 book）。
   // 是 booker→assemble-caldav 的后端集成细节，单独排查。
-  test.fixme('protocol calendar (CalDAV): pick built-in card → fixed form → booker books',
+  test('protocol calendar (CalDAV): pick built-in card → fixed form → booker books',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await resetCalDAV(request);
       // CalDAV url 指 collection（后端容器经 MOCK_API 打，SSRF 白名单内）；会落 CalDAV mock 的 coll。
-      await assembleProtocol(page, request, {
+      const conn = await assembleProtocol(page, request, {
         category: 'calendar',
         fields: {
           url: `${MOCK_API}/caldav/${CALDAV_COLL}`, username: 'owner', password: 'pw', tls: 'none',
         },
       });
+      // 品类槽「一个 active」：前面 combo 已占了 calendar 槽，连上不自动抢占 → 显式激活这个 CalDAV
+      // 连接器，让 booker 走它（否则 booker 用旧的 gcal 连接器，会落 gcal store 不是 CalDAV coll）。
+      await activateConnector(request, csrf, conn.id);
       await bookAndAssert(request, csrf, 9, getCalDAVEvents);
     });
 
