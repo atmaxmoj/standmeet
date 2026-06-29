@@ -29,7 +29,6 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe('connector · 从 admin UI 装配一个连接器', () => {
   // 红契约：spec-driven 连接器 UI 装配流未建（见 docs/design/connector.md §8）。实现后去掉。
-  test.fixme(true, 'pending #155: spec-driven connector assemble UI');
 
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -55,6 +54,10 @@ test.describe('connector · 从 admin UI 装配一个连接器', () => {
       .filter({ has: page.getByRole('button', { name: /connect|连接/i }) });
     await expect(card).toBeVisible();
     await expect(card.getByText(/not connected|未连接/i)).toBeVisible();
+
+    // owner 在卡里填自己的 OAuth client 凭据（就是 ui 填写，无 env fallback）。
+    await card.getByTestId('connector-field-client_id').fill('mock-client-id');
+    await card.getByTestId('connector-field-client_secret').fill('mock-client-secret');
 
     // 点 Connect → OAuth 流（mock）→ 回 connectors 区。
     await card.getByRole('button', { name: /connect|连接/i }).click();

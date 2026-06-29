@@ -11,9 +11,12 @@ import {
 } from '@/lib/admin/use-connector-list';
 
 export function ConnectorList({ hook }: { hook: ConnectorListHook }) {
-  return hook.connectors.length === 0 ? null : (
+  // 只列 owner 自建（上传/协议）连接器；内置（已配的 gcal/smtp…）是 catalog 卡，不在这重复渲染，
+  // 否则配好的内置会同时以 connector-row-{id}（卡）和 connector-row-{category}（这）出现，撞 testid。
+  const uploaded = hook.connectors.filter((c) => originOf(c) === 'uploaded');
+  return uploaded.length === 0 ? null : (
     <ul className="mb-8 space-y-3">
-      {hook.connectors.map((row) => (
+      {uploaded.map((row) => (
         <ConnectorRowItem key={row.id} row={row} onDelete={() => { void hook.remove(row.id); }} />
       ))}
     </ul>
