@@ -1,0 +1,18 @@
+openapi: 3.0.0
+info:
+  title: Bearer API
+  version: 1.0.0
+servers:
+  - url: "${BEARER_API_BASE:-https://api.example.com}"
+paths:
+  /ping:
+    get:
+      operationId: ping
+      responses:
+        "200":
+          description: ok
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer

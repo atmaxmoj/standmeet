@@ -1,0 +1,5 @@
+id: bearer-api
+kind: openapi
+category: api
+auth_scheme: bearer
+spec: spec.yaml

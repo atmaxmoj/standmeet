@@ -36,6 +36,7 @@ type ConnectorsAdminDeps struct {
 func (h *Handlers) MountConnectors(r chi.Router) {
 	r.Route("/connectors", func(r chi.Router) {
 		r.Get("/", h.listConnectors())
+		r.Get("/catalog", h.connectorCatalog())
 		r.Post("/", h.createConnector())
 		r.Post("/mail/test-send", h.mailTestSend())
 		r.Post("/validate-spec", h.validateSpec())
@@ -45,6 +46,7 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 			r.Post("/credentials", h.saveConnectorCredentials())
 			r.Get("/status", h.connectorStatus())
 			r.Post("/connect", h.connectConnector())
+			r.Get("/authorize", h.connectorAuthorize())
 			r.Get("/callback", h.connectorOAuthCallback())
 			r.Post("/activate", h.activateConnector())
 			r.Post("/disconnect", h.disconnectConnector())

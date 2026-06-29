@@ -74,6 +74,20 @@ func (s *Service) Manifest(id string) *connector.Manifest {
 	return nil
 }
 
+// Catalog —— 所有内置连接器（拉起时外置装配进来的 manifest），供 admin UI 渲染可连接的内置卡。
+// 各卡状态/凭据表单各自再取 /{id}/{status,credential-form}。不进 List（List 只列 owner 已建；内置
+// 混进去会被 reuse-by-category 的调用方误抓）。复用 domain.ConnectorConnection，不新增公开类型。
+func (s *Service) Catalog() []domain.ConnectorConnection {
+	out := make([]domain.ConnectorConnection, 0, len(s.d.Manifests))
+	for i := range s.d.Manifests {
+		m := &s.d.Manifests[i]
+		out = append(out, domain.ConnectorConnection{
+			ConnectorID: m.ID, Category: m.Category, Kind: m.Kind,
+		})
+	}
+	return out
+}
+
 // SaveCredentials —— 存凭据（原样 JSON）。category/kind 由内置 manifest 定；未知 id → ErrNotFound。
 func (s *Service) SaveCredentials(ctx context.Context, ownerID, id string, body []byte) error {
 	m, merr := s.manifestFor(ctx, ownerID, id)

@@ -60,7 +60,6 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 // ════════ happy 路 ════════════════════════════════════════════════
 test.describe('connector · 连接流 happy (§8 区 D)', () => {
-  test.fixme(true, 'pending #155: connector connect flow — happy (dance + non-dance)');
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('oauth2: 填 client_id/secret → Connect → mock authorize → callback → token 存 → Connected',
@@ -107,7 +106,9 @@ test.describe('connector · 连接流 happy (§8 区 D)', () => {
       await expect(redirect).toHaveAttribute('readonly', '');
     });
 
-  test('oauth2: owner 勾选的 scope 子集被原样带进 authorize dance',
+  // 仍 fixme：需 mock provider 暴露可编程的 authorize-scope 记录端点（/__mock/oauth/{reset,
+  // last_authorize}）+ 后端把 owner 勾选的 scope 子集带进 dance。下个增量做。
+  test.fixme('oauth2: owner 勾选的 scope 子集被原样带进 authorize dance',
     async ({ adminPage: page }) => {
       // §4：oauth2 的 scope 是多选；owner 勾哪些，dance 的 authorize URL 就
       // 必须只带哪些（既不偷加、也不漏带）。mock provider 记录它收到的 scope

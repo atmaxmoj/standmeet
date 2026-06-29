@@ -18,13 +18,16 @@ import { MailConnectorPanel } from '@/components/admin/sections/connectors/MailC
 import { CapabilitiesPanel } from '@/components/admin/sections/connectors/CapabilitiesPanel';
 import { useConnectors, type ConnectorsHook } from '@/lib/admin/use-connectors';
 import { useConnectorList } from '@/lib/admin/use-connector-list';
+import { useConnectorCatalog, type ConnectorCatalogHook } from '@/lib/admin/use-connector-catalog';
 import { useConnectorUpload, type ConnectorUploadHook } from '@/lib/admin/use-connector-upload';
 import { ConnectorList } from '@/components/admin/sections/connectors/ConnectorList';
+import { ConnectorCard } from '@/components/admin/sections/connectors/ConnectorCard';
 import { catalogSize } from '@/lib/admin/connector-registry';
 
 export function ConnectorsSection() {
   const hook = useConnectors();
   const list = useConnectorList();
+  const catalog = useConnectorCatalog();
   const upload = useConnectorUpload(list);
   const [showAdd, setShowAdd] = useState(false);
   // 后端未接 —— catalog 浏览不真 install(不写假 connected 状态)。
@@ -38,6 +41,7 @@ export function ConnectorsSection() {
         action={<AddBtn onOpen={() => setShowAdd(true)} />}
       />
       <Intro />
+      <CatalogCards catalog={catalog} />
       <ConnectorList hook={list} />
       <OverwriteConfirm hook={upload} />
       <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -56,6 +60,17 @@ export function ConnectorsSection() {
         />
       )}
     </>
+  );
+}
+
+// CatalogCards —— 内置连接器（外置装配进来的）各一张归一卡，owner 在卡里填凭据 + Connect。
+function CatalogCards({ catalog }: { catalog: ConnectorCatalogHook }) {
+  return catalog.entries.length === 0 ? null : (
+    <ul className="mb-8 space-y-3">
+      {catalog.entries.map((entry) => (
+        <ConnectorCard key={entry.id} entry={entry} />
+      ))}
+    </ul>
   );
 }
 
