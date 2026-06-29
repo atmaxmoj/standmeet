@@ -38,11 +38,14 @@ func (s *Service) CreateUploaded(
 	return m.ID, nil
 }
 
-// Delete —— 删一个 owner 自建连接器（行删除）。内置（embed manifest）不可删 → ErrInvalidManifest。
+// isBuiltin —— 这个 id 是不是内置连接器（embed manifest 里有）。内置不可改/删。
+func (s *Service) isBuiltin(id string) bool { return s.Manifest(id) != nil }
+
+// Delete —— 删一个 owner 自建连接器（行删除）。内置（embed manifest）不可删 → ErrBuiltinReadonly。
 // 删后它填的品类槽空（slot store 读不到 → 依赖它的 cap 复闸）。
 func (s *Service) Delete(ctx context.Context, ownerID, id string) error {
-	if s.Manifest(id) != nil {
-		return ErrInvalidManifest
+	if s.isBuiltin(id) {
+		return ErrBuiltinReadonly
 	}
 	if err := s.d.Repo.DeleteUploaded(ctx, ownerID, id); err != nil {
 		return fmt.Errorf("delete connector: %w", err)
@@ -84,12 +87,12 @@ func (s *Service) CreateProtocol(
 }
 
 // UpdateUploaded —— 编辑已建上传连接器的 spec/binding（换认证 type 等）→ 重新装配（校验+SSRF）+
-// 重注册进 Hub + 存档。内置连接器不可编辑（spec 来自 embed）→ ErrInvalidManifest。
+// 重注册进 Hub + 存档。内置连接器不可编辑（spec 来自 embed）→ ErrBuiltinReadonly。
 func (s *Service) UpdateUploaded(
 	ctx context.Context, ownerID, id string, in *UploadedSpec,
 ) error {
-	if s.Manifest(id) != nil { // 内置：不可编辑
-		return ErrInvalidManifest
+	if s.isBuiltin(id) {
+		return ErrBuiltinReadonly
 	}
 	m := &connector.Manifest{
 		ID: id, Kind: "openapi", AuthScheme: in.AuthScheme, Spec: in.Spec, Binding: in.Binding,
@@ -109,7 +112,8 @@ func (s *Service) UpdateUploaded(
 	return nil
 }
 
-// CredentialForm —— 派生这个连接器要 owner 填的凭据表单（按 spec 的 securityScheme）。
+// CredentialForm —— 派生这个连接器要 owner 填的凭据表单（按 spec 的 securityScheme）。CredentialForm
+// 是 connector 同名类型的 alias，故直接返回派生结果，不再逐字段拷贝。
 func (s *Service) CredentialForm(ctx context.Context, ownerID, id string) (CredentialForm, error) {
 	m, merr := s.manifestFor(ctx, ownerID, id)
 	if merr != nil {
@@ -119,7 +123,5 @@ func (s *Service) CredentialForm(ctx context.Context, ownerID, id string) (Crede
 	if derr != nil {
 		return CredentialForm{}, fmt.Errorf("%w: %w", ErrInvalidManifest, derr)
 	}
-	return CredentialForm{
-		AuthType: form.AuthType, Fields: form.Fields, Scopes: form.Scopes, Schemes: form.Schemes,
-	}, nil
+	return form, nil
 }

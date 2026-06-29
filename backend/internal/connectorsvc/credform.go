@@ -1,15 +1,14 @@
-// credform.go —— 凭据表单类型（admin 路由 JSON 化它，不直接暴露 connector 层类型）。派生逻辑
-// 在 connector.DeriveCredentialForm；本类型只是 service↔route 的边界形状。
+// credform.go —— 凭据表单与上传内容的边界类型。CredentialForm 直接 alias connector 层的同名类型：
+// 形状本就 1:1（派生逻辑在 connector.DeriveCredentialForm），手抄一份只会让"加字段漏一处"——正是
+// apiKey 字段那个 bug 的土壤。alias 让 routes 仍只 import connectorsvc（不碰 connector），又免去拷字段。
+// 真要分叉时再 un-alias。
 
 package connectorsvc
 
-// CredentialForm —— 一个连接器要 owner 填的凭据表单：认证类型 + 字段 key 列表 + oauth2 可勾选 scope。
-type CredentialForm struct {
-	AuthType string
-	Fields   []string
-	Scopes   []string
-	Schemes  []string
-}
+import "github.com/atmaxmoj/standmeet/internal/connector"
+
+// CredentialForm —— 一个连接器要 owner 填的凭据表单（认证类型 + 字段 key + oauth2 scope + scheme 列表）。
+type CredentialForm = connector.CredentialForm
 
 // UploadedSpec —— 上传/编辑连接器的内容（spec + JSONata binding + 选中的 authScheme +
 // 是否把 raw ops 暴露成 agent 工具）。

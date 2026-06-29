@@ -7,7 +7,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 
@@ -82,45 +81,6 @@ func statusRow(c *domain.ConnectorConnection) connectorStatusResp {
 	}
 }
 
-// connErrCases —— connectorsvc sentinel → HTTP envelope（table-driven，apierr.Classify 派发；
-// 无匹配 → 500）。集中映射让 handler 保 cyclo ≤3。
-var connErrCases = []apierr.Case{
-	{Match: connectorsvc.ErrNotFound, Envelope: apierr.Envelope{
-		Status: http.StatusNotFound, Code: "not_found", Message: "not found",
-	}},
-	{Match: connectorsvc.ErrNoOAuthClient, Envelope: apierr.Envelope{
-		Status:  http.StatusBadRequest,
-		Code:    "bad_request",
-		Message: "connector credentials not set",
-	}},
-	{Match: connectorsvc.ErrConnectionFailed, Envelope: apierr.Envelope{
-		Status:  http.StatusBadRequest,
-		Code:    "bad_request",
-		Message: "connection test failed — check host/port/credentials",
-	}},
-	{Match: connectorsvc.ErrInvalidManifest, Envelope: apierr.Envelope{
-		Status:  http.StatusBadRequest,
-		Code:    "invalid_manifest",
-		Message: "the connector spec or binding is invalid",
-	}},
-}
-
-// writeConnErr —— 把 connectorsvc sentinel 翻成 HTTP envelope（dispatch 集中此处，handler 保 ≤3）。
-// 装配失败带上底层原因（坏 JSONata / 未知 op / 未知品类 / 不完整），owner 才知道改哪。
-func (h *Handlers) writeConnErr(w http.ResponseWriter, err error) {
-	if errors.Is(err, connectorsvc.ErrInvalidManifest) {
-		writeError(h.Log, w, apierr.Envelope{
-			Status: http.StatusBadRequest, Code: "invalid_manifest", Message: err.Error(),
-		})
-		return
-	}
-	env := apierr.Classify(err, connErrCases)
-	if env.Status >= http.StatusInternalServerError {
-		h.Log.Error("connector admin", logErrKey, err)
-	}
-	writeError(h.Log, w, env)
-}
-
 func (h *Handlers) listConnectors() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
@@ -137,9 +97,9 @@ func (h *Handlers) listConnectors() http.HandlerFunc {
 	}
 }
 
-// createConnectorReq —— Kind ""/"openapi" → 上传 spec+binding；"protocol" → 协议连接器（Protocol
+// connectorWriteReq —— Kind ""/"openapi" → 上传 spec+binding；"protocol" → 协议连接器（Protocol
 // 选 caldav/smtp，Category 显式给；openapi 的品类由 binding 定）。
-type createConnectorReq struct {
+type connectorWriteReq struct {
 	AuthScheme         string          `json:"auth_scheme"`
 	Kind               string          `json:"kind"`
 	Protocol           string          `json:"protocol"`
@@ -151,9 +111,9 @@ type createConnectorReq struct {
 	ExposeAsAgentTools bool            `json:"expose_as_agent_tools"`
 }
 
-// uploadedSpec —— createConnectorReq → connectorsvc.UploadedSpec（create + update 共用）。admin UI
+// uploadedSpec —— connectorWriteReq → connectorsvc.UploadedSpec（create + update 共用）。admin UI
 // 走 spec_text/binding_text 原文（YAML 绑定不必前端解析）；e2e 直 POST 走 spec/binding 对象。
-func (b *createConnectorReq) uploadedSpec() *connectorsvc.UploadedSpec {
+func (b *connectorWriteReq) uploadedSpec() *connectorsvc.UploadedSpec {
 	return &connectorsvc.UploadedSpec{
 		Spec: rawOrText(b.Spec, b.SpecText), Binding: rawOrText(b.Binding, b.BindingText),
 		AuthScheme: b.AuthScheme, ExposeAsAgentTools: b.ExposeAsAgentTools,
@@ -168,7 +128,23 @@ func rawOrText(raw json.RawMessage, text string) []byte {
 	return raw
 }
 
-// deleteConnector —— 删一个 owner 自建连接器（DELETE）。内置不可删 → 400；删后它填的品类 cap 复闸。
+// decodeWriteBody —— 解 create/update 的 JSON body（限长 maxCredBytes）。坏 JSON → 写 400 + ok=false，
+// 调用方据此早返。create/update 共用，免去逐 handler 抄解码样板。
+func (h *Handlers) decodeWriteBody(
+	w http.ResponseWriter, r *http.Request,
+) (connectorWriteReq, bool) {
+	var body connectorWriteReq
+	dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
+	if derr := dec.Decode(&body); derr != nil {
+		writeError(h.Log, w, apierr.Envelope{
+			Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
+		})
+		return connectorWriteReq{}, false
+	}
+	return body, true
+}
+
+// deleteConnector —— 删一个 owner 自建连接器（DELETE）。内置不可删 → 409；删后它填的品类 cap 复闸。
 func (h *Handlers) deleteConnector() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
@@ -184,7 +160,7 @@ func (h *Handlers) deleteConnector() http.HandlerFunc {
 // createConnectorID —— 按 kind 建连接器：protocol 走 CreateProtocol（无 spec）；其余走 CreateUploaded
 // （openapi spec+binding）。
 func createConnectorID(
-	ctx context.Context, svc *connectorsvc.Service, ownerID string, body *createConnectorReq,
+	ctx context.Context, svc *connectorsvc.Service, ownerID string, body *connectorWriteReq,
 ) (string, error) {
 	if body.Kind == "protocol" {
 		return svc.CreateProtocol(ctx, ownerID, body.Category, body.Protocol)
@@ -196,12 +172,8 @@ func createConnectorID(
 func (h *Handlers) createConnector() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		var body createConnectorReq
-		dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
-		if derr := dec.Decode(&body); derr != nil {
-			writeError(h.Log, w, apierr.Envelope{
-				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
-			})
+		body, ok := h.decodeWriteBody(w, r)
+		if !ok {
 			return
 		}
 		id, err := createConnectorID(r.Context(), h.ConnectorsAdmin.Svc, ownerID, &body)
@@ -213,16 +185,12 @@ func (h *Handlers) createConnector() http.HandlerFunc {
 	}
 }
 
-// updateConnector —— 编辑已建上传连接器的 spec+binding（PUT）。坏 manifest / 内置 → 400。
+// updateConnector —— 编辑已建上传连接器的 spec+binding（PUT）。坏 manifest → 400；内置 → 409。
 func (h *Handlers) updateConnector() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		var body createConnectorReq
-		dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
-		if derr := dec.Decode(&body); derr != nil {
-			writeError(h.Log, w, apierr.Envelope{
-				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
-			})
+		body, ok := h.decodeWriteBody(w, r)
+		if !ok {
 			return
 		}
 		in := body.uploadedSpec()

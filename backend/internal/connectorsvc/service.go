@@ -22,17 +22,7 @@ const (
 	oauthStateBytes = 16
 )
 
-// ErrNotFound —— 未知连接器 id（内置 manifest 里没有）。
-var ErrNotFound = errors.New("connector not found")
-
-// ErrNoOAuthClient —— oauth 连接器还没存 client_id（connect 前必须先存凭据）。
-var ErrNoOAuthClient = errors.New("connector oauth client_id not set")
-
-// ErrConnectionFailed —— protocol 连接器的连接测试失败（host/port/auth/TLS 错）。
-var ErrConnectionFailed = errors.New("connector connection test failed")
-
-// ErrInvalidManifest —— 上传的 spec/binding 装配期校验失败（坏 JSONata / 未知 op / 缺品类等）。
-var ErrInvalidManifest = errors.New("invalid connector spec/binding")
+// sentinel 错误见 errors.go。
 
 // Verifier —— protocol 连接器 connect 时跑的连接测试（composition root 接 connector.Slots）。
 type Verifier interface {
@@ -124,9 +114,12 @@ func (s *Service) Connect(ctx context.Context, ownerID, id string) (ConnectResul
 
 // Callback —— 校验 state → code 换 token → 存。返回该 owner（state 携带）。
 func (s *Service) Callback(ctx context.Context, id, code, state string) error {
-	ownerID, ok := s.consumeState(ctx, state, id)
-	if !ok {
-		return fmt.Errorf("%w: invalid oauth state", ErrNoOAuthClient)
+	ownerID, cerr := s.consumeState(ctx, state, id)
+	if cerr != nil {
+		return fmt.Errorf("oauth callback: %w", cerr) // Redis 故障 → 上报，不掩盖成「坏 state」
+	}
+	if ownerID == "" {
+		return ErrInvalidOAuthState // state 空/过期/不匹配（预期态）
 	}
 	if err := s.exchangeAndStore(ctx, ownerID, id, code); err != nil {
 		return err

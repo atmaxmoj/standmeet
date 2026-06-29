@@ -24,6 +24,9 @@ func (h *Handlers) connectorOAuthCallback() http.HandlerFunc {
 			r.Context(), chi.URLParam(r, paramID),
 			r.URL.Query().Get("code"), r.URL.Query().Get("state"))
 		if err != nil {
+			// 回程一律 302（不把报文晾给 owner），但失败要留痕——否则 Redis/token 端基建故障
+			// 会跟「用户重放了个过期 state」一样无声，运维查无可查。
+			h.Log.Warn("connector oauth callback", logErrKey, err)
 			http.Redirect(w, r, "/admin/connectors?connect_error=1", http.StatusFound)
 			return
 		}

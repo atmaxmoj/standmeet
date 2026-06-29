@@ -45,6 +45,14 @@ type SMTPConfig struct {
 // Configured —— 是否填了能物理发信的最低配置（有 host）。
 func (c *SMTPConfig) Configured() bool { return c.Host != "" }
 
+// toMailerConfig —— 解密后配置 → mailer.Config（Verify/Send 共用，免去逐处抄字段）。
+func (c *SMTPConfig) toMailerConfig() *mailer.Config {
+	return &mailer.Config{
+		Host: c.Host, Port: c.Port, Username: c.Username, Password: c.Password,
+		FromAddress: c.FromAddress, FromName: c.FromName, TLS: c.TLS,
+	}
+}
+
 // SMTPVault —— protocol(smtp) 连接器的连接源：连接状态 + 解密后配置。
 type SMTPVault interface {
 	Connected(ctx context.Context, connectorID, ownerID string) (bool, error)
@@ -78,11 +86,7 @@ func (c *smtpConnector) Verify(ctx context.Context, ownerID string) error {
 	if !cfg.Configured() {
 		return usecases.ErrMailNotConfigured
 	}
-	if verr := mailer.Verify(ctx, &mailer.Config{
-		Host: cfg.Host, Port: cfg.Port, Username: cfg.Username,
-		Password: cfg.Password, FromAddress: cfg.FromAddress, FromName: cfg.FromName,
-		TLS: cfg.TLS,
-	}); verr != nil {
+	if verr := mailer.Verify(ctx, cfg.toMailerConfig()); verr != nil {
 		return fmt.Errorf("connector %q smtp verify: %w", c.id, verr)
 	}
 	return nil
@@ -107,11 +111,7 @@ func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg usecases.M
 	if !cfg.Configured() {
 		return usecases.ErrMailNotConfigured
 	}
-	b := mailer.Compose(&mailer.Config{
-		Host: cfg.Host, Port: cfg.Port,
-		Username: cfg.Username, Password: cfg.Password,
-		FromAddress: cfg.FromAddress, FromName: cfg.FromName, TLS: cfg.TLS,
-	}).To(msg.To).Subject(msg.Subject).Body(msg.Body)
+	b := mailer.Compose(cfg.toMailerConfig()).To(msg.To).Subject(msg.Subject).Body(msg.Body)
 	if msg.HTML != "" {
 		b = b.HTML(msg.HTML)
 	}

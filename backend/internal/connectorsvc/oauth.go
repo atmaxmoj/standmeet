@@ -8,8 +8,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -63,20 +66,30 @@ func (s *Service) persistState(ctx context.Context, state, ownerID, id string) e
 	return nil
 }
 
-// consumeState —— 校验 + 一次性消费 state（防重放）。返回 ownerID + connectorID 是否匹配。
-func (s *Service) consumeState(ctx context.Context, state, id string) (string, bool) {
+// consumeState —— 校验 + 一次性消费 state（防重放）。返回 (ownerID, err)：空 ownerID = state 无效
+// （空/过期/不匹配，预期态）；err 仅在 Redis **故障**时非空——基建错要吵闹，不能跟「state 不存在」
+// 混成一个空值掩盖掉。（ownerID 是 UUID，永不为空串，故空串可当「无效」信号，免第三个返回值。）
+func (s *Service) consumeState(ctx context.Context, state, id string) (string, error) {
 	if state == "" {
-		return "", false
+		return "", nil
 	}
 	val, err := s.d.Redis.GetDel(ctx, stateKey(state)).Result()
-	if err != nil {
-		return "", false
+	switch {
+	case errors.Is(err, redis.Nil):
+		return "", nil // key 不存在（过期/已用/重放）= 预期态，非故障
+	case err != nil:
+		return "", fmt.Errorf("read oauth state: %w", err) // Redis 故障 → 上报
 	}
+	return ownerFromState(val, id), nil
+}
+
+// ownerFromState —— state 值 "ownerID|connectorID" 解出 ownerID；连接器不匹配 → ""（无效）。
+func ownerFromState(val, id string) string {
 	ownerID, connID, found := strings.Cut(val, "|")
 	if !found || connID != id {
-		return "", false
+		return ""
 	}
-	return ownerID, true
+	return ownerID
 }
 
 func stateKey(state string) string { return "connector:oauth:" + state }

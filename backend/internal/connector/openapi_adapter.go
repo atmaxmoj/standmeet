@@ -107,6 +107,14 @@ func (c *openapiCore) injector(ctx context.Context, ownerID string) (openapi.Aut
 }
 
 // ───────────────────────── calendar 契约适配 ─────────────────────────
+//
+// ⚠ 契约耦合（隐式但有守护）：下面这些 input/output struct 的 **json tag 就是「契约变量名」**——
+// binding（内置 builtins/data/*/binding.yaml 与 owner 上传的）的 request/response JSONata 按名引用
+// 它们（如 `summary` / `visitorEmail` / `start`）。改这里的 tag = 改契约：
+//   - 内置 binding 引用旧名 → JSONata 求值出 undefined → 该字段静默变空（§8-C 降级，不报错）。
+//     **守护**：chat-book-success.spec 断言 booked event 的 summary/attendee/start 内容——漂移即红。
+//   - 上传 binding 引用错名 → 同样降级成空，属 owner 配错，经 diag 端点自测时暴露（预期态）。
+// 一句话：tag 与 binding 变量名是同一份知识，改一处务必同步另一处；e2e 内容断言是这条耦合的闸。
 
 // calendarAdapter —— openapiCore 实现 usecases.CalendarProxy。
 type calendarAdapter struct{ *openapiCore }
@@ -290,6 +298,12 @@ type sendInput struct {
 }
 
 // Send —— send 契约方法。
+//
+// 跟 calendarAdapter 的**刻意不对称**（不是漏写）：
+//   - 不 retry：发信不幂等（无幂等键、mail provider 普遍不去重），重试瞬时错有重复发信风险；
+//     宁可失败也不重发。要重试的场景（owner 通知）在 usecase 层用 notifyPolicy 包，由调用方决定。
+//   - 不映射成 domain 错：mail 消费者（booking_confirmation / owner_notify / otp…）只看「发没发出」，
+//     不像 booker 要按 revoked/unavailable gate，故无需 calendar 那套错误词汇（ISP：不造没人用的接口）。
 func (a mailAdapter) Send(ctx context.Context, ownerID string, msg usecases.MailMessage) error {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {

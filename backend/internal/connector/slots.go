@@ -38,6 +38,8 @@ func NewSlots(hub *Hub, store SlotStore) *Slots { return &Slots{hub: hub, store:
 func (s *Slots) Register(c Connector) { s.hub.Upsert(c) }
 
 // ConnectorCalendar —— 按 id 取一个连接器的 CalendarProxy（diag：直接打某个连接器，不经 active 槽）。
+// （Resolve+断言这条模式本想用泛型 resolveAs[T] 收口，但 Go 无泛型方法、方法接口又不能 union 进
+// 约束，唯一可行的 [T any] 被业务层 forbidigo 禁；几行内联断言比 ban 掉的构造更直白，留着。）
 func (s *Slots) ConnectorCalendar(id string) (usecases.CalendarProxy, bool) {
 	c, ok := s.hub.Resolve(id)
 	if !ok {
