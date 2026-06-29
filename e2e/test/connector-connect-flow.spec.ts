@@ -181,7 +181,6 @@ test.describe('connector · 连接流 oauth2 错误 (§8 区 D)', () => {
 
 // ════════ reconnect / rotate / disconnect ══════════════════════════
 test.describe('connector · 重连 / 轮换 / 断开 (§8 区 D)', () => {
-  test.fixme(true, 'pending #155: connector reconnect / rotate / disconnect');
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('连上后轮换 client_id/secret → 重验后仍能连上',
