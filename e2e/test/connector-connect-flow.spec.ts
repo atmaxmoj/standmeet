@@ -134,7 +134,6 @@ test.describe('connector · 连接流 happy (§8 区 D)', () => {
 
 // ════════ oauth2 错误分支 ══════════════════════════════════════════
 test.describe('connector · 连接流 oauth2 错误 (§8 区 D)', () => {
-  test.fixme(true, 'pending #155: connector connect flow — oauth2 error branches');
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('用户在 consent 页 deny → 未连接 + 友好提示',
@@ -449,5 +448,7 @@ async function initOwner(playwright: Playwright): Promise<void> {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
+  // 清掉上个 describe 编程的 dance 结局（mock OAuth 是进程级全局，否则会泄漏到下个 describe）。
+  await request.get(`${MOCK}/__mock/oauth/reset`);
   await request.dispose();
 }

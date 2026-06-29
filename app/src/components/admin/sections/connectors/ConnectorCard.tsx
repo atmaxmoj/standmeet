@@ -15,7 +15,7 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
       className="crosshair border border-(--color-rule) rounded-sm bg-(--color-surface)/30 p-4"
     >
       <span className="ch-tl" /><span className="ch-br" />
-      <CardHead category={entry.category} connected={hook.connected} />
+      <CardHead category={entry.category} connected={hook.connected} connecting={hook.connecting} />
       <Fields hook={hook} />
       <RedirectUri id={entry.id} authType={hook.authType} />
       <Scopes hook={hook} />
@@ -25,15 +25,23 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
   );
 }
 
-function CardHead({ category, connected }: { category: string; connected: boolean }) {
+function CardHead(
+  { category, connected, connecting }: { category: string; connected: boolean; connecting: boolean },
+) {
   return (
     <div className="flex items-center justify-between mb-3">
       <span className="text-sm text-(--color-ink)">{category}</span>
       <span data-testid="connector-status" className="mono text-[11px] text-(--color-muted)">
-        {connected ? 'connected' : 'not connected'}
+        {statusText(connected, connecting)}
       </span>
     </div>
   );
+}
+
+// statusText —— connecting…（dance 进行中，不含 "connected" 子串，让 expectConnected 真等回程）/
+// connected / not connected。
+function statusText(connected: boolean, connecting: boolean): string {
+  return connecting ? 'connecting…' : connected ? 'connected' : 'not connected';
 }
 
 function Fields({ hook }: { hook: ConnectorCardHook }) {

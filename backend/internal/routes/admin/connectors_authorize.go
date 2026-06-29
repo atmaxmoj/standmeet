@@ -1,8 +1,8 @@
-// connectors_authorize.go —— oauth2 连接器的「同标签发起 dance」入口（GET，CSRF 豁免）。admin UI 的
-// Connect 按钮对 oauth2 直接 window.location 到这里：服务端起 dance → 302 跳到 provider 同意页 →
-// 同意后 provider 回 callback 换 token → 再 302 回 /admin/connectors。整条是一次浏览器导航，所以
-// 测试的 waitForURL 能真正等到回程（不像 XHR + JS 跳转那样有 async 缝隙）。凭据 owner 已在表单里
-// 即时存好（卡片字段改动即存），故这里只读已存凭据起 dance。
+// connectors_authorize.go —— oauth2 dance 的回程入口（callback）。dance 本身由前端 window.location
+// 跳到 provider（POST /connect 返回的 auth_url），provider 同意后带 code+state 回这里换 token。
+// dance 是浏览器导航，错误不能回 JSON 错误页（会把原始报文晾给 owner），一律 302 回 connectors 区
+// （常量目标，避免把 provider 的 auth_url 或 path 参数喂进 Location 头）；失败带 connect_error=1，
+// 前端据 sessionStorage 记的「正在连哪个」把友好错误落到对应卡片。
 
 package admin
 
@@ -10,28 +10,23 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-
-	"github.com/atmaxmoj/standmeet/internal/middleware"
 )
 
-// connectorAuthorize —— 起 oauth2 dance（或非 dance 连接器直接连）。成功 → 302 到 auth_url（或回
-// connectors 区）；失败 → 回 connectors 区带错误标记（卡片据此显示友好错误）。
-func (h *Handlers) connectorAuthorize() http.HandlerFunc {
+// connectorOAuthCallback —— provider 带 code+state 回程 → 换 token。provider 拒绝（?error=）/ state
+// 不符 / 换 token 失败 → 302 回 connectors 区带 connect_error=1。
+func (h *Handlers) connectorOAuthCallback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		res, err := h.ConnectorsAdmin.Svc.Connect(r.Context(), ownerID, chi.URLParam(r, paramID))
+		if r.URL.Query().Get("error") != "" {
+			http.Redirect(w, r, "/admin/connectors?connect_error=1", http.StatusFound)
+			return
+		}
+		err := h.ConnectorsAdmin.Svc.Callback(
+			r.Context(), chi.URLParam(r, paramID),
+			r.URL.Query().Get("code"), r.URL.Query().Get("state"))
 		if err != nil {
 			http.Redirect(w, r, "/admin/connectors?connect_error=1", http.StatusFound)
 			return
 		}
-		http.Redirect(w, r, authorizeTarget(res.AuthURL), http.StatusFound)
+		http.Redirect(w, r, "/admin/connectors", http.StatusFound)
 	}
-}
-
-// authorizeTarget —— 有 auth_url（oauth2 dance）→ 跳同意页；否则（非 dance 已连）→ 回 connectors 区。
-func authorizeTarget(authURL string) string {
-	if authURL != "" {
-		return authURL
-	}
-	return "/admin/connectors"
 }

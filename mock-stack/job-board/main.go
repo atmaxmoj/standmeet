@@ -191,6 +191,11 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /__mock/gcal/set_event_shape", s.serveMockSetEventShape)
 	mux.HandleFunc("POST /__mock/gcal/revoke", s.serveMockGCalRevoke)
 	mux.HandleFunc("POST /__mock/gcal/reset", s.serveMockGCalReset)
+	// programmable OAuth control plane (connect-flow §8 区 D): 编程 dance 结局 + 读记录（GET 触发）。
+	mux.HandleFunc("GET /__mock/oauth/program", s.serveOAuthProgram)
+	mux.HandleFunc("GET /__mock/oauth/reset", s.serveOAuthRecordReset)
+	mux.HandleFunc("GET /__mock/oauth/last_authorize", s.serveOAuthLastAuthorize)
+	mux.HandleFunc("GET /__mock/oauth/token_call_count", s.serveOAuthTokenCallCount)
 	// CRM-ish SaaS mock (#155 §3 agent-tool exposure): binding-less openapi connector 落点
 	mux.HandleFunc("GET /crm/contacts", s.serveCRMContacts)
 	mux.HandleFunc("POST /crm/contacts/search", s.serveCRMContactSearch)

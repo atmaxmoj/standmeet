@@ -46,7 +46,6 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 			r.Post("/credentials", h.saveConnectorCredentials())
 			r.Get("/status", h.connectorStatus())
 			r.Post("/connect", h.connectConnector())
-			r.Get("/authorize", h.connectorAuthorize())
 			r.Get("/callback", h.connectorOAuthCallback())
 			r.Post("/activate", h.activateConnector())
 			r.Post("/disconnect", h.disconnectConnector())
@@ -307,19 +306,6 @@ func (h *Handlers) connectConnector() http.HandlerFunc {
 		writeJSON(h.Log, w, connectInitResp{
 			AuthURL: res.AuthURL, State: res.State, Error: res.Error, Connected: res.Connected,
 		})
-	}
-}
-
-func (h *Handlers) connectorOAuthCallback() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		err := h.ConnectorsAdmin.Svc.Callback(
-			r.Context(), chi.URLParam(r, paramID),
-			r.URL.Query().Get("code"), r.URL.Query().Get("state"))
-		if err != nil {
-			h.writeConnErr(w, err)
-			return
-		}
-		http.Redirect(w, r, "/admin/connectors", http.StatusFound)
 	}
 }
 

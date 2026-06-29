@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 )
 
@@ -57,6 +58,8 @@ type gcalState struct {
 	fails          map[string]*failInjection // op → injected failure (retry-matrix e2e)
 	freeBusyRaw    []byte                     // set_freebusy_raw: 下次 freeBusy 原样回这个（一次性）
 	eventShape     string                     // set_event_shape: "" | "object" | "array"（响应形状）
+	oauthOutcome   string                     // /__mock/oauth/program: ""|deny|token_invalid_client|state_mismatch|network_fail
+	lastAuthScopes []string                   // 上次 authorize 收到的 scope param（连接流 scope 子集断言）
 	tokenCallCount int
 	revoked        bool // owner revoked at Google → next refresh returns invalid_grant
 	mu             sync.Mutex
@@ -102,7 +105,7 @@ func (s *server) withState(f func(*gcalState)) {
 // which is exactly the contract of a test-only mock OAuth server, so
 // we silence it here. This binary is never deployed; it only runs in
 // docker-compose for dev/e2e.
-func (*server) serveOAuthAuth(w http.ResponseWriter, r *http.Request) {
+func (s *server) serveOAuthAuth(w http.ResponseWriter, r *http.Request) {
 	redirect := r.URL.Query().Get("redirect_uri")
 	state := r.URL.Query().Get("state")
 	if redirect == "" {
@@ -114,12 +117,40 @@ func (*server) serveOAuthAuth(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad redirect_uri", http.StatusBadRequest)
 		return
 	}
-	q := u.Query()
-	q.Set("code", "mock-auth-code-"+randomHex(mockAccessTokenLen))
-	q.Set("state", state)
-	u.RawQuery = q.Encode()
+	var outcome string
+	s.withState(func(st *gcalState) {
+		outcome = st.oauthOutcome
+		st.lastAuthScopes = splitScopes(r.URL.Query().Get("scope"))
+	})
+	u.RawQuery = authorizeCallbackQuery(outcome, state).Encode()
 	//nolint:gosec // G710 — mock server's whole purpose is echoing back the redirect_uri unmodified
 	http.Redirect(w, r, u.String(), http.StatusFound)
+}
+
+// authorizeCallbackQuery —— 按编程的 outcome 拼 callback query：deny → 只回 error；state_mismatch
+// → 回不符的 state（验后端 CSRF 拒）；否则正常 code+state。
+func authorizeCallbackQuery(outcome, state string) url.Values {
+	q := url.Values{}
+	if outcome == "deny" {
+		q.Set("error", "access_denied")
+		q.Set("state", state)
+		return q
+	}
+	q.Set("code", "mock-auth-code-"+randomHex(mockAccessTokenLen))
+	if outcome == "state_mismatch" {
+		q.Set("state", "WRONG-"+state)
+		return q
+	}
+	q.Set("state", state)
+	return q
+}
+
+// splitScopes —— OAuth scope param（空格分隔）→ 列表（空 → 空切片）。
+func splitScopes(scope string) []string {
+	if scope == "" {
+		return []string{}
+	}
+	return strings.Fields(scope)
 }
 
 // ─── /google-oauth/token ───────────────────────────────────────
@@ -143,14 +174,26 @@ func (s *server) serveOAuthToken(w http.ResponseWriter, r *http.Request) {
 	var (
 		revoked bool
 		fault   *failInjection
+		outcome string
 	)
 	s.withState(func(st *gcalState) {
 		st.tokenCallCount++
 		revoked = st.revoked
+		outcome = st.oauthOutcome
 		if grant == "refresh_token" {
 			fault, _ = st.takeFail("token")
 		}
 	})
+	// 连接流编程的 token 故障（authorization_code 换 token 时）：坏 client → invalid_client；
+	// network_fail → 断连。
+	if outcome == "token_invalid_client" {
+		http.Error(w, `{"error":"invalid_client"}`, http.StatusBadRequest)
+		return
+	}
+	if outcome == "network_fail" {
+		s.hijackClose(w)
+		return
+	}
 	// owner revoked at Google → refresh-token grant fails with invalid_grant
 	// (the backend maps this to ErrCalendarRevoked → friendly degrade).
 	if grant == "refresh_token" && revoked {
@@ -476,6 +519,8 @@ func (s *server) serveMockGCalReset(w http.ResponseWriter, _ *http.Request) {
 		st.fails = nil
 		st.freeBusyRaw = nil
 		st.eventShape = ""
+		st.oauthOutcome = ""
+		st.lastAuthScopes = nil
 		st.tokenCallCount = 0
 		st.revoked = false
 	})
