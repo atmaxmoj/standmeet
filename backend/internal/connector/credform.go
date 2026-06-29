@@ -77,9 +77,10 @@ func formForScheme(name string, s *openapi.SecurityScheme) CredentialForm {
 	}
 }
 
-// apiKeyField —— apiKey 字段 key（用 scheme 名；无名退回 "key"）。
+// apiKeyField —— apiKey 字段 key。自定义命名的 scheme（如 "sendgrid"）按那个名字填；通用类型名
+// "apiKey"（或无名）退回通用 "key"，让候选派生与建后派生归一（否则一个 'key' 一个 'apiKey'）。
 func apiKeyField(name string) string {
-	if name == "" {
+	if name == "" || name == "apiKey" {
 		return "key"
 	}
 	return name

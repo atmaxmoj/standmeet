@@ -369,7 +369,7 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
       await resetCalMock(request);
       await assembleOpenAPI(page, request, {
         category: 'calendar', spec: APIKEY_CAL_SPEC, binding: CAL_BINDING,
-        scheme: 'apiKey', fields: { apiKey: 'mock-calendar-api-key' }, needsDance: false,
+        scheme: 'apiKey', fields: { key: 'mock-calendar-api-key' }, needsDance: false,
       });
       await bookAndAssert(request, csrf, 8);
     });
