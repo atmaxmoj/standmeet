@@ -247,15 +247,29 @@ async function bookOnce(
 // 断 event 落到 provider（attendee 来自 session profile）。各 calendar test 只换装配。
 async function bookAndAssert(
   request: APIRequestContext, csrf: string, daysAhead: number,
+  readEvents: (r: APIRequestContext) => Promise<CalEvent[]> = getEvents,
 ): Promise<void> {
   const cap = await findCapability(request, csrf, 'calendar.book');
   expect(cap?.dependency?.connected, 'calendar 品类槽 connected').toBe(true);
   const start = futureSlot(daysAhead, 14);
   await bookOnce(request, csrf, start);
-  const events = await getEvents(request);
+  const events = await readEvents(request);
   expect(events, 'provider 收到 booker 创建的 event').toHaveLength(1);
   expect(events[0]!.start).toBe(start);
   expect(events[0]!.attendees ?? []).toContain('rachel@example.com');
+}
+
+const CALDAV_COLL = 'hmcal';
+
+// getCalDAVEvents —— CalDAV combo 的会落在 CalDAV mock 的 collection 里（不是 gcal store），单独读它。
+async function getCalDAVEvents(request: APIRequestContext): Promise<CalEvent[]> {
+  const res = await request.get(`${MOCK}/__mock/caldav/${CALDAV_COLL}/events`);
+  if (res.status() !== 200) throw new Error(`caldav events: ${res.status()}`);
+  return (await res.json() as { events: CalEvent[] }).events;
+}
+
+async function resetCalDAV(request: APIRequestContext): Promise<void> {
+  await request.post(`${MOCK}/__mock/caldav/${CALDAV_COLL}/reset`, { data: {} }).catch(() => undefined);
 }
 
 // getEvents —— 读 calendar provider mock 记录的 event（gcal mock 收所有 calendar combo）。
@@ -353,15 +367,21 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
     });
 
   // combo 3 —— protocol · calendar · CalDAV：内置卡 → 固定表单 → connect → book。
+  // 仍 fixme：UI 装配 + caldav connect 都通了（连接器 active+connected），但 booker 的 create_event
+  // 没落到这个「经装配建」的 caldav 连接器的 collection（provider-agnostic 经 API 建的 caldav 能 book）。
+  // 是 booker→assemble-caldav 的后端集成细节，单独排查。
   test.fixme('protocol calendar (CalDAV): pick built-in card → fixed form → booker books',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
-      await resetCalMock(request);
+      await resetCalDAV(request);
+      // CalDAV url 指 collection（后端容器经 MOCK_API 打，SSRF 白名单内）；会落 CalDAV mock 的 coll。
       await assembleProtocol(page, request, {
         category: 'calendar',
-        fields: { url: `${MOCK}/__mock/caldav`, username: 'owner', password: 'pw', tls: 'none' },
+        fields: {
+          url: `${MOCK_API}/caldav/${CALDAV_COLL}`, username: 'owner', password: 'pw', tls: 'none',
+        },
       });
-      await bookAndAssert(request, csrf, 9);
+      await bookAndAssert(request, csrf, 9, getCalDAVEvents);
     });
 
   // combo 4 —— openapi · mail · bearer：spec → bearer 表单 → connect → mail.send 真发。
