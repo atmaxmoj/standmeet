@@ -55,7 +55,6 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe('connector · protocol SMTP（kind=protocol，固定凭据表单）', () => {
   // 红契约：protocol(SMTP) 连接器 UI 装配 + 固定表单 + 连接测试未建（connector.md §8 区 E）。实现后删。
-  test.fixme(true, 'pending #155 §8-E: protocol SMTP connector + fixed credential form + connection test');
 
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);

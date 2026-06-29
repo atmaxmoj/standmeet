@@ -17,6 +17,7 @@ import {
 
 import { ConnectorConfigForm } from '@/components/admin/ConnectorConfigForm';
 import { ConnectorSpecIngest } from '@/components/admin/ConnectorSpecIngest';
+import { ProtocolConnectorForm } from '@/components/admin/ProtocolConnectorForm';
 
 interface Props {
   installed: readonly string[];
@@ -32,13 +33,21 @@ export function ConnectorAddModal({ installed, onClose, onConnect }: Props) {
       <ModalHead onClose={onClose} />
       {picked === null
         ? <Catalog cat={cat} onCat={setCat} installed={installed} onPick={setPicked} />
-        : <ConnectorConfigForm
-            entry={picked}
-            onCancel={() => setPicked(null)}
-            onSave={(values) => { onConnect(picked.id, values); onClose(); }}
+        : <PickedView
+            entry={picked} onBack={() => setPicked(null)}
+            onConnect={(values) => { onConnect(picked.id, values); onClose(); }}
           />}
     </ModalOverlay>
   );
+}
+
+// PickedView —— protocol 连接器（SMTP/CalDAV）走带连接测试的固定表单；其余走通用 catalog 配置表单。
+function PickedView({
+  entry, onBack, onConnect,
+}: { entry: ConnectorEntry; onBack: () => void; onConnect: (v: Record<string, string>) => void }) {
+  return (entry.protocol ?? '') === ''
+    ? <ConnectorConfigForm entry={entry} onCancel={onBack} onSave={onConnect} />
+    : <ProtocolConnectorForm entry={entry} onClose={onBack} />;
 }
 
 function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {

@@ -25,6 +25,7 @@ type Config struct {
 	Password    string
 	FromAddress string
 	FromName    string
+	TLS         string // "" | "none" | "starttls" | "tls"（implicit）
 	Port        int
 }
 

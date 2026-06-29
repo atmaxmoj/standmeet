@@ -78,6 +78,7 @@ type smtpCredJSON struct {
 	Password    string `json:"password"`
 	FromAddress string `json:"from_address"`
 	FromName    string `json:"from_name"`
+	TLS         string `json:"tls"`
 }
 
 // smtpVaultAdapter —— ConnectorRepo → connector.SMTPVault（解码 smtp 配置 JSON）。
@@ -112,7 +113,7 @@ func (a smtpVaultAdapter) SMTPConfig(
 	}
 	return connector.SMTPConfig{
 		Host: c.Host, Port: port, Username: c.Username, Password: c.Password,
-		FromAddress: c.FromAddress, FromName: c.FromName,
+		FromAddress: c.FromAddress, FromName: c.FromName, TLS: c.TLS,
 	}, nil
 }
 

@@ -68,6 +68,7 @@ type connectorsListResp struct {
 type connectInitResp struct {
 	AuthURL   string `json:"auth_url,omitempty"`
 	State     string `json:"state,omitempty"`
+	Error     string `json:"error,omitempty"`
 	Connected bool   `json:"connected"`
 }
 
@@ -277,7 +278,7 @@ func (h *Handlers) connectConnector() http.HandlerFunc {
 			return
 		}
 		writeJSON(h.Log, w, connectInitResp{
-			AuthURL: res.AuthURL, State: res.State, Connected: res.Connected,
+			AuthURL: res.AuthURL, State: res.State, Error: res.Error, Connected: res.Connected,
 		})
 	}
 }

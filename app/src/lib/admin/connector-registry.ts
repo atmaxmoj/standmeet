@@ -30,6 +30,10 @@ export interface ConnectorEntry {
   fields: readonly ConnectorField[];
   builtin?: boolean; // 内置，不能删
   docs_url?: string;
+  // protocol connector (#155 kind=protocol)：选它走「建 protocol 连接器 + 存固定凭据 + 连接测试」，
+  // protocolCategory = 它填的品类槽（mail/calendar）。openapi/catalog 条目不设这俩。
+  protocol?: string;
+  protocolCategory?: string;
 }
 
 export const CONNECTOR_CATEGORIES: readonly ConnectorCategory[] = [
@@ -49,6 +53,20 @@ export const CONNECTOR_REGISTRY: readonly ConnectorEntry[] = [
       { k: 'smtp_host', label: 'SMTP host' },
       { k: 'smtp_user', label: 'SMTP user' },
       { k: 'smtp_pass', label: 'SMTP password', secret: true },
+    ],
+  },
+  {
+    // SMTP protocol connector (#155 §8-E): kind=protocol, fixed credential form (NOT spec-derived).
+    id: 'smtp', name: 'SMTP', icon: '✉', category: 'comms', builtin: true,
+    protocol: 'smtp', protocolCategory: 'mail',
+    blurb: 'send mail through any SMTP server (the mail category, protocol kind).',
+    fields: [
+      { k: 'host', label: 'Host' },
+      { k: 'port', label: 'Port', default: '587' },
+      { k: 'username', label: 'Username' },
+      { k: 'password', label: 'Password', secret: true },
+      { k: 'from', label: 'From address' },
+      { k: 'tls', label: 'TLS', options: ['none', 'starttls', 'tls'], default: 'starttls' },
     ],
   },
   {

@@ -93,6 +93,7 @@ func (s *Service) SaveCredentials(ctx context.Context, ownerID, id string, body 
 type ConnectResult struct {
 	AuthURL   string
 	State     string
+	Error     string // 连接测试失败的 owner 友好理由（protocol verify 失败：connect/tls/auth）
 	Connected bool
 }
 
@@ -230,10 +231,18 @@ func (s *Service) manifestFor(
 func (s *Service) verifyAndConnect(ctx context.Context, ownerID, id string) (ConnectResult, error) {
 	if s.d.Verifier != nil {
 		if verr := s.d.Verifier.VerifyConnector(ctx, id, ownerID); verr != nil {
-			return ConnectResult{}, fmt.Errorf("%w: %w", ErrConnectionFailed, verr)
+			return ConnectResult{Connected: false, Error: verifyReason(verr)}, nil
 		}
 	}
 	return s.markConnected(ctx, ownerID, id)
+}
+
+// verifyReason —— 连接测试失败的 owner 友好理由（分类 connect/tls/auth；非已知 → 通用）。
+func verifyReason(err error) string {
+	if r := connector.FriendlyVerifyError(err); r != "" {
+		return r
+	}
+	return "the connection test failed — check the host, port, and credentials"
 }
 
 func (s *Service) markConnected(ctx context.Context, ownerID, id string) (ConnectResult, error) {

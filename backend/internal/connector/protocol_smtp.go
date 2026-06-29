@@ -9,11 +9,27 @@ package connector
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/mailer"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
+
+// FriendlyVerifyError —— 把连接测试错误映成 owner 友好理由（connect/tls/auth 分类，连接器层认得
+// mailer 的分类 sentinel）；非已知分类 → ""。消费者（connectorsvc）经此把 connect 失败友好化。
+func FriendlyVerifyError(err error) string {
+	switch {
+	case errors.Is(err, mailer.ErrVerifyAuth):
+		return mailer.ErrVerifyAuth.Error()
+	case errors.Is(err, mailer.ErrVerifyTLS):
+		return mailer.ErrVerifyTLS.Error()
+	case errors.Is(err, mailer.ErrVerifyConnect):
+		return mailer.ErrVerifyConnect.Error()
+	default:
+		return ""
+	}
+}
 
 // SMTPConfig —— 一个 SMTP 连接器的解密后配置。
 type SMTPConfig struct {
@@ -22,6 +38,7 @@ type SMTPConfig struct {
 	Password    string
 	FromAddress string
 	FromName    string
+	TLS         string // "" | "none" | "starttls" | "tls"（implicit）
 	Port        int
 }
 
@@ -61,9 +78,10 @@ func (c *smtpConnector) Verify(ctx context.Context, ownerID string) error {
 	if !cfg.Configured() {
 		return usecases.ErrMailNotConfigured
 	}
-	if verr := mailer.Verify(&mailer.Config{
+	if verr := mailer.Verify(ctx, &mailer.Config{
 		Host: cfg.Host, Port: cfg.Port, Username: cfg.Username,
 		Password: cfg.Password, FromAddress: cfg.FromAddress, FromName: cfg.FromName,
+		TLS: cfg.TLS,
 	}); verr != nil {
 		return fmt.Errorf("connector %q smtp verify: %w", c.id, verr)
 	}
@@ -92,7 +110,7 @@ func (c *smtpConnector) Send(ctx context.Context, ownerID string, msg usecases.M
 	b := mailer.Compose(&mailer.Config{
 		Host: cfg.Host, Port: cfg.Port,
 		Username: cfg.Username, Password: cfg.Password,
-		FromAddress: cfg.FromAddress, FromName: cfg.FromName,
+		FromAddress: cfg.FromAddress, FromName: cfg.FromName, TLS: cfg.TLS,
 	}).To(msg.To).Subject(msg.Subject).Body(msg.Body)
 	if msg.HTML != "" {
 		b = b.HTML(msg.HTML)
