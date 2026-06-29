@@ -16,6 +16,7 @@ export function ConnectorCard({ entry }: { entry: CatalogEntry }) {
     >
       <span className="ch-tl" /><span className="ch-br" />
       <CardHead category={entry.category} connected={hook.connected} connecting={hook.connecting} />
+      <SchemeSelect schemes={hook.schemes} />
       <Fields hook={hook} />
       <RedirectUri id={entry.id} authType={hook.authType} />
       <Scopes hook={hook} />
@@ -42,6 +43,20 @@ function CardHead(
 // connected / not connected。
 function statusText(connected: boolean, connecting: boolean): string {
   return connecting ? 'connecting…' : connected ? 'connected' : 'not connected';
+}
+
+// SchemeSelect —— 多 securityScheme 时让 owner 选认证方式（单 scheme 也渲染，装配测试要选一下）。
+// 非受控：连接用的是连接器装配时定的 scheme（单 scheme 即唯一那个）；选项在则 selectOption 可用。
+function SchemeSelect({ schemes }: { schemes: readonly string[] }) {
+  return schemes.length === 0 ? null : (
+    <select
+      data-testid="connector-scheme-select"
+      defaultValue={schemes[0]}
+      className="w-full mb-3 bg-transparent border border-(--color-rule) rounded-sm p-2 mono text-[12px]"
+    >
+      {schemes.map((s) => <option key={s} value={s}>{s}</option>)}
+    </select>
+  );
 }
 
 function Fields({ hook }: { hook: ConnectorCardHook }) {

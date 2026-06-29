@@ -16,6 +16,7 @@ const FormSchema = z.object({
   auth_type: z.string(),
   fields: z.array(z.object({ key: z.string() })).nullish(),
   scopes: z.array(z.string()).nullish(),
+  schemes: z.array(z.string()).nullish(),
 });
 const ConnectSchema = z.object({
   auth_url: z.string().nullish(),
@@ -27,6 +28,7 @@ export interface ConnectorCardHook {
   authType: string;
   fields: readonly string[];
   scopes: readonly string[];
+  schemes: readonly string[];
   connected: boolean;
   connecting: boolean;
   error: string;
@@ -42,6 +44,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   const [authType, setAuthType] = useState('');
   const [fields, setFields] = useState<string[]>([]);
   const [scopes, setScopes] = useState<string[]>([]);
+  const [schemes, setSchemes] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
@@ -64,6 +67,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
         setAuthType(f.auth_type);
         setFields((f.fields ?? []).map((x) => x.key));
         setScopes(f.scopes ?? []);
+        setSchemes(f.schemes ?? []);
       })
       .catch(() => undefined);
   }, [id]);
@@ -105,7 +109,7 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   }, [id]);
 
   return {
-    authType, fields, scopes, connected, connecting, error,
+    authType, fields, scopes, schemes, connected, connecting, error,
     setField: (k, v) => { values.current[k] = v; saveCreds(); },
     setScope: (s, on) => { on ? chosen.current.add(s) : chosen.current.delete(s); saveCreds(); },
     connect, disconnect,

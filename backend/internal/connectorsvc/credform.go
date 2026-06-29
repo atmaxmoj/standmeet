@@ -8,6 +8,7 @@ type CredentialForm struct {
 	AuthType string
 	Fields   []string
 	Scopes   []string
+	Schemes  []string
 }
 
 // UploadedSpec —— 上传/编辑连接器的内容（spec + JSONata binding + 选中的 authScheme +
