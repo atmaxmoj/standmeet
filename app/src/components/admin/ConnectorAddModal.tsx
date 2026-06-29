@@ -18,6 +18,7 @@ import {
 import { ConnectorConfigForm } from '@/components/admin/ConnectorConfigForm';
 import { ConnectorSpecIngest } from '@/components/admin/ConnectorSpecIngest';
 import { ProtocolConnectorForm } from '@/components/admin/ProtocolConnectorForm';
+import { AssembleView } from '@/components/admin/sections/connectors/AssembleView';
 
 interface Props {
   installed: readonly string[];
@@ -42,8 +43,17 @@ export function ConnectorAddModal({ installed, onClose, onConnect, onUpload }: P
   );
 }
 
-// PickedView —— protocol 连接器（SMTP/CalDAV）走带连接测试的固定表单；其余走通用 catalog 配置表单。
+// PickedView —— 品类装配卡（assemble）走归一 AssembleView（OpenAPI 上传 或 内置协议）；protocol
+// 连接器（SMTP）走固定表单 + 连接测试；其余走通用 catalog 配置表单。
 function PickedView({
+  entry, onBack, onConnect,
+}: { entry: ConnectorEntry; onBack: () => void; onConnect: (v: Record<string, string>) => void }) {
+  return entry.assemble
+    ? <AssembleView category={entry.assembleCategory ?? ''} />
+    : <NonAssembleView entry={entry} onBack={onBack} onConnect={onConnect} />;
+}
+
+function NonAssembleView({
   entry, onBack, onConnect,
 }: { entry: ConnectorEntry; onBack: () => void; onConnect: (v: Record<string, string>) => void }) {
   return (entry.protocol ?? '') === ''

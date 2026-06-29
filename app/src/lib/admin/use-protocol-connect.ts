@@ -13,7 +13,7 @@ const ConnectSchema = z.object({
   error: z.string().nullish(),
 });
 
-export type ConnectStatus = 'idle' | 'connected' | 'not-connected';
+export type ConnectStatus = 'idle' | 'connecting' | 'connected' | 'not-connected';
 
 export interface ProtocolConnectHook {
   saved: boolean;
@@ -21,18 +21,18 @@ export interface ProtocolConnectHook {
   error: string;
   save: (values: Record<string, string>) => void;
   connect: () => void;
+  saveAndConnect: (values: Record<string, string>) => void;
 }
 
-// credsFor —— 表单值 → SMTP 凭据 JSON（from → from_address；其余同名）。
+// credsFor —— 表单值 → 协议凭据 JSON（归一：原样透传；仅 from → from_address 对齐 SMTP 后端形状）。
+// SMTP 用 host/port/username/password/from/tls；CalDAV 用 url/username/password/tls —— 同一映射皆可。
 function credsFor(values: Record<string, string>): Record<string, string> {
-  return {
-    host: values.host ?? '',
-    port: values.port ?? '',
-    username: values.username ?? '',
-    password: values.password ?? '',
-    from_address: values.from ?? '',
-    tls: values.tls ?? '',
-  };
+  const out: Record<string, string> = { ...values };
+  if (out.from !== undefined) {
+    out.from_address = out.from;
+    delete out.from;
+  }
+  return out;
 }
 
 export function useProtocolConnect(protocol: string, category: string): ProtocolConnectHook {
@@ -47,15 +47,33 @@ export function useProtocolConnect(protocol: string, category: string): Protocol
       .catch(() => setError('Could not save the connector configuration.'));
   }, [protocol, category]);
 
+  const applyConnect = useCallback((r: z.infer<typeof ConnectSchema>) => {
+    setStatus(r.connected ? 'connected' : 'not-connected');
+    setError(r.connected ? '' : (r.error ?? 'The connection test failed.'));
+  }, []);
+
   const connect = useCallback(() => {
     setError('');
     void adminAPI.post(`/connectors/${id}/connect`, {}, ConnectSchema)
-      .then((r) => {
-        setStatus(r.connected ? 'connected' : 'not-connected');
-        setError(r.connected ? '' : (r.error ?? 'The connection test failed.'));
-      })
+      .then(applyConnect)
       .catch(() => { setStatus('not-connected'); setError('The connection test failed.'); });
-  }, [id]);
+  }, [id, applyConnect]);
 
-  return { saved: id !== '', status, error, save, connect };
+  // saveAndConnect —— 一键：建协议连接器 + 存凭据 → 立即连接测试（归一装配视图的协议路，owner 填完
+  // 点一次 Connect 即成）。串行用上一步返回的 id，避开 save→connect 的状态竞态。
+  const saveAndConnect = useCallback((values: Record<string, string>) => {
+    setError('');
+    setStatus('connecting'); // 同步翻 connecting…，让 expectConnected 真等到 connect 落定（不被 "not connected" 宽松命中）
+
+    void adminAPI.post('/connectors', { kind: 'protocol', protocol, category }, CreateSchema)
+      .then((r) => {
+        setId(r.id);
+        return adminAPI.postVoid(`/connectors/${r.id}/credentials`, credsFor(values))
+          .then(() => adminAPI.post(`/connectors/${r.id}/connect`, {}, ConnectSchema));
+      })
+      .then(applyConnect)
+      .catch(() => { setStatus('not-connected'); setError('The connection test failed.'); });
+  }, [protocol, category, applyConnect]);
+
+  return { saved: id !== '', status, error, save, connect, saveAndConnect };
 }

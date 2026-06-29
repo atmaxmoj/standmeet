@@ -282,7 +282,6 @@ async function waitForMail(
 test.describe('connector · happy 组合矩阵（kind × category × auth 全闭环）', () => {
   // RED 契约：spec-driven 装配 UI + 派生表单 + 各 auth connect + 品类归一消费均未建
   // （docs/design/connector.md §8 第一期 A+B+D+F）。实现逐格转绿后删 fixme。
-  test.fixme(true, 'pending #155 §8: full assemble→connect→consumer happy combos');
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => {
@@ -299,7 +298,7 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
 
   // combo 1 —— openapi · calendar · oauth2 (Google 式)：spec → 派生 oauth2 表单 →
   // dance → calendar_book 装配 → booker 真 book → event 落 provider。
-  test('openapi calendar + oauth2: assemble → dance → booker books → event on provider',
+  test.fixme('openapi calendar + oauth2: assemble → dance → booker books → event on provider',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await assembleOpenAPI(page, request, {
@@ -313,7 +312,7 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
 
   // combo 2 —— openapi · calendar · apiKey (非 oauth 日历 API)：spec → apiKey 表单 →
   // 无 dance connect → calendar_book 真跑。
-  test('openapi calendar + apiKey: assemble → apiKey form (no dance) → booker books',
+  test.fixme('openapi calendar + apiKey: assemble → apiKey form (no dance) → booker books',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await resetCalMock(request);
@@ -325,7 +324,7 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
     });
 
   // combo 3 —— protocol · calendar · CalDAV：内置卡 → 固定表单 → connect → book。
-  test('protocol calendar (CalDAV): pick built-in card → fixed form → booker books',
+  test.fixme('protocol calendar (CalDAV): pick built-in card → fixed form → booker books',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await resetCalMock(request);
@@ -337,7 +336,7 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
     });
 
   // combo 4 —— openapi · mail · bearer：spec → bearer 表单 → connect → mail.send 真发。
-  test('openapi mail + bearer: assemble → bearer form → MailContract.Send delivers',
+  test.fixme('openapi mail + bearer: assemble → bearer form → MailContract.Send delivers',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await assembleOpenAPI(page, request, {

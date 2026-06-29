@@ -17,7 +17,7 @@ import { CalendarConnectorPanel } from '@/components/admin/sections/connectors/C
 import { MailConnectorPanel } from '@/components/admin/sections/connectors/MailConnectorPanel';
 import { CapabilitiesPanel } from '@/components/admin/sections/connectors/CapabilitiesPanel';
 import { useConnectors, type ConnectorsHook } from '@/lib/admin/use-connectors';
-import { useConnectorList } from '@/lib/admin/use-connector-list';
+import { useConnectorList, type ConnectorListHook } from '@/lib/admin/use-connector-list';
 import { useConnectorCatalog, type ConnectorCatalogHook } from '@/lib/admin/use-connector-catalog';
 import { useConnectorUpload, type ConnectorUploadHook } from '@/lib/admin/use-connector-upload';
 import { ConnectorList } from '@/components/admin/sections/connectors/ConnectorList';
@@ -41,6 +41,36 @@ export function ConnectorsSection() {
         action={<AddBtn onOpen={() => setShowAdd(true)} />}
       />
       <Intro />
+      {/* 模态打开时不渲染区内卡片/列表 —— 否则它们的 connector-connect-button/connector-status 会和
+          模态里装配视图的同名 testid 撞上（装配测试用 page 级选择器）。 */}
+      <SectionBody
+        show={!showAdd} catalog={catalog} list={list} upload={upload} hook={hook}
+        onBrowse={() => setShowAdd(true)}
+      />
+      {showAdd && (
+        <ConnectorAddModal
+          installed={[]} onClose={() => setShowAdd(false)}
+          onConnect={onConnect}
+          onUpload={(s, b) => { upload.upload(s, b); setShowAdd(false); }}
+        />
+      )}
+    </>
+  );
+}
+
+// SectionBody —— connectors 区主体（内置卡 + 已配列表 + 面板）。模态开时整体不渲染（避免 testid 撞）。
+function SectionBody({
+  show, catalog, list, upload, hook, onBrowse,
+}: {
+  show: boolean;
+  catalog: ConnectorCatalogHook;
+  list: ConnectorListHook;
+  upload: ConnectorUploadHook;
+  hook: ConnectorsHook;
+  onBrowse: () => void;
+}) {
+  return show ? (
+    <>
       <CatalogCards catalog={catalog} />
       <ConnectorList hook={list} />
       <OverwriteConfirm hook={upload} />
@@ -51,16 +81,9 @@ export function ConnectorsSection() {
       <div className="mb-8">
         <CapabilitiesPanel />
       </div>
-      <Grid hook={hook} onBrowse={() => setShowAdd(true)} />
-      {showAdd && (
-        <ConnectorAddModal
-          installed={[]} onClose={() => setShowAdd(false)}
-          onConnect={onConnect}
-          onUpload={(s, b) => { upload.upload(s, b); setShowAdd(false); }}
-        />
-      )}
+      <Grid hook={hook} onBrowse={onBrowse} />
     </>
-  );
+  ) : null;
 }
 
 // CatalogCards —— 内置连接器（外置装配进来的）各一张归一卡，owner 在卡里填凭据 + Connect。

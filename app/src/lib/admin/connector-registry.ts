@@ -34,6 +34,9 @@ export interface ConnectorEntry {
   // protocolCategory = 它填的品类槽（mail/calendar）。openapi/catalog 条目不设这俩。
   protocol?: string;
   protocolCategory?: string;
+  // assemble (#155)：归一装配入口（品类卡）→ AssembleView（OpenAPI 上传 或 内置协议表单）。
+  assemble?: boolean;
+  assembleCategory?: string;
 }
 
 export const CONNECTOR_CATEGORIES: readonly ConnectorCategory[] = [
@@ -70,12 +73,19 @@ export const CONNECTOR_REGISTRY: readonly ConnectorEntry[] = [
     ],
   },
   {
-    id: 'calendar', name: 'Calendar', icon: '◫', category: 'comms',
+    // 归一装配入口（#155）：calendar 品类 → AssembleView（贴 OpenAPI spec 装配 per-SaaS，或填内置
+    // CalDAV 协议表单）。不再是写死 provider 下拉（那是 legacy，已删）。
+    id: 'calendar', name: 'Calendar', icon: '◫', category: 'comms', assemble: true,
+    assembleCategory: 'calendar',
     blurb: 'offers booking slots when a conversation gets serious.',
-    fields: [
-      { k: 'provider', label: 'Provider', options: ['google', 'outlook', 'cal.com', 'fastmail'] },
-      { k: 'oauth', label: 'Authorize…', oauth: true },
-    ],
+    fields: [],
+  },
+  {
+    // mail 品类 → AssembleView（OpenAPI mail SaaS 或内置 SMTP）。
+    id: 'mail', name: 'Mail', icon: '✉', category: 'comms', assemble: true,
+    assembleCategory: 'mail',
+    blurb: 'sends confirmations and follow-ups in the owner’s name.',
+    fields: [],
   },
   {
     id: 'discord', name: 'Discord DM', icon: '⌬', category: 'comms',

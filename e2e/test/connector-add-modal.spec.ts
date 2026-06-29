@@ -47,19 +47,18 @@ test.describe('admin /connectors · add modal + dynamic config form', () => {
       await expect(adminPage.getByTestId('connector-add-open')).toBeVisible({ timeout: 3_000 });
     });
 
-  test('select field renders options; secret field is type=password',
+  test('calendar card → normalized assemble view (OpenAPI upload + built-in CalDAV form)',
     async ({ adminPage }) => {
       await openConnectors(adminPage);
       await adminPage.getByTestId('connector-add-open').click();
-      // calendar entry: provider select + oauth button
+      // 归一后：calendar 不再是写死的 provider 下拉（legacy 已删），而是装配视图——既能贴
+      // OpenAPI spec 装配 per-SaaS，也能填内置 CalDAV 协议的固定表单。
       await adminPage.getByTestId('connector-card-calendar').click();
-      const providerField = adminPage.getByTestId('connector-field-provider');
-      await expect(providerField).toBeVisible();
-      // <select>: 选 google
-      await providerField.selectOption('google');
-      // oauth 字段是按钮，不是 input
-      await expect(adminPage.getByTestId('connector-field-oauth'))
-        .toHaveText(/Authorize/i);
+      await expect(adminPage.getByTestId('connector-spec-input')).toBeVisible();
+      await expect(adminPage.getByTestId('connector-field-url')).toBeVisible();
+      // 密钥字段遮成 password。
+      await expect(adminPage.getByTestId('connector-field-password'))
+        .toHaveAttribute('type', 'password');
     });
 });
 
