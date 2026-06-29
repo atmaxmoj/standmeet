@@ -15,10 +15,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
-// oauthCred —— oauth2 连接器凭据（owner 的 OAuth app）。
+// oauthCred —— oauth2 连接器凭据（owner 的 OAuth app）+ owner 勾选的 scope 子集（带进 dance）。
 type oauthCred struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
+	ClientID     string   `json:"client_id"`
+	ClientSecret string   `json:"client_secret"`
+	Scopes       []string `json:"scopes"`
 }
 
 func (s *Service) loadOAuthCred(ctx context.Context, ownerID, id string) (oauthCred, error) {

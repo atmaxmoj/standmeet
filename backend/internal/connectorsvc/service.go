@@ -316,6 +316,6 @@ func (s *Service) initDance(
 	if perr := s.persistState(ctx, state, ownerID, id); perr != nil {
 		return ConnectResult{}, perr
 	}
-	url := ep.BuildAuthorizeURL(cred.ClientID, redirect, state, nil)
+	url := ep.BuildAuthorizeURL(cred.ClientID, redirect, state, cred.Scopes)
 	return ConnectResult{AuthURL: url, State: state}, nil
 }

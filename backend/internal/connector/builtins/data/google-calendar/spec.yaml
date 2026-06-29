@@ -26,4 +26,5 @@ components:
           authorizationUrl: "${GOOGLE_AUTH_URL:-https://accounts.google.com/o/oauth2/v2/auth}"
           tokenUrl: "${GOOGLE_TOKEN_URL:-https://oauth2.googleapis.com/token}"
           scopes:
-            "https://www.googleapis.com/auth/calendar": Manage the owner's calendar
+            calendar.readonly: Read the owner's calendar (free/busy)
+            calendar.events: Create and manage events on the owner's calendar

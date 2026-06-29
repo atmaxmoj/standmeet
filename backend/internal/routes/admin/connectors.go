@@ -242,6 +242,7 @@ type credFormField struct {
 type credFormResp struct {
 	AuthType string          `json:"auth_type"`
 	Fields   []credFormField `json:"fields"`
+	Scopes   []string        `json:"scopes"`
 }
 
 // connectorCredentialForm —— 派生的凭据表单（owner 该填哪些字段连这个连接器）。
@@ -263,7 +264,11 @@ func toCredFormResp(f *connectorsvc.CredentialForm) credFormResp {
 	for _, k := range f.Fields {
 		fields = append(fields, credFormField{Key: k})
 	}
-	return credFormResp{AuthType: f.AuthType, Fields: fields}
+	scopes := f.Scopes
+	if scopes == nil {
+		scopes = []string{}
+	}
+	return credFormResp{AuthType: f.AuthType, Fields: fields, Scopes: scopes}
 }
 
 func (h *Handlers) saveConnectorCredentials() http.HandlerFunc {

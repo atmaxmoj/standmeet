@@ -3,10 +3,11 @@
 
 package connectorsvc
 
-// CredentialForm —— 一个连接器要 owner 填的凭据表单：认证类型 + 字段 key 列表。
+// CredentialForm —— 一个连接器要 owner 填的凭据表单：认证类型 + 字段 key 列表 + oauth2 可勾选 scope。
 type CredentialForm struct {
 	AuthType string
 	Fields   []string
+	Scopes   []string
 }
 
 // UploadedSpec —— 上传/编辑连接器的内容（spec + JSONata binding + 选中的 authScheme +

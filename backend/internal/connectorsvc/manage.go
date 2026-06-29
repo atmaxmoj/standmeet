@@ -119,5 +119,5 @@ func (s *Service) CredentialForm(ctx context.Context, ownerID, id string) (Crede
 	if derr != nil {
 		return CredentialForm{}, fmt.Errorf("%w: %w", ErrInvalidManifest, derr)
 	}
-	return CredentialForm{AuthType: form.AuthType, Fields: form.Fields}, nil
+	return CredentialForm{AuthType: form.AuthType, Fields: form.Fields, Scopes: form.Scopes}, nil
 }

@@ -6,14 +6,16 @@ package connector
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
 
-// CredentialForm —— 一个连接器要 owner 填的凭据表单：认证类型 + 字段 key 列表。
+// CredentialForm —— 一个连接器要 owner 填的凭据表单：认证类型 + 字段 key 列表 + oauth2 可勾选 scope。
 type CredentialForm struct {
 	AuthType string
 	Fields   []string
+	Scopes   []string
 }
 
 // DeriveCredentialForm —— 解析 manifest 的 spec，按选中的 securityScheme 派生凭据表单。
@@ -34,7 +36,10 @@ func DeriveCredentialForm(m *Manifest) (CredentialForm, error) {
 func formForScheme(s *openapi.SecurityScheme) CredentialForm {
 	switch s.Type {
 	case "oauth2":
-		return CredentialForm{AuthType: "oauth2", Fields: []string{"client_id", "client_secret"}}
+		return CredentialForm{
+			AuthType: "oauth2", Fields: []string{"client_id", "client_secret"},
+			Scopes: oauth2ScopeKeys(s),
+		}
 	case "apiKey":
 		return CredentialForm{AuthType: "apikey", Fields: []string{"key"}}
 	case "http":
@@ -42,6 +47,19 @@ func formForScheme(s *openapi.SecurityScheme) CredentialForm {
 	default:
 		return CredentialForm{AuthType: "token", Fields: []string{"token"}}
 	}
+}
+
+// oauth2ScopeKeys —— oauth2 authorizationCode flow 声明的可勾选 scope（排序，UI 多选 + dance 子集）。
+func oauth2ScopeKeys(s *openapi.SecurityScheme) []string {
+	if s.Flows.AuthorizationCode == nil {
+		return []string{}
+	}
+	out := make([]string, 0, len(s.Flows.AuthorizationCode.Scopes))
+	for scope := range s.Flows.AuthorizationCode.Scopes {
+		out = append(out, scope)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // httpForm —— http securityScheme 按 scheme 子型派生（bearer→token；basic→user/pass）。
