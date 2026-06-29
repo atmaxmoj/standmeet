@@ -39,7 +39,11 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // Mock 控制面：gcal (oauth2 calendar) / caldav (protocol calendar) / smtp+mailpit (mail)
 // 都挂 job-board-mock 同源；apiKey/bearer 的 calendar/mail API 复用 gcal mock 端点
 // （servers 指过去，仅 securityScheme 不同 → 同一个运行时打同一个录制器）。
+// MOCK —— 测试脚本(node) + 浏览器用的地址（宿主机 → localhost）；MOCK_API —— spec 里写给后端容器
+// 用的地址（docker 网络名 job-board-mock，在 SSRF 白名单内）。两者指向同一个 mock（9000 宿主映射），
+// 所以后端写的事件/信，node 控制端点照样读得到。一个名字三方解析不同，所以拆开。
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
+const MOCK_API = process.env['MOCK_API_URL'] ?? 'http://job-board-mock:9000';
 const MAILPIT = process.env['MAILPIT_URL'] ?? 'http://localhost:18025';
 const SMTP_HOST = process.env['MAILPIT_SMTP_HOST'] ?? 'mail-mock';
 
@@ -64,7 +68,7 @@ const CAL_PATHS = {
 const OAUTH2_CAL_SPEC = {
   openapi: '3.0.3',
   info: { title: 'OAuth Calendar', version: '1.0.0' },
-  servers: [{ url: `${MOCK}/__mock/gcal` }],
+  servers: [{ url: `${MOCK_API}/__mock/gcal` }],
   paths: CAL_PATHS,
   components: {
     securitySchemes: {
@@ -73,7 +77,7 @@ const OAUTH2_CAL_SPEC = {
         flows: {
           authorizationCode: {
             authorizationUrl: `${MOCK}/__mock/gcal/authorize`,
-            tokenUrl: `${MOCK}/__mock/gcal/token`,
+            tokenUrl: `${MOCK_API}/__mock/gcal/token`,
             scopes: { 'calendar.readonly': 'read', 'calendar.events': 'write' },
           },
         },
@@ -86,7 +90,7 @@ const OAUTH2_CAL_SPEC = {
 const APIKEY_CAL_SPEC = {
   openapi: '3.0.3',
   info: { title: 'ApiKey Calendar', version: '1.0.0' },
-  servers: [{ url: `${MOCK}/__mock/gcal` }],
+  servers: [{ url: `${MOCK_API}/__mock/gcal` }],
   paths: CAL_PATHS,
   components: {
     securitySchemes: { apiKey: { type: 'apiKey', in: 'header', name: 'X-Api-Key' } },
@@ -97,7 +101,7 @@ const APIKEY_CAL_SPEC = {
 const BEARER_MAIL_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Bearer Mail', version: '1.0.0' },
-  servers: [{ url: `${MOCK}/__mock/mailapi` }],
+  servers: [{ url: `${MOCK_API}/__mock/mailapi` }],
   paths: { '/send': { post: { operationId: 'messages.send', responses: { '202': { description: 'ok' } } } } },
   components: { securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } } },
 } as const;
@@ -112,9 +116,10 @@ const CAL_BINDING = {
       response: 'calendars.primary.busy.{ "start": start, "end": end }',
     },
     create_event: {
+      // 契约变量名跟 CalendarProxy.CreateEvent 一致（summary / start / end / visitorEmail）。
       op: 'events.insert',
-      request: '{ "summary": title, "start": { "dateTime": start }, "end": { "dateTime": end }, '
-        + '"attendees": [{ "email": attendee }] }',
+      request: '{ "summary": summary, "start": { "dateTime": start }, "end": { "dateTime": end }, '
+        + '"attendees": [{ "email": visitorEmail }] }',
       response: '{ "id": id, "url": htmlLink }',
     },
   },
@@ -165,8 +170,24 @@ async function assembleOpenAPI(
     await page.getByTestId(`connector-field-${k}`).fill(v);
   }
   await page.getByTestId('connector-connect-button').click();
-  await expect(page.getByTestId('connector-status')).toHaveText(/connected|已连接/i);
+  // dance：整页跳去 provider 同意页再回来。waitForURL 可能因「本就在 /admin/connectors」提前命中，
+  // 所以轮询 GET /connectors 直到该品类真有 connected 连接器（dance 回程的 callback 落库）。
+  // 非 dance：原地连，模态里的 connector-status 直接翻 connected。
+  if (opts.needsDance) {
+    await page.waitForURL('**/admin/connectors**');
+    await expect.poll(() => anyConnected(request, opts.category), { timeout: 15_000 }).toBe(true);
+  } else {
+    await expect(page.getByTestId('connector-status')).toHaveText(/connected|已连接/i);
+  }
   return latestConnector(request, opts.category);
+}
+
+// anyConnected —— 该品类是否已有 connected 连接器（dance 回程轮询用）。
+async function anyConnected(request: APIRequestContext, category: string): Promise<boolean> {
+  const res = await request.get(`${BACKEND}/api/admin/connectors`);
+  if (res.status() !== 200) return false;
+  const rows = (await res.json() as { connectors?: ConnRef[] }).connectors ?? [];
+  return rows.some((c) => c.category === category && c.connected);
 }
 
 // assembleProtocol —— 选内置协议卡（固定表单，无 spec）→ 填固定字段 → connect。
@@ -238,10 +259,18 @@ async function bookAndAssert(
 }
 
 // getEvents —— 读 calendar provider mock 记录的 event（gcal mock 收所有 calendar combo）。
+interface RawEvent { summary: string; start: { dateTime: string }; attendees?: { email: string }[] }
+
 async function getEvents(request: APIRequestContext): Promise<CalEvent[]> {
   const res = await request.get(`${MOCK}/__mock/gcal/events`);
   if (res.status() !== 200) throw new Error(`mock events: ${res.status()}`);
-  return (await res.json() as { events: CalEvent[] }).events;
+  // mock 存的是 gcal 形（start.dateTime / attendees[].email）；摊平成断言用的扁平形。
+  const raw = (await res.json() as { events: RawEvent[] }).events;
+  return raw.map((e) => ({
+    summary: e.summary,
+    start: e.start.dateTime,
+    attendees: (e.attendees ?? []).map((a) => a.email),
+  }));
 }
 
 async function resetCalMock(request: APIRequestContext): Promise<void> {
@@ -298,7 +327,7 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
 
   // combo 1 —— openapi · calendar · oauth2 (Google 式)：spec → 派生 oauth2 表单 →
   // dance → calendar_book 装配 → booker 真 book → event 落 provider。
-  test.fixme('openapi calendar + oauth2: assemble → dance → booker books → event on provider',
+  test('openapi calendar + oauth2: assemble → dance → booker books → event on provider',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await assembleOpenAPI(page, request, {
@@ -312,7 +341,7 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
 
   // combo 2 —— openapi · calendar · apiKey (非 oauth 日历 API)：spec → apiKey 表单 →
   // 无 dance connect → calendar_book 真跑。
-  test.fixme('openapi calendar + apiKey: assemble → apiKey form (no dance) → booker books',
+  test('openapi calendar + apiKey: assemble → apiKey form (no dance) → booker books',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await resetCalMock(request);
@@ -336,7 +365,7 @@ test.describe('connector · happy 组合矩阵（kind × category × auth 全闭
     });
 
   // combo 4 —— openapi · mail · bearer：spec → bearer 表单 → connect → mail.send 真发。
-  test.fixme('openapi mail + bearer: assemble → bearer form → MailContract.Send delivers',
+  test('openapi mail + bearer: assemble → bearer form → MailContract.Send delivers',
     async ({ adminPage: page }) => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await assembleOpenAPI(page, request, {

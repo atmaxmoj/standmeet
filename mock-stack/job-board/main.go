@@ -191,6 +191,15 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /__mock/gcal/set_event_shape", s.serveMockSetEventShape)
 	mux.HandleFunc("POST /__mock/gcal/revoke", s.serveMockGCalRevoke)
 	mux.HandleFunc("POST /__mock/gcal/reset", s.serveMockGCalReset)
+	// happy-matrix 上传的 openapi calendar spec：servers 指 /__mock/gcal，paths /freeBusy /events。
+	// 复用同一套 gcal 处理器 + 同一份事件状态（getEvents 控制端点也读它），归一到一个日历 mock。
+	mux.HandleFunc("POST /__mock/gcal/freeBusy", s.serveCalendarFreeBusy)
+	mux.HandleFunc("POST /__mock/gcal/events", s.serveCalendarEventsInsert)
+	// 上传 spec 自带的 oauth2 端点（combo 1）：authorize（浏览器跳）+ token（后端换），复用同一 mock。
+	mux.HandleFunc("GET /__mock/gcal/authorize", s.serveOAuthAuth)
+	mux.HandleFunc("POST /__mock/gcal/token", s.serveOAuthToken)
+	// 上传 spec 的 openapi mail（combo 4）：POST /send，mock 经 SMTP 转投 Mailpit，让消费侧能查到。
+	mux.HandleFunc("POST /__mock/mailapi/send", s.serveMailAPISend)
 	// programmable OAuth control plane (connect-flow §8 区 D): 编程 dance 结局 + 读记录（GET 触发）。
 	mux.HandleFunc("GET /__mock/oauth/program", s.serveOAuthProgram)
 	mux.HandleFunc("GET /__mock/oauth/reset", s.serveOAuthRecordReset)
