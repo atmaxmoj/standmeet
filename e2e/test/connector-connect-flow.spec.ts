@@ -29,7 +29,7 @@ import { execSync } from 'node:child_process';
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright, Locator } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -46,14 +46,15 @@ const OWNER = {
 const OAUTH2_CONNECTOR_ID = 'google-calendar';
 // 非 dance 连接器：一个 bearer/apiKey 鉴权的连接器（无 OAuth dance），存密钥即连。
 const NONDANCE_CONNECTOR_ID = 'bearer-api';
-// owner 上传的 generic openapi oauth2 连接器 id（token-refresh 泛化用，非 gcal 内置）。
-const UPLOADED_CONNECTOR_ID = 'uploaded-oauth2';
 
 // oauth2 scope 多选：勾选子集断言用。READ 勾、WRITE 不勾。
 const SCOPE_READ = 'calendar.readonly';
 const SCOPE_WRITE = 'calendar.events';
 
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
+// MOCK_API —— spec 里写给后端容器用的地址（docker 网络名 + SSRF 白名单）；MOCK 是浏览器/node 用的
+// 宿主地址。同一个 mock（9000 宿主映射），一个名字三方解析不同，所以拆开。
+const MOCK_API = process.env['MOCK_API_URL'] ?? 'http://job-board-mock:9000';
 const DB_CONTAINER = 'standmeet-dev-db-1';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -235,24 +236,23 @@ test.describe('connector · 重连 / 轮换 / 断开 (§8 区 D)', () => {
 // 泛化到一个**owner 上传的** openapi oauth2 连接器（非 gcal 内置那条）。
 // 连接走 UI dance；消费走 §8 接口草图的运行时直验 diag。
 test.describe('connector · generic oauth2 token 静默刷新 (§8 区 D)', () => {
-  test.fixme(true, 'pending #155: generic openapi oauth2 silent token refresh');
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
   test('uploaded oauth2 连接器：access token 过期 → 后端静默刷新 → 运行时调用成功',
     async ({ adminPage: page, playwright }) => {
-      // owner 上传 + 派生表单 + dance 连上一个 generic openapi oauth2 连接器。
-      const card = await runUploadedOAuth2Dance(page);
-      await expectConnected(card);
-
-      // 直接改库把该连接器的 access token 标记过期（同 chat-book-token-refresh
-      // 手法，但针对 user-uploaded connector 的 connection 行，按 id 命中）。
-      await resetMockOAuthRecord(page);
-      expireUploadedAccessToken(UPLOADED_CONNECTOR_ID);
-
-      // 触发一次运行时消费（diag list-busy）→ 后端发现 token 过期 → 静默刷新
-      // → 用新 token 重试 → 调用成功。mock token 端点被打到 >= 2 次（初签 + 刷新）。
+      // 单独 authed 的 API 上下文：poll/diag 都是 admin 路由，需登录（page 的会话不共享给它）。
       const request = await playwright.request.newContext();
-      const status = await diagListBusy(request, UPLOADED_CONNECTOR_ID);
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+      // owner 经品类装配视图上传 + 派生表单 + dance 连上一个 generic openapi oauth2 连接器（拿 id）。
+      // initOwner 已清过 mock token 计数，故 dance 这次 authorization_code 换 token = 计数里的「初签」。
+      const id = await assembleUploadedOAuth2(page, request);
+
+      // 直接改库把该连接器的 access token 标记过期 → 逼下次运行时消费走刷新路径。
+      expireUploadedAccessToken(id);
+
+      // 触发一次运行时消费（diag list-busy）→ 后端发现 token 过期 → 静默刷新 → 用新 token 重试 →
+      // 调用成功。mock token 端点被打到 >= 2 次（dance 初签 + 这次刷新）。
+      const status = await diagListBusy(request, csrf, id);
       expect(status, 'runtime consume succeeds after silent refresh').toBe(200);
       const tokenCalls = await getMockTokenCallCount(request);
       expect(tokenCalls, 'token endpoint hit twice: initial + refresh').toBeGreaterThanOrEqual(2);
@@ -376,26 +376,47 @@ async function getMockTokenCallCount(request: APIRequestContext): Promise<number
 // ─── generic uploaded oauth2 连接器：上传 + dance + 运行时消费 helper ──────
 // runUploadedOAuth2Dance —— 经 UI 上传 spec（connector-spec-input/submit）派生出
 // oauth2 表单 → 填凭据 → Connect → dance → 回 connectors 区。返回卡片 Locator。
-async function runUploadedOAuth2Dance(page: Page): Promise<Locator> {
+// assembleUploadedOAuth2 —— 经品类卡（calendar）的归一装配视图上传一个 generic openapi oauth2 日历
+// 连接器（贴 {spec,binding} → 派生 oauth2 表单 → 选 scheme → 填凭据 → Connect → dance）。dance 整页
+// 跳走再回，回程后轮询 GET /connectors 拿到该 connected 连接器的 id 返回。
+async function assembleUploadedOAuth2(page: Page, request: APIRequestContext): Promise<string> {
   await page.getByTestId('admin-nav-connectors').click();
   await page.waitForURL('**/admin/connectors**');
   await page.getByTestId('connector-add-open').click();
-  await page.getByTestId('connector-spec-input').fill(UPLOADED_OAUTH2_SPEC);
+  await page.getByTestId('connector-card-calendar').click();
+  await page.getByTestId('connector-spec-input')
+    .fill(JSON.stringify({ spec: UPLOADED_OAUTH2_SPEC, binding: UPLOADED_OAUTH2_BINDING }));
   await page.getByTestId('connector-spec-submit').click();
-  const card = page.getByTestId(`connector-row-${UPLOADED_CONNECTOR_ID}`);
-  await expect(card).toBeVisible();
-  await fillOAuth2Creds(card, 'mock-client-id', 'mock-client-secret');
-  await card.getByTestId('connector-connect-button').click();
+  await page.getByTestId('connector-scheme-select').selectOption('oauth2');
+  await page.getByTestId('connector-field-client_id').fill('mock-client-id');
+  await page.getByTestId('connector-field-client_secret').fill('mock-client-secret');
+  await page.getByTestId('connector-connect-button').click();
   await page.waitForURL('**/admin/connectors**');
-  return card;
+  return pollConnectedCalendarId(request);
 }
 
-// expireUploadedAccessToken —— 把 user-uploaded 连接器 connection 行的 access
-// token 标记过期（同 chat-book-token-refresh 直改库手法），按 connector id 命中，
-// 逼下一次运行时消费走刷新路径。表名按泛化后的 connector_connections 假设。
+// pollConnectedCalendarId —— dance 回程后轮询 GET /connectors，直到 calendar 品类有 connected 连接器，
+// 返回其 id（waitForURL 可能因「本就在 connectors 区」提前命中，故轮询落库）。
+async function pollConnectedCalendarId(request: APIRequestContext): Promise<string> {
+  let id = '';
+  await expect.poll(async () => {
+    const res = await request.get(`${BACKEND}/api/admin/connectors`);
+    if (res.status() !== 200) return false;
+    const rows = (await res.json() as {
+      connectors?: { id: string; category: string; connected: boolean }[];
+    }).connectors ?? [];
+    const hit = rows.find((c) => c.category === 'calendar' && c.connected);
+    if (hit) id = hit.id;
+    return Boolean(hit);
+  }, { timeout: 15_000 }).toBe(true);
+  return id;
+}
+
+// expireUploadedAccessToken —— 把这个连接器的 access token 标记过期（同 chat-book-token-refresh 直改
+// 库手法），按 connector id 命中，逼下一次运行时消费走刷新路径。表 owner_connectors，列 token_expires_at。
 function expireUploadedAccessToken(id: string): void {
-  const sql = `UPDATE connector_connections
-              SET access_token_expires_at = NOW() - INTERVAL '1 hour'
+  const sql = `UPDATE owner_connectors
+              SET token_expires_at = NOW() - INTERVAL '1 hour'
               WHERE connector_id = '${id}'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
     { stdio: 'pipe' });
@@ -403,42 +424,55 @@ function expireUploadedAccessToken(id: string): void {
 
 // diagListBusy —— §8 接口草图的运行时直验：POST /api/admin/diag/connector/{id}/list-busy。
 // 在 fresh request context 上发（非 page.request，eslint 允许）。返回 HTTP 状态。
-async function diagListBusy(request: APIRequestContext, id: string): Promise<number> {
-  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, { data: {} });
+async function diagListBusy(request: APIRequestContext, csrf: string, id: string): Promise<number> {
+  const res = await request.post(`${BACKEND}/api/admin/diag/connector/${id}/list-busy`, {
+    headers: { 'X-Csrftoken': csrf }, data: {},
+  });
   return res.status();
 }
 
-// UPLOADED_OAUTH2_SPEC —— 一个 generic（非 gcal）openapi oauth2 connector spec，
-// authorize/token URL 指向 mock provider，归 calendar 品类好让 list-busy 可消费。
-const UPLOADED_OAUTH2_SPEC = JSON.stringify({
+// UPLOADED_OAUTH2_SPEC —— 一个 generic（非 gcal 内置）openapi oauth2 calendar 连接器：servers/token
+// 指 MOCK_API（后端打），authorize 指 MOCK（浏览器跳）。归 calendar 品类（binding）好让 list-busy 可
+// 经 diag 消费——刷新路径跟内置 gcal 同一套 runtime，归一。
+const UPLOADED_OAUTH2_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Generic OAuth2 calendar', version: '1.0.0' },
-  servers: [{ url: `${MOCK}/upstream` }],
+  servers: [{ url: `${MOCK_API}/__mock/gcal` }],
   paths: {
-    '/freebusy': {
-      get: {
-        operationId: 'freebusy.query',
-        security: [{ oauth: [SCOPE_READ] }],
-        responses: { '200': { description: 'ok' } },
-      },
-    },
+    '/freeBusy': { post: { operationId: 'freebusy.query', responses: { '200': { description: 'ok' } } } },
+    '/events': { post: { operationId: 'events.insert', responses: { '200': { description: 'ok' } } } },
   },
   components: {
     securitySchemes: {
-      oauth: {
+      oauth2: {
         type: 'oauth2',
         flows: {
           authorizationCode: {
-            authorizationUrl: `${MOCK}/__mock/oauth/authorize`,
-            tokenUrl: `${MOCK}/__mock/oauth/token`,
+            authorizationUrl: `${MOCK}/__mock/gcal/authorize`,
+            tokenUrl: `${MOCK_API}/__mock/gcal/token`,
             scopes: { [SCOPE_READ]: 'read', [SCOPE_WRITE]: 'write' },
           },
         },
       },
     },
   },
-  'x-standmeet-category': 'calendar',
-});
+} as const;
+
+const UPLOADED_OAUTH2_BINDING = {
+  category: 'calendar', kind: 'openapi',
+  operations: {
+    list_busy: {
+      op: 'freebusy.query',
+      request: '{ "timeMin": timeMin, "timeMax": timeMax, "items": [{ "id": "primary" }] }',
+      response: 'calendars.primary.busy.{ "start": start, "end": end }',
+    },
+    create_event: {
+      op: 'events.insert',
+      request: '{ "summary": summary, "start": { "dateTime": start }, "end": { "dateTime": end } }',
+      response: '{ "id": id, "url": htmlLink }',
+    },
+  },
+} as const;
 
 // ─── owner 前置：claim（不走任何被测写路径）───────────────────────
 async function initOwner(playwright: Playwright): Promise<void> {
