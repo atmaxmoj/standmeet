@@ -97,6 +97,20 @@ func (r *ConnectorRepo) GetManifest(
 	}, nil
 }
 
+// DeleteUploaded —— 删一个 owner 自建连接器（行删除）。它填的品类槽随之空。
+func (r *ConnectorRepo) DeleteUploaded(ctx context.Context, ownerID, connectorID string) error {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	if qerr := dbq.New(r.pool).DeleteUploadedConnector(ctx, dbq.DeleteUploadedConnectorParams{
+		OwnerID: ownerUUID, ConnectorID: connectorID,
+	}); qerr != nil {
+		return fmt.Errorf("delete uploaded connector: %w", qerr)
+	}
+	return nil
+}
+
 // ListUploaded —— 所有上传的连接器 manifest（拉起重装，跨 owner；v1 单 owner）。
 func (r *ConnectorRepo) ListUploaded(ctx context.Context) ([]UploadedManifest, error) {
 	rows, err := dbq.New(r.pool).ListUploadedConnectors(ctx)

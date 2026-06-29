@@ -48,6 +48,7 @@ func (h *Handlers) MountConnectors(r chi.Router) {
 			r.Get("/callback", h.connectorOAuthCallback())
 			r.Post("/activate", h.activateConnector())
 			r.Post("/disconnect", h.disconnectConnector())
+			r.Delete("/", h.deleteConnector())
 		})
 	})
 }
@@ -142,16 +143,40 @@ type createConnectorReq struct {
 	Kind               string          `json:"kind"`
 	Protocol           string          `json:"protocol"`
 	Category           string          `json:"category"`
+	SpecText           string          `json:"spec_text"`    // admin UI 贴的原文（JSON/YAML），优先于 Spec
+	BindingText        string          `json:"binding_text"` // admin UI 贴的绑定原文（YAML），优先于 Binding
 	Spec               json.RawMessage `json:"spec"`
 	Binding            json.RawMessage `json:"binding"`
 	ExposeAsAgentTools bool            `json:"expose_as_agent_tools"`
 }
 
-// uploadedSpecFrom —— createConnectorReq → connectorsvc.UploadedSpec（create + update 共用）。
+// uploadedSpec —— createConnectorReq → connectorsvc.UploadedSpec（create + update 共用）。admin UI
+// 走 spec_text/binding_text 原文（YAML 绑定不必前端解析）；e2e 直 POST 走 spec/binding 对象。
 func (b *createConnectorReq) uploadedSpec() *connectorsvc.UploadedSpec {
 	return &connectorsvc.UploadedSpec{
-		Spec: b.Spec, Binding: b.Binding, AuthScheme: b.AuthScheme,
-		ExposeAsAgentTools: b.ExposeAsAgentTools,
+		Spec: rawOrText(b.Spec, b.SpecText), Binding: rawOrText(b.Binding, b.BindingText),
+		AuthScheme: b.AuthScheme, ExposeAsAgentTools: b.ExposeAsAgentTools,
+	}
+}
+
+// rawOrText —— 优先用原文（admin UI 贴的 JSON/YAML），否则用 JSON 对象（e2e 直 POST）。
+func rawOrText(raw json.RawMessage, text string) []byte {
+	if text != "" {
+		return []byte(text)
+	}
+	return raw
+}
+
+// deleteConnector —— 删一个 owner 自建连接器（DELETE）。内置不可删 → 400；删后它填的品类 cap 复闸。
+func (h *Handlers) deleteConnector() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		err := h.ConnectorsAdmin.Svc.Delete(r.Context(), ownerID, chi.URLParam(r, paramID))
+		if err != nil {
+			h.writeConnErr(w, err)
+			return
+		}
+		writeJSON(h.Log, w, map[string]bool{"ok": true})
 	}
 }
 

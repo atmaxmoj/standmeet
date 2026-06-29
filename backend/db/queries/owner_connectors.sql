@@ -105,3 +105,8 @@ SELECT DISTINCT ON (connector_id)
 FROM owner_connectors
 WHERE length(spec) > 0 OR kind = 'protocol'
 ORDER BY connector_id, updated_at DESC;
+
+-- name: DeleteUploadedConnector :exec
+-- 删一个 owner 自建连接器（行删除）。它填的品类槽随之空（slot store 读不到 → cap 复闸）。
+DELETE FROM owner_connectors
+WHERE owner_id = sqlc.arg(owner_id) AND connector_id = sqlc.arg(connector_id);

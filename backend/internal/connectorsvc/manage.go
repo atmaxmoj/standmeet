@@ -38,6 +38,18 @@ func (s *Service) CreateUploaded(
 	return m.ID, nil
 }
 
+// Delete —— 删一个 owner 自建连接器（行删除）。内置（embed manifest）不可删 → ErrInvalidManifest。
+// 删后它填的品类槽空（slot store 读不到 → 依赖它的 cap 复闸）。
+func (s *Service) Delete(ctx context.Context, ownerID, id string) error {
+	if s.Manifest(id) != nil {
+		return ErrInvalidManifest
+	}
+	if err := s.d.Repo.DeleteUploaded(ctx, ownerID, id); err != nil {
+		return fmt.Errorf("delete connector: %w", err)
+	}
+	return nil
+}
+
 // bytesOrEmpty —— nil → 空 bytea（列 NOT NULL）。agent-only 连接器无 binding（nil），存空非 NULL。
 func bytesOrEmpty(b []byte) []byte {
 	if b == nil {

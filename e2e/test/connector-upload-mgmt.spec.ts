@@ -30,9 +30,9 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe('connector · 区G 上传 / 管理', () => {
   // 红契约：自托管 spec+绑定 上传/管理 UI 未建（docs/design/connector.md §8 区 G）。实现后去掉。
-  test.fixme(true, 'pending #155: connector upload + management');
 
-  test.beforeAll(async ({ playwright }) => {
+  // 每 test 重置实例 + owner（连接器不跨 test 累积；overwrite/delete 断绝对状态要干净）。
+  test.beforeEach(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {

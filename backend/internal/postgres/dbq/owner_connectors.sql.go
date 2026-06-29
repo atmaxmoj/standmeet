@@ -44,6 +44,22 @@ func (q *Queries) DeleteConnector(ctx context.Context, arg DeleteConnectorParams
 	return err
 }
 
+const deleteUploadedConnector = `-- name: DeleteUploadedConnector :exec
+DELETE FROM owner_connectors
+WHERE owner_id = $1 AND connector_id = $2
+`
+
+type DeleteUploadedConnectorParams struct {
+	OwnerID     pgtype.UUID
+	ConnectorID string
+}
+
+// 删一个 owner 自建连接器（行删除）。它填的品类槽随之空（slot store 读不到 → cap 复闸）。
+func (q *Queries) DeleteUploadedConnector(ctx context.Context, arg DeleteUploadedConnectorParams) error {
+	_, err := q.db.Exec(ctx, deleteUploadedConnector, arg.OwnerID, arg.ConnectorID)
+	return err
+}
+
 const getConnector = `-- name: GetConnector :one
 SELECT id, owner_id, connector_id, category, kind, credentials_enc, token_enc, token_expires_at, scopes, connected_at, active, spec, binding, auth_scheme, protocol, expose_as_agent_tools, created_at, updated_at FROM owner_connectors
 WHERE owner_id = $1 AND connector_id = $2

@@ -17,10 +17,15 @@ import { CalendarConnectorPanel } from '@/components/admin/sections/connectors/C
 import { MailConnectorPanel } from '@/components/admin/sections/connectors/MailConnectorPanel';
 import { CapabilitiesPanel } from '@/components/admin/sections/connectors/CapabilitiesPanel';
 import { useConnectors, type ConnectorsHook } from '@/lib/admin/use-connectors';
+import { useConnectorList } from '@/lib/admin/use-connector-list';
+import { useConnectorUpload, type ConnectorUploadHook } from '@/lib/admin/use-connector-upload';
+import { ConnectorList } from '@/components/admin/sections/connectors/ConnectorList';
 import { catalogSize } from '@/lib/admin/connector-registry';
 
 export function ConnectorsSection() {
   const hook = useConnectors();
+  const list = useConnectorList();
+  const upload = useConnectorUpload(list);
   const [showAdd, setShowAdd] = useState(false);
   // 后端未接 —— catalog 浏览不真 install(不写假 connected 状态)。
   const onConnect = useCallback(() => {}, []);
@@ -33,6 +38,8 @@ export function ConnectorsSection() {
         action={<AddBtn onOpen={() => setShowAdd(true)} />}
       />
       <Intro />
+      <ConnectorList hook={list} />
+      <OverwriteConfirm hook={upload} />
       <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <CalendarConnectorPanel />
         <MailConnectorPanel />
@@ -42,9 +49,30 @@ export function ConnectorsSection() {
       </div>
       <Grid hook={hook} onBrowse={() => setShowAdd(true)} />
       {showAdd && (
-        <ConnectorAddModal installed={[]} onClose={() => setShowAdd(false)} onConnect={onConnect} />
+        <ConnectorAddModal
+          installed={[]} onClose={() => setShowAdd(false)}
+          onConnect={onConnect}
+          onUpload={(s, b) => { upload.upload(s, b); setShowAdd(false); }}
+        />
       )}
     </>
+  );
+}
+
+function OverwriteConfirm({ hook }: { hook: ConnectorUploadHook }) {
+  return hook.pending === null ? null : (
+    <div className="mb-6 border border-(--color-accent)/50 rounded-sm p-3 bg-(--color-accent)/5">
+      <p className="text-[13px] text-(--color-ink) mb-2">
+        A <span className="mono">{hook.pending.category}</span> connector already exists. Overwrite it?
+      </p>
+      <button
+        type="button" onClick={hook.confirmOverwrite}
+        data-testid="connector-overwrite-confirm"
+        className="sm-btn sm-btn-solid sm-btn-sm"
+      >
+        Overwrite
+      </button>
+    </div>
   );
 }
 

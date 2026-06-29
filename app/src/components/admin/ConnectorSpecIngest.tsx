@@ -4,19 +4,32 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useConnectorIngest, type AuthForms } from '@/lib/admin/use-connector-ingest';
 import { ConnectorCredForm } from '@/components/admin/ConnectorCredForm';
 
-export function ConnectorSpecIngest() {
+// onUpload —— 给了它（upload-mgmt 路）：填了 binding 后点 submit = 上传装配（建连接器），而非
+// 只校验。没给（纯 spec-ingest / cred-form 路）：submit 只校验出 candidate + 派生表单。
+export function ConnectorSpecIngest({ onUpload }: { onUpload?: (spec: string, binding: string) => void }) {
   const hook = useConnectorIngest();
+  const specRef = useRef('');
+  const bindingRef = useRef('');
+  const submit = () => {
+    (bindingRef.current.trim() !== '' && onUpload !== undefined)
+      ? onUpload(specRef.current, bindingRef.current)
+      : hook.submitSpec();
+  };
   return (
     <div className="mb-6 border-b border-(--color-rule)/60 pb-6">
       <SpecHeading />
-      <SpecTextarea onText={hook.setText} onBlur={hook.submitSpec} />
+      <SpecTextarea
+        onText={(t) => { specRef.current = t; hook.setText(t); }}
+        onBlur={hook.submitSpec}
+      />
+      <BindingTextarea onText={(t) => { bindingRef.current = t; }} />
       <div className="flex gap-2 mt-2 items-center">
-        <SubmitButton onClick={hook.submitSpec} />
+        <SubmitButton onClick={submit} />
         <FileInput onFile={hook.ingestFile} />
       </div>
       <SpecUrlRow onFetch={hook.fetchUrl} />
@@ -24,6 +37,18 @@ export function ConnectorSpecIngest() {
       <SpecCandidateMaybe candidate={hook.candidate} />
       <CredFormMaybe auth={hook.auth} />
     </div>
+  );
+}
+
+function BindingTextarea({ onText }: { onText: (t: string) => void }) {
+  return (
+    <textarea
+      data-testid="connector-binding-input"
+      onChange={(e) => onText(e.target.value)}
+      placeholder="optional JSONata binding (YAML) — maps operations to a category contract"
+      rows={4}
+      className="w-full mt-2 bg-transparent border border-(--color-rule) focus:border-(--color-ink) rounded-sm p-2 mono text-[12px]"
+    />
   );
 }
 

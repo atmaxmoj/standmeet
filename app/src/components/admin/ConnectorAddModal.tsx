@@ -23,16 +23,17 @@ interface Props {
   installed: readonly string[];
   onClose: () => void;
   onConnect: (id: string, values: Record<string, string>) => void;
+  onUpload: (spec: string, binding: string) => void;
 }
 
-export function ConnectorAddModal({ installed, onClose, onConnect }: Props) {
+export function ConnectorAddModal({ installed, onClose, onConnect, onUpload }: Props) {
   const [cat, setCat] = useState(CONNECTOR_CATEGORIES[0]!.id);
   const [picked, setPicked] = useState<ConnectorEntry | null>(null);
   return (
     <ModalOverlay onClose={onClose}>
       <ModalHead onClose={onClose} />
       {picked === null
-        ? <Catalog cat={cat} onCat={setCat} installed={installed} onPick={setPicked} />
+        ? <Catalog cat={cat} onCat={setCat} installed={installed} onPick={setPicked} onUpload={onUpload} />
         : <PickedView
             entry={picked} onBack={() => setPicked(null)}
             onConnect={(values) => { onConnect(picked.id, values); onClose(); }}
@@ -82,16 +83,17 @@ function ModalHead({ onClose }: { onClose: () => void }) {
 }
 
 function Catalog({
-  cat, onCat, installed, onPick,
+  cat, onCat, installed, onPick, onUpload,
 }: {
   cat: string;
   onCat: (id: string) => void;
   installed: readonly string[];
   onPick: (e: ConnectorEntry) => void;
+  onUpload: (spec: string, binding: string) => void;
 }) {
   return (
     <div className="sm-connector-modal-body">
-      <ConnectorSpecIngest />
+      <ConnectorSpecIngest onUpload={onUpload} />
       <CategoryTabs cat={cat} onCat={onCat} />
       <CategoryBlurb cat={cat} />
       <ConnectorGrid cat={cat} installed={installed} onPick={onPick} />

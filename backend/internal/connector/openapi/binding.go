@@ -6,11 +6,33 @@
 package openapi
 
 import (
+	"encoding/json"
 	"fmt"
 
 	jsonata "github.com/blues/jsonata-go"
 	yaml "go.yaml.in/yaml/v3"
 )
+
+// jsonataSrc —— request/response 的 JSONata 源。owner 可写成 JSONata 字符串（标量），也可写成
+// 结构化 YAML（map/seq，admin UI 贴的形态）—— 后者按 JSON 序列化成等价的 JSONata 对象构造源。
+type jsonataSrc string
+
+func (j *jsonataSrc) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.ScalarNode {
+		*j = jsonataSrc(value.Value)
+		return nil
+	}
+	var v any
+	if err := value.Decode(&v); err != nil {
+		return fmt.Errorf("decode binding expr: %w", err)
+	}
+	raw, merr := json.Marshal(v)
+	if merr != nil {
+		return fmt.Errorf("marshal binding expr: %w", merr)
+	}
+	*j = jsonataSrc(raw)
+	return nil
+}
 
 // CategoryContractOps —— 每个品类契约「必须映全」的方法名。装配期据此判 binding 是否缺映射。
 // calendar 必须能查忙时 + 建会（订）；cancel_event 可选（连接器可不支持取消，多映出来则容忍）。
@@ -23,9 +45,9 @@ var CategoryContractOps = map[string][]string{
 type opBinding struct {
 	reqExpr  *jsonata.Expr
 	respExpr *jsonata.Expr
-	Op       string `yaml:"op"`
-	Request  string `yaml:"request"`
-	Response string `yaml:"response"`
+	Op       string     `yaml:"op"`
+	Request  jsonataSrc `yaml:"request"`
+	Response jsonataSrc `yaml:"response"`
 }
 
 // Binding —— 一份完整绑定：声明品类 + 各契约方法的映射。
@@ -53,14 +75,14 @@ func ParseBinding(raw []byte) (*Binding, error) {
 
 func compileOpBinding(ob opBinding) (opBinding, error) {
 	if ob.Request != "" {
-		e, err := jsonata.Compile(ob.Request)
+		e, err := jsonata.Compile(string(ob.Request))
 		if err != nil {
 			return ob, fmt.Errorf("request: %w", err)
 		}
 		ob.reqExpr = e
 	}
 	if ob.Response != "" {
-		e, err := jsonata.Compile(ob.Response)
+		e, err := jsonata.Compile(string(ob.Response))
 		if err != nil {
 			return ob, fmt.Errorf("response: %w", err)
 		}

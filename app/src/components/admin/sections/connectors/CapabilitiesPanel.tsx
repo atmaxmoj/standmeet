@@ -66,10 +66,16 @@ function Msg({ text, accent = false }: { text: string; accent?: boolean }) {
   );
 }
 
+// available —— 本面板是「availability」平面：依赖某 connector 的能力，只在依赖连上时才显示（连上
+// 才真能用；删 provider / 没连 → 复闸隐藏）。无依赖的能力恒显。API 仍列全（带 dependency 状态）。
+function available(row: CapabilityRow): boolean {
+  return !row.dependency || row.dependency.connected;
+}
+
 function CapList({ hook }: { hook: CapabilitiesHook }) {
   return (
     <ul className="divide-y divide-(--color-rule)/60">
-      {hook.rows.map((row) => (
+      {hook.rows.filter(available).map((row) => (
         <CapabilityItem key={row.id} row={row} hook={hook} />
       ))}
     </ul>
