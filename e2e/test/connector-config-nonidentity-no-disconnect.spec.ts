@@ -19,7 +19,7 @@ import {
 import { issueCodeWithSkills, expectCalendarBookExposed } from '@/fixtures/agent-skills-grant';
 import { issueSession } from '@/fixtures/visitor';
 
-test.describe('connector · non-identity config edit does NOT disconnect (§三 D-5)', () => {
+test.describe('connector · non-identity config edit does NOT disconnect (§3 D-5)', () => {
   let seed: BaseSeed;
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });

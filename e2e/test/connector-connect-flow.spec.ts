@@ -60,10 +60,10 @@ const DB_CONTAINER = 'standmeet-dev-db-1';
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 // ════════ happy 路 ════════════════════════════════════════════════
-test.describe('connector · 连接流 happy (§8 区 D)', () => {
+test.describe('connector · connect flow happy (§8 area D)', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('oauth2: 填 client_id/secret → Connect → mock authorize → callback → token 存 → Connected',
+  test('oauth2: fill client_id/secret → Connect → mock authorize → callback → token stored → Connected',
     async ({ adminPage: page }) => {
       const card = await openConnectorCard(page, OAUTH2_CONNECTOR_ID);
       await fillOAuth2Creds(card, 'mock-client-id', 'mock-client-secret');
@@ -79,7 +79,7 @@ test.describe('connector · 连接流 happy (§8 区 D)', () => {
       expect(status.has_credentials).toBe(true);
     });
 
-  test('非 dance: bearer 连接器填 token → Connect → 立即 Connected，无跳转',
+  test('non-dance: bearer connector fills token → Connect → immediately Connected, no redirect',
     async ({ adminPage: page }) => {
       const card = await openConnectorCard(page, NONDANCE_CONNECTOR_ID);
       // bearer：单 token 字段，secret。无 redirect_uri、无 dance。
@@ -95,7 +95,7 @@ test.describe('connector · 连接流 happy (§8 区 D)', () => {
       expect(status.connected).toBe(true);
     });
 
-  test('oauth2: per-connector redirect_uri 在连接前以 readonly 展示',
+  test('oauth2: per-connector redirect_uri shown readonly before connecting',
     async ({ adminPage: page }) => {
       const card = await openConnectorCard(page, OAUTH2_CONNECTOR_ID);
       // owner 要拿这个 URI 去 SaaS 注册 OAuth client；连接前就得能看到、且只读。
@@ -109,7 +109,7 @@ test.describe('connector · 连接流 happy (§8 区 D)', () => {
 
   // 仍 fixme：需 mock provider 暴露可编程的 authorize-scope 记录端点（/__mock/oauth/{reset,
   // last_authorize}）+ 后端把 owner 勾选的 scope 子集带进 dance。下个增量做。
-  test('oauth2: owner 勾选的 scope 子集被原样带进 authorize dance',
+  test('oauth2: owner-selected scope subset carried verbatim into the authorize dance',
     async ({ adminPage: page }) => {
       // §4：oauth2 的 scope 是多选；owner 勾哪些，dance 的 authorize URL 就
       // 必须只带哪些（既不偷加、也不漏带）。mock provider 记录它收到的 scope
@@ -134,10 +134,10 @@ test.describe('connector · 连接流 happy (§8 区 D)', () => {
 });
 
 // ════════ oauth2 错误分支 ══════════════════════════════════════════
-test.describe('connector · 连接流 oauth2 错误 (§8 区 D)', () => {
+test.describe('connector · connect flow oauth2 errors (§8 area D)', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('用户在 consent 页 deny → 未连接 + 友好提示',
+  test('user denies on the consent page → not connected + friendly message',
     async ({ adminPage: page }) => {
       await programMockOAuth(page, 'deny');
       const card = await runOAuth2Dance(page, 'mock-client-id', 'mock-client-secret');
@@ -147,7 +147,7 @@ test.describe('connector · 连接流 oauth2 错误 (§8 区 D)', () => {
       expect((await getConnectorStatus(page, OAUTH2_CONNECTOR_ID)).connected).toBe(false);
     });
 
-  test('无效 client_id/secret → token 交换失败 → 报错，未连接',
+  test('invalid client_id/secret → token exchange fails → error, not connected',
     async ({ adminPage: page }) => {
       // mock provider：authorize 给 code，但 token 端点对这组凭据返 invalid_client。
       await programMockOAuth(page, 'token_invalid_client');
@@ -157,7 +157,7 @@ test.describe('connector · 连接流 oauth2 错误 (§8 区 D)', () => {
       expect((await getConnectorStatus(page, OAUTH2_CONNECTOR_ID)).connected).toBe(false);
     });
 
-  test('callback state/CSRF mismatch → 拒绝，未连接',
+  test('callback state/CSRF mismatch → rejected, not connected',
     async ({ adminPage: page }) => {
       // mock provider 在 callback 回带一个**与 init 不符的 state** → 后端必须拒。
       await programMockOAuth(page, 'state_mismatch');
@@ -168,7 +168,7 @@ test.describe('connector · 连接流 oauth2 错误 (§8 区 D)', () => {
       expect((await getConnectorStatus(page, OAUTH2_CONNECTOR_ID)).connected).toBe(false);
     });
 
-  test('dance 中网络故障 → 友好错误，未连接',
+  test('network failure mid-dance → friendly error, not connected',
     async ({ adminPage: page }) => {
       // mock provider：token 端点不可达（网络断 / 超时）。
       await programMockOAuth(page, 'network_fail');
@@ -180,10 +180,10 @@ test.describe('connector · 连接流 oauth2 错误 (§8 区 D)', () => {
 });
 
 // ════════ reconnect / rotate / disconnect ══════════════════════════
-test.describe('connector · 重连 / 轮换 / 断开 (§8 区 D)', () => {
+test.describe('connector · reconnect / rotate / disconnect (§8 area D)', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('连上后轮换 client_id/secret → 重验后仍能连上',
+  test('rotate client_id/secret after connecting → reconnects after re-verify',
     async ({ adminPage: page }) => {
       const card = await runOAuth2Dance(page, 'mock-client-id', 'mock-client-secret');
       await expectConnected(card);
@@ -198,7 +198,7 @@ test.describe('connector · 重连 / 轮换 / 断开 (§8 区 D)', () => {
       expect((await getConnectorStatus(page, OAUTH2_CONNECTOR_ID)).connected).toBe(true);
     });
 
-  test('连上后点 Disconnect → status 翻 not-connected',
+  test('click Disconnect after connecting → status flips to not-connected',
     async ({ adminPage: page }) => {
       const card = await runOAuth2Dance(page, 'mock-client-id', 'mock-client-secret');
       await expectConnected(card);
@@ -209,7 +209,7 @@ test.describe('connector · 重连 / 轮换 / 断开 (§8 区 D)', () => {
       expect((await getConnectorStatus(page, OAUTH2_CONNECTOR_ID)).connected).toBe(false);
     });
 
-  test('Disconnect 保留 client_id/secret → 一键重连无需重填凭据',
+  test('Disconnect keeps client_id/secret → one-click reconnect without re-entering credentials',
     async ({ adminPage: page }) => {
       // 对齐 admin-gcal-disconnect「preserves credentials」：disconnect 只清
       // token，加密存的 client_id/secret 留着 → 下次 Connect 一键重跑 dance，
@@ -235,10 +235,10 @@ test.describe('connector · 重连 / 轮换 / 断开 (§8 区 D)', () => {
 // 把 chat-book-token-refresh 的「过期 access token → 静默刷新 → 消费成功」
 // 泛化到一个**owner 上传的** openapi oauth2 连接器（非 gcal 内置那条）。
 // 连接走 UI dance；消费走 §8 接口草图的运行时直验 diag。
-test.describe('connector · generic oauth2 token 静默刷新 (§8 区 D)', () => {
+test.describe('connector · generic oauth2 token silent refresh (§8 area D)', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('uploaded oauth2 连接器：access token 过期 → 后端静默刷新 → 运行时调用成功',
+  test('uploaded oauth2 connector: access token expires → backend silently refreshes → runtime call succeeds',
     async ({ adminPage: page, playwright }) => {
       // 单独 authed 的 API 上下文：poll/diag 都是 admin 路由，需登录（page 的会话不共享给它）。
       const request = await playwright.request.newContext();

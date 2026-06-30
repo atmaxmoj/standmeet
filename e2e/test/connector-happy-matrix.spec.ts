@@ -253,11 +253,11 @@ async function bookAndAssert(
   readEvents: (r: APIRequestContext) => Promise<CalEvent[]> = getEvents,
 ): Promise<void> {
   const cap = await findCapability(request, csrf, 'calendar.book');
-  expect(cap?.dependency?.connected, 'calendar 品类槽 connected').toBe(true);
+  expect(cap?.dependency?.connected, 'calendar category slot connected').toBe(true);
   const start = futureSlot(daysAhead, 14);
   await bookOnce(request, csrf, start);
   const events = await readEvents(request);
-  expect(events, 'provider 收到 booker 创建的 event').toHaveLength(1);
+  expect(events, 'provider received the booker-created event').toHaveLength(1);
   expect(events[0]!.start).toBe(start);
   expect(events[0]!.attendees ?? []).toContain('rachel@example.com');
 }
@@ -314,13 +314,13 @@ async function expectMailSent(
   request: APIRequestContext, csrf: string, to: string, subject: string,
 ): Promise<void> {
   const cap = await findCapability(request, csrf, 'mail.send');
-  expect(cap?.dependency?.connected, 'mail 品类槽 connected').toBe(true);
+  expect(cap?.dependency?.connected, 'mail category slot connected').toBe(true);
   const res = await request.post(`${BACKEND}/api/admin/connectors/mail/test-send`, {
     headers: { 'X-Csrftoken': csrf }, data: { to, subject, text: 'hello from matrix' },
   });
   expect(res.status(), 'MailContract.Send 200').toBe(200);
   const msg = await waitForMail(request, to);
-  expect(msg?.subject, 'Mailpit 收到经 MailContract 发的信').toBe(subject);
+  expect(msg?.subject, 'Mailpit received the mail sent via MailContract').toBe(subject);
 }
 
 // waitForMail —— poll Mailpit（expect.poll 退避，不用 setTimeout-as-sleep）until 收到。
@@ -340,7 +340,7 @@ async function waitForMail(
   return found;
 }
 
-test.describe('connector · happy 组合矩阵（kind × category × auth 全闭环）', () => {
+test.describe('connector · happy combination matrix (kind × category × auth full loop)', () => {
   // RED 契约：spec-driven 装配 UI + 派生表单 + 各 auth connect + 品类归一消费均未建
   // （docs/design/connector.md §8 第一期 A+B+D+F）。实现逐格转绿后删 fixme。
 

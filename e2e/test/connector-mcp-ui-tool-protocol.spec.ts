@@ -25,7 +25,7 @@ import { goto } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
 
-test.describe('connector · mcp-ui:tool host protocol round-trip (§一)', () => {
+test.describe('connector · mcp-ui:tool host protocol round-trip (§1)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });

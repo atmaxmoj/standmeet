@@ -16,8 +16,10 @@
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -28,7 +30,7 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-test.describe('connector · 区G 上传 / 管理', () => {
+test.describe('connector · area G upload / manage', () => {
   // 红契约：自托管 spec+绑定 上传/管理 UI 未建（docs/design/connector.md §8 区 G）。实现后去掉。
 
   // 每 test 重置实例 + owner（连接器不跨 test 累积；overwrite/delete 断绝对状态要干净）。
@@ -43,7 +45,7 @@ test.describe('connector · 区G 上传 / 管理', () => {
   });
 
   // happy —— 上传自定义 spec + 绑定 → 出现在列表的 calendar 行 → 可装配（有 status）。
-  test('上传自定义 spec+绑定 → calendar 行出现 → 可装配', async ({ adminPage: page }) => {
+  test('upload a custom spec+binding → calendar row appears → assemblable', async ({ adminPage: page }) => {
     await uploadConnector(page, validCalendarSpec(), calendarBinding());
 
     const row = page.getByTestId('connector-row-calendar');
@@ -53,7 +55,7 @@ test.describe('connector · 区G 上传 / 管理', () => {
   });
 
   // happy —— 上传的连接器标「uploaded」来源，跟内置（builtin）区分开。
-  test('上传 vs 内置：上传的连接器带 uploaded 来源徽章', async ({ adminPage: page }) => {
+  test('uploaded vs built-in: an uploaded connector carries the uploaded origin badge', async ({ adminPage: page }) => {
     await uploadConnector(page, validCalendarSpec(), calendarBinding());
 
     const row = page.getByTestId('connector-row-calendar');
@@ -64,7 +66,7 @@ test.describe('connector · 区G 上传 / 管理', () => {
   });
 
   // err/edge —— 重名上传 → 弹覆盖确认；确认后该品类只剩一条（覆盖，不是叠加）。
-  test('重名上传 → 覆盖确认 → 列表不重复', async ({ adminPage: page }) => {
+  test('duplicate-name upload → overwrite confirm → list not duplicated', async ({ adminPage: page }) => {
     await uploadConnector(page, validCalendarSpec(), calendarBinding());
     // 再传一份同品类 calendar 连接器 → 命中重名。
     await openConnectorAdd(page);
@@ -80,7 +82,7 @@ test.describe('connector · 区G 上传 / 管理', () => {
   });
 
   // happy —— 删除上传的连接器 → 它从列表消失，且它填的 calendar cap 复闸（hidden/gated）。
-  test('删除上传连接器 → 行消失 + calendar cap 复闸隐藏', async ({ adminPage: page }) => {
+  test('delete an uploaded connector → row gone + calendar cap re-gated/hidden', async ({ adminPage: page }) => {
     await uploadConnector(page, validCalendarSpec(), calendarBinding());
 
     const row = page.getByTestId('connector-row-calendar');
@@ -95,6 +97,24 @@ test.describe('connector · 区G 上传 / 管理', () => {
     // 现状 capability-row-calendar.book 在连上时才解闸；删 provider → 重新 gated。
     const capRow = page.getByTestId('capability-row-calendar.book');
     await expect(capRow).toHaveCount(0);
+  });
+
+  // 不变量 —— 内置连接器（embed 数据）owner 不可删/改：DELETE/PUT 内置 id → 409 builtin_readonly。
+  // 守住「ErrBuiltinReadonly 跟 ErrInvalidManifest 分开」这条：内置改不得是 409，不是「坏 manifest」400。
+  test('built-in connector is read-only: delete/edit a built-in → 409', async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    const { csrf } = await login(request, OWNER.email, OWNER.password);
+    // google-calendar 是内置连接器（builtins/data/google-calendar，embed 进二进制）。
+    const del = await request.delete(`${BACKEND}/api/admin/connectors/google-calendar`, {
+      headers: { 'X-Csrftoken': csrf },
+    });
+    expect(del.status(), 'DELETE a built-in connector → 409 builtin_readonly').toBe(409);
+    const put = await request.put(`${BACKEND}/api/admin/connectors/google-calendar`, {
+      headers: { 'X-Csrftoken': csrf },
+      data: { spec: JSON.parse(validCalendarSpec()), binding: calendarBinding() },
+    });
+    expect(put.status(), 'PUT (edit) a built-in connector → 409 builtin_readonly').toBe(409);
+    await request.dispose();
   });
 });
 

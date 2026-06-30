@@ -20,12 +20,12 @@ import { goto } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
 
-test.describe('connector · booked card is a ui:// sandbox iframe (§一 外置)', () => {
+test.describe('connector · booked card is a ui:// sandbox iframe (§1 externalized)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('book 成功 → mcp-app-card-calendar_book IFRAME 出现,旧 React 卡不在主 DOM',
+  test('book succeeds → mcp-app-card-calendar_book IFRAME appears; old React card not in main DOM',
     async ({ browser }) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();

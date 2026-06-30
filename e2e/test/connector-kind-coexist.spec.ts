@@ -69,7 +69,7 @@ function futureSlot(daysAhead: number, hour: number): string {
   return d.toISOString();
 }
 
-test.describe('connector · 一个品类两种 kind 共存（§1 kind 轴缺测分支）', () => {
+test.describe('connector · one category, two kinds coexisting (§1 kind-axis branch)', () => {
   // #155 §1 已落地：同品类双 kind（Google openapi + CalDAV protocol）共存 + 单 active 槽仲裁 +
   // 切换 + disconnect-active 回退（promoteFallback）。
 
@@ -81,26 +81,26 @@ test.describe('connector · 一个品类两种 kind 共存（§1 kind 轴缺测�
 
   // ⭐ 共存 + 默认 active：装 BOTH（Google openapi + CalDAV protocol）calendar 连接器都 connected。
   // 断「同一时刻只有一个 active」、booker 落到 active 的那个、另一个不收 event。
-  test('Google(openapi) + CalDAV(protocol) 同填 calendar 品类 → 恰一个 active，booker 只落 active',
+  test('Google(openapi) + CalDAV(protocol) both fill calendar → exactly one active, booker only lands on active',
     async () => { await runBothConnectedOneActive(request); });
 
   // switch/replace：active 从 Google 切到 CalDAV → 槽位移交，booker 落到新 active。
   // 断「连第二个不自动抢槽，要显式 activate」+ 切换后旧 active 不再收 event。
-  test('显式 activate 切换 active 连接器 → 槽位移交，booker 落到新 provider（旧的不再收）',
+  test('explicit activate switches the active connector → slot handover, booker lands on the new provider (old stops receiving)',
     async () => { await runSwitchActive(request); });
 
   // dep-gating（不绑 provider）：两个都 configured 但都 disconnect → re-gate；
   // 任一变 active+connected → un-gate。断闸条件 = 「至少一个 ACTIVE connected」。
-  test('dep-gating 绑「至少一个 active connected」而非具体 provider',
+  test('dep-gating binds to "at least one active connected", not a specific provider',
     async () => { await runGatingNotProviderBound(request); });
 
   // disconnect ACTIVE → 回退到另一个 connected 的同品类连接器（ASSUMPTION，见顶部 rule#6）。
   // 实现若选「不回退、直接 re-gate」，把 EXPECT-FALLBACK 段换成 EXPECT-REGATE 段。
-  test('disconnect 当前 active → 回退到另一个 connected 候选（不复闸）⚠️ 假设',
+  test('disconnect the current active → fall back to another connected candidate (no re-gate) [assumption]',
     async () => { await runDisconnectActiveFallback(request); });
 
   // 边界：断开 inactive 的那个不影响 active 槽（共存里 inactive 是「备胎」，断它无副作用）。
-  test('disconnect inactive 候选 → active 槽 + booker 不受影响',
+  test('disconnect an inactive candidate → active slot + booker unaffected',
     async () => { await runDisconnectInactiveNoop(request); });
 });
 
@@ -116,14 +116,14 @@ async function runBothConnectedOneActive(request: APIRequestContext): Promise<vo
 
   // 同品类两个连接器都列出，但 status.active 恰一个 true。
   const cals = await listConnectors(request, csrf, 'calendar');
-  expect(cals.length, '两个 calendar 连接器共存（不互斥配置）').toBe(2);
+  expect(cals.length, 'two calendar connectors coexist (config not mutually exclusive)').toBe(2);
   const actives = cals.filter((c) => c.active);
-  expect(actives.length, '同一时刻恰一个 active 填槽').toBe(1);
-  expect(actives[0]!.id, 'owner 选的 Google 是 active').toBe(gcal.id);
+  expect(actives.length, 'exactly one active fills the slot at a time').toBe(1);
+  expect(actives[0]!.id, 'owner-selected Google is active').toBe(gcal.id);
 
   // dep-gating：有 active 且 connected → calendar.book 解闸（不绑具体 provider）。
   const cap = await findCapability(request, csrf, 'calendar.book');
-  expect(cap?.dependency?.connected, '至少一个 active connected → 槽 connected').toBe(true);
+  expect(cap?.dependency?.connected, 'at least one active connected → slot connected').toBe(true);
 
   // 真 book → event 落在 ACTIVE（Google），CalDAV（inactive）收不到。
   const start = futureSlot(7, 14);
@@ -133,9 +133,9 @@ async function runBothConnectedOneActive(request: APIRequestContext): Promise<vo
 
   const onGoogle = await getProviderEvents(request, 'gcal', gcal.id);
   const onCalDAV = await getProviderEvents(request, 'caldav', caldav.id);
-  expect(onGoogle, 'event 落在 ACTIVE（Google openapi）').toHaveLength(1);
+  expect(onGoogle, 'event lands on ACTIVE (Google openapi)').toHaveLength(1);
   expect(onGoogle[0]!.start).toBe(start);
-  expect(onCalDAV, 'inactive（CalDAV）收不到 booker 的 event').toHaveLength(0);
+  expect(onCalDAV, 'inactive (CalDAV) does not receive the booker event').toHaveLength(0);
 }
 
 async function runSwitchActive(request: APIRequestContext): Promise<void> {
@@ -146,17 +146,17 @@ async function runSwitchActive(request: APIRequestContext): Promise<void> {
   // 先 Google active，验「连第二个（CalDAV）不自动抢槽」。
   await activateConnector(request, csrf, gcal.id);
   let cals = await listConnectors(request, csrf, 'calendar');
-  expect(activeId(cals), '连第二个不自动夺槽 —— Google 仍 active').toBe(gcal.id);
+  expect(activeId(cals), 'connecting the second does not auto-seize the slot — Google still active').toBe(gcal.id);
 
   // 显式把 active 切到 CalDAV。
   await activateConnector(request, csrf, caldav.id);
   cals = await listConnectors(request, csrf, 'calendar');
-  expect(activeId(cals), 'set-active 后槽位移交到 CalDAV').toBe(caldav.id);
-  expect(cals.filter((c) => c.active).length, '切换后仍恰一个 active').toBe(1);
+  expect(activeId(cals), 'after set-active the slot hands over to CalDAV').toBe(caldav.id);
+  expect(cals.filter((c) => c.active).length, 'still exactly one active after the switch').toBe(1);
 
   // gate 不受切换影响（不绑具体 provider）。
   const cap = await findCapability(request, csrf, 'calendar.book');
-  expect(cap?.dependency?.connected, '切换 active 不影响 gate 开').toBe(true);
+  expect(cap?.dependency?.connected, 'switching active does not affect the gate staying open').toBe(true);
 
   // booker 现在落到新 active（CalDAV），Google 收不到。
   const start = futureSlot(8, 15);
@@ -165,9 +165,9 @@ async function runSwitchActive(request: APIRequestContext): Promise<void> {
 
   const onCalDAV = await getProviderEvents(request, 'caldav', caldav.id);
   const onGoogle = await getProviderEvents(request, 'gcal', gcal.id);
-  expect(onCalDAV, 'event 落到新 active（CalDAV）').toHaveLength(1);
+  expect(onCalDAV, 'event lands on the new active (CalDAV)').toHaveLength(1);
   expect(onCalDAV[0]!.start).toBe(start);
-  expect(onGoogle, '旧 active（Google）切换后不再收 event').toHaveLength(0);
+  expect(onGoogle, 'old active (Google) stops receiving events after the switch').toHaveLength(0);
 }
 
 async function runGatingNotProviderBound(request: APIRequestContext): Promise<void> {
@@ -202,7 +202,7 @@ async function runDisconnectActiveFallback(request: APIRequestContext): Promise<
 
   // ── EXPECT-FALLBACK（rule#6 假设：自动 promote 剩下的 connected 候选）──
   const cals = await listConnectors(request, csrf, 'calendar');
-  expect(activeId(cals), '回退：CalDAV 自动 promote 成 active').toBe(caldav.id);
+  expect(activeId(cals), 'fallback: CalDAV auto-promotes to active').toBe(caldav.id);
   await expectGated(request, csrf, false); // 仍有 active connected → 不复闸
 
   // booker 落到回退后的 active（CalDAV）。
@@ -210,10 +210,10 @@ async function runDisconnectActiveFallback(request: APIRequestContext): Promise<
   const visitor = await codeVisitor(request, csrf, 'Fallback Fred', 'fred@example.com');
   await bookViaChat(request, visitor, start);
   const onCalDAV = await getProviderEvents(request, 'caldav', caldav.id);
-  expect(onCalDAV, '回退后 booker 落到 CalDAV').toHaveLength(1);
+  expect(onCalDAV, 'after fallback the booker lands on CalDAV').toHaveLength(1);
 
   // ── EXPECT-REGATE（备选语义：不回退）──若实现选这条，替换上面 FALLBACK 段为：
-  //   expect(activeId(cals), '无回退 → 无 active').toBeUndefined();
+  //   expect(activeId(cals), 'no fallback → no active').toBeUndefined();
   //   await expectGated(request, csrf, true); // 断 active 断开 → re-gate
   //   …并删掉本 test 的 book 断言（owner 须重新 set-active）。
 }
@@ -228,14 +228,14 @@ async function runDisconnectInactiveNoop(request: APIRequestContext): Promise<vo
   await disconnectConnector(request, csrf, caldav.id);
 
   const cals = await listConnectors(request, csrf, 'calendar');
-  expect(activeId(cals), '断 inactive 不动 active 槽').toBe(gcal.id);
+  expect(activeId(cals), 'disconnecting inactive leaves the active slot untouched').toBe(gcal.id);
   await expectGated(request, csrf, false);
 
   const start = futureSlot(10, 11);
   const visitor = await codeVisitor(request, csrf, 'Stable Steve', 'steve@example.com');
   await bookViaChat(request, visitor, start);
   const onGoogle = await getProviderEvents(request, 'gcal', gcal.id);
-  expect(onGoogle, 'active（Google）照常收 event').toHaveLength(1);
+  expect(onGoogle, 'active (Google) receives events as usual').toHaveLength(1);
 }
 
 // ─── inline helpers (promote to fixtures/connector-coexist.ts when 实现转绿) ───
@@ -378,7 +378,7 @@ async function expectGated(
   request: APIRequestContext, csrf: string, gated: boolean,
 ): Promise<void> {
   const cap = await findCapability(request, csrf, 'calendar.book');
-  expect(cap?.dependency?.connected, gated ? '复闸 → disconnected' : '开闸 → connected')
+  expect(cap?.dependency?.connected, gated ? 're-gated → disconnected' : 'open → connected')
     .toBe(!gated);
 }
 

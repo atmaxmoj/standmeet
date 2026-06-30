@@ -29,7 +29,7 @@ const ROTATED_CREDS: GCalCredentials = {
   client_secret: 'mock-gcal-client-secret-ROTATED',
 };
 
-test.describe('connector · GCal rotate credentials → re-verify (§三 D-5)', () => {
+test.describe('connector · GCal rotate credentials → re-verify (§3 D-5)', () => {
   let seed: BaseSeed;
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });

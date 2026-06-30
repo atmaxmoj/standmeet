@@ -22,7 +22,7 @@ test.describe('connector · booked card is a sandbox iframe; no hardcoded capabi
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('book → mcp-app-card-calendar_book iframe 出现,主 DOM 无写死的 tool-card-calendar_book',
+  test('book → mcp-app-card-calendar_book iframe appears; main DOM has no hardcoded tool-card-calendar_book',
     async ({ browser }) => {
       await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
@@ -38,7 +38,7 @@ test.describe('connector · booked card is a sandbox iframe; no hardcoded capabi
         'booked card rendered as sandbox iframe').toBeVisible({ timeout: 20_000 });
       // 主 DOM 里没有老写死 React 卡(它已外置,不在 NON_SANDBOX_CARDS)。
       await expect(page.getByTestId('tool-card-calendar_book'),
-        '写死 booked 卡已退役').toHaveCount(0);
+        'hardcoded booked card retired').toHaveCount(0);
 
       await ctx.close();
     });

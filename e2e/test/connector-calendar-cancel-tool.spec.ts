@@ -23,7 +23,7 @@ import { goto } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
 
-test.describe('connector · visitor calendar_cancel as a tool (§一)', () => {
+test.describe('connector · visitor calendar_cancel as a tool (§1)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => { seed = await prep(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
@@ -58,7 +58,7 @@ test.describe('connector · visitor calendar_cancel as a tool (§一)', () => {
       await ctx.close();
     });
 
-  test('幂等(E13): re-cancelling an already-cancelled booking is a no-op, no double-delete / crash',
+  test('idempotent (E13): re-cancelling an already-cancelled booking is a no-op, no double-delete / crash',
     async ({ browser }) => {
       await resetMockGCal(seed.request);
       const ctx = await browser.newContext();

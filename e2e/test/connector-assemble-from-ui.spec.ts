@@ -27,7 +27,7 @@ const OWNER = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-test.describe('connector · 从 admin UI 装配一个连接器', () => {
+test.describe('connector · assemble a connector from the admin UI', () => {
   // 红契约：spec-driven 连接器 UI 装配流未建（见 docs/design/connector.md §8）。实现后去掉。
 
   test.beforeAll(async ({ playwright }) => {
@@ -41,7 +41,7 @@ test.describe('connector · 从 admin UI 装配一个连接器', () => {
   });
 
   // adminPage fixture 自己跑完 owner 登录，给一个已进 admin 的 page。
-  test('owner 在 /admin/connectors 点 Connect 把 calendar 连起来 → 显示 Connected', async ({
+  test('owner clicks Connect on /admin/connectors to wire up calendar → shows Connected', async ({
     adminPage: page,
   }) => {
     // adminPage 落在 admin；从已知入口点 nav 进 connectors 区（不 page.goto）。

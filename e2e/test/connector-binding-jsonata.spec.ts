@@ -180,8 +180,8 @@ async function assertGracefulEmpty(request: APIRequestContext, csrf: string, raw
   const id = await createOK(request, csrf, SAMPLE_BINDING);
   await setMockFreeBusyRaw(request, raw);
   const out = await diagListBusy(request, csrf, id, future(1, 0), future(4, 0));
-  expect(out.status, '缺字段/空响应不应 5xx').toBe(200);
-  expect(out.busy, '优雅成空，不漏 null/garbage').toEqual([]);
+  expect(out.status, 'missing field/empty response must not 5xx').toBe(200);
+  expect(out.busy, 'degrades to empty, no null/garbage leak').toEqual([]);
 }
 
 // assertCleanDegrade —— events.insert 回 array（object 期望）；断言不 5xx，且
@@ -192,10 +192,10 @@ async function assertCleanDegrade(request: APIRequestContext, csrf: string): Pro
   const out = await diagCreateEventResult(request, csrf, id, {
     title: 'Shape mismatch probe', start: future(6, 15), end: future(6, 16), attendee: 'rachel@example.com',
   });
-  expect(out.status, 'shape 不符不应 5xx').toBeLessThan(500);
+  expect(out.status, 'shape mismatch must not 5xx').toBeLessThan(500);
   if (out.status === 200) {
-    expect(out.ref.id, 'id 不应是 array garbage').toBeFalsy();
-    expect(out.ref.url, 'url 同理为空').toBeFalsy();
+    expect(out.ref.id, 'id must not be array garbage').toBeFalsy();
+    expect(out.ref.url, 'url is empty likewise').toBeFalsy();
   } else {
     expect(out.error ?? '').toMatch(/shape|mapping|response|unexpected/i);
   }
@@ -209,8 +209,8 @@ async function assertPreflightReject(request: APIRequestContext, csrf: string): 
   const out = await diagCreateEventResult(request, csrf, id, {
     title: 'ignored by binding', start: future(7, 15), end: future(7, 16), attendee: 'rachel@example.com',
   });
-  expect(out.status, 'null 必填字段不应 5xx').toBeLessThan(500);
-  expect(out.status, 'null 必填字段应 pre-flight 拒').toBeGreaterThanOrEqual(400);
+  expect(out.status, 'null required field must not 5xx').toBeLessThan(500);
+  expect(out.status, 'null required field must be rejected pre-flight').toBeGreaterThanOrEqual(400);
   expect(out.error ?? '').toMatch(/summary|required|null|invalid|body/i);
   const events = await getMockEvents(request);
   expect(events.find((e) => e.summary === null as unknown as string), 'no malformed event recorded').toBeFalsy();
@@ -261,7 +261,7 @@ async function initOwner(playwright: Playwright): Promise<{
   return { request, csrf };
 }
 
-test.describe('connector binding · JSONata 绑定（§8 区 C）', () => {
+test.describe('connector binding · JSONata binding (§8 area C)', () => {
   // #155 §8-C 已落地：声明式 JSONata 绑定子系统（POST /api/admin/connectors 收 spec+binding、
   // 装配期校验、运行时 request/response JSONata）。
 

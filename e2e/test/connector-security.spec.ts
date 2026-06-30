@@ -67,7 +67,7 @@ async function uploadSpec(
   return body.id;
 }
 
-test.describe('connector · §8 区 H 安全 (SSRF / 凭据不外泄 / per-owner 隔离)', () => {
+test.describe('connector · §8 area H security (SSRF / no credential leak / per-owner isolation)', () => {
   // #155 §8 H 落地：spec-driven connector 上传的安全门（装配期 SSRF 静态拦 + 凭据打码 +
   // owner_id scoping）。consume-time / OAuth-dance 重定向到内网的两条（运行期 dialer 守卫已建，
   // 但还缺 mock 的 302→内网 端点）暂留 fixme。
@@ -77,35 +77,35 @@ test.describe('connector · §8 区 H 安全 (SSRF / 凭据不外泄 / per-owner
   });
 
   // ── 1. SSRF ──
-  test('SSRF · servers[].url 指向 loopback/link-local/私网 → 拒装配或拒出站',
+  test('SSRF · servers[].url pointing at loopback/link-local/private net → reject assembly or egress',
     ({ playwright }) => ssrfServerUrlRejected(playwright));
 
-  test('SSRF · oauth2 authorize/token URL 指向内网 → connect 拒发起出站',
+  test('SSRF · oauth2 authorize/token URL pointing at an internal net → connect refuses egress',
     ({ playwright }) => ssrfOAuthUrlRejected(playwright));
 
-  test('SSRF · 拒后实例无残留连接器（list 不收录被拒的 spec）',
+  test('SSRF · no leftover connector after rejection (list excludes the rejected spec)',
     ({ playwright }) => ssrfRejectLeavesNoConnector(playwright));
 
   // ── 2. 凭据永不外泄（扩 handle_contract / secret-no-leak 到 user-uploaded） ──
-  test('凭据不外泄 · 上传 connector 存的 api key 在 status/list 里打码，原文不返回',
+  test('no credential leak · an uploaded connector api key is masked in status/list, raw never returned',
     ({ playwright }) => secretMaskedInAdminReads(playwright));
 
-  test('凭据不外泄 · 上传 connector 的 secret 不出现在任何访客可见表面',
+  test('no credential leak · an uploaded connector secret never appears on any visitor-visible surface',
     ({ playwright }) => secretNotInVisitorSurface(playwright));
 
   // ── 1b. consume-time SSRF（upload/connect 过了，运行时调用才打内网） ──
   // 运行期 dialer 守卫（GuardedHTTPClient 拦解析到内网 + 拒内网重定向）+ mock 的 302→内网 端点。
-  test('SSRF · 运行时 API 调用解析/重定向到内网 → runtime 拒绝出站',
+  test('SSRF · a runtime API call resolving/redirecting to an internal net → runtime refuses egress',
     ({ playwright }) => ssrfConsumeTimeRejected(playwright));
 
-  test('SSRF · OAuth dance 中 provider 把 callback/token 交换重定向到内网 → 拒绝',
+  test('SSRF · provider redirecting the callback/token exchange to an internal net mid-dance → rejected',
     ({ playwright }) => ssrfOAuthDanceRedirectRejected(playwright));
 
   // ── 3. per-owner 隔离（v1 单 owner → API 层 owner_id scoping） ──
-  test('隔离 · 未鉴权请求拿不到 owner 上传的 connector',
+  test('isolation · an unauthenticated request cannot read an owner-uploaded connector',
     ({ playwright }) => unauthCannotReadConnector(playwright));
 
-  test('隔离 · 未鉴权不能 disconnect 或改 owner 上传 connector 的凭据',
+  test('isolation · unauthenticated cannot disconnect or change an owner-uploaded connector credentials',
     ({ playwright }) => unauthCannotMutateConnector(playwright));
 });
 

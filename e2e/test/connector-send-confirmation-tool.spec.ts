@@ -32,7 +32,7 @@ import { goto } from '@/fixtures/navigate';
 
 const TOPIC = 'Intro call about backend work';
 
-test.describe('connector · send_confirmation as a tool (§一 + D-4 recipient hardening)', () => {
+test.describe('connector · send_confirmation as a tool (§1 + D-4 recipient hardening)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => {
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
@@ -43,11 +43,11 @@ test.describe('connector · send_confirmation as a tool (§一 + D-4 recipient h
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('引用(session-email): send_confirmation tool mails the session email (backend-sourced)',
+  test('referenced (session-email): send_confirmation tool mails the session email (backend-sourced)',
     ({ browser }) => quoteFlow(browser, seed));
-  test('透传(typed address): send_confirmation tool mails the typed address',
+  test('pass-through (typed address): send_confirmation tool mails the typed address',
     ({ browser }) => passthroughFlow(browser, seed));
-  test('非法收件人 → backend 422 in the tool, card error, nothing sent',
+  test('invalid recipient → backend 422 in the tool, card error, nothing sent',
     ({ browser }) => invalidRecipientFlow(browser, seed));
   test('skip → tool not invoked, no email sent',
     ({ browser }) => skipFlow(browser, seed));

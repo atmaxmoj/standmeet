@@ -318,7 +318,7 @@ async function initOwner(playwright: Playwright): Promise<{
   return { request, csrf };
 }
 
-test.describe('connector · agent-tool 暴露（§3 第二条 consumer 路：agent=语义读操作）', () => {
+test.describe('connector · agent-tool exposure (§3 second consumer path: agent = semantic read ops)', () => {
   // RED 契约：openapi operations → per-session agent tools 子系统未建。design §3 已定
   // 这条路、§7 只欠排期。实现 land 后去掉这行。
 
@@ -383,7 +383,7 @@ test.describe('connector · agent-tool 暴露（§3 第二条 consumer 路：age
     });
 });
 
-test.describe('connector · agent-tool 暴露 · ACL/gating（§3 + §6 全局单点闸）', () => {
+test.describe('connector · agent-tool exposure · ACL/gating (§3 + §6 single global gate)', () => {
   // 同一张 grant/ACL 闸管 agent tools：per-op grant、纯品类连接器不泄 raw ops、断开即消失。
 
   let request: APIRequestContext;

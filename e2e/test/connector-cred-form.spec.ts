@@ -219,7 +219,7 @@ async function claimOwner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-test.describe('connector · 凭据表单从 spec 派生 · happy（区 B）', () => {
+test.describe('connector · credential form derived from spec · happy (area B)', () => {
   // 红契约：spec-driven 凭据表单派生未建（docs/design/connector.md §4/§8 区 B）。
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
@@ -321,7 +321,7 @@ test.describe('connector · 凭据表单从 spec 派生 · happy（区 B）', ()
 // 区B 额外 corner（§4 表里点到、上面没覆盖的）：openIdConnect 渲如 oauth2 /
 // apiKey in:query 的位置展示 / oauth2 多 scope 全列。独立 describe 让上一块
 // 回调保持 ≤70 行。
-test.describe('connector · 凭据表单从 spec 派生 corner · happy（区 B）', () => {
+test.describe('connector · credential form derived from spec · corner (area B)', () => {
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
 
@@ -375,7 +375,7 @@ test.describe('connector · 凭据表单从 spec 派生 corner · happy（区 B�
     });
 });
 
-test.describe('connector · 凭据表单从 spec 派生 · err（区 B）', () => {
+test.describe('connector · credential form derived from spec · err (area B)', () => {
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
 

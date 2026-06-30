@@ -53,7 +53,7 @@ const SMTP_FIELDS = {
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-test.describe('connector · protocol SMTP（kind=protocol，固定凭据表单）', () => {
+test.describe('connector · protocol SMTP (kind=protocol, fixed credential form)', () => {
   // 红契约：protocol(SMTP) 连接器 UI 装配 + 固定表单 + 连接测试未建（connector.md §8 区 E）。实现后删。
 
   test.beforeAll(async ({ playwright }) => {
@@ -61,7 +61,7 @@ test.describe('connector · protocol SMTP（kind=protocol，固定凭据表单�
   });
 
   // —— happy：固定表单渲染（NOT derived from a spec）→ 填 → 连接测试 → Connected ——
-  test('选 SMTP(protocol) → 6 个固定字段渲染（非 spec 派生）→ 填 → connect → Connected',
+  test('pick SMTP(protocol) → 6 fixed fields render (not spec-derived) → fill → connect → Connected',
     async ({ adminPage }) => {
       await openSMTPForm(adminPage);
       await assertFixedFormNotDerived(adminPage);
@@ -75,7 +75,7 @@ test.describe('connector · protocol SMTP（kind=protocol，固定凭据表单�
     });
 
   // —— err：坏 host/port → 连接测试失败，UI 友好报错，不 Connected ——
-  test('host/port 错 → 连接测试失败 → 友好报错，状态停在 not connected',
+  test('wrong host/port → connection test fails → friendly error, status stays not connected',
     async ({ adminPage }) => {
       await openSMTPForm(adminPage);
       await fillSMTPForm(adminPage, {
@@ -93,7 +93,7 @@ test.describe('connector · protocol SMTP（kind=protocol，固定凭据表单�
     });
 
   // —— err：坏认证 → 连接测试失败 ——（API 层断言，避开 UI flake）
-  test('认证错（坏 username/password）→ 连接测试 535 → 状态 not connected',
+  test('auth error (bad username/password) → connection test 535 → status not connected',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const id = await createSMTPConnector(request);
@@ -104,10 +104,10 @@ test.describe('connector · protocol SMTP（kind=protocol，固定凭据表单�
       });
       const { status, body } = await postConnect(request, id);
 
-      expect(status, '认证失败不该是服务器崩').toBeLessThan(500);
-      expect(body.connected, '认证错 → 未连接').toBe(false);
-      expect(`${body.error ?? ''}`, '友好认证错误').toMatch(/auth|credential|password|认证|凭据/i);
-      expect(`${body.error ?? ''}`, '不泄露原始协议码/stack').not.toMatch(/panic|goroutine|stack/i);
+      expect(status, 'an auth failure must not be a server crash').toBeLessThan(500);
+      expect(body.connected, 'auth error → not connected').toBe(false);
+      expect(`${body.error ?? ''}`, 'friendly auth error').toMatch(/auth|credential|password|认证|凭据/i);
+      expect(`${body.error ?? ''}`, 'does not leak the raw protocol code/stack').not.toMatch(/panic|goroutine|stack/i);
 
       const st = await getStatus(request, id);
       expect(st.connected).toBe(false);
@@ -115,7 +115,7 @@ test.describe('connector · protocol SMTP（kind=protocol，固定凭据表单�
     });
 
   // —— err：TLS 不符（端点明文却要求 tls）→ 握手失败 → 连接测试失败 ——
-  test('TLS 不符（明文端点上要求 implicit tls）→ 握手失败 → 状态 not connected',
+  test('TLS mismatch (implicit tls required on a plaintext endpoint) → handshake fails → status not connected',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const id = await createSMTPConnector(request);
@@ -123,9 +123,9 @@ test.describe('connector · protocol SMTP（kind=protocol，固定凭据表单�
       await postCredentials(request, id, { ...SMTP_FIELDS, tls: 'tls' });
       const { status, body } = await postConnect(request, id);
 
-      expect(status, 'TLS 握手失败不该是 5xx').toBeLessThan(500);
-      expect(body.connected, 'TLS 不符 → 未连接').toBe(false);
-      expect(`${body.error ?? ''}`, '友好 TLS 错误').toMatch(/tls|encrypt|handshake|secure|加密|握手/i);
+      expect(status, 'a TLS handshake failure must not be a 5xx').toBeLessThan(500);
+      expect(body.connected, 'TLS mismatch → not connected').toBe(false);
+      expect(`${body.error ?? ''}`, 'friendly TLS error').toMatch(/tls|encrypt|handshake|secure|加密|握手/i);
       expect(`${body.error ?? ''}`).not.toMatch(/panic|goroutine|stack/i);
 
       const st = await getStatus(request, id);

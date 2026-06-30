@@ -1,4 +1,4 @@
-// connector-mcp-app-state.spec.ts —— MCP App 跨刷新状态原语 + 隔离（§一 外置）。
+// connector-mcp-app-state.spec.ts —— MCP App cross-refresh state primitive + isolation（§一 外置）。
 //
 // 沙箱卡（ui:// iframe）是「能跨刷新存活的小应用」：它经 host 对**自己 mcp 那一格**做
 // 增删改查。状态挂在 session 背后的耐久身份（member）上，按 mcp 分格：
@@ -25,7 +25,7 @@ import {
 import { issueSession } from '@/fixtures/visitor';
 import { putAppState, getAppState, deleteAppState } from '@/fixtures/app-state';
 
-test.describe('MCP App 跨刷新状态原语 + 隔离', () => {
+test.describe('MCP App cross-refresh state primitive + isolation', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
@@ -34,7 +34,7 @@ test.describe('MCP App 跨刷新状态原语 + 隔离', () => {
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('CRUD: set → get → delete 按 (member, mcp, key) round-trip', async () => {
+  test('CRUD: set → get → delete round-trips by (member, mcp, key)', async () => {
     const { request } = seed;
     const { session_token: tok, conversation_id: conv } = seed.visitor;
     expect(await putAppState(request, tok, conv, 'calendar_book', 'evt1', { cancelled: true })).toBe(200);
@@ -44,7 +44,7 @@ test.describe('MCP App 跨刷新状态原语 + 隔离', () => {
     expect(await getAppState(request, tok, conv, 'calendar_book')).toEqual({});
   });
 
-  test('同一 mcp 跨 session 隔离: member A 的 booker-state ≠ member B 的', async () => {
+  test('same mcp across sessions is isolated: member A booker-state != member B', async () => {
     const { request } = seed;
     const a = seed.visitor;
     const b = await issueSession(request, {
@@ -59,7 +59,7 @@ test.describe('MCP App 跨刷新状态原语 + 隔离', () => {
       .toMatchObject({ xs: { who: 'B' } });
   });
 
-  test('同一 session 跨 mcp 隔离: booker 那格 ≠ retrieval 那格', async () => {
+  test('same session across mcps is isolated: booker slot != retrieval slot', async () => {
     const { request } = seed;
     const { session_token: tok, conversation_id: conv } = seed.visitor;
     await putAppState(request, tok, conv, 'calendar_book', 'xm', { mcp: 'booker' });
@@ -70,7 +70,7 @@ test.describe('MCP App 跨刷新状态原语 + 隔离', () => {
     expect((retrieval['xm'] as { mcp: string }).mcp).toBe('retrieval');
   });
 
-  test('mcp-keyed（同 mcp 多 tool 共享一格）: calendar_book 写的，calendar_list_slots 读得到', async () => {
+  test('mcp-keyed (tools of the same mcp share one slot): what calendar_book writes, calendar_list_slots reads', async () => {
     const { request } = seed;
     const { session_token: tok, conversation_id: conv } = seed.visitor;
     await putAppState(request, tok, conv, 'calendar_book', 'shared', { v: 1 });

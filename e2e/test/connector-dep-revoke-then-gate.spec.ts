@@ -25,7 +25,7 @@ test.describe('connector dep · revoke detected → connector marked disconnecte
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('一次 book 撞 invalid_grant → 连接落库 disconnected → 新 session 不再暴露 booking',
+  test('a book hitting invalid_grant → connection persisted disconnected → new session no longer exposes booking',
     async () => {
       // 连接好时,booking 暴露。
       await expectCalendarBookExposed(seed.request, seed.visitor.session_token, true);
@@ -45,7 +45,7 @@ test.describe('connector dep · revoke detected → connector marked disconnecte
 
       // 联动:invalid_grant 被识别 → connector 落库 disconnected。
       const status = await getGCalStatus(seed.request);
-      expect(status.connected, 'invalid_grant 后连接落库为 disconnected').toBe(false);
+      expect(status.connected, 'after invalid_grant the connection is persisted as disconnected').toBe(false);
 
       // 下一次 session 装配:booking 经 global 单点闸 gate 掉(不再每 turn 白撞外部)。
       const next = await issueSession(seed.request, {

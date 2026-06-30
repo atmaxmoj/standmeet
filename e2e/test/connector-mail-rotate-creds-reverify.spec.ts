@@ -31,7 +31,7 @@ async function canEmailCodes(request: APIRequestContext): Promise<boolean> {
   return (await res.json() as { can_email_codes: boolean }).can_email_codes;
 }
 
-test.describe('connector · mail rotate SMTP identity → re-verify (§三 D-5)', () => {
+test.describe('connector · mail rotate SMTP identity → re-verify (§3 D-5)', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();

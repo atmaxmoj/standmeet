@@ -22,7 +22,7 @@ test.describe('connector · booker plugin gets a handle, never the owner credent
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('book → 访客侧 tool result 不含 owner 的 access_token / refresh_token / client_secret',
+  test('book → visitor-side tool result contains no owner access_token / refresh_token / client_secret',
     async () => {
       await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
@@ -38,9 +38,9 @@ test.describe('connector · booker plugin gets a handle, never the owner credent
       const body = await res.text();
 
       // 凭据标记(mock 凭据里的 client_secret / 任何 token 串)绝不出现在 booker 经手的回包里。
-      expect(body, 'client_secret 不泄漏').not.toContain(MOCK_GCAL_CREDS.client_secret);
-      expect(body, '无 refresh_token 串').not.toMatch(/refresh_token|client_secret|access_token=/i);
-      expect(body, '无 stack/panic').not.toMatch(/panic|goroutine|stack/i);
+      expect(body, 'client_secret not leaked').not.toContain(MOCK_GCAL_CREDS.client_secret);
+      expect(body, 'no refresh_token string').not.toMatch(/refresh_token|client_secret|access_token=/i);
+      expect(body, 'no stack/panic').not.toMatch(/panic|goroutine|stack/i);
     });
 });
 

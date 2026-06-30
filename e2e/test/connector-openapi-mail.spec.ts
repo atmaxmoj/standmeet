@@ -265,25 +265,25 @@ async function initOwner(playwright: Playwright): Promise<{
 // MailContract.Send 经 openapi runtime → SaaS mock 收到。
 async function runHappyMainline(request: APIRequestContext, csrf: string): Promise<void> {
   const st = await assembleAndConnectMail(request, csrf);
-  expect(st.kind, 'kind=openapi（不是 protocol）').toBe('openapi');
+  expect(st.kind, 'kind=openapi (not protocol)').toBe('openapi');
   expect(st.category).toBe('mail');
-  expect(st.connected, 'apiKey 存密钥即连，无 OAuth dance').toBe(true);
+  expect(st.connected, 'apiKey connects on saving the key, no OAuth dance').toBe(true);
 
   // dep-gating：mail 品类槽现在 connected → mail.send cap 解闸。
   const cap = await findCapability(request, csrf, 'mail.send');
-  expect(cap?.dependency?.connected, 'openapi mail 连上 → mail 品类槽 connected').toBe(true);
+  expect(cap?.dependency?.connected, 'openapi mail connected → mail category slot connected').toBe(true);
 
   // mailer 经 MailContract.Send 发信，不知底下是 HTTP SaaS。
   const sent = await diagSend(request, csrf, st.id, {
     to: 'recruiter@corp.test', subject: 'OpenAPI mail', text: 'hello from SendGrid-style API',
   });
   expect(sent.status).toBe(200);
-  expect(sent.ok, 'MailContract.Send 经 openapi runtime 成功').toBe(true);
-  expect(sent.via_kind, 'mailer 不知/不关心底下是 openapi').toMatch(/openapi|http/i);
+  expect(sent.ok, 'MailContract.Send succeeds via the openapi runtime').toBe(true);
+  expect(sent.via_kind, 'mailer neither knows nor cares it is openapi underneath').toMatch(/openapi|http/i);
 
   // SaaS mock 真收到该信。
   const inbox = await getSentMail(request);
-  expect(inbox, 'SendGrid mock 收到 mailer 发的信').toHaveLength(1);
+  expect(inbox, 'SendGrid mock received the mail the mailer sent').toHaveLength(1);
   expect(inbox[0]!.to).toContain('recruiter@corp.test');
   expect(inbox[0]!.subject).toBe('OpenAPI mail');
 }
@@ -304,7 +304,7 @@ async function runRequestConstruct(request: APIRequestContext, csrf: string): Pr
   const body = ev!.raw;
   expect(body.personalizations?.[0]?.to?.[0]?.email, 'to → personalizations[0].to[0].email')
     .toBe('rachel@example.com');
-  expect(body.subject, 'subject 直映').toBe('Intro chat');
+  expect(body.subject, 'subject mapped through directly').toBe('Intro chat');
   expect(body.content?.[0]?.type, 'text → content[0].type=text/plain').toBe('text/plain');
   expect(body.content?.[0]?.value, 'text → content[0].value').toBe('Looking forward to it.');
 }
@@ -319,12 +319,12 @@ async function runDegrade(
   await failNextSend(request, failStatus);
 
   const sent = await diagSend(request, csrf, st.id, mail);
-  expect(sent.status, 'provider 错误不该让我们也崩 5xx').toBeLessThan(500);
-  expect(sent.ok, 'provider 错误 → 非成功').toBe(false);
+  expect(sent.status, 'a provider error must not crash us into a 5xx too').toBeLessThan(500);
+  expect(sent.ok, 'provider error → not successful').toBe(false);
   const msg = sent.reason ?? '';
-  expect(msg, '友好提示').toMatch(msgPattern);
-  expect(msg, '不泄 provider 原始错误/stack/状态码').not.toMatch(/panic|goroutine|stack|\d{3}/i);
-  expect(await getSentMail(request), '降级/拒 → mock 没成功投递').toHaveLength(0);
+  expect(msg, 'friendly message').toMatch(msgPattern);
+  expect(msg, 'does not leak the provider raw error/stack/status code').not.toMatch(/panic|goroutine|stack|\d{3}/i);
+  expect(await getSentMail(request), 'degraded/rejected → mock did not deliver successfully').toHaveLength(0);
 }
 
 // runNonSendingFlagged —— 绑定声明 category="mail" 但映的 op 不真发信。理想装配期拒，
@@ -345,22 +345,22 @@ async function runNonSendingFlagged(request: APIRequestContext, csrf: string): P
   const sent = await diagSend(request, csrf, st.id, {
     to: 'recruiter@corp.test', subject: 'no-op', text: 'this op does not send',
   });
-  expect(sent.ok, '映到非发信 op → Send 不成功').toBe(false);
-  expect(await getSentMail(request), '非发信 op → mock 没收到信').toHaveLength(0);
+  expect(sent.ok, 'mapped to a non-send op → Send unsuccessful').toBe(false);
+  expect(await getSentMail(request), 'non-send op → mock received no mail').toHaveLength(0);
 }
 
 // runDepGating —— 断开 openapi mail 连接器 → mail.send re-gate。
 async function runDepGating(request: APIRequestContext, csrf: string): Promise<void> {
   const st = await assembleAndConnectMail(request, csrf);
   const before = await findCapability(request, csrf, 'mail.send');
-  expect(before?.dependency?.connected, '连上 → mail 槽 connected').toBe(true);
+  expect(before?.dependency?.connected, 'connected → mail slot connected').toBe(true);
 
   await disconnectConnector(request, csrf, st.id);
   const after = await findCapability(request, csrf, 'mail.send');
-  expect(after?.dependency?.connected, '断开 → mail 槽 disconnected → mail.send re-gate').toBe(false);
+  expect(after?.dependency?.connected, 'disconnected → mail slot disconnected → mail.send re-gated').toBe(false);
 }
 
-test.describe('connector · openapi mail（SendGrid-style，kind=openapi 填 mail 槽，§8 区 F 对角）', () => {
+test.describe('connector · openapi mail (SendGrid-style, kind=openapi fills the mail slot, §8 area F diagonal)', () => {
   // #155 §8-F 已落地：openapi × mail 对角（SaaS 发信 HTTP spec + JSONata 绑定填 mail 槽 +
   // apiKey 连接 + MailContract 经 openapi runtime → SendGrid-style mock）。
 

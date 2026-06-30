@@ -4,7 +4,7 @@
 //   - 429 限流（error stream）：连接器 connected，runtime SaaS 调用回 429 → 友好降级/退避，
 //     不崩、不泄、不返垃圾（跟现有 5xx/4xx 降级同族，差在 429 语义=限流可退避）。
 //   - 编辑已建连接器的 spec → 凭据表单**重新派生**（换认证 type 后表单跟着变）。
-//   - 两个**同 kind(openapi)** 的 calendar 连接器 → 同 §1/§9 槽位规则（恰一个 active），
+//   - 两个**同 kind(openapi)** 的 calendar 连接器 → 同 §1/§9 槽位规则（exactly one active），
 //     补上 kind-coexist 只测了 openapi+protocol 异 kind 的空档。
 //
 // API/diag 驱动（同 connector-provider-agnostic / connector-binding-jsonata 的 gold 形态）。
@@ -53,7 +53,7 @@ const CAL_BINDING = {
 // 第二份 spec 内容不同（标题不同），但仍是 openapi calendar —— 用来测同 kind 共存。
 const CAL_SPEC_2 = CAL_SPEC.replace('"Cal"', '"Cal Two"');
 
-test.describe('connector · 额外 corner / error stream（收尾）', () => {
+test.describe('connector · extra corner / error stream (wrap-up)', () => {
   // 429 降级 + 同 kind 共存已落地。spec 编辑重派生（PUT + credential-form 派生端）属 #161
   // 通用 admin 路由的凭据表单派生，单列待建，逐条 fixme。
 
@@ -62,20 +62,20 @@ test.describe('connector · 额外 corner / error stream（收尾）', () => {
   test.afterAll(async () => { await request.dispose(); });
 
   // 429 限流 → 友好降级（不崩、不泄、不返垃圾）。
-  test('429 限流：runtime SaaS 调用回 429 → 友好降级（无 5xx/stack，不返垃圾）', async () => {
+  test('429 throttling: runtime SaaS call returns 429 → friendly degrade (no 5xx/stack, no garbage)', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
     await armMockStatus(request, 'freeBusy', 429);
 
     const { status, body } = await diagListBusy(request, csrf, id);
-    expect(status, '429 不该让我们崩').toBeLessThan(500);
+    expect(status, 'a 429 must not crash us').toBeLessThan(500);
     const msg = JSON.stringify(body);
-    expect(msg, '友好限流提示，可退避/稍后再试').toMatch(/again|later|rate|busy|limit|unavailable/i);
-    expect(msg, '不泄 provider 原始错误/stack/状态码').not.toMatch(/panic|goroutine|stack|429/);
+    expect(msg, 'friendly throttle hint, back off / try later').toMatch(/again|later|rate|busy|limit|unavailable/i);
+    expect(msg, 'does not leak the provider raw error/stack/status code').not.toMatch(/panic|goroutine|stack|429/);
   });
 
   // 编辑已建连接器的 spec（换认证 type）→ 凭据表单/状态重新派生（#161 PUT /{id} + credential-form）。
-  test('编辑 spec → 凭据表单重新派生（bearer → apiKey 后字段跟着变）', async () => {
+  test('edit spec → credential form re-derives (bearer → apiKey changes the fields)', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
 
@@ -88,37 +88,37 @@ test.describe('connector · 额外 corner / error stream（收尾）', () => {
       headers: { 'X-Csrftoken': csrf },
       data: { spec: JSON.parse(apiKeySpec), binding: CAL_BINDING },
     });
-    expect(res.status(), 'PUT 编辑 spec → 200').toBe(200);
+    expect(res.status(), 'PUT edit spec → 200').toBe(200);
 
     // 重新派生的凭据表单/需求反映 apiKey（不再要 oauth dance）。
     const form = await request.get(`${BACKEND}/api/admin/connectors/${id}/credential-form`);
     const f = await form.json() as { auth_type?: string; fields?: { key: string }[] };
-    expect(f.auth_type, '重派生 → apiKey').toMatch(/api.?key/i);
-    expect((f.fields ?? []).map((x) => x.key), 'apiKey 字段，不再是 client_id').toContain('key');
+    expect(f.auth_type, 're-derived → apiKey').toMatch(/api.?key/i);
+    expect((f.fields ?? []).map((x) => x.key), 'apiKey field, no longer client_id').toContain('key');
   });
 
-  // 两个同 kind(openapi) calendar → 恰一个 active（§1/§9 槽位规则，不限异 kind）。
-  test('两个同 kind(openapi) calendar → 恰一个 active，槽位规则与异 kind 一致', async () => {
+  // 两个同 kind(openapi) calendar → exactly one active（§1/§9 槽位规则，不限异 kind）。
+  test('two same-kind (openapi) calendars → exactly one active, slot rule same as cross-kind', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
     const a = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
     const b = await assembleOpenapiCalendar(request, csrf, CAL_SPEC_2, CAL_BINDING);
-    expect(b, '两个不同的 openapi calendar 连接器').not.toBe(a);
+    expect(b, 'two distinct openapi calendar connectors').not.toBe(a);
 
-    // 两个都连上，但品类槽恰一个 active。
+    // 两个都连上，但品类槽exactly one active。
     const rows = await listConnectors(request);
     const cals = rows.filter((c) => c.category === 'calendar');
-    expect(cals.length, '同品类两个连接器并存').toBeGreaterThanOrEqual(2);
-    expect(cals.filter((c) => c.active).length, '恰一个 active').toBe(1);
+    expect(cals.length, 'two connectors of the same category coexist').toBeGreaterThanOrEqual(2);
+    expect(cals.filter((c) => c.active).length, 'exactly one active').toBe(1);
 
     // 显式 activate 另一个 → 槽位移交。
     await request.post(`${BACKEND}/api/admin/connectors/${b}/activate`, { headers: { 'X-Csrftoken': csrf }, data: {} });
     const after = (await listConnectors(request)).filter((c) => c.category === 'calendar');
-    expect(after.find((c) => c.id === b)?.active, 'activate 后 b 成 active').toBe(true);
-    expect(after.find((c) => c.id === a)?.active, 'a 退为 inactive').toBe(false);
+    expect(after.find((c) => c.id === b)?.active, 'after activate, b becomes active').toBe(true);
+    expect(after.find((c) => c.id === a)?.active, 'a falls back to inactive').toBe(false);
 
     // dep-gating 仍开（至少一个 active connected）。
     const cap = await findCapability(request, csrf, 'calendar.book');
-    expect(cap?.dependency?.connected, '有 active connected → 仍解闸').toBe(true);
+    expect(cap?.dependency?.connected, 'an active connected exists → still un-gated').toBe(true);
   });
 });
 

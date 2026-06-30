@@ -40,7 +40,7 @@ async function claimOwner(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-test.describe('connector · 区A spec 摄入 · happy', () => {
+test.describe('connector · area A spec ingest · happy', () => {
   // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
 
   test.beforeAll(async ({ playwright }) => {
@@ -48,7 +48,7 @@ test.describe('connector · 区A spec 摄入 · happy', () => {
   });
 
   // happy —— 合法 OpenAPI 3.0 贴进去 → 解析成功 → calendar candidate 出现。
-  test('合法 3.0 spec 粘贴 → 解析 → 显示 calendar connector candidate', async ({
+  test('valid 3.0 spec pasted → parsed → shows calendar connector candidate', async ({
     adminPage: page,
   }) => {
     await openSpecPaste(page);
@@ -63,7 +63,7 @@ test.describe('connector · 区A spec 摄入 · happy', () => {
   });
 
   // happy —— 同一份 spec 走「上传文件」入口（贴 vs 上传两条路同结果）。
-  test('合法 3.0 spec 文件上传 → 解析 → candidate 出现', async ({ adminPage: page }) => {
+  test('valid 3.0 spec file uploaded → parsed → candidate appears', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     // 文件上传走专门的 file input（Playwright setInputFiles 只认 input[type=file]；粘贴用
     // textarea connector-spec-input）。onChange 读文件 → 同一校验路 → candidate。
@@ -76,7 +76,7 @@ test.describe('connector · 区A spec 摄入 · happy', () => {
   });
 });
 
-test.describe('connector · 区A spec 摄入 · err', () => {
+test.describe('connector · area A spec ingest · err', () => {
   // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
 
   test.beforeAll(async ({ playwright }) => {
@@ -84,7 +84,7 @@ test.describe('connector · 区A spec 摄入 · err', () => {
   });
 
   // err —— 畸形（非法 JSON / 截断）→ 拒，给「无法解析」级别的人类可读错误。
-  test('畸形 spec → 拒绝 + 人类可读 parse 错误（不显示候选）', async ({ adminPage: page }) => {
+  test('malformed spec → rejected + human-readable parse error (no candidate shown)', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill('{ "openapi": "3.0.0", ');
     await page.getByTestId('connector-spec-submit').click();
@@ -96,7 +96,7 @@ test.describe('connector · 区A spec 摄入 · err', () => {
   });
 
   // err —— Swagger 2.0 → 拒，错误必须明确点出版本（决策：只收 3.0）。
-  test('非 3.0（Swagger 2.0）→ 拒 + 版本提示', async ({ adminPage: page }) => {
+  test('non-3.0 (Swagger 2.0) → rejected + version hint', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(swagger20Spec());
     await page.getByTestId('connector-spec-submit').click();
@@ -108,7 +108,7 @@ test.describe('connector · 区A spec 摄入 · err', () => {
   });
 
   // err —— 3.1 也拒（只收 3.0，3.1 schema 模型不同，不通吃）。
-  test('非 3.0（OpenAPI 3.1）→ 拒 + 版本提示', async ({ adminPage: page }) => {
+  test('non-3.0 (OpenAPI 3.1) → rejected + version hint', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(openapi31Spec());
     await page.getByTestId('connector-spec-submit').click();
@@ -119,7 +119,7 @@ test.describe('connector · 区A spec 摄入 · err', () => {
   });
 
   // err —— 没有 servers → 拒（runtime 拿不到 base URL，无法调 API）。
-  test('缺 servers → 拒 + 指出缺 servers', async ({ adminPage: page }) => {
+  test('missing servers → rejected + points out missing servers', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specMissingServers());
     await page.getByTestId('connector-spec-submit').click();
@@ -131,7 +131,7 @@ test.describe('connector · 区A spec 摄入 · err', () => {
   });
 
   // err —— 有 servers 但 paths 为空（无 operations）→ 拒（没东西可绑定）。
-  test('无 operations（paths 空）→ 拒 + 指出缺 operations', async ({ adminPage: page }) => {
+  test('no operations (empty paths) → rejected + points out missing operations', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specMissingOperations());
     await page.getByTestId('connector-spec-submit').click();
@@ -142,7 +142,7 @@ test.describe('connector · 区A spec 摄入 · err', () => {
   });
 
   // err —— 给 spec URL 但拉取失败（不可达/404）→ UI 报 fetch 失败，不卡死。
-  test('spec URL 拉取失败 → 人类可读 fetch 错误', async ({ adminPage: page }) => {
+  test('spec URL fetch fails → human-readable fetch error', async ({ adminPage: page }) => {
     await openConnectorAdd(page);
     // 切到「从 URL 拉 spec」入口。
     await page.getByTestId('connector-spec-url-input')
@@ -160,7 +160,7 @@ test.describe('connector · 区A spec 摄入 · err', () => {
 // 区A 额外 corner（§8 区 A 表里点到、上面没覆盖的）：超大尺寸 / 重复
 // operationId / 缺 operationId / YAML 解析 / 未解析 $ref。同样全 fixme。
 // ──────────────────────────────────────────────────────────────────────────
-test.describe('connector · 区A spec 摄入 corner · err', () => {
+test.describe('connector · area A spec ingest corner · err', () => {
   // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
 
   test.beforeAll(async ({ playwright }) => {
@@ -168,7 +168,7 @@ test.describe('connector · 区A spec 摄入 corner · err', () => {
   });
 
   // err —— 超过大小上限（合法 JSON 但巨大）→ 拒，给 size-limit 级别的人类可读错误。
-  test('超大 spec（超大小上限）→ 拒 + size-limit 提示', async ({ adminPage: page }) => {
+  test('oversized spec (over the size limit) → rejected + size-limit hint', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(oversizedSpec());
     await page.getByTestId('connector-spec-submit').click();
@@ -180,7 +180,7 @@ test.describe('connector · 区A spec 摄入 corner · err', () => {
   });
 
   // err —— 两个 operation 撞同一个 operationId → 拒/标记（绑定无法唯一指向）。
-  test('重复 operationId → 拒/标记（无法唯一绑定）', async ({ adminPage: page }) => {
+  test('duplicate operationId → rejected/flagged (cannot bind uniquely)', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(duplicateOperationIdSpec());
     await page.getByTestId('connector-spec-submit').click();
@@ -192,7 +192,7 @@ test.describe('connector · 区A spec 摄入 corner · err', () => {
   });
 
   // err —— operation 没有 operationId（绑定要靠它指向）→ 标记缺 operationId。
-  test('operation 缺 operationId → 标记（绑定无锚点）', async ({ adminPage: page }) => {
+  test('operation missing operationId → flagged (binding has no anchor)', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specMissingOperationId());
     await page.getByTestId('connector-spec-submit').click();
@@ -204,7 +204,7 @@ test.describe('connector · 区A spec 摄入 corner · err', () => {
   });
 
   // err —— 外部 $ref（指向另一个文件/URL）无法解析 → 给清晰结果（拒，不静默吞）。
-  test('外部/未解析 $ref → 拒 + 指出无法解析引用', async ({ adminPage: page }) => {
+  test('external/unresolved $ref → rejected + points out unresolvable reference', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specExternalRef());
     await page.getByTestId('connector-spec-submit').click();
@@ -216,14 +216,14 @@ test.describe('connector · 区A spec 摄入 corner · err', () => {
   });
 });
 
-test.describe('connector · 区A spec 摄入 corner · happy', () => {
+test.describe('connector · area A spec ingest corner · happy', () => {
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
   });
 
   // happy —— YAML（非 JSON）走同一解析路 → 解析成功 → candidate 出现。
-  test('合法 3.0 YAML spec → 同 parse 路解析 → candidate 出现', async ({ adminPage: page }) => {
+  test('valid 3.0 YAML spec → parsed via the same path → candidate appears', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(validCalendarSpecYaml());
     await page.getByTestId('connector-spec-submit').click();
@@ -233,7 +233,7 @@ test.describe('connector · 区A spec 摄入 corner · happy', () => {
   });
 
   // happy —— 内部 $ref（同文档 #/components/...）→ 解析得动 → candidate 出现。
-  test('内部 $ref（同文档）→ 解析得动 → candidate 出现', async ({ adminPage: page }) => {
+  test('internal $ref (same document) → resolves → candidate appears', async ({ adminPage: page }) => {
     await openSpecPaste(page);
     await page.getByTestId('connector-spec-input').fill(specInternalRef());
     await page.getByTestId('connector-spec-submit').click();

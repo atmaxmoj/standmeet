@@ -53,7 +53,7 @@ function futureSlot(daysAhead: number, hour: number): string {
   return d.toISOString();
 }
 
-test.describe('connector · provider-agnostic 消费闭环（区 F）', () => {
+test.describe('connector · provider-agnostic consumer loop (area F)', () => {
   // #155 §8-F：品类归一 —— 非 Google（CalDAV protocol）calendar 喂 booker，代码一行不改。
   // SMTP mail 那条依赖「mail 作为访客 capability」（沙箱插件，未建），单条 fixme。
 
@@ -64,7 +64,7 @@ test.describe('connector · provider-agnostic 消费闭环（区 F）', () => {
   test.afterAll(async () => { await request.dispose(); });
 
   // ⭐ 核心：非 Google calendar → booker book 成功，booker 代码路径不变。
-  test('非 Google（CalDAV）calendar 连接 → calendar_book 装配 + booking 跑通（booker 一行不改）',
+  test('non-Google (CalDAV) calendar connects → calendar_book assembles + booking works (booker unchanged)',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       // 装一个非 gcal 的 calendar 连接器填「calendar」品类槽，并连上（无 OAuth dance）。
@@ -72,7 +72,7 @@ test.describe('connector · provider-agnostic 消费闭环（区 F）', () => {
 
       // dep-gating：calendar 品类槽现在「connected」→ calendar.book cap 解闸。
       const cap = await findCapability(request, csrf, 'calendar.book');
-      expect(cap?.dependency?.connected, 'CalDAV 连上 → calendar 品类槽 connected').toBe(true);
+      expect(cap?.dependency?.connected, 'CalDAV connected → calendar category slot connected').toBe(true);
 
       // 发码（granted calendar.book）+ session。
       const code = await issueCodeWithSkills(request, csrf, { granted_skills: ['calendar.book'] });
@@ -94,32 +94,32 @@ test.describe('connector · provider-agnostic 消费闭环（区 F）', () => {
 
       // ⭐ event 落在**非 Google** provider 上 —— 同一份 booker 代码、不同 provider。
       const events = await getCalDAVEvents(request, conn.id);
-      expect(events, 'CalDAV provider 收到 booker 创建的 event').toHaveLength(1);
+      expect(events, 'CalDAV provider received the booker-created event').toHaveLength(1);
       expect(events[0]!.summary).toContain('Recruiter Rachel');
       expect(events[0]!.start).toBe(start);
-      expect(events[0]!.attendees ?? [], 'attendee 来自 session profile').toContain('rachel@example.com');
+      expect(events[0]!.attendees ?? [], 'attendee comes from the session profile').toContain('rachel@example.com');
     });
 
   // SMTP（kind=protocol）→ mailer 经 MailContract.Send 发信，无视 kind。需「mail 作为访客
   // capability」（mail.send，沙箱插件，未建），fixme。
-  test('SMTP 连接器（kind=protocol）→ mailer 经 MailContract.Send 发信（无视 kind）',
+  test('SMTP connector (kind=protocol) → mailer sends via MailContract.Send (kind-agnostic)',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await connectSMTPMail(request, csrf);
 
       const cap = await findCapability(request, csrf, 'mail.send');
-      expect(cap?.dependency?.connected, 'SMTP 连上 → mail 品类槽 connected').toBe(true);
+      expect(cap?.dependency?.connected, 'SMTP connected → mail category slot connected').toBe(true);
 
       // mailer 经品类契约发一封（这里走 connector 自测发信端，断 sent + provider=protocol）。
       const sent = await sendViaMailContract(request, csrf, {
         to: 'recruiter@corp.test', subject: 'PA mail', text: 'hello from SMTP',
       });
-      expect(sent.ok, 'MailContract.Send 经 SMTP 成功').toBe(true);
-      expect(sent.via_kind, 'mailer 不知/不关心底下是 protocol').toMatch(/protocol|smtp/i);
+      expect(sent.ok, 'MailContract.Send succeeds via SMTP').toBe(true);
+      expect(sent.via_kind, 'mailer neither knows nor cares it is protocol underneath').toMatch(/protocol|smtp/i);
     });
 
   // err：连接器 connected 但 runtime API 5xx → 友好降级，不崩、不泄 stack、不建 event。
-  test('CalDAV connected 但 runtime 5xx → 友好降级（无 5xx、无 stack、无 event）',
+  test('CalDAV connected but runtime 5xx → friendly degrade (no 5xx, no stack, no event)',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       const conn = await connectCalDAVCalendar(request, csrf);
@@ -132,15 +132,15 @@ test.describe('connector · provider-agnostic 消费闭环（区 F）', () => {
       });
       const { status, body } = await callBook(request, visitor);
 
-      expect(status, 'runtime 5xx 不该让我们崩').toBeLessThan(500);
+      expect(status, 'a runtime 5xx must not crash us').toBeLessThan(500);
       const msg = `${body.reason ?? ''} ${body.result?.error ?? ''}`;
-      expect(msg, '友好 try-again').toMatch(/again|later|unavailable|calendar|couldn'?t/i);
-      expect(msg, '不泄 provider 原始错误/stack').not.toMatch(/panic|goroutine|stack|5\d\d/i);
-      expect(await getCalDAVEvents(request, conn.id), '降级 → 没建 event').toHaveLength(0);
+      expect(msg, 'friendly try-again').toMatch(/again|later|unavailable|calendar|couldn'?t/i);
+      expect(msg, 'does not leak the provider raw error/stack').not.toMatch(/panic|goroutine|stack|5\d\d/i);
+      expect(await getCalDAVEvents(request, conn.id), 'degraded → no event created').toHaveLength(0);
     });
 
   // dep-gating：calendar 连接器 disconnect → cap re-gate；reconnect → un-gate。
-  test('calendar 连接器 disconnect → calendar.book re-gate；reconnect → un-gate',
+  test('calendar connector disconnect → calendar.book re-gated; reconnect → un-gated',
     async () => { await runDepGating(request); });
 });
 
@@ -177,7 +177,7 @@ async function runDepGating(request: APIRequestContext): Promise<void> {
   // 断开 → 全局单点闸据 dependency.connected=false 把 calendar.book gate 掉。
   await disconnectConnector(request, csrf, conn.id);
   const capGated = await findCapability(request, csrf, 'calendar.book');
-  expect(capGated?.dependency?.connected, '断开 → 品类槽 disconnected').toBe(false);
+  expect(capGated?.dependency?.connected, 'disconnected → category slot disconnected').toBe(false);
   await expectCalendarBookExposed(request, (await newSession('B')).session_token, false);
 
   // 重连 → 复闸（un-gate）。
