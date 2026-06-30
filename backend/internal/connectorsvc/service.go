@@ -105,11 +105,10 @@ func (s *Service) Connect(ctx context.Context, ownerID, id string) (ConnectResul
 	if merr != nil {
 		return ConnectResult{}, merr
 	}
-	ep, err := connector.OAuthEndpointsFor(m, m.AuthScheme)
-	if err != nil {
+	if m.Kind == "protocol" { // protocol（caldav/smtp，无 spec）：connect = 连接测试，无 dance
 		return s.verifyAndConnect(ctx, ownerID, id)
 	}
-	return s.initDance(ctx, ownerID, id, ep)
+	return s.connectOpenAPI(ctx, ownerID, id, m)
 }
 
 // Callback —— 校验 state → code 换 token → 存。返回该 owner（state 携带）。
@@ -233,6 +232,22 @@ func (s *Service) manifestFor(
 }
 
 // verifyAndConnect —— 非 dance：先跑连接测试（protocol 连接器有；其它 no-op）→ 通过才标 connected。
+// connectOpenAPI —— openapi 连接器的 connect：oauth2 → dance；非 oauth（apikey/bearer/basic）→ 存即用；
+// 声明了 oauth2 却配坏（缺 authorizationCode flow 等）→ 暴露错，不静默走非-dance（否则 markConnected 却无 token）。
+func (s *Service) connectOpenAPI(
+	ctx context.Context, ownerID, id string, m *connector.Manifest,
+) (ConnectResult, error) {
+	ep, err := connector.OAuthEndpointsFor(m, m.AuthScheme)
+	switch {
+	case errors.Is(err, connector.ErrNotDanceScheme):
+		return s.verifyAndConnect(ctx, ownerID, id)
+	case err != nil:
+		return ConnectResult{}, fmt.Errorf("connect oauth setup: %w", err)
+	default:
+		return s.initDance(ctx, ownerID, id, ep)
+	}
+}
+
 func (s *Service) verifyAndConnect(ctx context.Context, ownerID, id string) (ConnectResult, error) {
 	if s.d.Verifier != nil {
 		if verr := s.d.Verifier.VerifyConnector(ctx, id, ownerID); verr != nil {

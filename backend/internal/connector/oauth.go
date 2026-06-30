@@ -8,6 +8,7 @@ package connector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,11 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
+
+// ErrNotDanceScheme —— 该连接器的 securityScheme 不是 oauth2 authorization-code（apikey/bearer/basic）：
+// **预期的非-dance**，connect 走「存即用 / 连接测试」路，不是错。跟「声明了 oauth2 却配坏」分开，
+// 后者要吵闹（否则坏 oauth 连接器会静默 markConnected 却没 token）。
+var ErrNotDanceScheme = errors.New("connector scheme is not an oauth2 authorization-code dance")
 
 // OAuthEndpoints —— spec 的 oauth2 / openIdConnect scheme 解析出的端点。
 type OAuthEndpoints struct {
@@ -41,9 +47,12 @@ func oauthEndpointsFromSpec(spec *openapi.Spec, schemeName string) (OAuthEndpoin
 	if serr != nil {
 		return OAuthEndpoints{}, serr
 	}
+	if scheme.Type != "oauth2" && scheme.Type != "openIdConnect" {
+		return OAuthEndpoints{}, ErrNotDanceScheme // apikey/bearer/basic：预期非 dance
+	}
 	flow := scheme.Flows.AuthorizationCode
-	if flow == nil {
-		return OAuthEndpoints{}, fmt.Errorf("%w: scheme has no authorizationCode flow",
+	if flow == nil { // 声明了 oauth2 却没 authorizationCode flow → 真配错，上报（不静默非-dance）
+		return OAuthEndpoints{}, fmt.Errorf("%w: oauth2 scheme has no authorizationCode flow",
 			errUnsupportedAuth)
 	}
 	return OAuthEndpoints{
