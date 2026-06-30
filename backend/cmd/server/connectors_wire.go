@@ -189,37 +189,12 @@ func registerDiscoveredConnectors(
 		}
 		hub.Register(c)
 	}
-	if uerr := registerUploadedConnectors(ctx, hub, d.connectorRepo, deps); uerr != nil {
-		return uerr
-	}
+	// slots 分派器先立起来（只需 hub + repo）：哪怕下面装上传连接器出岔，品类槽仍在，消费者拿到
+	// 「未连接」域错而非 nil 解引用——一个坏连接器不该让整实例（连带 public /api/v1/instance）500。
 	d.connectorSlots = connector.NewSlots(hub, slotStoreAdapter{repo: d.connectorRepo})
 	depReg.Register(capreg.NamedProvider("calendar", d.connectorSlots.Calendar().Connected))
 	depReg.Register(capreg.NamedProvider("smtp", d.connectorSlots.Mail().Connected))
-	return nil
-}
-
-// registerUploadedConnectors —— 拉起重装：DB 里 owner 自建的连接器（openapi 带 spec+binding；
-// protocol 带 protocol）装配进 Hub（跟内置同一路 assembleConnector，归一）。
-func registerUploadedConnectors(
-	ctx context.Context, hub *connector.Hub, repo *postgres.ConnectorRepo, deps *assembleDeps,
-) error {
-	uploaded, err := repo.ListUploaded(ctx)
-	if err != nil {
-		return fmt.Errorf("load uploaded connectors: %w", err)
-	}
-	for i := range uploaded {
-		u := &uploaded[i]
-		m := &connector.Manifest{
-			ID: u.ConnectorID, Kind: u.Kind, Category: u.Category, Protocol: u.Protocol,
-			AuthScheme: u.AuthScheme, Spec: u.Spec, Binding: u.Binding,
-			ExposeAsAgentTools: u.ExposeAsAgentTools,
-		}
-		c, aerr := assembleConnector(m, deps)
-		if aerr != nil {
-			return fmt.Errorf("assemble uploaded connector %q: %w", u.ConnectorID, aerr)
-		}
-		hub.Upsert(c)
-	}
+	registerUploadedConnectors(ctx, hub, d.connectorRepo, deps, d.log)
 	return nil
 }
 
