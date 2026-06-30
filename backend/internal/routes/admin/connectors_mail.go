@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -31,14 +30,14 @@ func (h *Handlers) mailTestSend() http.HandlerFunc {
 		var body mailTestSendReq
 		dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
 		if derr := dec.Decode(&body); derr != nil {
-			writeError(h.Log, w, apierr.Envelope{
-				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
-			})
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
 		serr := h.ConnectorsAdmin.Mail.Send(r.Context(), ownerID,
 			usecases.MailMessage{To: body.To, Subject: body.Subject, Body: body.Text})
 		if serr != nil {
+			// 自测发信失败 → {ok:false}，但要留痕：否则 SMTP 挂 / 认证错这类基建故障无声，运维查无可查。
+			h.Log.Warn("connector mail test-send", logErrKey, serr)
 			writeJSON(h.Log, w, mailTestSendResp{Ok: false})
 			return
 		}

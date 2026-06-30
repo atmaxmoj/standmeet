@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 )
 
@@ -35,9 +34,7 @@ func (h *Handlers) validateSpec() http.HandlerFunc {
 		var body validateSpecReq
 		dec := json.NewDecoder(io.LimitReader(r.Body, maxSpecBodyBytes))
 		if derr := dec.Decode(&body); derr != nil {
-			writeError(h.Log, w, apierr.Envelope{
-				Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
-			})
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
 		v := h.ConnectorsAdmin.Svc.ValidateSpec(r.Context(), []byte(body.Spec), body.URL)

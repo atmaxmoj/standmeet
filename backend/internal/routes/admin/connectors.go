@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
@@ -136,9 +135,7 @@ func (h *Handlers) decodeWriteBody(
 	var body connectorWriteReq
 	dec := json.NewDecoder(io.LimitReader(r.Body, maxCredBytes))
 	if derr := dec.Decode(&body); derr != nil {
-		writeError(h.Log, w, apierr.Envelope{
-			Status: http.StatusBadRequest, Code: "bad_request", Message: "invalid JSON body",
-		})
+		writeError(h.Log, w, envBadReq("invalid JSON body"))
 		return connectorWriteReq{}, false
 	}
 	return body, true
