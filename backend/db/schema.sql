@@ -118,8 +118,8 @@ CREATE TABLE wiki_entries (
     -- 地址(path)纯树派生(parent 链 + title slug,见 usecases.WikiTreePaths),
     -- 不存列:corpus 是 filesystem,文件路径来自它在哪个目录下。
     show_as_source   bool          NOT NULL DEFAULT true,
-    seo_description  text          NOT NULL DEFAULT '',
-    seo_indexed      bool          NOT NULL DEFAULT false,
+    excerpt          text          NOT NULL DEFAULT '',
+    published        bool          NOT NULL DEFAULT false,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
@@ -158,8 +158,8 @@ CREATE TABLE output_entries (
     source_wiki_ids  uuid[]        NOT NULL DEFAULT '{}',
     -- 地址纯树派生,不存列(同 wiki_entries)。
     show_as_source   bool          NOT NULL DEFAULT true,
-    seo_description  text          NOT NULL DEFAULT '',
-    seo_indexed      bool          NOT NULL DEFAULT false,
+    excerpt          text          NOT NULL DEFAULT '',
+    published        bool          NOT NULL DEFAULT false,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
@@ -421,7 +421,6 @@ CREATE TABLE writings (
     excerpt               text          NOT NULL DEFAULT '',
     body_md               text          NOT NULL DEFAULT '',
     cover_headline        text          NOT NULL DEFAULT '',
-    cover_sub             text          NOT NULL DEFAULT '',
     cover_hue             text          NOT NULL DEFAULT 'amber',
     cover_image_asset_id  uuid          NULL REFERENCES assets(id) ON DELETE SET NULL,
     tags                  text[]        NOT NULL DEFAULT '{}',
@@ -567,6 +566,7 @@ CREATE INDEX access_requests_owner_status_idx
 -- seo_settings —— owner 维度的 SEO 全局开关。Singleton-per-owner。
 CREATE TABLE seo_settings (
     owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
+    site_title      text          NOT NULL DEFAULT '',
     index_robots    bool          NOT NULL DEFAULT true,
     sitemap_extras  jsonb         NOT NULL DEFAULT '[]'::jsonb,
     og_template     text          NOT NULL DEFAULT '',

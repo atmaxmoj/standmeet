@@ -36,7 +36,7 @@ test.describe('W3/F1 wiki reader meta row: sources count + cover tag', () => {
       title: 'Lonely Note', body: 'A standalone note with no tags.',
     });
     await callTool<unknown>(request, mcpToken, sid, 'seo.set_wiki_seo', {
-      wiki_id: w.wikiID, seo_description: '', seo_indexed: true,
+      wiki_id: w.wikiID, excerpt: '', published: true,
     });
     await request.dispose();
   });

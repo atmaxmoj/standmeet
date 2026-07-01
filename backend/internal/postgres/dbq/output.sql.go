@@ -17,7 +17,7 @@ INSERT INTO output_entries (
     owner_id, parent_id, title, body, tags, source_wiki_ids
 )
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, excerpt, published, created_at, updated_at
 `
 
 type CreateOutputEntryParams struct {
@@ -50,8 +50,8 @@ func (q *Queries) CreateOutputEntry(ctx context.Context, arg CreateOutputEntryPa
 		&i.Tags,
 		&i.SourceWikiIds,
 		&i.ShowAsSource,
-		&i.SeoDescription,
-		&i.SeoIndexed,
+		&i.Excerpt,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -73,7 +73,7 @@ func (q *Queries) DeleteOutput(ctx context.Context, arg DeleteOutputParams) erro
 }
 
 const getOutputByID = `-- name: GetOutputByID :one
-SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM output_entries WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, excerpt, published, created_at, updated_at FROM output_entries WHERE id = $1 AND owner_id = $2
 `
 
 type GetOutputByIDParams struct {
@@ -93,8 +93,8 @@ func (q *Queries) GetOutputByID(ctx context.Context, arg GetOutputByIDParams) (O
 		&i.Tags,
 		&i.SourceWikiIds,
 		&i.ShowAsSource,
-		&i.SeoDescription,
-		&i.SeoIndexed,
+		&i.Excerpt,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -102,7 +102,7 @@ func (q *Queries) GetOutputByID(ctx context.Context, arg GetOutputByIDParams) (O
 }
 
 const getOutputMetaByID = `-- name: GetOutputMetaByID :one
-SELECT id, parent_id, title, seo_indexed
+SELECT id, parent_id, title, published
 FROM output_entries
 WHERE id = $1 AND owner_id = $2
 `
@@ -113,10 +113,10 @@ type GetOutputMetaByIDParams struct {
 }
 
 type GetOutputMetaByIDRow struct {
-	ID         pgtype.UUID
-	ParentID   pgtype.UUID
-	Title      string
-	SeoIndexed bool
+	ID        pgtype.UUID
+	ParentID  pgtype.UUID
+	Title     string
+	Published bool
 }
 
 // meta only(无 body):上溯算树派生 path / 判 ACL 用,不为读正文。镜像 GetWikiMetaByID。
@@ -127,24 +127,24 @@ func (q *Queries) GetOutputMetaByID(ctx context.Context, arg GetOutputMetaByIDPa
 		&i.ID,
 		&i.ParentID,
 		&i.Title,
-		&i.SeoIndexed,
+		&i.Published,
 	)
 	return i, err
 }
 
 const listAllOutputMeta = `-- name: ListAllOutputMeta :many
-SELECT id, parent_id, title, seo_indexed, updated_at
+SELECT id, parent_id, title, published, updated_at
 FROM output_entries
 WHERE owner_id = $1
 ORDER BY created_at DESC
 `
 
 type ListAllOutputMetaRow struct {
-	ID         pgtype.UUID
-	ParentID   pgtype.UUID
-	Title      string
-	SeoIndexed bool
-	UpdatedAt  pgtype.Timestamptz
+	ID        pgtype.UUID
+	ParentID  pgtype.UUID
+	Title     string
+	Published bool
+	UpdatedAt pgtype.Timestamptz
 }
 
 // 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed output + landing 的树路径
@@ -163,7 +163,7 @@ func (q *Queries) ListAllOutputMeta(ctx context.Context, ownerID pgtype.UUID) ([
 			&i.ID,
 			&i.ParentID,
 			&i.Title,
-			&i.SeoIndexed,
+			&i.Published,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -177,7 +177,7 @@ func (q *Queries) ListAllOutputMeta(ctx context.Context, ownerID pgtype.UUID) ([
 }
 
 const listOutputByOwner = `-- name: ListOutputByOwner :many
-SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM output_entries
+SELECT id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, excerpt, published, created_at, updated_at FROM output_entries
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -206,8 +206,8 @@ func (q *Queries) ListOutputByOwner(ctx context.Context, arg ListOutputByOwnerPa
 			&i.Tags,
 			&i.SourceWikiIds,
 			&i.ShowAsSource,
-			&i.SeoDescription,
-			&i.SeoIndexed,
+			&i.Excerpt,
+			&i.Published,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -222,7 +222,7 @@ func (q *Queries) ListOutputByOwner(ctx context.Context, arg ListOutputByOwnerPa
 }
 
 const listOutputChildren = `-- name: ListOutputChildren :many
-SELECT o.id, o.parent_id, o.title, o.seo_indexed,
+SELECT o.id, o.parent_id, o.title, o.published,
        EXISTS(SELECT 1 FROM output_entries c WHERE c.parent_id = o.id) AS has_children
 FROM output_entries o
 WHERE o.owner_id = $1
@@ -242,7 +242,7 @@ type ListOutputChildrenRow struct {
 	ID          pgtype.UUID
 	ParentID    pgtype.UUID
 	Title       string
-	SeoIndexed  bool
+	Published   bool
 	HasChildren bool
 }
 
@@ -267,7 +267,7 @@ func (q *Queries) ListOutputChildren(ctx context.Context, arg ListOutputChildren
 			&i.ID,
 			&i.ParentID,
 			&i.Title,
-			&i.SeoIndexed,
+			&i.Published,
 			&i.HasChildren,
 		); err != nil {
 			return nil, err
@@ -281,7 +281,7 @@ func (q *Queries) ListOutputChildren(ctx context.Context, arg ListOutputChildren
 }
 
 const searchOutputByOwner = `-- name: SearchOutputByOwner :many
-SELECT id, parent_id, title, seo_indexed, left(body, 200) AS snippet
+SELECT id, parent_id, title, published, left(body, 200) AS snippet
 FROM output_entries
 WHERE owner_id = $1
   AND to_tsvector('english',
@@ -303,11 +303,11 @@ type SearchOutputByOwnerParams struct {
 }
 
 type SearchOutputByOwnerRow struct {
-	ID         pgtype.UUID
-	ParentID   pgtype.UUID
-	Title      string
-	SeoIndexed bool
-	Snippet    string
+	ID        pgtype.UUID
+	ParentID  pgtype.UUID
+	Title     string
+	Published bool
+	Snippet   string
 }
 
 // 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
@@ -330,7 +330,7 @@ func (q *Queries) SearchOutputByOwner(ctx context.Context, arg SearchOutputByOwn
 			&i.ID,
 			&i.ParentID,
 			&i.Title,
-			&i.SeoIndexed,
+			&i.Published,
 			&i.Snippet,
 		); err != nil {
 			return nil, err
@@ -363,7 +363,7 @@ UPDATE output_entries
 SET title = $3, body = $4, tags = $5, parent_id = $6, show_as_source = $7,
     updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, excerpt, published, created_at, updated_at
 `
 
 type UpdateOutputBodyParams struct {
@@ -397,8 +397,8 @@ func (q *Queries) UpdateOutputBody(ctx context.Context, arg UpdateOutputBodyPara
 		&i.Tags,
 		&i.SourceWikiIds,
 		&i.ShowAsSource,
-		&i.SeoDescription,
-		&i.SeoIndexed,
+		&i.Excerpt,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -407,20 +407,20 @@ func (q *Queries) UpdateOutputBody(ctx context.Context, arg UpdateOutputBodyPara
 
 const updateOutputSEO = `-- name: UpdateOutputSEO :one
 UPDATE output_entries
-SET seo_description = $2, seo_indexed = $3, updated_at = now()
+SET excerpt = $2, published = $3, updated_at = now()
 WHERE id = $1
-RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_wiki_ids, show_as_source, excerpt, published, created_at, updated_at
 `
 
 type UpdateOutputSEOParams struct {
-	ID             pgtype.UUID
-	SeoDescription string
-	SeoIndexed     bool
+	ID        pgtype.UUID
+	Excerpt   string
+	Published bool
 }
 
 // admin / MCP 编辑 SEO 描述 + indexed 开关（地址树派生,无 path 列）。
 func (q *Queries) UpdateOutputSEO(ctx context.Context, arg UpdateOutputSEOParams) (OutputEntry, error) {
-	row := q.db.QueryRow(ctx, updateOutputSEO, arg.ID, arg.SeoDescription, arg.SeoIndexed)
+	row := q.db.QueryRow(ctx, updateOutputSEO, arg.ID, arg.Excerpt, arg.Published)
 	var i OutputEntry
 	err := row.Scan(
 		&i.ID,
@@ -431,8 +431,8 @@ func (q *Queries) UpdateOutputSEO(ctx context.Context, arg UpdateOutputSEOParams
 		&i.Tags,
 		&i.SourceWikiIds,
 		&i.ShowAsSource,
-		&i.SeoDescription,
-		&i.SeoIndexed,
+		&i.Excerpt,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

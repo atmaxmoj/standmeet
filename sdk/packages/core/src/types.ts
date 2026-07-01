@@ -57,7 +57,7 @@ export interface WikiLandingView {
   readonly path: string;
   readonly title: string;
   readonly body: string;
-  readonly seo_description: string;
+  readonly excerpt: string;
   readonly updated_at: string;
   readonly tags: readonly string[];
   // 出/入链(read next / cited by rail):每项指向另一条 wiki。
@@ -73,7 +73,7 @@ export interface OutputLandingView {
   readonly path: string;
   readonly title: string;
   readonly body: string;
-  readonly seo_description: string;
+  readonly excerpt: string;
   readonly updated_at: string;
 }
 

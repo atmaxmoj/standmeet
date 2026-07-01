@@ -79,7 +79,6 @@ func writingCreateInputSchema() json.RawMessage {
 			"excerpt":{"type":"string"},
 			"body_md":{"type":"string"},
 			"cover_headline":{"type":"string"},
-			"cover_sub":{"type":"string"},
 			"cover_hue":{"type":"string","description":"'amber' (default) | 'violet' | 'acid'."},
 			"cover_image_asset_id":{"type":"string"},
 			"tags":{"type":"array","items":{"type":"string"}},
@@ -105,7 +104,6 @@ type writingCreateArgsWire struct {
 	Excerpt           string            `json:"excerpt"`
 	BodyMD            string            `json:"body_md"`
 	CoverHeadline     string            `json:"cover_headline"`
-	CoverSub          string            `json:"cover_sub"`
 	CoverHue          string            `json:"cover_hue"`
 	CoverImageAssetID string            `json:"cover_image_asset_id"`
 	Visibility        string            `json:"visibility"`
@@ -187,14 +185,14 @@ func buildWritingSaveInput(
 		BodyMD:        args.BodyMD,
 		CoverImageRef: args.CoverImageAssetID,
 		CoverHeadline: args.CoverHeadline,
-		CoverSub:      args.CoverSub,
-		CoverHue:      args.CoverHue,
-		Tags:          nonNilStrings(args.Tags),
-		Visibility:    args.Visibility,
-		CrossRefs:     nonNilStrings(args.CrossRefs),
-		LockedBody:    args.LockedBody,
-		ParentID:      args.ParentID,
-		Publish:       args.Publish,
+
+		CoverHue:   args.CoverHue,
+		Tags:       nonNilStrings(args.Tags),
+		Visibility: args.Visibility,
+		CrossRefs:  nonNilStrings(args.CrossRefs),
+		LockedBody: args.LockedBody,
+		ParentID:   args.ParentID,
+		Publish:    args.Publish,
 	}
 }
 

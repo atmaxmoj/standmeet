@@ -171,9 +171,6 @@ func (w *Writing) HasObsidian() bool { return w.integrations.Has(IntegrationObsi
 // Cover() 再取字段。
 func (w *Writing) CoverHeadline() string { return w.cover.Headline() }
 
-// CoverSub —— 封面 sub。
-func (w *Writing) CoverSub() string { return w.cover.Sub() }
-
 // CoverHue —— 封面色调。
 func (w *Writing) CoverHue() string { return w.cover.Hue() }
 

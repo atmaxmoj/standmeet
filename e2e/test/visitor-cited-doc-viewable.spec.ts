@@ -2,7 +2,7 @@
 // 的页面 → 必须看得到全文,而不是「requires an access code」锁屏。
 //
 // 道理:访客凭 code 登录、role ACL 授了这篇(AI 就是凭这访问读出来答的),
-// 那他当然该能查看。公开 landing 是 seo_indexed-only + 不认 session,所以非
+// 那他当然该能查看。公开 landing 是 published-only + 不认 session,所以非
 // indexed 的被引文档落到锁屏 —— 这是 bug。修法:锁屏客户端拿 visitor session
 // 走 corpus_read(ACL 评估)把全文取回来渲染。
 
@@ -35,7 +35,7 @@ test.describe('持 code 访客点引用 → 看得到被引文档(不落锁屏)'
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const token = await createAPIToken(request, csrf, 'cited-doc-seed');
     const sid = await initMCP(request, token);
-    // 不设 seo_indexed → 公开 landing 会锁;但访客的 code/ACL 该放行。
+    // 不设 published → 公开 landing 会锁;但访客的 code/ACL 该放行。
     await seedWiki(request, token, sid, {
       body: TARGET_BODY, title: 'Lucerna', path: TARGET_PATH,
     });

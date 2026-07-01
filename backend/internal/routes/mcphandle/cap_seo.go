@@ -67,8 +67,8 @@ func (c *seoCapability) setWikiSlugBinding() *capreg.MCPBinding {
 			"type":"object",
 			"properties":{
 				"wiki_id":{"type":"string","description":"Wiki UUID."},
-				"seo_description":{"type":"string"},
-				"seo_indexed":{"type":"boolean"}
+				"excerpt":{"type":"string"},
+				"published":{"type":"boolean"}
 			},
 			"required":["wiki_id"]
 		}`),
@@ -77,15 +77,15 @@ func (c *seoCapability) setWikiSlugBinding() *capreg.MCPBinding {
 }
 
 type setWikiSlugArgsWire struct {
-	WikiID         string `json:"wiki_id"`
-	SEODescription string `json:"seo_description"`
-	SEOIndexed     bool   `json:"seo_indexed"`
+	WikiID    string `json:"wiki_id"`
+	Excerpt   string `json:"excerpt"`
+	Published bool   `json:"published"`
 }
 
 type setWikiSlugPayload struct {
-	WikiID         string `json:"wiki_id"`
-	SEODescription string `json:"seo_description"`
-	SEOIndexed     bool   `json:"seo_indexed"`
+	WikiID    string `json:"wiki_id"`
+	Excerpt   string `json:"excerpt"`
+	Published bool   `json:"published"`
 }
 
 func (c *seoCapability) handleSetWikiSlug(
@@ -98,7 +98,7 @@ func (c *seoCapability) handleSetWikiSlug(
 	if args.WikiID == "" {
 		return capreg.MCPError("wiki_id is required")
 	}
-	updated, err := c.seo.UpdateWikiSEO(ctx, args.WikiID, args.SEODescription, args.SEOIndexed)
+	updated, err := c.seo.UpdateWikiSEO(ctx, args.WikiID, args.Excerpt, args.Published)
 	if err != nil {
 		return seoErrToResult(c.log, err, "seo.set_wiki_seo")
 	}
@@ -107,9 +107,9 @@ func (c *seoCapability) handleSetWikiSlug(
 
 func marshalSetWikiSlug(log *slog.Logger, w *domain.Wiki) capreg.MCPResult {
 	payload := setWikiSlugPayload{
-		WikiID:         w.ID(),
-		SEODescription: w.SEODescription(),
-		SEOIndexed:     w.SEOIndexed(),
+		WikiID:    w.ID(),
+		Excerpt:   w.Excerpt(),
+		Published: w.Published(),
 	}
 	out, err := json.Marshal(payload)
 	if err != nil {
@@ -130,8 +130,8 @@ func (c *seoCapability) setOutputSlugBinding() *capreg.MCPBinding {
 			"type":"object",
 			"properties":{
 				"output_id":{"type":"string","description":"Output UUID."},
-				"seo_description":{"type":"string"},
-				"seo_indexed":{"type":"boolean"}
+				"excerpt":{"type":"string"},
+				"published":{"type":"boolean"}
 			},
 			"required":["output_id"]
 		}`),
@@ -140,15 +140,15 @@ func (c *seoCapability) setOutputSlugBinding() *capreg.MCPBinding {
 }
 
 type setOutputSlugArgsWire struct {
-	OutputID       string `json:"output_id"`
-	SEODescription string `json:"seo_description"`
-	SEOIndexed     bool   `json:"seo_indexed"`
+	OutputID  string `json:"output_id"`
+	Excerpt   string `json:"excerpt"`
+	Published bool   `json:"published"`
 }
 
 type setOutputSlugPayload struct {
-	OutputID       string `json:"output_id"`
-	SEODescription string `json:"seo_description"`
-	SEOIndexed     bool   `json:"seo_indexed"`
+	OutputID  string `json:"output_id"`
+	Excerpt   string `json:"excerpt"`
+	Published bool   `json:"published"`
 }
 
 func (c *seoCapability) handleSetOutputSlug(
@@ -161,7 +161,7 @@ func (c *seoCapability) handleSetOutputSlug(
 	if args.OutputID == "" {
 		return capreg.MCPError("output_id is required")
 	}
-	updated, err := c.seo.UpdateOutputSEO(ctx, args.OutputID, args.SEODescription, args.SEOIndexed)
+	updated, err := c.seo.UpdateOutputSEO(ctx, args.OutputID, args.Excerpt, args.Published)
 	if err != nil {
 		return seoErrToResult(c.log, err, "seo.set_output_seo")
 	}
@@ -170,9 +170,9 @@ func (c *seoCapability) handleSetOutputSlug(
 
 func marshalSetOutputSlug(log *slog.Logger, o *domain.Output) capreg.MCPResult {
 	payload := setOutputSlugPayload{
-		OutputID:       o.ID(),
-		SEODescription: o.SEODescription(),
-		SEOIndexed:     o.SEOIndexed(),
+		OutputID:  o.ID(),
+		Excerpt:   o.Excerpt(),
+		Published: o.Published(),
 	}
 	out, err := json.Marshal(payload)
 	if err != nil {

@@ -64,11 +64,11 @@ func applyOneWikiRewrite(
 }
 
 // WikiPathTitleIndex —— 从全树 + 派生 path 抽出可作链接目标的 (title, path) 列。
-// 只收 seo_indexed:公开链接目标必须可访问,否则点进去 404。
+// 只收 published:公开链接目标必须可访问,否则点进去 404。
 func WikiPathTitleIndex(wikis []domain.Wiki, paths map[string]string) []WikiPathTitle {
 	out := make([]WikiPathTitle, 0, len(wikis))
 	for i := range wikis {
-		if wikis[i].SEOIndexed() {
+		if wikis[i].Published() {
 			out = append(out, WikiPathTitle{Title: wikis[i].Title(), Path: paths[wikis[i].ID()]})
 		}
 	}
@@ -82,7 +82,7 @@ func wikiMetaPathTitleIndex(
 ) []WikiPathTitle {
 	out := make([]WikiPathTitle, 0, len(metas))
 	for i := range metas {
-		if metas[i].SEOIndexed {
+		if metas[i].Published {
 			out = append(out, WikiPathTitle{Title: metas[i].Title, Path: paths[metas[i].ID]})
 		}
 	}

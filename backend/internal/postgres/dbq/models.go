@@ -240,18 +240,18 @@ type Message struct {
 }
 
 type OutputEntry struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
-	ParentID       pgtype.UUID
-	Title          string
-	Body           string
-	Tags           []string
-	SourceWikiIds  []pgtype.UUID
-	ShowAsSource   bool
-	SeoDescription string
-	SeoIndexed     bool
-	CreatedAt      pgtype.Timestamptz
-	UpdatedAt      pgtype.Timestamptz
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	ParentID      pgtype.UUID
+	Title         string
+	Body          string
+	Tags          []string
+	SourceWikiIds []pgtype.UUID
+	ShowAsSource  bool
+	Excerpt       string
+	Published     bool
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
 }
 
 type Owner struct {
@@ -424,6 +424,7 @@ type RoleSkill struct {
 
 type SeoSetting struct {
 	OwnerID       pgtype.UUID
+	SiteTitle     string
 	IndexRobots   bool
 	SitemapExtras []byte
 	OgTemplate    string
@@ -449,18 +450,18 @@ type Skill struct {
 }
 
 type WikiEntry struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
-	ParentID       pgtype.UUID
-	Title          string
-	Body           string
-	Tags           []string
-	SourceRawIds   []pgtype.UUID
-	ShowAsSource   bool
-	SeoDescription string
-	SeoIndexed     bool
-	CreatedAt      pgtype.Timestamptz
-	UpdatedAt      pgtype.Timestamptz
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	ParentID     pgtype.UUID
+	Title        string
+	Body         string
+	Tags         []string
+	SourceRawIds []pgtype.UUID
+	ShowAsSource bool
+	Excerpt      string
+	Published    bool
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
 }
 
 type WikiRef struct {
@@ -478,7 +479,6 @@ type Writing struct {
 	Excerpt            string
 	BodyMd             string
 	CoverHeadline      string
-	CoverSub           string
 	CoverHue           string
 	CoverImageAssetID  pgtype.UUID
 	Tags               []string

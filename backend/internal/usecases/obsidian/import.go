@@ -235,7 +235,7 @@ func buildSaveInputFromVault(
 		Excerpt:       p.fm.Excerpt,
 		BodyMD:        p.body,
 		CoverHeadline: p.fm.CoverHeadline,
-		CoverSub:      p.fm.CoverSub,
+
 		CoverHue:      pickHue(p.fm.CoverHue),
 		CoverImageRef: p.cover,
 		Visibility:    pickVisibility(p.fm.Visibility),

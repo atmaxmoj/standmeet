@@ -48,7 +48,6 @@ type writingView struct {
 	Excerpt           string            `json:"excerpt"`
 	BodyMD            string            `json:"body_md"`
 	CoverHeadline     string            `json:"cover_headline"`
-	CoverSub          string            `json:"cover_sub"`
 	CoverHue          string            `json:"cover_hue"`
 	Visibility        string            `json:"visibility"`
 	Path              string            `json:"path"`
@@ -266,7 +265,7 @@ func toWritingView(wg *domain.Writing) writingView {
 	}
 	return writingView{
 		ID: wg.ID(), Slug: wg.Slug(), Title: wg.Title(), Excerpt: wg.Excerpt(),
-		BodyMD: wg.Body(), CoverHeadline: wg.CoverHeadline(), CoverSub: wg.CoverSub(),
+		BodyMD: wg.Body(), CoverHeadline: wg.CoverHeadline(),
 		CoverHue: wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
 		Tags: wg.Tags(), Visibility: wg.VisibilityMode(), CrossRefs: wg.CrossRefs(),
 		Path: wg.Path(), ReadMinutes: wg.ReadMinutes(), LockedBody: wg.LockedBody(),

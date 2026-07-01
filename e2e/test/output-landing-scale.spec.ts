@@ -78,6 +78,6 @@ async function indexOutput(
   request: APIRequestContext, sid: string, outputID: string,
 ): Promise<void> {
   await callTool<unknown>(request, mcpToken, sid, 'seo.set_output_seo', {
-    output_id: outputID, seo_description: '', seo_indexed: true,
+    output_id: outputID, excerpt: '', published: true,
   });
 }

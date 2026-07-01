@@ -37,7 +37,6 @@ type CreateWritingInput struct {
 	Excerpt           string
 	BodyMD            string
 	CoverHeadline     string
-	CoverSub          string
 	CoverHue          string
 	Visibility        string
 	Path              string
@@ -92,7 +91,7 @@ func buildCreateWritingParams(in *CreateWritingInput) (*dbq.CreateWritingParams,
 	}
 	return &dbq.CreateWritingParams{
 		OwnerID: ownerUUID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
-		BodyMd: in.BodyMD, CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
+		BodyMd: in.BodyMD, CoverHeadline: in.CoverHeadline,
 		CoverHue: writingCoverHueOr(in.CoverHue), CoverImageAssetID: assetID,
 		Tags: nilSafeTags(in.Tags), Visibility: writingVisibilityOr(in.Visibility),
 		CrossRefs: nilSafeTags(in.CrossRefs), Path: in.Path,
@@ -127,7 +126,6 @@ type UpdateWritingInput struct {
 	Excerpt           string
 	BodyMD            string
 	CoverHeadline     string
-	CoverSub          string
 	CoverHue          string
 	Visibility        string
 	Path              string
@@ -177,8 +175,8 @@ func buildUpdateWritingParams(in *UpdateWritingInput) (*dbq.UpdateWritingParams,
 	return &dbq.UpdateWritingParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID,
 		Title: in.Title, Excerpt: in.Excerpt, BodyMd: in.BodyMD,
-		CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
-		CoverHue: writingCoverHueOr(in.CoverHue), CoverImageAssetID: assetID,
+		CoverHeadline: in.CoverHeadline,
+		CoverHue:      writingCoverHueOr(in.CoverHue), CoverImageAssetID: assetID,
 		Tags: nilSafeTags(in.Tags), Visibility: writingVisibilityOr(in.Visibility),
 		CrossRefs: nilSafeTags(in.CrossRefs), Path: in.Path,
 		ReadMinutes: in.ReadMinutes, LockedBody: in.LockedBody, ParentID: parentID,

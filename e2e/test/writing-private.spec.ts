@@ -71,7 +71,7 @@ async function seedWritings(request: APIRequestContext): Promise<void> {
     slug: 'xss-deep', title: 'XSS Deep Test',
     excerpt: 'Deeper XSS test.',
     body_md: 'Before.\n\n<script>window.__deepXSS = true;</script>\n\nAfter.\n\n[[nonexistent-slug]]',
-    cover_headline: 'xss.', cover_sub: 'deep.', cover_hue: 'acid',
+    cover_headline: 'xss.', cover_hue: 'acid',
     tags: ['security'], publish: true,
   });
 }

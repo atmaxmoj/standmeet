@@ -44,8 +44,8 @@ export function WikiEditForm({
           <SEOEditor
             testidPrefix={`wiki-${entry.id}`}
             initial={{
-              seo_description: detail.seo_description,
-              seo_indexed: detail.seo_indexed,
+              excerpt: detail.excerpt,
+              published: detail.published,
             }}
             busy={actions.pending}
             onSave={(input: SEOUpdateInput) => void saveWikiSEO(entry.id, actions, toast, input)}

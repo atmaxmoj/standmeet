@@ -29,7 +29,7 @@ test.describe('F3 wiki reader TopBar reading-state', () => {
     const sid = await initMCP(request, token);
     const w = await seedWiki(request, token, sid, { title: TITLE, body: 'body of the entry.' });
     await callTool<unknown>(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: w.wikiID, seo_description: '', seo_indexed: true,
+      wiki_id: w.wikiID, excerpt: '', published: true,
     });
     await request.dispose();
   });

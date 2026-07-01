@@ -67,7 +67,7 @@ async function initOwnerWithWriting(playwright: Playwright): Promise<void> {
     title: 'Eval is the product',
     excerpt: 'How retrieval-quality moves with rubric reframes.',
     body_md: 'half of the launch gain was rubric, not modeling.',
-    cover_headline: 'eval.', cover_sub: 'is the product.', cover_hue: 'amber',
+    cover_headline: 'eval.', cover_hue: 'amber',
     tags: ['eval', 'retrieval'], publish: true,
   });
   await request.dispose();

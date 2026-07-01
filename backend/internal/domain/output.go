@@ -6,8 +6,8 @@
 //   - Output.IsPublished() 永远 true（同 wiki，存在即可见）
 //   - 其它 method 按 Document 一般约定
 //
-// Output-specific 字段：ParentID / Path / ShowAsSource / SEODescription /
-// SEOIndexed / SourceWikiIDs —— Output 跟 Wiki 唯一形式差别是
+// Output-specific 字段：ParentID / Path / ShowAsSource / Excerpt /
+// Published / SourceWikiIDs —— Output 跟 Wiki 唯一形式差别是
 // SourceWikiIDs vs SourceRawIDs，其它对称。
 
 package domain
@@ -29,26 +29,27 @@ type Output struct {
 	title         string
 	content       Content
 	integrations  Integrations
-	seo           SEO
+	excerpt       string
 	sourceWikiIDs []string
 	showAsSource  bool
+	published     bool
 }
 
 // OutputInit —— 构造参数。
 type OutputInit struct {
-	UpdatedAt      time.Time
-	CreatedAt      time.Time
-	ParentID       *string
-	Title          string
-	ID             string
-	OwnerID        string
-	Body           string
-	SEODescription string
-	SourceWikiIDs  []string
-	Tags           []string
-	Integrations   Integrations
-	SEOIndexed     bool
-	ShowAsSource   bool
+	UpdatedAt     time.Time
+	CreatedAt     time.Time
+	ParentID      *string
+	Title         string
+	ID            string
+	OwnerID       string
+	Body          string
+	Excerpt       string
+	SourceWikiIDs []string
+	Tags          []string
+	Integrations  Integrations
+	Published     bool
+	ShowAsSource  bool
 }
 
 // NewOutput —— 从 Init 构造。pointer 入参避开 hugeParam。
@@ -69,10 +70,9 @@ func NewOutput(i *OutputInit) Output {
 		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		}),
-		tree: NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
-		seo: NewSEO(&SEOInit{
-			Description: i.SEODescription, Indexed: i.SEOIndexed,
-		}),
+		tree:         NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
+		excerpt:      i.Excerpt,
+		published:    i.Published,
 		integrations: i.Integrations,
 	}
 }
@@ -119,11 +119,11 @@ func (o *Output) ParentID() (string, bool) { return o.tree.ParentID() }
 // ShowAsSource —— 是否进 readCollector cited 列表。
 func (o *Output) ShowAsSource() bool { return o.showAsSource }
 
-// SEODescription —— meta description。
-func (o *Output) SEODescription() string { return o.seo.Description() }
+// Excerpt —— 一句话摘要（卡片 excerpt / og:description / cited summary 共用）。
+func (o *Output) Excerpt() string { return o.excerpt }
 
-// SEOIndexed —— 是否进 sitemap + robots index。
-func (o *Output) SEOIndexed() bool { return o.seo.Indexed() }
+// Published —— 是否公开（进 sitemap + robots index + 访客可读）。
+func (o *Output) Published() bool { return o.published }
 
 // SourceWikiIDs —— 该 output 是从哪些 wiki 提炼来的 (defensive copy)。
 func (o *Output) SourceWikiIDs() []string {

@@ -1,17 +1,17 @@
 -- name: CreateWriting :one
 INSERT INTO writings (
     owner_id, slug, title, excerpt, body_md,
-    cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+    cover_headline, cover_hue, cover_image_asset_id,
     tags, visibility, cross_refs, path, read_minutes, locked_body,
     published_at, parent_id
 ) VALUES (
     $1, $2, $3, $4, $5,
-    $6, $7, $8, $9,
-    $10, $11, $12, $13, $14, $15,
-    $16, $17
+    $6, $7, $8,
+    $9, $10, $11, $12, $13, $14,
+    $15, $16
 )
 RETURNING id, owner_id, slug, title, excerpt, body_md,
-          cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+          cover_headline, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           obsidian_source_path, obsidian_imported_at,
           published_at, parent_id, created_at, updated_at;
@@ -19,13 +19,13 @@ RETURNING id, owner_id, slug, title, excerpt, body_md,
 -- name: UpdateWriting :one
 UPDATE writings SET
     title = $3, excerpt = $4, body_md = $5,
-    cover_headline = $6, cover_sub = $7, cover_hue = $8, cover_image_asset_id = $9,
-    tags = $10, visibility = $11, cross_refs = $12, path = $13,
-    read_minutes = $14, locked_body = $15, parent_id = $16,
+    cover_headline = $6, cover_hue = $7, cover_image_asset_id = $8,
+    tags = $9, visibility = $10, cross_refs = $11, path = $12,
+    read_minutes = $13, locked_body = $14, parent_id = $15,
     updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
-          cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+          cover_headline, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           obsidian_source_path, obsidian_imported_at,
           published_at, parent_id, created_at, updated_at;
@@ -34,7 +34,7 @@ RETURNING id, owner_id, slug, title, excerpt, body_md,
 UPDATE writings SET published_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
-          cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+          cover_headline, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           obsidian_source_path, obsidian_imported_at,
           published_at, parent_id, created_at, updated_at;
@@ -43,7 +43,7 @@ RETURNING id, owner_id, slug, title, excerpt, body_md,
 UPDATE writings SET published_at = NULL, updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, slug, title, excerpt, body_md,
-          cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+          cover_headline, cover_hue, cover_image_asset_id,
           tags, visibility, cross_refs, path, read_minutes, locked_body,
           obsidian_source_path, obsidian_imported_at,
           published_at, parent_id, created_at, updated_at;
@@ -53,7 +53,7 @@ DELETE FROM writings WHERE id = $1 AND owner_id = $2;
 
 -- name: GetWritingByID :one
 SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       cover_headline, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
        published_at, parent_id, created_at, updated_at
@@ -61,7 +61,7 @@ FROM writings WHERE id = $1 AND owner_id = $2;
 
 -- name: GetWritingBySlug :one
 SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       cover_headline, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
        published_at, parent_id, created_at, updated_at
@@ -70,7 +70,7 @@ FROM writings WHERE owner_id = $1 AND slug = $2;
 -- name: GetPublishedWritingByPath :one
 -- retriever corpus_read 按树派生 path 读 published writing(DB,不走内存窗口)。
 SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       cover_headline, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
        published_at, parent_id, created_at, updated_at
@@ -80,7 +80,7 @@ FROM writings WHERE owner_id = $1 AND path = $2 AND published_at IS NOT NULL;
 -- retriever corpus_search 全量搜 published writing(DB full-text,镜像 wiki/output:
 -- 自然语言问句按 OR 命中任一词项,ts_rank 排序),不吃内存窗口。
 SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       cover_headline, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
        published_at, parent_id, created_at, updated_at
@@ -96,7 +96,7 @@ LIMIT $3 OFFSET $4;
 
 -- name: ListWritingsByOwner :many
 SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       cover_headline, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
        published_at, parent_id, created_at, updated_at
@@ -106,7 +106,7 @@ ORDER BY COALESCE(published_at, created_at) DESC;
 
 -- name: ListPublishedWritingsByOwner :many
 SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       cover_headline, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
        published_at, parent_id, created_at, updated_at
@@ -118,7 +118,7 @@ ORDER BY published_at DESC;
 -- 分页 infinite scroll：cursor = 上一页最末 writing.published_at (RFC3339)，
 -- 第一页 cursor 传 NULL 拿最新 N 条。返 LIMIT+1 让 caller 判断 has_more。
 SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       cover_headline, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
        published_at, parent_id, created_at, updated_at
@@ -141,7 +141,7 @@ WHERE id = $1 AND owner_id = $2;
 
 -- name: GetWritingByObsidianSourcePath :one
 SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_sub, cover_hue, cover_image_asset_id,
+       cover_headline, cover_hue, cover_image_asset_id,
        tags, visibility, cross_refs, path, read_minutes, locked_body,
        obsidian_source_path, obsidian_imported_at,
        published_at, parent_id, created_at, updated_at

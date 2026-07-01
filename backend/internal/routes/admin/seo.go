@@ -22,16 +22,46 @@ type SEOAdminDeps struct {
 	SEO *postgres.SEORepo
 }
 
-// MountSEO 挂 /seo + /wiki/{id}/seo + /output/{id}/seo。
+// MountSEO 挂 /seo + /seo/stats + /wiki/{id}/seo + /output/{id}/seo。
 func (h *Handlers) MountSEO(r chi.Router) {
 	r.Get("/seo", h.getSEOSettings())
 	r.Put("/seo", h.putSEOSettings())
+	r.Get("/seo/stats", h.getSEOStats())
 	r.Patch("/wiki/{id}/seo", h.patchWikiSEO())
 	r.Patch("/output/{id}/seo", h.patchOutputSEO())
 }
 
+// seoStatsView —— 各 tier 已公开条目数。owner 在 UI 选统计范围（默认全含），
+// 范围是前端对这三个数求和的事，后端一律返全三个。
+type seoStatsView struct {
+	Wiki     int64 `json:"wiki"`
+	Outputs  int64 `json:"outputs"`
+	Writings int64 `json:"writings"`
+}
+
+func (h *Handlers) getSEOStats() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		counts, err := h.SEOAdmin.SEO.CountPublished(r.Context(), ownerID)
+		if err != nil {
+			h.Log.Error("admin seo stats", logKeyErr, err)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		view := seoStatsView{Wiki: counts.Wiki, Outputs: counts.Outputs, Writings: counts.Writings}
+		if encErr := json.NewEncoder(w).Encode(view); encErr != nil {
+			h.Log.Error("encode seo stats", logKeyErr, encErr)
+		}
+	}
+}
+
 // 字段顺序按 govet fieldalignment：string + slice 在前，bool 末尾。
+// site_title = owner 自写的站点标题；og:description / canonical 不在此——它们
+// 分别复用 page.tagline / owner.public_url（前端只读展示 + 跳转编辑）。
 type seoSettingsView struct {
+	SiteTitle     string   `json:"site_title"`
 	OGTemplate    string   `json:"og_template"`
 	SitemapExtras []string `json:"sitemap_extras"`
 	IndexRobots   bool     `json:"index_robots"`
@@ -60,6 +90,7 @@ func (h *Handlers) putSEOSettings() http.HandlerFunc {
 		}
 		saved, err := h.SEOAdmin.SEO.UpsertSettings(r.Context(), &domain.SEOSettings{
 			OwnerID:       ownerID,
+			SiteTitle:     body.SiteTitle,
 			IndexRobots:   body.IndexRobots,
 			SitemapExtras: body.SitemapExtras,
 			OGTemplate:    body.OGTemplate,
@@ -77,6 +108,7 @@ func writeSEOSettings(log *slog.Logger, w http.ResponseWriter, settings *domain.
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	view := seoSettingsView{
+		SiteTitle:     settings.SiteTitle,
 		IndexRobots:   settings.IndexRobots,
 		SitemapExtras: settings.SitemapExtras,
 		OGTemplate:    settings.OGTemplate,
@@ -88,8 +120,8 @@ func writeSEOSettings(log *slog.Logger, w http.ResponseWriter, settings *domain.
 
 // patchWikiSEORequest —— 地址树派生,owner 不设 path;只改 meta 描述 + indexed。
 type patchWikiSEORequest struct {
-	SEODescription string `json:"seo_description"`
-	SEOIndexed     bool   `json:"seo_indexed"`
+	Excerpt   string `json:"excerpt"`
+	Published bool   `json:"published"`
 }
 
 func (h *Handlers) patchWikiSEO() http.HandlerFunc {
@@ -101,7 +133,7 @@ func (h *Handlers) patchWikiSEO() http.HandlerFunc {
 			return
 		}
 		updated, err := h.SEOAdmin.SEO.UpdateWikiSEO(
-			r.Context(), wikiID, req.SEODescription, req.SEOIndexed,
+			r.Context(), wikiID, req.Excerpt, req.Published,
 		)
 		if err != nil {
 			handleWikiSEOErr(h.Log, w, err)
@@ -123,18 +155,18 @@ func handleWikiSEOErr(log *slog.Logger, w http.ResponseWriter, err error) {
 }
 
 type wikiSEOResp struct {
-	ID             string `json:"id"`
-	SEODescription string `json:"seo_description"`
-	SEOIndexed     bool   `json:"seo_indexed"`
+	ID        string `json:"id"`
+	Excerpt   string `json:"excerpt"`
+	Published bool   `json:"published"`
 }
 
 func writeWikiSEOResp(log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := wikiSEOResp{
-		ID:             wiki.ID(),
-		SEODescription: wiki.SEODescription(),
-		SEOIndexed:     wiki.SEOIndexed(),
+		ID:        wiki.ID(),
+		Excerpt:   wiki.Excerpt(),
+		Published: wiki.Published(),
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode wiki seo resp", "err", err)
@@ -151,7 +183,7 @@ func (h *Handlers) patchOutputSEO() http.HandlerFunc {
 			return
 		}
 		updated, err := h.SEOAdmin.SEO.UpdateOutputSEO(
-			r.Context(), outputID, req.SEODescription, req.SEOIndexed,
+			r.Context(), outputID, req.Excerpt, req.Published,
 		)
 		if err != nil {
 			handleOutputSEOErr(h.Log, w, err)
@@ -181,9 +213,9 @@ func writeOutputSEOResp(log *slog.Logger, w http.ResponseWriter, out *domain.Out
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := wikiSEOResp{
-		ID:             out.ID(),
-		SEODescription: out.SEODescription(),
-		SEOIndexed:     out.SEOIndexed(),
+		ID:        out.ID(),
+		Excerpt:   out.Excerpt(),
+		Published: out.Published(),
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Error("encode output seo resp", logKeyErr, err)

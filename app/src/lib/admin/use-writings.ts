@@ -12,7 +12,7 @@ import type { PendingFile } from '@/lib/writings/upload-asset';
 
 export const AdminWritingViewSchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
-  body_md: z.string(), cover_headline: z.string(), cover_sub: z.string(),
+  body_md: z.string(), cover_headline: z.string(),
   cover_hue: z.enum(['amber', 'violet', 'acid']),
   cover_image_asset_id: z.string().optional(),
   tags: z.array(z.string()), visibility: z.enum(['public', 'private']),
@@ -35,7 +35,6 @@ export interface WritingSaveData {
   body_md: string;
   cover_image_ref: string;
   cover_headline: string;
-  cover_sub: string;
   cover_hue: 'amber' | 'violet' | 'acid';
   visibility: 'public' | 'private';
   locked_body: string;

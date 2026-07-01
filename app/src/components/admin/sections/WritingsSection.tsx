@@ -301,7 +301,7 @@ function parentOptionsFor(
 function writingToValues(w: AdminWritingView): WritingFormValues {
   return {
     slug: w.slug, title: w.title, excerpt: w.excerpt, bodyMD: w.body_md,
-    coverHeadline: w.cover_headline, coverSub: w.cover_sub,
+    coverHeadline: w.cover_headline,
     coverHue: w.cover_hue,
     coverAsset: coverAssetFor(w),
     tags: w.tags.join(', '),
@@ -330,7 +330,7 @@ function toSaveData(v: WritingFormValues, isCreate: boolean): WritingSaveData {
   const base: WritingSaveData = {
     title: v.title, excerpt: v.excerpt, body_md: v.bodyMD,
     cover_image_ref: v.coverAsset.id, cover_headline: v.coverHeadline,
-    cover_sub: v.coverSub, cover_hue: v.coverHue,
+    cover_hue: v.coverHue,
     visibility: 'public', locked_body: '',
     parent_id: v.parentID,
     tags: parseTags(v.tags), cross_refs: [],

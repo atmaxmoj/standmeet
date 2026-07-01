@@ -27,7 +27,6 @@ export interface WritingFormValues {
   excerpt: string;
   bodyMD: string;
   coverHeadline: string;
-  coverSub: string;
   coverHue: CoverHue;
   coverAsset: CoverAssetState;
   tags: string;
@@ -50,7 +49,7 @@ export interface WritingFormSubmit {
 
 export const EMPTY_VALUES: WritingFormValues = {
   slug: '', title: '', excerpt: '', bodyMD: '',
-  coverHeadline: '', coverSub: '', coverHue: 'amber',
+  coverHeadline: '', coverHue: 'amber',
   coverAsset: { id: '', url: '' },
   tags: '', parentID: '', publish: true,
 };
@@ -119,14 +118,11 @@ function WritingFormBody({
         <WritingField label="title" value={values.title}
           onChange={(v) => set('title', v)} placeholder="Writing title" />
       </WritingFieldRow>
+      {/* excerpt 一处写，卡片 / og / cover 副标题共用 */}
       <WritingField label="excerpt" value={values.excerpt}
-        onChange={(v) => set('excerpt', v)} placeholder="One-line summary" />
-      <WritingFieldRow>
-        <WritingField label="cover headline" value={values.coverHeadline}
-          onChange={(v) => set('coverHeadline', v)} placeholder="Big headline" />
-        <WritingField label="cover sub" value={values.coverSub}
-          onChange={(v) => set('coverSub', v)} placeholder="Italic subline" />
-      </WritingFieldRow>
+        onChange={(v) => set('excerpt', v)} placeholder="One-line summary (also the cover subline)" />
+      <WritingField label="cover headline" value={values.coverHeadline}
+        onChange={(v) => set('coverHeadline', v)} placeholder="Big headline" />
       <WritingFieldRow>
         <CoverHueSelect value={values.coverHue}
           onChange={(v) => set('coverHue', v)} />

@@ -61,7 +61,7 @@ async function setupIndexedWiki(request: APIRequestContext): Promise<void> {
   });
   await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_seo', {
     wiki_id: wikiID,
-    seo_description: WIKI.description,
-    seo_indexed: true,
+    excerpt: WIKI.description,
+    published: true,
   });
 }

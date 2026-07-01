@@ -244,8 +244,8 @@ async function seedIndexedWiki(request: APIRequestContext): Promise<void> {
   });
   await callTool(request, token, sid, 'seo.set_wiki_seo', {
     wiki_id: wikiID,
-    seo_description: 'Extended wiki test.',
-    seo_indexed: true,
+    excerpt: 'Extended wiki test.',
+    published: true,
   });
 }
 
@@ -262,13 +262,13 @@ async function seedTaggedWiki(request: APIRequestContext): Promise<void> {
     tags: ['lucerna', 'eval', 'thinking'],
   });
   await callTool(request, token, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID, seo_description: 'A tagged wiki.', seo_indexed: true,
+    wiki_id: wikiID, excerpt: 'A tagged wiki.', published: true,
   });
 }
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// seedNestedWiki —— 父 + 子(子 parent_id=父),都 seo_indexed,返回子的树派生 path。
+// seedNestedWiki —— 父 + 子(子 parent_id=父),都 published,返回子的树派生 path。
 async function seedNestedWiki(request: APIRequestContext): Promise<{
   parentTitle: string; childTitle: string; childPath: string;
 }> {
@@ -290,7 +290,7 @@ async function seedNestedWiki(request: APIRequestContext): Promise<{
   const childID = promo.wiki_id;
   for (const id of [parentID, childID]) {
     await callTool(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: id, seo_description: '', seo_indexed: true,
+      wiki_id: id, excerpt: '', published: true,
     });
   }
   return { parentTitle, childTitle, childPath: await discoverWikiPath(request, parentID, childID) };
@@ -309,7 +309,7 @@ async function discoverWikiPath(
 // 树派生 path = cited_by/解析按 path 命中错的孪生)。
 let linkSeedSeq = 0;
 
-// seedLinkedWikis —— dst(目标)+ src(body 里写 [[dstTitle]]),都 seo_indexed。
+// seedLinkedWikis —— dst(目标)+ src(body 里写 [[dstTitle]]),都 published。
 // src 先建 dst 后 promote,所以 promote 时 [[dstTitle]] 能解析 → 建 src→dst 边。
 async function seedLinkedWikis(request: APIRequestContext): Promise<{
   srcTitle: string; srcPath: string; dstTitle: string; dstPath: string;
@@ -328,7 +328,7 @@ async function seedLinkedWikis(request: APIRequestContext): Promise<{
   });
   for (const id of [dstID, srcID]) {
     await callTool(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: id, seo_description: '', seo_indexed: true,
+      wiki_id: id, excerpt: '', published: true,
     });
   }
   return {

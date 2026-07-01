@@ -108,7 +108,7 @@ type wikiListItem struct {
 	Tags         []string `json:"tags"`
 	SourceRawIDs []string `json:"source_raw_ids"`
 	ShowAsSource bool     `json:"show_as_source"`
-	SEOIndexed   bool     `json:"seo_indexed"`
+	Published    bool     `json:"published"`
 }
 
 func (h *Handlers) listRaw() http.HandlerFunc {

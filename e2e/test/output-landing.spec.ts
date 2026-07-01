@@ -1,7 +1,7 @@
 // output-landing.spec.ts —— /output/<slug> SEO landing 端到端。
 //
 // 用户故事：
-//   owner 把 wiki 提炼成 output → 给 output 设 seo_slug + seo_indexed → 在
+//   owner 把 wiki 提炼成 output → 给 output 设 seo_slug + published → 在
 //   admin /admin/output 卡片 "view live ↗" → 访客看到 /output/<slug>
 //   完整 markdown body，sitemap.xml 列了这条 URL。
 //
@@ -87,11 +87,11 @@ function setOutputBody(outputID: string, body: string): void {
 }
 
 // 地址树派生(标题 slug):公开 URL = /output/local-first-essay,不写 path 列,
-// 只置 seo_indexed + 描述让它进公开 landing/sitemap。
+// 只置 published + 描述让它进公开 landing/sitemap。
 function setOutputSeo(outputID: string, description: string): void {
   const sql =
-    `UPDATE output_entries SET seo_description = '${description}',`
-    + ` seo_indexed = true WHERE id = '${outputID}'`;
+    `UPDATE output_entries SET excerpt = '${description}',`
+    + ` published = true WHERE id = '${outputID}'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`, {
     stdio: 'pipe',
   });

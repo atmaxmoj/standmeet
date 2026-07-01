@@ -169,7 +169,7 @@ async function initOwner(playwright: Playwright): Promise<void> {
     title: 'Lucerna', path: 'projects/lucerna',
   });
   await callTool(request, apiToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: luc.wikiID, seo_description: 'a local-first knowledge tool', seo_indexed: true,
+    wiki_id: luc.wikiID, excerpt: 'a local-first knowledge tool', published: true,
   });
   await createCode(request, csrf, {
     code: CODE, label: 'Dock test',

@@ -4,7 +4,7 @@
 // 用户故事：
 //   GoogleBot 访问 site root，先 fetch robots.txt 知道是不是允许爬，再
 //   fetch sitemap.xml 拿 URL 列表。我们应当在两个 endpoint 上返合规格式 +
-//   含 owner public page + 所有 seo_indexed=true 的 wiki landing。
+//   含 owner public page + 所有 published=true 的 wiki landing。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -69,7 +69,7 @@ async function seedIndexedWiki(request: APIRequestContext): Promise<void> {
   });
   await callTool<unknown>(request, apiToken, sid, 'seo.set_wiki_seo', {
     wiki_id: wikiID,
-    seo_description: 'The founding observation.',
-    seo_indexed: true,
+    excerpt: 'The founding observation.',
+    published: true,
   });
 }

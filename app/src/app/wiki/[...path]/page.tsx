@@ -32,7 +32,7 @@ type Params = { path: string[] };
 type WikiRef = { path: string; title: string };
 
 type WikiEntry = {
-  title: string; body: string; seo_description: string; updated_at: string;
+  title: string; body: string; excerpt: string; updated_at: string;
   tags: readonly string[];
   related: readonly WikiRef[];
   cited_by: readonly WikiRef[];
@@ -46,8 +46,8 @@ export async function generateMetadata(
   const wiki = await fetchWikiLanding(path.join('/'));
   return wiki ? {
     title: wiki.title,
-    description: wiki.seo_description || wiki.body.slice(0, 160),
-    openGraph: { title: wiki.title, description: wiki.seo_description, type: 'article' },
+    description: wiki.excerpt || wiki.body.slice(0, 160),
+    openGraph: { title: wiki.title, description: wiki.excerpt, type: 'article' },
   } : { title: 'not found' };
 }
 
@@ -135,9 +135,9 @@ function MetaStrip({ entry, ownerName }: { entry: WikiEntry; ownerName: string }
       <h1 className="font-serif text-(--color-ink) text-[clamp(36px,5vw,56px)] font-[380] tracking-[-0.022em] leading-[1.04] text-pretty">
         {entry.title}
       </h1>
-      {entry.seo_description && (
+      {entry.excerpt && (
         <p className="font-serif italic text-(--color-muted) text-[22px] leading-[1.45] font-[380] mt-4 max-w-[34em] text-pretty">
-          {entry.seo_description}
+          {entry.excerpt}
         </p>
       )}
     </header>

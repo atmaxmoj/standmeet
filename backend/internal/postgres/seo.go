@@ -1,7 +1,7 @@
 // seo.go —— wiki/output landing 反查 + seo_settings 读写 + path 字段 patch。
 //
 // GetWikiByPath / GetOutputByPath: 给访客 (/<handle>/wiki/<path>) 解析；
-//   只放 seo_indexed=true 的（公开 landing 是 crawler 友好可见面，准入靠
+//   只放 published=true 的（公开 landing 是 crawler 友好可见面，准入靠
 //   retrieval ACL 走另一条路）。
 // ListIndexedPaths: 给 /sitemap.xml 用。
 // SEOSettings.Get/Upsert: owner 自己的全局开关。
@@ -66,6 +66,7 @@ func (r *SEORepo) UpsertSettings(
 	}
 	row, err := q.UpsertSEOSettings(ctx, dbq.UpsertSEOSettingsParams{
 		OwnerID:       pgID,
+		SiteTitle:     in.SiteTitle,
 		IndexRobots:   in.IndexRobots,
 		SitemapExtras: extras,
 		OgTemplate:    in.OGTemplate,
@@ -86,7 +87,7 @@ func (r *SEORepo) UpdateWikiSEO(
 		return domain.Wiki{}, fmt.Errorf("parse wiki id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).UpdateWikiSEO(ctx, dbq.UpdateWikiSEOParams{
-		ID: pgID, SeoDescription: description, SeoIndexed: indexed,
+		ID: pgID, Excerpt: description, Published: indexed,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -106,7 +107,7 @@ func (r *SEORepo) UpdateOutputSEO(
 		return domain.Output{}, fmt.Errorf("parse output id: %w", perr)
 	}
 	row, err := dbq.New(r.pool).UpdateOutputSEO(ctx, dbq.UpdateOutputSEOParams{
-		ID: pgID, SeoDescription: description, SeoIndexed: indexed,
+		ID: pgID, Excerpt: description, Published: indexed,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -136,9 +137,31 @@ func toDomainSEOSettings(row *dbq.SeoSetting) (domain.SEOSettings, error) {
 	_ = pgtype.UUID{} // import keep
 	return domain.SEOSettings{
 		OwnerID:       formatUUID(row.OwnerID),
+		SiteTitle:     row.SiteTitle,
 		IndexRobots:   row.IndexRobots,
 		SitemapExtras: extras,
 		OGTemplate:    row.OgTemplate,
 		UpdatedAt:     row.UpdatedAt.Time,
 	}, nil
+}
+
+// PublishedCounts —— 各 tier 已公开条目数（SEO indexing stats 用）。
+type PublishedCounts struct {
+	Wiki     int64
+	Outputs  int64
+	Writings int64
+}
+
+// CountPublished —— owner 各 tier 的 published 条目数。SEO 面 stats 直接读，
+// scope（选哪些 tier / 求和）交给调用方（owner 在 UI 选，默认全含）。
+func (r *SEORepo) CountPublished(ctx context.Context, ownerID string) (PublishedCounts, error) {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return PublishedCounts{}, fmt.Errorf(errParseOwnerIDPrefix, perr)
+	}
+	row, err := dbq.New(r.pool).CountPublishedCorpus(ctx, pgID)
+	if err != nil {
+		return PublishedCounts{}, fmt.Errorf("count published corpus: %w", err)
+	}
+	return PublishedCounts{Wiki: row.Wiki, Outputs: row.Outputs, Writings: row.Writings}, nil
 }

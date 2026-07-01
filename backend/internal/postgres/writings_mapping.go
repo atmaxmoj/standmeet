@@ -49,8 +49,8 @@ func toDomainWriting(row *dbq.Writing) domain.Writing {
 		ParentID:    optUUIDString(row.ParentID),
 		ReadMinutes: row.ReadMinutes,
 		Cover: domain.CoverInit{
-			Headline: row.CoverHeadline, Sub: row.CoverSub,
-			Hue: row.CoverHue, ImageAssetID: optUUIDString(row.CoverImageAssetID),
+			Headline: row.CoverHeadline,
+			Hue:      row.CoverHue, ImageAssetID: optUUIDString(row.CoverImageAssetID),
 		},
 		Visibility: domain.VisibilityInit{
 			Mode: row.Visibility, LockedBody: row.LockedBody,

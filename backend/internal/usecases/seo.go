@@ -76,7 +76,7 @@ type wikiRefSides struct {
 	CitedBy []WikiPathTitle
 }
 
-// GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 seo_indexed=true）+
+// GetWikiLanding —— 公开 landing 查询：path → wiki entry（必须 published=true）+
 // 渲染好的 body + read-next/cited-by。地址纯树派生:一次 load 全树,既定位目标条,
 // 又建 title→path 索引给双链解析用。
 func GetWikiLanding(
@@ -123,7 +123,7 @@ func indexedWikiIDAtPath(
 	metas []postgres.WikiMeta, paths map[string]string, path string,
 ) (string, bool) {
 	for i := range metas {
-		if metas[i].SEOIndexed && paths[metas[i].ID] == path {
+		if metas[i].Published && paths[metas[i].ID] == path {
 			return metas[i].ID, true
 		}
 	}
@@ -176,7 +176,7 @@ func IndexedWikiLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	paths := WikiMetaTreePaths(metas)
 	out := make([]LandingURL, 0, len(metas))
 	for i := range metas {
-		if metas[i].SEOIndexed {
+		if metas[i].Published {
 			out = append(out, LandingURL{Path: paths[metas[i].ID], UpdatedAt: metas[i].UpdatedAt})
 		}
 	}
@@ -221,7 +221,7 @@ func indexedOutputIDAtPath(
 	metas []postgres.OutputMeta, paths map[string]string, path string,
 ) (string, bool) {
 	for i := range metas {
-		if metas[i].SEOIndexed && paths[metas[i].ID] == path {
+		if metas[i].Published && paths[metas[i].ID] == path {
 			return metas[i].ID, true
 		}
 	}
@@ -241,7 +241,7 @@ func IndexedOutputLandings(ctx context.Context, deps SEODeps) []LandingURL {
 	paths := OutputMetaTreePaths(metas)
 	out := make([]LandingURL, 0, len(metas))
 	for i := range metas {
-		if metas[i].SEOIndexed {
+		if metas[i].Published {
 			out = append(out, LandingURL{Path: paths[metas[i].ID], UpdatedAt: metas[i].UpdatedAt})
 		}
 	}

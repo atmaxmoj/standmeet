@@ -9,7 +9,8 @@ import type { WritingView } from '@/lib/api/public';
 import styles from '@/components/writings/Cover.module.css';
 
 interface Props {
-  cover: Pick<WritingView, 'cover_headline' | 'cover_sub' | 'cover_hue' | 'cover_image_asset_id'>;
+  // 副标题就是 writing 的 excerpt（卡片 excerpt / og / cover 副标题共用一个字段）。
+  cover: Pick<WritingView, 'cover_headline' | 'excerpt' | 'cover_hue' | 'cover_image_asset_id'>;
   assetURLs?: Record<string, string>;
   locked?: boolean;
   no?: string;
@@ -27,7 +28,7 @@ export function Cover({ cover, locked, no, assetURLs }: Props) {
       <CoverImageMaybe url={imgURL} />
       <CoverRule />
       <CoverHeadline text={cover.cover_headline} />
-      <CoverSub text={cover.cover_sub} />
+      <CoverSub text={cover.excerpt} />
       <CoverTag />
       <CoverNumberMaybe text={no} />
       <CoverLockOverlayMaybe locked={locked} />

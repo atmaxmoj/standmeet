@@ -158,7 +158,7 @@ async function seedAllFixtures(request: APIRequestContext): Promise<void> {
       title: `Render fixture · ${key}`, path,
     });
     await callTool<unknown>(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: wikiID, seo_description: `${key} render fixture.`, seo_indexed: true,
+      wiki_id: wikiID, excerpt: `${key} render fixture.`, published: true,
     });
   }
 }

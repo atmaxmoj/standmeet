@@ -103,7 +103,7 @@ async function mcpCreateMathWriting(
     title: 'Math + mermaid essay',
     excerpt: 'KaTeX inline + display + mermaid sequenceDiagram.',
     body_md: MATH_MD,
-    cover_headline: 'math.', cover_sub: 'render.', cover_hue: 'amber',
+    cover_headline: 'math.', cover_hue: 'amber',
     tags: ['math', 'mermaid'],
     publish: true,
   });

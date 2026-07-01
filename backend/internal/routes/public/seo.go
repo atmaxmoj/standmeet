@@ -1,7 +1,7 @@
 // seo.go —— SEO 三件套：/robots.txt + /sitemap.xml + GET wiki landing。
 //
 // /robots.txt 总是返；body 受 SEOSettings.IndexRobots 控制。
-// /sitemap.xml 列首位 owner 的 public page + 所有 seo_indexed wiki landing。
+// /sitemap.xml 列首位 owner 的 public page + 所有 published wiki landing。
 // GET /api/v1/wiki/:handle/:slug —— wiki landing 反查（owner 不存在 / slug 不
 // 存在 / 非 public 都 404）。
 
@@ -154,14 +154,14 @@ type wikiRefView struct {
 }
 
 type wikiLandingView struct {
-	Path           string        `json:"path"`
-	Title          string        `json:"title"`
-	Body           string        `json:"body"`
-	SEODescription string        `json:"seo_description"`
-	UpdatedAt      string        `json:"updated_at"`
-	Tags           []string      `json:"tags"`
-	Related        []wikiRefView `json:"related"`
-	CitedBy        []wikiRefView `json:"cited_by"`
+	Path      string        `json:"path"`
+	Title     string        `json:"title"`
+	Body      string        `json:"body"`
+	Excerpt   string        `json:"excerpt"`
+	UpdatedAt string        `json:"updated_at"`
+	Tags      []string      `json:"tags"`
+	Related   []wikiRefView `json:"related"`
+	CitedBy   []wikiRefView `json:"cited_by"`
 	// SourcesCount —— 这条 wiki 是从几条 raw 提炼来的(N corpus sources)。
 	SourcesCount int `json:"sources_count"`
 }
@@ -174,15 +174,15 @@ func loadWikiLandingView(
 		return wikiLandingView{}, err
 	}
 	return wikiLandingView{
-		Path:           slug,
-		Title:          res.Wiki.Title(),
-		Body:           res.Body,
-		SEODescription: res.Wiki.SEODescription(),
-		UpdatedAt:      res.Wiki.UpdatedAt().UTC().Format(time.RFC3339),
-		Tags:           res.Wiki.Tags(),
-		Related:        toWikiRefViews(res.Related),
-		CitedBy:        toWikiRefViews(res.CitedBy),
-		SourcesCount:   len(res.Wiki.SourceRawIDs()),
+		Path:         slug,
+		Title:        res.Wiki.Title(),
+		Body:         res.Body,
+		Excerpt:      res.Wiki.Excerpt(),
+		UpdatedAt:    res.Wiki.UpdatedAt().UTC().Format(time.RFC3339),
+		Tags:         res.Wiki.Tags(),
+		Related:      toWikiRefViews(res.Related),
+		CitedBy:      toWikiRefViews(res.CitedBy),
+		SourcesCount: len(res.Wiki.SourceRawIDs()),
 	}, nil
 }
 
@@ -254,11 +254,11 @@ func (h *SEOHandlers) getOutputLanding() http.HandlerFunc {
 
 // outputLandingView —— 跟 wikiLandingView 字段对齐，前端 SDK 可复用渲染。
 type outputLandingView struct {
-	Path           string `json:"path"`
-	Title          string `json:"title"`
-	Body           string `json:"body"`
-	SEODescription string `json:"seo_description"`
-	UpdatedAt      string `json:"updated_at"`
+	Path      string `json:"path"`
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	Excerpt   string `json:"excerpt"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 func loadOutputLandingView(
@@ -269,11 +269,11 @@ func loadOutputLandingView(
 		return outputLandingView{}, err
 	}
 	return outputLandingView{
-		Path:           slug,
-		Title:          out.Title(),
-		Body:           out.Body(),
-		SEODescription: out.SEODescription(),
-		UpdatedAt:      out.UpdatedAt().UTC().Format(time.RFC3339),
+		Path:      slug,
+		Title:     out.Title(),
+		Body:      out.Body(),
+		Excerpt:   out.Excerpt(),
+		UpdatedAt: out.UpdatedAt().UTC().Format(time.RFC3339),
 	}, nil
 }
 

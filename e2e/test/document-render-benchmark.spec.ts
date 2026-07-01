@@ -109,7 +109,7 @@ async function seedBenchFixtures(request: APIRequestContext): Promise<void> {
       body: b.body, title: b.path, path: b.path,
     });
     await callTool<unknown>(request, token, sid, 'seo.set_wiki_seo', {
-      wiki_id: wikiID, seo_description: `${b.name} bench fixture.`, seo_indexed: true,
+      wiki_id: wikiID, excerpt: `${b.name} bench fixture.`, published: true,
     });
   }
 }

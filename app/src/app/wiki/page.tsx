@@ -2,7 +2,7 @@
 // 自己滚)+ 主栏列出根条目。document 页的「← wiki」回到这里(每种 doc 返回
 // 自己那类,不再统一回 writing)。
 //
-// 数据:GET /api/v1/wiki-tree(无 parent = 根),公开(无 token)只返 seo_indexed。
+// 数据:GET /api/v1/wiki-tree(无 parent = 根),公开(无 token)只返 published。
 
 import Link from 'next/link';
 

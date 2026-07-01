@@ -14,7 +14,7 @@ export const OutputSummarySchema = z.object({
   id: z.string(), title: z.string(), tags: z.array(z.string()),
   source_wiki_ids: z.array(z.string()), created_at: z.string(),
   parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
-  show_as_source: z.boolean(), seo_indexed: z.boolean(),
+  show_as_source: z.boolean(), published: z.boolean(),
 });
 export type OutputSummary = z.infer<typeof OutputSummarySchema>;
 

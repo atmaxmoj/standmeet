@@ -5,7 +5,7 @@
 //   GET /api/v1/wiki-tree?parent=ID  → ID 的直接子节点
 // 节点 {id,title,path,has_children}。
 //
-// ACL(owner 拍板):有 code 按 code 的 role scope,无 code 只 seo_indexed ——
+// ACL(owner 拍板):有 code 按 code 的 role scope,无 code 只 published ——
 // 不在 scope 的条目**整条不出现**(不泄露 gated 标题)。
 //
 // 树(seed):
@@ -261,6 +261,6 @@ async function markIndexed(
   request: APIRequestContext, sid: string, wikiID: string,
 ): Promise<void> {
   await callTool<unknown>(request, mcpToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID, seo_description: '', seo_indexed: true,
+    wiki_id: wikiID, excerpt: '', published: true,
   });
 }

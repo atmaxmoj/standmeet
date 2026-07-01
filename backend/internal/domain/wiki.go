@@ -5,8 +5,8 @@
 //   - Wiki.IsPublished() 永远 true（wiki 没 draft 概念，存在即可见）
 //   - 其它 method 按一般约定，Tags / Integrations 永远返非 nil
 //
-// Wiki-specific 字段：ParentID / Path / ShowAsSource / SEODescription /
-// SEOIndexed / SourceRawIDs —— caller type-assert 回 Wiki 用。Path/Parent
+// Wiki-specific 字段：ParentID / Path / ShowAsSource / Excerpt /
+// Published / SourceRawIDs —— caller type-assert 回 Wiki 用。Path/Parent
 // 走 TreeNode sub-object；SEO 走 SEO sub-object。
 
 package domain
@@ -29,26 +29,27 @@ type Wiki struct {
 	title        string
 	content      Content
 	integrations Integrations
-	seo          SEO
+	excerpt      string
 	sourceRawIDs []string
 	showAsSource bool
+	published    bool
 }
 
 // WikiInit —— 构造参数。
 type WikiInit struct {
-	UpdatedAt      time.Time
-	CreatedAt      time.Time
-	ParentID       *string
-	Title          string
-	ID             string
-	OwnerID        string
-	Body           string
-	SEODescription string
-	SourceRawIDs   []string
-	Tags           []string
-	Integrations   Integrations
-	SEOIndexed     bool
-	ShowAsSource   bool
+	UpdatedAt    time.Time
+	CreatedAt    time.Time
+	ParentID     *string
+	Title        string
+	ID           string
+	OwnerID      string
+	Body         string
+	Excerpt      string
+	SourceRawIDs []string
+	Tags         []string
+	Integrations Integrations
+	Published    bool
+	ShowAsSource bool
 }
 
 // NewWiki —— 从 Init 构造。SourceRawIDs defensive clone。pointer 入参避开 hugeParam。
@@ -69,10 +70,9 @@ func NewWiki(i *WikiInit) Wiki {
 		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		}),
-		tree: NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
-		seo: NewSEO(&SEOInit{
-			Description: i.SEODescription, Indexed: i.SEOIndexed,
-		}),
+		tree:         NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
+		excerpt:      i.Excerpt,
+		published:    i.Published,
 		integrations: i.Integrations,
 	}
 }
@@ -122,11 +122,11 @@ func (w *Wiki) ParentID() (string, bool) { return w.tree.ParentID() }
 // 类条目设 false）。
 func (w *Wiki) ShowAsSource() bool { return w.showAsSource }
 
-// SEODescription —— SEO meta description。
-func (w *Wiki) SEODescription() string { return w.seo.Description() }
+// Excerpt —— 一句话摘要（卡片 excerpt / og:description / cited summary 共用）。
+func (w *Wiki) Excerpt() string { return w.excerpt }
 
-// SEOIndexed —— 是否进 sitemap + robots index。
-func (w *Wiki) SEOIndexed() bool { return w.seo.Indexed() }
+// Published —— 是否公开（进 sitemap + robots index + 访客可读）。
+func (w *Wiki) Published() bool { return w.published }
 
 // SourceRawIDs —— 该 wiki 是从哪些 raw promote 来的（defensive copy）。
 func (w *Wiki) SourceRawIDs() []string {
@@ -139,6 +139,7 @@ func (w *Wiki) SourceRawIDs() []string {
 type SEOSettings struct {
 	UpdatedAt     time.Time
 	OwnerID       string
+	SiteTitle     string
 	OGTemplate    string
 	SitemapExtras []string
 	IndexRobots   bool

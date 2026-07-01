@@ -1,5 +1,5 @@
 // SEOEditor —— wiki / output 共用的 public-landing SEO sub-section。
-// 字段：seo_description / seo_indexed。indexed=true 才进 sitemap + 渲染
+// 字段：excerpt / published。indexed=true 才进 sitemap + 渲染
 // /wiki/<path> 或 /output/<path>。地址(path)纯树派生(标题 slug + parent 链),
 // owner 不再自设 —— 所以这里没有 path 输入框,改名会同时改公开 URL。
 
@@ -10,8 +10,8 @@ import { useState } from 'react';
 import type { SEOUpdateInput } from '@/lib/admin/use-corpus-actions';
 
 export interface SEOEditorInitial {
-  seo_description: string;
-  seo_indexed: boolean;
+  excerpt: string;
+  published: boolean;
 }
 
 export interface SEOEditorProps {
@@ -24,8 +24,8 @@ export interface SEOEditorProps {
 export function SEOEditor(props: SEOEditorProps) {
   const state = useSEOState(props.initial);
   const onSave = () => props.onSave({
-    seo_description: state.description,
-    seo_indexed: state.indexed,
+    excerpt: state.description,
+    published: state.indexed,
   });
   return (
     <div className="space-y-3 border border-(--color-rule) p-4 bg-(--color-surface)/40 rounded-sm mt-3"
@@ -46,8 +46,8 @@ interface SEOState {
 }
 
 function useSEOState(initial: SEOEditorInitial): SEOState {
-  const [description, setDescription] = useState(initial.seo_description);
-  const [indexed, setIndexed] = useState(initial.seo_indexed);
+  const [description, setDescription] = useState(initial.excerpt);
+  const [indexed, setIndexed] = useState(initial.published);
   return { description, indexed, setDescription, setIndexed };
 }
 

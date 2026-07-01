@@ -1,8 +1,9 @@
 // cover.go —— Writing 的封面 sub-object。Wiki / Output / Raw 没有封面概念。
 //
-// Cover 是个紧凑的 4 字段 unit：headline + sub (italic) + hue (color preset)
-// + imageAssetID (optional uploaded image)。前端 /writings/<slug> hero 和
-// /writings index lead card 各自渲染 Cover；同一组数据两个视觉形态。
+// Cover 是个紧凑的 unit：headline + hue (color preset) + imageAssetID
+// (optional uploaded image)。副标题不在此——它就是 writing 的 excerpt（卡片
+// excerpt / og / cover 副标题共用一个字段，见 writing.Excerpt）。前端
+// /writings/<slug> hero 和 /writings index lead card 各自渲染 Cover。
 
 package domain
 
@@ -17,7 +18,6 @@ const (
 // Cover —— Writing 的封面字段集。
 type Cover struct {
 	headline     string
-	sub          string
 	hue          string
 	imageAssetID string // 空字符串 = 没传 cover 图（走 typographic-only）
 }
@@ -25,7 +25,6 @@ type Cover struct {
 // CoverInit —— 构造参数。
 type CoverInit struct {
 	Headline     string
-	Sub          string
 	Hue          string
 	ImageAssetID string
 }
@@ -35,7 +34,6 @@ type CoverInit struct {
 func NewCover(i *CoverInit) Cover {
 	return Cover{
 		headline:     i.Headline,
-		sub:          i.Sub,
 		hue:          normalizeHue(i.Hue),
 		imageAssetID: i.ImageAssetID,
 	}
@@ -51,9 +49,6 @@ func normalizeHue(h string) string {
 
 // Headline —— 封面大标题（serif，design 系大字号）。
 func (c Cover) Headline() string { return c.headline }
-
-// Sub —— 封面副标题（italic，design 系跟 headline 互补字号）。
-func (c Cover) Sub() string { return c.sub }
 
 // Hue —— 三种色调之一，永远 normalize 过。
 func (c Cover) Hue() string { return c.hue }

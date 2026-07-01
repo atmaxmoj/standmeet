@@ -1,5 +1,5 @@
 // load-wiki-children —— LazyTree 的 wiki 数据口。每次取某层时读当前 stored
-// session token(有 code → 带上走 role scope;无 → 匿名只 seo_indexed),交给
+// session token(有 code → 带上走 role scope;无 → 匿名只 published),交给
 // fetchWikiTree。逻辑在 lib(组件层禁 if)。
 
 import { fetchWikiTree } from '@/lib/api/public';

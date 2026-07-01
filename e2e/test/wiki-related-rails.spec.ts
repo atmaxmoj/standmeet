@@ -68,6 +68,6 @@ test.describe('F2 wiki reader related rails (read next / cited by)', () => {
 
 async function indexWiki(request: APIRequestContext, sid: string, wikiID: string): Promise<void> {
   await callTool<unknown>(request, mcpToken, sid, 'seo.set_wiki_seo', {
-    wiki_id: wikiID, seo_description: '', seo_indexed: true,
+    wiki_id: wikiID, excerpt: '', published: true,
   });
 }

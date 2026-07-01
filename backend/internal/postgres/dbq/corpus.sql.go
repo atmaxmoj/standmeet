@@ -29,7 +29,7 @@ const countWikiStats = `-- name: CountWikiStats :one
 SELECT
   count(*) AS entries,
   count(*) FILTER (WHERE parent_id IS NULL) AS roots,
-  count(*) FILTER (WHERE NOT seo_indexed) AS gated
+  count(*) FILTER (WHERE NOT published) AS gated
 FROM wiki_entries
 WHERE owner_id = $1
 `
@@ -91,7 +91,7 @@ func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) 
 const createWikiEntry = `-- name: CreateWikiEntry :one
 INSERT INTO wiki_entries (owner_id, parent_id, title, body, tags, source_raw_ids)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, excerpt, published, created_at, updated_at
 `
 
 type CreateWikiEntryParams struct {
@@ -122,8 +122,8 @@ func (q *Queries) CreateWikiEntry(ctx context.Context, arg CreateWikiEntryParams
 		&i.Tags,
 		&i.SourceRawIds,
 		&i.ShowAsSource,
-		&i.SeoDescription,
-		&i.SeoIndexed,
+		&i.Excerpt,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -172,7 +172,7 @@ func (q *Queries) GetRawByID(ctx context.Context, arg GetRawByIDParams) (RawEntr
 }
 
 const getWikiByID = `-- name: GetWikiByID :one
-SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, excerpt, published, created_at, updated_at FROM wiki_entries WHERE id = $1 AND owner_id = $2
 `
 
 type GetWikiByIDParams struct {
@@ -192,8 +192,8 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 		&i.Tags,
 		&i.SourceRawIds,
 		&i.ShowAsSource,
-		&i.SeoDescription,
-		&i.SeoIndexed,
+		&i.Excerpt,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -201,7 +201,7 @@ func (q *Queries) GetWikiByID(ctx context.Context, arg GetWikiByIDParams) (WikiE
 }
 
 const getWikiMetaByID = `-- name: GetWikiMetaByID :one
-SELECT id, parent_id, title, seo_indexed
+SELECT id, parent_id, title, published
 FROM wiki_entries
 WHERE id = $1 AND owner_id = $2
 `
@@ -212,10 +212,10 @@ type GetWikiMetaByIDParams struct {
 }
 
 type GetWikiMetaByIDRow struct {
-	ID         pgtype.UUID
-	ParentID   pgtype.UUID
-	Title      string
-	SeoIndexed bool
+	ID        pgtype.UUID
+	ParentID  pgtype.UUID
+	Title     string
+	Published bool
 }
 
 // meta only(无 body):上溯算 path / 判 ACL 用,不为读正文。
@@ -226,24 +226,24 @@ func (q *Queries) GetWikiMetaByID(ctx context.Context, arg GetWikiMetaByIDParams
 		&i.ID,
 		&i.ParentID,
 		&i.Title,
-		&i.SeoIndexed,
+		&i.Published,
 	)
 	return i, err
 }
 
 const listAllWikiMeta = `-- name: ListAllWikiMeta :many
-SELECT id, parent_id, title, seo_indexed, updated_at
+SELECT id, parent_id, title, published, updated_at
 FROM wiki_entries
 WHERE owner_id = $1
 ORDER BY created_at DESC
 `
 
 type ListAllWikiMetaRow struct {
-	ID         pgtype.UUID
-	ParentID   pgtype.UUID
-	Title      string
-	SeoIndexed bool
-	UpdatedAt  pgtype.Timestamptz
+	ID        pgtype.UUID
+	ParentID  pgtype.UUID
+	Title     string
+	Published bool
+	UpdatedAt pgtype.Timestamptz
 }
 
 // 全量 meta(无 body、无 limit):sitemap 枚举所有 indexed wiki + landing 的 [[X]]
@@ -262,7 +262,7 @@ func (q *Queries) ListAllWikiMeta(ctx context.Context, ownerID pgtype.UUID) ([]L
 			&i.ID,
 			&i.ParentID,
 			&i.Title,
-			&i.SeoIndexed,
+			&i.Published,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -319,7 +319,7 @@ func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) 
 }
 
 const listWikiByOwner = `-- name: ListWikiByOwner :many
-SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at FROM wiki_entries
+SELECT id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, excerpt, published, created_at, updated_at FROM wiki_entries
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -348,8 +348,8 @@ func (q *Queries) ListWikiByOwner(ctx context.Context, arg ListWikiByOwnerParams
 			&i.Tags,
 			&i.SourceRawIds,
 			&i.ShowAsSource,
-			&i.SeoDescription,
-			&i.SeoIndexed,
+			&i.Excerpt,
+			&i.Published,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -365,7 +365,7 @@ func (q *Queries) ListWikiByOwner(ctx context.Context, arg ListWikiByOwnerParams
 
 const listWikiChildren = `-- name: ListWikiChildren :many
 
-SELECT w.id, w.parent_id, w.title, w.seo_indexed,
+SELECT w.id, w.parent_id, w.title, w.published,
        EXISTS(SELECT 1 FROM wiki_entries c WHERE c.parent_id = w.id) AS has_children
 FROM wiki_entries w
 WHERE w.owner_id = $1
@@ -385,7 +385,7 @@ type ListWikiChildrenRow struct {
 	ID          pgtype.UUID
 	ParentID    pgtype.UUID
 	Title       string
-	SeoIndexed  bool
+	Published   bool
 	HasChildren bool
 }
 
@@ -411,7 +411,7 @@ func (q *Queries) ListWikiChildren(ctx context.Context, arg ListWikiChildrenPara
 			&i.ID,
 			&i.ParentID,
 			&i.Title,
-			&i.SeoIndexed,
+			&i.Published,
 			&i.HasChildren,
 		); err != nil {
 			return nil, err
@@ -440,7 +440,7 @@ func (q *Queries) MarkRawPromoted(ctx context.Context, arg MarkRawPromotedParams
 }
 
 const searchWikiByOwner = `-- name: SearchWikiByOwner :many
-SELECT id, parent_id, title, seo_indexed, left(body, 200) AS snippet
+SELECT id, parent_id, title, published, left(body, 200) AS snippet
 FROM wiki_entries
 WHERE owner_id = $1
   AND to_tsvector('english',
@@ -462,11 +462,11 @@ type SearchWikiByOwnerParams struct {
 }
 
 type SearchWikiByOwnerRow struct {
-	ID         pgtype.UUID
-	ParentID   pgtype.UUID
-	Title      string
-	SeoIndexed bool
-	Snippet    string
+	ID        pgtype.UUID
+	ParentID  pgtype.UUID
+	Title     string
+	Published bool
+	Snippet   string
 }
 
 // 全量关键词搜(DB 端 full-text);返 meta + snippet(**不返完整 body**),翻页。
@@ -491,7 +491,7 @@ func (q *Queries) SearchWikiByOwner(ctx context.Context, arg SearchWikiByOwnerPa
 			&i.ID,
 			&i.ParentID,
 			&i.Title,
-			&i.SeoIndexed,
+			&i.Published,
 			&i.Snippet,
 		); err != nil {
 			return nil, err
@@ -580,7 +580,7 @@ UPDATE wiki_entries
 SET title = $3, body = $4, tags = $5, parent_id = $6, show_as_source = $7,
     updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, excerpt, published, created_at, updated_at
 `
 
 type UpdateWikiBodyParams struct {
@@ -594,7 +594,7 @@ type UpdateWikiBodyParams struct {
 }
 
 // admin "edit wiki" 入口：改 title/body/tags/parent_id/show_as_source。
-// seo_description / seo_indexed 由 UpdateWikiSEO 单独负责。地址纯树派生,无 path 列。
+// excerpt / published 由 UpdateWikiSEO 单独负责。地址纯树派生,无 path 列。
 func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) (WikiEntry, error) {
 	row := q.db.QueryRow(ctx, updateWikiBody,
 		arg.ID,
@@ -615,8 +615,8 @@ func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) 
 		&i.Tags,
 		&i.SourceRawIds,
 		&i.ShowAsSource,
-		&i.SeoDescription,
-		&i.SeoIndexed,
+		&i.Excerpt,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -625,20 +625,20 @@ func (q *Queries) UpdateWikiBody(ctx context.Context, arg UpdateWikiBodyParams) 
 
 const updateWikiSEO = `-- name: UpdateWikiSEO :one
 UPDATE wiki_entries
-SET seo_description = $2, seo_indexed = $3, updated_at = now()
+SET excerpt = $2, published = $3, updated_at = now()
 WHERE id = $1
-RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, seo_description, seo_indexed, created_at, updated_at
+RETURNING id, owner_id, parent_id, title, body, tags, source_raw_ids, show_as_source, excerpt, published, created_at, updated_at
 `
 
 type UpdateWikiSEOParams struct {
-	ID             pgtype.UUID
-	SeoDescription string
-	SeoIndexed     bool
+	ID        pgtype.UUID
+	Excerpt   string
+	Published bool
 }
 
 // admin / MCP 编辑 SEO 描述 + indexed 开关（地址树派生,owner 不再自设 path）。
 func (q *Queries) UpdateWikiSEO(ctx context.Context, arg UpdateWikiSEOParams) (WikiEntry, error) {
-	row := q.db.QueryRow(ctx, updateWikiSEO, arg.ID, arg.SeoDescription, arg.SeoIndexed)
+	row := q.db.QueryRow(ctx, updateWikiSEO, arg.ID, arg.Excerpt, arg.Published)
 	var i WikiEntry
 	err := row.Scan(
 		&i.ID,
@@ -649,8 +649,8 @@ func (q *Queries) UpdateWikiSEO(ctx context.Context, arg UpdateWikiSEOParams) (W
 		&i.Tags,
 		&i.SourceRawIds,
 		&i.ShowAsSource,
-		&i.SeoDescription,
-		&i.SeoIndexed,
+		&i.Excerpt,
+		&i.Published,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

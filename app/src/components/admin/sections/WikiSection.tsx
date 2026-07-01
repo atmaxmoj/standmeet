@@ -210,7 +210,7 @@ function WikiHead({ entry }: { entry: WikiSummary }) {
       <h3 className="font-serif text-[20px] font-normal leading-[1.25] text-(--color-ink) m-0 flex-1">
         {entry.title}
       </h3>
-      <VisibilityDot indexed={entry.seo_indexed} />
+      <VisibilityDot indexed={entry.published} />
     </div>
   );
 }
@@ -282,7 +282,7 @@ function ActionRow({
         testid={`wiki-promote-${entry.id}`}
         onClick={() => setMode('promote')}
       />
-      <ViewLiveLink path={entry.path} indexed={entry.seo_indexed} />
+      <ViewLiveLink path={entry.path} indexed={entry.published} />
       <DeleteBtn entry={entry} actions={actions} childCount={childCount} />
     </div>
   );

@@ -84,13 +84,13 @@ async function seedWritings(request: APIRequestContext): Promise<void> {
   await callTool(request, apiToken, sid, 'writing_create', {
     slug: 'alpha-writing', title: 'Alpha Writing',
     excerpt: 'Alpha content.', body_md: 'Alpha body.',
-    cover_headline: 'alpha.', cover_sub: 'tagged.', cover_hue: 'amber',
+    cover_headline: 'alpha.', cover_hue: 'amber',
     tags: ['alpha'], publish: true,
   });
   await callTool(request, apiToken, sid, 'writing_create', {
     slug: 'beta-writing', title: 'Beta Writing',
     excerpt: 'Beta content.', body_md: 'Beta body.',
-    cover_headline: 'beta.', cover_sub: 'tagged.', cover_hue: 'violet',
+    cover_headline: 'beta.', cover_hue: 'violet',
     tags: ['beta'], publish: true,
   });
 }

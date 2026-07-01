@@ -36,7 +36,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
         title: 'Writing B Heading',
         excerpt: 'Target of crosslinks.',
         body_md: 'Body of B.',
-        cover_headline: 'b.', cover_sub: 'target.', cover_hue: 'amber',
+        cover_headline: 'b.', cover_hue: 'amber',
         tags: ['crosslink'], publish: true,
       });
 
@@ -57,7 +57,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
         title: 'Writing A',
         excerpt: 'Has crosslinks.',
         body_md: A_BODY,
-        cover_headline: 'a.', cover_sub: 'source.', cover_hue: 'violet',
+        cover_headline: 'a.', cover_hue: 'violet',
         tags: ['crosslink'], publish: true,
       });
 

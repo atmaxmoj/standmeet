@@ -280,7 +280,7 @@ export async function fetchVisitorDoc(
 }
 
 // fetchWikiTree —— GET /api/v1/wiki-tree[?parent=ID] 的一层。token 非空带
-// Bearer(走 code 的 role scope);否则匿名(只 seo_indexed)。ACL 在后端评估,
+// Bearer(走 code 的 role scope);否则匿名(只 published)。ACL 在后端评估,
 // 不在 scope 的条目整条不返。坏响应 / 网络挂 → []。逻辑薄,组件只 render。
 export async function fetchWikiTree(parentID: string, token: string): Promise<TreeNode[]> {
   try {
@@ -420,7 +420,7 @@ export type BacklinkRef = z.infer<typeof BacklinkRefSchema>;
 
 const WritingViewSchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
-  body_md: z.string(), cover_headline: z.string(), cover_sub: z.string(),
+  body_md: z.string(), cover_headline: z.string(),
   cover_hue: z.enum(['amber', 'violet', 'acid']),
   cover_image_asset_id: z.string().optional(),
   tags: z.array(z.string()), visibility: z.enum(['public', 'private']),

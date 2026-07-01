@@ -29,7 +29,7 @@ func wikiItemFromDomain(w *domain.Wiki, path string) wikiListItem {
 		ParentID:     optionalToPtr(w.ParentID),
 		Path:         ptrIfNonEmpty(path),
 		ShowAsSource: w.ShowAsSource(),
-		SEOIndexed:   w.SEOIndexed(),
+		Published:    w.Published(),
 		CreatedAt:    w.CreatedAt().UTC().Format(timeRFC3339),
 	}
 }
@@ -60,7 +60,7 @@ func outputItemFromDomain(o *domain.Output, path string) outputListItem {
 		ParentID:      optionalToPtr(o.ParentID),
 		Path:          ptrIfNonEmpty(path),
 		ShowAsSource:  o.ShowAsSource(),
-		SEOIndexed:    o.SEOIndexed(),
+		Published:     o.Published(),
 		CreatedAt:     o.CreatedAt().UTC().Format(timeRFC3339),
 	}
 }

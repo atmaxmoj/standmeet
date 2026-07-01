@@ -102,7 +102,7 @@ test.describe('writings: editor flow + rich render + XSS', () => {
         slug: 'rich-markdown-essay', title: 'Rich markdown essay',
         excerpt: 'Every GFM feature must round-trip cleanly.',
         body_md: RICH_MD,
-        cover_headline: 'rich markdown.', cover_sub: 'the whole spec.',
+        cover_headline: 'rich markdown.',
         cover_hue: 'amber', tags: ['markdown', 'gfm'],
       });
       await goto(page, '/writings');
@@ -118,7 +118,7 @@ test.describe('writings: editor flow + rich render + XSS', () => {
         title: 'XSS attempt',
         excerpt: 'Owner-untrusted markdown must not execute.',
         body_md: 'Before.\n\n<script>window.__xssRan = true;</script>\n\nAfter.',
-        cover_headline: 'xss.', cover_sub: 'must escape.', cover_hue: 'acid',
+        cover_headline: 'xss.', cover_hue: 'acid',
         tags: ['security'],
       });
       await goto(page, '/writings/xss-attempt');
@@ -212,7 +212,7 @@ test.describe('writings: edit existing writing', () => {
       await mcpCreateWriting(request, 'writing-edit-token', {
         slug: 'editable-writing', title: 'Original title',
         excerpt: 'Will be edited.', body_md: 'Original body.',
-        cover_headline: 'first.', cover_sub: 'pass.', cover_hue: 'amber',
+        cover_headline: 'first.', cover_hue: 'amber',
         tags: ['edit'],
       });
       await openAdminWritings(adminPage);
@@ -311,7 +311,6 @@ interface MCPCreateWritingInput {
   excerpt: string;
   body_md: string;
   cover_headline: string;
-  cover_sub: string;
   cover_hue: 'amber' | 'violet' | 'acid';
   tags: string[];
 }
@@ -424,7 +423,6 @@ async function seedExtraWritings(
       excerpt: `Test writing ${idx}.`,
       body_md: `Body paragraph ${idx}.`,
       cover_headline: `writing ${idx}.`,
-      cover_sub: 'seeded.',
       cover_hue: 'acid',
       tags: ['scroll-test'],
       publish: true,

@@ -23,7 +23,7 @@ type outputListItem struct {
 	Tags          []string `json:"tags"`
 	SourceWikiIDs []string `json:"source_wiki_ids"`
 	ShowAsSource  bool     `json:"show_as_source"`
-	SEOIndexed    bool     `json:"seo_indexed"`
+	Published     bool     `json:"published"`
 }
 
 func (h *Handlers) listOutput() http.HandlerFunc {

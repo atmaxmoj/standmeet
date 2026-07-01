@@ -41,7 +41,6 @@ type writingView struct {
 	Excerpt           string            `json:"excerpt"`
 	BodyMD            string            `json:"body_md"`
 	CoverHeadline     string            `json:"cover_headline"`
-	CoverSub          string            `json:"cover_sub"`
 	CoverHue          string            `json:"cover_hue"`
 	Visibility        string            `json:"visibility"`
 	Path              string            `json:"path"`
@@ -63,7 +62,6 @@ type writingSaveRequest struct {
 	BodyMD        string   `json:"body_md"`
 	CoverImageRef string   `json:"cover_image_ref"`
 	CoverHeadline string   `json:"cover_headline"`
-	CoverSub      string   `json:"cover_sub"`
 	CoverHue      string   `json:"cover_hue"`
 	Visibility    string   `json:"visibility"`
 	LockedBody    string   `json:"locked_body"`
@@ -152,7 +150,7 @@ func toWritingView(wg *domain.Writing) writingView {
 	}
 	return writingView{
 		ID: wg.ID(), Slug: wg.Slug(), Title: wg.Title(), Excerpt: wg.Excerpt(),
-		BodyMD: wg.Body(), CoverHeadline: wg.CoverHeadline(), CoverSub: wg.CoverSub(),
+		BodyMD: wg.Body(), CoverHeadline: wg.CoverHeadline(),
 		CoverHue: wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
 		Tags: wg.Tags(), Visibility: wg.VisibilityMode(), CrossRefs: wg.CrossRefs(),
 		Path: wg.Path(), ReadMinutes: wg.ReadMinutes(), LockedBody: wg.LockedBody(),
@@ -220,7 +218,7 @@ func buildSaveWritingInput(
 		OwnerID: ownerID, WritingID: writingID, Slug: req.Slug, Title: req.Title,
 		Excerpt: req.Excerpt, BodyMD: req.BodyMD,
 		CoverImageRef: req.CoverImageRef, CoverHeadline: req.CoverHeadline,
-		CoverSub: req.CoverSub, CoverHue: req.CoverHue,
+		CoverHue:   req.CoverHue,
 		Visibility: req.Visibility, LockedBody: req.LockedBody,
 		Tags: req.Tags, CrossRefs: req.CrossRefs, Files: files,
 		ParentID: req.ParentID, Publish: req.Publish,

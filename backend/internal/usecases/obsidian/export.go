@@ -186,8 +186,8 @@ func writingToFrontmatter(w *domain.Writing, filenames map[string]string) Frontm
 	fm := Frontmatter{
 		Title: w.Title(), Slug: w.Slug(),
 		Excerpt: w.Excerpt(), Tags: w.Tags(),
-		CoverHeadline: w.CoverHeadline(), CoverSub: w.CoverSub(),
-		CoverHue: w.CoverHue(), Visibility: w.VisibilityMode(),
+		CoverHeadline: w.CoverHeadline(),
+		CoverHue:      w.CoverHue(), Visibility: w.VisibilityMode(),
 		LockedBody: w.LockedBody(), Publish: w.IsPublished(),
 	}
 	if pubAt, ok := w.PublishedAt(); ok {

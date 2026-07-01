@@ -60,7 +60,6 @@ type SaveWritingInput struct {
 	CoverHue      string
 	Excerpt       string
 	CoverHeadline string
-	CoverSub      string
 	ParentID      string
 	Tags          []string
 	CrossRefs     []string
@@ -248,7 +247,7 @@ func buildShellCreateInput(in *SaveWritingInput) *postgres.CreateWritingInput {
 	path := "writings/" + in.Slug
 	return &postgres.CreateWritingInput{
 		OwnerID: in.OwnerID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
-		BodyMD: "", CoverHeadline: in.CoverHeadline, CoverSub: in.CoverSub,
+		BodyMD: "", CoverHeadline: in.CoverHeadline,
 		CoverHue: in.CoverHue, CoverImageAssetID: nil,
 		Tags: in.Tags, Visibility: in.Visibility, CrossRefs: in.CrossRefs,
 		Path: path, ReadMinutes: 0, LockedBody: in.LockedBody, Publish: in.Publish,
@@ -305,8 +304,8 @@ func writeWritingBody(ctx context.Context, a *writeBodyArgs) (domain.Writing, er
 	p, err := a.Deps.Writings.UpdateTx(ctx, a.Tx, &postgres.UpdateWritingInput{
 		OwnerID: a.In.OwnerID, WritingID: a.Writing.ID(), Title: a.In.Title,
 		Excerpt: a.In.Excerpt, BodyMD: body,
-		CoverHeadline: a.In.CoverHeadline, CoverSub: a.In.CoverSub,
-		CoverHue: a.In.CoverHue, CoverImageAssetID: cover,
+		CoverHeadline: a.In.CoverHeadline,
+		CoverHue:      a.In.CoverHue, CoverImageAssetID: cover,
 		Tags: a.In.Tags, Visibility: a.In.Visibility, CrossRefs: a.In.CrossRefs,
 		Path: a.Writing.Path(), ReadMinutes: estimateReadMinutes(body),
 		LockedBody: a.In.LockedBody, ParentID: effectiveWritingParent(a),

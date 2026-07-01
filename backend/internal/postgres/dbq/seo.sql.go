@@ -11,8 +11,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countPublishedCorpus = `-- name: CountPublishedCorpus :one
+SELECT
+    (SELECT count(*) FROM wiki_entries   w  WHERE w.owner_id = $1 AND w.published)  AS wiki,
+    (SELECT count(*) FROM output_entries o  WHERE o.owner_id = $1 AND o.published)  AS outputs,
+    (SELECT count(*) FROM writings       wr WHERE wr.owner_id = $1 AND wr.published_at IS NOT NULL) AS writings
+`
+
+type CountPublishedCorpusRow struct {
+	Wiki     int64
+	Outputs  int64
+	Writings int64
+}
+
+// SEO 面 indexing stats：owner 各 tier 已 published 的条目数（wiki/output）+
+// published writing 数。owner 在 UI 选统计范围，默认全含（三者相加）。
+func (q *Queries) CountPublishedCorpus(ctx context.Context, ownerID pgtype.UUID) (CountPublishedCorpusRow, error) {
+	row := q.db.QueryRow(ctx, countPublishedCorpus, ownerID)
+	var i CountPublishedCorpusRow
+	err := row.Scan(&i.Wiki, &i.Outputs, &i.Writings)
+	return i, err
+}
+
 const getSEOSettings = `-- name: GetSEOSettings :one
-SELECT owner_id, index_robots, sitemap_extras, og_template, updated_at
+SELECT owner_id, site_title, index_robots, sitemap_extras, og_template, updated_at
 FROM seo_settings
 WHERE owner_id = $1
 `
@@ -22,6 +44,7 @@ func (q *Queries) GetSEOSettings(ctx context.Context, ownerID pgtype.UUID) (SeoS
 	var i SeoSetting
 	err := row.Scan(
 		&i.OwnerID,
+		&i.SiteTitle,
 		&i.IndexRobots,
 		&i.SitemapExtras,
 		&i.OgTemplate,
@@ -31,18 +54,20 @@ func (q *Queries) GetSEOSettings(ctx context.Context, ownerID pgtype.UUID) (SeoS
 }
 
 const upsertSEOSettings = `-- name: UpsertSEOSettings :one
-INSERT INTO seo_settings (owner_id, index_robots, sitemap_extras, og_template, updated_at)
-VALUES ($1, $2, $3, $4, now())
+INSERT INTO seo_settings (owner_id, site_title, index_robots, sitemap_extras, og_template, updated_at)
+VALUES ($1, $2, $3, $4, $5, now())
 ON CONFLICT (owner_id) DO UPDATE SET
+    site_title     = EXCLUDED.site_title,
     index_robots   = EXCLUDED.index_robots,
     sitemap_extras = EXCLUDED.sitemap_extras,
     og_template    = EXCLUDED.og_template,
     updated_at     = now()
-RETURNING owner_id, index_robots, sitemap_extras, og_template, updated_at
+RETURNING owner_id, site_title, index_robots, sitemap_extras, og_template, updated_at
 `
 
 type UpsertSEOSettingsParams struct {
 	OwnerID       pgtype.UUID
+	SiteTitle     string
 	IndexRobots   bool
 	SitemapExtras []byte
 	OgTemplate    string
@@ -51,6 +76,7 @@ type UpsertSEOSettingsParams struct {
 func (q *Queries) UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsParams) (SeoSetting, error) {
 	row := q.db.QueryRow(ctx, upsertSEOSettings,
 		arg.OwnerID,
+		arg.SiteTitle,
 		arg.IndexRobots,
 		arg.SitemapExtras,
 		arg.OgTemplate,
@@ -58,6 +84,7 @@ func (q *Queries) UpsertSEOSettings(ctx context.Context, arg UpsertSEOSettingsPa
 	var i SeoSetting
 	err := row.Scan(
 		&i.OwnerID,
+		&i.SiteTitle,
 		&i.IndexRobots,
 		&i.SitemapExtras,
 		&i.OgTemplate,

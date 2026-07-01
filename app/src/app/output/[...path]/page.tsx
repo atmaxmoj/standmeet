@@ -25,10 +25,10 @@ export async function generateMetadata(
   const out = await fetchOutputLanding(path.join('/'));
   return out ? {
     title: out.title,
-    description: out.seo_description || out.body.slice(0, 160),
+    description: out.excerpt || out.body.slice(0, 160),
     openGraph: {
       title: out.title,
-      description: out.seo_description,
+      description: out.excerpt,
       type: 'article',
     },
   } : { title: 'not found' };
@@ -45,7 +45,7 @@ export default async function OutputLandingPage({ params }: { params: Promise<Pa
 }
 
 function OutputLandingContent({ out, handle, slug }: {
-  out: { title: string; body: string; seo_description: string; updated_at: string };
+  out: { title: string; body: string; excerpt: string; updated_at: string };
   handle: string;
   slug: string;
 }) {

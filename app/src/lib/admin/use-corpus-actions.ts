@@ -43,7 +43,7 @@ const WikiDetailSchema = z.object({
   id: z.string(), title: z.string(), body: z.string(), tags: z.array(z.string()),
   source_raw_ids: z.array(z.string()),
   parent_id: z.string().nullable().optional(),
-  show_as_source: z.boolean(), seo_description: z.string(), seo_indexed: z.boolean(),
+  show_as_source: z.boolean(), excerpt: z.string(), published: z.boolean(),
 });
 export type WikiDetail = z.infer<typeof WikiDetailSchema>;
 
@@ -51,15 +51,15 @@ const OutputDetailSchema = z.object({
   id: z.string(), title: z.string(), body: z.string(), tags: z.array(z.string()),
   source_wiki_ids: z.array(z.string()),
   parent_id: z.string().nullable().optional(),
-  show_as_source: z.boolean(), seo_description: z.string(), seo_indexed: z.boolean(),
+  show_as_source: z.boolean(), excerpt: z.string(), published: z.boolean(),
 });
 export type OutputDetail = z.infer<typeof OutputDetailSchema>;
 
 // SEOUpdateInput —— PATCH /wiki/{id}/seo + /output/{id}/seo 入参。地址树派生,
 // owner 不设 path —— 只有 description/indexed。
 export interface SEOUpdateInput {
-  seo_description: string;
-  seo_indexed: boolean;
+  excerpt: string;
+  published: boolean;
 }
 
 export interface CorpusActionsHook {

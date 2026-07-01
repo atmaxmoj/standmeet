@@ -83,7 +83,7 @@ func insertOneWikiRef(
 	return nil
 }
 
-// BacklinksFor —— 「cited by」：列指向 dstID 的源 wiki（id + title），只 seo_indexed。
+// BacklinksFor —— 「cited by」：列指向 dstID 的源 wiki（id + title），只 published。
 func (r *WikiRefRepo) BacklinksFor(
 	ctx context.Context, ownerID, dstID string,
 ) ([]WikiRef, error) {
@@ -105,7 +105,7 @@ func (r *WikiRefRepo) BacklinksFor(
 }
 
 // OutboundFor —— 「read next / sources」：src 引用了哪些 wiki（id + title），只
-// seo_indexed。「N corpus sources」= len(返回)。
+// published。「N corpus sources」= len(返回)。
 func (r *WikiRefRepo) OutboundFor(
 	ctx context.Context, srcID string,
 ) ([]WikiRef, error) {

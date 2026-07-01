@@ -15,7 +15,6 @@
 //	excerpt: One-liner.
 //	cover_hue: amber
 //	cover_headline: cover.
-//	cover_sub: image.
 //	visibility: public
 //	---
 //	body markdown here
@@ -46,7 +45,6 @@ type Frontmatter struct {
 	Slug          string     `yaml:"slug,omitempty"`
 	Excerpt       string     `yaml:"excerpt,omitempty"`
 	CoverHeadline string     `yaml:"cover_headline,omitempty"`
-	CoverSub      string     `yaml:"cover_sub,omitempty"`
 	CoverHue      string     `yaml:"cover_hue,omitempty"`
 	CoverImage    string     `yaml:"cover_image,omitempty"`
 	Visibility    string     `yaml:"visibility,omitempty"`

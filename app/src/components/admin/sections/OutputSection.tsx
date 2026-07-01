@@ -1,7 +1,7 @@
 // OutputSection —— /admin/output。raw → wiki → output 三层最精炼那层。
 // 设计源 docs/design/project/admin.js OutputsSection (434-510)：2-col card
 // grid，每张 card 顶 cover-strip + visibility pill；底版面 provenance + actions。
-// visibility 用现有 schema 推导：seo_indexed=true → public；!seo_indexed &&
+// visibility 用现有 schema 推导：published=true → public；!published &&
 // show_as_source → unlisted；其他 → private。
 
 'use client';
@@ -154,7 +154,7 @@ function OutputGrid({
 type Visibility = 'public' | 'unlisted' | 'private';
 
 function deriveVisibility(entry: OutputSummary): Visibility {
-  return entry.seo_indexed ? 'public' : (entry.show_as_source ? 'unlisted' : 'private');
+  return entry.published ? 'public' : (entry.show_as_source ? 'unlisted' : 'private');
 }
 
 function OutputCard({
@@ -249,7 +249,7 @@ function FootActions({
       >
         edit
       </button>
-      <ViewLiveLink path={entry.path} indexed={entry.seo_indexed} />
+      <ViewLiveLink path={entry.path} indexed={entry.published} />
       <DeleteBtn entry={entry} actions={actions} />
     </div>
   );
@@ -327,7 +327,7 @@ function EditFormBody({
   entry, detail, actions, onSubmit, onDone,
 }: {
   entry: OutputSummary;
-  detail: { title: string; body: string; tags: string[]; path?: string | null; seo_description: string; seo_indexed: boolean };
+  detail: { title: string; body: string; tags: string[]; path?: string | null; excerpt: string; published: boolean };
   actions: CorpusActionsHook;
   onSubmit: (input: CorpusEntryInput) => void;
   onDone: () => void;
@@ -345,7 +345,7 @@ function EditFormBody({
       />
       <SEOEditor
         testidPrefix={`output-${entry.id}`}
-        initial={{ seo_description: detail.seo_description, seo_indexed: detail.seo_indexed }}
+        initial={{ excerpt: detail.excerpt, published: detail.published }}
         busy={actions.pending}
         onSave={(input: SEOUpdateInput) => void saveOutputSEO(entry.id, actions, toast, input)}
       />

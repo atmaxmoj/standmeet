@@ -113,7 +113,7 @@ type WikiMeta struct {
 	Title       string
 	Snippet     string
 	UpdatedAt   int64
-	SEOIndexed  bool
+	Published   bool
 	HasChildren bool
 }
 
@@ -130,7 +130,7 @@ func (r *WikiRepo) ListChildren(
 		func(row dbq.ListWikiChildrenRow) WikiMeta {
 			return WikiMeta{
 				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-				Title: row.Title, SEOIndexed: row.SeoIndexed, HasChildren: row.HasChildren,
+				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
 }
@@ -152,7 +152,7 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 	}
 	return WikiMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-		Title: row.Title, SEOIndexed: row.SeoIndexed,
+		Title: row.Title, Published: row.Published,
 	}, nil
 }
 
@@ -180,7 +180,7 @@ func (r *WikiRepo) Search(
 func wikiSearchRowMeta(row *dbq.SearchWikiByOwnerRow) WikiMeta {
 	return WikiMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-		Title: row.Title, SEOIndexed: row.SeoIndexed, Snippet: row.Snippet,
+		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
 	}
 }
 
@@ -219,7 +219,7 @@ func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta,
 	for i := range rows {
 		out = append(out, WikiMeta{
 			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
-			Title: rows[i].Title, SEOIndexed: rows[i].SeoIndexed,
+			Title: rows[i].Title, Published: rows[i].Published,
 			UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
 		})
 	}
@@ -237,18 +237,18 @@ func optUUIDStr(u pgtype.UUID) *string {
 
 func toDomainWiki(w *dbq.WikiEntry) domain.Wiki {
 	in := domain.WikiInit{
-		ID:             formatUUID(w.ID),
-		OwnerID:        formatUUID(w.OwnerID),
-		Title:          w.Title,
-		Body:           w.Body,
-		Tags:           w.Tags,
-		SourceRawIDs:   formatUUIDList(w.SourceRawIds),
-		ShowAsSource:   w.ShowAsSource,
-		SEODescription: w.SeoDescription,
-		SEOIndexed:     w.SeoIndexed,
-		CreatedAt:      w.CreatedAt.Time,
-		UpdatedAt:      w.UpdatedAt.Time,
-		Integrations:   domain.NewIntegrations(),
+		ID:           formatUUID(w.ID),
+		OwnerID:      formatUUID(w.OwnerID),
+		Title:        w.Title,
+		Body:         w.Body,
+		Tags:         w.Tags,
+		SourceRawIDs: formatUUIDList(w.SourceRawIds),
+		ShowAsSource: w.ShowAsSource,
+		Excerpt:      w.Excerpt,
+		Published:    w.Published,
+		CreatedAt:    w.CreatedAt.Time,
+		UpdatedAt:    w.UpdatedAt.Time,
+		Integrations: domain.NewIntegrations(),
 	}
 	if w.ParentID.Valid {
 		s := formatUUID(w.ParentID)

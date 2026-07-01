@@ -1,7 +1,7 @@
 // wiki_tree.go —— GET /api/v1/wiki-tree[?parent=ID] —— sidebar 导航的懒加载
 // 分层。parent 空 → roots;parent=ID → ID 的直接子节点。一次一层,前端展开才取。
 //
-// scope:带有效 bearer(code session)→ role corpus_uris;否则匿名 → seo_indexed。
+// scope:带有效 bearer(code session)→ role corpus_uris;否则匿名 → published。
 // token 无效/缺失都安全退到匿名(公开端点,不报 401)。
 
 package public

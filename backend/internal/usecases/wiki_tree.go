@@ -4,7 +4,7 @@
 // 懒加载是逐层的:一次只查一层(roots / 某节点的直接子,DB 端 ListChildren,
 // meta-only),**不 load 整棵树**。大 corpus 不再吃 newest-50 cap。
 //
-// 可见性走 scope:匿名只 seo_indexed,有 code 走 role corpus_uris glob 准入。
+// 可见性走 scope:匿名只 published,有 code 走 role corpus_uris glob 准入。
 // 文件系统式 cascade:一条可见 ⟺ 它自己过闸 **且** 每个祖先都过闸 —— 祖先 gate 了
 // 整条子树不可见(不泄露 gated 标题、indexed 子也不升根)。懒加载下 cascade 这样守:
 // 列某 parent 的子前先顺 parent→root 验整条链可见(visibleChain),链断 → 返空层;
@@ -38,11 +38,11 @@ type WikiTreeNode struct {
 	HasChildren bool
 }
 
-// WikiTreeScope —— 判一条 wiki(按 seo_indexed + 树派生 path)对当前 viewer 是否
+// WikiTreeScope —— 判一条 wiki(按 published + 树派生 path)对当前 viewer 是否
 // 过闸。只看节点**自己**;cascade 的祖先链由 visibleChain 单独验。
 type WikiTreeScope func(seoIndexed bool, path string) bool
 
-// PublicWikiScope —— 匿名:只 seo_indexed 可见(跟 GetWikiLanding 一致)。
+// PublicWikiScope —— 匿名:只 published 可见(跟 GetWikiLanding 一致)。
 func PublicWikiScope(seoIndexed bool, _ string) bool {
 	return seoIndexed
 }
@@ -55,7 +55,7 @@ func RoleWikiScope(snap *domain.RoleSnapshot) WikiTreeScope {
 }
 
 // WikiTreeScopeFor —— bearer token → scope。token 空 / 无效 / 无 store 都退到
-// 匿名(只 seo_indexed);有效 session → role corpus_uris scope。
+// 匿名(只 published);有效 session → role corpus_uris scope。
 func WikiTreeScopeFor(
 	ctx context.Context, sessions *session.VisitorSessionStore, token string,
 ) WikiTreeScope {
@@ -140,7 +140,7 @@ func (q *wikiTreeQuery) visibleChain(
 	for _, meta := range slices.Backward(metas) {
 		segs = append(segs, pathSegment(meta.Title))
 		path := strings.Join(segs, "/")
-		if !q.scope(meta.SEOIndexed, path) {
+		if !q.scope(meta.Published, path) {
 			return []WikiTreeNode{}, nil
 		}
 		nodes = append(nodes, WikiTreeNode{ID: meta.ID, Title: meta.Title, Path: path})
@@ -180,7 +180,7 @@ func (q *wikiTreeQuery) listChildren(
 	out := make([]WikiTreeNode, 0, len(kids))
 	for i := range kids {
 		path := joinSeg(parentPath, pathSegment(kids[i].Title))
-		if !q.scope(kids[i].SEOIndexed, path) {
+		if !q.scope(kids[i].Published, path) {
 			continue
 		}
 		hasKids, herr := q.hasVisibleChild(ctx, kids[i].ID, path)
@@ -203,7 +203,7 @@ func (q *wikiTreeQuery) hasVisibleChild(
 		return false, fmt.Errorf("peek wiki children: %w", err)
 	}
 	for i := range kids {
-		if q.scope(kids[i].SEOIndexed, joinSeg(nodePath, pathSegment(kids[i].Title))) {
+		if q.scope(kids[i].Published, joinSeg(nodePath, pathSegment(kids[i].Title))) {
 			return true, nil
 		}
 	}

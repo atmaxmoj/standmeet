@@ -88,7 +88,7 @@ async function seedContent(request: APIRequestContext): Promise<void> {
     title: 'Writing Chat Test',
     excerpt: 'A writing to test writing-to-chat flow.',
     body_md: 'This writing explores the writing to chat integration.',
-    cover_headline: 'writing.', cover_sub: 'chat.', cover_hue: 'amber',
+    cover_headline: 'writing.', cover_hue: 'amber',
     tags: ['integration'], publish: true,
   });
 }

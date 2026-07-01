@@ -2,7 +2,7 @@
 // 兜底:持 code 的访客凭 session 走 corpus_read 把全文取回来渲染(role ACL 授了
 // 就看得见 —— AI 就是凭这访问读出来引用的)。无 session / 无权才落锁屏。
 //
-// SSR 那层只认 seo_indexed,拿不到访客 localStorage session,所以这一兜底必须
+// SSR 那层只认 published,拿不到访客 localStorage session,所以这一兜底必须
 // 在客户端做。
 
 'use client';

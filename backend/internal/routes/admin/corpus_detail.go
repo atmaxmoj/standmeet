@@ -16,39 +16,39 @@ import (
 // detail 不含 path:地址树派生(浏览列表那条由 usecases.WikiTreePaths 算并回显);
 // 编辑表单不再有可改的 path 字段(owner 不能自设地址)。
 type wikiDetailItem struct {
-	ParentID       *string  `json:"parent_id"`
-	ID             string   `json:"id"`
-	Title          string   `json:"title"`
-	Body           string   `json:"body"`
-	SEODescription string   `json:"seo_description"`
-	CreatedAt      string   `json:"created_at"`
-	UpdatedAt      string   `json:"updated_at"`
-	Tags           []string `json:"tags"`
-	SourceRawIDs   []string `json:"source_raw_ids"`
-	ShowAsSource   bool     `json:"show_as_source"`
-	SEOIndexed     bool     `json:"seo_indexed"`
+	ParentID     *string  `json:"parent_id"`
+	ID           string   `json:"id"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body"`
+	Excerpt      string   `json:"excerpt"`
+	CreatedAt    string   `json:"created_at"`
+	UpdatedAt    string   `json:"updated_at"`
+	Tags         []string `json:"tags"`
+	SourceRawIDs []string `json:"source_raw_ids"`
+	ShowAsSource bool     `json:"show_as_source"`
+	Published    bool     `json:"published"`
 }
 
 type outputDetailItem struct {
-	ParentID       *string  `json:"parent_id"`
-	ID             string   `json:"id"`
-	Title          string   `json:"title"`
-	Body           string   `json:"body"`
-	SEODescription string   `json:"seo_description"`
-	CreatedAt      string   `json:"created_at"`
-	UpdatedAt      string   `json:"updated_at"`
-	Tags           []string `json:"tags"`
-	SourceWikiIDs  []string `json:"source_wiki_ids"`
-	ShowAsSource   bool     `json:"show_as_source"`
-	SEOIndexed     bool     `json:"seo_indexed"`
+	ParentID      *string  `json:"parent_id"`
+	ID            string   `json:"id"`
+	Title         string   `json:"title"`
+	Body          string   `json:"body"`
+	Excerpt       string   `json:"excerpt"`
+	CreatedAt     string   `json:"created_at"`
+	UpdatedAt     string   `json:"updated_at"`
+	Tags          []string `json:"tags"`
+	SourceWikiIDs []string `json:"source_wiki_ids"`
+	ShowAsSource  bool     `json:"show_as_source"`
+	Published     bool     `json:"published"`
 }
 
 func wikiDetailFromDomain(w *domain.Wiki) wikiDetailItem {
 	return wikiDetailItem{
 		ID: w.ID(), Title: w.Title(), Body: w.Body(),
 		Tags: ensureSlice(w.Tags()), SourceRawIDs: ensureSlice(w.SourceRawIDs()),
-		ParentID: optionalToPtr(w.ParentID), SEODescription: w.SEODescription(),
-		ShowAsSource: w.ShowAsSource(), SEOIndexed: w.SEOIndexed(),
+		ParentID: optionalToPtr(w.ParentID), Excerpt: w.Excerpt(),
+		ShowAsSource: w.ShowAsSource(), Published: w.Published(),
 		CreatedAt: w.CreatedAt().UTC().Format(timeRFC3339),
 		UpdatedAt: w.UpdatedAt().UTC().Format(timeRFC3339),
 	}
@@ -58,8 +58,8 @@ func outputDetailFromDomain(o *domain.Output) outputDetailItem {
 	return outputDetailItem{
 		ID: o.ID(), Title: o.Title(), Body: o.Body(),
 		Tags: ensureSlice(o.Tags()), SourceWikiIDs: ensureSlice(o.SourceWikiIDs()),
-		ParentID: optionalToPtr(o.ParentID), SEODescription: o.SEODescription(),
-		ShowAsSource: o.ShowAsSource(), SEOIndexed: o.SEOIndexed(),
+		ParentID: optionalToPtr(o.ParentID), Excerpt: o.Excerpt(),
+		ShowAsSource: o.ShowAsSource(), Published: o.Published(),
 		CreatedAt: o.CreatedAt().UTC().Format(timeRFC3339),
 		UpdatedAt: o.UpdatedAt().UTC().Format(timeRFC3339),
 	}
