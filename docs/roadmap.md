@@ -37,12 +37,32 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 
 ---
 
-## 块二 · 平台"替换" #135 + agent-as-injectable-driver 🚧
+## 块二 · 平台架构 #135(三层:A–H 机制 / "替换"迁移 / driver)
 
-- 终点态:**core = corpus + visitor chat + AccessCode + PDF + AI provider + 一个插件装载器,零能力**;`MustRegister` + 进程内 registry **全删**;每个能力迁出成独立标准 MCP server。
-- 🟡 现状:connector 轴 ✅(本 session 审干净)、mcp-capability 已沙箱化(bwrap + per-cap unix socket);但**全外置 + 删 MustRegister 没完**(me/seo/codes + jobs/resume/applications 仍 MustRegister 进核心 capreg)。
-- 🚧 **agent-as-injectable-driver**:把 agent loop 重构成独立可启动、可注入(capabilities+prompts)的 driver → **并行跑很多 prompt、实验出好 prompt**("eval 是类型系统";prompt 被验证而非设计)。种子在(`agentcore` 纯 facade + eval-harness 跑 byte-for-byte 同一 loop)。这也是 eight-controls 里缺的**"质量半"**(selection/shaping)。
-- 结构性大、牵一发动全身——不像块一那样局部。
+终点态(设计文档):**core = corpus + visitor chat + AccessCode + PDF + AI provider + 一个插件装载器,零能力**;`MustRegister` + 进程内 registry **全删**;每个能力迁成独立标准 MCP server。这块要拆成**三层**看,别混:
+
+### 层① · Phase A–H(机制) —— 基本 ✅,只剩 Phase D
+> 注意:A–H 是**实现分期**(在 task/tests 里),设计文档本身用决策点 P.1–P.13。
+
+| Phase | 是什么 | 状态 |
+|---|---|---|
+| **A**(C0+C1–C4) | 先写全红测试 → PluginManifest / mcpclient stdio+transport / pluginCapability 泛化 / boot 发现接 composition root | ✅ `#146/#136-139` |
+| **B** | connector 层(Nango-proxy) | ✅ `#140`(本 session 审干净、146/146) |
+| **C** | skill = Agent Skills(SKILL.md + 渐进加载) | ✅ `#141`(~90%,最轻) |
+| **D · 解散** | ACL 已成(session 建立时发现过滤);**观察器拉出去 → admin/system `#101`**;**secret-scan 并进 connector(B)** | 🟡 **唯一 pending `#142`**——是"归位/解散",不是新建 |
+| **E** | as-MCP-server facade(聚合插件 owner 工具成单端点) | ✅ `#143` |
+| **F** | MCP Apps UI(`ui://` 卡片在 chat 渲染) | ✅ `#134` |
+| **(G)** | (task 里无 G,跳过/未编号) | — |
+| **H** | 管理面(origin + enable/disable + admin 能力面板) | ✅ `#145` |
+
+→ **层①实际只欠 Phase D**,而 D 主要是把观察器归到 `#101`、secret-scan 并进 B——收尾性,不是大工程。
+
+### 层② · "替换"迁移 —— **决策点 P.2 明写"迁移留到后期,先并存"**,这才是块二的大头 ⬜
+机制(层①)搭好了,但**真正的外置迁移没做**:me/seo/codes + jobs/resume/applications 仍 `MustRegister` 进核心 capreg。要做的是把每个能力**迁出成独立标准 MCP server**、`ListByOrigin(builtin)` 数到零、删 `MustRegister` + 进程内 registry。feature floor(P.1c:横切 gating/state 全留 core)不得削减,每条有 spec 看守。**结构性大、牵一发动全身。**
+
+### 层③ · agent-as-injectable-driver —— Bridge 抽象 ✅,runtime 形态 🚧
+- ✅ **Driver/Bridge 接口已抽**(`#153` agentcore 抽 Driver、`#154` eval 做成忠实 mini-host)——决策点 P.13 的结构实现落地了。
+- 🚧 **还差**:把"inject-and-launch"从 test-only 提成**一等 runtime 形态** → 并行跑很多 prompt、实验出好 prompt("eval 是类型系统";prompt 被验证而非设计)。这也是 eight-controls 里缺的**"质量半"**(selection/shaping)。
 
 ---
 
