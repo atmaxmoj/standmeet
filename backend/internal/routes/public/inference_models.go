@@ -102,7 +102,13 @@ func fetchModelsFromProvider(
 		return nil, apierr.Display(http.StatusBadRequest, "endpoint_required",
 			"This provider needs an endpoint URL.")
 	}
-	models, err := getOpenAIModels(ctx, req.Endpoint, req.Key)
+	return openAIModelsOrDisplay(ctx, req.Endpoint, req.Key)
+}
+
+// openAIModelsOrDisplay —— 拉 openai-style /v1/models；网络/HTTP/解码错裹成可回显的 provider-unreachable
+// （原始 cause 进日志，客户端只见人话）。拆出来让 fetchModelsFromProvider cyclo ≤3。
+func openAIModelsOrDisplay(ctx context.Context, baseURL, key string) ([]string, error) {
+	models, err := getOpenAIModels(ctx, baseURL, key)
 	if err != nil {
 		return nil, apierr.DisplayWrap(http.StatusBadRequest, "provider_unreachable",
 			"Couldn't reach the model provider — check the base URL and key.", err)

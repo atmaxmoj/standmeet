@@ -50,6 +50,9 @@ func (r *CodeRepo) Create(ctx context.Context, in *CreateCodeInput) (domain.Acce
 	}
 	row, err := dbq.New(r.pool).CreateAccessCode(ctx, *params)
 	if err != nil {
+		if name, hit := pgUniqueViolation(err); hit && name == "access_codes_code_key" {
+			return domain.AccessCode{}, domain.ErrCodeTaken
+		}
 		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)
 	}
 	return toDomainCode(&row), nil

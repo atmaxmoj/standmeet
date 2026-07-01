@@ -11,6 +11,7 @@ import type { Page, Playwright } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
+import { expectErrorToast } from '@/fixtures/toast';
 
 const OWNER = {
   email: 'prompts-admin@example.com',
@@ -18,6 +19,8 @@ const OWNER = {
   handle: 'promptsadmin',
   fullName: 'Prompts Admin Owner',
 };
+
+const DUP_NAME = 'dup-persona';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
@@ -56,6 +59,29 @@ test.describe('admin prompts', () => {
     await created.getByTestId('prompt-delete-recruiter-facing').click();
     await expect(created).toHaveCount(0, { timeout: 5_000 });
   });
+
+  // Failure-surfacing guard: `prompts` has a UNIQUE index on (owner_id, name)
+  // (schema.sql prompts_owner_name_uniq). A second prompt with the same name
+  // returns domain.ErrPromptNameTaken, which the handler maps to HTTP 409
+  // `prompt_name_taken` (prompts.go createPromptErrCases). The admin API throws
+  // on non-2xx; PromptsSection's submit catch → report(e) → error toast, and
+  // onClose only runs on success so the create modal stays open to let owner fix.
+  test('duplicate prompt name → error toast + create modal stays open',
+    async ({ adminPage }) => {
+      await openPrompts(adminPage);
+      await createPrompt(adminPage, DUP_NAME, 'first with this name');
+      await expect(adminPage.getByTestId(`prompt-row-${DUP_NAME}`))
+        .toBeVisible({ timeout: 5_000 });
+
+      // Same name again → 409 surfaces as an error toast, modal stays open.
+      await createPrompt(adminPage, DUP_NAME, 'second with this name');
+      await expectErrorToast(adminPage, /already|exist|duplicate|taken|conflict|fail/i);
+      await expect(
+        adminPage.getByTestId('prompt-create-modal'),
+        'create modal stays open on failure (not closed as if it saved)',
+      ).toBeVisible();
+      await adminPage.keyboard.press('Escape'); // tidy up for sibling tests
+    });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {
@@ -71,4 +97,15 @@ async function initOwner(playwright: Playwright): Promise<void> {
 async function openPrompts(page: Page): Promise<void> {
   await gotoAdminSection(page, 'prompts');
   await page.waitForURL('**/admin/prompts', { timeout: 5_000 });
+}
+
+// createPrompt —— open the create modal, fill name + body (both required to
+// enable submit), submit. Leaves modal open on failure / closed on success.
+async function createPrompt(page: Page, name: string, body: string): Promise<void> {
+  await page.getByTestId('prompt-new').click();
+  const modal = page.getByTestId('prompt-create-modal');
+  await expect(modal).toBeVisible({ timeout: 5_000 });
+  await modal.getByTestId('prompt-field-name').fill(name);
+  await modal.getByTestId('prompt-field-body').fill(body);
+  await modal.getByTestId('prompt-create-submit').click();
 }

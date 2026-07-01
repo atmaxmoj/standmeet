@@ -152,11 +152,28 @@ func runCreateCode(
 	}
 	code, err := h.CodesAdmin.Codes.Create(r.Context(), in)
 	if err != nil {
-		logEncodeErr(h.Log, "create code", err)
-		writeError(h.Log, w, serverErr())
+		handleCreateCodeErr(h.Log, w, err)
 		return
 	}
 	writeCreatedCode(h.Log, w, &code)
+}
+
+var createCodeErrCases = []apierr.Case{
+	{
+		Match: domain.ErrCodeTaken,
+		Envelope: apierr.Envelope{
+			Status: http.StatusConflict, Code: "code_taken",
+			Message: "That access code already exists.",
+		},
+	},
+}
+
+func handleCreateCodeErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	env := apierr.Classify(err, createCodeErrCases)
+	if env.Status >= http.StatusInternalServerError {
+		logEncodeErr(log, "create code", err)
+	}
+	writeError(log, w, env)
 }
 
 func buildCreateInput(

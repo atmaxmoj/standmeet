@@ -15,6 +15,7 @@ import type { Page, Playwright } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
+import { expectErrorToast } from '@/fixtures/toast';
 
 const OWNER = {
   email: 'codes-ext@example.com',
@@ -24,6 +25,7 @@ const OWNER = {
 };
 
 const CODE = 'CODESEXT-001';
+const DUP_CODE = 'CODESEXT-DUP';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('admin codes extended features', () => {
@@ -54,6 +56,29 @@ test.describe('admin codes extended features', () => {
       const expiry = card.getByTestId('code-expiry');
       await expect(expiry).toBeVisible();
       await expect(expiry).toContainText(/expir/i);
+    });
+
+  // Failure-surfacing guard: `access_codes.code` is `citext UNIQUE` (schema.sql
+  // :193). Creating a second code with the same `code` value violates the
+  // constraint, CodeRepo.Create returns an error, and the handler maps it to a
+  // 5xx (codes.go runCreateCode → serverErr). The admin API layer throws on any
+  // non-2xx and CodesSection's onCreate catch → report(e) → error toast, while
+  // onClose only runs on the success path so the modal (code-form) stays open.
+  test('duplicate code value → error toast + create modal stays open',
+    async ({ adminPage }) => {
+      await openCodes(adminPage);
+      await createCode(adminPage, DUP_CODE, 'First Dup Code');
+      await expect(adminPage.getByTestId(`code-card-${DUP_CODE}`))
+        .toBeVisible({ timeout: 5_000 });
+
+      // Same `code` value again → unique violation surfaces as an error toast.
+      await createCode(adminPage, DUP_CODE, 'Second Dup Code');
+      await expectErrorToast(adminPage, /already|exist|duplicate|taken|conflict|fail/i);
+      await expect(
+        adminPage.getByTestId('code-form'),
+        'create modal stays open on failure (not closed as if it saved)',
+      ).toBeVisible();
+      await adminPage.keyboard.press('Escape'); // tidy up so siblings start clean
     });
 
   test('edit code → change quotas → card updates',
@@ -100,4 +125,14 @@ async function initOwner(playwright: Playwright): Promise<void> {
 async function openCodes(page: Page): Promise<void> {
   await gotoAdminSection(page, 'codes');
   await page.waitForURL('**/admin/codes', { timeout: 5_000 });
+}
+
+// createCode —— open the "new code" modal, fill code + label, submit. Leaves the
+// modal state as-is (open on failure, closed on success) for the caller to assert.
+async function createCode(page: Page, code: string, label: string): Promise<void> {
+  await page.getByRole('button', { name: /new code/i }).click();
+  await expect(page.getByTestId('code-form')).toBeVisible({ timeout: 5_000 });
+  await page.getByTestId('code-input').fill(code);
+  await page.getByTestId('code-label').fill(label);
+  await page.getByTestId('code-create').click();
 }

@@ -66,6 +66,9 @@ type CodeMember struct {
 // ErrCodeInvalid —— access code 不存在或已撤销。
 var ErrCodeInvalid = errors.New("access code invalid")
 
+// ErrCodeTaken —— code 已被占用（access_codes.code unique）。
+var ErrCodeTaken = errors.New("access code already exists")
+
 // ErrCodeExpired —— access code 过期。
 var ErrCodeExpired = errors.New("access code expired")
 
