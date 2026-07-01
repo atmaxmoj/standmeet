@@ -20,19 +20,12 @@ func (s *Service) CreateUploaded(
 	if err != nil {
 		return "", err
 	}
-	m := &connector.Manifest{
-		ID: "up-" + id, Kind: "openapi", AuthScheme: in.AuthScheme,
-		Spec: in.Spec, Binding: in.Binding, ExposeAsAgentTools: in.ExposeAsAgentTools,
-	}
+	m := openapiManifest("up-"+id, in)
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {
 		return "", fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
 	}
-	if serr := s.d.Repo.SaveUploaded(ctx, &postgres.SaveUploadedInput{
-		OwnerID: ownerID, ConnectorID: m.ID, Category: cat, Kind: "openapi",
-		Spec: bytesOrEmpty(in.Spec), Binding: bytesOrEmpty(in.Binding),
-		AuthScheme: in.AuthScheme, ExposeAsAgentTools: in.ExposeAsAgentTools,
-	}); serr != nil {
+	if serr := s.d.Repo.SaveUploaded(ctx, uploadedSaveInput(ownerID, m.ID, cat, in)); serr != nil {
 		return "", fmt.Errorf("persist uploaded connector: %w", serr)
 	}
 	return m.ID, nil
@@ -59,6 +52,25 @@ func bytesOrEmpty(b []byte) []byte {
 		return []byte{}
 	}
 	return b
+}
+
+// openapiManifest —— 从 owner 贴的 UploadedSpec 建一份 openapi manifest。Create/Update 同一份字段
+// 映射，抽出来做单一事实源（否则加一个 manifest 字段要在建/改两处都改，易漏）。
+func openapiManifest(id string, in *UploadedSpec) *connector.Manifest {
+	return &connector.Manifest{
+		ID: id, Kind: "openapi", AuthScheme: in.AuthScheme,
+		Spec: in.Spec, Binding: in.Binding, ExposeAsAgentTools: in.ExposeAsAgentTools,
+	}
+}
+
+// uploadedSaveInput —— openapi 上传连接器的持久化输入。Create/Update 同一份映射（nil binding →
+// 空 bytea，列 NOT NULL），单一事实源。
+func uploadedSaveInput(ownerID, id, cat string, in *UploadedSpec) *postgres.SaveUploadedInput {
+	return &postgres.SaveUploadedInput{
+		OwnerID: ownerID, ConnectorID: id, Category: cat, Kind: "openapi",
+		Spec: bytesOrEmpty(in.Spec), Binding: bytesOrEmpty(in.Binding),
+		AuthScheme: in.AuthScheme, ExposeAsAgentTools: in.ExposeAsAgentTools,
+	}
 }
 
 // CreateProtocol —— owner 自建一个 protocol 连接器（caldav/smtp…，无 spec）：装配（NewXxxConnector）
@@ -94,19 +106,12 @@ func (s *Service) UpdateUploaded(
 	if s.isBuiltin(id) {
 		return ErrBuiltinReadonly
 	}
-	m := &connector.Manifest{
-		ID: id, Kind: "openapi", AuthScheme: in.AuthScheme, Spec: in.Spec, Binding: in.Binding,
-		ExposeAsAgentTools: in.ExposeAsAgentTools,
-	}
+	m := openapiManifest(id, in)
 	cat, ierr := s.d.Installer.Install(m)
 	if ierr != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidManifest, ierr)
 	}
-	if serr := s.d.Repo.UpdateUploaded(ctx, &postgres.SaveUploadedInput{
-		OwnerID: ownerID, ConnectorID: id, Category: cat, Kind: "openapi",
-		Spec: bytesOrEmpty(in.Spec), Binding: bytesOrEmpty(in.Binding),
-		AuthScheme: in.AuthScheme, ExposeAsAgentTools: in.ExposeAsAgentTools,
-	}); serr != nil {
+	if serr := s.d.Repo.UpdateUploaded(ctx, uploadedSaveInput(ownerID, id, cat, in)); serr != nil {
 		return fmt.Errorf("persist updated connector: %w", serr)
 	}
 	return nil
