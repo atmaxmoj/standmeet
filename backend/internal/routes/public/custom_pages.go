@@ -206,11 +206,13 @@ func writeAssetErr(log *slog.Logger, w http.ResponseWriter, err error) {
 		})
 		return
 	}
+	// Raw err logged above for ops; the browser only sees a static message
+	// (never the underlying resolve/build/fs error via %v).
 	log.Error("asset resolve", logErr, err)
 	writeError(log, w, apierr.Envelope{
 		Status:  http.StatusInternalServerError,
 		Code:    "server_error",
-		Message: fmt.Sprintf("internal: %v", err),
+		Message: "internal error",
 	})
 }
 

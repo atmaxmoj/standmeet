@@ -76,14 +76,18 @@ func writeLLMPreStreamErr(h *Handlers, w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.WriteHeader(cls.Status)
-	emitPreStreamErrFrame(h, w, &cls, err)
+	emitPreStreamErrFrame(h, w, &cls)
 }
 
 func emitPreStreamErrFrame(
 	h *Handlers, w http.ResponseWriter,
-	cls *inference.StreamErrClass, err error,
+	cls *inference.StreamErrClass,
 ) {
-	payload, merr := json.Marshal(preStreamErrBody{Code: cls.Code, Message: err.Error()})
+	// Raw err already logged by writeLLMPreStreamErr; send friendly text to the
+	// browser (never leak cred-resolve / model-build / provider internals).
+	payload, merr := json.Marshal(preStreamErrBody{
+		Code: cls.Code, Message: inference.FriendlyMessage(cls.Code),
+	})
 	if merr != nil {
 		h.Log.Error("llm chat pre-stream marshal", "err", merr)
 		return

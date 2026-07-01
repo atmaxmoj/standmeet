@@ -18,6 +18,7 @@ import {
   type RequestsHook,
 } from '@/lib/admin/use-requests';
 import { useMail } from '@/lib/admin/use-mail';
+import { useAction } from '@/lib/ui/use-action';
 
 const FILTERS: RequestStatusFilter[] = ['open', 'replied', 'closed', 'all'];
 
@@ -201,10 +202,13 @@ function RequestActions(props: ActionsProps) {
 }
 
 function ActiveActions({ req, hook, mailConnected, onApproved }: ActionsProps) {
+  const run = useAction();
+  // decline 是状态变更 → 成功/失败都用 toast 收尾（失败不再静默：没标上 owner 必须知道）。
+  const onDecline = () => run(() => hook.mark(req.id, 'closed'), { success: 'Request declined' });
   return (
     <div className="flex items-baseline gap-2 mt-4 flex-wrap" data-testid={`request-approve-${req.id}`}>
       <ApproveControl id={req.id} hook={hook} mailConnected={mailConnected} onApproved={onApproved} />
-      <Btn kind="outline" size="sm" onClick={() => { void hook.mark(req.id, 'closed'); }}>
+      <Btn kind="outline" size="sm" onClick={() => { void onDecline(); }}>
         decline
       </Btn>
     </div>

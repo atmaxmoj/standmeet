@@ -6,15 +6,22 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useMCPServers, type CreateMCPServerInput, type MCPServersHook, type MCPServerView } from '@/lib/admin/use-mcp-servers';
+import { useAction } from '@/lib/ui/use-action';
 
 type FormState = Record<'name' | 'url' | 'authName' | 'authValue', string>;
 const EMPTY: FormState = { name: '', url: '', authName: '', authValue: '' };
 
 export function MCPServersPanel() {
   const hook = useMCPServers();
+  const run = useAction();
+  // remove 是破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：删除没生效 owner 必须知道）。
+  const removeWithToast = useCallback(
+    (id: string) => run(() => hook.remove(id), { success: 'Server removed' }),
+    [hook, run],
+  );
   return (
     <section
       className="crosshair border border-(--color-rule) rounded-sm bg-(--color-surface)/30 p-5"
@@ -23,7 +30,7 @@ export function MCPServersPanel() {
       <span className="ch-tl" /><span className="ch-br" />
       <Head count={hook.servers.length} />
       <Intro />
-      <ServerList hook={hook} />
+      <ServerList servers={hook.servers} onRemove={removeWithToast} />
       <AddForm hook={hook} />
     </section>
   );
@@ -49,19 +56,21 @@ function Intro() {
   );
 }
 
-function ServerList({ hook }: { hook: MCPServersHook }) {
-  return hook.servers.length === 0
+function ServerList({
+  servers, onRemove,
+}: { servers: readonly MCPServerView[]; onRemove: (id: string) => Promise<void> }) {
+  return servers.length === 0
     ? <p className="mono text-[11.5px] text-(--color-faint) mb-4">none yet</p>
     : (
       <ul className="space-y-2 mb-5" data-testid="mcp-servers-list">
-        {hook.servers.map((s) => <ServerRow key={s.id} server={s} onRemove={hook.remove} />)}
+        {servers.map((s) => <ServerRow key={s.id} server={s} onRemove={onRemove} />)}
       </ul>
     );
 }
 
 function ServerRow({
   server, onRemove,
-}: { server: MCPServerView; onRemove: (id: string) => Promise<boolean> }) {
+}: { server: MCPServerView; onRemove: (id: string) => Promise<void> }) {
   return (
     <li
       className="flex items-baseline justify-between gap-3 border-b border-(--color-rule)/50 pb-1.5"

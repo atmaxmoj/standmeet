@@ -51,11 +51,25 @@ func (h *Handlers) listInferenceModels() http.HandlerFunc {
 		}
 		models, err := fetchModelsFromProvider(r.Context(), req)
 		if err != nil {
-			writeError(h.Log, w, envBadReq("list models: "+err.Error()))
+			// Log the raw provider/network error for ops; the browser only sees
+			// a friendly hint (never the upstream HTTP body or dial error).
+			h.Log.Warn("list models", "provider", req.Provider, "err", err)
+			writeError(h.Log, w, envBadReq(listModelsFriendlyMsg(err)))
 			return
 		}
 		writeListModels(h.Log, w, models)
 	}
+}
+
+// listModelsFriendlyMsg —— client-facing text; the raw err is logged by the
+// caller. Only the curated "no model list" sentinel keeps its wording (the UI
+// turns it into "type model manually"); everything else collapses to a neutral
+// hint so no provider HTTP body / dial error reaches the browser.
+func listModelsFriendlyMsg(err error) string {
+	if errors.Is(err, errProviderNoModelList) {
+		return errProviderNoModelList.Error()
+	}
+	return "Couldn't reach the model provider — check the base URL and key."
 }
 
 func parseListModelsReq(

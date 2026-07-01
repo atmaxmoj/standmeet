@@ -39,8 +39,10 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 		}
 		body, berr := io.ReadAll(r.Body)
 		if berr != nil {
+			h.Log.Warn("tool dispatch read body", "err", berr)
 			writeToolErr(h.Log, w, toolErr{
-				Status: http.StatusBadRequest, Reason: "invalid_body", Detail: berr.Error(),
+				Status: http.StatusBadRequest, Reason: "invalid_body",
+				Detail: "invalid request body",
 			})
 			return
 		}
@@ -94,9 +96,12 @@ func executeAndRespond(
 	out, execErr := args.Tool.Tool.InvokableRun(ctx, string(args.Body))
 	capState := h.Visitor.AgentSkills.VisitorStates(ctx, args.In)
 	if execErr != nil {
+		// Raw executor error → log (ops); client sees a static detail so no
+		// executor/provider internals leak into the visitor's browser.
+		h.Log.Warn("tool dispatch exec", "tool", args.ToolName, "err", execErr)
 		writeToolErr(h.Log, w, toolErr{
 			Status: http.StatusInternalServerError, Reason: "tool_error",
-			Detail: execErr.Error(), CapState: capState,
+			Detail: "tool execution failed", CapState: capState,
 		})
 		return
 	}

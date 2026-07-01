@@ -54,16 +54,13 @@ export function useRequests(): RequestsHook {
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   const [filter, setFilter] = useState<RequestStatusFilter>('open');
 
+  // mark 抛错（不再吞掉）：调用方用 useAction 收尾（成功 toast / 失败 report）。
   const mark = useCallback(async (id: string, status: 'replied' | 'closed'): Promise<void> => {
-    try {
-      const updated = await adminAPI.patch(
-        `/access-requests/${id}`, { status }, AccessRequestViewSchema,
-      );
-      requestsStore.getState().mutate((prev) =>
-        (prev ?? []).map((row) => row.id === id ? updated : row));
-    } catch {
-      // error 走 store 的 error；UI 兜不到这里时再说
-    }
+    const updated = await adminAPI.patch(
+      `/access-requests/${id}`, { status }, AccessRequestViewSchema,
+    );
+    requestsStore.getState().mutate((prev) =>
+      (prev ?? []).map((row) => row.id === id ? updated : row));
   }, []);
 
   const approve = useCallback(async (id: string): Promise<ApproveOutcome> => {

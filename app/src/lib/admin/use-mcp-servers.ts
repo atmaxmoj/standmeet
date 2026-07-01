@@ -32,7 +32,7 @@ export interface MCPServersHook {
   error: string | null;
   refresh: () => Promise<void>;
   create: (input: CreateMCPServerInput) => Promise<{ ok: boolean; error?: string }>;
-  remove: (id: string) => Promise<boolean>;
+  remove: (id: string) => Promise<void>;
 }
 
 export const mcpServersStore = createResourceStore<MCPServerView[]>({
@@ -66,12 +66,8 @@ async function createServer(
   }
 }
 
-async function removeServer(id: string): Promise<boolean> {
-  try {
-    await adminAPI.deleteVoid(`/mcp-servers/${id}`);
-    await mcpServersStore.getState().refresh();
-    return true;
-  } catch {
-    return false;
-  }
+// remove 抛错（不再吞成 false）：调用方用 useAction 收尾（成功 toast / 失败 report）。
+async function removeServer(id: string): Promise<void> {
+  await adminAPI.deleteVoid(`/mcp-servers/${id}`);
+  await mcpServersStore.getState().refresh();
 }

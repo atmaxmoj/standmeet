@@ -28,8 +28,8 @@ export interface IPBansHook {
   status: ResourceStatus;
   bans: readonly BanView[];
   error: string | null;
-  banIP: (input: BanInput) => Promise<BanView | null>;
-  unbanIP: (id: string) => Promise<boolean>;
+  banIP: (input: BanInput) => Promise<void>;
+  unbanIP: (id: string) => Promise<void>;
 }
 
 export const ipBansStore = createResourceStore<BanView[]>({
@@ -50,26 +50,18 @@ export function useIPBans(): IPBansHook {
   };
 }
 
-async function banIP(input: BanInput): Promise<BanView | null> {
-  try {
-    const created = await adminAPI.post(
-      '/ip-bans/', { ip: input.ip, reason: input.reason }, BanViewSchema,
-    );
-    ipBansStore.getState().mutate((prev) => upsertByIP(prev ?? [], created));
-    return created;
-  } catch {
-    return null;
-  }
+// mutation 抛错（不再吞成 false/null）：调用方用 useAction 收尾（成功 toast / 失败 report）。
+// 这是 SECURITY 动作 —— 静默失败会让滥用者继续畅通，所以反显是重点。
+async function banIP(input: BanInput): Promise<void> {
+  const created = await adminAPI.post(
+    '/ip-bans/', { ip: input.ip, reason: input.reason }, BanViewSchema,
+  );
+  ipBansStore.getState().mutate((prev) => upsertByIP(prev ?? [], created));
 }
 
-async function unbanIP(id: string): Promise<boolean> {
-  try {
-    await adminAPI.deleteVoid(`/ip-bans/${id}`);
-    ipBansStore.getState().mutate((prev) => (prev ?? []).filter((b) => b.id !== id));
-    return true;
-  } catch {
-    return false;
-  }
+async function unbanIP(id: string): Promise<void> {
+  await adminAPI.deleteVoid(`/ip-bans/${id}`);
+  ipBansStore.getState().mutate((prev) => (prev ?? []).filter((b) => b.id !== id));
 }
 
 // upsertByIP —— ban 是 upsert（同 IP 重封覆盖），列表也按 IP 去重，新的置顶。

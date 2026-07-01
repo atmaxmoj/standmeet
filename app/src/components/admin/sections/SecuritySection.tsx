@@ -9,7 +9,8 @@ import { useCallback, useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { useIPBans, type IPBansHook, type BanView } from '@/lib/admin/use-ip-bans';
-import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
+import { useAction } from '@/lib/ui/use-action';
+import { useEffectErrorToast } from '@/lib/ui/toast';
 
 export function SecuritySection() {
   const hook = useIPBans();
@@ -42,13 +43,13 @@ function Intro() {
 function BanForm({ onBan }: { onBan: IPBansHook['banIP'] }) {
   const [ip, setIP] = useState('');
   const [reason, setReason] = useState('');
-  const toast = useToast();
+  const run = useAction();
   const clearForm = useCallback(() => { setIP(''); setReason(''); }, []);
-  const submit = useCallback(async () => {
-    const created = await onBan({ ip: ip.trim(), reason: reason.trim() });
-    created && toast.success(`Banned ${created.ip}`);
-    created && clearForm();
-  }, [ip, reason, onBan, toast, clearForm]);
+  // 成功才清输入：clearForm 排在 onBan resolve 之后、run 的 catch 之前 —— 抛错时输入留住让 owner 重试。
+  const submit = useCallback(() => run(
+    () => onBan({ ip: ip.trim(), reason: reason.trim() }).then(clearForm),
+    { success: 'IP banned' },
+  ), [ip, reason, onBan, run, clearForm]);
   return (
     <div className="flex flex-wrap items-end gap-3 mb-7" data-testid="ban-form">
       <Field label="ip address" value={ip} onChange={setIP} placeholder="203.0.113.7" testid="ban-ip" />
@@ -112,7 +113,7 @@ function EmptyBans() {
   );
 }
 
-function BanRow({ ban, onUnban }: { ban: BanView; onUnban: (id: string) => Promise<boolean> }) {
+function BanRow({ ban, onUnban }: { ban: BanView; onUnban: IPBansHook['unbanIP'] }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border border-(--color-rule) rounded-[3px] px-4 py-3">
       <span className="min-w-0">
@@ -126,12 +127,13 @@ function BanRow({ ban, onUnban }: { ban: BanView; onUnban: (id: string) => Promi
   );
 }
 
-function UnbanBtn({ ban, onUnban }: { ban: BanView; onUnban: (id: string) => Promise<boolean> }) {
-  const toast = useToast();
-  const handle = useCallback(async () => {
-    const ok = await onUnban(ban.id);
-    ok && toast.success(`Unbanned ${ban.ip}`);
-  }, [onUnban, ban.id, ban.ip, toast]);
+function UnbanBtn({ ban, onUnban }: { ban: BanView; onUnban: IPBansHook['unbanIP'] }) {
+  // 一键 unban → run 收尾：成功 toast，失败 report（不再静默 —— unban 没生效 owner 必须知道）。
+  const run = useAction();
+  const handle = useCallback(
+    () => run(() => onUnban(ban.id), { success: 'IP unbanned' }),
+    [onUnban, ban.id, run],
+  );
   return (
     <button
       type="button"
