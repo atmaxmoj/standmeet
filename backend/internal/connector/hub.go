@@ -20,7 +20,10 @@
 
 package connector
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 // Connector —— 所有连接器的基面：一个名字 + 能答「这个 owner 连没连」。具体能力（日历的
 // InsertEvent、IM 的 ReadChannel/Send、SMTP 的 Send …）由各连接器**自己的接口**给；消费者
@@ -39,8 +42,13 @@ type Verifier interface {
 
 // Hub —— 消费者无关的命名连接器注册表。任何消费者（MCP 能力 gate、IM Gateway、未来的任务
 // 编排）都按名解析，拿句柄、调用；凭据 / OAuth / 重试全在连接器内，消费者不感知。
+//
+// 并发：Resolve 在每次品类槽解析时被访客/admin 请求 goroutine 读；Upsert 在 owner 运行时建/改
+// 连接器（POST/PUT /connectors）时被 admin goroutine 写。map 无锁则并发读写 → Go runtime 直接
+// fatal「concurrent map read and map write」。故加 RWMutex：读走 RLock，建/改走 Lock。
 type Hub struct {
 	conns map[string]Connector
+	mu    sync.RWMutex
 }
 
 // NewHub —— 空注册表。
@@ -48,6 +56,8 @@ func NewHub() *Hub { return &Hub{conns: map[string]Connector{}} }
 
 // Register —— 注册一个命名连接器。重名 panic（boot 期失败比运行时撞名好）。
 func (h *Hub) Register(c Connector) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	name := c.Name()
 	if _, dup := h.conns[name]; dup {
 		panic("connector: duplicate connector " + name)
@@ -57,9 +67,15 @@ func (h *Hub) Register(c Connector) {
 
 // Resolve —— 按名取连接器；未注册 → (nil, false)。
 func (h *Hub) Resolve(name string) (Connector, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	c, ok := h.conns[name]
 	return c, ok
 }
 
 // Upsert —— 注册或替换一个命名连接器（上传连接器运行时动态装配 / 拉起重装用，幂等，不 panic）。
-func (h *Hub) Upsert(c Connector) { h.conns[c.Name()] = c }
+func (h *Hub) Upsert(c Connector) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.conns[c.Name()] = c
+}
