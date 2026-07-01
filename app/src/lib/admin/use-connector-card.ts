@@ -69,7 +69,8 @@ export function useConnectorCard(id: string): ConnectorCardHook {
         setScopes(f.scopes ?? []);
         setSchemes(f.schemes ?? []);
       })
-      .catch(() => undefined);
+      // 表单没拉到别静默：否则卡片一片空白、owner 无从填凭据也不知为何。
+      .catch(() => setError('Couldn’t load this connector’s setup form. Reload and retry.'));
   }, [id]);
 
   useEffect(() => { loadStatus(); loadForm(); }, [loadStatus, loadForm]);
