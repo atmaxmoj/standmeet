@@ -13,6 +13,7 @@ import type { Page, Playwright } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
+import { expectErrorToast } from '@/fixtures/toast';
 
 const OWNER = {
   email: 'roles-admin@example.com',
@@ -58,6 +59,23 @@ test.describe('admin roles', () => {
     const created = adminPage.getByTestId('role-row-recruiter-default');
     await expect(created).toBeVisible();
     await expect(created.getByTestId('role-meta-corpus')).toContainText('2 URIs');
+  });
+
+  // 失败反显守护：重名 create 被后端拒(409)时，owner 必须看见 error toast，且 modal 保持开着让人改
+  // ——原来 mutation 吞成 false、modal 无论成败都关，失败像成功了一样静默。
+  test('duplicate role name → error toast + modal stays open (surfaced, not silent)', async ({ adminPage }) => {
+    await openRoles(adminPage);
+    await adminPage.getByTestId('role-new').click();
+    const modal = adminPage.getByTestId('role-create-modal');
+    await expect(modal).toBeVisible();
+    // recruiter-default 已在上个 test 建了 → 同名必被拒。
+    await modal.getByTestId('role-field-name').fill('recruiter-default');
+    await modal.getByTestId('role-field-description').fill('dup');
+    await modal.getByTestId('role-field-corpus-uris').fill('wiki://thinking/**');
+    await modal.getByTestId('role-create-submit').click();
+    await expectErrorToast(adminPage, /already|exist|duplicate|taken|conflict|in use/i);
+    await expect(modal, 'modal stays open on failure (not closed as if it saved)').toBeVisible();
+    await adminPage.keyboard.press('Escape'); // 收尾，别影响后面的 delete test
   });
 
   test('delete a non-builtin role', async ({ adminPage }) => {
