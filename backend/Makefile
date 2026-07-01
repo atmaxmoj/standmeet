@@ -97,8 +97,11 @@ secrets:
 
 # `make test` runs the Go unit/integration tests (testify, no DB/docker).
 # Pure-logic + in-process coverage; e2e lives in the root `make test`.
+# -race is on by design: shared runtime state (e.g. the connector Hub, resolved
+# per request across goroutines) can only be guarded here — a data race is a real
+# bug the green-but-sequential e2e suite structurally cannot see.
 test:
-	go test ./...
+	go test -race ./...
 
 # `make build` produces a local binary at ./bin/standmeet for ad-hoc
 # inspection.  Production binaries come out of the Dockerfile.
