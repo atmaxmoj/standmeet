@@ -11,6 +11,8 @@ import {
   useCapabilities, dependencyHint,
   type CapabilityRow, type CapabilitiesHook,
 } from '@/lib/admin/use-capabilities';
+import { useAction } from '@/lib/ui/use-action';
+import { useReportError } from '@/lib/ui/use-report-error';
 
 export function CapabilitiesPanel() {
   const hook = useCapabilities();
@@ -133,7 +135,10 @@ function toggleKnobClass(enabled: boolean): string {
 }
 
 function EnableToggle({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHook }) {
+  const report = useReportError();
   const locked = row.kind === 'connector';
+  // 悲观开关：store 控制（无乐观 mutate），只有服务端确认后才动。失败别静默（原来 void 吞掉 →
+  // 关掉的能力可能还活着，安全隐患）；不加成功 toast——开关动了本身就是反馈。
   return (
     <button
       type="button"
@@ -141,7 +146,7 @@ function EnableToggle({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHoo
       aria-checked={row.enabled}
       disabled={locked}
       data-testid={`toggle-${row.id}`}
-      onClick={() => { void hook.setEnabled(row.id, !row.enabled); }}
+      onClick={() => { void hook.setEnabled(row.id, !row.enabled).catch(report); }}
       className={toggleTrackClass(row.enabled, locked)}
     >
       <span className={toggleKnobClass(row.enabled)} />
@@ -150,13 +155,14 @@ function EnableToggle({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHoo
 }
 
 function DeleteBtn({ row, hook }: { row: CapabilityRow; hook: CapabilitiesHook }) {
+  const run = useAction();
   return row.deletable
     ? (
       <button
         type="button"
         data-testid={`delete-${row.id}`}
         title="remove capability"
-        onClick={() => { void hook.remove(row.id); }}
+        onClick={() => { void run(() => hook.remove(row.id), { success: 'Capability removed' }); }}
         className="w-6 shrink-0 text-(--color-muted) hover:text-(--color-accent) transition-colors"
       >
         ✕
