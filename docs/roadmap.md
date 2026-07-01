@@ -88,9 +88,11 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 
 ## 非大块(杂活清理,一轮 pass 搞定)
 
-admin 接真后端 + 基建杂活,智力上不是大块:`#102`(/admin/seo 真后端)、`#103`(role 卡编辑 prompt)、`#104`(per-code prompt)、`#105`(MCP key 下载凭证+README)、`#106`(inference 计费)、`#117`(URL env prod fallback)、`#118`(MCP vs HTTP admin parity)、`#132`(通用重试 HTTP infra)、`#152`(mock 正名)。
+真独立、跟两大块无关、可穿插做:`#103`(role 卡编辑 prompt)、`#104`(per-code prompt)、`#106`(inference 计费)、`#117`(URL env prod fallback)、`#152`(mock 正名)、`#100`+`#115`(recovery phrase + 测)、`#111`(TOTP,以后)、`#126`(interview→application,job-loop)、`#116`(今天改动走查)、`#133`(Gmail 真域名自测——connector 已完 + 部署侧手动验证)。
 
-> 注:`#101`(/admin/system 真观测面)**不在此**——它是块二 Phase D 的**观察器**(小 Zabbix:去掉假 health,上真设备/系统指标)。
+**轻耦合(能独立,但会被大块碰到,注意顺序)**:`#105`(MCP key 下载+README——碰块二 MCP 端点,建议块二后定稿)、`#132`(通用重试 HTTP infra + 禁 raw http——给块二插件铺路,先做不冲突)、`#109`/`#110`(chat summarize/booking 按钮——只调端点,externalize 在端点背后,可独立)、`#129`(summary revise——能力内逻辑,可独立)。
+
+> 归位说明:`#101`(观察器=小 Zabbix)→ 块二 Phase D;`#102`(/admin/seo 真后端)→ **块一**(seo 是 misnomer = 公开 corpus landing/reader,见 1a/1c);`#118`(MCP vs HTTP admin parity)→ **块二 层②**(as-MCP-server,externalize 时校验)。这三个本是大块的一部分,曾被误列成杂活。
 
 ## 已 deferred
 
