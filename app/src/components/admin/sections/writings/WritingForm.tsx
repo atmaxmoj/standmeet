@@ -19,6 +19,7 @@ import {
 } from '@/components/admin/sections/writings/WritingFormAtoms';
 import type { PendingFile } from '@/lib/writings/upload-asset';
 import { useToast } from '@/lib/ui/toast';
+import { useReportError } from '@/lib/ui/use-report-error';
 
 export interface WritingFormValues {
   slug: string;
@@ -67,14 +68,15 @@ interface Props {
   // create 时空（{}），edit 时由 caller 从 AdminWritingView.asset_urls 传。
   assetURLs?: Record<string, string>;
   onClose: () => void;
-  onSubmit: (s: WritingFormSubmit) => Promise<boolean>;
+  onSubmit: (s: WritingFormSubmit) => Promise<void>;
 }
 
 export function WritingForm(props: Props) {
   const [values, setValues] = useState<WritingFormValues>(props.initial);
   const pendingRef = useRef<PendingFile[]>([]);
   const toast = useToast();
-  const submit = useSubmitHandler(values, pendingRef, props, toast);
+  const report = useReportError();
+  const submit = useSubmitHandler(values, pendingRef, props, toast, report);
   return (
     <div className="bg-(--color-paper) border border-(--color-rule) max-w-[720px] w-full max-h-[90vh] overflow-y-auto p-7 flex flex-col gap-4">
       <h2 className="font-serif text-[22px]">{props.heading}</h2>
@@ -146,37 +148,38 @@ function WritingFormBody({
   );
 }
 
+type Reporter = ReturnType<typeof useReportError>;
+
 function useSubmitHandler(
   values: WritingFormValues, pendingRef: { current: PendingFile[] },
-  props: Props, toast: ReturnType<typeof useToast>,
+  props: Props, toast: ReturnType<typeof useToast>, report: Reporter,
 ) {
   return useCallback(async () => {
-    await runSubmit(values, pendingRef.current, props, toast);
-  }, [values, pendingRef, props, toast]);
+    await runSubmit(values, pendingRef.current, props, toast, report);
+  }, [values, pendingRef, props, toast, report]);
 }
 
 async function runSubmit(
   values: WritingFormValues, files: PendingFile[],
-  props: Props, toast: ReturnType<typeof useToast>,
+  props: Props, toast: ReturnType<typeof useToast>, report: Reporter,
 ): Promise<void> {
-  isValid(values) && await doSubmit(values, files, props, toast);
+  isValid(values) && await doSubmit(values, files, props, toast, report);
 }
 
 function isValid(v: WritingFormValues): boolean {
   return v.slug !== '' && v.title !== '';
 }
 
+// 提交：成功 → toast + 关；失败 → report + **保持表单开着**（owner 可能有大段草稿，别丢）。
 async function doSubmit(
   values: WritingFormValues, files: PendingFile[],
-  props: Props, toast: ReturnType<typeof useToast>,
+  props: Props, toast: ReturnType<typeof useToast>, report: Reporter,
 ): Promise<void> {
-  const ok = await props.onSubmit({ values, files });
-  ok && onSubmitSuccess(values, props, toast);
-}
-
-function onSubmitSuccess(
-  values: WritingFormValues, props: Props, toast: ReturnType<typeof useToast>,
-): void {
-  toast.success(`Writing ${values.slug} saved`);
-  props.onClose();
+  try {
+    await props.onSubmit({ values, files });
+    toast.success(`Writing ${values.slug} saved`);
+    props.onClose();
+  } catch (e) {
+    report(e);
+  }
 }

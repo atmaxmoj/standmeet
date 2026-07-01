@@ -10,8 +10,10 @@ import { useCallback, useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { RoleCreateModal } from '@/components/admin/sections/roles/RoleCreateModal';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
-import { useRoles, type RolesHook, type RoleView } from '@/lib/admin/use-roles';
-import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
+import { useRoles, type RolesHook, type RoleView, type WriteRoleInput } from '@/lib/admin/use-roles';
+import { useAction } from '@/lib/ui/use-action';
+import { useReportError } from '@/lib/ui/use-report-error';
+import { useEffectErrorToast } from '@/lib/ui/toast';
 
 export function RolesSection() {
   const hook = useRoles();
@@ -36,11 +38,34 @@ export function RolesSection() {
       />
       <Intro />
       <RolesBody hook={hook} />
-      {creating && (
-        <RoleCreateModal onClose={() => setCreating(false)} onCreate={hook.createRole} />
-      )}
+      <RoleCreateModalSlot
+        open={creating}
+        onClose={() => setCreating(false)}
+        createRole={hook.createRole}
+      />
     </>
   );
+}
+
+function RoleCreateModalSlot({
+  open, onClose, createRole,
+}: {
+  open: boolean;
+  onClose: () => void;
+  createRole: RolesHook['createRole'];
+}) {
+  const report = useReportError();
+  // modal：成功 → 返回 RoleView（modal 内部 toast + close）；失败 → report 后返回 null，modal **保持开着**
+  // 让 owner 看见错、改了重试。createRole 现在抛错，这里就地 try/catch 转成 modal 期望的 RoleView | null。
+  const onCreate = useCallback(async (input: WriteRoleInput): Promise<RoleView | null> => {
+    try {
+      return await createRole(input);
+    } catch (e) {
+      report(e);
+      return null;
+    }
+  }, [createRole, report]);
+  return open ? <RoleCreateModal onClose={onClose} onCreate={onCreate} /> : null;
 }
 
 function titleCount(hook: RolesHook): string {
@@ -90,7 +115,7 @@ function EmptyRoles() {
 
 function RoleCard({
   role, onDelete,
-}: { role: RoleView; onDelete: (id: string) => Promise<boolean> }) {
+}: { role: RoleView; onDelete: (id: string) => Promise<void> }) {
   return (
     <article className="border border-(--color-rule) p-5 flex flex-col gap-2">
       <RoleCardHead role={role} onDelete={onDelete} />
@@ -104,7 +129,7 @@ function RoleCard({
 
 function RoleCardHead({
   role, onDelete,
-}: { role: RoleView; onDelete: (id: string) => Promise<boolean> }) {
+}: { role: RoleView; onDelete: (id: string) => Promise<void> }) {
   return (
     <div className="flex justify-between items-baseline gap-2.5">
       <div className="flex items-baseline gap-2 flex-wrap">
@@ -125,12 +150,13 @@ function RoleCardHead({
 
 function RoleDeleteBtn({
   role, onDelete,
-}: { role: RoleView; onDelete: (id: string) => Promise<boolean> }) {
-  const toast = useToast();
-  const handleDelete = useCallback(async () => {
-    const ok = await onDelete(role.id);
-    ok && toast.success(`Role ${role.name} deleted`);
-  }, [onDelete, role.id, role.name, toast]);
+}: { role: RoleView; onDelete: (id: string) => Promise<void> }) {
+  const run = useAction();
+  // delete 是一键破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：删除没生效 owner 必须知道）。
+  const handleDelete = useCallback(
+    () => run(() => onDelete(role.id), { success: `Role ${role.name} deleted` }),
+    [onDelete, role.id, role.name, run],
+  );
   return (
     <button
       type="button"

@@ -41,9 +41,9 @@ export interface RolesHook {
   roles: readonly RoleView[];
   error: string | null;
   refresh: () => Promise<void>;
-  createRole: (input: WriteRoleInput) => Promise<RoleView | null>;
-  updateRole: (id: string, input: WriteRoleInput) => Promise<RoleView | null>;
-  deleteRole: (id: string) => Promise<boolean>;
+  createRole: (input: WriteRoleInput) => Promise<RoleView>;
+  updateRole: (id: string, input: WriteRoleInput) => Promise<RoleView>;
+  deleteRole: (id: string) => Promise<void>;
 }
 
 export const rolesStore = createResourceStore<RoleView[]>({
@@ -66,34 +66,22 @@ export function useRoles(): RolesHook {
   };
 }
 
-async function createRole(input: WriteRoleInput): Promise<RoleView | null> {
-  try {
-    const created = await adminAPI.post('/roles/', input, RoleViewSchema);
-    rolesStore.getState().mutate((prev) => [...(prev ?? []), created]);
-    return created;
-  } catch {
-    return null;
-  }
+// mutation 抛错（不再吞成 null / false）：调用方用 useAction 收尾（成功 toast / 失败 report），或就地 try/catch。
+async function createRole(input: WriteRoleInput): Promise<RoleView> {
+  const created = await adminAPI.post('/roles/', input, RoleViewSchema);
+  rolesStore.getState().mutate((prev) => [...(prev ?? []), created]);
+  return created;
 }
 
-async function updateRole(id: string, input: WriteRoleInput): Promise<RoleView | null> {
-  try {
-    const updated = await adminAPI.put(`/roles/${id}`, input, RoleViewSchema);
-    rolesStore.getState().mutate(
-      (prev) => (prev ?? []).map((r) => (r.id === id ? updated : r)),
-    );
-    return updated;
-  } catch {
-    return null;
-  }
+async function updateRole(id: string, input: WriteRoleInput): Promise<RoleView> {
+  const updated = await adminAPI.put(`/roles/${id}`, input, RoleViewSchema);
+  rolesStore.getState().mutate(
+    (prev) => (prev ?? []).map((r) => (r.id === id ? updated : r)),
+  );
+  return updated;
 }
 
-async function deleteRole(id: string): Promise<boolean> {
-  try {
-    await adminAPI.deleteVoid(`/roles/${id}`);
-    rolesStore.getState().mutate((prev) => (prev ?? []).filter((r) => r.id !== id));
-    return true;
-  } catch {
-    return false;
-  }
+async function deleteRole(id: string): Promise<void> {
+  await adminAPI.deleteVoid(`/roles/${id}`);
+  rolesStore.getState().mutate((prev) => (prev ?? []).filter((r) => r.id !== id));
 }

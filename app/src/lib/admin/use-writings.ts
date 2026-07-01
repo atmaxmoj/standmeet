@@ -56,11 +56,11 @@ export interface WritingsHook {
   writings: readonly AdminWritingView[];
   error: string | null;
   refresh: () => Promise<void>;
-  createWriting: (bundle: WritingSaveBundle) => Promise<boolean>;
-  updateWriting: (id: string, bundle: WritingSaveBundle) => Promise<boolean>;
-  deleteWriting: (id: string) => Promise<boolean>;
-  publishWriting: (id: string) => Promise<boolean>;
-  unpublishWriting: (id: string) => Promise<boolean>;
+  createWriting: (bundle: WritingSaveBundle) => Promise<void>;
+  updateWriting: (id: string, bundle: WritingSaveBundle) => Promise<void>;
+  deleteWriting: (id: string) => Promise<void>;
+  publishWriting: (id: string) => Promise<void>;
+  unpublishWriting: (id: string) => Promise<void>;
 }
 
 export const writingsStore = createResourceStore<AdminWritingView[]>({
@@ -85,27 +85,18 @@ export function useWritings(): WritingsHook {
   };
 }
 
-async function updateWriting(id: string, bundle: WritingSaveBundle): Promise<boolean> {
-  try {
-    const fd = buildWritingFormData(bundle);
-    const updated = await adminAPI.patchForm(`/writings/${id}`, fd, AdminWritingViewSchema);
-    writingsStore.getState().mutate((prev) =>
-      (prev ?? []).map((w) => w.id === updated.id ? updated : w));
-    return true;
-  } catch {
-    return false;
-  }
+// mutation 抛错（不再吞成 false）：调用方用 useAction 收尾（一键动作），或就地 try/catch（表单：失败保持开着）。
+async function updateWriting(id: string, bundle: WritingSaveBundle): Promise<void> {
+  const fd = buildWritingFormData(bundle);
+  const updated = await adminAPI.patchForm(`/writings/${id}`, fd, AdminWritingViewSchema);
+  writingsStore.getState().mutate((prev) =>
+    (prev ?? []).map((w) => w.id === updated.id ? updated : w));
 }
 
-async function createWriting(bundle: WritingSaveBundle): Promise<boolean> {
-  try {
-    const fd = buildWritingFormData(bundle);
-    const created = await adminAPI.postForm('/writings/', fd, AdminWritingViewSchema);
-    writingsStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
-    return true;
-  } catch {
-    return false;
-  }
+async function createWriting(bundle: WritingSaveBundle): Promise<void> {
+  const fd = buildWritingFormData(bundle);
+  const created = await adminAPI.postForm('/writings/', fd, AdminWritingViewSchema);
+  writingsStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
 }
 
 function buildWritingFormData(bundle: WritingSaveBundle): FormData {
@@ -117,32 +108,22 @@ function buildWritingFormData(bundle: WritingSaveBundle): FormData {
   return fd;
 }
 
-async function deleteWriting(id: string): Promise<boolean> {
-  try {
-    await adminAPI.deleteVoid(`/writings/${id}`);
-    writingsStore.getState().mutate((prev) => (prev ?? []).filter((w) => w.id !== id));
-    return true;
-  } catch {
-    return false;
-  }
+async function deleteWriting(id: string): Promise<void> {
+  await adminAPI.deleteVoid(`/writings/${id}`);
+  writingsStore.getState().mutate((prev) => (prev ?? []).filter((w) => w.id !== id));
 }
 
-async function publishWriting(id: string): Promise<boolean> {
-  return await flipPublish(id, true);
+async function publishWriting(id: string): Promise<void> {
+  await flipPublish(id, true);
 }
 
-async function unpublishWriting(id: string): Promise<boolean> {
-  return await flipPublish(id, false);
+async function unpublishWriting(id: string): Promise<void> {
+  await flipPublish(id, false);
 }
 
-async function flipPublish(id: string, publish: boolean): Promise<boolean> {
-  try {
-    const path = publish ? `/writings/${id}/publish` : `/writings/${id}/unpublish`;
-    const updated = await adminAPI.post(path, {}, AdminWritingViewSchema);
-    writingsStore.getState().mutate((prev) =>
-      (prev ?? []).map((w) => w.id === updated.id ? updated : w));
-    return true;
-  } catch {
-    return false;
-  }
+async function flipPublish(id: string, publish: boolean): Promise<void> {
+  const path = publish ? `/writings/${id}/publish` : `/writings/${id}/unpublish`;
+  const updated = await adminAPI.post(path, {}, AdminWritingViewSchema);
+  writingsStore.getState().mutate((prev) =>
+    (prev ?? []).map((w) => w.id === updated.id ? updated : w));
 }

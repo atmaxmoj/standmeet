@@ -14,6 +14,8 @@ import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { useSkills, type SkillsHook, type SkillView, type CreateSkillInput } from '@/lib/admin/use-skills';
+import { useAction } from '@/lib/ui/use-action';
+import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function SkillsSection() {
@@ -160,8 +162,8 @@ function SkillsEmpty() {
 
 interface SkillCardProps {
   skill: SkillView;
-  onDelete: (id: string) => Promise<boolean>;
-  onToggle: (id: string, enabled: boolean) => Promise<boolean>;
+  onDelete: (id: string) => Promise<void>;
+  onToggle: (id: string, enabled: boolean) => Promise<void>;
 }
 
 function cardDim(enabled: boolean): string {
@@ -183,7 +185,7 @@ function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
 
 function SkillHead({
   skill, onToggle,
-}: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<boolean> }) {
+}: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<void> }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className="flex items-baseline gap-3 min-w-0">
@@ -204,12 +206,14 @@ function SkillHead({
 
 function SkillToggle({
   skill, onToggle,
-}: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<boolean> }) {
+}: { skill: SkillView; onToggle: (id: string, enabled: boolean) => Promise<void> }) {
+  const report = useReportError();
   const cls = skill.enabled ? 'text-(--color-accent)' : 'text-(--color-faint)';
+  // toggle：不加成功 toast（开关位置变化本身就是反馈）；失败 report 让 owner 知道没生效。
   return (
     <button
       type="button"
-      onClick={() => { void onToggle(skill.id, !skill.enabled); }}
+      onClick={() => { onToggle(skill.id, !skill.enabled).catch(report); }}
       data-testid={`skill-toggle-${skill.name}`}
       className={`mono text-[10px] tracking-[0.14em] uppercase shrink-0 hover:underline ${cls}`}
     >
@@ -231,12 +235,13 @@ function SkillPromptDetails({ prompt }: { prompt: string }) {
 
 function SkillDeleteRow({
   skill, onDelete,
-}: { skill: SkillView; onDelete: (id: string) => Promise<boolean> }) {
-  const toast = useToast();
-  const handleDelete = useCallback(async () => {
-    const ok = await onDelete(skill.id);
-    ok && toast.success(`Skill ${skill.name} deleted`);
-  }, [onDelete, skill.id, skill.name, toast]);
+}: { skill: SkillView; onDelete: (id: string) => Promise<void> }) {
+  const run = useAction();
+  // delete 是一键破坏性动作 → 成功 toast / 失败 report 都由 run 收尾（不再静默）。
+  const handleDelete = useCallback(
+    () => run(() => onDelete(skill.id), { success: `Skill ${skill.name} deleted` }),
+    [onDelete, skill.id, skill.name, run],
+  );
   return (
     <div className="flex justify-end">
       <button
@@ -257,7 +262,7 @@ function SkillCreateModal({
   onClose, onCreate,
 }: {
   onClose: () => void;
-  onCreate: (input: CreateSkillInput) => Promise<boolean>;
+  onCreate: (input: CreateSkillInput) => Promise<void>;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -296,14 +301,20 @@ function SkillModalFooter({
   description: string;
   prompt: string;
   onClose: () => void;
-  onCreate: (input: CreateSkillInput) => Promise<boolean>;
+  onCreate: (input: CreateSkillInput) => Promise<void>;
 }) {
   const toast = useToast();
+  const report = useReportError();
+  // modal：成功 → toast + 关；失败 → report + 保持开着，让 owner 看见错、改了重试。
   const submit = useCallback(async () => {
-    const ok = await onCreate({ name, description, prompt });
-    ok && toast.success(`Skill ${name} created`);
-    ok && onClose();
-  }, [name, description, prompt, onCreate, onClose, toast]);
+    try {
+      await onCreate({ name, description, prompt });
+      toast.success(`Skill ${name} created`);
+      onClose();
+    } catch (e) {
+      report(e);
+    }
+  }, [name, description, prompt, onCreate, onClose, toast, report]);
   const disabled = name === '' || prompt === '';
   return (
     <div className="flex justify-end gap-3 mt-2">

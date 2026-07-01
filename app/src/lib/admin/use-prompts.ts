@@ -32,9 +32,9 @@ export interface PromptsHook {
   prompts: readonly PromptView[];
   error: string | null;
   refresh: () => Promise<void>;
-  createPrompt: (input: WritePromptInput) => Promise<PromptView | null>;
-  updatePrompt: (id: string, input: WritePromptInput) => Promise<PromptView | null>;
-  deletePrompt: (id: string) => Promise<boolean>;
+  createPrompt: (input: WritePromptInput) => Promise<PromptView>;
+  updatePrompt: (id: string, input: WritePromptInput) => Promise<PromptView>;
+  deletePrompt: (id: string) => Promise<void>;
 }
 
 export const promptsStore = createResourceStore<PromptView[]>({
@@ -57,34 +57,22 @@ export function usePrompts(): PromptsHook {
   };
 }
 
-async function createPrompt(input: WritePromptInput): Promise<PromptView | null> {
-  try {
-    const created = await adminAPI.post('/prompts/', input, PromptViewSchema);
-    promptsStore.getState().mutate((prev) => [...(prev ?? []), created]);
-    return created;
-  } catch {
-    return null;
-  }
+// mutation 抛错（不再吞成 null / false）：调用方用 useAction 收尾（成功 toast / 失败 report），或就地内联。
+async function createPrompt(input: WritePromptInput): Promise<PromptView> {
+  const created = await adminAPI.post('/prompts/', input, PromptViewSchema);
+  promptsStore.getState().mutate((prev) => [...(prev ?? []), created]);
+  return created;
 }
 
-async function updatePrompt(id: string, input: WritePromptInput): Promise<PromptView | null> {
-  try {
-    const updated = await adminAPI.put(`/prompts/${id}`, input, PromptViewSchema);
-    promptsStore.getState().mutate(
-      (prev) => (prev ?? []).map((p) => (p.id === id ? updated : p)),
-    );
-    return updated;
-  } catch {
-    return null;
-  }
+async function updatePrompt(id: string, input: WritePromptInput): Promise<PromptView> {
+  const updated = await adminAPI.put(`/prompts/${id}`, input, PromptViewSchema);
+  promptsStore.getState().mutate(
+    (prev) => (prev ?? []).map((p) => (p.id === id ? updated : p)),
+  );
+  return updated;
 }
 
-async function deletePrompt(id: string): Promise<boolean> {
-  try {
-    await adminAPI.deleteVoid(`/prompts/${id}`);
-    promptsStore.getState().mutate((prev) => (prev ?? []).filter((p) => p.id !== id));
-    return true;
-  } catch {
-    return false;
-  }
+async function deletePrompt(id: string): Promise<void> {
+  await adminAPI.deleteVoid(`/prompts/${id}`);
+  promptsStore.getState().mutate((prev) => (prev ?? []).filter((p) => p.id !== id));
 }

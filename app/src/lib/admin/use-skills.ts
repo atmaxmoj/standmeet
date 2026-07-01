@@ -33,9 +33,9 @@ export interface SkillsHook {
   skills: readonly SkillView[];
   error: string | null;
   refresh: () => Promise<void>;
-  createSkill: (input: CreateSkillInput) => Promise<boolean>;
-  deleteSkill: (id: string) => Promise<boolean>;
-  toggleSkill: (id: string, enabled: boolean) => Promise<boolean>;
+  createSkill: (input: CreateSkillInput) => Promise<void>;
+  deleteSkill: (id: string) => Promise<void>;
+  toggleSkill: (id: string, enabled: boolean) => Promise<void>;
 }
 
 export const skillsStore = createResourceStore<SkillView[]>({
@@ -58,34 +58,20 @@ export function useSkills(): SkillsHook {
   };
 }
 
-async function createSkill(input: CreateSkillInput): Promise<boolean> {
-  try {
-    const created = await adminAPI.post('/skills/', input, SkillViewSchema);
-    skillsStore.getState().mutate((prev) => [...(prev ?? []), created]);
-    return true;
-  } catch {
-    return false;
-  }
+// mutation 抛错（不再吞成 false）：调用方用 useAction 收尾（成功 toast / 失败 report），或就地内联。
+async function createSkill(input: CreateSkillInput): Promise<void> {
+  const created = await adminAPI.post('/skills/', input, SkillViewSchema);
+  skillsStore.getState().mutate((prev) => [...(prev ?? []), created]);
 }
 
-async function deleteSkill(id: string): Promise<boolean> {
-  try {
-    await adminAPI.deleteVoid(`/skills/${id}`);
-    skillsStore.getState().mutate((prev) => (prev ?? []).filter((s) => s.id !== id));
-    return true;
-  } catch {
-    return false;
-  }
+async function deleteSkill(id: string): Promise<void> {
+  await adminAPI.deleteVoid(`/skills/${id}`);
+  skillsStore.getState().mutate((prev) => (prev ?? []).filter((s) => s.id !== id));
 }
 
-async function toggleSkill(id: string, enabled: boolean): Promise<boolean> {
-  try {
-    const updated = await adminAPI.patch(`/skills/${id}`, { enabled }, SkillViewSchema);
-    skillsStore.getState().mutate((prev) =>
-      (prev ?? []).map((s) => s.id === id ? updated : s));
-    return true;
-  } catch {
-    return false;
-  }
+async function toggleSkill(id: string, enabled: boolean): Promise<void> {
+  const updated = await adminAPI.patch(`/skills/${id}`, { enabled }, SkillViewSchema);
+  skillsStore.getState().mutate((prev) =>
+    (prev ?? []).map((s) => s.id === id ? updated : s));
 }
 

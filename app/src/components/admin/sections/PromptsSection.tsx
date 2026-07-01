@@ -12,6 +12,8 @@ import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import {
   usePrompts, type PromptsHook, type PromptView, type WritePromptInput,
 } from '@/lib/admin/use-prompts';
+import { useAction } from '@/lib/ui/use-action';
+import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function PromptsSection() {
@@ -89,7 +91,7 @@ function EmptyPrompts() {
 
 function PromptCard({
   prompt, onDelete,
-}: { prompt: PromptView; onDelete: (id: string) => Promise<boolean> }) {
+}: { prompt: PromptView; onDelete: (id: string) => Promise<void> }) {
   return (
     <article className="border border-(--color-rule) p-5 flex flex-col gap-2">
       <PromptCardHead prompt={prompt} onDelete={onDelete} />
@@ -103,7 +105,7 @@ function PromptCard({
 
 function PromptCardHead({
   prompt, onDelete,
-}: { prompt: PromptView; onDelete: (id: string) => Promise<boolean> }) {
+}: { prompt: PromptView; onDelete: (id: string) => Promise<void> }) {
   return (
     <div className="flex justify-between items-baseline gap-2.5">
       <div className="flex items-baseline gap-2 flex-wrap">
@@ -124,12 +126,13 @@ function PromptCardHead({
 
 function PromptDeleteBtn({
   prompt, onDelete,
-}: { prompt: PromptView; onDelete: (id: string) => Promise<boolean> }) {
-  const toast = useToast();
-  const handleDelete = useCallback(async () => {
-    const ok = await onDelete(prompt.id);
-    ok && toast.success(`Prompt ${prompt.name} deleted`);
-  }, [onDelete, prompt.id, prompt.name, toast]);
+}: { prompt: PromptView; onDelete: (id: string) => Promise<void> }) {
+  const run = useAction();
+  // 一键破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：删没生效 owner 必须知道）。
+  const handleDelete = useCallback(
+    () => run(() => onDelete(prompt.id), { success: `Prompt ${prompt.name} deleted` }),
+    [onDelete, prompt.id, prompt.name, run],
+  );
   return (
     <button
       type="button"
@@ -155,7 +158,7 @@ function PromptCreateModal({
   onClose, onCreate,
 }: {
   onClose: () => void;
-  onCreate: (input: WritePromptInput) => Promise<PromptView | null>;
+  onCreate: (input: WritePromptInput) => Promise<PromptView>;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -226,14 +229,20 @@ function PromptModalFooter({
   description: string;
   body: string;
   onClose: () => void;
-  onCreate: (input: WritePromptInput) => Promise<PromptView | null>;
+  onCreate: (input: WritePromptInput) => Promise<PromptView>;
 }) {
   const toast = useToast();
+  const report = useReportError();
+  // 成功 → toast + 关；失败 → report + **保持开着**（让 owner 看见错、改了重试，不静默关掉像成功了）。
   const submit = useCallback(async () => {
-    const created = await onCreate({ name, description, body });
-    created && toast.success(`Prompt ${name} created`);
-    created && onClose();
-  }, [name, description, body, onCreate, onClose, toast]);
+    try {
+      await onCreate({ name, description, body });
+      toast.success(`Prompt ${name} created`);
+      onClose();
+    } catch (e) {
+      report(e);
+    }
+  }, [name, description, body, onCreate, onClose, toast, report]);
   const disabled = name === '' || body === '';
   return (
     <div className="flex justify-end gap-3 mt-2">

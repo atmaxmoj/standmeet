@@ -19,7 +19,8 @@ import {
   useWritings, type WritingsHook, type AdminWritingView,
   type WritingSaveBundle, type WritingSaveData,
 } from '@/lib/admin/use-writings';
-import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
+import { useAction } from '@/lib/ui/use-action';
+import { useEffectErrorToast } from '@/lib/ui/toast';
 
 export function WritingsSection() {
   const hook = useWritings();
@@ -163,9 +164,9 @@ function WritingCardHead({ writing }: { writing: AdminWritingView }) {
 function WritingCardActions({
   writing, hook, onEdit,
 }: { writing: AdminWritingView; hook: WritingsHook; onEdit: EditFn }) {
-  const toast = useToast();
-  const togglePublish = useTogglePublish(writing, hook, toast);
-  const handleDelete = useHandleDelete(writing.id, hook, toast);
+  const run = useAction();
+  const togglePublish = useTogglePublish(writing, hook, run);
+  const handleDelete = useHandleDelete(writing.id, hook, run);
   return (
     <div className="flex items-baseline gap-3 mt-1">
       <ActionBtn slug={writing.slug} kind="edit" onClick={() => onEdit(writing)} />
@@ -210,33 +211,33 @@ function ActionBtn({
   );
 }
 
-function useTogglePublish(
-  writing: AdminWritingView, hook: WritingsHook, toast: ReturnType<typeof useToast>,
-) {
-  return useCallback(async () => {
-    const ok = await flipPublishOp(writing, hook);
-    ok && toast.success(writing.published ? 'Unpublished' : 'Published');
-  }, [writing, hook, toast]);
+type Run = ReturnType<typeof useAction>;
+
+// publish/unpublish 是离散一键动作 → 成功/失败都用 run 收尾（失败不再静默：owner 得知道没生效）。
+function useTogglePublish(writing: AdminWritingView, hook: WritingsHook, run: Run) {
+  return useCallback(
+    () => run(() => flipPublishOp(writing, hook),
+      { success: writing.published ? 'Unpublished' : 'Published' }),
+    [writing, hook, run],
+  );
 }
 
-function flipPublishOp(writing: AdminWritingView, hook: WritingsHook): Promise<boolean> {
+function flipPublishOp(writing: AdminWritingView, hook: WritingsHook): Promise<void> {
   return writing.published ? hook.unpublishWriting(writing.id) : hook.publishWriting(writing.id);
 }
 
-function useHandleDelete(
-  id: string, hook: WritingsHook, toast: ReturnType<typeof useToast>,
-) {
-  return useCallback(async () => {
-    const ok = await hook.deleteWriting(id);
-    ok && toast.success('Writing deleted');
-  }, [hook, id, toast]);
+function useHandleDelete(id: string, hook: WritingsHook, run: Run) {
+  return useCallback(
+    () => run(() => hook.deleteWriting(id), { success: 'Writing deleted' }),
+    [hook, id, run],
+  );
 }
 
 function WritingCreateModal({
   onClose, onCreate, parentOptions,
 }: {
   onClose: () => void;
-  onCreate: (bundle: WritingSaveBundle) => Promise<boolean>;
+  onCreate: (bundle: WritingSaveBundle) => Promise<void>;
   parentOptions: ParentOption[];
 }) {
   return (
@@ -264,7 +265,7 @@ function WritingEditModal({
 }: {
   writing: AdminWritingView;
   onClose: () => void;
-  onUpdate: (id: string, bundle: WritingSaveBundle) => Promise<boolean>;
+  onUpdate: (id: string, bundle: WritingSaveBundle) => Promise<void>;
   parentOptions: ParentOption[];
 }) {
   return (
