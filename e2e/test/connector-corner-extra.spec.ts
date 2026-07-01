@@ -97,6 +97,30 @@ test.describe('connector · extra corner / error stream (wrap-up)', () => {
     expect((f.fields ?? []).map((x) => x.key), 'apiKey field, no longer client_id').toContain('key');
   });
 
+  // 自定义命名的 apiKey scheme（如 "sendgrid"）：存储字段恒为 "key"——注入器读的就是 creds["key"]
+  // （json:"key" 写死）。若 credform 按 scheme 名派生（"sendgrid"），owner 填错字段 → 注入空 key →
+  // 静默 401。scheme 名/位置是 HTTP 落点，跟存储字段名正交。回归守护。
+  test('named apiKey scheme → credential field stays "key", never the scheme name', async () => {
+    const { csrf } = await login(request, OWNER.email, OWNER.password);
+    const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
+
+    const namedSpec = CAL_SPEC.replace(
+      '{"bearer":{"type":"http","scheme":"bearer"}}',
+      '{"sendgrid":{"type":"apiKey","in":"header","name":"X-Custom-Key"}}',
+    );
+    const res = await request.put(`${BACKEND}/api/admin/connectors/${id}`, {
+      headers: { 'X-Csrftoken': csrf },
+      data: { spec: JSON.parse(namedSpec), binding: CAL_BINDING },
+    });
+    expect(res.status(), 'PUT named-apiKey spec → 200').toBe(200);
+
+    const form = await request.get(`${BACKEND}/api/admin/connectors/${id}/credential-form`);
+    const f = await form.json() as { fields?: { key: string }[] };
+    const keys = (f.fields ?? []).map((x) => x.key);
+    expect(keys, 'storage field is "key" (matches the injector), not the scheme name').toContain('key');
+    expect(keys, 'never keyed by the scheme name "sendgrid"').not.toContain('sendgrid');
+  });
+
   // 两个同 kind(openapi) calendar → exactly one active（§1/§9 槽位规则，不限异 kind）。
   test('two same-kind (openapi) calendars → exactly one active, slot rule same as cross-kind', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);

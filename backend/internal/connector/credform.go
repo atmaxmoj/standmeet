@@ -31,7 +31,7 @@ func DeriveCredentialForm(m *Manifest) (CredentialForm, error) {
 	if serr != nil {
 		return CredentialForm{}, fmt.Errorf(errConnectorWrap, m.ID, serr)
 	}
-	form := formForScheme(effectiveSchemeName(spec, m.AuthScheme), &scheme)
+	form := formForScheme(&scheme)
 	form.Schemes = schemeNames(spec)
 	return form, nil
 }
@@ -47,21 +47,12 @@ func schemeNames(spec *openapi.Spec) []string {
 	return out
 }
 
-// effectiveSchemeName —— 当前生效的 scheme 名：owner 选了用选的；否则唯一一个用它；多个未选 → 空。
-func effectiveSchemeName(spec *openapi.Spec, picked string) string {
-	if picked != "" {
-		return picked
-	}
-	names := schemeNames(spec)
-	if len(names) == 1 {
-		return names[0]
-	}
-	return ""
-}
-
-// formForScheme —— securityScheme → 凭据表单（§4 认证表）。未知 type → 兜底单 token。apiKey 的字段
-// 用 scheme 名（owner UI 上按那个名字填），无名时退回通用 "key"。
-func formForScheme(name string, s *openapi.SecurityScheme) CredentialForm {
+// formForScheme —— securityScheme → 凭据表单（§4 认证表）。未知 type → 兜底单 token。
+// apiKey 的存储字段恒为 "key"：注入器 apiKeyInject 读的就是 creds["key"]（json:"key" 写死），
+// authform 摄入预览也给 "key"——三处必须一致，否则自定义命名的 scheme（如 "sendgrid"）会让 owner
+// 填错字段、注入器读到空 key → 静默 401。scheme 名/位置（header X-Api-Key / query）是 HTTP 落点，
+// 由注入器从 scheme.In/scheme.Name 取，跟存储字段名正交。
+func formForScheme(s *openapi.SecurityScheme) CredentialForm {
 	switch s.Type {
 	case "oauth2":
 		return CredentialForm{
@@ -69,21 +60,12 @@ func formForScheme(name string, s *openapi.SecurityScheme) CredentialForm {
 			Scopes: oauth2ScopeKeys(s),
 		}
 	case "apiKey":
-		return CredentialForm{AuthType: "apikey", Fields: []string{apiKeyField(name)}}
+		return CredentialForm{AuthType: "apikey", Fields: []string{"key"}}
 	case "http":
 		return httpForm(s.Scheme)
 	default:
 		return CredentialForm{AuthType: "token", Fields: []string{"token"}}
 	}
-}
-
-// apiKeyField —— apiKey 字段 key。自定义命名的 scheme（如 "sendgrid"）按那个名字填；通用类型名
-// "apiKey"（或无名）退回通用 "key"，让候选派生与建后派生归一（否则一个 'key' 一个 'apiKey'）。
-func apiKeyField(name string) string {
-	if name == "" || name == "apiKey" {
-		return "key"
-	}
-	return name
 }
 
 // oauth2ScopeKeys —— oauth2 authorizationCode flow 声明的可勾选 scope（排序，UI 多选 + dance 子集）。
