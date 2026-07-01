@@ -26,6 +26,7 @@ export interface UploadInput { specText: string; bindingText: string }
 export interface ConnectorListHook {
   connectors: readonly ConnectorRow[];
   loaded: boolean;
+  loadError: boolean;
   refresh: () => void;
   create: (input: UploadInput) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -37,7 +38,9 @@ export function originOf(row: ConnectorRow): 'uploaded' | 'built-in' {
 }
 
 export function useConnectorList(): ConnectorListHook {
-  const { items: connectors, loaded, refresh } = useLatestList<ConnectorRow>('/connectors', ListSchema);
+  const {
+    items: connectors, loaded, loadError, refresh,
+  } = useLatestList<ConnectorRow>('/connectors', ListSchema);
 
   const create = useCallback(async (input: UploadInput) => {
     await adminAPI.postVoid('/connectors', {
@@ -51,5 +54,5 @@ export function useConnectorList(): ConnectorListHook {
     refresh();
   }, [refresh]);
 
-  return { connectors, loaded, refresh, create, remove };
+  return { connectors, loaded, loadError, refresh, create, remove };
 }

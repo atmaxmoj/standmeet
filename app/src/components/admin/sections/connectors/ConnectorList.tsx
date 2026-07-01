@@ -14,13 +14,24 @@ export function ConnectorList({ hook }: { hook: ConnectorListHook }) {
   // 只列 owner 自建（上传/协议）连接器；内置（已配的 gcal/smtp…）是 catalog 卡，不在这重复渲染，
   // 否则配好的内置会同时以 connector-row-{id}（卡）和 connector-row-{category}（这）出现，撞 testid。
   const uploaded = hook.connectors.filter((c) => originOf(c) === 'uploaded');
-  return uploaded.length === 0 ? null : (
-    <ul className="mb-8 space-y-3">
+  // loadError 时哪怕列表空也要出提示：空 vs「没拉到」owner 分得清（§2 不静默成空）。
+  return (!hook.loadError && uploaded.length === 0) ? null : (
+    <div className="mb-8 space-y-3">
+      <LoadError show={hook.loadError} />
       {uploaded.map((row) => (
         <ConnectorRowItem key={row.id} row={row} onDelete={() => { void hook.remove(row.id); }} />
       ))}
-    </ul>
+    </div>
   );
+}
+
+// LoadError —— 列表没拉到时的提示（§2：空列表 vs 加载失败要分得清）。
+function LoadError({ show }: { show: boolean }) {
+  return show ? (
+    <p data-testid="connector-list-error" className="mono text-[11px] text-(--color-accent)">
+      Couldn’t load your connectors — reload and retry.
+    </p>
+  ) : null;
 }
 
 function ConnectorRowItem({ row, onDelete }: { row: ConnectorRow; onDelete: () => void }) {

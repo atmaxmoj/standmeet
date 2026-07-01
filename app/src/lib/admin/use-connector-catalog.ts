@@ -19,12 +19,13 @@ export type CatalogEntry = z.infer<typeof CatalogEntrySchema>;
 export interface ConnectorCatalogHook {
   entries: readonly CatalogEntry[];
   loaded: boolean;
+  loadError: boolean;
   refresh: () => void;
 }
 
 export function useConnectorCatalog(): ConnectorCatalogHook {
-  const { items: entries, loaded, refresh } = useLatestList<CatalogEntry>(
+  const { items: entries, loaded, loadError, refresh } = useLatestList<CatalogEntry>(
     '/connectors/catalog', CatalogSchema,
   );
-  return { entries, loaded, refresh };
+  return { entries, loaded, loadError, refresh };
 }

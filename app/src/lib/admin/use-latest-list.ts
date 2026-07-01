@@ -11,6 +11,7 @@ import { adminAPI } from '@/lib/api/admin';
 interface LatestList<T> {
   items: readonly T[];
   loaded: boolean;
+  loadError: boolean;
   refresh: () => void;
 }
 
@@ -19,15 +20,20 @@ export function useLatestList<T>(
 ): LatestList<T> {
   const [items, setItems] = useState<readonly T[]>([]);
   const [loaded, setLoaded] = useState(false);
+  // 加载失败别静默成空列表：空 vs「没拉到」owner 得分得清（fetch 失败非预期业务态，guide §2 不许静默）。
+  const [loadError, setLoadError] = useState(false);
   const seq = useRef(0);
 
   const refresh = useCallback(() => {
     const mine = ++seq.current;
     void adminAPI.get(path, schema)
-      .then((r) => { if (mine === seq.current) { setItems(r.connectors ?? []); setLoaded(true); } })
-      .catch(() => { if (mine === seq.current) { setLoaded(true); } });
+      .then((r) => {
+        if (mine !== seq.current) { return; }
+        setItems(r.connectors ?? []); setLoaded(true); setLoadError(false);
+      })
+      .catch(() => { if (mine === seq.current) { setLoaded(true); setLoadError(true); } });
   }, [path, schema]);
 
   useEffect(() => { refresh(); }, [refresh]);
-  return { items, loaded, refresh };
+  return { items, loaded, loadError, refresh };
 }

@@ -88,13 +88,24 @@ function SectionBody({
 
 // CatalogCards —— 内置连接器（外置装配进来的）各一张归一卡，owner 在卡里填凭据 + Connect。
 function CatalogCards({ catalog }: { catalog: ConnectorCatalogHook }) {
-  return catalog.entries.length === 0 ? null : (
-    <ul className="mb-8 space-y-3">
+  // loadError 时哪怕空也要出提示：空 vs「没拉到」得分得清（§2 不静默成空）。
+  return (!catalog.loadError && catalog.entries.length === 0) ? null : (
+    <div className="mb-8 space-y-3">
+      <CatalogLoadError show={catalog.loadError} />
       {catalog.entries.map((entry) => (
         <ConnectorCard key={entry.id} entry={entry} />
       ))}
-    </ul>
+    </div>
   );
+}
+
+// CatalogLoadError —— 目录没拉到时的提示（§2：空 vs 加载失败要分得清）。
+function CatalogLoadError({ show }: { show: boolean }) {
+  return show ? (
+    <p data-testid="connector-catalog-error" className="mono text-[11px] text-(--color-accent)">
+      Couldn’t load the connector catalog — reload and retry.
+    </p>
+  ) : null;
 }
 
 function OverwriteConfirm({ hook }: { hook: ConnectorUploadHook }) {
