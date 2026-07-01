@@ -74,8 +74,8 @@ export interface MailHook {
   statusKind: ResourceStatus;
   status: MailStatus | null;
   error: string | null;
-  saveCredentials: (input: MailCredsInput) => Promise<boolean>;
-  disconnect: () => Promise<boolean>;
+  saveCredentials: (input: MailCredsInput) => Promise<void>;
+  disconnect: () => Promise<void>;
   otp: MailOTPView;
 }
 
@@ -97,25 +97,17 @@ export function useMail(): MailHook {
   };
 }
 
-async function saveCredentials(input: MailCredsInput): Promise<boolean> {
-  try {
-    await adminAPI.postVoid('/connectors/mail/credentials', input);
-    await mailStatusStore.getState().refresh();
-    return true;
-  } catch {
-    return false;
-  }
+// mutation 抛错（不再吞成 false）：auto-save 的 saveCredentials 用 `.catch(report)`，
+// 显式按钮 disconnect 用 useAction 收尾。
+async function saveCredentials(input: MailCredsInput): Promise<void> {
+  await adminAPI.postVoid('/connectors/mail/credentials', input);
+  await mailStatusStore.getState().refresh();
 }
 
-async function disconnect(): Promise<boolean> {
-  try {
-    await adminAPI.postVoid('/connectors/mail/disconnect', {});
-    await mailStatusStore.getState().refresh();
-    useMailOTPStore.getState().reset(); // clear any pending code + cooldown
-    return true;
-  } catch {
-    return false;
-  }
+async function disconnect(): Promise<void> {
+  await adminAPI.postVoid('/connectors/mail/disconnect', {});
+  await mailStatusStore.getState().refresh();
+  useMailOTPStore.getState().reset(); // clear any pending code + cooldown
 }
 
 // ─── OTP verify flow (interaction state) ───────────────────────

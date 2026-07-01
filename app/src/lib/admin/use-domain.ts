@@ -23,7 +23,7 @@ export interface DomainHook {
   error: string | null;
   allowed: readonly string[];
   setDomain: (v: string) => void;
-  verify: () => void;
+  verify: () => Promise<void>;
   reset: () => void;
   remove: (dom: string) => Promise<void>;
 }
@@ -46,7 +46,6 @@ export function useDomain(initial: string = ''): DomainHook {
   const [domain, setDomainRaw] = useState(initial);
   const [status, setStatus] = useState<DomainStatus>('unset');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const allowed = r.data ?? [];
   const sanitized = sanitize(domain);
@@ -58,11 +57,11 @@ export function useDomain(initial: string = ''): DomainHook {
     setStatus('unset');
   }, []);
   const verify = useCallback(
-    () => void runVerify(sanitize(domain), setStatus, setSaving, setError),
+    () => runVerify(sanitize(domain), setStatus, setSaving),
     [domain],
   );
   const reset = useCallback(() => { setDomainRaw(''); setStatus('unset'); }, []);
-  const remove = useCallback((dom: string) => runRemove(dom, setSaving, setError), []);
+  const remove = useCallback((dom: string) => runRemove(dom, setSaving), []);
 
   return {
     domain,
@@ -70,7 +69,7 @@ export function useDomain(initial: string = ''): DomainHook {
     valid,
     loading: r.status === 'idle' || r.status === 'loading',
     saving,
-    error: error ?? r.error,
+    error: r.error, // verify/remove 现在抛错 → 就地内联反显（DomainEditor 自己 catch），这里只留 fetch error。
     allowed,
     setDomain, verify, reset, remove,
   };
@@ -82,24 +81,23 @@ function computeStatus(
   return sanitized && allowed.includes(sanitized) ? 'verified' : local;
 }
 
+// runVerify —— 抛错（不再吞进 setError）：状态回 'unset' 后 rethrow，DomainEditor 就地内联反显。
 async function runVerify(
   sanitized: string,
   setStatus: (s: DomainStatus) => void,
   setSaving: (b: boolean) => void,
-  setErr: (m: string | null) => void,
 ): Promise<void> {
   if (!isValid(sanitized)) return;
   setStatus('pending');
   setSaving(true);
-  setErr(null);
   try {
     await adminAPI.postVoid('/allowed-domains', { domain: sanitized });
     domainsStore.getState().mutate((prev) =>
       (prev ?? []).includes(sanitized) ? (prev ?? []) : [...(prev ?? []), sanitized]);
     setStatus('verified');
   } catch (e) {
-    setErr(e instanceof Error ? e.message : 'verify failed');
     setStatus('unset');
+    throw e;
   } finally {
     setSaving(false);
   }
@@ -108,15 +106,11 @@ async function runVerify(
 async function runRemove(
   dom: string,
   setSaving: (b: boolean) => void,
-  setErr: (m: string | null) => void,
 ): Promise<void> {
   setSaving(true);
-  setErr(null);
   try {
     await adminAPI.deleteVoid(`/allowed-domains/${encodeURIComponent(dom)}`);
     domainsStore.getState().mutate((prev) => (prev ?? []).filter((d) => d !== dom));
-  } catch (e) {
-    setErr(e instanceof Error ? e.message : 'remove failed');
   } finally {
     setSaving(false);
   }

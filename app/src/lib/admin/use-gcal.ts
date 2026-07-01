@@ -37,6 +37,12 @@ export const gcalStatusStore = createResourceStore<GCalStatus>({
 export const Weekday = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 export type WeekdayT = z.infer<typeof Weekday>;
 
+// toggledWeekdays —— add/remove one weekday。分支挪 lib 让 presentation 层无 if。
+export function toggledWeekdays(current: readonly WeekdayT[], d: WeekdayT): WeekdayT[] {
+  if (current.includes(d)) return current.filter((x) => x !== d);
+  return [...current, d];
+}
+
 export const BookingPolicySchema = z.object({
   min_lead_days: z.number(),
   allowed_weekdays: z.array(Weekday),
@@ -61,10 +67,10 @@ export interface GCalHook {
   policy: BookingPolicy | null;
   error: string | null;
   refresh: () => Promise<void>;
-  saveCredentials: (clientID: string, clientSecret: string) => Promise<boolean>;
-  authorize: () => Promise<boolean>;
-  disconnect: () => Promise<boolean>;
-  savePolicy: (patch: Partial<BookingPolicy>) => Promise<boolean>;
+  saveCredentials: (clientID: string, clientSecret: string) => Promise<void>;
+  authorize: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  savePolicy: (patch: Partial<BookingPolicy>) => Promise<void>;
 }
 
 export function useGCal(): GCalHook {
@@ -97,36 +103,28 @@ async function refresh(): Promise<void> {
   ]);
 }
 
+// mutation 抛错（不再吞成 false）：调用方 auto-save 路径用 `.catch(report)`，
+// 显式按钮（disconnect）用 useAction 收尾。
 async function saveCredentials(
   clientID: string, clientSecret: string,
-): Promise<boolean> {
-  try {
-    await adminAPI.postVoid('/connectors/google-calendar/credentials', {
-      client_id: clientID, client_secret: clientSecret,
-    });
-    await gcalStatusStore.getState().refresh();
-    return true;
-  } catch {
-    return false;
-  }
+): Promise<void> {
+  await adminAPI.postVoid('/connectors/google-calendar/credentials', {
+    client_id: clientID, client_secret: clientSecret,
+  });
+  await gcalStatusStore.getState().refresh();
 }
 
 const InitResultSchema = z.object({ auth_url: z.string(), state: z.string() });
 
-async function authorize(): Promise<boolean> {
-  try {
-    const init = await adminAPI.post(
-      '/connectors/google-calendar/init', {}, InitResultSchema,
-    );
-    // open consent in a new tab; on success Google redirects to the
-    // callback URL which finishes the exchange server-side.
-    window.open(init.auth_url, '_blank', 'noopener');
-    // Poll status a couple of times until backend flips to connected.
-    await pollUntilConnected(15);
-    return true;
-  } catch {
-    return false;
-  }
+async function authorize(): Promise<void> {
+  const init = await adminAPI.post(
+    '/connectors/google-calendar/init', {}, InitResultSchema,
+  );
+  // open consent in a new tab; on success Google redirects to the
+  // callback URL which finishes the exchange server-side.
+  window.open(init.auth_url, '_blank', 'noopener');
+  // Poll status a couple of times until backend flips to connected.
+  await pollUntilConnected(15);
 }
 
 async function pollUntilConnected(maxAttempts: number): Promise<void> {
@@ -137,22 +135,12 @@ async function pollUntilConnected(maxAttempts: number): Promise<void> {
   }
 }
 
-async function disconnect(): Promise<boolean> {
-  try {
-    await adminAPI.postVoid('/connectors/google-calendar/disconnect', {});
-    await gcalStatusStore.getState().refresh();
-    return true;
-  } catch {
-    return false;
-  }
+async function disconnect(): Promise<void> {
+  await adminAPI.postVoid('/connectors/google-calendar/disconnect', {});
+  await gcalStatusStore.getState().refresh();
 }
 
-async function savePolicy(patch: Partial<BookingPolicy>): Promise<boolean> {
-  try {
-    await adminAPI.patchVoid('/booking-policy', patch);
-    await policyStore.getState().refresh();
-    return true;
-  } catch {
-    return false;
-  }
+async function savePolicy(patch: Partial<BookingPolicy>): Promise<void> {
+  await adminAPI.patchVoid('/booking-policy', patch);
+  await policyStore.getState().refresh();
 }

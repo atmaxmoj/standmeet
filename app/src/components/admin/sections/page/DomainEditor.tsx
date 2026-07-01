@@ -3,6 +3,8 @@
 
 'use client';
 
+import { useCallback, useState } from 'react';
+
 import {
   useDomain, type DomainStatus,
   domainBadge, domainHint, domainEffectiveHost,
@@ -10,13 +12,28 @@ import {
 
 type Props = { handle: string };
 
+// useVerifyInline —— verify 现在抛错；就地内联反显（单一 settings 字段，内联比一闪而过的 toast 更贴切）。
+function useVerifyInline(verify: () => Promise<void>) {
+  const [error, setError] = useState<string | null>(null);
+  const run = useCallback(async () => {
+    setError(null);
+    try {
+      await verify();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not verify this domain. Please try again.');
+    }
+  }, [verify]);
+  return { error, onVerify: () => { void run(); } };
+}
+
 export function DomainEditor({ handle }: Props) {
   const d = useDomain();
+  const { error, onVerify } = useVerifyInline(d.verify);
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <DefaultCard status={d.status} sanitized={d.domain} />
-        <CustomCard hook={d} />
+        <CustomCard hook={d} onVerify={onVerify} error={error} />
       </div>
       <EffectiveLine handle={handle} domain={d.domain} status={d.status} />
     </div>
@@ -51,7 +68,9 @@ function InUseFlag({ shown }: { shown: boolean }) {
     : null;
 }
 
-function CustomCard({ hook }: { hook: ReturnType<typeof useDomain> }) {
+function CustomCard({
+  hook, onVerify, error,
+}: { hook: ReturnType<typeof useDomain>; onVerify: () => void; error: string | null }) {
   return (
     <div className={`border ${hook.status === 'verified' ? 'border-(--color-ink)' : 'border-(--color-rule)'} p-4 rounded-sm bg-(--color-surface)/40`}>
       <div className="flex items-baseline justify-between mb-2">
@@ -59,9 +78,19 @@ function CustomCard({ hook }: { hook: ReturnType<typeof useDomain> }) {
         <StatusBadge status={hook.status} hasDomain={Boolean(hook.domain)} />
       </div>
       <DomainInputRow hook={hook} />
-      <DomainFootRow hook={hook} />
+      <DomainFootRow hook={hook} onVerify={onVerify} />
+      <VerifyError message={error} />
     </div>
   );
+}
+
+// VerifyError —— verify 失败就地内联反显（挨着输入框，不是一闪而过的 toast）。
+function VerifyError({ message }: { message: string | null }) {
+  return message ? (
+    <p data-testid="domain-verify-error" className="mono text-[10.5px] tracking-[0.04em] text-(--color-accent) mt-2">
+      {message}
+    </p>
+  ) : null;
 }
 
 function DomainInputRow({ hook }: { hook: ReturnType<typeof useDomain> }) {
@@ -94,11 +123,13 @@ function ClearBtn({ shown, onClick }: { shown: boolean; onClick: () => void }) {
   ) : null;
 }
 
-function DomainFootRow({ hook }: { hook: ReturnType<typeof useDomain> }) {
+function DomainFootRow({
+  hook, onVerify,
+}: { hook: ReturnType<typeof useDomain>; onVerify: () => void }) {
   return (
     <div className="mono text-[10.5px] tracking-[0.04em] mt-2 flex items-baseline justify-between gap-3 flex-wrap">
       <FootHint valid={hook.valid} sanitized={hook.domain} />
-      <VerifyBtn show={hook.valid && hook.status !== 'verified'} status={hook.status} onVerify={hook.verify} />
+      <VerifyBtn show={hook.valid && hook.status !== 'verified'} status={hook.status} onVerify={onVerify} />
     </div>
   );
 }

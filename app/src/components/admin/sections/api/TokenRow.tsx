@@ -6,6 +6,7 @@
 
 import { Chip } from '@/components/admin/atoms/Chip';
 import { type TokenItem } from '@/lib/admin/use-tokens';
+import { useAction } from '@/lib/ui/use-action';
 
 type Props = {
   token: TokenItem;
@@ -41,10 +42,12 @@ function TokenRowHead({ token, deleteToken }: Props) {
 }
 
 function RevokeBtn({ token, deleteToken }: Props) {
+  // 一键破坏性动作 → useAction 收尾（成功 toast / 失败 report），删失败不再静默。
+  const run = useAction();
   return (
     <button
       type="button"
-      onClick={() => void deleteToken(token.id)}
+      onClick={() => { void run(() => deleteToken(token.id), { success: 'Key deleted' }); }}
       data-testid={`token-delete-${token.name}`}
       className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-faint) hover:text-(--color-accent)"
     >

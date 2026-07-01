@@ -12,6 +12,7 @@ import {
 import type {
   AgentSkillsHook, SourceFilter,
 } from '@/lib/admin/use-agent-skills';
+import { useAction } from '@/lib/ui/use-action';
 
 import styles from '@/components/admin/sections/agent-skills/MarketplaceTab.module.css';
 
@@ -120,6 +121,8 @@ function SourceSegmentBtn({
 function ResultsGrid({
   hook, connected,
 }: { hook: AgentSkillsHook; connected: readonly string[] }) {
+  // install 现在抛错 → useAction 收尾（成功 toast / 失败 report），装败不再只清 spinner 假装没事。
+  const run = useAction();
   return hook.marketResults.length === 0 ? (
     <EmptyState />
   ) : (
@@ -130,7 +133,7 @@ function ResultsGrid({
           skill={m}
           installed={hook.installedNames.has(m.name)}
           installing={hook.installing === m.id}
-          onInstall={() => hook.install(m)}
+          onInstall={() => { void run(() => hook.install(m), { success: 'Skill installed' }); }}
           connected={connected}
         />
       ))}

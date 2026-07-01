@@ -14,6 +14,7 @@ import { webkitDirectoryRef } from '@/lib/admin/webkitdirectory-ref';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { triggerExport, useObsidianImport, type ImportResult } from '@/lib/admin/use-obsidian';
 import { useToast } from '@/lib/ui/toast';
+import { useReportError } from '@/lib/ui/use-report-error';
 
 interface Props {
   onImported: () => void;
@@ -21,12 +22,15 @@ interface Props {
 
 export function ObsidianBar({ onImported }: Props) {
   const toast = useToast();
+  const report = useReportError();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const onImportDone = () => {
     toast.success('Obsidian vault imported');
     onImported();
   };
   const importer = useObsidianImport(onImportDone);
+  // 导入失败别只是悄悄复位 spinner —— report 反显（uploadVault 现在把 rejection 传上来）。
+  const onFiles = (files: FileList) => importer.importVault(files).catch(report);
   return (
     <div className="flex items-baseline gap-3 mb-5" data-testid="obsidian-bar">
       <ExportBtn />
@@ -34,7 +38,7 @@ export function ObsidianBar({ onImported }: Props) {
         busy={importer.busy}
         onPick={() => inputRef.current?.click()}
       />
-      <HiddenDirInput inputRef={inputRef} onFiles={importer.importVault} />
+      <HiddenDirInput inputRef={inputRef} onFiles={onFiles} />
       <Status busy={importer.busy} result={importer.result} />
     </div>
   );

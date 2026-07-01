@@ -101,25 +101,18 @@ export function useTokens(): TokensHook {
   };
 }
 
+// 抛错（不再吞）：成功路径 reveal 私钥；失败让 caller report 且保留表单（别丢 owner 刚填的 label）。
 async function createToken(name: string): Promise<void> {
-  try {
-    const kp = await adminAPI.post('/keypairs', { label: name }, CreatedKeypairSchema);
-    const created = toCreatedToken(kp);
-    tokensStore.getState().mutate((prev) => [toListItem(created), ...(prev ?? [])]);
-    justCreatedStore.getState().set(created);
-  } catch {
-    // error 已被 fetch path 翻译进 store；caller 走 toast 自己看 hook.error
-  }
+  const kp = await adminAPI.post('/keypairs', { label: name }, CreatedKeypairSchema);
+  const created = toCreatedToken(kp);
+  tokensStore.getState().mutate((prev) => [toListItem(created), ...(prev ?? [])]);
+  justCreatedStore.getState().set(created);
 }
 
 async function deleteToken(id: string): Promise<void> {
-  try {
-    // id 字段映射的是 keypair.key_id，DELETE 走 key_id path。
-    await adminAPI.deleteVoid(`/keypairs/${id}`);
-    tokensStore.getState().mutate((prev) => (prev ?? []).filter((t) => t.id !== id));
-  } catch {
-    // ditto
-  }
+  // id 字段映射的是 keypair.key_id，DELETE 走 key_id path。抛错 → caller 走 useAction 收尾。
+  await adminAPI.deleteVoid(`/keypairs/${id}`);
+  tokensStore.getState().mutate((prev) => (prev ?? []).filter((t) => t.id !== id));
 }
 
 function toCreatedToken(k: CreatedKeypair): CreatedToken {

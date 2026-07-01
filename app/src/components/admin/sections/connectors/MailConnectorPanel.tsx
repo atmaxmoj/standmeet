@@ -15,6 +15,8 @@ import {
   useMail, sendCodeLabel, mailActionsView,
   type MailCredsInput, type MailHook,
 } from '@/lib/admin/use-mail';
+import { useAction } from '@/lib/ui/use-action';
+import { useReportError } from '@/lib/ui/use-report-error';
 
 type FormState = Record<'host' | 'port' | 'username' | 'password' | 'fromAddress' | 'fromName', string>;
 
@@ -144,13 +146,14 @@ function MailField({
 }
 
 function SaveCredsButton({ hook, form }: { hook: MailHook; form: FormState }) {
+  const report = useReportError();
   const disabled = form.host.trim() === '' || form.port.trim() === '' || form.fromAddress.trim() === '';
   return (
     <button
       type="button"
       disabled={disabled}
       data-testid="mail-save-credentials"
-      onClick={() => { void hook.saveCredentials(toCredsInput(form)); }}
+      onClick={() => { void hook.saveCredentials(toCredsInput(form)).catch(report); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
       Save SMTP config
@@ -256,11 +259,12 @@ function ActionMsg({ msg }: { msg: string | null }) {
 // disconnect (on the facade) also resets the OTP flow (clears any pending code +
 // cooldown) so re-verifying after a disconnect starts clean.
 function DisconnectBtn({ hook }: { hook: MailHook }) {
+  const run = useAction();
   return (
     <button
       type="button"
       data-testid="mail-disconnect"
-      onClick={() => { void hook.disconnect(); }}
+      onClick={() => { void run(() => hook.disconnect(), { success: 'Disconnected' }); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
       Disconnect

@@ -4,6 +4,8 @@
 
 import { useCallback, useState } from 'react';
 
+import { useReportError } from '@/lib/ui/use-report-error';
+
 type Props = {
   createToken: (name: string) => Promise<void>;
   error: string | null;
@@ -11,11 +13,12 @@ type Props = {
 
 export function NewTokenInline({ createToken, error }: Props) {
   const [name, setName] = useState('');
+  const report = useReportError();
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
-    trimmed === '' || await submit(trimmed, createToken, setName);
-  }, [name, createToken]);
+    trimmed === '' || await submit(trimmed, createToken, setName, report);
+  }, [name, createToken, report]);
   return (
     <form onSubmit={onSubmit} className="space-y-3 mb-4">
       <NameField name={name} onChange={setName} />
@@ -25,13 +28,19 @@ export function NewTokenInline({ createToken, error }: Props) {
   );
 }
 
+// submit —— 成功 reveal 私钥 + 清空 label；失败 report 且**保留 label**（别丢 owner 刚填的输入，可直接重试）。
 async function submit(
   trimmed: string,
   createToken: (n: string) => Promise<void>,
   setName: (v: string) => void,
+  report: (e: unknown) => void,
 ): Promise<void> {
-  await createToken(trimmed);
-  setName('');
+  try {
+    await createToken(trimmed);
+    setName('');
+  } catch (e) {
+    report(e);
+  }
 }
 
 function NameField({ name, onChange }: { name: string; onChange: (v: string) => void }) {

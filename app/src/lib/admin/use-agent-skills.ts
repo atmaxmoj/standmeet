@@ -39,7 +39,7 @@ export interface AgentSkillsHook {
   hasMoreMarket: boolean;
   installedNames: ReadonlySet<string>;
   installing: string | null;
-  install: (m: MarketSkillView) => void;
+  install: (m: MarketSkillView) => Promise<void>;
   query: string;
   setQuery: (q: string) => void;
   source: SourceFilter;
@@ -65,7 +65,7 @@ export function useAgentSkills(): AgentSkillsHook {
   }, [skills]);
 
   const install = useCallback((m: MarketSkillView) => {
-    void runInstall(m, skills.refresh, setInstalling, setLastInstalledAt);
+    return runInstall(m, skills.refresh, setInstalling, setLastInstalledAt);
   }, [skills]);
 
   return {
@@ -90,21 +90,18 @@ async function runInstall(
   setLastInstalledAt: (t: number) => void,
 ): Promise<void> {
   setInstalling(m.id);
-  const ok = await installFromMarket(m);
-  if (ok) {
+  try {
+    // 抛错（不再吞成 false）：调用方用 useAction 收尾 —— 安装失败不再只是清 spinner 假装没事。
+    await installFromMarket(m);
     await refresh();
     setLastInstalledAt(Date.now());
+  } finally {
+    setInstalling(null);
   }
-  setInstalling(null);
 }
 
-async function installFromMarket(m: MarketSkillView): Promise<boolean> {
-  try {
-    await adminAPI.post('/marketplace/install', {
-      source: m.marketplace, id: m.id, name: m.name, version: m.version,
-    }, SkillViewSchema);
-    return true;
-  } catch {
-    return false;
-  }
+async function installFromMarket(m: MarketSkillView): Promise<void> {
+  await adminAPI.post('/marketplace/install', {
+    source: m.marketplace, id: m.id, name: m.name, version: m.version,
+  }, SkillViewSchema);
 }

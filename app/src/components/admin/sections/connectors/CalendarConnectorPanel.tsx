@@ -12,9 +12,11 @@
 import { useState } from 'react';
 
 import {
-  useGCal, type BookingPolicy, type WeekdayT,
+  useGCal, toggledWeekdays, type BookingPolicy, type WeekdayT,
 } from '@/lib/admin/use-gcal';
 import { timezoneOptions } from '@/lib/admin/timezones';
+import { useAction } from '@/lib/ui/use-action';
+import { useReportError } from '@/lib/ui/use-report-error';
 
 const ALL_WEEKDAYS: readonly WeekdayT[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -145,13 +147,14 @@ function CredentialsRow({
 function SaveCredsButton({
   hook, clientID, clientSecret,
 }: { hook: ReturnType<typeof useGCal>; clientID: string; clientSecret: string }) {
+  const report = useReportError();
   const disabled = clientID.trim() === '' || clientSecret.trim() === '';
   return (
     <button
       type="button"
       disabled={disabled}
       data-testid="gcal-save-credentials"
-      onClick={() => { void hook.saveCredentials(clientID, clientSecret); }}
+      onClick={() => { void hook.saveCredentials(clientID, clientSecret).catch(report); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
       Save credentials
@@ -178,11 +181,12 @@ function ConnectButtonsRow({ hook }: { hook: ReturnType<typeof useGCal> }) {
 }
 
 function AuthorizeBtn({ hook }: { hook: ReturnType<typeof useGCal> }) {
+  const report = useReportError();
   return (
     <button
       type="button"
       data-testid="gcal-authorize"
-      onClick={() => { void hook.authorize(); }}
+      onClick={() => { void hook.authorize().catch(report); }}
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
       Authorize on Google →
@@ -191,11 +195,12 @@ function AuthorizeBtn({ hook }: { hook: ReturnType<typeof useGCal> }) {
 }
 
 function DisconnectBtn({ hook }: { hook: ReturnType<typeof useGCal> }) {
+  const run = useAction();
   return (
     <button
       type="button"
       data-testid="gcal-disconnect"
-      onClick={() => { void hook.disconnect(); }}
+      onClick={() => { void run(() => hook.disconnect(), { success: 'Disconnected' }); }}
       className="sm-btn sm-btn-ghost sm-btn-sm"
     >
       Disconnect (keeps credentials)
@@ -229,19 +234,20 @@ function PolicyEditorBody({
 function PolicyHoursRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
+  const report = useReportError();
   return (
     <div className="grid grid-cols-2 gap-3">
       <PolicyInput
         label="working hours start (HH:MM)"
         testid="gcal-hours-start"
         value={policy.working_hours_start}
-        onBlur={(v) => { void hook.savePolicy({ working_hours_start: v }); }}
+        onBlur={(v) => { void hook.savePolicy({ working_hours_start: v }).catch(report); }}
       />
       <PolicyInput
         label="working hours end (HH:MM)"
         testid="gcal-hours-end"
         value={policy.working_hours_end}
-        onBlur={(v) => { void hook.savePolicy({ working_hours_end: v }); }}
+        onBlur={(v) => { void hook.savePolicy({ working_hours_end: v }).catch(report); }}
       />
     </div>
   );
@@ -250,19 +256,20 @@ function PolicyHoursRow({
 function PolicyLeadBufferRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
+  const report = useReportError();
   return (
     <div className="grid grid-cols-2 gap-3">
       <PolicyInput
         label="min days in advance"
         testid="gcal-lead-days"
         value={String(policy.min_lead_days)}
-        onBlur={(v) => { void hook.savePolicy({ min_lead_days: positiveIntOr(v, 2) }); }}
+        onBlur={(v) => { void hook.savePolicy({ min_lead_days: positiveIntOr(v, 2) }).catch(report); }}
       />
       <PolicyInput
         label="buffer min (around existing events)"
         testid="gcal-buffer-min"
         value={String(policy.buffer_min)}
-        onBlur={(v) => { void hook.savePolicy({ buffer_min: parseInt(v, 10) || 0 }); }}
+        onBlur={(v) => { void hook.savePolicy({ buffer_min: parseInt(v, 10) || 0 }).catch(report); }}
       />
     </div>
   );
@@ -278,6 +285,7 @@ function positiveIntOr(v: string, fallback: number): number {
 function PolicyTimezoneRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
+  const report = useReportError();
   return (
     <label className="block">
       <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
@@ -286,7 +294,7 @@ function PolicyTimezoneRow({
       <select
         data-testid="gcal-timezone"
         value={policy.timezone}
-        onChange={(e) => { void hook.savePolicy({ timezone: e.target.value }); }}
+        onChange={(e) => { void hook.savePolicy({ timezone: e.target.value }).catch(report); }}
         className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
       >
         {timezoneOptions(policy.timezone).map((tz) => (
@@ -328,6 +336,7 @@ function PolicyInput({
 function PolicyWeekdaysRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
+  const report = useReportError();
   return (
     <div>
       <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) block mb-2">
@@ -340,10 +349,8 @@ function PolicyWeekdaysRow({
             day={d}
             selected={policy.allowed_weekdays.includes(d)}
             onToggle={() => {
-              const next = policy.allowed_weekdays.includes(d)
-                ? policy.allowed_weekdays.filter((x) => x !== d)
-                : [...policy.allowed_weekdays, d];
-              void hook.savePolicy({ allowed_weekdays: next });
+              const next = toggledWeekdays(policy.allowed_weekdays, d);
+              void hook.savePolicy({ allowed_weekdays: next }).catch(report);
             }}
           />
         ))}

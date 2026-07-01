@@ -9,8 +9,10 @@ import { useState } from 'react';
 import {
   originOf, type ConnectorListHook, type ConnectorRow,
 } from '@/lib/admin/use-connector-list';
+import { useAction } from '@/lib/ui/use-action';
 
 export function ConnectorList({ hook }: { hook: ConnectorListHook }) {
+  const run = useAction();
   // 只列 owner 自建（上传/协议）连接器；内置（已配的 gcal/smtp…）是 catalog 卡，不在这重复渲染，
   // 否则配好的内置会同时以 connector-row-{id}（卡）和 connector-row-{category}（这）出现，撞 testid。
   const uploaded = hook.connectors.filter((c) => originOf(c) === 'uploaded');
@@ -19,7 +21,11 @@ export function ConnectorList({ hook }: { hook: ConnectorListHook }) {
     <div className="mb-8 space-y-3">
       <LoadError show={hook.loadError} />
       {uploaded.map((row) => (
-        <ConnectorRowItem key={row.id} row={row} onDelete={() => { void hook.remove(row.id); }} />
+        <ConnectorRowItem
+          key={row.id}
+          row={row}
+          onDelete={() => { void run(() => hook.remove(row.id), { success: 'Connector removed' }); }}
+        />
       ))}
     </div>
   );
