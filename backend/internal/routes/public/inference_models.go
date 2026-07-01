@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 )
 
 const (
@@ -51,25 +53,14 @@ func (h *Handlers) listInferenceModels() http.HandlerFunc {
 		}
 		models, err := fetchModelsFromProvider(r.Context(), req)
 		if err != nil {
-			// Log the raw provider/network error for ops; the browser only sees
-			// a friendly hint (never the upstream HTTP body or dial error).
+			// err 是 DisplayError（fetch 层自带回显信息）：Warn 记的是 Error()（含底层 cause，ops 看得到
+			// 真实上游 HTTP body / dial 错），Classify 只把 DisplayMessage 发给浏览器。
 			h.Log.Warn("list models", "provider", req.Provider, "err", err)
-			writeError(h.Log, w, envBadReq(listModelsFriendlyMsg(err)))
+			writeError(h.Log, w, apierr.Classify(err, nil))
 			return
 		}
 		writeListModels(h.Log, w, models)
 	}
-}
-
-// listModelsFriendlyMsg —— client-facing text; the raw err is logged by the
-// caller. Only the curated "no model list" sentinel keeps its wording (the UI
-// turns it into "type model manually"); everything else collapses to a neutral
-// hint so no provider HTTP body / dial error reaches the browser.
-func listModelsFriendlyMsg(err error) string {
-	if errors.Is(err, errProviderNoModelList) {
-		return errProviderNoModelList.Error()
-	}
-	return "Couldn't reach the model provider — check the base URL and key."
 }
 
 func parseListModelsReq(
@@ -97,16 +88,26 @@ func missingListModelsField(req *listModelsRequest) string {
 	return ""
 }
 
+// fetchModelsFromProvider —— 返 DisplayError：每个失败都自带「给用户看的人话 + 机器码 + 400」，
+// upstream 网络/HTTP 错用 DisplayWrap 裹住原始 cause（进日志，不进客户端）。
 func fetchModelsFromProvider(
 	ctx context.Context, req *listModelsRequest,
 ) ([]string, error) {
 	if req.Provider == "anthropic" {
-		return nil, errProviderNoModelList
+		// Anthropic 不暴露 /v1/models → UI 据此提示手输 model。
+		return nil, apierr.Display(
+			http.StatusBadRequest, "no_model_list", errProviderNoModelList.Error())
 	}
 	if req.Endpoint == "" {
-		return nil, fmt.Errorf("endpoint required for %q", req.Provider)
+		return nil, apierr.Display(http.StatusBadRequest, "endpoint_required",
+			"This provider needs an endpoint URL.")
 	}
-	return getOpenAIModels(ctx, req.Endpoint, req.Key)
+	models, err := getOpenAIModels(ctx, req.Endpoint, req.Key)
+	if err != nil {
+		return nil, apierr.DisplayWrap(http.StatusBadRequest, "provider_unreachable",
+			"Couldn't reach the model provider — check the base URL and key.", err)
+	}
+	return models, nil
 }
 
 type oaModelListItem struct {

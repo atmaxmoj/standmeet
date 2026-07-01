@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
@@ -36,13 +37,32 @@ func TestClassifyUnwrapsWrappedDisplayError(t *testing.T) {
 
 func TestClassifyDoesNotLeakNonDisplayError(t *testing.T) {
 	t.Parallel()
-	// A plain error (not displayable) → 500 fallback; its internal detail must NOT reach the client.
+	// A plain error (not displayable) → 500 fallback; its detail must NOT reach the client.
 	env := apierr.Classify(errors.New("boom: internal db dsn leaked"), nil)
 	if env.Status != http.StatusInternalServerError {
 		t.Fatalf("non-display error should be 500, got %d", env.Status)
 	}
 	if env.Message == "boom: internal db dsn leaked" {
 		t.Fatalf("internal detail must not leak into the envelope: %q", env.Message)
+	}
+}
+
+func TestDisplayWrapSendsMessageButLogsCause(t *testing.T) {
+	t.Parallel()
+	// DisplayWrap 的分离：客户端只见 friendly message；日志（Error）+ errors.Is 能拿到底层 cause。
+	cause := errors.New("dial tcp 10.0.0.5:443: connect: connection refused")
+	de := apierr.DisplayWrap(
+		http.StatusBadGateway, "provider_unreachable", "Couldn't reach the provider.", cause)
+
+	env := apierr.Classify(de, nil)
+	if env.Message != "Couldn't reach the provider." {
+		t.Fatalf("client must see only the friendly message, got %q", env.Message)
+	}
+	if !errors.Is(de, cause) {
+		t.Fatal("Unwrap must expose the cause for logging/errors.Is")
+	}
+	if !strings.Contains(de.Error(), "connection refused") {
+		t.Fatalf("Error() (goes to the log) must include the raw cause, got %q", de.Error())
 	}
 }
 
