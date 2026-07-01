@@ -97,30 +97,6 @@ test.describe('connector · extra corner / error stream (wrap-up)', () => {
     expect((f.fields ?? []).map((x) => x.key), 'apiKey field, no longer client_id').toContain('key');
   });
 
-  // 自定义命名的 apiKey scheme（如 "sendgrid"）：存储字段恒为 "key"——注入器读的就是 creds["key"]
-  // （json:"key" 写死）。若 credform 按 scheme 名派生（"sendgrid"），owner 填错字段 → 注入空 key →
-  // 静默 401。scheme 名/位置是 HTTP 落点，跟存储字段名正交。回归守护。
-  test('named apiKey scheme → credential field stays "key", never the scheme name', async () => {
-    const { csrf } = await login(request, OWNER.email, OWNER.password);
-    const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
-
-    const namedSpec = CAL_SPEC.replace(
-      '{"bearer":{"type":"http","scheme":"bearer"}}',
-      '{"sendgrid":{"type":"apiKey","in":"header","name":"X-Custom-Key"}}',
-    );
-    const res = await request.put(`${BACKEND}/api/admin/connectors/${id}`, {
-      headers: { 'X-Csrftoken': csrf },
-      data: { spec: JSON.parse(namedSpec), binding: CAL_BINDING },
-    });
-    expect(res.status(), 'PUT named-apiKey spec → 200').toBe(200);
-
-    const form = await request.get(`${BACKEND}/api/admin/connectors/${id}/credential-form`);
-    const f = await form.json() as { fields?: { key: string }[] };
-    const keys = (f.fields ?? []).map((x) => x.key);
-    expect(keys, 'storage field is "key" (matches the injector), not the scheme name').toContain('key');
-    expect(keys, 'never keyed by the scheme name "sendgrid"').not.toContain('sendgrid');
-  });
-
   // 两个同 kind(openapi) calendar → exactly one active（§1/§9 槽位规则，不限异 kind）。
   test('two same-kind (openapi) calendars → exactly one active, slot rule same as cross-kind', async () => {
     const { csrf } = await login(request, OWNER.email, OWNER.password);
@@ -143,6 +119,60 @@ test.describe('connector · extra corner / error stream (wrap-up)', () => {
     // dep-gating 仍开（至少一个 active connected）。
     const cap = await findCapability(request, csrf, 'calendar.book');
     expect(cap?.dependency?.connected, 'an active connected exists → still un-gated').toBe(true);
+  });
+});
+
+// credform 派生漂移守护：configure 表单（credform）曾与摄入预览（authform）/注入器各枚举一份 auth
+// 知识而漂移。收成 authform 单源后，这两条把两次漂移（apiKey 字段名、oidc 当 token）钉住。
+test.describe('connector · credential-form derivation drift guards (area B)', () => {
+  let request: APIRequestContext;
+  test.beforeAll(async ({ playwright }) => { request = await initOwner(playwright); });
+  test.afterAll(async () => { await request.dispose(); });
+
+  // 自定义命名的 apiKey scheme（如 "sendgrid"）：存储字段恒为 "key"——注入器读的就是 creds["key"]
+  // （json:"key" 写死）。若按 scheme 名派生（"sendgrid"），owner 填错字段 → 注入空 key → 静默 401。
+  test('named apiKey scheme → credential field stays "key", never the scheme name', async () => {
+    const { csrf } = await login(request, OWNER.email, OWNER.password);
+    const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
+
+    const namedSpec = CAL_SPEC.replace(
+      '{"bearer":{"type":"http","scheme":"bearer"}}',
+      '{"sendgrid":{"type":"apiKey","in":"header","name":"X-Custom-Key"}}',
+    );
+    const res = await request.put(`${BACKEND}/api/admin/connectors/${id}`, {
+      headers: { 'X-Csrftoken': csrf },
+      data: { spec: JSON.parse(namedSpec), binding: CAL_BINDING },
+    });
+    expect(res.status(), 'PUT named-apiKey spec → 200').toBe(200);
+
+    const form = await request.get(`${BACKEND}/api/admin/connectors/${id}/credential-form`);
+    const f = await form.json() as { fields?: { key: string }[] };
+    const keys = (f.fields ?? []).map((x) => x.key);
+    expect(keys, 'storage field is "key" (matches the injector), not the scheme name').toContain('key');
+    expect(keys, 'never keyed by the scheme name "sendgrid"').not.toContain('sendgrid');
+  });
+
+  // openIdConnect scheme：credform 曾无 openIdConnect 分支 → 落 default 给 "token"（错，oidc 是
+  // oauth：client_id/secret + dance）。收成 authform 单源后此处应给 oauth 字段。
+  test('openIdConnect scheme → credential form is oauth (client_id/secret), not a bare token', async () => {
+    const { csrf } = await login(request, OWNER.email, OWNER.password);
+    const id = await assembleOpenapiCalendar(request, csrf, CAL_SPEC, CAL_BINDING);
+
+    const oidcSpec = CAL_SPEC.replace(
+      '{"bearer":{"type":"http","scheme":"bearer"}}',
+      '{"oidc":{"type":"openIdConnect","openIdConnectUrl":"https://issuer.example.com/.well-known/openid-configuration"}}',
+    );
+    const res = await request.put(`${BACKEND}/api/admin/connectors/${id}`, {
+      headers: { 'X-Csrftoken': csrf },
+      data: { spec: JSON.parse(oidcSpec), binding: CAL_BINDING },
+    });
+    expect(res.status(), 'PUT oidc spec → 200').toBe(200);
+
+    const form = await request.get(`${BACKEND}/api/admin/connectors/${id}/credential-form`);
+    const f = await form.json() as { fields?: { key: string }[] };
+    const keys = (f.fields ?? []).map((x) => x.key);
+    expect(keys, 'oidc asks for the oauth client creds').toContain('client_id');
+    expect(keys, 'oidc is oauth, not a bare token field').not.toContain('token');
   });
 });
 

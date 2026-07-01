@@ -1,15 +1,22 @@
-// credform.go —— 从 openapi spec 的 securityScheme 派生「凭据表单」：owner 该填哪些字段连这个
-// 连接器。admin UI 据此渲染表单；编辑 spec 换认证 type 后表单跟着重派生（#161/§4 认证表）。
-// 纯数据派生，不碰凭据本身。
+// credform.go —— 从 openapi spec 派生「凭据表单」：owner 该填哪些字段连这个连接器。
+// **单一事实源**：字段/类型/scope 全从 openapi.DeriveAuthForms（authform）取，本文件只把它那份更全的
+// AuthSchemeForm 收窄成 configure 表单要的 CredentialForm。摄入预览（authform）与配置表单（本文件）
+// 曾各自枚举一份 auth 知识而漂移——apiKey 字段名（'key' vs scheme 名）、oidc 被当成 token——都是那样
+// 漏出来的。收成一处后，加/改一个 auth 类型只在 authform 改一次。纯数据派生，不碰凭据本身。
 
 package connector
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/atmaxmoj/standmeet/internal/connector/openapi"
 )
+
+// errNoUsableScheme —— 选中的 securityScheme 无对应可用表单（没这个名 / 多方案未选）。装配好的
+// 连接器其方案必被 authform 支持，故此错实际不可达；留作显式兜底而非静默空表单。
+var errNoUsableScheme = errors.New("no usable auth scheme for credential form")
 
 // CredentialForm —— 一个连接器要 owner 填的凭据表单：认证类型 + 字段 key 列表 + oauth2 可勾选 scope
 // + spec 声明的所有 securityScheme 名（多 scheme 让 owner 选）。
@@ -20,20 +27,54 @@ type CredentialForm struct {
 	Schemes  []string
 }
 
-// DeriveCredentialForm —— 解析 manifest 的 spec，按选中的 securityScheme 派生凭据表单。
-// oauth2 → client_id/client_secret；apiKey/bearer → 单 token；basic → username/password。
+// DeriveCredentialForm —— 解析 manifest 的 spec，按选中的 securityScheme 派生凭据表单。字段/类型/
+// scope 全来自 authform（单一事实源）；本函数只挑中选中方案 + 收窄成 configure 表单形状。
 func DeriveCredentialForm(m *Manifest) (CredentialForm, error) {
 	spec, err := openapi.ParseSpec(m.Spec)
 	if err != nil {
 		return CredentialForm{}, fmt.Errorf(errConnectorWrap, m.ID, err)
 	}
-	scheme, serr := pickScheme(spec, m.AuthScheme)
-	if serr != nil {
-		return CredentialForm{}, fmt.Errorf(errConnectorWrap, m.ID, serr)
+	f, ok := pickAuthForm(openapi.DeriveAuthForms(spec).Forms, m.AuthScheme)
+	if !ok {
+		return CredentialForm{}, fmt.Errorf(errConnectorWrap, m.ID, errNoUsableScheme)
 	}
-	form := formForScheme(&scheme)
+	form := credFormFromAuth(&f)
 	form.Schemes = schemeNames(spec)
 	return form, nil
+}
+
+// pickAuthForm —— 选中生效的方案表单：owner 选了用选的；否则唯一一个用它；多方案未选 → 无（ambiguous）。
+func pickAuthForm(forms []openapi.AuthSchemeForm, picked string) (openapi.AuthSchemeForm, bool) {
+	if picked != "" {
+		for i := range forms {
+			if forms[i].Scheme == picked {
+				return forms[i], true
+			}
+		}
+		return openapi.AuthSchemeForm{}, false
+	}
+	if len(forms) == 1 {
+		return forms[0], true
+	}
+	return openapi.AuthSchemeForm{}, false
+}
+
+// credFormFromAuth —— AuthSchemeForm 收窄成 CredentialForm：只留 owner 要填的输入字段（text/password）；
+// scope 多选进 Scopes；readonly（redirect_uri）不进 fields（前端另渲）。
+func credFormFromAuth(f *openapi.AuthSchemeForm) CredentialForm {
+	fields := make([]string, 0, len(f.Fields))
+	var scopes []string
+	for i := range f.Fields {
+		switch f.Fields[i].Type {
+		case "text", "password":
+			fields = append(fields, f.Fields[i].Key)
+		case "scopes":
+			scopes = f.Fields[i].Scopes
+		default:
+			// readonly（redirect_uri）等：不进 owner 要填的 fields
+		}
+	}
+	return CredentialForm{AuthType: f.Type, Fields: fields, Scopes: scopes}
 }
 
 // schemeNames —— spec 声明的所有 securityScheme 名（排序）。admin 多 scheme 时让 owner 选。
@@ -45,46 +86,4 @@ func schemeNames(spec *openapi.Spec) []string {
 	}
 	slices.Sort(out)
 	return out
-}
-
-// formForScheme —— securityScheme → 凭据表单（§4 认证表）。未知 type → 兜底单 token。
-// apiKey 的存储字段恒为 "key"：注入器 apiKeyInject 读的就是 creds["key"]（json:"key" 写死），
-// authform 摄入预览也给 "key"——三处必须一致，否则自定义命名的 scheme（如 "sendgrid"）会让 owner
-// 填错字段、注入器读到空 key → 静默 401。scheme 名/位置（header X-Api-Key / query）是 HTTP 落点，
-// 由注入器从 scheme.In/scheme.Name 取，跟存储字段名正交。
-func formForScheme(s *openapi.SecurityScheme) CredentialForm {
-	switch s.Type {
-	case "oauth2":
-		return CredentialForm{
-			AuthType: "oauth2", Fields: []string{"client_id", "client_secret"},
-			Scopes: oauth2ScopeKeys(s),
-		}
-	case "apiKey":
-		return CredentialForm{AuthType: "apikey", Fields: []string{"key"}}
-	case "http":
-		return httpForm(s.Scheme)
-	default:
-		return CredentialForm{AuthType: "token", Fields: []string{"token"}}
-	}
-}
-
-// oauth2ScopeKeys —— oauth2 authorizationCode flow 声明的可勾选 scope（排序，UI 多选 + dance 子集）。
-func oauth2ScopeKeys(s *openapi.SecurityScheme) []string {
-	if s.Flows.AuthorizationCode == nil {
-		return []string{}
-	}
-	out := make([]string, 0, len(s.Flows.AuthorizationCode.Scopes))
-	for scope := range s.Flows.AuthorizationCode.Scopes {
-		out = append(out, scope)
-	}
-	slices.Sort(out)
-	return out
-}
-
-// httpForm —— http securityScheme 按 scheme 子型派生（bearer→token；basic→user/pass）。
-func httpForm(scheme string) CredentialForm {
-	if scheme == "basic" {
-		return CredentialForm{AuthType: "basic", Fields: []string{"username", "password"}}
-	}
-	return CredentialForm{AuthType: "bearer", Fields: []string{"token"}}
 }
