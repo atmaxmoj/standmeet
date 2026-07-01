@@ -29,9 +29,15 @@ var fallback = Envelope{
 	Message: "internal error",
 }
 
-// Classify 用 errors.Is 顺序匹配 cases；都不匹配返回 500 fallback。
-// 函数 cyclo = 2（for + if），调用方 cyclo = 1。
+// Classify 先认 DisplayError（错误自带回显信息 → 直接渲染，无需 Case），再用 errors.Is 顺序匹配
+// cases；都不匹配返回 500 fallback（不外泄内部细节）。DisplayError 优先：错误显式声明可回显就照它办。
 func Classify(err error, cases []Case) Envelope {
+	var de DisplayError
+	if errors.As(err, &de) {
+		return Envelope{
+			Status: de.HTTPStatus(), Code: de.DisplayCode(), Message: de.DisplayMessage(),
+		}
+	}
 	for _, c := range cases {
 		if errors.Is(err, c.Match) {
 			return c.Envelope
