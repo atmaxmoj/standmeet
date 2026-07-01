@@ -15,17 +15,20 @@ import { VisitorPreviewModal } from '@/components/admin/modals/VisitorPreviewMod
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { useCodeModalState } from '@/lib/admin/use-code-modals';
 import { useCodes, type CodeView, type CodesHook } from '@/lib/admin/use-codes';
+import { useAction } from '@/lib/ui/use-action';
+import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function CodesSection() {
   const hook = useCodes();
   const modals = useCodeModalState();
-  const toast = useToast();
+  const run = useAction();
   useEffectErrorToast(hook.error);
-  const revokeWithToast = useCallback(async (id: string) => {
-    const ok = await hook.revokeCode(id);
-    ok && toast.success('Code revoked');
-  }, [hook, toast]);
+  // revoke 是一键破坏性动作 → 成功/失败都用 toast 收尾（失败不再静默：撤销没生效 owner 必须知道）。
+  const revokeWithToast = useCallback(
+    (id: string) => run(() => hook.revokeCode(id), { success: 'Code revoked' }),
+    [hook, run],
+  );
   return (
     <>
       <SectionHeader
@@ -149,17 +152,28 @@ function CodeCreateModalSlot({
   updateQuotas: CodesHook['updateQuotas'];
 }) {
   const toast = useToast();
+  const report = useReportError();
+  // modal：成功 → toast + 关；失败 → report + **保持开着**（原来无论成败都 onClose，等于失败也
+  // 静默关掉像成功了）。让 owner 看见错、改了重试。
   const onCreate = useCallback(async (input: Parameters<CodesHook['createCode']>[0]) => {
-    const ok = await createCode(input);
-    ok && toast.success(`Code ${input.code} created`);
-    onClose();
-  }, [createCode, onClose, toast]);
+    try {
+      await createCode(input);
+      toast.success(`Code ${input.code} created`);
+      onClose();
+    } catch (e) {
+      report(e);
+    }
+  }, [createCode, onClose, toast, report]);
   const onUpdateQuotas = useCallback(
     async (id: string, input: Parameters<CodesHook['updateQuotas']>[1]) => {
-      const ok = await updateQuotas(id, input);
-      ok && toast.success('Quotas updated');
-      onClose();
-    }, [updateQuotas, onClose, toast]);
+      try {
+        await updateQuotas(id, input);
+        toast.success('Quotas updated');
+        onClose();
+      } catch (e) {
+        report(e);
+      }
+    }, [updateQuotas, onClose, toast, report]);
   return open ? (
     <CodeCreateModal
       existing={editing}

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { APIError } from '@/lib/api/api-error';
 import { safeJson } from '@/lib/api/typed-json';
 
 const CSRF_COOKIE = 'csrftoken';
@@ -25,8 +26,7 @@ async function doFetch(method: string, path: string, body?: unknown): Promise<Re
     credentials: 'include',
   });
   if (!res.ok) {
-    const err = await readErrorSafe(res, `${method} ${path}`);
-    throw new Error(err);
+    return throwAPIError(res, `${method} ${path}`);
   }
   return res;
 }
@@ -39,23 +39,29 @@ async function doFetchForm(method: string, path: string, form: FormData): Promis
     method, headers, body: form, credentials: 'include',
   });
   if (!res.ok) {
-    const err = await readErrorSafe(res, `${method} ${path}`);
-    throw new Error(err);
+    return throwAPIError(res, `${method} ${path}`);
   }
   return res;
 }
 
 const ErrorBodySchema = z.object({
-  error: z.object({ message: z.string().optional() }).optional(),
+  error: z.object({ code: z.string().optional(), message: z.string().optional() }).optional(),
 });
 
-async function readErrorSafe(res: Response, op: string): Promise<string> {
+// throwAPIError —— 非 2xx → 抛带 status+code 的 APIError（读后端 envelope 的 code/message；读不出用
+// 兜底串）。带 status 让调用方能分流（401 跳登录 / 409 就地 / 其余 toast）。恒抛，返回 never。
+async function throwAPIError(res: Response, op: string): Promise<never> {
+  const fallback = `${op} failed: ${res.status}`;
+  let code = '';
+  let message = fallback;
   try {
     const body = await safeJson(res, ErrorBodySchema);
-    return body.error?.message ?? `${op} failed: ${res.status}`;
+    code = body.error?.code ?? '';
+    message = body.error?.message ?? fallback;
   } catch {
-    return `${op} failed: ${res.status}`;
+    // envelope 读不出（非 JSON / 网络层）→ 用兜底串
   }
+  throw new APIError(res.status, code, message);
 }
 
 export const adminAPI = {

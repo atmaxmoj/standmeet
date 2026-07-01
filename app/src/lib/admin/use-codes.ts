@@ -47,9 +47,9 @@ export interface CodesHook {
   codes: readonly CodeView[];
   error: string | null;
   refresh: () => Promise<void>;
-  createCode: (input: CreateCodeInput) => Promise<boolean>;
-  revokeCode: (id: string) => Promise<boolean>;
-  updateQuotas: (id: string, input: QuotasInput) => Promise<boolean>;
+  createCode: (input: CreateCodeInput) => Promise<void>;
+  revokeCode: (id: string) => Promise<void>;
+  updateQuotas: (id: string, input: QuotasInput) => Promise<void>;
 }
 
 // codesStore —— module-singleton；一次 fetch、所有 component 共享。
@@ -74,36 +74,22 @@ export function useCodes(): CodesHook {
   };
 }
 
-async function createCode(input: CreateCodeInput): Promise<boolean> {
-  try {
-    const created = await adminAPI.post('/codes/', toCreateBody(input), CodeViewSchema);
-    codesStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
-    return true;
-  } catch (e) {
-    return swallow(e, 'create');
-  }
+// mutation 抛错（不再吞成 false）：调用方用 useAction 收尾（成功 toast / 失败 report），或就地内联。
+async function createCode(input: CreateCodeInput): Promise<void> {
+  const created = await adminAPI.post('/codes/', toCreateBody(input), CodeViewSchema);
+  codesStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
 }
 
-async function revokeCode(id: string): Promise<boolean> {
-  try {
-    await adminAPI.postVoid(`/codes/${id}/revoke`, {});
-    codesStore.getState().mutate((prev) =>
-      (prev ?? []).map((c) => c.id === id ? { ...c, status: 'revoked' } : c));
-    return true;
-  } catch (e) {
-    return swallow(e, 'revoke');
-  }
+async function revokeCode(id: string): Promise<void> {
+  await adminAPI.postVoid(`/codes/${id}/revoke`, {});
+  codesStore.getState().mutate((prev) =>
+    (prev ?? []).map((c) => c.id === id ? { ...c, status: 'revoked' } : c));
 }
 
-async function updateQuotas(id: string, input: QuotasInput): Promise<boolean> {
-  try {
-    const updated = await adminAPI.patch(`/codes/${id}/quotas`, input, CodeViewSchema);
-    codesStore.getState().mutate((prev) =>
-      (prev ?? []).map((c) => c.id === updated.id ? updated : c));
-    return true;
-  } catch (e) {
-    return swallow(e, 'update quotas');
-  }
+async function updateQuotas(id: string, input: QuotasInput): Promise<void> {
+  const updated = await adminAPI.patch(`/codes/${id}/quotas`, input, CodeViewSchema);
+  codesStore.getState().mutate((prev) =>
+    (prev ?? []).map((c) => c.id === updated.id ? updated : c));
 }
 
 function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
@@ -117,11 +103,6 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     max_bookings: input.max_bookings ?? null,
     assumed_role_id: input.assumed_role_id ?? null,
   };
-}
-
-function swallow(_e: unknown, _op: string): boolean {
-  // 错误已经在 fetch 路径里 set 到 store.error；action 失败让 caller toast。
-  return false;
 }
 
 // codeModalLabels —— modal 头部文案 / kicker / 是否 edit。switch-by-existing
