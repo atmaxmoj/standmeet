@@ -2,10 +2,9 @@
 // catalog → 可连接的内置卡（google-calendar / smtp / …）。跟 use-connector-list（owner 已建）分开：
 // 内置不进 List（List 的 reuse-by-category 调用方会误抓内置）。
 
-import { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
 
-import { adminAPI } from '@/lib/api/admin';
+import { useLatestList } from '@/lib/admin/use-latest-list';
 
 const CatalogEntrySchema = z.object({
   id: z.string(),
@@ -24,16 +23,8 @@ export interface ConnectorCatalogHook {
 }
 
 export function useConnectorCatalog(): ConnectorCatalogHook {
-  const [entries, setEntries] = useState<CatalogEntry[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  const refresh = useCallback(() => {
-    void adminAPI.get('/connectors/catalog', CatalogSchema)
-      .then((r) => { setEntries(r.connectors ?? []); setLoaded(true); })
-      .catch(() => setLoaded(true));
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
+  const { items: entries, loaded, refresh } = useLatestList<CatalogEntry>(
+    '/connectors/catalog', CatalogSchema,
+  );
   return { entries, loaded, refresh };
 }

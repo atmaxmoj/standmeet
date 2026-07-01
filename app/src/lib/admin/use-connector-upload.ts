@@ -36,7 +36,7 @@ export function useConnectorUpload(list: ConnectorListHook): ConnectorUploadHook
     const old = p === null ? undefined : list.connectors.find((c) => c.category === p.category);
     void (old === undefined ? Promise.resolve() : list.remove(old.id))
       .then(() => (p === null ? undefined : list.create({ specText: p.spec, bindingText: p.binding })))
-      .then(() => setPending(null));
+      .finally(() => setPending(null)); // 成败都收起确认框：失败也别把对话框卡死（list 内部各自 refresh）
   }, [pending, list]);
 
   const cancelOverwrite = useCallback(() => setPending(null), []);

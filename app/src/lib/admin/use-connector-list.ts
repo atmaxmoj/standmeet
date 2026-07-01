@@ -3,10 +3,11 @@
 // 前缀判定（CreateUploaded/CreateProtocol 都用 "up-" → uploaded；否则内置）。catalog 预览那张
 // （use-connectors 的 SEED）是另一回事，不动。
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
+import { useLatestList } from '@/lib/admin/use-latest-list';
 
 const ConnectorRowSchema = z.object({
   id: z.string(),
@@ -36,16 +37,7 @@ export function originOf(row: ConnectorRow): 'uploaded' | 'built-in' {
 }
 
 export function useConnectorList(): ConnectorListHook {
-  const [connectors, setConnectors] = useState<ConnectorRow[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  const refresh = useCallback(() => {
-    void adminAPI.get('/connectors', ListSchema)
-      .then((r) => { setConnectors(r.connectors ?? []); setLoaded(true); })
-      .catch(() => setLoaded(true));
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
+  const { items: connectors, loaded, refresh } = useLatestList<ConnectorRow>('/connectors', ListSchema);
 
   const create = useCallback(async (input: UploadInput) => {
     await adminAPI.postVoid('/connectors', {

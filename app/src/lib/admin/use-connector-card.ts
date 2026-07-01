@@ -89,7 +89,9 @@ export function useConnectorCard(id: string): ConnectorCardHook {
   const saveCreds = useCallback(() => {
     void adminAPI.postVoid(`/connectors/${id}/credentials`, {
       ...values.current, scopes: [...chosen.current],
-    }).catch(() => undefined);
+    }).catch(() => setError('Couldn’t save credentials — check your connection and retry.'));
+    // 存失败必须吵闹：否则 owner 以为凭据存好了，点 Connect 却用着未保存的凭据连接失败，一头雾水。
+    // connect() 起头会 setError('')，故这条 save 错在下次点 Connect 时自然清掉。
   }, [id]);
 
   const connect = useCallback(() => {
@@ -104,8 +106,9 @@ export function useConnectorCard(id: string): ConnectorCardHook {
 
   const disconnect = useCallback(() => {
     void adminAPI.postVoid(`/connectors/${id}/disconnect`, {})
-      .then(() => setConnected(false))
-      .catch(() => undefined);
+      .then(() => { setConnected(false); setError(''); })
+      // 断开失败别静默：否则 owner 以为已断开，卡却还连着，状态与现实不符。
+      .catch(() => setError('Couldn’t disconnect — check your connection and retry.'));
   }, [id]);
 
   return {
