@@ -53,13 +53,17 @@ test.describe('admin connectors extended', () => {
       await expect(secretField).toHaveAttribute('type', 'password');
     });
 
-  test('calendar connector → oauth Authorize button',
+  // #155: the hardcoded per-provider dropdown (connector-field-provider) is gone —
+  // a calendar connector is assembled from an OpenAPI spec (or the built-in CalDAV
+  // form) via AssembleView. The full oauth Authorize loop is covered end-to-end by
+  // connector-happy-matrix; here we only prove the calendar card opens that assemble
+  // entry point (the legacy dropdown assertion tested UI that no longer exists).
+  test('calendar card opens the spec-assemble entry',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'connectors');
       await adminPage.getByTestId('connector-add-open').click();
       await adminPage.getByTestId('connector-card-calendar').click();
-      await adminPage.getByTestId('connector-field-provider').selectOption('google');
-      await expect(adminPage.getByTestId('connector-field-oauth')).toContainText(/Authorize/i);
+      await expect(adminPage.getByTestId('connector-spec-input')).toBeVisible();
     });
 
   // #46:grid tile 是诚实的 coming-soon 预览,不假装 connected(没有翻成 ● connected
