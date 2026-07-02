@@ -112,13 +112,35 @@ async function runMockOAuthFlow(seed: BaseSeed): Promise<void> {
   // Backend issues an auth URL pointing at the mock; visiting it via
   // request context follows the 302 chain back to /callback, which the
   // backend handles + persists tokens.
-  const { auth_url } = await initGCalOAuth(seed.request, seed.csrf);
-  const res = await seed.request.get(auth_url);
-  if (res.status() !== 200) {
-    throw new Error(`oauth flow: final status ${res.status()}`);
-  }
+  await oauthDanceWithRetry(seed);
   // §9: connect 只是连上；要被 booking 解析到，还得占用 calendar 品类槽。
   await activateGCal(seed.request, seed.csrf);
+}
+
+// oauthDanceWithRetry —— init + 走 302 链回 /callback。并行负载下 backend 的 callback 腿偶发
+// "socket hang up"（连接瞬断，非确定性失败）。只对这类瞬时网络错重试，每次重新 init 拿**新 state**
+// （state 单次使用，不能复用旧的）；确定性错（status≠200 等）立即抛，不掩盖真失败。
+async function oauthDanceWithRetry(seed: BaseSeed): Promise<void> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { auth_url } = await initGCalOAuth(seed.request, seed.csrf);
+      const res = await seed.request.get(auth_url);
+      if (res.status() !== 200) {
+        throw new Error(`oauth flow: final status ${res.status()}`);
+      }
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientNetErr(err)) throw err;
+    }
+  }
+  throw lastErr;
+}
+
+function isTransientNetErr(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /socket hang up|ECONNRESET|ECONNREFUSED|socket disconnected/i.test(msg);
 }
 
 // ─── teardown ───────────────────────────────────────────────────
