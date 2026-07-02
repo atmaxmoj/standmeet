@@ -220,9 +220,18 @@ async function newConnector(
   return hit;
 }
 
-function futureSlot(daysAhead: number, hour: number): string {
+// futureSlot —— N 个**工作日**之后的 hour:00（跳周末）。owner 默认 booking policy 只允许工作日
+// （calendar_policy weekdayAllowed），slot 必须落工作日；朴素的「今天+N 日历天」会随运行日偶尔
+// 落周六/日 → policy 拒 → booker 不下单（date-fragile flake，本 spec 在周四跑时 daysAhead=9 落
+// 周六就是这么挂的）。数工作日让每个 distinct N 落 distinct 工作日，与运行日无关。
+function futureSlot(weekdaysAhead: number, hour: number): string {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() + daysAhead);
+  let counted = 0;
+  while (counted < weekdaysAhead) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6) counted++; // skip Sun(0) / Sat(6)
+  }
   d.setUTCHours(hour, 0, 0, 0);
   return d.toISOString();
 }

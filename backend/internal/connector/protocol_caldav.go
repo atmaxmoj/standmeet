@@ -121,10 +121,14 @@ func (c *caldavConnector) InsertEvent(
 		Method: http.MethodPut, URL: url, Body: ev, ContentType: caldavICalType,
 	})
 	if rerr != nil {
-		return usecases.InsertedEvent{}, domain.ErrCalendarUnavailable
+		// 保留真实 cause（dial / SSRF / 传输错）——上层 marshalBookErr server-side 记，访客仍映友好
+		// 「稍后再试」。此前直接吞成 ErrCalendarUnavailable，运维查无可查（fail-loud）。
+		return usecases.InsertedEvent{}, fmt.Errorf("caldav insert PUT %s: %w: %w",
+			url, domain.ErrCalendarUnavailable, rerr)
 	}
 	if serr := caldavStatusErr(r.Status); serr != nil {
-		return usecases.InsertedEvent{}, serr
+		return usecases.InsertedEvent{}, fmt.Errorf("caldav insert PUT %s status %d: %w",
+			url, r.Status, serr)
 	}
 	return usecases.InsertedEvent{EventID: uid, HTMLLink: url}, nil
 }
