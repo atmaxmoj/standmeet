@@ -114,9 +114,12 @@ test.describe('connector · connect flow happy (§8 area D)', () => {
       // §4：oauth2 的 scope 是多选；owner 勾哪些，dance 的 authorize URL 就
       // 必须只带哪些（既不偷加、也不漏带）。mock provider 记录它收到的 scope
       // param，断言对着 mock 的记录做 —— 而不是猜后端拼了什么字符串。
+      // 独立 client_id：mock 的 authorize 记录按 client_id 存，这样并行跑的其它 oauth dance
+      // （别的 spec，用 'mock-client-id'）不会污染本测试要读的 scope 记录。
+      const clientID = 'scope-subset-client-id';
       await resetMockOAuthRecord(page);
       const card = await openConnectorCard(page, OAUTH2_CONNECTOR_ID);
-      await fillOAuth2Creds(card, 'mock-client-id', 'mock-client-secret');
+      await fillOAuth2Creds(card, clientID, 'mock-client-secret');
 
       // 勾一个**子集**（READ 勾、WRITE 不勾），故意漏掉表单里其余可选 scope。
       await selectScope(card, SCOPE_READ, true);
@@ -127,7 +130,7 @@ test.describe('connector · connect flow happy (§8 area D)', () => {
       await expectConnected(card);
 
       // mock 录到的 authorize scope param 必须 === 勾选集合，不多不少。
-      const requested = await getRecordedAuthorizeScopes(page);
+      const requested = await getRecordedAuthorizeScopes(page, clientID);
       expect(requested).toContain(SCOPE_READ);
       expect(requested).not.toContain(SCOPE_WRITE);
     });
@@ -359,8 +362,10 @@ async function resetMockOAuthRecord(page: Page): Promise<void> {
 
 // getRecordedAuthorizeScopes —— mock 记录的、本次 authorize 请求里 scope
 // param 拆出来的 scope 列表。断言「勾选子集被原样带进 dance」对着它做。
-async function getRecordedAuthorizeScopes(page: Page): Promise<string[]> {
-  const res = await page.request.get(`${MOCK}/__mock/oauth/last_authorize`);
+async function getRecordedAuthorizeScopes(page: Page, clientID: string): Promise<string[]> {
+  // 按 client_id 读，隔离并行 oauth 测试（共享 mock 的 last_authorize 曾被别的 worker 的 dance 污染）。
+  const res = await page.request.get(
+    `${MOCK}/__mock/oauth/last_authorize?client_id=${encodeURIComponent(clientID)}`);
   if (res.status() !== 200) throw new Error(`last_authorize: ${res.status()}`);
   const body = await res.json() as { scopes?: string[] };
   return body.scopes ?? [];

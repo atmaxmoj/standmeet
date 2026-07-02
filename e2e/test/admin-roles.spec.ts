@@ -15,7 +15,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { createPrompt } from '@/fixtures/prompts';
 import { createRole } from '@/fixtures/roles';
-import { expectErrorToast } from '@/fixtures/toast';
+import { expectErrorToast, expectSuccessToast } from '@/fixtures/toast';
 
 // #103: a prompt in the library + a non-builtin role to attach it to via the role card.
 const PROMPT_NAME = 'greeter-persona';
@@ -99,8 +99,10 @@ test.describe('admin roles', () => {
       const picker = row.getByTestId('role-prompt-greeter');
       // starts unattached (— none —)
       await expect(picker).toHaveValue('');
-      // attach the library prompt by its visible name → success toast
+      // attach the library prompt by its visible name → wait for the success toast so the PUT has
+      // landed before we reload (else the reload races the async updateRole and reads stale state).
       await picker.selectOption({ label: PROMPT_NAME });
+      await expectSuccessToast(adminPage, /Prompt updated/);
       // reload the section → the choice persisted (PUT round-tripped prompt_id)
       await adminPage.reload();
       await openRoles(adminPage);

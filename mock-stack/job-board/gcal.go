@@ -59,7 +59,7 @@ type gcalState struct {
 	freeBusyRaw    []byte                     // set_freebusy_raw: 下次 freeBusy 原样回这个（一次性）
 	eventShape     string                     // set_event_shape: "" | "object" | "array"（响应形状）
 	oauthOutcome   string                     // /__mock/oauth/program: ""|deny|token_invalid_client|state_mismatch|network_fail
-	lastAuthScopes []string                   // 上次 authorize 收到的 scope param（连接流 scope 子集断言）
+	lastAuthScopes map[string][]string        // client_id → 上次 authorize 收到的 scope 子集（按 client_id 隔离：并行 oauth 测试各读自己的 dance，不互相污染共享记录）
 	tokenCallCount int
 	revoked        bool // owner revoked at Google → next refresh returns invalid_grant
 	mu             sync.Mutex
@@ -118,9 +118,13 @@ func (s *server) serveOAuthAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var outcome string
+	clientID := r.URL.Query().Get("client_id")
 	s.withState(func(st *gcalState) {
 		outcome = st.oauthOutcome
-		st.lastAuthScopes = splitScopes(r.URL.Query().Get("scope"))
+		if st.lastAuthScopes == nil {
+			st.lastAuthScopes = map[string][]string{}
+		}
+		st.lastAuthScopes[clientID] = splitScopes(r.URL.Query().Get("scope"))
 	})
 	u.RawQuery = authorizeCallbackQuery(outcome, state).Encode()
 	//nolint:gosec // G710 — mock server's whole purpose is echoing back the redirect_uri unmodified

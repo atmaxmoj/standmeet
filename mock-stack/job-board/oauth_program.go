@@ -24,7 +24,8 @@ func (s *server) serveOAuthProgram(w http.ResponseWriter, r *http.Request) {
 func (s *server) serveOAuthRecordReset(w http.ResponseWriter, _ *http.Request) {
 	s.withState(func(st *gcalState) {
 		st.oauthOutcome = ""
-		st.lastAuthScopes = nil
+		// lastAuthScopes 不在这清：它按 client_id 隔离，每次 dance 覆写自己那个 key，清空反而会被
+		// 并行别的 spec 的 reset 擦掉本测试刚记的记录（跨 worker 竞争）。全量 mock reset 仍会清。
 		st.tokenCallCount = 0
 	})
 	writeOK(s.log, w)
@@ -34,9 +35,10 @@ type lastAuthorizeResponse struct {
 	Scopes []string `json:"scopes"`
 }
 
-func (s *server) serveOAuthLastAuthorize(w http.ResponseWriter, _ *http.Request) {
+func (s *server) serveOAuthLastAuthorize(w http.ResponseWriter, r *http.Request) {
+	clientID := r.URL.Query().Get("client_id")
 	out := []string{}
-	s.withState(func(st *gcalState) { out = append(out, st.lastAuthScopes...) })
+	s.withState(func(st *gcalState) { out = append(out, st.lastAuthScopes[clientID]...) })
 	writeJSONHeader(w)
 	if err := json.NewEncoder(w).Encode(lastAuthorizeResponse{Scopes: out}); err != nil {
 		s.log.Warn("write last_authorize", logErrKey, err)
