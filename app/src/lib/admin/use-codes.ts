@@ -23,6 +23,7 @@ export const CodeViewSchema = z.object({
   max_turns_per_session: z.number().nullable().optional(),
   max_bookings: z.number().nullable().optional(),
   assumed_role_id: z.string(),
+  prompt_id: z.string().nullable().optional(),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
@@ -35,6 +36,7 @@ export interface CreateCodeInput {
   max_turns_per_session?: number | null;
   max_bookings?: number | null;
   assumed_role_id?: string | null;
+  prompt_id?: string | null;
 }
 
 export interface QuotasInput {
@@ -102,6 +104,7 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     max_turns_per_session: input.max_turns_per_session ?? null,
     max_bookings: input.max_bookings ?? null,
     assumed_role_id: input.assumed_role_id ?? null,
+    prompt_id: input.prompt_id ?? null,
   };
 }
 

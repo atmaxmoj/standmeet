@@ -10,10 +10,15 @@
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
 
-import { claim } from '@/fixtures/admin';
+import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
+import { createPrompt } from '@/fixtures/prompts';
+import { createRole } from '@/fixtures/roles';
 import { expectErrorToast } from '@/fixtures/toast';
+
+// #103: a prompt in the library + a non-builtin role to attach it to via the role card.
+const PROMPT_NAME = 'greeter-persona';
 
 const OWNER = {
   email: 'roles-admin@example.com',
@@ -85,6 +90,25 @@ test.describe('admin roles', () => {
     await row.getByTestId('role-delete-recruiter-default').click();
     await expect(row).toHaveCount(0, { timeout: 5_000 });
   });
+
+  test('#103 role card shows the attached-prompt picker and editing it persists',
+    async ({ adminPage }) => {
+      await openRoles(adminPage);
+      const row = adminPage.getByTestId('role-row-greeter');
+      await expect(row).toBeVisible({ timeout: 5_000 });
+      const picker = row.getByTestId('role-prompt-greeter');
+      // starts unattached (— none —)
+      await expect(picker).toHaveValue('');
+      // attach the library prompt by its visible name → success toast
+      await picker.selectOption({ label: PROMPT_NAME });
+      // reload the section → the choice persisted (PUT round-tripped prompt_id)
+      await adminPage.reload();
+      await openRoles(adminPage);
+      const persisted = adminPage.getByTestId('role-row-greeter').getByTestId('role-prompt-greeter');
+      await expect(persisted).not.toHaveValue('');
+      const selected = await persisted.locator('option:checked').textContent();
+      expect(selected).toContain(PROMPT_NAME);
+    });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {
@@ -94,6 +118,9 @@ async function initOwner(playwright: Playwright): Promise<void> {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  await createPrompt(request, csrf, { name: PROMPT_NAME, body: 'be warm and brief' });
+  await createRole(request, csrf, { name: 'greeter', description: 'plain role' });
   await request.dispose();
 }
 

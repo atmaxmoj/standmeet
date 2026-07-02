@@ -355,6 +355,13 @@ CREATE INDEX role_mcp_servers_server_idx ON role_mcp_servers(mcp_server_id);
 ALTER TABLE access_codes
     ADD COLUMN assumed_role_id uuid NOT NULL REFERENCES roles(id) ON DELETE RESTRICT;
 
+-- access_codes.prompt_id —— #104 per-code prompt：这张码自带一份集中管理的 prompt
+-- (引 prompts 库，跟 roles.prompt_id 同款)。session freeze 时把它的 body 冻进
+-- RoleSnapshot.code_prompt_body，persona 在 role persona 之后**叠加**它。可选；
+-- 删 prompt → SET NULL(码继续用，只是没那段 per-code persona)。
+ALTER TABLE access_codes
+    ADD COLUMN prompt_id uuid REFERENCES prompts(id) ON DELETE SET NULL;
+
 -- assets —— owner-uploaded 二进制 (图片 / 附件) 的元数据。bytes 落 MinIO
 -- (key = '<owner_id>/<asset_id>')；元数据在这里。
 --

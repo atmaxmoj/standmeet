@@ -10,6 +10,7 @@ import { useCallback, useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { RoleCreateModal } from '@/components/admin/sections/roles/RoleCreateModal';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
+import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import { useRoles, type RolesHook, type RoleView, type WriteRoleInput } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
@@ -123,8 +124,68 @@ function RoleCard({
         <p className="reading-tight text-[13.5px] text-(--color-muted)">{role.description}</p>
       )}
       <RoleMetaGrid role={role} />
+      <RolePromptRow role={role} />
     </article>
   );
+}
+
+// RolePromptRow —— #103：显示并可编辑 role 挂的 prompt（引 prompts 库）。选另一份 / 清空 →
+// updateRole 全量回写（PUT），useAction 成功/失败都 toast（改没生效 owner 要知道）。之前卡片只有
+// delete，看不到也改不了挂的 prompt。
+function RolePromptRow({ role }: { role: RoleView }) {
+  const hook = usePrompts();
+  const roles = useRoles();
+  const run = useAction();
+  const onPick = useCallback(
+    (promptID: string) => run(
+      () => roles.updateRole(role.id, roleWriteInput(role, promptID)),
+      { success: `Prompt updated for ${role.name}` },
+    ),
+    [role, roles, run],
+  );
+  return (
+    <label className="grid grid-cols-[90px_1fr] gap-x-3 items-baseline mt-1.5">
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint)">
+        prompt
+      </span>
+      <RolePromptSelect role={role} prompts={hook.prompts} onPick={onPick} />
+    </label>
+  );
+}
+
+function RolePromptSelect({
+  role, prompts, onPick,
+}: {
+  role: RoleView;
+  prompts: readonly PromptView[];
+  onPick: (promptID: string) => void;
+}) {
+  return (
+    <select
+      className="mono text-[11px] bg-(--color-paper) border border-(--color-rule) px-2 py-1"
+      value={role.prompt_id ?? ''}
+      onChange={(e) => onPick(e.target.value)}
+      data-testid={`role-prompt-${role.name}`}
+    >
+      <option value="">— none —</option>
+      {prompts.map((p) => (
+        <option key={p.id} value={p.id}>{p.name}</option>
+      ))}
+    </select>
+  );
+}
+
+// roleWriteInput —— 从当前 RoleView + 新 prompt_id 组全量 PUT 载荷（只有 prompt 变，其余原样回写）。
+function roleWriteInput(role: RoleView, promptID: string): WriteRoleInput {
+  return {
+    name: role.name,
+    description: role.description,
+    greeting: role.greeting,
+    prompt_id: promptID === '' ? null : promptID,
+    corpus_uris: role.corpus_uris,
+    skill_ids: role.skill_ids,
+    mcp_server_ids: role.mcp_server_ids,
+  };
 }
 
 function RoleCardHead({

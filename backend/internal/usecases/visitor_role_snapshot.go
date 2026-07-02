@@ -26,7 +26,14 @@ func buildRoleSnapshotForCode(
 	if err != nil {
 		return domain.RoleSnapshot{}, err
 	}
-	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID, denials)
+	// #104: 这张 code 自带的 prompt（集中管理，引 prompts 库）冻进 snapshot，persona 在 role
+	// persona 之后叠加。没挂 → 空串（persona 逐字不变）。
+	codePrompt, perr := promptBodyByID(ctx, deps, code.OwnerID, code.PromptID)
+	if perr != nil {
+		return domain.RoleSnapshot{}, perr
+	}
+	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID,
+		codeOverlay{denials: denials, codePromptBody: codePrompt})
 }
 
 // roleDenials —— code 层要从 role grant 里砍掉的 capability / skill id（纯 deny）。
@@ -65,11 +72,19 @@ func buildRoleSnapshotForOwnerVanilla(
 	if err != nil {
 		return domain.RoleSnapshot{}, fmt.Errorf("get vanilla role: %w", err)
 	}
-	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID(), roleDenials{})
+	// vanilla / public / byoai 无 per-code prompt、无 deny。
+	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID(), codeOverlay{})
+}
+
+// codeOverlay —— code 层在 role 基础上的叠加：deny 集 + 这张 code 自带的 prompt body。
+// 非 code 路径（vanilla/public）传零值 = 不 deny、无 per-code prompt。
+type codeOverlay struct {
+	codePromptBody string
+	denials        roleDenials
 }
 
 func buildRoleSnapshotByID(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID, roleID string, denials roleDenials,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID, roleID string, overlay codeOverlay,
 ) (domain.RoleSnapshot, error) {
 	role, err := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if err != nil {
@@ -81,21 +96,22 @@ func buildRoleSnapshotByID(
 	}
 	// ACL code 层（capability-acl-hierarchy.md）：deny 的 skill 在装配源头就剔除，
 	// 这样它的 L1 prompt / tool 授权 / id 一并消失（只减 SkillIDs 漏掉了 L1 prompt）。
-	skills, err := loadRoleSkills(ctx, deps, role.ID(), denials.Skills)
+	skills, err := loadRoleSkills(ctx, deps, role.ID(), overlay.denials.Skills)
 	if err != nil {
 		return domain.RoleSnapshot{}, err
 	}
 	return domain.NewRoleSnapshot(&domain.RoleSnapshotInit{
-		FrozenAt:     time.Now(),
-		RoleID:       role.ID(),
-		RoleName:     role.Name(),
-		PromptBody:   promptBody,
-		CorpusURIs:   role.CorpusURIs(),
-		SkillPrompts: skills.Prompts,
-		AllowedTools: skills.Tools,
+		FrozenAt:       time.Now(),
+		RoleID:         role.ID(),
+		RoleName:       role.Name(),
+		PromptBody:     promptBody,
+		CodePromptBody: overlay.codePromptBody,
+		CorpusURIs:     role.CorpusURIs(),
+		SkillPrompts:   skills.Prompts,
+		AllowedTools:   skills.Tools,
 		// capability deny 冻进 DeniedCapabilities，能力暴露门据此挡掉（含 ACL=always
 		// 的——它们不进 allowedTools，subtract 减不到，只能在门上挡）。
-		DeniedCapabilities: denials.Caps,
+		DeniedCapabilities: overlay.denials.Caps,
 		// Phase C: 只冻 enabled 授权 skill 的 id（bundle 已过 enabled），让
 		// disabled skill 既不进 L1，也不被 skill_use/skill_run_script 命中。
 		SkillIDs:     skills.IDs,
@@ -112,7 +128,18 @@ func loadPromptBody(
 	if !ok {
 		return "", nil
 	}
-	prompt, err := deps.Prompts.GetByID(ctx, ownerID, promptID)
+	return promptBodyByID(ctx, deps, ownerID, &promptID)
+}
+
+// promptBodyByID —— 按可选 prompt id 取 body（role prompt + #104 per-code prompt 共用）。
+// nil / 不存在（SET NULL 删过）→ 空串（那段 persona 没有，session 照常）。
+func promptBodyByID(
+	ctx context.Context, deps *VisitorSessionDeps, ownerID string, promptID *string,
+) (string, error) {
+	if promptID == nil {
+		return "", nil
+	}
+	prompt, err := deps.Prompts.GetByID(ctx, ownerID, *promptID)
 	if err != nil {
 		if errors.Is(err, domain.ErrPromptNotFound) {
 			return "", nil

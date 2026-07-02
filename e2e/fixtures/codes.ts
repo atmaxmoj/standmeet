@@ -12,6 +12,7 @@ export interface CreateCodeInput {
   label: string;
   purpose?: string;
   assumed_role_id?: string | null;
+  prompt_id?: string | null;
   ghosts?: string[];
   max_members?: number | null;
   max_turns_per_session?: number | null;
@@ -24,6 +25,7 @@ export interface CodeView {
   label: string;
   status: string;
   assumed_role_id: string;
+  prompt_id?: string | null;
 }
 
 export async function createCode(
@@ -42,6 +44,7 @@ export async function createCode(
       max_turns_per_session: input.max_turns_per_session ?? null,
       max_bookings: input.max_bookings ?? null,
       assumed_role_id: input.assumed_role_id ?? null,
+      prompt_id: input.prompt_id ?? null,
     },
   });
   if (res.status() !== 201) throw new Error(`create code failed: ${res.status()}`);

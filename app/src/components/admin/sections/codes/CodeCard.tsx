@@ -8,6 +8,7 @@ import { MetaPair } from '@/components/admin/atoms/MetaPair';
 import { QRCode } from '@/components/admin/atoms/QRCode';
 import { MembersBlock } from '@/components/admin/sections/codes/MembersBlock';
 import { buildShareLink } from '@/lib/admin/code-share';
+import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 
 import type { CodeView } from '@/lib/admin/use-codes';
 
@@ -113,10 +114,38 @@ function CodeCardBody({ code }: { code: CodeView }) {
     <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-5">
       <MembersCol codeID={code.id} code={code.code} />
       <RoleCol code={code} />
+      <PromptCol code={code} />
       <QRCol code={code} />
       <QuotaBar code={code} />
     </div>
   );
+}
+
+// PromptCol —— #104：这张码挂的 per-code prompt（引 prompts 库）。没挂 → 不渲染。
+function PromptCol({ code }: { code: CodeView }) {
+  const hook = usePrompts();
+  const name = resolvePromptName(hook.prompts, code.prompt_id);
+  return name === null ? null : (
+    <MetaPair label="prompt">
+      <a
+        href="/admin/prompts"
+        className="mono text-[12.5px] tracking-[0.02em] text-(--color-ink) underline decoration-(--color-accent)/35"
+        data-testid={`code-prompt-${code.code}`}
+      >
+        {name} ↗
+      </a>
+    </MetaPair>
+  );
+}
+
+function resolvePromptName(
+  prompts: readonly PromptView[], promptID: string | null | undefined,
+): string | null {
+  return promptID ? namePartOrShortID(prompts.find((p) => p.id === promptID), promptID) : null;
+}
+
+function namePartOrShortID(found: PromptView | undefined, promptID: string): string {
+  return found ? found.name : `${promptID.slice(0, 8)}…`;
 }
 
 function RoleCol({ code }: { code: CodeView }) {

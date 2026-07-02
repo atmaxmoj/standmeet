@@ -22,6 +22,7 @@ type AccessCode struct {
 	MaxBookings        *int32
 	CreatedAt          pgtype.Timestamptz
 	AssumedRoleID      pgtype.UUID
+	PromptID           pgtype.UUID
 }
 
 type AccessRequest struct {

@@ -25,6 +25,7 @@ type AccessCode struct {
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
 	MaxBookings        *int32
+	PromptID           *string
 	ID                 string
 	OwnerID            string
 	Code               string
@@ -43,6 +44,7 @@ type CreateAccessCodeInput struct {
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
 	MaxBookings        *int32
+	PromptID           *string
 	OwnerID            string
 	Code               string
 	Label              string

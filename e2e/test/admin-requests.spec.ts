@@ -10,7 +10,7 @@
 //   3. filter chips switch between states
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -29,14 +29,7 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe('admin requests management', () => {
   test.beforeAll(async ({ playwright }) => {
-    resetInstance();
-    const request = await playwright.request.newContext();
-    await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
-    });
-    await submitRequestViaAPI(request);
-    await request.dispose();
+    await seedRequestsOwner(playwright);
   });
 
   test('seeded request appears in admin list',
@@ -129,4 +122,16 @@ async function submitRequestViaAPI(request: APIRequestContext): Promise<void> {
       message: 'I want to talk about your projects and get access to the corpus.',
     },
   });
+}
+
+// seedRequestsOwner —— claim owner + 播一条访客请求。抽出 describe 让其体 ≤70 行。
+async function seedRequestsOwner(playwright: Playwright): Promise<void> {
+  resetInstance();
+  const request = await playwright.request.newContext();
+  await claim(request, findSetupToken(), {
+    email: OWNER.email, password: OWNER.password,
+    handle: OWNER.handle, fullName: OWNER.fullName,
+  });
+  await submitRequestViaAPI(request);
+  await request.dispose();
 }

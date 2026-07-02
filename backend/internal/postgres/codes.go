@@ -34,6 +34,7 @@ type CreateCodeInput struct {
 	MaxMembers         *int32
 	MaxTurnsPerSession *int32
 	MaxBookings        *int32
+	PromptID           *string
 	OwnerID            string
 	Code               string
 	Label              string
@@ -75,6 +76,7 @@ func (r *CodeRepo) CreateAccessCode(
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
 		MaxBookings:        in.MaxBookings,
+		PromptID:           in.PromptID,
 	})
 }
 
@@ -86,6 +88,10 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 	roleUUID, rerr := parseUUID(in.AssumedRoleID)
 	if rerr != nil {
 		return nil, fmt.Errorf("parse assumed_role_id: %w", rerr)
+	}
+	promptUUID, perr := optionalUUID(in.PromptID)
+	if perr != nil {
+		return nil, fmt.Errorf("parse prompt_id: %w", perr)
 	}
 	qs, jerr := json.Marshal(in.Ghosts)
 	if jerr != nil {
@@ -102,6 +108,7 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
 		MaxBookings:        in.MaxBookings,
 		AssumedRoleID:      roleUUID,
+		PromptID:           promptUUID,
 	}, nil
 }
 

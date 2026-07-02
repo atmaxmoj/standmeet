@@ -34,6 +34,7 @@ type createCodeRequest struct {
 	MaxTurnsPerSession *int32   `json:"max_turns_per_session,omitempty"`
 	MaxBookings        *int32   `json:"max_bookings,omitempty"`
 	AssumedRoleID      *string  `json:"assumed_role_id,omitempty"`
+	PromptID           *string  `json:"prompt_id,omitempty"`
 	Code               string   `json:"code"`
 	Label              string   `json:"label"`
 	Purpose            string   `json:"purpose"`
@@ -51,6 +52,7 @@ type codeView struct {
 	MaxMembers         *int32   `json:"max_members,omitempty"`
 	MaxTurnsPerSession *int32   `json:"max_turns_per_session,omitempty"`
 	MaxBookings        *int32   `json:"max_bookings"`
+	PromptID           *string  `json:"prompt_id,omitempty"`
 	ID                 string   `json:"id"`
 	Code               string   `json:"code"`
 	Label              string   `json:"label"`
@@ -114,6 +116,7 @@ func toCodeView(c *domain.AccessCode) codeView {
 		MaxTurnsPerSession: c.MaxTurnsPerSession,
 		MaxBookings:        c.MaxBookings,
 		AssumedRoleID:      c.AssumedRoleID,
+		PromptID:           c.PromptID,
 	}
 }
 
@@ -193,6 +196,7 @@ func buildCreateInput(
 		MaxTurnsPerSession: req.MaxTurnsPerSession,
 		MaxBookings:        req.MaxBookings,
 		AssumedRoleID:      roleID,
+		PromptID:           req.PromptID,
 	}, nil
 }
 

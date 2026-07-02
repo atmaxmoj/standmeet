@@ -24,13 +24,14 @@ import (
 // RoleSnapshot —— session 起 freeze 的 Role 状态。所有字段不可变；通过
 // NewRoleSnapshot 构造，slice 容器走 defensive clone。
 type RoleSnapshot struct {
-	frozenAt     time.Time
-	roleID       string
-	roleName     string
-	promptBody   string
-	corpusURIs   []string
-	skillPrompts []string
-	allowedTools []string
+	frozenAt       time.Time
+	roleID         string
+	roleName       string
+	promptBody     string
+	codePromptBody string
+	corpusURIs     []string
+	skillPrompts   []string
+	allowedTools   []string
 	// deniedCapabilities —— ACL code 层：这张 code 显式 deny 的 capability id。
 	// 跟 allowedTools 正交：能力暴露门 = baseGrant(ACL=always 或 allowedTools 含它)
 	// **且 不在 deniedCapabilities**。单独存（不从 allowedTools 减），因为 ACL=always
@@ -46,6 +47,7 @@ type RoleSnapshotInit struct {
 	RoleID             string
 	RoleName           string
 	PromptBody         string
+	CodePromptBody     string
 	CorpusURIs         []string
 	SkillPrompts       []string
 	AllowedTools       []string
@@ -61,6 +63,7 @@ func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 		roleID:             i.RoleID,
 		roleName:           i.RoleName,
 		promptBody:         i.PromptBody,
+		codePromptBody:     i.CodePromptBody,
 		corpusURIs:         cloneStrings(i.CorpusURIs),
 		skillPrompts:       cloneStrings(i.SkillPrompts),
 		allowedTools:       cloneStrings(i.AllowedTools),
@@ -83,6 +86,10 @@ func (s *RoleSnapshot) RoleName() string { return s.roleName }
 // PromptBody —— 拍下来的 prompt.body 全文，0..1（vanilla 时是 vanilla body，
 // 没挂 prompt 的 role 就是 ""）。visitor_chat.buildSystemPrompt 拼这条。
 func (s *RoleSnapshot) PromptBody() string { return s.promptBody }
+
+// CodePromptBody —— 这张 access code 自带的 prompt 全文，0..1（#104）。session persona
+// 在 role persona 之后**叠加**它；没挂则空串（persona 逐字不变，守 prompt-hash 回归）。
+func (s *RoleSnapshot) CodePromptBody() string { return s.codePromptBody }
 
 // CorpusURIs —— 拍下来的 URI glob 白名单（defensive copy）。
 func (s *RoleSnapshot) CorpusURIs() []string { return slices.Clone(s.corpusURIs) }
@@ -136,6 +143,7 @@ func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 		RoleID:             s.roleID,
 		RoleName:           s.roleName,
 		PromptBody:         s.promptBody,
+		CodePromptBody:     s.codePromptBody,
 		CorpusURIs:         s.corpusURIs,
 		SkillPrompts:       s.skillPrompts,
 		AllowedTools:       s.allowedTools,
@@ -160,6 +168,7 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 		RoleID:             w.RoleID,
 		RoleName:           w.RoleName,
 		PromptBody:         w.PromptBody,
+		CodePromptBody:     w.CodePromptBody,
 		CorpusURIs:         w.CorpusURIs,
 		SkillPrompts:       w.SkillPrompts,
 		AllowedTools:       w.AllowedTools,
@@ -177,6 +186,7 @@ type roleSnapshotWire struct {
 	RoleID             string    `json:"role_id"`
 	RoleName           string    `json:"role_name"`
 	PromptBody         string    `json:"prompt_body,omitempty"`
+	CodePromptBody     string    `json:"code_prompt_body,omitempty"`
 	CorpusURIs         []string  `json:"corpus_uris,omitempty"`
 	SkillPrompts       []string  `json:"skill_prompts,omitempty"`
 	AllowedTools       []string  `json:"allowed_tools,omitempty"`

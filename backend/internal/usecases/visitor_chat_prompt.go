@@ -44,19 +44,27 @@ func ComposeDynamicPersona(snapshot *domain.RoleSnapshot) string {
 	return strings.Join(parts, "\n\n---\n\n")
 }
 
-// snapshotPromptParts —— role persona body + 每条 skill prompt，去空 trim。
+// snapshotPromptParts —— role persona body + 这张 code 自带 prompt（#104）+ 每条 skill prompt，
+// 去空 trim。
 func snapshotPromptParts(snapshot *domain.RoleSnapshot) []string {
 	if snapshot == nil {
 		return []string{}
 	}
-	out := make([]string, 0, 1+len(snapshot.SkillPrompts()))
-	if body := strings.TrimSpace(snapshot.PromptBody()); body != "" {
-		out = append(out, body)
-	}
+	out := make([]string, 0, 2+len(snapshot.SkillPrompts()))
+	out = appendTrimmed(out, snapshot.PromptBody())
+	// code prompt 叠加在 role persona 之后（specialize this code）。空 → 不追加，非-code / 无 code
+	// prompt 的 session persona 逐字不变（守 system-prompt-hash-regression）。
+	out = appendTrimmed(out, snapshot.CodePromptBody())
 	for _, p := range snapshot.SkillPrompts() {
-		if trimmed := strings.TrimSpace(p); trimmed != "" {
-			out = append(out, trimmed)
-		}
+		out = appendTrimmed(out, p)
+	}
+	return out
+}
+
+// appendTrimmed —— trim 后非空才追加（空 persona 段不进 join，守逐字稳定）。
+func appendTrimmed(out []string, s string) []string {
+	if t := strings.TrimSpace(s); t != "" {
+		return append(out, t)
 	}
 	return out
 }

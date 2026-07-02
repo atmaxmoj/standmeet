@@ -2,6 +2,7 @@
 // assumed_role_id；老 permissions / skills / agent-skills picker 全删，
 // ACL / capability gating 全部从 role 推断。
 
+import { CodePromptPicker } from '@/components/admin/modals/CodePromptPicker';
 import { CodeRolePicker } from '@/components/admin/modals/CodeRolePicker';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
@@ -26,6 +27,7 @@ function NonQuotaSlot({ form, editing }: EditingProps) {
   return editing ? null : (
     <>
       <CodeRolePicker form={form} />
+      <CodePromptPicker form={form} />
       <QuestionsField form={form} />
     </>
   );

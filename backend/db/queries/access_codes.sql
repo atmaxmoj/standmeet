@@ -4,9 +4,9 @@
 INSERT INTO access_codes (
     owner_id, code, label, purpose, ghosts,
     expires_at, max_turns_per_session, max_bookings,
-    assumed_role_id, max_members
+    assumed_role_id, max_members, prompt_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: UpdateAccessCodeRole :one
