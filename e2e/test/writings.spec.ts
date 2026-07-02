@@ -77,7 +77,7 @@ test.describe('writings: editor flow + rich render + XSS', () => {
       await fillWritingMeta(adminPage, {
         slug: 'editor-flow', title: 'Editor flow',
         excerpt: 'Type prose, slash a heading.',
-        cover: { headline: 'editor.', sub: 'slash menu.', hue: 'amber' },
+        cover: { headline: 'editor.', hue: 'amber' },
         tags: 'editor, slash',
       });
       await focusEditor(adminPage);
@@ -139,7 +139,7 @@ test.describe('writings: atomic image upload via multipart save', () => {
       await fillWritingMeta(adminPage, {
         slug: 'with-cover', title: 'Writing with cover',
         excerpt: 'Cover image attached.',
-        cover: { headline: 'cover.', sub: 'image.', hue: 'amber' },
+        cover: { headline: 'cover.', hue: 'amber' },
         tags: 'cover',
       });
       await uploadCoverImage(adminPage);
@@ -177,7 +177,7 @@ test.describe('writings: atomic image upload via multipart save', () => {
       await fillWritingMeta(adminPage, {
         slug: 'image-writing', title: 'Writing with image',
         excerpt: 'Owner pastes an image.',
-        cover: { headline: 'image.', sub: 'pasted in.', hue: 'acid' },
+        cover: { headline: 'image.', hue: 'acid' },
         tags: 'image',
       });
       await focusEditor(adminPage);
@@ -265,14 +265,14 @@ test.describe('writings: set parent in editor → reader tree nesting', () => {
       await openAdminWritings(adminPage);
       await fillWritingMeta(adminPage, {
         slug: 'tree-parent', title: 'Tree Parent', excerpt: 'p',
-        cover: { headline: 'a', sub: 'b', hue: 'amber' }, tags: '',
+        cover: { headline: 'a', hue: 'amber' }, tags: '',
       });
       await adminPage.getByTestId('writing-create-submit').click();
       await expect(adminPage.getByTestId('writing-row-tree-parent')).toBeVisible({ timeout: 5_000 });
 
       await fillWritingMeta(adminPage, {
         slug: 'tree-child', title: 'Tree Child', excerpt: 'c',
-        cover: { headline: 'a', sub: 'b', hue: 'amber' }, tags: '',
+        cover: { headline: 'a', hue: 'amber' }, tags: '',
       });
       await adminPage.getByTestId('writing-field-parent').selectOption({ label: 'Tree Parent' });
       await adminPage.getByTestId('writing-create-submit').click();
@@ -367,7 +367,7 @@ interface WritingMetaInput {
   slug: string;
   title: string;
   excerpt: string;
-  cover: { headline: string; sub: string; hue: 'amber' | 'violet' | 'acid' };
+  cover: { headline: string; hue: 'amber' | 'violet' | 'acid' };
   tags: string;
 }
 
@@ -379,7 +379,6 @@ async function fillWritingMeta(page: Page, input: WritingMetaInput): Promise<voi
   await page.getByTestId('writing-field-title').fill(input.title);
   await page.getByTestId('writing-field-excerpt').fill(input.excerpt);
   await page.getByTestId('writing-field-cover-headline').fill(input.cover.headline);
-  await page.getByTestId('writing-field-cover-sub').fill(input.cover.sub);
   await page.getByTestId('writing-field-cover-hue').selectOption(input.cover.hue);
   await page.getByTestId('writing-field-tags').fill(input.tags);
 }
