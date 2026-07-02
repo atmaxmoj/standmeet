@@ -25,6 +25,10 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // skill.runner + ext.mcp 是 loader/机制（不是 leaf 能力），留在 capreg 内建注册口。
   { id: 'skill.runner', shape: 'visitor_only', origin: 'builtin' },
   { id: 'ext.mcp', shape: 'visitor_only', origin: 'builtin' },
+  // connector.agent_tools —— openapi 连接器开了 expose_as_agent_tools 后，把 raw operations
+  // 暴露成 per-session agent 工具（Shape=VisitorOnly，boot 注册；具体访客看不看得到由 per-session
+  // SessionGate 决定）。connector 重构 #155 §3 落地，注册于 ext.mcp 之后、leaf 能力之前。
+  { id: 'connector.agent_tools', shape: 'visitor_only', origin: 'builtin' },
   // ask_visitor + summarize_conversation + calendar.book + corpus.retrieval —— 四个
   // leaf 能力全外置成沙箱插件（mcp-servers/*），经 registerBuiltins 走统一 sandbox_stdio
   // 路径以 origin=builtin 加载（在 capreg loader 之后、managed 第三方之前）。主 app 内
@@ -34,6 +38,9 @@ const GOLDEN_INWARD: readonly Cap[] = [
   { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
   { id: 'calendar.book', shape: 'visitor_only', origin: 'builtin' },
   { id: 'corpus.retrieval', shape: 'visitor_only', origin: 'builtin' },
+  // mail.send —— 内置 SMTP 连接器 expose_as_agent_tools 暴露的发信 operation（访客侧
+  // 「预约成功→发确认邮件」#122）。同 connector.agent_tools，Shape=VisitorOnly + per-session gate。
+  { id: 'mail.send', shape: 'visitor_only', origin: 'builtin' },
   { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
   // everything / fsmcp —— 真·第三方 MCP server（@modelcontextprotocol 官方参考
   // server），经 sandbox_stdio 在 bwrap 隔离里加载（STANDMEET_PLUGINS 声明，managed）。

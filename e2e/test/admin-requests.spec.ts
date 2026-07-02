@@ -88,8 +88,11 @@ test.describe('admin requests management', () => {
 
   // #155: the generic /credentials store no longer validates per-connector
   // fields (that lives in the form + the connection test). Saving empty SMTP
-  // creds succeeds; the connection test then rejects (host missing).
-  test('connect rejects (400) when SMTP host is missing',
+  // creds succeeds; connect then uniformly returns 200 reporting the outcome in
+  // the body — the POST is well-formed, the stored config just can't connect,
+  // so it's connected:false + a reason (same shape as the oauth 200+authURL
+  // path), not an HTTP 4xx.
+  test('connect reports not-connected (200 + reason) when SMTP host is missing',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
@@ -101,7 +104,10 @@ test.describe('admin requests management', () => {
       const connected = await request.post(`${BACKEND}/api/admin/connectors/smtp/connect`, {
         headers: { 'X-Csrftoken': csrf },
       });
-      expect(connected.status()).toBe(400);
+      expect(connected.status()).toBe(200);
+      const body = await connected.json() as { connected: boolean; error: string };
+      expect(body.connected).toBe(false);
+      expect(body.error.length).toBeGreaterThan(0);
       await request.dispose();
     });
 });
