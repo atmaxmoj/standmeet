@@ -13,12 +13,24 @@ import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+
 const OWNER = {
   email: 'system@example.com',
   password: 'correct-horse-battery-staple',
   handle: 'system',
   fullName: 'System Owner',
 };
+
+interface HealthCheck { name: string; ok: boolean; detail: string }
+interface SystemInfo {
+  version: string;
+  uptime_seconds: number;
+  goroutines: number;
+  mem_alloc_mb: number;
+  num_cpu: number;
+  health: HealthCheck[];
+}
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('admin system section', () => {
@@ -53,6 +65,27 @@ test.describe('admin system section', () => {
       // Status dots should be present
       const dots = checks.locator('[data-testid="health-dot"]');
       await expect(dots.first()).toBeVisible();
+    });
+
+  // #101: 真 system-info 后端 —— 真 version/uptime/runtime + 真 health ping(不再写死 "ok")。
+  test('GET /api/admin/system returns real version/uptime/runtime + real health pings',
+    async ({ adminPage }) => {
+      const res = await adminPage.request.get(`${BACKEND}/api/admin/system`);
+      expect(res.status(), 'system endpoint 200').toBe(200);
+      const body = await res.json() as SystemInfo;
+
+      expect(body.version, 'version present (not placeholder)').toBeTruthy();
+      expect(body.version).not.toBe('—');
+      expect(body.uptime_seconds, 'uptime is a real ≥0 number').toBeGreaterThanOrEqual(0);
+      expect(body.num_cpu, 'num_cpu ≥ 1').toBeGreaterThanOrEqual(1);
+      expect(body.goroutines, 'goroutines ≥ 1').toBeGreaterThanOrEqual(1);
+
+      // health 是真 ping —— e2e 里 db/redis 都在,必 ok。
+      const db = body.health.find((h) => h.name === 'database');
+      expect(db, 'database health present').toBeTruthy();
+      expect(db?.ok, 'database ping really ok').toBe(true);
+      const redis = body.health.find((h) => h.name === 'redis');
+      expect(redis?.ok, 'redis ping really ok').toBe(true);
     });
 });
 
