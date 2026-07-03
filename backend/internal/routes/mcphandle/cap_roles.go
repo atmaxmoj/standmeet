@@ -19,13 +19,16 @@ const capRolesBundle = "roles.bundle"
 
 type rolesCapability struct {
 	roles *usecases.RolesDeps
-	log   *slog.Logger
+	// capIDs —— dock 按钮可挂的能力 id 集（访客侧、非 owner-only）。lazy 闭包读注册表，
+	// 调用时（handler 期）注册表已装满。#109/#110 set_dock_buttons 校验 cap 有效性用。
+	capIDs func() []string
+	log    *slog.Logger
 }
 
 func newRolesCapability(
-	roles *usecases.RolesDeps, log *slog.Logger,
+	roles *usecases.RolesDeps, capIDs func() []string, log *slog.Logger,
 ) *rolesCapability {
-	return &rolesCapability{roles: roles, log: log}
+	return &rolesCapability{roles: roles, capIDs: capIDs, log: log}
 }
 
 func (*rolesCapability) ID() string          { return capRolesBundle }
@@ -50,8 +53,83 @@ func (*rolesCapability) SystemPromptFragmentID(
 
 func (c *rolesCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{
-		c.createBinding(), c.listBinding(), c.deleteBinding(),
+		c.createBinding(), c.listBinding(), c.deleteBinding(), c.setDockButtonsBinding(),
 	}
+}
+
+// ───── roles.set_dock_buttons ──────────────────────────────────────
+
+func (c *rolesCapability) setDockButtonsBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "roles.set_dock_buttons",
+		Description: "Set a role's chat dock buttons (#109/#110): at most two " +
+			"{capability_id, trigger}. Clicking a button sends its trigger phrase as the " +
+			"visitor's message. capability_id must be a visitor-facing capability this " +
+			"instance exposes; trigger must be non-empty. Same validation as the admin UI.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"role_id":{"type":"string","description":"Target role id."},
+				"buttons":{"type":"array","maxItems":2,
+					"description":"Up to two dock buttons.",
+					"items":{"type":"object",
+						"properties":{
+							"capability_id":{"type":"string"},
+							"trigger":{"type":"string"}
+						},
+						"required":["capability_id","trigger"]}}
+			},
+			"required":["role_id","buttons"]
+		}`),
+		Handler: c.handleSetDockButtons,
+	}
+}
+
+type setDockButtonsArgsWire struct {
+	RoleID  string                    `json:"role_id"`
+	Buttons []domain.DockButtonConfig `json:"buttons"`
+}
+
+func (c *rolesCapability) handleSetDockButtons(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	var args setDockButtonsArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return capreg.MCPError("invalid arguments: " + err.Error())
+	}
+	if args.RoleID == "" {
+		return capreg.MCPError("role_id is required")
+	}
+	role, err := usecases.SetRoleDockButtons(ctx, *c.roles, &usecases.SetDockButtonsInput{
+		OwnerID: ownerID, RoleID: args.RoleID, Buttons: args.Buttons,
+		ValidCapabilityIDs: c.capIDs(),
+	})
+	if err != nil {
+		return dockButtonsErrToResult(c.log, err)
+	}
+	return marshalCapResult(c.log, "roles.set_dock_buttons", map[string]any{
+		"role_id": role.ID(), "dock_buttons": role.DockButtons(),
+	})
+}
+
+var dockButtonErrMessages = []struct {
+	err error
+	msg string
+}{
+	{domain.ErrTooManyDockButtons, "at most two dock buttons"},
+	{domain.ErrDockButtonEmptyTrigger, "dock button needs a non-empty trigger"},
+	{domain.ErrUnknownDockCapability, "dock button capability not available"},
+	{domain.ErrRoleNotFound, "role not found"},
+}
+
+func dockButtonsErrToResult(log *slog.Logger, err error) capreg.MCPResult {
+	for i := range dockButtonErrMessages {
+		if errors.Is(err, dockButtonErrMessages[i].err) {
+			return capreg.MCPError(dockButtonErrMessages[i].msg)
+		}
+	}
+	log.Error("cap roles.set_dock_buttons", "err", err)
+	return capreg.MCPError("set dock buttons failed")
 }
 
 // ───── role_create ────────────────────────────────────────────────

@@ -23,6 +23,7 @@ export type {
   PublicSessionResponse,
   PublicSessionCapability,
   PublicSessionToolSpec,
+  PublicSessionDockButton,
   SSEEvent,
   SSETokenEvent,
   SSEDoneEvent,

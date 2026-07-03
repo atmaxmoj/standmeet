@@ -57,11 +57,49 @@ type createSessionResponse struct {
 	// Ghosts —— H.13.b: code 创建时 owner 设的"刚进来可问什么"
 	// 列表；前端 ghost text 拿第一条当初始 ghost。code-mode 之外都是空数组
 	// (json 走 "ghosts": [])。
-	Ghosts []string         `json:"ghosts"`
-	Quota  sessionQuotaResp `json:"quota"`
+	Ghosts []string `json:"ghosts"`
+	// DockButtons —— #109/#110 owner 在 role 上配的 ≤2 个 chat dock 按钮（已过滤 code-deny、
+	// 解析出 title）。前端渲染成两个位的按钮；点击把 trigger 当访客消息发出。
+	DockButtons []dockButtonResp `json:"dock_buttons"`
+	Quota       sessionQuotaResp `json:"quota"`
 	// OwnerCanEmail —— owner 已配通 mail connector。前端据此决定约成卡片要不要
 	// 显"发确认邮件"那块(#122:没配就根本不渲染那张卡)。
 	OwnerCanEmail bool `json:"owner_can_email"`
+}
+
+// dockButtonResp —— 一个可渲染的 dock 按钮：能力 id + 显示名（透传 MCP title）+ 触发词。
+type dockButtonResp struct {
+	CapabilityID string `json:"capability_id"`
+	Title        string `json:"title"`
+	Trigger      string `json:"trigger"`
+}
+
+// resolveDockButtons —— 冻下的 dock 配置 → 可渲染按钮：只保留能力仍在本 session 可用集里的
+// （code-deny 的能力不在 caps → 其按钮不渲染，D2）；title 从对应 CapabilityState 透传。
+func resolveDockButtons(
+	cfg []domain.DockButtonConfig, caps []capreg.CapabilityState,
+) []dockButtonResp {
+	title := capTitleMap(caps)
+	out := make([]dockButtonResp, 0, len(cfg))
+	for i := range cfg {
+		t, ok := title[cfg[i].CapabilityID]
+		if !ok {
+			continue // 能力被 code deny / 本 session 没有 → 按钮不渲染
+		}
+		out = append(out, dockButtonResp{
+			CapabilityID: cfg[i].CapabilityID, Title: t, Trigger: cfg[i].Trigger,
+		})
+	}
+	return out
+}
+
+// capTitleMap —— capability id → title（dock 按钮解析 label 用）。
+func capTitleMap(caps []capreg.CapabilityState) map[string]string {
+	m := make(map[string]string, len(caps))
+	for i := range caps {
+		m[caps[i].ID] = caps[i].Title
+	}
+	return m
 }
 
 func (h *Handlers) createSession() http.HandlerFunc {
@@ -212,6 +250,8 @@ func writeCreateSession(
 		},
 		Members:       toMemberResps(res.Members),
 		OwnerCanEmail: canEmail,
+		DockButtons: resolveDockButtons(
+			res.Session.Data.RoleSnapshot.DockButtons(), bundle.States),
 	}
 	// session token 也落一份 HttpOnly cookie(bearer 之外的兜底:跨 tab / 活过刷新 /
 	// SSR);Set-Cookie 必须在 WriteHeader 前。

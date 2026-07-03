@@ -8,6 +8,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -34,6 +35,7 @@ type CreateRoleInput struct {
 	Name                 string
 	Description          string
 	Greeting             string
+	DockButtons          []domain.DockButtonConfig
 	NotifyOwnerOnBooking bool
 }
 
@@ -60,11 +62,40 @@ func buildCreateRoleParams(in *CreateRoleInput) (dbq.CreateRoleParams, error) {
 	if perr != nil {
 		return dbq.CreateRoleParams{}, fmt.Errorf("parse prompt id: %w", perr)
 	}
+	dock, derr := marshalDockButtons(in.DockButtons)
+	if derr != nil {
+		return dbq.CreateRoleParams{}, derr
+	}
 	return dbq.CreateRoleParams{
 		OwnerID: ownerUUID, Name: in.Name, Description: in.Description,
 		Greeting: in.Greeting, PromptID: promptUUID,
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
+		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: dock,
 	}, nil
+}
+
+// marshalDockButtons —— []DockButtonConfig → jsonb 值（一个 bind 参数，不拼 SQL）。
+// nil/空 → "[]"（跟列的 DEFAULT 对齐，非 NULL）。
+func marshalDockButtons(buttons []domain.DockButtonConfig) ([]byte, error) {
+	if len(buttons) == 0 {
+		return []byte("[]"), nil
+	}
+	b, err := json.Marshal(buttons)
+	if err != nil {
+		return nil, fmt.Errorf("marshal dock buttons: %w", err)
+	}
+	return b, nil
+}
+
+// decodeDockButtons —— jsonb 值 → []DockButtonConfig（row → domain）。空/坏 → 空切片（非 nil）。
+func decodeDockButtons(raw []byte) []domain.DockButtonConfig {
+	out := []domain.DockButtonConfig{}
+	if len(raw) == 0 {
+		return out
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return []domain.DockButtonConfig{}
+	}
+	return out
 }
 
 // mapRoleCreateErr —— 把 unique violation 翻成 domain sentinel。
@@ -176,6 +207,7 @@ type UpdateRoleInput struct {
 	Name                 string
 	Description          string
 	Greeting             string
+	DockButtons          []domain.DockButtonConfig
 	NotifyOwnerOnBooking bool
 }
 
@@ -190,10 +222,14 @@ func (r *RoleRepo) Update(ctx context.Context, in *UpdateRoleInput) (domain.Role
 	if puerr != nil {
 		return domain.Role{}, fmt.Errorf("parse prompt id: %w", puerr)
 	}
+	dock, derr := marshalDockButtons(in.DockButtons)
+	if derr != nil {
+		return domain.Role{}, derr
+	}
 	row, err := dbq.New(r.pool).UpdateRole(ctx, dbq.UpdateRoleParams{
 		ID: args.roleUUID, OwnerID: args.ownerUUID,
 		Name: in.Name, Description: in.Description, Greeting: in.Greeting, PromptID: promptUUID,
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
+		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: dock,
 	})
 	if err != nil {
 		return domain.Role{}, mapRoleUpdateErr(err)
@@ -298,6 +334,7 @@ func toDomainRole(
 		PromptID:   promptIDPtr,
 		IsBuiltin:  row.IsBuiltin,
 		CorpusURIs: corpusURIs, SkillIDs: skillIDs, MCPServerIDs: mcpServerIDs,
+		DockButtons:          decodeDockButtons(row.DockButtons),
 		NotifyOwnerOnBooking: row.NotifyOwnerOnBooking,
 		CreatedAt:            row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	})

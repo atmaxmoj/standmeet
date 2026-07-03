@@ -51,10 +51,12 @@ func accumVisitorCap(
 		return
 	}
 	if err != nil {
-		b.States = append(b.States, CapabilityState{ID: c.ID(), Enabled: false})
+		st := CapabilityState{ID: c.ID(), Enabled: false}
+		setCapTitle(&st, c) // disabled 的也带 title：dock 按钮置灰时仍要 label
+		b.States = append(b.States, st)
 		return
 	}
-	accumActiveBinding(ctx, binding, c.ID(), b)
+	accumActiveBinding(ctx, binding, c, b)
 }
 
 // appendPromptPart —— cap 的 system-prompt fragment id(非空才进),与 binding 无关
@@ -75,12 +77,13 @@ func isHiddenBinding(b *Binding, err error) bool {
 
 // accumActiveBinding —— active binding 同时折出 state + tool specs,末了 Close。
 func accumActiveBinding(
-	ctx context.Context, binding *Binding, capID string, b *VisitorBundle,
+	ctx context.Context, binding *Binding, c Capability, b *VisitorBundle,
 ) {
 	state := binding.State
 	if state.ID == "" {
-		state.ID = capID
+		state.ID = c.ID()
 	}
+	setCapTitle(&state, c) // dock 按钮 label 透传 MCP title（无 id 兜底）
 	b.States = append(b.States, state)
 	for i := range binding.Tools {
 		b.ToolSpecs = append(b.ToolSpecs, toolToVisitorSpec(ctx, &binding.Tools[i]))

@@ -51,6 +51,12 @@ const CapStateSchema = z.object({
   // 沙盒卡的 html 丢掉，前端渲不出卡。
   extra: z.unknown().optional(),
 });
+// DockButtonSchema —— #109/#110 dock 按钮持久化：reuse session 第二次进站仍看到按钮。
+const DockButtonSchema = z.object({
+  capability_id: z.string(),
+  title: z.string(),
+  trigger: z.string(),
+});
 const StoredVisitorSessionSchema = z.object({
   session_token: z.string(),
   conversation_id: z.string(),
@@ -62,6 +68,7 @@ const StoredVisitorSessionSchema = z.object({
   // H.13.d: code-mode 初始 ghost 队列也持久化；reused session 第二
   // 次进站仍能看到 owner 设的 suggested ghost。
   ghosts: z.array(z.string()).optional(),
+  dock_buttons: z.array(DockButtonSchema).optional(),
 });
 type StoredVisitorSession = z.infer<typeof StoredVisitorSessionSchema>;
 
@@ -81,6 +88,7 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
     system_prompt_persona: sess.system_prompt_persona,
     ghosts: sess.ghosts
       ? [...sess.ghosts] : undefined,
+    dock_buttons: sess.dock_buttons ? [...sess.dock_buttons] : undefined,
   };
   window.localStorage.setItem(BYOAI_STORAGE_KEY, JSON.stringify(data));
 }

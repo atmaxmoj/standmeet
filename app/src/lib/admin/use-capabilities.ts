@@ -22,6 +22,8 @@ const CapabilityDependencySchema = z.object({
 
 const CapabilityRowSchema = z.object({
   id: z.string(),
+  // title —— 人类可读显示名（#109/#110 dock 按钮下拉 label）。能力没声明则缺省。
+  title: z.string().optional(),
   origin: z.enum(['builtin', 'managed', 'owner']),
   kind: z.enum(['capability', 'connector', 'skill']),
   enabled: z.boolean(),

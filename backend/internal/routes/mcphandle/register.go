@@ -59,7 +59,7 @@ func RegisterAgentSkills(reg *capreg.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newCorpusMutationsCapability(deps.Corpus, deps.Log))
 	reg.MustRegister(newChatCapability(deps.Corpus, deps.Conversations, deps.Log))
 	reg.MustRegister(newPromptsCapability(deps.Prompts, deps.Log))
-	reg.MustRegister(newRolesCapability(deps.Roles, deps.Log))
+	reg.MustRegister(newRolesCapability(deps.Roles, reg.VisitorCapabilityIDs, deps.Log))
 	reg.MustRegister(newMCPServersCapability(deps.MCPServers, deps.Log))
 	reg.MustRegister(newSkillsCapability(deps.Skills, deps.Log))
 	reg.MustRegister(newWritingsCapability(deps.WritingsTx, deps.Writings, deps.Log))

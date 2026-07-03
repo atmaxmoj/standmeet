@@ -171,9 +171,33 @@ func visitorStateFor(
 		return CapabilityState{}, false
 	}
 	if err != nil {
-		return CapabilityState{ID: c.ID(), Enabled: false}, true
+		state := CapabilityState{ID: c.ID(), Enabled: false}
+		setCapTitle(&state, c)
+		return state, true
 	}
-	return finalizeBindingState(b, c.ID()), true
+	state := finalizeBindingState(b, c.ID())
+	setCapTitle(&state, c)
+	return state, true
+}
+
+// setCapTitle —— 能力实现 Titled 就把 title 透进 state（disabled 的也带，让 dock 按钮有 label）。
+func setCapTitle(state *CapabilityState, c Capability) {
+	if t, ok := c.(Titled); ok {
+		state.Title = t.Title()
+	}
+}
+
+// VisitorCapabilityIDs —— 非 owner-only 的已注册能力 id 集（访客侧能力）。#109/#110 dock 按钮
+// 只能挂这些；admin 路由 + owner MCP 工具都据此校验 owner 别配个不存在 / owner-only 的能力。
+func (r *Registry) VisitorCapabilityIDs() []string {
+	caps := r.List()
+	out := make([]string, 0, len(caps))
+	for i := range caps {
+		if caps[i].Shape() != ShapeOwnerOnly {
+			out = append(out, caps[i].ID())
+		}
+	}
+	return out
 }
 
 func finalizeBindingState(b *Binding, capID string) CapabilityState {

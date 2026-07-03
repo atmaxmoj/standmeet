@@ -70,6 +70,7 @@ func retrievalManifest() mcpplugin.Manifest {
 	const sock = "/run/standmeet/retrieval.sock"
 	return mcpplugin.Manifest{
 		ID:           "corpus.retrieval",
+		Title:        "Search the corpus",
 		Version:      "1",
 		Shape:        mcpplugin.ShapeVisitorOnly,
 		ACL:          mcpplugin.ACLAlways,
@@ -93,6 +94,7 @@ func mailSenderManifest() mcpplugin.Manifest {
 	const sock = "/run/standmeet/mail-sender.sock"
 	return mcpplugin.Manifest{
 		ID:           "mail.send",
+		Title:        "Email the owner",
 		Version:      "1",
 		Shape:        mcpplugin.ShapeVisitorOnly,
 		ACL:          mcpplugin.ACLRoleGranted,
@@ -121,6 +123,7 @@ func bookerManifest() mcpplugin.Manifest {
 	const sock = "/run/standmeet/booker.sock"
 	return mcpplugin.Manifest{
 		ID:           "calendar.book",
+		Title:        "Book a meeting",
 		Version:      "1",
 		Shape:        mcpplugin.ShapeVisitorOnly,
 		ACL:          mcpplugin.ACLRoleGranted,
@@ -149,6 +152,7 @@ func summarizeManifest() mcpplugin.Manifest {
 	const sock = "/run/standmeet/summarize.sock"
 	return mcpplugin.Manifest{
 		ID:           "summarize_conversation",
+		Title:        "Summarize the conversation",
 		Version:      "1",
 		Shape:        mcpplugin.ShapeVisitorOnly,
 		ACL:          mcpplugin.ACLAlways,
@@ -173,6 +177,7 @@ func askVisitorManifest() mcpplugin.Manifest {
 		// id/version 是写死的数据（跟 booker/retrieval/summarize 一致）——host 绝不
 		// import 插件代码：契约只有 manifest + 运行时 MCP 协议，不是 Go 依赖。
 		ID:           "ask_visitor",
+		Title:        "Ask a question",
 		Version:      "1",
 		Shape:        mcpplugin.ShapeVisitorOnly,
 		ACL:          mcpplugin.ACLAlways,

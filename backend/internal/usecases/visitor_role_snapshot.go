@@ -116,6 +116,8 @@ func buildRoleSnapshotByID(
 		// disabled skill 既不进 L1，也不被 skill_use/skill_run_script 命中。
 		SkillIDs:     skills.IDs,
 		MCPServerIDs: role.MCPServerIDs(),
+		// #109/#110: 冻下 role 的 ≤2 个 dock 按钮配置；session payload 层解析 title + 过滤 code-deny。
+		DockButtons: role.DockButtons(),
 	}), nil
 }
 

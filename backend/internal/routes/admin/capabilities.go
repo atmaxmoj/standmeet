@@ -59,10 +59,20 @@ type capDependencyResp struct {
 type capabilityRowResp struct {
 	Dependency *capDependencyResp `json:"dependency,omitempty"`
 	ID         string             `json:"id"`
-	Origin     string             `json:"origin"`
-	Kind       string             `json:"kind"`
-	Enabled    bool               `json:"enabled"`
-	Deletable  bool               `json:"deletable"`
+	// Title —— 人类可读显示名（#109/#110 dock 按钮下拉 label 透传它）。能力没实现 Titled → 空。
+	Title     string `json:"title,omitempty"`
+	Origin    string `json:"origin"`
+	Kind      string `json:"kind"`
+	Enabled   bool   `json:"enabled"`
+	Deletable bool   `json:"deletable"`
+}
+
+// capTitle —— 能力实现 capreg.Titled 就取它的 title（#109/#110 dock label），否则空。
+func capTitle(c capreg.Capability) string {
+	if t, ok := c.(capreg.Titled); ok {
+		return t.Title()
+	}
+	return ""
 }
 
 type capabilitiesListResp struct {
@@ -143,6 +153,7 @@ func (h *Handlers) registryRows(cc *capabilityContext) []capabilityRowResp {
 		origin, _ := h.CapabilitiesAdmin.Registry.OriginOf(id)
 		out = append(out, capabilityRowResp{
 			ID:         id,
+			Title:      capTitle(c),
 			Origin:     string(origin),
 			Kind:       "capability",
 			Enabled:    !cc.disabled[id],

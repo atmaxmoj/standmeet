@@ -34,8 +34,10 @@ type roleView struct {
 	CorpusURIs   []string `json:"corpus_uris"`
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
-	ActiveCodes  int64    `json:"active_codes"`
-	IsBuiltin    bool     `json:"is_builtin"`
+	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮 [{capability_id, trigger}]。
+	DockButtons []domain.DockButtonConfig `json:"dock_buttons"`
+	ActiveCodes int64                     `json:"active_codes"`
+	IsBuiltin   bool                      `json:"is_builtin"`
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关(owner 看/设)。
 	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking"`
 }
@@ -48,6 +50,8 @@ type writeRoleRequest struct {
 	CorpusURIs   []string `json:"corpus_uris"`
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
+	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮 [{capability_id, trigger}]。
+	DockButtons []domain.DockButtonConfig `json:"dock_buttons"`
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
 	NotifyOwnerOnBooking bool `json:"notify_owner_on_booking"`
 }
@@ -114,6 +118,7 @@ func toRoleView(rl *domain.Role, activeCodes int64) roleView {
 		Greeting:   rl.Greeting(),
 		CorpusURIs: rl.CorpusURIs(), SkillIDs: rl.SkillIDs(),
 		MCPServerIDs:         rl.MCPServerIDs(),
+		DockButtons:          rl.DockButtons(),
 		IsBuiltin:            rl.IsBuiltin(),
 		NotifyOwnerOnBooking: rl.NotifyOwnerOnBooking(),
 		ActiveCodes:          activeCodes,
@@ -138,6 +143,7 @@ func (h *Handlers) createRole() http.HandlerFunc {
 			OwnerID: ownerID, Name: req.Name, Description: req.Description,
 			Greeting: req.Greeting, PromptID: req.PromptID,
 			CorpusURIs: req.CorpusURIs, SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
+			DockButtons: req.DockButtons, ValidCapabilityIDs: h.dockCapIDs(),
 			NotifyOwnerOnBooking: req.NotifyOwnerOnBooking,
 		})
 		if err != nil {
@@ -192,6 +198,7 @@ func (h *Handlers) updateRole() http.HandlerFunc {
 			Description: req.Description, Greeting: req.Greeting,
 			PromptID: req.PromptID, CorpusURIs: req.CorpusURIs,
 			SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
+			DockButtons: req.DockButtons, ValidCapabilityIDs: h.dockCapIDs(),
 			NotifyOwnerOnBooking: req.NotifyOwnerOnBooking,
 		})
 		if err != nil {
@@ -218,6 +225,9 @@ func (h *Handlers) deleteRole() http.HandlerFunc {
 // writeRoleErrCases —— Create + Update 共用 error → envelope 翻译表。
 var writeRoleErrCases = []apierr.Case{
 	{Match: usecases.ErrEmptyField, Envelope: envBadReq("name is required")},
+	{Match: domain.ErrTooManyDockButtons, Envelope: envBadReq("at most two dock buttons")},
+	{Match: domain.ErrDockButtonEmptyTrigger, Envelope: envBadReq("dock button needs a trigger")},
+	{Match: domain.ErrUnknownDockCapability, Envelope: envBadReq("unknown dock capability")},
 	{
 		Match: domain.ErrRoleNotFound,
 		Envelope: apierr.Envelope{
@@ -247,6 +257,11 @@ var writeRoleErrCases = []apierr.Case{
 }
 
 // handleWriteRoleErr —— Create + Update 共用错误翻译。
+// dockCapIDs —— dock 按钮可挂的能力 id 集（访客侧、非 owner-only）。
+func (h *Handlers) dockCapIDs() []string {
+	return h.CapabilitiesAdmin.Registry.VisitorCapabilityIDs()
+}
+
 func handleWriteRoleErr(log *slog.Logger, w http.ResponseWriter, err error, tag string) {
 	env := apierr.Classify(err, writeRoleErrCases)
 	if env.Status >= http.StatusInternalServerError {

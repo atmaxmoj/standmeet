@@ -34,8 +34,10 @@ type Role struct {
 	corpusURIs   []string
 	skillIDs     []string
 	mcpServerIDs []string
-	isBuiltin    bool
-	hasPrompt    bool
+	// dockButtons —— #109/#110 这个 role 的 ≤2 个 chat dock 按钮配置。
+	dockButtons []DockButtonConfig
+	isBuiltin   bool
+	hasPrompt   bool
 	// notifyOnBooking —— #130: 这个 role 下约成后给 owner 自己发通知邮件。
 	notifyOnBooking bool
 }
@@ -53,6 +55,7 @@ type RoleInit struct {
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
+	DockButtons  []DockButtonConfig
 	IsBuiltin    bool
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
 	NotifyOwnerOnBooking bool
@@ -72,6 +75,7 @@ func NewRole(i *RoleInit) Role {
 		corpusURIs:      cloneStrings(i.CorpusURIs),
 		skillIDs:        cloneStrings(i.SkillIDs),
 		mcpServerIDs:    cloneStrings(i.MCPServerIDs),
+		dockButtons:     cloneDockButtons(i.DockButtons),
 		notifyOnBooking: i.NotifyOwnerOnBooking,
 	}
 	if i.PromptID != nil {
@@ -123,6 +127,9 @@ func (r *Role) SkillIDs() []string { return slices.Clone(r.skillIDs) }
 
 // MCPServerIDs —— 解锁的 MCP server id 列表（defensive copy）。
 func (r *Role) MCPServerIDs() []string { return slices.Clone(r.mcpServerIDs) }
+
+// DockButtons —— 这个 role 的 ≤2 个 chat dock 按钮配置（defensive copy）。
+func (r *Role) DockButtons() []DockButtonConfig { return cloneDockButtons(r.dockButtons) }
 
 // IsBuiltin —— 是否种入的 builtin（vanilla 是 true）。
 func (r *Role) IsBuiltin() bool { return r.isBuiltin }

@@ -42,6 +42,10 @@ type RoleWriteInput struct {
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
+	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮。
+	DockButtons []domain.DockButtonConfig
+	// ValidCapabilityIDs —— route 从能力注册表给出的、dock 按钮可挂的能力 id 集（校验 cap 有效性用）。
+	ValidCapabilityIDs []string
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
 	NotifyOwnerOnBooking bool
 }
@@ -69,6 +73,9 @@ func validateCreateRoleInput(
 	if in.OwnerID == "" || in.Name == "" {
 		return ErrEmptyField
 	}
+	if derr := validateDockButtons(in); derr != nil {
+		return derr
+	}
 	return validateRoleJoinOwnership(ctx, deps, in)
 }
 
@@ -78,7 +85,7 @@ func createRoleRow(
 	role, err := deps.Roles.Create(ctx, &postgres.CreateRoleInput{
 		OwnerID: in.OwnerID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
+		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrRoleNameTaken) {
@@ -138,13 +145,21 @@ func UpdateRole(
 func validateUpdateRoleInput(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,
 ) error {
-	if in.OwnerID == "" || in.RoleID == "" || in.Name == "" {
+	if updateRoleMissingRequired(in) {
 		return ErrEmptyField
 	}
 	if cerr := checkRoleRenameAllowed(ctx, deps, in); cerr != nil {
 		return cerr
 	}
+	if derr := validateDockButtons(in); derr != nil {
+		return derr
+	}
 	return validateRoleJoinOwnership(ctx, deps, in)
+}
+
+// updateRoleMissingRequired —— Update 必填字段是否缺（抽出降 validateUpdateRoleInput 的 cyclo）。
+func updateRoleMissingRequired(in *RoleWriteInput) bool {
+	return in.OwnerID == "" || in.RoleID == "" || in.Name == ""
 }
 
 func updateRoleRow(
@@ -153,7 +168,7 @@ func updateRoleRow(
 	role, err := deps.Roles.Update(ctx, &postgres.UpdateRoleInput{
 		OwnerID: in.OwnerID, RoleID: in.RoleID, Name: in.Name,
 		Description: in.Description, Greeting: in.Greeting, PromptID: in.PromptID,
-		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking,
+		NotifyOwnerOnBooking: in.NotifyOwnerOnBooking, DockButtons: in.DockButtons,
 	})
 	if err != nil {
 		return domain.Role{}, fmt.Errorf("update role: %w", err)

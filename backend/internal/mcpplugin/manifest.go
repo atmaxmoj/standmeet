@@ -90,9 +90,12 @@ const (
 
 // Manifest —— 一条校验通过的 MCP 插件声明。
 type Manifest struct {
-	Requires         []string
-	ID               string
-	Version          string
+	Requires []string
+	ID       string
+	Version  string
+	// Title —— 人类可读显示名（#109/#110 dock 按钮 label 透传它）。跟 MCP tool title 同角色：
+	// 显示用，区别于程序标识 ID。空 = 该能力没 title（不够格当 dock 按钮 label，无 id 兜底）。
+	Title            string
 	Shape            Shape
 	PromptFragmentID string
 	// ACL —— 暴露门：ACLRoleGranted（默认）或 ACLAlways。

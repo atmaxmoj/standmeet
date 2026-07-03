@@ -7,6 +7,8 @@
 import { useEffect, useRef } from 'react';
 
 import { pickGhost, pickPlaceholder } from '@/lib/visitor/ghost-text';
+import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useDockButtonsStore } from '@/lib/visitor/dock-buttons-store';
 import { dispatchComposerKey, useAutoGrowTextarea } from '@/lib/visitor/composer-keys';
 import { composeMessage, useComposerAttachments } from '@/lib/visitor/composer-attachments';
 import { AttachmentChips } from '@/components/visitor/ComposerAttachments';
@@ -160,6 +162,7 @@ function ChatComposer({ showStarters, mode, ...rest }: ComposerProps & { showSta
   const starters = mode === 'byoai' ? BYOAI_STARTERS : CODED_STARTERS;
   return (
     <div className="sticky bottom-0 z-30 bg-(--color-paper)/95 backdrop-blur border-t border-(--color-rule) pt-4 pb-5">
+      <DockButtons onPick={rest.onSubmit} pending={rest.pending} />
       {showStarters && <StarterChips starters={starters} onPick={rest.onSubmit} pending={rest.pending} />}
       <ComposerForm {...rest} />
     </div>
@@ -249,6 +252,67 @@ function StarterChip({ q, last, onPick, pending }: { q: string; last: boolean; o
       {!last && <span className="text-(--color-faint) not-italic mx-2">/</span>}
     </span>
   );
+}
+
+// ── dock buttons (#109/#110) ─────────────────────────────────
+// owner 在 role 上配的 ≤2 个快捷按钮。点击 = 把 owner 写的「触发词」当访客消息发出（跟打字、
+// 跟 owner 在自己 UI 里呼唤同一条路，按钮只是快捷方式）。能力被 ACL 关掉 → 置灰。
+
+function DockButtons({ onPick, pending }: { onPick: (q: string) => void; pending: boolean }) {
+  const buttons = useDockButtonsStore((s) => s.buttons);
+  const caps = useCapabilityStore((s) => s.states);
+  return buttons.length === 0 ? null : (
+    <div className="flex flex-wrap gap-2 mb-3" data-testid="dock-buttons">
+      {buttons.map((b) => (
+        <DockButton
+          key={b.capability_id}
+          capabilityId={b.capability_id}
+          title={b.title}
+          trigger={b.trigger}
+          state={capState(caps, b.capability_id)}
+          onPick={onPick}
+          pending={pending}
+        />
+      ))}
+    </div>
+  );
+}
+
+type DockCapState = { enabled: boolean; reason: string };
+
+function DockButton({
+  capabilityId, title, trigger, state, onPick, pending,
+}: {
+  capabilityId: string;
+  title: string;
+  trigger: string;
+  state: DockCapState;
+  onPick: (q: string) => void;
+  pending: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={pending || !state.enabled}
+      onClick={() => onPick(trigger)}
+      data-testid={`dock-button-${capabilityId}`}
+      title={state.enabled ? undefined : state.reason}
+      className="mono text-[11px] tracking-[0.06em] px-3 py-1.5 border border-(--color-rule) text-(--color-ink) hover:border-(--color-ink) disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {title}
+    </button>
+  );
+}
+
+// capState —— 从 capability store 取某能力的可用/禁用理由。找不到（该 session 没这能力）→ 禁用。
+function capState(
+  caps: readonly { id: string; enabled: boolean; policy_summary?: string }[],
+  id: string,
+): DockCapState {
+  const c = caps.find((x) => x.id === id);
+  return c
+    ? { enabled: c.enabled, reason: c.policy_summary ?? 'unavailable right now' }
+    : { enabled: false, reason: 'unavailable right now' };
 }
 
 // ── footnote ───────────────────────────────────────────────

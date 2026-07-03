@@ -28,8 +28,9 @@ import {
 
 import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
 import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
-import { loadStoredSession } from '@/lib/gate/use-gate';
-import { restoreSession, revalidateSession, revalidateStored, splitParas } from '@/lib/page/use-chat-restore';
+import {
+  restoreSession, revalidateSession, revalidateStored, seedEphemeralStores, splitParas,
+} from '@/lib/page/use-chat-restore';
 import { throbberLabel } from '@/lib/page/throbber-label';
 import { pickCorpusReadShape } from '@/lib/page/corpus-read-wire';
 import {
@@ -40,7 +41,6 @@ import {
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
-import { useToolSpecsStore } from '@/lib/visitor/tool-specs-store';
 import { logger } from '@/lib/logger';
 
 export type SessionMode = SessionModeT;
@@ -139,17 +139,10 @@ export function useChat(deps: Deps): ChatState {
   const docCtxRef = useRef(deps.docContext);
   docCtxRef.current = deps.docContext;
 
-  // H.13.d: mount 时若 localStorage 已有 stored session (返回 visitor /
-  // ?code= 已被 useAbsorbCodeFromURL 持久化)，把 ghosts 种
-  // 进 ghost 队列；ensureSession 在 ask 时才跑，初始 chat 屏要 ghost 看
-  // 得见就靠这一勺。
+  // H.13.d: mount 时若 localStorage 已有 stored session，把临时投影(ghosts/specs/dock/caps)
+  // 补回各 store —— ensureSession 是 lazy(只发问时跑)，不补这一勺初始 chat 屏就空。
   useEffect(() => {
-    const stored = loadStoredSession();
-    useGhostsStore.getState().seed(stored?.ghosts ?? []);
-    // 刷新恢复 tool_specs（含 per-tool ui_html）—— transcript 重建出 tool 卡需要按
-    // 名查 ui_html 渲沙盒卡；lazy ensureSession 只在发问时才 setSpecs，刷新不发问
-    // 就空，外置卡(corpus hits / report …)会渲不出。像 ghosts 一样开局就补回。
-    useToolSpecsStore.getState().setSpecs(stored?.tool_specs ?? []);
+    const stored = seedEphemeralStores();
     // 浮窗(有 docContext)不恢复主对话 —— 那是别段,会串。它自己那段开局空,首次
     // 发问才 lazy 建/续(ensureEffectiveSession)。主 chat 才走 restoreSession。
     if (docCtxRef.current !== undefined) return;

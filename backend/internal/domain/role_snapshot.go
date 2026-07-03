@@ -39,6 +39,8 @@ type RoleSnapshot struct {
 	deniedCapabilities []string
 	skillIDs           []string
 	mcpServerIDs       []string
+	// dockButtons —— #109/#110 owner 在 role 上配的 ≤2 个 chat dock 按钮（冻结）。
+	dockButtons []DockButtonConfig
 }
 
 // RoleSnapshotInit —— NewRoleSnapshot 入参。
@@ -54,6 +56,7 @@ type RoleSnapshotInit struct {
 	DeniedCapabilities []string
 	SkillIDs           []string
 	MCPServerIDs       []string
+	DockButtons        []DockButtonConfig
 }
 
 // NewRoleSnapshot —— 从 Init 构造。slice 字段 defensive clone；空 input → 空切片。
@@ -70,6 +73,7 @@ func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 		deniedCapabilities: cloneStrings(i.DeniedCapabilities),
 		skillIDs:           cloneStrings(i.SkillIDs),
 		mcpServerIDs:       cloneStrings(i.MCPServerIDs),
+		dockButtons:        cloneDockButtons(i.DockButtons),
 	}
 }
 
@@ -90,6 +94,10 @@ func (s *RoleSnapshot) PromptBody() string { return s.promptBody }
 // CodePromptBody —— 这张 access code 自带的 prompt 全文，0..1（#104）。session persona
 // 在 role persona 之后**叠加**它；没挂则空串（persona 逐字不变，守 prompt-hash 回归）。
 func (s *RoleSnapshot) CodePromptBody() string { return s.codePromptBody }
+
+// DockButtons —— 冻下的 ≤2 个 dock 按钮配置（defensive copy）。会话装配层据此解析 title +
+// 过滤 code-deny 后，出到 session payload。
+func (s *RoleSnapshot) DockButtons() []DockButtonConfig { return cloneDockButtons(s.dockButtons) }
 
 // CorpusURIs —— 拍下来的 URI glob 白名单（defensive copy）。
 func (s *RoleSnapshot) CorpusURIs() []string { return slices.Clone(s.corpusURIs) }
@@ -150,6 +158,7 @@ func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 		DeniedCapabilities: s.deniedCapabilities,
 		SkillIDs:           s.skillIDs,
 		MCPServerIDs:       s.mcpServerIDs,
+		DockButtons:        s.dockButtons,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal role snapshot: %w", err)
@@ -175,6 +184,7 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 		DeniedCapabilities: w.DeniedCapabilities,
 		SkillIDs:           w.SkillIDs,
 		MCPServerIDs:       w.MCPServerIDs,
+		DockButtons:        w.DockButtons,
 	})
 	return nil
 }
@@ -182,15 +192,16 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 // roleSnapshotWire —— JSON sidecar。字段顺序按 fieldalignment：time 在前
 // (time.Time = 24B with monotonic clock)、string 中、slice 末。
 type roleSnapshotWire struct {
-	FrozenAt           time.Time `json:"frozen_at"`
-	RoleID             string    `json:"role_id"`
-	RoleName           string    `json:"role_name"`
-	PromptBody         string    `json:"prompt_body,omitempty"`
-	CodePromptBody     string    `json:"code_prompt_body,omitempty"`
-	CorpusURIs         []string  `json:"corpus_uris,omitempty"`
-	SkillPrompts       []string  `json:"skill_prompts,omitempty"`
-	AllowedTools       []string  `json:"allowed_tools,omitempty"`
-	DeniedCapabilities []string  `json:"denied_capabilities,omitempty"`
-	SkillIDs           []string  `json:"skill_ids,omitempty"`
-	MCPServerIDs       []string  `json:"mcp_server_ids,omitempty"`
+	FrozenAt           time.Time          `json:"frozen_at"`
+	RoleID             string             `json:"role_id"`
+	RoleName           string             `json:"role_name"`
+	PromptBody         string             `json:"prompt_body,omitempty"`
+	CodePromptBody     string             `json:"code_prompt_body,omitempty"`
+	CorpusURIs         []string           `json:"corpus_uris,omitempty"`
+	SkillPrompts       []string           `json:"skill_prompts,omitempty"`
+	AllowedTools       []string           `json:"allowed_tools,omitempty"`
+	DeniedCapabilities []string           `json:"denied_capabilities,omitempty"`
+	SkillIDs           []string           `json:"skill_ids,omitempty"`
+	MCPServerIDs       []string           `json:"mcp_server_ids,omitempty"`
+	DockButtons        []DockButtonConfig `json:"dock_buttons,omitempty"`
 }

@@ -317,6 +317,9 @@ CREATE TABLE roles (
     -- notify_owner_on_booking —— #130: 这个 role 下的访客约成后,给 owner 自己发一封
     -- owner 视角的通知邮件(per-role 开关,owner 设)。默认关。
     notify_owner_on_booking boolean NOT NULL DEFAULT false,
+    -- dock_buttons —— #109/#110 这个 role 的 ≤2 个 chat dock 按钮：[{capability_id, trigger}]。
+    -- 访客点按钮 = 发触发词（快捷方式）。冻进 RoleSnapshot；title 解析 + code-deny 过滤在会话装配层。
+    dock_buttons jsonb         NOT NULL DEFAULT '[]'::jsonb,
     created_at   timestamptz   NOT NULL DEFAULT now(),
     updated_at   timestamptz   NOT NULL DEFAULT now()
 );

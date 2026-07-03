@@ -10,6 +10,13 @@ import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
+// DockButtonConfig —— #109/#110 一个 chat dock 按钮的配置：挂哪个能力 + 点击发出的触发词。
+export const DockButtonConfigSchema = z.object({
+  capability_id: z.string(),
+  trigger: z.string(),
+});
+export type DockButtonConfig = z.infer<typeof DockButtonConfigSchema>;
+
 export const RoleViewSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -19,6 +26,7 @@ export const RoleViewSchema = z.object({
   corpus_uris: z.array(z.string()),
   skill_ids: z.array(z.string()),
   mcp_server_ids: z.array(z.string()),
+  dock_buttons: z.array(DockButtonConfigSchema).optional(),
   active_codes: z.number(),
   is_builtin: z.boolean(),
   created_at: z.string(),
@@ -34,6 +42,7 @@ export interface WriteRoleInput {
   corpus_uris: string[];
   skill_ids: string[];
   mcp_server_ids: string[];
+  dock_buttons?: DockButtonConfig[];
 }
 
 export interface RolesHook {

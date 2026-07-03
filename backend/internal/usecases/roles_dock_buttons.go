@@ -1,0 +1,56 @@
+// roles_dock_buttons.go —— #109/#110 per-role chat dock 按钮的 usecase 面：校验 + owner MCP
+// set。跟 roles.go 同包（拆出来守 check-max-lines）。
+
+package usecases
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
+)
+
+// validateDockButtons —— dock 按钮校验：数量 ≤2 + 触发词非空（domain 纯不变量）+ 每个能力在
+// route 给的 valid 集里。create/update 共用。
+func validateDockButtons(in *RoleWriteInput) error {
+	if err := domain.ValidateDockButtons(in.DockButtons); err != nil {
+		return fmt.Errorf("dock buttons: %w", err)
+	}
+	capErr := domain.ValidateDockButtonCapabilities(in.DockButtons, in.ValidCapabilityIDs)
+	if capErr != nil {
+		return fmt.Errorf("dock buttons: %w", capErr)
+	}
+	return nil
+}
+
+// SetDockButtonsInput —— SetRoleDockButtons 入参（避开 6-arg limit）。
+type SetDockButtonsInput struct {
+	OwnerID            string
+	RoleID             string
+	Buttons            []domain.DockButtonConfig
+	ValidCapabilityIDs []string
+}
+
+// SetRoleDockButtons —— owner MCP `roles.set_dock_buttons`：只改一个 role 的 dock 按钮。load
+// 现有 role 保留其余字段 → 走 UpdateRole 同一套校验（≤2 / trigger / cap 有效），跟 admin UI
+// 走同一份服务端逻辑（#118 parity）。
+func SetRoleDockButtons(
+	ctx context.Context, deps RolesDeps, in *SetDockButtonsInput,
+) (domain.Role, error) {
+	role, err := GetRole(ctx, deps, in.OwnerID, in.RoleID)
+	if err != nil {
+		return domain.Role{}, err
+	}
+	w := &RoleWriteInput{
+		OwnerID: in.OwnerID, RoleID: in.RoleID,
+		Name: role.Name(), Description: role.Description(), Greeting: role.Greeting(),
+		CorpusURIs: role.CorpusURIs(), SkillIDs: role.SkillIDs(), MCPServerIDs: role.MCPServerIDs(),
+		NotifyOwnerOnBooking: role.NotifyOwnerOnBooking(),
+		DockButtons:          in.Buttons,
+		ValidCapabilityIDs:   in.ValidCapabilityIDs,
+	}
+	if pid, ok := role.PromptID(); ok {
+		w.PromptID = &pid
+	}
+	return UpdateRole(ctx, deps, w)
+}

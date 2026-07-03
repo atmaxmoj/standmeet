@@ -99,6 +99,10 @@ func RegisterDiscoveredPluginsHooked(
 
 func (c *mcpAppCapability) ID() string { return c.m.ID }
 
+// Title —— capreg.Titled：透传插件 manifest 声明的人类可读 title（#109/#110 dock 按钮 label）。
+// 空 = 该插件没声明 title（不够格当 dock 按钮 label，无 id 兜底）。
+func (c *mcpAppCapability) Title() string { return c.m.Title }
+
 func (c *mcpAppCapability) Shape() capreg.Shape {
 	return capreg.Shape(string(c.m.Shape))
 }
@@ -193,7 +197,8 @@ func (c *mcpAppCapability) stateFor(
 	if c.stateHook == nil {
 		return st
 	}
-	overlayCapState(&st, c.stateHook(ctx, in))
+	hook := c.stateHook(ctx, in)
+	overlayCapState(&st, &hook)
 	return st
 }
 

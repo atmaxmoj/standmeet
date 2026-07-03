@@ -74,11 +74,14 @@ type Binding struct {
 // 同源读。Extra 留 capability 自由发挥（policy details / connector status
 // 等结构化数据），但保持可序列化。
 type CapabilityState struct {
-	QuotaRemaining *int32          `json:"quota_remaining,omitempty"`
-	ID             string          `json:"id"`
-	PolicySummary  string          `json:"policy_summary,omitempty"`
-	Extra          json.RawMessage `json:"extra,omitempty"`
-	Enabled        bool            `json:"enabled"`
+	QuotaRemaining *int32 `json:"quota_remaining,omitempty"`
+	ID             string `json:"id"`
+	// Title —— 人类可读显示名，透传 MCP 工具的 title（#109/#110 dock 按钮 label 用）。
+	// 无 fallback：能力没实现 Titled 就空，那它不够格当 dock 按钮 label。
+	Title         string          `json:"title,omitempty"`
+	PolicySummary string          `json:"policy_summary,omitempty"`
+	Extra         json.RawMessage `json:"extra,omitempty"`
+	Enabled       bool            `json:"enabled"`
 }
 
 // Capability —— 一个能力的统一注册口。三处消费方都通过它读。

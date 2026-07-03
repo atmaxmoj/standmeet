@@ -96,8 +96,18 @@ export interface PublicSessionMember {
 export interface PublicSessionCapability {
   readonly id: string;
   readonly enabled: boolean;
+  // title —— 透传 MCP 工具的人类可读显示名（#109/#110 dock 按钮 label）。没实现则缺省。
+  readonly title?: string;
   readonly quota_remaining?: number;
   readonly policy_summary?: string;
+}
+
+// PublicSessionDockButton —— #109/#110 一个可渲染的 chat dock 按钮：能力 id + 显示名 + 触发词。
+// owner 在 role 上配，已过滤 code-deny。访客点它 = 把 trigger 当自己的消息发出。
+export interface PublicSessionDockButton {
+  readonly capability_id: string;
+  readonly title: string;
+  readonly trigger: string;
 }
 
 export interface PublicSessionToolSpec {
@@ -134,6 +144,8 @@ export interface PublicSessionResponse {
   // owner 建码时填的 suggested questions 透下来。code-mode 之外是空
   // 数组 (backend 强制 [] 不 null)。
   readonly ghosts?: readonly string[];
+  // #109/#110: owner 在 role 上配的 ≤2 个 chat dock 按钮（冻结、过滤 code-deny 后）。
+  readonly dock_buttons?: readonly PublicSessionDockButton[];
   // #122: owner 已配通 mail connector。前端据此决定约成卡要不要显
   // "发确认邮件" 那块(没配 → 整张确认卡不渲染,owner 根本发不了信)。
   readonly owner_can_email?: boolean;

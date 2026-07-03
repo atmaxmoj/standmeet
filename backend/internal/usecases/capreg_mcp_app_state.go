@@ -100,7 +100,7 @@ func mcpAppToolDescription(pluginID string, t *mcpclient.Tool) string {
 }
 
 // overlayCapState —— 把 stateHook 算出来的非零字段叠到通用 state 上（id/enabled 不动）。
-func overlayCapState(dst *capreg.CapabilityState, extra capreg.CapabilityState) {
+func overlayCapState(dst, extra *capreg.CapabilityState) {
 	if extra.QuotaRemaining != nil {
 		dst.QuotaRemaining = extra.QuotaRemaining
 	}

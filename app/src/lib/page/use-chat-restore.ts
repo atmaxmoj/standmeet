@@ -18,10 +18,27 @@ import type { Dispatch, SetStateAction } from 'react';
 import { fetchConversation, type VisitorView, type DialogCitation } from '@/lib/api/public';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import type { Citation, Dialog } from '@/lib/page/use-chat';
+import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useDockButtonsStore } from '@/lib/visitor/dock-buttons-store';
+import { useGhostsStore } from '@/lib/visitor/ghosts-store';
 import { recoverFromDeadSession } from '@/lib/visitor/session-recovery';
 import { useVisitorSessionStore, type VisitorSession } from '@/lib/visitor/session-store';
+import { useToolSpecsStore } from '@/lib/visitor/tool-specs-store';
 
 type DialogSetter = Dispatch<SetStateAction<Dialog[]>>;
+
+// seedEphemeralStores —— 开局(mount/刷新)把 stored blob 的临时投影补回各 store：
+// ghosts / tool_specs(含 per-tool ui_html) / dock 按钮 / capabilities。ensureSession 是
+// lazy(只在发问时跑)，不补这一勺初始 chat 屏这些就空(按钮渲不出、外置卡渲不出)。返回
+// stored 供 caller 拉 token/conv 重建 transcript。
+export function seedEphemeralStores(): ReturnType<typeof loadStoredSession> {
+  const stored = loadStoredSession();
+  useGhostsStore.getState().seed(stored?.ghosts ?? []);
+  useToolSpecsStore.getState().setSpecs(stored?.tool_specs ?? []);
+  useDockButtonsStore.getState().setButtons(stored?.dock_buttons ?? []);
+  useCapabilityStore.getState().setStates(stored?.capabilities ?? []);
+  return stored;
+}
 
 // splitParas —— body → 段落(连续空行分段;空 body → 空数组)。
 export function splitParas(body: string): string[] {

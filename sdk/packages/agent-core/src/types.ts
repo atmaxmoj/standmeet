@@ -4,6 +4,8 @@
 export interface CapabilityState {
   readonly id: string;
   readonly enabled: boolean;
+  // title —— 透传 MCP 工具的人类可读显示名（#109/#110 dock 按钮 label 用）。没实现则缺省。
+  readonly title?: string;
   readonly quota_remaining?: number;
   readonly policy_summary?: string;
   readonly extra?: unknown;

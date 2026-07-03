@@ -404,6 +404,7 @@ type Role struct {
 	PromptID             pgtype.UUID
 	IsBuiltin            bool
 	NotifyOwnerOnBooking bool
+	DockButtons          []byte
 	CreatedAt            pgtype.Timestamptz
 	UpdatedAt            pgtype.Timestamptz
 }
