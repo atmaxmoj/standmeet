@@ -115,12 +115,13 @@ func Load() (*Config, error) {
 		StorageSecretKey:               os.Getenv("STORAGE_SECRET_KEY"),
 		StorageBucket:                  os.Getenv("STORAGE_BUCKET"),
 		StoragePublicURL:               os.Getenv("STORAGE_PUBLIC_URL"),
-		GotenbergURL:                   os.Getenv("GOTENBERG_URL"),
-		PrintBaseURL:                   os.Getenv("PRINT_BASE_URL"),
-		MarketplaceGitHubBaseURL:       os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
-		MarketplaceSkillsMPBaseURL:     os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
-		StorageUseSSL:                  os.Getenv("STORAGE_USE_SSL") == "true",
-		SecureCookie:                   envOr("SECURE_COOKIE", "true") == "true",
+		// #117 部署友好:不设时走标准自托管 compose 服务名,fresh deploy 免逐个填。
+		GotenbergURL:               envOr("GOTENBERG_URL", "http://gotenberg:3000"),
+		PrintBaseURL:               envOr("PRINT_BASE_URL", "http://app:3000"),
+		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
+		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
+		StorageUseSSL:              os.Getenv("STORAGE_USE_SSL") == "true",
+		SecureCookie:               envOr("SECURE_COOKIE", "true") == "true",
 	}
 
 	if verr := validateRequired(cfg); verr != nil {
