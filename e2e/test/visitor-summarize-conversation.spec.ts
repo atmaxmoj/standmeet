@@ -55,6 +55,12 @@ const REPORT_HTML = [
   '<h2>Key Topics</h2><ul><li>Trail picks</li><li>Gear list</li></ul>',
 ].join('');
 
+// REPORT_HTML_REVISED —— #129 第二次 summarize 的修订版,带独有 marker 供断言"改写了原行"。
+const REPORT_HTML_REVISED = [
+  '<h1>Quick recap</h1>',
+  '<h2>Overview</h2><p>REVISED weekend plan: switched to a coastal walk.</p>',
+].join('');
+
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.beforeAll(async ({ playwright }) => {
@@ -118,6 +124,11 @@ test.describe('visitor summarize_conversation · I.3', () => {
       expect(res.status()).toBe(404);
       await request.dispose();
     });
+
+  // #129: 一会话一份 —— 第二次 summarize 在原 report 上 revise,不 append 出第二份。
+  // report_id 必须稳定(同一行被改写),否则旧 /report/[id] 链接失效 + owner 看到重复报告。
+  test('summary 一会话一份 —— 第二次 summarize revise 原 report,report_id 稳定 (#129)',
+    async ({ playwright }) => { await summaryReviseInPlaceTest(playwright); });
 
   // 生成 summary 不结束对话:同一 conversation 在 summarize 之后还能继续发 turn。
   // (老模型 /summary 写 ended_at → 下一 turn 配额 preflight 翻 ErrChatEnded → 410。
@@ -248,6 +259,36 @@ async function reportStyledTest(page: Page, playwright: Playwright): Promise<voi
   const fontFamily = await page.frameLocator('[data-testid="report-iframe"]')
     .locator('body').evaluate((el) => getComputedStyle(el).fontFamily);
   expect(fontFamily.toLowerCase(), 'body renders in Newsreader').toContain('newsreader');
+}
+
+// summaryReviseInPlaceTest —— #129: 同一会话 summarize 两次 → 同一 report_id 被改写(revise),
+// 不 append 出第二份;那份 report 持修订后的内容。从 describe 抽出守 max-lines-per-function。
+async function summaryReviseInPlaceTest(playwright: Playwright): Promise<void> {
+  const request = await playwright.request.newContext();
+  const sess = await issueSession(request, {
+    handle: OWNER.handle, code: CODE, visitor_name: 'V',
+  });
+  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  await scriptMockReplyText(request, REPORT_HTML);
+  const id1 = extractReportID(await postAgentTurn(request, sess));
+  expect(id1, 'first summarize produced a report').toBeTruthy();
+
+  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  await scriptMockReplyText(request, REPORT_HTML_REVISED);
+  const id2 = extractReportID(await postAgentTurn(request, sess));
+  expect(id2, 'second summarize produced a report').toBeTruthy();
+
+  // 一会话一份:同一 report_id 被改写,而不是新起一行。
+  expect(id2, 'second summarize revises the same report (stable id)').toBe(id1);
+
+  // 那一份 report 现在持修订后的内容。
+  const r = await request.get(`${BACKEND}/api/v1/report/${id1}`, {
+    headers: { Authorization: `Bearer ${sess.session_token}` },
+  });
+  expect(r.status()).toBe(200);
+  const body = await r.json() as { html: string };
+  expect(body.html, 'report holds the revised content').toContain('REVISED weekend plan');
+  await request.dispose();
 }
 
 async function postAgentTurn(
