@@ -35,6 +35,19 @@ test.describe('owner edits account fields post-claim', () => {
     await request.dispose();
   });
 
+  // #115: recovery phrase 行随 SMTP(mail connector)灰/亮。fresh owner 无 verified mail
+  // connector → 灰态:detail "needs verified email" + generate 禁用(recoveryRowView 的
+  // 业务判断,presentation 只渲染)。守住"没配 SMTP 就别让 owner 以为能生成恢复短语"。
+  // 排在 email/password 改动测试之前跑 —— 那个测试会换 owner 凭据,adminPage 之后登不上。
+  test('recovery phrase row is SMTP-gated (grey) until a verified mail connector exists (#115)',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'account');
+      await page.waitForURL('**/admin/account', { timeout: 5_000 });
+      await expect(page.getByText('Recovery phrase')).toBeVisible();
+      await expect(page.getByText('needs verified email')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'generate' })).toBeDisabled();
+    });
+
   test('full name → email → password, each saved and re-readable',
     async ({ adminPage: page, playwright }) => {
       await gotoAdminSection(page, 'account');
