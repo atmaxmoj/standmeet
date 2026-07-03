@@ -1,6 +1,6 @@
 # marketplace fixtures
 
-Skill marketplace snapshots served by `cmd/job-board-mock` so dev/e2e
+Skill marketplace snapshots served by `cmd/external-mock` so dev/e2e
 runs against deterministic data instead of hitting the real upstreams.
 
 ## Layout

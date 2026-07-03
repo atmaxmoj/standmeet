@@ -34,7 +34,7 @@ const OWNER = {
 const CAL_SPEC = JSON.stringify({
   openapi: '3.0.3',
   info: { title: 'Cal', version: '1' },
-  servers: [{ url: 'http://job-board-mock:9000/google-calendar' }],
+  servers: [{ url: 'http://external-mock:9000/google-calendar' }],
   paths: {
     '/freeBusy': { post: { operationId: 'freebusy.query', responses: { '200': { description: 'ok' } } } },
     '/events': { post: { operationId: 'events.insert', responses: { '200': { description: 'ok' } } } },

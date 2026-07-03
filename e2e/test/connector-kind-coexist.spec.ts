@@ -50,7 +50,7 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // mock 控制面（events / fail / reset）走 localhost；backend 容器内打 caldav 用 service-name。
 const CALDAV_MOCK = process.env['CALDAV_MOCK_URL'] ?? 'http://localhost:9000';
 const GCAL_MOCK = process.env['GCAL_MOCK_URL'] ?? 'http://localhost:9000';
-const CALDAV_API = 'http://job-board-mock:9000';
+const CALDAV_API = 'http://external-mock:9000';
 
 const OWNER = {
   email: 'kind-coexist@example.com',

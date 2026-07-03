@@ -45,7 +45,7 @@
 - **error stream**：链路任意一步崩仍可控、友好降级，无 stack/挂死/泄密。
 - **替身**：`dep-provider:test`（合成 connector「X」，`Connected` 可切 + 代调方法 + 泄漏探针，
   仅测试装配，绝不进 prod 注册表）；`mock-stack/mcp` 加一个 `Requires:["dep-provider:test"]` 的工具；
-  mock GCal / SMTP / OAuth 沿用 job-board-mock。
+  mock GCal / SMTP / OAuth 沿用 external-mock。
 
 ---
 

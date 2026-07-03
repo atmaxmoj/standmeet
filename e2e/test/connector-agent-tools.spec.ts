@@ -16,7 +16,7 @@
 // 全部 test.fixme：agent-tool 暴露子系统（openapi operations → per-session agent tools、
 // 运行时按 op 调 SaaS 注入 auth、与 caps 共用 grant/ACL 闸）从零，未建。实现逐条转绿。
 //
-// e2e 不碰真 SaaS：内联 spec 的 servers 指向 job-board-mock（已有 /__mock/gcal 端点族；
+// e2e 不碰真 SaaS：内联 spec 的 servers 指向 external-mock（已有 /__mock/gcal 端点族；
 // 这里复用 /__mock/gcal/events 作 SaaS API 落点 + /__mock/gcal/authorize|token 作 OAuth）。
 //
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ function TOOL_NAME_FOR(operationId: string): string {
 const AGENT_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Acme CRM', version: '1.0.0' },
-  servers: [{ url: 'http://job-board-mock:9000/crm' }],
+  servers: [{ url: 'http://external-mock:9000/crm' }],
   paths: {
     '/contacts': {
       get: {
@@ -121,7 +121,7 @@ const AGENT_SPEC = {
         flows: {
           authorizationCode: {
             authorizationUrl: 'http://localhost:9000/google-oauth/auth',
-            tokenUrl: 'http://job-board-mock:9000/google-oauth/token',
+            tokenUrl: 'http://external-mock:9000/google-oauth/token',
             scopes: {
               'contacts.read': 'read contacts',
               'deals.write': 'write deals',
@@ -146,7 +146,7 @@ const ALL_OP_TOOLS = [
 const CALENDAR_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Sample Calendar', version: '1.0.0' },
-  servers: [{ url: 'http://job-board-mock:9000/google-calendar' }],
+  servers: [{ url: 'http://external-mock:9000/google-calendar' }],
   paths: {
     '/freeBusy': {
       post: {
@@ -170,7 +170,7 @@ const CALENDAR_SPEC = {
         flows: {
           authorizationCode: {
             authorizationUrl: 'http://localhost:9000/google-oauth/auth',
-            tokenUrl: 'http://job-board-mock:9000/google-oauth/token',
+            tokenUrl: 'http://external-mock:9000/google-oauth/token',
             scopes: { 'calendar.readonly': 'read', 'calendar.events': 'write' },
           },
         },

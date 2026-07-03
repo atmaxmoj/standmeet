@@ -24,7 +24,7 @@
 // 经 openapi runtime 这条路从零、未建（现状 mail connector 是手搓 SMTP-style 形态，
 // 没有「贴 SaaS HTTP spec + 绑定填 mail 槽」的路）。实现逐条转绿后去掉 test.fixme。
 //
-// 真服务：spec.servers 指向 job-board-mock 的 SendGrid mock 端（**假设新端**
+// 真服务：spec.servers 指向 external-mock 的 SendGrid mock 端（**假设新端**
 // /__mock/sendgrid/*，跟已有 /__mock/gcal/* 同构）。后端 openapi runtime 实打实 POST
 // 到 /mail/send，mock 录下收到的 body；错误路径用 mock 的 fault 控制面逼 5xx/4xx。
 // 不碰真 SendGrid。
@@ -37,12 +37,12 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { findCapability } from '@/fixtures/capabilities';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
-// job-board-mock 的 SendGrid-style 发信 mock 控制面（**假设新端**，跟 /__mock/gcal/*
+// external-mock 的 SendGrid-style 发信 mock 控制面（**假设新端**，跟 /__mock/gcal/*
 // 同构）：spec.servers 的 base + /__mock/sendgrid/{sent,fail,reset} 控制/读取。
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 // 控制面（e2e 经 localhost 读/武装）；spec.servers 用 service-name（backend 容器内打）。
 const SENDGRID_BASE = `${MOCK}/__mock/sendgrid`;
-const SENDGRID_API_BASE = 'http://job-board-mock:9000/__mock/sendgrid';
+const SENDGRID_API_BASE = 'http://external-mock:9000/__mock/sendgrid';
 
 const OWNER = {
   email: 'openapi-mail@example.com',

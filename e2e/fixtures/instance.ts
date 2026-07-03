@@ -44,7 +44,7 @@ export function resetInstance(): void {
   t('done');
 }
 
-// resetJobBoardMock —— ping the job-board-mock /__mock/reset endpoint so
+// resetJobBoardMock —— ping the external-mock /__mock/reset endpoint so
 // any previous spec's set_day=2 mutations don't bleed across runs.
 // Best-effort: 5s timeout; failure logs to stderr but doesn't abort
 // (e.g., when mock is intentionally not running, specs that don't touch

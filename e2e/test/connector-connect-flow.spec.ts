@@ -54,7 +54,7 @@ const SCOPE_WRITE = 'calendar.events';
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 // MOCK_API —— spec 里写给后端容器用的地址（docker 网络名 + SSRF 白名单）；MOCK 是浏览器/node 用的
 // 宿主地址。同一个 mock（9000 宿主映射），一个名字三方解析不同，所以拆开。
-const MOCK_API = process.env['MOCK_API_URL'] ?? 'http://job-board-mock:9000';
+const MOCK_API = process.env['MOCK_API_URL'] ?? 'http://external-mock:9000';
 const DB_CONTAINER = 'standmeet-dev-db-1';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });

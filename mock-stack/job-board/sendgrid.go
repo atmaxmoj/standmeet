@@ -167,7 +167,7 @@ func (s *server) serveSendGridReset(w http.ResponseWriter, _ *http.Request) {
 }
 
 // serveSSRFRedirectInternal —— 任何子路径都 302 到云 metadata 内网地址。装配期 servers 是
-// 良性的 job-board-mock（白名单放行），运行时调用才暴露内网跳转 → 后端 guarded client 拒跟。
+// 良性的 external-mock（白名单放行），运行时调用才暴露内网跳转 → 后端 guarded client 拒跟。
 func (s *server) serveSSRFRedirectInternal(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "http://169.254.169.254/latest/meta-data/", http.StatusFound)
 }

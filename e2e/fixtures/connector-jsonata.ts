@@ -1,12 +1,12 @@
 // connector-jsonata.ts —— §8-C 绑定契约用的内联 spec + 各 JSONata 绑定（happy / runtime / 坏）。
 // 从 connector-binding-jsonata.spec.ts 抽出来守 max-lines。e2e 不碰真 Google：servers / oauth
-// 端点指 job-board-mock 的 gcal 路由（backend 调的用 service-name，authorize 用 localhost）。
+// 端点指 external-mock 的 gcal 路由（backend 调的用 service-name，authorize 用 localhost）。
 
 // SAMPLE_SPEC —— 最小但合法的 OpenAPI 3.0：freebusy.query / events.insert 两个 op + oauth2。
 export const SAMPLE_SPEC = {
   openapi: '3.0.3',
   info: { title: 'Sample Calendar', version: '1.0.0' },
-  servers: [{ url: 'http://job-board-mock:9000/google-calendar' }],
+  servers: [{ url: 'http://external-mock:9000/google-calendar' }],
   paths: {
     '/freeBusy': {
       post: {
@@ -33,7 +33,7 @@ export const SAMPLE_SPEC = {
         flows: {
           authorizationCode: {
             authorizationUrl: 'http://localhost:9000/google-oauth/auth',
-            tokenUrl: 'http://job-board-mock:9000/google-oauth/token',
+            tokenUrl: 'http://external-mock:9000/google-oauth/token',
             scopes: { 'calendar.readonly': 'read free/busy', 'calendar.events': 'write events' },
           },
         },

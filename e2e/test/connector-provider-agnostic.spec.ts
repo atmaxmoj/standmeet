@@ -33,7 +33,7 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // events / fail / reset，跟 gcal mock 同构但走「calendar」品类的 provider-agnostic 端。
 const CALDAV_MOCK = process.env['CALDAV_MOCK_URL'] ?? 'http://localhost:9000';
 // backend 容器内打 CalDAV 用 service-name（SSRF 白名单放行）；控制面读用 localhost。
-const CALDAV_API = 'http://job-board-mock:9000';
+const CALDAV_API = 'http://external-mock:9000';
 
 const OWNER = {
   email: 'provider-agnostic@example.com',

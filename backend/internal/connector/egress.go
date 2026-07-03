@@ -3,7 +3,7 @@
 // （cloud metadata 169.254.169.254 / localhost / 10.x …）。两道闸：
 //   1. 装配期静态校验（CheckEgressURL）：servers + token URL 指内网 → 拒装配（连接器不建）。
 //   2. 运行期 dialer 守卫（GuardedHTTPClient）：DNS 解析/重定向跑到内网 → 拒绝出站。
-// allow-list 按 hostname 放行（e2e 的 job-board-mock 是私网 IP，但显式放行，prod 留空全拦）。
+// allow-list 按 hostname 放行（e2e 的 external-mock 是私网 IP，但显式放行，prod 留空全拦）。
 
 package connector
 
@@ -23,7 +23,7 @@ var ErrBlockedEgress = errors.New("egress target is an internal/private address 
 
 const egressDialTimeout = 10 * time.Second
 
-// EgressAllow —— 按 hostname 放行的白名单（绕过内网拦截）。e2e 注入 job-board-mock；prod 留空。
+// EgressAllow —— 按 hostname 放行的白名单（绕过内网拦截）。e2e 注入 external-mock；prod 留空。
 type EgressAllow map[string]bool
 
 // NewEgressAllow —— 从逗号分隔的 hostname 列表建白名单。

@@ -37,13 +37,13 @@ import { scriptMockToolCall, sendAndDrain } from '@/fixtures/mock-llm-script';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // Mock 控制面：gcal (oauth2 calendar) / caldav (protocol calendar) / smtp+mailpit (mail)
-// 都挂 job-board-mock 同源；apiKey/bearer 的 calendar/mail API 复用 gcal mock 端点
+// 都挂 external-mock 同源；apiKey/bearer 的 calendar/mail API 复用 gcal mock 端点
 // （servers 指过去，仅 securityScheme 不同 → 同一个运行时打同一个录制器）。
 // MOCK —— 测试脚本(node) + 浏览器用的地址（宿主机 → localhost）；MOCK_API —— spec 里写给后端容器
-// 用的地址（docker 网络名 job-board-mock，在 SSRF 白名单内）。两者指向同一个 mock（9000 宿主映射），
+// 用的地址（docker 网络名 external-mock，在 SSRF 白名单内）。两者指向同一个 mock（9000 宿主映射），
 // 所以后端写的事件/信，node 控制端点照样读得到。一个名字三方解析不同，所以拆开。
 const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
-const MOCK_API = process.env['MOCK_API_URL'] ?? 'http://job-board-mock:9000';
+const MOCK_API = process.env['MOCK_API_URL'] ?? 'http://external-mock:9000';
 const MAILPIT = process.env['MAILPIT_URL'] ?? 'http://localhost:18025';
 const SMTP_HOST = process.env['MAILPIT_SMTP_HOST'] ?? 'mail-mock';
 

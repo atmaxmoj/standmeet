@@ -75,23 +75,23 @@ services:
       # job-board fetcher base URLs point at the test mock so e2e doesn't
       # hit real Greenhouse / Lever / Ashby / RemoteOK / WWR / HN. Prod
       # leaves these unset → adapters use baked-in real URLs.
-      - GREENHOUSE_BASE_URL=http://job-board-mock:9000/greenhouse
-      - LEVER_BASE_URL=http://job-board-mock:9000/lever
-      - ASHBY_BASE_URL=http://job-board-mock:9000/ashby
-      - REMOTEOK_BASE_URL=http://job-board-mock:9000/remoteok
-      - WWR_BASE_URL=http://job-board-mock:9000/wwr
-      - HN_BASE_URL=http://job-board-mock:9000/hn
-      - SMARTRECRUITERS_BASE_URL=http://job-board-mock:9000/smartrecruiters
-      - WORKABLE_BASE_URL=http://job-board-mock:9000/workable
-      - JBA_BASE_URL=http://job-board-mock:9000/jba
-      - WORKDAY_BASE_URL=http://job-board-mock:9000/workday
-      - BAMBOOHR_BASE_URL=http://job-board-mock:9000/bamboohr
+      - GREENHOUSE_BASE_URL=http://external-mock:9000/greenhouse
+      - LEVER_BASE_URL=http://external-mock:9000/lever
+      - ASHBY_BASE_URL=http://external-mock:9000/ashby
+      - REMOTEOK_BASE_URL=http://external-mock:9000/remoteok
+      - WWR_BASE_URL=http://external-mock:9000/wwr
+      - HN_BASE_URL=http://external-mock:9000/hn
+      - SMARTRECRUITERS_BASE_URL=http://external-mock:9000/smartrecruiters
+      - WORKABLE_BASE_URL=http://external-mock:9000/workable
+      - JBA_BASE_URL=http://external-mock:9000/jba
+      - WORKDAY_BASE_URL=http://external-mock:9000/workday
+      - BAMBOOHR_BASE_URL=http://external-mock:9000/bamboohr
       # Skill-marketplace search proxy upstreams. Both point at the
-      # job-board-mock service in dev/e2e so the search never touches
+      # external-mock service in dev/e2e so the search never touches
       # public internet (rate limits / determinism). Production leaves
       # these unset → real api.github.com / api.skillsmp.com.
-      - MARKETPLACE_GITHUB_BASE_URL=http://job-board-mock:9000/marketplace/github
-      - MARKETPLACE_SKILLSMP_BASE_URL=http://job-board-mock:9000/marketplace/skillsmp
+      - MARKETPLACE_GITHUB_BASE_URL=http://external-mock:9000/marketplace/github
+      - MARKETPLACE_SKILLSMP_BASE_URL=http://external-mock:9000/marketplace/skillsmp
       # Gotenberg sidecar (headless Chromium) for resume PDF rendering.
       # applications.commit POSTs the admin /print/application URL here and
       # streams the rendered bytes back to Claude. Unset → NoopRenderer →
@@ -108,12 +108,12 @@ services:
       # backend itself, so they use the service-name address.
       # Unset in prod → backend talks to real Google.
       - GOOGLE_AUTH_URL=http://localhost:9000/google-oauth/auth
-      - GOOGLE_TOKEN_URL=http://job-board-mock:9000/google-oauth/token
-      - GOOGLE_CALENDAR_BASE=http://job-board-mock:9000/google-calendar
+      - GOOGLE_TOKEN_URL=http://external-mock:9000/google-oauth/token
+      - GOOGLE_CALENDAR_BASE=http://external-mock:9000/google-calendar
       # Connector SSRF egress allow-list (hostname). The mock resolves to a private
       # docker IP, so it must be explicitly allowed; prod leaves this unset → all
       # loopback/link-local/private targets are blocked.
-      - CONNECTOR_EGRESS_ALLOW=job-board-mock
+      - CONNECTOR_EGRESS_ALLOW=external-mock
       # Plugin discovery (Phase A): declares the in-stack mcp-server-mock as a
       # third-party MCP-app plugin 'echoer'. Prod leaves this unset → no
       # third-party plugins. (Bundled builtins like ask_visitor are NOT here —
@@ -129,7 +129,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      job-board-mock:
+      external-mock:
         condition: service_healthy
       llm-gateway:
         condition: service_healthy
@@ -202,11 +202,11 @@ services:
       timeout: 3s
       retries: 10
 
-  # job-board-mock —— test-only HTTP server serving captured fixtures from
+  # external-mock —— test-only HTTP server serving captured fixtures from
   # e2e/fixtures/job-boards/. Backend points its 8 *_BASE_URL env vars at
   # this service so the fetcher chain never reaches the real internet.
   # See mock-stack/job-board/main.go for routes + day2 derivation.
-  job-board-mock:
+  external-mock:
     build:
       context: ./mock-stack
       target: job-board

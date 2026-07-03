@@ -17,7 +17,7 @@
 
 1. **e2e 是 feature 的唯一证明（CLAUDE.md）。** 「core 发现了它没写死的能力」这件事，必须有一条**浏览器驱动**的 e2e：真访客进 chat → AI 调到一个**配置声明、非 `MustRegister`**的工具 → 答案正确。这是 C4，是本 feature 的主证。
 2. **协议管道层补 unit/integration，但不当主覆盖。** manifest 解析、stdio 帧读写、version 闸 —— 这些是组合爆炸的纯管道（畸形 JSON / 版本不符 / 进程退出），用浏览器跑既慢又测不全。它们是 booking_confirmation_test.go 那种**补充快测**，不替代 e2e。先例已在：`inference` / `mailer` / `booking_confirmation` 都有 unit。
-3. **插件是真·外部依赖 → 不 mock 在 mcpclient 层，mock 在传输边界。** 跟 job-board-mock 同理：**mcpclient 代码用真**，只让它连/拉起一个我们写的**真 MCP server**（说真 JSON-RPC、真 stdio/http），只有它的*内容*是 fixture（一个 echo/marker 工具）。绝不 stub `Session`。
+3. **插件是真·外部依赖 → 不 mock 在 mcpclient 层，mock 在传输边界。** 跟 external-mock 同理：**mcpclient 代码用真**，只让它连/拉起一个我们写的**真 MCP server**（说真 JSON-RPC、真 stdio/http），只有它的*内容*是 fixture（一个 echo/marker 工具）。绝不 stub `Session`。
 4. **零 if、零 sleep（项目规则）。** unit 用 testify `require.*`；e2e 等 UI 状态，不 `setTimeout`-as-sleep。
 5. **测试按行为命名**，不按 commit：`plugin-discovery-chat.spec.ts`，不是 `c4.spec.ts`。
 

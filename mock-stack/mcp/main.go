@@ -1,5 +1,5 @@
 // Package main —— minimal external MCP server fixture for e2e + 单元集成测试。
-// 两种传输：默认 HTTP（e2e fixture，等价 job-board-mock 的角色）；带 --stdio
+// 两种传输：默认 HTTP（e2e fixture，等价 external-mock 的角色）；带 --stdio
 // 参数则走 stdio（mcpclient stdio 传输的测试替身，C2 用）。
 //
 // 暴露两个 tool：

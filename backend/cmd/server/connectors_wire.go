@@ -22,7 +22,7 @@ import (
 )
 
 // connectorEgressAllow —— 出站 SSRF 白名单（CONNECTOR_EGRESS_ALLOW 逗号分隔 hostname；
-// e2e 放行 job-board-mock，prod 留空 = 全拦内网）。
+// e2e 放行 external-mock，prod 留空 = 全拦内网）。
 func connectorEgressAllow() connector.EgressAllow {
 	return connector.NewEgressAllow(strings.Split(os.Getenv("CONNECTOR_EGRESS_ALLOW"), ","))
 }

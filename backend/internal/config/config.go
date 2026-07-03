@@ -24,7 +24,7 @@ type Config struct {
 	SessionKey      string
 	CustomPagesRoot string // builder 写、backend 读 custom page build artifact 的根
 	// JobFetch*BaseURL —— 各 job-board adapter 的 base URL 覆写。production
-	// 留空走真 URL；e2e/dev 指 docker-compose 起的 job-board-mock。见
+	// 留空走真 URL；e2e/dev 指 docker-compose 起的 external-mock。见
 	// docs/design/job-loop-tests.md T.2。
 	JobFetchGreenhouseBaseURL      string
 	JobFetchLeverBaseURL           string
@@ -64,7 +64,7 @@ type Config struct {
 	PrintBaseURL string
 	// MarketplaceGitHubBaseURL / MarketplaceSkillsMPBaseURL —— skill
 	// marketplace upstream overrides. Empty = use real GitHub / SkillsMP.
-	// dev/e2e point both at the job-board-mock service so the search
+	// dev/e2e point both at the external-mock service so the search
 	// proxy never touches the public internet.
 	MarketplaceGitHubBaseURL   string
 	MarketplaceSkillsMPBaseURL string

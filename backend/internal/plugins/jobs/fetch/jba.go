@@ -40,7 +40,7 @@ import (
 
 const (
 	// jbaDefaultBase —— production GitHub Pages 域名；e2e 用 env 覆写到
-	// docker-compose 起的 job-board-mock 容器里挂 fixture chunks。
+	// docker-compose 起的 external-mock 容器里挂 fixture chunks。
 	jbaDefaultBase = "https://feashliaa.github.io/job-board-aggregator"
 	// jbaManifestPath / jbaChunkDir —— GitHub Pages 上的固定相对路径。
 	jbaManifestPath = "/data/chunks/jobs_manifest.json"

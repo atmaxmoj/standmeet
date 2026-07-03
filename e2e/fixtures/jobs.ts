@@ -1,4 +1,4 @@
-// jobs.ts —— MCP jobs.* tool wrappers + job-board-mock admin helpers.
+// jobs.ts —— MCP jobs.* tool wrappers + external-mock admin helpers.
 // Spec calls these to register sources, fetch, dedup, discard, etc.
 //
 // The MCP tool surface mirrors backend/internal/mcp/jobs_tools.go.
@@ -80,7 +80,7 @@ export async function jobsUnregisterSource(
   });
 }
 
-// ── job-board-mock admin helpers ────────────────────────────────────────
+// ── external-mock admin helpers ────────────────────────────────────────
 
 /** Tell the mock to serve "day 2" responses for a given kind — drops the
  *  first 2 day1 entries and appends synthetic ones with stable ids

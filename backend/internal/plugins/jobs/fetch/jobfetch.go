@@ -5,7 +5,7 @@
 // J phase 起搬进 plugins/jobs/fetch/，作为 jobs plugin 的 fetch sub-package。
 //
 // 每个 adapter 的 base URL 从 env 覆写：production 不设 env，走 const 真 URL；
-// e2e/dev 把 env 指向 docker compose 起的 job-board-mock 容器。
+// e2e/dev 把 env 指向 docker compose 起的 external-mock 容器。
 //
 // 见 docs/design/job-loop.md "状态分工" 决策 L.1：StandMeet 不 reason job /
 // 不打分 / 不排序——adapter 只把"今天这个源现在有哪些 job"原样输出。

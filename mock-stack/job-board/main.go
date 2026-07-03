@@ -1,4 +1,4 @@
-// job-board-mock —— test-only HTTP server serving captured job-board fixtures.
+// external-mock —— test-only HTTP server serving captured job-board fixtures.
 //
 // Started by docker-compose.dev.yml alongside the backend; backend env vars
 // (GREENHOUSE_BASE_URL, LEVER_BASE_URL, ...) point at this server so e2e
@@ -140,7 +140,7 @@ func (s *server) run(port string) error {
 	mux := http.NewServeMux()
 	s.routes(mux)
 	addr := ":" + port
-	s.log.Info("job-board-mock listening", "addr", addr, "root", s.root)
+	s.log.Info("external-mock listening", "addr", addr, "root", s.root)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           s.logRequests(mux),

@@ -207,7 +207,7 @@ OAuth state CSRF:
   rejects on mismatch / missing / expired
 
 Dev/e2e: same flow but `GOOGLE_OAUTH_BASE_URL` + `GOOGLE_CALENDAR_BASE_URL`
-env vars point at `job-board-mock`. Mock:
+env vars point at `external-mock`. Mock:
 
 - `GET /google-oauth/auth?...` → 302 to backend callback with
   `code=mock-auth-code-<token>` and the `state` echoed back

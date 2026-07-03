@@ -8,7 +8,7 @@
 // 分别渲)。这个 spec 把 mock reply 设为含 5 个 markdown feature 的一段
 // 体，verify 答案区里每个 feature 都正确渲染。
 //
-// next_reply scripting endpoint 是 next_tool 的对称扩展 (同 job-board-mock
+// next_reply scripting endpoint 是 next_tool 的对称扩展 (同 external-mock
 // 的 single-slot queue 模式)，不是新加 test-only endpoint —— mock
 // provider 整个 codepath 已经是 env-gated 的 dev/test 路径。
 

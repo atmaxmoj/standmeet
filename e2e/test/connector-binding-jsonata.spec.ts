@@ -1,7 +1,7 @@
 // connector-binding-jsonata.spec.ts —— #155 §8 区 C（声明式 JSONata 绑定）。作者给 SaaS spec +
 // 绑定（category + 每契约 op → operationId + request/response JSONata），后端装配期校验 + 运行时
 // 执行：request JSONata 从契约输入构 SaaS body；response JSONata 从 SaaS 响应抽契约输出；category
-// 填 "calendar"/"mail" 槽。e2e 不碰真 Google：内联 spec 的 servers 指 job-board-mock 的 gcal 端点；
+// 填 "calendar"/"mail" 槽。e2e 不碰真 Google：内联 spec 的 servers 指 external-mock 的 gcal 端点；
 // 响应归一断言走 diag 端点，category 槽断言走 booker 的 calendar_book 装配。
 
 import { test, expect } from '@/fixtures/test';
@@ -62,7 +62,7 @@ async function diagListBusy(
 // ─── inlined mock-shape control (assumed §8-C mock extensions; NOT in fixtures) ───
 // gcal.ts 的 setMockBusy 喂的是理想 freeBusy 形状。下面的运行时降级测试需要喂
 // 「畸形/缺字段/数组」形状，所以这里直接打 mock 的（假设新增的）形状控制端点。
-// 假设 job-board-mock 在 /__mock/gcal 下加：
+// 假设 external-mock 在 /__mock/gcal 下加：
 //   POST /__mock/gcal/set_freebusy_raw  { body }  —— 让下次 freeBusy 原样回这个 JSON
 //   POST /__mock/gcal/set_event_shape   { shape:'object'|'array' } —— 控 events.insert 回形
 // （fixtures 不动；实现 mock 时落这两个端点，落了把这些 helper 收编进 gcal.ts。）

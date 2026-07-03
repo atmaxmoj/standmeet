@@ -4,7 +4,7 @@
 // land in tasks 25-28; until then specs that call these get expected
 // 404/500 errors.
 //
-// Also exposes /__mock/gcal/{set_busy,reset,events} on the job-board-mock
+// Also exposes /__mock/gcal/{set_busy,reset,events} on the external-mock
 // so specs can seed FreeBusy fixtures and inspect what Events.insert
 // the backend made.
 

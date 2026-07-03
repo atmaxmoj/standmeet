@@ -21,7 +21,7 @@
 
 ### Job board mock server
 
-新加一个 docker-compose service `job-board-mock`：一个轻量 HTTP server（Go 写在 `backend/cmd/job-board-mock` 跟 backend 同 binary 复用，**不**用 node express），按下面的路径喂 fixture JSON / RSS：
+新加一个 docker-compose service `external-mock`：一个轻量 HTTP server（Go 写在 `backend/cmd/external-mock` 跟 backend 同 binary 复用，**不**用 node express），按下面的路径喂 fixture JSON / RSS：
 
 ```
 GET  /greenhouse/v1/boards/{co}/jobs?content=true
@@ -41,12 +41,12 @@ mock server 接两个 query param 让 spec 切换"今天看到的世界"：
 backend 通过环境变量切 base URL，**production 这些 env 不设**：
 
 ```
-GREENHOUSE_BASE_URL=http://job-board-mock:9000/greenhouse
-LEVER_BASE_URL=http://job-board-mock:9000/lever
-ASHBY_BASE_URL=http://job-board-mock:9000/ashby
-REMOTEOK_BASE_URL=http://job-board-mock:9000/remoteok
-WWR_BASE_URL=http://job-board-mock:9000/wwr
-HN_BASE_URL=http://job-board-mock:9000/hn
+GREENHOUSE_BASE_URL=http://external-mock:9000/greenhouse
+LEVER_BASE_URL=http://external-mock:9000/lever
+ASHBY_BASE_URL=http://external-mock:9000/ashby
+REMOTEOK_BASE_URL=http://external-mock:9000/remoteok
+WWR_BASE_URL=http://external-mock:9000/wwr
+HN_BASE_URL=http://external-mock:9000/hn
 ```
 
 fetcher 代码里默认 const = 真 URL，env 非空就 override。同时**所有 fetcher 都走同一个注入的 `*http.Client`**（已有 pattern），spec 不重写 client，只重写 URL。
@@ -360,7 +360,7 @@ e2e/fixtures/application/
 
 ## CI / 本地 make 集成
 
-新 docker-compose service `job-board-mock` 起在 9000 port。`make test` 已有的 docker-compose up --wait 会带它起来。
+新 docker-compose service `external-mock` 起在 9000 port。`make test` 已有的 docker-compose up --wait 会带它起来。
 
 新增 spec 自然被 `pnpm exec playwright test` 收集，**不**需要改 playwright config。
 

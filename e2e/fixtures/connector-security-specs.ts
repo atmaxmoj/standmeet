@@ -90,7 +90,7 @@ export function specConsumeRedirectsInternal(): string {
     openapi: '3.0.3',
     info: { title: 'Consume-time SSRF probe', version: '1.0.0' },
     // benign allow-listed base (passes assemble); the mock 302s any path → 169.254.169.254 at runtime.
-    servers: [{ url: 'http://job-board-mock:9000/__mock/ssrf/redirect-internal' }],
+    servers: [{ url: 'http://external-mock:9000/__mock/ssrf/redirect-internal' }],
     paths: {
       '/freebusy': {
         post: {
@@ -147,9 +147,9 @@ export function specOAuthDanceRedirectsInternal(): string {
           flows: {
             authorizationCode: {
               // authorize is browser-followed (localhost mock); token is backend-dialed →
-              // allow-listed job-board-mock so it assembles, then 302s the exchange inward.
+              // allow-listed external-mock so it assembles, then 302s the exchange inward.
               authorizationUrl: `${MOCK}/__mock/oauth/authorize?redirect=internal`,
-              tokenUrl: 'http://job-board-mock:9000/__mock/oauth/token?redirect=internal',
+              tokenUrl: 'http://external-mock:9000/__mock/oauth/token?redirect=internal',
               scopes: { read: 'read' },
             },
           },

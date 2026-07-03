@@ -305,7 +305,7 @@ booker → CalendarContract.ListBusy(conn, t0, t1)
   protocol 回 `{connected}`）/ `GET …/{id}/status`(`{id,category,kind,has_credentials,connected}`) /
   `POST/DELETE …/{id}/disconnect` / `GET /api/admin/connectors`(`{connectors:[…]}`)。
   运行时直验 diag：`POST /internal/diag/connector/{id}/{list-busy,create-event}`。
-- **mock 端（要建，job-board-mock 里加）**：`/__mock/oauth/*`(可编程 authorize/token，覆盖 deny/
+- **mock 端（要建，external-mock 里加）**：`/__mock/oauth/*`(可编程 authorize/token，覆盖 deny/
   invalid_client/state/network) / `/__mock/caldav/{id}/{events,fail,reset}` / 扩 `/__mock/smtp/*`。
 - **品类契约**：`CalendarContract.{ListBusy,CreateEvent,CancelEvent}` / `MailContract.Send`（= 现有 proxy）。
 
@@ -340,7 +340,7 @@ booker → CalendarContract.ListBusy(conn, t0, t1)
 - **spec 摄入**：external `$ref` **拒**（无中心 fetch）；只收 **3.0**；YAML/JSON 同 parse 路；size 上限拒超大。
 - **openIdConnect ≈ oauth2**（派生同形，多 discovery URL 提示）。
 - **凭据派生**：scheme 多选 owner 自选；oauth2 选中的 scope **真带进 dance**（mock 录 authorize scope 验）。
-- **要建的 mock 端**（job-board-mock 里）：`/__mock/oauth/*`（可编程 authorize/token + 录 scope/调用数）、
+- **要建的 mock 端**（external-mock 里）：`/__mock/oauth/*`（可编程 authorize/token + 录 scope/调用数）、
   `/__mock/sendgrid/*`、`/__mock/caldav/{id}/*`、`/__mock/ssrf/*`，+ gcal `set_freebusy_raw`/`set_event_shape`。
 - **新 diag**：`POST /internal/diag/connector/{id}/send`（mail 版，对应 list-busy/create-event）。
 
