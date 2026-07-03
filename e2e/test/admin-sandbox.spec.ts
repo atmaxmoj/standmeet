@@ -9,6 +9,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -21,6 +22,7 @@ interface Workspace { id: string; mod_time: string; age_secs: number }
 interface WorkspaceList { workspaces: Workspace[] }
 interface SweepResult { removed: number }
 
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('admin sandbox management · #147', () => {
   let request: APIRequestContext;
   let csrf: string;
@@ -55,5 +57,18 @@ test.describe('admin sandbox management · #147', () => {
       expect(sweepRes.status(), 'sweep 200').toBe(200);
       const swept = await sweepRes.json() as SweepResult;
       expect(typeof swept.removed, 'sweep returns removed count').toBe('number');
+    });
+
+  // 前端:admin system section 有 sandbox 管理面板,owner 能点 sweep。
+  test('admin system section renders the sandbox panel with a working sweep button',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'system');
+      await page.waitForURL('**/admin/system', { timeout: 5_000 });
+      const panel = page.getByTestId('sandbox-panel');
+      await expect(panel).toBeVisible();
+      await expect(panel).toContainText(/mcp sandbox/i);
+      // sweep 按钮点了不炸(无过期工作区 → removed 0,面板照常)。
+      await page.getByTestId('sandbox-sweep').click();
+      await expect(panel).toBeVisible();
     });
 });

@@ -6,6 +6,7 @@
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
+import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
 import {
   useSystemInfo, deployView, healthList, type SystemInfo,
 } from '@/lib/admin/use-system-info';
@@ -25,6 +26,7 @@ export function SystemSection() {
         <JobsTable />
         <HealthChecks info={info} />
         <InferenceUsagePanel />
+        <SandboxPanel />
       </div>
     </>
   );

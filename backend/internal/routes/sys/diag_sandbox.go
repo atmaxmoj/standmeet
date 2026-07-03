@@ -35,6 +35,18 @@ func MountDiagSandbox(r chi.Router, deps DiagSandboxDeps) {
 	r.Post("/diag/sandbox/sweep", diagWorkspaceSweepHandler(deps))
 }
 
+// MountAdminSandbox —— #147 owner-authed admin sandbox 面。复用同一批 handler,挂在
+// /api/admin/sandbox/*(server 在 WithOwner+RequireCSRF group 内调,故天然 owner-authed +
+// CSRF 保护)。Workspaces 为 nil(未配工作区子系统)→ 不挂。
+func MountAdminSandbox(r chi.Router, deps DiagSandboxDeps) {
+	if deps.Workspaces == nil {
+		return
+	}
+	r.Get("/sandbox/workspaces", diagWorkspaceListHandler(deps))
+	r.Post("/sandbox/ttl", diagWorkspaceTTLHandler(deps))
+	r.Post("/sandbox/sweep", diagWorkspaceSweepHandler(deps))
+}
+
 type workspaceListResp struct {
 	Workspaces []sandboxws.Workspace `json:"workspaces"`
 }

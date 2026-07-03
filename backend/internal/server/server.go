@@ -135,6 +135,8 @@ func mountAdmin(r chi.Router, deps *Deps) {
 			adminH.MountAuthed(r)
 			// 连接器 diag（owner-authed，session cookie path=/api/admin 才到这）。
 			sysroutes.MountDiagConnector(r, deps.DiagConnector)
+			// #147 沙箱管理面（owner-authed；复用 diag handler，路径 /api/admin/sandbox/*）。
+			sysroutes.MountAdminSandbox(r, deps.DiagSandbox)
 			deps.PluginRegistry.MountAllAdminRoutes(r)
 		})
 	})
