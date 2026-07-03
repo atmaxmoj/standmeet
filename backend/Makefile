@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container arch connector-boundary build-check golangci escape-lint secrets
+lint: fmt-check golangci-config max-lines routes-cyclo no-nil-container no-raw-http arch connector-boundary build-check golangci escape-lint secrets
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -41,6 +41,11 @@ routes-cyclo:
 # Optional uses *T; collections always return empty container.
 no-nil-container:
 	@tool=$$(mktemp) && ( cd ../infra/scripts/check-no-nil-container && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; exit $$rc
+
+# All outbound HTTP must go through internal/httpx (retry + timeout + egress);
+# raw &http.Client{} / http.Get/Post anywhere else opts out of that infra.
+no-raw-http:
+	@bash ../infra/scripts/check-no-raw-http.sh
 
 # go-arch-lint enforces the DDD layer arrows (.go-arch-lint.yml).
 arch:
