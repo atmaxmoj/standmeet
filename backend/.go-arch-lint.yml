@@ -97,6 +97,8 @@ components:
     in: internal/cryptobox                # AES-GCM 对称加密 helper（owner key 存储等）
   retry:
     in: internal/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
+  httpx:
+    in: internal/httpx                    # #132 唯一出站 HTTP client（retry+timeout+可组合 base）；leaf，所有出站者依赖它
   sysroutes:
     in: internal/routes/sys
   adminroutes:
@@ -148,6 +150,7 @@ deps:
       - usecases
       - mailer
       - retry
+      - httpx
       - connectoropenapi
     anyVendorDeps: true
 
@@ -177,6 +180,12 @@ deps:
   # retry —— #132 通用可配重试 infra leaf：纯 stdlib (context/time)，无 internal 依赖。
   # connector 代调外部（gcal/mailer，第三方易抖）按 call-class 在它之上配策略（D-6/D-7）。
   retry:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # httpx —— #132 唯一出站 HTTP client leaf：纯 stdlib (net/http/context/time)，无 internal 依赖。
+  # check-no-raw-http lint 保证所有出站 http.Client 只在这里构造；各出站子系统依赖它。
+  httpx:
     mayDependOn: []
     anyVendorDeps: true
 
@@ -267,6 +276,7 @@ deps:
       - capreg
       - jobsuc
       - jobsmcp
+      - httpx
     anyVendorDeps: true
 
   # inference 是 LLM provider 抽象（Anthropic / OpenAI / Mock）。
@@ -277,6 +287,7 @@ deps:
     mayDependOn:
       - cryptobox
       - domain   # AICredential value object，统一 byoai 跟 owner key 的 shape
+      - httpx
     anyVendorDeps: true
 
   # agentcore —— public facade：把 internal/inference 的 agentic loop 表面
@@ -375,6 +386,7 @@ deps:
   jobfetch:
     mayDependOn:
       - domain
+      - httpx
     anyVendorDeps: true
 
   # gotenberg —— thin HTTP client for the Gotenberg sidecar (headless
@@ -382,7 +394,8 @@ deps:
   # 不依赖 domain / postgres —— 调 RenderURL(printURL) 就完事；wireup 里
   # 通过 adapter 把 *domain.Application + qrURL 编码进 print URL。
   gotenberg:
-    mayDependOn: []
+    mayDependOn:
+      - httpx
     anyVendorDeps: true
 
   # printsess —— Redis 60s 一次性 stash，存放 gotenberg 取走的 resume
@@ -400,13 +413,15 @@ deps:
   marketplace:
     mayDependOn:
       - domain
+      - httpx
     anyVendorDeps: true
 
   # captcha —— Cloudflare Turnstile + noop verifier。Verifier 接口注入到
   # middleware (LoginGuard) 做请求级校验。无 internal 依赖（接收 secret /
   # token / IP 全是 string，输出 sentinel error）。
   captcha:
-    mayDependOn: []
+    mayDependOn:
+      - httpx
     anyVendorDeps: true
 
   # cryptobox 是无依赖的 AES-GCM helper；任何 internal 包可以 import 来落盘
@@ -476,6 +491,7 @@ deps:
       - apierr
       - capreg # D-2: /api/v1/sessions 返 capability_state + part_ids，读 Registry
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) 解封 X-BYOAI-Key header
+      - httpx   # #132 /api/v1 inference-models 列表探测走统一 client
       - prompts     # GET /api/v1/prompts/{id} 直接 dump fragment 文本
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
     anyVendorDeps: true

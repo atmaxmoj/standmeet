@@ -16,6 +16,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
 // ErrBlockedEgress —— 出站目标落在内网（被 SSRF 守卫拦下）。
@@ -62,22 +64,24 @@ func (a EgressAllow) CheckEgressURL(rawURL string) error {
 // 在这里兜底。所有 connector（内置 + 上传）共用它，归一。
 func (a EgressAllow) GuardedHTTPClient() *http.Client {
 	base := &net.Dialer{Timeout: egressDialTimeout}
-	return &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				if derr := a.checkDial(ctx, addr); derr != nil {
-					return nil, derr
-				}
-				return base.DialContext(ctx, network, addr)
-			},
-		},
-		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
-			if a.staticBlocked(req.URL.Hostname()) {
-				return fmt.Errorf("%w: redirect to %q", ErrBlockedEgress, req.URL.Hostname())
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if derr := a.checkDial(ctx, addr); derr != nil {
+				return nil, derr
 			}
-			return nil
+			return base.DialContext(ctx, network, addr)
 		},
 	}
+	// 经 httpx 归一(统一 client + SSRF transport 组合)。NoRetry —— connector 层带幂等键
+	// 自己管重试,transport 再重试会双重发。
+	client := httpx.NewClient(httpx.Options{Base: transport, NoRetry: true})
+	client.CheckRedirect = func(req *http.Request, _ []*http.Request) error {
+		if a.staticBlocked(req.URL.Hostname()) {
+			return fmt.Errorf("%w: redirect to %q", ErrBlockedEgress, req.URL.Hostname())
+		}
+		return nil
+	}
+	return client
 }
 
 // staticBlocked —— 不做 DNS 的拦截判定：白名单优先；IP 字面量查内网段；否则查内网主机名。

@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -80,7 +81,7 @@ func validateInlineFileURL(raw string) error {
 func doInlineFileFetch(
 	ctx context.Context, pendingID, rawURL string, idx int,
 ) (usecases.FileInput, error) {
-	client := &http.Client{Timeout: capFileFetchTimeout}
+	client := httpx.NewClient(httpx.Options{Timeout: capFileFetchTimeout})
 	req, rerr := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if rerr != nil {
 		return usecases.FileInput{}, fmt.Errorf("files[%d]: build req: %w", idx, rerr)

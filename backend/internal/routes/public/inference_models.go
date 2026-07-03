@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
 const (
@@ -149,7 +150,7 @@ func callUpstreamModelsAPI(
 	if herr != nil {
 		return nil, herr
 	}
-	client := &http.Client{Timeout: listModelsTimeout}
+	client := httpx.NewClient(httpx.Options{Timeout: listModelsTimeout})
 	resp, derr := client.Do(httpReq)
 	if derr != nil {
 		return nil, fmt.Errorf("upstream: %w", derr)

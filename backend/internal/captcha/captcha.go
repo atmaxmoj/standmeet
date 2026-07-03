@@ -14,6 +14,8 @@ import (
 	"errors"
 	"net/http"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
 // Provider 标识装配的 verifier 类型。
@@ -76,5 +78,5 @@ const defaultHTTPTimeout = 10 * time.Second
 
 // defaultHTTPClient —— Turnstile siteverify 默认 client。
 func defaultHTTPClient() *http.Client {
-	return &http.Client{Timeout: defaultHTTPTimeout}
+	return httpx.NewClient(httpx.Options{Timeout: defaultHTTPTimeout})
 }

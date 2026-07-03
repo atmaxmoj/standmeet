@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
 // defaults — overridable per-Client.
@@ -39,7 +40,7 @@ type Client struct {
 // the wireup layer). Empty string → built-in real-upstream default.
 func NewFromEnv(githubBase, skillsmpBase string) *Client {
 	return &Client{
-		http: &http.Client{Timeout: httpTimeout},
+		http: httpx.NewClient(httpx.Options{Timeout: httpTimeout}),
 		cache: &directoryCache{
 			entries: map[string]cacheEntry{},
 		},

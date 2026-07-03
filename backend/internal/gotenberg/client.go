@@ -25,6 +25,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
 // ErrNotConfigured —— surfaced by NoopClient when commit is invoked
@@ -56,7 +58,7 @@ type Client struct {
 func New(endpoint string) *Client {
 	return &Client{
 		endpoint: endpoint,
-		http:     &http.Client{Timeout: gotenbergTimeout},
+		http:     httpx.NewClient(httpx.Options{Timeout: gotenbergTimeout}),
 	}
 }
 

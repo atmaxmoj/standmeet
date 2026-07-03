@@ -2,6 +2,7 @@ package inference
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -66,8 +67,11 @@ func doReqCtxStatus(ctx context.Context, t *testing.T, url string) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	if derr := drainResp(resp); derr != nil {
-		t.Logf("drain response: %v", derr)
+	if _, cerr := io.Copy(io.Discard, resp.Body); cerr != nil {
+		t.Errorf("drain body: %v", cerr)
+	}
+	if cerr := resp.Body.Close(); cerr != nil {
+		t.Errorf("close body: %v", cerr)
 	}
 }
 

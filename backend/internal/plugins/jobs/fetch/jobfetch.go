@@ -19,10 +19,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
 // Source kind strings —— 跟 schema CHECK 约束 + register_source 入参对齐。
@@ -87,7 +87,7 @@ func New(b *BaseURLs) *Registry {
 	if b == nil {
 		b = &BaseURLs{}
 	}
-	client := &http.Client{Timeout: defaultHTTPTimeout}
+	client := httpx.NewClient(httpx.Options{Timeout: defaultHTTPTimeout})
 	return &Registry{
 		fetchers: map[string]Fetcher{
 			KindGreenhouse:      newGreenhouseFetcher(client, b.Greenhouse),
