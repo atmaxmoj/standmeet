@@ -60,9 +60,9 @@ type WritingLister interface {
 }
 
 // ReportStore —— summarize_conversation persistence + the report read path.
-// Create still takes *postgres.CreateReportInput (the shared wire shape); the
-// eval's no-op store ignores it.
+// #129 一会话一份:Upsert 按 conversation 改写原行(revise)，report_id 稳定。eval 的
+// no-op store 忽略入参。
 type ReportStore interface {
-	Create(ctx context.Context, in *postgres.CreateReportInput) (domain.ChatReport, error)
+	Upsert(ctx context.Context, in *postgres.UpsertReportInput) (domain.ChatReport, error)
 	GetByID(ctx context.Context, reportID string) (domain.ChatReport, error)
 }

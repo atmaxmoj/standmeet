@@ -1,6 +1,6 @@
-// chat_reports.go —— I.3: chat_reports 表的 CRUD。append-only (每次
-// summarize_conversation 调存一份；不 update 老 row 让 owner 看到生成
-// 历史)。
+// chat_reports.go —— I.3: chat_reports 表的 CRUD。#129 一会话一份:按
+// conversation_id upsert —— 第二次 summarize_conversation 改写原行(revise)，
+// report_id 稳定，不 append 出重复报告。
 
 package postgres
 
@@ -25,16 +25,17 @@ func NewChatReportRepo(pool *Pool) *ChatReportRepo {
 	return &ChatReportRepo{pool: pool}
 }
 
-// CreateReportInput —— Create 入参。
-type CreateReportInput struct {
+// UpsertReportInput —— Upsert 入参。
+type UpsertReportInput struct {
 	OwnerID        string
 	ConversationID string
 	HTML           string
 }
 
-// Create —— 写一行 chat_report 返 domain.ChatReport。
-func (r *ChatReportRepo) Create(
-	ctx context.Context, in *CreateReportInput,
+// Upsert —— #129 一会话一份:conversation 已有 report 则改写 html(revise) 返同一行,
+// 否则新建。返 domain.ChatReport(report_id 稳定)。
+func (r *ChatReportRepo) Upsert(
+	ctx context.Context, in *UpsertReportInput,
 ) (domain.ChatReport, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
@@ -44,11 +45,11 @@ func (r *ChatReportRepo) Create(
 	if err != nil {
 		return domain.ChatReport{}, fmt.Errorf("parse conv id: %w", err)
 	}
-	row, qerr := dbq.New(r.pool).CreateChatReport(ctx, dbq.CreateChatReportParams{
+	row, qerr := dbq.New(r.pool).UpsertChatReport(ctx, dbq.UpsertChatReportParams{
 		OwnerID: ownerUUID, ConversationID: convUUID, Html: in.HTML,
 	})
 	if qerr != nil {
-		return domain.ChatReport{}, fmt.Errorf("create chat report: %w", qerr)
+		return domain.ChatReport{}, fmt.Errorf("upsert chat report: %w", qerr)
 	}
 	return toDomainChatReport(&row), nil
 }
@@ -71,32 +72,6 @@ func (r *ChatReportRepo) GetByID(
 		return domain.ChatReport{}, fmt.Errorf("get chat report: %w", qerr)
 	}
 	return toDomainChatReport(&row), nil
-}
-
-// ListByConversation —— 某 conversation 的全 reports，新 → 老。
-func (r *ChatReportRepo) ListByConversation(
-	ctx context.Context, ownerID, conversationID string,
-) ([]domain.ChatReport, error) {
-	ownerUUID, err := parseUUID(ownerID)
-	if err != nil {
-		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
-	}
-	convUUID, err := parseUUID(conversationID)
-	if err != nil {
-		return nil, fmt.Errorf("parse conv id: %w", err)
-	}
-	rows, qerr := dbq.New(r.pool).ListChatReportsByConversation(ctx,
-		dbq.ListChatReportsByConversationParams{
-			ConversationID: convUUID, OwnerID: ownerUUID,
-		})
-	if qerr != nil {
-		return nil, fmt.Errorf("list chat reports: %w", qerr)
-	}
-	out := make([]domain.ChatReport, 0, len(rows))
-	for i := range rows {
-		out = append(out, toDomainChatReport(&rows[i]))
-	}
-	return out, nil
 }
 
 func toDomainChatReport(row *dbq.ChatReport) domain.ChatReport {

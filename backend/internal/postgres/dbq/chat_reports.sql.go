@@ -11,31 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createChatReport = `-- name: CreateChatReport :one
-INSERT INTO chat_reports (owner_id, conversation_id, html)
-VALUES ($1, $2, $3)
-RETURNING id, owner_id, conversation_id, html, created_at
-`
-
-type CreateChatReportParams struct {
-	OwnerID        pgtype.UUID
-	ConversationID pgtype.UUID
-	Html           string
-}
-
-func (q *Queries) CreateChatReport(ctx context.Context, arg CreateChatReportParams) (ChatReport, error) {
-	row := q.db.QueryRow(ctx, createChatReport, arg.OwnerID, arg.ConversationID, arg.Html)
-	var i ChatReport
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.ConversationID,
-		&i.Html,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const getChatReport = `-- name: GetChatReport :one
 SELECT id, owner_id, conversation_id, html, created_at FROM chat_reports WHERE id = $1
 `
@@ -53,39 +28,29 @@ func (q *Queries) GetChatReport(ctx context.Context, id pgtype.UUID) (ChatReport
 	return i, err
 }
 
-const listChatReportsByConversation = `-- name: ListChatReportsByConversation :many
-SELECT id, owner_id, conversation_id, html, created_at FROM chat_reports
-WHERE conversation_id = $1 AND owner_id = $2
-ORDER BY created_at DESC
+const upsertChatReport = `-- name: UpsertChatReport :one
+INSERT INTO chat_reports (owner_id, conversation_id, html)
+VALUES ($1, $2, $3)
+ON CONFLICT (conversation_id) DO UPDATE SET html = EXCLUDED.html
+RETURNING id, owner_id, conversation_id, html, created_at
 `
 
-type ListChatReportsByConversationParams struct {
-	ConversationID pgtype.UUID
+type UpsertChatReportParams struct {
 	OwnerID        pgtype.UUID
+	ConversationID pgtype.UUID
+	Html           string
 }
 
-func (q *Queries) ListChatReportsByConversation(ctx context.Context, arg ListChatReportsByConversationParams) ([]ChatReport, error) {
-	rows, err := q.db.Query(ctx, listChatReportsByConversation, arg.ConversationID, arg.OwnerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ChatReport
-	for rows.Next() {
-		var i ChatReport
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.ConversationID,
-			&i.Html,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+// #129 一会话一份:conversation 已有 report → 改写 html(revise)，返回同一行(report_id 稳定)。
+func (q *Queries) UpsertChatReport(ctx context.Context, arg UpsertChatReportParams) (ChatReport, error) {
+	row := q.db.QueryRow(ctx, upsertChatReport, arg.OwnerID, arg.ConversationID, arg.Html)
+	var i ChatReport
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.ConversationID,
+		&i.Html,
+		&i.CreatedAt,
+	)
+	return i, err
 }

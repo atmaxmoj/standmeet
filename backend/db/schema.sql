@@ -912,9 +912,9 @@ CREATE INDEX conversation_ghosts_owner_idx
     ON conversation_ghosts(owner_id, shown_at DESC);
 
 -- chat_reports —— I.3: visitor chat 走完 (或中途) 调 summarize_conversation
--- tool → AI 生成 HTML 报告，落这一行；每次调存一份 (允许重生)，session
--- 不 mark ended (跟老 /summary 的 ended_at 不同；新 tool 是 artifact 不
--- 是终态)。
+-- tool → AI 生成 HTML 报告，落这一行。#129 一会话一份:conversation_id UNIQUE，
+-- 第二次 summarize upsert 改写原行 (revise)，report_id 稳定、不 append 出重复报告。
+-- session 不 mark ended (新 tool 是 artifact，不是终态)。
 --
 -- html 是 AI 生成的完整 HTML body (含 <h1>/<ul>/<table>/<strong> 等)。前
 -- 端在 sandboxed iframe 里渲，独立 /report/{id} 路由可直接打开。
@@ -923,13 +923,12 @@ CREATE INDEX conversation_ghosts_owner_idx
 CREATE TABLE chat_reports (
     id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id          uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    conversation_id   uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    conversation_id   uuid          NOT NULL UNIQUE REFERENCES conversations(id) ON DELETE CASCADE,
     html              text          NOT NULL,
     created_at        timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE INDEX chat_reports_conv_idx
-    ON chat_reports(conversation_id, created_at DESC);
+-- conversation_id UNIQUE 自带查询索引，原 (conversation_id, created_at) 复合索引冗余，删掉。
 CREATE INDEX chat_reports_owner_idx
     ON chat_reports(owner_id, created_at DESC);
 

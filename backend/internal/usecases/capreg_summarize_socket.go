@@ -56,7 +56,7 @@ func runSummarizeSock(
 	if gerr != nil {
 		return nil, gerr
 	}
-	row, perr := deps.Reports.Create(ctx, &postgres.CreateReportInput{
+	row, perr := deps.Reports.Upsert(ctx, &postgres.UpsertReportInput{
 		OwnerID: req.OwnerID, ConversationID: req.ConversationID, HTML: html,
 	})
 	if perr != nil {
