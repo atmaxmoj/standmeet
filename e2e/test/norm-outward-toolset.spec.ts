@@ -13,7 +13,7 @@
 // backtick 原始串里误用了 Go 字符串拼接 `"+`)。Go 侧有 schema_valid_test 兜底,这条在
 // e2e 把"真客户端能发现完整工具面"钉死。
 //
-// golden = 全部 owner_only 工具(内建 46 + jobs 插件 10 = 56)。加/删 owner 工具时这条
+// golden = 全部 owner_only 工具(内建 47 + jobs 插件 10 = 57)。加/删 owner 工具时这条
 // 会红 —— 那是**有意**的:逼你同步更新工具面预期。
 
 import { test, expect } from '@/fixtures/test';
@@ -42,7 +42,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // chat / prompts / roles
   'chat.show_grounding',
   'prompt_create', 'prompt_list', 'prompt_delete',
-  'role_create', 'role_list', 'role_delete',
+  'role_create', 'role_list', 'role_delete', 'roles.set_dock_buttons',
   // mcp servers / skills
   'mcp_server_create', 'mcp_server_list', 'mcp_server_delete',
   'skill_create', 'skill_list', 'skill_delete',

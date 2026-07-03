@@ -8,6 +8,13 @@ import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
+// DockButtonConfig —— #109/#110 一个 dock 按钮的 owner 配置：挂哪个能力 + 点击发出的触发词。
+// 一个 role 最多两个（chat 两个按钮位）。
+export interface DockButtonConfig {
+  capability_id: string;
+  trigger: string;
+}
+
 export interface CreateRoleInput {
   name: string;
   description?: string;
@@ -16,6 +23,7 @@ export interface CreateRoleInput {
   corpus_uris?: string[];
   skill_ids?: string[];
   mcp_server_ids?: string[];
+  dock_buttons?: DockButtonConfig[];
 }
 
 export interface RoleView {
@@ -27,6 +35,7 @@ export interface RoleView {
   corpus_uris: string[];
   skill_ids: string[];
   mcp_server_ids: string[];
+  dock_buttons?: DockButtonConfig[];
   active_codes: number;
   is_builtin: boolean;
 }
@@ -46,6 +55,7 @@ export async function createRole(
       corpus_uris: input.corpus_uris ?? [],
       skill_ids: input.skill_ids ?? [],
       mcp_server_ids: input.mcp_server_ids ?? [],
+      dock_buttons: input.dock_buttons ?? [],
     },
   });
   if (res.status() !== 201) {

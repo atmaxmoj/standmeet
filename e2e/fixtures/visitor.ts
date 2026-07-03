@@ -15,8 +15,18 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 export interface SessionCapability {
   id: string;
   enabled: boolean;
+  // title —— 透传 MCP 工具的 title（人类可读显示名，dock 按钮 label 用它，无 fallback）。
+  title?: string;
   quota_remaining?: number;
   policy_summary?: string;
+}
+
+// DockButton —— #109/#110 会话里冻结、可渲染的 dock 按钮：能力 id + 显示名(title) + 触发词。
+// 已过滤掉 code-deny 掉的能力（那些根本不出现在按钮里）。
+interface DockButton {
+  capability_id: string;
+  title: string;
+  trigger: string;
 }
 
 export interface VisitorSession {
@@ -33,6 +43,8 @@ export interface VisitorSession {
   // system prompt 时用 [visitor-header fragment, persona inline, ...cap
   // fragments] 顺序。空字符串 = role 没自定义 persona / 没挂 skill。
   system_prompt_persona?: string;
+  // #109/#110: owner 在 role 上配的 ≤2 个 dock 按钮（冻结、过滤 code-deny 后）。
+  dock_buttons?: DockButton[];
 }
 
 export interface IssueSessionInput {
