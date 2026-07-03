@@ -137,7 +137,20 @@ func DriveAgentLoop(
 	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
 	state := consumeAgentEvents(ctx, em, iter)
 	maybeEmitGhosts(ctx, em, in, state)
+	recordTurnUsage(ctx, in, state)
 	sink.Done(state.stop)
+}
+
+// recordTurnUsage —— #106: turn 收尾把累计 token 交给注入的 RecordUsage(有 cred/model + 有用量时)。
+// nil recorder(无状态 smoke) / BYOAI(route 传 no-op) / 零用量 → 不记。
+func recordTurnUsage(ctx context.Context, in *AgentTurnInput, state *turnState) {
+	if in.RecordUsage == nil || in.Cred == nil {
+		return
+	}
+	if state.inTokens == 0 && state.outTokens == 0 {
+		return
+	}
+	in.RecordUsage(ctx, in.Cred.Model, state.inTokens, state.outTokens)
 }
 
 // turnState —— consumeAgentEvents 边走边累的转态。stop 是 ADK 给的
@@ -146,6 +159,19 @@ func DriveAgentLoop(
 type turnState struct {
 	stop          string
 	assistantText string
+	// inTokens/outTokens —— #106 计费:本 turn 跨 react-loop 每次 LLM 调用的 token 累计
+	// (eino ResponseMeta.Usage)。收尾交给 RecordUsage。
+	inTokens  int
+	outTokens int
+}
+
+// accumUsage —— #106: 把一次 LLM 响应的 token 用量累进 turn(react-loop 会多调,累计)。
+func accumUsage(state *turnState, meta *schema.ResponseMeta) {
+	if meta == nil || meta.Usage == nil {
+		return
+	}
+	state.inTokens += meta.Usage.PromptTokens
+	state.outTokens += meta.Usage.CompletionTokens
 }
 
 // consumeAgentEvents —— ADK iter → sink。每条 AgentEvent 看 Output
@@ -284,6 +310,7 @@ func processAssistantChunk(
 		state.assistantText += chunk.Content
 	}
 	accumulateAssistantToolCalls(chunk.ToolCalls, accum)
+	accumUsage(state, chunk.ResponseMeta)
 	if chunk.ResponseMeta != nil && chunk.ResponseMeta.FinishReason != "" {
 		state.stop = mapFinishReason(chunk.ResponseMeta.FinishReason)
 	}
@@ -299,6 +326,7 @@ func emitAssistantSnapshot(em *loopEmit, msg *schema.Message, state *turnState) 
 		accumulateAssistantToolCalls(msg.ToolCalls, accum)
 		emitToolStarted(em, accum)
 	}
+	accumUsage(state, msg.ResponseMeta)
 	if msg.ResponseMeta != nil && msg.ResponseMeta.FinishReason != "" {
 		state.stop = mapFinishReason(msg.ResponseMeta.FinishReason)
 	}

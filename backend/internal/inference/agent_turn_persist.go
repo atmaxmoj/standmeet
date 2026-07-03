@@ -32,6 +32,10 @@ type TurnResult struct {
 // 一次。ctx 是 detached 过的(客户端断开也活着),所以即便流没人收也照样 sink。
 type PersistFunc func(ctx context.Context, res *TurnResult) error
 
+// RecordUsageFunc —— #106 计费 port。DriveAgentLoop 在 turn 收尾把本轮跨 react-loop 累计的
+// token 用量交出去(model + input/output tokens)。route handler 注入走 inference_usage 表的闭包。
+type RecordUsageFunc func(ctx context.Context, model string, inputTokens, outputTokens int)
+
 // persistedToolCall —— 落库形态的一条 tool 调用。result 原样透(整个 tool 输出
 // JSON);ok 从顶层 envelope 取。跟前端 ToolCallView / dialogRequest.tool_calls
 // 对齐,conversation 读模型 + admin transcript 照原样渲。

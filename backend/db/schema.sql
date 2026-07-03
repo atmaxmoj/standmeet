@@ -932,6 +932,21 @@ CREATE TABLE chat_reports (
 CREATE INDEX chat_reports_owner_idx
     ON chat_reports(owner_id, created_at DESC);
 
+-- inference_usage —— #106 计费:每次 owner-key LLM 调用记一行 {model, input/output tokens}。
+-- BYOAI 是访客自付,不记(route handler 传 no-op recorder)。7 天小表:查询窗口固定 7 天,
+-- boot 时清 >7 天的老行(见 usecases.CleanupInferenceUsage)。admin /inference-usage 出按天×model 聚合。
+CREATE TABLE inference_usage (
+    id             uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id       uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    model          text          NOT NULL,
+    input_tokens   integer       NOT NULL,
+    output_tokens  integer       NOT NULL,
+    created_at     timestamptz   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX inference_usage_owner_time_idx
+    ON inference_usage(owner_id, created_at DESC);
+
 -- banned_ips —— owner 封掉的来源 IP。命中的 IP 在公开 /api/v1 面被 403 挡掉
 -- (visitor chat / session / access-request 全拒)。ip 存 text 精确匹配
 -- chi.RealIP 解出的 host (跟 conversations.client_ip 同口径)。reason 给 owner

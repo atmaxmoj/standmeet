@@ -170,6 +170,15 @@ type HandleAlias struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type InferenceUsage struct {
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	Model        string
+	InputTokens  int32
+	OutputTokens int32
+	CreatedAt    pgtype.Timestamptz
+}
+
 type InstanceSetting struct {
 	ID             int32
 	IsClaimed      bool

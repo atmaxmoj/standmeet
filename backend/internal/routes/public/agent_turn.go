@@ -61,6 +61,7 @@ func runAgentTurn(
 		ReturnDirectly:   ts.ReturnDirectly,
 		Mode:             auth.Data.Mode,
 		Persist:          buildAgentTurnPersist(h, auth, req.ConversationID),
+		RecordUsage:      buildAgentTurnUsage(h, auth),
 		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
 		VisitorTimezone:  req.VisitorTimezone,
@@ -178,6 +179,26 @@ func buildAgentTurnPersist(
 			ToolCalls: res.ToolCalls,
 		})
 	}
+}
+
+// buildAgentTurnUsage —— #106 计费:注入给 inference 的用量 port。owner-key turn 收尾把累计
+// token 记进 inference_usage(闭进 owner_id)。BYOAI 是访客自付,返 nil 不计。best-effort:
+// 记账失败只 warn,不影响这轮答复。
+func buildAgentTurnUsage(h *Handlers, auth authedVisitor) inference.RecordUsageFunc {
+	if !usageBillable(h, auth) {
+		return nil
+	}
+	ownerID := auth.Data.OwnerID
+	return func(ctx context.Context, model string, in, out int) {
+		if err := h.Usage.Record(ctx, ownerID, model, in, out); err != nil {
+			h.Log.Warn("record inference usage", "err", err)
+		}
+	}
+}
+
+// usageBillable —— #106: 只对 owner-key turn 计费(BYOAI 访客自付 / 无 recorder 时不计)。
+func usageBillable(h *Handlers, auth authedVisitor) bool {
+	return h.Usage != nil && auth.Data.Mode != "byoai"
 }
 
 // visitorToolset —— collectVisitorTools 返回打包，避免 revive func-result

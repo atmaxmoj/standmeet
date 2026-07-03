@@ -16,11 +16,9 @@ import (
 	"syscall"
 	"time"
 
-	// time/tzdata 把 IANA 时区库嵌进二进制 —— 静态 CGO_ENABLED=0 binary 跑在
-	// 不带 tzdata 的镜像 (alpine 只装了 ca-certificates+docker-cli) 时,
-	// time.LoadLocation("America/Toronto") 这类命名时区否则会失败,导致 booking
-	// policy 的 working-hours 评估对每个候选 slot 报错 → list_slots 永远 0 个候选。
-	// 嵌进二进制保证任何 owner 的 IANA tz 在任何部署镜像上都能加载。
+	// time/tzdata 把 IANA 时区库嵌进二进制 —— 静态 CGO_ENABLED=0 binary 跑在不带 tzdata 的
+	// 镜像时 time.LoadLocation("America/Toronto") 这类命名时区否则会失败(booking working-hours
+	// 评估对每个候选 slot 报错 → list_slots 永远 0 候选)。嵌进二进制保证任何 owner tz 都能加载。
 	_ "time/tzdata"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -130,6 +128,7 @@ func wireAndServe(
 	})
 	deps.pluginRegistry = buildPluginRegistry(&deps)
 	registerAgentSkills(ctx, &deps)
+	runBootMaintenance(ctx, &deps)
 	return serve(ctx, &deps, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }
 
@@ -179,63 +178,64 @@ func ensureSetupToken(
 
 // runtimeDeps 把 serve 的依赖打包，避免函数参数列表超过 revive argument-limit。
 type runtimeDeps struct {
-	log               *slog.Logger
-	sandboxWorkspaces *sandboxws.Manager
-	db                *pgxpool.Pool
-	rdb               *redis.Client
-	instanceRepo      *postgres.InstanceRepo
-	ownerRepo         *postgres.OwnerRepo
-	keypairRepo       *postgres.OwnerKeypairRepo
-	rawRepo           *postgres.RawRepo
-	wikiRepo          *postgres.WikiRepo
-	wikiRefRepo       *postgres.WikiRefRepo
-	outputRepo        *postgres.OutputRepo
-	corpus            *postgres.Corpus
-	codeRepo          *postgres.CodeRepo
-	codeDenialRepo    *postgres.CodeDenialRepo
-	chatRepo          *postgres.ChatRepo
-	seoRepo           *postgres.SEORepo
-	customPageRepo    *postgres.CustomPageRepo
-	customBuildRepo   *postgres.CustomBuildRepo
-	accessRequestRepo *postgres.AccessRequestRepo
-	jobSourceRepo     *postgres.JobSourceRepo
-	resumeDraftRepo   *postgres.ResumeDraftRepo
-	applicationRepo   *postgres.ApplicationRepo
-	skillRepo         *postgres.SkillRepo
-	mcpServerRepo     *postgres.MCPServerRepo
-	promptRepo        *postgres.PromptRepo
-	roleRepo          *postgres.RoleRepo
-	assetRepo         *postgres.AssetRepo
-	writingRepo       *postgres.WritingRepo
-	writingRefRepo    *postgres.WritingRefRepo
-	calendarRepo      *postgres.CalendarRepo
-	mailRepo          *postgres.MailRepo
-	capabilityRepo    *postgres.CapabilityRepo
-	ghostRepo         *postgres.GhostRepo
-	chatReportRepo    *postgres.ChatReportRepo
-	bannedIPRepo      *postgres.BannedIPRepo
-	appStateRepo      *postgres.AppStateRepo
-	connectorRepo     *postgres.ConnectorRepo
-	connectorSlots    *connector.Slots
-	sandboxRunner     sandbox.Runner
-	storageClient     *storage.Client
-	jobCachePool      *jobcache.Pool
-	jobFetchRegistry  *jobfetch.Registry
-	pluginRegistry    *plugins.Registry
-	sessionStore      *session.OwnerSessionStore
-	visitorStore      *session.VisitorSessionStore
-	queryQueue        *session.QueryQueue
-	providerResolver  inference.Resolver
-	setupTokenHolder  *session.SetupTokenHolder
-	captchaVerifier   captcha.Verifier
-	pdfRenderer       jobsuc.PDFRenderer
-	reportPDFRenderer publicroutes.ReportPDFRenderer
-	printStore        *printsess.Store
-	marketplaceClient *marketplace.Client
-	agentSkills       *capreg.Registry
-	captchaSiteKey    string
-	buildsRoot        string
-	secureCookie      bool
+	log                *slog.Logger
+	sandboxWorkspaces  *sandboxws.Manager
+	db                 *pgxpool.Pool
+	rdb                *redis.Client
+	instanceRepo       *postgres.InstanceRepo
+	ownerRepo          *postgres.OwnerRepo
+	keypairRepo        *postgres.OwnerKeypairRepo
+	rawRepo            *postgres.RawRepo
+	wikiRepo           *postgres.WikiRepo
+	wikiRefRepo        *postgres.WikiRefRepo
+	outputRepo         *postgres.OutputRepo
+	corpus             *postgres.Corpus
+	codeRepo           *postgres.CodeRepo
+	codeDenialRepo     *postgres.CodeDenialRepo
+	chatRepo           *postgres.ChatRepo
+	seoRepo            *postgres.SEORepo
+	customPageRepo     *postgres.CustomPageRepo
+	customBuildRepo    *postgres.CustomBuildRepo
+	accessRequestRepo  *postgres.AccessRequestRepo
+	jobSourceRepo      *postgres.JobSourceRepo
+	resumeDraftRepo    *postgres.ResumeDraftRepo
+	applicationRepo    *postgres.ApplicationRepo
+	skillRepo          *postgres.SkillRepo
+	mcpServerRepo      *postgres.MCPServerRepo
+	promptRepo         *postgres.PromptRepo
+	roleRepo           *postgres.RoleRepo
+	assetRepo          *postgres.AssetRepo
+	writingRepo        *postgres.WritingRepo
+	writingRefRepo     *postgres.WritingRefRepo
+	calendarRepo       *postgres.CalendarRepo
+	mailRepo           *postgres.MailRepo
+	capabilityRepo     *postgres.CapabilityRepo
+	ghostRepo          *postgres.GhostRepo
+	chatReportRepo     *postgres.ChatReportRepo
+	inferenceUsageRepo *postgres.InferenceUsageRepo
+	bannedIPRepo       *postgres.BannedIPRepo
+	appStateRepo       *postgres.AppStateRepo
+	connectorRepo      *postgres.ConnectorRepo
+	connectorSlots     *connector.Slots
+	sandboxRunner      sandbox.Runner
+	storageClient      *storage.Client
+	jobCachePool       *jobcache.Pool
+	jobFetchRegistry   *jobfetch.Registry
+	pluginRegistry     *plugins.Registry
+	sessionStore       *session.OwnerSessionStore
+	visitorStore       *session.VisitorSessionStore
+	queryQueue         *session.QueryQueue
+	providerResolver   inference.Resolver
+	setupTokenHolder   *session.SetupTokenHolder
+	captchaVerifier    captcha.Verifier
+	pdfRenderer        jobsuc.PDFRenderer
+	reportPDFRenderer  publicroutes.ReportPDFRenderer
+	printStore         *printsess.Store
+	marketplaceClient  *marketplace.Client
+	agentSkills        *capreg.Registry
+	captchaSiteKey     string
+	buildsRoot         string
+	secureCookie       bool
 }
 
 // captchaSiteKeyFor —— site_key 只有 TURNSTILE_SECRET 也设了才往前端吐；

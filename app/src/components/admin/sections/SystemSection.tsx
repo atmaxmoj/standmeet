@@ -6,6 +6,7 @@
 'use client';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
 
 export function SystemSection() {
   return (
@@ -20,6 +21,7 @@ export function SystemSection() {
         <ResourcesBlock />
         <JobsTable />
         <HealthChecks />
+        <InferenceUsagePanel />
       </div>
     </>
   );

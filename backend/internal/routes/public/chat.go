@@ -44,7 +44,14 @@ type Handlers struct {
 	PDFRenderer ReportPDFRenderer
 	// AppState —— MCP App（ui:// 卡）跨刷新状态 store；卡经 host 对自己 mcp 那格 CRUD。
 	AppState AppStateStore
-	Log      *slog.Logger
+	// Usage —— #106 计费:记 owner-key LLM 用量。composition root 注入(postgres repo)。
+	Usage UsageRecorder
+	Log   *slog.Logger
+}
+
+// UsageRecorder —— #106 计费 port:记一次 owner-key LLM 用量。BYOAI 不经此(访客自付)。
+type UsageRecorder interface {
+	Record(ctx context.Context, ownerID, model string, inputTokens, outputTokens int) error
 }
 
 // Mount 挂 /api/v1/* 路由。caller 负责前缀。需要访客 session 的路由统一套

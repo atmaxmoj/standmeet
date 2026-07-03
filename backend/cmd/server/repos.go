@@ -32,74 +32,76 @@ import (
 // repoSet —— 所有 postgres Repository 的 bundle，让 wireAndServe 不必逐行
 // `xxxRepo := postgres.NewXxx(c.db)`，cyclo / function-length 友好。
 type repoSet struct {
-	instance      *postgres.InstanceRepo
-	owner         *postgres.OwnerRepo
-	keypair       *postgres.OwnerKeypairRepo
-	raw           *postgres.RawRepo
-	wiki          *postgres.WikiRepo
-	wikiRef       *postgres.WikiRefRepo
-	output        *postgres.OutputRepo
-	code          *postgres.CodeRepo
-	codeDenial    *postgres.CodeDenialRepo
-	chat          *postgres.ChatRepo
-	seo           *postgres.SEORepo
-	customPage    *postgres.CustomPageRepo
-	customBuild   *postgres.CustomBuildRepo
-	accessRequest *postgres.AccessRequestRepo
-	jobSource     *postgres.JobSourceRepo
-	resumeDraft   *postgres.ResumeDraftRepo
-	application   *postgres.ApplicationRepo
-	skill         *postgres.SkillRepo
-	mcpServer     *postgres.MCPServerRepo
-	prompt        *postgres.PromptRepo
-	role          *postgres.RoleRepo
-	asset         *postgres.AssetRepo
-	writing       *postgres.WritingRepo
-	writingRef    *postgres.WritingRefRepo
-	calendar      *postgres.CalendarRepo
-	mailConnector *postgres.MailRepo
-	capability    *postgres.CapabilityRepo
-	ghost         *postgres.GhostRepo
-	chatReport    *postgres.ChatReportRepo
-	bannedIP      *postgres.BannedIPRepo
-	appState      *postgres.AppStateRepo
-	connector     *postgres.ConnectorRepo
+	instance       *postgres.InstanceRepo
+	owner          *postgres.OwnerRepo
+	keypair        *postgres.OwnerKeypairRepo
+	raw            *postgres.RawRepo
+	wiki           *postgres.WikiRepo
+	wikiRef        *postgres.WikiRefRepo
+	output         *postgres.OutputRepo
+	code           *postgres.CodeRepo
+	codeDenial     *postgres.CodeDenialRepo
+	chat           *postgres.ChatRepo
+	seo            *postgres.SEORepo
+	customPage     *postgres.CustomPageRepo
+	customBuild    *postgres.CustomBuildRepo
+	accessRequest  *postgres.AccessRequestRepo
+	jobSource      *postgres.JobSourceRepo
+	resumeDraft    *postgres.ResumeDraftRepo
+	application    *postgres.ApplicationRepo
+	skill          *postgres.SkillRepo
+	mcpServer      *postgres.MCPServerRepo
+	prompt         *postgres.PromptRepo
+	role           *postgres.RoleRepo
+	asset          *postgres.AssetRepo
+	writing        *postgres.WritingRepo
+	writingRef     *postgres.WritingRefRepo
+	calendar       *postgres.CalendarRepo
+	mailConnector  *postgres.MailRepo
+	capability     *postgres.CapabilityRepo
+	ghost          *postgres.GhostRepo
+	chatReport     *postgres.ChatReportRepo
+	inferenceUsage *postgres.InferenceUsageRepo
+	bannedIP       *postgres.BannedIPRepo
+	appState       *postgres.AppStateRepo
+	connector      *postgres.ConnectorRepo
 }
 
 func newRepos(db *postgres.Pool) *repoSet {
 	return &repoSet{
-		instance:      postgres.NewInstanceRepo(db),
-		owner:         postgres.NewOwnerRepo(db),
-		keypair:       postgres.NewOwnerKeypairRepo(db),
-		raw:           postgres.NewRawRepo(db),
-		wiki:          postgres.NewWikiRepo(db),
-		wikiRef:       postgres.NewWikiRefRepo(db),
-		output:        postgres.NewOutputRepo(db),
-		code:          postgres.NewCodeRepo(db),
-		codeDenial:    postgres.NewCodeDenialRepo(db),
-		chat:          postgres.NewChatRepo(db),
-		seo:           postgres.NewSEORepo(db),
-		customPage:    postgres.NewCustomPageRepo(db),
-		customBuild:   postgres.NewCustomBuildRepo(db),
-		accessRequest: postgres.NewAccessRequestRepo(db),
-		jobSource:     postgres.NewJobSourceRepo(db),
-		resumeDraft:   postgres.NewResumeDraftRepo(db),
-		application:   postgres.NewApplicationRepo(db),
-		skill:         postgres.NewSkillRepo(db),
-		mcpServer:     postgres.NewMCPServerRepo(db),
-		prompt:        postgres.NewPromptRepo(db),
-		role:          postgres.NewRoleRepo(db),
-		asset:         postgres.NewAssetRepo(db),
-		writing:       postgres.NewWritingRepo(db),
-		writingRef:    postgres.NewWritingRefRepo(db),
-		calendar:      postgres.NewCalendarRepo(db),
-		mailConnector: postgres.NewMailRepo(db),
-		capability:    postgres.NewCapabilityRepo(db),
-		ghost:         postgres.NewGhostRepo(db),
-		chatReport:    postgres.NewChatReportRepo(db),
-		bannedIP:      postgres.NewBannedIPRepo(db),
-		appState:      postgres.NewAppStateRepo(db),
-		connector:     postgres.NewConnectorRepo(db),
+		instance:       postgres.NewInstanceRepo(db),
+		owner:          postgres.NewOwnerRepo(db),
+		keypair:        postgres.NewOwnerKeypairRepo(db),
+		raw:            postgres.NewRawRepo(db),
+		wiki:           postgres.NewWikiRepo(db),
+		wikiRef:        postgres.NewWikiRefRepo(db),
+		output:         postgres.NewOutputRepo(db),
+		code:           postgres.NewCodeRepo(db),
+		codeDenial:     postgres.NewCodeDenialRepo(db),
+		chat:           postgres.NewChatRepo(db),
+		seo:            postgres.NewSEORepo(db),
+		customPage:     postgres.NewCustomPageRepo(db),
+		customBuild:    postgres.NewCustomBuildRepo(db),
+		accessRequest:  postgres.NewAccessRequestRepo(db),
+		jobSource:      postgres.NewJobSourceRepo(db),
+		resumeDraft:    postgres.NewResumeDraftRepo(db),
+		application:    postgres.NewApplicationRepo(db),
+		skill:          postgres.NewSkillRepo(db),
+		mcpServer:      postgres.NewMCPServerRepo(db),
+		prompt:         postgres.NewPromptRepo(db),
+		role:           postgres.NewRoleRepo(db),
+		asset:          postgres.NewAssetRepo(db),
+		writing:        postgres.NewWritingRepo(db),
+		writingRef:     postgres.NewWritingRefRepo(db),
+		calendar:       postgres.NewCalendarRepo(db),
+		mailConnector:  postgres.NewMailRepo(db),
+		capability:     postgres.NewCapabilityRepo(db),
+		ghost:          postgres.NewGhostRepo(db),
+		chatReport:     postgres.NewChatReportRepo(db),
+		inferenceUsage: postgres.NewInferenceUsageRepo(db),
+		bannedIP:       postgres.NewBannedIPRepo(db),
+		appState:       postgres.NewAppStateRepo(db),
+		connector:      postgres.NewConnectorRepo(db),
 	}
 }
 
@@ -127,44 +129,45 @@ func assembleRuntimeDeps(
 		outputRepo:  repos.output,
 		corpus:      postgres.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
 		codeRepo:    repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
-		seoRepo:           repos.seo,
-		customPageRepo:    repos.customPage,
-		customBuildRepo:   repos.customBuild,
-		accessRequestRepo: repos.accessRequest,
-		jobSourceRepo:     repos.jobSource,
-		resumeDraftRepo:   repos.resumeDraft,
-		applicationRepo:   repos.application,
-		skillRepo:         repos.skill,
-		mcpServerRepo:     repos.mcpServer,
-		promptRepo:        repos.prompt,
-		roleRepo:          repos.role,
-		writingRepo:       repos.writing,
-		writingRefRepo:    repos.writingRef,
-		assetRepo:         repos.asset,
-		calendarRepo:      repos.calendar,
-		mailRepo:          repos.mailConnector,
-		capabilityRepo:    repos.capability,
-		ghostRepo:         repos.ghost,
-		chatReportRepo:    repos.chatReport,
-		bannedIPRepo:      repos.bannedIP,
-		appStateRepo:      repos.appState,
-		connectorRepo:     repos.connector,
-		storageClient:     dw.storageClient,
-		jobCachePool:      jobcache.New(c.rdb, 0),
-		jobFetchRegistry:  newJobFetchRegistry(cfg),
-		sessionStore:      session.NewOwnerSessionStore(c.rdb),
-		visitorStore:      session.NewVisitorSessionStore(c.rdb),
-		queryQueue:        session.NewQueryQueue(cfg.QueryQueueMaxConcurrent),
-		providerResolver:  dw.providerResolver,
-		setupTokenHolder:  dw.setupTokenHolder,
-		captchaVerifier:   captchaVerifier,
-		captchaSiteKey:    captchaSiteKeyFor(cfg),
-		secureCookie:      cfg.SecureCookie,
-		buildsRoot:        cfg.CustomPagesRoot,
-		sandboxRunner:     sandbox.FromEnv(cfg.SandboxDriver),
-		printStore:        printStore,
-		pdfRenderer:       buildPDFRenderer(log, cfg, printStore),
-		reportPDFRenderer: buildReportPDFRenderer(cfg),
+		seoRepo:            repos.seo,
+		customPageRepo:     repos.customPage,
+		customBuildRepo:    repos.customBuild,
+		accessRequestRepo:  repos.accessRequest,
+		jobSourceRepo:      repos.jobSource,
+		resumeDraftRepo:    repos.resumeDraft,
+		applicationRepo:    repos.application,
+		skillRepo:          repos.skill,
+		mcpServerRepo:      repos.mcpServer,
+		promptRepo:         repos.prompt,
+		roleRepo:           repos.role,
+		writingRepo:        repos.writing,
+		writingRefRepo:     repos.writingRef,
+		assetRepo:          repos.asset,
+		calendarRepo:       repos.calendar,
+		mailRepo:           repos.mailConnector,
+		capabilityRepo:     repos.capability,
+		ghostRepo:          repos.ghost,
+		chatReportRepo:     repos.chatReport,
+		inferenceUsageRepo: repos.inferenceUsage,
+		bannedIPRepo:       repos.bannedIP,
+		appStateRepo:       repos.appState,
+		connectorRepo:      repos.connector,
+		storageClient:      dw.storageClient,
+		jobCachePool:       jobcache.New(c.rdb, 0),
+		jobFetchRegistry:   newJobFetchRegistry(cfg),
+		sessionStore:       session.NewOwnerSessionStore(c.rdb),
+		visitorStore:       session.NewVisitorSessionStore(c.rdb),
+		queryQueue:         session.NewQueryQueue(cfg.QueryQueueMaxConcurrent),
+		providerResolver:   dw.providerResolver,
+		setupTokenHolder:   dw.setupTokenHolder,
+		captchaVerifier:    captchaVerifier,
+		captchaSiteKey:     captchaSiteKeyFor(cfg),
+		secureCookie:       cfg.SecureCookie,
+		buildsRoot:         cfg.CustomPagesRoot,
+		sandboxRunner:      sandbox.FromEnv(cfg.SandboxDriver),
+		printStore:         printStore,
+		pdfRenderer:        buildPDFRenderer(log, cfg, printStore),
+		reportPDFRenderer:  buildReportPDFRenderer(cfg),
 		marketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),

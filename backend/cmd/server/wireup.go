@@ -61,6 +61,14 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 	}
 }
 
+// runBootMaintenance —— boot 时一次性维护(best-effort,失败只 warn 不阻断启动)。
+// #106: 清 >7 天的 inference_usage 老行(7 天小表,查询本就只看 7 天)。
+func runBootMaintenance(ctx context.Context, d *runtimeDeps) {
+	if cerr := d.inferenceUsageRepo.Cleanup(ctx); cerr != nil {
+		d.log.Warn("inference usage cleanup", "err", cerr)
+	}
+}
+
 func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 	return server.AdminDeps{
 		Claim: usecases.ClaimDeps{
@@ -124,6 +132,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Owners: d.ownerRepo, Proxy: d.connectorSlots.Mail(),
 		},
 		Sessions:     d.sessionStore,
+		Usage:        d.inferenceUsageRepo,
 		SecureCookie: d.secureCookie,
 	}
 }
@@ -234,6 +243,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Ghosts:      usecases.GhostDeps{Repo: d.ghostRepo},
 		PDFRenderer: d.reportPDFRenderer,
 		AppState:    d.appStateRepo,
+		Usage:       d.inferenceUsageRepo,
 		Log:         d.log,
 	}
 }

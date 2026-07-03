@@ -94,7 +94,11 @@ type AgentTurnInput struct {
 	// sink 进 conversation 表。nil = 不落(无 conversation 的无状态 smoke 调用)。
 	// caller (route handler) 注入走 RecordDialog 的闭包;inference 不碰 DB。
 	Persist PersistFunc
-	Mode    string
+	// RecordUsage —— #106 计费:turn 收尾把本轮累计 token 用量交出去。route handler 注入走
+	// inference_usage 表的闭包(闭进 owner_id;BYOAI 传 no-op —— 访客自付不计 owner)。
+	// nil = 不计(无状态 smoke / 无 owner)。inference 不碰 DB。
+	RecordUsage RecordUsageFunc
+	Mode        string
 	// CrossConvContext —— 「互通」:该 member 其他对话的 digest。instructionWithCrossConv
 	// 把它拼进 instruction 让 AI 跨对话连贯;route handler 装(读 DB),inference 不碰
 	// DB。空 = 不注入(public / 无 member / 没别的对话)。

@@ -48,6 +48,7 @@ type Handlers struct {
 	PageAdmin         PageAdminDeps
 	IPBansAdmin       IPBansAdminDeps
 	ConnectorsAdmin   ConnectorsAdminDeps
+	Usage             InferenceUsageSummarizer // #106 计费面板
 	SecureCookie      bool
 }
 
@@ -97,6 +98,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountIPBans(r)
 	h.MountBookingPolicy(r)
 	h.MountBookings(r)
+	r.Get("/inference-usage", h.getInferenceUsage()) // #106 计费面板
 }
 
 type claimRequest struct {
