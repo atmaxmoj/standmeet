@@ -137,8 +137,9 @@ func DriveAgentLoop(
 	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
 	state := consumeAgentEvents(ctx, em, iter)
 	maybeEmitGhosts(ctx, em, in, state)
-	recordTurnUsage(ctx, in, state)
+	// Done 先发 —— 让访客这一轮立刻收尾(能发下一轮);#106 计费是后台,绝不压在关键路径上。
 	sink.Done(state.stop)
+	recordTurnUsage(ctx, in, state)
 }
 
 // recordTurnUsage —— #106: turn 收尾把累计 token 交给注入的 RecordUsage(有 cred/model + 有用量时)。
