@@ -1,14 +1,17 @@
-// SystemSection —— /admin/system。design 源 admin.js SystemSection
-// (2502-2560)。terminal-y deployment block + resources KPIs + background
-// jobs table + health checks grid。
-// 当前没有 admin REST for system info —— 用 placeholder values。
+// SystemSection —— /admin/system。#101 接真 system-info 后端:deployment(version/uptime)、
+// resources(go runtime)、health checks 都走 GET /api/admin/system 的真值 + 真 ping。
+// background jobs 表暂留静态(真正的 scheduled-jobs 面另算,见 todo)。
 
 'use client';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
+import {
+  useSystemInfo, deployView, healthList, type SystemInfo,
+} from '@/lib/admin/use-system-info';
 
 export function SystemSection() {
+  const { info } = useSystemInfo();
   return (
     <>
       <SectionHeader
@@ -17,25 +20,26 @@ export function SystemSection() {
         action={<button className="sm-btn sm-btn-outline sm-btn-sm" type="button">check for updates</button>}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <DeploymentBlock />
-        <ResourcesBlock />
+        <DeploymentBlock info={info} />
+        <ResourcesBlock info={info} />
         <JobsTable />
-        <HealthChecks />
+        <HealthChecks info={info} />
         <InferenceUsagePanel />
       </div>
     </>
   );
 }
 
-function DeploymentBlock() {
+function DeploymentBlock({ info }: { info: SystemInfo | null }) {
+  const d = deployView(info);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-terminal">
       <div className="sm-smallcaps mb-3">deployment</div>
       <div className="border border-(--color-rule) rounded-[3px] p-3 bg-[color-mix(in_oklab,var(--color-ink)_6%,var(--color-paper))] mono text-[11.5px] leading-[1.7] text-(--color-muted)">
         <div><span className="text-(--color-accent)">$</span> standmeet status</div>
-        <div><span className="text-(--color-faint)">├─</span> version <span className="text-(--color-ink)">—</span></div>
-        <div><span className="text-(--color-faint)">├─</span> node <span className="text-(--color-ink)">—</span></div>
-        <div><span className="text-(--color-faint)">├─</span> uptime <span className="text-(--color-ink)">—</span></div>
+        <div><span className="text-(--color-faint)">├─</span> version <span className="text-(--color-ink)" data-testid="system-version">{d.version}</span></div>
+        <div><span className="text-(--color-faint)">├─</span> cpus <span className="text-(--color-ink)">{d.cpus}</span></div>
+        <div><span className="text-(--color-faint)">├─</span> uptime <span className="text-(--color-ink)" data-testid="system-uptime">{d.uptime}</span></div>
         <div><span className="text-(--color-faint)">└─</span> migrations <span className="text-(--color-ink)">0 pending</span></div>
         <div className="mt-2"><span className="text-(--color-accent)">$</span> ready<span className="animate-pulse">_</span></div>
       </div>
@@ -43,13 +47,13 @@ function DeploymentBlock() {
   );
 }
 
-function ResourcesBlock() {
+function ResourcesBlock({ info }: { info: SystemInfo | null }) {
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
       <div className="sm-smallcaps mb-3">resources</div>
       <div className="grid grid-cols-2 gap-3">
-        <ResourceStat label="cpu load" value="—" sub="1m avg" />
-        <ResourceStat label="memory" value="—" sub="/ — mb" />
+        <ResourceStat label="goroutines" value={info ? String(info.goroutines) : '—'} sub="live" />
+        <ResourceStat label="memory" value={info ? String(info.mem_alloc_mb) : '—'} sub="mb alloc" />
       </div>
     </div>
   );
@@ -100,15 +104,14 @@ function JobRow({ name, schedule, last, status }: { name: string; schedule: stri
   );
 }
 
-function HealthChecks() {
+function HealthChecks({ info }: { info: SystemInfo | null }) {
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2" data-testid="system-health">
       <div className="sm-smallcaps mb-3">health checks</div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <HealthRow name="database" status="ok" detail="postgres · WAL mode" />
-        <HealthRow name="redis" status="ok" detail="job cache + sessions" />
-        <HealthRow name="minio" status="ok" detail="asset blob storage" />
-        <HealthRow name="mcp endpoint" status="ok" detail="listening" />
+        {healthList(info).map((c) => (
+          <HealthRow key={c.name} name={c.name} status={c.ok ? 'ok' : 'down'} detail={c.detail} />
+        ))}
       </div>
     </div>
   );

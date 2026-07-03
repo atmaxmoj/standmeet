@@ -92,6 +92,7 @@ type AdminDeps struct {
 	ApproveRequests usecases.ApproveRequestDeps
 	Sessions        *session.OwnerSessionStore
 	Usage           adminroutes.InferenceUsageSummarizer // #106 计费面板
+	SystemInfo      adminroutes.SystemInfoProvider       // #101 system 面板
 	SecureCookie    bool
 }
 
@@ -195,6 +196,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		CapabilitiesAdmin: deps.Admin.Capabilities,
 		IPBansAdmin:       adminroutes.IPBansAdminDeps{Repo: deps.BannedIPs},
 		Usage:             deps.Admin.Usage,
+		SystemInfo:        deps.Admin.SystemInfo,
 		Log:               deps.Log,
 		SecureCookie:      deps.Admin.SecureCookie,
 	}

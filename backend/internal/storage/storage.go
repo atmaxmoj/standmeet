@@ -153,6 +153,14 @@ func (m *Client) PresignedGetURL(ctx context.Context, key string) (string, error
 	return signed.String(), nil
 }
 
+// Health —— #101 真健康检查:能不能连上 minio 查配置的 bucket。
+func (m *Client) Health(ctx context.Context) error {
+	if _, err := m.internal.BucketExists(ctx, m.bucket); err != nil {
+		return fmt.Errorf("storage: health check: %w", err)
+	}
+	return nil
+}
+
 func (m *Client) ensureBucket(ctx context.Context) error {
 	exists, err := m.internal.BucketExists(ctx, m.bucket)
 	if err != nil {

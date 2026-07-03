@@ -133,6 +133,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		},
 		Sessions:     d.sessionStore,
 		Usage:        d.inferenceUsageRepo,
+		SystemInfo:   newSysInfoProvider(d),
 		SecureCookie: d.secureCookie,
 	}
 }
