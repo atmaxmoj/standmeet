@@ -10,6 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/load"
+	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/storage"
@@ -19,6 +22,9 @@ import (
 const appVersion = "0.1.0"
 
 const bytesPerMB = 1024 * 1024
+
+// hostDiskPath —— 主机资源监控看这个挂载点(容器/单机部署下即数据盘根)。
+const hostDiskPath = "/"
 
 type sysInfoProvider struct {
 	started time.Time
@@ -33,18 +39,51 @@ func newSysInfoProvider(d *runtimeDeps) *sysInfoProvider {
 	}
 }
 
-// SystemInfo —— 真实快照:version/uptime/go runtime + 真 health ping。
+// SystemInfo —— 真实快照:version/uptime/go runtime + 真 health ping + 主机资源。
 func (p *sysInfoProvider) SystemInfo(ctx context.Context) domain.SystemInfo {
-	var mem runtime.MemStats
-	runtime.ReadMemStats(&mem)
+	var goMem runtime.MemStats
+	runtime.ReadMemStats(&goMem)
+	host := readHostMetrics(ctx)
 	return domain.SystemInfo{
 		Version:       appVersion,
 		UptimeSeconds: int64(time.Since(p.started).Seconds()),
 		Goroutines:    runtime.NumGoroutine(),
-		MemAllocMB:    int64(mem.Alloc / bytesPerMB),
+		MemAllocMB:    int64(goMem.Alloc / bytesPerMB),
 		NumCPU:        runtime.NumCPU(),
+		DiskTotalMB:   host.diskTotalMB,
+		DiskFreeMB:    host.diskFreeMB,
+		MemTotalMB:    host.memTotalMB,
+		MemUsedMB:     host.memUsedMB,
+		LoadAvg1:      host.load1,
 		Health:        p.healthChecks(ctx),
 	}
+}
+
+// hostMetrics —— 主机资源快照(单一 struct 避免 tuple-return 的 lint 拉扯)。
+type hostMetrics struct {
+	diskTotalMB int64
+	diskFreeMB  int64
+	memTotalMB  int64
+	memUsedMB   int64
+	load1       float64
+}
+
+// readHostMetrics —— gopsutil 读主机磁盘/内存/负载(跨平台)。best-effort:任一项读失败
+// 该项留 0,监控面板不该因取不到就整体挂掉。
+func readHostMetrics(ctx context.Context) hostMetrics {
+	var h hostMetrics
+	if u, err := disk.UsageWithContext(ctx, hostDiskPath); err == nil {
+		h.diskTotalMB = int64(u.Total / bytesPerMB)
+		h.diskFreeMB = int64(u.Free / bytesPerMB)
+	}
+	if v, err := mem.VirtualMemoryWithContext(ctx); err == nil {
+		h.memTotalMB = int64(v.Total / bytesPerMB)
+		h.memUsedMB = int64(v.Used / bytesPerMB)
+	}
+	if a, err := load.AvgWithContext(ctx); err == nil {
+		h.load1 = a.Load1
+	}
+	return h
 }
 
 func (p *sysInfoProvider) healthChecks(ctx context.Context) []domain.HealthCheck {

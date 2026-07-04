@@ -1,5 +1,5 @@
 // SystemSection —— /admin/system。#101 接真 system-info 后端:deployment(version/uptime)、
-// resources(go runtime)、health checks 都走 GET /api/admin/system 的真值 + 真 ping。
+// resources(主机 disk/mem/load + go runtime)、health checks 都走 GET /api/admin/system 真值 + 真 ping。
 // background jobs 表接真 GET /api/admin/stats/jobs(Monitor):只列真正在跑的 cron。
 
 'use client';
@@ -9,7 +9,7 @@ import { InferenceUsagePanel } from '@/components/admin/sections/system/Inferenc
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
 import { useScheduledJobs, jobRowViews } from '@/lib/admin/use-jobs';
 import {
-  useSystemInfo, deployView, healthList, type SystemInfo,
+  useSystemInfo, deployView, healthList, resourceStats, type SystemInfo,
 } from '@/lib/admin/use-system-info';
 
 export function SystemSection() {
@@ -51,12 +51,14 @@ function DeploymentBlock({ info }: { info: SystemInfo | null }) {
 }
 
 function ResourcesBlock({ info }: { info: SystemInfo | null }) {
+  const stats = resourceStats(info);
   return (
-    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50">
-      <div className="sm-smallcaps mb-3">resources</div>
+    <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50" data-testid="system-resources">
+      <div className="sm-smallcaps mb-3">resources · host + runtime</div>
       <div className="grid grid-cols-2 gap-3">
-        <ResourceStat label="goroutines" value={info ? String(info.goroutines) : '—'} sub="live" />
-        <ResourceStat label="memory" value={info ? String(info.mem_alloc_mb) : '—'} sub="mb alloc" />
+        {stats.map((s) => (
+          <ResourceStat key={s.label} label={s.label} value={s.value} sub={s.sub} />
+        ))}
       </div>
     </div>
   );

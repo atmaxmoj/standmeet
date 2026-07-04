@@ -26,8 +26,13 @@ type systemInfoResp struct {
 	Version       string            `json:"version"`
 	Health        []healthCheckResp `json:"health"`
 	UptimeSeconds int64             `json:"uptime_seconds"`
-	Goroutines    int               `json:"goroutines"`
 	MemAllocMB    int64             `json:"mem_alloc_mb"`
+	DiskTotalMB   int64             `json:"disk_total_mb"`
+	DiskFreeMB    int64             `json:"disk_free_mb"`
+	MemTotalMB    int64             `json:"mem_total_mb"`
+	MemUsedMB     int64             `json:"mem_used_mb"`
+	LoadAvg1      float64           `json:"load_avg_1"`
+	Goroutines    int               `json:"goroutines"`
 	NumCPU        int               `json:"num_cpu"`
 }
 
@@ -36,13 +41,13 @@ func (h *Handlers) getSystemInfo() http.HandlerFunc {
 		info := h.SystemInfo.SystemInfo(r.Context())
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(toSystemInfoResp(info)); err != nil {
+		if err := json.NewEncoder(w).Encode(toSystemInfoResp(&info)); err != nil {
 			logEncodeErr(h.Log, "encode system info", err)
 		}
 	}
 }
 
-func toSystemInfoResp(info domain.SystemInfo) systemInfoResp {
+func toSystemInfoResp(info *domain.SystemInfo) systemInfoResp {
 	health := make([]healthCheckResp, 0, len(info.Health))
 	for i := range info.Health {
 		health = append(health, healthCheckResp{
@@ -54,6 +59,11 @@ func toSystemInfoResp(info domain.SystemInfo) systemInfoResp {
 		UptimeSeconds: info.UptimeSeconds,
 		Goroutines:    info.Goroutines,
 		MemAllocMB:    info.MemAllocMB,
+		DiskTotalMB:   info.DiskTotalMB,
+		DiskFreeMB:    info.DiskFreeMB,
+		MemTotalMB:    info.MemTotalMB,
+		MemUsedMB:     info.MemUsedMB,
+		LoadAvg1:      info.LoadAvg1,
 		NumCPU:        info.NumCPU,
 		Health:        health,
 	}
