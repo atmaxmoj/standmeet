@@ -29,6 +29,11 @@ interface SystemInfo {
   goroutines: number;
   mem_alloc_mb: number;
   num_cpu: number;
+  disk_total_mb: number;
+  disk_free_mb: number;
+  mem_total_mb: number;
+  mem_used_mb: number;
+  load_avg_1: number;
   health: HealthCheck[];
 }
 
@@ -87,6 +92,26 @@ test.describe('admin system section', () => {
       const redis = body.health.find((h) => h.name === 'redis');
       expect(redis?.ok, 'redis ping really ok').toBe(true);
     });
+
+  // 主机基础资源 —— 自托管的 owner 就是运维,磁盘/内存/负载是第一眼要看的。
+  // 断不变式(不是精确值):这些区分"真读到主机资源"和"字段缺失/恒 0"。
+  test('GET /api/admin/system exposes real host disk / memory / load', async ({ adminPage }) => {
+    const res = await adminPage.request.get(`${BACKEND}/api/admin/system`);
+    expect(res.status(), 'system endpoint 200').toBe(200);
+    const body = await res.json() as SystemInfo;
+
+    // 磁盘:总量真实为正,空闲在 [0, total] 内。
+    expect(body.disk_total_mb, 'disk total is real (>0)').toBeGreaterThan(0);
+    expect(body.disk_free_mb, 'disk free ≥ 0').toBeGreaterThanOrEqual(0);
+    expect(body.disk_free_mb, 'disk free ≤ total').toBeLessThanOrEqual(body.disk_total_mb);
+    // 主机内存(不是 Go 堆):总量为正,已用在 [0, total] 内,且区别于 mem_alloc_mb。
+    expect(body.mem_total_mb, 'host mem total is real (>0)').toBeGreaterThan(0);
+    expect(body.mem_used_mb, 'host mem used ≥ 0').toBeGreaterThanOrEqual(0);
+    expect(body.mem_used_mb, 'host mem used ≤ total').toBeLessThanOrEqual(body.mem_total_mb);
+    expect(body.mem_total_mb, 'host RAM ≫ Go heap (distinct metric)').toBeGreaterThan(body.mem_alloc_mb);
+    // CPU 负载(1min):真实、非负。
+    expect(body.load_avg_1, 'load avg ≥ 0').toBeGreaterThanOrEqual(0);
+  });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {
