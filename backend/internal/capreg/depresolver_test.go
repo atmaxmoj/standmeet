@@ -259,6 +259,52 @@ func TestEnabledCaps_ArbitraryDepName_GatesIdentically(t *testing.T) {
 		"arbitrary dep connected -> exposed (same mechanism as calendar)")
 }
 
+// errBindCap —— VisitorBinding 返可控 error，模拟注入 handle / injector 构造失败（E3）。
+// 不 embed fakeVisitorCap（避开 fieldalignment × embeddedstructfieldcheck 互冲），直接实现接口。
+type errBindCap struct {
+	err error
+	id  string
+}
+
+func (c errBindCap) ID() string        { return c.id }
+func (errBindCap) Shape() capreg.Shape { return capreg.ShapeVisitorOnly }
+
+func (c errBindCap) VisitorBinding(
+	context.Context, *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, c.err
+}
+
+func (errBindCap) OwnerMCPBindings() []*capreg.MCPBinding { return nil }
+
+func (errBindCap) SystemPromptFragment(context.Context, *capreg.AssembleInput) string {
+	return ""
+}
+
+func (errBindCap) SystemPromptFragmentID(context.Context, *capreg.AssembleInput) string {
+	return ""
+}
+
+// connector-errors (E3) —— 注入 handle 构造失败：VisitorBinding 返**非-ErrHidden** error →
+// cap 不崩、以 Enabled:false 降级暴露（friendly，前端可渲降级提示）；返 ErrHidden → 完全隐藏。
+func TestVisitorState_BindBuildFailure_DegradesNotCrash(t *testing.T) {
+	t.Parallel()
+	in := &capreg.AssembleInput{OwnerID: "o1"}
+
+	// 通用 build 失败 → 降级可见（Enabled:false），不被丢弃、不 panic。
+	reg := capreg.NewRegistry()
+	reg.MustRegister(errBindCap{id: "flaky.cap", err: errors.New("handle build failed")})
+	states := reg.VisitorStates(context.Background(), in)
+	require.Len(t, states, 1, "build failure → still surfaced (degraded), not dropped")
+	require.Equal(t, "flaky.cap", states[0].ID)
+	require.False(t, states[0].Enabled, "build failure → Enabled:false (friendly degrade)")
+
+	// ErrHidden → 完全隐藏。
+	reg2 := capreg.NewRegistry()
+	reg2.MustRegister(errBindCap{id: "hidden.cap", err: capreg.ErrHidden})
+	require.Empty(t, reg2.VisitorStates(context.Background(), in), "ErrHidden → fully hidden")
+}
+
 // connected-errors (E1) 在 enabledCaps 层 —— Connected 返 error → 隐藏（fail-closed）。
 func TestEnabledCaps_ConnectorError_Hides(t *testing.T) {
 	t.Parallel()
