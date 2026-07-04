@@ -21,6 +21,9 @@ const (
 	defaultWorkspaceRoot = "/srv/sandbox-workspaces"
 	defaultWorkspaceTTL  = time.Hour
 	workspaceSweepEvery  = 5 * time.Minute
+	// sweepJobName / sweepSchedule —— Monitor job-registry 里这个真 cron 的展示身份。
+	sweepJobName  = "sandbox workspace sweep"
+	sweepSchedule = "every 5m"
 )
 
 func wireSandboxWorkspaces(ctx context.Context, d *runtimeDeps) {
@@ -36,6 +39,9 @@ func wireSandboxWorkspaces(ctx context.Context, d *runtimeDeps) {
 	}
 	d.sandboxWorkspaces = mgr
 	usecases.SetWorkspaceProvisioner(mgr.Provision)
+	// Monitor: 登记这个真 cron，并 boot 时跑一次(清上轮残留 + 让 last_run 立刻有值)。
+	d.jobRegistry.Register(sweepJobName, sweepSchedule)
+	sweepOnce(d, mgr)
 	go workspaceSweepLoop(ctx, d, mgr)
 }
 
@@ -57,9 +63,11 @@ func workspaceSweepLoop(ctx context.Context, d *runtimeDeps, mgr *sandboxws.Mana
 func sweepOnce(d *runtimeDeps, mgr *sandboxws.Manager) {
 	removed, serr := mgr.Sweep()
 	if serr != nil {
+		d.jobRegistry.Report(sweepJobName, "error")
 		d.log.Warn("sandbox workspace cron sweep", "err", serr)
 		return
 	}
+	d.jobRegistry.Report(sweepJobName, "ok")
 	if removed > 0 {
 		d.log.Info("sandbox workspace cron sweep", "removed", removed)
 	}

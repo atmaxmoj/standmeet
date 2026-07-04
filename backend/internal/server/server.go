@@ -95,6 +95,9 @@ type AdminDeps struct {
 	Sessions        *session.OwnerSessionStore
 	Usage           adminroutes.InferenceUsageSummarizer // #106 计费面板
 	SystemInfo      adminroutes.SystemInfoProvider       // #101 system 面板
+	Growth          adminroutes.GrowthProvider           // Monitor: SystemPulse
+	Activity        adminroutes.ActivityProvider         // Monitor: ActivityTicker
+	Jobs            adminroutes.JobsProvider             // Monitor: background jobs
 	SecureCookie    bool
 }
 
@@ -201,6 +204,9 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		IPBansAdmin:       adminroutes.IPBansAdminDeps{Repo: deps.BannedIPs},
 		Usage:             deps.Admin.Usage,
 		SystemInfo:        deps.Admin.SystemInfo,
+		Growth:            deps.Admin.Growth,
+		Activity:          deps.Admin.Activity,
+		Jobs:              deps.Admin.Jobs,
 		Log:               deps.Log,
 		SecureCookie:      deps.Admin.SecureCookie,
 	}

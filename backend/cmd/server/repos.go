@@ -15,6 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/plugins/jobs"
@@ -39,6 +40,8 @@ type repoSet struct {
 	wiki           *postgres.WikiRepo
 	wikiRef        *postgres.WikiRefRepo
 	output         *postgres.OutputRepo
+	growth         *postgres.GrowthRepo
+	activity       *postgres.ActivityRepo
 	code           *postgres.CodeRepo
 	codeDenial     *postgres.CodeDenialRepo
 	chat           *postgres.ChatRepo
@@ -76,6 +79,8 @@ func newRepos(db *postgres.Pool) *repoSet {
 		wiki:           postgres.NewWikiRepo(db),
 		wikiRef:        postgres.NewWikiRefRepo(db),
 		output:         postgres.NewOutputRepo(db),
+		growth:         postgres.NewGrowthRepo(db),
+		activity:       postgres.NewActivityRepo(db),
 		code:           postgres.NewCodeRepo(db),
 		codeDenial:     postgres.NewCodeDenialRepo(db),
 		chat:           postgres.NewChatRepo(db),
@@ -125,10 +130,13 @@ func assembleRuntimeDeps(
 		log: log, db: c.db, rdb: c.rdb,
 		instanceRepo: repos.instance, ownerRepo: repos.owner,
 		keypairRepo: repos.keypair, rawRepo: repos.raw, wikiRepo: repos.wiki,
-		wikiRefRepo: repos.wikiRef,
-		outputRepo:  repos.output,
-		corpus:      postgres.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
-		codeRepo:    repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
+		wikiRefRepo:  repos.wikiRef,
+		outputRepo:   repos.output,
+		growthRepo:   repos.growth,
+		activityRepo: repos.activity,
+		jobRegistry:  jobregistry.New(),
+		corpus:       postgres.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
+		codeRepo:     repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
 		seoRepo:            repos.seo,
 		customPageRepo:     repos.customPage,
 		customBuildRepo:    repos.customBuild,

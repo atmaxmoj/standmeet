@@ -14,6 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/inference"
+	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
 	"github.com/atmaxmoj/standmeet/internal/plugins"
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
@@ -41,6 +42,9 @@ type runtimeDeps struct {
 	wikiRepo           *postgres.WikiRepo
 	wikiRefRepo        *postgres.WikiRefRepo
 	outputRepo         *postgres.OutputRepo
+	growthRepo         *postgres.GrowthRepo
+	activityRepo       *postgres.ActivityRepo
+	jobRegistry        *jobregistry.Registry
 	corpus             *postgres.Corpus
 	codeRepo           *postgres.CodeRepo
 	codeDenialRepo     *postgres.CodeDenialRepo

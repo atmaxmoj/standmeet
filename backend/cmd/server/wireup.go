@@ -135,6 +135,9 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Sessions:     d.sessionStore,
 		Usage:        d.inferenceUsageRepo,
 		SystemInfo:   newSysInfoProvider(d),
+		Growth:       d.growthRepo,
+		Activity:     d.activityRepo,
+		Jobs:         d.jobRegistry,
 		SecureCookie: d.secureCookie,
 	}
 }

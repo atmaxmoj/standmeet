@@ -63,6 +63,8 @@ components:
     in: internal/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
   printsess:
     in: internal/printsess                # Redis 60s stash for gotenberg-bound resume payload
+  jobregistry:
+    in: internal/jobregistry              # Monitor: in-process scheduled-job registry (last-run/status)
   marketplace:
     in: internal/marketplace              # skill marketplace aggregation client (GitHub + SkillsMP)
   captcha:
@@ -407,6 +409,11 @@ deps:
       - domain
     anyVendorDeps: true
 
+  jobregistry:
+    mayDependOn:
+      - domain
+    anyVendorDeps: true
+
   # marketplace —— skill marketplace 聚合客户端（GitHub anthropics/skills +
   # SkillsMP HTTP API + in-memory cache）。usecases 通过接口注入，admin
   # routes 不直接 import。
@@ -532,6 +539,7 @@ deps:
       - connectorbuiltins
       - connectorsvc
       - printsess
+      - jobregistry
       - marketplace
       - captcha
       - cryptobox

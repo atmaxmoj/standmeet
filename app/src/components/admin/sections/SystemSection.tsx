@@ -1,12 +1,13 @@
 // SystemSection —— /admin/system。#101 接真 system-info 后端:deployment(version/uptime)、
 // resources(go runtime)、health checks 都走 GET /api/admin/system 的真值 + 真 ping。
-// background jobs 表暂留静态(真正的 scheduled-jobs 面另算,见 todo)。
+// background jobs 表接真 GET /api/admin/stats/jobs(Monitor):只列真正在跑的 cron。
 
 'use client';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
+import { useScheduledJobs, jobRowViews } from '@/lib/admin/use-jobs';
 import {
   useSystemInfo, deployView, healthList, type SystemInfo,
 } from '@/lib/admin/use-system-info';
@@ -72,6 +73,8 @@ function ResourceStat({ label, value, sub }: { label: string; value: string; sub
 }
 
 function JobsTable() {
+  const { jobs } = useScheduledJobs();
+  const rows = jobRowViews(jobs);
   return (
     <div className="border border-(--color-rule) rounded-[3px] p-4 bg-(--color-surface)/50 lg:col-span-2" data-testid="system-jobs">
       <div className="sm-smallcaps mb-3">background jobs</div>
@@ -85,9 +88,9 @@ function JobsTable() {
           </tr>
         </thead>
         <tbody>
-          <JobRow name="sitemap regenerate" schedule="every 6h" last="—" status="ok" />
-          <JobRow name="corpus reindex" schedule="on change" last="—" status="ok" />
-          <JobRow name="daily backup" schedule="02:00" last="—" status="ok" />
+          {rows.map((j) => (
+            <JobRow key={j.name} name={j.name} schedule={j.schedule} last={j.last} status={j.status} />
+          ))}
         </tbody>
       </table>
     </div>
