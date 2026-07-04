@@ -5,19 +5,19 @@
 // `mcp-ui:tool` → host 带 **session context** 派发 `calendar_cancel` tool → tool 删
 // event + 回 `mcp-ui:tool-result` → 卡进 cancelled 态。点击路径整个挪进 iframe;
 // 但**隔离语义不变**:授权门依旧是「booking 的 conversation 满足 owner+code+member
-// 都等于本 session 才放行,否则 404」。
+// 都等于本 session 才放行」——不满足则工具回 booking_not_found、**不删任何 event**。
 //
 // 隔离是这条的重点。一笔 booking 归属链:booking → conversation → member。访客
 // session 带 owner_id + code_id + member_id。`calendar_cancel` tool 的授权门:用
 // event_id 找到 booking,但**仅当**该 booking 的 conversation 满足 owner+code+member
-// 都等于发起 tool 调用的 session 才放行,否则 404(不泄露存在性)。这一道门同时挡住:
+// 都等于发起 tool 调用的 session 才放行,否则回 booking_not_found tool-error。这一道门同时挡住:
 //   - 同码跨 member(Mallory 想取消 Dana 的会)
 //   - 跨 owner / 跨 code
 //
 // happy path 全程浏览器驱动(约 → 进 iframe 卡 → 点 cancel → tool 跑 → event 删)。
 // 两条隔离负例的"攻击"本质是一个伪造的 tool 调用 —— 它从**攻击者自己已鉴权的 session**
-// 发出(真实攻击面),断言被 `calendar_cancel` 的 session 门 404 挡下且受害者的 GCal
-// event 仍在。tool 走 connector-backed proxy,但收件人/归属校验在 tool/后端,沙盒卡绕不过。
+// 发出(真实攻击面),断言 `calendar_cancel` 的 session 门挡下(cancel 不成功)且受害者的
+// GCal event 仍在。tool 走 connector-backed proxy,但收件人/归属校验在 tool/后端,沙盒卡绕不过。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Browser, FrameLocator, Page } from '@playwright/test';
@@ -26,7 +26,7 @@ import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, OWNER, type CodedSeed,
 } from '@/fixtures/gcal-setup';
 import { getMockEvents, resetMockGCal } from '@/fixtures/gcal';
-import { issueSession } from '@/fixtures/visitor';
+import { issueSession, type VisitorSession } from '@/fixtures/visitor';
 import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto } from '@/fixtures/navigate';
@@ -71,11 +71,13 @@ test.describe('visitor · cancel own booking + isolation (#123)', () => {
       await ctx.close();
     });
 
-  test('nonexistent event_id with a valid session → 404 (not 500)',
+  test('nonexistent event_id on a valid session → not cancelled, no crash',
     async () => {
-      const status = await attemptCancel(
-        seed.request, seed.visitor.session_token, 'evt-does-not-exist');
-      expect(status).toBe(404); // 合法 session,但没这笔 booking → ErrBookingNotFound
+      // 合法 session,但这条对话没有 booking(或 event_id 对不上)→ booking_not_found
+      // 的 tool-error,cancel 不成功、不删任何东西。
+      const cancelled = await attemptCancel(
+        seed.request, seed.visitor, 'evt-does-not-exist');
+      expect(cancelled, 'no booking to cancel → not cancelled').toBe(false);
     });
 
   test('isolation (same code, other member): Mallory cannot cancel Dana\'s booking — but Dana can',
@@ -103,7 +105,8 @@ async function crossMemberIsolation(browser: Browser, seed: CodedSeed): Promise<
     handle: OWNER.handle, mode: 'code', code: seed.code.code,
     visitor_name: 'Mallory', visitor_email: 'mallory@example.com',
   });
-  expect(await attemptCancel(seed.request, mallory.session_token, victimEvent)).toBe(404);
+  expect(await attemptCancel(seed.request, mallory, victimEvent),
+    'Mallory cannot cancel Dana\'s booking').toBe(false);
   expect((await getMockEvents(seed.request)).find((e) => e.event_id === victimEvent))
     .toBeDefined(); // 受害者的 event 没被误删
 
@@ -134,8 +137,8 @@ async function crossCodeIsolation(browser: Browser, seed: CodedSeed): Promise<vo
     visitor_name: 'Ivan', visitor_email: 'ivan@example.com',
   });
 
-  const status = await attemptCancel(seed.request, intruder.session_token, victimEvent);
-  expect(status).toBe(404); // code_id 不匹 → 当作不存在
+  const cancelled = await attemptCancel(seed.request, intruder, victimEvent);
+  expect(cancelled, 'code-2 visitor cannot cancel a code-1 booking').toBe(false);
 
   expect((await getMockEvents(seed.request)).find((e) => e.event_id === victimEvent))
     .toBeDefined(); // 受害者的 event 仍在
@@ -173,20 +176,25 @@ async function enterAndBook(
   await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
 }
 
-// attemptCancel —— 用某访客 session token 伪造一次 calendar_cancel **tool 调用**(攻击面)。
-// 重构后取消是 connector-backed tool,沙盒卡经 mcp-ui:tool 触发它;落到后端就是这条
-// tool-dispatch 请求。归属/授权门在 tool/后端,返 HTTP status(命中归属 → 200;否则 404)。
+// attemptCancel —— 从攻击者**自己已鉴权的 session** 伪造一次 calendar_cancel tool 调用
+// (真实攻击面)。走的是卡片 mcp-ui:tool 派发落到后端的同一条 tool-dispatch 路由
+// (`POST /api/v1/sessions/{conv}/tools/calendar_cancel`,见 lib/api/public.ts callVisitorTool)。
+// 归属门在 calendar_cancel 的 resolveConvBooking:event_id 必须属**本 session 那一条对话**
+// 的 booking,否则返 booking_not_found 的 tool-error(不删任何 event)。dispatch 对 tool 级
+// 错误统一 200+isError(不是 HTTP 404),所以这里断言的是**真安全属性**:cancel 有没有真成功。
+// 返 true 仅当工具回 {cancelled:true}(真取消掉了)。
 async function attemptCancel(
-  request: APIRequestContext, token: string, eventID: string,
-): Promise<number> {
-  // TODO(impl): tool-dispatch endpoint for mcp-ui:tool. 重构落地后这里指向真正的
-  // host tool-dispatch 路由(带 calendar_cancel + event_id args);现用占位 URL 让 spec
-  // 编译通过、运行期 RED。归属校验仍后端把守,沙盒卡绕不过。
-  const res = await request.post(`${BACKEND}/api/v1/visitor-tool/calendar_cancel`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { event_id: eventID },
-  });
-  return res.status();
+  request: APIRequestContext, session: VisitorSession, eventID: string,
+): Promise<boolean> {
+  const res = await request.post(
+    `${BACKEND}/api/v1/sessions/${session.conversation_id}/tools/calendar_cancel`,
+    {
+      headers: { Authorization: `Bearer ${session.session_token}` },
+      data: { event_id: eventID },
+    },
+  );
+  const body = await res.json() as { result?: { cancelled?: boolean } };
+  return body.result?.cancelled === true;
 }
 
 function future(days: number, hour: number): string {
