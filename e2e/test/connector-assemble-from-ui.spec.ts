@@ -1,9 +1,7 @@
-// connector-assemble-from-ui.spec.ts —— #155 目标契约（RED）：owner 在 admin UI 里把一个
+// connector-assemble-from-ui.spec.ts —— #155 契约（已实现，绿）：owner 在 admin UI 里把一个
 // 连接器从零连起来——挑「calendar」品类 → 点 Connect → 走 OAuth → 卡片显示 Connected。
 //
-// 这是 TDD 的红测：它**真编译、真跑、真红**，红在「即将要做的」那个 spec-driven 连接器
-// UI 装配流上（现状 connectors 区是手搓 gcal-specific、形态不同），给下一步实现立靶子。
-// 不是测现状、不是编译不过的假红。
+// spec-driven 连接器 UI 装配流已实现，本测真编译、真跑、真绿（原为 RED 目标契约，实现后转绿）。
 //
 // 设计要点（provider-agnostic）：connector 是**品类**（"calendar"，booker Requires 认的
 // 名），背后 provider 真 prod 是 Google/Outlook/CalDAV，e2e 里用 mock（gcal.ts 已有 mock
@@ -28,7 +26,7 @@ const OWNER = {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('connector · assemble a connector from the admin UI', () => {
-  // 红契约：spec-driven 连接器 UI 装配流未建（见 docs/design/connector.md §8）。实现后去掉。
+  // 覆盖 spec-driven 连接器 UI 装配流（docs/design/connector.md §8）。已实现，绿。
 
   test.beforeAll(async ({ playwright }) => {
     resetInstance();

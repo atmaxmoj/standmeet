@@ -1,4 +1,4 @@
-// connector-happy-matrix.spec.ts —— #155 §8 的「全闭环组合矩阵」红契约（RED）。
+// connector-happy-matrix.spec.ts —— #155 §8 的「全闭环组合矩阵」契约（已实现，绿）。
 //
 // 这是 connector 装配的 **end-to-end happy 组合** 网：kind × category × auth 的
 // 每个对角线格子，从 admin UI **装配** → **connect** → **consumer 真跑通** 一条龙。
@@ -14,8 +14,8 @@
 //   4. openapi · mail · bearer → 传 spec → bearer 表单 → connect → mail.send (MailContract) 真发。
 //   5. protocol · mail · SMTP → 选内置卡 → 固定表单 → connect → mail.send 真发。
 //
-// 全部 test.fixme：spec-driven 装配 UI + 派生表单 + 各 auth connect 流 + 品类归一消费
-// 都未建（§8 第一期主干 A+B+D+F）。实现逐格转绿后删 fixme。
+// spec-driven 装配 UI + 派生表单 + 各 auth connect 流 + 品类归一消费都已实现
+//（§8 第一期主干 A+B+D+F），五格全绿（原为逐格转绿的 RED 契约）。
 //
 // 接口（§8 目标接口，真 testid）：admin-nav-connectors / connector-add-open /
 // connector-card-{category} / connector-spec-input / connector-spec-submit /
@@ -350,8 +350,8 @@ async function waitForMail(
 }
 
 test.describe('connector · happy combination matrix (kind × category × auth full loop)', () => {
-  // RED 契约：spec-driven 装配 UI + 派生表单 + 各 auth connect + 品类归一消费均未建
-  // （docs/design/connector.md §8 第一期 A+B+D+F）。实现逐格转绿后删 fixme。
+  // 覆盖 spec-driven 装配 UI + 派生表单 + 各 auth connect + 品类归一消费
+  // （docs/design/connector.md §8 第一期 A+B+D+F）。已实现，五格全绿。
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => {

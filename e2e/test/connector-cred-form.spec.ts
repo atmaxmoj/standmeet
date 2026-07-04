@@ -10,8 +10,7 @@
 // connector-scheme-select / connector-field-{key} / connector-connect-button
 // / connector-status）。
 //
-// 全 test.fixme：spec-driven 凭据表单 UI 未建，红在「即将要做的」派生器上。
-// 实现逐条转绿后去掉 fixme。
+// 覆盖 spec-driven 凭据表单派生 UI（§8 区 B）。已实现，绿（原为 RED 契约，实现后转绿）。
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -220,7 +219,7 @@ async function claimOwner(playwright: Playwright): Promise<void> {
 }
 
 test.describe('connector · credential form derived from spec · happy (area B)', () => {
-  // 红契约：spec-driven 凭据表单派生未建（docs/design/connector.md §4/§8 区 B）。
+  // 覆盖 spec-driven 凭据表单派生（docs/design/connector.md §4/§8 区 B）。已实现，绿。
 
   test.beforeAll(async ({ playwright }) => { await claimOwner(playwright); });
 

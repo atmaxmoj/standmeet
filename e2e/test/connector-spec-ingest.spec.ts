@@ -12,7 +12,7 @@
 //           connector-spec-url-input / connector-spec-fetch-button
 //   REST:   POST /api/admin/connectors（从 spec 建）
 //
-// 全 test.fixme —— 摄入 UI/后端从零，实现后逐条转绿。
+// 覆盖 §8 区 A spec 摄入 UI + 后端。已实现，绿（原为 RED 契约，实现后转绿）。
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -41,7 +41,7 @@ async function claimOwner(playwright: Playwright): Promise<void> {
 }
 
 test.describe('connector · area A spec ingest · happy', () => {
-  // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
+  // 覆盖 spec-driven 摄入 UI/后端（docs/design/connector.md §8 区 A）。已实现，绿。
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
@@ -77,7 +77,7 @@ test.describe('connector · area A spec ingest · happy', () => {
 });
 
 test.describe('connector · area A spec ingest · err', () => {
-  // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
+  // 覆盖 spec-driven 摄入 UI/后端（docs/design/connector.md §8 区 A）。已实现，绿。
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);
@@ -158,10 +158,10 @@ test.describe('connector · area A spec ingest · err', () => {
 
 // ──────────────────────────────────────────────────────────────────────────
 // 区A 额外 corner（§8 区 A 表里点到、上面没覆盖的）：超大尺寸 / 重复
-// operationId / 缺 operationId / YAML 解析 / 未解析 $ref。同样全 fixme。
+// operationId / 缺 operationId / YAML 解析 / 未解析 $ref。已实现，绿。
 // ──────────────────────────────────────────────────────────────────────────
 test.describe('connector · area A spec ingest corner · err', () => {
-  // 红契约：spec-driven 摄入 UI/后端未建（docs/design/connector.md §8 区 A）。实现后去掉。
+  // 覆盖 spec-driven 摄入 UI/后端（docs/design/connector.md §8 区 A）。已实现，绿。
 
   test.beforeAll(async ({ playwright }) => {
     await claimOwner(playwright);

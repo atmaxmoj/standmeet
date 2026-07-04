@@ -1,7 +1,7 @@
-// connector-security.spec.ts —— #155 §8 区 H（安全 · RED 契约）。
+// connector-security.spec.ts —— #155 §8 区 H（安全）。已实现，绿（原为 RED 契约）。
 //
 // 「owner 上传任意 OpenAPI spec」把三道安全门逼出来；这三道在 spec-driven
-// connector 实现里必须成立，本文件给它们立靶子（全 test.fixme，红到实现为止）：
+// connector 实现里必须成立，本文件钉住它们（原为 RED 靶子，实现后转绿）：
 //
 //   1. ⚠️ SSRF —— 上传的 spec 里 `servers[].url`（以及 oauth2 的 token/authorize
 //      URL）若指向 loopback / link-local / 私网，后端 **拒装配或拒发起出站请求**。
@@ -22,8 +22,7 @@
 //   GET    /api/admin/connectors                    （list）
 //   DELETE /api/admin/connectors/{id}/disconnect
 //
-// 现状 connectors 是手搓 gcal-specific + 18-entry 静态 catalog；「从 spec POST 建
-// 任意 connector」这套未建，所以本测真编译、真跑、真红，红在即将要做的上传路径上。
+// 「从 spec POST 建任意 connector」的上传路径已实现，本测真编译、真跑、真绿。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

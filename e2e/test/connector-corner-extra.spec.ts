@@ -1,5 +1,5 @@
 // connector-corner-extra.spec.ts —— #155 收尾 corner/error stream（设计 §1-9 之外、但属正经
-// 边界/错误流的几条，审计 design-vs-test 后补齐）。全 test.fixme（红，未建前）。
+// 边界/错误流的几条，审计 design-vs-test 后补齐）。已实现，绿（原为 RED 契约，实现后转绿）。
 //
 //   - 429 限流（error stream）：连接器 connected，runtime SaaS 调用回 429 → 友好降级/退避，
 //     不崩、不泄、不返垃圾（跟现有 5xx/4xx 降级同族，差在 429 语义=限流可退避）。

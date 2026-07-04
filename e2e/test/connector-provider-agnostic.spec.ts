@@ -12,8 +12,8 @@
 //   - dep-gating：calendar 连接器 connect/disconnect → calendar.book cap un-gate / re-gate
 //     （经 DepRegistry 的全局单点闸，connector.md §6 + capabilities.ts dependency.connected）。
 //
-// TDD 红测：真编译、真跑、真红。红在「品类归一让任意 provider 喂 booker」这条尚未建的
-// 路上（现状 booker 只接手搓 gcal-specific connector）。实现转绿后删 test.fixme。
+// 覆盖「品类归一让任意 provider 喂 booker」。已实现，真编译、真跑、真绿（booker 经品类
+// 契约接任意 provider，不再只认手搓 gcal-specific connector；原为 RED 契约，实现后转绿）。
 //
 // §8 接口草图对齐：CalendarContract.{ListBusy,CreateEvent} / MailContract.Send；
 //   capabilities.ts dependency.connected；gcal-setup 的 connected-owner 复用为对照组。
@@ -55,7 +55,7 @@ function futureSlot(daysAhead: number, hour: number): string {
 
 test.describe('connector · provider-agnostic consumer loop (area F)', () => {
   // #155 §8-F：品类归一 —— 非 Google（CalDAV protocol）calendar 喂 booker，代码一行不改。
-  // SMTP mail 那条依赖「mail 作为访客 capability」（沙箱插件，未建），单条 fixme。
+  // SMTP mail 那条经「mail 作为访客 capability」（sandboxed mail-sender 插件）发信,已实现。
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => {
@@ -100,8 +100,8 @@ test.describe('connector · provider-agnostic consumer loop (area F)', () => {
       expect(events[0]!.attendees ?? [], 'attendee comes from the session profile').toContain('rachel@example.com');
     });
 
-  // SMTP（kind=protocol）→ mailer 经 MailContract.Send 发信，无视 kind。需「mail 作为访客
-  // capability」（mail.send，沙箱插件，未建），fixme。
+  // SMTP（kind=protocol）→ mailer 经 MailContract.Send 发信，无视 kind。经「mail 作为访客
+  // capability」（mail.send，sandboxed 插件）发出,已实现,绿。
   test('SMTP connector (kind=protocol) → mailer sends via MailContract.Send (kind-agnostic)',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);

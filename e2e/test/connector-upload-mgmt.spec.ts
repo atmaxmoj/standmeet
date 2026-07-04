@@ -11,7 +11,7 @@
 //           connector-overwrite-confirm / connector-delete-button / connector-status
 //   REST:   POST /api/admin/connectors（从 spec 建）/ DELETE /api/admin/connectors/{id}
 //
-// 全 test.fixme —— 上传/管理 UI/后端从零，实现后逐条转绿。
+// 覆盖 §8 区 G 上传/管理 UI + 后端。已实现，绿（原为 RED 契约，实现后转绿）。
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -31,7 +31,7 @@ const OWNER = {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('connector · area G upload / manage', () => {
-  // 红契约：自托管 spec+绑定 上传/管理 UI 未建（docs/design/connector.md §8 区 G）。实现后去掉。
+  // 覆盖自托管 spec+绑定 上传/管理 UI（docs/design/connector.md §8 区 G）。已实现，绿。
 
   // 每 test 重置实例 + owner（连接器不跨 test 累积；overwrite/delete 断绝对状态要干净）。
   test.beforeEach(async ({ playwright }) => {

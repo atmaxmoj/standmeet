@@ -8,9 +8,8 @@
 //                      connector-status = Connected。
 //   非 dance (key/basic/bearer):  填 secret → 点 Connect → 立即 Connected，无跳转。
 //
-// 这是 TDD 红测：真编译、真跑、真红。红在「spec-driven connector connect 流」
-// 这条**还没建**的路径上（现状 connectors 区是手搓 gcal-specific、形态不同）。
-// 全部 test.fixme（describe 级），实现逐条转绿。
+// 覆盖 spec-driven connector connect 流（§8 区 D）。已实现，真编译、真跑、真绿
+//（原为 RED 目标契约、describe 级 test.fixme，实现后已转绿去掉 fixme）。
 //
 // mock-OAuth：复用 gcal-setup.ts 里 runMockOAuthFlow 那套**已有的 mock OAuth
 // provider**机制——后端发的 auth_url 指向 mock，访问它会 302 链回 /callback。

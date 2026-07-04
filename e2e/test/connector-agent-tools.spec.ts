@@ -13,8 +13,8 @@
 // 的 operations 暴露成 agent **tools** —— LLM 按 operation 的 summary/description 选用。装配
 // 进访客会话的 tool 集，名/描述来自 spec 的 operation summaries，与品类契约 cap 区分开。
 //
-// 全部 test.fixme：agent-tool 暴露子系统（openapi operations → per-session agent tools、
-// 运行时按 op 调 SaaS 注入 auth、与 caps 共用 grant/ACL 闸）从零，未建。实现逐条转绿。
+// 覆盖 §9 agent-tool 暴露子系统（openapi operations → per-session agent tools、运行时
+// 按 op 调 SaaS 注入 auth、与 caps 共用 grant/ACL 闸）。已实现，全绿（原 RED 契约已转绿）。
 //
 // e2e 不碰真 SaaS：内联 spec 的 servers 指向 external-mock（已有 /__mock/gcal 端点族；
 // 这里复用 /__mock/gcal/events 作 SaaS API 落点 + /__mock/gcal/authorize|token 作 OAuth）。
@@ -319,8 +319,8 @@ async function initOwner(playwright: Playwright): Promise<{
 }
 
 test.describe('connector · agent-tool exposure (§3 second consumer path: agent = semantic read ops)', () => {
-  // RED 契约：openapi operations → per-session agent tools 子系统未建。design §3 已定
-  // 这条路、§7 只欠排期。实现 land 后去掉这行。
+  // 覆盖 openapi operations → per-session agent tools 子系统（design §3 第二消费路径）。
+  // 已实现，绿（原为 RED 契约）。
 
   let request: APIRequestContext;
   let csrf: string;

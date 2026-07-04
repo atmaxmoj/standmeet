@@ -20,9 +20,8 @@
 // （映射语言只 JSONata）+ §8 目标接口（REST POST /api/admin/connectors {spec,binding}；
 // .../{id}/{credentials,connect,status,disconnect}；MailContract.Send；diag 直验）。
 //
-// 全 test.fixme：openapi-mail 装配 + JSONata request 构造 + apiKey 连接 + MailContract
-// 经 openapi runtime 这条路从零、未建（现状 mail connector 是手搓 SMTP-style 形态，
-// 没有「贴 SaaS HTTP spec + 绑定填 mail 槽」的路）。实现逐条转绿后去掉 test.fixme。
+// 覆盖 openapi-mail 装配 + JSONata request 构造 + apiKey 连接 + MailContract 经 openapi
+// runtime 这条路（贴 SaaS HTTP spec + 绑定填 mail 槽）。已实现，绿（原为 RED 契约，实现后转绿）。
 //
 // 真服务：spec.servers 指向 external-mock 的 SendGrid mock 端（**假设新端**
 // /__mock/sendgrid/*，跟已有 /__mock/gcal/* 同构）。后端 openapi runtime 实打实 POST
@@ -405,7 +404,7 @@ test.describe('connector · openapi mail (SendGrid-style, kind=openapi fills the
   test('a mail binding whose spec/ops do not actually send is flagged (at assemble or runtime)',
     async () => { await runNonSendingFlagged(request, csrf); });
 
-  // dep-gating: 断开 openapi mail 连接器 → mail.send re-gate。需「mail 作为访客 capability」（未建）。
+  // dep-gating: 断开 openapi mail 连接器 → mail.send re-gate。经「mail 作为访客 capability」，已实现。
   test('disconnect the openapi mail connector → mail.send re-gates',
     async () => { await runDepGating(request, csrf); });
 });

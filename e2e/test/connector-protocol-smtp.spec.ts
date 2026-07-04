@@ -7,9 +7,8 @@
 // (protocol)」→ 固定表单渲染 → 填 → 点 connect（无 OAuth dance，存密钥即连）→
 // 后端真开 SMTP 连接做 connection test → Connected。
 //
-// 这是 TDD 红测：真编译、真跑、真红，红在「protocol 连接器 UI 装配 + 固定表单 +
-// 连接测试」这条尚未建的路上（现状 mail connector 是手搓 gcal-style 形态、表单不是
-// 从通用 protocol descriptor 渲的）。实现逐区转绿后去掉 test.fixme。
+// 覆盖「protocol 连接器 UI 装配 + 固定表单 + 连接测试」（§8 区 E）。已实现，真编译、
+// 真跑、真绿（表单从通用 protocol descriptor 渲；原为 RED 契约，实现后转绿去掉 fixme）。
 //
 // 真服务：后端拨号 mail-mock 的 SMTP 端（1025）→ 转发 Mailpit。错误路径用 mail-mock
 // 的 fault 控制面 + 故意填错 host/port/auth/tls 逼出连接失败。不碰真外部 SMTP。
@@ -54,7 +53,7 @@ const SMTP_FIELDS = {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('connector · protocol SMTP (kind=protocol, fixed credential form)', () => {
-  // 红契约：protocol(SMTP) 连接器 UI 装配 + 固定表单 + 连接测试未建（connector.md §8 区 E）。实现后删。
+  // 覆盖 protocol(SMTP) 连接器 UI 装配 + 固定表单 + 连接测试（connector.md §8 区 E）。已实现，绿。
 
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);

@@ -29,8 +29,8 @@
 //   POST …/{id}/activate（把这个连接器设为其品类的 active）；status 多回 `active` 布尔。
 //   capabilities.ts dependency.connected 驱动全局单点闸（§6）。
 //
-// TDD 红契约：全 test.fixme（设计 §8「~30-50 条红测，实现逐区转绿」）。红在「同品类两 kind
-// 共存 + 单 active 槽仲裁 + 切换/回退」这条尚未建的路上。
+// 覆盖「同品类两 kind 共存 + 单 active 槽仲裁 + 切换/回退」（设计 §8/§1 槽位规则）。
+// 已实现，绿（原为 §8 RED 契约批的一条，实现后转绿）。
 //
 // 不碰 e2e/fixtures/ —— 复用既有 fixture（test/admin/instance/capabilities/agent-skills-grant/
 // visitor/mock-llm-script），共存特有的 helper 全 inline 在本文件末尾。
