@@ -86,6 +86,14 @@ var (
 	ErrStorageBucketRequired    = errors.New("STORAGE_BUCKET is required")
 )
 
+// 内网 compose 服务默认地址（私有 docker 网,明文 http 是设计如此,非公网暴露）。
+const (
+	//nolint:revive // internal compose service on the private docker network — plaintext by design
+	defaultGotenbergURL = "http://gotenberg:3000"
+	//nolint:revive // internal compose service on the private docker network — plaintext by design
+	defaultPrintBaseURL = "http://app:3000"
+)
+
 // Load 读 env，返回 Config 或 error。任何 required env 缺失即返回 error。
 func Load() (*Config, error) {
 	cfg := &Config{
@@ -116,8 +124,8 @@ func Load() (*Config, error) {
 		StorageBucket:                  os.Getenv("STORAGE_BUCKET"),
 		StoragePublicURL:               os.Getenv("STORAGE_PUBLIC_URL"),
 		// #117 部署友好:不设时走标准自托管 compose 服务名,fresh deploy 免逐个填。
-		GotenbergURL:               envOr("GOTENBERG_URL", "http://gotenberg:3000"),
-		PrintBaseURL:               envOr("PRINT_BASE_URL", "http://app:3000"),
+		GotenbergURL:               envOr("GOTENBERG_URL", defaultGotenbergURL),
+		PrintBaseURL:               envOr("PRINT_BASE_URL", defaultPrintBaseURL),
 		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
 		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
 		StorageUseSSL:              os.Getenv("STORAGE_USE_SSL") == "true",
