@@ -76,16 +76,16 @@ async function fetchTurnRaw(
   return { status: res.status(), raw: await res.text() };
 }
 
-// fetchTranscript —— pull the conversation transcript so we can assert it isn't
-// left dirty (no half-written / panic markers) after the cut.
-async function fetchTranscript(
+// fetchConversation —— 读回这条对话(真公开路由 GET /conversations/{id};/transcript 只在
+// admin 面,访客侧没有)。用来断言中断轮没把对话弄脏:仍可读(200)、无半截 panic/stack。
+async function fetchConversation(
   request: APIRequestContext, token: string, convID: string,
-): Promise<string> {
+): Promise<{ status: number; body: string }> {
   const res = await request.get(
-    `${BACKEND}/api/v1/conversations/${convID}/transcript`,
+    `${BACKEND}/api/v1/conversations/${convID}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
-  return res.status() === 200 ? await res.text() : '';
+  return { status: res.status(), body: await res.text() };
 }
 
 test.describe('connector error stream · mid-stream SSE cut during connector-backed tool call (E15)', () => {
@@ -131,9 +131,10 @@ test.describe('connector error stream · mid-stream SSE cut during connector-bac
       expect(next.status, 'conversation recovers after the cut').toBeLessThan(500);
       expect(next.raw, 'no stack on recovery turn').not.toMatch(/panic|goroutine|stack/i);
 
-      // transcript is not left dirty by the interrupted turn.
-      const transcript = await fetchTranscript(request, sess.session_token, sess.conversation_id);
-      expect(transcript, 'transcript not left dirty').not.toMatch(/panic|goroutine|stack/i);
+      // 对话没被中断轮弄脏:真读回 /conversations/{id} —— 仍可读(200)、无半截 panic/stack。
+      const convo = await fetchConversation(request, sess.session_token, sess.conversation_id);
+      expect(convo.status, 'conversation still readable after the cut').toBe(200);
+      expect(convo.body, 'conversation not left dirty by the cut').not.toMatch(/panic|goroutine|stack/i);
 
       await request.dispose();
     });

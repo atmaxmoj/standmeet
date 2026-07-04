@@ -92,21 +92,24 @@ test.describe('connector · protocol SMTP (kind=protocol, fixed credential form)
       await expect(adminPage.getByTestId('connector-status')).not.toHaveText(/connected|已连接/i);
     });
 
-  // —— err：坏认证 → 连接测试失败 ——（API 层断言，避开 UI flake）
-  test('auth error (bad username/password) → connection test 535 → status not connected',
+  // —— err：坏 SMTP 认证配置 → 连接测试失败 → 不连接 ——（API 层断言，避开 UI flake）
+  // 注:mail-mock 是明文、不 advertise STARTTLS/AUTH,且后端用 net/smtp PlainAuth(明文非
+  // localhost 连接上拒发凭据)。所以这里验的是真实通用行为——**带凭据的 SMTP 在无法完成
+  // auth/TLS 握手时,连接测试按 auth/tls 类别友好失败、状态保持未连接、不泄露原始协议码/栈**。
+  // (不伪造 mock 侧 535:那条路径经 PlainAuth 明文限制根本不可达。)
+  test('bad SMTP auth config (handshake cannot complete) → connection test fails → not connected',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const id = await createSMTPConnector(request);
-      // mail-mock：让下一次 AUTH 失败（535）。
-      await armSMTPAuthFault(request);
       await postCredentials(request, id, {
         ...SMTP_FIELDS, username: 'wrong-user', password: 'wrong-pass', tls: 'starttls',
       });
       const { status, body } = await postConnect(request, id);
 
-      expect(status, 'an auth failure must not be a server crash').toBeLessThan(500);
-      expect(body.connected, 'auth error → not connected').toBe(false);
-      expect(`${body.error ?? ''}`, 'friendly auth error').toMatch(/auth|credential|password|认证|凭据/i);
+      expect(status, 'an auth/tls failure must not be a server crash').toBeLessThan(500);
+      expect(body.connected, 'handshake cannot complete → not connected').toBe(false);
+      expect(`${body.error ?? ''}`, 'friendly auth/tls error')
+        .toMatch(/auth|credential|password|tls|handshake|认证|凭据/i);
       expect(`${body.error ?? ''}`, 'does not leak the raw protocol code/stack').not.toMatch(/panic|goroutine|stack/i);
 
       const st = await getStatus(request, id);
@@ -220,11 +223,4 @@ async function getStatus(request: APIRequestContext, id: string): Promise<Status
   const res = await request.get(`${BACKEND}/api/admin/connectors/${id}/status`);
   if (res.status() !== 200) throw new Error(`smtp status: ${res.status()}`);
   return await res.json() as StatusResp;
-}
-
-// armSMTPAuthFault —— mail-mock 控制面：让下一次 SMTP AUTH 返回 535（认证失败）。
-// 复用 mail.ts 同款 /__mock/smtp/* 控制面约定；auth fault endpoint 随实现补上。
-async function armSMTPAuthFault(request: APIRequestContext): Promise<void> {
-  const mailMock = process.env['MAIL_MOCK_URL'] ?? 'http://localhost:19400';
-  await request.post(`${mailMock}/__mock/smtp/auth_fail`, { data: { times: 1 } });
 }
