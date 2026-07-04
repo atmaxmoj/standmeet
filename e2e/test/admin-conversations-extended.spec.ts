@@ -64,6 +64,17 @@ test.describe('admin conversations extended', () => {
       await expect(body).toContainText('hello from A');
     });
 
+  // 转录只有 modal 一个真表面;删掉那个读空 conv.transcript 恒显 "placeholder for now"
+  // 的冗余内联 panel(点行同时弹 modal + 展开占位是 bug)。
+  test('opening a conversation shows NO leftover transcript placeholder panel',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'conversations');
+      await adminPage.getByText('Visitor A', { exact: true }).click();
+      await expect(adminPage.getByTestId('transcript-body')).toBeVisible({ timeout: 5_000 });
+      await expect(adminPage.getByText(/transcript not loaded|placeholder for now/i))
+        .toHaveCount(0);
+    });
+
   test('filter by code → only matching conversations',
     async ({ adminPage }) => {
       await goto(adminPage, `/admin/conversations?code=CONV-A`);

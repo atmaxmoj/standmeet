@@ -9,7 +9,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { ConvRow } from '@/components/admin/sections/conversations/ConvRow';
 import { ConvTranscriptModal } from '@/components/admin/sections/conversations/ConvTranscriptModal';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useConversations, type ConversationsHook, type ConvView } from '@/lib/admin/use-conversations';
@@ -92,17 +91,16 @@ function ReadyTable({ hook }: { hook: ConversationsHook }) {
       </thead>
       <tbody>
         {hook.rows.map((c) => (
-          <ConvTableRow key={c.id} conv={c} open={hook.openId === c.id} onToggle={() => hook.openConversation(c.id)} />
+          <ConvTableRow key={c.id} conv={c} onToggle={() => hook.openConversation(c.id)} />
         ))}
       </tbody>
     </table>
   );
 }
 
-function ConvTableRow({ conv, open, onToggle }: { conv: ConvView; open: boolean; onToggle: () => void }) {
+function ConvTableRow({ conv, onToggle }: { conv: ConvView; onToggle: () => void }) {
   return (
-    <>
-      <tr onClick={onToggle} className="cursor-pointer hover:bg-(--color-surface)/30">
+    <tr onClick={onToggle} className="cursor-pointer hover:bg-(--color-surface)/30">
         <td className="px-1.5 py-2.5 border-b border-(--color-rule)/60">
           <div className="font-serif text-[15px] text-(--color-ink)">{conv.visitor}</div>
           <div className="mono text-[10px] text-(--color-faint) mt-0.5">{conv.id}</div>
@@ -126,14 +124,6 @@ function ConvTableRow({ conv, open, onToggle }: { conv: ConvView; open: boolean;
           {conv.last}
         </td>
       </tr>
-      {open && (
-        <tr>
-          <td colSpan={7} className="px-1.5 py-3 border-b border-(--color-rule)/60" data-testid="transcript-panel">
-            <ConvRow conversation={conv} open onToggle={onToggle} />
-          </td>
-        </tr>
-      )}
-    </>
   );
 }
 
