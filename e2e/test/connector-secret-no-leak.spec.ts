@@ -43,13 +43,16 @@ async function callListSlots(
   return { status: res.status(), text: await res.text() };
 }
 
+// fetchTranscript —— 读 owner admin 视角下该对话的完整 transcript(tool 调用 + 结果都持久化在
+// 这里,secret 若泄漏会现形)。**必须用 owner-authed 的 seed.request**:访客 context 打 admin
+// 路由只会 401,拿到的错误体天然不含 secret → not.toContain 恒真(假绿)。返 status 供断言把关。
 async function fetchTranscript(
-  request: APIRequestContext, csrf: string, convID: string,
-): Promise<string> {
-  const res = await request.get(`${BACKEND}/api/admin/conversations/${convID}`, {
+  ownerRequest: APIRequestContext, csrf: string, convID: string,
+): Promise<{ status: number; text: string }> {
+  const res = await ownerRequest.get(`${BACKEND}/api/admin/conversations/${convID}`, {
     headers: { 'X-Csrftoken': csrf },
   });
-  return await res.text();
+  return { status: res.status(), text: await res.text() };
 }
 
 test.describe('Phase B · connector credential never leaks to the visitor', () => {
@@ -75,8 +78,10 @@ test.describe('Phase B · connector credential never leaks to the visitor', () =
       expect(text, 'secret not in tool_result').not.toContain(GCAL_CLIENT_SECRET);
 
       // nor in the admin transcript of that conversation (tool calls + results are persisted).
-      const transcript = await fetchTranscript(request, seed.csrf, sess.conversation_id);
-      expect(transcript, 'secret not in transcript').not.toContain(GCAL_CLIENT_SECRET);
+      // 用 owner-authed 的 seed.request 真读回 transcript;先钉 200,别让 401 错误体把断言蒙混过关。
+      const transcript = await fetchTranscript(seed.request, seed.csrf, sess.conversation_id);
+      expect(transcript.status, 'transcript really fetched (not a 401 body)').toBe(200);
+      expect(transcript.text, 'secret not in transcript').not.toContain(GCAL_CLIENT_SECRET);
 
       await request.dispose();
     });

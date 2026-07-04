@@ -37,6 +37,11 @@ test.describe('connector · booker plugin gets a handle, never the owner credent
       });
       const body = await res.text();
 
+      // 守卫:turn 真成功(200)且 booker tool 真执行了 —— 否则拿到的是错误体/空流,
+      // .not.toContain(secret) 会恒真蒙混。必须确认带凭据的路径真跑过,泄漏才有机会现形。
+      expect(res.status(), 'turn ran (not an auth/quota error)').toBe(200);
+      expect(body, 'booker tool actually executed (credential-carrying path ran)')
+        .toMatch(/tool_started|tool_completed|event: tool/);
       // 凭据标记(mock 凭据里的 client_secret / 任何 token 串)绝不出现在 booker 经手的回包里。
       expect(body, 'client_secret not leaked').not.toContain(MOCK_GCAL_CREDS.client_secret);
       expect(body, 'no refresh_token string').not.toMatch(/refresh_token|client_secret|access_token=/i);
