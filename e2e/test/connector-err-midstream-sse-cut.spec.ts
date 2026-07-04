@@ -26,18 +26,46 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// TODO(impl): needs a mid-stream SSE-cut fault toggle — no helper exists yet.
-// Raw POST so the spec COMPILES; backend control endpoint to add with the
-// refactor: cut the /agent/turn SSE connection once, AFTER a tool_started frame
-// for a connector-backed tool but BEFORE tool_completed.
-async function cutNextStreamMidTool(request: APIRequestContext): Promise<void> {
-  await request.post(`${BACKEND}/__mock/agent/sse_cut`, {
-    data: { at: 'mid-tool', times: 1 },
-  });
+// cutTurnAfterToolStarted —— **真·客户端中断**(不是假的 mock 开关):用 Node 原生 fetch
+// 流式读 /agent/turn 的 SSE,一看到 `event: tool_started` 帧就 AbortController.abort() —— 这
+// 正是访客浏览器在工具执行途中断线/关页的真实攻击面,后端会在 tool 进行中收到 r.Context()
+// 取消。返 abort 前已收到的原始 SSE(供断言查:确进了 tool 阶段、没吐 stack、没走到 done)。
+async function cutTurnAfterToolStarted(
+  token: string, convID: string, msg: string,
+): Promise<string> {
+  const ctrl = new AbortController();
+  let raw = '';
+  try {
+    // 例外:必须用原生 fetch —— 要**流式**读 SSE + mid-flight abort 模拟客户端断线;
+    // Playwright 的 request fixture 会缓冲整段响应,做不到中途掐断。
+    /* eslint-disable no-restricted-syntax */
+    const res = await fetch(`${BACKEND}/api/v1/agent/turn`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ system: '', user_message: msg, conversation_id: convID, history: [] }),
+      signal: ctrl.signal,
+    });
+    /* eslint-enable no-restricted-syntax */
+    if (res.body === null) return raw;
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      raw += dec.decode(value, { stream: true });
+      if (raw.includes('event: tool_started')) {
+        ctrl.abort(); // 客户端在工具执行途中断线
+        break;
+      }
+    }
+  } catch (e) {
+    // abort() → fetch/reader 抛 AbortError,这是我们主动断线的预期结果,吞掉;其余 rethrow。
+    if (!(e instanceof Error) || e.name !== 'AbortError') throw e;
+  }
+  return raw;
 }
 
-// fetchTurnRaw —— drive one /agent/turn directly so we can inspect the raw SSE
-// stream after the cut (status + body), rather than the drained-text helper.
+// fetchTurnRaw —— 恢复轮:正常跑完一轮 /agent/turn,拿 status + 完整 SSE。
 async function fetchTurnRaw(
   request: APIRequestContext, token: string, convID: string, msg: string,
 ): Promise<{ status: number; raw: string }> {
@@ -80,14 +108,16 @@ test.describe('connector error stream · mid-stream SSE cut during connector-bac
         name: 'calendar_book',
         args: { topic: 'E15 sse cut', duration_min: 30, preferred_times: [future(7, 14)] },
       });
-      await cutNextStreamMidTool(request);
 
-      const { status, raw } = await fetchTurnRaw(
-        request, sess.session_token, sess.conversation_id, 'book me next week',
+      // 客户端在 tool_started 之后断线(真实 mid-tool cut)。
+      const raw = await cutTurnAfterToolStarted(
+        sess.session_token, sess.conversation_id, 'book me next week',
       );
 
-      // a mid-stream cut is not a server crash, and must not spill a stack into the stream.
-      expect(status, 'no server crash').toBeLessThan(500);
+      // 断言 cut 真落在 tool 阶段:进了 tool_started,但没读到 done(连接被我们提前掐了)。
+      expect(raw, 'cut actually reached the tool phase').toContain('event: tool_started');
+      expect(raw, 'cut happened before the turn finished streaming').not.toContain('event: done');
+      // 中断不是 server crash,也不能把 stack 吐进流。
       expect(raw, 'no raw stack in stream').not.toMatch(/panic|goroutine|stack/i);
 
       // recoverable: the next turn on the SAME conversation still works (not wedged).
