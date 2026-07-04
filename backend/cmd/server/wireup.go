@@ -56,6 +56,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		},
 		MCP:             buildMCPDeps(d),
 		CaptchaVerifier: d.captchaVerifier,
+		CaptchaEnabled:  d.captchaEnabled,
 		PluginRegistry:  d.pluginRegistry,
 		BannedIPs:       d.bannedIPRepo,
 	}
@@ -246,6 +247,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		AppState:    d.appStateRepo,
 		Usage:       d.inferenceUsageRepo,
 		Log:         d.log,
+		// CodeGuard 由 internal/server 装配(middleware wiring 归 server 层,cmd 不引 middleware)。
 	}
 }
 

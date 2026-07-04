@@ -29,6 +29,8 @@ type createSessionRequest struct {
 	VisitorEmail  string `json:"visitor_email,omitempty"` // 可选;进入时填的邮箱
 	MemberID      string `json:"member_id,omitempty"`
 	BYOAIProvider string `json:"byoai_provider,omitempty"`
+	// CaptchaToken —— #169 兑换失败超阈值后,captcha 启用时靠它解锁(关闭时忽略)。
+	CaptchaToken string `json:"captcha_token,omitempty"`
 }
 
 type sessionQuotaResp struct {
@@ -109,17 +111,15 @@ func (h *Handlers) createSession() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		res, err := dispatchIssueSession(r.Context(), &h.Visitor, &req, clientIP(r))
-		if err != nil {
-			handleVisitorErr(h.Log, w, err)
-			return
+		if res, ok := h.guardedIssueSession(w, r, &req); ok {
+			writeCreateSession(r.Context(), h, w, &res)
 		}
-		writeCreateSession(r.Context(), h, w, &res)
 	}
 }
 
 type codeIntroRequest struct {
-	Code string `json:"code"`
+	Code         string `json:"code"`
+	CaptchaToken string `json:"captcha_token,omitempty"`
 }
 
 type codeIntroResponse struct {
@@ -138,12 +138,9 @@ func (h *Handlers) codeIntro() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid JSON body"))
 			return
 		}
-		res, err := usecases.CodeIntro(r.Context(), &h.Visitor, req.Code)
-		if err != nil {
-			handleVisitorErr(h.Log, w, err)
-			return
+		if res, ok := h.guardedIntro(w, r, &req); ok {
+			writeCodeIntro(h.Log, w, &res)
 		}
-		writeCodeIntro(h.Log, w, &res)
 	}
 }
 

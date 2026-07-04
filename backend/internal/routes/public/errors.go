@@ -22,6 +22,14 @@ func serverErr() apierr.Envelope {
 	}
 }
 
+// envCodeLocked —— #169 访问码兑换失败超阈值 → 429 锁定(暴力枚举防护)。
+func envCodeLocked() apierr.Envelope {
+	return apierr.Envelope{
+		Status: http.StatusTooManyRequests, Code: "code_locked",
+		Message: "too many invalid codes — try again later",
+	}
+}
+
 func writeError(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(env.Status)

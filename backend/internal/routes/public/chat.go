@@ -46,7 +46,17 @@ type Handlers struct {
 	AppState AppStateStore
 	// Usage —— #106 计费:记 owner-key LLM 用量。composition root 注入(postgres repo)。
 	Usage UsageRecorder
-	Log   *slog.Logger
+	// CodeGuard —— #169 访问码兑换失败锁定(暴力枚举防护)。窄接口,具体实现在 middleware
+	// (captcha 依赖藏在那层边界后)。composition root 注入,恒非 nil。
+	CodeGuard CodeGuard
+	Log       *slog.Logger
+}
+
+// CodeGuard —— 访问码兑换失败锁定端口(#169)。impl = middleware.CodeGuard,注入进来。
+type CodeGuard interface {
+	Locked(ctx context.Context, ip, captchaToken string) bool
+	RecordFail(ctx context.Context, ip string)
+	Reset(ctx context.Context, ip string)
 }
 
 // UsageRecorder —— #106 计费 port:记一次 owner-key LLM 用量。BYOAI 不经此(访客自付)。

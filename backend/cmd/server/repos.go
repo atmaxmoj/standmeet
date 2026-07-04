@@ -161,6 +161,7 @@ func assembleRuntimeDeps(
 		providerResolver:   dw.providerResolver,
 		setupTokenHolder:   dw.setupTokenHolder,
 		captchaVerifier:    captchaVerifier,
+		captchaEnabled:     cfg.TurnstileSiteKey != "" && cfg.TurnstileSecret != "",
 		captchaSiteKey:     captchaSiteKeyFor(cfg),
 		secureCookie:       cfg.SecureCookie,
 		buildsRoot:         cfg.CustomPagesRoot,

@@ -54,6 +54,8 @@ type Deps struct {
 	BannedIPs *postgres.BannedIPRepo
 	MCP       mcphandle.Deps
 	Admin     AdminDeps
+	// CaptchaEnabled —— captcha 是否真启用(非 noop);#169 code guard 的 captcha-escape。
+	CaptchaEnabled bool
 }
 
 // AdminDeps 把 admin sub-router 需要的业务依赖单独打包。
@@ -207,6 +209,11 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 func mountPublic(r chi.Router, deps *Deps) {
 	// 直接挂 wireup 构好的 Handlers 值，不再字段一个个重抄 (G-1.5 smell E:
 	// 之前 Handlers 加字段 wireup 改了但 mount 漏抄 → silent nil 跑了一阵)。
+	// #169 访问码兑换失败锁定：middleware wiring 归 server 层(cmd 不引 middleware),跟
+	// LoginGuard 同处装配。注入进 public Handlers 的窄 CodeGuard 接口。
+	deps.Public.CodeGuard = authmw.NewCodeGuard(
+		deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
+	)
 	r.Route("/api/v1", func(r chi.Router) {
 		// 封禁 IP 先挡（403），再 per-IP 限流公开滥用面（429）。
 		r.Use(authmw.BanGuard(deps.BannedIPs))
