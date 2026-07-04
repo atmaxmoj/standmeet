@@ -67,5 +67,8 @@ test.describe('admin · ActivityTicker recent-events stream', () => {
       const ticker = adminPage.getByTestId('activity-ticker');
       await expect(ticker).toBeVisible();
       await expect(ticker).not.toContainText(/coming soon/i);
+      // 断到真事件渲染 —— seed 的访客名 / corpus 标题必须出现。只查 "无 coming soon" 会
+      // 被 "no activity yet" 空态误绿,证明不了真事件流。
+      await expect(ticker).toContainText(/ActVisitor|Activity Corpus Doc/);
     });
 });

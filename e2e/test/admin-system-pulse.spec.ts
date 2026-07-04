@@ -64,6 +64,8 @@ test.describe('admin · SystemPulse corpus-growth stats', () => {
       const pulse = adminPage.getByTestId('system-pulse');
       await expect(pulse).toBeVisible();
       await expect(pulse).not.toContainText(/not yet wired|coming/i);
-      await expect(pulse).toContainText(/\d/); // a real count/sparkline digit
+      // 断到真数据渲染:tiers 串只有加载出真计数才出现("N raw · …"),占位是 "loading…"。
+      // 避免 /\d/ 的 false-green —— 那被静态标题 "corpus pulse · 14d" 满足,证明不了真数。
+      await expect(pulse).toContainText(/\d+\s*raw/);
     });
 });
