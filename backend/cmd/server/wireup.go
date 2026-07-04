@@ -157,6 +157,7 @@ func buildDiagSessionDeps(d *runtimeDeps) sysroutes.DiagSessionDeps {
 // 一次，capability 闭包持 deps，server 跑期间 deps 不再变。
 func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireSandboxWorkspaces(ctx, d)
+	wireResumeDraftSweeper(ctx, d)
 	// connector 命名依赖注册表一处建、一处 set：ext-mcp dep-grant 闸（工具 _meta.requires
 	// 按 grant+connected 放行）与 registerDiscoveredPlugins 的 Requires 校验共用同一份。
 	depReg := connectorDepRegistry(ctx, d)

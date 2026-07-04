@@ -43,6 +43,11 @@ test.describe('admin · SystemSection real scheduled jobs', () => {
       expect(sweep?.last_run, 'ran at least once (we triggered it)').toBeTruthy();
       expect(sweep?.last_status, 'reports a status').toBeTruthy();
 
+      // resume-draft sweep is now a real registered cron too (was a method with no loop).
+      const draftSweep = jobs.find((j) => /resume-draft/i.test(j.name));
+      expect(draftSweep, 'resume-draft sweep registered').toBeTruthy();
+      expect(draftSweep?.last_run, 'resume-draft sweep ran at boot').toBeTruthy();
+
       // The old hardcoded fake jobs must be gone.
       const names = jobs.map((j) => j.name.toLowerCase()).join(' | ');
       expect(names, 'no fake sitemap/backup/reindex rows').not.toMatch(

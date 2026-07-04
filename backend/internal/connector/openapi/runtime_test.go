@@ -167,3 +167,31 @@ func mustNoErr(t *testing.T, what string, err error) {
 		t.Fatalf("%s: %v", what, err)
 	}
 }
+
+// TestSubstitutePath —— {param} 替换 + PathEscape:注入值(含 `/`)被转义,逃不出预期路径。
+func TestSubstitutePath(t *testing.T) {
+	const evPath = "/events/{eventId}"
+	cases := []struct {
+		name  string
+		path  string
+		input any
+		want  string
+	}{
+		{"plain", evPath, map[string]any{"eventId": "abc"}, "/events/abc"},
+		{
+			"escapes slash injection", evPath,
+			map[string]any{"eventId": "../../admin"},
+			"/events/..%2F..%2Fadmin",
+		},
+		{"escapes query/hash", "/x/{p}", map[string]any{"p": "a?b#c"}, "/x/a%3Fb%23c"},
+		{"missing param kept", evPath, map[string]any{}, evPath},
+		{"non-map input unchanged", evPath, "notamap", evPath},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := substitutePath(c.path, c.input); got != c.want {
+				t.Fatalf("substitutePath(%q) = %q, want %q", c.path, got, c.want)
+			}
+		})
+	}
+}

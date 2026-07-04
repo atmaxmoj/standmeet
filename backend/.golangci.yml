@@ -286,7 +286,17 @@ linters:
       # 都是任意 JSON),`any` 在此合法——同 MCP/postgres 边界豁免 forbidigo;其纯逻辑
       # (ParseSpec/ParseBinding/JSONata 两向形状归一)值得后端内部白盒 UT,豁免 testpackage。
       - path: internal/connector/openapi/
-        linters: [testpackage, forbidigo, nilnil]
+        linters: [testpackage, forbidigo, nilnil, paralleltest]
+      # connector egress 的 safeDialAddr（SSRF TOCTOU：拨号 pin 验证过的 IP）是 unexported,
+      # 白盒 UT 注入假 resolver（改 package-global lookupIPAddr）验 pin/rebind → 与 paralleltest
+      # 天然冲突（并行会 race 那个 global）。豁免 testpackage + paralleltest。
+      - path: internal/connector/
+        linters: [testpackage, paralleltest]
+      # domain 的 compileGlob 缓存 / cmd/server 的 pingCheck 都是 unexported 白盒 UT;同上豁免。
+      - path: internal/domain/
+        linters: [testpackage, paralleltest]
+      - path: cmd/server/
+        linters: [testpackage, paralleltest]
       # postgres-boundary 层与 pgx/sqlc 接口打交道，`any` 在驱动
       # 契约里是不可避免的（pgx Scan(dest ...any)、json.Marshal(v any) 等）。
       # 业务层 ban `any` 让信息流可读；这里反过来豁免。

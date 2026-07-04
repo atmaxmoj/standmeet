@@ -144,8 +144,11 @@ func uploadAndCompensate(
 		return nil
 	}
 	DeleteBlobs(ctx, deps.Assets, done)
+	// orphan-row cleanup 失败不能吞:writing 行会指向已删的 blob。这层无 logger,
+	// 把 cleanup 失败折进返回的 error 让边界处 log(比 slog.Default 更贴本 arch)。
 	if derr := DeleteWritingWithAssets(ctx, deps, ownerID, c.Writing.ID()); derr != nil {
-		_ = derr
+		return fmt.Errorf(
+			"upload blobs: %w; orphan writing-row cleanup also failed: %w", uerr, derr)
 	}
 	return fmt.Errorf("upload blobs: %w", uerr)
 }

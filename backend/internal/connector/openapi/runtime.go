@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 )
 
@@ -107,8 +108,8 @@ func (r *Runtime) buildRequest(
 	if err != nil {
 		return nil, err
 	}
-	url := r.baseURL + substitutePath(bo.resolved.Path, input)
-	req, rerr := http.NewRequestWithContext(ctx, bo.resolved.Method, url, rdr)
+	reqURL := r.baseURL + substitutePath(bo.resolved.Path, input)
+	req, rerr := http.NewRequestWithContext(ctx, bo.resolved.Method, reqURL, rdr)
 	if rerr != nil {
 		return nil, fmt.Errorf("build request: %w", rerr)
 	}
@@ -279,7 +280,9 @@ func substitutePath(path string, input any) string {
 	return pathParamRE.ReplaceAllStringFunc(path, func(match string) string {
 		key := match[1 : len(match)-1]
 		if v, found := m[key]; found {
-			return fmt.Sprint(v)
+			// PathEscape:param 值可能含 `/`、`?`、`#` 等 —— 转义防 path-injection
+			// (如 eventId="../../admin" 逃出预期路径)。
+			return url.PathEscape(fmt.Sprint(v))
 		}
 		return match
 	})

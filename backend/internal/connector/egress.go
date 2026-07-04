@@ -66,10 +66,13 @@ func (a EgressAllow) GuardedHTTPClient() *http.Client {
 	base := &net.Dialer{Timeout: egressDialTimeout}
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			if derr := a.checkDial(ctx, addr); derr != nil {
+			dialAddr, derr := a.safeDialAddr(ctx, addr)
+			if derr != nil {
 				return nil, derr
 			}
-			return base.DialContext(ctx, network, addr)
+			// 拨**验证过的 IP**,不让 base.DialContext 二次解析 host —— 杜绝 check→dial 之间
+			// DNS 被 rebind 到内网(TOCTOU)。
+			return base.DialContext(ctx, network, dialAddr)
 		},
 	}
 	// 经 httpx 归一(统一 client + SSRF transport 组合)。NoRetry —— connector 层带幂等键
@@ -95,36 +98,57 @@ func (a EgressAllow) staticBlocked(host string) bool {
 	return blockedHostName(host)
 }
 
-// checkDial —— 拨号前校验：先 staticBlocked，主机名再解析所有 IP，任一内网 → 拒。
-func (a EgressAllow) checkDial(ctx context.Context, addr string) error {
-	host, _, err := net.SplitHostPort(addr)
+// safeDialAddr —— 拨号前校验 + 返回**要真拨的地址**。主机名 → 解析、验所有 IP、把验过的一个 IP
+// pin 进返回地址(host:port → validatedIP:port),底层 dialer 不再二次解析,杜绝 TOCTOU。
+// 白名单 host / 字面公网 IP → 原样返回。
+func (a EgressAllow) safeDialAddr(ctx context.Context, addr string) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		host = addr
+		return "", fmt.Errorf("%w: bad dial addr %q: %w", ErrBlockedEgress, addr, err)
 	}
 	if a[strings.ToLower(host)] {
-		return nil
+		return addr, nil // 白名单 host,信任,原样拨
 	}
 	if a.staticBlocked(host) {
-		return fmt.Errorf("%w: %q", ErrBlockedEgress, host)
+		return "", fmt.Errorf("%w: %q", ErrBlockedEgress, host)
 	}
-	if net.ParseIP(host) != nil { // 字面 IP 且未被 staticBlocked → 公网，放行
-		return nil
-	}
-	return checkResolved(ctx, host)
+	return pinnedDialAddr(ctx, host, port, addr)
 }
 
-// checkResolved —— 解析主机名，任一 IP 落内网 → 拒（防 DNS rebinding / 解析到私网）。
-func checkResolved(ctx context.Context, host string) error {
-	ips, lerr := net.DefaultResolver.LookupIPAddr(ctx, host)
+// pinnedDialAddr —— 字面公网 IP 原样返;主机名 → 解析验过后 pin 第一个安全 IP 进 addr。
+func pinnedDialAddr(
+	ctx context.Context, host, port, addr string,
+) (string, error) {
+	if net.ParseIP(host) != nil {
+		return addr, nil // 字面公网 IP,无需解析
+	}
+	ip, rerr := resolveSafeIP(ctx, host)
+	if rerr != nil {
+		return "", rerr
+	}
+	return net.JoinHostPort(ip, port), nil
+}
+
+// lookupIPAddr —— 可替换的解析钩子(测试注入假 resolver 验 pin/rebind 逻辑)。
+var lookupIPAddr = net.DefaultResolver.LookupIPAddr
+
+// resolveSafeIP —— 解析主机名,任一 IP 落内网 → 拒(防 DNS rebinding / 解析到私网);全过 →
+// 返回第一个 IP 作为拨号目标(pin)。
+func resolveSafeIP(ctx context.Context, host string) (string, error) {
+	ips, lerr := lookupIPAddr(ctx, host)
 	if lerr != nil {
-		return fmt.Errorf("%w: resolve %q: %w", ErrBlockedEgress, host, lerr)
+		return "", fmt.Errorf("%w: resolve %q: %w", ErrBlockedEgress, host, lerr)
+	}
+	if len(ips) == 0 {
+		return "", fmt.Errorf("%w: %q resolved to no addresses", ErrBlockedEgress, host)
 	}
 	for i := range ips {
-		if isInternalIP(ips[i].IP) {
-			return fmt.Errorf("%w: %q resolves to internal %s", ErrBlockedEgress, host, ips[i].IP)
+		ip := ips[i].IP
+		if isInternalIP(ip) {
+			return "", fmt.Errorf("%w: %q resolves to internal %s", ErrBlockedEgress, host, ip)
 		}
 	}
-	return nil
+	return ips[0].IP.String(), nil
 }
 
 // isInternalIP —— loopback / 私网(RFC1918+ULA) / link-local(含 169.254.169.254) / 未指定 → 内网。
