@@ -1,5 +1,6 @@
 // DomainEditor —— custom domain + DNS verify badge。
-// backend 暂未暴露 allowed_domains 写入，verify 是 client-side stub。
+// allowed_domains 读写已接(GET/POST /allowed-domains)。verify(DNS-TXT 校验)仍是 client-side
+// stub —— 真校验需部署侧 DNS/ACME infra,e2e 环境无法验,归阻塞(见 todo)。
 
 'use client';
 

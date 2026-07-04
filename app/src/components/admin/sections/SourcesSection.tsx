@@ -2,9 +2,8 @@
 // (1305-1343) + SourceConfigModal (1223-1303)。job 拉数据的 feed 源列表 +
 // "+ board" / "+ rss/scraper" 入口。表格 (source / kind / new / total / last / status)。
 //
-// 当前没有 admin REST endpoint for job_sources list —— 直接用 MCP
-// list_sources；admin 这里先走 stub 空态 + 按 design 画好 UI 结构，等
-// 后端补 GET /api/admin/job-sources/ 再切真 fetch。
+// 走真数据:useAdminSources → GET /api/admin/job-sources/(jobsadmin routes)。空态是真
+// 空态(没注册 source),不是占位。covered by admin-sources.spec.ts。
 
 'use client';
 

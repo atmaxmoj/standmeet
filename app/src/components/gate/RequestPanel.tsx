@@ -2,7 +2,8 @@
 // 设计稿的展示：默认折叠成一个 "write a note ↘" 按钮，点了再展开整个表单。
 // 提交成功后变 "sent" 视觉 + 个性化致谢。
 //
-// stub：POST /api/v1/access-requests（backend 落 audit log）。
+// 提交走 hook.submitRequest → POST /api/v1/access-requests(backend 落 audit log)。
+// 非 stub,covered by gate-request-access.spec.ts。
 
 'use client';
 

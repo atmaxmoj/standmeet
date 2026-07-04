@@ -79,4 +79,17 @@ test.describe('C-2 owner generates MCP keypair from admin UI', () => {
       await expect(page.getByTestId('mcp-snippet')).toContainText('privateKeyPem');
       await expect(page.getByTestId('mcp-snippet')).toContainText('BEGIN PRIVATE KEY');
     });
+
+  // #105: 端点 handoff 展示真的 /mcp 端点,不再假装有可下载的 standmeet-mcp 二进制
+  // (原先 4 个平台链接指向不存在的 repo、大小是编的)。
+  test('mcp endpoint panel shows the real /mcp endpoint, no fake binary downloads',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'api-mcp');
+      await page.waitForURL('**/admin/api-mcp', { timeout: 5_000 });
+      const ep = page.getByTestId('mcp-endpoint');
+      await expect(ep).toBeVisible();
+      await expect(ep).toContainText('/mcp'); // real endpoint (origin/mcp)
+      // The old fake download artifacts must be gone.
+      await expect(page.getByText(/standmeet-mcp_1\.0\.0_(darwin|linux|windows)/)).toHaveCount(0);
+    });
 });
