@@ -84,7 +84,9 @@ async function mcpCallTool(
   return await res.text();
 }
 
+// isUnauthorized —— 必须是**真 auth 拒绝**信号(后端返 "unauthorized: invalid or missing api
+// token" / "unauthorized: invalid Sigv1")。**不接受裸 isError**:MCP 对任何 tool 错误都返
+// isError,若 auth 没生效但 tool 因别的原因报错,裸 isError 会让 broken-auth 蒙混成"已拒绝"。
 function isUnauthorized(body: string): boolean {
-  const lower = body.toLowerCase();
-  return lower.includes('unauthor') || lower.includes('isError'.toLowerCase());
+  return body.toLowerCase().includes('unauthor');
 }
