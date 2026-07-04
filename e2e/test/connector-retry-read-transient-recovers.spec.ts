@@ -37,11 +37,9 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// TODO(impl): needs a mock fault toggle that fails freeBusy/list_slots a BOUNDED
-// number of times then recovers (transient). No setMockGCalFailure helper exists
-// yet — raw POST so the spec compiles. Backend mock endpoint to add with the
-// refactor: { op, status, times } → fail the next `times` calls with `status`,
-// then serve normally.
+// failFreeBusyTransiently —— fail freeBusy a BOUNDED number of times then recover
+// (transient). Control endpoint: POST /__mock/gcal/fail { op, status, times } → fail
+// the next `times` calls with `status`, then serve normally (mock-stack/job-board/gcal.go).
 async function failFreeBusyTransiently(
   request: APIRequestContext, times = 1, status = 503,
 ): Promise<void> {

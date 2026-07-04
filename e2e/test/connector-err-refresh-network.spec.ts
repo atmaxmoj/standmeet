@@ -46,10 +46,10 @@ function expireAccessToken(): void {
     { stdio: 'pipe' });
 }
 
-// TODO(impl): needs a mock OAuth token-endpoint fault toggle distinct from
-// revoke (which returns invalid_grant). No setMockTokenRefreshFault helper yet;
-// raw POST so the spec COMPILES. mode = 'network' (drop the connection) or
-// '500' (server error body, NOT invalid_grant). Backend mock to add with refactor.
+// failNextTokenRefresh —— arm an OAuth token-endpoint fault distinct from revoke
+// (which returns invalid_grant). mode = 'network' (drop the connection) or '500'
+// (server error body, NOT invalid_grant). Control endpoint: POST /__mock/gcal/token_fault
+// (mock-stack/job-board/gcal.go).
 async function failNextTokenRefresh(
   request: APIRequestContext, mode: 'network' | '500',
 ): Promise<void> {

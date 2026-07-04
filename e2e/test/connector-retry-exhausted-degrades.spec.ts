@@ -37,10 +37,9 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// TODO(impl): needs a mock fault toggle that fails freeBusy PERSISTENTLY (every
-// attempt) — `times: -1` / large count to outlast the retry budget. No
-// setMockGCalFailure helper exists yet; raw POST so the spec compiles. Backend
-// mock endpoint to add with the refactor.
+// failFreeBusyAlways —— fail freeBusy on EVERY attempt (times:-1) so the failure
+// outlasts the retry budget. Control endpoint: POST /__mock/gcal/fail
+// { op:'freeBusy', status, times:-1 } (mock-stack/job-board/gcal.go).
 async function failFreeBusyAlways(
   request: APIRequestContext, status = 503,
 ): Promise<void> {

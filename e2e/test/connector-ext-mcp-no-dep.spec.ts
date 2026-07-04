@@ -72,10 +72,9 @@ async function connectCalendar(request: APIRequestContext, csrf: string): Promis
   if (!status.connected) throw new Error('calendar not connected after oauth');
 }
 
-// TODO(impl): needs the mock-stack/mcp plugin to declare a tool with
-// `Requires:["calendar"]` so the host can read an ext-mcp manifest Requires.
-// Registered via mcp_server_create; the Requires manifest is added to
-// mock-stack/mcp.
+// registerExtServerAndCode —— register the mock-stack/mcp server (via mcp_server_create),
+// whose `needs_calendar` tool declares `_meta.requires:["calendar"]` so the host reads a
+// real ext-mcp manifest Requires (mock-stack/mcp/requires_fixture.go), then issue a code.
 async function registerExtServerAndCode(
   request: APIRequestContext, csrf: string,
 ): Promise<string> {
@@ -110,9 +109,9 @@ async function registerExtServerAndCode(
   return server.server_id;
 }
 
-// TODO(impl): needs an owner-side "authorize dep grant for this ext-mcp server"
-// control (explicit consent that lifts the lowest-trust default). Backend admin
-// endpoint to add with the refactor; raw POST so the spec compiles.
+// authorizeDepGrant —— owner-side explicit consent that lifts the lowest-trust default
+// and grants a connector dep to an ext-mcp server. Admin endpoint:
+// POST /api/admin/mcp-servers/{id}/dep-grants (routes/admin/mcp_servers.go:49).
 async function authorizeDepGrant(
   request: APIRequestContext, csrf: string, serverID: string, dep: string,
 ): Promise<void> {

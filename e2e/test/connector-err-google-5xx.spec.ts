@@ -34,9 +34,8 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// TODO(impl): needs mock fault toggle — no setMockGCalFailure helper exists yet.
-// Raw POST so the spec still COMPILES; backend mock endpoint to be added with the
-// refactor (make events.insert return 500 once). Reuse revokeMockGCalToken pattern.
+// failNextEventsInsert —— arm the gcal mock so the next events.insert returns `status`.
+// Control endpoint: POST /__mock/gcal/fail { op, status } (mock-stack/job-board/gcal.go).
 async function failNextEventsInsert(
   request: APIRequestContext, status = 500,
 ): Promise<void> {

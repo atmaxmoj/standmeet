@@ -26,12 +26,11 @@ const MOCK = process.env['MOCK_BASE_URL'] ?? 'http://localhost:9000';
 const TOPIC = 'Intro call about backend work';
 const RECIPIENT = 'dana.r4@example.com';
 
-// TODO(impl): needs a mock SMTP transient-fault toggle that fails the send ONCE
-// then succeeds — and is honest about whether the message landed (so a blind
-// retry double-send is observable as count === 2). No setMockSMTPFailure helper
-// yet; raw POST so the spec COMPILES. mode='transient-after-deliver' is the
-// dangerous case: server accepted the message but the client saw an error → a
-// blind retry double-sends.
+// flakeSMTPSendOnce —— fail the SMTP send ONCE then succeed. The mock is honest about
+// whether the message landed, so a blind retry double-send shows up as count === 2.
+// mode='transient-after-deliver' is the dangerous case: server accepted the message but
+// the client saw an error → a blind retry double-sends. Control endpoint:
+// POST /__mock/smtp/fail (mock-stack/mail/main.go).
 async function flakeSMTPSendOnce(
   request: APIRequestContext, mode = 'transient-after-deliver',
 ): Promise<void> {

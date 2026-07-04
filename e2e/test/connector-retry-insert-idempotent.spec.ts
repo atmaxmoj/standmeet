@@ -39,11 +39,9 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-// TODO(impl): needs a mock fault toggle that injects a transient CONNECTION
-// error around events.insert exactly ONCE — and is honest about whether the
-// write landed server-side (so the spec can verify the retry path doesn't
-// double-create). No setMockGCalFailure helper yet; raw POST so the spec
-// compiles. Backend mock endpoint to add with the refactor:
+// flakeEventsInsertOnce —— inject a transient CONNECTION error around events.insert
+// exactly ONCE. The mock is honest about whether the write landed server-side, so the
+// retry path can be checked for double-create. Control endpoint: POST /__mock/gcal/fail
 //   { op:'events.insert', mode:'connreset-after-write'|'connreset-before-write', times:1 }
 // 'connreset-after-write' is the dangerous case: server got the write but the
 // client saw a connection error → a blind retry double-books.

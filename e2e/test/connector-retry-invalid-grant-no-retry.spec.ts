@@ -55,10 +55,9 @@ function expireAccessToken(): void {
     { stdio: 'pipe' });
 }
 
-// TODO(impl): needs a mock token-endpoint hit-count reset so the assertion
-// counts only THIS test's refresh attempts. token_call_count exists (read);
-// a reset is needed to isolate. Raw POST so the spec compiles. Backend mock
-// endpoint to add: POST /__mock/gcal/reset_token_count.
+// resetTokenCallCount —— zero the token-endpoint hit counter so the assertion counts
+// only THIS test's refresh attempts. Control endpoints: POST /__mock/gcal/reset_token_count
+// (reset) + GET /__mock/gcal/token_call_count (read) — mock-stack/job-board/main.go:238-239.
 async function resetTokenCallCount(request: APIRequestContext): Promise<void> {
   await request.post(`${MOCK}/__mock/gcal/reset_token_count`);
 }
