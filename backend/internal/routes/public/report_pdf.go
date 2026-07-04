@@ -44,7 +44,7 @@ func dispatchGetReportPDF(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pdf, err := renderReportPDF(h, r, av.Data.OwnerID)
+	pdf, err := renderReportPDF(h, r, av.Data.OwnerID, av.Data.MemberID)
 	if err != nil {
 		handleReportPDFErr(h, w, err)
 		return
@@ -52,10 +52,10 @@ func dispatchGetReportPDF(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	writeReportPDF(h, w, chi.URLParam(r, "id"), pdf)
 }
 
-// renderReportPDF —— owner-scoped fetch + gotenberg HTML→PDF。错误 (not-found /
+// renderReportPDF —— member-scoped fetch (#170) + gotenberg HTML→PDF。错误 (not-found /
 // not-configured / render) 原样上抛，由 handleReportPDFErr 分流。
-func renderReportPDF(h *Handlers, r *http.Request, ownerID string) ([]byte, error) {
-	report, ferr := fetchOwnedReport(h, r, chi.URLParam(r, "id"), ownerID)
+func renderReportPDF(h *Handlers, r *http.Request, ownerID, memberID string) ([]byte, error) {
+	report, ferr := fetchOwnedReport(h, r, chi.URLParam(r, "id"), ownerID, memberID)
 	if ferr != nil {
 		return nil, ferr
 	}

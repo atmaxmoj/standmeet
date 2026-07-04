@@ -41,7 +41,7 @@ func dispatchGetReport(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	report, ferr := fetchOwnedReport(h, r, chi.URLParam(r, "id"), av.Data.OwnerID)
+	report, ferr := fetchOwnedReport(h, r, chi.URLParam(r, "id"), av.Data.OwnerID, av.Data.MemberID)
 	if ferr != nil {
 		handleReportErr(h, w, ferr)
 		return
@@ -49,19 +49,37 @@ func dispatchGetReport(h *Handlers, w http.ResponseWriter, r *http.Request) {
 	writeReport(h, w, &report)
 }
 
-// fetchOwnedReport —— GetByID + owner_id 校；不属于 session.owner 翻
-// ErrReportNotFound (跟 not_found 同包，避免 id 存在性泄漏)。
+// fetchOwnedReport —— GetByID + 归属校；不可见翻 ErrReportNotFound (跟 not_found 同包，
+// 避免 id 存在性泄漏)。#170 BOLA fix：不只校 owner_id —— 单 owner 实例下所有访客同 owner，
+// 只校 owner 会让任意访客凭 id 读到别人的对话摘要 report。改为校「report 的会话属于**发起
+// 请求的 member**」，访客只能读自己会话的 report。
 func fetchOwnedReport(
-	h *Handlers, r *http.Request, id, ownerID string,
+	h *Handlers, r *http.Request, id, ownerID, memberID string,
 ) (domain.ChatReport, error) {
 	report, err := h.Reports.GetByID(r.Context(), id)
 	if err != nil {
 		return domain.ChatReport{}, err
 	}
-	if report.OwnerID != ownerID {
-		return domain.ChatReport{}, domain.ErrReportNotFound
+	if reportVisibleTo(h, r, &report, ownerID, memberID) {
+		return report, nil
 	}
-	return report, nil
+	return domain.ChatReport{}, domain.ErrReportNotFound
+}
+
+// reportVisibleTo —— report 属于该 owner 且其会话由该 member 拥有。
+func reportVisibleTo(
+	h *Handlers, r *http.Request, report *domain.ChatReport, ownerID, memberID string,
+) bool {
+	return report.OwnerID == ownerID &&
+		conversationOwnedByMember(h, r, ownerID, report.ConversationID, memberID)
+}
+
+// conversationOwnedByMember —— report.ConversationID 指向的会话 member_id 是否 == 请求者。
+func conversationOwnedByMember(
+	h *Handlers, r *http.Request, ownerID, convID, memberID string,
+) bool {
+	chat, err := h.Visitor.Chats.GetChat(r.Context(), ownerID, convID)
+	return err == nil && chat.MemberID != nil && *chat.MemberID == memberID
 }
 
 func writeReport(h *Handlers, w http.ResponseWriter, report *domain.ChatReport) {
