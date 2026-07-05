@@ -19,9 +19,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// AppendDialog —— 一轮 Q-A 落 2 条 message + bump conversation，单事务原子。
-// dialog.Citations 拆成 wiki_ids / output_ids 落 assistant 那行。
-// 返 assistant message id 当 dialog id 给 caller (DB 还没 dialog 表)。
+// AppendDialog —— 一轮 Q-A 落 1 个 dialog + 2 条 message（挂 dialog_id）+ bump conversation，
+// 单事务原子。dialog.Citations 拆成 wiki_ids / output_ids 落 assistant 那行。
+// 返真 dialog id（dialogs 表；曾经借 assistant message id 冒充）。
 func (r *ChatRepo) AppendDialog(
 	ctx context.Context, chatID string, dialog *domain.Dialog,
 ) (string, error) {
@@ -59,44 +59,90 @@ type appendDialogTxArgs struct {
 func (r *ChatRepo) runAppendDialogTx(
 	ctx context.Context, args *appendDialogTxArgs,
 ) (string, error) {
+	return r.runInTx(ctx, func(q *dbq.Queries) (string, error) {
+		return runAppendDialogQueries(ctx, q, args)
+	})
+}
+
+// runInTx —— 开 tx、跑 fn、commit；fn 返回的 dialog id 冒出来。DRY 掉两个 dialog 写路径的样板。
+func (r *ChatRepo) runInTx(
+	ctx context.Context, fn func(q *dbq.Queries) (string, error),
+) (string, error) {
 	tx, txErr := r.pool.Begin(ctx)
 	if txErr != nil {
 		return "", fmt.Errorf("begin tx: %w", txErr)
 	}
 	defer rollbackQuiet(ctx, tx)
-	asstID, err := runAppendDialogQueries(ctx, dbq.New(tx), args)
+	out, err := fn(dbq.New(tx))
 	if err != nil {
 		return "", err
 	}
 	if cerr := tx.Commit(ctx); cerr != nil {
 		return "", fmt.Errorf("commit tx: %w", cerr)
 	}
-	return asstID, nil
+	return out, nil
 }
 
-// runAppendDialogQueries —— 在 tx 上跑 2 条 AppendMessage + 1 条 Bump。
-// 拆出来让 runAppendDialogTx cyclo ≤5 (open/commit + delegate)。
-func runAppendDialogQueries(
-	ctx context.Context, q *dbq.Queries, args *appendDialogTxArgs,
+// AppendVisitorOnly —— 失败轮（AI 没答）：建 1 个 dialog + 只落 visitor 那行（无成对 assistant）
+// + bump，单事务。返 dialog id。dialog_id NOT NULL，所以失败轮也是一个「单-message」dialog，
+// turn count（数 visitor message）仍准。
+func (r *ChatRepo) AppendVisitorOnly(
+	ctx context.Context, chatID, question string,
 ) (string, error) {
+	chatUUID, perr := parseUUID(chatID)
+	if perr != nil {
+		return "", fmt.Errorf("parse chat id: %w", perr)
+	}
+	return r.runInTx(ctx, func(q *dbq.Queries) (string, error) {
+		return runAppendVisitorOnlyQueries(ctx, q, chatUUID, question)
+	})
+}
+
+func runAppendVisitorOnlyQueries(
+	ctx context.Context, q *dbq.Queries, chatUUID pgtype.UUID, question string,
+) (string, error) {
+	dialogID, derr := q.CreateDialog(ctx, chatUUID)
+	if derr != nil {
+		return "", fmt.Errorf("create dialog: %w", derr)
+	}
 	if _, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
-		ConversationID: args.ChatUUID, Role: "visitor", Body: args.Q,
+		ConversationID: chatUUID, DialogID: dialogID, Role: "visitor", Body: question,
 		CitedWikiIds: []pgtype.UUID{}, CitedOutputIds: []pgtype.UUID{},
 	}); err != nil {
 		return "", fmt.Errorf("append visitor message: %w", err)
 	}
-	asst, aerr := q.AppendMessage(ctx, dbq.AppendMessageParams{
-		ConversationID: args.ChatUUID, Role: "assistant", Body: args.A,
+	if berr := q.BumpConversation(ctx, chatUUID); berr != nil {
+		return "", fmt.Errorf("bump chat: %w", berr)
+	}
+	return formatUUID(dialogID), nil
+}
+
+// runAppendDialogQueries —— 在 tx 上跑 1 条 CreateDialog + 2 条 AppendMessage (挂 dialog_id) +
+// 1 条 Bump，返真 dialog id。拆出来让 runAppendDialogTx cyclo ≤5 (open/commit + delegate)。
+func runAppendDialogQueries(
+	ctx context.Context, q *dbq.Queries, args *appendDialogTxArgs,
+) (string, error) {
+	dialogID, derr := q.CreateDialog(ctx, args.ChatUUID)
+	if derr != nil {
+		return "", fmt.Errorf("create dialog: %w", derr)
+	}
+	if _, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
+		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "visitor", Body: args.Q,
+		CitedWikiIds: []pgtype.UUID{}, CitedOutputIds: []pgtype.UUID{},
+	}); err != nil {
+		return "", fmt.Errorf("append visitor message: %w", err)
+	}
+	if _, aerr := q.AppendMessage(ctx, dbq.AppendMessageParams{
+		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "assistant", Body: args.A,
 		CitedWikiIds: args.WikiUUIDs, CitedOutputIds: args.OutputUUIDs,
 		ToolCalls: args.ToolCalls,
-	})
-	if aerr != nil {
+	}); aerr != nil {
 		return "", fmt.Errorf("append assistant message: %w", aerr)
 	}
 	if berr := q.BumpConversation(ctx, args.ChatUUID); berr != nil {
 		return "", fmt.Errorf("bump chat: %w", berr)
 	}
-	return formatUUID(asst.ID), nil
+	return formatUUID(dialogID), nil
 }
 
 // rollbackQuiet —— defer 用。Commit 之后 Rollback 返 ErrTxClosed，正常吞掉。

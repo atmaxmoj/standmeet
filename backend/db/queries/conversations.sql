@@ -39,11 +39,17 @@ JOIN conversations c ON c.id = m.conversation_id
 WHERE c.member_id = $1 AND c.id <> $2
 ORDER BY m.created_at;
 
+-- name: CreateDialog :one
+-- 一轮 Q-A 先建一个 dialog 行,两条 message 挂它的 id。返回真 dialog id。
+INSERT INTO dialogs (conversation_id)
+VALUES ($1)
+RETURNING id;
+
 -- name: AppendMessage :one
 INSERT INTO messages (
-    conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids
+    conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: ListMessages :many

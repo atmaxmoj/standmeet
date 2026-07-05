@@ -164,6 +164,12 @@ type CustomPageBuild struct {
 	BuiltAt      pgtype.Timestamptz
 }
 
+type Dialog struct {
+	ID             pgtype.UUID
+	ConversationID pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
+}
+
 type HandleAlias struct {
 	Handle    string
 	OwnerID   pgtype.UUID
@@ -241,6 +247,7 @@ type MediaAsset struct {
 type Message struct {
 	ID             pgtype.UUID
 	ConversationID pgtype.UUID
+	DialogID       pgtype.UUID
 	Role           string
 	Body           string
 	ToolCalls      []byte

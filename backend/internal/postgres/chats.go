@@ -115,59 +115,10 @@ func (r *ChatRepo) GetOpenChatByMember(
 	return toDomainChat(&row), nil
 }
 
-// AppendMessageInput —— 写一条 message 入参 (legacy /messages SSE 路径 +
-// visitor_chat retriever 仍在用；新 dialog 写路径走 AppendDialog)。
-type AppendMessageInput struct {
-	ConversationID string
-	Role           string
-	Body           string
-	CitedWikiIDs   []string
-	CitedOutputIDs []string
-}
-
-// AppendMessage —— 写 message + bump conversation。**这是 row-level API**。
-// 一轮完整 Q-A 持久化用 AppendDialog (单事务 + invariant)；这里保留是给
-// 老 /messages SSE 路径用，prod 不再走，G-6 一并删。
-func (r *ChatRepo) AppendMessage(
-	ctx context.Context, in *AppendMessageInput,
-) (domain.Message, error) {
-	params, err := buildAppendMessageParams(in)
-	if err != nil {
-		return domain.Message{}, err
-	}
-	q := dbq.New(r.pool)
-	row, qerr := q.AppendMessage(ctx, params)
-	if qerr != nil {
-		return domain.Message{}, fmt.Errorf("append message: %w", qerr)
-	}
-	if berr := q.BumpConversation(ctx, params.ConversationID); berr != nil {
-		return domain.Message{}, fmt.Errorf("bump chat: %w", berr)
-	}
-	return toDomainMessage(&row), nil
-}
-
-func buildAppendMessageParams(in *AppendMessageInput) (dbq.AppendMessageParams, error) {
-	chatUUID, err := parseUUID(in.ConversationID)
-	if err != nil {
-		return dbq.AppendMessageParams{}, fmt.Errorf("parse chat id: %w", err)
-	}
-	citedWiki, err := parseUUIDArray(in.CitedWikiIDs)
-	if err != nil {
-		return dbq.AppendMessageParams{}, fmt.Errorf("parse cited wiki ids: %w", err)
-	}
-	citedOutput, err := parseUUIDArray(in.CitedOutputIDs)
-	if err != nil {
-		return dbq.AppendMessageParams{}, fmt.Errorf("parse cited output ids: %w", err)
-	}
-	return dbq.AppendMessageParams{
-		ConversationID: chatUUID, Role: in.Role, Body: in.Body,
-		CitedWikiIds: citedWiki, CitedOutputIds: citedOutput,
-	}, nil
-}
-
-// AppendDialog 实现 + splitCitations / runAppendDialogTx 拆到
-// chats_dialog.go 守 350-line cap。这里只暴露 row-level AppendMessage 给
-// 老 SSE 路径。
+// AppendDialog / AppendVisitorOnly 实现 + splitCitations / runAppendDialogTx 拆到
+// chats_dialog.go 守 350-line cap。row-level AppendMessage（老 SSE 路径）在 dialog 化后已删：
+// 所有 message 现在必属一个 dialog（dialog_id NOT NULL），写路径只剩 AppendDialog（成对 Q-A）
+// 与 AppendVisitorOnly（失败轮单-message dialog）。
 
 // CountSessionsForMember —— quota check 用：member 至今起过多少 session。
 func (r *ChatRepo) CountSessionsForMember(

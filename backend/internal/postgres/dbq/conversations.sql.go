@@ -13,14 +13,15 @@ import (
 
 const appendMessage = `-- name: AppendMessage :one
 INSERT INTO messages (
-    conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids
+    conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, created_at
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, created_at
 `
 
 type AppendMessageParams struct {
 	ConversationID pgtype.UUID
+	DialogID       pgtype.UUID
 	Role           string
 	Body           string
 	ToolCalls      []byte
@@ -31,6 +32,7 @@ type AppendMessageParams struct {
 func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (Message, error) {
 	row := q.db.QueryRow(ctx, appendMessage,
 		arg.ConversationID,
+		arg.DialogID,
 		arg.Role,
 		arg.Body,
 		arg.ToolCalls,
@@ -41,6 +43,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 	err := row.Scan(
 		&i.ID,
 		&i.ConversationID,
+		&i.DialogID,
 		&i.Role,
 		&i.Body,
 		&i.ToolCalls,
@@ -120,6 +123,20 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.DocKey,
 	)
 	return i, err
+}
+
+const createDialog = `-- name: CreateDialog :one
+INSERT INTO dialogs (conversation_id)
+VALUES ($1)
+RETURNING id
+`
+
+// 一轮 Q-A 先建一个 dialog 行,两条 message 挂它的 id。返回真 dialog id。
+func (q *Queries) CreateDialog(ctx context.Context, conversationID pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, createDialog, conversationID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getConversation = `-- name: GetConversation :one
@@ -321,7 +338,7 @@ func (q *Queries) ListMemberOtherConversationMessages(ctx context.Context, arg L
 }
 
 const listMessages = `-- name: ListMessages :many
-SELECT id, conversation_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
+SELECT id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) ([]Message, error) {
@@ -336,6 +353,7 @@ func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.ConversationID,
+			&i.DialogID,
 			&i.Role,
 			&i.Body,
 			&i.ToolCalls,

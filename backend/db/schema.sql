@@ -518,9 +518,24 @@ CREATE UNIQUE INDEX conversations_member_dockey_open_uniq
     ON conversations(member_id, doc_key)
     WHERE member_id IS NOT NULL;
 
+-- dialogs —— 一轮「人问 + AI 答」= 一个 dialog（中间分组层）。内容留在 messages（每个 dialog
+-- 恰好 2 条：role='visitor' 的 Q + role='assistant' 的 A）；dialog 只给这一轮一个身份/时序锚点
+-- （曾经 AppendDialog 借 assistant message id 冒充 dialog id，现在有真 id）。未来 backlinks /
+-- per-dialog 操作用它的 id。turn count 仍数 visitor message（每 dialog 一条），语义不变。
+CREATE TABLE dialogs (
+    id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id  uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    created_at       timestamptz   NOT NULL DEFAULT now()
+);
+CREATE INDEX dialogs_conversation_idx ON dialogs(conversation_id);
+
 CREATE TABLE messages (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id  uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    -- dialog_id：这条 message 属于哪一轮。级联链 conversation → dialogs → messages（删会话，
+    -- dialog 与 message 一起走）。conversation_id 保留（现有 transcript/count 直读，且给一条
+    -- 独立的 CASCADE 路径），两条 CASCADE 都指向删除，不冲突。
+    dialog_id        uuid          NOT NULL REFERENCES dialogs(id) ON DELETE CASCADE,
     role             text          NOT NULL,
     body             text          NOT NULL,
     tool_calls       jsonb,
@@ -528,6 +543,7 @@ CREATE TABLE messages (
     cited_output_ids uuid[]        NOT NULL DEFAULT '{}',
     created_at       timestamptz   NOT NULL DEFAULT now()
 );
+CREATE INDEX messages_dialog_idx ON messages(dialog_id);
 
 -- custom_pages —— owner 自定义 React 页面。
 CREATE TABLE custom_pages (

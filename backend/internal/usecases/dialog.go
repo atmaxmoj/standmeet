@@ -69,14 +69,12 @@ func RecordDialog(
 	return nil
 }
 
-// appendVisitorOnly —— answer 空时只落 visitor 那行 (用于 error 路径)；
-// 走 row-level AppendMessage 是因为没成对的 assistant 配，没必要拉事务。
+// appendVisitorOnly —— answer 空时只落 visitor 那行 (用于 error 路径)。失败轮也是一个
+// 「单-message」dialog（dialog_id NOT NULL），走 AppendVisitorOnly 单事务建 dialog + 1 message。
 func appendVisitorOnly(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) error {
-	if _, err := deps.Chats.AppendMessage(ctx, &postgres.AppendMessageInput{
-		ConversationID: in.ConversationID, Role: "visitor", Body: in.Question,
-	}); err != nil {
+	if _, err := deps.Chats.AppendVisitorOnly(ctx, in.ConversationID, in.Question); err != nil {
 		return fmt.Errorf("append visitor message: %w", err)
 	}
 	return nil
