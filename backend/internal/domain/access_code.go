@@ -16,7 +16,7 @@ import (
 //   - MaxTurnsPerSession   nil → 不限；单 session 内 visitor turn 上限。
 //   - Status 'active' / 'revoked'（过期由 ExpiresAt 计算，不写状态字段）。
 //   - AssumedRoleID 必填，指向 owner 的 roles 行 id；session issue 时 freeze
-//     出 [[role_snapshot]]。owner 不显式选 → usecase 默认绑 vanilla。
+//     出 [[role_snapshot]]。owner 不显式选 → usecase 默认绑 public。
 //   - MaxBookings nil → role 没解锁 calendar.book 时也无意义；非 nil 是
 //     per-code 跨 visitor 累计配额，从 code_bookings count 计。
 type AccessCode struct {

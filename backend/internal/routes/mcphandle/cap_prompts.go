@@ -1,6 +1,6 @@
 // cap_prompts.go —— Phase E-5: owner Prompts CRUD via Capability。
 // 3 tools: prompt_create / prompt_list / prompt_delete。owner-only。
-// vanilla builtin 不可删，usecase 层拦，cap 翻译成 isError。
+// public builtin 不可删，usecase 层拦，cap 翻译成 isError。
 
 package mcphandle
 
@@ -123,7 +123,7 @@ func promptCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 func (c *promptsCapability) listBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name:        "prompt_list",
-		Description: "List the owner's prompts (incl. vanilla builtin).",
+		Description: "List the owner's prompts (incl. public builtin).",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		Handler:     c.handleList,
 	}
@@ -159,7 +159,7 @@ func (c *promptsCapability) handleList(
 func (c *promptsCapability) deleteBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name:        "prompt_delete",
-		Description: "Delete an owner-curated prompt. Vanilla builtin cannot be deleted.",
+		Description: "Delete an owner-curated prompt. Public builtin cannot be deleted.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{

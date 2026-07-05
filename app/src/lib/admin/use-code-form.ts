@@ -17,7 +17,7 @@ export interface CodeFormState {
   // maxBookings —— calendar.book quota per code; '' = nil (role 没解锁
   // calendar.book 时也无意义；string 形态便于跟 input 字段双绑)。
   maxBookings: string;
-  // assumedRoleID —— 必填；UI 缺省指向 owner 的 vanilla role。
+  // assumedRoleID —— 必填；UI 缺省指向 owner 的 public role。
   assumedRoleID: string;
   // promptID —— #104 per-code prompt；'' = 不挂（persona 只有 role 那份）。引 prompts 库。
   promptID: string;

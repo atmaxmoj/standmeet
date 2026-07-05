@@ -2,7 +2,7 @@
 // join 表 CRUD。owner-scoped visitor 身份原型；设计 [[iam-role-pivot-plan]]。
 //
 // 主表 CRUD + 三组 attach/clear/list join helpers。
-// SeedVanillaRole 走 UpsertBuiltin 幂等种入；删除 builtin 被 SQL 谓词锁。
+// SeedPublicRole 走 UpsertBuiltin 幂等种入；删除 builtin 被 SQL 谓词锁。
 
 package postgres
 
@@ -106,7 +106,7 @@ func mapRoleCreateErr(err error) error {
 	return fmt.Errorf("create role: %w", err)
 }
 
-// UpsertBuiltinInput —— SeedVanillaRole 用。
+// UpsertBuiltinInput —— SeedPublicRole 用。
 type UpsertBuiltinInput struct {
 	PromptID    *string
 	OwnerID     string
@@ -114,9 +114,9 @@ type UpsertBuiltinInput struct {
 	Description string
 }
 
-// UpsertBuiltin —— vanilla role 幂等种入。同 (owner_id, name) 覆盖
+// UpsertBuiltin —— public role 幂等种入。同 (owner_id, name) 覆盖
 // description + prompt_id。caller 之后用 SetCorpusURIs / SetSkills /
-// SetMCPServers 同步 join 表（vanilla 公开 corpus 三 glob、无 skill、无 mcp）。
+// SetMCPServers 同步 join 表（public 公开 corpus 三 glob、无 skill、无 mcp）。
 func (r *RoleRepo) UpsertBuiltin(
 	ctx context.Context, in *UpsertBuiltinInput,
 ) (domain.Role, error) {
@@ -180,7 +180,7 @@ func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (domain.
 	return hydrateRole(ctx, q, &row)
 }
 
-// GetByName —— SeedVanillaRole / access_code 默认 role 查找。
+// GetByName —— SeedPublicRole / access_code 默认 role 查找。
 func (r *RoleRepo) GetByName(ctx context.Context, ownerID, name string) (domain.Role, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {

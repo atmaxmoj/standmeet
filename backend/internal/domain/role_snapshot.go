@@ -87,7 +87,7 @@ func (s *RoleSnapshot) RoleID() string { return s.roleID }
 // RoleName —— 拍下来那一刻的 role 名（display 用）。
 func (s *RoleSnapshot) RoleName() string { return s.roleName }
 
-// PromptBody —— 拍下来的 prompt.body 全文，0..1（vanilla 时是 vanilla body，
+// PromptBody —— 拍下来的 prompt.body 全文，0..1（public 时是 public body，
 // 没挂 prompt 的 role 就是 ""）。visitor_chat.buildSystemPrompt 拼这条。
 func (s *RoleSnapshot) PromptBody() string { return s.promptBody }
 

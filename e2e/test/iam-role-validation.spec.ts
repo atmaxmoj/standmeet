@@ -1,6 +1,6 @@
 // iam-role-validation.spec.ts —— admin /api/admin/roles 的拒绝路径：
-//   - vanilla 不可改名（403 role_builtin_immutable）
-//   - vanilla 不可删（403 role_builtin_immutable）
+//   - publicRow 不可改名（403 role_builtin_immutable）
+//   - publicRow 不可删（403 role_builtin_immutable）
 //   - 同 owner 重 name → 409 role_name_taken
 //   - prompt_id 不属于同 owner → 400 bad_request
 //   - skill_ids 含非 owner 的 → 400 bad_request
@@ -27,7 +27,7 @@ const OWNER = {
   handle: 'roleval', fullName: 'Role Validation Owner',
 };
 
-const ctx: { vanillaID: string } = { vanillaID: '' };
+const ctx: { publicID: string } = { publicID: '' };
 
 test.beforeAll(async ({ playwright }) => {
   resetInstance();
@@ -37,8 +37,8 @@ test.beforeAll(async ({ playwright }) => {
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
   await loginAPI(request, OWNER.email, OWNER.password);
-  const vanilla = await getRoleByName(request, 'vanilla');
-  ctx.vanillaID = vanilla.id;
+  const publicRow = await getRoleByName(request, 'public');
+  ctx.publicID = publicRow.id;
   await request.dispose();
 });
 
@@ -51,13 +51,13 @@ async function authedRequest(
 }
 
 test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
-  test('PUT vanilla with a different name → 403 role_builtin_immutable',
+  test('PUT publicRow with a different name → 403 role_builtin_immutable',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
-      const res = await request.put(`${BACKEND}/api/admin/roles/${ctx.vanillaID}`, {
+      const res = await request.put(`${BACKEND}/api/admin/roles/${ctx.publicID}`, {
         headers: { 'X-Csrftoken': csrf },
         data: {
-          name: 'not-vanilla', description: 'try to rename builtin',
+          name: 'not-public', description: 'try to rename builtin',
           prompt_id: null, corpus_uris: [], skill_ids: [], mcp_server_ids: [],
         },
       });
@@ -67,9 +67,9 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
       await request.dispose();
     });
 
-  test('DELETE vanilla → 403 role_builtin_immutable', async ({ playwright }) => {
+  test('DELETE publicRow → 403 role_builtin_immutable', async ({ playwright }) => {
     const { request, csrf } = await authedRequest(() => playwright.request.newContext());
-    const res = await request.delete(`${BACKEND}/api/admin/roles/${ctx.vanillaID}`, {
+    const res = await request.delete(`${BACKEND}/api/admin/roles/${ctx.publicID}`, {
       headers: { 'X-Csrftoken': csrf },
     });
     expect(res.status()).toBe(403);

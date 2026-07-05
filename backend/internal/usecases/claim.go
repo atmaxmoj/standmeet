@@ -69,7 +69,7 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (domain.
 	slog.Default().Info("claim succeeded",
 		"owner_id", owner.ID, "email", in.Email, "handle", in.Handle)
 	seedClaimSkills(ctx, deps, owner.ID)
-	seedClaimVanillaRole(ctx, deps, owner.ID)
+	seedClaimPublicRole(ctx, deps, owner.ID)
 	return owner, nil
 }
 
@@ -84,14 +84,14 @@ func seedClaimSkills(ctx context.Context, deps ClaimDeps, ownerID string) {
 	}
 }
 
-// seedClaimVanillaRole —— claim 成功后种 vanilla prompt + vanilla role；失败
+// seedClaimPublicRole —— claim 成功后种 public prompt + public role；失败
 // log + continue，不阻塞 claim。详细见 [[iam-role-pivot-plan]]。
-func seedClaimVanillaRole(ctx context.Context, deps ClaimDeps, ownerID string) {
+func seedClaimPublicRole(ctx context.Context, deps ClaimDeps, ownerID string) {
 	if deps.Prompts == nil || deps.Roles == nil {
 		return
 	}
-	if err := SeedVanillaRole(ctx, deps.Prompts, deps.Roles, ownerID); err != nil {
-		slog.Default().Error("seed vanilla role", "owner_id", ownerID, "err", err)
+	if err := SeedPublicRole(ctx, deps.Prompts, deps.Roles, ownerID); err != nil {
+		slog.Default().Error("seed public role", "owner_id", ownerID, "err", err)
 	}
 }
 

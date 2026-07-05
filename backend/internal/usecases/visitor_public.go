@@ -78,11 +78,11 @@ func finalizePublicSession(
 		return IssueCodeSessionResult{}, fmt.Errorf("create chat: %w", err)
 	}
 	// A.3-IAM-5: public / byoai 也强制走 RoleSnapshot —— freeze owner 的
-	// vanilla role。owner 想限缩 byoai 就改 vanilla 的 corpus_uris，或发
+	// public role。owner 想限缩 byoai 就改 public 的 corpus_uris，或发
 	// byoai-eligible code 挂别的 role（后者 TODO）。
-	snapshot, sserr := buildRoleSnapshotForOwnerVanilla(ctx, deps, owner.ID)
+	snapshot, sserr := buildRoleSnapshotForOwnerPublic(ctx, deps, owner.ID)
 	if sserr != nil {
-		return IssueCodeSessionResult{}, fmt.Errorf("freeze vanilla snapshot: %w", sserr)
+		return IssueCodeSessionResult{}, fmt.Errorf("freeze public snapshot: %w", sserr)
 	}
 	issued, err := deps.Sessions.Issue(ctx, &session.VisitorSessionData{
 		OwnerID:      owner.ID,

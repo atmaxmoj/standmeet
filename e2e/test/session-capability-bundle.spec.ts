@@ -122,8 +122,8 @@ test.describe('session capability bundle · POST /sessions response shape', () =
       );
       requireCaps(sess);
       const partIDs = requirePartIDs(sess);
-      // visitor-header 永远 first；其余取决于 owner 的 vanilla role 配置
-      // (owner 在 claim 时若给 vanilla 配了 corpus URIs，本 mode 也带 retrieval
+      // visitor-header 永远 first；其余取决于 owner 的 public role 配置
+      // (owner 在 claim 时若给 public 配了 corpus URIs，本 mode 也带 retrieval
       // fragment) — 这里只 lock 头部不 lock 尾部。
       expect(partIDs.length).toBeGreaterThan(0);
       expect(partIDs[0]).toBe('visitor-header');

@@ -1,6 +1,6 @@
 // cap_roles.go —— Phase E-6: owner Roles CRUD via Capability。
 // 3 tools: role_create / role_list / role_delete。owner-only。
-// vanilla builtin 不可删；codes 引用的 role 也不可删 (FK 限制)。
+// public builtin 不可删；codes 引用的 role 也不可删 (FK 限制)。
 
 package mcphandle
 
@@ -235,7 +235,7 @@ func roleCreateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 func (c *rolesCapability) listBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name: "role_list",
-		Description: "List the owner's roles (incl. vanilla builtin) " +
+		Description: "List the owner's roles (incl. public builtin) " +
 			"with their corpus URIs / skill counts / mcp counts.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		Handler:     c.handleList,
@@ -288,7 +288,7 @@ func roleRowToCapView(rl *domain.Role) roleListRow {
 func (c *rolesCapability) deleteBinding() *capreg.MCPBinding {
 	return &capreg.MCPBinding{
 		Name: "role_delete",
-		Description: "Delete an owner-curated role. Vanilla builtin cannot be deleted. " +
+		Description: "Delete an owner-curated role. Public builtin cannot be deleted. " +
 			"Roles in use by active codes are FK-restricted from deletion — " +
 			"reassign or revoke codes first.",
 		InputSchema: json.RawMessage(`{

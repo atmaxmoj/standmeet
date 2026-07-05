@@ -35,7 +35,7 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 // 准入字段：
 //   - Mode: 'code' / 'public' / 'byoai'。三者都强制挂 RoleSnapshot（A.3-IAM-5
 //     起 ACL 全部走 [[role_snapshot]].AllowsCorpus URI-glob）。public / byoai
-//     走 owner 的 vanilla role；code 走 access_code.assumed_role_id。
+//     走 owner 的 public role；code 走 access_code.assumed_role_id。
 //   - RoleSnapshot: session issue 时 freeze 出 role 当时的完整状态（corpus
 //     URIs / prompt / skills / mcp）。session 整个生命周期不再回头读 role
 //     行 —— 唯一补救 = revoke code。

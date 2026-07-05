@@ -1,7 +1,7 @@
 // iam-prompt-validation.spec.ts —— admin /api/admin/prompts 的拒绝路径：
-//   - vanilla 不可改名 → 403 prompt_builtin_immutable
-//   - vanilla 改名以外的字段（body/desc）可改 → 200
-//   - vanilla 不可删 → 403 prompt_builtin_immutable
+//   - publicRow 不可改名 → 403 prompt_builtin_immutable
+//   - publicRow 改名以外的字段（body/desc）可改 → 200
+//   - publicRow 不可删 → 403 prompt_builtin_immutable
 //   - 同 owner 重 name → 409 prompt_name_taken
 
 import { test, expect } from '@/fixtures/test';
@@ -19,7 +19,7 @@ const OWNER = {
 
 interface PromptView { id: string; name: string }
 
-const ctx: { vanillaID: string } = { vanillaID: '' };
+const ctx: { publicID: string } = { publicID: '' };
 
 test.beforeAll(async ({ playwright }) => {
   resetInstance();
@@ -31,9 +31,9 @@ test.beforeAll(async ({ playwright }) => {
   await loginAPI(request, OWNER.email, OWNER.password);
   const listRes = await request.get(`${BACKEND}/api/admin/prompts/`);
   const list = await listRes.json() as PromptView[];
-  const vanilla = list.find((p) => p.name === 'vanilla');
-  if (!vanilla) throw new Error('vanilla prompt not seeded');
-  ctx.vanillaID = vanilla.id;
+  const publicRow = list.find((p) => p.name === 'public');
+  if (!publicRow) throw new Error('public prompt not seeded');
+  ctx.publicID = publicRow.id;
   await request.dispose();
 });
 
@@ -46,13 +46,13 @@ async function authedRequest(
 }
 
 test.describe('A.3-IAM prompt REST · builtin immutable rename / delete', () => {
-  test('PUT vanilla with a different name → 403 prompt_builtin_immutable',
+  test('PUT publicRow with a different name → 403 prompt_builtin_immutable',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
-      const res = await request.put(`${BACKEND}/api/admin/prompts/${ctx.vanillaID}`, {
+      const res = await request.put(`${BACKEND}/api/admin/prompts/${ctx.publicID}`, {
         headers: { 'X-Csrftoken': csrf },
         data: {
-          name: 'not-vanilla', description: 'try rename builtin',
+          name: 'not-public', description: 'try rename builtin',
           body: 'updated body is fine, but rename is not',
         },
       });
@@ -62,23 +62,23 @@ test.describe('A.3-IAM prompt REST · builtin immutable rename / delete', () => 
       await request.dispose();
     });
 
-  test('PUT vanilla with SAME name but new body → 200 (only rename is blocked)',
+  test('PUT publicRow with SAME name but new body → 200 (only rename is blocked)',
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
-      const res = await request.put(`${BACKEND}/api/admin/prompts/${ctx.vanillaID}`, {
+      const res = await request.put(`${BACKEND}/api/admin/prompts/${ctx.publicID}`, {
         headers: { 'X-Csrftoken': csrf },
         data: {
-          name: 'vanilla', description: 'unchanged',
-          body: 'You are a freshly customized vanilla.',
+          name: 'public', description: 'unchanged',
+          body: 'You are a freshly customized publicRow.',
         },
       });
       expect(res.status()).toBe(200);
       await request.dispose();
     });
 
-  test('DELETE vanilla → 403 prompt_builtin_immutable', async ({ playwright }) => {
+  test('DELETE publicRow → 403 prompt_builtin_immutable', async ({ playwright }) => {
     const { request, csrf } = await authedRequest(() => playwright.request.newContext());
-    const res = await request.delete(`${BACKEND}/api/admin/prompts/${ctx.vanillaID}`, {
+    const res = await request.delete(`${BACKEND}/api/admin/prompts/${ctx.publicID}`, {
       headers: { 'X-Csrftoken': csrf },
     });
     expect(res.status()).toBe(403);

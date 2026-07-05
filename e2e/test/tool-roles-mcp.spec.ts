@@ -1,7 +1,7 @@
 // tool-roles-mcp.spec.ts —— Phase E-6 MCP parity: owner CRUDs Roles
 // via MCP (Claude Code conversation), not just admin REST。
 //
-// Tools: role_create / role_list / role_delete。vanilla builtin
+// Tools: role_create / role_list / role_delete。publicRow builtin
 // 不可删 (usecase 拦截，MCP 返 isError)。
 
 import type { Playwright } from '@playwright/test';
@@ -79,8 +79,8 @@ test.describe('Phase E-6 roles CRUD via MCP', () => {
       );
       expect(found?.is_builtin).not.toBe(true);
 
-      const vanilla = list.find((r) => r.is_builtin === true);
-      expect(vanilla, 'vanilla role should be seeded').toBeDefined();
+      const publicRow = list.find((r) => r.is_builtin === true);
+      expect(publicRow, 'public role should be seeded').toBeDefined();
       await request.dispose();
     });
 
@@ -103,17 +103,17 @@ test.describe('Phase E-6 roles CRUD via MCP', () => {
       await request.dispose();
     });
 
-  test('role_delete on builtin vanilla returns isError',
+  test('role_delete on builtin publicRow returns isError',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const list = await callTool<RoleRow[]>(
         request, apiToken, sid, 'role_list', {},
       );
-      const vanilla = list.find((r) => r.is_builtin === true);
-      if (!vanilla) throw new Error('vanilla missing');
+      const publicRow = list.find((r) => r.is_builtin === true);
+      if (!publicRow) throw new Error('public missing');
       await expect(
         callTool(request, apiToken, sid, 'role_delete',
-          { role_id: vanilla.role_id }),
+          { role_id: publicRow.role_id }),
       ).rejects.toThrow(/builtin role cannot be deleted/);
       await request.dispose();
     });

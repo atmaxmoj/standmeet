@@ -9,7 +9,7 @@ type Props = { form: CodeFormHook };
 export function CodeRolePicker({ form }: Props) {
   const hook = useRoles();
   return (
-    <CodeRolePickerSection title="role" subtitle="frozen at issue; leave blank for vanilla">
+    <CodeRolePickerSection title="role" subtitle="frozen at issue; leave blank for public">
       <CodeRolePickerSelect form={form} roles={hook.roles} />
     </CodeRolePickerSection>
   );

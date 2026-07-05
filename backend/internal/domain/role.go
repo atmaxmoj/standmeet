@@ -5,8 +5,8 @@
 // session_data（RoleSnapshot），跟 role 解耦 —— owner 改 role 不影响在跑
 // session，唯一补救 = revoke code。
 //
-// vanilla role（is_builtin=true）由 SeedVanillaRole 在 owner claim 时种：
-// 公开 corpus 三 glob、无 skill、无 mcp、挂 vanilla prompt。不可删（repo 层挡）。
+// public role（is_builtin=true）由 SeedPublicRole 在 owner claim 时种：
+// 公开 corpus 三 glob、无 skill、无 mcp、挂 public prompt。不可删（repo 层挡）。
 //
 // LSP / OCP 备忘：Role 本身就是值对象，没有 sub-type。Corpus ACL 评估走
 // AllowsCorpus(uri) 一个 method —— positive-list only，没有 deny / order；
@@ -30,7 +30,7 @@ type Role struct {
 	name         string
 	description  string
 	greeting     string // 访客名字选择器看到的「这是什么」介绍(空=用默认)
-	promptID     string // 空 = 没挂 prompt（vanilla 也是挂的，这里是真的 NULL 的情况）
+	promptID     string // 空 = 没挂 prompt（public 也是挂的，这里是真的 NULL 的情况）
 	corpusURIs   []string
 	skillIDs     []string
 	mcpServerIDs []string
@@ -131,7 +131,7 @@ func (r *Role) MCPServerIDs() []string { return slices.Clone(r.mcpServerIDs) }
 // DockButtons —— 这个 role 的 ≤2 个 chat dock 按钮配置（defensive copy）。
 func (r *Role) DockButtons() []DockButtonConfig { return cloneDockButtons(r.dockButtons) }
 
-// IsBuiltin —— 是否种入的 builtin（vanilla 是 true）。
+// IsBuiltin —— 是否种入的 builtin（public 是 true）。
 func (r *Role) IsBuiltin() bool { return r.isBuiltin }
 
 // NotifyOwnerOnBooking —— #130: 约成后是否给 owner 自己发通知邮件。
@@ -171,16 +171,27 @@ func (r *Role) AllowsCorpus(uri string) bool {
 	return false
 }
 
-// VanillaRoleName —— builtin vanilla role 的 name。SeedVanillaRole 用。
-const VanillaRoleName = "vanilla"
+// PublicRoleName —— builtin public role 的 name（曾叫 "vanilla"，名字太随意、不自我说明，
+// 重命名为 "public"）。SeedPublicRole 用。
+//
+// 为什么叫 "public":每张 access code 是**定向邀请**，冻结一个 owner 指定的 role。而 BYOAI
+// 访客（自带 API key、没被邀请、走 /gate 的默认档）不属于任何邀请 → 落到这个**默认、公开**的
+// role。所以「未被邀请的默认访客 = public」。visitor_public.go 的 public/byoai 路径锁定它，
+// jobsuc 自动发的 application code 也默认挂它。它是 is_builtin=true：不可删、name 不可改，
+// 但 owner **可以改它的 prompt / corpus**（收窄公开面）。
+//
+// 注意跟 writings.visibility='public'（[[VisibilityPublic]]）区分：那是**内容**可见性
+// (public/private)，这是**访客身份** role 的 name。二者不同表不同列，语义上对齐
+// (public 身份读 public 内容) 但不是同一实体。
+const PublicRoleName = "public"
 
-// VanillaRoleDescription —— vanilla role 的一句简介。
-const VanillaRoleDescription = "System default. Public corpus, no skills, no MCP. " +
-	"Used when no other role is assigned."
+// PublicRoleDescription —— public role 的一句简介。
+const PublicRoleDescription = "System default. Public corpus, no skills, no MCP. " +
+	"For uninvited BYOAI visitors (access codes are directed invites; this is the fallback)."
 
-// VanillaRoleCorpusURIs —— vanilla 的"公开"corpus 范围。匹配设计稿
+// PublicRoleCorpusURIs —— public 的"公开"corpus 范围。匹配设计稿
 // admin-data.js ROLES[0].corpus_uris。
-var VanillaRoleCorpusURIs = []string{
+var PublicRoleCorpusURIs = []string{
 	"wiki://**",
 	"output://**",
 	"writing://**",
@@ -192,5 +203,5 @@ var ErrRoleNotFound = errors.New("role not found")
 // ErrRoleNameTaken —— 同 owner 下 name 重复（unique constraint）。
 var ErrRoleNameTaken = errors.New("role name already taken in this owner")
 
-// ErrRoleBuiltinImmutable —— 试图删除或改名 builtin role（vanilla）。
+// ErrRoleBuiltinImmutable —— 试图删除或改名 builtin role（public）。
 var ErrRoleBuiltinImmutable = errors.New("builtin role cannot be deleted or renamed")

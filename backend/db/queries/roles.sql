@@ -10,7 +10,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: UpsertBuiltinRole :one
--- Seed vanilla role：idempotent by (owner_id, name)。
+-- Seed public role：idempotent by (owner_id, name)。
 INSERT INTO roles (owner_id, name, description, prompt_id, is_builtin)
 VALUES ($1, $2, $3, $4, true)
 ON CONFLICT (owner_id, name) DO UPDATE SET

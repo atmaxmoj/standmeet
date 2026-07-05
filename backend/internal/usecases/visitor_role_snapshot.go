@@ -1,7 +1,7 @@
 // visitor_role_snapshot.go —— session issue 时把 Role 状态拍下来塞 session_data。
 //
 // 设计 [[iam-role-pivot-plan]] · Session freeze 节。A.3-IAM-5 起 access_code
-// 必挂 assumed_role_id（NOT NULL）；public / byoai 则用 owner 的 vanilla。
+// 必挂 assumed_role_id（NOT NULL）；public / byoai 则用 owner 的 public。
 // Snapshot 从 role + prompt + skills 拼起来；session 整个生命周期不再回头读。
 
 package usecases
@@ -37,7 +37,7 @@ func buildRoleSnapshotForCode(
 }
 
 // roleDenials —— code 层要从 role grant 里砍掉的 capability / skill id（纯 deny）。
-// 非 code 路径（vanilla/public）传零值 = 不砍。
+// 非 code 路径（public + byoai）传零值 = 不砍。
 type roleDenials struct {
 	Caps   []string
 	Skills []string
@@ -62,22 +62,22 @@ func loadCodeDenials(
 	return roleDenials{Caps: caps, Skills: skills}, nil
 }
 
-// buildRoleSnapshotForOwnerVanilla —— public / byoai session 用 owner 的
-// vanilla role snapshot。owner 没改过 vanilla 的话覆盖 wiki/output/writing
+// buildRoleSnapshotForOwnerPublic —— public / byoai session 用 owner 的
+// public role snapshot。owner 没改过 public 的话覆盖 wiki/output/writing
 // 三个公开 glob。
-func buildRoleSnapshotForOwnerVanilla(
+func buildRoleSnapshotForOwnerPublic(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID string,
 ) (domain.RoleSnapshot, error) {
-	role, err := deps.Roles.GetByName(ctx, ownerID, domain.VanillaRoleName)
+	role, err := deps.Roles.GetByName(ctx, ownerID, domain.PublicRoleName)
 	if err != nil {
-		return domain.RoleSnapshot{}, fmt.Errorf("get vanilla role: %w", err)
+		return domain.RoleSnapshot{}, fmt.Errorf("get public role: %w", err)
 	}
-	// vanilla / public / byoai 无 per-code prompt、无 deny。
+	// public + byoai (非 code 路径) 无 per-code prompt、无 deny。
 	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID(), codeOverlay{})
 }
 
 // codeOverlay —— code 层在 role 基础上的叠加：deny 集 + 这张 code 自带的 prompt body。
-// 非 code 路径（vanilla/public）传零值 = 不 deny、无 per-code prompt。
+// 非 code 路径（public + byoai）传零值 = 不 deny、无 per-code prompt。
 type codeOverlay struct {
 	codePromptBody string
 	denials        roleDenials
@@ -121,7 +121,7 @@ func buildRoleSnapshotByID(
 	}), nil
 }
 
-// loadPromptBody —— role 没挂 prompt 或挂的 prompt 不存在 → 返空串（vanilla
+// loadPromptBody —— role 没挂 prompt 或挂的 prompt 不存在 → 返空串（public
 // 之类 role 不一定有 prompt，session 没问题）。
 func loadPromptBody(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID string, role *domain.Role,

@@ -3,7 +3,7 @@
 // Role = persona (Prompt) + 可见 corpus URI globs + skills + mcp servers。
 // AccessCode 引 assumed_role_id；session start 时 freeze [[role_snapshot]]。
 //
-// vanilla（is_builtin=true）由 claim 时 SeedVanillaRole 种入，不可删 / 不可改
+// public（is_builtin=true）由 claim 时 SeedPublicRole 种入，不可删 / 不可改
 // name；其它字段（corpus URIs / skills / mcp / description / prompt）owner 可改。
 //
 // Create / Update 都接 corpus_uris + skill_ids + mcp_server_ids 一并设置 join
@@ -124,7 +124,7 @@ func GetRole(
 	return role, nil
 }
 
-// UpdateRole —— 改 role 主表 + 重设三组 join。builtin (vanilla) 可改 prompt /
+// UpdateRole —— 改 role 主表 + 重设三组 join。builtin (public) 可改 prompt /
 // corpus_uris / skills / mcp / description，但不可改 name（usecase 拦）。
 func UpdateRole(
 	ctx context.Context, deps RolesDeps, in *RoleWriteInput,

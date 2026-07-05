@@ -1,5 +1,5 @@
 // PromptsSection —— /admin/prompts。design 源 docs/design/project/admin.js
-// PromptsSection (1176-1209)。两栏卡片 list；vanilla [system] pill 不可删；
+// PromptsSection (1176-1209)。两栏卡片 list；public [system] pill 不可删；
 // 创建弹层：name + description + body (serif textarea，body 是写作物)。
 
 'use client';
@@ -84,7 +84,7 @@ function PromptList({ hook }: { hook: PromptsHook }) {
 function EmptyPrompts() {
   return (
     <p className="reading italic text-(--color-muted)" data-testid="prompt-list">
-      No prompts yet — vanilla is normally seeded on owner claim.
+      No prompts yet — public is normally seeded on owner claim.
     </p>
   );
 }

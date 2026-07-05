@@ -1,6 +1,6 @@
 // RolesSection —— /admin/roles。design 源 docs/design/project/admin.js
 // RolesSection (1124-1174)。两栏卡片：每卡 slug + [system] pill + description +
-// prompt/corpus/skills/mcp/codes 五行 metadata + edit/delete actions（vanilla
+// prompt/corpus/skills/mcp/codes 五行 metadata + edit/delete actions（public
 // 无 delete）。create modal 拆到 roles/RoleCreateModal.tsx 守 max-lines。
 
 'use client';
@@ -110,7 +110,7 @@ function RoleList({ hook }: { hook: RolesHook }) {
 function EmptyRoles() {
   return (
     <p className="reading italic text-(--color-muted)" data-testid="role-list">
-      No roles yet — vanilla is normally seeded on owner claim.
+      No roles yet — public is normally seeded on owner claim.
     </p>
   );
 }

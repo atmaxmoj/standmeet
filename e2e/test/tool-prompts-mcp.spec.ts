@@ -1,7 +1,7 @@
 // tool-prompts-mcp.spec.ts —— Phase E-5 MCP parity: owner CRUDs Prompts
 // via MCP (Claude Code conversation), not just admin REST。
 //
-// Tools: prompt_create / prompt_list / prompt_delete。vanilla builtin
+// Tools: prompt_create / prompt_list / prompt_delete。publicRow builtin
 // 不可删 (usecase 拦截，MCP 返 isError)。
 
 import type { Playwright } from '@playwright/test';
@@ -74,8 +74,8 @@ test.describe('Phase E-5 prompts CRUD via MCP', () => {
       expect(found?.description).toBe('use when visitor came via job application code');
       expect(found?.is_builtin).not.toBe(true);
 
-      const vanilla = list.find((p) => p.is_builtin === true);
-      expect(vanilla, 'vanilla prompt should be seeded').toBeDefined();
+      const publicRow = list.find((p) => p.is_builtin === true);
+      expect(publicRow, 'public prompt should be seeded').toBeDefined();
       await request.dispose();
     });
 
@@ -98,18 +98,18 @@ test.describe('Phase E-5 prompts CRUD via MCP', () => {
       await request.dispose();
     });
 
-  test('prompt_delete on builtin vanilla returns isError',
+  test('prompt_delete on builtin publicRow returns isError',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const list = await callTool<PromptRow[]>(
         request, apiToken, sid, 'prompt_list', {},
       );
-      const vanilla = list.find((p) => p.is_builtin === true);
-      expect(vanilla).toBeDefined();
-      if (!vanilla) throw new Error('vanilla missing');
+      const publicRow = list.find((p) => p.is_builtin === true);
+      expect(publicRow).toBeDefined();
+      if (!publicRow) throw new Error('public missing');
       await expect(
         callTool(request, apiToken, sid, 'prompt_delete',
-          { prompt_id: vanilla.prompt_id }),
+          { prompt_id: publicRow.prompt_id }),
       ).rejects.toThrow(/builtin prompt cannot be deleted/);
       await request.dispose();
     });

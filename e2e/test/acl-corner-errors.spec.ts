@@ -38,7 +38,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   test('acl-public-session-no-deny-layer · public session (no code) issues normally (F8)', async () => {
     const v = await issueSession(seed.request, { handle: OWNER.handle, mode: 'public', visitor_name: 'pub' });
     expect(v.session_token).toBeTruthy();
-    // no code → no deny source; tool assembly must work (vanilla role), no crash.
+    // no code → no deny source; tool assembly must work (public role), no crash.
     expect(await sessionToolNames(seed.request, v.session_token)).toBeInstanceOf(Array);
   });
 

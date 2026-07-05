@@ -280,7 +280,7 @@ CREATE UNIQUE INDEX mcp_servers_owner_name_uniq ON mcp_servers(owner_id, name);
 -- prompts —— owner-scoped persona/instruction 片段库。
 -- 设计 [[iam-role-pivot-plan]]：type 通用命名，挂 role 后语义角色叫"role
 -- prompt"，但 type 本身不带这个限定（未来 skill / page 也可能复用同张表）。
--- builtin（is_builtin=true）现在只有一行 "vanilla" —— claim 时种，删除被
+-- builtin（is_builtin=true）现在只有一行 "public" —— claim 时种，删除被
 -- repo 层拒；owner 自己加的 = false。
 CREATE TABLE prompts (
     id           uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -301,8 +301,8 @@ CREATE UNIQUE INDEX prompts_owner_name_uniq ON prompts(owner_id, name);
 -- assumed_role_id；session start 时拍 RoleSnapshot 进 session_data，跟 role
 -- 解耦（owner 改 role 不影响 in-flight session）。
 --
--- vanilla role：claim 时种，is_builtin=true，公开 corpus URIs / 无 skill /
---   无 mcp / prompt 挂 vanilla prompt；不可删（repo 层拒）。owner 不显式
+-- public role：claim 时种，is_builtin=true，公开 corpus URIs / 无 skill /
+--   无 mcp / prompt 挂 public prompt；不可删（repo 层拒）。owner 不显式
 --   选 role 时 access_code 默认挂这条。
 CREATE TABLE roles (
     id           uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -354,7 +354,7 @@ CREATE TABLE role_mcp_servers (
 CREATE INDEX role_mcp_servers_server_idx ON role_mcp_servers(mcp_server_id);
 
 -- access_codes.assumed_role_id —— A.3-IAM-5 NOT NULL：每张码必挂 role。
--- 不显式选 = 上层 usecase 默认绑 owner 的 vanilla role。
+-- 不显式选 = 上层 usecase 默认绑 owner 的 public role。
 ALTER TABLE access_codes
     ADD COLUMN assumed_role_id uuid NOT NULL REFERENCES roles(id) ON DELETE RESTRICT;
 

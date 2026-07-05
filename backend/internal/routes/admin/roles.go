@@ -1,5 +1,5 @@
 // roles.go —— admin /roles endpoint：list / create / get / update /
-// delete owner-curated visitor 身份原型。vanilla (is_builtin=true) 可改
+// delete owner-curated visitor 身份原型。public (is_builtin=true) 可改
 // prompt / corpus URIs / skills / mcp / description，不可改 name / 不可删。
 
 package admin

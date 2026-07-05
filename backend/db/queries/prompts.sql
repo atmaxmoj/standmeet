@@ -1,6 +1,6 @@
 -- prompts —— owner-scoped persona library。语义见 schema.sql + [[iam-role-pivot-plan]]。
 --
--- vanilla（is_builtin=true）由 SeedVanillaRole upsert 种入；owner 自己加的
+-- public（is_builtin=true）由 SeedPublicRole upsert 种入；owner 自己加的
 -- = false。删除 builtin 在 repo 层挡（domain.ErrPromptBuiltinImmutable）。
 
 -- name: CreatePrompt :one
@@ -29,7 +29,7 @@ SELECT * FROM prompts WHERE owner_id = $1 AND name = $2;
 SELECT * FROM prompts WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC;
 
 -- name: UpdatePrompt :one
--- Builtin (vanilla) 也能 update body / description（owner 调 vanilla 文案）；
+-- Builtin (public) 也能 update body / description（owner 调 public 文案）；
 -- repo 层拒 builtin rename + delete。
 UPDATE prompts
 SET name = $3, description = $4, body = $5, updated_at = now()

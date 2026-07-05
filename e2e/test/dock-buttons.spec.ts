@@ -238,20 +238,20 @@ test.describe('dock buttons · D — session payload + ACL filtering', () => {
       expect(cap?.enabled, 'empty-corpus retrieval is disabled').toBe(false);
     });
 
-  test('D4 dock buttons on the vanilla role reach a public (no-code) session — the BYOAI/public tier',
+  test('D4 dock buttons on the publicRow role reach a publicRow (no-code) session — the BYOAI/publicRow tier',
     async () => {
-      await d4VanillaPublicity(request);
+      await d4PublicPublicity(request);
     });
 });
 
-// d4VanillaPublicity —— vanilla role = 公开层（跟 corpus 公开切片一个心智）。配 dock 按钮在
-// vanilla 上 → 无码 public / BYOAI 访客也该拿到。
-async function d4VanillaPublicity(request: APIRequestContext): Promise<void> {
-  const vanilla = await getRoleByName(request, 'vanilla');
-  const status = await putRoleWithDock(request, vanilla,
+// d4PublicPublicity —— publicRow role = 公开层（跟 corpus 公开切片一个心智）。配 dock 按钮在
+// publicRow 上 → 无码 publicRow / BYOAI 访客也该拿到。
+async function d4PublicPublicity(request: APIRequestContext): Promise<void> {
+  const publicRow = await getRoleByName(request, 'public');
+  const status = await putRoleWithDock(request, publicRow,
     [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }]);
   expect(status).toBe(200);
   const sess = await issueSession(request, { handle: OWNER.handle, mode: 'public' });
   const ids = (sess.dock_buttons ?? []).map((b) => b.capability_id);
-  expect(ids, 'public/BYOAI tier inherits vanilla dock buttons').toContain(CAP_SUMMARIZE);
+  expect(ids, 'public/BYOAI tier inherits publicRow dock buttons').toContain(CAP_SUMMARIZE);
 }

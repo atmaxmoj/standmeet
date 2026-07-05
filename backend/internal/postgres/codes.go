@@ -28,7 +28,7 @@ type CodeRepo struct {
 func NewCodeRepo(pool *Pool) *CodeRepo { return &CodeRepo{pool: pool} }
 
 // CreateCodeInput —— 创建 access code 入参。AssumedRoleID 必填（caller
-// usecase 不显式给则默认指 vanilla）。
+// usecase 不显式给则默认指 public）。
 type CreateCodeInput struct {
 	ExpiresAt          *time.Time
 	MaxMembers         *int32

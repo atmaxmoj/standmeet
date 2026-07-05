@@ -136,9 +136,9 @@ func loadApprovalContext(
 }
 
 func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID string) (string, error) {
-	vanilla, verr := deps.Roles.GetByName(ctx, ownerID, domain.VanillaRoleName)
+	public, verr := deps.Roles.GetByName(ctx, ownerID, domain.PublicRoleName)
 	if verr != nil {
-		return "", fmt.Errorf("get vanilla role: %w", verr)
+		return "", fmt.Errorf("get public role: %w", verr)
 	}
 	code, gerr := generateInviteCode()
 	if gerr != nil {
@@ -148,7 +148,7 @@ func issueInviteCode(ctx context.Context, deps ApproveRequestDeps, ownerID strin
 	maxMembers := int32(inviteMaxMembers)
 	if _, cerr := deps.Codes.CreateAccessCode(ctx, &domain.CreateAccessCodeInput{
 		OwnerID: ownerID, Code: code, Label: "invite",
-		Purpose: "access request approval", AssumedRoleID: vanilla.ID(),
+		Purpose: "access request approval", AssumedRoleID: public.ID(),
 		ExpiresAt: &expires, MaxMembers: &maxMembers,
 	}); cerr != nil {
 		return "", fmt.Errorf("create access code: %w", cerr)

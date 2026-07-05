@@ -1,6 +1,6 @@
 // codes.ts —— admin POST /api/admin/codes 创建 access code 的 helper。
 //
-// A.3-IAM-5: code 只挂 assumed_role_id；不传时 backend 默认绑 owner 的 vanilla
+// A.3-IAM-5: code 只挂 assumed_role_id；不传时 backend 默认绑 owner 的 public
 // role。ACL 测试请配合 fixtures/roles.ts 先建一个 role 再传 assumed_role_id。
 
 import type { APIRequestContext } from '@playwright/test';

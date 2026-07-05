@@ -56,7 +56,7 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
       // collapsible <details>, default-open
       await expect(card).toHaveJSProperty('open', true);
       await expect(frame.getByTestId('bookings-kicker')).toContainText('available ·');
-      // vanilla day picker rendered (day buttons grouped from the slots)
+      // public day picker rendered (day buttons grouped from the slots)
       await expect(frame.getByTestId('slot-calendar')).toBeVisible();
       await expect(frame.getByTestId('slot-day').first()).toBeVisible();
       // time chips for the selected day

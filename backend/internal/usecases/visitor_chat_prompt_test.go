@@ -48,7 +48,7 @@ func TestComposeDynamicPersona_NoCodePrompt_ByteForByteUnchanged(t *testing.T) {
 
 func TestComposeDynamicPersona_CodePromptOnly(t *testing.T) {
 	t.Parallel()
-	// vanilla role (empty persona) + a code prompt → just the code prompt, no leading separator.
+	// public role (empty persona) + a code prompt → just the code prompt, no leading separator.
 	out := usecases.ComposeDynamicPersona(snapWithPrompts("", "Only the code speaks."))
 	if out != "Only the code speaks." {
 		t.Fatalf("code-prompt-only persona wrong: %q", out)

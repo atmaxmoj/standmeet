@@ -1,9 +1,9 @@
 // admin-prompts.spec.ts —— /admin/prompts UI-driven CRUD。
 //
 // 用户故事：
-//   1. claim 后 vanilla prompt 已种入，list 包含 [system] pill
+//   1. claim 后 publicRow prompt 已种入，list 包含 [system] pill
 //   2. owner 创建 prompt → 出现在 list，body preview 渲染
-//   3. vanilla 没 delete button；自建 prompt 可删
+//   3. publicRow 没 delete button；自建 prompt 可删
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -29,17 +29,17 @@ test.describe('admin prompts', () => {
     await initOwner(playwright);
   });
 
-  test('vanilla prompt seeded on claim is listed with [system] pill', async ({ adminPage }) => {
+  test('public prompt seeded on claim is listed with [system] pill', async ({ adminPage }) => {
     await openPrompts(adminPage);
-    const vanilla = adminPage.getByTestId('prompt-row-vanilla');
-    await expect(vanilla).toBeVisible();
-    await expect(vanilla.getByTestId('prompt-system-pill')).toBeVisible();
+    const publicRow = adminPage.getByTestId('prompt-row-public');
+    await expect(publicRow).toBeVisible();
+    await expect(publicRow.getByTestId('prompt-system-pill')).toBeVisible();
   });
 
-  test('vanilla prompt has no delete button', async ({ adminPage }) => {
+  test('public prompt has no delete button', async ({ adminPage }) => {
     await openPrompts(adminPage);
-    const vanilla = adminPage.getByTestId('prompt-row-vanilla');
-    await expect(vanilla.getByTestId('prompt-delete-vanilla')).toHaveCount(0);
+    const publicRow = adminPage.getByTestId('prompt-row-public');
+    await expect(publicRow.getByTestId('prompt-delete-public')).toHaveCount(0);
   });
 
   test('create + delete a non-builtin prompt', async ({ adminPage }) => {

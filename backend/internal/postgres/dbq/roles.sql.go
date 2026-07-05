@@ -489,7 +489,7 @@ type UpsertBuiltinRoleParams struct {
 	PromptID    pgtype.UUID
 }
 
-// Seed vanilla role：idempotent by (owner_id, name)。
+// Seed public role：idempotent by (owner_id, name)。
 func (q *Queries) UpsertBuiltinRole(ctx context.Context, arg UpsertBuiltinRoleParams) (Role, error) {
 	row := q.db.QueryRow(ctx, upsertBuiltinRole,
 		arg.OwnerID,

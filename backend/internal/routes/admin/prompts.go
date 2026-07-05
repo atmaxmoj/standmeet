@@ -1,5 +1,5 @@
 // prompts.go —— admin /prompts endpoint：list / create / get / update /
-// delete owner-curated persona library。vanilla (is_builtin=true) 可以改
+// delete owner-curated persona library。public (is_builtin=true) 可以改
 // body / description / corpus URIs，但不可改 name / 不可删（usecase 层拦）。
 
 package admin

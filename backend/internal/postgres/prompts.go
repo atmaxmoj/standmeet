@@ -1,6 +1,6 @@
 // prompts.go —— prompts 表 CRUD。owner-scoped persona library。
 //
-// 设计 [[iam-role-pivot-plan]]：vanilla（is_builtin=true）由 SeedVanillaRole
+// 设计 [[iam-role-pivot-plan]]：public（is_builtin=true）由 SeedPublicRole
 // 在 owner claim 时 upsert 种入；删除被 repo 层挡（domain.ErrPromptBuiltinImmutable）。
 
 package postgres
@@ -51,7 +51,7 @@ func (r *PromptRepo) Create(ctx context.Context, in *CreatePromptInput) (domain.
 	return toDomainPrompt(&row), nil
 }
 
-// UpsertBuiltin —— SeedVanillaRole 用。同 (owner_id, name) 覆盖 description / body。
+// UpsertBuiltin —— SeedPublicRole 用。同 (owner_id, name) 覆盖 description / body。
 func (r *PromptRepo) UpsertBuiltin(
 	ctx context.Context, ownerID, name, description, body string,
 ) (domain.Prompt, error) {
@@ -103,7 +103,7 @@ func (r *PromptRepo) GetByID(ctx context.Context, ownerID, promptID string) (dom
 	return toDomainPrompt(&row), nil
 }
 
-// GetByName —— SeedVanillaRole 用：vanilla prompt 先 upsert 再 get id 给 Role 引用。
+// GetByName —— SeedPublicRole 用：public prompt 先 upsert 再 get id 给 Role 引用。
 func (r *PromptRepo) GetByName(ctx context.Context, ownerID, name string) (domain.Prompt, error) {
 	ownerUUID, oerr := parseUUID(ownerID)
 	if oerr != nil {

@@ -1,8 +1,8 @@
 // prompts.go —— owner-curated Prompt (persona library) CRUD。
 //
 // Prompt = persona / instruction 片段，可挂到 Role 让 visitor session 拼
-// system prompt。owner 通过 admin / MCP CRUD；vanilla（is_builtin=true）由
-// claim 时 SeedVanillaRole 种入，不可删 / 不可改 name（repo + usecase 双护栏）。
+// system prompt。owner 通过 admin / MCP CRUD；public（is_builtin=true）由
+// claim 时 SeedPublicRole 种入，不可删 / 不可改 name（repo + usecase 双护栏）。
 
 package usecases
 
@@ -85,7 +85,7 @@ type UpdatePromptInput struct {
 	Body        string
 }
 
-// UpdatePrompt —— builtin (vanilla) 可改 body / description，不可改 name。
+// UpdatePrompt —— builtin (public) 可改 body / description，不可改 name。
 // repo Update 不挡，本层先 GetByID 校验。
 func UpdatePrompt(
 	ctx context.Context, deps PromptsDeps, in *UpdatePromptInput,

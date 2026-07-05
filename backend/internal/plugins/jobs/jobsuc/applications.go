@@ -130,10 +130,10 @@ func runCommitTx(
 	expires := timestamptzFromTime(time.Now().AddDate(0, 0, applicationCodeDays))
 	maxMembers := applicationMaxMembers
 	maxTurns := applicationMaxTurns
-	// A.3-IAM-5: application 自动 issue code 默认挂 owner 的 vanilla role。
-	vanilla, verr := deps.Roles.GetByName(ctx, ownerID, domain.VanillaRoleName)
+	// A.3-IAM-5: application 自动 issue code 默认挂 owner 的 public role。
+	public, verr := deps.Roles.GetByName(ctx, ownerID, domain.PublicRoleName)
 	if verr != nil {
-		return postgres.CommitOutput{}, fmt.Errorf("get vanilla role: %w", verr)
+		return postgres.CommitOutput{}, fmt.Errorf("get public role: %w", verr)
 	}
 	in := &postgres.CommitInput{
 		OwnerID:            ownerID,
@@ -144,7 +144,7 @@ func runCommitTx(
 		CodeExpiresAt:      &expires,
 		MaxMembers:         &maxMembers,
 		MaxTurnsPerSession: &maxTurns,
-		AssumedRoleID:      vanilla.ID(),
+		AssumedRoleID:      public.ID(),
 	}
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {

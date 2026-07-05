@@ -1,7 +1,7 @@
 // prompt.go —— owner-scoped persona/instruction 片段库。设计 [[iam-role-pivot-plan]]。
 //
 // 通用 type：挂 role 后语义角色叫"role prompt"，但 type 本身不带这个限定。
-// vanilla（is_builtin=true）由 SeedVanillaRole 在 owner claim 时种入；删除被
+// public（is_builtin=true）由 SeedPublicRole 在 owner claim 时种入；删除被
 // repo 层挡（ErrPromptBuiltinImmutable）。
 
 package domain
@@ -75,17 +75,17 @@ func (p *Prompt) CreatedAt() time.Time { return p.createdAt }
 // UpdatedAt —— 最后更新时间。
 func (p *Prompt) UpdatedAt() time.Time { return p.updatedAt }
 
-// VanillaPromptName —— builtin vanilla prompt 的 name。SeedVanillaRole 用。
-const VanillaPromptName = "vanilla"
+// PublicPromptName —— builtin public prompt 的 name。SeedPublicRole 用。
+const PublicPromptName = "public"
 
-// VanillaPromptBody —— vanilla prompt 的 system prompt 文案。设计稿
+// PublicPromptBody —— public prompt 的 system prompt 文案。设计稿
 // docs/design/project/admin-data.js PROMPTS[0]。owner 可改。
-const VanillaPromptBody = "You are an AI proxy for {owner}. " +
+const PublicPromptBody = "You are an AI proxy for {owner}. " +
 	"Answer questions accurately from the visible corpus. " +
 	"If you do not know, say so plainly."
 
-// VanillaPromptDescription —— vanilla prompt 的一句简介。
-const VanillaPromptDescription = "Plain helpful proxy. No persona overlay."
+// PublicPromptDescription —— public prompt 的一句简介。
+const PublicPromptDescription = "Plain helpful proxy. No persona overlay."
 
 // ErrPromptNotFound —— prompt id 不存在或不属于该 owner。
 var ErrPromptNotFound = errors.New("prompt not found")

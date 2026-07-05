@@ -31,7 +31,7 @@ type VisitorSessionDeps struct {
 	AgentSkills *capreg.Registry
 	// CodeDenials —— ACL hierarchy 的 code 层(capability-acl-hierarchy.md)。
 	// buildRoleSnapshotForCode 冻结前据此从 role grant 里相减。可空(无 code 的
-	// vanilla/public 路径、或老 facade 没接 → 视作零 deny)。
+	// public + byoai 路径、或老 facade 没接 → 视作零 deny)。
 	CodeDenials CodeDenialReader
 }
 

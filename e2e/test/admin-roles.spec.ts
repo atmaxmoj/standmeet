@@ -1,10 +1,10 @@
 // admin-roles.spec.ts —— /admin/roles UI-driven CRUD。
 //
 // 用户故事：
-//   1. claim 后 vanilla role 已种入，appears in role-list with [system] pill
+//   1. claim 后 publicRow role 已种入，appears in role-list with [system] pill
 //   2. owner 点 "+ new role" 弹 modal → 填 name + corpus URI globs → create →
 //      新 role 出现在 list
-//   3. vanilla 的 delete 按钮不渲染；自建 role 可删
+//   3. publicRow 的 delete 按钮不渲染；自建 role 可删
 //   4. /admin/roles 卡上的 corpus / skills / mcp / codes 计数正确
 
 import { test, expect } from '@/fixtures/test';
@@ -34,19 +34,19 @@ test.describe('admin roles', () => {
     await initOwner(playwright);
   });
 
-  test('vanilla role seeded on claim is listed with [system] pill', async ({ adminPage }) => {
+  test('public role seeded on claim is listed with [system] pill', async ({ adminPage }) => {
     await openRoles(adminPage);
-    const vanilla = adminPage.getByTestId('role-row-vanilla');
-    await expect(vanilla).toBeVisible();
-    await expect(vanilla.getByTestId('role-system-pill')).toBeVisible();
-    // vanilla 三 public glob：writing/wiki/output —— "3 URIs"
-    await expect(vanilla.getByTestId('role-meta-corpus')).toContainText('3 URIs');
+    const publicRow = adminPage.getByTestId('role-row-public');
+    await expect(publicRow).toBeVisible();
+    await expect(publicRow.getByTestId('role-system-pill')).toBeVisible();
+    // publicRow 三 publicRow glob：writing/wiki/output —— "3 URIs"
+    await expect(publicRow.getByTestId('role-meta-corpus')).toContainText('3 URIs');
   });
 
-  test('vanilla role has no delete button', async ({ adminPage }) => {
+  test('public role has no delete button', async ({ adminPage }) => {
     await openRoles(adminPage);
-    const vanilla = adminPage.getByTestId('role-row-vanilla');
-    await expect(vanilla.getByTestId('role-delete-vanilla')).toHaveCount(0);
+    const publicRow = adminPage.getByTestId('role-row-public');
+    await expect(publicRow.getByTestId('role-delete-public')).toHaveCount(0);
   });
 
   test('create a new role via UI → appears in list', async ({ adminPage }) => {
@@ -57,7 +57,7 @@ test.describe('admin roles', () => {
     await modal.getByTestId('role-field-name').fill('recruiter-default');
     await modal.getByTestId('role-field-description').fill('hiring loops');
     await modal.getByTestId('role-field-corpus-uris').fill(
-      ['wiki://thinking/**', 'output://public/**'].join('\n'),
+      ['wiki://thinking/**', 'output://publicRow/**'].join('\n'),
     );
     await modal.getByTestId('role-create-submit').click();
     await expect(modal).not.toBeVisible({ timeout: 5_000 });

@@ -27,7 +27,7 @@ type CreatePromptParams struct {
 
 // prompts —— owner-scoped persona library。语义见 schema.sql + [[iam-role-pivot-plan]]。
 //
-// vanilla（is_builtin=true）由 SeedVanillaRole upsert 种入；owner 自己加的
+// public（is_builtin=true）由 SeedPublicRole upsert 种入；owner 自己加的
 // = false。删除 builtin 在 repo 层挡（domain.ErrPromptBuiltinImmutable）。
 func (q *Queries) CreatePrompt(ctx context.Context, arg CreatePromptParams) (Prompt, error) {
 	row := q.db.QueryRow(ctx, createPrompt,
@@ -163,7 +163,7 @@ type UpdatePromptParams struct {
 	Body        string
 }
 
-// Builtin (vanilla) 也能 update body / description（owner 调 vanilla 文案）；
+// Builtin (public) 也能 update body / description（owner 调 public 文案）；
 // repo 层拒 builtin rename + delete。
 func (q *Queries) UpdatePrompt(ctx context.Context, arg UpdatePromptParams) (Prompt, error) {
 	row := q.db.QueryRow(ctx, updatePrompt,

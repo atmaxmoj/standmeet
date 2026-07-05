@@ -20,7 +20,7 @@ import (
 )
 
 // CodesDeps —— admin codes handlers 依赖。Roles 用来 owner 不显式给
-// assumed_role_id 时查 vanilla 兜底。Sessions:revoke 时清掉这张 code 的 visitor
+// assumed_role_id 时查 public 兜底。Sessions:revoke 时清掉这张 code 的 visitor
 // session(token 真死,下一请求被发现无效 → 401 + 清 cookie)。
 type CodesDeps struct {
 	Codes    *postgres.CodeRepo
@@ -141,7 +141,7 @@ func (h *Handlers) createCode() http.HandlerFunc {
 }
 
 // runCreateCode —— 拆出 createCode 的 happy/error path 让 handler cyclo≤3。
-// assumed_role_id 缺省 → 用 owner 的 vanilla（claim 时种入）。
+// assumed_role_id 缺省 → 用 owner 的 public（claim 时种入）。
 func runCreateCode(
 	r *http.Request, h *Handlers, w http.ResponseWriter, req *createCodeRequest,
 ) {
@@ -200,14 +200,14 @@ func buildCreateInput(
 	}, nil
 }
 
-// resolveCodeRoleID —— 显式给 → 直接用；没给 → 查 owner 的 vanilla role。
+// resolveCodeRoleID —— 显式给 → 直接用；没给 → 查 owner 的 public role。
 func resolveCodeRoleID(
 	r *http.Request, h *Handlers, ownerID string, requested *string,
 ) (string, error) {
 	if explicit := nonEmptyPtr(requested); explicit != "" {
 		return explicit, nil
 	}
-	return lookupVanillaRoleID(r, h, ownerID)
+	return lookupPublicRoleID(r, h, ownerID)
 }
 
 func nonEmptyPtr(s *string) string {
@@ -217,12 +217,12 @@ func nonEmptyPtr(s *string) string {
 	return *s
 }
 
-func lookupVanillaRoleID(r *http.Request, h *Handlers, ownerID string) (string, error) {
-	vanilla, err := h.CodesAdmin.Roles.GetByName(r.Context(), ownerID, domain.VanillaRoleName)
+func lookupPublicRoleID(r *http.Request, h *Handlers, ownerID string) (string, error) {
+	public, err := h.CodesAdmin.Roles.GetByName(r.Context(), ownerID, domain.PublicRoleName)
 	if err != nil {
-		return "", fmt.Errorf("get vanilla role: %w", err)
+		return "", fmt.Errorf("get public role: %w", err)
 	}
-	return vanilla.ID(), nil
+	return public.ID(), nil
 }
 
 func writeCreatedCode(log *slog.Logger, w http.ResponseWriter, c *domain.AccessCode) {
