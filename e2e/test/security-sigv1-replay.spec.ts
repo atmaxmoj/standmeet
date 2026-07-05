@@ -1,9 +1,8 @@
-// security-sigv1-replay.spec.ts —— pentest / **documenting**。MCP Sigv1 auth 用 ts ±5min 窗口
-// 防重放,但**没有 nonce**:同一个签名头在窗口内可被重放(认证仍通过)。这是**已知、有界**的
-// 弱点(窗口 5min,且要先窃到一个合法签名头),此测试把当前行为钉死:重放同头 → 仍认证成功。
-// 若将来要加 nonce/one-time challenge,本测试翻成 RED-first(重放应被拒)驱动那个修复。
+// security-sigv1-replay.spec.ts —— pentest / **fix**。MCP Sigv1 auth 现在签一次性 nonce:
+// 后端把见过的 (keyId,nonce) 记 Redis(窗口 TTL),窗口内重放**同一个签名头** → nonce 已见 → 拒。
+// 捕获一个合法头也无法重放。fresh 签(新 nonce)不受影响。
 //
-// 对照:c1-keypair-auth 已测「过期 ts 被拒」;这里补「窗口内重放被接受」这一面。
+// 对照:c1-keypair-auth 已测「过期 ts 被拒」;这里守「窗口内重放被拒 + fresh 仍通」。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -37,19 +36,23 @@ test.describe('pentest · Sigv1 in-window replay (documented known weakness)', (
   test.beforeAll(async ({ playwright }) => { seed = await seedOwnerLoggedIn(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('a captured Sigv1 header replays successfully within the ±5min window (no nonce)',
+  test('a captured Sigv1 header cannot be replayed (one-time nonce); a fresh sign still works',
     async ({ playwright }) => {
       const kp = await createKeypair(seed.request, seed.csrf, 'replay-spec');
       const request = await playwright.request.newContext();
-      // One signed header, reused verbatim (same ts + sig) — simulates a captured/leaked header.
+      // One signed header, reused verbatim (same ts + nonce + sig) — a captured/leaked header.
       const header = formatAuthHeader(signNow(kp.private_key_pem, kp.key_id));
 
       const first = await mcpInit(request, header);
       expect(first, 'original signed request authenticates').toBeLessThan(400);
-      // Replay the EXACT same header: no nonce ⇒ still accepted (bounded by the 5min window).
+      // Replay the EXACT same header: nonce already seen ⇒ rejected (401).
       const replay = await mcpInit(request, header);
-      expect(replay, 'in-window replay is currently accepted (no nonce — documented)')
-        .toBeLessThan(400);
+      expect(replay, 'in-window replay of the same nonce is rejected').toBeGreaterThanOrEqual(400);
+
+      // A freshly-signed header (new nonce) still authenticates — nonce doesn't break normal use.
+      const fresh = formatAuthHeader(signNow(kp.private_key_pem, kp.key_id));
+      const freshStatus = await mcpInit(request, fresh);
+      expect(freshStatus, 'a fresh nonce authenticates normally').toBeLessThan(400);
       await request.dispose();
     });
 });

@@ -77,7 +77,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Prompts: d.promptRepo, Roles: d.roleRepo,
 		},
 		Login:    usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
-		Keypairs: usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log},
+		Keypairs: keypairDeps(d),
 		Corpus: usecases.CorpusDeps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
 		},
@@ -305,7 +305,7 @@ func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHand
 func buildMCPDeps(d *runtimeDeps) mcphandle.Deps {
 	return mcphandle.Deps{
 		AgentSkills: d.agentSkills,
-		Keypairs:    usecases.KeypairDeps{Repo: d.keypairRepo, Log: d.log},
+		Keypairs:    keypairDeps(d),
 		Owners:      d.ownerRepo,
 		Corpus: usecases.CorpusDeps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,

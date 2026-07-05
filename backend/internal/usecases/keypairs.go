@@ -32,8 +32,15 @@ const sigv1MaxSkew = 5 * time.Minute
 
 // KeypairDeps —— keypair 用例所需。
 type KeypairDeps struct {
-	Repo *postgres.OwnerKeypairRepo
-	Log  *slog.Logger
+	Repo  *postgres.OwnerKeypairRepo
+	Log   *slog.Logger
+	Nonce NonceStore
+}
+
+// NonceStore —— 一次性 nonce 记录（防 Sigv1 重放）。实现在 composition root（Redis SetNX）。
+type NonceStore interface {
+	// Fresh —— 首次见此 key 返 (true,nil) 并记下（TTL 后过期）；已见返 (false,nil) = 重放。
+	Fresh(ctx context.Context, key string, ttl time.Duration) (bool, error)
 }
 
 // CreateKeypairInput —— admin POST /api/admin/keypairs 入参。
@@ -152,8 +159,9 @@ func ensureKeypairOwned(
 //  2. ts 在 ±5min 窗口内 (clock skew)
 //  3. DB 查公钥 (不命中 = 401)
 //  4. ed25519.Verify(pub, challenge, sig) — challenge =
-//     "standmeet-sigv1\n<keyId>\n<ts>"
-//  5. Touch last_used_at (best effort, log only on fail)
+//     "standmeet-sigv1\n<keyId>\n<ts>\n<nonce>"
+//  5. nonce 首见校验（Redis，防窗口内重放；fail-open）
+//  6. Touch last_used_at (best effort, log only on fail)
 //
 // 返回 (ownerID, nil) on success；(empty, ErrKeypairUnauthorized) on 任一失败。
 func VerifySigv1(
@@ -171,6 +179,7 @@ func VerifySigv1(
 
 type parsedSigv1 struct {
 	keyID string
+	nonce string
 	sig   []byte
 	ts    int64
 }
@@ -219,19 +228,19 @@ func buildParsedSigv1(fields map[string]string) (parsedSigv1, error) {
 	if derr != nil {
 		return parsedSigv1{}, fmt.Errorf("decode sig: %w", derr)
 	}
-	return parsedSigv1{keyID: raw.keyID, ts: ts, sig: sig}, nil
+	return parsedSigv1{keyID: raw.keyID, ts: ts, sig: sig, nonce: raw.nonce}, nil
 }
 
-// rawSigv1Fields —— 字段存在性校验后的 string 三元组。
+// rawSigv1Fields —— 字段存在性校验后的 string 四元组。
 type rawSigv1Fields struct {
-	keyID, ts, sig string
+	keyID, ts, sig, nonce string
 }
 
 func requireSigv1Fields(fields map[string]string) (rawSigv1Fields, error) {
 	out := rawSigv1Fields{
-		keyID: fields["keyId"], ts: fields["ts"], sig: fields["sig"],
+		keyID: fields["keyId"], ts: fields["ts"], sig: fields["sig"], nonce: fields["nonce"],
 	}
-	if out.keyID == "" || out.ts == "" || out.sig == "" {
+	if out.keyID == "" || out.ts == "" || out.sig == "" || out.nonce == "" {
 		return rawSigv1Fields{}, errors.New("missing required Sigv1 field")
 	}
 	return out, nil
@@ -258,12 +267,35 @@ func verifyParsedSig(
 		deps.Log.Error("keypair: decode stored public key", "err", perr, "key_id", p.keyID)
 		return "", domain.ErrKeypairUnauthorized
 	}
-	challenge := fmt.Sprintf("%s\n%s\n%d", challengeNS, p.keyID, p.ts)
+	challenge := fmt.Sprintf("%s\n%s\n%d\n%s", challengeNS, p.keyID, p.ts, p.nonce)
 	if !ed25519.Verify(pub, []byte(challenge), p.sig) {
 		return "", domain.ErrKeypairUnauthorized
 	}
+	if rerr := checkNonceFresh(ctx, deps, p); rerr != nil {
+		return "", rerr
+	}
 	deps.Repo.Touch(ctx, deps.Log, kp.ID)
 	return kp.OwnerID, nil
+}
+
+// nonceTTL —— nonce 记录存活时间：覆盖 ±skew 接受窗口两侧再留余量，之后可复用（ts 早已过期）。
+const nonceTTL = 2 * sigv1MaxSkew
+
+// checkNonceFresh —— 验签通过后确认 nonce 首次出现（防重放）。fail-open：nonce store 未装配
+// 或 Redis 出错 → 放行（退回纯 ts-window），不因 Redis 抖动阻断 owner 的 MCP auth。
+func checkNonceFresh(ctx context.Context, deps KeypairDeps, p parsedSigv1) error {
+	if deps.Nonce == nil {
+		return nil
+	}
+	fresh, err := deps.Nonce.Fresh(ctx, "sigv1nonce:"+p.keyID+":"+p.nonce, nonceTTL)
+	if err != nil {
+		deps.Log.Warn("sigv1 nonce store error; allowing (degrade to ts-window)", "err", err)
+		return nil
+	}
+	if !fresh {
+		return domain.ErrKeypairUnauthorized
+	}
+	return nil
 }
 
 func decodePublicKey(pemStr string) (ed25519.PublicKey, error) {

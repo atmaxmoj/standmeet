@@ -96,19 +96,18 @@ test.describe('Phase C-1 MCP Sigv1 keypair auth (happy + admin CRUD)', () => {
       await request.dispose();
     });
 
-  test('replay within window currently accepted (stateless, no nonce)',
+  test('replay of the same nonce is rejected (one-time nonce)',
     async ({ playwright }) => {
-      // Documented behavior: stateless sig + ts window only. Replay 同一
-      // {keyId,ts,sig} 在窗口内允许 —— 攻击面 = 截获后 5 min 内复用。
+      // 一次性 nonce:同一 {keyId,ts,nonce,sig} 头在窗口内重放 → nonce 已见 → 拒。
+      // 深入的 replay/fresh 覆盖在 security-sigv1-replay.spec.ts。
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const kp = await createKeypair(request, csrf, 'replay-spec');
-      const signed = signNow(kp.private_key_pem, kp.key_id);
-      const auth = formatAuthHeader(signed);
+      const auth = formatAuthHeader(signNow(kp.private_key_pem, kp.key_id));
       const first = await rawMCPInitWithAuth(request, auth);
       const second = await rawMCPInitWithAuth(request, auth);
       expect(first.status).toBe(200);
-      expect(second.status).toBe(200);
+      expect(second.status).not.toBe(200);
       await request.dispose();
     });
 });
