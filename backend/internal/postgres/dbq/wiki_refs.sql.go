@@ -42,7 +42,7 @@ func (q *Queries) InsertWikiRef(ctx context.Context, arg InsertWikiRefParams) er
 const listWikiBacklinks = `-- name: ListWikiBacklinks :many
 SELECT w.id, w.title
 FROM wiki_refs wr
-JOIN wiki_entries w ON w.id = wr.src_wiki_id
+JOIN corpus_notes w ON w.id = wr.src_wiki_id AND w.genre = 'wiki'
 WHERE wr.dst_wiki_id = $1
   AND w.owner_id = $2
   AND w.published = true
@@ -84,7 +84,7 @@ func (q *Queries) ListWikiBacklinks(ctx context.Context, arg ListWikiBacklinksPa
 const listWikiOutbound = `-- name: ListWikiOutbound :many
 SELECT w.id, w.title
 FROM wiki_refs wr
-JOIN wiki_entries w ON w.id = wr.dst_wiki_id
+JOIN corpus_notes w ON w.id = wr.dst_wiki_id AND w.genre = 'wiki'
 WHERE wr.src_wiki_id = $1
   AND w.published = true
 ORDER BY w.title ASC

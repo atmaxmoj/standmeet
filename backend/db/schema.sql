@@ -99,70 +99,47 @@ CREATE TABLE raw_entries (
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
--- wiki_entries —— curated 中层。
--- path：唯一标识 (取代 seo_slug)。retrieval ACL 按 path-glob 评估；同时
---       是 /<handle>/wiki/<path> 公开页 URL 的最后一段（catch-all）。
--- show_as_source：false 时 AI 可以 corpus_read 拿 body，但 readCollector
---       不收录这条 path —— 用于 meta/persona 这种"用得到但不该曝光"的 entry。
--- 准入靠 access_codes.corpus_permissions（path-glob first-match-wins）。
--- 没有 visibility 字段——legacy 那套 public/on_request/private 三档被 ACL 替代。
-CREATE TABLE wiki_entries (
+-- corpus_notes —— 统一的 vault note 基座。一张表容纳所有「笔记类」genre。今天迁入 wiki + output
+-- （二者结构本 95% 相同）；writing / subjectivity 后续阶段同表迁入。raw **不**在此（未整理的
+-- 摄入 inbox，独立表，性质不同）。
+--   genre      —— 品类维度（'wiki' | 'output' | …）。ACL / retrieval / 寻址都带上它，加 genre 零建表。
+--   parent_id   —— 树。地址（path）仍纯树派生（parent 链 + title slug，见 usecases.TreePaths），
+--                  不存列：corpus 是 filesystem，路径来自它在哪个目录下。删父 → 子孙级联删。
+--   source_ids  —— 「从哪提升来」的上游 id（wiki←raw ids / output←wiki ids）。归一原 wiki_entries 的
+--                  source_raw_ids 与 output_entries 的 source_wiki_ids 为一列。
+--   show_as_source —— false 时 AI 可 corpus_read 拿 body，但 readCollector 不收录（meta/persona）。
+CREATE TABLE corpus_notes (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    -- 地址树派生:删父 → 子孙跟着没(级联),不留无主孤儿。
-    parent_id        uuid          REFERENCES wiki_entries(id) ON DELETE CASCADE,
+    genre           text          NOT NULL,
+    parent_id        uuid          REFERENCES corpus_notes(id) ON DELETE CASCADE,
     title            text          NOT NULL,
     body             text          NOT NULL,
     tags             text[]        NOT NULL DEFAULT '{}',
-    source_raw_ids   uuid[]        NOT NULL DEFAULT '{}',
-    -- 地址(path)纯树派生(parent 链 + title slug,见 usecases.WikiTreePaths),
-    -- 不存列:corpus 是 filesystem,文件路径来自它在哪个目录下。
+    source_ids       uuid[]        NOT NULL DEFAULT '{}',
     show_as_source   bool          NOT NULL DEFAULT true,
     excerpt          text          NOT NULL DEFAULT '',
     published        bool          NOT NULL DEFAULT false,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
+CREATE INDEX corpus_notes_owner_genre_idx ON corpus_notes(owner_id, genre);
+CREATE INDEX corpus_notes_parent_idx ON corpus_notes(parent_id);
 
--- wiki_refs —— wiki 内 `[[Title]]` 双链的边表（镜像 writing_refs）。
---
--- body 里 owner 写 `[[X]]`，PromoteToWiki / UpdateWiki 同事务 resolve X 到目标
--- wiki.id（wiki 无 slug，只按 title case-insensitive；没中就不入边，render 留
--- 原字面）。每次写走 "delete all where src → insert new" 重建 src 出度。
---
--- 出度 = 「read next / 本条引用了哪些条目」；入度（按 dst 查）= 「cited by」backlinks。
--- 「N corpus sources / sources cited」= 实时数出度（COUNT），不落冗余列（owner 要
--- single source of truth）。FK cascade：src/dst wiki 删 → 边自动消。
+-- wiki_refs —— wiki 内 `[[Title]]` 双链边表。src/dst 现指向 corpus_notes（genre='wiki'）。
+-- body 里 owner 写 `[[X]]`，PromoteToWiki / UpdateWiki 同事务 resolve X 到目标 note.id（wiki 无
+-- slug，只按 title case-insensitive；没中就不入边）。每次写走 "delete all where src → insert new"。
+-- 出度 = read-next（引用了哪些）；入度（按 dst）= cited-by backlinks。FK cascade：note 删 → 边消。
+-- （note_refs 的跨-genre 归一在后续 refs 统一阶段；本阶段仅把 FK 重指到统一表。）
 CREATE TABLE wiki_refs (
-    src_wiki_id  uuid          NOT NULL REFERENCES wiki_entries(id) ON DELETE CASCADE,
-    dst_wiki_id  uuid          NOT NULL REFERENCES wiki_entries(id) ON DELETE CASCADE,
+    src_wiki_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
+    dst_wiki_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
     owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     created_at   timestamptz   NOT NULL DEFAULT now(),
     PRIMARY KEY (src_wiki_id, dst_wiki_id)
 );
 CREATE INDEX wiki_refs_dst_idx ON wiki_refs(dst_wiki_id);
 CREATE INDEX wiki_refs_owner_dst_idx ON wiki_refs(owner_id, dst_wiki_id);
-
--- output_entries —— raw → wiki → output 三层中的最精炼层。结构同 wiki，
--- 语义差别：output 是 "可以在对话里完整原样引用" 的成品；通过 MCP
--- `promote_wiki_to_output` 从 wiki 提炼上来。show_as_source 含义
--- 与 wiki_entries 完全一致；retrieval ACL 同套规则评估。
-CREATE TABLE output_entries (
-    id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    -- 同 wiki:删父 → 子孙级联删。
-    parent_id        uuid          REFERENCES output_entries(id) ON DELETE CASCADE,
-    title            text          NOT NULL,
-    body             text          NOT NULL,
-    tags             text[]        NOT NULL DEFAULT '{}',
-    source_wiki_ids  uuid[]        NOT NULL DEFAULT '{}',
-    -- 地址纯树派生,不存列(同 wiki_entries)。
-    show_as_source   bool          NOT NULL DEFAULT true,
-    excerpt          text          NOT NULL DEFAULT '',
-    published        bool          NOT NULL DEFAULT false,
-    created_at       timestamptz   NOT NULL DEFAULT now(),
-    updated_at       timestamptz   NOT NULL DEFAULT now()
-);
 
 CREATE TABLE media_assets (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -173,8 +150,10 @@ CREATE TABLE media_assets (
     size_bytes      bigint        NOT NULL DEFAULT 0,
     storage_key     text          NOT NULL,
     raw_entry_id    uuid          REFERENCES raw_entries(id) ON DELETE SET NULL,
-    wiki_entry_id   uuid          REFERENCES wiki_entries(id) ON DELETE SET NULL,
-    output_entry_id uuid          REFERENCES output_entries(id) ON DELETE SET NULL,
+    -- wiki/output note 现同住 corpus_notes（genre 区分），两列都 FK 统一表；哪列有值由
+    -- 上层按 note genre 决定（未来可归一成单 note_id 列）。
+    wiki_entry_id   uuid          REFERENCES corpus_notes(id) ON DELETE SET NULL,
+    output_entry_id uuid          REFERENCES corpus_notes(id) ON DELETE SET NULL,
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
@@ -454,7 +433,7 @@ CREATE TABLE writings (
     obsidian_source_path  text          NOT NULL DEFAULT '',
     obsidian_imported_at  timestamptz   NULL,
     published_at          timestamptz   NULL,
-    -- parent_id —— writing 树(reader sidebar 嵌套)。同 wiki_entries 口径:
+    -- parent_id —— writing 树(reader sidebar 嵌套)。同 wiki note 口径:
     -- 自引用 FK,删父级联删子孙。导航仍按 slug,parent 只决定树嵌套。
     parent_id             uuid          NULL REFERENCES writings(id) ON DELETE CASCADE,
     created_at            timestamptz   NOT NULL DEFAULT now(),

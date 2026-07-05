@@ -141,6 +141,22 @@ type ConversationGhost struct {
 	AcceptedAt     pgtype.Timestamptz
 }
 
+type CorpusNote struct {
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	Genre        string
+	ParentID     pgtype.UUID
+	Title        string
+	Body         string
+	Tags         []string
+	SourceIds    []pgtype.UUID
+	ShowAsSource bool
+	Excerpt      string
+	Published    bool
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+}
+
 type CustomPage struct {
 	ID                  pgtype.UUID
 	OwnerID             pgtype.UUID
@@ -255,21 +271,6 @@ type Message struct {
 	CitedWikiIds   []pgtype.UUID
 	CitedOutputIds []pgtype.UUID
 	CreatedAt      pgtype.Timestamptz
-}
-
-type OutputEntry struct {
-	ID            pgtype.UUID
-	OwnerID       pgtype.UUID
-	ParentID      pgtype.UUID
-	Title         string
-	Body          string
-	Tags          []string
-	SourceWikiIds []pgtype.UUID
-	ShowAsSource  bool
-	Excerpt       string
-	Published     bool
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
 }
 
 type Owner struct {
@@ -464,21 +465,6 @@ type Skill struct {
 	Version      string
 	License      string
 	Source       string
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
-}
-
-type WikiEntry struct {
-	ID           pgtype.UUID
-	OwnerID      pgtype.UUID
-	ParentID     pgtype.UUID
-	Title        string
-	Body         string
-	Tags         []string
-	SourceRawIds []pgtype.UUID
-	ShowAsSource bool
-	Excerpt      string
-	Published    bool
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
 }

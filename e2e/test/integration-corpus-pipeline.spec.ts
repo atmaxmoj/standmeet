@@ -106,8 +106,8 @@ async function buildPipeline(request: APIRequestContext) {
 // 公开 URL = /output/<标题 slug>。
 function setOutputSeo(outputID: string): void {
   const sql =
-    `UPDATE output_entries SET excerpt = 'test',`
-    + ` published = true WHERE id = '${outputID}'`;
+    `UPDATE corpus_notes SET excerpt = 'test',`
+    + ` published = true WHERE id = '${outputID}' AND genre = 'output'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`, {
     stdio: 'pipe',
   });

@@ -13,9 +13,9 @@ import (
 
 const countPublishedCorpus = `-- name: CountPublishedCorpus :one
 SELECT
-    (SELECT count(*) FROM wiki_entries   w  WHERE w.owner_id = $1 AND w.published)  AS wiki,
-    (SELECT count(*) FROM output_entries o  WHERE o.owner_id = $1 AND o.published)  AS outputs,
-    (SELECT count(*) FROM writings       wr WHERE wr.owner_id = $1 AND wr.published_at IS NOT NULL) AS writings
+    (SELECT count(*) FROM corpus_notes w  WHERE w.owner_id = $1 AND w.genre = 'wiki'   AND w.published)  AS wiki,
+    (SELECT count(*) FROM corpus_notes o  WHERE o.owner_id = $1 AND o.genre = 'output' AND o.published)  AS outputs,
+    (SELECT count(*) FROM writings     wr WHERE wr.owner_id = $1 AND wr.published_at IS NOT NULL) AS writings
 `
 
 type CountPublishedCorpusRow struct {

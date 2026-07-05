@@ -80,7 +80,8 @@ async function seedOutputViaMCP(request: APIRequestContext): Promise<string> {
 }
 
 function setOutputBody(outputID: string, body: string): void {
-  const sql = `UPDATE output_entries SET body = '${body}' WHERE id = '${outputID}'`;
+  const sql =
+    `UPDATE corpus_notes SET body = '${body}' WHERE id = '${outputID}' AND genre = 'output'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`, {
     stdio: 'pipe',
   });
@@ -90,8 +91,8 @@ function setOutputBody(outputID: string, body: string): void {
 // 只置 published + 描述让它进公开 landing/sitemap。
 function setOutputSeo(outputID: string, description: string): void {
   const sql =
-    `UPDATE output_entries SET excerpt = '${description}',`
-    + ` published = true WHERE id = '${outputID}'`;
+    `UPDATE corpus_notes SET excerpt = '${description}',`
+    + ` published = true WHERE id = '${outputID}' AND genre = 'output'`;
   execSync(`docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`, {
     stdio: 'pipe',
   });

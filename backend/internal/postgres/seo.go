@@ -86,8 +86,8 @@ func (r *SEORepo) UpdateWikiSEO(
 	if perr != nil {
 		return domain.Wiki{}, fmt.Errorf("parse wiki id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).UpdateWikiSEO(ctx, dbq.UpdateWikiSEOParams{
-		ID: pgID, Excerpt: description, Published: indexed,
+	row, err := dbq.New(r.pool).UpdateNoteSEO(ctx, dbq.UpdateNoteSEOParams{
+		ID: pgID, Excerpt: description, Published: indexed, Genre: genreWiki,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -106,8 +106,8 @@ func (r *SEORepo) UpdateOutputSEO(
 	if perr != nil {
 		return domain.Output{}, fmt.Errorf("parse output id: %w", perr)
 	}
-	row, err := dbq.New(r.pool).UpdateOutputSEO(ctx, dbq.UpdateOutputSEOParams{
-		ID: pgID, Excerpt: description, Published: indexed,
+	row, err := dbq.New(r.pool).UpdateNoteSEO(ctx, dbq.UpdateNoteSEOParams{
+		ID: pgID, Excerpt: description, Published: indexed, Genre: genreOutput,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

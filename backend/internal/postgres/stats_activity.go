@@ -1,5 +1,5 @@
 // stats_activity.go —— 近期活动流（ActivityTicker）的数据源。自成 domain：从现有行 UNION
-// 派生最近 N 条事件（访客加入 code_members / corpus 写入 wiki_entries / 预约 code_bookings），
+// 派生最近 N 条事件（访客加入 code_members / corpus 写入 corpus_notes / 预约 code_bookings），
 // 最新在前。裸 pgx（同 stats_growth 的 sqlc-bypass 先例）——不值当往共享 dbq 加聚合查询。
 
 package postgres
@@ -30,7 +30,7 @@ const activityQuery = `
 	    LEFT JOIN code_members m ON m.id = c.member_id
 	    WHERE c.owner_id = $1
 	  UNION ALL
-	  SELECT 'ingest', created_at, title FROM wiki_entries WHERE owner_id = $1
+	  SELECT 'ingest', created_at, title FROM corpus_notes WHERE owner_id = $1 AND genre = 'wiki'
 	  UNION ALL
 	  SELECT 'booking', created_at, COALESCE(NULLIF(summary, ''), 'meeting booked')
 	    FROM code_bookings WHERE owner_id = $1

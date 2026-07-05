@@ -173,7 +173,7 @@ func writeWikiSEOResp(log *slog.Logger, w http.ResponseWriter, wiki *domain.Wiki
 	}
 }
 
-// patchOutputSEO —— 同 patchWikiSEO 同 shape，给 output_entries 用。
+// patchOutputSEO —— 同 patchWikiSEO 同 shape，给 output note 用。
 func (h *Handlers) patchOutputSEO() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		outputID := chi.URLParam(r, "id")

@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// Wiki —— wiki_entries 行的领域值对象。
+// Wiki —— corpus_notes(genre=wiki) 行的领域值对象。
 //
 // ShowAsSource：retriever 内 AI 能 read 拿 body 但 readCollector 不收 —— meta /
 // persona 这种"用得到但不该曝光"的 entry 用这个开关。

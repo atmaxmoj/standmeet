@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// Output —— output_entries 行的领域值对象。结构跟 Wiki 严格对齐，差别只在
+// Output —— corpus_notes(genre=output) 行的领域值对象。结构跟 Wiki 严格对齐，差别只在
 // SourceWikiIDs vs SourceRawIDs（语义清晰）。retrieval ACL + landing 复用
 // Path / ShowAsSource 同一组字段——同 wiki。
 type Output struct {

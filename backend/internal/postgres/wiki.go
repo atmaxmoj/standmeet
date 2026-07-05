@@ -1,7 +1,6 @@
-// wiki.go —— WikiRepo：wiki_entries 的 CRUD + path induce。
-// 跟 OutputRepo 同构（独立 repo 而不是 generic 的原因：sqlc 生成的
-// Params / Row 类型各表独立）；path-string lookup 共用 corpus.go 里的
-// loadByPath helper。
+// wiki.go —— WikiRepo：统一 corpus_notes 表上 genre='wiki' 的 CRUD + path induce。
+// 与 OutputRepo 同构（都绑定各自 genre 调用同一套 dbq.Note* 方法）；path-string lookup
+// 共用 corpus.go 里的 loadByPath helper。
 
 package postgres
 
@@ -17,7 +16,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// WikiRepo —— wiki_entries CRUD + path induce。
+// genreWiki —— corpus_notes.genre 里 wiki 层的判别值。
+const genreWiki = "wiki"
+
+// WikiRepo —— corpus_notes(genre='wiki') CRUD + path induce。
 type WikiRepo struct {
 	pool *Pool
 }
@@ -50,13 +52,14 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (domain.Wiki
 		return domain.Wiki{}, fmt.Errorf("parse source raw ids: %w", err)
 	}
 	q := dbq.New(r.pool)
-	row, err := q.CreateWikiEntry(ctx, dbq.CreateWikiEntryParams{
-		OwnerID:      ownerUUID,
-		ParentID:     parent,
-		Title:        in.Title,
-		Body:         in.Body,
-		Tags:         nilSafeTags(in.Tags),
-		SourceRawIds: sourceRaws,
+	row, err := q.CreateNote(ctx, dbq.CreateNoteParams{
+		OwnerID:   ownerUUID,
+		Genre:     genreWiki,
+		ParentID:  parent,
+		Title:     in.Title,
+		Body:      in.Body,
+		Tags:      nilSafeTags(in.Tags),
+		SourceIds: sourceRaws,
 	})
 	if err != nil {
 		return domain.Wiki{}, fmt.Errorf("create wiki: %w", err)
@@ -73,7 +76,9 @@ func (r *WikiRepo) ListByOwner(
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
-	rows, err := q.ListWikiByOwner(ctx, dbq.ListWikiByOwnerParams{OwnerID: ownerUUID, Limit: limit})
+	rows, err := q.ListNotesByOwner(ctx, dbq.ListNotesByOwnerParams{
+		OwnerID: ownerUUID, Genre: genreWiki, Limit: limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list wiki: %w", err)
 	}
@@ -95,7 +100,9 @@ func (r *WikiRepo) GetByID(ctx context.Context, ownerID, id string) (domain.Wiki
 		return domain.Wiki{}, fmt.Errorf("parse wiki id: %w", err)
 	}
 	q := dbq.New(r.pool)
-	row, err := q.GetWikiByID(ctx, dbq.GetWikiByIDParams{ID: wikiUUID, OwnerID: ownerUUID})
+	row, err := q.GetNoteByID(ctx, dbq.GetNoteByIDParams{
+		ID: wikiUUID, OwnerID: ownerUUID, Genre: genreWiki,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Wiki{}, domain.ErrWikiNotFound
@@ -122,12 +129,12 @@ func (r *WikiRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]WikiMeta, error) {
 	return listChildrenMeta(ownerID, parentID,
-		func(o, p pgtype.UUID) ([]dbq.ListWikiChildrenRow, error) {
-			return dbq.New(r.pool).ListWikiChildren(ctx, dbq.ListWikiChildrenParams{
-				OwnerID: o, Column2: p, Limit: limit, Offset: offset,
+		func(o, p pgtype.UUID) ([]dbq.ListNoteChildrenRow, error) {
+			return dbq.New(r.pool).ListNoteChildren(ctx, dbq.ListNoteChildrenParams{
+				OwnerID: o, Genre: genreWiki, Column3: p, Limit: limit, Offset: offset,
 			})
 		},
-		func(row dbq.ListWikiChildrenRow) WikiMeta {
+		func(row dbq.ListNoteChildrenRow) WikiMeta {
 			return WikiMeta{
 				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
@@ -141,8 +148,8 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 	if perr != nil {
 		return WikiMeta{}, perr
 	}
-	row, err := dbq.New(r.pool).GetWikiMetaByID(ctx, dbq.GetWikiMetaByIDParams{
-		ID: ids.Src, OwnerID: ids.Owner,
+	row, err := dbq.New(r.pool).GetNoteMetaByID(ctx, dbq.GetNoteMetaByIDParams{
+		ID: ids.Src, OwnerID: ids.Owner, Genre: genreWiki,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -164,8 +171,8 @@ func (r *WikiRepo) Search(
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).SearchWikiByOwner(ctx, dbq.SearchWikiByOwnerParams{
-		OwnerID: ownerUUID, PlaintoTsquery: query, Limit: limit, Offset: offset,
+	rows, qerr := dbq.New(r.pool).SearchNotes(ctx, dbq.SearchNotesParams{
+		OwnerID: ownerUUID, Genre: genreWiki, PlaintoTsquery: query, Limit: limit, Offset: offset,
 	})
 	if qerr != nil {
 		return nil, fmt.Errorf("search wiki: %w", qerr)
@@ -177,7 +184,7 @@ func (r *WikiRepo) Search(
 	return out, nil
 }
 
-func wikiSearchRowMeta(row *dbq.SearchWikiByOwnerRow) WikiMeta {
+func wikiSearchRowMeta(row *dbq.SearchNotesRow) WikiMeta {
 	return WikiMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
@@ -197,7 +204,9 @@ func (r *WikiRepo) CountStats(ctx context.Context, ownerID string) (WikiStats, e
 	if err != nil {
 		return WikiStats{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	row, qerr := dbq.New(r.pool).CountWikiStats(ctx, ownerUUID)
+	row, qerr := dbq.New(r.pool).CountNoteStats(ctx, dbq.CountNoteStatsParams{
+		OwnerID: ownerUUID, Genre: genreWiki,
+	})
 	if qerr != nil {
 		return WikiStats{}, fmt.Errorf("count wiki stats: %w", qerr)
 	}
@@ -211,7 +220,9 @@ func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta,
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListAllWikiMeta(ctx, ownerUUID)
+	rows, qerr := dbq.New(r.pool).ListAllNoteMeta(ctx, dbq.ListAllNoteMetaParams{
+		OwnerID: ownerUUID, Genre: genreWiki,
+	})
 	if qerr != nil {
 		return nil, fmt.Errorf("list all wiki meta: %w", qerr)
 	}
@@ -235,14 +246,14 @@ func optUUIDStr(u pgtype.UUID) *string {
 	return &s
 }
 
-func toDomainWiki(w *dbq.WikiEntry) domain.Wiki {
+func toDomainWiki(w *dbq.CorpusNote) domain.Wiki {
 	in := domain.WikiInit{
 		ID:           formatUUID(w.ID),
 		OwnerID:      formatUUID(w.OwnerID),
 		Title:        w.Title,
 		Body:         w.Body,
 		Tags:         w.Tags,
-		SourceRawIDs: formatUUIDList(w.SourceRawIds),
+		SourceRawIDs: formatUUIDList(w.SourceIds),
 		ShowAsSource: w.ShowAsSource,
 		Excerpt:      w.Excerpt,
 		Published:    w.Published,

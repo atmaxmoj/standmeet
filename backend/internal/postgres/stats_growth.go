@@ -39,9 +39,9 @@ func (r *GrowthRepo) CorpusGrowth(
 	var raw, wiki, output int
 	err = r.pool.QueryRow(ctx, `
 		SELECT
-		  (SELECT count(*) FROM raw_entries    WHERE owner_id = $1),
-		  (SELECT count(*) FROM wiki_entries   WHERE owner_id = $1),
-		  (SELECT count(*) FROM output_entries WHERE owner_id = $1)`,
+		  (SELECT count(*) FROM raw_entries  WHERE owner_id = $1),
+		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'wiki'),
+		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'output')`,
 		ownerUUID).Scan(&raw, &wiki, &output)
 	if err != nil {
 		return domain.CorpusGrowth{}, fmt.Errorf("count corpus tiers: %w", err)
@@ -61,8 +61,8 @@ func (r *GrowthRepo) corpusByDay(
 		SELECT to_char(e.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, count(*)
 		FROM (
 		  SELECT created_at, owner_id FROM raw_entries
-		  UNION ALL SELECT created_at, owner_id FROM wiki_entries
-		  UNION ALL SELECT created_at, owner_id FROM output_entries
+		  UNION ALL SELECT created_at, owner_id FROM corpus_notes WHERE genre = 'wiki'
+		  UNION ALL SELECT created_at, owner_id FROM corpus_notes WHERE genre = 'output'
 		) e
 		WHERE e.owner_id = $1 AND e.created_at >= now() - interval '13 days'
 		GROUP BY day`, ownerUUID)

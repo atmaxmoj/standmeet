@@ -86,7 +86,7 @@ type UpdateWikiInput struct {
 	ShowAsSource bool
 }
 
-// Update 改 wiki_entries 主字段；SEO 走 SetSEO 单独写。
+// Update 改 wiki note（corpus_notes genre='wiki'）主字段；SEO 走 SetSEO 单独写。
 func (r *WikiRepo) Update(
 	ctx context.Context, in *UpdateWikiInput,
 ) (domain.Wiki, error) {
@@ -95,7 +95,7 @@ func (r *WikiRepo) Update(
 		return domain.Wiki{}, err
 	}
 	q := dbq.New(r.pool)
-	row, qerr := q.UpdateWikiBody(ctx, params)
+	row, qerr := q.UpdateNoteBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return domain.Wiki{}, domain.ErrWikiNotFound
@@ -105,21 +105,21 @@ func (r *WikiRepo) Update(
 	return toDomainWiki(&row), nil
 }
 
-func buildWikiUpdateParams(in *UpdateWikiInput) (dbq.UpdateWikiBodyParams, error) {
+func buildWikiUpdateParams(in *UpdateWikiInput) (dbq.UpdateNoteBodyParams, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.UpdateWikiBodyParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return dbq.UpdateNoteBodyParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	wikiUUID, err := parseUUID(in.ID)
 	if err != nil {
-		return dbq.UpdateWikiBodyParams{}, fmt.Errorf("parse wiki id: %w", err)
+		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse wiki id: %w", err)
 	}
 	parent, err := parseOptionalUUID(in.ParentID)
 	if err != nil {
-		return dbq.UpdateWikiBodyParams{}, fmt.Errorf("parse parent id: %w", err)
+		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse parent id: %w", err)
 	}
-	return dbq.UpdateWikiBodyParams{
-		ID: wikiUUID, OwnerID: ownerUUID,
+	return dbq.UpdateNoteBodyParams{
+		ID: wikiUUID, OwnerID: ownerUUID, Genre: genreWiki,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		ParentID: parent, ShowAsSource: in.ShowAsSource,
 	}, nil
@@ -137,7 +137,9 @@ func (r *WikiRepo) Delete(ctx context.Context, ownerID, wikiID string) error {
 		return fmt.Errorf("parse wiki id: %w", err)
 	}
 	q := dbq.New(r.pool)
-	derr := q.DeleteWiki(ctx, dbq.DeleteWikiParams{ID: wikiUUID, OwnerID: ownerUUID})
+	derr := q.DeleteNote(ctx, dbq.DeleteNoteParams{
+		ID: wikiUUID, OwnerID: ownerUUID, Genre: genreWiki,
+	})
 	if derr != nil {
 		return fmt.Errorf("delete wiki: %w", derr)
 	}
@@ -161,7 +163,7 @@ type UpdateOutputInput struct {
 	ShowAsSource bool
 }
 
-// Update 改 output_entries 主字段。
+// Update 改 output note（corpus_notes genre='output'）主字段。
 func (r *OutputRepo) Update(
 	ctx context.Context, in *UpdateOutputInput,
 ) (domain.Output, error) {
@@ -170,7 +172,7 @@ func (r *OutputRepo) Update(
 		return domain.Output{}, err
 	}
 	q := dbq.New(r.pool)
-	row, qerr := q.UpdateOutputBody(ctx, params)
+	row, qerr := q.UpdateNoteBody(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return domain.Output{}, domain.ErrOutputNotFound
@@ -180,21 +182,21 @@ func (r *OutputRepo) Update(
 	return toDomainOutput(&row), nil
 }
 
-func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateOutputBodyParams, error) {
+func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateNoteBodyParams, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.UpdateOutputBodyParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return dbq.UpdateNoteBodyParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	outputUUID, err := parseUUID(in.ID)
 	if err != nil {
-		return dbq.UpdateOutputBodyParams{}, fmt.Errorf("parse output id: %w", err)
+		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse output id: %w", err)
 	}
 	parent, err := parseOptionalUUID(in.ParentID)
 	if err != nil {
-		return dbq.UpdateOutputBodyParams{}, fmt.Errorf("parse parent id: %w", err)
+		return dbq.UpdateNoteBodyParams{}, fmt.Errorf("parse parent id: %w", err)
 	}
-	return dbq.UpdateOutputBodyParams{
-		ID: outputUUID, OwnerID: ownerUUID,
+	return dbq.UpdateNoteBodyParams{
+		ID: outputUUID, OwnerID: ownerUUID, Genre: genreOutput,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
 		ParentID: parent, ShowAsSource: in.ShowAsSource,
 	}, nil
@@ -211,7 +213,9 @@ func (r *OutputRepo) Delete(ctx context.Context, ownerID, outputID string) error
 		return fmt.Errorf("parse output id: %w", err)
 	}
 	q := dbq.New(r.pool)
-	derr := q.DeleteOutput(ctx, dbq.DeleteOutputParams{ID: outputUUID, OwnerID: ownerUUID})
+	derr := q.DeleteNote(ctx, dbq.DeleteNoteParams{
+		ID: outputUUID, OwnerID: ownerUUID, Genre: genreOutput,
+	})
 	if derr != nil {
 		return fmt.Errorf("delete output: %w", derr)
 	}

@@ -167,7 +167,7 @@ func validatePromoteInput(in *PromoteInput) error {
 }
 
 // validateWikiParent —— parent_id 给了就必须是本 owner 的 wiki(FK 只保证 id
-// 存在于 wiki_entries,不管 owner;跨 owner 父会绕过)。找不到 → ErrParentNotFound,
+// 存在于 corpus_notes,不管 owner;跨 owner 父会绕过)。找不到 → ErrParentNotFound,
 // 不允许挂无效父落孤儿。空 parent(root)放行。
 func validateWikiParent(
 	ctx context.Context, deps CorpusDeps, ownerID string, parentID *string,

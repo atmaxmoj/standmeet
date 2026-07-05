@@ -1,6 +1,6 @@
-// output.go —— OutputRepo：output_entries 的 CRUD + path induce。
-// 跟 WikiRepo 同构（独立 repo 而不是 generic 的原因：sqlc 生成的 Params /
-// Row 类型各表独立，硬抽象成 generic 没收益）。
+// output.go —— OutputRepo：统一 corpus_notes 表上 genre='output' 的 CRUD + path induce。
+// 与 WikiRepo 同构（都绑定各自 genre 调用同一套 dbq.Note* 方法）。output 是 raw → wiki →
+// output 三层最精炼层，语义上「可原样引用」；source_ids 记从哪些 wiki 提炼来。
 
 package postgres
 
@@ -16,7 +16,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// OutputRepo —— output_entries CRUD + path induce。
+// genreOutput —— corpus_notes.genre 里 output 层的判别值。
+const genreOutput = "output"
+
+// OutputRepo —— corpus_notes(genre='output') CRUD + path induce。
 type OutputRepo struct {
 	pool *Pool
 }
@@ -43,33 +46,34 @@ func (r *OutputRepo) Create(
 		return domain.Output{}, err
 	}
 	q := dbq.New(r.pool)
-	row, qerr := q.CreateOutputEntry(ctx, params)
+	row, qerr := q.CreateNote(ctx, params)
 	if qerr != nil {
 		return domain.Output{}, fmt.Errorf("create output: %w", qerr)
 	}
 	return toDomainOutput(&row), nil
 }
 
-func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateOutputEntryParams, error) {
+func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateNoteParams, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
-		return dbq.CreateOutputEntryParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+		return dbq.CreateNoteParams{}, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	parent, err := parseOptionalUUID(in.ParentID)
 	if err != nil {
-		return dbq.CreateOutputEntryParams{}, fmt.Errorf("parse parent id: %w", err)
+		return dbq.CreateNoteParams{}, fmt.Errorf("parse parent id: %w", err)
 	}
 	sourceWikis, err := parseUUIDArray(in.SourceWikiIDs)
 	if err != nil {
-		return dbq.CreateOutputEntryParams{}, fmt.Errorf("parse source wiki ids: %w", err)
+		return dbq.CreateNoteParams{}, fmt.Errorf("parse source wiki ids: %w", err)
 	}
-	return dbq.CreateOutputEntryParams{
-		OwnerID:       ownerUUID,
-		ParentID:      parent,
-		Title:         in.Title,
-		Body:          in.Body,
-		Tags:          nilSafeTags(in.Tags),
-		SourceWikiIds: sourceWikis,
+	return dbq.CreateNoteParams{
+		OwnerID:   ownerUUID,
+		Genre:     genreOutput,
+		ParentID:  parent,
+		Title:     in.Title,
+		Body:      in.Body,
+		Tags:      nilSafeTags(in.Tags),
+		SourceIds: sourceWikis,
 	}, nil
 }
 
@@ -82,8 +86,8 @@ func (r *OutputRepo) ListByOwner(
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
 	q := dbq.New(r.pool)
-	rows, err := q.ListOutputByOwner(ctx, dbq.ListOutputByOwnerParams{
-		OwnerID: ownerUUID, Limit: limit,
+	rows, err := q.ListNotesByOwner(ctx, dbq.ListNotesByOwnerParams{
+		OwnerID: ownerUUID, Genre: genreOutput, Limit: limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list output: %w", err)
@@ -108,7 +112,9 @@ func (r *OutputRepo) GetByID(
 		return domain.Output{}, fmt.Errorf("parse output id: %w", err)
 	}
 	q := dbq.New(r.pool)
-	row, err := q.GetOutputByID(ctx, dbq.GetOutputByIDParams{ID: outputUUID, OwnerID: ownerUUID})
+	row, err := q.GetNoteByID(ctx, dbq.GetNoteByIDParams{
+		ID: outputUUID, OwnerID: ownerUUID, Genre: genreOutput,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Output{}, domain.ErrOutputNotFound
@@ -136,12 +142,12 @@ func (r *OutputRepo) ListChildren(
 	ctx context.Context, ownerID string, parentID *string, limit, offset int32,
 ) ([]OutputMeta, error) {
 	return listChildrenMeta(ownerID, parentID,
-		func(o, p pgtype.UUID) ([]dbq.ListOutputChildrenRow, error) {
-			return dbq.New(r.pool).ListOutputChildren(ctx, dbq.ListOutputChildrenParams{
-				OwnerID: o, Column2: p, Limit: limit, Offset: offset,
+		func(o, p pgtype.UUID) ([]dbq.ListNoteChildrenRow, error) {
+			return dbq.New(r.pool).ListNoteChildren(ctx, dbq.ListNoteChildrenParams{
+				OwnerID: o, Genre: genreOutput, Column3: p, Limit: limit, Offset: offset,
 			})
 		},
-		func(row dbq.ListOutputChildrenRow) OutputMeta {
+		func(row dbq.ListNoteChildrenRow) OutputMeta {
 			return OutputMeta{
 				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
@@ -155,8 +161,8 @@ func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (Outpu
 	if perr != nil {
 		return OutputMeta{}, perr
 	}
-	row, err := dbq.New(r.pool).GetOutputMetaByID(ctx, dbq.GetOutputMetaByIDParams{
-		ID: ids.Src, OwnerID: ids.Owner,
+	row, err := dbq.New(r.pool).GetNoteMetaByID(ctx, dbq.GetNoteMetaByIDParams{
+		ID: ids.Src, OwnerID: ids.Owner, Genre: genreOutput,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -178,8 +184,9 @@ func (r *OutputRepo) Search(
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).SearchOutputByOwner(ctx, dbq.SearchOutputByOwnerParams{
-		OwnerID: ownerUUID, PlaintoTsquery: query, Limit: limit, Offset: offset,
+	rows, qerr := dbq.New(r.pool).SearchNotes(ctx, dbq.SearchNotesParams{
+		OwnerID: ownerUUID, Genre: genreOutput,
+		PlaintoTsquery: query, Limit: limit, Offset: offset,
 	})
 	if qerr != nil {
 		return nil, fmt.Errorf("search output: %w", qerr)
@@ -191,7 +198,7 @@ func (r *OutputRepo) Search(
 	return out, nil
 }
 
-func outputSearchRowMeta(row *dbq.SearchOutputByOwnerRow) OutputMeta {
+func outputSearchRowMeta(row *dbq.SearchNotesRow) OutputMeta {
 	return OutputMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
 		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
@@ -204,7 +211,9 @@ func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputM
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	rows, qerr := dbq.New(r.pool).ListAllOutputMeta(ctx, ownerUUID)
+	rows, qerr := dbq.New(r.pool).ListAllNoteMeta(ctx, dbq.ListAllNoteMetaParams{
+		OwnerID: ownerUUID, Genre: genreOutput,
+	})
 	if qerr != nil {
 		return nil, fmt.Errorf("list all output meta: %w", qerr)
 	}
@@ -219,14 +228,14 @@ func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputM
 	return out, nil
 }
 
-func toDomainOutput(o *dbq.OutputEntry) domain.Output {
+func toDomainOutput(o *dbq.CorpusNote) domain.Output {
 	in := domain.OutputInit{
 		ID:            formatUUID(o.ID),
 		OwnerID:       formatUUID(o.OwnerID),
 		Title:         o.Title,
 		Body:          o.Body,
 		Tags:          o.Tags,
-		SourceWikiIDs: formatUUIDList(o.SourceWikiIds),
+		SourceWikiIDs: formatUUIDList(o.SourceIds),
 		ShowAsSource:  o.ShowAsSource,
 		Excerpt:       o.Excerpt,
 		Published:     o.Published,
