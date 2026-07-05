@@ -80,6 +80,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Keypairs: keypairDeps(d),
 		Corpus: usecases.CorpusDeps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
+			Subjectivity: d.subjectivityRepo,
 		},
 		Conversations: usecases.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
@@ -177,6 +178,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireMailSenderSocket(ctx, d)
 	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
+		Subjectivity: d.subjectivityRepo,
 	})
 	registerDiscoveredPlugins(d, depReg, map[string]usecases.CapHooks{
 		usecases.BookerSkillName: {
@@ -309,6 +311,7 @@ func buildMCPDeps(d *runtimeDeps) mcphandle.Deps {
 		Owners:      d.ownerRepo,
 		Corpus: usecases.CorpusDeps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
+			Subjectivity: d.subjectivityRepo,
 		},
 		SEO:         d.seoRepo,
 		CustomPages: usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},

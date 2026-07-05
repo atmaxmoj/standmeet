@@ -74,6 +74,8 @@ func (r *NoteRepo) Create(ctx context.Context, in *CreateNoteInput) (Note, error
 	row, err := dbq.New(r.pool).CreateNote(ctx, dbq.CreateNoteParams{
 		OwnerID: ownerUUID, Genre: r.genre, ParentID: parent,
 		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
+		// tree-note genres (subjectivity) carry no upstream source ids; empty (non-nil) → '{}'.
+		SourceIds: []pgtype.UUID{},
 	})
 	if err != nil {
 		return Note{}, fmt.Errorf("create note: %w", err)

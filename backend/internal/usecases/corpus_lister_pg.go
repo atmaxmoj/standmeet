@@ -15,6 +15,7 @@ import (
 	"errors"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // ErrCorpusNotFound / ErrCorpusDenied —— Get's two failure modes, separated so the wire
@@ -26,9 +27,10 @@ var (
 
 // pgCorpusLister —— CorpusLister over the genre repos.
 type pgCorpusLister struct {
-	wiki    WikiLister
-	output  OutputLister
-	writing WritingLister
+	wiki         WikiLister
+	output       OutputLister
+	writing      WritingLister
+	subjectivity *postgres.NoteRepo
 }
 
 // allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?
@@ -46,7 +48,40 @@ func (l *pgCorpusLister) Search(
 	out = append(out, l.searchOutputs(ctx, ownerID, grantedGlobs, query)...)
 	out = append(out, l.searchWikis(ctx, ownerID, grantedGlobs, query)...)
 	out = append(out, l.searchWritings(ctx, ownerID, grantedGlobs, query)...)
+	out = append(out, l.searchSubjectivity(ctx, ownerID, grantedGlobs, query)...)
 	return out, nil
+}
+
+func (l *pgCorpusLister) searchSubjectivity(
+	ctx context.Context, ownerID string, globs []string, q string,
+) []CorpusMeta {
+	if l.subjectivity == nil {
+		return []CorpusMeta{}
+	}
+	hits, err := l.subjectivity.Search(ctx, ownerID, q, searchPageLimit, 0)
+	if err != nil {
+		return []CorpusMeta{}
+	}
+	out := make([]CorpusMeta, 0, len(hits))
+	for i := range hits {
+		if m, ok := l.subjectivityHit(ctx, ownerID, globs, &hits[i]); ok {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func (l *pgCorpusLister) subjectivityHit(
+	ctx context.Context, ownerID string, globs []string, hit *postgres.NoteMeta,
+) (CorpusMeta, bool) {
+	path, perr := deriveNotePath(ctx, l.subjectivity, ownerID, hit.ID)
+	if perr != nil || !allowsCorpusURI(globs, "subjectivity", path) {
+		return CorpusMeta{}, false
+	}
+	return CorpusMeta{
+		ID: hit.ID, Path: path, Title: hit.Title,
+		Genre: "subjectivity", Snippet: summarize(hit.Snippet),
+	}, true
 }
 
 func (l *pgCorpusLister) searchWikis(

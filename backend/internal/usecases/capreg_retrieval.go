@@ -10,14 +10,18 @@
 
 package usecases
 
-import "github.com/atmaxmoj/standmeet/internal/capreg"
+import (
+	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
+)
 
-// RetrievalDeps —— 窄依赖(#131):corpus 三类 lister(wiki/output/writing)。
+// RetrievalDeps —— 窄依赖(#131):corpus 四类 lister(wiki/output/writing/subjectivity)。
 // composition root 建一份喂 RegisterRetrievalSocket。
 type RetrievalDeps struct {
-	Wiki     WikiLister
-	Output   OutputLister
-	Writings WritingLister
+	Wiki         WikiLister
+	Output       OutputLister
+	Writings     WritingLister
+	Subjectivity *postgres.NoteRepo
 }
 
 // RetrievalScopeVisible —— retrieval 的 fragment/enabled 闸：role snapshot 有任何 corpus

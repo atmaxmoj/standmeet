@@ -40,6 +40,7 @@ type runtimeDeps struct {
 	keypairRepo        *postgres.OwnerKeypairRepo
 	rawRepo            *postgres.RawRepo
 	wikiRepo           *postgres.WikiRepo
+	subjectivityRepo   *postgres.NoteRepo
 	wikiRefRepo        *postgres.WikiRefRepo
 	outputRepo         *postgres.OutputRepo
 	growthRepo         *postgres.GrowthRepo

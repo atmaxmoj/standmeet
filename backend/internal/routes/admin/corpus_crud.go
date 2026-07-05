@@ -50,6 +50,8 @@ func (h *Handlers) MountCorpusCRUD(r chi.Router) {
 	r.Delete("/wiki/{id}", h.deleteWiki())
 	r.Post("/wiki/{id}/promote", h.promoteWiki())
 
+	r.Delete("/subjectivity/{id}", h.deleteSubjectivity())
+
 	r.Post("/output", h.createOutput())
 	r.Get("/output/{id}", h.getOutput())
 	r.Patch("/output/{id}", h.updateOutput())
@@ -164,6 +166,16 @@ func (h *Handlers) deleteWiki() http.HandlerFunc {
 			middleware.OwnerIDFrom(r.Context()), chi.URLParam(r, "id"),
 		)
 		writeCorpusDelete(h.Log, w, err, "delete wiki")
+	}
+}
+
+func (h *Handlers) deleteSubjectivity() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := usecases.DeleteSubjectivity(
+			r.Context(), h.Corpus.Corpus,
+			middleware.OwnerIDFrom(r.Context()), chi.URLParam(r, "id"),
+		)
+		writeCorpusDelete(h.Log, w, err, "delete subjectivity")
 	}
 }
 

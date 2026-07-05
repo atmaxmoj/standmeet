@@ -15,10 +15,11 @@ import (
 
 // CorpusDeps —— raw + wiki + output + path 操作需要的 repo 集合。
 type CorpusDeps struct {
-	Raw      *postgres.RawRepo
-	Wiki     *postgres.WikiRepo
-	Output   *postgres.OutputRepo
-	WikiRefs *postgres.WikiRefRepo
+	Raw          *postgres.RawRepo
+	Wiki         *postgres.WikiRepo
+	Output       *postgres.OutputRepo
+	WikiRefs     *postgres.WikiRefRepo
+	Subjectivity *postgres.NoteRepo
 }
 
 // RawDumpInput 是 raw_dump 入参。

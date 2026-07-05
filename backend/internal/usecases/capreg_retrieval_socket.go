@@ -44,7 +44,10 @@ type corpusRunner func(context.Context, CorpusLister, *retrievalSockReq) (string
 // RegisterRetrievalSocket —— prod 接线：从 postgres 的 RetrievalDeps 建 pgCorpusLister，
 // 注册三个 corpus op。
 func RegisterRetrievalSocket(srv *capsocket.Server, deps *RetrievalDeps) {
-	lister := &pgCorpusLister{wiki: deps.Wiki, output: deps.Output, writing: deps.Writings}
+	lister := &pgCorpusLister{
+		wiki: deps.Wiki, output: deps.Output, writing: deps.Writings,
+		subjectivity: deps.Subjectivity,
+	}
 	RegisterRetrievalSocketLister(srv, lister)
 }
 

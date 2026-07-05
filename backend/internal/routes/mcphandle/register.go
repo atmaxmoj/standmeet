@@ -57,6 +57,7 @@ func RegisterAgentSkills(reg *capreg.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newCorpusRawCapability(deps.Corpus, deps.SEO, deps.Log))
 	reg.MustRegister(newCorpusOutputCapability(deps.Corpus, deps.SEO, deps.Log))
 	reg.MustRegister(newCorpusMutationsCapability(deps.Corpus, deps.Log))
+	reg.MustRegister(newSubjectivityCapability(deps.Corpus, deps.Log))
 	reg.MustRegister(newChatCapability(deps.Corpus, deps.Conversations, deps.Log))
 	reg.MustRegister(newPromptsCapability(deps.Prompts, deps.Log))
 	reg.MustRegister(newRolesCapability(deps.Roles, reg.VisitorCapabilityIDs, deps.Log))

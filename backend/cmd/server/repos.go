@@ -38,6 +38,7 @@ type repoSet struct {
 	keypair        *postgres.OwnerKeypairRepo
 	raw            *postgres.RawRepo
 	wiki           *postgres.WikiRepo
+	subjectivity   *postgres.NoteRepo
 	wikiRef        *postgres.WikiRefRepo
 	output         *postgres.OutputRepo
 	growth         *postgres.GrowthRepo
@@ -77,6 +78,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		keypair:        postgres.NewOwnerKeypairRepo(db),
 		raw:            postgres.NewRawRepo(db),
 		wiki:           postgres.NewWikiRepo(db),
+		subjectivity:   postgres.NewNoteRepo(db, "subjectivity"),
 		wikiRef:        postgres.NewWikiRefRepo(db),
 		output:         postgres.NewOutputRepo(db),
 		growth:         postgres.NewGrowthRepo(db),
@@ -130,13 +132,14 @@ func assembleRuntimeDeps(
 		log: log, db: c.db, rdb: c.rdb,
 		instanceRepo: repos.instance, ownerRepo: repos.owner,
 		keypairRepo: repos.keypair, rawRepo: repos.raw, wikiRepo: repos.wiki,
-		wikiRefRepo:  repos.wikiRef,
-		outputRepo:   repos.output,
-		growthRepo:   repos.growth,
-		activityRepo: repos.activity,
-		jobRegistry:  jobregistry.New(),
-		corpus:       postgres.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
-		codeRepo:     repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
+		subjectivityRepo: repos.subjectivity,
+		wikiRefRepo:      repos.wikiRef,
+		outputRepo:       repos.output,
+		growthRepo:       repos.growth,
+		activityRepo:     repos.activity,
+		jobRegistry:      jobregistry.New(),
+		corpus:           postgres.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
+		codeRepo:         repos.code, codeDenialRepo: repos.codeDenial, chatRepo: repos.chat,
 		seoRepo:            repos.seo,
 		customPageRepo:     repos.customPage,
 		customBuildRepo:    repos.customBuild,

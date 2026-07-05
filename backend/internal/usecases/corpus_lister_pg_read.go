@@ -33,8 +33,27 @@ func (l *pgCorpusLister) Get(
 // finders —— per-genre path→entry resolvers in dispatchRead order (wiki, output, writing).
 func (l *pgCorpusLister) finders() []func(context.Context, string, string) (CorpusEntry, bool) {
 	return []func(context.Context, string, string) (CorpusEntry, bool){
-		l.findWiki, l.findOutput, l.findWriting,
+		l.findWiki, l.findOutput, l.findWriting, l.findSubjectivity,
 	}
+}
+
+func (l *pgCorpusLister) findSubjectivity(
+	ctx context.Context, ownerID, path string,
+) (CorpusEntry, bool) {
+	if l.subjectivity == nil {
+		return CorpusEntry{}, false
+	}
+	id, rerr := resolveNoteNodeID(ctx, l.subjectivity, ownerID, path)
+	if rerr != nil {
+		return CorpusEntry{}, false
+	}
+	n, gerr := l.subjectivity.GetByID(ctx, ownerID, id)
+	if gerr != nil {
+		return CorpusEntry{}, false
+	}
+	return CorpusEntry{
+		ID: n.ID, Path: path, Title: n.Title, Genre: "subjectivity", Body: n.Body,
+	}, true
 }
 
 func (l *pgCorpusLister) findWiki(
