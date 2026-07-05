@@ -79,6 +79,7 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 		Ghosts:             decodeStringJSON(c.Ghosts),
 		AssumedRoleID:      formatUUID(c.AssumedRoleID),
 		PromptID:           optUUIDStr(c.PromptID),
+		InlinePrompt:       c.InlinePrompt,
 	}
 	if c.ExpiresAt.Valid {
 		t := c.ExpiresAt.Time

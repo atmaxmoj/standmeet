@@ -23,6 +23,7 @@ type AccessCode struct {
 	CreatedAt          pgtype.Timestamptz
 	AssumedRoleID      pgtype.UUID
 	PromptID           pgtype.UUID
+	InlinePrompt       string
 }
 
 type AccessRequest struct {

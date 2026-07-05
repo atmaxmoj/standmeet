@@ -93,7 +93,7 @@ func commitTx(ctx context.Context, tx pgx.Tx, in *CommitInput) (CommitOutput, er
 func writeCommitRows(
 	ctx context.Context, q *dbq.Queries, in *CommitInput, key *draftKey, draft *dbq.ResumeDraft,
 ) (CommitOutput, error) {
-	code, err := insertAccessCode(ctx, q, in, key.owner)
+	code, err := insertAccessCode(ctx, q, in, key.owner, recruiterBriefing(draft.JobSnapshot))
 	if err != nil {
 		return CommitOutput{}, err
 	}
@@ -125,7 +125,7 @@ func loadDraftForCommit(
 }
 
 func insertAccessCode(
-	ctx context.Context, q *dbq.Queries, in *CommitInput, ownerUUID pgtype.UUID,
+	ctx context.Context, q *dbq.Queries, in *CommitInput, ownerUUID pgtype.UUID, briefing string,
 ) (domain.AccessCode, error) {
 	emptyJSON, jerr := json.Marshal([]any{})
 	if jerr != nil {
@@ -149,11 +149,31 @@ func insertAccessCode(
 		MaxMembers:         in.MaxMembers,
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
 		AssumedRoleID:      roleUUID,
+		InlinePrompt:       briefing,
 	})
 	if err != nil {
 		return domain.AccessCode{}, fmt.Errorf("create access code: %w", err)
 	}
 	return toDomainCode(&row), nil
+}
+
+// recruiterBriefing —— 从 draft 的 job_snapshot 拼一段 persona 上下文，冻进 app-码的 inline_prompt
+// （#104 扩展）：让 recruiter session 里的 AI 知道「对方在为哪个岗评估我」。core 无脑注入这段、不知道
+// 它是应聘身份；job-loop 在这里（发码时）供给。解析失败 / 无 title → 空串（不阻断 commit）。
+func recruiterBriefing(jobSnapshotJSON []byte) string {
+	var snap struct {
+		Title   string `json:"title"`
+		Company string `json:"company"`
+	}
+	if err := json.Unmarshal(jobSnapshotJSON, &snap); err != nil || snap.Title == "" {
+		return ""
+	}
+	role := snap.Title
+	if snap.Company != "" {
+		role += " at " + snap.Company
+	}
+	return "You are speaking with a recruiter who received your job application for " + role +
+		". They reached you through that application — answer as the candidate, about that role."
 }
 
 func insertApplication(

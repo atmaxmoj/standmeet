@@ -26,14 +26,26 @@ func buildRoleSnapshotForCode(
 	if err != nil {
 		return domain.RoleSnapshot{}, err
 	}
-	// #104: 这张 code 自带的 prompt（集中管理，引 prompts 库）冻进 snapshot，persona 在 role
-	// persona 之后叠加。没挂 → 空串（persona 逐字不变）。
-	codePrompt, perr := promptBodyByID(ctx, deps, code.OwnerID, code.PromptID)
+	// #104(+扩展): code 自带的 prompt 冻进 snapshot，persona 在 role persona 之后叠加。
+	// 内联 prompt（发码方随码带，不查库，如 job-loop 的 recruiter 应聘身份）**优先**；空则走
+	// prompt_id 库引用（owner 集中管理那份）。都没 → 空串（persona 逐字不变）。
+	codePrompt, perr := resolveCodePrompt(ctx, deps, code)
 	if perr != nil {
 		return domain.RoleSnapshot{}, perr
 	}
 	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID,
 		codeOverlay{denials: denials, codePromptBody: codePrompt})
+}
+
+// resolveCodePrompt —— #104 扩展的取值：内联 per-code prompt 优先（发码方随码带，不查库），
+// 空则走 prompt_id 库引用（owner 集中管理那份）。
+func resolveCodePrompt(
+	ctx context.Context, deps *VisitorSessionDeps, code *domain.AccessCode,
+) (string, error) {
+	if code.InlinePrompt != "" {
+		return code.InlinePrompt, nil
+	}
+	return promptBodyByID(ctx, deps, code.OwnerID, code.PromptID)
 }
 
 // roleDenials —— code 层要从 role grant 里砍掉的 capability / skill id（纯 deny）。

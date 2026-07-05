@@ -17,6 +17,7 @@ import { initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection, enterCodeSession } from '@/fixtures/navigate';
 import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
 import { applicationsCommit, resumeDraft, sampleResumeContent } from '@/fixtures/resume';
+import { issueSession } from '@/fixtures/visitor';
 
 const OWNER = {
   email: 'jobloop@example.com',
@@ -55,6 +56,26 @@ test.describe('job loop end-to-end integration', () => {
       // application row testid is `application-row-{id}`; just check at least one exists
       await expect(adminPage.locator('[data-testid^="application-row-"]').first())
         .toBeVisible({ timeout: 5_000 });
+    });
+
+  // #126: the recruiter enters via the app-code; the agent persona must carry which application
+  // (job identity) so the AI answers as the candidate for that specific role. The job-loop wrote a
+  // recruiter briefing into the app-code's inline_prompt at commit (#104 extension); the session core
+  // injects it agnostically as the per-code persona segment.
+  test('recruiter session persona carries the application context (#126)',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      const session = await issueSession(request, {
+        handle: OWNER.handle, mode: 'code', code: accessCode,
+        visitor_name: 'Recruiter', visitor_email: 'recruiter@example.com',
+      });
+      const persona = session.system_prompt_persona ?? '';
+      // The briefing is injected as the per-code persona segment (job-loop wrote it at commit).
+      expect(persona, 'agent knows it is talking to a recruiter about an application')
+        .toContain('recruiter who received your job application');
+      // …and it names the specific job (greenhouse airbnb board → company Airbnb).
+      expect(persona, 'the persona names which application (job identity)').toContain('Airbnb');
+      await request.dispose();
     });
 });
 

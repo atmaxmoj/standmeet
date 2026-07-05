@@ -33,7 +33,10 @@ type AccessCode struct {
 	Purpose            string
 	Status             string
 	AssumedRoleID      string
-	Ghosts             []string
+	// InlinePrompt —— #104 扩展：随码内联的 per-code prompt。非空时冻进 RoleSnapshot.code_prompt_body
+	// （优先于 PromptID 库引用）。发码方（如 job-loop）随码带一段 persona 上下文用，不污染 prompt 库。
+	InlinePrompt string
+	Ghosts       []string
 }
 
 // CreateAccessCodeInput —— 创建 access code 入参 (domain-level，供 MCP cap +
@@ -50,6 +53,7 @@ type CreateAccessCodeInput struct {
 	Label              string
 	Purpose            string
 	AssumedRoleID      string
+	InlinePrompt       string
 	Ghosts             []string
 }
 

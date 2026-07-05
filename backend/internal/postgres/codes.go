@@ -40,6 +40,7 @@ type CreateCodeInput struct {
 	Label              string
 	Purpose            string
 	AssumedRoleID      string
+	InlinePrompt       string
 	Ghosts             []string
 }
 
@@ -77,6 +78,7 @@ func (r *CodeRepo) CreateAccessCode(
 		MaxTurnsPerSession: in.MaxTurnsPerSession,
 		MaxBookings:        in.MaxBookings,
 		PromptID:           in.PromptID,
+		InlinePrompt:       in.InlinePrompt,
 	})
 }
 
@@ -109,6 +111,7 @@ func buildCreateCodeParams(in *CreateCodeInput) (*dbq.CreateAccessCodeParams, er
 		MaxBookings:        in.MaxBookings,
 		AssumedRoleID:      roleUUID,
 		PromptID:           promptUUID,
+		InlinePrompt:       in.InlinePrompt,
 	}, nil
 }
 

@@ -365,6 +365,13 @@ ALTER TABLE access_codes
 ALTER TABLE access_codes
     ADD COLUMN prompt_id uuid REFERENCES prompts(id) ON DELETE SET NULL;
 
+-- access_codes.inline_prompt —— #104 扩展：per-code prompt 的**内联**形态。跟 prompt_id 二选一：
+-- 内联非空 → 冻进 RoleSnapshot.code_prompt_body（优先于 prompt_id 库引用）；空 → 走 prompt_id。
+-- 给"发码方随码带一段 persona 上下文、又不想污染 owner 的 prompt 库"用（job-loop 发 app-码时把
+-- recruiter 应聘身份写这里 —— core 无脑注入，不知道内容语义、不反查 application）。
+ALTER TABLE access_codes
+    ADD COLUMN inline_prompt text NOT NULL DEFAULT '';
+
 -- assets —— owner-uploaded 二进制 (图片 / 附件) 的元数据。bytes 落 MinIO
 -- (key = '<owner_id>/<asset_id>')；元数据在这里。
 --
