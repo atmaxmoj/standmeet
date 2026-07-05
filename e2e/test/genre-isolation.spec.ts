@@ -1,10 +1,10 @@
-// estate-isolation.spec.ts —— 目标态红测试。
+// genre-isolation.spec.ts —— 目标态红测试。
 //
 // genre 维度真隔离:一条 note 属于且只属于一个 genre;按 genre 查/搜/授权,绝不串到别的 genre。
 // 这是「统一基座 + genre 列」不退化成一锅粥的守卫 —— 四个 genre 同表,但查询/ACL 必须 genre-scoped。
 //
 // 覆盖:
-//   happy   —— 同一 keyword 种进 wiki/output/subjectivity 三 genre;全授的 role 搜到 3 条,
+//   happy   —— 同一 keyword 种进 wiki/output/writing/subjectivity 四 genre;全授的 role 搜到 4 条,
 //              每条 genre 标签正确(wiki→'wiki', subjectivity→'subjectivity')。
 //   error   —— 只授 wiki:// 的 role 搜同一 keyword → **只**返 wiki 那条;output/subjectivity 被
 //              genre-scoped ACL 挡掉(不因同表、同 keyword 而泄漏)。
@@ -23,10 +23,10 @@ import { createCode } from '@/fixtures/codes';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
 
 const OWNER = {
-  email: 'estateiso@example.com',
+  email: 'genreiso@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'estateiso',
-  fullName: 'Estate Isolation Owner',
+  handle: 'genreiso',
+  fullName: 'Genre Isolation Owner',
 };
 const KEY = 'isolationqx';
 const ALL_CODE = 'ISO-ALL';
@@ -38,16 +38,16 @@ let token = '';
 let sid = '';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
-test.describe('estate isolation — genre-scoped query/ACL over the shared corpus_notes base', () => {
-  test.beforeAll(seedThreeGenres);
+test.describe('genre isolation — genre-scoped query/ACL over the shared corpus_notes base', () => {
+  test.beforeAll(seedFourGenres);
 
-  test('happy: one keyword across wiki+output+subjectivity → all-granted role finds all 3, genres correct',
-    happyAllThree);
+  test('happy: one keyword across wiki+output+writing+subjectivity → all-granted role finds all 4, genres correct',
+    happyAllFour);
   test('error: a wiki-only role finds ONLY the wiki one (genre-scoped ACL, no cross-genre leak)',
     errorGenreScoped);
 });
 
-async function seedThreeGenres({ playwright }: Ctx): Promise<void> {
+async function seedFourGenres({ playwright }: Ctx): Promise<void> {
   resetInstance();
   const request = await playwright.request.newContext();
   await claim(request, findSetupToken(), {
@@ -57,7 +57,7 @@ async function seedThreeGenres({ playwright }: Ctx): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   token = await createAPIToken(request, csrf, 'iso-seed');
   sid = await initMCP(request, token);
-  // Same keyword in three genres.
+  // Same keyword in four genres.
   await seedWiki(request, token, sid, { title: 'Iso Wiki', body: `wiki note ${KEY}` });
   const w = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
     raw_id: (await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump',
@@ -68,10 +68,14 @@ async function seedThreeGenres({ playwright }: Ctx): Promise<void> {
     { wiki_id: w.wiki_id, title: 'Iso Output' });
   await callTool(request, token, sid, 'subjectivity_write',
     { title: 'Iso Subj', body: `subjectivity note ${KEY}`, tags: [] });
+  await callTool(request, token, sid, 'writing_create', {
+    slug: 'iso-writing', title: 'Iso Writing', excerpt: 'x',
+    body_md: `writing note ${KEY}`, tags: [], publish: true,
+  });
   // Two roles: all-genres and wiki-only.
   const all = await createRole(request, csrf, {
     name: 'iso-all', description: 'all genres',
-    corpus_uris: ['wiki://**', 'output://**', 'subjectivity://**'],
+    corpus_uris: ['wiki://**', 'output://**', 'writing://**', 'subjectivity://**'],
   });
   await createCode(request, csrf, { code: ALL_CODE, label: 'a', assumed_role_id: all.id });
   const wikiOnly = await createRole(request, csrf, {
@@ -81,13 +85,14 @@ async function seedThreeGenres({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-async function happyAllThree({ playwright }: Ctx): Promise<void> {
+async function happyAllFour({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   const sess = await session(request, ALL_CODE);
   const hits = await search(request, sess, KEY);
   const genres = new Set(hits.map((h) => h.genre));
   expect(genres.has('wiki'), 'wiki hit').toBe(true);
   expect(genres.has('output'), 'output hit').toBe(true);
+  expect(genres.has('writing'), 'writing hit — writing on the unified base').toBe(true);
   expect(genres.has('subjectivity'), 'subjectivity hit — genre tag correct').toBe(true);
   await request.dispose();
 }
