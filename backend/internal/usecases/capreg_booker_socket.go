@@ -29,12 +29,13 @@ type bookerSockReq struct {
 	Args           json.RawMessage `json:"args"`
 }
 
-// RegisterBookerSocket —— 把 "book" + "list_slots" op 注册到 capsocket server。
+// RegisterBookerSocket —— 把 booker 的 op 注册到 capsocket server。
 func RegisterBookerSocket(srv *capsocket.Server, deps *BookerDeps) {
 	srv.Handle("book", bookerOpHandler(deps, runBookerBook))
 	srv.Handle("list_slots", bookerOpHandler(deps, runBookerListSlots))
 	srv.Handle("send_confirmation", bookerOpHandler(deps, runBookerSendConfirmation))
 	srv.Handle("cancel", bookerOpHandler(deps, runBookerCancel))
+	srv.Handle("reschedule", bookerOpHandler(deps, runBookerReschedule))
 }
 
 // bookerOpHandler —— 两个 op 同形：解 session + args、查 owner 时区、跑 run（book /

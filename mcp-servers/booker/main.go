@@ -36,6 +36,7 @@ func main() {
 	srv.AddTool(listSlotsTool(), opHandler("list_slots"))
 	srv.AddTool(sendConfirmationTool(), opHandler("send_confirmation"))
 	srv.AddTool(cancelTool(), opHandler("cancel"))
+	srv.AddTool(rescheduleTool(), opHandler("reschedule"))
 	srv.AddResource(slotsCardResource(), slotsCardHandler)
 	srv.AddResource(bookedCardResource(), bookedCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
@@ -107,6 +108,31 @@ func cancelTool() mcpgo.Tool {
 				"event_id":{"type":"string","description":"The booking's google_event_id from the card."}
 			}
 		}`)), "cancelling booking")
+}
+
+// rescheduleTool —— move the meeting booked in this conversation to a new time. Isolation is
+// host-side (trusted conversation context): a visitor can only reschedule their own booking, and
+// only into an owner-available slot (the host re-runs booking policy + freebusy). Atomic on the
+// host: the new slot is booked first — if it's unavailable the original booking is left untouched.
+func rescheduleTool() mcpgo.Tool {
+	return withCard(mcpgo.NewToolWithRawSchema("calendar_reschedule",
+		"Move the meeting booked in this conversation to a new time. Provide the booking's "+
+			"event_id (from the card) plus the duration and one or more visitor-confirmed new "+
+			"preferred start times (RFC3339). The new slot must be free and pass the owner's "+
+			"booking policy; if not, the original booking stays and you get the conflict back.",
+		json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"event_id":{"type":"string","description":"The booking's google_event_id from the card."},
+				"duration_min":{"type":"integer","minimum":15,"maximum":180},
+				"preferred_times":{
+					"type":"array",
+					"items":{"type":"string","description":"RFC3339"},
+					"minItems":1
+				}
+			},
+			"required":["event_id","duration_min","preferred_times"]
+		}`)), "rescheduling meeting", bookedCardURI)
 }
 
 func slotsCardResource() mcpgo.Resource {
