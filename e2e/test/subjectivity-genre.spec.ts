@@ -1,4 +1,4 @@
-// subjectivity-estate.spec.ts —— 目标态红测试(现在全红:subjectivity 零代码)。
+// subjectivity-genre.spec.ts —— 目标态红测试(现在全红:subjectivity 零代码)。
 //
 // subjectivity 是 corpus_notes 上的第 4 个 genre —— owner 的自我模型(散文笔记:品味/判断/在意什么)。
 // 结构上跟 wiki 同构(树 + path 派生 + `[[链接]]` + owner-gated ACL),语义上是 self-model 非知识。
@@ -41,12 +41,14 @@ let sid = '';
 type Ctx = { playwright: Playwright };
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
-test.describe('subjectivity estate — a 4th genre on corpus_notes (owner self-model)', () => {
+test.describe('subjectivity — a 4th genre on corpus_notes (owner self-model)', () => {
   test.beforeAll(seedOwnerAndRoles);
 
   test('happy: owner writes subjectivity → granted visitor reads it at subjectivity://path', happyRead);
   test('happy: subjectivity note surfaces in corpus_search', happySearch);
   test('happy: nested subjectivity note → path derives from the tree', happyNested);
+  test('happy: owner updates a subjectivity note → visitors read the new body', happyUpdate);
+  test('happy: owner deletes a subjectivity note → it no longer resolves', happyDelete);
   test('corner: subjectivity + wiki may share a path (genre-scoped, no collision)', cornerSharedPath);
   test('error: a wiki-only role is DENIED subjectivity (owner-gated, same ACL as wiki)', errorAclDeny);
   test('error: reparent a subjectivity node under its own descendant → cycle rejected', errorCycle);
@@ -105,6 +107,27 @@ async function happyNested({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
+async function happyUpdate({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  const n = await writeSubjectivity(request, 'Evolving View', 'first take');
+  await writeSubjectivity(request, 'Evolving View', 'revised take', undefined, n.subjectivity_id);
+  const sess = await session(request, GRANTED);
+  const read = await corpusRead(request, sess, 'evolving-view');
+  expect(read.body ?? '', 'update replaced the body').toContain('revised take');
+  expect(read.body ?? '', 'old body gone').not.toContain('first take');
+  await request.dispose();
+}
+
+async function happyDelete({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  const n = await writeSubjectivity(request, 'Transient', 'ephemeral');
+  await deleteSubjectivity(request, n.subjectivity_id);
+  const sess = await session(request, GRANTED);
+  const read = await corpusRead(request, sess, 'transient');
+  expect(read.error ?? '', 'deleted subjectivity no longer resolves').toMatch(/not found|access denied/i);
+  await request.dispose();
+}
+
 // ─── corner ─────────────────────────────────────────────────────
 async function cornerSharedPath({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
@@ -159,6 +182,12 @@ async function writeSubjectivity(
   return await callTool<{ subjectivity_id: string; path: string }>(
     request, token, sid, 'subjectivity_write', args,
   );
+}
+
+// deleteSubjectivity —— owner admin delete（drives DELETE /api/admin/subjectivity/{id}）。
+async function deleteSubjectivity(request: APIRequestContext, id: string): Promise<void> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  await request.delete(`${BACKEND}/api/admin/subjectivity/${id}`, { headers: { 'X-Csrftoken': csrf } });
 }
 
 async function session(request: APIRequestContext, code: string): Promise<VisitorSession> {
