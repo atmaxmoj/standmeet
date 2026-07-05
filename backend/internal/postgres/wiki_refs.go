@@ -104,6 +104,76 @@ func (r *WikiRefRepo) BacklinksFor(
 	return out, nil
 }
 
+// AdminBacklinksFor —— owner 视角「cited by」：哪些 note 引用了 dst（任一 genre、含未发布）。
+func (r *WikiRefRepo) AdminBacklinksFor(
+	ctx context.Context, ownerID, dstID string,
+) ([]WikiRef, error) {
+	ids, perr := parseSrcAndOwner(dstID, ownerID)
+	if perr != nil {
+		return nil, perr
+	}
+	rows, err := dbq.New(r.pool).ListNoteBacklinksAll(ctx, dbq.ListNoteBacklinksAllParams{
+		DstWikiID: ids.Src, OwnerID: ids.Owner,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list note backlinks: %w", err)
+	}
+	out := make([]WikiRef, 0, len(rows))
+	for i := range rows {
+		out = append(out, WikiRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+	}
+	return out, nil
+}
+
+// AdminOutboundFor —— owner 视角「read next」：src 引用了哪些 note（任一 genre、含未发布）。
+func (r *WikiRefRepo) AdminOutboundFor(
+	ctx context.Context, ownerID, srcID string,
+) ([]WikiRef, error) {
+	ids, perr := parseSrcAndOwner(srcID, ownerID)
+	if perr != nil {
+		return nil, perr
+	}
+	rows, err := dbq.New(r.pool).ListNoteOutboundAll(ctx, dbq.ListNoteOutboundAllParams{
+		SrcWikiID: ids.Src, OwnerID: ids.Owner,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list note outbound: %w", err)
+	}
+	out := make([]WikiRef, 0, len(rows))
+	for i := range rows {
+		out = append(out, WikiRef{ID: formatUUID(rows[i].ID), Title: rows[i].Title})
+	}
+	return out, nil
+}
+
+// OwnerNoteTitleRow —— 跨-genre 的 title→id（+genre）索引项，给 [[link]] 解析用。
+type OwnerNoteTitleRow struct {
+	ID    string
+	Title string
+	Genre string
+}
+
+// OwnerNoteTitles —— owner 语料全量（跨 genre）的 title/id，供 note refs 解析 `[[Title]]`。
+func (r *WikiRefRepo) OwnerNoteTitles(
+	ctx context.Context, ownerID string,
+) ([]OwnerNoteTitleRow, error) {
+	ownerUUID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, perr)
+	}
+	rows, err := dbq.New(r.pool).ListAllOwnerNoteTitles(ctx, ownerUUID)
+	if err != nil {
+		return nil, fmt.Errorf("list owner note titles: %w", err)
+	}
+	out := make([]OwnerNoteTitleRow, 0, len(rows))
+	for i := range rows {
+		out = append(out, OwnerNoteTitleRow{
+			ID: formatUUID(rows[i].ID), Title: rows[i].Title, Genre: rows[i].Genre,
+		})
+	}
+	return out, nil
+}
+
 // OutboundFor —— 「read next / sources」：src 引用了哪些 wiki（id + title），只
 // published。「N corpus sources」= len(返回)。
 func (r *WikiRefRepo) OutboundFor(

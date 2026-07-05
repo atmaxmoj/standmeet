@@ -109,7 +109,7 @@ func finishPromote(ctx context.Context, deps CorpusDeps, f promoteFinish) error 
 	if perr := deps.Raw.MarkPromoted(ctx, f.OwnerID, f.RawID, f.WikiID); perr != nil {
 		return fmt.Errorf("mark promoted: %w", perr)
 	}
-	return RebuildWikiRefs(ctx, deps, f.OwnerID, f.WikiID, f.Body)
+	return RebuildNoteRefs(ctx, deps, f.OwnerID, f.WikiID, f.Body)
 }
 
 // preflightPromote —— promote 前的三道关:必填字段 + parent 合法 + 同 slug 兄弟

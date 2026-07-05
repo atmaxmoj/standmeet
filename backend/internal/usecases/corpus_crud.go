@@ -83,7 +83,7 @@ func CreateWiki(
 	if err != nil {
 		return domain.Wiki{}, fmt.Errorf("create wiki: %w", err)
 	}
-	if rerr := RebuildWikiRefs(ctx, deps, in.OwnerID, wiki.ID(), in.Body); rerr != nil {
+	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, wiki.ID(), in.Body); rerr != nil {
 		return domain.Wiki{}, rerr
 	}
 	return wiki, nil
@@ -124,7 +124,7 @@ func UpdateWiki(
 	if err != nil {
 		return domain.Wiki{}, fmt.Errorf("update wiki: %w", err)
 	}
-	if rerr := RebuildWikiRefs(ctx, deps, in.OwnerID, wiki.ID(), in.Body); rerr != nil {
+	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, wiki.ID(), in.Body); rerr != nil {
 		return domain.Wiki{}, rerr
 	}
 	return wiki, nil
@@ -217,6 +217,9 @@ func UpdateOutput(
 	})
 	if err != nil {
 		return domain.Output{}, fmt.Errorf("update output: %w", err)
+	}
+	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, out.ID(), in.Body); rerr != nil {
+		return domain.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
 	}
 	return out, nil
 }

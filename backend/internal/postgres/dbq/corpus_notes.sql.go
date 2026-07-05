@@ -214,6 +214,38 @@ func (q *Queries) ListAllNoteMeta(ctx context.Context, arg ListAllNoteMetaParams
 	return items, nil
 }
 
+const listAllOwnerNoteTitles = `-- name: ListAllOwnerNoteTitles :many
+SELECT id, title, genre FROM corpus_notes WHERE owner_id = $1
+`
+
+type ListAllOwnerNoteTitlesRow struct {
+	ID    pgtype.UUID
+	Title string
+	Genre string
+}
+
+// 跨-genre 的 title→id 索引：`[[Title]]` 可指向 owner 语料里任一 genre 的任一条。给 note refs
+// 解析用（wiki body 里 [[Output Title]] 也要解析得到边）。全量、无 cap —— 漏一条就是断链。
+func (q *Queries) ListAllOwnerNoteTitles(ctx context.Context, ownerID pgtype.UUID) ([]ListAllOwnerNoteTitlesRow, error) {
+	rows, err := q.db.Query(ctx, listAllOwnerNoteTitles, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllOwnerNoteTitlesRow
+	for rows.Next() {
+		var i ListAllOwnerNoteTitlesRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Genre); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNoteChildren = `-- name: ListNoteChildren :many
 SELECT n.id, n.parent_id, n.title, n.published,
        EXISTS(SELECT 1 FROM corpus_notes c WHERE c.parent_id = n.id AND c.genre = $2) AS has_children

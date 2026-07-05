@@ -89,39 +89,40 @@ func wikiMetaPathTitleIndex(
 	return out
 }
 
-// RebuildWikiRefs —— wiki 写后(promote/create/update)重建这条的出度边:抽 body
-// 的 `[[Title]]` → 按 title 解析到 owner 的 wiki id → 重写 wiki_refs。没 `[[]]`
-// 也要清空旧边(owner 删了链接也算)。边表是派生索引,不要求跟写同事务。
-func RebuildWikiRefs(
-	ctx context.Context, deps CorpusDeps, ownerID, wikiID, body string,
+// RebuildNoteRefs —— note 写后(promote/create/update)重建这条的出度边:抽 body 的 `[[Title]]`
+// → 按 title 解析到 owner 语料里任一 genre 的 id（**跨-genre**:wiki 可引用 output/subjectivity）
+// → 重写 note_refs（wiki_refs 表已 FK corpus_notes、src/dst 任意 genre）。没 `[[]]` 也要清空旧边。
+// 边表是派生索引,不要求跟写同事务。
+func RebuildNoteRefs(
+	ctx context.Context, deps CorpusDeps, ownerID, srcID, body string,
 ) error {
 	if !HasCrossLinks(body) {
-		return clearWikiRefs(ctx, deps, ownerID, wikiID)
+		return clearNoteRefs(ctx, deps, ownerID, srcID)
 	}
-	// 全量 meta(无 50-cap):[[X]] 可指向语料里任一条,deep target 也要解析得到边,
-	// 否则 backlink/related 静默漏。
-	metas, err := deps.Wiki.ListAllMeta(ctx, ownerID)
+	// 全量(无 cap):[[X]] 可指向语料里任一 genre 的任一条,deep target 也要解析得到边,否则
+	// backlink/related 静默漏。
+	titles, err := deps.WikiRefs.OwnerNoteTitles(ctx, ownerID)
 	if err != nil {
-		return fmt.Errorf("list wiki for crosslink: %w", err)
+		return fmt.Errorf("list notes for crosslink: %w", err)
 	}
-	dstIDs := resolveWikiDstIDs(body, metas, wikiID)
-	if rerr := deps.WikiRefs.ReplaceRefsBySrc(ctx, wikiID, ownerID, dstIDs); rerr != nil {
-		return fmt.Errorf("rebuild wiki refs: %w", rerr)
-	}
-	return nil
-}
-
-func clearWikiRefs(ctx context.Context, deps CorpusDeps, ownerID, wikiID string) error {
-	if err := deps.WikiRefs.ReplaceRefsBySrc(ctx, wikiID, ownerID, []string{}); err != nil {
-		return fmt.Errorf("clear wiki refs: %w", err)
+	dstIDs := resolveNoteDstIDs(body, titles, srcID)
+	if rerr := deps.WikiRefs.ReplaceRefsBySrc(ctx, srcID, ownerID, dstIDs); rerr != nil {
+		return fmt.Errorf("rebuild note refs: %w", rerr)
 	}
 	return nil
 }
 
-// resolveWikiDstIDs —— body 的 `[[Title]]` 按 title(case-insensitive)解析到 owner
-// wiki id,去重 + 排除 self-link。
-func resolveWikiDstIDs(body string, metas []postgres.WikiMeta, selfID string) []string {
-	byTitle := wikiMetaTitleToID(metas)
+func clearNoteRefs(ctx context.Context, deps CorpusDeps, ownerID, srcID string) error {
+	if err := deps.WikiRefs.ReplaceRefsBySrc(ctx, srcID, ownerID, []string{}); err != nil {
+		return fmt.Errorf("clear note refs: %w", err)
+	}
+	return nil
+}
+
+// resolveNoteDstIDs —— body 的 `[[Title]]` 按 title(case-insensitive)解析到 owner 语料 id（跨
+// genre）,去重 + 排除 self-link。
+func resolveNoteDstIDs(body string, titles []postgres.OwnerNoteTitleRow, selfID string) []string {
+	byTitle := noteTitleToID(titles)
 	refs := ExtractCrossLinks(body)
 	seen := make(map[string]struct{}, len(refs))
 	out := make([]string, 0, len(refs))
@@ -131,10 +132,10 @@ func resolveWikiDstIDs(body string, metas []postgres.WikiMeta, selfID string) []
 	return out
 }
 
-func wikiMetaTitleToID(metas []postgres.WikiMeta) map[string]string {
-	byTitle := make(map[string]string, len(metas))
-	for i := range metas {
-		byTitle[strings.ToLower(metas[i].Title)] = metas[i].ID
+func noteTitleToID(titles []postgres.OwnerNoteTitleRow) map[string]string {
+	byTitle := make(map[string]string, len(titles))
+	for i := range titles {
+		byTitle[strings.ToLower(titles[i].Title)] = titles[i].ID
 	}
 	return byTitle
 }

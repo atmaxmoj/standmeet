@@ -28,3 +28,20 @@ JOIN corpus_notes w ON w.id = wr.dst_wiki_id AND w.genre = 'wiki'
 WHERE wr.src_wiki_id = $1
   AND w.published = true
 ORDER BY w.title ASC;
+
+-- name: ListNoteOutboundAll :many
+-- admin「read next」：src 引用了哪些 note（id+title）—— **任一 genre**、不限 published（owner 看全，
+-- 含未发布）。跨-genre `[[link]]` 归一后，wiki 可引用 output/subjectivity，这里不再按 genre 过滤。
+SELECT n.id, n.title
+FROM wiki_refs wr
+JOIN corpus_notes n ON n.id = wr.dst_wiki_id
+WHERE wr.src_wiki_id = $1 AND n.owner_id = $2
+ORDER BY n.title ASC;
+
+-- name: ListNoteBacklinksAll :many
+-- admin「cited by」：哪些 note 引用了 dst（id+title）—— 任一 genre、不限 published。
+SELECT n.id, n.title
+FROM wiki_refs wr
+JOIN corpus_notes n ON n.id = wr.src_wiki_id
+WHERE wr.dst_wiki_id = $1 AND n.owner_id = $2
+ORDER BY n.title ASC;

@@ -30,7 +30,6 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 type Ctx = { playwright: Playwright };
 let token = '';
 let sid = '';
-let csrf = '';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('unified note_refs — [[links]] across all genres on corpus_notes', () => {
@@ -50,8 +49,7 @@ async function seedOwner({ playwright }: Ctx): Promise<void> {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
-  const login = await loginAPI(request, OWNER.email, OWNER.password);
-  csrf = login.csrf;
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   token = await createAPIToken(request, csrf, 'noterefs-seed');
   sid = await initMCP(request, token);
   await request.dispose();
@@ -131,6 +129,8 @@ async function promoteOutput(request: APIRequestContext, title: string, body: st
   return o.output_id;
 }
 async function deleteWiki(request: APIRequestContext, id: string): Promise<void> {
+  // admin route is owner-authed → fresh login on this context sets the cookie + csrf.
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   await request.delete(`${BACKEND}/api/admin/wiki/${id}`, { headers: { 'X-Csrftoken': csrf } });
 }
 
@@ -145,6 +145,7 @@ async function backlinks(request: APIRequestContext, genre: string, id: string):
 async function refsField(
   request: APIRequestContext, genre: string, id: string, field: 'outbound' | 'backlinks',
 ): Promise<Ref[]> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const res = await request.get(`${BACKEND}/api/admin/${genre}/${id}`, {
     headers: { 'X-Csrftoken': csrf },
   });

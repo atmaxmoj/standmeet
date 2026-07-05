@@ -70,6 +70,11 @@ FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
 ORDER BY created_at DESC;
 
+-- name: ListAllOwnerNoteTitles :many
+-- 跨-genre 的 title→id 索引：`[[Title]]` 可指向 owner 语料里任一 genre 的任一条。给 note refs
+-- 解析用（wiki body 里 [[Output Title]] 也要解析得到边）。全量、无 cap —— 漏一条就是断链。
+SELECT id, title, genre FROM corpus_notes WHERE owner_id = $1;
+
 -- name: SearchNotes :many
 -- 全量关键词搜（DB 端 full-text）；返 meta + snippet（不返完整 body），翻页。自然语言问句按 OR
 -- 命中任一词项（' & '→' | '，防 "tell"/"me" 噪声词把 plainto 默认 AND 卡死）；ts_rank 关联度排序。

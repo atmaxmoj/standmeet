@@ -49,6 +49,9 @@ func PromoteWikiToOutput(
 	if err != nil {
 		return domain.Output{}, fmt.Errorf("output create: %w", err)
 	}
+	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, out.ID(), wiki.Body()); rerr != nil {
+		return domain.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
+	}
 	return out, nil
 }
 

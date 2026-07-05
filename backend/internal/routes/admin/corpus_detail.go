@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -11,36 +12,47 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
+	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
 // detail 不含 path:地址树派生(浏览列表那条由 usecases.WikiTreePaths 算并回显);
 // 编辑表单不再有可改的 path 字段(owner 不能自设地址)。
+// refView —— 一条 note_ref 边端点（id + title），给 admin 详情的 outbound/backlinks 用。
+type refView struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
 type wikiDetailItem struct {
-	ParentID     *string  `json:"parent_id"`
-	ID           string   `json:"id"`
-	Title        string   `json:"title"`
-	Body         string   `json:"body"`
-	Excerpt      string   `json:"excerpt"`
-	CreatedAt    string   `json:"created_at"`
-	UpdatedAt    string   `json:"updated_at"`
-	Tags         []string `json:"tags"`
-	SourceRawIDs []string `json:"source_raw_ids"`
-	ShowAsSource bool     `json:"show_as_source"`
-	Published    bool     `json:"published"`
+	ParentID     *string   `json:"parent_id"`
+	ID           string    `json:"id"`
+	Title        string    `json:"title"`
+	Body         string    `json:"body"`
+	Excerpt      string    `json:"excerpt"`
+	CreatedAt    string    `json:"created_at"`
+	UpdatedAt    string    `json:"updated_at"`
+	Tags         []string  `json:"tags"`
+	SourceRawIDs []string  `json:"source_raw_ids"`
+	Outbound     []refView `json:"outbound"`
+	Backlinks    []refView `json:"backlinks"`
+	ShowAsSource bool      `json:"show_as_source"`
+	Published    bool      `json:"published"`
 }
 
 type outputDetailItem struct {
-	ParentID      *string  `json:"parent_id"`
-	ID            string   `json:"id"`
-	Title         string   `json:"title"`
-	Body          string   `json:"body"`
-	Excerpt       string   `json:"excerpt"`
-	CreatedAt     string   `json:"created_at"`
-	UpdatedAt     string   `json:"updated_at"`
-	Tags          []string `json:"tags"`
-	SourceWikiIDs []string `json:"source_wiki_ids"`
-	ShowAsSource  bool     `json:"show_as_source"`
-	Published     bool     `json:"published"`
+	ParentID      *string   `json:"parent_id"`
+	ID            string    `json:"id"`
+	Title         string    `json:"title"`
+	Body          string    `json:"body"`
+	Excerpt       string    `json:"excerpt"`
+	CreatedAt     string    `json:"created_at"`
+	UpdatedAt     string    `json:"updated_at"`
+	Tags          []string  `json:"tags"`
+	SourceWikiIDs []string  `json:"source_wiki_ids"`
+	Outbound      []refView `json:"outbound"`
+	Backlinks     []refView `json:"backlinks"`
+	ShowAsSource  bool      `json:"show_as_source"`
+	Published     bool      `json:"published"`
 }
 
 func wikiDetailFromDomain(w *domain.Wiki) wikiDetailItem {
@@ -91,18 +103,56 @@ func (h *Handlers) getRaw() http.HandlerFunc {
 func (h *Handlers) getWiki() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		row, err := h.Corpus.Corpus.Wiki.GetByID(r.Context(), ownerID, chi.URLParam(r, "id"))
-		writeCorpusResult(h.Log, w, wikiDetailFromDomain(&row), translateGetErr(err), "get wiki")
+		id := chi.URLParam(r, "id")
+		row, err := h.Corpus.Corpus.Wiki.GetByID(r.Context(), ownerID, id)
+		item := wikiDetailFromDomain(&row)
+		if err == nil {
+			refs := h.noteRefViews(r.Context(), ownerID, id)
+			item.Outbound, item.Backlinks = refs.Outbound, refs.Backlinks
+		}
+		writeCorpusResult(h.Log, w, item, translateGetErr(err), "get wiki")
 	}
 }
 
 func (h *Handlers) getOutput() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		row, err := h.Corpus.Corpus.Output.GetByID(r.Context(), ownerID, chi.URLParam(r, "id"))
+		id := chi.URLParam(r, "id")
+		row, err := h.Corpus.Corpus.Output.GetByID(r.Context(), ownerID, id)
 		item := outputDetailFromDomain(&row)
+		if err == nil {
+			refs := h.noteRefViews(r.Context(), ownerID, id)
+			item.Outbound, item.Backlinks = refs.Outbound, refs.Backlinks
+		}
 		writeCorpusResult(h.Log, w, item, translateGetErr(err), "get output")
 	}
+}
+
+// noteRefsView —— owner 视角的 read-next（outbound）+ cited-by（backlinks）。
+type noteRefsView struct {
+	Outbound  []refView
+	Backlinks []refView
+}
+
+// noteRefViews —— 取一条 note 的 outbound/backlinks 边（任一 genre、含未发布）。best-effort：出错
+// 记日志、返空（详情主体仍可用）。
+func (h *Handlers) noteRefViews(ctx context.Context, ownerID, id string) noteRefsView {
+	outbound, oerr := h.Corpus.Corpus.WikiRefs.AdminOutboundFor(ctx, ownerID, id)
+	backlinks, berr := h.Corpus.Corpus.WikiRefs.AdminBacklinksFor(ctx, ownerID, id)
+	if oerr != nil || berr != nil {
+		h.Log.Error("admin note refs", "err", errors.Join(oerr, berr))
+	}
+	return noteRefsView{
+		Outbound: noteRefsToViews(outbound), Backlinks: noteRefsToViews(backlinks),
+	}
+}
+
+func noteRefsToViews(refs []postgres.WikiRef) []refView {
+	out := make([]refView, 0, len(refs))
+	for i := range refs {
+		out = append(out, refView{ID: refs[i].ID, Title: refs[i].Title})
+	}
+	return out
 }
 
 func translateGetErr(err error) error { return err }

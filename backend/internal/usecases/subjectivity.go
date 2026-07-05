@@ -45,16 +45,26 @@ func WriteSubjectivity(
 	if in.OwnerID == "" || in.Title == "" {
 		return SubjectivityResult{}, ErrEmptyField
 	}
-	repo := deps.Subjectivity
-	note, err := writeNote(ctx, repo, in)
+	note, err := writeNote(ctx, deps.Subjectivity, in)
 	if err != nil {
 		return SubjectivityResult{}, err
 	}
-	path, perr := deriveNotePath(ctx, repo, in.OwnerID, note.ID)
+	return finishSubjectivityWrite(ctx, deps, in.OwnerID, note.ID, in.Body)
+}
+
+// finishSubjectivityWrite —— 写后:重建 `[[X]]` 出度边 + 算树派生 path。拆出让 WriteSubjectivity
+// 的 cyclo 不超标。
+func finishSubjectivityWrite(
+	ctx context.Context, deps CorpusDeps, ownerID, id, body string,
+) (SubjectivityResult, error) {
+	if rerr := RebuildNoteRefs(ctx, deps, ownerID, id, body); rerr != nil {
+		return SubjectivityResult{}, fmt.Errorf("rebuild subjectivity refs: %w", rerr)
+	}
+	path, perr := deriveNotePath(ctx, deps.Subjectivity, ownerID, id)
 	if perr != nil {
 		return SubjectivityResult{}, fmt.Errorf("derive subjectivity path: %w", perr)
 	}
-	return SubjectivityResult{ID: note.ID, Path: path}, nil
+	return SubjectivityResult{ID: id, Path: path}, nil
 }
 
 func writeNote(

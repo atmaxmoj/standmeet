@@ -39,6 +39,85 @@ func (q *Queries) InsertWikiRef(ctx context.Context, arg InsertWikiRefParams) er
 	return err
 }
 
+const listNoteBacklinksAll = `-- name: ListNoteBacklinksAll :many
+SELECT n.id, n.title
+FROM wiki_refs wr
+JOIN corpus_notes n ON n.id = wr.src_wiki_id
+WHERE wr.dst_wiki_id = $1 AND n.owner_id = $2
+ORDER BY n.title ASC
+`
+
+type ListNoteBacklinksAllParams struct {
+	DstWikiID pgtype.UUID
+	OwnerID   pgtype.UUID
+}
+
+type ListNoteBacklinksAllRow struct {
+	ID    pgtype.UUID
+	Title string
+}
+
+// admin「cited by」：哪些 note 引用了 dst（id+title）—— 任一 genre、不限 published。
+func (q *Queries) ListNoteBacklinksAll(ctx context.Context, arg ListNoteBacklinksAllParams) ([]ListNoteBacklinksAllRow, error) {
+	rows, err := q.db.Query(ctx, listNoteBacklinksAll, arg.DstWikiID, arg.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNoteBacklinksAllRow
+	for rows.Next() {
+		var i ListNoteBacklinksAllRow
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNoteOutboundAll = `-- name: ListNoteOutboundAll :many
+SELECT n.id, n.title
+FROM wiki_refs wr
+JOIN corpus_notes n ON n.id = wr.dst_wiki_id
+WHERE wr.src_wiki_id = $1 AND n.owner_id = $2
+ORDER BY n.title ASC
+`
+
+type ListNoteOutboundAllParams struct {
+	SrcWikiID pgtype.UUID
+	OwnerID   pgtype.UUID
+}
+
+type ListNoteOutboundAllRow struct {
+	ID    pgtype.UUID
+	Title string
+}
+
+// admin「read next」：src 引用了哪些 note（id+title）—— **任一 genre**、不限 published（owner 看全，
+// 含未发布）。跨-genre `[[link]]` 归一后，wiki 可引用 output/subjectivity，这里不再按 genre 过滤。
+func (q *Queries) ListNoteOutboundAll(ctx context.Context, arg ListNoteOutboundAllParams) ([]ListNoteOutboundAllRow, error) {
+	rows, err := q.db.Query(ctx, listNoteOutboundAll, arg.SrcWikiID, arg.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNoteOutboundAllRow
+	for rows.Next() {
+		var i ListNoteOutboundAllRow
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWikiBacklinks = `-- name: ListWikiBacklinks :many
 SELECT w.id, w.title
 FROM wiki_refs wr
