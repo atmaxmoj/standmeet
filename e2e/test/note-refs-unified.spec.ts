@@ -95,8 +95,13 @@ async function cornerCrossGenre({ playwright }: Ctx): Promise<void> {
 // ─── error ──────────────────────────────────────────────────────
 async function errorUnresolved({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
-  const src = await promoteWiki(request, 'Lonely', 'points at [[Ghost That Does Not Exist]]');
-  expect((await outbound(request, 'wiki', src)).length, 'unresolved link → no edge').toBe(0);
+  await promoteWiki(request, 'Real Target', 'exists');
+  const src = await promoteWiki(request, 'Mixed', 'links [[Real Target]] and [[Ghost Not Real]]');
+  const out = (await outbound(request, 'wiki', src)).map((r) => r.title);
+  // Positive control first: the RESOLVED link IS an edge. If the refs mechanism is absent this is [] and
+  // this line fails (RED) — so the "unresolved → no edge" assertion below can't false-green on absence.
+  expect(out, 'the resolved link is an edge').toContain('Real Target');
+  expect(out, 'the unresolved link stays literal (no edge)').not.toContain('Ghost Not Real');
   await request.dispose();
 }
 
