@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"strings"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
@@ -119,8 +120,31 @@ func buildAttachmentFilenames(assets []domain.Asset) map[string]string {
 	return out
 }
 
+// canonicalExt —— 常见类型的规范扩展名。mime.ExtensionsByType 按字母序返回,`image/jpeg`
+// 会给 `.jpe`(不是 `.jpg`)、`text/markdown` 也乱,round-trip 名字就漂了。先查这张表。
+var canonicalExt = map[string]string{
+	"image/jpeg":       ".jpg",
+	"image/png":        ".png",
+	"image/gif":        ".gif",
+	"image/webp":       ".webp",
+	"image/svg+xml":    ".svg",
+	"image/avif":       ".avif",
+	"application/pdf":  ".pdf",
+	"text/markdown":    ".md",
+	"text/plain":       ".txt",
+	"text/csv":         ".csv",
+	"application/json": ".json",
+}
+
 func extFromContentType(ct string) string {
-	exts, err := mime.ExtensionsByType(ct)
+	base := ct
+	if before, _, found := strings.Cut(ct, ";"); found { // 剥 "; charset=..." 参数
+		base = strings.TrimSpace(before)
+	}
+	if e, ok := canonicalExt[strings.ToLower(base)]; ok {
+		return e
+	}
+	exts, err := mime.ExtensionsByType(base)
 	if err != nil || len(exts) == 0 {
 		return ".bin"
 	}
