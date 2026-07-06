@@ -14,7 +14,6 @@ type vaultNote struct {
 	genre      string
 	sourcePath string
 	body       string
-	links      []string
 	segs       []string
 	fm         corpFM
 }

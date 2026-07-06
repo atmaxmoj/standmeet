@@ -26,34 +26,48 @@ import (
 // CrossLinkRefScheme —— body_md 里的双链字面前缀。
 const crossLinkOpen = "[["
 
-// crossLinkPattern —— 抓 `[[X]]` 跟 `[[X|alias]]` 两种 obsidian-flavored
-// 形态。group 1 = 目标 (slug 或 title)，group 2 = optional alias。
-// 不抓嵌套或 escape，跟 Quartz 一样保守。
-var crossLinkPattern = regexp.MustCompile(`\[\[([^\]|]+)(?:\|([^\]]*))?\]\]`)
+// crossLinkPattern —— 抓 `[[X]]` / `[[X|alias]]` / `[[X#heading]]`,并捕前导 `!`(embed)。
+// group1 = 前导 `!`(embed 标记),group2 = 目标(含可能的 #heading),group3 = optional alias。
+// 对齐 check-links.sh:embed 不算链接、代码块/行内代码里的不算、#heading 只锚同一目标。
+var (
+	crossLinkPattern = regexp.MustCompile(`(!?)\[\[([^\]|]+)(?:\|([^\]]*))?\]\]`)
+	codeFenceRe      = regexp.MustCompile("(?s)```.*?```")
+	inlineCodeRe     = regexp.MustCompile("`[^`]*`")
+)
 
 // CrossLinkRef —— 抽出来的一条 [[...]]。
 type CrossLinkRef struct {
 	Original string // 原文（含 [[ ]]）
-	Target   string // 目标（slug 或 title，已 trim）
+	Target   string // 目标（slug 或 title，已 trim、已剥 #heading）
 	Alias    string // 可选显示文本（"|" 后面），空 = 用 dst 的 title
 }
 
-// ExtractCrossLinks —— body_md 里所有 `[[X]]` 引用，按出现顺序。
+// ExtractCrossLinks —— body_md 里所有 `[[X]]` 引用,按出现顺序。先剥代码块/行内代码,跳 `![[embed]]`,
+// 剥 `#heading`(对齐 vault 的 check-links.sh:那些都不是真链接)。
 func ExtractCrossLinks(body string) []CrossLinkRef {
-	matches := crossLinkPattern.FindAllStringSubmatch(body, -1)
+	stripped := inlineCodeRe.ReplaceAllString(codeFenceRe.ReplaceAllString(body, ""), "")
+	matches := crossLinkPattern.FindAllStringSubmatch(stripped, -1)
 	out := make([]CrossLinkRef, 0, len(matches))
 	for _, m := range matches {
-		alias := ""
-		if len(m) > 2 {
-			alias = strings.TrimSpace(m[2])
+		if ref, ok := crossLinkFromMatch(m); ok {
+			out = append(out, ref)
 		}
-		out = append(out, CrossLinkRef{
-			Original: m[0],
-			Target:   strings.TrimSpace(m[1]),
-			Alias:    alias,
-		})
 	}
 	return out
+}
+
+func crossLinkFromMatch(m []string) (CrossLinkRef, bool) {
+	if m[1] == "!" { // embed, not a link
+		return CrossLinkRef{}, false
+	}
+	target := strings.TrimSpace(m[2])
+	if i := strings.IndexByte(target, '#'); i >= 0 {
+		target = strings.TrimSpace(target[:i])
+	}
+	if target == "" {
+		return CrossLinkRef{}, false
+	}
+	return CrossLinkRef{Original: m[0], Target: target, Alias: strings.TrimSpace(m[3])}, true
 }
 
 // ResolvedLink —— Resolution 完后的一条 link。dst nil 表示 unresolved。

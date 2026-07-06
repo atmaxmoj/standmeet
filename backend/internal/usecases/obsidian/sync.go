@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -120,11 +119,10 @@ func classifyVault(files []VaultFile) ([]vaultNote, []VaultFile) {
 }
 
 func toVaultNote(f *VaultFile, segs []string) vaultNote {
-	under := normalizeSegs(segs[1:])
 	p := parseCorpNote(f.Body)
 	return vaultNote{
 		genre: segs[0], sourcePath: f.RelPath, fm: p.fm, body: p.body,
-		links: extractLinks(p.body), segs: under,
+		segs: normalizeSegs(segs[1:]),
 	}
 }
 
@@ -250,9 +248,10 @@ func record(st *syncState, node *desiredNode, id string) {
 	st.titleToID[node.title] = id
 }
 
-// webEdited —— 上次 sync 后 owner 在 web 又改过(updated_at > imported_at + 1s buffer) → 不覆盖。
+// webEdited —— 上次 sync 后 owner 在 web 又改过 → 不覆盖。create/update 同一条语句里把 updated_at 与
+// imported_at 都设成同一个 now(),故二者相等;web 端 PATCH 之后 updated_at 才严格晚于 imported_at。
 func webEdited(sn *postgres.SyncNote) bool {
-	return sn.HasImported && sn.UpdatedAt.After(sn.ImportedAt.Add(time.Second))
+	return sn.HasImported && sn.UpdatedAt.After(sn.ImportedAt)
 }
 
 func unchangedNode(sn *postgres.SyncNote, n *desiredNode, parent *string, c *nodeContent) bool {

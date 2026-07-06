@@ -48,11 +48,14 @@ test.describe('sync H · idempotency + reconcile', () => {
 async function sess(request: APIRequestContext) {
   return syncSession(request, OWNER);
 }
-async function adminUpdateWiki(request: APIRequestContext, id: string, body: string): Promise<void> {
+// adminUpdateWiki —— web 端就地编辑 body(**保持 title** = filename 派生的身份;改了 title 就成了另一条)。
+async function adminUpdateWiki(
+  request: APIRequestContext, id: string, title: string, body: string,
+): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   await request.patch(`${BACKEND}/api/admin/wiki/${id}`, {
     headers: { 'X-Csrftoken': csrf },
-    data: { title: 'edited', body, tags: [], parent_id: null, show_as_source: true },
+    data: { title, body, tags: [], parent_id: null, show_as_source: true },
   });
 }
 async function wikiId(request: APIRequestContext, title: string): Promise<string> {
@@ -129,7 +132,7 @@ async function renameOrphans({ playwright }: Ctx): Promise<void> {
 async function webWins({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [{ rel: 'wiki/shared.md', body: md('vault original') }]);
-  await adminUpdateWiki(request, await wikiId(request, 'shared'), 'WEB EDIT wins');
+  await adminUpdateWiki(request, await wikiId(request, 'shared'), 'shared', 'WEB EDIT wins');
   // re-import the (older) vault version → must NOT clobber the newer web edit.
   const second = await uploadVault(request, OWNER, [{ rel: 'wiki/shared.md', body: md('vault original') }]);
   expect(second.skipped, 'web-edited note skipped on re-import').toBeGreaterThan(0);

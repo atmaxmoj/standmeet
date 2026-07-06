@@ -1,6 +1,5 @@
-// sync_note.go —— vault sync 的容错 frontmatter 解析 + `[[link]]` 提取。
-// 解析对齐真实 vault 的 .scripts 契约:frontmatter 容错(畸形不崩,对齐 F);link 提取对齐
-// check-links.sh(按 basename、剥 |alias/#heading、跳 ![[embed]] + 代码块/行内代码,对齐 E)。
+// sync_note.go —— vault sync 的容错 frontmatter 解析。对齐真实 vault 的 .scripts 契约:frontmatter
+// 容错(畸形不崩,对齐 F)。`[[link]]` 提取复用 usecases.ExtractCrossLinks(已对齐 check-links.sh)。
 
 package obsidian
 
@@ -153,37 +152,4 @@ func unquote(v string) string {
 		return v[1 : len(v)-1]
 	}
 	return v
-}
-
-var (
-	reFence    = regexp.MustCompile("(?s)```.*?```")
-	reInline   = regexp.MustCompile("`[^`]*`")
-	reWikilink = regexp.MustCompile(`(!?)\[\[([^\]]+)\]\]`)
-)
-
-// extractLinks —— body 里的 `[[Target]]` basename 列表(对齐 check-links.sh):
-// 先剥代码块/行内代码;跳 `![[embed]]`;剥 `|alias` 与 `#heading` 与表格转义 `\`;去重、去空。
-func extractLinks(body string) []string {
-	stripped := reInline.ReplaceAllString(reFence.ReplaceAllString(body, ""), "")
-	seen := map[string]bool{}
-	out := []string{}
-	for _, m := range reWikilink.FindAllStringSubmatch(stripped, -1) {
-		if tgt := linkTarget(m); tgt != "" && !seen[tgt] {
-			seen[tgt] = true
-			out = append(out, tgt)
-		}
-	}
-	return out
-}
-
-// linkTarget —— 一个 `[[..]]` 匹配的解析目标(basename);embed `![[..]]` → 空,剥 |alias / #heading。
-func linkTarget(m []string) string {
-	if m[1] == "!" { // embed, not a link
-		return ""
-	}
-	tgt := m[2]
-	if idx := strings.IndexAny(tgt, "|#"); idx >= 0 {
-		tgt = tgt[:idx]
-	}
-	return strings.TrimSpace(strings.TrimSuffix(tgt, "\\"))
 }
