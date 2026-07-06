@@ -39,6 +39,7 @@ type repoSet struct {
 	raw            *postgres.RawRepo
 	wiki           *postgres.WikiRepo
 	subjectivity   *postgres.NoteRepo
+	vaultSync      *postgres.VaultSyncRepo
 	wikiRef        *postgres.WikiRefRepo
 	output         *postgres.OutputRepo
 	growth         *postgres.GrowthRepo
@@ -79,6 +80,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		raw:            postgres.NewRawRepo(db),
 		wiki:           postgres.NewWikiRepo(db),
 		subjectivity:   postgres.NewNoteRepo(db, "subjectivity"),
+		vaultSync:      postgres.NewVaultSyncRepo(db),
 		wikiRef:        postgres.NewWikiRefRepo(db),
 		output:         postgres.NewOutputRepo(db),
 		growth:         postgres.NewGrowthRepo(db),
@@ -133,6 +135,7 @@ func assembleRuntimeDeps(
 		instanceRepo: repos.instance, ownerRepo: repos.owner,
 		keypairRepo: repos.keypair, rawRepo: repos.raw, wikiRepo: repos.wiki,
 		subjectivityRepo: repos.subjectivity,
+		vaultSyncRepo:    repos.vaultSync,
 		wikiRefRepo:      repos.wikiRef,
 		outputRepo:       repos.output,
 		growthRepo:       repos.growth,

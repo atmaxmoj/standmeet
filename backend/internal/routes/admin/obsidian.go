@@ -13,6 +13,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,7 +36,32 @@ type ObsidianDeps struct {
 	Writings   *postgres.WritingRepo
 	Assets     *postgres.AssetRepo
 	Storage    *storage.Client
+	Corpus     usecases.CorpusDeps // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
 	WritingsTx usecases.WritingsTxDeps
+}
+
+// rawSyncAdapter —— obsidian.SyncRawPort over RawRepo：raw/ 文件追加进 inbox，source 标 vault 来源。
+type rawSyncAdapter struct{ raw *postgres.RawRepo }
+
+func (a rawSyncAdapter) UpsertFromVault(
+	ctx context.Context, ownerID, sourcePath, body string, tags []string,
+) error {
+	if _, err := a.raw.Create(ctx, &postgres.CreateRawInput{
+		OwnerID: ownerID, Body: body, Source: "obsidian:" + sourcePath, Tags: tags,
+	}); err != nil {
+		return fmt.Errorf("sync raw: %w", err)
+	}
+	return nil
+}
+
+// refsSyncAdapter —— obsidian.SyncRefsPort over RebuildNoteRefs：整批 upsert 后重建一条的出度边。
+type refsSyncAdapter struct{ deps usecases.CorpusDeps }
+
+func (a refsSyncAdapter) RebuildForNote(ctx context.Context, ownerID, noteID, body string) error {
+	if err := usecases.RebuildNoteRefs(ctx, a.deps, ownerID, noteID, body); err != nil {
+		return fmt.Errorf("sync refs: %w", err)
+	}
+	return nil
 }
 
 const maxObsidianImportSize = 200 << 20 // 200 MB — vault 整个上传，比 writing save 大。
@@ -78,9 +104,11 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		result := obsidian.ImportVault(
-			r.Context(), h.Obsidian.WritingsTx, h.Obsidian.Writings, ownerID, files,
-		)
+		result := obsidian.SyncVault(r.Context(), obsidian.SyncDeps{
+			Notes: h.Obsidian.Corpus.VaultSync,
+			Raw:   rawSyncAdapter{raw: h.Obsidian.Corpus.Raw},
+			Refs:  refsSyncAdapter{deps: h.Obsidian.Corpus},
+		}, ownerID, files)
 		writeImportJSON(h.Log, w, &result)
 	}
 }
@@ -119,8 +147,8 @@ func collectVaultFiles(
 	fileMap map[string][]*multipart.FileHeader,
 ) ([]obsidian.VaultFile, error) {
 	out := make([]obsidian.VaultFile, 0)
-	for _, fhs := range fileMap {
-		next, err := appendHeaderBatch(out, fhs)
+	for field, fhs := range fileMap {
+		next, err := appendHeaderBatch(out, field, fhs)
 		if err != nil {
 			return nil, err
 		}
@@ -130,10 +158,10 @@ func collectVaultFiles(
 }
 
 func appendHeaderBatch(
-	out []obsidian.VaultFile, fhs []*multipart.FileHeader,
+	out []obsidian.VaultFile, field string, fhs []*multipart.FileHeader,
 ) ([]obsidian.VaultFile, error) {
 	for _, fh := range fhs {
-		vf, err := readVaultFile(fh)
+		vf, err := readVaultFile(field, fh)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +170,9 @@ func appendHeaderBatch(
 	return out, nil
 }
 
-func readVaultFile(fh *multipart.FileHeader) (obsidian.VaultFile, error) {
+// readVaultFile —— vault 内相对路径来自**form field 名**(不是 filename)：Go 的 multipart.FileName()
+// 会 filepath.Base 掉目录(防穿越),路径存不下;所以 client 把 webkitRelativePath 放进 field 名传来。
+func readVaultFile(field string, fh *multipart.FileHeader) (obsidian.VaultFile, error) {
 	f, oerr := fh.Open()
 	if oerr != nil {
 		return obsidian.VaultFile{}, fmt.Errorf("open vault file: %w", oerr)
@@ -152,11 +182,8 @@ func readVaultFile(fh *multipart.FileHeader) (obsidian.VaultFile, error) {
 	if rerr != nil {
 		return obsidian.VaultFile{}, fmt.Errorf("read vault file: %w", rerr)
 	}
-	// browser 用 webkitRelativePath 当 filename 传过来；剥可能的 vault-name
-	// 前缀让 path 从 vault root 算起（owner 选 my-vault/notes/x.md，filename
-	// = "my-vault/notes/x.md"，我们要 "notes/x.md"）。
-	rel := normalizeVaultRel(fh.Filename)
-	return obsidian.VaultFile{RelPath: rel, Body: body}, nil
+	// field 名携带完整 rel;剥可能的 vault-name 前缀让 path 从 vault root 算起(genre 前缀保留)。
+	return obsidian.VaultFile{RelPath: normalizeVaultRel(field), Body: body}, nil
 }
 
 func closeBestEffort(c io.Closer) {
@@ -165,9 +192,12 @@ func closeBestEffort(c io.Closer) {
 	}
 }
 
+// normalizeVaultRel —— webkitRelativePath 首段若是 vault 文件夹名(非 genre)则剥掉,让 path 从
+// vault root 算起(owner 选 my-vault/,filename = "my-vault/wiki/x.md" → "wiki/x.md")。首段本身就是
+// genre(wiki/…,如直接上传或测试)则原样保留 —— 否则 genre 会被误当 vault 名剥掉。
 func normalizeVaultRel(name string) string {
 	parts := strings.SplitN(name, "/", 2)
-	if len(parts) == 2 {
+	if len(parts) == 2 && !obsidian.IsVaultTopFolder(parts[0]) {
 		return parts[1]
 	}
 	return name

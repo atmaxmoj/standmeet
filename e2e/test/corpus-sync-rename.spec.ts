@@ -4,7 +4,7 @@
 // (obsidian-sync 只测了同 path 重导的 update 分支)。而现实(import.go:12)：idempotency 是
 // **source_path OR slug**(不是 todo #24 说的 "source_path only" —— 那条 stale)。所以带稳定 slug 的
 // rename → 按 **slug** 匹配上原笔记 → **更新**(source_path 刷成新的)，不孤儿、不重复。结构迁移要统一
-// 各 estate 的 sync identity / 可能加「稳定 identity key」—— 这条钉住当前的 slug-based 匹配行为，
+// 各 genre 的 sync identity / 可能加「稳定 identity key」—— 这条钉住当前的 slug-based 匹配行为，
 // migration 的任何改动必须是**故意**的。
 
 import { test, expect } from '@/fixtures/test';

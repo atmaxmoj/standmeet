@@ -2,7 +2,7 @@
 //
 // writing 是三个可检索 genre 里**唯一从没进过 corpus_search/read 的**（它只在 crosslinks UI 测过）。
 // #157 的 lister 覆盖 wiki/output/writing 三 genre + ACL 进 query，但 writing 那条路径零守卫。结构
-// 迁移把 writing 迁进统一基座、estate 进 ACL query —— writing 的检索 + `writing://` glob 门必须继续对。
+// 迁移把 writing 迁进统一基座、genre 进 ACL query —— writing 的检索 + `writing://` glob 门必须继续对。
 // 这条钉住：授 writing://** → 访客能检索到 writing；只授 wiki:// → 同一条 writing 被 ACL 拒。
 
 import { test, expect } from '@/fixtures/test';

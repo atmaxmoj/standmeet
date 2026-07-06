@@ -75,6 +75,32 @@ ORDER BY created_at DESC;
 -- 解析用（wiki body 里 [[Output Title]] 也要解析得到边）。全量、无 cap —— 漏一条就是断链。
 SELECT id, title, genre FROM corpus_notes WHERE owner_id = $1;
 
+-- name: GetNoteByTitleAnyGenre :one
+-- Vault-sync reconcile identity: the vault basename (== title) is unique per owner (check-links.sh
+-- resolves [[x]] by basename vault-wide, so basenames must be unique). Match cross-genre so a
+-- genre-move (wiki/x.md → subjectivity/x.md) updates the same row in place. Oldest-first is stable
+-- across re-syncs; the rare name-clash precedence (folder-note wins) is resolved in the pipeline.
+SELECT * FROM corpus_notes
+WHERE owner_id = $1 AND title = $2
+ORDER BY created_at ASC
+LIMIT 1;
+
+-- name: CreateNoteSync :one
+-- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
+INSERT INTO corpus_notes
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+RETURNING *;
+
+-- name: UpdateNoteSync :one
+-- Vault sync update (reconcile): relocate (genre/parent may change on a move), refresh body/tags/publish,
+-- re-stamp the obsidian identity. Never touches rows absent from the batch (caller upserts per file).
+UPDATE corpus_notes
+SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
+    obsidian_source_path = $8, obsidian_imported_at = now(), updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
+
 -- name: SearchNotes :many
 -- 全量关键词搜（DB 端 full-text）；返 meta + snippet（不返完整 body），翻页。自然语言问句按 OR
 -- 命中任一词项（' & '→' | '，防 "tell"/"me" 噪声词把 plainto 默认 AND 卡死）；ts_rank 关联度排序。

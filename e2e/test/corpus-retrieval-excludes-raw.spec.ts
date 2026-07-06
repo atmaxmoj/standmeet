@@ -2,7 +2,7 @@
 //
 // raw 从不进访客检索 —— 今天只有 iam-role-raw-deny 从 **LLM 引用**路径证明(cites==0)。缺一个
 // 直接对 lister(corpus_search)的断言:即使 role **贪婪地**把 raw://** 也授上,corpus_search 也
-// 不返回 raw。结构迁移后 raw 留独立 inbox 表、estate 维度进 query —— 若 estate 过滤漏了,raw 可能
+// 不返回 raw。结构迁移后 raw 留独立 inbox 表、genre 维度进 query —— 若 genre 过滤漏了,raw 可能
 // 意外被扫进检索。这条钉住 lister 层的 raw 排除(独立于 LLM 路径)。
 
 import { test, expect } from '@/fixtures/test';

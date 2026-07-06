@@ -192,6 +192,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Writings: deps.Admin.Writings.Writings,
 			Assets:   deps.Admin.Assets.Repo,
 			Storage:  deps.Admin.Assets.Storage,
+			Corpus:   deps.Admin.Corpus, // sync face: VaultSync + Raw + WikiRefs 都在这
 			WritingsTx: usecases.WritingsTxDeps{
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,

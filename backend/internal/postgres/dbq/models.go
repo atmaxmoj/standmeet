@@ -142,19 +142,21 @@ type ConversationGhost struct {
 }
 
 type CorpusNote struct {
-	ID           pgtype.UUID
-	OwnerID      pgtype.UUID
-	Genre        string
-	ParentID     pgtype.UUID
-	Title        string
-	Body         string
-	Tags         []string
-	SourceIds    []pgtype.UUID
-	ShowAsSource bool
-	Excerpt      string
-	Published    bool
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	Genre              string
+	ParentID           pgtype.UUID
+	Title              string
+	Body               string
+	Tags               []string
+	SourceIds          []pgtype.UUID
+	ShowAsSource       bool
+	Excerpt            string
+	Published          bool
+	ObsidianSourcePath string
+	ObsidianImportedAt pgtype.Timestamptz
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 }
 
 type CustomPage struct {

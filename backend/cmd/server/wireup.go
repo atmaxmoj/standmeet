@@ -80,7 +80,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Keypairs: keypairDeps(d),
 		Corpus: usecases.CorpusDeps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
-			Subjectivity: d.subjectivityRepo,
+			Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
 		},
 		Conversations: usecases.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,

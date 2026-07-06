@@ -20,6 +20,7 @@ type CorpusDeps struct {
 	Output       *postgres.OutputRepo
 	WikiRefs     *postgres.WikiRefRepo
 	Subjectivity *postgres.NoteRepo
+	VaultSync    *postgres.VaultSyncRepo // Obsidian vault sync: 跨-genre reconcile(仅 admin 侧装配)
 }
 
 // RawDumpInput 是 raw_dump 入参。

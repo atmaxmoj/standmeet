@@ -120,11 +120,17 @@ CREATE TABLE corpus_notes (
     show_as_source   bool          NOT NULL DEFAULT true,
     excerpt          text          NOT NULL DEFAULT '',
     published        bool          NOT NULL DEFAULT false,
+    -- Obsidian vault sync 元数据(镜像 writings)。source_path = 来自的 vault 内相对路径
+    -- (wiki/x.md);imported_at = 那次 sync 的时刻。reconcile 靠 source_path 认同一条,
+    -- web-wins 靠 updated_at > imported_at 判断(owner 在 web 改过 → sync 不覆盖)。
+    obsidian_source_path  text      NOT NULL DEFAULT '',
+    obsidian_imported_at  timestamptz NULL,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
 CREATE INDEX corpus_notes_owner_genre_idx ON corpus_notes(owner_id, genre);
 CREATE INDEX corpus_notes_parent_idx ON corpus_notes(parent_id);
+CREATE INDEX corpus_notes_source_path_idx ON corpus_notes(owner_id, obsidian_source_path);
 
 -- wiki_refs —— wiki 内 `[[Title]]` 双链边表。src/dst 现指向 corpus_notes（genre='wiki'）。
 -- body 里 owner 写 `[[X]]`，PromoteToWiki / UpdateWiki 同事务 resolve X 到目标 note.id（wiki 无

@@ -28,10 +28,12 @@ export async function uploadVault(
   files: VaultFile[],
 ): Promise<{ created: number; updated: number; skipped: number; errors: string[] }> {
   const { csrf } = await loginAPI(request, owner.email, owner.password);
+  // vault 内相对路径放进 form field 名(= f.rel):Go multipart 会 filepath.Base 掉 filename 的目录,
+  // 路径只能靠 field 名传;跟真实前端(use-obsidian.ts fd.append(rel, f, rel))一致。
   const multipart: Record<string, { name: string; mimeType: string; buffer: Buffer }> = {};
-  files.forEach((f, i) => {
-    multipart['file:' + String(i)] = {
-      name: f.rel,
+  files.forEach((f) => {
+    multipart[f.rel] = {
+      name: f.rel.split('/').pop() ?? f.rel,
       mimeType: f.rel.endsWith('.md') ? 'text/markdown' : 'application/octet-stream',
       buffer: Buffer.from(f.body),
     };

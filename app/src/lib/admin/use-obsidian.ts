@@ -46,9 +46,10 @@ export async function uploadVault(files: FileList): Promise<ImportResult> {
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     if (!f) continue;
-    // 用 webkitRelativePath 作为 filename，server 那侧能恢复 vault 内目录结构。
+    // vault 内相对路径放进 form field 名(server 从 field 名恢复目录):Go multipart 会 filepath.Base
+    // 掉 filename 的目录(防穿越),路径存不下,只能靠 field 名传。
     const rel = relPathOf(f);
-    fd.append('file:' + String(i), f, rel);
+    fd.append(rel, f, rel);
   }
   const headers: Record<string, string> = {};
   const csrf = readCSRFCookie();
