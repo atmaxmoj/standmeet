@@ -42,7 +42,7 @@ type runtimeDeps struct {
 	wikiRepo           *postgres.WikiRepo
 	subjectivityRepo   *postgres.NoteRepo
 	vaultSyncRepo      *postgres.VaultSyncRepo
-	wikiRefRepo        *postgres.WikiRefRepo
+	noteRefRepo        *postgres.NoteRefRepo
 	outputRepo         *postgres.OutputRepo
 	growthRepo         *postgres.GrowthRepo
 	activityRepo       *postgres.ActivityRepo

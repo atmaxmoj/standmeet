@@ -18,7 +18,7 @@ type CorpusDeps struct {
 	Raw          *postgres.RawRepo
 	Wiki         *postgres.WikiRepo
 	Output       *postgres.OutputRepo
-	WikiRefs     *postgres.WikiRefRepo
+	NoteRefs     *postgres.NoteRefRepo
 	Subjectivity *postgres.NoteRepo
 	VaultSync    *postgres.VaultSyncRepo // Obsidian vault sync: 跨-genre reconcile(仅 admin 侧装配)
 }

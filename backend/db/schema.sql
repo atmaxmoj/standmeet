@@ -143,20 +143,20 @@ CREATE INDEX corpus_notes_owner_genre_idx ON corpus_notes(owner_id, genre);
 CREATE INDEX corpus_notes_parent_idx ON corpus_notes(parent_id);
 CREATE INDEX corpus_notes_source_path_idx ON corpus_notes(owner_id, obsidian_source_path);
 
--- wiki_refs —— wiki 内 `[[Title]]` 双链边表。src/dst 现指向 corpus_notes（genre='wiki'）。
+-- note_refs —— corpus_notes 跨-genre `[[Title]]` 双链边表。src/dst 现指向 corpus_notes（genre='wiki'）。
 -- body 里 owner 写 `[[X]]`，PromoteToWiki / UpdateWiki 同事务 resolve X 到目标 note.id（wiki 无
 -- slug，只按 title case-insensitive；没中就不入边）。每次写走 "delete all where src → insert new"。
 -- 出度 = read-next（引用了哪些）；入度（按 dst）= cited-by backlinks。FK cascade：note 删 → 边消。
 -- （note_refs 的跨-genre 归一在后续 refs 统一阶段；本阶段仅把 FK 重指到统一表。）
-CREATE TABLE wiki_refs (
-    src_wiki_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
-    dst_wiki_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
+CREATE TABLE note_refs (
+    src_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
+    dst_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
     owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     created_at   timestamptz   NOT NULL DEFAULT now(),
-    PRIMARY KEY (src_wiki_id, dst_wiki_id)
+    PRIMARY KEY (src_id, dst_id)
 );
-CREATE INDEX wiki_refs_dst_idx ON wiki_refs(dst_wiki_id);
-CREATE INDEX wiki_refs_owner_dst_idx ON wiki_refs(owner_id, dst_wiki_id);
+CREATE INDEX note_refs_dst_idx ON note_refs(dst_id);
+CREATE INDEX note_refs_owner_dst_idx ON note_refs(owner_id, dst_id);
 
 CREATE TABLE media_assets (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -276,6 +276,13 @@ type Message struct {
 	CreatedAt      pgtype.Timestamptz
 }
 
+type NoteRef struct {
+	SrcID     pgtype.UUID
+	DstID     pgtype.UUID
+	OwnerID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
 type Owner struct {
 	ID                pgtype.UUID
 	Email             string
@@ -471,13 +478,6 @@ type Skill struct {
 	Source       string
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
-}
-
-type WikiRef struct {
-	SrcWikiID pgtype.UUID
-	DstWikiID pgtype.UUID
-	OwnerID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
 }
 
 type Writing struct {

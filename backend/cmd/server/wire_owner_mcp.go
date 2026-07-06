@@ -11,7 +11,7 @@ import (
 
 func registerOwnerMCPHandlers(d *runtimeDeps) {
 	corpusDeps := usecases.CorpusDeps{
-		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
+		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
 		Subjectivity: d.subjectivityRepo,
 	}
 	convsDeps := usecases.ConversationsDeps{

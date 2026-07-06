@@ -137,8 +137,8 @@ type noteRefsView struct {
 // noteRefViews —— 取一条 note 的 outbound/backlinks 边（任一 genre、含未发布）。best-effort：出错
 // 记日志、返空（详情主体仍可用）。
 func (h *Handlers) noteRefViews(ctx context.Context, ownerID, id string) noteRefsView {
-	outbound, oerr := h.Corpus.Corpus.WikiRefs.AdminOutboundFor(ctx, ownerID, id)
-	backlinks, berr := h.Corpus.Corpus.WikiRefs.AdminBacklinksFor(ctx, ownerID, id)
+	outbound, oerr := h.Corpus.Corpus.NoteRefs.AdminOutboundFor(ctx, ownerID, id)
+	backlinks, berr := h.Corpus.Corpus.NoteRefs.AdminBacklinksFor(ctx, ownerID, id)
 	if oerr != nil || berr != nil {
 		h.Log.Error("admin note refs", "err", errors.Join(oerr, berr))
 	}
@@ -147,7 +147,7 @@ func (h *Handlers) noteRefViews(ctx context.Context, ownerID, id string) noteRef
 	}
 }
 
-func noteRefsToViews(refs []postgres.WikiRef) []refView {
+func noteRefsToViews(refs []postgres.NoteRef) []refView {
 	out := make([]refView, 0, len(refs))
 	for i := range refs {
 		out = append(out, refView{ID: refs[i].ID, Title: refs[i].Title})

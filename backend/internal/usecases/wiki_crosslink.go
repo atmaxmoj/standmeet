@@ -101,19 +101,19 @@ func RebuildNoteRefs(
 	}
 	// 全量(无 cap):[[X]] 可指向语料里任一 genre 的任一条,deep target 也要解析得到边,否则
 	// backlink/related 静默漏。
-	titles, err := deps.WikiRefs.OwnerNoteTitles(ctx, ownerID)
+	titles, err := deps.NoteRefs.OwnerNoteTitles(ctx, ownerID)
 	if err != nil {
 		return fmt.Errorf("list notes for crosslink: %w", err)
 	}
 	dstIDs := resolveNoteDstIDs(body, titles, srcID)
-	if rerr := deps.WikiRefs.ReplaceRefsBySrc(ctx, srcID, ownerID, dstIDs); rerr != nil {
+	if rerr := deps.NoteRefs.ReplaceRefsBySrc(ctx, srcID, ownerID, dstIDs); rerr != nil {
 		return fmt.Errorf("rebuild note refs: %w", rerr)
 	}
 	return nil
 }
 
 func clearNoteRefs(ctx context.Context, deps CorpusDeps, ownerID, srcID string) error {
-	if err := deps.WikiRefs.ReplaceRefsBySrc(ctx, srcID, ownerID, []string{}); err != nil {
+	if err := deps.NoteRefs.ReplaceRefsBySrc(ctx, srcID, ownerID, []string{}); err != nil {
 		return fmt.Errorf("clear note refs: %w", err)
 	}
 	return nil

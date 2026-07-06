@@ -19,7 +19,7 @@ type SEODeps struct {
 	SEO      *postgres.SEORepo
 	Wiki     *postgres.WikiRepo
 	Output   *postgres.OutputRepo
-	WikiRefs *postgres.WikiRefRepo
+	NoteRefs *postgres.NoteRefRepo
 }
 
 // FirstOwner —— 取首位 owner 给 robots / sitemap 用；空 / err 都返 (Owner{}, false)。
@@ -135,11 +135,11 @@ func indexedWikiIDAtPath(
 func loadWikiRefSides(
 	ctx context.Context, deps SEODeps, ownerID, wikiID string, paths map[string]string,
 ) (wikiRefSides, error) {
-	out, oerr := deps.WikiRefs.OutboundFor(ctx, wikiID)
+	out, oerr := deps.NoteRefs.OutboundFor(ctx, wikiID)
 	if oerr != nil {
 		return wikiRefSides{}, fmt.Errorf("wiki outbound: %w", oerr)
 	}
-	back, berr := deps.WikiRefs.BacklinksFor(ctx, ownerID, wikiID)
+	back, berr := deps.NoteRefs.BacklinksFor(ctx, ownerID, wikiID)
 	if berr != nil {
 		return wikiRefSides{}, fmt.Errorf("wiki backlinks: %w", berr)
 	}
@@ -149,7 +149,7 @@ func loadWikiRefSides(
 	}, nil
 }
 
-func wikiRefsToPathTitle(refs []postgres.WikiRef, paths map[string]string) []WikiPathTitle {
+func wikiRefsToPathTitle(refs []postgres.NoteRef, paths map[string]string) []WikiPathTitle {
 	out := make([]WikiPathTitle, 0, len(refs))
 	for i := range refs {
 		out = append(out, WikiPathTitle{Title: refs[i].Title, Path: paths[refs[i].ID]})

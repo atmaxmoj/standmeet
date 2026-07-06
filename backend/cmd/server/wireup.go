@@ -79,7 +79,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Login:    usecases.LoginDeps{Owners: d.ownerRepo, Sessions: d.sessionStore},
 		Keypairs: keypairDeps(d),
 		Corpus: usecases.CorpusDeps{
-			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
+			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
 			Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
 		},
 		Conversations: usecases.ConversationsDeps{
@@ -274,7 +274,7 @@ func buildPublicSEODeps(d *runtimeDeps) publicroutes.SEOHandlers {
 		Deps: usecases.SEODeps{
 			Owners: d.ownerRepo, SEO: d.seoRepo,
 			Wiki: d.wikiRepo, Output: d.outputRepo,
-			WikiRefs: d.wikiRefRepo,
+			NoteRefs: d.noteRefRepo,
 		},
 		Sessions: d.visitorStore,
 		Log:      d.log,
@@ -310,7 +310,7 @@ func buildMCPDeps(d *runtimeDeps) mcphandle.Deps {
 		Keypairs:    keypairDeps(d),
 		Owners:      d.ownerRepo,
 		Corpus: usecases.CorpusDeps{
-			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, WikiRefs: d.wikiRefRepo,
+			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
 			Subjectivity: d.subjectivityRepo,
 		},
 		SEO:         d.seoRepo,
