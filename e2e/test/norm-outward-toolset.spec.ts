@@ -13,7 +13,7 @@
 // backtick 原始串里误用了 Go 字符串拼接 `"+`)。Go 侧有 schema_valid_test 兜底,这条在
 // e2e 把"真客户端能发现完整工具面"钉死。
 //
-// golden = 全部 owner_only 工具(内建 47 + jobs 插件 10 = 57)。加/删 owner 工具时这条
+// golden = 全部 owner_only 工具(内建 49 + jobs 插件 10 = 59)。加/删 owner 工具时这条
 // 会红 —— 那是**有意**的:逼你同步更新工具面预期。
 
 import { test, expect } from '@/fixtures/test';
@@ -27,14 +27,15 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN —— tools/list 必须逐字返回这 56 个 owner 工具(排序后比,顺序噪声由 mcp-go
+// GOLDEN —— tools/list 必须逐字返回这 59 个 owner 工具(排序后比,顺序噪声由 mcp-go
 // 注册顺序决定、不在本条职责内)。
 const GOLDEN_TOOLSET: readonly string[] = [
   // me / seo / codes
   'me',
   'seo.set_output_seo', 'seo.set_wiki_seo', 'seo.update_settings',
   'codes.create', 'codes.revoke', 'codes.update_quotas',
-  // corpus raw / output / wiki
+  // corpus raw / output / wiki / subjectivity
+  'subjectivity_write',
   'raw_dump', 'list_recent_raw',
   'list_recent_output', 'update_output', 'delete_output',
   'promote_to_wiki', 'promote_wiki_to_output',
@@ -53,9 +54,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'custom_page.write_file', 'custom_page.build', 'custom_page.delete',
   'custom_page.promote_to_staging', 'custom_page.promote_to_live',
   'custom_page.rollback',
-  // page / calendar
+  // page / calendar / appearance
   'page.update_handle',
   'calendar.list_slots', 'calendar.cancel_booking',
+  'set_owner_css',
   // jobs plugin (jobs / resume / applications)
   'jobs.register_source', 'jobs.list_sources', 'jobs.unregister_source',
   'jobs.fetch_new', 'jobs.show', 'jobs.discard',

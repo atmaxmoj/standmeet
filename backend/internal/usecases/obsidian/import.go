@@ -72,9 +72,10 @@ type processArgs struct {
 }
 
 // MetaSetter —— SaveWriting 之后标记这行是从 vault 来的。
-// 实现：postgres.WritingRepo.{GetByObsidianSourcePath, SetObsidianMeta}。
+// 实现：postgres.WritingRepo.{GetByObsidianSourcePath, GetBySlug, SetObsidianMeta}。
 type MetaSetter interface {
 	GetByObsidianSourcePath(ctx context.Context, ownerID, sourcePath string) (domain.Writing, error)
+	GetBySlug(ctx context.Context, ownerID, slug string) (domain.Writing, error)
 	SetObsidianMeta(ctx context.Context, ownerID, writingID, sourcePath string) error
 }
 
@@ -174,7 +175,7 @@ type upsertArgs struct {
 }
 
 func upsertFromVault(ctx context.Context, a *upsertArgs) (upsertOutcome, error) {
-	existing, found := lookupExistingWriting(ctx, a.Setter, a.OwnerID, a.SourcePath)
+	existing, found := findWriting(ctx, a)
 	outcome := outcomeUpdated
 	if !found {
 		outcome = outcomeCreated
@@ -208,6 +209,28 @@ func lookupExistingWriting(
 		if errors.Is(err, domain.ErrWritingNotFound) {
 			return domain.Writing{}, false
 		}
+		return domain.Writing{}, false
+	}
+	return w, true
+}
+
+// findWriting —— 先按 source_path 认领;认不到再按 slug(move/rename → source_path 变但 slug 稳)。
+func findWriting(ctx context.Context, a *upsertArgs) (domain.Writing, bool) {
+	if w, found := lookupExistingWriting(ctx, a.Setter, a.OwnerID, a.SourcePath); found {
+		return w, true
+	}
+	return lookupWritingBySlug(ctx, a.Setter, a.OwnerID, pickSlug(a.Parsed.fm.Slug, a.SourcePath))
+}
+
+// lookupWritingBySlug —— source_path 没认到时按 slug 认(move/rename 的稳定身份)。
+func lookupWritingBySlug(
+	ctx context.Context, setter MetaSetter, ownerID, slug string,
+) (domain.Writing, bool) {
+	if slug == "" {
+		return domain.Writing{}, false
+	}
+	w, err := setter.GetBySlug(ctx, ownerID, slug)
+	if err != nil {
 		return domain.Writing{}, false
 	}
 	return w, true

@@ -41,13 +41,13 @@ test.describe('obsidian sync: moving a note (new source_path, stable slug) updat
 
         // 1) initial import at notes/.
         const first = await uploadVault(request, OWNER, [
-          { rel: 'notes/stable-note.md', body: md('original body') },
+          { rel: 'writing/stable-note.md', body: md('original body') },
         ]);
         expect(first.created, 'first import creates the note').toBe(1);
 
         // 2) the note is MOVED in the vault (new source_path) but keeps its frontmatter slug.
         const moved = await uploadVault(request, OWNER, [
-          { rel: 'archive/stable-note.md', body: md('body after the move') },
+          { rel: 'writing/archive/stable-note.md', body: md('body after the move') },
         ]);
         expect(moved.created, 'a moved note is not created afresh').toBe(0);
         expect(moved.updated, 'a moved note is matched by slug and updated').toBe(1);

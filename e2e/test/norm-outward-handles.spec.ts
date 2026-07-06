@@ -28,6 +28,8 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'corpus.raw.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'corpus.output.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'corpus.mutations.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'corpus.subjectivity.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'appearance.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'chat.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'prompts.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'roles.bundle', shape: 'owner_only', origin: 'builtin' },
