@@ -19,7 +19,7 @@ import remarkMath from 'remark-math';
 
 import { remarkCallouts } from '@/components/page/markdown-callouts';
 import {
-  escapeCurrencyDollars, isMermaidCode, isTikzCode, mermaidSource,
+  escapeCurrencyDollars, mermaidSource,
 } from '@/components/page/markdown-helpers';
 import styles from '@/components/page/ChatMarkdown.module.css';
 
@@ -34,6 +34,21 @@ const TikZBlock = lazy(async () => {
   const mod = await import('@/components/page/TikZBlock');
   return { default: mod.TikZBlock };
 });
+
+// standmeet-widget:沙箱 iframe;client-only mount(seo:false),lazy。
+const WidgetBlock = lazy(async () => {
+  const mod = await import('@/components/page/WidgetBlock');
+  return { default: mod.WidgetBlock };
+});
+
+// BLOCK_RENDERERS —— fenced lang → 特殊渲染块。查表避免多分支(cyclomatic)。
+const BLOCK_RENDERERS: Record<string, (source: string) => React.ReactElement> = {
+  mermaid: (source) => <LazyBlock kind="mermaid" source={source}><MermaidBlock source={source} /></LazyBlock>,
+  tikz: (source) => <LazyBlock kind="tikz" source={source}><TikZBlock source={source} /></LazyBlock>,
+  'standmeet-widget': (source) => (
+    <LazyBlock kind="widget" source={source}><WidgetBlock source={source} /></LazyBlock>
+  ),
+};
 
 // schema —— defaultSchema + 允许 className (KaTeX 注的 .katex / .katex-display)。
 const SAFE_SCHEMA: typeof defaultSchema = {
@@ -56,13 +71,10 @@ function MarkdownCode(props: CodeProps): React.ReactElement {
     ?? <code className={className}>{props.children}</code>;
 }
 
-// renderCodeBlock —— fenced 代码块的特殊渲染(mermaid / tikz),否则 null 回退普通 code。
+// renderCodeBlock —— fenced 代码块的特殊渲染(mermaid / tikz / widget),否则 null 回退普通 code。
 function renderCodeBlock(className: string, source: string): React.ReactElement | null {
-  return isMermaidCode(className)
-    ? <LazyBlock kind="mermaid" source={source}><MermaidBlock source={source} /></LazyBlock>
-    : isTikzCode(className)
-      ? <LazyBlock kind="tikz" source={source}><TikZBlock source={source} /></LazyBlock>
-      : null;
+  const renderer = BLOCK_RENDERERS[className.replace(/^language-/, '')];
+  return renderer ? renderer(source) : null;
 }
 
 // LazyBlock —— Suspense + loading fallback 包一个 lazy 渲染块(mermaid / tikz 共用)。

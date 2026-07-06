@@ -6,11 +6,6 @@ export function isMermaidCode(className: string): boolean {
   return className.replace(/^language-/, '') === 'mermaid';
 }
 
-// isTikzCode —— ` ```tikz ` 块(TikZJax 精确数学图,server 端 node-tikzjax 渲）。
-export function isTikzCode(className: string): boolean {
-  return className.replace(/^language-/, '') === 'tikz';
-}
-
 // escapeCurrencyDollars —— 把"货币 $"(后面直接跟数字的 $)转义成 \$,免得 remark-math
 // 把一句话里两个金额之间的文字当行内公式吃掉(#36/#40:"$100 ... $200")。`$E=mc^2$`
 // (后跟字母)和 `$$…$$`(display)不动,真行内/块数学照常渲。chat + writing 文章
