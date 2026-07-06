@@ -208,3 +208,43 @@ func (q *Queries) UpdateRawBody(ctx context.Context, arg UpdateRawBodyParams) (R
 	)
 	return i, err
 }
+
+const upsertRawFromVault = `-- name: UpsertRawFromVault :one
+INSERT INTO raw_entries (owner_id, body, source, source_meta, tags, flagged_private)
+VALUES ($1, $2, $3, '{}'::jsonb, $4, false)
+ON CONFLICT (owner_id, source) WHERE source LIKE 'obsidian:%'
+DO UPDATE SET body = EXCLUDED.body, tags = EXCLUDED.tags
+RETURNING id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at
+`
+
+type UpsertRawFromVaultParams struct {
+	OwnerID pgtype.UUID
+	Body    string
+	Source  string
+	Tags    []string
+}
+
+// vault sync 幂等:同一 obsidian source 重传 → upsert(更新 body/tags),不 append 成重复行。
+// 靠 raw_entries_obsidian_source_uniq (partial: source LIKE 'obsidian:%') 做 conflict 推断。
+func (q *Queries) UpsertRawFromVault(ctx context.Context, arg UpsertRawFromVaultParams) (RawEntry, error) {
+	row := q.db.QueryRow(ctx, upsertRawFromVault,
+		arg.OwnerID,
+		arg.Body,
+		arg.Source,
+		arg.Tags,
+	)
+	var i RawEntry
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Body,
+		&i.Source,
+		&i.SourceMeta,
+		&i.Tags,
+		&i.FlaggedPrivate,
+		&i.PromotedTo,
+		&i.Archived,
+		&i.CreatedAt,
+	)
+	return i, err
+}

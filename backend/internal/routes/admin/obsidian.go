@@ -57,7 +57,7 @@ type rawSyncAdapter struct{ raw *postgres.RawRepo }
 func (a rawSyncAdapter) UpsertFromVault(
 	ctx context.Context, ownerID, sourcePath, body string, tags []string,
 ) error {
-	if _, err := a.raw.Create(ctx, &postgres.CreateRawInput{
+	if _, err := a.raw.UpsertFromVault(ctx, &postgres.CreateRawInput{
 		OwnerID: ownerID, Body: body, Source: "obsidian:" + sourcePath, Tags: tags,
 	}); err != nil {
 		return fmt.Errorf("sync raw: %w", err)

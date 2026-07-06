@@ -58,6 +58,22 @@ func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (domain.Raw, e
 	return toDomainRaw(&row), nil
 }
 
+// UpsertFromVault —— vault sync 用:同一 obsidian source 重传 → upsert(更新 body/tags),不重复。
+// 靠 partial unique index (source LIKE 'obsidian:%') 推断 conflict。caller 保证 Source 带 obsidian: 前缀。
+func (r *RawRepo) UpsertFromVault(ctx context.Context, in *CreateRawInput) (domain.Raw, error) {
+	ownerUUID, err := parseUUID(in.OwnerID)
+	if err != nil {
+		return domain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	row, qerr := dbq.New(r.pool).UpsertRawFromVault(ctx, dbq.UpsertRawFromVaultParams{
+		OwnerID: ownerUUID, Body: in.Body, Source: in.Source, Tags: nilSafeTags(in.Tags),
+	})
+	if qerr != nil {
+		return domain.Raw{}, fmt.Errorf("upsert raw from vault: %w", qerr)
+	}
+	return toDomainRaw(&row), nil
+}
+
 // nilSafeTags —— postgres text[] NOT NULL 列拒 NULL；这里把 nil slice 转
 // 空 slice（pgx 序列化成 '{}'）。MCP caller 没传 tags 时不该爆。
 func nilSafeTags(s []string) []string {

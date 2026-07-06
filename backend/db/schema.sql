@@ -102,6 +102,11 @@ CREATE TABLE raw_entries (
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
+-- vault sync 幂等:同一 owner 的同一 obsidian source 只保留一行(重传 → upsert,不 append)。
+-- partial —— 只约束 vault 来源(source LIKE 'obsidian:%');'mcp'(raw_dump)可多行同 source。
+CREATE UNIQUE INDEX raw_entries_obsidian_source_uniq
+  ON raw_entries (owner_id, source) WHERE source LIKE 'obsidian:%';
+
 -- corpus_notes —— 统一的 vault note 基座。一张表容纳所有「笔记类」genre。今天迁入 wiki + output
 -- （二者结构本 95% 相同）；writing / subjectivity 后续阶段同表迁入。raw **不**在此（未整理的
 -- 摄入 inbox，独立表，性质不同）。

@@ -6,6 +6,15 @@ INSERT INTO raw_entries (owner_id, body, source, source_meta, tags, flagged_priv
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
+-- name: UpsertRawFromVault :one
+-- vault sync 幂等:同一 obsidian source 重传 → upsert(更新 body/tags),不 append 成重复行。
+-- 靠 raw_entries_obsidian_source_uniq (partial: source LIKE 'obsidian:%') 做 conflict 推断。
+INSERT INTO raw_entries (owner_id, body, source, source_meta, tags, flagged_private)
+VALUES ($1, $2, $3, '{}'::jsonb, $4, false)
+ON CONFLICT (owner_id, source) WHERE source LIKE 'obsidian:%'
+DO UPDATE SET body = EXCLUDED.body, tags = EXCLUDED.tags
+RETURNING *;
+
 -- name: ListRawByOwner :many
 SELECT * FROM raw_entries
 WHERE owner_id = $1 AND archived = false

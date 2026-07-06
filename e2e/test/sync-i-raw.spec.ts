@@ -28,10 +28,23 @@ test.describe('sync I · raw inbox', () => {
   test('corner: raw is exempt from the frontmatter schema (weird fm ok)', rawSchemaExempt);
   test('corner: raw is not publish-gated (inbox is private, always synced)', rawNotPublishGated);
   test('corner: nested raw/a/b.md syncs without crash (grading is #151)', rawNestedTolerated);
+  test('idempotent: re-uploading the same raw/x.md updates, does not duplicate', rawResyncIdempotent);
   // ── error / tolerance ──
   test('error: raw [[forward-link]] to a nonexistent note is tolerated (no link check)', rawForwardLinkOk);
   test('error: raw with no frontmatter at all still syncs', rawNoFrontmatter);
 });
+
+// raw re-sync 幂等:同一 source_path 再传 → upsert(1 行、body 更新),不 append 成重复。
+async function rawResyncIdempotent({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  await uploadVault(request, OWNER, [{ rel: 'raw/dedup.md', body: makeVaultMD({}, 'RAWDEDUPKW v1') }]);
+  await uploadVault(request, OWNER, [{ rel: 'raw/dedup.md', body: makeVaultMD({}, 'RAWDEDUPKW v2') }]);
+  const rows = (await adminGenreList(request, OWNER, 'raw'))
+    .filter((n) => (n.body ?? '').includes('RAWDEDUPKW'));
+  expect(rows.length, 'same source_path → single raw row (upsert, not append)').toBe(1);
+  expect(rows[0]?.body, 'body updated to v2').toContain('v2');
+  await request.dispose();
+}
 
 async function rawBodies(request: APIRequestContext): Promise<string[]> {
   return (await adminGenreList(request, OWNER, 'raw')).map((n) => n.body ?? '');
