@@ -31,13 +31,13 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 - ⬜ **Callout `> [!theorem]`**:markdown pipeline(`app/src/components/page/markdown.tsx`)加 remark/rehype transform,DOM 对齐 Obsidian(`class="callout" data-callout="…"`)。
 - ⬜ **TikZ 精确数学图**:Mermaid 只画拓扑;候选 TikZJax(Obsidian 同引擎 → 两侧一致)。WASM payload 大,须 lazy。
 - ⬜ **`standmeet-widget` 沙箱 iframe 块**:动态内容走 fenced block → sandboxed iframe + **host 定义的 postMessage 边界(manifest + `render(data)`/`resize`/`requestCapability` schema)** + ACL + `seo:false`。**这是 MCP Apps `ui://` 的渲染版**(同一个 iframe+postMessage 模型,可复用)。
-- ⬜ **同步 owner 的 Obsidian CSS snippet**(2026-07 owner 决策,**改了原"never import CSS"设计**):把 `.obsidian/snippets/<enabled>.css` 同步进来当 StandMeet 页面 CSS,做到"两侧长得一模一样",不再手写对齐 CSS。**站得住是因为这份 CSS 是 owner 自己的、可信的**(非第三方)。三点:(a) vault-ingestion 的"点前缀全忽略"要给这一个文件开白名单例外;(b) **sanitize**——禁 `@import`/外部 `url()`(防外泄/打请求)、scope 到内容容器(防 `position:fixed` 盖 UI);(c) 归位到 1c。
+- ✅ **同步 owner 的 Obsidian CSS snippet**(2026-07 owner 决策,**改了原"never import CSS"设计**):`.obsidian/snippets/<enabled>.css` 同步进来当 StandMeet 页面 CSS,"两侧长得一模一样"。三点全落地:(a) vault-ingestion 给 `.obsidian/snippets/*.css` + `appearance.json` 开 harvest 白名单(不再"点前缀全忽略");(b) **sanitize**——剥 `@import`/外部+js `url()`/`expression()`/`-moz-binding`、scope 每条选择器到 `.corpus-content`;(c) 三面(vault-sync / admin PUT `/appearance/css` / MCP `set_owner_css`)写同一 `owners.custom_css`;**外加 per-note `cssclasses` frontmatter 呈现钩子**(三面写、corpus_read 返回)。owner-css-* / cssclasses-surfaces / sync-g-hidden 全绿。
 
 ### 1d · Obsidian 生态借力(不 host 插件,借它的 output/code/信号) ⬜
 **不能在 StandMeet 里跑 Obsidian 插件**(闭源 Electron host = 那道墙;连 Obsidian 自己的 Publish 都跑不了插件)。但生态的价值三条路进来:
 - **authoring helpers**(Templater/QuickAdd)→ 无需——它们只在写作时跑,留下的是 plain markdown,直接 ingest。
 - **rendering**(KaTeX/Mermaid/TikZ)→ **别用插件,直接用底层库**(见 1c)。
-- **Dataview 类(query)→ 原生做,而且更强**:corpus 本就是真 DB(Postgres)+ frontmatter + `wiki_refs`,可以跑 Dataview 式查询,比 Dataview-over-files 强。⬜ 值得建"corpus 查询"。
+- **Dataview 类(query)→ 原生做,而且更强**:corpus 本就是真 DB(Postgres)+ frontmatter + `wiki_refs`,可以跑 Dataview 式查询,比 Dataview-over-files 强。✅ **已建"corpus 查询"**:note body 里 ` ```standmeet-query ` fenced block(genre/tag/children-of/sort/limit DSL)在 corpus_read 时服务端解析成活的 `[[Title]]` 列表,ACL by construction(走 reader 自带的 grantedGlobs,owner-only genre 不泄漏)。query-render / query-acl / query-errors 全绿。
 - **真需要插件时 → owner 侧 export 预渲染**(Dataview Publisher / Digital Garden 那套,把动态烤成 static markdown),StandMeet ingest 烤好的结果。这也正是 Obsidian Publish 自己的解法(浏览器 app,只活 core 渲染 + `publish.css`)。
 - **Execute Code(Jupyter 式)**:owner 侧照跑;显示 code+output → 把 output 存进 note 再 ingest;**若要在服务页上 live 执行 → 复用 StandMeet 自己的硬化 sandbox**(`skill_run_script`/`internal/sandbox`:bwrap + `--network=none` + 白名单),别抄 Execute Code 的"本机无沙箱"模型(#5 isolation)。
 
