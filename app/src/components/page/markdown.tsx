@@ -41,12 +41,21 @@ const WidgetBlock = lazy(async () => {
   return { default: mod.WidgetBlock };
 });
 
+// standmeet-html:owner 预烤的静态 HTML(sanitize 后渲);sanitize-html 只在有此块时 lazy 加载。
+const StaticHtmlBlock = lazy(async () => {
+  const mod = await import('@/components/page/StaticHtmlBlock');
+  return { default: mod.StaticHtmlBlock };
+});
+
 // BLOCK_RENDERERS —— fenced lang → 特殊渲染块。查表避免多分支(cyclomatic)。
 const BLOCK_RENDERERS: Record<string, (source: string) => React.ReactElement> = {
   mermaid: (source) => <LazyBlock kind="mermaid" source={source}><MermaidBlock source={source} /></LazyBlock>,
   tikz: (source) => <LazyBlock kind="tikz" source={source}><TikZBlock source={source} /></LazyBlock>,
   'standmeet-widget': (source) => (
     <LazyBlock kind="widget" source={source}><WidgetBlock source={source} /></LazyBlock>
+  ),
+  'standmeet-html': (source) => (
+    <LazyBlock kind="static-html" source={source}><StaticHtmlBlock source={source} /></LazyBlock>
   ),
 };
 
