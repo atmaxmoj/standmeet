@@ -17,6 +17,13 @@ const WORKSPACE_ROOT = path.resolve(APP_DIR, '..');
 const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: WORKSPACE_ROOT,
+  // node-tikzjax(/render-tikz 用):(1) 保持 external 不被 Next 打进 route bundle —— 否则
+  // __dirname 变、它读的 ../tex/*.gz 找不着;(2) 显式 trace-include 那 3 个运行时 TeX 资产
+  // (core.dump.gz / tex.wasm.gz / tex_files.tar.gz 是 fs.read 的,不走 import,tracing 抓不到)。
+  serverExternalPackages: ['node-tikzjax'],
+  outputFileTracingIncludes: {
+    '/render-tikz': ['../node_modules/.pnpm/node-tikzjax@*/node_modules/node-tikzjax/tex/**'],
+  },
   // 把 data-testid="..." attribute 在 production release build 里全删 ——
   // dev 容器跑的也是 next build，但 e2e 依赖 testid 定位，所以默认不剥；
   // 真正发布给访客的 build 设 STRIP_TEST_HOOKS=1 触发 SWC compile-time strip。

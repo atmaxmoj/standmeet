@@ -19,7 +19,7 @@ import remarkMath from 'remark-math';
 
 import { remarkCallouts } from '@/components/page/markdown-callouts';
 import {
-  escapeCurrencyDollars, isMermaidCode, mermaidSource,
+  escapeCurrencyDollars, isMermaidCode, isTikzCode, mermaidSource,
 } from '@/components/page/markdown-helpers';
 import styles from '@/components/page/ChatMarkdown.module.css';
 
@@ -27,6 +27,12 @@ import styles from '@/components/page/ChatMarkdown.module.css';
 const MermaidBlock = lazy(async () => {
   const mod = await import('@/components/page/MermaidBlock');
   return { default: mod.MermaidBlock };
+});
+
+// TikZ:重 WASM 在服务端(node-tikzjax)；client 只 fetch SVG,组件本身轻,lazy 省首屏。
+const TikZBlock = lazy(async () => {
+  const mod = await import('@/components/page/TikZBlock');
+  return { default: mod.TikZBlock };
 });
 
 // schema —— defaultSchema + 允许 className (KaTeX 注的 .katex / .katex-display)。
@@ -46,12 +52,28 @@ interface CodeProps {
 
 function MarkdownCode(props: CodeProps): React.ReactElement {
   const className = props.className ?? '';
-  const source = mermaidSource(props.children);
-  return isMermaidCode(className) ? (
-    <Suspense fallback={<pre data-testid="mermaid-loading">{source}</pre>}>
-      <MermaidBlock source={source} />
+  return renderCodeBlock(className, mermaidSource(props.children))
+    ?? <code className={className}>{props.children}</code>;
+}
+
+// renderCodeBlock —— fenced 代码块的特殊渲染(mermaid / tikz),否则 null 回退普通 code。
+function renderCodeBlock(className: string, source: string): React.ReactElement | null {
+  return isMermaidCode(className)
+    ? <LazyBlock kind="mermaid" source={source}><MermaidBlock source={source} /></LazyBlock>
+    : isTikzCode(className)
+      ? <LazyBlock kind="tikz" source={source}><TikZBlock source={source} /></LazyBlock>
+      : null;
+}
+
+// LazyBlock —— Suspense + loading fallback 包一个 lazy 渲染块(mermaid / tikz 共用)。
+function LazyBlock(
+  { kind, source, children }: { kind: string; source: string; children: React.ReactNode },
+): React.ReactElement {
+  return (
+    <Suspense fallback={<pre data-testid={`${kind}-loading`}>{source}</pre>}>
+      {children}
     </Suspense>
-  ) : <code className={className}>{props.children}</code>;
+  );
 }
 
 // variant —— 'chat'(默认)是聊天答复的紧凑排版;'article' 给 wiki / writing
