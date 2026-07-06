@@ -123,6 +123,36 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 	return nil
 }
 
+// QueryNoteRow —— 原生查询命中的一条:leaf id + genre + root→leaf 的 path 段。
+type QueryNoteRow struct {
+	ID         string
+	Genre      string
+	PathTitles []string
+}
+
+// QueryNotes —— 按 genre/tag(空串 = 不筛)查 corp note,path 在 SQL 里沿 parent 链算好。
+func (r *VaultSyncRepo) QueryNotes(
+	ctx context.Context, ownerID, genre, tag string,
+) ([]QueryNoteRow, error) {
+	owner, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	rows, qerr := dbq.New(r.pool).QueryCorpusNotes(ctx, dbq.QueryCorpusNotesParams{
+		OwnerID: owner, Column2: genre, Column3: tag,
+	})
+	if qerr != nil {
+		return nil, fmt.Errorf("query corpus notes: %w", qerr)
+	}
+	out := make([]QueryNoteRow, 0, len(rows))
+	for i := range rows {
+		out = append(out, QueryNoteRow{
+			ID: formatUUID(rows[i].ID), Genre: rows[i].Genre, PathTitles: rows[i].PathTitles,
+		})
+	}
+	return out, nil
+}
+
 // ListAllForExport —— owner 所有 corp note(任一 genre),给 vault export 反向渲染成 .md。
 func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([]SyncNote, error) {
 	owner, err := parseUUID(ownerID)

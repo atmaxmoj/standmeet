@@ -178,7 +178,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireMailSenderSocket(ctx, d)
 	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
-		Subjectivity: d.subjectivityRepo,
+		Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
 	})
 	registerDiscoveredPlugins(d, depReg, map[string]usecases.CapHooks{
 		usecases.BookerSkillName: {

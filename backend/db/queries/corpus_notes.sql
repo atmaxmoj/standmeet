@@ -75,6 +75,23 @@ ORDER BY created_at DESC;
 -- 解析用（wiki body 里 [[Output Title]] 也要解析得到边）。全量、无 cap —— 漏一条就是断链。
 SELECT id, title, genre FROM corpus_notes WHERE owner_id = $1;
 
+-- name: QueryCorpusNotes :many
+-- 原生 standmeet-query 用:按 genre/tag 过滤(空串 = 不筛),并沿 parent 链在 SQL 里算出 path_titles
+-- (root→leaf),省掉逐条 N+1 的 path walk。只返 root-reached 行(每个匹配条一行,带完整 path)。
+WITH RECURSIVE up AS (
+  SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.id, n.parent_id,
+         ARRAY[n.title]::text[] AS path_titles
+  FROM corpus_notes n
+  WHERE n.owner_id = $1
+    AND ($2::text = '' OR n.genre = $2::text)
+    AND ($3::text = '' OR $3::text = ANY(n.tags))
+  UNION ALL
+  SELECT up.leaf_id, up.leaf_genre, p.id, p.parent_id, p.title || up.path_titles
+  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+)
+SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.path_titles
+FROM up WHERE up.parent_id IS NULL;
+
 -- name: ListAllNotesForExport :many
 -- Vault export: all corp notes(any genre) with body/tree/publish — 反向 render 成 vault .md。
 SELECT id, genre, parent_id, title, body, tags, published

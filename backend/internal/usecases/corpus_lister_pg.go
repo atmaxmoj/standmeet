@@ -31,6 +31,7 @@ type pgCorpusLister struct {
 	output       OutputLister
 	writing      WritingLister
 	subjectivity *postgres.NoteRepo
+	queryRepo    *postgres.VaultSyncRepo // 原生 standmeet-query 的跨-genre 过滤(QueryNotes)
 }
 
 // allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?

@@ -22,6 +22,7 @@ type RetrievalDeps struct {
 	Output       OutputLister
 	Writings     WritingLister
 	Subjectivity *postgres.NoteRepo
+	VaultSync    *postgres.VaultSyncRepo // 原生 standmeet-query 解析(跨-genre QueryNotes)
 }
 
 // RetrievalScopeVisible —— retrieval 的 fragment/enabled 闸：role snapshot 有任何 corpus

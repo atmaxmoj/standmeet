@@ -46,7 +46,7 @@ type corpusRunner func(context.Context, CorpusLister, *retrievalSockReq) (string
 func RegisterRetrievalSocket(srv *capsocket.Server, deps *RetrievalDeps) {
 	lister := &pgCorpusLister{
 		wiki: deps.Wiki, output: deps.Output, writing: deps.Writings,
-		subjectivity: deps.Subjectivity,
+		subjectivity: deps.Subjectivity, queryRepo: deps.VaultSync,
 	}
 	RegisterRetrievalSocketLister(srv, lister)
 }
@@ -102,7 +102,11 @@ func runCorpusRead(ctx context.Context, l CorpusLister, req *retrievalSockReq) (
 	if err != nil {
 		return corpusReadErrWire(err, args.Path)
 	}
-	return marshalReadResult(entry.ID, entry.Genre, entry.Body, entry.Path, entry.Title), nil
+	body := entry.Body
+	if qr, ok := l.(queryResolver); ok { // 服务端解析 standmeet-query 块(ACL-scoped)
+		body = ResolveQueryBlocks(ctx, qr, req.OwnerID, req.CorpusURIs, body)
+	}
+	return marshalReadResult(entry.ID, entry.Genre, body, entry.Path, entry.Title), nil
 }
 
 // corpusReadErrWire —— map Get's failure to the wire: denied/not-found are friendly tool

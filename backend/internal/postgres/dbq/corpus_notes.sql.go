@@ -493,6 +493,56 @@ func (q *Queries) ListNotesByOwner(ctx context.Context, arg ListNotesByOwnerPara
 	return items, nil
 }
 
+const queryCorpusNotes = `-- name: QueryCorpusNotes :many
+WITH RECURSIVE up AS (
+  SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.id, n.parent_id,
+         ARRAY[n.title]::text[] AS path_titles
+  FROM corpus_notes n
+  WHERE n.owner_id = $1
+    AND ($2::text = '' OR n.genre = $2::text)
+    AND ($3::text = '' OR $3::text = ANY(n.tags))
+  UNION ALL
+  SELECT up.leaf_id, up.leaf_genre, p.id, p.parent_id, p.title || up.path_titles
+  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+)
+SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.path_titles
+FROM up WHERE up.parent_id IS NULL
+`
+
+type QueryCorpusNotesParams struct {
+	OwnerID pgtype.UUID
+	Column2 string
+	Column3 string
+}
+
+type QueryCorpusNotesRow struct {
+	ID         pgtype.UUID
+	Genre      string
+	PathTitles []string
+}
+
+// 原生 standmeet-query 用:按 genre/tag 过滤(空串 = 不筛),并沿 parent 链在 SQL 里算出 path_titles
+// (root→leaf),省掉逐条 N+1 的 path walk。只返 root-reached 行(每个匹配条一行,带完整 path)。
+func (q *Queries) QueryCorpusNotes(ctx context.Context, arg QueryCorpusNotesParams) ([]QueryCorpusNotesRow, error) {
+	rows, err := q.db.Query(ctx, queryCorpusNotes, arg.OwnerID, arg.Column2, arg.Column3)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QueryCorpusNotesRow
+	for rows.Next() {
+		var i QueryCorpusNotesRow
+		if err := rows.Scan(&i.ID, &i.Genre, &i.PathTitles); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchNotes = `-- name: SearchNotes :many
 SELECT id, parent_id, title, published, left(body, 200) AS snippet
 FROM corpus_notes
