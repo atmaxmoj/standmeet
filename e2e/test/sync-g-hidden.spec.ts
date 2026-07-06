@@ -1,6 +1,8 @@
-// sync-g-hidden.spec.ts —— G. hidden / 非-note 跳过(目标态红)。
-// dotdir(.obsidian/.git/.githooks/.claude/.scripts)+ _templates/ 全跳;附件(非 .md)另作 media/跳;
-// hidden 目录里的 .md 也跳(hidden 目录优先)。
+// sync-g-hidden.spec.ts —— G. hidden 文件**两层**处理(目标态红)。
+// ① 噪音层 → 跳:`.git`/`.DS_Store`/`.trash`/`.claude`/`.scripts`/`_templates`/`.obsidian` 里的
+//    workspace/app.json/`.md`;附件(非 .md)另作 media。
+// ② 配置层 → **harvest(不跳)**:`.obsidian/snippets/*.css` + `appearance.json`(owner CSS)—— hidden
+//    里的 Obsidian 配置是一等公民,采集而非丢弃(owner-css-edit 里详测,这里钉住"不跳")。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -9,6 +11,7 @@ import { makeVaultMD, uploadVault, PNG_1X1 } from '@/fixtures/obsidian';
 import {
   claimSyncOwner, syncOwner, syncSession, syncRead, adminGenreList, type SyncOwner,
 } from '@/fixtures/vault-sync';
+import { adminGetCSS } from '@/fixtures/presentation';
 
 type Ctx = { playwright: Playwright };
 const OWNER: SyncOwner = syncOwner('g');
@@ -32,7 +35,23 @@ test.describe('sync G · hidden files / non-notes skipped', () => {
   test('error: a .md inside a hidden dir (.obsidian/x.md) is still skipped', mdInHiddenDir);
   test('error: .trash/ is skipped', trashSkipped);
   test('tolerance: a non-.md attachment (png) does not become a note', attachmentNotNote);
+  // ── harvest (config layer, NOT skipped) ──
+  test('harvest: .obsidian/snippets/*.css + appearance.json ARE picked up (not skipped)', obsidianConfigHarvested);
 });
+
+async function obsidianConfigHarvested({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  await uploadVault(request, OWNER, [
+    { rel: 'wiki/note.md', body: md('a real note') },
+    { rel: '.obsidian/snippets/theme.css', body: '.note { color: rgb(3, 3, 3) }' },
+    { rel: '.obsidian/appearance.json', body: JSON.stringify({ enabledCssSnippets: ['theme'] }) },
+  ]);
+  // the note still imports (positive control), AND the .obsidian css is harvested (not skipped).
+  expect((await adminGenreList(request, OWNER, 'wiki')).length, 'the real note imported').toBe(1);
+  expect(await adminGetCSS(request, OWNER), '.obsidian/snippets css harvested, not skipped')
+    .toContain('rgb(3, 3, 3)');
+  await request.dispose();
+}
 
 async function readErr(request: APIRequestContext, path: string): Promise<string> {
   const sess = await syncSession(request, OWNER);

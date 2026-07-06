@@ -32,8 +32,12 @@ export function syncOwner(letter: string): SyncOwner {
 
 const CODE = 'SYNC-ALL';
 
-// claimSyncOwner —— resetInstance + claim + 一个授全 genre 的 role + code。beforeAll 调。
-export async function claimSyncOwner(request: APIRequestContext, owner: SyncOwner): Promise<void> {
+const ALL_GENRE_GLOBS = ['wiki://**', 'output://**', 'writing://**', 'subjectivity://**'];
+
+// claimSyncOwner —— resetInstance + claim + 一个授 genre 的 role + code。globs 省略 = 授全 genre。
+export async function claimSyncOwner(
+  request: APIRequestContext, owner: SyncOwner, globs: string[] = ALL_GENRE_GLOBS,
+): Promise<void> {
   resetInstance();
   await claim(request, findSetupToken(), {
     email: owner.email, password: owner.password,
@@ -42,8 +46,7 @@ export async function claimSyncOwner(request: APIRequestContext, owner: SyncOwne
   const { csrf } = await loginAPI(request, owner.email, owner.password);
   await createAPIToken(request, csrf, `sync-${owner.handle}`);
   const role = await createRole(request, csrf, {
-    name: 'vault-all', description: 'all genres',
-    corpus_uris: ['wiki://**', 'output://**', 'writing://**', 'subjectivity://**'],
+    name: 'vault-role', description: 'granted genres', corpus_uris: globs,
   });
   await createCode(request, csrf, { code: CODE, label: 's', assumed_role_id: role.id });
 }
@@ -54,7 +57,13 @@ export async function syncSession(
   return issueSession(request, { handle: owner.handle, code: CODE, visitor_name: 'V' });
 }
 
-export interface ReadResult { body?: string; genre?: string; title?: string; error?: string }
+export interface ReadResult {
+  body?: string;
+  genre?: string;
+  title?: string;
+  error?: string;
+  css_classes?: string[]; // cssclasses frontmatter (per-note presentation hook)
+}
 
 // syncRead —— 访客 corpus_read(授全 genre),按 path 拿一条 note。
 export async function syncRead(
