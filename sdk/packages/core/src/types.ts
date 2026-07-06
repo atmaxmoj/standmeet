@@ -60,6 +60,8 @@ export interface WikiLandingView {
   readonly excerpt: string;
   readonly updated_at: string;
   readonly tags: readonly string[];
+  // per-note cssclasses(呈现钩子):reader 把它加到 .corpus-content 容器上。
+  readonly css_classes?: readonly string[];
   // 出/入链(read next / cited by rail):每项指向另一条 wiki。
   readonly related: readonly { readonly path: string; readonly title: string }[];
   readonly cited_by: readonly { readonly path: string; readonly title: string }[];

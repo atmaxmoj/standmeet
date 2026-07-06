@@ -47,6 +47,7 @@ type WikiInit struct {
 	Excerpt      string
 	SourceRawIDs []string
 	Tags         []string
+	CSSClasses   []string
 	Integrations Integrations
 	Published    bool
 	ShowAsSource bool
@@ -65,7 +66,7 @@ func NewWiki(i *WikiInit) Wiki {
 		showAsSource: i.ShowAsSource,
 		sourceRawIDs: srcs,
 		content: NewContent(&ContentInit{
-			Title: i.Title, Body: i.Body, Tags: i.Tags,
+			Title: i.Title, Body: i.Body, Tags: i.Tags, CSSClasses: i.CSSClasses,
 		}),
 		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
@@ -102,6 +103,9 @@ func (w *Wiki) Body() string { return w.content.Body() }
 
 // Tags —— 标签列表 (defensive copy)。
 func (w *Wiki) Tags() []string { return w.content.Tags() }
+
+// CSSClasses —— per-note cssclasses(呈现钩子)。
+func (w *Wiki) CSSClasses() []string { return w.content.CSSClasses() }
 
 // CreatedAt —— 创建时间。
 func (w *Wiki) CreatedAt() time.Time { return w.timestamps.CreatedAt() }

@@ -39,14 +39,15 @@ type wikiRefView struct {
 }
 
 type wikiLandingView struct {
-	Path      string        `json:"path"`
-	Title     string        `json:"title"`
-	Body      string        `json:"body"`
-	Excerpt   string        `json:"excerpt"`
-	UpdatedAt string        `json:"updated_at"`
-	Tags      []string      `json:"tags"`
-	Related   []wikiRefView `json:"related"`
-	CitedBy   []wikiRefView `json:"cited_by"`
+	Path       string        `json:"path"`
+	Title      string        `json:"title"`
+	Body       string        `json:"body"`
+	Excerpt    string        `json:"excerpt"`
+	UpdatedAt  string        `json:"updated_at"`
+	Tags       []string      `json:"tags"`
+	CSSClasses []string      `json:"css_classes"` // per-note 呈现钩子;reader 加到 .corpus-content
+	Related    []wikiRefView `json:"related"`
+	CitedBy    []wikiRefView `json:"cited_by"`
 	// SourcesCount —— 这条 wiki 是从几条 raw 提炼来的(N corpus sources)。
 	SourcesCount int `json:"sources_count"`
 }
@@ -65,6 +66,7 @@ func loadWikiLandingView(
 		Excerpt:      res.Wiki.Excerpt(),
 		UpdatedAt:    res.Wiki.UpdatedAt().UTC().Format(time.RFC3339),
 		Tags:         res.Wiki.Tags(),
+		CSSClasses:   res.Wiki.CSSClasses(),
 		Related:      toWikiRefViews(res.Related),
 		CitedBy:      toWikiRefViews(res.CitedBy),
 		SourcesCount: len(res.Wiki.SourceRawIDs()),

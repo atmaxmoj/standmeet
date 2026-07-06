@@ -16,11 +16,16 @@ export function CorpusContent({ classes, children }: {
   classes?: readonly string[];
   children: ReactNode;
 }) {
-  const cls = ['corpus-content', ...(classes ?? [])].join(' ');
+  // 两层:.corpus-content 是 scope 锚点(owner CSS 每条选择器都以它为前缀),
+  // per-note cssclasses 放**内层** div —— 这样 owner 写的 `.theorem{…}` 被 scope
+  // 成 `.corpus-content .theorem` 能命中内层(同层 class 会因 descendant 前缀漏掉)。
+  const inner = (classes ?? []).join(' ');
   return (
     <>
       <link rel="stylesheet" href={APPEARANCE_CSS} />
-      <div className={cls}>{children}</div>
+      <div className="corpus-content">
+        {inner ? <div className={inner}>{children}</div> : children}
+      </div>
     </>
   );
 }

@@ -254,6 +254,7 @@ func toDomainWiki(w *dbq.CorpusNote) domain.Wiki {
 		Title:        w.Title,
 		Body:         w.Body,
 		Tags:         w.Tags,
+		CSSClasses:   w.CssClasses,
 		SourceRawIDs: formatUUIDList(w.SourceIds),
 		ShowAsSource: w.ShowAsSource,
 		Excerpt:      w.Excerpt,
