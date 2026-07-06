@@ -64,6 +64,18 @@ func (a refsSyncAdapter) RebuildForNote(ctx context.Context, ownerID, noteID, bo
 	return nil
 }
 
+// writingsSyncAdapter —— obsidian.SyncWritingsPort over ImportVault：writing/ 子树 → writings 表。
+type writingsSyncAdapter struct {
+	tx     usecases.WritingsTxDeps
+	setter *postgres.WritingRepo
+}
+
+func (a writingsSyncAdapter) ImportWritings(
+	ctx context.Context, ownerID string, files []obsidian.VaultFile,
+) obsidian.ImportResult {
+	return obsidian.ImportVault(ctx, a.tx, a.setter, ownerID, files)
+}
+
 const maxObsidianImportSize = 200 << 20 // 200 MB — vault 整个上传，比 writing save 大。
 
 // MountObsidian 挂 /obsidian 子路由。
@@ -106,9 +118,10 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		result := obsidian.SyncVault(r.Context(), obsidian.SyncDeps{
-			Notes: h.Obsidian.Corpus.VaultSync,
-			Raw:   rawSyncAdapter{raw: h.Obsidian.Corpus.Raw},
-			Refs:  refsSyncAdapter{deps: h.Obsidian.Corpus},
+			Notes:    h.Obsidian.Corpus.VaultSync,
+			Raw:      rawSyncAdapter{raw: h.Obsidian.Corpus.Raw},
+			Refs:     refsSyncAdapter{deps: h.Obsidian.Corpus},
+			Writings: writingsSyncAdapter{tx: h.Obsidian.WritingsTx, setter: h.Obsidian.Writings},
 		}, ownerID, files)
 		writeImportJSON(h.Log, w, &result)
 	}

@@ -38,7 +38,7 @@ test.describe('obsidian: import + publish gate', () => {
     async ({ request }) => {
       const files: VaultFile[] = [
         {
-          rel: 'notes/published-writing.md',
+          rel: 'writing/published-writing.md',
           body: makeVaultMD({
             title: 'Published Writing', slug: 'published-writing',
             tags: ['essay'], publish: true,
@@ -46,7 +46,7 @@ test.describe('obsidian: import + publish gate', () => {
           }, 'Body of the published writing.'),
         },
         {
-          rel: 'notes/draft-writing.md',
+          rel: 'writing/draft-writing.md',
           body: makeVaultMD({
             title: 'Draft Writing', slug: 'draft-writing',
             tags: ['essay'],
@@ -79,13 +79,13 @@ test.describe('obsidian: image attachment round-trip', () => {
     async ({ request }) => {
       const files: VaultFile[] = [
         {
-          rel: 'notes/with-image.md',
+          rel: 'writing/with-image.md',
           body: makeVaultMD({
             title: 'Writing With Image', slug: 'writing-with-image',
             tags: ['image'], publish: true,
           }, 'Below is an image:\n\n![[pixel.png]]\n\nAnd then more text.'),
         },
-        { rel: 'notes/attachments/pixel.png', body: PNG_1X1 },
+        { rel: 'writing/attachments/pixel.png', body: PNG_1X1 },
       ];
       const result = await uploadVault(request, OWNER, files);
       expect(result.created).toBe(1);
@@ -127,7 +127,7 @@ test.describe('obsidian: re-import idempotency', () => {
     async ({ request }) => {
       const files: VaultFile[] = [
         {
-          rel: 'notes/idempotent.md',
+          rel: 'writing/idempotent.md',
           body: makeVaultMD({
             title: 'Idempotent', slug: 'idempotent',
             tags: [], publish: true,

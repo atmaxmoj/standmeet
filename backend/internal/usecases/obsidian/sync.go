@@ -8,7 +8,6 @@ package obsidian
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -47,19 +46,26 @@ type SyncRefsPort interface {
 	RebuildForNote(ctx context.Context, ownerID, noteID, body string) error
 }
 
-// SyncDeps —— sync face 依赖。Refs 可为 nil(链接解析可选)。
+// SyncWritingsPort —— writing/ 子树(含附件)→ writings 表(复用旧 ImportVault flatten-import)。
+type SyncWritingsPort interface {
+	ImportWritings(ctx context.Context, ownerID string, files []VaultFile) ImportResult
+}
+
+// SyncDeps —— sync face 依赖。Refs / Writings 可为 nil(可选)。
 type SyncDeps struct {
-	Notes SyncNotesPort
-	Raw   SyncRawPort
-	Refs  SyncRefsPort
+	Notes    SyncNotesPort
+	Raw      SyncRawPort
+	Refs     SyncRefsPort
+	Writings SyncWritingsPort
 }
 
 // SyncVault —— sync face 主入口。
 func SyncVault(ctx context.Context, deps SyncDeps, ownerID string, files []VaultFile) ImportResult {
 	result := ImportResult{Errors: []string{}}
-	corp, raw := classifyVault(files)
-	syncRaw(ctx, deps, ownerID, raw, &result)
-	tree := buildDesiredTree(corp)
+	b := classifyVault(files)
+	syncRaw(ctx, deps, ownerID, b.raw, &result)
+	syncWritings(ctx, deps, ownerID, b.writing, &result)
+	tree := buildDesiredTree(b.corp)
 	st := &syncState{ownerID: ownerID, idOf: map[string]string{}, titleToID: map[string]string{}}
 	for _, node := range tree {
 		reconcileNode(ctx, deps, node, st, &result)
@@ -68,85 +74,25 @@ func SyncVault(ctx context.Context, deps SyncDeps, ownerID string, files []Vault
 	return result
 }
 
+// syncWritings —— writing/ 子树(含附件)交给 writings importer,统计并进总结果。
+func syncWritings(
+	ctx context.Context, deps SyncDeps, ownerID string, files []VaultFile, result *ImportResult,
+) {
+	if deps.Writings == nil || len(files) == 0 {
+		return
+	}
+	wr := deps.Writings.ImportWritings(ctx, ownerID, files)
+	result.Created += wr.Created
+	result.Updated += wr.Updated
+	result.Skipped += wr.Skipped
+	result.Errors = append(result.Errors, wr.Errors...)
+}
+
 // syncState —— 一次 sync 的可变状态:节点 path→id(算 parent)+ title→id(链接解析)。
 type syncState struct {
 	idOf      map[string]string
 	titleToID map[string]string
 	ownerID   string
-}
-
-// fileRoute —— 一个文件的路由结果;ok=false 表示跳过(hidden/非-md/根裸文件/未知顶层)。
-type fileRoute struct {
-	genre string
-	segs  []string
-	ok    bool
-}
-
-func isSyncableMarkdown(rel string) bool {
-	return !isHiddenPath(rel) && strings.HasSuffix(strings.ToLower(rel), ".md")
-}
-
-func isSyncGenre(g string) bool { return g == genreRaw || corpGenres[g] }
-
-// routeFile —— 判文件路由到哪个 genre(跳 hidden/非-md/根裸文件/未知顶层)。
-func routeFile(rel string) fileRoute {
-	if !isSyncableMarkdown(rel) {
-		return fileRoute{}
-	}
-	segs := strings.Split(rel, "/")
-	if len(segs) < 2 || !isSyncGenre(segs[0]) {
-		return fileRoute{}
-	}
-	return fileRoute{genre: segs[0], segs: segs, ok: true}
-}
-
-// classifyVault —— 过滤 hidden/非-md;按顶层 folder 分流 corp(wiki/subjectivity)与 raw。
-func classifyVault(files []VaultFile) ([]vaultNote, []VaultFile) {
-	corp := []vaultNote{}
-	raw := []VaultFile{}
-	for i := range files {
-		rt := routeFile(files[i].RelPath)
-		switch {
-		case !rt.ok:
-			continue
-		case rt.genre == genreRaw:
-			raw = append(raw, files[i])
-		default:
-			corp = append(corp, toVaultNote(&files[i], rt.segs))
-		}
-	}
-	return corp, raw
-}
-
-func toVaultNote(f *VaultFile, segs []string) vaultNote {
-	p := parseCorpNote(f.Body)
-	return vaultNote{
-		genre: segs[0], sourcePath: f.RelPath, fm: p.fm, body: p.body,
-		segs: normalizeSegs(segs[1:]),
-	}
-}
-
-// normalizeSegs —— 去文件名的 .md;空格 → 连字符(normalize-names 容忍)。
-func normalizeSegs(segs []string) []string {
-	out := make([]string, len(segs))
-	for i := range segs {
-		s := segs[i]
-		if i == len(segs)-1 {
-			s = strings.TrimSuffix(s, ".md")
-		}
-		out[i] = strings.ReplaceAll(s, " ", "-")
-	}
-	return out
-}
-
-// isHiddenPath —— 任一路径段以 . 开头,或是 _templates → 跳过。
-func isHiddenPath(rel string) bool {
-	for seg := range strings.SplitSeq(rel, "/") {
-		if seg == "_templates" || (seg != "" && seg[0] == '.') {
-			return true
-		}
-	}
-	return false
 }
 
 // nodeContent —— 一个节点的落库内容;file==nil(自动补的中间节点)= 空结构节点。
