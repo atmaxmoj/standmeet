@@ -123,6 +123,30 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 	return nil
 }
 
+// ListAllForExport —— owner 所有 corp note(任一 genre),给 vault export 反向渲染成 .md。
+func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([]SyncNote, error) {
+	owner, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	rows, qerr := dbq.New(r.pool).ListAllNotesForExport(ctx, owner)
+	if qerr != nil {
+		return nil, fmt.Errorf("list notes for export: %w", qerr)
+	}
+	out := make([]SyncNote, 0, len(rows))
+	for i := range rows {
+		sn := SyncNote{
+			ID: formatUUID(rows[i].ID), Genre: rows[i].Genre, Title: rows[i].Title,
+			Body: rows[i].Body, Published: rows[i].Published, Tags: rows[i].Tags,
+		}
+		if rows[i].ParentID.Valid {
+			sn.ParentID = formatUUID(rows[i].ParentID)
+		}
+		out = append(out, sn)
+	}
+	return out, nil
+}
+
 func syncNoteFromRow(n *dbq.CorpusNote) SyncNote {
 	out := SyncNote{
 		ID: formatUUID(n.ID), Genre: n.Genre, Title: n.Title, Body: n.Body,

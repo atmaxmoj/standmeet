@@ -81,6 +81,7 @@ func (h *Handlers) exportObsidian() http.HandlerFunc {
 		w.Header().Set("Content-Disposition", `attachment; filename="standmeet-vault.zip"`)
 		deps := obsidian.ExportDeps{
 			Writings: h.Obsidian.Writings, Assets: h.Obsidian.Assets, Storage: h.Obsidian.Storage,
+			Corpus: h.Obsidian.Corpus.VaultSync,
 		}
 		if err := obsidian.WriteZip(r.Context(), deps, ownerID, w); err != nil {
 			logEncodeErr(h.Log, "obsidian export", err)

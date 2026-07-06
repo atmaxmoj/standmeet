@@ -308,6 +308,51 @@ func (q *Queries) ListAllNoteMeta(ctx context.Context, arg ListAllNoteMetaParams
 	return items, nil
 }
 
+const listAllNotesForExport = `-- name: ListAllNotesForExport :many
+SELECT id, genre, parent_id, title, body, tags, published
+FROM corpus_notes WHERE owner_id = $1
+ORDER BY created_at
+`
+
+type ListAllNotesForExportRow struct {
+	ID        pgtype.UUID
+	Genre     string
+	ParentID  pgtype.UUID
+	Title     string
+	Body      string
+	Tags      []string
+	Published bool
+}
+
+// Vault export: all corp notes(any genre) with body/tree/publish — 反向 render 成 vault .md。
+func (q *Queries) ListAllNotesForExport(ctx context.Context, ownerID pgtype.UUID) ([]ListAllNotesForExportRow, error) {
+	rows, err := q.db.Query(ctx, listAllNotesForExport, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllNotesForExportRow
+	for rows.Next() {
+		var i ListAllNotesForExportRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Genre,
+			&i.ParentID,
+			&i.Title,
+			&i.Body,
+			&i.Tags,
+			&i.Published,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAllOwnerNoteTitles = `-- name: ListAllOwnerNoteTitles :many
 SELECT id, title, genre FROM corpus_notes WHERE owner_id = $1
 `

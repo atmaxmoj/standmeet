@@ -30,6 +30,7 @@ type ExportDeps struct {
 	Writings *postgres.WritingRepo
 	Assets   *postgres.AssetRepo
 	Storage  *storage.Client
+	Corpus   *postgres.VaultSyncRepo // corp note(wiki/subjectivity/output)反向渲染
 }
 
 // initialWrittenCap —— 单 owner 多 writing 共享 attachment dedup map 的初始容量。
@@ -45,15 +46,34 @@ func WriteZip(ctx context.Context, deps ExportDeps, ownerID string, w io.Writer)
 	zw := zip.NewWriter(w)
 	written := make(map[string]struct{}, initialWrittenCap)
 	if werr := writeAllWritings(ctx, deps, zw, writings, written); werr != nil {
-		if cerr := zw.Close(); cerr != nil {
-			_ = cerr
-		}
-		return werr
+		return closeAfterErr(zw, werr)
+	}
+	if cerr := writeCorpusIfSet(ctx, deps, zw, ownerID); cerr != nil {
+		return closeAfterErr(zw, cerr)
 	}
 	if cerr := zw.Close(); cerr != nil {
 		return fmt.Errorf("close zip: %w", cerr)
 	}
 	return nil
+}
+
+// writeCorpusIfSet —— 有 corpus repo 时把 corp note 也写进 zip(admin export)。
+func writeCorpusIfSet(ctx context.Context, deps ExportDeps, zw *zip.Writer, ownerID string) error {
+	if deps.Corpus == nil {
+		return nil
+	}
+	notes, err := deps.Corpus.ListAllForExport(ctx, ownerID)
+	if err != nil {
+		return fmt.Errorf("list corpus for export: %w", err)
+	}
+	return writeCorpusNotes(notes, zw)
+}
+
+func closeAfterErr(zw *zip.Writer, err error) error {
+	if cerr := zw.Close(); cerr != nil {
+		_ = cerr
+	}
+	return err
 }
 
 func writeAllWritings(

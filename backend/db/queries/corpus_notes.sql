@@ -75,6 +75,12 @@ ORDER BY created_at DESC;
 -- 解析用（wiki body 里 [[Output Title]] 也要解析得到边）。全量、无 cap —— 漏一条就是断链。
 SELECT id, title, genre FROM corpus_notes WHERE owner_id = $1;
 
+-- name: ListAllNotesForExport :many
+-- Vault export: all corp notes(any genre) with body/tree/publish — 反向 render 成 vault .md。
+SELECT id, genre, parent_id, title, body, tags, published
+FROM corpus_notes WHERE owner_id = $1
+ORDER BY created_at;
+
 -- name: GetNoteByTitleAnyGenre :one
 -- Vault-sync reconcile identity: the vault basename (== title) is unique per owner (check-links.sh
 -- resolves [[x]] by basename vault-wide, so basenames must be unique). Match cross-genre so a
