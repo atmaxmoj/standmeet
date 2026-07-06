@@ -67,13 +67,14 @@ func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateNoteParams, error
 		return dbq.CreateNoteParams{}, fmt.Errorf("parse source wiki ids: %w", err)
 	}
 	return dbq.CreateNoteParams{
-		OwnerID:   ownerUUID,
-		Genre:     genreOutput,
-		ParentID:  parent,
-		Title:     in.Title,
-		Body:      in.Body,
-		Tags:      nilSafeTags(in.Tags),
-		SourceIds: sourceWikis,
+		OwnerID:    ownerUUID,
+		Genre:      genreOutput,
+		ParentID:   parent,
+		Title:      in.Title,
+		Body:       in.Body,
+		Tags:       nilSafeTags(in.Tags),
+		SourceIds:  sourceWikis,
+		CssClasses: []string{}, // output create 不带 cssclasses(列 NOT NULL,须非 nil)
 	}, nil
 }
 

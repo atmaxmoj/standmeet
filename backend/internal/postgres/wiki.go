@@ -53,13 +53,14 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (domain.Wiki
 	}
 	q := dbq.New(r.pool)
 	row, err := q.CreateNote(ctx, dbq.CreateNoteParams{
-		OwnerID:   ownerUUID,
-		Genre:     genreWiki,
-		ParentID:  parent,
-		Title:     in.Title,
-		Body:      in.Body,
-		Tags:      nilSafeTags(in.Tags),
-		SourceIds: sourceRaws,
+		OwnerID:    ownerUUID,
+		Genre:      genreWiki,
+		ParentID:   parent,
+		Title:      in.Title,
+		Body:       in.Body,
+		Tags:       nilSafeTags(in.Tags),
+		SourceIds:  sourceRaws,
+		CssClasses: []string{}, // wiki create 不带 cssclasses(列 NOT NULL,须非 nil)
 	})
 	if err != nil {
 		return domain.Wiki{}, fmt.Errorf("create wiki: %w", err)

@@ -199,7 +199,7 @@ func buildOutputUpdateParams(in *UpdateOutputInput) (dbq.UpdateNoteBodyParams, e
 	return dbq.UpdateNoteBodyParams{
 		ID: outputUUID, OwnerID: ownerUUID, Genre: genreOutput,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		ParentID: parent, ShowAsSource: in.ShowAsSource,
+		ParentID: parent, ShowAsSource: in.ShowAsSource, CssClasses: []string{},
 	}, nil
 }
 
