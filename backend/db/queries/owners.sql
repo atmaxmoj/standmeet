@@ -83,3 +83,11 @@ ORDER BY created_at ASC LIMIT 1;
 -- name: ClearPasswordResetToken :exec
 -- reset 成功后清掉，让 token 一次性。
 UPDATE owners SET password_reset_hash = ''::bytea, password_reset_at = NULL WHERE id = $1;
+
+-- name: GetOwnerCSS :one
+-- owner 自定义 CSS(已 sanitize+scope 的安全版本)。
+SELECT custom_css FROM owners WHERE id = $1;
+
+-- name: SetOwnerCSS :exec
+-- 存 owner CSS(caller 传入的应已是 sanitize+scope 后的安全版本)。
+UPDATE owners SET custom_css = $2 WHERE id = $1;

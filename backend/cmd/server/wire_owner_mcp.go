@@ -44,6 +44,7 @@ func registerOwnerMCPHandlers(d *runtimeDeps) {
 		CustomPages:   &usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Handle:        &usecases.HandleDeps{Owners: d.ownerRepo},
 		Calendar:      calendarDeps,
+		Appearance:    d.ownerRepo,
 		Log:           d.log,
 	})
 }

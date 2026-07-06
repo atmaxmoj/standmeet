@@ -293,6 +293,7 @@ type Owner struct {
 	PasswordResetHash []byte
 	PasswordResetAt   pgtype.Timestamptz
 	ProfileTimezone   string
+	CustomCss         string
 	CreatedAt         pgtype.Timestamptz
 }
 

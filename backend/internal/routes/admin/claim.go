@@ -84,6 +84,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	h.MountDomains(r)
 	h.MountPage(r)
 	h.MountSEO(r)
+	h.MountAppearance(r)
 	h.MountAccessRequests(r)
 	h.MountHandle(r)
 	h.MountPublicURL(r)

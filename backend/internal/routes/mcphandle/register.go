@@ -35,6 +35,7 @@ type RegisterDeps struct {
 	CustomPages   *usecases.CustomPageDeps
 	Handle        *usecases.HandleDeps
 	Calendar      *CalendarOwnerDeps
+	Appearance    usecases.OwnerCSSStore // owner CSS(set_owner_css 工具)
 	Log           *slog.Logger
 }
 
@@ -58,6 +59,7 @@ func RegisterAgentSkills(reg *capreg.Registry, deps *RegisterDeps) {
 	reg.MustRegister(newCorpusOutputCapability(deps.Corpus, deps.SEO, deps.Log))
 	reg.MustRegister(newCorpusMutationsCapability(deps.Corpus, deps.Log))
 	reg.MustRegister(newSubjectivityCapability(deps.Corpus, deps.Log))
+	reg.MustRegister(newAppearanceCapability(deps.Appearance, deps.Log))
 	reg.MustRegister(newChatCapability(deps.Corpus, deps.Conversations, deps.Log))
 	reg.MustRegister(newPromptsCapability(deps.Prompts, deps.Log))
 	reg.MustRegister(newRolesCapability(deps.Roles, reg.VisitorCapabilityIDs, deps.Log))

@@ -55,6 +55,9 @@ CREATE TABLE owners (
     -- 用于 owner_booking_policy 解释 working_hours / allowed_weekdays。空串
     -- 视为 'UTC'。owner 在 admin profile 改；claim 时空串。
     profile_timezone     text          NOT NULL DEFAULT '',
+    -- custom_css —— owner 自定义 CSS(Obsidian snippets sync / admin / MCP 任一面写)。存的是
+    -- **sanitize + scope(.corpus-content)后**的安全版本;公开 reader 注入。user-provided → 攻击面。
+    custom_css           text          NOT NULL DEFAULT '',
     created_at           timestamptz   NOT NULL DEFAULT now()
 );
 

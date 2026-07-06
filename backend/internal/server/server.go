@@ -193,6 +193,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			Assets:   deps.Admin.Assets.Repo,
 			Storage:  deps.Admin.Assets.Storage,
 			Corpus:   deps.Admin.Corpus, // sync face: VaultSync + Raw + WikiRefs 都在这
+			CSS:      deps.Admin.Owners, // .obsidian/snippets harvest → owner CSS
 			WritingsTx: usecases.WritingsTxDeps{
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,

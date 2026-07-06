@@ -36,8 +36,19 @@ type ObsidianDeps struct {
 	Writings   *postgres.WritingRepo
 	Assets     *postgres.AssetRepo
 	Storage    *storage.Client
-	Corpus     usecases.CorpusDeps // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
+	Corpus     usecases.CorpusDeps    // sync face: VaultSync(notes) + Raw + WikiRefs(refs)
+	CSS        usecases.OwnerCSSStore // .obsidian/snippets harvest → owner CSS
 	WritingsTx usecases.WritingsTxDeps
+}
+
+// cssSyncAdapter —— SyncCSSPort:harvest 的 CSS 经 SetOwnerCSS(sanitize+scope)。
+type cssSyncAdapter struct{ store usecases.OwnerCSSStore }
+
+func (a cssSyncAdapter) SetCSS(ctx context.Context, ownerID, rawCSS string) error {
+	if err := usecases.SetOwnerCSS(ctx, a.store, ownerID, rawCSS); err != nil {
+		return fmt.Errorf("sync css: %w", err)
+	}
+	return nil
 }
 
 // rawSyncAdapter —— obsidian.SyncRawPort over RawRepo：raw/ 文件追加进 inbox，source 标 vault 来源。
@@ -117,11 +128,12 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		result := obsidian.SyncVault(r.Context(), obsidian.SyncDeps{
+		result := obsidian.SyncVault(r.Context(), &obsidian.SyncDeps{
 			Notes:    h.Obsidian.Corpus.VaultSync,
 			Raw:      rawSyncAdapter{raw: h.Obsidian.Corpus.Raw},
 			Refs:     refsSyncAdapter{deps: h.Obsidian.Corpus},
 			Writings: writingsSyncAdapter{tx: h.Obsidian.WritingsTx, setter: h.Obsidian.Writings},
+			CSS:      cssSyncAdapter{store: h.Obsidian.CSS},
 		}, ownerID, files)
 		writeImportJSON(h.Log, w, &result)
 	}
@@ -211,8 +223,13 @@ func closeBestEffort(c io.Closer) {
 // genre(wiki/…,如直接上传或测试)则原样保留 —— 否则 genre 会被误当 vault 名剥掉。
 func normalizeVaultRel(name string) string {
 	parts := strings.SplitN(name, "/", 2)
-	if len(parts) == 2 && !obsidian.IsVaultTopFolder(parts[0]) {
+	if len(parts) == 2 && stripsVaultPrefix(parts[0]) {
 		return parts[1]
 	}
 	return name
+}
+
+// stripsVaultPrefix —— 首段是要剥的 vault 文件夹名:既非 genre 又非 dotdir(.obsidian config 要留)。
+func stripsVaultPrefix(seg string) bool {
+	return !obsidian.IsVaultTopFolder(seg) && !strings.HasPrefix(seg, ".")
 }

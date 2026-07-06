@@ -51,20 +51,24 @@ type SyncWritingsPort interface {
 	ImportWritings(ctx context.Context, ownerID string, files []VaultFile) ImportResult
 }
 
-// SyncDeps —— sync face 依赖。Refs / Writings 可为 nil(可选)。
+// SyncDeps —— sync face 依赖。Refs / Writings / CSS 可为 nil(可选)。
 type SyncDeps struct {
 	Notes    SyncNotesPort
 	Raw      SyncRawPort
 	Refs     SyncRefsPort
 	Writings SyncWritingsPort
+	CSS      SyncCSSPort
 }
 
 // SyncVault —— sync face 主入口。
-func SyncVault(ctx context.Context, deps SyncDeps, ownerID string, files []VaultFile) ImportResult {
+func SyncVault(
+	ctx context.Context, deps *SyncDeps, ownerID string, files []VaultFile,
+) ImportResult {
 	result := ImportResult{Errors: []string{}}
 	b := classifyVault(files)
 	syncRaw(ctx, deps, ownerID, b.raw, &result)
 	syncWritings(ctx, deps, ownerID, b.writing, &result)
+	syncCSS(ctx, deps, ownerID, b.css)
 	tree := buildDesiredTree(b.corp)
 	st := &syncState{ownerID: ownerID, idOf: map[string]string{}, titleToID: map[string]string{}}
 	for _, node := range tree {
@@ -76,7 +80,7 @@ func SyncVault(ctx context.Context, deps SyncDeps, ownerID string, files []Vault
 
 // syncWritings —— writing/ 子树(含附件)交给 writings importer,统计并进总结果。
 func syncWritings(
-	ctx context.Context, deps SyncDeps, ownerID string, files []VaultFile, result *ImportResult,
+	ctx context.Context, deps *SyncDeps, ownerID string, files []VaultFile, result *ImportResult,
 ) {
 	if deps.Writings == nil || len(files) == 0 {
 		return
@@ -120,7 +124,7 @@ func shouldMaterialize(n *desiredNode) bool {
 
 // nodeOp —— reconcile 一个节点的参数包(避开 argument-limit)。
 type nodeOp struct {
-	deps   SyncDeps
+	deps   *SyncDeps
 	node   *desiredNode
 	st     *syncState
 	result *ImportResult
@@ -129,7 +133,7 @@ type nodeOp struct {
 }
 
 func reconcileNode(
-	ctx context.Context, deps SyncDeps, node *desiredNode, st *syncState, result *ImportResult,
+	ctx context.Context, deps *SyncDeps, node *desiredNode, st *syncState, result *ImportResult,
 ) {
 	if !shouldMaterialize(node) {
 		result.Skipped++
@@ -225,7 +229,7 @@ func sameStrings(a, b []string) bool {
 }
 
 func syncRaw(
-	ctx context.Context, deps SyncDeps, ownerID string, raw []VaultFile, result *ImportResult,
+	ctx context.Context, deps *SyncDeps, ownerID string, raw []VaultFile, result *ImportResult,
 ) {
 	if deps.Raw == nil {
 		return
@@ -239,7 +243,7 @@ func syncRaw(
 	}
 }
 
-func resolveLinks(ctx context.Context, deps SyncDeps, st *syncState, tree []*desiredNode) {
+func resolveLinks(ctx context.Context, deps *SyncDeps, st *syncState, tree []*desiredNode) {
 	if deps.Refs == nil {
 		return
 	}
@@ -248,7 +252,7 @@ func resolveLinks(ctx context.Context, deps SyncDeps, st *syncState, tree []*des
 	}
 }
 
-func resolveNoteLinks(ctx context.Context, deps SyncDeps, st *syncState, node *desiredNode) {
+func resolveNoteLinks(ctx context.Context, deps *SyncDeps, st *syncState, node *desiredNode) {
 	if node.file == nil {
 		return
 	}

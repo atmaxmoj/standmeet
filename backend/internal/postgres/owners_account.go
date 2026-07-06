@@ -201,3 +201,29 @@ func (r *OwnerRepo) SetPasswordResetHash(
 	}
 	return nil
 }
+
+// GetCSS —— owner 自定义 CSS(sanitize+scope 后的安全版本)。
+func (r *OwnerRepo) GetCSS(ctx context.Context, ownerID string) (string, error) {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return "", fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	css, err := dbq.New(r.pool).GetOwnerCSS(ctx, pgID)
+	if err != nil {
+		return "", fmt.Errorf("get owner css: %w", err)
+	}
+	return css, nil
+}
+
+// SetCSS —— 存 owner CSS(caller 应已 sanitize+scope)。
+func (r *OwnerRepo) SetCSS(ctx context.Context, ownerID, css string) error {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	err := dbq.New(r.pool).SetOwnerCSS(ctx, dbq.SetOwnerCSSParams{ID: pgID, CustomCss: css})
+	if err != nil {
+		return fmt.Errorf("set owner css: %w", err)
+	}
+	return nil
+}

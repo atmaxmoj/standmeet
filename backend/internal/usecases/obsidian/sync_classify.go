@@ -30,21 +30,37 @@ func routeFile(rel string) fileRoute {
 	return fileRoute{genre: segs[0], segs: segs, ok: true}
 }
 
-// vaultBuckets —— 分流后的三桶。writing 含附件(非 .md),交给 writings importer 自己 partition。
+// vaultBuckets —— 分流后的桶。writing 含附件(非 .md);css = harvest 的 .obsidian CSS config。
 type vaultBuckets struct {
 	corp    []vaultNote
 	raw     []VaultFile
 	writing []VaultFile
+	css     []VaultFile
 }
+
+// isObsidianCSS —— .obsidian/snippets/*.css 或 appearance.json(owner CSS config,harvest 不跳)。
+func isObsidianCSS(rel string) bool {
+	if rel == obsidianAppearance {
+		return true
+	}
+	return strings.HasPrefix(rel, obsidianSnippets) && strings.HasSuffix(rel, ".css")
+}
+
+const (
+	obsidianAppearance = ".obsidian/appearance.json"
+	obsidianSnippets   = ".obsidian/snippets/"
+)
 
 func topSegment(rel string) string {
 	top, _, _ := strings.Cut(rel, "/")
 	return top
 }
 
-// classifyVault —— 过滤 hidden;按顶层 folder 分流 corp(wiki/subjectivity)/ raw / writing。
+// classifyVault —— 过滤 hidden;按顶层 folder 分流 corp / raw / writing / css。
 func classifyVault(files []VaultFile) vaultBuckets {
-	b := vaultBuckets{corp: []vaultNote{}, raw: []VaultFile{}, writing: []VaultFile{}}
+	b := vaultBuckets{
+		corp: []vaultNote{}, raw: []VaultFile{}, writing: []VaultFile{}, css: []VaultFile{},
+	}
 	for i := range files {
 		classifyOne(&files[i], &b)
 	}
@@ -52,6 +68,10 @@ func classifyVault(files []VaultFile) vaultBuckets {
 }
 
 func classifyOne(f *VaultFile, b *vaultBuckets) {
+	if isObsidianCSS(f.RelPath) { // config 层:harvest,先于 hidden 跳
+		b.css = append(b.css, *f)
+		return
+	}
 	if isHiddenPath(f.RelPath) {
 		return
 	}

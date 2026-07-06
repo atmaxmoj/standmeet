@@ -1,0 +1,76 @@
+// cap_appearance.go —— owner-only capability。1 tool: set_owner_css(owner 的 AI 设自定义 CSS,
+// 存前 sanitize+scope)。pattern 同 cap_subjectivity.go。
+
+package mcphandle
+
+import (
+	"context"
+	"encoding/json"
+	"log/slog"
+
+	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
+)
+
+const capAppearanceBundle = "appearance.bundle"
+
+type appearanceCapability struct {
+	store usecases.OwnerCSSStore
+	log   *slog.Logger
+}
+
+func newAppearanceCapability(
+	store usecases.OwnerCSSStore, log *slog.Logger,
+) *appearanceCapability {
+	return &appearanceCapability{store: store, log: log}
+}
+
+func (*appearanceCapability) ID() string          { return capAppearanceBundle }
+func (*appearanceCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
+
+func (*appearanceCapability) VisitorBinding(
+	_ context.Context, _ *capreg.AssembleInput,
+) (*capreg.Binding, error) {
+	return nil, capreg.ErrHidden
+}
+
+func (*appearanceCapability) SystemPromptFragment(
+	_ context.Context, _ *capreg.AssembleInput,
+) string {
+	return ""
+}
+
+func (*appearanceCapability) SystemPromptFragmentID(
+	_ context.Context, _ *capreg.AssembleInput,
+) string {
+	return ""
+}
+
+func (c *appearanceCapability) OwnerMCPBindings() []*capreg.MCPBinding {
+	return []*capreg.MCPBinding{{
+		Name: "set_owner_css",
+		Description: "Set the owner's custom CSS for their public corpus pages (like an Obsidian " +
+			"CSS snippet). Sanitized + scoped to the content area on save.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{"css":{"type":"string","description":"Raw CSS"}},
+			"required":["css"]
+		}`),
+		Handler: c.handleSetOwnerCSS,
+	}}
+}
+
+func (c *appearanceCapability) handleSetOwnerCSS(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	var args struct {
+		CSS string `json:"css"`
+	}
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return capreg.MCPError("invalid arguments: " + err.Error())
+	}
+	if err := usecases.SetOwnerCSS(ctx, c.store, ownerID, args.CSS); err != nil {
+		return capreg.MCPError(err.Error())
+	}
+	return marshalCapResult(c.log, "set_owner_css", map[string]string{"status": "ok"})
+}
