@@ -41,19 +41,20 @@ func (q *Queries) CountNoteStats(ctx context.Context, arg CountNoteStatsParams) 
 
 const createNote = `-- name: CreateNote :one
 
-INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, obsidian_source_path, obsidian_imported_at, created_at, updated_at
+INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids, css_classes)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at
 `
 
 type CreateNoteParams struct {
-	OwnerID   pgtype.UUID
-	Genre     string
-	ParentID  pgtype.UUID
-	Title     string
-	Body      string
-	Tags      []string
-	SourceIds []pgtype.UUID
+	OwnerID    pgtype.UUID
+	Genre      string
+	ParentID   pgtype.UUID
+	Title      string
+	Body       string
+	Tags       []string
+	SourceIds  []pgtype.UUID
+	CssClasses []string
 }
 
 // corpus_notes.sql —— 统一 note 基座的 query。wiki + output 两个 genre 共用这一套（genre 作参数）：
@@ -68,6 +69,7 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (CorpusN
 		arg.Body,
 		arg.Tags,
 		arg.SourceIds,
+		arg.CssClasses,
 	)
 	var i CorpusNote
 	err := row.Scan(
@@ -82,6 +84,7 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (CorpusN
 		&i.ShowAsSource,
 		&i.Excerpt,
 		&i.Published,
+		&i.CssClasses,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.CreatedAt,
@@ -92,9 +95,9 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (CorpusN
 
 const createNoteSync = `-- name: CreateNoteSync :one
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, obsidian_source_path, obsidian_imported_at, created_at, updated_at
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at
 `
 
 type CreateNoteSyncParams struct {
@@ -106,6 +109,7 @@ type CreateNoteSyncParams struct {
 	Tags               []string
 	Published          bool
 	ObsidianSourcePath string
+	CssClasses         []string
 }
 
 // Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
@@ -119,6 +123,7 @@ func (q *Queries) CreateNoteSync(ctx context.Context, arg CreateNoteSyncParams) 
 		arg.Tags,
 		arg.Published,
 		arg.ObsidianSourcePath,
+		arg.CssClasses,
 	)
 	var i CorpusNote
 	err := row.Scan(
@@ -133,6 +138,7 @@ func (q *Queries) CreateNoteSync(ctx context.Context, arg CreateNoteSyncParams) 
 		&i.ShowAsSource,
 		&i.Excerpt,
 		&i.Published,
+		&i.CssClasses,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.CreatedAt,
@@ -157,7 +163,7 @@ func (q *Queries) DeleteNote(ctx context.Context, arg DeleteNoteParams) error {
 }
 
 const getNoteByID = `-- name: GetNoteByID :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, obsidian_source_path, obsidian_imported_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = $3
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = $3
 `
 
 type GetNoteByIDParams struct {
@@ -181,6 +187,7 @@ func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (Corpu
 		&i.ShowAsSource,
 		&i.Excerpt,
 		&i.Published,
+		&i.CssClasses,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.CreatedAt,
@@ -190,7 +197,7 @@ func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (Corpu
 }
 
 const getNoteByTitleAnyGenre = `-- name: GetNoteByTitleAnyGenre :one
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, obsidian_source_path, obsidian_imported_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND title = $2
 ORDER BY created_at ASC
 LIMIT 1
@@ -220,12 +227,30 @@ func (q *Queries) GetNoteByTitleAnyGenre(ctx context.Context, arg GetNoteByTitle
 		&i.ShowAsSource,
 		&i.Excerpt,
 		&i.Published,
+		&i.CssClasses,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getNoteCssClasses = `-- name: GetNoteCssClasses :one
+SELECT css_classes FROM corpus_notes WHERE id = $1 AND owner_id = $2
+`
+
+type GetNoteCssClassesParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+// cssclasses(per-note 呈现钩子)。corpus_read 时补到 CorpusEntry;跨 genre 按 id。
+func (q *Queries) GetNoteCssClasses(ctx context.Context, arg GetNoteCssClassesParams) ([]string, error) {
+	row := q.db.QueryRow(ctx, getNoteCssClasses, arg.ID, arg.OwnerID)
+	var css_classes []string
+	err := row.Scan(&css_classes)
+	return css_classes, err
 }
 
 const getNoteMetaByID = `-- name: GetNoteMetaByID :one
@@ -445,7 +470,7 @@ func (q *Queries) ListNoteChildren(ctx context.Context, arg ListNoteChildrenPara
 }
 
 const listNotesByOwner = `-- name: ListNotesByOwner :many
-SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, obsidian_source_path, obsidian_imported_at, created_at, updated_at FROM corpus_notes
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
 ORDER BY created_at DESC
 LIMIT $3
@@ -478,6 +503,7 @@ func (q *Queries) ListNotesByOwner(ctx context.Context, arg ListNotesByOwnerPara
 			&i.ShowAsSource,
 			&i.Excerpt,
 			&i.Published,
+			&i.CssClasses,
 			&i.ObsidianSourcePath,
 			&i.ObsidianImportedAt,
 			&i.CreatedAt,
@@ -632,9 +658,9 @@ func (q *Queries) SetNoteTags(ctx context.Context, arg SetNoteTagsParams) error 
 
 const updateNoteBody = `-- name: UpdateNoteBody :one
 UPDATE corpus_notes
-SET title = $4, body = $5, tags = $6, parent_id = $7, show_as_source = $8, updated_at = now()
+SET title = $4, body = $5, tags = $6, parent_id = $7, show_as_source = $8, css_classes = $9, updated_at = now()
 WHERE id = $1 AND owner_id = $2 AND genre = $3
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, obsidian_source_path, obsidian_imported_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at
 `
 
 type UpdateNoteBodyParams struct {
@@ -646,6 +672,7 @@ type UpdateNoteBodyParams struct {
 	Tags         []string
 	ParentID     pgtype.UUID
 	ShowAsSource bool
+	CssClasses   []string
 }
 
 // admin "edit" 入口：改 title/body/tags/parent_id/show_as_source。excerpt/published 走 UpdateNoteSEO。
@@ -659,6 +686,7 @@ func (q *Queries) UpdateNoteBody(ctx context.Context, arg UpdateNoteBodyParams) 
 		arg.Tags,
 		arg.ParentID,
 		arg.ShowAsSource,
+		arg.CssClasses,
 	)
 	var i CorpusNote
 	err := row.Scan(
@@ -673,6 +701,7 @@ func (q *Queries) UpdateNoteBody(ctx context.Context, arg UpdateNoteBodyParams) 
 		&i.ShowAsSource,
 		&i.Excerpt,
 		&i.Published,
+		&i.CssClasses,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.CreatedAt,
@@ -685,7 +714,7 @@ const updateNoteSEO = `-- name: UpdateNoteSEO :one
 UPDATE corpus_notes
 SET excerpt = $2, published = $3, updated_at = now()
 WHERE id = $1 AND genre = $4
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, obsidian_source_path, obsidian_imported_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at
 `
 
 type UpdateNoteSEOParams struct {
@@ -716,6 +745,7 @@ func (q *Queries) UpdateNoteSEO(ctx context.Context, arg UpdateNoteSEOParams) (C
 		&i.ShowAsSource,
 		&i.Excerpt,
 		&i.Published,
+		&i.CssClasses,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.CreatedAt,
@@ -727,9 +757,9 @@ func (q *Queries) UpdateNoteSEO(ctx context.Context, arg UpdateNoteSEOParams) (C
 const updateNoteSync = `-- name: UpdateNoteSync :one
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
-    obsidian_source_path = $8, obsidian_imported_at = now(), updated_at = now()
+    obsidian_source_path = $8, css_classes = $9, obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, obsidian_source_path, obsidian_imported_at, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at
 `
 
 type UpdateNoteSyncParams struct {
@@ -741,6 +771,7 @@ type UpdateNoteSyncParams struct {
 	Tags               []string
 	Published          bool
 	ObsidianSourcePath string
+	CssClasses         []string
 }
 
 // Vault sync update (reconcile): relocate (genre/parent may change on a move), refresh body/tags/publish,
@@ -755,6 +786,7 @@ func (q *Queries) UpdateNoteSync(ctx context.Context, arg UpdateNoteSyncParams) 
 		arg.Tags,
 		arg.Published,
 		arg.ObsidianSourcePath,
+		arg.CssClasses,
 	)
 	var i CorpusNote
 	err := row.Scan(
@@ -769,6 +801,7 @@ func (q *Queries) UpdateNoteSync(ctx context.Context, arg UpdateNoteSyncParams) 
 		&i.ShowAsSource,
 		&i.Excerpt,
 		&i.Published,
+		&i.CssClasses,
 		&i.ObsidianSourcePath,
 		&i.ObsidianImportedAt,
 		&i.CreatedAt,

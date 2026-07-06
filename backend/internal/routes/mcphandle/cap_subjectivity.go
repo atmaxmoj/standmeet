@@ -75,11 +75,12 @@ func (c *subjectivityCapability) subjectivityWriteBinding() *capreg.MCPBinding {
 }
 
 type subjectivityWriteArgsWire struct {
-	Title    string   `json:"title"`
-	Body     string   `json:"body"`
-	ID       string   `json:"subjectivity_id"`
-	ParentID string   `json:"parent_id"`
-	Tags     []string `json:"tags"`
+	Title      string   `json:"title"`
+	Body       string   `json:"body"`
+	ID         string   `json:"subjectivity_id"`
+	ParentID   string   `json:"parent_id"`
+	Tags       []string `json:"tags"`
+	CSSClasses []string `json:"css_classes"`
 }
 
 func (c *subjectivityCapability) handleSubjectivityWrite(
@@ -117,7 +118,7 @@ func buildWriteSubjectivityInput(
 ) *usecases.WriteSubjectivityInput {
 	in := &usecases.WriteSubjectivityInput{
 		OwnerID: ownerID, ID: args.ID,
-		Title: args.Title, Body: args.Body, Tags: args.Tags,
+		Title: args.Title, Body: args.Body, Tags: args.Tags, CSSClasses: args.CSSClasses,
 	}
 	if args.ParentID != "" {
 		parent := args.ParentID

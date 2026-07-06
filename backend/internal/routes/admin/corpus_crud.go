@@ -122,6 +122,7 @@ type wikiWriteBody struct {
 	Title        string   `json:"title"`
 	Body         string   `json:"body"`
 	Tags         []string `json:"tags"`
+	CSSClasses   []string `json:"css_classes"`
 	ShowAsSource bool     `json:"show_as_source"`
 }
 
@@ -153,7 +154,7 @@ func (h *Handlers) updateWiki() http.HandlerFunc {
 			OwnerID: middleware.OwnerIDFrom(r.Context()), ID: chi.URLParam(r, "id"),
 			ParentID: optionalString(body.ParentID),
 			Title:    body.Title, Body: body.Body,
-			Tags: body.Tags, ShowAsSource: body.ShowAsSource,
+			Tags: body.Tags, ShowAsSource: body.ShowAsSource, CSSClasses: body.CSSClasses,
 		})
 		writeCorpusResult(h.Log, w, wikiItemFromDomain(&wiki, ""), err, "update wiki")
 	}

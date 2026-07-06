@@ -31,12 +31,13 @@ type CorpusMeta struct {
 
 // CorpusEntry —— a full entry (read result): path + body.
 type CorpusEntry struct {
-	ID    string
-	Path  string
-	Title string
-	Genre string
-	Body  string
-	Tags  []string
+	ID         string
+	Path       string
+	Title      string
+	Genre      string
+	Body       string
+	Tags       []string
+	CSSClasses []string // cssclasses frontmatter(per-note 呈现钩子)
 }
 
 // CorpusLister —— the slim corpus data port (#157). Every method is ACL-scoped via

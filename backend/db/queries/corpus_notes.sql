@@ -3,8 +3,8 @@
 -- 地址仍纯树派生（parent 链），本表不存 path 列。
 
 -- name: CreateNote :one
-INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids, css_classes)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: ListNotesByOwner :many
@@ -26,7 +26,7 @@ WHERE id = $1 AND owner_id = $2 AND genre = $3;
 -- name: UpdateNoteBody :one
 -- admin "edit" 入口：改 title/body/tags/parent_id/show_as_source。excerpt/published 走 UpdateNoteSEO。
 UPDATE corpus_notes
-SET title = $4, body = $5, tags = $6, parent_id = $7, show_as_source = $8, updated_at = now()
+SET title = $4, body = $5, tags = $6, parent_id = $7, show_as_source = $8, css_classes = $9, updated_at = now()
 WHERE id = $1 AND owner_id = $2 AND genre = $3
 RETURNING *;
 
@@ -111,8 +111,8 @@ LIMIT 1;
 -- name: CreateNoteSync :one
 -- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
 RETURNING *;
 
 -- name: UpdateNoteSync :one
@@ -120,7 +120,7 @@ RETURNING *;
 -- re-stamp the obsidian identity. Never touches rows absent from the batch (caller upserts per file).
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
-    obsidian_source_path = $8, obsidian_imported_at = now(), updated_at = now()
+    obsidian_source_path = $8, css_classes = $9, obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
@@ -139,3 +139,7 @@ ORDER BY ts_rank(
         replace(plainto_tsquery('english', $3)::text, ' & ', ' | ')::tsquery
       ) DESC, updated_at DESC
 LIMIT $4 OFFSET $5;
+
+-- name: GetNoteCssClasses :one
+-- cssclasses(per-note 呈现钩子)。corpus_read 时补到 CorpusEntry;跨 genre 按 id。
+SELECT css_classes FROM corpus_notes WHERE id = $1 AND owner_id = $2;

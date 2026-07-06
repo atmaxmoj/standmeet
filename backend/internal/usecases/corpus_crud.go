@@ -106,6 +106,7 @@ type UpdateWikiInput struct {
 	Title        string
 	Body         string
 	Tags         []string
+	CSSClasses   []string
 	ShowAsSource bool
 }
 
@@ -119,7 +120,7 @@ func UpdateWiki(
 	wiki, err := deps.Wiki.Update(ctx, &postgres.UpdateWikiInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		ShowAsSource: in.ShowAsSource,
+		ShowAsSource: in.ShowAsSource, CSSClasses: in.CSSClasses,
 	})
 	if err != nil {
 		return domain.Wiki{}, fmt.Errorf("update wiki: %w", err)

@@ -153,6 +153,7 @@ type CorpusNote struct {
 	ShowAsSource       bool
 	Excerpt            string
 	Published          bool
+	CssClasses         []string
 	ObsidianSourcePath string
 	ObsidianImportedAt pgtype.Timestamptz
 	CreatedAt          pgtype.Timestamptz

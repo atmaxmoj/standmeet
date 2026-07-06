@@ -21,6 +21,7 @@ func (l *pgCorpusLister) Get(
 		}
 		foundAny = true
 		if allowsCorpusURI(grantedGlobs, entry.Genre, path) {
+			l.fillCSSClasses(ctx, ownerID, &entry)
 			return entry, nil
 		}
 	}
@@ -28,6 +29,13 @@ func (l *pgCorpusLister) Get(
 		return CorpusEntry{}, ErrCorpusDenied
 	}
 	return CorpusEntry{}, ErrCorpusNotFound
+}
+
+// fillCSSClasses —— 补 per-note cssclasses(呈现钩子),best-effort;queryRepo 缺则原样。
+func (l *pgCorpusLister) fillCSSClasses(ctx context.Context, ownerID string, entry *CorpusEntry) {
+	if l.queryRepo != nil {
+		entry.CSSClasses = l.queryRepo.GetCSSClasses(ctx, ownerID, entry.ID)
+	}
 }
 
 // finders —— per-genre path→entry resolvers in dispatchRead order (wiki, output, writing).

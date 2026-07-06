@@ -54,11 +54,12 @@ type NoteMeta struct {
 
 // CreateNoteInput —— 建一条笔记。
 type CreateNoteInput struct {
-	OwnerID  string
-	ParentID *string
-	Title    string
-	Body     string
-	Tags     []string
+	OwnerID    string
+	ParentID   *string
+	Title      string
+	Body       string
+	Tags       []string
+	CSSClasses []string
 }
 
 // Create 写一条新笔记（本 repo 的 genre）。
@@ -74,6 +75,7 @@ func (r *NoteRepo) Create(ctx context.Context, in *CreateNoteInput) (Note, error
 	row, err := dbq.New(r.pool).CreateNote(ctx, dbq.CreateNoteParams{
 		OwnerID: ownerUUID, Genre: r.genre, ParentID: parent,
 		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
+		CssClasses: nilSafeTags(in.CSSClasses),
 		// tree-note genres (subjectivity) carry no upstream source ids; empty (non-nil) → '{}'.
 		SourceIds: []pgtype.UUID{},
 	})
@@ -96,7 +98,7 @@ func (r *NoteRepo) UpdateBody(ctx context.Context, in *UpdateNoteInput) (Note, e
 	row, qerr := dbq.New(r.pool).UpdateNoteBody(ctx, dbq.UpdateNoteBodyParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: r.genre,
 		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
-		ParentID: parent, ShowAsSource: true,
+		ParentID: parent, ShowAsSource: true, CssClasses: nilSafeTags(in.CSSClasses),
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
@@ -109,12 +111,13 @@ func (r *NoteRepo) UpdateBody(ctx context.Context, in *UpdateNoteInput) (Note, e
 
 // UpdateNoteInput —— 改一条笔记。
 type UpdateNoteInput struct {
-	OwnerID  string
-	ID       string
-	ParentID *string
-	Title    string
-	Body     string
-	Tags     []string
+	OwnerID    string
+	ID         string
+	ParentID   *string
+	Title      string
+	Body       string
+	Tags       []string
+	CSSClasses []string
 }
 
 // GetByID 拿本 genre 的某条笔记；不命中 → ErrNoteNotFound。

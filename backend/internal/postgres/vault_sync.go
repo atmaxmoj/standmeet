@@ -67,6 +67,7 @@ type CreateSyncNoteInput struct {
 	Body       string
 	SourcePath string
 	Tags       []string
+	CSSClasses []string
 	Published  bool
 }
 
@@ -83,7 +84,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 	row, qerr := dbq.New(r.pool).CreateNoteSync(ctx, dbq.CreateNoteSyncParams{
 		OwnerID: owner, Genre: in.Genre, ParentID: parent, Title: in.Title,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
-		ObsidianSourcePath: in.SourcePath,
+		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
 	})
 	if qerr != nil {
 		return "", fmt.Errorf("create sync note: %w", qerr)
@@ -100,6 +101,7 @@ type UpdateSyncNoteInput struct {
 	Body       string
 	SourcePath string
 	Tags       []string
+	CSSClasses []string
 	Published  bool
 }
 
@@ -116,7 +118,7 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 	if _, qerr := dbq.New(r.pool).UpdateNoteSync(ctx, dbq.UpdateNoteSyncParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: in.Genre, ParentID: parent,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
-		ObsidianSourcePath: in.SourcePath,
+		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
 	}); qerr != nil {
 		return fmt.Errorf("update sync note: %w", qerr)
 	}
@@ -151,6 +153,21 @@ func (r *VaultSyncRepo) QueryNotes(
 		})
 	}
 	return out, nil
+}
+
+// GetCSSClasses —— 一条 note 的 cssclasses(best-effort,corpus_read 补进 CorpusEntry;错→空)。
+func (r *VaultSyncRepo) GetCSSClasses(ctx context.Context, ownerID, id string) []string {
+	ids, err := parseSrcAndOwner(id, ownerID)
+	if err != nil {
+		return []string{}
+	}
+	classes, qerr := dbq.New(r.pool).GetNoteCssClasses(ctx, dbq.GetNoteCssClassesParams{
+		ID: ids.Src, OwnerID: ids.Owner,
+	})
+	if qerr != nil {
+		return []string{}
+	}
+	return classes
 }
 
 // ListAllForExport —— owner 所有 corp note(任一 genre),给 vault export 反向渲染成 .md。

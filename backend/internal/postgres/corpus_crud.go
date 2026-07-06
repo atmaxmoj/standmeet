@@ -83,6 +83,7 @@ type UpdateWikiInput struct {
 	Title        string
 	Body         string
 	Tags         []string
+	CSSClasses   []string
 	ShowAsSource bool
 }
 
@@ -121,7 +122,7 @@ func buildWikiUpdateParams(in *UpdateWikiInput) (dbq.UpdateNoteBodyParams, error
 	return dbq.UpdateNoteBodyParams{
 		ID: wikiUUID, OwnerID: ownerUUID, Genre: genreWiki,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		ParentID: parent, ShowAsSource: in.ShowAsSource,
+		ParentID: parent, ShowAsSource: in.ShowAsSource, CssClasses: nilSafeTags(in.CSSClasses),
 	}, nil
 }
 

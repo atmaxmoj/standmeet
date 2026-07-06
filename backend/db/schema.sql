@@ -123,6 +123,9 @@ CREATE TABLE corpus_notes (
     show_as_source   bool          NOT NULL DEFAULT true,
     excerpt          text          NOT NULL DEFAULT '',
     published        bool          NOT NULL DEFAULT false,
+    -- css_classes —— Obsidian `cssclasses` frontmatter:渲染时加到 note 容器的 CSS class(per-note
+    -- 呈现钩子,配合 owner CSS snippet)。sync/admin/MCP 三面可写。
+    css_classes      text[]        NOT NULL DEFAULT '{}',
     -- Obsidian vault sync 元数据(镜像 writings)。source_path = 来自的 vault 内相对路径
     -- (wiki/x.md);imported_at = 那次 sync 的时刻。reconcile 靠 source_path 认同一条,
     -- web-wins 靠 updated_at > imported_at 判断(owner 在 web 改过 → sync 不覆盖)。

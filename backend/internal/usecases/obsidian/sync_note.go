@@ -13,6 +13,7 @@ type corpFM struct {
 	Excerpt    string
 	Visibility string
 	Tags       []string
+	CSSClasses []string
 	Publish    bool
 }
 
@@ -45,6 +46,10 @@ func parseFMLines(fm string) corpFM {
 		}
 		if kv.key == "tags" { // list-form tags 需向后看,单独处理
 			out.Tags = parseTags(kv.val, lines, i)
+			continue
+		}
+		if kv.key == "cssclasses" { // 同 list 解析(Obsidian cssclasses)
+			out.CSSClasses = parseTags(kv.val, lines, i)
 			continue
 		}
 		applyScalarFM(&out, kv.key, kv.val)

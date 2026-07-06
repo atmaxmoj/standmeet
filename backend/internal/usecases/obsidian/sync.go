@@ -101,10 +101,11 @@ type syncState struct {
 
 // nodeContent —— 一个节点的落库内容;file==nil(自动补的中间节点)= 空结构节点。
 type nodeContent struct {
-	body      string
-	srcPath   string
-	tags      []string
-	published bool
+	body       string
+	srcPath    string
+	tags       []string
+	cssClasses []string
+	published  bool
 }
 
 func contentOf(n *desiredNode) nodeContent {
@@ -112,8 +113,8 @@ func contentOf(n *desiredNode) nodeContent {
 		return nodeContent{}
 	}
 	return nodeContent{
-		body: n.file.body, srcPath: n.file.sourcePath,
-		tags: n.file.fm.Tags, published: n.file.fm.Publish,
+		body: n.file.body, srcPath: n.file.sourcePath, tags: n.file.fm.Tags,
+		cssClasses: n.file.fm.CSSClasses, published: n.file.fm.Publish,
 	}
 }
 
@@ -158,6 +159,7 @@ func createNode(ctx context.Context, op *nodeOp) {
 	id, err := op.deps.Notes.Create(ctx, &postgres.CreateSyncNoteInput{
 		OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent, Title: op.node.title,
 		Body: op.c.body, Tags: op.c.tags, Published: op.c.published, SourcePath: op.c.srcPath,
+		CSSClasses: op.c.cssClasses,
 	})
 	if err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
@@ -176,6 +178,7 @@ func updateNode(ctx context.Context, op *nodeOp, existing *postgres.SyncNote) {
 	if err := op.deps.Notes.Update(ctx, &postgres.UpdateSyncNoteInput{
 		ID: existing.ID, OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent,
 		Body: op.c.body, Tags: op.c.tags, Published: op.c.published, SourcePath: op.c.srcPath,
+		CSSClasses: op.c.cssClasses,
 	}); err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
 		return

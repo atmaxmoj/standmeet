@@ -106,7 +106,10 @@ func runCorpusRead(ctx context.Context, l CorpusLister, req *retrievalSockReq) (
 	if qr, ok := l.(queryResolver); ok { // 服务端解析 standmeet-query 块(ACL-scoped)
 		body = ResolveQueryBlocks(ctx, qr, req.OwnerID, req.CorpusURIs, body)
 	}
-	return marshalReadResult(entry.ID, entry.Genre, body, entry.Path, entry.Title), nil
+	return marshalReadResult(&readResultWire{
+		ID: entry.ID, Genre: entry.Genre, Body: body,
+		Path: entry.Path, Title: entry.Title, CSSClasses: entry.CSSClasses,
+	}), nil
 }
 
 // corpusReadErrWire —— map Get's failure to the wire: denied/not-found are friendly tool

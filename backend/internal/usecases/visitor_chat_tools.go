@@ -52,10 +52,21 @@ func marshalRows(rows []corpusRow) string {
 // marshalReadResult —— corpus_read 的 wire:id(稳定标识,admin transcript 记 cited_*_ids)
 // + genre + body(markdown) + path(树派生地址) + title。前端 pi-agent-core 收到后累积
 // citations(id 落库 / genre+path+title 给 UI / body 给展开)。
-func marshalReadResult(id, genre, body, path, title string) string {
-	out, err := json.Marshal(map[string]string{
-		"id": id, "genre": genre, "body": body, "path": path, "title": title,
-	})
+// readResultWire —— corpus_read 的 wire 形。css_classes = per-note 呈现钩子。
+type readResultWire struct {
+	ID         string   `json:"id"`
+	Genre      string   `json:"genre"`
+	Body       string   `json:"body"`
+	Path       string   `json:"path"`
+	Title      string   `json:"title"`
+	CSSClasses []string `json:"css_classes"`
+}
+
+func marshalReadResult(r *readResultWire) string {
+	if r.CSSClasses == nil {
+		r.CSSClasses = []string{}
+	}
+	out, err := json.Marshal(r)
 	if err != nil {
 		return errJSON("marshal failed")
 	}
