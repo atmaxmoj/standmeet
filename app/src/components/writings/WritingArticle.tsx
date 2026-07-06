@@ -20,6 +20,7 @@ import remarkMath from 'remark-math';
 
 import type { BacklinkRef, WritingView } from '@/lib/api/public';
 import { Cover } from '@/components/writings/Cover';
+import { CorpusContent } from '@/components/page/CorpusContent';
 import { markdownComponents, markdownStyles } from '@/components/writings/WritingArticleMarkdown';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
@@ -167,13 +168,15 @@ function Body({ bodyMD, assetURLs }: { bodyMD: string; assetURLs: Record<string,
       className={`max-w-[680px] mx-auto px-6 lg:px-0 text-(--color-ink) ${markdownStyles.body}`}
       data-testid="writing-article-body"
     >
-      <Markdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={markdownComponents}
-      >
-        {rendered}
-      </Markdown>
+      <CorpusContent>
+        <Markdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          components={markdownComponents}
+        >
+          {rendered}
+        </Markdown>
+      </CorpusContent>
     </article>
   );
 }

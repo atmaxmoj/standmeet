@@ -8,6 +8,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { ChatMarkdown } from '@/components/page/markdown';
+import { CorpusContent } from '@/components/page/CorpusContent';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
@@ -134,7 +135,9 @@ function PageHeader() {
 function OutputBody({ body }: { body: string }) {
   return (
     <div className="reading text-base" data-testid="output-body">
-      <ChatMarkdown source={body} />
+      <CorpusContent>
+        <ChatMarkdown source={body} />
+      </CorpusContent>
     </div>
   );
 }

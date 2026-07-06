@@ -10,6 +10,7 @@
 import Link from 'next/link';
 
 import { ChatMarkdown } from '@/components/page/markdown';
+import { CorpusContent } from '@/components/page/CorpusContent';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import type { VisitorDoc } from '@/lib/api/public';
@@ -51,7 +52,9 @@ function DocContent({ genre, slug, title, body }: {
         {title}
       </h1>
       <div className="reading text-base" data-testid={`${genre}-body`}>
-        <ChatMarkdown source={body} />
+        <CorpusContent>
+          <ChatMarkdown source={body} />
+        </CorpusContent>
       </div>
     </article>
   );
