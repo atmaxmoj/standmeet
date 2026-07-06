@@ -34,10 +34,28 @@ type PageHandlers struct {
 	CaptchaSiteKey string
 }
 
-// Mount 挂 /page + /instance。caller 负责前缀（/api/v1）。
+// Mount 挂 /page + /instance + /appearance.css。caller 负责前缀（/api/v1）。
 func (h *PageHandlers) Mount(r chi.Router) {
 	r.Get("/page", h.getPage())
 	r.Get("/instance", h.getInstance())
+	r.Get("/appearance.css", h.getAppearanceCSS())
+}
+
+// getAppearanceCSS —— GET /api/v1/appearance.css:sole owner 的自定义 CSS 作为真正的
+// stylesheet 资源(text/css)返回,reader 页 <link> 它。后端已 sanitize + scope 到
+// .corpus-content;无 owner / 未设 → 空表(无副作用)。
+func (h *PageHandlers) getAppearanceCSS() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		css := ""
+		if owner, err := usecases.LoadSoleOwner(r.Context(), h.Page); err == nil {
+			css = h.ownerCustomCSS(r.Context(), owner.ID)
+		}
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		if _, werr := w.Write([]byte(css)); werr != nil {
+			h.Log.Error("write appearance css", logErrKey, werr)
+		}
+	}
 }
 
 // getInstance —— v1 单 owner instance 元信息。返回 {claimed, handle, setup_token?}。
@@ -53,7 +71,7 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		owner, err := usecases.LoadSoleOwner(r.Context(), h.Page)
 		if err != nil && !errors.Is(err, domain.ErrOwnerNotFound) {
-			h.Log.Error("load sole owner", "err", err)
+			h.Log.Error("load sole owner", logErrKey, err)
 			writeError(h.Log, w, apierr.Envelope{
 				Status:  http.StatusInternalServerError,
 				Code:    "server_error",
@@ -83,10 +101,22 @@ func (h *PageHandlers) unclaimedSetupToken(ctx context.Context, owner *domain.Ow
 func (h *PageHandlers) ensureUnclaimedTokenOrLog(ctx context.Context) string {
 	plaintext, err := usecases.EnsureUnclaimedSetupToken(ctx, h.TokenIssuer)
 	if err != nil {
-		h.Log.Error("ensure unclaimed setup token", "err", err)
+		h.Log.Error("ensure unclaimed setup token", logErrKey, err)
 		return ""
 	}
 	return plaintext
+}
+
+// ownerCustomCSS —— 已 claim 的 owner 的自定义 CSS(best-effort;未 claim / 错 → 空)。
+func (h *PageHandlers) ownerCustomCSS(ctx context.Context, ownerID string) string {
+	if ownerID == "" {
+		return ""
+	}
+	css, err := h.Page.Owners.GetCSS(ctx, ownerID)
+	if err != nil {
+		return ""
+	}
+	return css
 }
 
 // instanceWriteInput —— writeInstanceInfo 的入参打包。
@@ -109,7 +139,7 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 		CanEmailCodes:  in.canEmailCodes,
 	}
 	if err := json.NewEncoder(w).Encode(view); err != nil {
-		log.Error("encode instance info", "err", err)
+		log.Error("encode instance info", logErrKey, err)
 	}
 }
 
@@ -137,14 +167,14 @@ func writePageView(log *slog.Logger, w http.ResponseWriter, view *usecases.Publi
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(view); err != nil {
-		log.Error("encode page view", "err", err)
+		log.Error("encode page view", logErrKey, err)
 	}
 }
 
 func handlePageErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	env := classifyPageErr(err)
 	if env.Status >= http.StatusInternalServerError {
-		log.Error("page route", "err", err)
+		log.Error("page route", logErrKey, err)
 	}
 	writeError(log, w, env)
 }

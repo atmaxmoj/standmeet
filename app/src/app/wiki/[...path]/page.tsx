@@ -13,6 +13,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { ChatMarkdown } from '@/components/page/markdown';
+import { CorpusContent } from '@/components/page/CorpusContent';
 import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
@@ -34,6 +35,7 @@ type WikiRef = { path: string; title: string };
 type WikiEntry = {
   title: string; body: string; excerpt: string; updated_at: string;
   tags: readonly string[];
+  css_classes?: readonly string[];
   related: readonly WikiRef[];
   cited_by: readonly WikiRef[];
   sources_count: number;
@@ -84,7 +86,7 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx, stats }: {
           <OgCover entry={wiki} seed={slug} />
           <MetaStrip entry={wiki} ownerName={ownerName} />
           <article className="max-w-[680px] mx-auto mt-2">
-            <WikiBody body={wiki.body} />
+            <WikiBody body={wiki.body} cssClasses={wiki.css_classes} />
           </article>
           <div className="max-w-[760px] mx-auto">
             <SubEntriesRail nodes={ctx.children} />
@@ -229,12 +231,16 @@ function RelatedRail(
   ) : null;
 }
 
-function WikiBody({ body }: { body: string }) {
+function WikiBody({ body, cssClasses }: {
+  body: string; cssClasses?: readonly string[];
+}) {
   // article variant —— 编辑级阅读排版(p 21/1.65、h2 serif 26、blockquote
   // accent);跟 chat answer 同一条 markdown 管线 (gfm + math + mermaid + sanitize)。
   return (
     <div className="reading" data-testid="wiki-body">
-      <ChatMarkdown source={body} variant="article" />
+      <CorpusContent classes={cssClasses}>
+        <ChatMarkdown source={body} variant="article" />
+      </CorpusContent>
     </div>
   );
 }
