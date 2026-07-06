@@ -28,10 +28,11 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 
 ### 1c · 渲染对称(两侧同源) 🟡
 - ✅ KaTeX + Mermaid(D-6)。
-- ⬜ **Callout `> [!theorem]`**:markdown pipeline(`app/src/components/page/markdown.tsx`)加 remark/rehype transform,DOM 对齐 Obsidian(`class="callout" data-callout="…"`)。
+- ✅ **Callout `> [!theorem]`**:`markdown-callouts.ts`(手写 mdast walk,不引 unist-util-visit)把 `> [!type] Title` blockquote 转成 `blockquote.callout[data-callout=type]` + `.callout-title`(DOM 对齐 Obsidian);接进 ChatMarkdown pipeline(wiki/output/restricted),`data-callout` 进 rehype-sanitize 白名单,`.callout` base 样式走 design palette、owner 可按 type 覆盖。**截图验证过**(theorem / warning 两个 callout 框正常渲)。
 - ⬜ **TikZ 精确数学图**:Mermaid 只画拓扑;候选 TikZJax(Obsidian 同引擎 → 两侧一致)。WASM payload 大,须 lazy。
 - ⬜ **`standmeet-widget` 沙箱 iframe 块**:动态内容走 fenced block → sandboxed iframe + **host 定义的 postMessage 边界(manifest + `render(data)`/`resize`/`requestCapability` schema)** + ACL + `seo:false`。**这是 MCP Apps `ui://` 的渲染版**(同一个 iframe+postMessage 模型,可复用)。
 - ✅ **同步 owner 的 Obsidian CSS snippet**(2026-07 owner 决策,**改了原"never import CSS"设计**):`.obsidian/snippets/<enabled>.css` 同步进来当 StandMeet 页面 CSS,"两侧长得一模一样"。三点全落地:(a) vault-ingestion 给 `.obsidian/snippets/*.css` + `appearance.json` 开 harvest 白名单(不再"点前缀全忽略");(b) **sanitize**——剥 `@import`/外部+js `url()`/`expression()`/`-moz-binding`、scope 每条选择器到 `.corpus-content`;(c) 三面(vault-sync / admin PUT `/appearance/css` / MCP `set_owner_css`)写同一 `owners.custom_css`;**外加 per-note `cssclasses` frontmatter 呈现钩子**(三面写、corpus_read 返回)。owner-css-* / cssclasses-surfaces / sync-g-hidden 全绿。
+  **真渲染已接(这才算完,不是只后端绿)**:公开 `GET /api/v1/appearance.css`(text/css) 由 reader `<link>` 引(真 stylesheet 资源,非 inline `<style>`);`CorpusContent` 两层——`.corpus-content` 作 scope 锚点、per-note cssclasses 放内层 div(这样 owner 的 `.theorem{…}` 被 scope 成 `.corpus-content .theorem` 能命中)。wiki/output/writings/restricted 四个 reader 面全接。**截图逐个看过**(owner snippet 改 h2/blockquote/code、`.boxed` 画框、callout)。之前那个 ✅ 是只做了后端存/读没接前端渲染时早标的,现已补齐渲染。
 
 ### 1d · Obsidian 生态借力(不 host 插件,借它的 output/code/信号) ⬜
 **不能在 StandMeet 里跑 Obsidian 插件**(闭源 Electron host = 那道墙;连 Obsidian 自己的 Publish 都跑不了插件)。但生态的价值三条路进来:
