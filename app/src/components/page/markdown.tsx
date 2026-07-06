@@ -17,6 +17,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
+import { remarkCallouts } from '@/components/page/markdown-callouts';
 import {
   escapeCurrencyDollars, isMermaidCode, mermaidSource,
 } from '@/components/page/markdown-helpers';
@@ -33,7 +34,7 @@ const SAFE_SCHEMA: typeof defaultSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
-    '*': [...(defaultSchema.attributes?.['*'] ?? []), 'className'],
+    '*': [...(defaultSchema.attributes?.['*'] ?? []), 'className', 'data-callout'],
     code: [...(defaultSchema.attributes?.code ?? []), 'className'],
   },
 };
@@ -69,7 +70,7 @@ export function ChatMarkdown(
   return (
     <div className={cls}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkGfm, remarkMath, remarkCallouts]}
         rehypePlugins={[rehypeKatex, [rehypeSanitize, SAFE_SCHEMA]]}
         components={{ code: MarkdownCode }}
       >

@@ -174,3 +174,31 @@
   padding: 4px 24px;
   border-left: 3px solid var(--color-accent);
 }
+
+/* Obsidian callout —— remark-callouts 把 `> [!type]` blockquote 转成
+   `.callout[data-callout]` + `.callout-title`。base 用 vermillion accent;
+   owner 可用 snippet(`.callout[data-callout="theorem"]{…}`)按 type 覆盖。
+   :global 因为 class 是 remark 注入的(非 CSS-module 哈希名)。 */
+.body :global(.callout),
+.article :global(.callout) {
+  border-left: 3px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  padding: 0.75em 1.05em;
+  margin: 1.4em 0;
+  border-radius: 3px;
+  font-style: normal;
+  font-size: 16px;
+  line-height: 1.55;
+}
+.body :global(.callout > .callout-title),
+.article :global(.callout > .callout-title) {
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-accent);
+  margin: 0 0 0.5em;
+}
+.body :global(.callout > :last-child),
+.article :global(.callout > :last-child) { margin-bottom: 0; }
