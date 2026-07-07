@@ -13,6 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -105,7 +106,7 @@ func (c *promptsCapability) handleCreate(
 	if err != nil {
 		return promptCreateErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "prompt_create", map[string]string{
+	return mcputil.MarshalResult(c.log, "prompt_create", map[string]string{
 		"prompt_id": prompt.ID(), "name": prompt.Name(),
 	})
 }
@@ -151,7 +152,7 @@ func (c *promptsCapability) handleList(
 			Description: rows[i].Description(), IsBuiltin: rows[i].IsBuiltin(),
 		})
 	}
-	return marshalCapResult(c.log, "prompt_list", items)
+	return mcputil.MarshalResult(c.log, "prompt_list", items)
 }
 
 // ───── prompt_delete ─────────────────────────────────────────────
@@ -188,7 +189,7 @@ func (c *promptsCapability) handleDelete(
 	if err := usecases.DeletePrompt(ctx, *c.prompts, ownerID, args.PromptID); err != nil {
 		return promptDeleteErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "prompt_delete", map[string]bool{"ok": true})
+	return mcputil.MarshalResult(c.log, "prompt_delete", map[string]bool{"ok": true})
 }
 
 func promptDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {

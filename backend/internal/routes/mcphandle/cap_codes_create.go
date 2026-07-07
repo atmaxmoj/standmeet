@@ -12,6 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
 func (c *codesCapability) createBinding() *capreg.MCPBinding {
@@ -67,7 +68,7 @@ func (c *codesCapability) handleCreate(
 		c.log.Error("cap codes.create", "err", err)
 		return capreg.MCPError("create code failed")
 	}
-	return marshalCapResult(c.log, "codes.create", map[string]any{
+	return mcputil.MarshalResult(c.log, "codes.create", map[string]any{
 		"code_id": code.ID, "code": code.Code, "label": code.Label,
 	})
 }

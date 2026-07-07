@@ -16,6 +16,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -104,7 +105,7 @@ func (c *customPageCapability) handleCreate(
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.create")
 	}
-	return marshalCapResult(c.log, "custom_page.create", capPageView(&page))
+	return mcputil.MarshalResult(c.log, "custom_page.create", capPageView(&page))
 }
 
 // ───── custom_page.write_file ─────────────────────────────────
@@ -145,7 +146,7 @@ func (c *customPageCapability) handleWriteFile(
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.write_file")
 	}
-	return marshalCapResult(c.log, "custom_page.write_file", capBuildView(&build))
+	return mcputil.MarshalResult(c.log, "custom_page.write_file", capBuildView(&build))
 }
 
 func parseWriteFileArgs(raw json.RawMessage) (writeFileArgsWire, error) {
@@ -194,7 +195,7 @@ func (c *customPageCapability) handleBuild(
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.build")
 	}
-	return marshalCapResult(c.log, "custom_page.build", capBuildView(&build))
+	return mcputil.MarshalResult(c.log, "custom_page.build", capBuildView(&build))
 }
 
 // ───── custom_page.get_build ───────────────────────────────────
@@ -232,7 +233,7 @@ func (c *customPageCapability) handleGetBuild(
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.get_build")
 	}
-	return marshalCapResult(c.log, "custom_page.get_build", capBuildView(&build))
+	return mcputil.MarshalResult(c.log, "custom_page.get_build", capBuildView(&build))
 }
 
 // ───── view helpers + error translation ───────────────────────

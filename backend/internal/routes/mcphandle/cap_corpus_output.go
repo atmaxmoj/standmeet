@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -105,7 +106,7 @@ func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 	}
 	// 地址树派生:promote 不再设 path,只按需藏 show_as_source。
 	c.applyOutputShowAsSourceIfHidden(ctx, &out, args.ShowAsSource)
-	return marshalCapResult(c.log, "promote_wiki_to_output",
+	return mcputil.MarshalResult(c.log, "promote_wiki_to_output",
 		map[string]string{"output_id": out.ID()})
 }
 
@@ -186,7 +187,7 @@ func (c *corpusOutputCapability) handleListRecentOutput(
 		c.log.Error("cap list_recent_output", "err", err)
 		return capreg.MCPError("list failed")
 	}
-	return marshalCapResult(c.log, "list_recent_output", outputRowsToView(rows))
+	return mcputil.MarshalResult(c.log, "list_recent_output", outputRowsToView(rows))
 }
 
 // path 不回显(同 list_recent_wiki:最近 N 条非全树,算不出准确树派生地址)。

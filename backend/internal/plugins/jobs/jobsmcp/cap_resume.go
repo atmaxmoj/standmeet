@@ -15,6 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
@@ -104,7 +105,7 @@ func (c *resumeCapability) handleDraft(
 	if err != nil {
 		return resumeCapErrToResult(c.log, err, "draft")
 	}
-	return marshalCapResult(c.log, "resume.draft", resumeDraftView(&drafted.Draft))
+	return mcputil.MarshalResult(c.log, "resume.draft", resumeDraftView(&drafted.Draft))
 }
 
 // ───── resume.update_draft ────────────────────────────────────
@@ -151,7 +152,7 @@ func (c *resumeCapability) handleUpdateDraft(
 	if err != nil {
 		return resumeCapErrToResult(c.log, err, "update_draft")
 	}
-	return marshalCapResult(c.log, "resume.update_draft",
+	return mcputil.MarshalResult(c.log, "resume.update_draft",
 		resumeDraftView(&drafted.Draft))
 }
 
@@ -190,7 +191,7 @@ func (c *resumeCapability) handleDiscardDraft(
 	if err := jobsuc.DiscardResumeDraft(ctx, *c.resume, ownerID, args.DraftID); err != nil {
 		return resumeCapErrToResult(c.log, err, "discard_draft")
 	}
-	return marshalCapResult(c.log, "resume.discard_draft", map[string]bool{"ok": true})
+	return mcputil.MarshalResult(c.log, "resume.discard_draft", map[string]bool{"ok": true})
 }
 
 // ───── error mapping ──────────────────────────────────────────

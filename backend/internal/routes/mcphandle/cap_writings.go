@@ -12,6 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -132,7 +133,7 @@ func (c *writingsCapability) handleCreate(
 	if err != nil {
 		return writingCreateErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "writing_create", map[string]any{
+	return mcputil.MarshalResult(c.log, "writing_create", map[string]any{
 		"writing_id": wg.ID(), "slug": wg.Slug(), "published": wg.IsPublished(),
 	})
 }
@@ -231,7 +232,7 @@ func (c *writingsCapability) handleList(
 	for i := range rows {
 		out = append(out, writingRowToCapView(&rows[i]))
 	}
-	return marshalCapResult(c.log, "writing_list", out)
+	return mcputil.MarshalResult(c.log, "writing_list", out)
 }
 
 func writingRowToCapView(w *domain.Writing) writingListRow {
@@ -287,7 +288,7 @@ func (c *writingsCapability) handlePublish(
 		c.log.Error("cap writing_publish", "err", err)
 		return capreg.MCPError("publish writing failed")
 	}
-	return marshalCapResult(c.log, "writing_publish", map[string]any{
+	return mcputil.MarshalResult(c.log, "writing_publish", map[string]any{
 		"writing_id": wg.ID(), "slug": wg.Slug(), "published": true,
 	})
 }
@@ -319,7 +320,7 @@ func (c *writingsCapability) handleDelete(
 		c.log.Error("cap writing_delete", "err", err)
 		return capreg.MCPError("delete writing failed")
 	}
-	return marshalCapResult(c.log, "writing_delete", map[string]string{
+	return mcputil.MarshalResult(c.log, "writing_delete", map[string]string{
 		"writing_id": args.WritingID,
 	})
 }

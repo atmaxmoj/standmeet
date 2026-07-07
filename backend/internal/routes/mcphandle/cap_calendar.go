@@ -16,6 +16,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -122,7 +123,7 @@ func (c *calendarCapability) handleListSlots(
 	if err != nil {
 		return calendarCapErr(c.log, err, "list_slots")
 	}
-	return marshalCapResult(c.log, "calendar.list_slots",
+	return mcputil.MarshalResult(c.log, "calendar.list_slots",
 		map[string]any{"slots": viewSlots(slots)})
 }
 
@@ -219,7 +220,7 @@ func (c *calendarCapability) handleCancelBooking(
 	if err != nil {
 		return calendarCapErr(c.log, err, "cancel_booking")
 	}
-	return marshalCapResult(c.log, "calendar.cancel_booking", map[string]any{
+	return mcputil.MarshalResult(c.log, "calendar.cancel_booking", map[string]any{
 		"booking_id":      cancelled.BookingID,
 		"google_event_id": cancelled.GoogleEvent,
 		"summary":         cancelled.Summary,

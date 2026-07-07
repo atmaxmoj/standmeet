@@ -16,6 +16,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 )
 
@@ -100,7 +101,7 @@ func (c *jobsCapability) handleRegisterSource(
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "register_source")
 	}
-	return marshalCapResult(c.log, "jobs.register_source", jobSourceView(&src))
+	return mcputil.MarshalResult(c.log, "jobs.register_source", jobSourceView(&src))
 }
 
 func parseRegisterSourceCapArgs(
@@ -144,7 +145,7 @@ func (c *jobsCapability) handleListSources(
 	for i := range list {
 		out = append(out, jobSourceView(&list[i]))
 	}
-	return marshalCapResult(c.log, "jobs.list_sources",
+	return mcputil.MarshalResult(c.log, "jobs.list_sources",
 		map[string]any{"sources": out})
 }
 
@@ -182,7 +183,7 @@ func (c *jobsCapability) handleUnregisterSource(
 	if err := jobsuc.UnregisterJobSource(ctx, *c.jobs, ownerID, args.SourceID); err != nil {
 		return jobsCapErrToResult(c.log, err, "unregister_source")
 	}
-	return marshalCapResult(c.log, "jobs.unregister_source", map[string]bool{"ok": true})
+	return mcputil.MarshalResult(c.log, "jobs.unregister_source", map[string]bool{"ok": true})
 }
 
 // ───── jobs.fetch_new ──────────────────────────────────────────
@@ -221,7 +222,7 @@ func (c *jobsCapability) handleFetchNew(
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "fetch_new")
 	}
-	return marshalCapResult(c.log, "jobs.fetch_new",
+	return mcputil.MarshalResult(c.log, "jobs.fetch_new",
 		map[string]any{"jobs": fetchedJobViews(jobs)})
 }
 
@@ -260,7 +261,7 @@ func (c *jobsCapability) handleShow(
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "show")
 	}
-	return marshalCapResult(c.log, "jobs.show", fetchedJobToView(&job))
+	return mcputil.MarshalResult(c.log, "jobs.show", fetchedJobToView(&job))
 }
 
 // ───── jobs.discard ─────────────────────────────────────────────
@@ -293,7 +294,7 @@ func (c *jobsCapability) handleDiscard(
 	if err := jobsuc.DiscardJob(ctx, *c.jobs, ownerID, args.CacheID); err != nil {
 		return jobsCapErrToResult(c.log, err, "discard")
 	}
-	return marshalCapResult(c.log, "jobs.discard", map[string]bool{"ok": true})
+	return mcputil.MarshalResult(c.log, "jobs.discard", map[string]bool{"ok": true})
 }
 
 // ───── error mapping ───────────────────────────────────────────

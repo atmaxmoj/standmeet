@@ -12,6 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -107,7 +108,7 @@ func (c *rolesCapability) handleSetDockButtons(
 	if err != nil {
 		return dockButtonsErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "roles.set_dock_buttons", map[string]any{
+	return mcputil.MarshalResult(c.log, "roles.set_dock_buttons", map[string]any{
 		"role_id": role.ID(), "dock_buttons": role.DockButtons(),
 	})
 }
@@ -189,7 +190,7 @@ func (c *rolesCapability) handleCreate(
 	if cerr != nil {
 		return roleCreateErrToResult(c.log, cerr)
 	}
-	return marshalCapResult(c.log, "role_create", map[string]string{
+	return mcputil.MarshalResult(c.log, "role_create", map[string]string{
 		"role_id": role.ID(), "name": role.Name(),
 	})
 }
@@ -266,7 +267,7 @@ func (c *rolesCapability) handleList(
 	for i := range rows {
 		items = append(items, roleRowToCapView(&rows[i]))
 	}
-	return marshalCapResult(c.log, "role_list", items)
+	return mcputil.MarshalResult(c.log, "role_list", items)
 }
 
 func roleRowToCapView(rl *domain.Role) roleListRow {
@@ -319,7 +320,7 @@ func (c *rolesCapability) handleDelete(
 	if err := usecases.DeleteRole(ctx, *c.roles, ownerID, args.RoleID); err != nil {
 		return roleDeleteErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "role_delete", map[string]bool{"ok": true})
+	return mcputil.MarshalResult(c.log, "role_delete", map[string]bool{"ok": true})
 }
 
 func roleDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {

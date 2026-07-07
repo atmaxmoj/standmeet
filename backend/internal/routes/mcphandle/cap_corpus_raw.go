@@ -15,6 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -114,7 +115,7 @@ func (c *corpusRawCapability) handleRawDump(
 		c.log.Error("cap raw_dump", "err", err)
 		return capreg.MCPError("raw_dump failed")
 	}
-	return marshalCapResult(c.log, "raw_dump",
+	return mcputil.MarshalResult(c.log, "raw_dump",
 		map[string]string{"raw_id": rawEntry.ID()})
 }
 
@@ -164,7 +165,7 @@ func (c *corpusRawCapability) handlePromoteToWiki(
 	}
 	// 地址树派生:promote 不再设 path,只按需藏 show_as_source。
 	c.applyShowAsSourceIfHidden(ctx, &wikiEntry, args.ShowAsSource)
-	return marshalCapResult(c.log, "promote_to_wiki",
+	return mcputil.MarshalResult(c.log, "promote_to_wiki",
 		map[string]string{"wiki_id": wikiEntry.ID()})
 }
 
@@ -249,7 +250,7 @@ func (c *corpusRawCapability) handleListRecentRaw(
 		c.log.Error("cap list_recent_raw", "err", err)
 		return capreg.MCPError("list failed")
 	}
-	return marshalCapResult(c.log, "list_recent_raw", rawRowsToView(rows))
+	return mcputil.MarshalResult(c.log, "list_recent_raw", rawRowsToView(rows))
 }
 
 // ───── list_recent_wiki ───────────────────────────────────────────
@@ -277,7 +278,7 @@ func (c *corpusRawCapability) handleListRecentWiki(
 		c.log.Error("cap list_recent_wiki", "err", err)
 		return capreg.MCPError("list failed")
 	}
-	return marshalCapResult(c.log, "list_recent_wiki", wikiRowsToView(rows))
+	return mcputil.MarshalResult(c.log, "list_recent_wiki", wikiRowsToView(rows))
 }
 
-// view helpers + marshalCapResult + parseListLimit 移到 cap_helpers.go
+// view helpers + parseListLimit 移到 cap_helpers.go (marshalCapResult 已提升为 capreg.MarshalResult)

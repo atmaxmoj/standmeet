@@ -13,6 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -96,7 +97,7 @@ func (c *chatCapability) handleShowGrounding(
 		return capreg.MCPError("show_grounding failed")
 	}
 	view := c.hydrateGroundingView(ctx, ownerID, &bundle)
-	return marshalCapResult(c.log, "chat.show_grounding", view)
+	return mcputil.MarshalResult(c.log, "chat.show_grounding", view)
 }
 
 // groundingCapView —— MCP 输出形状。每条 message + 平铺的 cited entry body。

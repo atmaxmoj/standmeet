@@ -17,6 +17,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 )
 
 const capCodesBundle = "codes.bundle"
@@ -186,7 +187,7 @@ func (c *codesCapability) handleUpdateQuotas(
 	if err != nil {
 		return updateQuotasErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "codes.update_quotas", map[string]any{
+	return mcputil.MarshalResult(c.log, "codes.update_quotas", map[string]any{
 		"code_id":               code.ID,
 		"max_members":           code.MaxMembers,
 		"max_turns_per_session": code.MaxTurnsPerSession,

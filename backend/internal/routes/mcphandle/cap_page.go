@@ -15,6 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -91,7 +92,7 @@ func (c *pageCapability) handleUpdateHandle(
 	if err != nil {
 		return updateHandleErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "page.update_handle", map[string]string{
+	return mcputil.MarshalResult(c.log, "page.update_handle", map[string]string{
 		"owner_id": owner.ID, "handle": owner.Handle,
 	})
 }

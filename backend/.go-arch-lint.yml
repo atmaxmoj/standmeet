@@ -53,6 +53,8 @@ components:
     in: internal/plugins/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobsmcp:
     in: internal/plugins/jobs/jobsmcp     # J.3: jobs plugin MCP capabilities + views + helpers
+  mcputil:
+    in: internal/mcputil                  # shared owner-MCP result marshaller (mcphandle + owner-cap plugins)
   jobsadmin:
     in: internal/plugins/jobs/jobsadmin   # J.4: jobs plugin admin REST routes (drafts / applications list)
   jobcache:
@@ -286,6 +288,7 @@ deps:
       - domain
       - usecases
       - capreg
+      - mcputil
       - jobsuc
       - jobsmcp
       - httpx
@@ -383,7 +386,14 @@ deps:
     mayDependOn:
       - domain
       - capreg
+      - mcputil
       - jobsuc
+    anyVendorDeps: true
+
+  # mcputil —— shared owner-MCP result marshaller. Leaf: only capreg (for MCPResult).
+  mcputil:
+    mayDependOn:
+      - capreg
     anyVendorDeps: true
 
   # jobsadmin —— J.4: jobs plugin admin REST routes (drafts / applications list)。

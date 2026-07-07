@@ -12,6 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -95,7 +96,7 @@ func (c *subjectivityCapability) handleSubjectivityWrite(
 	if err != nil {
 		return subjectivityWriteErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "subjectivity_write",
+	return mcputil.MarshalResult(c.log, "subjectivity_write",
 		map[string]string{"subjectivity_id": res.ID, "path": res.Path})
 }
 

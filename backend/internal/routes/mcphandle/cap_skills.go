@@ -12,6 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -107,7 +108,7 @@ func (c *skillsCapability) handleCreate(
 		c.log.Error("cap skill_create", "err", cerr)
 		return capreg.MCPError("create skill failed")
 	}
-	return marshalCapResult(c.log, "skill_create", map[string]string{
+	return mcputil.MarshalResult(c.log, "skill_create", map[string]string{
 		"skill_id": skill.ID, "name": skill.Name,
 	})
 }
@@ -167,7 +168,7 @@ func (c *skillsCapability) handleList(
 			CreatedAt: rows[i].CreatedAt.Format(mcpTimeFmt),
 		})
 	}
-	return marshalCapResult(c.log, "skill_list", out)
+	return mcputil.MarshalResult(c.log, "skill_list", out)
 }
 
 // ───── skill_delete ───────────────────────────────────────────
@@ -204,7 +205,7 @@ func (c *skillsCapability) handleDelete(
 	if err := usecases.DeleteSkill(ctx, *c.skills, ownerID, args.SkillID); err != nil {
 		return skillDeleteErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "skill_delete", map[string]string{
+	return mcputil.MarshalResult(c.log, "skill_delete", map[string]string{
 		"skill_id": args.SkillID,
 	})
 }

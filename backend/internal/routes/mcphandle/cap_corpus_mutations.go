@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -105,7 +106,7 @@ func (c *corpusMutationsCapability) handleUpdateWiki(
 	if err != nil {
 		return wikiMutationErrToResult(c.log, err, "update_wiki")
 	}
-	return marshalCapResult(c.log, "update_wiki", map[string]any{
+	return mcputil.MarshalResult(c.log, "update_wiki", map[string]any{
 		"id": wiki.ID(), "title": wiki.Title(), "body": wiki.Body(),
 	})
 }
@@ -188,7 +189,7 @@ func (c *corpusMutationsCapability) handleUpdateOutput(
 	if err != nil {
 		return outputMutationErrToResult(c.log, err, "update_output")
 	}
-	return marshalCapResult(c.log, "update_output", map[string]any{
+	return mcputil.MarshalResult(c.log, "update_output", map[string]any{
 		"id": out.ID(), "title": out.Title(), "body": out.Body(),
 	})
 }
@@ -260,7 +261,7 @@ func (c *corpusMutationsCapability) handleDeleteWiki(
 	if err := usecases.DeleteWiki(ctx, *c.corpus, ownerID, args.WikiID); err != nil {
 		return wikiMutationErrToResult(c.log, err, "delete_wiki")
 	}
-	return marshalCapResult(c.log, "delete_wiki", map[string]any{
+	return mcputil.MarshalResult(c.log, "delete_wiki", map[string]any{
 		"id": args.WikiID, "deleted": true,
 	})
 }
@@ -295,7 +296,7 @@ func (c *corpusMutationsCapability) handleDeleteOutput(
 	if err := usecases.DeleteOutput(ctx, *c.corpus, ownerID, args.OutputID); err != nil {
 		return outputMutationErrToResult(c.log, err, "delete_output")
 	}
-	return marshalCapResult(c.log, "delete_output", map[string]any{
+	return mcputil.MarshalResult(c.log, "delete_output", map[string]any{
 		"id": args.OutputID, "deleted": true,
 	})
 }

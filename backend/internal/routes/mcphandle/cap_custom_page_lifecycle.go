@@ -11,6 +11,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -76,7 +77,7 @@ func (c *customPageCapability) handlePromote(
 		if err != nil {
 			return customPageCapErr(c.log, err, name)
 		}
-		return marshalCapResult(c.log, name, capPageView(&page))
+		return mcputil.MarshalResult(c.log, name, capPageView(&page))
 	}
 }
 
@@ -115,7 +116,7 @@ func (c *customPageCapability) handleRollback(
 	if err != nil {
 		return customPageCapErr(c.log, err, "custom_page.rollback")
 	}
-	return marshalCapResult(c.log, "custom_page.rollback", capPageView(&page))
+	return mcputil.MarshalResult(c.log, "custom_page.rollback", capPageView(&page))
 }
 
 // ───── delete ─────────────────────────────────────────────────
@@ -142,7 +143,7 @@ func (c *customPageCapability) handleDelete(
 	if err := usecases.DeletePage(ctx, *c.pages, ownerID, args.Slug); err != nil {
 		return customPageCapErr(c.log, err, "custom_page.delete")
 	}
-	return marshalCapResult(c.log, "custom_page.delete", map[string]bool{"ok": true})
+	return mcputil.MarshalResult(c.log, "custom_page.delete", map[string]bool{"ok": true})
 }
 
 // ───── list ────────────────────────────────────────────────────
@@ -167,6 +168,6 @@ func (c *customPageCapability) handleList(
 	for i := range pages {
 		items = append(items, capPageView(&pages[i]))
 	}
-	return marshalCapResult(c.log, "custom_page.list",
+	return mcputil.MarshalResult(c.log, "custom_page.list",
 		map[string]any{"pages": items})
 }

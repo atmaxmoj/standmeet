@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -72,5 +73,5 @@ func (c *appearanceCapability) handleSetOwnerCSS(
 	if err := usecases.SetOwnerCSS(ctx, c.store, ownerID, args.CSS); err != nil {
 		return capreg.MCPError(err.Error())
 	}
-	return marshalCapResult(c.log, "set_owner_css", map[string]string{"status": "ok"})
+	return mcputil.MarshalResult(c.log, "set_owner_css", map[string]string{"status": "ok"})
 }

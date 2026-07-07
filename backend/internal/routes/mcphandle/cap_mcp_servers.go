@@ -11,6 +11,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -97,7 +98,7 @@ func (c *mcpServersCapability) handleCreate(
 	if err != nil {
 		return mcpServerCreateErrToResult(c.log, err)
 	}
-	return marshalCapResult(c.log, "mcp_server_create", map[string]string{
+	return mcputil.MarshalResult(c.log, "mcp_server_create", map[string]string{
 		"server_id": cfg.ID, "name": cfg.Name, "url": cfg.URL,
 	})
 }
@@ -159,7 +160,7 @@ func (c *mcpServersCapability) handleList(
 			CreatedAt:      rows[i].CreatedAt.Format(mcpTimeFmt),
 		})
 	}
-	return marshalCapResult(c.log, "mcp_server_list", out)
+	return mcputil.MarshalResult(c.log, "mcp_server_list", out)
 }
 
 // ───── mcp_server_delete ───────────────────────────────────────
@@ -201,7 +202,7 @@ func (c *mcpServersCapability) handleDelete(
 		c.log.Error("cap mcp_server_delete", "err", err)
 		return capreg.MCPError("delete mcp server failed")
 	}
-	return marshalCapResult(c.log, "mcp_server_delete", map[string]string{
+	return mcputil.MarshalResult(c.log, "mcp_server_delete", map[string]string{
 		"server_id": args.ServerID,
 	})
 }
