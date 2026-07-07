@@ -66,7 +66,77 @@ func runAgentTurn(
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
 		VisitorTimezone:  req.VisitorTimezone,
 		MarkWaypoints:    buildAgentTurnLedger(h, auth),
+		BuildGhost:       buildGhostForTurn(h, auth, cred, req.ConversationID),
 	})
+}
+
+// buildGhostForTurn —— 注入给 inference 的 ghost-steering policy port。done 之后据本轮末条回复
+// 出至多一个 steering ghost。仅 code 模式 + 冻了 waypoints + 有 conversation 才装(否则 nil)。
+func buildGhostForTurn(
+	h *Handlers, auth authedVisitor, cred *inference.Cred, convID string,
+) inference.BuildGhostFunc {
+	if !hasFrozenWaypoints(auth) || convID == "" {
+		return nil
+	}
+	gr := &ghostRun{h: h, auth: auth, cred: cred, convID: convID}
+	return func(ctx context.Context, lastMsg string) *inference.GhostFrame {
+		return gr.run(ctx, lastMsg)
+	}
+}
+
+// ghostRun —— 一段 code session 的 ghost policy 上下文(闭进 handler + session + cred + conv)。
+type ghostRun struct {
+	h      *Handlers
+	cred   *inference.Cred
+	auth   authedVisitor
+	convID string
+}
+
+// run —— 出候选(silence/失败 → nil)→ 落 conversation_ghosts → GhostFrame。
+func (gr *ghostRun) run(ctx context.Context, lastMsg string) *inference.GhostFrame {
+	cand := gr.candidate(ctx, lastMsg)
+	if cand == nil {
+		return nil
+	}
+	return gr.persist(ctx, cand)
+}
+
+// candidate —— unvisited 检查(空 → silence,不调 LLM)→ GhostPolicy(owner 单模型)→ 解析。
+// 沉默/失败/无效 → nil。
+func (gr *ghostRun) candidate(ctx context.Context, lastMsg string) *usecases.GhostCandidate {
+	unvisited := usecases.UnvisitedWaypoints(
+		gr.auth.Data.RoleSnapshot.Waypoints(), gr.auth.Data.VisitedWaypoints)
+	if len(unvisited) == 0 {
+		return nil
+	}
+	out, err := inference.Generate(ctx, gr.cred, &inference.ChatRequest{
+		System: usecases.GhostPolicyPrompt,
+		Messages: []inference.ChatRequestMsg{
+			{Role: "user", Content: usecases.BuildGhostContext(unvisited, lastMsg)},
+		},
+	})
+	if err != nil {
+		gr.h.Log.Warn("ghost policy generate", logErrKey, err)
+		return nil
+	}
+	return usecases.ParseGhost(out)
+}
+
+func (gr *ghostRun) persist(
+	ctx context.Context, cand *usecases.GhostCandidate,
+) *inference.GhostFrame {
+	id, perr := usecases.RecordPolicyGhost(ctx, gr.h.Ghosts, &usecases.PolicyGhostInput{
+		OwnerID: gr.auth.Data.OwnerID, ConversationID: gr.convID,
+		Text: cand.Text, TargetWaypoint: cand.TargetWaypoint, FollowsFrom: cand.FollowsFrom,
+	})
+	if perr != nil {
+		gr.h.Log.Warn("ghost policy persist", logErrKey, perr)
+		return nil
+	}
+	return &inference.GhostFrame{
+		Text: cand.Text, TargetWaypoint: cand.TargetWaypoint, FollowsFrom: cand.FollowsFrom,
+		GhostID: id, IsBridge: cand.IsBridge,
+	}
 }
 
 // buildAgentTurnLedger —— 注入给 inference 的 ghost-steering ledger port。turn 收尾把本轮引用

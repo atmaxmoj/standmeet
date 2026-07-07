@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+
+	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
 // toolUse —— one corpus tool the candidate invoked while answering, surfaced
@@ -22,6 +24,9 @@ type captureSink struct {
 	text        strings.Builder
 	tools       []toolUse
 	ghosts []string
+	// ghost —— ghost-steering: 本轮 policy 出的单个 steering ghost(nil = silence)。
+	// eval-ghost 拿它的 target_waypoint 对 gold。
+	ghost *agentcore.GhostFrame
 	// report —— summarize_conversation is a ReturnDirectly tool with no text
 	// answer; the report HTML lives only in its tool result. Capture it so the
 	// eval can judge how good the generated summary is.
@@ -67,6 +72,12 @@ func (s *captureSink) Ghosts(items []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ghosts = items
+}
+
+func (s *captureSink) Ghost(g *agentcore.GhostFrame) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ghost = g
 }
 
 // Retrying —— 重试只影响时延,不改最终 transcript;capture 只攒终态,no-op。

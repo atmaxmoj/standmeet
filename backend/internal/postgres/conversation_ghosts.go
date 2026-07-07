@@ -36,6 +36,39 @@ type RecordShownInput struct {
 	TurnIndex      int32
 }
 
+// RecordPolicyInput —— ghost-steering P3 policy ghost 落库入参(source='policy' + heading/hook)。
+type RecordPolicyInput struct {
+	OwnerID        string
+	ConversationID string
+	GhostText      string
+	TargetWaypoint string
+	FollowsFrom    string
+	TurnIndex      int32
+}
+
+// RecordPolicy —— 落一条 policy ghost(target_waypoint + follows_from)。返回 row 让 caller 拿 id
+// 放进 `ghost` 帧(前端 accept 回填)。
+func (r *GhostRepo) RecordPolicy(
+	ctx context.Context, in *RecordPolicyInput,
+) (domain.ConversationGhost, error) {
+	ownerUUID, err := parseUUID(in.OwnerID)
+	if err != nil {
+		return domain.ConversationGhost{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	convUUID, err := parseUUID(in.ConversationID)
+	if err != nil {
+		return domain.ConversationGhost{}, fmt.Errorf("parse conv id: %w", err)
+	}
+	row, qerr := dbq.New(r.pool).RecordPolicyGhost(ctx, dbq.RecordPolicyGhostParams{
+		OwnerID: ownerUUID, ConversationID: convUUID, TurnIndex: in.TurnIndex,
+		GhostText: in.GhostText, TargetWaypoint: &in.TargetWaypoint, FollowsFrom: &in.FollowsFrom,
+	})
+	if qerr != nil {
+		return domain.ConversationGhost{}, fmt.Errorf("record policy ghost: %w", qerr)
+	}
+	return toDomainGhost(&row), nil
+}
+
 // RecordShown —— append-only 写一条 shown 日志。返回 row id 让 caller
 // 拿去后续 accept 调用。
 func (r *GhostRepo) RecordShown(

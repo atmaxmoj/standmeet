@@ -57,7 +57,7 @@ async function turnFrames(
 ): Promise<SSEEvent[]> {
   const res = await request.post(`${BACKEND}/api/v1/agent/turn`, {
     headers: { Authorization: `Bearer ${sess.session_token}`, 'Content-Type': 'application/json' },
-    data: { message: msg },
+    data: { user_message: msg, conversation_id: sess.conversation_id },
   });
   expect(res.status(), 'agent/turn 200').toBe(200);
   const raw = await res.text();

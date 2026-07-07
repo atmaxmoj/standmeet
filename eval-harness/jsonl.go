@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"sync"
+
+	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
 // jsonEvent —— one JSONL line. A single struct with omitempty covers every
@@ -21,6 +23,7 @@ type jsonEvent struct {
 	Result      string          `json:"result,omitempty"`
 	Label       string          `json:"label,omitempty"`
 	Items       []string        `json:"items,omitempty"`
+	TargetWaypoint string       `json:"target_waypoint,omitempty"`
 	Attempt     int             `json:"attempt,omitempty"`
 	Stop        string          `json:"stop,omitempty"`
 	Error       string          `json:"error,omitempty"`
@@ -80,6 +83,12 @@ func (s *jsonlSink) Ghosts(items []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.write(jsonEvent{Type: "ghosts", Items: items})
+}
+
+func (s *jsonlSink) Ghost(g *agentcore.GhostFrame) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.write(jsonEvent{Type: "ghost", TargetWaypoint: g.TargetWaypoint, Delta: g.Text})
 }
 
 func (s *jsonlSink) Retrying(attempt int) {

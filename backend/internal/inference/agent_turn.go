@@ -101,7 +101,10 @@ type AgentTurnInput struct {
 	// MarkWaypoints —— ghost-steering ledger port。turn 收尾把本轮引用 + booking 命中交出去,
 	// route handler 注入的闭包标 waypoint visited + 存 session。nil = 不标(非 code / 无 waypoints)。
 	MarkWaypoints MarkWaypointsFunc
-	Mode          string
+	// BuildGhost —— ghost-steering policy port。done 之后据本轮末条回复出至多一个 steering ghost
+	// (route 闭包:GhostPolicy LLM + 落 conversation_ghosts)。nil = 不出(非 code / 无 waypoints)。
+	BuildGhost BuildGhostFunc
+	Mode       string
 	// CrossConvContext —— 「互通」:该 member 其他对话的 digest。instructionWithCrossConv
 	// 把它拼进 instruction 让 AI 跨对话连贯;route handler 装(读 DB),inference 不碰
 	// DB。空 = 不注入(public / 无 member / 没别的对话)。
@@ -255,6 +258,18 @@ func (s *sseSink) Ghosts(items []string) {
 		return
 	}
 	writeSSEFrame(s.log, s.w, s.flusher, "ghosts", body)
+}
+
+// Ghost —— ghost-steering P3: 发单个 `ghost` 帧(target_waypoint/follows_from/ghost_id 全带)。
+func (s *sseSink) Ghost(g *GhostFrame) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	body, err := json.Marshal(g)
+	if err != nil {
+		s.log.Error("agent turn marshal ghost", logErrKey, err)
+		return
+	}
+	writeSSEFrame(s.log, s.w, s.flusher, "ghost", body)
 }
 
 func (s *sseSink) Retrying(attempt int) {

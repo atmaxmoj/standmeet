@@ -5,6 +5,14 @@ INSERT INTO conversation_ghosts (
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
+-- name: RecordPolicyGhost :one
+-- ghost-steering P3: policy 出的 ghost，带 heading tag(target_waypoint) + coherence hook(follows_from)。
+INSERT INTO conversation_ghosts (
+    owner_id, conversation_id, turn_index, ghost_text, source, target_waypoint, follows_from
+)
+VALUES ($1, $2, $3, $4, 'policy', $5, $6)
+RETURNING *;
+
 -- name: MarkGhostAccepted :one
 UPDATE conversation_ghosts
 SET accepted_at = now()

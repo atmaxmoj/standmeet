@@ -84,6 +84,49 @@ func (q *Queries) MarkGhostAccepted(ctx context.Context, arg MarkGhostAcceptedPa
 	return i, err
 }
 
+const recordPolicyGhost = `-- name: RecordPolicyGhost :one
+INSERT INTO conversation_ghosts (
+    owner_id, conversation_id, turn_index, ghost_text, source, target_waypoint, follows_from
+)
+VALUES ($1, $2, $3, $4, 'policy', $5, $6)
+RETURNING id, owner_id, conversation_id, turn_index, ghost_text, source, target_waypoint, follows_from, shown_at, accepted_at
+`
+
+type RecordPolicyGhostParams struct {
+	OwnerID        pgtype.UUID
+	ConversationID pgtype.UUID
+	TurnIndex      int32
+	GhostText      string
+	TargetWaypoint *string
+	FollowsFrom    *string
+}
+
+// ghost-steering P3: policy 出的 ghost，带 heading tag(target_waypoint) + coherence hook(follows_from)。
+func (q *Queries) RecordPolicyGhost(ctx context.Context, arg RecordPolicyGhostParams) (ConversationGhost, error) {
+	row := q.db.QueryRow(ctx, recordPolicyGhost,
+		arg.OwnerID,
+		arg.ConversationID,
+		arg.TurnIndex,
+		arg.GhostText,
+		arg.TargetWaypoint,
+		arg.FollowsFrom,
+	)
+	var i ConversationGhost
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.ConversationID,
+		&i.TurnIndex,
+		&i.GhostText,
+		&i.Source,
+		&i.TargetWaypoint,
+		&i.FollowsFrom,
+		&i.ShownAt,
+		&i.AcceptedAt,
+	)
+	return i, err
+}
+
 const recordShownGhost = `-- name: RecordShownGhost :one
 INSERT INTO conversation_ghosts (
     owner_id, conversation_id, turn_index, ghost_text, source

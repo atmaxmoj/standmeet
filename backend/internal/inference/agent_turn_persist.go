@@ -90,6 +90,7 @@ func (a *accumSink) ToolCompleted(name, result string) {
 }
 
 func (a *accumSink) Ghosts(items []string) { a.inner.Ghosts(items) }
+func (a *accumSink) Ghost(g *GhostFrame)   { a.inner.Ghost(g) }
 func (a *accumSink) Retrying(attempt int)  { a.inner.Retrying(attempt) }
 func (a *accumSink) Error(err error)       { a.inner.Error(err) }
 
