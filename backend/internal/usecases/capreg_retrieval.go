@@ -13,6 +13,7 @@ package usecases
 import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/search"
 )
 
 // RetrievalDeps —— 窄依赖(#131):corpus 四类 lister(wiki/output/writing/subjectivity)。
@@ -24,7 +25,7 @@ type RetrievalDeps struct {
 	Subjectivity *postgres.NoteRepo
 	VaultSync    *postgres.VaultSyncRepo // standmeet-query 解析 + corpus_links 取邻居 genre/path
 	NoteRefs     *postgres.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks
-	Searcher     CorpusSearcher          // Meili 词法后端;nil → corpus_search 退 Postgres 全文
+	Searcher     *search.Client          // Meili 词法后端;nil → corpus_search 退 Postgres 全文
 }
 
 // RetrievalScopeVisible —— retrieval 的 fragment/enabled 闸：role snapshot 有任何 corpus

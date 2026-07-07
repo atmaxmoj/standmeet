@@ -179,7 +179,7 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
 		Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
-		NoteRefs: d.noteRefRepo, Searcher: d.corpusSearcher(),
+		NoteRefs: d.noteRefRepo, Searcher: d.searchClient,
 	})
 	wireSearchIndex(ctx, d)
 	wireSearchReconcile(ctx, d)

@@ -19,13 +19,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/search"
 )
 
-// CorpusSearcher —— 词法检索后端(Meili)。只按 owner_id 过滤返候选;细粒度 ACL(grantedGlobs)
-// 由 lister 复用 allowsCorpusURI 逐条过,与 corpus_read 完全一致。*search.Client 直接满足此接口。
-// nil = 未配 Meili → Search 退回 Postgres 全文。
-type CorpusSearcher interface {
-	Search(ctx context.Context, ownerID, query string) ([]search.Doc, error)
-}
-
 // ErrCorpusNotFound / ErrCorpusDenied —— Get's two failure modes, separated so the wire
 // can keep the old dispatchRead distinction ("not found" vs "access denied").
 var (
@@ -41,7 +34,7 @@ type pgCorpusLister struct {
 	subjectivity *postgres.NoteRepo
 	queryRepo    *postgres.VaultSyncRepo // standmeet-query 跨-genre 过滤 + corpus_links 取邻居 genre/path
 	noteRefs     *postgres.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks 邻居
-	searcher     CorpusSearcher          // Meili 词法后端;nil → Search 退 Postgres 全文
+	searcher     *search.Client          // Meili 词法后端;nil(未配)→ Search 退 Postgres 全文
 }
 
 // allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?

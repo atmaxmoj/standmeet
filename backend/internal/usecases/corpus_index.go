@@ -56,7 +56,8 @@ func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID stri
 	}
 	doc := search.Doc{
 		ID: note.ID, OwnerID: ownerID, Genre: note.Genre,
-		Path: syncNotePath(ctx, x.notes, ownerID, &note), Title: note.Title, Body: note.Body,
+		Path:  syncNotePath(note.Title, note.ParentID, dbParentOf(ctx, x.notes, ownerID)),
+		Title: note.Title, Body: note.Body,
 		Tags: note.Tags, Published: note.Published, ParentID: note.ParentID,
 	}
 	if ierr := x.client.Index(ctx, []search.Doc{doc}); ierr != nil {
@@ -109,44 +110,52 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 	}
 	docs := make([]search.Doc, 0, len(notes))
 	for i := range notes {
+		path := syncNotePath(notes[i].Title, notes[i].ParentID, mapParentOf(byID))
 		docs = append(docs, search.Doc{
 			ID: notes[i].ID, OwnerID: ownerID, Genre: notes[i].Genre,
-			Path: pathFromMap(&notes[i], byID), Title: notes[i].Title, Body: notes[i].Body,
+			Path: path, Title: notes[i].Title, Body: notes[i].Body,
 			Tags: notes[i].Tags, Published: notes[i].Published, ParentID: notes[i].ParentID,
 		})
 	}
 	return docs
 }
 
-// syncNotePath —— 一条 corpus note 的 path:pathSegment 父链 '/' 连。走库版(逐父 GetSyncNote)。
-// 索引传播 + corpus_links 共用,保证 index/links 的 path 与检索 ACL(allowsCorpusURI)完全一致。
-func syncNotePath(
-	ctx context.Context, notes *postgres.VaultSyncRepo, ownerID string, n *postgres.SyncNote,
-) string {
-	segs := []string{pathSegment(n.Title)}
-	for cur, depth := n.ParentID, 0; cur != "" && depth < treeMaxDepth; depth++ {
-		parent, err := notes.GetSyncNote(ctx, ownerID, cur)
-		if err != nil {
+// syncNotePath —— corpus note 的 path:pathSegment 父链 '/' 连,**best-effort**(父链断了就到此为止,
+// 不报错——索引/links 是尽力而为)。parentOf 提供「某 id → (title, parentID)」;走库版传 GetSyncNote
+// 闭包、批量版传内存 map 闭包 —— walk 逻辑一处,两种 backing。索引传播 + corpus_links 共用,保证
+// path 与检索 ACL(allowsCorpusURI)一致(读路径的 wikiPathByID 等是 strict 版、语义不同,故不合并)。
+func syncNotePath(title, parentID string, parentOf func(id string) (string, string, bool)) string {
+	segs := []string{pathSegment(title)}
+	for cur, depth := parentID, 0; cur != "" && depth < treeMaxDepth; depth++ {
+		pt, pp, ok := parentOf(cur)
+		if !ok {
 			break
 		}
-		segs = append([]string{pathSegment(parent.Title)}, segs...)
-		cur = parent.ParentID
+		segs = append([]string{pathSegment(pt)}, segs...)
+		cur = pp
 	}
 	return strings.Join(segs, "/")
 }
 
-// pathFromMap —— 同 syncNotePath 但用内存 map(ReindexOwner 批量,免 N 次查库)。
-func pathFromMap(n *postgres.SyncNote, byID map[string]*postgres.SyncNote) string {
-	segs := []string{pathSegment(n.Title)}
-	for cur, depth := n.ParentID, 0; cur != "" && depth < treeMaxDepth; depth++ {
-		parent, ok := byID[cur]
-		if !ok {
-			break
-		}
-		segs = append([]string{pathSegment(parent.Title)}, segs...)
-		cur = parent.ParentID
+// dbParentOf —— syncNotePath 的走库 backing:逐父 GetSyncNote。
+func dbParentOf(
+	ctx context.Context, notes *postgres.VaultSyncRepo, ownerID string,
+) func(string) (string, string, bool) {
+	return func(id string) (string, string, bool) {
+		n, err := notes.GetSyncNote(ctx, ownerID, id)
+		return n.Title, n.ParentID, err == nil
 	}
-	return strings.Join(segs, "/")
+}
+
+// mapParentOf —— syncNotePath 的内存 backing:ReindexOwner 批量,免 N 次查库。
+func mapParentOf(byID map[string]*postgres.SyncNote) func(string) (string, string, bool) {
+	return func(id string) (string, string, bool) {
+		n, ok := byID[id]
+		if !ok {
+			return "", "", false
+		}
+		return n.Title, n.ParentID, true
+	}
 }
 
 func (x *meiliCorpusIndexer) warn(msg string, err error) {

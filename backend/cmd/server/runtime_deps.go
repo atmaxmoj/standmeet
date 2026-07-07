@@ -100,13 +100,3 @@ type runtimeDeps struct {
 	secureCookie       bool
 	captchaEnabled     bool // #169 captcha 是否真启用(非 noop)—— code guard 的 escape 层
 }
-
-// corpusSearcher —— nil-safe 转成 CorpusSearcher 接口(避免 nil *Client 装进非-nil 接口的坑)。
-//
-//nolint:ireturn // nil-safe factory:未配 Meili 返 nil 接口,让 Search 走 Postgres 降级
-func (d *runtimeDeps) corpusSearcher() usecases.CorpusSearcher {
-	if d.searchClient == nil {
-		return nil
-	}
-	return d.searchClient
-}

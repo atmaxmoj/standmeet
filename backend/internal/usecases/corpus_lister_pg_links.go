@@ -75,7 +75,7 @@ func (l *pgCorpusLister) neighborMeta(
 	if err != nil {
 		return CorpusMeta{}, false
 	}
-	path := syncNotePath(ctx, l.queryRepo, ownerID, &note)
+	path := syncNotePath(note.Title, note.ParentID, dbParentOf(ctx, l.queryRepo, ownerID))
 	if !allowsCorpusURI(grantedGlobs, note.Genre, path) {
 		return CorpusMeta{}, false
 	}
