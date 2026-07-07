@@ -13,6 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
@@ -22,6 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/printsess"
+	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/sandboxws"
@@ -99,4 +101,29 @@ type runtimeDeps struct {
 	buildsRoot         string
 	secureCookie       bool
 	captchaEnabled     bool // #169 captcha 是否真启用(非 noop)—— code guard 的 escape 层
+}
+
+// recoveryDeps —— #100 account recovery 的窄依赖(owner repo + session store + mail proxy)。
+// 抽出来让 wireup 的 buildAdminDeps 保持 ≤350 行。
+func recoveryDeps(d *runtimeDeps) usecases.RecoveryDeps {
+	return usecases.RecoveryDeps{
+		Owners: d.ownerRepo, Sessions: d.sessionStore, Proxy: d.connectorSlots.Mail(),
+	}
+}
+
+// connectorsAdminDeps —— admin connectors 面板依赖(connectorsvc + mail slot)。抽出来让
+// buildAdminDeps 保持 ≤70 行(funlen)。
+func connectorsAdminDeps(d *runtimeDeps) adminroutes.ConnectorsAdminDeps {
+	return adminroutes.ConnectorsAdminDeps{
+		Svc: connectorsvc.New(&connectorsvc.Deps{
+			Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
+			HTTP: connectorEgressClient(), Verifier: d.connectorSlots,
+			Installer: uploadedInstaller{
+				slots: d.connectorSlots, deps: newAssembleDeps(d.connectorRepo),
+			},
+			Manifests: loadBuiltinConnectorManifests(d),
+		}),
+		Mail:     d.connectorSlots.Mail(),
+		MailKind: d.connectorSlots.MailKind,
+	}
 }

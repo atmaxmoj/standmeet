@@ -60,6 +60,14 @@ SET password_hash = $2
 WHERE id = $1
 RETURNING *;
 
+-- name: SetOwnerRecoveryHash :exec
+-- #100: 存/换 recovery phrase 的 hash(明文只进邮件)。
+UPDATE owners SET recovery_hash = $2 WHERE id = $1;
+
+-- name: ClearOwnerRecoveryHash :exec
+-- #100: recover 成功后作废(单次用)。
+UPDATE owners SET recovery_hash = '' WHERE id = $1;
+
 -- name: UpdateOwnerProfileTimezone :one
 UPDATE owners
 SET profile_timezone = $2

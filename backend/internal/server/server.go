@@ -72,6 +72,7 @@ type AdminDeps struct {
 	HandleAdmin     usecases.HandleDeps
 	PublicURLAdmin  usecases.PublicURLDeps
 	AccountAdmin    usecases.AccountDeps
+	Recovery        usecases.RecoveryDeps
 	AIProvider      usecases.AIProviderDeps
 	CustomPages     usecases.CustomPageDeps
 	Skills          usecases.SkillsDeps
@@ -175,6 +176,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		HandleAdmin:     adminroutes.HandleDeps{Handle: deps.Admin.HandleAdmin},
 		PublicURLAdmin:  adminroutes.PublicURLDeps{PublicURL: deps.Admin.PublicURLAdmin},
 		AccountAdmin:    adminroutes.AccountDeps{Account: deps.Admin.AccountAdmin},
+		Recovery:        deps.Admin.Recovery,
 		AIProviderAdmin: adminroutes.AIProviderDeps{AI: deps.Admin.AIProvider},
 		CustomPages:     deps.Admin.CustomPages,
 		SkillsAdmin:     adminroutes.SkillsAdminDeps{Skills: deps.Admin.Skills},

@@ -33,6 +33,8 @@ func (h *Handlers) MountAccount(r chi.Router) {
 		r.Patch("/full-name", h.updateFullName())
 		r.Patch("/email", h.updateEmail())
 		r.Patch("/password", h.updatePassword())
+		// #100: 生成 recovery phrase(只存 hash,明文邮给 owner)。
+		r.Post("/recovery", h.generateRecovery())
 	})
 }
 

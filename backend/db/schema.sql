@@ -18,6 +18,9 @@ CREATE TABLE owners (
     id                   uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     email                citext        UNIQUE NOT NULL,
     password_hash        text          NOT NULL,
+    -- recovery_hash —— #100 account recovery phrase 的 hash(只存 hash,明文只进邮件)。
+    -- 空 = 没生成过 / 已用掉(单次)。锁在外面时 /recover 拿 email+phrase 对这列。
+    recovery_hash        text          NOT NULL DEFAULT '',
     handle               citext        UNIQUE NOT NULL,
     full_name            text          NOT NULL,
     location             text          NOT NULL DEFAULT '',

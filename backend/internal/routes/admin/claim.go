@@ -37,6 +37,7 @@ type Handlers struct {
 	MCPServersAdmin   MCPServersAdminDeps
 	BYOAI             BYOAIDeps
 	AccountAdmin      AccountDeps
+	Recovery          usecases.RecoveryDeps
 	PromptsAdmin      PromptsAdminDeps
 	Domains           DomainsDeps
 	AIProviderAdmin   AIProviderDeps
@@ -66,6 +67,9 @@ func (h *Handlers) MountUnauthed(
 	r.Group(func(r chi.Router) {
 		r.Use(loginGuard)
 		r.Post("/login", h.login())
+		// #100: 公开的账号恢复 —— {email, phrase} 对上就发 session。跟 login 同套 guard 限速
+		// (brute-force 面一样)。
+		r.Post("/recover", h.recover())
 	})
 }
 

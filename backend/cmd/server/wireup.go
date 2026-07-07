@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
@@ -92,6 +91,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		HandleAdmin:    usecases.HandleDeps{Owners: d.ownerRepo},
 		PublicURLAdmin: usecases.PublicURLDeps{Owners: d.ownerRepo},
 		AccountAdmin:   usecases.AccountDeps{Owners: d.ownerRepo},
+		Recovery:       recoveryDeps(d),
 		AIProvider:     usecases.AIProviderDeps{Owners: d.ownerRepo},
 		CustomPages:    usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Skills:         usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
@@ -112,19 +112,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Applications: d.applicationRepo,
 		Marketplace:  usecases.MarketplaceDeps{Client: d.marketplaceClient},
 		Calendar:     adminroutes.CalendarAdminDeps{Repo: d.calendarRepo},
-		Connectors: adminroutes.ConnectorsAdminDeps{
-			Svc: connectorsvc.New(&connectorsvc.Deps{
-				Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
-				HTTP: connectorEgressClient(), Verifier: d.connectorSlots,
-				Installer: uploadedInstaller{
-					slots: d.connectorSlots,
-					deps:  newAssembleDeps(d.connectorRepo),
-				},
-				Manifests: loadBuiltinConnectorManifests(d),
-			}),
-			Mail:     d.connectorSlots.Mail(),
-			MailKind: d.connectorSlots.MailKind,
-		},
+		Connectors:   connectorsAdminDeps(d),
 		Capabilities: adminroutes.CapabilityAdminDeps{
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
 			Skills: d.skillRepo, Connectors: d.connectorRepo,

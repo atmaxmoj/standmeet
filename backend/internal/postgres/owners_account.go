@@ -96,6 +96,32 @@ func (r *OwnerRepo) UpdatePasswordHash(
 	return nil
 }
 
+// SetRecoveryHash —— #100 写 owner recovery_hash(usecase 在外面 HashPassword(phrase))。
+func (r *OwnerRepo) SetRecoveryHash(ctx context.Context, ownerID, hash string) error {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	if qerr := dbq.New(r.pool).SetOwnerRecoveryHash(ctx, dbq.SetOwnerRecoveryHashParams{
+		ID: pgID, RecoveryHash: hash,
+	}); qerr != nil {
+		return fmt.Errorf("set recovery_hash: %w", qerr)
+	}
+	return nil
+}
+
+// ClearRecoveryHash —— #100 recover 成功后作废(单次用)。
+func (r *OwnerRepo) ClearRecoveryHash(ctx context.Context, ownerID string) error {
+	pgID, perr := parseUUID(ownerID)
+	if perr != nil {
+		return fmt.Errorf(parseOwnerIDErrFmt, perr)
+	}
+	if qerr := dbq.New(r.pool).ClearOwnerRecoveryHash(ctx, pgID); qerr != nil {
+		return fmt.Errorf("clear recovery_hash: %w", qerr)
+	}
+	return nil
+}
+
 // GetPasswordHash —— 拿 owner 当前 password_hash，给 usecase 验旧密码用。
 // 不存在返 domain.ErrOwnerNotFound。
 func (r *OwnerRepo) GetPasswordHash(ctx context.Context, ownerID string) (string, error) {

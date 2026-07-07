@@ -289,6 +289,7 @@ type Owner struct {
 	ID                pgtype.UUID
 	Email             string
 	PasswordHash      string
+	RecoveryHash      string
 	Handle            string
 	FullName          string
 	Location          string

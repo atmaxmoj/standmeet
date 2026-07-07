@@ -21,6 +21,8 @@ type Credentials struct {
 	OwnerID      string
 	PasswordHash string
 	Handle       string
+	// RecoveryHash —— #100 recovery phrase 的 hash(空 = 没生成/已用)。/recover 对这列。
+	RecoveryHash string
 }
 
 // GetCredentialsByEmail 拿 owner_id + password_hash；email 不存在返回
@@ -38,6 +40,7 @@ func (r *OwnerRepo) GetCredentialsByEmail(ctx context.Context, email string) (Cr
 		OwnerID:      formatUUID(row.ID),
 		PasswordHash: row.PasswordHash,
 		Handle:       row.Handle,
+		RecoveryHash: row.RecoveryHash,
 	}, nil
 }
 
