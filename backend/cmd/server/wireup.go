@@ -251,6 +251,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Reports:     d.chatReportRepo,
 		Sessions:    d.visitorStore,
 		Corpus:      d.corpus,
+		Ledger:      usecases.NewWaypointLedger(d.vaultSyncRepo, d.visitorStore, d.log),
 		Ghosts:      usecases.GhostDeps{Repo: d.ghostRepo},
 		PDFRenderer: d.reportPDFRenderer,
 		AppState:    d.appStateRepo,

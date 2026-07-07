@@ -36,10 +36,13 @@ type Handlers struct {
 	Cancel  usecases.VisitorCancelDeps
 	// Resolver / Reports —— route-level deps(非会话生命周期):chat turn 解析 owner
 	// provider + GET /report 读报告。#131 从 VisitorDeps 拆出来直接挂 Handlers。
-	Resolver    inference.Resolver
-	Reports     usecases.ReportStore
-	Sessions    *session.VisitorSessionStore
-	Corpus      usecases.DialogCorpusLookup
+	Resolver inference.Resolver
+	Reports  usecases.ReportStore
+	Sessions *session.VisitorSessionStore
+	Corpus   usecases.DialogCorpusLookup
+	// Ledger —— ghost-steering waypoint ledger:把本轮引用/booking 命中标 visited 存 session。
+	// composition root 建(闭 vaultSync + session store);route 不碰 postgres(守 arch)。
+	Ledger      *usecases.WaypointLedger
 	Ghosts      usecases.GhostDeps
 	PDFRenderer ReportPDFRenderer
 	// AppState —— MCP App（ui:// 卡）跨刷新状态 store；卡经 host 对自己 mcp 那格 CRUD。

@@ -98,7 +98,10 @@ type AgentTurnInput struct {
 	// inference_usage 表的闭包(闭进 owner_id;BYOAI 传 no-op —— 访客自付不计 owner)。
 	// nil = 不计(无状态 smoke / 无 owner)。inference 不碰 DB。
 	RecordUsage RecordUsageFunc
-	Mode        string
+	// MarkWaypoints —— ghost-steering ledger port。turn 收尾把本轮引用 + booking 命中交出去,
+	// route handler 注入的闭包标 waypoint visited + 存 session。nil = 不标(非 code / 无 waypoints)。
+	MarkWaypoints MarkWaypointsFunc
+	Mode          string
 	// CrossConvContext —— 「互通」:该 member 其他对话的 digest。instructionWithCrossConv
 	// 把它拼进 instruction 让 AI 跨对话连贯;route handler 装(读 DB),inference 不碰
 	// DB。空 = 不注入(public / 无 member / 没别的对话)。
@@ -149,7 +152,10 @@ func RunAgentTurn(
 	// accumSink tee 显示 sink + 流末端累计;收尾(Done 前)把这一轮 sink 进 DB
 	// (detached ctx,客户端断开也落)。落在 Done 之前 → `done` 帧代表已提交。
 	acc := newAccumSink(sink)
-	acc.onDone = func() { persistTurn(ctx, log, in, acc) }
+	acc.onDone = func() {
+		persistTurn(ctx, log, in, acc)
+		markWaypointsTurn(ctx, in, acc)
+	}
 	DriveAgentLoop(ctx, log, in, iter, acc)
 
 	dur := time.Since(start)

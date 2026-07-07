@@ -45,9 +45,19 @@ type diagSessionResp struct {
 	SystemPromptFull string                   `json:"system_prompt_full"`
 	Capabilities     []capreg.CapabilityState `json:"capabilities"`
 	ToolSpecs        []toolSpecWireV2         `json:"tool_specs"`
-	// Waypoints —— ghost-steering: 冻进 RoleSnapshot 的引导目的地（ACL 过滤后）。
-	// operator/e2e 观测 freeze 结果用；P2 起附 visited 状态。
-	Waypoints []domain.Waypoint `json:"waypoints"`
+	// Waypoints —— ghost-steering: 冻进 RoleSnapshot 的引导目的地（ACL 过滤后）+ ledger visited。
+	// operator/e2e 观测 freeze 结果 + waypoint 到访状态。
+	Waypoints []diagWaypoint `json:"waypoints"`
+}
+
+// diagWaypoint —— 冻结 waypoint + ledger visited 合并出到 diag。字段顺序按 fieldalignment。
+type diagWaypoint struct {
+	WaypointID   string   `json:"waypoint_id"`
+	Description  string   `json:"description"`
+	EvidenceRefs []string `json:"evidence_refs"`
+	Weight       int      `json:"weight"`
+	IsTerminal   bool     `json:"is_terminal"`
+	Visited      bool     `json:"visited"`
 }
 
 func diagSessionHandler(deps DiagSessionDeps) http.HandlerFunc {
@@ -102,8 +112,25 @@ func buildDiagSessionResp(
 		ToolSpecs:        toolSpecsFor(ctx, reg, in),
 		SystemPromptHash: reg.SystemPromptHash(ctx, basePersona, in),
 		SystemPromptFull: reg.ComposeSystemPrompt(ctx, basePersona, in),
-		Waypoints:        data.RoleSnapshot.Waypoints(),
+		Waypoints:        diagWaypoints(data.RoleSnapshot.Waypoints(), data.VisitedWaypoints),
 	}
+}
+
+// diagWaypoints —— 冻结 waypoints 逐条附上 ledger visited（waypoint_id ∈ VisitedWaypoints）。
+func diagWaypoints(frozen []domain.Waypoint, visited []string) []diagWaypoint {
+	vset := make(map[string]bool, len(visited))
+	for _, v := range visited {
+		vset[v] = true
+	}
+	out := make([]diagWaypoint, 0, len(frozen))
+	for i := range frozen {
+		out = append(out, diagWaypoint{
+			WaypointID: frozen[i].WaypointID, Description: frozen[i].Description,
+			EvidenceRefs: frozen[i].EvidenceRefs, Weight: frozen[i].Weight,
+			IsTerminal: frozen[i].IsTerminal, Visited: vset[frozen[i].WaypointID],
+		})
+	}
+	return out
 }
 
 func toolSpecsFor(

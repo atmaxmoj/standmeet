@@ -56,6 +56,10 @@ type VisitorSessionData struct {
 	// Visitor —— 访客自述身份(name + 可选 email)。挂 session(visitor 身份),
 	// 不挂 chat。booker 拿 Email 当 visitor_email 兜底。
 	Visitor domain.VisitorProfile `json:"visitor"`
+	// VisitedWaypoints —— ghost-steering 的 waypoint ledger:已到访的 waypoint_id 集
+	// (引用命中 evidence_refs / booking 命中 terminal → 加入)。ghost policy 只推未访问的;
+	// 全到 = destination reached。机械标记,无 LLM 判官(α≈0)。
+	VisitedWaypoints []string `json:"visited_waypoints,omitempty"`
 }
 
 // VisitorSessionStore wrap Redis 提供 visitor session CRUD。
@@ -131,6 +135,14 @@ func (s *VisitorSessionStore) Get(ctx context.Context, token string) (VisitorSes
 		return VisitorSessionData{}, perr
 	}
 	return data, nil
+}
+
+// Save —— 把改过的 session data 写回(刷新 TTL)。ghost waypoint ledger 标 visited 后存盘用。
+func (s *VisitorSessionStore) Save(
+	ctx context.Context, token string, data *VisitorSessionData,
+) error {
+	data.ExpiresAt = time.Now().Add(visitorSessionTTL)
+	return s.persist(ctx, token, data)
 }
 
 func (s *VisitorSessionStore) persist(

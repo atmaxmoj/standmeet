@@ -36,6 +36,11 @@ type PersistFunc func(ctx context.Context, res *TurnResult) error
 // token 用量交出去(model + input/output tokens)。route handler 注入走 inference_usage 表的闭包。
 type RecordUsageFunc func(ctx context.Context, model string, inputTokens, outputTokens int)
 
+// MarkWaypointsFunc —— ghost-steering ledger port。turn 收尾把本轮引用(cited note id)+ booking
+// 命中交出去,route handler 注入的闭包解析 URI + 标 waypoint visited + 存 session。inference 不碰
+// DB/redis。nil = 不标(非 code / 无 waypoints)。
+type MarkWaypointsFunc func(ctx context.Context, citedNoteIDs []string, bookingOK bool)
+
 // persistedToolCall —— 落库形态的一条 tool 调用。result 原样透(整个 tool 输出
 // JSON);ok 从顶层 envelope 取。跟前端 ToolCallView / dialogRequest.tool_calls
 // 对齐,conversation 读模型 + admin transcript 照原样渲。
@@ -95,6 +100,16 @@ func (a *accumSink) Done(stop string) {
 		a.onDone()
 	}
 	a.inner.Done(stop)
+}
+
+// bookedThisTurn —— 本轮有没有成功的 calendar_book(ghost-steering: terminal waypoint 标记信号)。
+func (a *accumSink) bookedThisTurn() bool {
+	for i := range a.tools {
+		if a.tools[i].Name == "calendar_book" && a.tools[i].OK {
+			return true
+		}
+	}
+	return false
 }
 
 // accumulateTool —— 一个 tool 完成:按落库形态收 {name, ok, result},并从
@@ -198,4 +213,16 @@ func persistTurn(ctx context.Context, log *slog.Logger, in *AgentTurnInput, acc 
 	if err := in.Persist(ctx, acc.result(in.Req.UserMessage)); err != nil {
 		log.Error("agent turn persist", logErrKey, err)
 	}
+}
+
+// markWaypointsTurn —— ghost-steering ledger:本轮引用(cited note id)+ booking 命中交给注入的
+// port。nil port(非 code / 无 waypoints)跳过。
+func markWaypointsTurn(ctx context.Context, in *AgentTurnInput, acc *accumSink) {
+	if in.MarkWaypoints == nil {
+		return
+	}
+	cited := make([]string, 0, len(acc.wikiIDs)+len(acc.outIDs))
+	cited = append(cited, acc.wikiIDs...)
+	cited = append(cited, acc.outIDs...)
+	in.MarkWaypoints(ctx, cited, acc.bookedThisTurn())
 }

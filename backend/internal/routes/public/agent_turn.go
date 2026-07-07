@@ -65,7 +65,30 @@ func runAgentTurn(
 		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
 		VisitorTimezone:  req.VisitorTimezone,
+		MarkWaypoints:    buildAgentTurnLedger(h, auth),
 	})
+}
+
+// buildAgentTurnLedger —— 注入给 inference 的 ghost-steering ledger port。turn 收尾把本轮引用
+// + booking 命中解析成 waypoint visited,存回 session。仅 code 模式且冻了 waypoints 才装(否则 nil,
+// inference 跳过)。best-effort:标记失败只 warn,绝不压这轮答复。
+func buildAgentTurnLedger(h *Handlers, auth authedVisitor) inference.MarkWaypointsFunc {
+	if !hasFrozenWaypoints(auth) {
+		return nil
+	}
+	return func(ctx context.Context, citedNoteIDs []string, bookingOK bool) {
+		h.Ledger.Mark(ctx, &usecases.MarkWaypointsInput{
+			Token: auth.Token, Data: *auth.Data,
+			CitedNoteIDs: citedNoteIDs, BookingOK: bookingOK,
+		})
+	}
+}
+
+func hasFrozenWaypoints(auth authedVisitor) bool {
+	if auth.Data.Mode != "code" || auth.Data.RoleSnapshot == nil {
+		return false
+	}
+	return len(auth.Data.RoleSnapshot.Waypoints()) > 0
 }
 
 // ownerTZForTurn —— owner 的 profile timezone,注入通用 instruction 的"现在
