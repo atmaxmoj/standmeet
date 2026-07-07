@@ -34,10 +34,11 @@ echo "──────────────────"
 
 fail=0
 check() { grep -q "$1" <<<"$OUT" || { echo "❌ missing: $2"; fail=1; }; }
+# The runner does the typed gold-check (checkGhostGold) + prints a GOLD line per scenario.
 # momentum: visitor points at alpha → ghost targets grasp-alpha (not higher-weight pricing)
-check 'ghost-momentum.*GHOST→ grasp-alpha'   'momentum → target grasp-alpha'
+check 'GOLD ghost.*ghost-momentum.*grasp-alpha ✓'   'momentum → target grasp-alpha'
 # one-or-none: all waypoints visited → silence (no ghost)
-check 'ghost-silence.*GHOST→ (none)'         'silence when all visited'
+check 'GOLD ghost.*ghost-silence.*silence ✓'         'silence when all visited'
 
 if [ "$fail" -ne 0 ]; then
   echo "❌ ghost eval: gold mismatch"; exit 1

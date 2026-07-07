@@ -50,10 +50,17 @@ func runOne(
 		sink.fatal(fmt.Errorf("script gateway: %w", err))
 		return runResult{name: sc.Name, ok: false}
 	}
+	if err := scriptGhost(cred.Endpoint, sc); err != nil {
+		sink.fatal(fmt.Errorf("script ghost: %w", err))
+		return runResult{name: sc.Name, ok: false}
+	}
 	if err := agentcore.RunAgentLoop(ctx, log, scenarioInput(sc, &cred), sink); err != nil {
 		sink.fatal(err)
 	}
 	tools, ok, stop := sink.outcome()
+	if sc.ExpectGhost != nil {
+		ok = checkGhostGold(w, sc, sink.capturedGhost()) && ok
+	}
 	return runResult{name: sc.Name, toolStarts: tools, stop: stop, ok: ok}
 }
 
@@ -80,7 +87,73 @@ func scenarioInput(sc *Scenario, cred *agentcore.Cred) *agentcore.AgentTurnInput
 	if len(sc.Tools) > 0 {
 		in.Tools, in.ProgressLabels = scenarioTools(sc.Tools)
 	}
+	// Ghost steering: inject the scenario's waypoints + visited into a DB-free policy closure so the
+	// loop emits the `ghost` frame after done (mock scripts the phrasing; unvisited-gate handles silence).
+	if len(sc.Waypoints) > 0 {
+		wps, visited := scenarioWaypoints(sc.Waypoints)
+		in.BuildGhost = func(ctx context.Context, lastMsg string) *agentcore.GhostFrame {
+			return agentcore.BuildGhostPolicy(ctx, cred, wps, visited, lastMsg)
+		}
+	}
 	return in
+}
+
+// scenarioWaypoints —— ScenarioWaypoint → BuildGhostPolicy 入参(waypoints + visited id 列表)。
+func scenarioWaypoints(in []ScenarioWaypoint) ([]agentcore.Waypoint, []string) {
+	wps := make([]agentcore.Waypoint, 0, len(in))
+	visited := make([]string, 0, len(in))
+	for _, w := range in {
+		wps = append(wps, agentcore.Waypoint{
+			WaypointID: w.WaypointID, Description: w.Description,
+			EvidenceRefs: w.EvidenceRefs, Weight: w.Weight, IsTerminal: w.IsTerminal,
+		})
+		if w.Visited {
+			visited = append(visited, w.WaypointID)
+		}
+	}
+	return wps, visited
+}
+
+// scriptGhost —— 给 mock 排一条 ghost-policy 回复(mock 认 prompt 里的 "ONE GHOST MESSAGE" → 回这条)。
+// 只在 expect emitted 时排;silence 场景靠 unvisited-gate 短路(全 visited → 不调 LLM),无需排。
+func scriptGhost(endpoint string, sc *Scenario) error {
+	if sc.ExpectGhost == nil || !sc.ExpectGhost.Emitted {
+		return nil
+	}
+	ghost := map[string]any{
+		"text":            "let's get into " + sc.ExpectGhost.TargetWaypoint,
+		"target_waypoint": sc.ExpectGhost.TargetWaypoint,
+	}
+	return postJSON(endpoint+"/__mock/inference/next_ghost", map[string]any{"body": ghost})
+}
+
+// checkGhostGold —— deterministic gold on the emitted ghost vs expect_ghost. Prints a readable GOLD
+// line + returns pass/fail. emitted=false ⇒ require silence (nil); else require the matching target.
+func checkGhostGold(w io.Writer, sc *Scenario, got *agentcore.GhostFrame) bool {
+	want := sc.ExpectGhost
+	pass := (want.Emitted && got != nil && got.TargetWaypoint == want.TargetWaypoint) ||
+		(!want.Emitted && got == nil)
+	mark := "✗"
+	if pass {
+		mark = "✓"
+	}
+	fmt.Fprintf(w, "GOLD ghost │ %s → want %s, got %s %s\n",
+		sc.Name, ghostWant(want), ghostTargetOr(got), mark)
+	return pass
+}
+
+func ghostWant(e *ExpectGhost) string {
+	if !e.Emitted {
+		return "silence"
+	}
+	return e.TargetWaypoint
+}
+
+func ghostTargetOr(g *agentcore.GhostFrame) string {
+	if g == nil {
+		return "silence"
+	}
+	return g.TargetWaypoint
 }
 
 func scenarioHistory(in []ScenarioMsg) []agentcore.ChatRequestMsg {

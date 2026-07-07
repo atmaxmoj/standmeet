@@ -14,6 +14,9 @@ type evalSink interface {
 	agentcore.AgentSink
 	fatal(err error) // pre-stream failure (build / gateway script)
 	outcome() (tools int, ok bool, stop string)
+	// capturedGhost —— the single ghost the loop emitted after done (nil = silence);
+	// ghost scenarios gold-check it against expect_ghost.
+	capturedGhost() *agentcore.GhostFrame
 }
 
 // formatter —— owns the per-scenario header, sink construction, and the

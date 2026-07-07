@@ -25,6 +25,7 @@ type transcriptSink struct {
 	toolStarts int
 	errored    bool
 	stop       string
+	ghost      *agentcore.GhostFrame // the single ghost emitted after done (nil = silence)
 }
 
 func newTranscriptSink(w io.Writer) *transcriptSink {
@@ -52,9 +53,18 @@ func (s *transcriptSink) ToolCompleted(name, result string) {
 	s.event("TOOL←     │ %s  ⇒ %s", name, result)
 }
 
-// Ghost —— ghost-steering: 单个 steering ghost。打成 `GHOST→ <target_waypoint>`(gold 断言可读)。
+// Ghost —— ghost-steering: 单个 steering ghost。打成 `GHOST→ <target_waypoint>`(gold 断言可读)+ 捕获给 gold。
 func (s *transcriptSink) Ghost(g *agentcore.GhostFrame) {
+	s.mu.Lock()
+	s.ghost = g
+	s.mu.Unlock()
 	s.event("GHOST→ %s │ %s", g.TargetWaypoint, g.Text)
+}
+
+func (s *transcriptSink) capturedGhost() *agentcore.GhostFrame {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ghost
 }
 
 func (s *transcriptSink) Retrying(attempt int) {

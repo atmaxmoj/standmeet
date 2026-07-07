@@ -53,6 +53,7 @@ type jsonlSink struct {
 	toolStarts int
 	errored    bool
 	stop       string
+	ghost      *agentcore.GhostFrame // the single ghost emitted after done (nil = silence)
 }
 
 func newJSONLSink(w io.Writer) *jsonlSink {
@@ -81,7 +82,14 @@ func (s *jsonlSink) ToolCompleted(name, result string) {
 func (s *jsonlSink) Ghost(g *agentcore.GhostFrame) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.ghost = g
 	s.write(jsonEvent{Type: "ghost", TargetWaypoint: g.TargetWaypoint, Delta: g.Text})
+}
+
+func (s *jsonlSink) capturedGhost() *agentcore.GhostFrame {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ghost
 }
 
 func (s *jsonlSink) Retrying(attempt int) {
