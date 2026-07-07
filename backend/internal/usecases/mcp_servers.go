@@ -37,7 +37,7 @@ func CreateMCPServer(
 	if verr := validateMCPCreateInput(in); verr != nil {
 		return domain.MCPServerConfig{}, verr
 	}
-	enc, eerr := encryptAuthValue(in.AuthHeaderValue)
+	enc, eerr := encryptAuthValue(in.AuthHeaderValue, []byte(in.OwnerID))
 	if eerr != nil {
 		return domain.MCPServerConfig{}, eerr
 	}
@@ -67,13 +67,14 @@ func persistMCPServer(
 	return cfg, nil
 }
 
-func encryptAuthValue(plaintext string) ([]byte, error) {
+// aad = owner_id: ext-mcp auth header 密文绑到该 owner；buildAuthHeaders 用 cfg.OwnerID 同串解。
+func encryptAuthValue(plaintext string, aad []byte) ([]byte, error) {
 	if plaintext == "" {
 		// 列是 NOT NULL DEFAULT '\x'::bytea，pgx 接到 nil 会写 NULL 而不
 		// 是默认空 bytes；显式给 []byte{} 让落库走 zero-length bytea。
 		return []byte{}, nil
 	}
-	enc, err := cryptobox.Encrypt([]byte(plaintext))
+	enc, err := cryptobox.Encrypt([]byte(plaintext), aad)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt auth value: %w", err)
 	}

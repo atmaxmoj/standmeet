@@ -22,6 +22,6 @@ type OwnerLookup interface {
 	LookupForResolver(ctx context.Context, ownerID string) (OwnerKeyView, error)
 }
 
-// KeyDecrypter —— 抽掉 cryptobox 依赖，让测试可以注 stub。dev/prod 默认就是
-// cryptobox.Decrypt。
-type KeyDecrypter func(enc []byte) ([]byte, error)
+// KeyDecrypter —— 抽掉 cryptobox 依赖，让测试可以注 stub。dev/prod 默认包一层 cryptobox.Decrypt。
+// ownerID 作 AAD:owner LLM key 密文绑到该 owner，被搬到别的 owner 行时解密 tamper-fail。
+type KeyDecrypter func(ownerID string, enc []byte) ([]byte, error)

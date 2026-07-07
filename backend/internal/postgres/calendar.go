@@ -79,11 +79,12 @@ func buildSaveTokenParams(in *SaveTokensInput) (*dbq.UpdateCalendarTokensParams,
 	if err != nil {
 		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	accessEnc, aerr := cryptobox.Encrypt([]byte(in.AccessToken))
+	aad := []byte(in.OwnerID) // 密文绑到 owner_id;decode 侧用 formatUUID(row.OwnerID) 同串解。
+	accessEnc, aerr := cryptobox.Encrypt([]byte(in.AccessToken), aad)
 	if aerr != nil {
 		return nil, fmt.Errorf("encrypt access_token: %w", aerr)
 	}
-	refreshEnc, rerr := maybeEncrypt(in.RefreshToken)
+	refreshEnc, rerr := maybeEncrypt(in.RefreshToken, aad)
 	if rerr != nil {
 		return nil, rerr
 	}
@@ -101,11 +102,11 @@ func buildSaveTokenParams(in *SaveTokensInput) (*dbq.UpdateCalendarTokensParams,
 	}, nil
 }
 
-func maybeEncrypt(plain string) ([]byte, error) {
+func maybeEncrypt(plain string, aad []byte) ([]byte, error) {
 	if plain == "" {
 		return []byte{}, nil
 	}
-	out, err := cryptobox.Encrypt([]byte(plain))
+	out, err := cryptobox.Encrypt([]byte(plain), aad)
 	if err != nil {
 		return []byte{}, fmt.Errorf("encrypt: %w", err)
 	}
@@ -204,11 +205,12 @@ func (r *CalendarRepo) identityRotated(
 func (r *CalendarRepo) upsertCreds(
 	ctx context.Context, ownerUUID pgtype.UUID, in *SaveCredentialsInput,
 ) error {
-	idEnc, ierr := cryptobox.Encrypt([]byte(in.ClientID))
+	aad := []byte(formatUUID(ownerUUID)) // 密文绑到 owner_id;decode 侧同串解。
+	idEnc, ierr := cryptobox.Encrypt([]byte(in.ClientID), aad)
 	if ierr != nil {
 		return fmt.Errorf("encrypt client_id: %w", ierr)
 	}
-	secEnc, serr := cryptobox.Encrypt([]byte(in.ClientSecret))
+	secEnc, serr := cryptobox.Encrypt([]byte(in.ClientSecret), aad)
 	if serr != nil {
 		return fmt.Errorf("encrypt client_secret: %w", serr)
 	}
@@ -248,16 +250,17 @@ type decodedTokens struct {
 func decodeConnectorTokens(row *dbq.OwnerCalendarConnector) (decodedTokens, error) {
 	var t decodedTokens
 	var err error
-	if t.clientID, err = decryptOrEmpty(row.ClientIDEnc); err != nil {
+	aad := []byte(formatUUID(row.OwnerID)) // 密文绑到 owner_id;save 侧用同一 owner 串封。
+	if t.clientID, err = decryptOrEmpty(row.ClientIDEnc, aad); err != nil {
 		return t, fmt.Errorf("decrypt client_id: %w", err)
 	}
-	if t.clientSecret, err = decryptOrEmpty(row.ClientSecretEnc); err != nil {
+	if t.clientSecret, err = decryptOrEmpty(row.ClientSecretEnc, aad); err != nil {
 		return t, fmt.Errorf("decrypt client_secret: %w", err)
 	}
-	if t.access, err = decryptOrEmpty(row.AccessTokenEnc); err != nil {
+	if t.access, err = decryptOrEmpty(row.AccessTokenEnc, aad); err != nil {
 		return t, fmt.Errorf("decrypt access_token: %w", err)
 	}
-	if t.refresh, err = decryptOrEmpty(row.RefreshTokenEnc); err != nil {
+	if t.refresh, err = decryptOrEmpty(row.RefreshTokenEnc, aad); err != nil {
 		return t, fmt.Errorf("decrypt refresh_token: %w", err)
 	}
 	return t, nil
@@ -274,11 +277,11 @@ func attachConnectorTimes(out *domain.CalendarConnector, row *dbq.OwnerCalendarC
 	}
 }
 
-func decryptOrEmpty(blob []byte) (string, error) {
+func decryptOrEmpty(blob, aad []byte) (string, error) {
 	if len(blob) == 0 {
 		return "", nil
 	}
-	plain, err := cryptobox.Decrypt(blob)
+	plain, err := cryptobox.Decrypt(blob, aad)
 	if err != nil {
 		return "", fmt.Errorf("decrypt: %w", err)
 	}

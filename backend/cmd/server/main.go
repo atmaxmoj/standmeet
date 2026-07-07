@@ -98,8 +98,11 @@ func wireAndServe(
 	// dev/e2e the owner's endpoint is seeded to the mock llm-gateway
 	// service (see e2e/fixtures/admin.ts seedDevAIProvider).
 	providerResolver := &inference.OwnerKeyResolver{
-		Lookup:    &ownerLookupAdapter{repo: repos.owner},
-		Decrypter: cryptobox.Decrypt,
+		Lookup: &ownerLookupAdapter{repo: repos.owner},
+		// owner LLM key 密文绑到 owner_id(AAD):被搬到别的 owner 行时解密 tamper-fail。
+		Decrypter: func(ownerID string, enc []byte) ([]byte, error) {
+			return cryptobox.Decrypt(enc, []byte(ownerID))
+		},
 	}
 	setupTokenHolder := session.NewSetupTokenHolder()
 	if terr := ensureSetupToken(ctx, log, repos.instance, setupTokenHolder); terr != nil {

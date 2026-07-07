@@ -41,9 +41,10 @@ func loadKey() ([aesKeyLen]byte, error) {
 	return sha256.Sum256([]byte(secret)), nil
 }
 
-// Encrypt —— plaintext 加密为 nonce|ciphertext|tag 单 buf。empty plaintext
-// 不调本函数，caller 拿 nil 当 "未设置" 处理。
-func Encrypt(plaintext []byte) ([]byte, error) {
+// Encrypt —— plaintext 加密为 nonce|ciphertext|tag 单 buf。aad 是 additional authenticated data:
+// 绑定密文到一个 context(持久化凭据传 owner_id)——密文被搬到另一 owner 的行时 Decrypt tamper-fail。
+// aad 不进密文、只进 auth tag。空 aad = 无绑定(旧 wire format;迁移期兼容)。empty plaintext 不调本函数。
+func Encrypt(plaintext, aad []byte) ([]byte, error) {
 	gcm, err := newGCM()
 	if err != nil {
 		return nil, err
@@ -52,11 +53,12 @@ func Encrypt(plaintext []byte) ([]byte, error) {
 	if _, nerr := io.ReadFull(rand.Reader, nonce); nerr != nil {
 		return nil, fmt.Errorf("read nonce: %w", nerr)
 	}
-	return gcm.Seal(nonce, nonce, plaintext, nil), nil
+	return gcm.Seal(nonce, nonce, plaintext, aad), nil
 }
 
-// Decrypt —— 反向。返 ErrTampered 表 ciphertext 损坏；调用者按 401 / 500 翻译。
-func Decrypt(blob []byte) ([]byte, error) {
+// Decrypt —— 反向,按 aad 校验绑定。aad 不匹配(密文被搬到别的 owner 行)/ 损坏 / 截断 → ErrTampered;
+// 调用者按 401/500 翻译。没有 legacy 密文(未发版),所以不做无-AAD fallback:AAD 必须严格对上。
+func Decrypt(blob, aad []byte) ([]byte, error) {
 	if len(blob) < nonceLen {
 		return nil, ErrTampered
 	}
@@ -65,7 +67,7 @@ func Decrypt(blob []byte) ([]byte, error) {
 		return nil, err
 	}
 	nonce, ct := blob[:nonceLen], blob[nonceLen:]
-	out, oerr := gcm.Open(nil, nonce, ct, nil)
+	out, oerr := gcm.Open(nil, nonce, ct, aad)
 	if oerr != nil {
 		return nil, ErrTampered
 	}

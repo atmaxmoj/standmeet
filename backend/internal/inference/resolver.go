@@ -73,7 +73,7 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 	if len(view.KeyEnc) == 0 {
 		return domain.AICredential{}, ErrOwnerProviderUnconfigured
 	}
-	keyBytes, derr := r.Decrypter(view.KeyEnc)
+	keyBytes, derr := r.Decrypter(ownerID, view.KeyEnc)
 	if derr != nil {
 		return domain.AICredential{}, fmt.Errorf("decrypt owner ai key: %w", derr)
 	}

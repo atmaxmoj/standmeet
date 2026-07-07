@@ -56,7 +56,7 @@ func (r *ConnectorRepo) SaveCredentials(ctx context.Context, in *SaveConnectorCr
 	if err != nil {
 		return fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	enc, eerr := encBytes(in.Credentials)
+	enc, eerr := encBytes(in.Credentials, []byte(in.OwnerID))
 	if eerr != nil {
 		return eerr
 	}
@@ -76,7 +76,7 @@ func (r *ConnectorRepo) SaveTokens(ctx context.Context, in *SaveConnectorTokensI
 	if err != nil {
 		return fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	tokEnc, terr := encryptToken(in.AccessToken, in.RefreshToken)
+	tokEnc, terr := encryptToken(in.AccessToken, in.RefreshToken, []byte(in.OwnerID))
 	if terr != nil {
 		return terr
 	}
@@ -219,39 +219,40 @@ func (r *ConnectorRepo) CategoryConnected(
 
 // ─── 加解密 helpers ───
 
-func encBytes(b []byte) ([]byte, error) {
+// aad = owner_id: 密文绑到 owner，行被调包到别的 owner 时 decrypt tamper-fail(#AAD debt)。
+func encBytes(b, aad []byte) ([]byte, error) {
 	if len(b) == 0 {
 		return []byte{}, nil
 	}
-	out, err := cryptobox.Encrypt(b)
+	out, err := cryptobox.Encrypt(b, aad)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt: %w", err)
 	}
 	return out, nil
 }
 
-func decBytes(b []byte) ([]byte, error) {
+func decBytes(b, aad []byte) ([]byte, error) {
 	if len(b) == 0 {
 		return []byte{}, nil
 	}
-	out, err := cryptobox.Decrypt(b)
+	out, err := cryptobox.Decrypt(b, aad)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt: %w", err)
 	}
 	return out, nil
 }
 
-func encryptToken(access, refresh string) ([]byte, error) {
+func encryptToken(access, refresh string, aad []byte) ([]byte, error) {
 	raw, err := json.Marshal(tokenBlob{AccessToken: access, RefreshToken: refresh})
 	if err != nil {
 		return nil, fmt.Errorf("marshal token: %w", err)
 	}
-	return encBytes(raw)
+	return encBytes(raw, aad)
 }
 
-func decodeToken(enc []byte) (tokenBlob, error) {
+func decodeToken(enc, aad []byte) (tokenBlob, error) {
 	var tb tokenBlob
-	raw, err := decBytes(enc)
+	raw, err := decBytes(enc, aad)
 	if err != nil {
 		return tb, err
 	}
@@ -276,11 +277,12 @@ func decodeScopes(raw []byte) ([]string, error) {
 }
 
 func decodeConnectorConn(row *dbq.OwnerConnector) (domain.ConnectorConnection, error) {
-	creds, err := decBytes(row.CredentialsEnc)
+	aad := []byte(formatUUID(row.OwnerID))
+	creds, err := decBytes(row.CredentialsEnc, aad)
 	if err != nil {
 		return domain.ConnectorConnection{}, err
 	}
-	tok, terr := decodeToken(row.TokenEnc)
+	tok, terr := decodeToken(row.TokenEnc, aad)
 	if terr != nil {
 		return domain.ConnectorConnection{}, terr
 	}

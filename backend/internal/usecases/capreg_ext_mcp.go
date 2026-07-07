@@ -166,7 +166,7 @@ func buildAuthHeaders(cfg *domain.MCPServerConfig) (map[string]string, error) {
 	if cfg.AuthHeaderName == "" || len(cfg.AuthHeaderValueEnc) == 0 {
 		return map[string]string{}, nil
 	}
-	plain, err := cryptobox.Decrypt(cfg.AuthHeaderValueEnc)
+	plain, err := cryptobox.Decrypt(cfg.AuthHeaderValueEnc, []byte(cfg.OwnerID))
 	if err != nil {
 		return nil, fmt.Errorf("decrypt mcp auth: %w", err)
 	}

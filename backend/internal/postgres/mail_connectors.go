@@ -44,11 +44,12 @@ func (r *MailRepo) SaveConnector(ctx context.Context, in *SaveMailConnectorInput
 	if err != nil {
 		return fmt.Errorf(errParseOwnerIDPrefix, err)
 	}
-	userEnc, uerr := maybeEncrypt(in.Username)
+	aad := []byte(in.OwnerID) // 密文绑到 owner_id;decode 用同一 owner 串解。
+	userEnc, uerr := maybeEncrypt(in.Username, aad)
 	if uerr != nil {
 		return uerr
 	}
-	passEnc, perr := maybeEncrypt(in.Password)
+	passEnc, perr := maybeEncrypt(in.Password, aad)
 	if perr != nil {
 		return perr
 	}
@@ -159,11 +160,12 @@ func (r *MailRepo) DeleteConnector(ctx context.Context, ownerID, provider string
 func decodeMailConnector(
 	row *dbq.OwnerMailConnector, ownerID string,
 ) (domain.MailConnector, error) {
-	user, uerr := decryptOrEmpty(row.UsernameEnc)
+	aad := []byte(ownerID) // 与 SaveConnector 的 in.OwnerID 同串。
+	user, uerr := decryptOrEmpty(row.UsernameEnc, aad)
 	if uerr != nil {
 		return domain.MailConnector{}, fmt.Errorf("decrypt username: %w", uerr)
 	}
-	pass, perr := decryptOrEmpty(row.PasswordEnc)
+	pass, perr := decryptOrEmpty(row.PasswordEnc, aad)
 	if perr != nil {
 		return domain.MailConnector{}, fmt.Errorf("decrypt password: %w", perr)
 	}

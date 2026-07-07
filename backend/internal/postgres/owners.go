@@ -298,7 +298,8 @@ func (r *OwnerRepo) resolveKeyBytes(
 	if *key == "" {
 		return []byte{}, nil
 	}
-	encBytes, err := cryptobox.Encrypt([]byte(*key))
+	// AAD = owner_id: 绑定 LLM key 密文到该 owner；resolver 用同一 owner_id 串解(matched)。
+	encBytes, err := cryptobox.Encrypt([]byte(*key), []byte(formatUUID(pgID)))
 	if err != nil {
 		return nil, fmt.Errorf("encrypt ai key: %w", err)
 	}
