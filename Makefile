@@ -35,8 +35,12 @@ backend-test:
 #   2. 目录：backend/cmd/{job-board,mcp-server}-mock/ (应该在 mock-stack/)
 #   3. 文件：backend/internal/routes/sys/test_*.go (应该走 mock-stack admin
 #      端点 或 spec 直接打 SQL/Redis)
+#   4. 具名 fixture/canned 替身 (P.13)
+#   5. test-only 包 import (name-INDEPENDENT：testing/testify/httptest 漏进 prod)
+# check-no-mock-test.sh 是 checker 的自测：种一个中性命名的 testify-import 违规，断言被抓。
 backend-no-mock:
 	@infra/scripts/check-no-mock
+	@infra/scripts/check-no-mock-test.sh
 
 # 前端子项目：node_modules 没装就 skip（启用时再 pnpm install）。
 app-lint:

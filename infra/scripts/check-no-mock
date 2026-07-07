@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # check-no-mock —— G-Y 强制 backend/ 不含任何 mock-only / test-only 代码。
 #
-# 三类违规：
+# 五类违规：
 #   A) 源码模式 (MockProvider / INFERENCE_MOCK_ / /__mock / Test{Registry,
-#      VisitorCap,GCalExpire})
+#      VisitorCap,GCalExpire})                          —— 具名黑名单
 #   B) 目录   (backend/cmd/job-board-mock, backend/cmd/mcp-server-mock)
 #   C) 文件   (backend/internal/routes/sys/test_*.go)
+#   D) fixture/canned 具名替身 (canned* / *Fixture / stub*) —— 具名黑名单
+#   E) test-only 包 import (testing / testify / httptest)  —— name-INDEPENDENT，
+#      结构信号；A/D 的具名黑名单会被"中性命名"躲过，import 躲不掉。
 #
 # 排除：_test.go (Go unit test files OK), // 起头的注释行 OK (历史描述不
-# 算违规)。
+# 算违规)。自测在 check-no-mock-test.sh (make backend-no-mock 一起跑)。
 #
 # 退出码：0 = clean，1 = 有违规 (列出所有违规位置)。
 
@@ -60,6 +63,18 @@ fixture_hits=$(grep -rnE 'canned[A-Z]|[a-zA-Z]Fixture\b|\bstub[A-Z]' backend/ \
 if [ -n "$fixture_hits" ]; then
   report "backend/ 含 fixture/canned 测试替身 (P.13：canned 只许在 eval-harness 的 EvalDriver):"
   printf '%s\n' "$fixture_hits" | sed 's/^/  /'
+fi
+
+# E) test-only 包 import (name-INDEPENDENT)：非 _test.go 的 backend 文件 import testing /
+#    testify / httptest = 测试替身漏进 prod。A/D 类靠具名黑名单，中性命名能躲；import 是
+#    结构信号躲不掉——一个"看起来正经"的 helper 只要用了这些包就现形（check-no-mock-test.sh 守）。
+import_hits=$(grep -rnE '"testing"|"testing/[a-z]+"|"net/http/httptest"|github\.com/stretchr/testify' backend/ \
+  --include='*.go' --exclude='*_test.go' 2>/dev/null \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' || true)
+if [ -n "$import_hits" ]; then
+  report "backend/ 非测试文件 import 了 test-only 包 (testing/testify/httptest → 测试替身漏进 prod):"
+  printf '%s\n' "$import_hits" | sed 's/^/  /'
 fi
 
 if [ "$backend_violations" -gt 0 ]; then
