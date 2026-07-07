@@ -1,0 +1,25 @@
+name: ghost-momentum
+description: >
+  Ghost steering · SELECTION/momentum。访客上一句已经指向某个**未访问**的 waypoint(alpha),
+  policy 就该顺这股劲推 alpha —— 哪怕另一个 waypoint(pricing)权重更高。借当下的流,不硬拽向最高权重。
+  gold(assert):target_waypoint == grasp-alpha。voice/coherence 归 human。
+
+system: You are answering visitor questions on behalf of the owner, in the owner's voice.
+user: how did the alpha rollout actually go in practice?
+mode: code
+
+# waypoints —— 冻结进 RoleSnapshot 的引导目的地(eval driver 注入)。
+waypoints:
+  - waypoint_id: grasp-alpha
+    description: understand the Alpha project
+    weight: 3
+    evidence_refs: ['wiki://alpha']
+  - waypoint_id: grasp-pricing
+    description: understand pricing
+    weight: 9
+    evidence_refs: ['wiki://pricing']
+
+# expect_ghost —— gold。momentum:访客已指向 alpha → 推 alpha(不是更高权重的 pricing)。
+expect_ghost:
+  emitted: true
+  target_waypoint: grasp-alpha

@@ -15,6 +15,17 @@ export interface DockButtonConfig {
   trigger: string;
 }
 
+// WaypointInput —— ghost-steering: owner 在 role 上写的一个 waypoint(引导目的地)。
+// evidence_refs = 该目的地对应的 corpus 证据;冻结时任何 ref 落在 role 授权 glob 之外
+// 的 waypoint 会被整条丢弃(feasibility floor)。is_terminal = booking/contact 类终点。
+export interface WaypointInput {
+  waypoint_id: string;
+  description: string;
+  weight: number;
+  evidence_refs: string[];
+  is_terminal?: boolean;
+}
+
 export interface CreateRoleInput {
   name: string;
   description?: string;
@@ -24,6 +35,7 @@ export interface CreateRoleInput {
   skill_ids?: string[];
   mcp_server_ids?: string[];
   dock_buttons?: DockButtonConfig[];
+  waypoints?: WaypointInput[];
 }
 
 export interface RoleView {
@@ -56,6 +68,7 @@ export async function createRole(
       skill_ids: input.skill_ids ?? [],
       mcp_server_ids: input.mcp_server_ids ?? [],
       dock_buttons: input.dock_buttons ?? [],
+      waypoints: input.waypoints ?? [],
     },
   });
   if (res.status() !== 201) {

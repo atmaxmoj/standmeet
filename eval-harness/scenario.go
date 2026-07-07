@@ -29,7 +29,30 @@ type Scenario struct {
 	Script      *ScenarioScript `yaml:"script"`
 	DocContext  *ScenarioDoc    `yaml:"doc_context"`
 
+	// Ghost steering: waypoints frozen into the RoleSnapshot the eval driver injects,
+	// and the gold expectation on the ghost the loop emits after `done`.
+	Waypoints   []ScenarioWaypoint `yaml:"waypoints"`
+	ExpectGhost *ExpectGhost       `yaml:"expect_ghost"`
+
 	path string // source file, for error context
+}
+
+// ScenarioWaypoint —— an owner-authored waypoint injected into the frozen RoleSnapshot.
+// Visited pre-marks the ledger (for one-or-none/no-repeat gold cases).
+type ScenarioWaypoint struct {
+	WaypointID   string   `yaml:"waypoint_id"`
+	Description  string   `yaml:"description"`
+	Weight       int      `yaml:"weight"`
+	EvidenceRefs []string `yaml:"evidence_refs"`
+	IsTerminal   bool     `yaml:"is_terminal"`
+	Visited      bool     `yaml:"visited"`
+}
+
+// ExpectGhost —— deterministic gold on the emitted ghost. Emitted=false asserts silence
+// (no ghost frame); when true, TargetWaypoint is the required heading tag.
+type ExpectGhost struct {
+	Emitted        bool   `yaml:"emitted"`
+	TargetWaypoint string `yaml:"target_waypoint"`
 }
 
 // ScenarioDoc —— the visitor's current doc, injected as AgentTurnRequest.DocContext

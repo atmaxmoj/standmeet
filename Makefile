@@ -6,7 +6,7 @@
 # 增量开发时 lefthook 不被未启用的子项目卡住。
 
 .PHONY: lint backend-lint backend-test backend-no-mock app-lint sdk-lint e2e-lint env-lint
-.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
+.PHONY: dev dev-up dev-rebuild dev-down prod-up prod-down build clean test test-fresh test-only sdk-build app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp
 
 # ── lint ────────────────────────────────────────────────────────
 # 顺序：env-lint 最快，先跑；backend 的 make lint 链已经很丰富；前端
@@ -118,6 +118,14 @@ eval-smoke: gateway-up
 eval-ask:
 	@cd eval-harness && go build -o /tmp/eval-harness . && \
 	  /tmp/eval-harness --ask --persona fixtures/personas/marcus-chen
+
+# eval-ghost —— Ghost steering judgment, deterministic eval: inject each ghost scenario's
+# waypoints into the frozen RoleSnapshot, run the SAME prod loop via the agentcore facade,
+# assert the emitted ghost hits gold (target_waypoint / silence). Steering judgment = the
+# `assert` half; voice/coherence = `human` (read the transcript). Runs on the mock gateway
+# (deterministic), no real LLM.
+eval-ghost: gateway-up
+	@eval-harness/ghost-test.sh
 
 # eval-compaction —— 多轮 context 臃肿用例:构造 >32K token 长对话,断言 agent
 # loop 的 summarization compaction 真触发 + 压缩后早期上下文召回完整。**需真

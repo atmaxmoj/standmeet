@@ -62,6 +62,22 @@ export async function scriptMockReplyText(
   }
 }
 
+/** Tell the mock provider: on the NEXT GhostPolicy call (the non-stream turn whose
+ *  system prompt carries "ONE GHOST MESSAGE"), return this JSON body — an object
+ *  {text,target_waypoint,follows_from,is_bridge} to emit a ghost, or null for
+ *  silence. Unscripted policy calls default to null (no ghost). Pair with the
+ *  chat turn that should produce the ghost. */
+export async function scriptMockGhost(
+  request: APIRequestContext, ghost: Record<string, unknown> | null,
+): Promise<void> {
+  const res = await request.post(
+    `${GATEWAY}/__mock/inference/next_ghost`, { data: { body: ghost } },
+  );
+  if (res.status() !== 200) {
+    throw new Error(`script next_ghost: ${res.status()}`);
+  }
+}
+
 /** Tell the mock provider: fail every /v1/messages with 500 until a normal
  *  reply/tool is scripted again. Simulates a third-party LLM outage — used to
  *  verify a failed turn does NOT consume the session's turn quota. */

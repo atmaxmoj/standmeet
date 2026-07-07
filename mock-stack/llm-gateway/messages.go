@@ -85,10 +85,20 @@ func isFollowupGen(req *MessagesReq) bool {
 	return strings.Contains(req.System.Text, "JSON array of 3 strings")
 }
 
+// isGhostPolicy —— 这次非流式调用是不是 GhostPolicy(单个 steering ghost 生成,按其
+// prompt 独有的 "ONE GHOST MESSAGE" 认)。回 takeGhost():脚本化 body 或默认 null(silence)。
+func isGhostPolicy(req *MessagesReq) bool {
+	return strings.Contains(req.System.Text, "ONE GHOST MESSAGE")
+}
+
 // serveNonStream —— /v1/messages stream=false. Anthropic returns one
 // JSON envelope: {content: [block...], stop_reason: ...}. Visitor
-// summary / follow-up 生成走这条(no tools, no agent loop)。
+// summary / follow-up / ghost-policy 生成走这条(no tools, no agent loop)。
 func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
+	if isGhostPolicy(req) {
+		s.writeNonStream(w, req.Model, s.queue.takeGhost())
+		return
+	}
 	if isFollowupGen(req) {
 		s.writeNonStream(w, req.Model, followupGhosts)
 		return

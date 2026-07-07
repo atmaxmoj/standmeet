@@ -32,6 +32,14 @@ type ScriptedReply struct {
 	Text string `json:"text"`
 }
 
+// ScriptedGhost —— the GhostPolicy call's JSON body to return next. Raw so a test
+// can queue either an object {text,target_waypoint,follows_from,is_bridge} or the
+// literal null (silence). Unset → the policy call defaults to null (no ghost), so
+// turns not exercising steering never spuriously emit a ghost frame.
+type ScriptedGhost struct {
+	Body json.RawMessage `json:"body"`
+}
+
 type scriptQueue struct {
 	mu sync.Mutex
 	// tools —— keyed by WhenUser ("" = wildcard). A keyed registry instead of
@@ -39,6 +47,7 @@ type scriptQueue struct {
 	// don't steal each other.
 	tools map[string]*ScriptedTool
 	reply *string
+	ghost *string
 	// failAll —— e2e 用 next_error 打开后,所有 /v1/messages 返 500,模拟第三方
 	// LLM 故障(测"失败的 turn 不消耗配额")。scripting 正常 tool/reply 会清掉它。
 	failAll bool
@@ -102,6 +111,40 @@ func (q *scriptQueue) takeReply() (string, bool) {
 	out := *q.reply
 	q.reply = nil
 	return out, true
+}
+
+func (q *scriptQueue) setGhost(body string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.ghost = &body
+}
+
+// takeGhost —— GhostPolicy 调用取脚本化的 body。未脚本化 → "null"(silence 默认),
+// 让不测 steering 的 turn 的 policy 调用不会误发 ghost。single-shot。
+func (q *scriptQueue) takeGhost() string {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.ghost == nil {
+		return "null"
+	}
+	out := *q.ghost
+	q.ghost = nil
+	return out
+}
+
+func (s *server) serveSetNextGhost(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body", http.StatusBadRequest)
+		return
+	}
+	var p ScriptedGhost
+	if uerr := json.Unmarshal(body, &p); uerr != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	s.queue.setGhost(string(p.Body))
+	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 
 func (s *server) serveSetNextTool(w http.ResponseWriter, r *http.Request) {

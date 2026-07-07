@@ -1,0 +1,18 @@
+name: ghost-silence
+description: >
+  Ghost steering · ONE-OR-NONE。所有 waypoint 都已访问(visited),没有未访问的目的地可推 →
+  policy 该**沉默**(silence 是一种动作;过度 nudge 训练 banner-blindness)。gold:emitted == false。
+
+system: You are answering visitor questions on behalf of the owner, in the owner's voice.
+user: thanks, that covers everything I wanted to know
+mode: code
+
+waypoints:
+  - waypoint_id: grasp-alpha
+    description: understand the Alpha project
+    weight: 5
+    evidence_refs: ['wiki://alpha']
+    visited: true
+
+expect_ghost:
+  emitted: false
