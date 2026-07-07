@@ -43,6 +43,21 @@ async function callListSlots(
   return { status: res.status(), text: await res.text() };
 }
 
+// callBook —— 走 externalized booker 插件的终端 op(calendar_book)。插件经窄 socket 调,GCal
+// 凭据由 connector proxy server-side 注入,**绝不**过插件边界 —— 断言 secret 不进 booked 结果。
+async function callBook(
+  request: APIRequestContext, convID: string, token: string,
+): Promise<{ status: number; text: string }> {
+  const res = await request.post(
+    `${BACKEND}/api/v1/sessions/${convID}/tools/calendar_book`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { topic: 'Secret-scan booker probe', duration_min: 30, preferred_times: [future(4, 14)] },
+    },
+  );
+  return { status: res.status(), text: await res.text() };
+}
+
 // fetchTranscript —— 读 owner admin 视角下该对话的完整 transcript(tool 调用 + 结果都持久化在
 // 这里,secret 若泄漏会现形)。**必须用 owner-authed 的 seed.request**:访客 context 打 admin
 // 路由只会 401,拿到的错误体天然不含 secret → not.toContain 恒真(假绿)。返 status 供断言把关。
@@ -76,6 +91,14 @@ test.describe('Phase B · connector credential never leaks to the visitor', () =
       expect(status).toBe(200);
       // the owner credential value must NOT appear in the visitor-facing tool result.
       expect(text, 'secret not in tool_result').not.toContain(GCAL_CLIENT_SECRET);
+
+      // #142 fold: the secret must NOT reach the externalized booker plugin either — calendar_book
+      // is the plugin's terminal op (InsertEvent via the stored token, injected server-side). The
+      // plugin sees only the op args, never the credential. Pin 200 so a friendly-error body can't
+      // sneak the assertion past (that would be secret-free by construction → false green).
+      const booked = await callBook(request, sess.conversation_id, sess.session_token);
+      expect(booked.status, 'booker plugin op really ran (not an error body)').toBe(200);
+      expect(booked.text, 'secret not in booker plugin result').not.toContain(GCAL_CLIENT_SECRET);
 
       // nor in the admin transcript of that conversation (tool calls + results are persisted).
       // 用 owner-authed 的 seed.request 真读回 transcript;先钉 200,别让 401 错误体把断言蒙混过关。
