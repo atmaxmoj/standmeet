@@ -25,7 +25,13 @@ const httpOKBase = 200
 // the package satisfy the project-wide "no any in business code" rule
 // without a path-based forbidigo exemption.
 func getBody(ctx context.Context, client *http.Client, url string) ([]byte, error) {
-	resp, err := sendGET(ctx, client, url)
+	return getBodyAuth(ctx, client, url, "")
+}
+
+// getBodyAuth is getBody with a Bearer token — for adapters whose upstream needs auth
+// (Workable's SPI jobs endpoint). Empty bearer → no Authorization header (the plain path).
+func getBodyAuth(ctx context.Context, client *http.Client, url, bearer string) ([]byte, error) {
+	resp, err := sendGET(ctx, client, url, bearer)
 	if err != nil {
 		return nil, err
 	}
@@ -33,13 +39,16 @@ func getBody(ctx context.Context, client *http.Client, url string) ([]byte, erro
 	return readOK(resp, url)
 }
 
-func sendGET(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
+func sendGET(ctx context.Context, client *http.Client, url, bearer string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request: %w", err)
 	}
 	req.Header.Set("User-Agent", defaultUserAgent)
 	req.Header.Set("Accept", "application/json, application/rss+xml, text/xml, */*")
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w: %w", url, ErrUpstream, err)

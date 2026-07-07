@@ -1,0 +1,46 @@
+{
+  "name": "Acme Rockets",
+  "description": "We build reusable rockets.",
+  "jobs": [
+    {
+      "shortcode": "WK-BE-001",
+      "title": "Senior Backend Engineer",
+      "full_title": "Senior Backend Engineer",
+      "department": "Engineering",
+      "url": "https://acme.workable.com/jobs/WK-BE-001",
+      "application_url": "https://acme.workable.com/j/WK-BE-001",
+      "shortlink": "https://apply.workable.com/j/WK-BE-001",
+      "state": "published",
+      "created_at": "2026-07-01T10:00:00Z",
+      "description": "<p>We're hiring a senior backend engineer to work on our Go services and job pipeline.</p>",
+      "location": {
+        "location_str": "Remote — EU",
+        "country": "Netherlands",
+        "country_code": "NL",
+        "region": "North Holland",
+        "city": "Amsterdam",
+        "telecommuting": true
+      }
+    },
+    {
+      "shortcode": "WK-DS-002",
+      "title": "Data Scientist",
+      "full_title": "Data Scientist (Growth)",
+      "department": "Data",
+      "url": "https://acme.workable.com/jobs/WK-DS-002",
+      "application_url": "https://acme.workable.com/j/WK-DS-002",
+      "shortlink": "https://apply.workable.com/j/WK-DS-002",
+      "state": "published",
+      "created_at": "2026-06-28T09:00:00Z",
+      "description": "<p>Join the data team to model our growth funnel.</p>",
+      "location": {
+        "location_str": "Amsterdam, NL",
+        "country": "Netherlands",
+        "country_code": "NL",
+        "region": "North Holland",
+        "city": "Amsterdam",
+        "telecommuting": false
+      }
+    }
+  ]
+}

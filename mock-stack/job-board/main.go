@@ -169,6 +169,8 @@ func (s *server) routes(mux *http.ServeMux) {
 	// J.6b: Workday CXS + BambooHR careers/list (跟 ATS 真 endpoint 同 path)。
 	mux.HandleFunc("POST /workday/wday/cxs/{tenant}/{site}/jobs", s.serveWorkday)
 	mux.HandleFunc("GET /bamboohr/careers/list", s.serveBambooHR)
+	// Workable SPI jobs (authed): Bearer token required, wrong/missing → 401.
+	mux.HandleFunc("GET /workable/spi/v3/accounts/{company}/jobs", s.serveWorkable)
 
 	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)
@@ -254,6 +256,20 @@ func (s *server) serveGreenhouse(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) serveLever(w http.ResponseWriter, r *http.Request) {
 	s.serveJSONKind(w, r, "lever", r.PathValue("company"), leverDay2)
+}
+
+// workableSPIToken —— the fixed Bearer token the Workable SPI fixture expects (e2e passes it as the
+// owner's api_token). A wrong/missing token 401s, exercising the adapter's real authed path.
+const workableSPIToken = "wk-spi-secret-token"
+
+func (s *server) serveWorkable(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Authorization") != "Bearer "+workableSPIToken {
+		w.Header().Set("Content-Type", jsonMIME)
+		w.WriteHeader(http.StatusUnauthorized)
+		writeBody(s.log, w, []byte(`{"error":"invalid or missing SPI token"}`))
+		return
+	}
+	s.serveJSONKind(w, r, "workable", r.PathValue("company"), nil)
 }
 
 func (s *server) serveAshby(w http.ResponseWriter, r *http.Request) {
