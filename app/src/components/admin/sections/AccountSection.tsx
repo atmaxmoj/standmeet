@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import {
@@ -15,6 +15,7 @@ import {
 } from '@/lib/admin/account-form';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useAccount, type AccountHook } from '@/lib/admin/use-account';
+import { adminAPI } from '@/lib/api/admin';
 import { useMail } from '@/lib/admin/use-mail';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
@@ -82,12 +83,28 @@ function SecurityCard({ hook }: { hook: AccountHook }) {
   );
 }
 
-// RecoveryRow —— pure render; the enabled/copy decision lives in account-form.
+// RecoveryRow —— generate a recovery phrase (emailed to the owner). Enabled only once a mail
+// connector is verified (recoveryRowView owns that copy/gating); the button POSTs and toasts.
 function RecoveryRow({ mailConnected }: { mailConnected: boolean }) {
   const view = recoveryRowView(mailConnected);
+  const toast = useToast();
+  const [sending, setSending] = useState(false);
+  const generate = useCallback(async () => {
+    setSending(true);
+    try {
+      await adminAPI.postVoid('/account/recovery', {});
+      toast.success('Recovery phrase sent to your email');
+    } catch {
+      toast.error("Couldn't send the recovery phrase — verify your mail connector first");
+    } finally {
+      setSending(false);
+    }
+  }, [toast]);
   return (
     <SecurityRow
       label="Recovery phrase" detail={view.detail} actionLabel="generate" note={view.note}
+      onAction={mailConnected ? generate : undefined}
+      disabled={!mailConnected || sending}
     />
   );
 }
@@ -98,9 +115,12 @@ interface SecurityRowProps {
   actionLabel: string;
   // note —— why the action is disabled; shown in a ⓘ tooltip next to the label.
   note: string;
+  // onAction —— click handler; when omitted the row is a disabled placeholder.
+  onAction?: () => void;
+  disabled?: boolean;
 }
 
-function SecurityRow({ label, detail, actionLabel, note }: SecurityRowProps) {
+function SecurityRow({ label, detail, actionLabel, note, onAction, disabled = true }: SecurityRowProps) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-2 border-b border-(--color-rule)/60 last:border-b-0">
       <div>
@@ -112,7 +132,8 @@ function SecurityRow({ label, detail, actionLabel, note }: SecurityRowProps) {
       </div>
       <button
         className="sm-btn sm-btn-outline sm-btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
-        type="button" disabled title={note}
+        type="button" disabled={disabled} title={note} onClick={onAction}
+        data-testid="recovery-generate"
       >
         {actionLabel}
       </button>

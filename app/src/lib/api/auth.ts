@@ -60,6 +60,23 @@ export async function login(input: LoginInput): Promise<LoginResult> {
   return safeJson(res, LoginResultSchema);
 }
 
+export interface RecoverInput {
+  email: string;
+  recovery_phrase: string;
+}
+
+// recover —— #100 锁在外面时用 email + recovery phrase 登回来；成功后 backend 写 session cookie
+// (跟 login 一样)。走 public 路径(与 login 同套 LoginGuard 限速),不需要既有 session。
+export async function recover(input: RecoverInput): Promise<LoginResult> {
+  const res = await fetch('/api/admin/recover', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await readError(res, 'recover'));
+  return safeJson(res, LoginResultSchema);
+}
+
 export interface ResetPasswordInput {
   token: string;
   new_password: string;

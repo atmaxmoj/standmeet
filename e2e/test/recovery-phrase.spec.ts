@@ -10,7 +10,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
-import { claim, login as loginAPI } from '@/fixtures/admin';
+import { claim, login as loginAPI, navigateToOwnerLogin } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
   configureMailConnector, clearMailpit, waitForMailEnvelopeTo,
@@ -99,5 +99,25 @@ test.describe('account recovery phrase · #100', () => {
     expect(await recover(again, OWNER.email, phrase), 'reused phrase → 401').toBe(401);
     await stranger.dispose();
     await again.dispose();
+  });
+
+  // 全链路 UI:锁在外面的 owner 走 /recover 页,填 email + phrase → 落进 /admin(登回来了)。
+  test('UI: /recover page signs a locked-out owner back in', async ({ page, playwright }) => {
+    const admin = await playwright.request.newContext();
+    const { csrf } = await loginAPI(admin, OWNER.email, OWNER.password);
+    await clearMailpit(admin);
+    await generateRecovery(admin, csrf);
+    const mail = await waitForMailEnvelopeTo(admin, OWNER.email);
+    const phrase = extractPhrase(mail.text);
+    await admin.dispose();
+
+    await navigateToOwnerLogin(page);
+    await page.getByTestId('recover-link').click();
+    await page.waitForURL('**/recover', { timeout: 5_000 });
+    await page.getByTestId('email').fill(OWNER.email);
+    await page.getByTestId('recovery-phrase').fill(phrase);
+    await page.getByTestId('submit').click();
+    await page.waitForURL('**/admin', { timeout: 10_000 });
+    expect(page.url(), 'landed in admin (recovered session)').toContain('/admin');
   });
 });

@@ -50,6 +50,13 @@ function LoginShell({ form, captcha, onSubmit }: ShellProps) {
         This is your own deployment. Authenticate as the owner.
       </p>
       <LoginFormBody form={form} captcha={captcha} onSubmit={onSubmit} />
+      <a
+        href="/recover"
+        data-testid="recover-link"
+        className="mono text-[11px] tracking-[0.06em] text-(--color-muted) hover:text-(--color-ink) mt-6 inline-block"
+      >
+        Locked out? Recover with a phrase →
+      </a>
     </section>
   );
 }
