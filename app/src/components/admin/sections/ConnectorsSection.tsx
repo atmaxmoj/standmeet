@@ -1,10 +1,9 @@
 // ConnectorsSection —— /admin/connectors。
 //
-// 设计源 docs/design/project/admin.js ConnectorsSection。**Calendar 是唯一真
-// 接通的**(独立 CalendarConnectorPanel)。其余(Gmail / Slack / Telegram /
-// Discord)后端未接 —— catalog 预览,标 coming soon,**不假装 connected**。
-// "+ add connector" 也只是 catalog 浏览,不会真 install(等后端接通再走 POST
-// /api/admin/connectors)。
+// 真接通的:内置卡(CatalogCards ← /connectors/catalog:gcal/smtp…owner 填凭据 Connect)、
+// owner 上传的 OpenAPI/protocol connector(ConnectorList + ConnectorAddModal 真走 POST
+// /api/admin/connectors)、Calendar/Mail 专用面板、能力可用性面板。
+// (旧的 "coming soon" catalog 预览网格已删 —— 不做 marketplace 目录,owner 上传即用。)
 
 'use client';
 
@@ -12,41 +11,34 @@ import { useCallback, useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConnectorAddModal } from '@/components/admin/ConnectorAddModal';
-import { ConnectorTile } from '@/components/admin/sections/connectors/ConnectorTile';
 import { CalendarConnectorPanel } from '@/components/admin/sections/connectors/CalendarConnectorPanel';
 import { MailConnectorPanel } from '@/components/admin/sections/connectors/MailConnectorPanel';
 import { CapabilitiesPanel } from '@/components/admin/sections/connectors/CapabilitiesPanel';
-import { useConnectors, type ConnectorsHook } from '@/lib/admin/use-connectors';
 import { useConnectorList, type ConnectorListHook } from '@/lib/admin/use-connector-list';
 import { useConnectorCatalog, type ConnectorCatalogHook } from '@/lib/admin/use-connector-catalog';
 import { useConnectorUpload, type ConnectorUploadHook } from '@/lib/admin/use-connector-upload';
 import { ConnectorList } from '@/components/admin/sections/connectors/ConnectorList';
 import { ConnectorCard } from '@/components/admin/sections/connectors/ConnectorCard';
-import { catalogSize } from '@/lib/admin/connector-registry';
 
 export function ConnectorsSection() {
-  const hook = useConnectors();
   const list = useConnectorList();
   const catalog = useConnectorCatalog();
   const upload = useConnectorUpload(list);
   const [showAdd, setShowAdd] = useState(false);
-  // 后端未接 —— catalog 浏览不真 install(不写假 connected 状态)。
+  // AddModal 的内置-connect 回调:上传流不用它(走 onUpload),留 no-op 满足 prop。
   const onConnect = useCallback(() => {}, []);
   return (
     <>
       <SectionHeader
         kicker="integrations"
         title="connectors"
-        count={`calendar live · ${catalogSize()} more in catalog`}
+        count="calendar · mail live · upload your own"
         action={<AddBtn onOpen={() => setShowAdd(true)} />}
       />
       <Intro />
       {/* 模态打开时不渲染区内卡片/列表 —— 否则它们的 connector-connect-button/connector-status 会和
           模态里装配视图的同名 testid 撞上（装配测试用 page 级选择器）。 */}
-      <SectionBody
-        show={!showAdd} catalog={catalog} list={list} upload={upload} hook={hook}
-        onBrowse={() => setShowAdd(true)}
-      />
+      <SectionBody show={!showAdd} catalog={catalog} list={list} upload={upload} />
       {showAdd && (
         <ConnectorAddModal
           installed={[]} onClose={() => setShowAdd(false)}
@@ -60,14 +52,12 @@ export function ConnectorsSection() {
 
 // SectionBody —— connectors 区主体（内置卡 + 已配列表 + 面板）。模态开时整体不渲染（避免 testid 撞）。
 function SectionBody({
-  show, catalog, list, upload, hook, onBrowse,
+  show, catalog, list, upload,
 }: {
   show: boolean;
   catalog: ConnectorCatalogHook;
   list: ConnectorListHook;
   upload: ConnectorUploadHook;
-  hook: ConnectorsHook;
-  onBrowse: () => void;
 }) {
   return show ? (
     <>
@@ -81,7 +71,6 @@ function SectionBody({
       <div className="mb-8">
         <CapabilitiesPanel />
       </div>
-      <Grid hook={hook} onBrowse={onBrowse} />
     </>
   ) : null;
 }
@@ -133,7 +122,7 @@ function AddBtn({ onOpen }: { onOpen: () => void }) {
       data-testid="connector-add-open"
       className="sm-btn sm-btn-solid sm-btn-sm"
     >
-      + browse catalog
+      + add connector
     </button>
   );
 }
@@ -141,35 +130,8 @@ function AddBtn({ onOpen }: { onOpen: () => void }) {
 function Intro() {
   return (
     <p className="reading-tight text-(--color-muted) mb-6 text-[15px] max-w-[54em]">
-      Connectors pull from external sources (Gmail / Slack) and let visitors chat from
-      inside IM apps. Calendar is live below; the rest are on the way — this is a preview
-      of what&rsquo;s coming, not yet wired.
+      Connectors let the agent reach external services — Calendar and Mail are live below,
+      and you can upload your own (OpenAPI / protocol) connector to add more.
     </p>
-  );
-}
-
-function Grid({ hook, onBrowse }: { hook: ConnectorsHook; onBrowse: () => void }) {
-  return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-      {hook.connectors.map((c) => (
-        <ConnectorTile key={c.id} connector={c} />
-      ))}
-      <BrowseCatalogCard onClick={onBrowse} />
-    </div>
-  );
-}
-
-function BrowseCatalogCard({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button" onClick={onClick}
-      className="border border-dashed border-(--color-rule) rounded-[3px] flex flex-col items-center justify-center gap-1.5 p-6 cursor-pointer text-(--color-muted) hover:border-(--color-accent) hover:text-(--color-accent) transition-colors bg-transparent"
-    >
-      <span className="mono text-[24px]">＋</span>
-      <span className="mono text-[11px] tracking-[0.16em] uppercase">browse the catalog</span>
-      <span className="mono text-[9.5px] tracking-[0.06em] text-(--color-faint)">
-        {catalogSize()} types available
-      </span>
-    </button>
   );
 }

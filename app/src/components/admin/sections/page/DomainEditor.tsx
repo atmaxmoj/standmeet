@@ -1,6 +1,7 @@
-// DomainEditor —— custom domain + DNS verify badge。
-// allowed_domains 读写已接(GET/POST /allowed-domains)。verify(DNS-TXT 校验)仍是 client-side
-// stub —— 真校验需部署侧 DNS/ACME infra,e2e 环境无法验,归阻塞(见 todo)。
+// DomainEditor —— 自定义域名 allow-list 编辑(读写已接:GET/POST/DELETE /allowed-domains)。
+// "verified" badge 是 cosmetic —— app 只管「哪些域名放行」,真正签证书(ACME)是部署 provider
+// 的反代经 /internal/tls-ask 自己做的(prod-deploy dropped,不是 app 的活)。**不是 DNS-TXT 挑战,
+// 也不是被阻塞的待办** —— app 这半边已完整,另一半属 provider territory。
 
 'use client';
 

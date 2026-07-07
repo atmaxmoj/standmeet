@@ -65,20 +65,7 @@ test.describe('admin connectors extended', () => {
       await adminPage.getByTestId('connector-card-calendar').click();
       await expect(adminPage.getByTestId('connector-spec-input')).toBeVisible();
     });
-
-  // #46:grid tile 是诚实的 coming-soon 预览,不假装 connected(没有翻成 ● connected
-  // 的 connect 按钮)。Calendar 真接通走独立 panel,不在 grid。
-  test('grid connector tile 显示 coming soon,不可误翻 connected',
-    async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'connectors');
-      await adminPage.waitForURL('**/admin/connectors', { timeout: 5_000 });
-      const gmail = adminPage.getByTestId('connector-tile-gmail');
-      await expect(gmail).toBeVisible({ timeout: 5_000 });
-      await expect(gmail).toContainText('coming soon');
-      // 没有把 tile 翻成 connected 的 connect 按钮。
-      await expect(gmail.getByRole('button', { name: /connect/i })).toHaveCount(0);
-      await expect(adminPage.getByText('● connected')).toHaveCount(0);
-    });
+  // (旧 "#46 grid coming-soon tile" 测试已删 —— marketplace 预览网格不做了,owner 上传即用。)
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {

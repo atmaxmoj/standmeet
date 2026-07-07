@@ -1,15 +1,15 @@
 // tls_ask.go —— GET /internal/tls-ask?domain=foo.bar
-//   200 → "ok"  允许 Caddy 为该 domain 自动签发证书
+//   200 → "ok"  这个 owner 自定义域名放行(反代可为它签证书)
 //   403 → 拒绝
 //
-// 用途：Caddy 配 `on_demand_tls` 时把 ask URL 指向这里。Caddy 在见到一个
-// 没见过的 SNI / Host 时先 GET 这个 URL 确认是不是合法 owner domain，
-// 是再走 ACME 签证书。无白名单 = 任何人解析自己 DNS 到 instance 就能逼着
-// instance 申请证书，会被 Let's Encrypt rate limit。
+// **边界**：本 app 只拥有「哪些域名放行」这半边(owner 在 admin 维护 allow-list)。真正签证书
+// (ACME / Let's Encrypt)是**部署 provider 的反代**的事 —— prod-deploy 是 provider 的活
+// (roadmap: prod-deploy dropped),app 不跑反代、不做 Caddy。任何支持 on-demand-TLS 的反代
+// (Caddy / Traefik / …)见到没见过的 Host 时 GET 这个 URL 确认合法 owner 域名,是才去签;
+// 无白名单 = 谁把 DNS 指过来都能逼实例申证书 → 撞 rate limit。
 //
-// 实现：直接查 instance_settings.allowed_domains（jsonb 数组），命中
-// 就 200，否则 403。allow list 在 admin 维护；setup 期默认把
-// PUBLIC_URL 的 host 加进去。
+// 实现：查 instance_settings.allowed_domains(jsonb 数组),命中 200 否则 403。
+// setup 期默认把 PUBLIC_URL 的 host 加进去。
 
 package sys
 

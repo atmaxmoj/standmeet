@@ -1,8 +1,8 @@
-// use-domain —— allowed_domains 白名单管理。
+// use-domain —— allowed_domains 白名单管理(app 只拥有「哪些域名放行」这半边)。
 // GET /allowed-domains 加载；POST 加；DELETE /allowed-domains/{domain} 删。
-// 真正的 DNS 验证由 Caddy on-demand TLS (/internal/tls-ask) 兜，前端只
-// 显示 "in allow-list" / "verified" 状态（命中白名单 + Caddy 已签证书 =
-// verified；这里简化只看 allow-list 命中与否）。
+// 加进白名单后,部署 provider 的反代(on-demand-TLS)自己经 /internal/tls-ask 确认并签证书
+// —— **签证书是 provider 的活,不是 app 的**(prod-deploy dropped)。前端只显示 "in allow-list",
+// 没有独立的 DNS 验证步骤要 app 做。
 //
 // zustand 重构：domainsStore 共享 allow-list（全 app 一份）；input + 临时
 // status 留 local（form-state 本质）。

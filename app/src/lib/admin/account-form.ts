@@ -36,14 +36,14 @@ export interface RecoveryRowView {
   note: string;
 }
 
-// recoveryRowView —— recovery phrase 行的展示数据。recovery 靠邮件发送，需先有
-// 已验证的 SMTP connector；未验证 → 灰态 + 引导去 Connectors 配。业务判断放这层，
-// presentation 只渲染。
+// recoveryRowView —— recovery phrase 行的展示数据。recovery 靠邮件发送，需先有已验证的 SMTP
+// connector(#112/#122 的 mail-sender 就是它)；未验证 → 灰态 + 引导去 Connectors 配。
+// 注：SMTP 能力**已具备**;缺的只是「生成 + 发送 recovery phrase」这段业务逻辑(可直接做,非阻塞)。
 export function recoveryRowView(mailConnected: boolean): RecoveryRowView {
   return mailConnected
     ? {
         detail: 'not yet set',
-        note: 'Generates a recovery phrase emailed to you (coming soon).',
+        note: 'Generates a recovery phrase emailed to you (generation not built yet).',
       }
     : {
         detail: 'needs verified email',
