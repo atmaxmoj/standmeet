@@ -8,6 +8,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -36,6 +37,67 @@ func (r *RoleRepo) SetCorpusURIs(ctx context.Context, roleID string, patterns []
 		return fmt.Errorf("attach role corpus uris: %w", aerr)
 	}
 	return nil
+}
+
+// SetWaypoints —— clear + 逐条 insert role_waypoints。evidence_refs 存 jsonb
+// （json.Marshal []string）。caller usecase 已校验 waypoint 形态。
+func (r *RoleRepo) SetWaypoints(
+	ctx context.Context, roleID string, waypoints []domain.Waypoint,
+) error {
+	roleUUID, perr := parseUUID(roleID)
+	if perr != nil {
+		return fmt.Errorf("parse role id: %w", perr)
+	}
+	q := dbq.New(r.pool)
+	if cerr := q.ClearRoleWaypoints(ctx, roleUUID); cerr != nil {
+		return fmt.Errorf("clear role waypoints: %w", cerr)
+	}
+	for i := range waypoints {
+		if aerr := attachWaypoint(ctx, q, roleUUID, &waypoints[i]); aerr != nil {
+			return aerr
+		}
+	}
+	return nil
+}
+
+func attachWaypoint(
+	ctx context.Context, q *dbq.Queries, roleUUID pgtype.UUID, w *domain.Waypoint,
+) error {
+	refs, merr := json.Marshal(w.EvidenceRefs)
+	if merr != nil {
+		return fmt.Errorf("marshal evidence_refs: %w", merr)
+	}
+	if aerr := q.AttachRoleWaypoint(ctx, dbq.AttachRoleWaypointParams{
+		RoleID: roleUUID, WaypointID: w.WaypointID, Description: w.Description,
+		Weight: int32(w.Weight), EvidenceRefs: refs, IsTerminal: w.IsTerminal,
+	}); aerr != nil {
+		return fmt.Errorf("attach role waypoint: %w", aerr)
+	}
+	return nil
+}
+
+// hydrateRoleWaypoints —— 读 role_waypoints，evidence_refs jsonb → []string。
+func hydrateRoleWaypoints(
+	ctx context.Context, q *dbq.Queries, roleID pgtype.UUID,
+) ([]domain.Waypoint, error) {
+	rows, err := q.ListRoleWaypoints(ctx, roleID)
+	if err != nil {
+		return nil, fmt.Errorf("list role waypoints: %w", err)
+	}
+	out := make([]domain.Waypoint, 0, len(rows))
+	for i := range rows {
+		var refs []string
+		if len(rows[i].EvidenceRefs) > 0 {
+			if uerr := json.Unmarshal(rows[i].EvidenceRefs, &refs); uerr != nil {
+				return nil, fmt.Errorf("unmarshal evidence_refs: %w", uerr)
+			}
+		}
+		out = append(out, domain.Waypoint{
+			WaypointID: rows[i].WaypointID, Description: rows[i].Description,
+			Weight: int(rows[i].Weight), EvidenceRefs: refs, IsTerminal: rows[i].IsTerminal,
+		})
+	}
+	return out, nil
 }
 
 // SetSkills —— clear + bulk insert role_skills。caller 已校验 skill_ids 属于
@@ -125,7 +187,14 @@ func hydrateRole(ctx context.Context, q *dbq.Queries, row *dbq.Role) (domain.Rol
 	if merr != nil {
 		return domain.Role{}, fmt.Errorf("list role mcp server ids: %w", merr)
 	}
-	return toDomainRole(row, corpusURIs, uuidStrings(skillUUIDs), uuidStrings(mcpUUIDs)), nil
+	waypoints, werr := hydrateRoleWaypoints(ctx, q, row.ID)
+	if werr != nil {
+		return domain.Role{}, werr
+	}
+	return toDomainRole(&roleJoins{
+		row: row, corpusURIs: corpusURIs, skillIDs: uuidStrings(skillUUIDs),
+		mcpServerIDs: uuidStrings(mcpUUIDs), waypoints: waypoints,
+	}), nil
 }
 
 func uuidStrings(us []pgtype.UUID) []string {

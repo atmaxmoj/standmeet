@@ -34,6 +34,8 @@ type roleView struct {
 	CorpusURIs   []string `json:"corpus_uris"`
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
+	// Waypoints —— ghost-steering 引导目的地（owner per-role 编辑，读回展示）。
+	Waypoints []domain.Waypoint `json:"waypoints"`
 	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮 [{capability_id, trigger}]。
 	DockButtons []domain.DockButtonConfig `json:"dock_buttons"`
 	ActiveCodes int64                     `json:"active_codes"`
@@ -50,6 +52,8 @@ type writeRoleRequest struct {
 	CorpusURIs   []string `json:"corpus_uris"`
 	SkillIDs     []string `json:"skill_ids"`
 	MCPServerIDs []string `json:"mcp_server_ids"`
+	// Waypoints —— ghost-steering 引导目的地（owner per-role 写）。
+	Waypoints []domain.Waypoint `json:"waypoints"`
 	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮 [{capability_id, trigger}]。
 	DockButtons []domain.DockButtonConfig `json:"dock_buttons"`
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
@@ -118,6 +122,7 @@ func toRoleView(rl *domain.Role, activeCodes int64) roleView {
 		Greeting:   rl.Greeting(),
 		CorpusURIs: rl.CorpusURIs(), SkillIDs: rl.SkillIDs(),
 		MCPServerIDs:         rl.MCPServerIDs(),
+		Waypoints:            rl.Waypoints(),
 		DockButtons:          rl.DockButtons(),
 		IsBuiltin:            rl.IsBuiltin(),
 		NotifyOwnerOnBooking: rl.NotifyOwnerOnBooking(),
@@ -143,6 +148,7 @@ func (h *Handlers) createRole() http.HandlerFunc {
 			OwnerID: ownerID, Name: req.Name, Description: req.Description,
 			Greeting: req.Greeting, PromptID: req.PromptID,
 			CorpusURIs: req.CorpusURIs, SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
+			Waypoints:   req.Waypoints,
 			DockButtons: req.DockButtons, ValidCapabilityIDs: h.dockCapIDs(),
 			NotifyOwnerOnBooking: req.NotifyOwnerOnBooking,
 		})
@@ -198,6 +204,7 @@ func (h *Handlers) updateRole() http.HandlerFunc {
 			Description: req.Description, Greeting: req.Greeting,
 			PromptID: req.PromptID, CorpusURIs: req.CorpusURIs,
 			SkillIDs: req.SkillIDs, MCPServerIDs: req.MCPServerIDs,
+			Waypoints:   req.Waypoints,
 			DockButtons: req.DockButtons, ValidCapabilityIDs: h.dockCapIDs(),
 			NotifyOwnerOnBooking: req.NotifyOwnerOnBooking,
 		})

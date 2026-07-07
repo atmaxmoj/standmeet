@@ -331,6 +331,19 @@ CREATE TABLE role_corpus_uris (
     PRIMARY KEY (role_id, uri_pattern)
 );
 
+-- role_waypoints —— ghost-steering: owner 在 role 上写的引导目的地(waypoint)。跟 role_corpus_uris
+-- 一样是 role 的 join；session freeze 时随 RoleSnapshot 冻结,且 evidence_refs 逐条过 role 授权 glob,
+-- 全越界的 waypoint 在冻结那刻整条丢弃(feasibility floor)。waypoint_id 是 owner 写的 slug(heading tag)。
+CREATE TABLE role_waypoints (
+    role_id       uuid          NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    waypoint_id   text          NOT NULL,
+    description   text          NOT NULL,
+    weight        integer       NOT NULL DEFAULT 1,
+    evidence_refs jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    is_terminal   boolean       NOT NULL DEFAULT false,
+    PRIMARY KEY (role_id, waypoint_id)
+);
+
 -- role_skills —— Role ↔ Skill 多对多。code 不再直接挂 skill；走 role 转一层。
 CREATE TABLE role_skills (
     role_id   uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
@@ -921,6 +934,10 @@ CREATE TABLE conversation_ghosts (
     turn_index        integer       NOT NULL DEFAULT 0,
     ghost_text        text          NOT NULL,
     source            text          NOT NULL,
+    -- ghost-steering: policy 出的 ghost 带 heading tag(target_waypoint)+ coherence hook(follows_from)。
+    -- 静态 initial ghost 这两列为 NULL；source='policy' 才填。
+    target_waypoint   text,
+    follows_from      text,
     shown_at          timestamptz   NOT NULL DEFAULT now(),
     accepted_at       timestamptz
 );

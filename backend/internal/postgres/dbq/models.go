@@ -137,6 +137,8 @@ type ConversationGhost struct {
 	TurnIndex      int32
 	GhostText      string
 	Source         string
+	TargetWaypoint *string
+	FollowsFrom    *string
 	ShownAt        pgtype.Timestamptz
 	AcceptedAt     pgtype.Timestamptz
 }
@@ -451,6 +453,15 @@ type RoleMcpServer struct {
 type RoleSkill struct {
 	RoleID  pgtype.UUID
 	SkillID pgtype.UUID
+}
+
+type RoleWaypoint struct {
+	RoleID       pgtype.UUID
+	WaypointID   string
+	Description  string
+	Weight       int32
+	EvidenceRefs []byte
+	IsTerminal   bool
 }
 
 type SeoSetting struct {

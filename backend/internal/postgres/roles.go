@@ -316,13 +316,21 @@ func optionalUUID(s *string) (pgtype.UUID, error) {
 
 // toDomainRoleBare —— 不带 join 项的主表转换；Create/Update/UpsertBuiltin 用，
 // caller 会随后调 SetCorpusURIs/SetSkills/SetMCPServers + GetByID 拿完整 Role。
-func toDomainRoleBare(row *dbq.Role) domain.Role {
-	return toDomainRole(row, []string{}, []string{}, []string{})
+// roleJoins —— hydrateRole 组装好的主行 + join 组，喂 toDomainRole（避开 argument-limit）。
+type roleJoins struct {
+	row          *dbq.Role
+	corpusURIs   []string
+	skillIDs     []string
+	mcpServerIDs []string
+	waypoints    []domain.Waypoint
 }
 
-func toDomainRole(
-	row *dbq.Role, corpusURIs, skillIDs, mcpServerIDs []string,
-) domain.Role {
+func toDomainRoleBare(row *dbq.Role) domain.Role {
+	return toDomainRole(&roleJoins{row: row})
+}
+
+func toDomainRole(j *roleJoins) domain.Role {
+	row := j.row
 	var promptIDPtr *string
 	if row.PromptID.Valid {
 		s := formatUUID(row.PromptID)
@@ -333,7 +341,8 @@ func toDomainRole(
 		Name: row.Name, Description: row.Description, Greeting: row.Greeting,
 		PromptID:   promptIDPtr,
 		IsBuiltin:  row.IsBuiltin,
-		CorpusURIs: corpusURIs, SkillIDs: skillIDs, MCPServerIDs: mcpServerIDs,
+		CorpusURIs: j.corpusURIs, SkillIDs: j.skillIDs, MCPServerIDs: j.mcpServerIDs,
+		Waypoints:            j.waypoints,
 		DockButtons:          decodeDockButtons(row.DockButtons),
 		NotifyOwnerOnBooking: row.NotifyOwnerOnBooking,
 		CreatedAt:            row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,

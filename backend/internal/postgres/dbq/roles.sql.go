@@ -60,6 +60,34 @@ func (q *Queries) AttachRoleSkills(ctx context.Context, arg AttachRoleSkillsPara
 	return err
 }
 
+const attachRoleWaypoint = `-- name: AttachRoleWaypoint :exec
+INSERT INTO role_waypoints (role_id, waypoint_id, description, weight, evidence_refs, is_terminal)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (role_id, waypoint_id) DO NOTHING
+`
+
+type AttachRoleWaypointParams struct {
+	RoleID       pgtype.UUID
+	WaypointID   string
+	Description  string
+	Weight       int32
+	EvidenceRefs []byte
+	IsTerminal   bool
+}
+
+// 逐条 insert（waypoints 数量少 + evidence_refs 是 per-row jsonb，不走 unnest 批量）。
+func (q *Queries) AttachRoleWaypoint(ctx context.Context, arg AttachRoleWaypointParams) error {
+	_, err := q.db.Exec(ctx, attachRoleWaypoint,
+		arg.RoleID,
+		arg.WaypointID,
+		arg.Description,
+		arg.Weight,
+		arg.EvidenceRefs,
+		arg.IsTerminal,
+	)
+	return err
+}
+
 const clearRoleCorpusURIs = `-- name: ClearRoleCorpusURIs :exec
 DELETE FROM role_corpus_uris WHERE role_id = $1
 `
@@ -84,6 +112,15 @@ DELETE FROM role_skills WHERE role_id = $1
 
 func (q *Queries) ClearRoleSkills(ctx context.Context, roleID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, clearRoleSkills, roleID)
+	return err
+}
+
+const clearRoleWaypoints = `-- name: ClearRoleWaypoints :exec
+DELETE FROM role_waypoints WHERE role_id = $1
+`
+
+func (q *Queries) ClearRoleWaypoints(ctx context.Context, roleID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, clearRoleWaypoints, roleID)
 	return err
 }
 
@@ -362,6 +399,45 @@ func (q *Queries) ListRoleSkills(ctx context.Context, roleID pgtype.UUID) ([]Ski
 			&i.Source,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRoleWaypoints = `-- name: ListRoleWaypoints :many
+SELECT waypoint_id, description, weight, evidence_refs, is_terminal
+FROM role_waypoints WHERE role_id = $1 ORDER BY weight DESC, waypoint_id ASC
+`
+
+type ListRoleWaypointsRow struct {
+	WaypointID   string
+	Description  string
+	Weight       int32
+	EvidenceRefs []byte
+	IsTerminal   bool
+}
+
+func (q *Queries) ListRoleWaypoints(ctx context.Context, roleID pgtype.UUID) ([]ListRoleWaypointsRow, error) {
+	rows, err := q.db.Query(ctx, listRoleWaypoints, roleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRoleWaypointsRow
+	for rows.Next() {
+		var i ListRoleWaypointsRow
+		if err := rows.Scan(
+			&i.WaypointID,
+			&i.Description,
+			&i.Weight,
+			&i.EvidenceRefs,
+			&i.IsTerminal,
 		); err != nil {
 			return nil, err
 		}

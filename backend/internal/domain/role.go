@@ -34,6 +34,9 @@ type Role struct {
 	corpusURIs   []string
 	skillIDs     []string
 	mcpServerIDs []string
+	// waypoints —— ghost-steering 的引导目的地（owner per-role 写）。session freeze 时随
+	// RoleSnapshot 冻结 + 按 corpus glob 过滤（见 FilterWaypointsByCorpus）。
+	waypoints []Waypoint
 	// dockButtons —— #109/#110 这个 role 的 ≤2 个 chat dock 按钮配置。
 	dockButtons []DockButtonConfig
 	isBuiltin   bool
@@ -55,6 +58,7 @@ type RoleInit struct {
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
+	Waypoints    []Waypoint
 	DockButtons  []DockButtonConfig
 	IsBuiltin    bool
 	// NotifyOwnerOnBooking —— #130 per-role 通知开关。
@@ -75,6 +79,7 @@ func NewRole(i *RoleInit) Role {
 		corpusURIs:      cloneStrings(i.CorpusURIs),
 		skillIDs:        cloneStrings(i.SkillIDs),
 		mcpServerIDs:    cloneStrings(i.MCPServerIDs),
+		waypoints:       cloneWaypoints(i.Waypoints),
 		dockButtons:     cloneDockButtons(i.DockButtons),
 		notifyOnBooking: i.NotifyOwnerOnBooking,
 	}
@@ -130,6 +135,10 @@ func (r *Role) MCPServerIDs() []string { return slices.Clone(r.mcpServerIDs) }
 
 // DockButtons —— 这个 role 的 ≤2 个 chat dock 按钮配置（defensive copy）。
 func (r *Role) DockButtons() []DockButtonConfig { return cloneDockButtons(r.dockButtons) }
+
+// Waypoints —— ghost-steering 引导目的地（defensive copy）。freeze 时经
+// FilterWaypointsByCorpus 过滤后进 RoleSnapshot。
+func (r *Role) Waypoints() []Waypoint { return cloneWaypoints(r.waypoints) }
 
 // IsBuiltin —— 是否种入的 builtin（public 是 true）。
 func (r *Role) IsBuiltin() bool { return r.isBuiltin }

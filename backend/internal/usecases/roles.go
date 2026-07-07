@@ -42,6 +42,8 @@ type RoleWriteInput struct {
 	CorpusURIs   []string
 	SkillIDs     []string
 	MCPServerIDs []string
+	// Waypoints —— ghost-steering 引导目的地（owner per-role 写）。
+	Waypoints []domain.Waypoint
 	// DockButtons —— #109/#110 ≤2 个 chat dock 按钮。
 	DockButtons []domain.DockButtonConfig
 	// ValidCapabilityIDs —— route 从能力注册表给出的、dock 按钮可挂的能力 id 集（校验 cap 有效性用）。
@@ -244,6 +246,9 @@ func syncRoleJoins(
 	}
 	if err := deps.Roles.SetMCPServers(ctx, roleID, in.MCPServerIDs); err != nil {
 		return fmt.Errorf("set role mcp servers: %w", err)
+	}
+	if err := deps.Roles.SetWaypoints(ctx, roleID, in.Waypoints); err != nil {
+		return fmt.Errorf("set role waypoints: %w", err)
 	}
 	return nil
 }

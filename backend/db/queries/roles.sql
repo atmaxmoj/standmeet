@@ -58,6 +58,19 @@ ON CONFLICT DO NOTHING;
 -- name: ListRoleCorpusURIs :many
 SELECT uri_pattern FROM role_corpus_uris WHERE role_id = $1 ORDER BY uri_pattern ASC;
 
+-- name: ClearRoleWaypoints :exec
+DELETE FROM role_waypoints WHERE role_id = $1;
+
+-- name: AttachRoleWaypoint :exec
+-- 逐条 insert（waypoints 数量少 + evidence_refs 是 per-row jsonb，不走 unnest 批量）。
+INSERT INTO role_waypoints (role_id, waypoint_id, description, weight, evidence_refs, is_terminal)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (role_id, waypoint_id) DO NOTHING;
+
+-- name: ListRoleWaypoints :many
+SELECT waypoint_id, description, weight, evidence_refs, is_terminal
+FROM role_waypoints WHERE role_id = $1 ORDER BY weight DESC, waypoint_id ASC;
+
 -- name: ClearRoleSkills :exec
 DELETE FROM role_skills WHERE role_id = $1;
 

@@ -130,6 +130,9 @@ func buildRoleSnapshotByID(
 		MCPServerIDs: role.MCPServerIDs(),
 		// #109/#110: 冻下 role 的 ≤2 个 dock 按钮配置；session payload 层解析 title + 过滤 code-deny。
 		DockButtons: role.DockButtons(),
+		// ghost-steering: 冻 waypoints，且**冻结时按 role 授权 glob 过滤**（feasibility floor）——
+		// evidence_refs 全越界的 waypoint 整条丢弃，role 永远不会被引导向它看不到的证据。
+		Waypoints: domain.FilterWaypointsByCorpus(role.Waypoints(), role.CorpusURIs()),
 	}), nil
 }
 

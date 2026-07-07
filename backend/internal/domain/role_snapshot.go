@@ -41,6 +41,19 @@ type RoleSnapshot struct {
 	mcpServerIDs       []string
 	// dockButtons —— #109/#110 owner 在 role 上配的 ≤2 个 chat dock 按钮（冻结）。
 	dockButtons []DockButtonConfig
+	// waypoints —— ghost-steering 的引导目的地（冻结）。构造前经 FilterWaypointsByCorpus
+	// 过滤：evidence_refs 全越授权 glob 的 waypoint 在冻结那刻整条丢弃（feasibility floor）。
+	waypoints []Waypoint
+}
+
+// Waypoint —— ghost-steering 的一个引导目的地（owner per-role 写，冻结进 RoleSnapshot）。
+// 字段顺序按 fieldalignment：两个 string 在前、slice 中、int/bool 末（最后一个指针字落早）。
+type Waypoint struct {
+	WaypointID   string   `json:"waypoint_id"`
+	Description  string   `json:"description"`
+	EvidenceRefs []string `json:"evidence_refs"`
+	Weight       int      `json:"weight"`
+	IsTerminal   bool     `json:"is_terminal"`
 }
 
 // RoleSnapshotInit —— NewRoleSnapshot 入参。
@@ -57,6 +70,7 @@ type RoleSnapshotInit struct {
 	SkillIDs           []string
 	MCPServerIDs       []string
 	DockButtons        []DockButtonConfig
+	Waypoints          []Waypoint
 }
 
 // NewRoleSnapshot —— 从 Init 构造。slice 字段 defensive clone；空 input → 空切片。
@@ -74,7 +88,46 @@ func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 		skillIDs:           cloneStrings(i.SkillIDs),
 		mcpServerIDs:       cloneStrings(i.MCPServerIDs),
 		dockButtons:        cloneDockButtons(i.DockButtons),
+		waypoints:          cloneWaypoints(i.Waypoints),
 	}
+}
+
+// Waypoints —— 冻下的引导目的地（defensive copy，evidence_refs 也各自 clone）。
+func (s *RoleSnapshot) Waypoints() []Waypoint { return cloneWaypoints(s.waypoints) }
+
+// cloneWaypoints —— 深拷贝（evidence_refs slice 也 clone），防冻结后被改。
+func cloneWaypoints(in []Waypoint) []Waypoint {
+	if len(in) == 0 {
+		return []Waypoint{}
+	}
+	out := make([]Waypoint, len(in))
+	for i, w := range in {
+		out[i] = w
+		out[i].EvidenceRefs = slices.Clone(w.EvidenceRefs)
+	}
+	return out
+}
+
+// FilterWaypointsByCorpus —— feasibility floor（冻结时调）：丢弃 evidence_refs 全落在授权 glob
+// 之外的 waypoint —— role 看不到的证据不该被引导向。无 refs 的 waypoint（如 booking 终点，靠工具
+// 事件而非 corpus）保留；≥1 条 ref 在界内 → 保留整条（policy 侧只会引用可见的那些）。
+func FilterWaypointsByCorpus(waypoints []Waypoint, granted []string) []Waypoint {
+	out := make([]Waypoint, 0, len(waypoints))
+	for _, w := range waypoints {
+		if len(w.EvidenceRefs) == 0 || anyRefAllowed(granted, w.EvidenceRefs) {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
+func anyRefAllowed(granted, refs []string) bool {
+	for _, ref := range refs {
+		if MatchesAnyCorpusGlob(granted, ref) {
+			return true
+		}
+	}
+	return false
 }
 
 // FrozenAt —— session issue 时刻；admin /admin/codes 卡上 "issued with role
@@ -159,6 +212,7 @@ func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 		SkillIDs:           s.skillIDs,
 		MCPServerIDs:       s.mcpServerIDs,
 		DockButtons:        s.dockButtons,
+		Waypoints:          s.waypoints,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal role snapshot: %w", err)
@@ -185,6 +239,7 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 		SkillIDs:           w.SkillIDs,
 		MCPServerIDs:       w.MCPServerIDs,
 		DockButtons:        w.DockButtons,
+		Waypoints:          w.Waypoints,
 	})
 	return nil
 }
@@ -204,4 +259,5 @@ type roleSnapshotWire struct {
 	SkillIDs           []string           `json:"skill_ids,omitempty"`
 	MCPServerIDs       []string           `json:"mcp_server_ids,omitempty"`
 	DockButtons        []DockButtonConfig `json:"dock_buttons,omitempty"`
+	Waypoints          []Waypoint         `json:"waypoints,omitempty"`
 }

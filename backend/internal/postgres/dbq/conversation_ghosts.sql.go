@@ -12,7 +12,7 @@ import (
 )
 
 const listGhostsByConversation = `-- name: ListGhostsByConversation :many
-SELECT id, owner_id, conversation_id, turn_index, ghost_text, source, shown_at, accepted_at FROM conversation_ghosts
+SELECT id, owner_id, conversation_id, turn_index, ghost_text, source, target_waypoint, follows_from, shown_at, accepted_at FROM conversation_ghosts
 WHERE conversation_id = $1 AND owner_id = $2
 ORDER BY shown_at ASC
 `
@@ -38,6 +38,8 @@ func (q *Queries) ListGhostsByConversation(ctx context.Context, arg ListGhostsBy
 			&i.TurnIndex,
 			&i.GhostText,
 			&i.Source,
+			&i.TargetWaypoint,
+			&i.FollowsFrom,
 			&i.ShownAt,
 			&i.AcceptedAt,
 		); err != nil {
@@ -55,7 +57,7 @@ const markGhostAccepted = `-- name: MarkGhostAccepted :one
 UPDATE conversation_ghosts
 SET accepted_at = now()
 WHERE id = $1 AND conversation_id = $2 AND owner_id = $3
-RETURNING id, owner_id, conversation_id, turn_index, ghost_text, source, shown_at, accepted_at
+RETURNING id, owner_id, conversation_id, turn_index, ghost_text, source, target_waypoint, follows_from, shown_at, accepted_at
 `
 
 type MarkGhostAcceptedParams struct {
@@ -74,6 +76,8 @@ func (q *Queries) MarkGhostAccepted(ctx context.Context, arg MarkGhostAcceptedPa
 		&i.TurnIndex,
 		&i.GhostText,
 		&i.Source,
+		&i.TargetWaypoint,
+		&i.FollowsFrom,
 		&i.ShownAt,
 		&i.AcceptedAt,
 	)
@@ -85,7 +89,7 @@ INSERT INTO conversation_ghosts (
     owner_id, conversation_id, turn_index, ghost_text, source
 )
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_id, conversation_id, turn_index, ghost_text, source, shown_at, accepted_at
+RETURNING id, owner_id, conversation_id, turn_index, ghost_text, source, target_waypoint, follows_from, shown_at, accepted_at
 `
 
 type RecordShownGhostParams struct {
@@ -112,6 +116,8 @@ func (q *Queries) RecordShownGhost(ctx context.Context, arg RecordShownGhostPara
 		&i.TurnIndex,
 		&i.GhostText,
 		&i.Source,
+		&i.TargetWaypoint,
+		&i.FollowsFrom,
 		&i.ShownAt,
 		&i.AcceptedAt,
 	)

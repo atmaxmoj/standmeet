@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
+	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -44,6 +45,9 @@ type diagSessionResp struct {
 	SystemPromptFull string                   `json:"system_prompt_full"`
 	Capabilities     []capreg.CapabilityState `json:"capabilities"`
 	ToolSpecs        []toolSpecWireV2         `json:"tool_specs"`
+	// Waypoints —— ghost-steering: 冻进 RoleSnapshot 的引导目的地（ACL 过滤后）。
+	// operator/e2e 观测 freeze 结果用；P2 起附 visited 状态。
+	Waypoints []domain.Waypoint `json:"waypoints"`
 }
 
 func diagSessionHandler(deps DiagSessionDeps) http.HandlerFunc {
@@ -98,6 +102,7 @@ func buildDiagSessionResp(
 		ToolSpecs:        toolSpecsFor(ctx, reg, in),
 		SystemPromptHash: reg.SystemPromptHash(ctx, basePersona, in),
 		SystemPromptFull: reg.ComposeSystemPrompt(ctx, basePersona, in),
+		Waypoints:        data.RoleSnapshot.Waypoints(),
 	}
 }
 
