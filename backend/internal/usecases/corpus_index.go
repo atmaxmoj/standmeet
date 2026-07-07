@@ -96,7 +96,7 @@ func (x *meiliCorpusIndexer) Reconcile(ctx context.Context, ownerID string) {
 	x.ReindexOwner(ctx, ownerID)
 }
 
-// ownerDocs —— owner 全部 corpus_notes(内存父链算 path)+ writings。
+// ownerDocs —— owner 全部 corpus_notes(内存父链算 path)。writings 不进 Meili(留 PG 全文),故不含。
 func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []search.Doc {
 	notes, err := x.notes.ListAllForExport(ctx, ownerID)
 	if err != nil {
