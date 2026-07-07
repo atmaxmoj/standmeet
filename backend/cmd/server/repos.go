@@ -22,6 +22,7 @@ import (
 	jobcache "github.com/atmaxmoj/standmeet/internal/plugins/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/plugins/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
+	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/printsess"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -226,6 +227,7 @@ func buildPluginRegistry(d *runtimeDeps) *plugins.Registry {
 		SourcesRepo:  d.jobSourceRepo,
 		Log:          d.log,
 	}))
+	reg.Register(ownercore.New(ownercore.Deps{Owners: d.ownerRepo, Log: d.log}))
 	return reg
 }
 

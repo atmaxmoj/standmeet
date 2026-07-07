@@ -1,11 +1,10 @@
-// cap_me.go —— Phase B-4 pilot: 把 `me` tool 从 server.go AddTool 调用迁
-// 成 capreg.Capability + OwnerMCPBinding。owner-only (访客侧不暴露)。
-//
-// 后续 corpus / output / promote / writings / skills / prompts / roles /
-// mcp_servers / chat / seo / page / jobs / resume / applications 一个个
-// 按同模式迁。
+// me.go —— the `me` owner-MCP capability, externalized from core `mcphandle` into this plugin
+// (#135 pilot). Behavior is UNCHANGED from the old mcphandle/cap_me.go: same tool name, same
+// schema, same output. Only the registration source moved (core `MustRegister` → this plugin's
+// `RegisterCapabilities`). The narrow `OwnerLookup` + `formatOwner` live here so the plugin is
+// self-contained (no import of mcphandle).
 
-package mcphandle
+package ownercore
 
 import (
 	"context"
@@ -19,6 +18,11 @@ import (
 
 const capOwnerMe = "owner.me"
 
+// OwnerLookup —— the plugin's own narrow dependency; *postgres.OwnerRepo satisfies it.
+type OwnerLookup interface {
+	GetByID(ctx context.Context, ownerID string) (domain.Owner, error)
+}
+
 type meCapability struct {
 	owners OwnerLookup
 	log    *slog.Logger
@@ -28,10 +32,8 @@ func newMeCapability(owners OwnerLookup, log *slog.Logger) *meCapability {
 	return &meCapability{owners: owners, log: log}
 }
 
-func (*meCapability) ID() string { return capOwnerMe }
-func (*meCapability) Shape() capreg.Shape {
-	return capreg.ShapeOwnerOnly
-}
+func (*meCapability) ID() string          { return capOwnerMe }
+func (*meCapability) Shape() capreg.Shape { return capreg.ShapeOwnerOnly }
 
 func (*meCapability) VisitorBinding(
 	_ context.Context, _ *capreg.AssembleInput,
@@ -39,15 +41,11 @@ func (*meCapability) VisitorBinding(
 	return nil, capreg.ErrHidden
 }
 
-func (*meCapability) SystemPromptFragment(
-	_ context.Context, _ *capreg.AssembleInput,
-) string {
+func (*meCapability) SystemPromptFragment(_ context.Context, _ *capreg.AssembleInput) string {
 	return ""
 }
 
-func (*meCapability) SystemPromptFragmentID(
-	_ context.Context, _ *capreg.AssembleInput,
-) string {
+func (*meCapability) SystemPromptFragmentID(_ context.Context, _ *capreg.AssembleInput) string {
 	return ""
 }
 
@@ -72,4 +70,10 @@ func (c *meCapability) handleMe(
 		return capreg.MCPError("internal error")
 	}
 	return capreg.MCPSuccess(formatOwner(&owner))
+}
+
+// formatOwner —— serialize the owner profile for the `me` tool result.
+func formatOwner(o *domain.Owner) string {
+	return `{"owner_id":"` + o.ID + `","email":"` + o.Email +
+		`","handle":"` + o.Handle + `","full_name":"` + o.FullName + `"}`
 }

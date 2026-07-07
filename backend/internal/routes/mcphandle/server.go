@@ -133,9 +133,3 @@ func OwnerIDFrom(ctx context.Context) string {
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
 	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
 }
-
-// formatOwner —— `me` capability + 其他可能引用 owner profile 的地方共用。
-func formatOwner(o *domain.Owner) string {
-	return `{"owner_id":"` + o.ID + `","email":"` + o.Email +
-		`","handle":"` + o.Handle + `","full_name":"` + o.FullName + `"}`
-}

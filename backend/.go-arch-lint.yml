@@ -47,6 +47,8 @@ components:
     in: internal/plugins                  # J phase: Plugin interface + Registry
   pluginjobs:
     in: internal/plugins/jobs             # J phase: jobs plugin entry (Plugin impl)
+  pluginownercore:
+    in: internal/plugins/ownercore        # #135: owner-core caps externalized off core mcphandle (me; codes/chat/calendar next)
   jobsuc:
     in: internal/plugins/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobsmcp:
@@ -344,6 +346,16 @@ deps:
       - postgres
     anyVendorDeps: true
 
+  # pluginownercore —— #135: owner-core owner-MCP caps externalized off core mcphandle. Self-contained:
+  # its own narrow OwnerLookup interface (postgres.OwnerRepo satisfies it structurally at cmd), so no
+  # postgres import here. Registers into capreg via the plugins.CapabilityRegistrar hook.
+  pluginownercore:
+    mayDependOn:
+      - plugins
+      - capreg
+      - domain
+    anyVendorDeps: true
+
   # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核
   # 心 usecases 同款依赖集 (domain/postgres/cryptobox + jobfetch/jobcache)。
   # 依赖核心 usecases 是因为复用 ErrEmptyField 这种通用 sentinel；后续 J
@@ -559,6 +571,7 @@ deps:
       - capreg
       - plugins
       - pluginjobs
+      - pluginownercore
       - capsocket
       - sandboxws
       - search

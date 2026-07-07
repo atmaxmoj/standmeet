@@ -52,7 +52,8 @@ type CalendarOwnerDeps struct {
 // 拎到 plugins/jobs (J.5)，wireup 在调本函数之后再调
 // pluginRegistry.RegisterAllCapabilities 补齐。
 func RegisterAgentSkills(reg *capreg.Registry, deps *RegisterDeps) {
-	reg.MustRegister(newMeCapability(deps.Owners, deps.Log))
+	// owner.me externalized to the ownercore plugin (#135) — registered via
+	// pluginRegistry.RegisterAllCapabilities, not here. deps.Owners stays: calendar still uses it.
 	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
 	reg.MustRegister(newCodesCapability(deps.Codes, deps.Log))
 	reg.MustRegister(newCorpusRawCapability(deps.Corpus, deps.SEO, deps.Log))
