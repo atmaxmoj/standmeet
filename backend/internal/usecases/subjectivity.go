@@ -36,6 +36,7 @@ func DeleteSubjectivity(ctx context.Context, deps CorpusDeps, ownerID, id string
 	if err := deps.Subjectivity.Delete(ctx, ownerID, id); err != nil {
 		return fmt.Errorf("delete subjectivity: %w", err)
 	}
+	deleteNoteHook(ctx, deps, id)
 	return nil
 }
 
@@ -61,6 +62,7 @@ func finishSubjectivityWrite(
 	if rerr := RebuildNoteRefs(ctx, deps, ownerID, id, body); rerr != nil {
 		return SubjectivityResult{}, fmt.Errorf("rebuild subjectivity refs: %w", rerr)
 	}
+	indexNoteHook(ctx, deps, ownerID, id)
 	path, perr := deriveNotePath(ctx, deps.Subjectivity, ownerID, id)
 	if perr != nil {
 		return SubjectivityResult{}, fmt.Errorf("derive subjectivity path: %w", perr)

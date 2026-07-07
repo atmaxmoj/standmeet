@@ -135,6 +135,8 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 			Writings: writingsSyncAdapter{tx: h.Obsidian.WritingsTx, setter: h.Obsidian.Writings},
 			CSS:      cssSyncAdapter{store: h.Obsidian.CSS},
 		}, ownerID, files)
+		// 批量 sync 后整批重建 Meili index(反映新增/改/删,漂移不留)。best-effort。
+		usecases.ReindexCorpusOwner(r.Context(), h.Obsidian.Corpus, ownerID)
 		writeImportJSON(h.Log, w, &result)
 	}
 }

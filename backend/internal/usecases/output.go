@@ -52,6 +52,7 @@ func PromoteWikiToOutput(
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, out.ID(), wiki.Body()); rerr != nil {
 		return domain.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
 	}
+	indexNoteHook(ctx, deps, in.OwnerID, out.ID())
 	return out, nil
 }
 

@@ -26,8 +26,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/printsess"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
+	"github.com/atmaxmoj/standmeet/internal/search"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // repoSet —— 所有 postgres Repository 的 bundle，让 wireAndServe 不必逐行
@@ -130,6 +132,9 @@ func assembleRuntimeDeps(
 		captcha.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
 	)
 	printStore := printsess.New(c.rdb, 0)
+	// 词法检索(Meili)。MEILI_URL 空 → searchClient/indexer 为 nil,检索退 Postgres 全文、写不索引。
+	searchClient := search.New(cfg.MeiliURL, cfg.MeiliKey)
+	corpusIndexer := usecases.NewCorpusIndexer(searchClient, repos.vaultSync, log)
 	return runtimeDeps{
 		log: log, db: c.db, rdb: c.rdb,
 		instanceRepo: repos.instance, ownerRepo: repos.owner,
@@ -186,7 +191,9 @@ func assembleRuntimeDeps(
 		marketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
-		agentSkills: capreg.NewRegistry(),
+		agentSkills:   capreg.NewRegistry(),
+		searchClient:  searchClient,
+		corpusIndexer: corpusIndexer,
 		// J.5: pluginRegistry 在 assembleRuntimeDeps 返回后由 caller 用全
 		// 套 deps 构造 (jobs.Plugin 需要 *jobsuc.JobsDeps 等闭包持引用)。
 		// 这里留 nil 让 lint 看到字段被用；wirePluginRegistry 后再回填。

@@ -98,6 +98,10 @@ SELECT id, genre, parent_id, title, body, tags, published
 FROM corpus_notes WHERE owner_id = $1
 ORDER BY created_at;
 
+-- name: GetNoteByIDAnyGenre :one
+-- 按 id 取一条 corpus note(任一 genre),给 search 索引单条用。
+SELECT * FROM corpus_notes WHERE owner_id = $1 AND id = $2 LIMIT 1;
+
 -- name: GetNoteByTitleAnyGenre :one
 -- Vault-sync reconcile identity: the vault basename (== title) is unique per owner (check-links.sh
 -- resolves [[x]] by basename vault-wide, so basenames must be unique). Match cross-genre so a

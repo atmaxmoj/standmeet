@@ -15,6 +15,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/search"
 	"github.com/atmaxmoj/standmeet/internal/storage"
 )
 
@@ -31,11 +32,12 @@ type sysInfoProvider struct {
 	db      *pgxpool.Pool
 	rdb     *redis.Client
 	storage *storage.Client
+	search  *search.Client // corpus 词法检索;nil = 未配 Meili(不进 health 面板)
 }
 
 func newSysInfoProvider(d *runtimeDeps) *sysInfoProvider {
 	return &sysInfoProvider{
-		started: time.Now(), db: d.db, rdb: d.rdb, storage: d.storageClient,
+		started: time.Now(), db: d.db, rdb: d.rdb, storage: d.storageClient, search: d.searchClient,
 	}
 }
 
@@ -87,11 +89,15 @@ func readHostMetrics(ctx context.Context) hostMetrics {
 }
 
 func (p *sysInfoProvider) healthChecks(ctx context.Context) []domain.HealthCheck {
-	return []domain.HealthCheck{
+	checks := []domain.HealthCheck{
 		pingCheck("database", "postgres", p.db.Ping(ctx)),
 		pingCheck("redis", "job cache + sessions", p.rdb.Ping(ctx).Err()),
 		pingCheck("storage", "asset blob storage (minio)", p.storage.Health(ctx)),
 	}
+	if p.search != nil { // 未配 Meili 就不列;配了则 live ping,down → OK=false(degraded)
+		checks = append(checks, pingCheck("meili", "corpus lexical search", p.search.Healthy(ctx)))
+	}
+	return checks
 }
 
 func pingCheck(name, detail string, err error) domain.HealthCheck {

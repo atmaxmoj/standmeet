@@ -191,6 +191,14 @@ dev-rebuild: app-build
 dev-down:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans
 
+# meili-stop / meili-start —— 手动停/起 meilisearch,给 retrieval-degrade e2e 验降级 + 自愈用。
+# (e2e workers:1 串行;degrade spec 在 afterAll 保证重启,不影响其他 spec)。
+meili-stop:
+	@docker compose -f docker-compose.dev.yml stop meilisearch
+
+meili-start:
+	@docker compose -f docker-compose.dev.yml up -d --wait meilisearch
+
 # dev-logs —— tail 某个 service 的日志(诊断用)。用法：make dev-logs SVC=backend N=80
 dev-logs:
 	@test -n "$(SVC)" || (echo "usage: make dev-logs SVC=<service> [N=<lines>]"; exit 2)

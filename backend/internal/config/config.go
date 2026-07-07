@@ -68,6 +68,11 @@ type Config struct {
 	// proxy never touches the public internet.
 	MarketplaceGitHubBaseURL   string
 	MarketplaceSkillsMPBaseURL string
+	// Meili* —— corpus 词法检索 index(1b crawl face)。两个都空 = 检索退回
+	// Postgres 全文(graceful);写路径的 index 传播也变 no-op。非 required:meili
+	// 是可选加速层,Postgres 仍是 source-of-truth。env: MEILI_URL / MEILI_KEY
+	MeiliURL string
+	MeiliKey string
 	// QueryQueueMaxConcurrent —— visitor chat agent loop 全局并发上限；
 	// 防一个 owner 的 anthropic 配额被并发访客打爆。≤0 关闭限流（dev 默认）。
 	// env: QUERY_QUEUE_MAX_CONCURRENT
@@ -117,6 +122,8 @@ func Load() (*Config, error) {
 		TurnstileSiteKey:               os.Getenv("TURNSTILE_SITE_KEY"),
 		TurnstileSecret:                os.Getenv("TURNSTILE_SECRET"),
 		QueryQueueMaxConcurrent:        envInt("QUERY_QUEUE_MAX_CONCURRENT", 0),
+		MeiliURL:                       os.Getenv("MEILI_URL"),
+		MeiliKey:                       os.Getenv("MEILI_KEY"),
 		SandboxDriver:                  os.Getenv("SANDBOX_DRIVER"),
 		StorageEndpoint:                os.Getenv("STORAGE_ENDPOINT"),
 		StorageAccessKey:               os.Getenv("STORAGE_ACCESS_KEY"),

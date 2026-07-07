@@ -196,6 +196,40 @@ func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (Corpu
 	return i, err
 }
 
+const getNoteByIDAnyGenre = `-- name: GetNoteByIDAnyGenre :one
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at FROM corpus_notes WHERE owner_id = $1 AND id = $2 LIMIT 1
+`
+
+type GetNoteByIDAnyGenreParams struct {
+	OwnerID pgtype.UUID
+	ID      pgtype.UUID
+}
+
+// 按 id 取一条 corpus note(任一 genre),给 search 索引单条用。
+func (q *Queries) GetNoteByIDAnyGenre(ctx context.Context, arg GetNoteByIDAnyGenreParams) (CorpusNote, error) {
+	row := q.db.QueryRow(ctx, getNoteByIDAnyGenre, arg.OwnerID, arg.ID)
+	var i CorpusNote
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Genre,
+		&i.ParentID,
+		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
+		&i.Excerpt,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getNoteByTitleAnyGenre = `-- name: GetNoteByTitleAnyGenre :one
 SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND title = $2

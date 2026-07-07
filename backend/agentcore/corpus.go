@@ -81,6 +81,19 @@ func (l driverCorpusLister) Get(
 	}, nil
 }
 
+// Links —— eval Driver 无 note_refs 图,故只做 subject 准入(经 Get,denied/not-found 同语义),
+// 邻居返空。真 backlinks 检索在 pgCorpusLister(prod)里。
+func (l driverCorpusLister) Links(
+	ctx context.Context, ownerID string, grantedGlobs []string, path string,
+) (usecases.CorpusLinks, error) {
+	if _, err := l.Get(ctx, ownerID, grantedGlobs, path); err != nil {
+		return usecases.CorpusLinks{}, err
+	}
+	return usecases.CorpusLinks{
+		Outgoing: []usecases.CorpusMeta{}, Backlinks: []usecases.CorpusMeta{},
+	}, nil
+}
+
 func filterHits(hits []CorpusHit, globs []string) []usecases.CorpusMeta {
 	out := make([]usecases.CorpusMeta, 0, len(hits))
 	for i := range hits {

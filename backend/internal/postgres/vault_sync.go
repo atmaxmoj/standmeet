@@ -58,6 +58,28 @@ func (r *VaultSyncRepo) GetByTitle(ctx context.Context, ownerID, title string) (
 	return syncNoteFromRow(&row), nil
 }
 
+// GetSyncNote —— 按 id 取一条 corpus note(任一 genre)。search 索引单条 + 走父链算 path 用。
+func (r *VaultSyncRepo) GetSyncNote(ctx context.Context, ownerID, id string) (SyncNote, error) {
+	owner, err := parseUUID(ownerID)
+	if err != nil {
+		return SyncNote{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	noteID, perr := parseUUID(id)
+	if perr != nil {
+		return SyncNote{}, fmt.Errorf("parse note id: %w", perr)
+	}
+	row, qerr := dbq.New(r.pool).GetNoteByIDAnyGenre(ctx, dbq.GetNoteByIDAnyGenreParams{
+		OwnerID: owner, ID: noteID,
+	})
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return SyncNote{}, ErrSyncNoteNotFound
+		}
+		return SyncNote{}, fmt.Errorf("get note by id: %w", qerr)
+	}
+	return syncNoteFromRow(&row), nil
+}
+
 // CreateSyncNoteInput —— vault sync create。ParentID "" = 根。
 type CreateSyncNoteInput struct {
 	ParentID   *string

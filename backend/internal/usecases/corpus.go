@@ -21,6 +21,7 @@ type CorpusDeps struct {
 	NoteRefs     *postgres.NoteRefRepo
 	Subjectivity *postgres.NoteRepo
 	VaultSync    *postgres.VaultSyncRepo // Obsidian vault sync: 跨-genre reconcile(仅 admin 侧装配)
+	Index        CorpusIndexer           // Meili 索引传播;nil = 未配 Meili,写路径不索引(best-effort)
 }
 
 // RawDumpInput 是 raw_dump 入参。
@@ -110,7 +111,11 @@ func finishPromote(ctx context.Context, deps CorpusDeps, f promoteFinish) error 
 	if perr := deps.Raw.MarkPromoted(ctx, f.OwnerID, f.RawID, f.WikiID); perr != nil {
 		return fmt.Errorf("mark promoted: %w", perr)
 	}
-	return RebuildNoteRefs(ctx, deps, f.OwnerID, f.WikiID, f.Body)
+	if rerr := RebuildNoteRefs(ctx, deps, f.OwnerID, f.WikiID, f.Body); rerr != nil {
+		return rerr
+	}
+	indexNoteHook(ctx, deps, f.OwnerID, f.WikiID)
+	return nil
 }
 
 // preflightPromote —— promote 前的三道关:必填字段 + parent 合法 + 同 slug 兄弟

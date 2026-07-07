@@ -53,6 +53,9 @@ services:
       - PORT=8000
       - DATABASE_URL=postgres://standmeet:standmeet_dev@db:5432/standmeet?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
+      # meilisearch —— corpus 词法检索 index(1b)。写路径同步 upsert,读走 Search。
+      - MEILI_URL=http://meilisearch:7700
+      - MEILI_KEY=standmeet_dev_meili_key
       - SESSION_KEY=dev-not-secret-rotate-in-prod
       - INSTANCE_SECRET=dev-not-secret-rotate-in-prod-32-chars-min!
       - SECURE_COOKIE=false
@@ -140,6 +143,8 @@ services:
       mcp-server-mock:
         condition: service_healthy
       mail-mock:
+        condition: service_healthy
+      meilisearch:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -342,6 +347,26 @@ services:
       timeout: 3s
       retries: 10
 
+  # meilisearch —— corpus 词法检索(1b crawl face)。Postgres 是 source-of-truth,
+  # meili 是派生投影;写路径同步 upsert/delete(读写一致)。相关性靠 owner 的 [[链接]]
+  # (BFS,后置),不用 vector —— 故意不开 meili 的语义/vector 特性。
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    restart: unless-stopped
+    environment:
+      - MEILI_MASTER_KEY=standmeet_dev_meili_key
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_ENV=development
+    volumes:
+      - meilidata:/meili_data
+    # 不映射 host 端口:backend 经 compose 网络(meilisearch:7700)连,healthcheck 在容器内跑。
+    # 避免跟宿主上别的 meili(如别项目的 7700)撞端口。
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:7700/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   # gotenberg —— headless Chromium PDF rendering sidecar. backend POSTs the
   # admin /print/application/<id> URL here at applications.commit time;
   # gotenberg loads it (Chromium = same engine as owner's preview), waits
@@ -395,4 +420,5 @@ volumes:
   pgdata: {}
   redisdata: {}
   miniodata: {}
+  meilidata: {}
   custom_pages_data: {}

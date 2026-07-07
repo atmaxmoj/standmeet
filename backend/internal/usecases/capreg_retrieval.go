@@ -22,7 +22,9 @@ type RetrievalDeps struct {
 	Output       OutputLister
 	Writings     WritingLister
 	Subjectivity *postgres.NoteRepo
-	VaultSync    *postgres.VaultSyncRepo // 原生 standmeet-query 解析(跨-genre QueryNotes)
+	VaultSync    *postgres.VaultSyncRepo // standmeet-query 解析 + corpus_links 取邻居 genre/path
+	NoteRefs     *postgres.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks
+	Searcher     CorpusSearcher          // Meili 词法后端;nil → corpus_search 退 Postgres 全文
 }
 
 // RetrievalScopeVisible —— retrieval 的 fragment/enabled 闸：role snapshot 有任何 corpus

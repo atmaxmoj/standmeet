@@ -25,8 +25,10 @@ import (
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	"github.com/atmaxmoj/standmeet/internal/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/sandboxws"
+	"github.com/atmaxmoj/standmeet/internal/search"
 	"github.com/atmaxmoj/standmeet/internal/session"
 	"github.com/atmaxmoj/standmeet/internal/storage"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // runtimeDeps 把 serve 的依赖打包，避免函数参数列表超过 revive argument-limit。
@@ -91,8 +93,20 @@ type runtimeDeps struct {
 	printStore         *printsess.Store
 	marketplaceClient  *marketplace.Client
 	agentSkills        *capreg.Registry
+	searchClient       *search.Client         // corpus 词法检索(Meili);nil = 未配 → 退 Postgres 全文
+	corpusIndexer      usecases.CorpusIndexer // 写路径索引传播;nil = 未配 Meili
 	captchaSiteKey     string
 	buildsRoot         string
 	secureCookie       bool
 	captchaEnabled     bool // #169 captcha 是否真启用(非 noop)—— code guard 的 escape 层
+}
+
+// corpusSearcher —— nil-safe 转成 CorpusSearcher 接口(避免 nil *Client 装进非-nil 接口的坑)。
+//
+//nolint:ireturn // nil-safe factory:未配 Meili 返 nil 接口,让 Search 走 Postgres 降级
+func (d *runtimeDeps) corpusSearcher() usecases.CorpusSearcher {
+	if d.searchClient == nil {
+		return nil
+	}
+	return d.searchClient
 }

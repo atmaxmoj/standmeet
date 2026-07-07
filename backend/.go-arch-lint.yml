@@ -101,6 +101,8 @@ components:
     in: internal/retry                    # #132 通用可配重试 infra（退避/封顶/retryable/ctx 打断）；leaf，connector 代调架其上
   httpx:
     in: internal/httpx                    # #132 唯一出站 HTTP client（retry+timeout+可组合 base）；leaf，所有出站者依赖它
+  search:
+    in: internal/search                   # 1b corpus 词法检索 Meili 封装；leaf，只依赖 meili SDK
   sysroutes:
     in: internal/routes/sys
   adminroutes:
@@ -135,10 +137,16 @@ deps:
       - prompts
       - mcpplugin
       - capsocket
+      - search
     anyVendorDeps: true
 
   # mailer —— 出站 SMTP 发信 leaf 包，纯 stdlib (net/smtp)，无 internal 依赖。
   mailer:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # search —— 1b corpus 词法检索 Meili 封装 leaf：只依赖 meili SDK（vendor），无 internal 依赖。
+  search:
     mayDependOn: []
     anyVendorDeps: true
 
@@ -553,4 +561,5 @@ deps:
       - pluginjobs
       - capsocket
       - sandboxws
+      - search
     anyVendorDeps: true

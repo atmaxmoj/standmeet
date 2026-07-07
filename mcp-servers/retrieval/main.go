@@ -34,6 +34,7 @@ func main() {
 	srv.AddTool(searchTool(), opHandler("corpus_search"))
 	srv.AddTool(readTool(), opHandler("corpus_read"))
 	srv.AddTool(listTool(), opHandler("corpus_list"))
+	srv.AddTool(linksTool(), opHandler("corpus_links"))
 	srv.AddResource(searchCardResource(), searchCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "retrieval:", err)
@@ -106,6 +107,19 @@ func listTool() mcpgo.Tool {
 				"page": {"type": "integer"}
 			}
 		}`)), "listing entries", searchCardURI)
+}
+
+func linksTool() mcpgo.Tool {
+	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_links",
+		"Follow an entry's links (Obsidian-style). Given a path, returns its outgoing "+
+			"links (entries it references) and backlinks (entries that reference it). "+
+			"One hop only — call again on a neighbor to go deeper. Use to explore related "+
+			"notes the owner connected by hand.",
+		json.RawMessage(`{
+			"type": "object",
+			"properties": {"path": {"type": "string"}},
+			"required": ["path"]
+		}`)), "following links")
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`. For

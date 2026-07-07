@@ -16,7 +16,15 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+	"github.com/atmaxmoj/standmeet/internal/search"
 )
+
+// CorpusSearcher —— 词法检索后端(Meili)。只按 owner_id 过滤返候选;细粒度 ACL(grantedGlobs)
+// 由 lister 复用 allowsCorpusURI 逐条过,与 corpus_read 完全一致。*search.Client 直接满足此接口。
+// nil = 未配 Meili → Search 退回 Postgres 全文。
+type CorpusSearcher interface {
+	Search(ctx context.Context, ownerID, query string) ([]search.Doc, error)
+}
 
 // ErrCorpusNotFound / ErrCorpusDenied —— Get's two failure modes, separated so the wire
 // can keep the old dispatchRead distinction ("not found" vs "access denied").
@@ -31,7 +39,9 @@ type pgCorpusLister struct {
 	output       OutputLister
 	writing      WritingLister
 	subjectivity *postgres.NoteRepo
-	queryRepo    *postgres.VaultSyncRepo // 原生 standmeet-query 的跨-genre 过滤(QueryNotes)
+	queryRepo    *postgres.VaultSyncRepo // standmeet-query 跨-genre 过滤 + corpus_links 取邻居 genre/path
+	noteRefs     *postgres.NoteRefRepo   // corpus_links 顺 note_refs 取 outgoing/backlinks 邻居
+	searcher     CorpusSearcher          // Meili 词法后端;nil → Search 退 Postgres 全文
 }
 
 // allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?
@@ -40,17 +50,51 @@ func allowsCorpusURI(grantedGlobs []string, genre, path string) bool {
 	return domain.MatchesAnyCorpusGlob(grantedGlobs, uri)
 }
 
-// Search —— DB full-text across output+wiki+writing (first page), path computed per hit,
-// filtered to grantedGlobs. Genre order (output, wiki, writing) from collectMatchingEntries.
+// Search —— 词法检索。有 Meili(searcher)走 Meili(corpus_notes:wiki/output/subjectivity = vault)
+// + glob ACL,再拼 writings(留在 Postgres 全文,自成一 genre,总是最新、无增量索引负担);Meili
+// 缺失/出错则整条退 Postgres 全文(降级不断)。两条路 ACL 一致:同一个 allowsCorpusURI 逐条过。
 func (l *pgCorpusLister) Search(
 	ctx context.Context, ownerID string, grantedGlobs []string, query string,
 ) ([]CorpusMeta, error) {
+	if l.searcher != nil {
+		if notes, ok := l.meiliSearch(ctx, ownerID, grantedGlobs, query); ok {
+			return append(notes, l.searchWritings(ctx, ownerID, grantedGlobs, query)...), nil
+		}
+	}
+	return l.pgSearch(ctx, ownerID, grantedGlobs, query), nil
+}
+
+// meiliSearch —— Meili 候选(corpus_notes)→ glob ACL 过 → CorpusMeta。出错返 (nil,false) 让 caller 降级 PG。
+func (l *pgCorpusLister) meiliSearch(
+	ctx context.Context, ownerID string, grantedGlobs []string, query string,
+) ([]CorpusMeta, bool) {
+	docs, err := l.searcher.Search(ctx, ownerID, query)
+	if err != nil {
+		return []CorpusMeta{}, false
+	}
+	out := make([]CorpusMeta, 0, len(docs))
+	for i := range docs {
+		if !allowsCorpusURI(grantedGlobs, docs[i].Genre, docs[i].Path) {
+			continue
+		}
+		out = append(out, CorpusMeta{
+			ID: docs[i].ID, Path: docs[i].Path, Title: docs[i].Title,
+			Genre: docs[i].Genre, Snippet: summarize(docs[i].Body),
+		})
+	}
+	return out, true
+}
+
+// pgSearch —— Postgres 全文降级路径:4 个 genre 聚合,path 现算,glob ACL 逐条过。
+func (l *pgCorpusLister) pgSearch(
+	ctx context.Context, ownerID string, grantedGlobs []string, query string,
+) []CorpusMeta {
 	out := make([]CorpusMeta, 0, searchPageLimit)
 	out = append(out, l.searchOutputs(ctx, ownerID, grantedGlobs, query)...)
 	out = append(out, l.searchWikis(ctx, ownerID, grantedGlobs, query)...)
 	out = append(out, l.searchWritings(ctx, ownerID, grantedGlobs, query)...)
 	out = append(out, l.searchSubjectivity(ctx, ownerID, grantedGlobs, query)...)
-	return out, nil
+	return out
 }
 
 func (l *pgCorpusLister) searchSubjectivity(

@@ -47,6 +47,7 @@ func RegisterRetrievalSocket(srv *capsocket.Server, deps *RetrievalDeps) {
 	lister := &pgCorpusLister{
 		wiki: deps.Wiki, output: deps.Output, writing: deps.Writings,
 		subjectivity: deps.Subjectivity, queryRepo: deps.VaultSync,
+		noteRefs: deps.NoteRefs, searcher: deps.Searcher,
 	}
 	RegisterRetrievalSocketLister(srv, lister)
 }
@@ -58,6 +59,7 @@ func RegisterRetrievalSocketLister(srv *capsocket.Server, lister CorpusLister) {
 	srv.Handle("corpus_search", corpusOp(lister, runCorpusSearch))
 	srv.Handle("corpus_read", corpusOp(lister, runCorpusRead))
 	srv.Handle("corpus_list", corpusOp(lister, runCorpusList))
+	srv.Handle("corpus_links", corpusOp(lister, runCorpusLinks))
 }
 
 func corpusOp(lister CorpusLister, run corpusRunner) capsocket.Handler {
@@ -143,6 +145,51 @@ func runCorpusList(ctx context.Context, l CorpusLister, req *retrievalSockReq) (
 // corpusListErrWire —— list 的错误（未知地址等）→ friendly tool envelope，永不 502。
 func corpusListErrWire(err error) (string, error) {
 	return errJSON("list: " + err.Error()), nil
+}
+
+func runCorpusLinks(ctx context.Context, l CorpusLister, req *retrievalSockReq) (string, error) {
+	var args struct {
+		Path string `json:"path"`
+	}
+	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
+		return "", fmt.Errorf("invalid arguments: %w", uerr)
+	}
+	if args.Path == "" {
+		return errJSON("path required"), nil
+	}
+	links, err := l.Links(ctx, req.OwnerID, req.CorpusURIs, args.Path)
+	if err != nil {
+		return corpusReadErrWire(err, args.Path) // denied/not-found → friendly envelope
+	}
+	return marshalLinks(&links), nil
+}
+
+// linksWire —— corpus_links wire:分开 outgoing(本条引用的)/ backlinks(引用本条的)。
+type linksWire struct {
+	Outgoing  []corpusRow `json:"outgoing"`
+	Backlinks []corpusRow `json:"backlinks"`
+}
+
+func marshalLinks(links *CorpusLinks) string {
+	wire := linksWire{
+		Outgoing:  toCorpusRows(links.Outgoing),
+		Backlinks: toCorpusRows(links.Backlinks),
+	}
+	out, err := json.Marshal(wire)
+	if err != nil {
+		return errJSON("marshal links")
+	}
+	return string(out)
+}
+
+func toCorpusRows(metas []CorpusMeta) []corpusRow {
+	rows := make([]corpusRow, 0, len(metas))
+	for i := range metas {
+		rows = append(rows, corpusRow{
+			Path: metas[i].Path, Title: metas[i].Title, Genre: metas[i].Genre,
+		})
+	}
+	return rows
 }
 
 // marshalCorpusRows —— []CorpusMeta → 既有 wire（[{path,title,genre,summary?}]）。Snippet

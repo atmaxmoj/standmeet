@@ -128,6 +128,7 @@ func UpdateWiki(
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, wiki.ID(), in.Body); rerr != nil {
 		return domain.Wiki{}, rerr
 	}
+	indexNoteHook(ctx, deps, in.OwnerID, wiki.ID())
 	return wiki, nil
 }
 
@@ -159,6 +160,7 @@ func DeleteWiki(ctx context.Context, deps CorpusDeps, ownerID, wikiID string) er
 	if err := deps.Wiki.Delete(ctx, ownerID, wikiID); err != nil {
 		return fmt.Errorf("delete wiki: %w", err)
 	}
+	deleteNoteHook(ctx, deps, wikiID)
 	return nil
 }
 
@@ -222,6 +224,7 @@ func UpdateOutput(
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, out.ID(), in.Body); rerr != nil {
 		return domain.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
 	}
+	indexNoteHook(ctx, deps, in.OwnerID, out.ID())
 	return out, nil
 }
 
@@ -233,5 +236,6 @@ func DeleteOutput(ctx context.Context, deps CorpusDeps, ownerID, outputID string
 	if err := deps.Output.Delete(ctx, ownerID, outputID); err != nil {
 		return fmt.Errorf("delete output: %w", err)
 	}
+	deleteNoteHook(ctx, deps, outputID)
 	return nil
 }

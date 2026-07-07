@@ -59,4 +59,15 @@ type CorpusLister interface {
 	Get(
 		ctx context.Context, ownerID string, grantedGlobs []string, path string,
 	) (CorpusEntry, error)
+	// Links —— 1 跳 backlinks:本条的 outgoing links + backlinks 邻居(顺 note_refs)。每个邻居
+	// 逐条过 grantedGlobs ACL(防经链接侧漏);主体本身走 Get 的准入(denied/not-found 同语义)。
+	Links(
+		ctx context.Context, ownerID string, grantedGlobs []string, path string,
+	) (CorpusLinks, error)
+}
+
+// CorpusLinks —— corpus_links 的返回:分开 outgoing(本条引用的)/ backlinks(引用本条的)。
+type CorpusLinks struct {
+	Outgoing  []CorpusMeta
+	Backlinks []CorpusMeta
 }

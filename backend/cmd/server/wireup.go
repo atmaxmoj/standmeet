@@ -80,7 +80,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 		Keypairs: keypairDeps(d),
 		Corpus: usecases.CorpusDeps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
-			Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
+			Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo, Index: d.corpusIndexer,
 		},
 		Conversations: usecases.ConversationsDeps{
 			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
@@ -179,7 +179,10 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	wireRetrievalSocket(ctx, d, &usecases.RetrievalDeps{
 		Wiki: skills.Wiki, Output: skills.Output, Writings: skills.Writings,
 		Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo,
+		NoteRefs: d.noteRefRepo, Searcher: d.corpusSearcher(),
 	})
+	wireSearchIndex(ctx, d)
+	wireSearchReconcile(ctx, d)
 	registerDiscoveredPlugins(d, depReg, map[string]usecases.CapHooks{
 		usecases.BookerSkillName: {
 			Gate:  usecases.NewBookerGate(bookerDeps),
@@ -311,7 +314,7 @@ func buildMCPDeps(d *runtimeDeps) mcphandle.Deps {
 		Owners:      d.ownerRepo,
 		Corpus: usecases.CorpusDeps{
 			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
-			Subjectivity: d.subjectivityRepo,
+			Subjectivity: d.subjectivityRepo, Index: d.corpusIndexer,
 		},
 		SEO:         d.seoRepo,
 		CustomPages: usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
