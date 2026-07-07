@@ -51,6 +51,21 @@ func (s *ConversationGhost) Accepted() bool {
 	return s.AcceptedAt != nil
 }
 
+// GhostWaypointStat —— ghost-steering telemetry: 一个 waypoint 的漏斗(policy ghost shown vs accepted)。
+type GhostWaypointStat struct {
+	TargetWaypoint string
+	Shown          int64
+	Accepted       int64
+}
+
+// AcceptanceRate —— accepted/shown，四舍五入到小数(shown=0 → 0)。
+func (s *GhostWaypointStat) AcceptanceRate() float64 {
+	if s.Shown == 0 {
+		return 0
+	}
+	return float64(s.Accepted) / float64(s.Shown)
+}
+
 // ParseGhostSource —— route 输入校验；非法返 sentinel。
 func ParseGhostSource(s string) (GhostSource, error) {
 	switch GhostSource(s) {

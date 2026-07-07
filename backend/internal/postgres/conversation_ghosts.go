@@ -161,6 +161,34 @@ func (r *GhostRepo) ListByConversation(
 	return out, nil
 }
 
+// WaypointTelemetry —— ghost-steering telemetry: per-waypoint funnel (policy ghosts shown vs
+// accepted) for the owner. Owner-scoped aggregate; empty slice when no policy ghosts yet.
+func (r *GhostRepo) WaypointTelemetry(
+	ctx context.Context, ownerID string,
+) ([]domain.GhostWaypointStat, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	rows, qerr := dbq.New(r.pool).GhostWaypointTelemetry(ctx, ownerUUID)
+	if qerr != nil {
+		return nil, fmt.Errorf("ghost telemetry: %w", qerr)
+	}
+	out := make([]domain.GhostWaypointStat, 0, len(rows))
+	for i := range rows {
+		wp := ""
+		if rows[i].TargetWaypoint != nil {
+			wp = *rows[i].TargetWaypoint
+		}
+		out = append(out, domain.GhostWaypointStat{
+			TargetWaypoint: wp,
+			Shown:          rows[i].Shown,
+			Accepted:       rows[i].Accepted,
+		})
+	}
+	return out, nil
+}
+
 func toDomainGhost(row *dbq.ConversationGhost) domain.ConversationGhost {
 	out := domain.ConversationGhost{
 		ID:             formatUUID(row.ID),

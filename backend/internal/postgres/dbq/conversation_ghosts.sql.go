@@ -11,6 +11,45 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const ghostWaypointTelemetry = `-- name: GhostWaypointTelemetry :many
+SELECT
+    target_waypoint,
+    COUNT(*)::bigint            AS shown,
+    COUNT(accepted_at)::bigint  AS accepted
+FROM conversation_ghosts
+WHERE owner_id = $1 AND source = 'policy' AND target_waypoint IS NOT NULL
+GROUP BY target_waypoint
+ORDER BY target_waypoint ASC
+`
+
+type GhostWaypointTelemetryRow struct {
+	TargetWaypoint *string
+	Shown          int64
+	Accepted       int64
+}
+
+// ghost-steering telemetry: per-waypoint funnel (shown vs accepted) over the owner's policy ghosts.
+// accepted = accepted_at IS NOT NULL. Only source='policy' rows carry a target_waypoint.
+func (q *Queries) GhostWaypointTelemetry(ctx context.Context, ownerID pgtype.UUID) ([]GhostWaypointTelemetryRow, error) {
+	rows, err := q.db.Query(ctx, ghostWaypointTelemetry, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GhostWaypointTelemetryRow
+	for rows.Next() {
+		var i GhostWaypointTelemetryRow
+		if err := rows.Scan(&i.TargetWaypoint, &i.Shown, &i.Accepted); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGhostsByConversation = `-- name: ListGhostsByConversation :many
 SELECT id, owner_id, conversation_id, turn_index, ghost_text, source, target_waypoint, follows_from, shown_at, accepted_at FROM conversation_ghosts
 WHERE conversation_id = $1 AND owner_id = $2

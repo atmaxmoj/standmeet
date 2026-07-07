@@ -23,3 +23,15 @@ RETURNING *;
 SELECT * FROM conversation_ghosts
 WHERE conversation_id = $1 AND owner_id = $2
 ORDER BY shown_at ASC;
+
+-- name: GhostWaypointTelemetry :many
+-- ghost-steering telemetry: per-waypoint funnel (shown vs accepted) over the owner's policy ghosts.
+-- accepted = accepted_at IS NOT NULL. Only source='policy' rows carry a target_waypoint.
+SELECT
+    target_waypoint,
+    COUNT(*)::bigint            AS shown,
+    COUNT(accepted_at)::bigint  AS accepted
+FROM conversation_ghosts
+WHERE owner_id = $1 AND source = 'policy' AND target_waypoint IS NOT NULL
+GROUP BY target_waypoint
+ORDER BY target_waypoint ASC;

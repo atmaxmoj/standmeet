@@ -78,3 +78,15 @@ func ListGhostsForConversation(
 	}
 	return rows, nil
 }
+
+// GhostTelemetry —— ghost-steering telemetry: per-waypoint funnel (policy ghosts shown vs accepted)
+// for the owner. Owner-scoped; empty when no policy ghosts have fired yet.
+func GhostTelemetry(
+	ctx context.Context, deps *GhostDeps, ownerID string,
+) ([]domain.GhostWaypointStat, error) {
+	stats, err := deps.Repo.WaypointTelemetry(ctx, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("ghost telemetry: %w", err)
+	}
+	return stats, nil
+}
