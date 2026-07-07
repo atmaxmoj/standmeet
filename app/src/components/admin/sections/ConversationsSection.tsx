@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConvTranscriptModal } from '@/components/admin/sections/conversations/ConvTranscriptModal';
+import { GhostTelemetryPanel } from '@/components/admin/sections/conversations/GhostTelemetryPanel';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useConversations, type ConversationsHook, type ConvView } from '@/lib/admin/use-conversations';
 
@@ -26,6 +27,7 @@ export function ConversationsSection() {
         action={<PrivateHitsHint hook={hook} />}
       />
       <FilterChip code={filterCode} />
+      <GhostTelemetryPanel />
       <ConvTable hook={hook} />
       {hook.transcript && (
         <ConvTranscriptModal
