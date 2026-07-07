@@ -99,8 +99,11 @@ export class VisitorTurnAgent {
       case 'tool_completed':
         this.emitToolCompleted(ev);
         return;
-      case 'ghosts':
-        this.emit({ type: 'ghosts_received', items: ev.items });
+      case 'ghost':
+        this.emit({
+          type: 'ghost_received', text: ev.text,
+          targetWaypoint: ev.target_waypoint, ghostId: ev.ghost_id,
+        });
         return;
       case 'retrying':
         this.emit({ type: 'retrying', attempt: ev.attempt });

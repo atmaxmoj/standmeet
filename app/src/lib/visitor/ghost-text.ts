@@ -39,11 +39,10 @@ export function pickPlaceholder(p: PlaceholderInputs): string {
 
 interface GhostHandlers {
   onAccept: (g: string) => void;
-  onCycle: () => void;
 }
 
-// dispatchGhostKey —— Tab/Esc 派发，命中调对应 handler + preventDefault。
-// 其他键 / ghost 空时无操作。
+// dispatchGhostKey —— Tab 派发（P4 单条 ghost：Esc 不再 cycle，没有下一条可切）。命中 Tab 调
+// onAccept + preventDefault；其他键 / ghost 空时无操作。
 export function dispatchGhostKey(
   e: KeyboardEvent<HTMLElement>,
   ghost: string | null,
@@ -53,10 +52,5 @@ export function dispatchGhostKey(
   if (e.key === 'Tab') {
     e.preventDefault();
     h.onAccept(ghost);
-    return;
-  }
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    h.onCycle();
   }
 }

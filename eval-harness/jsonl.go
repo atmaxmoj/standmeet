@@ -12,23 +12,22 @@ import (
 // line kind (scenario header, each loop event, summary); the Type field
 // disambiguates. Machine-readable counterpart to the human transcript.
 type jsonEvent struct {
-	Type        string          `json:"type"`
-	Name        string          `json:"name,omitempty"`
-	Description string          `json:"description,omitempty"`
-	System      string          `json:"system,omitempty"`
-	User        string          `json:"user,omitempty"`
-	Delta       string          `json:"delta,omitempty"`
-	ID          string          `json:"id,omitempty"`
-	Args        json.RawMessage `json:"args,omitempty"`
-	Result      string          `json:"result,omitempty"`
-	Label       string          `json:"label,omitempty"`
-	Items       []string        `json:"items,omitempty"`
-	TargetWaypoint string       `json:"target_waypoint,omitempty"`
-	Attempt     int             `json:"attempt,omitempty"`
-	Stop        string          `json:"stop,omitempty"`
-	Error       string          `json:"error,omitempty"`
-	Scenarios   []summaryRow    `json:"scenarios,omitempty"`
-	OK          bool            `json:"ok,omitempty"`
+	Type           string          `json:"type"`
+	Name           string          `json:"name,omitempty"`
+	Description    string          `json:"description,omitempty"`
+	System         string          `json:"system,omitempty"`
+	User           string          `json:"user,omitempty"`
+	Delta          string          `json:"delta,omitempty"`
+	ID             string          `json:"id,omitempty"`
+	Args           json.RawMessage `json:"args,omitempty"`
+	Result         string          `json:"result,omitempty"`
+	Label          string          `json:"label,omitempty"`
+	TargetWaypoint string          `json:"target_waypoint,omitempty"`
+	Attempt        int             `json:"attempt,omitempty"`
+	Stop           string          `json:"stop,omitempty"`
+	Error          string          `json:"error,omitempty"`
+	Scenarios      []summaryRow    `json:"scenarios,omitempty"`
+	OK             bool            `json:"ok,omitempty"`
 }
 
 // summaryRow —— one scenario's tally inside the JSONL summary line.
@@ -77,12 +76,6 @@ func (s *jsonlSink) ToolCompleted(name, result string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.write(jsonEvent{Type: "tool_completed", Name: name, Result: result})
-}
-
-func (s *jsonlSink) Ghosts(items []string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.write(jsonEvent{Type: "ghosts", Items: items})
 }
 
 func (s *jsonlSink) Ghost(g *agentcore.GhostFrame) {

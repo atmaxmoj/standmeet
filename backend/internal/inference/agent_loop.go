@@ -46,8 +46,8 @@ type AgentSink interface {
 	Text(delta string)
 	ToolStarted(id, name, progressLabel string, args json.RawMessage)
 	ToolCompleted(name, result string)
-	Ghosts(items []string)
-	// Ghost —— ghost-steering P3: done 之后发的**单个** steering ghost 帧(policy 出，替代 Ghosts 多条)。
+	// Ghost —— ghost-steering P4: done 之后 policy 出的**单个** steering ghost 帧（唯一 ghost 通道；
+	// 旧的 Ghosts 多条 followup 已删）。
 	Ghost(g *GhostFrame)
 	// Retrying —— transport 重试一次 transient LLM 失败时调(attempt 从 1
 	// 数起)。prod sink emit `retrying` SSE 帧让 throbber 显 "retrying";
@@ -138,7 +138,6 @@ func DriveAgentLoop(
 ) {
 	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
 	state := consumeAgentEvents(ctx, em, iter)
-	maybeEmitGhosts(ctx, em, in, state)
 	// Done 先发 —— 让访客这一轮立刻收尾(能发下一轮);#106 计费是后台,绝不压在关键路径上。
 	sink.Done(state.stop)
 	// ghost-steering P3: policy 在 done **之后** 跑(persist-at-completion:done=已提交,ledger 也已在

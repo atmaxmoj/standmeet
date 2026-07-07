@@ -105,12 +105,8 @@ test.describe('agent turn endpoint · eino ADK driven', () => {
       await request.dispose();
     });
 
-  test('code-accessor turn → ghosts 帧 (items 数组)',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
-      await assertGhostsFrame(request);
-      await request.dispose();
-    });
+  // (旧 "code-accessor turn → ghosts 帧 (items 数组)" 已删 —— Ghost P4 把 3 条 followup 的
+  //  plural `ghosts` 帧换成单条 policy `ghost` 帧;单条 SSE 帧的覆盖在 ghost-policy.spec。)
 
   test('issueSession (code-mode) → ghosts 透到 response',
     async ({ playwright }) => {
@@ -183,25 +179,6 @@ async function assertSessionGhosts(
     .ghosts;
   expect(Array.isArray(sq)).toBe(true);
   expect(sq).toEqual(GHOSTS);
-}
-
-async function assertGhostsFrame(request: APIRequestContext): Promise<void> {
-  // H.13.a: 持 code 的 visitor turn 收尾前 backend 调 inference.Generate
-  // 出 3 条 follow-up;mock 的 followup-gen 路径返一个 JSON 数组 → backend 解析
-  // 后 emit ghosts 帧带 3 条 items。验帧 type=ghosts 存在 + items 是非空数组。
-  const sess = await issueSession(request, {
-    handle: OWNER.handle, code: CODE, visitor_name: 'V',
-  });
-  const { status, sse } = await postAgentTurn(request, sess, {
-    system: 'You are alice.',
-    user_message: 'hi',
-  });
-  expect(status).toBe(200);
-  const ghosts = sse.events.find((e) => e.type === 'ghosts');
-  expect(ghosts, 'ghosts frame present for code-accessor').toBeDefined();
-  const data = ghosts?.data as { items?: unknown };
-  expect(Array.isArray(data?.items)).toBe(true);
-  expect((data?.items as unknown[]).length).toBe(3);
 }
 
 async function assertToolEvents(request: APIRequestContext): Promise<void> {

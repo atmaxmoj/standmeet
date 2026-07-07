@@ -52,10 +52,6 @@ func (s *transcriptSink) ToolCompleted(name, result string) {
 	s.event("TOOL←     │ %s  ⇒ %s", name, result)
 }
 
-func (s *transcriptSink) Ghosts(items []string) {
-	s.event("SUGGEST   │ %v", items)
-}
-
 // Ghost —— ghost-steering: 单个 steering ghost。打成 `GHOST→ <target_waypoint>`(gold 断言可读)。
 func (s *transcriptSink) Ghost(g *agentcore.GhostFrame) {
 	s.event("GHOST→ %s │ %s", g.TargetWaypoint, g.Text)

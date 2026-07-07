@@ -249,18 +249,8 @@ func (s *sseSink) ToolCompleted(name, result string) {
 	writeSSEFrame(s.log, s.w, s.flusher, "tool_completed", body)
 }
 
-func (s *sseSink) Ghosts(items []string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	body, err := json.Marshal(ghostsPayload{Items: items})
-	if err != nil {
-		s.log.Error("agent turn marshal ghosts", logErrKey, err)
-		return
-	}
-	writeSSEFrame(s.log, s.w, s.flusher, "ghosts", body)
-}
-
-// Ghost —— ghost-steering P3: 发单个 `ghost` 帧(target_waypoint/follows_from/ghost_id 全带)。
+// Ghost —— ghost-steering P4: 发单个 `ghost` 帧(target_waypoint/follows_from/ghost_id 全带；
+// 唯一 ghost 通道，旧 Ghosts 多条已删)。
 func (s *sseSink) Ghost(g *GhostFrame) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -305,13 +295,6 @@ type toolStartedPayload struct {
 type toolCompletedPayload struct {
 	Name   string `json:"name"`
 	Result string `json:"result"`
-}
-
-// ghostsPayload —— SSE `ghosts` 帧负载。items 是 3 条 follow-up
-// question 字符串数组 (H.13)；解析失败 / 非 code-accessor session 时
-// items=[] 当 "no chip"。生成逻辑在 agent_turn_ghosts.go。
-type ghostsPayload struct {
-	Items []string `json:"items"`
 }
 
 // retryingPayload —— SSE `retrying` 帧负载。attempt 是第几次重试(从 1 起)。

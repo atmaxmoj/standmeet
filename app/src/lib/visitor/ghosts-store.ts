@@ -1,94 +1,75 @@
-// ghosts-store.ts —— H.13.d/e: visitor chat 输入框灰色 ghost text 队列。
+// ghosts-store.ts —— Ghost steering P4: visitor chat 输入框的**单条** ghost text（不再是队列 + cycle）。
 //
 // 来源:
-//   - POST /api/v1/sessions 响应 `ghosts` → seed (初始队列)
-//   - SSE `ghosts` 帧 (backend agent_turn 收尾 emit, code-accessor only)
-//     → append (每轮 AI 答完追加 3 条 follow-up)
+//   - POST /api/v1/sessions 响应 `ghosts` → seed。取**首条**当单个 initial ghost（QR/landing 那组
+//     suggested question 保留在 code.ghosts，但输入框只吃第一条）。
+//   - SSE `ghost` 帧（backend policy done 之后出，code-accessor only）→ setPolicy，**替换**掉当前那条。
 //
 // 消费:
-//   - AskInput / ChatRoom / FloatingChatDock 渲 current() 当 ghost；按 Tab
-//     fill input + 不自动 submit；Esc cycle 下一条；开始打字 ghost 自然
-//     被 input.value 隐藏
+//   - AskInput / ChatRoom / FloatingChatDock 渲当前 ghost；Tab → fill input 不自动 submit；
+//     开始打字 → ghost 被 input.value 自然遮住。**Esc 不再 cycle**（单条，没有下一条可切）。
 //
-// non-code visitor (public / byoai) 永远 seed 空数组、永远不收 SSE 帧 →
-// current() === null → ghost 不渲。同套代码兼容三种 mode。
+// non-code visitor (public / byoai) 永远 seed 空 → ghost === null → 不渲。三种 mode 同套代码。
 //
-// H.13.e: 每条 ghost 带 source ('initial' | 'followup') 让后台日志区分；
-// seed 默认 'initial'，append 默认 'followup'。
+// source ('initial' | 'policy') 给后台日志区分：seed = 'initial'，policy 帧 = 'policy'。
 
 import { create } from 'zustand';
 
-export type GhostSource = 'initial' | 'followup';
+export type GhostSource = 'initial' | 'policy';
 
 export interface Ghost {
   readonly text: string;
   readonly source: GhostSource;
+  // targetWaypoint —— policy ghost 携带（引导到哪个 waypoint）；initial 无。
+  readonly targetWaypoint?: string;
 }
 
 interface GhostsState {
-  ghosts: readonly Ghost[];
-  index: number;
-  // shownIDs —— H.13.e: ghost text → backend row id 的反查表。useGhost
-  // Logger POST shown 拿到 id 后写一行；其他 hook instance (mode 切换换
-  // ChatRoom mount 时) 见这里有就不再 POST，避免重复落 row。同步对 accept
-  // 拿 id 也提供 lookup。
+  ghost: Ghost | null;
+  // shownIDs —— ghost text → backend row id 的反查表。useGhostLogger POST shown 拿到 id 后写一行；
+  // 别的 hook instance（mode 切换 ChatRoom remount）见有就不再 POST，避免重复落 row；accept 也 lookup。
   shownIDs: Record<string, string>;
-  // seed —— 首次拿到 session 时塞初始队列。重复调用整盘重置 (新 session
-  // 来了 → 老 ghost 不该再展示)。空数组也算重置。source 默认 'initial'。
+  // seed —— 首次拿到 session 时取 items[0] 当单个 initial。重复调用整盘重置（新 session → 老 ghost 不再展示）。
   seed: (items: readonly string[]) => void;
-  // append —— SSE ghosts 帧到了往尾巴推；不重置 index。source
-  // 默认 'followup'。
-  append: (items: readonly string[]) => void;
-  // cycle —— Esc 触发，index 进位；到尾回 0 让 visitor 循环看。
-  cycle: () => void;
+  // setPolicy —— SSE `ghost` 帧到了，把当前 ghost 换成这条 policy ghost（source='policy'）。
+  // policy ghost 已在后端 policy 落库（RecordPolicy），帧带 ghostId → 直接 markShown，
+  // 前端不再 POST /shown（否则 dup row）。
+  setPolicy: (text: string, ghostId?: string, targetWaypoint?: string) => void;
   // markShown —— useGhostLogger POST shown 成功后写 text → row id 映射。
   markShown: (text: string, id: string) => void;
-  // clear —— chat.reset 时清干净，避免老队列污染新对话。
+  // clear —— chat.reset 时清干净，避免老 ghost 污染新对话。
   clear: () => void;
 }
 
 export const useGhostsStore = create<GhostsState>((set, get) => ({
-  ghosts: [],
-  index: 0,
+  ghost: null,
   shownIDs: {},
   seed: (items) => set({
-    ghosts: items.map<Ghost>((text) => ({ text, source: 'initial' })),
-    index: 0,
+    ghost: items.length > 0 ? { text: items[0]!, source: 'initial' } : null,
   }),
-  append: (items) => {
-    if (items.length === 0) return;
-    const cur = get().ghosts;
-    const incoming = items.map<Ghost>((text) => ({ text, source: 'followup' }));
-    // index 推进到第一条新 followup —— 答完一轮后输入框直接显 AI 的「接着问」,
-    // 不再卡在 seed[0](原始 bug:append 不动 index,ghost 永远是初始那条)。
-    set({ ghosts: [...cur, ...incoming], index: cur.length });
-  },
-  cycle: () => {
-    const { ghosts, index } = get();
-    if (ghosts.length === 0) return;
-    set({ index: (index + 1) % ghosts.length });
+  setPolicy: (text, ghostId, targetWaypoint) => {
+    if (text === '') return;
+    set({ ghost: { text, source: 'policy', targetWaypoint } });
+    // 后端已落库，帧带 id → 直接记进 shownIDs，logger 见有就不再 POST /shown。
+    if (ghostId !== undefined && ghostId !== '') {
+      const cur = get().shownIDs;
+      set({ shownIDs: { ...cur, [text]: ghostId } });
+    }
   },
   markShown: (text, id) => {
     const cur = get().shownIDs;
     if (cur[text] === id) return;
     set({ shownIDs: { ...cur, [text]: id } });
   },
-  clear: () => set({ ghosts: [], index: 0, shownIDs: {} }),
+  clear: () => set({ ghost: null, shownIDs: {} }),
 }));
 
-// useCurrentGhost —— React-friendly hook，组件 subscribe 当前指针那条
-// (只要 text，渲染层不需要 source)。
+// useCurrentGhost —— React-friendly hook，组件 subscribe 当前那条（只要 text）。
 export function useCurrentGhost(): string | null {
-  return useGhostsStore((s) => pickCurrent(s.ghosts, s.index)?.text ?? null);
+  return useGhostsStore((s) => s.ghost?.text ?? null);
 }
 
-// useCurrentGhostMeta —— 后台日志路径用，把 source 一并暴露 (use-ghost
-// -logger 里调 POST sessions/{id}/ghosts/shown 时要带)。
+// useCurrentGhostMeta —— 后台日志路径用，把 source 一并暴露（use-ghost-logger POST shown 要带）。
 export function useCurrentGhostMeta(): Ghost | null {
-  return useGhostsStore((s) => pickCurrent(s.ghosts, s.index));
-}
-
-function pickCurrent(ghosts: readonly Ghost[], index: number): Ghost | null {
-  if (ghosts.length === 0) return null;
-  return ghosts[index] ?? null;
+  return useGhostsStore((s) => s.ghost);
 }

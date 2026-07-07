@@ -6,6 +6,7 @@
 //   event: text           data: {"delta":"..."}
 //   event: tool_started   data: {"id","name","args","progress_label"}
 //   event: tool_completed data: {"name","result"}
+//   event: ghost          data: {"text","target_waypoint","follows_from","ghost_id","is_bridge"}
 //   event: done           data: {"stop_reason":"end_turn|tool_use|max_tokens"}
 //   event: error          data: {"code","message"}
 
@@ -60,7 +61,7 @@ function dispatchFrame(
     case 'text': return parseText(d);
     case 'tool_started': return parseToolStarted(d);
     case 'tool_completed': return parseToolCompleted(d);
-    case 'ghosts': return parseGhosts(d);
+    case 'ghost': return parseGhost(d);
     case 'retrying': return parseRetrying(d);
     case 'done': return parseDone(d);
     case 'error': return parseError(d);
@@ -96,15 +97,18 @@ function parseToolCompleted(d: Record<string, unknown>): AgentTurnEvent {
   };
 }
 
-function parseGhosts(d: Record<string, unknown>): AgentTurnEvent {
-  const raw = d['items'];
-  const items: string[] = [];
-  if (Array.isArray(raw)) {
-    for (const v of raw) {
-      if (typeof v === 'string') items.push(v);
-    }
-  }
-  return { type: 'ghosts', items };
+// parseGhost —— Ghost P4: 单条 policy steering ghost 帧（后端 GhostFrame）。text 空 → 丢帧。
+function parseGhost(d: Record<string, unknown>): AgentTurnEvent | null {
+  const text = stringOr(d['text'], '');
+  if (text === '') return null;
+  return {
+    type: 'ghost',
+    text,
+    target_waypoint: stringOrUndef(d['target_waypoint']),
+    follows_from: stringOrUndef(d['follows_from']),
+    ghost_id: stringOrUndef(d['ghost_id']),
+    is_bridge: typeof d['is_bridge'] === 'boolean' ? d['is_bridge'] : undefined,
+  };
 }
 
 function parseDone(d: Record<string, unknown>): AgentTurnEvent {

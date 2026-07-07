@@ -54,7 +54,7 @@ export interface ConvTranscriptMessage {
 export interface GhostLog {
   id: string;
   ghost_text: string;
-  source: 'initial' | 'followup';
+  source: 'initial' | 'policy';
   shown_at: string;
   accepted: boolean;
   accepted_at: string | null;
@@ -81,7 +81,7 @@ const ConvMessageSchema = z.object({
 const GhostLogSchema = z.object({
   id: z.string(),
   ghost_text: z.string(),
-  source: z.enum(['initial', 'followup']),
+  source: z.enum(['initial', 'policy']),
   shown_at: z.string(),
   accepted: z.boolean(),
   accepted_at: z.string().optional(),

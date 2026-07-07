@@ -26,7 +26,7 @@ import type { DocContext } from '@standmeet/agent-core';
 import { ChatTranscript, ChatProgress } from '@/components/visitor/ChatTranscript';
 import { useGhostLogger } from '@/lib/page/use-ghost-logger';
 import { useVisitorSessionStore, useIsQuotaExhausted } from '@/lib/visitor/session-store';
-import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
+import { useCurrentGhost } from '@/lib/visitor/ghosts-store';
 import { dispatchGhostKey, pickGhost } from '@/lib/visitor/ghost-text';
 
 // docContext —— 访客当前所在 doc(wiki/writing/output 页传进来),让浮窗里问
@@ -42,7 +42,6 @@ function FloatingChatDockInner({ mode, docContext }: { mode: SessionMode; docCon
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const ghost = useCurrentGhost();
-  const cycleGhost = useGhostsStore((s) => s.cycle);
   const ghostLogger = useGhostLogger();
 
   const onAsk = useCallback((q: string) => {
@@ -74,7 +73,6 @@ function FloatingChatDockInner({ mode, docContext }: { mode: SessionMode; docCon
           inputRef={inputRef}
           ghost={ghost}
           onAcceptGhost={onAcceptGhost}
-          onCycleGhost={cycleGhost}
         />
       )}
     </>
@@ -127,7 +125,6 @@ interface PanelProps {
   // H.13.d ghost text 三件套；non-code mode 永远 null。
   ghost: string | null;
   onAcceptGhost: (g: string) => void;
-  onCycleGhost: () => void;
 }
 
 function ChatPanel(props: PanelProps) {
@@ -154,7 +151,6 @@ function ChatPanel(props: PanelProps) {
         inputRef={props.inputRef}
         ghost={props.ghost}
         onAcceptGhost={props.onAcceptGhost}
-        onCycleGhost={props.onCycleGhost}
       />
     </div>
   );
@@ -188,7 +184,6 @@ interface ChatPanelInputProps {
   inputRef: React.RefObject<HTMLInputElement | null>;
   ghost: string | null;
   onAcceptGhost: (g: string) => void;
-  onCycleGhost: () => void;
 }
 
 function ChatPanelInput(props: ChatPanelInputProps) {
@@ -226,7 +221,7 @@ function ChatPanelInputField({ props, ghost, placeholder }: {
       type="text"
       value={props.value}
       onChange={(e) => props.onChange(e.target.value)}
-      onKeyDown={(e) => dispatchGhostKey(e, ghost, { onAccept: props.onAcceptGhost, onCycle: props.onCycleGhost })}
+      onKeyDown={(e) => dispatchGhostKey(e, ghost, { onAccept: props.onAcceptGhost })}
       placeholder={lockedPlaceholder(exhausted, placeholder)}
       disabled={props.pending || exhausted}
       data-testid="floating-chat-input"

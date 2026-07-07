@@ -62,7 +62,7 @@ export function ChatRoom({ owner, mode }: Props) {
               input={ci.input} setInput={ci.setInput} onSubmit={ci.onAsk}
               pending={ci.chat.pending} exhausted={ci.exhausted}
               showStarters={ci.chat.dialogs.length === 0} mode={derived.mode}
-              ghost={ci.ghost} onAcceptGhost={ci.onAcceptGhost} onCycleGhost={ci.onCycleGhost}
+              ghost={ci.ghost} onAcceptGhost={ci.onAcceptGhost}
             />
             <ChatFootnote handle={owner.handle} mode={derived.mode} />
           </div>
@@ -157,7 +157,7 @@ const BYOAI_STARTERS = ['What are you working on right now?', 'How do you think 
 type ComposerProps = {
   input: string; setInput: (v: string) => void; onSubmit: (q: string) => void;
   pending: boolean; exhausted: boolean;
-  ghost: string | null; onAcceptGhost: (g: string) => void; onCycleGhost: () => void;
+  ghost: string | null; onAcceptGhost: (g: string) => void;
 };
 
 function ChatComposer({ showStarters, mode, ...rest }: ComposerProps & { showStarters: boolean; mode: string }) {
@@ -201,7 +201,7 @@ function ComposerForm(p: ComposerProps) {
           onChange={(e) => p.setInput(e.target.value)}
           onPaste={(e) => { att.onPaste(e); }}
           onKeyDown={(e) => dispatchComposerKey(e, {
-            ghost, onSubmit: submit, onAccept: p.onAcceptGhost, onCycle: p.onCycleGhost,
+            ghost, onSubmit: submit, onAccept: p.onAcceptGhost,
           })}
           placeholder={placeholder}
           disabled={blocked}

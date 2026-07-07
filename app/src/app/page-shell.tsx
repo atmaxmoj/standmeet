@@ -34,7 +34,7 @@ import { useChat } from '@/lib/page/use-chat';
 import type { SessionMode } from '@/lib/page/use-chat';
 import { useGhostLogger } from '@/lib/page/use-ghost-logger';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
-import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
+import { useCurrentGhost } from '@/lib/visitor/ghosts-store';
 
 type Props = {
   owner: PublicOwnerView;
@@ -72,7 +72,6 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const ghost = useCurrentGhost();
-  const cycleGhost = useGhostsStore((s) => s.cycle);
   const ghostLogger = useGhostLogger();
 
   // 长滚屏只对**没有 chat session**(public)的访客渲染 —— 这里提问不行内答,一律
@@ -114,7 +113,6 @@ function LongScrollBody({ owner, content, mode }: Props & { mode: SessionMode })
             inputRef={inputRef}
             ghost={ghost}
             onAcceptGhost={onAcceptGhost}
-            onCycleGhost={cycleGhost}
           />
           {chat.dialogs.length > 0 && (
             <ConversationDeck

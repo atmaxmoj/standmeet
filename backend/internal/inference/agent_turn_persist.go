@@ -89,10 +89,9 @@ func (a *accumSink) ToolCompleted(name, result string) {
 	a.inner.ToolCompleted(name, result)
 }
 
-func (a *accumSink) Ghosts(items []string) { a.inner.Ghosts(items) }
-func (a *accumSink) Ghost(g *GhostFrame)   { a.inner.Ghost(g) }
-func (a *accumSink) Retrying(attempt int)  { a.inner.Retrying(attempt) }
-func (a *accumSink) Error(err error)       { a.inner.Error(err) }
+func (a *accumSink) Ghost(g *GhostFrame)  { a.inner.Ghost(g) }
+func (a *accumSink) Retrying(attempt int) { a.inner.Retrying(attempt) }
+func (a *accumSink) Error(err error)      { a.inner.Error(err) }
 
 // Done —— 先落库(onDone)再转发 `done` 帧。顺序是刻意的:浏览器把 done 当
 // 「turn 提交完成」信号,落库必须在它之前完成。

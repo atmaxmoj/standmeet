@@ -18,7 +18,7 @@ export interface DockButtonConfig {
 // WaypointInput —— ghost-steering: owner 在 role 上写的一个 waypoint(引导目的地)。
 // evidence_refs = 该目的地对应的 corpus 证据;冻结时任何 ref 落在 role 授权 glob 之外
 // 的 waypoint 会被整条丢弃(feasibility floor)。is_terminal = booking/contact 类终点。
-export interface WaypointInput {
+interface WaypointInput {
   waypoint_id: string;
   description: string;
   weight: number;

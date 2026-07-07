@@ -20,19 +20,18 @@ type toolUse struct {
 // for one turn plus the corpus tools it called. Silent (no printing); the
 // caller decides how to surface the captured answer.
 type captureSink struct {
-	mu          sync.Mutex
-	text        strings.Builder
-	tools       []toolUse
-	ghosts []string
+	mu    sync.Mutex
+	text  strings.Builder
+	tools []toolUse
 	// ghost —— ghost-steering: 本轮 policy 出的单个 steering ghost(nil = silence)。
 	// eval-ghost 拿它的 target_waypoint 对 gold。
 	ghost *agentcore.GhostFrame
 	// report —— summarize_conversation is a ReturnDirectly tool with no text
 	// answer; the report HTML lives only in its tool result. Capture it so the
 	// eval can judge how good the generated summary is.
-	report      string
-	errored     bool
-	errMsg      string
+	report  string
+	errored bool
+	errMsg  string
 }
 
 func newCaptureSink() *captureSink { return &captureSink{} }
@@ -68,12 +67,6 @@ func (s *captureSink) ToolCompleted(name, result string) {
 	s.report = wire.HTML
 }
 
-func (s *captureSink) Ghosts(items []string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.ghosts = items
-}
-
 func (s *captureSink) Ghost(g *agentcore.GhostFrame) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -82,12 +75,6 @@ func (s *captureSink) Ghost(g *agentcore.GhostFrame) {
 
 // Retrying —— 重试只影响时延,不改最终 transcript;capture 只攒终态,no-op。
 func (*captureSink) Retrying(int) {}
-
-func (s *captureSink) followups() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.ghosts
-}
 
 func (s *captureSink) Error(err error) {
 	s.mu.Lock()

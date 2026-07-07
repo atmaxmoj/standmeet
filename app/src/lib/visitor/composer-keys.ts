@@ -32,7 +32,6 @@ interface ComposerKeyHandlers {
   ghost: string | null;
   onSubmit: () => void;
   onAccept: (g: string) => void;
-  onCycle: () => void;
 }
 
 // dispatchComposerKey —— textarea keydown 派发。Enter(无 shift、非 IME 组字)
@@ -47,5 +46,5 @@ export function dispatchComposerKey(
     h.onSubmit();
     return;
   }
-  dispatchGhostKey(e, h.ghost, { onAccept: h.onAccept, onCycle: h.onCycle });
+  dispatchGhostKey(e, h.ghost, { onAccept: h.onAccept });
 }

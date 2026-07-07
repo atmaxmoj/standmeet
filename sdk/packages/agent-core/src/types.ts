@@ -45,28 +45,28 @@ export interface ToolCallRef {
 
 // AgentTurnEvent —— H.10: 新 wire 一条 SSE event。pi 端从 /api/v1/agent/turn
 // 接到的形态；TurnStreamer 一个 turn 把整套事件 yield 完。
-// H.13.c 加 `ghosts` 变体：code-accessor turn 收尾前 backend 出
-// 3 条 follow-up question；浏览器把 items 队列追到 ghost text 后面。
+// Ghost-steering P4：`ghost`（单数）—— done 之后 backend policy 出**至多一个** steering ghost
+// (替代旧的 `ghosts` 3 条 followup 队列)；字段对齐后端 GhostFrame。
 export type AgentTurnEvent =
   | { readonly type: 'text'; readonly delta: string }
   | { readonly type: 'tool_started'; readonly id: string; readonly name: string; readonly args: unknown; readonly progressLabel?: string }
   | { readonly type: 'tool_completed'; readonly name: string; readonly result: string }
-  | { readonly type: 'ghosts'; readonly items: readonly string[] }
+  | { readonly type: 'ghost'; readonly text: string; readonly target_waypoint?: string; readonly follows_from?: string; readonly ghost_id?: string; readonly is_bridge?: boolean }
   | { readonly type: 'retrying'; readonly attempt: number }
   | { readonly type: 'done'; readonly stopReason: 'end_turn' | 'tool_use' | 'max_tokens' }
   | { readonly type: 'error'; readonly code: string; readonly message: string };
 
 // AgentEvent —— observer receives one per state transition. Names align
-// with eval harness scenarios. H.13.c 加 `ghosts_received`：
-// VisitorTurnAgent 收到 SSE `ghosts` 事件时往 observer 发；UI 拿
-// 来追 ghost text 队列。
+// with eval harness scenarios. Ghost-steering P4：`ghost_received`（单数）——
+// VisitorTurnAgent 收到 SSE `ghost` 事件时往 observer 发；UI 拿来把输入框 ghost
+// 换成 policy 那条（不是队列 append）。
 export type AgentEvent =
   | { readonly type: 'iteration_started'; readonly iter: number }
   | { readonly type: 'llm_chunk'; readonly text: string }
   | { readonly type: 'tool_started'; readonly name: string; readonly args: unknown; readonly progressLabel?: string }
   | { readonly type: 'tool_completed'; readonly result: ToolResult }
   | { readonly type: 'capability_state_changed'; readonly states: readonly CapabilityState[] }
-  | { readonly type: 'ghosts_received'; readonly items: readonly string[] }
+  | { readonly type: 'ghost_received'; readonly text: string; readonly targetWaypoint?: string; readonly ghostId?: string }
   | { readonly type: 'retrying'; readonly attempt: number }
   | { readonly type: 'iteration_completed'; readonly iter: number }
   | { readonly type: 'final_text'; readonly text: string }

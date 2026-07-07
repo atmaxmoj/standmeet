@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { useChat, type SessionMode } from '@/lib/page/use-chat';
 import { useGhostLogger } from '@/lib/page/use-ghost-logger';
 import { useIsQuotaExhausted, useVisitorSessionStore } from '@/lib/visitor/session-store';
-import { useCurrentGhost, useGhostsStore } from '@/lib/visitor/ghosts-store';
+import { useCurrentGhost } from '@/lib/visitor/ghosts-store';
 
 export interface ChatRoomDerived {
   mode: 'coded' | 'byoai';
@@ -30,7 +30,6 @@ export function useChatRoomInput(mode: SessionMode) {
   const exhausted = useIsQuotaExhausted();
   const [input, setInput] = useState('');
   const ghost = useCurrentGhost();
-  const cycleGhost = useGhostsStore((s) => s.cycle);
   const ghostLogger = useGhostLogger();
 
   const onAsk = useCallback((q: string) => {
@@ -45,5 +44,5 @@ export function useChatRoomInput(mode: SessionMode) {
     ghostLogger.acceptCurrent();
   }, [ghostLogger]);
 
-  return { chat, exhausted, input, setInput, onAsk, ghost, onAcceptGhost, onCycleGhost: cycleGhost };
+  return { chat, exhausted, input, setInput, onAsk, ghost, onAcceptGhost };
 }

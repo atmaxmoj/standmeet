@@ -85,7 +85,7 @@ type askRequest struct {
 	History  []convTurn `json:"history"`
 	Question string     `json:"question"`
 	// Mode —— visitor mode: "public" (default) / "code" / "byoai". "code"
-	// triggers the follow-up ghosts (ghost text) the way an access-code
+	// triggers the single steering ghost (P4 policy) the way an access-code
 	// session does in prod.
 	Mode string `json:"mode"`
 	// Booking —— expose the real calendar_book + calendar_list_slots tools over a
@@ -130,13 +130,10 @@ func demoOwnerSkill() *agentcore.VisitorSkillSpec {
 type askResponse struct {
 	Answer string    `json:"answer"`
 	Tools  []toolUse `json:"tools"`
-	// Ghosts —— the 3 follow-up questions emitted at turn end in "code"
-	// mode (empty in public mode).
-	Ghosts []string `json:"ghosts,omitempty"`
 	// Report —— the summarize_conversation report HTML, when the candidate
 	// summarized this turn (else empty). Lets the eval judge summary quality.
 	Report string `json:"report,omitempty"`
-	Error       string   `json:"error,omitempty"`
+	Error  string `json:"error,omitempty"`
 }
 
 // runAsk reads one askRequest from stdin and writes one askResponse. Exit code
@@ -159,7 +156,7 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 	}
 	turn, aerr := askCandidate(context.Background(), log, cred, p, req)
 	resp := askResponse{
-		Answer: turn.answer, Tools: turn.tools, Ghosts: turn.ghosts, Report: turn.report,
+		Answer: turn.answer, Tools: turn.tools, Report: turn.report,
 	}
 	if aerr != nil {
 		resp.Error = aerr.Error()
@@ -176,7 +173,6 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 type candidateTurn struct {
 	answer string
 	tools  []toolUse
-	ghosts []string
 	report string
 }
 
@@ -230,7 +226,7 @@ func askCandidate(
 	}
 	answer, used, ok := sink.result()
 	turn := candidateTurn{
-		answer: answer, tools: used, ghosts: sink.followups(), report: sink.reportHTML(),
+		answer: answer, tools: used, report: sink.reportHTML(),
 	}
 	if !ok {
 		return turn, fmt.Errorf("candidate turn: %s", sink.errorText())

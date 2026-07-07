@@ -29,7 +29,6 @@ type Props = {
   // H.13.d ghost text 三件套；不传 → 整套 ghost 关闭。
   ghost?: string | null;
   onAcceptGhost?: (ghost: string) => void;
-  onCycleGhost?: () => void;
 };
 
 export function AskInput(props: Props) {
@@ -65,7 +64,6 @@ function AskField({ props, locked }: { props: Props; locked: boolean }) {
       onChange={(e) => props.onChange(e.target.value)}
       onKeyDown={(e) => dispatchGhostKey(e, ghost, {
         onAccept: (g) => props.onAcceptGhost?.(g),
-        onCycle: () => props.onCycleGhost?.(),
       })}
       placeholder={placeholder}
       disabled={blocked}

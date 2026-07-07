@@ -354,11 +354,10 @@ function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void {
     useCapabilityStore.getState().setStates(ev.states);
     return;
   }
-  if (ev.type === 'ghosts_received') {
-    // H.13.d: code-accessor 收到 backend agent_turn 末尾的 follow-up
-    // 3 条，append 到 ghost 队列尾巴；非 code visitor backend 不发，
-    // 这里 dead branch。
-    useGhostsStore.getState().append(ev.items);
+  if (ev.type === 'ghost_received') {
+    // Ghost P4: code-accessor 答完一轮，backend policy 出**单条** steering ghost；
+    // 把输入框 ghost 换成这条（非 code visitor backend 不发，这里 dead branch）。
+    useGhostsStore.getState().setPolicy(ev.text, ev.ghostId, ev.targetWaypoint);
   }
 }
 

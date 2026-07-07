@@ -2,9 +2,10 @@
 // accept 日志写到 backend，admin 详情页能看每 turn 推了什么、是否被接受。
 //
 // 行为:
-//   - watch useCurrentGhostMeta() — ghost text 变了 (初始 seed / cycle /
-//     SSE 追加都触发) → POST /api/v1/sessions/{conv_id}/ghosts/shown
-//     → 拿回 row id 存 store (markShown)
+//   - watch useCurrentGhostMeta() — ghost 变了 (初始 seed 触发) → POST
+//     /api/v1/sessions/{conv_id}/ghosts/shown → 拿回 row id 存 store (markShown)。
+//     policy 帧（P4 单条 steering ghost）已在后端 policy 落库、帧带 id，setPolicy 直接
+//     markShown，这里 shownIDs 已有就跳过，不重复落 row。
 //   - acceptCurrent() — Tab 触发；按 store 里最近 shown 的 text 反查 id
 //     → POST .../ghosts/{sid}/accept (204)
 //

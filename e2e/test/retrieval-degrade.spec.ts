@@ -11,6 +11,7 @@ import { execSync } from 'node:child_process';
 import path from 'node:path';
 
 import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
 
 import { seedWiki } from '@/fixtures/corpus';
 import { search, searchTitles, setupRetrievalOwner, type RetrievalOwner } from '@/fixtures/retrieval';
@@ -24,7 +25,7 @@ function makeTarget(t: string): void {
 }
 
 // meiliHealthy —— 读 admin /system 的 health[] 里 name==='meili' 那条的 ok(undefined = 未列)。
-async function meiliHealthy(req: import('@playwright/test').APIRequestContext): Promise<boolean | undefined> {
+async function meiliHealthy(req: APIRequestContext): Promise<boolean | undefined> {
   const res = await req.get(`${BACKEND}/api/admin/system`);
   const body = await res.json() as { health?: { name: string; ok: boolean }[] };
   return body.health?.find((h) => h.name === 'meili')?.ok;
