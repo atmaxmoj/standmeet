@@ -23,7 +23,6 @@ import (
 type RegisterDeps struct {
 	Owners        OwnerLookup
 	SEO           SEOWriter
-	Codes         CodesRevoker
 	Corpus        *usecases.CorpusDeps
 	Conversations *usecases.ConversationsDeps
 	Prompts       *usecases.PromptsDeps
@@ -52,10 +51,9 @@ type CalendarOwnerDeps struct {
 // 拎到 plugins/jobs (J.5)，wireup 在调本函数之后再调
 // pluginRegistry.RegisterAllCapabilities 补齐。
 func RegisterAgentSkills(reg *capreg.Registry, deps *RegisterDeps) {
-	// owner.me externalized to the ownercore plugin (#135) — registered via
+	// owner.me + codes.bundle externalized to the ownercore plugin (#135) — registered via
 	// pluginRegistry.RegisterAllCapabilities, not here. deps.Owners stays: calendar still uses it.
 	reg.MustRegister(newSEOCapability(deps.SEO, deps.Log))
-	reg.MustRegister(newCodesCapability(deps.Codes, deps.Log))
 	reg.MustRegister(newCorpusRawCapability(deps.Corpus, deps.SEO, deps.Log))
 	reg.MustRegister(newCorpusOutputCapability(deps.Corpus, deps.SEO, deps.Log))
 	reg.MustRegister(newCorpusMutationsCapability(deps.Corpus, deps.Log))

@@ -25,3 +25,12 @@ func MarshalResult(log *slog.Logger, name string, payload any) capreg.MCPResult 
 	}
 	return capreg.MCPSuccess(string(out))
 }
+
+// NonNilStrings —— coalesce a nil slice to an empty one, so owner-MCP tool payloads marshal to a
+// JSON `[]` rather than `null`. Shared by every owner cap that echoes a string list back.
+func NonNilStrings(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}

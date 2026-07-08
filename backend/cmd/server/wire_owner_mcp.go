@@ -32,7 +32,6 @@ func registerOwnerMCPHandlers(d *runtimeDeps) {
 	mcphandle.RegisterAgentSkills(d.agentSkills, &mcphandle.RegisterDeps{
 		Owners:        d.ownerRepo,
 		SEO:           d.seoRepo,
-		Codes:         d.codeRepo,
 		Corpus:        &corpusDeps,
 		Conversations: &convsDeps,
 		Prompts:       &usecases.PromptsDeps{Prompts: d.promptRepo},

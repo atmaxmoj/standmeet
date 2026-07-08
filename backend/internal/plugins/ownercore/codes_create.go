@@ -1,7 +1,7 @@
 // cap_codes_create.go —— Phase E-13 拆出来守 max-lines。codes.create 单 tool
 // + 入参 parse + build。codes.update_quotas 仍在 cap_codes.go。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"
@@ -96,7 +96,7 @@ func buildCreateCodeInputCap(
 	in := &domain.CreateAccessCodeInput{
 		OwnerID: ownerID, Code: args.Code, Label: args.Label,
 		Purpose: args.Purpose, AssumedRoleID: args.AssumedRoleID,
-		Ghosts:             nonNilStrings(args.Ghosts),
+		Ghosts:             mcputil.NonNilStrings(args.Ghosts),
 		MaxMembers:         args.MaxMembers,
 		MaxTurnsPerSession: args.MaxTurns,
 		MaxBookings:        args.MaxBookings,

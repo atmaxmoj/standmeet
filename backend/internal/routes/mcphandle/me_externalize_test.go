@@ -32,12 +32,14 @@ func TestMe_ExternalizedOffCore(t *testing.T) {
 		Calendar: &mcphandle.CalendarOwnerDeps{}, // RegisterAgentSkills derefs .Proxy/.Store
 	})
 
-	_, meOK := reg.OriginOf("owner.me")
-	require.False(t, meOK,
-		"owner.me must be externalized off core mcphandle (registered via the ownercore plugin)")
+	for _, id := range []string{"owner.me", "codes.bundle"} {
+		_, ok := reg.OriginOf(id)
+		require.Falsef(t, ok,
+			"%s must be externalized off core mcphandle (registered via the ownercore plugin)", id)
+	}
 
 	// Not-yet-externalized sibling: proves RegisterAgentSkills actually ran + registers owner caps,
-	// so the owner.me assertion above is meaningful (not a vacuous empty-registry pass).
+	// so the assertions above are meaningful (not a vacuous empty-registry pass).
 	_, seoOK := reg.OriginOf("seo.bundle")
 	require.True(t, seoOK,
 		"seo.bundle (still core) must stay core-registered — guards a vacuous test")

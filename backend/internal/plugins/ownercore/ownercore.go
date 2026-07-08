@@ -21,6 +21,7 @@ const Name = "ownercore"
 // Deps —— the narrow dependencies the owner-core capabilities need.
 type Deps struct {
 	Owners OwnerLookup
+	Codes  CodesRevoker
 	Log    *slog.Logger
 }
 
@@ -45,4 +46,5 @@ func (*Plugin) Name() string { return Name }
 // a silently-missing tool).
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newMeCapability(p.deps.Owners, p.deps.Log))
+	reg.MustRegister(newCodesCapability(p.deps.Codes, p.deps.Log))
 }

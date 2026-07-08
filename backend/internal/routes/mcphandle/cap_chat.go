@@ -150,18 +150,11 @@ func toGroundingCapMessageViews(msgs []domain.Message) []groundingCapMessageView
 		out = append(out, groundingCapMessageView{
 			Role:           msgs[i].Role,
 			Body:           msgs[i].Body,
-			CitedWikiIDs:   nonNilStrings(msgs[i].CitedWikiIDs),
-			CitedOutputIDs: nonNilStrings(msgs[i].CitedOutputIDs),
+			CitedWikiIDs:   mcputil.NonNilStrings(msgs[i].CitedWikiIDs),
+			CitedOutputIDs: mcputil.NonNilStrings(msgs[i].CitedOutputIDs),
 		})
 	}
 	return out
-}
-
-func nonNilStrings(s []string) []string {
-	if s == nil {
-		return []string{}
-	}
-	return s
 }
 
 func (c *chatCapability) loadWikiBodies(

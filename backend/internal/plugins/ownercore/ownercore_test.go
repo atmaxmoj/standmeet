@@ -14,11 +14,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 )
 
-func TestPlugin_RegistersMe(t *testing.T) {
+func TestPlugin_RegistersOwnerCoreCaps(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
 	ownercore.New(ownercore.Deps{}).RegisterCapabilities(reg)
 
-	_, ok := reg.OriginOf("owner.me")
-	require.True(t, ok, "ownercore plugin must register owner.me into capreg")
+	for _, id := range []string{"owner.me", "codes.bundle"} {
+		_, ok := reg.OriginOf(id)
+		require.Truef(t, ok, "ownercore plugin must register %s into capreg", id)
+	}
 }

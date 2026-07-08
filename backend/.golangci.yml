@@ -321,6 +321,10 @@ linters:
       # schemaless 协议契约 (map[string]any payload)。
       - path: internal/plugins/jobs/jobsmcp/
         linters: [forbidigo]
+      # #135: ownercore 是从 mcphandle 外置出来的 owner-MCP capabilities，跟 mcphandle/jobsmcp
+      # 同 schemaless 协议契约 (map[string]any result payload)，同样豁免裸 any。
+      - path: internal/plugins/ownercore/
+        linters: [forbidigo]
       # mcputil: 共享的 owner-MCP result marshaller。generic JSON 封装天然收 `any`
       # payload (json.Marshal 就是 any)，跟 mcphandle/mcpclient/capsocket 同 schemaless
       # 协议边界，同样豁免——让 capreg 自身的 any-ban 保持严格。

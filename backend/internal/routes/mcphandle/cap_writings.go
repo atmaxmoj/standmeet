@@ -188,9 +188,9 @@ func buildWritingSaveInput(
 		CoverHeadline: args.CoverHeadline,
 
 		CoverHue:   args.CoverHue,
-		Tags:       nonNilStrings(args.Tags),
+		Tags:       mcputil.NonNilStrings(args.Tags),
 		Visibility: args.Visibility,
-		CrossRefs:  nonNilStrings(args.CrossRefs),
+		CrossRefs:  mcputil.NonNilStrings(args.CrossRefs),
 		LockedBody: args.LockedBody,
 		ParentID:   args.ParentID,
 		Publish:    args.Publish,

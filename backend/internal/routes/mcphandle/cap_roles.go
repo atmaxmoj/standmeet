@@ -200,9 +200,9 @@ func buildRoleCreateCapInput(args *roleCreateArgsWire, ownerID string) *usecases
 		OwnerID: ownerID, Name: args.Name,
 		Description:  args.Description,
 		Greeting:     args.Greeting,
-		CorpusURIs:   nonNilStrings(args.CorpusURIs),
-		SkillIDs:     nonNilStrings(args.SkillIDs),
-		MCPServerIDs: nonNilStrings(args.MCPServerIDs),
+		CorpusURIs:   mcputil.NonNilStrings(args.CorpusURIs),
+		SkillIDs:     mcputil.NonNilStrings(args.SkillIDs),
+		MCPServerIDs: mcputil.NonNilStrings(args.MCPServerIDs),
 	}
 	if args.PromptID != "" {
 		p := args.PromptID
