@@ -1,7 +1,7 @@
 // cap_helpers.go —— Phase E 各 cap_*.go 共用的小工具：通用 list-limit 参数解析、raw/wiki view
 // 转换。从 cap_corpus_raw.go 拆出来守 max-lines。(通用 MCPResult JSON 封装已提升为 capreg.MarshalResult。)
 
-package mcphandle
+package ownercore
 
 import (
 	"encoding/json"

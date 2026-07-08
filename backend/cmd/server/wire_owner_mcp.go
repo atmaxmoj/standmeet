@@ -1,15 +1,15 @@
-// wire_owner_mcp.go —— owner 侧 MCP 工具 handler 的注册（从 wireup.go 的
-// registerAgentSkills 拆出，守 max-lines）。把各 usecase 的窄 deps 从 runtimeDeps
-// 取料后一次性注册进 d.agentSkills（owner 经自己的 MCP client 调的那批工具）。
+// wire_owner_mcp.go —— build the ownercore plugin's Deps from runtimeDeps. #135: every owner-MCP
+// capability moved off core mcphandle into the ownercore in-process plugin; this assembles its
+// (fat, but that's the plugin's whole surface) dependency bundle. Called from buildPluginRegistry.
 
 package main
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
+	"github.com/atmaxmoj/standmeet/internal/plugins/ownercore"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
-func registerOwnerMCPHandlers(d *runtimeDeps) {
+func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 	corpusDeps := usecases.CorpusDeps{
 		Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
 		Subjectivity: d.subjectivityRepo, Index: d.corpusIndexer,
@@ -26,11 +26,9 @@ func registerOwnerMCPHandlers(d *runtimeDeps) {
 		WritingRefs: d.writingRefRepo,
 		Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
 	}
-	calendarDeps := &mcphandle.CalendarOwnerDeps{
-		Proxy: d.connectorSlots.Calendar(), Store: calendarStoreAdapter{repo: d.calendarRepo},
-	}
-	mcphandle.RegisterAgentSkills(d.agentSkills, &mcphandle.RegisterDeps{
+	return &ownercore.Deps{
 		Owners:        d.ownerRepo,
+		Codes:         d.codeRepo,
 		SEO:           d.seoRepo,
 		Corpus:        &corpusDeps,
 		Conversations: &convsDeps,
@@ -42,8 +40,10 @@ func registerOwnerMCPHandlers(d *runtimeDeps) {
 		WritingsTx:    &writingsTxDeps,
 		CustomPages:   &usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
 		Handle:        &usecases.HandleDeps{Owners: d.ownerRepo},
-		Calendar:      calendarDeps,
-		Appearance:    d.ownerRepo,
-		Log:           d.log,
-	})
+		Calendar: &ownercore.CalendarOwnerDeps{
+			Proxy: d.connectorSlots.Calendar(), Store: calendarStoreAdapter{repo: d.calendarRepo},
+		},
+		Appearance: d.ownerRepo,
+		Log:        d.log,
+	}
 }

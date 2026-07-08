@@ -2,7 +2,7 @@
 // 3 tools: skill_create / skill_list / skill_delete。owner-only。
 // builtin skills 不可删 (usecase 拦)。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"

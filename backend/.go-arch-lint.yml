@@ -358,6 +358,8 @@ deps:
       - capreg
       - domain
       - mcputil
+      - usecases
+      - httpx
     anyVendorDeps: true
 
   # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核

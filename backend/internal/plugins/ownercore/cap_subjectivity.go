@@ -1,7 +1,7 @@
 // cap_subjectivity.go —— subjectivity genre 的 owner-only capability。1 tool: subjectivity_write
 // （建/改一条 owner 自我模型笔记）。pattern 同 cap_corpus_output.go。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"

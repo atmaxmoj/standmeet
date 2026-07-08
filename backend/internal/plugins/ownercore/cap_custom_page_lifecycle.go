@@ -3,7 +3,7 @@
 //
 // 5 tools: promote_to_staging / promote_to_live / rollback / delete / list。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"

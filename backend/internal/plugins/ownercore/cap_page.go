@@ -5,7 +5,7 @@
 // 命名 page.* 而不是 owner.* —— owner 资源散在多处 (page handle / SEO
 // settings / AI provider)，page.update_handle 专指 visitor 看到的 URL prefix。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"

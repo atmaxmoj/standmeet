@@ -227,9 +227,7 @@ func buildPluginRegistry(d *runtimeDeps) *plugins.Registry {
 		SourcesRepo:  d.jobSourceRepo,
 		Log:          d.log,
 	}))
-	reg.Register(ownercore.New(ownercore.Deps{
-		Owners: d.ownerRepo, Codes: d.codeRepo, Log: d.log,
-	}))
+	reg.Register(ownercore.New(buildOwnerCoreDeps(d)))
 	return reg
 }
 

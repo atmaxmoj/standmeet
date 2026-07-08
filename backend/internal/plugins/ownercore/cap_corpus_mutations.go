@@ -3,7 +3,7 @@
 //
 // 4 tools: update_wiki / update_output / delete_wiki / delete_output。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"

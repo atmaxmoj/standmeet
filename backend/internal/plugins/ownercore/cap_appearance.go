@@ -1,7 +1,7 @@
 // cap_appearance.go —— owner-only capability。1 tool: set_owner_css(owner 的 AI 设自定义 CSS,
 // 存前 sanitize+scope)。pattern 同 cap_subjectivity.go。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"

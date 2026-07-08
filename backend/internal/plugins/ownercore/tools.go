@@ -5,7 +5,7 @@
 // wrapCapabilityHandler；本文件只剩 defaultListLimit / mcpTimeFmt /
 // ptrOrNil 三个被 cap_*.go 复用的小常量 / helper。
 
-package mcphandle
+package ownercore
 
 const (
 	defaultListLimit = 20

@@ -2,7 +2,7 @@
 // 4 tools: writing_create / writing_list / writing_publish / writing_delete。
 // owner-only。inline file uploads (`files` array) 走 cap_writings_files.go。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"

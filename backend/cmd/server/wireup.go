@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -155,11 +154,8 @@ func registerAgentSkills(ctx context.Context, d *runtimeDeps) {
 	skills.DepConnected = depReg
 	usecases.RegisterVisitorSkills(d.agentSkills, &skills, d.chatRepo)
 	wireSummarizeSocket(ctx, d, &skills)
-	registerOwnerMCPHandlers(d)
-	// J.5: plugins 自己接管自家 owner-MCP capabilities (jobs / resume /
-	// applications 3 套都搬到 plugins/jobs/jobs.Plugin)。core register 跑完
-	// 再让 registry 把全部 plugin 的 CapabilityRegistrar 一次性注册到同一
-	// capreg.Registry，互不重 ID。
+	// #135: owner-MCP caps are no longer core-registered here — the ownercore plugin (+ jobs)
+	// register them via RegisterAllCapabilities below, into the same capreg.Registry, no dup IDs.
 	d.pluginRegistry.RegisterAllCapabilities(d.agentSkills)
 	bookerDeps := newBookerDeps(d, &skills)
 	wireBookerSocket(ctx, d, bookerDeps)
@@ -297,41 +293,11 @@ func buildPublicPasswordResetDeps(d *runtimeDeps) publicroutes.PasswordResetHand
 }
 
 func buildMCPDeps(d *runtimeDeps) mcphandle.Deps {
+	// #135: owner tools all live in the ownercore plugin now; the MCP server only needs auth
+	// (Keypairs) + the capreg registry (AgentSkills) it walks for the tool list.
 	return mcphandle.Deps{
 		AgentSkills: d.agentSkills,
 		Keypairs:    keypairDeps(d),
-		Owners:      d.ownerRepo,
-		Corpus: usecases.CorpusDeps{
-			Raw: d.rawRepo, Wiki: d.wikiRepo, Output: d.outputRepo, NoteRefs: d.noteRefRepo,
-			Subjectivity: d.subjectivityRepo, Index: d.corpusIndexer,
-		},
-		SEO:         d.seoRepo,
-		CustomPages: usecases.CustomPageDeps{Pages: d.customPageRepo, Builds: d.customBuildRepo},
-		Jobs: jobsuc.JobsDeps{
-			Sources: d.jobSourceRepo, Cache: d.jobCachePool, Registry: d.jobFetchRegistry,
-		},
-		Resume: jobsuc.ResumeDeps{Drafts: d.resumeDraftRepo, Cache: d.jobCachePool},
-		Applications: jobsuc.ApplicationsDeps{
-			Apps: d.applicationRepo, Owners: d.ownerRepo,
-			Roles:    d.roleRepo,
-			Renderer: d.pdfRenderer,
-		},
-		Conversations: usecases.ConversationsDeps{
-			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
-		},
-		Skills:  usecases.SkillsDeps{Skills: d.skillRepo, Codes: d.codeRepo},
-		Prompts: usecases.PromptsDeps{Prompts: d.promptRepo},
-		Roles: usecases.RolesDeps{
-			Roles: d.roleRepo, Prompts: d.promptRepo,
-			Skills: d.skillRepo, MCPServers: d.mcpServerRepo,
-		},
-		MCPServers: usecases.MCPServersDeps{Servers: d.mcpServerRepo, Codes: d.codeRepo},
-		Writings:   usecases.WritingsDeps{Writings: d.writingRepo},
-		WritingsTx: usecases.WritingsTxDeps{
-			Writings:    d.writingRepo,
-			WritingRefs: d.writingRefRepo,
-			Assets:      usecases.AssetsDeps{Repo: d.assetRepo, Storage: d.storageClient},
-		},
-		Log: d.log,
+		Log:         d.log,
 	}
 }

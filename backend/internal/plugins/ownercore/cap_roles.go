@@ -2,7 +2,7 @@
 // 3 tools: role_create / role_list / role_delete。owner-only。
 // public builtin 不可删；codes 引用的 role 也不可删 (FK 限制)。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"

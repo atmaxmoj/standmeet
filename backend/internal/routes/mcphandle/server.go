@@ -17,8 +17,6 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
-	"github.com/atmaxmoj/standmeet/internal/domain"
-	"github.com/atmaxmoj/standmeet/internal/plugins/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
@@ -26,47 +24,14 @@ type ctxKey struct{ name string }
 
 var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 
-// Deps —— MCP server 需要的业务依赖。
+// Deps —— MCP server 需要的业务依赖。#135 起 owner tool 全部外置到 ownercore 插件，
+// registerTools 只 walk AgentSkills（reg.OwnerMCPBindings()），所以 core server 只需:
+//   - Keypairs: Sigv1 验签
+//   - AgentSkills: owner MCP facade 的唯一工具来源（core cap + 插件 owner 工具汇成单端点）
 type Deps struct {
-	Keypairs      usecases.KeypairDeps
-	Jobs          jobsuc.JobsDeps
-	Owners        OwnerLookup
-	Corpus        usecases.CorpusDeps
-	SEO           SEOWriter
-	CustomPages   usecases.CustomPageDeps
-	Resume        jobsuc.ResumeDeps
-	Log           *slog.Logger
-	Applications  jobsuc.ApplicationsDeps
-	Conversations usecases.ConversationsDeps
-	Skills        usecases.SkillsDeps
-	Prompts       usecases.PromptsDeps
-	Roles         usecases.RolesDeps
-	MCPServers    usecases.MCPServersDeps
-	Writings      usecases.WritingsDeps
-	WritingsTx    usecases.WritingsTxDeps
-	// AgentSkills —— owner MCP facade 的唯一工具来源。registerTools 只是
-	// walk reg.OwnerMCPBindings()（Phase E 收尾，老 tools_*.go AddTool 全删）：
-	// core owner capability + 插件 owner 工具汇成单端点，core 不写死 tool 清单。
+	Keypairs    usecases.KeypairDeps
 	AgentSkills *capreg.Registry
-}
-
-// SEOWriter —— seo.* MCP tools 需要的最小接口（避开直接 import postgres.SEORepo）。
-// 地址树派生,不再设 path —— 只写 SEO 描述 + indexed 开关。
-type SEOWriter interface {
-	UpdateWikiSEO(
-		ctx context.Context, wikiID, description string, indexed bool,
-	) (domain.Wiki, error)
-	UpdateOutputSEO(
-		ctx context.Context, outputID, description string, indexed bool,
-	) (domain.Output, error)
-	GetSettings(ctx context.Context, ownerID string) (domain.SEOSettings, error)
-	UpsertSettings(ctx context.Context, in *domain.SEOSettings) (domain.SEOSettings, error)
-}
-
-// OwnerLookup 是 MCP 工具调用时按 ownerID 取 owner profile 的最小接口
-// （避免直接 import postgres.OwnerRepo 让 lint 报 component 越权）。
-type OwnerLookup interface {
-	GetByID(ctx context.Context, ownerID string) (domain.Owner, error)
+	Log         *slog.Logger
 }
 
 // New 构造一个挂好工具的 http.Handler，调用方挂到 /mcp/* 路由。

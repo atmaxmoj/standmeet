@@ -4,7 +4,7 @@
 // visitor-side calendar.book 仍走 visitor capreg (capability dotted ID
 // "calendar.book")。本 capability 给 owner 在 Claude Code 排时间 / 撤会用。
 
-package mcphandle
+package ownercore
 
 import (
 	"context"
