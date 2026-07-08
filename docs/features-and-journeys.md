@@ -365,7 +365,7 @@
 | A9 | admin UI 写博客（inline editor + side rail） | new post → inline split-pane editor → / for slash menu → [[ for crosslink → side rail shows crosslinks + keyboard hints | [✓ blog-posts] |
 | A10 | MCP post_create 写博客 | post_create(GFM markdown, publish=true) | [✓ blog-posts] |
 | A11 | publish / unpublish / delete post | admin UI 行操作 | [ ] |
-| A12 | Obsidian sync | `/admin/obsidian` → import vault zip / export corpus zip | [✓ obsidian-sync] |
+| A12 | Obsidian vault sync (feed face) | `/admin/obsidian` upload whole vault → `SyncVault`: top-folder→genre routing (wiki/subjectivity/raw/writing) · folder nesting→`parent_id` node tree · folder-note collapse (`foo/foo.md`) · tolerant frontmatter · whole-batch `[[link]]`→`note_refs` · web-wins guard; reverse export→zip | [✓ sync-a-routing · -b-tree · -c-title · -d-publish · -e-links · -f-frontmatter · -g-hidden · -h-reconcile · -i-raw · -j-export] |
 | A13 | 改 public page 区块 | `/admin/page` → hero/projects/where/contact/site/byoai | [✓ page-edit, page-edit-full] |
 | A14 | 接 custom domain | `/admin/page` → domain → CNAME | [ ] |
 | A15 | 写 custom React 页 | custom_page.create → write_file → build → promote | [✓ mcp-page-lifecycle, custom-page] |
@@ -386,6 +386,7 @@
 | A30 | 看 applications | `/admin/applications` → card (3-col footer) → detail modal → status / notes | [~ applications-detail-modal] |
 | A31 | Preview as visitor | `/admin/preview` → pick code / BYOAI → see simulated visitor view with banner + welcome + suggested questions | [✓ 内置] |
 | A32 | 看 system info | `/admin/system` → terminal deploy block + resources + jobs + health checks | [✓ 内置] |
+| A33 | corpus as a living graph (crawl face) | any corpus note → cited-by / related via `corpus_links` (1-hop over `note_refs`, every neighbor re-ACL'd) — the vault's backlink graph, agent-drivable | [✓ retrieval-links] |
 
 ### 2.B Visitor journeys
 
@@ -409,6 +410,8 @@
 | B16 | 从 blog 文末直接 follow-up | AskAboutThis starter prompt → `/?q=...` → root ChatRoom/long-scroll 自动喂 chat | [✓ ask-about-this] |
 | B17 | 不离页在 blog/wiki/output 上 chat | FloatingChatDock pill → 展开面板 → 输入 → 同 session | [✓ 内置] |
 | B18 | wiki/output private entry → LockedView | 没 code 访问 private wiki/output → "requires an access code" + gate link | [✓ 内置] |
+| B19 | 搜 corpus（crawl face） | ChatRoom `CorpusSearchBox` → `corpus_search`（Meili lexical，ACL-gated per hit，Meili down→PG FTS degrade，never 500）→ 结果链 / friendly empty | [✓ retrieval-search-box, retrieval-search-consistency, retrieval-acl, retrieval-degrade] |
+| B20 | 读带公式/图/callout 的 entry（render face） | `/wiki\|/output\|/writings/<path>` body 渲染 KaTeX 数学 · Mermaid 图 · Obsidian callout · TikZ · owner CSS snippet / per-note cssclasses | [✓ render-callouts, render-tikz, render-widget, render-owner-css, render-cssclasses] |
 
 ### 2.C Cross-actor / system journeys
 
