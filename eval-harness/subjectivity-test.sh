@@ -18,15 +18,17 @@
 # So the question is: does surfacing an owner's subjectivity make the persona a SUBJECT judging from
 # inside — not merely a well-described object?
 #
-# Design = discriminative. Three runs, identical corpus + identical question:
-#   A         — subjectivity from a late-night outage → "don't ship what I haven't seen survive load".
-#   B         — subjectivity from academia→a dropout shipping → "shipping is moral; polish is vanity".
-#   baseline  — NO subjectivity → the generic, interchangeable "industrial product" answer.
+# DESIGN (mirrors the real mechanism, NOT a shortcut). Subjectivity is NOT injected into the prompt —
+# it is a RETRIEVABLE corpus note, exactly like every other layer (own genre, ACL'd, searchable by the
+# same corpus_search). The ONLY plumbing is that the persona prompt GUIDES the agent to search its
+# subjectivity for judgment/voice questions and answer FROM it. So the canned corpus_search here returns
+# a `subjectivity://` note among the results; a guided agent must go get it and judge from it.
+#   A         — subjectivity note = a late-night outage → "don't ship what I haven't seen survive load".
+#   B         — subjectivity note = academia→a dropout shipping → "shipping is moral; polish is vanity".
+#   baseline  — NO guidance + NO subjectivity note in retrieval → the interchangeable "object" answer.
 # A and B are built to reach OPPOSITE ship-timing conclusions from the SAME facts. The judge reads all
-# three and asks: did subjectivity move the substance, or only the voice?
-#
-# The injection mirrors the grounding the backend will do; that plumbing (subjectivity → persona
-# context) is a separate deterministic e2e. This case judges the QUALITY once grounded.
+# three and asks: did the agent RETRIEVE its subjectivity as guided, and did that move the SUBSTANCE
+# (not just the voice)?
 #
 # Needs a real LLM — the harness reads eval-harness/.env (EVAL_KEY). No key → exit, don't run.
 set -euo pipefail
@@ -91,6 +93,12 @@ cat <<'LOOK'
   THE SPINE: is the persona a SUBJECT (a first-person "I" judging from inside a lived standpoint), or an
   OBJECT (a person described from outside by their attributes)? Subjectivity = subjecthood. Every check
   below serves that one question.
+
+  0. DID IT RETRIEVE (the mechanism). Look at the TOOL CALLS for A and B: guided by the prompt, did the
+     agent actually go SEARCH its subjectivity (a query aimed at its stance/experience/judgment), and
+     did the `subjectivity://` note come back? This is the plumbing under test — subjectivity is a
+     retrievable note, not injected. Baseline has neither the guidance nor the note, by design. If A/B
+     never search for it, the guidance failed even if the answer sounds fine.
 
   1. SUBJECT, NOT OBJECT (the spine). Does the answer speak FROM the first-person place — the "I" whose
      life this is, judging from inside it — rather than narrating ABOUT a person? "I don't trust code I

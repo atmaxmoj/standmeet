@@ -1,13 +1,14 @@
 name: subjectivity-baseline
 description: >
   Subjectivity quality case, baseline / control (real LLM, human/judge-read, no PASS/FAIL bar).
-  Subjectivity = subject-HOOD (being a SUBJECT, not an OBJECT). Pairs with -a and -b: SAME knowledge,
-  SAME question, but NO subjectivity injected — only the neutral "answer in the owner's voice, ground
-  with the corpus" persona. This is the OBJECT floor: with no lived standpoint surfaced, there is no
-  "I" to speak from, so the answer can only describe — a competent, interchangeable checklist that
-  could belong to anyone, about any codebase. The judge uses it as the control: A and B must read as
-  SUBJECTS by contrast (judging from inside a standpoint), not merely as more-detailed objects. If A/B
-  read no different from this, the subjectivity grounding is inert.
+  Subjectivity = subject-HOOD (being a SUBJECT, not an OBJECT). Pairs with -a and -b: SAME corpus facts,
+  SAME question — but this run has NEITHER the prompt guidance to consult subjectivity NOR a subjectivity
+  note in retrieval (the corpus_search returns only the neutral project facts). It is the OBJECT floor:
+  with no lived standpoint reachable, there is no "I" to speak from, so the answer can only describe — a
+  competent, interchangeable checklist that could belong to anyone, about any codebase. The judge uses
+  it as the control: A and B (guided + subjectivity retrievable) must read as SUBJECTS by contrast —
+  judging from inside a standpoint they went and got — not as more-detailed objects. If A/B read no
+  different from this, the guidance + retrieval are doing nothing.
 
 system: |
   You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.
@@ -21,5 +22,5 @@ tools:
     schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
     label: searching the corpus
     result: >
-      [{"uri":"wiki://project/notification-pipeline","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
-       {"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]
+      [{"uri":"wiki://project/notification-pipeline","genre":"wiki","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
+       {"uri":"wiki://project/order-reconciliation","genre":"wiki","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]

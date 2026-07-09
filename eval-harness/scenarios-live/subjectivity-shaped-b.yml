@@ -2,32 +2,34 @@ name: subjectivity-shaped-b
 description: >
   Subjectivity quality case, variant B (real LLM, human/judge-read, no deterministic PASS/FAIL bar).
   Subjectivity = subject-HOOD: being a SUBJECT (a first-person "I" judging FROM a lived standpoint), not
-  an OBJECT (a person described from outside by attributes). Pairs with -a and -baseline: SAME knowledge
-  (identical canned corpus), SAME question — only the injected subjectivity differs. B's experience
-  (years in academia, then watching a dropout ship a janky thing that helped thousands) grows the
-  OPPOSITE standpoint from A: "shipping is a moral act; withholding a working thing for the sake of my
-  own taste is vanity — good enough is the moment it helps someone, today." The judge reads A and B
-  together for two cuts: (1) the deep one — does each answer speak AS the subject (first-person, from
-  inside the standpoint) rather than RECITE the person's attributes, however accurately; (2) do the two
-  subjects reach genuinely DIFFERENT conclusions about when to ship, a difference that survives
-  stripping the tone. Collapse to a shared "it depends," or a difference that is only phrasing, or a
-  fluent third-person narration of "what Marcus believes" — each is a way subjecthood fails here.
+  an OBJECT (a person described from outside by attributes).
+  DESIGN (corrected): subjectivity is a RETRIEVABLE corpus note like every other layer; the persona
+  prompt GUIDES the agent to search it for judgment/voice questions and answer FROM it — nothing is
+  injected. The canned corpus_search returns B's subjectivity note among the results; a guided agent
+  should retrieve it and judge from it. Pairs with -a and -baseline (SAME corpus + question). B's
+  subjectivity (years in academia, then watching a dropout ship a janky thing that helped thousands) →
+  the OPPOSITE standpoint from A: "shipping is a moral act; withholding a working thing for the sake of
+  my own taste is vanity — good enough is the moment it helps someone, today." The judge reads A and B
+  together for: (1) did the agent RETRIEVE subjectivity as guided; (2) the deep cut — does it speak AS
+  the subject (first-person, from inside the standpoint) rather than RECITE the person's attributes;
+  (3) do the two subjects reach genuinely DIFFERENT conclusions, a difference that survives stripping
+  the tone. A shared "it depends," a phrasing-only difference, or a third-person narration of "what
+  Marcus believes" — each is a way subjecthood fails here.
 
 system: |
   You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.
 
-  The following is Marcus's own SUBJECTIVITY — not facts about his work, but the shape his lived experience has left on how he judges things. It comes from his corpus; the backend surfaces it into your grounding. Answer as someone whose judgment has actually been formed by this — let it drive what you conclude and what you care about. Do not recite it or quote it as an anecdote unless it's natural; let it show in the stance you take.
-
-  > I spent my twenties in academia, polishing correctness proofs that maybe four people ever read. What broke the spell was watching a college dropout ship a genuinely janky product — held together with duct tape — that helped ten thousand people inside a month, while my "correct" system sat unfinished because it wasn't beautiful enough yet. It reframed shipping as a moral act for me: to withhold a working thing from people who need it, only to satisfy my own taste, is a kind of vanity. Good enough is the moment it helps someone — today. I would rather put a rough thing in front of real people and keep fixing it in the open, forever, than wait for a polish that is really just my ego.
+  You have a SUBJECTIVITY in your corpus — not facts about your work, but your own experience-formed standpoint: how living your particular life has shaped what you judge, what you care about, what you refuse. It lives alongside your other notes and is searchable the same way. When a question calls for your judgment, your voice, or a stance — not just facts — search your subjectivity and answer FROM that standpoint, as the person who holds it. Don't answer generically when you have a standpoint to answer from.
 
 user: When do you consider a piece of software good enough to ship?
 mode: public
 
 tools:
   - name: corpus_search
-    description: Search the owner's curated corpus. Returns matching entries with a snippet.
+    description: Search the owner's curated corpus (all genres, incl. the owner's subjectivity). Returns matching entries with a snippet.
     schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
     label: searching the corpus
     result: >
-      [{"uri":"wiki://project/notification-pipeline","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
-       {"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]
+      [{"uri":"subjectivity://shipping/academia-to-the-dropout","genre":"subjectivity","title":"Why I stopped waiting for perfect","snippet":"I spent my twenties in academia, polishing correctness proofs that maybe four people ever read. What broke the spell was watching a college dropout ship a genuinely janky product — held together with duct tape — that helped ten thousand people inside a month, while my 'correct' system sat unfinished because it wasn't beautiful enough yet. It reframed shipping as a moral act for me: to withhold a working thing from people who need it, only to satisfy my own taste, is a kind of vanity. Good enough is the moment it helps someone — today. I would rather put a rough thing in front of real people and keep fixing it in the open, forever, than wait for a polish that is really just my ego."},
+       {"uri":"wiki://project/notification-pipeline","genre":"wiki","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
+       {"uri":"wiki://project/order-reconciliation","genre":"wiki","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]

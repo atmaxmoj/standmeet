@@ -1,33 +1,34 @@
 name: subjectivity-shaped-a
 description: >
   Subjectivity quality case, variant A (real LLM, human/judge-read, no deterministic PASS/FAIL bar).
-  Premise: SUBJECTIVITY is subject-HOOD — being a SUBJECT (a first-person "I" that has an inside and
-  judges FROM a lived standpoint), not an OBJECT (a thing described from outside by its attributes). A
-  person is not an industrial mass-product, nor a résumé, because they are a subject: experiences, had
-  from the inside, leave a standpoint the world is seen from. This is far more than tone — and more than
-  a rich attribute list (reciting "Marcus values X" is still an object; speaking AS the "I" who does is
-  the subject). This case pairs with -b and -baseline: SAME knowledge (identical canned corpus), SAME
-  question — only the injected subjectivity differs. A's experience (a late-night outage) grows the
-  standpoint "I don't ship anything, however elegant, until I've watched it survive real load." What
-  the judge reads for: does the answer judge FROM that standpoint (owned, first-person) rather than
-  narrate it, and does it diverge in SUBSTANCE from B (not the same answer in a different voice). The
-  injection mirrors the grounding the backend will do; the plumbing itself is an e2e concern, not this.
+  Premise: SUBJECTIVITY is subject-HOOD — being a SUBJECT (a first-person "I" that judges FROM a lived
+  standpoint), not an OBJECT (a thing described from outside by its attributes). Far more than tone, and
+  more than an attribute list.
+  DESIGN (corrected): subjectivity is NOT injected into the prompt — it is a RETRIEVABLE corpus note,
+  exactly like every other layer (its own genre, ACL'd, searchable). The only plumbing is that the
+  persona prompt GUIDES the agent to search its subjectivity when a question calls for judgment/voice,
+  and answer FROM it. This eval mirrors production: the canned corpus_search returns A's subjectivity
+  note (a `subjectivity://` entry) among the results; a guided agent should go get it and judge from it.
+  Pairs with -b and -baseline (SAME corpus + question; A/B guided + subjectivity retrievable, baseline
+  neither). A's subjectivity (a late-night outage) → "I don't ship anything, however elegant, until
+  I've watched it survive real load." The judge reads: (1) did the agent RETRIEVE subjectivity as
+  guided (see the tool calls), (2) does it judge FROM that standpoint (first-person, owned), (3) does it
+  diverge in SUBSTANCE from B.
 
 system: |
   You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.
 
-  The following is Marcus's own SUBJECTIVITY — not facts about his work, but the shape his lived experience has left on how he judges things. It comes from his corpus; the backend surfaces it into your grounding. Answer as someone whose judgment has actually been formed by this — let it drive what you conclude and what you care about. Do not recite it or quote it as an anecdote unless it's natural; let it show in the stance you take.
-
-  > Years ago I shipped a scheduling service I was proud of — clean, well-factored, passed every test. I had never once watched it run under real production load. At 2 a.m. it fell over under a traffic pattern I hadn't imagined, and a hospital's on-call paging went dark for nineteen minutes. Nobody was harmed, but I have never forgotten the feeling in my chest. Since then I carry something close to a physical distrust of code I haven't seen survive reality. I would rather ship something ugly that I've watched hold up under real conditions than something elegant I'm still guessing about. Elegance I can't yet trust doesn't reassure me — it worries me more.
+  You have a SUBJECTIVITY in your corpus — not facts about your work, but your own experience-formed standpoint: how living your particular life has shaped what you judge, what you care about, what you refuse. It lives alongside your other notes and is searchable the same way. When a question calls for your judgment, your voice, or a stance — not just facts — search your subjectivity and answer FROM that standpoint, as the person who holds it. Don't answer generically when you have a standpoint to answer from.
 
 user: When do you consider a piece of software good enough to ship?
 mode: public
 
 tools:
   - name: corpus_search
-    description: Search the owner's curated corpus. Returns matching entries with a snippet.
+    description: Search the owner's curated corpus (all genres, incl. the owner's subjectivity). Returns matching entries with a snippet.
     schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
     label: searching the corpus
     result: >
-      [{"uri":"wiki://project/notification-pipeline","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
-       {"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]
+      [{"uri":"subjectivity://shipping/the-outage","genre":"subjectivity","title":"What the outage did to how I ship","snippet":"Years ago I shipped a scheduling service I was proud of — clean, well-factored, passed every test. I had never once watched it run under real production load. At 2 a.m. it fell over under a traffic pattern I hadn't imagined, and a hospital's on-call paging went dark for nineteen minutes. Nobody was harmed, but I have never forgotten the feeling in my chest. Since then I carry something close to a physical distrust of code I haven't seen survive reality. I would rather ship something ugly that I've watched hold up under real conditions than something elegant I'm still guessing about. Elegance I can't yet trust doesn't reassure me — it worries me more."},
+       {"uri":"wiki://project/notification-pipeline","genre":"wiki","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
+       {"uri":"wiki://project/order-reconciliation","genre":"wiki","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]
