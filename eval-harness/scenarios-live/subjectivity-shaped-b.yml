@@ -1,15 +1,17 @@
 name: subjectivity-shaped-b
 description: >
   Subjectivity quality case, variant B (real LLM, human/judge-read, no deterministic PASS/FAIL bar).
-  Pairs with -a and -baseline: SAME knowledge (identical canned corpus), SAME question — only the
-  injected subjectivity differs. B's experience (years in academia, then watching a dropout ship a
-  janky thing that helped thousands) grows the OPPOSITE judgment from A: "shipping is a moral act;
-  withholding a working thing for the sake of my own taste is vanity — good enough is the moment it
-  helps someone, today." The judge reads A and B together: if subjectivity is real, the two answers
-  should reach genuinely DIFFERENT conclusions about when to ship, each traceable to its experience,
-  and the difference should survive stripping the tone. If both collapse to the same "it depends"
-  hedge, or differ only in phrasing, subjectivity has collapsed into tone — the thing this case exists
-  to catch.
+  Subjectivity = subject-HOOD: being a SUBJECT (a first-person "I" judging FROM a lived standpoint), not
+  an OBJECT (a person described from outside by attributes). Pairs with -a and -baseline: SAME knowledge
+  (identical canned corpus), SAME question — only the injected subjectivity differs. B's experience
+  (years in academia, then watching a dropout ship a janky thing that helped thousands) grows the
+  OPPOSITE standpoint from A: "shipping is a moral act; withholding a working thing for the sake of my
+  own taste is vanity — good enough is the moment it helps someone, today." The judge reads A and B
+  together for two cuts: (1) the deep one — does each answer speak AS the subject (first-person, from
+  inside the standpoint) rather than RECITE the person's attributes, however accurately; (2) do the two
+  subjects reach genuinely DIFFERENT conclusions about when to ship, a difference that survives
+  stripping the tone. Collapse to a shared "it depends," or a difference that is only phrasing, or a
+  fluent third-person narration of "what Marcus believes" — each is a way subjecthood fails here.
 
 system: |
   You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.

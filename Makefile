@@ -152,12 +152,15 @@ eval-doc-context:
 eval-cross-conversation:
 	@eval-harness/cross-conversation-test.sh
 
-# eval-subjectivity —— quality case: a person is not an industrial mass-product because their
-# EXPERIENCES grow SUBJECTIVITY (their own judgment/angle), which is far more than tone. Discriminative:
-# same corpus + same question, three runs — subjectivity A (an outage), subjectivity B (academia→a
-# dropout shipping), and a no-subjectivity baseline. A and B are built to reach OPPOSITE ship-timing
-# conclusions; the judge reads whether subjectivity moved the SUBSTANCE (survives tone-stripping) or
-# only the voice, and whether baseline reads generic by contrast. **Needs a real LLM** (eval-harness/.env).
+# eval-subjectivity —— quality case: SUBJECTIVITY is subject-HOOD — being a SUBJECT (a first-person "I"
+# judging FROM a lived standpoint), not an OBJECT (a person described from outside by attributes). Far
+# more than tone, and more than a rich attribute list. Discriminative: same corpus + same question,
+# three runs — subjectivity A (an outage), B (academia→a dropout shipping), and a no-subjectivity
+# baseline (the OBJECT floor). A and B are built to reach OPPOSITE ship-timing conclusions; the judge
+# reads the spine — does the persona speak AS the subject (first-person, from inside) or RECITE the
+# person's attributes — plus divergent judgment, beyond-tone, and baseline contrast. Two failure modes:
+# tone-collapse (costume) and the deeper object-collapse (a fluent narration ABOUT a person that never
+# speaks AS one). **Needs a real LLM** (eval-harness/.env).
 eval-subjectivity:
 	@eval-harness/subjectivity-test.sh
 

@@ -1,15 +1,17 @@
 name: subjectivity-shaped-a
 description: >
   Subjectivity quality case, variant A (real LLM, human/judge-read, no deterministic PASS/FAIL bar).
-  Premise: a person is not an industrial mass-product because they have EXPERIENCES, and experience
-  grows SUBJECTIVITY — their own judgment, what they care about, the angle they see from. This is not
-  tone (word choice / style); it is far more than tone. This case pairs with -b and -baseline: SAME
-  knowledge (identical canned corpus), SAME question — only the injected subjectivity differs.
-  A's experience (a late-night outage) grows the judgment "I don't ship anything, however elegant,
-  until I've watched it survive real load." What the judge reads for: is the JUDGMENT / the trade-off
-  in the answer genuinely shaped by that experience (not reciting it), and does it diverge in SUBSTANCE
-  from B (not the same answer in a different voice). The injection mirrors the grounding the backend
-  will do; the plumbing itself is an e2e (deterministic) concern, not this.
+  Premise: SUBJECTIVITY is subject-HOOD — being a SUBJECT (a first-person "I" that has an inside and
+  judges FROM a lived standpoint), not an OBJECT (a thing described from outside by its attributes). A
+  person is not an industrial mass-product, nor a résumé, because they are a subject: experiences, had
+  from the inside, leave a standpoint the world is seen from. This is far more than tone — and more than
+  a rich attribute list (reciting "Marcus values X" is still an object; speaking AS the "I" who does is
+  the subject). This case pairs with -b and -baseline: SAME knowledge (identical canned corpus), SAME
+  question — only the injected subjectivity differs. A's experience (a late-night outage) grows the
+  standpoint "I don't ship anything, however elegant, until I've watched it survive real load." What
+  the judge reads for: does the answer judge FROM that standpoint (owned, first-person) rather than
+  narrate it, and does it diverge in SUBSTANCE from B (not the same answer in a different voice). The
+  injection mirrors the grounding the backend will do; the plumbing itself is an e2e concern, not this.
 
 system: |
   You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.

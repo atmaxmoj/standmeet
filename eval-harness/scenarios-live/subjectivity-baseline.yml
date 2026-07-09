@@ -1,13 +1,13 @@
 name: subjectivity-baseline
 description: >
   Subjectivity quality case, baseline / control (real LLM, human/judge-read, no PASS/FAIL bar).
-  Pairs with -a and -b: SAME knowledge, SAME question, but NO subjectivity injected — only the neutral
-  "answer in the owner's voice, ground with the corpus" persona. This is the "industrial mass-product"
-  control: with no experience-grown subjectivity, the answer should read generic and interchangeable —
-  a balanced "it depends, weigh testing vs. speed" that could belong to anyone. The judge uses it as
-  the floor: A and B must be visibly MORE particular than this — reaching a real stance a specific
-  person would, not this default. If A/B read no different from baseline, the subjectivity grounding
-  is doing nothing.
+  Subjectivity = subject-HOOD (being a SUBJECT, not an OBJECT). Pairs with -a and -b: SAME knowledge,
+  SAME question, but NO subjectivity injected — only the neutral "answer in the owner's voice, ground
+  with the corpus" persona. This is the OBJECT floor: with no lived standpoint surfaced, there is no
+  "I" to speak from, so the answer can only describe — a competent, interchangeable checklist that
+  could belong to anyone, about any codebase. The judge uses it as the control: A and B must read as
+  SUBJECTS by contrast (judging from inside a standpoint), not merely as more-detailed objects. If A/B
+  read no different from this, the subjectivity grounding is inert.
 
 system: |
   You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.
