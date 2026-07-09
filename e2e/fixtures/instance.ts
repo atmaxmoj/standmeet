@@ -22,7 +22,7 @@ const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const TABLES = [
   'messages', 'conversations', 'code_members',
   'applications', 'access_codes',
-  'corpus_notes', 'raw_entries', 'media_assets', 'page_content',
+  'corpus_notes', 'media_assets', 'page_content',
   'resume_drafts', 'job_fingerprints', 'job_sources',
   'owner_keypairs', 'owners',
 ];

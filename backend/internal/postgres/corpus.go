@@ -1,5 +1,6 @@
 // corpus.go —— RawRepo + Wiki/Output 共享 helper (loadByPath / UUID utils
 // / formatUUIDList)。WikiRepo 在 wiki.go，OutputRepo 在 output.go。
+// raw 已折进 corpus_notes(genre='raw'，#151);RawRepo 是它在 inbox 语义上的 CRUD 视图。
 
 package postgres
 
@@ -7,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,9 +20,10 @@ import (
 const (
 	maxPathDepth          = 32 // 防 parent 环路或异常深 tree
 	errParseOwnerIDPrefix = "parse owner id: %w"
+	rawTitleMaxLen        = 60 // raw 从 body 派生 title 的截断长度
 )
 
-// RawRepo —— raw_entries CRUD。
+// RawRepo —— corpus_notes(genre='raw')的 inbox CRUD。
 type RawRepo struct {
 	pool *Pool
 }
@@ -37,7 +40,8 @@ type CreateRawInput struct {
 	FlaggedPrivate bool
 }
 
-// Create 写一条新 raw。pointer 接收避免 hugeParam。
+// Create 写一条新 raw(corpus_notes genre='raw')。pointer 接收避免 hugeParam。
+// corpus_notes.title NOT NULL,故从 body 派生一个 title(首非空行截断)。
 func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (domain.Raw, error) {
 	ownerUUID, err := parseUUID(in.OwnerID)
 	if err != nil {
@@ -46,9 +50,10 @@ func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (domain.Raw, e
 	q := dbq.New(r.pool)
 	row, err := q.CreateRawEntry(ctx, dbq.CreateRawEntryParams{
 		OwnerID:        ownerUUID,
+		Title:          rawTitleFromBody(in.Body),
 		Body:           in.Body,
-		Source:         in.Source,
-		SourceMeta:     []byte(`{}`),
+		InboxSource:    in.Source,
+		InboxMeta:      []byte(`{}`),
 		Tags:           nilSafeTags(in.Tags),
 		FlaggedPrivate: in.FlaggedPrivate,
 	})
@@ -58,20 +63,19 @@ func (r *RawRepo) Create(ctx context.Context, in *CreateRawInput) (domain.Raw, e
 	return toDomainRaw(&row), nil
 }
 
-// UpsertFromVault —— vault sync 用:同一 obsidian source 重传 → upsert(更新 body/tags),不重复。
-// 靠 partial unique index (source LIKE 'obsidian:%') 推断 conflict。caller 保证 Source 带 obsidian: 前缀。
-func (r *RawRepo) UpsertFromVault(ctx context.Context, in *CreateRawInput) (domain.Raw, error) {
-	ownerUUID, err := parseUUID(in.OwnerID)
-	if err != nil {
-		return domain.Raw{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+// rawTitleFromBody —— raw 无独立 title,从 body 派生:首非空行 trim 到 <=60 char,空则 "untitled"。
+func rawTitleFromBody(body string) string {
+	for line := range strings.SplitSeq(body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if len(line) > rawTitleMaxLen {
+			return strings.TrimSpace(line[:rawTitleMaxLen])
+		}
+		return line
 	}
-	row, qerr := dbq.New(r.pool).UpsertRawFromVault(ctx, dbq.UpsertRawFromVaultParams{
-		OwnerID: ownerUUID, Body: in.Body, Source: in.Source, Tags: nilSafeTags(in.Tags),
-	})
-	if qerr != nil {
-		return domain.Raw{}, fmt.Errorf("upsert raw from vault: %w", qerr)
-	}
-	return toDomainRaw(&row), nil
+	return "untitled"
 }
 
 // nilSafeTags —— postgres text[] NOT NULL 列拒 NULL；这里把 nil slice 转
@@ -124,7 +128,7 @@ func (r *RawRepo) GetByID(ctx context.Context, ownerID, id string) (domain.Raw, 
 	return toDomainRaw(&row), nil
 }
 
-// MarkPromoted 写 raw_entries.promoted_to。
+// MarkPromoted 写 corpus_notes(genre='raw').promoted_to。
 func (r *RawRepo) MarkPromoted(ctx context.Context, ownerID, rawID, wikiID string) error {
 	ownerUUID, err := parseUUID(ownerID)
 	if err != nil {
@@ -169,12 +173,14 @@ func parseUUIDArray(ids []string) ([]pgtype.UUID, error) {
 	return out, nil
 }
 
-func toDomainRaw(r *dbq.RawEntry) domain.Raw {
+// toDomainRaw —— corpus_notes(genre='raw')行 → domain.Raw。inbox_source→Source。
+func toDomainRaw(r *dbq.CorpusNote) domain.Raw {
 	in := domain.RawInit{
 		ID:             formatUUID(r.ID),
 		OwnerID:        formatUUID(r.OwnerID),
+		Title:          r.Title,
 		Body:           r.Body,
-		Source:         r.Source,
+		Source:         r.InboxSource,
 		Tags:           r.Tags,
 		FlaggedPrivate: r.FlaggedPrivate,
 		Archived:       r.Archived,
@@ -184,6 +190,10 @@ func toDomainRaw(r *dbq.RawEntry) domain.Raw {
 	if r.PromotedTo.Valid {
 		s := formatUUID(r.PromotedTo)
 		in.PromotedTo = &s
+	}
+	if r.ParentID.Valid {
+		s := formatUUID(r.ParentID)
+		in.ParentID = &s
 	}
 	return domain.NewRaw(&in)
 }

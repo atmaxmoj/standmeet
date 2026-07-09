@@ -409,19 +409,6 @@ type Prompt struct {
 	UpdatedAt   pgtype.Timestamptz
 }
 
-type RawEntry struct {
-	ID             pgtype.UUID
-	OwnerID        pgtype.UUID
-	Body           string
-	Source         string
-	SourceMeta     []byte
-	Tags           []string
-	FlaggedPrivate bool
-	PromotedTo     pgtype.UUID
-	Archived       bool
-	CreatedAt      pgtype.Timestamptz
-}
-
 type ResumeDraft struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID

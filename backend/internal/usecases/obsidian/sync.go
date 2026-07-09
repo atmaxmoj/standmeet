@@ -1,4 +1,4 @@
-// sync.go —— sync face 入口。vault 文件批 → corpus_notes 多-genre 节点树 + raw inbox。
+// sync.go —— sync face 入口。vault 文件批 → corpus_notes 多-genre 节点树(raw 折进 genre='raw')。
 // 路由:顶层 folder → genre(wiki/subjectivity/raw;output 无 folder = promote-derived;未知/根裸
 // 文件跳过)。跳 hidden(dotdir/_templates)。reconcile:按 title 认领(basename 全 vault 唯一) →
 // upsert;web-wins(owner 在 web 改过不覆盖);未变则 skip;**绝不删**没在这批里的。链接整批解析。
@@ -36,11 +36,6 @@ type SyncNotesPort interface {
 	Update(ctx context.Context, in *postgres.UpdateSyncNoteInput) error
 }
 
-// SyncRawPort —— raw inbox 同步(按 source_path 幂等 upsert)。
-type SyncRawPort interface {
-	UpsertFromVault(ctx context.Context, ownerID, sourcePath, body string, tags []string) error
-}
-
 // SyncRefsPort —— 一条 note 的 body 里 `[[links]]` → note_refs(整批后解析)。
 type SyncRefsPort interface {
 	RebuildForNote(ctx context.Context, ownerID, noteID, body string) error
@@ -54,7 +49,6 @@ type SyncWritingsPort interface {
 // SyncDeps —— sync face 依赖。Refs / Writings / CSS 可为 nil(可选)。
 type SyncDeps struct {
 	Notes    SyncNotesPort
-	Raw      SyncRawPort
 	Refs     SyncRefsPort
 	Writings SyncWritingsPort
 	CSS      SyncCSSPort
@@ -66,7 +60,6 @@ func SyncVault(
 ) ImportResult {
 	result := ImportResult{Errors: []string{}}
 	b := classifyVault(files)
-	syncRaw(ctx, deps, ownerID, b.raw, &result)
 	syncWritings(ctx, deps, ownerID, b.writing, &result)
 	syncCSS(ctx, deps, ownerID, b.css)
 	tree := buildDesiredTree(b.corp)
@@ -119,8 +112,18 @@ func contentOf(n *desiredNode) nodeContent {
 }
 
 // shouldMaterialize —— 结构节点(有子)总落库;leaf 仅 publish:true 落 —— publish:false 无子 → 跳。
+// raw 例外:raw 是 owner 私有 inbox,永不 publish-gated,故总落库。
 func shouldMaterialize(n *desiredNode) bool {
-	return n.hasChildren || (n.file != nil && n.file.fm.Publish)
+	return n.hasChildren || n.genre == genreRaw || (n.file != nil && n.file.fm.Publish)
+}
+
+// inboxSourceFor —— genre='raw' 的节点带 vault 来源标签 "obsidian:<srcPath>";其它 genre 空。
+// 落进 corpus_notes.inbox_source(vault raw 幂等 upsert 的 conflict key)。
+func inboxSourceFor(genre string, c *nodeContent) string {
+	if genre == genreRaw && c.srcPath != "" {
+		return "obsidian:" + c.srcPath
+	}
+	return ""
 }
 
 // nodeOp —— reconcile 一个节点的参数包(避开 argument-limit)。
@@ -159,7 +162,7 @@ func createNode(ctx context.Context, op *nodeOp) {
 	id, err := op.deps.Notes.Create(ctx, &postgres.CreateSyncNoteInput{
 		OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent, Title: op.node.title,
 		Body: op.c.body, Tags: op.c.tags, Published: op.c.published, SourcePath: op.c.srcPath,
-		CSSClasses: op.c.cssClasses,
+		CSSClasses: op.c.cssClasses, InboxSource: inboxSourceFor(op.node.genre, op.c),
 	})
 	if err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
@@ -178,7 +181,7 @@ func updateNode(ctx context.Context, op *nodeOp, existing *postgres.SyncNote) {
 	if err := op.deps.Notes.Update(ctx, &postgres.UpdateSyncNoteInput{
 		ID: existing.ID, OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent,
 		Body: op.c.body, Tags: op.c.tags, Published: op.c.published, SourcePath: op.c.srcPath,
-		CSSClasses: op.c.cssClasses,
+		CSSClasses: op.c.cssClasses, InboxSource: inboxSourceFor(op.node.genre, op.c),
 	}); err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
 		return
@@ -229,21 +232,6 @@ func sameStrings(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-func syncRaw(
-	ctx context.Context, deps *SyncDeps, ownerID string, raw []VaultFile, result *ImportResult,
-) {
-	if deps.Raw == nil {
-		return
-	}
-	for i := range raw {
-		p := parseCorpNote(raw[i].Body)
-		err := deps.Raw.UpsertFromVault(ctx, ownerID, raw[i].RelPath, p.body, p.fm.Tags)
-		if err != nil {
-			result.Errors = append(result.Errors, raw[i].RelPath+": "+err.Error())
-		}
-	}
 }
 
 func resolveLinks(ctx context.Context, deps *SyncDeps, st *syncState, tree []*desiredNode) {

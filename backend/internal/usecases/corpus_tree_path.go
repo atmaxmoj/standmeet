@@ -54,6 +54,17 @@ func OutputTreePaths(os []domain.Output) map[string]string {
 	return treePathsFor(nodes)
 }
 
+// RawTreePaths —— WikiTreePaths 的 raw 孪生:raw 现是 corpus_notes 的 genre='raw' 节点,
+// 同一套树派生口径(parent 链 + slug(title))。admin /raw 列表用它算每条地址。
+func RawTreePaths(rs []domain.Raw) map[string]string {
+	nodes := make([]pathNode, len(rs))
+	for i := range rs {
+		pid, ok := rs[i].ParentID()
+		nodes[i] = pathNode{id: rs[i].ID(), title: rs[i].Title(), parentID: pid, hasParent: ok}
+	}
+	return treePathsFor(nodes)
+}
+
 // WikiMetaTreePaths / OutputMetaTreePaths —— 同一套树派生口径,但吃 meta(无 body)。
 // landing/sitemap 用全量 meta(ListAllMeta,无 50-cap)算 path,不必 load 全量 body。
 func WikiMetaTreePaths(metas []postgres.WikiMeta) map[string]string {

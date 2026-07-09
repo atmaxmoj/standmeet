@@ -12,7 +12,7 @@ import (
 )
 
 const archiveRaw = `-- name: ArchiveRaw :exec
-UPDATE raw_entries SET archived = true WHERE id = $1 AND owner_id = $2
+UPDATE corpus_notes SET archived = true WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
 `
 
 type ArchiveRawParams struct {
@@ -27,49 +27,65 @@ func (q *Queries) ArchiveRaw(ctx context.Context, arg ArchiveRawParams) error {
 
 const createRawEntry = `-- name: CreateRawEntry :one
 
-INSERT INTO raw_entries (owner_id, body, source, source_meta, tags, flagged_private)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at
+INSERT INTO corpus_notes (owner_id, genre, title, body, inbox_source, inbox_meta, tags, flagged_private)
+VALUES ($1, 'raw', $2, $3, $4, $5, $6, $7)
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, created_at, updated_at
 `
 
 type CreateRawEntryParams struct {
 	OwnerID        pgtype.UUID
+	Title          string
 	Body           string
-	Source         string
-	SourceMeta     []byte
+	InboxSource    string
+	InboxMeta      []byte
 	Tags           []string
 	FlaggedPrivate bool
 }
 
-// corpus.sql —— raw_entries（未整理的摄入 inbox）的 query。raw 是独立表、不进统一 note 基座。
-// wiki / output 的 query 已归一到 corpus_notes.sql（genre 参数化）。
-func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) (RawEntry, error) {
+// corpus.sql —— raw inbox 的 query。raw 已折进统一 corpus_notes 基座（genre='raw'，#151），
+// 不再是独立表。inbox 专属字段（inbox_source / inbox_meta / flagged_private / archived /
+// promoted_to）只对 genre='raw' 有意义。列映射:body→body, source→inbox_source,
+// source_meta→inbox_meta, tags→tags。title NOT NULL,每条 INSERT 必给。
+// MCP raw_dump: title 由 caller 从 body 派生(首行 <=60 char,fallback "untitled")。
+func (q *Queries) CreateRawEntry(ctx context.Context, arg CreateRawEntryParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, createRawEntry,
 		arg.OwnerID,
+		arg.Title,
 		arg.Body,
-		arg.Source,
-		arg.SourceMeta,
+		arg.InboxSource,
+		arg.InboxMeta,
 		arg.Tags,
 		arg.FlaggedPrivate,
 	)
-	var i RawEntry
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
+		&i.Genre,
+		&i.ParentID,
+		&i.Title,
 		&i.Body,
-		&i.Source,
-		&i.SourceMeta,
 		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
+		&i.Excerpt,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
 		&i.FlaggedPrivate,
-		&i.PromotedTo,
 		&i.Archived,
+		&i.PromotedTo,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getRawByID = `-- name: GetRawByID :one
-SELECT id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at FROM raw_entries WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
 `
 
 type GetRawByIDParams struct {
@@ -77,27 +93,38 @@ type GetRawByIDParams struct {
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) GetRawByID(ctx context.Context, arg GetRawByIDParams) (RawEntry, error) {
+func (q *Queries) GetRawByID(ctx context.Context, arg GetRawByIDParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, getRawByID, arg.ID, arg.OwnerID)
-	var i RawEntry
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
+		&i.Genre,
+		&i.ParentID,
+		&i.Title,
 		&i.Body,
-		&i.Source,
-		&i.SourceMeta,
 		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
+		&i.Excerpt,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
 		&i.FlaggedPrivate,
-		&i.PromotedTo,
 		&i.Archived,
+		&i.PromotedTo,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const listRawByOwner = `-- name: ListRawByOwner :many
-SELECT id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at FROM raw_entries
-WHERE owner_id = $1 AND archived = false
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND genre = 'raw' AND archived = false
 ORDER BY created_at DESC
 LIMIT $2
 `
@@ -107,26 +134,37 @@ type ListRawByOwnerParams struct {
 	Limit   int32
 }
 
-func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) ([]RawEntry, error) {
+func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, listRawByOwner, arg.OwnerID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []RawEntry
+	var items []CorpusNote
 	for rows.Next() {
-		var i RawEntry
+		var i CorpusNote
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
+			&i.Genre,
+			&i.ParentID,
+			&i.Title,
 			&i.Body,
-			&i.Source,
-			&i.SourceMeta,
 			&i.Tags,
+			&i.SourceIds,
+			&i.ShowAsSource,
+			&i.Excerpt,
+			&i.Published,
+			&i.CssClasses,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
+			&i.InboxSource,
+			&i.InboxMeta,
 			&i.FlaggedPrivate,
-			&i.PromotedTo,
 			&i.Archived,
+			&i.PromotedTo,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -139,7 +177,7 @@ func (q *Queries) ListRawByOwner(ctx context.Context, arg ListRawByOwnerParams) 
 }
 
 const markRawPromoted = `-- name: MarkRawPromoted :exec
-UPDATE raw_entries SET promoted_to = $3 WHERE id = $1 AND owner_id = $2
+UPDATE corpus_notes SET promoted_to = $3 WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
 `
 
 type MarkRawPromotedParams struct {
@@ -154,7 +192,7 @@ func (q *Queries) MarkRawPromoted(ctx context.Context, arg MarkRawPromotedParams
 }
 
 const setRawTags = `-- name: SetRawTags :exec
-UPDATE raw_entries SET tags = $3 WHERE id = $1 AND owner_id = $2
+UPDATE corpus_notes SET tags = $3 WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
 `
 
 type SetRawTagsParams struct {
@@ -169,10 +207,10 @@ func (q *Queries) SetRawTags(ctx context.Context, arg SetRawTagsParams) error {
 }
 
 const updateRawBody = `-- name: UpdateRawBody :one
-UPDATE raw_entries
+UPDATE corpus_notes
 SET body = $3, tags = $4, flagged_private = $5
-WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at
+WHERE id = $1 AND owner_id = $2 AND genre = 'raw'
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, created_at, updated_at
 `
 
 type UpdateRawBodyParams struct {
@@ -183,9 +221,9 @@ type UpdateRawBodyParams struct {
 	FlaggedPrivate bool
 }
 
-// admin "edit raw" 入口：改 body + tags + flagged_private。source 不动
-// （source 是 ingest 来源标签，编辑不该改）。
-func (q *Queries) UpdateRawBody(ctx context.Context, arg UpdateRawBodyParams) (RawEntry, error) {
+// admin "edit raw" 入口：改 body + tags + flagged_private。inbox_source 不动
+// （inbox_source 是 ingest 来源标签，编辑不该改）。
+func (q *Queries) UpdateRawBody(ctx context.Context, arg UpdateRawBodyParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, updateRawBody,
 		arg.ID,
 		arg.OwnerID,
@@ -193,58 +231,29 @@ func (q *Queries) UpdateRawBody(ctx context.Context, arg UpdateRawBodyParams) (R
 		arg.Tags,
 		arg.FlaggedPrivate,
 	)
-	var i RawEntry
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
+		&i.Genre,
+		&i.ParentID,
+		&i.Title,
 		&i.Body,
-		&i.Source,
-		&i.SourceMeta,
 		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
+		&i.Excerpt,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
 		&i.FlaggedPrivate,
-		&i.PromotedTo,
 		&i.Archived,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const upsertRawFromVault = `-- name: UpsertRawFromVault :one
-INSERT INTO raw_entries (owner_id, body, source, source_meta, tags, flagged_private)
-VALUES ($1, $2, $3, '{}'::jsonb, $4, false)
-ON CONFLICT (owner_id, source) WHERE source LIKE 'obsidian:%'
-DO UPDATE SET body = EXCLUDED.body, tags = EXCLUDED.tags
-RETURNING id, owner_id, body, source, source_meta, tags, flagged_private, promoted_to, archived, created_at
-`
-
-type UpsertRawFromVaultParams struct {
-	OwnerID pgtype.UUID
-	Body    string
-	Source  string
-	Tags    []string
-}
-
-// vault sync 幂等:同一 obsidian source 重传 → upsert(更新 body/tags),不 append 成重复行。
-// 靠 raw_entries_obsidian_source_uniq (partial: source LIKE 'obsidian:%') 做 conflict 推断。
-func (q *Queries) UpsertRawFromVault(ctx context.Context, arg UpsertRawFromVaultParams) (RawEntry, error) {
-	row := q.db.QueryRow(ctx, upsertRawFromVault,
-		arg.OwnerID,
-		arg.Body,
-		arg.Source,
-		arg.Tags,
-	)
-	var i RawEntry
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Body,
-		&i.Source,
-		&i.SourceMeta,
-		&i.Tags,
-		&i.FlaggedPrivate,
 		&i.PromotedTo,
-		&i.Archived,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

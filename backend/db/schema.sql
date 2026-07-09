@@ -91,28 +91,13 @@ CREATE TABLE owner_keypairs (
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
--- Corpus —— raw 草稿 + wiki curated；embedding + SEO landing 列后续加。
-CREATE TABLE raw_entries (
-    id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    body            text          NOT NULL,
-    source          text          NOT NULL DEFAULT 'mcp',
-    source_meta     jsonb         NOT NULL DEFAULT '{}'::jsonb,
-    tags            text[]        NOT NULL DEFAULT '{}',
-    flagged_private boolean       NOT NULL DEFAULT false,
-    promoted_to     uuid,
-    archived        boolean       NOT NULL DEFAULT false,
-    created_at      timestamptz   NOT NULL DEFAULT now()
-);
-
--- vault sync 幂等:同一 owner 的同一 obsidian source 只保留一行(重传 → upsert,不 append)。
--- partial —— 只约束 vault 来源(source LIKE 'obsidian:%');'mcp'(raw_dump)可多行同 source。
-CREATE UNIQUE INDEX raw_entries_obsidian_source_uniq
-  ON raw_entries (owner_id, source) WHERE source LIKE 'obsidian:%';
+-- raw_entries 已删除:raw 折进 corpus_notes(genre='raw'，#151)。inbox 语义(inbox_source /
+-- inbox_meta / flagged_private / archived / promoted_to)现是 corpus_notes 上的专属列;vault raw
+-- 幂等靠 corpus_notes_inbox_source_uniq(见下)。
 
 -- corpus_notes —— 统一的 vault note 基座。一张表容纳所有「笔记类」genre。今天迁入 wiki + output
--- （二者结构本 95% 相同）；writing / subjectivity 后续阶段同表迁入。raw **不**在此（未整理的
--- 摄入 inbox，独立表，性质不同）。
+-- （二者结构本 95% 相同）；writing / subjectivity 后续阶段同表迁入。raw 也已迁入(genre='raw'，
+-- #151):未整理的摄入 inbox，靠 inbox_* 专属列区分,不再是独立表。
 --   genre      —— 品类维度（'wiki' | 'output' | …）。ACL / retrieval / 寻址都带上它，加 genre 零建表。
 --   parent_id   —— 树。地址（path）仍纯树派生（parent 链 + title slug，见 usecases.TreePaths），
 --                  不存列：corpus 是 filesystem，路径来自它在哪个目录下。删父 → 子孙级联删。
@@ -181,7 +166,8 @@ CREATE TABLE media_assets (
     mime_type       text          NOT NULL,
     size_bytes      bigint        NOT NULL DEFAULT 0,
     storage_key     text          NOT NULL,
-    raw_entry_id    uuid          REFERENCES raw_entries(id) ON DELETE SET NULL,
+    -- raw note 现同住 corpus_notes（genre='raw'）；FK 重指统一表（raw_entries 已删）。
+    raw_entry_id    uuid          REFERENCES corpus_notes(id) ON DELETE SET NULL,
     -- wiki/output note 现同住 corpus_notes（genre 区分），两列都 FK 统一表；哪列有值由
     -- 上层按 note genre 决定（未来可归一成单 note_id 列）。
     wiki_entry_id   uuid          REFERENCES corpus_notes(id) ON DELETE SET NULL,

@@ -52,20 +52,6 @@ func (a cssSyncAdapter) SetCSS(ctx context.Context, ownerID, rawCSS string) erro
 	return nil
 }
 
-// rawSyncAdapter —— obsidian.SyncRawPort over RawRepo：raw/ 文件追加进 inbox，source 标 vault 来源。
-type rawSyncAdapter struct{ raw *postgres.RawRepo }
-
-func (a rawSyncAdapter) UpsertFromVault(
-	ctx context.Context, ownerID, sourcePath, body string, tags []string,
-) error {
-	if _, err := a.raw.UpsertFromVault(ctx, &postgres.CreateRawInput{
-		OwnerID: ownerID, Body: body, Source: "obsidian:" + sourcePath, Tags: tags,
-	}); err != nil {
-		return fmt.Errorf("sync raw: %w", err)
-	}
-	return nil
-}
-
 // refsSyncAdapter —— obsidian.SyncRefsPort over RebuildNoteRefs：整批 upsert 后重建一条的出度边。
 type refsSyncAdapter struct{ deps usecases.CorpusDeps }
 
@@ -113,7 +99,6 @@ func (d *ObsidianDeps) Ingest(
 	}
 	res := obsidian.SyncVault(ctx, &obsidian.SyncDeps{
 		Notes:    d.Corpus.VaultSync,
-		Raw:      rawSyncAdapter{raw: d.Corpus.Raw},
 		Refs:     refsSyncAdapter{deps: d.Corpus},
 		Writings: writingsSyncAdapter{tx: d.WritingsTx, setter: d.Writings},
 		CSS:      cssSyncAdapter{store: d.CSS},

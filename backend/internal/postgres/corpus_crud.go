@@ -28,7 +28,7 @@ type UpdateRawInput struct {
 	FlaggedPrivate bool
 }
 
-// UpdateBody 改 raw_entries body + tags + flagged_private（source 不改）。
+// UpdateBody 改 raw(corpus_notes genre='raw') body + tags + flagged_private（inbox_source 不改）。
 func (r *RawRepo) UpdateBody(
 	ctx context.Context, in *UpdateRawInput,
 ) (domain.Raw, error) {
@@ -54,7 +54,7 @@ func (r *RawRepo) UpdateBody(
 	return toDomainRaw(&row), nil
 }
 
-// Archive 把 raw_entries.archived 置 true（delete 走 archive，soft-delete
+// Archive 把 raw(corpus_notes genre='raw').archived 置 true（delete 走 archive，soft-delete
 // 让 retention / audit 仍可见）。
 func (r *RawRepo) Archive(ctx context.Context, ownerID, rawID string) error {
 	ownerUUID, err := parseUUID(ownerID)

@@ -100,8 +100,8 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (CorpusN
 
 const createNoteSync = `-- name: CreateNoteSync :one
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
 RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, created_at, updated_at
 `
 
@@ -115,9 +115,11 @@ type CreateNoteSyncParams struct {
 	Published          bool
 	ObsidianSourcePath string
 	CssClasses         []string
+	InboxSource        string
 }
 
 // Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
+// inbox_source is the vault-source tag for genre='raw' ("obsidian:<path>"); empty for other genres.
 func (q *Queries) CreateNoteSync(ctx context.Context, arg CreateNoteSyncParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, createNoteSync,
 		arg.OwnerID,
@@ -129,6 +131,7 @@ func (q *Queries) CreateNoteSync(ctx context.Context, arg CreateNoteSyncParams) 
 		arg.Published,
 		arg.ObsidianSourcePath,
 		arg.CssClasses,
+		arg.InboxSource,
 	)
 	var i CorpusNote
 	err := row.Scan(
@@ -831,7 +834,8 @@ func (q *Queries) UpdateNoteSEO(ctx context.Context, arg UpdateNoteSEOParams) (C
 const updateNoteSync = `-- name: UpdateNoteSync :one
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
-    obsidian_source_path = $8, css_classes = $9, obsidian_imported_at = now(), updated_at = now()
+    obsidian_source_path = $8, css_classes = $9, inbox_source = $10,
+    obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, created_at, updated_at
 `
@@ -846,10 +850,11 @@ type UpdateNoteSyncParams struct {
 	Published          bool
 	ObsidianSourcePath string
 	CssClasses         []string
+	InboxSource        string
 }
 
 // Vault sync update (reconcile): relocate (genre/parent may change on a move), refresh body/tags/publish,
-// re-stamp the obsidian identity. Never touches rows absent from the batch (caller upserts per file).
+// re-stamp the obsidian identity + inbox_source. Never touches rows absent from the batch (caller upserts per file).
 func (q *Queries) UpdateNoteSync(ctx context.Context, arg UpdateNoteSyncParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, updateNoteSync,
 		arg.ID,
@@ -861,6 +866,7 @@ func (q *Queries) UpdateNoteSync(ctx context.Context, arg UpdateNoteSyncParams) 
 		arg.Published,
 		arg.ObsidianSourcePath,
 		arg.CssClasses,
+		arg.InboxSource,
 	)
 	var i CorpusNote
 	err := row.Scan(

@@ -82,15 +82,16 @@ func (r *VaultSyncRepo) GetSyncNote(ctx context.Context, ownerID, id string) (Sy
 
 // CreateSyncNoteInput —— vault sync create。ParentID "" = 根。
 type CreateSyncNoteInput struct {
-	ParentID   *string
-	OwnerID    string
-	Genre      string
-	Title      string
-	Body       string
-	SourcePath string
-	Tags       []string
-	CSSClasses []string
-	Published  bool
+	ParentID    *string
+	OwnerID     string
+	Genre       string
+	Title       string
+	Body        string
+	SourcePath  string
+	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
+	Tags        []string
+	CSSClasses  []string
+	Published   bool
 }
 
 // Create —— 建一条 sync note，返 id。
@@ -107,6 +108,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 		OwnerID: owner, Genre: in.Genre, ParentID: parent, Title: in.Title,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
+		InboxSource: in.InboxSource,
 	})
 	if qerr != nil {
 		return "", fmt.Errorf("create sync note: %w", qerr)
@@ -116,15 +118,16 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 
 // UpdateSyncNoteInput —— vault sync update(relocate + 重写)。
 type UpdateSyncNoteInput struct {
-	ParentID   *string
-	OwnerID    string
-	ID         string
-	Genre      string
-	Body       string
-	SourcePath string
-	Tags       []string
-	CSSClasses []string
-	Published  bool
+	ParentID    *string
+	OwnerID     string
+	ID          string
+	Genre       string
+	Body        string
+	SourcePath  string
+	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
+	Tags        []string
+	CSSClasses  []string
+	Published   bool
 }
 
 // Update —— reconcile 更新一条(genre/parent 可变 = 移动;body/tags/publish 刷新;重盖 obsidian 元数据)。
@@ -141,6 +144,7 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 		ID: ids.Src, OwnerID: ids.Owner, Genre: in.Genre, ParentID: parent,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
+		InboxSource: in.InboxSource,
 	}); qerr != nil {
 		return fmt.Errorf("update sync note: %w", qerr)
 	}

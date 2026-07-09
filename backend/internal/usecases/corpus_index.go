@@ -47,12 +47,19 @@ func NewCorpusIndexer(
 	return &meiliCorpusIndexer{client: client, notes: notes, log: log}
 }
 
-// IndexNote —— 单条 corpus note(wiki/output/subjectivity)upsert 进 Meili。
+// genreRaw —— raw 是 owner 私有 inbox,privacy-critical:绝不进搜索索引。
+const genreRaw = "raw"
+
+// IndexNote —— 单条 corpus note(wiki/output/subjectivity)upsert 进 Meili。genre='raw' 直接跳过
+// (raw 是私有 inbox,绝不能进检索面)。
 func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID string) {
 	note, err := x.notes.GetSyncNote(ctx, ownerID, noteID)
 	if err != nil {
 		x.warn("index note read", err)
 		return
+	}
+	if note.Genre == genreRaw {
+		return // privacy: raw inbox never enters the search index
 	}
 	doc := search.Doc{
 		ID: note.ID, OwnerID: ownerID, Genre: note.Genre,
@@ -110,6 +117,9 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 	}
 	docs := make([]search.Doc, 0, len(notes))
 	for i := range notes {
+		if notes[i].Genre == genreRaw {
+			continue // privacy: raw inbox never enters the search index
+		}
 		path := syncNotePath(notes[i].Title, notes[i].ParentID, mapParentOf(byID))
 		docs = append(docs, search.Doc{
 			ID: notes[i].ID, OwnerID: ownerID, Genre: notes[i].Genre,

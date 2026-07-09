@@ -91,6 +91,8 @@ func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *domain.Raw) {
 }
 
 type rawListItem struct {
+	ParentID  *string  `json:"parent_id"`
+	Path      *string  `json:"path"`
 	CreatedAt string   `json:"created_at"`
 	ID        string   `json:"id"`
 	Body      string   `json:"body"`
@@ -126,17 +128,30 @@ func (h *Handlers) listRaw() http.HandlerFunc {
 }
 
 func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []domain.Raw) {
+	paths := usecases.RawTreePaths(rows) // raw is now a corpus_notes tree — derive its address
 	items := make([]rawListItem, 0, len(rows))
 	for i := range rows {
-		items = append(items, rawListItem{
-			ID:        rows[i].ID(),
-			Body:      rows[i].Body(),
-			Source:    rows[i].Source(),
-			Tags:      rows[i].Tags(),
-			CreatedAt: rows[i].CreatedAt().Format(time.RFC3339),
-		})
+		items = append(items, rawItemOf(&rows[i], paths))
 	}
 	writeRawListJSON(log, w, items)
+}
+
+// rawItemOf —— one raw row → list item, with its derived tree path + parent.
+func rawItemOf(row *domain.Raw, paths map[string]string) rawListItem {
+	item := rawListItem{
+		ID:        row.ID(),
+		Body:      row.Body(),
+		Source:    row.Source(),
+		Tags:      row.Tags(),
+		CreatedAt: row.CreatedAt().Format(time.RFC3339),
+	}
+	if p, ok := paths[row.ID()]; ok {
+		item.Path = &p
+	}
+	if pid, ok := row.ParentID(); ok {
+		item.ParentID = &pid
+	}
+	return item
 }
 
 func (h *Handlers) listWiki() http.HandlerFunc {

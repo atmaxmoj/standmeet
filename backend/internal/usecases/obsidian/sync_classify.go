@@ -31,9 +31,9 @@ func routeFile(rel string) fileRoute {
 }
 
 // vaultBuckets —— 分流后的桶。writing 含附件(非 .md);css = harvest 的 .obsidian CSS config。
+// raw 现折进 corp(genre='raw'),不再单独成桶 —— 走同一 node-tree 物化器。
 type vaultBuckets struct {
 	corp    []vaultNote
-	raw     []VaultFile
 	writing []VaultFile
 	css     []VaultFile
 }
@@ -59,7 +59,7 @@ func topSegment(rel string) string {
 // classifyVault —— 过滤 hidden;按顶层 folder 分流 corp / raw / writing / css。
 func classifyVault(files []VaultFile) vaultBuckets {
 	b := vaultBuckets{
-		corp: []vaultNote{}, raw: []VaultFile{}, writing: []VaultFile{}, css: []VaultFile{},
+		corp: []vaultNote{}, writing: []VaultFile{}, css: []VaultFile{},
 	}
 	for i := range files {
 		classifyOne(&files[i], &b)
@@ -88,9 +88,19 @@ func classifyCorpOrRaw(f *VaultFile, b *vaultBuckets) {
 	case !rt.ok:
 		return
 	case rt.genre == genreRaw:
-		b.raw = append(b.raw, *f)
+		// raw now folds into the ONE corpus tree (genre='raw'): same node-tree as note, but
+		// fm-exempt (whole body, never publish-gated) — the materializer's raw rules handle it.
+		b.corp = append(b.corp, toRawVaultNote(f, rt.segs))
 	default:
 		b.corp = append(b.corp, toVaultNote(f, rt.segs))
+	}
+}
+
+// toRawVaultNote —— raw is fm-exempt: the whole file is the body, no frontmatter, never publish.
+func toRawVaultNote(f *VaultFile, segs []string) vaultNote {
+	return vaultNote{
+		genre: genreRaw, sourcePath: f.RelPath, body: string(f.Body),
+		segs: normalizeSegs(segs[1:]),
 	}
 }
 

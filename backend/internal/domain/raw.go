@@ -22,6 +22,7 @@ import (
 type Raw struct {
 	timestamps     Timestamps
 	promotedTo     *string
+	parentID       *string
 	id             string
 	ownerID        string
 	source         string
@@ -35,8 +36,10 @@ type Raw struct {
 type RawInit struct {
 	CreatedAt      time.Time
 	PromotedTo     *string
+	ParentID       *string
 	ID             string
 	OwnerID        string
+	Title          string
 	Body           string
 	Source         string
 	Tags           []string
@@ -53,6 +56,11 @@ func NewRaw(i *RawInit) Raw {
 		v := *i.PromotedTo
 		promotedTo = &v
 	}
+	var parentID *string
+	if i.ParentID != nil {
+		v := *i.ParentID
+		parentID = &v
+	}
 	return Raw{
 		id:             i.ID,
 		ownerID:        i.OwnerID,
@@ -60,8 +68,9 @@ func NewRaw(i *RawInit) Raw {
 		flaggedPrivate: i.FlaggedPrivate,
 		archived:       i.Archived,
 		promotedTo:     promotedTo,
+		parentID:       parentID,
 		content: NewContent(&ContentInit{
-			Title: "", Body: i.Body, Tags: i.Tags,
+			Title: i.Title, Body: i.Body, Tags: i.Tags,
 		}),
 		timestamps: NewTimestamps(&TimestampsInit{
 			CreatedAt: i.CreatedAt, UpdatedAt: i.CreatedAt,
@@ -106,6 +115,14 @@ func (r *Raw) Integrations() []Integration { return r.integrations.All() }
 
 // Source —— ingest source 标签 (e.g. "claude-desktop" / "clipboard" / "mcp")。
 func (r *Raw) Source() string { return r.source }
+
+// ParentID —— tree parent (raw is now a corpus_notes node); ok=false at the root. Mirrors Wiki.
+func (r *Raw) ParentID() (string, bool) {
+	if r.parentID == nil {
+		return "", false
+	}
+	return *r.parentID, true
+}
 
 // FlaggedPrivate —— owner 标记"私密"的 dump。retriever 跳过这种。
 func (r *Raw) FlaggedPrivate() bool { return r.flaggedPrivate }
