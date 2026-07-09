@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/storage"
@@ -87,6 +88,43 @@ func (a writingsSyncAdapter) ImportWritings(
 	return obsidian.ImportVault(ctx, a.tx, a.setter, ownerID, files)
 }
 
+// *ObsidianDeps IS the corpus sync-mode connector's ingester (#28 step 2): the vault-sync feed
+// folds through the connector layer's SyncIngester abstraction instead of the route calling
+// SyncVault inline. The DTOs (SyncFile/SyncResult) match obsidian's 1:1 — a trivial rename at the
+// boundary that keeps the connector layer usecase-independent.
+var _ connector.SyncIngester = (*ObsidianDeps)(nil)
+
+// toSyncFiles —— parsed vault files → connector-layer DTOs (RelPath/Body match 1:1).
+func toSyncFiles(files []obsidian.VaultFile) []connector.SyncFile {
+	out := make([]connector.SyncFile, len(files))
+	for i, f := range files {
+		out[i] = connector.SyncFile{RelPath: f.RelPath, Body: f.Body}
+	}
+	return out
+}
+
+// Ingest —— connector.SyncIngester: build the vault SyncDeps, run the sync, rebuild the index.
+func (d *ObsidianDeps) Ingest(
+	ctx context.Context, ownerID string, files []connector.SyncFile,
+) (connector.SyncResult, error) {
+	vfiles := make([]obsidian.VaultFile, len(files))
+	for i, f := range files {
+		vfiles[i] = obsidian.VaultFile{RelPath: f.RelPath, Body: f.Body}
+	}
+	res := obsidian.SyncVault(ctx, &obsidian.SyncDeps{
+		Notes:    d.Corpus.VaultSync,
+		Raw:      rawSyncAdapter{raw: d.Corpus.Raw},
+		Refs:     refsSyncAdapter{deps: d.Corpus},
+		Writings: writingsSyncAdapter{tx: d.WritingsTx, setter: d.Writings},
+		CSS:      cssSyncAdapter{store: d.CSS},
+	}, ownerID, vfiles)
+	// 批量 sync 后整批重建 Meili index(反映新增/改/删,漂移不留)。best-effort。
+	usecases.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
+	return connector.SyncResult{
+		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped, Errors: res.Errors,
+	}, nil
+}
+
 const maxObsidianImportSize = 200 << 20 // 200 MB — vault 整个上传，比 writing save 大。
 
 // MountObsidian 挂 /obsidian 子路由。
@@ -128,15 +166,15 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		result := obsidian.SyncVault(r.Context(), &obsidian.SyncDeps{
-			Notes:    h.Obsidian.Corpus.VaultSync,
-			Raw:      rawSyncAdapter{raw: h.Obsidian.Corpus.Raw},
-			Refs:     refsSyncAdapter{deps: h.Obsidian.Corpus},
-			Writings: writingsSyncAdapter{tx: h.Obsidian.WritingsTx, setter: h.Obsidian.Writings},
-			CSS:      cssSyncAdapter{store: h.Obsidian.CSS},
-		}, ownerID, files)
-		// 批量 sync 后整批重建 Meili index(反映新增/改/删,漂移不留)。best-effort。
-		usecases.ReindexCorpusOwner(r.Context(), h.Obsidian.Corpus, ownerID)
+		var ingester connector.SyncIngester = &h.Obsidian // fold through the sync-mode connector
+		res, err := ingester.Ingest(r.Context(), ownerID, toSyncFiles(files))
+		if err != nil {
+			writeError(h.Log, w, envBadReq(err.Error()))
+			return
+		}
+		result := obsidian.ImportResult{
+			Created: res.Created, Updated: res.Updated, Skipped: res.Skipped, Errors: res.Errors,
+		}
 		writeImportJSON(h.Log, w, &result)
 	}
 }
