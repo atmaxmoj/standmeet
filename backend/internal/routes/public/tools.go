@@ -30,7 +30,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/session"
 )
 
-// toolDispatch handler —— 单一入口处理任意 per-tool 调用。
+// methodQuery —— HTTP QUERY (RFC 10008)：安全/幂等的带 body 查询。只读工具可经此调用。
+// chi 默认方法表不含 QUERY，composition root（server.go）启动时 chi.RegisterMethod 注册。
+const methodQuery = "QUERY"
+
+// isQueryOnMutating —— QUERY 打到一个会改状态（非只读）的工具 → 拒（405）。QUERY 语义
+// 承诺安全/幂等，会改状态的工具只能走 POST。
+func isQueryOnMutating(method string, t *capreg.BindingTool) bool {
+	return method == methodQuery && !t.ReadOnly
+}
+
+// toolDispatch handler —— 单一入口处理任意 per-tool 调用（POST 全工具；QUERY 仅只读工具）。
 func (h *Handlers) toolDispatch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth, ok := authVisitorWithToken(h, w, r)
@@ -48,9 +58,9 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 		}
 		toolName := chi.URLParam(r, "tool_name")
 		convID := chi.URLParam(r, "id")
-		runToolDispatch(r.Context(), h, w, toolDispatchArgs{
+		runToolDispatch(r.Context(), h, w, &toolDispatchArgs{
 			Data: auth.Data, ToolName: toolName,
-			ConvID: convID, Body: body,
+			ConvID: convID, Body: body, Method: r.Method,
 		})
 	}
 }
@@ -59,12 +69,13 @@ type toolDispatchArgs struct {
 	Data     *session.VisitorSessionData
 	ToolName string
 	ConvID   string
+	Method   string
 	Body     []byte
 }
 
 // runToolDispatch —— 拆出装配 + 派发 + response 流，让 handler cyclo ≤ 3。
 func runToolDispatch(
-	ctx context.Context, h *Handlers, w http.ResponseWriter, args toolDispatchArgs,
+	ctx context.Context, h *Handlers, w http.ResponseWriter, args *toolDispatchArgs,
 ) {
 	in := assembleInputFromSession(args.Data, args.ConvID)
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
@@ -74,6 +85,14 @@ func runToolDispatch(
 		writeToolErr(h.Log, w, toolErr{
 			Status: http.StatusNotFound, Reason: "capability_not_enabled",
 			Detail:   "tool not exposed in this session",
+			CapState: h.Visitor.AgentSkills.VisitorStates(ctx, in),
+		})
+		return
+	}
+	if isQueryOnMutating(args.Method, tool) {
+		writeToolErr(h.Log, w, toolErr{
+			Status: http.StatusMethodNotAllowed, Reason: "method_not_allowed",
+			Detail:   "QUERY is only for read-only tools; use POST",
 			CapState: h.Visitor.AgentSkills.VisitorStates(ctx, in),
 		})
 		return

@@ -87,7 +87,12 @@ func (h *Handlers) Mount(r chi.Router) {
 	// 多对话模型:浮窗在某篇 doc 上 find-or-create 自己那段对话(跟主聊天独立,
 	// 共享 member 级配额)。body {doc_key} → {conversation_id, conversation}。
 	r.Post("/conversations", h.withVisitorSession(h.openDocConversation()))
-	r.Post("/sessions/{id}/tools/{tool_name}", h.withVisitorSession(h.toolDispatch()))
+	// 同一 dispatch handler 挂 POST + QUERY。QUERY（RFC 10008）是只读工具（corpus_search/
+	// read/list/links）的语义正确入口（安全/幂等 + 带 body）；会改状态的工具走 QUERY → 405
+	// （gate 在 tools.go）。POST 对全工具照旧（向后兼容）。
+	toolDisp := h.withVisitorSession(h.toolDispatch())
+	r.Post("/sessions/{id}/tools/{tool_name}", toolDisp)
+	r.Method(methodQuery, "/sessions/{id}/tools/{tool_name}", toolDisp)
 	// MCP App 跨刷新状态：沙箱卡经 host 对自己 mcp 那格增删改查。mcp_id 由 {tool} 派生。
 	r.Get("/sessions/{id}/app-state/{tool}", h.withVisitorSession(h.getAppState()))
 	r.Put("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.setAppState()))

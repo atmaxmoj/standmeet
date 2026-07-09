@@ -52,6 +52,9 @@ type BindingTool struct {
 	UIHTML         string
 	InputSchema    json.RawMessage
 	ReturnDirectly bool
+	// ReadOnly —— 工具声明 MCP `annotations.readOnlyHint`（安全/幂等的读）。dispatch
+	// 据此放行 HTTP QUERY：只读工具才可 QUERY，会改状态的工具 QUERY → 405。
+	ReadOnly bool
 }
 
 // RunFn —— capability 写的 tool 执行闭包。args 是 LLM 喂的 JSON arguments

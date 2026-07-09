@@ -264,7 +264,8 @@ export async function fetchVisitorDoc(
     const res = await fetch(
       `${baseURL()}/api/v1/sessions/${conversationID}/tools/corpus_read`,
       {
-        method: 'POST',
+        // QUERY (RFC 10008)：corpus_read 是安全/幂等的读；同源，无预检。
+        method: 'QUERY',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ path }),
       },

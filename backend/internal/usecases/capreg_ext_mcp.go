@@ -198,13 +198,15 @@ func (b *extMCPBundle) addTool(
 	if toolName == "" {
 		return
 	}
-	b.tools = append(b.tools, capreg.NewTool(
+	bt := capreg.NewTool(
 		toolName,
 		extToolDescription(cfg.Name, t),
 		"calling external mcp",
 		t.InputSchema,
 		makeExtMCPRun(session, t.Name, nil),
-	))
+	)
+	bt.ReadOnly = t.ReadOnly // server 声明 readOnlyHint 的工具可走 QUERY
+	b.tools = append(b.tools, bt)
 }
 
 func composeExtToolName(server, tool string) string {

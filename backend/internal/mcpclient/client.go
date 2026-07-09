@@ -41,6 +41,9 @@ type Tool struct {
 	Name        string
 	Description string
 	InputSchema json.RawMessage
+	// ReadOnly —— MCP `annotations.readOnlyHint`：工具是安全/幂等的读（不改状态）。
+	// 供 dispatch 判定能否走 HTTP QUERY（只读工具才可 QUERY，见 routes/public/tools.go）。
+	ReadOnly bool
 }
 
 // Session —— 一次外部 server 连接 + initialized handshake 完成后的状态。
@@ -237,7 +240,8 @@ func translateTool(t *mcpgo.Tool) Tool {
 	}
 	return Tool{
 		Name: t.Name, Description: t.Description, InputSchema: schemaBytes,
-		Meta: toolMeta(t),
+		Meta:     toolMeta(t),
+		ReadOnly: t.Annotations.ReadOnlyHint != nil && *t.Annotations.ReadOnlyHint,
 	}
 }
 

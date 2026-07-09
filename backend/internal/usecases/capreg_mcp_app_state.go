@@ -40,6 +40,8 @@ func wrapMCPAppTools(
 		}
 		// UIHTML —— MCP Apps：ui 挂 tool（`_meta.ui_resource`）。装配时读卡片 HTML。
 		bt.UIHTML = toolUIHTML(ctx, sess, t, uiCache)
+		// ReadOnly —— server 的 `annotations.readOnlyHint`：安全读工具可走 HTTP QUERY。
+		bt.ReadOnly = t.ReadOnly
 		out = append(out, bt)
 	}
 	return out

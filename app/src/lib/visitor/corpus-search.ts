@@ -21,8 +21,10 @@ export async function corpusSearch(query: string): Promise<CorpusSearchHit[]> {
 }
 
 async function fetchHits(conv: string, token: string, query: string): Promise<CorpusSearchHit[]> {
+  // QUERY (RFC 10008)：corpus_search 是安全/幂等的带 body 查询 —— 语义正确的方法。
+  // 同源调用，无 CORS 预检；后端只读工具放行 QUERY（会改状态的工具才需 POST）。
   const res = await fetch(`${baseURL()}/api/v1/sessions/${conv}/tools/corpus_search`, {
-    method: 'POST',
+    method: 'QUERY',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ query }),
   });

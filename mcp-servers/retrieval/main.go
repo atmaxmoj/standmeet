@@ -31,10 +31,12 @@ func main() {
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(false, false),
 		server.WithInstructions(instructions))
-	srv.AddTool(searchTool(), opHandler("corpus_search"))
-	srv.AddTool(readTool(), opHandler("corpus_read"))
-	srv.AddTool(listTool(), opHandler("corpus_list"))
-	srv.AddTool(linksTool(), opHandler("corpus_links"))
+	// 四个检索工具全是安全/幂等的读 → 声明 MCP readOnlyHint=true。host 据此放行 HTTP
+	// QUERY（RFC 10008）：语义正确的「带 body 的安全查询」入口。
+	srv.AddTool(readOnly(searchTool()), opHandler("corpus_search"))
+	srv.AddTool(readOnly(readTool()), opHandler("corpus_read"))
+	srv.AddTool(readOnly(listTool()), opHandler("corpus_list"))
+	srv.AddTool(readOnly(linksTool()), opHandler("corpus_links"))
 	srv.AddResource(searchCardResource(), searchCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "retrieval:", err)
@@ -51,6 +53,13 @@ func progressLabel(t mcpgo.Tool, label string) mcpgo.Tool {
 
 // withCard —— like progressLabel but also declares this tool's ui:// card on `_meta`
 // (MCP Apps). corpus_search / corpus_list both point at the one search card.
+// readOnly —— 标注工具为 MCP readOnlyHint=true（安全/幂等的读）。host 侧 mcpclient 透传成
+// BindingTool.ReadOnly，dispatch 据此放行 HTTP QUERY。
+func readOnly(t mcpgo.Tool) mcpgo.Tool {
+	t.Annotations.ReadOnlyHint = mcpgo.ToBoolPtr(true)
+	return t
+}
+
 func withCard(t mcpgo.Tool, label, cardURI string) mcpgo.Tool {
 	t.Meta = mcpgo.NewMetaFromMap(map[string]any{
 		"progress_label": label,

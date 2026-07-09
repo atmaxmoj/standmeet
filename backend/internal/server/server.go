@@ -105,6 +105,9 @@ type AdminDeps struct {
 // New 返回一个挂好路由的 chi router，可直接传给 http.Server。
 // pointer 接收避免 gocritic hugeParam。
 func New(deps *Deps) http.Handler {
+	// QUERY (RFC 10008) 是 chi 默认方法表外的扩展方法；注册后 r.Method("QUERY", ...) 才不 panic。
+	// 只读工具的 dispatch 路由用它（routes/public/chat.go）。必须在挂路由前调。
+	chi.RegisterMethod("QUERY")
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
