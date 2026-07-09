@@ -1,5 +1,6 @@
-// writings_mapping.go —— writings.go 拆出来的纯映射 helpers (sqlc row →
-// domain.Writing，UUID/timestamp 互转，hue/visibility 白名单兜底)。
+// writings_mapping.go —— writings.go 拆出来的纯映射 helpers (corpus_notes(genre='writing')
+// row → domain.Writing，UUID/timestamp 互转，hue/visibility 白名单兜底)。
+// writing 折进 corpus_notes(#151):body_md→body，path 不存(派生 "writings/"+slug)。
 
 package postgres
 
@@ -13,7 +14,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-func rowsToDomainWritings(rows []dbq.Writing) []domain.Writing {
+// writingPathPrefix —— writing 的 retriever/ACL path 前缀。path 不存列,由 slug 派生
+// "writings/<slug>"(跟折进 corpus_notes 前的存储值逐字一致,ACL / eval fixture 不变)。
+const writingPathPrefix = "writings/"
+
+// writingPathForSlug —— slug → 派生 path。
+func writingPathForSlug(slug string) string { return writingPathPrefix + slug }
+
+func rowsToDomainWritings(rows []dbq.CorpusNote) []domain.Writing {
 	out := make([]domain.Writing, 0, len(rows))
 	for i := range rows {
 		out = append(out, toDomainWriting(&rows[i]))
@@ -38,14 +46,14 @@ func parseOwnerAndWritingID(ownerID, writingID string) (writingIDArgs, error) {
 	return writingIDArgs{ownerUUID: ownerUUID, writingUUID: writingUUID}, nil
 }
 
-func toDomainWriting(row *dbq.Writing) domain.Writing {
+func toDomainWriting(row *dbq.CorpusNote) domain.Writing {
 	in := domain.WritingInit{
 		ID: formatUUID(row.ID), OwnerID: formatUUID(row.OwnerID),
 		Slug: row.Slug, Title: row.Title, Excerpt: row.Excerpt,
-		Body:        row.BodyMd,
+		Body:        row.Body,
 		Tags:        row.Tags,
 		CrossRefs:   row.CrossRefs,
-		Path:        row.Path,
+		Path:        writingPathForSlug(row.Slug),
 		ParentID:    optUUIDString(row.ParentID),
 		ReadMinutes: row.ReadMinutes,
 		Cover: domain.CoverInit{
@@ -64,10 +72,10 @@ func toDomainWriting(row *dbq.Writing) domain.Writing {
 	return domain.NewWriting(&in)
 }
 
-// buildWritingIntegrations —— writings 表里的 obsidian_source_path /
+// buildWritingIntegrations —— corpus_notes 行里的 obsidian_source_path /
 // _imported_at 列在 mapper 这一层翻译成 Integration 集合。未来加 Notion /
 // GitHub 等列时在这一块扩 if branch，不动 domain。
-func buildWritingIntegrations(row *dbq.Writing) domain.Integrations {
+func buildWritingIntegrations(row *dbq.CorpusNote) domain.Integrations {
 	integrations := domain.NewIntegrations()
 	if row.ObsidianSourcePath != "" {
 		var importedAt time.Time

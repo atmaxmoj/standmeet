@@ -12,22 +12,19 @@ import (
 )
 
 const createWriting = `-- name: CreateWriting :one
-INSERT INTO writings (
-    owner_id, slug, title, excerpt, body_md,
+
+INSERT INTO corpus_notes (
+    owner_id, genre, slug, title, excerpt, body,
     cover_headline, cover_hue, cover_image_asset_id,
-    tags, visibility, cross_refs, path, read_minutes, locked_body,
-    published_at, parent_id
+    tags, visibility, cross_refs, read_minutes, locked_body,
+    published_at, parent_id, published
 ) VALUES (
-    $1, $2, $3, $4, $5,
+    $1, 'writing', $2, $3, $4, $5,
     $6, $7, $8,
-    $9, $10, $11, $12, $13, $14,
-    $15, $16
+    $9, $10, $11, $12, $13,
+    $14, $15, $16
 )
-RETURNING id, owner_id, slug, title, excerpt, body_md,
-          cover_headline, cover_hue, cover_image_asset_id,
-          tags, visibility, cross_refs, path, read_minutes, locked_body,
-          obsidian_source_path, obsidian_imported_at,
-          published_at, parent_id, created_at, updated_at
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type CreateWritingParams struct {
@@ -35,60 +32,74 @@ type CreateWritingParams struct {
 	Slug              string
 	Title             string
 	Excerpt           string
-	BodyMd            string
+	Body              string
 	CoverHeadline     string
 	CoverHue          string
 	CoverImageAssetID pgtype.UUID
 	Tags              []string
 	Visibility        string
 	CrossRefs         []string
-	Path              string
 	ReadMinutes       int32
 	LockedBody        string
 	PublishedAt       pgtype.Timestamptz
 	ParentID          pgtype.UUID
+	Published         bool
 }
 
-func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (Writing, error) {
+// writings.sql —— owner 公开发表的"作品"（genre='writing'）的 query。writing 已折进统一
+// corpus_notes 基座（#151），不再是独立 writings 表。列映射：body_md→body，slug/visibility/
+// locked_body/cover_*/read_minutes/cross_refs/published_at 是 corpus_notes 上只对 genre='writing'
+// 有意义的专属列；path **不存**（派生 "writings/"+slug）；obsidian 元数据复用共享列。
+// 每条 query 都限定 genre='writing'，跟其它 genre 隔离。
+func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, createWriting,
 		arg.OwnerID,
 		arg.Slug,
 		arg.Title,
 		arg.Excerpt,
-		arg.BodyMd,
+		arg.Body,
 		arg.CoverHeadline,
 		arg.CoverHue,
 		arg.CoverImageAssetID,
 		arg.Tags,
 		arg.Visibility,
 		arg.CrossRefs,
-		arg.Path,
 		arg.ReadMinutes,
 		arg.LockedBody,
 		arg.PublishedAt,
 		arg.ParentID,
+		arg.Published,
 	)
-	var i Writing
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Slug,
+		&i.Genre,
+		&i.ParentID,
 		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
 		&i.Excerpt,
-		&i.BodyMd,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
 		&i.CoverHeadline,
 		&i.CoverHue,
 		&i.CoverImageAssetID,
-		&i.Tags,
-		&i.Visibility,
-		&i.CrossRefs,
-		&i.Path,
 		&i.ReadMinutes,
-		&i.LockedBody,
-		&i.ObsidianSourcePath,
-		&i.ObsidianImportedAt,
+		&i.CrossRefs,
 		&i.PublishedAt,
-		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -96,7 +107,7 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 }
 
 const deleteWriting = `-- name: DeleteWriting :exec
-DELETE FROM writings WHERE id = $1 AND owner_id = $2
+DELETE FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
 `
 
 type DeleteWritingParams struct {
@@ -109,44 +120,50 @@ func (q *Queries) DeleteWriting(ctx context.Context, arg DeleteWritingParams) er
 	return err
 }
 
-const getPublishedWritingByPath = `-- name: GetPublishedWritingByPath :one
-SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_hue, cover_image_asset_id,
-       tags, visibility, cross_refs, path, read_minutes, locked_body,
-       obsidian_source_path, obsidian_imported_at,
-       published_at, parent_id, created_at, updated_at
-FROM writings WHERE owner_id = $1 AND path = $2 AND published_at IS NOT NULL
+const getPublishedWritingBySlug = `-- name: GetPublishedWritingBySlug :one
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND slug = $2 AND genre = 'writing' AND published_at IS NOT NULL
 `
 
-type GetPublishedWritingByPathParams struct {
+type GetPublishedWritingBySlugParams struct {
 	OwnerID pgtype.UUID
-	Path    string
+	Slug    string
 }
 
-// retriever corpus_read 按树派生 path 读 published writing(DB,不走内存窗口)。
-func (q *Queries) GetPublishedWritingByPath(ctx context.Context, arg GetPublishedWritingByPathParams) (Writing, error) {
-	row := q.db.QueryRow(ctx, getPublishedWritingByPath, arg.OwnerID, arg.Path)
-	var i Writing
+// retriever corpus_read 按 slug 读 published writing（path 派生 "writings/"+slug，
+// 故只需 slug，DB 不走内存窗口）。
+func (q *Queries) GetPublishedWritingBySlug(ctx context.Context, arg GetPublishedWritingBySlugParams) (CorpusNote, error) {
+	row := q.db.QueryRow(ctx, getPublishedWritingBySlug, arg.OwnerID, arg.Slug)
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Slug,
+		&i.Genre,
+		&i.ParentID,
 		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
 		&i.Excerpt,
-		&i.BodyMd,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
 		&i.CoverHeadline,
 		&i.CoverHue,
 		&i.CoverImageAssetID,
-		&i.Tags,
-		&i.Visibility,
-		&i.CrossRefs,
-		&i.Path,
 		&i.ReadMinutes,
-		&i.LockedBody,
-		&i.ObsidianSourcePath,
-		&i.ObsidianImportedAt,
+		&i.CrossRefs,
 		&i.PublishedAt,
-		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -154,12 +171,7 @@ func (q *Queries) GetPublishedWritingByPath(ctx context.Context, arg GetPublishe
 }
 
 const getWritingByID = `-- name: GetWritingByID :one
-SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_hue, cover_image_asset_id,
-       tags, visibility, cross_refs, path, read_minutes, locked_body,
-       obsidian_source_path, obsidian_imported_at,
-       published_at, parent_id, created_at, updated_at
-FROM writings WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
 `
 
 type GetWritingByIDParams struct {
@@ -167,29 +179,38 @@ type GetWritingByIDParams struct {
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) GetWritingByID(ctx context.Context, arg GetWritingByIDParams) (Writing, error) {
+func (q *Queries) GetWritingByID(ctx context.Context, arg GetWritingByIDParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, getWritingByID, arg.ID, arg.OwnerID)
-	var i Writing
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Slug,
+		&i.Genre,
+		&i.ParentID,
 		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
 		&i.Excerpt,
-		&i.BodyMd,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
 		&i.CoverHeadline,
 		&i.CoverHue,
 		&i.CoverImageAssetID,
-		&i.Tags,
-		&i.Visibility,
-		&i.CrossRefs,
-		&i.Path,
 		&i.ReadMinutes,
-		&i.LockedBody,
-		&i.ObsidianSourcePath,
-		&i.ObsidianImportedAt,
+		&i.CrossRefs,
 		&i.PublishedAt,
-		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -197,12 +218,8 @@ func (q *Queries) GetWritingByID(ctx context.Context, arg GetWritingByIDParams) 
 }
 
 const getWritingByObsidianSourcePath = `-- name: GetWritingByObsidianSourcePath :one
-SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_hue, cover_image_asset_id,
-       tags, visibility, cross_refs, path, read_minutes, locked_body,
-       obsidian_source_path, obsidian_imported_at,
-       published_at, parent_id, created_at, updated_at
-FROM writings WHERE owner_id = $1 AND obsidian_source_path = $2
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND obsidian_source_path = $2 AND genre = 'writing'
 `
 
 type GetWritingByObsidianSourcePathParams struct {
@@ -210,29 +227,38 @@ type GetWritingByObsidianSourcePathParams struct {
 	ObsidianSourcePath string
 }
 
-func (q *Queries) GetWritingByObsidianSourcePath(ctx context.Context, arg GetWritingByObsidianSourcePathParams) (Writing, error) {
+func (q *Queries) GetWritingByObsidianSourcePath(ctx context.Context, arg GetWritingByObsidianSourcePathParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, getWritingByObsidianSourcePath, arg.OwnerID, arg.ObsidianSourcePath)
-	var i Writing
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Slug,
+		&i.Genre,
+		&i.ParentID,
 		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
 		&i.Excerpt,
-		&i.BodyMd,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
 		&i.CoverHeadline,
 		&i.CoverHue,
 		&i.CoverImageAssetID,
-		&i.Tags,
-		&i.Visibility,
-		&i.CrossRefs,
-		&i.Path,
 		&i.ReadMinutes,
-		&i.LockedBody,
-		&i.ObsidianSourcePath,
-		&i.ObsidianImportedAt,
+		&i.CrossRefs,
 		&i.PublishedAt,
-		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -240,12 +266,7 @@ func (q *Queries) GetWritingByObsidianSourcePath(ctx context.Context, arg GetWri
 }
 
 const getWritingBySlug = `-- name: GetWritingBySlug :one
-SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_hue, cover_image_asset_id,
-       tags, visibility, cross_refs, path, read_minutes, locked_body,
-       obsidian_source_path, obsidian_imported_at,
-       published_at, parent_id, created_at, updated_at
-FROM writings WHERE owner_id = $1 AND slug = $2
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes WHERE owner_id = $1 AND slug = $2 AND genre = 'writing'
 `
 
 type GetWritingBySlugParams struct {
@@ -253,29 +274,38 @@ type GetWritingBySlugParams struct {
 	Slug    string
 }
 
-func (q *Queries) GetWritingBySlug(ctx context.Context, arg GetWritingBySlugParams) (Writing, error) {
+func (q *Queries) GetWritingBySlug(ctx context.Context, arg GetWritingBySlugParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, getWritingBySlug, arg.OwnerID, arg.Slug)
-	var i Writing
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Slug,
+		&i.Genre,
+		&i.ParentID,
 		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
 		&i.Excerpt,
-		&i.BodyMd,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
 		&i.CoverHeadline,
 		&i.CoverHue,
 		&i.CoverImageAssetID,
-		&i.Tags,
-		&i.Visibility,
-		&i.CrossRefs,
-		&i.Path,
 		&i.ReadMinutes,
-		&i.LockedBody,
-		&i.ObsidianSourcePath,
-		&i.ObsidianImportedAt,
+		&i.CrossRefs,
 		&i.PublishedAt,
-		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -284,8 +314,8 @@ func (q *Queries) GetWritingBySlug(ctx context.Context, arg GetWritingBySlugPara
 
 const listPublishedWritingSlugAndTitle = `-- name: ListPublishedWritingSlugAndTitle :many
 SELECT slug, title
-FROM writings
-WHERE owner_id = $1 AND published_at IS NOT NULL
+FROM corpus_notes
+WHERE owner_id = $1 AND genre = 'writing' AND published_at IS NOT NULL
 ORDER BY slug ASC
 `
 
@@ -295,8 +325,7 @@ type ListPublishedWritingSlugAndTitleRow struct {
 }
 
 // /writings 渲染 [[crosslink]] 时用：拉 owner 所有 published writing 的
-// slug + title 当 resolution index，不带 body_md（避免 N+1 那种全 body 重
-// 传开销）。
+// slug + title 当 resolution index，不带 body（避免 N+1 那种全 body 重传开销）。
 func (q *Queries) ListPublishedWritingSlugAndTitle(ctx context.Context, ownerID pgtype.UUID) ([]ListPublishedWritingSlugAndTitleRow, error) {
 	rows, err := q.db.Query(ctx, listPublishedWritingSlugAndTitle, ownerID)
 	if err != nil {
@@ -318,45 +347,49 @@ func (q *Queries) ListPublishedWritingSlugAndTitle(ctx context.Context, ownerID 
 }
 
 const listPublishedWritingsByOwner = `-- name: ListPublishedWritingsByOwner :many
-SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_hue, cover_image_asset_id,
-       tags, visibility, cross_refs, path, read_minutes, locked_body,
-       obsidian_source_path, obsidian_imported_at,
-       published_at, parent_id, created_at, updated_at
-FROM writings
-WHERE owner_id = $1 AND published_at IS NOT NULL
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND genre = 'writing' AND published_at IS NOT NULL
 ORDER BY published_at DESC
 `
 
-func (q *Queries) ListPublishedWritingsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Writing, error) {
+func (q *Queries) ListPublishedWritingsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, listPublishedWritingsByOwner, ownerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Writing
+	var items []CorpusNote
 	for rows.Next() {
-		var i Writing
+		var i CorpusNote
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
-			&i.Slug,
+			&i.Genre,
+			&i.ParentID,
 			&i.Title,
+			&i.Body,
+			&i.Tags,
+			&i.SourceIds,
+			&i.ShowAsSource,
 			&i.Excerpt,
-			&i.BodyMd,
+			&i.Published,
+			&i.CssClasses,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
+			&i.InboxSource,
+			&i.InboxMeta,
+			&i.FlaggedPrivate,
+			&i.Archived,
+			&i.PromotedTo,
+			&i.Slug,
+			&i.Visibility,
+			&i.LockedBody,
 			&i.CoverHeadline,
 			&i.CoverHue,
 			&i.CoverImageAssetID,
-			&i.Tags,
-			&i.Visibility,
-			&i.CrossRefs,
-			&i.Path,
 			&i.ReadMinutes,
-			&i.LockedBody,
-			&i.ObsidianSourcePath,
-			&i.ObsidianImportedAt,
+			&i.CrossRefs,
 			&i.PublishedAt,
-			&i.ParentID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -371,13 +404,8 @@ func (q *Queries) ListPublishedWritingsByOwner(ctx context.Context, ownerID pgty
 }
 
 const listPublishedWritingsByOwnerPage = `-- name: ListPublishedWritingsByOwnerPage :many
-SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_hue, cover_image_asset_id,
-       tags, visibility, cross_refs, path, read_minutes, locked_body,
-       obsidian_source_path, obsidian_imported_at,
-       published_at, parent_id, created_at, updated_at
-FROM writings
-WHERE owner_id = $1
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND genre = 'writing'
   AND published_at IS NOT NULL
   AND ($2::timestamptz IS NULL OR published_at < $2::timestamptz)
 ORDER BY published_at DESC
@@ -392,35 +420,44 @@ type ListPublishedWritingsByOwnerPageParams struct {
 
 // 分页 infinite scroll：cursor = 上一页最末 writing.published_at (RFC3339)，
 // 第一页 cursor 传 NULL 拿最新 N 条。返 LIMIT+1 让 caller 判断 has_more。
-func (q *Queries) ListPublishedWritingsByOwnerPage(ctx context.Context, arg ListPublishedWritingsByOwnerPageParams) ([]Writing, error) {
+func (q *Queries) ListPublishedWritingsByOwnerPage(ctx context.Context, arg ListPublishedWritingsByOwnerPageParams) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, listPublishedWritingsByOwnerPage, arg.OwnerID, arg.Column2, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Writing
+	var items []CorpusNote
 	for rows.Next() {
-		var i Writing
+		var i CorpusNote
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
-			&i.Slug,
+			&i.Genre,
+			&i.ParentID,
 			&i.Title,
+			&i.Body,
+			&i.Tags,
+			&i.SourceIds,
+			&i.ShowAsSource,
 			&i.Excerpt,
-			&i.BodyMd,
+			&i.Published,
+			&i.CssClasses,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
+			&i.InboxSource,
+			&i.InboxMeta,
+			&i.FlaggedPrivate,
+			&i.Archived,
+			&i.PromotedTo,
+			&i.Slug,
+			&i.Visibility,
+			&i.LockedBody,
 			&i.CoverHeadline,
 			&i.CoverHue,
 			&i.CoverImageAssetID,
-			&i.Tags,
-			&i.Visibility,
-			&i.CrossRefs,
-			&i.Path,
 			&i.ReadMinutes,
-			&i.LockedBody,
-			&i.ObsidianSourcePath,
-			&i.ObsidianImportedAt,
+			&i.CrossRefs,
 			&i.PublishedAt,
-			&i.ParentID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -435,45 +472,49 @@ func (q *Queries) ListPublishedWritingsByOwnerPage(ctx context.Context, arg List
 }
 
 const listWritingsByOwner = `-- name: ListWritingsByOwner :many
-SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_hue, cover_image_asset_id,
-       tags, visibility, cross_refs, path, read_minutes, locked_body,
-       obsidian_source_path, obsidian_imported_at,
-       published_at, parent_id, created_at, updated_at
-FROM writings
-WHERE owner_id = $1
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND genre = 'writing'
 ORDER BY COALESCE(published_at, created_at) DESC
 `
 
-func (q *Queries) ListWritingsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Writing, error) {
+func (q *Queries) ListWritingsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, listWritingsByOwner, ownerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Writing
+	var items []CorpusNote
 	for rows.Next() {
-		var i Writing
+		var i CorpusNote
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
-			&i.Slug,
+			&i.Genre,
+			&i.ParentID,
 			&i.Title,
+			&i.Body,
+			&i.Tags,
+			&i.SourceIds,
+			&i.ShowAsSource,
 			&i.Excerpt,
-			&i.BodyMd,
+			&i.Published,
+			&i.CssClasses,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
+			&i.InboxSource,
+			&i.InboxMeta,
+			&i.FlaggedPrivate,
+			&i.Archived,
+			&i.PromotedTo,
+			&i.Slug,
+			&i.Visibility,
+			&i.LockedBody,
 			&i.CoverHeadline,
 			&i.CoverHue,
 			&i.CoverImageAssetID,
-			&i.Tags,
-			&i.Visibility,
-			&i.CrossRefs,
-			&i.Path,
 			&i.ReadMinutes,
-			&i.LockedBody,
-			&i.ObsidianSourcePath,
-			&i.ObsidianImportedAt,
+			&i.CrossRefs,
 			&i.PublishedAt,
-			&i.ParentID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -488,13 +529,9 @@ func (q *Queries) ListWritingsByOwner(ctx context.Context, ownerID pgtype.UUID) 
 }
 
 const publishWriting = `-- name: PublishWriting :one
-UPDATE writings SET published_at = now(), updated_at = now()
-WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, slug, title, excerpt, body_md,
-          cover_headline, cover_hue, cover_image_asset_id,
-          tags, visibility, cross_refs, path, read_minutes, locked_body,
-          obsidian_source_path, obsidian_imported_at,
-          published_at, parent_id, created_at, updated_at
+UPDATE corpus_notes SET published_at = now(), published = true, updated_at = now()
+WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type PublishWritingParams struct {
@@ -502,29 +539,38 @@ type PublishWritingParams struct {
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) PublishWriting(ctx context.Context, arg PublishWritingParams) (Writing, error) {
+func (q *Queries) PublishWriting(ctx context.Context, arg PublishWritingParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, publishWriting, arg.ID, arg.OwnerID)
-	var i Writing
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Slug,
+		&i.Genre,
+		&i.ParentID,
 		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
 		&i.Excerpt,
-		&i.BodyMd,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
 		&i.CoverHeadline,
 		&i.CoverHue,
 		&i.CoverImageAssetID,
-		&i.Tags,
-		&i.Visibility,
-		&i.CrossRefs,
-		&i.Path,
 		&i.ReadMinutes,
-		&i.LockedBody,
-		&i.ObsidianSourcePath,
-		&i.ObsidianImportedAt,
+		&i.CrossRefs,
 		&i.PublishedAt,
-		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -532,17 +578,12 @@ func (q *Queries) PublishWriting(ctx context.Context, arg PublishWritingParams) 
 }
 
 const searchPublishedWritings = `-- name: SearchPublishedWritings :many
-SELECT id, owner_id, slug, title, excerpt, body_md,
-       cover_headline, cover_hue, cover_image_asset_id,
-       tags, visibility, cross_refs, path, read_minutes, locked_body,
-       obsidian_source_path, obsidian_imported_at,
-       published_at, parent_id, created_at, updated_at
-FROM writings
-WHERE owner_id = $1 AND published_at IS NOT NULL
-  AND to_tsvector('english', title || ' ' || body_md || ' ' || array_to_string(tags, ' '))
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND genre = 'writing' AND published_at IS NOT NULL
+  AND to_tsvector('english', title || ' ' || body || ' ' || array_to_string(tags, ' '))
       @@ replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
 ORDER BY ts_rank(
-        to_tsvector('english', title || ' ' || body_md || ' ' || array_to_string(tags, ' ')),
+        to_tsvector('english', title || ' ' || body || ' ' || array_to_string(tags, ' ')),
         replace(plainto_tsquery('english', $2)::text, ' & ', ' | ')::tsquery
       ) DESC, published_at DESC
 LIMIT $3 OFFSET $4
@@ -557,7 +598,7 @@ type SearchPublishedWritingsParams struct {
 
 // retriever corpus_search 全量搜 published writing(DB full-text,镜像 wiki/output:
 // 自然语言问句按 OR 命中任一词项,ts_rank 排序),不吃内存窗口。
-func (q *Queries) SearchPublishedWritings(ctx context.Context, arg SearchPublishedWritingsParams) ([]Writing, error) {
+func (q *Queries) SearchPublishedWritings(ctx context.Context, arg SearchPublishedWritingsParams) ([]CorpusNote, error) {
 	rows, err := q.db.Query(ctx, searchPublishedWritings,
 		arg.OwnerID,
 		arg.PlaintoTsquery,
@@ -568,29 +609,38 @@ func (q *Queries) SearchPublishedWritings(ctx context.Context, arg SearchPublish
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Writing
+	var items []CorpusNote
 	for rows.Next() {
-		var i Writing
+		var i CorpusNote
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
-			&i.Slug,
+			&i.Genre,
+			&i.ParentID,
 			&i.Title,
+			&i.Body,
+			&i.Tags,
+			&i.SourceIds,
+			&i.ShowAsSource,
 			&i.Excerpt,
-			&i.BodyMd,
+			&i.Published,
+			&i.CssClasses,
+			&i.ObsidianSourcePath,
+			&i.ObsidianImportedAt,
+			&i.InboxSource,
+			&i.InboxMeta,
+			&i.FlaggedPrivate,
+			&i.Archived,
+			&i.PromotedTo,
+			&i.Slug,
+			&i.Visibility,
+			&i.LockedBody,
 			&i.CoverHeadline,
 			&i.CoverHue,
 			&i.CoverImageAssetID,
-			&i.Tags,
-			&i.Visibility,
-			&i.CrossRefs,
-			&i.Path,
 			&i.ReadMinutes,
-			&i.LockedBody,
-			&i.ObsidianSourcePath,
-			&i.ObsidianImportedAt,
+			&i.CrossRefs,
 			&i.PublishedAt,
-			&i.ParentID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -605,11 +655,11 @@ func (q *Queries) SearchPublishedWritings(ctx context.Context, arg SearchPublish
 }
 
 const setWritingObsidianMeta = `-- name: SetWritingObsidianMeta :exec
-UPDATE writings
+UPDATE corpus_notes
 SET obsidian_source_path = $3,
     obsidian_imported_at = now(),
     updated_at = now()
-WHERE id = $1 AND owner_id = $2
+WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
 `
 
 type SetWritingObsidianMetaParams struct {
@@ -627,13 +677,9 @@ func (q *Queries) SetWritingObsidianMeta(ctx context.Context, arg SetWritingObsi
 }
 
 const unpublishWriting = `-- name: UnpublishWriting :one
-UPDATE writings SET published_at = NULL, updated_at = now()
-WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, slug, title, excerpt, body_md,
-          cover_headline, cover_hue, cover_image_asset_id,
-          tags, visibility, cross_refs, path, read_minutes, locked_body,
-          obsidian_source_path, obsidian_imported_at,
-          published_at, parent_id, created_at, updated_at
+UPDATE corpus_notes SET published_at = NULL, published = false, updated_at = now()
+WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type UnpublishWritingParams struct {
@@ -641,29 +687,38 @@ type UnpublishWritingParams struct {
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) UnpublishWriting(ctx context.Context, arg UnpublishWritingParams) (Writing, error) {
+func (q *Queries) UnpublishWriting(ctx context.Context, arg UnpublishWritingParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, unpublishWriting, arg.ID, arg.OwnerID)
-	var i Writing
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Slug,
+		&i.Genre,
+		&i.ParentID,
 		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
 		&i.Excerpt,
-		&i.BodyMd,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
 		&i.CoverHeadline,
 		&i.CoverHue,
 		&i.CoverImageAssetID,
-		&i.Tags,
-		&i.Visibility,
-		&i.CrossRefs,
-		&i.Path,
 		&i.ReadMinutes,
-		&i.LockedBody,
-		&i.ObsidianSourcePath,
-		&i.ObsidianImportedAt,
+		&i.CrossRefs,
 		&i.PublishedAt,
-		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -671,18 +726,14 @@ func (q *Queries) UnpublishWriting(ctx context.Context, arg UnpublishWritingPara
 }
 
 const updateWriting = `-- name: UpdateWriting :one
-UPDATE writings SET
-    title = $3, excerpt = $4, body_md = $5,
+UPDATE corpus_notes SET
+    title = $3, excerpt = $4, body = $5,
     cover_headline = $6, cover_hue = $7, cover_image_asset_id = $8,
-    tags = $9, visibility = $10, cross_refs = $11, path = $12,
-    read_minutes = $13, locked_body = $14, parent_id = $15,
+    tags = $9, visibility = $10, cross_refs = $11,
+    read_minutes = $12, locked_body = $13, parent_id = $14,
     updated_at = now()
-WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, slug, title, excerpt, body_md,
-          cover_headline, cover_hue, cover_image_asset_id,
-          tags, visibility, cross_refs, path, read_minutes, locked_body,
-          obsidian_source_path, obsidian_imported_at,
-          published_at, parent_id, created_at, updated_at
+WHERE id = $1 AND owner_id = $2 AND genre = 'writing'
+RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type UpdateWritingParams struct {
@@ -690,58 +741,65 @@ type UpdateWritingParams struct {
 	OwnerID           pgtype.UUID
 	Title             string
 	Excerpt           string
-	BodyMd            string
+	Body              string
 	CoverHeadline     string
 	CoverHue          string
 	CoverImageAssetID pgtype.UUID
 	Tags              []string
 	Visibility        string
 	CrossRefs         []string
-	Path              string
 	ReadMinutes       int32
 	LockedBody        string
 	ParentID          pgtype.UUID
 }
 
-func (q *Queries) UpdateWriting(ctx context.Context, arg UpdateWritingParams) (Writing, error) {
+func (q *Queries) UpdateWriting(ctx context.Context, arg UpdateWritingParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, updateWriting,
 		arg.ID,
 		arg.OwnerID,
 		arg.Title,
 		arg.Excerpt,
-		arg.BodyMd,
+		arg.Body,
 		arg.CoverHeadline,
 		arg.CoverHue,
 		arg.CoverImageAssetID,
 		arg.Tags,
 		arg.Visibility,
 		arg.CrossRefs,
-		arg.Path,
 		arg.ReadMinutes,
 		arg.LockedBody,
 		arg.ParentID,
 	)
-	var i Writing
+	var i CorpusNote
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
-		&i.Slug,
+		&i.Genre,
+		&i.ParentID,
 		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
 		&i.Excerpt,
-		&i.BodyMd,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
 		&i.CoverHeadline,
 		&i.CoverHue,
 		&i.CoverImageAssetID,
-		&i.Tags,
-		&i.Visibility,
-		&i.CrossRefs,
-		&i.Path,
 		&i.ReadMinutes,
-		&i.LockedBody,
-		&i.ObsidianSourcePath,
-		&i.ObsidianImportedAt,
+		&i.CrossRefs,
 		&i.PublishedAt,
-		&i.ParentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

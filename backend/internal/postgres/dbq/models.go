@@ -163,6 +163,15 @@ type CorpusNote struct {
 	FlaggedPrivate     bool
 	Archived           bool
 	PromotedTo         pgtype.UUID
+	Slug               string
+	Visibility         string
+	LockedBody         string
+	CoverHeadline      string
+	CoverHue           string
+	CoverImageAssetID  pgtype.UUID
+	ReadMinutes        int32
+	CrossRefs          []string
+	PublishedAt        pgtype.Timestamptz
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 }
@@ -482,30 +491,6 @@ type Skill struct {
 	Source       string
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
-}
-
-type Writing struct {
-	ID                 pgtype.UUID
-	OwnerID            pgtype.UUID
-	Slug               string
-	Title              string
-	Excerpt            string
-	BodyMd             string
-	CoverHeadline      string
-	CoverHue           string
-	CoverImageAssetID  pgtype.UUID
-	Tags               []string
-	Visibility         string
-	CrossRefs          []string
-	Path               string
-	ReadMinutes        int32
-	LockedBody         string
-	ObsidianSourcePath string
-	ObsidianImportedAt pgtype.Timestamptz
-	PublishedAt        pgtype.Timestamptz
-	ParentID           pgtype.UUID
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
 }
 
 type WritingRef struct {

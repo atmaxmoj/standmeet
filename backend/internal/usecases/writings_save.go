@@ -247,13 +247,13 @@ func upsertWritingShell(
 }
 
 func buildShellCreateInput(in *SaveWritingInput) *postgres.CreateWritingInput {
-	path := "writings/" + in.Slug
+	// path 不再存列:writing 折进 corpus_notes 后由 slug 派生 "writings/"+slug。
 	return &postgres.CreateWritingInput{
 		OwnerID: in.OwnerID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
 		BodyMD: "", CoverHeadline: in.CoverHeadline,
 		CoverHue: in.CoverHue, CoverImageAssetID: nil,
 		Tags: in.Tags, Visibility: in.Visibility, CrossRefs: in.CrossRefs,
-		Path: path, ReadMinutes: 0, LockedBody: in.LockedBody, Publish: in.Publish,
+		ReadMinutes: 0, LockedBody: in.LockedBody, Publish: in.Publish,
 		ParentID: in.ParentID,
 	}
 }
@@ -310,8 +310,8 @@ func writeWritingBody(ctx context.Context, a *writeBodyArgs) (domain.Writing, er
 		CoverHeadline: a.In.CoverHeadline,
 		CoverHue:      a.In.CoverHue, CoverImageAssetID: cover,
 		Tags: a.In.Tags, Visibility: a.In.Visibility, CrossRefs: a.In.CrossRefs,
-		Path: a.Writing.Path(), ReadMinutes: estimateReadMinutes(body),
-		LockedBody: a.In.LockedBody, ParentID: effectiveWritingParent(a),
+		ReadMinutes: estimateReadMinutes(body),
+		LockedBody:  a.In.LockedBody, ParentID: effectiveWritingParent(a),
 	})
 	if err != nil {
 		return domain.Writing{}, fmt.Errorf("update writing body: %w", err)

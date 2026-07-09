@@ -1,7 +1,7 @@
 // writings_retrieval.go —— WritingRepo 的 visitor 检索路径:corpus_search 的全量
-// full-text 搜 + corpus_read 的按树派生 path 读。跟 wiki/output 的 Search/GetByID
-// 对称(writing 自带 path 列 + published 准入,故无需 tree 上溯)。从 writings.go 拆
-// 出来守 350-line cap。
+// full-text 搜 + corpus_read 的按 path 读。writing 折进 corpus_notes 后 path 不存列,
+// 由 slug 派生 "writings/<slug>";GetPublishedByPath 剥前缀取 slug 再按 slug 查(retriever
+// 传的仍是 path,签名不变)。从 writings.go 拆出来守 350-line cap。
 
 package postgres
 
@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -16,7 +17,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// GetPublishedByPath —— retriever corpus_read 按树派生 path 读 published writing。
+// GetPublishedByPath —— retriever corpus_read 按 path 读 published writing。path 派生自 slug
+// ("writings/<slug>"),故剥前缀取 slug 再查;不带前缀的 path 认不到 → ErrWritingNotFound。
 func (r *WritingRepo) GetPublishedByPath(
 	ctx context.Context, ownerID, path string,
 ) (domain.Writing, error) {
@@ -24,14 +26,18 @@ func (r *WritingRepo) GetPublishedByPath(
 	if oerr != nil {
 		return domain.Writing{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
 	}
-	row, err := dbq.New(r.pool).GetPublishedWritingByPath(ctx, dbq.GetPublishedWritingByPathParams{
-		OwnerID: ownerUUID, Path: path,
+	slug, ok := strings.CutPrefix(path, writingPathPrefix)
+	if !ok {
+		return domain.Writing{}, domain.ErrWritingNotFound
+	}
+	row, err := dbq.New(r.pool).GetPublishedWritingBySlug(ctx, dbq.GetPublishedWritingBySlugParams{
+		OwnerID: ownerUUID, Slug: slug,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Writing{}, domain.ErrWritingNotFound
 		}
-		return domain.Writing{}, fmt.Errorf("get published writing by path: %w", err)
+		return domain.Writing{}, fmt.Errorf("get published writing by slug: %w", err)
 	}
 	return toDomainWriting(&row), nil
 }

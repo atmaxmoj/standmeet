@@ -12,9 +12,10 @@ ON CONFLICT DO NOTHING;
 -- name: ListBacklinksForWriting :many
 -- public /writings/<slug> 渲染 "linked from" 用。返 backlink 来源 writing 的
 -- slug + title。只列 src writing 已 published 的（visitor 看不见草稿）。
+-- writing 折进 corpus_notes(genre='writing'，#151)，故 JOIN 统一表 + 限定 genre。
 SELECT w.slug, w.title
 FROM writing_refs wr
-JOIN writings w ON w.id = wr.src_writing_id
+JOIN corpus_notes w ON w.id = wr.src_writing_id AND w.genre = 'writing'
 WHERE wr.dst_writing_id = $1
   AND w.owner_id = $2
   AND w.published_at IS NOT NULL
@@ -25,6 +26,6 @@ ORDER BY w.published_at DESC NULLS LAST, w.title ASC;
 -- 的 dst slug + title（用 JOIN：dst 已被删掉但边还在的清除手段）。
 SELECT w.slug, w.title
 FROM writing_refs wr
-JOIN writings w ON w.id = wr.dst_writing_id
+JOIN corpus_notes w ON w.id = wr.dst_writing_id AND w.genre = 'writing'
 WHERE wr.src_writing_id = $1
 ORDER BY w.title ASC;

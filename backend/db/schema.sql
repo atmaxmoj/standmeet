@@ -95,9 +95,10 @@ CREATE TABLE owner_keypairs (
 -- inbox_meta / flagged_private / archived / promoted_to)现是 corpus_notes 上的专属列;vault raw
 -- 幂等靠 corpus_notes_inbox_source_uniq(见下)。
 
--- corpus_notes —— 统一的 vault note 基座。一张表容纳所有「笔记类」genre。今天迁入 wiki + output
--- （二者结构本 95% 相同）；writing / subjectivity 后续阶段同表迁入。raw 也已迁入(genre='raw'，
--- #151):未整理的摄入 inbox，靠 inbox_* 专属列区分,不再是独立表。
+-- corpus_notes —— 统一的 vault note 基座。一张表容纳所有「笔记类」genre：wiki + output + subjectivity
+-- + raw (genre='raw'，未整理摄入 inbox，靠 inbox_* 列区分) + writing (genre='writing'，owner 公开
+-- 发表的"作品"，靠 slug / visibility / cover_* / read_minutes / cross_refs / published_at 列区分)。
+-- writings 独立表 + writing_refs 已删(#151):作品折进本表,resolved [[X]] 边归一到 note_refs。
 --   genre      —— 品类维度（'wiki' | 'output' | …）。ACL / retrieval / 寻址都带上它，加 genre 零建表。
 --   parent_id   —— 树。地址（path）仍纯树派生（parent 链 + title slug，见 usecases.TreePaths），
 --                  不存列：corpus 是 filesystem，路径来自它在哪个目录下。删父 → 子孙级联删。
@@ -133,6 +134,28 @@ CREATE TABLE corpus_notes (
     flagged_private  boolean       NOT NULL DEFAULT false,
     archived         boolean       NOT NULL DEFAULT false,
     promoted_to      uuid          NULL,
+    -- writing fields —— only meaningful for genre='writing' (the public "作品" reader folded into the
+    -- one corpus structure, #151). Every other genre keeps the harmless defaults and never reads them.
+    --   slug          —— per-owner stable identity; the public reader is /writings/<slug>, cross-links
+    --                    resolve by slug, and the retriever URI is writing://writings/<slug>. Unlike the
+    --                    tree-derived path of wiki/output, writing addressing is flat + slug-keyed, so the
+    --                    slug is stored (path is NOT — it derives as "writings/"+slug in Go, same value as
+    --                    before, so ACL / eval fixtures stay byte-identical).
+    --   visibility    —— 'public' | 'private'; a bool can't hold the tri-shape (mode + locked_body teaser),
+    --                    the public reader renders differently per mode → kept as text. published_at NULL =
+    --                    draft; the shared `published` bool mirrors (published_at IS NOT NULL).
+    --   cross_refs    —— the owner-authored [[X]] slug list (input side); the RESOLVED edges live in the
+    --                    note_refs edge table (writing_refs was folded into it, #151). Kept distinct.
+    slug             text          NOT NULL DEFAULT '',
+    visibility       text          NOT NULL DEFAULT 'public',
+    locked_body      text          NOT NULL DEFAULT '',
+    cover_headline   text          NOT NULL DEFAULT '',
+    cover_hue        text          NOT NULL DEFAULT 'amber',
+    -- FK to assets(id) added via ALTER after the assets table (assets is declared later in this file).
+    cover_image_asset_id  uuid     NULL,
+    read_minutes     int           NOT NULL DEFAULT 0,
+    cross_refs       text[]        NOT NULL DEFAULT '{}',
+    published_at     timestamptz   NULL,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
@@ -142,6 +165,12 @@ CREATE INDEX corpus_notes_source_path_idx ON corpus_notes(owner_id, obsidian_sou
 -- raw inbox idempotency: one row per (owner, inbox_source) for vault-sourced raw (re-upload = upsert).
 CREATE UNIQUE INDEX corpus_notes_inbox_source_uniq
   ON corpus_notes (owner_id, inbox_source) WHERE genre = 'raw' AND inbox_source LIKE 'obsidian:%';
+-- writing slug uniqueness: per-owner unique slug for genre='writing' (mirrors old writings_owner_slug_uniq).
+CREATE UNIQUE INDEX corpus_notes_writing_slug_uniq
+  ON corpus_notes (owner_id, slug) WHERE genre = 'writing';
+-- writing published listing / infinite-scroll cursor (mirrors old writings_owner_published_idx).
+CREATE INDEX corpus_notes_writing_published_idx
+  ON corpus_notes (owner_id, published_at DESC NULLS LAST) WHERE genre = 'writing';
 
 -- note_refs —— corpus_notes 跨-genre `[[Title]]` 双链边表。src/dst 现指向 corpus_notes（genre='wiki'）。
 -- body 里 owner 写 `[[X]]`，PromoteToWiki / UpdateWiki 同事务 resolve X 到目标 note.id（wiki 无
@@ -419,78 +448,31 @@ CREATE TABLE assets (
 
 CREATE INDEX assets_holder_idx ON assets(holder_id);
 
--- writings —— owner 公开发表的"作品"（之前叫 posts；改名为更对位 owner
--- 内部叙事的 writing）。设计源自 claude.ai/design 的 essay 风格 (Stripe-
--- Press)。文章本身是 corpus document 的展开版：visitor chat retriever 可读
--- (uri='writing://<slug>')；private writing 通过 URI-glob ACL 走跟 wiki 同
--- 一套 corpus_permissions (InviteCode 的 path_pattern 匹 URI)。
---
--- body_md —— canonical 唯一存储格式，GitHub-flavored markdown。owner 在
--- admin Tiptap 编辑器里写（编辑器底层 round-trip markdown），MCP `writing_create`
--- 也只接 markdown，AI 原生吐什么我们就存什么。不发明 "block JSON" 中间态、
--- 不存 "格式标签"——单一形态，render 端 react-markdown + remark-gfm 直渲。
---
--- cover 是 typographic (大字 + sub + hue)，不上图也好看；可选 cover_image
--- _asset_id 后续支持真图 (落 assets 表)。
---
--- visibility: 'public' 或 'private'；private 在 URI-glob ACL 走 deny
--- 默认，特定 code 的 allow rule 放行。
---
--- read_minutes：denormalized 字段，Create/Update 时从 body_md 重算。原因是
--- list endpoint 不希望为每行算一遍 word count（也不想 ship body_md 给 list）。
---
--- published_at NULL = 草稿；NOT NULL = 已发布，前端公开 list 才显示。
-CREATE TABLE writings (
-    id                    uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id              uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    slug                  text          NOT NULL,
-    title                 text          NOT NULL,
-    excerpt               text          NOT NULL DEFAULT '',
-    body_md               text          NOT NULL DEFAULT '',
-    cover_headline        text          NOT NULL DEFAULT '',
-    cover_hue             text          NOT NULL DEFAULT 'amber',
-    cover_image_asset_id  uuid          NULL REFERENCES assets(id) ON DELETE SET NULL,
-    tags                  text[]        NOT NULL DEFAULT '{}',
-    visibility            text          NOT NULL DEFAULT 'public',
-    cross_refs            text[]        NOT NULL DEFAULT '{}',
-    path                  text          NOT NULL,
-    read_minutes          int           NOT NULL DEFAULT 0,
-    locked_body           text          NOT NULL DEFAULT '',
-    -- Obsidian sync 元数据。obsidian_source_path = import 时来自的 vault
-    -- 内相对路径 (notes/x.md)；obsidian_imported_at = 那次 import 的时刻。
-    -- 都是空 = 从未跟 vault 关联过。re-import 时根据 path 撞行决定 upsert
-    -- 还是 skip（owner 在 web 改过的，updated_at > obsidian_imported_at →
-    -- 保留 web 版本，避免覆盖 owner 后续编辑）。
-    obsidian_source_path  text          NOT NULL DEFAULT '',
-    obsidian_imported_at  timestamptz   NULL,
-    published_at          timestamptz   NULL,
-    -- parent_id —— writing 树(reader sidebar 嵌套)。同 wiki note 口径:
-    -- 自引用 FK,删父级联删子孙。导航仍按 slug,parent 只决定树嵌套。
-    parent_id             uuid          NULL REFERENCES writings(id) ON DELETE CASCADE,
-    created_at            timestamptz   NOT NULL DEFAULT now(),
-    updated_at            timestamptz   NOT NULL DEFAULT now()
-);
+-- writing note 现同住 corpus_notes（genre='writing'）；cover_image_asset_id FK 重指 assets（writings 已删，
+-- #151）。assets 在本文件后于 corpus_notes 声明,故 FK 在此 ALTER 补挂(不能在建表处前向引用)。
+ALTER TABLE corpus_notes
+    ADD CONSTRAINT corpus_notes_cover_asset_fk
+    FOREIGN KEY (cover_image_asset_id) REFERENCES assets(id) ON DELETE SET NULL;
 
-CREATE UNIQUE INDEX writings_owner_slug_uniq ON writings(owner_id, slug);
-CREATE INDEX writings_owner_published_idx ON writings(owner_id, published_at DESC NULLS LAST);
-CREATE INDEX writings_owner_path_idx ON writings(owner_id, path);
-CREATE INDEX writings_owner_parent_idx ON writings(owner_id, parent_id);
+-- writings 表已删除:owner 公开发表的"作品"折进 corpus_notes(genre='writing'，#151)。writing 专属语义
+-- (slug / visibility / locked_body / cover_* / read_minutes / cross_refs / published_at)现是 corpus_notes
+-- 上的专属列;body_md→body, path 不存(派生 "writings/"+slug), obsidian 元数据复用共享列。slug 唯一 +
+-- published 列表索引见 corpus_notes 建表处的 partial index。
 
--- writing_refs —— writing 内 `[[slug]]` / `[[Title]]` 双链的边表。
+-- writing_refs —— writing 内 `[[slug]]` / `[[Title]]` 双链的边表。src/dst 现指向 corpus_notes(genre=
+-- 'writing')（writings 表已删，#151）。
 --
--- body_md 里 owner 写 `[[X]]`，SaveWriting 同事务 resolve X 到目标 writing.id
--- (规则：先按 slug case-insensitive，没中再按 title fallback；都没中就
--- 不入边，render 那侧留原字面 [[X]] 当文字)。每次 save 走 "delete all
--- where src=this_writing → insert new" 重建 src 出度，简单不易漂。
+-- body 里 owner 写 `[[X]]`，SaveWriting 同事务 resolve X 到目标 note.id (规则：先按 slug case-
+-- insensitive，没中再按 title fallback；都没中就不入边，render 那侧留原字面 [[X]] 当文字)。每次 save
+-- 走 "delete all where src=this_writing → insert new" 重建 src 出度，简单不易漂。
 --
--- 双向 lookup：(src) 出度跟 SaveWriting 共事务一起更新；(dst) 入度（=
--- backlinks）由 public /writings GET 时按 dst 查。
+-- 双向 lookup：(src) 出度跟 SaveWriting 共事务一起更新；(dst) 入度（= backlinks）由 public /writings GET
+-- 时按 dst 查（只列 published 的源）。
 --
--- FK cascade ON DELETE：src 或 dst writing 删了 → 对应边自动消失。
--- src_writing_id = dst_writing_id 不阻止 ("self-link") —— 极少用，但不破坏 invariant。
+-- FK cascade ON DELETE：src 或 dst note 删了 → 对应边自动消失。
 CREATE TABLE writing_refs (
-    src_writing_id  uuid          NOT NULL REFERENCES writings(id) ON DELETE CASCADE,
-    dst_writing_id  uuid          NOT NULL REFERENCES writings(id) ON DELETE CASCADE,
+    src_writing_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
+    dst_writing_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     created_at      timestamptz   NOT NULL DEFAULT now(),
     PRIMARY KEY (src_writing_id, dst_writing_id)

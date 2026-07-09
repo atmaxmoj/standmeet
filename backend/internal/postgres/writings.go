@@ -1,6 +1,6 @@
-// writings.go —— writings 表 CRUD。body_md 是 markdown text 直存；
-// cover_image_asset_id 可空 (typographic-only writing 不挂图)。slug 冲突翻
-// ErrWritingSlugTaken。
+// writings.go —— corpus_notes(genre='writing') CRUD 视图。writing 折进统一
+// note 基座(#151):body(markdown text 直存)对应旧 body_md；cover_image_asset_id
+// 可空 (typographic-only writing 不挂图)。slug 冲突翻 ErrWritingSlugTaken。
 
 package postgres
 
@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// WritingRepo —— writings 表 CRUD。
+// WritingRepo —— corpus_notes(genre='writing') CRUD 视图。
 type WritingRepo struct {
 	pool *Pool
 }
@@ -29,6 +29,7 @@ func NewWritingRepo(pool *Pool) *WritingRepo { return &WritingRepo{pool: pool} }
 func (r *WritingRepo) Pool() *Pool { return r.pool }
 
 // CreateWritingInput —— Create 入参。BodyMD 是 markdown 原文，本层透传。
+// path 不再是入参:writing 折进 corpus_notes 后 path 派生自 slug,不存列。
 type CreateWritingInput struct {
 	CoverImageAssetID *string
 	OwnerID           string
@@ -39,7 +40,6 @@ type CreateWritingInput struct {
 	CoverHeadline     string
 	CoverHue          string
 	Visibility        string
-	Path              string
 	LockedBody        string
 	ParentID          string
 	Tags              []string
@@ -64,7 +64,7 @@ func (*WritingRepo) CreateTx(
 	}
 	row, err := dbq.New(tx).CreateWriting(ctx, *params)
 	if err != nil {
-		if name, hit := pgUniqueViolation(err); hit && name == "writings_owner_slug_uniq" {
+		if name, hit := pgUniqueViolation(err); hit && name == "corpus_notes_writing_slug_uniq" {
 			return domain.Writing{}, domain.ErrWritingSlugTaken
 		}
 		return domain.Writing{}, fmt.Errorf("create writing: %w", err)
@@ -91,12 +91,12 @@ func buildCreateWritingParams(in *CreateWritingInput) (*dbq.CreateWritingParams,
 	}
 	return &dbq.CreateWritingParams{
 		OwnerID: ownerUUID, Slug: in.Slug, Title: in.Title, Excerpt: in.Excerpt,
-		BodyMd: in.BodyMD, CoverHeadline: in.CoverHeadline,
+		Body: in.BodyMD, CoverHeadline: in.CoverHeadline,
 		CoverHue: writingCoverHueOr(in.CoverHue), CoverImageAssetID: assetID,
 		Tags: nilSafeTags(in.Tags), Visibility: writingVisibilityOr(in.Visibility),
-		CrossRefs: nilSafeTags(in.CrossRefs), Path: in.Path,
+		CrossRefs:   nilSafeTags(in.CrossRefs),
 		ReadMinutes: in.ReadMinutes, LockedBody: in.LockedBody,
-		PublishedAt: publishedAt, ParentID: parentID,
+		PublishedAt: publishedAt, ParentID: parentID, Published: in.Publish,
 	}, nil
 }
 
@@ -118,6 +118,7 @@ func nowTimestamptz() pgtype.Timestamptz {
 }
 
 // UpdateWritingInput —— Update 入参。不动 slug / publish 状态 / created_at。
+// path 不再是入参:折进 corpus_notes 后 path 派生自 slug,不存列。
 type UpdateWritingInput struct {
 	CoverImageAssetID *string
 	OwnerID           string
@@ -128,7 +129,6 @@ type UpdateWritingInput struct {
 	CoverHeadline     string
 	CoverHue          string
 	Visibility        string
-	Path              string
 	LockedBody        string
 	ParentID          string
 	Tags              []string
@@ -174,11 +174,11 @@ func buildUpdateWritingParams(in *UpdateWritingInput) (*dbq.UpdateWritingParams,
 	}
 	return &dbq.UpdateWritingParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID,
-		Title: in.Title, Excerpt: in.Excerpt, BodyMd: in.BodyMD,
+		Title: in.Title, Excerpt: in.Excerpt, Body: in.BodyMD,
 		CoverHeadline: in.CoverHeadline,
 		CoverHue:      writingCoverHueOr(in.CoverHue), CoverImageAssetID: assetID,
 		Tags: nilSafeTags(in.Tags), Visibility: writingVisibilityOr(in.Visibility),
-		CrossRefs: nilSafeTags(in.CrossRefs), Path: in.Path,
+		CrossRefs:   nilSafeTags(in.CrossRefs),
 		ReadMinutes: in.ReadMinutes, LockedBody: in.LockedBody, ParentID: parentID,
 	}, nil
 }
@@ -211,7 +211,7 @@ func (r *WritingRepo) Unpublish(
 	return toDomainWritingOrErr(&row, err)
 }
 
-func toDomainWritingOrErr(row *dbq.Writing, err error) (domain.Writing, error) {
+func toDomainWritingOrErr(row *dbq.CorpusNote, err error) (domain.Writing, error) {
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Writing{}, domain.ErrWritingNotFound

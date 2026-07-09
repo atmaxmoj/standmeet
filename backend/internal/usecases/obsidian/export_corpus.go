@@ -19,8 +19,11 @@ type noteIndex struct {
 	childCount map[string]int
 }
 
-// writeCorpusNotes —— 把 owner 的 corp note 写进 zip。
+// writeCorpusNotes —— 把 owner 的 corp note 写进 zip。writing 折进 corpus_notes(#151)后也在
+// ListAllForExport 里,但 writing 有专属 export(writeAllWritings → writings/<slug>.md,带附件 +
+// cover/visibility frontmatter),故这条通用路径先滤掉 genre='writing' 免得重复导出。
 func writeCorpusNotes(notes []postgres.SyncNote, zw *zip.Writer) error {
+	notes = nonWritingNotes(notes)
 	idx := &noteIndex{
 		byID: make(map[string]*postgres.SyncNote, len(notes)), childCount: map[string]int{},
 	}
@@ -36,6 +39,17 @@ func writeCorpusNotes(notes []postgres.SyncNote, zw *zip.Writer) error {
 		}
 	}
 	return nil
+}
+
+// nonWritingNotes —— 滤掉 genre='writing'(走专属 export,不在通用 corp-note 路径重复导出)。
+func nonWritingNotes(notes []postgres.SyncNote) []postgres.SyncNote {
+	out := make([]postgres.SyncNote, 0, len(notes))
+	for i := range notes {
+		if notes[i].Genre != genreWriting {
+			out = append(out, notes[i])
+		}
+	}
+	return out
 }
 
 func writeOneNote(n *postgres.SyncNote, idx *noteIndex, zw *zip.Writer) error {

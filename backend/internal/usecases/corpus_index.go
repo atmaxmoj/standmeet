@@ -50,16 +50,25 @@ func NewCorpusIndexer(
 // genreRaw —— raw 是 owner 私有 inbox,privacy-critical:绝不进搜索索引。
 const genreRaw = "raw"
 
-// IndexNote —— 单条 corpus note(wiki/output/subjectivity)upsert 进 Meili。genre='raw' 直接跳过
-// (raw 是私有 inbox,绝不能进检索面)。
+// genreWriting —— writing 折进 corpus_notes(#151)后同住本表,但检索仍留在 Postgres 全文
+// (lister.Search 在 Meili 结果后 append searchWritings)。若也进 Meili 会重复命中,故跳过。
+const genreWriting = "writing"
+
+// skipFromMeili —— 该 genre 是否排除出 Meili 索引:raw(私有 inbox)+ writing(留 PG 全文,避免重复)。
+func skipFromMeili(genre string) bool {
+	return genre == genreRaw || genre == genreWriting
+}
+
+// IndexNote —— 单条 corpus note(wiki/output/subjectivity)upsert 进 Meili。genre='raw'/'writing'
+// 直接跳过(raw 是私有 inbox;writing 留 Postgres 全文,进 Meili 会重复命中)。
 func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID string) {
 	note, err := x.notes.GetSyncNote(ctx, ownerID, noteID)
 	if err != nil {
 		x.warn("index note read", err)
 		return
 	}
-	if note.Genre == genreRaw {
-		return // privacy: raw inbox never enters the search index
+	if skipFromMeili(note.Genre) {
+		return // raw=私有 inbox; writing=留 PG 全文(见 skipFromMeili)
 	}
 	doc := search.Doc{
 		ID: note.ID, OwnerID: ownerID, Genre: note.Genre,
@@ -117,8 +126,8 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 	}
 	docs := make([]search.Doc, 0, len(notes))
 	for i := range notes {
-		if notes[i].Genre == genreRaw {
-			continue // privacy: raw inbox never enters the search index
+		if skipFromMeili(notes[i].Genre) {
+			continue // raw=私有 inbox; writing=留 PG 全文(见 skipFromMeili)
 		}
 		path := syncNotePath(notes[i].Title, notes[i].ParentID, mapParentOf(byID))
 		docs = append(docs, search.Doc{

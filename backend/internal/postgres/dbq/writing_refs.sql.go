@@ -43,7 +43,7 @@ func (q *Queries) InsertWritingRef(ctx context.Context, arg InsertWritingRefPara
 const listBacklinksForWriting = `-- name: ListBacklinksForWriting :many
 SELECT w.slug, w.title
 FROM writing_refs wr
-JOIN writings w ON w.id = wr.src_writing_id
+JOIN corpus_notes w ON w.id = wr.src_writing_id AND w.genre = 'writing'
 WHERE wr.dst_writing_id = $1
   AND w.owner_id = $2
   AND w.published_at IS NOT NULL
@@ -62,6 +62,7 @@ type ListBacklinksForWritingRow struct {
 
 // public /writings/<slug> 渲染 "linked from" 用。返 backlink 来源 writing 的
 // slug + title。只列 src writing 已 published 的（visitor 看不见草稿）。
+// writing 折进 corpus_notes(genre='writing'，#151)，故 JOIN 统一表 + 限定 genre。
 func (q *Queries) ListBacklinksForWriting(ctx context.Context, arg ListBacklinksForWritingParams) ([]ListBacklinksForWritingRow, error) {
 	rows, err := q.db.Query(ctx, listBacklinksForWriting, arg.DstWritingID, arg.OwnerID)
 	if err != nil {
@@ -85,7 +86,7 @@ func (q *Queries) ListBacklinksForWriting(ctx context.Context, arg ListBacklinks
 const listOutboundRefs = `-- name: ListOutboundRefs :many
 SELECT w.slug, w.title
 FROM writing_refs wr
-JOIN writings w ON w.id = wr.dst_writing_id
+JOIN corpus_notes w ON w.id = wr.dst_writing_id AND w.genre = 'writing'
 WHERE wr.src_writing_id = $1
 ORDER BY w.title ASC
 `
