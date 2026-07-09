@@ -1,18 +1,22 @@
-// subjectivity-not-cited.spec.ts —— target-state RED (#151-adjacent: corpus visibility tiers).
+// subjectivity-not-cited.spec.ts —— target-state RED (corpus visibility tiers).
 //
 // Premise (owner): subjectivity is the owner's private self-model. Unlike wiki/output/writing —
-// which the agent READS and then CITES (the visitor sees the source) — subjectivity should GROUND the
-// agent's voice/judgment but NOT be shown to the visitor by default. It is a distinct visibility tier:
+// which the agent READS then CITES (the visitor sees the source) — subjectivity GROUNDS the agent's
+// voice/judgment but is NOT shown to the visitor by default. A distinct tier:
 //   raw          — agent never retrieves, never shown (private inbox).
-//   subjectivity — agent retrieves to ground its voice, NOT cited/shown (private standpoint) …
+//   subjectivity — agent retrieves to ground its voice, NOT cited by default …
 //                  … UNLESS the owner opts a note in (show_as_source=true).
 //   wiki/output  — agent retrieves AND cites (public knowledge).
 //
-// Mechanism: reuse the existing `show_as_source` flag ("AI reads it but not counted in the cited
-// footer"), but subjectivity DEFAULTS to false (private), and the citation path resolves subjectivity
-// (a new cited_subjectivity_ids / subjectivity_refs channel) only for notes with show_as_source=true.
+// Mechanism: reuse the existing `show_as_source` flag ("AI reads it, not counted in the cited footer"),
+// but subjectivity DEFAULTS to false (private); the citation path resolves subjectivity via a new
+// cited_subjectivity_ids / subjectivity_refs channel, gated on show_as_source=true.
 //
-// RED today: subjectivity is not in the citation resolution path at all, subjectivity_write has no
+// Coverage (feature floor): default-private · opt-in-cited(+resolves) · state-toggle · LEAK-guard
+// (private body never surfaced) · regression (wiki still cites alongside) · retrieval-unaffected
+// (agent can still read a private subjectivity note to ground).
+//
+// RED today: subjectivity isn't in the citation resolution path, subjectivity_write has no
 // show_as_source, and the transcript exposes no subjectivity_refs.
 
 import { test, expect } from '@/fixtures/test';
@@ -32,35 +36,69 @@ const OWNER = {
   fullName: 'Subj Cite Owner',
 };
 const CODE = 'INTRO-SUBJ';
+const SHIP_Q = 'when do you consider software good enough to ship?';
 
-interface SubjRefView { id: string; path: string }
+interface RefView { id: string; path: string; title?: string; body?: string }
 interface TranscriptResp {
-  messages: Array<{ role: string; cited_subjectivity_ids: string[] }>;
-  subjectivity_refs: SubjRefView[];
+  messages: Array<{ role: string; body?: string; cited_subjectivity_ids?: string[]; cited_wiki_ids?: string[] }>;
+  subjectivity_refs?: RefView[];
+  wiki_refs?: RefView[];
 }
 
-// citedSubjectivityIDs —— which subjectivity ids the visitor's transcript actually surfaces as cited.
-async function citedSubjectivityIDs(
+async function transcript(
   request: APIRequestContext, csrf: string, convID: string,
-): Promise<Set<string>> {
+): Promise<TranscriptResp> {
   const res = await request.get(`${BACKEND}/api/admin/conversations/${convID}`, {
     headers: { 'X-Csrftoken': csrf },
   });
   if (!res.ok()) throw new Error(`transcript fetch: ${res.status()}`);
-  const body = await res.json() as TranscriptResp;
-  const ids = new Set<string>();
-  for (const m of body.messages) {
-    for (const id of m.cited_subjectivity_ids ?? []) ids.add(id);
-  }
-  // subjectivity_refs must also exist (the resolved, visitor-visible refs).
-  const refIDs = new Set((body.subjectivity_refs ?? []).map((r) => r.id));
-  return new Set([...ids].filter((id) => refIDs.has(id)));
+  return await res.json() as TranscriptResp;
 }
 
-async function firstConvID(request: APIRequestContext, csrf: string): Promise<string> {
-  const res = await request.get(`${BACKEND}/api/admin/conversations`, {
-    headers: { 'X-Csrftoken': csrf },
-  });
+// citedSubjIDs —— subjectivity ids the visitor's transcript actually surfaces as cited (both the
+// per-message id list AND a resolved ref must be present).
+function citedSubjIDs(t: TranscriptResp): Set<string> {
+  const refIDs = new Set((t.subjectivity_refs ?? []).map((r) => r.id));
+  const out = new Set<string>();
+  for (const m of t.messages) {
+    for (const id of m.cited_subjectivity_ids ?? []) if (refIDs.has(id)) out.add(id);
+  }
+  return out;
+}
+
+function citedWikiIDs(t: TranscriptResp): Set<string> {
+  const refIDs = new Set((t.wiki_refs ?? []).map((r) => r.id));
+  const out = new Set<string>();
+  for (const m of t.messages) {
+    for (const id of m.cited_wiki_ids ?? []) if (refIDs.has(id)) out.add(id);
+  }
+  return out;
+}
+
+async function ownerMCP(request: APIRequestContext): Promise<{ csrf: string; token: string; sid: string }> {
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  const token = await createAPIToken(request, csrf, 'owner');
+  const sid = await initMCP(request, token);
+  return { csrf, token, sid };
+}
+
+async function writeSubj(
+  request: APIRequestContext, token: string, sid: string, title: string, body: string, showAsSource?: boolean,
+): Promise<string> {
+  const args: Record<string, unknown> = { title, body, tags: [] };
+  if (showAsSource !== undefined) args['show_as_source'] = showAsSource;
+  const r = await callTool<{ subjectivity_id: string }>(request, token, sid, 'subjectivity_write', args);
+  return r.subjectivity_id;
+}
+
+async function askAsVisitor(request: APIRequestContext, question: string): Promise<void> {
+  const sess = await issueSession(request, { handle: OWNER.handle, code: CODE, visitor_name: 'V' });
+  const stream = await sendMessage(request, sess, question);
+  await stream.body();
+}
+
+async function latestConv(request: APIRequestContext, csrf: string): Promise<string> {
+  const res = await request.get(`${BACKEND}/api/admin/conversations`, { headers: { 'X-Csrftoken': csrf } });
   const rows = await res.json() as Array<{ id: string }>;
   const head = rows[0];
   if (!head) throw new Error('no conversations');
@@ -72,62 +110,73 @@ test.describe('subjectivity is a private visibility tier — grounded but not ci
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
-      email: OWNER.email, password: OWNER.password,
-      handle: OWNER.handle, fullName: OWNER.fullName,
+      email: OWNER.email, password: OWNER.password, handle: OWNER.handle, fullName: OWNER.fullName,
     });
+    const { token, sid } = await ownerMCP(request);
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    await createCode(request, csrf, { code: CODE, label: 'intro', purpose: 'subj cite' });
+    // one wiki note as the public control (agent should cite this).
+    const raw = await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump',
+      { body: 'At FlowPay I built a reconciliation pipeline — WIKIMARKER.', source: 'mcp', tags: [] });
+    await callTool(request, token, sid, 'promote_to_wiki', { raw_id: raw.raw_id, title: 'Reconciliation', tags: [] });
     await request.dispose();
   });
 
-  test('default: agent grounds in subjectivity but it is NOT cited to the visitor', async ({ playwright }) => {
+  test('default: subjectivity grounds the voice but is NOT cited (+ wiki IS cited alongside)', async ({ playwright }) => {
     const request = await playwright.request.newContext();
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    const apiToken = await createAPIToken(request, csrf, 'owner');
-    const sid = await initMCP(request, apiToken);
+    const { csrf, token, sid } = await ownerMCP(request);
+    const subjID = await writeSubj(request, token, sid, 'The outage',
+      'A 2am outage taught me I do not trust code I have not seen survive load — SUBJPRIVATEKEY.');
 
-    // a subjectivity note, DEFAULT visibility (no show_as_source → private grounding).
-    const subj = await callTool<{ subjectivity_id: string }>(request, apiToken, sid,
-      'subjectivity_write', {
-        title: 'How the outage shaped me',
-        body: 'A 2am outage taught me I do not trust code I have not seen survive real load — SUBJZKEY.',
-        tags: [],
-      });
+    await askAsVisitor(request, SHIP_Q);
+    const t = await transcript(request, csrf, await latestConv(request, csrf));
 
-    await createCode(request, csrf, { code: CODE, label: 'intro', purpose: 'subj cite' });
-    const sess = await issueSession(request, { handle: OWNER.handle, code: CODE, visitor_name: 'V' });
-    const stream = await sendMessage(request, sess, 'when do you consider software good enough to ship?');
-    await stream.body();
-
-    const convID = await firstConvID(request, csrf);
-    const cited = await citedSubjectivityIDs(request, csrf, convID);
-    expect(cited.has(subj.subjectivity_id),
-      'a default subjectivity note grounds the voice but is NOT cited to the visitor').toBe(false);
+    expect(citedSubjIDs(t).has(subjID), 'default subjectivity note is NOT cited').toBe(false);
+    expect(citedWikiIDs(t).size, 'wiki is still cited alongside (regression)').toBeGreaterThan(0);
     await request.dispose();
   });
 
-  test('opt-in: a show_as_source subjectivity note IS cited to the visitor', async ({ playwright }) => {
+  test('leak guard: a private subjectivity note body is never surfaced to the visitor as a source', async ({ playwright }) => {
     const request = await playwright.request.newContext();
-    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-    const apiToken = await createAPIToken(request, csrf, 'owner');
-    const sid = await initMCP(request, apiToken);
+    const { csrf, token, sid } = await ownerMCP(request);
+    await writeSubj(request, token, sid, 'The outage', 'private standpoint — SUBJLEAKKEY should never appear as a cited source.');
 
-    // the owner opts THIS subjectivity note into being citable.
-    const subj = await callTool<{ subjectivity_id: string }>(request, apiToken, sid,
-      'subjectivity_write', {
-        title: 'Why I ship rough',
-        body: 'Withholding a working thing to satisfy my own taste is vanity — SUBJPUBKEY.',
-        tags: [],
-        show_as_source: true,
-      });
+    await askAsVisitor(request, SHIP_Q);
+    const t = await transcript(request, csrf, await latestConv(request, csrf));
+    const surfaced = JSON.stringify(t.subjectivity_refs ?? []) + JSON.stringify(t.wiki_refs ?? []);
+    expect(surfaced.includes('SUBJLEAKKEY'), 'private subjectivity body must not appear in any cited ref').toBe(false);
+    await request.dispose();
+  });
 
-    await createCode(request, csrf, { code: CODE, label: 'intro', purpose: 'subj cite' });
-    const sess = await issueSession(request, { handle: OWNER.handle, code: CODE, visitor_name: 'V' });
-    const stream = await sendMessage(request, sess, 'when do you consider software good enough to ship?');
-    await stream.body();
+  test('opt-in: a show_as_source subjectivity note IS cited and its ref resolves', async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    const { csrf, token, sid } = await ownerMCP(request);
+    const subjID = await writeSubj(request, token, sid, 'Why I ship rough',
+      'Withholding a working thing to satisfy my taste is vanity — SUBJPUBLICKEY.', true);
 
-    const convID = await firstConvID(request, csrf);
-    const cited = await citedSubjectivityIDs(request, csrf, convID);
-    expect(cited.has(subj.subjectivity_id),
-      'an opted-in (show_as_source) subjectivity note IS cited to the visitor').toBe(true);
+    await askAsVisitor(request, SHIP_Q);
+    const t = await transcript(request, csrf, await latestConv(request, csrf));
+
+    expect(citedSubjIDs(t).has(subjID), 'opted-in subjectivity note IS cited').toBe(true);
+    const ref = (t.subjectivity_refs ?? []).find((r) => r.id === subjID);
+    expect(ref?.title, 'the cited subjectivity ref resolves (title present)').toBe('Why I ship rough');
+    await request.dispose();
+  });
+
+  test('state toggle: flipping show_as_source false→true makes a note become cited', async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    const { csrf, token, sid } = await ownerMCP(request);
+    // create private (default), confirm not cited.
+    const subjID = await writeSubj(request, token, sid, 'Toggle note', 'toggle body — SUBJTOGGLEKEY.');
+    await askAsVisitor(request, SHIP_Q);
+    const before = await transcript(request, csrf, await latestConv(request, csrf));
+    expect(citedSubjIDs(before).has(subjID), 'private before toggle').toBe(false);
+
+    // owner opts it in (same title → update), ask again → now cited.
+    await writeSubj(request, token, sid, 'Toggle note', 'toggle body — SUBJTOGGLEKEY.', true);
+    await askAsVisitor(request, SHIP_Q);
+    const after = await transcript(request, csrf, await latestConv(request, csrf));
+    expect(citedSubjIDs(after).has(subjID), 'cited after owner opts in').toBe(true);
     await request.dispose();
   });
 });
