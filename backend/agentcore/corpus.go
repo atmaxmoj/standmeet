@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -81,17 +82,105 @@ func (l driverCorpusLister) Get(
 	}, nil
 }
 
-// Links —— eval Driver 无 note_refs 图,故只做 subject 准入(经 Get,denied/not-found 同语义),
-// 邻居返空。真 backlinks 检索在 pgCorpusLister(prod)里。
+// Links —— 在 eval Driver 语料上算真链图（不靠 prod 的 note_refs 表）：subject 的 [[X]] 出度
+// 用 slug/title 解析成条目（Outgoing），全语料反扫谁 [[link]] 指向 subject（Backlinks）。用
+// 既有 usecases.ExtractCrossLinks + SlugifyTitle，跟 prod 的 crosslink 解析同源。SearchCorpus("")
+// 空查询枚举全量（见 EvalDriver）。ACL 逐条过（同 Get/filterHits）。语料小，线性扫无碍。
 func (l driverCorpusLister) Links(
 	ctx context.Context, ownerID string, grantedGlobs []string, path string,
 ) (usecases.CorpusLinks, error) {
-	if _, err := l.Get(ctx, ownerID, grantedGlobs, path); err != nil {
+	subject, err := l.Get(ctx, ownerID, grantedGlobs, path)
+	if err != nil {
 		return usecases.CorpusLinks{}, err
 	}
+	all, serr := l.driver.SearchCorpus(ctx, "") // 空查询 = 枚举全量
+	if serr != nil {
+		return usecases.CorpusLinks{}, fmt.Errorf("driver enumerate corpus: %w", serr)
+	}
 	return usecases.CorpusLinks{
-		Outgoing: []usecases.CorpusMeta{}, Backlinks: []usecases.CorpusMeta{},
+		Outgoing:  outgoingLinks(subject.Body, all, grantedGlobs),
+		Backlinks: l.backlinks(ctx, path, subject.Title, all, grantedGlobs),
 	}, nil
+}
+
+// outgoingLinks —— subject body 里的 [[X]] 解析成语料条目（slug 或 title 命中，ACL 过、去重）。
+func outgoingLinks(
+	body string, all []CorpusHit, globs []string,
+) []usecases.CorpusMeta {
+	out := make([]usecases.CorpusMeta, 0)
+	seen := map[string]bool{}
+	for _, ref := range usecases.ExtractCrossLinks(body) {
+		hit, ok := resolveRef(ref.Target, all)
+		if !ok || seen[hit.Path] || !allowsCorpus(globs, hit.Genre, hit.Path) {
+			continue
+		}
+		seen[hit.Path] = true
+		out = append(out, hitToMeta(hit))
+	}
+	return out
+}
+
+// backlinks —— 反扫全语料：谁的 body [[link]] 指向 subject（按 subject 的 slug/title），谁是 backlink。
+func (l driverCorpusLister) backlinks(
+	ctx context.Context, subjectPath, subjectTitle string, all []CorpusHit, globs []string,
+) []usecases.CorpusMeta {
+	targets := map[string]bool{
+		lastSegment(subjectPath): true, usecases.SlugifyTitle(subjectTitle): true,
+	}
+	out := make([]usecases.CorpusMeta, 0)
+	for i := range all {
+		if l.entryLinksTo(ctx, &all[i], subjectPath, targets, globs) {
+			out = append(out, hitToMeta(&all[i]))
+		}
+	}
+	return out
+}
+
+// entryLinksTo —— 一条语料 entry 是否 [[link]] 指向 subject（跳过 subject 自己 + ACL 拒的）。
+func (l driverCorpusLister) entryLinksTo(
+	ctx context.Context, e *CorpusHit, subjectPath string, targets map[string]bool, globs []string,
+) bool {
+	if e.Path == subjectPath || !allowsCorpus(globs, e.Genre, e.Path) {
+		return false
+	}
+	doc, derr := l.driver.GetCorpus(ctx, e.Path)
+	if derr != nil {
+		return false
+	}
+	return bodyLinksTo(doc.Body, targets)
+}
+
+// resolveRef —— 把一个 [[X]] target 解析成语料条目：slug（末段 path）或 title-slug 命中。
+func resolveRef(target string, all []CorpusHit) (*CorpusHit, bool) {
+	slug := usecases.SlugifyTitle(target)
+	for i := range all {
+		if lastSegment(all[i].Path) == slug || usecases.SlugifyTitle(all[i].Title) == slug {
+			return &all[i], true
+		}
+	}
+	return nil, false
+}
+
+func bodyLinksTo(body string, targets map[string]bool) bool {
+	for _, ref := range usecases.ExtractCrossLinks(body) {
+		if targets[usecases.SlugifyTitle(ref.Target)] {
+			return true
+		}
+	}
+	return false
+}
+
+func lastSegment(path string) string {
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		return path[i+1:]
+	}
+	return path
+}
+
+func hitToMeta(h *CorpusHit) usecases.CorpusMeta {
+	return usecases.CorpusMeta{
+		ID: h.ID, Path: h.Path, Title: h.Title, Genre: h.Genre, Snippet: h.Snippet,
+	}
 }
 
 func filterHits(hits []CorpusHit, globs []string) []usecases.CorpusMeta {
