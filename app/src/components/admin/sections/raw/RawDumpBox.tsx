@@ -1,5 +1,5 @@
 // RawDumpBox —— "quick dump" 入口。owner 可以在 admin 直接粘贴一条想法。
-// POST /api/admin/raw 通了：onAdd 走 useRaw().addRaw，成功后 textarea 清空。
+// POST /api/admin/corpus/raw 通了：onAdd 走 useRaw().addRaw，成功后 textarea 清空。
 
 'use client';
 

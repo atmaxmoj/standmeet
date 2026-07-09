@@ -5,10 +5,10 @@
 // （applyCodeDenials）再冻进 RoleSnapshot。
 //
 // 契约（admin 子路由，land 在 routes/admin/codes.go；实现前这些调用拿 404 → ACL 测试红）：
-//   POST   /api/admin/codes/{codeId}/capability-denials  body {capability_id}  → 201；缺字段 400；重复幂等 200
-//   DELETE /api/admin/codes/{codeId}/capability-denials/{capId}                → 204（撤销 deny）
-//   POST   /api/admin/codes/{codeId}/skill-denials        body {skill_id}      → 201
-//   DELETE /api/admin/codes/{codeId}/skill-denials/{skillId}                   → 204
+//   POST   /api/admin/codes/{codeId}/denials/capability  body {capability_id}  → 201；缺字段 400；重复幂等 200
+//   DELETE /api/admin/codes/{codeId}/denials/capability/{capId}                → 204（撤销 deny）
+//   POST   /api/admin/codes/{codeId}/denials/skill        body {skill_id}      → 201
+//   DELETE /api/admin/codes/{codeId}/denials/skill/{skillId}                   → 204
 //   GET    /api/admin/codes/{codeId}/denials  → { capability_ids: [], skill_ids: [] }
 //
 // 跨 owner 的 codeId → 404/403（互不串）。无 CSRF → 403。code 已 revoke → deny 仍可写但无意义。
@@ -28,7 +28,7 @@ export async function setCodeCapabilityDenial(
   request: APIRequestContext, csrf: string, codeId: string, capabilityId: string,
 ): Promise<number> {
   const res = await request.post(
-    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/capability-denials`,
+    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/denials/capability`,
     { data: { capability_id: capabilityId }, headers: { 'X-Csrftoken': csrf } },
   );
   return res.status();
@@ -39,19 +39,19 @@ export async function setCodeSkillDenial(
   request: APIRequestContext, csrf: string, codeId: string, skillId: string,
 ): Promise<number> {
   const res = await request.post(
-    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/skill-denials`,
+    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/denials/skill`,
     { data: { skill_id: skillId }, headers: { 'X-Csrftoken': csrf } },
   );
   return res.status();
 }
 
-/** Raw POST to the capability-denials route with an arbitrary body —— for the
+/** Raw POST to the denials/capability route with an arbitrary body —— for the
  *  malformed-body error spec (missing capability_id → 400). */
 export async function postCodeCapabilityDenialRaw(
   request: APIRequestContext, csrf: string, codeId: string, body: Record<string, unknown>,
 ): Promise<number> {
   const res = await request.post(
-    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/capability-denials`,
+    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/denials/capability`,
     { data: body, headers: { 'X-Csrftoken': csrf } },
   );
   return res.status();
@@ -62,7 +62,7 @@ export async function clearCodeCapabilityDenial(
   request: APIRequestContext, csrf: string, codeId: string, capabilityId: string,
 ): Promise<number> {
   const res = await request.delete(
-    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/capability-denials/${encodeURIComponent(capabilityId)}`,
+    `${BACKEND}/api/admin/codes/${encodeURIComponent(codeId)}/denials/capability/${encodeURIComponent(capabilityId)}`,
     { headers: { 'X-Csrftoken': csrf } },
   );
   return res.status();

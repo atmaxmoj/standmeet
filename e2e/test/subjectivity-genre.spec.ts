@@ -184,10 +184,10 @@ async function writeSubjectivity(
   );
 }
 
-// deleteSubjectivity —— owner admin delete（drives DELETE /api/admin/subjectivity/{id}）。
+// deleteSubjectivity —— owner admin delete（drives DELETE /api/admin/corpus/subjectivity/{id}）。
 async function deleteSubjectivity(request: APIRequestContext, id: string): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.delete(`${BACKEND}/api/admin/subjectivity/${id}`, { headers: { 'X-Csrftoken': csrf } });
+  await request.delete(`${BACKEND}/api/admin/corpus/subjectivity/${id}`, { headers: { 'X-Csrftoken': csrf } });
 }
 
 async function session(request: APIRequestContext, code: string): Promise<VisitorSession> {

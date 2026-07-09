@@ -1,4 +1,4 @@
-// use-wiki —— /admin/wiki 状态。GET /api/admin/wiki 返 list。
+// use-wiki —— /admin/wiki 状态。GET /api/admin/corpus/wiki 返 list。
 
 'use client';
 
@@ -28,7 +28,7 @@ export interface WikiHook {
 
 export const wikiStore = createResourceStore<WikiSummary[]>({
   name: 'wiki',
-  fetcher: () => adminAPI.get('/wiki', z.array(WikiSummarySchema)),
+  fetcher: () => adminAPI.get('/corpus/wiki', z.array(WikiSummarySchema)),
 });
 
 export function useWiki(): WikiHook {

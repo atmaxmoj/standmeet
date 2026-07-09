@@ -92,7 +92,7 @@ export async function adminGenreList(
   request: APIRequestContext, owner: SyncOwner, genre: string,
 ): Promise<AdminNote[]> {
   const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.get(`${BACKEND}/api/admin/${genre}`, { headers: { 'X-Csrftoken': csrf } });
+  const res = await request.get(`${BACKEND}/api/admin/corpus/${genre}`, { headers: { 'X-Csrftoken': csrf } });
   return await res.json() as AdminNote[];
 }
 
@@ -104,7 +104,7 @@ export async function adminNoteRefs(
   const hit = list.find((n) => n.title === title);
   if (!hit) return { outbound: [], backlinks: [] };
   const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.get(`${BACKEND}/api/admin/${genre}/${hit.id}`, {
+  const res = await request.get(`${BACKEND}/api/admin/corpus/${genre}/${hit.id}`, {
     headers: { 'X-Csrftoken': csrf },
   });
   const det = await res.json() as AdminNote;

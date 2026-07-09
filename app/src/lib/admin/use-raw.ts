@@ -1,5 +1,5 @@
 // use-raw —— /admin/raw 状态机：list raw entries + 直接 dump 一条。
-// POST /api/admin/raw 已经接通；RawDumpBox 的 onAdd 直接走 hook。
+// POST /api/admin/corpus/raw 已经接通；RawDumpBox 的 onAdd 直接走 hook。
 //
 // zustand 重构：rawStore 管 list；filter / submitting / submitError 留 local
 // state（per-section instance，不需要全局）。
@@ -28,7 +28,7 @@ export interface RawHook {
 
 export const rawStore = createResourceStore<RawAdminView[]>({
   name: 'raw',
-  fetcher: () => adminAPI.get('/raw', z.array(RawAdminViewSchema)),
+  fetcher: () => adminAPI.get('/corpus/raw', z.array(RawAdminViewSchema)),
 });
 
 export function useRaw(): RawHook {
@@ -85,7 +85,7 @@ async function doAddRaw(
   setSubmitting(true);
   setErr(null);
   try {
-    const created = await adminAPI.post('/raw', input, RawAdminViewSchema);
+    const created = await adminAPI.post('/corpus/raw', input, RawAdminViewSchema);
     rawStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
     return true;
   } catch (e) {

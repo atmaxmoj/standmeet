@@ -1,4 +1,4 @@
-// use-output —— /admin/output 状态。GET /api/admin/output 返 list。
+// use-output —— /admin/output 状态。GET /api/admin/corpus/output 返 list。
 
 'use client';
 
@@ -28,7 +28,7 @@ export interface OutputHook {
 
 export const outputStore = createResourceStore<OutputSummary[]>({
   name: 'output',
-  fetcher: () => adminAPI.get('/output', z.array(OutputSummarySchema)),
+  fetcher: () => adminAPI.get('/corpus/output', z.array(OutputSummarySchema)),
 });
 
 export function useOutput(): OutputHook {

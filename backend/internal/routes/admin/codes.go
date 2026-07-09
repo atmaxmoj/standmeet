@@ -68,12 +68,11 @@ func (h *Handlers) MountCodes(r chi.Router) {
 	r.Post("/{id}/revoke", h.revokeCode())
 	r.Patch("/{id}/quotas", h.updateCodeQuotas())
 	r.Get("/{id}/members", h.listCodeMembers())
-	// ACL code 层 deny（capability-acl-hierarchy.md）。
+	// ACL code 层 deny（capability-acl-hierarchy.md）。kind 作路径参数，合并了原
+	// capability-denials / skill-denials 两套平行 URL。
 	r.Get("/{id}/denials", h.listCodeDenials())
-	r.Post("/{id}/capability-denials", h.addCapabilityDenial())
-	r.Delete("/{id}/capability-denials/{capId}", h.deleteCapabilityDenial())
-	r.Post("/{id}/skill-denials", h.addSkillDenial())
-	r.Delete("/{id}/skill-denials/{skillId}", h.deleteSkillDenial())
+	r.Post("/{id}/denials/{kind}", h.addDenial())
+	r.Delete("/{id}/denials/{kind}/{targetId}", h.deleteDenial())
 }
 
 func (h *Handlers) listCodes() http.HandlerFunc {

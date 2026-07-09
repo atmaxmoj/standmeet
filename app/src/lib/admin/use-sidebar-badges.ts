@@ -26,7 +26,7 @@ export function useSidebarBadges(): SidebarBadges {
 async function fetchBadges(): Promise<SidebarBadges> {
   const out: SidebarBadges = {};
   const [rawRes, reqRes] = await Promise.allSettled([
-    fetch('/api/admin/raw/', { credentials: 'include' }),
+    fetch('/api/admin/corpus/raw/', { credentials: 'include' }),
     fetch('/api/admin/requests/', { credentials: 'include' }),
   ]);
   if (rawRes.status === 'fulfilled' && rawRes.value.ok) {

@@ -101,7 +101,7 @@ async function exportReflectsWebEdit({ playwright }: Ctx): Promise<void> {
   await uploadVault(request, OWNER, [{ rel: 'wiki/edited.md', body: md('vault original') }]);
   const id = (await adminGenreList(request, OWNER, 'wiki')).find((n) => n.title === 'edited')?.id ?? '';
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.patch(`${BACKEND}/api/admin/wiki/${id}`, {
+  await request.patch(`${BACKEND}/api/admin/corpus/wiki/${id}`, {
     headers: { 'X-Csrftoken': csrf },
     data: { title: 'edited', body: 'WEBEDITKW body', tags: [], parent_id: null, show_as_source: true },
   });

@@ -123,7 +123,7 @@ async function patchWikiSEO(
   request: APIRequestContext, csrf: string, wikiID: string,
   body: { excerpt: string; published: boolean },
 ) {
-  return request.patch(`/api/admin/wiki/${wikiID}/seo`, {
+  return request.patch(`/api/admin/corpus/wiki/${wikiID}/seo`, {
     headers: { 'X-Csrftoken': csrf },
     data: body,
   });

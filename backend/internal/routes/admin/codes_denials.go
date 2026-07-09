@@ -39,14 +39,28 @@ func (h *Handlers) listCodeDenials() http.HandlerFunc {
 	}
 }
 
-func (h *Handlers) addCapabilityDenial() http.HandlerFunc {
+// denialFieldFor —— kind → add 请求 body 里的字段名。空 = 未知 kind。
+// body 契约保持不变（capability_id / skill_id），前端只改 URL 不改 body。
+func denialFieldFor(kind string) string {
+	switch kind {
+	case "capability":
+		return "capability_id"
+	case "skill":
+		return "skill_id"
+	default:
+		return ""
+	}
+}
+
+// addDenial —— POST /codes/{id}/denials/{kind}：kind ∈ {capability, skill}。
+func (h *Handlers) addDenial() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		req, ok := h.scopedFieldReq(w, r, "capability_id")
+		kind := chi.URLParam(r, "kind")
+		req, ok := h.scopedDenialReq(w, r, kind)
 		if !ok {
 			return
 		}
-		err := h.CodesAdmin.Denials.AddCapability(r.Context(), req.codeID, req.value)
-		if err != nil {
+		if err := h.addDenialByKind(r.Context(), kind, req.codeID, req.value); err != nil {
 			writeError(h.Log, w, serverErr())
 			return
 		}
@@ -54,14 +68,36 @@ func (h *Handlers) addCapabilityDenial() http.HandlerFunc {
 	}
 }
 
-func (h *Handlers) deleteCapabilityDenial() http.HandlerFunc {
+// scopedDenialReq —— 校验 kind 合法（capability/skill）+ code owner-scope + 解出 body
+// 字段（capability_id / skill_id）。任一失败已写好响应，返 ok=false。
+func (h *Handlers) scopedDenialReq(
+	w http.ResponseWriter, r *http.Request, kind string,
+) (denialReq, bool) {
+	field := denialFieldFor(kind)
+	if field == "" {
+		writeError(h.Log, w, unknownDenialKind())
+		return denialReq{}, false
+	}
+	return h.scopedFieldReq(w, r, field)
+}
+
+func (h *Handlers) addDenialByKind(ctx context.Context, kind, codeID, value string) error {
+	if kind == "skill" {
+		return h.CodesAdmin.Denials.AddSkill(ctx, codeID, value)
+	}
+	return h.CodesAdmin.Denials.AddCapability(ctx, codeID, value)
+}
+
+// deleteDenial —— DELETE /codes/{id}/denials/{kind}/{targetId}。
+func (h *Handlers) deleteDenial() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		codeID, ok := h.scopedCodeID(w, r)
+		kind := chi.URLParam(r, "kind")
+		codeID, ok := h.scopedDenialCode(w, r, kind)
 		if !ok {
 			return
 		}
-		capID := chi.URLParam(r, "capId")
-		if err := h.CodesAdmin.Denials.DeleteCapability(r.Context(), codeID, capID); err != nil {
+		target := chi.URLParam(r, "targetId")
+		if err := h.deleteDenialByKind(r.Context(), kind, codeID, target); err != nil {
 			writeError(h.Log, w, serverErr())
 			return
 		}
@@ -69,32 +105,27 @@ func (h *Handlers) deleteCapabilityDenial() http.HandlerFunc {
 	}
 }
 
-func (h *Handlers) addSkillDenial() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		req, ok := h.scopedFieldReq(w, r, "skill_id")
-		if !ok {
-			return
-		}
-		if err := h.CodesAdmin.Denials.AddSkill(r.Context(), req.codeID, req.value); err != nil {
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		w.WriteHeader(http.StatusCreated)
+// scopedDenialCode —— 校验 kind 合法 + code owner-scope，返 codeID。失败已写好响应。
+func (h *Handlers) scopedDenialCode(
+	w http.ResponseWriter, r *http.Request, kind string,
+) (string, bool) {
+	if denialFieldFor(kind) == "" {
+		writeError(h.Log, w, unknownDenialKind())
+		return "", false
 	}
+	return h.scopedCodeID(w, r)
 }
 
-func (h *Handlers) deleteSkillDenial() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		codeID, ok := h.scopedCodeID(w, r)
-		if !ok {
-			return
-		}
-		skillID := chi.URLParam(r, "skillId")
-		if err := h.CodesAdmin.Denials.DeleteSkill(r.Context(), codeID, skillID); err != nil {
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
+func (h *Handlers) deleteDenialByKind(ctx context.Context, kind, codeID, target string) error {
+	if kind == "skill" {
+		return h.CodesAdmin.Denials.DeleteSkill(ctx, codeID, target)
+	}
+	return h.CodesAdmin.Denials.DeleteCapability(ctx, codeID, target)
+}
+
+func unknownDenialKind() apierr.Envelope {
+	return apierr.Envelope{
+		Status: http.StatusNotFound, Code: "unknown_denial_kind", Message: "unknown denial kind",
 	}
 }
 

@@ -106,7 +106,7 @@ export function useCorpusActions(): CorpusActionsHook {
     promoteWiki: useCallback(
       (id, input) => run(() => doPromoteWiki(id, input)), [run]),
     fetchWikiDetail: useCallback(
-      (id: string) => fetchDetail(`/wiki/${id}`, WikiDetailSchema, setError, setPending), []),
+      (id: string) => fetchDetail(`/corpus/wiki/${id}`, WikiDetailSchema, setError, setPending), []),
     updateWikiSEO: useCallback(
       (id, input) => run(() => doUpdateWikiSEO(id, input)), [run]),
     createOutput: useCallback(
@@ -116,7 +116,7 @@ export function useCorpusActions(): CorpusActionsHook {
     deleteOutput: useCallback(
       (id) => run(() => doDeleteOutput(id)), [run]),
     fetchOutputDetail: useCallback(
-      (id: string) => fetchDetail(`/output/${id}`, OutputDetailSchema, setError, setPending), []),
+      (id: string) => fetchDetail(`/corpus/output/${id}`, OutputDetailSchema, setError, setPending), []),
     updateOutputSEO: useCallback(
       (id, input) => run(() => doUpdateOutputSEO(id, input)), [run]),
     clearError: useCallback(() => setError(null), []),
@@ -164,7 +164,7 @@ function makeRun(
 // ─── raw ────────────────────────────────────────────────────
 
 async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
-  const updated = await adminAPI.patch(`/raw/${id}`, {
+  const updated = await adminAPI.patch(`/corpus/raw/${id}`, {
     body: input.body, tags: input.tags ?? [],
     flagged_private: input.flagged_private ?? false,
   }, RawAdminViewSchema);
@@ -174,14 +174,14 @@ async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
 }
 
 async function doArchiveRaw(id: string): Promise<void> {
-  await adminAPI.deleteVoid(`/raw/${id}`);
+  await adminAPI.deleteVoid(`/corpus/raw/${id}`);
   rawStore.getState().mutate(
     (prev) => (prev ?? []).map((r) => r.id === id ? { ...r, archived: true } : r),
   );
 }
 
 async function doPromoteRaw(id: string, input: PromoteInput): Promise<void> {
-  await adminAPI.postVoid(`/raw/${id}/promote`, input);
+  await adminAPI.postVoid(`/corpus/raw/${id}/promote`, input);
   // raw row 没有 promoted_to 字段在前端 view 里；只 refresh 让后端的状态回灌。
   rawStore.getState().reset();
   wikiStore.getState().reset();
@@ -190,52 +190,52 @@ async function doPromoteRaw(id: string, input: PromoteInput): Promise<void> {
 // ─── wiki ───────────────────────────────────────────────────
 
 async function doCreateWiki(input: CorpusEntryInput): Promise<void> {
-  const created = await adminAPI.post('/wiki', input, WikiSummarySchema);
+  const created = await adminAPI.post('/corpus/wiki', input, WikiSummarySchema);
   wikiStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
 }
 
 async function doUpdateWiki(id: string, input: CorpusEntryInput): Promise<void> {
-  const updated = await adminAPI.patch(`/wiki/${id}`, input, WikiSummarySchema);
+  const updated = await adminAPI.patch(`/corpus/wiki/${id}`, input, WikiSummarySchema);
   wikiStore.getState().mutate(
     (prev) => (prev ?? []).map((w) => w.id === id ? updated : w),
   );
 }
 
 async function doDeleteWiki(id: string): Promise<void> {
-  await adminAPI.deleteVoid(`/wiki/${id}`);
+  await adminAPI.deleteVoid(`/corpus/wiki/${id}`);
   wikiStore.getState().mutate((prev) => (prev ?? []).filter((w) => w.id !== id));
 }
 
 async function doPromoteWiki(id: string, input: PromoteInput): Promise<void> {
-  await adminAPI.postVoid(`/wiki/${id}/promote`, input);
+  await adminAPI.postVoid(`/corpus/wiki/${id}/promote`, input);
   outputStore.getState().reset();
 }
 
 async function doUpdateWikiSEO(id: string, input: SEOUpdateInput): Promise<void> {
-  await adminAPI.patchVoid(`/wiki/${id}/seo`, input);
+  await adminAPI.patchVoid(`/corpus/wiki/${id}/seo`, input);
   wikiStore.getState().reset();
 }
 
 // ─── output ─────────────────────────────────────────────────
 
 async function doCreateOutput(input: CorpusEntryInput): Promise<void> {
-  const created = await adminAPI.post('/output', input, OutputSummarySchema);
+  const created = await adminAPI.post('/corpus/output', input, OutputSummarySchema);
   outputStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
 }
 
 async function doUpdateOutput(id: string, input: CorpusEntryInput): Promise<void> {
-  const updated = await adminAPI.patch(`/output/${id}`, input, OutputSummarySchema);
+  const updated = await adminAPI.patch(`/corpus/output/${id}`, input, OutputSummarySchema);
   outputStore.getState().mutate(
     (prev) => (prev ?? []).map((o) => o.id === id ? updated : o),
   );
 }
 
 async function doDeleteOutput(id: string): Promise<void> {
-  await adminAPI.deleteVoid(`/output/${id}`);
+  await adminAPI.deleteVoid(`/corpus/output/${id}`);
   outputStore.getState().mutate((prev) => (prev ?? []).filter((o) => o.id !== id));
 }
 
 async function doUpdateOutputSEO(id: string, input: SEOUpdateInput): Promise<void> {
-  await adminAPI.patchVoid(`/output/${id}/seo`, input);
+  await adminAPI.patchVoid(`/corpus/output/${id}/seo`, input);
   outputStore.getState().reset();
 }

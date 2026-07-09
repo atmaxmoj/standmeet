@@ -53,7 +53,7 @@ async function adminUpdateWiki(
   request: APIRequestContext, id: string, title: string, body: string,
 ): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.patch(`${BACKEND}/api/admin/wiki/${id}`, {
+  await request.patch(`${BACKEND}/api/admin/corpus/wiki/${id}`, {
     headers: { 'X-Csrftoken': csrf },
     data: { title, body, tags: [], parent_id: null, show_as_source: true },
   });

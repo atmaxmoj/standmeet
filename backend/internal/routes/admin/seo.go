@@ -22,13 +22,15 @@ type SEOAdminDeps struct {
 	SEO *postgres.SEORepo
 }
 
-// MountSEO 挂 /seo + /seo/stats + /wiki/{id}/seo + /output/{id}/seo。
+// MountSEO 挂 /seo + /seo/stats + 统一的 /corpus/{genre}/{id}/seo（合并原
+// /wiki/{id}/seo + /output/{id}/seo —— genre 作路径参数）。
 func (h *Handlers) MountSEO(r chi.Router) {
 	r.Get("/seo", h.getSEOSettings())
 	r.Put("/seo", h.putSEOSettings())
 	r.Get("/seo/stats", h.getSEOStats())
-	r.Patch("/wiki/{id}/seo", h.patchWikiSEO())
-	r.Patch("/output/{id}/seo", h.patchOutputSEO())
+	r.Patch("/corpus/{genre}/{id}/seo", h.byGenre(map[string]http.HandlerFunc{
+		"wiki": h.patchWikiSEO(), "output": h.patchOutputSEO(),
+	}))
 }
 
 // seoStatsView —— 各 tier 已公开条目数。owner 在 UI 选统计范围（默认全含），

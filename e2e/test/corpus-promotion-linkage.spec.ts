@@ -67,7 +67,7 @@ interface CorpusDetail { source_raw_ids?: string[]; source_wiki_ids?: string[] }
 async function getDetail(
   request: APIRequestContext, genre: 'wiki' | 'output', id: string,
 ): Promise<CorpusDetail> {
-  const res = await request.get(`${BACKEND}/api/admin/${genre}/${id}`);
+  const res = await request.get(`${BACKEND}/api/admin/corpus/${genre}/${id}`);
   if (!res.ok()) throw new Error(`get ${genre} detail failed: ${res.status()}`);
   return await res.json() as CorpusDetail;
 }

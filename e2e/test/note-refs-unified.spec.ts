@@ -131,7 +131,7 @@ async function promoteOutput(request: APIRequestContext, title: string, body: st
 async function deleteWiki(request: APIRequestContext, id: string): Promise<void> {
   // admin route is owner-authed → fresh login on this context sets the cookie + csrf.
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.delete(`${BACKEND}/api/admin/wiki/${id}`, { headers: { 'X-Csrftoken': csrf } });
+  await request.delete(`${BACKEND}/api/admin/corpus/wiki/${id}`, { headers: { 'X-Csrftoken': csrf } });
 }
 
 interface Ref { id: string; title: string }
@@ -146,7 +146,7 @@ async function refsField(
   request: APIRequestContext, genre: string, id: string, field: 'outbound' | 'backlinks',
 ): Promise<Ref[]> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const res = await request.get(`${BACKEND}/api/admin/${genre}/${id}`, {
+  const res = await request.get(`${BACKEND}/api/admin/corpus/${genre}/${id}`, {
     headers: { 'X-Csrftoken': csrf },
   });
   const body = await res.json() as Record<string, Ref[] | undefined>;

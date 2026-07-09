@@ -67,7 +67,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
     const { request } = seed; // 独立 APIRequestContext，bare 变量避开「写走 UI」规则
     const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
     const res = await request.post(
-      `${BACKEND}/api/admin/codes/${code.id}/capability-denials`,
+      `${BACKEND}/api/admin/codes/${code.id}/denials/capability`,
       { data: { capability_id: CAP } }, // no X-Csrftoken
     );
     expect(res.status()).toBe(403);

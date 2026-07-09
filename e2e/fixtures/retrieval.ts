@@ -94,11 +94,11 @@ export async function promoteWikiToOutput(
   });
 }
 
-// setPublished —— per-entry 发布开关(PATCH /api/admin/wiki/{id}/seo)。unpublish → 访客不可见。
+// setPublished —— per-entry 发布开关(PATCH /api/admin/corpus/wiki/{id}/seo)。unpublish → 访客不可见。
 export async function setPublished(
   request: APIRequestContext, csrf: string, wikiID: string, published: boolean,
 ): Promise<void> {
-  const res = await request.patch(`${BACKEND}/api/admin/wiki/${wikiID}/seo`, {
+  const res = await request.patch(`${BACKEND}/api/admin/corpus/wiki/${wikiID}/seo`, {
     headers: { 'X-Csrftoken': csrf },
     data: { excerpt: '', published },
   });

@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -28,12 +29,29 @@ const (
 	maxCorpusLimit     = 200
 )
 
-// MountCorpus 挂 /raw + /wiki + /output list + POST /raw（owner 直接 dump）。
+// MountCorpus 挂统一的 corpus list + create 路由：genre 作路径参数（合并了原
+// /raw · /wiki · /output 三套 URL —— genre 本来就是参数，不该拆成不同 endpoint）。
 func (h *Handlers) MountCorpus(r chi.Router) {
-	r.Get("/raw", h.listRaw())
-	r.Post("/raw", h.createRaw())
-	r.Get("/wiki", h.listWiki())
-	r.Get("/output", h.listOutput())
+	r.Get("/corpus/{genre}", h.byGenre(map[string]http.HandlerFunc{
+		"raw": h.listRaw(), "wiki": h.listWiki(), "output": h.listOutput(),
+	}))
+	r.Post("/corpus/{genre}", h.byGenre(map[string]http.HandlerFunc{
+		"raw": h.createRaw(), "wiki": h.createWiki(), "output": h.createOutput(),
+	}))
+}
+
+// byGenre —— corpus 路由的 genre-参数分派：URL 的 {genre} 选对应 per-genre handler。
+// 未知 / 该 op 不支持的 genre → 404 unknown_genre（复刻旧行为：旧无该 genre 路由即 chi 404）。
+func (h *Handlers) byGenre(m map[string]http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if handler, ok := m[chi.URLParam(r, "genre")]; ok {
+			handler(w, r)
+			return
+		}
+		writeError(h.Log, w, apierr.Envelope{
+			Status: http.StatusNotFound, Code: "unknown_genre", Message: "unknown corpus genre",
+		})
+	}
 }
 
 type createRawRequest struct {

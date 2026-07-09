@@ -71,7 +71,7 @@ export function allActionItems(stats: DashboardStats): ActionItem[] {
 async function load(setState: (s: State) => void): Promise<void> {
   try {
     const [raw, codes, requests, conversations, drafts] = await Promise.all([
-      fetchList('/api/admin/raw', z.array(RawRowSchema)),
+      fetchList('/api/admin/corpus/raw', z.array(RawRowSchema)),
       fetchList('/api/admin/codes/', z.array(CodeRowSchema)),
       fetchList('/api/admin/access-requests', z.array(RequestRowSchema)),
       fetchList('/api/admin/conversations', z.array(ConvRowSchema)),

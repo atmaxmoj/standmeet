@@ -55,7 +55,7 @@ async function uiSets({ playwright }: Ctx): Promise<void> {
   await uploadVault(request, OWNER, [{ rel: 'wiki/ui.md', body: makeVaultMD({ publish: true }, 'x') }]);
   const id = (await adminGenreList(request, OWNER, 'wiki')).find((n) => n.title === 'ui')?.id ?? '';
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  await request.patch(`${BACKEND}/api/admin/wiki/${id}`, {
+  await request.patch(`${BACKEND}/api/admin/corpus/wiki/${id}`, {
     headers: { 'X-Csrftoken': csrf },
     data: { title: 'ui', body: 'x', tags: [], parent_id: null, show_as_source: true, css_classes: ['boxed'] },
   });
