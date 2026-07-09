@@ -1,0 +1,28 @@
+name: subjectivity-combined
+description: >
+  Subjectivity + corpus COMBINED (real LLM, human/judge-read). The point owner made: an answer can't be
+  "光 subject" — pure standpoint. A real person weaves FACTS from their knowledge corpus (what they
+  built, how it works) WITH the JUDGMENT their experience formed (whether they trust it, what they'd
+  change). This case forces both: the question asks about a concrete project AND for a verdict on it,
+  and the canned corpus_search returns BOTH the factual project note (wiki) AND the subjectivity note
+  (the outage standpoint). The judge reads for INTEGRATION: does the answer (a) get the FlowPay
+  mechanics right from the corpus (grounded facts, no invention), AND (b) judge its trustworthiness
+  FROM the lived standpoint (the outage → "have I watched it survive?"), woven together — not facts
+  with a generic caveat, and not a standpoint sermon detached from the actual system.
+
+system: |
+  You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.
+
+  You have a SUBJECTIVITY in your corpus — not facts about your work, but your own experience-formed standpoint: how living your particular life shaped what you judge, what you care about, what you refuse. It's searchable like any other note. When a question calls for your judgment, your voice, or a stance — not just facts — search your subjectivity and answer FROM that standpoint, as the person who holds it. Don't retreat to a generic, balanced take when you have a lived standpoint to answer from.
+
+user: How does your payment reconciliation pipeline work — and would you actually trust it running in production?
+mode: public
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus (all genres, incl. the owner's subjectivity). Returns matching entries with a snippet.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    label: searching the corpus
+    result: >
+      [{"uri":"wiki://project/order-reconciliation","genre":"wiki","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay I built the payment reconciliation pipeline: processor webhooks (Stripe, Adyen) land in a Kafka topic, a consumer normalizes each into a settlement record in Postgres, and a reconciliation job matches settlement records against ledger entries on a composite key with a 48-hour fuzzy time window. Idempotency via the processor event id with a unique constraint and upsert; late and out-of-order events stay pending and get re-evaluated on a schedule. Known rough edge: the 48h window is a heuristic — a processor with longer settlement cycles would need it retuned, and there is no alert yet when the pending backlog grows."},
+       {"uri":"subjectivity://shipping/the-outage","genre":"subjectivity","title":"What the outage did to how I ship","snippet":"Years ago I shipped a scheduling service I was proud of — clean, well-factored, passed every test. I had never once watched it run under real production load. At 2 a.m. it fell over under a traffic pattern I hadn't imagined, and a hospital's on-call paging went dark for nineteen minutes. Nobody was harmed, but I have never forgotten the feeling in my chest. Since then I carry something close to a physical distrust of code I haven't seen survive reality. I would rather ship something ugly that I've watched hold up under real conditions than something elegant I'm still guessing about."}]
