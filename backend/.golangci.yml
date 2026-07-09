@@ -308,6 +308,10 @@ linters:
       # (controller 层),但形态仍是 MCP 协议契约,不是 HTTP route handler。
       - path: internal/routes/mcphandle/
         linters: [forbidigo]
+      # meili SDK 边界:UpdateFilterableAttributes 参数是 []interface{} → []any;search
+      # wrapper 是 driver 契约层(同 postgres),`any` 在此豁免。
+      - path: internal/search/
+        linters: [forbidigo]
       # mcpclient 是 MCP vendor 边界层。tool `_meta` 按 MCP 规范是任意
       # schemaless JSON（mcp-go AdditionalFields 即 map[string]any），同
       # 协议契约豁免；mcpclient 只透传不解释。

@@ -62,8 +62,7 @@ func (c *Client) EnsureIndex(ctx context.Context) error {
 	if _, err := c.index.UpdateSearchableAttributesWithContext(ctx, &searchable); err != nil {
 		return fmt.Errorf("meili searchable attrs: %w", err)
 	}
-	//nolint:revive,modernize // meili SDK 的 UpdateFilterableAttributes 参数就是 []interface{};any 被 forbidigo 禁
-	filterable := []interface{}{"owner_id", "genre", "published"}
+	filterable := []any{"owner_id", "genre", "published"}
 	task, err := c.index.UpdateFilterableAttributesWithContext(ctx, &filterable)
 	if err != nil {
 		return fmt.Errorf("meili filterable attrs: %w", err)
@@ -113,6 +112,9 @@ func (c *Client) Search(ctx context.Context, ownerID, query string) ([]Doc, erro
 	resp, err := c.index.SearchWithContext(ctx, query, &meilisearch.SearchRequest{
 		Filter: fmt.Sprintf("owner_id = %q", ownerID),
 		Limit:  defaultLimit,
+		// frequency (not default "last"): a query like "tell me about X" keeps the high-signal
+		// term instead of dropping it off the end, so the topic matches.
+		MatchingStrategy: "frequency",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("meili search: %w", err)
