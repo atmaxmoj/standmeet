@@ -81,6 +81,8 @@ export interface AdminNote {
   id: string;
   title?: string;
   body?: string;
+  path?: string | null;
+  parent_id?: string | null;
   outbound?: Array<{ title: string }>;
   backlinks?: Array<{ title: string }>;
 }
