@@ -32,14 +32,16 @@ func NewNoteRepo(pool *Pool, genre string) *NoteRepo { return &NoteRepo{pool: po
 // Genre 返回本 repo 绑定的 genre。
 func (r *NoteRepo) Genre() string { return r.genre }
 
-// Note —— 一条笔记的通用视图（无 genre 专属字段）。
+// Note —— 一条笔记的通用视图（无 genre 专属字段）。ShowAsSource 决定是否进 visitor cited
+// footer（subjectivity 默认 false = 私有；wiki/output 默认 true）。
 type Note struct {
-	ParentID *string
-	ID       string
-	OwnerID  string
-	Title    string
-	Body     string
-	Tags     []string
+	ParentID     *string
+	ID           string
+	OwnerID      string
+	Title        string
+	Body         string
+	Tags         []string
+	ShowAsSource bool
 }
 
 // NoteMeta —— 无 body 的轻量 meta（树导航 / 搜索 / 算 path 用）。Snippet 仅搜索结果有值。
@@ -52,14 +54,16 @@ type NoteMeta struct {
 	HasChildren bool
 }
 
-// CreateNoteInput —— 建一条笔记。
+// CreateNoteInput —— 建一条笔记。ShowAsSource：是否进 visitor cited footer。subjectivity
+// 建笔记默认传 false（私有）；调用方显式给。
 type CreateNoteInput struct {
-	OwnerID    string
-	ParentID   *string
-	Title      string
-	Body       string
-	Tags       []string
-	CSSClasses []string
+	OwnerID      string
+	ParentID     *string
+	Title        string
+	Body         string
+	Tags         []string
+	CSSClasses   []string
+	ShowAsSource bool
 }
 
 // Create 写一条新笔记（本 repo 的 genre）。
@@ -75,7 +79,7 @@ func (r *NoteRepo) Create(ctx context.Context, in *CreateNoteInput) (Note, error
 	row, err := dbq.New(r.pool).CreateNote(ctx, dbq.CreateNoteParams{
 		OwnerID: ownerUUID, Genre: r.genre, ParentID: parent,
 		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
-		CssClasses: nilSafeTags(in.CSSClasses),
+		CssClasses: nilSafeTags(in.CSSClasses), ShowAsSource: in.ShowAsSource,
 		// tree-note genres (subjectivity) carry no upstream source ids; empty (non-nil) → '{}'.
 		SourceIds: []pgtype.UUID{},
 	})
@@ -98,7 +102,7 @@ func (r *NoteRepo) UpdateBody(ctx context.Context, in *UpdateNoteInput) (Note, e
 	row, qerr := dbq.New(r.pool).UpdateNoteBody(ctx, dbq.UpdateNoteBodyParams{
 		ID: ids.Src, OwnerID: ids.Owner, Genre: r.genre,
 		Title: in.Title, Body: in.Body, Tags: nilSafeTags(in.Tags),
-		ParentID: parent, ShowAsSource: true, CssClasses: nilSafeTags(in.CSSClasses),
+		ParentID: parent, ShowAsSource: in.ShowAsSource, CssClasses: nilSafeTags(in.CSSClasses),
 	})
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
@@ -109,15 +113,16 @@ func (r *NoteRepo) UpdateBody(ctx context.Context, in *UpdateNoteInput) (Note, e
 	return noteFromRow(&row), nil
 }
 
-// UpdateNoteInput —— 改一条笔记。
+// UpdateNoteInput —— 改一条笔记。ShowAsSource：opt-in/out visitor cited footer（toggle 走这里）。
 type UpdateNoteInput struct {
-	OwnerID    string
-	ID         string
-	ParentID   *string
-	Title      string
-	Body       string
-	Tags       []string
-	CSSClasses []string
+	OwnerID      string
+	ID           string
+	ParentID     *string
+	Title        string
+	Body         string
+	Tags         []string
+	CSSClasses   []string
+	ShowAsSource bool
 }
 
 // GetByID 拿本 genre 的某条笔记；不命中 → ErrNoteNotFound。
@@ -237,7 +242,7 @@ func (r *NoteRepo) Delete(ctx context.Context, ownerID, id string) error {
 func noteFromRow(n *dbq.CorpusNote) Note {
 	out := Note{
 		ID: formatUUID(n.ID), OwnerID: formatUUID(n.OwnerID),
-		Title: n.Title, Body: n.Body, Tags: n.Tags,
+		Title: n.Title, Body: n.Body, Tags: n.Tags, ShowAsSource: n.ShowAsSource,
 	}
 	if n.ParentID.Valid {
 		s := formatUUID(n.ParentID)

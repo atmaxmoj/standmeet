@@ -3,8 +3,8 @@
 -- 地址仍纯树派生（parent 链），本表不存 path 列。
 
 -- name: CreateNote :one
-INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids, css_classes)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids, css_classes, show_as_source)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: ListNotesByOwner :many

@@ -40,6 +40,9 @@ type Handlers struct {
 	Reports  usecases.ReportStore
 	Sessions *session.VisitorSessionStore
 	Corpus   usecases.DialogCorpusLookup
+	// Subjectivity —— dialog cited 反查 subjectivity + gate show_as_source（默认私有）。
+	// 不走 Corpus facade（facade 只 dispatch 4 genre）。composition root 注入（包 NoteRepo）。
+	Subjectivity usecases.SubjectivityCiteLookup
 	// Ledger —— ghost-steering waypoint ledger:把本轮引用/booking 命中标 visited 存 session。
 	// composition root 建(闭 vaultSync + session store);route 不碰 postgres(守 arch)。
 	Ledger      *usecases.WaypointLedger

@@ -67,7 +67,9 @@ func (c *subjectivityCapability) subjectivityWriteBinding() *capreg.MCPBinding {
 					"description":"Existing note id to update/reparent; empty = create new"},
 				"parent_id":{"type":"string",
 					"description":"Parent subjectivity id; root if empty. Path is tree-derived."},
-				"tags":{"type":"array","items":{"type":"string"}}
+				"tags":{"type":"array","items":{"type":"string"}},
+				"show_as_source":{"type":"boolean",
+					"description":"Cite this note to visitors. Default false (private)."}
 			},
 			"required":["title","body"]
 		}`),
@@ -76,12 +78,15 @@ func (c *subjectivityCapability) subjectivityWriteBinding() *capreg.MCPBinding {
 }
 
 type subjectivityWriteArgsWire struct {
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	ID         string   `json:"subjectivity_id"`
-	ParentID   string   `json:"parent_id"`
-	Tags       []string `json:"tags"`
-	CSSClasses []string `json:"css_classes"`
+	// ShowAsSource *bool：省略 = nil → 默认 false（subjectivity 私有）。与 wiki/output 的
+	// 默认 true 相反,故不能用 bool 零值当"未给"。
+	ShowAsSource *bool    `json:"show_as_source"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body"`
+	ID           string   `json:"subjectivity_id"`
+	ParentID     string   `json:"parent_id"`
+	Tags         []string `json:"tags"`
+	CSSClasses   []string `json:"css_classes"`
 }
 
 func (c *subjectivityCapability) handleSubjectivityWrite(
@@ -120,6 +125,8 @@ func buildWriteSubjectivityInput(
 	in := &usecases.WriteSubjectivityInput{
 		OwnerID: ownerID, ID: args.ID,
 		Title: args.Title, Body: args.Body, Tags: args.Tags, CSSClasses: args.CSSClasses,
+		// 省略(nil) → false：subjectivity 默认私有,不进 visitor cited footer。
+		ShowAsSource: args.ShowAsSource != nil && *args.ShowAsSource,
 	}
 	if args.ParentID != "" {
 		parent := args.ParentID

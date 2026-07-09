@@ -10,7 +10,13 @@
 
 package domain
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+// ErrSubjectivityNotFound —— 按 id 查 subjectivity 未命中（dialog cited 反查用）。
+var ErrSubjectivityNotFound = errors.New("subjectivity entry not found")
 
 // DocumentGenre —— corpus 4 个 partition 的枚举。**Genre** 取名取自 IR/library
 // science 标准词，表达"corpus 里平级、不同形态/用途的子集"，跟 layer/stage/
@@ -24,6 +30,10 @@ const (
 	GenreWiki    DocumentGenre = "wiki"
 	GenreOutput  DocumentGenre = "output"
 	GenreWriting DocumentGenre = "writing"
+	// GenreSubjectivity —— owner 的私有自我模型 partition。agent retrieves it 来 ground voice,
+	// 但默认不 cite（不进 visitor footer）；仅 show_as_source=true 的笔记经 cited_subjectivity_ids
+	// 展示。故意不入 AllGenres：Corpus facade 的 4-genre List/Get dispatch 不覆盖 subjectivity。
+	GenreSubjectivity DocumentGenre = "subjectivity"
 )
 
 // AllGenres —— 调用方需要遍 4 个 genre 时用，避免散落 hardcode 列表。

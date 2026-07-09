@@ -13,11 +13,13 @@ import (
 )
 
 // ConversationsDeps —— ListConversations / GetTranscript 需要的 repo。
-// Wiki + Output 是给 transcript 把 cited_*_ids 解到 id+title 用。
+// Wiki + Output 是给 transcript 把 cited_*_ids 解到 id+title 用；Subjectivity 解
+// cited_subjectivity_ids（仅 opt-in 的会落进 message，此处只做 id→ref 展示）。
 type ConversationsDeps struct {
-	Chats  *postgres.ChatRepo
-	Wiki   *postgres.WikiRepo
-	Output *postgres.OutputRepo
+	Chats        *postgres.ChatRepo
+	Wiki         *postgres.WikiRepo
+	Output       *postgres.OutputRepo
+	Subjectivity SubjectivityCiteLookup
 }
 
 // TitledRef —— TranscriptBundle 暴露的 (id, title)；上层 (routes / mcp)
@@ -29,12 +31,23 @@ type TitledRef struct {
 	Path  string
 }
 
+// SubjectivityRef —— transcript 里 opt-in subjectivity 的解析 ref。带 Body（subjectivity_refs
+// 暴露 {id,path,title,body}）——只有 show_as_source=true 的才进 message.cited_subjectivity_ids，
+// 故这里出现的 body 一定是 owner 明确 opt-in 的，非私有泄漏。
+type SubjectivityRef struct {
+	ID    string
+	Title string
+	Path  string
+	Body  string
+}
+
 // TranscriptBundle —— GetConversationTranscript 返：conversation + messages
-// + cited wiki / output 的 id→title 索引（hydration 一次性，前端按需查）。
+// + cited wiki / output / subjectivity 的 id→ref 索引（hydration 一次性，前端按需查）。
 type TranscriptBundle struct {
-	ConvBundle postgres.ChatWithMessages
-	WikiRefs   []TitledRef
-	OutputRefs []TitledRef
+	ConvBundle       postgres.ChatWithMessages
+	WikiRefs         []TitledRef
+	OutputRefs       []TitledRef
+	SubjectivityRefs []SubjectivityRef
 }
 
 const (
@@ -72,11 +85,34 @@ func GetConversationTranscript(
 		return TranscriptBundle{}, fmt.Errorf("get transcript: %w", err)
 	}
 	cited := collectCitedIDs(bundle.Messages)
+	subjRefs := subjectivityCitedRefs(ctx, deps.Subjectivity, ownerID, cited.subjectivities)
 	return TranscriptBundle{
-		ConvBundle: bundle,
-		WikiRefs:   wikiCitedRefs(ctx, deps.Wiki, ownerID, cited.wikis),
-		OutputRefs: outputCitedRefs(ctx, deps.Output, ownerID, cited.outputs),
+		ConvBundle:       bundle,
+		WikiRefs:         wikiCitedRefs(ctx, deps.Wiki, ownerID, cited.wikis),
+		OutputRefs:       outputCitedRefs(ctx, deps.Output, ownerID, cited.outputs),
+		SubjectivityRefs: subjRefs,
 	}, nil
+}
+
+// subjectivityCitedRefs —— cited subjectivity id → {id,path,title,body}。这些 id 已是 opt-in
+// 的（写入 message 前过了 show_as_source gate），此处纯 hydrate。lookup 未注入 / 解析失败 → 略过。
+func subjectivityCitedRefs(
+	ctx context.Context, lookup SubjectivityCiteLookup, ownerID string, ids []string,
+) []SubjectivityRef {
+	out := make([]SubjectivityRef, 0, len(ids))
+	if lookup == nil {
+		return out
+	}
+	for _, id := range ids {
+		ref, err := lookup.ResolveCite(ctx, ownerID, id)
+		if err != nil {
+			continue
+		}
+		out = append(out, SubjectivityRef{
+			ID: ref.ID, Title: ref.Title, Path: ref.Path, Body: ref.Body,
+		})
+	}
+	return out
 }
 
 // wikiCitedRefs —— 把 cited wiki id 解成 (id, title, 树派生 path)。地址纯树派生
@@ -139,27 +175,34 @@ func refsFor(ids []string, titles, paths map[string]string) []TitledRef {
 	return out
 }
 
-// citedIDs —— collectCitedIDs 的两组返结果，避开 named-return + 3-return。
+// citedIDs —— collectCitedIDs 的三组返结果，避开 named-return + 多-return。
 type citedIDs struct {
-	wikis   []string
-	outputs []string
+	wikis          []string
+	outputs        []string
+	subjectivities []string
 }
 
 const citedSetInitialCap = 16
 
-// collectCitedIDs —— 扫所有 message 的 CitedWikiIDs / CitedOutputIDs，去重。
+// collectCitedIDs —— 扫所有 message 的 CitedWikiIDs / CitedOutputIDs / CitedSubjectivityIDs，去重。
 func collectCitedIDs(messages []domain.Message) citedIDs {
 	wikiSet := make(map[string]struct{}, citedSetInitialCap)
 	outputSet := make(map[string]struct{}, citedSetInitialCap)
+	subjSet := make(map[string]struct{}, citedSetInitialCap)
 	for i := range messages {
-		for _, id := range messages[i].CitedWikiIDs {
-			wikiSet[id] = struct{}{}
-		}
-		for _, id := range messages[i].CitedOutputIDs {
-			outputSet[id] = struct{}{}
-		}
+		addAll(wikiSet, messages[i].CitedWikiIDs)
+		addAll(outputSet, messages[i].CitedOutputIDs)
+		addAll(subjSet, messages[i].CitedSubjectivityIDs)
 	}
-	return citedIDs{wikis: keysOf(wikiSet), outputs: keysOf(outputSet)}
+	return citedIDs{
+		wikis: keysOf(wikiSet), outputs: keysOf(outputSet), subjectivities: keysOf(subjSet),
+	}
+}
+
+func addAll(set map[string]struct{}, ids []string) {
+	for _, id := range ids {
+		set[id] = struct{}{}
+	}
 }
 
 func keysOf(set map[string]struct{}) []string {

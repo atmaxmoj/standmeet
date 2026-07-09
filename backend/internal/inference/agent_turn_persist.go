@@ -21,11 +21,12 @@ import (
 // TurnResult —— 一整轮在后端累计出的可落库产物。Question 由 caller 从
 // in.Req.UserMessage 填(accumSink 不知道问句);其余从事件流累出来。
 type TurnResult struct {
-	Question       string
-	Answer         string
-	ToolCalls      json.RawMessage
-	CitedWikiIDs   []string
-	CitedOutputIDs []string
+	Question             string
+	Answer               string
+	ToolCalls            json.RawMessage
+	CitedWikiIDs         []string
+	CitedOutputIDs       []string
+	CitedSubjectivityIDs []string
 }
 
 // PersistFunc —— 落库 port。RunAgentTurn 在 loop 收尾(且 AI 答出了内容)时调
@@ -64,6 +65,7 @@ type accumSink struct {
 	tools    []persistedToolCall
 	wikiIDs  []string
 	outIDs   []string
+	subjIDs  []string
 	seenCite map[string]bool
 	answer   strings.Builder
 }
@@ -143,8 +145,12 @@ func envelopeOK(result string) bool {
 }
 
 // collectCitation —— corpus_read 成功结果(flat object {id, genre, ...})扒
-// entry id,按 genre 归 wiki / output,按 id 去重(同 entry 读多次只引一次)。
+// entry id,**按 genre 显式归类**,按 id 去重(同 entry 读多次只引一次)。
 // caller 保证只在 ok 时调。
+//
+// 显式路由(非 catch-all):output→outIDs,wiki→wikiIDs,subjectivity→subjIDs。
+// 其它 genre(writing / raw)不累计——citation footer 只覆盖这三类;subjectivity
+// 是否真展示由 dialog 层 show_as_source gate 决定(默认私有)。
 func (a *accumSink) collectCitation(name, result string) {
 	if name != "corpus_read" {
 		return
@@ -154,11 +160,21 @@ func (a *accumSink) collectCitation(name, result string) {
 		return
 	}
 	a.seenCite[c.ID] = true
-	if c.Genre == "output" {
-		a.outIDs = append(a.outIDs, c.ID)
-		return
+	a.routeCitation(c.Genre, c.ID)
+}
+
+// routeCitation —— 按 genre 把 entry id 归到对应 slice。writing / raw 不进 footer(丢弃)。
+func (a *accumSink) routeCitation(genre, id string) {
+	switch genre {
+	case "output":
+		a.outIDs = append(a.outIDs, id)
+	case "wiki":
+		a.wikiIDs = append(a.wikiIDs, id)
+	case "subjectivity":
+		a.subjIDs = append(a.subjIDs, id)
+	default:
+		// writing / raw 等不进 citation footer;丢弃。
 	}
-	a.wikiIDs = append(a.wikiIDs, c.ID)
 }
 
 // citedEntry —— corpus_read flat object 里取 citation 用的两字段。
@@ -184,11 +200,12 @@ func (a *accumSink) answered() bool {
 // rawOrEmptyArray 期望非 nil)。
 func (a *accumSink) result(question string) *TurnResult {
 	return &TurnResult{
-		Question:       question,
-		Answer:         a.answer.String(),
-		ToolCalls:      a.marshalTools(),
-		CitedWikiIDs:   a.wikiIDs,
-		CitedOutputIDs: a.outIDs,
+		Question:             question,
+		Answer:               a.answer.String(),
+		ToolCalls:            a.marshalTools(),
+		CitedWikiIDs:         a.wikiIDs,
+		CitedOutputIDs:       a.outIDs,
+		CitedSubjectivityIDs: a.subjIDs,
 	}
 }
 

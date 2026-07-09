@@ -184,17 +184,15 @@ func (c *Corpus) appendWritingsIfWanted(
 // getterFor —— Get 的 dispatch entry。返 (genreGetter, true) 或 (nil, false)
 // 表示不识别。switch 长度 = AllGenres 长度，加 genre 时需要在此扩 case。
 func (c *Corpus) getterFor(g domain.DocumentGenre) (genreGetter, bool) {
-	switch g {
-	case domain.GenreRaw:
-		return c.getRaw, true
-	case domain.GenreWiki:
-		return c.getWiki, true
-	case domain.GenreOutput:
-		return c.getOutput, true
-	case domain.GenreWriting:
-		return c.getWriting, true
-	}
-	return nil, false
+	// map lookup 而非 switch：cyclo=1，且加 genre 只需在 map 里加一行。subjectivity 不在表内
+	// （私有 tier，走专用 SubjectivityCiteLookup），未命中 → (nil, false)。
+	getter, ok := map[domain.DocumentGenre]genreGetter{
+		domain.GenreRaw:     c.getRaw,
+		domain.GenreWiki:    c.getWiki,
+		domain.GenreOutput:  c.getOutput,
+		domain.GenreWriting: c.getWriting,
+	}[g]
+	return getter, ok
 }
 
 func (c *Corpus) getRaw(

@@ -47,9 +47,10 @@ RETURNING id;
 
 -- name: AppendMessage :one
 INSERT INTO messages (
-    conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids
+    conversation_id, dialog_id, role, body, tool_calls,
+    cited_wiki_ids, cited_output_ids, cited_subjectivity_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: ListMessages :many

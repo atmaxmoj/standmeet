@@ -43,12 +43,13 @@ type convSummaryView struct {
 }
 
 type convMessageView struct {
-	CreatedAt      string   `json:"created_at"`
-	ID             string   `json:"id"`
-	Role           string   `json:"role"`
-	Body           string   `json:"body"`
-	CitedWikiIDs   []string `json:"cited_wiki_ids"`
-	CitedOutputIDs []string `json:"cited_output_ids"`
+	CreatedAt            string   `json:"created_at"`
+	ID                   string   `json:"id"`
+	Role                 string   `json:"role"`
+	Body                 string   `json:"body"`
+	CitedWikiIDs         []string `json:"cited_wiki_ids"`
+	CitedOutputIDs       []string `json:"cited_output_ids"`
+	CitedSubjectivityIDs []string `json:"cited_subjectivity_ids"`
 }
 
 type titledRefView struct {
@@ -57,11 +58,21 @@ type titledRefView struct {
 	Path  string `json:"path"`
 }
 
+// subjectivityRefView —— subjectivity_refs 的一条：带 body（{id,path,title,body}）。只有
+// owner opt-in（show_as_source=true）的才会出现，body 非私有泄漏。
+type subjectivityRefView struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Path  string `json:"path"`
+	Body  string `json:"body"`
+}
+
 type convTranscriptResp struct {
-	Conversation convSummaryView   `json:"conversation"`
-	Messages     []convMessageView `json:"messages"`
-	WikiRefs     []titledRefView   `json:"wiki_refs"`
-	OutputRefs   []titledRefView   `json:"output_refs"`
+	Conversation     convSummaryView       `json:"conversation"`
+	Messages         []convMessageView     `json:"messages"`
+	WikiRefs         []titledRefView       `json:"wiki_refs"`
+	OutputRefs       []titledRefView       `json:"output_refs"`
+	SubjectivityRefs []subjectivityRefView `json:"subjectivity_refs"`
 	// H.13.e: per-turn ghost text 日志 (shown + 是否 Tab-accept)。
 	// code-mode 对话才会有；其他 mode 永远空数组。
 	Ghosts []ghostView `json:"ghosts"`
@@ -83,62 +94,6 @@ func (h *Handlers) MountConversations(r chi.Router) {
 	r.Get("/conversations/{id}", h.getConversation())
 	// ghost-steering telemetry: per-waypoint funnel (policy ghosts shown vs accepted).
 	r.Get("/ghosts/telemetry", h.ghostTelemetry())
-}
-
-type waypointStatView struct {
-	TargetWaypoint string  `json:"target_waypoint"`
-	Shown          int64   `json:"shown"`
-	Accepted       int64   `json:"accepted"`
-	AcceptanceRate float64 `json:"acceptance_rate"`
-}
-
-type ghostTelemetryTotals struct {
-	Shown          int64   `json:"shown"`
-	Accepted       int64   `json:"accepted"`
-	AcceptanceRate float64 `json:"acceptance_rate"`
-}
-
-type ghostTelemetryResp struct {
-	Waypoints []waypointStatView   `json:"waypoints"`
-	Totals    ghostTelemetryTotals `json:"totals"`
-}
-
-// ghostTelemetry —— GET /api/admin/ghosts/telemetry：owner 的 per-waypoint 漏斗（policy ghost
-// shown vs accepted + acceptance_rate）+ 总计。silence rate 需 turn-total 数据（另源），此处未含。
-func (h *Handlers) ghostTelemetry() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		stats, err := usecases.GhostTelemetry(r.Context(), &h.Conversations.Ghosts, ownerID)
-		if err != nil {
-			h.Log.Error("ghost telemetry", logErrKey, err)
-			writeError(h.Log, w, apierr.Envelope{
-				Status:  http.StatusInternalServerError,
-				Code:    "internal",
-				Message: "couldn't load telemetry",
-			})
-			return
-		}
-		writeJSON(h.Log, w, buildGhostTelemetryResp(stats))
-	}
-}
-
-func buildGhostTelemetryResp(stats []domain.GhostWaypointStat) ghostTelemetryResp {
-	wps := make([]waypointStatView, 0, len(stats))
-	var totShown, totAccepted int64
-	for i := range stats {
-		s := &stats[i]
-		wps = append(wps, waypointStatView{
-			TargetWaypoint: s.TargetWaypoint, Shown: s.Shown,
-			Accepted: s.Accepted, AcceptanceRate: s.AcceptanceRate(),
-		})
-		totShown += s.Shown
-		totAccepted += s.Accepted
-	}
-	totals := ghostTelemetryTotals{Shown: totShown, Accepted: totAccepted}
-	if totShown > 0 {
-		totals.AcceptanceRate = float64(totAccepted) / float64(totShown)
-	}
-	return ghostTelemetryResp{Waypoints: wps, Totals: totals}
 }
 
 func (h *Handlers) listConversations() http.HandlerFunc {
@@ -225,11 +180,12 @@ func writeTranscript(
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(convTranscriptResp{
-		Conversation: conv,
-		Messages:     msgs,
-		WikiRefs:     toRefViews(t.WikiRefs),
-		OutputRefs:   toRefViews(t.OutputRefs),
-		Ghosts:       toGhostViews(ghosts),
+		Conversation:     conv,
+		Messages:         msgs,
+		WikiRefs:         toRefViews(t.WikiRefs),
+		OutputRefs:       toRefViews(t.OutputRefs),
+		SubjectivityRefs: toSubjectivityRefViews(t.SubjectivityRefs),
+		Ghosts:           toGhostViews(ghosts),
 	}); err != nil {
 		log.Error("encode conv transcript", logErrKey, err)
 	}
@@ -264,6 +220,16 @@ func toRefViews(refs []usecases.TitledRef) []titledRefView {
 	for i := range refs {
 		out = append(out, titledRefView{
 			ID: refs[i].ID, Title: refs[i].Title, Path: refs[i].Path,
+		})
+	}
+	return out
+}
+
+func toSubjectivityRefViews(refs []usecases.SubjectivityRef) []subjectivityRefView {
+	out := make([]subjectivityRefView, 0, len(refs))
+	for i := range refs {
+		out = append(out, subjectivityRefView{
+			ID: refs[i].ID, Title: refs[i].Title, Path: refs[i].Path, Body: refs[i].Body,
 		})
 	}
 	return out
@@ -313,12 +279,13 @@ func toConvSummaryView(s *postgres.ChatSummary) convSummaryView {
 
 func toConvMessageView(m *domain.Message) convMessageView {
 	return convMessageView{
-		ID:             m.ID,
-		Role:           m.Role,
-		Body:           m.Body,
-		CitedWikiIDs:   ensureSlice(m.CitedWikiIDs),
-		CitedOutputIDs: ensureSlice(m.CitedOutputIDs),
-		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
+		ID:                   m.ID,
+		Role:                 m.Role,
+		Body:                 m.Body,
+		CitedWikiIDs:         ensureSlice(m.CitedWikiIDs),
+		CitedOutputIDs:       ensureSlice(m.CitedOutputIDs),
+		CitedSubjectivityIDs: ensureSlice(m.CitedSubjectivityIDs),
+		CreatedAt:            m.CreatedAt.Format(time.RFC3339),
 	}
 }
 

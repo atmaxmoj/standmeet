@@ -540,6 +540,9 @@ CREATE TABLE messages (
     tool_calls       jsonb,
     cited_wiki_ids   uuid[]        NOT NULL DEFAULT '{}',
     cited_output_ids uuid[]        NOT NULL DEFAULT '{}',
+    -- cited_subjectivity_ids：本轮引用且被 owner opt-in（show_as_source=true）的 subjectivity
+    -- 笔记。subjectivity 默认私有（不引用）；仅 opt-in 的进这里，走 subjectivity_refs 展示。
+    cited_subjectivity_ids uuid[]  NOT NULL DEFAULT '{}',
     created_at       timestamptz   NOT NULL DEFAULT now()
 );
 CREATE INDEX messages_dialog_idx ON messages(dialog_id);

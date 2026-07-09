@@ -38,9 +38,14 @@ func (r *ChatRepo) AppendDialog(
 	if oerr != nil {
 		return "", fmt.Errorf("parse cited output ids: %w", oerr)
 	}
+	subjUUIDs, serr := parseUUIDArray(ids.Subjectivity)
+	if serr != nil {
+		return "", fmt.Errorf("parse cited subjectivity ids: %w", serr)
+	}
 	return r.runAppendDialogTx(ctx, &appendDialogTxArgs{
 		ChatUUID: chatUUID, Q: dialog.Question, A: dialog.Answer,
-		WikiUUIDs: wikiUUIDs, OutputUUIDs: outputUUIDs, ToolCalls: dialog.ToolCalls,
+		WikiUUIDs: wikiUUIDs, OutputUUIDs: outputUUIDs, SubjUUIDs: subjUUIDs,
+		ToolCalls: dialog.ToolCalls,
 	})
 }
 
@@ -52,6 +57,7 @@ type appendDialogTxArgs struct {
 	A           string
 	WikiUUIDs   []pgtype.UUID
 	OutputUUIDs []pgtype.UUID
+	SubjUUIDs   []pgtype.UUID
 	ToolCalls   []byte
 	ChatUUID    pgtype.UUID
 }
@@ -108,6 +114,7 @@ func runAppendVisitorOnlyQueries(
 	if _, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
 		ConversationID: chatUUID, DialogID: dialogID, Role: "visitor", Body: question,
 		CitedWikiIds: []pgtype.UUID{}, CitedOutputIds: []pgtype.UUID{},
+		CitedSubjectivityIds: []pgtype.UUID{},
 	}); err != nil {
 		return "", fmt.Errorf("append visitor message: %w", err)
 	}
@@ -129,13 +136,14 @@ func runAppendDialogQueries(
 	if _, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
 		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "visitor", Body: args.Q,
 		CitedWikiIds: []pgtype.UUID{}, CitedOutputIds: []pgtype.UUID{},
+		CitedSubjectivityIds: []pgtype.UUID{},
 	}); err != nil {
 		return "", fmt.Errorf("append visitor message: %w", err)
 	}
 	if _, aerr := q.AppendMessage(ctx, dbq.AppendMessageParams{
 		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "assistant", Body: args.A,
 		CitedWikiIds: args.WikiUUIDs, CitedOutputIds: args.OutputUUIDs,
-		ToolCalls: args.ToolCalls,
+		CitedSubjectivityIds: args.SubjUUIDs, ToolCalls: args.ToolCalls,
 	}); aerr != nil {
 		return "", fmt.Errorf("append assistant message: %w", aerr)
 	}
@@ -157,14 +165,16 @@ func rollbackQuiet(ctx context.Context, tx pgx.Tx) {
 // (持久层落两列)。kind 不识别的丢弃 (silent，因为只有 wiki / output 两
 // 种合法值)。
 type splitCitedIDs struct {
-	Wiki   []string
-	Output []string
+	Wiki         []string
+	Output       []string
+	Subjectivity []string
 }
 
 func splitCitations(cites []domain.Citation) splitCitedIDs {
 	out := splitCitedIDs{
-		Wiki:   make([]string, 0, len(cites)),
-		Output: make([]string, 0, len(cites)),
+		Wiki:         make([]string, 0, len(cites)),
+		Output:       make([]string, 0, len(cites)),
+		Subjectivity: make([]string, 0, len(cites)),
 	}
 	for i := range cites {
 		appendCitedID(&out, cites[i])
@@ -172,14 +182,16 @@ func splitCitations(cites []domain.Citation) splitCitedIDs {
 	return out
 }
 
-// appendCitedID —— Citation 按 genre 路由到 wiki / output 列；其他 genre
-// (raw / writing / 未来新加) 丢弃 —— citation 当前只支持 wiki/output。
+// appendCitedID —— Citation 按 genre 路由到 wiki / output / subjectivity 列；其他 genre
+// (raw / writing / 未来新加) 丢弃。subjectivity 能到这里的都已过 show_as_source gate。
 func appendCitedID(acc *splitCitedIDs, c domain.Citation) {
 	switch c.Genre {
 	case domain.GenreWiki:
 		acc.Wiki = append(acc.Wiki, c.DocID)
 	case domain.GenreOutput:
 		acc.Output = append(acc.Output, c.DocID)
+	case domain.GenreSubjectivity:
+		acc.Subjectivity = append(acc.Subjectivity, c.DocID)
 	default:
 		// citation 不指向 raw / writing / 未来新加的 genre；caller 误传时丢弃。
 	}

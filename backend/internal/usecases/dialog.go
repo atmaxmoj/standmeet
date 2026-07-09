@@ -32,22 +32,26 @@ type DialogCorpusLookup interface {
 	Get(ctx context.Context, ownerID, uri string) (domain.Document, error)
 }
 
-// DialogDeps —— RecordDialog 需要的依赖。
+// DialogDeps —— RecordDialog 需要的依赖。Subjectivity 单独一个 lookup（不走 Corpus facade——
+// facade 只 dispatch 4 个 genre，subjectivity 不在内），gate show_as_source 用。nil = 不解析
+// subjectivity cite（无 subjectivity 装配的调用方）。
 type DialogDeps struct {
-	Chats  *postgres.ChatRepo
-	Corpus DialogCorpusLookup
-	Log    *slog.Logger
+	Chats        *postgres.ChatRepo
+	Corpus       DialogCorpusLookup
+	Subjectivity SubjectivityCiteLookup
+	Log          *slog.Logger
 }
 
 // RecordDialogInput —— 一个 dialog 完成后落到 transcript 的入参。
 type RecordDialogInput struct {
-	OwnerID        string
-	ConversationID string
-	Question       string
-	Answer         string
-	CitedWikiIDs   []string
-	CitedOutputIDs []string
-	ToolCalls      []byte
+	OwnerID              string
+	ConversationID       string
+	Question             string
+	Answer               string
+	CitedWikiIDs         []string
+	CitedOutputIDs       []string
+	CitedSubjectivityIDs []string
+	ToolCalls            []byte
 }
 
 // RecordDialog —— cited id 反查成 Citation → 构造 Dialog → ChatRepo.AppendDialog
@@ -85,7 +89,8 @@ func appendVisitorOnly(
 func resolveCitations(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) []domain.Citation {
-	cites := make([]domain.Citation, 0, len(in.CitedWikiIDs)+len(in.CitedOutputIDs))
+	cites := make([]domain.Citation, 0,
+		len(in.CitedWikiIDs)+len(in.CitedOutputIDs)+len(in.CitedSubjectivityIDs))
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
 		OwnerID: in.OwnerID, IDs: in.CitedWikiIDs,
 		Genre: domain.GenreWiki,
@@ -94,7 +99,34 @@ func resolveCitations(
 		OwnerID: in.OwnerID, IDs: in.CitedOutputIDs,
 		Genre: domain.GenreOutput,
 	}, cites)
-	return cites
+	return appendSubjectivityCitations(ctx, deps, in.OwnerID, in.CitedSubjectivityIDs, cites)
+}
+
+// appendSubjectivityCitations —— subjectivity id → Citation，**gate 在 show_as_source**：
+// 逐个反查，仅 show_as_source=true 的进 cited（默认私有的丢弃）。server-authoritative：
+// 不信 client，源头查 DB。lookup 未注入 / 未命中 → 略过（不阻塞 dialog 落）。
+func appendSubjectivityCitations(
+	ctx context.Context, deps *DialogDeps, ownerID string, ids []string,
+	acc []domain.Citation,
+) []domain.Citation {
+	if deps.Subjectivity == nil {
+		return acc
+	}
+	for _, id := range ids {
+		ref, err := deps.Subjectivity.ResolveCite(ctx, ownerID, id)
+		if err != nil {
+			logIfUnexpectedNotFound(deps.Log, err, domain.GenreSubjectivity, id)
+			continue
+		}
+		if !ref.ShowAsSource {
+			continue // 私有：ground 了 voice 但不进 visitor footer。
+		}
+		acc = append(acc, domain.Citation{
+			Genre: domain.GenreSubjectivity, DocID: ref.ID,
+			Path: ref.Path, Title: ref.Title,
+		})
+	}
+	return acc
 }
 
 // resolveCiteArgs —— 一组 entry id 用同样 (owner, genre) 反查 Citation 的入
@@ -141,13 +173,15 @@ func logIfUnexpectedNotFound(
 }
 
 func notFoundForGenre(g domain.DocumentGenre) error {
-	// dialog cited 只覆盖 wiki + output；其他 genre 返 nil errors.Is 自然
+	// dialog cited 覆盖 wiki + output + subjectivity；其他 genre 返 nil errors.Is 自然
 	// 走 fallthrough。
 	switch g {
 	case domain.GenreWiki:
 		return domain.ErrWikiNotFound
 	case domain.GenreOutput:
 		return domain.ErrOutputNotFound
+	case domain.GenreSubjectivity:
+		return domain.ErrSubjectivityNotFound
 	case domain.GenreRaw, domain.GenreWriting:
 		return nil
 	}

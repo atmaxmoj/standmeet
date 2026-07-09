@@ -264,12 +264,14 @@ func buildAgentTurnPersist(
 	ownerID := auth.Data.OwnerID
 	return func(ctx context.Context, res *inference.TurnResult) error {
 		return usecases.RecordDialog(ctx, &usecases.DialogDeps{
-			Chats: h.Visitor.Chats, Corpus: h.Corpus, Log: h.Log,
+			Chats: h.Visitor.Chats, Corpus: h.Corpus,
+			Subjectivity: h.Subjectivity, Log: h.Log,
 		}, &usecases.RecordDialogInput{
 			OwnerID: ownerID, ConversationID: convID,
 			Question: res.Question, Answer: res.Answer,
 			CitedWikiIDs: res.CitedWikiIDs, CitedOutputIDs: res.CitedOutputIDs,
-			ToolCalls: res.ToolCalls,
+			CitedSubjectivityIDs: res.CitedSubjectivityIDs,
+			ToolCalls:            res.ToolCalls,
 		})
 	}
 }

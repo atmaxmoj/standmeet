@@ -281,15 +281,16 @@ type MediaAsset struct {
 }
 
 type Message struct {
-	ID             pgtype.UUID
-	ConversationID pgtype.UUID
-	DialogID       pgtype.UUID
-	Role           string
-	Body           string
-	ToolCalls      []byte
-	CitedWikiIds   []pgtype.UUID
-	CitedOutputIds []pgtype.UUID
-	CreatedAt      pgtype.Timestamptz
+	ID                   pgtype.UUID
+	ConversationID       pgtype.UUID
+	DialogID             pgtype.UUID
+	Role                 string
+	Body                 string
+	ToolCalls            []byte
+	CitedWikiIds         []pgtype.UUID
+	CitedOutputIds       []pgtype.UUID
+	CitedSubjectivityIds []pgtype.UUID
+	CreatedAt            pgtype.Timestamptz
 }
 
 type NoteRef struct {

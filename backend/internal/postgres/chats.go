@@ -174,14 +174,15 @@ func toDomainChat(c *dbq.Conversation) domain.Chat {
 
 func toDomainMessage(m *dbq.Message) domain.Message {
 	return domain.Message{
-		ID:             formatUUID(m.ID),
-		ConversationID: formatUUID(m.ConversationID),
-		Role:           m.Role,
-		Body:           m.Body,
-		CitedWikiIDs:   formatUUIDList(m.CitedWikiIds),
-		CitedOutputIDs: formatUUIDList(m.CitedOutputIds),
-		ToolCalls:      m.ToolCalls,
-		CreatedAt:      m.CreatedAt.Time,
+		ID:                   formatUUID(m.ID),
+		ConversationID:       formatUUID(m.ConversationID),
+		Role:                 m.Role,
+		Body:                 m.Body,
+		CitedWikiIDs:         formatUUIDList(m.CitedWikiIds),
+		CitedOutputIDs:       formatUUIDList(m.CitedOutputIds),
+		CitedSubjectivityIDs: formatUUIDList(m.CitedSubjectivityIds),
+		ToolCalls:            m.ToolCalls,
+		CreatedAt:            m.CreatedAt.Time,
 	}
 }
 

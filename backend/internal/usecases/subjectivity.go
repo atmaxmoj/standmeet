@@ -15,14 +15,17 @@ import (
 )
 
 // WriteSubjectivityInput —— subjectivity_write 入参。ID 空 = 建;非空 = 改/改父。
+// ShowAsSource：opt 这条 subjectivity 进 visitor cited footer。默认 false（私有）——
+// cap 层在 arg 省略时传 false，与 wiki/output 的默认 true 相反。
 type WriteSubjectivityInput struct {
-	OwnerID    string
-	ID         string
-	ParentID   *string
-	Title      string
-	Body       string
-	Tags       []string
-	CSSClasses []string
+	OwnerID      string
+	ID           string
+	ParentID     *string
+	Title        string
+	Body         string
+	Tags         []string
+	CSSClasses   []string
+	ShowAsSource bool
 }
 
 // SubjectivityResult —— 建/改后返回 id + 树派生 path（供 MCP 回显、访客按 path 寻址）。
@@ -88,7 +91,7 @@ func createNote(
 	note, err := repo.Create(ctx, &postgres.CreateNoteInput{
 		OwnerID: in.OwnerID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		CSSClasses: in.CSSClasses,
+		CSSClasses: in.CSSClasses, ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
 		return postgres.Note{}, fmt.Errorf("create subjectivity: %w", err)
@@ -105,7 +108,7 @@ func updateNote(
 	note, err := repo.UpdateBody(ctx, &postgres.UpdateNoteInput{
 		OwnerID: in.OwnerID, ID: in.ID, ParentID: in.ParentID,
 		Title: in.Title, Body: in.Body, Tags: in.Tags,
-		CSSClasses: in.CSSClasses,
+		CSSClasses: in.CSSClasses, ShowAsSource: in.ShowAsSource,
 	})
 	if err != nil {
 		return postgres.Note{}, fmt.Errorf("update subjectivity: %w", err)

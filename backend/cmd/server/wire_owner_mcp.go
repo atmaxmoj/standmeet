@@ -16,6 +16,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 	}
 	convsDeps := usecases.ConversationsDeps{
 		Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
+		Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
 	}
 	rolesDeps := usecases.RolesDeps{
 		Roles: d.roleRepo, Prompts: d.promptRepo,

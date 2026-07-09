@@ -41,20 +41,21 @@ func (q *Queries) CountNoteStats(ctx context.Context, arg CountNoteStatsParams) 
 
 const createNote = `-- name: CreateNote :one
 
-INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids, css_classes)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO corpus_notes (owner_id, genre, parent_id, title, body, tags, source_ids, css_classes, show_as_source)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
 type CreateNoteParams struct {
-	OwnerID    pgtype.UUID
-	Genre      string
-	ParentID   pgtype.UUID
-	Title      string
-	Body       string
-	Tags       []string
-	SourceIds  []pgtype.UUID
-	CssClasses []string
+	OwnerID      pgtype.UUID
+	Genre        string
+	ParentID     pgtype.UUID
+	Title        string
+	Body         string
+	Tags         []string
+	SourceIds    []pgtype.UUID
+	CssClasses   []string
+	ShowAsSource bool
 }
 
 // corpus_notes.sql —— 统一 note 基座的 query。wiki + output 两个 genre 共用这一套（genre 作参数）：
@@ -70,6 +71,7 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (CorpusN
 		arg.Tags,
 		arg.SourceIds,
 		arg.CssClasses,
+		arg.ShowAsSource,
 	)
 	var i CorpusNote
 	err := row.Scan(

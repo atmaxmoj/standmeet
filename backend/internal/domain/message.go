@@ -14,12 +14,13 @@ import "time"
 // tool 调用(opaque jsonb,前端 [{name,ok,result}] 原样存取),属于这段对话的
 // 一部分:owner 回看 / visitor 续看都要看见 AI search 了啥、read 了哪篇。
 type Message struct {
-	CreatedAt      time.Time
-	ID             string
-	ConversationID string
-	Role           string // 'visitor' | 'assistant'
-	Body           string
-	CitedWikiIDs   []string
-	CitedOutputIDs []string
-	ToolCalls      []byte
+	CreatedAt            time.Time
+	ID                   string
+	ConversationID       string
+	Role                 string // 'visitor' | 'assistant'
+	Body                 string
+	CitedWikiIDs         []string
+	CitedOutputIDs       []string
+	CitedSubjectivityIDs []string
+	ToolCalls            []byte
 }
