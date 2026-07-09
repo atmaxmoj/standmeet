@@ -158,6 +158,11 @@ type CorpusNote struct {
 	CssClasses         []string
 	ObsidianSourcePath string
 	ObsidianImportedAt pgtype.Timestamptz
+	InboxSource        string
+	InboxMeta          []byte
+	FlaggedPrivate     bool
+	Archived           bool
+	PromotedTo         pgtype.UUID
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 }

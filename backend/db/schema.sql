@@ -139,12 +139,24 @@ CREATE TABLE corpus_notes (
     -- web-wins 靠 updated_at > imported_at 判断(owner 在 web 改过 → sync 不覆盖)。
     obsidian_source_path  text      NOT NULL DEFAULT '',
     obsidian_imported_at  timestamptz NULL,
+    -- inbox fields —— only meaningful for genre='raw' (the ingest inbox folded into the one corpus
+    -- structure, #151). inbox_source = 'mcp' | 'obsidian:<path>'; inbox_meta = arbitrary dump context;
+    -- flagged_private / archived = inbox triage; promoted_to = the wiki note this raw was promoted into.
+    -- Harmless defaults for every other genre (they never read them).
+    inbox_source     text          NOT NULL DEFAULT '',
+    inbox_meta       jsonb         NOT NULL DEFAULT '{}'::jsonb,
+    flagged_private  boolean       NOT NULL DEFAULT false,
+    archived         boolean       NOT NULL DEFAULT false,
+    promoted_to      uuid          NULL,
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
 CREATE INDEX corpus_notes_owner_genre_idx ON corpus_notes(owner_id, genre);
 CREATE INDEX corpus_notes_parent_idx ON corpus_notes(parent_id);
 CREATE INDEX corpus_notes_source_path_idx ON corpus_notes(owner_id, obsidian_source_path);
+-- raw inbox idempotency: one row per (owner, inbox_source) for vault-sourced raw (re-upload = upsert).
+CREATE UNIQUE INDEX corpus_notes_inbox_source_uniq
+  ON corpus_notes (owner_id, inbox_source) WHERE genre = 'raw' AND inbox_source LIKE 'obsidian:%';
 
 -- note_refs —— corpus_notes 跨-genre `[[Title]]` 双链边表。src/dst 现指向 corpus_notes（genre='wiki'）。
 -- body 里 owner 写 `[[X]]`，PromoteToWiki / UpdateWiki 同事务 resolve X 到目标 note.id（wiki 无
