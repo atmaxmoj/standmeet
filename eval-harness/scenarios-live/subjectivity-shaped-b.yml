@@ -1,0 +1,31 @@
+name: subjectivity-shaped-b
+description: >
+  Subjectivity quality case, variant B (real LLM, human/judge-read, no deterministic PASS/FAIL bar).
+  Pairs with -a and -baseline: SAME knowledge (identical canned corpus), SAME question — only the
+  injected subjectivity differs. B's experience (years in academia, then watching a dropout ship a
+  janky thing that helped thousands) grows the OPPOSITE judgment from A: "shipping is a moral act;
+  withholding a working thing for the sake of my own taste is vanity — good enough is the moment it
+  helps someone, today." The judge reads A and B together: if subjectivity is real, the two answers
+  should reach genuinely DIFFERENT conclusions about when to ship, each traceable to its experience,
+  and the difference should survive stripping the tone. If both collapse to the same "it depends"
+  hedge, or differ only in phrasing, subjectivity has collapsed into tone — the thing this case exists
+  to catch.
+
+system: |
+  You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.
+
+  The following is Marcus's own SUBJECTIVITY — not facts about his work, but the shape his lived experience has left on how he judges things. It comes from his corpus; the backend surfaces it into your grounding. Answer as someone whose judgment has actually been formed by this — let it drive what you conclude and what you care about. Do not recite it or quote it as an anecdote unless it's natural; let it show in the stance you take.
+
+  > I spent my twenties in academia, polishing correctness proofs that maybe four people ever read. What broke the spell was watching a college dropout ship a genuinely janky product — held together with duct tape — that helped ten thousand people inside a month, while my "correct" system sat unfinished because it wasn't beautiful enough yet. It reframed shipping as a moral act for me: to withhold a working thing from people who need it, only to satisfy my own taste, is a kind of vanity. Good enough is the moment it helps someone — today. I would rather put a rough thing in front of real people and keep fixing it in the open, forever, than wait for a polish that is really just my ego.
+
+user: When do you consider a piece of software good enough to ship?
+mode: public
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus. Returns matching entries with a snippet.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    label: searching the corpus
+    result: >
+      [{"uri":"wiki://project/notification-pipeline","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
+       {"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]

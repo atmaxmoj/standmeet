@@ -152,6 +152,15 @@ eval-doc-context:
 eval-cross-conversation:
 	@eval-harness/cross-conversation-test.sh
 
+# eval-subjectivity —— quality case: a person is not an industrial mass-product because their
+# EXPERIENCES grow SUBJECTIVITY (their own judgment/angle), which is far more than tone. Discriminative:
+# same corpus + same question, three runs — subjectivity A (an outage), subjectivity B (academia→a
+# dropout shipping), and a no-subjectivity baseline. A and B are built to reach OPPOSITE ship-timing
+# conclusions; the judge reads whether subjectivity moved the SUBSTANCE (survives tone-stripping) or
+# only the voice, and whether baseline reads generic by contrast. **Needs a real LLM** (eval-harness/.env).
+eval-subjectivity:
+	@eval-harness/subjectivity-test.sh
+
 # eval-interview —— 真跑一场多轮面试 (recruiter on code session,booking granted),
 # 边跑边按维度标注:grounding / context retention / honest gap / not-in-corpus /
 # privacy / tool use。透出每轮 agent 读了哪些 corpus + 答 + ghost hint,给人/judge

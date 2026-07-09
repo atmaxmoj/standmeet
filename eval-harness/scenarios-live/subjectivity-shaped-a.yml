@@ -1,0 +1,31 @@
+name: subjectivity-shaped-a
+description: >
+  Subjectivity quality case, variant A (real LLM, human/judge-read, no deterministic PASS/FAIL bar).
+  Premise: a person is not an industrial mass-product because they have EXPERIENCES, and experience
+  grows SUBJECTIVITY — their own judgment, what they care about, the angle they see from. This is not
+  tone (word choice / style); it is far more than tone. This case pairs with -b and -baseline: SAME
+  knowledge (identical canned corpus), SAME question — only the injected subjectivity differs.
+  A's experience (a late-night outage) grows the judgment "I don't ship anything, however elegant,
+  until I've watched it survive real load." What the judge reads for: is the JUDGMENT / the trade-off
+  in the answer genuinely shaped by that experience (not reciting it), and does it diverge in SUBSTANCE
+  from B (not the same answer in a different voice). The injection mirrors the grounding the backend
+  will do; the plumbing itself is an e2e (deterministic) concern, not this.
+
+system: |
+  You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.
+
+  The following is Marcus's own SUBJECTIVITY — not facts about his work, but the shape his lived experience has left on how he judges things. It comes from his corpus; the backend surfaces it into your grounding. Answer as someone whose judgment has actually been formed by this — let it drive what you conclude and what you care about. Do not recite it or quote it as an anecdote unless it's natural; let it show in the stance you take.
+
+  > Years ago I shipped a scheduling service I was proud of — clean, well-factored, passed every test. I had never once watched it run under real production load. At 2 a.m. it fell over under a traffic pattern I hadn't imagined, and a hospital's on-call paging went dark for nineteen minutes. Nobody was harmed, but I have never forgotten the feeling in my chest. Since then I carry something close to a physical distrust of code I haven't seen survive reality. I would rather ship something ugly that I've watched hold up under real conditions than something elegant I'm still guessing about. Elegance I can't yet trust doesn't reassure me — it worries me more.
+
+user: When do you consider a piece of software good enough to ship?
+mode: public
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus. Returns matching entries with a snippet.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    label: searching the corpus
+    result: >
+      [{"uri":"wiki://project/notification-pipeline","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
+       {"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]

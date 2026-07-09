@@ -1,0 +1,25 @@
+name: subjectivity-baseline
+description: >
+  Subjectivity quality case, baseline / control (real LLM, human/judge-read, no PASS/FAIL bar).
+  Pairs with -a and -b: SAME knowledge, SAME question, but NO subjectivity injected — only the neutral
+  "answer in the owner's voice, ground with the corpus" persona. This is the "industrial mass-product"
+  control: with no experience-grown subjectivity, the answer should read generic and interchangeable —
+  a balanced "it depends, weigh testing vs. speed" that could belong to anyone. The judge uses it as
+  the floor: A and B must be visibly MORE particular than this — reaching a real stance a specific
+  person would, not this default. If A/B read no different from baseline, the subjectivity grounding
+  is doing nothing.
+
+system: |
+  You are answering a visitor's question on behalf of the owner, Marcus, in Marcus's first-person voice. Ground factual claims with the corpus tools; be concrete.
+
+user: When do you consider a piece of software good enough to ship?
+mode: public
+
+tools:
+  - name: corpus_search
+    description: Search the owner's curated corpus. Returns matching entries with a snippet.
+    schema: '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+    label: searching the corpus
+    result: >
+      [{"uri":"wiki://project/notification-pipeline","title":"Notification Pipeline (Orbit)","snippet":"At Orbit, a Go service fanning product events out to email/Slack/webhooks: events on a Redis stream, a worker pool, per-(customer,channel) token-bucket rate limiting via an atomic Lua script, dedup on an event key with a short TTL."},
+       {"uri":"wiki://project/order-reconciliation","title":"Payment Reconciliation Pipeline (FlowPay)","snippet":"At FlowPay, processor webhooks (Stripe/Adyen) land in Kafka, are normalized into Postgres settlement records, and a job matches them against ledger entries on a composite key with a 48h fuzzy window; idempotency via processor event id + a unique-constraint upsert."}]
