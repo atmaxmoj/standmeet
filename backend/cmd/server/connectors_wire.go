@@ -173,6 +173,18 @@ func (a slotStoreAdapter) ActiveConnectorID(
 
 // registerDiscoveredConnectors —— 拉起时：内置 manifest 装配进 Hub + slot-backed 品类 dep 注册。
 // 同 registerDiscoveredPlugins（MCP 插件）同构——host 不 import 任何具体连接器，契约只有数据。
+// ensureConnectorSlots —— 提前立起 connector Hub + Slots 分派器（只需 connectorRepo）。必须在
+// buildPluginRegistry 之前调：owner-MCP 插件（calendar / mail / connectors caps）的 deps 在那时
+// 就捕获 d.connectorSlots，若那时还 nil 会捕到 nil-backed 分派器 → 运行期调用崩。幂等：discovery
+// （registerDiscoveredConnectors）复用同一个 hub 往里装内置/上传连接器。
+func ensureConnectorSlots(d *runtimeDeps) {
+	if d.connectorSlots != nil {
+		return
+	}
+	d.connectorHub = connector.NewHub()
+	d.connectorSlots = connector.NewSlots(d.connectorHub, slotStoreAdapter{repo: d.connectorRepo})
+}
+
 func registerDiscoveredConnectors(
 	ctx context.Context, d *runtimeDeps, depReg *capreg.DepRegistry,
 ) error {
@@ -180,7 +192,10 @@ func registerDiscoveredConnectors(
 	if err != nil {
 		return fmt.Errorf("load builtin connectors: %w", err)
 	}
-	hub := connector.NewHub()
+	// slots + hub 早已由 ensureConnectorSlots 立起（owner-MCP 插件 deps 在 buildPluginRegistry
+	// 期就捕获 dispatcher，那时 discovery 还没跑）；这里复用同一个 hub 装内置/上传连接器。
+	ensureConnectorSlots(d)
+	hub := d.connectorHub
 	deps := newAssembleDeps(d.connectorRepo)
 	for i := range manifests {
 		c, aerr := assembleConnector(&manifests[i], deps)
@@ -189,9 +204,6 @@ func registerDiscoveredConnectors(
 		}
 		hub.Register(c)
 	}
-	// slots 分派器先立起来（只需 hub + repo）：哪怕下面装上传连接器出岔，品类槽仍在，消费者拿到
-	// 「未连接」域错而非 nil 解引用——一个坏连接器不该让整实例（连带 public /api/v1/instance）500。
-	d.connectorSlots = connector.NewSlots(hub, slotStoreAdapter{repo: d.connectorRepo})
 	depReg.Register(capreg.NamedProvider("calendar", d.connectorSlots.Calendar().Connected))
 	depReg.Register(capreg.NamedProvider("smtp", d.connectorSlots.Mail().Connected))
 	registerUploadedConnectors(ctx, hub, d.connectorRepo, deps, d.log)

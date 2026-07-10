@@ -117,6 +117,8 @@ func wireAndServe(
 		setupTokenHolder: setupTokenHolder,
 		storageClient:    storageClient,
 	})
+	// must precede buildPluginRegistry: owner-MCP caps capture the connector dispatcher there.
+	ensureConnectorSlots(&deps)
 	deps.pluginRegistry = buildPluginRegistry(&deps)
 	registerAgentSkills(ctx, &deps)
 	runBootMaintenance(ctx, &deps)
