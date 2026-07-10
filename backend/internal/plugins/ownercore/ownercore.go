@@ -33,7 +33,13 @@ type Deps struct {
 	Handle        *usecases.HandleDeps
 	Calendar      *CalendarOwnerDeps
 	Appearance    usecases.OwnerCSSStore
-	Log           *slog.Logger
+	// facade-parity fills — owner capabilities that used to be admin-only.
+	IPBans         ipBansStore
+	Domains        usecases.AllowedDomainsDeps
+	AccessRequests *AccessRequestsOwnerDeps
+	Capabilities   *CapabilitiesOwnerDeps
+	Instance       *InstanceDeps
+	Log            *slog.Logger
 }
 
 // Plugin —— implements plugins.Plugin + plugins.CapabilityRegistrar.
@@ -73,4 +79,10 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
 	reg.MustRegister(newPageCapability(d.Handle, d.Log))
 	reg.MustRegister(newCalendarCapability(d.Calendar.Proxy, d.Calendar.Store, d.Owners, d.Log))
+	// facade-parity fills.
+	reg.MustRegister(newIPBansCapability(d.IPBans, d.Log))
+	reg.MustRegister(newDomainsCapability(d.Domains, d.Log))
+	reg.MustRegister(newAccessRequestsCapability(d.AccessRequests, d.Log))
+	reg.MustRegister(newCapabilitiesCapability(d.Capabilities, d.Log))
+	reg.MustRegister(newInstanceCapability(d.Instance, d.Log))
 }

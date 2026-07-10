@@ -15,13 +15,11 @@ package paritymanifest
 // the rest are a binding on an existing capability over an already-present usecase.
 func KnownMCPGaps() []string {
 	return []string{
-		"access_requests.approve", "access_requests.list", "access_requests.update",
 		"account.set_full_name",
 		"ai_provider.presets",
 		"appearance.get_css",
 		"booking.get_policy", "booking.set_policy", "bookings.list",
 		"byoai.set",
-		"capabilities.delete", "capabilities.list", "capabilities.set_enabled",
 		"codes.add_denial", "codes.list", "codes.list_denials", "codes.list_members",
 		"codes.remove_denial",
 		"connectors.activate", "connectors.catalog", "connectors.create", "connectors.delete",
@@ -30,14 +28,10 @@ func KnownMCPGaps() []string {
 		"connectors.update", "connectors.validate_spec",
 		"conversations.ghost_telemetry", "conversations.list",
 		"corpus.get",
-		"domains.add", "domains.list", "domains.remove",
-		"ip_bans.add", "ip_bans.list", "ip_bans.remove",
 		"marketplace.install", "marketplace.search",
 
 		"page.get", "page.put", "page.set_public_url",
 
 		"seo.get_settings", "seo.stats",
-
-		"stats.activity", "stats.growth", "stats.inference_usage", "stats.jobs", "system.status",
 	}
 }

@@ -97,7 +97,8 @@ func (c *subjectivityCapability) handleSubjectivityWrite(
 		return capreg.MCPError(perr.Error())
 	}
 	res, err := usecases.WriteSubjectivity(
-		ctx, *c.corpus, buildWriteSubjectivityInput(&args, ownerID))
+		ctx, *c.corpus, buildWriteSubjectivityInput(&args, ownerID),
+	)
 	if err != nil {
 		return subjectivityWriteErrToResult(c.log, err)
 	}
