@@ -1000,3 +1000,64 @@ CREATE TABLE mcp_app_state (
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (member_id, mcp_id, state_key)
 );
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- API-key facade (facade-directions.md) —— the outward, non-agentic, role-scoped
+-- programmatic surface. An api_key is "a code minus the brain and the gas": it
+-- assumes a role exactly like an access_code, but its holder calls capabilities as
+-- HTTP endpoints (no LLM, no turn/session quota) — bounded only by rate limiting.
+-- Deliberately PARALLEL to access_codes (+ its denial tables), not a refactor of
+-- the settled codes infra.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- api_keys —— one issued programmatic key. secret_hash is sha256 of the full
+-- `smk_…` secret (shown once at mint; never stored raw). prefix is the display
+-- stub. assumed_role_id NOT NULL (same as codes) scopes corpus + capabilities.
+-- rate_limit_rpm NULL = instance default; max_bookings carries the role's
+-- calendar.book quota (the one deterministic quota that still applies).
+CREATE TABLE api_keys (
+    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    assumed_role_id uuid        NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+    label           text        NOT NULL,
+    prefix          text        NOT NULL,
+    secret_hash     bytea       NOT NULL,
+    rate_limit_rpm  integer,
+    max_bookings    integer,
+    status          text        NOT NULL DEFAULT 'active'
+                                CHECK (status IN ('active', 'revoked')),
+    expires_at      timestamptz,
+    last_used_at    timestamptz,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX api_keys_secret_hash_idx ON api_keys(secret_hash);
+CREATE INDEX api_keys_owner_idx ON api_keys(owner_id);
+
+-- api_key_capability_denials / api_key_skill_denials —— per-key deny rows, mirror
+-- of code_capability_denials / code_skill_denials: pure subtraction from the
+-- assumed role's grant.
+CREATE TABLE api_key_capability_denials (
+    key_id        uuid NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+    capability_id text NOT NULL,
+    PRIMARY KEY (key_id, capability_id)
+);
+
+CREATE TABLE api_key_skill_denials (
+    key_id   uuid NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+    skill_id uuid NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+    PRIMARY KEY (key_id, skill_id)
+);
+
+CREATE INDEX api_key_skill_denials_skill_idx ON api_key_skill_denials(skill_id);
+
+-- api_open_capabilities —— the candidacy ("open") gate. A capability is an API
+-- candidate only once the owner opens it here; opening exposes nothing by itself
+-- (a key whose role grants it must also exist). Runtime owner data, distinct from
+-- the dev-time KnownAPIGaps ratchet (which tracks renderer completeness).
+CREATE TABLE api_open_capabilities (
+    owner_id      uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    capability_id text        NOT NULL,
+    opened_at     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (owner_id, capability_id)
+);

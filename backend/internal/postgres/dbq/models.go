@@ -37,6 +37,37 @@ type AccessRequest struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type ApiKey struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	AssumedRoleID pgtype.UUID
+	Label         string
+	Prefix        string
+	SecretHash    []byte
+	RateLimitRpm  *int32
+	MaxBookings   *int32
+	Status        string
+	ExpiresAt     pgtype.Timestamptz
+	LastUsedAt    pgtype.Timestamptz
+	CreatedAt     pgtype.Timestamptz
+}
+
+type ApiKeyCapabilityDenial struct {
+	KeyID        pgtype.UUID
+	CapabilityID string
+}
+
+type ApiKeySkillDenial struct {
+	KeyID   pgtype.UUID
+	SkillID pgtype.UUID
+}
+
+type ApiOpenCapability struct {
+	OwnerID      pgtype.UUID
+	CapabilityID string
+	OpenedAt     pgtype.Timestamptz
+}
+
 type Application struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID
