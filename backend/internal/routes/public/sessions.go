@@ -252,7 +252,7 @@ func writeCreateSession(
 	}
 	// session token 也落一份 HttpOnly cookie(bearer 之外的兜底:跨 tab / 活过刷新 /
 	// SSR);Set-Cookie 必须在 WriteHeader 前。
-	setVisitorSessionCookie(w, res.Session.Token, res.Session.Data.ExpiresAt)
+	setVisitorSessionCookie(w, res.Session.Token, res.Session.Data.ExpiresAt, h.SecureCookie)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {

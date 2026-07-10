@@ -46,7 +46,11 @@ services:
 
   backend:
     build:
-      context: ./backend
+      # context = repo root (NOT ./backend): backend/Dockerfile does
+      # `COPY backend/... / infra/scripts` + links mcp-servers/* in-process, so it
+      # needs the whole repo — same as docker-compose.dev.yml. ./backend fails the COPYs.
+      context: .
+      dockerfile: backend/Dockerfile
       target: production
     restart: unless-stopped
     environment:

@@ -43,6 +43,9 @@ type Options struct {
 	// NoRetry —— 只发一次不重试(仍走统一 client:超时 + 可组合 base)。connector egress 用它——
 	// 重试语义由 connector 层带幂等键自己管,transport 再重试会双重发。
 	NoRetry bool
+	// BlockInternalEgress —— install the SSRF guard dialer (block internal targets + pin) as base.
+	// For an owner/user URL with NO allow-list (writings inline image). Ignored when Base is set.
+	BlockInternalEgress bool
 }
 
 // NewClient —— 唯一被 lint 允许构造 http.Client 的地方。返回 retry-wrapped client。
@@ -53,7 +56,11 @@ func NewClient(o Options) *http.Client {
 func newRetryTransport(o Options) *retryTransport {
 	base := o.Base
 	if base == nil {
-		base = http.DefaultTransport
+		if o.BlockInternalEgress {
+			base = internalBlockingTransport()
+		} else {
+			base = http.DefaultTransport
+		}
 	}
 	return &retryTransport{
 		base: base, onRetry: o.OnRetry,

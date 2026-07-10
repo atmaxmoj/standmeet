@@ -81,7 +81,12 @@ func validateInlineFileURL(raw string) error {
 func doInlineFileFetch(
 	ctx context.Context, pendingID, rawURL string, idx int,
 ) (usecases.FileInput, error) {
-	client := httpx.NewClient(httpx.Options{Timeout: capFileFetchTimeout})
+	// BlockInternalEgress —— owner-supplied URL, no allow-list: the fetch must not reach internal
+	// addresses (metadata endpoint / internal services). The https-only check above is not enough
+	// (a public-looking host can resolve/redirect to an internal IP).
+	client := httpx.NewClient(httpx.Options{
+		Timeout: capFileFetchTimeout, BlockInternalEgress: true,
+	})
 	req, rerr := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if rerr != nil {
 		return usecases.FileInput{}, fmt.Errorf("files[%d]: build req: %w", idx, rerr)

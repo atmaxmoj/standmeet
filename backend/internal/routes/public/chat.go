@@ -31,31 +31,22 @@ import (
 
 // Handlers —— public routes deps.
 type Handlers struct {
-	Visitor usecases.VisitorSessionDeps
-	Confirm usecases.BookingConfirmDeps
-	Cancel  usecases.VisitorCancelDeps
-	// Resolver / Reports —— route-level deps(非会话生命周期):chat turn 解析 owner
-	// provider + GET /report 读报告。#131 从 VisitorDeps 拆出来直接挂 Handlers。
-	Resolver inference.Resolver
-	Reports  usecases.ReportStore
-	Sessions *session.VisitorSessionStore
-	Corpus   usecases.DialogCorpusLookup
-	// Subjectivity —— dialog cited 反查 subjectivity + gate show_as_source（默认私有）。
-	// 不走 Corpus facade（facade 只 dispatch 4 genre）。composition root 注入（包 NoteRepo）。
+	Visitor      usecases.VisitorSessionDeps
+	Confirm      usecases.BookingConfirmDeps
+	Cancel       usecases.VisitorCancelDeps
+	Usage        UsageRecorder
+	Reports      usecases.ReportStore
+	Corpus       usecases.DialogCorpusLookup
 	Subjectivity usecases.SubjectivityCiteLookup
-	// Ledger —— ghost-steering waypoint ledger:把本轮引用/booking 命中标 visited 存 session。
-	// composition root 建(闭 vaultSync + session store);route 不碰 postgres(守 arch)。
-	Ledger      *usecases.WaypointLedger
-	Ghosts      usecases.GhostDeps
-	PDFRenderer ReportPDFRenderer
-	// AppState —— MCP App（ui:// 卡）跨刷新状态 store；卡经 host 对自己 mcp 那格 CRUD。
-	AppState AppStateStore
-	// Usage —— #106 计费:记 owner-key LLM 用量。composition root 注入(postgres repo)。
-	Usage UsageRecorder
-	// CodeGuard —— #169 访问码兑换失败锁定(暴力枚举防护)。窄接口,具体实现在 middleware
-	// (captcha 依赖藏在那层边界后)。composition root 注入,恒非 nil。
-	CodeGuard CodeGuard
-	Log       *slog.Logger
+	PDFRenderer  ReportPDFRenderer
+	AppState     AppStateStore
+	Resolver     inference.Resolver
+	CodeGuard    CodeGuard
+	Sessions     *session.VisitorSessionStore
+	Ledger       *usecases.WaypointLedger
+	Ghosts       usecases.GhostDeps
+	Log          *slog.Logger
+	SecureCookie bool
 }
 
 // CodeGuard —— 访问码兑换失败锁定端口(#169)。impl = middleware.CodeGuard,注入进来。
@@ -228,10 +219,12 @@ func cookieToken(r *http.Request) (string, bool) {
 
 // setVisitorSessionCookie —— 发 session 时把 token 写进 HttpOnly cookie,寿命跟
 // session 一致。HttpOnly = JS 读不到(防 XSS 偷),浏览器自动随请求带。
-func setVisitorSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+func setVisitorSessionCookie(
+	w http.ResponseWriter, token string, expiresAt time.Time, secure bool,
+) {
 	http.SetCookie(w, &http.Cookie{
 		Name: visitorSessionCookie, Value: token, Path: "/",
-		HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: expiresAt,
+		HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode, Expires: expiresAt,
 	})
 }
 

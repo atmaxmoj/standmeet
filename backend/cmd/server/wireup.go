@@ -248,7 +248,8 @@ func buildPubAPIDeps(d *runtimeDeps) *pubapi.Handlers {
 
 func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 	return publicroutes.Handlers{
-		Visitor: newVisitorSessionDeps(d),
+		Visitor:      newVisitorSessionDeps(d),
+		SecureCookie: d.secureCookie,
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
 			Proxy: d.connectorSlots.Mail(),

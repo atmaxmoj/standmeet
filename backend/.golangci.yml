@@ -292,6 +292,14 @@ linters:
       # 天然冲突（并行会 race 那个 global）。豁免 testpackage + paralleltest。
       - path: internal/connector/
         linters: [testpackage, paralleltest]
+      # httpx 的 safeInternalDialAddr（同 connector egress 的 SSRF pin/rebind 守卫，供无 allow-list
+      # 的 inline-fetch 用）是 unexported 白盒 UT，注入假 lookupIPAddr → 豁免 testpackage + paralleltest。
+      - path: internal/httpx/
+        linters: [testpackage, paralleltest]
+      # routes/public 的 setVisitorSessionCookie（Secure flag）是 unexported helper，白盒 UT 够到它
+      # 需 in-package → 豁免 testpackage（该 test 自身已 t.Parallel，不涉 paralleltest）。
+      - path: internal/routes/public/
+        linters: [testpackage]
       # domain 的 compileGlob 缓存 / cmd/server 的 pingCheck 都是 unexported 白盒 UT;同上豁免。
       - path: internal/domain/
         linters: [testpackage, paralleltest]
