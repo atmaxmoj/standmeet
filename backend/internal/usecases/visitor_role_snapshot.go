@@ -74,6 +74,31 @@ func loadCodeDenials(
 	return roleDenials{Caps: caps, Skills: skills}, nil
 }
 
+// APIKeyDenialReader —— read an API key's deny set (postgres.APIKeyRepo implements it). Same shape
+// as the code denial reader; the api facade subtracts these from the assumed role's grant.
+type APIKeyDenialReader interface {
+	ListCapabilityDenials(ctx context.Context, keyID string) ([]string, error)
+	ListSkillDenials(ctx context.Context, keyID string) ([]string, error)
+}
+
+// BuildAPIKeyRoleSnapshot —— freeze the RoleSnapshot for an API key: the assumed role's grant minus
+// the key's per-key denials. No per-key prompt (the api facade has no LLM persona) — snapshot is
+// used purely to gate which capabilities/tools the key's HTTP calls may reach.
+func BuildAPIKeyRoleSnapshot(
+	ctx context.Context, deps *VisitorSessionDeps, denials APIKeyDenialReader, key *domain.APIKey,
+) (domain.RoleSnapshot, error) {
+	caps, err := denials.ListCapabilityDenials(ctx, key.ID)
+	if err != nil {
+		return domain.RoleSnapshot{}, fmt.Errorf("list api key capability denials: %w", err)
+	}
+	skills, serr := denials.ListSkillDenials(ctx, key.ID)
+	if serr != nil {
+		return domain.RoleSnapshot{}, fmt.Errorf("list api key skill denials: %w", serr)
+	}
+	return buildRoleSnapshotByID(ctx, deps, key.OwnerID, key.AssumedRoleID,
+		codeOverlay{denials: roleDenials{Caps: caps, Skills: skills}})
+}
+
 // buildRoleSnapshotForOwnerPublic —— public / byoai session 用 owner 的
 // public role snapshot。owner 没改过 public 的话覆盖 wiki/output/writing
 // 三个公开 glob。

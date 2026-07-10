@@ -71,6 +71,7 @@ type repoSet struct {
 	chatReport     *postgres.ChatReportRepo
 	inferenceUsage *postgres.InferenceUsageRepo
 	bannedIP       *postgres.BannedIPRepo
+	apiKey         *postgres.APIKeyRepo
 	appState       *postgres.AppStateRepo
 	connector      *postgres.ConnectorRepo
 }
@@ -112,6 +113,7 @@ func newRepos(db *postgres.Pool) *repoSet {
 		chatReport:     postgres.NewChatReportRepo(db),
 		inferenceUsage: postgres.NewInferenceUsageRepo(db),
 		bannedIP:       postgres.NewBannedIPRepo(db),
+		apiKey:         postgres.NewAPIKeyRepo(db),
 		appState:       postgres.NewAppStateRepo(db),
 		connector:      postgres.NewConnectorRepo(db),
 	}
@@ -170,6 +172,7 @@ func assembleRuntimeDeps(
 		chatReportRepo:     repos.chatReport,
 		inferenceUsageRepo: repos.inferenceUsage,
 		bannedIPRepo:       repos.bannedIP,
+		apiKeyRepo:         repos.apiKey,
 		appStateRepo:       repos.appState,
 		connectorRepo:      repos.connector,
 		storageClient:      dw.storageClient,

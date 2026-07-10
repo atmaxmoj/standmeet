@@ -58,18 +58,68 @@ func apiFacade() fp.Facade {
 	return fp.Facade{Name: FacadeAPI, Plane: fp.PlaneOutward, ServesRead: true, ServesActn: true}
 }
 
-// APIMissing —— op-ids that per their Reach must be on the api facade but aren't among the live api
-// endpoints (endpoint names ARE op-ids). The api paydown worklist: an empty renderer → every
-// non-Agentic outward op is missing; shipping an endpoint shrinks it. Mirrors MCPMissing.
-func APIMissing(liveAPIEndpoints []string) []string {
-	exposed := make(map[string]bool, len(liveAPIEndpoints))
-	for _, e := range liveAPIEndpoints {
-		exposed[e] = true
+// outwardTool —— the visitor-facing tool name that realizes an outward op on the chat/api facades.
+type outwardTool struct {
+	Op   string
+	Tool string
+}
+
+// apiRenderable —— the non-Agentic outward ops the api facade renders, each as its live visitor
+// tool. This is the single source the pubapi renderer whitelists AND the ratchet checks, so a tool
+// dropped from the renderer re-grows APIMissing → RED.
+func apiRenderable() []outwardTool {
+	return []outwardTool{
+		{Op: OpCorpusSearch, Tool: "corpus_search"},
+		{Op: OpCorpusRead, Tool: "corpus_read"},
+		{Op: OpCorpusList, Tool: "corpus_list"},
+		{Op: OpCorpusLinks, Tool: "corpus_links"},
+		{Op: OpBookingSlots, Tool: "calendar_list_slots"},
+		{Op: OpBookingBook, Tool: "calendar_book"},
 	}
+}
+
+// APIRenderableTools —— the tool names the api facade serves (one per non-Agentic outward op). The
+// pubapi renderer uses this as its whitelist; passing it to APIMissing yields the empty paydown.
+func APIRenderableTools() []string {
+	r := apiRenderable()
+	out := make([]string, len(r))
+	for i := range r {
+		out[i] = r[i].Tool
+	}
+	return out
+}
+
+// OutwardOpForTool —— map a rendered api tool name back to its outward op-id (for the ratchet).
+func OutwardOpForTool(tool string) (string, bool) {
+	for _, t := range apiRenderable() {
+		if t.Tool == tool {
+			return t.Op, true
+		}
+	}
+	return "", false
+}
+
+// APIMissing —— op-ids that per their Reach must be on the api facade but aren't realized by any
+// live api tool. The api paydown worklist: an empty renderer → every non-Agentic outward op is
+// missing; whitelisting a tool shrinks it. Mirrors MCPMissing.
+func APIMissing(liveAPITools []string) []string {
+	exposure := fp.Exposure{Facade: apiFacade(), Exposed: exposedAPIOps(liveAPITools)}
+	return missingAPIOps(fp.Conform(ManifestOutward(), []fp.Exposure{exposure}))
+}
+
+func exposedAPIOps(liveAPITools []string) map[string]bool {
+	out := make(map[string]bool, len(liveAPITools))
+	for _, t := range liveAPITools {
+		if op, ok := OutwardOpForTool(t); ok {
+			out[op] = true
+		}
+	}
+	return out
+}
+
+func missingAPIOps(vs []fp.Violation) []string {
 	out := []string{}
-	for _, v := range fp.Conform(ManifestOutward(), []fp.Exposure{
-		{Facade: apiFacade(), Exposed: exposed},
-	}) {
+	for _, v := range vs {
 		if v.Facade == FacadeAPI && v.Kind == "missing" {
 			out = append(out, v.OpID)
 		}

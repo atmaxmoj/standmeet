@@ -23,8 +23,5 @@ func KnownMCPGaps() []string {
 // shipping an endpoint deletes its op-id; the ratchet (APIMissing == KnownAPIGaps) stays green.
 // Agentic ops (ask / summarize / mail) are never here — they can't render on the brainless facade.
 func KnownAPIGaps() []string {
-	return []string{
-		OpCorpusSearch, OpCorpusRead, OpCorpusList, OpCorpusLinks,
-		OpBookingSlots, OpBookingBook,
-	}
+	return []string{}
 }

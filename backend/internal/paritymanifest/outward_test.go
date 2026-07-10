@@ -20,28 +20,27 @@ func TestOutward_AllOpsArePlaneOutward(t *testing.T) {
 	}
 }
 
-// TestOutward_APIBaselineMatchesMechanism —— the api paydown baseline (KnownAPIGaps) must equal
-// EXACTLY the set the mechanism says the api facade must expose but doesn't (its renderer is empty
-// today). So the baseline is derived-from-truth, not hand-maintained drift — the same ratchet
-// contract KnownMCPGaps has on the owner side.
-func TestOutward_APIBaselineMatchesMechanism(t *testing.T) {
+// TestOutward_APIRatchet —— the api facade ratchet, paid to zero: the renderer's whitelisted tools
+// (APIRenderableTools) realize every non-Agentic outward op, so APIMissing over them equals the
+// (empty) KnownAPIGaps baseline. Drop a tool from the renderer → APIMissing re-grows → RED. This is
+// the same shrink-only contract KnownMCPGaps has on the owner side.
+func TestOutward_APIRatchet(t *testing.T) {
 	t.Parallel()
-	require.ElementsMatch(t, pm.KnownAPIGaps(), pm.APIMissing(nil),
-		"KnownAPIGaps must equal the api facade's must-expose set (the non-Agentic outward ops).\n"+
-			"• Shipped an api endpoint? delete its op-id from KnownAPIGaps.\n"+
-			"• Added a non-Agentic outward op? it joins the baseline until the api renders it.")
+	require.ElementsMatch(t, pm.KnownAPIGaps(), pm.APIMissing(pm.APIRenderableTools()),
+		"the api renderer must realize exactly the non-Agentic outward ops.\n"+
+			"• Dropped a tool from APIRenderableTools? it re-enters APIMissing → restore it.\n"+
+			"• Added a non-Agentic outward op? whitelist its tool in apiRenderable.")
 }
 
-// TestOutward_AgenticOpsAreNeverAPICandidates —— an Agentic op (needs an LLM in the loop) can never
-// enter the api baseline: the brainless facade must not be obligated to carry it.
-func TestOutward_AgenticOpsAreNeverAPICandidates(t *testing.T) {
+// TestOutward_AgenticOpsAreNeverRenderable —— an Agentic op (needs an LLM in the loop) can never be
+// realized by an api tool: none of the renderable tools maps back to ask / summarize / mail.
+func TestOutward_AgenticOpsAreNeverRenderable(t *testing.T) {
 	t.Parallel()
-	gaps := map[string]bool{}
-	for _, id := range pm.KnownAPIGaps() {
-		gaps[id] = true
-	}
-	for _, id := range []string{pm.OpAsk, pm.OpSummarize, pm.OpMailSend} {
-		require.Falsef(t, gaps[id], "Agentic op %q must not be an api candidate", id)
+	agentic := map[string]bool{pm.OpAsk: true, pm.OpSummarize: true, pm.OpMailSend: true}
+	for _, tool := range pm.APIRenderableTools() {
+		op, ok := pm.OutwardOpForTool(tool)
+		require.True(t, ok, "renderable tool %q must map to an outward op", tool)
+		require.Falsef(t, agentic[op], "renderable tool %q maps to Agentic op %q", tool, op)
 	}
 }
 

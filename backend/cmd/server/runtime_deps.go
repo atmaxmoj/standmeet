@@ -75,6 +75,7 @@ type runtimeDeps struct {
 	chatReportRepo     *postgres.ChatReportRepo
 	inferenceUsageRepo *postgres.InferenceUsageRepo
 	bannedIPRepo       *postgres.BannedIPRepo
+	apiKeyRepo         *postgres.APIKeyRepo
 	appStateRepo       *postgres.AppStateRepo
 	connectorRepo      *postgres.ConnectorRepo
 	connectorHub       *connector.Hub

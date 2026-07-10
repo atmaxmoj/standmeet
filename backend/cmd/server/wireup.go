@@ -9,6 +9,7 @@ import (
 
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/mcphandle"
+	"github.com/atmaxmoj/standmeet/internal/routes/pubapi"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
 	"github.com/atmaxmoj/standmeet/internal/server"
@@ -24,6 +25,7 @@ func buildServerDeps(d *runtimeDeps) *server.Deps {
 		Log:                  d.log,
 		Admin:                buildAdminDeps(d),
 		Public:               buildPublicDeps(d),
+		PubAPI:               buildPubAPIDeps(d),
 		PublicPage:           buildPublicPageDeps(d),
 		PublicSEO:            buildPublicSEODeps(d),
 		PublicCustomPages:    buildPublicCustomPageDeps(d),
@@ -212,18 +214,41 @@ func buildVisitorSkillsDeps(d *runtimeDeps) usecases.VisitorSkillsDeps {
 	}
 }
 
+// apiKeyDefaultRPM —— instance default rate ceiling for API keys (per-key rate_limit_rpm wins).
+const apiKeyDefaultRPM = 120
+
+// newVisitorSessionDeps —— the role-snapshot / assembly dependency bundle shared by the visitor
+// public routes and the API-key facade (both freeze a RoleSnapshot the same way).
+func newVisitorSessionDeps(d *runtimeDeps) usecases.VisitorSessionDeps {
+	return usecases.VisitorSessionDeps{
+		Codes: d.codeRepo, Chats: d.chatRepo,
+		Owners: d.ownerRepo, Skills: d.skillRepo,
+		Roles: d.roleRepo, Prompts: d.promptRepo,
+		Sessions:    d.visitorStore,
+		Wiki:        d.wikiRepo,
+		Output:      d.outputRepo,
+		AgentSkills: d.agentSkills,
+		CodeDenials: d.codeDenialRepo,
+	}
+}
+
+// buildPubAPIDeps —— the API-key facade handlers (/api/pub/v1). Reuses the same visitor assembly +
+// role-snapshot machinery so ACL/denial/quota parity with codes holds by construction.
+func buildPubAPIDeps(d *runtimeDeps) *pubapi.Handlers {
+	vs := newVisitorSessionDeps(d)
+	return pubapi.New(&pubapi.Deps{
+		Keys:        d.apiKeyRepo,
+		Visitor:     &vs,
+		AgentSkills: d.agentSkills,
+		Redis:       d.rdb,
+		Log:         d.log,
+		DefaultRPM:  apiKeyDefaultRPM,
+	})
+}
+
 func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 	return publicroutes.Handlers{
-		Visitor: usecases.VisitorSessionDeps{
-			Codes: d.codeRepo, Chats: d.chatRepo,
-			Owners: d.ownerRepo, Skills: d.skillRepo,
-			Roles: d.roleRepo, Prompts: d.promptRepo,
-			Sessions:    d.visitorStore,
-			Wiki:        d.wikiRepo,
-			Output:      d.outputRepo,
-			AgentSkills: d.agentSkills,
-			CodeDenials: d.codeDenialRepo,
-		},
+		Visitor: newVisitorSessionDeps(d),
 		Confirm: usecases.BookingConfirmDeps{
 			Calendar: d.calendarRepo, Mail: d.mailRepo, Owners: d.ownerRepo,
 			Proxy: d.connectorSlots.Mail(),

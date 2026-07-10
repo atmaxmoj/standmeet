@@ -29,10 +29,9 @@ var (
 	ErrAPIKeyRoleRequired  = errors.New("assumed_role_id is required")
 )
 
-// APIKeyStore —— persistence the mint/resolve usecases need (postgres.APIKeyRepo implements it).
+// APIKeyStore —— the mint side (postgres.APIKeyRepo implements it).
 type APIKeyStore interface {
 	Create(ctx context.Context, in *domain.CreateAPIKeyInput) (domain.APIKey, error)
-	GetBySecretHash(ctx context.Context, hash []byte) (domain.APIKey, error)
 }
 
 // APIKeyRoleGetter —— validate the assumed role exists + belongs to the owner at mint time.
@@ -104,23 +103,6 @@ func validateIssueAPIKey(ctx context.Context, deps IssueAPIKeyDeps, in *IssueAPI
 		return fmt.Errorf("assumed role: %w", err)
 	}
 	return nil
-}
-
-// ResolveAPIKey —— auth: hash the presented secret and look up the active key. A malformed or
-// unknown secret → ErrAPIKeyNotFound (the middleware answers 401). Constant-time is unnecessary
-// here: the lookup is by sha256 of the secret, so timing reveals nothing about a valid secret.
-func ResolveAPIKey(
-	ctx context.Context, store APIKeyStore, rawSecret string,
-) (domain.APIKey, error) {
-	if !strings.HasPrefix(rawSecret, apiKeyPrefix) {
-		return domain.APIKey{}, domain.ErrAPIKeyNotFound
-	}
-	sum := sha256.Sum256([]byte(rawSecret))
-	key, err := store.GetBySecretHash(ctx, sum[:])
-	if err != nil {
-		return domain.APIKey{}, fmt.Errorf("resolve api key: %w", err)
-	}
-	return key, nil
 }
 
 func generateAPIKeySecret() (apiKeySecret, error) {

@@ -117,6 +117,8 @@ components:
     in: internal/routes/admin
   publicroutes:
     in: internal/routes/public            # /api/v1/* — SDK / visitor entry
+  pubapi:
+    in: internal/routes/pubapi            # /api/pub/v1/* — API-key facade (facade-directions.md)
   server:
     in: internal/server
   cmd:
@@ -554,12 +556,23 @@ deps:
       - gotenberg   # GET /report/{id}/pdf —— ErrNotConfigured sentinel + ReportPDFRenderer
     anyVendorDeps: true
 
+  # pubapi —— API-key facade. Reuses the visitor assembly (capreg) + usecases; whitelists non-Agentic
+  # outward tools via paritymanifest. Own auth (api-key), no CSRF/owner-session.
+  pubapi:
+    mayDependOn:
+      - domain
+      - usecases
+      - capreg
+      - paritymanifest
+    anyVendorDeps: true
+
   # server 装配 chi 路由 + middleware；挂 admin / sysroutes / mcphandle / public sub-router。
   server:
     mayDependOn:
       - sysroutes
       - adminroutes
       - publicroutes
+      - pubapi
       - usecases
       - session
       - middleware
@@ -580,6 +593,7 @@ deps:
       - sysroutes
       - adminroutes
       - publicroutes
+      - pubapi
       - mcphandle
       - inference
       - jobcache
