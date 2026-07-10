@@ -53,7 +53,7 @@ func (*writingsCapability) SystemPromptFragmentID(
 func (c *writingsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(),
-		c.publishBinding(), c.deleteBinding(),
+		c.publishBinding(), c.unpublishBinding(), c.deleteBinding(),
 	}
 }
 
@@ -290,6 +290,37 @@ func (c *writingsCapability) handlePublish(
 	}
 	return mcputil.MarshalResult(c.log, "writing_publish", map[string]any{
 		"writing_id": wg.ID(), "slug": wg.Slug(), "published": true,
+	})
+}
+
+// ───── writing_unpublish ──────────────────────────────────────
+
+func (c *writingsCapability) unpublishBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name:        "writing_unpublish",
+		Description: "Unpublish a writing (clears published_at; back to draft, hidden from visitors).",
+		InputSchema: writingByIDSchema(),
+		Handler:     c.handleUnpublish,
+	}
+}
+
+func (c *writingsCapability) handleUnpublish(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	var args writingByIDArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return capreg.MCPError("invalid arguments: " + err.Error())
+	}
+	if args.WritingID == "" {
+		return capreg.MCPError("writing_id is required")
+	}
+	wg, err := usecases.UnpublishWriting(ctx, *c.ro, ownerID, args.WritingID)
+	if err != nil {
+		c.log.Error("cap writing_unpublish", "err", err)
+		return capreg.MCPError("unpublish writing failed")
+	}
+	return mcputil.MarshalResult(c.log, "writing_unpublish", map[string]any{
+		"writing_id": wg.ID(), "slug": wg.Slug(), "published": false,
 	})
 }
 

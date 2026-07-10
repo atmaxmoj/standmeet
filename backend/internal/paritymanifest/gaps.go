@@ -40,6 +40,5 @@ func KnownMCPGaps() []string {
 		"seo.get_settings", "seo.stats",
 		"skills.set_enabled",
 		"stats.activity", "stats.growth", "stats.inference_usage", "stats.jobs", "system.status",
-		"writings.unpublish",
 	}
 }
