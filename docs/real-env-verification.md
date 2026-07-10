@@ -6,27 +6,10 @@
 > **mock-free** stack where *every* dependency is real. A test passes only if the real service
 > behaves as the mock promised.
 >
-> **Provenance.** §3 A–M is the first-pass inventory; **§0, N–R and the nuances tagged `[scan]`
+> **Provenance.** §3 A–M is the first-pass inventory; **N–R and the nuances tagged `[scan]`
 > come from a 5-agent parallel scan** (mock-stack / e2e-fixtures / config-forks /
 > backend-integration / product-journeys). File:line evidence is inline. **Nothing here has been
 > run against real services yet** — the checkboxes are the worklist.
-
----
-
-## 0. P0 — likely real DEFECTS the scan surfaced (verify, then probably fix)
-
-These aren't just "unverified against real" — the code/config looks **wrong for a real deploy**.
-Confirm each; several need a fix, not just a test.
-
-- [ ] **D1 `make prod-up` almost certainly doesn't build.** `docker-compose.prod.yml:47-50` sets `backend.build.context: ./backend`, but `backend/Dockerfile:25,33` does `COPY backend/go.mod …` / `COPY infra/scripts …` and its header says the context must be repo-root. `make prod-up` (`Makefile:97`) passes no override → the `COPY backend/...` paths don't exist under `./backend`. **The prod image has likely never built.** *Fix:* correct the context.
-- [ ] **D2 prod sandbox is missing the kernel privileges dev has.** dev (`docker-compose.dev.yml:158-163`) has `security_opt: [seccomp:unconfined, apparmor:unconfined]` + `cap_add: [SYS_ADMIN, NET_ADMIN]`; **prod (`:92-97`) has neither**, though the dev comment says "prod 同样需要". Under the default docker seccomp profile `bwrap` can't `unshare(CLONE_NEW*)` → the MCP-plugin sandbox + network-caged fetch break in prod. *Fix + verify:* run a bwrap skill/plugin on the prod stack.
-- [ ] **D3 visitor session cookie never sets `Secure`.** `routes/public/chat.go:232-243` (`setVisitorSessionCookie`) sets HttpOnly+SameSite but **no `Secure` field and ignores `SECURE_COOKIE`** — unlike admin cookies (`routes/admin/auth.go:99-127`). On an HTTPS prod origin the visitor bearer cookie can still ride plain HTTP. *Fix:* thread `SecureCookie` through.
-- [ ] **D4 inline image-URL fetch bypasses the SSRF egress guard.** `plugins/ownercore/cap_writings_files.go:70-89` (`doInlineFileFetch`) GETs an owner-supplied `files[].url` with `httpx.NewClient` and **only checks `scheme==https`** — no private-IP / DNS-rebind block (the connector path's `safeDialAddr` guard is absent here, despite a comment claiming "SSRF 防御同"). *Fix:* route through the egress guard. *Verify:* point `files[].url` at a redirect→`169.254.169.254` and an oversized non-image.
-- [ ] **D5 `INSTANCE_SECRET` — confirm prod uses a per-instance random.** `cryptobox/aesgcm.go:37` derives the AES-256 key for **all at-rest owner secrets** (LLM keys, connector OAuth tokens) from `INSTANCE_SECRET`. Dev/demo ship a **public literal** (`dev-not-secret-…`, `demo-instance-secret-…`). If prod ships that, every stored secret is decryptable by anyone reading the public compose. Fail-closed if <32 chars. *Verify:* prod secret is random; ciphertext doesn't decrypt under the dev value; boot fails cleanly if too short.
-- [ ] **D6 `QUERY_QUEUE_MAX_CONCURRENT` is 0 (off) in prod too.** `config.go:124` defaults 0; `session/query_queue.go:109-113` treats `<=0` as "no global limit"; prod compose leaves it unset. The per-owner visitor-chat concurrency guard (protects the owner's LLM quota from concurrent-visitor drain) is **disabled in prod**. *Decide:* prod default should probably be non-zero. *Verify:* set 2, drive 3 concurrent turns, assert the 3rd queues.
-- [ ] **D7 Meilisearch doesn't exist in prod → corpus search silently PG-FTS.** dev runs a real `meilisearch` + sets `MEILI_*`; **prod compose has no meili service and no `MEILI_*`** → `corpus_search` degrades to Postgres full-text and the Meili write path becomes a no-op. So the ranked-search path dev/e2e exercises is *never* prod's path. *Decide:* is PG-FTS the intended prod search, or is meili missing from prod compose? *Verify:* prod `corpus_search` relevance on the PG path.
-- [ ] **D8 CORS is claimed "wide open" but no `Access-Control-Allow-*` header is emitted anywhere** (`routes/public/doc.go:4` says wide-open; grep finds none). SDK cross-origin embeds (§O) either lean on the app proxy or are silently broken. *Verify:* a real cross-origin SDK embed against prod.
-- [ ] **D9 `SESSION_KEY` is dead config** (`config.go:109` reads it; nothing consumes `cfg.SessionKey`). Real owner-session security is a random Redis token + per-token HKDF. *Fix:* wire it (cookie signing) or drop it so ops don't get false assurance.
 
 ---
 
@@ -45,9 +28,9 @@ Confirm each; several need a fix, not just a test.
 | captcha | — | `ProviderNone` (off) — **also off in prod by default** | Turnstile (real keys) |
 | meili/minio/gotenberg | — | *real software, local/permissive dev instances* | prod-grade |
 
-**Also prod-config forks (§0, §N).** Going real = drop the mock services + unset `*_BASE_URL`/`GOOGLE_*`/`MARKETPLACE_*` + supply real creds (§2) + fix/confirm §0.
+**Also deploy-config forks (§N).** Going real = drop the mock services + unset `*_BASE_URL`/`GOOGLE_*`/`MARKETPLACE_*` + supply real creds (§2) + fix/confirm §0.
 
-**First build task:** a `docker-compose.real.yml` override (mocks removed, env repointed, real creds) — and while at it, resolve §0. Bring up `-f docker-compose.dev.yml -f docker-compose.real.yml`, claim a fresh owner, seed a small real corpus.
+**First build task:** a `docker-compose.real.yml` override (mocks removed, env repointed, real creds) — bring up `-f docker-compose.dev.yml -f docker-compose.real.yml`, claim a fresh owner, seed a small real corpus.
 
 ---
 
@@ -140,7 +123,7 @@ Confirm each; several need a fix, not just a test.
 - [ ] **J1 Real corpus dispatch** — mint key, `api.open corpus.retrieval`, `QUERY corpus_search` over **real corpus content** → real hits, role-scoped. **J2 Real rate limit under load** → 429 + per-key isolation. **J3 Real booking via key** (with §B). **J4 No-leak** vs `/api/admin/*` + `/mcp` live.
 
 ### K. Sandbox egress — [—]
-- [ ] **K1 AllowNet vs default-deny** — real external URL reached with net access; `--network=none` blocked. **K2 prod kernel privs** — see §0 D2 (bwrap `unshare` under prod seccomp). **K3 real cron fires on schedule** `[scan]` — the workspace/resume-draft sweeps are only ever run on-demand via a diag hook; verify the real scheduler.
+- [ ] **K1 AllowNet vs default-deny** — real external URL reached with net access; `--network=none` blocked. **K2 sandbox under prod isolation** — prod uses the docker-driver (sibling containers via docker.sock), not bwrap-in-backend; verify a sandbox skill runs on the prod stack. **K3 real cron fires on schedule** `[scan]` — the workspace/resume-draft sweeps are only ever run on-demand via a diag hook; verify the real scheduler.
 
 ### L. Obsidian vault — sync + render (pillar 1; CI = synthetic fixture vault) — [—]
 > Use the **real** vault `~/Develop/writing/notes` (hundreds of real notes, real `.obsidian/`, real
@@ -159,14 +142,14 @@ Confirm each; several need a fix, not just a test.
 ### M. Real MCP client (owner's ingest workflow) — [—]
 - [ ] **M1 Real client connect** — Claude Desktop/Cursor → `/mcp` → `tools/list` sees all 125 tools (over the real client's transport/signing; the stdio SDK had a Sigv1 bug — `c3-stdio-sdk-sigv1-401`). **M2 Real ingest turn** ("remember this…" → `raw_dump`/`promote_to_wiki`/`subjectivity_write` land). **M3 api_keys.create/api.open via real client.**
 
-### N. Prod config & security forks (mostly §0; residuals here) — [DEPLOY]
+### N. Prod deploy-config forks — [DEPLOY]
 - [ ] **N1 `STANDMEET_PLUGINS` unset in prod** `[scan]` → no 3rd-party MCP-app plugins load; verify a real owner-registered plugin loads in prod. **N2 `SANDBOX_WORKSPACE_ROOT`** default writable as uid 1001. **N3 `AGENT_TURN_TIMEOUT`** 120s prod default; short-timeout error path only seen in e2e. **N4 `TURNSTILE_*` unset in BOTH composes** — captcha off by default in prod (permissive default the owner must opt into). **N5 `STORAGE_PUBLIC_URL`/`STORAGE_USE_SSL`** prod values.
 
 ### O. SDK / web-components embed — ZERO coverage — [SDK-HOST]
 > `[scan]` **biggest single-surface gap.** `sdk/packages/{embed,react,core,agent-core,mcp-client}`
 > is a **shipped, customer-facing** deliverable (CLAUDE.md) with **no tests of any kind**, and the
 > app does **not** dogfood it (`app/src` has its own `agent-turn` copy).
-- [ ] **O1 `embed.global.js` on a bare non-Next page on a DIFFERENT origin** → CORS (see §0 D8), session bootstrap, SSE streaming, access-code redemption, real-LLM answer render.
+- [ ] **O1 `embed.global.js` on a bare non-Next page on a DIFFERENT origin** → CORS (the backend currently emits no `Access-Control-*` headers — verify cross-origin), session bootstrap, SSE streaming, access-code redemption, real-LLM answer render.
 - [ ] **O2 `@standmeet/react` in a vanilla Vite host** (not Next) → same.
 - [ ] **O3 Web-Components single-`<script>` drop-in** → renders + chats.
 
@@ -190,9 +173,7 @@ Confirm each; several need a fix, not just a test.
 
 ## 4. Priority
 
-**§0 first** — several are real prod defects (D1 build, D2 sandbox, D3 cookie, D4 SSRF, D5 secret) that no test would let you discover until a real deploy; some need a code fix, not just verification.
-
-Then the two deepest mock-vs-real gaps, both needing only [LLM] + assets we have:
+The two deepest mock-vs-real gaps, both needing only [LLM] + assets we have:
 1. **§L (real Obsidian vault)** — pillar 1; L2/L10 break first on real data. No external cred.
 2. **§A (real LLM)** — every agent behavior CI scripts; **A5, A10, A17 (resume curation), A7 (ghost quality)** have no deterministic backing.
 
@@ -206,5 +187,5 @@ Then:
 ## 5. First build task
 `docker-compose.real.yml` override: drop `llm-gateway`/`external-mock`/`mail-mock`/`mcp-server-mock`/
 `payload-origin`; unset the mock `*_BASE_URL`/`GOOGLE_*`/`MARKETPLACE_*`; add real-cred env as it
-arrives; **resolve §0 D1/D2 so the prod-ish stack even builds and sandboxes**. Claim a fresh owner,
+arrives; confirm the prod-ish stack builds + sandboxes. Claim a fresh owner,
 seed a small real corpus (raw→wiki, a subjectivity note, one output) for §A/§J/§L.
