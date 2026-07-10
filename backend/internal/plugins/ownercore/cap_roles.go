@@ -55,6 +55,7 @@ func (*rolesCapability) SystemPromptFragmentID(
 func (c *rolesCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(), c.deleteBinding(), c.setDockButtonsBinding(),
+		c.updateBinding(), c.getBinding(),
 	}
 }
 

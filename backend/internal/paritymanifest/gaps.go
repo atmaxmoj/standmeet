@@ -33,12 +33,11 @@ func KnownMCPGaps() []string {
 		"domains.add", "domains.list", "domains.remove",
 		"ip_bans.add", "ip_bans.list", "ip_bans.remove",
 		"marketplace.install", "marketplace.search",
-		"mcp_servers.grant_dep",
+
 		"page.get", "page.put", "page.set_public_url",
-		"prompts.get", "prompts.update",
-		"roles.get", "roles.update",
+
 		"seo.get_settings", "seo.stats",
-		"skills.set_enabled",
+
 		"stats.activity", "stats.growth", "stats.inference_usage", "stats.jobs", "system.status",
 	}
 }

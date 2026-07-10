@@ -53,6 +53,7 @@ func (*promptsCapability) SystemPromptFragmentID(
 func (c *promptsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(), c.deleteBinding(),
+		c.updateBinding(), c.getBinding(),
 	}
 }
 
@@ -201,4 +202,132 @@ func promptDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	}
 	log.Error("cap prompt_delete", "err", err)
 	return capreg.MCPError(fmt.Sprintf("delete prompt failed: %v", err))
+}
+
+// ───── prompt_update ─────────────────────────────────────────────
+
+func (c *promptsCapability) updateBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "prompt_update",
+		Description: "Update an owner-curated Prompt. Mirrors prompt_create fields " +
+			"plus prompt_id. Builtin (public) prompt can be edited but not renamed.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"prompt_id":{"type":"string","description":"Target prompt id."},
+				"name":{"type":"string",
+					"description":"Prompt name, unique per owner."},
+				"body":{"type":"string",
+					"description":"System prompt fragment; the AI's persona instructions."},
+				"description":{"type":"string",
+					"description":"Optional one-line description of when to use this prompt."}
+			},
+			"required":["prompt_id","name","body"]
+		}`),
+		Handler: c.handleUpdate,
+	}
+}
+
+type promptUpdateArgsWire struct {
+	PromptID    string `json:"prompt_id"`
+	Name        string `json:"name"`
+	Body        string `json:"body"`
+	Description string `json:"description"`
+}
+
+func parsePromptUpdateArgs(raw json.RawMessage) (promptUpdateArgsWire, error) {
+	var args promptUpdateArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return args, errors.New("invalid arguments: " + err.Error())
+	}
+	if args.PromptID == "" {
+		return args, errors.New("prompt_id is required")
+	}
+	if args.Name == "" {
+		return args, errors.New("name is required")
+	}
+	if args.Body == "" {
+		return args, errors.New("body is required")
+	}
+	return args, nil
+}
+
+func (c *promptsCapability) handleUpdate(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	args, perr := parsePromptUpdateArgs(raw)
+	if perr != nil {
+		return capreg.MCPError(perr.Error())
+	}
+	prompt, err := usecases.UpdatePrompt(ctx, *c.prompts, &usecases.UpdatePromptInput{
+		OwnerID: ownerID, PromptID: args.PromptID, Name: args.Name,
+		Body: args.Body, Description: args.Description,
+	})
+	if err != nil {
+		return promptUpdateErrToResult(c.log, err)
+	}
+	return mcputil.MarshalResult(c.log, "prompt_update", promptToCapView(&prompt))
+}
+
+func promptUpdateErrToResult(log *slog.Logger, err error) capreg.MCPResult {
+	if errors.Is(err, domain.ErrPromptBuiltinImmutable) {
+		return capreg.MCPError("builtin prompt cannot be renamed")
+	}
+	if errors.Is(err, domain.ErrPromptNameTaken) {
+		return capreg.MCPError("prompt name already taken")
+	}
+	if errors.Is(err, domain.ErrPromptNotFound) {
+		return capreg.MCPError("prompt not found")
+	}
+	log.Error("cap prompt_update", "err", err)
+	return capreg.MCPError("update prompt failed")
+}
+
+// ───── prompts.get ───────────────────────────────────────────────
+
+func (c *promptsCapability) getBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name:        "prompts.get",
+		Description: "Fetch one prompt by id (incl. body).",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"prompt_id":{"type":"string","description":"Prompt id"}
+			},
+			"required":["prompt_id"]
+		}`),
+		Handler: c.handleGet,
+	}
+}
+
+type promptGetArgsWire struct {
+	PromptID string `json:"prompt_id"`
+}
+
+func (c *promptsCapability) handleGet(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	var args promptGetArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return capreg.MCPError("invalid arguments: " + err.Error())
+	}
+	if args.PromptID == "" {
+		return capreg.MCPError("prompt_id is required")
+	}
+	prompt, err := usecases.GetPrompt(ctx, *c.prompts, ownerID, args.PromptID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPromptNotFound) {
+			return capreg.MCPError("prompt not found")
+		}
+		c.log.Error("cap prompts.get", "err", err)
+		return capreg.MCPError("get prompt failed")
+	}
+	return mcputil.MarshalResult(c.log, "prompts.get", promptToCapView(&prompt))
+}
+
+func promptToCapView(p *domain.Prompt) map[string]any {
+	return map[string]any{
+		"prompt_id": p.ID(), "name": p.Name(), "body": p.Body(),
+		"description": p.Description(), "is_builtin": p.IsBuiltin(),
+	}
 }

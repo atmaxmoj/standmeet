@@ -52,6 +52,7 @@ func (*skillsCapability) SystemPromptFragmentID(
 func (c *skillsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(), c.deleteBinding(),
+		c.setEnabledBinding(),
 	}
 }
 
@@ -219,4 +220,52 @@ func skillDeleteErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	}
 	log.Error("cap skill_delete", "err", err)
 	return capreg.MCPError("delete skill failed")
+}
+
+// ───── skill_set_enabled ───────────────────────────────────────
+
+func (c *skillsCapability) setEnabledBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "skill_set_enabled",
+		Description: "Globally enable or disable a skill. Disabled skills never enter " +
+			"the agent even when attached to a role. Builtin skills can be toggled " +
+			"(only deletion is blocked).",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"skill_id":{"type":"string","description":"Skill id"},
+				"enabled":{"type":"boolean","description":"true to enable, false to disable."}
+			},
+			"required":["skill_id","enabled"]
+		}`),
+		Handler: c.handleSetEnabled,
+	}
+}
+
+type skillSetEnabledArgsWire struct {
+	SkillID string `json:"skill_id"`
+	Enabled bool   `json:"enabled"`
+}
+
+func (c *skillsCapability) handleSetEnabled(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	var args skillSetEnabledArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return capreg.MCPError("invalid arguments: " + err.Error())
+	}
+	if args.SkillID == "" {
+		return capreg.MCPError("skill_id is required")
+	}
+	skill, err := usecases.SetSkillEnabled(ctx, *c.skills, ownerID, args.SkillID, args.Enabled)
+	if err != nil {
+		if errors.Is(err, domain.ErrSkillNotFound) {
+			return capreg.MCPError("skill not found")
+		}
+		c.log.Error("cap skill_set_enabled", "err", err)
+		return capreg.MCPError("set skill enabled failed")
+	}
+	return mcputil.MarshalResult(c.log, "skill_set_enabled", map[string]any{
+		"skill_id": skill.ID, "name": skill.Name, "enabled": skill.Enabled,
+	})
 }

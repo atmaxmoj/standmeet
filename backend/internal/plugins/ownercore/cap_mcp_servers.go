@@ -51,6 +51,7 @@ func (*mcpServersCapability) SystemPromptFragmentID(
 func (c *mcpServersCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 	return []*capreg.MCPBinding{
 		c.createBinding(), c.listBinding(), c.deleteBinding(),
+		c.grantDepBinding(),
 	}
 }
 
@@ -204,5 +205,64 @@ func (c *mcpServersCapability) handleDelete(
 	}
 	return mcputil.MarshalResult(c.log, "mcp_server_delete", map[string]string{
 		"server_id": args.ServerID,
+	})
+}
+
+// ───── mcp_server_grant_dep ─────────────────────────────────────
+
+func (c *mcpServersCapability) grantDepBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "mcp_server_grant_dep",
+		Description: "Grant this ext-MCP server a connector dependency. ext-MCP is " +
+			"lowest-trust: tools declaring Requires stay uninjected until the owner " +
+			"grants the dep here. Idempotent. server_id must belong to the owner.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"server_id":{"type":"string","description":"Server id"},
+				"dep":{"type":"string","description":"Connector dependency name to grant."}
+			},
+			"required":["server_id","dep"]
+		}`),
+		Handler: c.handleGrantDep,
+	}
+}
+
+type mcpServerGrantDepArgsWire struct {
+	ServerID string `json:"server_id"`
+	Dep      string `json:"dep"`
+}
+
+func parseGrantDepArgs(raw json.RawMessage) (mcpServerGrantDepArgsWire, error) {
+	var args mcpServerGrantDepArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return args, errors.New("invalid arguments: " + err.Error())
+	}
+	if args.ServerID == "" {
+		return args, errors.New("server_id is required")
+	}
+	if args.Dep == "" {
+		return args, errors.New("dep is required")
+	}
+	return args, nil
+}
+
+func (c *mcpServersCapability) handleGrantDep(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	args, perr := parseGrantDepArgs(raw)
+	if perr != nil {
+		return capreg.MCPError(perr.Error())
+	}
+	err := usecases.GrantMCPServerDep(ctx, *c.servers, ownerID, args.ServerID, args.Dep)
+	if err != nil {
+		if errors.Is(err, domain.ErrMCPServerNotFound) {
+			return capreg.MCPError("mcp server not found")
+		}
+		c.log.Error("cap mcp_server_grant_dep", "err", err)
+		return capreg.MCPError("grant mcp server dep failed")
+	}
+	return mcputil.MarshalResult(c.log, "mcp_server_grant_dep", map[string]any{
+		"server_id": args.ServerID, "dep": args.Dep, "granted": true,
 	})
 }
