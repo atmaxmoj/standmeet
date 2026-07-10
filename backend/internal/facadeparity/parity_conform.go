@@ -7,8 +7,9 @@ import (
 	"strings"
 )
 
-// Violation —— a conformance breach: a facade that must expose an op but doesn't ("missing"), or a
-// facade exposing an op the manifest doesn't declare ("orphan").
+// Violation —— a conformance breach: a facade that must expose an op but doesn't ("missing"); a
+// facade exposing a declared op that belongs to the OTHER trust plane ("leak"); or a facade
+// exposing an op the manifest doesn't declare at all ("orphan").
 type Violation struct {
 	Facade string
 	OpID   string
@@ -37,9 +38,23 @@ func Conform(manifest []Op, exposures []Exposure) []Violation {
 	out := make([]Violation, 0, len(exposures))
 	for i := range exposures {
 		out = append(out, missingFor(manifest, &exposures[i])...)
+		out = append(out, leaksFor(byID, &exposures[i])...)
 		out = append(out, orphansFor(byID, &exposures[i])...)
 	}
 	sortViolations(out)
+	return out
+}
+
+// leaksFor —— declared ops the facade exposes that belong to the OTHER trust plane: an owner op on
+// an outward facade, or an outward op on an owner facade. The hard direction wall
+// (facade-directions.md) — checked both ways; distinct from "orphan" (not-in-manifest at all).
+func leaksFor(byID map[string]Op, e *Exposure) []Violation {
+	out := make([]Violation, 0)
+	for id := range e.Exposed {
+		if op, ok := byID[id]; ok && op.Reach.plane != e.Facade.Plane {
+			out = append(out, Violation{Facade: e.Facade.Name, OpID: id, Kind: "leak"})
+		}
+	}
 	return out
 }
 

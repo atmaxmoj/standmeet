@@ -29,41 +29,56 @@ const (
 // these, never against concrete facade names, so a facade added later is bound automatically.
 type FacadeClass int
 
-// Facade classes a Reach can except: browser-flow (OAuth), raw-secret-bearing, multipart upload.
+// Facade classes a Reach can except: browser-flow (OAuth), raw-secret-bearing, multipart upload,
+// Agentic (only meaningful with an LLM in the loop — ask/summarize; the api facade can't carry it).
 const (
 	Browser FacadeClass = iota
 	SecretBearing
 	Multipart
+	Agentic
 )
 
-type reachBase int
+// reachSide —— which side of a facade an op needs (read vs action), or Only-pinned. Plane is a
+// separate field on Reach so owner/outward reaches share the side logic. (Plane lives in plane.go.)
+type reachSide int8
 
 const (
-	reachOwnerAction reachBase = iota
-	reachOwnerRead
+	reachRead reachSide = iota
+	reachAction
 	reachOnly
 )
 
-// Reach —— a capability op's exposure INTENT, by class. base is the default target set; except
-// narrows it; only pins it to named facades (with a mandatory reason).
+// Reach —— a capability op's exposure INTENT: its plane, its side (read/action) or an Only pin, and
+// the capability classes it needs (except narrows away facades that can't carry them).
 type Reach struct {
 	reason string
 	except []FacadeClass
 	only   []string
-	base   reachBase
+	side   reachSide
+	plane  Plane
 }
 
 // OwnerAction —— every owner-action facade must expose this op.
-func OwnerAction() Reach { return Reach{base: reachOwnerAction} }
+func OwnerAction() Reach { return Reach{side: reachAction, plane: PlaneOwner} }
 
 // OwnerRead —— every owner-read facade must expose this op.
-func OwnerRead() Reach { return Reach{base: reachOwnerRead} }
+func OwnerRead() Reach { return Reach{side: reachRead, plane: PlaneOwner} }
 
-// Only —— genuinely single-/few-surface: pin to named facades. Reason is mandatory (an explicit,
-// reviewed decision, not a silent gap).
+// OutwardAction —— every outward-action facade must expose this op (subject to Except, e.g. an
+// Agentic op skips the api facade).
+func OutwardAction() Reach { return Reach{side: reachAction, plane: PlaneOutward} }
+
+// OutwardRead —— every outward-read facade must expose this op (subject to Except).
+func OutwardRead() Reach { return Reach{side: reachRead, plane: PlaneOutward} }
+
+// Only —— genuinely single-/few-surface: pin to named facades (owner plane). Reason is mandatory —
+// an explicit, reviewed decision, not a silent gap.
 func Only(reason string, facades ...string) Reach {
-	return Reach{base: reachOnly, only: facades, reason: reason}
+	return Reach{side: reachOnly, only: facades, reason: reason, plane: PlaneOwner}
 }
+
+// Plane —— the op's trust plane, consulted by the leak check in Conform.
+func (r Reach) Plane() Plane { return r.plane }
 
 // Except —— narrow a base reach by capability class, e.g. OwnerAction().Except(Browser).
 func (r Reach) Except(classes ...FacadeClass) Reach {
@@ -81,34 +96,39 @@ type Op struct {
 	Kind  Kind
 }
 
-// Facade —— an outgoing surface: a name, the capability classes it CAN carry (its profile), and
-// whether it serves owner-actions and/or owner-reads.
+// Facade —— an outgoing surface: a name, the trust plane it faces, the capability classes it CAN
+// carry (its profile), and whether it serves reads and/or actions.
 type Facade struct {
 	Name       string
 	CanCarry   []FacadeClass
+	Plane      Plane
 	ServesRead bool
 	ServesActn bool
 }
 
 func (f Facade) carries(c FacadeClass) bool { return slices.Contains(f.CanCarry, c) }
 
-// mustExpose —— does op belong on this facade, per the op's Reach and the facade's profile? A base
-// reach hits this facade only if the facade serves that side (read/action) AND can carry every
-// excepted class the op needs.
+// mustExpose —— does op belong on this facade, per the op's Reach and the facade's profile? First
+// the planes must match (a cross-plane op never belongs here — see the leak check for exposing one
+// anyway); then a base reach hits this facade only if the facade serves that side (read/action) AND
+// can carry every excepted class the op needs.
 func (f Facade) mustExpose(op *Op) bool {
-	if op.Reach.base == reachOnly {
+	if f.Plane != op.Reach.plane {
+		return false
+	}
+	if op.Reach.side == reachOnly {
 		return slices.Contains(op.Reach.only, f.Name)
 	}
-	return f.servesSide(op.Reach.base) && f.carriesAll(op.Reach.except)
+	return f.servesSide(op.Reach.side) && f.carriesAll(op.Reach.except)
 }
 
 // servesSide —— does the facade serve the op's side? (reachOnly never reaches here — mustExpose
 // handles it — so it falls through to false.)
-func (f Facade) servesSide(base reachBase) bool {
-	if base == reachOwnerRead {
+func (f Facade) servesSide(side reachSide) bool {
+	if side == reachRead {
 		return f.ServesRead
 	}
-	return base == reachOwnerAction && f.ServesActn
+	return side == reachAction && f.ServesActn
 }
 
 func (f Facade) carriesAll(classes []FacadeClass) bool {
