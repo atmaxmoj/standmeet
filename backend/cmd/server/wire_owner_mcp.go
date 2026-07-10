@@ -44,24 +44,52 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 		Calendar: &ownercore.CalendarOwnerDeps{
 			Proxy: d.connectorSlots.Calendar(), Store: calendarStoreAdapter{repo: d.calendarRepo},
 		},
-		Appearance: d.ownerRepo,
-		IPBans:     ipBanStoreAdapter{repo: d.bannedIPRepo},
-		Domains:    usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
-		AccessRequests: &ownercore.AccessRequestsOwnerDeps{
-			Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
-			Approve: usecases.ApproveRequestDeps{
-				Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
-				Owners: d.ownerRepo, Proxy: d.connectorSlots.Mail(),
-			},
-		},
+		Appearance:     d.ownerRepo,
+		IPBans:         ipBanStoreAdapter{repo: d.bannedIPRepo},
+		Domains:        usecases.AllowedDomainsDeps{Instance: d.instanceRepo},
+		AccessRequests: ownerAccessRequestsDeps(d),
 		Capabilities: &ownercore.CapabilitiesOwnerDeps{
 			Registry: d.agentSkills, Settings: d.capabilityRepo,
 			Skills: d.skillRepo, Connectors: d.connectorRepo,
 		},
-		Instance: &ownercore.InstanceDeps{
-			System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
-			Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
+		Instance: ownerInstanceDeps(d),
+		Connectors: &ownercore.ConnectorsOwnerDeps{
+			Svc:  connSvcAdapter{svc: newConnectorService(d)},
+			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,
 		},
-		Log: d.log,
+		Marketplace: usecases.InstallSkillDeps{
+			Marketplace: d.marketplaceClient, Skills: d.skillRepo,
+		},
+		Booking: &ownercore.BookingOwnerDeps{
+			Repo: bookingRepoAdapter{repo: d.calendarRepo}, Owners: d.ownerRepo,
+		},
+		CodeDenials: d.codeDenialRepo,
+		PageContent: d.ownerRepo,
+		PublicURL:   usecases.PublicURLDeps{Owners: d.ownerRepo},
+		SEOStats:    seoStatsAdapter{repo: d.seoRepo},
+		Account:     usecases.AccountDeps{Owners: d.ownerRepo},
+		BYOAI:       usecases.BYOAIDeps{Owners: d.ownerRepo},
+		AIPresets:   ownerAIPresets(),
+		Ghosts:      &usecases.GhostDeps{Repo: d.ghostRepo},
+		Log:         d.log,
+	}
+}
+
+// ownerAccessRequestsDeps —— access-request list/update + approve (issues a code, mails it).
+func ownerAccessRequestsDeps(d *runtimeDeps) *ownercore.AccessRequestsOwnerDeps {
+	return &ownercore.AccessRequestsOwnerDeps{
+		Reqs: usecases.AccessRequestsDeps{Repo: d.accessRequestRepo, Owners: d.ownerRepo},
+		Approve: usecases.ApproveRequestDeps{
+			Reqs: d.accessRequestRepo, Codes: d.codeRepo, Roles: d.roleRepo,
+			Owners: d.ownerRepo, Proxy: d.connectorSlots.Mail(),
+		},
+	}
+}
+
+// ownerInstanceDeps —— instance observability reads (status / usage / growth / activity / jobs).
+func ownerInstanceDeps(d *runtimeDeps) *ownercore.InstanceDeps {
+	return &ownercore.InstanceDeps{
+		System: newSysInfoProvider(d), Usage: d.inferenceUsageRepo,
+		Growth: d.growthRepo, Activity: d.activityRepo, Jobs: d.jobRegistry,
 	}
 }

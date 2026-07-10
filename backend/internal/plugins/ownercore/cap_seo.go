@@ -20,12 +20,13 @@ import (
 const capSEOBundle = "seo.bundle"
 
 type seoCapability struct {
-	seo SEOWriter
-	log *slog.Logger
+	seo   SEOWriter
+	stats seoStatsReader
+	log   *slog.Logger
 }
 
-func newSEOCapability(seo SEOWriter, log *slog.Logger) *seoCapability {
-	return &seoCapability{seo: seo, log: log}
+func newSEOCapability(seo SEOWriter, stats seoStatsReader, log *slog.Logger) *seoCapability {
+	return &seoCapability{seo: seo, stats: stats, log: log}
 }
 
 func (*seoCapability) ID() string          { return capSEOBundle }
@@ -51,6 +52,8 @@ func (c *seoCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 		c.setWikiSlugBinding(),
 		c.setOutputSlugBinding(),
 		c.updateSettingsBinding(),
+		c.getSettingsBinding(),
+		c.statsBinding(),
 	}
 }
 

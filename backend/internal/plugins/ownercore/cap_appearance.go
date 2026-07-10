@@ -48,17 +48,41 @@ func (*appearanceCapability) SystemPromptFragmentID(
 }
 
 func (c *appearanceCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{{
-		Name: "set_owner_css",
-		Description: "Set the owner's custom CSS for their public corpus pages (like an Obsidian " +
-			"CSS snippet). Sanitized + scoped to the content area on save.",
-		InputSchema: json.RawMessage(`{
-			"type":"object",
-			"properties":{"css":{"type":"string","description":"Raw CSS"}},
-			"required":["css"]
-		}`),
-		Handler: c.handleSetOwnerCSS,
-	}}
+	return []*capreg.MCPBinding{
+		{
+			Name: "set_owner_css",
+			Description: "Set the owner's custom CSS for their public corpus pages (like an " +
+				"Obsidian CSS snippet). Sanitized + scoped to the content area on save.",
+			InputSchema: json.RawMessage(`{
+				"type":"object",
+				"properties":{"css":{"type":"string","description":"Raw CSS"}},
+				"required":["css"]
+			}`),
+			Handler: c.handleSetOwnerCSS,
+		},
+		c.getCSSBinding(),
+	}
+}
+
+func (c *appearanceCapability) getCSSBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "appearance.get_css",
+		Description: "Return the owner's current custom CSS (the sanitized + scoped version " +
+			"stored on save).",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
+		Handler:     c.handleGetCSS,
+	}
+}
+
+func (c *appearanceCapability) handleGetCSS(
+	ctx context.Context, ownerID string, _ json.RawMessage,
+) capreg.MCPResult {
+	css, err := c.store.GetCSS(ctx, ownerID)
+	if err != nil {
+		c.log.Error("appearance.get_css", "err", err)
+		return capreg.MCPError("appearance.get_css failed")
+	}
+	return mcputil.MarshalResult(c.log, "appearance.get_css", map[string]string{"css": css})
 }
 
 func (c *appearanceCapability) handleSetOwnerCSS(

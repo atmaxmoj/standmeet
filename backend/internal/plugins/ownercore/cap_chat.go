@@ -22,13 +22,15 @@ const capChatBundle = "chat.bundle"
 type chatCapability struct {
 	corpus *usecases.CorpusDeps
 	convs  *usecases.ConversationsDeps
+	ghosts *usecases.GhostDeps
 	log    *slog.Logger
 }
 
 func newChatCapability(
-	corpus *usecases.CorpusDeps, convs *usecases.ConversationsDeps, log *slog.Logger,
+	corpus *usecases.CorpusDeps, convs *usecases.ConversationsDeps,
+	ghosts *usecases.GhostDeps, log *slog.Logger,
 ) *chatCapability {
-	return &chatCapability{corpus: corpus, convs: convs, log: log}
+	return &chatCapability{corpus: corpus, convs: convs, ghosts: ghosts, log: log}
 }
 
 func (*chatCapability) ID() string          { return capChatBundle }
@@ -52,7 +54,105 @@ func (*chatCapability) SystemPromptFragmentID(
 }
 
 func (c *chatCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{c.showGroundingBinding()}
+	return []*capreg.MCPBinding{
+		c.showGroundingBinding(),
+		c.listConversationsBinding(),
+		c.ghostTelemetryBinding(),
+	}
+}
+
+// ───── conversations.list ────────────────────────────────────────
+
+func (c *chatCapability) listConversationsBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "conversations.list",
+		Description: "List the owner's visitor conversations (newest first): id, mode, " +
+			"visitor, turn counts, sentiment, and the access code label if any.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"limit":{"type":"number","description":"Max rows (default 50, max 200)"}
+			}
+		}`),
+		Handler: c.handleListConversations,
+	}
+}
+
+type convListRowView struct {
+	StartedAt   string `json:"started_at"`
+	LastAt      string `json:"last_at"`
+	CodeLabel   string `json:"code_label,omitempty"`
+	ID          string `json:"id"`
+	Mode        string `json:"mode"`
+	VisitorName string `json:"visitor_name"`
+	Sentiment   string `json:"sentiment"`
+	Turns       int32  `json:"turns"`
+	PrivateHits int32  `json:"private_hits"`
+}
+
+func (c *chatCapability) handleListConversations(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	limit := parseListLimit(raw)
+	rows, err := usecases.ListConversations(ctx, *c.convs, ownerID, limit)
+	if err != nil {
+		c.log.Error("cap conversations.list", "err", err)
+		return capreg.MCPError("conversations.list failed")
+	}
+	out := make([]convListRowView, 0, len(rows))
+	for i := range rows {
+		s := &rows[i]
+		row := convListRowView{
+			ID: s.ID, Mode: s.Mode, VisitorName: s.VisitorName,
+			Turns: s.Turns, PrivateHits: s.PrivateHits,
+			Sentiment: usecases.DeriveSentiment(s.Turns, s.PrivateHits, s.Mode),
+			StartedAt: s.StartedAt.Format(mcpTimeFmt),
+			LastAt:    s.LastAt.Format(mcpTimeFmt),
+		}
+		if s.CodeLabel != nil {
+			row.CodeLabel = *s.CodeLabel
+		}
+		out = append(out, row)
+	}
+	return mcputil.MarshalResult(c.log, "conversations.list", out)
+}
+
+// ───── conversations.ghost_telemetry ─────────────────────────────
+
+func (c *chatCapability) ghostTelemetryBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "conversations.ghost_telemetry",
+		Description: "Ghost-steering funnel telemetry: per-waypoint policy-ghost shown vs " +
+			"accepted counts and acceptance rate.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
+		Handler:     c.handleGhostTelemetry,
+	}
+}
+
+type waypointStatRowView struct {
+	TargetWaypoint string  `json:"target_waypoint"`
+	Shown          int64   `json:"shown"`
+	Accepted       int64   `json:"accepted"`
+	AcceptanceRate float64 `json:"acceptance_rate"`
+}
+
+func (c *chatCapability) handleGhostTelemetry(
+	ctx context.Context, ownerID string, _ json.RawMessage,
+) capreg.MCPResult {
+	stats, err := usecases.GhostTelemetry(ctx, c.ghosts, ownerID)
+	if err != nil {
+		c.log.Error("cap conversations.ghost_telemetry", "err", err)
+		return capreg.MCPError("ghost_telemetry failed")
+	}
+	out := make([]waypointStatRowView, 0, len(stats))
+	for i := range stats {
+		s := &stats[i]
+		out = append(out, waypointStatRowView{
+			TargetWaypoint: s.TargetWaypoint, Shown: s.Shown,
+			Accepted: s.Accepted, AcceptanceRate: s.AcceptanceRate(),
+		})
+	}
+	return mcputil.MarshalResult(c.log, "conversations.ghost_telemetry", out)
 }
 
 func (c *chatCapability) showGroundingBinding() *capreg.MCPBinding {

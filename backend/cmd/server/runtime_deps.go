@@ -13,7 +13,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/captcha"
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/connectorsvc"
 	"github.com/atmaxmoj/standmeet/internal/inference"
 	"github.com/atmaxmoj/standmeet/internal/jobregistry"
 	"github.com/atmaxmoj/standmeet/internal/marketplace"
@@ -115,14 +114,7 @@ func recoveryDeps(d *runtimeDeps) usecases.RecoveryDeps {
 // buildAdminDeps 保持 ≤70 行(funlen)。
 func connectorsAdminDeps(d *runtimeDeps) adminroutes.ConnectorsAdminDeps {
 	return adminroutes.ConnectorsAdminDeps{
-		Svc: connectorsvc.New(&connectorsvc.Deps{
-			Repo: d.connectorRepo, Owners: d.ownerRepo, Redis: d.rdb,
-			HTTP: connectorEgressClient(), Verifier: d.connectorSlots,
-			Installer: uploadedInstaller{
-				slots: d.connectorSlots, deps: newAssembleDeps(d.connectorRepo),
-			},
-			Manifests: loadBuiltinConnectorManifests(d),
-		}),
+		Svc:      newConnectorService(d),
 		Mail:     d.connectorSlots.Mail(),
 		MailKind: d.connectorSlots.MailKind,
 	}

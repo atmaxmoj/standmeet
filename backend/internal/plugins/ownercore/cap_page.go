@@ -21,15 +21,26 @@ import (
 
 const capPageBundle = "page.bundle"
 
+// pageContentStore —— owner page_content 读写（避开直接 import postgres.OwnerRepo）。
+type pageContentStore interface {
+	GetPageContent(ctx context.Context, ownerID string) (domain.PageContent, error)
+	UpsertPageContent(
+		ctx context.Context, ownerID string, in *domain.PageContent,
+	) (domain.PageContent, error)
+}
+
 type pageCapability struct {
-	handle *usecases.HandleDeps
-	log    *slog.Logger
+	pages     pageContentStore
+	handle    *usecases.HandleDeps
+	publicURL usecases.PublicURLDeps
+	log       *slog.Logger
 }
 
 func newPageCapability(
-	handle *usecases.HandleDeps, log *slog.Logger,
+	handle *usecases.HandleDeps, pages pageContentStore,
+	publicURL usecases.PublicURLDeps, log *slog.Logger,
 ) *pageCapability {
-	return &pageCapability{handle: handle, log: log}
+	return &pageCapability{handle: handle, pages: pages, publicURL: publicURL, log: log}
 }
 
 func (*pageCapability) ID() string          { return capPageBundle }
@@ -53,7 +64,9 @@ func (*pageCapability) SystemPromptFragmentID(
 }
 
 func (c *pageCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{c.updateHandleBinding()}
+	return []*capreg.MCPBinding{
+		c.updateHandleBinding(), c.getBinding(), c.putBinding(), c.setPublicURLBinding(),
+	}
 }
 
 func (c *pageCapability) updateHandleBinding() *capreg.MCPBinding {
@@ -106,4 +119,116 @@ func updateHandleErrToResult(log *slog.Logger, err error) capreg.MCPResult {
 	}
 	log.Error("cap page.update_handle", "err", err)
 	return capreg.MCPError("update handle failed")
+}
+
+// ───── page.get ─────────────────────────────────────────────────
+
+func (c *pageCapability) getBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "page.get",
+		Description: "Return the owner's public page content (hero prose, insights, projects, " +
+			"where, contact). Falls back to a default draft if the owner has not saved one.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
+		Handler:     c.handleGet,
+	}
+}
+
+func (c *pageCapability) handleGet(
+	ctx context.Context, ownerID string, _ json.RawMessage,
+) capreg.MCPResult {
+	content, err := c.pages.GetPageContent(ctx, ownerID)
+	if err != nil {
+		if !errors.Is(err, domain.ErrPageNotFound) {
+			c.log.Error("cap page.get", "err", err)
+			return capreg.MCPError("page.get failed")
+		}
+		content = usecases.DefaultPageContent(ownerID)
+	}
+	return mcputil.MarshalResult(c.log, "page.get", &content)
+}
+
+// ───── page.put ─────────────────────────────────────────────────
+
+func (c *pageCapability) putBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "page.put",
+		Description: "Replace the owner's public page content wholesale. Body mirrors page.get " +
+			"output (hero_prose, hero_examples, insights, projects, where, contact).",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"hero_prose":{"type":"string"},
+				"hero_examples":{"type":"array","items":{"type":"string"}},
+				"insights":{"type":"array"},
+				"projects":{"type":"array"},
+				"where":{"type":"object"},
+				"contact":{"type":"object"}
+			}
+		}`),
+		Handler: c.handlePut,
+	}
+}
+
+func (c *pageCapability) handlePut(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	var body domain.PageContent
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return capreg.MCPError("invalid arguments: " + err.Error())
+	}
+	body.OwnerID = ownerID
+	saved, err := c.pages.UpsertPageContent(ctx, ownerID, &body)
+	if err != nil {
+		c.log.Error("cap page.put", "err", err)
+		return capreg.MCPError("page.put failed")
+	}
+	return mcputil.MarshalResult(c.log, "page.put", &saved)
+}
+
+// ───── page.set_public_url ──────────────────────────────────────
+
+func (c *pageCapability) setPublicURLBinding() *capreg.MCPBinding {
+	return &capreg.MCPBinding{
+		Name: "page.set_public_url",
+		Description: "Set the deployment's canonical public URL (used for QR codes and SEO " +
+			"canonical links). Must be http(s):// with a non-empty host.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{"public_url":{"type":"string",
+				"description":"Canonical public URL, e.g. https://me.example.com."}},
+			"required":["public_url"]
+		}`),
+		Handler: c.handleSetPublicURL,
+	}
+}
+
+type setPublicURLArgsWire struct {
+	PublicURL string `json:"public_url"`
+}
+
+func (c *pageCapability) handleSetPublicURL(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) capreg.MCPResult {
+	var args setPublicURLArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return capreg.MCPError("invalid arguments: " + err.Error())
+	}
+	owner, err := usecases.UpdateOwnerPublicURL(ctx, c.publicURL, ownerID, args.PublicURL)
+	if err != nil {
+		return setPublicURLErrToResult(c.log, err)
+	}
+	return mcputil.MarshalResult(c.log, "page.set_public_url", map[string]string{
+		"owner_id": owner.ID, "public_url": owner.PublicURL,
+	})
+}
+
+func setPublicURLErrToResult(log *slog.Logger, err error) capreg.MCPResult {
+	if errors.Is(err, usecases.ErrEmptyField) {
+		return capreg.MCPError("public_url is required")
+	}
+	if errors.Is(err, usecases.ErrPublicURLInvalid) {
+		return capreg.MCPError("public_url must be http(s):// with a non-empty host")
+	}
+	log.Error("cap page.set_public_url", "err", err)
+	return capreg.MCPError("page.set_public_url failed")
 }

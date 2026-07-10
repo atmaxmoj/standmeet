@@ -30,6 +30,8 @@ const capCodesBundle = "codes.bundle"
 // repo 接口。
 type CodesRevoker interface {
 	GetByID(ctx context.Context, codeID string) (domain.AccessCode, error)
+	ListByOwner(ctx context.Context, ownerID string) ([]domain.AccessCode, error)
+	ListMembers(ctx context.Context, codeID string) ([]domain.CodeMember, error)
 	Revoke(ctx context.Context, ownerID, codeID string) error
 	CreateAccessCode(
 		ctx context.Context, in *domain.CreateAccessCodeInput,
@@ -41,12 +43,15 @@ type CodesRevoker interface {
 }
 
 type codesCapability struct {
-	codes CodesRevoker
-	log   *slog.Logger
+	codes   CodesRevoker
+	denials codeDenialsStore
+	log     *slog.Logger
 }
 
-func newCodesCapability(codes CodesRevoker, log *slog.Logger) *codesCapability {
-	return &codesCapability{codes: codes, log: log}
+func newCodesCapability(
+	codes CodesRevoker, denials codeDenialsStore, log *slog.Logger,
+) *codesCapability {
+	return &codesCapability{codes: codes, denials: denials, log: log}
 }
 
 func (*codesCapability) ID() string          { return capCodesBundle }
@@ -70,9 +75,9 @@ func (*codesCapability) SystemPromptFragmentID(
 }
 
 func (c *codesCapability) OwnerMCPBindings() []*capreg.MCPBinding {
-	return []*capreg.MCPBinding{
+	return append([]*capreg.MCPBinding{
 		c.revokeBinding(), c.createBinding(), c.updateQuotasBinding(),
-	}
+	}, c.aclBindings()...)
 }
 
 func (c *codesCapability) revokeBinding() *capreg.MCPBinding {

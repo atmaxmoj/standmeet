@@ -22,7 +22,9 @@ var allOwnerCapIDs = []string{
 	"prompts.bundle", "roles.bundle", "mcp_servers.bundle", "skills.bundle",
 	"writings.bundle", "custom_page.bundle", "page.bundle", "calendar.bundle",
 	"ip_bans.bundle", "domains.bundle", "access_requests.bundle",
-	"capabilities.bundle", "instance.bundle",
+	"capabilities.bundle", "instance.bundle", "connectors.bundle",
+	"marketplace.bundle", "booking.bundle", "account.bundle",
+	"byoai.bundle", "ai_provider.bundle",
 }
 
 func TestPlugin_RegistersAllOwnerCaps(t *testing.T) {

@@ -11,27 +11,9 @@ package paritymanifest
 // and
 //   - filling a gap (adding the MCP tool) → delete its line here → test stays GREEN.
 //
-// The invariant: this list only ever SHRINKS. ~half need a new ownercore capability + deps wiring;
-// the rest are a binding on an existing capability over an already-present usecase.
+// The invariant: this list only ever SHRINKS. It is now EMPTY — every admin-exposed owner
+// capability has an owner-MCP twin (facade parity fully paid down, 56→0). Any future admin route
+// without an MCP twin will re-grow MCPMissing and turn the ratchet RED until it too is mirrored.
 func KnownMCPGaps() []string {
-	return []string{
-		"account.set_full_name",
-		"ai_provider.presets",
-		"appearance.get_css",
-		"booking.get_policy", "booking.set_policy", "bookings.list",
-		"byoai.set",
-		"codes.add_denial", "codes.list", "codes.list_denials", "codes.list_members",
-		"codes.remove_denial",
-		"connectors.activate", "connectors.catalog", "connectors.create", "connectors.delete",
-		"connectors.disconnect", "connectors.list", "connectors.mail_test_send",
-		"connectors.status",
-		"connectors.update", "connectors.validate_spec",
-		"conversations.ghost_telemetry", "conversations.list",
-		"corpus.get",
-		"marketplace.install", "marketplace.search",
-
-		"page.get", "page.put", "page.set_public_url",
-
-		"seo.get_settings", "seo.stats",
-	}
+	return []string{}
 }

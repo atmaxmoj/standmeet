@@ -57,6 +57,7 @@ func (c *corpusMutationsCapability) OwnerMCPBindings() []*capreg.MCPBinding {
 		c.updateOutputBinding(),
 		c.deleteWikiBinding(),
 		c.deleteOutputBinding(),
+		c.getEntryBinding(),
 	}
 }
 

@@ -18,28 +18,38 @@ const Name = "ownercore"
 
 // Deps —— every owner-cap's narrow dependency (was mcphandle.RegisterDeps, moved here verbatim).
 type Deps struct {
-	Owners        OwnerLookup
-	Codes         CodesRevoker
-	SEO           SEOWriter
-	Corpus        *usecases.CorpusDeps
-	Conversations *usecases.ConversationsDeps
-	Prompts       *usecases.PromptsDeps
-	Roles         *usecases.RolesDeps
-	MCPServers    *usecases.MCPServersDeps
-	Skills        *usecases.SkillsDeps
-	Writings      *usecases.WritingsDeps
-	WritingsTx    *usecases.WritingsTxDeps
-	CustomPages   *usecases.CustomPageDeps
-	Handle        *usecases.HandleDeps
-	Calendar      *CalendarOwnerDeps
-	Appearance    usecases.OwnerCSSStore
-	// facade-parity fills — owner capabilities that used to be admin-only.
+	Marketplace    usecases.InstallSkillDeps
+	Appearance     usecases.OwnerCSSStore
+	Codes          CodesRevoker
+	SEO            SEOWriter
+	SEOStats       seoStatsReader
+	PageContent    pageContentStore
+	CodeDenials    codeDenialsStore
 	IPBans         ipBansStore
+	Owners         OwnerLookup
+	Skills         *usecases.SkillsDeps
+	Connectors     *ConnectorsOwnerDeps
+	CustomPages    *usecases.CustomPageDeps
+	Handle         *usecases.HandleDeps
+	Calendar       *CalendarOwnerDeps
+	Writings       *usecases.WritingsDeps
+	MCPServers     *usecases.MCPServersDeps
 	Domains        usecases.AllowedDomainsDeps
 	AccessRequests *AccessRequestsOwnerDeps
 	Capabilities   *CapabilitiesOwnerDeps
 	Instance       *InstanceDeps
+	WritingsTx     *usecases.WritingsTxDeps
+	Roles          *usecases.RolesDeps
+	Booking        *BookingOwnerDeps
+	Prompts        *usecases.PromptsDeps
+	Conversations  *usecases.ConversationsDeps
+	PublicURL      usecases.PublicURLDeps
+	Corpus         *usecases.CorpusDeps
+	Account        usecases.AccountDeps
+	BYOAI          usecases.BYOAIDeps
 	Log            *slog.Logger
+	Ghosts         *usecases.GhostDeps
+	AIPresets      []AIProviderPreset
 }
 
 // Plugin —— implements plugins.Plugin + plugins.CapabilityRegistrar.
@@ -63,21 +73,21 @@ func (*Plugin) Name() string { return Name }
 func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	d := p.deps
 	reg.MustRegister(newMeCapability(d.Owners, d.Log))
-	reg.MustRegister(newCodesCapability(d.Codes, d.Log))
-	reg.MustRegister(newSEOCapability(d.SEO, d.Log))
+	reg.MustRegister(newCodesCapability(d.Codes, d.CodeDenials, d.Log))
+	reg.MustRegister(newSEOCapability(d.SEO, d.SEOStats, d.Log))
 	reg.MustRegister(newCorpusRawCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusOutputCapability(d.Corpus, d.SEO, d.Log))
 	reg.MustRegister(newCorpusMutationsCapability(d.Corpus, d.Log))
 	reg.MustRegister(newSubjectivityCapability(d.Corpus, d.Log))
 	reg.MustRegister(newAppearanceCapability(d.Appearance, d.Log))
-	reg.MustRegister(newChatCapability(d.Corpus, d.Conversations, d.Log))
+	reg.MustRegister(newChatCapability(d.Corpus, d.Conversations, d.Ghosts, d.Log))
 	reg.MustRegister(newPromptsCapability(d.Prompts, d.Log))
 	reg.MustRegister(newRolesCapability(d.Roles, reg.VisitorCapabilityIDs, d.Log))
 	reg.MustRegister(newMCPServersCapability(d.MCPServers, d.Log))
 	reg.MustRegister(newSkillsCapability(d.Skills, d.Log))
 	reg.MustRegister(newWritingsCapability(d.WritingsTx, d.Writings, d.Log))
 	reg.MustRegister(newCustomPageCapability(d.CustomPages, d.Log))
-	reg.MustRegister(newPageCapability(d.Handle, d.Log))
+	reg.MustRegister(newPageCapability(d.Handle, d.PageContent, d.PublicURL, d.Log))
 	reg.MustRegister(newCalendarCapability(d.Calendar.Proxy, d.Calendar.Store, d.Owners, d.Log))
 	// facade-parity fills.
 	reg.MustRegister(newIPBansCapability(d.IPBans, d.Log))
@@ -85,4 +95,10 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newAccessRequestsCapability(d.AccessRequests, d.Log))
 	reg.MustRegister(newCapabilitiesCapability(d.Capabilities, d.Log))
 	reg.MustRegister(newInstanceCapability(d.Instance, d.Log))
+	reg.MustRegister(newConnectorsCapability(d.Connectors, d.Log))
+	reg.MustRegister(newMarketplaceCapability(d.Marketplace, d.Log))
+	reg.MustRegister(newBookingCapability(d.Booking, d.Log))
+	reg.MustRegister(newAccountCapability(d.Account, d.Log))
+	reg.MustRegister(newBYOAICapability(d.BYOAI, d.Log))
+	reg.MustRegister(newAIProviderCapability(d.AIPresets, d.Log))
 }
