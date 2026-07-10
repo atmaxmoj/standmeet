@@ -109,6 +109,8 @@ components:
     in: internal/search                   # 1b corpus 词法检索 Meili 封装；leaf，只依赖 meili SDK
   facadeparity:
     in: internal/facadeparity             # facade-parity 强制 gate 机制；纯 std leaf，无 internal/vendor 依赖
+  paritymanifest:
+    in: internal/paritymanifest           # facade-parity 的具体 owner manifest + 真 facade 对照；依赖 facadeparity
   sysroutes:
     in: internal/routes/sys
   adminroutes:
@@ -161,6 +163,13 @@ deps:
   facadeparity:
     mayDependOn: []
     anyVendorDeps: true
+
+  # paritymanifest —— facade-parity 的具体 owner 能力 manifest（真源）+ 真 facade 对照。只依赖
+  # facadeparity（机制）；被 pluginownercore 的 conformance test 消费。
+  paritymanifest:
+    mayDependOn:
+      - facadeparity
+    anyVendorDeps: false
 
   # connector —— Phase B Nango-proxy 层：唯一解密 owner 凭据 + 代调外部
   # (gcal / mailer) 的地方。usecases 只持 CalendarProxy / MailProxy 接口，
@@ -368,6 +377,7 @@ deps:
       - mcputil
       - usecases
       - httpx
+      - paritymanifest
     anyVendorDeps: true
 
   # jobsuc —— J.2: jobs plugin usecases。J 期前住 usecases；搬过来后跟核

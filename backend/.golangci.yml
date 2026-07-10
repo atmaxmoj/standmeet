@@ -329,6 +329,11 @@ linters:
       # 同 schemaless 协议契约 (map[string]any result payload)，同样豁免裸 any。
       - path: internal/plugins/ownercore/
         linters: [forbidigo]
+
+      # facade-parity manifest is a declaration DATA table — line-length / func-length rules
+      # (meant for logic) only hurt its readability; the data is the point.
+      - path: internal/paritymanifest/manifest_table
+        linters: [revive, funlen]
       # mcputil: 共享的 owner-MCP result marshaller。generic JSON 封装天然收 `any`
       # payload (json.Marshal 就是 any)，跟 mcphandle/mcpclient/capsocket 同 schemaless
       # 协议边界，同样豁免——让 capreg 自身的 any-ban 保持严格。
