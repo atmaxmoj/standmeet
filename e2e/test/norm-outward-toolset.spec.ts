@@ -27,37 +27,60 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN —— tools/list 必须逐字返回这 59 个 owner 工具(排序后比,顺序噪声由 mcp-go
-// 注册顺序决定、不在本条职责内)。
+// GOLDEN —— tools/list 必须逐字返回这 115 个 owner 工具(排序后比,顺序噪声由 mcp-go
+// 注册顺序决定、不在本条职责内)。facade-parity 全额付清后(56→0):每个 admin 面的
+// owner 能力都有一个 owner-MCP 孪生工具。新增/删除 owner 工具必须同步更新本 golden。
 const GOLDEN_TOOLSET: readonly string[] = [
   // me / seo / codes
   'me',
   'seo.set_output_seo', 'seo.set_wiki_seo', 'seo.update_settings',
+  'seo.get_settings', 'seo.stats',
   'codes.create', 'codes.revoke', 'codes.update_quotas',
+  'codes.list', 'codes.list_members',
+  'codes.list_denials', 'codes.add_denial', 'codes.remove_denial',
   // corpus raw / output / wiki / subjectivity
   'subjectivity_write',
   'raw_dump', 'list_recent_raw',
   'list_recent_output', 'update_output', 'delete_output',
   'promote_to_wiki', 'promote_wiki_to_output',
   'list_recent_wiki', 'update_wiki', 'delete_wiki',
-  // chat / prompts / roles
+  'corpus_get_entry',
+  // chat / conversations / prompts / roles
   'chat.show_grounding',
-  'prompt_create', 'prompt_list', 'prompt_delete',
-  'role_create', 'role_list', 'role_delete', 'roles.set_dock_buttons',
-  // mcp servers / skills
-  'mcp_server_create', 'mcp_server_list', 'mcp_server_delete',
-  'skill_create', 'skill_list', 'skill_delete',
+  'conversations.list', 'conversations.ghost_telemetry',
+  'prompt_create', 'prompt_list', 'prompt_delete', 'prompt_update', 'prompts.get',
+  'role_create', 'role_list', 'role_delete', 'role_update', 'roles.get',
+  'roles.set_dock_buttons',
+  // mcp servers / skills / capabilities
+  'mcp_server_create', 'mcp_server_list', 'mcp_server_delete', 'mcp_server_grant_dep',
+  'skill_create', 'skill_list', 'skill_delete', 'skill_set_enabled',
+  'capabilities.list', 'capabilities.set_enabled', 'capabilities.delete',
   // writings
   'writing_create', 'writing_list', 'writing_publish', 'writing_delete',
+  'writing_unpublish',
   // custom page
   'custom_page.create', 'custom_page.list', 'custom_page.get_build',
   'custom_page.write_file', 'custom_page.build', 'custom_page.delete',
   'custom_page.promote_to_staging', 'custom_page.promote_to_live',
   'custom_page.rollback',
-  // page / calendar / appearance
-  'page.update_handle',
+  // page / calendar / booking / appearance
+  'page.update_handle', 'page.get', 'page.put', 'page.set_public_url',
   'calendar.list_slots', 'calendar.cancel_booking',
-  'set_owner_css',
+  'booking.get_policy', 'booking.set_policy', 'bookings.list',
+  'set_owner_css', 'appearance.get_css',
+  // connectors
+  'connectors.list', 'connectors.catalog', 'connectors.status',
+  'connectors.create', 'connectors.update', 'connectors.delete',
+  'connectors.activate', 'connectors.disconnect',
+  'connectors.validate_spec', 'connectors.mail_test_send',
+  // access requests / ip bans / domains / instance / marketplace / ai
+  'access_requests.list', 'access_requests.update', 'access_requests.approve',
+  'ip_bans.list', 'ip_bans.add', 'ip_bans.remove',
+  'domains.list', 'domains.add', 'domains.remove',
+  'instance.status', 'instance.inference_usage', 'instance.corpus_growth',
+  'instance.activity', 'instance.jobs',
+  'marketplace.search', 'marketplace.install',
+  'account.set_full_name', 'byoai.set', 'ai_provider.presets',
   // jobs plugin (jobs / resume / applications)
   'jobs.register_source', 'jobs.list_sources', 'jobs.unregister_source',
   'jobs.fetch_new', 'jobs.show', 'jobs.discard',
