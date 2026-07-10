@@ -66,9 +66,11 @@ func queryOnMutating(method string, tool *capreg.BindingTool) bool {
 func (h *Handlers) runTool(
 	w http.ResponseWriter, r *http.Request, key *domain.APIKey, tool *capreg.BindingTool,
 ) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxAPIBodyBytes)
 	body, berr := io.ReadAll(r.Body)
 	if berr != nil {
-		h.writeErr(w, http.StatusBadRequest, "invalid_body", "could not read request body")
+		h.writeErr(w, http.StatusRequestEntityTooLarge, "body_too_large",
+			"request body is malformed or exceeds the size limit")
 		return
 	}
 	out, execErr := tool.Tool.InvokableRun(r.Context(), string(body))

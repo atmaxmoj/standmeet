@@ -33,6 +33,9 @@ const methodQuery = "QUERY"
 // rateWindow —— fixed-window length for the per-key limiter.
 const rateWindow = time.Minute
 
+// maxAPIBodyBytes —— per-request body cap (DoS bound); a tool arg payload is small JSON.
+const maxAPIBodyBytes = 1 << 20
+
 // KeyStore —— everything the facade needs off the api-key persistence (postgres.APIKeyRepo
 // implements it): auth lookup, per-key denials, the owner's opened capabilities, last-used bump.
 type KeyStore interface {
