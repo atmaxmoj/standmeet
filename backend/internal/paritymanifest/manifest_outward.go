@@ -89,6 +89,14 @@ func APIRenderableTools() []string {
 	return out
 }
 
+// APICandidateCapabilities —— the capreg capability ids an owner may OPEN to the api facade: the
+// non-Agentic outward capabilities whose tools are api-renderable. Opening anything else (an
+// owner-only cap, or an Agentic one like mail.send) is rejected by api.open. This is the capability
+// grain of the tool-grain apiRenderable() list.
+func APICandidateCapabilities() []string {
+	return []string{"corpus.retrieval", "calendar.book"}
+}
+
 // OutwardOpForTool —— map a rendered api tool name back to its outward op-id (for the ratchet).
 func OutwardOpForTool(tool string) (string, bool) {
 	for _, t := range apiRenderable() {

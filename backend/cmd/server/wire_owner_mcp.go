@@ -53,6 +53,7 @@ func buildOwnerCoreDeps(d *runtimeDeps) *ownercore.Deps {
 			Skills: d.skillRepo, Connectors: d.connectorRepo,
 		},
 		Instance: ownerInstanceDeps(d),
+		APIKeys:  &ownercore.APIKeysOwnerDeps{Keys: d.apiKeyRepo, Roles: d.roleRepo},
 		Connectors: &ownercore.ConnectorsOwnerDeps{
 			Svc:  connSvcAdapter{svc: newConnectorService(d)},
 			Mail: d.connectorSlots.Mail(), MailKind: d.connectorSlots.MailKind,

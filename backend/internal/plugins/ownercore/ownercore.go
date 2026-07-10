@@ -38,6 +38,7 @@ type Deps struct {
 	AccessRequests *AccessRequestsOwnerDeps
 	Capabilities   *CapabilitiesOwnerDeps
 	Instance       *InstanceDeps
+	APIKeys        *APIKeysOwnerDeps
 	WritingsTx     *usecases.WritingsTxDeps
 	Roles          *usecases.RolesDeps
 	Booking        *BookingOwnerDeps
@@ -95,6 +96,7 @@ func (p *Plugin) RegisterCapabilities(reg *capreg.Registry) {
 	reg.MustRegister(newAccessRequestsCapability(d.AccessRequests, d.Log))
 	reg.MustRegister(newCapabilitiesCapability(d.Capabilities, d.Log))
 	reg.MustRegister(newInstanceCapability(d.Instance, d.Log))
+	reg.MustRegister(newAPIKeysCapability(d.APIKeys, d.Log))
 	reg.MustRegister(newConnectorsCapability(d.Connectors, d.Log))
 	reg.MustRegister(newMarketplaceCapability(d.Marketplace, d.Log))
 	reg.MustRegister(newBookingCapability(d.Booking, d.Log))

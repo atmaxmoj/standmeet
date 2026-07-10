@@ -27,7 +27,7 @@ const OWNER = {
   handle: 'normtoolset', fullName: 'Norm Toolset Owner',
 };
 
-// GOLDEN —— tools/list 必须逐字返回这 115 个 owner 工具(排序后比,顺序噪声由 mcp-go
+// GOLDEN —— tools/list 必须逐字返回这 125 个 owner 工具(排序后比,顺序噪声由 mcp-go
 // 注册顺序决定、不在本条职责内)。facade-parity 全额付清后(56→0):每个 admin 面的
 // owner 能力都有一个 owner-MCP 孪生工具。新增/删除 owner 工具必须同步更新本 golden。
 const GOLDEN_TOOLSET: readonly string[] = [
@@ -81,6 +81,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'instance.activity', 'instance.jobs',
   'marketplace.search', 'marketplace.install',
   'account.set_full_name', 'byoai.set', 'ai_provider.presets',
+  // api-key facade management (facade-directions.md; MCP-first)
+  'api_keys.create', 'api_keys.list', 'api_keys.revoke', 'api_keys.update',
+  'api_keys.list_denials', 'api_keys.add_denial', 'api_keys.remove_denial',
+  'api.open', 'api.close', 'api.list_candidates',
   // jobs plugin (jobs / resume / applications)
   'jobs.register_source', 'jobs.list_sources', 'jobs.unregister_source',
   'jobs.fetch_new', 'jobs.show', 'jobs.discard',
