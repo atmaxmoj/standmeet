@@ -17,3 +17,14 @@ package paritymanifest
 func KnownMCPGaps() []string {
 	return []string{}
 }
+
+// KnownAPIGaps —— the api-facade paydown worklist: non-Agentic outward ops the api facade SHOULD
+// render but doesn't yet (its renderer arrives in Wave D). Shrink-only, exactly like KnownMCPGaps:
+// shipping an endpoint deletes its op-id; the ratchet (APIMissing == KnownAPIGaps) stays green.
+// Agentic ops (ask / summarize / mail) are never here — they can't render on the brainless facade.
+func KnownAPIGaps() []string {
+	return []string{
+		OpCorpusSearch, OpCorpusRead, OpCorpusList, OpCorpusLinks,
+		OpBookingSlots, OpBookingBook,
+	}
+}
