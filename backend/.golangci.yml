@@ -305,6 +305,13 @@ linters:
         linters: [testpackage, paralleltest]
       - path: cmd/server/
         linters: [testpackage, paralleltest]
+      # hnFirstLine / readOK are unexported job-fetch helpers with pure-logic white-box repros.
+      - path: internal/plugins/jobs/fetch/
+        linters: [testpackage]
+      # dbq repro asserts the generated UpdateNoteSEO query string (unexported const) carries the
+      # owner_id tenant filter → must be in-package white-box.
+      - path: internal/postgres/dbq/
+        linters: [testpackage]
       # postgres-boundary 层与 pgx/sqlc 接口打交道，`any` 在驱动
       # 契约里是不可避免的（pgx Scan(dest ...any)、json.Marshal(v any) 等）。
       # 业务层 ban `any` 让信息流可读；这里反过来豁免。
