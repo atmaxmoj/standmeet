@@ -31,10 +31,11 @@ WHERE id = $1 AND owner_id = $2 AND genre = $3
 RETURNING *;
 
 -- name: UpdateNoteSEO :one
--- 编辑 SEO 描述 + published 开关（地址树派生，owner 不自设 path）。
+-- 编辑 SEO 描述 + published 开关（地址树派生，owner 不自设 path）。owner_id 必带：
+-- 多租户下没有它就是 BOLA（按 id 改到别的 owner 的 note）——与所有 corpus_notes mutation 一致。
 UPDATE corpus_notes
 SET excerpt = $2, published = $3, updated_at = now()
-WHERE id = $1 AND genre = $4
+WHERE id = $1 AND genre = $4 AND owner_id = $5
 RETURNING *;
 
 -- name: ListNoteChildren :many

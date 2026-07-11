@@ -27,6 +27,10 @@ type Cred struct {
 	Key      string
 	Endpoint string
 	Model    string
+	// Untrusted —— cred came from a visitor BYOAI envelope (Endpoint is visitor-controlled). Its
+	// outbound client gets the SSRF egress guard + the endpoint is pre-validated; owner creds
+	// (trusted self-host config, may legitimately point at an internal provider) do not.
+	Untrusted bool
 }
 
 // Resolver —— pick the right cred for this request (owner row vs visitor
@@ -54,7 +58,12 @@ func (r *OwnerKeyResolver) Resolve(
 	ctx context.Context, in *ResolveInput,
 ) (*Cred, error) {
 	if in.Mode == "byoai" && in.BYOAI.HasKey() {
-		return validateCred(in.BYOAI)
+		cred, verr := validateCred(in.BYOAI)
+		if verr != nil {
+			return nil, verr
+		}
+		cred.Untrusted = true // visitor-controlled endpoint → guard egress + pre-validate
+		return cred, nil
 	}
 	cred, err := r.loadOwnerCred(ctx, in.OwnerID)
 	if err != nil {

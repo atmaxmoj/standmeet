@@ -53,7 +53,7 @@ func doReqStatus(t *testing.T, url string) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := retryHTTPClient().Do(req)
+	resp, err := retryHTTPClient(false).Do(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

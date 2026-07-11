@@ -92,7 +92,7 @@ type setWikiSlugPayload struct {
 }
 
 func (c *seoCapability) handleSetWikiSlug(
-	ctx context.Context, _ string, raw json.RawMessage,
+	ctx context.Context, ownerID string, raw json.RawMessage,
 ) capreg.MCPResult {
 	var args setWikiSlugArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
@@ -101,7 +101,7 @@ func (c *seoCapability) handleSetWikiSlug(
 	if args.WikiID == "" {
 		return capreg.MCPError("wiki_id is required")
 	}
-	updated, err := c.seo.UpdateWikiSEO(ctx, args.WikiID, args.Excerpt, args.Published)
+	updated, err := c.seo.UpdateWikiSEO(ctx, ownerID, args.WikiID, args.Excerpt, args.Published)
 	if err != nil {
 		return seoErrToResult(c.log, err, "seo.set_wiki_seo")
 	}
@@ -155,7 +155,7 @@ type setOutputSlugPayload struct {
 }
 
 func (c *seoCapability) handleSetOutputSlug(
-	ctx context.Context, _ string, raw json.RawMessage,
+	ctx context.Context, ownerID string, raw json.RawMessage,
 ) capreg.MCPResult {
 	var args setOutputSlugArgsWire
 	if err := json.Unmarshal(raw, &args); err != nil {
@@ -164,7 +164,7 @@ func (c *seoCapability) handleSetOutputSlug(
 	if args.OutputID == "" {
 		return capreg.MCPError("output_id is required")
 	}
-	updated, err := c.seo.UpdateOutputSEO(ctx, args.OutputID, args.Excerpt, args.Published)
+	updated, err := c.seo.UpdateOutputSEO(ctx, ownerID, args.OutputID, args.Excerpt, args.Published)
 	if err != nil {
 		return seoErrToResult(c.log, err, "seo.set_output_seo")
 	}

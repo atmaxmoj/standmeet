@@ -107,8 +107,19 @@ func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
 	if scripted, ok := s.queue.takeReply(); ok {
 		text = scripted
 	}
-	text = composeFinalReply(req, text)
+	// summarize report generation returns the report HTML RAW (like a real LLM) — no [system:...]
+	// echo. The echo (composeFinalReply) is for chat replies where tests assert prompt assembly;
+	// prepending it to a report pollutes the stored HTML (and breaks HTML sanitization on it).
+	if !isSummarizeGen(req) {
+		text = composeFinalReply(req, text)
+	}
 	s.writeNonStream(w, req.Model, text)
+}
+
+// isSummarizeGen —— the non-stream call that generates a conversation report (its system is the
+// summarize component-kit prompt). Detected by a phrase unique to summarizeHTMLPrompt.
+func isSummarizeGen(req *MessagesReq) bool {
+	return strings.Contains(req.System.Text, "report component kit")
 }
 
 func (s *server) writeNonStream(w http.ResponseWriter, model, text string) {

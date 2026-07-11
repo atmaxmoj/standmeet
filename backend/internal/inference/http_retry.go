@@ -55,11 +55,13 @@ func notifyRetry(ctx context.Context, attempt int) {
 }
 
 // retryHTTPClient —— 走 httpx 统一 client(重试 + 退避),挂 inference 的 OnRetry 钩子。
-func retryHTTPClient() *http.Client {
+// blockInternal → 装 SSRF 守卫 dialer(untrusted BYOAI endpoint 用;拦内网 + pin 防 DNS-rebind)。
+func retryHTTPClient(blockInternal bool) *http.Client {
 	return httpx.NewClient(httpx.Options{
-		MaxRetries: maxLLMRetries,
-		BaseDelay:  llmRetryBaseWait,
-		OnRetry:    onLLMRetry,
+		MaxRetries:          maxLLMRetries,
+		BaseDelay:           llmRetryBaseWait,
+		OnRetry:             onLLMRetry,
+		BlockInternalEgress: blockInternal,
 	})
 }
 

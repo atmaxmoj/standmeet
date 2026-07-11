@@ -117,6 +117,9 @@ services:
       # docker IP, so it must be explicitly allowed; prod leaves this unset → all
       # loopback/link-local/private targets are blocked.
       - CONNECTOR_EGRESS_ALLOW=external-mock
+      # httpx SSRF guard allow-list (BYOAI endpoint / writings inline-fetch): the in-cluster mock
+      # gateway is an internal IP, so allow it here; prod leaves this unset → all internal blocked.
+      - EGRESS_ALLOW_HOSTS=llm-gateway,external-mock
       # Plugin discovery (Phase A): declares the in-stack mcp-server-mock as a
       # third-party MCP-app plugin 'echoer'. Prod leaves this unset → no
       # third-party plugins. (Bundled builtins like ask_visitor are NOT here —

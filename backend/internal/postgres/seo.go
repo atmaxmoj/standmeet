@@ -80,14 +80,18 @@ func (r *SEORepo) UpsertSettings(
 // UpdateWikiSEO —— 给 admin / MCP 改 SEO 描述 + indexed 开关。地址树派生,
 // owner 不再自设 path,所以没有 path 冲突(ErrPathTaken)这回事。
 func (r *SEORepo) UpdateWikiSEO(
-	ctx context.Context, wikiID, description string, indexed bool,
+	ctx context.Context, ownerID, wikiID, description string, indexed bool,
 ) (domain.Wiki, error) {
 	pgID, perr := parseUUID(wikiID)
 	if perr != nil {
 		return domain.Wiki{}, fmt.Errorf("parse wiki id: %w", perr)
 	}
+	pgOwner, oerr := parseUUID(ownerID)
+	if oerr != nil {
+		return domain.Wiki{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+	}
 	row, err := dbq.New(r.pool).UpdateNoteSEO(ctx, dbq.UpdateNoteSEOParams{
-		ID: pgID, Excerpt: description, Published: indexed, Genre: genreWiki,
+		ID: pgID, Excerpt: description, Published: indexed, Genre: genreWiki, OwnerID: pgOwner,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -100,14 +104,18 @@ func (r *SEORepo) UpdateWikiSEO(
 
 // UpdateOutputSEO —— 跟 UpdateWikiSEO 同套路。
 func (r *SEORepo) UpdateOutputSEO(
-	ctx context.Context, outputID, description string, indexed bool,
+	ctx context.Context, ownerID, outputID, description string, indexed bool,
 ) (domain.Output, error) {
 	pgID, perr := parseUUID(outputID)
 	if perr != nil {
 		return domain.Output{}, fmt.Errorf("parse output id: %w", perr)
 	}
+	pgOwner, oerr := parseUUID(ownerID)
+	if oerr != nil {
+		return domain.Output{}, fmt.Errorf(errParseOwnerIDPrefix, oerr)
+	}
 	row, err := dbq.New(r.pool).UpdateNoteSEO(ctx, dbq.UpdateNoteSEOParams{
-		ID: pgID, Excerpt: description, Published: indexed, Genre: genreOutput,
+		ID: pgID, Excerpt: description, Published: indexed, Genre: genreOutput, OwnerID: pgOwner,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

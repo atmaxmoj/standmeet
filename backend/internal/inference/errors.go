@@ -9,6 +9,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
 // Sentinel errors.
@@ -44,6 +46,9 @@ type StreamErrClass struct {
 // Route layer surfaces this on pre-stream failures (auth, cred resolve,
 // upstream open) before any SSE byte has flowed.
 func ClassifyStreamErr(err error) StreamErrClass {
+	if errors.Is(err, httpx.ErrBlockedEgress) {
+		return StreamErrClass{Code: "endpoint_blocked", Status: http.StatusBadRequest}
+	}
 	if c, ok := classifyDirectStatus(err); ok {
 		return c
 	}
@@ -77,6 +82,8 @@ var friendlyMessages = map[string]string{
 	"owner_unconfigured":   "This page doesn't have an AI provider set up yet.",
 	"unsupported_provider": "That AI provider isn't supported here.",
 	"network":              "Network problem reaching the AI provider. Please try again.",
+	"endpoint_blocked": "That AI endpoint resolves to an internal/private address and " +
+		"isn't allowed.",
 }
 
 // FriendlyMessage —— 未知 code 给中性兜底。

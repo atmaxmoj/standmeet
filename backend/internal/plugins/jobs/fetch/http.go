@@ -56,13 +56,22 @@ func sendGET(ctx context.Context, client *http.Client, url, bearer string) (*htt
 	return resp, nil
 }
 
+// maxFetchBodyBytes —— hard cap on a single upstream body (HTML/JSON page or a gzipped JBA chunk;
+// both are ≪ this). Bounds io.ReadAll so a hostile/broken source can't force unbounded memory.
+const maxFetchBodyBytes = 10 << 20 // 10 MiB
+
 func readOK(resp *http.Response, url string) ([]byte, error) {
 	if resp.StatusCode < httpOKBase || resp.StatusCode >= httpOKBase+100 {
 		return nil, fmt.Errorf("%s: %w: HTTP %d", url, ErrUpstream, resp.StatusCode)
 	}
-	body, err := io.ReadAll(resp.Body)
+	// read one byte past the cap so an over-limit body is detected rather than silently truncated.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFetchBodyBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("%s: read body: %w: %w", url, ErrUpstream, err)
+	}
+	if int64(len(body)) > maxFetchBodyBytes {
+		return nil, fmt.Errorf("%s: %w: response body exceeds %d bytes",
+			url, ErrUpstream, maxFetchBodyBytes)
 	}
 	return body, nil
 }

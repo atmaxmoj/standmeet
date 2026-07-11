@@ -8,6 +8,7 @@ package obsidian
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
@@ -63,7 +64,10 @@ func SyncVault(
 	syncWritings(ctx, deps, ownerID, b.writing, &result)
 	syncCSS(ctx, deps, ownerID, b.css)
 	tree := buildDesiredTree(b.corp)
-	st := &syncState{ownerID: ownerID, idOf: map[string]string{}, titleToID: map[string]string{}}
+	st := &syncState{
+		ownerID: ownerID, idOf: map[string]string{}, titleToID: map[string]string{},
+		dupTitles: collidingTitles(tree),
+	}
 	for _, node := range tree {
 		reconcileNode(ctx, deps, node, st, &result)
 	}
@@ -89,7 +93,27 @@ func syncWritings(
 type syncState struct {
 	idOf      map[string]string
 	titleToID map[string]string
+	dupTitles map[string]bool // lowercased titles shared by >1 node → ambiguous, rejected
 	ownerID   string
+}
+
+// collidingTitles —— titles shared by more than one materializing node in this vault. Reconcile
+// claims BY TITLE (assuming basenames are unique); a shared title is ambiguous (can't tell a
+// genre-move from two distinct notes) so it must be rejected, not silently collapsed onto one row.
+func collidingTitles(tree []*desiredNode) map[string]bool {
+	seen := map[string]int{}
+	for _, n := range tree {
+		if shouldMaterialize(n) {
+			seen[strings.ToLower(n.title)]++
+		}
+	}
+	dup := map[string]bool{}
+	for title, count := range seen {
+		if count > 1 {
+			dup[title] = true
+		}
+	}
+	return dup
 }
 
 // nodeContent —— 一个节点的落库内容;file==nil(自动补的中间节点)= 空结构节点。
@@ -136,11 +160,26 @@ type nodeOp struct {
 	parent *string
 }
 
+// reconcileSkip —— pre-reconcile guards: a non-materializing node is skipped; a node whose title
+// collides with another in this vault is rejected (title-based claim can't disambiguate). Returns
+// true when it handled the node (caller returns without reconciling).
+func reconcileSkip(node *desiredNode, st *syncState, result *ImportResult) bool {
+	if !shouldMaterialize(node) {
+		result.Skipped++
+		return true
+	}
+	if st.dupTitles[strings.ToLower(node.title)] {
+		result.Errors = append(result.Errors,
+			node.title+": duplicate title across the vault — basenames must be unique; rename one")
+		return true
+	}
+	return false
+}
+
 func reconcileNode(
 	ctx context.Context, deps *SyncDeps, node *desiredNode, st *syncState, result *ImportResult,
 ) {
-	if !shouldMaterialize(node) {
-		result.Skipped++
+	if reconcileSkip(node, st, result) {
 		return
 	}
 	existing, err := deps.Notes.GetByTitle(ctx, st.ownerID, node.title)

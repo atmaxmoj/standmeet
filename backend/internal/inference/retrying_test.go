@@ -63,7 +63,7 @@ func doReqCtxStatus(ctx context.Context, t *testing.T, url string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := retryHTTPClient().Do(req)
+	resp, err := retryHTTPClient(false).Do(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

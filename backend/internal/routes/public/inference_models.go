@@ -108,9 +108,15 @@ func fetchModelsFromProvider(
 
 // openAIModelsOrDisplay —— 拉 openai-style /v1/models；网络/HTTP/解码错裹成可回显的 provider-unreachable
 // （原始 cause 进日志，客户端只见人话）。拆出来让 fetchModelsFromProvider cyclo ≤3。
+// endpoint 是 caller 直接给的、无 allow-list 的 URL 且本路由无 auth → 出站 client 装 SSRF 守卫
+// (BlockInternalEgress)；解析到内部/私网地址的 endpoint 直接回一句点名地址策略的人话(不当成"连不上")。
 func openAIModelsOrDisplay(ctx context.Context, baseURL, key string) ([]string, error) {
 	models, err := getOpenAIModels(ctx, baseURL, key)
 	if err != nil {
+		if errors.Is(err, httpx.ErrBlockedEgress) {
+			return nil, apierr.Display(http.StatusBadRequest, "endpoint_blocked",
+				"That endpoint resolves to an internal/private address and is not allowed.")
+		}
 		return nil, apierr.DisplayWrap(http.StatusBadRequest, "provider_unreachable",
 			"Couldn't reach the model provider — check the base URL and key.", err)
 	}
@@ -150,7 +156,7 @@ func callUpstreamModelsAPI(
 	if herr != nil {
 		return nil, herr
 	}
-	client := httpx.NewClient(httpx.Options{Timeout: listModelsTimeout})
+	client := httpx.NewClient(httpx.Options{Timeout: listModelsTimeout, BlockInternalEgress: true})
 	resp, derr := client.Do(httpReq)
 	if derr != nil {
 		return nil, fmt.Errorf("upstream: %w", derr)

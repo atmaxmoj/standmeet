@@ -87,7 +87,9 @@ func generateReportHTML(
 	if gerr != nil {
 		return "", fmt.Errorf("generate report: %w", gerr)
 	}
-	return out, nil
+	// model output is untrusted HTML → allow-list sanitize before it is stored + rendered
+	// (Gotenberg Chromium / browser iframe) so it can't load an internal/attacker resource (SSRF).
+	return SanitizeReportHTML(out), nil
 }
 
 func loadTranscriptForSummarize(

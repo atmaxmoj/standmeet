@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
@@ -169,8 +170,10 @@ func hnFirstLine(text string) string {
 	if i := strings.Index(text, "\n"); i > 0 {
 		first = text[:i]
 	}
-	if len(first) > hnTitleMaxLen {
-		first = first[:hnTitleMaxLen] + hnTitleEllipsisRune
+	if utf8.RuneCountInString(first) > hnTitleMaxLen {
+		// truncate on a RUNE boundary — first[:hnTitleMaxLen] slices bytes and can split a
+		// multibyte rune, yielding invalid UTF-8 (the doc says "hnTitleMaxLen runes").
+		first = string([]rune(first)[:hnTitleMaxLen]) + hnTitleEllipsisRune
 	}
 	return first
 }

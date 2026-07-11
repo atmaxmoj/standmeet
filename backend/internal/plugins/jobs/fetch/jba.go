@@ -206,6 +206,10 @@ func jbaInitialOutCap(chunkLimit int) int {
 	return chunkLimit * approxJobsPerChunk * approxMatchRatePer100 / 100
 }
 
+// maxGunzipBytes —— hard cap on a JBA chunk's DECOMPRESSED size (gzip-bomb guard). Generous vs a
+// legit ~25k-job chunk (~12 MiB uncompressed).
+const maxGunzipBytes = 64 << 20 // 64 MiB
+
 // decodeGzippedJSONArray —— body 是 gzipped JSON []jbaEntry。stream
 // gunzip 避免一次性内存膨胀；Decoder.Token 验证起始是 `[`。
 func decodeGzippedJSONArray(body []byte) ([]jbaEntry, error) {
@@ -214,9 +218,14 @@ func decodeGzippedJSONArray(body []byte) ([]jbaEntry, error) {
 		return nil, fmt.Errorf("gzip reader: %w", err)
 	}
 	defer closeQuiet(gr)
-	raw, err := io.ReadAll(gr)
+	// bound the DECOMPRESSED size so a gzip bomb (tiny compressed → huge inflated) can't OOM us.
+	// generous vs a legit ~25k-job chunk (~12 MiB uncompressed); read one past to detect overflow.
+	raw, err := io.ReadAll(io.LimitReader(gr, maxGunzipBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read gunzip: %w", err)
+	}
+	if int64(len(raw)) > maxGunzipBytes {
+		return nil, fmt.Errorf("%w: gunzip output exceeds %d bytes", ErrUpstream, maxGunzipBytes)
 	}
 	var entries []jbaEntry
 	if uerr := json.Unmarshal(raw, &entries); uerr != nil {

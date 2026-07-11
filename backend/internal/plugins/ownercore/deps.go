@@ -14,10 +14,10 @@ import (
 // 地址树派生，不再设 path —— 只写 SEO 描述 + indexed 开关。
 type SEOWriter interface {
 	UpdateWikiSEO(
-		ctx context.Context, wikiID, description string, indexed bool,
+		ctx context.Context, ownerID, wikiID, description string, indexed bool,
 	) (domain.Wiki, error)
 	UpdateOutputSEO(
-		ctx context.Context, outputID, description string, indexed bool,
+		ctx context.Context, ownerID, outputID, description string, indexed bool,
 	) (domain.Output, error)
 	GetSettings(ctx context.Context, ownerID string) (domain.SEOSettings, error)
 	UpsertSettings(ctx context.Context, in *domain.SEOSettings) (domain.SEOSettings, error)

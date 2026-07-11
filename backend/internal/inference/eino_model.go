@@ -28,6 +28,8 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
+
+	"github.com/atmaxmoj/standmeet/internal/httpx"
 )
 
 const (
@@ -46,11 +48,11 @@ const (
 //
 //nolint:ireturn // dispatch by provider; caller 持 model.ToolCallingChatModel interface
 func BuildChatModel(ctx context.Context, cred *Cred) (model.ToolCallingChatModel, error) {
-	if cred == nil {
-		return nil, errors.New("eino: cred required")
+	if err := checkCredBasics(cred); err != nil {
+		return nil, err
 	}
-	if cred.Model == "" {
-		return nil, errors.New("eino: cred.Model required")
+	if verr := validateUntrustedEndpoint(ctx, cred); verr != nil {
+		return nil, verr
 	}
 	if cred.Provider == providerAnthrop {
 		return buildClaudeModel(ctx, cred)
@@ -59,6 +61,29 @@ func BuildChatModel(ctx context.Context, cred *Cred) (model.ToolCallingChatModel
 		return nil, fmt.Errorf("eino: unknown provider %q", cred.Provider)
 	}
 	return buildOpenAICompatModel(ctx, cred)
+}
+
+func checkCredBasics(cred *Cred) error {
+	if cred == nil {
+		return errors.New("eino: cred required")
+	}
+	if cred.Model == "" {
+		return errors.New("eino: cred.Model required")
+	}
+	return nil
+}
+
+// validateUntrustedEndpoint —— an Untrusted (BYOAI) endpoint is visitor-controlled → refuse an
+// internal/private target before any dial (SSRF). Wraps httpx.ErrBlockedEgress so ClassifyStreamErr
+// names the address policy. Owner creds (trusted self-host config) are not checked.
+func validateUntrustedEndpoint(ctx context.Context, cred *Cred) error {
+	if !cred.Untrusted || cred.Endpoint == "" {
+		return nil
+	}
+	if verr := httpx.ValidatePublicURL(ctx, cred.Endpoint); verr != nil {
+		return fmt.Errorf("eino: byoai endpoint: %w", verr)
+	}
+	return nil
 }
 
 //nolint:ireturn // dispatch helper returns the interface BuildChatModel exposes
@@ -87,8 +112,9 @@ func buildOpenAICompatModel(ctx context.Context, cred *Cred) (model.ToolCallingC
 		Model:     cred.Model,
 		MaxTokens: &maxTok,
 		// 重试 transport:transient(连接错 / 429 / 5xx)在响应头到达前自动重试,
-		// 不重试 ctx 取消、不重读已 stream 的 token。见 http_retry.go。
-		HTTPClient: retryHTTPClient(),
+		// 不重试 ctx 取消、不重读已 stream 的 token。见 http_retry.go。untrusted(BYOAI)
+		// endpoint → 装 SSRF 守卫 dialer(DNS-rebind 也拦)。
+		HTTPClient: retryHTTPClient(cred.Untrusted),
 	}
 	if cred.Endpoint != "" {
 		cfg.BaseURL = cred.Endpoint

@@ -24,6 +24,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/gotenberg"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 // ReportPDFRenderer —— 把完整 HTML doc 渲成 PDF bytes 的窄口子
@@ -93,9 +94,11 @@ func handleReportPDFErr(h *Handlers, w http.ResponseWriter, err error) {
 // 生成的受限 HTML（summarize prompt 禁 script/style/iframe），这里只包壳 +
 // 朴素样式；title 走 html.EscapeString 防注入。
 func wrapReportHTML(report *domain.ChatReport) string {
+	// report.HTML is model output. It is sanitized at generation, but re-sanitize here (defense in
+	// depth + covers any pre-fix stored report) since this doc goes to network-enabled Gotenberg.
 	return "<!DOCTYPE html><html><head><meta charset=\"utf-8\">" +
 		"<title>" + html.EscapeString("Report "+report.ID) + "</title><style>" + reportPrintCSS +
-		"</style></head><body>" + report.HTML + "</body></html>"
+		"</style></head><body>" + usecases.SanitizeReportHTML(report.HTML) + "</body></html>"
 }
 
 // reportPrintCSS —— mirrors the on-screen report styling (app's report-document.ts):

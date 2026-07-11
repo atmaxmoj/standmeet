@@ -850,7 +850,7 @@ func (q *Queries) UpdateNoteBody(ctx context.Context, arg UpdateNoteBodyParams) 
 const updateNoteSEO = `-- name: UpdateNoteSEO :one
 UPDATE corpus_notes
 SET excerpt = $2, published = $3, updated_at = now()
-WHERE id = $1 AND genre = $4
+WHERE id = $1 AND genre = $4 AND owner_id = $5
 RETURNING id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at
 `
 
@@ -859,15 +859,18 @@ type UpdateNoteSEOParams struct {
 	Excerpt   string
 	Published bool
 	Genre     string
+	OwnerID   pgtype.UUID
 }
 
-// 编辑 SEO 描述 + published 开关（地址树派生，owner 不自设 path）。
+// 编辑 SEO 描述 + published 开关（地址树派生，owner 不自设 path）。owner_id 必带：
+// 多租户下没有它就是 BOLA（按 id 改到别的 owner 的 note）——与所有 corpus_notes mutation 一致。
 func (q *Queries) UpdateNoteSEO(ctx context.Context, arg UpdateNoteSEOParams) (CorpusNote, error) {
 	row := q.db.QueryRow(ctx, updateNoteSEO,
 		arg.ID,
 		arg.Excerpt,
 		arg.Published,
 		arg.Genre,
+		arg.OwnerID,
 	)
 	var i CorpusNote
 	err := row.Scan(

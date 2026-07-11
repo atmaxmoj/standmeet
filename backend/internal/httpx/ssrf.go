@@ -16,6 +16,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -26,6 +29,26 @@ const internalDialTimeout = 10 * time.Second
 
 // lookupIPAddr —— swappable resolver hook (tests inject a fake to exercise the rebind/pin logic).
 var lookupIPAddr = net.DefaultResolver.LookupIPAddr
+
+// egressAllowHosts —— hostnames explicitly permitted despite resolving to an internal address
+// (EGRESS_ALLOW_HOSTS, comma-separated). EMPTY in prod (block everything internal); e2e/dev lists
+// the mock service names (e.g. llm-gateway) so a BYOAI endpoint pointed at the in-cluster mock is
+// allowed while real loopback/link-local targets stay blocked. Mirrors connector egress allow-list.
+var egressAllowHosts = parseEgressAllow(os.Getenv("EGRESS_ALLOW_HOSTS"))
+
+func parseEgressAllow(s string) map[string]bool {
+	m := map[string]bool{}
+	for h := range strings.SplitSeq(s, ",") {
+		if h = strings.ToLower(strings.TrimSpace(h)); h != "" {
+			m[h] = true
+		}
+	}
+	return m
+}
+
+func isAllowedHost(host string) bool {
+	return egressAllowHosts[strings.ToLower(host)]
+}
 
 // isInternalIP —— loopback / RFC1918 private / link-local / unspecified. (Same predicate as the
 // connector egress guard.)
@@ -41,6 +64,9 @@ func safeInternalDialAddr(ctx context.Context, addr string) (string, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return "", fmt.Errorf("%w: bad dial addr %q: %w", ErrBlockedEgress, addr, err)
+	}
+	if isAllowedHost(host) {
+		return addr, nil // explicitly permitted (e.g. e2e mock); dial as-is
 	}
 	if ip := net.ParseIP(host); ip != nil {
 		if isInternalIP(ip) {
@@ -67,6 +93,26 @@ func resolveAndPin(ctx context.Context, host, port string) (string, error) {
 		}
 	}
 	return net.JoinHostPort(ips[0].IP.String(), port), nil
+}
+
+// ValidatePublicURL —— returns ErrBlockedEgress if rawURL's host resolves to an internal/private
+// address. Pre-flight validation for an untrusted (e.g. BYOAI) endpoint so callers can surface a
+// clean, classified error BEFORE any dial. The dial-time guard (internalBlockingTransport) still
+// covers DNS-rebind between this check and the connect; this is defense-in-depth + a good message.
+func ValidatePublicURL(ctx context.Context, rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Hostname() == "" {
+		return fmt.Errorf("%w: bad url %q", ErrBlockedEgress, rawURL)
+	}
+	port := u.Port()
+	if port == "" {
+		port = "80"
+		if u.Scheme == "https" {
+			port = "443"
+		}
+	}
+	_, derr := safeInternalDialAddr(ctx, net.JoinHostPort(u.Hostname(), port))
+	return derr
 }
 
 // internalBlockingTransport —— an http.Transport whose DialContext refuses internal targets and

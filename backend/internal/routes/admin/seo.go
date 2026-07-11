@@ -135,7 +135,7 @@ func (h *Handlers) patchWikiSEO() http.HandlerFunc {
 			return
 		}
 		updated, err := h.SEOAdmin.SEO.UpdateWikiSEO(
-			r.Context(), wikiID, req.Excerpt, req.Published,
+			r.Context(), middleware.OwnerIDFrom(r.Context()), wikiID, req.Excerpt, req.Published,
 		)
 		if err != nil {
 			handleWikiSEOErr(h.Log, w, err)
@@ -185,7 +185,7 @@ func (h *Handlers) patchOutputSEO() http.HandlerFunc {
 			return
 		}
 		updated, err := h.SEOAdmin.SEO.UpdateOutputSEO(
-			r.Context(), outputID, req.Excerpt, req.Published,
+			r.Context(), middleware.OwnerIDFrom(r.Context()), outputID, req.Excerpt, req.Published,
 		)
 		if err != nil {
 			handleOutputSEOErr(h.Log, w, err)

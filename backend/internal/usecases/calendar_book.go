@@ -213,6 +213,14 @@ func commitBooking(
 	if perr := persistBooking(ctx, store, &persistArgs{
 		b: b, inserted: &inserted, start: slot, end: end,
 	}); perr != nil {
+		// compensation: the event was created on the owner's calendar but the booking row didn't
+		// persist → delete the orphan so we don't leave a real event with no booking (no
+		// confirmation / no cancel handle). best-effort; the persist error is what we surface.
+		if derr := proxy.DeleteEvent(
+			ctx, b.in.OwnerID, inserted.EventID, b.in.VisitorEmail,
+		); derr != nil {
+			_ = derr
+		}
 		return domain.BookResult{}, perr
 	}
 	return domain.BookResult{
