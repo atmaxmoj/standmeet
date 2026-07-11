@@ -87,11 +87,9 @@ func (s *VisitorSessionStore) Issue(
 		return IssuedVisitor{}, fmt.Errorf("gen visitor token: %w", err)
 	}
 	data.ExpiresAt = time.Now().Add(visitorSessionTTL)
+	// persist now also maintains the code→sessions index (see persist), so no separate indexByCode.
 	if perr := s.persist(ctx, token, data); perr != nil {
 		return IssuedVisitor{}, perr
-	}
-	if ierr := s.indexByCode(ctx, data.CodeID, token); ierr != nil {
-		return IssuedVisitor{}, ierr
 	}
 	return IssuedVisitor{Token: token, Data: *data}, nil
 }
@@ -156,7 +154,10 @@ func (s *VisitorSessionStore) persist(
 	if serr := s.rdb.Set(ctx, key, payload, visitorSessionTTL).Err(); serr != nil {
 		return fmt.Errorf("redis set visitor session: %w", serr)
 	}
-	return nil
+	// #8: keep the code→sessions index alive alongside the session. The token key's TTL slides on
+	// every access; the index set must slide with it, else a session active past the initial issue
+	// TTL falls out of the index and revoke (DeleteByCode) silently misses it.
+	return s.indexByCode(ctx, data.CodeID, token)
 }
 
 // indexByCode —— 把 token 记进这张 code 的 session 集合,供 revoke 一次清掉。无 code
