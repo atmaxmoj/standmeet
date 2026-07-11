@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
@@ -58,10 +59,20 @@ const (
 // （claim 时写进 owners 行，admin 可改）。单一来源、no env / no fallback。
 // Renderer 之前在 wireup 注入 —— v1 是 gotenberg client，测试用 fake。
 type ApplicationsDeps struct {
-	Apps     *postgres.ApplicationRepo
+	Apps     CommitStore
 	Owners   OwnerLookup
 	Roles    *postgres.RoleRepo
 	Renderer PDFRenderer
+}
+
+// CommitStore —— the application persistence CommitApplication needs (narrow → the render-before-
+// persist ordering is unit-testable with a spy that asserts Commit is not reached on render fail).
+// *postgres.ApplicationRepo satisfies it.
+type CommitStore interface {
+	GetDraftRenderData(
+		ctx context.Context, ownerID, draftID string,
+	) (postgres.DraftRenderData, error)
+	Commit(ctx context.Context, in *postgres.CommitInput) (postgres.CommitOutput, error)
 }
 
 // OwnerLookup —— 取 owner handle 用于拼 QR URL；用接口避开 usecases → postgres
@@ -78,54 +89,73 @@ func CommitApplication(
 	if ownerID == "" || draftID == "" {
 		return domain.CommittedApplication{}, usecases.ErrEmptyField
 	}
-	prep, err := prepareCommit(ctx, deps, ownerID, draftID)
+	return renderThenCommit(ctx, deps, ownerID, draftID)
+}
+
+// renderThenCommit —— render the final PDF BEFORE the irreversible commit: all render inputs (draft
+// content, a pre-generated code + application id, QR URL) are read/generated without persisting
+// anything, so a render failure strands nothing and the owner can retry. Only after the PDF is in
+// hand do we commit.
+func renderThenCommit(
+	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string,
+) (domain.CommittedApplication, error) {
+	rp, err := prepareRender(ctx, deps, ownerID, draftID)
 	if err != nil {
 		return domain.CommittedApplication{}, err
 	}
-	qrURL := buildQRURL(prep.publicURL, prep.out.AccessCode.Code)
-	pdf, err := deps.Renderer.RenderApplicationPDF(ctx, &prep.out.Application, qrURL)
+	pdf, err := deps.Renderer.RenderApplicationPDF(ctx, &rp.renderApp, rp.qrURL)
 	if err != nil {
 		return domain.CommittedApplication{}, fmt.Errorf("render final pdf: %w", err)
 	}
+	out, err := runCommitTx(ctx, deps, ownerID, draftID, &rp)
+	if err != nil {
+		return domain.CommittedApplication{}, err
+	}
 	return domain.CommittedApplication{
-		Application: prep.out.Application,
-		AccessCode:  prep.out.AccessCode,
-		QRURL:       qrURL,
+		Application: out.Application,
+		AccessCode:  out.AccessCode,
+		QRURL:       rp.qrURL,
 		PDF:         pdf,
 	}, nil
 }
 
-// commitPrep —— prepareCommit 把 owner lookup + code gen + DB tx 三步打包，
-// 让 CommitApplication 的 cyclomatic complexity 控在 ≤5。
-type commitPrep struct {
-	publicURL string
-	out       postgres.CommitOutput
+// renderPrep —— everything needed to render the final PDF, produced without persisting anything.
+type renderPrep struct {
+	qrURL     string
+	code      string
+	appID     string
+	renderApp domain.Application
 }
 
-func prepareCommit(
+func prepareRender(
 	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string,
-) (commitPrep, error) {
+) (renderPrep, error) {
 	owner, err := deps.Owners.GetByID(ctx, ownerID)
 	if err != nil {
-		return commitPrep{}, fmt.Errorf("get owner: %w", err)
+		return renderPrep{}, fmt.Errorf("get owner: %w", err)
 	}
 	if owner.PublicURL == "" {
-		return commitPrep{}, domain.ErrPublicURLNotSet
+		return renderPrep{}, domain.ErrPublicURLNotSet
+	}
+	data, err := deps.Apps.GetDraftRenderData(ctx, ownerID, draftID)
+	if err != nil {
+		return renderPrep{}, fmt.Errorf("get draft render data: %w", err)
 	}
 	code, err := generateApplicationCode()
 	if err != nil {
-		return commitPrep{}, err
+		return renderPrep{}, err
 	}
-	out, err := runCommitTx(ctx, deps, ownerID, draftID, code)
-	if err != nil {
-		return commitPrep{}, err
-	}
-	return commitPrep{out: out, publicURL: owner.PublicURL}, nil
+	appID := uuid.NewString()
+	return renderPrep{
+		renderApp: domain.Application{
+			ID: appID, ResumeContent: data.Resume, JobSnapshot: data.Job,
+		},
+		qrURL: buildQRURL(owner.PublicURL, code), code: code, appID: appID,
+	}, nil
 }
 
 func runCommitTx(
-	ctx context.Context, deps ApplicationsDeps,
-	ownerID, draftID, codePlaintext string,
+	ctx context.Context, deps ApplicationsDeps, ownerID, draftID string, rp *renderPrep,
 ) (postgres.CommitOutput, error) {
 	expires := timestamptzFromTime(time.Now().AddDate(0, 0, applicationCodeDays))
 	maxMembers := applicationMaxMembers
@@ -138,7 +168,8 @@ func runCommitTx(
 	in := &postgres.CommitInput{
 		OwnerID:            ownerID,
 		DraftID:            draftID,
-		CodePlaintext:      codePlaintext,
+		ApplicationID:      rp.appID,
+		CodePlaintext:      rp.code,
 		CodeLabel:          applicationCodePrefix,
 		CodePurpose:        "application invitation",
 		CodeExpiresAt:      &expires,

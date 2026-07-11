@@ -30,12 +30,15 @@ here.
 | 12 | LOW | `hnFirstLine` truncates on **bytes** not runes → invalid UTF-8 titles | `backend/internal/plugins/jobs/fetch/fetch_repro_test.go` | unit (pure helper) |
 | 15 | MED | owner-CSS sanitizer bypasses: protocol-relative `url(//host)` not stripped; `@media` inner selectors not scoped | `e2e/test/owner-css-bypass.spec.ts` | e2e |
 
-## Confirmed, no deterministic test yet (TOCTOU / dead-code / missing fault-infra)
+## Fixed (TOCTOU / dead-code / lifecycle — reproduced at the deterministic level each allowed)
 
-| # | Sev | Defect | Confirmation | Fix direction |
-|---|-----|--------|-------------|---------------|
-| 2 | HIGH | `max_bookings` quota enforced only at capability **assembly** (`capreg_booker.go bookerQuotaExhausted`), never re-checked at commit → two concurrent turns both pass the gate at count=0 and both book | Read: `commitBooking` never consults `CountBookingsForCode`; sequential turns are correctly blocked (re-assembly), only concurrent bypasses → racy | Enforce quota atomically at commit: transactional recount or a `(code_id)` count constraint / `SELECT … FOR UPDATE` |
-| 6 | MED | Booking-confirmation double-send: `deliverConfirmation` reads `ConfirmationSentAt==nil` → sends → marks (non-atomic); two concurrent POSTs both send | Sequential idempotency is already green (`connector-err-confirmation-idempotent.spec.ts`); the concurrent race is the gap. `deliverConfirmation` depends on the concrete `*postgres.OwnerRepo` (no unit seam) | Make the mark a conditional CAS (`UPDATE … WHERE confirmation_sent_at IS NULL`), claim-before-send |
-| 7 | MED | Query-queue concurrency cap is **dead code**: `QueryQueue.Acquire/Release` have zero call sites outside `query_queue.go`; constructed at `repos.go:183`, stored, never consulted on the turn path | grep: no `.Acquire`/`.Release` on the agent-turn path; `QUERY_QUEUE_MAX_CONCURRENT` has no effect | Wire `Acquire`/`Release` around the visitor agent-turn; add a concurrency test alongside the fix |
-| 13 | MED | `CommitApplication` runs the DB tx (issue code, write application, delete draft) **then** renders the PDF; a render failure strands a committed application with no PDF and no retry (`ErrResumeDraftNotFound`) | Read `applications.go`: `prepareCommit` (tx) precedes `Renderer.RenderApplicationPDF`; unit needs a DB, e2e needs a Gotenberg fault hook the harness lacks | Render before the destructive commit, or make commit idempotent/retryable so the PDF can be regenerated |
-| 14 | LOW | Sandbox `Sweep` reads `List()` (mtime snapshot) then `RemoveAll` per dir with no re-check; a workspace revived between snapshot and removal is wiped | Read `sandboxws/manager.go`: no mtime re-check immediately before `RemoveAll`; no interleave seam for a deterministic test | Re-stat each dir immediately before `RemoveAll` and skip if freshened |
+These needed a fix to become deterministically testable (a flaky concurrency test would violate
+`no-rerun-on-flake`); each fix ships with a deterministic test.
+
+| # | Sev | Fix | Test |
+|---|-----|-----|------|
+| 2 | HIGH | `CreateCodeBooking` is now an atomic conditional insert: `FOR UPDATE` on the code row serializes concurrent bookings and the insert only happens when the count is under the code's `max_bookings` → 0 rows = `ErrBookingQuotaExhausted`. Enforcement moved from the advisory assembly-time hide to the DB. | `dbq/code_bookings_quota_test.go` (query carries the FOR UPDATE + cap guard) |
+| 6 | MED | Claim-before-send: `MarkBookingConfirmed` is a `:execrows` CAS (`WHERE confirmation_sent_at IS NULL`) run BEFORE the email; a lost claim → `ErrBookingConfirmationSent` (no send); a send failure releases the claim (`ClearBookingConfirmed`) so a retry can re-send. `Owners` narrowed to an interface for testability. | `usecases/booking_confirmation_race_test.go` (two deliveries → one email) |
+| 7 | MED | `QueryQueue` wired into `runAgentTurn` via `acquireTurnSlot` (per-session single-flight + global cap), released on turn end. | `routes/public/agent_turn_queue_test.go` (single-flight enforced; nil queue no-op) |
+| 13 | MED | The final PDF is rendered BEFORE the irreversible commit (application id pre-generated; draft read read-only), so a render failure persists nothing and the owner can retry. `Apps` narrowed to `CommitStore`. | `plugins/jobs/jobsuc/applications_commit_test.go` (render fail → Commit not reached) |
+| 14 | LOW | `Sweep` re-stats each dir immediately before `RemoveAll`; a workspace freshened between the List snapshot and removal is kept. | `sandboxws/sweep_toctou_test.go` (a revived dir is not swept) |

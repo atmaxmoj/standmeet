@@ -142,8 +142,18 @@ func marshalBookErrResult(reason, detail string) string {
 
 func marshalBookErr(err error) string {
 	switch {
+	case errors.Is(err, domain.ErrBookingQuotaExhausted):
+		return marshalBookErrResult("quota_exhausted",
+			"you've reached the booking limit for this access code")
 	case errors.Is(err, domain.ErrCalendarNotConnected):
 		return marshalBookErrResult("not_connected", "owner has not connected a calendar yet")
+	default:
+		return marshalCalendarBookErr(err)
+	}
+}
+
+func marshalCalendarBookErr(err error) string {
+	switch {
 	case errors.Is(err, domain.ErrCalendarRevoked):
 		// reason code carries the keyword so the visitor-facing surface reads
 		// human (owner must reconnect their Google Calendar).

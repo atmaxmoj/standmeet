@@ -42,10 +42,12 @@ type CommitInput struct {
 	MaxTurnsPerSession *int32
 	OwnerID            string
 	DraftID            string
-	CodePlaintext      string
-	CodeLabel          string
-	CodePurpose        string
-	AssumedRoleID      string
+	// ApplicationID —— caller-supplied so the PDF renders before commit (retryable on render fail).
+	ApplicationID string
+	CodePlaintext string
+	CodeLabel     string
+	CodePurpose   string
+	AssumedRoleID string
 }
 
 // CommitOutput —— Commit 返回值。把 (Application, AccessCode) 打包成单结构体
@@ -97,7 +99,9 @@ func writeCommitRows(
 	if err != nil {
 		return CommitOutput{}, err
 	}
-	app, err := insertApplication(ctx, q, key, draft, &code)
+	app, err := insertApplication(ctx, q, &appInsert{
+		key: key, draft: draft, code: &code, appID: in.ApplicationID,
+	})
 	if err != nil {
 		return CommitOutput{}, err
 	}
@@ -107,6 +111,36 @@ func writeCommitRows(
 		return CommitOutput{}, fmt.Errorf("delete draft: %w", derr)
 	}
 	return CommitOutput{Application: app, AccessCode: code}, nil
+}
+
+// DraftRenderData —— the resume + job snapshot needed to render the application PDF BEFORE the
+// irreversible commit tx (so a render failure persists nothing → retryable).
+type DraftRenderData struct {
+	Resume domain.ResumeContent
+	Job    domain.FetchedJob
+}
+
+// GetDraftRenderData —— read-only fetch of a draft's render inputs (no tx, nothing deleted).
+// Missing draft → ErrResumeDraftNotFound.
+func (r *ApplicationRepo) GetDraftRenderData(
+	ctx context.Context, ownerID, draftID string,
+) (DraftRenderData, error) {
+	key, err := parseDraftKey(ownerID, draftID)
+	if err != nil {
+		return DraftRenderData{}, err
+	}
+	row, err := loadDraftForCommit(ctx, dbq.New(r.pool), &key)
+	if err != nil {
+		return DraftRenderData{}, err
+	}
+	var out DraftRenderData
+	if uerr := json.Unmarshal(row.ResumeContent, &out.Resume); uerr != nil {
+		return DraftRenderData{}, fmt.Errorf("unmarshal resume content: %w", uerr)
+	}
+	if uerr := json.Unmarshal(row.JobSnapshot, &out.Job); uerr != nil {
+		return DraftRenderData{}, fmt.Errorf("unmarshal job snapshot: %w", uerr)
+	}
+	return out, nil
 }
 
 func loadDraftForCommit(
@@ -176,19 +210,31 @@ func recruiterBriefing(jobSnapshotJSON []byte) string {
 		". They reached you through that application — answer as the candidate, about that role."
 }
 
+// appInsert —— insertApplication args packed (keeps it within the argument limit).
+type appInsert struct {
+	key   *draftKey
+	draft *dbq.ResumeDraft
+	code  *domain.AccessCode
+	appID string
+}
+
 func insertApplication(
-	ctx context.Context, q *dbq.Queries, key *draftKey,
-	draft *dbq.ResumeDraft, code *domain.AccessCode,
+	ctx context.Context, q *dbq.Queries, a *appInsert,
 ) (domain.Application, error) {
-	codeUUID, err := parseUUID(code.ID)
+	codeUUID, err := parseUUID(a.code.ID)
 	if err != nil {
 		return domain.Application{}, fmt.Errorf("parse code id: %w", err)
 	}
+	appUUID, err := parseUUID(a.appID)
+	if err != nil {
+		return domain.Application{}, fmt.Errorf("parse application id: %w", err)
+	}
 	row, err := q.CreateApplication(ctx, dbq.CreateApplicationParams{
-		OwnerID:       key.owner,
+		ID:            appUUID,
+		OwnerID:       a.key.owner,
 		AccessCodeID:  codeUUID,
-		JobSnapshot:   draft.JobSnapshot,
-		ResumeContent: draft.ResumeContent,
+		JobSnapshot:   a.draft.JobSnapshot,
+		ResumeContent: a.draft.ResumeContent,
 	})
 	if err != nil {
 		return domain.Application{}, fmt.Errorf("create application: %w", err)

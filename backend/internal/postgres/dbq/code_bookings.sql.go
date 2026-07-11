@@ -11,13 +11,32 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearBookingConfirmationSent = `-- name: ClearBookingConfirmationSent :exec
+UPDATE code_bookings
+SET confirmation_sent_at = NULL
+WHERE id = $1
+`
+
+// Release a confirmation claim (set back to NULL) when the send FAILED after claiming, so a retry
+// can re-claim and send. Only clears our own just-set claim path.
+func (q *Queries) ClearBookingConfirmationSent(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, clearBookingConfirmationSent, id)
+	return err
+}
+
 const createCodeBooking = `-- name: CreateCodeBooking :one
+WITH cap AS (
+    SELECT max_bookings FROM access_codes WHERE id = $2 FOR UPDATE
+)
 INSERT INTO code_bookings (
     owner_id, code_id, conversation_id,
     google_event_id, google_html_link, summary,
     start_at, end_at, visitor_email
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
+FROM cap
+WHERE (SELECT COUNT(*) FROM code_bookings WHERE code_id = $2)
+      < COALESCE(cap.max_bookings, 2147483647)
 RETURNING id, owner_id, code_id, conversation_id, google_event_id, google_html_link, summary, start_at, end_at, visitor_email, confirmation_sent_at, created_at
 `
 
@@ -33,6 +52,11 @@ type CreateCodeBookingParams struct {
 	VisitorEmail   *string
 }
 
+// Atomic quota enforcement: FOR UPDATE locks the code row so concurrent bookings for the same code
+// serialize; the insert only happens if the current count is under the code's max_bookings cap
+// (NULL = unlimited). Over cap → 0 rows → caller maps to a quota error. This is the authoritative
+// gate; the assembly-time check is only an advisory hide and is bypassable (concurrent / within-turn
+// book calls) without this.
 func (q *Queries) CreateCodeBooking(ctx context.Context, arg CreateCodeBookingParams) (CodeBooking, error) {
 	row := q.db.QueryRow(ctx, createCodeBooking,
 		arg.OwnerID,
@@ -180,14 +204,19 @@ func (q *Queries) ListCodeBookingsByOwner(ctx context.Context, arg ListCodeBooki
 	return items, nil
 }
 
-const markBookingConfirmationSent = `-- name: MarkBookingConfirmationSent :exec
+const markBookingConfirmationSent = `-- name: MarkBookingConfirmationSent :execrows
 UPDATE code_bookings
 SET confirmation_sent_at = now()
 WHERE id = $1 AND confirmation_sent_at IS NULL
 `
 
-// 标记这笔已发过确认信(幂等:已发再发 → 0 行,caller 翻 ErrConfirmationAlreadySent)。
-func (q *Queries) MarkBookingConfirmationSent(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, markBookingConfirmationSent, id)
-	return err
+// CLAIM this booking's confirmation atomically (idempotent + race-safe): sets sent_at only if still
+// NULL and returns rows-affected. 0 rows = someone already claimed it → caller must NOT send. The
+// claim happens BEFORE the email is sent so two concurrent requests can't both send (TOCTOU).
+func (q *Queries) MarkBookingConfirmationSent(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markBookingConfirmationSent, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

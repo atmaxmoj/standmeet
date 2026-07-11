@@ -39,6 +39,10 @@ func (*fakeConfirmCalendar) MarkBookingConfirmed(_ context.Context, _ string) er
 	return nil
 }
 
+func (*fakeConfirmCalendar) ClearBookingConfirmed(_ context.Context, _ string) error {
+	return nil
+}
+
 func baseBooking() domain.CodeBooking {
 	return domain.CodeBooking{
 		ID: "bk-1", OwnerID: tcOwner, CodeID: tcCode, ConversationID: tcConv,

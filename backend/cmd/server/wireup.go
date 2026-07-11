@@ -261,6 +261,7 @@ func buildPublicDeps(d *runtimeDeps) publicroutes.Handlers {
 		Resolver:     d.providerResolver,
 		Reports:      d.chatReportRepo,
 		Sessions:     d.visitorStore,
+		QueryQueue:   d.queryQueue,
 		Corpus:       d.corpus,
 		Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		Ledger:       usecases.NewWaypointLedger(d.vaultSyncRepo, d.visitorStore, d.log),

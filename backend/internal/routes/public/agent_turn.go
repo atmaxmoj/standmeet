@@ -1,14 +1,6 @@
-// agent_turn.go —— POST /api/v1/agent/turn
-//
-// H.9: visitor agent loop 搬 backend，走 eino ADK ChatModelAgent。
-// Handler 的 4 件事：
-//   1. visitor session 鉴权
-//   2. 解 body (system + user_message + history)
-//   3. 装配 visitor capability bindings → 抽 []tool.BaseTool 喂 ADK
-//   4. 调 inference.RunAgentTurn 让它跑 + 流 pi-style SSE
-//
-// 跟 /llm/chat/stream 并存：H.9.a 起 /llm/chat/stream 仍可用 (浏览器旧
-// pi-agent-core 还在用)；H.10 切完 SDK 之后 /llm/chat/stream 才会废弃。
+// agent_turn.go —— POST /api/v1/agent/turn. Handler: visitor auth → acquire concurrency slot
+// (agent_turn_queue.go) → decode → assemble capability bindings → inference.RunAgentTurn (SSE).
+// Coexists with /llm/chat/stream until the SDK cutover (H.10).
 
 package public
 
@@ -44,30 +36,12 @@ func runAgentTurn(
 	h *Handlers, w http.ResponseWriter, r *http.Request,
 	auth authedVisitor, req *inference.AgentTurnRequest,
 ) {
-	cred, cerr := resolveAgentTurnCred(r, h, auth)
-	if cerr != nil {
-		writeLLMPreStreamErr(h, w, cerr)
+	release, ok := acquireOrReject(h, w, r, auth)
+	if !ok {
 		return
 	}
-	if !preflightAgentTurnQuota(r, h, auth, w, req.ConversationID) {
-		return
-	}
-	ts := collectVisitorTools(r.Context(), h, auth, req.ConversationID)
-	defer closeBindings(ts.Bindings)
-	inference.RunAgentTurn(r.Context(), h.Log, w, &inference.AgentTurnInput{
-		Cred: cred, Req: req,
-		Tools:            ts.Tools,
-		ProgressLabels:   ts.Labels,
-		ReturnDirectly:   ts.ReturnDirectly,
-		Mode:             auth.Data.Mode,
-		Persist:          buildAgentTurnPersist(h, auth, req.ConversationID),
-		RecordUsage:      buildAgentTurnUsage(h, auth),
-		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
-		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
-		VisitorTimezone:  req.VisitorTimezone,
-		MarkWaypoints:    buildAgentTurnLedger(h, auth),
-		BuildGhost:       buildGhostForTurn(h, auth, cred, req.ConversationID),
-	})
+	defer release()
+	dispatchTurn(h, w, r, auth, req)
 }
 
 // buildGhostForTurn —— 注入给 inference 的 ghost-steering policy port。done 之后据本轮末条回复

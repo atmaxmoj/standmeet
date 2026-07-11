@@ -12,21 +12,26 @@ import (
 )
 
 const createApplication = `-- name: CreateApplication :one
-INSERT INTO applications (owner_id, access_code_id, job_snapshot, resume_content)
-VALUES ($1, $2, $3, $4)
+INSERT INTO applications (id, owner_id, access_code_id, job_snapshot, resume_content)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING id, owner_id, access_code_id, job_snapshot, resume_content,
           status, submitted_at, created_at
 `
 
 type CreateApplicationParams struct {
+	ID            pgtype.UUID
 	OwnerID       pgtype.UUID
 	AccessCodeID  pgtype.UUID
 	JobSnapshot   []byte
 	ResumeContent []byte
 }
 
+// id is caller-supplied so the final PDF (which embeds the application id in its print URL) can be
+// rendered BEFORE this irreversible commit — a render failure then persists nothing (retryable),
+// instead of stranding a committed application with no PDF.
 func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationParams) (Application, error) {
 	row := q.db.QueryRow(ctx, createApplication,
+		arg.ID,
 		arg.OwnerID,
 		arg.AccessCodeID,
 		arg.JobSnapshot,

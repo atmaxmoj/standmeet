@@ -114,15 +114,42 @@ func (m *Manager) Sweep() (int, error) {
 	cutoff := m.now().Add(-ttl)
 	removed := 0
 	for i := range list {
-		if !list[i].ModTime.Before(cutoff) {
-			continue
+		did, rmErr := m.removeIfStale(&list[i], cutoff)
+		if rmErr != nil {
+			return removed, rmErr
 		}
-		if rmErr := os.RemoveAll(filepath.Join(m.root, list[i].ID)); rmErr != nil {
-			return removed, fmt.Errorf("sandboxws: sweep %q: %w", list[i].ID, rmErr)
+		if did {
+			removed++
 		}
-		removed++
 	}
 	return removed, nil
+}
+
+// removeIfStale —— remove one workspace iff the List snapshot flagged it old AND a fresh re-stat
+// confirms it's still old. The re-stat closes the List→RemoveAll TOCTOU: a session revived
+// (Provision touches its dir) between snapshot and now is not wiped.
+func (m *Manager) removeIfStale(ws *Workspace, cutoff time.Time) (bool, error) {
+	if !ws.ModTime.Before(cutoff) {
+		return false, nil
+	}
+	dir := filepath.Join(m.root, ws.ID)
+	if !stillStale(dir, cutoff) {
+		return false, nil
+	}
+	if rmErr := os.RemoveAll(dir); rmErr != nil {
+		return false, fmt.Errorf("sandboxws: sweep %q: %w", ws.ID, rmErr)
+	}
+	return true, nil
+}
+
+// stillStale —— re-stat dir; true only if it still exists AND its mtime is still older than cutoff.
+// A dir freshened after the List snapshot, or already gone, returns false (keep it).
+func stillStale(dir string, cutoff time.Time) bool {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return false
+	}
+	return info.ModTime().Before(cutoff)
 }
 
 // safeSegment —— a conversation id must reduce to a single, non-empty path segment

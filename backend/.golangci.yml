@@ -308,6 +308,9 @@ linters:
       # hnFirstLine / readOK are unexported job-fetch helpers with pure-logic white-box repros.
       - path: internal/plugins/jobs/fetch/
         linters: [testpackage]
+      # sweep TOCTOU test uses unexported Manager fields + stillStale → in-package white-box.
+      - path: internal/sandboxws/
+        linters: [testpackage]
       # dbq repro asserts the generated UpdateNoteSEO query string (unexported const) carries the
       # owner_id tenant filter → must be in-package white-box.
       - path: internal/postgres/dbq/

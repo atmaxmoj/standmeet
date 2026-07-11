@@ -25,9 +25,15 @@ var (
 // Proxy = 出站发信(连接器代调，凭据不出 vault；未配 → ErrMailNotConfigured)。
 type BookingConfirmDeps struct {
 	Calendar ConfirmationCalendar // 查这笔 booking + 标记已发
-	Owners   *postgres.OwnerRepo  // owner tz/名字
+	Owners   ownerByIDGetter      // owner tz/名字 (窄口子 → deliverConfirmation 可单测)
 	Proxy    MailProxy            // owner SMTP 发信（连接器代调）
 	Mail     *postgres.MailRepo   // 只读 connector 状态（can-email gate）
+}
+
+// ownerByIDGetter —— deliverConfirmation 只用 owner 的 GetByID(tz/名字)。窄接口让并发安全逻辑
+// (claim-before-send)能用 fake owner 单测，不绑具体 *postgres.OwnerRepo。
+type ownerByIDGetter interface {
+	GetByID(ctx context.Context, ownerID string) (domain.Owner, error)
 }
 
 // ConfirmationCalendar —— SendBookingConfirmation 只用 calendar 的两样:定位该对话
@@ -37,7 +43,10 @@ type ConfirmationCalendar interface {
 	LatestBookingForConversation(
 		ctx context.Context, conversationID string,
 	) (domain.CodeBooking, error)
+	// MarkBookingConfirmed —— CLAIM atomically; ErrBookingAlreadyConfirmed if already claimed.
 	MarkBookingConfirmed(ctx context.Context, bookingID string) error
+	// ClearBookingConfirmed —— release the claim when the send failed (so a retry can re-send).
+	ClearBookingConfirmed(ctx context.Context, bookingID string) error
 }
 
 // SendBookingConfirmationInput —— OwnerID/ConversationID/CodeID 来自 session;
@@ -111,14 +120,40 @@ func deliverConfirmation(
 	}
 	msg := buildConfirmationEmail(booking, &owner, tz)
 	msg.To = to
-	if serr := deps.Proxy.Send(ctx, booking.OwnerID, msg); serr != nil {
-		// 未配 connector → proxy 返 ErrMailNotConfigured（%w 保留给 route 翻译）。
-		return fmt.Errorf("send booking confirmation: %w", serr)
+	// CLAIM before send (atomic): if already claimed → don't send (idempotent + concurrent-safe;
+	// two simultaneous requests can't both pass the claim, so no double-send).
+	if cerr := claimConfirmation(ctx, deps, booking.ID); cerr != nil {
+		return cerr
 	}
-	if merr := deps.Calendar.MarkBookingConfirmed(ctx, booking.ID); merr != nil {
-		return fmt.Errorf("mark booking confirmed: %w", merr)
+	return sendOrReleaseConfirmation(ctx, deps, booking.OwnerID, booking.ID, msg)
+}
+
+// claimConfirmation —— atomic claim; already-claimed → ErrBookingConfirmationSent (don't send).
+func claimConfirmation(ctx context.Context, deps BookingConfirmDeps, bookingID string) error {
+	merr := deps.Calendar.MarkBookingConfirmed(ctx, bookingID)
+	if merr == nil {
+		return nil
 	}
-	return nil
+	if errors.Is(merr, domain.ErrBookingAlreadyConfirmed) {
+		return ErrBookingConfirmationSent
+	}
+	return fmt.Errorf("claim booking confirmation: %w", merr)
+}
+
+// sendOrReleaseConfirmation —— send after claiming; on send failure release the claim so a retry
+// can re-send (no email went out).
+func sendOrReleaseConfirmation(
+	ctx context.Context, deps BookingConfirmDeps, ownerID, bookingID string, msg MailMessage,
+) error {
+	serr := deps.Proxy.Send(ctx, ownerID, msg)
+	if serr == nil {
+		return nil
+	}
+	if cerr := deps.Calendar.ClearBookingConfirmed(ctx, bookingID); cerr != nil {
+		_ = cerr
+	}
+	// 未配 connector → proxy 返 ErrMailNotConfigured（%w 保留给 route 翻译）。
+	return fmt.Errorf("send booking confirmation: %w", serr)
 }
 
 // pickConfirmationRecipient —— 透传优先,否则引用 session email;校验邮箱格式。

@@ -105,6 +105,11 @@ func (r *CalendarRepo) CreateBooking(
 	}
 	row, qerr := dbq.New(r.pool).CreateCodeBooking(ctx, *params)
 	if qerr != nil {
+		// 0 rows = the atomic (FOR UPDATE + count) guard refused: the code's max_bookings cap is
+		// reached (or the code vanished). Surface as a typed quota error.
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return domain.CodeBooking{}, domain.ErrBookingQuotaExhausted
+		}
 		return domain.CodeBooking{}, fmt.Errorf("create code booking: %w", qerr)
 	}
 	return toDomainBooking(&row), nil
@@ -319,16 +324,4 @@ func memberScopeParams(
 		GoogleEventID: eventID, OwnerID: ownerUUID,
 		CodeID: codeUUID, MemberID: memberUUID,
 	}, nil
-}
-
-// MarkBookingConfirmed —— #122: 标记这笔已发过确认信(幂等)。
-func (r *CalendarRepo) MarkBookingConfirmed(ctx context.Context, bookingID string) error {
-	bookingUUID, err := parseUUID(bookingID)
-	if err != nil {
-		return fmt.Errorf("parse booking id: %w", err)
-	}
-	if qerr := dbq.New(r.pool).MarkBookingConfirmationSent(ctx, bookingUUID); qerr != nil {
-		return fmt.Errorf("mark booking confirmed: %w", qerr)
-	}
-	return nil
 }

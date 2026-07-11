@@ -43,6 +43,7 @@ type Handlers struct {
 	Resolver     inference.Resolver
 	CodeGuard    CodeGuard
 	Sessions     *session.VisitorSessionStore
+	QueryQueue   *session.QueryQueue
 	Ledger       *usecases.WaypointLedger
 	Ghosts       usecases.GhostDeps
 	Log          *slog.Logger

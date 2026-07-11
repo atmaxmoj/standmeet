@@ -1,6 +1,9 @@
 -- name: CreateApplication :one
-INSERT INTO applications (owner_id, access_code_id, job_snapshot, resume_content)
-VALUES ($1, $2, $3, $4)
+-- id is caller-supplied so the final PDF (which embeds the application id in its print URL) can be
+-- rendered BEFORE this irreversible commit — a render failure then persists nothing (retryable),
+-- instead of stranding a committed application with no PDF.
+INSERT INTO applications (id, owner_id, access_code_id, job_snapshot, resume_content)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING id, owner_id, access_code_id, job_snapshot, resume_content,
           status, submitted_at, created_at;
 

@@ -132,3 +132,11 @@ var ErrBookingPolicyMissingHours = errors.New("booking policy hours malformed")
 // ErrBookingNotFound —— E-14c: GetBookingByID / DeleteBooking 未命中
 // 或 ownership 不匹 (不泄露存在性)。
 var ErrBookingNotFound = errors.New("booking not found")
+
+// ErrBookingQuotaExhausted —— the code's max_bookings cap is reached (enforced atomically at the
+// insert, so it fires even when the assembly-time hide is bypassed (concurrent / within-turn).
+var ErrBookingQuotaExhausted = errors.New("booking quota exhausted for this code")
+
+// ErrBookingAlreadyConfirmed —— the confirmation was already claimed (0 rows). Claim-before-send
+// makes concurrent double-send impossible.
+var ErrBookingAlreadyConfirmed = errors.New("booking confirmation already claimed")
