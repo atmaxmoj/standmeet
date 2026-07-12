@@ -86,11 +86,11 @@ test.describe('connector · provider-agnostic consumer loop (area F)', () => {
 
       // 真 book：booker 走 CalendarContract.{ListBusy,CreateEvent}，落到 CalDAV provider。
       const start = futureSlot(7, 14);
-      await scriptMockToolCall(request, {
+      const tag = await scriptMockToolCall(request, {
         name: 'calendar_book',
         args: { topic: 'Provider-agnostic booking', duration_min: 30, preferred_times: [start] },
       });
-      await sendAndDrain(request, visitor, 'Book a 30-min chat next week?');
+      await sendAndDrain(request, visitor, `Book a 30-min chat next week?${tag}`);
 
       // ⭐ event 落在**非 Google** provider 上 —— 同一份 booker 代码、不同 provider。
       const events = await getCalDAVEvents(request, conn.id);

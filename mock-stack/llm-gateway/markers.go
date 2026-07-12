@@ -6,9 +6,14 @@
 //	[[slow-final:N]]  —— 正常 tool flow(search→read),但出最终答案前 sleep
 //	                     N ms。期间 corpus_read 的 throbber("reading X")挂着。
 //
-// marker 在 visitor 问句里 → 请求级,并行 spec 之间不串味(不像共享的
-// next_tool/next_reply 单槽队列)。marker 不进 search query(makeSearchCall
-// 用 stripMarkers 剥掉),也由前端正常显示在问句里(测试无所谓)。
+// marker 在 visitor 问句里 → 请求级,只控这一 turn 的时序,不跨 spec。marker
+// 不进 search query(makeSearchCall 用 stripMarkers 剥掉),也由前端正常显示在
+// 问句里(测试无所谓)。
+//
+// script keyword —— 脚本(next_tool/next_reply/…)的隔离靠 test 在消息里嵌一个
+// 唯一 keyword `[[s:testId-yyy]]`(见 e2e mock-llm-script fixture);mock 按
+// Contains 匹配注册的 keyword(script.go)。这里只负责把 `[[s:…]]` 从 search
+// query 里剥掉,别让 keyword 污染 corpus_search 命中。匹配用原文,不做提取。
 package main
 
 import (
@@ -20,19 +25,18 @@ import (
 
 var delayMarkerRe = regexp.MustCompile(`\[\[(think|slow-final):(\d+)\]\]`)
 
-// scriptKeyRe —— [[s:KEY]] token a test embeds in a turn message to bind that
-// turn to a keyed script (script.go registry). Request-level like the delay
-// markers, so concurrent/overlapping turns across tests can't steal each
-// other's scripts (the global single-slot theft that flaked ask_visitor).
-var scriptKeyRe = regexp.MustCompile(`\[\[s:([^\]]+)\]\]`)
+// scriptKeyRe —— the `[[s:KEY]]` wrapper a test embeds to carry its script
+// keyword. Stripped from the corpus_search query so the keyword never leaks into
+// the search (matching itself uses the raw request text, in script.go).
+var scriptKeyRe = regexp.MustCompile(`\[\[s:[^\]]+\]\]`)
 
-// scriptKey —— pull the [[s:KEY]] token from a turn message; "" if none.
-func scriptKey(text string) string {
-	m := scriptKeyRe.FindStringSubmatch(text)
-	if m == nil {
-		return ""
-	}
-	return m[1]
+// scriptKeyTokens —— all `[[s:…]]` wrappers in a stream turn's text, joined.
+// The mock RETAINS these from each visitor turn so backend-initiated generate
+// calls (GhostPolicy, summarize) — which are built from derived content and
+// don't carry the visitor message — can still be matched to this turn's
+// registrations (script.go, via lastKeys). Returns "" if none.
+func scriptKeyTokens(text string) string {
+	return strings.Join(scriptKeyRe.FindAllString(text, -1), " ")
 }
 
 func markerDelay(text, kind string) time.Duration {

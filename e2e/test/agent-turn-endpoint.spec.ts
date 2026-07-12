@@ -187,12 +187,12 @@ async function assertToolEvents(request: APIRequestContext): Promise<void> {
   });
   // 强制 mock 上来就抛 corpus_search tool_use；backend ADK dispatch
   // tool → eino schema.Tool 事件 → tool_completed。
-  await scriptMockToolCall(request, {
+  const tag = await scriptMockToolCall(request, {
     name: 'corpus_search', args: { query: 'alice' },
   });
   const { status, sse } = await postAgentTurn(request, sess, {
     system: 'You are alice.',
-    user_message: 'tell me about alice',
+    user_message: `tell me about alice${tag}`,
   });
   expect(status).toBe(200);
   const started = sse.events.find((e) => e.type === 'tool_started');

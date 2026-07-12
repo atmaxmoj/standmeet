@@ -14,6 +14,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { seedWiki } from '@/fixtures/corpus';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createCode } from '@/fixtures/codes';
 import { issueSession, sendMessage, type VisitorSession } from '@/fixtures/visitor';
 
@@ -60,8 +61,12 @@ test.describe('corpus facade (id) ↔ lister (path) resolve the same entry consi
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
-      // Agent turn: mock LLM does default corpus_search → corpus_read → cite for the keyword.
-      await sendMessage(request, sess, `tell me about ${KEYWORD}`);
+      // Agent turn: register the corpus_read of the seeded entry so it is cited
+      // (mock is pure registration — no auto search/read).
+      const tag = await scriptMockToolCall(request, {
+        name: 'corpus_read', args: { path: TARGET_PATH },
+      });
+      await sendMessage(request, sess, `tell me about ${KEYWORD}${tag}`);
 
       // FACADE view: the citation reverse-lookup resolves cited_wiki_ids → {id, title, path}.
       // Owner-authed transcript → fresh login on this context (sets the auth cookie + csrf).

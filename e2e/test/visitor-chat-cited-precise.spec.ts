@@ -23,6 +23,7 @@ import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -80,8 +81,17 @@ test.describe('cited reflects AI agent reads, not prompt-stuffed corpus', () => 
         { timeout: 20_000 },
       );
 
+      // Mock is pure registration: register the search (so its app-card fires)
+      // and the read of lucerna (a corpus_read is what records the citation).
+      const searchTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_search', args: { query: 'lucerna' },
+      });
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: TARGET_PATH },
+      });
+
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('tell me about lucerna');
+      await input.fill(`tell me about lucerna${searchTag}${readTag}`);
       await input.press('Enter');
 
       // 这里只要稳定证明 agent 真 search 真 read 真答了 —— throbber 是瞬时的,

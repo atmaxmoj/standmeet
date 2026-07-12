@@ -160,12 +160,12 @@ async function enterWithProfile(
 // bookInChat —— script 一次 calendar_book,触发 → 等 booked 沙盒卡 iframe 出现。
 // hour 错开真实 GCal 时段避免互相冲突(同 #122)。
 async function bookInChat(page: Page, hour: number): Promise<void> {
-  await scriptMockToolCall(page.request, {
+  const tag = await scriptMockToolCall(page.request, {
     name: 'calendar_book',
     args: { topic: TOPIC, duration_min: 30, preferred_times: [future(7, hour)] },
   });
   const input = page.getByTestId('chat-input-field');
-  await input.fill('book me a 30-minute chat next week, please');
+  await input.fill(`book me a 30-minute chat next week, please${tag}`);
   await input.press('Enter');
   await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
 }

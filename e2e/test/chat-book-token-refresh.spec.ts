@@ -24,7 +24,7 @@ test.describe('chat · calendar.book refreshes expired access token', () => {
   test('expired access token → backend refreshes silently → event inserted',
     async () => {
       expireAccessToken();                          // mutate DB directly
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: {
           topic: 'Refresh test',
@@ -32,7 +32,7 @@ test.describe('chat · calendar.book refreshes expired access token', () => {
           preferred_times: [future(7, 14)],
         },
       });
-      await sendAndDrain(seed.request, seed.visitor, 'Book');
+      await sendAndDrain(seed.request, seed.visitor, `Book${tag}`);
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(1);
       const tokenCalls = await getMockTokenCallCount(seed.request);

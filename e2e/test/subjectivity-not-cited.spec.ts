@@ -27,6 +27,7 @@ import { createCode } from '@/fixtures/codes';
 import { createRole } from '@/fixtures/roles';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -71,20 +72,23 @@ function cited(t: TranscriptResp, kind: 'subjectivity' | 'wiki'): Set<string> {
 }
 
 // writeSubj —— create (id omitted) or update (id passed, e.g. to toggle show_as_source on the same note).
+// Returns the note id + its derived path (subjectivity_write returns both); the path drives the
+// corpus_read registration so the agent actually retrieves this note on the turn.
 async function writeSubj(
   title: string, body: string, showAsSource?: boolean, id?: string,
-): Promise<string> {
+): Promise<{ id: string; path: string }> {
   const args: Record<string, unknown> = { title, body, tags: [] };
   if (showAsSource !== undefined) args['show_as_source'] = showAsSource;
   if (id !== undefined) args['subjectivity_id'] = id;
-  const r = await callTool<{ subjectivity_id: string }>(request, token, sid, 'subjectivity_write', args);
-  return r.subjectivity_id;
+  const r = await callTool<{ subjectivity_id: string; path: string }>(request, token, sid, 'subjectivity_write', args);
+  return { id: r.subjectivity_id, path: r.path };
 }
 
-// askAndTranscript —— visitor asks `question`, we wait for the turn, then read the newest conversation.
-async function askAndTranscript(question: string): Promise<TranscriptResp> {
+// askAndTranscript —— visitor asks `question` (+ the scripted-read tag), we wait for the turn, then
+// read the newest conversation. The tag registers the corpus_read the mock (pure registration) emits.
+async function askAndTranscript(question: string, tag = ''): Promise<TranscriptResp> {
   const sess = await issueSession(request, { handle: OWNER.handle, code: CODE, visitor_name: 'V' });
-  const stream = await sendMessage(request, sess, question);
+  const stream = await sendMessage(request, sess, question + tag);
   await stream.body();
   const res = await request.get(`${BACKEND}/api/admin/conversations`, { headers: { 'X-Csrftoken': csrf } });
   const rows = await res.json() as Array<{ id: string }>;
@@ -120,24 +124,27 @@ test.describe('subjectivity is a private visibility tier — grounded but not ci
   test.afterAll(async () => { await request.dispose(); });
 
   test('default: agent reads a subjectivity note but it is NOT cited to the visitor', async () => {
-    const subjID = await writeSubj('Shipping standard for backend services',
+    const { id: subjID, path } = await writeSubj('Shipping standard for backend services',
       'I ship a backend service only once it survives real production load — SUBJPRIVATEKEY.');
-    const t = await askAndTranscript('shipping standard for backend services');
+    const tag = await scriptMockToolCall(request, { name: 'corpus_read', args: { path } });
+    const t = await askAndTranscript('shipping standard for backend services', tag);
     expect(cited(t, 'subjectivity').has(subjID), 'default subjectivity note is NOT cited').toBe(false);
   });
 
   test('leak guard: a private subjectivity note body is never surfaced to the visitor as a source', async () => {
-    await writeSubj('Handling code review disagreement',
+    const { path } = await writeSubj('Handling code review disagreement',
       'my private standpoint on code review disagreement — SUBJLEAKKEY must never be a cited source.');
-    const t = await askAndTranscript('handling code review disagreement');
+    const tag = await scriptMockToolCall(request, { name: 'corpus_read', args: { path } });
+    const t = await askAndTranscript('handling code review disagreement', tag);
     const surfaced = JSON.stringify(t.subjectivity_refs ?? []) + JSON.stringify(t.wiki_refs ?? []);
     expect(surfaced.includes('SUBJLEAKKEY'), 'private subjectivity body must not appear in any cited ref').toBe(false);
   });
 
   test('opt-in: a show_as_source subjectivity note IS cited and its ref resolves', async () => {
-    const subjID = await writeSubj('Good API design principle',
+    const { id: subjID, path } = await writeSubj('Good API design principle',
       'a good API design is one you can guess without the docs — SUBJPUBLICKEY.', true);
-    const t = await askAndTranscript('good API design principle');
+    const tag = await scriptMockToolCall(request, { name: 'corpus_read', args: { path } });
+    const t = await askAndTranscript('good API design principle', tag);
     expect(cited(t, 'subjectivity').has(subjID), 'opted-in subjectivity note IS cited').toBe(true);
     const ref = (t.subjectivity_refs ?? []).find((r) => r.id === subjID);
     expect(ref?.title, 'the cited subjectivity ref resolves (title present)')
@@ -145,24 +152,27 @@ test.describe('subjectivity is a private visibility tier — grounded but not ci
   });
 
   test('state toggle: flipping show_as_source false→true makes a note become cited', async () => {
-    const subjID = await writeSubj('Rewrite versus refactor call',
+    const { id: subjID, path } = await writeSubj('Rewrite versus refactor call',
       'my take on the rewrite versus refactor call — SUBJTOGGLEKEY.');
-    const before = await askAndTranscript('rewrite versus refactor call');
+    const tagBefore = await scriptMockToolCall(request, { name: 'corpus_read', args: { path } });
+    const before = await askAndTranscript('rewrite versus refactor call', tagBefore);
     expect(cited(before, 'subjectivity').has(subjID), 'private before toggle').toBe(false);
 
     // Toggle via UPDATE (pass the id) — not a second create, which would collide on the slug.
     await writeSubj('Rewrite versus refactor call',
       'my take on the rewrite versus refactor call — SUBJTOGGLEKEY.', true, subjID);
-    const after = await askAndTranscript('rewrite versus refactor call');
+    const tagAfter = await scriptMockToolCall(request, { name: 'corpus_read', args: { path } });
+    const after = await askAndTranscript('rewrite versus refactor call', tagAfter);
     expect(cited(after, 'subjectivity').has(subjID), 'cited after owner opts in').toBe(true);
   });
 
   test('regression: a wiki note is still read and cited (subjectivity change did not break wiki)', async () => {
     const raw = await callTool<{ raw_id: string }>(request, token, sid, 'raw_dump',
       { body: 'At FlowPay I built a payment reconciliation pipeline over Kafka — WIKIMARKER.', source: 'mcp', tags: [] });
-    await callTool(request, token, sid, 'promote_to_wiki',
+    const wiki = await callTool<{ wiki_id: string; path: string }>(request, token, sid, 'promote_to_wiki',
       { raw_id: raw.raw_id, title: 'Payment reconciliation pipeline', tags: [] });
-    const t = await askAndTranscript('payment reconciliation pipeline');
+    const tag = await scriptMockToolCall(request, { name: 'corpus_read', args: { path: wiki.path } });
+    const t = await askAndTranscript('payment reconciliation pipeline', tag);
     expect(cited(t, 'wiki').size, 'wiki is still cited (regression)').toBeGreaterThan(0);
   });
 });

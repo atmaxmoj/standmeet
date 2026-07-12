@@ -57,11 +57,11 @@ async function turnFrames(
 }
 
 async function emitGhost(request: APIRequestContext, sess: VisitorSession): Promise<string> {
-  await scriptMockGhost(request, {
+  const tag = await scriptMockGhost(request, {
     text: 'Tell me about grasp-alpha?', target_waypoint: 'grasp-alpha',
     follows_from: 'you mentioned it', is_bridge: false,
   });
-  const events = await turnFrames(request, sess, 'talk about alpha');
+  const events = await turnFrames(request, sess, `talk about alpha${tag}`);
   const g = events.find((e) => e.type === 'ghost')?.data as GhostFrame | undefined;
   expect(g?.ghost_id, 'ghost persisted').toBeTruthy();
   return g!.ghost_id;

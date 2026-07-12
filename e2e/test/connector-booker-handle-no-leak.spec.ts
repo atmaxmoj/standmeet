@@ -24,7 +24,7 @@ test.describe('connector · booker plugin gets a handle, never the owner credent
 
   test('book → visitor-side tool result contains no owner access_token / refresh_token / client_secret',
     async () => {
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'leak probe', duration_min: 30, preferred_times: [future()] },
       });
@@ -33,7 +33,7 @@ test.describe('connector · booker plugin gets a handle, never the owner credent
       const { request } = seed;
       const res = await request.post(`${backend}/api/v1/agent/turn`, {
         headers: { Authorization: `Bearer ${seed.visitor.session_token}` },
-        data: { conversation_id: seed.visitor.conversation_id, message: 'book it' },
+        data: { conversation_id: seed.visitor.conversation_id, user_message: `book it${tag}` },
       });
       const body = await res.text();
 

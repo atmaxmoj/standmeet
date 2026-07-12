@@ -14,6 +14,7 @@ import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -51,8 +52,12 @@ test.describe('citation row 可点 + inline 展开原文', () => {
 
       await enterCodeSession(page, CODE);
 
+      // Mock is pure registration: the corpus_read of lucerna is what cites it.
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: TARGET_PATH },
+      });
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('tell me about lucerna');
+      await input.fill(`tell me about lucerna${readTag}`);
       await input.press('Enter');
 
       // 等 cited "references · N" 出现 (cited 来自 tool_completed 事件)。

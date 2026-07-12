@@ -15,6 +15,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedPublicWiki, seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { goto, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -100,8 +101,17 @@ async function dockFullFlow({ page }: { page: Page }): Promise<void> {
   const panel = page.getByTestId('floating-chat-panel');
   await expect(panel).toBeVisible({ timeout: 3_000 });
 
+  // Mock is pure registration: register corpus_search (renders the SearchHitsCard)
+  // + corpus_read (records the citation) for this turn; embed both tags.
+  const searchTag = await scriptMockToolCall(page.request, {
+    name: 'corpus_search', args: { query: 'lucerna' },
+  });
+  const readTag = await scriptMockToolCall(page.request, {
+    name: 'corpus_read', args: { path: 'projects/lucerna' },
+  });
+
   const input = page.getByTestId('floating-chat-input');
-  await input.fill('tell me about lucerna');
+  await input.fill(`tell me about lucerna${searchTag}${readTag}`);
   await input.press('Enter');
 
   // corpus_search 卡(retrieval ui:// 沙盒 iframe,折叠)→ 进 frame 展开看 hit。

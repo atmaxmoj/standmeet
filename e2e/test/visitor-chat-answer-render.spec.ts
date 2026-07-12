@@ -8,9 +8,9 @@
 // 分别渲)。这个 spec 把 mock reply 设为含 5 个 markdown feature 的一段
 // 体，verify 答案区里每个 feature 都正确渲染。
 //
-// next_reply scripting endpoint 是 next_tool 的对称扩展 (同 external-mock
-// 的 single-slot queue 模式)，不是新加 test-only endpoint —— mock
-// provider 整个 codepath 已经是 env-gated 的 dev/test 路径。
+// next_reply scripting endpoint 是 next_tool 的对称扩展 (同一套 keyword KV，按
+// 消息里嵌的 keyword 隔离)，不是新加 test-only endpoint —— mock provider 整个
+// codepath 已经是 env-gated 的 dev/test 路径。
 
 import { test, expect } from '@/fixtures/test';
 
@@ -71,7 +71,7 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
   test('mock reply 含 markdown/gfm/katex/mermaid → answer-body 全渲染对',
     async ({ browser, request }) => {
       // script mock reply 在 next /inference/stream 时流出
-      await scriptMockReplyText(request, MARKDOWN_REPLY);
+      const tag = await scriptMockReplyText(request, MARKDOWN_REPLY);
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
@@ -83,7 +83,7 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
       }
 
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('show me everything');
+      await input.fill(`show me everything${tag}`);
       await input.press('Enter');
 
       // answer 出现

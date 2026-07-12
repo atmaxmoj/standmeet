@@ -19,7 +19,7 @@ test.describe('chat · calendar.book policy: lead_time_too_short', () => {
   test('preferred time only 1h away (< 1-day lead) → reasons include lead_time_too_short',
     async () => {
       const t = inOneHour();
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: {
           topic: 'Quick sync',
@@ -27,7 +27,7 @@ test.describe('chat · calendar.book policy: lead_time_too_short', () => {
           preferred_times: [t],
         },
       });
-      await sendAndDrain(seed.request, seed.visitor, 'Can we chat in an hour?');
+      await sendAndDrain(seed.request, seed.visitor, `Can we chat in an hour?${tag}`);
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(0);
     });

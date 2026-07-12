@@ -18,7 +18,7 @@ test.describe('chat · calendar.book policy: day_not_allowed', () => {
 
   test('Saturday slot when policy is Mon-Fri → day_not_allowed', async () => {
     const sat = nextSaturday();
-    await scriptMockToolCall(seed.request, {
+    const tag = await scriptMockToolCall(seed.request, {
       name: 'calendar_book',
       args: {
         topic: 'Sat coffee',
@@ -26,7 +26,7 @@ test.describe('chat · calendar.book policy: day_not_allowed', () => {
         preferred_times: [sat],
       },
     });
-    await sendAndDrain(seed.request, seed.visitor, 'How about Saturday?');
+    await sendAndDrain(seed.request, seed.visitor, `How about Saturday?${tag}`);
     const events = await getMockEvents(seed.request);
     expect(events).toHaveLength(0);
   });

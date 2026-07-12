@@ -80,11 +80,11 @@ test.describe('visitor summarize_conversation · I.3', () => {
       });
       // queue tool + reply AFTER session issue (avoid races where any
       // prior mock state from beforeAll consumed our queue)
-      await scriptMockToolCall(request, {
+      const toolTag = await scriptMockToolCall(request, {
         name: 'summarize_conversation', args: {},
       });
-      await scriptMockReplyText(request, REPORT_HTML);
-      const turnRes = await postAgentTurn(request, sess);
+      const replyTag = await scriptMockReplyText(request, REPORT_HTML);
+      const turnRes = await postAgentTurn(request, sess, `${toolTag}${replyTag}`);
       const reportID = extractReportID(turnRes);
       expect(reportID, `report_id should be in SSE; got body:\n${turnRes}`)
         .toBeTruthy();
@@ -140,14 +140,14 @@ test.describe('visitor summarize_conversation · I.3', () => {
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
-      await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
-      await scriptMockReplyText(request, REPORT_HTML);
-      expect(extractReportID(await postAgentTurn(request, sess)), 'summary produced')
+      const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+      const replyTag = await scriptMockReplyText(request, REPORT_HTML);
+      expect(extractReportID(await postAgentTurn(request, sess, `${toolTag}${replyTag}`)), 'summary produced')
         .toBeTruthy();
 
       // 同一会话再发一 turn → 必须 200 + 正常答出来(没被 ended 挡)。
-      await scriptMockReplyText(request, 'Sure, happy to keep going.');
-      const sse = await postAgentTurn(request, sess);
+      const reply2Tag = await scriptMockReplyText(request, 'Sure, happy to keep going.');
+      const sse = await postAgentTurn(request, sess, reply2Tag);
       expect(sse, 'follow-up answered — conversation not ended')
         .toContain('Sure, happy to keep going');
       await request.dispose();
@@ -160,13 +160,13 @@ test.describe('visitor summarize_conversation · I.3', () => {
 // open-link 指向 /report/[id]。从 describe 抽出守 max-lines-per-function。
 async function reportInlineCardTest(page: Page, playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
-  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
   // tool 后 LLM 又被调一次出 HTML 当报告内容；mock 走 next_reply。
-  await scriptMockReplyText(request, REPORT_HTML);
+  const replyTag = await scriptMockReplyText(request, REPORT_HTML);
   await request.dispose();
 
   await enterChatWithCode(page);
-  await fireFirstTurn(page, 'summarize what we discussed');
+  await fireFirstTurn(page, `summarize what we discussed${toolTag}${replyTag}`);
 
   // report 卡(summarize 插件 ui:// 沙盒卡)在 chat 流里渲；进 frame 找内容。
   await expect(page.getByTestId('mcp-app-card-summarize_conversation'),
@@ -185,9 +185,9 @@ async function reportPDFRouteTest(playwright: Playwright): Promise<void> {
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
-  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
-  await scriptMockReplyText(request, REPORT_HTML);
-  const reportID = extractReportID(await postAgentTurn(request, sess));
+  const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const replyTag = await scriptMockReplyText(request, REPORT_HTML);
+  const reportID = extractReportID(await postAgentTurn(request, sess, `${toolTag}${replyTag}`));
   expect(reportID, 'report_id in SSE').toBeTruthy();
 
   const r = await request.get(`${BACKEND}/api/v1/report/${reportID}/pdf`, {
@@ -204,12 +204,12 @@ async function reportPDFRouteTest(playwright: Playwright): Promise<void> {
 // download PDF, assert a real .pdf file downloads.
 async function reportPDFDownloadUITest(page: Page, playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
-  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
-  await scriptMockReplyText(request, REPORT_HTML);
+  const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const replyTag = await scriptMockReplyText(request, REPORT_HTML);
   await request.dispose();
 
   await enterChatWithCode(page);
-  await fireFirstTurn(page, 'summarize what we discussed');
+  await fireFirstTurn(page, `summarize what we discussed${toolTag}${replyTag}`);
   await expect(page.getByTestId('mcp-app-card-summarize_conversation'))
     .toBeVisible({ timeout: 10_000 });
   const card = reportCardInFrame(page);
@@ -235,12 +235,12 @@ async function reportPDFDownloadUITest(page: Page, playwright: Playwright): Prom
 // (not the default serif/Times).
 async function reportStyledTest(page: Page, playwright: Playwright): Promise<void> {
   const request = await playwright.request.newContext();
-  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
-  await scriptMockReplyText(request, REPORT_HTML);
+  const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const replyTag = await scriptMockReplyText(request, REPORT_HTML);
   await request.dispose();
 
   await enterChatWithCode(page);
-  await fireFirstTurn(page, 'summarize what we discussed');
+  await fireFirstTurn(page, `summarize what we discussed${toolTag}${replyTag}`);
   await expect(page.getByTestId('mcp-app-card-summarize_conversation'))
     .toBeVisible({ timeout: 10_000 });
   const card = reportCardInFrame(page);
@@ -268,14 +268,14 @@ async function summaryReviseInPlaceTest(playwright: Playwright): Promise<void> {
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
-  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
-  await scriptMockReplyText(request, REPORT_HTML);
-  const id1 = extractReportID(await postAgentTurn(request, sess));
+  const toolTag1 = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const replyTag1 = await scriptMockReplyText(request, REPORT_HTML);
+  const id1 = extractReportID(await postAgentTurn(request, sess, `${toolTag1}${replyTag1}`));
   expect(id1, 'first summarize produced a report').toBeTruthy();
 
-  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
-  await scriptMockReplyText(request, REPORT_HTML_REVISED);
-  const id2 = extractReportID(await postAgentTurn(request, sess));
+  const toolTag2 = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const replyTag2 = await scriptMockReplyText(request, REPORT_HTML_REVISED);
+  const id2 = extractReportID(await postAgentTurn(request, sess, `${toolTag2}${replyTag2}`));
   expect(id2, 'second summarize produced a report').toBeTruthy();
 
   // 一会话一份:同一 report_id 被改写,而不是新起一行。
@@ -294,6 +294,7 @@ async function summaryReviseInPlaceTest(playwright: Playwright): Promise<void> {
 async function postAgentTurn(
   request: APIRequestContext,
   sess: { session_token: string; conversation_id: string },
+  tags = '',
 ): Promise<string> {
   const res = await request.post(`${BACKEND}/api/v1/agent/turn`, {
     headers: {
@@ -303,7 +304,7 @@ async function postAgentTurn(
     // conversation_id 必填：tool 内部 INSERT chat_reports 走这个 FK
     data: {
       system: 'You are alice.',
-      user_message: 'recap please',
+      user_message: `recap please${tags}`,
       conversation_id: sess.conversation_id,
     },
   });

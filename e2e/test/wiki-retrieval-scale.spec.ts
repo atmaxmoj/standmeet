@@ -14,6 +14,7 @@
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { seedWiki } from '@/fixtures/corpus';
@@ -70,8 +71,14 @@ test.describe('retrieval covers the whole corpus, not the newest-50 window', () 
 
       const turnDone = page.waitForResponse((res) =>
         res.url().includes('/agent/turn') && res.status() === 200, { timeout: 20_000 });
+      // Assertion is citation of the deep wiki → script corpus_read of its path.
+      // corpus_read resolves by path fresh per genre (no in-memory newest-N window),
+      // so a needle beyond the newest-50 is still read + cited across the full corpus.
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: NEEDLE_PATH },
+      });
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill(`tell me about ${NEEDLE_KEYWORD}`);
+      await input.fill(`tell me about ${NEEDLE_KEYWORD}${readTag}`);
       await input.press('Enter');
       await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
       await (await turnDone).finished();

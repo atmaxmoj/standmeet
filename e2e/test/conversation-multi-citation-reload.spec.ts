@@ -13,6 +13,7 @@ import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -51,12 +52,19 @@ test.describe('多轮各自引用,刷新后不串台', () => {
     await enterCodeSession(page, CODE, NAME);
     const input = page.getByTestId('chat-input-field');
 
-    await askAndRecord(page, input, 'tell me about lucerna');
+    // Mock is pure registration: each turn's corpus_read is what cites its doc.
+    const lucernaTag = await scriptMockToolCall(page.request, {
+      name: 'corpus_read', args: { path: LUCERNA },
+    });
+    await askAndRecord(page, input, `tell me about lucerna${lucernaTag}`);
     await expandRefsContaining(page, LUCERNA);
     await expect(rowFor(page, LUCERNA)).toBeVisible({ timeout: 20_000 });
 
     await expect(input).toBeEnabled({ timeout: 20_000 });
-    await askAndRecord(page, input, 'tell me about your family');
+    const familyTag = await scriptMockToolCall(page.request, {
+      name: 'corpus_read', args: { path: FAMILY },
+    });
+    await askAndRecord(page, input, `tell me about your family${familyTag}`);
     await expandRefsContaining(page, FAMILY);
     await expect(rowFor(page, FAMILY)).toBeVisible({ timeout: 20_000 });
 

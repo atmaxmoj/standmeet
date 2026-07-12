@@ -47,23 +47,23 @@ test.describe('failed turn does not consume a turn', () => {
       await expect(used).toHaveText('0');
 
       // 1) 成功一轮 → used = 1
-      await scriptMockReplyText(request, 'Here is a real, grounded answer.');
-      await input.fill('first question');
+      const firstTag = await scriptMockReplyText(request, 'Here is a real, grounded answer.');
+      await input.fill(`first question${firstTag}`);
       await input.press('Enter');
       await expect(answers).toHaveCount(1, { timeout: 20_000 });
       await expect(used).toHaveText('1');
 
       // 2) 注入故障一轮 → 仍然 used = 1(失败不消耗)。失败的 turn 也会渲一条
       //    answer-body(里头是友好错误文案),所以等到第 2 条出现 = 这轮收尾。
-      await scriptMockError(request);
-      await input.fill('this turn fails upstream');
+      const failTag = await scriptMockError(request);
+      await input.fill(`this turn fails upstream${failTag}`);
       await input.press('Enter');
       await expect(answers).toHaveCount(2, { timeout: 20_000 });
       await expect(used).toHaveText('1');
 
       // 3) 再成功一轮 → used = 2(中间那次失败没被计进去)
-      await scriptMockReplyText(request, 'Another real answer after the failure.');
-      await input.fill('third question');
+      const thirdTag = await scriptMockReplyText(request, 'Another real answer after the failure.');
+      await input.fill(`third question${thirdTag}`);
       await input.press('Enter');
       await expect(answers).toHaveCount(3, { timeout: 20_000 });
       await expect(used).toHaveText('2');

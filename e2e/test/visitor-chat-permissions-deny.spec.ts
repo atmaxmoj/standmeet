@@ -16,6 +16,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createRole } from '@/fixtures/roles';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
@@ -55,7 +56,12 @@ test.describe('positive-list URI ACL excludes paths not in role.corpus_uris', ()
     const sess = await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',
     });
-    const stream = await sendMessage(request, sess, 'tell me about your family');
+    // The AI attempts to read the family note (outside the recruiter role's
+    // positive-list) → the ACL gate denies the read → it is never cited.
+    const readDenied = await scriptMockToolCall(request, {
+      name: 'corpus_read', args: { path: DENIED },
+    });
+    const stream = await sendMessage(request, sess, `tell me about your family${readDenied}`);
     await stream.body();
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const paths = await fetchCitedPaths(request, csrf, sess.conversation_id);

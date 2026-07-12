@@ -12,6 +12,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -71,7 +72,7 @@ async function seedAndChat(request: APIRequestContext): Promise<string> {
   const wiki = await callTool<{ wiki_id: string }>(request, apiToken, sid, 'promote_to_wiki', {
     raw_id: raw.raw_id, title: 'curated', tags: [],
   });
-  await callTool<{ output_id: string }>(
+  const out = await callTool<{ output_id: string; path: string }>(
     request, apiToken, sid, 'promote_wiki_to_output',
     { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, tags: [] },
   );
@@ -81,7 +82,15 @@ async function seedAndChat(request: APIRequestContext): Promise<string> {
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',
   });
-  const stream = await sendMessage(request, sess, 'what do you think about polished essays');
+  // Mock is pure registration: register the corpus_read on the seeded output's
+  // real (promote-returned) path — a corpus_read is what records the citation,
+  // so show_grounding then surfaces this output as a cited body.
+  const tag = await scriptMockToolCall(request, {
+    name: 'corpus_read', args: { path: out.path },
+  });
+  const stream = await sendMessage(
+    request, sess, `what do you think about polished essays${tag}`,
+  );
   await stream.body();
   return apiToken;
 }

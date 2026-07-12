@@ -53,12 +53,12 @@ test.describe('Phase C · L2 progressive disclosure: skill_use discloses SKILL.m
   test('L2: skill_use(granted) → answer carries the SKILL.md body (name + L2 marker)',
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, { name: 'skill_use', args: { name: GRANTED_SKILL } });
-      await scriptMockReplyText(request, 'here is what the skill says');
+      const toolTag = await scriptMockToolCall(request, { name: 'skill_use', args: { name: GRANTED_SKILL } });
+      const replyTag = await scriptMockReplyText(request, 'here is what the skill says');
       await request.dispose();
 
       const page = await openChat(browser);
-      await ask(page, 'use the patent-review skill');
+      await ask(page, `use the patent-review skill${toolTag}${replyTag}`);
       const answer = page.getByTestId('answer-body');
       // SKILL.md serialization: frontmatter name + the body marker both disclosed.
       await expect(answer).toContainText(L2_BODY_MARKER, { timeout: 20_000 });
@@ -69,12 +69,12 @@ test.describe('Phase C · L2 progressive disclosure: skill_use discloses SKILL.m
   test('L2 ACL: skill_use(ungranted) → error, the ungranted body is never disclosed',
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, { name: 'skill_use', args: { name: UNGRANTED_SKILL } });
-      await scriptMockReplyText(request, 'I could not open that skill');
+      const toolTag = await scriptMockToolCall(request, { name: 'skill_use', args: { name: UNGRANTED_SKILL } });
+      const replyTag = await scriptMockReplyText(request, 'I could not open that skill');
       await request.dispose();
 
       const page = await openChat(browser);
-      await ask(page, 'use the secret skill');
+      await ask(page, `use the secret skill${toolTag}${replyTag}`);
       const answer = page.getByTestId('answer-body');
       await expect(answer).toContainText('could not open that', { timeout: 20_000 });
       // hard ACL: the ungranted skill's body must never reach the transcript.

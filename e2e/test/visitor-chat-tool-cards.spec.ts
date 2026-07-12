@@ -15,6 +15,7 @@ import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -51,8 +52,18 @@ test.describe('tool call 渲染成卡片', () => {
 
       await enterCodeSession(page, CODE);
 
+      // Mock is pure registration: register the corpus_search (renders the
+      // SearchHitsCard) and corpus_read (records the citation) this turn should
+      // run. Both tags ride in the message; across the agent loop each fires once.
+      const searchTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_search', args: { query: 'lucerna' },
+      });
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: 'projects/lucerna' },
+      });
+
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('tell me about lucerna');
+      await input.fill(`tell me about lucerna${searchTag}${readTag}`);
       await input.press('Enter');
 
       // corpus_search 卡(retrieval 插件 ui:// 沙盒卡)出现,点 summary 展开看 hits。

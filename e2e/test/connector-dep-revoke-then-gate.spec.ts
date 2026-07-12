@@ -37,11 +37,11 @@ test.describe('connector dep · revoke detected → connector marked disconnecte
 
       // 触发一次真 book —— 它会撞 invalid_grant。这一刀的「友好降级」由
       // connector-dep-drop-mid-turn 验;这里只关心它**之后**连接状态翻没翻。
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'will fail refresh', duration_min: 30, preferred_times: [future()] },
       });
-      await postTurn(seed, 'book me a slot');
+      await postTurn(seed, `book me a slot${tag}`);
 
       // 联动:invalid_grant 被识别 → connector 落库 disconnected。
       const status = await getGCalStatus(seed.request);
@@ -77,6 +77,6 @@ async function postTurn(seed: CodedSeed, q: string): Promise<void> {
   const { request } = seed;
   await request.post(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}/api/v1/agent/turn`, {
     headers: { Authorization: `Bearer ${seed.visitor.session_token}` },
-    data: { conversation_id: seed.visitor.conversation_id, message: q },
+    data: { conversation_id: seed.visitor.conversation_id, user_message: q },
   }).catch(() => { /* 撞 invalid_grant,turn 友好失败即可 */ });
 }

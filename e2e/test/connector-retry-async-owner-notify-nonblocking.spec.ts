@@ -92,12 +92,12 @@ async function enterAndBook(
   await page.getByTestId('visitor-name-submit').click();
   await session;
 
-  await scriptMockToolCall(page.request, {
+  const tag = await scriptMockToolCall(page.request, {
     name: 'calendar_book',
     args: { topic: TOPIC, duration_min: 30, preferred_times: [future(7, hour)] },
   });
   const input = page.getByTestId('chat-input-field');
-  await input.fill('book me a 30-minute chat next week, please');
+  await input.fill(`book me a 30-minute chat next week, please${tag}`);
   await input.press('Enter');
   await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
   return page;

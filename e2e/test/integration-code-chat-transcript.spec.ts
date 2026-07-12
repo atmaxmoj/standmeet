@@ -8,9 +8,10 @@
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
 
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
-import { seedPublicWiki } from '@/fixtures/corpus';
+import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { enterCodeSession, goto, gotoAdminSection } from '@/fixtures/navigate';
@@ -37,8 +38,13 @@ test.describe('code → chat → transcript integration', () => {
       const visitor = await visitorCtx.newPage();
       await enterCodeSession(visitor, CODE);
       await expect(visitor.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
+      // Pure-registration mock: script a corpus_read of the seeded entry so the
+      // turn produces a cited transcript (not just a bare final reply).
+      const readTag = await scriptMockToolCall(visitor.request, {
+        name: 'corpus_read', args: { path: 'integration-intro' },
+      });
       const input = visitor.locator('[data-testid="chat-input-field"]');
-      await input.fill('tell me about integration testing');
+      await input.fill(`tell me about integration testing${readTag}`);
       await input.press('Enter');
       await expect(visitor.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 15_000 });
@@ -74,8 +80,9 @@ async function initOwner(playwright: Playwright): Promise<void> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'integ-seed');
   const sid = await initMCP(request, token);
-  await seedPublicWiki(request, token, sid, {
+  await seedWiki(request, token, sid, {
     body: 'integration chat intro content.', title: 'Integration Intro',
+    path: 'integration-intro',
   });
   await createCode(request, csrf, {
     code: CODE, label: 'Integration test code',

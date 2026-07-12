@@ -19,7 +19,7 @@ test.describe('chat · calendar.book happy path', () => {
   test('AI books a meeting; mock GCal records the event; reply confirms',
     async () => {
       const start = futureSlot(7, 14);   // 7 days out, 14:00 local
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         // 无 visitor_email arg —— booker 硬控走 session profile 的 email。
         args: {
@@ -28,7 +28,7 @@ test.describe('chat · calendar.book happy path', () => {
           preferred_times: [start],
         },
       });
-      await sendAndDrain(seed.request, seed.visitor, 'Can we book a 30-min chat next week?');
+      await sendAndDrain(seed.request, seed.visitor, `Can we book a 30-min chat next week?${tag}`);
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(1);
       expect(events[0]!.summary).toContain('Recruiter Rachel');

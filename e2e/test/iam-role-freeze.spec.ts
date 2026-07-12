@@ -16,6 +16,7 @@ import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createRole } from '@/fixtures/roles';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
@@ -63,7 +64,12 @@ test.describe('A.3-IAM role snapshot is frozen at session issue', () => {
     const s1 = await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'V1',
     });
-    await (await sendMessage(request, s1, 'tell me about thinking')).body();
+    // Mock is pure registration: the AI reads the thinking entry (in the narrow
+    // role) → corpus_read records the citation.
+    const readThink = await scriptMockToolCall(request, {
+      name: 'corpus_read', args: { path: THINKING_PATH },
+    });
+    await (await sendMessage(request, s1, `tell me about thinking${readThink}`)).body();
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const beforePaths = await fetchCitedPaths(request, csrf, s1.conversation_id);
     expect(beforePaths).toContain(THINKING_PATH);
@@ -71,8 +77,12 @@ test.describe('A.3-IAM role snapshot is frozen at session issue', () => {
     // Owner widens the role to include output://**.
     await widenRole(request, csrf, roleID);
 
-    // Same in-flight session: ask about output. Snapshot is frozen → still excluded.
-    await (await sendMessage(request, s1, 'tell me about output B')).body();
+    // Same in-flight session: the AI attempts to read output B, but the frozen
+    // snapshot (narrow role) denies it → corpus_read blocked → never cited.
+    const readOut = await scriptMockToolCall(request, {
+      name: 'corpus_read', args: { path: OUTPUT_PATH },
+    });
+    await (await sendMessage(request, s1, `tell me about output B${readOut}`)).body();
     const stillPaths = await fetchCitedPaths(request, csrf, s1.conversation_id);
     expect(stillPaths).not.toContain(OUTPUT_PATH);
     await request.dispose();
@@ -84,7 +94,10 @@ test.describe('A.3-IAM role snapshot is frozen at session issue', () => {
     const s2 = await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'V2',
     });
-    await (await sendMessage(request, s2, 'tell me about output B')).body();
+    const readOut = await scriptMockToolCall(request, {
+      name: 'corpus_read', args: { path: OUTPUT_PATH },
+    });
+    await (await sendMessage(request, s2, `tell me about output B${readOut}`)).body();
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const paths = await fetchCitedPaths(request, csrf, s2.conversation_id);
     expect(paths).toContain(OUTPUT_PATH);

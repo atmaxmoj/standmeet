@@ -39,8 +39,8 @@ test.describe('visitor chat · GenericDumpCard (skill_*/ext_* fallback card)', (
 
   test('skill_use result → tool-card-skill_use dump card with name + JSON body', async ({ browser, playwright }) => {
     const request = await playwright.request.newContext();
-    await scriptMockToolCall(request, { name: 'skill_use', args: { name: SKILL } });
-    await scriptMockReplyText(request, 'rendered in the dump card');
+    const toolTag = await scriptMockToolCall(request, { name: 'skill_use', args: { name: SKILL } });
+    const replyTag = await scriptMockReplyText(request, 'rendered in the dump card');
     await request.dispose();
 
     const ctx = await browser.newContext();
@@ -49,7 +49,7 @@ test.describe('visitor chat · GenericDumpCard (skill_*/ext_* fallback card)', (
     await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
 
     const input = page.getByTestId('chat-input-field');
-    await input.fill('use the patent-review skill');
+    await input.fill(`use the patent-review skill${toolTag}${replyTag}`);
     await input.press('Enter');
 
     // GenericDumpCard: testid tool-card-<name>, kicker = tool name, <pre> = JSON of result.

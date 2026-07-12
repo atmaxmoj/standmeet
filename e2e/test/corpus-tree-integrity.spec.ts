@@ -15,6 +15,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { initMCP, callTool } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createCode } from '@/fixtures/codes';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 import type { VisitorSession } from '@/fixtures/visitor';
@@ -101,14 +102,27 @@ async function renameKeepsCitation({ playwright }: { playwright: Playwright }): 
   const request = await playwright.request.newContext();
   const sid = await initMCP(request, mcpToken);
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-  const wikiID = await promoteWiki(request, mcpToken, sid, 'Quantum ledger notes');
+  // Seed inline (not via promoteWiki) to capture the promote-returned path for the
+  // scripted corpus_read below.
+  const raw = await callTool<{ raw_id: string }>(
+    request, mcpToken, sid, 'raw_dump',
+    { body: 'body of Quantum ledger notes', source: 'mcp:e2e', tags: [] },
+  );
+  const wiki = await callTool<{ wiki_id: string; path: string }>(
+    request, mcpToken, sid, 'promote_to_wiki',
+    { raw_id: raw.raw_id, title: 'Quantum ledger notes' },
+  );
+  const wikiID = wiki.wiki_id;
   await createCode(request, csrf, { code: RENAME_CODE, label: 'rename' });
 
-  // visitor 问 → mock 读到这条 → cited_wiki_ids = [wikiID]。
+  // visitor 问 → 注册 mock 读这条 → cited_wiki_ids = [wikiID]。
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: RENAME_CODE, visitor_name: 'V',
   });
-  const stream = await sendMessage(request, sess, 'tell me about quantum ledger');
+  const tag = await scriptMockToolCall(request, {
+    name: 'corpus_read', args: { path: wiki.path },
+  });
+  const stream = await sendMessage(request, sess, `tell me about quantum ledger${tag}`);
   await stream.body();
 
   await renameWiki(request, mcpToken, sid, wikiID, 'Renamed afterwards');

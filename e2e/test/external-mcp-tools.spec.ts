@@ -20,6 +20,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
   email: 'alice@example.com',
@@ -61,8 +62,13 @@ test.describe('owner registers external MCP server; visitor chat uses its tools'
       if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await skip.click();
       }
+      // Mock is pure registration — register the ext tool the AI should dispatch
+      // (backend really calls mcp-server-mock; its EXT_MARKER result echoes back).
+      const tag = await scriptMockToolCall(page.request, {
+        name: 'ext_host-tool_ping_external', args: {},
+      });
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('call the external tool');
+      await input.fill(`call the external tool${tag}`);
       await input.press('Enter');
 
       // 证据走持久信号:answer-body 里含 ext server 的回包 marker —— 证明 MCP

@@ -15,6 +15,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createRole } from '@/fixtures/roles';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
@@ -28,6 +29,10 @@ const OWNER = {
 const CODE = 'RAWDENY-001';
 
 test.describe('A.3-IAM raw://** is hardcoded deny regardless of role config', () => {
+  // The seeded raw entry's id — the AI attempts to corpus_read raw://<id>, which
+  // the hardcode deny (and the fact that no visitor finder resolves raw) blocks.
+  let rawID = '';
+
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -40,10 +45,11 @@ test.describe('A.3-IAM raw://** is hardcoded deny regardless of role config', ()
     // (which should be owner-only).
     const token = await createAPIToken(request, csrf, 'raw-deny-seed');
     const sid = await initMCP(request, token);
-    await callTool<{ raw_id: string }>(
+    const raw = await callTool<{ raw_id: string }>(
       request, token, sid, 'raw_dump',
       { body: 'private raw thoughts', source: 'mcp:e2e', tags: ['private'] },
     );
+    rawID = raw.raw_id;
     // Even though owner tries to grant raw://**, the hardcode wins.
     const role = await createRole(request, csrf, {
       name: 'raw-greedy',
@@ -62,8 +68,13 @@ test.describe('A.3-IAM raw://** is hardcoded deny regardless of role config', ()
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
-      // Ask a question that an AI might be tempted to grab a raw note for.
-      await (await sendMessage(request, sess, 'tell me your private raw thoughts')).body();
+      // The AI is tempted to grab the raw note: register the read of its address.
+      // raw://** is hardcode-denied and no visitor finder resolves raw, so the
+      // read is blocked and nothing is cited — exercising the gate.
+      const readRaw = await scriptMockToolCall(request, {
+        name: 'corpus_read', args: { path: `raw://${rawID}` },
+      });
+      await (await sendMessage(request, sess, `tell me your private raw thoughts${readRaw}`)).body();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const cites = await fetchAssistantCiteCounts(request, csrf, sess.conversation_id);
       // Only raw was seeded → if raw deny works, visitor sees no cited entries

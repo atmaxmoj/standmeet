@@ -19,7 +19,7 @@ test.describe('chat · calendar.book policy: outside_working_hours', () => {
   test('23:00 slot when working hours are 09-18 → outside_working_hours',
     async () => {
       const lateNight = future(7, 23);
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: {
           topic: 'Late chat',
@@ -27,7 +27,7 @@ test.describe('chat · calendar.book policy: outside_working_hours', () => {
           preferred_times: [lateNight],
         },
       });
-      await sendAndDrain(seed.request, seed.visitor, '11pm next Wed?');
+      await sendAndDrain(seed.request, seed.visitor, `11pm next Wed?${tag}`);
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(0);
     });

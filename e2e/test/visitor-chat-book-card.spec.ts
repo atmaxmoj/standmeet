@@ -38,12 +38,12 @@ test.describe('chat · booked card renders as mcp-app-card iframe', () => {
       await enterChat(page, seed.code.code, 'Rachel', 'rachel@example.com');
 
       // scripted calendar_book(+7 天已知工作日,working hours 内的固定小时)。
-      await scriptMockToolCall(page.request, {
+      const tag = await scriptMockToolCall(page.request, {
         name: 'calendar_book',
         args: { topic: TOPIC, duration_min: 30, preferred_times: [future(7, 14)] },
       });
       const input = page.getByTestId('chat-input-field');
-      await input.fill('book me a 30-minute chat next week, please');
+      await input.fill(`book me a 30-minute chat next week, please${tag}`);
       await input.press('Enter');
 
       // booked 卡是沙盒 iframe:外层 testid 在主 DOM 可见,内容经 frameLocator 取

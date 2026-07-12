@@ -63,8 +63,8 @@ test.describe('失败的一轮不进 conversation,刷新后不在也不计数', 
     await expect(used).toHaveText('1', { timeout: 10_000 });
 
     // 2) 注入故障一轮 → 渲友好错误,但不落 dialog、count 不涨。
-    await scriptMockError(request);
-    await input.fill(FAIL_Q);
+    const errTag = await scriptMockError(request);
+    await input.fill(`${FAIL_Q}${errTag}`);
     await input.press('Enter');
     await expect(answers).toHaveCount(2, { timeout: 20_000 });
     await expect(used).toHaveText('1', { timeout: 10_000 });
@@ -92,8 +92,8 @@ async function sendOk(
 ): Promise<void> {
   const turnDone = page.waitForResponse((r) =>
     r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
-  await scriptMockReplyText(request, 'A real, grounded answer.');
-  await input.fill(q);
+  const tag = await scriptMockReplyText(request, 'A real, grounded answer.');
+  await input.fill(`${q}${tag}`);
   await input.press('Enter');
   await (await turnDone).finished();
 }

@@ -248,11 +248,11 @@ async function bookOnce(
     visitor_name: 'Recruiter Rachel', visitor_email: 'rachel@example.com',
   });
   await expectCalendarBookExposed(request, visitor.session_token, true);
-  await scriptMockToolCall(request, {
+  const tag = await scriptMockToolCall(request, {
     name: 'calendar_book',
     args: { topic: 'Happy matrix booking', duration_min: 30, preferred_times: [start] },
   });
-  await sendAndDrain(request, visitor, 'Book a 30-min chat next week?');
+  await sendAndDrain(request, visitor, `Book a 30-min chat next week?${tag}`);
 }
 
 // bookAndAssert —— calendar combo 的共用尾巴：断品类槽 connected → 真 book 一次 →

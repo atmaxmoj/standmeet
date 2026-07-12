@@ -44,12 +44,12 @@ test.describe('Phase E-14c calendar.cancel_booking via MCP', () => {
     async () => {
       // 1. visitor books via chat
       const t1 = future(7, 14);
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'will be cancelled', duration_min: 30,
           preferred_times: [t1] },
       });
-      await sendAndDrain(seed.request, seed.visitor, 'Book me');
+      await sendAndDrain(seed.request, seed.visitor, `Book me${tag}`);
       const created = await getMockEvents(seed.request);
       expect(created.length).toBe(1);
       const insertedEventID = created[0]!.event_id;

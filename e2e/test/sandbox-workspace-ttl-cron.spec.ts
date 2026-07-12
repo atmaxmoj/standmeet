@@ -75,15 +75,15 @@ test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
       // 两次完整浏览器 chat turn + TTL 等待 + 两次 sweep —— 30s 默认 timeout 不够。
       test.setTimeout(90_000);
       // 1) a session writes a file → its workspace is provisioned (lazily).
-      await scriptMockToolCall(request, {
+      const toolTagA = await scriptMockToolCall(request, {
         name: `${PLUGIN_ID}_write_file`,
         args: { path: '/workspace/note.txt', content: 'visitor-A-data' },
       });
-      await scriptMockReplyText(request, 'saved it');
+      const replyTagA = await scriptMockReplyText(request, 'saved it');
       const ctxA = await browser.newContext();
       const pageA = await ctxA.newPage();
       await enterCodeSession(pageA, code);
-      await pageA.getByTestId('chat-input-field').fill('save a note');
+      await pageA.getByTestId('chat-input-field').fill(`save a note${toolTagA}${replyTagA}`);
       await pageA.getByTestId('chat-input-field').press('Enter');
       await expect(pageA.getByTestId('answer-body'))
         .toContainText('saved it', { timeout: 30_000 });
@@ -101,15 +101,15 @@ test.describe('sandbox per-session workspace: backend TTL + cron sweep', () => {
       }, { timeout: 8_000, intervals: [200] }).toBe(0);
 
       // 3) a workspace written AFTER the sweep (fresh) is NOT deleted by it.
-      await scriptMockToolCall(request, {
+      const toolTagB = await scriptMockToolCall(request, {
         name: `${PLUGIN_ID}_write_file`,
         args: { path: '/workspace/note.txt', content: 'visitor-B-data' },
       });
-      await scriptMockReplyText(request, 'saved it again');
+      const replyTagB = await scriptMockReplyText(request, 'saved it again');
       const ctxB = await browser.newContext();
       const pageB = await ctxB.newPage();
       await enterCodeSession(pageB, code);
-      await pageB.getByTestId('chat-input-field').fill('save another note');
+      await pageB.getByTestId('chat-input-field').fill(`save another note${toolTagB}${replyTagB}`);
       await pageB.getByTestId('chat-input-field').press('Enter');
       await expect(pageB.getByTestId('answer-body'))
         .toContainText('saved it again', { timeout: 30_000 });

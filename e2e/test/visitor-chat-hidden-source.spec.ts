@@ -16,6 +16,7 @@ import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -49,7 +50,19 @@ test.describe('show_as_source=false hides entry from cited footer', () => {
     const sess = await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',
     });
-    const stream = await sendMessage(request, sess, 'tell me about your persona and projects');
+    // Mock is pure registration: register a corpus_read for BOTH the hidden meta
+    // entry and the visible one (mirrors "persona and projects"). Reading HIDDEN
+    // is the load-bearing bit — if show_as_source suppression regressed, the read
+    // would surface it in cited and this test fails.
+    const readHidden = await scriptMockToolCall(request, {
+      name: 'corpus_read', args: { path: HIDDEN },
+    });
+    const readVisible = await scriptMockToolCall(request, {
+      name: 'corpus_read', args: { path: VISIBLE },
+    });
+    const stream = await sendMessage(
+      request, sess, `tell me about your persona and projects${readHidden}${readVisible}`,
+    );
     await stream.body();
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const paths = await fetchCitedPaths(request, csrf, sess.conversation_id);

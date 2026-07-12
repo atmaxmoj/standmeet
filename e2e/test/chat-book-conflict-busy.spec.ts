@@ -22,11 +22,11 @@ test.describe('chat · calendar.book conflict: all preferred times busy', () => 
       await setMockBusy(seed.request, [{
         start: future(7, 13, 30), end: future(7, 15),
       }]);
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'Backend deep-dive', duration_min: 30, preferred_times: [slot] },
       });
-      await sendAndDrain(seed.request, seed.visitor, 'book me next week at 2pm');
+      await sendAndDrain(seed.request, seed.visitor, `book me next week at 2pm${tag}`);
       // 全 busy → booker 不 insert。mock 日历无新事件。
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(0);

@@ -1,135 +1,187 @@
-// script.go —— admin queue + handlers for e2e scripting.
+// script.go —— admin registry + handlers for e2e scripting.
 //
-// Single-slot queues for next_tool and next_reply; later writes overwrite
-// pending unread values. Tests typically script one then drive one visitor
-// chat turn before scripting again.
+// **Keyword KV, matched by containment.** A test registers key→value (key is a
+// unique keyword the test picks, e.g. a uuid) and embeds that keyword in the
+// message it sends. On each /v1/messages the mock scans its registered keys and,
+// for the first one the request text CONTAINS, returns that value (single-shot:
+// consumed on match so an agent loop's follow-up calls don't re-fire it).
+//
+// Isolation is by keyword uniqueness alone — nothing to do with owner, session,
+// or turn order. A test's request contains only ITS OWN keys, so it can never
+// match another test's registration; an unconsumed entry just sits under its
+// keyword and no other request contains it. No shared slot, no per-spec reset.
 package main
 
 import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 )
 
-// ScriptedTool —— tool call the gateway should emit next instead of its
-// default search→read behavior. Args is raw JSON forwarded as-is into the
-// SSE input_json_delta partial_json field.
-//
-// Key —— keyed registration: only the turn carrying a matching [[s:Key]] token
-// in its message consumes this script. "" = wildcard (any turn whose message
-// has no token). Keying isolates concurrent scripts so a trailing/other turn
-// can't steal a script meant for a specific (test, turn) — the global
-// single-slot theft that flaked visitor-ask-visitor.
+// ScriptedTool —— tool call the gateway should emit instead of its default
+// search→read behavior. Args is raw JSON forwarded as-is into the SSE
+// input_json_delta partial_json field. Key = the test's keyword; the turn whose
+// message contains Key consumes this script.
 type ScriptedTool struct {
 	Name string          `json:"name"`
 	Args json.RawMessage `json:"args"`
 	Key  string          `json:"key"`
 }
 
-// ScriptedReply —— final text reply to emit (overrides INFERENCE_MOCK_REPLY).
+// ScriptedReply —— final text reply to emit (overrides INFERENCE_MOCK_REPLY),
+// consumed by a request whose text contains Key.
 type ScriptedReply struct {
 	Text string `json:"text"`
+	Key  string `json:"key"`
 }
 
-// ScriptedGhost —— the GhostPolicy call's JSON body to return next. Raw so a test
-// can queue either an object {text,target_waypoint,follows_from,is_bridge} or the
-// literal null (silence). Unset → the policy call defaults to null (no ghost), so
-// turns not exercising steering never spuriously emit a ghost frame.
+// ScriptedGhost —— the GhostPolicy call's JSON body to return, consumed by a
+// request containing Key. Raw so a test can queue either an object
+// {text,target_waypoint,follows_from,is_bridge} or the literal null (silence).
+// No entry for a request → the policy call defaults to null (no ghost).
 type ScriptedGhost struct {
 	Body json.RawMessage `json:"body"`
+	Key  string          `json:"key"`
 }
 
+// ScriptedError —— fail every /v1/messages whose text contains Key with 500,
+// simulating a third-party LLM outage. Persists (not single-shot) until a normal
+// tool/reply is scripted for the same Key.
+type ScriptedError struct {
+	Key string `json:"key"`
+}
+
+// scriptQueue —— each field a keyword→value registry. Matched by Contains.
+// tools is an ORDERED slice (not a map): when a turn's message carries several
+// tool keywords, the mock emits them in the order the test registered them —
+// deterministic (a test registering corpus_search then corpus_read gets that
+// sequence), still pure registration (no guessing which/what order).
 type scriptQueue struct {
-	mu sync.Mutex
-	// tools —— keyed by WhenUser ("" = wildcard). A keyed registry instead of
-	// a single slot so concurrent scripts (overlapping turns across tests)
-	// don't steal each other.
-	tools map[string]*ScriptedTool
-	reply *string
-	ghost *string
-	// failAll —— e2e 用 next_error 打开后,所有 /v1/messages 返 500,模拟第三方
-	// LLM 故障(测"失败的 turn 不消耗配额")。scripting 正常 tool/reply 会清掉它。
-	failAll bool
+	mu      sync.Mutex
+	tools   []*ScriptedTool
+	replies map[string]string
+	ghosts  map[string]string
+	fails   map[string]bool
+	// lastKeys —— the `[[s:…]]` tokens from the most recent visitor (stream) turn.
+	// Backend-initiated generate calls (GhostPolicy, summarize) are built from
+	// derived content and don't carry the visitor message, so the mock retains
+	// the turn's keywords here and matches those calls against them. Sequential
+	// e2e (workers:1) means a turn's follow-up generate call fires before the
+	// next turn, so lastKeys is always the triggering turn's.
+	lastKeys string
 }
 
 func newScriptQueue() *scriptQueue {
-	return &scriptQueue{tools: map[string]*ScriptedTool{}}
+	return &scriptQueue{
+		replies: map[string]string{},
+		ghosts:  map[string]string{},
+		fails:   map[string]bool{},
+	}
 }
 
-func (q *scriptQueue) setFailAll(v bool) {
+// rememberTurnKeys —— retain a visitor (stream) turn's script keywords for the
+// follow-up backend generate calls that don't carry them.
+func (q *scriptQueue) rememberTurnKeys(tokens string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.failAll = v
+	q.lastKeys = tokens
 }
 
-func (q *scriptQueue) shouldFail() bool {
+func (q *scriptQueue) retainedKeys() string {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	return q.failAll
+	return q.lastKeys
 }
 
+func (q *scriptQueue) setFail(key string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.fails[key] = true
+}
+
+// shouldFailFor —— true if the request text contains any registered fail keyword.
+func (q *scriptQueue) shouldFailFor(text string) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for key := range q.fails {
+		if strings.Contains(text, key) {
+			return true
+		}
+	}
+	return false
+}
+
+// setTool —— register the script for t.Key (append preserves registration order;
+// re-registering the same key updates in place). Scripting a normal tool/reply
+// for a key clears that key's fail mode (a real reply implies the outage is over).
 func (q *scriptQueue) setTool(t *ScriptedTool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.tools[t.Key] = t
-	q.failAll = false
-}
-
-// takeToolFor —— consume the script registered for this turn's [[s:KEY]] token.
-// Exact key match wins; a turn with no token (key="") falls back to the
-// wildcard slot. The matched entry is removed (single-shot per registration).
-func (q *scriptQueue) takeToolFor(key string) *ScriptedTool {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	if key != "" {
-		if t, ok := q.tools[key]; ok {
-			delete(q.tools, key)
-			return t
+	delete(q.fails, t.Key)
+	for i := range q.tools {
+		if q.tools[i].Key == t.Key {
+			q.tools[i] = t
+			return
 		}
 	}
-	if t, ok := q.tools[""]; ok {
-		delete(q.tools, "")
-		return t
+	q.tools = append(q.tools, t)
+}
+
+// takeToolFor —— consume the first-registered tool whose keyword the request text
+// contains. Single-shot: removed on match so an agent loop's follow-up calls fall
+// through to the next registered tool (in order), then the default/final path.
+func (q *scriptQueue) takeToolFor(text string) *ScriptedTool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for i := range q.tools {
+		if strings.Contains(text, q.tools[i].Key) {
+			t := q.tools[i]
+			q.tools = append(q.tools[:i], q.tools[i+1:]...)
+			return t
+		}
 	}
 	return nil
 }
 
-func (q *scriptQueue) setReply(text string) {
+func (q *scriptQueue) setReply(key, text string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.reply = &text
-	q.failAll = false
+	q.replies[key] = text
+	delete(q.fails, key)
 }
 
-func (q *scriptQueue) takeReply() (string, bool) {
+func (q *scriptQueue) takeReplyFor(text string) (string, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.reply == nil {
-		return "", false
+	for key, r := range q.replies {
+		if strings.Contains(text, key) {
+			delete(q.replies, key)
+			return r, true
+		}
 	}
-	out := *q.reply
-	q.reply = nil
-	return out, true
+	return "", false
 }
 
-func (q *scriptQueue) setGhost(body string) {
+func (q *scriptQueue) setGhost(key, body string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.ghost = &body
+	q.ghosts[key] = body
 }
 
-// takeGhost —— GhostPolicy 调用取脚本化的 body。未脚本化 → "null"(silence 默认),
-// 让不测 steering 的 turn 的 policy 调用不会误发 ghost。single-shot。
-func (q *scriptQueue) takeGhost() string {
+// takeGhostFor —— GhostPolicy 调用取脚本化的 body。请求不含任何注册 ghost key →
+// "null"(silence 默认),让不测 steering 的 turn 的 policy 调用不会误发 ghost。
+func (q *scriptQueue) takeGhostFor(text string) string {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.ghost == nil {
-		return "null"
+	for key, g := range q.ghosts {
+		if strings.Contains(text, key) {
+			delete(q.ghosts, key)
+			return g
+		}
 	}
-	out := *q.ghost
-	q.ghost = nil
-	return out
+	return "null"
 }
 
 func (s *server) serveSetNextGhost(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +195,7 @@ func (s *server) serveSetNextGhost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	s.queue.setGhost(string(p.Body))
+	s.queue.setGhost(p.Key, string(p.Body))
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 
@@ -162,10 +214,20 @@ func (s *server) serveSetNextTool(w http.ResponseWriter, r *http.Request) {
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 
-// serveSetNextError —— e2e 打开"所有 inference 调用都 500"模式,模拟 LLM 故障。
-// 下一次 scripting 正常 reply/tool 会自动清掉。
-func (s *server) serveSetNextError(w http.ResponseWriter, _ *http.Request) {
-	s.queue.setFailAll(true)
+// serveSetNextError —— open "requests containing this key 500" mode, simulating an
+// LLM outage. Cleared when a normal reply/tool is scripted for the same key.
+func (s *server) serveSetNextError(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body", http.StatusBadRequest)
+		return
+	}
+	var p ScriptedError
+	if uerr := json.Unmarshal(body, &p); uerr != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	s.queue.setFail(p.Key)
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 
@@ -180,18 +242,18 @@ func (s *server) serveSetNextReply(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	s.queue.setReply(p.Text)
+	s.queue.setReply(p.Key, p.Text)
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 
 type stateResp struct {
-	Tools map[string]*ScriptedTool `json:"tools"`
-	Reply *string                  `json:"reply"`
+	Tools   []*ScriptedTool   `json:"tools"`
+	Replies map[string]string `json:"replies"`
 }
 
 func (s *server) serveState(w http.ResponseWriter, _ *http.Request) {
 	s.queue.mu.Lock()
-	resp := stateResp{Tools: s.queue.tools, Reply: s.queue.reply}
+	resp := stateResp{Tools: s.queue.tools, Replies: s.queue.replies}
 	s.queue.mu.Unlock()
 	writeJSON(s.log, w, resp)
 }

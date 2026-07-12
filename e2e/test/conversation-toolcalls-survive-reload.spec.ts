@@ -11,6 +11,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { seedWiki } from '@/fixtures/corpus';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
@@ -42,8 +43,12 @@ test.describe('tool 调用属于会话,刷新后仍在', () => {
   test('答复用过 corpus_search → reload → SEARCHED 卡仍在', async ({ page }) => {
     await enterCodeSession(page, CODE, NAME);
 
+    // Pure registration: the SEARCHED card renders from a corpus_search tool call.
+    const searchTag = await scriptMockToolCall(page.request, {
+      name: 'corpus_search', args: { query: 'lucerna' },
+    });
     const input = page.getByTestId('chat-input-field');
-    await input.fill('tell me about lucerna');
+    await input.fill(`tell me about lucerna${searchTag}`);
     await input.press('Enter');
 
     // live:search 卡出现。answer-body 渲出 = 收到 `done` 帧 = backend 已把这轮

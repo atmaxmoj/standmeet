@@ -22,9 +22,12 @@ interface RegistryListResp { capabilities: Cap[] }
 // 注:jobs/resume/applications 也在此 —— 它们是 owner-facing 的自管理 MCP,
 // 跟 codes/seo 同类,不是对内能力。
 const GOLDEN_OUTWARD: readonly Cap[] = [
+  { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'owner.me', shape: 'owner_only', origin: 'builtin' },
-  { id: 'seo.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'codes.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'seo.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'corpus.raw.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'corpus.output.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'corpus.mutations.bundle', shape: 'owner_only', origin: 'builtin' },
@@ -39,9 +42,18 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'custom_page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'page.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'calendar.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'ip_bans.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'domains.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'access_requests.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'capabilities.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'instance.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'api_keys.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'connectors.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'marketplace.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'booking.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'account.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'byoai.bundle', shape: 'owner_only', origin: 'builtin' },
+  { id: 'ai_provider.bundle', shape: 'owner_only', origin: 'builtin' },
 ];
 
 test.describe('能力归一化 · 【对外】自管理 MCP handles 黄金快照(本次不碰)', () => {

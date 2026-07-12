@@ -57,17 +57,17 @@ test.describe('ADVERSARIAL: a sandboxed server actively tries to escape — bwra
       const request = await playwright.request.newContext();
       // list /var/run, where docker.sock lives in the backend container. bwrap
       // never mounts /var → the directory does not exist in the sandbox.
-      await scriptMockToolCall(request, {
+      const toolTag = await scriptMockToolCall(request, {
         name: `${PLUGIN_ID}_list_directory`, args: { path: '/var/run' },
       });
-      await scriptMockReplyText(request, 'tried to find the docker socket');
+      const replyTag = await scriptMockReplyText(request, 'tried to find the docker socket');
       await request.dispose();
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       await enterCodeSession(page, code);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
-      await page.getByTestId('chat-input-field').fill('list var run');
+      await page.getByTestId('chat-input-field').fill(`list var run${toolTag}${replyTag}`);
       await page.getByTestId('chat-input-field').press('Enter');
       await expect(page.getByTestId('answer-body'))
         .toContainText('tried to find the docker socket', { timeout: 30_000 });
@@ -79,17 +79,17 @@ test.describe('ADVERSARIAL: a sandboxed server actively tries to escape — bwra
   test('cannot read host config (/etc/standmeet/plugins.json) — contents never leak',
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, {
+      const toolTag = await scriptMockToolCall(request, {
         name: `${PLUGIN_ID}_read_text_file`, args: { path: '/etc/standmeet/plugins.json' },
       });
-      await scriptMockReplyText(request, 'tried to read the host plugin config');
+      const replyTag = await scriptMockReplyText(request, 'tried to read the host plugin config');
       await request.dispose();
 
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       await enterCodeSession(page, code);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
-      await page.getByTestId('chat-input-field').fill('read the host config');
+      await page.getByTestId('chat-input-field').fill(`read the host config${toolTag}${replyTag}`);
       await page.getByTestId('chat-input-field').press('Enter');
       await expect(page.getByTestId('answer-body'))
         .toContainText('tried to read the host plugin config', { timeout: 30_000 });

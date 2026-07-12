@@ -61,7 +61,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { resetMockGCal, MOCK_GCAL_CREDS } from '@/fixtures/gcal';
 import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { issueSession, type VisitorSession } from '@/fixtures/visitor';
-import { scriptMockToolCall, scriptTag, sendAndDrain } from '@/fixtures/mock-llm-script';
+import { scriptMockToolCall, sendAndDrain } from '@/fixtures/mock-llm-script';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -372,14 +372,13 @@ test.describe('connector · agent-tool exposure (§3 second consumer path: agent
       const direct = await diagAgentCall(request, csrf, id, 'contacts.search', { query: 'rachel' });
       expect(direct, 'runtime executed the op against the SaaS').toBe(200);
 
-      // 再走 LLM 脚本：mock 选 op_contacts_search，turn 不崩。
-      const key = 'agent-tools#invoke';
-      await scriptMockToolCall(request, {
+      // 再走 LLM 脚本：mock 选 op_contacts_search，turn 不崩。脚本 keyword 塞进这一
+      // 条消息(scriptTag),mock 按 Contains 匹配,别的 test 的 turn 命中不了。
+      const tag = await scriptMockToolCall(request, {
         name: TOOL_NAME_FOR('contacts.search'),
         args: { query: 'rachel' },
-        key,
       });
-      await sendAndDrain(request, session, `Find Rachel in the CRM${scriptTag(key)}`);
+      await sendAndDrain(request, session, `Find Rachel in the CRM${tag}`);
     });
 });
 

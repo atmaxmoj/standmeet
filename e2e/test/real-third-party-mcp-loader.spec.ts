@@ -56,10 +56,10 @@ test.describe('REAL third-party MCP server (server-everything) — loader correc
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
       // server-everything's `echo` returns "Echo: <message>".
-      await scriptMockToolCall(request, {
+      const toolTag = await scriptMockToolCall(request, {
         name: `${PLUGIN_ID}_echo`, args: { message: 'PLUGGED-IN-FOR-REAL' },
       });
-      await scriptMockReplyText(request, 'the server echoed it back');
+      const replyTag = await scriptMockReplyText(request, 'the server echoed it back');
       await request.dispose();
 
       const ctx = await browser.newContext();
@@ -67,7 +67,7 @@ test.describe('REAL third-party MCP server (server-everything) — loader correc
       await enterCodeSession(page, pluginCode);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
       const input = page.getByTestId('chat-input-field');
-      await input.fill('echo something');
+      await input.fill(`echo something${toolTag}${replyTag}`);
       await input.press('Enter');
       // The clean scripted reply only renders if the real third-party tool was
       // discovered + dispatched through the bwrap sandbox without breaking the
@@ -86,10 +86,10 @@ test.describe('REAL third-party MCP server (server-everything) — loader correc
       // everything_get_sum. A second, differently-named tool of the same real
       // server proves the loader enumerated the server's whole toolset over the
       // sandbox, not just one hard-coded name.
-      await scriptMockToolCall(request, {
+      const toolTag = await scriptMockToolCall(request, {
         name: `${PLUGIN_ID}_get_sum`, args: { a: 2, b: 40 },
       });
-      await scriptMockReplyText(request, 'the real server added them up');
+      const replyTag = await scriptMockReplyText(request, 'the real server added them up');
       await request.dispose();
 
       const ctx = await browser.newContext();
@@ -97,7 +97,7 @@ test.describe('REAL third-party MCP server (server-everything) — loader correc
       await enterCodeSession(page, pluginCode);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
       const input = page.getByTestId('chat-input-field');
-      await input.fill('add two and forty');
+      await input.fill(`add two and forty${toolTag}${replyTag}`);
       await input.press('Enter');
       await expect(page.getByTestId('answer-body'))
         .toContainText('the real server added them up', { timeout: 30_000 });

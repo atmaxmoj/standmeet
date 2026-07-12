@@ -50,14 +50,13 @@ test.describe('connector error stream · confirmation email is idempotent (E14)'
 
       // attempt a second send via the same tool call (bypassing the locked UI),
       // simulating a retry / double-fire — must NOT produce a second email.
-      await scriptMockToolCall(page.request, {
+      const tag = await scriptMockToolCall(page.request, {
         name: 'send_confirmation',
         args: { to: 'dana.profile@example.com' },
-        key: 'e14-resend',
       });
       const input = page.getByTestId('chat-input-field');
       const answersBefore = await page.getByTestId('answer-body').count();
-      await input.fill('please resend that confirmation');
+      await input.fill(`please resend that confirmation${tag}`);
       await input.press('Enter');
 
       // wait on the real signal (the resend turn produced its reply → the resend
@@ -87,12 +86,12 @@ async function enterWithProfile(
 
 // bookInChat —— script 一次 calendar_book，触发 → 等 BookCard 出现。
 async function bookInChat(page: Page, hour: number): Promise<void> {
-  await scriptMockToolCall(page.request, {
+  const tag = await scriptMockToolCall(page.request, {
     name: 'calendar_book',
     args: { topic: TOPIC, duration_min: 30, preferred_times: [future(7, hour)] },
   });
   const input = page.getByTestId('chat-input-field');
-  await input.fill('book me a 30-minute chat next week, please');
+  await input.fill(`book me a 30-minute chat next week, please${tag}`);
   await input.press('Enter');
   await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });
 }

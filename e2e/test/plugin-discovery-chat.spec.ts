@@ -53,8 +53,8 @@ test.describe('platform-declared plugin discovered + used in visitor chat (no ow
   test('AI 调到装机声明的插件工具 → 回包 marker 进 answer（core 发现了非 MustRegister 的能力）',
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, { name: 'echoer_echo', args: { text: 'hi' } });
-      await scriptMockReplyText(request, `the plugin said ${EXT_MARKER}:hi`);
+      const toolTag = await scriptMockToolCall(request, { name: 'echoer_echo', args: { text: 'hi' } });
+      const replyTag = await scriptMockReplyText(request, `the plugin said ${EXT_MARKER}:hi`);
       await request.dispose();
 
       const ctx = await browser.newContext();
@@ -62,7 +62,7 @@ test.describe('platform-declared plugin discovered + used in visitor chat (no ow
       await enterCodeSession(page, pluginCode);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
       const input = page.getByTestId('chat-input-field');
-      await input.fill('use the plugin');
+      await input.fill(`use the plugin${toolTag}${replyTag}`);
       await input.press('Enter');
 
       // 持久信号:answer-body 含插件回包 marker —— 证明 core 真的发现 + 拨通了这个
@@ -77,8 +77,8 @@ test.describe('platform-declared plugin discovered + used in visitor chat (no ow
   test('插件工具中途失败 → chat 仍友好作答（折叠错误 + 端到端降级）',
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, { name: 'echoer_boom', args: {} });
-      await scriptMockReplyText(request, 'sorry, I could not run that just now');
+      const toolTag = await scriptMockToolCall(request, { name: 'echoer_boom', args: {} });
+      const replyTag = await scriptMockReplyText(request, 'sorry, I could not run that just now');
       await request.dispose();
 
       const ctx = await browser.newContext();
@@ -86,7 +86,7 @@ test.describe('platform-declared plugin discovered + used in visitor chat (no ow
       await enterCodeSession(page, pluginCode);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
       const input = page.getByTestId('chat-input-field');
-      await input.fill('use the broken plugin tool');
+      await input.fill(`use the broken plugin tool${toolTag}${replyTag}`);
       await input.press('Enter');
 
       await expect(page.getByTestId('answer-body'))

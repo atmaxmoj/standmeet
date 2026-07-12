@@ -76,13 +76,13 @@ test.describe('visitor chat ghost text · 单个 · P4', () => {
 
   test('答完一轮 → 输入框 ghost 换成 policy 单条(不是 3 条 followup)', async ({ page, playwright }) => {
     const req = await playwright.request.newContext();
-    await scriptMockGhost(req, POLICY_GHOST);
+    const ghostTag = await scriptMockGhost(req, POLICY_GHOST);
     await req.dispose();
 
     await enterChatWithCode(page);
     const input = page.getByTestId('chat-input-field');
     await expect(input).toHaveAttribute('data-ghost', INITIAL, { timeout: 5_000 });
-    await input.fill('tell me about your work');
+    await input.fill(`tell me about your work${ghostTag}`);
     await input.press('Enter');
     await expect(page.getByTestId('answer-body')).toBeVisible({ timeout: 20_000 });
 

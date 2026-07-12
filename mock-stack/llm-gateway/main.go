@@ -9,13 +9,16 @@
 //   POST /__mock/inference/next_tool   — e2e queues a tool_use to emit
 //   POST /__mock/inference/next_reply  — e2e queues final reply text
 //
-// On each /v1/messages call:
-//   - if a tool is queued, pop + emit tool_use
-//   - else default behavior: corpus_search → corpus_read → text reply
-//   - else emit text reply (scripted queue or env INFERENCE_MOCK_REPLY)
+// On each /v1/messages call the mock scans its registered keywords and, for the
+// first one the request text CONTAINS:
+//   - a scripted tool → emit tool_use
+//   - a scripted reply → emit it as the final text
+// else default behavior: corpus_search → corpus_read → text reply (or env
+// INFERENCE_MOCK_REPLY).
 //
-// State is in-process and cleared per-process. e2e runs single-process
-// so parallel tests scoping each visitor session is fine.
+// State is in-process, keyword KV. A test embeds a unique keyword (testId-yyy)
+// in its message; only requests containing that keyword match its registration,
+// so scripts can never leak across tests. No per-spec reset needed.
 package main
 
 import (

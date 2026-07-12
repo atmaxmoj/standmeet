@@ -15,6 +15,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -33,6 +34,7 @@ const CODE = 'INTRO-001';
 
 test.describe('visitor chat retrieval pulls output entries', () => {
   let outputID: string;
+  let outputPath: string;
 
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
@@ -43,6 +45,7 @@ test.describe('visitor chat retrieval pulls output entries', () => {
     });
     const setup = await seedThreeTierCorpus(request);
     outputID = setup.outputID;
+    outputPath = setup.outputPath;
     await createCode(request, setup.csrf, {
       code: CODE, label: 'intro', purpose: 'visitor-output spec',
     });
@@ -55,7 +58,13 @@ test.describe('visitor chat retrieval pulls output entries', () => {
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'Recruiter',
       });
-      const stream = await sendMessage(request, sess, 'tell me about local-first');
+      // The AI reads the seeded output by its real (promote-returned) path; a
+      // corpus_read is what records the citation. Mock is pure registration —
+      // the test registers the exact tool call, no auto-search guessing.
+      const tag = await scriptMockToolCall(request, {
+        name: 'corpus_read', args: { path: outputPath },
+      });
+      const stream = await sendMessage(request, sess, `tell me about local-first${tag}`);
       await stream.body();
       // 新 request context 没 session cookie：单独 login 一次拿 csrf。
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
@@ -67,7 +76,7 @@ test.describe('visitor chat retrieval pulls output entries', () => {
 
 async function seedThreeTierCorpus(
   request: APIRequestContext,
-): Promise<{ outputID: string; csrf: string }> {
+): Promise<{ outputID: string; outputPath: string; csrf: string }> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'corpus-seeder');
   const sid = await initMCP(request, token);
@@ -77,11 +86,11 @@ async function seedThreeTierCorpus(
   const wiki = await callTool<{ wiki_id: string }>(request, token, sid, 'promote_to_wiki', {
     raw_id: raw.raw_id, title: WIKI_TITLE, tags: [],
   });
-  const out = await callTool<{ output_id: string }>(
+  const out = await callTool<{ output_id: string; path: string }>(
     request, token, sid, 'promote_wiki_to_output',
     { wiki_id: wiki.wiki_id, title: OUTPUT_TITLE, tags: [] },
   );
-  return { outputID: out.output_id, csrf };
+  return { outputID: out.output_id, outputPath: out.path, csrf };
 }
 
 async function fetchAssistantCitedOutputs(

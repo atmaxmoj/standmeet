@@ -81,10 +81,10 @@ test.describe('waypoint ledger · citation → visited · P2', () => {
   test('assistant 引用命中 evidence_refs → 该 waypoint 翻 visited', async ({ playwright }) => {
     const sess = await freshSession(playwright);
     // 脚本化:下一轮 assistant 先 corpus_read 那条证据 note(产生 citation),再答。
-    await scriptMockToolCall(sess.request, {
+    const tag = await scriptMockToolCall(sess.request, {
       name: 'corpus_read', args: { path: EVIDENCE_PATH },
     });
-    await sendAndDrain(sess.request, sess.session, 'tell me about the alpha project');
+    await sendAndDrain(sess.request, sess.session, `tell me about the alpha project${tag}`);
 
     expect(
       await waypointVisited(sess.request, sess.token, WP_EVIDENCE.waypoint_id),

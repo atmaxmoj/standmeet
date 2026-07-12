@@ -17,12 +17,16 @@ import type { Page } from '@playwright/test';
 import { claim, createAPIToken, login } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { createRole } from '@/fixtures/roles';
-import { seedPublicWiki } from '@/fixtures/corpus';
+import { seedWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const CODE = 'PUBLIC-1';
 const QUESTION = 'tell me about alice';
+// Explicit path so the migrated turn can register a corpus_read on it (a
+// corpus_read is what records the citation the footnote asserts).
+const INTRO_PATH = 'alice-intro';
 
 test.describe("visitor reads owner's public page and chats with the persona", () => {
   test.beforeAll(async ({ playwright }) => {
@@ -37,10 +41,10 @@ test.describe("visitor reads owner's public page and chats with the persona", ()
     await createCode(request, csrf, { code: CODE, label: 'public', assumed_role_id: role.id });
     const apiToken = await createAPIToken(request, csrf);
     const sid = await initMCP(request, apiToken);
-    await seedPublicWiki(request, apiToken, sid, {
+    await seedWiki(request, apiToken, sid, {
       body: 'alice loves ASCII sparklines.',
       title: 'Alice intro',
-      tags: ['intro'],
+      path: INTRO_PATH,
     });
     await request.dispose();
   });
@@ -48,7 +52,14 @@ test.describe("visitor reads owner's public page and chats with the persona", ()
   test('visitor sees full page, asks → hands off to /gate → over the gate the question is answered + cited',
     async ({ page }) => {
       await expectOwnerPageRendered(page);
-      await visitorAsksAQuestion(page, QUESTION);
+      // Mock is pure registration: register the corpus_read whose result records
+      // the citation the footnote asserts. The tag rides in the question, which
+      // is carried through the /gate ?q= handoff and auto-asked over the gate —
+      // so the read fires on that carried turn.
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: INTRO_PATH },
+      });
+      await visitorAsksAQuestion(page, `${QUESTION}${readTag}`);
       await expectHandoffToGate(page);
       await enterCodeAtGate(page, CODE);
       await expectCarriedQuestionAnswered(page);

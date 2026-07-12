@@ -32,7 +32,7 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
   test('renders calendar card + time chips; collapses; chip click books the slot',
     async ({ browser, playwright }) => {
       const req = await playwright.request.newContext();
-      await scriptMockToolCall(req, {
+      const tag = await scriptMockToolCall(req, {
         name: 'calendar_list_slots',
         // +3..+5 days clears the 1-day lead; mock FreeBusy is empty → slots
         // come back inside the 09:00–18:00 UTC working window.
@@ -46,7 +46,7 @@ test.describe('visitor chat · calendar_list_slots → collapsible calendar card
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       await enterChat(page, seed.code.code);
-      await fireTurn(page, 'what afternoons are open next week?');
+      await fireTurn(page, `what afternoons are open next week?${tag}`);
 
       // slots 卡(booker 插件 ui:// 沙盒 iframe)出现,内容经 frameLocator 取。
       await expect(page.getByTestId('mcp-app-card-calendar_list_slots'),

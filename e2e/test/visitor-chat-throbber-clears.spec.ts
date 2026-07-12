@@ -10,6 +10,7 @@
 
 import { test, expect } from '@/fixtures/test';
 
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
@@ -52,8 +53,18 @@ test.describe('throbber 在 turn 落地后清掉,不冻在 transcript 里', () =
 
       await enterCodeSession(page, CODE);
 
+      // Pure-registration mock: the turn runs a tool only if the test scripts it.
+      // The `searched` card (mcp-app-card-corpus_search) needs corpus_search to run;
+      // the citation footer needs corpus_read. Register both — each fires on a
+      // successive inference call in the same turn (single-shot per key).
+      const searchTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_search', args: { query: 'lucerna' },
+      });
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: 'projects/lucerna' },
+      });
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('tell me about lucerna');
+      await input.fill(`tell me about lucerna${searchTag}${readTag}`);
       await input.press('Enter');
 
       // searched 卡(retrieval ui:// 沙盒 iframe)+ citation 出现 = 这轮真检索 + 回答了。

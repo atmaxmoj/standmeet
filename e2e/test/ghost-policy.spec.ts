@@ -88,8 +88,8 @@ test.beforeAll(async ({ playwright }) => {
 test.describe('ghost policy · 管道 · P3', () => {
   test('policy 出 ghost → done 后发单数 ghost 帧,载 text/target/follows_from', async ({ playwright }) => {
     const sess = await freshSession(playwright);
-    await scriptMockGhost(sess.request, GHOST);
-    const events = await turnFrames(sess.request, sess.session, 'tell me about your work');
+    const tag = await scriptMockGhost(sess.request, GHOST);
+    const events = await turnFrames(sess.request, sess.session, `tell me about your work${tag}`);
 
     expect(events.filter((e) => e.type === 'ghost'), '恰一条 ghost 帧(单数,不再是 items[])')
       .toHaveLength(1);
@@ -101,15 +101,15 @@ test.describe('ghost policy · 管道 · P3', () => {
 
   test('policy 返 null → 不发 ghost 帧(silence 是一种动作)', async ({ playwright }) => {
     const sess = await freshSession(playwright);
-    await scriptMockGhost(sess.request, null);
-    const events = await turnFrames(sess.request, sess.session, 'just chatting');
+    const tag = await scriptMockGhost(sess.request, null);
+    const events = await turnFrames(sess.request, sess.session, `just chatting${tag}`);
     expect(ghostFrame(events), 'null policy → 无 ghost 帧').toBeNull();
   });
 
   test('ghost 帧带 ghost_id = 已落 conversation_ghosts(source=policy)', async ({ playwright }) => {
     const sess = await freshSession(playwright);
-    await scriptMockGhost(sess.request, GHOST);
-    const g = ghostFrame(await turnFrames(sess.request, sess.session, 'tell me more'))!;
+    const tag = await scriptMockGhost(sess.request, GHOST);
+    const g = ghostFrame(await turnFrames(sess.request, sess.session, `tell me more${tag}`))!;
     // 帧回 ghost_id = backend 已把这条 policy ghost 落库(只有存了行才有 id);accept 那侧走 P4 UI 测。
     expect(g.ghost_id, 'policy ghost 已落 conversation_ghosts,帧回真 id').toBeTruthy();
     expect(typeof g.ghost_id, 'id 是字符串(真行主键,非空)').toBe('string');

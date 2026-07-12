@@ -24,14 +24,14 @@ test.describe('connector · booked card is a sandbox iframe; no hardcoded capabi
 
   test('book → mcp-app-card-calendar_book iframe appears; main DOM has no hardcoded tool-card-calendar_book',
     async ({ browser }) => {
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'sandbox check', duration_min: 30, preferred_times: [future()] },
       });
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       await enterChat(page, seed.code.code);
-      await fireTurn(page, 'book me a meeting');
+      await fireTurn(page, `book me a meeting${tag}`);
 
       // booked 卡 = 沙盒 iframe。
       await expect(page.getByTestId('mcp-app-card-calendar_book'),

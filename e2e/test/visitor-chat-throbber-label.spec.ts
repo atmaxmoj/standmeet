@@ -17,6 +17,7 @@ import type { Response } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -72,8 +73,17 @@ test.describe('throbber label 走 backend BindingTool.ProgressLabel registry', (
         { timeout: 20_000 },
       );
 
+      // Mock is pure registration + ordered emission: register corpus_search THEN
+      // corpus_read → the agent stream emits them in that order (what the throbber
+      // reflects). read path = the seeded document.
+      const searchTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_search', args: { query: 'lucerna' },
+      });
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: TARGET_PATH },
+      });
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('tell me about lucerna');
+      await input.fill(`tell me about lucerna${searchTag}${readTag}`);
       await input.press('Enter');
 
       const started = await collectToolStarted(await turnRespPromise);

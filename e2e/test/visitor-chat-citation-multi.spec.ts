@@ -12,6 +12,7 @@ import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -56,7 +57,11 @@ test.describe('多 dialog citation 各自 link 到 document 公开页', () => {
 
       const input = page.locator('[data-testid="chat-input-field"]');
       // 第一轮：lucerna —— references 默认折叠,先展开含 lucerna 那条的列表。
-      await input.fill('tell me about lucerna');
+      // Mock is pure registration: the corpus_read of lucerna is what cites it.
+      const lucernaTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: LUCERNA },
+      });
+      await input.fill(`tell me about lucerna${lucernaTag}`);
       await input.press('Enter');
       const lucernaRow = page.locator(
         `[data-testid="citation-row"][data-citation-path="${LUCERNA}"]`,
@@ -66,7 +71,10 @@ test.describe('多 dialog citation 各自 link 到 document 公开页', () => {
 
       // 第二轮：family — 等 input 重新 enable
       await expect(input).toBeEnabled({ timeout: 20_000 });
-      await input.fill('tell me about your family');
+      const familyTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: FAMILY },
+      });
+      await input.fill(`tell me about your family${familyTag}`);
       await input.press('Enter');
       const familyRow = page.locator(
         `[data-testid="citation-row"][data-citation-path="${FAMILY}"]`,

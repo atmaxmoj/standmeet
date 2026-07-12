@@ -41,6 +41,9 @@ export function resetInstance(): void {
   flushRedis();
   t('resetJobBoardMock start');
   resetJobBoardMock();
+  // No LLM-gateway reset: the mock is keyword KV — each test embeds a unique
+  // keyword (mock-llm-script.ts) in its message, so an unconsumed script sits
+  // under a keyword no other test's request contains and can't leak across specs.
   t('done');
 }
 

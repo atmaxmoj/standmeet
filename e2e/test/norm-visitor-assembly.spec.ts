@@ -28,17 +28,17 @@ const CODE = 'NORM-ASM-1';
 
 // GOLDEN —— corpus-only role 装出来的 visitor tool 名单(排序后比,避免顺序噪声;
 // 顺序本身由 registry-snapshot 那条锁)。重构后必须一致。
-//   corpus_search/read/list —— corpus.retrieval
+//   corpus_search/read/list/links —— corpus.retrieval (corpus_links = 1-hop backlinks, #172)
 //   ask_visitor / summarize_conversation —— 无授权门,所有 mode 暴露的基础能力
 const GOLDEN_CORPUS_TOOLS: readonly string[] = [
-  'corpus_search', 'corpus_read', 'corpus_list',
+  'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
   'ask_visitor', 'summarize_conversation',
 ];
 
 // skill-granted role(fixture 默认也带 corpus)→ 锁 skill.runner 装配
 // (skill_use / skill_run_script 出现)+ corpus + 基础能力。
 const GOLDEN_SKILL_TOOLS: readonly string[] = [
-  'corpus_search', 'corpus_read', 'corpus_list',
+  'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
   'skill_use', 'skill_run_script',
   'ask_visitor', 'summarize_conversation',
 ];

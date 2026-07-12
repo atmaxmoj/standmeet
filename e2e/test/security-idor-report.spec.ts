@@ -17,11 +17,11 @@ const ALICE_SECRET_HTML = '<h1>Alice private recap: layoff plans Q3</h1>';
 async function summarizeAndGetReportID(
   request: APIRequestContext, sess: VisitorSession,
 ): Promise<string> {
-  await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
-  await scriptMockReplyText(request, ALICE_SECRET_HTML);
+  const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+  const replyTag = await scriptMockReplyText(request, ALICE_SECRET_HTML);
   const res = await request.post(`${BACKEND}/api/v1/agent/turn`, {
     headers: { Authorization: `Bearer ${sess.session_token}`, 'Content-Type': 'application/json' },
-    data: { system: 'You are alice.', user_message: 'recap please', conversation_id: sess.conversation_id },
+    data: { system: 'You are alice.', user_message: `recap please${toolTag}${replyTag}`, conversation_id: sess.conversation_id },
   });
   expect(res.status()).toBe(200);
   const sse = await res.text();

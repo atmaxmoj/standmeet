@@ -67,8 +67,8 @@ async function runSandboxedProbe(
   browser: Browser, playwright: Playwright, probe: SandboxProbe,
 ): Promise<void> {
   const request = await playwright.request.newContext();
-  await scriptMockToolCall(request, probe.tool);
-  await scriptMockReplyText(request, probe.reply);
+  const toolTag = await scriptMockToolCall(request, probe.tool);
+  const replyTag = await scriptMockReplyText(request, probe.reply);
   await request.dispose();
 
   const ctx = await browser.newContext();
@@ -76,7 +76,7 @@ async function runSandboxedProbe(
   await enterCodeSession(page, pluginCode);
   await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
   const input = page.getByTestId('chat-input-field');
-  await input.fill(probe.prompt);
+  await input.fill(`${probe.prompt}${toolTag}${replyTag}`);
   await input.press('Enter');
   await expect(page.getByTestId('answer-body'))
     .toContainText(probe.expectText, { timeout: 30_000 });

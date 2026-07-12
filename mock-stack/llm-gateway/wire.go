@@ -89,18 +89,6 @@ func (s SystemField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.Text)
 }
 
-// lastUserText —— flatten the last user message's text blocks into a
-// single string. Used by the default search behavior to derive the
-// `query` arg for corpus_search.
-func (r *MessagesReq) lastUserText() string {
-	for i := len(r.Messages) - 1; i >= 0; i-- {
-		if r.Messages[i].Role == "user" {
-			return joinTextBlocks(r.Messages[i].Content)
-		}
-	}
-	return ""
-}
-
 // markerText —— 所有 message 的 text block 拼起来,给延时 marker 扫描用。
 // marker 在 visitor 问句里(早期一条 user text block);turn 内每次
 // /v1/messages 调用都带着完整消息历史,所以 search/read/final 任一调用扫全量
@@ -122,16 +110,6 @@ func joinTextBlocks(blocks []Block) string {
 		}
 	}
 	return out
-}
-
-// hasTool —— whether the model was offered tool `name` this turn.
-func (r *MessagesReq) hasTool(name string) bool {
-	for i := range r.Tools {
-		if r.Tools[i].Name == name {
-			return true
-		}
-	}
-	return false
 }
 
 // messagesSinceLastUser —— window starting at the most recent user
@@ -207,55 +185,6 @@ func anyToolResultIn(m *Msg, ids map[string]bool) bool {
 	return false
 }
 
-// firstPathFromSearchResult —— pull the first path out of the most
-// recent corpus_search tool_result in the current-turn window.
-func (r *MessagesReq) firstPathFromSearchResult() string {
-	window := r.messagesSinceLastUser()
-	searchIDs := collectToolUseIDs(window, "corpus_search")
-	for i := len(window) - 1; i >= 0; i-- {
-		if window[i].Role != "user" {
-			continue
-		}
-		if p := pickPathFromResults(window[i].Content, searchIDs); p != "" {
-			return p
-		}
-	}
-	return ""
-}
-
-func pickPathFromResults(blocks []Block, ids map[string]bool) string {
-	for i := range blocks {
-		b := &blocks[i]
-		if b.Type != "tool_result" || !ids[b.ToolUseID] {
-			continue
-		}
-		if p := firstPath(b.Content); p != "" {
-			return p
-		}
-	}
-	return ""
-}
-
-type pathRow struct {
-	Path string `json:"path"`
-}
-
-// firstPath —— corpus_search result is JSON string content. Two formats
-// expected: bare array `[{"path":"..."}]` or wrapped `{"result":[...]}`.
-func firstPath(raw json.RawMessage) string {
-	body := unwrapToolResultContent(raw)
-	if p := decodeRows(body); p != "" {
-		return p
-	}
-	var wrap struct {
-		Result json.RawMessage `json:"result"`
-	}
-	if err := json.Unmarshal(body, &wrap); err == nil && len(wrap.Result) > 0 {
-		return decodeRows(wrap.Result)
-	}
-	return ""
-}
-
 // unwrapToolResultContent —— tool_result.content 在 Anthropic /v1/messages
 // 有两种 wire：
 //
@@ -291,17 +220,4 @@ func unwrapToolResultContent(raw json.RawMessage) []byte {
 		return []byte(asStr)
 	}
 	return body
-}
-
-func decodeRows(body []byte) string {
-	var rows []pathRow
-	if err := json.Unmarshal(body, &rows); err != nil {
-		return ""
-	}
-	for i := range rows {
-		if rows[i].Path != "" {
-			return rows[i].Path
-		}
-	}
-	return ""
 }

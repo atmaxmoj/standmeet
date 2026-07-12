@@ -112,8 +112,8 @@ test.describe('conversation · mid-stream disconnect 后端照样落库', () => 
       handle: OWNER.handle, code: CODE, visitor_name: 'V',
     });
 
-    await scriptMockReplyText(request, ANSWER);
-    const userMessage = `what are you working on [[think:${THINK_MS}]]`;
+    const tag = await scriptMockReplyText(request, ANSWER);
+    const userMessage = `what are you working on [[think:${THINK_MS}]]${tag}`;
     await disconnectMidStream(request, sess, userMessage);
 
     // 客户端已经走了。后端在 detached ctx 上把这轮跑完 + 落库;轮询直到这轮出现。

@@ -152,13 +152,13 @@ async function assertToolUseTurn(request: APIRequestContext): Promise<void> {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
   // Force the upstream mock gateway to emit a tool_use for corpus_search.
-  await scriptMockToolCall(request, {
+  const tag = await scriptMockToolCall(request, {
     name: 'corpus_search',
     args: { query: 'alice' },
   });
   const { status, sse } = await postLLMChat(request, sess, {
     system: 'You are alice.',
-    messages: [{ role: 'user', content: 'tell me about alice' }],
+    messages: [{ role: 'user', content: `tell me about alice${tag}` }],
     tools: [
       {
         name: 'corpus_search',

@@ -68,10 +68,10 @@ test.describe('REAL third-party fetch MCP — network sandbox proven both ways',
   test('AllowNet: the real server actually downloads the local payload',
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, {
+      const toolTag = await scriptMockToolCall(request, {
         name: `${PLUGIN_NET}_fetch`, args: { url: LOCAL_URL },
       });
-      await scriptMockReplyText(request, 'fetched it');
+      const replyTag = await scriptMockReplyText(request, 'fetched it');
       await request.dispose();
 
       const ctx = await browser.newContext();
@@ -79,7 +79,7 @@ test.describe('REAL third-party fetch MCP — network sandbox proven both ways',
       await enterCodeSession(page, code);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
       const input = page.getByTestId('chat-input-field');
-      await input.fill('download the payload');
+      await input.fill(`download the payload${toolTag}${replyTag}`);
       await input.press('Enter');
       // marker present = real egress to the local origin + real bytes returned.
       await expect(page.getByTestId('chatroom'))
@@ -90,10 +90,10 @@ test.describe('REAL third-party fetch MCP — network sandbox proven both ways',
   test('default --network=none: the identical fetch is blocked — egress denied',
     async ({ browser, playwright }) => {
       const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, {
+      const toolTag = await scriptMockToolCall(request, {
         name: `${PLUGIN_CAGED}_fetch`, args: { url: LOCAL_URL },
       });
-      await scriptMockReplyText(request, 'sorry, I could not reach that');
+      const replyTag = await scriptMockReplyText(request, 'sorry, I could not reach that');
       await request.dispose();
 
       const ctx = await browser.newContext();
@@ -101,7 +101,7 @@ test.describe('REAL third-party fetch MCP — network sandbox proven both ways',
       await enterCodeSession(page, code);
       await expect(page.getByTestId('chatroom')).toBeVisible({ timeout: 5_000 });
       const input = page.getByTestId('chat-input-field');
-      await input.fill('download the payload (caged)');
+      await input.fill(`download the payload (caged)${toolTag}${replyTag}`);
       await input.press('Enter');
       // NO marker — the caged server cannot reach even the local origin. The AI
       // degrades gracefully on the folded error.

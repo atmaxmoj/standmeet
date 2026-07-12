@@ -24,18 +24,11 @@ import (
 	"time"
 )
 
-const (
-	toolCorpusSearch = "corpus_search"
-	toolCorpusRead   = "corpus_read"
-)
+// toolCorpusRead —— serveStream 的 [[slow-final:N]] marker 只在 corpus_read
+// 已有结果(出最终答案那一调)时生效,用它认。
+const toolCorpusRead = "corpus_read"
 
 func (s *server) serveMessages(w http.ResponseWriter, r *http.Request) {
-	// e2e fail-injection:next_error 打开后所有 inference 调用 500,模拟 LLM 故障
-	// (测"失败/重试的 turn 不消耗配额")。
-	if s.queue.shouldFail() {
-		http.Error(w, `{"error":"mock injected failure"}`, http.StatusInternalServerError)
-		return
-	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "read body", http.StatusBadRequest)
@@ -44,6 +37,12 @@ func (s *server) serveMessages(w http.ResponseWriter, r *http.Request) {
 	var req MessagesReq
 	if uerr := json.Unmarshal(body, &req); uerr != nil {
 		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	// e2e fail-injection:next_error 给某 keyword 打开后,消息里含该 keyword 的
+	// inference 调用 500,模拟 LLM 故障(测"失败/重试的 turn 不消耗配额")。
+	if s.queue.shouldFailFor(req.markerText()) {
+		http.Error(w, `{"error":"mock injected failure"}`, http.StatusInternalServerError)
 		return
 	}
 	if !req.Stream {
@@ -95,8 +94,12 @@ func isGhostPolicy(req *MessagesReq) bool {
 // JSON envelope: {content: [block...], stop_reason: ...}. Visitor
 // summary / follow-up / ghost-policy 生成走这条(no tools, no agent loop)。
 func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
+	// Backend-initiated generate calls (GhostPolicy / summarize) are built from
+	// derived content and don't carry the visitor message's keyword, so also match
+	// against the retained keywords of the turn that triggered this call.
+	matchText := req.markerText() + " " + s.queue.retainedKeys()
 	if isGhostPolicy(req) {
-		s.writeNonStream(w, req.Model, s.queue.takeGhost())
+		s.writeNonStream(w, req.Model, s.queue.takeGhostFor(matchText))
 		return
 	}
 	if isFollowupGen(req) {
@@ -104,7 +107,7 @@ func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
 		return
 	}
 	text := s.reply
-	if scripted, ok := s.queue.takeReply(); ok {
+	if scripted, ok := s.queue.takeReplyFor(matchText); ok {
 		text = scripted
 	}
 	// summarize report generation returns the report HTML RAW (like a real LLM) — no [system:...]
@@ -147,24 +150,25 @@ type nonStreamMessage struct {
 	Usage   map[string]int      `json:"usage"`
 }
 
+// dispatch —— 纯注册:只发**测试注册过**的工具(takeToolFor 按消息里的 keyword
+// 命中),否则出最终答复。mock 不再替 LLM"猜"该搜什么 / 该调哪个工具 —— 想让 agent
+// 调 corpus_search / corpus_read / skill_ / ext_,测试自己注册(scriptMockToolCall)。
+// think marker 只是 turn 内时序,不是猜。
 func (s *server) dispatch(sse *sseWriter, req *MessagesReq) {
-	if t := s.queue.takeToolFor(scriptKey(req.lastUserText())); t != nil {
+	msgText := req.markerText()
+	// Retain this visitor turn's keywords so its follow-up backend generate calls
+	// (GhostPolicy / summarize), which don't carry the visitor message, still match
+	// this turn's registrations.
+	s.queue.rememberTurnKeys(scriptKeyTokens(msgText))
+	if t := s.queue.takeToolFor(msgText); t != nil {
 		s.emitToolUseTurn(sse, t.Name, t.Args)
 		return
 	}
 	// [[think:N]] —— 跳过 tool,sleep 后直接出答案。期间没 tool 在跑,前端显
 	// thinking 词库轮换那条(测 #10)。
-	if d := markerDelay(req.markerText(), "think"); d > 0 {
+	if d := markerDelay(msgText, "think"); d > 0 {
 		time.Sleep(d)
 		s.emitFinalReply(sse, req)
-		return
-	}
-	if call := nextCorpusCall(req); call != nil {
-		s.emitToolUseTurn(sse, call.Name, call.Input)
-		return
-	}
-	if call := nextSkillOrExtCall(req); call != nil {
-		s.emitToolUseTurn(sse, call.Name, call.Input)
 		return
 	}
 	s.emitFinalReply(sse, req)
@@ -192,7 +196,7 @@ func (s *server) emitToolUseTurn(
 
 func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
 	text := s.reply
-	if scripted, ok := s.queue.takeReply(); ok {
+	if scripted, ok := s.queue.takeReplyFor(req.markerText()); ok {
 		text = scripted
 	}
 	text = composeFinalReply(req, text)
@@ -209,63 +213,9 @@ func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
 	}
 }
 
-// toolCall —— minimal carrier for the dispatch decision.
-type toolCall struct {
-	Name  string
-	Input json.RawMessage
-}
-
-func nextCorpusCall(req *MessagesReq) *toolCall {
-	if !req.hasTool(toolCorpusSearch) {
-		return nil
-	}
-	if !req.hasToolResult(toolCorpusSearch) {
-		return makeSearchCall(req)
-	}
-	if req.hasTool(toolCorpusRead) && !req.hasToolResult(toolCorpusRead) {
-		return makeReadCall(req)
-	}
-	return nil
-}
-
-func makeSearchCall(req *MessagesReq) *toolCall {
-	// 剥掉延时 marker,别让它进真 corpus_search 的 query 干扰命中。
-	args, err := json.Marshal(map[string]string{"query": stripMarkers(req.lastUserText())})
-	if err != nil {
-		return nil
-	}
-	return &toolCall{Name: toolCorpusSearch, Input: args}
-}
-
-func makeReadCall(req *MessagesReq) *toolCall {
-	path := req.firstPathFromSearchResult()
-	if path == "" {
-		return nil
-	}
-	args, err := json.Marshal(map[string]string{"path": path})
-	if err != nil {
-		return nil
-	}
-	return &toolCall{Name: toolCorpusRead, Input: args}
-}
-
-func nextSkillOrExtCall(req *MessagesReq) *toolCall {
-	for i := range req.Tools {
-		name := req.Tools[i].Name
-		if !isSkillOrExt(name) || isGenericSkillTool(name) {
-			continue
-		}
-		if req.hasToolResult(name) {
-			continue
-		}
-		return &toolCall{Name: name, Input: json.RawMessage(`{}`)}
-	}
-	return nil
-}
-
 // echoToolPrefixes —— 「工具结果要 echo 进 mock 回复（[skill_result:...]）」的工具名
 // 前缀**注册表**。要支持新东西（又一个沙箱插件、归一后的内建能力）就往这里**注册一个
-// 前缀**，不用动 isSkillOrExt 的逻辑本体。
+// 前缀**。
 //
 // 为什么要 echo 这些：沙箱 / FS / 网络「关押」的 e2e 断言要能区分「真读到 vs 被拒」，
 // 而 mock 回复是写死的；把真实工具结果反射进回复，断言才不是空断言。
@@ -275,8 +225,7 @@ var echoToolPrefixes = []string{
 }
 
 // shouldEchoResult —— 该工具结果是否 echo 进 mock 回复（[skill_result:...]）。用宽的
-// echoToolPrefixes 注册表（含沙箱插件前缀），让沙箱/FS/网络关押断言能区分真读到 vs
-// 被拒。**只管 echo，不影响自动调用。**
+// echoToolPrefixes 注册表（含沙箱插件前缀），让沙箱/FS/网络关押断言能区分真读到 vs 被拒。
 func shouldEchoResult(name string) bool {
 	for _, p := range echoToolPrefixes {
 		if strings.HasPrefix(name, p) {
@@ -284,21 +233,6 @@ func shouldEchoResult(name string) bool {
 		}
 	}
 	return false
-}
-
-// isSkillOrExt —— 自然路径「自动探测调用」用的**窄**判定：无脚本时 mock 只自动调
-// skill_/ext_。**沙箱插件工具绝不自动调** —— 多工具插件(如 server-filesystem 的 14
-// 个)会被挨个空 args 级联，淹没脚本工具的真实结果。它们只在 e2e 用 scriptMockToolCall
-// 显式驱动。
-func isSkillOrExt(name string) bool {
-	return strings.HasPrefix(name, "skill_") || strings.HasPrefix(name, "ext_")
-}
-
-// isGenericSkillTool —— Phase C 的两个通用 skill 工具(skill_use / skill_run_script)
-// 需要 {name,script,...} 入参,自然路径的空 {} 喂不了 → 不自动调,只能 e2e 用
-// scriptMockToolCall 显式驱动。仍参与 [skill_result:...] echo(isSkillOrExt 不变)。
-func isGenericSkillTool(name string) bool {
-	return name == "skill_use" || name == "skill_run_script"
 }
 
 // composeFinalReply —— echo system prompt + every skill_result body the

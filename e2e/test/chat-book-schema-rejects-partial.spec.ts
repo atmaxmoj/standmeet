@@ -18,7 +18,7 @@ test.describe('chat · calendar.book schema rejects partial args', () => {
   test.afterAll(async () => { await teardownSeed(seed); });
 
   test('missing duration_min → tool_result is error; mock has no event', async () => {
-    await scriptMockToolCall(seed.request, {
+    const tag = await scriptMockToolCall(seed.request, {
       name: 'calendar_book',
       args: {
         topic: 'Missing duration',
@@ -26,7 +26,7 @@ test.describe('chat · calendar.book schema rejects partial args', () => {
         // duration_min intentionally omitted
       },
     });
-    await sendAndDrain(seed.request, seed.visitor, 'Book me');
+    await sendAndDrain(seed.request, seed.visitor, `Book me${tag}`);
     const events = await getMockEvents(seed.request);
     expect(events).toHaveLength(0);
   });

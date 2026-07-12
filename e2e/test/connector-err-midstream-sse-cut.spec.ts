@@ -104,14 +104,14 @@ test.describe('connector error stream · mid-stream SSE cut during connector-bac
         handle: OWNER.handle, mode: 'code', code: seed.code.code, visitor_name: 'V',
       });
 
-      await scriptMockToolCall(request, {
+      const tag1 = await scriptMockToolCall(request, {
         name: 'calendar_book',
         args: { topic: 'E15 sse cut', duration_min: 30, preferred_times: [future(7, 14)] },
       });
 
       // 客户端在 tool_started 之后断线(真实 mid-tool cut)。
       const raw = await cutTurnAfterToolStarted(
-        sess.session_token, sess.conversation_id, 'book me next week',
+        sess.session_token, sess.conversation_id, `book me next week${tag1}`,
       );
 
       // 断言 cut 真落在 tool 阶段:进了 tool_started,但没读到 done(连接被我们提前掐了)。
@@ -121,12 +121,12 @@ test.describe('connector error stream · mid-stream SSE cut during connector-bac
       expect(raw, 'no raw stack in stream').not.toMatch(/panic|goroutine|stack/i);
 
       // recoverable: the next turn on the SAME conversation still works (not wedged).
-      await scriptMockToolCall(request, {
+      const tag2 = await scriptMockToolCall(request, {
         name: 'calendar_book',
         args: { topic: 'E15 recover', duration_min: 30, preferred_times: [future(8, 14)] },
       });
       const next = await fetchTurnRaw(
-        request, sess.session_token, sess.conversation_id, 'try again please',
+        request, sess.session_token, sess.conversation_id, `try again please${tag2}`,
       );
       expect(next.status, 'conversation recovers after the cut').toBeLessThan(500);
       expect(next.raw, 'no stack on recovery turn').not.toMatch(/panic|goroutine|stack/i);

@@ -64,10 +64,10 @@ test.describe('inference usage billing · #106', () => {
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
-      await scriptMockReplyText(request, 'Sure, here is a recap of what we discussed.');
+      const tag = await scriptMockReplyText(request, 'Sure, here is a recap of what we discussed.');
       const turn = await request.post(`${BACKEND}/api/v1/agent/turn`, {
         headers: { Authorization: `Bearer ${sess.session_token}`, 'Content-Type': 'application/json' },
-        data: { system: 'You are alice.', user_message: 'hi', conversation_id: sess.conversation_id },
+        data: { system: 'You are alice.', user_message: `hi${tag}`, conversation_id: sess.conversation_id },
       });
       expect(turn.status(), 'turn ok').toBe(200);
 

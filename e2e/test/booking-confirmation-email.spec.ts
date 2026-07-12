@@ -209,12 +209,12 @@ async function enterWithProfile(
 // 后约的会真撞前约的(slot 已 busy)→ 不出确认卡。固定 +7 天(已知工作日)、只错开
 // 小时(都在 working hours 内、互不重叠 30 分钟),既避冲突又不踩周末/policy。
 async function bookInChat(page: Page, hour: number): Promise<void> {
-  await scriptMockToolCall(page.request, {
+  const tag = await scriptMockToolCall(page.request, {
     name: 'calendar_book',
     args: { topic: TOPIC, duration_min: 30, preferred_times: [future(7, hour)] },
   });
   const input = page.getByTestId('chat-input-field');
-  await input.fill('book me a 30-minute chat next week, please');
+  await input.fill(`book me a 30-minute chat next week, please${tag}`);
   await input.press('Enter');
   // booked 卡现在是沙盒 iframe(mcp-app-card-calendar_book),不是主 DOM 里的 React 卡。
   await expect(page.getByTestId('mcp-app-card-calendar_book')).toBeVisible({ timeout: 20_000 });

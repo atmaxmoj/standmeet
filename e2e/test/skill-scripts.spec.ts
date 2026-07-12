@@ -55,11 +55,11 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
       // scripted：skill_run_script 要 {name,script} 入参 → 显式驱动 mock，
       // 而不是赌自然路径（通用 tool 拿不到自然路径塞的空 args）。
       const request = await playwright.request.newContext();
-      await scriptMockToolCall(request, {
+      const toolTag = await scriptMockToolCall(request, {
         name: 'skill_run_script',
         args: { name: SKILL_NAME, script: SCRIPT_FILENAME, args: {} },
       });
-      await scriptMockReplyText(request, 'ran the marker for you');
+      const replyTag = await scriptMockReplyText(request, 'ran the marker for you');
       await request.dispose();
 
       const ctx = await browser.newContext();
@@ -71,7 +71,7 @@ test.describe('owner-curated skill scripts run in docker sandbox', () => {
         await skip.click();
       }
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('go ahead and run the marker');
+      await input.fill(`go ahead and run the marker${toolTag}${replyTag}`);
       await input.press('Enter');
 
       // 持久信号:reply 里含 docker sandbox 跑脚本的 stdout marker，经

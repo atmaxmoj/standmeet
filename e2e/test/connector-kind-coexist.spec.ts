@@ -399,14 +399,14 @@ async function bookViaChat(
   visitor: { session_token: string; conversation_id: string },
   start: string,
 ): Promise<void> {
-  await scriptMockToolCall(request, {
+  const tag = await scriptMockToolCall(request, {
     name: 'calendar_book',
     args: { topic: 'Coexist booking', duration_min: 30, preferred_times: [start] },
   });
   await sendAndDrain(
     request,
     { ...visitor, owner_handle: OWNER.handle },
-    'Book a 30-min chat?',
+    `Book a 30-min chat?${tag}`,
   );
 }
 

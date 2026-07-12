@@ -61,11 +61,11 @@ test.describe('security · report HTML must be sanitized before render (no SSRF)
   }) => {
     const request = await playwright.request.newContext();
     const sess = await issueSession(request, { handle: OWNER.handle, code: CODE, visitor_name: 'V' });
-    await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
-    await scriptMockReplyText(request, MALICIOUS_REPORT_HTML);
+    const toolTag = await scriptMockToolCall(request, { name: 'summarize_conversation', args: {} });
+    const replyTag = await scriptMockReplyText(request, MALICIOUS_REPORT_HTML);
     const turn = await request.post(`${BACKEND}/api/v1/agent/turn`, {
       headers: { Authorization: `Bearer ${sess.session_token}` },
-      data: { system: 'You are the owner.', user_message: 'recap please',
+      data: { system: 'You are the owner.', user_message: `recap please${toolTag}${replyTag}`,
         conversation_id: sess.conversation_id },
     });
     const sse = await turn.text();

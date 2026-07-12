@@ -18,6 +18,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { createCode } from '@/fixtures/codes';
 import { enterCodeSession } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -61,9 +62,16 @@ test.describe('throbber 在 DOM 里真显「reading <document>」', () => {
       await enterCodeSession(page, CODE);
       await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
 
-      // [[slow-final:2500]]:search→read 之后 hold 2.5s,throbber 停在 reading X。
+      // Pure registration + ordered emission: corpus_search then corpus_read.
+      // [[slow-final:2500]]:read 之后 hold 2.5s,throbber 停在 reading X。
+      const searchTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_search', args: { query: 'lucerna' },
+      });
+      const readTag = await scriptMockToolCall(page.request, {
+        name: 'corpus_read', args: { path: TARGET_PATH },
+      });
       const input = page.locator('[data-testid="chat-input-field"]');
-      await input.fill('tell me about lucerna [[slow-final:2500]]');
+      await input.fill(`tell me about lucerna${searchTag}${readTag} [[slow-final:2500]]`);
       await input.press('Enter');
 
       // read throbber 在 DOM 里现身(单值,已从 search 顶替成 read)。

@@ -15,6 +15,7 @@ import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
+import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -45,8 +46,12 @@ test.describe('引用属于会话聚合,刷新后仍在', () => {
     const page = await ctx.newPage();
     await enterCodeSession(page, CODE, 'Cora');
 
+    // Mock is pure registration: the corpus_read of lucerna is what cites it.
+    const readTag = await scriptMockToolCall(page.request, {
+      name: 'corpus_read', args: { path: TARGET_PATH },
+    });
     const input = page.locator('[data-testid="chat-input-field"]');
-    await input.fill('tell me about lucerna');
+    await input.fill(`tell me about lucerna${readTag}`);
     await input.press('Enter');
     // answer-body 渲出 = 收到 `done` 帧 = backend 已把这轮(含 cited_*)sink 进
     // DB(persist 在 done 之前),此后 reload 必见。#28 起 citation 由 backend

@@ -32,11 +32,11 @@ test.describe('chat · calendar.book defaults visitor_email from session profile
         visitor_name: 'Dana', visitor_email: SESSION_EMAIL,
       });
       // calendar_book 工具参数**故意不带** visitor_email —— 模拟 AI 没问到。
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'Intro call', duration_min: 30, preferred_times: [future(7, 14)] },
       });
-      await sendAndDrain(seed.request, sess, 'book me a 30-min chat next week');
+      await sendAndDrain(seed.request, sess, `book me a 30-min chat next week${tag}`);
 
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(1);
@@ -53,11 +53,11 @@ test.describe('chat · calendar.book defaults visitor_email from session profile
       const sess = await issueSession(seed.request, {
         handle: OWNER.handle, code: seed.code.code, visitor_name: 'Eli',
       });
-      await scriptMockToolCall(seed.request, {
+      const tag = await scriptMockToolCall(seed.request, {
         name: 'calendar_book',
         args: { topic: 'Intro call', duration_min: 30, preferred_times: [future(8, 15)] },
       });
-      await sendAndDrain(seed.request, sess, 'book me a 30-min chat');
+      await sendAndDrain(seed.request, sess, `book me a 30-min chat${tag}`);
 
       const events = await getMockEvents(seed.request);
       expect(events).toHaveLength(1);
