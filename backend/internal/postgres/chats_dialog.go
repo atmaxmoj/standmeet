@@ -29,37 +29,60 @@ func (r *ChatRepo) AppendDialog(
 	if perr != nil {
 		return "", fmt.Errorf("parse chat id: %w", perr)
 	}
-	ids := splitCitations(dialog.Citations)
-	wikiUUIDs, werr := parseUUIDArray(ids.Wiki)
-	if werr != nil {
-		return "", fmt.Errorf("parse cited wiki ids: %w", werr)
-	}
-	outputUUIDs, oerr := parseUUIDArray(ids.Output)
-	if oerr != nil {
-		return "", fmt.Errorf("parse cited output ids: %w", oerr)
-	}
-	subjUUIDs, serr := parseUUIDArray(ids.Subjectivity)
-	if serr != nil {
-		return "", fmt.Errorf("parse cited subjectivity ids: %w", serr)
+	split := splitCitations(dialog.Citations)
+	cited, cerr := parseCitedUUIDs(&split)
+	if cerr != nil {
+		return "", cerr
 	}
 	return r.runAppendDialogTx(ctx, &appendDialogTxArgs{
 		ChatUUID: chatUUID, Q: dialog.Question, A: dialog.Answer,
-		WikiUUIDs: wikiUUIDs, OutputUUIDs: outputUUIDs, SubjUUIDs: subjUUIDs,
+		WikiUUIDs: cited.Wiki, WritingUUIDs: cited.Writing,
+		OutputUUIDs: cited.Output, SubjUUIDs: cited.Subjectivity,
 		ToolCalls: dialog.ToolCalls,
 	})
+}
+
+// citedUUIDs —— splitCitedIDs 各组 parse 成 pgtype.UUID 后的打包。
+type citedUUIDs struct {
+	Wiki         []pgtype.UUID
+	Writing      []pgtype.UUID
+	Output       []pgtype.UUID
+	Subjectivity []pgtype.UUID
+}
+
+// parseCitedUUIDs —— 四组 cited id string → pgtype.UUID,任一组解析失败即冒泡。
+func parseCitedUUIDs(ids *splitCitedIDs) (citedUUIDs, error) {
+	wiki, werr := parseUUIDArray(ids.Wiki)
+	if werr != nil {
+		return citedUUIDs{}, fmt.Errorf("parse cited wiki ids: %w", werr)
+	}
+	writing, wrerr := parseUUIDArray(ids.Writing)
+	if wrerr != nil {
+		return citedUUIDs{}, fmt.Errorf("parse cited writing ids: %w", wrerr)
+	}
+	output, oerr := parseUUIDArray(ids.Output)
+	if oerr != nil {
+		return citedUUIDs{}, fmt.Errorf("parse cited output ids: %w", oerr)
+	}
+	subj, serr := parseUUIDArray(ids.Subjectivity)
+	if serr != nil {
+		return citedUUIDs{}, fmt.Errorf("parse cited subjectivity ids: %w", serr)
+	}
+	return citedUUIDs{Wiki: wiki, Writing: writing, Output: output, Subjectivity: subj}, nil
 }
 
 // appendDialogTxArgs —— runAppendDialogTx 入参打包。字段顺序：ptr-tight
 // 类型 (string 16B → slice 24B) 在前，UUID (无 ptr) 末尾 (govet
 // fieldalignment 让 GC scan 区缩到最短)。
 type appendDialogTxArgs struct {
-	Q           string
-	A           string
-	WikiUUIDs   []pgtype.UUID
-	OutputUUIDs []pgtype.UUID
-	SubjUUIDs   []pgtype.UUID
-	ToolCalls   []byte
-	ChatUUID    pgtype.UUID
+	Q            string
+	A            string
+	WikiUUIDs    []pgtype.UUID
+	WritingUUIDs []pgtype.UUID
+	OutputUUIDs  []pgtype.UUID
+	SubjUUIDs    []pgtype.UUID
+	ToolCalls    []byte
+	ChatUUID     pgtype.UUID
 }
 
 func (r *ChatRepo) runAppendDialogTx(
@@ -113,8 +136,8 @@ func runAppendVisitorOnlyQueries(
 	}
 	if _, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
 		ConversationID: chatUUID, DialogID: dialogID, Role: "visitor", Body: question,
-		CitedWikiIds: []pgtype.UUID{}, CitedOutputIds: []pgtype.UUID{},
-		CitedSubjectivityIds: []pgtype.UUID{},
+		CitedWikiIds: []pgtype.UUID{}, CitedWritingIds: []pgtype.UUID{},
+		CitedOutputIds: []pgtype.UUID{}, CitedSubjectivityIds: []pgtype.UUID{},
 	}); err != nil {
 		return "", fmt.Errorf("append visitor message: %w", err)
 	}
@@ -135,14 +158,15 @@ func runAppendDialogQueries(
 	}
 	if _, err := q.AppendMessage(ctx, dbq.AppendMessageParams{
 		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "visitor", Body: args.Q,
-		CitedWikiIds: []pgtype.UUID{}, CitedOutputIds: []pgtype.UUID{},
-		CitedSubjectivityIds: []pgtype.UUID{},
+		CitedWikiIds: []pgtype.UUID{}, CitedWritingIds: []pgtype.UUID{},
+		CitedOutputIds: []pgtype.UUID{}, CitedSubjectivityIds: []pgtype.UUID{},
 	}); err != nil {
 		return "", fmt.Errorf("append visitor message: %w", err)
 	}
 	if _, aerr := q.AppendMessage(ctx, dbq.AppendMessageParams{
 		ConversationID: args.ChatUUID, DialogID: dialogID, Role: "assistant", Body: args.A,
-		CitedWikiIds: args.WikiUUIDs, CitedOutputIds: args.OutputUUIDs,
+		CitedWikiIds: args.WikiUUIDs, CitedWritingIds: args.WritingUUIDs,
+		CitedOutputIds:       args.OutputUUIDs,
 		CitedSubjectivityIds: args.SubjUUIDs, ToolCalls: args.ToolCalls,
 	}); aerr != nil {
 		return "", fmt.Errorf("append assistant message: %w", aerr)
@@ -161,11 +185,11 @@ func rollbackQuiet(ctx context.Context, tx pgx.Tx) {
 	}
 }
 
-// splitCitedIDs —— Dialog.Citations 按 kind 拆成 wiki/output id 数组
-// (持久层落两列)。kind 不识别的丢弃 (silent，因为只有 wiki / output 两
-// 种合法值)。
+// splitCitedIDs —— Dialog.Citations 按 kind 拆成 wiki/writing/output/subjectivity id
+// 数组(持久层落各列)。kind 不识别的丢弃 (silent)。
 type splitCitedIDs struct {
 	Wiki         []string
+	Writing      []string
 	Output       []string
 	Subjectivity []string
 }
@@ -173,6 +197,7 @@ type splitCitedIDs struct {
 func splitCitations(cites []domain.Citation) splitCitedIDs {
 	out := splitCitedIDs{
 		Wiki:         make([]string, 0, len(cites)),
+		Writing:      make([]string, 0, len(cites)),
 		Output:       make([]string, 0, len(cites)),
 		Subjectivity: make([]string, 0, len(cites)),
 	}
@@ -182,17 +207,18 @@ func splitCitations(cites []domain.Citation) splitCitedIDs {
 	return out
 }
 
-// appendCitedID —— Citation 按 genre 路由到 wiki / output / subjectivity 列；其他 genre
-// (raw / writing / 未来新加) 丢弃。subjectivity 能到这里的都已过 show_as_source gate。
+// appendCitedID —— Citation 按 genre 路由到 wiki / writing / output / subjectivity 列；
+// 其他 genre (raw / 未来新加) 丢弃(bucket 表里没有 → 不 append)。writing 是 public blog,
+// 一律进 cited(无 gate);subjectivity 能到这里的都已过 show_as_source gate。
 func appendCitedID(acc *splitCitedIDs, c domain.Citation) {
-	switch c.Genre {
-	case domain.GenreWiki:
-		acc.Wiki = append(acc.Wiki, c.DocID)
-	case domain.GenreOutput:
-		acc.Output = append(acc.Output, c.DocID)
-	case domain.GenreSubjectivity:
-		acc.Subjectivity = append(acc.Subjectivity, c.DocID)
-	default:
-		// citation 不指向 raw / writing / 未来新加的 genre；caller 误传时丢弃。
+	bucket := map[domain.DocumentGenre]*[]string{
+		domain.GenreWiki:         &acc.Wiki,
+		domain.GenreWriting:      &acc.Writing,
+		domain.GenreOutput:       &acc.Output,
+		domain.GenreSubjectivity: &acc.Subjectivity,
+	}[c.Genre]
+	if bucket == nil {
+		return // raw / 未来新加的 genre：caller 误传时丢弃。
 	}
+	*bucket = append(*bucket, c.DocID)
 }

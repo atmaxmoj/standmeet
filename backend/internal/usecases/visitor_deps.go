@@ -25,6 +25,7 @@ type VisitorSessionDeps struct {
 	Prompts  *postgres.PromptRepo
 	Sessions *session.VisitorSessionStore
 	Wiki     WikiLister // 历史恢复 hydrate conversation view
+	Writing  WritingLister
 	Output   OutputLister
 	// AgentSkills —— session 装配时算 capability states / tool specs(retrieval /
 	// booker / ext-mcp / owner-skill)。

@@ -25,6 +25,7 @@ type TurnResult struct {
 	Answer               string
 	ToolCalls            json.RawMessage
 	CitedWikiIDs         []string
+	CitedWritingIDs      []string
 	CitedOutputIDs       []string
 	CitedSubjectivityIDs []string
 }
@@ -61,13 +62,14 @@ type accumSink struct {
 	// onDone —— 流收尾 hook,在把 `done` 帧转发给浏览器**之前**跑(落库)。这样
 	// `done` 帧就代表「这一轮已提交」:浏览器收到 done 后 reload,GET conversation
 	// 必见这轮,无 persist-vs-reload 竞态。RunAgentTurn 注入 = 落库闭包。
-	onDone   func()
-	tools    []persistedToolCall
-	wikiIDs  []string
-	outIDs   []string
-	subjIDs  []string
-	seenCite map[string]bool
-	answer   strings.Builder
+	onDone     func()
+	tools      []persistedToolCall
+	wikiIDs    []string
+	writingIDs []string
+	outIDs     []string
+	subjIDs    []string
+	seenCite   map[string]bool
+	answer     strings.Builder
 }
 
 var _ AgentSink = (*accumSink)(nil)
@@ -148,39 +150,53 @@ func envelopeOK(result string) bool {
 // entry id,**按 genre 显式归类**,按 id 去重(同 entry 读多次只引一次)。
 // caller 保证只在 ok 时调。
 //
-// 显式路由(非 catch-all):output→outIDs,wiki→wikiIDs,subjectivity→subjIDs。
-// 其它 genre(writing / raw)不累计——citation footer 只覆盖这三类;subjectivity
-// 是否真展示由 dialog 层 show_as_source gate 决定(默认私有)。
+// 引用只挂在 corpus_read 上是对的:read 才是"用了这条"的信号(搜索只是找到候选)。
+// corpus_read 不是一种检索方式,它就是"读"这个动作 —— 就像写 paper 只引你真读过
+// 用过的 reference,不引一次文献检索里冒出来的所有条目。
+// 显式路由(非 catch-all):output→outIDs,wiki→wikiIDs,writing→writingIDs,
+// subjectivity→subjIDs。剩下的 genre(raw)不累计。writing 是 public/已发布 blog,
+// 一律进 footer(无 show_as_source gate);subjectivity 是否真展示由 dialog 层
+// show_as_source gate 决定(默认私有)。
 func (a *accumSink) collectCitation(name, result string) {
 	if name != "corpus_read" {
 		return
 	}
 	c := parseCitedEntry(result)
-	if c.ID == "" || a.seenCite[c.ID] {
+	if c.ID == "" || a.seenCite[c.ID] || suppressedFromCitation(&c) {
 		return
 	}
 	a.seenCite[c.ID] = true
 	a.routeCitation(c.Genre, c.ID)
 }
 
-// routeCitation —— 按 genre 把 entry id 归到对应 slice。writing / raw 不进 footer(丢弃)。
-func (a *accumSink) routeCitation(genre, id string) {
-	switch genre {
-	case "output":
-		a.outIDs = append(a.outIDs, id)
-	case "wiki":
-		a.wikiIDs = append(a.wikiIDs, id)
-	case "subjectivity":
-		a.subjIDs = append(a.subjIDs, id)
-	default:
-		// writing / raw 等不进 citation footer;丢弃。
-	}
+// suppressedFromCitation —— readCollector gate:wiki/output 标 show_as_source=false
+// (meta/persona 类)能被 AI read 拿 body,但不进 cited footer。subjectivity 的
+// show_as_source gate 在 dialog 层,这里不碰。
+func suppressedFromCitation(c *citedEntry) bool {
+	return (c.Genre == "wiki" || c.Genre == "output") && !c.ShowAsSource
 }
 
-// citedEntry —— corpus_read flat object 里取 citation 用的两字段。
+// routeCitation —— 按 genre 把 entry id 归到对应 slice(bucket 表)。表里没有的 genre
+// (raw 等)不进 footer,丢弃。writing 是 public blog,进 footer。
+func (a *accumSink) routeCitation(genre, id string) {
+	bucket := map[string]*[]string{
+		"output":       &a.outIDs,
+		"wiki":         &a.wikiIDs,
+		"writing":      &a.writingIDs,
+		"subjectivity": &a.subjIDs,
+	}[genre]
+	if bucket == nil {
+		return // raw 等不进 citation footer;丢弃。
+	}
+	*bucket = append(*bucket, id)
+}
+
+// citedEntry —— corpus_read flat object 里取 citation 用的字段。show_as_source=false
+// 的 wiki/output 能被 read 拿 body,但不进 cited(readCollector gate)。
 type citedEntry struct {
-	ID    string `json:"id"`
-	Genre string `json:"genre"`
+	ID           string `json:"id"`
+	Genre        string `json:"genre"`
+	ShowAsSource bool   `json:"show_as_source"`
 }
 
 // parseCitedEntry —— corpus_read 结果解出 citation entry;解析失败 → 零值。
@@ -204,6 +220,7 @@ func (a *accumSink) result(question string) *TurnResult {
 		Answer:               a.answer.String(),
 		ToolCalls:            a.marshalTools(),
 		CitedWikiIDs:         a.wikiIDs,
+		CitedWritingIDs:      a.writingIDs,
 		CitedOutputIDs:       a.outIDs,
 		CitedSubjectivityIDs: a.subjIDs,
 	}

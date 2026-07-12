@@ -14,10 +14,10 @@ import (
 const appendMessage = `-- name: AppendMessage :one
 INSERT INTO messages (
     conversation_id, dialog_id, role, body, tool_calls,
-    cited_wiki_ids, cited_output_ids, cited_subjectivity_ids
+    cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, created_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids, created_at
 `
 
 type AppendMessageParams struct {
@@ -29,6 +29,7 @@ type AppendMessageParams struct {
 	CitedWikiIds         []pgtype.UUID
 	CitedOutputIds       []pgtype.UUID
 	CitedSubjectivityIds []pgtype.UUID
+	CitedWritingIds      []pgtype.UUID
 }
 
 func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (Message, error) {
@@ -41,6 +42,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 		arg.CitedWikiIds,
 		arg.CitedOutputIds,
 		arg.CitedSubjectivityIds,
+		arg.CitedWritingIds,
 	)
 	var i Message
 	err := row.Scan(
@@ -53,6 +55,7 @@ func (q *Queries) AppendMessage(ctx context.Context, arg AppendMessageParams) (M
 		&i.CitedWikiIds,
 		&i.CitedOutputIds,
 		&i.CitedSubjectivityIds,
+		&i.CitedWritingIds,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -342,7 +345,7 @@ func (q *Queries) ListMemberOtherConversationMessages(ctx context.Context, arg L
 }
 
 const listMessages = `-- name: ListMessages :many
-SELECT id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
+SELECT id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) ([]Message, error) {
@@ -364,6 +367,7 @@ func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) 
 			&i.CitedWikiIds,
 			&i.CitedOutputIds,
 			&i.CitedSubjectivityIds,
+			&i.CitedWritingIds,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

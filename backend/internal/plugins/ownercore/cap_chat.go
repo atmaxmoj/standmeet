@@ -210,10 +210,11 @@ type groundingCapView struct {
 }
 
 type groundingCapMessageView struct {
-	Role           string   `json:"role"`
-	Body           string   `json:"body"`
-	CitedWikiIDs   []string `json:"cited_wiki_ids"`
-	CitedOutputIDs []string `json:"cited_output_ids"`
+	Role            string   `json:"role"`
+	Body            string   `json:"body"`
+	CitedWikiIDs    []string `json:"cited_wiki_ids"`
+	CitedWritingIDs []string `json:"cited_writing_ids"`
+	CitedOutputIDs  []string `json:"cited_output_ids"`
 }
 
 type corpusCapEntryView struct {
@@ -248,10 +249,11 @@ func toGroundingCapMessageViews(msgs []domain.Message) []groundingCapMessageView
 	out := make([]groundingCapMessageView, 0, len(msgs))
 	for i := range msgs {
 		out = append(out, groundingCapMessageView{
-			Role:           msgs[i].Role,
-			Body:           msgs[i].Body,
-			CitedWikiIDs:   mcputil.NonNilStrings(msgs[i].CitedWikiIDs),
-			CitedOutputIDs: mcputil.NonNilStrings(msgs[i].CitedOutputIDs),
+			Role:            msgs[i].Role,
+			Body:            msgs[i].Body,
+			CitedWikiIDs:    mcputil.NonNilStrings(msgs[i].CitedWikiIDs),
+			CitedWritingIDs: mcputil.NonNilStrings(msgs[i].CitedWritingIDs),
+			CitedOutputIDs:  mcputil.NonNilStrings(msgs[i].CitedOutputIDs),
 		})
 	}
 	return out

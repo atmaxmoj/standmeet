@@ -32,7 +32,7 @@ import {
   restoreSession, revalidateSession, revalidateStored, seedEphemeralStores, splitParas,
 } from '@/lib/page/use-chat-restore';
 import { throbberLabel } from '@/lib/page/throbber-label';
-import { pickCorpusReadShape } from '@/lib/page/corpus-read-wire';
+import { pickCorpusReadShape, citableCorpusRead } from '@/lib/page/corpus-read-wire';
 import {
   ensureEffectiveSession,
   type PageSession,
@@ -46,7 +46,7 @@ import { logger } from '@/lib/logger';
 export type SessionMode = SessionModeT;
 
 export type Citation = {
-  genre: 'wiki' | 'output';
+  genre: 'wiki' | 'output' | 'writing';
   // id —— entry 稳定标识,落 admin transcript 的 cited_*_ids 用它(不用 path
   // 反查,绕开树路径在 ACL 子集下对不上的坑)。path 只给 UI 显示。
   id: string;
@@ -367,12 +367,11 @@ function pushCitationFromTool(
 ): void {
   if (!result.ok || result.name !== 'corpus_read') return;
   const r = pickCorpusReadShape(result.result);
-  if (r === null) return;
+  if (r === null || !citableCorpusRead(r)) return;
   // 按 id 去重 + 落库:同一 entry 读多次只引一次。
   if (r.id === '' || accum.seenCitedIDs.has(r.id)) return;
   accum.seenCitedIDs.add(r.id);
-  const genre: 'wiki' | 'output' = r.genre === 'output' ? 'output' : 'wiki';
-  accum.citations.push({ genre, id: r.id, path: r.path, title: r.title, body: r.body });
+  accum.citations.push({ genre: r.genre, id: r.id, path: r.path, title: r.title, body: r.body });
 }
 
 function finalizeDialog(

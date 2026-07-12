@@ -543,6 +543,8 @@ CREATE TABLE messages (
     -- cited_subjectivity_ids：本轮引用且被 owner opt-in（show_as_source=true）的 subjectivity
     -- 笔记。subjectivity 默认私有（不引用）；仅 opt-in 的进这里，走 subjectivity_refs 展示。
     cited_subjectivity_ids uuid[]  NOT NULL DEFAULT '{}',
+    -- cited_writing_ids：本轮引用的 writing（公开发布内容，读了就引，无 show_as_source gate）。
+    cited_writing_ids uuid[]       NOT NULL DEFAULT '{}',
     created_at       timestamptz   NOT NULL DEFAULT now()
 );
 CREATE INDEX messages_dialog_idx ON messages(dialog_id);

@@ -243,7 +243,8 @@ func buildAgentTurnPersist(
 		}, &usecases.RecordDialogInput{
 			OwnerID: ownerID, ConversationID: convID,
 			Question: res.Question, Answer: res.Answer,
-			CitedWikiIDs: res.CitedWikiIDs, CitedOutputIDs: res.CitedOutputIDs,
+			CitedWikiIDs: res.CitedWikiIDs, CitedWritingIDs: res.CitedWritingIDs,
+			CitedOutputIDs:       res.CitedOutputIDs,
 			CitedSubjectivityIDs: res.CitedSubjectivityIDs,
 			ToolCalls:            res.ToolCalls,
 		})

@@ -38,6 +38,9 @@ type CorpusEntry struct {
 	Body       string
 	Tags       []string
 	CSSClasses []string // cssclasses frontmatter(per-note 呈现钩子)
+	// ShowAsSource —— wiki/output only: false = AI 能 read 拿 body，但 readCollector
+	// 不把它收进 cited(meta/persona 类)。见 collectCitation 的 gate。
+	ShowAsSource bool
 }
 
 // CorpusLister —— the slim corpus data port (#157). Every method is ACL-scoped via

@@ -321,6 +321,7 @@ type Message struct {
 	CitedWikiIds         []pgtype.UUID
 	CitedOutputIds       []pgtype.UUID
 	CitedSubjectivityIds []pgtype.UUID
+	CitedWritingIds      []pgtype.UUID
 	CreatedAt            pgtype.Timestamptz
 }
 

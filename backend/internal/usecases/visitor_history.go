@@ -187,10 +187,12 @@ func answerAfter(msgs []domain.Message, i int, r *citationResolver) dialogAnswer
 // citationResolver —— cited id → DialogCitation(树派生 path + title)。整段会话
 // 只 load 一次全树建表;没有任何引用就不 load,空表直接返空。
 type citationResolver struct {
-	wikiPaths    map[string]string
-	wikiTitles   map[string]string
-	outputPaths  map[string]string
-	outputTitles map[string]string
+	wikiPaths     map[string]string
+	wikiTitles    map[string]string
+	writingPaths  map[string]string
+	writingTitles map[string]string
+	outputPaths   map[string]string
+	outputTitles  map[string]string
 }
 
 // maxRAGWikis / maxRAGOutputs —— citation 反查时载入 owner 语料算树派生 path 的窗口上限。
@@ -204,24 +206,53 @@ func newCitationResolver(
 ) *citationResolver {
 	r := &citationResolver{}
 	cited := collectCitedIDs(msgs)
-	if len(cited.wikis) > 0 {
-		if wikis, err := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis); err == nil {
-			r.wikiPaths = WikiTreePaths(wikis)
-			r.wikiTitles = wikiTitleMap(wikis)
-		}
-	}
-	if len(cited.outputs) > 0 {
-		if outputs, err := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs); err == nil {
-			r.outputPaths = OutputTreePaths(outputs)
-			r.outputTitles = outputTitleMap(outputs)
-		}
-	}
+	r.loadWikis(ctx, deps, ownerID, cited.wikis)
+	r.loadWritings(ctx, deps, ownerID, cited.writings)
+	r.loadOutputs(ctx, deps, ownerID, cited.outputs)
 	return r
 }
 
+func (r *citationResolver) loadWikis(
+	ctx context.Context, deps *VisitorSessionDeps, ownerID string, ids []string,
+) {
+	if len(ids) == 0 {
+		return
+	}
+	if wikis, err := deps.Wiki.ListByOwner(ctx, ownerID, maxRAGWikis); err == nil {
+		r.wikiPaths = WikiTreePaths(wikis)
+		r.wikiTitles = wikiTitleMap(wikis)
+	}
+}
+
+func (r *citationResolver) loadWritings(
+	ctx context.Context, deps *VisitorSessionDeps, ownerID string, ids []string,
+) {
+	if len(ids) == 0 || deps.Writing == nil {
+		return
+	}
+	if writings, err := deps.Writing.ListPublishedByOwner(ctx, ownerID); err == nil {
+		r.writingPaths = writingPathMap(writings)
+		r.writingTitles = writingTitleMap(writings)
+	}
+}
+
+func (r *citationResolver) loadOutputs(
+	ctx context.Context, deps *VisitorSessionDeps, ownerID string, ids []string,
+) {
+	if len(ids) == 0 {
+		return
+	}
+	if outputs, err := deps.Output.ListByOwner(ctx, ownerID, maxRAGOutputs); err == nil {
+		r.outputPaths = OutputTreePaths(outputs)
+		r.outputTitles = outputTitleMap(outputs)
+	}
+}
+
 func (r *citationResolver) resolve(m *domain.Message) []DialogCitation {
-	out := make([]DialogCitation, 0, len(m.CitedWikiIDs)+len(m.CitedOutputIDs))
+	out := make([]DialogCitation, 0,
+		len(m.CitedWikiIDs)+len(m.CitedWritingIDs)+len(m.CitedOutputIDs))
 	out = appendCites(out, "wiki", m.CitedWikiIDs, r.wikiPaths, r.wikiTitles)
+	out = appendCites(out, "writing", m.CitedWritingIDs, r.writingPaths, r.writingTitles)
 	out = appendCites(out, "output", m.CitedOutputIDs, r.outputPaths, r.outputTitles)
 	return out
 }
@@ -251,6 +282,23 @@ func outputTitleMap(os []domain.Output) map[string]string {
 	m := make(map[string]string, len(os))
 	for i := range os {
 		m[os[i].ID()] = os[i].Title()
+	}
+	return m
+}
+
+// writingPathMap —— writing 自带 slug 派生的 path 列("writings/"+slug),不用上溯树。
+func writingPathMap(ws []domain.Writing) map[string]string {
+	m := make(map[string]string, len(ws))
+	for i := range ws {
+		m[ws[i].ID()] = ws[i].Path()
+	}
+	return m
+}
+
+func writingTitleMap(ws []domain.Writing) map[string]string {
+	m := make(map[string]string, len(ws))
+	for i := range ws {
+		m[ws[i].ID()] = ws[i].Title()
 	}
 	return m
 }

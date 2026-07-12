@@ -13,11 +13,12 @@ import (
 )
 
 // ConversationsDeps —— ListConversations / GetTranscript 需要的 repo。
-// Wiki + Output 是给 transcript 把 cited_*_ids 解到 id+title 用；Subjectivity 解
+// Wiki + Writing + Output 是给 transcript 把 cited_*_ids 解到 id+title 用；Subjectivity 解
 // cited_subjectivity_ids（仅 opt-in 的会落进 message，此处只做 id→ref 展示）。
 type ConversationsDeps struct {
 	Chats        *postgres.ChatRepo
 	Wiki         *postgres.WikiRepo
+	Writing      *postgres.WritingRepo
 	Output       *postgres.OutputRepo
 	Subjectivity SubjectivityCiteLookup
 }
@@ -46,6 +47,7 @@ type SubjectivityRef struct {
 type TranscriptBundle struct {
 	ConvBundle       postgres.ChatWithMessages
 	WikiRefs         []TitledRef
+	WritingRefs      []TitledRef
 	OutputRefs       []TitledRef
 	SubjectivityRefs []SubjectivityRef
 }
@@ -89,6 +91,7 @@ func GetConversationTranscript(
 	return TranscriptBundle{
 		ConvBundle:       bundle,
 		WikiRefs:         wikiCitedRefs(ctx, deps.Wiki, ownerID, cited.wikis),
+		WritingRefs:      writingCitedRefs(ctx, deps.Writing, ownerID, cited.writings),
 		OutputRefs:       outputCitedRefs(ctx, deps.Output, ownerID, cited.outputs),
 		SubjectivityRefs: subjRefs,
 	}, nil
@@ -139,6 +142,26 @@ func wikiCitedRefs(
 	return refsFor(ids, titles, paths)
 }
 
+// writingCitedRefs —— cited writing id 解成 (id, title, path)。writing 自带 slug 派生的
+// path 列("writings/"+slug),不用上溯树;逐个 GetByID 拿 title+slug。写不进 message 前
+// 无 gate（writing 是 public/已发布 blog）。repo 未注入 / id 已删 → 略过。
+func writingCitedRefs(
+	ctx context.Context, repo *postgres.WritingRepo, ownerID string, ids []string,
+) []TitledRef {
+	out := make([]TitledRef, 0, len(ids))
+	if repo == nil {
+		return out
+	}
+	for _, id := range ids {
+		w, err := repo.GetByID(ctx, ownerID, id)
+		if err != nil {
+			continue
+		}
+		out = append(out, TitledRef{ID: id, Title: w.Title(), Path: w.Path()})
+	}
+	return out
+}
+
 // outputCitedRefs —— wiki 的 output 孪生:逐个 cited id 上溯算 path + meta(无 50-cap;
 // 超出内存窗口的 cited output 也解得出)。
 func outputCitedRefs(
@@ -175,27 +198,32 @@ func refsFor(ids []string, titles, paths map[string]string) []TitledRef {
 	return out
 }
 
-// citedIDs —— collectCitedIDs 的三组返结果，避开 named-return + 多-return。
+// citedIDs —— collectCitedIDs 的各组返结果，避开 named-return + 多-return。
 type citedIDs struct {
 	wikis          []string
+	writings       []string
 	outputs        []string
 	subjectivities []string
 }
 
 const citedSetInitialCap = 16
 
-// collectCitedIDs —— 扫所有 message 的 CitedWikiIDs / CitedOutputIDs / CitedSubjectivityIDs，去重。
+// collectCitedIDs —— 扫所有 message 的 CitedWikiIDs / CitedWritingIDs / CitedOutputIDs /
+// CitedSubjectivityIDs，去重。
 func collectCitedIDs(messages []domain.Message) citedIDs {
 	wikiSet := make(map[string]struct{}, citedSetInitialCap)
+	writingSet := make(map[string]struct{}, citedSetInitialCap)
 	outputSet := make(map[string]struct{}, citedSetInitialCap)
 	subjSet := make(map[string]struct{}, citedSetInitialCap)
 	for i := range messages {
 		addAll(wikiSet, messages[i].CitedWikiIDs)
+		addAll(writingSet, messages[i].CitedWritingIDs)
 		addAll(outputSet, messages[i].CitedOutputIDs)
 		addAll(subjSet, messages[i].CitedSubjectivityIDs)
 	}
 	return citedIDs{
-		wikis: keysOf(wikiSet), outputs: keysOf(outputSet), subjectivities: keysOf(subjSet),
+		wikis: keysOf(wikiSet), writings: keysOf(writingSet),
+		outputs: keysOf(outputSet), subjectivities: keysOf(subjSet),
 	}
 }
 

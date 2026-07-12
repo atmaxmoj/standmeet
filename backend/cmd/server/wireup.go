@@ -83,7 +83,7 @@ func buildAdminDeps(d *runtimeDeps) server.AdminDeps {
 			Subjectivity: d.subjectivityRepo, VaultSync: d.vaultSyncRepo, Index: d.corpusIndexer,
 		},
 		Conversations: usecases.ConversationsDeps{
-			Chats: d.chatRepo, Wiki: d.wikiRepo, Output: d.outputRepo,
+			Chats: d.chatRepo, Wiki: d.wikiRepo, Writing: d.writingRepo, Output: d.outputRepo,
 			Subjectivity: usecases.NewSubjectivityCiteResolver(d.subjectivityRepo),
 		},
 		Ghosts:         usecases.GhostDeps{Repo: d.ghostRepo},
@@ -226,6 +226,7 @@ func newVisitorSessionDeps(d *runtimeDeps) usecases.VisitorSessionDeps {
 		Roles: d.roleRepo, Prompts: d.promptRepo,
 		Sessions:    d.visitorStore,
 		Wiki:        d.wikiRepo,
+		Writing:     d.writingRepo,
 		Output:      d.outputRepo,
 		AgentSkills: d.agentSkills,
 		CodeDenials: d.codeDenialRepo,

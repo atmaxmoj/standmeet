@@ -20,6 +20,7 @@ type Message struct {
 	Role                 string // 'visitor' | 'assistant'
 	Body                 string
 	CitedWikiIDs         []string
+	CitedWritingIDs      []string
 	CitedOutputIDs       []string
 	CitedSubjectivityIDs []string
 	ToolCalls            []byte

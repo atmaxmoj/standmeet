@@ -49,6 +49,7 @@ type RecordDialogInput struct {
 	Question             string
 	Answer               string
 	CitedWikiIDs         []string
+	CitedWritingIDs      []string
 	CitedOutputIDs       []string
 	CitedSubjectivityIDs []string
 	ToolCalls            []byte
@@ -90,10 +91,15 @@ func resolveCitations(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) []domain.Citation {
 	cites := make([]domain.Citation, 0,
-		len(in.CitedWikiIDs)+len(in.CitedOutputIDs)+len(in.CitedSubjectivityIDs))
+		len(in.CitedWikiIDs)+len(in.CitedWritingIDs)+
+			len(in.CitedOutputIDs)+len(in.CitedSubjectivityIDs))
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
 		OwnerID: in.OwnerID, IDs: in.CitedWikiIDs,
 		Genre: domain.GenreWiki,
+	}, cites)
+	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
+		OwnerID: in.OwnerID, IDs: in.CitedWritingIDs,
+		Genre: domain.GenreWriting,
 	}, cites)
 	cites = appendResolvedCitations(ctx, deps, &resolveCiteArgs{
 		OwnerID: in.OwnerID, IDs: in.CitedOutputIDs,
@@ -173,17 +179,12 @@ func logIfUnexpectedNotFound(
 }
 
 func notFoundForGenre(g domain.DocumentGenre) error {
-	// dialog cited 覆盖 wiki + output + subjectivity；其他 genre 返 nil errors.Is 自然
-	// 走 fallthrough。
-	switch g {
-	case domain.GenreWiki:
-		return domain.ErrWikiNotFound
-	case domain.GenreOutput:
-		return domain.ErrOutputNotFound
-	case domain.GenreSubjectivity:
-		return domain.ErrSubjectivityNotFound
-	case domain.GenreRaw, domain.GenreWriting:
-		return nil
-	}
-	return nil
+	// dialog cited 覆盖 wiki + writing + output + subjectivity；其他 genre (raw) 返 nil，
+	// errors.Is(err, nil) 恒 false → 任何 err 都算 unexpected 并记一行。
+	return map[domain.DocumentGenre]error{
+		domain.GenreWiki:         domain.ErrWikiNotFound,
+		domain.GenreWriting:      domain.ErrWritingNotFound,
+		domain.GenreOutput:       domain.ErrOutputNotFound,
+		domain.GenreSubjectivity: domain.ErrSubjectivityNotFound,
+	}[g]
 }

@@ -107,8 +107,10 @@ func (c *corpusMutationsCapability) handleUpdateWiki(
 	if err != nil {
 		return wikiMutationErrToResult(c.log, err, "update_wiki")
 	}
+	// path 也回:改了 title 会移动树派生地址,调用方要拿到新 path 才能继续 read/引用。
 	return mcputil.MarshalResult(c.log, "update_wiki", map[string]any{
 		"id": wiki.ID(), "title": wiki.Title(), "body": wiki.Body(),
+		"path": entryPathForResponse(ctx, c.log, c.corpus, entryRef{"wiki", ownerID, wiki.ID()}),
 	})
 }
 
@@ -190,8 +192,10 @@ func (c *corpusMutationsCapability) handleUpdateOutput(
 	if err != nil {
 		return outputMutationErrToResult(c.log, err, "update_output")
 	}
+	// path 也回:改了 title 会移动树派生地址,调用方要拿到新 path 才能继续 read/引用。
 	return mcputil.MarshalResult(c.log, "update_output", map[string]any{
 		"id": out.ID(), "title": out.Title(), "body": out.Body(),
+		"path": entryPathForResponse(ctx, c.log, c.corpus, entryRef{"output", ownerID, out.ID()}),
 	})
 }
 

@@ -227,12 +227,24 @@ func (c *Corpus) getOutput(
 	return &o, nil
 }
 
+// getWriting —— writing 的规范地址是 writing://<slug>（public reader 寻址），但
+// dialog cited 落库/反查按 uuid 走（cited_writing_ids 是 uuid[]，与 wiki/output 对齐）。
+// 故 uuid → GetByID，slug → GetBySlug；slug 从不是合法 uuid，两条路不会撞。
 func (c *Corpus) getWriting(
-	ctx context.Context, ownerID, slug string,
+	ctx context.Context, ownerID, idOrSlug string,
 ) (domain.Document, error) {
-	w, err := c.writings.GetBySlug(ctx, ownerID, slug)
+	w, err := c.getWritingRow(ctx, ownerID, idOrSlug)
 	if err != nil {
 		return nil, fmt.Errorf("corpus get writing: %w", err)
 	}
 	return &w, nil
+}
+
+func (c *Corpus) getWritingRow(
+	ctx context.Context, ownerID, idOrSlug string,
+) (domain.Writing, error) {
+	if isUUID(idOrSlug) {
+		return c.writings.GetByID(ctx, ownerID, idOrSlug)
+	}
+	return c.writings.GetBySlug(ctx, ownerID, idOrSlug)
 }

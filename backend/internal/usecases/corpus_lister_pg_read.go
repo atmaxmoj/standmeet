@@ -77,6 +77,7 @@ func (l *pgCorpusLister) findWiki(
 	}
 	return CorpusEntry{
 		ID: w.ID(), Path: path, Title: w.Title(), Genre: "wiki", Body: w.Body(),
+		ShowAsSource: w.ShowAsSource(),
 	}, true
 }
 
@@ -93,6 +94,7 @@ func (l *pgCorpusLister) findOutput(
 	}
 	return CorpusEntry{
 		ID: o.ID(), Path: path, Title: o.Title(), Genre: "output", Body: o.Body(),
+		ShowAsSource: o.ShowAsSource(),
 	}, true
 }
 

@@ -48,6 +48,7 @@ type convMessageView struct {
 	Role                 string   `json:"role"`
 	Body                 string   `json:"body"`
 	CitedWikiIDs         []string `json:"cited_wiki_ids"`
+	CitedWritingIDs      []string `json:"cited_writing_ids"`
 	CitedOutputIDs       []string `json:"cited_output_ids"`
 	CitedSubjectivityIDs []string `json:"cited_subjectivity_ids"`
 }
@@ -71,6 +72,7 @@ type convTranscriptResp struct {
 	Conversation     convSummaryView       `json:"conversation"`
 	Messages         []convMessageView     `json:"messages"`
 	WikiRefs         []titledRefView       `json:"wiki_refs"`
+	WritingRefs      []titledRefView       `json:"writing_refs"`
 	OutputRefs       []titledRefView       `json:"output_refs"`
 	SubjectivityRefs []subjectivityRefView `json:"subjectivity_refs"`
 	// H.13.e: per-turn ghost text 日志 (shown + 是否 Tab-accept)。
@@ -183,6 +185,7 @@ func writeTranscript(
 		Conversation:     conv,
 		Messages:         msgs,
 		WikiRefs:         toRefViews(t.WikiRefs),
+		WritingRefs:      toRefViews(t.WritingRefs),
 		OutputRefs:       toRefViews(t.OutputRefs),
 		SubjectivityRefs: toSubjectivityRefViews(t.SubjectivityRefs),
 		Ghosts:           toGhostViews(ghosts),
@@ -283,6 +286,7 @@ func toConvMessageView(m *domain.Message) convMessageView {
 		Role:                 m.Role,
 		Body:                 m.Body,
 		CitedWikiIDs:         ensureSlice(m.CitedWikiIDs),
+		CitedWritingIDs:      ensureSlice(m.CitedWritingIDs),
 		CitedOutputIDs:       ensureSlice(m.CitedOutputIDs),
 		CitedSubjectivityIDs: ensureSlice(m.CitedSubjectivityIDs),
 		CreatedAt:            m.CreatedAt.Format(time.RFC3339),

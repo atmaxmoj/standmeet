@@ -165,8 +165,12 @@ func (c *corpusRawCapability) handlePromoteToWiki(
 	}
 	// 地址树派生:promote 不再设 path,只按需藏 show_as_source。
 	c.applyShowAsSourceIfHidden(ctx, &wikiEntry, args.ShowAsSource)
-	return mcputil.MarshalResult(c.log, "promote_to_wiki",
-		map[string]string{"wiki_id": wikiEntry.ID()})
+	// 响应带上这条 wiki 的地址(path),调用方就能直接 corpus_read / 引用它。
+	return mcputil.MarshalResult(c.log, "promote_to_wiki", map[string]string{
+		"wiki_id": wikiEntry.ID(),
+		"path": entryPathForResponse(
+			ctx, c.log, c.corpus, entryRef{"wiki", ownerID, wikiEntry.ID()}),
+	})
 }
 
 func (c *corpusRawCapability) applyShowAsSourceIfHidden(

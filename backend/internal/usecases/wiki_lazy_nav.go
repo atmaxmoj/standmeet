@@ -59,6 +59,18 @@ func outputPathByID(
 	return strings.Join(segs, "/"), nil
 }
 
+// WikiEntryPath —— 导出:一条 wiki 的树派生 path(meta-only 上溯)。corpus 写工具
+// (promote_to_wiki / update_wiki)在响应里回它,让调用方拿到"东西落在哪"的地址
+// (= corpus_read 的入参),不用自己从 title slug 反推。
+func WikiEntryPath(ctx context.Context, repo WikiLister, ownerID, id string) (string, error) {
+	return wikiPathByID(ctx, repo, ownerID, id)
+}
+
+// OutputEntryPath —— WikiEntryPath 的 output 孪生(promote_wiki_to_output / update_output 用)。
+func OutputEntryPath(ctx context.Context, repo OutputLister, ownerID, id string) (string, error) {
+	return outputPathByID(ctx, repo, ownerID, id)
+}
+
 // resolveWikiNodeID —— 把一条**非空**树派生 path 顺 root→下逐层解成它的节点 id(不
 // load 全树:每层 ListChildren meta-only,按 pathSegment(title) 匹配 segment)。任一段
 // 无匹配 → ErrWikiNotFound。根层(path 空)由调用方直接用 nil parentID,不进这里。

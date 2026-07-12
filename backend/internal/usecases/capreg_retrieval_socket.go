@@ -111,6 +111,7 @@ func runCorpusRead(ctx context.Context, l CorpusLister, req *retrievalSockReq) (
 	return marshalReadResult(&readResultWire{
 		ID: entry.ID, Genre: entry.Genre, Body: body,
 		Path: entry.Path, Title: entry.Title, CSSClasses: entry.CSSClasses,
+		ShowAsSource: entry.ShowAsSource,
 	}), nil
 }
 

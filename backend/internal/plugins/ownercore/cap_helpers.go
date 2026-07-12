@@ -4,10 +4,47 @@
 package ownercore
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
+
+// logErrKey —— slog 错误字段键(避免各 cap 文件重复 "err" 字面量)。
+const logErrKey = "err"
+
+// entryRef —— 定位一条刚写入的 corpus entry(算写响应 path 用)。
+type entryRef struct {
+	genre   string // "wiki" | "output"
+	ownerID string
+	id      string
+}
+
+// entryPathForResponse —— 一条刚写入的 corpus entry 的树派生 path,给写工具的响应用:
+// 调用方拿到地址就能 corpus_read / 引用它,不用从 title 反推 slug。best-effort —— path
+// 算不出(理论上刚建就在)→ warn + 空串,不搅黄整个写。
+func entryPathForResponse(
+	ctx context.Context, log *slog.Logger, corpus *usecases.CorpusDeps, ref entryRef,
+) string {
+	var (
+		path string
+		err  error
+	)
+	switch ref.genre {
+	case "wiki":
+		path, err = usecases.WikiEntryPath(ctx, corpus.Wiki, ref.ownerID, ref.id)
+	case "output":
+		path, err = usecases.OutputEntryPath(ctx, corpus.Output, ref.ownerID, ref.id)
+	default:
+		return ""
+	}
+	if err != nil {
+		log.Warn(ref.genre+"_path", "id", ref.id, logErrKey, err)
+	}
+	return path
+}
 
 type listLimitArgsWire struct {
 	Limit *float64 `json:"limit"`

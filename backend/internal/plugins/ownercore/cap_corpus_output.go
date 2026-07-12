@@ -106,8 +106,12 @@ func (c *corpusOutputCapability) handlePromoteWikiToOutput(
 	}
 	// 地址树派生:promote 不再设 path,只按需藏 show_as_source。
 	c.applyOutputShowAsSourceIfHidden(ctx, &out, args.ShowAsSource)
-	return mcputil.MarshalResult(c.log, "promote_wiki_to_output",
-		map[string]string{"output_id": out.ID()})
+	// 响应带上这条 output 的地址(path),调用方就能直接 corpus_read / 引用它。
+	return mcputil.MarshalResult(c.log, "promote_wiki_to_output", map[string]string{
+		"output_id": out.ID(),
+		"path": entryPathForResponse(
+			ctx, c.log, c.corpus, entryRef{"output", ownerID, out.ID()}),
+	})
 }
 
 func (c *corpusOutputCapability) applyOutputShowAsSourceIfHidden(
