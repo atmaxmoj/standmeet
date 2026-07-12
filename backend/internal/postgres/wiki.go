@@ -61,6 +61,10 @@ func (r *WikiRepo) Create(ctx context.Context, in *CreateWikiInput) (domain.Wiki
 		Tags:       nilSafeTags(in.Tags),
 		SourceIds:  sourceRaws,
 		CssClasses: []string{}, // wiki create 不带 cssclasses(列 NOT NULL,须非 nil)
+		// wiki 建出来即是可引用的 source;藏(meta/persona)是之后 UpdateWiki 的
+		// 例外路径(applyShowAsSourceIfHidden)。不显式 true 会写零值 false → 被
+		// readCollector gate 误当隐藏条,citation 全丢。
+		ShowAsSource: true,
 	})
 	if err != nil {
 		return domain.Wiki{}, fmt.Errorf("create wiki: %w", err)

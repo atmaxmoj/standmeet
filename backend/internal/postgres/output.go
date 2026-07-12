@@ -75,6 +75,9 @@ func buildOutputCreateParams(in *CreateOutputInput) (dbq.CreateNoteParams, error
 		Tags:       nilSafeTags(in.Tags),
 		SourceIds:  sourceWikis,
 		CssClasses: []string{}, // output create 不带 cssclasses(列 NOT NULL,须非 nil)
+		// output 同 wiki:建出来即可引用的 source;藏是之后 UpdateOutput 的例外路径。
+		// 不显式 true 会写零值 false → 被 readCollector gate 误当隐藏条,citation 全丢。
+		ShowAsSource: true,
 	}, nil
 }
 
