@@ -30,6 +30,31 @@ Re-run, by hand, every path CI only ever validated against a mock — this time 
 | **§Q** | Product loops (recruiter QR scan / request→approve→email / ingest→answer) | 🟡 Q1 phone last | [Q-loops](items/Q-loops.md) |
 | **§R** | BYOAI against a real provider (real stream + private-corpus exclusion) | ✅ DeepSeek as visitor key | [R-byoai](items/R-byoai.md) |
 
+## First-pass results (2026-07-13, real prod stack)
+
+| Item | Outcome |
+|----|------|
+| §A real LLM | 🔴 F-A-1 (visitor chat `tools:0` — no retrieval bound), F-A-2 (corpus-search box violates thesis). Voice fidelity ✓ (DeepSeek answers in owner voice). Grounding blocked. |
+| §B calendar | 🔴 F-B-1 (dup connector forms), F-B-2 (Authorize → `/init` 404 — can't connect). Creds save ✓; OAuth dance dead. Redirect URI registered in Google. |
+| §C mail | 🔴 F-C-1 (sidebar 404→ZodError), F-C-2 (smtp manifest invalid → form 400), F-C-3 (SMTP save doesn't persist, test-send silent false). Blocked. |
+| §D external MCP | ⛔ needs a real external MCP server URL (none on hand). `mcp_server_create` exists (untested). |
+| §E job boards | ✅ **E1 pass** — real Greenhouse (GitLab) fetch via MCP returned live jobs. F-E-1 (dead "+board"/"+rss" buttons, MCP-only). |
+| §F marketplace | 🟡 `marketplace.search` returned `[]` (no GitHub call visible in logs — inconclusive; needs a query with known matches). |
+| §G captcha | ⛔ off by default (`TURNSTILE_*` unset, confirmed) → ProviderNone. Needs Turnstile env + restart to exercise. |
+| §H connector | ✅ **H1 pass** — `validate_spec` on real Petstore OpenAPI 3.0 → ok, auth forms derived. UI path blocked (F-B-1/2). CalDAV (Radicale) untested. |
+| §I storage/PDF | 🟡 resume.draft/commit finicky (no response — cache/session edge); `STORAGE_USE_SSL=false` confirmed. Not conclusively tested. |
+| §J api-key | 🔴 F-J-1 (`api_keys.create` needs a role; none by default → unreachable). `corpus.retrieval` openable. |
+| §K sandbox | 🟡 skills are prompt-based (skill_list ✓); the script-sandbox egress (K1) not reached this pass. `SANDBOX_DRIVER=docker` confirmed (K2). |
+| §L vault | 🔴 F-L-1 (obsidian page a dead mockup), F-L-2 (46% rejected + tree shattered), F-L-3 (subjectivity won't sync). L1 classify ✓, L5 links ✓ (644 edges), L10 KaTeX render ✓. |
+| §M MCP client | ✅ **M1 pass** (125 tools via Sigv1), **M2 pass** (raw_dump + subjectivity_write land). |
+| §N deploy forks | ✅ confirmed — plugins/turnstile/timeout unset, docker driver, storage SSL off (matches inventory). |
+| §O SDK embed | 🔴 **F-O-1** — no CORS headers, preflight 405 → embed can't bootstrap cross-origin (zero coverage). |
+| §P cross-cutting | ✅ **P5 confirmed** — no meili in prod → corpus_search on PG-FTS by default. P1/P2/P3 not reached. |
+| §Q loops | ⛔ Q1 needs a phone (deferred); Q2/Q3 blocked downstream by §C mail / §A `tools:0`. |
+| §R BYOAI | ⛔ likely blocked by the same visitor-session assembly as F-A-1 (`tools:0`); not separately confirmed. |
+
+Green surfaces: owner-MCP (§M/§E/§H/§N). Red surfaces: the admin UI + visitor chat (§A/§B/§C/§J/§L/§O). See findings.md "Through-line".
+
 ## 2. Per-item doc template
 
 ```
