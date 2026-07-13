@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1
 # The backend imports NO plugin code: mcp-servers/* are pure runtime artifacts
-# (static binaries built by infra/plugins/provision.sh, bind-mounted in dev /
-# materialized from object storage in prod — #135). The host↔plugin contract is
-# the manifest + the runtime MCP protocol, never a Go dependency. So this image
-# is backend-only; the build context stays repo-root (docker-compose: context: .)
-# but nothing outside backend/ is copied here.
+# (static binaries built from their own Go modules). The host↔plugin contract is
+# the manifest + the runtime MCP protocol, never a Go dependency. In dev they are
+# bind-mounted from infra/plugins (built by provision.sh); here in prod they are
+# BAKED into /srv/plugins in the builder stage (Stage 2) — they are product
+# artifacts and must ship with the image, else the bwrap sandbox can't spawn
+# retrieval and visitor grounding is dead (F-A-1). The build context is repo-root
+# (docker-compose: context: .) so mcp-servers/ is reachable.
 
 # Stage 1: Lint
 #
@@ -50,6 +52,21 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o /out/standmeet \
     ./cmd/server
 
+# Builtin capability plugins (mcp-servers/*) → static binaries at /srv/plugins.
+# These are PRODUCT artifacts (retrieval / booker / summarize / ask_visitor /
+# mail-sender), each its own Go module, loaded at runtime by the bwrap
+# sandbox_stdio path (ro-bind /srv/plugins/<name>, exec /plugin/<name>). Dev
+# bind-mounts infra/plugins; prod bakes them — without them the retrieval
+# sandbox can't spawn and every visitor turn binds zero tools (F-A-1).
+WORKDIR /app
+COPY mcp-servers ./mcp-servers
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    for p in ask-visitor summarize booker retrieval mail-sender; do \
+      (cd /app/mcp-servers/"$p" && \
+        go build -trimpath -ldflags='-s -w' -o /srv/plugins/"$p"/"$p" .) || exit 1; \
+    done
+WORKDIR /app/backend
+
 # Stage 3: Production
 FROM alpine:3.21 AS production
 WORKDIR /app
@@ -67,6 +84,8 @@ RUN addgroup --system --gid 1001 standmeet && \
 COPY --from=builder --chown=standmeet:standmeet /out/standmeet /app/standmeet
 COPY --from=builder --chown=standmeet:standmeet /app/backend/entrypoint.sh /app/entrypoint.sh
 RUN mkdir -p /srv && chown standmeet:standmeet /srv
+# Bake the builtin capability plugins so the bwrap sandbox finds them at /srv/plugins/<name>.
+COPY --from=builder --chown=standmeet:standmeet /srv/plugins /srv/plugins
 
 USER standmeet
 

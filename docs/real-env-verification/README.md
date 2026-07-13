@@ -34,7 +34,7 @@ Re-run, by hand, every path CI only ever validated against a mock — this time 
 
 | Item | Outcome |
 |----|------|
-| §A real LLM | 🟡 **F-A-2 ✅fixed** (removed the thesis-violating visitor corpus-search box). F-A-1 (visitor `tools:0`) is a 3-layer deploy gap (owner-decision; observability half fixed). Voice fidelity ✓ (DeepSeek in owner voice). |
+| §A real LLM | 🟡 **F-A-2 ✅fixed** (removed the thesis-violating visitor corpus-search box). **F-A-1 ✅FIXED** (3-layer deploy gap closed: bake plugins + SYS_ADMIN/NET_ADMIN sandbox caps → prod visitor turn tools:6, agent grounds on the real corpus). Voice fidelity ✓ (DeepSeek in owner voice). |
 | §B calendar | 🔴 F-B-1 (dup connector forms), F-B-2 (Authorize → `/init` 404 — can't connect). Creds save ✓; OAuth dance dead. Redirect URI registered in Google. |
 | §C mail | ✅ **now works** — F-C-1 ✅fixed, F-C-2 ✅fixed (protocol credential-form). Post-fix **verified real send**: Gmail app-pw via generic `/connectors/smtp/*` → connect(real handshake)→activate→`/mail/test-send` → `{ok:true}`, a real email out. F-C-3's "mail dead" resolved by F-C-2; the dead dedicated MailConnectorPanel remains as an F-B-1 dedup owner-decision. |
 | §D external MCP | ✅ **PASS (real, 2nd pass)** — stood up a genuine `@modelcontextprotocol/server-everything` (streamable-http) on the prod network, registered via `/api/admin/mcp-servers`, granted to a role + code. Visitor turn: backend dialed it, `tools:13` bound, agent called `ext_everything_echo("pineapple")` → real server received initialize+tools/list+tools/call, returned a result. **Also independently confirms F-A-1 is sandbox-only**: network-dialed ext MCP works (13 tools) while the bwrap builtins fail in the same turn. |

@@ -96,6 +96,20 @@ services:
     # sandbox 需要 root + docker socket：owner-curated skill 脚本跑在隔离
     # docker container 里。docs 里说明权衡。
     user: "0:0"
+    # bubblewrap (MCP capability sandbox: retrieval/booker/…) 要在容器内建
+    # user/mount namespace，默认 seccomp/apparmor profile 挡 unshare(CLONE_NEW*)
+    # + 默认 cap set 无 SYS_ADMIN。放开这三样 bwrap 才能起隔离环境 —— 没有它们
+    # 沙箱插件全 spawn 不了，访客 grounding 死（F-A-1）。跟 docker-compose.dev.yml
+    # 同款；bwrap 本身仍是插件的隔离边界。
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      # SYS_ADMIN: create user/mount/pid namespaces. NET_ADMIN: bwrap --unshare-net
+      # brings up the sandbox's loopback (else "loopback: Failed RTM_NEWADDR"). Both
+      # are needed for the capability sandbox; matches docker-compose.dev.yml.
+      - SYS_ADMIN
+      - NET_ADMIN
     volumes:
       - custom_pages_data:/srv/custom-pages
       - /var/run/docker.sock:/var/run/docker.sock
