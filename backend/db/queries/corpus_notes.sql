@@ -113,6 +113,16 @@ WHERE owner_id = $1 AND title = $2
 ORDER BY created_at ASC
 LIMIT 1;
 
+-- name: GetNoteBySourcePath :one
+-- Vault-sync reconcile identity by the file's vault-relative path. Used when the basename
+-- (title) is NOT unique across the vault: two files can share a basename in different folders,
+-- but a file has exactly one source path, so this claims the right row instead of rejecting the
+-- collision. This is the schema's intended reconcile identity (corpus_notes_source_path_idx).
+SELECT * FROM corpus_notes
+WHERE owner_id = $1 AND obsidian_source_path = $2
+ORDER BY created_at ASC
+LIMIT 1;
+
 -- name: CreateNoteSync :one
 -- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
 -- inbox_source is the vault-source tag for genre='raw' ("obsidian:<path>"); empty for other genres.

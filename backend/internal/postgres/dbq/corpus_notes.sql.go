@@ -291,6 +291,60 @@ func (q *Queries) GetNoteByIDAnyGenre(ctx context.Context, arg GetNoteByIDAnyGen
 	return i, err
 }
 
+const getNoteBySourcePath = `-- name: GetNoteBySourcePath :one
+SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
+WHERE owner_id = $1 AND obsidian_source_path = $2
+ORDER BY created_at ASC
+LIMIT 1
+`
+
+type GetNoteBySourcePathParams struct {
+	OwnerID            pgtype.UUID
+	ObsidianSourcePath string
+}
+
+// Vault-sync reconcile identity by the file's vault-relative path. Used when the basename
+// (title) is NOT unique across the vault: two files can share a basename in different folders,
+// but a file has exactly one source path, so this claims the right row instead of rejecting the
+// collision. This is the schema's intended reconcile identity (corpus_notes_source_path_idx).
+func (q *Queries) GetNoteBySourcePath(ctx context.Context, arg GetNoteBySourcePathParams) (CorpusNote, error) {
+	row := q.db.QueryRow(ctx, getNoteBySourcePath, arg.OwnerID, arg.ObsidianSourcePath)
+	var i CorpusNote
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Genre,
+		&i.ParentID,
+		&i.Title,
+		&i.Body,
+		&i.Tags,
+		&i.SourceIds,
+		&i.ShowAsSource,
+		&i.Excerpt,
+		&i.Published,
+		&i.CssClasses,
+		&i.ObsidianSourcePath,
+		&i.ObsidianImportedAt,
+		&i.InboxSource,
+		&i.InboxMeta,
+		&i.FlaggedPrivate,
+		&i.Archived,
+		&i.PromotedTo,
+		&i.Slug,
+		&i.Visibility,
+		&i.LockedBody,
+		&i.CoverHeadline,
+		&i.CoverHue,
+		&i.CoverImageAssetID,
+		&i.ReadMinutes,
+		&i.CrossRefs,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getNoteByTitleAnyGenre = `-- name: GetNoteByTitleAnyGenre :one
 SELECT id, owner_id, genre, parent_id, title, body, tags, source_ids, show_as_source, excerpt, published, css_classes, obsidian_source_path, obsidian_imported_at, inbox_source, inbox_meta, flagged_private, archived, promoted_to, slug, visibility, locked_body, cover_headline, cover_hue, cover_image_asset_id, read_minutes, cross_refs, published_at, created_at, updated_at FROM corpus_notes
 WHERE owner_id = $1 AND title = $2

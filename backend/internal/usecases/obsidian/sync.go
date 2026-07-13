@@ -1,13 +1,15 @@
 // sync.go —— sync face 入口。vault 文件批 → corpus_notes 多-genre 节点树(raw 折进 genre='raw')。
 // 路由:顶层 folder → genre(wiki/subjectivity/raw;output 无 folder = promote-derived;未知/根裸
-// 文件跳过)。跳 hidden(dotdir/_templates)。reconcile:按 title 认领(basename 全 vault 唯一) →
-// upsert;web-wins(owner 在 web 改过不覆盖);未变则 skip;**绝不删**没在这批里的。链接整批解析。
+// 文件跳过)。跳 hidden(dotdir/_templates)。reconcile:按 title 认领(跨 genre,支持 move);basename
+// 在本 vault 不唯一时改按 source_path 认(同名文件各占各行,F-L-2)→ upsert;web-wins(owner 在 web
+// 改过不覆盖);未变则 skip;**绝不删**没在这批里的。链接整批解析。
 
 package obsidian
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -33,6 +35,7 @@ func IsVaultTopFolder(seg string) bool {
 // GetByTitle 没认领到 → postgres.ErrSyncNoteNotFound。
 type SyncNotesPort interface {
 	GetByTitle(ctx context.Context, ownerID, title string) (postgres.SyncNote, error)
+	GetBySourcePath(ctx context.Context, ownerID, sourcePath string) (postgres.SyncNote, error)
 	Create(ctx context.Context, in *postgres.CreateSyncNoteInput) (string, error)
 	Update(ctx context.Context, in *postgres.UpdateSyncNoteInput) error
 }
@@ -160,29 +163,50 @@ type nodeOp struct {
 	parent *string
 }
 
-// reconcileSkip —— pre-reconcile guards: a non-materializing node is skipped; a node whose title
-// collides with another in this vault is rejected (title-based claim can't disambiguate). Returns
-// true when it handled the node (caller returns without reconciling).
-func reconcileSkip(node *desiredNode, st *syncState, result *ImportResult) bool {
+// reconcileSkip —— pre-reconcile guard: a non-materializing node is skipped. (Duplicate basenames
+// are no longer rejected — Obsidian allows the same basename in different folders; the reconcile
+// claims those by source_path instead of title, see claimExisting.) Returns true when it handled
+// the node (caller returns without reconciling).
+func reconcileSkip(node *desiredNode, result *ImportResult) bool {
 	if !shouldMaterialize(node) {
 		result.Skipped++
-		return true
-	}
-	if st.dupTitles[strings.ToLower(node.title)] {
-		result.Errors = append(result.Errors,
-			node.title+": duplicate title across the vault — basenames must be unique; rename one")
 		return true
 	}
 	return false
 }
 
+// claimExisting —— reconcile 认领同一条 note 的入口。默认按 title 认(跨 genre,支持 move)。
+// 但 title 在本 vault 不唯一时(不同文件夹同名文件),title 认领会把它们塌成一条 —— 改按
+// source_path 认(文件路径唯一),让同名文件各占各行(schema 本来就是这么设计的:见
+// obsidian_source_path 注释 + corpus_notes_source_path_idx)。结构节点(无 file → source_path 空)
+// 永远按 title 认(空路径会互撞)。
+func claimExisting(
+	ctx context.Context, deps *SyncDeps, node *desiredNode, st *syncState,
+) (postgres.SyncNote, error) {
+	if st.dupTitles[strings.ToLower(node.title)] && node.file != nil && node.file.sourcePath != "" {
+		note, err := deps.Notes.GetBySourcePath(ctx, st.ownerID, node.file.sourcePath)
+		return note, wrapClaim(err)
+	}
+	note, err := deps.Notes.GetByTitle(ctx, st.ownerID, node.title)
+	return note, wrapClaim(err)
+}
+
+// wrapClaim —— 包认领错误(满足 wrapcheck),但透传 ErrSyncNoteNotFound sentinel 不变
+// (reconcileNode 用 errors.Is 判它当「新建」信号;%w 也能 Is 到,但留原样更省心)。
+func wrapClaim(err error) error {
+	if err == nil || errors.Is(err, postgres.ErrSyncNoteNotFound) {
+		return err
+	}
+	return fmt.Errorf("claim existing note: %w", err)
+}
+
 func reconcileNode(
 	ctx context.Context, deps *SyncDeps, node *desiredNode, st *syncState, result *ImportResult,
 ) {
-	if reconcileSkip(node, st, result) {
+	if reconcileSkip(node, result) {
 		return
 	}
-	existing, err := deps.Notes.GetByTitle(ctx, st.ownerID, node.title)
+	existing, err := claimExisting(ctx, deps, node, st)
 	c := contentOf(node)
 	op := &nodeOp{
 		deps: deps, node: node, st: st, result: result, c: &c, parent: parentIDOf(st, node),

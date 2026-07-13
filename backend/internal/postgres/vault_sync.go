@@ -58,6 +58,28 @@ func (r *VaultSyncRepo) GetByTitle(ctx context.Context, ownerID, title string) (
 	return syncNoteFromRow(&row), nil
 }
 
+// GetBySourcePath —— 按 owner + vault 相对路径认领 reconcile 目标。title(basename)不是
+// 全 vault 唯一时用它:不同文件夹下同名文件各有唯一 source_path,据此认对行而非拒绝碰撞。
+// 没有 → ErrSyncNoteNotFound。
+func (r *VaultSyncRepo) GetBySourcePath(
+	ctx context.Context, ownerID, sourcePath string,
+) (SyncNote, error) {
+	owner, err := parseUUID(ownerID)
+	if err != nil {
+		return SyncNote{}, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	row, qerr := dbq.New(r.pool).GetNoteBySourcePath(ctx, dbq.GetNoteBySourcePathParams{
+		OwnerID: owner, ObsidianSourcePath: sourcePath,
+	})
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return SyncNote{}, ErrSyncNoteNotFound
+		}
+		return SyncNote{}, fmt.Errorf("get note by source path: %w", qerr)
+	}
+	return syncNoteFromRow(&row), nil
+}
+
 // GetSyncNote —— 按 id 取一条 corpus note(任一 genre)。search 索引单条 + 走父链算 path 用。
 func (r *VaultSyncRepo) GetSyncNote(ctx context.Context, ownerID, id string) (SyncNote, error) {
 	owner, err := parseUUID(ownerID)
