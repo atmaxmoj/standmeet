@@ -1,12 +1,12 @@
 // TopBar —— admin 顶栏。左：standmeet · {handle} · admin · live dot。
-// 中：ActivityTicker（流动 log）。右：build info + email + sign-out。
+// 中：CorpusConstellation（语料链接图:节点大小 = 链接度）。右：build info + email + sign-out。
 
 'use client';
 
 import Link from 'next/link';
 import { useCallback } from 'react';
 
-import { ActivityTicker } from '@/components/admin/chrome/ActivityTicker';
+import { CorpusConstellation } from '@/components/admin/chrome/CorpusConstellation';
 import { Pill } from '@/components/admin/atoms/Pill';
 import { signOut } from '@/lib/admin/sign-out';
 
@@ -23,7 +23,7 @@ export function TopBar({ handle, email, buildTag = DEFAULT_BUILD }: Props) {
   return (
     <header className="flex items-center px-6 lg:px-8 h-14 border-b border-(--color-rule) shrink-0 gap-4">
       <TopBarBrand handle={handle} />
-      <ActivityTicker />
+      <CorpusConstellation />
       <TopBarMeta email={email} buildTag={buildTag} onSignOut={onSignOut} />
     </header>
   );

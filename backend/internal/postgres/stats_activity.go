@@ -54,6 +54,52 @@ func (r *ActivityRepo) RecentActivity(
 	return scanActivityEvents(rows)
 }
 
+// graphQuery —— 每条 note + 它的链接度（note_refs 里 src 或 dst 触到它的边数）。degree
+// 降序取前 N（最 hub 的 note）。LEFT JOIN 让 0 链接的 note 也计为 degree 0。
+const graphQuery = `
+	SELECT n.id, n.title, n.genre, count(r.src_id) AS degree
+	FROM corpus_notes n
+	LEFT JOIN note_refs r ON (r.src_id = n.id OR r.dst_id = n.id) AND r.owner_id = $1
+	WHERE n.owner_id = $1
+	GROUP BY n.id, n.title, n.genre
+	ORDER BY degree DESC, n.title ASC
+	LIMIT $2`
+
+// CorpusGraph —— owner 的语料链接图前 limit 个 hub 节点（degree 降序）。
+func (r *ActivityRepo) CorpusGraph(
+	ctx context.Context, ownerID string, limit int,
+) ([]domain.GraphNode, error) {
+	ownerUUID, err := parseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("parse owner id: %w", err)
+	}
+	rows, err := r.pool.Query(ctx, graphQuery, ownerUUID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("corpus graph: %w", err)
+	}
+	defer rows.Close()
+	return scanGraphNodes(rows)
+}
+
+func scanGraphNodes(rows pgx.Rows) ([]domain.GraphNode, error) {
+	nodes := make([]domain.GraphNode, 0)
+	for rows.Next() {
+		var id pgtype.UUID
+		var title, genre string
+		var degree int64
+		if serr := rows.Scan(&id, &title, &genre, &degree); serr != nil {
+			return nil, fmt.Errorf("scan graph node: %w", serr)
+		}
+		nodes = append(nodes, domain.GraphNode{
+			ID: formatUUID(id), Title: title, Genre: genre, Degree: int(degree),
+		})
+	}
+	if rerr := rows.Err(); rerr != nil {
+		return nil, fmt.Errorf("iterate graph nodes: %w", rerr)
+	}
+	return nodes, nil
+}
+
 func scanActivityEvents(rows pgx.Rows) ([]domain.ActivityEvent, error) {
 	events := make([]domain.ActivityEvent, 0)
 	for rows.Next() {

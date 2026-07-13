@@ -12,9 +12,49 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/middleware"
 )
 
-// ActivityProvider —— 近期活动流数据源（postgres ActivityRepo 实现）。
+// ActivityProvider —— 近期活动流 + 语料链接图数据源（postgres ActivityRepo 实现）。
 type ActivityProvider interface {
 	RecentActivity(ctx context.Context, ownerID string, limit int) ([]domain.ActivityEvent, error)
+	CorpusGraph(ctx context.Context, ownerID string, limit int) ([]domain.GraphNode, error)
+}
+
+type graphNodeResp struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Genre  string `json:"genre"`
+	Degree int    `json:"degree"`
+}
+
+type graphResp struct {
+	Nodes []graphNodeResp `json:"nodes"`
+}
+
+func (h *Handlers) getCorpusGraph() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		limit := int(parseLimit(r.URL.Query().Get("limit")))
+		nodes, err := h.Activity.CorpusGraph(r.Context(), ownerID, limit)
+		if err != nil {
+			h.Log.Error("corpus graph", "err", err)
+			writeError(h.Log, w, serverErr())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if eerr := json.NewEncoder(w).Encode(toGraphResp(nodes)); eerr != nil {
+			logEncodeErr(h.Log, "encode corpus graph", eerr)
+		}
+	}
+}
+
+func toGraphResp(nodes []domain.GraphNode) graphResp {
+	out := make([]graphNodeResp, 0, len(nodes))
+	for i := range nodes {
+		out = append(out, graphNodeResp{
+			ID: nodes[i].ID, Title: nodes[i].Title, Genre: nodes[i].Genre, Degree: nodes[i].Degree,
+		})
+	}
+	return graphResp{Nodes: out}
 }
 
 type activityEventResp struct {

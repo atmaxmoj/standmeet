@@ -11,3 +11,12 @@ type ActivityEvent struct {
 	Kind  string // 'visitor' | 'ingest' | 'booking'
 	Label string
 }
+
+// GraphNode —— 语料链接图的一个节点：一条 note + 它的链接度（note_refs 里触到它的边数,
+// 双向）。degree 越大越是 hub。给 admin TopBar 的 constellation（越多链接越大的节点）用。
+type GraphNode struct {
+	ID     string
+	Title  string
+	Genre  string
+	Degree int
+}

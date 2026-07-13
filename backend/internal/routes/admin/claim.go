@@ -111,6 +111,7 @@ func (h *Handlers) MountAuthed(r chi.Router) {
 	r.Get("/system", h.getSystemInfo())              // #101 system 面板
 	r.Get("/stats/growth", h.getCorpusGrowth())      // Monitor: SystemPulse
 	r.Get("/stats/activity", h.getRecentActivity())  // Monitor: ActivityTicker
+	r.Get("/stats/graph", h.getCorpusGraph())        // TopBar: corpus link constellation
 	r.Get("/stats/jobs", h.getScheduledJobs())       // Monitor: background jobs
 }
 

@@ -53,7 +53,8 @@ function AdminLayout({
       <div className="flex-1 flex min-h-0">
         <AdminSidebar active={active} badges={badges} />
         <main className="flex-1 px-8 lg:px-12 py-8 overflow-y-auto">
-          <div className="max-w-[1200px]">{children}</div>
+          {/* Fills a normal large office screen (27–32" QHD→4K); not 49"/57" ultrawides. */}
+          <div className="max-w-[2400px]">{children}</div>
         </main>
       </div>
     </div>
