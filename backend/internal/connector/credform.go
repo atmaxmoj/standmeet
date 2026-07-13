@@ -27,9 +27,14 @@ type CredentialForm struct {
 	Schemes  []string
 }
 
-// DeriveCredentialForm —— 解析 manifest 的 spec，按选中的 securityScheme 派生凭据表单。字段/类型/
-// scope 全来自 authform（单一事实源）；本函数只挑中选中方案 + 收窄成 configure 表单形状。
+// DeriveCredentialForm —— 派生 owner 要填的凭据表单。openapi 连接器从 spec 的
+// securityScheme 派生；protocol 连接器（smtp/caldav）没有 spec，从内置协议的固定字段
+// 派生（F-C-2:之前无条件跑 ParseSpec → protocol 连接器 400 "unsupported openapi
+// version"，配置表单渲染不出来）。
 func DeriveCredentialForm(m *Manifest) (CredentialForm, error) {
+	if m.Kind == "protocol" {
+		return protocolCredentialForm(m.Protocol)
+	}
 	spec, err := openapi.ParseSpec(m.Spec)
 	if err != nil {
 		return CredentialForm{}, fmt.Errorf(errConnectorWrap, m.ID, err)
@@ -41,6 +46,31 @@ func DeriveCredentialForm(m *Manifest) (CredentialForm, error) {
 	form := credFormFromAuth(&f)
 	form.Schemes = schemeNames(spec)
 	return form, nil
+}
+
+// errUnknownProtocol —— manifest 声明了没有内置 runtime 的 protocol；配置表单派生不出来。
+var errUnknownProtocol = errors.New("unknown protocol connector")
+
+// protocolCredentialForm —— 内置协议连接器的凭据表单。字段 key 必须跟保存路径解析的
+// JSON 形状一致（smtp: cmd/server smtpCredJSON；caldav: caldavCredJSON），否则表单填了
+// 也进不去连接器。AuthType 用 protocol 名（前端据此渲通用字段，非 oauth2/apiKey 分支）。
+func protocolCredentialForm(protocol string) (CredentialForm, error) {
+	switch protocol {
+	case "smtp":
+		return CredentialForm{
+			AuthType: "smtp",
+			Fields: []string{
+				"host", "port", "username", "password", "from_address", "from_name", "tls",
+			},
+		}, nil
+	case "caldav":
+		return CredentialForm{
+			AuthType: "caldav",
+			Fields:   []string{"url", "username", "password"},
+		}, nil
+	default:
+		return CredentialForm{}, fmt.Errorf("%w: %q", errUnknownProtocol, protocol)
+	}
 }
 
 // pickAuthForm —— 选中生效的方案表单：owner 选了用选的；否则唯一一个用它；多方案未选 → 无（ambiguous）。
