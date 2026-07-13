@@ -21,7 +21,6 @@ export function SourcesSection() {
         kicker="jobs · sources"
         title="sources"
         count={loading ? '' : `${rows.length} active`}
-        action={<ActionBtns />}
       />
       <Intro />
       <Body rows={rows} loading={loading} error={error} />
@@ -80,14 +79,9 @@ function fmtLast(iso: string | null | undefined): string {
   return iso ? `last · ${iso.slice(0, 10)}` : 'never fetched';
 }
 
-function ActionBtns() {
-  return (
-    <div className="flex gap-2">
-      <button className="sm-btn sm-btn-outline sm-btn-sm" type="button">+ rss / scraper</button>
-      <button className="sm-btn sm-btn-solid sm-btn-sm" type="button">+ board</button>
-    </div>
-  );
-}
+// F-E-1: the old "+ rss/scraper" / "+ board" header buttons were dead (no onClick) and
+// contradicted this page's own copy — job sources are registered via the jobs.register_source
+// MCP tool (Claude Code), not an admin form. Removed; the Intro + empty state direct to MCP.
 
 function Intro() {
   return (

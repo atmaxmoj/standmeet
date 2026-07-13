@@ -31,6 +31,17 @@ test.describe('admin sources list', () => {
       await expect(adminPage.getByText(/no sources registered/i)).toBeVisible();
     });
 
+  test('no dead "+board"/"+rss" add buttons — sources are MCP-registered (F-E-1)',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'sources');
+      await adminPage.waitForURL('**/admin/sources', { timeout: 5_000 });
+      // The old header buttons opened no form and contradicted the page's own copy. Removed —
+      // the page directs to the jobs.register_source MCP tool instead.
+      await expect(adminPage.getByRole('button', { name: /\+\s*board/i })).toHaveCount(0);
+      await expect(adminPage.getByRole('button', { name: /rss|scraper/i })).toHaveCount(0);
+      await expect(adminPage.getByText(/jobs\.register_source/i).first()).toBeVisible();
+    });
+
   test('a registered source appears in the list',
     async ({ request, adminPage }) => {
       await seedSource(request);
