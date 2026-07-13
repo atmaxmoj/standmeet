@@ -234,6 +234,9 @@ func mountPublic(r chi.Router, deps *Deps) {
 		deps.Redis, deps.CaptchaVerifier, deps.CaptchaEnabled,
 	)
 	r.Route("/api/v1", func(r chi.Router) {
+		// CORS 最外层：embed 从任意 origin 跨源加载，preflight + ACAO 头得先于
+		// Ban/Rate 挂上（即便后面 403/429 也要能被跨源 JS 读到）。D.2 wide-open。
+		r.Use(authmw.PublicCORS)
 		// 封禁 IP 先挡（403），再 per-IP 限流公开滥用面（429）。
 		r.Use(authmw.BanGuard(deps.BannedIPs))
 		r.Use(authmw.PublicRateGuard(deps.Redis))
