@@ -139,9 +139,12 @@ func contentOf(n *desiredNode) nodeContent {
 }
 
 // shouldMaterialize —— 结构节点(有子)总落库;leaf 仅 publish:true 落 —— publish:false 无子 → 跳。
-// raw 例外:raw 是 owner 私有 inbox,永不 publish-gated,故总落库。
+// raw + subjectivity 例外:两者都是 owner 私有的**grounding 素材**(subjectivity 是 raw-form leaf,
+// 只是内容是 standpoint;"grounded but not cited by default"),永不 publish-gated,故总落库 —— 否则
+// 私有的主观性笔记永远进不来、agent 无从 ground(F-L-3)。
 func shouldMaterialize(n *desiredNode) bool {
-	return n.hasChildren || n.genre == genreRaw || (n.file != nil && n.file.fm.Publish)
+	return n.hasChildren || n.genre == genreRaw || n.genre == genreSubjectivity ||
+		(n.file != nil && n.file.fm.Publish)
 }
 
 // inboxSourceFor —— genre='raw' 的节点带 vault 来源标签 "obsidian:<srcPath>";其它 genre 空。
