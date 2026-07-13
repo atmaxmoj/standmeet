@@ -809,6 +809,100 @@ func (q *Queries) ListNotesByOwner(ctx context.Context, arg ListNotesByOwnerPara
 	return items, nil
 }
 
+const listNotesByOwnerPage = `-- name: ListNotesByOwnerPage :many
+WITH RECURSIVE up AS (
+  SELECT c.id AS leaf_id, c.id, c.parent_id, ARRAY[c.title]::text[] AS path_titles
+  FROM corpus_notes c
+  WHERE c.owner_id = $1 AND c.genre = $2
+    AND ($3::timestamptz IS NULL OR (c.created_at, c.id) < ($3::timestamptz, $4::uuid))
+  UNION ALL
+  SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
+  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+)
+SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.source_ids, n.show_as_source, n.excerpt, n.published, n.css_classes, n.obsidian_source_path, n.obsidian_imported_at, n.inbox_source, n.inbox_meta, n.flagged_private, n.archived, n.promoted_to, n.slug, n.visibility, n.locked_body, n.cover_headline, n.cover_hue, n.cover_image_asset_id, n.read_minutes, n.cross_refs, n.published_at, n.created_at, n.updated_at,
+       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
+FROM corpus_notes n
+WHERE n.owner_id = $1 AND n.genre = $2
+  AND ($3::timestamptz IS NULL OR (n.created_at, n.id) < ($3::timestamptz, $4::uuid))
+ORDER BY n.created_at DESC, n.id DESC
+LIMIT $5
+`
+
+type ListNotesByOwnerPageParams struct {
+	OwnerID pgtype.UUID
+	Genre   string
+	Column3 pgtype.Timestamptz
+	Column4 pgtype.UUID
+	Limit   int32
+}
+
+type ListNotesByOwnerPageRow struct {
+	CorpusNote CorpusNote
+	PathTitles []string
+}
+
+// Grid pagination (infinite scroll): keyset on (created_at DESC, id DESC). $3/$4 = the
+// last row's (created_at, id) cursor — both NULL = first page. Composite tiebreak because
+// a vault sync batch can share created_at. LIMIT $5 (+1 caller-side → has_more). Full row
+// via sqlc.embed + path_titles so the server slugifies the address even on a partial page.
+func (q *Queries) ListNotesByOwnerPage(ctx context.Context, arg ListNotesByOwnerPageParams) ([]ListNotesByOwnerPageRow, error) {
+	rows, err := q.db.Query(ctx, listNotesByOwnerPage,
+		arg.OwnerID,
+		arg.Genre,
+		arg.Column3,
+		arg.Column4,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNotesByOwnerPageRow
+	for rows.Next() {
+		var i ListNotesByOwnerPageRow
+		if err := rows.Scan(
+			&i.CorpusNote.ID,
+			&i.CorpusNote.OwnerID,
+			&i.CorpusNote.Genre,
+			&i.CorpusNote.ParentID,
+			&i.CorpusNote.Title,
+			&i.CorpusNote.Body,
+			&i.CorpusNote.Tags,
+			&i.CorpusNote.SourceIds,
+			&i.CorpusNote.ShowAsSource,
+			&i.CorpusNote.Excerpt,
+			&i.CorpusNote.Published,
+			&i.CorpusNote.CssClasses,
+			&i.CorpusNote.ObsidianSourcePath,
+			&i.CorpusNote.ObsidianImportedAt,
+			&i.CorpusNote.InboxSource,
+			&i.CorpusNote.InboxMeta,
+			&i.CorpusNote.FlaggedPrivate,
+			&i.CorpusNote.Archived,
+			&i.CorpusNote.PromotedTo,
+			&i.CorpusNote.Slug,
+			&i.CorpusNote.Visibility,
+			&i.CorpusNote.LockedBody,
+			&i.CorpusNote.CoverHeadline,
+			&i.CorpusNote.CoverHue,
+			&i.CorpusNote.CoverImageAssetID,
+			&i.CorpusNote.ReadMinutes,
+			&i.CorpusNote.CrossRefs,
+			&i.CorpusNote.PublishedAt,
+			&i.CorpusNote.CreatedAt,
+			&i.CorpusNote.UpdatedAt,
+			&i.PathTitles,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const queryCorpusNotes = `-- name: QueryCorpusNotes :many
 WITH RECURSIVE up AS (
   SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.id, n.parent_id,

@@ -70,6 +70,28 @@ WHERE n.owner_id = $1 AND n.genre = $2
   AND (($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3)
 ORDER BY n.title ASC;
 
+-- name: ListNotesByOwnerPage :many
+-- Grid pagination (infinite scroll): keyset on (created_at DESC, id DESC). $3/$4 = the
+-- last row's (created_at, id) cursor — both NULL = first page. Composite tiebreak because
+-- a vault sync batch can share created_at. LIMIT $5 (+1 caller-side → has_more). Full row
+-- via sqlc.embed + path_titles so the server slugifies the address even on a partial page.
+WITH RECURSIVE up AS (
+  SELECT c.id AS leaf_id, c.id, c.parent_id, ARRAY[c.title]::text[] AS path_titles
+  FROM corpus_notes c
+  WHERE c.owner_id = $1 AND c.genre = $2
+    AND ($3::timestamptz IS NULL OR (c.created_at, c.id) < ($3::timestamptz, $4::uuid))
+  UNION ALL
+  SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
+  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+)
+SELECT sqlc.embed(n),
+       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
+FROM corpus_notes n
+WHERE n.owner_id = $1 AND n.genre = $2
+  AND ($3::timestamptz IS NULL OR (n.created_at, n.id) < ($3::timestamptz, $4::uuid))
+ORDER BY n.created_at DESC, n.id DESC
+LIMIT $5;
+
 -- name: CountNoteDescendants :one
 -- Exact recursive descendant count for one node — the delete-cascade warning
 -- ("also deletes its N child entries"). On-demand (one user action), not per level.

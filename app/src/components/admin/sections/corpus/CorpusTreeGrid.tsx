@@ -7,8 +7,10 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import type { z } from 'zod';
 
 import { CorpusLazyTree } from '@/components/admin/sections/corpus/CorpusLazyTree';
+import { VirtualCardGrid } from '@/components/admin/sections/corpus/VirtualCardGrid';
 import { buildCorpusForest } from '@/lib/admin/corpus-tree';
 import type { CorpusView } from '@/lib/admin/corpus-view';
 
@@ -20,20 +22,30 @@ interface RowRef {
 
 type CardMeta = { depth: number; hasChildren: boolean };
 
-interface Props<T> {
+interface Props<T extends RowRef> {
   view: CorpusView;
   rows: readonly T[];
   testid: string;
   rowTestid: (row: T) => string;
-  // loadChildren present → lazy per-level tree (raw/wiki/output). Absent → the
-  // client-side forest over already-loaded rows (writings, until it gets a lazy
-  // endpoint of its own).
+  // loadChildren + gridSource present → lazy tree + paginated virtual grid (raw/wiki/
+  // output). Absent → the client-side forest / simple grid over already-loaded rows
+  // (writings, until it gets lazy + paged endpoints of its own).
   loadChildren?: (parentID: string) => Promise<T[]>;
+  gridSource?: { genre: string; schema: z.ZodType<T> };
   renderCard: (row: T, meta: CardMeta) => ReactNode;
 }
 
 export function CorpusTreeGrid<T extends RowRef>(props: Props<T>) {
-  return props.view === 'tree' ? <TreeBody {...props} /> : <Grid {...props} />;
+  return props.view === 'tree' ? <TreeBody {...props} /> : <GridBody {...props} />;
+}
+
+function GridBody<T extends RowRef>(props: Props<T>) {
+  return props.gridSource ? (
+    <VirtualCardGrid
+      genre={props.gridSource.genre} itemSchema={props.gridSource.schema}
+      testid={props.testid} rowTestid={props.rowTestid} renderCard={props.renderCard}
+    />
+  ) : <Grid {...props} />;
 }
 
 function TreeBody<T extends RowRef>(props: Props<T>) {

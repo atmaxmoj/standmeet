@@ -22,7 +22,7 @@ import {
   type CorpusEntryInput,
 } from '@/lib/admin/use-corpus-actions';
 import {
-  pickWikiBodyState, useWiki, loadWikiTreeChildren,
+  pickWikiBodyState, useWiki, loadWikiTreeChildren, WikiSummarySchema,
   type WikiHook, type WikiSummary,
 } from '@/lib/admin/use-wiki';
 import { runWith } from '@/lib/admin/use-corpus-form';
@@ -122,6 +122,7 @@ function ReadyBody({
         view={view} rows={shown} testid="wiki-list"
         rowTestid={(r) => `wiki-row-${r.id}`}
         loadChildren={loadWikiTreeChildren}
+        gridSource={activeTag === null ? { genre: 'wiki', schema: WikiSummarySchema } : undefined}
         renderCard={(row, { hasChildren }) => (
           <WikiCard
             entry={row} actions={actions}
