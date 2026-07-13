@@ -152,7 +152,7 @@ func TestMCPApp_InProcessUnifiedPath(t *testing.T) {
 		},
 	}
 	reg := capreg.NewRegistry()
-	skipped := RegisterDiscoveredPlugins(reg, []mcpplugin.Manifest{*m}, capreg.OriginBuiltin)
+	skipped := RegisterDiscoveredPlugins(reg, []mcpplugin.Manifest{*m}, capreg.OriginBuiltin, nil)
 	require.Empty(t, skipped)
 
 	c := newMCPAppCapability(m)
@@ -171,7 +171,7 @@ func TestMCPApp_RegisterWithBuiltinOrigin(t *testing.T) {
 	t.Parallel()
 	reg := capreg.NewRegistry()
 	m := stdioManifest("ask_visitor", buildPluginMock(t))
-	skipped := RegisterDiscoveredPlugins(reg, []mcpplugin.Manifest{*m}, capreg.OriginBuiltin)
+	skipped := RegisterDiscoveredPlugins(reg, []mcpplugin.Manifest{*m}, capreg.OriginBuiltin, nil)
 	require.Empty(t, skipped)
 	origin, ok := reg.OriginOf("ask_visitor")
 	require.True(t, ok)
@@ -289,4 +289,29 @@ func TestMCPApp_NoToolsHidden(t *testing.T) {
 	c := newMCPAppCapability(m)
 	_, err := c.VisitorBinding(context.Background(), grantInput("empty"))
 	require.ErrorIs(t, err, capreg.ErrHidden)
+}
+
+// F-A-1 观测性守卫：dial 不通(sandbox 起不来)在折成 ErrHidden 前必须把真因喂给
+// dialErrLog(否则像 prod bwrap 那样静默 0 工具、日志查无此事);而干净的「0 tool」是
+// 合法隐藏,不该报错。
+func TestMCPApp_DialFail_FiresDialErrLog(t *testing.T) {
+	t.Parallel()
+	var gotID string
+	var gotErr error
+	c := newMCPAppCapability(stdioManifest("broken", "/nonexistent/mcp-bin"))
+	c.dialErrLog = func(id string, err error) { gotID = id; gotErr = err }
+	_, err := c.VisitorBinding(context.Background(), grantInput("broken"))
+	require.ErrorIs(t, err, capreg.ErrHidden)
+	require.Equal(t, "broken", gotID, "dial failure must report the cap id")
+	require.Error(t, gotErr, "dial failure must report the underlying error")
+
+	// 干净的「0 tool」是合法隐藏，不触发 dialErrLog。
+	m := stdioManifest("empty", buildPluginMock(t))
+	m.Transport.Env = map[string]string{"MOCK_MCP_NO_TOOLS": "1"}
+	c2 := newMCPAppCapability(m)
+	fired := false
+	c2.dialErrLog = func(string, error) { fired = true }
+	_, err2 := c2.VisitorBinding(context.Background(), grantInput("empty"))
+	require.ErrorIs(t, err2, capreg.ErrHidden)
+	require.False(t, fired, "a clean no-tools hide must NOT fire dialErrLog")
 }

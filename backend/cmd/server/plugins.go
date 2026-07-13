@@ -53,9 +53,18 @@ func registerBuiltins(d *runtimeDeps, hooks map[string]usecases.CapHooks) {
 		mailSenderManifest(),
 	}
 	dupes := usecases.RegisterDiscoveredPluginsHooked(
-		d.agentSkills, manifests, capreg.OriginBuiltin, hooks)
+		d.agentSkills, manifests, capreg.OriginBuiltin, hooks, d.capDialErrLog())
 	for _, id := range dupes {
 		d.log.Warn("builtin register skipped (duplicate id)", "id", id)
+	}
+}
+
+// capDialErrLog —— dial/list 失败(如 sandbox 起不来)在折成 ErrHidden 前把真因响出来。
+// builtin(retrieval 等)与第三方插件共用。F-A-1:prod bwrap 起不来曾静默 0 工具。
+func (d *runtimeDeps) capDialErrLog() func(id string, err error) {
+	return func(id string, err error) {
+		d.log.Warn("visitor capability failed to bind — hidden from this session",
+			"cap", id, "err", err)
 	}
 }
 
@@ -206,7 +215,7 @@ func registerPluginSource(
 			"id", res.Skipped[i].ID, "reason", res.Skipped[i].Reason)
 	}
 	kept := keepResolvableDeps(d, res.Manifests, depReg)
-	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, kept, origin)
+	dupes := usecases.RegisterDiscoveredPlugins(d.agentSkills, kept, origin, d.capDialErrLog())
 	for _, id := range dupes {
 		d.log.Warn("plugin register skipped (duplicate id)", "id", id)
 	}

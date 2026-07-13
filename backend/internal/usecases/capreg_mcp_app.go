@@ -37,7 +37,11 @@ type mcpAppCapability struct {
 	// 内部 ACL 拦）。nil = 恒活跃（默认）。跟 gate（控 tool 暴露）正交。
 	fragmentGate func(*capreg.AssembleInput) bool
 	stateHook    StateHook
-	m            mcpplugin.Manifest
+	// dialErrLog —— composition root 注入：dial/list 失败(如 sandbox 起不来)本会静默
+	// 折成 ErrHidden(优雅降级,不阻塞 chat),这里在折之前把真因响出来(F-A-1:prod bwrap
+	// 起不来 → retrieval 静默 0 工具,日志查无此事)。nil = 静默(老行为)。
+	dialErrLog func(id string, err error)
+	m          mcpplugin.Manifest
 }
 
 // StateHook —— 给某能力的 CapabilityState 补 host 侧算出来的字段（booker: quota_remaining）。
@@ -70,8 +74,9 @@ func newMCPAppCapability(m *mcpplugin.Manifest) *mcpAppCapability {
 // 插件 panic 整个 boot。
 func RegisterDiscoveredPlugins(
 	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
+	dialErrLog func(id string, err error),
 ) []string {
-	return RegisterDiscoveredPluginsHooked(reg, manifests, origin, nil)
+	return RegisterDiscoveredPluginsHooked(reg, manifests, origin, nil, dialErrLog)
 }
 
 // RegisterDiscoveredPluginsHooked —— RegisterDiscoveredPlugins + 给特定 ID 的插件挂
@@ -80,11 +85,12 @@ func RegisterDiscoveredPlugins(
 // 做 corpus-scope 的 prompt/enabled 闸。hooks 为 nil / 无此 ID → 无额外钩子（默认）。
 func RegisterDiscoveredPluginsHooked(
 	reg *capreg.Registry, manifests []mcpplugin.Manifest, origin capreg.Origin,
-	hooks map[string]CapHooks,
+	hooks map[string]CapHooks, dialErrLog func(id string, err error),
 ) []string {
 	skipped := []string{}
 	for i := range manifests {
 		appCap := newMCPAppCapability(&manifests[i])
+		appCap.dialErrLog = dialErrLog
 		if h, ok := hooks[manifests[i].ID]; ok {
 			appCap.gate = h.Gate
 			appCap.fragmentGate = h.Fragment
@@ -168,7 +174,8 @@ func (c *mcpAppCapability) VisitorBinding(
 	if !expose {
 		return nil, capreg.ErrHidden
 	}
-	ds, derr := dialAndList(ctx, &c.m.Transport, provisionWorkspaceFor(&c.m, in.ConversationID))
+	ds, derr := dialAndList(ctx, &c.m.Transport, provisionWorkspaceFor(&c.m, in.ConversationID),
+		c.m.ID, c.dialErrLog)
 	if derr != nil {
 		return nil, derr
 	}
@@ -213,17 +220,34 @@ type dialedApp struct {
 // ErrHidden（隐藏，不阻塞 chat）；空 tool 时关掉会话不泄漏。
 func dialAndList(
 	ctx context.Context, t *mcpplugin.Transport, workspaceDir string,
+	id string, dialErrLog func(id string, err error),
 ) (*dialedApp, error) {
 	sess, err := dialMCPApp(ctx, t, workspaceDir)
 	if err != nil {
-		return nil, capreg.ErrHidden
+		// Infra failure (sandbox couldn't spawn, transport unreachable). Still hide
+		// so a broken plugin never blocks chat — but log the real cause first (F-A-1:
+		// this branch swallowed the prod bwrap error, leaving `tools:0` unexplained).
+		return nil, hideWithLog(dialErrLog, id, err)
 	}
 	tools, lerr := sess.ListTools(ctx)
-	if lerr != nil || len(tools) == 0 {
+	if lerr != nil {
+		sess.Close()
+		return nil, hideWithLog(dialErrLog, id, lerr)
+	}
+	if len(tools) == 0 { // a clean, legitimate "no tools" — hide quietly, not an error
 		sess.Close()
 		return nil, capreg.ErrHidden
 	}
 	return &dialedApp{sess: sess, tools: tools}, nil
+}
+
+// hideWithLog —— dial/list 失败:先把真因喂给 dialErrLog(nil 安全),再折成 ErrHidden
+// (优雅降级)。抽出来让 dialAndList 的 cyclo 不超标(每个错误分支收成一句)。
+func hideWithLog(dialErrLog func(id string, err error), id string, err error) error {
+	if dialErrLog != nil {
+		dialErrLog(id, err)
+	}
+	return capreg.ErrHidden
 }
 
 // exposable —— dial 前的两道门：ACL（role-grant）+ 可选 per-session SessionGate

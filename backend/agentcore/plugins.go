@@ -42,7 +42,7 @@ func registerDriverPlugins(reg *capreg.Registry, specs []PluginSpec) {
 	for i := range specs {
 		manifests = append(manifests, pluginManifest(&specs[i]))
 	}
-	usecases.RegisterDiscoveredPlugins(reg, manifests, capreg.OriginBuiltin)
+	usecases.RegisterDiscoveredPlugins(reg, manifests, capreg.OriginBuiltin, nil)
 }
 
 func pluginManifest(p *PluginSpec) mcpplugin.Manifest {
