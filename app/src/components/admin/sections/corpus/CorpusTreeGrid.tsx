@@ -31,7 +31,7 @@ interface Props<T extends RowRef> {
   // output). Absent → the client-side forest / simple grid over already-loaded rows
   // (writings, until it gets lazy + paged endpoints of its own).
   loadChildren?: (parentID: string) => Promise<T[]>;
-  gridSource?: { genre: string; schema: z.ZodType<T> };
+  gridSource?: { pagePath: string; schema: z.ZodType<T> };
   renderCard: (row: T, meta: CardMeta) => ReactNode;
 }
 
@@ -42,7 +42,7 @@ export function CorpusTreeGrid<T extends RowRef>(props: Props<T>) {
 function GridBody<T extends RowRef>(props: Props<T>) {
   return props.gridSource ? (
     <VirtualCardGrid
-      genre={props.gridSource.genre} itemSchema={props.gridSource.schema}
+      pagePath={props.gridSource.pagePath} itemSchema={props.gridSource.schema}
       testid={props.testid} rowTestid={props.rowTestid} renderCard={props.renderCard}
     />
   ) : <Grid {...props} />;

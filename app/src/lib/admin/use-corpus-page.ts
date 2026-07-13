@@ -18,7 +18,7 @@ export interface CorpusPage<T> {
   loadMore: () => void;
 }
 
-export function useCorpusPage<T>(genre: string, itemSchema: z.ZodType<T>): CorpusPage<T> {
+export function useCorpusPage<T>(pagePath: string, itemSchema: z.ZodType<T>): CorpusPage<T> {
   const epoch = useCorpusEpoch();
   const [items, setItems] = useState<T[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -37,7 +37,7 @@ export function useCorpusPage<T>(genre: string, itemSchema: z.ZodType<T>): Corpu
     const cur = reset ? undefined : cursorRef.current;
     const qs = cur ? `?cursor=${encodeURIComponent(cur)}` : '';
     try {
-      const resp = await adminAPI.get(`/corpus/${genre}/page${qs}`, respSchema);
+      const resp = await adminAPI.get(`${pagePath}${qs}`, respSchema);
       cursorRef.current = resp.next_cursor;
       setHasMore(Boolean(resp.next_cursor));
       setItems((prev) => (reset ? resp.items : [...prev, ...resp.items]));
@@ -45,7 +45,7 @@ export function useCorpusPage<T>(genre: string, itemSchema: z.ZodType<T>): Corpu
       busyRef.current = false;
       setLoading(false);
     }
-  }, [genre, respSchema]);
+  }, [pagePath, respSchema]);
 
   // (re)load the first page on mount + whenever the corpus mutates (epoch bump).
   useEffect(() => {

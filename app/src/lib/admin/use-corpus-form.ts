@@ -17,9 +17,11 @@ export interface CorpusFormHook {
   title: string;
   body: string;
   tagsRaw: string;
+  parentID: string;
   setTitle: (v: string) => void;
   setBody: (v: string) => void;
   setTagsRaw: (v: string) => void;
+  setParentID: (v: string) => void;
   // 派生：当前不能 submit 的原因 ('' = 可以)
   submitDisabledReason: (busy: boolean, bodyVisible: boolean) => boolean;
   toEntryInput: (bodyVisible: boolean) => CorpusEntryInput;
@@ -31,17 +33,19 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
   const [title, setTitle] = useState(seed.title);
   const [body, setBody] = useState(seed.body);
   const [tagsRaw, setTagsRaw] = useState(seed.tagsRaw);
+  const [parentID, setParentID] = useState(seed.parentID);
   const key = JSON.stringify(initial ?? {});
   useEffect(() => {
     const next = seedFromInitial(initial);
     setTitle(next.title);
     setBody(next.body);
     setTagsRaw(next.tagsRaw);
+    setParentID(next.parentID);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   return {
-    title, body, tagsRaw,
-    setTitle, setBody, setTagsRaw,
+    title, body, tagsRaw, parentID,
+    setTitle, setBody, setTagsRaw, setParentID,
     submitDisabledReason: useCallback(
       (busy: boolean, bodyVisible: boolean) =>
         submitDisabled(busy, bodyVisible, title, body),
@@ -52,8 +56,9 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
         title: title.trim(),
         body: bodyVisible ? body : '',
         tags: parseTags(tagsRaw),
+        parent_id: parentID === '' ? undefined : parentID,
       }),
-      [title, body, tagsRaw],
+      [title, body, tagsRaw, parentID],
     ),
     toPromoteInput: useCallback(
       () => ({ title: title.trim(), tags: parseTags(tagsRaw) }),
@@ -66,6 +71,7 @@ interface Seed {
   title: string;
   body: string;
   tagsRaw: string;
+  parentID: string;
 }
 
 function seedFromInitial(initial?: Partial<CorpusEntryInput>): Seed {
@@ -73,6 +79,7 @@ function seedFromInitial(initial?: Partial<CorpusEntryInput>): Seed {
     title: initial?.title ?? '',
     body: initial?.body ?? '',
     tagsRaw: (initial?.tags ?? []).join(', '),
+    parentID: initial?.parent_id ?? '',
   };
 }
 

@@ -14,8 +14,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-const genreRaw = "raw"
-
 // TreeChild —— one lazy-tree layer node: the full domain entry + its root→leaf title
 // chain (slugified into the address at the route layer) + whether it can be drilled
 // into. Generic over the genre's domain type.
@@ -73,4 +71,11 @@ func (r *RawRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,
 ) ([]TreeChild[domain.Raw], error) {
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreRaw}, toDomainRaw)
+}
+
+// ListChildrenTree —— one lazy layer of the writings tree (genre='writing' corpus_notes).
+func (r *WritingRepo) ListChildrenTree(
+	ctx context.Context, ownerID string, parentID *string,
+) ([]TreeChild[domain.Writing], error) {
+	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreWriting}, toDomainWriting)
 }

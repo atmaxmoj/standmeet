@@ -20,7 +20,7 @@ interface RowRef {
 }
 
 interface Props<T extends RowRef> {
-  genre: string;
+  pagePath: string;
   itemSchema: z.ZodType<T>;
   testid: string;
   rowTestid: (row: T) => string;
@@ -28,9 +28,9 @@ interface Props<T extends RowRef> {
 }
 
 export function VirtualCardGrid<T extends RowRef>({
-  genre, itemSchema, testid, rowTestid, renderCard,
+  pagePath, itemSchema, testid, rowTestid, renderCard,
 }: Props<T>) {
-  const page = useCorpusPage(genre, itemSchema);
+  const page = useCorpusPage(pagePath, itemSchema);
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowCount = Math.ceil(page.items.length / COLS);
   const virtualizer = useVirtualizer({

@@ -9,7 +9,7 @@ import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Chip } from '@/components/admin/atoms/Chip';
-import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import { CorpusEntryForm, corpusParentOptions } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/WikiRowForms';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
@@ -52,7 +52,7 @@ function Header({ hook, actions }: { hook: WikiHook; actions: CorpusActionsHook 
       />
       {creating ? (
         <div className="mb-6">
-          <CreateForm actions={actions} onDone={() => setCreating(false)} />
+          <CreateForm actions={actions} rows={hook.rows} onDone={() => setCreating(false)} />
         </div>
       ) : null}
     </>
@@ -71,7 +71,9 @@ function NewBtn({ onClick, disabled }: { onClick: () => void; disabled: boolean 
   );
 }
 
-function CreateForm({ actions, onDone }: { actions: CorpusActionsHook; onDone: () => void }) {
+function CreateForm({
+  actions, rows, onDone,
+}: { actions: CorpusActionsHook; rows: readonly WikiSummary[]; onDone: () => void }) {
   const toast = useToast();
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.createWiki(input),
@@ -82,6 +84,7 @@ function CreateForm({ actions, onDone }: { actions: CorpusActionsHook; onDone: (
       busy={actions.pending}
       submitLabel="create"
       testidPrefix="wiki-create"
+      parentOptions={corpusParentOptions(rows)}
       onSubmit={onSubmit}
       onCancel={onDone}
     />
@@ -122,7 +125,7 @@ function ReadyBody({
         view={view} rows={shown} testid="wiki-list"
         rowTestid={(r) => `wiki-row-${r.id}`}
         loadChildren={loadWikiTreeChildren}
-        gridSource={activeTag === null ? { genre: 'wiki', schema: WikiSummarySchema } : undefined}
+        gridSource={activeTag === null ? { pagePath: '/corpus/wiki/page', schema: WikiSummarySchema } : undefined}
         renderCard={(row, { hasChildren }) => (
           <WikiCard
             entry={row} actions={actions}
@@ -248,7 +251,7 @@ function WikiTagsAndMeta({ entry }: { entry: WikiSummary }) {
   return (
     <div className="flex justify-between items-baseline mt-2 flex-wrap gap-2">
       <WikiTags tags={entry.tags} />
-      <WikiMeta sources={entry.source_raw_ids.length} createdAt={entry.created_at} />
+      <WikiMeta createdAt={entry.created_at} />
     </div>
   );
 }
@@ -261,10 +264,10 @@ function WikiTags({ tags }: { tags: readonly string[] }) {
   );
 }
 
-function WikiMeta({ sources, createdAt }: { sources: number; createdAt: string }) {
+function WikiMeta({ createdAt }: { createdAt: string }) {
   return (
     <span className="mono text-[9.5px] tracking-[0.06em] text-(--color-faint)">
-      {sources} {sources === 1 ? 'source' : 'sources'} · {formatDate(createdAt)}
+      {formatDate(createdAt)}
     </span>
   );
 }

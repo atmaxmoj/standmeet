@@ -13,7 +13,7 @@ import styles from '@/components/admin/sections/OutputSection.module.css';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { useCorpusView } from '@/lib/admin/corpus-view';
-import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import { CorpusEntryForm, corpusParentOptions } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
@@ -55,7 +55,7 @@ function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHoo
       />
       {creating ? (
         <div className="mb-6">
-          <CreateForm actions={actions} onDone={() => setCreating(false)} />
+          <CreateForm actions={actions} rows={hook.rows} onDone={() => setCreating(false)} />
         </div>
       ) : null}
     </>
@@ -96,7 +96,9 @@ function NewBtnGroup({ onClick, disabled }: { onClick: () => void; disabled: boo
   );
 }
 
-function CreateForm({ actions, onDone }: { actions: CorpusActionsHook; onDone: () => void }) {
+function CreateForm({
+  actions, rows, onDone,
+}: { actions: CorpusActionsHook; rows: readonly OutputSummary[]; onDone: () => void }) {
   const toast = useToast();
   const onSubmit = (input: CorpusEntryInput) => void runWith(
     () => actions.createOutput(input),
@@ -107,6 +109,7 @@ function CreateForm({ actions, onDone }: { actions: CorpusActionsHook; onDone: (
       busy={actions.pending}
       submitLabel="create"
       testidPrefix="output-create"
+      parentOptions={corpusParentOptions(rows)}
       onSubmit={onSubmit}
       onCancel={onDone}
     />
@@ -136,7 +139,7 @@ function OutputList({ rows, actions }: { rows: readonly OutputSummary[]; actions
         view={view} rows={rows} testid="output-list"
         rowTestid={(r) => `output-row-${r.id}`}
         loadChildren={loadOutputTreeChildren}
-        gridSource={{ genre: 'output', schema: OutputSummarySchema }}
+        gridSource={{ pagePath: '/corpus/output/page', schema: OutputSummarySchema }}
         renderCard={(row) => <OutputCard entry={row} actions={actions} />}
       />
     </>
@@ -209,7 +212,6 @@ function CardBody({
 }: { entry: OutputSummary; actions: CorpusActionsHook; editing: boolean; setEditing: (b: boolean) => void }) {
   return (
     <div className="p-4">
-      <Provenance count={entry.source_wiki_ids.length} />
       <Tags tags={entry.tags} />
       <StatsRow />
       <CardFoot entry={entry} actions={actions} editing={editing} setEditing={setEditing} />
@@ -264,13 +266,6 @@ function FootActions({
   );
 }
 
-function Provenance({ count }: { count: number }) {
-  return count === 0 ? null : (
-    <p className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)">
-      ↑ promoted from {count} wiki {count === 1 ? 'entry' : 'entries'}
-    </p>
-  );
-}
 
 function Tags({ tags }: { tags: readonly string[] }) {
   return tags.length === 0 ? null : (

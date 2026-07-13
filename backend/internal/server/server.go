@@ -198,6 +198,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
 				Assets: deps.Admin.Assets,
 			},
+			Tree: deps.Admin.Writings.Writings,
 		},
 		Obsidian: adminroutes.ObsidianDeps{
 			Writings: deps.Admin.Writings.Writings,

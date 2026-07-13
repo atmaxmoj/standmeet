@@ -8,6 +8,19 @@
 import { useCorpusForm, type CorpusFormHook } from '@/lib/admin/use-corpus-form';
 import type { CorpusEntryInput, PromoteInput } from '@/lib/admin/use-corpus-actions';
 
+// CorpusParentOption —— 「挂在哪个节点下」下拉的一项(某条已有 entry)。
+export interface CorpusParentOption {
+  id: string;
+  label: string;
+}
+
+// corpusParentOptions —— rows → parent 候选。label 优先用树地址(path),否则 title。
+export function corpusParentOptions(
+  rows: readonly { id: string; title: string; path?: string | null }[],
+): CorpusParentOption[] {
+  return rows.map((r) => ({ id: r.id, label: r.path ?? r.title }));
+}
+
 export interface CorpusEntryFormProps {
   initial?: Partial<CorpusEntryInput>;
   busy: boolean;
@@ -16,6 +29,7 @@ export interface CorpusEntryFormProps {
   submitLabel: string;
   testidPrefix: string;
   bodyVisible?: boolean;
+  parentOptions?: readonly CorpusParentOption[];
 }
 
 export function CorpusEntryForm(props: CorpusEntryFormProps) {
@@ -29,6 +43,9 @@ export function CorpusEntryForm(props: CorpusEntryFormProps) {
       <TitleField form={form} testid={props.testidPrefix} />
       {bodyVisible ? <BodyField form={form} testid={props.testidPrefix} /> : null}
       <TagsField form={form} testid={props.testidPrefix} />
+      {props.parentOptions
+        ? <ParentField form={form} testid={props.testidPrefix} options={props.parentOptions} />
+        : null}
       <FormActions
         form={form} busy={props.busy} bodyVisible={bodyVisible}
         submitLabel={props.submitLabel} testid={props.testidPrefix}
@@ -116,6 +133,27 @@ function TagsField({ form, testid }: { form: CorpusFormHook; testid: string }) {
         data-testid={`${testid}-tags`}
         className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
       />
+    </label>
+  );
+}
+
+function ParentField({
+  form, testid, options,
+}: { form: CorpusFormHook; testid: string; options: readonly CorpusParentOption[] }) {
+  return (
+    <label className="block">
+      <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
+        parent node (optional)
+      </span>
+      <select
+        value={form.parentID}
+        onChange={(e) => form.setParentID(e.target.value)}
+        data-testid={`${testid}-parent`}
+        className="w-full bg-transparent border-b border-(--color-rule) py-1.5 mono text-[12px]"
+      >
+        <option value="">— none (root) —</option>
+        {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>
     </label>
   );
 }

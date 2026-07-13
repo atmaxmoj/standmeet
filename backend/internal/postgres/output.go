@@ -16,9 +16,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// genreOutput —— corpus_notes.genre 里 output 层的判别值。
-const genreOutput = "output"
-
 // OutputRepo —— corpus_notes(genre='output') CRUD + path induce。
 type OutputRepo struct {
 	pool *Pool

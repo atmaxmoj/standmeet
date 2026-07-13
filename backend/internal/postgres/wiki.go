@@ -16,9 +16,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
 
-// genreWiki —— corpus_notes.genre 里 wiki 层的判别值。
-const genreWiki = "wiki"
-
 // WikiRepo —— corpus_notes(genre='wiki') CRUD + path induce。
 type WikiRepo struct {
 	pool *Pool

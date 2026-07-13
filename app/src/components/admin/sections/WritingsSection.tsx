@@ -20,7 +20,8 @@ import {
   type WritingFormValues, type WritingFormSubmit, type ParentOption,
 } from '@/components/admin/sections/writings/WritingForm';
 import {
-  useWritings, type WritingsHook, type AdminWritingView,
+  useWritings, loadWritingTreeChildren, AdminWritingViewSchema,
+  type WritingsHook, type AdminWritingView,
   type WritingSaveBundle, type WritingSaveData,
 } from '@/lib/admin/use-writings';
 import { useAction } from '@/lib/ui/use-action';
@@ -134,6 +135,8 @@ function WritingList({ hook, onEdit }: { hook: WritingsHook; onEdit: EditFn }) {
       <CorpusTreeGrid
         view={view} rows={hook.writings} testid="writing-list"
         rowTestid={(w) => `writing-row-${w.slug}`}
+        loadChildren={loadWritingTreeChildren}
+        gridSource={{ pagePath: '/writings/page', schema: AdminWritingViewSchema }}
         renderCard={(row) => <WritingCard writing={row} hook={hook} onEdit={onEdit} />}
       />
     </>

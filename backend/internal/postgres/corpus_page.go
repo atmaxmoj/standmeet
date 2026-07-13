@@ -93,3 +93,11 @@ func (r *RawRepo) ListPage(
 ) ([]TreeChild[domain.Raw], error) {
 	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreRaw, limit}, toDomainRaw)
 }
+
+// ListPage —— one grid page of writings (genre='writing').
+func (r *WritingRepo) ListPage(
+	ctx context.Context, ownerID string, cursor *PageCursor, limit int32,
+) ([]TreeChild[domain.Writing], error) {
+	req := pageReq{r.pool, cursor, ownerID, genreWriting, limit}
+	return adminPageFetch(ctx, req, toDomainWriting)
+}

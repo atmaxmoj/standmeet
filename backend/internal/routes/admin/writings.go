@@ -28,6 +28,7 @@ const timeFmt = time.RFC3339
 type WritingsAdminDeps struct {
 	Writings   usecases.WritingsDeps
 	WritingsTx usecases.WritingsTxDeps
+	Tree       WritingsTreeProvider // lazy tree + grid pagination (concrete WritingRepo)
 }
 
 type writingView struct {
@@ -51,6 +52,7 @@ type writingView struct {
 	CrossRefs         []string          `json:"cross_refs"`
 	ReadMinutes       int32             `json:"read_minutes"`
 	Published         bool              `json:"published"`
+	HasChildren       bool              `json:"has_children,omitempty"`
 }
 
 // writingSaveRequest —— create + update 共用 JSON shape。WritingID 来自 URL，
@@ -75,6 +77,8 @@ type writingSaveRequest struct {
 func (h *Handlers) MountWritings(r chi.Router) {
 	r.Route("/writings", func(r chi.Router) {
 		r.Get("/", h.listAdminWritings())
+		r.Get("/tree", h.treeWritings())
+		r.Get("/page", h.pageWritings())
 		r.Post("/", h.createAdminWriting())
 		r.Patch("/{id}", h.updateAdminWriting())
 		r.Post("/{id}/publish", h.publishAdminWriting())

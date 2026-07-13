@@ -21,8 +21,15 @@ export const AdminWritingViewSchema = z.object({
   parent_id: z.string().optional(),
   published_at: z.string().optional(), created_at: z.string(), updated_at: z.string(),
   asset_urls: z.record(z.string(), z.string()).optional(),
+  has_children: z.boolean().optional(),
 });
 export type AdminWritingView = z.infer<typeof AdminWritingViewSchema>;
+
+// loadWritingTreeChildren —— one lazy layer of the writings tree (empty parent = roots).
+export function loadWritingTreeChildren(parentID: string): Promise<AdminWritingView[]> {
+  const qs = parentID ? `?parent=${encodeURIComponent(parentID)}` : '';
+  return adminAPI.get(`/writings/tree${qs}`, z.array(AdminWritingViewSchema));
+}
 
 // WritingSaveData —— multipart POST/PATCH 的 `data` JSON 字段。create 用
 // publish + slug；edit 时 slug 是 URL，publish 不在这（走单独 endpoint）。
