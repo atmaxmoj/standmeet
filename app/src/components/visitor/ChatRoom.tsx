@@ -17,7 +17,6 @@ import Link from 'next/link';
 
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
-import { CorpusSearchBox } from '@/components/page/CorpusSearchBox';
 import { ChatTranscript, ChatProgress } from '@/components/visitor/ChatTranscript';
 import { useChatRoomDerived, useChatRoomInput } from '@/lib/visitor/chat-room-state';
 import { useConsumeQuestionFromURL } from '@/lib/page/consume-question-url';
@@ -49,7 +48,6 @@ export function ChatRoom({ owner, mode }: Props) {
           {/* scroll area: welcome + transcript scroll here; composer stays docked */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
             <ChatWelcome owner={owner} d={derived} />
-            <CorpusSearchBox />
             <ChatTranscript
               dialogs={ci.chat.dialogs} onAsk={ci.onAsk}
               conversationID={ci.chat.conversationID}
