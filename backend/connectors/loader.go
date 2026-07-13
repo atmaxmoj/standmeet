@@ -1,8 +1,8 @@
-// Package builtins —— 随产品发的内置连接器，**外置成数据**（data/*/ 里的 manifest + spec +
-// binding 文件），go:embed 进二进制、拉起时 Load 出来装配。跟 MCP 内建插件同构：host 代码里
-// **没有任何 gcal/smtp 字样**，契约只有这些数据文件 + 通用 runtime。内置与上传走同一个
-// connector.AssembleOpenAPI / NewSMTPConnector，只是 manifest 数据来源不同（这里是 bundled）。
-package builtins
+// loader.go —— 读出所有内置连接器 manifest（拉起时调一次）。数据文件在本目录的
+// <id>/ 子目录里（google-calendar/ smtp/ bearer-api/），go:embed 进二进制。
+// (Package doc lives in embed.go.)
+
+package connectors
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ type descriptor struct {
 
 // Load —— 读出所有内置连接器 manifest（拉起时调一次）。
 func Load() ([]connector.Manifest, error) {
-	entries, err := fs.ReadDir(dataFS, "data")
+	entries, err := fs.ReadDir(builtinFS, ".")
 	if err != nil {
 		return nil, fmt.Errorf("read builtin connectors dir: %w", err)
 	}
@@ -47,7 +47,7 @@ func Load() ([]connector.Manifest, error) {
 
 // loadOne —— 读一个内置连接器目录：descriptor + 引用的 spec/binding 文件。
 func loadOne(dir string) (connector.Manifest, error) {
-	descRaw, err := dataFS.ReadFile(path.Join("data", dir, "manifest.yaml"))
+	descRaw, err := builtinFS.ReadFile(path.Join(dir, "manifest.yaml"))
 	if err != nil {
 		return connector.Manifest{}, fmt.Errorf("read %s manifest: %w", dir, err)
 	}
@@ -68,14 +68,14 @@ func loadOne(dir string) (connector.Manifest, error) {
 // loadRefs —— 读 descriptor 引用的 spec/binding 文件进 manifest（openapi kind 才有）。
 func loadRefs(dir string, d *descriptor, m *connector.Manifest) error {
 	if d.Spec != "" {
-		raw, err := dataFS.ReadFile(path.Join("data", dir, d.Spec))
+		raw, err := builtinFS.ReadFile(path.Join(dir, d.Spec))
 		if err != nil {
 			return fmt.Errorf("read %s spec: %w", dir, err)
 		}
 		m.Spec = expandEnv(raw) // ${VAR:-default} 端点：prod 默认，e2e 指向 mock
 	}
 	if d.Binding != "" {
-		raw, err := dataFS.ReadFile(path.Join("data", dir, d.Binding))
+		raw, err := builtinFS.ReadFile(path.Join(dir, d.Binding))
 		if err != nil {
 			return fmt.Errorf("read %s binding: %w", dir, err)
 		}

@@ -2,7 +2,7 @@
 // 连接器（如 gcal）的端点 prod 默认指向真服务；e2e 把 GOOGLE_OAUTH_AUTH_URL / _TOKEN_URL /
 // GOOGLE_CALENDAR_BASE_URL 指向 mock-stack。占位语法只支持 `${NAME}` 与 `${NAME:-default}`。
 
-package builtins
+package connectors
 
 import (
 	"os"

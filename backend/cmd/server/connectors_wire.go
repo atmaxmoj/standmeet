@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/connectors"
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/connector/builtins"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -188,7 +188,7 @@ func ensureConnectorSlots(d *runtimeDeps) {
 func registerDiscoveredConnectors(
 	ctx context.Context, d *runtimeDeps, depReg *capreg.DepRegistry,
 ) error {
-	manifests, err := builtins.Load()
+	manifests, err := connectors.Load()
 	if err != nil {
 		return fmt.Errorf("load builtin connectors: %w", err)
 	}
@@ -295,7 +295,7 @@ func newAssembleDeps(repo *postgres.ConnectorRepo) *assembleDeps {
 // loadBuiltinConnectorManifests —— admin 路由要的内置 manifest（id→category/kind/spec）。
 // 拉起时读一次（embed），失败 → 空（连接器 admin 面空，不挂整个 server）。
 func loadBuiltinConnectorManifests(d *runtimeDeps) []connector.Manifest {
-	manifests, err := builtins.Load()
+	manifests, err := connectors.Load()
 	if err != nil {
 		d.log.Error("load builtin connector manifests", "err", err)
 		return []connector.Manifest{}

@@ -1,15 +1,15 @@
-// builtins_test.go —— 后端内部 UT：内置连接器数据拉起时真能 Load + 装配（不出服务边界，
+// loader_test.go —— 后端内部 UT：内置连接器数据拉起时真能 Load + 装配（不出服务边界，
 // 不打网络——只验 manifest 自洽 + AssembleOpenAPI 成功）。证明「外置成数据、拉起时组装」成立。
 
-package builtins_test
+package connectors_test
 
 import (
 	"context"
 	"net/http"
 	"testing"
 
+	"github.com/atmaxmoj/standmeet/connectors"
 	"github.com/atmaxmoj/standmeet/internal/connector"
-	"github.com/atmaxmoj/standmeet/internal/connector/builtins"
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
@@ -45,7 +45,7 @@ func mustFind(t *testing.T, ms []connector.Manifest, id string) connector.Manife
 
 func TestLoad_ReturnsBuiltinManifests(t *testing.T) {
 	t.Parallel()
-	ms, err := builtins.Load()
+	ms, err := connectors.Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -64,7 +64,7 @@ func assertManifest(t *testing.T, m *connector.Manifest, kind, category string) 
 
 func TestLoad_GcalAssemblesAtLaunch(t *testing.T) {
 	t.Parallel()
-	ms, err := builtins.Load()
+	ms, err := connectors.Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
