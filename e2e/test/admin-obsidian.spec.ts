@@ -1,9 +1,9 @@
-// admin-obsidian.spec.ts —— admin obsidian section: vault stats, import/export buttons.
+// admin-obsidian.spec.ts —— /admin/obsidian renders the REAL, functional import/export (F-L-1).
 //
-// 用户故事：
-//   1. vault stats 4-cell (mode / notes / size / last sync) renders
-//   2. "import vault zip" button visible
-//   3. "export corpus zip" button visible
+// The page used to be a dead mockup: a fake vault path + hardcoded stat cells (mode/notes/size/
+// last-sync) + two `<button>`s with no onClick. The old spec asserted those fake cells rendered —
+// false confidence. It now renders the shared ObsidianBar (the same working folder-picker +
+// export the writings section uses). These guards assert the actions are real, not dead.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -25,22 +25,25 @@ test.describe('admin obsidian section', () => {
     await initOwner(playwright);
   });
 
-  test('vault stats cells render',
+  test('renders the real ObsidianBar (folder picker), not the dead mockup (F-L-1)',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'obsidian');
       await adminPage.waitForURL('**/admin/obsidian', { timeout: 5_000 });
-      await expect(adminPage.getByTestId('vault-stat-mode')).toBeVisible();
+      // The real, functional component + its vault-folder <input> — the mockup had neither.
+      await expect(adminPage.getByTestId('obsidian-bar')).toBeVisible();
+      await expect(adminPage.getByTestId('obsidian-vault-input')).toBeAttached();
+      // The old fake stat cell is gone (it implied a live-synced vault that never existed).
+      await expect(adminPage.getByTestId('vault-stat-mode')).toHaveCount(0);
     });
 
-  test('import + export buttons visible',
+  test('the export button actually downloads the corpus vault (F-L-1)',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'obsidian');
-      await expect(
-        adminPage.getByRole('button', { name: /import/i }),
-      ).toBeVisible();
-      await expect(
-        adminPage.getByRole('button', { name: /export/i }),
-      ).toBeVisible();
+      await expect(adminPage.getByTestId('obsidian-bar')).toBeVisible();
+      // A dead button fires no download; the real one hits GET /obsidian/export → a .zip.
+      const download = adminPage.waitForEvent('download', { timeout: 10_000 });
+      await adminPage.getByRole('button', { name: /export/i }).click();
+      expect((await download).suggestedFilename()).toMatch(/\.zip$/);
     });
 });
 
