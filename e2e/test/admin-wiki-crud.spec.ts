@@ -9,7 +9,7 @@
 //   5. SEO edit → slug / description / indexed toggle
 
 import { test, expect } from '@/fixtures/test';
-import type { Playwright } from '@playwright/test';
+import type { Page, Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -61,7 +61,48 @@ test.describe('admin wiki CRUD extended', () => {
       await expect(adminPage.getByText('Promoted Output from Wiki'))
         .toBeVisible({ timeout: 15_000 });
     });
+
+  test('new entry with a parent → nests under the chosen node',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'wiki');
+      // create a root anchor
+      await createEntry(adminPage, 'Parent Anchor', '');
+      const parentID = await entryID(adminPage, 'Parent Anchor');
+      expect(parentID, 'anchor created').toBeTruthy();
+      // create a child, selecting the anchor in the parent picker
+      await createEntry(adminPage, 'Child Under Anchor', parentID);
+      // the child's parent_id is the anchor.
+      const list = await wikiList(adminPage);
+      const child = list.find((e) => e.title === 'Child Under Anchor');
+      expect(child?.parent_id, 'child nested under the chosen parent').toBe(parentID);
+    });
 });
+
+const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+interface WikiRow { id: string; title: string; parent_id?: string | null }
+
+async function wikiList(adminPage: Page): Promise<WikiRow[]> {
+  const res = await adminPage.request.get(`${BACKEND}/api/admin/corpus/wiki?limit=200`);
+  return await res.json() as WikiRow[];
+}
+
+async function entryID(adminPage: Page, title: string): Promise<string> {
+  const list = await wikiList(adminPage);
+  return list.find((e) => e.title === title)?.id ?? '';
+}
+
+async function createEntry(
+  adminPage: Page, title: string, parentID: string,
+): Promise<void> {
+  await adminPage.getByTestId('wiki-new-btn').click();
+  await adminPage.getByTestId('wiki-create-title').fill(title);
+  await adminPage.getByTestId('wiki-create-body').fill(`body of ${title}`);
+  await (parentID === ''
+    ? Promise.resolve()
+    : adminPage.getByTestId('wiki-create-parent').selectOption(parentID));
+  await adminPage.getByTestId('wiki-create-submit').click();
+  await expect(adminPage.getByText('Wiki created')).toBeVisible({ timeout: 5_000 });
+}
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
