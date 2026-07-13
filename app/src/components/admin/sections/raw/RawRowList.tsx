@@ -11,6 +11,7 @@ import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGri
 import { PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { useCorpusView } from '@/lib/admin/corpus-view';
 import { cleanCorpusExcerpt } from '@/lib/admin/corpus-tree';
+import { loadRawTreeChildren } from '@/lib/admin/use-raw';
 import {
   useCorpusActions,
   type CorpusActionsHook,
@@ -35,6 +36,7 @@ export function RawRowList({ rows }: Props) {
       <CorpusTreeGrid
         view={view} rows={rows} testid="raw-list"
         rowTestid={(r) => `raw-row-${r.id}`}
+        loadChildren={loadRawTreeChildren}
         renderCard={(row, { hasChildren }) => (
           <RawRow row={row} actions={actions} hasChildren={hasChildren} />
         )}

@@ -1,18 +1,21 @@
-// CorpusTreeGrid —— shared tree ⇄ grid body for all four corpus genres. Given a view
-// mode + flat rows, renders either the depth-indented hierarchy (tree) or the flat
-// 2-col card wall (grid), delegating each card to the caller's renderCard. Centralises
-// the one data-driven inline-margin (the only place the tree indent lives).
+// CorpusTreeGrid —— shared body for all four corpus genres. Given a view mode it renders
+// either the lazy hierarchy (CorpusLazyTree: fetches one level per expanded node, never
+// the whole corpus) or the flat 2-col card wall (grid), delegating each card to the
+// caller's renderCard. The grid still takes the already-loaded rows; the tree is driven
+// by loadChildren(parentID) so it stays scale-safe.
 
 'use client';
 
 import type { ReactNode } from 'react';
 
+import { CorpusLazyTree } from '@/components/admin/sections/corpus/CorpusLazyTree';
 import { buildCorpusForest } from '@/lib/admin/corpus-tree';
 import type { CorpusView } from '@/lib/admin/corpus-view';
 
 interface RowRef {
   id: string;
   parent_id?: string | null;
+  has_children?: boolean;
 }
 
 type CardMeta = { depth: number; hasChildren: boolean };
@@ -22,14 +25,29 @@ interface Props<T> {
   rows: readonly T[];
   testid: string;
   rowTestid: (row: T) => string;
+  // loadChildren present → lazy per-level tree (raw/wiki/output). Absent → the
+  // client-side forest over already-loaded rows (writings, until it gets a lazy
+  // endpoint of its own).
+  loadChildren?: (parentID: string) => Promise<T[]>;
   renderCard: (row: T, meta: CardMeta) => ReactNode;
 }
 
 export function CorpusTreeGrid<T extends RowRef>(props: Props<T>) {
-  return props.view === 'tree' ? <Tree {...props} /> : <Grid {...props} />;
+  return props.view === 'tree' ? <TreeBody {...props} /> : <Grid {...props} />;
 }
 
-function Tree<T extends RowRef>({ rows, testid, rowTestid, renderCard }: Props<T>) {
+function TreeBody<T extends RowRef>(props: Props<T>) {
+  return props.loadChildren ? (
+    <CorpusLazyTree
+      load={props.loadChildren} testid={props.testid}
+      rowTestid={props.rowTestid} renderCard={props.renderCard}
+    />
+  ) : <ForestTree {...props} />;
+}
+
+// ForestTree —— client-side hierarchy over the already-loaded rows (fallback for genres
+// without a lazy endpoint yet). Indent is data-driven, so the one sanctioned inline style.
+function ForestTree<T extends RowRef>({ rows, testid, rowTestid, renderCard }: Props<T>) {
   return (
     <div className="flex flex-col gap-y-2" data-testid={testid}>
       {buildCorpusForest(rows).map(({ row, depth, hasChildren }) => (
@@ -52,7 +70,7 @@ function Grid<T extends RowRef>({ rows, testid, rowTestid, renderCard }: Props<T
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-6" data-testid={testid}>
       {rows.map((row) => (
         <div key={row.id} data-testid={rowTestid(row)}>
-          {renderCard(row, { depth: 0, hasChildren: false })}
+          {renderCard(row, { depth: 0, hasChildren: row.has_children ?? false })}
         </div>
       ))}
     </div>

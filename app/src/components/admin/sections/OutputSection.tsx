@@ -23,7 +23,7 @@ import {
   type SEOUpdateInput,
 } from '@/lib/admin/use-corpus-actions';
 import {
-  pickOutputBodyState, useOutput,
+  pickOutputBodyState, useOutput, loadOutputTreeChildren,
   type OutputHook, type OutputSummary,
 } from '@/lib/admin/use-output';
 import { useOutputDetail } from '@/lib/admin/use-corpus-detail';
@@ -135,6 +135,7 @@ function OutputList({ rows, actions }: { rows: readonly OutputSummary[]; actions
       <CorpusTreeGrid
         view={view} rows={rows} testid="output-list"
         rowTestid={(r) => `output-row-${r.id}`}
+        loadChildren={loadOutputTreeChildren}
         renderCard={(row) => <OutputCard entry={row} actions={actions} />}
       />
     </>

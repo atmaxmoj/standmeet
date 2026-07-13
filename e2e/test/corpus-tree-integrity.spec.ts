@@ -172,6 +172,10 @@ async function visitorRead(
 // 级联(DB ON DELETE CASCADE)父+子一起没。
 async function deleteGrandparentCascades({ adminPage }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(adminPage, 'wiki');
+  // Grid view renders every loaded row flat (the tree view is lazy — parent/child
+  // stay collapsed until expanded). This UI test wants all three rows on screen to
+  // drive the delete + assert the cascade, so switch to grid.
+  await adminPage.getByTestId('corpus-view-grid').click();
   await expect(adminPage.getByTestId(`wiki-row-${grandparentID}`)).toBeVisible({
     timeout: 5_000,
   });

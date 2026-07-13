@@ -35,6 +35,9 @@ func (h *Handlers) MountCorpus(r chi.Router) {
 	r.Get("/corpus/{genre}", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.listRaw(), "wiki": h.listWiki(), "output": h.listOutput(),
 	}))
+	r.Get("/corpus/{genre}/tree", h.byGenre(map[string]http.HandlerFunc{
+		"raw": h.treeRaw(), "wiki": h.treeWiki(), "output": h.treeOutput(),
+	}))
 	r.Post("/corpus/{genre}", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.createRaw(), "wiki": h.createWiki(), "output": h.createOutput(),
 	}))
@@ -118,6 +121,8 @@ type rawListItem struct {
 	Source    string   `json:"source"`
 	Status    string   `json:"status"`
 	Tags      []string `json:"tags"`
+	// HasChildren —— tree view only: this node can be drilled into (lazy layer).
+	HasChildren bool `json:"has_children,omitempty"`
 }
 
 type wikiListItem struct {
@@ -131,6 +136,7 @@ type wikiListItem struct {
 	SourceRawIDs []string `json:"source_raw_ids"`
 	ShowAsSource bool     `json:"show_as_source"`
 	Published    bool     `json:"published"`
+	HasChildren  bool     `json:"has_children,omitempty"`
 }
 
 func (h *Handlers) listRaw() http.HandlerFunc {

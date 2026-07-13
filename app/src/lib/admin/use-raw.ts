@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { z } from 'zod';
 import { adminAPI, RawAdminViewSchema, type CreateRawInput, type RawAdminView } from '@/lib/api/admin';
+import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
 import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -24,6 +25,12 @@ export interface RawHook {
   submitting: boolean;
   submitError: string | null;
   addRaw: (input: CreateRawInput) => Promise<boolean>;
+}
+
+// loadRawTreeChildren —— one lazy layer of the raw inbox tree (empty parent = roots).
+export function loadRawTreeChildren(parentID: string): Promise<RawAdminView[]> {
+  const qs = parentID ? `?parent=${encodeURIComponent(parentID)}` : '';
+  return adminAPI.get(`/corpus/raw/tree${qs}`, z.array(RawAdminViewSchema));
 }
 
 export const rawStore = createResourceStore<RawAdminView[]>({
@@ -87,6 +94,7 @@ async function doAddRaw(
   try {
     const created = await adminAPI.post('/corpus/raw', input, RawAdminViewSchema);
     rawStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+    bumpCorpusEpoch(); // dump bypasses useCorpusActions — bump so the lazy tree refetches
     return true;
   } catch (e) {
     setErr(e instanceof Error ? e.message : 'dump failed');

@@ -15,8 +15,16 @@ export const WikiSummarySchema = z.object({
   source_raw_ids: z.array(z.string()), created_at: z.string(),
   parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
   show_as_source: z.boolean(), published: z.boolean(),
+  // tree view only: this node can be drilled into (lazy layer).
+  has_children: z.boolean().optional(),
 });
 export type WikiSummary = z.infer<typeof WikiSummarySchema>;
+
+// loadWikiTreeChildren —— one lazy layer of the wiki tree (empty parent = roots).
+export function loadWikiTreeChildren(parentID: string): Promise<WikiSummary[]> {
+  const qs = parentID ? `?parent=${encodeURIComponent(parentID)}` : '';
+  return adminAPI.get(`/corpus/wiki/tree${qs}`, z.array(WikiSummarySchema));
+}
 
 export type WikiBodyState = 'loading' | 'error' | 'empty' | 'list';
 

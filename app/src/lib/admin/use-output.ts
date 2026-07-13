@@ -15,8 +15,15 @@ export const OutputSummarySchema = z.object({
   source_wiki_ids: z.array(z.string()), created_at: z.string(),
   parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
   show_as_source: z.boolean(), published: z.boolean(),
+  has_children: z.boolean().optional(),
 });
 export type OutputSummary = z.infer<typeof OutputSummarySchema>;
+
+// loadOutputTreeChildren —— one lazy layer of the output tree (empty parent = roots).
+export function loadOutputTreeChildren(parentID: string): Promise<OutputSummary[]> {
+  const qs = parentID ? `?parent=${encodeURIComponent(parentID)}` : '';
+  return adminAPI.get(`/corpus/output/tree${qs}`, z.array(OutputSummarySchema));
+}
 
 export type OutputBodyState = 'loading' | 'error' | 'empty' | 'list';
 

@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 import { z } from 'zod';
 
 import { adminAPI, RawAdminViewSchema } from '@/lib/api/admin';
+import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
 
 import { outputStore, OutputSummarySchema } from '@/lib/admin/use-output';
 import { rawStore } from '@/lib/admin/use-raw';
@@ -151,6 +152,7 @@ function makeRun(
     setError(null);
     try {
       await fn();
+      bumpCorpusEpoch(); // invalidate the lazy tree's cached levels after any mutation
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'request failed');

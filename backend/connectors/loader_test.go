@@ -33,7 +33,7 @@ func TestLoad_GCalScopesAreFullURLs(t *testing.T) {
 		"https://www.googleapis.com/auth/calendar.events",
 	} {
 		if !strings.Contains(spec, full) {
-			t.Errorf("gcal spec missing full-URL scope %q (bare names → Google invalid_scope)", full)
+			t.Errorf("gcal spec missing full-URL scope %q (bare names → invalid_scope)", full)
 		}
 	}
 }

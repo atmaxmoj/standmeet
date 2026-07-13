@@ -11,6 +11,31 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countNoteDescendants = `-- name: CountNoteDescendants :one
+WITH RECURSIVE sub AS (
+  SELECT cn.id FROM corpus_notes cn
+  WHERE cn.parent_id = $2 AND cn.owner_id = $1 AND cn.genre = $3
+  UNION ALL
+  SELECT n.id FROM corpus_notes n JOIN sub ON n.parent_id = sub.id
+)
+SELECT count(*) FROM sub
+`
+
+type CountNoteDescendantsParams struct {
+	OwnerID  pgtype.UUID
+	ParentID pgtype.UUID
+	Genre    string
+}
+
+// Exact recursive descendant count for one node — the delete-cascade warning
+// ("also deletes its N child entries"). On-demand (one user action), not per level.
+func (q *Queries) CountNoteDescendants(ctx context.Context, arg CountNoteDescendantsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countNoteDescendants, arg.OwnerID, arg.ParentID, arg.Genre)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countNoteStats = `-- name: CountNoteStats :one
 SELECT
   count(*) AS entries,
@@ -621,6 +646,94 @@ func (q *Queries) ListNoteChildren(ctx context.Context, arg ListNoteChildrenPara
 			&i.Title,
 			&i.Published,
 			&i.HasChildren,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNoteChildrenAdmin = `-- name: ListNoteChildrenAdmin :many
+WITH RECURSIVE up AS (
+  SELECT c.id AS leaf_id, c.id, c.parent_id, ARRAY[c.title]::text[] AS path_titles
+  FROM corpus_notes c
+  WHERE c.owner_id = $1 AND c.genre = $2
+    AND (($3::uuid IS NULL AND c.parent_id IS NULL) OR c.parent_id = $3)
+  UNION ALL
+  SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
+  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+)
+SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.source_ids, n.show_as_source, n.excerpt, n.published, n.css_classes, n.obsidian_source_path, n.obsidian_imported_at, n.inbox_source, n.inbox_meta, n.flagged_private, n.archived, n.promoted_to, n.slug, n.visibility, n.locked_body, n.cover_headline, n.cover_hue, n.cover_image_asset_id, n.read_minutes, n.cross_refs, n.published_at, n.created_at, n.updated_at,
+       EXISTS(SELECT 1 FROM corpus_notes ch WHERE ch.parent_id = n.id AND ch.genre = $2) AS has_children,
+       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
+FROM corpus_notes n
+WHERE n.owner_id = $1 AND n.genre = $2
+  AND (($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3)
+ORDER BY n.title ASC
+`
+
+type ListNoteChildrenAdminParams struct {
+	OwnerID pgtype.UUID
+	Genre   string
+	Column3 pgtype.UUID
+}
+
+type ListNoteChildrenAdminRow struct {
+	CorpusNote  CorpusNote
+	HasChildren bool
+	PathTitles  []string
+}
+
+// Admin lazy tree layer: one parent's direct children as FULL rows (body/tags/excerpt/…) +
+// has_children (can drill down) + path_titles (root→leaf, for the server-slugified "view live"
+// address). Owner-scoped, NO ACL cascade — the owner sees every status (unlike the public
+// label-only ListNoteChildren). $3 NULL = root layer. Siblings of one parent, so no cap.
+func (q *Queries) ListNoteChildrenAdmin(ctx context.Context, arg ListNoteChildrenAdminParams) ([]ListNoteChildrenAdminRow, error) {
+	rows, err := q.db.Query(ctx, listNoteChildrenAdmin, arg.OwnerID, arg.Genre, arg.Column3)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNoteChildrenAdminRow
+	for rows.Next() {
+		var i ListNoteChildrenAdminRow
+		if err := rows.Scan(
+			&i.CorpusNote.ID,
+			&i.CorpusNote.OwnerID,
+			&i.CorpusNote.Genre,
+			&i.CorpusNote.ParentID,
+			&i.CorpusNote.Title,
+			&i.CorpusNote.Body,
+			&i.CorpusNote.Tags,
+			&i.CorpusNote.SourceIds,
+			&i.CorpusNote.ShowAsSource,
+			&i.CorpusNote.Excerpt,
+			&i.CorpusNote.Published,
+			&i.CorpusNote.CssClasses,
+			&i.CorpusNote.ObsidianSourcePath,
+			&i.CorpusNote.ObsidianImportedAt,
+			&i.CorpusNote.InboxSource,
+			&i.CorpusNote.InboxMeta,
+			&i.CorpusNote.FlaggedPrivate,
+			&i.CorpusNote.Archived,
+			&i.CorpusNote.PromotedTo,
+			&i.CorpusNote.Slug,
+			&i.CorpusNote.Visibility,
+			&i.CorpusNote.LockedBody,
+			&i.CorpusNote.CoverHeadline,
+			&i.CorpusNote.CoverHue,
+			&i.CorpusNote.CoverImageAssetID,
+			&i.CorpusNote.ReadMinutes,
+			&i.CorpusNote.CrossRefs,
+			&i.CorpusNote.PublishedAt,
+			&i.CorpusNote.CreatedAt,
+			&i.CorpusNote.UpdatedAt,
+			&i.HasChildren,
+			&i.PathTitles,
 		); err != nil {
 			return nil, err
 		}

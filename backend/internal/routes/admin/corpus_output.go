@@ -24,6 +24,7 @@ type outputListItem struct {
 	SourceWikiIDs []string `json:"source_wiki_ids"`
 	ShowAsSource  bool     `json:"show_as_source"`
 	Published     bool     `json:"published"`
+	HasChildren   bool     `json:"has_children,omitempty"`
 }
 
 func (h *Handlers) listOutput() http.HandlerFunc {
@@ -46,6 +47,10 @@ func writeOutputList(log *slog.Logger, w http.ResponseWriter, rows []domain.Outp
 	for i := range rows {
 		items = append(items, outputItemFromDomain(&rows[i], paths[rows[i].ID()]))
 	}
+	writeOutputListJSON(log, w, items)
+}
+
+func writeOutputListJSON(log *slog.Logger, w http.ResponseWriter, items []outputListItem) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	logEncodeErr(log, "encode output list", json.NewEncoder(w).Encode(items))

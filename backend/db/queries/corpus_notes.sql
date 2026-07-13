@@ -48,6 +48,39 @@ WHERE n.owner_id = $1 AND n.genre = $2
 ORDER BY n.title ASC
 LIMIT $4 OFFSET $5;
 
+-- name: ListNoteChildrenAdmin :many
+-- Admin lazy tree layer: one parent's direct children as FULL rows (body/tags/excerpt/…) +
+-- has_children (can drill down) + path_titles (root→leaf, for the server-slugified "view live"
+-- address). Owner-scoped, NO ACL cascade — the owner sees every status (unlike the public
+-- label-only ListNoteChildren). $3 NULL = root layer. Siblings of one parent, so no cap.
+WITH RECURSIVE up AS (
+  SELECT c.id AS leaf_id, c.id, c.parent_id, ARRAY[c.title]::text[] AS path_titles
+  FROM corpus_notes c
+  WHERE c.owner_id = $1 AND c.genre = $2
+    AND (($3::uuid IS NULL AND c.parent_id IS NULL) OR c.parent_id = $3)
+  UNION ALL
+  SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
+  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+)
+SELECT sqlc.embed(n),
+       EXISTS(SELECT 1 FROM corpus_notes ch WHERE ch.parent_id = n.id AND ch.genre = $2) AS has_children,
+       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
+FROM corpus_notes n
+WHERE n.owner_id = $1 AND n.genre = $2
+  AND (($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3)
+ORDER BY n.title ASC;
+
+-- name: CountNoteDescendants :one
+-- Exact recursive descendant count for one node — the delete-cascade warning
+-- ("also deletes its N child entries"). On-demand (one user action), not per level.
+WITH RECURSIVE sub AS (
+  SELECT cn.id FROM corpus_notes cn
+  WHERE cn.parent_id = $2 AND cn.owner_id = $1 AND cn.genre = $3
+  UNION ALL
+  SELECT n.id FROM corpus_notes n JOIN sub ON n.parent_id = sub.id
+)
+SELECT count(*) FROM sub;
+
 -- name: GetNoteMetaByID :one
 -- meta only（无 body）：上溯算树派生 path / 判 ACL 用，不为读正文。
 SELECT id, parent_id, title, published
