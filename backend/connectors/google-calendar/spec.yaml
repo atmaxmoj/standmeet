@@ -26,5 +26,8 @@ components:
           authorizationUrl: "${GOOGLE_AUTH_URL:-https://accounts.google.com/o/oauth2/v2/auth}"
           tokenUrl: "${GOOGLE_TOKEN_URL:-https://oauth2.googleapis.com/token}"
           scopes:
-            calendar.readonly: Read the owner's calendar (free/busy)
-            calendar.events: Create and manage events on the owner's calendar
+            # Google requires the FULL scope URL in the authorize request; bare
+            # names (calendar.readonly) → "invalid_scope" at accounts.google.com
+            # (F-B-3, only visible against real Google — the mock accepts anything).
+            https://www.googleapis.com/auth/calendar.readonly: Read the owner's calendar (free/busy)
+            https://www.googleapis.com/auth/calendar.events: Create and manage events on the owner's calendar

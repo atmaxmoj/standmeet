@@ -6,6 +6,7 @@ package connectors_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/connectors"
@@ -13,6 +14,29 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
+
+// TestLoad_GCalScopesAreFullURLs —— F-B-3. The gcal OAuth scopes must be the FULL
+// Google scope URLs; bare names (calendar.readonly) → "invalid_scope" at the real
+// accounts.google.com (the e2e mock accepts any scope, so only real Google — or
+// this guard — catches it). Real-GUI regression surfaced it after F-B-2 unmasked
+// the dance.
+func TestLoad_GCalScopesAreFullURLs(t *testing.T) {
+	t.Parallel()
+	ms, err := connectors.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	gcal := mustFind(t, ms, "google-calendar")
+	spec := string(gcal.Spec)
+	for _, full := range []string{
+		"https://www.googleapis.com/auth/calendar.readonly",
+		"https://www.googleapis.com/auth/calendar.events",
+	} {
+		if !strings.Contains(spec, full) {
+			t.Errorf("gcal spec missing full-URL scope %q (bare names → Google invalid_scope)", full)
+		}
+	}
+}
 
 type fakeStore struct{}
 
