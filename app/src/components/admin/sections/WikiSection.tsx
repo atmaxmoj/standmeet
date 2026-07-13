@@ -11,7 +11,10 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Chip } from '@/components/admin/atoms/Chip';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/WikiRowForms';
-import { descendantCounts } from '@/lib/admin/wiki-tree';
+import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
+import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
+import { useCorpusView } from '@/lib/admin/corpus-view';
+import { descendantCounts, cleanCorpusExcerpt } from '@/lib/admin/corpus-tree';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   useCorpusActions,
@@ -104,12 +107,27 @@ function ReadyBody({
   activeTag: string | null;
   setActiveTag: (t: string | null) => void;
 }) {
+  const [view, setView] = useCorpusView('wiki');
   const tags = distinctTags(rows);
-  const visible = filterByTag(rows, activeTag);
+  const shown = filterByTag(rows, activeTag);
+  // 地址树派生 + 级联删:每条算子孙数,删它时警告会连带删掉几条。
+  const childCounts = descendantCounts(shown);
   return (
     <>
-      <TagFilterRow tags={tags} activeTag={activeTag} setActiveTag={setActiveTag} />
-      <WikiGrid rows={visible} actions={actions} />
+      <div className="flex items-baseline justify-between gap-4 mb-5 flex-wrap">
+        <TagFilterRow tags={tags} activeTag={activeTag} setActiveTag={setActiveTag} />
+        <CorpusViewToggle view={view} onChange={setView} />
+      </div>
+      <CorpusTreeGrid
+        view={view} rows={shown} testid="wiki-list"
+        rowTestid={(r) => `wiki-row-${r.id}`}
+        renderCard={(row, { hasChildren }) => (
+          <WikiCard
+            entry={row} actions={actions}
+            childCount={childCounts[row.id] ?? 0} hasChildren={hasChildren}
+          />
+        )}
+      />
     </>
   );
 }
@@ -130,28 +148,12 @@ function TagFilterRow({
   setActiveTag: (t: string | null) => void;
 }) {
   return (
-    <div className="flex items-baseline gap-1.5 flex-wrap mb-5" data-testid="wiki-tag-filter">
+    <div className="flex items-baseline gap-1.5 flex-wrap" data-testid="wiki-tag-filter">
       <Chip active={activeTag === null} onClick={() => setActiveTag(null)}>all</Chip>
       {tags.map((t) => (
         <Chip key={t} active={activeTag === t} onClick={() => setActiveTag(activeTag === t ? null : t)}>
           {t}
         </Chip>
-      ))}
-    </div>
-  );
-}
-
-function WikiGrid({
-  rows, actions,
-}: { rows: readonly WikiSummary[]; actions: CorpusActionsHook }) {
-  // 地址树派生 + 级联删:每条算一下有多少子孙,删它时警告会连带删掉几条。
-  const childCounts = descendantCounts(rows);
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8" data-testid="wiki-list">
-      {rows.map((w) => (
-        <div key={w.id} data-testid={`wiki-row-${w.id}`}>
-          <WikiCard entry={w} actions={actions} childCount={childCounts[w.id] ?? 0} />
-        </div>
       ))}
     </div>
   );
@@ -177,12 +179,15 @@ function EmptyState() {
 type RowMode = 'view' | 'edit' | 'promote';
 
 function WikiCard({
-  entry, actions, childCount,
-}: { entry: WikiSummary; actions: CorpusActionsHook; childCount: number }) {
+  entry, actions, childCount, hasChildren = false,
+}: {
+  entry: WikiSummary; actions: CorpusActionsHook;
+  childCount: number; hasChildren?: boolean;
+}) {
   const [mode, setMode] = useState<RowMode>('view');
   return (
     <article className="border-t border-(--color-rule) pt-4">
-      <WikiHead entry={entry} />
+      <WikiHead entry={entry} childCount={childCount} hasChildren={hasChildren} />
       <WikiExcerpt text={entry.excerpt} />
       <WikiTagsAndMeta entry={entry} />
       <RowActions
@@ -204,11 +209,18 @@ function InlineForms({
   return map[mode];
 }
 
-function WikiHead({ entry }: { entry: WikiSummary }) {
+function WikiHead({
+  entry, childCount, hasChildren,
+}: { entry: WikiSummary; childCount: number; hasChildren: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3 mb-1.5">
       <h3 className="font-serif text-[20px] font-normal leading-[1.25] text-(--color-ink) m-0 flex-1">
         {entry.title}
+        {hasChildren ? (
+          <span className="ml-2 mono text-[9.5px] tracking-[0.08em] text-(--color-faint) align-middle">
+            ▾ {childCount}
+          </span>
+        ) : null}
       </h3>
       <VisibilityDot indexed={entry.published} />
     </div>
@@ -216,8 +228,9 @@ function WikiHead({ entry }: { entry: WikiSummary }) {
 }
 
 function WikiExcerpt({ text }: { text: string }) {
-  return text ? (
-    <p className="reading text-[14.5px] text-(--color-muted) mt-1 mb-2.5 line-clamp-2">{text}</p>
+  const clean = cleanCorpusExcerpt(text);
+  return clean ? (
+    <p className="reading text-[14.5px] text-(--color-muted) mt-1 mb-2.5 line-clamp-2">{clean}</p>
   ) : null;
 }
 

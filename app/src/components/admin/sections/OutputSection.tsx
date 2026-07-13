@@ -10,6 +10,9 @@ import { useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import styles from '@/components/admin/sections/OutputSection.module.css';
+import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
+import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
+import { useCorpusView } from '@/lib/admin/corpus-view';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { SEOEditor } from '@/components/admin/sections/corpus/SEOEditor';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
@@ -115,9 +118,27 @@ function OutputBody({ hook, actions }: { hook: OutputHook; actions: CorpusAction
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <OutputGrid rows={hook.rows} actions={actions} />,
+    list: <OutputList rows={hook.rows} actions={actions} />,
   } as const;
   return map[pickOutputBodyState(hook)];
+}
+
+// OutputList —— tree ⇄ grid toggle over the same cover-strip cards. Output entries
+// carry parent_id/path like the rest of the corpus, so hierarchy is a real view.
+function OutputList({ rows, actions }: { rows: readonly OutputSummary[]; actions: CorpusActionsHook }) {
+  const [view, setView] = useCorpusView('output');
+  return (
+    <>
+      <div className="flex justify-end mb-4">
+        <CorpusViewToggle view={view} onChange={setView} />
+      </div>
+      <CorpusTreeGrid
+        view={view} rows={rows} testid="output-list"
+        rowTestid={(r) => `output-row-${r.id}`}
+        renderCard={(row) => <OutputCard entry={row} actions={actions} />}
+      />
+    </>
+  );
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -134,20 +155,6 @@ function EmptyState() {
       No output entries yet. Use + new output, promote from /admin/wiki, or call MCP{' '}
       <span className="mono">promote_wiki_to_output</span>.
     </p>
-  );
-}
-
-function OutputGrid({
-  rows, actions,
-}: { rows: readonly OutputSummary[]; actions: CorpusActionsHook }) {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="output-list">
-      {rows.map((o) => (
-        <div key={o.id} data-testid={`output-row-${o.id}`}>
-          <OutputCard entry={o} actions={actions} />
-        </div>
-      ))}
-    </div>
   );
 }
 

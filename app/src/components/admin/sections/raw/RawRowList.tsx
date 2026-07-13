@@ -6,7 +6,11 @@
 import { useState } from 'react';
 
 import { Chip } from '@/components/admin/atoms/Chip';
+import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
+import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import { useCorpusView } from '@/lib/admin/corpus-view';
+import { cleanCorpusExcerpt } from '@/lib/admin/corpus-tree';
 import {
   useCorpusActions,
   type CorpusActionsHook,
@@ -21,57 +25,97 @@ type Props = { rows: readonly RawAdminView[] };
 
 export function RawRowList({ rows }: Props) {
   const actions = useCorpusActions();
+  const [view, setView] = useCorpusView('raw');
   useEffectErrorToast(actions.error);
-  return rows.length === 0
-    ? <EmptyState />
-    : (
-      <ul data-testid="raw-list" className="border-t border-(--color-rule)/70">
-        {rows.map((r) => <RawRow key={r.id} row={r} actions={actions} />)}
-      </ul>
-    );
+  return rows.length === 0 ? <EmptyState /> : (
+    <>
+      <div className="flex justify-end mb-4">
+        <CorpusViewToggle view={view} onChange={setView} />
+      </div>
+      <CorpusTreeGrid
+        view={view} rows={rows} testid="raw-list"
+        rowTestid={(r) => `raw-row-${r.id}`}
+        renderCard={(row, { hasChildren }) => (
+          <RawRow row={row} actions={actions} hasChildren={hasChildren} />
+        )}
+      />
+    </>
+  );
 }
 
 function EmptyState() {
   return (
-    <ul data-testid="raw-list" className="border-t border-(--color-rule)/70">
-      <li className="py-8 reading italic text-(--color-muted) text-center">
+    <div data-testid="raw-list" className="border-t border-(--color-rule)/70">
+      <p className="py-8 reading italic text-(--color-muted) text-center">
         No raw entries yet. Push one from an MCP client (raw_dump tool).
-      </li>
-    </ul>
+      </p>
+    </div>
   );
 }
 
 type RawMode = 'view' | 'edit' | 'promote';
 
-function RawRow({ row, actions }: { row: RawAdminView; actions: CorpusActionsHook }) {
+function RawRow({
+  row, actions, hasChildren = false,
+}: { row: RawAdminView; actions: CorpusActionsHook; hasChildren?: boolean }) {
   const [mode, setMode] = useState<RawMode>('view');
+  // Row testid is on the CorpusTreeGrid wrapper — don't duplicate it here.
   return (
-    <li
-      className="border-b border-(--color-rule)/70 py-5"
-      data-testid={`raw-row-${row.id}`}
-    >
-      <div className="grid grid-cols-[80px_1fr_auto] gap-6">
-        <RawRowMeta source={row.source} createdAt={row.created_at} />
-        <RawRowBody body={row.body} tags={row.tags} privateFlag={row.flagged_private} media={row.media} />
+    <div className="border-b border-(--color-rule)/70 py-4">
+      <div className="flex justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <RawSourceLine source={row.source} createdAt={row.created_at} hasChildren={hasChildren} />
+          <RawRowBody body={row.body} tags={row.tags} privateFlag={row.flagged_private} media={row.media} />
+        </div>
         <RawRowActions row={row} actions={actions} mode={mode} setMode={setMode} />
       </div>
-      {mode === 'promote' ? (
-        <PromoteRow row={row} actions={actions} onDone={() => setMode('view')} />
-      ) : null}
-      {mode === 'edit' ? (
-        <EditRow row={row} actions={actions} onDone={() => setMode('view')} />
-      ) : null}
-    </li>
+      <RawInlineForms row={row} actions={actions} mode={mode} onDone={() => setMode('view')} />
+    </div>
   );
 }
 
-function RawRowMeta({ source, createdAt }: { source: string; createdAt: string }) {
+function RawInlineForms({
+  row, actions, mode, onDone,
+}: { row: RawAdminView; actions: CorpusActionsHook; mode: RawMode; onDone: () => void }) {
+  const map = {
+    view: null,
+    promote: <PromoteRow row={row} actions={actions} onDone={onDone} />,
+    edit: <EditRow row={row} actions={actions} onDone={onDone} />,
+  } as const;
+  return map[mode];
+}
+
+// RawSourceLine —— vault origin cleaned to a breadcrumb: "obsidian:raw/a/b/c/c.md"
+// → "a / b / c" (folder-note dup dropped), on one truncating line. No more long
+// uppercase path crammed into an 80px column overlapping the body.
+function RawSourceLine({
+  source, createdAt, hasChildren,
+}: { source: string; createdAt: string; hasChildren: boolean }) {
   return (
-    <div className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) pt-1 leading-[1.5]">
-      <div className="text-(--color-ink)">{source}</div>
-      <div className="text-(--color-faint) mt-0.5 normal-case tracking-[0.04em]">{createdAt}</div>
+    <div className="flex items-baseline gap-2 mono text-[10px] tracking-[0.1em] text-(--color-faint) mb-1 min-w-0">
+      <span className="uppercase text-(--color-muted) truncate">{prettySource(source)}</span>
+      {hasChildren ? <span className="text-(--color-faint) shrink-0" aria-hidden>▾</span> : null}
+      <span className="shrink-0 tabular-nums normal-case tracking-[0.04em]">{formatRawDate(createdAt)}</span>
     </div>
   );
+}
+
+function prettySource(source: string): string {
+  const s = source.replace(/^obsidian:(raw|wiki|output)\//i, '').replace(/\.md$/i, '');
+  const parts = s.split('/').filter(Boolean);
+  return dropFolderNoteDup(parts).join(' / ') || source;
+}
+
+// dropFolderNoteDup —— Obsidian folder-notes serialise as "necessity/necessity.md";
+// the trailing dup is noise in a breadcrumb, so collapse "a/b/b" → "a/b".
+function dropFolderNoteDup(parts: readonly string[]): readonly string[] {
+  const isDup = parts.length >= 2 && parts.at(-1) === parts.at(-2);
+  return isDup ? parts.slice(0, -1) : parts;
+}
+
+function formatRawDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toISOString().slice(0, 10);
 }
 
 function RawRowBody({
@@ -79,13 +123,13 @@ function RawRowBody({
 }: { body: string; tags: readonly string[]; privateFlag: boolean; media?: RawAdminView['media'] }) {
   return (
     <div className="min-w-0">
-      <p className="reading-tight text-(--color-ink) text-[15.5px]">{body}</p>
+      <p className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{cleanCorpusExcerpt(body)}</p>
       {media && (
         <div className="mono text-[10px] tracking-[0.06em] text-(--color-faint) mt-1">
           {media.kind} · {media.label}
         </div>
       )}
-      <div className="mt-3 flex flex-wrap items-baseline gap-1.5">
+      <div className="mt-2.5 flex flex-wrap items-baseline gap-1.5">
         {tags.map((t) => <Chip key={t}>{t}</Chip>)}
         <PrivateBadge on={privateFlag} />
       </div>

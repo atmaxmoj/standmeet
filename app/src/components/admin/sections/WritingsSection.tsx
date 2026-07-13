@@ -7,6 +7,10 @@
 import { useCallback, useState } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
+import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
+import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
+import { useCorpusView } from '@/lib/admin/corpus-view';
+import { cleanCorpusExcerpt } from '@/lib/admin/corpus-tree';
 import { EditorSideRail } from '@/components/admin/sections/writings/EditorSideRail';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
@@ -121,14 +125,18 @@ function EmptyState() {
 }
 
 function WritingList({ hook, onEdit }: { hook: WritingsHook; onEdit: EditFn }) {
+  const [view, setView] = useCorpusView('writings');
   return (
-    <ul className="flex flex-col gap-4" data-testid="writing-list">
-      {hook.writings.map((w) => (
-        <li key={w.id} data-testid={`writing-row-${w.slug}`}>
-          <WritingCard writing={w} hook={hook} onEdit={onEdit} />
-        </li>
-      ))}
-    </ul>
+    <>
+      <div className="flex justify-end mb-4">
+        <CorpusViewToggle view={view} onChange={setView} />
+      </div>
+      <CorpusTreeGrid
+        view={view} rows={hook.writings} testid="writing-list"
+        rowTestid={(w) => `writing-row-${w.slug}`}
+        renderCard={(row) => <WritingCard writing={row} hook={hook} onEdit={onEdit} />}
+      />
+    </>
   );
 }
 
@@ -138,8 +146,10 @@ function WritingCard({
   return (
     <div className="border border-(--color-rule) px-5 py-4 flex flex-col gap-2">
       <WritingCardHead writing={writing} />
-      {writing.excerpt && (
-        <p className="reading-tight text-[14px] text-(--color-muted)">{writing.excerpt}</p>
+      {cleanCorpusExcerpt(writing.excerpt) && (
+        <p className="reading-tight text-[14px] text-(--color-muted) line-clamp-2">
+          {cleanCorpusExcerpt(writing.excerpt)}
+        </p>
       )}
       <WritingCardActions writing={writing} hook={hook} onEdit={onEdit} />
     </div>
