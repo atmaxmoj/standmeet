@@ -114,15 +114,25 @@ async function saveCredentials(
   await gcalStatusStore.getState().refresh();
 }
 
-const InitResultSchema = z.object({ auth_url: z.string(), state: z.string() });
+// Mirrors the backend `connectInitResp` from POST /connectors/{id}/connect:
+// auth_url + state are present for the OAuth dance; `connected` may already
+// be true (creds re-exchanged) and `auth_url` omitted, so both are optional.
+const InitResultSchema = z.object({
+  auth_url: z.string().optional(),
+  state: z.string().optional(),
+  connected: z.boolean().optional(),
+  error: z.string().optional(),
+});
 
 async function authorize(): Promise<void> {
+  // The generic connector Connect endpoint returns the provider consent URL.
+  // (There is no `/init` route — that path 404s; the backend serves `/connect`.)
   const init = await adminAPI.post(
-    '/connectors/google-calendar/init', {}, InitResultSchema,
+    '/connectors/google-calendar/connect', {}, InitResultSchema,
   );
   // open consent in a new tab; on success Google redirects to the
   // callback URL which finishes the exchange server-side.
-  window.open(init.auth_url, '_blank', 'noopener');
+  if (init.auth_url) window.open(init.auth_url, '_blank', 'noopener');
   // Poll status a couple of times until backend flips to connected.
   await pollUntilConnected(15);
 }
