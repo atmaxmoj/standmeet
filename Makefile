@@ -102,6 +102,15 @@ prod-up:
 prod-down:
 	@docker compose -p standmeet-prod -f docker-compose.prod.yml down
 
+# prod-clean —— down + drop the prod volumes (pgdata/redis/minio). schema.sql
+# only applies on a FRESH pg volume, so a stale prod volume must be recreated
+# after a schema change (greenfield "no migrations" posture — see schema.sql).
+prod-clean:
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
+
+# prod-fresh —— recreate the prod stack from scratch (fresh schema).
+prod-fresh: prod-clean prod-up
+
 # gateway-up —— 只起 llm-gateway sidecar (eval-smoke 用)，不跑 app-build /
 # 整栈。Anthropic-compat mock，host :9300，确定性脚本回复。
 gateway-up:
