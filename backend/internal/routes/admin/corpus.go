@@ -103,6 +103,7 @@ func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *domain.Raw) {
 		Body:      raw.Body(),
 		Source:    raw.Source(),
 		Tags:      raw.Tags(),
+		Status:    rawStatus(raw),
 		CreatedAt: raw.CreatedAt().Format(time.RFC3339),
 	}
 	logEncodeErr(log, "encode created raw", json.NewEncoder(w).Encode(item))
@@ -115,6 +116,7 @@ type rawListItem struct {
 	ID        string   `json:"id"`
 	Body      string   `json:"body"`
 	Source    string   `json:"source"`
+	Status    string   `json:"status"`
 	Tags      []string `json:"tags"`
 }
 
@@ -161,6 +163,7 @@ func rawItemOf(row *domain.Raw, paths map[string]string) rawListItem {
 		Body:      row.Body(),
 		Source:    row.Source(),
 		Tags:      row.Tags(),
+		Status:    rawStatus(row),
 		CreatedAt: row.CreatedAt().Format(time.RFC3339),
 	}
 	if p, ok := paths[row.ID()]; ok {
@@ -170,6 +173,17 @@ func rawItemOf(row *domain.Raw, paths map[string]string) rawListItem {
 		item.ParentID = &pid
 	}
 	return item
+}
+
+// rawStatus —— the sidebar "raw" badge counts entries that still need
+// curation. A raw dump is "unprocessed" until the owner promotes it to wiki
+// (MarkPromoted sets promoted_to); after that it's "promoted". Archived rows
+// never reach this list. The admin badge filters on status == "unprocessed".
+func rawStatus(row *domain.Raw) string {
+	if row.IsPromoted() {
+		return "promoted"
+	}
+	return "unprocessed"
 }
 
 func (h *Handlers) listWiki() http.HandlerFunc {

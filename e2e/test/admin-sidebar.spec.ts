@@ -26,16 +26,33 @@ test.describe('admin sidebar badges + nav', () => {
     await initOwner(playwright);
   });
 
-  test('raw unprocessed badge shows count > 0',
+  // Regression guard for the sidebar-badge fan-out (F-C-1). The old code was
+  // triple-broken and the badge feature was silently dead:
+  //   1. wrong paths — `/corpus/raw/` (proxy strips the slash → 200 bare array)
+  //      and `/requests/` (backend serves `/access-requests` → 404);
+  //   2. an `{items}` object schema against a BARE-array response → the raw
+  //      fetch threw a ZodError (an *unhandled* rejection — invisible to
+  //      page.on('console'), which is why the earlier lenient test passed);
+  //   3. the backend `rawListItem` never carried a `status`, so the
+  //      `status === 'unprocessed'` filter was always 0.
+  // This asserts the *observable outcome* — both endpoints 200 and the raw
+  // badge renders the seeded count — so any of the three regressions is RED.
+  // initOwner seeds exactly one unpromoted raw ⇒ the badge must be > 0.
+  test('sidebar badges load from the real endpoints and render (F-C-1)',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'raw');
-      // After seeding raw entries, badge should show count
-      const badge = adminPage.getByTestId('admin-badge-raw');
-      // Badge may or may not be visible depending on unprocessed count
-      if (await badge.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        const text = await badge.textContent();
-        expect(Number(text)).toBeGreaterThan(0);
-      }
+      const rawLoaded = adminPage.waitForResponse(
+        (r) => r.url().includes('/api/admin/corpus/raw') && r.request().method() === 'GET',
+        { timeout: 15_000 });
+      const reqLoaded = adminPage.waitForResponse(
+        (r) => r.url().includes('/api/admin/access-requests'), { timeout: 15_000 });
+      await adminPage.reload(); // re-fires the badge fan-out on a fresh document
+      const [rawRes, reqRes] = await Promise.all([rawLoaded, reqLoaded]);
+      expect(rawRes.status(), 'raw list path must 200').toBe(200);
+      expect(reqRes.status(), 'access-requests path must 200, not 404').toBe(200);
+      const badge = adminPage.getByTestId('badge-raw');
+      await expect(badge).toBeVisible({ timeout: 10_000 });
+      expect(Number(await badge.textContent())).toBeGreaterThan(0);
     });
 
   test('click nav link → section switches + active state moves',

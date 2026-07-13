@@ -9,7 +9,10 @@ import { z } from 'zod';
 import { safeJson } from '@/lib/api/typed-json';
 import type { SidebarBadges } from '@/components/admin/AdminSidebar';
 
-const BadgeRowSchema = z.object({ items: z.array(z.object({ status: z.string() })).optional() });
+// The list endpoints return a BARE array of rows, not `{items:[…]}`. Parsing a
+// bare array as an object throws a ZodError (invalid_type object) on every admin
+// load — the old `{items}` shape was wrong. Fixed to a bare-array schema.
+const BadgeRowsSchema = z.array(z.object({ status: z.string().optional() }));
 
 export function useSidebarBadges(): SidebarBadges {
   const [badges, setBadges] = useState<SidebarBadges>({});
@@ -26,16 +29,16 @@ export function useSidebarBadges(): SidebarBadges {
 async function fetchBadges(): Promise<SidebarBadges> {
   const out: SidebarBadges = {};
   const [rawRes, reqRes] = await Promise.allSettled([
-    fetch('/api/admin/corpus/raw/', { credentials: 'include' }),
-    fetch('/api/admin/requests/', { credentials: 'include' }),
+    fetch('/api/admin/corpus/raw', { credentials: 'include' }),
+    fetch('/api/admin/access-requests', { credentials: 'include' }),
   ]);
   if (rawRes.status === 'fulfilled' && rawRes.value.ok) {
-    const rows = await safeJson(rawRes.value, BadgeRowSchema);
-    out.raw = (rows.items ?? []).filter((r) => r.status === 'unprocessed').length;
+    const rows = await safeJson(rawRes.value, BadgeRowsSchema);
+    out.raw = rows.filter((r) => r.status === 'unprocessed').length;
   }
   if (reqRes.status === 'fulfilled' && reqRes.value.ok) {
-    const rows = await safeJson(reqRes.value, BadgeRowSchema);
-    out.requests = (rows.items ?? []).filter((r) => r.status === 'open').length;
+    const rows = await safeJson(reqRes.value, BadgeRowsSchema);
+    out.requests = rows.filter((r) => r.status === 'open').length;
   }
   return out;
 }
