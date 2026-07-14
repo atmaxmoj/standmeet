@@ -21,13 +21,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
-// ghContentItem —— shape returned by GitHub Contents API. We only read
-// the fields we render.
+// ghContentItem —— shape returned by GitHub Contents API. Name/Type/HTMLURL come
+// from the listing; Description/Version are enriched from each dir's SKILL.md
+// (not on the Contents API) so cards aren't blank (UX-13).
 type ghContentItem struct {
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	HTMLURL string `json:"html_url"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	HTMLURL     string `json:"html_url"`
+	Description string `json:"-"`
+	Version     string `json:"-"`
 }
+
+// githubEnrichConcurrency —— cap on parallel SKILL.md fetches when filling the
+// directory cache, so a large repo doesn't fan out an unbounded burst at GitHub.
+const githubEnrichConcurrency = 8
 
 func (c *Client) searchGitHub(ctx context.Context, query string) []domain.MarketSkill {
 	items := c.fetchGitHubDirectory(ctx)
@@ -57,8 +64,41 @@ func (c *Client) fetchGitHubDirectory(ctx context.Context) []ghContentItem {
 		// surfaces SkillsMP results if any.
 		return []ghContentItem{}
 	}
+	c.enrichGitHubMetadata(ctx, items)
 	c.cache.set(cacheKey, items)
 	return items
+}
+
+// enrichGitHubMetadata —— fill each skill dir's Description/Version from its SKILL.md
+// so the marketplace cards aren't blank (UX-13). Concurrent (bounded) and tolerant: a
+// skill whose SKILL.md 404s / fails to parse just keeps empty metadata. Done once per
+// directory-cache fill (not per search), then cached with the listing.
+func (c *Client) enrichGitHubMetadata(ctx context.Context, items []ghContentItem) {
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, githubEnrichConcurrency)
+	for i := range items {
+		if items[i].Type != "dir" {
+			continue
+		}
+		sem <- struct{}{}
+		it := &items[i]
+		wg.Go(func() {
+			defer func() { <-sem }()
+			c.enrichOne(ctx, it)
+		})
+	}
+	wg.Wait()
+}
+
+// enrichOne —— best-effort SKILL.md fetch+parse for one skill dir; on any error the
+// item keeps its empty Description/Version (the card just shows less, never fails).
+func (c *Client) enrichOne(ctx context.Context, it *ghContentItem) {
+	content, err := c.FetchSkillContent(ctx, domain.MarketSourceGitHub, it.Name)
+	if err != nil {
+		return
+	}
+	it.Description = content.Description
+	it.Version = content.Version
 }
 
 func getGHContents(
@@ -105,12 +145,13 @@ func ghContentToMarketSkill(it *ghContentItem) domain.MarketSkill {
 		ID:          it.Name,
 		Name:        deriveDisplayName(it.Name),
 		Author:      "anthropics",
-		Version:     "", // pulled from SKILL.md frontmatter in a later phase
+		Version:     it.Version, // from the skill's SKILL.md frontmatter (enrichment)
 		Category:    "",
-		Description: "",
+		Description: it.Description, // ditto — so the card isn't blank (UX-13)
 		SourceURL:   it.HTMLURL,
 		Source:      domain.MarketSourceGitHub,
-		Stars:       0,
+		// GitHub skills are folders in one repo → no per-skill star count.
+		Stars: 0,
 	}
 }
 

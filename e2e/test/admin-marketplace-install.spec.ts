@@ -18,10 +18,27 @@ const OWNER = {
   fullName: 'Market Install Owner',
 };
 
-interface MarketSkill { id: string; name: string; source: string; version: string }
+interface MarketSkill {
+  id: string; name: string; source: string; version: string; description: string;
+}
 interface SkillRow { name: string; prompt: string; source: string }
 
 test.describe('marketplace install', () => {
+  test('github search results carry a description from SKILL.md (UX-13)',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await setup(request);
+      await login(request, OWNER.email, OWNER.password);
+      const market = await searchGitHub(request);
+      expect(market.length).toBeGreaterThan(0);
+      // Each result's description is enriched from its SKILL.md, not the blank ""
+      // the listing used to return (which made the cards a blind install — UX-13).
+      for (const s of market) {
+        expect(s.description, `skill ${s.id} must have a description`).not.toBe('');
+      }
+      await request.dispose();
+    });
+
   test('install a github skill → SKILL.md fetched + parsed into a real skill',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();

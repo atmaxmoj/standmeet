@@ -120,6 +120,7 @@ func parseSkillMD(raw string) domain.MarketSkillContent {
 	return domain.MarketSkillContent{
 		Name:         r.fm.scalars["name"],
 		Description:  r.fm.scalars["description"],
+		Version:      r.fm.scalars["version"],
 		Prompt:       strings.TrimSpace(r.body),
 		AllowedTools: r.fm.tools,
 	}

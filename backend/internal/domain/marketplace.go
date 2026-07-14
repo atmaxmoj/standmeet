@@ -45,6 +45,7 @@ type MarketSkill struct {
 type MarketSkillContent struct {
 	Name         string
 	Description  string
+	Version      string
 	Prompt       string
 	AllowedTools []string
 }
