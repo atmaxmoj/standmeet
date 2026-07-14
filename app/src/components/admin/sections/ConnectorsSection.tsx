@@ -12,7 +12,6 @@ import { useCallback, useState } from 'react';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ConnectorAddModal } from '@/components/admin/ConnectorAddModal';
 import { CalendarConnectorPanel } from '@/components/admin/sections/connectors/CalendarConnectorPanel';
-import { MailConnectorPanel } from '@/components/admin/sections/connectors/MailConnectorPanel';
 import { CapabilitiesPanel } from '@/components/admin/sections/connectors/CapabilitiesPanel';
 import { useConnectorList, type ConnectorListHook } from '@/lib/admin/use-connector-list';
 import { useConnectorCatalog, type ConnectorCatalogHook } from '@/lib/admin/use-connector-catalog';
@@ -64,9 +63,11 @@ function SectionBody({
       <CatalogCards catalog={catalog} />
       <ConnectorList hook={list} />
       <OverwriteConfirm hook={upload} />
-      <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
+      {/* Mail is configured via the generic SMTP catalog card above; the old dedicated
+          MailConnectorPanel was dead (F-C-3) and removed (F-B-1). Calendar keeps its own
+          panel because it uniquely hosts the booking-policy editor. */}
+      <div className="mb-8 max-w-[640px]">
         <CalendarConnectorPanel />
-        <MailConnectorPanel />
       </div>
       <div className="mb-8">
         <CapabilitiesPanel />

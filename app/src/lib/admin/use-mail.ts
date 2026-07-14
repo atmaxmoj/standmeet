@@ -201,16 +201,3 @@ async function verifyOTP(code: string): Promise<MailTestResult> {
   }
 }
 
-// ─── view helpers (pure) ───────────────────────────────────────
-
-// sendCodeLabel —— button copy: cooldown countdown → 'Resend' once sent → 'Send'.
-export function sendCodeLabel(cooldown: number, sent: boolean): string {
-  return cooldown > 0 ? `Resend in ${cooldown}s` : sent ? 'Resend code →' : 'Send code →';
-}
-
-// mailActionsView —— which connector controls to show: nothing (no creds), the
-// verify flow (configured but unverified), or just disconnect (verified).
-export function mailActionsView(status: MailStatus | null): 'none' | 'verify' | 'connected' {
-  if (status?.has_credentials !== true) return 'none';
-  return status.connected ? 'connected' : 'verify';
-}

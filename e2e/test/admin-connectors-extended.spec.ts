@@ -42,6 +42,17 @@ test.describe('admin connectors extended', () => {
       await expect(adminPage.getByTestId('connector-card-email')).toHaveCount(0);
     });
 
+  test('no duplicate mail setup — the dead dedicated panel is gone (F-B-1)',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'connectors');
+      await adminPage.waitForURL('**/admin/connectors', { timeout: 5_000 });
+      // Mail is handled solely by the generic SMTP connector card; the dead dedicated
+      // MailConnectorPanel (posted to non-existent /connectors/mail/* + send-otp routes,
+      // F-C-3) is removed. The calendar panel stays — it uniquely hosts the booking policy.
+      await expect(adminPage.getByTestId('mail-connector-panel')).toHaveCount(0);
+      await expect(adminPage.getByTestId('gcal-connector-panel')).toBeVisible({ timeout: 5_000 });
+    });
+
   test('secret field is type=password with reveal toggle',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'connectors');
