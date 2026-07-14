@@ -123,6 +123,14 @@ gateway-up:
 eval-smoke: gateway-up
 	@eval-harness/smoke.sh
 
+# eval-narration —— F-A-4 regression: a BROAD visitor question where the model narrates its
+# planning ("Let me survey…") each tool round and never synthesizes, so the loop hits
+# MaxIterations. Deterministic on the mock gateway (the [[narrate]] marker scripts the failing
+# behaviour) — NO real key. Asserts the visitor still gets a synthesized answer, not the raw
+# planning narration. Runs the SAME prod loop via the agentcore facade.
+eval-narration: gateway-up
+	@cd eval-harness && go test -run TestNarrationMaxIter -count=1 -v ./...
+
 # eval-ask —— 给被测 agent (owner persona) 喂一个问题,看它怎么答 + 查了哪些
 # corpus。被测对象 = owner 的 system prompt + corpus,真 LLM (DeepSeek v4-pro,
 # harness 自读 .env)。面试官不是这里的 —— 面试官是 operator spawn 的 Claude

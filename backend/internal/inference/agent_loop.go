@@ -220,18 +220,25 @@ func routeAgentEvent(
 func handleTerminalError(
 	ctx context.Context, em *loopEmit, state *turnState, err error,
 ) bool {
-	if state.assistantText != "" {
-		if errors.Is(err, adk.ErrExceedMaxIterations) {
-			em.log.Warn("agent turn max iterations after partial answer")
-			return false
-		}
+	maxIter := errors.Is(err, adk.ErrExceedMaxIterations)
+	// A non-MaxIterations error AFTER a real streamed answer: surface the error (the
+	// answer already reached the visitor; don't paper over a mid-stream provider fault).
+	if !maxIter && state.assistantText != "" {
 		em.sink.Error(err)
 		return false
 	}
-	em.log.Warn("agent turn terminal error with no answer; forcing final", logErrKey, err)
+	// Otherwise force a no-tool synthesis. On MaxIterations the model may have streamed
+	// only planning narration ("Let me survey… Let me dig into…") and never synthesized —
+	// that is NOT an answer (F-A-4). Force one so the visitor always gets a real reply;
+	// this also covers the no-text cases (hallucinated tool name, mid-stream blip).
+	em.log.Warn("agent turn forcing final answer", logErrKey, err)
 	if recovered := forceFinalAnswer(ctx, em); recovered != "" {
 		em.sink.Text(recovered)
-		state.assistantText = recovered
+		state.assistantText += recovered
+		return false
+	}
+	if maxIter {
+		em.log.Warn("agent turn max iterations; force-final produced nothing")
 		return false
 	}
 	em.sink.Error(err)

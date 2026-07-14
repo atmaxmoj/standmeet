@@ -160,6 +160,12 @@ func (s *server) dispatch(sse *sseWriter, req *MessagesReq) {
 	// (GhostPolicy / summarize), which don't carry the visitor message, still match
 	// this turn's registrations.
 	s.queue.rememberTurnKeys(scriptKeyTokens(msgText))
+	// [[narrate]] —— F-A-4 repro: stream a planning line + a corpus_search every round,
+	// never a final reply, so the loop runs to MaxIterations with only narration.
+	if hasNarrateMarker(msgText) {
+		s.emitNarrateTurn(sse, req)
+		return
+	}
 	if t := s.queue.takeToolFor(msgText); t != nil {
 		s.emitToolUseTurn(sse, t.Name, t.Args)
 		return
@@ -172,6 +178,54 @@ func (s *server) dispatch(sse *sseWriter, req *MessagesReq) {
 		return
 	}
 	s.emitFinalReply(sse, req)
+}
+
+// narrateLines —— the planning preambles the mock streams each round. Concatenated
+// across MaxIterations rounds they are exactly the "Let me survey… Let me dig into…"
+// non-answer F-A-4 flagged.
+var narrateLines = []string{
+	"Let me survey the corpus for that.",
+	"Let me dig into the specifics.",
+	"Let me cross-check another angle.",
+	"Let me look at one more note.",
+}
+
+// emitNarrateTurn —— stream a planning line (index 0) then a corpus_search tool_use
+// (index 1), stop=tool_use. Never emits a final reply, so the agent loops until it
+// exhausts MaxIterations — with the planning narration accumulated as its only text.
+func (s *server) emitNarrateTurn(sse *sseWriter, req *MessagesReq) {
+	round := countToolResultBlocks(req)
+	line := narrateLines[round%len(narrateLines)]
+	if err := emitTextBlock(sse, 0, line); err != nil {
+		s.log.Warn("emit narrate text", "err", err)
+		return
+	}
+	if err := emitToolUseBlock(sse, 1, "toolu_narrate", "corpus_search",
+		json.RawMessage(`{"query":"design"}`)); err != nil {
+		s.log.Warn("emit narrate tool_use", "err", err)
+		return
+	}
+	if err := emitMessageDelta(sse, "tool_use"); err != nil {
+		s.log.Warn("emit narrate message_delta", "err", err)
+		return
+	}
+	if err := emitMessageStop(sse); err != nil {
+		s.log.Warn("emit narrate message_stop", "err", err)
+	}
+}
+
+// countToolResultBlocks —— how many tool_result blocks are already in the history
+// (i.e. which narrate round we're on), so successive rounds vary their planning line.
+func countToolResultBlocks(req *MessagesReq) int {
+	n := 0
+	for i := range req.Messages {
+		for j := range req.Messages[i].Content {
+			if req.Messages[i].Content[j].Type == "tool_result" {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 func (s *server) emitToolUseTurn(
