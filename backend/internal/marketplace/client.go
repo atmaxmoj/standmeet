@@ -21,8 +21,11 @@ import (
 
 // defaults — overridable per-Client.
 const (
-	defaultGitHubBase   = "https://api.github.com/repos/anthropics/skills"
-	defaultSkillsMPBase = "https://api.skillsmp.com/v1"
+	defaultGitHubBase = "https://api.github.com/repos/anthropics/skills"
+	// SkillsMP's real API is a path on the main host, not an `api.` subdomain (that
+	// subdomain doesn't resolve — the original value here was the bug that made SkillsMP
+	// look dead). It indexes ~2M SKILL.md files across GitHub, each with a githubUrl + stars.
+	defaultSkillsMPBase = "https://skillsmp.com/api/v1"
 	httpTimeout         = 8 * time.Second
 	directoryCacheTTL   = 10 * time.Minute
 )

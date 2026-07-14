@@ -1,6 +1,6 @@
-// skillsmp.go —— SkillsMP HTTP API client. The hostname is real on
-// production (`api.skillsmp.com`); in dev/e2e the base URL points at
-// our mock so we don't depend on an upstream that may not exist yet.
+// skillsmp.go —— SkillsMP search source (skillsmp.com/api/v1). SkillsMP indexes ~2M
+// SKILL.md files crawled from GitHub; each result carries a githubUrl + star count, which
+// is what install fetches the SKILL.md from (SkillsMP has no per-skill content endpoint).
 
 package marketplace
 
@@ -15,8 +15,13 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
-// smpSearchResponse —— shape exposed by SkillsMP `/skills/search`.
+// smpSearchResponse —— skillsmp.com/api/v1/skills/search shape: {success, data:{skills:[…]}}.
 type smpSearchResponse struct {
+	Data    smpData `json:"data"`
+	Success bool    `json:"success"`
+}
+
+type smpData struct {
 	Skills []smpSkill `json:"skills"`
 }
 
@@ -25,9 +30,7 @@ type smpSkill struct {
 	Name        string `json:"name"`
 	Author      string `json:"author"`
 	Description string `json:"description"`
-	Category    string `json:"category"`
-	Version     string `json:"version"`
-	URL         string `json:"url"`
+	GithubURL   string `json:"githubUrl"`
 	Stars       int    `json:"stars"`
 }
 
@@ -37,10 +40,9 @@ func (c *Client) searchSkillsMP(ctx context.Context, query string) []domain.Mark
 		// Partial-result pattern — let GitHub's results carry the page.
 		return []domain.MarketSkill{}
 	}
-	out := make([]domain.MarketSkill, 0, len(resp.Skills))
-	for i := range resp.Skills {
-		s := resp.Skills[i]
-		out = append(out, smpToMarketSkill(&s))
+	out := make([]domain.MarketSkill, 0, len(resp.Data.Skills))
+	for i := range resp.Data.Skills {
+		out = append(out, smpToMarketSkill(&resp.Data.Skills[i]))
 	}
 	return out
 }
@@ -63,10 +65,11 @@ func getSkillsMP(
 func buildSkillsMPRequest(
 	ctx context.Context, base, query string,
 ) (*http.Request, error) {
-	u := strings.TrimRight(base, "/") + "/skills/search"
-	if query != "" {
-		u = u + "?q=" + url.QueryEscape(query)
+	q := query
+	if strings.TrimSpace(q) == "" {
+		q = "skill" // SkillsMP requires a query; a broad term seeds the default listing.
 	}
+	u := strings.TrimRight(base, "/") + "/skills/search?q=" + url.QueryEscape(q)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request: %w", err)
@@ -90,10 +93,9 @@ func smpToMarketSkill(s *smpSkill) domain.MarketSkill {
 		ID:          s.ID,
 		Name:        s.Name,
 		Author:      s.Author,
-		Version:     s.Version,
-		Category:    s.Category,
+		Category:    "",
 		Description: s.Description,
-		SourceURL:   s.URL,
+		SourceURL:   s.GithubURL, // where install fetches the SKILL.md from
 		Source:      domain.MarketSourceSkillsMP,
 		Stars:       s.Stars,
 	}

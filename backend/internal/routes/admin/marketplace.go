@@ -32,14 +32,42 @@ func (h *Handlers) MountMarketplace(r chi.Router) {
 	r.Route("/marketplace", func(r chi.Router) {
 		r.Get("/search", h.marketplaceSearch())
 		r.Post("/install", h.marketplaceInstall())
+		r.Post("/install-manual", h.marketplaceInstallManual())
 	})
 }
 
 type installSkillRequest struct {
-	Source  string `json:"source"`
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Source    string `json:"source"`
+	ID        string `json:"id"`
+	SourceURL string `json:"source_url"`
+	Name      string `json:"name"`
+	Version   string `json:"version"`
+}
+
+type installManualRequest struct {
+	SkillMD string `json:"skill_md"`
+	Name    string `json:"name"` // optional display-name fallback
+}
+
+// marketplaceInstallManual —— install a SKILL.md the owner pasted from anywhere (no
+// marketplace, no network). Parses frontmatter + body, persists as source='manual'.
+func (h *Handlers) marketplaceInstallManual() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req installManualRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(h.Log, w, envBadReq("invalid JSON body"))
+			return
+		}
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		skill, err := usecases.InstallManualSkill(r.Context(), usecases.InstallSkillDeps{
+			Marketplace: h.MarketplaceAdmin.Deps.Client, Skills: h.SkillsAdmin.Skills.Skills,
+		}, ownerID, req.SkillMD, req.Name)
+		if err != nil {
+			handleInstallSkillErr(h.Log, w, err)
+			return
+		}
+		writeCreatedSkill(h.Log, w, &skill)
+	}
 }
 
 func (h *Handlers) marketplaceInstall() http.HandlerFunc {
@@ -54,7 +82,7 @@ func (h *Handlers) marketplaceInstall() http.HandlerFunc {
 			Marketplace: h.MarketplaceAdmin.Deps.Client, Skills: h.SkillsAdmin.Skills.Skills,
 		}, &usecases.InstallSkillInput{
 			OwnerID: ownerID, Source: req.Source, ID: req.ID,
-			Name: req.Name, Version: req.Version,
+			SourceURL: req.SourceURL, Name: req.Name, Version: req.Version,
 		})
 		if err != nil {
 			handleInstallSkillErr(h.Log, w, err)

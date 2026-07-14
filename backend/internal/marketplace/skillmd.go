@@ -24,25 +24,34 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
-// FetchSkillContent fetches + parses a market skill's SKILL.md.
+// FetchSkillContent fetches + parses a market skill's SKILL.md. `sourceURL` is the skill's
+// githubUrl (used by the SkillsMP path, which has no content endpoint); the GitHub source
+// ignores it and derives the path from `id`.
 func (c *Client) FetchSkillContent(
-	ctx context.Context, source domain.MarketSource, id string,
+	ctx context.Context, source domain.MarketSource, id, sourceURL string,
 ) (domain.MarketSkillContent, error) {
-	raw, err := c.fetchSkillMD(ctx, source, id)
+	raw, err := c.fetchSkillMD(ctx, source, id, sourceURL)
 	if err != nil {
 		return domain.MarketSkillContent{}, err
 	}
 	return parseSkillMD(raw), nil
 }
 
+// ParseSkillMD —— for manual install (owner pastes a SKILL.md they found/downloaded
+// anywhere): same parser the marketplace fetch path uses, no network. A Client method so
+// the usecase layer reaches it through the MarketplaceClient interface (no direct import).
+func (*Client) ParseSkillMD(raw string) domain.MarketSkillContent {
+	return parseSkillMD(raw)
+}
+
 func (c *Client) fetchSkillMD(
-	ctx context.Context, source domain.MarketSource, id string,
+	ctx context.Context, source domain.MarketSource, id, sourceURL string,
 ) (string, error) {
 	switch source {
 	case domain.MarketSourceGitHub:
 		return c.fetchGitHubSkillMD(ctx, id)
 	case domain.MarketSourceSkillsMP:
-		return c.fetchSkillsMPSkillMD(ctx, id)
+		return c.fetchSkillMDFromTreeURL(ctx, sourceURL)
 	default:
 		return "", fmt.Errorf("unknown market source %q", source)
 	}
@@ -61,23 +70,38 @@ func (c *Client) fetchGitHubSkillMD(ctx context.Context, id string) (string, err
 	return decodeGHFileContent(resp.Body)
 }
 
-func (c *Client) fetchSkillsMPSkillMD(ctx context.Context, id string) (string, error) {
-	u := strings.TrimRight(c.skillsmpBase, "/") + "/skills/" + url.PathEscape(id)
-	resp, err := c.getURL(ctx, u, "application/json")
+// fetchSkillMDFromTreeURL —— SkillsMP has no content endpoint; each skill carries a github
+// tree URL (github.com/OWNER/REPO/tree/BRANCH/PATH). Convert it to the raw SKILL.md URL and
+// fetch the plain text.
+func (c *Client) fetchSkillMDFromTreeURL(ctx context.Context, treeURL string) (string, error) {
+	raw := rawSkillMDURL(treeURL)
+	if raw == "" {
+		return "", fmt.Errorf("unrecognized github url %q", treeURL)
+	}
+	resp, err := c.getURL(ctx, raw, "text/plain")
 	if err != nil {
 		return "", err
 	}
 	defer closeBody(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("skillsmp SKILL.md status %d", resp.StatusCode)
+		return "", fmt.Errorf("raw SKILL.md status %d", resp.StatusCode)
 	}
-	var d struct {
-		SkillMD string `json:"skill_md"`
+	body, rerr := io.ReadAll(resp.Body)
+	if rerr != nil {
+		return "", fmt.Errorf("read raw SKILL.md: %w", rerr)
 	}
-	if jerr := json.NewDecoder(resp.Body).Decode(&d); jerr != nil {
-		return "", fmt.Errorf("skillsmp detail decode: %w", jerr)
+	return string(body), nil
+}
+
+// rawSkillMDURL —— github.com/O/R/tree/B/PATH → raw.githubusercontent.com/O/R/B/PATH/SKILL.md.
+// Returns "" if the URL isn't a github tree URL.
+func rawSkillMDURL(treeURL string) string {
+	if !strings.Contains(treeURL, "github.com/") || !strings.Contains(treeURL, "/tree/") {
+		return ""
 	}
-	return d.SkillMD, nil
+	raw := strings.Replace(treeURL, "github.com/", "raw.githubusercontent.com/", 1)
+	raw = strings.Replace(raw, "/tree/", "/", 1)
+	return strings.TrimRight(raw, "/") + "/SKILL.md"
 }
 
 func (c *Client) getURL(ctx context.Context, u, accept string) (*http.Response, error) {

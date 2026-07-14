@@ -93,7 +93,7 @@ func (c *Client) enrichGitHubMetadata(ctx context.Context, items []ghContentItem
 // enrichOne —— best-effort SKILL.md fetch+parse for one skill dir; on any error the
 // item keeps its empty Description/Version (the card just shows less, never fails).
 func (c *Client) enrichOne(ctx context.Context, it *ghContentItem) {
-	content, err := c.FetchSkillContent(ctx, domain.MarketSourceGitHub, it.Name)
+	content, err := c.FetchSkillContent(ctx, domain.MarketSourceGitHub, it.Name, "")
 	if err != nil {
 		return
 	}

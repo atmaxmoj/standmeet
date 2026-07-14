@@ -102,6 +102,8 @@ async function runInstall(
 
 async function installFromMarket(m: MarketSkillView): Promise<void> {
   await adminAPI.post('/marketplace/install', {
-    source: m.marketplace, id: m.id, name: m.name, version: m.version,
+    // source_url (the skill's githubUrl) is how a SkillsMP install fetches its SKILL.md.
+    source: m.marketplace, id: m.id, source_url: m.source_url,
+    name: m.name, version: m.version,
   }, SkillViewSchema);
 }

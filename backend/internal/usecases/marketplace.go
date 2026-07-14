@@ -22,8 +22,10 @@ import (
 type MarketplaceClient interface {
 	Search(ctx context.Context, query, source string) []domain.MarketSkill
 	FetchSkillContent(
-		ctx context.Context, source domain.MarketSource, id string,
+		ctx context.Context, source domain.MarketSource, id, sourceURL string,
 	) (domain.MarketSkillContent, error)
+	// ParseSkillMD parses raw SKILL.md (no network) for manual install.
+	ParseSkillMD(raw string) domain.MarketSkillContent
 }
 
 // MarketplaceDeps —— bundle for the marketplace search REST route.
@@ -73,11 +75,12 @@ type InstallSkillDeps struct {
 
 // InstallSkillInput —— what the admin install endpoint passes through.
 type InstallSkillInput struct {
-	OwnerID string
-	Source  string // "github" | "skillsmp"
-	ID      string // market skill id (github dir name / skillsmp id)
-	Name    string // fallback display name when frontmatter has none
-	Version string
+	OwnerID   string
+	Source    string // "github" | "skillsmp"
+	ID        string // market skill id (github dir name / skillsmp id)
+	SourceURL string // skill's githubUrl — SkillsMP install fetches the SKILL.md from it
+	Name      string // fallback display name when frontmatter has none
+	Version   string
 }
 
 // InstallSkill —— fetch + parse a market skill's SKILL.md, persist it as a
@@ -90,7 +93,7 @@ func InstallSkill(
 		return domain.Skill{}, ErrEmptyField
 	}
 	content, err := deps.Marketplace.FetchSkillContent(
-		ctx, domain.MarketSource(in.Source), in.ID,
+		ctx, domain.MarketSource(in.Source), in.ID, in.SourceURL,
 	)
 	if err != nil {
 		return domain.Skill{}, fmt.Errorf("fetch skill content: %w", err)
@@ -103,6 +106,44 @@ func InstallSkill(
 
 func validInstallInput(in *InstallSkillInput) bool {
 	return in.OwnerID != "" && in.ID != "" && in.Source != ""
+}
+
+// InstallManualSkill —— install a SKILL.md the owner pasted/uploaded from anywhere (no
+// marketplace, no network): parse the frontmatter + body, persist as a source='manual'
+// skill. Empty owner / empty body → ErrEmptyField.
+func InstallManualSkill(
+	ctx context.Context, deps InstallSkillDeps, ownerID, skillMD, nameFallback string,
+) (domain.Skill, error) {
+	if ownerID == "" || strings.TrimSpace(skillMD) == "" {
+		return domain.Skill{}, ErrEmptyField
+	}
+	content := deps.Marketplace.ParseSkillMD(skillMD)
+	if strings.TrimSpace(content.Prompt) == "" {
+		return domain.Skill{}, ErrEmptyField
+	}
+	return persistManualSkill(ctx, deps, ownerID, nameFallback, &content)
+}
+
+func persistManualSkill(
+	ctx context.Context, deps InstallSkillDeps,
+	ownerID, nameFallback string, content *domain.MarketSkillContent,
+) (domain.Skill, error) {
+	skill, cerr := deps.Skills.Create(ctx, &postgres.CreateSkillInput{
+		OwnerID:      ownerID,
+		Name:         firstNonEmptyStr(content.Name, nameFallback),
+		Description:  content.Description,
+		Prompt:       content.Prompt,
+		AllowedTools: content.AllowedTools,
+		Source:       "manual",
+		Version:      content.Version,
+	})
+	if cerr != nil {
+		if errors.Is(cerr, domain.ErrSkillNameTaken) {
+			return domain.Skill{}, domain.ErrSkillNameTaken
+		}
+		return domain.Skill{}, fmt.Errorf("create manual skill: %w", cerr)
+	}
+	return skill, nil
 }
 
 func createInstalledSkill(
