@@ -25,18 +25,6 @@ import (
 
 var delayMarkerRe = regexp.MustCompile(`\[\[(think|slow-final):(\d+)\]\]`)
 
-// narrateMarkerRe —— [[narrate]] reproduces F-A-4: the model narrates its planning
-// as visible text ("Let me survey…") and keeps calling a corpus tool every round,
-// never synthesizing, so the loop exhausts MaxIterations with only planning
-// narration accumulated. Deterministic stand-in for how real DeepSeek behaved on a
-// broad question. Stripped from the search query like the other markers.
-var narrateMarkerRe = regexp.MustCompile(`\[\[narrate\]\]`)
-
-// hasNarrateMarker —— does this turn's text carry the [[narrate]] marker? The marker
-// lives in the visitor message, which is present in every loop iteration's history,
-// so it fires on each /v1/messages call (drives the loop to MaxIterations).
-func hasNarrateMarker(text string) bool { return narrateMarkerRe.MatchString(text) }
-
 // scriptKeyRe —— the `[[s:KEY]]` wrapper a test embeds to carry its script
 // keyword. Stripped from the corpus_search query so the keyword never leaks into
 // the search (matching itself uses the raw request text, in script.go).
@@ -64,6 +52,5 @@ func markerDelay(text, kind string) time.Duration {
 func stripMarkers(text string) string {
 	text = delayMarkerRe.ReplaceAllString(text, "")
 	text = scriptKeyRe.ReplaceAllString(text, "")
-	text = narrateMarkerRe.ReplaceAllString(text, "")
 	return strings.TrimSpace(text)
 }

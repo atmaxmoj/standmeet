@@ -123,13 +123,13 @@ gateway-up:
 eval-smoke: gateway-up
 	@eval-harness/smoke.sh
 
-# eval-narration —— F-A-4 regression: a BROAD visitor question where the model narrates its
-# planning ("Let me survey…") each tool round and never synthesizes, so the loop hits
-# MaxIterations. Deterministic on the mock gateway (the [[narrate]] marker scripts the failing
-# behaviour) — NO real key. Asserts the visitor still gets a synthesized answer, not the raw
-# planning narration. Runs the SAME prod loop via the agentcore facade.
-eval-narration: gateway-up
-	@cd eval-harness && go test -run TestNarrationMaxIter -count=1 -v ./...
+# eval-narration —— F-A-4 eval: a BROAD visitor question against the REAL model (DeepSeek),
+# with the REAL corpus tools wired (retrieval plugin over a host socket), fresh fictional
+# persona (Dana Rivera). Asserts the model actually GROUNDS the answer (calls the tools) and
+# synthesizes — not planning narration, not an ungrounded riff. Real LLM, no mock; skips
+# without a key (EVAL_KEY / provider key in eval-harness/.env).
+eval-narration:
+	@cd eval-harness && go test -run TestNarrationLive -count=1 -v ./...
 
 # eval-ask —— 给被测 agent (owner persona) 喂一个问题,看它怎么答 + 查了哪些
 # corpus。被测对象 = owner 的 system prompt + corpus,真 LLM (DeepSeek v4-pro,

@@ -58,7 +58,7 @@ func emitToolStarted(em *loopEmit, accum *assistantAccum) {
 // emitToolCompleted —— ADK 发 Role=Tool event 时调；content 是 tool
 // 执行返回的字符串 (capability binding 一般是 JSON envelope，消费方
 // 自己解)。
-func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant) {
+func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant, state *turnState) {
 	msg, err := mv.GetMessage()
 	if err != nil {
 		em.log.Error("agent turn tool result message", logErrKey, err)
@@ -66,5 +66,8 @@ func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant) {
 	}
 	// 完成日志:名字 + 结果字节数(结果可能很大,如 corpus_read 的 body,不全打)。
 	em.log.Info("agent tool done", "name", mv.ToolName, "result_bytes", len(msg.Content))
+	// Keep the finding: if this turn later exhausts its iteration budget, the forced
+	// synthesis answers FROM this material instead of from an empty context.
+	recordEvidence(state, mv.ToolName, msg.Content)
 	em.sink.ToolCompleted(mv.ToolName, msg.Content)
 }
