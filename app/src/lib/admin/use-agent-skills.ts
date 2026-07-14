@@ -40,6 +40,8 @@ export interface AgentSkillsHook {
   installedNames: ReadonlySet<string>;
   installing: string | null;
   install: (m: MarketSkillView) => Promise<void>;
+  /** install a SKILL.md the owner pasted from anywhere (no marketplace, no network). */
+  installManual: (skillMD: string, name: string) => Promise<void>;
   query: string;
   setQuery: (q: string) => void;
   source: SourceFilter;
@@ -68,10 +70,16 @@ export function useAgentSkills(): AgentSkillsHook {
     return runInstall(m, skills.refresh, setInstalling, setLastInstalledAt);
   }, [skills]);
 
+  const installManual = useCallback(async (skillMD: string, name: string) => {
+    await installManualSkill(skillMD, name);
+    await skills.refresh();
+    setLastInstalledAt(Date.now());
+  }, [skills]);
+
   return {
     installed, installedStatus: skills.status, toggle, onCount,
     marketResults: search.results, loadMoreMarket: search.loadMore,
-    hasMoreMarket: search.hasMore, installedNames, installing, install,
+    hasMoreMarket: search.hasMore, installedNames, installing, install, installManual,
     query, setQuery, source, setSource, lastInstalledAt,
   };
 }
@@ -105,5 +113,11 @@ async function installFromMarket(m: MarketSkillView): Promise<void> {
     // source_url (the skill's githubUrl) is how a SkillsMP install fetches its SKILL.md.
     source: m.marketplace, id: m.id, source_url: m.source_url,
     name: m.name, version: m.version,
+  }, SkillViewSchema);
+}
+
+async function installManualSkill(skillMD: string, name: string): Promise<void> {
+  await adminAPI.post('/marketplace/install-manual', {
+    skill_md: skillMD, name,
   }, SkillViewSchema);
 }

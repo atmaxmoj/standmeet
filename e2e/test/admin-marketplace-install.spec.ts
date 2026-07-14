@@ -61,6 +61,38 @@ test.describe('marketplace install', () => {
       expect(installed!.prompt).toContain('INSTALLED-SKILL-MARKER');
       await request.dispose();
     });
+
+  test('paste a SKILL.md → installs directly as a manual skill (no network)',
+    async ({ playwright }) => {
+      const request = await playwright.request.newContext();
+      await setup(request);
+      const { csrf } = await login(request, OWNER.email, OWNER.password);
+
+      const md = [
+        '---',
+        'name: pasted-skill',
+        'description: a skill the owner pasted by hand',
+        'allowed-tools: [corpus_search]',
+        '---',
+        '',
+        '# Pasted',
+        'PASTED-MANUAL-MARKER body instructions.',
+      ].join('\n');
+
+      const res = await request.post(`${BACKEND}/api/admin/marketplace/install-manual`, {
+        headers: { 'X-Csrftoken': csrf },
+        data: { skill_md: md, name: '' },
+      });
+      expect(res.status()).toBe(201);
+
+      const skills = await listSkills(request);
+      const manual = skills.find((s) => s.source === 'manual');
+      expect(manual, 'manual skill present').toBeTruthy();
+      // frontmatter name wins when no explicit name is passed.
+      expect(manual!.name).toBe('pasted-skill');
+      expect(manual!.prompt).toContain('PASTED-MANUAL-MARKER');
+      await request.dispose();
+    });
 });
 
 async function setup(request: APIRequestContext): Promise<void> {

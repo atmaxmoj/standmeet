@@ -75,6 +75,28 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
         .toHaveAttribute('class', /tabBtnActive/, { timeout: 10_000 });
       await expect(adminPage.locator(INSTALLED)).toHaveCount(before + 1, { timeout: 5_000 });
     });
+
+  test('paste a SKILL.md in the marketplace tab → it installs into my skills',
+    async ({ adminPage }) => {
+      await openAgentSkills(adminPage);
+      await expect(adminPage.getByTestId('installed-skills-grid')).toBeVisible({ timeout: 5_000 });
+      const before = await adminPage.locator(INSTALLED).count();
+
+      await adminPage.getByTestId('agent-skills-tab-marketplace').click();
+      await adminPage.getByTestId('marketplace-manual-toggle').click();
+      const md = [
+        '---', 'name: hand-pasted', 'description: pasted by the owner', '---',
+        '', '# Body', 'do the thing.',
+      ].join('\n');
+      await adminPage.getByTestId('marketplace-manual-md').fill(md);
+      await adminPage.getByTestId('marketplace-manual-install').click();
+
+      // Install completes → auto-switch back to My Skills, count +1, new skill present.
+      await expect(adminPage.getByTestId('agent-skills-tab-installed'))
+        .toHaveAttribute('class', /tabBtnActive/, { timeout: 10_000 });
+      await expect(adminPage.locator(INSTALLED)).toHaveCount(before + 1, { timeout: 5_000 });
+      await expect(adminPage.getByText('hand-pasted', { exact: false })).toBeVisible();
+    });
 });
 
 async function openAgentSkills(page: Page): Promise<void> {

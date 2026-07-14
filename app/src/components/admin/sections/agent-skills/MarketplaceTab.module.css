@@ -92,3 +92,93 @@
   color: var(--color-muted);
   padding: 18px 0;
 }
+
+.manual {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-rule);
+}
+
+.manualToggle {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.manualToggle:hover { color: var(--color-ink); }
+
+.manualHint {
+  font-family: var(--font-serif);
+  font-size: 13.5px;
+  color: var(--color-muted);
+  margin: 8px 0 12px;
+  max-width: 54em;
+  line-height: 1.5;
+}
+
+.manualForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manualArea {
+  width: 100%;
+  min-height: 180px;
+  border: 1px solid var(--color-rule);
+  border-radius: 2px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  outline: none;
+  resize: vertical;
+}
+
+.manualArea:focus { border-color: var(--color-ink); }
+
+.manualRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.manualName {
+  flex: 1;
+  min-width: 200px;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--color-ink);
+  outline: none;
+  padding: 4px 0;
+}
+
+.manualInstall {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.manualInstall:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

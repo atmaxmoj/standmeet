@@ -5,6 +5,8 @@
 
 'use client';
 
+import { useState } from 'react';
+
 import { MarketplaceCard } from '@/components/admin/sections/agent-skills/MarketplaceCard';
 import {
   type Marketplace,
@@ -31,6 +33,73 @@ export function MarketplaceTab({
       <SearchBar hook={hook} />
       <ResultsGrid hook={hook} connected={connected} />
       <LoadMore hook={hook} />
+      <ManualInstall hook={hook} />
+    </div>
+  );
+}
+
+// ManualInstall —— paste a SKILL.md found/downloaded anywhere and install it
+// directly (no marketplace, no network). Backend parses frontmatter + body.
+function ManualInstall({ hook }: { hook: AgentSkillsHook }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={styles.manual}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={styles.manualToggle}
+        data-testid="marketplace-manual-toggle"
+        aria-expanded={open}
+      >
+        {open ? '− paste a SKILL.md' : '+ paste a SKILL.md'}
+      </button>
+      {open ? <ManualForm hook={hook} /> : null}
+    </div>
+  );
+}
+
+function ManualForm({ hook }: { hook: AgentSkillsHook }) {
+  const run = useAction();
+  const [md, setMd] = useState('');
+  const [name, setName] = useState('');
+  const onInstall = () => {
+    void run(() => hook.installManual(md, name), { success: 'Skill installed' })
+      .then(() => { setMd(''); setName(''); });
+  };
+  return (
+    <div>
+      <p className={styles.manualHint}>
+        Found a skill somewhere else? Paste its <span className={styles.introInk}>SKILL.md</span>{' '}
+        (YAML frontmatter + body). It installs as a local copy you own — no
+        marketplace, no network fetch.
+      </p>
+      <div className={styles.manualForm}>
+        <textarea
+          value={md}
+          onChange={(e) => setMd(e.target.value)}
+          placeholder={'---\nname: my-skill\ndescription: what it does\n---\n\n# Instructions…'}
+          className={styles.manualArea}
+          data-testid="marketplace-manual-md"
+        />
+        <div className={styles.manualRow}>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="name (optional — falls back to frontmatter)"
+            className={styles.manualName}
+            data-testid="marketplace-manual-name"
+          />
+          <button
+            type="button"
+            onClick={onInstall}
+            disabled={md.trim() === ''}
+            className={styles.manualInstall}
+            data-testid="marketplace-manual-install"
+          >
+            install
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
