@@ -2,56 +2,41 @@
 // image ref rewriter / zip export / multipart import。靠 usecases.SavePost
 // 走 atomic asset 路径。
 //
-// 形态对齐 Obsidian Properties (1.4+) + Hugo/Jekyll 公约：
+// 本文件只负责 frontmatter 的**机械** codec —— Split / Parse / Render /
+// Assemble。**字段来源契约**(哪个 key 从哪来、谁读谁忽略)不在这里复述:权威
+// 定义在 vault 设计文档
+// `standmeet/architecture/key-designs/corpus/obsidian-sync-mechanism/protocol.md`
+// (配套模板 `_templates/standmeet-article.md`)。以前这段注释内联抄过一份 schema
+// 例子、并跟契约漂移(把 export-only 的 `created` 当 import 字段列出来),误导过审计,
+// 已删 —— 契约只有一份,别在 code 注释里再抄一份。
 //
-//	---
-//	title: My Post
-//	slug: my-post
-//	tags:
-//	  - essay
-//	aliases: []
-//	created: 2026-05-25T10:00:00
-//	publish: true
-//	excerpt: One-liner.
-//	cover_hue: amber
-//	cover_headline: cover.
-//	visibility: public
-//	---
-//	body markdown here
-//
-// `tags` / `aliases` 是 Obsidian native typed list field（plural 形态）；
-// `created` 是 native datetime；其余 (slug/excerpt/cover_*/visibility) 是
-// 我们 custom field，Obsidian 会按 string 显示但不 validate。
-//
-// `publish: true` 是开源项目 obsidian-publish-plugin 推广的 import gate
-// convention —— vault 里默认只 import 带这条 flag 的 note，避免一次性灌
-// 私人草稿。
+// `publish: true` 是 import gate(Obsidian Publish 的原生 key,一个 flag 两边同义):
+// vault 里默认只 import 带这条 flag 的 note,避免一次性灌私人草稿。
 package obsidian
 
 import (
 	"bytes"
 	"fmt"
 	"strings"
-	"time"
 
 	"go.yaml.in/yaml/v3"
 )
 
-// Frontmatter —— 一个 .md 文件顶部 YAML 块的解析后形态。
-// fieldalignment: slice (24B) → string (16B) → bool (1B)。
+// Frontmatter —— 一个 .md 文件顶部 YAML 块的解析后形态。字段来源契约见 package
+// doc 指向的 protocol.md;这里只是 codec 的解析/渲染载体。`created` 不在其中 ——
+// 时间戳 DB 拥有(created_at / published_at),不作为 frontmatter key 往返。
 type Frontmatter struct {
-	Created       *time.Time `yaml:"created,omitempty"`
-	Title         string     `yaml:"title"`
-	Slug          string     `yaml:"slug,omitempty"`
-	Excerpt       string     `yaml:"excerpt,omitempty"`
-	CoverHeadline string     `yaml:"cover_headline,omitempty"`
-	CoverHue      string     `yaml:"cover_hue,omitempty"`
-	CoverImage    string     `yaml:"cover_image,omitempty"`
-	Visibility    string     `yaml:"visibility,omitempty"`
-	LockedBody    string     `yaml:"locked_body,omitempty"`
-	Tags          []string   `yaml:"tags,omitempty"`
-	Aliases       []string   `yaml:"aliases,omitempty"`
-	Publish       bool       `yaml:"publish,omitempty"`
+	Title         string   `yaml:"title"`
+	Slug          string   `yaml:"slug,omitempty"`
+	Excerpt       string   `yaml:"excerpt,omitempty"`
+	CoverHeadline string   `yaml:"cover_headline,omitempty"`
+	CoverHue      string   `yaml:"cover_hue,omitempty"`
+	CoverImage    string   `yaml:"cover_image,omitempty"`
+	Visibility    string   `yaml:"visibility,omitempty"`
+	LockedBody    string   `yaml:"locked_body,omitempty"`
+	Tags          []string `yaml:"tags,omitempty"`
+	Aliases       []string `yaml:"aliases,omitempty"`
+	Publish       bool     `yaml:"publish,omitempty"`
 }
 
 const (

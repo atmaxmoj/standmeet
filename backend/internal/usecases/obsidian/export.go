@@ -19,7 +19,6 @@ import (
 	"io"
 	"mime"
 	"strings"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
@@ -234,15 +233,7 @@ func writingToFrontmatter(w *domain.Writing, filenames map[string]string) Frontm
 		CoverHue:      w.CoverHue(), Visibility: w.VisibilityMode(),
 		LockedBody: w.LockedBody(), Publish: w.IsPublished(),
 	}
-	if pubAt, ok := w.PublishedAt(); ok {
-		t := pubAt.UTC().Format(time.RFC3339)
-		// time.Time 直接 yaml.Marshal 出 RFC3339；用 string 形态绕开 omitempty
-		// 对 zero-time 的判断。这里设回 *time.Time 给 frontmatter。
-		parsed, perr := time.Parse(time.RFC3339, t)
-		if perr == nil {
-			fm.Created = &parsed
-		}
-	}
+	// 时间戳不进 frontmatter:created_at / published_at 由 DB 拥有,import 侧也不读。
 	addCoverImageRef(&fm, w, filenames)
 	return fm
 }
