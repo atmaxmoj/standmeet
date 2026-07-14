@@ -53,10 +53,14 @@ test.describe('login landing + auth-shell UX', () => {
     await expect(page.getByTestId('auth-offers')).toBeVisible();
   });
 
-  // UX-1 — a real favicon is served, not a 404.
+  // UX-1 — a real favicon is served (both the modern icon.svg link target AND the
+  // legacy /favicon.ico the browser auto-probes) → no blank tab icon, no per-page
+  // 404 console noise.
   test('a favicon is served (no blank tab icon)', async ({ page }) => {
-    const resp = await page.request.get('/icon.svg');
-    expect(resp.status()).toBe(200);
-    expect(resp.headers()['content-type'] ?? '').toContain('svg');
+    const svg = await page.request.get('/icon.svg');
+    expect(svg.status()).toBe(200);
+    expect(svg.headers()['content-type'] ?? '').toContain('svg');
+    const ico = await page.request.get('/favicon.ico');
+    expect(ico.status()).toBe(200);
   });
 });
