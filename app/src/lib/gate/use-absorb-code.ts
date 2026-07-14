@@ -16,6 +16,7 @@
 import { useEffect } from 'react';
 
 import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { peekStoredSession } from '@/lib/visitor/session-store';
 import { clearNameDismiss } from '@/lib/visitor/visitor-name';
 
 export function useAbsorbCodeFromURL(): void {
@@ -31,12 +32,23 @@ function absorbFromURL(): void {
   const url = new URL(window.location.href);
   const code = url.searchParams.get('code');
   if (code === null || code === '') return;
-  usePendingCodeStore.getState().setCode(code);
-  // 新 code(扫 QR / 点分享链接)= 新场景 → 清掉上次 skip 的 30 天 dismiss,
-  // 让 VisitorNamePicker 重新问名字。
-  clearNameDismiss();
+  // F-A-5: 已经在这张**同一码**的具名 session 里(via /gate 或上次选过名字)= visitor
+  // 已解析 → 重开 ?code= 链接不该再弹身份选择器盖在活跃会话上。仍然把 code 从 URL 剥掉。
+  if (!alreadyInNamedSession(code)) {
+    usePendingCodeStore.getState().setCode(code);
+    // 新 code(扫 QR / 点分享链接)= 新场景 → 清掉上次 skip 的 30 天 dismiss,
+    // 让 VisitorNamePicker 重新问名字。
+    clearNameDismiss();
+  }
   url.searchParams.delete('code');
   const rest = url.searchParams.toString();
   const next = url.pathname + (rest ? `?${rest}` : '') + url.hash;
   window.history.replaceState(null, '', next);
+}
+
+// alreadyInNamedSession —— 当前是否已有一张**同码且已具名**的活跃 session。
+// peekStoredSession 直接同步读 LS,绕开 zustand hydrate 时序(与 absorb effect 同 mount)。
+function alreadyInNamedSession(code: string): boolean {
+  const active = peekStoredSession();
+  return active?.code === code && Boolean(active?.visitor);
 }

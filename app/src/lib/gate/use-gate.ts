@@ -20,6 +20,7 @@ import {
 } from '@/lib/api/public';
 import { storeBYOAI } from '@/lib/gate/byoai-vault';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { rememberVisitorName } from '@/lib/visitor/visitor-name';
 
 const BYOAI_STORAGE_KEY = 'standmeet:visitor-session';
 
@@ -171,6 +172,10 @@ export function useGate(): GateHook {
       const sess = await issueCodeSession({
         code: trimmedCode, visitor_name: trimmedName,
       });
+      // F-A-5: keep the remembered name in sync with the /gate entry so a later
+      // VisitorNamePicker (a genuinely new code) prefills THIS identity, not a
+      // stale name from an earlier picker use.
+      (trimmedName !== '') && rememberVisitorName(trimmedName);
       persistSession(sess, false);
       storeDisplaySession(sess, {
         code: sess.code ?? trimmedCode,
