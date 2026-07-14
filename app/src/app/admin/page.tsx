@@ -1,7 +1,8 @@
-// /admin —— 根落地直接跳 page editor 这种 DoD 主路径。
+// /admin —— 根落地跳 dashboard 总览(returning owner 想先看全局状态,
+// 不是直接掉进 public-face 编辑器)。
 
 import { redirect } from 'next/navigation';
 
 export default function AdminIndex() {
-  redirect('/admin/page');
+  redirect('/admin/dashboard');
 }

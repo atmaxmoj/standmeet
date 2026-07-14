@@ -5,7 +5,7 @@ import { LoginForm } from '@/components/auth/LoginForm';
 
 export default function LoginPage() {
   return (
-    <AuthShell>
+    <AuthShell showOffers={false}>
       <LoginForm />
     </AuthShell>
   );

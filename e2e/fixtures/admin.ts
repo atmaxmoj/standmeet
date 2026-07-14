@@ -149,3 +149,9 @@ export async function navigateToOwnerLogin(page: Page): Promise<void> {
   await page.goto('/admin');
   await page.waitForURL('**/login', { timeout: 10_000 });
 }
+
+// navigateToSetup —— open the first-run /setup surface (no token → MissingToken
+// view, but the AuthShell chrome incl. the offers panel still renders).
+export async function navigateToSetup(page: Page): Promise<void> {
+  await page.goto('/setup');
+}

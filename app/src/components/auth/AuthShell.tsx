@@ -11,17 +11,35 @@ import type { ReactNode } from 'react';
 
 import { useInstanceHash } from '@/lib/auth/use-instance-hash';
 
-export function AuthShell({ children }: { children: ReactNode }) {
+// showOffers —— the "what you get" pitch belongs on /setup (owner deciding to
+// claim a fresh instance), not /login (a returning owner who already deployed —
+// the pitch is redundant there). Login passes false → single-column form.
+export function AuthShell({
+  children,
+  showOffers = true,
+}: {
+  children: ReactNode;
+  showOffers?: boolean;
+}) {
   return (
     <div className="min-h-screen flex flex-col">
       <DeployStrip />
       <main className="flex-1 mx-auto max-w-[1180px] w-full px-6 lg:px-10 py-12 lg:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-12">
-          <div>{children}</div>
-          <SidePanel />
-        </div>
+        <ShellBody showOffers={showOffers}>{children}</ShellBody>
       </main>
       <AuthFooter />
+    </div>
+  );
+}
+
+function ShellBody({ children, showOffers }: { children: ReactNode; showOffers: boolean }) {
+  const layout = showOffers
+    ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-12'
+    : 'max-w-[560px]';
+  return (
+    <div className={layout}>
+      <div>{children}</div>
+      {showOffers ? <SidePanel /> : null}
     </div>
   );
 }
@@ -52,7 +70,7 @@ function DeployStrip() {
 
 function SidePanel() {
   return (
-    <aside className="hidden lg:block border-l border-(--color-rule) pl-10">
+    <aside data-testid="auth-offers" className="hidden lg:block border-l border-(--color-rule) pl-10">
       <div className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-4">
         what you get
       </div>
