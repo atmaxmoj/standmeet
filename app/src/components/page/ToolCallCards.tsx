@@ -18,7 +18,10 @@ import type { PublicSessionToolSpec } from '@standmeet/sdk-core';
 
 import { McpAppCard } from '@/components/page/McpAppCard';
 import { useToolSpecsStore, uiHtmlForTool } from '@/lib/visitor/tool-specs-store';
-import { cardKindFor, jsonPretty } from '@/lib/page/tool-call-shape';
+import {
+  cardKindFor, jsonPretty, isRetrievalTool, retrievalCounts,
+  type RetrievalCounts,
+} from '@/lib/page/tool-call-shape';
 import type { ToolCallView } from '@/lib/page/use-chat';
 import styles from '@/components/page/ToolCallCards.module.css';
 
@@ -34,15 +37,40 @@ interface ToolCallCardsProps {
 
 export function ToolCallCards({ calls, onAsk, conversationID }: ToolCallCardsProps) {
   const byName = useToolSpecsStore((s) => s.byName);
-  const visible = calls.filter((c) => renderableCall(c, byName));
-  return visible.length === 0 ? null : (
+  // Retrieval (corpus_*) collapses into ONE summary row instead of one iframe per call
+  // (UX-10). Everything else — interactive ui:// cards (ask_visitor / booked), skill/ext
+  // dumps — still renders as its own card.
+  const retrieval = calls.filter((c) => c.ok && isRetrievalTool(c.name));
+  const others = otherCards(calls, byName);
+  return retrieval.length + others.length === 0 ? null : (
     <div className={styles['stack']} data-testid="tool-call-cards">
-      {visible.map((c, i) => (
+      {retrieval.length > 0 ? <RetrievalSummary counts={retrievalCounts(retrieval)} /> : null}
+      {others.map((c, i) => (
         <ToolCallCard
           key={`${c.name}-${i}`} call={c}
           onAsk={onAsk} conversationID={conversationID}
         />
       ))}
+    </div>
+  );
+}
+
+// otherCards —— 非检索、且可渲的 tool call(交互 ui:// 卡 / skill·ext dump)。检索族
+// 折叠成 RetrievalSummary,不走这里。
+function otherCards(
+  calls: readonly ToolCallView[], byName: Record<string, PublicSessionToolSpec>,
+): ToolCallView[] {
+  return calls.filter((c) => !isRetrievalTool(c.name) && renderableCall(c, byName));
+}
+
+// RetrievalSummary —— 折叠后的检索行:一行、原地,不随检索次数堆叠(UX-10)。
+// 「读到的具体内容」在 citations footer;这里只报「搜/读了多少次」的透明度。
+function RetrievalSummary({ counts }: { counts: RetrievalCounts }) {
+  return (
+    <div className={styles['retrievalSummary']} data-testid="retrieval-summary">
+      <span className={styles['kicker']}>searched {counts.searches}</span>
+      <span aria-hidden>·</span>
+      <span className={styles['kicker']}>read {counts.reads}</span>
     </div>
   );
 }

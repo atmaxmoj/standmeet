@@ -18,6 +18,21 @@
   margin-bottom: 0.4em;
 }
 
+/* retrieval summary —— corpus_* 检索折叠成的单行（UX-10）。一行、极轻、不堆叠：
+   mono small kicker，横排 "searched N · read M"。取代过去每次检索一张 ui:// 沙盒卡。 */
+.retrievalSummary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.retrievalSummary .kicker {
+  margin-bottom: 0;
+}
+
 /* booked confirmation 卡已外置成 booker 插件的 ui:// 沙盒卡（自带样式），写死的
    React BookCard + 其 .bookCard/.bookTime/.bookLink/.cancel* 样式随之删除。 */
 

@@ -14,6 +14,33 @@ export function cardKindFor(name: string): CardKind {
   return 'none';
 }
 
+// isRetrievalTool —— corpus_* 检索族。这些工具**不**各渲一张 ui:// 沙盒卡:一个真模型
+// 一轮可能检索十几次,per-call 卡片会竖着堆满屏(UX-10)。它们折叠成一行 RetrievalSummary;
+// 「读了哪些」由 citations footer 承载(原设计:corpus_read 本就不重复渲卡)。
+const RETRIEVAL_TOOLS = new Set([
+  'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
+]);
+
+export function isRetrievalTool(name: string): boolean {
+  return RETRIEVAL_TOOLS.has(name);
+}
+
+// RetrievalCounts —— 折叠后的检索计数(searched = search/list/links;read = corpus_read)。
+export interface RetrievalCounts {
+  searches: number;
+  reads: number;
+}
+
+export function retrievalCounts(calls: readonly { name: string }[]): RetrievalCounts {
+  let searches = 0;
+  let reads = 0;
+  for (const c of calls) {
+    if (c.name === 'corpus_read') reads += 1;
+    else searches += 1;
+  }
+  return { searches, reads };
+}
+
 // jsonPretty —— skill/ext result 的 debug-grade pretty print。failure
 // 兜底为字符串化 (toString)。
 export function jsonPretty(v: unknown): string {

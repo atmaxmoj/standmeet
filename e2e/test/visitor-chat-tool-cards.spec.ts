@@ -1,11 +1,10 @@
-// visitor-chat-tool-cards.spec.ts —— G-4: AI 调 tool 后，tool result 渲
-// 成卡片（不只是 throbber）。覆盖：
-//   1. corpus_search → SearchHitsCard 列出匹配的 path/title/genre/summary
-//   2. corpus_read 的 tool_completed 走 Citation 不重复（卡片不含 corpus_read）
+// visitor-chat-tool-cards.spec.ts —— G-4 / UX-10: AI 调检索工具后，结果折叠成
+// 一行 retrieval-summary（不是每次一张 ui:// 卡）。覆盖：
+//   1. corpus_search + corpus_read → 单个 retrieval-summary（"searched N · read M"）
+//   2. corpus_read 不各渲一张卡（内容走 Citation；原意如此，ui:// 路径曾回归此点）
 //   3. calendar_book 跳过 (G-7 接管)
 //
-// skill_* / ext_* generic dump 留 G-5+ 时有 fixture 再加 spec；现在 mock
-// 路径主要触发 corpus_search 跟 corpus_read。
+// 折叠的规模守卫在 visitor-chat-retrieval-collapse.spec.ts（多次检索不堆叠）。
 
 import { test, expect } from '@/fixtures/test';
 
@@ -45,16 +44,14 @@ test.describe('tool call 渲染成卡片', () => {
     await request.dispose();
   });
 
-  test('visitor 问 → corpus_search 卡显示 hits → corpus_read 走 citation 不重复',
+  test('visitor 问 → 检索折叠成一行 summary，corpus_read 不各渲卡，citation 仍在',
     async ({ browser }) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
 
       await enterCodeSession(page, CODE);
 
-      // Mock is pure registration: register the corpus_search (renders the
-      // SearchHitsCard) and corpus_read (records the citation) this turn should
-      // run. Both tags ride in the message; across the agent loop each fires once.
+      // Mock is pure registration: one corpus_search + one corpus_read this turn.
       const searchTag = await scriptMockToolCall(page.request, {
         name: 'corpus_search', args: { query: 'lucerna' },
       });
@@ -66,22 +63,18 @@ test.describe('tool call 渲染成卡片', () => {
       await input.fill(`tell me about lucerna${searchTag}${readTag}`);
       await input.press('Enter');
 
-      // corpus_search 卡(retrieval 插件 ui:// 沙盒卡)出现,点 summary 展开看 hits。
-      // 卡渲在 sandbox iframe 里 → 用 frameLocator 进 frame 找内容。
-      await expect(page.getByTestId('mcp-app-card-corpus_search'))
-        .toBeVisible({ timeout: 20_000 });
-      const frame = page.frameLocator('[data-testid="mcp-app-card-corpus_search"]');
-      await frame.locator('summary').first().click();
-      const hit = frame.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
-      await expect(hit).toBeVisible();
-      await expect(hit).toContainText('Lucerna');
-      await expect(hit).toContainText('wiki');
+      // Retrieval collapses to ONE summary row (UX-10) — "searched 1 · read 1".
+      const summary = page.getByTestId('retrieval-summary');
+      await expect(summary).toBeVisible({ timeout: 20_000 });
+      await expect(summary).toContainText('searched 1');
+      await expect(summary).toContainText('read 1');
 
-      // corpus_read 不渲卡 (Citation 接管)：tool-card-corpus_read 不存在
-      await expect(page.getByTestId('tool-card-corpus_read'))
-        .toHaveCount(0);
+      // Neither corpus_search nor corpus_read renders its own ui:// card (the read
+      // card was the regressed one; the search card is now folded into the summary).
+      await expect(page.getByTestId('mcp-app-card-corpus_search')).toHaveCount(0);
+      await expect(page.getByTestId('mcp-app-card-corpus_read')).toHaveCount(0);
 
-      // Citation 仍正常显示
+      // Citation still carries what was actually read.
       await expect(page.getByTestId('citations')).toBeVisible();
 
       await ctx.close();
