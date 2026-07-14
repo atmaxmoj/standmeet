@@ -10,7 +10,7 @@ import { Btn } from '@/components/admin/atoms/Btn';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { useCorpusView } from '@/lib/admin/corpus-view';
-import { cleanCorpusExcerpt } from '@/lib/admin/corpus-tree';
+import { pickExcerpt } from '@/lib/admin/corpus-tree';
 import { EditorSideRail } from '@/components/admin/sections/writings/EditorSideRail';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
@@ -149,9 +149,9 @@ function WritingCard({
   return (
     <div className="border border-(--color-rule) px-5 py-4 flex flex-col gap-2">
       <WritingCardHead writing={writing} />
-      {cleanCorpusExcerpt(writing.excerpt) && (
+      {pickExcerpt(writing.excerpt, writing.body_md) && (
         <p className="reading-tight text-[14px] text-(--color-muted) line-clamp-2">
-          {cleanCorpusExcerpt(writing.excerpt)}
+          {pickExcerpt(writing.excerpt, writing.body_md)}
         </p>
       )}
       <WritingCardActions writing={writing} hook={hook} onEdit={onEdit} />

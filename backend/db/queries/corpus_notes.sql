@@ -182,16 +182,16 @@ LIMIT 1;
 -- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
 -- inbox_source is the vault-source tag for genre='raw' ("obsidian:<path>"); empty for other genres.
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
 RETURNING *;
 
 -- name: UpdateNoteSync :one
--- Vault sync update (reconcile): relocate (genre/parent may change on a move), refresh body/tags/publish,
+-- Vault sync update (reconcile): relocate (genre/parent may change on a move), refresh body/tags/publish/excerpt,
 -- re-stamp the obsidian identity + inbox_source. Never touches rows absent from the batch (caller upserts per file).
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
-    obsidian_source_path = $8, css_classes = $9, inbox_source = $10,
+    obsidian_source_path = $8, css_classes = $9, inbox_source = $10, excerpt = $11,
     obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;

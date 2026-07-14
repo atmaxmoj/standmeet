@@ -11,7 +11,8 @@ import { createResourceStore, readResource } from '@/lib/state/create-resource-s
 import type { ResourceStatus } from '@/lib/state/status';
 
 export const WikiSummarySchema = z.object({
-  id: z.string(), title: z.string(), excerpt: z.string(), tags: z.array(z.string()),
+  id: z.string(), title: z.string(), excerpt: z.string(),
+  preview: z.string().optional(), tags: z.array(z.string()),
   source_raw_ids: z.array(z.string()), created_at: z.string(),
   parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
   show_as_source: z.boolean(), published: z.boolean(),

@@ -122,6 +122,7 @@ func collidingTitles(tree []*desiredNode) map[string]bool {
 // nodeContent —— 一个节点的落库内容;file==nil(自动补的中间节点)= 空结构节点。
 type nodeContent struct {
 	body       string
+	excerpt    string
 	srcPath    string
 	tags       []string
 	cssClasses []string
@@ -133,8 +134,8 @@ func contentOf(n *desiredNode) nodeContent {
 		return nodeContent{}
 	}
 	return nodeContent{
-		body: n.file.body, srcPath: n.file.sourcePath, tags: n.file.fm.Tags,
-		cssClasses: n.file.fm.CSSClasses, published: n.file.fm.Publish,
+		body: n.file.body, excerpt: n.file.fm.Excerpt, srcPath: n.file.sourcePath,
+		tags: n.file.fm.Tags, cssClasses: n.file.fm.CSSClasses, published: n.file.fm.Publish,
 	}
 }
 
@@ -227,8 +228,9 @@ func reconcileNode(
 func createNode(ctx context.Context, op *nodeOp) {
 	id, err := op.deps.Notes.Create(ctx, &postgres.CreateSyncNoteInput{
 		OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent, Title: op.node.title,
-		Body: op.c.body, Tags: op.c.tags, Published: op.c.published, SourcePath: op.c.srcPath,
-		CSSClasses: op.c.cssClasses, InboxSource: inboxSourceFor(op.node.genre, op.c),
+		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
+		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses,
+		InboxSource: inboxSourceFor(op.node.genre, op.c),
 	})
 	if err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
@@ -246,8 +248,9 @@ func updateNode(ctx context.Context, op *nodeOp, existing *postgres.SyncNote) {
 	}
 	if err := op.deps.Notes.Update(ctx, &postgres.UpdateSyncNoteInput{
 		ID: existing.ID, OwnerID: op.st.ownerID, Genre: op.node.genre, ParentID: op.parent,
-		Body: op.c.body, Tags: op.c.tags, Published: op.c.published, SourcePath: op.c.srcPath,
-		CSSClasses: op.c.cssClasses, InboxSource: inboxSourceFor(op.node.genre, op.c),
+		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
+		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses,
+		InboxSource: inboxSourceFor(op.node.genre, op.c),
 	}); err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
 		return
@@ -277,8 +280,13 @@ func webEdited(sn *postgres.SyncNote) bool {
 }
 
 func unchangedNode(sn *postgres.SyncNote, n *desiredNode, parent *string, c *nodeContent) bool {
-	return sn.Body == c.body && sn.Published == c.published && sn.Genre == n.genre &&
+	return unchangedFields(sn, c) && sn.Genre == n.genre &&
 		sameParent(sn.ParentID, parent) && sameStrings(sn.Tags, c.tags)
+}
+
+// unchangedFields —— the scalar-content fields (body / excerpt / publish) are unchanged.
+func unchangedFields(sn *postgres.SyncNote, c *nodeContent) bool {
+	return sn.Body == c.body && sn.Excerpt == c.excerpt && sn.Published == c.published
 }
 
 func sameParent(existing string, desired *string) bool {

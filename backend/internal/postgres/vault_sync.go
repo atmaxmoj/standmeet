@@ -31,6 +31,7 @@ type SyncNote struct {
 	ParentID    string
 	Title       string
 	Body        string
+	Excerpt     string
 	Tags        []string
 	HasImported bool
 	Published   bool
@@ -109,6 +110,7 @@ type CreateSyncNoteInput struct {
 	Genre       string
 	Title       string
 	Body        string
+	Excerpt     string // frontmatter `excerpt:` — the separate authored summary
 	SourcePath  string
 	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
 	Tags        []string
@@ -130,7 +132,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 		OwnerID: owner, Genre: in.Genre, ParentID: parent, Title: in.Title,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
-		InboxSource: in.InboxSource,
+		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
 	})
 	if qerr != nil {
 		return "", fmt.Errorf("create sync note: %w", qerr)
@@ -145,6 +147,7 @@ type UpdateSyncNoteInput struct {
 	ID          string
 	Genre       string
 	Body        string
+	Excerpt     string // frontmatter `excerpt:` — the separate authored summary
 	SourcePath  string
 	InboxSource string // genre='raw' 的 vault 来源标签 "obsidian:<path>";其它 genre 空
 	Tags        []string
@@ -166,7 +169,7 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 		ID: ids.Src, OwnerID: ids.Owner, Genre: in.Genre, ParentID: parent,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
-		InboxSource: in.InboxSource,
+		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
 	}); qerr != nil {
 		return fmt.Errorf("update sync note: %w", qerr)
 	}
@@ -245,7 +248,7 @@ func (r *VaultSyncRepo) ListAllForExport(ctx context.Context, ownerID string) ([
 func syncNoteFromRow(n *dbq.CorpusNote) SyncNote {
 	out := SyncNote{
 		ID: formatUUID(n.ID), Genre: n.Genre, Title: n.Title, Body: n.Body,
-		Published: n.Published, Tags: n.Tags,
+		Excerpt: n.Excerpt, Published: n.Published, Tags: n.Tags,
 	}
 	if n.ParentID.Valid {
 		out.ParentID = formatUUID(n.ParentID)

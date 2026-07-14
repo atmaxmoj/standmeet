@@ -10,7 +10,7 @@ import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { PromoteForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { useCorpusView } from '@/lib/admin/corpus-view';
-import { cleanCorpusExcerpt } from '@/lib/admin/corpus-tree';
+import { stripCorpusMeta } from '@/lib/admin/corpus-tree';
 import { loadRawTreeChildren } from '@/lib/admin/use-raw';
 import {
   useCorpusActions,
@@ -125,7 +125,7 @@ function RawRowBody({
 }: { body: string; tags: readonly string[]; privateFlag: boolean; media?: RawAdminView['media'] }) {
   return (
     <div className="min-w-0">
-      <p className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{cleanCorpusExcerpt(body)}</p>
+      <p className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{stripCorpusMeta(body)}</p>
       {media && (
         <div className="mono text-[10px] tracking-[0.06em] text-(--color-faint) mt-1">
           {media.kind} · {media.label}

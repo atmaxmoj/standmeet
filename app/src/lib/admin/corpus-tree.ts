@@ -68,25 +68,26 @@ export function descendantCounts(rows: readonly ParentRef[]): Record<string, num
   return counts;
 }
 
-// cleanCorpusExcerpt —— a corpus note body is the verbatim vault markdown: it can
-// lead with a YAML frontmatter block and a `> Parent: [[..]]` backlink line that are
-// ALSO parsed into the tags/parent_id fields — duplicated noise if shown raw as a
-// preview (that was the "# Tags: [[..]] --- > Parent: [[..]]" dump). Strip the
-// structural markdown down to a clean one-line reading preview; the full verbatim
-// body is untouched (still shown in the editor).
-export function cleanCorpusExcerpt(body: string): string {
+// stripCorpusMeta —— remove ONLY the duplicated vault *metadata* from a note body: the
+// leading YAML frontmatter, the title heading, and `> Parent: [[..]]` backlink lines.
+// Those are already stored as fields (title / tags / parent_id), so showing them in a
+// preview is noise. The remaining CONTENT markdown (bold / math / code / links) is left
+// intact for ChatMarkdown to render — we do NOT hand-strip content (that's the renderer's
+// job; there is exactly one markdown pipeline).
+export function stripCorpusMeta(body: string): string {
   let s = body ?? '';
-  // leading YAML frontmatter block: --- ... --- at the very top
+  // leading YAML frontmatter block
   s = s.replace(/^﻿?\s*---\r?\n[\s\S]*?\r?\n---\s*/, '');
-  // blockquote lines (`> Parent: [[..]]` backlinks; parent lives in parent_id)
+  // `> Parent: [[..]]` backlink blockquotes (parent lives in parent_id)
   s = s.replace(/^[ \t]*>.*$/gm, '');
-  // ATX heading marks: "## Foo" → "Foo" (keep the text, drop the #'s)
+  // heading markers ("## Foo" → "Foo") — keep the text, drop the #'s
   s = s.replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '');
-  // wikilinks: [[target|label]] → label, [[target]] → target
-  s = s.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2').replace(/\[\[([^\]]+)\]\]/g, '$1');
-  // list bullet marks and bold/italic emphasis marks
-  s = s.replace(/^[ \t]{0,3}[-*+][ \t]+/gm, '');
-  s = s.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '$1');
-  // collapse all runs of whitespace/newlines to single spaces
-  return s.replace(/\s+/g, ' ').trim();
+  return s.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// pickExcerpt —— the SEPARATE authored excerpt if present, else a metadata-stripped
+// truncation of the body as a display-only fallback. The truncation is never treated as
+// the excerpt: an authored excerpt always wins, and an empty one is fine.
+export function pickExcerpt(excerpt: string, preview: string): string {
+  return excerpt.trim() !== '' ? excerpt.trim() : stripCorpusMeta(preview);
 }

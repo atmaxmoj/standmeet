@@ -134,6 +134,7 @@ type wikiListItem struct {
 	ID           string   `json:"id"`
 	Title        string   `json:"title"`
 	Excerpt      string   `json:"excerpt"`
+	Preview      string   `json:"preview,omitempty"`
 	CreatedAt    string   `json:"created_at"`
 	Tags         []string `json:"tags"`
 	SourceRawIDs []string `json:"source_raw_ids"`

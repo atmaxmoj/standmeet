@@ -21,9 +21,13 @@ func rawItemFromDomain(r *domain.Raw) rawListItem {
 // 已退役的 path 列);单条上下文(promote 结果)没全树可算就传 ""。
 func wikiItemFromDomain(w *domain.Wiki, path string) wikiListItem {
 	return wikiListItem{
-		ID:           w.ID(),
-		Title:        w.Title(),
-		Excerpt:      truncateExcerpt(w.Body(), excerptMaxLen),
+		ID:    w.ID(),
+		Title: w.Title(),
+		// Excerpt is the SEPARATE authored field (may be empty); Preview is a body-derived
+		// fallback the card shows only when Excerpt is empty — the truncation is never the
+		// excerpt itself.
+		Excerpt:      w.Excerpt(),
+		Preview:      truncateExcerpt(w.Body(), excerptMaxLen),
 		Tags:         ensureSlice(w.Tags()),
 		SourceRawIDs: ensureSlice(w.SourceRawIDs()),
 		ParentID:     optionalToPtr(w.ParentID),

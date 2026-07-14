@@ -14,7 +14,7 @@ import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/W
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { useCorpusView } from '@/lib/admin/corpus-view';
-import { descendantCounts, cleanCorpusExcerpt } from '@/lib/admin/corpus-tree';
+import { descendantCounts, pickExcerpt } from '@/lib/admin/corpus-tree';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   useCorpusActions,
@@ -193,7 +193,7 @@ function WikiCard({
   return (
     <article className="border-t border-(--color-rule) pt-4">
       <WikiHead entry={entry} childCount={childCount} hasChildren={hasChildren} />
-      <WikiExcerpt text={entry.excerpt} />
+      <WikiExcerpt excerpt={entry.excerpt} preview={entry.preview ?? ''} />
       <WikiTagsAndMeta entry={entry} />
       <RowActions
         entry={entry} mode={mode} actions={actions} setMode={setMode} childCount={childCount}
@@ -232,10 +232,10 @@ function WikiHead({
   );
 }
 
-function WikiExcerpt({ text }: { text: string }) {
-  const clean = cleanCorpusExcerpt(text);
-  return clean ? (
-    <p className="reading text-[14.5px] text-(--color-muted) mt-1 mb-2.5 line-clamp-2">{clean}</p>
+function WikiExcerpt({ excerpt, preview }: { excerpt: string; preview: string }) {
+  const text = pickExcerpt(excerpt, preview);
+  return text ? (
+    <p className="reading text-[14.5px] text-(--color-muted) mt-1 mb-2.5 line-clamp-2">{text}</p>
   ) : null;
 }
 
