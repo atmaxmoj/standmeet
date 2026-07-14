@@ -62,6 +62,11 @@ func getSkillsMP(
 	return decodeSkillsMP(httpResp)
 }
 
+// skillsmpPageSize —— skills to pull per query. SkillsMP defaults to 20; we ask for the top
+// 100 by stars so the marketplace has a real, load-more-able pool of the most popular skills
+// (owners want the hottest, not all ~2M). Deep pagination past 100 is a later refinement.
+const skillsmpPageSize = 100
+
 func buildSkillsMPRequest(
 	ctx context.Context, base, query string,
 ) (*http.Request, error) {
@@ -69,7 +74,8 @@ func buildSkillsMPRequest(
 	if strings.TrimSpace(q) == "" {
 		q = "skill" // SkillsMP requires a query; a broad term seeds the default listing.
 	}
-	u := strings.TrimRight(base, "/") + "/skills/search?q=" + url.QueryEscape(q)
+	u := fmt.Sprintf("%s/skills/search?q=%s&limit=%d",
+		strings.TrimRight(base, "/"), url.QueryEscape(q), skillsmpPageSize)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request: %w", err)

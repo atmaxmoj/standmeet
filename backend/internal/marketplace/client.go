@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -83,11 +84,59 @@ func (c *Client) Search(
 		wg.Go(func() { out.append(c.searchSkillsMP(ctx, query)) })
 	}
 	wg.Wait()
-	return out.snapshot()
+	return dedupePreferEnglish(out.snapshot())
 }
 
 func includes(filter, source SourceFilter) bool {
 	return filter != SourceGitHub && filter != SourceSkillsMP || filter == source
+}
+
+// asciiMax —— highest ASCII rune; runes above it (CJK etc.) count as "non-English".
+const asciiMax = 127
+
+// dedupePreferEnglish —— collapse the same skill listed more than once (SkillsMP indexes
+// EN + translated variants of one skill as separate rows, and a skill can appear in both
+// the official repo and SkillsMP). Keys on name+author; among duplicates keeps the
+// more-English description (fewer non-ASCII runes), tie-broken by higher stars. Order kept.
+func dedupePreferEnglish(skills []domain.MarketSkill) []domain.MarketSkill {
+	at := make(map[string]int, len(skills))
+	out := make([]domain.MarketSkill, 0, len(skills))
+	for i := range skills {
+		key := dedupeKey(skills[i].Name, skills[i].Author)
+		if idx, seen := at[key]; seen {
+			if preferable(&skills[i], &out[idx]) {
+				out[idx] = skills[i]
+			}
+			continue
+		}
+		at[key] = len(out)
+		out = append(out, skills[i])
+	}
+	return out
+}
+
+func dedupeKey(name, author string) string {
+	norm := func(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+	return norm(name) + "\x00" + norm(author)
+}
+
+// preferable —— should `cand` replace the kept `cur`? More English wins; tie → more stars.
+func preferable(cand, cur *domain.MarketSkill) bool {
+	ca, cb := nonASCIICount(cand.Description), nonASCIICount(cur.Description)
+	if ca != cb {
+		return ca < cb
+	}
+	return cand.Stars > cur.Stars
+}
+
+func nonASCIICount(s string) int {
+	n := 0
+	for _, r := range s {
+		if r > asciiMax {
+			n++
+		}
+	}
+	return n
 }
 
 // resultCollector —— thread-safe append-only slice.
