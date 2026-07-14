@@ -28,7 +28,9 @@ func emitGhostPolicy(ctx context.Context, sink AgentSink, in *AgentTurnInput, st
 	if in.BuildGhost == nil {
 		return
 	}
-	if g := in.BuildGhost(ctx, state.assistantText); g != nil {
+	// Ghost policy reads the turn's ANSWER (product), not the merged stream — planning
+	// narration before tool calls is process and must not steer the ghost (F-A-4 P1).
+	if g := in.BuildGhost(ctx, state.product); g != nil {
 		sink.Ghost(g)
 	}
 }

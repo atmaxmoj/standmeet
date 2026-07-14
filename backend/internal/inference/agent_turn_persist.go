@@ -55,8 +55,14 @@ type persistedToolCall struct {
 }
 
 // accumSink —— tee:转发给显示 sink(inner),同时在流末端累计 TurnResult。
-// 纯累计,不碰 DB。answer 累 text delta;tool_calls 按落库形态收;citations
-// 从 corpus_read 结果扒 entry id(按 id 去重)。
+// 纯累计,不碰 DB。tool_calls 按落库形态收;citations 从 corpus_read 结果扒
+// entry id(按 id 去重)。
+//
+// answer 只收 PRODUCT(F-A-4 P1):text streamed in a round that ends with tool calls is
+// the model narrating its plan — process, not the answer; it must not enter the durable
+// transcript. Mechanically: text accumulates in `segment`; a ToolStarted proves the segment
+// was process → discard; only tool-less tails (incl. the forced-final synthesis) survive
+// into `answer`.
 type accumSink struct {
 	inner AgentSink
 	// onDone —— 流收尾 hook,在把 `done` 帧转发给浏览器**之前**跑(落库)。这样
@@ -70,6 +76,7 @@ type accumSink struct {
 	subjIDs    []string
 	seenCite   map[string]bool
 	answer     strings.Builder
+	segment    strings.Builder
 }
 
 var _ AgentSink = (*accumSink)(nil)
@@ -80,11 +87,14 @@ func newAccumSink(inner AgentSink) *accumSink {
 
 func (a *accumSink) Text(delta string) {
 	// strings.Builder.WriteString 永不返错;显式弃返回值(revive unhandled-error)。
-	_, _ = a.answer.WriteString(delta)
+	_, _ = a.segment.WriteString(delta)
 	a.inner.Text(delta)
 }
 
+// ToolStarted —— proof the pending segment was planning narration (the model kept working
+// after saying it) → process, dropped from the durable answer.
 func (a *accumSink) ToolStarted(id, name, progressLabel string, args json.RawMessage) {
+	a.segment.Reset()
 	a.inner.ToolStarted(id, name, progressLabel, args)
 }
 
@@ -98,8 +108,11 @@ func (a *accumSink) Retrying(attempt int) { a.inner.Retrying(attempt) }
 func (a *accumSink) Error(err error)      { a.inner.Error(err) }
 
 // Done —— 先落库(onDone)再转发 `done` 帧。顺序是刻意的:浏览器把 done 当
-// 「turn 提交完成」信号,落库必须在它之前完成。
+// 「turn 提交完成」信号,落库必须在它之前完成。收尾时把最后一个(tool-less)段
+// commit 成 answer —— 那才是 product。
 func (a *accumSink) Done(stop string) {
+	_, _ = a.answer.WriteString(a.segment.String())
+	a.segment.Reset()
 	if a.onDone != nil {
 		a.onDone()
 	}

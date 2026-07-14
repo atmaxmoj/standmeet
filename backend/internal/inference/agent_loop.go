@@ -160,10 +160,19 @@ func recordTurnUsage(ctx context.Context, in *AgentTurnInput, state *turnState) 
 
 // turnState —— consumeAgentEvents 边走边累的转态。stop 是 ADK 给的
 // FinishReason 翻译；assistantText 是本 turn assistant 流的全部文字
-// (text delta + snapshot 累)，H.13 走它生成 follow-up ghosts。
+// (text delta + snapshot 累)。
+//
+// PROCESS vs PRODUCT (F-A-4 P1): text streamed in a round that ends WITH tool calls is the
+// model narrating its plan — process, never the answer. Only rounds that end WITHOUT tool
+// calls contribute to `product` (gates-are-necessary-conditions: in every successful turn the
+// real answer is the tool-less tail). roundText accumulates the current round; flushRound
+// classifies it at the round seam. Downstream consumers of "the answer" (ghost policy, the
+// budget boundary's has-an-answer check) read product, not the merged blob.
 type turnState struct {
 	stop          string
 	assistantText string
+	roundText     string
+	product       string
 	// evidence —— the tool results gathered this turn (bounded head+tail). Carried into the
 	// budget-exhaustion synthesis so a long crawl's findings survive the boundary.
 	// evidenceTotal counts ALL results, so the digest can say the record is partial.
@@ -173,6 +182,29 @@ type turnState struct {
 	// (eino ResponseMeta.Usage)。收尾交给 RecordUsage。
 	inTokens  int
 	outTokens int
+}
+
+// endAssistantRound —— a streaming assistant round hit EOF: classify its text (tool-suffixed
+// = process, tool-less = product) and emit the accumulated tool starts.
+func endAssistantRound(em *loopEmit, accum *assistantAccum, state *turnState) {
+	if len(accum.calls) > 0 {
+		discardRoundText(state)
+	} else {
+		commitRoundText(state)
+	}
+	emitToolStarted(em, accum)
+}
+
+// commitRoundText —— the round ended WITHOUT tool calls: its text is answer text (product).
+func commitRoundText(state *turnState) {
+	state.product += state.roundText
+	state.roundText = ""
+}
+
+// discardRoundText —— the round ended WITH tool calls: its text was planning narration
+// (process, never the answer); drop it from product.
+func discardRoundText(state *turnState) {
+	state.roundText = ""
 }
 
 // accumUsage —— #106: 把一次 LLM 响应的 token 用量累进 turn(react-loop 会多调,累计)。
@@ -251,7 +283,7 @@ func drainAssistantStream(
 		}
 		chunk, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
-			emitToolStarted(em, accum)
+			endAssistantRound(em, accum, state)
 			return true
 		}
 		if err != nil {
@@ -268,6 +300,7 @@ func processAssistantChunk(
 	if chunk.Content != "" {
 		em.sink.Text(chunk.Content)
 		state.assistantText += chunk.Content
+		state.roundText += chunk.Content
 	}
 	accumulateAssistantToolCalls(chunk.ToolCalls, accum)
 	accumUsage(state, chunk.ResponseMeta)
@@ -280,11 +313,15 @@ func emitAssistantSnapshot(em *loopEmit, msg *schema.Message, state *turnState) 
 	if msg.Content != "" {
 		em.sink.Text(msg.Content)
 		state.assistantText += msg.Content
+		state.roundText += msg.Content
 	}
 	if len(msg.ToolCalls) > 0 {
+		discardRoundText(state)
 		accum := newAssistantAccum()
 		accumulateAssistantToolCalls(msg.ToolCalls, accum)
 		emitToolStarted(em, accum)
+	} else {
+		commitRoundText(state)
 	}
 	accumUsage(state, msg.ResponseMeta)
 	if msg.ResponseMeta != nil && msg.ResponseMeta.FinishReason != "" {

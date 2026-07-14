@@ -122,9 +122,11 @@ func handleTerminalError(
 	ctx context.Context, em *loopEmit, state *turnState, err error,
 ) bool {
 	maxIter := errors.Is(err, adk.ErrExceedMaxIterations)
-	// A non-MaxIterations error AFTER a real streamed answer: surface the error (the
-	// answer already reached the visitor; don't paper over a mid-stream provider fault).
-	if !maxIter && state.assistantText != "" {
+	// A non-MaxIterations error AFTER a real streamed ANSWER: surface the error (the answer
+	// already reached the visitor; don't paper over a mid-stream provider fault). The check is
+	// on product, not the merged text — planning narration alone is not "an answer already
+	// reached the visitor" (F-A-4 P1: text ≠ answer).
+	if !maxIter && state.product != "" {
 		em.sink.Error(err)
 		return false
 	}
@@ -137,6 +139,7 @@ func handleTerminalError(
 	if recovered := forceFinalAnswer(ctx, em, state); recovered != "" {
 		em.sink.Text(recovered)
 		state.assistantText += recovered
+		state.product += recovered // the forced synthesis IS the answer
 		return false
 	}
 	if maxIter {
