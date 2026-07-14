@@ -6,9 +6,9 @@ Severity: 🔴 broken/blocking · 🟠 friction/confusing · 🟡 polish · 💡
 
 | ID | Surface | Observation | Sev |
 |----|---------|-------------|-----|
-| UX-1 | all pages | `GET /favicon.ico` → 404; no favicon → broken/blank tab icon, looks unfinished. | 🟡 |
-| UX-2 | login → admin | After sign-in the owner lands on `/admin/page` (Public Face editor), not a dashboard/overview. Odd default for a returning owner. | 🟠 |
-| UX-3 | /login | "WHAT YOU GET" marketing column (01–04) shown on the **owner's own** login — they already deployed the instance; the pitch is redundant here. | 🟡 |
+| UX-1 | all pages | `GET /favicon.ico` → 404; no favicon → broken/blank tab icon, looks unfinished. | ✅ ce91697 (favicon.ico+icon.svg) |
+| UX-2 | login → admin | After sign-in the owner lands on `/admin/page` (Public Face editor), not a dashboard/overview. Odd default for a returning owner. | ✅ b6c30d3 (→dashboard) |
+| UX-3 | /login | "WHAT YOU GET" marketing column (01–04) shown on the **owner's own** login — they already deployed the instance; the pitch is redundant here. | ✅ b6c30d3 (offers off on /login) |
 | UX-4 | admin shell | `ZodError` + a broken "requests" sidebar badge on every admin load (see F-C-1) — visible console noise + a nav badge that never renders a count. | ✅ (F-C-1 fixed) |
 | UX-8 | /gate (BYOAI form) | Browser autofill drops the owner's saved **email into the "model" field and password into the "api key" field** (fields lack `autocomplete=off`/`new-password`) — a visitor's own saved creds would autofill the same way; risk of submitting a password as a key. | ✅ b3a57aa |
 | UX-9 | visitor chat | Two competing inputs: a "search the corpus…" box at the top and the "ask…" chat dock at the bottom. Which do I use? The search box (see F-A-2) shouldn't be there at all; even setting that aside, two inputs on one surface with different mental models is confusing. | ✅ (F-A-2 removed the search box) |
