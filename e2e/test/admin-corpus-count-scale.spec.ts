@@ -56,6 +56,15 @@ test.describe('admin corpus counts at scale (F-L-4)', () => {
       await expect(adminPage.getByRole('heading', { level: 1 }))
         .toContainText(String(RAW_COUNT), { timeout: 5_000 });
     });
+
+  test('section header has a space before the count separator (UX-12)',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'raw');
+      const h1 = adminPage.getByRole('heading', { level: 1 });
+      await expect(h1).toBeVisible({ timeout: 5_000 });
+      // "raw · N unprocessed", not the concatenated "raw· N" (a11y/text layer).
+      expect(await h1.textContent()).toMatch(/raw\s+·/);
+    });
 });
 
 async function seedManyRaw(playwright: Playwright): Promise<void> {

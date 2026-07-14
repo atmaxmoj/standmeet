@@ -32,6 +32,17 @@ test.describe('gate BYOAI panel UX', () => {
       await expect(page.getByTestId('byoai-submit')).toBeDisabled();
     });
 
+  test('key + model fields resist password-manager autofill (UX-8)',
+    async ({ page }) => {
+      await page.getByRole('link', { name: 'request access ↗' }).click();
+      await page.waitForURL('**/gate', { timeout: 10_000 });
+      // A password-type key field trips the browser's login-form heuristic → it autofills a
+      // saved email into `model` and a saved password into `key` (real-env UX-8). `new-password`
+      // on the key breaks that heuristic; `off` on the model keeps the email out.
+      await expect(page.getByTestId('byoai-key')).toHaveAttribute('autocomplete', 'new-password');
+      await expect(page.getByTestId('byoai-model')).toHaveAttribute('autocomplete', 'off');
+    });
+
   test('provider switch → key placeholder text changes',
     async ({ page }) => {
       await page.getByRole('link', { name: 'request access ↗' }).click();

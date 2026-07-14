@@ -53,6 +53,20 @@ test.describe('admin · booking policy edit', () => {
       expect((await getBookingPolicy(seed.request)).min_lead_days).toBe(3);
     });
 
+  // With no timezone saved yet the picker must default to the VIEWER's own zone, not
+  // option[0] ("-11:00 American Samoa · Midway"), which would silently book slots ~19h
+  // off (UX-11). Runs before the persist test below, so the policy timezone is still empty.
+  test('no saved timezone → picker defaults to the viewer zone, not American Samoa (UX-11)',
+    async ({ adminPage }) => {
+      await gotoAdminSection(adminPage, 'connectors');
+      const select = adminPage.getByTestId('gcal-timezone');
+      await expect(select).toBeVisible({ timeout: 10_000 });
+      const detected = await adminPage.evaluate(
+        () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+      expect(detected).not.toBe('');
+      await expect(select).toHaveValue(detected);
+    });
+
   // timezone is a real <select> (IANA list from @vvo/tzdb), not free text —
   // picking one in the UI persists. seed owner is alice (= default adminPage creds).
   test('owner picks a timezone from the dropdown → persists',

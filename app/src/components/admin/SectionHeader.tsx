@@ -42,6 +42,8 @@ function SectionTitleLine({ title, count }: { title: string; count?: ReactNode }
   return (
     <h1 className="font-serif text-(--color-ink) text-[32px] tracking-[-0.018em] leading-none">
       {title}
+      {/* real space so the a11y/text layer reads "raw · 50", not "raw· 50" (UX-12) */}
+      {' '}
       <SectionCount count={count} />
     </h1>
   );

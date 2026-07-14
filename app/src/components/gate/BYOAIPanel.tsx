@@ -120,7 +120,9 @@ type FormProps = {
 function BYOAIForm(p: FormProps) {
   const ph = placeholdersFor(p.form.provider);
   return (
-    <form onSubmit={p.onSubmit} className="rise">
+    // autoComplete off on the form + new-password on the key (below) stop the browser's
+    // login-form heuristic autofilling a saved email→model / password→key (UX-8).
+    <form onSubmit={p.onSubmit} className="rise" autoComplete="off">
       <ProviderRow value={p.form.provider} onChange={p.onProvider} />
       <EndpointRow value={p.form.endpoint} onChange={p.onEndpoint} placeholder={ph.endpoint} />
       <ModelRow
@@ -262,7 +264,7 @@ function KeyRow({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           data-testid="byoai-key"
-          autoComplete="off"
+          autoComplete="new-password"
           spellCheck={false}
           className="flex-1 bg-transparent mono py-2 reading text-(--color-ink) placeholder:text-(--color-faint) text-[15.5px] tracking-[0.02em]"
         />

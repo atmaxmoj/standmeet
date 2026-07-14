@@ -12,6 +12,18 @@ export interface TimezoneOption {
   label: string; // human menu text, e.g. "-04:00 Eastern Time - New York City, …"
 }
 
+// detectedTimezone —— the viewer's own IANA zone, for defaulting the picker when no
+// timezone is saved yet. Without this the <select value=""> falls to option[0] (the
+// lowest offset, "-11:00 American Samoa · Midway") — an actively wrong default that would
+// compute booking slots ~19h off if unnoticed (UX-11). Falls back to UTC if unavailable.
+export function detectedTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
 // timezoneOptions —— the full option list (offset-ordered, as @vvo/tzdb returns
 // them). `current` is guaranteed present even if it's a legacy/aliased name the
 // snapshot doesn't surface as a primary zone, so a saved value never drops off.

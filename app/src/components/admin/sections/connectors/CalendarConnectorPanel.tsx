@@ -14,7 +14,7 @@ import { useState } from 'react';
 import {
   useGCal, toggledWeekdays, type BookingPolicy, type WeekdayT,
 } from '@/lib/admin/use-gcal';
-import { timezoneOptions } from '@/lib/admin/timezones';
+import { timezoneOptions, detectedTimezone } from '@/lib/admin/timezones';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
 
@@ -286,6 +286,9 @@ function PolicyTimezoneRow({
   policy, hook,
 }: { policy: BookingPolicy; hook: ReturnType<typeof useGCal> }) {
   const report = useReportError();
+  // No saved timezone → default the picker to the viewer's own zone, not option[0]
+  // (American Samoa) which would silently book slots in the wrong zone (UX-11).
+  const shownTz = policy.timezone || detectedTimezone();
   return (
     <label className="block">
       <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
@@ -293,11 +296,11 @@ function PolicyTimezoneRow({
       </span>
       <select
         data-testid="gcal-timezone"
-        value={policy.timezone}
+        value={shownTz}
         onChange={(e) => { void hook.savePolicy({ timezone: e.target.value }).catch(report); }}
         className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-2 mono text-[13px]"
       >
-        {timezoneOptions(policy.timezone).map((tz) => (
+        {timezoneOptions(shownTz).map((tz) => (
           <option key={tz.value} value={tz.value}>{tz.label}</option>
         ))}
       </select>
