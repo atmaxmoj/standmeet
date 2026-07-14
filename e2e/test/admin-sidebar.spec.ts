@@ -41,14 +41,16 @@ test.describe('admin sidebar badges + nav', () => {
   test('sidebar badges load from the real endpoints and render (F-C-1)',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'raw');
+      // The raw badge now counts the WHOLE inbox via the real COUNT(*) growth endpoint
+      // (F-L-4), not the page-limited /corpus/raw list. Assert the badge's real source.
       const rawLoaded = adminPage.waitForResponse(
-        (r) => r.url().includes('/api/admin/corpus/raw') && r.request().method() === 'GET',
+        (r) => r.url().includes('/api/admin/stats/growth') && r.request().method() === 'GET',
         { timeout: 15_000 });
       const reqLoaded = adminPage.waitForResponse(
         (r) => r.url().includes('/api/admin/access-requests'), { timeout: 15_000 });
       await adminPage.reload(); // re-fires the badge fan-out on a fresh document
       const [rawRes, reqRes] = await Promise.all([rawLoaded, reqLoaded]);
-      expect(rawRes.status(), 'raw list path must 200').toBe(200);
+      expect(rawRes.status(), 'growth (badge count source) must 200').toBe(200);
       expect(reqRes.status(), 'access-requests path must 200, not 404').toBe(200);
       const badge = adminPage.getByTestId('badge-raw');
       await expect(badge).toBeVisible({ timeout: 10_000 });

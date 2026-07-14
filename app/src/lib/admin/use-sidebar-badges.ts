@@ -14,6 +14,12 @@ import type { SidebarBadges } from '@/components/admin/AdminSidebar';
 // load — the old `{items}` shape was wrong. Fixed to a bare-array schema.
 const BadgeRowsSchema = z.array(z.object({ status: z.string().optional() }));
 
+// The raw badge must count ALL unprocessed notes, not the first page (F-L-4): the raw
+// list caps at 50, so filtering its rows under-counts. Use the real COUNT(*) growth endpoint.
+const GrowthBadgeSchema = z.object({
+  by_tier: z.object({ raw_unprocessed: z.number().optional().default(0) }),
+});
+
 export function useSidebarBadges(): SidebarBadges {
   const [badges, setBadges] = useState<SidebarBadges>({});
   useEffect(() => {
@@ -29,12 +35,12 @@ export function useSidebarBadges(): SidebarBadges {
 async function fetchBadges(): Promise<SidebarBadges> {
   const out: SidebarBadges = {};
   const [rawRes, reqRes] = await Promise.allSettled([
-    fetch('/api/admin/corpus/raw', { credentials: 'include' }),
+    fetch('/api/admin/stats/growth', { credentials: 'include' }),
     fetch('/api/admin/access-requests', { credentials: 'include' }),
   ]);
   if (rawRes.status === 'fulfilled' && rawRes.value.ok) {
-    const rows = await safeJson(rawRes.value, BadgeRowsSchema);
-    out.raw = rows.filter((r) => r.status === 'unprocessed').length;
+    const g = await safeJson(rawRes.value, GrowthBadgeSchema);
+    out.raw = g.by_tier.raw_unprocessed;
   }
   if (reqRes.status === 'fulfilled' && reqRes.value.ok) {
     const rows = await safeJson(reqRes.value, BadgeRowsSchema);

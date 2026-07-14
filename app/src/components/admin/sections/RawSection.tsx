@@ -13,17 +13,18 @@ import { RawDumpBox } from '@/components/admin/sections/raw/RawDumpBox';
 import { RawFilterBar } from '@/components/admin/sections/raw/RawFilterBar';
 import { RawRowList } from '@/components/admin/sections/raw/RawRowList';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
+import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 import { useRaw, type RawHook } from '@/lib/admin/use-raw';
 
 export function RawSection() {
   const hook = useRaw();
+  const { growth } = useCorpusGrowth();
+  // Header counts the WHOLE inbox (real COUNT(*)), not the loaded first page (F-L-4).
+  // While growth loads, fall back to the loaded-page count.
+  const unprocessed = growth?.by_tier.raw_unprocessed ?? hook.counts.unprocessed;
   return (
     <>
-      <SectionHeader
-        kicker="corpus · inbox"
-        title="raw"
-        count={`${hook.counts.unprocessed} unprocessed`}
-      />
+      <SectionHeader kicker="corpus · inbox" title="raw" count={`${unprocessed} unprocessed`} />
       <RawBody hook={hook} />
     </>
   );

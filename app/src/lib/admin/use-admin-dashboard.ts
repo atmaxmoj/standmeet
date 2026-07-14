@@ -28,7 +28,14 @@ const EMPTY_STATS: DashboardStats = {
   requestsNew: 0, conversationsCount: 0, draftsReviewing: 0,
 };
 
-const RawRowSchema = z.object({ id: z.string(), promoted_wiki_id: z.string().nullable().optional() });
+// Counts come from the real COUNT(*) growth endpoint, NOT a paginated list length (F-L-4):
+// /api/admin/corpus/raw caps at defaultCorpusLimit=50, so `raw.length` under-counts past one page.
+const GrowthSchema = z.object({
+  by_tier: z.object({
+    raw: z.number(), wiki: z.number(), output: z.number(),
+    raw_unprocessed: z.number().optional().default(0),
+  }),
+});
 const CodeRowSchema = z.object({ id: z.string(), status: z.string() });
 const RequestRowSchema = z.object({ id: z.string(), status: z.string() });
 const ConvRowSchema = z.object({ id: z.string() });
@@ -70,8 +77,8 @@ export function allActionItems(stats: DashboardStats): ActionItem[] {
 
 async function load(setState: (s: State) => void): Promise<void> {
   try {
-    const [raw, codes, requests, conversations, drafts] = await Promise.all([
-      fetchList('/api/admin/corpus/raw', z.array(RawRowSchema)),
+    const [growth, codes, requests, conversations, drafts] = await Promise.all([
+      fetchGrowth(),
       fetchList('/api/admin/codes/', z.array(CodeRowSchema)),
       fetchList('/api/admin/access-requests', z.array(RequestRowSchema)),
       fetchList('/api/admin/conversations', z.array(ConvRowSchema)),
@@ -79,9 +86,8 @@ async function load(setState: (s: State) => void): Promise<void> {
     ]);
     setState({
       stats: {
-        rawCount: raw.length,
-        rawUnprocessed: raw.filter((r) => r.promoted_wiki_id === null
-          || r.promoted_wiki_id === undefined).length,
+        rawCount: growth.by_tier.raw + growth.by_tier.wiki + growth.by_tier.output,
+        rawUnprocessed: growth.by_tier.raw_unprocessed,
         codesLive: codes.filter((c) => c.status === 'active').length,
         requestsNew: requests.filter((r) => r.status === 'new'
           || r.status === 'pending').length,
@@ -97,6 +103,12 @@ async function load(setState: (s: State) => void): Promise<void> {
 }
 
 const WrappedListSchema = z.object({ items: z.array(z.unknown()).optional() });
+
+async function fetchGrowth(): Promise<z.infer<typeof GrowthSchema>> {
+  const res = await fetch('/api/admin/stats/growth', { credentials: 'include' });
+  if (!res.ok) throw new Error(`/api/admin/stats/growth: ${res.status}`);
+  return GrowthSchema.parse(await res.json());
+}
 
 async function fetchList<T>(url: string, schema: z.ZodType<T[]>): Promise<T[]> {
   const res = await fetch(url, { credentials: 'include' });

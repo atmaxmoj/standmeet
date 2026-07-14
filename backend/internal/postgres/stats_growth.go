@@ -36,13 +36,18 @@ func (r *GrowthRepo) CorpusGrowth(
 	if err != nil {
 		return domain.CorpusGrowth{}, fmt.Errorf("parse owner id: %w", err)
 	}
-	var raw, wiki, output int
+	var tiers domain.CorpusTierCounts
 	err = r.pool.QueryRow(ctx, `
 		SELECT
 		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'raw'),
 		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'wiki'),
-		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'output')`,
-		ownerUUID).Scan(&raw, &wiki, &output)
+		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'output'),
+		  (SELECT count(*) FROM corpus_notes WHERE owner_id = $1 AND genre = 'writing'),
+		  (SELECT count(*) FROM corpus_notes
+		     WHERE owner_id = $1 AND genre = 'raw' AND promoted_to IS NULL AND NOT archived)`,
+		ownerUUID).Scan(
+		&tiers.Raw, &tiers.Wiki, &tiers.Output, &tiers.Writing, &tiers.RawUnprocessed,
+	)
 	if err != nil {
 		return domain.CorpusGrowth{}, fmt.Errorf("count corpus tiers: %w", err)
 	}
@@ -50,7 +55,7 @@ func (r *GrowthRepo) CorpusGrowth(
 	if err != nil {
 		return domain.CorpusGrowth{}, err
 	}
-	return assembleCorpusGrowth(raw, wiki, output, byDay), nil
+	return assembleCorpusGrowth(tiers, byDay), nil
 }
 
 // corpusByDay —— 近 14 天每天(UTC)的三层合计新增，返 day→count（缺的天不出现）。
@@ -86,7 +91,7 @@ func (r *GrowthRepo) corpusByDay(
 }
 
 // assembleCorpusGrowth —— 铺满 14 天序列（缺天补 0）、算 7 天增量、组装分层总量。
-func assembleCorpusGrowth(raw, wiki, output int, byDay map[string]int) domain.CorpusGrowth {
+func assembleCorpusGrowth(tiers domain.CorpusTierCounts, byDay map[string]int) domain.CorpusGrowth {
 	now := time.Now().UTC()
 	series := make([]domain.CorpusDayCount, corpusGrowthDays)
 	delta7 := 0
@@ -100,8 +105,8 @@ func assembleCorpusGrowth(raw, wiki, output int, byDay map[string]int) domain.Co
 	}
 	return domain.CorpusGrowth{
 		Series:  series,
-		ByTier:  domain.CorpusTierCounts{Raw: raw, Wiki: wiki, Output: output},
-		Total:   raw + wiki + output,
+		ByTier:  tiers,
+		Total:   tiers.Raw + tiers.Wiki + tiers.Output,
 		Delta7d: delta7,
 	}
 }

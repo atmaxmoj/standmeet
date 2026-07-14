@@ -14,7 +14,11 @@ const DayCountSchema = z.object({ day: z.string(), count: z.number() });
 const CorpusGrowthSchema = z.object({
   total: z.number(),
   delta_7d: z.number(),
-  by_tier: z.object({ raw: z.number(), wiki: z.number(), output: z.number() }),
+  by_tier: z.object({
+    raw: z.number(), wiki: z.number(), output: z.number(),
+    writing: z.number().optional().default(0),
+    raw_unprocessed: z.number().optional().default(0),
+  }),
   series: z.array(DayCountSchema),
 });
 export type CorpusGrowth = z.infer<typeof CorpusGrowthSchema>;
