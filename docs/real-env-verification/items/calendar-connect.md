@@ -1,6 +1,6 @@
 # calendar-connect — Booking: OAuth connect + token lifecycle
 
-- **Status:** ⬜ not-run
+- **Status:** 🟢 authorize-init / ⛔ full-connect (2026-07-15 live) — **F-B-2 FIXED** (Authorize reaches real Google consent, no 404); completing the dance needs interactive Google login on the test account
 - **Module:** connect a calendar via a real OAuth2 dance (consent → code+secret+PKCE+state → token), refresh transparently on expiry, rotate + persist the new refresh token, and surface `invalid_grant` as a friendly reconnect.
 - **Surface:** admin/connectors (Google Calendar card).
 - **Real dep:** real `accounts.google.com` OAuth (`GOOGLE_OAUTH_CLIENT_ID/SECRET`) or any real OAuth2 AS. After the connector exists, register its generated `redirect_uri` back on the OAuth client.
@@ -13,7 +13,7 @@
 - **Steps:** admin/connectors → connect Google → browser redirects to real Google consent → authorize → callback exchanges a real refresh/access token; connector flips to connected.
 - **Expected:** connected; the DB stores real (encrypted) tokens, not mock tokens.
 - **Backing test:** `connector-happy-matrix.spec.ts` (mock OAuth dance)
-- **Result:** ⬜
+- **Result:** 🟢 authorize-init (2026-07-15 live) — **F-B-2 is FIXED.** Clicked "Authorize on Google →" (`gcal-authorize`) → opened the **real Google consent page** (`accounts.google.com/v3/signin`, real client_id `222789872881-…`, `redirect_uri=…/api/admin/connectors/google-calendar/callback`, `scope=calendar.events+calendar.readonly`, real `state`, `access_type=offline&prompt=consent`). The old "Authorize → /init 404" dead-end is gone. **Remaining (⛔ interactive):** completing the consent + callback + token exchange needs an interactive Google login on the test account — can't automate. So init ✅, full-connect blocked on interactive Google.
 
 ### 2 — Real OAuth2 dance (code + secret + PKCE + state)  (was §H2)
 - **Steps:** build an OAuth2 connector against a real authorization server → connect → real consent → callback exchanges `code` + `client_secret` (with PKCE + real `redirect_uri`, real `state`).
