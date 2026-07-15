@@ -97,20 +97,21 @@ func (s *seqSink) Done(string) {
 // ---------- metrics ----------
 
 type runMetrics struct {
-	Shape         string  `json:"shape"`
-	Config        string  `json:"config"`
-	Run           int     `json:"run"`
-	Tools         int     `json:"tools"`
-	Rounds        int     `json:"rounds"`
-	ForcedFinal   bool    `json:"forced_final"`
-	ProductLen    int     `json:"product_len"`
-	ProcessLen    int     `json:"process_len"`
-	NarrationLeak bool    `json:"narration_leak"` // planning phrases inside the PRODUCT
-	Grounded      int     `json:"grounded"`       // corpus-concept hits in the product
-	DeniedNote    bool    `json:"denied_note"`    // claimed an existing note doesn't exist
-	Errored       bool    `json:"errored"`
-	Secs          float64 `json:"secs"`
-	ProductHead   string  `json:"product_head"`
+	ToolHist      map[string]int `json:"tool_hist"` // per-tool-name call counts (adoption of map/resolve/peek)
+	Shape         string         `json:"shape"`
+	Config        string         `json:"config"`
+	Run           int            `json:"run"`
+	Tools         int            `json:"tools"`
+	Rounds        int            `json:"rounds"`
+	ForcedFinal   bool           `json:"forced_final"`
+	ProductLen    int            `json:"product_len"`
+	ProcessLen    int            `json:"process_len"`
+	NarrationLeak bool           `json:"narration_leak"` // planning phrases inside the PRODUCT
+	Grounded      int            `json:"grounded"`       // corpus-concept hits in the product
+	DeniedNote    bool           `json:"denied_note"`    // claimed an existing note doesn't exist
+	Errored       bool           `json:"errored"`
+	Secs          float64        `json:"secs"`
+	ProductHead   string         `json:"product_head"`
 }
 
 var planningRe = regexp.MustCompile(`(?i)^\s*(let me|i'll (check|search|pull|look)|let's (start|begin) by)`)
@@ -228,10 +229,10 @@ func TestExperiment(t *testing.T) {
 			t.Fatalf("write results: %v", werr)
 		}
 		t.Logf("[%s/%s run %d] tools=%d rounds=%d forced=%v prodLen=%d procLen=%d "+
-			"leak=%v grounded=%d denied=%v err=%v %.0fs\n  product: %.200s",
+			"leak=%v grounded=%d denied=%v err=%v %.0fs\n  hist=%v\n  product: %.160s",
 			shape.name, config, i, m.Tools, m.Rounds, m.ForcedFinal, m.ProductLen,
 			m.ProcessLen, m.NarrationLeak, m.Grounded, m.DeniedNote, m.Errored, m.Secs,
-			m.ProductHead)
+			m.ToolHist, m.ProductHead)
 	}
 }
 
@@ -292,6 +293,7 @@ func oneExperimentRun(
 	}
 	return runMetrics{
 		Shape: shape.name, Tools: len(sink.tools), Rounds: sink.rounds,
+		ToolHist:      toolHistogram(sink.tools),
 		ForcedFinal:   strings.Contains(logBuf.String(), "forcing final answer"),
 		ProductLen:    len(sink.product),
 		ProcessLen:    processLen,
@@ -302,6 +304,16 @@ func oneExperimentRun(
 		Secs:          secs,
 		ProductHead:   fmt.Sprintf("%.300s", sink.product),
 	}
+}
+
+// toolHistogram —— per-tool-name call counts, to see which tools the agent actually adopts
+// (did it call corpus_map first? corpus_peek to triage? or fall back to blind search?).
+func toolHistogram(tools []toolUse) map[string]int {
+	h := map[string]int{}
+	for i := range tools {
+		h[tools[i].Name]++
+	}
+	return h
 }
 
 func envOrDefault(k, def string) string {
