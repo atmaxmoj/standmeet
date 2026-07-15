@@ -32,6 +32,13 @@
 - **Backing test:** `sync-b-tree.spec.ts` · `sync-c-title.spec.ts` · `sync-duplicate-title-collapse.spec.ts` · `corpus-tree-integrity.spec.ts` · `sync-k-raw-tree.spec.ts`
 - **Result:** ⬜
 
+### 4b — Sync means sync: vault deletions must propagate ⭐  (F-L-6)
+- **Steps:** sync the real vault; then delete one note (and one whole folder) from the vault and sync again; then check the corpus tree and `note_refs`.
+- **Expected:** the deleted note/folder is **gone from the corpus** — a sync makes `corpus == vault`. A stray with a `source_path` the vault no longer contains (e.g. `orbit`) must not survive an authoritative sync.
+- **⚠️ finding (F-L-6):** `SyncVault`/`reconcileNode` is **upsert-only — no prune-on-absence anywhere** (`sync.go:62,207`). A vault-deleted note lives forever in the corpus; the corpus only grows. Live proof: `orbit` (a prior-session math-render-test note at `source_path:"orbit"`) is a spurious 5th wiki root, and the corpus never converged from the 2026-07-13 snapshot (50w/170r) to the current real vault (223w/179r). **Distinct from `partial-never-delete`:** a *subset* upload must not delete (safety), but a *full/authoritative* vault sync must. Needs a sync mode that marks the upload authoritative.
+- **Backing test:** `sync-h-reconcile.spec.ts` tests upsert + web-wins only; no spec removes a note from the vault and asserts corpus removal (gap).
+- **Result:** 🔴 manual-red (F-L-6)
+
 ### 4 — Reconcile + idempotent re-sync + move/rename  (was §L4)
 - **Steps:** import twice back-to-back (idempotency); move/rename a note (new `source_path`, stable slug) and re-import; move across genres; partial re-upload a subset.
 - **Expected:** second import is a no-op/upsert; rename orphans the old node by design (slug-stable move updates in place); cross-genre move edits in place; partial upload is **upsert-only, never deletes** what it didn't include; publish gate applied.
