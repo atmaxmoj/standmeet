@@ -41,8 +41,15 @@
 - **Backing test:** `document-render-benchmark.spec.ts`
 - **Result:** ⬜
 
+### 5 — Currency `$` / `\$` renders literal, not garbled math  (guarded)
+- **Steps:** render a note containing money on one line (`$80M on $246M`) and the vault's escaped form (`\$80M on \$246M`), plus a real inline math `$x^2$`.
+- **Expected:** the currency renders as literal `$80M on $246M` (no inline math eaten between the two `$`, no leaked backslash); the real math still renders KaTeX.
+- **Mechanism:** the pipeline is `escapeCurrencyDollars` (`markdown-helpers.ts:14`, auto-escapes `$`-before-digit; idempotent w.r.t. an existing `\$`) → `remark-math` (CommonMark-escape-aware, so `\$` is never a math delimiter) → rehype-katex. Not a hand-rolled `/\$…\$/` regex. Verified against the real react-markdown pipeline (2026-07-15).
+- **Backing test:** `writing-math-mermaid.spec.ts` (asserts `\$80M on \$246M revenue` → literal; RED if remark-math is swapped for a `\$`-blind regex or `escapeCurrencyDollars` is dropped).
+- **Result:** ✅ (guarded green)
+
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
-No raw markup leaking into rendered text (no bare `$$`, ``` ``` ``` fences, `[[`, unresolved `standmeet-query` blocks); math/diagrams actually render; no ENOENT/blank where a face should be.
+No raw markup leaking into rendered text (no bare `$$`, ``` ``` ``` fences, `[[`, unresolved `standmeet-query` blocks); math/diagrams actually render; no ENOENT/blank where a face should be. NB: **list EXCERPTS are a separate path** and DO leak markup — see [[corpus-raw]] F-R-1 (raw) and F-R-2 (wiki); the render pipeline here is clean, the excerpt-truncation is not.
 
 ## Findings
 (record here; also log `../findings.md`, ID `F-L-n` historical anchor)

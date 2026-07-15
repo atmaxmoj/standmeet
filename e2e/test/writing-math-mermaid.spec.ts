@@ -55,6 +55,12 @@ const MATH_MD = [
   '',
   // #36/#40:一句话里两个货币金额,之前 $100..$200 之间被 KaTeX 当公式吃掉。
   'Pricing: it cost $100 up front and $200 on renewal.',
+  '',
+  // vault convention (raw/market/awareness/*.md): a literal dollar is authored as `\$`.
+  // remark-math honors the CommonMark `\$` escape, so `\$80M on \$246M` must render as
+  // literal "$80M on $246M" — NOT inline math — and the backslash must NOT leak to the
+  // reader. Guards the same class the vault's notation-lint fixed, on the render side.
+  'Revenue: \\$80M on \\$246M revenue this quarter.',
 ].join('\n');
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -81,6 +87,11 @@ test.describe('writings · LaTeX + mermaid render · I.2', () => {
       // #36/#40:货币金额按字面渲(不被当公式吃掉)。两个 $ 都还在文本里。
       await expect(body, 'currency $ rendered literally')
         .toContainText('it cost $100 up front and $200 on renewal');
+
+      // vault `\$` convention:`\$80M on \$246M` → 字面美元,不是行内数学,反斜杠不外泄。
+      // 若 remark-math 被换成对 \$ 不敏感的手搓正则,这条会 RED(文本变成乱码数学)。
+      await expect(body, 'escaped \\$ renders literal, no math, no backslash leak')
+        .toContainText('Revenue: $80M on $246M revenue this quarter');
 
       // Mermaid lazy + 异步 render：MermaidBlock useEffect 跑完 setResult
       // 后才出 data-testid=mermaid-svg。lazy chunk 拉过来要时间，留 15s。
