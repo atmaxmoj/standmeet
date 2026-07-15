@@ -1,6 +1,6 @@
 # chat-subjectivity — Visitor chat: stance grounding
 
-- **Status:** ⬜ not-run
+- **Status:** ✅ (2026-07-15 live) — with a `subjectivity://`-scoped code the ⭐ inducement WORKS on real DeepSeek; F-A-3 confirmed as correct-scoping, not a grounding bug
 - **Module:** on a judgment/stance question the model elects to search the `subjectivity` genre and answers *from the owner's documented standpoint* — grounding it shapes the answer but is not cited unless flagged.
 - **Surface:** visitor chat (a code whose role grants `subjectivity://`).
 - **Real dep:** real DeepSeek + a seeded `subjectivity` note; a code whose role grants `subjectivity://` (public role does NOT — see [[chat-redaction]]).
@@ -14,7 +14,7 @@
 - **Expected (likely RED):** with the subjectivity note present, a stance-grounded first-person answer that reflects the owner's documented opinion; without it, a generic answer. This is **the one route with no deterministic backing** — the mock can only reproduce it if a test scripts the search, which defeats the point.
 - **⚠️ mock gap:** the mock's genre routing is keyword-scripted; the *inducement* (model reads `visitor-header.md`, infers "this is a stance question", elects to search `subjectivity`) is never exercised.
 - **Backing test:** `subjectivity-genre.spec.ts:47` (mechanics of read/search) · `subjectivity-not-cited.spec.ts:126`. The inducement itself → no deterministic backing (gap).
-- **Result:** ⬜
+- **Result:** ✅ (2026-07-15 live). Set up a `subj-verify` role (`subjectivity://** + wiki://**`) + code `SUBJ-V01`, entered as a coded visitor, asked *"a contrarian take most peers would disagree with?"* → real DeepSeek **SEARCHED 4 · READ 20 · REFERENCES · 3** and took a **documented owner stance**: *"Above any collaboration, there must be a seat that can arbitrate… a deadlocked dyad has no interior exit… No concept introduced without consent — the fluent collaborator is the first smuggler to watch… play is not exempt from rigor."* These are the owner's real subjectivity notes (coordinator-not-arbiter, no-concept-without-consent) — the model **elected** to search subjectivity and grounded a first-person stance, not a generic deflection. The ⭐ "no deterministic backing" route confirmed working on the real model. (Fixture: role `subj-verify` + code `SUBJ-V01` left in the instance for re-runs, incl. [[chat-ghost]] once waypoints are added.)
 
 ### 2 — Subjectivity grounds but is not cited  (was §A6)
 - **Steps:** after check 1 grounds on a subjectivity note, inspect the citation footer.
