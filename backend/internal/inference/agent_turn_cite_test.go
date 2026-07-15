@@ -21,8 +21,11 @@ func (nopSink) Retrying(int)                                        {}
 func (nopSink) Error(error)                                         {}
 func (nopSink) Done(string)                                         {}
 
+// readResult —— a corpus_read result fixture. show_as_source:true because wiki/output are only
+// cited when they're a declared source (the suppressedFromCitation read gate); this test is about
+// genre ROUTING, so the entries are sources.
 func readResult(id, genre string) string {
-	return fmt.Sprintf(`{"id":%q,"genre":%q}`, id, genre)
+	return fmt.Sprintf(`{"id":%q,"genre":%q,"show_as_source":true}`, id, genre)
 }
 
 // TestCollectCitation_RoutesByGenre —— a corpus_read'd entry routes to the channel for its genre:
