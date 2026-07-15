@@ -1,6 +1,6 @@
 # chat-ghost — Visitor chat: ghost steering quality
 
-- **Status:** ⬜ not-run
+- **Status:** 🟡 partial (2026-07-15) — INITIAL ghosts render (the code's starter questions show live: "Walk me through your background", etc.); but ghost-*steering* quality (the A7 point: a well-judged follow-up ghost toward a reachable waypoint + good silence) is a subtle multi-turn real-model judgment, and **role-level waypoints have NO admin GUI field** (the `waypoints` data exists on roles but nothing in /admin/roles configures it) — so the reachable-waypoint scenario can't be set up from the UI. Needs a dedicated multi-turn observation session (and possibly an MCP/API path to set waypoints). Not driven to a verdict; not faked.
 - **Module:** the model proposes a well-judged steering "ghost" toward a reachable, unvisited waypoint, and goes silent once all are visited. Quality (relevance, non-repetition, good stopping) is a real-model property.
 - **Surface:** visitor chat (multi-turn with waypoints).
 - **Real dep:** real DeepSeek. `isGhostPolicy` (`messages.go:89`) fakes the entire GhostPolicy output in the mock.
