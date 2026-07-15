@@ -12,7 +12,11 @@ import type { PendingFile } from '@/lib/writings/upload-asset';
 
 export const AdminWritingViewSchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), excerpt: z.string(),
-  body_md: z.string(), cover_headline: z.string(),
+  body_md: z.string(),
+  // preview —— backend LeadLine: a CLEAN lead the card shows when excerpt is empty, so the card
+  // never renders a raw substring of body_md (F-R-1 class).
+  preview: z.string().optional().default(''),
+  cover_headline: z.string(),
   cover_hue: z.enum(['amber', 'violet', 'acid']),
   cover_image_asset_id: z.string().optional(),
   tags: z.array(z.string()), visibility: z.enum(['public', 'private']),

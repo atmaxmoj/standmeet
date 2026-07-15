@@ -32,27 +32,31 @@ type WritingsAdminDeps struct {
 }
 
 type writingView struct {
-	PublishedAt       string            `json:"published_at,omitempty"`
-	UpdatedAt         string            `json:"updated_at"`
-	CreatedAt         string            `json:"created_at"`
-	CoverImageAssetID string            `json:"cover_image_asset_id,omitempty"`
-	ID                string            `json:"id"`
-	Slug              string            `json:"slug"`
-	Title             string            `json:"title"`
-	Excerpt           string            `json:"excerpt"`
-	BodyMD            string            `json:"body_md"`
-	CoverHeadline     string            `json:"cover_headline"`
-	CoverHue          string            `json:"cover_hue"`
-	Visibility        string            `json:"visibility"`
-	Path              string            `json:"path"`
-	LockedBody        string            `json:"locked_body"`
-	ParentID          string            `json:"parent_id"`
-	AssetURLs         map[string]string `json:"asset_urls"`
-	Tags              []string          `json:"tags"`
-	CrossRefs         []string          `json:"cross_refs"`
-	ReadMinutes       int32             `json:"read_minutes"`
-	Published         bool              `json:"published"`
-	HasChildren       bool              `json:"has_children,omitempty"`
+	PublishedAt       string `json:"published_at,omitempty"`
+	UpdatedAt         string `json:"updated_at"`
+	CreatedAt         string `json:"created_at"`
+	CoverImageAssetID string `json:"cover_image_asset_id,omitempty"`
+	ID                string `json:"id"`
+	Slug              string `json:"slug"`
+	Title             string `json:"title"`
+	Excerpt           string `json:"excerpt"`
+	BodyMD            string `json:"body_md"`
+	// Preview —— a CLEAN lead excerpt (LeadLine: markup/structure stripped) for the card, shown
+	// when Excerpt is empty. BodyMD stays the raw source for editing; the card must never render a
+	// raw substring of it (F-R-1 — same class as the raw/wiki lists).
+	Preview       string            `json:"preview"`
+	CoverHeadline string            `json:"cover_headline"`
+	CoverHue      string            `json:"cover_hue"`
+	Visibility    string            `json:"visibility"`
+	Path          string            `json:"path"`
+	LockedBody    string            `json:"locked_body"`
+	ParentID      string            `json:"parent_id"`
+	AssetURLs     map[string]string `json:"asset_urls"`
+	Tags          []string          `json:"tags"`
+	CrossRefs     []string          `json:"cross_refs"`
+	ReadMinutes   int32             `json:"read_minutes"`
+	Published     bool              `json:"published"`
+	HasChildren   bool              `json:"has_children,omitempty"`
 }
 
 // writingSaveRequest —— create + update 共用 JSON shape。WritingID 来自 URL，
@@ -154,8 +158,10 @@ func toWritingView(wg *domain.Writing) writingView {
 	}
 	return writingView{
 		ID: wg.ID(), Slug: wg.Slug(), Title: wg.Title(), Excerpt: wg.Excerpt(),
-		BodyMD: wg.Body(), CoverHeadline: wg.CoverHeadline(),
-		CoverHue: wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
+		BodyMD:        wg.Body(),
+		Preview:       usecases.LeadLine(wg.Body(), excerptMaxLen), // clean lead (F-R-1 class)
+		CoverHeadline: wg.CoverHeadline(),
+		CoverHue:      wg.CoverHue(), CoverImageAssetID: wg.CoverImageAssetID(),
 		Tags: wg.Tags(), Visibility: wg.VisibilityMode(), CrossRefs: wg.CrossRefs(),
 		Path: wg.Path(), ReadMinutes: wg.ReadMinutes(), LockedBody: wg.LockedBody(),
 		ParentID:    writingParentIDOr(wg),

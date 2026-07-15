@@ -149,9 +149,9 @@ function WritingCard({
   return (
     <div className="border border-(--color-rule) px-5 py-4 flex flex-col gap-2">
       <WritingCardHead writing={writing} />
-      {pickExcerpt(writing.excerpt, writing.body_md) && (
+      {pickExcerpt(writing.excerpt, writing.preview) && (
         <p className="reading-tight text-[14px] text-(--color-muted) line-clamp-2">
-          {pickExcerpt(writing.excerpt, writing.body_md)}
+          {pickExcerpt(writing.excerpt, writing.preview)}
         </p>
       )}
       <WritingCardActions writing={writing} hook={hook} onEdit={onEdit} />

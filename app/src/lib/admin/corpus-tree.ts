@@ -68,26 +68,14 @@ export function descendantCounts(rows: readonly ParentRef[]): Record<string, num
   return counts;
 }
 
-// stripCorpusMeta —— remove ONLY the duplicated vault *metadata* from a note body: the
-// leading YAML frontmatter, the title heading, and `> Parent: [[..]]` backlink lines.
-// Those are already stored as fields (title / tags / parent_id), so showing them in a
-// preview is noise. The remaining CONTENT markdown (bold / math / code / links) is left
-// intact for ChatMarkdown to render — we do NOT hand-strip content (that's the renderer's
-// job; there is exactly one markdown pipeline).
-export function stripCorpusMeta(body: string): string {
-  let s = body ?? '';
-  // leading YAML frontmatter block
-  s = s.replace(/^﻿?\s*---\r?\n[\s\S]*?\r?\n---\s*/, '');
-  // `> Parent: [[..]]` backlink blockquotes (parent lives in parent_id)
-  s = s.replace(/^[ \t]*>.*$/gm, '');
-  // heading markers ("## Foo" → "Foo") — keep the text, drop the #'s
-  s = s.replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '');
-  return s.replace(/\n{3,}/g, '\n\n').trim();
-}
-
-// pickExcerpt —— the SEPARATE authored excerpt if present, else a metadata-stripped
-// truncation of the body as a display-only fallback. The truncation is never treated as
-// the excerpt: an authored excerpt always wins, and an empty one is fine.
+// pickExcerpt —— the SEPARATE authored excerpt if present, else the backend's clean lead
+// (`preview`, from LeadLine). Both inputs are already rendered-not-markup, so this never
+// hand-strips: a card shows authored prose, a clean lead, or nothing — never source markup.
+//
+// The old `stripCorpusMeta(body)` fallback is deliberately gone (F-R-1): it stripped only
+// frontmatter/headings/backlinks and left `$$`/```` ``` ````/`[[..]]`/`**..**` intact, which is
+// exactly how raw markup reached the triage cards. Clean excerpting belongs in ONE place — the
+// backend LeadLine — not in a second, weaker frontend stripper.
 export function pickExcerpt(excerpt: string, preview: string): string {
-  return excerpt.trim() !== '' ? excerpt.trim() : stripCorpusMeta(preview);
+  return excerpt.trim() !== '' ? excerpt.trim() : preview.trim();
 }

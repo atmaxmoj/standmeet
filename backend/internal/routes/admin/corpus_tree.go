@@ -8,7 +8,6 @@ package admin
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/middleware"
@@ -71,18 +70,13 @@ func (h *Handlers) treeRaw() http.HandlerFunc {
 	}
 }
 
-// rawTreeItem —— one raw tree child → list item (raw has no domain→item mapper; build inline).
+// rawTreeItem —— one raw tree child → list item. Shares rawItemBase so the tree view carries the
+// same clean Preview / Status as the flat list (F-R-1: the tree path used to build its own item and
+// leaked raw markup into the card); only the tree-specific fields are added here.
 func rawTreeItem(c *postgres.TreeChild[domain.Raw]) rawListItem {
 	row := &c.Entry
-	it := rawListItem{
-		ID:          row.ID(),
-		Body:        row.Body(),
-		Source:      row.Source(),
-		Tags:        row.Tags(),
-		Status:      rawStatus(row),
-		CreatedAt:   row.CreatedAt().Format(time.RFC3339),
-		HasChildren: c.HasChildren,
-	}
+	it := rawItemBase(row)
+	it.HasChildren = c.HasChildren
 	if p := slugJoin(c.PathTitles); p != "" {
 		it.Path = &p
 	}

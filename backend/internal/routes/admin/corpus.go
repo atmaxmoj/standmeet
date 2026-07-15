@@ -104,16 +104,23 @@ func handleCreateRawErr(log *slog.Logger, w http.ResponseWriter, err error) {
 func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *domain.Raw) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	item := rawListItem{
-		ID:        raw.ID(),
-		Body:      raw.Body(),
-		Preview:   usecases.LeadLine(raw.Body(), excerptMaxLen), // F-R-1
-		Source:    raw.Source(),
-		Tags:      raw.Tags(),
-		Status:    rawStatus(raw),
-		CreatedAt: raw.CreatedAt().Format(time.RFC3339),
-	}
+	item := rawItemBase(raw)
 	logEncodeErr(log, "encode created raw", json.NewEncoder(w).Encode(item))
+}
+
+// rawItemBase —— the shared raw list-item fields EVERY construction site needs, so none can drift
+// on Preview/Status/etc. (F-R-1 shipped broken because the tree path built its own item and missed
+// Preview). Path / ParentID / HasChildren are position-specific — the caller sets those.
+func rawItemBase(row *domain.Raw) rawListItem {
+	return rawListItem{
+		ID:        row.ID(),
+		Body:      row.Body(),
+		Preview:   usecases.LeadLine(row.Body(), excerptMaxLen), // clean lead (F-R-1)
+		Source:    row.Source(),
+		Tags:      row.Tags(),
+		Status:    rawStatus(row),
+		CreatedAt: row.CreatedAt().Format(time.RFC3339),
+	}
 }
 
 type rawListItem struct {
@@ -173,15 +180,7 @@ func writeRawList(log *slog.Logger, w http.ResponseWriter, rows []domain.Raw) {
 
 // rawItemOf —— one raw row → list item, with its derived tree path + parent.
 func rawItemOf(row *domain.Raw, paths map[string]string) rawListItem {
-	item := rawListItem{
-		ID:        row.ID(),
-		Body:      row.Body(),
-		Preview:   usecases.LeadLine(row.Body(), excerptMaxLen), // F-R-1: clean excerpt
-		Source:    row.Source(),
-		Tags:      row.Tags(),
-		Status:    rawStatus(row),
-		CreatedAt: row.CreatedAt().Format(time.RFC3339),
-	}
+	item := rawItemBase(row)
 	if p, ok := paths[row.ID()]; ok {
 		item.Path = &p
 	}
