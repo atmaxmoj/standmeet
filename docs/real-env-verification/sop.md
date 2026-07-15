@@ -22,6 +22,12 @@ MANUAL TEST ──► clean? ──► STOP. Done for this round.
                         ──► only THEN change the code
                         ──► e2e goes GREEN
                         ──► back to the MANUAL TEST, confirm nothing is wrong ──► done
+
+  ╔═ running underneath ALL of the above, never switched off ═══════════════╗
+  ║  THE UX EYE (iron rule 6): any surface in front of you gets judged —    ║
+  ║  works? clear? redundant? ugly? dead affordance? should it even exist?  ║
+  ║  Log to ux.md the moment you see it. Green surfaces included.           ║
+  ╚════════════════════════════════════════════════════════════════════════╝
 ```
 > **Exception:** a finding a test *shouldn't* carry (UI redundancy, cosmetics, copy, taste) → **write no test; tell the owner explicitly why** (iron rule 4b). Never fabricate a test just to satisfy the loop.
 
@@ -38,11 +44,13 @@ Decide which `items/` to run this round. Pick only what's **credential- / self-s
 Follow each item's **Steps** with Playwright MCP / a real client, against the **real services** (`make prod-up` → `docker-compose.prod.yml` + real creds, **zero mocks**). Compare against **Expected**.
 
 > **Manual green ⇒ STOP. ⚠️** If the surface behaves, that module is **done for this round** — no finding, no test, no code change, no "while I'm here" refactor. The manual result is the *only* trigger for everything downstream. Don't invent work where reality says it works.
+>
+> **STOP means stop *fixing*, not stop *looking*.** The UX eye (iron rule 6) stays open even on a green surface: a thing can work perfectly and still be confusing, redundant, ugly, or contradict the product's thesis. Log that to `ux.md` and move on — recording an observation is not "inventing work"; opening a code change off it, without the owner, is.
 
 ### 1b · COLD SANITY SWEEP — the look, not the checklist ⚠️ (why basic bugs slip past)
 The old §A–§R axis was a MECHANISM checklist ("does capability X work"). A mechanism checklist structurally cannot catch **basic UI defects** — a dead button, an empty list, garbled text, a badge that disagrees with its list — because those aren't mechanisms, they're presence/sanity. Those are exactly what the owner catches by *using* the product, and what a task-focused agent misses (on a screen for one mission, blind to everything off-mission; F-D-1, F-N-1, F-R-1 were all found only from owner screenshots after several rounds).
 
-The fix is baked into the module re-cut: **every module now owns its surface and carries a `⚠️ LOOK` block** — so the sanity sweep is on-mission, not a separate pass an agent forgets. Once per round, run each module's LOOK **task-free**, and give the cross-view lens its home in [[admin-shell]] (every count/badge vs its list). The three lenses each LOOK applies:
+The fix is baked into the module re-cut: **every module owns its surface and carries a `⚠️ LOOK` block.** §1b is the **deliberate backstop** — once per round, run each module's LOOK **task-free**, with the cross-view lens homed in [[admin-shell]] (every count/badge vs its list). It is *not* the only chance to see: the always-on eye is **iron rule 6**, and this scheduled pass exists to catch what that eye still missed. The three lenses each LOOK applies:
 
 - **Cold sweep** — open EVERY admin + visitor surface with NO mission and ask only *"would a real user go 'huh?'"*: click every button/affordance (does it do anything?), eyeball every panel (empty? broken? raw markup leaking? placeholder never replaced?). Log anything that fails fresh-eyes.
 - **Cross-view consistency** — for every count / badge / KPI, find the list or table it summarizes and confirm they **AGREE**. (F-L-4 = dashboard count wrong; F-D-1 = list empty while the count says 3 — same family: two views of one dataset disagreeing, which no single-screen check catches.)
@@ -78,3 +86,8 @@ Terminal: `⛔ blocked` (missing cred/hardware), `🚫 de-scoped` (decided not t
    - **4a · CAN'T test** (non-reproducible real branches: real-phone optics, real-provider rate limits, real ACME…) → mark `manual-only`: document why it can't be tested and how to verify it by hand. **Do not fabricate a fake test.**
    - **4b · SHOULDN'T test** (a test here would be *bad*: UI redundancy, cosmetics, copy/wording, layout, subjective judgment calls — a test would be brittle, meaningless, or would freeze a taste decision as if it were a contract) → **do not write one.** Fix it (or propose the fix) and **flag it to the owner as an explicit special note saying this one carries no test and why** — the owner decides. These live in `ux.md`, **not** as a fake RED→GREEN row in `findings.md`.
 5. An item isn't done until `✅ manual re-verify green` — back on the real surface, by hand (§3.4).
+6. **The UX eye is always open — this is a POSTURE, not a step. ⚠️**
+   Any time a real surface is in front of you — driving a mechanism check, reproducing a finding, re-verifying a fix, even passing through a screen on the way to something else — **judge what you see, and log it the moment you see it** (`ux.md`, severity 🔴/🟠/🟡/💡). Never defer it to §1b: §1b is the backstop for what this eye *missed*, not the appointment where looking happens.
+   - **Why this must be standing, not scheduled:** a task-focused agent is blind to everything off its current mission, and a once-per-round pass is exactly the pass that gets deferred. The proof is on the record — I was **on `/admin/codes` creating FA5-001** and did not notice the KPI read 3 (`F-D-1`). The screen was in front of me; the eye was shut.
+   - **What counts:** clarity, friction, feedback, affordances (does the button *do* something?), empty/broken/garbled panels, raw markup leaking, aesthetics, error copy, redundancy — and **thesis conformance**: not just "does this work?" but *"should this exist at all?"* (does it contradict the product's own stated thesis / its own copy?). `F-A-2` (a visitor corpus-search box that violated the thesis) and `F-N-1` (a "+ NEW PAGE" button on a section whose own copy says the lifecycle is MCP-driven) are both this lens.
+   - **Where it goes:** `ux.md`, continuously. Most of these are iron-rule-4b findings (no test — a test would freeze a taste decision); say so explicitly to the owner rather than fabricating a guard.
