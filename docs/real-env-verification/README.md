@@ -11,7 +11,7 @@ Re-run, by hand, every path CI only ever validated against a mock — this time 
 
 One doc per **module** (a functional unit + the surface it owns). Grouped by product area; each carries its checks + a fresh-eyes **⚠️ LOOK** and names the historical `§`-findings it inherits.
 
-**Visitor chat (agent reasoning)** — [chat-grounding](items/chat-grounding.md) · [chat-subjectivity](items/chat-subjectivity.md) · [chat-voice-persistence](items/chat-voice-persistence.md) · [chat-injection-refusal](items/chat-injection-refusal.md) · [chat-ghost](items/chat-ghost.md) · [chat-summarize](items/chat-summarize.md) · [chat-redaction](items/chat-redaction.md) ✅ · [chat-byoai](items/chat-byoai.md)
+**Visitor chat (agent reasoning)** — [chat-grounding](items/chat-grounding.md) · [chat-subjectivity](items/chat-subjectivity.md) · [chat-voice-persistence](items/chat-voice-persistence.md) · [chat-injection-refusal](items/chat-injection-refusal.md) · [chat-ghost](items/chat-ghost.md) · [chat-summarize](items/chat-summarize.md) · [chat-redaction](items/chat-redaction.md) ✅ · [chat-byoai](items/chat-byoai.md) · [dock-buttons](items/dock-buttons.md)
 
 **Agent engine** — [agent-loop-robustness](items/agent-loop-robustness.md) · [agent-turn-boundary](items/agent-turn-boundary.md) 🟩
 
