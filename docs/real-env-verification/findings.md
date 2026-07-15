@@ -44,6 +44,8 @@ Task-free §1b sweep of every admin section + visitor page against the running p
 
 ---
 
+| F-H-1 ⭐NEW | §H / connector-assembly · OpenAPI ingest | **OpenAPI ingest is capped at 3.0.x — a real vendor spec is rejected.** Drove the admin/connectors "+ ADD CONNECTOR → fetch from URL" path against `https://api.cal.com/v2/docs-json` (2026-07-15 live). The backend really fetched + parsed it; `POST /api/admin/connectors/validate-spec` → `{"ok":false,"error":"only OpenAPI 3.0.x is supported (not 2.0 / 3.1)"}`. So a live vendor spec that isn't 3.0.x can't be assembled. **The mechanism + error UX are GOOD** (real fetch, friendly clear message, no crash) — the gap is capability: OpenAPI 3.1 (released 2021, increasingly common) is unsupported, which can block real vendors this module is meant to onboard. **Caveat (not overclaimed):** `docs-json` 307-redirects in a plain UA, so I confirmed the 3.0.x ceiling + that a fetched Cal.com doc was non-3.0, but NOT that it was the canonical v2 spec — don't state "Cal.com is blocked" as settled until the canonical spec URL + version are confirmed. | Incomplete: `connector-spec-ingest.spec.ts` only ever ingests hand-written 3.0 specs, so the 3.1 path is never driven. RED: feed a real 3.1 spec and assert either support or a first-class "unsupported version" flow. Design call for the owner: add 3.1 support, or state the 3.0.x-only scope as intentional. | 🔴 manual-red |
+
 ## Round 3 — full live pass disposition (2026-07-15, real prod GUI via Playwright MCP)
 
 Every module either driven this round, or dispositioned with the specific blocker (SOP §0: pick what's reachable; the rest are `⛔ blocked` / `manual-only` with a reason — that IS walking them). **Zero console errors on any admin/visitor surface** (F-C-1 holds).
