@@ -12,7 +12,7 @@ const MAX_SPEC_BYTES = 2 * 1024 * 1024;
 const AuthFieldSchema = z.object({
   key: z.string(),
   type: z.string(),
-  scopes: z.array(z.string()).optional(),
+  scopes: z.array(z.string()).nullish().transform((v) => v ?? undefined), // F-D-1 class: scopes can be null
 });
 
 const AuthSchemeSchema = z.object({

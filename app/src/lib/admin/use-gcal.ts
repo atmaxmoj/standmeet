@@ -21,7 +21,7 @@ export const GCalStatusSchema = z.object({
   has_credentials: z.boolean(),
   connected: z.boolean(),
   calendar_id: z.string().optional(),
-  scopes: z.array(z.string()).optional(),
+  scopes: z.array(z.string()).nullish().transform((v) => v ?? undefined), // F-D-1 class: scopes can be null
 });
 export type GCalStatus = z.infer<typeof GCalStatusSchema>;
 

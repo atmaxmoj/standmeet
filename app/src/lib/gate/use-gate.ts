@@ -68,7 +68,7 @@ const StoredVisitorSessionSchema = z.object({
   system_prompt_persona: z.string().optional(),
   // H.13.d: code-mode 初始 ghost 队列也持久化；reused session 第二
   // 次进站仍能看到 owner 设的 suggested ghost。
-  ghosts: z.array(z.string()).optional(),
+  ghosts: z.array(z.string()).nullish().transform((v) => v ?? undefined), // F-D-1 class: ghosts can be null
   dock_buttons: z.array(DockButtonSchema).optional(),
 });
 type StoredVisitorSession = z.infer<typeof StoredVisitorSessionSchema>;

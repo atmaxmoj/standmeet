@@ -17,7 +17,12 @@ import type { ResourceStatus } from '@/lib/state/status';
 // 都从 role 推断。
 export const CodeViewSchema = z.object({
   id: z.string(), code: z.string(), label: z.string(), status: z.string(),
-  purpose: z.string().optional(), ghosts: z.array(z.string()).optional(),
+  purpose: z.string().optional(),
+  // A slice column can serialize as JSON `null` (F-D-1); `.optional()` alone rejects null and
+  // would throw the whole z.array(...) parse, blanking the list. Accept null on the wire but
+  // map it away so the output type stays `string[] | undefined`. Backend now emits [] too
+  // (DecodeStringJSON) — this is defense-in-depth so one bad row never hides the rest.
+  ghosts: z.array(z.string()).nullish().transform((v) => v ?? undefined),
   expires_at: z.string().optional(),
   max_members: z.number().nullable().optional(),
   max_turns_per_session: z.number().nullable().optional(),

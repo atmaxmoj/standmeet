@@ -76,7 +76,7 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 		MaxMembers:         c.MaxMembers,
 		MaxTurnsPerSession: c.MaxTurnsPerSession,
 		MaxBookings:        c.MaxBookings,
-		Ghosts:             decodeStringJSON(c.Ghosts),
+		Ghosts:             DecodeStringJSON(c.Ghosts),
 		AssumedRoleID:      formatUUID(c.AssumedRoleID),
 		PromptID:           optUUIDStr(c.PromptID),
 		InlinePrompt:       c.InlinePrompt,
@@ -88,12 +88,20 @@ func toDomainCode(c *dbq.AccessCode) domain.AccessCode {
 	return out
 }
 
-func decodeStringJSON(raw []byte) []string {
+// DecodeStringJSON decodes a JSONB string-array column into a []string, ALWAYS non-nil so it
+// re-marshals as `[]` (never `null`). See TestDecodeStringJSON_NeverNil (F-D-1).
+func DecodeStringJSON(raw []byte) []string {
 	if len(raw) == 0 {
 		return []string{}
 	}
 	var out []string
 	if err := json.Unmarshal(raw, &out); err != nil {
+		return []string{}
+	}
+	// A JSON `null` literal unmarshals into a nil slice without error; re-marshaling that
+	// nil emits JSON `null`, which the frontend's z.array().optional() rejects and blanks the
+	// whole list (F-D-1). Always hand back a non-nil slice so the wire form is `[]`.
+	if out == nil {
 		return []string{}
 	}
 	return out

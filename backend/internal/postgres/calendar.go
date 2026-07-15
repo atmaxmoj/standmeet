@@ -237,7 +237,7 @@ func decodeConnector(
 		OwnerID: ownerID, Provider: row.Provider,
 		ClientID: tokens.clientID, ClientSecret: tokens.clientSecret,
 		AccessToken: tokens.access, RefreshToken: tokens.refresh,
-		Scopes: decodeStringJSON(row.Scopes),
+		Scopes: DecodeStringJSON(row.Scopes),
 	}
 	attachConnectorTimes(&out, row)
 	return out, nil

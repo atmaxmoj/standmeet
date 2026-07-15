@@ -41,6 +41,13 @@ test.describe('owner issues an access code in admin; visitor uses it', () => {
       await openCodes(page);
       await createCodeInUI(page, 'INTRO-001', 'Intro for HR');
       await expectCodeRowVisible(page, 'INTRO-001');
+      // F-D-1 guard: the assertion above passes on the optimistic store MUTATE. Reload so the
+      // list comes from a FRESH GET /api/admin/codes → z.array(CodeViewSchema) parse (the path
+      // that blanked to "No codes yet" when one row carried ghosts:null). The code must still render.
+      await page.reload();
+      await page.waitForURL('**/admin/codes', { timeout: 5_000 });
+      await expectCodeRowVisible(page, 'INTRO-001');
+      await expect(page.getByTestId('code-list')).not.toContainText('No codes yet');
       await visitorChatsWithCode(request);
     });
 });

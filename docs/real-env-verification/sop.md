@@ -70,10 +70,14 @@ For every row in `findings.md`:
 3. **TDD** — first change/add the test so the problem **surfaces as RED** (reproduce that real branch at the mock layer where possible; if it genuinely can't be reproduced, mark it `manual-only` and say why in the doc). **A guard is only real if it goes RED on the buggy code — prove RED before trusting GREEN.** Then, and only then, fix the code to **GREEN**.
 4. **Regress — go back to the MANUAL test.** Re-drive the same real surface by hand and confirm the symptom is gone *and* nothing else broke. Green e2e ≠ done; the loop closes only at real-green.
 
-### 4 · State machine (kept in each module's `Status` header)
+### 4 · State machine — tracked as a 5-step checklist per finding
+Every `findings.md` row carries the **whole** checklist so the last step can't be skipped:
+`①🔴found ②🎯attr ③🧪RED ④🟩green ⑤🙌re-verify` (see findings.md "Status = the SOP 5-step checklist").
 ```
-⬜ not-run → 🔴 manual-red (Finding) → 🧪 test reproduces red (RED) → 🟩 code green → ✅ manual re-verify green
+⬜ not-run → ①🔴 manual-red → ②🎯 attributed → ③🧪 test RED (proven on buggy code) → ④🟩 code green → ⑤🙌 manual re-verify green
 ```
+> **⑤ is the close. ④ is not.** "Tests pass" ≠ done — ⑤ means back on the REAL GUI, by hand, symptom gone. A row with `⑤🙌⬜` is still OPEN no matter how green the code is. This is the step I keep skipping; the visible ⬜ box is the guard.
+
 Terminal: `⛔ blocked` (missing cred/hardware), `🚫 de-scoped` (decided not to do it).
 
 ---
