@@ -27,9 +27,14 @@ import (
 // defaultAgentTurnTimeout —— 一整轮 agent loop(含所有 tool 迭代 + 末尾
 // ghosts)的硬上限。第三方 LLM 偶尔在大上下文上巨慢/卡住,SSE handler 的
 // ctx 只要浏览器不断连就一直活着 → 不设 deadline 就无限等(前端永远 retrieving)。
-// 给一个上限,超了取消 in-flight LLM call → surface 一帧 error 让前端解卡。
+// 给一个上限,超了取消 in-flight LLM call → 边界收口(handleTerminalError)。
 // AGENT_TURN_TIMEOUT(秒)可覆盖(e2e 设短复现)。
-const defaultAgentTurnTimeout = 120 * time.Second
+//
+// Sized WITH the iteration budget: maxAgentIterations(24) legitimizes deep crawls of
+// several minutes on a real vault; a 120s cap made every such crawl die at the TIME wall
+// instead (observed live: broad question → 26 retrievals → "That took too long", evidence
+// discarded). The two budgets must agree on what a legitimate turn is.
+const defaultAgentTurnTimeout = 300 * time.Second
 
 func agentTurnTimeout() time.Duration {
 	if s := os.Getenv("AGENT_TURN_TIMEOUT"); s != "" {

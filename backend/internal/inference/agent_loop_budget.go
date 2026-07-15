@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/cloudwego/eino/adk"
@@ -123,11 +124,7 @@ func handleTerminalError(
 	ctx context.Context, em *loopEmit, state *turnState, err error,
 ) bool {
 	maxIter := errors.Is(err, adk.ErrExceedMaxIterations)
-	// A non-MaxIterations error AFTER a real streamed ANSWER: surface the error (the answer
-	// already reached the visitor; don't paper over a mid-stream provider fault). The check is
-	// on product, not the merged text — planning narration alone is not "an answer already
-	// reached the visitor" (F-A-4 P1: text ≠ answer).
-	if !maxIter && state.product != "" {
+	if surfaceInsteadOfForce(ctx, state, err) {
 		em.sink.Error(err)
 		return false
 	}
@@ -151,6 +148,24 @@ func handleTerminalError(
 	return false
 }
 
+// surfaceInsteadOfForce —— the two cases where the boundary must NOT attempt a synthesis:
+//   - a real ANSWER already reached the visitor and this is a genuine fault (non-maxIter):
+//     surface it; don't paper over a mid-stream provider failure. The check is on product,
+//     not merged text — planning narration alone is not "an answer" (F-A-4 P1).
+//   - the turn deadline died with ZERO evidence: the provider itself is hung/dead (evidence
+//     would prove it was answering), so don't prolong the visitor's wait with another call.
+func surfaceInsteadOfForce(ctx context.Context, state *turnState, err error) bool {
+	if !errors.Is(err, adk.ErrExceedMaxIterations) && state.product != "" {
+		return true
+	}
+	return ctx.Err() != nil && len(state.evidence) == 0
+}
+
+// forceFinalTimeout —— the boundary synthesis's own budget. It must survive the turn's
+// expired deadline (the time wall is exactly when it's needed), so it runs on a detached,
+// bounded context — never unbounded, never the dead parent.
+const forceFinalTimeout = 60 * time.Second
+
 // forceFinalAnswer —— 无 tool 一次性收口:the turn's contract is ONE grounded answer, so when
 // the loop ends without one (budget exhausted / bad tool name / mid-stream blip) we make one
 // tool-less call that must produce it.
@@ -164,6 +179,13 @@ func forceFinalAnswer(ctx context.Context, em *loopEmit, state *turnState) strin
 	if em.in == nil || em.in.Req == nil {
 		return ""
 	}
+	// Detach from the (possibly expired) turn ctx: the forced synthesis is the boundary's
+	// last act and gets its own short budget. Without this, a turn-timeout kills the very
+	// call meant to rescue the gathered evidence (observed live: 26 retrievals → "That
+	// took too long", everything discarded).
+	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), forceFinalTimeout)
+	defer cancel()
+	ctx = fctx
 	msgs := make([]ChatRequestMsg, 0, len(em.in.Req.History)+2)
 	msgs = append(msgs, em.in.Req.History...)
 	msgs = append(msgs, ChatRequestMsg{Role: "user", Content: em.in.Req.UserMessage})

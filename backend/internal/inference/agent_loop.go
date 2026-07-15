@@ -287,8 +287,9 @@ func drainAssistantStream(
 			return true
 		}
 		if err != nil {
-			em.sink.Error(err)
-			return false
+			// Mid-stream failure takes the SAME boundary as every terminal error: with
+			// gathered evidence the visitor still gets a synthesis, not a dropped turn.
+			return handleTerminalError(ctx, em, state, err)
 		}
 		processAssistantChunk(em, chunk, accum, state)
 	}
