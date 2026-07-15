@@ -1,6 +1,6 @@
 # corpus-media — Corpus: attachments → real object store → presigned render
 
-- **Status:** ⬜ not-run
+- **Status:** 🔴 **F-I-1** (2026-07-15 live) — cover-image upload → real MinIO object + presigned URL works, but the public page renders it BROKEN (Next `/_next/image` optimizer 400s the presigned URL). Store ✅ / presign ✅ / render ❌.
 - **Module:** an ingested asset (pasted image / `upload_media` / vault attachment) lands as a media object in the real bucket, the body rewrites to the object URL, the public page renders it through a presigned/public URL built on the prod storage origin, and export round-trips the bytes.
 - **Surface:** Tiptap editor (paste image) + `/writings` (cover render) + public page.
 - **Real dep:** real MinIO / S3-compatible store in a prod posture (`STORAGE_USE_SSL`, `STORAGE_PUBLIC_URL`), optionally real S3/R2.
@@ -13,7 +13,7 @@
 - **Expected:** the object is stored in the real bucket, the `cover_image`/inline URL resolves, the fetched bytes match what was uploaded; export round-trips the same bytes.
 - **⚠️ mock gap:** prod compose ships `STORAGE_USE_SSL=false` even in the prod profile — verify a real store fronted by TLS (or a real S3/R2 endpoint) works with SSL on, since CI never exercises the `https://` object path or a real `STORAGE_PUBLIC_URL`.
 - **Backing test:** `writings.spec.ts:136` · `writings.spec.ts:174` · `obsidian-sync.spec.ts:78`
-- **Result:** ⬜
+- **Result:** 🔴 **F-I-1** (2026-07-15 live). Created a writing with a cover image → 201; the object landed in the real store (public `<img src>` = a real presigned MinIO URL `localhost:9210/standmeet/…?X-Amz-Signature=…`). But the page serves it via Next `/_next/image?url=<presigned>` → **400**, `naturalWidth:0`, broken image, 2 console errors. Upload+presign work; the browser render fails. Fix: allow the storage origin in `images.remotePatterns` (or skip the optimizer for storage assets). See findings.md F-I-1.
 
 ### 2 — Real attachments / images (media not note)  (was §L6)
 - **Steps:** import a real note referencing an image; confirm the attachment (non-`.md`) becomes a media object (not a note), body `![[img]]`/`![](img)` rewrites to the object URL, `cover_image` frontmatter inlines to a `pending-<uuid>` ref then resolves, `canonicalExt` normalizes the extension. Export and confirm bytes round-trip.
