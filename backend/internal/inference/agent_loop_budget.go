@@ -89,9 +89,10 @@ func truncateRunes(s string, n int) string {
 // is partial it MUST say so: otherwise the model reads the gap as absence and tells the visitor
 // a note doesn't exist when it does (exactly what the chain-exhaustion eval caught).
 func evidenceDigest(ev []gatheredEvidence, total int) string {
+	// strings.Builder 的 Write* 永不返错;显式弃返回值(revive unhandled-error)。
 	var b strings.Builder
 	if total > len(ev) {
-		fmt.Fprintf(&b,
+		_, _ = fmt.Fprintf(&b,
 			"Material you retrieved this turn — a PARTIAL record: the first %d and the most "+
 				"recent %d of %d results (the middle is omitted for length). Something missing "+
 				"from this list does NOT mean it is absent from your corpus — you simply ran "+
@@ -99,14 +100,14 @@ func evidenceDigest(ev []gatheredEvidence, total int) string {
 				"which part you didn't get to.\n\n",
 			evidenceHeadCap, evidenceTailCap, total)
 	} else {
-		b.WriteString("Material you already retrieved this turn — answer from it:\n\n")
+		_, _ = b.WriteString("Material you already retrieved this turn — answer from it:\n\n")
 	}
 	for i := range ev {
-		b.WriteString("--- ")
-		b.WriteString(ev[i].tool)
-		b.WriteString(" ---\n")
-		b.WriteString(ev[i].result)
-		b.WriteString("\n\n")
+		_, _ = b.WriteString("--- ")
+		_, _ = b.WriteString(ev[i].tool)
+		_, _ = b.WriteString(" ---\n")
+		_, _ = b.WriteString(ev[i].result)
+		_, _ = b.WriteString("\n\n")
 	}
 	return b.String()
 }
