@@ -20,6 +20,13 @@ Decide which `items/` to run this round. Pick only what's **credential- / self-s
 ### 1 · Run the real verification by hand
 Follow each item's **Steps** with Playwright MCP / a real client, against the **real services** (`make prod-up` → `docker-compose.prod.yml` + real creds, **zero mocks**). Compare against **Expected**.
 
+### 1b · COLD SANITY SWEEP — the look, not the checklist ⚠️ (why basic bugs slip past)
+The §-items above are a MECHANISM checklist ("does capability X work"). It structurally cannot catch **basic UI defects** — a dead button, an empty list, garbled text, a badge that disagrees with its list — because those aren't mechanisms, they're presence/sanity. Those are exactly what the owner catches by *using* the product, and what a task-focused agent misses (on a screen for one mission, blind to everything off-mission; F-D-1, F-N-1, F-R-1 were all found only from owner screenshots after several rounds). So run these two lenses **task-free**, once per round:
+
+- **Cold sweep** — open EVERY admin + visitor surface with NO mission and ask only *"would a real user go 'huh?'"*: click every button/affordance (does it do anything?), eyeball every panel (empty? broken? raw markup leaking? placeholder never replaced?). Log anything that fails fresh-eyes.
+- **Cross-view consistency** — for every count / badge / KPI, find the list or table it summarizes and confirm they **AGREE**. (F-L-4 = dashboard count wrong; F-D-1 = list empty while the count says 3 — same family: two views of one dataset disagreeing, which no single-screen check catches.)
+- **Sweep-the-class on every fix** — when you fix a bug, enumerate every other instance of its *shape* before moving on (a count-vs-list fix → check ALL count/list pairs), not just the one reported.
+
 ### 2 · On a mismatch → RECORD ONLY, do not fix in place ⚠️
 - Record `{symptom, Expected vs Actual, surface, repro}` in the item's **Findings** section, and log one row in `findings.md` with ID `F-<item>-<n>` (e.g. `F-B-1`).
 - **Don't stop, don't fix on the spot.** The first hole must not derail the round. Finish this item / the round's remaining items.
