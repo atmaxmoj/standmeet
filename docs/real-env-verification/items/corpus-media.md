@@ -1,6 +1,6 @@
 # corpus-media — Corpus: attachments → real object store → presigned render
 
-- **Status:** 🔴 **F-I-1** (2026-07-15 live) — cover-image upload → real MinIO object + presigned URL works, but the public page renders it BROKEN (Next `/_next/image` optimizer 400s the presigned URL). Store ✅ / presign ✅ / render ❌.
+- **Status:** 🟩 **F-I-1 fixed** (2026-07-15) — `Cover.tsx` now renders the presigned cover `unoptimized` (direct, bypassing Next's `/_next/image` optimizer that 400s an unlisted storage host). ④ code-green; ⑤ manual re-verify on the real `/writings` owed (prod rebuild).
 - **Module:** an ingested asset (pasted image / `upload_media` / vault attachment) lands as a media object in the real bucket, the body rewrites to the object URL, the public page renders it through a presigned/public URL built on the prod storage origin, and export round-trips the bytes.
 - **Surface:** Tiptap editor (paste image) + `/writings` (cover render) + public page.
 - **Real dep:** real MinIO / S3-compatible store in a prod posture (`STORAGE_USE_SSL`, `STORAGE_PUBLIC_URL`), optionally real S3/R2.

@@ -169,6 +169,12 @@ test.describe('writings: atomic image upload via multipart save', () => {
       const img = cover.locator('img').first();
       const src = await img.getAttribute('src');
       expect(src).toMatch(/localhost(%3A|:)9200/);
+      // F-I-1: assert the cover actually LOADS, not just that a URL is present. Next's image
+      // optimizer 400s the presigned storage URL (host not in images.remotePatterns), so through
+      // /_next/image the cover is a broken image. `unoptimized` serves the presigned URL directly.
+      expect(src).not.toContain('/_next/image');
+      const naturalWidth = await img.evaluate((el: HTMLImageElement) => el.naturalWidth);
+      expect(naturalWidth).toBeGreaterThan(0);
     });
 
   test('paste image in editor → save → /writings renders presigned URL; body_md stores URI',

@@ -43,8 +43,12 @@ function resolveCoverImageURL(
 }
 
 function CoverImageMaybe({ url }: { url?: string }) {
+  // `unoptimized`: the src is a presigned URL on the owner's storage origin (STORAGE_PUBLIC_URL,
+  // arbitrary per-deployment, with an expiring signature). Next's image optimizer rejects any
+  // host not in images.remotePatterns with a 400, so routing it through /_next/image renders a
+  // broken image (F-I-1). Serve it directly. remotePatterns can't enumerate owner-set origins.
   return url ? (
-    <Image src={url} alt="" fill className={styles.coverImg} />
+    <Image src={url} alt="" fill unoptimized className={styles.coverImg} />
   ) : null;
 }
 
