@@ -1,4 +1,4 @@
-# Fully-real verification (完全真实的验证)
+# Fully-real verification
 
 Re-run, by hand, every path CI only ever validated against a mock — this time on a stack of **real services + real credentials, zero mocks** (`make prod-up`). The methodology is the skeleton here:
 

@@ -117,7 +117,7 @@
 - [ ] **I1 `upload_media` → real object store** → presigned URL renders (dev MinIO is real-enough; optional real S3/R2). Note `STORAGE_USE_SSL=false` even in prod compose `[scan]`.
 - [ ] **I2 Resume/report PDF** via real gotenberg + real print view; QR resolves. `[scan]` dev gotenberg is **permissive** (`--chromium-deny-list=` off, JS on); verify a **hardened prod** Chromium posture (deny-list, fonts, network-idle, SSL).
 - [ ] **I3 Custom-page sandbox build** → real static hosting (covered by K; real Vite build in bwrap).
-- [ ] **I4 Real domain + Let's Encrypt TLS** — CNAME a real domain, `/internal/tls-ask` gates, cert auto-signs, `https://<domain>` serves. `[scan]` real ACME/DNS is **provider territory** (roadmap 块三 cut) — so "CNAME and it just works" has no owner-journey by decision; name it so it isn't assumed. **(heaviest; [DEPLOY])**
+- [ ] **I4 Real domain + Let's Encrypt TLS** — CNAME a real domain, `/internal/tls-ask` gates, cert auto-signs, `https://<domain>` serves. `[scan]` real ACME/DNS is **provider territory** (roadmap block 3 cut) — so "CNAME and it just works" has no owner-journey by decision; name it so it isn't assumed. **(heaviest; [DEPLOY])**
 
 ### J. API-key facade — mostly deterministic — [—]
 - [ ] **J1 Real corpus dispatch** — mint key, `api.open corpus.retrieval`, `QUERY corpus_search` over **real corpus content** → real hits, role-scoped. **J2 Real rate limit under load** → 429 + per-key isolation. **J3 Real booking via key** (with §B). **J4 No-leak** vs `/api/admin/*` + `/mcp` live.
