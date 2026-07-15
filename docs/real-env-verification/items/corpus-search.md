@@ -1,6 +1,6 @@
 # corpus-search — Corpus: search relevance + ACL + PG fallback
 
-- **Status:** ⬜ not-run
+- **Status:** 🟢 mechanism (2026-07-15 live) — observed across many visitor turns: `corpus_search` fires (SEARCHED 4–10 · READ 6–20), returns real ranked hits, grounds the answer, ACL-scoped (subjectivity only surfaced under a subjectivity code). **Relevance-at-scale + Meili↔PG fallback quality** gated on a clean vault sync (F-L-6) — the drifted snapshot makes a scale-relevance verdict meaningless.
 - **Module:** `corpus_search` over real content is relevant and write→search consistent, role-scoped by the caller's ACL, and correct on the **PG-FTS fallback** (prod ships without Meilisearch by default); the API-key facade dispatches the same real search.
 - **Surface:** visitor chat retrieval + API-key facade + backend search.
 - **Real dep:** the full real corpus indexed; prod stack (PG-FTS by default; a pinned Meili only if opted in).
