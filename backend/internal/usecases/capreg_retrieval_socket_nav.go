@@ -148,6 +148,6 @@ func signatureFromEntry(e *CorpusEntry) corpusStub {
 		Path: e.Path, Title: e.Title, Genre: e.Genre, Tags: e.Tags,
 		Headings: extractHeadings(e.Body, peekMaxHeadings),
 		Outlinks: extractOutlinkTargets(e.Body, peekMaxOutlinks),
-		Lead:     leadLine(e.Body, peekLeadMax),
+		Lead:     LeadLine(e.Body, peekLeadMax),
 	}
 }

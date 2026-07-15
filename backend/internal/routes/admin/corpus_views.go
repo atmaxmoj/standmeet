@@ -5,12 +5,14 @@ package admin
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/domain"
+	"github.com/atmaxmoj/standmeet/internal/usecases"
 )
 
 func rawItemFromDomain(r *domain.Raw) rawListItem {
 	return rawListItem{
 		ID:        r.ID(),
 		Body:      r.Body(),
+		Preview:   usecases.LeadLine(r.Body(), excerptMaxLen), // F-R-1: clean excerpt
 		Source:    r.Source(),
 		Tags:      ensureSlice(r.Tags()),
 		CreatedAt: r.CreatedAt().UTC().Format(timeRFC3339),
@@ -27,7 +29,7 @@ func wikiItemFromDomain(w *domain.Wiki, path string) wikiListItem {
 		// fallback the card shows only when Excerpt is empty — the truncation is never the
 		// excerpt itself.
 		Excerpt:      w.Excerpt(),
-		Preview:      truncateExcerpt(w.Body(), excerptMaxLen),
+		Preview:      usecases.LeadLine(w.Body(), excerptMaxLen), // clean lead (F-R-2)
 		Tags:         ensureSlice(w.Tags()),
 		SourceRawIDs: ensureSlice(w.SourceRawIDs()),
 		ParentID:     optionalToPtr(w.ParentID),
@@ -47,13 +49,6 @@ func ptrIfNonEmpty(s string) *string {
 }
 
 const excerptMaxLen = 200
-
-func truncateExcerpt(body string, limit int) string {
-	if len(body) <= limit {
-		return body
-	}
-	return body[:limit] + "…"
-}
 
 func outputItemFromDomain(o *domain.Output, path string) outputListItem {
 	return outputListItem{

@@ -67,7 +67,7 @@ function RawRow({
       <div className="flex justify-between gap-6">
         <div className="min-w-0 flex-1">
           <RawSourceLine source={row.source} createdAt={row.created_at} hasChildren={hasChildren} />
-          <RawRowBody body={row.body} tags={row.tags} privateFlag={row.flagged_private} media={row.media} />
+          <RawRowBody preview={row.preview} body={row.body} tags={row.tags} privateFlag={row.flagged_private} media={row.media} />
         </div>
         <RawRowActions row={row} actions={actions} mode={mode} setMode={setMode} />
       </div>
@@ -121,11 +121,16 @@ function formatRawDate(iso: string): string {
 }
 
 function RawRowBody({
-  body, tags, privateFlag, media,
-}: { body: string; tags: readonly string[]; privateFlag: boolean; media?: RawAdminView['media'] }) {
+  preview, body, tags, privateFlag, media,
+}: {
+  preview?: string; body: string; tags: readonly string[];
+  privateFlag: boolean; media?: RawAdminView['media'];
+}) {
+  // Prefer the backend's clean LeadLine excerpt (F-R-1); fall back to a body strip for
+  // all-structure notes where LeadLine returns "".
   return (
     <div className="min-w-0">
-      <p className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{stripCorpusMeta(body)}</p>
+      <p className="reading-tight text-(--color-ink) text-[15px] line-clamp-3">{preview || stripCorpusMeta(body)}</p>
       {media && (
         <div className="mono text-[10px] tracking-[0.06em] text-(--color-faint) mt-1">
           {media.kind} · {media.label}

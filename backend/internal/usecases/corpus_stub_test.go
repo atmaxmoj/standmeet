@@ -54,7 +54,7 @@ func TestStubOutlinksDedupInOrder(t *testing.T) {
 func TestStubLeadIsProseNotStructure(t *testing.T) {
 	t.Parallel()
 	const wantLeadPrefix = "A safe non-primitive recursive harness needs pc-well-founded-recursion"
-	lead := leadLine(stubBody, stubLeadCap)
+	lead := LeadLine(stubBody, stubLeadCap)
 	if !strings.HasPrefix(lead, wantLeadPrefix) {
 		t.Fatalf("lead wrong: %q", lead)
 	}
@@ -63,12 +63,33 @@ func TestStubLeadIsProseNotStructure(t *testing.T) {
 	}
 }
 
+// TestLeadLineCleanExcerpt —— F-R-1/F-R-2: the card excerpt must be RENDERED-not-markup. A body
+// opening with a display-math block + a bullet, then a prose line carrying inline markup, must
+// yield a clean lead: no `$$`/LaTeX, no `**`/“ ` “, no `[[`, no bullet — while currency `$`
+// (single, not `$$`) survives ("$80M", per the render currency-escape work).
+func TestLeadLineCleanExcerpt(t *testing.T) {
+	t.Parallel()
+	body := "$$\n\\nabla f(x^*) = 0\n$$\n\n- a bullet item\n\n" +
+		"It raised **$80M** on `$246M` with a [[growth-note|the note]] reference."
+	lead := LeadLine(body, stubLeadCap)
+	for _, leak := range []string{"$$", "\\nabla", "**", "`", "[[", "- a bullet"} {
+		if strings.Contains(lead, leak) {
+			t.Fatalf("lead leaked markup %q: %q", leak, lead)
+		}
+	}
+	for _, keep := range []string{"$80M", "$246M", "growth-note", "raised"} {
+		if !strings.Contains(lead, keep) {
+			t.Fatalf("lead dropped content %q: %q", keep, lead)
+		}
+	}
+}
+
 // TestLeadTruncatesOnRuneBoundary —— a long CJK lead is cut without splitting a rune.
 func TestLeadTruncatesOnRuneBoundary(t *testing.T) {
 	t.Parallel()
 	body := "---\ntags: [x]\n---\n\n# Heading\n\n" +
 		strings.Repeat(string(rune(stubCJKRune)), cjkRepeat)
-	lead := leadLine(body, stubLeadTight)
+	lead := LeadLine(body, stubLeadTight)
 	if lead == "" || !strings.HasSuffix(lead, "…") || strings.Contains(lead, "�") {
 		t.Fatalf("expected clean truncated lead with ellipsis, got %q", lead)
 	}

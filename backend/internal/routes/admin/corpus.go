@@ -107,6 +107,7 @@ func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *domain.Raw) {
 	item := rawListItem{
 		ID:        raw.ID(),
 		Body:      raw.Body(),
+		Preview:   usecases.LeadLine(raw.Body(), excerptMaxLen), // F-R-1
 		Source:    raw.Source(),
 		Tags:      raw.Tags(),
 		Status:    rawStatus(raw),
@@ -116,14 +117,18 @@ func writeCreatedRaw(log *slog.Logger, w http.ResponseWriter, raw *domain.Raw) {
 }
 
 type rawListItem struct {
-	ParentID  *string  `json:"parent_id"`
-	Path      *string  `json:"path"`
-	CreatedAt string   `json:"created_at"`
-	ID        string   `json:"id"`
-	Body      string   `json:"body"`
-	Source    string   `json:"source"`
-	Status    string   `json:"status"`
-	Tags      []string `json:"tags"`
+	ParentID  *string `json:"parent_id"`
+	Path      *string `json:"path"`
+	CreatedAt string  `json:"created_at"`
+	ID        string  `json:"id"`
+	Body      string  `json:"body"`
+	// Preview —— a CLEAN lead excerpt (LeadLine: markup/structure stripped) for the card. Body
+	// stays the raw source for inline editing; the card must show Preview, not a raw substring
+	// of Body (F-R-1).
+	Preview string   `json:"preview"`
+	Source  string   `json:"source"`
+	Status  string   `json:"status"`
+	Tags    []string `json:"tags"`
 	// HasChildren —— tree view only: this node can be drilled into (lazy layer).
 	HasChildren bool `json:"has_children,omitempty"`
 }
@@ -171,6 +176,7 @@ func rawItemOf(row *domain.Raw, paths map[string]string) rawListItem {
 	item := rawListItem{
 		ID:        row.ID(),
 		Body:      row.Body(),
+		Preview:   usecases.LeadLine(row.Body(), excerptMaxLen), // F-R-1: clean excerpt
 		Source:    row.Source(),
 		Tags:      row.Tags(),
 		Status:    rawStatus(row),

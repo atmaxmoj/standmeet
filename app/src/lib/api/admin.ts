@@ -93,6 +93,9 @@ export const RawMediaMetaSchema = z.object({ kind: z.string(), label: z.string()
 
 export const RawAdminViewSchema = z.object({
   id: z.string(), body: z.string(), source: z.string(), tags: z.array(z.string()),
+  // preview —— a CLEAN lead excerpt (backend LeadLine: markup stripped). The card shows this,
+  // not a raw substring of body, so excerpts read as rendered text not markup (F-R-1).
+  preview: z.string().optional().default(''),
   created_at: z.string(),
   flagged_private: z.boolean().optional().default(false),
   archived: z.boolean().optional().default(false),

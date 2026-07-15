@@ -51,19 +51,19 @@ func extractOutlinkTargets(body string, limit int) []string {
 	return out
 }
 
-// leadLine —— the first line of real prose: after frontmatter, skipping headings, code fences,
+type leadFence struct{ code, math bool }
+
+// LeadLine —— the first line of real prose: after frontmatter, skipping headings, code fences,
 // blockquote/`> Parent:` lines, list markers, and wikilink-only lines. Lightly de-marked and
 // truncated on a rune boundary. Empty if the note is all structure.
-func leadLine(body string, limit int) string {
+func LeadLine(body string, limit int) string {
 	body = frontmatterRe.ReplaceAllString(body, "")
-	inFence := false
+	var f leadFence
 	for raw := range strings.SplitSeq(body, "\n") {
 		line := strings.TrimSpace(raw)
-		if fenceLineRe.MatchString(line) {
-			inFence = !inFence
-			continue
-		}
-		if inFence || !isProseLine(line) {
+		var skip bool
+		skip, f = leadSkip(line, f)
+		if skip {
 			continue
 		}
 		return truncateRunesUC(cleanLead(line), limit)
@@ -71,8 +71,23 @@ func leadLine(body string, limit int) string {
 	return ""
 }
 
+// leadSkip —— advance the code-fence / display-math-fence state for a line and report whether to
+// skip it (inside a fence, a fence delimiter, or a structure line). `$$` on its own line is a
+// display-math delimiter, so the whole block is skipped — not just the delimiter.
+func leadSkip(line string, f leadFence) (bool, leadFence) {
+	if fenceLineRe.MatchString(line) {
+		return true, leadFence{code: !f.code, math: f.math}
+	}
+	if line == "$$" {
+		return true, leadFence{code: f.code, math: !f.math}
+	}
+	return f.code || f.math || !isProseLine(line), f
+}
+
 // nonProsePrefixes —— lines starting with these are structure, not the lead prose line.
-var nonProsePrefixes = []string{"#", ">", "- ", "* ", "| "}
+// `$$` catches display-math blocks (`$$ \begin{aligned}…`); a single `$` (currency) is left
+// alone so "it cost $80M" survives — see the [[render]] currency-escape work.
+var nonProsePrefixes = []string{"#", ">", "- ", "* ", "| ", "$$"}
 
 func isProseLine(line string) bool {
 	if line == "" {
