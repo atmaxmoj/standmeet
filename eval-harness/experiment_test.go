@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -213,7 +212,6 @@ func TestExperiment(t *testing.T) {
 	if perr != nil {
 		t.Fatalf("load persona: %v", perr)
 	}
-	bin := buildHostPlugin(t, "../mcp-servers/retrieval")
 
 	f, ferr := os.OpenFile(out, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if ferr != nil {
@@ -222,7 +220,7 @@ func TestExperiment(t *testing.T) {
 	defer func() { _ = f.Close() }()
 
 	for i := 1; i <= runs; i++ {
-		m := oneExperimentRun(t, cred, p, shape, bin)
+		m := oneExperimentRun(t, cred, p, shape)
 		m.Config, m.Run = config, i
 		line, _ := json.Marshal(m)
 		if _, werr := f.Write(append(line, '\n')); werr != nil {
@@ -237,36 +235,13 @@ func TestExperiment(t *testing.T) {
 }
 
 func oneExperimentRun(
-	t *testing.T, cred agentcore.Cred, p *persona, shape expShape, pluginBin string,
+	t *testing.T, cred agentcore.Cred, p *persona, shape expShape,
 ) runMetrics {
 	ctx := context.Background()
-	sockDir, derr := os.MkdirTemp("/tmp", "smx")
-	if derr != nil {
-		t.Fatalf("sock dir: %v", derr)
-	}
-	defer func() { _ = os.RemoveAll(sockDir) }()
-	sock := filepath.Join(sockDir, "r.sock")
-
-	driver := &EvalDriver{
-		cred: cred, roleBody: p.roleBody, corpus: p.corpus,
-		plugins: []agentcore.PluginSpec{{
-			ID: "corpus.retrieval", Command: pluginBin,
-			Env:         map[string]string{"RETRIEVAL_SOCKET": sock},
-			HostSockets: []string{sock}, RawToolNames: true, ACLAlways: true,
-		}},
-	}
-	stop, serr := agentcore.StartRetrievalSocket(ctx, driver, sock)
-	if serr != nil {
-		t.Fatalf("StartRetrievalSocket: %v", serr)
-	}
-	defer func() { _ = stop() }()
-
-	agent, err := agentcore.BuildVisitorAgent(ctx, driver, &agentcore.LaunchInput{
+	driver := &EvalDriver{cred: cred, roleBody: p.roleBody, corpus: p.corpus}
+	agent := mustLaunch(t, driver, &agentcore.LaunchInput{
 		OwnerID: "owner-1", Mode: "public", ConversationID: "c1",
 	})
-	if err != nil {
-		t.Fatalf("BuildVisitorAgent: %v", err)
-	}
 
 	sink := &seqSink{}
 	var logBuf strings.Builder

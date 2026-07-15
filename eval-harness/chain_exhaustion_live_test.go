@@ -26,8 +26,6 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -53,34 +51,10 @@ func TestChainExhaustionLive_BoundaryStillAnswersGrounded(t *testing.T) {
 	t.Logf("chain corpus: %d notes", len(p.corpus))
 
 	ctx := context.Background()
-	bin := buildHostPlugin(t, "../mcp-servers/retrieval")
-	sockDir, derr := os.MkdirTemp("/tmp", "smce")
-	if derr != nil {
-		t.Fatalf("sock dir: %v", derr)
-	}
-	defer func() { _ = os.RemoveAll(sockDir) }()
-	sock := filepath.Join(sockDir, "r.sock")
-
-	driver := &EvalDriver{
-		cred: cred, roleBody: p.roleBody, corpus: p.corpus,
-		plugins: []agentcore.PluginSpec{{
-			ID: "corpus.retrieval", Command: bin,
-			Env:         map[string]string{"RETRIEVAL_SOCKET": sock},
-			HostSockets: []string{sock}, RawToolNames: true, ACLAlways: true,
-		}},
-	}
-	stop, serr := agentcore.StartRetrievalSocket(ctx, driver, sock)
-	if serr != nil {
-		t.Fatalf("StartRetrievalSocket: %v", serr)
-	}
-	defer func() { _ = stop() }()
-
-	agent, err := agentcore.BuildVisitorAgent(ctx, driver, &agentcore.LaunchInput{
+	driver := &EvalDriver{cred: cred, roleBody: p.roleBody, corpus: p.corpus}
+	agent := mustLaunch(t, driver, &agentcore.LaunchInput{
 		OwnerID: "owner-1", Mode: "public", ConversationID: "c1",
 	})
-	if err != nil {
-		t.Fatalf("BuildVisitorAgent: %v", err)
-	}
 
 	sink := newCaptureSink()
 	in := &agentcore.AgentTurnInput{

@@ -190,22 +190,25 @@ func askCandidate(
 	if oerr != nil {
 		return candidateTurn{}, oerr
 	}
-	// P.13: inject the canned environment through a Driver; the core launches the
-	// real assembly behind it. (summarize/booker fixtures retired — those caps are
-	// sandbox plugins now, not in the eval path.)
-	agent, berr := agentcore.BuildVisitorAgent(ctx, &EvalDriver{
+	// P.13: inject the canned environment through a Driver; launchCandidate wires the corpus
+	// tools LIVE (retrieval plugin + host socket) — the same one path every eval test uses, so
+	// --ask actually has corpus_search/read/map/… instead of tools=0 (the old rot: no plugin
+	// wired here → the model hallucinated with no corpus to read).
+	driver := &EvalDriver{
 		roleBody: p.roleBody,
 		corpus:   p.corpus,
 		skill:    skillSpecFor(req),
 		mcpURL:   mcpURLFor(req),
 		cred:     cred,
-	}, &agentcore.LaunchInput{
+	}
+	agent, cleanup, berr := launchCandidate(ctx, driver, &agentcore.LaunchInput{
 		OwnerID: evalOwnerID, Mode: mode, ConversationID: evalConvID,
 		CodeID: evalCodeID, SystemPromptOverride: override,
 	})
 	if berr != nil {
 		return candidateTurn{}, berr
 	}
+	defer cleanup()
 	in := &agentcore.AgentTurnInput{
 		Cred: &cred,
 		Req: &agentcore.AgentTurnRequest{

@@ -6,9 +6,6 @@
 package main
 
 import (
-	"context"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -17,35 +14,10 @@ import (
 
 func navAgent(t *testing.T) *agentcore.VisitorAgent {
 	t.Helper()
-	ctx := context.Background()
-	bin := buildHostPlugin(t, "../mcp-servers/retrieval")
-	sockDir, derr := os.MkdirTemp("/tmp", "smnav")
-	if derr != nil {
-		t.Fatalf("sock dir: %v", derr)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
-	sock := filepath.Join(sockDir, "r.sock")
-	driver := &EvalDriver{
-		cred:   evalCred(),
-		corpus: linkedCorpus(),
-		plugins: []agentcore.PluginSpec{{
-			ID: "corpus.retrieval", Command: bin,
-			Env:         map[string]string{"RETRIEVAL_SOCKET": sock},
-			HostSockets: []string{sock}, RawToolNames: true, ACLAlways: true,
-		}},
-	}
-	stop, serr := agentcore.StartRetrievalSocket(ctx, driver, sock)
-	if serr != nil {
-		t.Fatalf("StartRetrievalSocket: %v", serr)
-	}
-	t.Cleanup(func() { _ = stop() })
-	agent, err := agentcore.BuildVisitorAgent(ctx, driver, &agentcore.LaunchInput{
+	driver := &EvalDriver{cred: evalCred(), corpus: linkedCorpus()}
+	return mustLaunch(t, driver, &agentcore.LaunchInput{
 		OwnerID: "owner-1", Mode: "public", ConversationID: "c1",
 	})
-	if err != nil {
-		t.Fatalf("BuildVisitorAgent: %v", err)
-	}
-	return agent
 }
 
 // TestNavToolsAssembled —— all seven corpus tools reach the agent.

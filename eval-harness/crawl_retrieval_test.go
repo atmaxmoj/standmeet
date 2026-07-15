@@ -17,9 +17,6 @@
 package main
 
 import (
-	"context"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -49,37 +46,10 @@ func linkedCorpus() []agentcore.VisitorCorpusEntry {
 }
 
 func TestCrawlRetrieval_LinksDrivenMultiHop(t *testing.T) {
-	ctx := context.Background()
-	bin := buildHostPlugin(t, "../mcp-servers/retrieval")
-	sockDir, derr := os.MkdirTemp("/tmp", "smc")
-	if derr != nil {
-		t.Fatalf("sock dir: %v", derr)
-	}
-	defer func() { _ = os.RemoveAll(sockDir) }()
-	sock := filepath.Join(sockDir, "r.sock")
-
-	driver := &EvalDriver{
-		cred:   evalCred(),
-		corpus: linkedCorpus(),
-		plugins: []agentcore.PluginSpec{{
-			ID: "corpus.retrieval", Command: bin,
-			Env:         map[string]string{"RETRIEVAL_SOCKET": sock},
-			HostSockets: []string{sock}, RawToolNames: true, ACLAlways: true,
-		}},
-	}
-
-	stop, serr := agentcore.StartRetrievalSocket(ctx, driver, sock)
-	if serr != nil {
-		t.Fatalf("StartRetrievalSocket: %v", serr)
-	}
-	defer func() { _ = stop() }()
-
-	agent, err := agentcore.BuildVisitorAgent(ctx, driver, &agentcore.LaunchInput{
+	driver := &EvalDriver{cred: evalCred(), corpus: linkedCorpus()}
+	agent := mustLaunch(t, driver, &agentcore.LaunchInput{
 		OwnerID: "owner-1", Mode: "public", ConversationID: "c1",
 	})
-	if err != nil {
-		t.Fatalf("BuildVisitorAgent: %v", err)
-	}
 	names := agentToolNames(t, agent)
 	for _, want := range []string{"corpus_search", "corpus_read", "corpus_links"} {
 		if !contains(names, want) {

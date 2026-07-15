@@ -40,10 +40,19 @@ func TestEvalAssemblesAskVisitorPlugin(t *testing.T) {
 	}
 }
 
-// buildHostPlugin —— compile a plugin module to a host-arch binary (no GOOS override),
-// so the eval can run it as a plain stdio MCP server on this machine.
+// buildHostPlugin —— compile a plugin module to a host-arch binary. Thin *testing.T wrapper
+// over the non-test build (candidate.go) so tests that need only the binary (not a full launch)
+// share the ONE build path with the --ask binary. moduleDir is honored for non-retrieval
+// plugins; the retrieval module reuses buildRetrievalBinary.
 func buildHostPlugin(t *testing.T, moduleDir string) string {
 	t.Helper()
+	if moduleDir == retrievalPluginDir {
+		bin, err := buildRetrievalBinary(t.TempDir())
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		return bin
+	}
 	bin := filepath.Join(t.TempDir(), "plugin")
 	cmd := exec.Command("go", "build", "-o", bin, ".")
 	cmd.Dir = moduleDir
@@ -51,6 +60,21 @@ func buildHostPlugin(t *testing.T, moduleDir string) string {
 		t.Fatalf("build plugin %s: %v\n%s", moduleDir, berr, out)
 	}
 	return bin
+}
+
+// mustLaunch —— the *testing.T front for launchCandidate: assemble a candidate agent with
+// corpus tools live, or fail. Every eval test that runs a turn goes through here, so retrieval
+// is wired ONE way and a test cannot forget the socket (the --ask rot, made unrepeatable).
+func mustLaunch(
+	t *testing.T, driver *EvalDriver, in *agentcore.LaunchInput,
+) *agentcore.VisitorAgent {
+	t.Helper()
+	agent, cleanup, err := launchCandidate(context.Background(), driver, in)
+	if err != nil {
+		t.Fatalf("launch candidate: %v", err)
+	}
+	t.Cleanup(cleanup)
+	return agent
 }
 
 func agentToolNames(t *testing.T, a *agentcore.VisitorAgent) []string {
