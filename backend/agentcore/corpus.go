@@ -64,6 +64,36 @@ func (l driverCorpusLister) List(
 	return filterHits(hits, grantedGlobs), nil
 }
 
+// MapEntries —— every visible wiki node as {path,title}. Enumerate via SearchCorpus("") (the
+// Driver's whole-corpus listing) and keep genre=wiki, ACL-filtered; shaping is BuildCorpusMap.
+func (l driverCorpusLister) MapEntries(
+	ctx context.Context, _ string, grantedGlobs []string,
+) ([]usecases.CorpusMapEntry, error) {
+	all, err := l.driver.SearchCorpus(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("driver enumerate corpus: %w", err)
+	}
+	out := make([]usecases.CorpusMapEntry, 0, len(all))
+	for i := range all {
+		if all[i].Genre != "wiki" || !allowsCorpus(grantedGlobs, all[i].Genre, all[i].Path) {
+			continue
+		}
+		out = append(out, usecases.CorpusMapEntry{Path: all[i].Path, Title: all[i].Title})
+	}
+	return out, nil
+}
+
+// Resolve —— name → matching wiki node(s), same slug rule as prod (pure resolveByName).
+func (l driverCorpusLister) Resolve(
+	ctx context.Context, ownerID string, grantedGlobs []string, name string,
+) ([]usecases.CorpusMeta, error) {
+	entries, err := l.MapEntries(ctx, ownerID, grantedGlobs)
+	if err != nil {
+		return nil, err
+	}
+	return usecases.ResolveByName(entries, name), nil
+}
+
 func (l driverCorpusLister) Get(
 	ctx context.Context, _ string, grantedGlobs []string, path string,
 ) (usecases.CorpusEntry, error) {

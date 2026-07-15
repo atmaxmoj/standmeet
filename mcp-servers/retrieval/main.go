@@ -37,6 +37,9 @@ func main() {
 	srv.AddTool(readOnly(readTool()), opHandler("corpus_read"))
 	srv.AddTool(readOnly(listTool()), opHandler("corpus_list"))
 	srv.AddTool(readOnly(linksTool()), opHandler("corpus_links"))
+	srv.AddTool(readOnly(mapTool()), opHandler("corpus_map"))
+	srv.AddTool(readOnly(resolveTool()), opHandler("corpus_resolve"))
+	srv.AddTool(readOnly(peekTool()), opHandler("corpus_peek"))
 	srv.AddResource(searchCardResource(), searchCardHandler)
 	if err := server.ServeStdio(srv); err != nil {
 		fmt.Fprintln(os.Stderr, "retrieval:", err)
@@ -129,6 +132,51 @@ func linksTool() mcpgo.Tool {
 			"properties": {"path": {"type": "string"}},
 			"required": ["path"]
 		}`)), "following links")
+}
+
+func mapTool() mcpgo.Tool {
+	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_map",
+		"Get a birds-eye SKELETON of the corpus: the high-level node tree with a count of "+
+			"entries under each. Call this FIRST on a broad question — it shows where the "+
+			"material is (which branches are big) so you don't search blind. Omit `under` for "+
+			"the whole corpus, or pass a node path to zoom into that branch. `budget` bounds "+
+			"the size (default is a screenful); dense branches are expanded, sparse ones stay "+
+			"collapsed with their count — drill a collapsed branch with corpus_map(under=path) "+
+			"or corpus_list.",
+		json.RawMessage(`{
+			"type": "object",
+			"properties": {
+				"under": {"type": "string"},
+				"budget": {"type": "integer"}
+			}
+		}`)), "mapping corpus")
+}
+
+func resolveTool() mcpgo.Tool {
+	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_resolve",
+		"Turn a NAME into its exact node path. When a note body links to [[some-note]] or "+
+			"you know a title but not its path, resolve the name here instead of guessing a "+
+			"path (a wrong path wastes a round). Returns 0+ matching nodes with their paths.",
+		json.RawMessage(`{
+			"type": "object",
+			"properties": {"name": {"type": "string"}},
+			"required": ["name"]
+		}`)), "resolving name")
+}
+
+func peekTool() mcpgo.Tool {
+	return progressLabel(mcpgo.NewToolWithRawSchema("corpus_peek",
+		"Cheaply preview MANY nodes at once: pass a list of paths, get each node's title, "+
+			"tags, heading outline, outgoing [[links]], and first line — WITHOUT the full body. "+
+			"Use to triage which nodes are worth a full corpus_read after a map or a wide "+
+			"search, instead of reading each one blind.",
+		json.RawMessage(`{
+			"type": "object",
+			"properties": {
+				"paths": {"type": "array", "items": {"type": "string"}}
+			},
+			"required": ["paths"]
+		}`)), "peeking nodes")
 }
 
 // session —— the trusted context the host plants on the tool-call `_meta`. For

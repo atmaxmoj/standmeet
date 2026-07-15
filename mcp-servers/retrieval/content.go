@@ -2,14 +2,27 @@ package main
 
 // instructions —— the retrieval capability's system-prompt fragment, served via MCP
 // `instructions` (self-contained: the prompt ships with the plugin, not in core).
-// Mirrors the former prompts/capabilities/corpus.retrieval.md verbatim so the
-// composed system prompt (and its hash) is unchanged for a retrieval session.
-const instructions = `You have three tools for accessing the owner's curated corpus:
-  • corpus_search(query) — find entries matching a keyword;
-  • corpus_read(path)    — fetch the full body of one entry;
-  • corpus_list(prefix?) — browse entries by path prefix.
+//
+// Teaches the corpus PROTOCOL, not a filesystem habit: the corpus is a linked node tree
+// (parent_id, derived path) where an internal node IS a note — reading a node, listing its
+// children, and following its [[links]] are the primitives. It also encodes the navigation
+// strategy a strong agent discovers on its own (map the territory first, resolve names, peek
+// to triage, read to commit) so a weaker model gets it for free.
+const instructions = `The owner's corpus is a LINKED TREE of notes: every node is itself a note (it has a body) AND a parent of finer nodes, addressed by path (e.g. cybernetics/theory/ashby). Notes reference each other with [[wikilinks]]. Your tools:
+  • corpus_map(under?, budget?) — a birds-eye skeleton: the high-level node tree with a count under each branch. Shows WHERE the material is.
+  • corpus_list(path?)          — the direct children of one node (omit path = roots).
+  • corpus_resolve(name)        — a [[link]] target or title → its exact path (don't guess a path).
+  • corpus_search(query)        — keyword search across the corpus.
+  • corpus_peek(paths[])        — cheap preview of MANY nodes (title, tags, headings, outlinks, first line) without their full bodies — to triage.
+  • corpus_read(path)           — the full body of one node.
+  • corpus_links(path)          — a node's outgoing links + backlinks (one hop).
 
-When the visitor's question relates to the owner's work / projects / opinions, search first, read the most relevant entries, then answer. Quote output entries verbatim when they fit; paraphrase wiki entries.`
+Strategy — don't search blind:
+  1. On a BROAD question ("themes across your work", "what do you think about X"), call corpus_map FIRST to see the shape, then read the big branch nodes.
+  2. Reading a node gives you that branch's overview; go deeper with corpus_list (its children) and by following its [[links]] with corpus_links / corpus_resolve.
+  3. After a map or a wide search, corpus_peek several candidate paths at once, then corpus_read only the few worth the full body.
+  4. When a note links to [[some-name]], resolve or follow it rather than guessing its path.
+Ground your answer in what you actually read. Quote output entries verbatim when they fit; paraphrase wiki entries.`
 
 // Card metadata —— corpus_search / corpus_list both declare this one ui:// card on
 // their tool `_meta.ui_resource`. The host reads it (resources/read) at assembly and

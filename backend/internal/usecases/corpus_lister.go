@@ -67,6 +67,16 @@ type CorpusLister interface {
 	Links(
 		ctx context.Context, ownerID string, grantedGlobs []string, path string,
 	) (CorpusLinks, error)
+	// MapEntries —— every visible wiki node as {path,title} (ACL-filtered). The tree/budget
+	// shaping into a skeleton is pure (BuildCorpusMap), so the lister only enumerates.
+	MapEntries(
+		ctx context.Context, ownerID string, grantedGlobs []string,
+	) ([]CorpusMapEntry, error)
+	// Resolve —— a bare name (a [[wikilink]] target, title, or slug) → the matching node(s),
+	// so the agent navigates by name instead of guessing a path from a snippet.
+	Resolve(
+		ctx context.Context, ownerID string, grantedGlobs []string, name string,
+	) ([]CorpusMeta, error)
 }
 
 // CorpusLinks —— corpus_links 的返回:分开 outgoing(本条引用的)/ backlinks(引用本条的)。

@@ -60,6 +60,9 @@ func RegisterRetrievalSocketLister(srv *capsocket.Server, lister CorpusLister) {
 	srv.Handle("corpus_read", corpusOp(lister, runCorpusRead))
 	srv.Handle("corpus_list", corpusOp(lister, runCorpusList))
 	srv.Handle("corpus_links", corpusOp(lister, runCorpusLinks))
+	srv.Handle("corpus_map", corpusOp(lister, runCorpusMap))
+	srv.Handle("corpus_resolve", corpusOp(lister, runCorpusResolve))
+	srv.Handle("corpus_peek", corpusOp(lister, runCorpusPeek))
 }
 
 func corpusOp(lister CorpusLister, run corpusRunner) capsocket.Handler {

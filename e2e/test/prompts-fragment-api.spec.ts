@@ -35,7 +35,7 @@ const CODE = 'PROMPTS-001';
 // instructions = 旧 corpus.retrieval.md 一字不差)。端点不再提供该 fragment，
 // 故用这个 marker 在 system_prompt_full 里核对它在/不在。
 const CORPUS_FRAGMENT_MARK =
-  "You have three tools for accessing the owner's curated corpus:";
+  'The owner\'s corpus is a LINKED TREE of notes';
 
 interface VisitorCapabilitiesResp {
   capabilities: Array<{ id: string; enabled: boolean }>;
