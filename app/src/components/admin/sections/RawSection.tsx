@@ -14,32 +14,46 @@ import { RawFilterBar } from '@/components/admin/sections/raw/RawFilterBar';
 import { RawRowList } from '@/components/admin/sections/raw/RawRowList';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
-import { useRaw, type RawHook } from '@/lib/admin/use-raw';
+import { useRaw, type RawHook, type RawFilter } from '@/lib/admin/use-raw';
+
+// rawTrueCounts —— ALL + UNPROCESSED reflect the real COUNT(*) (growth), not the loaded first
+// page. The header did this already (F-L-4); the filter TABS did not (F-L-5) — they showed the
+// loaded 50 while the header showed 170. flagged/promoted/archived have no growth breakdown, so
+// they stay from the loaded page (they don't exceed a page today; per-status COUNT(*) is the
+// follow-up if that changes). Growth may be undefined mid-load → fall back to the loaded count.
+function rawTrueCounts(
+  loaded: Record<RawFilter, number>, growth: ReturnType<typeof useCorpusGrowth>['growth'],
+): { unprocessed: number; tabs: Record<RawFilter, number> } {
+  const tier: { raw: number; raw_unprocessed: number } =
+    growth?.by_tier ?? { raw: loaded.all, raw_unprocessed: loaded.unprocessed };
+  return {
+    unprocessed: tier.raw_unprocessed,
+    tabs: { ...loaded, all: tier.raw, unprocessed: tier.raw_unprocessed },
+  };
+}
 
 export function RawSection() {
   const hook = useRaw();
   const { growth } = useCorpusGrowth();
-  // Header counts the WHOLE inbox (real COUNT(*)), not the loaded first page (F-L-4).
-  // While growth loads, fall back to the loaded-page count.
-  const unprocessed = growth?.by_tier.raw_unprocessed ?? hook.counts.unprocessed;
+  const { unprocessed, tabs } = rawTrueCounts(hook.counts, growth);
   return (
     <>
       <SectionHeader kicker="corpus · inbox" title="raw" count={`${unprocessed} unprocessed`} />
-      <RawBody hook={hook} />
+      <RawBody hook={hook} tabCounts={tabs} />
     </>
   );
 }
 
-function RawBody({ hook }: { hook: RawHook }) {
+function RawBody({ hook, tabCounts }: { hook: RawHook; tabCounts: Record<RawFilter, number> }) {
   return hook.status === 'idle' || hook.status === 'loading'
     ? <ListSkeleton count={4} />
-    : <Ready hook={hook} />;
+    : <Ready hook={hook} tabCounts={tabCounts} />;
 }
 
-function Ready({ hook }: { hook: RawHook }) {
+function Ready({ hook, tabCounts }: { hook: RawHook; tabCounts: Record<RawFilter, number> }) {
   return (
     <div className="space-y-6">
-      <RawFilterBar counts={hook.counts} filter={hook.filter} setFilter={hook.setFilter} />
+      <RawFilterBar counts={tabCounts} filter={hook.filter} setFilter={hook.setFilter} />
       <RawDumpBox
         submitting={hook.submitting}
         submitError={hook.submitError}
