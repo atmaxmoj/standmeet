@@ -12,21 +12,20 @@ So the fix does **not** land as "just change the code." It lands as: **make the 
 
 ---
 
-## The journey (read this as one line, then the sections)
+## The journey (read this as one motion, then the sections)
 
 ```
-手测 ──► 没问题 ──► 停。收工。
-      └─► 有问题 ──► 看测试:改测试(inaccurate) 还是 新增测试(incomplete)
-                  ──► e2e 见红 (RED — 先证明它在坏代码上真的红)
-                  ──► 再改代码
-                  ──► 测试见绿 (GREEN)
-                  ──► 回去手测,确认真的一点问题都没有了 ──► 收工
+MANUAL TEST ──► clean? ──► STOP. Done for this round.
+            │
+            └─► broken? ──► read the test: CHANGE it (inaccurate) or ADD one (incomplete)
+                        ──► e2e goes RED   (prove it red on the buggy code first)
+                        ──► only THEN change the code
+                        ──► e2e goes GREEN
+                        ──► back to the MANUAL TEST, confirm nothing is wrong ──► done
 ```
-> manual → green? **STOP.** · red? → attribute the test (**fix** the lying one / **add** the missing one) → **e2e RED** → *then* change code → **GREEN** → **back to manual** and confirm clean.
->
 > **Exception:** a finding a test *shouldn't* carry (UI redundancy, cosmetics, copy, taste) → **write no test; tell the owner explicitly why** (iron rule 4b). Never fabricate a test just to satisfy the loop.
 
-The order is the point: the manual test opens the loop and the manual test closes it. A green e2e in the middle proves nothing on its own.
+The order is the point: **the manual test opens the loop and the manual test closes it.** A green e2e in the middle proves nothing on its own.
 
 ---
 
