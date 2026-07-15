@@ -2,35 +2,42 @@
 
 Re-run, by hand, every path CI only ever validated against a mock — this time on a stack of **real services + real credentials, zero mocks** (`make prod-up`). The methodology is the skeleton here:
 
-- **`sop.md`** — the flow and iron rules (**read first**). Core: a real-env failure IS a test-quality defect; fixes go "record → attribute to the test → TDD → manual re-verify".
-- **`items/`** — one doc per verification item (§A–§R), each decomposing its sub-items into runnable steps + expected + the backing e2e.
-- **`findings.md`** — ledger of real-env mismatches found during the manual phase (`F-<item>-<n>`); step 3 attributes + fixes each.
-- **`inventory.md`** — the raw inventory (mock↔real mapping, file:line evidence). Credentials in `~/.config/standmeet/verify-creds.env`.
+- **`sop.md`** — the flow and iron rules (**read first**). Core: a real-env failure IS a test-quality defect; fixes go "record → attribute to the test → TDD → manual re-verify". SOP §1b adds the task-free UI sanity sweep (each module carries a **⚠️ LOOK** block).
+- **`items/`** — one doc per **module** (a functional unit + the surface it owns), each decomposing its checks into runnable steps + expected + the backing e2e + a fresh-eyes LOOK. Each module notes the historical `§`-findings it inherits.
+- **`findings.md`** — ledger of real-env mismatches found during the manual phase. **Finding IDs stay `F-<letter>-<n>`** — a historical anchor from the old §A–§R axis; each module names which it inherits.
+- **`inventory.md`** — the raw inventory (mock↔real mapping, file:line evidence), indexed by the historical § axis. Credentials in `~/.config/standmeet/verify-creds.env`.
 
-## 1. Verification items
+## 1. Verification modules
 
-| Item | What it verifies (one line) | Scope | Doc |
-|----|------|-------|------|
-| **§A** | Real-LLM agent (grounding / retrieval / subjectivity / injection-refusal / resume authoring) | ✅ runnable · DeepSeek | [A-real-llm](items/A-real-llm.md) |
-| **§B** | Real Google Calendar (connect / freeBusy / book / cancel / 409) | ✅ runnable · GCAL creds | [B-calendar](items/B-calendar.md) |
-| **§C** | Real mail (access-code email / confirmation / STARTTLS+AUTH / SaaS) | ✅ runnable · Gmail SMTP | [C-mail](items/C-mail.md) |
-| **§D** | Real external MCP server (auth / SSE / large schema / real call) | 🟡 self-serve · real MCP server | [D-external-mcp](items/D-external-mcp.md) |
-| **§E** | Real job-board fetch (schema/pagination/dedup) | ✅ public sources · E4 Workable ⛔skip | [E-job-boards](items/E-job-boards.md) |
-| **§F** | Real marketplace (GitHub search / install skill) | ✅ public · F3 SkillsMP 🚫fiction | [F-marketplace](items/F-marketplace.md) |
-| **§G** | Real Turnstile (siteverify / replay-reject / forged-reject) | ✅ runnable · public test keys | [G-captcha](items/G-captcha.md) |
-| **§H** | Real connector (Cal.com OpenAPI / OAuth / SSRF-block / CalDAV) | ✅ Cal.com · CalDAV 🟡Radicale | [H-connector](items/H-connector.md) |
-| **§I** | Storage / PDF / deploy (MinIO / gotenberg / TLS) | ✅ I1-3 · I4 🚫provider | [I-storage-pdf](items/I-storage-pdf.md) |
-| **§J** | API-key facade (retrieval / rate-limit / isolation / no-leak) | ✅ runnable | [J-api-key](items/J-api-key.md) |
-| **§K** | Sandbox egress (AllowNet vs no-net / prod docker driver / cron) | ✅ runnable | [K-sandbox](items/K-sandbox.md) |
-| **§L** | Real Obsidian vault sync+render (classify/tolerant-fm/wikilink/render face) | ✅ **priority#1** · real vault | [L-vault](items/L-vault.md) |
-| **§M** | Real MCP client ingest (tools/list 125 / one ingest turn) | ✅ SDK client | [M-mcp-client](items/M-mcp-client.md) |
-| **§N** | Prod deploy-config forks (plugins/timeout/turnstile/storage) | ✅ observe prod stack | [N-deploy-forks](items/N-deploy-forks.md) |
-| **§O** | SDK / web-components embed (cross-origin CORS / SSE / redemption) | ✅ local 2nd origin | [O-sdk-embed](items/O-sdk-embed.md) |
-| **§P** | Cross-cutting live-only (Retry-After / rotation / eviction / models) | 🟡 P4/5/6 runnable | [P-cross-cutting](items/P-cross-cutting.md) |
-| **§Q** | Product loops (recruiter QR scan / request→approve→email / ingest→answer) | 🟡 Q1 phone last | [Q-loops](items/Q-loops.md) |
-| **§R** | BYOAI against a real provider (real stream + private-corpus exclusion) | ✅ DeepSeek as visitor key | [R-byoai](items/R-byoai.md) |
+One doc per **module** (a functional unit + the surface it owns). Grouped by product area; each carries its checks + a fresh-eyes **⚠️ LOOK** and names the historical `§`-findings it inherits.
+
+**Visitor chat (agent reasoning)** — [chat-grounding](items/chat-grounding.md) · [chat-subjectivity](items/chat-subjectivity.md) · [chat-voice-persistence](items/chat-voice-persistence.md) · [chat-injection-refusal](items/chat-injection-refusal.md) · [chat-ghost](items/chat-ghost.md) · [chat-summarize](items/chat-summarize.md) · [chat-redaction](items/chat-redaction.md) ✅ · [chat-byoai](items/chat-byoai.md)
+
+**Agent engine** — [agent-loop-robustness](items/agent-loop-robustness.md) · [agent-turn-boundary](items/agent-turn-boundary.md) 🟩
+
+**Booking** — [calendar-connect](items/calendar-connect.md) · [booking-slots](items/booking-slots.md) · [booking-book](items/booking-book.md) · [booking-email](items/booking-email.md)
+
+**Mail** — [mail-connector](items/mail-connector.md) ✅
+
+**Connectors** — [connector-assembly](items/connector-assembly.md) · [connector-security](items/connector-security.md)
+
+**Corpus / vault** — [vault-sync](items/vault-sync.md) 🟡 · [vault-links](items/vault-links.md) · [corpus-render](items/corpus-render.md) · [corpus-media](items/corpus-media.md) · [corpus-raw](items/corpus-raw.md) 🔴 · [corpus-search](items/corpus-search.md)
+
+**MCP** — [ext-mcp](items/ext-mcp.md) ✅ · [owner-mcp](items/owner-mcp.md) ✅
+
+**Jobs / applications** — [job-fetch](items/job-fetch.md) ✅ · [resume-draft](items/resume-draft.md) · [application-commit](items/application-commit.md) 🟡
+
+**Facade / infra** — [marketplace](items/marketplace.md) 🟡 · [api-key-facade](items/api-key-facade.md) ✅ · [sandbox](items/sandbox.md) 🟡 · [deploy-forks](items/deploy-forks.md) ✅ · [resilience](items/resilience.md) · [custom-pages](items/custom-pages.md) 🔴
+
+**SDK / captcha** — [sdk-embed](items/sdk-embed.md) 🔴 · [captcha](items/captcha.md) ✅
+
+**Visitor entry / admin shell** (the previously-homeless surfaces) — [access-codes](items/access-codes.md) 🔴 · [gate](items/gate.md) · [admin-shell](items/admin-shell.md) 🟩
+
+> **Two axes.** Modules above are the *feature* axis. The historical §A–§R was a *verification-substrate* axis ("which real dep to stand up") — it survives only as the `F-<letter>-<n>` finding IDs and in the first-pass results below. Each module's `Real dep:` header carries the substrate it needs, so runnability isn't lost.
 
 ## First-pass results (2026-07-13, real prod stack)
+
+> Keyed by the historical §-axis (pre-module-recut). Each § now maps to one or more modules above — e.g. §A → `chat-*` + `agent-*` + `resume-draft`; §L → `vault-*` + `corpus-*`; §B → `calendar-connect` + `booking-*`. The per-finding detail was migrated into each module's own **Findings** section.
 
 | Item | Outcome |
 |----|------|
@@ -55,23 +62,27 @@ Re-run, by hand, every path CI only ever validated against a mock — this time 
 
 Green surfaces: owner-MCP (§M/§E/§H/§N). Red surfaces: the admin UI + visitor chat (§A/§B/§C/§J/§L/§O). See findings.md "Through-line".
 
-## 2. Per-item doc template
+## 2. Per-module doc template
 
 ```
-# §X — <Track name>
+# <slug> — <Module name>
 - Status: ⬜ not-run        (state machine: see sop.md §4)
-- Scope:  runnable-now | self-serve | blocked(<what>) | de-scoped
-- Prereqs/creds: <which verify-creds.env entries / which self-serve server>
-- Real service: <the mock this replaces>
+- Module: <one line — the functional unit this verifies>
+- Surface: <the GUI screen(s) it owns, or "owner MCP" / "backend" / "cross-origin embed">
+- Real dep: <which real services/creds the substrate needs — per-module now>
+- Inherits (historical finding IDs): <F-<letter>-<n> this module carries>
 - Backing e2e: <the specs currently "covering" this — the attribution target>
 
-## Sub-items
-### X1 — <title>
+## Checks
+### 1 — <title>   (was §X-m)
 - Steps: ...
 - Expected: ...
 - Backing test: <file:line>
 - Result: ⬜
 ...
 
-## Findings   (record here during the manual phase; also log ../findings.md, ID F-X-n)
+## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
+<the three lenses, concrete to THIS module's surface: renders sane · affordances live · counts agree>
+
+## Findings   (record here during the manual phase; also log ../findings.md, historical ID F-<letter>-<n>)
 ```
