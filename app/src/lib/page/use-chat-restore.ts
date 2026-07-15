@@ -17,7 +17,7 @@ import type { Dispatch, SetStateAction } from 'react';
 
 import { fetchConversation, type VisitorView, type DialogCitation } from '@/lib/api/public';
 import { loadStoredSession } from '@/lib/gate/use-gate';
-import type { Citation, Dialog } from '@/lib/page/use-chat';
+import { splitParas, type Citation, type Dialog } from '@/lib/page/dialog-stream';
 import { useCapabilityStore } from '@/lib/visitor/capability-store';
 import { useDockButtonsStore } from '@/lib/visitor/dock-buttons-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
@@ -40,13 +40,6 @@ export function seedEphemeralStores(): ReturnType<typeof loadStoredSession> {
   return stored;
 }
 
-// splitParas —— body → 段落(连续空行分段;空 body → 空数组)。
-export function splitParas(body: string): string[] {
-  const trimmed = body.trim();
-  return trimmed === ''
-    ? []
-    : trimmed.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p !== '');
-}
 
 // restoreSession —— 载入时拉会话:活着 → reconcile + 重建 transcript;失效 →
 // 清身份回入口;抖动(error)→ 保持现状不崩。

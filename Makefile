@@ -282,6 +282,14 @@ test-only: dev-up
 	@test -n "$(SPEC)" || (echo "usage: make test-only SPEC=<spec-name> [GREP=<title pattern>] [REPEAT=N]"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT))
 
+# gui-p1-variant —— F-A-4 P1 presentation-variant probe: drive the REAL prod GUI (real
+# DeepSeek) through one broad-question visitor turn, screenshot narration/tools/done/reload
+# moments into /tmp/p1-variants/<VARIANT>-*.png + a JSON summary. Prod stack must be up.
+# usage: make gui-p1-variant VARIANT=iii-status-quo [CODE=FA5-001]
+gui-p1-variant:
+	@test -n "$(VARIANT)" || (echo "usage: make gui-p1-variant VARIANT=<name> [CODE=...]"; exit 2)
+	@cd e2e && VARIANT=$(VARIANT) $(if $(CODE),CODE=$(CODE)) pnpm exec node scripts/p1-variant-drive.mjs
+
 # test-headed —— 跟 test-only 同,但 --headed 开真浏览器肉眼观测(单 worker,
 # 一条一条跑)。reading-dom 那条带 [[slow-final:2500]],throbber 会停 2.5s 看得清。
 test-headed: dev-up
