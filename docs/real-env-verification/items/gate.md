@@ -1,6 +1,6 @@
 # gate — Visitor gate: code entry, BYOAI panel, request-access, identity
 
-- **Status:** ⬜ not-run
+- **Status:** ✅ (2026-07-15 live) — code-entry + BYOAI panel render clean; request-access correctly absent (no mail connector to fulfill it); identity picker OK; F-A-5 fixed
 - **Module:** the no-code visitor entry surface — code-entry validates+redeems, the BYOAI panel accepts a key, request-access submits, and the identity-picker modal behaves (doesn't re-pop over an active session).
 - **Surface:** `/gate` + the visitor identity-picker modal.
 - **Real dep:** prod stack; real DeepSeek + real mail for the downstream legs (which live in [[chat-byoai]], [[access-codes]], [[mail-connector]]).

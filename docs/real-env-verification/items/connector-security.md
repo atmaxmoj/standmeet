@@ -1,6 +1,6 @@
 # connector-security — Connectors: secret at-rest + SSRF + rotation
 
-- **Status:** ⬜ not-run
+- **Status:** 🟡 (2026-07-15 live) — LOOK ✅ (saved connector secrets show empty/masked in the forms, not leaked); H5 SSRF-block ⛔ needs a DNS-rebinding host; P3 rotation needs an INSTANCE_SECRET rotation
 - **Module:** connector credentials are encrypted + AAD-bound and never leak (transcript/logs/status); the runtime dialer blocks SSRF (DNS-rebind to private IPs) live; an `INSTANCE_SECRET` rotation degrades to a friendly reconnect, not a decrypt panic.
 - **Surface:** admin/connectors (secret masking) + backend runtime dialer.
 - **Real dep:** prod stack with `CONNECTOR_EGRESS_ALLOW` empty (so the SSRF guard is live) + a hostname you control that can flip DNS to a private IP; for rotation, a DB of encrypted creds + an `INSTANCE_SECRET` change.

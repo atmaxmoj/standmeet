@@ -1,6 +1,6 @@
 # corpus-render — Corpus: render faces on REAL content
 
-- **Status:** ⬜ not-run
+- **Status:** 🟡 (2026-07-15 live) — check 1 KaTeX renders on a real note (`/wiki/orbit`, 11 `.katex`, no `$$`/fence leak) ✅; wiki LIST excerpts leak markup 🔴 F-R-2 (separate path); mermaid/TikZ/query faces not re-driven this round
 - **Module:** every heavy render face the real vault contains — KaTeX, mermaid, TikZ, callouts, `standmeet-query`, widgets, static pass-through — renders correctly through the reader / visitor-chat pipeline, plus owner CSS snippets + `cssclasses` land scoped and sanitized. Render timing doesn't regress.
 - **Surface:** corpus reader + visitor chat markdown pipeline + admin note render.
 - **Real dep:** the real vault (real `$$…$$`, ` ```mermaid `, TikZ, callouts, `standmeet-query` blocks; real `.obsidian/snippets/theorem-callouts.css`, `cssclasses:` notes).

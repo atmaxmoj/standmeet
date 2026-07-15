@@ -1,6 +1,6 @@
 # connector-assembly — Connectors: real OpenAPI / proxied call / CalDAV
 
-- **Status:** ⬜ not-run
+- **Status:** 🟡 (2026-07-15 live) — LOOK ✅ (api/calendar/mail cards render, 0 console errors); deep assembly (real Cal.com spec upload + connect) ⛔ blocked on real Cal.com + the calendar OAuth authorize path (F-B-2)
 - **Module:** ingest a real vendor OpenAPI spec, bind operations via JSONata, assemble a connector, and make a real proxied call — for Cal.com over `api.cal.com/v2` and for a real CalDAV server (auth, REPORT filters, RRULE/VTIMEZONE).
 - **Surface:** admin/connectors (upload spec → bind → assemble → connect).
 - **Real dep:** a real Cal.com account (`CALCOM_API_KEY`; spec at `api.cal.com/v2/docs`) + a self-run Radicale CalDAV server.

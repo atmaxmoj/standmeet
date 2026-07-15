@@ -1,6 +1,6 @@
 # dock-buttons — Owner-configured chat shortcuts (summarize / booking)
 
-- **Status:** ⬜ not-run
+- **Status:** 🟡 (2026-07-15 live) — check 7 ✅ (public role has no dock buttons → none rendered, no empty slots); config + trigger-fire + snapshot-freeze checks pending (need a role with dock buttons configured)
 - **Module:** the owner binds ≤2 capabilities (canonically **summarize** and **booking**) to shortcut buttons on a role; the visitor sees them as buttons in the chat dock with a resolved title; clicking one sends its **trigger** as a visitor message, firing the real capability. The owner's shortcut into the visitor's chat — the only owner-authored affordance a visitor can press.
 - **Surface:** admin/roles → `RoleDockConfig` (owner config) · visitor chat dock (the two button slots).
 - **Real dep:** prod stack + real DeepSeek (the trigger fires a real agent turn); **booking** additionally needs a connected calendar (see [[calendar-connect]] / [[booking-book]]); **summarize** pairs with [[chat-summarize]].

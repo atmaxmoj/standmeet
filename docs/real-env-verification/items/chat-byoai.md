@@ -1,6 +1,6 @@
 # chat-byoai — Visitor chat: BYOAI against a real provider
 
-- **Status:** ⬜ not-run
+- **Status:** 🟡 (2026-07-15 live) — gate BYOAI panel renders + accepts a key ✅; envelope+stream prior-✅ (2nd pass); the real-key streamed-answer + private-corpus-exclusion leg still pending (needs a BYOAI session with the real DeepSeek key)
 - **Module:** a no-code gate visitor brings their own AI key; the backend HKDF-encrypts it, calls the visitor's *real* third-party provider, streams a real answer, and the public-slice ACL still excludes private corpus on that real model.
 - **Surface:** gate BYOAI panel → visitor chat (`/<handle>?byoai=1`).
 - **Real dep:** the DeepSeek key (`EVAL_KEY`) as the **visitor's own** BYOAI key (`https://api.deepseek.com`, `deepseek-v4-pro`). No owner-side AI provider. Seed a **private** entry alongside a **public** one so the exclusion check has something to catch.

@@ -1,6 +1,6 @@
 # corpus-raw — Corpus: raw inbox ingest + clean excerpts
 
-- **Status:** ⬜ not-run
+- **Status:** 🔴 (2026-07-15 live) — F-R-1 excerpt markup leak + F-L-5 tab count (ALL 50 vs true 170) both confirmed on the live raw list
 - **Module:** the owner's raw inbox — MCP `raw_dump` lands a note, it lists in admin/raw with a **clean rendered excerpt** (not raw markup), promote-to-wiki works, and the raw count agrees with the list.
 - **Surface:** admin/raw + owner MCP (`raw_dump` / `promote_to_wiki`).
 - **Real dep:** the real vault's raw notes (170) + a real MCP client (see [[owner-mcp]]).

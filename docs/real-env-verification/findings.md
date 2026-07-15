@@ -44,6 +44,20 @@ Task-free §1b sweep of every admin section + visitor page against the running p
 
 ---
 
+## Round 3 — full live pass disposition (2026-07-15, real prod GUI via Playwright MCP)
+
+Every module either driven this round, or dispositioned with the specific blocker (SOP §0: pick what's reachable; the rest are `⛔ blocked` / `manual-only` with a reason — that IS walking them). **Zero console errors on any admin/visitor surface** (F-C-1 holds).
+
+**Driven GREEN (live):** `admin-shell` (KPIs reconcile: entries 220 = raw170+wiki50, unproc 170, codes 3) · `chat-grounding` (26 self-chosen tools, 13 refs, grounded owner-voice synthesis) · `agent-turn-boundary` (26 tools → clean synthesis, F-A-4 holds) · `chat-injection-refusal` (refused all three, persona held) · `chat-voice-persistence` (persona held under "you're an AI") · `gate` (code-entry + BYOAI render; request-access correctly absent — no mail connector to fulfill it) · `chat-byoai` (panel renders/accepts key; envelope+stream prior-✅; real-key exclusion leg pending) · `connector-assembly`/`connector-security` (cards render, saved secrets masked/empty — not leaked) · `dock-buttons` (public role → no dock, no empty slots — check 7 green) · `corpus-render` (KaTeX renders 11 nodes on a real note, no `$$`/fence leak — check 1 green).
+
+**Driven RED (findings recorded this round):** `access-codes` **F-D-1** (root-caused: `ghosts:null` throws the whole list) · `corpus-raw` **F-R-1** (excerpt markup) + **F-L-5** (tab 50 vs 170) · `corpus-render`/wiki **F-R-2** (wiki excerpt markup) · `custom-pages` **F-N-1** (dead "+ NEW PAGE") · `chat-summarize` **F-A-6** (blank report card + session wedge) · `vault-sync` **F-L-6** (sync is upsert-only — not a sync).
+
+**Standing from prior passes (not re-driven):** `chat-redaction` ✅ · `ext-mcp` ✅ · `owner-mcp` ✅ (M1/M2) · `api-key-facade` ✅ (mint) · `job-fetch` ✅ (E1) · `captcha` ✅ (2nd pass, real siteverify) · `deploy-forks` ✅.
+
+**Deferred — corpus-content-dependent, gated on a clean vault sync (blocked by F-L-6):** `chat-subjectivity` (needs a `subjectivity://` code + real subjectivity notes) · `chat-ghost` (needs a role with waypoints) · `corpus-search` (relevance over real corpus) · `vault-links` (real `[[graph]]`) · `corpus-media` (needs a real cover/image asset) · `resume-draft` (real curation). These cannot be meaningfully verified against the drifted 50w/170r snapshot; verify after sync is fixed and the real vault (223w/179r) is truly synced.
+
+**⛔ Blocked this round — external cred / hardware / infra:** `calendar-connect` + `booking-slots`/`booking-book`/`booking-email` (F-B-2 OAuth authorize dead + real Google connect) · `connector-assembly` deep (real Cal.com spec + connect) · `connector-security` H5 (a DNS-rebinding host) · `sdk-embed` (**F-O-1** CORS, RED-confirmed prior; full drive needs a 2nd origin) · `resilience` (memory-capped Redis / pinned Meili at scale) · `agent-loop-robustness` (a 429/`Retry-After` injector) · `application-commit` L3 (real phone) · `marketplace` (a real GitHub query with known matches; surface location TBD) · `sandbox` (a sandbox skill run — drivable, not reached this round).
+
 ## Status legend
 `🔴 manual-red` → `🧪 test reproduces red (RED)` → `🟩 code green` → `✅ manual re-verify green`
 
