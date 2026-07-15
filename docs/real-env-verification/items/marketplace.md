@@ -1,6 +1,6 @@
 # marketplace — Marketplace: real GitHub search + install
 
-- **Status:** 🟡 inconclusive first pass — re-verify with a matching query
+- **Status:** 🟢 core (2026-07-15 live, surface = `/admin/agent-skills` → MARKETPLACE tab) — real `anthropics/skills` GitHub repos list with real SKILL.md descriptions; 27 live INSTALL buttons; SKILLSMP tab not dead (12 cards). **Residual → [[../ux.md]] UX-13 re-opened:** version blank ("anthropics · v"), ★ 0 for all, one card ("Claude Api") shows raw `|-`. Install (F2) not clicked (mutates state).
 - **Module:** `marketplace.search` queries the real GitHub Contents API and lists candidate skill repos; installing fetches + parses a real `SKILL.md`; base64-per-file / pagination / ETag / 403-rate-limit / malformed SKILL.md all degrade gracefully.
 - **Surface:** admin/connectors (or the marketplace surface) → search → install.
 - **Real dep:** real `api.github.com` (Contents API — unauthenticated works; optional `GITHUB_TOKEN` to raise the 60/hr limit).
