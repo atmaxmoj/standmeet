@@ -54,3 +54,6 @@ Task-free, while driving visitor chat: the **reply renders as prose** (not raw m
 - **Check 2 retrieval-by-choice ✅** — on an open question the model chose **12** `corpus_search`/`corpus_read` calls unprompted (mock only ever emits 1/turn). Retrieval decision is genuinely the model's.
 - **Check 5 anti-fabrication ✅** — explicitly refused to invent a contrarian take ("rather than a fake one").
 - Still to drive: check 3 (multi-hop links), check 4 (citation-footer accuracy).
+
+### Third pass (2026-07-15, live prod GUI via Playwright, coded VERIFY-A01)
+- **✅ strong.** "What is gate theory, and how does it relate to your work on recursion and convergence?" → **SEARCHED 10 · READ 16**, **REFERENCES · 13**, deeply grounded synthesis in first-person owner voice: recursion-as-phase-transition (primitive vs μ-recursion), Collatz/Conway undecidability, contraction/Bellman-HJB, stages-and-gates, ghost-steering — real vault concepts, no "as an AI", not planning narration. **Also confirms [[agent-turn-boundary]] live**: 26 tool calls and still a clean synthesized answer, no forced-final garble.

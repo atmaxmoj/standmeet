@@ -13,7 +13,7 @@
 - **Steps:** a broad "survey everything" question that forces many wide searches → let the loop approach its iteration/time budget → inspect the product.
 - **Expected:** the turn returns a synthesized, corpus-grounded answer; the product contains no planning narration ("Let me survey… Let me check my notes…"); the boundary fires a forced-final synthesis on a detached context, not a hard stop.
 - **Backing:** `narration_live_test.go` · `experiment_test.go` (broad shape). Deterministic: `agent_product_test.go`.
-- **Result:** 🟩 green (real-model: clean synthesis, ~18 tools; measured on prod GUI)
+- **Result:** 🟩 green (real-model: clean synthesis, ~18 tools; re-confirmed 2026-07-15 live GUI at **26 tools** — SEARCHED 10 · READ 16 — still a clean grounded answer, no forced-final garble)
 
 ### 2 — Deep chain exhaustion behaves gracefully  (was F-A-4)
 - **Steps:** a sequential 33-hop concept chain (read → next → read) that forces a deep crawl → let it hit the boundary.

@@ -13,7 +13,7 @@
 - **Expected:** a coherent, faithful summary of what was actually said; PDF/report renders.
 - **⚠️ mock gap:** summarize is a backend-initiated generate call the mock matches by turn keys (`messages.go:97,160`) and answers with a scripted string; summary quality is never tested.
 - **Backing test:** `visitor-summarize-conversation.spec.ts:71`
-- **Result:** ⬜
+- **Result:** 🔴 manual-red (F-A-6)
 
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The report artifact renders the summary (not an empty/placeholder card); the `/report/[id]` view opens and paginates.
