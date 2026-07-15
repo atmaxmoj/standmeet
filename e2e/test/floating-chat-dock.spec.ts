@@ -114,14 +114,11 @@ async function dockFullFlow({ page }: { page: Page }): Promise<void> {
   await input.fill(`tell me about lucerna${searchTag}${readTag}`);
   await input.press('Enter');
 
-  // corpus_search 卡(retrieval ui:// 沙盒 iframe,折叠)→ 进 frame 展开看 hit。
-  await expect(panel.getByTestId('mcp-app-card-corpus_search'))
+  // 检索折叠成一行 retrieval-summary(UX-10:不再渲 per-tool iframe 卡);
+  // 命中哪个 doc 的精确断言由下面 citation-row(data-citation-path)接管。
+  await expect(panel.getByTestId('retrieval-summary'))
     .toBeVisible({ timeout: 20_000 });
-  const frame = panel.frameLocator('[data-testid="mcp-app-card-corpus_search"]');
-  await frame.locator('summary').first().click();
-  const hit = frame.locator('[data-testid="tool-card-hit"][data-path="projects/lucerna"]');
-  await expect(hit).toBeVisible();
-  await expect(hit).toContainText('Lucerna');
+  await expect(panel.getByTestId('retrieval-summary')).toContainText('searched');
   // corpus_read 不渲卡(Citation 接管);citations 出现。
   await expect(panel.getByTestId('tool-card-corpus_read')).toHaveCount(0);
   await expect(panel.getByTestId('citations')).toBeVisible();

@@ -67,8 +67,9 @@ test.describe('throbber 在 turn 落地后清掉,不冻在 transcript 里', () =
       await input.fill(`tell me about lucerna${searchTag}${readTag}`);
       await input.press('Enter');
 
-      // searched 卡(retrieval ui:// 沙盒 iframe)+ citation 出现 = 这轮真检索 + 回答了。
-      const searchCard = page.getByTestId('mcp-app-card-corpus_search');
+      // 折叠的 retrieval-summary(UX-10:检索不再渲 per-tool iframe 卡)+ citation
+      // 出现 = 这轮真检索 + 回答了。
+      const searchCard = page.getByTestId('retrieval-summary');
       await expect(searchCard).toBeVisible({ timeout: 20_000 });
       await expect(page.getByTestId('citations')).toBeVisible();
 

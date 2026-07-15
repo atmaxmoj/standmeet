@@ -51,16 +51,17 @@ test.describe('tool 调用属于会话,刷新后仍在', () => {
     await input.fill(`tell me about lucerna${searchTag}`);
     await input.press('Enter');
 
-    // live:search 卡出现。answer-body 渲出 = 收到 `done` 帧 = backend 已把这轮
-    // (含 tool_calls)sink 进 DB(persist 在 done 之前),此后 reload 必见。
-    const searchCard = page.getByTestId('mcp-app-card-corpus_search');
-    await expect(searchCard).toBeVisible({ timeout: 20_000 });
+    // live:折叠的 retrieval-summary(UX-10)出现。answer-body 渲出 = 收到 `done`
+    // 帧 = backend 已把这轮(含 tool_calls)sink 进 DB(persist 在 done 之前),
+    // 此后 reload 必见。
+    const summary = page.getByTestId('retrieval-summary');
+    await expect(summary).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('answer-body')).toBeVisible({ timeout: 20_000 });
 
-    // reload → 聚合重建 transcript,tool 卡(retrieval ui:// 沙盒)必须从后端 tool_calls 恢复,不能丢。
+    // reload → 聚合重建 transcript,检索行必须从后端 tool_calls 恢复,不能丢。
     await page.reload();
     await expect(page.getByText('tell me about lucerna')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId('mcp-app-card-corpus_search')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('retrieval-summary')).toBeVisible({ timeout: 15_000 });
   });
 });
 
