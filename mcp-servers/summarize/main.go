@@ -46,6 +46,10 @@ func summarizeTool() mcpgo.Tool {
 	t.Meta = mcpgo.NewMetaFromMap(map[string]any{
 		"return_directly": true,
 		"ui_resource":     reportCardURI,
+		// long_running —— this tool runs a full LLM report generation host-side; it routinely
+		// exceeds the generic 15s CallTool cap, which would time the call out mid-generation and
+		// leave the inline card blank (F-A-6). The host grants it LongCallTimeout instead.
+		"long_running": true,
 	})
 	return t
 }

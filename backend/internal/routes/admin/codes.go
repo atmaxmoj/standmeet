@@ -75,6 +75,9 @@ func (h *Handlers) MountCodes(r chi.Router) {
 	// ghost-steering: 这张 code 的 waypoint 覆盖层（继承 role，可覆盖）。见 codes_waypoints.go。
 	r.Get("/{id}/waypoints", h.getCodeWaypoints())
 	r.Put("/{id}/waypoints", h.putCodeWaypoints())
+	// ACL corpus 那类的 code 层收窄（role 的正列表减去本码收回的）。见 codes_corpus.go。
+	r.Get("/{id}/corpus", h.getCodeCorpus())
+	r.Put("/{id}/corpus", h.putCodeCorpus())
 	r.Get("/{id}/denials", h.listCodeDenials())
 	r.Post("/{id}/denials/{kind}", h.addDenial())
 	r.Delete("/{id}/denials/{kind}/{targetId}", h.deleteDenial())

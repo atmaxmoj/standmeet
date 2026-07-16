@@ -179,13 +179,16 @@ func peekTool() mcpgo.Tool {
 		}`)), "peeking nodes")
 }
 
-// session —— the trusted context the host plants on the tool-call `_meta`. For
-// retrieval the host op needs the owner id + the frozen corpus-ACL scope (the role
-// snapshot's URI glob whitelist) to re-evaluate AllowsCorpus.
+// session —— the trusted context the host plants on the tool-call `_meta`. For retrieval the host
+// op needs the owner id + the frozen corpus-ACL SCOPE to re-evaluate readability. The scope is two
+// lists, and BOTH must be forwarded: the role's grant AND this code's narrowing. Forwarding only
+// the grant makes the host serve exactly what the owner took back on that code — a fail-open, and
+// silent (the deny is stored, the owner believes it holds, the plugin drops it on the floor).
 type session struct {
 	OwnerID        string
 	ConversationID string
 	CorpusURIs     []string
+	CorpusDenials  []string
 }
 
 func sessionFromMeta(req mcpgo.CallToolRequest) session {
@@ -201,6 +204,7 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 		OwnerID:        str(raw, "owner_id"),
 		ConversationID: str(raw, "conversation_id"),
 		CorpusURIs:     strSlice(raw, "corpus_uris"),
+		CorpusDenials:  strSlice(raw, "corpus_denials"),
 	}
 }
 
@@ -240,6 +244,7 @@ func opHandler(op string) server.ToolHandlerFunc {
 			"owner_id":        s.OwnerID,
 			"conversation_id": s.ConversationID,
 			"corpus_uris":     s.CorpusURIs,
+			"corpus_denials":  s.CorpusDenials,
 			"args":            json.RawMessage(args),
 		})
 		if err != nil {

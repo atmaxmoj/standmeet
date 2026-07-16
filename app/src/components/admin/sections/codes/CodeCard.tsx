@@ -1,6 +1,7 @@
 // CodeCard —— Codes section 列表卡。
 // 顶部：label + status pill；下面 scope chips + suggested questions + QR tile。
 
+import { CodeCorpusConfig } from '@/components/admin/sections/codes/CodeCorpusConfig';
 import Link from 'next/link';
 
 import { Btn } from '@/components/admin/atoms/Btn';
@@ -29,6 +30,7 @@ export function CodeCard({ code, onEdit, onPreview, onShowQR: _onShowQR, onRevok
       <div className="mt-5">
         <CodeCardBody code={code} />
       </div>
+      <CodeCorpusConfig codeID={code.id} codeLabel={code.code} />
       <CodeCardFooter code={code} link={link} />
     </article>
   );
