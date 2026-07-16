@@ -1,10 +1,12 @@
 # corpus-acl-editing — Corpus ACL: owner edits what each role / code may read + cite
 
-- **Status:** 🔴 ⑤ ran (2026-07-16) and **failed**. Check 1 passes on the real GUI (the role grant
-  editor saves, survives reload, lands in the DB — F-A-11 closed). Checks 2/3 are blocked: the
-  per-code GET 500s on prod (stale DB volume, no table) and the GUI **hides that behind a lie**
-  (F-A-13). And the LOOK pass caught what the mechanism checklist could not: the editor is a naked
-  URI textarea (F-A-14), for a genre with no browse surface at all (F-A-15).
+- **Status:** 🟡 ⑤ ran (2026-07-16). Checks 1 + 2 **PASS on the real prod GUI** (role grant editor
+  and per-code take-back both save, survive reload, and inherit correctly) — F-A-11 closed.
+  Two real bugs found and fixed during the pass, both re-verified on the GUI: **F-A-13** (a failed
+  load rendered as `(role grants nothing)` — the page showed no error at all) and the code card
+  printing a raw role UUID. Still open: **F-A-14** (the editor is a naked URI textarea — the owner
+  hand-types `subjectivity://cv`), whose picker needs **F-A-15** (subjectivity had no tree; the
+  backend half is now built). Checks 3-5 not yet driven.
 - **Module:** the owner controls, from the admin GUI, **which corpus URIs each role may read**, **which of those each code takes back**, and **whether a note may be cited once read**. subjectivity is not special — wiki / output / writing / subjectivity are one glob mechanism.
 - **Surface:** `/admin/roles` (grant) · `/admin/codes` (per-code narrowing) · wiki/output entry form (citation).
 - **Real dep:** real prod stack; a code whose role grants a genre containing a note that code shouldn't see.
@@ -39,9 +41,12 @@ attributed. To make it unreadable, take back its URI.
 - **Steps:** `/admin/codes` → a code card → `corpus · taken back on this code` → add `subjectivity://cv` → save. Enter as a visitor on THAT code and ask about the CV; then on a different code of the same role.
 - **Expected:** the narrowed code cannot read it (agent says it has nothing); the other code still can. The card shows both lists (inherited grant / taken back) so the owner sees the effect without cross-referencing.
 - **Backing test:** `code-corpus-narrowing.spec.ts` (4 cases; RED→GREEN proven by making the plugin drop the denials).
-- **Result:** 🔴 **BLOCKED** (2026-07-16). The card renders, but its GET 500s on prod — the DB volume
-  predates `code_corpus_denials`. The environment needs the schema reapplied; the *product* bug this
-  exposed is **F-A-13** (the 500 is shown as `(role grants nothing)`).
+- **Result:** ✅ **PASS** (2026-07-16, real GUI, after applying the missing tables to the prod DB).
+  `GHOST-SIL1` took back `subjectivity://cv` → saved → reload → still there; `GHOST-WP1` (same role)
+  unaffected. The card shows the inherited grant as its real current value — `subjectivity://standpoint
+  wiki://**`, i.e. exactly the edit check 1 made on the role, so role→code inheritance is live.
+  The visitor-read half is covered by `code-corpus-narrowing` (RED→GREEN via the plugin).
+  This check is what surfaced **F-A-13**: the blocking 500 was rendered as `(role grants nothing)`.
 
 ### 3 — A denial cannot OPEN anything (the ACL's iron rule)
 - **Steps:** on a code, take back a glob the role never granted (e.g. `output://**` on a wiki-only role).
@@ -78,7 +83,9 @@ person. So, for any control:
 ## Findings
 (record here; also log `../findings.md`)
 
-- **F-A-13** 🔴 — **a failed load renders as an authoritative empty.** On prod, `GET /codes/{id}/corpus`
+- **F-A-13** ✅ **CLOSED** (fixed 9f458bad; re-verified on the real prod GUI 2026-07-16: 0 console
+  errors, the card shows the real inherited grant).  Original finding:
+  **a failed load renders as an authoritative empty.** On prod, `GET /codes/{id}/corpus`
   500s on every code (`relation "code_corpus_denials" does not exist` — the prod DB volume predates
   the table). The GUI shows **no error at all**: six cards read `(role grants nothing)`.
   Fault: `CodeCorpusConfig.tsx:43` `.catch(() => setLoaded(true))` — the error is swallowed and the
@@ -97,7 +104,13 @@ person. So, for any control:
   the picker should be generated from that tree, emitting exactly `domain.FormatURI(genre, path)`.
   A raw-glob escape hatch must remain, and must **preserve** globs the tree can't represent
   (`wiki://**/draft`) rather than round-tripping them away.
-- **F-A-15** 🔴 — **subjectivity has no owner-facing browse surface at all.** The tree route dispatches
+  **Status:** open. The tree it needs for subjectivity now exists server-side (F-A-15).
+  Note the glob dialect makes "this note **and** its subtree" two globs (`g://p` + `g://p/**`) —
+  `g://p/**` does not match `g://p` — so one checkbox per row must emit both when the row has
+  children. Decide that in the component, not in the matcher.
+- **F-A-15** 🟡 — **subjectivity has no owner-facing browse surface at all.** Backend built
+  (`NoteRepo.ListChildrenTree` + `GET /corpus/subjectivity/tree`, 5fe116d3); the admin UI that
+  browses it, and F-A-14's picker on top, are still owed.  Original finding: The tree route dispatches
   `raw|wiki|output` only (`corpus.go:38`); `writing` has its own `/writings/tree`; **subjectivity has
   neither**, and `postgres.NoteRepo` has `ListChildren` but no `ListChildrenTree`. So the genre that
   holds the CV — the one this whole ACL exists to protect — cannot be listed, browsed, or picked from
