@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atmaxmoj/standmeet/internal/domain"
+
 	"github.com/atmaxmoj/standmeet/internal/capsocket"
 )
 
@@ -35,6 +37,7 @@ type retrievalSockReq struct {
 	OwnerID        string          `json:"owner_id"`
 	ConversationID string          `json:"conversation_id"`
 	CorpusURIs     []string        `json:"corpus_uris"`
+	CorpusDenials  []string        `json:"corpus_denials"`
 	Args           json.RawMessage `json:"args"`
 }
 
@@ -86,7 +89,7 @@ func runCorpusSearch(ctx context.Context, l CorpusLister, req *retrievalSockReq)
 	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
 		return "", fmt.Errorf("invalid arguments: %w", uerr)
 	}
-	rows, err := l.Search(ctx, req.OwnerID, req.CorpusURIs, strings.TrimSpace(args.Query))
+	rows, err := l.Search(ctx, req.OwnerID, corpusScopeOf(req), strings.TrimSpace(args.Query))
 	if err != nil {
 		return "", fmt.Errorf("corpus search: %w", err)
 	}
@@ -103,13 +106,13 @@ func runCorpusRead(ctx context.Context, l CorpusLister, req *retrievalSockReq) (
 	if args.Path == "" {
 		return errJSON("path required"), nil
 	}
-	entry, err := l.Get(ctx, req.OwnerID, req.CorpusURIs, args.Path)
+	entry, err := l.Get(ctx, req.OwnerID, corpusScopeOf(req), args.Path)
 	if err != nil {
 		return corpusReadErrWire(err, args.Path)
 	}
 	body := entry.Body
 	if qr, ok := l.(queryResolver); ok { // 服务端解析 standmeet-query 块(ACL-scoped)
-		body = ResolveQueryBlocks(ctx, qr, req.OwnerID, req.CorpusURIs, body)
+		body = ResolveQueryBlocks(ctx, qr, req.OwnerID, corpusScopeOf(req), body)
 	}
 	return marshalReadResult(&readResultWire{
 		ID: entry.ID, Genre: entry.Genre, Body: body,
@@ -139,7 +142,7 @@ func runCorpusList(ctx context.Context, l CorpusLister, req *retrievalSockReq) (
 	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
 		return "", fmt.Errorf("invalid arguments: %w", uerr)
 	}
-	rows, err := l.List(ctx, req.OwnerID, req.CorpusURIs, args.Path, args.Page)
+	rows, err := l.List(ctx, req.OwnerID, corpusScopeOf(req), args.Path, args.Page)
 	if err != nil {
 		return corpusListErrWire(err) // 未知地址等 → friendly 行，不 502
 	}
@@ -161,7 +164,7 @@ func runCorpusLinks(ctx context.Context, l CorpusLister, req *retrievalSockReq) 
 	if args.Path == "" {
 		return errJSON("path required"), nil
 	}
-	links, err := l.Links(ctx, req.OwnerID, req.CorpusURIs, args.Path)
+	links, err := l.Links(ctx, req.OwnerID, corpusScopeOf(req), args.Path)
 	if err != nil {
 		return corpusReadErrWire(err, args.Path) // denied/not-found → friendly envelope
 	}
@@ -207,4 +210,11 @@ func marshalCorpusRows(metas []CorpusMeta) string {
 		})
 	}
 	return marshalRows(rows)
+}
+
+// corpusScopeOf —— the request's full corpus scope: role grant + this code's narrowing.
+// Built in ONE place so no op can accidentally pass the grant alone (which would serve what the
+// owner took back).
+func corpusScopeOf(req *retrievalSockReq) domain.CorpusScope {
+	return domain.CorpusScope{Granted: req.CorpusURIs, Denied: req.CorpusDenials}
 }

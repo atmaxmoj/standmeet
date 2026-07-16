@@ -38,28 +38,32 @@ type pgCorpusLister struct {
 }
 
 // allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?
-func allowsCorpusURI(grantedGlobs []string, genre, path string) bool {
+// allowsCorpusURI —— the ONE readability test every visitor-facing corpus surface goes through:
+// the role's grant AND NOT this code's narrowing (domain.AllowsCorpusScope). Taking the whole
+// SCOPE (not a bare grant list) is the point: a facade handed only the grant would serve exactly
+// what the owner took back on that code — a fail-open the type system now prevents.
+func allowsCorpusURI(scope domain.CorpusScope, genre, path string) bool {
 	uri := domain.FormatURI(domain.DocumentGenre(genre), path)
-	return domain.MatchesAnyCorpusGlob(grantedGlobs, uri)
+	return domain.AllowsCorpusScope(scope, uri)
 }
 
 // Search —— 词法检索。有 Meili(searcher)走 Meili(corpus_notes:wiki/output/subjectivity = vault)
 // + glob ACL,再拼 writings(留在 Postgres 全文,自成一 genre,总是最新、无增量索引负担);Meili
 // 缺失/出错则整条退 Postgres 全文(降级不断)。两条路 ACL 一致:同一个 allowsCorpusURI 逐条过。
 func (l *pgCorpusLister) Search(
-	ctx context.Context, ownerID string, grantedGlobs []string, query string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, query string,
 ) ([]CorpusMeta, error) {
 	if l.searcher != nil {
-		if notes, ok := l.meiliSearch(ctx, ownerID, grantedGlobs, query); ok {
-			return append(notes, l.searchWritings(ctx, ownerID, grantedGlobs, query)...), nil
+		if notes, ok := l.meiliSearch(ctx, ownerID, scope, query); ok {
+			return append(notes, l.searchWritings(ctx, ownerID, scope, query)...), nil
 		}
 	}
-	return l.pgSearch(ctx, ownerID, grantedGlobs, query), nil
+	return l.pgSearch(ctx, ownerID, scope, query), nil
 }
 
 // meiliSearch —— Meili 候选(corpus_notes)→ glob ACL 过 → CorpusMeta。出错返 (nil,false) 让 caller 降级 PG。
 func (l *pgCorpusLister) meiliSearch(
-	ctx context.Context, ownerID string, grantedGlobs []string, query string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, query string,
 ) ([]CorpusMeta, bool) {
 	docs, err := l.searcher.Search(ctx, ownerID, query)
 	if err != nil {
@@ -67,7 +71,7 @@ func (l *pgCorpusLister) meiliSearch(
 	}
 	out := make([]CorpusMeta, 0, len(docs))
 	for i := range docs {
-		if !allowsCorpusURI(grantedGlobs, docs[i].Genre, docs[i].Path) {
+		if !allowsCorpusURI(scope, docs[i].Genre, docs[i].Path) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -80,18 +84,18 @@ func (l *pgCorpusLister) meiliSearch(
 
 // pgSearch —— Postgres 全文降级路径:4 个 genre 聚合,path 现算,glob ACL 逐条过。
 func (l *pgCorpusLister) pgSearch(
-	ctx context.Context, ownerID string, grantedGlobs []string, query string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, query string,
 ) []CorpusMeta {
 	out := make([]CorpusMeta, 0, searchPageLimit)
-	out = append(out, l.searchOutputs(ctx, ownerID, grantedGlobs, query)...)
-	out = append(out, l.searchWikis(ctx, ownerID, grantedGlobs, query)...)
-	out = append(out, l.searchWritings(ctx, ownerID, grantedGlobs, query)...)
-	out = append(out, l.searchSubjectivity(ctx, ownerID, grantedGlobs, query)...)
+	out = append(out, l.searchOutputs(ctx, ownerID, scope, query)...)
+	out = append(out, l.searchWikis(ctx, ownerID, scope, query)...)
+	out = append(out, l.searchWritings(ctx, ownerID, scope, query)...)
+	out = append(out, l.searchSubjectivity(ctx, ownerID, scope, query)...)
 	return out
 }
 
 func (l *pgCorpusLister) searchSubjectivity(
-	ctx context.Context, ownerID string, globs []string, q string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, q string,
 ) []CorpusMeta {
 	if l.subjectivity == nil {
 		return []CorpusMeta{}
@@ -102,7 +106,7 @@ func (l *pgCorpusLister) searchSubjectivity(
 	}
 	out := make([]CorpusMeta, 0, len(hits))
 	for i := range hits {
-		if m, ok := l.subjectivityHit(ctx, ownerID, globs, &hits[i]); ok {
+		if m, ok := l.subjectivityHit(ctx, ownerID, scope, &hits[i]); ok {
 			out = append(out, m)
 		}
 	}
@@ -110,10 +114,10 @@ func (l *pgCorpusLister) searchSubjectivity(
 }
 
 func (l *pgCorpusLister) subjectivityHit(
-	ctx context.Context, ownerID string, globs []string, hit *postgres.NoteMeta,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, hit *postgres.NoteMeta,
 ) (CorpusMeta, bool) {
 	path, perr := deriveNotePath(ctx, l.subjectivity, ownerID, hit.ID)
-	if perr != nil || !allowsCorpusURI(globs, "subjectivity", path) {
+	if perr != nil || !allowsCorpusURI(scope, "subjectivity", path) {
 		return CorpusMeta{}, false
 	}
 	return CorpusMeta{
@@ -123,7 +127,7 @@ func (l *pgCorpusLister) subjectivityHit(
 }
 
 func (l *pgCorpusLister) searchWikis(
-	ctx context.Context, ownerID string, globs []string, q string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, q string,
 ) []CorpusMeta {
 	hits, err := l.wiki.Search(ctx, ownerID, q, searchPageLimit, 0)
 	if err != nil {
@@ -132,7 +136,7 @@ func (l *pgCorpusLister) searchWikis(
 	out := make([]CorpusMeta, 0, len(hits))
 	for i := range hits {
 		path, perr := wikiPathByID(ctx, l.wiki, ownerID, hits[i].ID)
-		if perr != nil || !allowsCorpusURI(globs, "wiki", path) {
+		if perr != nil || !allowsCorpusURI(scope, "wiki", path) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -144,7 +148,7 @@ func (l *pgCorpusLister) searchWikis(
 }
 
 func (l *pgCorpusLister) searchOutputs(
-	ctx context.Context, ownerID string, globs []string, q string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, q string,
 ) []CorpusMeta {
 	hits, err := l.output.Search(ctx, ownerID, q, searchPageLimit, 0)
 	if err != nil {
@@ -153,7 +157,7 @@ func (l *pgCorpusLister) searchOutputs(
 	out := make([]CorpusMeta, 0, len(hits))
 	for i := range hits {
 		path, perr := outputPathByID(ctx, l.output, ownerID, hits[i].ID)
-		if perr != nil || !allowsCorpusURI(globs, "output", path) {
+		if perr != nil || !allowsCorpusURI(scope, "output", path) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -165,7 +169,7 @@ func (l *pgCorpusLister) searchOutputs(
 }
 
 func (l *pgCorpusLister) searchWritings(
-	ctx context.Context, ownerID string, globs []string, q string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, q string,
 ) []CorpusMeta {
 	hits, err := l.writing.Search(ctx, ownerID, q, searchPageLimit, 0)
 	if err != nil {
@@ -174,7 +178,7 @@ func (l *pgCorpusLister) searchWritings(
 	out := make([]CorpusMeta, 0, len(hits))
 	for i := range hits {
 		p := hits[i].Path()
-		if !allowsCorpusURI(globs, "writing", p) {
+		if !allowsCorpusURI(scope, "writing", p) {
 			continue
 		}
 		out = append(out, CorpusMeta{

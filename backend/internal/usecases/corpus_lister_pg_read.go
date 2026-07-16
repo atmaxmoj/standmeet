@@ -7,11 +7,15 @@
 
 package usecases
 
-import "context"
+import (
+	"context"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
+)
 
 // Get —— see file header.
 func (l *pgCorpusLister) Get(
-	ctx context.Context, ownerID string, grantedGlobs []string, path string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, path string,
 ) (CorpusEntry, error) {
 	foundAny := false
 	for _, find := range l.finders() {
@@ -20,7 +24,7 @@ func (l *pgCorpusLister) Get(
 			continue
 		}
 		foundAny = true
-		if allowsCorpusURI(grantedGlobs, entry.Genre, path) {
+		if allowsCorpusURI(scope, entry.Genre, path) {
 			l.fillCSSClasses(ctx, ownerID, &entry)
 			return entry, nil
 		}

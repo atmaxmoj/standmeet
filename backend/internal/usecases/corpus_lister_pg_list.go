@@ -11,6 +11,8 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // corpusRootLimit —— flat output/writing roots cap (mirrors the old retriever window of
@@ -19,9 +21,9 @@ const corpusRootLimit = 50
 
 // List —— see file header.
 func (l *pgCorpusLister) List(
-	ctx context.Context, ownerID string, grantedGlobs []string, parentPath string, page int,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, parentPath string, page int,
 ) ([]CorpusMeta, error) {
-	wikiRows, err := l.listWikiChildren(ctx, ownerID, grantedGlobs, parentPath, page)
+	wikiRows, err := l.listWikiChildren(ctx, ownerID, scope, parentPath, page)
 	if err != nil {
 		return nil, err
 	}
@@ -30,13 +32,13 @@ func (l *pgCorpusLister) List(
 	}
 	out := make([]CorpusMeta, 0, len(wikiRows))
 	out = append(out, wikiRows...)
-	out = append(out, l.listOutputRoots(ctx, ownerID, grantedGlobs)...)
-	out = append(out, l.listWritingRoots(ctx, ownerID, grantedGlobs)...)
+	out = append(out, l.listOutputRoots(ctx, ownerID, scope)...)
+	out = append(out, l.listWritingRoots(ctx, ownerID, scope)...)
 	return out, nil
 }
 
 func (l *pgCorpusLister) listWikiChildren(
-	ctx context.Context, ownerID string, globs []string, parentPath string, page int,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, parentPath string, page int,
 ) ([]CorpusMeta, error) {
 	var parentID *string
 	if parentPath != "" {
@@ -51,12 +53,12 @@ func (l *pgCorpusLister) listWikiChildren(
 	if lerr != nil {
 		return nil, fmt.Errorf("list wiki children: %w", lerr)
 	}
-	return wikiChildRows(globs, parentPath, kids), nil
+	return wikiChildRows(scope, parentPath, kids), nil
 }
 
 // wikiChildRows —— children meta → CorpusMeta with computed path, ACL-filtered.
 func wikiChildRows(
-	globs []string, parentPath string, kids []postgres.WikiMeta,
+	scope domain.CorpusScope, parentPath string, kids []postgres.WikiMeta,
 ) []CorpusMeta {
 	out := make([]CorpusMeta, 0, len(kids))
 	for i := range kids {
@@ -64,7 +66,7 @@ func wikiChildRows(
 		if parentPath != "" {
 			childPath = parentPath + "/" + childPath
 		}
-		if !allowsCorpusURI(globs, "wiki", childPath) {
+		if !allowsCorpusURI(scope, "wiki", childPath) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -76,7 +78,7 @@ func wikiChildRows(
 }
 
 func (l *pgCorpusLister) listOutputRoots(
-	ctx context.Context, ownerID string, globs []string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope,
 ) []CorpusMeta {
 	outputs, err := l.output.ListByOwner(ctx, ownerID, corpusRootLimit)
 	if err != nil {
@@ -86,7 +88,7 @@ func (l *pgCorpusLister) listOutputRoots(
 	out := make([]CorpusMeta, 0, len(outputs))
 	for i := range outputs {
 		p := paths[outputs[i].ID()]
-		if !allowsCorpusURI(globs, "output", p) {
+		if !allowsCorpusURI(scope, "output", p) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -97,7 +99,7 @@ func (l *pgCorpusLister) listOutputRoots(
 }
 
 func (l *pgCorpusLister) listWritingRoots(
-	ctx context.Context, ownerID string, globs []string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope,
 ) []CorpusMeta {
 	writings, err := l.writing.ListPublishedByOwner(ctx, ownerID)
 	if err != nil {
@@ -106,7 +108,7 @@ func (l *pgCorpusLister) listWritingRoots(
 	out := make([]CorpusMeta, 0, len(writings))
 	for i := range writings {
 		p := writings[i].Path()
-		if !allowsCorpusURI(globs, "writing", p) {
+		if !allowsCorpusURI(scope, "writing", p) {
 			continue
 		}
 		out = append(out, CorpusMeta{

@@ -73,6 +73,9 @@ func resolveCodePrompt(
 type roleDenials struct {
 	Caps   []string
 	Skills []string
+	// Corpus —— 这张 code 从 role 的正列表里收回的 URI glob（ACL 三类里的 corpus 那类）。
+	// 不从 CorpusURIs 里删：glob 减法删不掉列表项，冻成独立一列，匹配时判（AllowsCorpusScope）。
+	Corpus []string
 }
 
 // loadCodeDenials —— 读一张 code 的 deny 集。无 CodeDenials port（eval facade /
@@ -91,7 +94,11 @@ func loadCodeDenials(
 	if err != nil {
 		return roleDenials{}, fmt.Errorf("list code skill denials: %w", err)
 	}
-	return roleDenials{Caps: caps, Skills: skills}, nil
+	uris, uerr := deps.CodeDenials.ListCorpusURIs(ctx, codeID)
+	if uerr != nil {
+		return roleDenials{}, fmt.Errorf("list code corpus denials: %w", uerr)
+	}
+	return roleDenials{Caps: caps, Skills: skills, Corpus: uris}, nil
 }
 
 // APIKeyDenialReader —— read an API key's deny set (postgres.APIKeyRepo implements it). Same shape
@@ -171,6 +178,8 @@ func buildRoleSnapshotByID(
 		// capability deny 冻进 DeniedCapabilities，能力暴露门据此挡掉（含 ACL=always
 		// 的——它们不进 allowedTools，subtract 减不到，只能在门上挡）。
 		DeniedCapabilities: overlay.denials.Caps,
+		// corpus 的 code 层收窄：冻成独立一列，匹配时 grant AND NOT deny（AllowsCorpusScope）。
+		DeniedCorpusURIs: overlay.denials.Corpus,
 		// Phase C: 只冻 enabled 授权 skill 的 id（bundle 已过 enabled），让
 		// disabled skill 既不进 L1，也不被 skill_use/skill_run_script 命中。
 		SkillIDs:     skills.IDs,

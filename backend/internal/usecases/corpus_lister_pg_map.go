@@ -13,6 +13,8 @@ package usecases
 import (
 	"context"
 	"fmt"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // mapEnumerateLimit —— upper bound on wiki nodes loaded for the map/resolve. High enough to be
@@ -22,7 +24,7 @@ const mapEnumerateLimit = 20000
 // visibleWikiNodes —— every wiki node the role may see, as (path, title). Shared by
 // MapEntries and Resolve; the full tree in one load, ACL-filtered.
 func (l *pgCorpusLister) visibleWikiNodes(
-	ctx context.Context, ownerID string, globs []string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope,
 ) ([]CorpusMapEntry, error) {
 	wikis, err := l.wiki.ListByOwner(ctx, ownerID, mapEnumerateLimit)
 	if err != nil {
@@ -32,7 +34,7 @@ func (l *pgCorpusLister) visibleWikiNodes(
 	out := make([]CorpusMapEntry, 0, len(wikis))
 	for i := range wikis {
 		p := paths[wikis[i].ID()]
-		if p == "" || !allowsCorpusURI(globs, "wiki", p) {
+		if p == "" || !allowsCorpusURI(scope, "wiki", p) {
 			continue
 		}
 		out = append(out, CorpusMapEntry{Path: p, Title: wikis[i].Title()})
@@ -42,18 +44,18 @@ func (l *pgCorpusLister) visibleWikiNodes(
 
 // MapEntries —— see interface. Enumerate only; shaping is BuildCorpusMap (pure).
 func (l *pgCorpusLister) MapEntries(
-	ctx context.Context, ownerID string, globs []string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope,
 ) ([]CorpusMapEntry, error) {
-	return l.visibleWikiNodes(ctx, ownerID, globs)
+	return l.visibleWikiNodes(ctx, ownerID, scope)
 }
 
 // Resolve —— name → matching wiki node(s) by exact slug (path last segment) or title-slug.
 // Exact matches first (a [[link]] target is a name, not a query); empty result is a clean
 // "no such name" the agent can fall back to corpus_search on.
 func (l *pgCorpusLister) Resolve(
-	ctx context.Context, ownerID string, globs []string, name string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, name string,
 ) ([]CorpusMeta, error) {
-	nodes, err := l.visibleWikiNodes(ctx, ownerID, globs)
+	nodes, err := l.visibleWikiNodes(ctx, ownerID, scope)
 	if err != nil {
 		return nil, err
 	}

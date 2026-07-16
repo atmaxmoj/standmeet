@@ -317,6 +317,7 @@ func sessionMetaFor(m *mcpplugin.Manifest, in *capreg.AssembleInput) *mcpclient.
 		VisitorEmail:   in.Visitor.Email,
 		RoleID:         roleIDOf(in),
 		CorpusURIs:     corpusURIsOf(in),
+		CorpusDenials:  corpusDenialsOf(in),
 	}
 }
 
@@ -331,6 +332,13 @@ func roleIDOf(in *capreg.AssembleInput) string {
 
 // corpusURIsOf —— 当前 session 的 corpus-ACL scope（role snapshot 的 URI glob 白名单），
 // 给外置 retrieval 插件的 host op 重建 AllowsCorpus 用。无 role → 空（无 scope）。
+func corpusDenialsOf(in *capreg.AssembleInput) []string {
+	if in.RoleSnapshot == nil {
+		return []string{}
+	}
+	return in.RoleSnapshot.DeniedCorpusURIs()
+}
+
 func corpusURIsOf(in *capreg.AssembleInput) []string {
 	if in.RoleSnapshot == nil {
 		return []string{}

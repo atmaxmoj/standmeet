@@ -3,7 +3,7 @@
 // against the Driver's corpus (eval = persona corpus) instead of postgres.
 //
 // ACL lives HERE (the bridge filters the Driver's raw hits by the session's granted
-// globs), so a Driver impl is a plain in-memory data source with NO ACL knowledge — the
+// scope), so a Driver impl is a plain in-memory data source with NO ACL knowledge — the
 // same positive-list rule prod's pgCorpusLister applies, in one place.
 
 package agentcore
@@ -45,29 +45,29 @@ type driverCorpusLister struct {
 }
 
 func (l driverCorpusLister) Search(
-	ctx context.Context, _ string, grantedGlobs []string, query string,
+	ctx context.Context, _ string, scope domain.CorpusScope, query string,
 ) ([]usecases.CorpusMeta, error) {
 	hits, err := l.driver.SearchCorpus(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("driver search corpus: %w", err)
 	}
-	return filterHits(hits, grantedGlobs), nil
+	return filterHits(hits, scope), nil
 }
 
 func (l driverCorpusLister) List(
-	ctx context.Context, _ string, grantedGlobs []string, parentPath string, page int,
+	ctx context.Context, _ string, scope domain.CorpusScope, parentPath string, page int,
 ) ([]usecases.CorpusMeta, error) {
 	hits, err := l.driver.ListCorpus(ctx, parentPath, page)
 	if err != nil {
 		return nil, fmt.Errorf("driver list corpus: %w", err)
 	}
-	return filterHits(hits, grantedGlobs), nil
+	return filterHits(hits, scope), nil
 }
 
 // MapEntries —— every visible wiki node as {path,title}. Enumerate via SearchCorpus("") (the
 // Driver's whole-corpus listing) and keep genre=wiki, ACL-filtered; shaping is BuildCorpusMap.
 func (l driverCorpusLister) MapEntries(
-	ctx context.Context, _ string, grantedGlobs []string,
+	ctx context.Context, _ string, scope domain.CorpusScope,
 ) ([]usecases.CorpusMapEntry, error) {
 	all, err := l.driver.SearchCorpus(ctx, "")
 	if err != nil {
@@ -75,7 +75,7 @@ func (l driverCorpusLister) MapEntries(
 	}
 	out := make([]usecases.CorpusMapEntry, 0, len(all))
 	for i := range all {
-		if all[i].Genre != "wiki" || !allowsCorpus(grantedGlobs, all[i].Genre, all[i].Path) {
+		if all[i].Genre != "wiki" || !allowsCorpus(scope, all[i].Genre, all[i].Path) {
 			continue
 		}
 		out = append(out, usecases.CorpusMapEntry{Path: all[i].Path, Title: all[i].Title})
@@ -85,9 +85,9 @@ func (l driverCorpusLister) MapEntries(
 
 // Resolve —— name → matching wiki node(s), same slug rule as prod (pure resolveByName).
 func (l driverCorpusLister) Resolve(
-	ctx context.Context, ownerID string, grantedGlobs []string, name string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, name string,
 ) ([]usecases.CorpusMeta, error) {
-	entries, err := l.MapEntries(ctx, ownerID, grantedGlobs)
+	entries, err := l.MapEntries(ctx, ownerID, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (l driverCorpusLister) Resolve(
 }
 
 func (l driverCorpusLister) Get(
-	ctx context.Context, _ string, grantedGlobs []string, path string,
+	ctx context.Context, _ string, scope domain.CorpusScope, path string,
 ) (usecases.CorpusEntry, error) {
 	doc, err := l.driver.GetCorpus(ctx, path)
 	if errors.Is(err, ErrCorpusNotFound) {
@@ -104,7 +104,7 @@ func (l driverCorpusLister) Get(
 	if err != nil {
 		return usecases.CorpusEntry{}, fmt.Errorf("driver get corpus: %w", err)
 	}
-	if !allowsCorpus(grantedGlobs, doc.Genre, path) {
+	if !allowsCorpus(scope, doc.Genre, path) {
 		return usecases.CorpusEntry{}, usecases.ErrCorpusDenied
 	}
 	return usecases.CorpusEntry{
@@ -117,9 +117,9 @@ func (l driverCorpusLister) Get(
 // 既有 usecases.ExtractCrossLinks + SlugifyTitle，跟 prod 的 crosslink 解析同源。SearchCorpus("")
 // 空查询枚举全量（见 EvalDriver）。ACL 逐条过（同 Get/filterHits）。语料小，线性扫无碍。
 func (l driverCorpusLister) Links(
-	ctx context.Context, ownerID string, grantedGlobs []string, path string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, path string,
 ) (usecases.CorpusLinks, error) {
-	subject, err := l.Get(ctx, ownerID, grantedGlobs, path)
+	subject, err := l.Get(ctx, ownerID, scope, path)
 	if err != nil {
 		return usecases.CorpusLinks{}, err
 	}
@@ -128,20 +128,20 @@ func (l driverCorpusLister) Links(
 		return usecases.CorpusLinks{}, fmt.Errorf("driver enumerate corpus: %w", serr)
 	}
 	return usecases.CorpusLinks{
-		Outgoing:  outgoingLinks(subject.Body, all, grantedGlobs),
-		Backlinks: l.backlinks(ctx, path, subject.Title, all, grantedGlobs),
+		Outgoing:  outgoingLinks(subject.Body, all, scope),
+		Backlinks: l.backlinks(ctx, path, subject.Title, all, scope),
 	}, nil
 }
 
 // outgoingLinks —— subject body 里的 [[X]] 解析成语料条目（slug 或 title 命中，ACL 过、去重）。
 func outgoingLinks(
-	body string, all []CorpusHit, globs []string,
+	body string, all []CorpusHit, scope domain.CorpusScope,
 ) []usecases.CorpusMeta {
 	out := make([]usecases.CorpusMeta, 0)
 	seen := map[string]bool{}
 	for _, ref := range usecases.ExtractCrossLinks(body) {
 		hit, ok := resolveRef(ref.Target, all)
-		if !ok || seen[hit.Path] || !allowsCorpus(globs, hit.Genre, hit.Path) {
+		if !ok || seen[hit.Path] || !allowsCorpus(scope, hit.Genre, hit.Path) {
 			continue
 		}
 		seen[hit.Path] = true
@@ -152,14 +152,15 @@ func outgoingLinks(
 
 // backlinks —— 反扫全语料：谁的 body [[link]] 指向 subject（按 subject 的 slug/title），谁是 backlink。
 func (l driverCorpusLister) backlinks(
-	ctx context.Context, subjectPath, subjectTitle string, all []CorpusHit, globs []string,
+	ctx context.Context, subjectPath, subjectTitle string,
+	all []CorpusHit, scope domain.CorpusScope,
 ) []usecases.CorpusMeta {
 	targets := map[string]bool{
 		lastSegment(subjectPath): true, usecases.SlugifyTitle(subjectTitle): true,
 	}
 	out := make([]usecases.CorpusMeta, 0)
 	for i := range all {
-		if l.entryLinksTo(ctx, &all[i], subjectPath, targets, globs) {
+		if l.entryLinksTo(ctx, &all[i], subjectPath, targets, scope) {
 			out = append(out, hitToMeta(&all[i]))
 		}
 	}
@@ -168,9 +169,10 @@ func (l driverCorpusLister) backlinks(
 
 // entryLinksTo —— 一条语料 entry 是否 [[link]] 指向 subject（跳过 subject 自己 + ACL 拒的）。
 func (l driverCorpusLister) entryLinksTo(
-	ctx context.Context, e *CorpusHit, subjectPath string, targets map[string]bool, globs []string,
+	ctx context.Context, e *CorpusHit, subjectPath string,
+	targets map[string]bool, scope domain.CorpusScope,
 ) bool {
-	if e.Path == subjectPath || !allowsCorpus(globs, e.Genre, e.Path) {
+	if e.Path == subjectPath || !allowsCorpus(scope, e.Genre, e.Path) {
 		return false
 	}
 	doc, derr := l.driver.GetCorpus(ctx, e.Path)
@@ -213,10 +215,10 @@ func hitToMeta(h *CorpusHit) usecases.CorpusMeta {
 	}
 }
 
-func filterHits(hits []CorpusHit, globs []string) []usecases.CorpusMeta {
+func filterHits(hits []CorpusHit, scope domain.CorpusScope) []usecases.CorpusMeta {
 	out := make([]usecases.CorpusMeta, 0, len(hits))
 	for i := range hits {
-		if !allowsCorpus(globs, hits[i].Genre, hits[i].Path) {
+		if !allowsCorpus(scope, hits[i].Genre, hits[i].Path) {
 			continue
 		}
 		out = append(out, usecases.CorpusMeta{
@@ -227,6 +229,8 @@ func filterHits(hits []CorpusHit, globs []string) []usecases.CorpusMeta {
 	return out
 }
 
-func allowsCorpus(globs []string, genre, path string) bool {
-	return domain.MatchesAnyCorpusGlob(globs, domain.FormatURI(domain.DocumentGenre(genre), path))
+// allowsCorpus —— same readability rule as the prod facade: the role's grant AND NOT the code's
+// narrowing. Routed through the one domain function so the eval driver and prod can never diverge.
+func allowsCorpus(scope domain.CorpusScope, genre, path string) bool {
+	return domain.AllowsCorpusScope(scope, domain.FormatURI(domain.DocumentGenre(genre), path))
 }

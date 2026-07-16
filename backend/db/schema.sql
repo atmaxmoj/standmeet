@@ -864,6 +864,21 @@ CREATE TABLE capability_settings (
 -- (向后兼容，老 code 零 deny)。issue 时跟 role grant 相减(ResolveACL)再冻进
 -- RoleSnapshot。capability_id 是 registry id(非表，无 FK，同 capability_settings)；
 -- skill_id 是 skills 行(有 FK)。
+-- code_corpus_denials —— corpus 准入的 **per-code 收窄层**（ACL 三层的第三类；capability/skill 已有，
+-- corpus 之前缺席）。role 授的是「这个受众」能读的正列表；一张码可以再减 ——「这次邀约」不该看的。
+--
+-- 纯减法，跟 capability/skill 的 deny 集同构：readable = role 的 glob 命中 AND 没被本码的 deny 命中。
+-- 只减不加（code 开不了 role 没给的），所以是集合交、**无序**，不引入 first-match-wins 的顺序敏感
+-- （capability-acl-hierarchy A.2 当初 defer 的正是那个；而 A.4 已把整层定成纯 AND）。
+--
+-- 单位是 glob 而非 note id：跟 role 的正列表同一种语言，owner 写 `subjectivity://cv` 就少一条，
+-- 写 `subjectivity://**` 就把整个 genre 从这张码上收回。
+CREATE TABLE code_corpus_denials (
+    code_id     uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    uri_pattern text NOT NULL,
+    PRIMARY KEY (code_id, uri_pattern)
+);
+
 CREATE TABLE code_capability_denials (
     code_id       uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
     capability_id text NOT NULL,

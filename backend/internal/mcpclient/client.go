@@ -185,6 +185,10 @@ type SessionContext struct {
 	// re-evaluate AllowsCorpus host-side without a role lookup (the frozen scope
 	// travels with the call, no staleness). Empty for non-retrieval sessions.
 	CorpusURIs []string
+	// CorpusDenials —— the code-level narrowing of that scope (ACL's third kind, alongside
+	// capability/skill denials). Must travel WITH the grant: a facade that sees only the grant
+	// serves what the owner explicitly took back — a fail-open.
+	CorpusDenials []string
 }
 
 func (s *SessionContext) meta() map[string]any {
@@ -200,6 +204,7 @@ func (s *SessionContext) meta() map[string]any {
 		"visitor_email":   s.VisitorEmail,
 		"role_id":         s.RoleID,
 		"corpus_uris":     s.CorpusURIs,
+		"corpus_denials":  s.CorpusDenials,
 	}}
 }
 

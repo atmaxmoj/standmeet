@@ -41,6 +41,8 @@ type VisitorSessionDeps struct {
 type CodeDenialReader interface {
 	ListCapabilities(ctx context.Context, codeID string) ([]string, error)
 	ListSkills(ctx context.Context, codeID string) ([]string, error)
+	// ListCorpusURIs —— ACL 三类里的 corpus 那类：这张 code 从 role 的正列表收回的 glob。
+	ListCorpusURIs(ctx context.Context, codeID string) ([]string, error)
 }
 
 // VisitorSkillsDeps —— #131: 注册 visitor capability 时所需的**原料**(capability

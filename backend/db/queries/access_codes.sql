@@ -92,3 +92,15 @@ ON CONFLICT (code_id, waypoint_id) DO NOTHING;
 -- 这张 code 的 waypoint **覆盖层**(不含继承来的 role 的);合并在 domain.MergeWaypoints。
 SELECT waypoint_id, description, weight, evidence_refs, is_terminal
 FROM code_waypoints WHERE code_id = $1 ORDER BY weight DESC, waypoint_id ASC;
+
+-- name: ClearCodeCorpusDenials :exec
+DELETE FROM code_corpus_denials WHERE code_id = $1;
+
+-- name: AttachCodeCorpusDenial :exec
+INSERT INTO code_corpus_denials (code_id, uri_pattern)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING;
+
+-- name: ListCodeCorpusDenials :many
+-- 这张 code 收回的 URI glob（纯减法层；role 的正列表减去它 = 本码实际可读）。
+SELECT uri_pattern FROM code_corpus_denials WHERE code_id = $1 ORDER BY uri_pattern ASC;

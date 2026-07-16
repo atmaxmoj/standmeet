@@ -134,6 +134,11 @@ type CodeCapabilityDenial struct {
 	CapabilityID string
 }
 
+type CodeCorpusDenial struct {
+	CodeID     pgtype.UUID
+	UriPattern string
+}
+
 type CodeMember struct {
 	ID          pgtype.UUID
 	CodeID      pgtype.UUID

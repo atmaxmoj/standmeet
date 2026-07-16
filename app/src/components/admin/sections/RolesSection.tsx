@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { RoleCreateModal } from '@/components/admin/sections/roles/RoleCreateModal';
+import { RoleCorpusConfig } from '@/components/admin/sections/roles/RoleCorpusConfig';
 import { RoleDockConfig } from '@/components/admin/sections/roles/RoleDockConfig';
 import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
@@ -126,6 +127,7 @@ function RoleCard({
       )}
       <RoleMetaGrid role={role} />
       <RolePromptRow role={role} />
+      <RoleCorpusConfig role={role} />
       <RoleDockConfig role={role} />
     </article>
   );

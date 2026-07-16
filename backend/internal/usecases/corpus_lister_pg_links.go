@@ -11,22 +11,24 @@ import (
 	"context"
 
 	"github.com/atmaxmoj/standmeet/internal/postgres"
+
+	"github.com/atmaxmoj/standmeet/internal/domain"
 )
 
 // Links —— see file header.
 func (l *pgCorpusLister) Links(
-	ctx context.Context, ownerID string, grantedGlobs []string, path string,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, path string,
 ) (CorpusLinks, error) {
 	// Get:准入 + 拿 subject id(denied/not-found 透传)
-	subject, err := l.Get(ctx, ownerID, grantedGlobs, path)
+	subject, err := l.Get(ctx, ownerID, scope, path)
 	if err != nil {
 		return CorpusLinks{}, err
 	}
 	out := l.outboundRefs(ctx, ownerID, subject.ID)
 	back := l.backlinkRefs(ctx, ownerID, subject.ID)
 	return CorpusLinks{
-		Outgoing:  l.neighborMetas(ctx, ownerID, grantedGlobs, out),
-		Backlinks: l.neighborMetas(ctx, ownerID, grantedGlobs, back),
+		Outgoing:  l.neighborMetas(ctx, ownerID, scope, out),
+		Backlinks: l.neighborMetas(ctx, ownerID, scope, back),
 	}, nil
 }
 
@@ -54,11 +56,11 @@ func (l *pgCorpusLister) backlinkRefs(ctx context.Context, ownerID, id string) [
 
 // neighborMetas —— 邻居 ref(id+title)→ 补 genre/path → 逐条过 ACL → CorpusMeta。越权邻居剔除。
 func (l *pgCorpusLister) neighborMetas(
-	ctx context.Context, ownerID string, grantedGlobs []string, refs []postgres.NoteRef,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, refs []postgres.NoteRef,
 ) []CorpusMeta {
 	out := make([]CorpusMeta, 0, len(refs))
 	for i := range refs {
-		if m, ok := l.neighborMeta(ctx, ownerID, grantedGlobs, &refs[i]); ok {
+		if m, ok := l.neighborMeta(ctx, ownerID, scope, &refs[i]); ok {
 			out = append(out, m)
 		}
 	}
@@ -66,7 +68,7 @@ func (l *pgCorpusLister) neighborMetas(
 }
 
 func (l *pgCorpusLister) neighborMeta(
-	ctx context.Context, ownerID string, grantedGlobs []string, ref *postgres.NoteRef,
+	ctx context.Context, ownerID string, scope domain.CorpusScope, ref *postgres.NoteRef,
 ) (CorpusMeta, bool) {
 	if l.queryRepo == nil {
 		return CorpusMeta{}, false
@@ -76,7 +78,7 @@ func (l *pgCorpusLister) neighborMeta(
 		return CorpusMeta{}, false
 	}
 	path := syncNotePath(note.Title, note.ParentID, dbParentOf(ctx, l.queryRepo, ownerID))
-	if !allowsCorpusURI(grantedGlobs, note.Genre, path) {
+	if !allowsCorpusURI(scope, note.Genre, path) {
 		return CorpusMeta{}, false
 	}
 	return CorpusMeta{ID: ref.ID, Path: path, Title: ref.Title, Genre: note.Genre}, true

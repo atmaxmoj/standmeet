@@ -60,3 +60,28 @@ func buildGlobRegex(pattern string) *regexp.Regexp {
 	escaped = strings.ReplaceAll(escaped, globstarToken, ".*")
 	return regexp.MustCompile("^" + escaped + "$")
 }
+
+// CorpusScope —— 一个 visitor session 的 corpus 准入范围：role 授的正列表 + 这张 code 收回的。
+// 两者正交而非相减：glob 的减法删不掉列表项（`subjectivity://cv` 减不掉 `subjectivity://**`），
+// 只能在匹配时判。
+type CorpusScope struct {
+	Granted []string
+	Denied  []string
+}
+
+// AllowsCorpusScope —— corpus 准入的唯一真值（ACL 三层里的 corpus 那类）：
+//
+//	readable(uri) = 命中 role 的任一 grant  AND  不命中本码的任一 deny
+//
+// **纯减法**：deny 只能让可读的更少，code 开不了 role 没给的 —— 跟 capability/skill 的 deny 集同构，
+// 也跟 A.4 定的"纯 AND、code 只能 deny"一致。
+//
+// **顺序无关**：deny 和 grant 分两遍算，不是一张混排列表里 first-match-wins。A.2 当初 defer corpus
+// 层级收窄，理由正是"顺序敏感、first-match-wins"；那描述的是 deny 行混进 glob 列表的方案（owner
+// 也明确 reject 了它）。分开两个列表 = 集合交，没有顺序可言，所以那条顾虑在这里不成立。
+func AllowsCorpusScope(scope CorpusScope, uri string) bool {
+	if !MatchesAnyCorpusGlob(scope.Granted, uri) {
+		return false
+	}
+	return !MatchesAnyCorpusGlob(scope.Denied, uri)
+}

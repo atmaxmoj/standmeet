@@ -22,7 +22,7 @@ func runCorpusMap(ctx context.Context, l CorpusLister, req *retrievalSockReq) (s
 	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
 		return "", fmt.Errorf("invalid arguments: %w", uerr)
 	}
-	entries, err := l.MapEntries(ctx, req.OwnerID, req.CorpusURIs)
+	entries, err := l.MapEntries(ctx, req.OwnerID, corpusScopeOf(req))
 	if err != nil {
 		return "", fmt.Errorf("corpus map: %w", err)
 	}
@@ -51,7 +51,7 @@ func runCorpusResolve(ctx context.Context, l CorpusLister, req *retrievalSockReq
 	if strings.TrimSpace(args.Name) == "" {
 		return errJSON("name required"), nil
 	}
-	metas, err := l.Resolve(ctx, req.OwnerID, req.CorpusURIs, strings.TrimSpace(args.Name))
+	metas, err := l.Resolve(ctx, req.OwnerID, corpusScopeOf(req), strings.TrimSpace(args.Name))
 	if err != nil {
 		return "", fmt.Errorf("corpus resolve: %w", err)
 	}
@@ -123,7 +123,7 @@ func peekOne(ctx context.Context, l CorpusLister, req *retrievalSockReq, path st
 	if path == "" {
 		return corpusStub{Error: "empty path"}
 	}
-	entry, err := l.Get(ctx, req.OwnerID, req.CorpusURIs, path)
+	entry, err := l.Get(ctx, req.OwnerID, corpusScopeOf(req), path)
 	if err != nil {
 		return corpusStub{Path: path, Error: peekErrText(err, path)}
 	}

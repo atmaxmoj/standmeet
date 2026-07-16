@@ -107,3 +107,39 @@ func (r *CodeDenialRepo) DeleteSkill(ctx context.Context, codeID, skillID string
 	}
 	return nil
 }
+
+// ListCorpusURIs —— 这张 code 收回的 corpus URI glob 集（无行 = 完全继承 role 的正列表）。
+// ACL 三层的第三类：capability/skill 是离散 id 的 deny 集，corpus 是 glob 的 deny 集 —— 同为纯减法。
+func (r *CodeDenialRepo) ListCorpusURIs(ctx context.Context, codeID string) ([]string, error) {
+	id, err := parseUUID(codeID)
+	if err != nil {
+		return []string{}, fmt.Errorf(errParseCodeIDPrefix, err)
+	}
+	pats, qerr := dbq.New(r.pool).ListCodeCorpusDenials(ctx, id)
+	if qerr != nil {
+		return []string{}, fmt.Errorf("list code corpus denials: %w", qerr)
+	}
+	return pats, nil
+}
+
+// SetCorpusURIs —— 全量重设这张 code 的 corpus deny 集（空 = 完全继承 role）。
+func (r *CodeDenialRepo) SetCorpusURIs(
+	ctx context.Context, codeID string, patterns []string,
+) error {
+	id, err := parseUUID(codeID)
+	if err != nil {
+		return fmt.Errorf(errParseCodeIDPrefix, err)
+	}
+	q := dbq.New(r.pool)
+	if cerr := q.ClearCodeCorpusDenials(ctx, id); cerr != nil {
+		return fmt.Errorf("clear code corpus denials: %w", cerr)
+	}
+	for _, p := range patterns {
+		if aerr := q.AttachCodeCorpusDenial(ctx, dbq.AttachCodeCorpusDenialParams{
+			CodeID: id, UriPattern: p,
+		}); aerr != nil {
+			return fmt.Errorf("attach code corpus denial: %w", aerr)
+		}
+	}
+	return nil
+}

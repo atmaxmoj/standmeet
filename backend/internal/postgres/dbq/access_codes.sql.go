@@ -11,6 +11,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const attachCodeCorpusDenial = `-- name: AttachCodeCorpusDenial :exec
+INSERT INTO code_corpus_denials (code_id, uri_pattern)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type AttachCodeCorpusDenialParams struct {
+	CodeID     pgtype.UUID
+	UriPattern string
+}
+
+func (q *Queries) AttachCodeCorpusDenial(ctx context.Context, arg AttachCodeCorpusDenialParams) error {
+	_, err := q.db.Exec(ctx, attachCodeCorpusDenial, arg.CodeID, arg.UriPattern)
+	return err
+}
+
 const attachCodeWaypoint = `-- name: AttachCodeWaypoint :exec
 INSERT INTO code_waypoints (code_id, waypoint_id, description, weight, evidence_refs, is_terminal)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -36,6 +52,15 @@ func (q *Queries) AttachCodeWaypoint(ctx context.Context, arg AttachCodeWaypoint
 		arg.EvidenceRefs,
 		arg.IsTerminal,
 	)
+	return err
+}
+
+const clearCodeCorpusDenials = `-- name: ClearCodeCorpusDenials :exec
+DELETE FROM code_corpus_denials WHERE code_id = $1
+`
+
+func (q *Queries) ClearCodeCorpusDenials(ctx context.Context, codeID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, clearCodeCorpusDenials, codeID)
 	return err
 }
 
@@ -356,6 +381,31 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCodeCorpusDenials = `-- name: ListCodeCorpusDenials :many
+SELECT uri_pattern FROM code_corpus_denials WHERE code_id = $1 ORDER BY uri_pattern ASC
+`
+
+// 这张 code 收回的 URI glob（纯减法层；role 的正列表减去它 = 本码实际可读）。
+func (q *Queries) ListCodeCorpusDenials(ctx context.Context, codeID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listCodeCorpusDenials, codeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var uri_pattern string
+		if err := rows.Scan(&uri_pattern); err != nil {
+			return nil, err
+		}
+		items = append(items, uri_pattern)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
