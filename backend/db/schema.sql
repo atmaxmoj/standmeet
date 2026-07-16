@@ -364,6 +364,20 @@ CREATE TABLE role_corpus_uris (
 -- role_waypoints —— ghost-steering: owner 在 role 上写的引导目的地(waypoint)。跟 role_corpus_uris
 -- 一样是 role 的 join；session freeze 时随 RoleSnapshot 冻结,且 evidence_refs 逐条过 role 授权 glob,
 -- 全越界的 waypoint 在冻结那刻整条丢弃(feasibility floor)。waypoint_id 是 owner 写的 slug(heading tag)。
+-- code_waypoints —— ghost-steering 目的地的 **per-code 覆盖层**（mirrors role_waypoints）。
+-- role 是「这个受众」的目的地；code 是「这一次邀约」的。合并语义（domain.MergeWaypoints）：
+-- 同 waypoint_id → code 整条覆盖 role 的，新 id → 追加；code 不配 → 完全继承 role 的。
+-- 冻结那刻仍过 FilterWaypointsByCorpus —— code 不能借覆盖引向 role 看不见的证据。
+CREATE TABLE code_waypoints (
+    code_id       uuid          NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    waypoint_id   text          NOT NULL,
+    description   text          NOT NULL,
+    weight        integer       NOT NULL DEFAULT 1,
+    evidence_refs jsonb         NOT NULL DEFAULT '[]'::jsonb,
+    is_terminal   boolean       NOT NULL DEFAULT false,
+    PRIMARY KEY (code_id, waypoint_id)
+);
+
 CREATE TABLE role_waypoints (
     role_id       uuid          NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     waypoint_id   text          NOT NULL,

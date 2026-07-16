@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/apierr"
 )
@@ -40,4 +41,13 @@ func writeJSONStatus(log *slog.Logger, w http.ResponseWriter, status int, v any)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		log.Error("encode json", logErrKey, err)
 	}
+}
+
+// rfc3339OrNil —— 可空时间 → 可空 RFC3339 字符串(nil 透传,前端不显 expiry)。
+func rfc3339OrNil(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.Format(time.RFC3339)
+	return &s
 }

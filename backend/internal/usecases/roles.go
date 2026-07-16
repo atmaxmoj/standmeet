@@ -78,6 +78,9 @@ func validateCreateRoleInput(
 	if derr := validateDockButtons(in); derr != nil {
 		return derr
 	}
+	if werr := validateWaypoints(in); werr != nil {
+		return werr
+	}
 	return validateRoleJoinOwnership(ctx, deps, in)
 }
 
@@ -155,6 +158,9 @@ func validateUpdateRoleInput(
 	}
 	if derr := validateDockButtons(in); derr != nil {
 		return derr
+	}
+	if werr := validateWaypoints(in); werr != nil {
+		return werr
 	}
 	return validateRoleJoinOwnership(ctx, deps, in)
 }

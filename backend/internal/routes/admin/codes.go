@@ -39,6 +39,8 @@ type createCodeRequest struct {
 	Label              string   `json:"label"`
 	Purpose            string   `json:"purpose"`
 	Ghosts             []string `json:"ghosts"`
+	// Waypoints —— ghost-steering 目的地的 per-code 覆盖层（空 = 完全继承 role 的）。
+	Waypoints []domain.Waypoint `json:"waypoints"`
 }
 
 type updateQuotasRequest struct {
@@ -70,6 +72,9 @@ func (h *Handlers) MountCodes(r chi.Router) {
 	r.Get("/{id}/members", h.listCodeMembers())
 	// ACL code 层 deny（capability-acl-hierarchy.md）。kind 作路径参数，合并了原
 	// capability-denials / skill-denials 两套平行 URL。
+	// ghost-steering: 这张 code 的 waypoint 覆盖层（继承 role，可覆盖）。见 codes_waypoints.go。
+	r.Get("/{id}/waypoints", h.getCodeWaypoints())
+	r.Put("/{id}/waypoints", h.putCodeWaypoints())
 	r.Get("/{id}/denials", h.listCodeDenials())
 	r.Post("/{id}/denials/{kind}", h.addDenial())
 	r.Delete("/{id}/denials/{kind}/{targetId}", h.deleteDenial())
@@ -119,15 +124,6 @@ func toCodeView(c *domain.AccessCode) codeView {
 	}
 }
 
-// rfc3339OrNil —— 可空时间 → 可空 RFC3339 字符串(nil 透传,前端不显 expiry)。
-func rfc3339OrNil(t *time.Time) *string {
-	if t == nil {
-		return nil
-	}
-	s := t.Format(time.RFC3339)
-	return &s
-}
-
 func (h *Handlers) createCode() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createCodeRequest
@@ -157,6 +153,7 @@ func runCreateCode(
 		handleCreateCodeErr(h.Log, w, err)
 		return
 	}
+	h.attachCreateWaypoints(r, &code, req.Waypoints)
 	writeCreatedCode(h.Log, w, &code)
 }
 
@@ -181,6 +178,9 @@ func handleCreateCodeErr(log *slog.Logger, w http.ResponseWriter, err error) {
 func buildCreateInput(
 	r *http.Request, h *Handlers, ownerID string, req *createCodeRequest,
 ) (*postgres.CreateCodeInput, error) {
+	if werr := domain.ValidateWaypoints(req.Waypoints); werr != nil {
+		return nil, werr
+	}
 	roleID, rerr := resolveCodeRoleID(r, h, ownerID, req.AssumedRoleID)
 	if rerr != nil {
 		return nil, rerr

@@ -33,8 +33,28 @@ func buildRoleSnapshotForCode(
 	if perr != nil {
 		return domain.RoleSnapshot{}, perr
 	}
+	// ghost-steering: 这张 code 的 waypoint 覆盖层(空 = 完全继承 role 的)。
+	wps, werr := loadCodeWaypoints(ctx, deps, code.ID)
+	if werr != nil {
+		return domain.RoleSnapshot{}, werr
+	}
 	return buildRoleSnapshotByID(ctx, deps, code.OwnerID, code.AssumedRoleID,
-		codeOverlay{denials: denials, codePromptBody: codePrompt})
+		&codeOverlay{denials: denials, codePromptBody: codePrompt, waypoints: wps})
+}
+
+// loadCodeWaypoints —— 读一张 code 的 waypoint 覆盖层。无 Codes port(eval facade / 老路径没接)
+// → 空覆盖,行为同从前(完全继承 role,向后兼容)。
+func loadCodeWaypoints(
+	ctx context.Context, deps *VisitorSessionDeps, codeID string,
+) ([]domain.Waypoint, error) {
+	if deps.Codes == nil {
+		return []domain.Waypoint{}, nil
+	}
+	wps, err := deps.Codes.Waypoints(ctx, codeID)
+	if err != nil {
+		return []domain.Waypoint{}, fmt.Errorf("list code waypoints: %w", err)
+	}
+	return wps, nil
 }
 
 // resolveCodePrompt —— #104 扩展的取值：内联 per-code prompt 优先（发码方随码带，不查库），
@@ -96,7 +116,7 @@ func BuildAPIKeyRoleSnapshot(
 		return domain.RoleSnapshot{}, fmt.Errorf("list api key skill denials: %w", serr)
 	}
 	return buildRoleSnapshotByID(ctx, deps, key.OwnerID, key.AssumedRoleID,
-		codeOverlay{denials: roleDenials{Caps: caps, Skills: skills}})
+		&codeOverlay{denials: roleDenials{Caps: caps, Skills: skills}})
 }
 
 // buildRoleSnapshotForOwnerPublic —— public / byoai session 用 owner 的
@@ -110,7 +130,7 @@ func buildRoleSnapshotForOwnerPublic(
 		return domain.RoleSnapshot{}, fmt.Errorf("get public role: %w", err)
 	}
 	// public + byoai (非 code 路径) 无 per-code prompt、无 deny。
-	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID(), codeOverlay{})
+	return buildRoleSnapshotByID(ctx, deps, ownerID, role.ID(), &codeOverlay{})
 }
 
 // codeOverlay —— code 层在 role 基础上的叠加：deny 集 + 这张 code 自带的 prompt body。
@@ -118,10 +138,12 @@ func buildRoleSnapshotForOwnerPublic(
 type codeOverlay struct {
 	codePromptBody string
 	denials        roleDenials
+	// waypoints —— 这张 code 的 ghost-steering 覆盖层（空 = 完全继承 role 的）。
+	waypoints []domain.Waypoint
 }
 
 func buildRoleSnapshotByID(
-	ctx context.Context, deps *VisitorSessionDeps, ownerID, roleID string, overlay codeOverlay,
+	ctx context.Context, deps *VisitorSessionDeps, ownerID, roleID string, overlay *codeOverlay,
 ) (domain.RoleSnapshot, error) {
 	role, err := deps.Roles.GetByID(ctx, ownerID, roleID)
 	if err != nil {
@@ -155,9 +177,12 @@ func buildRoleSnapshotByID(
 		MCPServerIDs: role.MCPServerIDs(),
 		// #109/#110: 冻下 role 的 ≤2 个 dock 按钮配置；session payload 层解析 title + 过滤 code-deny。
 		DockButtons: role.DockButtons(),
-		// ghost-steering: 冻 waypoints，且**冻结时按 role 授权 glob 过滤**（feasibility floor）——
-		// evidence_refs 全越界的 waypoint 整条丢弃，role 永远不会被引导向它看不到的证据。
-		Waypoints: domain.FilterWaypointsByCorpus(role.Waypoints(), role.CorpusURIs()),
+		// ghost-steering: 冻 waypoints。先按 waypoint_id 把 code 的覆盖层叠在 role 之上
+		// （role = 这个受众的目的地，code = 这一次邀约的），**再**按 role 授权 glob 过滤
+		// （feasibility floor）—— 顺序要紧：过滤在合并之后，code 才不能借覆盖把 role 看不到的
+		// 证据引导出来。evidence_refs 全越界的 waypoint 整条丢弃。
+		Waypoints: domain.FilterWaypointsByCorpus(
+			domain.MergeWaypoints(role.Waypoints(), overlay.waypoints), role.CorpusURIs()),
 	}), nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/mcpclient"
@@ -31,7 +32,7 @@ func wrapMCPAppTools(
 			mcpAppToolDescription(m.ID, t),
 			toolProgressLabel(t),
 			t.InputSchema,
-			makeExtMCPRun(sess, t.Name, sessionMeta),
+			makeExtMCPRun(sess, t.Name, sessionMeta, toolCallBudget(t)),
 		)
 		// ReturnDirectly —— server 经 tool `_meta.return_directly` 声明：调完直接
 		// 结束 agent loop，把 result 当 final 推浏览器（ask_visitor 那套语义）。
@@ -51,6 +52,16 @@ func wrapMCPAppTools(
 func toolReturnsDirectly(t *mcpclient.Tool) bool {
 	v, ok := t.Meta["return_directly"].(bool)
 	return ok && v
+}
+
+// toolCallBudget —— per-tool CallTool budget. A tool that does a full LLM round-trip itself
+// declares `_meta.long_running`; it gets LongCallTimeout instead of the generic 15s cap that
+// would otherwise cut a report generation off mid-flight (F-A-6). 0 = the default budget.
+func toolCallBudget(t *mcpclient.Tool) time.Duration {
+	if v, ok := t.Meta["long_running"].(bool); ok && v {
+		return mcpclient.LongCallTimeout
+	}
+	return 0
 }
 
 // toolUIHTML —— 读 tool `_meta.ui_resource` 指向的 ui:// 卡片 HTML（per-tool，对齐

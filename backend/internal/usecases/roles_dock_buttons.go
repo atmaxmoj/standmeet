@@ -12,6 +12,15 @@ import (
 
 // validateDockButtons —— dock 按钮校验：数量 ≤2 + 触发词非空（domain 纯不变量）+ 每个能力在
 // route 给的 valid 集里。create/update 共用。
+// validateWaypoints —— ghost-steering 目的地的形态校验（同 dock buttons：规则在 domain，
+// usecase 只包错误上下文）。role 面和 code 覆盖面共用 domain.ValidateWaypoints 这一条规则。
+func validateWaypoints(in *RoleWriteInput) error {
+	if err := domain.ValidateWaypoints(in.Waypoints); err != nil {
+		return fmt.Errorf("waypoints: %w", err)
+	}
+	return nil
+}
+
 func validateDockButtons(in *RoleWriteInput) error {
 	if err := domain.ValidateDockButtons(in.DockButtons); err != nil {
 		return fmt.Errorf("dock buttons: %w", err)

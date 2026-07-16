@@ -11,6 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const attachCodeWaypoint = `-- name: AttachCodeWaypoint :exec
+INSERT INTO code_waypoints (code_id, waypoint_id, description, weight, evidence_refs, is_terminal)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (code_id, waypoint_id) DO NOTHING
+`
+
+type AttachCodeWaypointParams struct {
+	CodeID       pgtype.UUID
+	WaypointID   string
+	Description  string
+	Weight       int32
+	EvidenceRefs []byte
+	IsTerminal   bool
+}
+
+// 逐条 insert(数量少 + evidence_refs 是 per-row jsonb),同 AttachRoleWaypoint。
+func (q *Queries) AttachCodeWaypoint(ctx context.Context, arg AttachCodeWaypointParams) error {
+	_, err := q.db.Exec(ctx, attachCodeWaypoint,
+		arg.CodeID,
+		arg.WaypointID,
+		arg.Description,
+		arg.Weight,
+		arg.EvidenceRefs,
+		arg.IsTerminal,
+	)
+	return err
+}
+
+const clearCodeWaypoints = `-- name: ClearCodeWaypoints :exec
+DELETE FROM code_waypoints WHERE code_id = $1
+`
+
+func (q *Queries) ClearCodeWaypoints(ctx context.Context, codeID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, clearCodeWaypoints, codeID)
+	return err
+}
+
 const countBookingsByCode = `-- name: CountBookingsByCode :one
 SELECT COUNT(*)::int FROM code_bookings WHERE code_id = $1
 `
@@ -346,6 +383,46 @@ func (q *Queries) ListCodeMembers(ctx context.Context, codeID pgtype.UUID) ([]Co
 			&i.Email,
 			&i.IsAnonymous,
 			&i.LastSeenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCodeWaypoints = `-- name: ListCodeWaypoints :many
+SELECT waypoint_id, description, weight, evidence_refs, is_terminal
+FROM code_waypoints WHERE code_id = $1 ORDER BY weight DESC, waypoint_id ASC
+`
+
+type ListCodeWaypointsRow struct {
+	WaypointID   string
+	Description  string
+	Weight       int32
+	EvidenceRefs []byte
+	IsTerminal   bool
+}
+
+// 这张 code 的 waypoint **覆盖层**(不含继承来的 role 的);合并在 domain.MergeWaypoints。
+func (q *Queries) ListCodeWaypoints(ctx context.Context, codeID pgtype.UUID) ([]ListCodeWaypointsRow, error) {
+	rows, err := q.db.Query(ctx, listCodeWaypoints, codeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCodeWaypointsRow
+	for rows.Next() {
+		var i ListCodeWaypointsRow
+		if err := rows.Scan(
+			&i.WaypointID,
+			&i.Description,
+			&i.Weight,
+			&i.EvidenceRefs,
+			&i.IsTerminal,
 		); err != nil {
 			return nil, err
 		}

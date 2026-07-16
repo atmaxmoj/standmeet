@@ -76,28 +76,23 @@ func attachWaypoint(
 	return nil
 }
 
-// hydrateRoleWaypoints —— 读 role_waypoints，evidence_refs jsonb → []string。
+// hydrateRoleWaypoints —— 读 role_waypoints → domain（行映射共用 waypointsFromRows）。
 func hydrateRoleWaypoints(
 	ctx context.Context, q *dbq.Queries, roleID pgtype.UUID,
 ) ([]domain.Waypoint, error) {
 	rows, err := q.ListRoleWaypoints(ctx, roleID)
 	if err != nil {
-		return nil, fmt.Errorf("list role waypoints: %w", err)
+		return []domain.Waypoint{}, fmt.Errorf("list role waypoints: %w", err)
 	}
-	out := make([]domain.Waypoint, 0, len(rows))
+	shaped := make([]waypointRow, len(rows))
 	for i := range rows {
-		var refs []string
-		if len(rows[i].EvidenceRefs) > 0 {
-			if uerr := json.Unmarshal(rows[i].EvidenceRefs, &refs); uerr != nil {
-				return nil, fmt.Errorf("unmarshal evidence_refs: %w", uerr)
-			}
-		}
-		out = append(out, domain.Waypoint{
+		shaped[i] = waypointRow{
 			WaypointID: rows[i].WaypointID, Description: rows[i].Description,
-			Weight: int(rows[i].Weight), EvidenceRefs: refs, IsTerminal: rows[i].IsTerminal,
-		})
+			EvidenceRefs: rows[i].EvidenceRefs, Weight: rows[i].Weight,
+			IsTerminal: rows[i].IsTerminal,
+		}
 	}
-	return out, nil
+	return waypointsFromRows(shaped)
 }
 
 // SetSkills —— clear + bulk insert role_skills。caller 已校验 skill_ids 属于

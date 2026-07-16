@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/capreg"
 	"github.com/atmaxmoj/standmeet/internal/cryptobox"
@@ -203,7 +204,7 @@ func (b *extMCPBundle) addTool(
 		extToolDescription(cfg.Name, t),
 		"calling external mcp",
 		t.InputSchema,
-		makeExtMCPRun(session, t.Name, nil),
+		makeExtMCPRun(session, t.Name, nil, 0), // third-party ext tools: default budget
 	)
 	bt.ReadOnly = t.ReadOnly // server 声明 readOnlyHint 的工具可走 QUERY
 	b.tools = append(b.tools, bt)
@@ -222,12 +223,15 @@ func extToolDescription(server string, t *mcpclient.Tool) string {
 }
 
 // makeExtMCPRun —— CallTool 失败时不让 agent loop 整 abort —— 把 err
-// 包成 errJSON 进 tool_result，AI 看到"外部工具失败"自己换路。
+// 包成 errJSON 进 tool_result，AI 看到"外部工具失败"自己换路。budget 是本 tool 的调用预算
+// （<=0 走默认 15s；LLM-backed 的 summarize 传 LongCallTimeout，见 F-A-6）。
 func makeExtMCPRun(
 	session *mcpclient.Session, realToolName string, sctx *mcpclient.SessionContext,
+	budget time.Duration,
 ) capreg.RunFn {
 	return func(ctx context.Context, args string) (string, error) {
-		return extCallToToolResult(session.CallTool(ctx, realToolName, []byte(args), sctx))
+		return extCallToToolResult(
+			session.CallToolWithin(ctx, realToolName, []byte(args), sctx, budget))
 	}
 }
 

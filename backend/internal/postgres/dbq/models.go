@@ -148,6 +148,15 @@ type CodeSkillDenial struct {
 	SkillID pgtype.UUID
 }
 
+type CodeWaypoint struct {
+	CodeID       pgtype.UUID
+	WaypointID   string
+	Description  string
+	Weight       int32
+	EvidenceRefs []byte
+	IsTerminal   bool
+}
+
 type Conversation struct {
 	ID          pgtype.UUID
 	OwnerID     pgtype.UUID

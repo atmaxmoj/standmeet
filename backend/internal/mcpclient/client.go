@@ -30,8 +30,14 @@ import (
 // 吃这个超时，所以放宽只惩罚「慢但活着」的罕见情形。
 const dialTimeout = 20 * time.Second
 
-// callTimeout —— 单次 CallTool 上限；外部 server 卡死不能拖垮 visitor chat。
+// callTimeout —— 单次 CallTool 默认上限；外部 server 卡死不能拖垮 visitor chat。够快连接器调用用。
 const callTimeout = 15 * time.Second
+
+// LongCallTimeout —— budget for a tool that itself performs a full LLM round-trip (summarize's
+// report generation): the generic 15s callTimeout is sized for quick connector calls and times
+// such a tool out MID-GENERATION — the host finishes and persists the report, but the agent already
+// gave up, so the inline card renders blank (F-A-6). A tool opts in via `_meta.long_running`.
+const LongCallTimeout = 120 * time.Second
 
 // Tool —— 翻译过的 tool spec：跨包暴露用本地类型，不漏 mcp-go API。
 // Meta 是 tool 的 `_meta` 透传（mcp-go 的 AdditionalFields）：mcpclient 不解释
@@ -44,6 +50,18 @@ type Tool struct {
 	// ReadOnly —— MCP `annotations.readOnlyHint`：工具是安全/幂等的读（不改状态）。
 	// 供 dispatch 判定能否走 HTTP QUERY（只读工具才可 QUERY，见 routes/public/tools.go）。
 	ReadOnly bool
+}
+
+// WithMetaFlag —— declare one boolean `_meta` flag (`long_running`, `return_directly`, …) and
+// return the tool. The `_meta` bag is untyped by the MCP spec, so it is built HERE — the boundary
+// layer that owns that shape and is the one place `any` is legitimate. Business packages set flags
+// through this typed door instead of hand-rolling a `map[string]any`.
+func (t *Tool) WithMetaFlag(key string, val bool) *Tool {
+	if t.Meta == nil {
+		t.Meta = map[string]any{}
+	}
+	t.Meta[key] = val
+	return t
 }
 
 // Session —— 一次外部 server 连接 + initialized handshake 完成后的状态。
@@ -185,12 +203,25 @@ func (s *SessionContext) meta() map[string]any {
 	}}
 }
 
-// CallTool —— 调一个 tool。sctx 非 nil 时把可信 session 上下文挂到请求的 `_meta`，
-// 内建沙箱 server 经 req.GetMeta() 读。
+// CallTool —— 调一个 tool（默认 15s 预算）。sctx 非 nil 时把可信 session 上下文挂到请求的
+// `_meta`，内建沙箱 server 经 req.GetMeta() 读。
 func (s *Session) CallTool(
 	ctx context.Context, name string, args json.RawMessage, sctx *SessionContext,
 ) (string, error) {
-	cctx, cancel := context.WithTimeout(ctx, callTimeout)
+	return s.CallToolWithin(ctx, name, args, sctx, 0)
+}
+
+// CallToolWithin —— CallTool with a caller-chosen budget. budget<=0 uses the default callTimeout;
+// LLM-backed tools (summarize) pass LongCallTimeout so a legitimately slow generation isn't cut off
+// mid-flight (F-A-6).
+func (s *Session) CallToolWithin(
+	ctx context.Context, name string, args json.RawMessage, sctx *SessionContext,
+	budget time.Duration,
+) (string, error) {
+	if budget <= 0 {
+		budget = callTimeout
+	}
+	cctx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 	req, perr := buildCallToolRequest(name, args, sctx.meta())
 	if perr != nil {

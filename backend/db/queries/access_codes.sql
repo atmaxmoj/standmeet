@@ -78,3 +78,17 @@ SELECT COUNT(*)::int FROM messages WHERE conversation_id = $1 AND role = 'visito
 
 -- name: CountBookingsByCode :one
 SELECT COUNT(*)::int FROM code_bookings WHERE code_id = $1;
+
+-- name: ClearCodeWaypoints :exec
+DELETE FROM code_waypoints WHERE code_id = $1;
+
+-- name: AttachCodeWaypoint :exec
+-- 逐条 insert(数量少 + evidence_refs 是 per-row jsonb),同 AttachRoleWaypoint。
+INSERT INTO code_waypoints (code_id, waypoint_id, description, weight, evidence_refs, is_terminal)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (code_id, waypoint_id) DO NOTHING;
+
+-- name: ListCodeWaypoints :many
+-- 这张 code 的 waypoint **覆盖层**(不含继承来的 role 的);合并在 domain.MergeWaypoints。
+SELECT waypoint_id, description, weight, evidence_refs, is_terminal
+FROM code_waypoints WHERE code_id = $1 ORDER BY weight DESC, waypoint_id ASC;
