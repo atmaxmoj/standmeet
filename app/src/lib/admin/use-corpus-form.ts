@@ -18,10 +18,12 @@ export interface CorpusFormHook {
   body: string;
   tagsRaw: string;
   parentID: string;
+  citable: boolean;
   setTitle: (v: string) => void;
   setBody: (v: string) => void;
   setTagsRaw: (v: string) => void;
   setParentID: (v: string) => void;
+  setCitable: (b: boolean) => void;
   // 派生：当前不能 submit 的原因 ('' = 可以)
   submitDisabledReason: (busy: boolean, bodyVisible: boolean) => boolean;
   toEntryInput: (bodyVisible: boolean) => CorpusEntryInput;
@@ -34,6 +36,7 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
   const [body, setBody] = useState(seed.body);
   const [tagsRaw, setTagsRaw] = useState(seed.tagsRaw);
   const [parentID, setParentID] = useState(seed.parentID);
+  const [citable, setCitable] = useState(seed.citable);
   const key = JSON.stringify(initial ?? {});
   useEffect(() => {
     const next = seedFromInitial(initial);
@@ -41,11 +44,12 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
     setBody(next.body);
     setTagsRaw(next.tagsRaw);
     setParentID(next.parentID);
+    setCitable(next.citable);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   return {
-    title, body, tagsRaw, parentID,
-    setTitle, setBody, setTagsRaw, setParentID,
+    title, body, tagsRaw, parentID, citable,
+    setTitle, setBody, setTagsRaw, setParentID, setCitable,
     submitDisabledReason: useCallback(
       (busy: boolean, bodyVisible: boolean) =>
         submitDisabled(busy, bodyVisible, title, body),
@@ -57,8 +61,12 @@ export function useCorpusForm(initial?: Partial<CorpusEntryInput>): CorpusFormHo
         body: bodyVisible ? body : '',
         tags: parseTags(tagsRaw),
         parent_id: parentID === '' ? undefined : parentID,
+        // citable —— MUST be sent: the Go request struct decodes a missing `show_as_source` as
+        // FALSE, so omitting it silently turned citation OFF on every edit (the note stayed
+        // readable but stopped being attributable). Carry it explicitly.
+        show_as_source: citable,
       }),
-      [title, body, tagsRaw, parentID],
+      [title, body, tagsRaw, parentID, citable],
     ),
     toPromoteInput: useCallback(
       () => ({ title: title.trim(), tags: parseTags(tagsRaw) }),
@@ -72,6 +80,7 @@ interface Seed {
   body: string;
   tagsRaw: string;
   parentID: string;
+  citable: boolean;
 }
 
 function seedFromInitial(initial?: Partial<CorpusEntryInput>): Seed {
@@ -80,6 +89,8 @@ function seedFromInitial(initial?: Partial<CorpusEntryInput>): Seed {
     body: initial?.body ?? '',
     tagsRaw: (initial?.tags ?? []).join(', '),
     parentID: initial?.parent_id ?? '',
+    // 缺省 true = 跟 DB 的 `show_as_source NOT NULL DEFAULT true` 一致：新条目默认可引用。
+    citable: initial?.show_as_source ?? true,
   };
 }
 

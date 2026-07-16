@@ -34,6 +34,9 @@ export function WikiEditForm({
               title: detail.title,
               body: detail.body,
               tags: detail.tags,
+              // seed the real value: the form now SENDS show_as_source, so seeding it wrong would
+              // flip the note's citation on save (the Go request decodes a missing field as false).
+              show_as_source: detail.show_as_source,
             }}
             busy={actions.pending}
             submitLabel="save"

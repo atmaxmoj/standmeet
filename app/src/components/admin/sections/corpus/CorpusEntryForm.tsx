@@ -43,6 +43,7 @@ export function CorpusEntryForm(props: CorpusEntryFormProps) {
       <TitleField form={form} testid={props.testidPrefix} />
       {bodyVisible ? <BodyField form={form} testid={props.testidPrefix} /> : null}
       <TagsField form={form} testid={props.testidPrefix} />
+      <CitableField form={form} testid={props.testidPrefix} />
       {props.parentOptions
         ? <ParentField form={form} testid={props.testidPrefix} options={props.parentOptions} />
         : null}
@@ -189,6 +190,34 @@ function FormActions(props: ActionsProps) {
       >
         {props.busy ? 'saving…' : props.submitLabel}
       </button>
+    </div>
+  );
+}
+
+// CITABLE_HELP —— 这两件事**不是一回事**，UI 必须讲明白，否则 owner 只会看到一个没有语境的勾。
+//   读到（能不能进 AI 的上下文）—— 由 role/code 的 corpus URI 决定（/admin/roles）。
+//   引用（答案下面列不列出处）—— 就是这个勾。
+// 关掉它 ≠ 藏起来：AI 照样读得到、照样会用它来回答，只是**不署名**。真要不让 AI 读，去 role/code
+// 上把它的 URI 收回。
+const CITABLE_HELP =
+  '关掉后 AI 仍然读得到这条、也仍然会用它来组织回答 —— 只是答案末尾的「引用」里不列它。'
+  + '这是「署名」开关，不是「保密」开关：要让 AI 根本读不到，得去 /admin/roles 或那张码上'
+  + '把它的 corpus URI 收回。';
+
+// CitableField —— show_as_source（AI 读了之后，答案里列不列出处）。
+function CitableField({ form, testid }: { form: CorpusFormHook; testid: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="flex items-baseline gap-2 mono text-[10.5px] tracking-[0.06em]">
+        <input
+          type="checkbox"
+          checked={form.citable}
+          onChange={(e) => form.setCitable(e.target.checked)}
+          data-testid={`${testid}-citable`}
+        />
+        <span>citable —— 出现在答案的引用里</span>
+      </label>
+      <p className="reading-tight text-[11px] text-(--color-muted) pl-5">{CITABLE_HELP}</p>
     </div>
   );
 }
