@@ -35,8 +35,9 @@ type SyncMode struct{ Authoritative bool }
 //   - any reconcile error → never prune. An error means the keep-set is incomplete, and pruning
 //     against an incomplete keep-set deletes notes that are still in the vault.
 //
-// web-wins is enforced one layer down, in the query: a note the owner edited on the web after
-// import is no longer purely vault-owned, so its absence must not destroy that edit.
+// There is deliberately NO web-edit exemption. The vault is the single live source, so sync means
+// the destination equals the source — a web edit does not pin a note against its own vault. To keep
+// web work, export it back to the vault first, then sync (F-L-6).
 func pruneAbsent(
 	ctx context.Context, deps *SyncDeps, st *syncState, mode SyncMode, result *ImportResult,
 ) {

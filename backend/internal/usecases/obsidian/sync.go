@@ -1,8 +1,15 @@
 // sync.go —— sync face 入口。vault 文件批 → corpus_notes 多-genre 节点树(raw 折进 genre='raw')。
 // 路由:顶层 folder → genre(wiki/subjectivity/raw;output 无 folder = promote-derived;未知/根裸
 // 文件跳过)。跳 hidden(dotdir/_templates)。reconcile:按 title 认领(跨 genre,支持 move);basename
-// 在本 vault 不唯一时改按 source_path 认(同名文件各占各行,F-L-2)→ upsert;web-wins(owner 在 web
-// 改过不覆盖);未变则 skip。链接整批解析。
+// 在本 vault 不唯一时改按 source_path 认(同名文件各占各行,F-L-2)→ upsert;未变则 skip。链接整批解析。
+//
+// **vault 是 single live source**(见 vault-ingestion 决策):sync 就是让 destination 等于 source,
+// 没有"谁 wins" —— web 上改过的不会把自己钉住对抗 vault,要留就先 export 回 vault 再同步(F-L-6)。
+//
+// 落库 ≠ 公开(F-L-8):路由进来的 .md 一律落库;frontmatter 的 `publish` 只喂 DB 的 `published`
+// (旧名 seo_indexed)=「匿名访客可见 / 进 sitemap」,published=false 是「要 code 才能看」,不是
+// 「不存在」。两者曾被同一个 flag 绑死,代价是 owner 想喂给 agent ground 就必须同时公开给全网。
+//
 // 删:取决于 SyncMode —— authoritative(整个 vault)会 prune 掉不在这批里的 vault-imported note
 // (sync 就是让 corpus 等于 vault,F-L-6);partial(子集上传)绝不删。见 sync_prune.go。
 
@@ -106,15 +113,13 @@ type syncState struct {
 	ownerID   string
 }
 
-// collidingTitles —— titles shared by more than one materializing node in this vault. Reconcile
-// claims BY TITLE (assuming basenames are unique); a shared title is ambiguous (can't tell a
-// genre-move from two distinct notes) so it must be rejected, not silently collapsed onto one row.
+// collidingTitles —— titles shared by more than one node in this vault. Reconcile claims BY TITLE
+// (assuming basenames are unique); a shared title is ambiguous (can't tell a genre-move from two
+// distinct notes) so those claim by source_path instead (see claimExisting).
 func collidingTitles(tree []*desiredNode) map[string]bool {
 	seen := map[string]int{}
 	for _, n := range tree {
-		if shouldMaterialize(n) {
-			seen[strings.ToLower(n.title)]++
-		}
+		seen[strings.ToLower(n.title)]++
 	}
 	dup := map[string]bool{}
 	for title, count := range seen {
@@ -145,15 +150,6 @@ func contentOf(n *desiredNode) nodeContent {
 	}
 }
 
-// shouldMaterialize —— 结构节点(有子)总落库;leaf 仅 publish:true 落 —— publish:false 无子 → 跳。
-// raw + subjectivity 例外:两者都是 owner 私有的**grounding 素材**(subjectivity 是 raw-form leaf,
-// 只是内容是 standpoint;"grounded but not cited by default"),永不 publish-gated,故总落库 —— 否则
-// 私有的主观性笔记永远进不来、agent 无从 ground(F-L-3)。
-func shouldMaterialize(n *desiredNode) bool {
-	return n.hasChildren || n.genre == genreRaw || n.genre == genreSubjectivity ||
-		(n.file != nil && n.file.fm.Publish)
-}
-
 // inboxSourceFor —— genre='raw' 的节点带 vault 来源标签 "obsidian:<srcPath>";其它 genre 空。
 // 落进 corpus_notes.inbox_source(vault raw 幂等 upsert 的 conflict key)。
 func inboxSourceFor(genre string, c *nodeContent) string {
@@ -171,18 +167,6 @@ type nodeOp struct {
 	result *ImportResult
 	c      *nodeContent
 	parent *string
-}
-
-// reconcileSkip —— pre-reconcile guard: a non-materializing node is skipped. (Duplicate basenames
-// are no longer rejected — Obsidian allows the same basename in different folders; the reconcile
-// claims those by source_path instead of title, see claimExisting.) Returns true when it handled
-// the node (caller returns without reconciling).
-func reconcileSkip(node *desiredNode, result *ImportResult) bool {
-	if !shouldMaterialize(node) {
-		result.Skipped++
-		return true
-	}
-	return false
 }
 
 // claimExisting —— reconcile 认领同一条 note 的入口。默认按 title 认(跨 genre,支持 move)。
@@ -213,9 +197,6 @@ func wrapClaim(err error) error {
 func reconcileNode(
 	ctx context.Context, deps *SyncDeps, node *desiredNode, st *syncState, result *ImportResult,
 ) {
-	if reconcileSkip(node, result) {
-		return
-	}
 	existing, err := claimExisting(ctx, deps, node, st)
 	c := contentOf(node)
 	op := &nodeOp{
@@ -248,7 +229,7 @@ func createNode(ctx context.Context, op *nodeOp) {
 
 func updateNode(ctx context.Context, op *nodeOp, existing *postgres.SyncNote) {
 	record(op.st, op.node, existing.ID) // always index for link resolution + child parenting
-	if webEdited(existing) || unchangedNode(existing, op.node, op.parent, op.c) {
+	if unchangedNode(existing, op.node, op.parent, op.c) {
 		op.result.Skipped++
 		return
 	}
@@ -277,12 +258,6 @@ func parentIDOf(st *syncState, n *desiredNode) *string {
 func record(st *syncState, node *desiredNode, id string) {
 	st.idOf[nodeKey(node.genre, node.path)] = id
 	st.titleToID[node.title] = id
-}
-
-// webEdited —— 上次 sync 后 owner 在 web 又改过 → 不覆盖。create/update 同一条语句里把 updated_at 与
-// imported_at 都设成同一个 now(),故二者相等;web 端 PATCH 之后 updated_at 才严格晚于 imported_at。
-func webEdited(sn *postgres.SyncNote) bool {
-	return sn.HasImported && sn.UpdatedAt.After(sn.ImportedAt)
 }
 
 func unchangedNode(sn *postgres.SyncNote, n *desiredNode, parent *string, c *nodeContent) bool {

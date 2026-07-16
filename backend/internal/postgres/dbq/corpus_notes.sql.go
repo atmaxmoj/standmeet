@@ -909,7 +909,6 @@ const pruneAbsentVaultNotes = `-- name: PruneAbsentVaultNotes :execrows
 DELETE FROM corpus_notes
 WHERE owner_id = $1
   AND obsidian_imported_at IS NOT NULL
-  AND updated_at <= obsidian_imported_at
   AND NOT (id = ANY($2::uuid[]))
 `
 
@@ -920,11 +919,12 @@ type PruneAbsentVaultNotesParams struct {
 
 // F-L-6: an AUTHORITATIVE (whole-vault) sync makes the corpus EQUAL the vault — a note deleted from
 // the vault must disappear from the corpus, or "sync" only ever grows and re-syncing can never clean
-// a ghost. Scope is deliberately narrow, so this can only ever remove what the vault owns:
-//   - obsidian_imported_at IS NOT NULL —— only vault-imported rows. Web/MCP-authored notes were never
-//     vault-managed, so their absence from the upload means nothing.
-//   - updated_at <= obsidian_imported_at —— web-wins. The owner editing a note on the web after import
-//     protects it from being overwritten; it must protect it from deletion too.
+// a ghost. The vault is the SINGLE LIVE SOURCE (see the vault-ingestion decision), so there is no
+// "who wins": sync means the destination equals the source. A web edit does NOT pin a note against
+// its own vault — to keep web work, export it back to the vault first, then sync.
+//   - obsidian_imported_at IS NOT NULL —— only vault-imported rows. Notes authored on the web or
+//     pushed via the service handle were never vault-managed, so their absence from the upload
+//     carries no instruction; the vault is not their source.
 //   - id <> ALL(keep) —— everything reconciled this run survives.
 //
 // note_refs (src_id/dst_id) and child rows cascade via FK, so a pruned subtree cleans up after itself.

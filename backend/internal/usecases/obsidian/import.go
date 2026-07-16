@@ -10,8 +10,8 @@
 //         pending-<uuid> 当 SaveWriting 的 PendingID
 //      c. 改写 body 里 image ref 成 standmeet-asset:pending-<uuid>
 //      d. 看 owner 的 writings 里有没有同 obsidian_source_path / 同 slug 的：
-//         - 存在 + updated_at > obsidian_imported_at → skip（owner 在 web 改过了）
-//         - 否则 SaveWriting（在已有 path 上 WritingID 走 update，没有走 create）
+//         认到就 update，认不到就 create（vault 是 single live source：没有 web-wins，
+//         web 上改过的要留就先 export 回 vault 再同步）
 //      e. SetObsidianMeta(source_path) 标记 imported_at
 //   3. 返 ImportResult 给 caller 让 UI 显示统计
 
@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/usecases"
@@ -183,9 +182,6 @@ func upsertFromVault(ctx context.Context, a *upsertArgs) (upsertOutcome, error) 
 	if !found {
 		outcome = outcomeCreated
 	}
-	if found && wasWebEdited(&existing) {
-		return outcomeSkipped, nil
-	}
 	if err := runSaveAndMark(ctx, a, &existing); err != nil {
 		return outcomeSkipped, err
 	}
@@ -237,18 +233,6 @@ func lookupWritingBySlug(
 		return domain.Writing{}, false
 	}
 	return w, true
-}
-
-// wasWebEdited —— 上次 import 之后 owner 在 web 上又改过 → skip 避免覆盖。
-// updated_at 比 imported_at 晚 (有 buffer) 就算 web 改过。
-func wasWebEdited(w *domain.Writing) bool {
-	ob, ok := w.Obsidian()
-	if !ok {
-		return false
-	}
-	// 1 秒 buffer 避免 SaveWriting + SetObsidianMeta 之间的 race（理论上 set
-	// 之后 updated_at 又被 set 推后了，会误判 web edited）。
-	return w.UpdatedAt().After(ob.ImportedAt().Add(time.Second))
 }
 
 func buildSaveInputFromVault(

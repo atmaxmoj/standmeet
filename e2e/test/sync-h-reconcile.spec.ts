@@ -1,6 +1,7 @@
 // sync-h-reconcile.spec.ts —— H. 幂等 + reconcile(目标态红,同步状态机)。
-// 决策默认:改名=孤儿(③)· 跨-genre 移动=就地改 genre(④)· 部分上传绝不删(⑤ upsert-only)。
-// 关键容错:partial-never-delete · web-wins · 整批解析(forward-ref)· 导两次同态。
+// 决策默认:改名=孤儿(③)· 跨-genre 移动=就地改 genre(④)· 部分上传绝不删(⑤;整vault同步会 prune,
+// 见 sync-authoritative-prune)。
+// 关键容错:partial-never-delete · vault-is-the-source · 整批解析(forward-ref)· 导两次同态。
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -33,7 +34,7 @@ test.describe('sync H · idempotency + reconcile', () => {
   test('move: cross-genre move (wiki→subjectivity) → genre updated in place', crossGenreMove);
   test('rename: renaming a file (new slug) → new note (orphan default), no crash', renameOrphans);
   // ── H4 conflict (web ↔ vault) ──
-  test('conflict: a web-edited note is NOT clobbered on re-import (web-wins)', webWins);
+  test('conflict: the vault is the source — a re-sync replaces a web edit', vaultIsTheSource);
   // ── H5 deletion / partial (CRITICAL) ──
   test('partial: a partial upload NEVER deletes notes it did not include', partialNeverDeletes);
   test('partial: re-uploading a subset leaves the rest intact', subsetKeepsRest);
@@ -129,15 +130,19 @@ async function renameOrphans({ playwright }: Ctx): Promise<void> {
   await request.dispose();
 }
 
-async function webWins({ playwright }: Ctx): Promise<void> {
+// vaultIsTheSource —— the vault is the SINGLE LIVE SOURCE, so a re-sync makes the corpus equal it:
+// a web edit does NOT pin a note against its own vault. (This replaces the old "web-wins" rule,
+// which contradicted the vault-ingestion decision — sync means sync, there is no "who wins". To keep
+// web work, export it back to the vault first, then sync.)
+async function vaultIsTheSource({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, [{ rel: 'wiki/shared.md', body: md('vault original') }]);
-  await adminUpdateWiki(request, await wikiId(request, 'shared'), 'shared', 'WEB EDIT wins');
-  // re-import the (older) vault version → must NOT clobber the newer web edit.
-  const second = await uploadVault(request, OWNER, [{ rel: 'wiki/shared.md', body: md('vault original') }]);
-  expect(second.skipped, 'web-edited note skipped on re-import').toBeGreaterThan(0);
-  expect((await syncRead(request, await sess(request), 'shared')).body ?? '', 'web edit preserved')
-    .toContain('WEB EDIT');
+  await adminUpdateWiki(request, await wikiId(request, 'shared'), 'shared', 'WEB EDIT');
+  // re-import the vault version → the vault is the source, so it wins over the web edit.
+  await uploadVault(request, OWNER, [{ rel: 'wiki/shared.md', body: md('vault original') }]);
+  const body = (await syncRead(request, await sess(request), 'shared')).body ?? '';
+  expect(body, 'the vault version replaces the web edit — the vault is the source').toContain('vault original');
+  expect(body, 'the web edit does not survive its own vault re-sync').not.toContain('WEB EDIT');
   await request.dispose();
 }
 

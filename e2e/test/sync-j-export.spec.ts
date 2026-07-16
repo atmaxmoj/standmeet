@@ -34,7 +34,79 @@ test.describe('sync J · export / bidirectional', () => {
   test('corner: a web edit is reflected in the export', exportReflectsWebEdit);
   // ── error / roundtrip ──
   test('roundtrip: import → export → re-import → identical state (no drift)', roundtripStable);
+  test('roundtrip: a vault buried in hidden files exports back to EXACTLY its content',
+    roundtripHiddenFidelity);
 });
+
+// HIDDEN_NOISE —— what a real vault actually drags along. A real Obsidian vault is normally a git
+// repo (.git), often has local trash, editor and tool dirs. None of it is content: none may become
+// a note, and none may come back out of the export.
+const HIDDEN_NOISE = [
+  { rel: '.git/objects/ab/deadbeef', body: 'binary-ish git object' },
+  { rel: '.git/HEAD', body: 'ref: refs/heads/main' },
+  { rel: '.git/config', body: '[core]\n\trepositoryformatversion = 0' },
+  { rel: '.trash/deleted-note.md', body: 'a note the owner DELETED — must never resurrect' },
+  { rel: '.claude/settings.json', body: '{}' },
+  { rel: '.scripts/build.sh', body: '#!/bin/sh' },
+  { rel: '.gitignore', body: '.obsidian/workspace.json' },
+  { rel: '_templates/daily.md', body: 'template, not content' },
+  { rel: 'wiki/.hidden-in-genre.md', body: 'a dotfile inside a genre folder' },
+];
+
+// CONTENT —— the actual vault: a tree, a link, a private tier, an inbox note.
+const CONTENT = [
+  { rel: 'wiki/cybernetics/cybernetics.md', body: md('the node index') },
+  { rel: 'wiki/cybernetics/ashby.md', body: md('requisite variety, see [[kepler]]') },
+  { rel: 'wiki/kepler.md', body: md('orbits are ellipses') },
+  { rel: 'subjectivity/standpoint.md', body: md('a take I hold') },
+  { rel: 'raw/scratch.md', body: md('half-formed') },
+];
+
+// roundtripHiddenFidelity —— the fidelity question the count-only roundtrip never asked: bury the
+// vault in hidden noise, import it, export it, and compare the exported vault to the ORIGINAL
+// content file-by-file. Two ways this can fail, both silent:
+//   * LEAK — a hidden file became a note and comes back out (`.trash/` resurrecting a deleted note
+//     is the nastiest: the owner deleted it on purpose).
+//   * LOSS — a real note does not survive the round, or its body is mangled.
+// Byte-equality is the wrong bar (frontmatter is reconstructed, key order is not preserved), so this
+// asserts the set of content paths AND that every original body text survives intact.
+async function roundtripHiddenFidelity({ playwright }: Ctx): Promise<void> {
+  const request = await playwright.request.newContext();
+  await uploadVault(request, OWNER, [...HIDDEN_NOISE, ...CONTENT], { authoritative: true });
+
+  const zip = await exportEntries(request);
+  const exported = Object.keys(zip).filter((k) => k.endsWith('.md')).map(stripVaultPrefix).sort();
+
+  // 1. NOTHING LEAKED — no hidden path, and above all no resurrected trash.
+  const leaked = Object.keys(zip).filter((k) => /(^|\/)\.|_templates\//.test(stripVaultPrefix(k)));
+  expect(leaked, 'no hidden file may survive as corpus content').toEqual([]);
+  expect(Object.keys(zip).some((k) => k.includes('deleted-note')),
+    '.trash/ must never resurrect a note the owner deleted').toBe(false);
+
+  // 2. NOTHING LOST — every content note comes back at its own path.
+  expect(exported, 'the exported vault is exactly the original content').toEqual(
+    CONTENT.map((f) => f.rel).sort(),
+  );
+
+  // 3. NOTHING MANGLED — each body survives the round, links included.
+  for (const f of CONTENT) {
+    const got = Object.entries(zip).find(([k]) => stripVaultPrefix(k) === f.rel)?.[1] ?? '';
+    const originalProse = bodyTextOf(f.body);
+    expect(got, `${f.rel} keeps its body through the round`).toContain(originalProse);
+  }
+  await request.dispose();
+}
+
+// stripVaultPrefix —— export nests under a vault folder; compare on the genre-relative path.
+function stripVaultPrefix(k: string): string {
+  return k.replace(/^.*?(wiki\/|subjectivity\/|raw\/|writings\/)/, '$1');
+}
+
+// bodyTextOf —— the prose of a makeVaultMD fixture (drop the frontmatter block, which export
+// legitimately reconstructs rather than echoes).
+function bodyTextOf(md: string): string {
+  return md.replace(/^---[\s\S]*?---\n/, '').trim();
+}
 
 function unzip(buf: Buffer): Record<string, string> {
   const files = fflate.unzipSync(new Uint8Array(buf));

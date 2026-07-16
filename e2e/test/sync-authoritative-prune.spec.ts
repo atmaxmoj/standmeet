@@ -46,7 +46,7 @@ test.describe('sync · authoritative prune (F-L-6: sync means sync)', () => {
   test('a note deleted from the vault is REMOVED on an authoritative re-sync', deletedNoteIsPruned);
   test('a whole deleted folder is removed, subtree and all', deletedFolderIsPruned);
   test('an unchanged authoritative re-sync deletes NOTHING', idempotentSyncDeletesNothing);
-  test('a web-edited note absent from the vault is NOT pruned (web-wins)', webEditedSurvivesPrune);
+  test('a web-edited note deleted from the vault is STILL pruned (no web-wins)', webEditIsNotAPin);
   test('a PARTIAL upload still never deletes (the mirror guard)', partialStillNeverDeletes);
 });
 
@@ -99,10 +99,10 @@ async function idempotentSyncDeletesNothing({ playwright }: Ctx): Promise<void> 
   await request.dispose();
 }
 
-// webEditedSurvivesPrune —— web-wins already protects an owner's web edit from being OVERWRITTEN;
-// it must equally protect it from being DELETED. A note the owner edited on the web is no longer
-// purely vault-owned, so its absence from the vault must not destroy that work.
-async function webEditedSurvivesPrune({ playwright }: Ctx): Promise<void> {
+// webEditIsNotAPin —— editing a note on the web does NOT pin it against its own vault. The vault is
+// the single live source, so if the owner then deletes that note from the vault and syncs, it goes.
+// There is no "who wins": to keep web work, export it back to the vault first, then sync.
+async function webEditIsNotAPin({ playwright }: Ctx): Promise<void> {
   const request = await playwright.request.newContext();
   await uploadVault(request, OWNER, FULL_VAULT, { authoritative: true });
   const rows = await adminGenreList(request, OWNER, 'wiki');
@@ -119,12 +119,13 @@ async function webEditedSurvivesPrune({ playwright }: Ctx): Promise<void> {
   });
 
   const minusGone = FULL_VAULT.filter((f) => f.rel !== 'wiki/gone.md');
-  await uploadVault(request, OWNER, minusGone, { authoritative: true });
+  const res = await uploadVault(request, OWNER, minusGone, { authoritative: true });
 
   expect(
     await titles(request),
-    'a web-edited note must not be destroyed by its absence from the vault',
-  ).toContain('gone');
+    'a web edit does not survive deletion from its own vault — sync means sync',
+  ).not.toContain('gone');
+  expect(res.deleted, 'the web-edited note is reported as removed').toBe(1);
   await request.dispose();
 }
 

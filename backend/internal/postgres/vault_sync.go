@@ -1,7 +1,7 @@
 // vault_sync.go —— Obsidian vault sync 的跨-genre corpus_notes reconcile 仓储。
 // 不绑 genre：sync 要按 title(basename)跨 genre 认「同一条」，且移动可改 genre —— 所以独立于
 // genre-bound NoteRepo。只暴露 reconcile 三面：按 title 认领、create、update(relocate + 重写)。
-// web-wins 判定(updated_at > imported_at)在 usecase 层用 SyncNote 的时间字段做。
+// vault 是 single live source:reconcile 一律以 vault 为准,没有 web-wins(F-L-6)。
 
 package postgres
 
@@ -23,7 +23,7 @@ type VaultSyncRepo struct{ pool *Pool }
 // NewVaultSyncRepo 构造。
 func NewVaultSyncRepo(pool *Pool) *VaultSyncRepo { return &VaultSyncRepo{pool: pool} }
 
-// SyncNote —— reconcile 视图：认领(title) + web-wins(updated vs imported) + 定位(genre/parent)。
+// SyncNote —— reconcile 视图：认领(title) + 变更比对 + 定位(genre/parent)。
 type SyncNote struct {
 	ImportedAt  time.Time
 	UpdatedAt   time.Time
@@ -181,9 +181,9 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 // notes that are NOT in keepIDs (i.e. the ones deleted from the vault since the last sync), so the
 // corpus converges on the vault instead of only ever growing. Returns how many rows went.
 //
-// Only ever touches what the vault owns: vault-imported rows that the owner has not edited on the
-// web since import (web-wins protects an edited note from deletion, not just from overwrite). Refs
-// and child rows cascade. Callers MUST NOT call this for a partial/subset upload — see SyncVault.
+// Only ever touches what the vault owns: rows that came FROM a vault import. Notes authored on the
+// web or pushed via the service handle have no vault source, so their absence carries no
+// instruction. Refs and child rows cascade. Callers MUST NOT call this for a partial upload.
 func (r *VaultSyncRepo) PruneAbsentVaultNotes(
 	ctx context.Context, ownerID string, keepIDs []string,
 ) (int, error) {

@@ -83,6 +83,9 @@ export interface AdminNote {
   body?: string;
   path?: string | null;
   parent_id?: string | null;
+  // published —— the ANONYMOUS-visibility gate (was seo_indexed), NOT corpus membership:
+  // "匿名只 published,有 code 走 role corpus_uris glob" (wiki_tree.go). See sync-d-publish.
+  published?: boolean;
   outbound?: Array<{ title: string }>;
   backlinks?: Array<{ title: string }>;
 }
