@@ -91,10 +91,11 @@ func (l *pgCorpusLister) meiliSearch(
 	}
 	out := make([]CorpusMeta, 0, len(docs))
 	for i := range docs {
-		if !allowsNote(
-			grantedGlobs,
-			noteACL{genre: docs[i].Genre, path: docs[i].Path, ownerOnly: docs[i].OwnerOnly},
-		) {
+		acl := noteACL{
+			genre: docs[i].Genre, path: docs[i].Path,
+			ownerOnly: docs[i].OwnerOnly || l.ownerOnlyInDB(ctx, ownerID, docs[i].ID),
+		}
+		if !allowsNote(grantedGlobs, acl) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -103,6 +104,27 @@ func (l *pgCorpusLister) meiliSearch(
 		})
 	}
 	return out, true
+}
+
+// ownerOnlyInDB —— the DB is the AUTHORITY on the owner tier; the index is only a candidate source.
+//
+// The indexed copy of owner_only is written best-effort and asynchronously, so it can be stale, or
+// missing (a doc indexed before the field existed), or orphaned (a note deleted from PG whose Meili
+// doc lingers) — and every one of those reads as `false`, i.e. servable. Trusting it would make a
+// PII gate depend on index freshness, which is exactly the kind of silent fail-open this tier
+// exists to prevent. So a Meili hit is re-checked against the row; anything we cannot confirm as
+// safe is treated as owner-only (fail CLOSED — an orphaned doc has no row and is withheld).
+//
+// Cost is one keyed lookup per hit, bounded by the search page limit, and only on the Meili leg.
+func (l *pgCorpusLister) ownerOnlyInDB(ctx context.Context, ownerID, noteID string) bool {
+	if l.queryRepo == nil {
+		return false // no authority wired (eval/facade paths) — fall back to the indexed flag
+	}
+	note, err := l.queryRepo.GetSyncNote(ctx, ownerID, noteID)
+	if err != nil {
+		return true // unknown row (deleted? orphaned doc?) → withhold rather than serve
+	}
+	return note.OwnerOnly
 }
 
 // pgSearch —— Postgres 全文降级路径:4 个 genre 聚合,path 现算,glob ACL 逐条过。
