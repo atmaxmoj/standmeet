@@ -91,7 +91,7 @@ func toSyncFiles(files []obsidian.VaultFile) []connector.SyncFile {
 
 // Ingest —— connector.SyncIngester: build the vault SyncDeps, run the sync, rebuild the index.
 func (d *ObsidianDeps) Ingest(
-	ctx context.Context, ownerID string, files []connector.SyncFile,
+	ctx context.Context, ownerID string, files []connector.SyncFile, opts connector.SyncOpts,
 ) (connector.SyncResult, error) {
 	vfiles := make([]obsidian.VaultFile, len(files))
 	for i, f := range files {
@@ -102,11 +102,12 @@ func (d *ObsidianDeps) Ingest(
 		Refs:     refsSyncAdapter{deps: d.Corpus},
 		Writings: writingsSyncAdapter{tx: d.WritingsTx, setter: d.Writings},
 		CSS:      cssSyncAdapter{store: d.CSS},
-	}, ownerID, vfiles)
+	}, ownerID, vfiles, obsidian.SyncMode{Authoritative: opts.Authoritative})
 	// 批量 sync 后整批重建 Meili index(反映新增/改/删,漂移不留)。best-effort。
 	usecases.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
 	return connector.SyncResult{
-		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped, Errors: res.Errors,
+		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,
+		Deleted: res.Deleted, Errors: res.Errors,
 	}, nil
 }
 
@@ -141,6 +142,9 @@ type importResultView struct {
 	Created int      `json:"created"`
 	Updated int      `json:"updated"`
 	Skipped int      `json:"skipped"`
+	// Deleted —— notes pruned because they are gone from the vault (F-L-6). Surfaced so a sync that
+	// removes things says so out loud instead of deleting silently.
+	Deleted int `json:"deleted"`
 }
 
 func (h *Handlers) importObsidian() http.HandlerFunc {
@@ -152,13 +156,17 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		var ingester connector.SyncIngester = &h.Obsidian // fold through the sync-mode connector
-		res, err := ingester.Ingest(r.Context(), ownerID, toSyncFiles(files))
+		res, err := ingester.Ingest(
+			r.Context(), ownerID, toSyncFiles(files),
+			connector.SyncOpts{Authoritative: isAuthoritativeUpload(r)},
+		)
 		if err != nil {
 			writeError(h.Log, w, envBadReq(err.Error()))
 			return
 		}
 		result := obsidian.ImportResult{
-			Created: res.Created, Updated: res.Updated, Skipped: res.Skipped, Errors: res.Errors,
+			Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,
+			Deleted: res.Deleted, Errors: res.Errors,
 		}
 		writeImportJSON(h.Log, w, &result)
 	}
@@ -173,11 +181,20 @@ func writeImportJSON(log *slog.Logger, w http.ResponseWriter, r *obsidian.Import
 	}
 	view := importResultView{
 		Created: r.Created, Updated: r.Updated,
-		Skipped: r.Skipped, Errors: errs,
+		Skipped: r.Skipped, Deleted: r.Deleted, Errors: errs,
 	}
 	if err := json.NewEncoder(w).Encode(view); err != nil {
 		logEncodeErr(log, "encode import result", err)
 	}
+}
+
+// isAuthoritativeUpload —— the `authoritative` form field: "this upload IS the whole vault", so
+// notes absent from it were deleted from the vault and get pruned (F-L-6). The owner's
+// directory-picker import sets it. OPT-IN, defaulting to false: the safe reading of a subset is
+// "a partial feed", and guessing "authoritative" would delete the rest of the corpus.
+// Missing/garbage → false (see sync-h-reconcile's partial-never-delete guard).
+func isAuthoritativeUpload(r *http.Request) bool {
+	return r.FormValue("authoritative") == "true"
 }
 
 func parseImportMultipart(

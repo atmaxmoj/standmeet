@@ -2,7 +2,9 @@
 // 路由:顶层 folder → genre(wiki/subjectivity/raw;output 无 folder = promote-derived;未知/根裸
 // 文件跳过)。跳 hidden(dotdir/_templates)。reconcile:按 title 认领(跨 genre,支持 move);basename
 // 在本 vault 不唯一时改按 source_path 认(同名文件各占各行,F-L-2)→ upsert;web-wins(owner 在 web
-// 改过不覆盖);未变则 skip;**绝不删**没在这批里的。链接整批解析。
+// 改过不覆盖);未变则 skip。链接整批解析。
+// 删:取决于 SyncMode —— authoritative(整个 vault)会 prune 掉不在这批里的 vault-imported note
+// (sync 就是让 corpus 等于 vault,F-L-6);partial(子集上传)绝不删。见 sync_prune.go。
 
 package obsidian
 
@@ -38,6 +40,8 @@ type SyncNotesPort interface {
 	GetBySourcePath(ctx context.Context, ownerID, sourcePath string) (postgres.SyncNote, error)
 	Create(ctx context.Context, in *postgres.CreateSyncNoteInput) (string, error)
 	Update(ctx context.Context, in *postgres.UpdateSyncNoteInput) error
+	// PruneAbsentVaultNotes —— drop vault-imported notes not in keepIDs (F-L-6, authoritative).
+	PruneAbsentVaultNotes(ctx context.Context, ownerID string, keepIDs []string) (int, error)
 }
 
 // SyncRefsPort —— 一条 note 的 body 里 `[[links]]` → note_refs(整批后解析)。
@@ -58,9 +62,10 @@ type SyncDeps struct {
 	CSS      SyncCSSPort
 }
 
-// SyncVault —— sync face 主入口。
+// SyncVault —— sync face 主入口。mode says whether the upload is the whole vault (prune what's
+// absent) or a subset (never delete) — see SyncMode.
 func SyncVault(
-	ctx context.Context, deps *SyncDeps, ownerID string, files []VaultFile,
+	ctx context.Context, deps *SyncDeps, ownerID string, files []VaultFile, mode SyncMode,
 ) ImportResult {
 	result := ImportResult{Errors: []string{}}
 	b := classifyVault(files)
@@ -75,6 +80,7 @@ func SyncVault(
 		reconcileNode(ctx, deps, node, st, &result)
 	}
 	resolveLinks(ctx, deps, st, tree)
+	pruneAbsent(ctx, deps, st, mode, &result)
 	return result
 }
 

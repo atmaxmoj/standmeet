@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/postgres/dbq"
 )
@@ -174,6 +175,37 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 		return fmt.Errorf("update sync note: %w", qerr)
 	}
 	return nil
+}
+
+// PruneAbsentVaultNotes —— F-L-6: an AUTHORITATIVE (whole-vault) sync removes the vault-imported
+// notes that are NOT in keepIDs (i.e. the ones deleted from the vault since the last sync), so the
+// corpus converges on the vault instead of only ever growing. Returns how many rows went.
+//
+// Only ever touches what the vault owns: vault-imported rows that the owner has not edited on the
+// web since import (web-wins protects an edited note from deletion, not just from overwrite). Refs
+// and child rows cascade. Callers MUST NOT call this for a partial/subset upload — see SyncVault.
+func (r *VaultSyncRepo) PruneAbsentVaultNotes(
+	ctx context.Context, ownerID string, keepIDs []string,
+) (int, error) {
+	owner, err := parseUUID(ownerID)
+	if err != nil {
+		return 0, fmt.Errorf(errParseOwnerIDPrefix, err)
+	}
+	keep := make([]pgtype.UUID, 0, len(keepIDs))
+	for _, id := range keepIDs {
+		parsed, perr := parseUUID(id)
+		if perr != nil {
+			return 0, fmt.Errorf("parse keep id: %w", perr)
+		}
+		keep = append(keep, parsed)
+	}
+	n, qerr := dbq.New(r.pool).PruneAbsentVaultNotes(ctx, dbq.PruneAbsentVaultNotesParams{
+		OwnerID: owner, Column2: keep,
+	})
+	if qerr != nil {
+		return 0, fmt.Errorf("prune absent vault notes: %w", qerr)
+	}
+	return int(n), nil
 }
 
 // QueryNoteRow —— 原生查询命中的一条:leaf id + genre + root→leaf 的 path 段。

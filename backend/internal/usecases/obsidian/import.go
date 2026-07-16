@@ -42,6 +42,9 @@ type ImportResult struct {
 	Created int
 	Updated int
 	Skipped int
+	// Deleted —— notes removed because they are gone from the vault (authoritative sync, F-L-6).
+	// Always 0 for a partial upload and for ImportVault (writings), which never delete.
+	Deleted int
 }
 
 // ImportVault —— route layer 主入口。owner 通过 multipart 上传整个 vault，

@@ -22,6 +22,8 @@ import { safeJson } from '@/lib/api/typed-json';
 
 const ImportResultSchema = z.object({
   created: z.number(), updated: z.number(), skipped: z.number(), errors: z.array(z.string()),
+  // deleted —— notes pruned because they are gone from the vault (authoritative sync, F-L-6).
+  deleted: z.number().optional().default(0),
 });
 export type ImportResult = z.infer<typeof ImportResultSchema>;
 
@@ -51,6 +53,10 @@ export async function uploadVault(files: FileList): Promise<ImportResult> {
     const rel = relPathOf(f);
     fd.append(rel, f, rel);
   }
+  // The directory picker hands us the WHOLE vault, so this upload is authoritative: notes the owner
+  // deleted from the vault get pruned and the corpus converges on it, instead of only ever growing
+  // (F-L-6). Opt-in — the server treats an unflagged upload as a partial feed and never deletes.
+  fd.append('authoritative', 'true');
   const headers: Record<string, string> = {};
   const csrf = readCSRFCookie();
   csrf && (headers['X-Csrftoken'] = csrf);

@@ -215,3 +215,19 @@ LIMIT $4 OFFSET $5;
 -- name: GetNoteCssClasses :one
 -- cssclasses(per-note 呈现钩子)。corpus_read 时补到 CorpusEntry;跨 genre 按 id。
 SELECT css_classes FROM corpus_notes WHERE id = $1 AND owner_id = $2;
+
+-- name: PruneAbsentVaultNotes :execrows
+-- F-L-6: an AUTHORITATIVE (whole-vault) sync makes the corpus EQUAL the vault — a note deleted from
+-- the vault must disappear from the corpus, or "sync" only ever grows and re-syncing can never clean
+-- a ghost. Scope is deliberately narrow, so this can only ever remove what the vault owns:
+--   * obsidian_imported_at IS NOT NULL —— only vault-imported rows. Web/MCP-authored notes were never
+--     vault-managed, so their absence from the upload means nothing.
+--   * updated_at <= obsidian_imported_at —— web-wins. The owner editing a note on the web after import
+--     protects it from being overwritten; it must protect it from deletion too.
+--   * id <> ALL(keep) —— everything reconciled this run survives.
+-- note_refs (src_id/dst_id) and child rows cascade via FK, so a pruned subtree cleans up after itself.
+DELETE FROM corpus_notes
+WHERE owner_id = $1
+  AND obsidian_imported_at IS NOT NULL
+  AND updated_at <= obsidian_imported_at
+  AND NOT (id = ANY($2::uuid[]));

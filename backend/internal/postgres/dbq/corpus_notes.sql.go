@@ -905,6 +905,37 @@ func (q *Queries) ListNotesByOwnerPage(ctx context.Context, arg ListNotesByOwner
 	return items, nil
 }
 
+const pruneAbsentVaultNotes = `-- name: PruneAbsentVaultNotes :execrows
+DELETE FROM corpus_notes
+WHERE owner_id = $1
+  AND obsidian_imported_at IS NOT NULL
+  AND updated_at <= obsidian_imported_at
+  AND NOT (id = ANY($2::uuid[]))
+`
+
+type PruneAbsentVaultNotesParams struct {
+	OwnerID pgtype.UUID
+	Column2 []pgtype.UUID
+}
+
+// F-L-6: an AUTHORITATIVE (whole-vault) sync makes the corpus EQUAL the vault — a note deleted from
+// the vault must disappear from the corpus, or "sync" only ever grows and re-syncing can never clean
+// a ghost. Scope is deliberately narrow, so this can only ever remove what the vault owns:
+//   - obsidian_imported_at IS NOT NULL —— only vault-imported rows. Web/MCP-authored notes were never
+//     vault-managed, so their absence from the upload means nothing.
+//   - updated_at <= obsidian_imported_at —— web-wins. The owner editing a note on the web after import
+//     protects it from being overwritten; it must protect it from deletion too.
+//   - id <> ALL(keep) —— everything reconciled this run survives.
+//
+// note_refs (src_id/dst_id) and child rows cascade via FK, so a pruned subtree cleans up after itself.
+func (q *Queries) PruneAbsentVaultNotes(ctx context.Context, arg PruneAbsentVaultNotesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneAbsentVaultNotes, arg.OwnerID, arg.Column2)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const queryCorpusNotes = `-- name: QueryCorpusNotes :many
 WITH RECURSIVE up AS (
   SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.id, n.parent_id,

@@ -28,16 +28,28 @@ type SyncResult struct {
 	Created int
 	Updated int
 	Skipped int
+	// Deleted —— rows removed because they are absent from an AUTHORITATIVE upload (see SyncOpts).
+	Deleted int
 }
+
+// SyncOpts —— what the uploaded file set means. Authoritative = "this is the WHOLE source", so the
+// ingest may remove what is absent from it (sync converges the corpus on the source). A partial
+// (the default zero value) must never delete: absence carries no information there. The two have
+// opposite delete semantics and it cannot be inferred from the files, so the caller declares it.
+type SyncOpts struct{ Authoritative bool }
 
 // SyncIngester —— the sync-mode capability: ingest a batch of external files into the corpus. A
 // consumer resolves the active sync connector and type-asserts to this.
 type SyncIngester interface {
-	Ingest(ctx context.Context, ownerID string, files []SyncFile) (SyncResult, error)
+	Ingest(
+		ctx context.Context, ownerID string, files []SyncFile, opts SyncOpts,
+	) (SyncResult, error)
 }
 
 // IngestFunc —— the injected ingest port (composition root wires SyncVault behind it).
-type IngestFunc func(ctx context.Context, ownerID string, files []SyncFile) (SyncResult, error)
+type IngestFunc func(
+	ctx context.Context, ownerID string, files []SyncFile, opts SyncOpts,
+) (SyncResult, error)
 
 // syncConnector —— a sync-mode connector. Identity lives in the connector layer (Hub sees it
 // uniformly); the real ingest is delegated to the injected port.
@@ -62,7 +74,7 @@ func (*syncConnector) Connected(_ context.Context, _ string) (bool, error) { ret
 
 // Ingest —— SyncIngester: delegate to the injected port.
 func (c *syncConnector) Ingest(
-	ctx context.Context, ownerID string, files []SyncFile,
+	ctx context.Context, ownerID string, files []SyncFile, opts SyncOpts,
 ) (SyncResult, error) {
-	return c.ingest(ctx, ownerID, files)
+	return c.ingest(ctx, ownerID, files, opts)
 }

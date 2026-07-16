@@ -20,17 +20,26 @@ export interface VaultFile {
   body: Uint8Array | string;
 }
 
+export interface UploadResult {
+  created: number; updated: number; skipped: number; deleted: number; errors: string[];
+}
+
+// UploadOpts.authoritative —— mark the upload as the WHOLE vault, so notes absent from it are pruned
+// (F-L-6). Mirrors the real directory-picker import (use-obsidian.ts appends the same form field).
+// Default false = a partial feed the server must never delete from.
+export interface UploadOpts { authoritative?: boolean }
+
 // uploadVault —— 让 browser context 模拟 `<input webkitdirectory>` 选了
 // 一组 file → 触发 import endpoint。直接走 multipart 上传到 server，绕过
 // browser file picker（playwright 不易触发 native picker）。
 export async function uploadVault(
   request: APIRequestContext, owner: { email: string; password: string },
-  files: VaultFile[],
-): Promise<{ created: number; updated: number; skipped: number; errors: string[] }> {
+  files: VaultFile[], opts: UploadOpts = {},
+): Promise<UploadResult> {
   const { csrf } = await loginAPI(request, owner.email, owner.password);
   // vault 内相对路径放进 form field 名(= f.rel):Go multipart 会 filepath.Base 掉 filename 的目录,
   // 路径只能靠 field 名传;跟真实前端(use-obsidian.ts fd.append(rel, f, rel))一致。
-  const multipart: Record<string, { name: string; mimeType: string; buffer: Buffer }> = {};
+  const multipart: Record<string, { name: string; mimeType: string; buffer: Buffer } | string> = {};
   files.forEach((f) => {
     multipart[f.rel] = {
       name: f.rel.split('/').pop() ?? f.rel,
@@ -38,12 +47,13 @@ export async function uploadVault(
       buffer: Buffer.from(f.body),
     };
   });
+  opts.authoritative === true && (multipart['authoritative'] = 'true');
   const res = await request.post('/api/admin/obsidian/import', {
     headers: { 'X-Csrftoken': csrf },
     multipart,
   });
   expect(res.status()).toBe(200);
-  return await res.json() as { created: number; updated: number; skipped: number; errors: string[] };
+  return await res.json() as UploadResult;
 }
 
 // downloadExport —— 拉 export zip，返 ArrayBuffer。caller 自己用 zip lib 解
