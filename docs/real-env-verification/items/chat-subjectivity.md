@@ -1,6 +1,6 @@
 # chat-subjectivity — Visitor chat: stance grounding
 
-- **Status:** ✅ (2026-07-15 live) — with a `subjectivity://`-scoped code the ⭐ inducement WORKS on real DeepSeek; F-A-3 confirmed as correct-scoping, not a grounding bug
+- **Status:** ✅ BOTH checks green (2026-07-15 live) — the ⭐ inducement works on real DeepSeek, and check 2 is now proven numerically on the truly-synced corpus (19 wiki cited + 11 subjectivity grounded-but-withheld = the 30 reads). F-A-3 confirmed as correct-scoping, not a grounding bug.
 - **Module:** on a judgment/stance question the model elects to search the `subjectivity` genre and answers *from the owner's documented standpoint* — grounding it shapes the answer but is not cited unless flagged.
 - **Surface:** visitor chat (a code whose role grants `subjectivity://`).
 - **Real dep:** real DeepSeek + a seeded `subjectivity` note; a code whose role grants `subjectivity://` (public role does NOT — see [[chat-redaction]]).
@@ -20,7 +20,7 @@
 - **Steps:** after check 1 grounds on a subjectivity note, inspect the citation footer.
 - **Expected:** the note shaped the answer but is **absent** from the footer unless it carries `show_as_source`; a `show_as_source` note *does* appear.
 - **Backing test:** `subjectivity-not-cited.spec.ts:126` · `visitor-chat-hidden-source.spec.ts:48`
-- **Result:** ⬜
+- **Result:** ✅ **GREEN (2026-07-15 live, real DeepSeek, the truly-synced corpus).** Asked *"a take you hold that most people in your field would disagree with?"* under `SUBJ-V01` → a real first-person stance answer grounded in the owner's documented positions (*"the problem isn't the question — it's the form… answers are functions, not constants"* — his `stiff-questions-soft-capture` / `lossy-self-presentation` thinking). **The arithmetic closes exactly, which is what makes this proof rather than absence-of-evidence:** the persisted turn carries `cited_wiki_ids: 19` **and `cited_subjectivity_ids: 11`**, and 19 + 11 = **30 = the visible `READ 30` counter**. The footer renders **`REFERENCES · 19`, every entry `wiki·`, zero subjectivity** (`anySubjectivity: false`). So the 11 subjectivity notes were read, grounded the answer, and were withheld from the footer — the gate works. This is NOT the trivial pass ("it never read subjectivity, so of course it cited none"): the separate `cited_subjectivity_ids` channel proves they were read and routed, exactly as [[chat-redaction]]'s server-authoritative design intends. Reachability independently confirmed: an LLM-free `QUERY corpus_search` under the same code returns `subjectivity:` hits (`recording-discipline`, `not-just-selling-hours`, `there-must-be-an-arbiter-above`).
 
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The stance answer renders as prose in owner voice; a subjectivity note that shaped the answer must NOT leak into the citation footer unless `show_as_source`.
