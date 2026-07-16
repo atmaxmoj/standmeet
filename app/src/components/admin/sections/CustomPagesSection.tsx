@@ -13,7 +13,6 @@
 
 import Link from 'next/link';
 
-import { Btn } from '@/components/admin/atoms/Btn';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
@@ -31,7 +30,6 @@ export function CustomPagesSection() {
         kicker="corpus · public-facing"
         title="pages"
         count={hook.status === 'ready' ? String(hook.rows.length) : ''}
-        action={<Btn kind="primary">+ new page</Btn>}
       />
       <Intro />
       <CustomPagesBody hook={hook} />

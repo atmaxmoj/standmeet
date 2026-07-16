@@ -74,6 +74,22 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
       await visitorSeesNotFoundAfterRollback(page);
       await request.dispose();
     });
+
+  // F-N-1: the section header must NOT present a dead "+ new page" button. Page creation is
+  // MCP-driven (custom_page.create/.build/.promote_to_live) — the button had no onClick and did
+  // nothing on click. Guard: the affordance is absent and the MCP direction is what's shown.
+  test('no dead "+ new page" affordance — creation is MCP-driven (F-N-1)',
+    async ({ adminPage: page }) => {
+      await gotoAdminSection(page, 'custom-pages');
+      await page.waitForURL('**/admin/custom-pages', { timeout: 10_000 });
+      await expect(
+        page.getByRole('button', { name: /new page/i }),
+      ).toHaveCount(0);
+      // The page still TELLS the owner how to create one — the affordance is removed, not the
+      // direction. (The `custom_page.create` copy lives in the empty state, which isn't rendered
+      // here because the preceding test leaves a page in the list; the intro always is.)
+      await expect(page.getByText(/Build via MCP/i)).toBeVisible();
+    });
 });
 
 async function mcpSetup(
