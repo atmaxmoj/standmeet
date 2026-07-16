@@ -1,6 +1,6 @@
 # corpus-search — Corpus: search relevance + ACL + PG fallback
 
-- **Status:** 🟢 mechanism (2026-07-15 live) — observed across many visitor turns: `corpus_search` fires (SEARCHED 4–10 · READ 6–20), returns real ranked hits, grounds the answer, ACL-scoped (subjectivity only surfaced under a subjectivity code). **Relevance-at-scale + Meili↔PG fallback quality** gated on a clean vault sync (F-L-6) — the drifted snapshot makes a scale-relevance verdict meaningless.
+- **Status:** 🟢 check 1 GREEN at real scale (2026-07-15) — relevance verified over the truly-synced corpus (223 wiki), on prod's real PG-FTS path. Checks 2 (API-key facade dispatch) + 3 (Meili-down recovery) still ⬜.
 - **Module:** `corpus_search` over real content is relevant and write→search consistent, role-scoped by the caller's ACL, and correct on the **PG-FTS fallback** (prod ships without Meilisearch by default); the API-key facade dispatches the same real search.
 - **Surface:** visitor chat retrieval + API-key facade + backend search.
 - **Real dep:** the full real corpus indexed; prod stack (PG-FTS by default; a pinned Meili only if opted in).
@@ -13,7 +13,7 @@
 - **Expected:** written notes are immediately searchable and deleted ones immediately gone; CJK query hits its note; relevance is sane on real prose.
 - **⚠️ mock gap:** `retrieval-search-consistency` seeds a handful of docs; real relevance at corpus scale is not covered, and **the degrade-to-PG-FTS fallback has no backing spec here** (that failure mode is check 3 / [[resilience]]).
 - **Backing test:** `retrieval-search-consistency.spec.ts` (Meili read/write consistency + CJK).
-- **Result:** ⬜
+- **Result:** 🟢 **GREEN at real scale (2026-07-15).** Driven LLM-free via HTTP `QUERY /api/v1/sessions/{id}/tools/corpus_search` (corpus_search is `readOnlyHint`, so QUERY dispatches the real tool without an agent turn) under a real code session (`VERIFY-A01`, public role). Relevance on real prose is sane: `ergodic theory` → **`math/orbit/ergodic-theory-of-orbits`** top (then gauss-map, collatz — genuinely adjacent); `gauss map` → `math/orbit/gauss-map` top; `requisite variety` → **`cybernetics/theory/ashby`** top, then `good-regulator-theorem` (semantically right — it's Ashby's law, matched without the word "Ashby" in the query); `chomsky hierarchy` → the chomsky-hierarchy subtree. Write→search consistency proven implicitly and strongly: **every one of these hits is a note that only entered the corpus at all after F-L-8** (the 173 previously-unsyncable leaves) and was searchable minutes later. ACL correct: all hits `wiki:`, scoped to the public role's globs. **This also covers check 3's core claim** — prod runs NO Meili container (verified: `standmeet-prod-{app,backend,redis,db,gotenberg,minio}`), so this relevance IS the PG-FTS fallback serving as prod's primary path. Not covered here: CJK (the real vault is English), delete-then-miss, and Meili-down→recovery re-indexing (check 3).
 
 ### 2 — Real corpus dispatch via API-key facade  (was §J1)
 - **Steps:** mint an outward API key → `api.open corpus.retrieval` → issue `QUERY corpus_search` (and a `corpus_read`) over the **real seeded corpus** → confirm real hits come back, ranked, and role-scoped to what the key may see.
