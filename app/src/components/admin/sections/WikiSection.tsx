@@ -13,6 +13,7 @@ import { CorpusEntryForm, corpusParentOptions } from '@/components/admin/section
 import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/WikiRowForms';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
+import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 import { useCorpusView } from '@/lib/admin/corpus-view';
 import { descendantCounts, pickExcerpt } from '@/lib/admin/corpus-tree';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
@@ -40,14 +41,27 @@ export function WikiSection() {
   );
 }
 
+// wikiTrueCount —— the real COUNT(*) (growth), not the loaded first page. `rows.length` is capped by
+// the page limit, so the header read "50 entries" against a 223-note corpus while the sidebar pulse
+// — reading the same growth COUNT(*) — correctly said 223. Same class as F-L-4 (dashboard) and
+// F-L-5 (raw tabs); the wiki header was the sibling surface neither swept. Growth may be undefined
+// mid-load → fall back to the loaded length.
+function wikiTrueCount(
+  loaded: number, growth: ReturnType<typeof useCorpusGrowth>['growth'],
+): number {
+  return growth?.by_tier.wiki ?? loaded;
+}
+
 function Header({ hook, actions }: { hook: WikiHook; actions: CorpusActionsHook }) {
   const [creating, setCreating] = useState(false);
+  const { growth } = useCorpusGrowth();
+  const total = wikiTrueCount(hook.rows.length, growth);
   return (
     <>
       <SectionHeader
         kicker="corpus · curated"
         title="wiki"
-        count={hook.status === 'ready' ? `${hook.rows.length} entries` : ''}
+        count={hook.status === 'ready' ? `${total} entries` : ''}
         action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (
