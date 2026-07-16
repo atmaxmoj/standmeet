@@ -25,10 +25,12 @@ export function WikiEditForm({
     () => actions.updateWiki(entry.id, input),
     () => { toast.success('Wiki updated'); onDone(); },
   );
+  // `wiki-edit-loaded-${id}` 只挂在**真的加载完**的那一支上。它以前在外层 div —— 于是 loading…
+  // 期间它也在，一个自称 "loaded" 却不追踪 loaded 的标记。等它的测试会在表单还没渲染时就动手。
   return (
-    <div className="mt-4" data-testid={`wiki-edit-loaded-${entry.id}`}>
+    <div className="mt-4" data-testid={`wiki-edit-${entry.id}-slot`}>
       {detail ? (
-        <>
+        <div data-testid={`wiki-edit-loaded-${entry.id}`}>
           <CorpusEntryForm
             initial={{
               title: detail.title,
@@ -53,7 +55,7 @@ export function WikiEditForm({
             busy={actions.pending}
             onSave={(input: SEOUpdateInput) => void saveWikiSEO(entry.id, actions, toast, input)}
           />
-        </>
+        </div>
       ) : (
         <p className="mono text-[10.5px] text-(--color-muted)">loading…</p>
       )}

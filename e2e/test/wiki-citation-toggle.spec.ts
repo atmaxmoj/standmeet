@@ -13,7 +13,7 @@
 // 修不修都绿，因为 bug 根本不在后端：那是「测在缺口下面那一层」，本轮审计反复栽的同一个坑。
 
 import { test, expect } from '@/fixtures/test';
-import type { Page, Playwright } from '@playwright/test';
+import type { Locator, Page, Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
@@ -29,20 +29,40 @@ const OWNER = {
 const TITLE = 'Citable Wiki Entry';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
+// serial：这三条**共享一条 entry**（case 1 建，2/3 改它），而 beforeAll 里的 resetInstance 是
+// **每个 worker 跑一次**的 —— 并行时后开的 worker 会把前一个正在用的实例清空。第一次跑就是这样：
+// case 3 找不到那一行，因为另一个 worker 已经把 wiki 清成了空列表（后端日志里 GET /corpus/wiki
+// 返回 `[]`）。共享可变实例 + 并行 worker = 假红。
+test.describe.configure({ mode: 'serial' });
 test.describe('corpus · citation is owner-controlled and survives an edit', () => {
   test.beforeAll(async ({ playwright }) => {
     await initOwner(playwright);
   });
 
   test('the form explains citation and defaults it on', citableDefaultsOnAndIsExplained);
-  // ⚠️ 这两条**尚未跑通**，卡在定位 wiki 行/编辑表单的选择器上，不是被测行为的问题：
-  // 修复前后同样失败，所以它们现在证明不了任何事 —— skip 而不是留一个假绿。
-  // 修复本身已被证实（见上：新建→可引用落库 t；DB 直查确认）；这两条要补的是「改正文不翻转
-  // citation」和「关掉能落库」。下一步：把 row/edit 的 testid 对准 WikiSection 的真实结构
-  // (`wiki-row-${id}` / `wiki-edit-${id}`，编辑表单前缀 `wiki-edit-form-${id}`)。
-  test.skip('editing the body does NOT silently turn citation off', editPreservesCitation);
-  test.skip('the owner can turn citation off from the form, and it sticks', ownerCanTurnOff);
+  test('editing the body does NOT silently turn citation off', editPreservesCitation);
+  test('the owner can turn citation off from the form, and it sticks', ownerCanTurnOff);
+  test('opening the form fetches the entry ONCE, not in a loop', opensWithoutARequestStorm);
 });
+
+// opensWithoutARequestStorm —— F-A-17。useWikiDetail 的 effect 依赖整个 `actions` 对象，而
+// use-corpus-actions 每次渲染都新造一个对象字面量；fetchDetail 自己会 setPending → 重渲染 → 新对象
+// → effect 重跑 → 再 fetch：一个无限环。后端日志里是同一条 GET 每 6ms 一发。
+//
+// 而且它**装成加载中**：每轮 cleanup 都在 promise 落地前把 alive 置 false，setDetail 一次都不执行，
+// 表单永远停在 loading…。owner 只会觉得"慢"。断言数请求，因为这个 bug 的本体就是请求数。
+async function opensWithoutARequestStorm({ adminPage }: { adminPage: Page }): Promise<void> {
+  let hits = 0;
+  await adminPage.route(/\/api\/admin\/corpus\/wiki\/[0-9a-f-]{36}$/, (route) => {
+    hits += 1;
+    return route.continue();
+  });
+  const form = await openEditForm(adminPage, TITLE);
+  // 等一个确定的信号（表单真的可交互），不是等墙钟。环若还在，光是走到这里就已经上百发了 ——
+  // 事实上环还在时 openEditForm 根本等不到 loaded，所以这条计数是"就算它能加载出来也不许空转"。
+  await expect(form.citable).toBeVisible();
+  expect(hits, 'the lazy detail fetch must fire once per open, not spin').toBeLessThanOrEqual(2);
+}
 
 // citationOf —— 这条笔记当前的 show_as_source（从 owner 自己的 admin API 读回真值）。
 async function citationOf(page: Page, title: string): Promise<boolean | undefined> {
@@ -59,14 +79,29 @@ async function citationOf(page: Page, title: string): Promise<boolean | undefine
   }, title);
 }
 
-async function openEditForm(page: Page, title: string) {
+// EditForm —— 一张 wiki 行的编辑表单的真实 testid 形状（从 prod GUI 上抄下来的，不是猜的）：
+// 行是 `wiki-row-${id}`，行内的按钮是 `wiki-edit-${id}`，展开后的表单字段前缀是
+// `wiki-edit-form-${id}-`，而 `wiki-edit-loaded-${id}` 是"已加载"的标记 —— 表单是**懒加载**的
+// （点开先显示 loading…），所以必须等这个标记，不能等字段可见就动手。
+interface EditForm {
+  citable: Locator;
+  body: Locator;
+  submit: Locator;
+}
+
+async function openEditForm(page: Page, title: string): Promise<EditForm> {
   await gotoAdminSection(page, 'wiki');
-  await page.waitForURL('**/admin/wiki', { timeout: 5_000 });
   const row = page.locator('[data-testid^="wiki-row-"]', { hasText: title });
-  await expect(row).toBeVisible({ timeout: 5_000 });
-  await row.locator('[data-testid^="wiki-edit-"]').first().click();
-  await expect(row.locator('[data-testid$="-citable"]').first()).toBeVisible({ timeout: 10_000 });
-  return row;
+  await expect(row).toBeVisible({ timeout: 10_000 });
+  const id = (await row.getAttribute('data-testid'))!.replace('wiki-row-', '');
+  await page.getByTestId(`wiki-edit-${id}`).click();
+  // 懒加载：等表单真的到位，否则下面 fill 的是一个还没渲染的框。
+  await expect(page.getByTestId(`wiki-edit-loaded-${id}`)).toBeVisible({ timeout: 15_000 });
+  return {
+    citable: page.getByTestId(`wiki-edit-form-${id}-citable`),
+    body: page.getByTestId(`wiki-edit-form-${id}-body`),
+    submit: page.getByTestId(`wiki-edit-form-${id}-submit`),
+  };
 }
 
 // citableDefaultsOnAndIsExplained —— 新建默认可引用（对齐 DB 的 `NOT NULL DEFAULT true`），
@@ -82,18 +117,19 @@ async function citableDefaultsOnAndIsExplained({ adminPage }: { adminPage: Page 
   // 解释必须在场：读 vs 引是两件事，没有这句话 owner 会以为关掉 = 藏起来。
   await expect(adminPage.getByText(/仍然读得到/)).toBeVisible();
   await adminPage.getByTestId('wiki-create-submit').click();
-  await expect(adminPage.getByText(TITLE)).toBeVisible({ timeout: 5_000 });
+  await expect(adminPage.getByText(TITLE).first()).toBeVisible({ timeout: 5_000 });
   expect(await citationOf(adminPage, TITLE), 'new entry is citable').toBe(true);
 }
 
 // editPreservesCitation —— THE BUG，驱动真表单：只改正文然后保存，引用开关必须不动。
 // RED（修复前）：表单不发 show_as_source → Go 解成 false → 这条静默变成不可引用。
 async function editPreservesCitation({ adminPage }: { adminPage: Page }): Promise<void> {
-  const row = await openEditForm(adminPage, TITLE);
-  const body = row.locator('[data-testid$="-body"]').first();
-  await body.fill('An edited fact, still worth citing.');
-  await row.getByRole('button', { name: /^save$/i }).first().click();
-  await expect(adminPage.getByText(TITLE)).toBeVisible({ timeout: 5_000 });
+  const form = await openEditForm(adminPage, TITLE);
+  await expect(form.citable, 'precondition: this entry starts citable').toBeChecked();
+  // 只碰正文。citation 那个勾一根手指都不碰 —— 这正是 owner 会做的事。
+  await form.body.fill('An edited fact, still worth citing.');
+  await form.submit.click();
+  await expect(adminPage.getByText(TITLE).first()).toBeVisible({ timeout: 5_000 });
   expect(
     await citationOf(adminPage, TITLE),
     'editing the body must not flip citation off — the owner never touched that control',
@@ -102,10 +138,10 @@ async function editPreservesCitation({ adminPage }: { adminPage: Page }): Promis
 
 // ownerCanTurnOff —— 控制真的通到底：取消勾选 → 存 → 落库。
 async function ownerCanTurnOff({ adminPage }: { adminPage: Page }): Promise<void> {
-  const row = await openEditForm(adminPage, TITLE);
-  await row.locator('[data-testid$="-citable"]').first().uncheck();
-  await row.getByRole('button', { name: /^save$/i }).first().click();
-  await expect(adminPage.getByText(TITLE)).toBeVisible({ timeout: 5_000 });
+  const form = await openEditForm(adminPage, TITLE);
+  await form.citable.uncheck();
+  await form.submit.click();
+  await expect(adminPage.getByText(TITLE).first()).toBeVisible({ timeout: 5_000 });
   expect(await citationOf(adminPage, TITLE), 'the owner turned citation off').toBe(false);
 }
 
