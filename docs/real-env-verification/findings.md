@@ -112,3 +112,41 @@ Why: the e2e suite drives the **MCP/usecase/API layer** (well-covered → works 
 - Attribution: inaccurate / incomplete — exact fault at <file:line>
 - Fix: RED test <commit> → code <commit> → manual re-verify <result>
 -->
+
+### F-A-13 · a failed load renders as an authoritative empty ("(role grants nothing)")
+- item / surface: corpus-acl-editing · /admin/codes (also /admin/dashboard)
+- repro: open /admin/codes on prod. Every code card reads `CORPUS · INHERITED FROM ROLE →
+  (role grants nothing)`. Console: 6 × `GET /api/admin/codes/{id}/corpus` **500**.
+  Backend: `relation "code_corpus_denials" does not exist` (prod DB volume predates the table).
+- Expected: the owner is told the control failed to load.
+- Actual: no error anywhere on the page — the GET's failure is rendered as a confident statement of
+  fact, and one pointing at "already locked down", so it would never be chased.
+- Attribution: **incomplete** — `CodeCorpusConfig.tsx:43` `.catch(() => setLoaded(true))`. Same class:
+  `DashboardSection.tsx:157` (`.catch(() => setSent(0))`), `:203` (`.catch(() => setRows([]))`).
+  The rule + a correct implementation already exist in `lib/admin/use-latest-list.ts` (`loadError`).
+- Backing e2e: `admin-load-failure-not-empty.spec.ts` (3, route-forced 500) — new; RED owed.
+- Fix: RED test <pending> → code <pending> → manual re-verify <pending>
+
+### F-A-14 · the corpus ACL editor makes the owner hand-type URIs
+- item / surface: corpus-acl-editing · /admin/roles (grant) + /admin/codes (take-back)
+- repro: /admin/roles → any role → `CORPUS` is a bare textarea holding `subjectivity://**`.
+- Expected: pick from the corpus that exists.
+- Actual: the owner must recall the scheme **and** a note's exact server-side slug, unaided. A typo is
+  silent both ways — and on the grant side "silently grants nothing" is indistinguishable from F-A-13's
+  lie. `CorpusLazyTree` + `GET /corpus/{genre}/tree` already lazy-load this tree, and each row already
+  carries a server-slugged `path`; the picker should emit exactly `domain.FormatURI(genre, path)`.
+  Keep a raw-glob escape hatch that **preserves** untranslatable globs (`wiki://**/draft`).
+- Attribution: **incomplete** — `RoleCorpusConfig.tsx` / `CodeCorpusConfig.tsx` (built mechanism-first).
+- Fix: <pending>
+
+### F-A-15 · subjectivity has no owner-facing browse surface
+- item / surface: corpus-acl-editing · /admin
+- repro: there is no admin list or tree for subjectivity. `corpus.go:38` dispatches the tree for
+  `raw|wiki|output`; `writing` has `/writings/tree`; subjectivity has neither, and
+  `postgres.NoteRepo` has `ListChildren` but no `ListChildrenTree`.
+- Expected: the genre holding the CV is browsable by its owner.
+- Actual: it is invisible in the admin — so it cannot be picked from either. Blocks F-A-14's picker for
+  the exact case (`subjectivity://cv`) that motivated the whole feature.
+- Attribution: **incomplete** — subjectivity was added as an ACL/retrieval partition without an owner
+  surface; the ACL work then reached for a tree that was never built.
+- Fix: <pending>

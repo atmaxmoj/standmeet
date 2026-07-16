@@ -138,7 +138,7 @@ function JobsHeat() {
         </div>
         <div>
           <div className="sm-smallcaps mb-1">sent</div>
-          <div className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none">{sent}</div>
+          <StatCount state={sent} testid="dash-applications-sent" />
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-(--color-rule)/60">
@@ -149,14 +149,34 @@ function JobsHeat() {
   );
 }
 
-function useApplicationCount(): { sent: number } {
-  const [sent, setSent] = useState(0);
+// CountState —— 三态，不是「数字或空」。「还在拉」和「没拉到」必须分开：把两者并成同一个空值，
+// 就没人能分清此刻是 loading 还是 failed —— 连测试都分不清（这条 spec 的第一版正是这么假绿的）。
+// 「0 sent」是一句关于事实的陈述；GET 挂了的时候事实不是 0，是不知道（F-A-13 的同类）。
+type CountState =
+  | { kind: 'loading' }
+  | { kind: 'error' }
+  | { kind: 'ok'; n: number };
+
+function useApplicationCount(): { sent: CountState } {
+  const [sent, setSent] = useState<CountState>({ kind: 'loading' });
   useEffect(() => {
     void fetchItemCount('/api/admin/applications/')
-      .then(setSent)
-      .catch(() => setSent(0));
+      .then((n) => setSent({ kind: 'ok', n }))
+      .catch(() => setSent({ kind: 'error' }));
   }, []);
   return { sent };
+}
+
+// StatCount —— 三态各有各的字面：'…' 还在拉、'—' 没拉到、数字 = 真数字。'—' **只**代表失败。
+function StatCount({ state, testid }: { state: CountState; testid: string }) {
+  return (
+    <div
+      className="font-serif text-(--color-ink) text-[34px] tabular-nums leading-none"
+      data-testid={testid}
+    >
+      {state.kind === 'ok' ? state.n : state.kind === 'loading' ? '…' : '—'}
+    </div>
+  );
 }
 
 function JobsTopMatch() {
@@ -195,18 +215,27 @@ function RecentVisitors() {
   );
 }
 
-function useRecentConversations(): { rows: DashboardRecentRow[] } {
-  const [rows, setRows] = useState<DashboardRecentRow[]>([]);
+// useRecentConversations —— null = 没拉到（不是"还没有访客"）。空列表的那句话是**关于世界的陈述**，
+// 拉失败时它是假的（F-A-13 的同类）。
+function useRecentConversations(): { rows: DashboardRecentRow[] | null } {
+  const [rows, setRows] = useState<DashboardRecentRow[] | null>([]);
   useEffect(() => {
     void fetchRecentConversations('/api/admin/conversations/', 5)
       .then(setRows)
-      .catch(() => setRows([]));
+      .catch(() => setRows(null));
   }, []);
   return { rows };
 }
 
-function RecentVisitorsList({ rows }: { rows: readonly DashboardRecentRow[] }) {
-  return rows.length === 0 ? (
+function RecentVisitorsList({ rows }: { rows: readonly DashboardRecentRow[] | null }) {
+  return rows === null ? (
+    <div
+      className="mono text-[11px] text-(--color-accent) tracking-[0.06em] mt-2"
+      data-testid="dash-recent-error"
+    >
+      Couldn’t load recent visitors. Reload and retry.
+    </div>
+  ) : rows.length === 0 ? (
     <div className="mono text-[11px] text-(--color-faint) tracking-[0.06em] mt-2">
       no conversations yet — visitors will appear here once they start chatting
     </div>

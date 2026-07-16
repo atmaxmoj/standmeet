@@ -1,6 +1,10 @@
 # corpus-acl-editing — Corpus ACL: owner edits what each role / code may read + cite
 
-- **Status:** 🟡 built (2026-07-16), manual ⑤ owed — role editor + per-code narrowing + citation control all shipped; the real-GUI pass is the remaining step.
+- **Status:** 🔴 ⑤ ran (2026-07-16) and **failed**. Check 1 passes on the real GUI (the role grant
+  editor saves, survives reload, lands in the DB — F-A-11 closed). Checks 2/3 are blocked: the
+  per-code GET 500s on prod (stale DB volume, no table) and the GUI **hides that behind a lie**
+  (F-A-13). And the LOOK pass caught what the mechanism checklist could not: the editor is a naked
+  URI textarea (F-A-14), for a genre with no browse surface at all (F-A-15).
 - **Module:** the owner controls, from the admin GUI, **which corpus URIs each role may read**, **which of those each code takes back**, and **whether a note may be cited once read**. subjectivity is not special — wiki / output / writing / subjectivity are one glob mechanism.
 - **Surface:** `/admin/roles` (grant) · `/admin/codes` (per-code narrowing) · wiki/output entry form (citation).
 - **Real dep:** real prod stack; a code whose role grants a genre containing a note that code shouldn't see.
@@ -25,13 +29,19 @@ attributed. To make it unreadable, take back its URI.
 - **Steps:** `/admin/roles` → a role card → `corpus` box → change `subjectivity://**` to a per-note list (`subjectivity://standpoint`) → save. Re-issue a code on that role, chat, ask about the excluded note.
 - **Expected:** the save sticks (reload shows the new list); a session issued AFTER the edit cannot read the excluded note; sessions issued BEFORE are unaffected (role is frozen at issue — that is the design, not a bug).
 - **⚠️ mock gap:** role specs seed `corpus_uris` via the API, so the GUI path — the only one a real owner has — was never driven (that IS F-A-11).
-- **Result:** ⬜
+- **Result:** ✅ **PASS** (2026-07-16, real GUI). `subj-verify` granted `subjectivity://** + wiki://**`
+  → edited to `subjectivity://standpoint + wiki://**` → save → **reload** → the box shows the new list
+  and `GET /roles/` returns it. F-A-11's editor is real end-to-end. (The frozen-at-issue half of this
+  check is not yet driven — it needs a code issued after the edit.)
+  ⚠️ But see **F-A-14**: it passed *as a mechanism* while being the wrong affordance.
 
 ### 2 — Owner narrows ONE code below its role
 - **Steps:** `/admin/codes` → a code card → `corpus · taken back on this code` → add `subjectivity://cv` → save. Enter as a visitor on THAT code and ask about the CV; then on a different code of the same role.
 - **Expected:** the narrowed code cannot read it (agent says it has nothing); the other code still can. The card shows both lists (inherited grant / taken back) so the owner sees the effect without cross-referencing.
 - **Backing test:** `code-corpus-narrowing.spec.ts` (4 cases; RED→GREEN proven by making the plugin drop the denials).
-- **Result:** ⬜
+- **Result:** 🔴 **BLOCKED** (2026-07-16). The card renders, but its GET 500s on prod — the DB volume
+  predates `code_corpus_denials`. The environment needs the schema reapplied; the *product* bug this
+  exposed is **F-A-13** (the 500 is shown as `(role grants nothing)`).
 
 ### 3 — A denial cannot OPEN anything (the ACL's iron rule)
 - **Steps:** on a code, take back a glob the role never granted (e.g. `output://**` on a wiki-only role).
@@ -54,8 +64,44 @@ The role card's corpus box shows the REAL current list (not a placeholder); the 
 inherited vs taken-back distinctly (not one merged list the owner has to decode); the citation
 checkbox is never presented without its explanation.
 
+**Ask the affordance question, not just the mechanism question** — this pass's lesson, and the reason
+F-A-14/15 exist. Every check above can pass while the control is still wrong to put in front of a
+person. So, for any control:
+- Does it make the owner **recall** an exact string (a URI, a slug) instead of **pick** from what
+  exists? Recall-not-recognition + no validation = a control that fails silently.
+- Is there a **real structure** behind it (a tree, a list) that the admin already loads elsewhere and
+  this control is ignoring?
+- **What does an empty state assert?** If it reads as a fact ("role grants nothing", "0 sent"), a
+  failed load wearing it is a lie — and if the lie points at "nothing to do here", nobody will catch
+  it. That is F-A-13, and it was invisible on a page whose every mechanism check passed.
+
 ## Findings
 (record here; also log `../findings.md`)
+
+- **F-A-13** 🔴 — **a failed load renders as an authoritative empty.** On prod, `GET /codes/{id}/corpus`
+  500s on every code (`relation "code_corpus_denials" does not exist` — the prod DB volume predates
+  the table). The GUI shows **no error at all**: six cards read `(role grants nothing)`.
+  Fault: `CodeCorpusConfig.tsx:43` `.catch(() => setLoaded(true))` — the error is swallowed and the
+  card renders as if the fetch returned an empty grant. The lie points at "you're already locked
+  down", so the owner would never chase it. Same class, same file-pattern, 2 more sites:
+  `DashboardSection.tsx:157` (`.catch(() => setSent(0))` → a confident "0 sent") and `:203`
+  (`.catch(() => setRows([]))`). The rule is already written in `use-latest-list.ts` ("加载失败别静默
+  成空列表：空 vs「没拉到」owner 得分得清") and has a correct implementation there to copy.
+  Guard: `admin-load-failure-not-empty.spec.ts` (3 cases, route-forced 500).
+- **F-A-14** 🔴 — **the corpus ACL editor makes the owner hand-type URIs.** Both the role grant box and
+  the per-code take-back box are naked textareas: the owner must know the scheme and the exact
+  server-side slug of a note (`subjectivity://cv`), with no discovery, no completion, no validation.
+  A typo is silent — on the take-back side it silently costs reads; on the **grant** side it silently
+  grants nothing. The corpus is a real tree and the admin already lazy-loads it
+  (`CorpusLazyTree` + `GET /corpus/{genre}/tree`, whose rows already carry a server-slugged `path`) —
+  the picker should be generated from that tree, emitting exactly `domain.FormatURI(genre, path)`.
+  A raw-glob escape hatch must remain, and must **preserve** globs the tree can't represent
+  (`wiki://**/draft`) rather than round-tripping them away.
+- **F-A-15** 🔴 — **subjectivity has no owner-facing browse surface at all.** The tree route dispatches
+  `raw|wiki|output` only (`corpus.go:38`); `writing` has its own `/writings/tree`; **subjectivity has
+  neither**, and `postgres.NoteRepo` has `ListChildren` but no `ListChildrenTree`. So the genre that
+  holds the CV — the one this whole ACL exists to protect — cannot be listed, browsed, or picked from
+  in the admin. Blocks F-A-14's picker for the exact case that motivated it.
 
 - **F-A-11** — corpus URIs had no owner editor (grants write-once). Fixed: `RoleCorpusConfig`.
 - **Silent citation zeroing** — the entry form omitted `show_as_source`; Go decoded it `false`.
