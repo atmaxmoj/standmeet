@@ -11,7 +11,10 @@
 - **Surface:** `/admin/roles` (grant) · `/admin/codes` (per-code narrowing) · wiki/output entry form (citation).
 - **Real dep:** real prod stack; a code whose role grants a genre containing a note that code shouldn't see.
 - **Inherits:** `F-A-11` (corpus URIs had no owner editor — grants were write-once in the create modal).
-- **Backing e2e:** `code-corpus-narrowing` (4, incl. RED→GREEN) · `wiki-citation-toggle` (1 green + 2 skipped, see below) · domain: `corpus_scope_test` (6, RED→GREEN).
+- **Backing e2e:** `code-corpus-narrowing` (4, incl. RED→GREEN) · `wiki-citation-toggle` (**4 green**,
+  the 2 formerly-skipped now driving the real form; RED proven on F-A-12) ·
+  `admin-load-failure-not-empty` (3, RED proven) · `admin-codes-with-role` (2, RED proven) ·
+  domain: `corpus_scope_test` (6, RED→GREEN).
 
 ## The model (say it once, it governs every check below)
 
@@ -51,18 +54,29 @@ attributed. To make it unreadable, take back its URI.
 ### 3 — A denial cannot OPEN anything (the ACL's iron rule)
 - **Steps:** on a code, take back a glob the role never granted (e.g. `output://**` on a wiki-only role).
 - **Expected:** nothing changes — code may only subtract (A.4 pure-AND). A typo in the take-back list can only ever cost reads, never leak.
-- **Result:** ⬜
+- **Result:** ✅ **PASS** (2026-07-16, real GUI). `subj-verify` grants no output; took back `output://**`
+  on GHOST-SIL1 → saved → the granted list is **unchanged** (`subjectivity://standpoint`, `wiki://**`),
+  card and API agree. Naming a glob in DENY opens nothing. Read-side proof: `code-corpus-narrowing`
+  case 4.
 
 ### 4 — Citation control + its explanation ⭐
 - **Steps:** wiki entry form → the `citable` checkbox. Read the help text. Uncheck → save → chat so the agent reads that note.
 - **Expected:** the agent still grounds on it (it is READ), but the answer's REFERENCES footer omits it. The form explains this distinction in place — an unlabelled checkbox would be guessed wrong.
 - **⚠️ the bug this came from:** the form used to omit `show_as_source` entirely, so Go decoded it as `false` and **editing a note's body silently turned its citation off**. Guard: `wiki-citation-toggle`.
-- **Result:** ⬜
+- **Result:** 🟡 **PARTIAL** (2026-07-16, real GUI). The form half passes: the `citable` box is present,
+  checked by default, and **explained in place** — "关掉后 AI 仍然读得到这条、也仍然会用它来组织回答
+  —— 只是答案末尾的「引用」里不列它。这是「署名」开关，不是「保密」开关". The **chat half is not
+  driven**: nobody has watched a real visitor turn get grounded on a non-citable note and confirmed the
+  REFERENCES footer omits it. That costs a real LLM turn and is still owed.
 
 ### 5 — Editing a note doesn't move controls the owner didn't touch
 - **Steps:** open a citable note, change ONLY the body, save. Check `show_as_source` afterwards.
 - **Expected:** unchanged. (This is check 4's bug, stated as an invariant: an edit form must not zero a field it didn't show.)
-- **Result:** ⬜
+- **Result:** ✅ **PASS** (2026-07-16, real GUI). `cybernetics` (show_as_source true) → opened the real
+  edit form → appended a line to the BODY only, never touching the citation box → save → re-read:
+  body changed, `show_as_source` still true. (Test text then removed from the corpus — the audit
+  corpus mirrors the real vault and must not carry my leftovers.)
+  Driving this by hand is what surfaced **F-A-17**.
 
 ## ⚠️ LOOK — fresh-eyes UI sanity (SOP §1b)
 The role card's corpus box shows the REAL current list (not a placeholder); the code card shows
@@ -82,6 +96,16 @@ person. So, for any control:
 
 ## Findings
 (record here; also log `../findings.md`)
+
+- **F-A-17** ✅ **CLOSED** (e4a994fd) — **the wiki edit form spun an infinite request loop and never
+  loaded.** `useWikiDetail`'s effect depended on the whole `actions` object, which
+  `use-corpus-actions` re-creates every render; `fetchDetail` calls `setPending` → render → new object
+  → effect re-runs → fetch. The backend log showed the same GET every ~6ms forever. It **disguised
+  itself as latency**: each cleanup flipped `alive` false before the promise resolved, so `setDetail`
+  never ran and the form sat at "loading…". The owner sees "slow", not "broken". Also: no `.catch` at
+  all (a failed fetch = permanent "loading…" + an unhandled rejection), and `wiki-edit-loaded-${id}`
+  sat on the outer div — a marker naming a state it didn't track, which is why I skipped two cases
+  instead of fixing it. Found by **driving check 5 by hand**; no mechanism check would have.
 
 - **F-A-13** ✅ **CLOSED** (fixed 9f458bad; re-verified on the real prod GUI 2026-07-16: 0 console
   errors, the card shows the real inherited grant).  Original finding:
