@@ -41,10 +41,6 @@ type CorpusEntry struct {
 	// ShowAsSource —— wiki/output only: false = AI 能 read 拿 body，但 readCollector
 	// 不把它收进 cited(meta/persona 类)。见 collectCitation 的 gate。
 	ShowAsSource bool
-	// OwnerOnly —— 笔记级 owner 层（frontmatter `visibility: owner`）：对任何 visitor 不可达。
-	// 跟 ShowAsSource 是两回事：那个只挡**署名**（读得到 body，只是不进 cited footer），这个挡
-	// **读** —— PII（CV 的真名/雇主）必须在进 context 前就断掉（subjectivity-owner-visibility）。
-	OwnerOnly bool
 }
 
 // CorpusLister —— the slim corpus data port (#157). Every method is ACL-scoped via

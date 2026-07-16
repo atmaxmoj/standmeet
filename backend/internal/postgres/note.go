@@ -42,9 +42,6 @@ type Note struct {
 	Body         string
 	Tags         []string
 	ShowAsSource bool
-	// OwnerOnly —— 笔记级 owner 层（frontmatter `visibility: owner`）：对任何 visitor 不可达。
-	// subjectivity 就是 CV 所在的 genre —— 这个字段漏填 = PII 直接放行，所以它必须一路带到 facade。
-	OwnerOnly bool
 }
 
 // NoteMeta —— 无 body 的轻量 meta（树导航 / 搜索 / 算 path 用）。Snippet 仅搜索结果有值。
@@ -55,9 +52,6 @@ type NoteMeta struct {
 	Snippet     string
 	Published   bool
 	HasChildren bool
-	// OwnerOnly —— 笔记级 owner 层（frontmatter `visibility: owner`）：对任何 visitor 不可达。
-	// facade 的 readable() 拿它当第二个 AND 项；带在 meta 上，候选项才不用回表逐条查（N+1）。
-	OwnerOnly bool
 }
 
 // CreateNoteInput —— 建一条笔记。ShowAsSource：是否进 visitor cited footer。subjectivity
@@ -166,7 +160,7 @@ func (r *NoteRepo) GetMetaByID(ctx context.Context, ownerID, id string) (NoteMet
 	}
 	return NoteMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-		Title: row.Title, Published: row.Published, OwnerOnly: row.OwnerOnly,
+		Title: row.Title, Published: row.Published,
 	}, nil
 }
 
@@ -203,7 +197,6 @@ func (r *NoteRepo) ListChildren(
 			return NoteMeta{
 				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
 				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
-				OwnerOnly: row.OwnerOnly,
 			}
 		})
 }
@@ -227,7 +220,6 @@ func (r *NoteRepo) Search(
 		out = append(out, NoteMeta{
 			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
 			Title: rows[i].Title, Published: rows[i].Published, Snippet: rows[i].Snippet,
-			OwnerOnly: rows[i].OwnerOnly,
 		})
 	}
 	return out, nil
@@ -251,7 +243,6 @@ func noteFromRow(n *dbq.CorpusNote) Note {
 	out := Note{
 		ID: formatUUID(n.ID), OwnerID: formatUUID(n.OwnerID),
 		Title: n.Title, Body: n.Body, Tags: n.Tags, ShowAsSource: n.ShowAsSource,
-		OwnerOnly: n.OwnerOnly,
 	}
 	if n.ParentID.Valid {
 		s := formatUUID(n.ParentID)

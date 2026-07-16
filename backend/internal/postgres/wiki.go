@@ -124,9 +124,6 @@ type WikiMeta struct {
 	UpdatedAt   int64
 	Published   bool
 	HasChildren bool
-	// OwnerOnly —— 笔记级 owner 层（frontmatter `visibility: owner`）：对任何 visitor 不可达。
-	// facade 的 readable() 拿它当第二个 AND 项（subjectivity-owner-visibility）。
-	OwnerOnly bool
 }
 
 // ListChildren —— 某节点的直接子(meta,无 body);parentID nil = 根层;limit/offset 翻页。
@@ -142,8 +139,7 @@ func (r *WikiRepo) ListChildren(
 		func(row dbq.ListNoteChildrenRow) WikiMeta {
 			return WikiMeta{
 				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-				Title: row.Title, Published: row.Published,
-				OwnerOnly: row.OwnerOnly, HasChildren: row.HasChildren,
+				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
 }
@@ -165,7 +161,7 @@ func (r *WikiRepo) GetMetaByID(ctx context.Context, ownerID, id string) (WikiMet
 	}
 	return WikiMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-		Title: row.Title, Published: row.Published, OwnerOnly: row.OwnerOnly,
+		Title: row.Title, Published: row.Published,
 	}, nil
 }
 
@@ -193,7 +189,7 @@ func (r *WikiRepo) Search(
 func wikiSearchRowMeta(row *dbq.SearchNotesRow) WikiMeta {
 	return WikiMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-		Title: row.Title, Published: row.Published, OwnerOnly: row.OwnerOnly, Snippet: row.Snippet,
+		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
 	}
 }
 
@@ -233,10 +229,11 @@ func (r *WikiRepo) ListAllMeta(ctx context.Context, ownerID string) ([]WikiMeta,
 		return nil, fmt.Errorf("list all wiki meta: %w", qerr)
 	}
 	out := make([]WikiMeta, 0, len(rows))
-	for _, m := range allNoteMetaFromRows(rows) {
+	for i := range rows {
 		out = append(out, WikiMeta{
-			ID: m.ID, ParentID: m.ParentID, Title: m.Title,
-			Published: m.Published, OwnerOnly: m.OwnerOnly, UpdatedAt: m.UpdatedAt,
+			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
+			Title: rows[i].Title, Published: rows[i].Published,
+			UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
 		})
 	}
 	return out, nil
@@ -263,7 +260,6 @@ func toDomainWiki(w *dbq.CorpusNote) domain.Wiki {
 		ShowAsSource: w.ShowAsSource,
 		Excerpt:      w.Excerpt,
 		Published:    w.Published,
-		OwnerOnly:    w.OwnerOnly,
 		CreatedAt:    w.CreatedAt.Time,
 		UpdatedAt:    w.UpdatedAt.Time,
 		Integrations: domain.NewIntegrations(),

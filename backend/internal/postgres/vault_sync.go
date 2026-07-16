@@ -36,10 +36,6 @@ type SyncNote struct {
 	Tags        []string
 	HasImported bool
 	Published   bool
-	// OwnerOnly —— 笔记级 owner 层（frontmatter `visibility: owner`）。**reconcile 必须读回它**：
-	// frontmatter 是从 body 里剥掉的，owner 只加这一行时 body/excerpt/tags 全没变，不比对它就会
-	// 被判 unchanged → skip → 这条 PII 保护永远不生效（文档承诺的 "live" 就破了）。
-	OwnerOnly bool
 }
 
 // ErrSyncNoteNotFound —— GetByTitle 没认领到(不是错误,是「新建」信号)。
@@ -121,8 +117,6 @@ type CreateSyncNoteInput struct {
 	Tags        []string
 	CSSClasses  []string
 	Published   bool
-	// OwnerOnly —— frontmatter `visibility: owner`：对任何 visitor 不可达（gate-1 笔记级 owner 层）。
-	OwnerOnly bool
 }
 
 // Create —— 建一条 sync note，返 id。
@@ -139,7 +133,7 @@ func (r *VaultSyncRepo) Create(ctx context.Context, in *CreateSyncNoteInput) (st
 		OwnerID: owner, Genre: in.Genre, ParentID: parent, Title: in.Title,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
-		InboxSource: in.InboxSource, Excerpt: in.Excerpt, OwnerOnly: in.OwnerOnly,
+		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
 	})
 	if qerr != nil {
 		return "", fmt.Errorf("create sync note: %w", qerr)
@@ -160,8 +154,6 @@ type UpdateSyncNoteInput struct {
 	Tags        []string
 	CSSClasses  []string
 	Published   bool
-	// OwnerOnly —— frontmatter `visibility: owner`：对任何 visitor 不可达（gate-1 笔记级 owner 层）。
-	OwnerOnly bool
 }
 
 // Update —— reconcile 更新一条(genre/parent 可变 = 移动;body/tags/publish 刷新;重盖 obsidian 元数据)。
@@ -178,7 +170,7 @@ func (r *VaultSyncRepo) Update(ctx context.Context, in *UpdateSyncNoteInput) err
 		ID: ids.Src, OwnerID: ids.Owner, Genre: in.Genre, ParentID: parent,
 		Body: in.Body, Tags: nilSafeTags(in.Tags), Published: in.Published,
 		ObsidianSourcePath: in.SourcePath, CssClasses: nilSafeTags(in.CSSClasses),
-		InboxSource: in.InboxSource, Excerpt: in.Excerpt, OwnerOnly: in.OwnerOnly,
+		InboxSource: in.InboxSource, Excerpt: in.Excerpt,
 	}); qerr != nil {
 		return fmt.Errorf("update sync note: %w", qerr)
 	}
@@ -221,8 +213,6 @@ type QueryNoteRow struct {
 	ID         string
 	Genre      string
 	PathTitles []string
-	// OwnerOnly —— 笔记级 owner 层：对任何 visitor 不可达（facade readable() 的第二个 AND 项）。
-	OwnerOnly bool
 }
 
 // QueryNotes —— 按 genre/tag(空串 = 不筛)查 corp note,path 在 SQL 里沿 parent 链算好。
@@ -243,7 +233,6 @@ func (r *VaultSyncRepo) QueryNotes(
 	for i := range rows {
 		out = append(out, QueryNoteRow{
 			ID: formatUUID(rows[i].ID), Genre: rows[i].Genre, PathTitles: rows[i].PathTitles,
-			OwnerOnly: rows[i].OwnerOnly,
 		})
 	}
 	return out, nil
@@ -292,7 +281,6 @@ func syncNoteFromRow(n *dbq.CorpusNote) SyncNote {
 	out := SyncNote{
 		ID: formatUUID(n.ID), Genre: n.Genre, Title: n.Title, Body: n.Body,
 		Excerpt: n.Excerpt, Published: n.Published, Tags: n.Tags,
-		OwnerOnly: n.OwnerOnly,
 	}
 	if n.ParentID.Valid {
 		out.ParentID = formatUUID(n.ParentID)

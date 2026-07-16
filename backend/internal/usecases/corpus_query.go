@@ -112,7 +112,7 @@ func queryRowToMeta(
 		return CorpusMeta{}, false
 	}
 	path := strings.Join(row.PathTitles, "/")
-	if !allowsNote(grantedGlobs, noteACL{genre: row.Genre, path: path, ownerOnly: row.OwnerOnly}) {
+	if !allowsCorpusURI(grantedGlobs, row.Genre, path) {
 		return CorpusMeta{}, false
 	}
 	if childrenOf != "" && !isChildOf(row.PathTitles, childrenOf) {

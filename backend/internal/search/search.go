@@ -34,10 +34,6 @@ type Doc struct {
 	ParentID  string   `json:"parent_id"`
 	Tags      []string `json:"tags"`
 	Published bool     `json:"published"`
-	// OwnerOnly —— 笔记级 owner 层（frontmatter `visibility: owner`）。**必须进索引**：Meili 是
-	// visitor 检索的候选源，不带上它的话，一条 PII 笔记会以 Meili 命中的形式绕过 facade 的
-	// readable() 判定（D.3 选的是单索引 + 带 filterable 属性，而不是双索引）。
-	OwnerOnly bool `json:"owner_only"`
 }
 
 // Client —— meili 封装。Search/Index/Delete 都 WaitForTask 做强一致。

@@ -76,9 +76,7 @@ func (l *pgCorpusLister) neighborMeta(
 		return CorpusMeta{}, false
 	}
 	path := syncNotePath(note.Title, note.ParentID, dbParentOf(ctx, l.queryRepo, ownerID))
-	// neighbour navigation must not leak an owner-only note's title/path either.
-	acl := noteACL{genre: note.Genre, path: path, ownerOnly: note.OwnerOnly}
-	if !allowsNote(grantedGlobs, acl) {
+	if !allowsCorpusURI(grantedGlobs, note.Genre, path) {
 		return CorpusMeta{}, false
 	}
 	return CorpusMeta{ID: ref.ID, Path: path, Title: ref.Title, Genre: note.Genre}, true

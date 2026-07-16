@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/domain"
 	"github.com/atmaxmoj/standmeet/internal/postgres"
 )
 
@@ -139,9 +138,6 @@ type nodeContent struct {
 	tags       []string
 	cssClasses []string
 	published  bool
-	// ownerOnly —— frontmatter `visibility: owner`：这条对任何 visitor 都不可达（gate-1 笔记级
-	// owner 层，见 subjectivity-owner-visibility）。纯收窄，role/code 都开不了它。
-	ownerOnly bool
 }
 
 func contentOf(n *desiredNode) nodeContent {
@@ -151,7 +147,6 @@ func contentOf(n *desiredNode) nodeContent {
 	return nodeContent{
 		body: n.file.body, excerpt: n.file.fm.Excerpt, srcPath: n.file.sourcePath,
 		tags: n.file.fm.Tags, cssClasses: n.file.fm.CSSClasses, published: n.file.fm.Publish,
-		ownerOnly: domain.IsOwnerOnly(n.file.fm.Visibility),
 	}
 }
 
@@ -223,7 +218,6 @@ func createNode(ctx context.Context, op *nodeOp) {
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
 		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses,
 		InboxSource: inboxSourceFor(op.node.genre, op.c),
-		OwnerOnly:   op.c.ownerOnly,
 	})
 	if err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
@@ -244,7 +238,6 @@ func updateNode(ctx context.Context, op *nodeOp, existing *postgres.SyncNote) {
 		Body: op.c.body, Excerpt: op.c.excerpt, Tags: op.c.tags, Published: op.c.published,
 		SourcePath: op.c.srcPath, CSSClasses: op.c.cssClasses,
 		InboxSource: inboxSourceFor(op.node.genre, op.c),
-		OwnerOnly:   op.c.ownerOnly,
 	}); err != nil {
 		op.result.Errors = append(op.result.Errors, op.node.title+": "+err.Error())
 		return
@@ -272,13 +265,9 @@ func unchangedNode(sn *postgres.SyncNote, n *desiredNode, parent *string, c *nod
 		sameParent(sn.ParentID, parent) && sameStrings(sn.Tags, c.tags)
 }
 
-// unchangedFields —— the scalar-content fields (body / excerpt / publish / owner-only) are
-// unchanged. owner_only MUST be compared here: frontmatter is stripped out of body, so an owner who
-// adds nothing but `visibility: owner` changes no other field — miss it and the note is judged
-// unchanged, skipped, and the PII gate silently never lands (killing the design's "live" property).
+// unchangedFields —— the scalar-content fields (body / excerpt / publish) are unchanged.
 func unchangedFields(sn *postgres.SyncNote, c *nodeContent) bool {
-	return sn.Body == c.body && sn.Excerpt == c.excerpt && sn.Published == c.published &&
-		sn.OwnerOnly == c.ownerOnly
+	return sn.Body == c.body && sn.Excerpt == c.excerpt && sn.Published == c.published
 }
 
 func sameParent(existing string, desired *string) bool {

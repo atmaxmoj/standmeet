@@ -32,8 +32,7 @@ func (l *pgCorpusLister) visibleWikiNodes(
 	out := make([]CorpusMapEntry, 0, len(wikis))
 	for i := range wikis {
 		p := paths[wikis[i].ID()]
-		acl := noteACL{genre: "wiki", path: p, ownerOnly: wikis[i].OwnerOnly()}
-		if p == "" || !allowsNote(globs, acl) {
+		if p == "" || !allowsCorpusURI(globs, "wiki", p) {
 			continue
 		}
 		out = append(out, CorpusMapEntry{Path: p, Title: wikis[i].Title()})

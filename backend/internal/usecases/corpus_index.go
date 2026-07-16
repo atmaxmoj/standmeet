@@ -75,10 +75,6 @@ func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID stri
 		Path:  syncNotePath(note.Title, note.ParentID, dbParentOf(ctx, x.notes, ownerID)),
 		Title: note.Title, Body: note.Body,
 		Tags: note.Tags, Published: note.Published, ParentID: note.ParentID,
-		// OwnerOnly MUST be indexed: Meili is a candidate SOURCE for visitor search, so a doc
-		// missing this flag walks straight past the facade's readable() check (D.3 = one index
-		// carrying the flag, filtered at the facade — not a second index).
-		OwnerOnly: note.OwnerOnly,
 	}
 	if ierr := x.client.Index(ctx, []search.Doc{doc}); ierr != nil {
 		x.failed("index note push", ierr)
@@ -138,7 +134,6 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 			ID: notes[i].ID, OwnerID: ownerID, Genre: notes[i].Genre,
 			Path: path, Title: notes[i].Title, Body: notes[i].Body,
 			Tags: notes[i].Tags, Published: notes[i].Published, ParentID: notes[i].ParentID,
-			OwnerOnly: notes[i].OwnerOnly, // see IndexNote: an unflagged doc bypasses readable()
 		})
 	}
 	return docs

@@ -135,8 +135,6 @@ type OutputMeta struct {
 	UpdatedAt   int64
 	Published   bool
 	HasChildren bool
-	// OwnerOnly —— 笔记级 owner 层：对任何 visitor 不可达（facade readable() 的第二个 AND 项）。
-	OwnerOnly bool
 }
 
 // ListChildren —— output 节点的直接子(meta only,无 body);parentID nil = 根层;翻页。
@@ -153,8 +151,7 @@ func (r *OutputRepo) ListChildren(
 		func(row dbq.ListNoteChildrenRow) OutputMeta {
 			return OutputMeta{
 				ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-				Title: row.Title, Published: row.Published,
-				OwnerOnly: row.OwnerOnly, HasChildren: row.HasChildren,
+				Title: row.Title, Published: row.Published, HasChildren: row.HasChildren,
 			}
 		})
 }
@@ -176,7 +173,7 @@ func (r *OutputRepo) GetMetaByID(ctx context.Context, ownerID, id string) (Outpu
 	}
 	return OutputMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-		Title: row.Title, Published: row.Published, OwnerOnly: row.OwnerOnly,
+		Title: row.Title, Published: row.Published,
 	}, nil
 }
 
@@ -205,7 +202,7 @@ func (r *OutputRepo) Search(
 func outputSearchRowMeta(row *dbq.SearchNotesRow) OutputMeta {
 	return OutputMeta{
 		ID: formatUUID(row.ID), ParentID: optUUIDStr(row.ParentID),
-		Title: row.Title, Published: row.Published, OwnerOnly: row.OwnerOnly, Snippet: row.Snippet,
+		Title: row.Title, Published: row.Published, Snippet: row.Snippet,
 	}
 }
 
@@ -222,10 +219,11 @@ func (r *OutputRepo) ListAllMeta(ctx context.Context, ownerID string) ([]OutputM
 		return nil, fmt.Errorf("list all output meta: %w", qerr)
 	}
 	out := make([]OutputMeta, 0, len(rows))
-	for _, m := range allNoteMetaFromRows(rows) {
+	for i := range rows {
 		out = append(out, OutputMeta{
-			ID: m.ID, ParentID: m.ParentID, Title: m.Title,
-			Published: m.Published, OwnerOnly: m.OwnerOnly, UpdatedAt: m.UpdatedAt,
+			ID: formatUUID(rows[i].ID), ParentID: optUUIDStr(rows[i].ParentID),
+			Title: rows[i].Title, Published: rows[i].Published,
+			UpdatedAt: rows[i].UpdatedAt.Time.Unix(),
 		})
 	}
 	return out, nil
@@ -242,7 +240,6 @@ func toDomainOutput(o *dbq.CorpusNote) domain.Output {
 		ShowAsSource:  o.ShowAsSource,
 		Excerpt:       o.Excerpt,
 		Published:     o.Published,
-		OwnerOnly:     o.OwnerOnly,
 		CreatedAt:     o.CreatedAt.Time,
 		UpdatedAt:     o.UpdatedAt.Time,
 		Integrations:  domain.NewIntegrations(),

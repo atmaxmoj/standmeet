@@ -37,34 +37,10 @@ type pgCorpusLister struct {
 	searcher     *search.Client          // Meili 词法后端;nil(未配)→ Search 退 Postgres 全文
 }
 
-// allowsNote —— the ONE readability test every visitor-facing corpus surface goes through:
-//
-//	readable(note) = MatchesAnyCorpusGlob(role_globs, uri)  AND  NOT owner_only
-//
-// The second term is the note-level owner tier (subjectivity-owner-visibility): a note the vault
-// marked `visibility: owner` is unreachable for EVERY visitor session regardless of role globs.
-// Pure narrowing — no role and no code can open it — and live (note state, not frozen role state).
-//
-// ownerOnly is a REQUIRED argument on purpose. The old signature took only (genre, path), so a new
-// surface could ACL-check a note without ever considering the owner tier and leak PII silently.
-// Making it a parameter means the compiler names every call site: you cannot forget what you must
-// pass. (The motivating note is a CV — real name, education, employers — so a silent miss is the
-// whole risk.)
-func allowsNote(grantedGlobs []string, n noteACL) bool {
-	if n.ownerOnly {
-		return false
-	}
-	uri := domain.FormatURI(domain.DocumentGenre(n.genre), n.path)
+// allowsCorpusURI —— shared ACL test: does any granted glob match genre://path?
+func allowsCorpusURI(grantedGlobs []string, genre, path string) bool {
+	uri := domain.FormatURI(domain.DocumentGenre(genre), path)
 	return domain.MatchesAnyCorpusGlob(grantedGlobs, uri)
-}
-
-// noteACL —— readable() 判定所需的那条笔记的全部事实。用结构体而不是裸 bool 参数：ownerOnly 是
-// **这条笔记的属性**（数据），不是调用方的模式开关（control flag）—— 且新增一个 ACL 事实时，
-// 每个调用点会被编译器点名，而不是静默沿用默认值放行 PII。
-type noteACL struct {
-	genre     string
-	path      string
-	ownerOnly bool
 }
 
 // Search —— 词法检索。有 Meili(searcher)走 Meili(corpus_notes:wiki/output/subjectivity = vault)
@@ -91,11 +67,7 @@ func (l *pgCorpusLister) meiliSearch(
 	}
 	out := make([]CorpusMeta, 0, len(docs))
 	for i := range docs {
-		acl := noteACL{
-			genre: docs[i].Genre, path: docs[i].Path,
-			ownerOnly: docs[i].OwnerOnly || l.ownerOnlyInDB(ctx, ownerID, docs[i].ID),
-		}
-		if !allowsNote(grantedGlobs, acl) {
+		if !allowsCorpusURI(grantedGlobs, docs[i].Genre, docs[i].Path) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -104,27 +76,6 @@ func (l *pgCorpusLister) meiliSearch(
 		})
 	}
 	return out, true
-}
-
-// ownerOnlyInDB —— the DB is the AUTHORITY on the owner tier; the index is only a candidate source.
-//
-// The indexed copy of owner_only is written best-effort and asynchronously, so it can be stale, or
-// missing (a doc indexed before the field existed), or orphaned (a note deleted from PG whose Meili
-// doc lingers) — and every one of those reads as `false`, i.e. servable. Trusting it would make a
-// PII gate depend on index freshness, which is exactly the kind of silent fail-open this tier
-// exists to prevent. So a Meili hit is re-checked against the row; anything we cannot confirm as
-// safe is treated as owner-only (fail CLOSED — an orphaned doc has no row and is withheld).
-//
-// Cost is one keyed lookup per hit, bounded by the search page limit, and only on the Meili leg.
-func (l *pgCorpusLister) ownerOnlyInDB(ctx context.Context, ownerID, noteID string) bool {
-	if l.queryRepo == nil {
-		return false // no authority wired (eval/facade paths) — fall back to the indexed flag
-	}
-	note, err := l.queryRepo.GetSyncNote(ctx, ownerID, noteID)
-	if err != nil {
-		return true // unknown row (deleted? orphaned doc?) → withhold rather than serve
-	}
-	return note.OwnerOnly
 }
 
 // pgSearch —— Postgres 全文降级路径:4 个 genre 聚合,path 现算,glob ACL 逐条过。
@@ -162,10 +113,7 @@ func (l *pgCorpusLister) subjectivityHit(
 	ctx context.Context, ownerID string, globs []string, hit *postgres.NoteMeta,
 ) (CorpusMeta, bool) {
 	path, perr := deriveNotePath(ctx, l.subjectivity, ownerID, hit.ID)
-	if perr != nil || !allowsNote(
-		globs,
-		noteACL{genre: "subjectivity", path: path, ownerOnly: hit.OwnerOnly},
-	) {
+	if perr != nil || !allowsCorpusURI(globs, "subjectivity", path) {
 		return CorpusMeta{}, false
 	}
 	return CorpusMeta{
@@ -184,10 +132,7 @@ func (l *pgCorpusLister) searchWikis(
 	out := make([]CorpusMeta, 0, len(hits))
 	for i := range hits {
 		path, perr := wikiPathByID(ctx, l.wiki, ownerID, hits[i].ID)
-		if perr != nil || !allowsNote(
-			globs,
-			noteACL{genre: "wiki", path: path, ownerOnly: hits[i].OwnerOnly},
-		) {
+		if perr != nil || !allowsCorpusURI(globs, "wiki", path) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -208,10 +153,7 @@ func (l *pgCorpusLister) searchOutputs(
 	out := make([]CorpusMeta, 0, len(hits))
 	for i := range hits {
 		path, perr := outputPathByID(ctx, l.output, ownerID, hits[i].ID)
-		if perr != nil || !allowsNote(
-			globs,
-			noteACL{genre: "output", path: path, ownerOnly: hits[i].OwnerOnly},
-		) {
+		if perr != nil || !allowsCorpusURI(globs, "output", path) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -232,8 +174,7 @@ func (l *pgCorpusLister) searchWritings(
 	out := make([]CorpusMeta, 0, len(hits))
 	for i := range hits {
 		p := hits[i].Path()
-		// writings have no owner tier (D.2: they exist to be published).
-		if !allowsNote(globs, noteACL{genre: "writing", path: p}) {
+		if !allowsCorpusURI(globs, "writing", p) {
 			continue
 		}
 		out = append(out, CorpusMeta{
