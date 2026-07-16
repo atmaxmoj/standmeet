@@ -120,6 +120,14 @@ CREATE TABLE corpus_notes (
     -- css_classes —— Obsidian `cssclasses` frontmatter:渲染时加到 note 容器的 CSS class(per-note
     -- 呈现钩子,配合 owner CSS snippet)。sync/admin/MCP 三面可写。
     css_classes      text[]        NOT NULL DEFAULT '{}',
+    -- owner_only —— gate-1 的**笔记级 owner 层**(subjectivity-owner-visibility)。vault frontmatter
+    -- `visibility: owner` 同步进来。语义:这条笔记**对任何 visitor session 都不可达**,无视 role glob。
+    --   readable(note) = MatchesAnyCorpusGlob(role_globs, uri) AND NOT owner_only
+    -- 动机:subjectivity/ 里出现了 record 笔记(CV:真名/学历/雇主/城市)。gate 2(show_as_source)只挡
+    -- **署名**不挡**信息** —— 读到了 CV 的 agent 照样能在答案里说出雇主;而 gate 1 只有 allow-glob,
+    -- 一条 subjectivity://** 就把 record 跟 stance 一起放进来了。PII 必须在 gate 1 挡住。
+    -- 纯收窄(只减不加,role/code 都开不了它),且是**活的**(笔记态,非 role 态,不碰"冻结后不再读"的不变量)。
+    owner_only       boolean       NOT NULL DEFAULT false,
     -- Obsidian vault sync 元数据(镜像 writings)。source_path = 来自的 vault 内相对路径
     -- (wiki/x.md);imported_at = 那次 sync 的时刻。reconcile 靠 source_path 认同一条,
     -- web-wins 靠 updated_at > imported_at 判断(owner 在 web 改过 → sync 不覆盖)。

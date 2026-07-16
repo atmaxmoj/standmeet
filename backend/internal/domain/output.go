@@ -33,6 +33,8 @@ type Output struct {
 	sourceWikiIDs []string
 	showAsSource  bool
 	published     bool
+	// ownerOnly —— 笔记级 owner 层：对任何 visitor 不可达（facade readable() 的第二个 AND 项）。
+	ownerOnly bool
 }
 
 // OutputInit —— 构造参数。
@@ -50,6 +52,7 @@ type OutputInit struct {
 	Integrations  Integrations
 	Published     bool
 	ShowAsSource  bool
+	OwnerOnly     bool
 }
 
 // NewOutput —— 从 Init 构造。pointer 入参避开 hugeParam。
@@ -73,6 +76,7 @@ func NewOutput(i *OutputInit) Output {
 		tree:         NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
 		excerpt:      i.Excerpt,
 		published:    i.Published,
+		ownerOnly:    i.OwnerOnly,
 		integrations: i.Integrations,
 	}
 }
@@ -124,6 +128,9 @@ func (o *Output) Excerpt() string { return o.excerpt }
 
 // Published —— 是否公开（进 sitemap + robots index + 访客可读）。
 func (o *Output) Published() bool { return o.published }
+
+// OwnerOnly —— 笔记级 owner 层：true = 对任何 visitor session 不可达（纯收窄，role/code 开不了）。
+func (o *Output) OwnerOnly() bool { return o.ownerOnly }
 
 // SourceWikiIDs —— 该 output 是从哪些 wiki 提炼来的 (defensive copy)。
 func (o *Output) SourceWikiIDs() []string {

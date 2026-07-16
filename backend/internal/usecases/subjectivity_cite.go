@@ -61,6 +61,12 @@ func (r *subjectivityCiteResolver) ResolveCite(
 		}
 		return SubjectivityCiteRef{}, fmt.Errorf("get subjectivity: %w", err)
 	}
+	// 笔记级 owner 层的**第三道** enforcement（double safety，见 subjectivity-owner-visibility）：
+	// owner-only 的笔记按「不存在」解析。理论上 gate 1 已挡住它、agent 根本读不到、也就不会来
+	// cite；但 cite 解析会返回 title/path/body，一旦上游哪天漏了，这里就是 PII 的最后一道门。
+	if note.OwnerOnly {
+		return SubjectivityCiteRef{}, domain.ErrSubjectivityNotFound
+	}
 	path, perr := deriveNotePath(ctx, r.repo, ownerID, id)
 	if perr != nil {
 		return SubjectivityCiteRef{}, fmt.Errorf("derive subjectivity path: %w", perr)

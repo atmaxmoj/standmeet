@@ -64,7 +64,8 @@ func wikiChildRows(
 		if parentPath != "" {
 			childPath = parentPath + "/" + childPath
 		}
-		if !allowsCorpusURI(globs, "wiki", childPath) {
+		acl := noteACL{genre: "wiki", path: childPath, ownerOnly: kids[i].OwnerOnly}
+		if !allowsNote(globs, acl) {
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -86,7 +87,10 @@ func (l *pgCorpusLister) listOutputRoots(
 	out := make([]CorpusMeta, 0, len(outputs))
 	for i := range outputs {
 		p := paths[outputs[i].ID()]
-		if !allowsCorpusURI(globs, "output", p) {
+		if !allowsNote(
+			globs,
+			noteACL{genre: "output", path: p},
+		) { // domain.Output has no owner tier yet (D.2)
 			continue
 		}
 		out = append(out, CorpusMeta{
@@ -106,7 +110,8 @@ func (l *pgCorpusLister) listWritingRoots(
 	out := make([]CorpusMeta, 0, len(writings))
 	for i := range writings {
 		p := writings[i].Path()
-		if !allowsCorpusURI(globs, "writing", p) {
+		// writings have no owner tier (D.2: they exist to be published).
+		if !allowsNote(globs, noteACL{genre: "writing", path: p}) {
 			continue
 		}
 		out = append(out, CorpusMeta{

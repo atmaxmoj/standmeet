@@ -33,6 +33,9 @@ type Wiki struct {
 	sourceRawIDs []string
 	showAsSource bool
 	published    bool
+	// ownerOnly —— 笔记级 owner 层（frontmatter `visibility: owner`）：对任何 visitor 不可达，
+	// 无视 role glob（subjectivity-owner-visibility）。gate 2 的 showAsSource 只挡署名，这条挡读。
+	ownerOnly bool
 }
 
 // WikiInit —— 构造参数。
@@ -51,6 +54,7 @@ type WikiInit struct {
 	Integrations Integrations
 	Published    bool
 	ShowAsSource bool
+	OwnerOnly    bool
 }
 
 // NewWiki —— 从 Init 构造。SourceRawIDs defensive clone。pointer 入参避开 hugeParam。
@@ -74,6 +78,7 @@ func NewWiki(i *WikiInit) Wiki {
 		tree:         NewTreeNode(&TreeNodeInit{ParentID: i.ParentID}),
 		excerpt:      i.Excerpt,
 		published:    i.Published,
+		ownerOnly:    i.OwnerOnly,
 		integrations: i.Integrations,
 	}
 }
@@ -131,6 +136,10 @@ func (w *Wiki) Excerpt() string { return w.excerpt }
 
 // Published —— 是否公开（进 sitemap + robots index + 访客可读）。
 func (w *Wiki) Published() bool { return w.published }
+
+// OwnerOnly —— 笔记级 owner 层：true = 对任何 visitor session 不可达（facade readable() 的第二个
+// AND 项）。纯收窄，role/code 都开不了它。
+func (w *Wiki) OwnerOnly() bool { return w.ownerOnly }
 
 // SourceRawIDs —— 该 wiki 是从哪些 raw promote 来的（defensive copy）。
 func (w *Wiki) SourceRawIDs() []string {

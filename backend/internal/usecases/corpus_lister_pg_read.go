@@ -20,7 +20,8 @@ func (l *pgCorpusLister) Get(
 			continue
 		}
 		foundAny = true
-		if allowsCorpusURI(grantedGlobs, entry.Genre, path) {
+		acl := noteACL{genre: entry.Genre, path: path, ownerOnly: entry.OwnerOnly}
+		if allowsNote(grantedGlobs, acl) {
 			l.fillCSSClasses(ctx, ownerID, &entry)
 			return entry, nil
 		}
@@ -61,6 +62,7 @@ func (l *pgCorpusLister) findSubjectivity(
 	}
 	return CorpusEntry{
 		ID: n.ID, Path: path, Title: n.Title, Genre: "subjectivity", Body: n.Body,
+		OwnerOnly: n.OwnerOnly, // the CV lives here — never drop this on the floor
 	}, true
 }
 
@@ -77,7 +79,7 @@ func (l *pgCorpusLister) findWiki(
 	}
 	return CorpusEntry{
 		ID: w.ID(), Path: path, Title: w.Title(), Genre: "wiki", Body: w.Body(),
-		ShowAsSource: w.ShowAsSource(),
+		ShowAsSource: w.ShowAsSource(), OwnerOnly: w.OwnerOnly(),
 	}, true
 }
 
@@ -94,7 +96,7 @@ func (l *pgCorpusLister) findOutput(
 	}
 	return CorpusEntry{
 		ID: o.ID(), Path: path, Title: o.Title(), Genre: "output", Body: o.Body(),
-		ShowAsSource: o.ShowAsSource(),
+		ShowAsSource: o.ShowAsSource(), OwnerOnly: o.OwnerOnly(),
 	}, true
 }
 
@@ -107,5 +109,6 @@ func (l *pgCorpusLister) findWriting(
 	}
 	return CorpusEntry{
 		ID: w.ID(), Path: path, Title: w.Title(), Genre: "writing", Body: writingBodyText(&w),
+		// writings have no owner tier (D.2: they exist to be published).
 	}, true
 }

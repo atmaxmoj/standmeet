@@ -196,6 +196,7 @@ type CorpusNote struct {
 	Excerpt            string
 	Published          bool
 	CssClasses         []string
+	OwnerOnly          bool
 	ObsidianSourcePath string
 	ObsidianImportedAt pgtype.Timestamptz
 	InboxSource        string

@@ -40,7 +40,7 @@ RETURNING *;
 
 -- name: ListNoteChildren :many
 -- 懒加载一层：某节点的直接子（meta only，不带 body）；$3 NULL = 根层。has_children 判还能否下钻。
-SELECT n.id, n.parent_id, n.title, n.published,
+SELECT n.id, n.parent_id, n.title, n.published, n.owner_only,
        EXISTS(SELECT 1 FROM corpus_notes c WHERE c.parent_id = n.id AND c.genre = $2) AS has_children
 FROM corpus_notes n
 WHERE n.owner_id = $1 AND n.genre = $2
@@ -105,7 +105,8 @@ SELECT count(*) FROM sub;
 
 -- name: GetNoteMetaByID :one
 -- meta only（无 body）：上溯算树派生 path / 判 ACL 用，不为读正文。
-SELECT id, parent_id, title, published
+-- owner_only 必须带上：facade 的 readable() 就是拿它当第二个 AND 项（PII 笔记级 owner 层）。
+SELECT id, parent_id, title, published, owner_only
 FROM corpus_notes
 WHERE id = $1 AND owner_id = $2 AND genre = $3;
 
@@ -121,7 +122,7 @@ WHERE owner_id = $1 AND genre = $2;
 -- name: ListAllNoteMeta :many
 -- 全量 meta（无 body、无 limit）：sitemap 枚举 + landing 的 title→path 索引用。不带 newest-N cap
 -- —— sitemap / 链接解析必须看全量，漏一条就是 SEO bug / 断链。带 updated_at 给 sitemap <lastmod>。
-SELECT id, parent_id, title, published, updated_at
+SELECT id, parent_id, title, published, owner_only, updated_at
 FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
 ORDER BY created_at DESC;
@@ -134,18 +135,22 @@ SELECT id, title, genre FROM corpus_notes WHERE owner_id = $1;
 -- name: QueryCorpusNotes :many
 -- 原生 standmeet-query 用:按 genre/tag 过滤(空串 = 不筛),并沿 parent 链在 SQL 里算出 path_titles
 -- (root→leaf),省掉逐条 N+1 的 path walk。只返 root-reached 行(每个匹配条一行,带完整 path)。
+-- leaf_owner_only 沿递归带到根:facade 的 readable() 要拿它当第二个 AND 项(PII 笔记级 owner 层)。
 WITH RECURSIVE up AS (
-  SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.id, n.parent_id,
+  SELECT n.id AS leaf_id, n.genre AS leaf_genre, n.owner_only AS leaf_owner_only,
+         n.id, n.parent_id,
          ARRAY[n.title]::text[] AS path_titles
   FROM corpus_notes n
   WHERE n.owner_id = $1
     AND ($2::text = '' OR n.genre = $2::text)
     AND ($3::text = '' OR $3::text = ANY(n.tags))
   UNION ALL
-  SELECT up.leaf_id, up.leaf_genre, p.id, p.parent_id, p.title || up.path_titles
+  SELECT up.leaf_id, up.leaf_genre, up.leaf_owner_only, p.id, p.parent_id,
+         p.title || up.path_titles
   FROM corpus_notes p JOIN up ON p.id = up.parent_id
 )
-SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.path_titles
+SELECT up.leaf_id AS id, up.leaf_genre AS genre, up.leaf_owner_only AS owner_only,
+       up.path_titles
 FROM up WHERE up.parent_id IS NULL;
 
 -- name: ListAllNotesForExport :many
@@ -182,8 +187,8 @@ LIMIT 1;
 -- Vault sync create: sets genre/parent/publish + the obsidian identity (source_path, imported_at=now).
 -- inbox_source is the vault-source tag for genre='raw' ("obsidian:<path>"); empty for other genres.
 INSERT INTO corpus_notes
-  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, obsidian_imported_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+  (owner_id, genre, parent_id, title, body, tags, published, obsidian_source_path, css_classes, inbox_source, excerpt, owner_only, obsidian_imported_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
 RETURNING *;
 
 -- name: UpdateNoteSync :one
@@ -192,6 +197,7 @@ RETURNING *;
 UPDATE corpus_notes
 SET genre = $3, parent_id = $4, body = $5, tags = $6, published = $7,
     obsidian_source_path = $8, css_classes = $9, inbox_source = $10, excerpt = $11,
+    owner_only = $12,
     obsidian_imported_at = now(), updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
@@ -199,7 +205,7 @@ RETURNING *;
 -- name: SearchNotes :many
 -- 全量关键词搜（DB 端 full-text）；返 meta + snippet（不返完整 body），翻页。自然语言问句按 OR
 -- 命中任一词项（' & '→' | '，防 "tell"/"me" 噪声词把 plainto 默认 AND 卡死）；ts_rank 关联度排序。
-SELECT id, parent_id, title, published, left(body, 200) AS snippet
+SELECT id, parent_id, title, published, owner_only, left(body, 200) AS snippet
 FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
   AND to_tsvector('english',
