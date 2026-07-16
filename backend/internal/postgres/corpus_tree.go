@@ -73,6 +73,15 @@ func (r *RawRepo) ListChildrenTree(
 	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, genreRaw}, toDomainRaw)
 }
 
+// ListChildrenTree —— one lazy layer of a NoteRepo's tree (r.genre, so subjectivity gets one too).
+// subjectivity 之前没有 tree —— owner 在 admin 里根本看不见 CV 所在的那个 genre,更没法从树上勾它
+// 的准入(F-A-15)。这里不是 subjectivity 专用:NoteRepo 本来就是 genre-参数化的。
+func (r *NoteRepo) ListChildrenTree(
+	ctx context.Context, ownerID string, parentID *string,
+) ([]TreeChild[Note], error) {
+	return adminChildren(ctx, childrenReq{r.pool, parentID, ownerID, r.genre}, noteFromRow)
+}
+
 // ListChildrenTree —— one lazy layer of the writings tree (genre='writing' corpus_notes).
 func (r *WritingRepo) ListChildrenTree(
 	ctx context.Context, ownerID string, parentID *string,

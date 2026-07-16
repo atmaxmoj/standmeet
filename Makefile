@@ -322,3 +322,20 @@ capture-marketplace-fixtures:
 # fixture path (drops fields we don't read).
 trim-marketplace-fixtures:
 	@bash e2e/fixtures/marketplace/trim.sh
+
+# prod-psql —— run SQL against the prod DB.  usage: make prod-psql SQL="select 1"
+#
+# schema.sql is applied by postgres ONLY on a fresh volume (see docker-compose.prod.yml), so an
+# instance that predates a new table never gets it — the backend just 500s on that route forever.
+# This is the escape hatch for the verification stack; it is NOT an upgrade story for real
+# self-hosted owners (see F-A-16).
+prod-psql:
+	@test -n "$(SQL)" || (echo 'usage: make prod-psql SQL="select 1"'; exit 2)
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T db \
+		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 -c "$(SQL)"
+
+# prod-psql-file —— same, for multi-line SQL.  usage: make prod-psql-file FILE=/tmp/x.sql
+prod-psql-file:
+	@test -f "$(FILE)" || (echo 'usage: make prod-psql-file FILE=<path.sql>'; exit 2)
+	@docker compose -p standmeet-prod -f docker-compose.prod.yml exec -T db \
+		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 < "$(FILE)"

@@ -10,6 +10,7 @@ import { QRCode } from '@/components/admin/atoms/QRCode';
 import { MembersBlock } from '@/components/admin/sections/codes/MembersBlock';
 import { buildShareLink } from '@/lib/admin/code-share';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
+import { useRoles } from '@/lib/admin/use-roles';
 
 import type { CodeView } from '@/lib/admin/use-codes';
 
@@ -161,14 +162,26 @@ function RoleCol({ code }: { code: CodeView }) {
   );
 }
 
+// RoleLink —— 这张码假定的 role，**按名字**。原来印的是 `roleID.slice(0, 8)}…`，一截 UUID：
+// 卡上其它每一处都是人话，唯独这里要 owner 拿 `e1db285a…` 去跟 /admin/roles 对。role 的名字正是
+// owner 自己起的（"public"/"ext-mcp-verify"），是这张码给谁看的唯一线索。
+// rolesStore 是共享 resource store，每张卡都调也只有一次 GET。
+// roleLabel —— 名字优先；还没拉到就先退回一截 ID（宁可难看，不给一个会跳的空白）。
+function roleLabel(roles: readonly { id: string; name: string }[], roleID: string): string {
+  return roles.find((r) => r.id === roleID)?.name ?? `${roleID.slice(0, 8)}…`;
+}
+
 function RoleLink({ roleID }: { roleID: string }) {
+  const { roles } = useRoles();
+  const label = roleLabel(roles, roleID);
   return (
     <a
       href="/admin/roles"
       className="mono text-[12.5px] tracking-[0.02em] text-(--color-ink) underline decoration-(--color-accent)/35"
       data-testid={`code-role-${roleID}`}
+      title={label}
     >
-      {roleID.slice(0, 8)}… ↗
+      {label} ↗
     </a>
   );
 }

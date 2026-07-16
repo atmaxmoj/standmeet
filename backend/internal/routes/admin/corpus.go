@@ -37,6 +37,7 @@ func (h *Handlers) MountCorpus(r chi.Router) {
 	}))
 	r.Get("/corpus/{genre}/tree", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.treeRaw(), "wiki": h.treeWiki(), "output": h.treeOutput(),
+		"subjectivity": h.treeSubjectivity(),
 	}))
 	r.Get("/corpus/{genre}/page", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.pageRaw(), "wiki": h.pageWiki(), "output": h.pageOutput(),

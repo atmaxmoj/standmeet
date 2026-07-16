@@ -55,6 +55,13 @@ test.describe('issue code with assumed_role_id', () => {
       await expect(row.getByTestId('code-role-frozen')).toBeVisible();
       // frozen line 应包含 "issued with role" 字样
       await expect(row.getByTestId('code-role-frozen')).toContainText('frozen');
+
+      // 链接**写的是什么**：这条 case 原来只断言了链接在场，没问过它显示什么，于是卡上一直印着
+      // 一截 UUID（`e1db285a…`）没人发现。role 的名字是 owner 自己起的，是「这张码给谁看」的唯一
+      // 线索；一个截断的 ID 逼 owner 拿去跟 /admin/roles 逐个对。
+      const link = row.locator('[data-testid^="code-role-"]').and(row.locator('a'));
+      await expect(link, 'the card names the role').toHaveText(/public/, { timeout: 5_000 });
+      await expect(link, 'and never shows a raw UUID').not.toHaveText(/[0-9a-f]{8}…/);
     });
 });
 
