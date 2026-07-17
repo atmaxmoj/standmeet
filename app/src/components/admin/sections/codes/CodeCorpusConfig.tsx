@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { CorpusScopePicker } from '@/components/admin/sections/corpus/CorpusScopePicker';
 import { fetchCodeCorpus, saveCodeCorpus } from '@/lib/admin/use-code-corpus';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -114,6 +115,13 @@ export function CodeCorpusConfig({ codeID, codeLabel }: { codeID: string; codeLa
         taken back on this code
       </span>
       <p className="reading-tight text-[11px] text-(--color-muted)">{CORPUS_HELP}</p>
+      {/* 收回和授权是同一种语言（一组 glob），所以是同一个 picker（F-A-14）。 */}
+      <CorpusScopePicker
+        value={text.split('\n').map((s) => s.trim()).filter((s) => s !== '')}
+        onChange={(next) => setText(next.join('\n'))}
+        testid={`code-corpus-picker-${codeLabel}`}
+      />
+      <span className="mono text-[9.5px] text-(--color-faint) mt-1">or write them by hand:</span>
       <textarea
         className="border border-(--color-rule) px-2.5 py-1.5 bg-(--color-paper) text-[12.5px] font-mono min-h-[54px]"
         value={text}

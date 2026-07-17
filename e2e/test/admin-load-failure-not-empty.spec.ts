@@ -82,11 +82,25 @@ async function corpusLoadFailureIsVisible({ adminPage }: { adminPage: Page }): P
 // 断言的是**好结果**（'—' = 没拉到），不是「不等于 0」—— 后者在 fetch 回来之前就满足了，会在
 // bug 还在的时候瞬间绿掉（本条第一版正是如此）。'—' 只由 error 态产生，loading 是 '…'。
 async function dashboardCountLoadFailure({ adminPage }: { adminPage: Page }): Promise<void> {
-  await fail(adminPage, /\/api\/admin\/applications/);
-  // 离开再回来：adminPage 落地时就已经拉过一次 count，那一发早于 route 注册。重挂组件才能让
-  // 被钉成 500 的那一发生效。
-  await gotoAdminSection(adminPage, 'codes');
-  await gotoAdminSection(adminPage, 'dashboard');
+  let intercepted = 0;
+  await adminPage.route(/\/api\/admin\/applications/, (route) => {
+    intercepted += 1;
+    return route.fulfill({
+      status: 500, contentType: 'application/json',
+      body: JSON.stringify({ error: { message: 'boom' } }),
+    });
+  });
+  // 整页重载，而不是"点去别处再点回来"。adminPage 落地时就已经拉过一次 count（那一发早于 route
+  // 注册，拿到真值 0），而 Next 的客户端路由会把那个 segment 连同它的 state 一起复用 —— 兜一圈
+  // 回来看到的还是那个 0。这条 case 一度是绿的，只因为第一发还没 resolve 就被导航走了；等 codes
+  // 页变慢（挂上 picker 之后），它就够时间 resolve 了，于是同一段测试代码开始红。
+  // 时序决定成败的断言 = 迟早会骗人的断言。reload 之后什么都不剩，route 必然生效。
+  await adminPage.reload();
+  // 先证「这一发真的被钉成 500 了」。否则一个没拦到的请求会让断言红在完全无关的地方 ——
+  // 本条第一版就是那样：它以为自己在测吞错误，其实测的是"这实例恰好 0 份 application"。
+  await expect.poll(() => intercepted, {
+    message: 'the applications GET must actually be intercepted — otherwise this asserts nothing',
+  }).toBeGreaterThan(0);
   await expect(
     adminPage.getByTestId('dash-applications-sent'),
     'a failed count must read as unknown (—), never as a confident zero',

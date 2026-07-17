@@ -15,6 +15,7 @@
 
 import { useCallback, useState } from 'react';
 
+import { CorpusScopePicker } from '@/components/admin/sections/corpus/CorpusScopePicker';
 import { useRoles, type RoleView, type WriteRoleInput } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -43,6 +44,18 @@ export function RoleCorpusConfig({ role }: { role: RoleView }) {
         <p className="reading-tight text-[11px] text-(--color-muted)" data-testid="role-corpus-help">
           {CORPUS_HELP}
         </p>
+        {/*
+          从真树上勾（F-A-14）。手写框留着并并排同步显示 —— picker 认不出来的 glob（树上没有哪一行
+          对应它的那种）只能在那里改，而且 owner 得看得见这份授权的全文。
+        */}
+        <CorpusScopePicker
+          value={parseURIs(text)}
+          onChange={(next) => setText(next.join('\n'))}
+          testid={`role-corpus-picker-${role.name}`}
+        />
+        <span className="mono text-[9.5px] text-(--color-faint) mt-1">
+          or write them by hand:
+        </span>
         <textarea
           className="border border-(--color-rule) px-3 py-2 bg-(--color-paper) text-[13px] font-mono min-h-[84px]"
           value={text}
