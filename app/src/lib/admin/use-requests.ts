@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { z } from 'zod';
 import { adminAPI, AccessRequestViewSchema, type AccessRequestView } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export type RequestStatusFilter = 'all' | 'open' | 'replied' | 'closed';
@@ -49,7 +49,7 @@ export const requestsStore = createResourceStore<AccessRequestView[]>({
 });
 
 export function useRequests(): RequestsHook {
-  const r = readResource(requestsStore);
+  const r = useResource(requestsStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   const [filter, setFilter] = useState<RequestStatusFilter>('open');

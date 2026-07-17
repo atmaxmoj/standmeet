@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export const SkillViewSchema = z.object({
@@ -44,7 +44,7 @@ export const skillsStore = createResourceStore<SkillView[]>({
 });
 
 export function useSkills(): SkillsHook {
-  const r = readResource(skillsStore);
+  const r = useResource(skillsStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {

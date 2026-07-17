@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { adminAPI, MeViewSchema, type MeView } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 
 // AdminSession —— 旧 shape：sessionStore 全字段（MeView）的子集别名，
 // 老 caller (AdminSidebar / PageSection / etc.) 还按这个 4 字段读。
@@ -34,7 +34,7 @@ export const sessionStore = createResourceStore<MeView>({
 
 export function useAdminSession(): AdminSessionState {
   const router = useRouter();
-  const r = readResource(sessionStore);
+  const r = useResource(sessionStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   useEffect(() => {

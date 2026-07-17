@@ -6,7 +6,8 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 import type { PendingFile } from '@/lib/writings/upload-asset';
 
@@ -79,7 +80,7 @@ export const writingsStore = createResourceStore<AdminWritingView[]>({
 });
 
 export function useWritings(): WritingsHook {
-  const r = readResource(writingsStore);
+  const r = useResource(writingsStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {
@@ -101,12 +102,19 @@ async function updateWriting(id: string, bundle: WritingSaveBundle): Promise<voi
   const updated = await adminAPI.patchForm(`/writings/${id}`, fd, AdminWritingViewSchema);
   writingsStore.getState().mutate((prev) =>
     (prev ?? []).map((w) => w.id === updated.id ? updated : w));
+  bumpCorpusEpoch();
 }
 
+// createWriting —— 建完必须让**树**也失效，不只是那张扁平列表。
+// 树的每一层是按 corpus epoch 缓存的（useAdminTreeLayer）。只 mutate 扁平 store 的话：计数变成
+// 「2 writings」，而树还是旧的那一层 —— 父节点不知道自己多了个孩子，**连展开箭头都不长**，于是
+// owner 刚建的那条在界面上直接消失。计数说 2、列表显示 1，正是 owner 早就点过名的那一类
+// （F-D-1：codes 列表说 "No codes yet" 而 KPI 数着 3）。
 async function createWriting(bundle: WritingSaveBundle): Promise<void> {
   const fd = buildWritingFormData(bundle);
   const created = await adminAPI.postForm('/writings/', fd, AdminWritingViewSchema);
   writingsStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+  bumpCorpusEpoch();
 }
 
 function buildWritingFormData(bundle: WritingSaveBundle): FormData {
@@ -121,14 +129,17 @@ function buildWritingFormData(bundle: WritingSaveBundle): FormData {
 async function deleteWriting(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/writings/${id}`);
   writingsStore.getState().mutate((prev) => (prev ?? []).filter((w) => w.id !== id));
+  bumpCorpusEpoch();
 }
 
 async function publishWriting(id: string): Promise<void> {
   await flipPublish(id, true);
+  bumpCorpusEpoch();
 }
 
 async function unpublishWriting(id: string): Promise<void> {
   await flipPublish(id, false);
+  bumpCorpusEpoch();
 }
 
 async function flipPublish(id: string, publish: boolean): Promise<void> {

@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export const PromptViewSchema = z.object({
@@ -43,7 +43,7 @@ export const promptsStore = createResourceStore<PromptView[]>({
 });
 
 export function usePrompts(): PromptsHook {
-  const r = readResource(promptsStore);
+  const r = useResource(promptsStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {

@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 const CustomPageSummarySchema = z.object({
@@ -31,7 +31,7 @@ export const customPagesStore = createResourceStore<CustomPageSummary[]>({
 });
 
 export function useCustomPages(): CustomPagesHook {
-  const r = readResource(customPagesStore);
+  const r = useResource(customPagesStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return { status: r.status, rows: r.data ?? [], error: r.error };

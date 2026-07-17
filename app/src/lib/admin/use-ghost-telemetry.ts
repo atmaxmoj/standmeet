@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 const WaypointStatSchema = z.object({
@@ -44,7 +44,7 @@ export interface GhostTelemetryHook {
 }
 
 export function useGhostTelemetry(): GhostTelemetryHook {
-  const r = readResource(ghostTelemetryStore);
+  const r = useResource(ghostTelemetryStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return { status: r.status, data: r.data ?? null, error: r.error };

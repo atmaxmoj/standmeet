@@ -12,7 +12,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 // ─── status ────────────────────────────────────────────────────
@@ -74,8 +74,8 @@ export interface GCalHook {
 }
 
 export function useGCal(): GCalHook {
-  const sRes = readResource(gcalStatusStore);
-  const pRes = readResource(policyStore);
+  const sRes = useResource(gcalStatusStore);
+  const pRes = useResource(policyStore);
   const ensureStatus = sRes.ensureLoaded;
   const ensurePolicy = pRes.ensureLoaded;
   useEffect(() => { void ensureStatus(); }, [ensureStatus]);

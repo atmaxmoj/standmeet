@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { useEffect } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export const WikiSummarySchema = z.object({
@@ -41,7 +41,7 @@ export const wikiStore = createResourceStore<WikiSummary[]>({
 });
 
 export function useWiki(): WikiHook {
-  const r = readResource(wikiStore);
+  const r = useResource(wikiStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return { status: r.status, rows: r.data ?? [], error: r.error };

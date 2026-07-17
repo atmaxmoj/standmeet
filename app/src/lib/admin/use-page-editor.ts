@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { adminAPI, type PageContent } from '@/lib/api/admin';
 import { PageContentSchema } from '@/lib/api/public-schemas';
 import { pageContentStore } from '@/lib/admin/page-content-store';
-import { readResource } from '@/lib/state/create-resource-store';
+import { useResource } from '@/lib/state/create-resource-store';
 
 // 把 readonly 字段转成可写副本，状态机内部需要 patch。深度脱 readonly。
 export interface MutableInsight { id: string; thesis: string; context: string; body: string }
@@ -58,7 +58,7 @@ interface FormState {
 }
 
 export function usePageEditor(): PageEditorHook {
-  const resource = readResource(pageContentStore);
+  const resource = useResource(pageContentStore);
   const ensureLoaded = resource.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 

@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI, SettingsViewSchema, type MeView } from '@/lib/api/admin';
 import { sessionStore } from '@/lib/admin/use-admin-session';
-import { readResource } from '@/lib/state/create-resource-store';
+import { useResource } from '@/lib/state/create-resource-store';
 
 // AIProviderName —— provider canonical id；现在 string 不收窄（anthropic /
 // openai / deepseek / kimi / groq / siliconflow / openrouter / together /
@@ -56,7 +56,7 @@ export interface SaveInput {
 
 
 export function useAIProvider(): AIProviderHook {
-  const session = readResource(sessionStore);
+  const session = useResource(sessionStore);
   const ensureLoaded = session.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 
@@ -132,7 +132,7 @@ function defaultsFor(provider: string): { endpoint: string; model: string } {
 }
 
 function deriveState(
-  session: ReturnType<typeof readResource<MeView>>,
+  session: ReturnType<typeof useResource<MeView>>,
   saving: boolean,
   error: string | null,
 ): AIProviderState {

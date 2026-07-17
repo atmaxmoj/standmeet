@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI, AllowedDomainsRespSchema } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 
 export type DomainStatus = 'unset' | 'pending' | 'verified';
 
@@ -39,7 +39,7 @@ export const domainsStore = createResourceStore<string[]>({
 });
 
 export function useDomain(initial: string = ''): DomainHook {
-  const r = readResource(domainsStore);
+  const r = useResource(domainsStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 

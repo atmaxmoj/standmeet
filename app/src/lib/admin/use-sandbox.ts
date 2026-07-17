@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export const WorkspaceSchema = z.object({
@@ -34,7 +34,7 @@ export const sandboxStore = createResourceStore<SandboxWorkspace[]>({
 });
 
 export function useSandbox(): SandboxHook {
-  const r = readResource(sandboxStore);
+  const r = useResource(sandboxStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {

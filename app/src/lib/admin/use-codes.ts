@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { useEffect } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 // PathPermission —— retrieval-redesign 的准入单元。first-match-wins by
@@ -67,7 +67,7 @@ export const codesStore = createResourceStore<CodeView[]>({
 
 // useCodes —— component-facing hook。读 store + mount 时 ensureLoaded。
 export function useCodes(): CodesHook {
-  const r = readResource(codesStore);
+  const r = useResource(codesStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {

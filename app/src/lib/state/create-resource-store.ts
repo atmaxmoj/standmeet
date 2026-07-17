@@ -17,6 +17,7 @@
 // render 都安全。
 // refresh —— 强制重新拉（用于 mutation 之后想拿最新数据）。
 
+import { useEffect } from 'react';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 
 import { logger } from '@/lib/logger';
@@ -97,7 +98,12 @@ function isFn<T>(v: T | Updater<T>): v is Updater<T> {
 // 让 component 只 import 一个 hook 就完事，不写 useEffect 模板。
 export type UseStoreFor<T> = UseBoundStore<StoreApi<ResourceStore<T>>>;
 
-export function readResource<T>(
+// useResource —— 读一个 resource store（并在它是 idle 时把它拉起来）。
+//
+// 名字从 `useResource` 改成 `useResource`：它一直就是个 hook（内部调 zustand 的 hook），"read"
+// 这个名字既骗了读者也骗了 rules-of-hooks —— eslint 正是靠名字判断的。现在它还多了一条 effect，
+// 名副其实更要紧。
+export function useResource<T>(
   store: UseStoreFor<T>,
 ): ResourceShape<T> & { ensureLoaded: () => Promise<void> } {
   const status = store((s) => s.status);
@@ -105,6 +111,15 @@ export function readResource<T>(
   const error = store((s) => s.error);
   const lastFetched = store((s) => s.lastFetched);
   const ensureLoaded = store((s) => s.ensureLoaded);
+  // idle ⇒ 拉。**依赖 status**，所以 reset() 把 store 打回 idle 之后这里会重新武装。
+  //
+  // 这条 effect 住在这里、而不是各个 use-X 里，是因为「忘了它」没有任何信号：UI 只是一直转圈。
+  // 真实事故：promote 的 POST 还在飞时页面已经跳到 /admin/output，列表 fetch 先回来把 store 变成
+  // ready（树也渲染了），**随后** POST 落地调 outputStore.reset() → idle；而各 hook 的 effect 依赖
+  // 的是 `[ensureLoaded]`（身份稳定），只跑一次 —— 于是没有任何人再去拉，pickBodyState 把 'idle'
+  // 画成骨架，列表永远转圈。owner 看到的是"卡住了"，不是"坏了"。
+  // 时序决定成败：POST 先落地就一切正常，所以它在满载下才现形。
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded, status]);
   return { status, data, error, lastFetched, ensureLoaded };
 }
 

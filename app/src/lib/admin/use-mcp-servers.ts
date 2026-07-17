@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export const MCPServerViewSchema = z.object({
@@ -41,7 +41,7 @@ export const mcpServersStore = createResourceStore<MCPServerView[]>({
 });
 
 export function useMCPServers(): MCPServersHook {
-  const r = readResource(mcpServersStore);
+  const r = useResource(mcpServersStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {

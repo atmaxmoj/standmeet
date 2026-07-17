@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { useEffect } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 
 const GraphNodeSchema = z.object({
   id: z.string(), title: z.string(), genre: z.string(), degree: z.number(),
@@ -25,7 +25,7 @@ export const corpusGraphStore = createResourceStore<CorpusGraphNode[]>({
 });
 
 export function useCorpusGraph(): CorpusGraphNode[] {
-  const r = readResource(corpusGraphStore);
+  const r = useResource(corpusGraphStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return r.data ?? [];

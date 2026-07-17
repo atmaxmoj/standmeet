@@ -22,7 +22,7 @@ import { z } from 'zod';
 import { create, type StoreApi } from 'zustand';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 // ─── status (fetched resource) ─────────────────────────────────
@@ -80,7 +80,7 @@ export interface MailHook {
 }
 
 export function useMail(): MailHook {
-  const r = readResource(mailStatusStore);
+  const r = useResource(mailStatusStore);
   const otp = useMailOTPStore();
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);

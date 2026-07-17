@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 // DockButtonConfig —— #109/#110 一个 chat dock 按钮的配置：挂哪个能力 + 点击发出的触发词。
@@ -61,7 +61,7 @@ export const rolesStore = createResourceStore<RoleView[]>({
 });
 
 export function useRoles(): RolesHook {
-  const r = readResource(rolesStore);
+  const r = useResource(rolesStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
 import { adminAPI, RawAdminViewSchema, type CreateRawInput, type RawAdminView } from '@/lib/api/admin';
 import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export type RawFilter = 'all' | 'unprocessed' | 'promoted' | 'archived' | 'flagged-private';
@@ -39,7 +39,7 @@ export const rawStore = createResourceStore<RawAdminView[]>({
 });
 
 export function useRaw(): RawHook {
-  const r = readResource(rawStore);
+  const r = useResource(rawStore);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   const [filter, setFilter] = useState<RawFilter>('all');

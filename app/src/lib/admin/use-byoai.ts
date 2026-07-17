@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { adminAPI, MeViewSchema, type BYOAIUpdateInput, type MeView } from '@/lib/api/admin';
 import { sessionStore } from '@/lib/admin/use-admin-session';
-import { readResource } from '@/lib/state/create-resource-store';
+import { useResource } from '@/lib/state/create-resource-store';
 
 export type BYOAIProvider = 'claude' | 'openai' | 'gemini';
 
@@ -36,7 +36,7 @@ const DEFAULT: BYOAIState = {
 };
 
 export function useBYOAI(): BYOAIHook {
-  const session = readResource(sessionStore);
+  const session = useResource(sessionStore);
   const ensureLoaded = session.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 

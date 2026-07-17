@@ -13,7 +13,7 @@ import { create } from 'zustand';
 import { z } from 'zod';
 
 import { adminAPI, ConversationSummarySchema, type ConversationSummary } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export interface ConvTurn {
@@ -150,7 +150,7 @@ const transcriptStore = create<TranscriptState>((set) => ({
 // `?code=INTRO-001` 只显示该 code 的 conversation；客户端 filter，后端 list
 // 全拉（v1 量级 ≤ defaultLimit 200，影响不大）。
 export function useConversations(filterCode?: string): ConversationsHook {
-  const r = readResource(conversationsStore);
+  const r = useResource(conversationsStore);
   const openId = transcriptStore((s) => s.openId);
   const transcript = transcriptStore((s) => s.transcript);
   const ensureLoaded = r.ensureLoaded;

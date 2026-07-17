@@ -13,7 +13,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, readResource } from '@/lib/state/create-resource-store';
+import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 // keypair wire (server response shape)
@@ -86,7 +86,7 @@ const justCreatedStore = create<TokensExtra & { set: (c: CreatedToken | null) =>
 );
 
 export function useTokens(): TokensHook {
-  const r = readResource(tokensStore);
+  const r = useResource(tokensStore);
   const justCreated = justCreatedStore((s) => s.justCreated);
   const ensureLoaded = r.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
